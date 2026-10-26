@@ -127,6 +127,12 @@ fix m=mode: (_ensure-configured m)
     just _clang_tidy {{m}} -fix
     just format-code
 
+role-alpha-check:
+    python3 tools/role-alpha-check.py
+
+role-alpha-update:
+    python3 tools/role-alpha-check.py --update
+
 clean m=mode:
     #!/usr/bin/env bash
     set -euo pipefail

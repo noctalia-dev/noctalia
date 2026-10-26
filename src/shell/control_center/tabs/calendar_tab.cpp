@@ -601,6 +601,7 @@ void CalendarTab::rebuildEventList(float scale) {
     return;
   }
   const auto& calendarConfig = m_config->config().calendar;
+  const auto& tabConfig = m_config->config().controlCenter.calendarTab;
   calendar_view::rebuildEventList({
       .scroll = *m_eventsScroll,
       .title = m_eventsTitle,
@@ -610,6 +611,13 @@ void CalendarTab::rebuildEventList(float scale) {
       .dateFormat = calendarConfig.eventDateFormat,
       .timeFormat = calendarConfig.eventTimeFormat,
       .state = &m_eventListState,
+      .hidePastEvents = tabConfig.hidePastEvents,
+      .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
+      .onToggleHiddenPast =
+          [this]() {
+            m_eventsDirty = true;
+            PanelManager::instance().refresh();
+          },
       .requestRedraw = []() { PanelManager::instance().requestRedraw(); },
   });
 }

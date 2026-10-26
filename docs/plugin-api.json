@@ -220,5 +220,29 @@
     "noctaliaVersion": null,
     "feature": "osd",
     "introduced": "`noctalia.osd.show(icon, value, opts)` for showing the shell OSD from plugins."
+  },
+  {
+    "level": 40,
+    "noctaliaVersion": null,
+    "feature": "pixel-stream",
+    "introduced": "`ui.pixelStream` for showing frames from a companion process over a shared-memory socket protocol, with pointer, scroll, and keyboard callbacks."
+  },
+  {
+    "level": 41,
+    "noctaliaVersion": null,
+    "feature": "color-picker",
+    "introduced": "`ui.colorPicker` for an inline color picker with optional alpha, hex-only or hidden inputs, swatches, and `onChange` / `onChangeEnd` callbacks."
+  },
+  {
+    "level": 42,
+    "noctaliaVersion": null,
+    "feature": "panel-content-height",
+    "introduced": "`height = \"content\"` and `max_height` on `[[panel]]` entries: the panel follows the height of its rendered tree."
+  },
+  {
+    "level": 43,
+    "noctaliaVersion": null,
+    "feature": "container-color-roles",
+    "introduced": "Container color roles (`primary_container`, `surface_container`, `surface_container_high`, `outline_variant`, `scrim`, ...). `surface_variant` and `outline` are retired as role names; use `surface_container` and `outline_variant`."
   }
 ]

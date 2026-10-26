@@ -5,6 +5,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstdio>
+#include <format>
 #include <numbers>
 #include <string>
 #include <system_error>
@@ -132,6 +133,16 @@ void rgbToHsv(const Color& rgb, float& h, float& s, float& v) {
   h = h - std::floor(h);
 }
 
+void rgbToHsl(const Color& rgb, float& h, float& s, float& l) {
+  float v = 0.0F;
+  float sv = 0.0F;
+  rgbToHsv(rgb, h, sv, v);
+  h *= 360.0F;
+  l = v * (1.0F - sv * 0.5F);
+  const float range = std::min(l, 1.0F - l);
+  s = range <= 1e-6F ? 0.0F : (v - l) / range;
+}
+
 Color lerpHsv(const Color& a, const Color& b, float t) {
   float h0, s0, v0;
   rgbToHsv(a, h0, s0, v0);
@@ -195,6 +206,11 @@ std::string formatRgbHex(const Color& color) {
   char buffer[16];
   std::snprintf(buffer, sizeof(buffer), "#%02X%02X%02X", toByte(color.r), toByte(color.g), toByte(color.b));
   return std::string(buffer);
+}
+
+std::string formatRgbaHex(const Color& color) {
+  return formatRgbHex(color)
+      + std::format("{:02X}", static_cast<int>(std::lround(std::clamp(color.a, 0.0F, 1.0F) * 255.0F)));
 }
 
 bool tryParseHexColor(std::string_view input, Color& out) {

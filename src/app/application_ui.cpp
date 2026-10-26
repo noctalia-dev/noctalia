@@ -443,6 +443,9 @@ void Application::initInputDispatch() {
     if (m_fileDialogPopup.onPointerEvent(event)) {
       return;
     }
+    if (m_searchPickerDialogPopup.onPointerEvent(event)) {
+      return;
+    }
     // Region overlay is layer Overlay + exclusive keyboard; prefer it over the
     // widgets editors (Bottom / OnDemand) so confirm/cancel still work mid-edit.
     if (m_screenshotService.onPointerEvent(event)) {
@@ -508,6 +511,10 @@ void Application::initInputDispatch() {
     }
     if (m_fileDialogPopup.isOpen()) {
       m_fileDialogPopup.onKeyboardEvent(event);
+      return;
+    }
+    if (m_searchPickerDialogPopup.isOpen()) {
+      m_searchPickerDialogPopup.onKeyboardEvent(event);
       return;
     }
     if (m_screenshotService.onKeyboardEvent(event)) {
@@ -1017,6 +1024,8 @@ void Application::initBarDockAndLayout() {
   m_glyphPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
 
   m_fileDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts, m_thumbnailService);
+  m_searchPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
+  SearchPickerDialog::setPopup(&m_searchPickerDialogPopup);
   m_settingsWindow.initializeDialogPresenter(
       m_colorPickerDialogPopup, m_glyphPickerDialogPopup, m_fileDialogPopup, m_thumbnailService
   );
@@ -1108,6 +1117,7 @@ void Application::initWidgetControllersAndCallbacks() {
         m_colorPickerDialogPopup.requestLayout();
         m_glyphPickerDialogPopup.requestLayout();
         m_fileDialogPopup.requestLayout();
+        m_searchPickerDialogPopup.requestLayout();
         scheduleGreeterAutoSync();
       },
       "shell-font-family"
@@ -1138,6 +1148,7 @@ void Application::initWidgetControllersAndCallbacks() {
         m_colorPickerDialogPopup.requestLayout();
         m_glyphPickerDialogPopup.requestLayout();
         m_fileDialogPopup.requestLayout();
+        m_searchPickerDialogPopup.requestLayout();
         scheduleGreeterAutoSync();
       },
       "shell-language-direction"

@@ -435,11 +435,9 @@ namespace settings {
               .borderWidth = 1.0F * scale,
               .normal =
                   Button::ButtonStateColors{
-                      .bg = colorSpecFromRole(
-                          active ? ColorRole::Primary : ColorRole::SurfaceVariant, active ? 1.0F : 0.45F
-                      ),
+                      .bg = colorSpecFromRole(active ? ColorRole::Primary : ColorRole::SurfaceContainerLow),
                       .border = active ? colorSpecFromRole(ColorRole::Primary, 0.9F)
-                                       : colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha),
+                                       : colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
                       .label = colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnSurface),
                   },
               .hover =
@@ -456,8 +454,8 @@ namespace settings {
                   },
               .disabled =
                   Button::ButtonStateColors{
-                      .bg = colorSpecFromRole(ColorRole::SurfaceVariant, 0.35F),
-                      .border = colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha),
+                      .bg = colorSpecFromRole(ColorRole::SurfaceContainer, 0.35F),
+                      .border = colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
                       .label = colorSpecFromRole(ColorRole::OnSurfaceVariant),
                   },
               .selected = std::nullopt,
@@ -1486,9 +1484,9 @@ namespace settings {
            .justify = FlexJustify::Center,
            .gap = Style::spaceSm * scale,
            .padding = (Style::spaceLg * 2.0F) * scale,
-           .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.24F),
+           .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
            .radius = Style::scaledRadiusMd(scale),
-           .border = colorSpecFromRole(ColorRole::Outline),
+           .border = colorSpecFromRole(ColorRole::OutlineVariant),
            .minWidth = 360.0F * scale,
            .minHeight = 160.0F * scale,
            .fillWidth = true,

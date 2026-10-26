@@ -467,7 +467,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
 
     if (entry.showLabel) {
       const TextMetrics tm = renderer.measureText(
-          entry.label, labelFontSize, configuredFontWeight, 0.0F, 0, TextAlign::Start, labelFontFamily()
+          entry.label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
       );
       slot.textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
       slot.textHeight = tm.bottom - tm.top;
@@ -500,7 +500,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       }
       if (entry.showLabel) {
         const TextMetrics tm = renderer.measureText(
-            entry.label, labelFontSize, configuredFontWeight, 0.0F, 0, TextAlign::Start, labelFontFamily()
+            entry.label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
         );
         maxLabelHeight = std::max(maxLabelHeight, tm.bottom - tm.top);
       }
@@ -864,8 +864,9 @@ void WorkspacesWidget::recalculateItemMetrics(
   float textWidth = 0.0F;
   float textHeight = 0.0F;
   if (item.showLabel) {
-    const TextMetrics tm =
-        renderer.measureText(label, labelFontSize, configuredFontWeight, 0.0F, 0, TextAlign::Start, labelFontFamily());
+    const TextMetrics tm = renderer.measureText(
+        label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
+    );
     textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
     textHeight = tm.bottom - tm.top;
   }
@@ -1534,15 +1535,31 @@ ColorRole WorkspacesWidget::onRoleForFill(ColorRole fill) {
     return ColorRole::OnTertiary;
   case ColorRole::Error:
     return ColorRole::OnError;
+  case ColorRole::PrimaryContainer:
+    return ColorRole::OnPrimaryContainer;
+  case ColorRole::SecondaryContainer:
+    return ColorRole::OnSecondaryContainer;
+  case ColorRole::TertiaryContainer:
+    return ColorRole::OnTertiaryContainer;
+  case ColorRole::ErrorContainer:
+    return ColorRole::OnErrorContainer;
   case ColorRole::Surface:
-  case ColorRole::SurfaceVariant:
-  case ColorRole::Outline:
+  case ColorRole::SurfaceContainerLow:
+  case ColorRole::SurfaceContainer:
+  case ColorRole::SurfaceContainerHigh:
+  case ColorRole::SurfaceContainerHighest:
+  case ColorRole::OutlineVariant:
   case ColorRole::Shadow:
+  case ColorRole::Scrim:
   case ColorRole::Hover:
   case ColorRole::OnPrimary:
+  case ColorRole::OnPrimaryContainer:
   case ColorRole::OnSecondary:
+  case ColorRole::OnSecondaryContainer:
   case ColorRole::OnTertiary:
+  case ColorRole::OnTertiaryContainer:
   case ColorRole::OnError:
+  case ColorRole::OnErrorContainer:
   case ColorRole::OnSurface:
   case ColorRole::OnSurfaceVariant:
   case ColorRole::OnHover:

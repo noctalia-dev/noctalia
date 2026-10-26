@@ -32,11 +32,13 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -48,6 +50,7 @@
 #include <system_error>
 #include <thread>
 #include <type_traits>
+#include <unistd.h>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -746,7 +749,7 @@ namespace {
   int luau_getColor(lua_State* L) {
     size_t len = 0;
     const char* role = luaL_checklstring(L, 1, &len);
-    const auto colorRole = colorRoleFromToken(std::string_view(role, len));
+    const auto colorRole = colorRoleFromPluginToken(std::string_view(role, len));
     if (!colorRole.has_value()) {
       lua_pushnil(L);
       return 1;
@@ -1177,14 +1180,31 @@ namespace {
       return 2;
     }
     const BudgetCrossingScope budgetScope(host, "writeFile", std::string_view(path, pathLen));
-    std::ofstream file(resolveHostPath(host, std::string_view(path, pathLen)), std::ios::binary | std::ios::trunc);
-    if (!file) {
+    // New files are owner-only from creation; replacing a file keeps its existing mode.
+    const std::filesystem::path target = resolveHostPath(host, std::string_view(path, pathLen));
+    const int fd = ::open(target.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (fd < 0) {
       lua_pushboolean(L, 0);
       lua_pushstring(L, "cannot open file for writing");
       return 2;
     }
-    file.write(data, static_cast<std::streamsize>(dataLen));
-    lua_pushboolean(L, file.good() ? 1 : 0);
+    bool ok = true;
+    size_t written = 0;
+    while (written < dataLen) {
+      const ssize_t n = ::write(fd, data + written, dataLen - written);
+      if (n < 0) {
+        if (errno == EINTR) {
+          continue;
+        }
+        ok = false;
+        break;
+      }
+      written += static_cast<size_t>(n);
+    }
+    if (::close(fd) != 0) {
+      ok = false;
+    }
+    lua_pushboolean(L, ok ? 1 : 0);
     return 1;
   }
 
@@ -1378,6 +1398,10 @@ namespace {
     }
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
+    if (!ec) {
+      // Plugin data often holds private state; keep it owner-only.
+      std::filesystem::permissions(dir, std::filesystem::perms::owner_all, std::filesystem::perm_options::replace, ec);
+    }
     if (ec) {
       lua_pushnil(L);
       lua_pushstring(L, ec.message().c_str());

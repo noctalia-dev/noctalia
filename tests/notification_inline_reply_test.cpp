@@ -41,7 +41,9 @@ int main() {
   manager.setReplyCallback([&replies](
                                uint32_t id, const std::string& text, const std::string& token, const std::string& sender
                            ) { replies.push_back({id, text, token, sender}); });
-  manager.setCloseCallback([&closes](uint32_t id, CloseReason reason) { closes.emplace_back(id, reason); });
+  manager.setCloseCallback([&closes](uint32_t id, CloseReason reason, const std::string&) {
+    closes.emplace_back(id, reason);
+  });
 
   // 1. Successful inline reply on an active notification
   const uint32_t notif1 = addNotification(manager, "msg-1", {"inline-reply", "Reply"});
@@ -85,9 +87,9 @@ int main() {
 
   // 5. Bare "inline-reply" via invokeAction is rejected
   std::vector<std::string> invokedActions;
-  manager.setActionInvokeCallback([&invokedActions](uint32_t, const std::string& key, const std::string&) {
-    invokedActions.push_back(key);
-  });
+  manager.setActionInvokeCallback([&invokedActions](
+                                      uint32_t, const std::string& key, const std::string&, const std::string&
+                                  ) { invokedActions.push_back(key); });
   TEST_CHECK(!manager.invokeAction(notif3, "inline-reply"));
   TEST_CHECK(invokedActions.empty());
 

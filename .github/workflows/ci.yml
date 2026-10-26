@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Install tools
         run: |
-          pacman -Syu --noconfirm --needed git just clang22
+          pacman -Syu --noconfirm --needed git just clang22 python
 
       - uses: actions/checkout@v6
 
@@ -27,6 +27,9 @@ jobs:
         env:
           PATH: /usr/lib/llvm22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: just format-code-check
+
+      - name: Check palette role alpha ratchet
+        run: just role-alpha-check
 
   format-docs:
     name: docs format

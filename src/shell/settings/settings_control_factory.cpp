@@ -83,7 +83,7 @@ namespace settings {
           ui::glyph({
               .glyph = "border-corner-pill",
               .glyphSize = Style::fontSizeBody * scale,
-              .color = colorSpecFromRole(enabled ? ColorRole::OnSurfaceVariant : ColorRole::Outline),
+              .color = colorSpecFromRole(enabled ? ColorRole::OnSurfaceVariant : ColorRole::OutlineVariant),
               .visible = hidden,
           })
       );
@@ -226,14 +226,14 @@ namespace settings {
 
   std::unique_ptr<Flex> SettingsControlFactory::makeOverrideBadge() {
     return makeStatusBadge(
-        i18n::tr("settings.badges.override"), colorSpecFromRole(ColorRole::Primary, 0.15F),
-        colorSpecFromRole(ColorRole::Primary), false
+        i18n::tr("settings.badges.override"), colorSpecFromRole(ColorRole::PrimaryContainer),
+        colorSpecFromRole(ColorRole::OnPrimaryContainer), false
     );
   }
 
   std::unique_ptr<Flex> SettingsControlFactory::makeAdvancedBadge() {
     return makeStatusBadge(
-        i18n::tr("settings.badges.advanced"), colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12F),
+        i18n::tr("settings.badges.advanced"), colorSpecFromRole(ColorRole::SurfaceContainer),
         colorSpecFromRole(ColorRole::OnSurfaceVariant), false
     );
   }
@@ -272,12 +272,12 @@ namespace settings {
     }
     if (monitorExplicit) {
       titleRow->addChild(makeStatusBadge(
-          i18n::tr("settings.badges.monitor"), colorSpecFromRole(ColorRole::Secondary, 0.15F),
-          colorSpecFromRole(ColorRole::Secondary), false
+          i18n::tr("settings.badges.monitor"), colorSpecFromRole(ColorRole::SecondaryContainer),
+          colorSpecFromRole(ColorRole::OnSecondaryContainer), false
       ));
     } else if (monitorInherited) {
       titleRow->addChild(makeStatusBadge(
-          i18n::tr("settings.badges.inherited"), colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12F),
+          i18n::tr("settings.badges.inherited"), colorSpecFromRole(ColorRole::SurfaceContainer),
           colorSpecFromRole(ColorRole::OnSurfaceVariant), false
       ));
     }

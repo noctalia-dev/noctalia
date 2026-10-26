@@ -199,7 +199,7 @@ namespace {
         .align = FlexAlign::Center,
         .paddingV = Style::spaceXs * 0.5F * scale,
         .paddingH = Style::spaceSm * scale,
-        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.8F),
+        .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
         .radius = Style::scaledRadiusSm(scale),
     });
     pill->addChild(

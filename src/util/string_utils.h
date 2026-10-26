@@ -323,6 +323,29 @@ namespace StringUtils {
     return std::string(text);
   }
 
+  // UTF-8 encoding of one Unicode codepoint; empty above U+10FFFF.
+  [[nodiscard]] inline std::string utf32ToUtf8(std::uint32_t codepoint) {
+    if (codepoint <= 0x7FU) {
+      return std::string(1, static_cast<char>(codepoint));
+    }
+    if (codepoint <= 0x7FFU) {
+      return {static_cast<char>(0xC0U | (codepoint >> 6U)), static_cast<char>(0x80U | (codepoint & 0x3FU))};
+    }
+    if (codepoint <= 0xFFFFU) {
+      return {
+          static_cast<char>(0xE0U | (codepoint >> 12U)), static_cast<char>(0x80U | ((codepoint >> 6U) & 0x3FU)),
+          static_cast<char>(0x80U | (codepoint & 0x3FU))
+      };
+    }
+    if (codepoint <= 0x10FFFFU) {
+      return {
+          static_cast<char>(0xF0U | (codepoint >> 18U)), static_cast<char>(0x80U | ((codepoint >> 12U) & 0x3FU)),
+          static_cast<char>(0x80U | ((codepoint >> 6U) & 0x3FU)), static_cast<char>(0x80U | (codepoint & 0x3FU))
+      };
+    }
+    return {};
+  }
+
   // True when `text` is exactly one codepoint in a Unicode Private Use Area —
   // i.e. a Nerd Font / icon glyph rather than text. Such glyphs ignore cap/x
   // height, so callers center them by ink instead of the typographic cap band.

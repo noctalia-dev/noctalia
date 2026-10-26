@@ -360,6 +360,7 @@ void DesktopCalendarWidget::rebuildEventList() {
     return;
   }
   const auto& calendarConfig = m_config->config().calendar;
+  const auto& tabConfig = m_config->config().controlCenter.calendarTab;
   calendar_view::rebuildEventList({
       .scroll = *m_eventsScroll,
       .reserveScrollbarGutter = true,
@@ -371,6 +372,13 @@ void DesktopCalendarWidget::rebuildEventList() {
       .timeFormat = calendarConfig.eventTimeFormat,
       .fontFamily = m_fontFamily,
       .state = &m_eventListState,
+      .hidePastEvents = tabConfig.hidePastEvents,
+      .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
+      .onToggleHiddenPast =
+          [this]() {
+            m_dirty = true;
+            requestLayout();
+          },
       .requestRedraw = [this]() { requestRedraw(); },
   });
 }

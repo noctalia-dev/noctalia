@@ -321,16 +321,16 @@ void RangeSlider::applyVisualState() {
   const bool hovering = m_inputArea != nullptr && m_inputArea->hovered();
   const bool focused = m_inputArea != nullptr && m_inputArea->focused();
 
-  Color trackColor = resolved(ColorRole::Outline);
+  Color trackColor = resolved(ColorRole::OutlineVariant);
   Color fillColor = resolved(ColorRole::Primary);
   Color thumbColor = resolved(ColorRole::OnPrimary);
-  Color thumbBorder = resolved(ColorRole::Outline);
+  Color thumbBorder = resolved(ColorRole::OutlineVariant);
 
   m_lowThumb->setVisible(m_enabled);
   m_highThumb->setVisible(m_enabled);
 
   if (!m_enabled) {
-    trackColor = resolved(ColorRole::Outline, Style::disabledOutlineAlpha);
+    trackColor = resolved(ColorRole::OutlineVariant, Style::disabledOutlineAlpha);
     fillColor = resolved(ColorRole::Primary, 0.5F);
   } else if (focused) {
     thumbBorder = resolveColorSpec(focusRingColorSpec());

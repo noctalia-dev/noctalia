@@ -1063,6 +1063,14 @@ void WaylandConnection::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle
   m_toplevelsHandler.activateHandle(handle, m_seat);
 }
 
+bool WaylandConnection::minimizeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
+  return m_toplevelsHandler.minimizeHandle(handle);
+}
+
+std::optional<bool> WaylandConnection::toplevelMinimized(zwlr_foreign_toplevel_handle_v1* handle) const {
+  return m_toplevelsHandler.minimized(handle);
+}
+
 void WaylandConnection::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
   m_toplevelsHandler.closeHandle(handle);
 }

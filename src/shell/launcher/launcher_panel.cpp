@@ -136,10 +136,10 @@ namespace {
 
   [[nodiscard]] float launcherTextStackHeight(Renderer& renderer, const LauncherListStyle& style) {
     const float bodySize = Style::fontSizeBody * style.scale;
-    float textHeight = stableLabelHeight(renderer.measureFont(bodySize, FontWeight::SemiBold));
+    float textHeight = stableLabelHeight(renderer.measureFont(bodySize, {FontWeight::SemiBold}));
     if (!style.compact) {
       const float captionSize = Style::fontSizeCaption * style.scale;
-      textHeight += stableLabelHeight(renderer.measureFont(captionSize, FontWeight::Normal));
+      textHeight += stableLabelHeight(renderer.measureFont(captionSize, {FontWeight::Normal}));
     }
     return textHeight;
   }
@@ -167,10 +167,10 @@ namespace {
   [[nodiscard]] float launcherAppGridLabelHeight(Renderer& renderer, const LauncherListStyle& style, float wrapWidth) {
     const float fontSize = Style::fontSizeCaption * style.scale;
     const TextMetrics metrics =
-        renderer.measureText("Ag\nyg", fontSize, FontWeight::Normal, wrapWidth, 2, TextAlign::Center);
+        renderer.measureText("Ag\nyg", fontSize, {FontWeight::Normal}, wrapWidth, 2, TextAlign::Center);
     const float actualHeight = metrics.bottom - metrics.top;
     const float inkSpan = std::max(0.0F, metrics.inkBottom - metrics.inkTop);
-    const float rowExtent = renderer.fontRowExtent(fontSize, FontWeight::Normal);
+    const float rowExtent = renderer.fontRowExtent(fontSize, {FontWeight::Normal});
     return std::ceil(std::max({actualHeight, inkSpan, rowExtent * 2.0F}));
   }
 
@@ -199,7 +199,7 @@ namespace {
       style.compact = launcher.compact;
       style.appIconColorizeTint = effectiveShellAppIconColorizationTint(config->config().shell);
       if (config->config().shell.panel.listItemBackground) {
-        style.listItemBackground = colorSpecFromRole(ColorRole::SurfaceVariant, cardOpacity);
+        style.listItemBackground = colorSpecFromRole(ColorRole::SurfaceContainer, cardOpacity);
       }
     }
     return style;
@@ -511,6 +511,24 @@ namespace {
       );
 
       m_col->addChild(
+          ui::box({
+              .out = &m_badgeHost,
+              .fill = clearColorSpec(),
+              .width = launcherIconSize(m_style),
+              .height = launcherIconSize(m_style),
+              .visible = false,
+              .participatesInLayout = false,
+          })
+      );
+      m_badgeHost->addChild(
+          ui::label({
+              .out = &m_badgeLabel,
+              .baselineMode = LabelBaselineMode::InkCentered,
+              .participatesInLayout = false,
+          })
+      );
+
+      m_col->addChild(
           ui::image({
               .out = &m_image,
               .visible = false,
@@ -528,6 +546,7 @@ namespace {
 
       m_image->setAsyncReadyCallback([this]() {
         if (!m_style.showIcons
+            || m_badgeVisible
             || m_iconPath.empty()
             || m_image == nullptr
             || m_glyph == nullptr
@@ -561,9 +580,11 @@ namespace {
       m_fallbackGlyph = result.glyphName.empty() ? "app-window" : result.glyphName;
       const float iconSize = launcherIconSize(m_style);
       m_iconTargetSize = static_cast<int>(std::round(iconSize));
+      m_badgeVisible = !result.badge.empty();
 
       setSize(width, height);
       m_col->setSize(width, height);
+      m_isAppIcon = !result.desktopEntryPath.empty();
 
       const float pinSize = Style::fontSizeBody * m_style.scale;
       const float padding = Style::spaceSm * m_style.scale;
@@ -584,8 +605,20 @@ namespace {
       m_image->setParticipatesInLayout(false);
       m_glyph->setVisible(false);
       m_glyph->setParticipatesInLayout(false);
+      m_badgeHost->setVisible(m_badgeVisible);
+      m_badgeHost->setParticipatesInLayout(m_badgeVisible);
 
-      if (m_style.showIcons) {
+      if (m_badgeVisible) {
+        m_image->clear(renderer);
+        m_badgeHost->setFrameSize(iconSize, iconSize);
+        m_badgeLabel->setText(singleLinePreview(result.badge));
+        m_badgeLabel->setFontSize(iconSize * 0.8F);
+        m_badgeLabel->setMaxWidth(iconSize);
+        m_badgeLabel->measure(renderer);
+        m_badgeLabel->setPosition(
+            (iconSize - m_badgeLabel->width()) * 0.5F, (iconSize - m_badgeLabel->height()) * 0.5F
+        );
+      } else if (m_style.showIcons) {
         m_image->setParticipatesInLayout(true);
         m_glyph->setParticipatesInLayout(true);
         m_image->setSize(iconSize, iconSize);
@@ -613,13 +646,13 @@ namespace {
     }
 
     bool refreshAsyncIcon(Renderer& renderer) {
-      if (!m_style.showIcons || m_iconPath.empty()) {
+      if (!m_style.showIcons || m_badgeVisible || m_iconPath.empty()) {
         m_image->setVisible(false);
         m_glyph->setVisible(false);
         return false;
       }
 
-      m_image->setAppIconColorization(m_style.appIconColorizeTint);
+      m_image->setAppIconColorization(m_isAppIcon ? m_style.appIconColorizeTint : std::nullopt);
 
       bool ready = false;
       if (m_asyncTextures != nullptr) {
@@ -639,7 +672,7 @@ namespace {
   protected:
     void doLayout(Renderer& renderer) override {
       m_col->setSize(width(), height());
-      if (m_style.showIcons && !m_iconPath.empty()) {
+      if (m_style.showIcons && !m_badgeVisible && !m_iconPath.empty()) {
         (void)refreshAsyncIcon(renderer);
       }
       Node::doLayout(renderer);
@@ -663,6 +696,7 @@ namespace {
       const auto activeRole = m_selected ? ColorRole::OnPrimary : ColorRole::OnHover;
       const bool active = m_selected || m_hovered;
       const ColorSpec foreground = colorSpecFromRole(active ? activeRole : ColorRole::OnSurface);
+      m_badgeLabel->setColor(foreground);
       m_glyph->setColor(foreground);
       m_title->setColor(foreground);
       m_pinnedGlyph->setColor(
@@ -677,6 +711,8 @@ namespace {
     bool m_selected = false;
     bool m_hovered = false;
     Flex* m_col = nullptr;
+    Box* m_badgeHost = nullptr;
+    Label* m_badgeLabel = nullptr;
     Image* m_image = nullptr;
     Glyph* m_glyph = nullptr;
     Glyph* m_pinnedGlyph = nullptr;
@@ -686,6 +722,8 @@ namespace {
     std::string m_iconPath;
     std::string m_fallbackGlyph;
     int m_iconTargetSize = 0;
+    bool m_badgeVisible = false;
+    bool m_isAppIcon = false;
     bool m_reorderTarget = false;
   };
 
@@ -1357,7 +1395,7 @@ public:
     }
     if (m_rows[index].kind == LauncherSectionRowData::Kind::Header) {
       const float textHeight =
-          stableLabelHeight(renderer.measureFont(Style::fontSizeBody * m_style.scale, FontWeight::SemiBold));
+          stableLabelHeight(renderer.measureFont(Style::fontSizeBody * m_style.scale, {FontWeight::SemiBold}));
       return std::ceil(std::max(Style::fontSizeTitle * m_style.scale, textHeight) + Style::spaceSm * m_style.scale);
     }
 
@@ -1612,7 +1650,7 @@ void LauncherPanel::create() {
             .width = Style::controlHeightSm * scale,
             .onClick =
                 [this]() {
-                  if (m_config == nullptr) {
+                  if (m_config == nullptr || !supportsResultGrid()) {
                     return;
                   }
                   const bool enabled = !m_config->config().shell.launcher.appGrid;
@@ -1924,30 +1962,25 @@ void LauncherPanel::refreshLauncherAppIconColorization() {
 }
 
 bool LauncherPanel::shouldUseAppGrid() const {
-  if (!m_launcherShowIcons || m_config == nullptr || !m_config->config().shell.launcher.appGrid) {
-    return false;
-  }
-  if (m_results.empty()) {
+  return m_config != nullptr && m_config->config().shell.launcher.appGrid && !m_results.empty() && supportsResultGrid();
+}
+
+bool LauncherPanel::supportsResultGrid() const {
+  if (!m_launcherShowIcons || shouldUseDetailPresentation()) {
     return false;
   }
   if (m_showingProviderOverview) {
     return true;
   }
-  if (m_launcherProviderViewId == kSessionProviderId) {
-    return true;
+  const auto providerSupportsGrid = [this](std::string_view id) {
+    const auto provider = std::ranges::find(m_providers, id, [](const auto& candidate) { return candidate->id(); });
+    return provider != m_providers.end() && (*provider)->supportsGrid();
+  };
+  if (!m_resultProviderId.empty()) {
+    return providerSupportsGrid(m_resultProviderId);
   }
-  if (m_browserMode) {
-    if (!m_launcherProviderViewId.empty()) {
-      return false;
-    }
-    const bool targetsProvider = std::ranges::any_of(m_providers, [this](const auto& provider) {
-      const std::string_view prefix = provider->prefix();
-      return !prefix.empty() && std::string_view(m_query).starts_with(prefix);
-    });
-    return !targetsProvider;
-  }
-  return std::ranges::all_of(m_results, [](const LauncherResult& result) {
-    return result.providerId == kApplicationsProviderId;
+  return std::ranges::all_of(m_results, [&](const LauncherResult& result) {
+    return providerSupportsGrid(result.providerId);
   });
 }
 
@@ -2470,6 +2503,10 @@ void LauncherPanel::onProviderResultsChanged() {
 
 InputArea* LauncherPanel::initialFocusArea() const { return m_input != nullptr ? m_input->inputArea() : nullptr; }
 
+bool LauncherPanel::ignorePointerEvent() const {
+  return m_config != nullptr && m_config->config().shell.launcher.ignoreMouse;
+}
+
 bool LauncherPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
   if (!pressed || preedit) {
     return false;
@@ -2503,6 +2540,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
   }
 
   m_query = text;
+  m_resultProviderId.clear();
   m_showingProviderOverview = false;
   if (m_browserMode && !text.empty() && m_activeCategoryType != All) {
     m_activeCategoryType = All;
@@ -2519,6 +2557,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
   const bool sortByUsage = trackUsage && m_config != nullptr && m_config->config().shell.launcher.sortByUsage;
 
   if (!m_scopedProviderId.empty()) {
+    m_resultProviderId = m_scopedProviderId;
     for (auto& provider : m_providers) {
       if (provider->id() != m_scopedProviderId) {
         continue;
@@ -2580,6 +2619,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
     };
 
     if (activeProvider != nullptr) {
+      m_resultProviderId = activeProvider->id();
       m_allResults = activeProvider->queryPrefixed(queryText);
       anyProviderLoading = activeProvider->isLoading();
       if (trackUsage && activeProvider->trackUsage()) {
@@ -2910,8 +2950,9 @@ void LauncherPanel::rebuildLauncherNavigation() {
   const float settingsButtonWidth =
       m_launcherSettingsButton != nullptr ? Style::controlHeightSm + Style::spaceXs : 0.0F;
   const bool iconOnly = m_config != nullptr
-      && static_cast<float>(m_config->config().shell.launcher.width)
-          < static_cast<float>(kCompactNavigationWidth) + settingsButtonWidth;
+      && (!m_config->config().shell.launcher.showNavigationLabels
+          || static_cast<float>(m_config->config().shell.launcher.width)
+              < static_cast<float>(kCompactNavigationWidth) + settingsButtonWidth);
 
   std::size_t navigationIndex = 0;
   for (const CategoryFilterSlot& slot : m_categoryFilterSlots) {
@@ -3101,6 +3142,10 @@ void LauncherPanel::updateLauncherOptionButtons() {
     );
   }
   if (m_launcherGridButton != nullptr) {
+    const bool available = supportsResultGrid();
+    m_launcherGridButton->setVisible(available);
+    m_launcherGridButton->setParticipatesInLayout(available);
+    m_launcherGridButton->setEnabled(available);
     m_launcherGridButton->setSelected(false);
     m_launcherGridButton->setGlyph(launcher.appGrid ? "list" : "layout-grid");
     m_launcherGridButton->setTooltip(

@@ -48,8 +48,8 @@ namespace {
   // Row height derives from measured font metrics so fonts with oversized
   // declared line extents still fit the title + meta stack.
   [[nodiscard]] float listRowHeight(Renderer& renderer, float scale) {
-    const TextMetrics title = renderer.measureFont(Style::fontSizeBody * scale, FontWeight::SemiBold);
-    const TextMetrics meta = renderer.measureFont(Style::fontSizeCaption * scale, FontWeight::Normal);
+    const TextMetrics title = renderer.measureFont(Style::fontSizeBody * scale, {FontWeight::SemiBold});
+    const TextMetrics meta = renderer.measureFont(Style::fontSizeCaption * scale, {FontWeight::Normal});
     const float textHeight = std::round(title.bottom - title.top) + std::round(meta.bottom - meta.top);
     return std::ceil(std::max(kListThumbSize * scale, textHeight) + Style::spaceXs * scale * 2.0F);
   }
@@ -206,9 +206,9 @@ namespace {
         .align = FlexAlign::Stretch,
         .gap = Style::spaceXs * scale,
         .padding = Style::spaceSm * scale,
-        .fill = colorSpecFromRole(ColorRole::Error, 0.10F),
+        .fill = colorSpecFromRole(ColorRole::ErrorContainer),
         .radius = Style::scaledRadiusSm(scale),
-        .border = colorSpecFromRole(ColorRole::Error, 0.5F),
+        .border = colorSpecFromRole(ColorRole::Error),
         .fillWidth = true,
         .visible = false,
         .participatesInLayout = false,
@@ -620,7 +620,7 @@ void ClipboardPanel::create() {
           .text = i18n::tr("clipboard.confirm.clear-title"),
           .fontSize = Style::fontSizeBody * scale,
           .fontWeight = FontWeight::Bold,
-          .color = colorSpecFromRole(ColorRole::Error),
+          .color = colorSpecFromRole(ColorRole::OnErrorContainer),
       })
   );
   clearConfirmPanel->addChild(
@@ -628,7 +628,7 @@ void ClipboardPanel::create() {
           .out = &m_clearConfirmDesc,
           .text = i18n::tr("clipboard.confirm.clear-desc"),
           .fontSize = Style::fontSizeCaption * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .color = colorSpecFromRole(ColorRole::OnErrorContainer),
       })
   );
   clearConfirmPanel->addChild(
@@ -672,7 +672,7 @@ void ClipboardPanel::create() {
   const bool listItemBackground = m_config != nullptr && m_config->config().shell.panel.listItemBackground;
   m_listAdapter = std::make_unique<ClipboardListAdapter>(
       scale, m_clipboard, m_asyncTextures,
-      listItemBackground ? std::optional(colorSpecFromRole(ColorRole::SurfaceVariant, panelCardOpacity()))
+      listItemBackground ? std::optional(colorSpecFromRole(ColorRole::SurfaceContainer, panelCardOpacity()))
                          : std::nullopt
   );
   m_listAdapter->setFilteredIndices(&m_filteredIndices);
@@ -772,14 +772,14 @@ void ClipboardPanel::create() {
           .text = i18n::tr("clipboard.confirm.delete-title"),
           .fontSize = Style::fontSizeBody * scale,
           .fontWeight = FontWeight::Bold,
-          .color = colorSpecFromRole(ColorRole::Error),
+          .color = colorSpecFromRole(ColorRole::OnErrorContainer),
       })
   );
   deleteConfirmPanel->addChild(
       ui::label({
           .text = i18n::tr("clipboard.confirm.delete-desc"),
           .fontSize = Style::fontSizeCaption * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .color = colorSpecFromRole(ColorRole::OnErrorContainer),
       })
   );
   deleteConfirmPanel->addChild(

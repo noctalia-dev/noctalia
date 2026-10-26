@@ -1,11 +1,14 @@
 #include "ui/dialogs/color_picker_dialog_popup.h"
 
+#include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "ui/controls/color_picker.h"
+#include "ui/controls/select_dropdown_popup.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "wayland/wayland_seat.h"
 
 #include <algorithm>
 #include <memory>
@@ -28,6 +31,27 @@ bool ColorPickerDialogPopup::openColorPicker() {
 
 void ColorPickerDialogPopup::closeColorPickerWithoutResult() { destroyPopup(); }
 
+bool ColorPickerDialogPopup::onPointerEvent(const PointerEvent& event) {
+  if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
+    if (m_selectPopup->onPointerEvent(event)) {
+      return true;
+    }
+    if (event.type == PointerEvent::Type::Button && event.pressed) {
+      m_selectPopup->closeSelectDropdown();
+      return true;
+    }
+  }
+  return DialogPopupHost::onPointerEvent(event);
+}
+
+void ColorPickerDialogPopup::onKeyboardEvent(const KeyboardEvent& event) {
+  if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
+    m_selectPopup->onKeyboardEvent(event);
+    return;
+  }
+  DialogPopupHost::onKeyboardEvent(event);
+}
+
 void ColorPickerDialogPopup::populateContent(Node* contentParent, std::uint32_t /*width*/, std::uint32_t /*height*/) {
   auto sheet = std::make_unique<ColorPickerSheet>(uiScale());
   sheet->setTitle(ColorPickerDialog::currentOptions().title);
@@ -40,6 +64,17 @@ void ColorPickerDialogPopup::populateContent(Node* contentParent, std::uint32_t 
   sheet->setOnApply([this](const Color& color) { DeferredCall::callLater([this, color]() { accept(color); }); });
   m_sheet = sheet.get();
   contentParent->addChild(std::move(sheet));
+
+  if (wayland() != nullptr && renderContext() != nullptr && xdgSurface() != nullptr) {
+    if (m_selectPopup == nullptr) {
+      m_selectPopup = std::make_unique<SelectDropdownPopup>(*wayland(), *renderContext());
+    }
+    if (config() != nullptr) {
+      m_selectPopup->setShadowConfig(config()->config().shell.shadow);
+    }
+    m_selectPopup->setParent(xdgSurface(), wlSurface(), nullptr);
+    contentParent->setPopupContext(m_selectPopup.get());
+  }
 }
 
 void ColorPickerDialogPopup::layoutSheet(float contentWidth, float contentHeight) {
@@ -56,6 +91,12 @@ void ColorPickerDialogPopup::cancelToFacade() { ColorPickerDialog::cancelIfPendi
 
 InputArea* ColorPickerDialogPopup::initialFocusArea() {
   return m_sheet != nullptr ? m_sheet->initialFocusArea() : nullptr;
+}
+
+void ColorPickerDialogPopup::onSheetClose() {
+  if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
+    m_selectPopup->closeSelectDropdown();
+  }
 }
 
 void ColorPickerDialogPopup::accept(const Color& result) {

@@ -48,6 +48,7 @@ The available controls and their props (sizes are logical px, scaled with the su
 | `ui.markdown`          | `text` (markdown source - see below), `width`, `height`                                                                                                                                                                                                                |
 | `ui.glyph`             | `name` (Tabler/Nerd-Font glyph), `size`, `color`                                                                                                                                                                                                                       |
 | `ui.image`             | `path` (plugin-relative, `~`, or absolute), `width`, `height`, `radius`, `fit` (`contain`/`cover`/`stretch`), `border`, `borderWidth`, `onClick`, `onHover`, `tooltip`                                                                                                 |
+| `ui.pixelStream`       | `path` (companion socket), `width`, `height`, `radius`, and pointer and keyboard callbacks; see [Pixel streams](#pixel-streams)                                                                                                                                        |
 | `ui.box`               | `fill`, `radius`, `border`, `borderWidth`, `softness`, `width`, `height`, `onClick`, `onHover`, `tooltip`                                                                                                                                                              |
 | `ui.separator`         | `thickness`, `color`, `spacing`, `orientation` (`auto`/`horizontal`/`vertical`)                                                                                                                                                                                        |
 | `ui.spacer`            | flexible filler (use `flexGrow`)                                                                                                                                                                                                                                       |
@@ -56,12 +57,13 @@ The available controls and their props (sizes are logical px, scaled with the su
 | `ui.graph`             | `values` / `values2` (arrays of 0–1 numbers), `color` / `color2`, `lineWidth`, `fillOpacity`, `width`, `height`, `onPointerMove`, `onPointerLeave`                                                                                                                     |
 | `ui.toggle`            | `checked` (bool), `enabled`, `onChange`                                                                                                                                                                                                                                |
 | `ui.slider`            | `min`, `max`, `step`, `value`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `onChange`, `onDragEnd`                                                                                                                                                                      |
+| `ui.colorPicker`       | `value`, `alpha`, `inputs`, `swatches`, `width`, `enabled`, `onChange`, `onChangeEnd`; see [Color picker](#color-picker)                                                                                                                                               |
 | `ui.select`            | `options` (array of strings), `selectedIndex`, `placeholder`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `width`, `height`, `onChange`                                                                                                                                 |
 | `ui.input`             | `value` (initial text only - see below), `placeholder`, `fontSize`, `controlSize` (`sm`/`md`/`lg`), `password` (bool), `multiline` (bool), `submitOnEnter` (bool - see below), `frameVisible` (bool - see below), `focus` (bool), `enabled`, `onChange`, `onSubmit`    |
 
 Every control also accepts `width`, `height`, `flexGrow`, `opacity`, and `visible`. Colors are a palette role token (`primary`, `on_surface`, …), a role token with an alpha suffix (`primary/0.6`, the role at 60% alpha, resolved live against the palette so it still tracks the theme), or a hex value (`#rrggbb` / `#rrggbbaa`). An unknown control type or prop is logged and skipped - typos surface in the log instead of failing silently.
 
-- **Translucent background, opaque content**: `opacity` is a *group* opacity, it fades a container **and all its children** (text included), like CSS `opacity` on a parent. To make only the background semi-transparent, leave `opacity` alone and give the container a translucent `fill` instead: `ui.column({ fill = "surface_variant/0.6" }, …)` keeps the text fully opaque.
+- **Translucent background, opaque content**: `opacity` is a *group* opacity, it fades a container **and all its children** (text included), like CSS `opacity` on a parent. To make only the background semi-transparent, leave `opacity` alone and give the container a translucent `fill` instead: `ui.column({ fill = "surface_container/0.6" }, …)` keeps the text fully opaque.
 
 - **Layout default**: `ui.column` / `ui.row` / `ui.scroll` **stretch** their children across the cross axis (a column fills its width, a row fills its height), like CSS flexbox. Override per node with `align` - e.g. a row of vertically-centered items uses `align = "center"`.
 
@@ -174,6 +176,17 @@ A panel is a pop-up surface that describes its UI as a `ui.*` tree, exactly like
 
 Panel **size is host-owned**: declare `width` and `height` on the `[[panel]]` entry, so the surface is the same size on every open. There is no `setSize` at runtime. Each axis takes a positive number (logical px) or the string `"fill"`, which spans the output's available extent on that axis, the compositor subtracts every exclusive zone (bars, docks, third-party clients), so a `height = "fill"` panel sits exactly between them. `"fill"` requires `placement = "floating"`. Fixed pixel sizes are clamped to the output, so an oversized value degrades to full-available rather than a broken surface.
 
+`height = "content"` fits the panel to the tree it renders (requires <PluginApiBadge feature="panel-content-height" />). The panel follows its content as it changes, up to `max_height` (logical px, required). The panel reserves that maximum for as long as it is open, so keep it close to what the content can really need. Content taller than that needs a `ui.scroll` with `flexGrow = 1` to scroll inside the panel. The panel keeps the edge it opens from: below a top bar it grows downward, above a bottom bar upward, and a centered panel grows both ways. Until the first `panel.render()` the panel is only as tall as its padding, so render in `onOpen`. Not available for `persistent = true` panels.
+
+```toml
+[[panel]]
+id = "picker"
+entry = "panel.luau"
+width = 300
+height = "content"
+max_height = 700
+```
+
 Set `dismiss_on_outside_click = false` for auth-style prompts (password / API key) so a misclick does not discard the panel; the default is `true`. Requires <PluginApiBadge feature="dismiss-on-outside-click" />. Escape and an explicit Close / Cancel control still dismiss it.
 
 `setWantsSecondTicks(true)` runs `update()` on second boundaries; `setNeedsFrameTick(true)` additionally delivers `onFrameTick(deltaMs)` every frame while the panel is open, for animation the script drives itself. Ticks stop on close and resume on the next open, and frames are coalesced - a slow script only ever sees the latest one. Requires <PluginApiBadge feature="panel-frame-tick" />.
@@ -245,16 +258,16 @@ Persistent panels trade away the features that only make sense for a transient p
 
 **Placement** matches built-in shell panels (`attached` anchors the panel's own surface to the bar edge, while `floating` opens detached). The host injects four standard settings for every `[[panel]]` entry. You do **not** declare them as `[[panel.setting]]` unless you need a custom key. They appear in **Settings → Plugins** (gear on the plugin row) with the same controls as built-in panels: a segmented **Attached / Floating** toggle, **Position** and **Layer** dropdowns (only when floating), and **Open Near Click**.
 
-| `[[panel]]` manifest key   | `plugin_settings` key     | Notes                                                                                                                                  |
-| -------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `placement`                | `<entry>_placement`       | `attached` or `floating` (default `floating`)                                                                                          |
-| `position`                 | `<entry>_position`        | `auto`, `center`, or a screen anchor; only applies when floating                                                                       |
-| `open_near_click`          | `<entry>_open_near_click` | Open near the bar widget that toggled the panel (default `false`)                                                                      |
-| `dismiss_on_outside_click` | *(none, manifest only)*   | Close when clicking outside (default `true`; requires <PluginApiBadge feature="dismiss-on-outside-click" />)                           |
-| `keyboard_focus`           | *(none, manifest only)*   | `on_demand` (default), `exclusive`, or `none` (requires <PluginApiBadge feature="keyboard-focus" />)                                   |
-| `persistent`               | *(none, manifest only)*   | Keep open when another panel opens (requires <PluginApiBadge feature="persistent-panel" />)                                            |
-| `capture_keys`             | *(none, manifest only)*   | Key chords the panel handles itself while focused (requires <PluginApiBadge feature="panel-capture-keys" />)                           |
-| `layer`                    | `<entry>_layer`           | `top` (default) or `overlay`; only applies when floating (optional manifest default requires <PluginApiBadge feature="panel-layer" />) |
+| `[[panel]]` manifest key   | `plugin_settings` key     | Notes                                                                                                                                                           |
+| -------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `placement`                | `<entry>_placement`       | `attached` or `floating` (default `floating`)                                                                                                                   |
+| `position`                 | `<entry>_position`        | `auto`, `center`, or a screen anchor; pins a floating panel, and aligns an attached panel to the matching end of the bar when the anchor lies on the bar's edge |
+| `open_near_click`          | `<entry>_open_near_click` | Open near the bar widget that toggled the panel instead of at `position` (default `false`)                                                                      |
+| `dismiss_on_outside_click` | *(none, manifest only)*   | Close when clicking outside (default `true`; requires <PluginApiBadge feature="dismiss-on-outside-click" />)                                                    |
+| `keyboard_focus`           | *(none, manifest only)*   | `on_demand` (default), `exclusive`, or `none` (requires <PluginApiBadge feature="keyboard-focus" />)                                                            |
+| `persistent`               | *(none, manifest only)*   | Keep open when another panel opens (requires <PluginApiBadge feature="persistent-panel" />)                                                                     |
+| `capture_keys`             | *(none, manifest only)*   | Key chords the panel handles itself while focused (requires <PluginApiBadge feature="panel-capture-keys" />)                                                    |
+| `layer`                    | `<entry>_layer`           | `top` (default) or `overlay`; only applies when floating (optional manifest default requires <PluginApiBadge feature="panel-layer" />)                          |
 
 Declare defaults on the `[[panel]]` table; users override through the plugin settings GUI or `[plugin_settings."author/plugin"]`. The host supplies every standard setting even when the manifest declares no default, so plugin maintainers do not need to add anything for users to choose a layer. Position and open-near-click follow the same rules as built-in panels (pinned screen positions disable open-near-click).
 
@@ -366,6 +379,77 @@ layer.render(ui.column({ fill = "#000000", flexGrow = 1 }, {}))
 - **Per output**: each shown output runs its own instance. `layer.outputName()` returns the connector of the output this instance draws on, or `nil`.
 - **Ticks**: `update()` runs on the `noctalia.setUpdateInterval` interval (default 1000 ms). `setNeedsFrameTick(true)` delivers `onFrameTick(deltaMs)` every frame while the layer is shown. As for desktop widgets, `deltaMs` arrives as a string-formatted number; use `tonumber`.
 - **Input**: pointer and keyboard input drive controls like in a panel, and keys arrive only while the layer holds keyboard focus (see the `keyboard` manifest key).
+
+## Color picker
+
+`ui.colorPicker` embeds the shell's color picker: a saturation/brightness plane, a hue strip, and text fields, with corners that follow the shell's corner radius setting (requires <PluginApiBadge feature="color-picker" />). To ask for a color in a separate dialog instead, use `noctalia.openColorPicker`.
+
+```lua
+ui.colorPicker({
+  key = "accent", value = accent, alpha = true, width = 260,
+  swatches = { "#EF4444", "#F97316", "#EAB308", "#22C55E", "#06B6D4", "#3B82F6", "#8B5CF6", "#EC4899" },
+  onChange = function(color) accent = color; preview() end, -- while dragging or typing
+  onChangeEnd = function(color) save(color) end,             -- once per finished change
+})
+```
+
+- `value` is `#RRGGBB`, or `#RRGGBBAA` with `alpha = true`; callbacks report the same form. Like a slider's `value`, it is applied only when the prop changes between renders, never while the user is dragging, and passing the `onChange` value straight back is safe.
+- `alpha` (default `false`) adds a transparency strip and a percentage field.
+- `inputs` picks the text fields: `"full"` (default) is a HEX / RGB / HSL format switch with the fields of the chosen format, `"hex"` is the hex field alone, `"none"` hides the fields. The format switch opens a dropdown, which only panels can show; elsewhere use `"hex"` or `"none"`. Typing needs keyboard focus, so fields are only editable in panels and layers that take it.
+- `swatches` is up to 16 hex colors shown as chips; clicking one selects its color and keeps the current transparency. Invalid entries are logged and skipped.
+- `width` is the picker's width in logical pixels; without it the picker fills the width its container offers. Its height follows from the width.
+- `onChange(color)` fires continuously and is coalesced, so a slow script only sees the newest color. `onChangeEnd(color)` fires once when a drag is released, a typed value is applied, or a swatch is clicked: persist from there.
+
+## Pixel streams
+
+`ui.pixelStream` shows live frames produced by a companion process the plugin runs, for example a phone screen mirror or a remote preview (requires <PluginApiBadge feature="pixel-stream" />). The companion owns capture, decoding, audio, and any device input; Noctalia only displays its pixels and reports what the user does over them. Frame data never passes through the plugin script.
+
+```lua
+ui.pixelStream({
+  key = "screen", path = noctalia.pluginDataDir() .. "/screen.sock", width = 320, height = 640, radius = 12,
+  onPointerDown = function(x, y) sendTouch("down", x, y) end,
+  onPointerMove = function(x, y) lastX, lastY = x, y; if touching then sendTouch("move", x, y) end end,
+  onPointerUp = function(x, y) sendTouch("up", x, y) end,
+  onPointerCancel = function() sendTouch("cancel") end,
+  onScroll = function(dx, dy) sendScroll(lastX, lastY, tonumber(dx), tonumber(dy)) end,
+  onTextInput = function(text) sendText(text) end,
+  onKeyEvent = function(chord, pressed) sendKey(chord, pressed == "true") end,
+})
+```
+
+The frame is fitted inside `width` × `height` with its aspect ratio kept; supply both. Until the first frame arrives, and after `path` changes, the control is empty. When the companion disconnects, the last frame stays on screen and Noctalia reconnects every second.
+
+**Pointer.** Positions are strings from `"0.0000"` to `"1.0000"`, relative to the displayed frame (letterboxing excluded) with `0,0` at the top-left.
+
+- `onPointerMove(x, y)` fires while the pointer is over the frame, and during a left drag also outside it, pinned to the nearest edge. Moves are coalesced like `ui.graph`'s: a slow script only sees the newest position, but never one from after a later press, release, click, or scroll.
+- `onPointerDown(x, y)` / `onPointerUp(x, y)` bracket a left-button drag that starts on the frame. `onPointerCancel()` ends a drag without a release: the companion disconnected, the frame size changed, the control's callbacks changed, or it left the tree (including the panel closing). Every `onPointerDown` is followed by exactly one `onPointerUp` or `onPointerCancel` when the latter is declared.
+- `onRightClick(x, y)` / `onMiddleClick(x, y)` fire when that button is pressed on the frame and released over the control, with the press position.
+- `onScroll(dx, dy)` reports whole wheel steps over the frame, positive right and down; pair it with the last `onPointerMove` position. Without `onScroll` the wheel scrolls the surrounding content as usual.
+
+**Keyboard.** Declaring `onTextInput` or `onKeyEvent` lets the user focus the control by clicking it; keys arrive only while it holds focus, so this works in panels and layers that take keyboard focus, not in bar widgets. This is separate from a panel's `capture_keys` / global `onKey`: the focused control receives everything typed into it, including key repeats.
+
+- `onTextInput(text)` receives the UTF-8 text of each text-producing key press (no Ctrl or Alt held). Composition previews are not delivered; finished characters are.
+- `onKeyEvent(chord, pressed)` receives every other key as a chord such as `"Return"`, `"BackSpace"`, or `"Ctrl+c"` (modifiers in the order Ctrl, Alt, Shift, followed by the XKB key name), and `"true"` on press or repeat, `"false"` on release. Super chords are never delivered.
+- Host keys keep priority: the Cancel keybind (Escape) still dismisses the panel, the Tab keybinds still move focus, and a panel's `capture_keys` chords still go to its global `onKey`.
+
+### Companion protocol
+
+The companion listens on a filesystem Unix socket of type `SOCK_SEQPACKET` at `path`, ideally inside a directory only the user can access. Noctalia connects while the control exists, accepts only a peer running as the same user, and closes the connection when the control is removed. Noctalia does not start or stop the companion; manage it from the plugin, for example with the panel lifecycle callbacks.
+
+Every message is a sequence of little-endian unsigned 32-bit fields:
+
+| Direction            | Message   | Fields                 | Meaning                                                                                                                           |
+| -------------------- | --------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Noctalia → companion | `HELLO`   | `1`, version (`1`)     | First message on every connection. Close the connection if you do not speak this version.                                         |
+| Noctalia → companion | `REQUEST` | `2`, `0`               | Noctalia is ready for the next frame and no longer reads the buffer of the previous `FRAME`. The first `REQUEST` follows `HELLO`. |
+| companion → Noctalia | `BUFFER`  | `1`, id, width, height | Attaches shared buffer `id` (0 to 3). Carries exactly one file descriptor (`SCM_RIGHTS`).                                         |
+| companion → Noctalia | `FRAME`   | `2`, id                | Buffer `id` holds the frame to show. Only valid as the answer to a `REQUEST`.                                                     |
+
+A buffer is a `memfd` holding `width × height` RGBA pixels, 4 bytes each (red, green, blue, alpha), rows top to bottom with no padding. It must be at least that large and sealed against shrinking (`MFD_ALLOW_SEALING`, then `F_ADD_SEALS` with `F_SEAL_SHRINK`). Width and height are 1 to 4096, at most 4,194,304 pixels. Pixels should be opaque (alpha 255). A buffer can be replaced by sending `BUFFER` with the same id again, which is how the frame size changes.
+
+There is at most one outstanding `REQUEST`. Answer it when a frame newer than the last one sent exists, and immediately on a new connection, so a reconnecting shell gets the current picture. Between sending `FRAME` for a buffer and receiving the next `REQUEST`, do not write to or replace that buffer; render into another one instead (two buffers are enough). Noctalia sends `REQUEST` after it has uploaded a frame for display, so the stream is paced by the shell and pauses while the control is not drawn: render only the latest frame and drop older ones rather than queueing them.
+
+Any malformed or out-of-order message closes the connection, followed by a reconnect a second later.
 
 ## Drag and drop {#drag-and-drop-panels-only}
 

@@ -66,8 +66,8 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOpt
       m_clipboard(context.clipboard),
       m_preferredWidth(options.width > 0.0 ? static_cast<float>(options.width) : kDefaultPanelWidth),
       m_preferredHeight(options.height > 0.0 ? static_cast<float>(options.height) : kDefaultPanelHeight),
-      m_widthFill(options.widthFill), m_heightFill(options.heightFill),
-      m_dismissOnOutsideClick(options.dismissOnOutsideClick),
+      m_widthFill(options.widthFill), m_heightFill(options.heightFill), m_heightContent(options.heightContent),
+      m_maxContentHeight(static_cast<float>(options.maxHeight)), m_dismissOnOutsideClick(options.dismissOnOutsideClick),
       m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)),
       m_layer(layerShellLayerFromConfig(options.shellConfig.layer)), m_persistent(options.persistent),
       m_shellConfig(options.shellConfig) {
@@ -300,6 +300,17 @@ void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
     m_dragOverlay->setPosition(0.0F, 0.0F);
     m_dragOverlay->setFrameSize(width, height);
   }
+}
+
+float PluginPanel::measureContentHeight(Renderer& renderer, float contentWidth) {
+  // The rendered tree is the content column's only child; measure it at the panel's width
+  // with no height limit. Before the first panel.render() there is nothing to measure.
+  if (m_contentFlex == nullptr || m_contentFlex->children().empty()) {
+    return 0.0F;
+  }
+  LayoutConstraints constraints;
+  constraints.setExactWidth(contentWidth);
+  return m_contentFlex->children().front()->measure(renderer, constraints).height;
 }
 
 void PluginPanel::doUpdate(Renderer& renderer) { (void)renderer; }

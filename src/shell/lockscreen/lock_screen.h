@@ -85,6 +85,8 @@ public:
   void prepareForOutputPowerOff(std::function<void(bool)> done);
   void cancelOutputPowerOff();
   void onOutputPowerChanged();
+  /// Outputs were powered back on; keys right after this are wake keys.
+  void markOutputsWoke();
 
   template <typename Fn> void forEachSurface(Fn&& fn) {
     for (auto& instance : m_instances) {
@@ -155,6 +157,9 @@ private:
   /// without a password while the window is live (matches hyprlock).
   [[nodiscard]] bool isInGracePeriod() const noexcept;
   void tryGraceUnlock();
+  /// Runs the lock-screen action bound to this chord. True when the chord is bound
+  /// (even if suppressed as a wake key), so the key is consumed.
+  bool tryActionShortcut(std::uint32_t sym, std::uint32_t modifiers);
 
   WaylandConnection* m_wayland = nullptr;
   RenderContext* m_renderContext = nullptr;
@@ -205,6 +210,8 @@ private:
   // CLOCK_BOOTTIME millis when the lock flow started; grace expires gracePeriodSeconds after it.
   std::int64_t m_lockedAtMillis = 0;
   bool m_graceAllowed = false;
+  // CLOCK_BOOTTIME millis of the last resume or output power-on; guards wake keys.
+  std::int64_t m_wokeAtMillis = 0;
   double m_pointerEnterX = 0.0;
   double m_pointerEnterY = 0.0;
   Timer m_unlockTransitionTimer;

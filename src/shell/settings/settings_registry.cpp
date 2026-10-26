@@ -223,7 +223,7 @@ namespace settings {
       return select;
     }
 
-    ColorSwatchPreview palettePreviewFromPalette(const ::Palette& palette) {
+    ColorSwatchPreview palettePreviewFromPalette(const noctalia::theme::FixedPalette& palette) {
       return ColorSwatchPreview{
           .surface = fixedColorSpec(palette.surface),
           .swatches = {
@@ -1240,12 +1240,13 @@ namespace settings {
         },
         "floating detached panel gap offset distance bar"
     ));
-    // Floating-position select for a panel, shown only when its placement is Floating.
+    // Position select for a panel. Floating pins it on screen; attached honors only
+    // positions on the bar's edge (see shell::attachedPositionAlign).
     const auto panelPositionEntry = [&](SettingsSection section, std::string group, std::string_view panelKey,
-                                        std::string_view labelKey, std::string_view descKey, const std::string& current,
-                                        PanelPlacement ShellConfig::PanelConfig::* placement) {
-      auto e = makeEntry(
-          section, group, tr(labelKey), tr(descKey),
+                                        std::string_view labelKey, std::string_view descKey,
+                                        const std::string& current) {
+      return makeEntry(
+          section, std::move(group), tr(labelKey), tr(descKey),
           {std::string("shell"), std::string("panel"), std::string(panelKey) + "_position"},
           plainSelect(
               {{"auto", "settings.options.panel-position.auto"},
@@ -1260,27 +1261,20 @@ namespace settings {
                {"bottom_right", "settings.options.screen-position.bottom-right"}},
               current
           ),
-          "panel position screen anchor corner edge floating bottom right"
+          "panel position screen anchor corner edge floating attached align bottom right"
       );
-      e.visibleWhen = [placement](const Config& c) { return c.shell.panel.*placement == PanelPlacement::Floating; };
-      return e;
     };
 
-    const auto panelBarAlignmentEntry = [](SettingsSection section, std::string group, std::string_view panelKey,
-                                           std::string_view labelKey, std::string_view descKey, bool nearTrigger,
-                                           PanelPlacement ShellConfig::PanelConfig::* placement,
-                                           std::string ShellConfig::PanelConfig::* position) {
-      auto alignment = plainSelect(
-          {{"false", "settings.options.panel-bar-alignment.centered"},
-           {"true", "settings.options.panel-bar-alignment.near-trigger"}},
-          nearTrigger ? "true" : "false"
-      );
-      alignment.segmented = true;
-      alignment.valueType = SelectValueType::Boolean;
+    // Click override: when on, a click on the panel's bar widget opens it near the widget
+    // instead of at its Position.
+    const auto panelOpenNearClickEntry = [](SettingsSection section, std::string group, std::string_view panelKey,
+                                            std::string_view labelKey, std::string_view descKey, bool nearClick,
+                                            PanelPlacement ShellConfig::PanelConfig::* placement,
+                                            std::string ShellConfig::PanelConfig::* position) {
       auto e = makeEntry(
           section, std::move(group), tr(labelKey), tr(descKey),
-          {"shell", "panel", std::string("open_near_click_") + std::string(panelKey)}, std::move(alignment),
-          "along bar centered near trigger widget click position anchor"
+          {"shell", "panel", std::string("open_near_click_") + std::string(panelKey)}, ToggleSetting{nearClick},
+          "open near click trigger widget along bar position anchor"
       );
       e.visibleWhen = [placement, position](const Config& c) {
         const auto& panel = c.shell.panel;
@@ -1298,10 +1292,9 @@ namespace settings {
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Launcher, "launcher", "launcher", "settings.schema.panels.position-launcher.label",
-        "settings.schema.panels.position-launcher.description", cfg.shell.panel.launcherPosition,
-        &ShellConfig::PanelConfig::launcherPlacement
+        "settings.schema.panels.position-launcher.description", cfg.shell.panel.launcherPosition
     ));
-    entries.push_back(panelBarAlignmentEntry(
+    entries.push_back(panelOpenNearClickEntry(
         SettingsSection::Launcher, "launcher", "launcher", "settings.schema.panels.open-near-click-launcher.label",
         "settings.schema.panels.open-near-click-launcher.description", cfg.shell.panel.openNearClickLauncher,
         &ShellConfig::PanelConfig::launcherPlacement, &ShellConfig::PanelConfig::launcherPosition
@@ -1372,6 +1365,16 @@ namespace settings {
     }
     {
       auto e = makeEntry(
+          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-navigation-labels.label"),
+          tr("settings.schema.panels.launcher-show-navigation-labels.description"),
+          {"shell", "launcher", "show_navigation_labels"}, ToggleSetting{cfg.shell.launcher.showNavigationLabels},
+          "launcher navigation tabs labels text recent pinned all categories providers icons"
+      );
+      e.visibleWhen = launcherFull;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
           SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-settings-button.label"),
           tr("settings.schema.panels.launcher-show-settings-button.description"),
           {"shell", "launcher", "show_settings_button"}, ToggleSetting{cfg.shell.launcher.showSettingsButton},
@@ -1415,6 +1418,11 @@ namespace settings {
         SettingsSection::Launcher, "behavior", tr("settings.schema.panels.launcher-app-actions.label"),
         tr("settings.schema.panels.launcher-app-actions.description"), {"shell", "launcher", "show_app_actions"},
         ToggleSetting{cfg.shell.launcher.showAppActions}, "launcher app actions show"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Launcher, "behavior", tr("settings.schema.panels.launcher-ignore-mouse.label"),
+        tr("settings.schema.panels.launcher-ignore-mouse.description"), {"shell", "launcher", "ignore_mouse"},
+        ToggleSetting{cfg.shell.launcher.ignoreMouse}, "launcher ignore disable mouse input pointer keyboard only"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Launcher, "behavior", tr("settings.schema.panels.launcher-currency-exchange.label"),
@@ -1494,10 +1502,9 @@ namespace settings {
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Panels, "clipboard", "clipboard", "settings.schema.panels.position-clipboard.label",
-        "settings.schema.panels.position-clipboard.description", cfg.shell.panel.clipboardPosition,
-        &ShellConfig::PanelConfig::clipboardPlacement
+        "settings.schema.panels.position-clipboard.description", cfg.shell.panel.clipboardPosition
     ));
-    entries.push_back(panelBarAlignmentEntry(
+    entries.push_back(panelOpenNearClickEntry(
         SettingsSection::Panels, "clipboard", "clipboard", "settings.schema.panels.open-near-click-clipboard.label",
         "settings.schema.panels.open-near-click-clipboard.description", cfg.shell.panel.openNearClickClipboard,
         &ShellConfig::PanelConfig::clipboardPlacement, &ShellConfig::PanelConfig::clipboardPosition
@@ -1510,8 +1517,7 @@ namespace settings {
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Panels, "polkit", "polkit", "settings.schema.panels.position-polkit.label",
-        "settings.schema.panels.position-polkit.description", cfg.shell.panel.polkitPosition,
-        &ShellConfig::PanelConfig::polkitPlacement
+        "settings.schema.panels.position-polkit.description", cfg.shell.panel.polkitPosition
     ));
     entries.push_back(makeEntry(
         SettingsSection::Panels, "wallpaper", tr("settings.schema.panels.wallpaper-show-names.label"),
@@ -1526,10 +1532,9 @@ namespace settings {
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Panels, "wallpaper", "wallpaper", "settings.schema.panels.position-wallpaper.label",
-        "settings.schema.panels.position-wallpaper.description", cfg.shell.panel.wallpaperPosition,
-        &ShellConfig::PanelConfig::wallpaperPlacement
+        "settings.schema.panels.position-wallpaper.description", cfg.shell.panel.wallpaperPosition
     ));
-    entries.push_back(panelBarAlignmentEntry(
+    entries.push_back(panelOpenNearClickEntry(
         SettingsSection::Panels, "wallpaper", "wallpaper", "settings.schema.panels.open-near-click-wallpaper.label",
         "settings.schema.panels.open-near-click-wallpaper.description", cfg.shell.panel.openNearClickWallpaper,
         &ShellConfig::PanelConfig::wallpaperPlacement, &ShellConfig::PanelConfig::wallpaperPosition
@@ -1546,10 +1551,9 @@ namespace settings {
     entries.push_back(panelPositionEntry(
         SettingsSection::ControlCenter, "layout", "control_center",
         "settings.schema.panels.position-control-center.label",
-        "settings.schema.panels.position-control-center.description", cfg.shell.panel.controlCenterPosition,
-        &ShellConfig::PanelConfig::controlCenterPlacement
+        "settings.schema.panels.position-control-center.description", cfg.shell.panel.controlCenterPosition
     ));
-    entries.push_back(panelBarAlignmentEntry(
+    entries.push_back(panelOpenNearClickEntry(
         SettingsSection::ControlCenter, "layout", "control_center",
         "settings.schema.panels.open-near-click-control-center.label",
         "settings.schema.panels.open-near-click-control-center.description", cfg.shell.panel.openNearClickControlCenter,
@@ -1612,6 +1616,16 @@ namespace settings {
         SettingsSection::ControlCenter, "home", tr("settings.schema.panels.home-session-button.label"),
         tr("settings.schema.panels.home-session-button.description"), {"control_center", "show_session_button"},
         ToggleSetting{cfg.controlCenter.showSessionButton}, "session button show hide"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::ControlCenter, "home", tr("settings.schema.panels.home-circular-avatar.label"),
+        tr("settings.schema.panels.home-circular-avatar.description"), {"control_center", "circular_avatar"},
+        ToggleSetting{cfg.controlCenter.circularAvatar}, "avatar profile picture circle radius roundness"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::ControlCenter, "home", tr("settings.schema.panels.home-avatar-border.label"),
+        tr("settings.schema.panels.home-avatar-border.description"), {"control_center", "show_avatar_border"},
+        ToggleSetting{cfg.controlCenter.showAvatarBorder}, "avatar border ring accent hide show"
     ));
 
     // Desktop
@@ -2159,6 +2173,12 @@ namespace settings {
         tr("settings.schema.shell.screenshot-close-on-save.label"),
         tr("settings.schema.shell.screenshot-close-on-save.description"), {"shell", "screenshot", "close_on_save"},
         ToggleSetting{cfg.shell.screenshot.closeOnSave}, "screenshot annotation close save exit"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-annotation",
+        tr("settings.schema.shell.screenshot-copy-on-close.label"),
+        tr("settings.schema.shell.screenshot-copy-on-close.description"), {"shell", "screenshot", "copy_on_close"},
+        ToggleSetting{cfg.shell.screenshot.copyOnClose}, "screenshot annotation cancel copy clipboard close exit"
     ));
 
     entries.push_back(makeEntry(
@@ -3074,6 +3094,26 @@ namespace settings {
         {"control_center", "calendar", "show_week_numbers"},
         ToggleSetting{cfg.controlCenter.calendarTab.showWeekNumbers}, "calendar week numbers iso"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-hide-past-events.label"),
+        tr("settings.schema.services.calendar-hide-past-events.description"),
+        {"control_center", "calendar", "hide_past_events"}, ToggleSetting{cfg.controlCenter.calendarTab.hidePastEvents},
+        "calendar past events today finished hide"
+    ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-past-events-threshold.label"),
+          tr("settings.schema.services.calendar-past-events-threshold.description"),
+          {"control_center", "calendar", "past_events_threshold_minutes"},
+          sliderFor(
+              cfg.controlCenter.calendarTab.pastEventsThresholdMinutes,
+              noctalia::config::schema::kPastEventsThresholdMinutesRange, true
+          ),
+          "calendar past events threshold minutes hide old finished"
+      );
+      e.visibleWhen = [](const Config& c) { return c.controlCenter.calendarTab.hidePastEvents; };
+      entries.push_back(std::move(e));
+    }
     {
       auto e = makeEntry(
           SettingsSection::Calendar, "calendar-reminders", tr("settings.schema.services.calendar-reminders.label"),
@@ -3213,6 +3253,12 @@ namespace settings {
         "bluetooth reconnect connect trusted paired devices startup resume"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Services, "bluetooth", tr("settings.schema.services.bluetooth-connection-notifications.label"),
+        tr("settings.schema.services.bluetooth-connection-notifications.description"),
+        {"bluetooth", "connection_notifications"}, ToggleSetting{cfg.bluetooth.connectionNotifications},
+        "bluetooth device connect disconnect notification"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Services, "media", tr("settings.schema.services.mpris-blacklist.label"),
         tr("settings.schema.services.mpris-blacklist.description"), {"shell", "mpris", "blacklist"},
         ListSetting{.items = cfg.shell.mpris.blacklist}, "mpris media player dbus session blacklist"
@@ -3227,10 +3273,9 @@ namespace settings {
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Power, "session-panel", "session", "settings.schema.panels.position-session.label",
-        "settings.schema.panels.position-session.description", cfg.shell.panel.sessionPosition,
-        &ShellConfig::PanelConfig::sessionPlacement
+        "settings.schema.panels.position-session.description", cfg.shell.panel.sessionPosition
     ));
-    entries.push_back(panelBarAlignmentEntry(
+    entries.push_back(panelOpenNearClickEntry(
         SettingsSection::Power, "session-panel", "session", "settings.schema.panels.open-near-click-session.label",
         "settings.schema.panels.open-near-click-session.description", cfg.shell.panel.openNearClickSession,
         &ShellConfig::PanelConfig::sessionPlacement, &ShellConfig::PanelConfig::sessionPosition
@@ -3847,6 +3892,16 @@ namespace settings {
           section, "widget-list", tr("settings.schema.bar.end-widgets.label"),
           tr("settings.schema.bar.end-widgets.description"), path("end"), ListSetting{.items = bar.endWidgets}, "right"
       ));
+      {
+        auto e = makeEntry(
+            section, "dead-zone", tr("settings.schema.bar.dead-zone-click-through.label"),
+            tr("settings.schema.bar.dead-zone-click-through.description"),
+            std::vector<std::string>{"bar", bar.name, "dead_zone", "click_through"},
+            ToggleSetting{bar.deadZone.clickThrough}, "bar empty margin dead zone click through pass input region"
+        );
+        e.visibleWhen = [autoHideOn](const Config& c) { return !autoHideOn(c); };
+        entries.push_back(std::move(e));
+      }
       // One row per gesture, from the same closed set widget actions use. An unset row shows the
       // built-in default as its placeholder, so "empty" never reads as "does nothing".
       for (const auto gesture : noctalia::bar::allGestures()) {
@@ -4215,6 +4270,19 @@ namespace settings {
             tr("settings.schema.bar.end-widgets.description"), monitorPath("end"),
             ListSetting{.items = ovr.endWidgets.value_or(bar.endWidgets)}, "right"
         ));
+        {
+          std::vector<std::string> clickThroughPath = root;
+          clickThroughPath.emplace_back("dead_zone");
+          clickThroughPath.emplace_back("click_through");
+          auto e = makeEntry(
+              section, "dead-zone", tr("settings.schema.bar.dead-zone-click-through.label"),
+              tr("settings.schema.bar.dead-zone-click-through.description"), std::move(clickThroughPath),
+              ToggleSetting{ovr.deadZone.clickThrough.value_or(bar.deadZone.clickThrough)},
+              "bar empty margin dead zone click through pass input region"
+          );
+          e.visibleWhen = [monitorAutoHideOn](const Config& c) { return !monitorAutoHideOn(c); };
+          entries.push_back(std::move(e));
+        }
         for (const auto gesture : noctalia::bar::allGestures()) {
           const std::string key(noctalia::bar::gestureConfigKey(gesture));
           std::vector<std::string> gesturePath = root;

@@ -1386,10 +1386,6 @@
         "horizontal": "Yatay",
         "vertical": "Dikey"
       },
-      "panel-bar-alignment": {
-        "centered": "Ortalanmış",
-        "near-trigger": "Tetikleyiciye Yakın"
-      },
       "panel-position": {
         "auto": "Çubuğu Takip Et"
       },

@@ -22,7 +22,7 @@ ProgressBar::ProgressBar() {
   auto fill = std::make_unique<RectNode>();
   m_fill = static_cast<RectNode*>(m_fillClip->addChild(std::move(fill)));
 
-  setTrack(colorSpecFromRole(ColorRole::SurfaceVariant));
+  setTrack(colorSpecFromRole(ColorRole::SurfaceContainer));
   setFill(colorSpecFromRole(ColorRole::Primary));
   setRadius(Style::scaledRadiusSm());
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });

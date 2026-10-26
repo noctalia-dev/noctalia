@@ -1115,7 +1115,7 @@ void DesktopWidgetsEditor::buildInspector(
           .configure =
               [panelRadius](Flex& flex) {
                 flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
-                flex.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+                flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
                 flex.setRadius(panelRadius);
                 flex.setZIndex(201);
               },
@@ -1127,7 +1127,7 @@ void DesktopWidgetsEditor::buildInspector(
               .gap = Style::spaceSm,
               .paddingV = Style::spaceXs,
               .paddingH = Style::spaceMd,
-              .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.85F),
+              .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
               .minHeight = Style::controlHeightSm,
               .fillWidth = true,
               .width = kInspectorWidth,

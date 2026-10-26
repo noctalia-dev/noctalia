@@ -263,8 +263,8 @@ void FileDialogView::create() {
       .gap = Style::spaceXs * scale,
       .flexGrow = 1.0F,
       .configure = [scale](Flex& card) {
-        card.setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
-        card.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+        card.setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
+        card.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
         card.setRadius(Style::scaledRadiusXl(scale));
         card.setPadding(Style::cardPadding * scale);
         card.setClipChildren(true);

@@ -583,7 +583,7 @@ PluginWidget::ScriptColorMode PluginWidget::scriptColorModeFromToken(std::string
 }
 
 std::optional<ColorSpec> PluginWidget::scriptColorFromToken(std::string_view token) noexcept {
-  if (auto role = colorRoleFromToken(token); role.has_value()) {
+  if (auto role = colorRoleFromPluginToken(token); role.has_value()) {
     return colorSpecFromRole(*role);
   }
   Color fixed;

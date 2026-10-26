@@ -45,6 +45,7 @@ public:
     bool skipAnnotateOnCopySave = false;
     bool closeOnCopy = true;
     bool closeOnSave = true;
+    bool copyOnClose = false;
     std::string pipeCommand;
     std::string directory;
     std::string filenamePattern;

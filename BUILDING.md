@@ -92,10 +92,12 @@ sudo xbps-install meson ninja pkg-config git \
   polkit-devel librsvg-devel libqalculate-devel libxml2-devel jemalloc-devel
 ```
 
-### AerynOS
+### aerynOS
+
+The command below uses the new moss CLI available in Volatile. On Unstable, use `sudo moss install` with the same package list until the CLI update reaches that repository.
 
 ```sh
-sudo moss install meson gcc clang just \
+sudo moss pkg add meson gcc clang just \
   wayland-devel wayland-protocols-devel \
   libglvnd-devel freetype-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \

@@ -1560,10 +1560,6 @@
         "horizontal": "Ngang",
         "vertical": "Dọc"
       },
-      "panel-bar-alignment": {
-        "centered": "Căn giữa",
-        "near-trigger": "Gần vị trí kích hoạt"
-      },
       "panel-position": {
         "auto": "Theo Bar"
       },

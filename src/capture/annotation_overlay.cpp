@@ -129,7 +129,7 @@ namespace capture {
       const Color fill = rgba(color.r, color.g, color.b, 1.0F);
       Button::ButtonStateColors state{
           .bg = fixedColorSpec(fill),
-          .border = colorSpecFromRole(ColorRole::Outline),
+          .border = colorSpecFromRole(ColorRole::OutlineVariant),
           .label = fixedColorSpec(swatchContrast(color)),
       };
       Button::ButtonPalette palette;
@@ -964,7 +964,7 @@ namespace capture {
       canvas->addChild(
           ui::box({
               .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 0.0F)),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
               .borderWidth = Style::borderWidth,
               .radius = 0.0F,
               .width = canvasW,
@@ -1138,7 +1138,7 @@ namespace capture {
         .paddingH = Style::spaceMd,
         .fill = fixedColorSpec(toolbarFill),
         .radius = Style::radiusXl,
-        .border = colorSpecFromRole(ColorRole::Outline),
+        .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
     });
 
@@ -1279,7 +1279,7 @@ namespace capture {
     ));
     addGhostButton("screenshot", "bar.annotate.capture-new-region", [this]() { requestCaptureRegion(); });
     if (Style::closeButtonsEnabled()) {
-      addGhostButton("x", "bar.annotate.close", [this]() { closeOverlay(); });
+      addGhostButton("x", "bar.annotate.close", [this]() { requestClose(); });
     }
 
     inst.toolbar = toolbar.get();
@@ -2160,7 +2160,7 @@ namespace capture {
       commitTextEdit();
       return true;
     }
-    if (KeySymbol::isEscape(event.sym) || KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
       cancelTextEdit();
       return true;
     }
@@ -2274,7 +2274,7 @@ namespace capture {
     const bool ctrl = (event.modifiers & KeyMod::Ctrl) != 0;
     const bool shift = (event.modifiers & KeyMod::Shift) != 0;
 
-    if (KeySymbol::isEscape(event.sym) || KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
       if (m_gestureActive && m_gestureInstance != nullptr) {
         Instance* inst = m_gestureInstance;
         AnnotationDocument& doc = documentFor(*inst);
@@ -2301,7 +2301,7 @@ namespace capture {
         }
         return true;
       }
-      closeOverlay();
+      requestClose();
       return true;
     }
 
@@ -2317,13 +2317,11 @@ namespace capture {
       redo();
       return true;
     }
-    if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)
-        || (ctrl && (event.sym == XKB_KEY_c || event.sym == XKB_KEY_C))) {
+    if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
       requestExport(AnnotationExport::Copy);
       return true;
     }
-    if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)
-        || (ctrl && (event.sym == XKB_KEY_s || event.sym == XKB_KEY_S))) {
+    if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
       requestExport(AnnotationExport::Save);
       return true;
     }
@@ -2513,6 +2511,14 @@ namespace capture {
     if (action == AnnotationExport::Done) {
       closeOverlay();
     }
+  }
+
+  void AnnotationOverlay::requestClose() {
+    if (m_copyOnClose && m_mode != AnnotationMode::Live) {
+      // Closes even when the copy fails; the failure is already notified.
+      requestExport(AnnotationExport::Copy);
+    }
+    closeOverlay();
   }
 
   void AnnotationOverlay::closeOverlay() {

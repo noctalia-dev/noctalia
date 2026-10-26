@@ -51,8 +51,8 @@ namespace settings {
         setAlign(FlexAlign::Stretch);
         setGap(Style::spaceXs * scale);
         setPadding(Style::spaceSm * scale);
-        setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F));
-        setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), Style::borderWidth);
+        setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
+        setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), Style::borderWidth);
         setRadius(Style::scaledRadiusMd(scale));
         addChild(
             ui::row(
@@ -61,7 +61,7 @@ namespace settings {
                  .justify = FlexJustify::End,
                  .padding = Style::spaceXs * scale,
                  .radius = Style::scaledRadiusSm(scale),
-                 .border = colorSpecFromRole(ColorRole::Outline),
+                 .border = colorSpecFromRole(ColorRole::OutlineVariant),
                  .borderWidth = Style::borderWidth,
                  .fillWidth = true,
                  .height = 52.0F * scale},

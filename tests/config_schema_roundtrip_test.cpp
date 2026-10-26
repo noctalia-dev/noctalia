@@ -227,6 +227,7 @@ location = "https://example.invalid/bad"
         {"back", "media previous"},
         {"forward", "media next"},
     };
+    bar.deadZone.clickThrough = true;
     bar.padding = 12;
     bar.widgetSpacing = 8;
     bar.shadow = false;
@@ -297,6 +298,7 @@ location = "https://example.invalid/bad"
         {"left", "exec notify-send bar-left"},
         {"right", "exec notify-send bar-right"},
     };
+    ovr.deadZone.clickThrough = false;
     ovr.padding = 11;
     ovr.widgetSpacing = 7;
     ovr.shadow = true;
@@ -454,8 +456,10 @@ location = "https://example.invalid/bad"
     c.bluetooth.connectWhenEnabled = true;
     c.controlCenter.sidebarMode = ControlCenterSidebarMode::Full;
     c.controlCenter.sidebarSectionMode = ControlCenterSidebarMode::None;
+    c.controlCenter.circularAvatar = false;
     c.controlCenter.calendarTab.showEventsCard = false;
     c.controlCenter.calendarTab.showWeekNumbers = true;
+    c.controlCenter.mediaTab.showVisualizer = false;
     c.controlCenter.shortcuts = {{"wifi"}, {"bluetooth"}};
     c.calendar.enabled = true;
     c.calendar.dedupeEvents = true;
@@ -537,6 +541,7 @@ location = "https://example.invalid/bad"
     c.shell.launcher.defaultView = ShellConfig::LauncherDefaultView::Categories;
     c.shell.launcher.categories = false;
     c.shell.launcher.categoryIconsOnly = true;
+    c.shell.launcher.showNavigationLabels = false;
     c.shell.launcher.showSettingsButton = false;
     c.shell.launcher.showSessionButton = false;
     c.shell.launcher.compact = true;
@@ -567,6 +572,7 @@ location = "https://example.invalid/bad"
     c.shell.screenshot.pipeToCommand = true;
     c.shell.screenshot.skipAnnotateOnCopySave = true;
     c.shell.screenshot.closeOnSave = false; // non-default (default is true) so the round-trip exercises it
+    c.shell.screenshot.copyOnClose = true;
     c.shell.screenshot.regionModifier = ScreenshotRegionModifier::Super;
     c.shell.screenshot.regionBorderWidth = 4.0F;
     c.shell.screenshot.regionDimOpacity = 0.8F;
@@ -1114,7 +1120,8 @@ color = "#0000FF"
 blend = false
 )");
     Config config;
-    liftTemplateConfigCustomColors(root, config);
+    Diagnostics diag;
+    liftTemplateConfigCustomColors(root, config, diag);
     if (config.theme.templates.customColors.size() != 2) {
       fail("config.custom_colors lift: expected two custom colors in config");
     }
@@ -1192,14 +1199,17 @@ widget_spacing = 8
     middle = "none"
     right = "media toggle"
 
-    [default.dead_zone.actions]
-    back = "media previous"
-    forward = "media next"
-    left = "exec notify-send bar-left"
-    middle = "exec notify-send bar-middle"
-    right = "exec notify-send bar-right"
-    scroll_down = "exec notify-send bar-scroll-down"
-    scroll_up = "exec notify-send bar-scroll-up"
+    [default.dead_zone]
+    click_through = true
+
+        [default.dead_zone.actions]
+        back = "media previous"
+        forward = "media next"
+        left = "exec notify-send bar-left"
+        middle = "exec notify-send bar-middle"
+        right = "exec notify-send bar-right"
+        scroll_down = "exec notify-send bar-scroll-down"
+        scroll_up = "exec notify-send bar-scroll-up"
 
     [default.monitor.DP-1]
     auto_hide = false
@@ -1255,9 +1265,12 @@ widget_spacing = 8
         middle = "none"
         right = "media toggle"
 
-        [default.monitor.DP-1.dead_zone.actions]
-        left = "exec notify-send bar-left"
-        right = "exec notify-send bar-right"
+        [default.monitor.DP-1.dead_zone]
+        click_through = false
+
+            [default.monitor.DP-1.dead_zone.actions]
+            left = "exec notify-send bar-left"
+            right = "exec notify-send bar-right"
 
         [[default.monitor.DP-1.capsule_group]]
         accordion = false

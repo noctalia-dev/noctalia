@@ -1,11 +1,13 @@
 ---
 title: Umbriel
-description: Theme Umbriel window borders and overview colors with Noctalia.
+description: Theme Umbriel window borders, title bars, tab bars, and overview colors with Noctalia.
 sidebar:
   order: 9
 ---
 
-The built-in Umbriel template generates colors for regular and scratchpad borders, the insertion hint, fullscreen backdrop, and overview tint.
+The built-in Umbriel template generates colors for regular and scratchpad borders, title bars, tab bars, the insertion hint, fullscreen backdrop, and overview tint.
+
+Title bars use `surface_container` for the focused background and `surface` for the unfocused background. Title text uses `on_surface` and `on_surface_variant`, respectively. The close button uses `error`, and maximize uses `primary`. These colors follow theme changes automatically.
 
 ## Setup
 

@@ -8,6 +8,7 @@
 #include "core/process/process.h"
 #include "ipc/ipc_service.h"
 #include "theme/community_templates.h"
+#include "theme/gtk_extensions.h"
 #include "theme/hook_runner.h"
 #include "theme/template_engine.h"
 #include "util/file_utils.h"
@@ -365,6 +366,21 @@ namespace noctalia::theme {
       });
     }
 
+    // GTK extensions of community templates load through the built-in GTK templates, so they
+    // follow those toggles.
+    GtkToolkits gtkToolkits;
+    if (request.templates.enableBuiltinTemplates) {
+      gtkToolkits.gtk3 = std::ranges::contains(request.templates.builtinIds, "gtk3");
+      gtkToolkits.gtk4 = std::ranges::contains(request.templates.builtinIds, "gtk4");
+    }
+    const std::filesystem::path gtk3Dir = gtkConfigDir(GtkToolkit::Gtk3);
+    const std::filesystem::path gtk4Dir = gtkConfigDir(GtkToolkit::Gtk4);
+    // noctalia.css imports the extension index; it has to exist before that import is written.
+    if (gtkToolkits.gtk3)
+      (void)ensureGtkExtensionIndex(gtk3Dir);
+    if (gtkToolkits.gtk4)
+      (void)ensureGtkExtensionIndex(gtk4Dir);
+
     if (request.templates.enableBuiltinTemplates
         && !request.templates.builtinIds.empty()
         && !requestSuperseded(request.generation)) {
@@ -377,6 +393,8 @@ namespace noctalia::theme {
       }
     }
 
+    std::vector<std::string> gtk3Extensions;
+    std::vector<std::string> gtk4Extensions;
     if (request.templates.enableCommunityTemplates
         && !request.templates.communityIds.empty()
         && !requestSuperseded(request.generation)) {
@@ -393,11 +411,29 @@ namespace noctalia::theme {
           kLog.warn("community template '{}' is not cached yet", id);
           continue;
         }
+        toml::table communityRoot;
+        try {
+          communityRoot = toml::parse_file(communityConfig.string());
+        } catch (const toml::parse_error&) {
+          kLog.warn("failed to parse community template '{}' from {}", id, communityConfig.string());
+          continue;
+        }
+        for (GtkExtensionFile& file : prepareGtkExtensions(communityRoot, id, gtkToolkits, gtk3Dir, gtk4Dir)) {
+          (file.toolkit == GtkToolkit::Gtk3 ? gtk3Extensions : gtk4Extensions).push_back(std::move(file.fileName));
+        }
         TemplateEngine communityEngine(TemplateEngine::makeThemeData(request.palette), options);
-        if (!communityEngine.processConfigFile(communityConfig)) {
+        if (!communityEngine.processConfigTable(communityRoot, communityConfig)) {
           kLog.warn("failed to apply community template '{}' from {}", id, communityConfig.string());
         }
       }
+    }
+
+    // Rewrite the index from what is enabled now, then drop extension files nothing imports.
+    if (!requestSuperseded(request.generation)) {
+      if (gtkToolkits.gtk3)
+        (void)syncGtkExtensions(gtk3Dir, std::move(gtk3Extensions));
+      if (gtkToolkits.gtk4)
+        (void)syncGtkExtensions(gtk4Dir, std::move(gtk4Extensions));
     }
 
     if ((request.templates.userTemplates.empty() && request.templates.customColors.empty())

@@ -1445,9 +1445,6 @@
         "horizontal": "Horizontal",
         "vertical": "Vertical"
       },
-      "panel-bar-alignment": {
-        "centered": "Centré"
-      },
       "panel-position": {
         "auto": "Suivre la Bar"
       },

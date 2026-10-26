@@ -111,6 +111,7 @@ void Application::requestAllSurfacesRedraw() {
     m_colorPickerDialogPopup.requestRedraw();
     m_glyphPickerDialogPopup.requestRedraw();
     m_fileDialogPopup.requestRedraw();
+    m_searchPickerDialogPopup.requestRedraw();
   });
 }
 

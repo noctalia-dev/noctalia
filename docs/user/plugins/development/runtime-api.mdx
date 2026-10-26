@@ -246,7 +246,7 @@ Shell operators such as pipes, redirections, variable expansion, and command sub
 | ----------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `noctalia.readFile(path)`           | string, or `nil, err` | Reads a file as bytes.                                                                                                               |
 | `noctalia.readFileAsync(path, cb)`  | bool                  | Queues a read and calls `cb(contents, nil)` or `cb(nil, err)`. Returns `false` if the bounded queue is full. Requires plugin API 23. |
-| `noctalia.writeFile(path, content)` | bool, optional error  | Writes a file, replacing existing contents.                                                                                          |
+| `noctalia.writeFile(path, content)` | bool, optional error  | Writes a file, replacing existing contents. New files are created owner-only (`0600`); an existing file keeps its mode.              |
 | `noctalia.mkdirAll(path)`           | bool, optional error  | Creates a directory and any missing parents (an existing directory is success).                                                      |
 | `noctalia.removeFile(path)`         | bool, optional error  | Deletes a file. Refuses directories.                                                                                                 |
 | `noctalia.renameFile(from, to)`     | bool, optional error  | Renames or moves a file.                                                                                                             |
@@ -254,7 +254,7 @@ Shell operators such as pipes, redirections, variable expansion, and command sub
 | `noctalia.fileInfo(path)`           | table, or `nil, err`  | `{ size, mtime, isDir }`, size in bytes, mtime in unix seconds.                                                                      |
 | `noctalia.listDir(path)`            | array, or `nil, err`  | Lists filenames in a directory.                                                                                                      |
 | `noctalia.pluginDir()`              | string or `nil`       | Returns this plugin's runtime directory.                                                                                             |
-| `noctalia.pluginDataDir()`          | string, or `nil, err` | Returns this plugin's persistent data directory, creating it on demand.                                                              |
+| `noctalia.pluginDataDir()`          | string, or `nil, err` | Returns this plugin's persistent data directory, creating it on demand and restricting it to the owner (`0700`).                     |
 | `noctalia.loadFont(path)`           | string, or `nil, err` | Registers a font file and returns its family name.                                                                                   |
 
 Filesystem paths resolve as follows: `~` expands to `$HOME`, absolute paths are used as-is, and relative paths resolve against the plugin's own directory. Plugins are trusted code, so these helpers are not sandboxed.

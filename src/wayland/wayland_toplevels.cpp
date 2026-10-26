@@ -191,6 +191,8 @@ void WaylandToplevels::onHandleDone(zwlr_foreign_toplevel_handle_v1* handle) {
 
   const auto before = current();
   const bool hadModelChanges = it->second.dirty;
+  it->second.minimized = it->second.pendingMinimized;
+  it->second.ready = true;
   if (it->second.activated) {
     m_currentHandle = handle;
   } else if (m_currentHandle == handle) {
@@ -255,7 +257,7 @@ void WaylandToplevels::onHandleState(zwlr_foreign_toplevel_handle_v1* handle, wl
   }
 
   it->second.activated = activated;
-  it->second.minimized = minimized;
+  it->second.pendingMinimized = minimized;
   it->second.dirty = true;
   it->second.generation = ++m_generation;
 }
@@ -339,6 +341,8 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(
                   .order = state.order,
                   .handle = handle,
                   .outputAnnounced = state.sawOutputEnter,
+                  .minimizeState =
+                      state.ready ? std::optional(WindowMinimizeState{.minimized = state.minimized}) : std::nullopt,
               },
           }
       );
@@ -376,6 +380,8 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsWithoutAppId(wl_output* outpu
                 .order = state.order,
                 .handle = handle,
                 .outputAnnounced = state.sawOutputEnter,
+                .minimizeState =
+                    state.ready ? std::optional(WindowMinimizeState{.minimized = state.minimized}) : std::nullopt,
             },
         }
     );
@@ -394,14 +400,30 @@ bool WaylandToplevels::containsWlrHandle(zwlr_foreign_toplevel_handle_v1* handle
   return handle != nullptr && m_handles.contains(handle);
 }
 
+std::optional<bool> WaylandToplevels::minimized(zwlr_foreign_toplevel_handle_v1* handle) const {
+  const auto it = m_handles.find(handle);
+  if (it == m_handles.end() || !it->second.ready) {
+    return std::nullopt;
+  }
+  return it->second.minimized;
+}
+
+bool WaylandToplevels::minimizeHandle(zwlr_foreign_toplevel_handle_v1* handle) {
+  if (!containsWlrHandle(handle)) {
+    return false;
+  }
+  zwlr_foreign_toplevel_handle_v1_set_minimized(handle);
+  return true;
+}
+
 void WaylandToplevels::activateHandle(zwlr_foreign_toplevel_handle_v1* handle, wl_seat* seat) {
-  if (handle == nullptr || seat == nullptr)
+  if (!containsWlrHandle(handle) || seat == nullptr)
     return;
   zwlr_foreign_toplevel_handle_v1_activate(handle, seat);
 }
 
 void WaylandToplevels::closeHandle(zwlr_foreign_toplevel_handle_v1* handle) {
-  if (handle == nullptr)
+  if (!containsWlrHandle(handle))
     return;
   zwlr_foreign_toplevel_handle_v1_close(handle);
 }
