@@ -153,12 +153,17 @@ namespace noctalia::config::schema {
       return false;
     }
 
+    [[nodiscard]] Diagnostics introducedErrorsComparedTo(const Diagnostics& baseline) const {
+      return introducedDiagnosticsComparedTo(baseline, Severity::Error);
+    }
+
     // Origin is deliberately not compared: the same error moving to another line
     // is not a new error.
-    [[nodiscard]] Diagnostics introducedErrorsComparedTo(const Diagnostics& baseline) const {
+    [[nodiscard]] Diagnostics
+    introducedDiagnosticsComparedTo(const Diagnostics& baseline, Severity minSeverity = Severity::Warning) const {
       Diagnostics introduced;
       for (const auto& candidate : entries) {
-        if (candidate.severity != Severity::Error) {
+        if (static_cast<int>(candidate.severity) < static_cast<int>(minSeverity)) {
           continue;
         }
         const bool existed = std::ranges::any_of(baseline.entries, [&](const Entry& previous) {

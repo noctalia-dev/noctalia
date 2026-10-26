@@ -20,6 +20,7 @@ public:
   ClockWidget(wl_output* output, Options options);
 
   void create() override;
+  [[nodiscard]] bool wantsSecondTicks() const override;
 
 private:
   [[nodiscard]] std::string formatTimeText() const;
@@ -30,6 +31,10 @@ private:
   std::string m_verticalFormat;
   std::string m_tooltipFormat;
   std::string m_timezone;
+  // Classified once at construction: wantsSecondTicks() runs on every poll
+  // preparation, and the formats never change after the widget is built.
+  bool m_labelShowsSeconds = false;
+  bool m_tooltipShowsSeconds = false;
   bool m_isVertical = false;
   Label* m_label = nullptr;
   Label* m_secondaryLabel = nullptr;

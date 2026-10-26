@@ -46,6 +46,7 @@ shared_gl_context     = true         # startup-only; false isolates GPU contexts
 skip_annotate_on_copy_save = false  # Ctrl+C / Ctrl+S in the region overlay skip the annotation editor
 close_on_copy = true                # close the annotation editor after Copy or Ctrl+C succeeds
 close_on_save = true                # close the annotation editor after Save or Ctrl+S succeeds
+copy_on_close = false               # Closing the editor copies the annotated image first
 
 [shell.privacy]
 mic_filter_regex = ""                # microphone app names to ignore in privacy indicators and OSD
@@ -63,7 +64,7 @@ alpha     = 0.55                    # multiplied by each component's background 
 [shell.panel]
 transparency_mode     = "solid"     # solid | soft | glass; controls floating-panel opacity and card translucency
 borders               = true        # panel shell outline and in-panel section cards
-border_color          = "outline"   # floating panel outline color: theme role token or #RRGGBB
+border_color          = "outline_variant"   # floating panel outline color: theme role token or #RRGGBB
 border_width          = 1.0         # floating panel outline width in px, 0 hides the stroke
 shadow                = true        # cast the global [shell.shadow] from panel surfaces
 launcher_placement       = "floating" # attached | floating
@@ -86,14 +87,16 @@ search_position = "top"                  # full layout: top | bottom; whole laun
 default_view   = "recent"                # full layout: recent | pinned | all | categories
 categories = true                        # simple layout: show the category chip row under the search field
 category_icons_only = false             # hide app category labels; keep names in hover tooltips
+show_navigation_labels = true           # full layout: show Recent, Pinned, All, Categories, and Providers labels
 show_settings_button = true              # show the Settings shortcut beside search
 show_session_button = true               # show the session-actions shortcut beside search
 show_icons    = true                    # show application icons in launcher results
 show_app_origin_indicator = true        # show package origin indicators on application results
 compact       = false                   # use smaller icons and tighter result rows
-app_grid      = false                   # show apps, global searches, and the provider overview as icon grids
+app_grid      = false                   # show grid-capable providers and the provider overview as icon grids
 track_usage   = true                    # record launcher history for Recent and usage-based sorting
 sort_by_usage = true                    # boost frequently used results
+ignore_mouse  = false                   # ignore mouse hover and clicks inside the launcher
 pinned        = []                      # ordered apps in the Pinned view, e.g. ["firefox", "code", "kitty"]
 fetch_exchange_rates = true             # refresh currency rates from third-party sources
 provider_prefix = "/"                     # common prefix character for provider trigger words (e.g. "/" or ".")
@@ -195,7 +198,7 @@ layer              = "top"          # top | overlay
 scale              = 1.0            # notification size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97
 border             = true           # outline around toast cards; set false for a borderless look
-border_color       = "outline"      # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_color       = "outline_variant"      # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
 border_width       = 1              # outline stroke width in px; raise for a thicker outline
 follow_focused_output = false       # show new toasts on the focused output; visible toasts stay pinned there
 # monitors          = ["DP-1"]      # connector names; omit or leave empty for all monitors
@@ -224,7 +227,7 @@ hide_delay_ms = 1400                # time before a popup starts hiding; range 2
 scale = 1.0                         # OSD size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97           # background opacity of OSD popups
 border = true                       # outline around OSD popup cards; set false for a borderless look
-border_color = "outline"            # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_color = "outline_variant"            # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
 border_width = 1                    # outline stroke width in px; raise for a thicker outline
 follow_focused_output = false       # show a new OSD on the focused output; keep it pinned until it disappears
 offset_x = 20                       # absolute horizontal margin from the screen edge
@@ -290,6 +293,10 @@ use_event_reminders  = true     # honor per-event reminders; off = always use th
 default_lead_minutes = 10       # used for events with no reminder of their own; 0 = at event start
 all_day_digest_time  = "09:00"  # one notification listing today's all-day events; "" disables it
 
+[control_center]
+circular_avatar             = true          # disable to use the shell's corner roundness
+show_avatar_border          = true          # disable to hide the accent ring around the avatar
+
 # Calendar tab of the control center.
 
 [control_center.calendar]
@@ -316,6 +323,12 @@ enable_power_sounds = true          # sound on charger connect or remove
 enable_screenshot_sounds = true     # sound on screenshots
 sound_volume = 0.5                  # 0.0 - 1.0
 sound_theme = "freedesktop"
+
+# ── Bluetooth ─────────────────────────────────────────────────────────────────
+
+[bluetooth]
+connect_when_enabled = false        # connect paired, trusted devices when Bluetooth turns on, at startup, and after resume
+connection_notifications = true     # notify when a device connects or disconnects on its own, or a connect you start fails
 
 # ── Brightness ────────────────────────────────────────────────────────────────
 
@@ -405,10 +418,10 @@ auto_hide          = false
 # show_on_workspace_switch = true   # with auto_hide: briefly reveal when the active workspace changes
 reserve_space      = true
 capsule            = false
-# capsule_fill     = "surface_variant"
+# capsule_fill     = "surface_container"
 # capsule_radius   = 8.0            # omit/blank in Settings for automatic pill radius; 0.0 = square
 # capsule_opacity  = 1.0
-# capsule_border   = "outline"      # uncomment for a border on all widgets
+# capsule_border   = "outline_variant"      # uncomment for a border on all widgets
 # capsule_border_width = 1.0        # outline thickness in pixels (0-8); needs capsule_border
 
 start  = ["launcher", "wallpaper", "workspaces"]
@@ -422,6 +435,9 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 # middle = "none"
 # scroll_up = "none"
 # scroll_down = "none"
+# Or let clicks on the dead zone pass through to the window below (dead zone actions then never fire):
+# [bar.main.dead_zone]
+# click_through = true
 
 # Per-monitor override example; only the fields you list are overridden:
 # [bar.main.monitor.dp1]
@@ -524,6 +540,11 @@ enabled = false
 
 # ── Control Center ────────────────────────────────────────────────────────────
 
+# Media tab of the control center.
+
+[control_center.media]
+show_visualizer = true              # PipeWire audio visualizer beside the playback controls
+
 # Shortcut buttons shown on the right side of the dashboard (up to 6).
 # [[control_center.shortcuts]]
 # type = "wifi"
@@ -572,12 +593,14 @@ enabled = false
 # hide_when_no_unread = true
 
 # [widget.network_rx]
-# network_speed_unit = "mb"          # auto | kb | mb
-# network_speed_compact = true       # show "1.2M" instead of "1.2 MB/s"
+# network_speed_unit           = "mb" # auto | kb | mb
+# network_speed_compact        = true # show "1.2M" instead of "1.2 MB/s"
+# network_speed_decimal_places = 2    # compact precision from 0 to 3
 #
 # [widget.network_tx]
-# network_speed_unit = "mb"          # auto | kb | mb
-# network_speed_compact = true       # show "1.2M" instead of "1.2 MB/s"
+# network_speed_unit           = "mb" # auto | kb | mb
+# network_speed_compact        = true # show "1.2M" instead of "1.2 MB/s"
+# network_speed_decimal_places = 2    # compact precision from 0 to 3
 
 # [widget.network]
 # vpn_status     = "replace"         # replace | both | hidden

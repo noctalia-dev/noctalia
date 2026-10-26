@@ -967,6 +967,10 @@ void WaylandConnection::setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCal
   m_seatHandler.setLockKeysChangeCallback(std::move(callback));
 }
 
+void WaylandConnection::setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback) {
+  m_seatHandler.setKeyboardLayoutChangeCallback(std::move(callback));
+}
+
 void WaylandConnection::setClipboardService(ClipboardService* clipboardService) {
   m_clipboardService = clipboardService;
   bindClipboardService();
@@ -1057,6 +1061,14 @@ bool WaylandConnection::containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v
 
 void WaylandConnection::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
   m_toplevelsHandler.activateHandle(handle, m_seat);
+}
+
+bool WaylandConnection::minimizeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
+  return m_toplevelsHandler.minimizeHandle(handle);
+}
+
+std::optional<bool> WaylandConnection::toplevelMinimized(zwlr_foreign_toplevel_handle_v1* handle) const {
+  return m_toplevelsHandler.minimized(handle);
 }
 
 void WaylandConnection::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {

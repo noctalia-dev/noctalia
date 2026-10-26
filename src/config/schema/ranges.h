@@ -38,6 +38,11 @@ namespace noctalia::config::schema {
   inline constexpr Range<std::int64_t> kBarAutoHideDelayMsRange{0, 600000, 1000};
   inline constexpr Range<float> kBarFontScaleRange{0.2F, 2.5F, 0.01F};
   inline constexpr Range<float> kBarCapsuleBorderWidthRange{0.0F, 8.0F, 0.5F};
+  inline constexpr Range<std::int64_t> kBarCapsuleAccordionMsRange{0, 2000, 25};
+
+  // Screenshot.
+  inline constexpr Range<float> kScreenshotRegionBorderWidthRange{0.0F, 20.0F, 0.5F};
+  inline constexpr Range<std::int64_t> kScreenshotQualityRange{1, 100, 1};
 
   // Battery / wallpaper.
   inline constexpr Range<std::int64_t> kBatteryWarningThresholdRange{0, 100, 1};

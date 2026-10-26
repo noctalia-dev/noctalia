@@ -14,6 +14,7 @@ class Button;
 class AsyncTextureCache;
 class ClipboardService;
 class Flex;
+class Glyph;
 class Image;
 class Input;
 class InputArea;
@@ -105,6 +106,7 @@ private:
   ScrollView* m_previewScrollView = nullptr;
   Flex* m_previewContent = nullptr;
   Image* m_previewImage = nullptr;
+  Glyph* m_previewPlaceholder = nullptr;
 
   std::size_t m_selectedIndex = 0;
   std::size_t m_previewPayloadIndex = static_cast<std::size_t>(-1);

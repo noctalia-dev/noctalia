@@ -16,6 +16,8 @@
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/keyboard_layout_label.h"
 #include "shell/lockscreen/lock_surface.h"
+#include "shell/lockscreen/lockscreen_session_actions.h"
+#include "shell/session/session_action_runner.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
@@ -40,6 +42,10 @@ namespace {
     clock_gettime(CLOCK_BOOTTIME, &ts);
     return static_cast<std::int64_t>(ts.tv_sec) * 1000 + static_cast<std::int64_t>(ts.tv_nsec) / 1000000;
   }
+
+  // Keys arriving this soon after a resume or output power change are treated as
+  // wake keys and never fire lock-screen action shortcuts.
+  constexpr std::int64_t kWakeShortcutGuardMillis = 1000;
 
   Color resolveWallpaperFillColor(const WallpaperConfig& config) {
     // The lockscreen is an ext-session-lock surface: any transparency lets the
@@ -550,7 +556,16 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+  // Cancel clears a non-empty password before any action shortcut bound to the
+  // same key can fire, so a stray key mid-password never runs a session action.
+  const bool cancel = KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers);
+  if ((!cancel || m_password.empty())
+      && !isPlainPrintableKey(event.utf32, event.modifiers, event.preedit)
+      && tryActionShortcut(event.sym, event.modifiers)) {
+    return;
+  }
+
+  if (cancel) {
     clearSensitiveString(m_password);
     m_status = i18n::tr("lockscreen.password-cleared");
     m_statusIsError = false;
@@ -560,6 +575,32 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
 
   targetSurface->onKeyboardEvent(event);
 }
+
+bool LockScreen::tryActionShortcut(std::uint32_t sym, std::uint32_t modifiers) {
+  if (m_sessionActions == nullptr || m_configService == nullptr) {
+    return false;
+  }
+  const auto actions =
+      lockscreen::resolveSessionActions(m_configService->config().shell.session.actions, defaultSessionPanelActions());
+  const auto match = std::ranges::find_if(actions, [sym, modifiers](const SessionPanelActionConfig& row) {
+    return row.lockscreenShortcut.has_value() && keyChordMatches(*row.lockscreenShortcut, sym, modifiers);
+  });
+  if (match == actions.end()) {
+    return false;
+  }
+  // A key that wakes the screen must only wake it: suspending again on the wake
+  // key would trap the user in a sleep loop.
+  const bool outputsOff = m_compositorPlatform != nullptr && m_compositorPlatform->shouldSuppressLockTransition();
+  if (outputsOff || (m_wokeAtMillis > 0 && bootTimeMillis() < m_wokeAtMillis + kWakeShortcutGuardMillis)) {
+    kLog.debug("ignoring lock-screen shortcut for \"{}\": outputs waking", match->action);
+    return true;
+  }
+  kLog.info("lock-screen shortcut invoking \"{}\"", match->action);
+  m_sessionActions->invoke(*match);
+  return true;
+}
+
+void LockScreen::markOutputsWoke() { m_wokeAtMillis = bootTimeMillis(); }
 
 bool LockScreen::isActive() const noexcept { return m_lockPending || m_locked; }
 
@@ -594,6 +635,7 @@ void LockScreen::onSystemResumed() {
   if (m_graceAllowed) {
     kLog.info("system resumed; revoking passwordless grace period");
   }
+  markOutputsWoke();
   resetGracePeriod();
   cancelPendingAfterLocked();
   cancelOutputPowerOff();
@@ -630,7 +672,11 @@ void LockScreen::suppressEntryTransition() {
 }
 
 void LockScreen::onOutputPowerChanged() {
-  if (m_compositorPlatform == nullptr || !m_compositorPlatform->shouldSuppressLockTransition()) {
+  if (m_compositorPlatform == nullptr) {
+    return;
+  }
+  if (!m_compositorPlatform->shouldSuppressLockTransition()) {
+    markOutputsWoke();
     return;
   }
   if (isActive() || m_lockStarting || m_lockDeferred) {
@@ -1212,9 +1258,13 @@ std::string LockScreen::wallpaperPathForOutput(const std::string& connectorName)
   if (m_configService == nullptr) {
     return {};
   }
-  const std::string& customWallpaper = m_configService->config().lockscreen.wallpaper;
+  const auto& config = m_configService->config();
+  const std::string& customWallpaper = config.lockscreen.wallpaper;
   if (!customWallpaper.empty()) {
     return customWallpaper;
+  }
+  if (!config.wallpaper.enabled) {
+    return {};
   }
   return m_configService->getWallpaperPath(connectorName);
 }

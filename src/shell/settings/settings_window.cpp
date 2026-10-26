@@ -1074,6 +1074,12 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
+  if (const InputArea* focused = m_inputDispatcher.focusedArea(); focused != nullptr && focused->capturesAllKeys()) {
+    m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+    requestSceneInvalidation(m_sceneRoot.get(), m_surface.get());
+    return;
+  }
+
   const auto requestRebuild = [this]() {
     if (m_surface != nullptr) {
       m_rebuildRequested = true;
@@ -1255,3 +1261,7 @@ void SettingsWindow::onIdleLiveStatusChanged() {
 }
 
 void SettingsWindow::onSecondTick() { onIdleLiveStatusChanged(); }
+
+bool SettingsWindow::wantsSecondTicks() const noexcept {
+  return m_idleLiveStatusLabel != nullptr && m_surface != nullptr;
+}

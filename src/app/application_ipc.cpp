@@ -808,6 +808,7 @@ bool Application::setOutputPower(bool on) {
   m_lockScreen.cancelOutputPowerOff();
   m_compositorPlatform.setOutputPowerOffPending(!on);
   if (on) {
+    m_lockScreen.markOutputsWoke();
     return m_compositorPlatform.setOutputPower(true);
   }
   const auto result = std::make_shared<std::optional<bool>>();

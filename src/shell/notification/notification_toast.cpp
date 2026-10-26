@@ -129,7 +129,7 @@ namespace {
       return colorSpecFromRole(ColorRole::Error);
     }
     if (config == nullptr) {
-      return colorSpecFromRole(ColorRole::Outline);
+      return colorSpecFromRole(ColorRole::OutlineVariant);
     }
     return config->config().notification.borderColor;
   }

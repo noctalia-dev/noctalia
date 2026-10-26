@@ -202,16 +202,25 @@ void SoundPlayer::setTheme(std::string theme) {
     return;
   }
 
-  std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>> buffers;
+  m_theme = std::move(theme);
+  loadThemeSounds();
+}
+
+void SoundPlayer::loadThemeSounds() {
+  m_buffers.clear();
+  if (!m_shellSoundsEnabled || m_theme.empty()) {
+    return;
+  }
+
   for (const std::string_view event :
        {kEventNotification, kEventVolumeChange, kEventPowerPlug, kEventPowerUnplug, kEventScreenCapture}) {
-    const auto result = findThemeSound(event, theme);
+    const auto result = findThemeSound(event, m_theme);
     if (result.state == ThemeSoundLookupState::Disabled) {
-      kLog.info("sound theme '{}': event '{}' is disabled", theme, event);
+      kLog.info("sound theme '{}': event '{}' is disabled", m_theme, event);
       continue;
     }
     if (result.state == ThemeSoundLookupState::NotFound) {
-      kLog.error("sound theme '{}' is missing sound '{}'", theme, event);
+      kLog.error("sound theme '{}' is missing sound '{}'", m_theme, event);
       continue;
     }
 
@@ -220,12 +229,9 @@ void SoundPlayer::setTheme(std::string theme) {
       kLog.warn("failed to load sound \"{}\" from {}: {}", event, result.path.string(), *error);
       continue;
     }
-    buffers[std::string(event)] = std::make_shared<const SoundBuffer>(std::move(buffer));
-    kLog.info("sound theme '{}': loaded {} for event '{}'", theme, result.path.c_str(), event);
+    m_buffers[std::string(event)] = std::make_shared<const SoundBuffer>(std::move(buffer));
+    kLog.info("sound theme '{}': loaded {} for event '{}'", m_theme, result.path.c_str(), event);
   }
-
-  m_buffers = std::move(buffers);
-  m_theme = std::move(theme);
 }
 
 SoundPlayer::~SoundPlayer() {
@@ -368,7 +374,13 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
   armStartTimeout();
 }
 
-void SoundPlayer::setShellSoundsEnabled(bool enabled) { m_shellSoundsEnabled = enabled; }
+void SoundPlayer::setShellSoundsEnabled(bool enabled) {
+  if (m_shellSoundsEnabled == enabled) {
+    return;
+  }
+  m_shellSoundsEnabled = enabled;
+  loadThemeSounds();
+}
 
 void SoundPlayer::setEventEnabled(std::string_view event, bool enabled) {
   if (enabled) {

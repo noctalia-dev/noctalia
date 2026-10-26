@@ -1,12 +1,17 @@
 #include "system/hardware_info.h"
 
 #include "compositors/compositor_detect.h"
+#include "core/deferred_call.h"
+#include "core/process/process.h"
 #include "i18n/i18n.h"
 #include "system/disk_mounts.h"
 #include "system/format_units.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <cctype>
+#include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
@@ -371,6 +376,58 @@ namespace {
     return i18n::tr("system.hardware.unknown");
   }
 
+  std::vector<std::string> compositorVersionCommand(compositors::CompositorKind kind) {
+    switch (kind) {
+    case compositors::CompositorKind::Niri:
+      return {"niri", "--version"};
+    case compositors::CompositorKind::Hyprland:
+      return {"Hyprland", "--version"};
+    case compositors::CompositorKind::Sway:
+      return {"sway", "--version"};
+    case compositors::CompositorKind::Mango:
+      return {"mango", "-v"};
+    case compositors::CompositorKind::Dwl:
+      return {"dwl", "-v"};
+    case compositors::CompositorKind::Labwc:
+      return {"labwc", "--version"};
+    case compositors::CompositorKind::Kde:
+      return {"kwin_wayland", "--version"};
+    case compositors::CompositorKind::Umbriel:
+      return {"umbriel", "-v"};
+    case compositors::CompositorKind::Unknown:
+      break;
+    }
+    return {};
+  }
+
+  // First non-blank line, verbatim apart from surrounding whitespace and an ASCII-capitalized first letter
+  // (e.g. "Umbriel 0.1.0 (350794892e2b)").
+  std::string firstNonBlankLine(std::string_view text) {
+    const auto isSpace = [](char c) { return std::isspace(static_cast<unsigned char>(c)) != 0; };
+    while (!text.empty()) {
+      const std::size_t end = text.find('\n');
+      std::string_view line = text.substr(0, end);
+      while (!line.empty() && isSpace(line.front())) {
+        line.remove_prefix(1);
+      }
+      while (!line.empty() && isSpace(line.back())) {
+        line.remove_suffix(1);
+      }
+      if (!line.empty()) {
+        std::string result(line);
+        if (result.front() >= 'a' && result.front() <= 'z') {
+          result.front() = static_cast<char>(result.front() - 'a' + 'A');
+        }
+        return result;
+      }
+      if (end == std::string_view::npos) {
+        break;
+      }
+      text.remove_prefix(end + 1);
+    }
+    return {};
+  }
+
 } // namespace
 
 std::string cpuModelName() {
@@ -424,3 +481,61 @@ std::string diskUsageLabel(const std::string& mountPoint) {
 }
 
 std::string compositorLabel() { return detectCompositor(); }
+
+std::optional<std::string> compositorVersionLine(std::function<void()> onResolved) {
+  enum class State : std::uint8_t { Idle, Pending, Resolved };
+  static State state = State::Idle;
+  static std::string version;
+  static std::function<void()> pendingCallback;
+
+  if (state == State::Resolved) {
+    return version;
+  }
+  pendingCallback = std::move(onResolved);
+  if (state == State::Pending) {
+    return std::nullopt;
+  }
+
+  const auto finish = [](std::string resolved) {
+    version = std::move(resolved);
+    state = State::Resolved;
+    if (auto callback = std::move(pendingCallback); callback) {
+      callback();
+    }
+  };
+
+  const std::vector<std::string> command = compositorVersionCommand(compositors::detect());
+  if (command.empty() || !process::commandExists(command.front().c_str())) {
+    state = State::Resolved;
+    version.clear();
+    pendingCallback = nullptr;
+    return version;
+  }
+
+  state = State::Pending;
+  process::RunOptions options;
+  options.timeout = std::chrono::seconds(3);
+  options.maxOutputBytes = 4096;
+  const bool launched = process::runAsync(
+      command,
+      process::RunCallbacks{
+          .onExit =
+              [finish](process::RunResult result) {
+                // Worker thread: extract here, publish on the main loop. Some compositors print to stderr.
+                std::string parsed = result.timedOut ? std::string{} : firstNonBlankLine(result.out);
+                if (parsed.empty() && !result.timedOut) {
+                  parsed = firstNonBlankLine(result.err);
+                }
+                DeferredCall::callLater([finish, parsed = std::move(parsed)]() mutable { finish(std::move(parsed)); });
+              },
+      },
+      options
+  );
+  if (!launched) {
+    state = State::Resolved;
+    version.clear();
+    pendingCallback = nullptr;
+    return version;
+  }
+  return std::nullopt;
+}

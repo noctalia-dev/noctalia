@@ -283,6 +283,7 @@ namespace {
       entry.windowId = *windowId;
     }
     entry.closeHandle = wlrHandleForToplevel(info);
+    entry.minimizeState = info.minimizeState;
     entry.captureHandle = extHandleForToplevel(info);
     entry.appId = info.appId.empty() ? appId : info.appId;
     entry.appLabel = resolveWindowAppLabel(entry.appId);
@@ -310,6 +311,7 @@ namespace {
       entry.windowId = assignment.windowId;
     }
     entry.appId = assignment.appId;
+    entry.minimizeState = assignment.minimizeState;
     entry.appLabel = resolveWindowAppLabel(entry.appId);
     entry.title = !assignment.title.empty() ? assignment.title : entry.appLabel;
     entry.iconPath = resolveWindowIconPath(entry.appId, iconResolver, iconSize);
@@ -507,6 +509,7 @@ namespace {
       candidate.sortX = assignment.x;
       candidate.sortY = assignment.y;
       if (const auto live = liveToplevelByIdentity.find(key); live != liveToplevelByIdentity.end()) {
+        candidate.entry.minimizeState = live->second.minimizeState;
         if (!live->second.title.empty()) {
           candidate.entry.title = live->second.title;
         }
@@ -923,7 +926,11 @@ void WindowSwitcher::enqueueMissingThumbnailCaptures() {
     queued[index] = true;
     const WindowSwitcherEntry& entry = m_windows[index];
     const std::string key = identityKeyForEntry(entry);
-    if (key.empty() || entry.captureHandle == 0 || entry.thumbnail != nullptr || key == m_inFlightThumbnailKey) {
+    if (key.empty()
+        || entry.captureHandle == 0
+        || entry.thumbnail != nullptr
+        || key == m_inFlightThumbnailKey
+        || (entry.minimizeState.has_value() && entry.minimizeState->minimized)) {
       return;
     }
     const bool alreadyQueued = std::ranges::any_of(m_thumbnailQueue, [&key](const ThumbnailRequest& request) {
@@ -957,6 +964,13 @@ void WindowSwitcher::captureNextThumbnail() {
   while (!m_thumbnailQueue.empty()) {
     ThumbnailRequest request = std::move(m_thumbnailQueue.front());
     m_thumbnailQueue.pop_front();
+    const auto foundWindow = std::ranges::find_if(m_windows, [&](const WindowSwitcherEntry& candidate) {
+      return identityKeyForEntry(candidate) == request.windowKey;
+    });
+    if (foundWindow == m_windows.end()
+        || (foundWindow->minimizeState.has_value() && foundWindow->minimizeState->minimized)) {
+      continue;
+    }
     auto* handle = reinterpret_cast<ext_foreign_toplevel_handle_v1*>(request.captureHandle);
     bool handleIsLive = false;
     m_wayland->visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* live) { handleIsLive |= live == handle; });
@@ -1850,7 +1864,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
       ui::box({
           .out = &instance.panelBackground,
           .fill = colorSpecFromRole(ColorRole::Surface),
-          .border = scaleAlpha(colorSpecFromRole(ColorRole::Outline), Style::disabledOutlineAlpha),
+          .border = scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha),
           .borderWidth = Style::borderWidth,
           .radius = Style::scaledRadiusXl(scale),
           .visible = layout.boxed,
@@ -1909,7 +1923,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
     auto countBackground = ui::box({
         .out = &instance.countBackground,
         .fill = colorSpecFromRole(ColorRole::Surface),
-        .border = scaleAlpha(colorSpecFromRole(ColorRole::Outline), Style::disabledOutlineAlpha),
+        .border = scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha),
         .borderWidth = Style::borderWidth,
         .radius = Style::scaledRadiusMd(scale),
         .width = layout.countWidth,

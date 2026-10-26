@@ -876,7 +876,7 @@ namespace settings {
       if (on) {
         card->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * 2.0F);
       } else {
-        card->setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+        card->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
       }
     }
 
@@ -2025,17 +2025,17 @@ namespace settings {
                   .align = FlexAlign::Stretch,
                   .gap = Style::spaceXs * ctx.scale,
                   .padding = Style::spaceSm * ctx.scale,
-                  .fill = colorSpecFromRole(ColorRole::Error, 0.10F),
+                  .fill = colorSpecFromRole(ColorRole::ErrorContainer),
                   .radius = Style::scaledRadiusSm(ctx.scale),
-                  .border = colorSpecFromRole(ColorRole::Error, 0.5F),
+                  .border = colorSpecFromRole(ColorRole::Error),
               },
               makeLabel(
                   i18n::tr("settings.entities.widget.instance.delete-confirm-title", "name", widgetName),
-                  Style::fontSizeBody * ctx.scale, colorSpecFromRole(ColorRole::Error), FontWeight::Bold
+                  Style::fontSizeBody * ctx.scale, colorSpecFromRole(ColorRole::OnErrorContainer), FontWeight::Bold
               ),
               makeLabel(
                   i18n::tr("settings.entities.widget.instance.delete-confirm-desc"), Style::fontSizeCaption * ctx.scale,
-                  colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+                  colorSpecFromRole(ColorRole::OnErrorContainer), FontWeight::Normal
               ),
               ui::row(
                   {
@@ -2487,6 +2487,28 @@ namespace settings {
                 },
             })
         );
+        const auto& accordionMsRange = noctalia::config::schema::kBarCapsuleAccordionMsRange;
+        const auto accordionMsMin = static_cast<double>(*accordionMsRange.min);
+        const auto accordionMsMax = static_cast<double>(*accordionMsRange.max);
+        const auto accordionMsStep = static_cast<double>(*accordionMsRange.step);
+        ctx.makeRow(
+            *panelPtr, groupEntry("accordion-duration"),
+            makeGroupSliderControl(
+                ctx, static_cast<double>(style.accordionDurationMs.value_or(Style::animNormal)), accordionMsMin,
+                accordionMsMax, accordionMsStep, true, [mutateGroup](double v) {
+                  mutateGroup([&](BarCapsuleGroupStyle& g) { g.accordionDurationMs = static_cast<std::int32_t>(v); });
+                }
+            )
+        );
+        ctx.makeRow(
+            *panelPtr, groupEntry("accordion-delay"),
+            makeGroupSliderControl(
+                ctx, static_cast<double>(style.accordionDelayMs.value_or(0)), accordionMsMin, accordionMsMax,
+                accordionMsStep, true, [mutateGroup](double v) {
+                  mutateGroup([&](BarCapsuleGroupStyle& g) { g.accordionDelayMs = static_cast<std::int32_t>(v); });
+                }
+            )
+        );
       }
 
       body.addChild(std::move(panel));
@@ -2600,13 +2622,13 @@ namespace settings {
           .gap = Style::spaceSm * ctx.scale,
           .paddingV = Style::spaceXs * ctx.scale,
           .paddingH = Style::spaceSm * ctx.scale,
-          .fill = colorSpecFromRole(ColorRole::Primary, 0.12F),
+          .fill = colorSpecFromRole(ColorRole::PrimaryContainer),
           .radius = Style::scaledRadiusSm(ctx.scale),
           .fillWidth = true,
       });
       auto label = makeLabel(
           i18n::tr("settings.entities.widget.group.selected", "count", std::to_string(ctx.selectedLaneWidgets.size())),
-          Style::fontSizeCaption * ctx.scale, colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold
+          Style::fontSizeCaption * ctx.scale, colorSpecFromRole(ColorRole::OnPrimaryContainer), FontWeight::Bold
       );
       label->setFlexGrow(1.0F);
       toolbar->addChild(std::move(label));
@@ -2958,7 +2980,7 @@ namespace settings {
           .align = FlexAlign::Stretch,
           .paddingV = 3.0F * ctx.scale,
           .paddingH = Style::spaceXs * ctx.scale,
-          .fill = colorSpecFromRole(ColorRole::Surface, 0.72F),
+          .fill = colorSpecFromRole(ColorRole::Surface),
           .radius = Style::scaledRadiusSm(ctx.scale),
           .border = isSelected ? colorSpecFromRole(ColorRole::Primary) : clearColorSpec(),
           .borderWidth = Style::borderWidth,
@@ -3093,9 +3115,9 @@ namespace settings {
           .align = FlexAlign::Stretch,
           .gap = Style::spaceXs * ctx.scale,
           .padding = Style::spaceSm * ctx.scale,
-          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F),
+          .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
           .radius = Style::scaledRadiusMd(ctx.scale),
-          .border = colorSpecFromRole(ColorRole::Outline),
+          .border = colorSpecFromRole(ColorRole::OutlineVariant),
           .minWidth = 160.0F * ctx.scale,
           .flexGrow = 1.0F,
       });
@@ -3145,12 +3167,12 @@ namespace settings {
                     .align = FlexAlign::Center,
                     .paddingV = 0,
                     .paddingH = Style::spaceXs * ctx.scale,
-                    .fill = colorSpecFromRole(ColorRole::Primary, 0.15F),
+                    .fill = colorSpecFromRole(ColorRole::PrimaryContainer),
                     .radius = Style::scaledRadiusSm(ctx.scale),
                 },
                 makeLabel(
                     i18n::tr("settings.badges.override"), Style::fontSizeCaption * ctx.scale,
-                    colorSpecFromRole(ColorRole::Primary), FontWeight::Bold
+                    colorSpecFromRole(ColorRole::OnPrimaryContainer), FontWeight::Bold
                 )
             )
         );
@@ -3162,7 +3184,7 @@ namespace settings {
                     .align = FlexAlign::Center,
                     .paddingV = 0,
                     .paddingH = Style::spaceXs * ctx.scale,
-                    .fill = colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.14F),
+                    .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
                     .radius = Style::scaledRadiusSm(ctx.scale),
                 },
                 makeLabel(
@@ -3216,7 +3238,7 @@ namespace settings {
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
                 .radius = Style::scaledRadiusSm(ctx.scale),
-                .border = colorSpecFromRole(ColorRole::Error, 0.5F),
+                .border = colorSpecFromRole(ColorRole::Error),
             });
             orphan->addChild(makeLabel(
                 i18n::tr("settings.entities.widget.group.orphan"), Style::fontSizeCaption * ctx.scale,
@@ -3247,10 +3269,10 @@ namespace settings {
           }
 
           // Tint the container by the group's own fill so groups with different colors are distinguishable.
-          // A color meant to blend into surfaces (e.g. surface_variant) can't separate the box from the lane,
+          // A color meant to blend into surfaces (e.g. surface_container) can't separate the box from the lane,
           // so fall back to a neutral border + slight surface lift when the fill is too close to the lane.
           const Color groupFillColor = resolveColorSpec(group->fill);
-          const Color laneBgColor = colorForRole(ColorRole::SurfaceVariant);
+          const Color laneBgColor = colorForRole(ColorRole::SurfaceContainer);
           const float dr = groupFillColor.r - laneBgColor.r;
           const float dg = groupFillColor.g - laneBgColor.g;
           const float db = groupFillColor.b - laneBgColor.b;
@@ -3262,8 +3284,8 @@ namespace settings {
             groupFillTint.alpha *= 0.15F;
             groupBorder = group->fill; // full opacity
           } else {
-            groupFillTint = colorSpecFromRole(ColorRole::OnSurface, 0.06F); // slight neutral lift
-            groupBorder = colorSpecFromRole(ColorRole::Outline);            // full opacity
+            groupFillTint = colorSpecFromRole(ColorRole::SurfaceContainer); // slight neutral lift
+            groupBorder = colorSpecFromRole(ColorRole::OutlineVariant);     // full opacity
           }
           auto container = ui::column({
               .align = FlexAlign::Stretch,
@@ -3294,7 +3316,7 @@ namespace settings {
                   .width = Style::fontSizeCaption * ctx.scale,
                   .height = Style::fontSizeCaption * ctx.scale,
                   .configure = [](Box& box) {
-                    box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+                    box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
                   },
               })
           );
@@ -3540,9 +3562,9 @@ namespace settings {
                     .gap = 2.0F * ctx.scale,
                     .paddingV = Style::spaceMd * ctx.scale,
                     .paddingH = Style::spaceSm * ctx.scale,
-                    .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.25F),
+                    .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
                     .radius = Style::scaledRadiusSm(ctx.scale),
-                    .border = colorSpecFromRole(ColorRole::Outline),
+                    .border = colorSpecFromRole(ColorRole::OutlineVariant),
                 },
                 makeLabel(
                     i18n::tr("settings.entities.widget.lanes.empty"), Style::fontSizeCaption * ctx.scale,

@@ -71,9 +71,9 @@ void IdleManager::setScreenSaverInhibitLocks(std::int64_t locks) {
   m_screenSaverInhibitLocks = next;
   const bool inhibited = m_screenSaverInhibitLocks > 0;
   if (!wasInhibited && inhibited) {
+    const bool wasIdle = m_heartbeatCompositorIdle;
     m_heartbeatCompositorIdle = false;
-    if (m_liveIdleSeconds != 0) {
-      m_liveIdleSeconds = 0;
+    if (wasIdle) {
       notifyLiveIdleChanged();
     }
   }
@@ -139,17 +139,18 @@ void IdleManager::reload(const IdleConfig& config) {
   syncHeartbeat();
 }
 
-void IdleManager::onSecondTick() {
-  if (m_heartbeatCompositorIdle && m_screenSaverInhibitLocks == 0) {
-    ++m_liveIdleSeconds;
+std::int64_t IdleManager::liveIdleSeconds() const noexcept {
+  if (!m_heartbeatCompositorIdle) {
+    return 0;
   }
+  const auto elapsed = std::chrono::steady_clock::now() - m_heartbeatIdleSince;
+  return std::max<std::int64_t>(1, std::chrono::duration_cast<std::chrono::seconds>(elapsed).count());
 }
 
 void IdleManager::syncHeartbeat() {
   destroyHeartbeat();
   if (m_wayland == nullptr || !m_wayland->hasIdleNotifier() || m_wayland->seat() == nullptr) {
     m_heartbeatCompositorIdle = false;
-    m_liveIdleSeconds = 0;
     return;
   }
 
@@ -169,7 +170,6 @@ void IdleManager::destroyHeartbeat() {
     m_heartbeatNotification = nullptr;
   }
   m_heartbeatCompositorIdle = false;
-  m_liveIdleSeconds = 0;
 }
 
 void IdleManager::clearBehaviors() {
@@ -459,7 +459,8 @@ void IdleManager::handleHeartbeatIdled(void* data, ext_idle_notification_v1* /*n
     return;
   }
   self->m_heartbeatCompositorIdle = true;
-  self->m_liveIdleSeconds = 1;
+  // The compositor reports idle only once the heartbeat timeout has already elapsed.
+  self->m_heartbeatIdleSince = std::chrono::steady_clock::now() - std::chrono::milliseconds(kHeartbeatTimeoutMs);
   self->notifyLiveIdleChanged();
 }
 
@@ -469,6 +470,5 @@ void IdleManager::handleHeartbeatResumed(void* data, ext_idle_notification_v1* /
     return;
   }
   self->m_heartbeatCompositorIdle = false;
-  self->m_liveIdleSeconds = 0;
   self->notifyLiveIdleChanged();
 }

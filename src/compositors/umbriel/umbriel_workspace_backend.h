@@ -31,6 +31,7 @@ public:
   UmbrielWorkspaceBackend& operator=(const UmbrielWorkspaceBackend&) = delete;
 
   void setChangeCallback(ChangeCallback callback) override;
+  void setWindowChangeCallback(ChangeCallback callback) override;
   void setOverviewChangeCallback(ChangeCallback callback) override;
   [[nodiscard]] bool canTrackOverviewState() const noexcept override;
   [[nodiscard]] bool hasOverviewState() const noexcept override { return m_overviewKnown; }
@@ -50,6 +51,8 @@ public:
   [[nodiscard]] std::optional<std::string> focusedWindowId() const override;
   bool focusWindowById(const std::string& windowId, bool warpPointer = false) override;
   bool closeWindowById(const std::string& windowId) override;
+  [[nodiscard]] std::optional<WindowMinimizeState> windowMinimizeState(std::string_view windowId) const override;
+  bool minimizeWindowById(const std::string& windowId) override;
   void cleanup() override;
 
 private:
@@ -60,6 +63,7 @@ private:
     bool active = false;
     std::int32_t x = 0;
     std::int32_t y = 0;
+    std::optional<WindowMinimizeState> minimizeState;
 
     bool operator==(const Window&) const = default;
   };
@@ -76,11 +80,13 @@ private:
   bool m_overviewKnown = false;
   bool m_overviewOpen = false;
   ChangeCallback m_changeCallback;
+  ChangeCallback m_windowChangeCallback;
   ChangeCallback m_overviewChangeCallback;
 
   [[nodiscard]] const WorkspaceList* cachedWorkspaces(const std::string& outputName) const;
   [[nodiscard]] std::string workspaceKeyForId(const std::string& workspaceId) const;
   [[nodiscard]] static std::string workspaceKey(const std::string& id, const std::string& name);
   void notifyChanged() const;
+  void notifyWindowsChanged() const;
   void notifyOverviewChanged() const;
 };

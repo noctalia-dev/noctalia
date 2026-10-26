@@ -42,7 +42,7 @@ private:
   RectNode* m_track = nullptr;
   Node* m_fillClip = nullptr;
   RectNode* m_fill = nullptr;
-  ColorSpec m_trackColor = colorSpecFromRole(ColorRole::SurfaceVariant);
+  ColorSpec m_trackColor = colorSpecFromRole(ColorRole::SurfaceContainer);
   ColorSpec m_fillColor = colorSpecFromRole(ColorRole::Primary);
   float m_progress = 1.0F;
   ProgressBarOrientation m_orientation = ProgressBarOrientation::Horizontal;

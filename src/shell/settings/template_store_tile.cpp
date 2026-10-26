@@ -15,8 +15,8 @@ namespace settings {
     setAlign(FlexAlign::Center);
     setGap(Style::spaceXs * scale);
     setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F));
-    setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), Style::borderWidth * scale);
+    setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), Style::borderWidth * scale);
     setRadius(Style::scaledRadiusMd(scale));
 
     addChild(
@@ -117,8 +117,8 @@ namespace settings {
       m_nameLabel->setColor(colorSpecFromRole(ColorRole::OnHover));
       m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnHover, 0.75F));
     } else {
-      setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F));
-      setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), borderWidth);
+      setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
+      setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), borderWidth);
       m_nameLabel->setColor(colorSpecFromRole(ColorRole::OnSurface));
       m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
     }

@@ -18,10 +18,6 @@
 
 namespace {
 
-  bool formatShowsSeconds(const std::string& format) {
-    return format.contains("%S") || format.contains("%T") || format.contains("%X");
-  }
-
   float clockFontSize(float contentScale) { return Style::fontSizeBody * 4.0F * contentScale; }
 
   float analogClockSize(float contentScale) { return Style::fontSizeBody * 5.25F * contentScale; }
@@ -595,8 +591,7 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
     float widest = -1.0F;
     for (char digit = '0'; digit <= '9'; ++digit) {
       const std::string glyph(1, digit);
-      const float advance =
-          renderer.measureText(glyph, fontSize, FontWeight::Bold, 0.0F, 0, TextAlign::Start, m_fontFamily).width;
+      const float advance = renderer.measureText(glyph, fontSize, {FontWeight::Bold, m_fontFamily}).width;
       if (advance > widest) {
         widest = advance;
         m_widestDigit = digit;
@@ -618,8 +613,7 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
   }
   m_stableSample = sample;
 
-  const float width =
-      renderer.measureText(sample, fontSize, FontWeight::Bold, 0.0F, 0, TextAlign::Start, m_fontFamily).width;
+  const float width = renderer.measureText(sample, fontSize, {FontWeight::Bold, m_fontFamily}).width;
   if (std::abs(width - m_stableWidth) > 0.5F) {
     m_stableWidth = width;
     m_label->setMinWidth(m_stableWidth);

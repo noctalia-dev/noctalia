@@ -7,7 +7,6 @@
 #include "scripting/plugin_file_cache.h"
 #include "scripting/plugin_manager.h"
 #include "shell/settings/config_export_dialog_modal.h"
-#include "shell/settings/search_picker_popup.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_modal_host.h"
 #include "shell/settings/settings_registry.h"
@@ -18,6 +17,7 @@
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/dialogs/layer_popup_host.h"
+#include "ui/dialogs/search_picker_popup.h"
 #include "wayland/toplevel_surface.h"
 
 #include <cstdint>
@@ -141,6 +141,8 @@ public:
   [[nodiscard]] FileDialogPresenter* fileDialogPresenter() noexcept;
 
   void onSecondTick();
+  // True while the idle settings pane renders a live seconds counter.
+  [[nodiscard]] bool wantsSecondTicks() const noexcept;
   void onIdleLiveStatusChanged();
   void markSettingsWriteSuccess(bool requestRebuild = true);
   void markSettingsWriteError(std::string message);
@@ -298,7 +300,7 @@ private:
   std::unique_ptr<ContextMenuPopup> m_actionsMenuPopup;
   std::unique_ptr<settings::WidgetAddPopup> m_widgetAddPopup;
   std::unique_ptr<settings::ConfigExportDialogModal> m_configExportDialogModal;
-  std::unique_ptr<settings::SearchPickerPopup> m_searchPickerPopup;
+  std::unique_ptr<SearchPickerPopup> m_searchPickerPopup;
   InputDispatcher m_inputDispatcher;
   settings::SettingsModalHost m_modalHost;
   std::unique_ptr<settings::SettingsDialogPresenter> m_dialogPresenter;

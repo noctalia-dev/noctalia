@@ -28,6 +28,7 @@ public:
     std::unordered_map<std::string, std::string> effectsProfileGlyphs;
     std::string customImage;
     bool customImageColorize = false;
+    bool showGlyph = true;
     bool showLabel = true;
     bool hideWhenInactive = false;
     ColorSpec muteColor = colorSpecFromRole(ColorRole::Error);
@@ -46,6 +47,7 @@ private:
 
   PipeWireService* m_audio = nullptr;
   EasyEffectsService* m_easyEffects = nullptr;
+  bool m_showGlyph = true;
   bool m_showLabel = true;
   VolumeWidgetTarget m_target = VolumeWidgetTarget::Output;
   ColorSpec m_muteColor;

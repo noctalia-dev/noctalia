@@ -111,9 +111,6 @@ void MathProvider::rebuildCalculator() {
       function->setActive(false);
     }
   }
-  // Pre-warm internal state (GMP randstate) so the destructor path is safe.
-  m_calc->calculate("0");
-  m_calc->clearMessages();
 }
 
 bool MathProvider::watchDefinitionsDir() {

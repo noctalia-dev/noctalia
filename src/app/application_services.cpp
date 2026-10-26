@@ -3,7 +3,6 @@
 #include "application_internal.h"
 #include "compositors/compositor_detect.h"
 #include "compositors/umbriel/umbriel_audio_provider.h"
-#include "config/config_export.h"
 #include "config/config_types.h"
 #include "core/build_info.h"
 #include "core/deferred_call.h"
@@ -586,18 +585,14 @@ void Application::initStyleThemeAndWayland() {
   applyPasswordMaskStyle();
   applyInputConfig();
   m_httpClient.setOfflineMode(m_configService.config().shell.offlineMode);
-  m_scriptApi.setConfigSnapshot(
-      std::make_shared<const toml::table>(config_export::serialize(m_configService.config()))
-  );
+  m_scriptApi.setConfigSnapshot(m_configService.configTable());
   m_configService.addReloadCallback(applyMotionConfig);
   m_configService.addReloadCallback(applyStyleConfig);
   m_configService.addReloadCallback(applyPasswordMaskStyle);
   m_configService.addReloadCallback(applyInputConfig);
   m_configService.addReloadCallback([this]() {
     m_httpClient.setOfflineMode(m_configService.config().shell.offlineMode);
-    m_scriptApi.setConfigSnapshot(
-        std::make_shared<const toml::table>(config_export::serialize(m_configService.config()))
-    );
+    m_scriptApi.setConfigSnapshot(m_configService.configTable());
   });
   m_configService.addReloadCallback([this]() { syncClipboardService(); });
   m_configService.addReloadCallback([this]() { syncScreenTimeService(); });
@@ -744,6 +739,9 @@ void Application::initStyleThemeAndWayland() {
     if (paletteChanged) {
       m_hookManager.fire(HookKind::ColorsChanged);
     }
+  });
+  m_templateApplyService.setWarningCallback([this](std::string_view warning) {
+    m_settingsWindow.showTransientStatus(std::string(warning), true);
   });
 
   m_themeService.setResolvedCallback([this, lastResolvedThemeMode = std::optional<std::string>{},
@@ -1042,6 +1040,7 @@ void Application::initAuxServicesAndHooks() {
 
   m_themeService.setChangeCallback([this]() {
     requestAllSurfacesRedraw();
+    m_bar.refresh();
     m_lockScreen.onThemeChanged();
     m_trayMenu.onThemeChanged();
     m_backdrop.onThemeChanged();
@@ -1214,6 +1213,8 @@ void Application::initSystemBusServices() {
             });
           }
           requestAllSurfacesRedraw();
+          // The time poll deadline is monotonic and stalls across suspend; refresh clocks now.
+          DeferredCall::callLater([this]() { m_timeService.forceTick(); });
         });
         kLog.info("logind sleep monitor active");
         m_idleInhibitor.setLogindService(m_logindService.get());
@@ -1391,6 +1392,8 @@ void Application::initSystemBusServices() {
 
     try {
       m_bluetoothService = std::make_unique<BluetoothService>(*m_systemBus, m_upowerService.get());
+      m_bluetoothService->setConnectWhenEnabled(m_configService.config().bluetooth.connectWhenEnabled);
+      m_bluetoothService->setConnectionNotifications(m_configService.config().bluetooth.connectionNotifications);
       auto refreshBluetoothUi = [this, shouldRefreshControlCenter]() {
         m_bar.refresh();
         if (shouldRefreshControlCenter()) {
@@ -1429,6 +1432,12 @@ void Application::initSystemBusServices() {
         m_bluetoothAgent.reset();
       }
     }
+    m_configService.addReloadCallback([this]() {
+      if (m_bluetoothService != nullptr) {
+        m_bluetoothService->setConnectWhenEnabled(m_configService.config().bluetooth.connectWhenEnabled);
+        m_bluetoothService->setConnectionNotifications(m_configService.config().bluetooth.connectionNotifications);
+      }
+    });
 
     try {
       m_modemManagerService = std::make_unique<ModemManagerService>(*m_systemBus);

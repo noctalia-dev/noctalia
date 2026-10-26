@@ -5,11 +5,76 @@
 #include "ui/controls/segmented.h"
 
 #include <algorithm>
+#include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
+namespace {
+  class LayoutProvider final : public LauncherProvider {
+  public:
+    explicit LayoutProvider(bool grid) : m_grid(grid) {}
+    std::string_view defaultPrefix() const override { return m_grid ? "grid" : "list"; }
+    std::string_view id() const override { return m_grid ? "Grid" : "List"; }
+    bool supportsGrid() const override { return m_grid; }
+    bool defaultIncludeInGlobalSearch() const override { return true; }
+    std::vector<LauncherResult> query(std::string_view text) const override {
+      if (text == "empty") {
+        return {};
+      }
+      return {{.id = std::string(id()), .title = "Result", .presentation = text == "detail" ? "detail" : ""}};
+    }
+    bool activate(const LauncherResult&) override { return false; }
+
+  private:
+    bool m_grid;
+  };
+} // namespace
+
 class LauncherPanelTestAccess {
 public:
+  static void checkGridPolicy() {
+    LauncherPanel panel(nullptr, nullptr, nullptr);
+    panel.addProvider(std::make_unique<LayoutProvider>(true));
+    panel.addProvider(std::make_unique<LayoutProvider>(false));
+
+    // Prefix routing supplies the policy even when no results are available.
+    panel.onInputChanged("/grid");
+    TEST_CHECK(panel.supportsResultGrid());
+    panel.onInputChanged("/grid empty");
+    TEST_CHECK(panel.m_results.empty());
+    TEST_CHECK(panel.supportsResultGrid());
+    panel.onInputChanged("/list empty");
+    TEST_CHECK(!panel.supportsResultGrid());
+    panel.onInputChanged("/grid detail");
+    TEST_CHECK(!panel.supportsResultGrid());
+
+    // Mixed global results must retain the list-only provider's text.
+    panel.onInputChanged("test");
+    TEST_CHECK(panel.m_results.size() == 2);
+    TEST_CHECK(!panel.supportsResultGrid());
+    std::erase_if(panel.m_results, [](const auto& result) { return result.providerId == "List"; });
+    TEST_CHECK(panel.supportsResultGrid());
+
+    panel.onInputChanged("/");
+    TEST_CHECK(panel.supportsResultGrid());
+    panel.m_launcherShowIcons = false;
+    TEST_CHECK(!panel.supportsResultGrid());
+    panel.m_launcherShowIcons = true;
+
+    // A selected provider and an explicit scope use the same policy as its prefix.
+    panel.m_launcherProviderViewId = "Grid";
+    panel.onInputChanged("");
+    TEST_CHECK(panel.supportsResultGrid());
+    panel.m_launcherProviderViewId.clear();
+    panel.setScopedProvider("List");
+    panel.onInputChanged("/grid");
+    TEST_CHECK(!panel.supportsResultGrid());
+    panel.setScopedProvider("Grid");
+    panel.onInputChanged("");
+    TEST_CHECK(panel.supportsResultGrid());
+  }
+
   static void initialize(LauncherPanel& panel, Segmented& navigation, Segmented& categories) {
     panel.m_browserMode = true;
     panel.m_launcherNavigation = &navigation;
@@ -55,6 +120,7 @@ namespace {
 
 int main() {
   PanelManager manager;
+  LauncherPanelTestAccess::checkGridPolicy();
   Segmented navigation;
   Segmented categories;
   LauncherPanel panel(nullptr, nullptr, nullptr);

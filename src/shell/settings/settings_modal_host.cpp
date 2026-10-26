@@ -395,6 +395,14 @@ namespace settings {
     if (m_impl->entries.empty() || m_impl->input == nullptr) {
       return false;
     }
+    const InputArea* const focused = m_impl->input->focusedArea();
+    if (focused != nullptr && focused->capturesAllKeys()) {
+      m_impl->input->keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+      if (m_impl->requestLayout) {
+        m_impl->requestLayout();
+      }
+      return true;
+    }
     if (event.pressed && !event.preedit && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
       requestCloseTop();
       return true;

@@ -61,7 +61,8 @@ void AudioVisualizerWidget::doLayout(Renderer& renderer, float containerWidth, f
   // containerWidth/Height are the bar's logical cross/main extents (not the widget slot).
   const bool barIsVertical = containerHeight > containerWidth;
   const float crossLimit = std::max(1.0F, barIsVertical ? containerWidth : containerHeight);
-  const float bodyExtent = renderer.fontRowExtent(Style::fontSizeBody * m_contentScale);
+  const float bodyExtent =
+      renderer.fontRowExtent(Style::fontSizeBody * m_contentScale, {labelFontWeight(), labelFontFamily()});
   const float crossExtent = std::min(bodyExtent, crossLimit);
   const float width = std::max(1.0F, barIsVertical ? crossExtent : m_width * m_contentScale);
   const float height = std::max(1.0F, barIsVertical ? m_width * m_contentScale : crossExtent);

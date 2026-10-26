@@ -123,6 +123,10 @@ namespace scripting {
     double panelHeight = 0.0;
     bool panelWidthFill = false;
     bool panelHeightFill = false;
+    // height = "content": the panel's height follows its rendered tree, capped at
+    // panelMaxHeight (required with it).
+    bool panelHeightContent = false;
+    double panelMaxHeight = 0.0;
     // Host-standard shell settings (see plugin_panel_shell.*). Optional
     // [[panel]] keys provide defaults; injected settings use "{id}_placement",
     // "{id}_layer", and the corresponding canonical suffixes.

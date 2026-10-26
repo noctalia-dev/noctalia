@@ -89,12 +89,12 @@ int main() {
   {
     std::string externalKey;
     std::string internalKey;
-    manager.setActionInvokeCallback([&externalKey](uint32_t, const std::string& key, const std::string&) {
-      externalKey = key;
-    });
-    manager.setInternalActionCallback([&internalKey](uint32_t, const std::string& key, const std::string&) {
-      internalKey = key;
-    });
+    manager.setActionInvokeCallback(
+        [&externalKey](uint32_t, const std::string& key, const std::string&, const std::string&) { externalKey = key; }
+    );
+    manager.setInternalActionCallback(
+        [&internalKey](uint32_t, const std::string& key, const std::string&, const std::string&) { internalKey = key; }
+    );
 
     const auto internalId = manager.addOrReplace(
         NotificationRequest{

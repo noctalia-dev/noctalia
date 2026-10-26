@@ -1262,10 +1262,6 @@
         "horizontal": "Horizontal",
         "vertical": "Vertical"
       },
-      "panel-bar-alignment": {
-        "centered": "Centrado",
-        "near-trigger": "Preto do disparador"
-      },
       "panel-position": {
         "auto": "Seguir a barra"
       },

@@ -20,13 +20,13 @@ When disabled, Noctalia keeps system-monitor UI available but stops the backgrou
 
 Poll intervals are configured globally under `[system.monitor]`, not per widget. Each value is the number of seconds between samples for that metric group. A non-zero value is clamped to `1` to `120` seconds; setting a value to `0` disables that metric group entirely - it is never sampled and schedules no wakeups. GPU probes run only while UI displays a GPU stat, so the default interval does not wake an otherwise unused discrete GPU. Set `gpu_poll_seconds = 0` to disable probing entirely. You can also adjust intervals in whole-second steps (down to `0`) in **Settings → Services → Advanced** when the system monitor is enabled.
 
-| Key | Default | Metrics |
-|-----|---------|---------|
-| `cpu_poll_seconds` | `2.0` | CPU usage %, CPU frequency, CPU temperature, and load average (`1` / `5` / `15` min) |
-| `gpu_poll_seconds` | `5.0` | GPU temperature, usage %, and VRAM used/total. Probes run only while something displays a GPU stat; `0` disables them entirely |
-| `memory_poll_seconds` | `2.0` | RAM usage % and used/total MB |
-| `network_poll_seconds` | `3.0` | Network download and upload throughput |
-| `disk_poll_seconds` | `10.0` | Disk used/free values for paths used by bar `sysmon` widgets, plus swap usage % and used/total MB |
+| Key                    | Default | Metrics                                                                                                                        |
+| ---------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `cpu_poll_seconds`     | `2.0`   | CPU usage %, CPU frequency, CPU temperature, and load average (`1` / `5` / `15` min)                                           |
+| `gpu_poll_seconds`     | `5.0`   | GPU temperature, usage %, and VRAM used/total. Probes run only while something displays a GPU stat; `0` disables them entirely |
+| `memory_poll_seconds`  | `2.0`   | RAM usage % and used/total MB                                                                                                  |
+| `network_poll_seconds` | `3.0`   | Network download and upload throughput                                                                                         |
+| `disk_poll_seconds`    | `10.0`  | Disk used/free values for paths used by bar `sysmon` widgets, plus swap usage % and used/total MB                              |
 
 CPU usage, frequency, and temperature share `cpu_poll_seconds` because they are tied to the same CPU sampling pass. GPU temperature, usage, and VRAM share `gpu_poll_seconds`. Swap and disk usage share `disk_poll_seconds`. Network Rx and Tx share `network_poll_seconds` because they come from the same `/proc/net/dev` read. The aggregate network values exclude loopback; bar and desktop `sysmon` widgets can set `interface` to an exact `/proc/net/dev` interface name to show only that interface.
 
@@ -60,23 +60,23 @@ done
 
 Bar and desktop `sysmon` widgets and the Control Center System tab all draw from the same sampling thread, so they share one catalog of stats. Each widget picks one with `stat` (desktop graphs take an optional second with `stat2`).
 
-| Value | Display | Description | Bar | Desktop |
-|-------|---------|-------------|-----|---------|
-| `cpu_usage` | `75%` | CPU utilisation (all cores) | ✓ | ✓ |
-| `cpu_temp` | `65°C` | CPU package temperature | ✓ | ✓ |
-| `cpu_freq` | `3.8 GHz` | Average current CPU frequency | ✓ | ✓ |
-| `gpu_temp` | `72°C` | GPU temperature | ✓ | ✓ |
-| `gpu_usage` | `48%` | GPU utilisation | ✓ | ✓ |
-| `gpu_vram` | `42%` | GPU VRAM usage | ✓ | ✓ |
-| `ram_used` | `4.2 GiB` | RAM used (binary, auto-scaled) | ✓ | — |
-| `ram_pct` | `26%` | RAM used % | ✓ | ✓ |
-| `swap_pct` | `12%` | Swap used % | ✓ | ✓ |
-| `disk_used_pct` | `45%` | Disk used % for the widget's `path` | ✓ | — |
-| `disk_used` | `120 GiB` | Disk space used for the widget's `path` | ✓ | — |
-| `disk_free_pct` | `55%` | Disk free % for the widget's `path` | ✓ | — |
-| `disk_free` | `380 GiB` | Disk space available for the widget's `path` | ✓ | — |
-| `net_rx` | `1.2 MB/s` | Network download speed (decimal, auto-scaled) | ✓ | ✓ |
-| `net_tx` | `256 kB/s` | Network upload speed (decimal, auto-scaled) | ✓ | ✓ |
+| Value           | Display    | Description                                   | Bar | Desktop |
+| --------------- | ---------- | --------------------------------------------- | --- | ------- |
+| `cpu_usage`     | `75%`      | CPU utilisation (all cores)                   | ✓   | ✓       |
+| `cpu_temp`      | `65°C`     | CPU package temperature                       | ✓   | ✓       |
+| `cpu_freq`      | `3.8 GHz`  | Average current CPU frequency                 | ✓   | ✓       |
+| `gpu_temp`      | `72°C`     | GPU temperature                               | ✓   | ✓       |
+| `gpu_usage`     | `48%`      | GPU utilisation                               | ✓   | ✓       |
+| `gpu_vram`      | `42%`      | GPU VRAM usage                                | ✓   | ✓       |
+| `ram_used`      | `4.2 GiB`  | RAM used (binary, auto-scaled)                | ✓   | —       |
+| `ram_pct`       | `26%`      | RAM used %                                    | ✓   | ✓       |
+| `swap_pct`      | `12%`      | Swap used %                                   | ✓   | ✓       |
+| `disk_used_pct` | `45%`      | Disk used % for the widget's `path`           | ✓   | —       |
+| `disk_used`     | `120 GiB`  | Disk space used for the widget's `path`       | ✓   | —       |
+| `disk_free_pct` | `55%`      | Disk free % for the widget's `path`           | ✓   | —       |
+| `disk_free`     | `380 GiB`  | Disk space available for the widget's `path`  | ✓   | —       |
+| `net_rx`        | `1.2 MB/s` | Network download speed (decimal, auto-scaled) | ✓   | ✓       |
+| `net_tx`        | `256 kB/s` | Network upload speed (decimal, auto-scaled)   | ✓   | ✓       |
 
 A stat whose source is unavailable on the machine - GPU VRAM on an integrated GPU, for example - is shown as unavailable rather than as zero. What each GPU vendor can report is covered under [GPU data sources](#gpu-data-sources).
 
@@ -86,15 +86,15 @@ The stats are read once and shared, but a few *presentation* options stay per wi
 
 Noctalia reads GPU statistics straight from the kernel and from the vendor's own management library where one exists. No elevated privileges are required, and Noctalia does not invoke command-line monitoring tools such as `nvidia-smi`, `intel_gpu_top`, or `radeontop`.
 
-::::note[Integrated GPUs are supported]
+:::note[Integrated GPUs are supported]
 GPU monitoring is not limited to discrete GPUs. Noctalia can report temperature and usage for supported integrated AMD and Intel GPUs when their kernel drivers expose those metrics. The `gpu_vram` stat is different: an integrated GPU that shares system memory has no dedicated VRAM to report, so that one stat is unavailable even though its other GPU stats can work.
-::::
+:::
 
-| GPU | Runtime requirement | Extra package needed? |
-|-----|---------------------|-----------------------|
-| AMD | The kernel `amdgpu` driver and its sysfs interfaces | No. The optional ROCm SMI library (`librocm_smi64.so`) is preferred when installed, but the normal kernel interfaces are sufficient |
-| NVIDIA | The proprietary NVIDIA driver and NVML (`libnvidia-ml.so.1`) | Usually supplied by the driver's userspace utilities package. On Arch Linux, install `nvidia-utils` |
-| Intel | The kernel `i915` or `xe` driver and DRM interfaces | No |
+| GPU    | Runtime requirement                                          | Extra package needed?                                                                                                               |
+| ------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| AMD    | The kernel `amdgpu` driver and its sysfs interfaces          | No. The optional ROCm SMI library (`librocm_smi64.so`) is preferred when installed, but the normal kernel interfaces are sufficient |
+| NVIDIA | The proprietary NVIDIA driver and NVML (`libnvidia-ml.so.1`) | Usually supplied by the driver's userspace utilities package. On Arch Linux, install `nvidia-utils`                                 |
+| Intel  | The kernel `i915` or `xe` driver and DRM interfaces          | No                                                                                                                                  |
 
 For NVIDIA, the driver and userspace library must be compatible; installing `nvidia-utils` alone does not replace the matching kernel driver. You can check that the required NVML library is visible to applications with:
 
@@ -104,11 +104,11 @@ ldconfig -p | grep 'libnvidia-ml.so.1'
 
 The open-source Nouveau driver does not provide NVML, so NVIDIA usage and VRAM monitoring require the proprietary driver. The `nvidia-smi` executable may be installed by the same package, but Noctalia loads NVML directly and does not run it.
 
-| GPU | Temperature | Usage | VRAM |
-|-----|-------------|-------|------|
-| AMD | `amdgpu` hwmon | `gpu_busy_percent` | `mem_info_vram_used` / `mem_info_vram_total` |
-| NVIDIA | NVML, hwmon otherwise | NVML | NVML |
-| Intel | `i915` / `xe` hwmon | per-client DRM statistics | `xe` device query |
+| GPU    | Temperature           | Usage                     | VRAM                                         |
+| ------ | --------------------- | ------------------------- | -------------------------------------------- |
+| AMD    | `amdgpu` hwmon        | `gpu_busy_percent`        | `mem_info_vram_used` / `mem_info_vram_total` |
+| NVIDIA | NVML, hwmon otherwise | NVML                      | NVML                                         |
+| Intel  | `i915` / `xe` hwmon   | per-client DRM statistics | `xe` device query                            |
 
 On AMD, ROCm SMI is used instead of sysfs when the ROCm runtime is installed. On a hybrid laptop whose discrete NVIDIA GPU is asleep, NVML is skipped so the GPU is not woken, and the integrated GPU is reported instead.
 
@@ -154,21 +154,21 @@ net_tx_critical_threshold    = 50     # MB/s
 
 The value's color is interpolated between the widget's regular foreground color (its `color` setting) and its `highlight_color` (set per widget - see the [`sysmon` widget](/noctalia/bar/widgets/sysmon/)). Below the activity threshold the value stays at its regular color; the moment it crosses the activity threshold it jumps to a small highlight tint, then ramps the rest of the way to the full `highlight_color`, reaching it at or above the critical threshold. Set the critical threshold to `0` to disable highlighting for that stat.
 
-| Key | Default | Unit | Stat |
-|-----|---------|------|------|
-| `cpu_usage_activity_threshold` / `cpu_usage_critical_threshold` | `50` / `90` | % | CPU usage |
-| `cpu_temp_activity_threshold` / `cpu_temp_critical_threshold` | `60` / `85` | °C | CPU temperature |
-| `cpu_freq_activity_threshold` / `cpu_freq_critical_threshold` | `2.5` / `4.5` | GHz | CPU frequency |
-| `gpu_temp_activity_threshold` / `gpu_temp_critical_threshold` | `60` / `85` | °C | GPU temperature |
-| `gpu_usage_activity_threshold` / `gpu_usage_critical_threshold` | `50` / `95` | % | GPU usage |
-| `gpu_vram_activity_threshold` / `gpu_vram_critical_threshold` | `50` / `90` | % | GPU VRAM usage |
-| `ram_pct_activity_threshold` / `ram_pct_critical_threshold` | `60` / `90` | % | RAM usage (also `ram_used`) |
-| `swap_pct_activity_threshold` / `swap_pct_critical_threshold` | `20` / `80` | % | Swap usage |
-| `disk_used_pct_activity_threshold` / `disk_used_pct_critical_threshold` | `80` / `95` | % | Disk used % |
-| `disk_used_activity_threshold` / `disk_used_critical_threshold` | `80` / `95` | % | Disk used |
-| `disk_free_pct_activity_threshold` / `disk_free_pct_critical_threshold` | `80` / `95` | % | Disk free % |
-| `disk_free_activity_threshold` / `disk_free_critical_threshold` | `80` / `95` | % | Disk free |
-| `net_rx_activity_threshold` / `net_rx_critical_threshold` | `1` / `50` | MB/s | Network download |
-| `net_tx_activity_threshold` / `net_tx_critical_threshold` | `1` / `50` | MB/s | Network upload |
+| Key                                                                     | Default       | Unit | Stat                        |
+| ----------------------------------------------------------------------- | ------------- | ---- | --------------------------- |
+| `cpu_usage_activity_threshold` / `cpu_usage_critical_threshold`         | `50` / `90`   | %    | CPU usage                   |
+| `cpu_temp_activity_threshold` / `cpu_temp_critical_threshold`           | `60` / `85`   | °C   | CPU temperature             |
+| `cpu_freq_activity_threshold` / `cpu_freq_critical_threshold`           | `2.5` / `4.5` | GHz  | CPU frequency               |
+| `gpu_temp_activity_threshold` / `gpu_temp_critical_threshold`           | `60` / `85`   | °C   | GPU temperature             |
+| `gpu_usage_activity_threshold` / `gpu_usage_critical_threshold`         | `50` / `95`   | %    | GPU usage                   |
+| `gpu_vram_activity_threshold` / `gpu_vram_critical_threshold`           | `50` / `90`   | %    | GPU VRAM usage              |
+| `ram_pct_activity_threshold` / `ram_pct_critical_threshold`             | `60` / `90`   | %    | RAM usage (also `ram_used`) |
+| `swap_pct_activity_threshold` / `swap_pct_critical_threshold`           | `20` / `80`   | %    | Swap usage                  |
+| `disk_used_pct_activity_threshold` / `disk_used_pct_critical_threshold` | `80` / `95`   | %    | Disk used %                 |
+| `disk_used_activity_threshold` / `disk_used_critical_threshold`         | `80` / `95`   | %    | Disk used                   |
+| `disk_free_pct_activity_threshold` / `disk_free_pct_critical_threshold` | `80` / `95`   | %    | Disk free %                 |
+| `disk_free_activity_threshold` / `disk_free_critical_threshold`         | `80` / `95`   | %    | Disk free                   |
+| `net_rx_activity_threshold` / `net_rx_critical_threshold`               | `1` / `50`    | MB/s | Network download            |
+| `net_tx_activity_threshold` / `net_tx_critical_threshold`               | `1` / `50`    | MB/s | Network upload              |
 
 The `ram_used` and `ram_pct` stats share the `ram_pct_*` thresholds, since both are driven by the same RAM usage percentage. You can also adjust every threshold in **Settings → Services** when the system monitor is enabled; each stat has a single dual-handle range slider - the left handle sets the activity threshold and the right handle the critical threshold, and the handles cannot cross, so the activity threshold can never exceed its critical threshold.

@@ -745,7 +745,7 @@
     },
     "internal": {
       "battery": "Akku",
-      "battery-critical-body": "{device}: {percent}% – dein Computer fährt bald herunter",
+      "battery-critical-body": "{device}: {percent}%; dein Computer fährt bald herunter",
       "battery-critical-title": "Akkustand kritisch",
       "battery-device": "Akkugerät",
       "battery-low-body": "{device}: {percent}% verbleibend",
@@ -769,12 +769,12 @@
       "desktop-widgets-editor": "Widget-Editor",
       "desktop-widgets-editor-enabled": "Der Desktop-Widget-Editor ist aktiv. Wechsle zu einem leeren Arbeitsbereich, damit offene Fenster den Editor nicht verdecken.",
       "greeter-sync": "Noctalia Greeter",
-      "greeter-sync-pending": "Warte auf Administratorfreigabe zum Schreiben in den Greeter.",
-      "greeter-sync-pending-console": "Warte auf Administratorfreigabe. Bestätige die Polkit-Anfrage in Noctalia, auf einem TTY oder einer Konsole oder führe pkexec manuell aus.",
-      "greeter-sync-pending-manual": "Dateien sind vorbereitet. Führe in einem Terminal aus: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Oder lege shell.greeter_sync.privilege_command fest (z. B. ghostty -e pkexec) und synchronisiere erneut.",
+      "greeter-sync-pending": "Das Erscheinungsbild wird mit dem Greeter synchronisiert. Falls eine Administratorabfrage erscheint, bestätige sie; passwortlose Autorisierung folgt der Systemrichtlinie.",
+      "greeter-sync-pending-console": "Das Erscheinungsbild wird mit dem Greeter synchronisiert. Falls eine Autorisierung erforderlich ist, bestätige die Polkit-Anfrage in Noctalia, auf einem TTY oder in einer Konsole.",
+      "greeter-sync-pending-manual": "Dateien sind für die authentifizierte Legacy-Synchronisierung vorbereitet. Führe den positionalen Apply-Helfer in einem Terminal aus und übergib dabei NOCTALIA_GREETER_STATE_DIR, falls du einen benutzerdefinierten Pfad verwendest oder lege shell.greeter_sync.privilege_command fest und synchronisiere erneut.",
       "greeter-sync-success": "Erscheinungsbild synchronisiert. Änderungen werden beim nächsten Anmeldebildschirm angewendet.",
-      "greeter-sync-timeout": "Die Greeter-Synchronisierung wartet weiterhin auf Administratorfreigabe. Prüfe einen TTY oder eine Konsole auf eine Polkit-Anfrage, aktiviere den Polkit-Agenten in den Sicherheitseinstellungen oder führe pkexec manuell aus.",
-      "greeter-sync-timeout-manual": "Die Greeter-Synchronisierung benötigt weiterhin Administratorfreigabe. Führe in einem Terminal aus: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout": "Die Greeter-Synchronisierung wartet weiterhin auf Autorisierung. Prüfe ein TTY oder eine Konsole auf eine Polkit-Anfrage, aktiviere den Polkit-Agenten in den Sicherheitseinstellungen oder führe pkexec manuell aus.",
+      "greeter-sync-timeout-manual": "Die authentifizierte Legacy-Synchronisierung benötigt weiterhin Administratorfreigabe. Führe den positionalen Apply-Helfer in einem Terminal aus und behalte NOCTALIA_GREETER_STATE_DIR bei, falls du einen benutzerdefinierten Pfad verwendest.",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Dieses Tastenkürzel akzeptiert eine einzelne Taste ohne Zusatztasten.",
       "keybind-invalid-printable": "Druckbare Tasten (Buchstaben, Zahlen, Symbole) benötigen einen Modifikator wie Ctrl oder Alt.",
@@ -1385,18 +1385,14 @@
         "horizontal": "Horizontal",
         "vertical": "Vertikal"
       },
-      "panel-bar-alignment": {
-        "centered": "Zentriert",
-        "near-trigger": "Nahe Trigger"
-      },
       "panel-position": {
         "auto": "Leiste folgen"
       },
       "plugins": {
         "auto-update": {
-          "all": "Alle Quellen",
+          "all": "Alle",
           "none": "Keine",
-          "official": "Nur offizielle"
+          "official": "Offizielle"
         }
       },
       "screen-position": {
@@ -1662,7 +1658,7 @@
           "label": "Reines Schwarz"
         },
         "theme-mode": {
-          "description": "Wähle dunkel oder hell bzw. automatisch abhängig von der Tageszeit",
+          "description": "Wähle dunkel oder hell bzw. automatisch abhängig von der Tageszeit; gilt über Templates auch für Apps",
           "label": "Theme-Modus"
         },
         "ui-scale": {
@@ -2344,7 +2340,7 @@
           "label": "Auto-Paste"
         },
         "launcher-categories": {
-          "description": "Zeige einen Kategoriefilter im Launcher; mit F6 einblenden, danach mit F6 und Shift+F6 wechseln",
+          "description": "Zeige die „Alle“-, „Zuletzt verwendet“- und Kategorie-Chips unter dem Suchfeld an",
           "label": "Kategorien anzeigen"
         },
         "launcher-compact": {
@@ -2376,11 +2372,11 @@
           "label": "Fenster in globaler Suche"
         },
         "launcher-grid": {
-          "description": "Zeige ein Raster von App-Icons mit Beschriftungen darunter, wenn die Ergebnisse ausschließlich Apps sind",
-          "label": "App-Rasteransicht"
+          "description": "Zeige Ergebnisse und die Modulübersicht als Icon-Raster statt als Zeilen an",
+          "label": "Rasteransicht"
         },
         "launcher-pinned-apps": {
-          "description": "Desktop-Entry-IDs von Apps, die im Launcher angeheftet sind; sie erscheinen zuerst, wenn der Launcher geöffnet wird",
+          "description": "Desktop-Entry-IDs, die in manueller Reihenfolge in der Ansicht „Angeheftet“ angezeigt werden",
           "label": "Angeheftete Apps"
         },
         "launcher-prefix-calculator": {
@@ -2409,7 +2405,7 @@
         },
         "launcher-reset-usage": {
           "button": "Zurücksetzen",
-          "description": "Lösche Startzähler und den Verlauf der zuletzt verwendeten Einträge, die für die Launcher-Sortierung genutzt werden",
+          "description": "Lösche den Launcher-Verlauf, der für „Zuletzt verwendet“ und die nutzungsbasierte Sortierung verwendet wird",
           "label": "Nutzungsdaten zurücksetzen"
         },
         "launcher-session-search": {
@@ -2421,7 +2417,7 @@
           "label": "App-Icons anzeigen"
         },
         "launcher-sort-by-usage": {
-          "description": "Schiebe häufig verwendete Apps weiter nach oben und zeige einen Filter für die Kategorie „Zuletzt verwendet“",
+          "description": "Priorisiere häufig verwendete Ergebnisse in der Standardansicht und bei der Suche",
           "label": "Nach Nutzung sortieren"
         },
         "list-item-background": {
@@ -2559,11 +2555,11 @@
           "description-reconnect": "Google-Autorisierung fehlt; verbinde dieses Konto neu"
         },
         "calendar-event-date-format": {
-          "description": "Das Datumsformat, das in der Ereigniskarte für das ausgewählte Datum angezeigt wird",
+          "description": "Das Datumsformat, das in Kalenderansichten über der Ereignisliste angezeigt wird",
           "label": "Ereignisdatumsformat"
         },
         "calendar-event-time-format": {
-          "description": "Das Zeitformat, das für Kalenderereignisse angezeigt wird",
+          "description": "Das Zeitformat, das für Kalenderereignisse in Kalenderansichten angezeigt wird",
           "label": "Ereigniszeitformat"
         },
         "calendar-refresh-interval": {
@@ -2643,7 +2639,7 @@
           "placeholder": "/path/to/sound.wav"
         },
         "shell-sounds": {
-          "description": "Soundeffekte für Shell-Ereignisse abspielen",
+          "description": "Hauptschalter für Shell-Soundeffekte",
           "label": "Shell-Sounds"
         },
         "sound-volume": {
@@ -3007,12 +3003,12 @@
           "label": "In Zwischenablage kopieren"
         },
         "screenshot-directory": {
-          "description": "Ordner für gespeicherte PNG-Dateien; leer lassen, um das Standard-XDG-Bilderverzeichnis zu verwenden",
+          "description": "Ordner für gespeicherte Screenshot-Dateien; leer lassen, um das Standard-XDG-Bilderverzeichnis zu verwenden",
           "label": "Ausgabeverzeichnis",
           "placeholder": "XDG-Bilderverzeichnis"
         },
         "screenshot-filename-pattern": {
-          "description": "strftime-Muster ohne Dateiendung (.png wird hinzugefügt); verwende %s für Unix-Epoche",
+          "description": "strftime-Muster ohne Dateiendung (die Endung des Formats wird automatisch hinzugefügt); verwende %s für Unix-Epoche",
           "label": "Dateinamenmuster"
         },
         "screenshot-freeze-screen": {
@@ -3033,7 +3029,7 @@
           "label": "Letzten Bereich merken"
         },
         "screenshot-save-to-file": {
-          "description": "Speichere Screenshots als PNG-Dateien in das Ausgabeverzeichnis",
+          "description": "Speichere Screenshots im gewählten Dateiformat im Ausgabeverzeichnis",
           "label": "In Datei speichern"
         },
         "screenshot-show-cursor": {
@@ -3344,7 +3340,7 @@
           "workspaces-description": "Mindestlänge der aktiven Arbeitsbereichs-Pill entlang der Leiste, als Vielfaches der Pill-Dicke; Beschriftungen können darüber hinaus erweitert werden"
         },
         "album-art-only": {
-          "description": "Zeige nur das kreisförmige Albumcover ohne den Titelnamen",
+          "description": "Zeige nur das Albumcover ohne den Titelnamen",
           "label": "Nur Albumcover"
         },
         "anchor": {
@@ -3474,7 +3470,7 @@
         "focused-output-only": {
           "description": "Hebe den aktiven Arbeitsbereich nur auf dem fokussierten Monitor hervor",
           "label": "Nur fokussierten Monitor hervorheben",
-          "taskbar-description": "Verwende die Fokus-Farbe nur für den aktiven Arbeitsbereich auf dem Monitor mit Tastatur- oder Zeigerfokus; andere Monitore verwenden die Belegt-Farbe",
+          "taskbar-description": "Hebe den aktiven Arbeitsbereich nur auf dem Monitor mit Tastatur- oder Zeigerfokus hervor; aktive Arbeitsbereiche auf anderen Monitoren verwenden die Belegt-Farbe und den Stil der inaktiven Kapsel",
           "workspaces-description": "Hebe den aktiven Arbeitsbereich nur auf dem Monitor mit Tastatur- oder Zeigerfokus hervor; andere Monitore zeigen ihren aktiven Arbeitsbereich stattdessen als belegt an"
         },
         "font-family": {
@@ -3500,7 +3496,7 @@
           "volume-description": "Benutzerdefinierte Symbol-Glyphe; leer lassen, um die integrierten dynamischen Icons zu verwenden"
         },
         "glyph-position": {
-          "description": "In welcher Reihenfolge das Symbol im Verhältnis zum Text/Graph/Gauge angezeigt wird",
+          "description": "Positioniere das Symbol oder benutzerdefinierte Bild und die benutzerdefinierte Beschriftung relativ zum Wert oder zur Visualisierung",
           "label": "Symbolposition"
         },
         "group-by-workspace": {
@@ -4143,7 +4139,7 @@
   },
   "window-switcher": {
     "empty": "Keine offenen Fenster",
-    "hint": "Tab · Shift+Tab · Pfeiltasten · Alt loslassen zum Wechseln · Esc zum Abbrechen",
+    "hint": "Tab · Shift+Tab · Pfeiltasten · Tastenkürzel-Modifikator loslassen zum Wechseln · Esc zum Abbrechen",
     "title": "Fenster"
   }
 }

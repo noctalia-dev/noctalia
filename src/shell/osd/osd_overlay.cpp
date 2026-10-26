@@ -90,7 +90,7 @@ namespace {
 
   [[nodiscard]] ColorSpec osdBorderColor(const ConfigService* config) {
     if (config == nullptr) {
-      return colorSpecFromRole(ColorRole::Outline);
+      return colorSpecFromRole(ColorRole::OutlineVariant);
     }
     return config->config().osd.borderColor;
   }
@@ -792,7 +792,7 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
   auto progress = ui::progressBar({
       .out = &inst.progress,
       .fill = colorSpecFromRole(ColorRole::Primary),
-      .track = colorSpecFromRole(ColorRole::SurfaceVariant),
+      .track = colorSpecFromRole(ColorRole::SurfaceContainer),
       .radius = osdProgressRadius(s),
       .orientation = vertical ? ProgressBarOrientation::Vertical : ProgressBarOrientation::Horizontal,
       .width = vertical ? verticalProgressWidth(s) : 0.0F,

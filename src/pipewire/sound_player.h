@@ -68,6 +68,7 @@ private:
   };
 
   [[nodiscard]] static std::optional<std::string> decode(const std::filesystem::path& path, SoundBuffer& out);
+  void loadThemeSounds();
   void playBuffer(const std::string& name, const std::shared_ptr<const SoundBuffer>& buffer);
 
   void processStream(ActiveStream& streamState);

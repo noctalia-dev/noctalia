@@ -45,8 +45,8 @@ public:
   /// Apply locked timeouts without resuming completed actions or resetting unchanged timers.
   void setSessionLocked(bool locked);
   /// Seconds the compositor has reported session-idle (1s heartbeat notification); 0 when active.
-  [[nodiscard]] std::int64_t liveIdleSeconds() const noexcept { return m_liveIdleSeconds; }
-  void onSecondTick();
+  /// Derived from elapsed monotonic time, so it stays accurate however rarely it is read.
+  [[nodiscard]] std::int64_t liveIdleSeconds() const noexcept;
   static void handleIdled(void* data, ext_idle_notification_v1* notification);
   static void handleResumed(void* data, ext_idle_notification_v1* notification);
   static void handleHeartbeatIdled(void* data, ext_idle_notification_v1* notification);
@@ -98,7 +98,7 @@ private:
   std::vector<std::unique_ptr<BehaviorState>> m_behaviors;
   ext_idle_notification_v1* m_heartbeatNotification = nullptr;
   bool m_heartbeatCompositorIdle = false;
-  std::int64_t m_liveIdleSeconds = 0;
+  std::chrono::steady_clock::time_point m_heartbeatIdleSince;
   std::int64_t m_screenSaverInhibitLocks = 0;
   bool m_idledWhileScreenSaverInhibited = false;
   bool m_sessionLocked = false;

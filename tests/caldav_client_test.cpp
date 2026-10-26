@@ -55,6 +55,29 @@ int main() {
         "DTEND:20200101T000001Z\r\nRRULE:FREQ=SECONDLY;COUNT=10000000\r\nEND:VEVENT\r\n"
       + responseSuffix;
 
+  // A resource with an unparseable line and no occurrence inside the window is reported as
+  // InvalidCalendar. It must be skipped without dropping the other resources of the collection.
+  const std::string mixedBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+                                "<D:multistatus xmlns:D=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:caldav\">"
+                                "<D:response><D:propstat><D:prop><C:calendar-data><![CDATA["
+                                "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:outside\r\nDTSTART:20240301T170000Z\r\n"
+                                "DTEND:20240301T180000Z\r\nRRULE:FREQ=WEEKLY;UNTIL=20240301T225959Z\r\n"
+                                "this line is not iCalendar\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+                                "]]></C:calendar-data></D:prop></D:propstat></D:response>"
+                                "<D:response><D:propstat><D:prop><C:calendar-data><![CDATA["
+                                "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:inside\r\nDTSTART:20240110T000000Z\r\n"
+                                "DTEND:20240110T010000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+                                "]]></C:calendar-data></D:prop></D:propstat></D:response></D:multistatus>";
+
+  // A collection made only of invalid resources must still be reported as a failed refresh.
+  const std::string allInvalidBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+                                     "<D:multistatus xmlns:D=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:caldav\">"
+                                     "<D:response><D:propstat><D:prop><C:calendar-data><![CDATA["
+                                     "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:outside\r\nDTSTART:20240301T170000Z\r\n"
+                                     "DTEND:20240301T180000Z\r\nRRULE:FREQ=WEEKLY;UNTIL=20240301T225959Z\r\n"
+                                     "this line is not iCalendar\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+                                     "]]></C:calendar-data></D:prop></D:propstat></D:response></D:multistatus>";
+
   calendar::CalDavAccount account;
   account.url = "https://example.test/calendar";
   account.calendarName = "Test";
@@ -84,6 +107,33 @@ int main() {
   ok = expect(completionOk, "valid CalDAV response was rejected") && ok;
   ok = expect(completionOnMainThread, "completion was not delivered on the main thread") && ok;
   ok = expect(eventCount == 3, "valid recurrence expansion produced the wrong event count") && ok;
+
+  bool mixedCompleted = false;
+  bool mixedOk = false;
+  std::size_t mixedCount = 0;
+  calendar::CalDavClient mixedClient{[&](HttpRequest, calendar::CalDavClient::ResponseCallback callback) {
+    callback(HttpResponse{.transportOk = true, .status = 207, .body = mixedBody});
+  }};
+  mixedClient.fetchEvents(account, utc(2024, 1, 1), utc(2024, 2, 1), false, [&](bool result, auto events) {
+    mixedOk = result;
+    mixedCount = events.size();
+    mixedCompleted = true;
+  });
+  ok = expect(drainUntil([&]() { return mixedCompleted; }), "timed out waiting for mixed collection") && ok;
+  ok = expect(mixedOk, "one invalid resource rejected the whole collection") && ok;
+  ok = expect(mixedCount == 1, "valid resource next to an invalid one was not kept") && ok;
+
+  bool allInvalidCompleted = false;
+  bool allInvalidOk = true;
+  calendar::CalDavClient allInvalidClient{[&](HttpRequest, calendar::CalDavClient::ResponseCallback callback) {
+    callback(HttpResponse{.transportOk = true, .status = 207, .body = allInvalidBody});
+  }};
+  allInvalidClient.fetchEvents(account, utc(2024, 1, 1), utc(2024, 2, 1), false, [&](bool result, auto) {
+    allInvalidOk = result;
+    allInvalidCompleted = true;
+  });
+  ok = expect(drainUntil([&]() { return allInvalidCompleted; }), "timed out waiting for all-invalid collection") && ok;
+  ok = expect(!allInvalidOk, "a collection with only invalid resources was reported as refreshed") && ok;
 
   bool expensiveCompleted = false;
   bool expensiveOk = true;

@@ -12,7 +12,9 @@
 
 class Flex;
 class InputArea;
+class ColorPicker;
 class Node;
+class PixelStreamView;
 class Renderer;
 class DragDropController;
 enum class FontWeight : int;
@@ -141,6 +143,14 @@ namespace ui {
     void openPointer(const Node* owner, std::string leaveCallback, std::string streamKey);
     void closePointer();
     void releasePointer(const Node* owner);
+    // Ends the owner's pointer session without delivering its leave/cancel callback (a drag that
+    // finished normally).
+    void endPointer(const Node* owner);
+    // ui.pixelStream pointer and keyboard wiring. A left drag is a pointer session, so the
+    // view's onPointerCancel is the session's closing callback.
+    void syncPixelStreamCallbacks(Slot& slot, const UiTreeNode& desired, PixelStreamView& view);
+    // ui.colorPicker props. `value` is applied only when it differs from the shown color.
+    void applyColorPickerProps(Slot& slot, const UiTreeNode& desired, ColorPicker& picker);
     [[nodiscard]] bool subtreeOwnsPointer(const Slot& slot) const;
     [[nodiscard]] std::unique_ptr<Node> createControl(const UiTreeNode& desired);
     // Scroll revealKey. Runs after the scroll's children reconcile, since the key

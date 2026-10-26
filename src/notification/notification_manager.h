@@ -72,8 +72,9 @@ public:
   NotificationManager() = default;
 
   using EventCallback = std::function<void(const Notification&, NotificationEvent)>;
-  using ActionInvokeCallback = std::function<void(uint32_t, const std::string&, const std::string&)>;
-  using CloseCallback = std::function<void(uint32_t, CloseReason)>;
+  using ActionInvokeCallback =
+      std::function<void(uint32_t, const std::string&, const std::string&, const std::string& sender)>;
+  using CloseCallback = std::function<void(uint32_t, CloseReason, const std::string& sender)>;
   using StateCallback = std::function<void()>;
   using ReplyCallback =
       std::function<void(uint32_t, const std::string&, const std::string&, const std::string& sender)>;
@@ -143,6 +144,7 @@ public:
 
   // Recent notification history including closed notifications.
   [[nodiscard]] const std::deque<NotificationHistoryEntry>& history() const noexcept;
+  [[nodiscard]] const NotificationHistoryEntry* findHistoryEntry(uint32_t id) const noexcept;
   [[nodiscard]] std::uint64_t changeSerial() const noexcept;
   void removeHistoryEntry(uint32_t id, std::optional<CloseReason> dbusCloseReason = std::nullopt);
   void clearHistory();
@@ -205,7 +207,8 @@ private:
   std::unordered_set<uint32_t> m_suppressedIds;
   std::vector<NotificationFilterConfig> m_filters;
   /// Expired notifications with actions: NotificationClosed deferred until dismiss, action, or history removal.
-  std::unordered_set<uint32_t> m_pendingDBusClose;
+  /// Maps id -> D-Bus sender, so the deferred signal still reaches the notification's owner.
+  std::unordered_map<uint32_t, std::string> m_pendingDBusClose;
   std::deque<NotificationHistoryEntry> m_history;
   std::unordered_map<uint32_t, size_t> m_historyIndex;
   std::vector<std::pair<int, EventCallback>> m_eventCallbacks;

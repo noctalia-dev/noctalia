@@ -34,6 +34,7 @@ MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output*
       m_artistFirst(options.artistFirst), m_showProgress(options.showProgress) {}
 
 void MediaWidget::create() {
+  const float artSize = m_artSize * m_contentScale;
   auto area = ui::inputArea({});
   area->setOnEnter([this](const InputArea::PointerData&) {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
@@ -63,9 +64,9 @@ void MediaWidget::create() {
       ui::image({
           .out = &m_art,
           .fit = ImageFit::Cover,
-          .radius = (m_artSize * m_contentScale) * 0.5F,
-          .width = m_artSize * m_contentScale,
-          .height = m_artSize * m_contentScale,
+          .radius = resolvedBarCapsuleRadius(artSize, artSize),
+          .width = artSize,
+          .height = artSize,
       })
   );
 
@@ -135,7 +136,7 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
     artSize = artOnly ? requestedArtSize : std::min(requestedArtSize, m_label->height());
     m_art->setVisible(true);
     m_art->setSize(artSize, artSize);
-    m_art->setRadius(artSize * 0.5F);
+    m_art->setRadius(resolvedBarCapsuleRadius(artSize, artSize));
   } else {
     m_art->setVisible(false);
     m_art->setSize(0.0F, 0.0F);

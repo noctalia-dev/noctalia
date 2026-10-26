@@ -2462,7 +2462,7 @@ void AudioTab::syncValueLabelWidths(Renderer& renderer) {
   if (m_syncedPercentLabelMinWidth < 0.0F || std::abs(sliderMax - m_lastSyncedPercentLabelSliderMax) >= 0.0001F) {
     const std::string sampleLabel = widestPercentLabel(sliderMax);
     const TextMetrics metrics =
-        renderer.measureText(sampleLabel, Style::fontSizeBody * contentScale(), FontWeight::Bold);
+        renderer.measureText(sampleLabel, Style::fontSizeBody * contentScale(), {FontWeight::Bold});
     m_syncedPercentLabelMinWidth = std::round(metrics.width);
     m_lastSyncedPercentLabelSliderMax = sliderMax;
   }

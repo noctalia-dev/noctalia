@@ -54,7 +54,10 @@ namespace compositors::hyprland {
 
   bool HyprlandRuntime::configIsLua() const {
     ensureResolved();
-    return m_configIsLua;
+    if (!m_configIsLua.has_value()) {
+      updateConfigProvider();
+    }
+    return m_configIsLua.value_or(false);
   }
 
   const std::string& HyprlandRuntime::requestSocketPath() const {
@@ -234,7 +237,7 @@ namespace compositors::hyprland {
   void HyprlandRuntime::refresh() {
     m_socketPaths = {};
     m_resolved = false;
-    m_configIsLua = false;
+    m_configIsLua.reset();
     resolveSocketPaths();
   }
 
@@ -273,15 +276,15 @@ namespace compositors::hyprland {
     };
   }
 
-  void HyprlandRuntime::updateConfigProvider() {
-    const auto json = requestJson("j/status");
-    if (!json || !json->is_object()) {
+  // Leaves the provider unknown when Hyprland does not answer, so the next configIsLua() call asks again.
+  void HyprlandRuntime::updateConfigProvider() const {
+    const auto response = request("j/status");
+    if (!response.has_value()) {
+      kLog.debug("hyprland config provider unknown: j/status got no response");
       return;
     }
-    std::string configProvider = json->value("configProvider", "");
-    if (configProvider == "lua") {
-      m_configIsLua = true;
-    }
+    const auto json = nlohmann::json::parse(*response, nullptr, false);
+    m_configIsLua = json.is_object() && json.value("configProvider", "") == "lua";
   }
 
   void HyprlandRuntime::registerEventHandler(HyprlandEventHandler* handler) { m_eventHandlers.push_back(handler); }
