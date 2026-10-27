@@ -72,6 +72,9 @@ struct TextMetrics {
   // consumer tell single-line from wrapped text from the measured result rather
   // than re-deriving it from the requested width/line budget.
   int lineCount = 0;
+  // Left edge of the leftmost line within maxWidth for wrapped text. Drawn text starts at the draw x, so a
+  // caller that needs each line where Pango placed it (e.g. right-aligned RTL paragraphs) offsets by this.
+  float alignOffsetX = 0.0F;
 };
 
 class Renderer {

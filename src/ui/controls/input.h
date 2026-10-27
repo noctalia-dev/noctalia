@@ -230,6 +230,8 @@ private:
   std::string m_labelVisibleSlice;
   std::size_t m_labelVisibleStartByte = 0;
   float m_labelSliceOriginX = 0.0F;
+  // Multiline: x of the wrapped label, so its lines land on the cursor stops.
+  float m_multilineLabelX = 0.0F;
   std::vector<GlyphNode*> m_passwordGlyphs;
   std::vector<RectNode*> m_selectionLineRects;
   float m_scrollOffset = 0.0F;

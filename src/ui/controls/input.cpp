@@ -852,6 +852,7 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
   m_stopX.push_back(0.0F);
   m_stopsInLogicalOrder = true;
   m_stopsBuiltForWidth = textViewportWidth();
+  m_multilineLabelX = 0.0F;
 
   if (m_value.empty()) {
     if (m_multiline) {
@@ -882,6 +883,9 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
     for (std::size_t i = 0; i < m_stopRect.size(); ++i) {
       m_stopX[i] = m_stopRect[i].x;
     }
+    // The stops are in layout coordinates, but the label draws from its leftmost line: when every line is
+    // right-aligned (RTL paragraphs in an LTR UI) that line starts inside the viewport.
+    m_multilineLabelX = renderer.measureText(m_value, m_fontSize, m_label->font(), m_stopsBuiltForWidth).alignOffsetX;
   } else if (!showPasswordGlyphs) {
     renderer.measureTextCursorStops(m_value, m_fontSize, m_stopByte, m_stopX, m_label->font());
     if (m_stopX.size() != m_stopByte.size()) {
@@ -997,7 +1001,7 @@ void Input::syncLabelScrollPosition() {
     return;
   }
   if (m_multiline) {
-    m_label->setPosition(0.0F, m_cachedLabelY - m_scrollOffsetY);
+    m_label->setPosition(m_multilineLabelX, m_cachedLabelY - m_scrollOffsetY);
     return;
   }
   if (m_value.empty()) {
