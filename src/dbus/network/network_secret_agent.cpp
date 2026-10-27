@@ -59,8 +59,13 @@ namespace {
   // than this is not speaking the protocol.
   constexpr std::size_t kMaxAuthDialogOutput = 64 * 1024;
 
-  constexpr auto kNoSecretsError = "org.freedesktop.NetworkManager.SecretManager.NoSecrets";
-  constexpr auto kUserCanceledError = "org.freedesktop.NetworkManager.SecretManager.UserCanceled";
+  // NMSecretAgentError, registered by NM under the SecretAgent interface name (its
+  // docs still say "SecretManager", which NM does not recognize). Only UserCanceled
+  // ends the request; any other error makes NM try the user's next agent.
+  constexpr auto kNoSecretsError = "org.freedesktop.NetworkManager.SecretAgent.NoSecrets";
+  constexpr auto kUserCanceledError = "org.freedesktop.NetworkManager.SecretAgent.UserCanceled";
+  // For requests NM itself abandoned, or that we drop on teardown.
+  constexpr auto kAgentCanceledError = "org.freedesktop.NetworkManager.SecretAgent.AgentCanceled";
 
   // Reads one property of one setting from a GetSecrets connection dict.
   template <typename T>
@@ -215,7 +220,8 @@ struct NetworkSecretAgent::Impl {
       requestCallback(request);
     } else {
       // No UI available; fail fast so NM doesn't sit waiting.
-      cancelPending("no UI handler");
+      // NoSecrets rather than UserCanceled: another agent may still be able to ask.
+      rejectPending(kNoSecretsError, "no UI handler");
     }
   }
 
@@ -319,7 +325,8 @@ struct NetworkSecretAgent::Impl {
     if (requestCallback) {
       requestCallback(request);
     } else {
-      cancelPending("no UI handler");
+      // NoSecrets rather than UserCanceled: another agent may still be able to ask.
+      rejectPending(kNoSecretsError, "no UI handler");
     }
   }
 
@@ -398,7 +405,7 @@ NetworkSecretAgent::NetworkSecretAgent(SystemBus& bus) : m_impl(std::make_unique
           sdbus::registerMethod("CancelGetSecrets")
               .withInputParamNames("connection_path", "setting_name")
               .implementedAs([this](const sdbus::ObjectPath& /*connectionPath*/, const std::string& /*settingName*/) {
-                m_impl->cancelPending("NM canceled");
+                m_impl->rejectPending(kAgentCanceledError, "NM canceled");
               }),
           // NM sends these when a connection is added or edited over D-Bus (e.g. in
           // nm-connection-editor), with the agent-owned secrets it now has, and when
@@ -429,7 +436,7 @@ NetworkSecretAgent::NetworkSecretAgent(SystemBus& bus) : m_impl(std::make_unique
           return;
         }
         m_impl->registered = false;
-        m_impl->cancelPending("NetworkManager owner changed");
+        m_impl->rejectPending(kAgentCanceledError, "NetworkManager owner changed");
         if (!newOwner.empty()) {
           m_impl->registerAgent();
         }
@@ -444,7 +451,7 @@ NetworkSecretAgent::~NetworkSecretAgent() {
     return;
   }
   m_impl->nameWatcher.reset();
-  m_impl->cancelPending("agent shutting down");
+  m_impl->rejectPending(kAgentCanceledError, "agent shutting down");
   if (!m_impl->registered) {
     return;
   }
