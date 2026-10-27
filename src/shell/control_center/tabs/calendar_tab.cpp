@@ -62,6 +62,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
   if (m_config != nullptr) {
     m_showEventsCard = m_config->config().controlCenter.calendarTab.showEventsCard;
     m_showWeekNumbers = m_config->config().controlCenter.calendarTab.showWeekNumbers;
+    m_showEventsLocation = m_config->config().controlCenter.calendarTab.showEventsLocation;
   }
 
   auto tab = ui::row({
@@ -608,6 +609,7 @@ void CalendarTab::rebuildEventList(float scale) {
       .snapshot = m_calendar != nullptr ? &m_calendar->snapshot() : nullptr,
       .selected = {.year = m_selectedYear, .month = m_selectedMonth, .day = m_selectedDay},
       .scale = scale,
+      .showEventsLocation = m_showEventsLocation,
       .dateFormat = calendarConfig.eventDateFormat,
       .timeFormat = calendarConfig.eventTimeFormat,
       .state = &m_eventListState,

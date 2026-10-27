@@ -75,5 +75,6 @@ private:
   AnimationManager::Id m_monthSlideAnimId = 0;
   bool m_showEventsCard = true;
   bool m_showWeekNumbers = false;
+  bool m_showEventsLocation = false;
   Timer m_eventFadeTimer;
 };
