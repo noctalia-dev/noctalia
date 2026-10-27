@@ -853,19 +853,19 @@ void SysmonWidget::doUpdate(Renderer& renderer) {
   if (m_visualization == SysmonVisualization::Gauge) {
     if (splitCoresActive()) {
       syncCoreGauge();
-    } else {
-      syncGaugeProgress(currentNormalized());
+      return;
     }
-    return;
-  }
-
-  if (m_visualization == SysmonVisualization::Graph) {
+    syncGaugeProgress(currentNormalized());
+  } else if (m_visualization == SysmonVisualization::Graph) {
     if (m_monitor != nullptr && m_monitor->isRunning()) {
       updateGraph(renderer);
-      scheduleNextUpdate(m_monitor->latest().sampledAt);
     } else {
       clearGraph();
     }
+  }
+
+  if (m_monitor != nullptr && m_monitor->isRunning()) {
+    scheduleNextUpdate(m_monitor->latest().sampledAt);
   }
 }
 

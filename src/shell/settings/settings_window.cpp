@@ -1,5 +1,6 @@
 #include "shell/settings/settings_window.h"
 
+#include "calendar/calendar_service.h"
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
@@ -167,7 +168,32 @@ namespace {
 
 SettingsWindow::SettingsWindow() = default;
 
-SettingsWindow::~SettingsWindow() { destroyWindow(); }
+SettingsWindow::~SettingsWindow() {
+  setCalendarService(nullptr);
+  destroyWindow();
+}
+
+void SettingsWindow::setCalendarService(CalendarService* service) {
+  if (m_calendarService != nullptr && m_calendarCallbackId.has_value()) {
+    m_calendarService->removeChangeCallback(*m_calendarCallbackId);
+  }
+  m_calendarCallbackId.reset();
+  m_calendarService = service;
+  if (service == nullptr) {
+    return;
+  }
+  m_calendarSyncStatusRevision = service->syncStatusRevision();
+  m_calendarCallbackId = service->addChangeCallback([this] {
+    const std::uint64_t revision = m_calendarService->syncStatusRevision();
+    if (revision == m_calendarSyncStatusRevision) {
+      return;
+    }
+    m_calendarSyncStatusRevision = revision;
+    if (isOpen()) {
+      requestContentRebuild(true);
+    }
+  });
+}
 
 void SettingsWindow::initialize(
     WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, DependencyService* dependencies,

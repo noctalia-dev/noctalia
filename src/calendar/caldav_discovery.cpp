@@ -24,7 +24,7 @@ namespace calendar {
       std::shared_ptr<const security::SecureBuffer> password;
       bool allowRedirectAuth = false;
       std::shared_ptr<const HttpTlsClientCert> tls;
-      std::function<void(bool ok, std::vector<CalDavCollection>)> callback;
+      std::function<void(SyncFailure failure, std::vector<CalDavCollection>)> callback;
     };
 
     std::string localName(const xmlNode* node) {
@@ -293,9 +293,12 @@ namespace calendar {
              "<C:supported-calendar-component-set/></D:prop></D:propfind>";
     }
 
-    void finish(const std::shared_ptr<DiscoveryContext>& ctx, bool ok, std::vector<CalDavCollection> collections = {}) {
+    void finish(
+        const std::shared_ptr<DiscoveryContext>& ctx, SyncFailure failure,
+        std::vector<CalDavCollection> collections = {}
+    ) {
       if (ctx->callback) {
-        ctx->callback(ok, std::move(collections));
+        ctx->callback(failure, std::move(collections));
       }
     }
 
@@ -311,14 +314,14 @@ namespace calendar {
           [ctx](HttpResponse resp) {
             if (!resp.transportOk || (resp.status != 207 && resp.status != 200)) {
               kLog.warn("principal discovery failed http={}", resp.status);
-              finish(ctx, false);
+              finish(ctx, syncFailureFromResponse(resp));
               return;
             }
             const std::string href = firstResponsePropertyHref(resp.body, "current-user-principal");
             const std::string principalUrl = resolveHref(requestBaseUrl(ctx->serverUrl, resp.effectiveUrl), href);
             if (principalUrl.empty()) {
               kLog.warn("principal discovery did not return current-user-principal");
-              finish(ctx, false);
+              finish(ctx, SyncFailure::NotFound);
               return;
             }
             discoverCalendarHome(ctx, principalUrl);
@@ -334,14 +337,14 @@ namespace calendar {
           [ctx, principalUrl](HttpResponse resp) {
             if (!resp.transportOk || (resp.status != 207 && resp.status != 200)) {
               kLog.warn("calendar-home-set discovery failed http={}", resp.status);
-              finish(ctx, false);
+              finish(ctx, syncFailureFromResponse(resp));
               return;
             }
             const std::string href = firstResponsePropertyHref(resp.body, "calendar-home-set");
             const std::string homeUrl = resolveHref(requestBaseUrl(principalUrl, resp.effectiveUrl), href);
             if (homeUrl.empty()) {
               kLog.warn("calendar-home-set discovery returned no href");
-              finish(ctx, false);
+              finish(ctx, SyncFailure::NotFound);
               return;
             }
             discoverCollections(ctx, homeUrl);
@@ -355,16 +358,16 @@ namespace calendar {
           [ctx, homeUrl](HttpResponse resp) {
             if (!resp.transportOk || (resp.status != 207 && resp.status != 200)) {
               kLog.warn("calendar collection discovery failed http={}", resp.status);
-              finish(ctx, false);
+              finish(ctx, syncFailureFromResponse(resp));
               return;
             }
             std::vector<CalDavCollection> collections = parseCollections(resp.body, homeUrl);
             if (collections.empty()) {
               kLog.warn("calendar collection discovery returned no VEVENT collections");
-              finish(ctx, false);
+              finish(ctx, SyncFailure::NoCalendars);
               return;
             }
-            finish(ctx, true, std::move(collections));
+            finish(ctx, SyncFailure::None, std::move(collections));
           }
       );
     }
@@ -373,14 +376,15 @@ namespace calendar {
   void discoverCalDavCollections(
       HttpClient& http, const std::string& serverUrl, const std::string& username,
       std::shared_ptr<const security::SecureBuffer> password, bool allowRedirectAuth,
-      std::shared_ptr<const HttpTlsClientCert> tls, std::function<void(bool ok, std::vector<CalDavCollection>)> cb
+      std::shared_ptr<const HttpTlsClientCert> tls,
+      std::function<void(SyncFailure failure, std::vector<CalDavCollection>)> cb
   ) {
     auto ctx = std::make_shared<DiscoveryContext>(DiscoveryContext{
         http, normalizeBase(serverUrl), username, std::move(password), allowRedirectAuth, std::move(tls), std::move(cb)
     });
     if (ctx->serverUrl.empty() || ctx->username.empty() || ctx->password == nullptr || ctx->password->empty()) {
       kLog.warn("missing server_url/username/password");
-      finish(ctx, false);
+      finish(ctx, SyncFailure::Configuration);
       return;
     }
     discoverPrincipal(ctx);

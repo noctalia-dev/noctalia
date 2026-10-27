@@ -601,7 +601,6 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
       m_badgeLabel->setColor(bg);
     }
   }
-  m_visualStateInitialized = true;
 }
 
 float Button::effectiveBorderWidth() const noexcept {
@@ -838,6 +837,8 @@ void Button::doLayout(Renderer& renderer) {
   if (m_animId == 0) {
     applyVisualState();
   }
+  // Color changes before the first layout (the caller's initial variant and state) snap; later ones animate.
+  m_visualStateInitialized = true;
 }
 
 LayoutSize Button::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {

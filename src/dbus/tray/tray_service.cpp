@@ -33,6 +33,7 @@ namespace {
   constexpr auto kAyatanaItemPath = "/org/ayatana/NotificationItem";
   // SNI GetAll often carries IconPixmap; 200 ms drops slow-but-valid clients.
   constexpr auto kItemPropertyTimeout = std::chrono::milliseconds(3000);
+  constexpr auto kWatcherTimeout = std::chrono::milliseconds(1000);
   constexpr int kBusOnlyRegistrationProbeAttempts = 5;
   constexpr auto kBusOnlyRegistrationProbeBackoff = std::chrono::milliseconds(250);
 
@@ -607,6 +608,7 @@ bool TrayService::externalWatcherHasOwner() const {
     bool hasOwner = false;
     m_dbusProxy->callMethod("NameHasOwner")
         .onInterface(kDbusInterface)
+        .withTimeout(kWatcherTimeout)
         .withArguments(std::string(kWatcherBusName))
         .storeResultsTo(hasOwner);
     return hasOwner;
@@ -709,10 +711,18 @@ void TrayService::connectToExternalWatcher() {
   try {
     m_watcherProxy = sdbus::createProxy(m_bus.connection(), kWatcherBusName, kWatcherObjectPath);
 
+    // Both watcher calls are asynchronous with the default timeout: a busy watcher (kded6
+    // loading modules at login) must neither stall the main loop nor fail the connection.
+    // Pending calls are cancelled when m_watcherProxy is destroyed.
     if (!m_hostBusName.empty()) {
-      m_watcherProxy->callMethod("RegisterStatusNotifierHost")
+      m_watcherProxy->callMethodAsync("RegisterStatusNotifierHost")
           .onInterface(kWatcherInterface)
-          .withArguments(m_hostBusName);
+          .withArguments(m_hostBusName)
+          .uponReplyInvoke([](std::optional<sdbus::Error> error) {
+            if (error.has_value()) {
+              kLog.debug("tray external watcher host registration failed: {}", error->what());
+            }
+          });
     }
 
     m_watcherProxy->uponSignal("StatusNotifierItemRegistered")
@@ -723,15 +733,26 @@ void TrayService::connectToExternalWatcher() {
         .onInterface(kWatcherInterface)
         .call([this](const std::string& service) { onExternalItemUnregistered(service); });
 
-    const auto registered = m_watcherProxy->getProperty("RegisteredStatusNotifierItems")
-                                .onInterface(kWatcherInterface)
-                                .get<std::vector<std::string>>();
-    for (const auto& service : registered) {
-      onExternalItemRegistered(service);
-    }
+    m_watcherProxy->getPropertyAsync("RegisteredStatusNotifierItems")
+        .onInterface(kWatcherInterface)
+        .uponReplyInvoke([this](std::optional<sdbus::Error> error, const sdbus::Variant& value) {
+          if (error.has_value()) {
+            kLog.debug("tray external watcher item list failed: {}", error->what());
+            return;
+          }
+          try {
+            const auto registered = value.get<std::vector<std::string>>();
+            for (const auto& service : registered) {
+              onExternalItemRegistered(service);
+            }
+            kLog.debug("tray external watcher reported {} items", registered.size());
+          } catch (const sdbus::Error& e) {
+            kLog.debug("tray external watcher item list malformed: {}", e.what());
+          }
+        });
 
     m_externalWatcherConnected = true;
-    kLog.debug("tray connected to external watcher ({} items)", registered.size());
+    kLog.debug("tray connected to external watcher");
   } catch (const sdbus::Error& e) {
     kLog.debug("tray external watcher connect failed: {}", e.what());
     m_watcherProxy.reset();
@@ -1712,6 +1733,7 @@ std::uint32_t TrayService::connectionPidForBusName(const std::string& busName) c
     std::uint32_t pid = 0;
     m_dbusProxy->callMethod("GetConnectionUnixProcessID")
         .onInterface(kDbusInterface)
+        .withTimeout(std::chrono::milliseconds(200))
         .withArguments(busName)
         .storeResultsTo(pid);
     return pid;

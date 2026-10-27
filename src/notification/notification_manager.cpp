@@ -176,7 +176,7 @@ void NotificationManager::upsertHistory(
       NotificationHistoryEntry{
           .notification = notification,
           .active = active,
-          .seen = seen,
+          .seen = seen || closeReason == CloseReason::ClosedByCall,
           .closeReason = closeReason,
           .eventSerial = ++m_changeSerial,
       }
@@ -202,6 +202,10 @@ void NotificationManager::markHistoryClosed(uint32_t id, CloseReason reason) {
 
   NotificationHistoryEntry& entry = m_history[it->second];
   entry.active = false;
+  // The sender withdrew it (e.g. the message was read in the app), so it no longer needs attention.
+  if (reason == CloseReason::ClosedByCall) {
+    entry.seen = true;
+  }
   entry.closeReason = reason;
   entry.eventSerial = ++m_changeSerial;
   schedulePersistHistory();
@@ -623,7 +627,9 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
       if (reason == CloseReason::Dismissed && !m_keepDismissedInHistory) {
         removeHistoryEntry(id);
       } else {
+        const bool hadUnreadBefore = computeHasUnreadNotificationHistory();
         markHistoryClosed(id, reason);
+        notifyUnreadStateChangedIfNeeded(hadUnreadBefore);
       }
       return true;
     }

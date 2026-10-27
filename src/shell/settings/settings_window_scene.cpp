@@ -2030,40 +2030,37 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
       if (account.type != "google" && account.type != "caldav" && account.type != "ics" && account.type != "vdir") {
         continue;
       }
-      const bool credentialLocked = account.type == "google"
-          && m_calendarService != nullptr
-          && m_calendarService->googleAccountCredentialLocked(account.id);
-      const bool reconnectRequired = account.type == "google"
-          && m_calendarService != nullptr
-          && m_calendarService->googleAccountNeedsReconnect(account.id);
-      const std::string_view descriptionKey = credentialLocked
-          ? "settings.schema.services.calendar-edit.description-locked"
-          : reconnectRequired ? "settings.schema.services.calendar-edit.description-reconnect"
-                              : "settings.schema.services.calendar-edit.description";
-      const std::string_view buttonKey = credentialLocked ? "settings.schema.services.calendar-edit.button-retry"
-          : reconnectRequired                             ? "settings.schema.services.calendar-edit.button-reconnect"
-                                                          : "settings.schema.services.calendar-edit.button";
+      using Action = CalendarService::AccountStatus::Action;
+      const CalendarService::AccountStatus status =
+          m_calendarService != nullptr ? m_calendarService->accountStatus(account) : CalendarService::AccountStatus{};
+      const std::string subtitle = m_calendarService != nullptr ? m_calendarService->accountStatusText(account)
+                                                                : i18n::tr("calendar.sync.not-synced");
+      const Action action = status.action;
       settings::SettingEntry btn{
           .section = settings::SettingsSection::Calendar,
           .group = "calendar-accounts",
           .title = account.displayName.empty() ? account.id : account.displayName,
-          .subtitle = i18n::tr(descriptionKey),
+          .subtitle = subtitle,
           .path = {},
           .control =
               settings::ButtonSetting{
-                  .label = i18n::tr(buttonKey),
+                  .label = i18n::tr(
+                      action == Action::Retry           ? "settings.schema.services.calendar-edit.button-retry"
+                          : action == Action::Reconnect ? "settings.schema.services.calendar-edit.button-reconnect"
+                                                        : "settings.schema.services.calendar-edit.button"
+                  ),
                   .action =
-                      [this, id = account.id, credentialLocked] {
-                        if (credentialLocked) {
+                      [this, id = account.id, action] {
+                        if (action == Action::Retry) {
                           m_calendarService->requestRefresh();
                           return;
                         }
                         openCalendarAccountEditor(id);
                       },
-                  .glyph = credentialLocked ? "key"
-                      : reconnectRequired   ? "brand-google"
-                                            : "edit",
-                  .variant = credentialLocked ? ButtonVariant::Secondary : ButtonVariant::Default,
+                  .glyph = action == Action::Retry  ? "key"
+                      : action == Action::Reconnect ? "brand-google"
+                                                    : "edit",
+                  .variant = action == Action::Retry ? ButtonVariant::Secondary : ButtonVariant::Default,
               },
           .searchText =
               "calendar account edit connect authorize caldav icloud google password ics ical subscription vdir local "

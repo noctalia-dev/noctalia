@@ -204,6 +204,30 @@
       }
     }
   },
+  "calendar": {
+    "sync": {
+      "connecting": "Syncing: connecting…",
+      "downloading": "Syncing: downloading events…",
+      "failed": "Sync failed: {reason}",
+      "failure": {
+        "access-denied": "The server denied access to the resource.",
+        "authentication": "The server rejected the username or password.",
+        "client-certificate": "The client certificate or key file could not be read.",
+        "configuration": "The account settings are incomplete.",
+        "credentials": "No password is stored for this account, or it could not be read.",
+        "credentials-locked": "The keyring holding its credentials is locked; unlock it, then retry.",
+        "google-authorization": "Google authorization is missing or was revoked; reconnect the account.",
+        "invalid-response": "The server's response could not be read.",
+        "network": "The server could not be reached.",
+        "no-calendars": "No calendars with events were found.",
+        "not-found": "No calendar was found at the configured address.",
+        "server": "The server reported an error.",
+        "timeout": "The server took too long to respond."
+      },
+      "not-synced": "Not synced yet",
+      "synced": "Synced {when}"
+    }
+  },
   "clipboard": {
     "actions": {
       "clear-all": "Clear everything",
@@ -3015,10 +3039,7 @@
         "calendar-edit": {
           "button": "Edit",
           "button-reconnect": "Reconnect",
-          "button-retry": "Retry",
-          "description": "Update this calendar account",
-          "description-locked": "The refresh token is in a locked keyring; unlock the keyring and retry",
-          "description-reconnect": "Google authorization is missing; reconnect this account"
+          "button-retry": "Retry"
         },
         "calendar-event-date-format": {
           "description": "The date format shown above the event list in calendar views",
