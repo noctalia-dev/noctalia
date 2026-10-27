@@ -1745,7 +1745,7 @@ namespace noctalia::config::schema {
       return s;
     }
 
-    const Schema<typename ShellSessionConfig::ShellSessionPowerConfig>& shellSessionPowerSchema();
+    const Schema<ShellSessionConfig::ShellSessionPowerConfig>& shellSessionPowerSchema();
 
     const Schema<ShellGreeterSyncConfig>& shellGreeterSyncSchema() {
       static const Schema<ShellGreeterSyncConfig> s = {
@@ -2208,7 +2208,7 @@ namespace noctalia::config::schema {
       );
     }
 
-    const Schema<typename ShellSessionConfig::ShellSessionPowerConfig>& shellSessionPowerSchema() {
+    const Schema<ShellSessionConfig::ShellSessionPowerConfig>& shellSessionPowerSchema() {
       using Power = ShellSessionConfig::ShellSessionPowerConfig;
       static const Schema<Power> s = {
           optionalTrimmedStringField(&Power::suspend, "suspend"),
