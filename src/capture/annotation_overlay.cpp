@@ -113,16 +113,16 @@ namespace capture {
 
     [[nodiscard]] std::size_t toolIndex(AnnotationTool tool) { return static_cast<std::size_t>(tool); }
 
-    using StyleConfig = ScreenshotStyleSettings;
+    using BackdropConfig = ScreenshotBackdropSettings;
 
     constexpr float kGradientChipSize = 22.0F;
     // Rows stretch to this width, so toggles, chip strip and value boxes share one right edge.
-    constexpr float kStylePanelContentWidth = 300.0F;
-    constexpr float kStyleLabelWidth = 72.0F;
+    constexpr float kBackdropPanelContentWidth = 300.0F;
+    constexpr float kBackdropLabelWidth = 72.0F;
     // Value box width matches the settings slider rows.
-    constexpr float kStyleValueWidth = 50.0F;
+    constexpr float kBackdropValueWidth = 50.0F;
     // The preview frame is smooth (gradient, blurred shadow), so half device resolution is plenty.
-    constexpr double kStylePreviewDownscale = 2.0;
+    constexpr double kBackdropPreviewDownscale = 2.0;
 
     struct GradientPreset {
       ColorSpec start;
@@ -136,18 +136,21 @@ namespace capture {
       static const std::array<GradientPreset, kGradientPresetCount> presets = {{
           {colorSpecFromRole(ColorRole::Primary), colorSpecFromRole(ColorRole::Tertiary),
            "bar.annotate.gradient-theme"},
-          {fixedColorSpec(rgbHex(0x8E2DE2)), fixedColorSpec(rgbHex(0xEC6EAD)), "bar.annotate.gradient-grape"},
-          {fixedColorSpec(rgbHex(0xFF7E5F)), fixedColorSpec(rgbHex(0xFEB47B)), "bar.annotate.gradient-sunset"},
-          {fixedColorSpec(rgbHex(0x2F80ED)), fixedColorSpec(rgbHex(0x56CCF2)), "bar.annotate.gradient-sky"},
-          {fixedColorSpec(rgbHex(0x00B09B)), fixedColorSpec(rgbHex(0x96C93D)), "bar.annotate.gradient-mint"},
-          {fixedColorSpec(rgbHex(0xED4264)), fixedColorSpec(rgbHex(0xFFEDBC)), "bar.annotate.gradient-peach"},
+          {colorSpecFromRole(ColorRole::Primary), colorSpecFromRole(ColorRole::Secondary),
+           "bar.annotate.gradient-theme-accent"},
+          {colorSpecFromRole(ColorRole::PrimaryContainer), colorSpecFromRole(ColorRole::TertiaryContainer),
+           "bar.annotate.gradient-theme-soft"},
+          {colorSpecFromRole(ColorRole::SurfaceContainer), colorSpecFromRole(ColorRole::SurfaceContainerHigh),
+           "bar.annotate.gradient-theme-subtle"},
           {fixedColorSpec(rgbHex(0x232526)), fixedColorSpec(rgbHex(0x414345)), "bar.annotate.gradient-graphite"},
           {fixedColorSpec(rgbHex(0xE0E0E0)), fixedColorSpec(rgbHex(0xFAFAFA)), "bar.annotate.gradient-paper"},
+          {fixedColorSpec(rgbHex(0x2F80ED)), fixedColorSpec(rgbHex(0x56CCF2)), "bar.annotate.gradient-sky"},
+          {fixedColorSpec(rgbHex(0xFF7E5F)), fixedColorSpec(rgbHex(0xFEB47B)), "bar.annotate.gradient-sunset"},
       }};
       return presets;
     }
 
-    enum class StyleSlider : std::uint8_t {
+    enum class BackdropSlider : std::uint8_t {
       Angle,
       Padding,
       Radius,
@@ -156,65 +159,65 @@ namespace capture {
       ShadowOffsetX,
       ShadowOffsetY
     };
-    constexpr std::size_t kStyleSliderCount = 7;
+    constexpr std::size_t kBackdropSliderCount = 7;
 
     // Values are in the units the panel shows (whole degrees, pixels, 0..1 opacity).
-    struct StyleSliderSpec {
+    struct BackdropSliderSpec {
       const char* labelKey;
       double minValue;
       double maxValue;
       double step;
-      double (*get)(const StyleConfig&);
-      void (*set)(StyleConfig&, double);
+      double (*get)(const BackdropConfig&);
+      void (*set)(BackdropConfig&, double);
     };
 
     [[nodiscard]] std::int32_t toPixels(double v) { return static_cast<std::int32_t>(std::lround(v)); }
     // Whole-step sliders show integers; fractional ones (opacity) two decimals, like settings sliders.
-    [[nodiscard]] std::string formatStyleValue(const StyleSliderSpec& spec, double v) {
+    [[nodiscard]] std::string formatBackdropValue(const BackdropSliderSpec& spec, double v) {
       return spec.step >= 1.0 ? std::format("{}", std::lround(v)) : StringUtils::formatFixedDotDecimal(v, 2);
     }
 
-    [[nodiscard]] const std::array<StyleSliderSpec, kStyleSliderCount>& styleSliders() {
-      static const std::array<StyleSliderSpec, kStyleSliderCount> specs = {{
-          {"bar.annotate.style-angle", 0.0, 360.0, 5.0,
-           [](const StyleConfig& s) { return static_cast<double>(s.gradientAngle); },
-           [](StyleConfig& s, double v) { s.gradientAngle = static_cast<float>(v); }},
-          {"bar.annotate.style-padding", 0.0, 256.0, 4.0,
-           [](const StyleConfig& s) { return static_cast<double>(s.padding); },
-           [](StyleConfig& s, double v) { s.padding = toPixels(v); }},
-          {"bar.annotate.style-radius", 0.0, 64.0, 1.0,
-           [](const StyleConfig& s) { return static_cast<double>(s.cornerRadius); },
-           [](StyleConfig& s, double v) { s.cornerRadius = toPixels(v); }},
-          {"bar.annotate.style-shadow-blur", 0.0, 100.0, 1.0,
-           [](const StyleConfig& s) { return static_cast<double>(s.shadowBlur); },
-           [](StyleConfig& s, double v) { s.shadowBlur = toPixels(v); }},
-          {"bar.annotate.style-shadow-opacity", 0.0, 1.0, 0.01,
-           [](const StyleConfig& s) { return static_cast<double>(s.shadowOpacity); },
-           [](StyleConfig& s, double v) { s.shadowOpacity = static_cast<float>(v); }},
-          {"bar.annotate.style-shadow-offset-x", -64.0, 64.0, 1.0,
-           [](const StyleConfig& s) { return static_cast<double>(s.shadowOffsetX); },
-           [](StyleConfig& s, double v) { s.shadowOffsetX = toPixels(v); }},
-          {"bar.annotate.style-shadow-offset-y", -64.0, 64.0, 1.0,
-           [](const StyleConfig& s) { return static_cast<double>(s.shadowOffsetY); },
-           [](StyleConfig& s, double v) { s.shadowOffsetY = toPixels(v); }},
+    [[nodiscard]] const std::array<BackdropSliderSpec, kBackdropSliderCount>& backdropSliders() {
+      static const std::array<BackdropSliderSpec, kBackdropSliderCount> specs = {{
+          {"bar.annotate.backdrop-angle", 0.0, 360.0, 5.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.gradientAngle); },
+           [](BackdropConfig& s, double v) { s.gradientAngle = static_cast<float>(v); }},
+          {"bar.annotate.backdrop-padding", 0.0, 256.0, 4.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.padding); },
+           [](BackdropConfig& s, double v) { s.padding = toPixels(v); }},
+          {"bar.annotate.backdrop-radius", 0.0, 64.0, 1.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.cornerRadius); },
+           [](BackdropConfig& s, double v) { s.cornerRadius = toPixels(v); }},
+          {"bar.annotate.backdrop-shadow-blur", 0.0, 100.0, 1.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.shadowBlur); },
+           [](BackdropConfig& s, double v) { s.shadowBlur = toPixels(v); }},
+          {"bar.annotate.backdrop-shadow-opacity", 0.0, 1.0, 0.01,
+           [](const BackdropConfig& s) { return static_cast<double>(s.shadowOpacity); },
+           [](BackdropConfig& s, double v) { s.shadowOpacity = static_cast<float>(v); }},
+          {"bar.annotate.backdrop-shadow-offset-x", -64.0, 64.0, 1.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.shadowOffsetX); },
+           [](BackdropConfig& s, double v) { s.shadowOffsetX = toPixels(v); }},
+          {"bar.annotate.backdrop-shadow-offset-y", -64.0, 64.0, 1.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.shadowOffsetY); },
+           [](BackdropConfig& s, double v) { s.shadowOffsetY = toPixels(v); }},
       }};
       return specs;
     }
 
-    void styleGradientChip(Box& box, const GradientPreset& preset, bool selected) {
+    void paintGradientChip(Box& box, const GradientPreset& preset, bool selected) {
       const Color start = resolveColorSpec(preset.start);
       const Color end = resolveColorSpec(preset.end);
       box.setStyle(
           RoundedRectStyle{
               .fill = start,
-              .border = colorForRole(selected ? ColorRole::OnSurface : ColorRole::OutlineVariant),
+              .border = colorForRole(selected ? ColorRole::Primary : ColorRole::OutlineVariant),
               .fillMode = FillMode::LinearGradient,
               .gradientDirection = GradientDirection::Horizontal,
               .gradientStops =
                   {GradientStop{0.0F, start}, GradientStop{0.0F, start}, GradientStop{1.0F, end},
                    GradientStop{1.0F, end}},
               .radius = Style::radiusSm,
-              .borderWidth = selected ? 2.0F : Style::borderWidth,
+              .borderWidth = selected ? 2.5F : Style::borderWidth,
           }
       );
     }
@@ -487,20 +490,20 @@ namespace capture {
     Segmented* sizePresets = nullptr;
     Separator* sizeSeparator = nullptr;
     Separator* exportSeparator = nullptr;
-    Button* styleButton = nullptr;
+    Button* backdropButton = nullptr;
 
-    // Style panel and the Image-mode preview frame drawn behind the canvas.
-    Flex* stylePanel = nullptr;
-    Flex* styleBody = nullptr;
-    Flex* styleGradientRows = nullptr;
-    Flex* styleShadowRows = nullptr;
+    // Backdrop panel and the Image-mode preview frame drawn behind the canvas.
+    Flex* backdropPanel = nullptr;
+    Flex* backdropBody = nullptr;
+    Flex* backdropGradientRows = nullptr;
+    Flex* backdropShadowRows = nullptr;
     std::array<Box*, kGradientPresetCount> gradientChips{};
-    std::array<Input*, kStyleSliderCount> styleValueInputs{};
-    Image* stylePreview = nullptr;
+    std::array<Input*, kBackdropSliderCount> backdropValueInputs{};
+    Image* backdropPreview = nullptr;
     Box* imageOutline = nullptr;
-    std::optional<ScreenshotStyle> previewStyle;
+    std::optional<ScreenshotBackdrop> previewBackdrop;
     AnnotationRect previewCanvas{};
-    // -2 = chips not yet styled, -1 = no preset matches the current colors.
+    // -2 = chips not yet painted, -1 = no preset matches the current colors.
     int markedGradient = -2;
 
     TextureHandle committedTexture{};
@@ -555,14 +558,14 @@ namespace capture {
 
   void AnnotationOverlay::setStateSetter(StateSetter setter) { m_stateSetter = std::move(setter); }
 
-  void AnnotationOverlay::setStyleChangedCallback(StyleChangedCallback callback) {
-    m_onStyleChanged = std::move(callback);
+  void AnnotationOverlay::setBackdropChangedCallback(BackdropChangedCallback callback) {
+    m_onBackdropChanged = std::move(callback);
   }
 
-  void AnnotationOverlay::setScreenshotStyle(const StyleConfig& style) {
-    m_style = style;
-    m_styleEdited = false;
-    m_styleLayoutPadding = m_style.enabled ? std::max(0, m_style.padding) : 0;
+  void AnnotationOverlay::setScreenshotBackdrop(const BackdropConfig& backdrop) {
+    m_backdrop = backdrop;
+    m_backdropEdited = false;
+    m_backdropLayoutPadding = m_backdrop.enabled ? std::max(0, m_backdrop.padding) : 0;
   }
 
   void AnnotationOverlay::setToolState(AnnotationToolState state) {
@@ -678,10 +681,10 @@ namespace capture {
     m_mode = AnnotationMode::Live;
     if (wasActive) {
       persistToolState();
-      if (m_styleEdited && m_onStyleChanged) {
-        m_onStyleChanged(m_style);
+      if (m_backdropEdited && m_onBackdropChanged) {
+        m_onBackdropChanged(m_backdrop);
       }
-      m_styleEdited = false;
+      m_backdropEdited = false;
       if (m_onClosed) {
         m_onClosed();
       }
@@ -963,8 +966,8 @@ namespace capture {
     const double availableHeight = std::max(1.0, surfaceH - areaTop - Style::spaceLg);
     const auto imageWidth = static_cast<double>(m_image.image.width);
     const auto imageHeight = static_cast<double>(m_image.image.height);
-    // Room for the style frame, so its preview stays on screen around a large capture.
-    const double frame = 2.0 * static_cast<double>(m_styleLayoutPadding);
+    // Room for the backdrop frame, so its preview stays on screen around a large capture.
+    const double frame = 2.0 * static_cast<double>(m_backdropLayoutPadding);
     const double fitScale = std::max(
         {0.1, static_cast<double>(inst.scale), (imageWidth + frame) / availableWidth,
          (imageHeight + frame) / availableHeight}
@@ -1013,16 +1016,16 @@ namespace capture {
     inst.cursorTooltip = nullptr;
     inst.undoButton = inst.redoButton = inst.copyButton = inst.saveButton = inst.doneButton = nullptr;
     inst.exportSeparator = nullptr;
-    inst.styleButton = nullptr;
-    if (inst.stylePreview != nullptr) {
-      inst.stylePreview->clear(renderer);
+    inst.backdropButton = nullptr;
+    if (inst.backdropPreview != nullptr) {
+      inst.backdropPreview->clear(renderer);
     }
-    inst.stylePanel = inst.styleBody = inst.styleGradientRows = inst.styleShadowRows = nullptr;
+    inst.backdropPanel = inst.backdropBody = inst.backdropGradientRows = inst.backdropShadowRows = nullptr;
     inst.gradientChips.fill(nullptr);
-    inst.styleValueInputs.fill(nullptr);
-    inst.stylePreview = nullptr;
+    inst.backdropValueInputs.fill(nullptr);
+    inst.backdropPreview = nullptr;
     inst.imageOutline = nullptr;
-    inst.previewStyle.reset();
+    inst.previewBackdrop.reset();
     inst.markedGradient = -2;
     inst.activePainted = AnnotationRect{};
     inst.committedDirty.reset();
@@ -1036,8 +1039,8 @@ namespace capture {
     // The toolbar is measured first because the Image-mode canvas centers below it.
     auto toolbar = buildToolbar(inst);
     toolbar->layout(renderer);
-    auto stylePanel = buildStylePanel(inst);
-    stylePanel->layout(renderer);
+    auto backdropPanel = buildBackdropPanel(inst);
+    backdropPanel->layout(renderer);
     positionToolbar(inst);
     layoutCanvas(inst);
 
@@ -1088,7 +1091,7 @@ namespace capture {
           .configure = [](Box& box) { box.setPosition(0.0F, 0.0F); },
       });
       inst.surround = static_cast<Box*>(canvas->addChild(std::move(surround)));
-      inst.stylePreview = static_cast<Image*>(
+      inst.backdropPreview = static_cast<Image*>(
           canvas->addChild(ui::image({.fit = ImageFit::Stretch, .width = 0.0F, .height = 0.0F, .visible = false}))
       );
     }
@@ -1172,7 +1175,7 @@ namespace capture {
     inst.canvas = canvas.get();
     inst.sceneRoot->addChild(std::move(canvas));
     inst.sceneRoot->addChild(std::move(toolbar));
-    inst.sceneRoot->addChild(std::move(stylePanel));
+    inst.sceneRoot->addChild(std::move(backdropPanel));
 
     inst.surface->setSceneRoot(inst.sceneRoot.get());
     inst.inputDispatcher.setSceneRoot(inst.sceneRoot.get());
@@ -1283,7 +1286,7 @@ namespace capture {
       redrawActive(inst, inst.pendingActiveBounds);
     }
     uploadDirty(inst, renderer);
-    updateStylePreview(inst, renderer);
+    updateBackdropPreview(inst, renderer);
     refreshToolbar(inst, &renderer);
   }
 
@@ -1375,7 +1378,7 @@ namespace capture {
     }
     inst.fillButton = addGhostButton("bucket-off", "bar.annotate.fill-off", [this]() { cycleFill(); });
     inst.fillButton->setOnRightClick([this]() { cycleFill(false); });
-    inst.styleButton = addGhostButton("sparkles", "bar.annotate.style", [this]() { toggleStylePanel(); });
+    inst.backdropButton = addGhostButton("background", "bar.annotate.backdrop", [this]() { toggleBackdropPanel(); });
     addSeparator();
 
     for (std::size_t i = 0; i < kSwatches.size(); ++i) {
@@ -1533,9 +1536,9 @@ namespace capture {
       m_syncingSizePreset = false;
     }
 
-    show(inst.styleButton, imageMode);
-    if (inst.styleButton != nullptr) {
-      inst.styleButton->setSelected(m_stylePanelOpen);
+    show(inst.backdropButton, imageMode);
+    if (inst.backdropButton != nullptr) {
+      inst.backdropButton->setSelected(m_backdropPanelOpen);
     }
 
     show(inst.exportSeparator, frozenOrImage);
@@ -1581,7 +1584,7 @@ namespace capture {
     if (needsLayout && renderer != nullptr) {
       inst.toolbar->layout(*renderer);
     }
-    refreshStylePanel(inst, renderer);
+    refreshBackdropPanel(inst, renderer);
     positionToolbar(inst);
   }
 
@@ -1657,7 +1660,7 @@ namespace capture {
         m_tools.toolbarPositions.insert_or_assign(output->connectorName, positionIt->second);
       }
     }
-    positionStylePanel(inst);
+    positionBackdropPanel(inst);
   }
 
   void AnnotationOverlay::syncToolbarPositionsForConnectedOutputs() {
@@ -2433,9 +2436,9 @@ namespace capture {
       return false;
     }
 
-    // A focused style value box takes the keyboard; Escape hands focus back to the canvas, which
+    // A focused backdrop value box takes the keyboard; Escape hands focus back to the canvas, which
     // commits the box like clicking elsewhere.
-    if (stylePanelInputFocused(*keyboardInst)) {
+    if (backdropPanelInputFocused(*keyboardInst)) {
       Instance& inst = *keyboardInst;
       if (event.pressed && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
         inst.inputDispatcher.setFocus(inst.canvas);
@@ -2719,7 +2722,7 @@ namespace capture {
     DeferredCall::callLater([this]() { cancel(); });
   }
 
-  std::unique_ptr<Flex> AnnotationOverlay::buildStylePanel(Instance& inst) {
+  std::unique_ptr<Flex> AnnotationOverlay::buildBackdropPanel(Instance& inst) {
     Color panelFill = colorForRole(ColorRole::Surface);
     panelFill.a = kToolbarFillAlpha;
 
@@ -2732,7 +2735,7 @@ namespace capture {
         .radius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
-        .width = kStylePanelContentWidth + (2.0F * Style::spaceMd),
+        .width = kBackdropPanelContentWidth + (2.0F * Style::spaceMd),
         .visible = false,
         .participatesInLayout = false,
     });
@@ -2754,29 +2757,29 @@ namespace capture {
     };
 
     // Same cluster as a settings slider: track plus editable value box.
-    const auto sliderRow = [this, &inst](StyleSlider which) {
+    const auto sliderRow = [this, &inst](BackdropSlider which) {
       const auto index = static_cast<std::size_t>(which);
-      const StyleSliderSpec& spec = styleSliders()[index];
-      const double value = spec.get(m_style);
+      const BackdropSliderSpec& spec = backdropSliders()[index];
+      const double value = spec.get(m_backdrop);
       auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm});
       row->addChild(
           ui::label({
               .text = i18n::tr(spec.labelKey),
               .fontSize = Style::fontSizeCaption,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .minWidth = kStyleLabelWidth,
-              .maxWidth = kStyleLabelWidth,
+              .minWidth = kBackdropLabelWidth,
+              .maxWidth = kBackdropLabelWidth,
           })
       );
 
       Input* valueInput = nullptr;
       auto input = ui::input({
           .out = &valueInput,
-          .value = formatStyleValue(spec, value),
+          .value = formatBackdropValue(spec, value),
           .fontSize = Style::fontSizeCaption,
           .controlHeight = Style::controlHeightSm,
           .horizontalPadding = Style::spaceXs,
-          .width = kStyleValueWidth,
+          .width = kBackdropValueWidth,
           .height = Style::controlHeightSm,
       });
 
@@ -2791,14 +2794,14 @@ namespace capture {
               .flexGrow = 1.0F,
               .onValueChanged = [this, index, valueInput](double next) {
                 valueInput->setInvalid(false);
-                valueInput->setValue(formatStyleValue(styleSliders()[index], next));
-                editStyle([index, next](StyleConfig& style) { styleSliders()[index].set(style, next); });
+                valueInput->setValue(formatBackdropValue(backdropSliders()[index], next));
+                editBackdrop([index, next](BackdropConfig& backdrop) { backdropSliders()[index].set(backdrop, next); });
               },
           })
       );
 
       const auto commitText = [this, index, slider, valueInput](const std::string& text) {
-        const StyleSliderSpec& sliderSpec = styleSliders()[index];
+        const BackdropSliderSpec& sliderSpec = backdropSliders()[index];
         const auto parsed = StringUtils::parseDotDecimal<double>(text);
         if (!parsed.has_value() || *parsed < sliderSpec.minValue || *parsed > sliderSpec.maxValue) {
           valueInput->setInvalid(true);
@@ -2807,25 +2810,25 @@ namespace capture {
         slider->setValue(*parsed);
         const double snapped = slider->value();
         valueInput->setInvalid(false);
-        valueInput->setValue(formatStyleValue(sliderSpec, snapped));
-        editStyle([index, snapped](StyleConfig& style) { styleSliders()[index].set(style, snapped); });
+        valueInput->setValue(formatBackdropValue(sliderSpec, snapped));
+        editBackdrop([index, snapped](BackdropConfig& backdrop) { backdropSliders()[index].set(backdrop, snapped); });
       };
       valueInput->setOnChange([valueInput](const std::string& /*text*/) { valueInput->setInvalid(false); });
       valueInput->setOnSubmit(commitText);
       valueInput->setOnFocusLoss([commitText, valueInput]() { commitText(valueInput->value()); });
-      inst.styleValueInputs[index] = valueInput;
+      inst.backdropValueInputs[index] = valueInput;
       row->addChild(std::move(input));
       return row;
     };
 
-    panel->addChild(toggleRow("bar.annotate.style-enabled", m_style.enabled, true, [this](bool on) {
-      editStyle([on](StyleConfig& style) { style.enabled = on; });
+    panel->addChild(toggleRow("bar.annotate.backdrop-enabled", m_backdrop.enabled, true, [this](bool on) {
+      editBackdrop([on](BackdropConfig& backdrop) { backdrop.enabled = on; });
     }));
 
     auto body = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm});
     body->addChild(ui::separator({}));
-    body->addChild(toggleRow("bar.annotate.style-background", m_style.background, false, [this](bool on) {
-      editStyle([on](StyleConfig& style) { style.background = on; });
+    body->addChild(toggleRow("bar.annotate.backdrop-gradient", m_backdrop.gradient, false, [this](bool on) {
+      editBackdrop([on](BackdropConfig& backdrop) { backdrop.gradient = on; });
     }));
 
     auto gradientRows = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm});
@@ -2838,10 +2841,10 @@ namespace capture {
           .width = kGradientChipSize,
           .height = kGradientChipSize,
           .onClick = [this, i](const InputArea::PointerData& /*data*/) {
-            editStyle([i](StyleConfig& style) {
-              style.gradientStart = gradientPresets()[i].start;
-              style.gradientEnd = gradientPresets()[i].end;
-              style.background = true;
+            editBackdrop([i](BackdropConfig& backdrop) {
+              backdrop.gradientStart = gradientPresets()[i].start;
+              backdrop.gradientEnd = gradientPresets()[i].end;
+              backdrop.gradient = true;
             });
           },
       });
@@ -2850,31 +2853,31 @@ namespace capture {
       chips->addChild(std::move(chip));
     }
     gradientRows->addChild(std::move(chips));
-    gradientRows->addChild(sliderRow(StyleSlider::Angle));
-    inst.styleGradientRows = static_cast<Flex*>(body->addChild(std::move(gradientRows)));
+    gradientRows->addChild(sliderRow(BackdropSlider::Angle));
+    inst.backdropGradientRows = static_cast<Flex*>(body->addChild(std::move(gradientRows)));
 
-    body->addChild(sliderRow(StyleSlider::Padding));
-    body->addChild(sliderRow(StyleSlider::Radius));
+    body->addChild(sliderRow(BackdropSlider::Padding));
+    body->addChild(sliderRow(BackdropSlider::Radius));
     body->addChild(ui::separator({}));
-    body->addChild(toggleRow("bar.annotate.style-shadow", m_style.shadow, false, [this](bool on) {
-      editStyle([on](StyleConfig& style) { style.shadow = on; });
+    body->addChild(toggleRow("bar.annotate.backdrop-shadow", m_backdrop.shadow, false, [this](bool on) {
+      editBackdrop([on](BackdropConfig& backdrop) { backdrop.shadow = on; });
     }));
 
     auto shadowRows = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm});
-    shadowRows->addChild(sliderRow(StyleSlider::ShadowBlur));
-    shadowRows->addChild(sliderRow(StyleSlider::ShadowOpacity));
-    shadowRows->addChild(sliderRow(StyleSlider::ShadowOffsetX));
-    shadowRows->addChild(sliderRow(StyleSlider::ShadowOffsetY));
-    inst.styleShadowRows = static_cast<Flex*>(body->addChild(std::move(shadowRows)));
+    shadowRows->addChild(sliderRow(BackdropSlider::ShadowBlur));
+    shadowRows->addChild(sliderRow(BackdropSlider::ShadowOpacity));
+    shadowRows->addChild(sliderRow(BackdropSlider::ShadowOffsetX));
+    shadowRows->addChild(sliderRow(BackdropSlider::ShadowOffsetY));
+    inst.backdropShadowRows = static_cast<Flex*>(body->addChild(std::move(shadowRows)));
 
-    inst.styleBody = static_cast<Flex*>(panel->addChild(std::move(body)));
-    inst.stylePanel = panel.get();
-    refreshStylePanel(inst, nullptr);
+    inst.backdropBody = static_cast<Flex*>(panel->addChild(std::move(body)));
+    inst.backdropPanel = panel.get();
+    refreshBackdropPanel(inst, nullptr);
     return panel;
   }
 
-  void AnnotationOverlay::refreshStylePanel(Instance& inst, Renderer* renderer) {
-    if (inst.stylePanel == nullptr) {
+  void AnnotationOverlay::refreshBackdropPanel(Instance& inst, Renderer* renderer) {
+    if (inst.backdropPanel == nullptr) {
       return;
     }
     bool needsLayout = false;
@@ -2885,15 +2888,15 @@ namespace capture {
         needsLayout = true;
       }
     };
-    show(inst.stylePanel, m_stylePanelOpen && m_mode == AnnotationMode::Image);
-    show(inst.styleBody, m_style.enabled);
-    show(inst.styleGradientRows, m_style.background);
-    show(inst.styleShadowRows, m_style.shadow);
+    show(inst.backdropPanel, m_backdropPanelOpen && m_mode == AnnotationMode::Image);
+    show(inst.backdropBody, m_backdrop.enabled);
+    show(inst.backdropGradientRows, m_backdrop.gradient);
+    show(inst.backdropShadowRows, m_backdrop.shadow);
 
     int marked = -1;
     const auto& presets = gradientPresets();
     for (std::size_t i = 0; i < presets.size(); ++i) {
-      if (m_style.gradientStart == presets[i].start && m_style.gradientEnd == presets[i].end) {
+      if (m_backdrop.gradientStart == presets[i].start && m_backdrop.gradientEnd == presets[i].end) {
         marked = static_cast<int>(i);
         break;
       }
@@ -2901,26 +2904,26 @@ namespace capture {
     if (marked != inst.markedGradient) {
       for (std::size_t i = 0; i < presets.size(); ++i) {
         if (inst.gradientChips[i] != nullptr) {
-          styleGradientChip(*inst.gradientChips[i], presets[i], static_cast<int>(i) == marked);
+          paintGradientChip(*inst.gradientChips[i], presets[i], static_cast<int>(i) == marked);
         }
       }
       inst.markedGradient = marked;
     }
 
     if (needsLayout && renderer != nullptr) {
-      inst.stylePanel->layout(*renderer);
+      inst.backdropPanel->layout(*renderer);
     }
   }
 
   // Hangs off the toolbar's trailing edge, on whichever side of it has more room.
-  void AnnotationOverlay::positionStylePanel(Instance& inst) {
-    if (inst.stylePanel == nullptr || inst.toolbar == nullptr || inst.surface == nullptr) {
+  void AnnotationOverlay::positionBackdropPanel(Instance& inst) {
+    if (inst.backdropPanel == nullptr || inst.toolbar == nullptr || inst.surface == nullptr) {
       return;
     }
     const auto surfaceW = static_cast<float>(inst.surface->width());
     const auto surfaceH = static_cast<float>(inst.surface->height());
-    const float width = inst.stylePanel->width();
-    const float height = inst.stylePanel->height();
+    const float width = inst.backdropPanel->width();
+    const float height = inst.backdropPanel->height();
     const float toolbarBottom = inst.toolbar->y() + inst.toolbar->height();
     const bool below = inst.toolbar->y() + (inst.toolbar->height() * 0.5F) <= surfaceH * 0.5F;
 
@@ -2928,23 +2931,23 @@ namespace capture {
     float y = below ? toolbarBottom + Style::spaceSm : inst.toolbar->y() - Style::spaceSm - height;
     x = std::clamp(x, kToolbarEdgeMargin, std::max(kToolbarEdgeMargin, surfaceW - width - kToolbarEdgeMargin));
     y = std::clamp(y, kToolbarEdgeMargin, std::max(kToolbarEdgeMargin, surfaceH - height - kToolbarEdgeMargin));
-    inst.stylePanel->setPosition(x, y);
+    inst.backdropPanel->setPosition(x, y);
   }
 
   // The preview reuses the export raster on a transparent stand-in for the capture, so the frame
   // matches the delivered image; the canvas layers cover the middle and only the frame shows.
-  void AnnotationOverlay::updateStylePreview(Instance& inst, Renderer& renderer) {
+  void AnnotationOverlay::updateBackdropPreview(Instance& inst, Renderer& renderer) {
     if (m_mode != AnnotationMode::Image
-        || inst.stylePreview == nullptr
+        || inst.backdropPreview == nullptr
         || inst.deviceWidth <= 0
         || inst.deviceHeight <= 0) {
       return;
     }
-    const std::optional<ScreenshotStyle> style = resolveScreenshotStyle(m_style);
+    const std::optional<ScreenshotBackdrop> backdrop = resolveScreenshotBackdrop(m_backdrop);
 
     const float maxRadius = static_cast<float>(std::min(inst.deviceWidth, inst.deviceHeight)) * 0.5F;
-    const float radius = style.has_value()
-        ? std::clamp(static_cast<float>(style->cornerRadius), 0.0F, maxRadius) / static_cast<float>(inst.canvasScale)
+    const float radius = backdrop.has_value()
+        ? std::clamp(static_cast<float>(backdrop->cornerRadius), 0.0F, maxRadius) / static_cast<float>(inst.canvasScale)
         : 0.0F;
     for (Image* layer : {inst.backdrop, inst.committedLayer, inst.activeLayer}) {
       if (layer != nullptr) {
@@ -2952,16 +2955,16 @@ namespace capture {
       }
     }
     if (inst.imageOutline != nullptr) {
-      inst.imageOutline->setVisible(!style.has_value());
+      inst.imageOutline->setVisible(!backdrop.has_value());
     }
 
-    if (!style.has_value()) {
-      inst.stylePreview->setVisible(false);
-      inst.previewStyle.reset();
+    if (!backdrop.has_value()) {
+      inst.backdropPreview->setVisible(false);
+      inst.previewBackdrop.reset();
       return;
     }
     const AnnotationRect& rect = inst.canvasRect;
-    if (inst.previewStyle == style
+    if (inst.previewBackdrop == backdrop
         && inst.previewCanvas.x == rect.x
         && inst.previewCanvas.y == rect.y
         && inst.previewCanvas.width == rect.width
@@ -2970,7 +2973,7 @@ namespace capture {
     }
 
     const double downscale =
-        std::max(1.0, (inst.canvasScale / std::max(0.1, static_cast<double>(inst.scale))) * kStylePreviewDownscale);
+        std::max(1.0, (inst.canvasScale / std::max(0.1, static_cast<double>(inst.scale))) * kBackdropPreviewDownscale);
     const auto scaled = [downscale](int pixels) { return static_cast<int>(std::lround(pixels / downscale)); };
     const int standInWidth = std::max(1, scaled(inst.deviceWidth));
     const int standInHeight = std::max(1, scaled(inst.deviceHeight));
@@ -2980,51 +2983,51 @@ namespace capture {
         .yInvert = false,
         .rgba = std::vector<std::uint8_t>(static_cast<std::size_t>(standInWidth) * standInHeight * 4U, 0),
     };
-    ScreenshotStyle previewStyle = *style;
-    previewStyle.padding = scaled(style->padding);
-    previewStyle.cornerRadius = scaled(style->cornerRadius);
-    previewStyle.shadowBlur = scaled(style->shadowBlur);
-    previewStyle.shadowOffsetX = scaled(style->shadowOffsetX);
-    previewStyle.shadowOffsetY = scaled(style->shadowOffsetY);
-    const ScreencopyImage frame = applyScreenshotStyle(standIn, previewStyle);
+    ScreenshotBackdrop previewBackdrop = *backdrop;
+    previewBackdrop.padding = scaled(backdrop->padding);
+    previewBackdrop.cornerRadius = scaled(backdrop->cornerRadius);
+    previewBackdrop.shadowBlur = scaled(backdrop->shadowBlur);
+    previewBackdrop.shadowOffsetX = scaled(backdrop->shadowOffsetX);
+    previewBackdrop.shadowOffsetY = scaled(backdrop->shadowOffsetY);
+    const ScreencopyImage frame = applyScreenshotBackdrop(standIn, previewBackdrop);
 
-    inst.stylePreview->clear(renderer);
-    if (!inst.stylePreview->setSourceRaw(
+    inst.backdropPreview->clear(renderer);
+    if (!inst.backdropPreview->setSourceRaw(
             renderer, frame.rgba.data(), frame.rgba.size(), frame.width, frame.height, frame.width * 4,
             PixmapFormat::RGBA, false
         )) {
-      kLog.warn("failed to upload screenshot style preview");
-      inst.stylePreview->setVisible(false);
+      kLog.warn("failed to upload screenshot backdrop preview");
+      inst.backdropPreview->setVisible(false);
       return;
     }
     // Map preview pixels onto the canvas so the stand-in lands exactly under it.
     const double unitX = rect.width / standInWidth;
     const double unitY = rect.height / standInHeight;
-    inst.stylePreview->setFit(ImageFit::Stretch);
-    inst.stylePreview->setSize(static_cast<float>(frame.width * unitX), static_cast<float>(frame.height * unitY));
-    inst.stylePreview->setPosition(
-        static_cast<float>(rect.x - (previewStyle.padding * unitX)),
-        static_cast<float>(rect.y - (previewStyle.padding * unitY))
+    inst.backdropPreview->setFit(ImageFit::Stretch);
+    inst.backdropPreview->setSize(static_cast<float>(frame.width * unitX), static_cast<float>(frame.height * unitY));
+    inst.backdropPreview->setPosition(
+        static_cast<float>(rect.x - (previewBackdrop.padding * unitX)),
+        static_cast<float>(rect.y - (previewBackdrop.padding * unitY))
     );
-    inst.stylePreview->setVisible(true);
-    inst.previewStyle = style;
+    inst.backdropPreview->setVisible(true);
+    inst.previewBackdrop = backdrop;
     inst.previewCanvas = rect;
   }
 
-  void AnnotationOverlay::toggleStylePanel() {
-    m_stylePanelOpen = !m_stylePanelOpen;
+  void AnnotationOverlay::toggleBackdropPanel() {
+    m_backdropPanelOpen = !m_backdropPanelOpen;
     requestRedrawAll();
   }
 
-  void AnnotationOverlay::editStyle(const std::function<void(StyleConfig&)>& edit) {
-    edit(m_style);
-    m_styleEdited = true;
+  void AnnotationOverlay::editBackdrop(const std::function<void(BackdropConfig&)>& edit) {
+    edit(m_backdrop);
+    m_backdropEdited = true;
     requestRedrawAll();
   }
 
-  bool AnnotationOverlay::stylePanelInputFocused(const Instance& inst) const {
+  bool AnnotationOverlay::backdropPanelInputFocused(const Instance& inst) const {
     const InputArea* focused = inst.inputDispatcher.focusedArea();
-    return focused != nullptr && std::ranges::any_of(inst.styleValueInputs, [focused](const Input* input) {
+    return focused != nullptr && std::ranges::any_of(inst.backdropValueInputs, [focused](const Input* input) {
              return input != nullptr && input->inputArea() == focused;
            });
   }

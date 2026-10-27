@@ -1,9 +1,9 @@
 #pragma once
 
 #include "capture/annotation_overlay.h"
+#include "capture/screenshot_backdrop.h"
 #include "capture/screenshot_capture.h"
 #include "capture/screenshot_region_overlay.h"
-#include "capture/screenshot_style.h"
 #include "capture/toplevel_thumbnail_capture.h"
 #include "config/config_types.h"
 
@@ -52,8 +52,8 @@ public:
     std::string filenamePattern;
     ScreenshotFormat format = ScreenshotFormat::Png;
     std::int32_t quality = 90;
-    // Set from the annotation editor's style panel; applied to the final image just before encoding.
-    std::optional<capture::ScreenshotStyle> style;
+    // Set from the annotation editor's backdrop panel; applied to the final image just before encoding.
+    std::optional<capture::ScreenshotBackdrop> backdrop;
 
     bool operator==(const OutputOptions&) const = default;
   };
@@ -188,9 +188,9 @@ private:
   );
   bool
   finishDelivery(ScreencopyImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath);
-  void applyEditorStyle(OutputOptions& options) const;
-  void persistScreenshotStyle(const capture::ScreenshotStyleSettings& style);
-  [[nodiscard]] capture::ScreenshotStyleSettings loadScreenshotStyle() const;
+  void applyEditorBackdrop(OutputOptions& options) const;
+  void persistScreenshotBackdrop(const capture::ScreenshotBackdropSettings& backdrop);
+  [[nodiscard]] capture::ScreenshotBackdropSettings loadScreenshotBackdrop() const;
   void onCaptureComplete(
       std::optional<capture::ScreenshotImage> image, const std::string& error, OutputOptions options,
       std::optional<std::filesystem::path> destPath

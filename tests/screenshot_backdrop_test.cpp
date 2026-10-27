@@ -1,4 +1,4 @@
-#include "capture/screenshot_style.h"
+#include "capture/screenshot_backdrop.h"
 #include "test_check.h"
 
 #include <cstdint>
@@ -37,31 +37,31 @@ namespace {
 
   bool near(int value, int expected, int tolerance = 2) { return std::abs(value - expected) <= tolerance; }
 
-  capture::ScreenshotStyle plainStyle() {
-    capture::ScreenshotStyle style;
-    style.background = false;
-    style.shadow = false;
-    style.cornerRadius = 0;
-    style.padding = 0;
-    style.gradientStart = Color{1.0F, 0.0F, 0.0F, 1.0F};
-    style.gradientEnd = Color{0.0F, 0.0F, 1.0F, 1.0F};
-    style.shadowColor = Color{0.0F, 0.0F, 0.0F, 1.0F};
-    return style;
+  capture::ScreenshotBackdrop plainBackdrop() {
+    capture::ScreenshotBackdrop backdrop;
+    backdrop.gradient = false;
+    backdrop.shadow = false;
+    backdrop.cornerRadius = 0;
+    backdrop.padding = 0;
+    backdrop.gradientStart = Color{1.0F, 0.0F, 0.0F, 1.0F};
+    backdrop.gradientEnd = Color{0.0F, 0.0F, 1.0F, 1.0F};
+    backdrop.shadowColor = Color{0.0F, 0.0F, 0.0F, 1.0F};
+    return backdrop;
   }
 
   void testPassThrough() {
     const auto source = solidImage(8, 6, 10, 20, 30);
-    const auto out = capture::applyScreenshotStyle(source, plainStyle());
+    const auto out = capture::applyScreenshotBackdrop(source, plainBackdrop());
     TEST_CHECK(out.width == 8 && out.height == 6);
     TEST_CHECK(out.rgba == source.rgba);
   }
 
   void testPaddingAndGradient() {
-    auto style = plainStyle();
-    style.background = true;
-    style.padding = 20;
-    style.gradientAngleDegrees = 90.0F; // left (red) to right (blue)
-    const auto out = capture::applyScreenshotStyle(solidImage(10, 10, 0, 255, 0), style);
+    auto backdrop = plainBackdrop();
+    backdrop.gradient = true;
+    backdrop.padding = 20;
+    backdrop.gradientAngleDegrees = 90.0F; // left (red) to right (blue)
+    const auto out = capture::applyScreenshotBackdrop(solidImage(10, 10, 0, 255, 0), backdrop);
     TEST_CHECK(out.width == 50 && out.height == 50);
 
     const Pixel left = pixelAt(out, 0, 25);
@@ -73,22 +73,22 @@ namespace {
   }
 
   void testRoundedCorners() {
-    auto style = plainStyle();
-    style.cornerRadius = 8;
-    const auto out = capture::applyScreenshotStyle(solidImage(32, 32, 255, 255, 255), style);
+    auto backdrop = plainBackdrop();
+    backdrop.cornerRadius = 8;
+    const auto out = capture::applyScreenshotBackdrop(solidImage(32, 32, 255, 255, 255), backdrop);
     TEST_CHECK(pixelAt(out, 0, 0).a == 0);
     TEST_CHECK(pixelAt(out, 16, 0).a == 255);
     TEST_CHECK(pixelAt(out, 16, 16).a == 255);
   }
 
   void testShadow() {
-    auto style = plainStyle();
-    style.padding = 40;
-    style.shadow = true;
-    style.shadowOpacity = 1.0F;
-    style.shadowBlur = 10;
-    style.shadowOffsetY = 12;
-    const auto out = capture::applyScreenshotStyle(solidImage(20, 20, 255, 255, 255), style);
+    auto backdrop = plainBackdrop();
+    backdrop.padding = 40;
+    backdrop.shadow = true;
+    backdrop.shadowOpacity = 1.0F;
+    backdrop.shadowBlur = 10;
+    backdrop.shadowOffsetY = 12;
+    const auto out = capture::applyScreenshotBackdrop(solidImage(20, 20, 255, 255, 255), backdrop);
 
     const Pixel below = pixelAt(out, 50, 64); // under the capture, inside the offset shadow
     TEST_CHECK(below.a > 100 && near(below.r, 0) && near(below.b, 0));
@@ -97,7 +97,7 @@ namespace {
   }
 
   void testEmptySource() {
-    const auto out = capture::applyScreenshotStyle(ScreencopyImage{}, plainStyle());
+    const auto out = capture::applyScreenshotBackdrop(ScreencopyImage{}, plainBackdrop());
     TEST_CHECK(out.width == 0 && out.rgba.empty());
   }
 

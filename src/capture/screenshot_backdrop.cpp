@@ -1,4 +1,4 @@
-#include "capture/screenshot_style.h"
+#include "capture/screenshot_backdrop.h"
 
 #include <algorithm>
 #include <array>
@@ -112,12 +112,12 @@ namespace capture {
 
   } // namespace
 
-  std::optional<ScreenshotStyle> resolveScreenshotStyle(const ScreenshotStyleSettings& config) {
+  std::optional<ScreenshotBackdrop> resolveScreenshotBackdrop(const ScreenshotBackdropSettings& config) {
     if (!config.enabled) {
       return std::nullopt;
     }
-    return ScreenshotStyle{
-        .background = config.background,
+    return ScreenshotBackdrop{
+        .gradient = config.gradient,
         .gradientStart = resolveColorSpec(config.gradientStart),
         .gradientEnd = resolveColorSpec(config.gradientEnd),
         .gradientAngleDegrees = config.gradientAngle,
@@ -132,12 +132,12 @@ namespace capture {
     };
   }
 
-  ScreencopyImage applyScreenshotStyle(const ScreencopyImage& source, const ScreenshotStyle& style) {
+  ScreencopyImage applyScreenshotBackdrop(const ScreencopyImage& source, const ScreenshotBackdrop& backdrop) {
     if (source.width <= 0 || source.height <= 0 || source.rgba.empty()) {
       return source;
     }
 
-    const int padding = std::max(style.padding, 0);
+    const int padding = std::max(backdrop.padding, 0);
     const int width = source.width + (2 * padding);
     const int height = source.height + (2 * padding);
     const auto pixelCount = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
@@ -146,14 +146,15 @@ namespace capture {
     const auto y0 = static_cast<float>(padding);
     const auto imageW = static_cast<float>(source.width);
     const auto imageH = static_cast<float>(source.height);
-    const float radius = std::clamp(static_cast<float>(style.cornerRadius), 0.0F, std::min(imageW, imageH) * 0.5F);
+    const float radius = std::clamp(static_cast<float>(backdrop.cornerRadius), 0.0F, std::min(imageW, imageH) * 0.5F);
 
     std::vector<float> shadowMask;
-    const float shadowAlpha = std::clamp(style.shadowOpacity, 0.0F, 1.0F) * std::clamp(style.shadowColor.a, 0.0F, 1.0F);
-    if (style.shadow && shadowAlpha > 0.0F) {
+    const float shadowAlpha =
+        std::clamp(backdrop.shadowOpacity, 0.0F, 1.0F) * std::clamp(backdrop.shadowColor.a, 0.0F, 1.0F);
+    if (backdrop.shadow && shadowAlpha > 0.0F) {
       shadowMask.assign(pixelCount, 0.0F);
-      const float sx = x0 + static_cast<float>(style.shadowOffsetX);
-      const float sy = y0 + static_cast<float>(style.shadowOffsetY);
+      const float sx = x0 + static_cast<float>(backdrop.shadowOffsetX);
+      const float sy = y0 + static_cast<float>(backdrop.shadowOffsetY);
       const int minX = std::max(0, static_cast<int>(std::floor(sx)));
       const int minY = std::max(0, static_cast<int>(std::floor(sy)));
       const int maxX = std::min(width, static_cast<int>(std::ceil(sx + imageW)));
@@ -164,12 +165,12 @@ namespace capture {
               roundedRectCoverage(x, y, sx, sy, imageW, imageH, radius);
         }
       }
-      gaussianBlur(shadowMask, width, height, std::max(style.shadowBlur, 0));
+      gaussianBlur(shadowMask, width, height, std::max(backdrop.shadowBlur, 0));
     }
 
     // Gradient parameter t is the pixel's projection onto the angle's direction, normalised so
     // the canvas corners span exactly 0..1.
-    const float angle = style.gradientAngleDegrees * std::numbers::pi_v<float> / 180.0F;
+    const float angle = backdrop.gradientAngleDegrees * std::numbers::pi_v<float> / 180.0F;
     // CSS convention: 0° points up, 90° left to right, 135° top-left to bottom-right.
     const float dirX = std::sin(angle);
     const float dirY = -std::cos(angle);
@@ -187,13 +188,13 @@ namespace capture {
     for (int y = 0; y < height; ++y) {
       for (int x = 0; x < width; ++x) {
         Rgba pixel{};
-        if (style.background) {
+        if (backdrop.gradient) {
           const float projected =
               ((static_cast<float>(x) + 0.5F - centreX) * dirX) + ((static_cast<float>(y) + 0.5F - centreY) * dirY);
           const float t = extent > 0.0F ? std::clamp((projected / extent) + 0.5F, 0.0F, 1.0F) : 0.0F;
           const float dither = ((kBayer4[y & 3][x & 3] + 0.5F) / 16.0F - 0.5F) / 255.0F;
-          const Color& a = style.gradientStart;
-          const Color& b = style.gradientEnd;
+          const Color& a = backdrop.gradientStart;
+          const Color& b = backdrop.gradientEnd;
           pixel = over(
               Rgba{}, a.r + ((b.r - a.r) * t) + dither, a.g + ((b.g - a.g) * t) + dither,
               a.b + ((b.b - a.b) * t) + dither, std::clamp(a.a + ((b.a - a.a) * t), 0.0F, 1.0F)
@@ -203,7 +204,8 @@ namespace capture {
         const std::size_t index = (static_cast<std::size_t>(y) * width) + x;
         if (!shadowMask.empty() && shadowMask[index] > 0.0F) {
           pixel = over(
-              pixel, style.shadowColor.r, style.shadowColor.g, style.shadowColor.b, shadowMask[index] * shadowAlpha
+              pixel, backdrop.shadowColor.r, backdrop.shadowColor.g, backdrop.shadowColor.b,
+              shadowMask[index] * shadowAlpha
           );
         }
 

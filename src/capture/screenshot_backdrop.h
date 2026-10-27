@@ -9,11 +9,11 @@
 
 namespace capture {
 
-  // Resolved presentation for a styled screenshot: the capture sits on a padded canvas with
-  // rounded corners, an optional soft drop shadow and an optional linear-gradient backdrop.
+  // Resolved presentation for a screenshot with a backdrop: the capture sits on a padded canvas with
+  // rounded corners, an optional soft drop shadow and an optional linear-gradient fill.
   // All lengths are in image pixels.
-  struct ScreenshotStyle {
-    bool background = true;
+  struct ScreenshotBackdrop {
+    bool gradient = true;
     Color gradientStart;
     Color gradientEnd;
     float gradientAngleDegrees = 135.0F; // CSS convention: 90 = left→right, 180 = top→bottom
@@ -26,13 +26,13 @@ namespace capture {
     int shadowOffsetX = 0;
     int shadowOffsetY = 16;
 
-    bool operator==(const ScreenshotStyle&) const = default;
+    bool operator==(const ScreenshotBackdrop&) const = default;
   };
 
-  // Editable style as the annotation editor holds it: colors may be theme roles, resolved at use.
-  struct ScreenshotStyleSettings {
+  // Editable backdrop as the annotation editor holds it: colors may be theme roles, resolved at use.
+  struct ScreenshotBackdropSettings {
     bool enabled = false;
-    bool background = true;
+    bool gradient = true;
     ColorSpec gradientStart = colorSpecFromRole(ColorRole::Primary);
     ColorSpec gradientEnd = colorSpecFromRole(ColorRole::Tertiary);
     float gradientAngle = 135.0F;
@@ -45,14 +45,15 @@ namespace capture {
     std::int32_t shadowOffsetX = 0;
     std::int32_t shadowOffsetY = 16;
 
-    bool operator==(const ScreenshotStyleSettings&) const = default;
+    bool operator==(const ScreenshotBackdropSettings&) const = default;
   };
 
-  // Resolves theme roles against the current palette. Returns nullopt when styling is disabled.
-  [[nodiscard]] std::optional<ScreenshotStyle> resolveScreenshotStyle(const ScreenshotStyleSettings& settings);
+  // Resolves theme roles against the current palette. Returns nullopt when the backdrop is disabled.
+  [[nodiscard]] std::optional<ScreenshotBackdrop> resolveScreenshotBackdrop(const ScreenshotBackdropSettings& settings);
 
-  // Returns the styled copy of a top-down, straight-alpha RGBA image. An empty source is returned
-  // unchanged.
-  [[nodiscard]] ScreencopyImage applyScreenshotStyle(const ScreencopyImage& source, const ScreenshotStyle& style);
+  // Returns a copy of a top-down, straight-alpha RGBA image with the backdrop applied. An empty source is
+  // returned unchanged.
+  [[nodiscard]] ScreencopyImage
+  applyScreenshotBackdrop(const ScreencopyImage& source, const ScreenshotBackdrop& backdrop);
 
 } // namespace capture

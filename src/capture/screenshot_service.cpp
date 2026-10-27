@@ -58,7 +58,7 @@ namespace {
   constexpr const char* kStateOwner = "screenshot";
   constexpr const char* kLastRegionKey = "last_region";
   constexpr const char* kAnnotateStateOwner = "annotate";
-  constexpr const char* kStyleStateKey = "style";
+  constexpr const char* kBackdropStateKey = "backdrop";
 
   [[nodiscard]] std::optional<double> parseDouble(std::string_view text) {
     double value = 0.0;
@@ -1530,8 +1530,8 @@ void ScreenshotService::ensureAnnotationOverlay() {
     notifyError(message);
   });
   m_annotationOverlay->setClosedCallback([this]() { m_pendingDelivery.reset(); });
-  m_annotationOverlay->setStyleChangedCallback([this](const capture::ScreenshotStyleSettings& style) {
-    persistScreenshotStyle(style);
+  m_annotationOverlay->setBackdropChangedCallback([this](const capture::ScreenshotBackdropSettings& backdrop) {
+    persistScreenshotBackdrop(backdrop);
   });
   m_annotationOverlay->setFeedbackCallback([this](const std::string& message) { notifyError(message); });
   m_annotationOverlay->setFreezeCallback([this]() {
@@ -1571,7 +1571,7 @@ void ScreenshotService::ensureAnnotationOverlay() {
       }
       OutputOptions options = m_pendingDelivery->options;
       options.annotate = false;
-      applyEditorStyle(options);
+      applyEditorBackdrop(options);
       const auto destPath = m_pendingDelivery->destPath;
       m_pendingDelivery.reset();
       finishDelivery(std::move(image), options, destPath);
@@ -1583,7 +1583,7 @@ void ScreenshotService::ensureAnnotationOverlay() {
     options.saveToFile = action == capture::AnnotationExport::Save;
     options.pipeToCommand = false;
     options.annotate = false;
-    applyEditorStyle(options);
+    applyEditorBackdrop(options);
     const std::optional<std::filesystem::path> destPath =
         options.saveToFile ? std::optional(makeScreenshotPath(options, "annotated")) : std::nullopt;
     const bool delivered = finishDelivery(std::move(image), options, destPath);
@@ -1656,7 +1656,7 @@ void ScreenshotService::beginImageAnnotation(
   m_annotationOverlay->setToolState(loadAnnotationToolState());
   m_annotationOverlay->setCursorVisible(options.showCursor);
   m_annotationOverlay->setCopyOnClose(options.copyOnClose);
-  m_annotationOverlay->setScreenshotStyle(loadScreenshotStyle());
+  m_annotationOverlay->setScreenshotBackdrop(loadScreenshotBackdrop());
   m_annotationOverlay->beginImage(std::move(image), preferredCaptureOutput());
 }
 
@@ -2075,42 +2075,42 @@ void ScreenshotService::deliverCaptureResult(
   finishDelivery(std::move(image.image), options, std::move(destPath));
 }
 
-// Styling comes only from the Image-mode editor, which previews and edits it.
-void ScreenshotService::applyEditorStyle(OutputOptions& options) const {
+// The backdrop comes only from the Image-mode editor, which previews and edits it.
+void ScreenshotService::applyEditorBackdrop(OutputOptions& options) const {
   if (m_annotationOverlay != nullptr && m_annotationOverlay->mode() == capture::AnnotationMode::Image) {
-    options.style = capture::resolveScreenshotStyle(m_annotationOverlay->screenshotStyle());
+    options.backdrop = capture::resolveScreenshotBackdrop(m_annotationOverlay->screenshotBackdrop());
   }
 }
 
-// The editor's style lives in the annotate state, next to its tool preferences.
-void ScreenshotService::persistScreenshotStyle(const capture::ScreenshotStyleSettings& style) {
+// The editor's backdrop lives in the annotate state, next to its tool preferences.
+void ScreenshotService::persistScreenshotBackdrop(const capture::ScreenshotBackdropSettings& backdrop) {
   const nlohmann::json json = {
-      {"enabled", style.enabled},
-      {"background", style.background},
-      {"gradient_start", colorSpecToConfigString(style.gradientStart)},
-      {"gradient_end", colorSpecToConfigString(style.gradientEnd)},
-      {"gradient_angle", style.gradientAngle},
-      {"padding", style.padding},
-      {"corner_radius", style.cornerRadius},
-      {"shadow", style.shadow},
-      {"shadow_color", colorSpecToConfigString(style.shadowColor)},
-      {"shadow_opacity", style.shadowOpacity},
-      {"shadow_blur", style.shadowBlur},
-      {"shadow_offset_x", style.shadowOffsetX},
-      {"shadow_offset_y", style.shadowOffsetY},
+      {"enabled", backdrop.enabled},
+      {"gradient", backdrop.gradient},
+      {"gradient_start", colorSpecToConfigString(backdrop.gradientStart)},
+      {"gradient_end", colorSpecToConfigString(backdrop.gradientEnd)},
+      {"gradient_angle", backdrop.gradientAngle},
+      {"padding", backdrop.padding},
+      {"corner_radius", backdrop.cornerRadius},
+      {"shadow", backdrop.shadow},
+      {"shadow_color", colorSpecToConfigString(backdrop.shadowColor)},
+      {"shadow_opacity", backdrop.shadowOpacity},
+      {"shadow_blur", backdrop.shadowBlur},
+      {"shadow_offset_x", backdrop.shadowOffsetX},
+      {"shadow_offset_y", backdrop.shadowOffsetY},
   };
-  persistAnnotationToolState(kStyleStateKey, json.dump());
+  persistAnnotationToolState(kBackdropStateKey, json.dump());
 }
 
-capture::ScreenshotStyleSettings ScreenshotService::loadScreenshotStyle() const {
-  capture::ScreenshotStyleSettings style;
-  const auto text = m_configService.stateString(kAnnotateStateOwner, kStyleStateKey);
+capture::ScreenshotBackdropSettings ScreenshotService::loadScreenshotBackdrop() const {
+  capture::ScreenshotBackdropSettings backdrop;
+  const auto text = m_configService.stateString(kAnnotateStateOwner, kBackdropStateKey);
   if (!text.has_value()) {
-    return style;
+    return backdrop;
   }
   const nlohmann::json json = nlohmann::json::parse(*text, nullptr, false);
   if (!json.is_object()) {
-    return style;
+    return backdrop;
   }
   const auto read = [&json](const char* key, auto& out) {
     if (const auto it = json.find(key); it != json.end()) {
@@ -2128,27 +2128,27 @@ capture::ScreenshotStyleSettings ScreenshotService::loadScreenshotStyle() const 
       }
     }
   };
-  read("enabled", style.enabled);
-  read("background", style.background);
-  readColor("gradient_start", style.gradientStart);
-  readColor("gradient_end", style.gradientEnd);
-  read("gradient_angle", style.gradientAngle);
-  read("padding", style.padding);
-  read("corner_radius", style.cornerRadius);
-  read("shadow", style.shadow);
-  readColor("shadow_color", style.shadowColor);
-  read("shadow_opacity", style.shadowOpacity);
-  read("shadow_blur", style.shadowBlur);
-  read("shadow_offset_x", style.shadowOffsetX);
-  read("shadow_offset_y", style.shadowOffsetY);
-  return style;
+  read("enabled", backdrop.enabled);
+  read("gradient", backdrop.gradient);
+  readColor("gradient_start", backdrop.gradientStart);
+  readColor("gradient_end", backdrop.gradientEnd);
+  read("gradient_angle", backdrop.gradientAngle);
+  read("padding", backdrop.padding);
+  read("corner_radius", backdrop.cornerRadius);
+  read("shadow", backdrop.shadow);
+  readColor("shadow_color", backdrop.shadowColor);
+  read("shadow_opacity", backdrop.shadowOpacity);
+  read("shadow_blur", backdrop.shadowBlur);
+  read("shadow_offset_x", backdrop.shadowOffsetX);
+  read("shadow_offset_y", backdrop.shadowOffsetY);
+  return backdrop;
 }
 
 bool ScreenshotService::finishDelivery(
     ScreencopyImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath
 ) {
-  if (options.style.has_value()) {
-    image = capture::applyScreenshotStyle(image, *options.style);
+  if (options.backdrop.has_value()) {
+    image = capture::applyScreenshotBackdrop(image, *options.backdrop);
   }
 
   const bool saveFile = options.saveToFile && destPath.has_value();
