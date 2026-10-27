@@ -285,7 +285,8 @@ namespace {
     kLog.debug("authenticating user='{}' service='{}'", user, service);
 
     PamHandle pamh;
-    const int startRc = pam_start(service.data(), user.c_str(), &conv, &pamh.h);
+    const std::string serviceName(service);
+    const int startRc = pam_start(serviceName.c_str(), user.c_str(), &conv, &pamh.h);
     if (startRc != PAM_SUCCESS || pamh.h == nullptr) {
       kLog.error(
           "pam_start failed rc={} ({})", startRc, pamh.h != nullptr ? pam_strerror(pamh.h, startRc) : "no handle"
