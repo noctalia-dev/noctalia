@@ -135,7 +135,7 @@ namespace settings {
 
         SettingEntry rowEntry = entry;
         rowEntry.path = path;
-        rowEntry.title = i18n::tr(std::string(noctalia::bar::gestureLabelKey(gesture)));
+        rowEntry.title = i18n::tr(noctalia::bar::gestureLabelKey(gesture));
         rowEntry.subtitle.clear();
 
         GestureActionSetting setting{

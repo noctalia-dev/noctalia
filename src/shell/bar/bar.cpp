@@ -314,7 +314,7 @@ namespace {
       std::string_view panelId, std::string_view context, bool toggle
   ) {
     auto& panelManager = PanelManager::instance();
-    if (toggle && panelManager.isOpenPanel(std::string(panelId))) {
+    if (toggle && panelManager.isOpenPanel(panelId)) {
       panelManager.closePanel();
       return;
     }
@@ -335,8 +335,8 @@ namespace {
             .anchorX = anchorX,
             .anchorY = anchorY,
             .hasAnchorPosition = true,
-            .context = std::string(context),
-            .sourceBarName = std::string(sourceBarName),
+            .context = context,
+            .sourceBarName = sourceBarName,
         }
     );
   }

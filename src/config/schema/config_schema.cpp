@@ -1567,9 +1567,7 @@ namespace noctalia::config::schema {
           subTable(&ShellConfig::LauncherConfig::panels, "panels", shellLauncherPanelsSchema()),
           namedMap<ShellConfig::LauncherConfig, LauncherProviderConfig>(
               &ShellConfig::LauncherConfig::providers, "providers", launcherProviderSchema(),
-              [](LauncherProviderConfig& elem, std::string_view name) {
-                elem.name = StringUtils::toLower(std::string(name));
-              },
+              [](LauncherProviderConfig& elem, std::string_view name) { elem.name = StringUtils::toLower(name); },
               [](const LauncherProviderConfig& elem) { return elem.name; }
           ),
       };

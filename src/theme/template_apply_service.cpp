@@ -504,7 +504,7 @@ namespace noctalia::theme {
     hookOptions.configFile = configPath.string();
     TemplateEngine hookEngine(TemplateEngine::makeThemeData(request.palette), std::move(hookOptions));
 
-    const RenderResult rendered = hookEngine.render(std::string(hook));
+    const RenderResult rendered = hookEngine.render(hook);
     if (rendered.errorCount != 0 || rendered.text.empty()) {
       // Retrying cannot fix a hook that does not render.
       kLog.warn("failed to render undo hook for {}", label);

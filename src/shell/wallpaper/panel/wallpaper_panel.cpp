@@ -1833,7 +1833,7 @@ void WallpaperPanel::setSortMode(SortMode mode) {
     reseedRandomSort();
   }
   if (m_config != nullptr) {
-    (void)m_config->setStateString("wallpaper_panel", "sort", std::string(sortModeStateValue(mode)));
+    (void)m_config->setStateString("wallpaper_panel", "sort", sortModeStateValue(mode));
   }
   syncSortButtonGlyph();
   sortVisibleEntries();

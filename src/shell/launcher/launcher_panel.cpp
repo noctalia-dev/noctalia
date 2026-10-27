@@ -1470,7 +1470,7 @@ void LauncherPanel::applyProviderConfig(LauncherProvider& provider) const {
     const auto& launcherCfg = m_config->config().shell.launcher;
     prefix = launcherCfg.providerPrefix;
     if (provider.allowCustomPrefix()) {
-      const std::string key = StringUtils::toLower(std::string(provider.id()));
+      const std::string key = StringUtils::toLower(provider.id());
       auto it = std::ranges::find(launcherCfg.providers, key, &LauncherProviderConfig::name);
       if (it != launcherCfg.providers.end()) {
         if (!it->prefix.empty()) {

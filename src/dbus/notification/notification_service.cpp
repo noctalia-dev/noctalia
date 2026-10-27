@@ -343,7 +343,7 @@ namespace notification_dbus {
       // Many screenshot tools (e.g. HyprCap) provide a single temp file via "image-path" which gets
       // overwritten on every new capture. Snapshot it into `imageData` so history thumbnails stay
       // immutable.
-      const std::string normalizedPath = uri::normalizeFileUrl(std::string(imagePath));
+      const std::string normalizedPath = uri::normalizeFileUrl(imagePath);
       if (normalizedPath.empty() || normalizedPath.front() != '/') {
         return std::nullopt;
       }

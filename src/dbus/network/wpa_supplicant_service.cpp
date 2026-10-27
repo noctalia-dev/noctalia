@@ -32,7 +32,7 @@ namespace {
   template <typename T>
   T getPropertyOr(sdbus::IProxy& proxy, std::string_view iface, std::string_view prop, T fallback) {
     try {
-      return proxy.getProperty(prop).onInterface(std::string(iface)).template get<T>();
+      return proxy.getProperty(prop).onInterface(iface).template get<T>();
     } catch (const sdbus::Error&) {
       return fallback;
     }

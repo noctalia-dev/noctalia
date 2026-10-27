@@ -1180,8 +1180,7 @@ Wallpaper::SwitchOutcome Wallpaper::switchWallpaperTo(PickWallpaper action, std:
       return SwitchOutcome::Unavailable;
     }
     const std::string currentPath = m_config->getWallpaperPath(std::string(*connector));
-    const std::string picked =
-        pick(std::move(candidates), currentPath, outputShuffleScope(std::string(*connector)), dir);
+    const std::string picked = pick(std::move(candidates), currentPath, outputShuffleScope(*connector), dir);
     if (picked.empty() || picked == currentPath) {
       return SwitchOutcome::NoChange;
     }

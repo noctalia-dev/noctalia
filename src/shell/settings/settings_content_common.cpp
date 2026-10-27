@@ -272,7 +272,7 @@ namespace settings {
   }
 
   void updateSettingsStatusBanner(Flex& banner, Label& message, std::string_view text, bool error) {
-    message.setText(std::string(text));
+    message.setText(text);
     message.setColor(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary));
     banner.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14F));
     banner.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);

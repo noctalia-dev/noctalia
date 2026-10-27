@@ -18,7 +18,7 @@ namespace {
   [[nodiscard]] std::string
   taskbarStyleWmClassLower(std::string_view startupWmClass, std::string_view fallbackIdLower) {
     if (!startupWmClass.empty()) {
-      return StringUtils::toLower(std::string(startupWmClass));
+      return StringUtils::toLower(startupWmClass);
     }
     return std::string(fallbackIdLower);
   }

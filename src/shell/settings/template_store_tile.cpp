@@ -74,8 +74,8 @@ namespace settings {
       std::string_view name, std::string_view category, bool enabled, bool selected, bool hovered, bool hasReadme,
       std::function<void(bool enabled)> onToggle
   ) {
-    m_nameLabel->setText(std::string(name));
-    m_categoryLabel->setText(std::string(category));
+    m_nameLabel->setText(name);
+    m_categoryLabel->setText(category);
 
     const bool hasCategory = !category.empty();
     m_categoryLabel->setVisible(hasCategory);

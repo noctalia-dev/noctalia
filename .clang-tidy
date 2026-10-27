@@ -26,6 +26,7 @@ Checks: >-
   performance-inefficient-vector-operation,
   performance-move-const-arg,
   performance-prefer-single-char-overloads,
+  performance-string-view-conversions,
   performance-unnecessary-copy-initialization,
   performance-unnecessary-value-param,
   performance-use-std-move,

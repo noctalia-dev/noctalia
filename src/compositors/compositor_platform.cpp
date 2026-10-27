@@ -1022,7 +1022,7 @@ void CompositorPlatform::activateToplevelForAppId(std::string_view appId) {
   if (appId.empty()) {
     return;
   }
-  const std::string idLower = StringUtils::toLower(std::string(appId));
+  const std::string idLower = StringUtils::toLower(appId);
   const auto windows = windowsForApp(idLower, idLower);
   if (windows.empty()) {
     return;

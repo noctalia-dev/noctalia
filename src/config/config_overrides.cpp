@@ -1078,7 +1078,7 @@ bool ConfigService::setThemeColorScheme(PaletteSource source, std::string_view v
     return false;
   }
 
-  const std::string value = StringUtils::trim(std::string(valueRaw));
+  const std::string value = StringUtils::trim(valueRaw);
   if (value.empty()) {
     return false;
   }
@@ -1631,7 +1631,7 @@ bool ConfigService::createBarOverride(std::string_view name) {
   }
 
   auto* barRoot = ensureTable(m_overridesTable, "bar");
-  if (barRoot == nullptr || barRoot->get(std::string(name)) != nullptr) {
+  if (barRoot == nullptr || barRoot->get(name) != nullptr) {
     return false;
   }
 
@@ -1778,7 +1778,7 @@ bool ConfigService::createMonitorOverride(std::string_view barName, std::string_
     return false;
   }
   auto* monitorRoot = ensureTable(*barTbl, "monitor");
-  if (monitorRoot == nullptr || monitorRoot->get(std::string(match)) != nullptr) {
+  if (monitorRoot == nullptr || monitorRoot->get(match) != nullptr) {
     return false;
   }
   if (ensureTable(*monitorRoot, match) == nullptr) {
@@ -1847,7 +1847,7 @@ bool ConfigService::createDockMonitorOverride(std::string_view match) {
     return false;
   }
   auto* monitorRoot = ensureTable(*dockRoot, "monitor");
-  if (monitorRoot == nullptr || monitorRoot->get(std::string(match)) != nullptr) {
+  if (monitorRoot == nullptr || monitorRoot->get(match) != nullptr) {
     return false;
   }
   if (ensureTable(*monitorRoot, match) == nullptr) {

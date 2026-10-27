@@ -508,7 +508,7 @@ namespace {
     if (!settingsPath.empty() && std::filesystem::exists(std::filesystem::path(std::string(settingsPath)))) {
       const std::filesystem::path settingsFile{std::string(settingsPath)};
       try {
-        toml::table sidecar = toml::parse_file(std::string(settingsPath));
+        toml::table sidecar = toml::parse_file(settingsPath);
         seedLegacyDockAllowListEnabled(sidecar, merged);
         noctalia::config::ConfigOriginIndex origins;
         origins.record(settingsFile, sidecar);
