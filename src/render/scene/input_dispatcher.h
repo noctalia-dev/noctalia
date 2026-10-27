@@ -103,7 +103,7 @@ private:
   // gesture ends (pointer moved, button pressed, or pause), so content moving under a
   // stationary pointer cannot take over the rest of the gesture.
   InputArea* m_axisGestureArea = nullptr;
-  std::chrono::steady_clock::time_point m_lastAxisTime{};
+  std::chrono::steady_clock::time_point m_lastAxisTime;
   std::optional<std::size_t> m_stashedTabFocusIndex;
   std::optional<std::string> m_stashedTabFocusKey;
   std::uint32_t m_lastSerial = 0;
