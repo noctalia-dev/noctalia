@@ -3119,6 +3119,10 @@
           "description": "Color temperature at night (Kelvin)",
           "label": "Night Temperature"
         },
+        "scheduled-brightness": {
+          "description": "Enable automatic brightness changes based on sunrise/sunset schedule",
+          "label": "Scheduled Brightness"
+        },
         "scheduled-day-brightness": {
           "description": "Target brightness level during the day",
           "label": "Day Brightness"

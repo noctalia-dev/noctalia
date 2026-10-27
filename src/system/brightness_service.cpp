@@ -1268,10 +1268,9 @@ struct BrightnessService::Impl {
     const float dayBright = activeConfig.scheduledDayBrightness;
     const float nightBright = activeConfig.scheduledNightBrightness;
 
-    // Clock-anchored fade window: 60 minutes total, 30 min before/after boundary
+    // Clock-anchored fade window: 30 minutes before boundary
     const float fadeMs = std::chrono::duration<float, std::milli>(std::chrono::minutes(60)).count();
     const float halfFade = fadeMs / 2.0F;
-    const float sinceMs = static_cast<float>(eval.sinceBoundary.count());
     const float untilMs = static_cast<float>(eval.untilBoundary.count());
 
     float fromBright = eval.night ? nightBright : dayBright;

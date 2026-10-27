@@ -31,3 +31,24 @@ The fade is anchored to the wall clock, not to when Noctalia started. The temper
 ## Related IPC
 
 For night light commands, see [System Controls → Night light](/noctalia/ipc/system-controls/#night-light).
+
+## Scheduled Brightness
+
+When enabled alongside night light, scheduled brightness adjusts screen brightness using the same day/night schedule and gradient fade logic:
+
+```toml
+[brightness]
+enable_scheduled_brightness = false
+scheduled_day_brightness    = 1.0   # target brightness during day phase (0.0–1.0)
+scheduled_night_brightness  = 0.5   # target brightness during night phase (0.0–1.0)
+```
+
+### Gradient fade behavior
+
+Brightness transitions use a **30-minute fade window** before sunrise and sunset, matching the night light temperature pattern:
+
+- Fade begins 30 minutes before the boundary (sunrise or sunset).
+- At the boundary, brightness reaches the target phase value (`scheduled_day_brightness` at sunrise, `scheduled_night_brightness` at sunset).
+- Once the boundary is reached, brightness stays at the target value until the next fade window begins.
+
+The schedule timer recalculates brightness every 5 minutes during the fade window, producing smooth gradient updates without manual slider adjustments.
