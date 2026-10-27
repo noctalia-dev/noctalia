@@ -563,7 +563,7 @@ namespace {
       int status = 0;
       while (::waitpid(intermediate, &status, 0) < 0 && errno == EINTR) {
       }
-      if (!(WIFEXITED(status) && WEXITSTATUS(status) == 0)) {
+      if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
         closeFd(execStatusPipe[0]);
         return false;
       }
@@ -714,7 +714,7 @@ namespace {
     char** s = ::environ;
     for (; *s; s++) {
       char c = **s;
-      if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
+      if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') {
         continue;
       }
       std::string name{*s, std::string_view(*s).find('=')};

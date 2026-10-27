@@ -41,6 +41,7 @@ Checks: >-
   readability-redundant-member-init,
   readability-redundant-nested-if,
   readability-redundant-string-init,
+  readability-simplify-boolean-expr,
   readability-static-definition-in-anonymous-namespace,
   readability-uppercase-literal-suffix,
   readability-use-anyofallof,

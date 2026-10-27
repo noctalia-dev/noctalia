@@ -145,10 +145,7 @@ bool RenderContext::makeCurrentNoSurface() {
 }
 
 bool RenderContext::makeCurrent(RenderTarget& target) {
-  if (m_backend == nullptr || m_graphicsResetPending || !m_backend->makeCurrent(target)) {
-    return false;
-  }
-  return true;
+  return m_backend != nullptr && !m_graphicsResetPending && m_backend->makeCurrent(target);
 }
 
 void RenderContext::setTextFontFamily(std::string family) {

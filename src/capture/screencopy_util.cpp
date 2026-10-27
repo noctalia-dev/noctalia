@@ -180,10 +180,7 @@ namespace {
     const bool dimsMatchLogical = image.width == output.logicalWidth && image.height == output.logicalHeight;
     const bool dimsMatchPhysical =
         output.width > 0 && output.height > 0 && image.width == output.width && image.height == output.height;
-    if (dimsMatchLogical && !dimsMatchPhysical) {
-      return false;
-    }
-    return true;
+    return !dimsMatchLogical || dimsMatchPhysical;
   }
 
   void orientCaptureToLogical(ScreencopyImage& image, const WaylandOutput& output) {

@@ -1180,9 +1180,8 @@ namespace {
             } else {
               const float memberStart = contentMain + memberMainPos(node);
               const float memberEnd = memberStart + memberMainExtent(node);
-              widget->setBarPointerSuppressed(
-                  !(memberStart >= padMain - 0.5F && memberEnd <= padMain + revealMain + 0.5F)
-              );
+              const bool memberFullyVisible = memberStart >= padMain - 0.5F && memberEnd <= padMain + revealMain + 0.5F;
+              widget->setBarPointerSuppressed(!memberFullyVisible);
             }
           }
         }
