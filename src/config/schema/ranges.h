@@ -15,6 +15,7 @@ namespace noctalia::config::schema {
   inline constexpr Range<std::int64_t> kRefreshMinutesRange{5, 240, 5}; // calendar/weather refresh interval
   // Calendar reminder lead time; 0 = notify at event start, 1440 = a full day ahead.
   inline constexpr Range<std::int64_t> kReminderLeadMinutesRange{0, 1440, 5};
+  inline constexpr Range<std::int64_t> kPastEventsThresholdMinutesRange{0, 1440, 5};
 
   // Shell.
   inline constexpr Range<float> kAnimationSpeedRange{0.1F, 4.0F, 0.05F};

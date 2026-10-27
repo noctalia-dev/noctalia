@@ -37,17 +37,17 @@ namespace {
 
   [[nodiscard]] SplitPaneFocusResult
   handleTab(InputDispatcher& dispatcher, const SplitPaneFocusConfig& config, bool reverse) {
-    auto focusSidebar = [&]() {
+    auto focusSidebar = [&] {
       dispatcher.setFocus(config.sidebarFocus);
       return SplitPaneFocusResult::Consumed;
     };
-    auto focusContentFirst = [&]() {
+    auto focusContentFirst = [&] {
       if (InputArea* area = dispatcher.firstTabFocusUnder(const_cast<Node*>(config.contentRoot))) {
         dispatcher.setFocus(area);
       }
       return SplitPaneFocusResult::Consumed;
     };
-    auto focusContentLast = [&]() {
+    auto focusContentLast = [&] {
       if (InputArea* area = dispatcher.lastTabFocusUnder(const_cast<Node*>(config.contentRoot))) {
         dispatcher.setFocus(area);
       }

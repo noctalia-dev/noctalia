@@ -137,7 +137,7 @@ namespace noctalia::theme {
     }
 
     nlohmann::ordered_json fixedPaletteModeToJson(const TokenMap& tokens) {
-      const ::Palette palette = mapGeneratedPaletteMode(tokens);
+      const FixedPalette palette = fixedPaletteFromTokens(tokens);
       const TerminalPalette terminal = terminalPaletteFromTokens(tokens);
 
       nlohmann::ordered_json out = nlohmann::ordered_json::object();

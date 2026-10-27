@@ -136,29 +136,26 @@ namespace noctalia::config::schema {
     }
 
     [[nodiscard]] bool hasErrors() const {
-      for (const auto& e : entries) {
-        if (e.severity == Severity::Error) {
-          return true;
-        }
-      }
-      return false;
+      return std::ranges::any_of(entries, [&](const auto& e) { return e.severity == Severity::Error; });
     }
 
     [[nodiscard]] bool hasFatalErrors() const {
-      for (const auto& e : entries) {
-        if (e.severity == Severity::Error && e.recoveryScope == RecoveryScope::Document) {
-          return true;
-        }
-      }
-      return false;
+      return std::ranges::any_of(entries, [&](const auto& e) {
+        return e.severity == Severity::Error && e.recoveryScope == RecoveryScope::Document;
+      });
+    }
+
+    [[nodiscard]] Diagnostics introducedErrorsComparedTo(const Diagnostics& baseline) const {
+      return introducedDiagnosticsComparedTo(baseline, Severity::Error);
     }
 
     // Origin is deliberately not compared: the same error moving to another line
     // is not a new error.
-    [[nodiscard]] Diagnostics introducedErrorsComparedTo(const Diagnostics& baseline) const {
+    [[nodiscard]] Diagnostics
+    introducedDiagnosticsComparedTo(const Diagnostics& baseline, Severity minSeverity = Severity::Warning) const {
       Diagnostics introduced;
       for (const auto& candidate : entries) {
-        if (candidate.severity != Severity::Error) {
+        if (static_cast<int>(candidate.severity) < static_cast<int>(minSeverity)) {
           continue;
         }
         const bool existed = std::ranges::any_of(baseline.entries, [&](const Entry& previous) {

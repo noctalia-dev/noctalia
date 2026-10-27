@@ -93,7 +93,7 @@ private:
 
   void reloadScript();
   void reloadImage();
-  void handleScriptResult(scripting::ScriptResult result);
+  void handleScriptResult(const scripting::ScriptResult& result);
   void applyScriptPatch(const scripting::ScriptPatch& patch);
   void applyUiTreePatch(const ui::UiTreeNode& patchTree);
   [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;

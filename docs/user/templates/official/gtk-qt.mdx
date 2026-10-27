@@ -52,6 +52,10 @@ Enabling those built-in templates writes `noctalia.css` and runs the shipped [`a
 
 The GNOME `org.gnome.desktop.interface.color-scheme` preference, which browsers and other apps read through the desktop portal, is not part of the GTK templates. Noctalia syncs it on its own, with or without these templates; see [`sync_color_scheme`](/noctalia/theming/#sync_color_scheme) to turn that off.
 
+### App extensions
+
+Some community templates (for example Thunar) are **GTK extensions**: app-scoped CSS layered on top of the GTK theme. They load through the built-in GTK template, so they only take effect while **GTK 3** (or **GTK 4**, depending on the extension) is enabled here. Noctalia keeps them in `noctalia-extensions/` next to `gtk.css` and never adds anything else to `gtk.css`. Restart the app after enabling or disabling one.
+
 ### Troubleshooting
 
 - **Theme not applying:** Completely restart GTK applications (close and reopen)

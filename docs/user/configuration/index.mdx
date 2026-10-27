@@ -112,7 +112,7 @@ Use `~/.config/noctalia/` for curated config: the things you want to keep in dot
 
 Treat `~/.local/state/noctalia/settings.toml` as an app-managed override file. It is useful to inspect when debugging GUI changes, and safe to delete when you want to clear those overrides. Keeping it outside `~/.config` also lets the GUI save changes when your config directory is read-only, for example on NixOS. Support reports include config sources and `settings.toml`, but omit `state.toml` contents because they can contain private runtime data.
 
-Both layers are watched for changes and hot-reloaded. If neither layer exists, Noctalia uses its built-in defaults.
+Both layers are watched for changes and hot-reloaded. A save is applied about 150 ms after the file is written, so editors that save in several steps reload once; removing a config file also reloads. If neither layer exists, Noctalia uses its built-in defaults.
 
 ## Automatic configuration migrations
 
@@ -223,7 +223,7 @@ With several config files in play (or `settings.toml` overriding one of them), t
 It reports two severities:
 
 - **Errors** - problems that stop the configuration from loading correctly: TOML syntax errors, values that fail to parse such as an invalid color, invalid cross-field combinations such as a keyboard layout with both its glyph and label hidden, an `[include]` whose `files` entry points at a path that does not exist, or a malformed `[include]` table (`autoload` that is not a boolean, `files` that is not a list of strings). These exit with status `1`.
-- **Warnings** - things the shell loads fine but ignores, adjusts, or migrates in memory: unknown/obsolete sections and settings (misspelled or left over from an older version), values with a canonical replacement, values outside the allowed range (clamped), and invalid enum choices. Warnings are advisory and do **not** fail the check. Unknown widget and desktop-widget settings are checked against each widget type's known options.
+- **Warnings** - things the shell loads fine but ignores, adjusts, or migrates in memory: unknown/obsolete sections and settings (misspelled or left over from an older version), values with a canonical replacement, values outside the allowed range (clamped), invalid enum choices, and values of the wrong type (for example `shell_mode = 42` or `enabled = "yes"`), which are ignored in favor of the default. Warnings are advisory and do **not** fail the check. Unknown widget and desktop-widget settings are checked against each widget type's known options.
 
 A config with only warnings still prints `✓ Config is valid` and exits `0` (with the warnings listed), so unknown keys won't break a pre-commit hook or CI step - they're surfaced as cleanup hints. Only genuine errors exit `1`.
 

@@ -245,7 +245,7 @@ namespace calendar {
 
   std::vector<CalendarEvent> loadVdirCollectionEvents(
       const VdirCollection& collection, std::chrono::system_clock::time_point windowStart,
-      std::chrono::system_clock::time_point windowEnd, std::size_t& remainingEvents, std::stop_token stopToken
+      std::chrono::system_clock::time_point windowEnd, std::size_t& remainingEvents, const std::stop_token& stopToken
   ) {
     std::vector<CalendarEvent> events;
     std::error_code ec;

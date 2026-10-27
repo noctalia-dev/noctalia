@@ -36,7 +36,7 @@ lang                  = ""              # empty = auto-detect; otherwise BCP-47 
 time_format           = "{:%H:%M}"      # default time format for shell UI without its own setting
 date_format           = "%A, %x"        # default date format for shell UI without its own setting
 offline_mode          = false           # block all outgoing HTTP requests
-# panel_anchor_bar   = "main"           # bar panels attach to without a source bar; omit = first enabled bar
+# panel_anchor_bar   = "main"           # bar every panel attaches to, overriding the source bar; omit = per-source
 external_ip_enabled   = false           # resolve the WAN IP for the Control Center network tab and network widget tooltip
 telemetry_enabled     = false           # anonymous startup ping
 setup_wizard_enabled = true              # open first-run wizard while the marker is missing
@@ -79,7 +79,7 @@ alpha     = 0.55    # multiplied by each component's background opacity
 [shell.panel]
 transparency_mode     = "solid"  # solid | soft | glass; controls floating panel opacity and card translucency
 borders               = true   # outline on floating panel surfaces
-border_color          = "outline"   # floating panel outline color: theme role token or #RRGGBB
+border_color          = "outline_variant"   # floating panel outline color: theme role token or #RRGGBB
 border_width          = 1.0         # floating panel outline width in px, 0 hides the stroke
 shadow                = true   # cast the global [shell.shadow] from panel surfaces
 list_item_background  = false  # filled rounded background behind launcher and clipboard list items
@@ -91,15 +91,16 @@ control_center_placement = "attached" # attached | floating
 wallpaper_placement      = "attached" # attached | floating
 session_placement        = "attached" # attached | floating
 polkit_placement         = "floating" # attached | floating
-launcher_position        = "center"   # auto | center | top_left | … (floating only)
-clipboard_position       = "center"   # auto | center | top_left | … (floating only)
-polkit_position          = "center"   # auto | center | top_left | … (floating only)
+launcher_position        = "center"   # auto | center | top_left | …
+clipboard_position       = "center"   # auto | center | top_left | …
+control_center_position  = "auto"     # auto | center | top_left | …
+polkit_position          = "center"   # auto | center | top_left | …
 floating_offset          = 8           # px gap between a floating panel and the bar edge
-open_near_click_control_center = false  # attached/floating: follow the bar click instead of bar-center
-open_near_click_launcher       = false  # attached/floating: follow the bar click instead of bar-center
-open_near_click_clipboard      = false  # attached/floating: follow the bar click instead of bar-center
-open_near_click_wallpaper      = false  # attached/floating: follow the bar click instead of bar-center
-open_near_click_session        = false  # attached/floating: follow the bar click instead of bar-center
+open_near_click_control_center = false  # attached/floating: open near the clicked bar widget instead of at *_position
+open_near_click_launcher       = false  # attached/floating: open near the clicked bar widget instead of at *_position
+open_near_click_clipboard      = false  # attached/floating: open near the clicked bar widget instead of at *_position
+open_near_click_wallpaper      = false  # attached/floating: open near the clicked bar widget instead of at *_position
+open_near_click_session        = false  # attached/floating: open near the clicked bar widget instead of at *_position
 
 [shell.launcher]
 layout = "full"            # full | simple
@@ -108,15 +109,17 @@ search_position = "bottom" # full layout: top | bottom; whole launcher toolbar p
 default_view   = "recent" # full layout: recent | pinned | all | categories
 categories     = true     # simple layout: show the category chip row
 category_icons_only = false # show app category icons without text labels
+show_navigation_labels = true # full layout: show text labels on the main view tabs
 show_settings_button = true # full layout: show the Settings shortcut
 show_session_button = true # full layout: show the session-actions shortcut
 show_icons      = true   # show application icons in launcher results
 show_app_origin_indicator = true # show package origin indicators on application results
 compact         = false  # smaller icons and tighter rows; hides subtitles
-app_grid        = false  # icon grid for applications, global searches, and the provider overview
+app_grid        = false  # icon grid for grid-capable providers and the provider overview
 show_app_actions = false  # include searchable .desktop actions alongside applications
 track_usage     = true   # record launcher history for Recent and usage-based sorting
 sort_by_usage   = true   # boost frequently used results
+ignore_mouse    = false  # ignore mouse hover and clicks inside the launcher
 pinned          = []     # ordered desktop entry IDs shown in the Pinned view
 fetch_exchange_rates = true  # refresh currency rates from third-party online sources
 provider_prefix = "/"    # common prefix character for provider trigger words (e.g. "/" or ".")
@@ -216,6 +219,7 @@ annotate             = false                       # open the annotator before s
 skip_annotate_on_copy_save = false                 # region overlay Copy/Save deliver without the annotator
 close_on_copy        = true                        # close the annotation editor after a successful Copy
 close_on_save        = true                        # close the annotation editor after a successful Save
+copy_on_close        = false                       # Closing the editor copies the annotated image first
 pipe_to_command      = false                       # pipe the PNG to a shell command on stdin
 pipe_command         = ""                          # annotator/uploader, e.g. "swappy -f -" or "satty -f -"
 ```
@@ -232,7 +236,7 @@ Notes:
 
 - `offline_mode` prevents the shell from making any outgoing HTTP requests (weather, community palettes, community templates, album art, remote notification icons, currency exchange rates, plugin recommendation metrics and changes). Distro packagers can default to `true` to comply with policies requiring explicit user consent for network access.
 
-- `panel_anchor_bar` names the bar that panels attach to when opened without a source bar (IPC, shortcuts, dock). Leave unset (default) to keep per-source behavior: the opening widget's bar, or the first enabled bar on the output. An unknown or disabled bar name fails loudly. Renaming the anchor bar in Settings updates this key to the new name; deleting it in Settings clears the key. Configure under **Settings → Panels → General**.
+- `panel_anchor_bar` names the bar that every panel attaches to, however it was opened. When set, it overrides the source bar: panels opened by clicking a widget on another bar still attach to the anchor bar. Leave unset (default) to keep per-source behavior: the opening widget's bar, or, for opens without a source bar (IPC, shortcuts, dock), the first enabled bar on the output. An unknown bar name fails loudly; a bar disabled on the current output logs a warning and the panel opens without bar attachment. Renaming the anchor bar in Settings updates this key to the new name; deleting it in Settings clears the key. Configure under **Settings → Panels → General**.
 
 - `external_ip_enabled`: when `true`, Noctalia resolves the connection's public WAN IP via `api.noctalia.dev/ip` and shows it in the Control Center network tab (next to the local address) and in the network widget tooltip. Resolution runs in the background while connected and re-resolves automatically after connection or VPN changes. Honors `offline_mode`.
 
@@ -312,7 +316,7 @@ Notes:
 
 - `shell.panel.borders` draws an outline on floating panel surfaces. Attached panels stay borderless on the bar edge. Default is `true`; set to `false` for a flatter look. Section cards inside panels are controlled by `[shell].card_borders`.
 
-- `shell.panel.border_color` sets the floating panel outline color: a theme role token (for example `outline`, `primary`) or a fixed hex color (`#RRGGBB` / `#RRGGBBAA`). The alpha is multiplied by the panel background opacity from `shell.panel.transparency_mode`.
+- `shell.panel.border_color` sets the floating panel outline color: a theme role token (for example `outline_variant`, `primary`) or a fixed hex color (`#RRGGBB` / `#RRGGBBAA`). The alpha is multiplied by the panel background opacity from `shell.panel.transparency_mode`.
 
 - `shell.panel.border_width` sets the floating panel outline width in logical pixels (default `1.0`, range `0` to `20`). Ignored when `shell.panel.borders` is `false`.
 
@@ -326,15 +330,15 @@ Notes:
 
 - `shell.panel.launcher_placement`, `clipboard_placement`, `control_center_placement`, `wallpaper_placement`, `session_placement`, and `polkit_placement` accept only `attached` or `floating`. An attached panel keeps its own layer surface and anchors it to the host bar's inward edge; floating placement opens it detached. `center` is a floating `*_position`, not a third placement. Defaults are floating at the center position for Launcher, Clipboard, and the polkit auth prompt; Control Center, Wallpaper, and Session default to attached.
 
-- Per-panel `*_position` keys (`launcher_position`, `clipboard_position`, `control_center_position`, `wallpaper_position`, `session_position`, `polkit_position`) apply when placement is `floating`. `auto` keeps the panel bar-relative; `center` and the edge/corner tokens anchor on screen (same vocabulary as notification/OSD position).
+- Per-panel `*_position` keys (`launcher_position`, `clipboard_position`, `control_center_position`, `wallpaper_position`, `session_position`, `polkit_position`) name a screen position (same vocabulary as notification/OSD position). With `floating` placement, `auto` keeps the panel bar-relative and `center` or an edge/corner token pins it to that screen position. With `attached` placement, the panel follows the position only when it lies on the bar's edge: on a bottom bar, `bottom_left` and `bottom_right` align the panel to the bar's left or right end; on a right bar, `top_right` and `bottom_right` align it to the top or bottom end. Any other value keeps the attached panel centered on the bar. Configure under each panel's **Position** setting.
 
 - `shell.panel.floating_offset` sets the gap in pixels a floating panel keeps from the bar edge, or from the screen edge when it is pinned with a `*_position` (default `8`). It also spaces panels using the reserved edge area when multiple bars share an edge. `attached` panels ignore it.
 
-- When multiple enabled bars resolve to the same edge on one monitor, exact source-bar attachment is ambiguous. In that case attached/floating panels use the compositor's reserved edge area and open outside the bar stack instead of anchoring to one bar. Prefer setting `shell.panel_anchor_bar` when you have more than one bar and open panels via IPC or shortcuts.
+- When multiple enabled bars resolve to the same edge on one monitor, exact source-bar attachment is ambiguous. In that case attached/floating panels use the compositor's reserved edge area and open outside the bar stack instead of anchoring to one bar. Setting `shell.panel_anchor_bar` avoids this, at the cost of attaching every panel to that bar, including panels opened from widgets on other bars.
 
-- `shell.panel.open_near_click_control_center`, `open_near_click_launcher`, `open_near_click_clipboard`, `open_near_click_wallpaper`, and `open_near_click_session` position attached or floating panels near the click location on the bar instead of centering them along the bar. They are ignored when a panel is `floating` with a `*_position` other than `auto`, since it is then pinned to a fixed screen position.
+- `shell.panel.open_near_click_control_center`, `open_near_click_launcher`, `open_near_click_clipboard`, `open_near_click_wallpaper`, and `open_near_click_session` make a panel opened by clicking its bar widget appear next to that widget instead of at its `*_position` (centered or end-aligned along the bar). Panels opened without a click (IPC, shortcuts) still use `*_position`. They are ignored when a panel is `floating` with a `*_position` other than `auto`, since it is then pinned to a fixed screen position. Configure with each panel's **Open Near Clicked Widget** toggle.
 
-- `shell.launcher.layout` selects `full` (default) or `simple`. Full shows the profile, view tabs, and a toolbar with the search field and shortcuts. Simple shows a search field, an optional category chip row, and results at a fixed 560 × 500 size; `width`, `search_position`, `default_view`, `show_settings_button`, and `show_session_button` apply only to Full.
+- `shell.launcher.layout` selects `full` (default) or `simple`. Full shows the profile, view tabs, and a toolbar with the search field and shortcuts. Simple shows a search field, an optional category chip row, and results at a fixed 560 × 500 size; `width`, `search_position`, `default_view`, `show_navigation_labels`, `show_settings_button`, and `show_session_button` apply only to Full.
 
 - `shell.launcher.width` sets the Full launcher panel width in pixels from `560` to `1100` (default `760`).
 
@@ -346,19 +350,23 @@ Notes:
 
 - `shell.launcher.category_icons_only` hides text labels on app category tabs (Full) or chips (Simple) such as Internet and Games, keeping full names in hover tooltips. Disabled by default; category tabs show icons and text. It does not change the main view tabs.
 
+- `shell.launcher.show_navigation_labels` shows text on the Full layout's main view tabs: Recent, Pinned, All, Categories, and Providers (default `true`). Turn off **Show navigation labels** in the launcher settings for icons with names in hover tooltips at any panel width. Narrow panels use icons automatically even when this option is enabled.
+
 - `shell.launcher.show_icons` toggles application icons in launcher result rows. Prefixed-provider rows (for example emoji) still show their leading character when icons are hidden.
 
 - `shell.launcher.show_app_origin_indicator` toggles the package-origin overlays on application results, such as Flatpak, Snap, Nix, and AppImage.
 
 - `shell.launcher.compact` uses smaller icons, tighter padding, and single-line rows (subtitles hidden).
 
-- `shell.launcher.app_grid` switches application browsing, global search results, and the provider overview to a multi-column icon grid with labels underneath. Results from an explicitly selected or prefixed provider stay in the list layout.
+- `shell.launcher.app_grid` switches Applications, Emoji, Wallpaper, Session, and the provider overview between lists and a multi-column icon grid with labels underneath. Calculator, Windows, Panels, dmenu, and plugin providers use lists. Global searches use a list if any visible result requires one. The grid toggle is hidden for list-only providers and when `show_icons` is disabled.
 
 - `shell.launcher.show_app_actions` includes searchable `.desktop` actions alongside application results. Action rows show the action name with the parent application underneath and launch that action directly. Disabled by default; application actions remain available from an application's right-click menu.
 
 - `shell.launcher.track_usage` records local launcher history for the chronological **Recent** view and usage-based sorting. Disable it to stop recording launches, hide **Recent**, and disable usage ordering. Existing history remains stored until it is reset and becomes available again if tracking is re-enabled.
 
 - `shell.launcher.sort_by_usage` boosts frequently used results (applications, emoji, panels, wallpapers, and dmenu entries) toward the top while usage tracking is enabled. Disable it to keep each provider's default ordering while continuing to record frequency and recent launches. The ordering button above the results changes the same setting without leaving the launcher.
+
+- `shell.launcher.ignore_mouse` makes the launcher and its menus ignore pointer hover, motion, clicks, scrolling, and touch taps, so navigation is keyboard-only. Clicking outside the launcher still closes it. Disabled by default.
 
 - `shell.launcher.pinned` is an ordered list of desktop entry IDs shown in the **Pinned** view. Launcher pins are independent from `dock.pinned` and each taskbar widget's `pinned` list.
 
@@ -398,17 +406,25 @@ Notes:
 
 - `skip_annotate_on_copy_save` defaults to `false`, so with `annotate = true` every way of confirming a region opens the editor. Set it to `true` to make **`[keybinds].copy`** and **`[keybinds].save`** in the region overlay deliver immediately without the editor, while **Enter** and **Space** keep opening it; no effect while `annotate = false`.
 
-- `close_on_copy` defaults to `true`: **Copy**, **Ctrl+C**, or **`[keybinds].copy`** closes the annotation editor after successfully placing the image on the clipboard, ready to paste elsewhere. Set it to `false` to keep editing after copying. Failed copies keep the editor open. Configure **Close Editor After Copying** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
+- `close_on_copy` defaults to `true`: **Copy** or **`[keybinds].copy`** (default **Ctrl+C**) closes the annotation editor after successfully placing the image on the clipboard, ready to paste elsewhere. Set it to `false` to keep editing after copying. Failed copies keep the editor open. Configure **Close Editor After Copying** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
 
-- `close_on_save` defaults to `true`: **Save**, **Ctrl+S**, or **`[keybinds].save`** closes the annotation editor after successfully writing the annotated image to disk. Set it to `false` to keep editing after saving. Failed saves keep the editor open. Configure **Close Editor After Saving** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
+- `close_on_save` defaults to `true`: **Save** or **`[keybinds].save`** (default **Ctrl+S**) closes the annotation editor after successfully writing the annotated image to disk. Set it to `false` to keep editing after saving. Failed saves keep the editor open. Configure **Close Editor After Saving** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
+
+- `copy_on_close` defaults to `false`. Set it to `true` to copy the annotated image to the clipboard when closing the editor (**`[keybinds].cancel`** or the close button). The cancel key still cancels an in-progress stroke or a pending crop first; copying happens only when the editor closes. The editor closes even if the copy fails. This option does nothing in live mode, where there is no captured image to copy. Configure **Copy on Close** under **Settings → Screenshot → Annotation**.
 
 - **Capture new region** in the annotation toolbar discards the current edit and starts a fresh region capture of the desktop, without the old ink or toolbar. The selected image opens in the editor even when `annotate = false`, with the same pointer control and remembered tool preferences. It keeps the editor's current pointer choice when starting from a captured image, and uses the settings of the command that opened the editor (config plus any per-call options) for region selection and delivery; cancelling the picker closes the capture.
+
+- **Backdrop** (toolbar button in the annotation editor) places the capture on a padded backdrop with rounded corners. Its panel switches the backdrop on or off, offers a gradient (theme-based and fixed presets) with an angle, and adjusts padding, corner radius, and a drop shadow, with a live preview around the capture. **Done**, **Copy**, and **Save** deliver the image with its backdrop; captures that skip the editor are never given a backdrop. The editor remembers the last backdrop alongside its tool preferences. It reserves room for the backdrop only when it is already on as the editor opens, so turning it on for a very large capture can push the preview partly off screen; with a crop, the backdrop wraps the cropped result.
 
 - `noctalia msg annotate <path>` opens an image from disk in the same editor, with no capture involved. `save_to_file`, `copy_to_clipboard`, and `pipe_to_command` apply to **Done** exactly as they do for a capture, and **Save** writes a new file in the configured `format` into `directory` using `filename_pattern`; the source file is never overwritten.
 
 - **Window switcher** is an Alt+Tab-style overlay configured under `[shell.window_switcher]`; `style = "carousel"` is the default freestanding depth layout, while `style = "compact"` restores a boxed strip of equal-sized cards. `mru = true` orders windows by most recent use instead of workspace layout. `show_caption`, `show_count`, and `show_app_icon` independently control captions below previews, the counter above them, and application icons over previews. `show_all_outputs = false` lists only windows on the monitor where the switcher opens. Bind your compositor shortcut to `noctalia msg window-switcher` (see [Shell → Window switcher](/noctalia/ipc/shell/#window-switcher)). Carousel cards keep stable proportions at each depth and fit each captured snapshot inside a small themed frame, so differing window aspect ratios do not distort the layout. The selected preview stays centered and largest, its immediate neighbors remain medium-sized, and darker outer cards step farther back. Application icons scale with their rendered preview; left-side cards place them bottom-left, right-side cards place them bottom-right, and the selected card keeps the conventional bottom-left position. Close controls mirror the side at the top of left and right cards, while the selected card keeps its close control at the top-right. Position, scale, opacity, and pointer-hover lift animate using the global animation settings; the selected-card shadow follows `[shell.shadow]`. Each close control appears only while its card is hovered. Both styles rotate through larger window sets while keeping up to five cards visible. Compositors without foreign-toplevel image capture use application icons in the cards when `show_app_icon = true`. Tab / Shift+Tab, the arrow keys, or the mouse wheel cycle selection (wheel down or right moves to the next window, wheel up or left to the previous one); releasing the shortcut's primary modifier or pressing Enter confirms; Escape cancels. The switcher updates live when windows open, close, retitle, or receive their snapshot while the overlay stays open.
 
 - **Hot corners** let you trigger actions by pushing your mouse pointer into one of the four screen corners. When `[hot_corners].enabled = true`, the shell places invisible hit areas in each corner. `delay_ms` (default `0`) is how long the pointer must stay in the corner before the action runs; raise it to reduce accidental triggers. Each corner (`top_left`, `top_right`, `bottom_left`, `bottom_right`) takes an `action`. If `action` is `"command"`, provide a shell `command` to execute. Configure under **Settings → Desktop → Hot Corners**.
+
+- **Minimised windows** are tracked automatically on Umbriel, KDE Plasma, and labwc when the connected compositor backend reports window state and eligibility. The window switcher keeps minimised windows selectable, with a small dash and a **Minimised** status when captions are enabled. It updates their status live. Selecting one restores and focuses it. Previews use an available cached snapshot or the application icon; listing a minimised window does not restore it.
+
+- **Minimise actions** in the [taskbar](/noctalia/bar/widgets/taskbar/) and [dock](/noctalia/dock/#window-actions-and-minimise-state) need no additional configuration. Single-window icons minimise an already focused window when allowed, restore a minimised window, and focus an unfocused window. Multi-window icons continue cycling. Minimised windows stay in window counts and keep their workspace occupied. Bars and docks using smart auto-hide ignore windows known to be minimised, so they stay visible after the last visible window is minimised.
 
 ### Encrypted storage master key
 
@@ -477,7 +493,7 @@ hide_delay_ms = 1400     # time before a popup starts hiding; range 250 to 10000
 scale = 1.0              # OSD size multiplier on top of shell.ui_scale
 background_opacity = 0.97 # background opacity of OSD popups
 border = true            # outline around OSD popup cards; set false for a borderless look
-border_color = "outline" # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_color = "outline_variant" # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
 border_width = 1         # outline stroke width in px; raise for a thicker outline
 follow_focused_output = false # show a new OSD on the focused output; keep it pinned until it disappears
 offset_x = 20            # absolute horizontal margin from the screen edge
@@ -497,13 +513,14 @@ nightlight = true        # night light toggle
 dnd = true               # Do Not Disturb toggle
 lock_keys = true         # Caps/Num/Scroll Lock popups
 keyboard_layout = true   # input keyboard layout changes
-media = true             # MPRIS playback, track changes, and per-player volume changes
+media = true             # MPRIS track changes
+media_volume = true      # MPRIS per-player volume changes; requires media = true
 privacy = true           # microphone/camera/screen share capture changes
 keyboard_backlight = true # keyboard backlight level
 custom = true            # custom popups sent by plugins or scripts
 ```
 
-The OSD powers volume, brightness, DND, caffeine, lock-key, keyboard-layout, privacy, external/IPC Wi-Fi, external/IPC Bluetooth, and external/IPC power-profile popups, and defaults to `top_center` with a horizontal layout. Set `orientation = "vertical"` for a taller vertical gauge on volume, display brightness, and keyboard-backlight sliders; text-only popups (media, lock keys, keyboard layout, privacy, and similar) always use horizontal layout for readability. `position` controls placement for horizontal popups; `position_vertical` controls placement when slider orientation is vertical. `hide_delay_ms` controls how long a popup remains visible after each show or retrigger before its hide animation starts. It accepts 250 to 10000 milliseconds and defaults to 1400. Reloading the configuration affects the next show or retrigger without changing an already running timer. `scale` multiplies the effective OSD size on top of `shell.ui_scale` (for example `1.25` makes volume, brightness, and lock-key popups 25% larger than the default). `monitors` limits OSD popups to the listed connector names (same matching rules as notification toasts and the dock); leave it empty to show on every connected output. If none of the configured monitors are connected, OSD falls back to all outputs until one reconnects. `follow_focused_output = true` instead starts each OSD popup on the currently focused output and keeps it there until it disappears; if that output disconnects, the visible popup moves to the current focused output. This option takes precedence over `monitors`. `background_opacity` sets popup background opacity, `border` draws the card outline (default `true`; set `false` for a borderless look), `border_color` sets its color (theme color role or hex, default `outline`), `border_width` sets its width in logical pixels (0 to 6, default `1`), and `offset_x` / `offset_y` are the absolute margins from the screen edge for the chosen `position`. Each popup kind can be toggled independently under `[osd.kinds]`. The volume master toggle enables both output and input OSDs by default; set `volume_output` or `volume_input` to `false` to disable one side only. `media = false` disables MPRIS playback, track-change, and player-volume popups, and `keyboard_backlight = false` disables keyboard-backlight level popups. `lock_keys = false` disables Caps/Num/Scroll Lock popups; when no `lock_keys` bar widget is configured, this also stops lock-key state polling. `keyboard_layout = false` disables layout-change popups. `privacy = false` disables popups shown when microphone, camera, or screen share capture starts or stops. `custom = false` disables custom popups sent by plugins or scripts.
+The OSD powers volume, brightness, DND, caffeine, lock-key, keyboard-layout, privacy, external/IPC Wi-Fi, external/IPC Bluetooth, and external/IPC power-profile popups, and defaults to `top_center` with a horizontal layout. Set `orientation = "vertical"` for a taller vertical gauge on volume, display brightness, and keyboard-backlight sliders; text-only popups (media, lock keys, keyboard layout, privacy, and similar) always use horizontal layout for readability. `position` controls placement for horizontal popups; `position_vertical` controls placement when slider orientation is vertical. `hide_delay_ms` controls how long a popup remains visible after each show or retrigger before its hide animation starts. It accepts 250 to 10000 milliseconds and defaults to 1400. Reloading the configuration affects the next show or retrigger without changing an already running timer. `scale` multiplies the effective OSD size on top of `shell.ui_scale` (for example `1.25` makes volume, brightness, and lock-key popups 25% larger than the default). `monitors` limits OSD popups to the listed connector names (same matching rules as notification toasts and the dock); leave it empty to show on every connected output. If none of the configured monitors are connected, OSD falls back to all outputs until one reconnects. `follow_focused_output = true` instead starts each OSD popup on the currently focused output and keeps it there until it disappears; if that output disconnects, the visible popup moves to the current focused output. This option takes precedence over `monitors`. `background_opacity` sets popup background opacity, `border` draws the card outline (default `true`; set `false` for a borderless look), `border_color` sets its color (theme color role or hex, default `outline`), `border_width` sets its width in logical pixels (0 to 6, default `1`), and `offset_x` / `offset_y` are the absolute margins from the screen edge for the chosen `position`. Each popup kind can be toggled independently under `[osd.kinds]`. The volume master toggle enables both output and input OSDs by default; set `volume_output` or `volume_input` to `false` to disable one side only. `media` gates MPRIS track-change popups, and `media_volume` (requires `media = true`) gates player-volume popups; set it to `false` to keep track-change popups without volume popups. `keyboard_backlight = false` disables keyboard-backlight level popups. `lock_keys = false` disables Caps/Num/Scroll Lock popups; when no `lock_keys` bar widget is configured, this also stops lock-key state polling. `keyboard_layout = false` disables layout-change popups. `privacy = false` disables popups shown when microphone, camera, or screen share capture starts or stops. `custom = false` disables custom popups sent by plugins or scripts.
 
 ---
 
@@ -517,7 +534,9 @@ When the lock screen is enabled, **`lock_before_suspend`** (default `true`) lock
 
 When enabled and `wlr-screencopy` is available, Noctalia can capture the desktop **before** the session lock engages and use that snapshot as the lock screen background instead of the wallpaper. Desktop capture is disabled by default. A lock transition also uses a frozen pre-lock capture, but only as a temporary layer drawn by the secure lock surface while the complete lock screen (including its blur and tint) is revealed or concealed.
 
-Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output).
+Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output). With **`[wallpaper].enabled = false`**, an empty **Wallpaper** shows a solid **`[wallpaper].fill_color`** background instead of an image, or opaque black when no fill color is set.
+
+The power buttons on the lock screen come from the session actions; to trigger one from the keyboard (for example suspend on Escape), set its `lockscreen_shortcut` as described in [Lock screen shortcuts](#lock-screen-shortcuts).
 
 Lock screen transitions have their own effect pool, duration, and edge smoothness. They do not read or modify the settings under **`[wallpaper]`**. Set `transition = []` to disable lock and unlock animations.
 
@@ -561,7 +580,7 @@ monitors              = []        # connectors that show the lock screen; empty 
 | `edge_smoothness`      | float  | `0.3`       | Feathering around transition boundaries (`0.0`–`1.0`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `blur_intensity`       | float  | `0.5`       | Blur strength for the active lock screen background (`0.0`–`1.0`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tint_intensity`       | float  | `0.3`       | Surface-color tint over the active lock screen background (`0.0`–`1.0`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `wallpaper`            | string | `""`        | Optional image path for the lock screen. When empty, each output uses its desktop wallpaper. Ignored when desktop capture is active.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `wallpaper`            | string | `""`        | Optional image path for the lock screen. When empty, each output uses its desktop wallpaper, or the `[wallpaper].fill_color` background (opaque black when unset) while `[wallpaper].enabled = false`. Ignored when desktop capture is active.                                                                                                                                                                                                                                                                                                             |
 | `monitors`             | array  | `[]`        | Connector names that show the lock screen. Empty shows it on all outputs; listed-only mode leaves other outputs black.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 If capture fails (missing protocol, permission denied, etc.), the transition is skipped and the lock screen falls back to the normal per-output wallpaper when desktop capture was requested. The snapshot lives in memory only until unlock. Blur and tint sliders can be adjusted live from Settings while the session is locked.
@@ -654,16 +673,17 @@ Panel-level settings under `[shell.session]`:
 
 Each entry in the `[[shell.session.actions]]` array takes:
 
-| Field               | Type   | Default     | Description                                                                                                                                                                                                                                          |
-| ------------------- | ------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `action`            | string | *required*  | `lock`, `logout`, `suspend`, `lock_and_suspend`, `reboot`, `reboot_uefi`, `shutdown`, or `command` (custom entry).                                                                                                                                   |
-| `enabled`           | bool   | `true`      | When `false`, the button is hidden.                                                                                                                                                                                                                  |
-| `command`           | string | *unset*     | Optional. If set, the string is run with `/bin/sh -c` instead of the built-in handler. For `action = "command"`, this field is required.                                                                                                             |
-| `label`             | string | *unset*     | Optional button label (otherwise translated defaults).                                                                                                                                                                                               |
-| `glyph`             | string | *unset*     | Optional bar-style icon id (otherwise defaults per action). Under **Session panel** in Settings → Power, open a row’s settings (cog) editor and use the icon preview to pick a glyph.                                                                |
-| `shortcut`          | string | `"1"`–`"5"` | Optional keyboard shortcut that triggers the action while the session panel is open. Any XKB key name (e.g. `1`, `F1`, `Escape`) or modifier combo (`Ctrl+1`). Clear to disable.                                                                     |
-| `countdown_seconds` | number | `0`         | When greater than zero, the first activation starts a per-entry countdown (shown on the button badge). Activate the same entry again to run immediately, or wait for the timer. **Escape** or moving to another entry cancels. `0` runs immediately. |
-| `variant`           | string | `"default"` | Button style: `default`, `primary`, `secondary`, `destructive` (warning), or `outline`.                                                                                                                                                              |
+| Field                 | Type   | Default     | Description                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------- | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `action`              | string | *required*  | `lock`, `logout`, `suspend`, `lock_and_suspend`, `reboot`, `reboot_uefi`, `shutdown`, or `command` (custom entry).                                                                                                                                                                                                                                                             |
+| `enabled`             | bool   | `true`      | When `false`, the button is hidden.                                                                                                                                                                                                                                                                                                                                            |
+| `command`             | string | *unset*     | Optional. If set, the string is run with `/bin/sh -c` instead of the built-in handler. For `action = "command"`, this field is required.                                                                                                                                                                                                                                       |
+| `label`               | string | *unset*     | Optional button label (otherwise translated defaults).                                                                                                                                                                                                                                                                                                                         |
+| `glyph`               | string | *unset*     | Optional bar-style icon id (otherwise defaults per action). Under **Session panel** in Settings → Power, open a row’s settings (cog) editor and use the icon preview to pick a glyph.                                                                                                                                                                                          |
+| `shortcut`            | string | `"1"`–`"5"` | Optional keyboard shortcut that triggers the action while the session panel is open. Any XKB key name (e.g. `1`, `F1`, `Escape`) or modifier combo (`Ctrl+1`). Clear to disable.                                                                                                                                                                                               |
+| `lockscreen_shortcut` | string | *unset*     | Optional keyboard shortcut that triggers the action from the lock screen. Only actions shown as lock-screen buttons respond. Keys that type text (letters, digits, symbols, alone or with **Shift**) are rejected because the password field owns them; use a non-printable key (`Escape`, `F1`) or a `Ctrl`/`Alt` combo. See [Lock screen shortcuts](#lock-screen-shortcuts). |
+| `countdown_seconds`   | number | `0`         | When greater than zero, the first activation starts a per-entry countdown (shown on the button badge). Activate the same entry again to run immediately, or wait for the timer. **Escape** or moving to another entry cancels. `0` runs immediately.                                                                                                                           |
+| `variant`             | string | `"default"` | Button style: `default`, `primary`, `secondary`, `destructive` (warning), or `outline`.                                                                                                                                                                                                                                                                                        |
 
 Omitting `[[shell.session.actions]]` entirely keeps the default five actions. To define your own list, declare one or more tables. An explicit empty array hides all session buttons:
 
@@ -693,6 +713,18 @@ action = "shutdown"
 variant = "destructive"
 countdown_seconds = 5
 ```
+
+#### Lock screen shortcuts
+
+The lock screen shows the session actions as buttons (except `lock`, and `lock_and_suspend` when a plain `suspend` row exists). Give a row a `lockscreen_shortcut` to trigger it from the keyboard without unlocking; with `show_shortcuts` on, the key is shown on the button.
+
+```toml
+[[shell.session.actions]]
+action = "lock_and_suspend"
+lockscreen_shortcut = "Escape"
+```
+
+When a shortcut uses the same key as **Cancel** (Escape by default), the first press clears a typed password and the next press runs the action. Shortcuts are ignored while the screens are off and for one second after they turn back on or the system resumes, so the key that wakes the screen never runs an action.
 
 ### Greeter sync
 
@@ -734,6 +766,8 @@ The canonical path lets the greeter's dedicated Polkit action grant selected act
 The compatibility path invokes the positional helper syntax through the normal administrator-authenticated `pkexec` or `run0` flow. Its payload retains session actions and power commands because older greeters expect them. Greeter 1.5.0 keeps this entry point for mixed-version and custom-state installations, but its passwordless policy never covers it.
 
 Only one greeter sync runs at a time. Additional Settings or auto-sync requests leave the active operation untouched; an overlapping `greeter-sync` IPC request reports that a sync is already in progress.
+
+When `[wallpaper].enabled = false`, greeter sync carries no wallpaper and removes the previously synced one, so the greeter shows a solid background in the synced palette's surface color.
 
 `privilege_command` wraps or replaces the detected privilege tool. With constrained sync it must ultimately launch `pkexec`, such as `ghostty -e pkexec`, because the helper verifies `PKEXEC_UID`. In legacy mode, the path retains support for administrator-authenticated alternatives such as `run0` or a terminal-wrapped `sudo`.
 

@@ -32,7 +32,7 @@ void ActiveWindowWidget::create() {
     applyTitleScrollMode(m_title != nullptr && m_title->visible());
     requestUpdate();
   });
-  rootNode->setOnLeave([this]() {
+  rootNode->setOnLeave([this] {
     applyTitleScrollMode(m_title != nullptr && m_title->visible());
     requestUpdate();
   });
@@ -61,7 +61,7 @@ void ActiveWindowWidget::create() {
       })
   );
 
-  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] {
     m_iconColorizeRefreshPending = true;
     requestUpdate();
   });

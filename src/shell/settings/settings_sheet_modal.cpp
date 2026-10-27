@@ -35,14 +35,14 @@ namespace settings {
     m_modalId = m_host->push(
         SettingsModalRequest{
             .build =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   return m_sheet.build(
-                      [this, aliveGuard]() {
+                      [this, aliveGuard] {
                         if (!aliveGuard.expired()) {
                           close();
                         }
                       },
-                      [this, aliveGuard]() {
+                      [this, aliveGuard] {
                         if (!aliveGuard.expired() && m_dismissSelectDropdown) {
                           m_dismissSelectDropdown();
                         }
@@ -69,16 +69,16 @@ namespace settings {
                 },
             .arrange =
                 [this](Renderer& renderer, float width, float height) { m_sheet.arrange(renderer, width, height); },
-            .initialFocusArea = []() -> InputArea* { return nullptr; },
+            .initialFocusArea = [] -> InputArea* { return nullptr; },
             .preDispatchKeyboard = [this](const KeyboardEvent& event) { return m_sheet.preDispatchKeyboard(event); },
             .requestClose =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     m_sheet.requestClose();
                   }
                 },
             .onClosed =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     m_open = false;
                     m_modalId.reset();
@@ -129,7 +129,7 @@ namespace settings {
       return;
     }
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-    DeferredCall::callLater([this, aliveGuard]() {
+    DeferredCall::callLater([this, aliveGuard] {
       if (!aliveGuard.expired() && m_open && m_host != nullptr && m_modalId.has_value() && m_host->isTop(*m_modalId)) {
         m_host->rebuildTop();
       }

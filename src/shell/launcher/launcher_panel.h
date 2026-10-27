@@ -68,6 +68,7 @@ public:
   [[nodiscard]] InputArea* initialFocusArea() const override;
   [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
+  [[nodiscard]] bool ignorePointerEvent() const override;
 
 private:
   friend class LauncherPanelTestAccess;
@@ -92,7 +93,7 @@ private:
   void doLayout(Renderer& renderer, float width, float height) override;
   void doUpdate(Renderer& renderer) override;
   void onInputChanged(const std::string& text);
-  void setQuery(std::string query);
+  void setQuery(const std::string& query);
   // Re-gather the current query, preserving the selected result by identity.
   void reapplyCurrentQuery();
   // A plugin provider delivered fresh async results — re-gather if the panel is open.
@@ -125,6 +126,7 @@ private:
   void queueResultsTransition(ResultsTransition transition);
   void animateResultsTransition();
   [[nodiscard]] bool shouldUseAppGrid() const;
+  [[nodiscard]] bool supportsResultGrid() const;
   [[nodiscard]] bool shouldUseLauncherSections() const;
   void rebuildLauncherSections();
   void selectResult(std::size_t index, bool scrollToSelection);
@@ -169,6 +171,7 @@ private:
   std::unique_ptr<LauncherSectionsAdapter> m_launcherSectionsAdapter;
 
   std::string m_query;
+  std::string m_resultProviderId;
   std::string m_scopedProviderId;
   std::string m_scopedPlaceholder;
   ActiveCategoryType m_activeCategoryType = All;

@@ -59,7 +59,7 @@ CI runs `just format-code-check` on Arch with clang-format 22. Newer versions ma
 
 For CI parity, install `clang22` on Arch or `clang-tools-extra` on Fedora 44. If your distribution installs Clang 22 outside the default PATH, prepend its binary directory when running either recipe, for example `PATH=/usr/lib/llvm22/bin:$PATH just format-code-check` on Arch. Keep editor formatting on the same version as your command-line formatter.
 
-Markdown and MDX files are formatted by `tools/remark/format.mjs`, which parses them with the same remark plugins as the docs site (MDX, GFM, directives, custom heading ids, frontmatter), so it reads every file exactly as the site renders it. Its dependencies are pinned in `tools/remark/package-lock.json`; the docs recipes need Node.js and npm and install them into `tools/remark/node_modules` on first use. Do not hard-wrap prose: the formatter writes each paragraph, list item, and table cell on one line. It refuses to write a result whose parsed document differs from the input beyond whitespace. CI runs `just format-docs-check`.
+Markdown and MDX files are formatted by `tools/remark/format.mjs`, which parses them with the same remark plugins as the docs site (MDX, GFM, directives, custom heading ids, frontmatter) plus math, so it reads every file as the site and GitHub render it. Its dependencies are pinned in `tools/remark/package-lock.json`; the docs recipes need Node.js and npm and install them into `tools/remark/node_modules` on first use. Do not hard-wrap prose: the formatter writes each paragraph, list item, and table cell on one line, keeping GitHub alert markers (`> [!NOTE]`) on their own line. It refuses to write a result whose parsed document differs from the input beyond whitespace. CI runs `just format-docs-check`.
 
 For editor integration, `just configure` creates a root `compile_commands.json` symlink to the selected Meson build directory. Run `just configure`, `just configure release`, or `just configure asan` for the build mode you want clangd to use.
 
@@ -74,6 +74,8 @@ clang-tidy -p build-debug --warnings-as-errors='*' <touched .cpp files...>
 ```
 
 Headers are linted through the `.cpp` files that include them. Fix every finding before opening a pull request.
+
+sdbus-c++ async reply handlers take the error as `std::optional<sdbus::Error>` by value. sdbus-c++ releases before 2.3 (shipped by Fedora 44, Debian 13, and Ubuntu 26.04) do not recognize a `const&` error parameter, so the code fails to compile there even though it builds on Arch. Suppress the resulting clang-tidy finding on that lambda with `// NOLINT(performance-unnecessary-value-param)`. The `Build (Fedora 44)` CI job guards this.
 
 ### Naming Conventions
 
@@ -113,13 +115,17 @@ This applies to identity and configuration, not runtime resilience. Graceful deg
 
 ### User documentation
 
-End-user documentation lives in [`docs/user/`](docs/user/) (MDX), with images under `docs/assets/`. Any change that adds, removes, or changes user-facing configuration or behavior updates the relevant page in the same commit as the code.
+End-user documentation lives in [`docs/user/`](docs/user/) (MDX), with images under `docs/assets/`. Any change that adds, removes, or changes user-facing configuration, or behavior users need to know about to use or configure the shell, updates the relevant page in the same commit as the code. `docs/user/` is user documentation, not a feature changelog: don't document purely cosmetic or self-explanatory UI additions.
 
 The documentation site is generated from these files by `tools/sync-docs.sh`, which copies `docs/user/**/*.mdx` into the docs site checkout and deletes pages that no longer exist here. Never edit the generated copies; the next sync overwrites them.
 
 ### Vendored code
 
 Do not patch vendored code under `third_party/` for Noctalia behavior; local edits are lost when the dependency is refreshed. Put compatibility code in Noctalia-owned sources under `src/`, or fix the issue upstream and update the vendored snapshot from upstream.
+
+### Palette colors
+
+Fills, tints, and borders use a palette role: `surface_container_low` to `surface_container_highest` for raised backgrounds, the `*_container` roles for tinted fills, and `outline_variant` for borders. Do not blend a role with a hardcoded alpha (`colorSpecFromRole(ColorRole::Primary, 0.16F)`) to get a color the palette does not have; if no role fits, propose a new one. Alpha is for real transparency only: shadows, scrims, overlays, disabled content, and hover or pressed state layers, ideally through a named `Style` constant. `just role-alpha-check` (run in CI) counts role-plus-literal-alpha uses and fails when the count goes up; after removing some, run `just role-alpha-update` to lower the baseline.
 
 ## Testing
 

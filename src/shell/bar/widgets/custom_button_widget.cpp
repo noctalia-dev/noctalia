@@ -13,7 +13,7 @@
 #include <memory>
 #include <utility>
 
-CustomButtonWidget::CustomButtonWidget(Options options)
+CustomButtonWidget::CustomButtonWidget(const Options& options)
     : m_glyphName(StringUtils::trim(options.glyph)), m_labelText(StringUtils::trim(options.label)),
       m_tooltip(StringUtils::trim(options.tooltip)),
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}

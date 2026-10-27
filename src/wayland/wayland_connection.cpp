@@ -369,7 +369,7 @@ namespace wayland {
 
     std::vector<bool> prepared(activeTargets.size(), false);
     std::vector<pollfd> pollFds(activeTargets.size());
-    auto cancelPreparedReads = [&]() {
+    auto cancelPreparedReads = [&] {
       for (std::size_t i = 0; i < activeTargets.size(); ++i) {
         if (prepared[i]) {
           wl_display_cancel_read(activeTargets[i].connection->display());
@@ -672,7 +672,7 @@ namespace {
             .role = "capture",
         },
     };
-    const wayland::DispatchResult result = wayland::dispatchUntil(targets, deadline, [&state]() { return state.done; });
+    const wayland::DispatchResult result = wayland::dispatchUntil(targets, deadline, [&state] { return state.done; });
     if (state.callback != nullptr) {
       wl_callback_destroy(state.callback);
       state.callback = nullptr;
@@ -1013,6 +1013,8 @@ std::optional<ActiveToplevel> WaylandConnection::matchToplevelByTitleAndAppId(
 
 wl_output* WaylandConnection::activeToplevelOutput() const { return m_toplevelsHandler.currentOutput(); }
 
+bool WaylandConnection::hasFullscreenToplevel() const { return m_toplevelsHandler.anyFullscreen(); }
+
 std::vector<std::string> WaylandConnection::runningAppIds(wl_output* outputFilter) const {
   if (compositors::isKde() && m_extForeignToplevels.isBound() && !m_hasForeignToplevelManagerGlobal) {
     (void)outputFilter;
@@ -1061,6 +1063,14 @@ bool WaylandConnection::containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v
 
 void WaylandConnection::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
   m_toplevelsHandler.activateHandle(handle, m_seat);
+}
+
+bool WaylandConnection::minimizeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
+  return m_toplevelsHandler.minimizeHandle(handle);
+}
+
+std::optional<bool> WaylandConnection::toplevelMinimized(zwlr_foreign_toplevel_handle_v1* handle) const {
+  return m_toplevelsHandler.minimized(handle);
 }
 
 void WaylandConnection::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {

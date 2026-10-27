@@ -113,8 +113,8 @@ namespace {
     return ButtonVariant::Default;
   }
 
-  // Default/Ghost use SurfaceVariant or clear fills that disappear on the
-  // SurfaceVariant login panel — Outline gives a readable Surface chip.
+  // Default/Ghost use SurfaceContainer or clear fills that disappear on the
+  // SurfaceContainer login panel; Outline gives a readable Surface chip.
   [[nodiscard]] ButtonVariant lockscreenSessionVariant(SessionActionButtonVariant variant) {
     switch (variant) {
     case SessionActionButtonVariant::Default:
@@ -471,7 +471,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .variant = ButtonVariant::Secondary,
           .visible = false,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_onCycleLayout) {
                   m_onCycleLayout();
                 }
@@ -513,7 +513,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .glyphSize = 16.0F,
           .variant = ButtonVariant::Ghost,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_passwordField == nullptr) {
                   return;
                 }
@@ -535,7 +535,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .glyphSize = 16.0F,
           .variant = ButtonVariant::Primary,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_onLogin) {
                   m_onLogin();
                 }
@@ -865,7 +865,7 @@ void LockSurface::startExitTransition() {
         m_transitionProgress = progress;
         syncTransitionCover();
       },
-      [this]() {
+      [this] {
         m_transitionAnimation = 0;
         m_transitionProgress = 0.0F;
         m_transitionPhase = TransitionPhase::ExitEndpoint;
@@ -1136,7 +1136,7 @@ void LockSurface::beginEnterAnimation() {
         m_transitionProgress = progress;
         syncTransitionCover();
       },
-      [this]() {
+      [this] {
         m_transitionAnimation = 0;
         m_transitionProgress = 1.0F;
         m_transitionPhase = TransitionPhase::EnterEndpoint;
@@ -1326,7 +1326,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   }
 
   m_loginPanel->setFill(loginStyle.panelFill);
-  m_loginPanel->setBorder(colorForRole(ColorRole::Outline, loginStyle.panelOpacity), Style::borderWidth);
+  m_loginPanel->setBorder(colorForRole(ColorRole::OutlineVariant, loginStyle.panelOpacity), Style::borderWidth);
   m_loginPanel->setRadius(Style::scaledRadius(loginStyle.panelRadius));
   m_loginPanel->setSoftness(1.0F);
   m_loginPanel->setClipChildren(true);
@@ -1556,7 +1556,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
 
       m_authPanel->setPadding(authPadV, authPadH);
       m_authPanel->setFill(loginStyle.panelFill);
-      m_authPanel->setBorder(colorForRole(ColorRole::Outline, loginStyle.panelOpacity), Style::borderWidth);
+      m_authPanel->setBorder(colorForRole(ColorRole::OutlineVariant, loginStyle.panelOpacity), Style::borderWidth);
       m_authPanel->setRadius(Style::scaledRadius(loginStyle.panelRadius));
       m_authPanel->setSoftness(1.0F);
       m_authPanel->setMinWidth(authW);
@@ -1670,10 +1670,19 @@ void LockSurface::rebuildSessionButtons() {
   }
 
   const auto actions = resolveSessionActions();
+  const bool showShortcuts = m_config == nullptr || m_config->config().shell.session.showShortcuts;
+  std::vector<std::string> badges;
+  badges.reserve(actions.size());
   std::vector<std::string> keys;
   keys.reserve(actions.size());
   for (const auto& action : actions) {
-    keys.push_back(action.action + "|" + (action.label.value_or("")) + "|" + (action.glyph.value_or("")));
+    badges.push_back(
+        showShortcuts && action.lockscreenShortcut.has_value() ? keyChordDisplayLabel(*action.lockscreenShortcut)
+                                                               : std::string{}
+    );
+    keys.push_back(
+        action.action + "|" + (action.label.value_or("")) + "|" + (action.glyph.value_or("")) + "|" + badges.back()
+    );
   }
   if (keys == m_lastSessionActionKeys && !m_sessionButtons.empty()) {
     return;
@@ -1689,7 +1698,8 @@ void LockSurface::rebuildSessionButtons() {
     return;
   }
 
-  for (const auto& cfg : actions) {
+  for (std::size_t i = 0; i < actions.size(); ++i) {
+    const auto& cfg = actions[i];
     const std::string_view labelKey =
         cfg.action == "lock_and_suspend" ? session_action::labelKey("suspend") : session_action::labelKey(cfg.action);
     const std::string labelText = cfg.label.has_value() && !cfg.label->empty() ? *cfg.label : i18n::tr(labelKey);
@@ -1709,17 +1719,26 @@ void LockSurface::rebuildSessionButtons() {
         .radius = Style::scaledRadiusMd(),
         .flexGrow = 1.0F,
         .onClick =
-            [this, cfg]() {
+            [this, cfg] {
               if (m_sessionActions != nullptr) {
                 m_sessionActions->invoke(cfg);
               }
             },
         .configure =
-            [](Button& control) {
+            [hint = badges[i]](Button& control) {
               control.setDirection(FlexDirection::Horizontal);
               control.setAlign(FlexAlign::Center);
               control.setJustify(FlexJustify::Center);
               control.setFillHeight(true);
+              // An inline trailing hint, not the corner badge: these buttons are too
+              // compact for an overlay, which would cover the centered label.
+              if (!hint.empty()) {
+                auto hintLabel = std::make_unique<Label>();
+                hintLabel->setText(hint);
+                hintLabel->setFontSize(Style::fontSizeCaption * 0.85F);
+                hintLabel->setOpacity(0.6F);
+                control.addChild(std::move(hintLabel));
+              }
             },
     });
     m_sessionButtons.push_back(button.get());
@@ -1951,7 +1970,7 @@ void LockSurface::applyWallpaperTexture() {
     } else if (m_pendingWallpaperPath != m_wallpaperPath && renderContext() != nullptr) {
       m_pendingWallpaperLease = m_textureCache->acquire(
           SharedTextureRequest{.path = m_wallpaperPath, .coverage = m_wallpaperCoverage}, &renderContext()->backend(),
-          [this]() {
+          [this] {
             m_wallpaperDirty = true;
             requestLayout();
           }

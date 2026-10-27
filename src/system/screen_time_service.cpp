@@ -14,13 +14,14 @@
 #include <cctype>
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
 #include <ctime>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iomanip>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <sstream>
 #include <utility>
 
 namespace {
@@ -399,7 +400,7 @@ void ScreenTimeService::scheduleNextTick() {
   const auto now = system_clock::now();
   const auto nextCheckpoint = floor<minutes>(now) + minutes{1};
   const auto delay = std::max(duration_cast<milliseconds>(nextCheckpoint - now), milliseconds{1});
-  m_tickTimer.start(delay, [this]() { tick(); });
+  m_tickTimer.start(delay, [this] { tick(); });
 }
 
 void ScreenTimeService::tick() {
@@ -435,16 +436,11 @@ std::vector<std::string> ScreenTimeService::dayKeysForRange(int rangeDays) const
 }
 
 std::string ScreenTimeService::shortDayLabel(const std::string& dayKey) {
-  int year = 0;
-  int month = 0;
-  int day = 0;
-  if (std::sscanf(dayKey.c_str(), "%d-%d-%d", &year, &month, &day) != 3) {
+  std::tm tm{};
+  std::istringstream input(dayKey);
+  if (!(input >> std::get_time(&tm, "%Y-%m-%d"))) {
     return dayKey;
   }
-  std::tm tm{};
-  tm.tm_year = year - 1900;
-  tm.tm_mon = month - 1;
-  tm.tm_mday = day;
   tm.tm_isdst = -1;
   if (std::mktime(&tm) == -1) {
     return dayKey;
@@ -454,16 +450,11 @@ std::string ScreenTimeService::shortDayLabel(const std::string& dayKey) {
 }
 
 std::string ScreenTimeService::dayDisplayName(const std::string& dayKey) {
-  int year = 0;
-  int month = 0;
-  int day = 0;
-  if (std::sscanf(dayKey.c_str(), "%d-%d-%d", &year, &month, &day) != 3) {
+  std::tm tm{};
+  std::istringstream input(dayKey);
+  if (!(input >> std::get_time(&tm, "%Y-%m-%d"))) {
     return dayKey;
   }
-  std::tm tm{};
-  tm.tm_year = year - 1900;
-  tm.tm_mon = month - 1;
-  tm.tm_mday = day;
   tm.tm_hour = 12;
   tm.tm_isdst = -1;
   if (std::mktime(&tm) == -1) {

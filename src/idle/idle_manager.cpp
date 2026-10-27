@@ -19,6 +19,13 @@ namespace {
   constexpr std::uint32_t kHeartbeatTimeoutMs = 1000;
   constexpr double kMaxIdleTimeoutMs = static_cast<double>(std::numeric_limits<std::uint32_t>::max());
 
+  /// Browsers renew their screensaver inhibit during long playback by dropping it and immediately
+  /// taking a new one (Firefox, roughly once a minute, with gaps measured at 370-660ms). Treating such
+  /// a gap as a release would restart every idle countdown on each renewal, so a release has to outlive
+  /// this window. Kept just above the observed gaps: it is added latency on every genuine pause, and
+  /// letting a renewal slip through only costs a countdown restart that playback would suppress anyway.
+  constexpr auto kInhibitReleaseDebounce = std::chrono::milliseconds(1000);
+
   const ext_idle_notification_v1_listener kIdleNotificationListener = {
       .idled = &IdleManager::handleIdled,
       .resumed = &IdleManager::handleResumed,
@@ -67,19 +74,60 @@ void IdleManager::notifyLiveIdleChanged() {
 
 void IdleManager::setScreenSaverInhibitLocks(std::int64_t locks) {
   const std::int64_t next = std::max<std::int64_t>(0, locks);
-  const bool wasInhibited = m_screenSaverInhibitLocks > 0;
+  if (m_screenSaverInhibitLocks == next) {
+    return;
+  }
+  const bool wasInhibited = screenSaverInhibited();
   m_screenSaverInhibitLocks = next;
-  const bool inhibited = m_screenSaverInhibitLocks > 0;
-  if (!wasInhibited && inhibited) {
-    const bool wasIdle = m_heartbeatCompositorIdle;
-    m_heartbeatCompositorIdle = false;
-    if (wasIdle) {
-      notifyLiveIdleChanged();
+
+  if (m_screenSaverInhibitLocks > 0) {
+    if (m_inhibitReleasePending) {
+      kLog.debug("screensaver inhibit renewed within debounce; idle countdowns kept running");
+      m_inhibitReleasePending = false;
+      m_inhibitReleaseTimer.stop();
+    }
+    if (!wasInhibited) {
+      // Playback started mid-fade: abort it rather than blanking the screen over a fresh video. The
+      // cancelled behaviors return to Waiting and are re-armed when the inhibit is released.
+      cancelActiveGrace(true);
+      if (m_heartbeatCompositorIdle) {
+        notifyLiveIdleChanged();
+      }
+    }
+    return;
+  }
+
+  if (!wasInhibited || m_inhibitReleasePending) {
+    return;
+  }
+  m_inhibitReleasePending = true;
+  m_inhibitReleaseTimer.start(kInhibitReleaseDebounce, [this] { applyScreenSaverInhibitRelease(); });
+}
+
+void IdleManager::applyScreenSaverInhibitRelease() {
+  if (!m_inhibitReleasePending) {
+    return;
+  }
+  m_inhibitReleasePending = false;
+  if (m_screenSaverInhibitLocks > 0) {
+    return;
+  }
+
+  // Notifications that idled while inhibited cannot report idle again before activity resumes, so
+  // restart every waiting countdown from the release. Idled behaviors keep waiting for real input to
+  // run their resume action.
+  kLog.debug("screensaver inhibit released; restarting idle countdowns");
+  for (auto& behavior : m_behaviors) {
+    if (behavior->phase == BehaviorPhase::Waiting) {
+      recreateBehaviorNotification(*behavior);
     }
   }
-  if (wasInhibited && !inhibited && m_idledWhileScreenSaverInhibited) {
-    m_idledWhileScreenSaverInhibited = false;
-    recreateBehaviorNotifications();
+
+  // The heartbeat keeps tracking the compositor while inhibited; count live idle from the release so
+  // it matches the restarted countdowns.
+  if (m_heartbeatCompositorIdle) {
+    m_heartbeatIdleSince = std::chrono::steady_clock::now() - std::chrono::milliseconds(kHeartbeatTimeoutMs);
+    notifyLiveIdleChanged();
   }
 }
 
@@ -140,7 +188,7 @@ void IdleManager::reload(const IdleConfig& config) {
 }
 
 std::int64_t IdleManager::liveIdleSeconds() const noexcept {
-  if (!m_heartbeatCompositorIdle) {
+  if (!m_heartbeatCompositorIdle || screenSaverInhibited()) {
     return 0;
   }
   const auto elapsed = std::chrono::steady_clock::now() - m_heartbeatIdleSince;
@@ -375,13 +423,13 @@ void IdleManager::handleIdled(void* data, ext_idle_notification_v1* /*notificati
   }
 
   IdleManager& self = *behavior->owner;
-  if (self.m_screenSaverInhibitLocks > 0) {
-    self.m_idledWhileScreenSaverInhibited = true;
+  if (self.screenSaverInhibited()) {
     kLog.info(
-        "idle behavior '{}' suppressed (screensaver inhibit locks={})", behavior->config.name,
-        self.m_screenSaverInhibitLocks
+        "idle behavior '{}' suppressed (screensaver inhibit locks={}{})", behavior->config.name,
+        self.m_screenSaverInhibitLocks, self.m_inhibitReleasePending ? ", release pending" : ""
     );
-    self.recreateBehaviorNotification(*behavior);
+    // Leave the notification idled: real input re-arms it in the compositor, and the inhibit release
+    // restarts it. Recreating it here would restart the countdown on every inhibit renewal.
     return;
   }
 
@@ -401,15 +449,15 @@ void IdleManager::handleIdled(void* data, ext_idle_notification_v1* /*notificati
     const bool willLockSession = idleKind == IdleActionKind::Lock || idleKind == IdleActionKind::LockAndSuspend;
     self.joinActiveGrace(*behavior);
     const std::uint64_t generation = ++self.m_graceGeneration;
-    self.m_graceFallbackTimer.start(fade + std::chrono::milliseconds(250), [&self, generation]() {
+    self.m_graceFallbackTimer.start(fade + std::chrono::milliseconds(250), [&self, generation] {
       if (self.m_graceGeneration != generation || !self.hasActiveGrace()) {
         return;
       }
       kLog.debug("idle pre-action fade fallback completed");
       self.graceFadeComplete();
     });
-    self.m_onGraceBegin(behavior->config.name, fade, willLockSession, [ptr = &self, generation]() {
-      DeferredCall::callLater([ptr, generation]() {
+    self.m_onGraceBegin(behavior->config.name, fade, willLockSession, [ptr = &self, generation] {
+      DeferredCall::callLater([ptr, generation] {
         if (ptr->m_graceGeneration != generation || !ptr->hasActiveGrace()) {
           return;
         }
@@ -455,13 +503,14 @@ void IdleManager::handleHeartbeatIdled(void* data, ext_idle_notification_v1* /*n
   if (self == nullptr) {
     return;
   }
-  if (self->m_screenSaverInhibitLocks > 0) {
-    return;
-  }
+  // Record idle even while inhibited: ext-idle-notify cannot resend `idled` without an intervening
+  // `resumed`, so dropping it here would strand the live status at active until real input.
   self->m_heartbeatCompositorIdle = true;
   // The compositor reports idle only once the heartbeat timeout has already elapsed.
   self->m_heartbeatIdleSince = std::chrono::steady_clock::now() - std::chrono::milliseconds(kHeartbeatTimeoutMs);
-  self->notifyLiveIdleChanged();
+  if (!self->screenSaverInhibited()) {
+    self->notifyLiveIdleChanged();
+  }
 }
 
 void IdleManager::handleHeartbeatResumed(void* data, ext_idle_notification_v1* /*notification*/) {

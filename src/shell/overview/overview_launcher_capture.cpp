@@ -6,6 +6,7 @@
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
+#include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "shell/panel/panel_manager.h"
 #include "util/string_utils.h"
@@ -187,7 +188,7 @@ bool OverviewLauncherCapture::handleOverviewKey(const KeyboardEvent& event) cons
   }
   const bool isUmbriel = compositors::isUmbriel();
 
-  if (KeySymbol::isEnter(event.sym) || KeySymbol::isEscape(event.sym)) {
+  if (KeySymbol::isEnter(event.sym) || KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
     const auto* action = isUmbriel ? "overview-toggle" : "ToggleOverview";
     (void)sendOverviewAction(action);
     return true;

@@ -4,6 +4,7 @@
 #include "net/http_client.h"
 #include "net/uri.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstring>
 #include <libxml/parser.h>
@@ -175,18 +176,15 @@ namespace calendar {
       if (supported == nullptr) {
         return true;
       }
-      for (xmlNode* comp : childElements(supported, "comp")) {
+      return std::ranges::any_of(childElements(supported, "comp"), [&](xmlNode* comp) {
         xmlChar* attr = xmlGetProp(comp, reinterpret_cast<const xmlChar*>("name"));
         if (attr == nullptr) {
-          continue;
+          return false;
         }
         const bool isEvent = std::strcmp(reinterpret_cast<const char*>(attr), "VEVENT") == 0;
         xmlFree(attr);
-        if (isEvent) {
-          return true;
-        }
-      }
-      return false;
+        return isEvent;
+      });
     }
 
     std::unique_ptr<xmlDoc, decltype(&xmlFreeDoc)> parseXml(const std::string& body) {
@@ -255,12 +253,12 @@ namespace calendar {
     HttpRequest propfindRequest(
         const std::string& url, const std::string& username,
         const std::shared_ptr<const security::SecureBuffer>& password, bool allowRedirectAuth,
-        const std::shared_ptr<const HttpTlsClientCert>& tls, std::string body, int depth
+        const std::shared_ptr<const HttpTlsClientCert>& tls, std::string_view body, int depth
     ) {
       HttpRequest req;
       req.method = "PROPFIND";
       req.url = url;
-      req.body = std::move(body);
+      req.body = body;
       req.followRedirects = true;
       req.allowRedirectAuth = allowRedirectAuth;
       req.basicUsername = username;
@@ -276,18 +274,18 @@ namespace calendar {
       return req;
     }
 
-    std::string currentUserPrincipalBody() {
+    std::string_view currentUserPrincipalBody() {
       return "<?xml version=\"1.0\" encoding=\"utf-8\" ?>"
              "<D:propfind xmlns:D=\"DAV:\"><D:prop><D:current-user-principal/></D:prop></D:propfind>";
     }
 
-    std::string calendarHomeSetBody() {
+    std::string_view calendarHomeSetBody() {
       return "<?xml version=\"1.0\" encoding=\"utf-8\" ?>"
              "<D:propfind xmlns:D=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:caldav\">"
              "<D:prop><C:calendar-home-set/></D:prop></D:propfind>";
     }
 
-    std::string calendarsBody() {
+    std::string_view calendarsBody() {
       return "<?xml version=\"1.0\" encoding=\"utf-8\" ?>"
              "<D:propfind xmlns:D=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:caldav\" "
              "xmlns:CS=\"http://calendarserver.org/ns/\">"
@@ -295,17 +293,19 @@ namespace calendar {
              "<C:supported-calendar-component-set/></D:prop></D:propfind>";
     }
 
-    void
-    finish(std::shared_ptr<DiscoveryContext> ctx, SyncFailure failure, std::vector<CalDavCollection> collections = {}) {
+    void finish(
+        const std::shared_ptr<DiscoveryContext>& ctx, SyncFailure failure,
+        std::vector<CalDavCollection> collections = {}
+    ) {
       if (ctx->callback) {
         ctx->callback(failure, std::move(collections));
       }
     }
 
-    void discoverCalendarHome(std::shared_ptr<DiscoveryContext> ctx, const std::string& principalUrl);
-    void discoverCollections(std::shared_ptr<DiscoveryContext> ctx, const std::string& homeUrl);
+    void discoverCalendarHome(const std::shared_ptr<DiscoveryContext>& ctx, const std::string& principalUrl);
+    void discoverCollections(const std::shared_ptr<DiscoveryContext>& ctx, const std::string& homeUrl);
 
-    void discoverPrincipal(std::shared_ptr<DiscoveryContext> ctx) {
+    void discoverPrincipal(const std::shared_ptr<DiscoveryContext>& ctx) {
       ctx->http.request(
           propfindRequest(
               ctx->serverUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, ctx->tls,
@@ -329,7 +329,7 @@ namespace calendar {
       );
     }
 
-    void discoverCalendarHome(std::shared_ptr<DiscoveryContext> ctx, const std::string& principalUrl) {
+    void discoverCalendarHome(const std::shared_ptr<DiscoveryContext>& ctx, const std::string& principalUrl) {
       ctx->http.request(
           propfindRequest(
               principalUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, ctx->tls, calendarHomeSetBody(), 0
@@ -352,7 +352,7 @@ namespace calendar {
       );
     }
 
-    void discoverCollections(std::shared_ptr<DiscoveryContext> ctx, const std::string& homeUrl) {
+    void discoverCollections(const std::shared_ptr<DiscoveryContext>& ctx, const std::string& homeUrl) {
       ctx->http.request(
           propfindRequest(homeUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, ctx->tls, calendarsBody(), 1),
           [ctx, homeUrl](HttpResponse resp) {
@@ -387,7 +387,7 @@ namespace calendar {
       finish(ctx, SyncFailure::Configuration);
       return;
     }
-    discoverPrincipal(std::move(ctx));
+    discoverPrincipal(ctx);
   }
 
 } // namespace calendar

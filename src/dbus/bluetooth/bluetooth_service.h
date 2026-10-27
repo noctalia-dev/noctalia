@@ -88,7 +88,7 @@ public:
   void setStateCallback(StateCallback callback);
   void setDevicesCallback(DevicesCallback callback);
   void refresh();
-  void registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback = {});
+  void registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback = {});
 
   [[nodiscard]] const BluetoothState& state() const noexcept { return m_state; }
   [[nodiscard]] bool hasStateSnapshot() const noexcept { return m_hasStateSnapshot; }
@@ -111,6 +111,9 @@ public:
 
   // [bluetooth].connect_when_enabled; disabling cancels a queued or running connect pass.
   void setConnectWhenEnabled(bool enabled);
+  // [bluetooth].connection_notifications; when false, device connect/disconnect transitions and failed
+  // connects stay silent.
+  void setConnectionNotifications(bool enabled);
 
 private:
   struct Impl;
@@ -120,6 +123,10 @@ private:
   [[nodiscard]] BluetoothStateChangeOrigin consumePoweredChangeOrigin(bool powered);
   void emitState(BluetoothStateChangeOrigin origin = BluetoothStateChangeOrigin::External);
   void emitDevices();
+  // Toasts a Connected transition unless it completes a device action the user started here.
+  void notifyConnectionChange(const BluetoothDeviceInfo& dev);
+  // Drops the device action entry once its reply shows the target state was reached (or never will be).
+  void settleLocalDeviceRequest(const std::string& devicePath);
 
   /// One connect pass over paired, trusted, disconnected devices when the adapter comes up (power-on,
   /// startup, resume). Devices go one at a time, each after the previous Connect() replies: the
@@ -139,11 +146,15 @@ private:
   std::vector<BluetoothDeviceInfo> m_devices;
   std::optional<bool> m_pendingLocalPowered;
   std::uint64_t m_pendingPoweredRevision = 0;
+  // Device path -> Connected value a user-started Connect/Disconnect/Pair/Forget is heading for. The
+  // matching Connected transition consumes the entry so feedback for the user's own action stays quiet.
+  std::unordered_map<std::string, bool> m_localDeviceRequests;
   Timer m_connectPassTimer;
   std::deque<std::string> m_connectQueue;
   std::uint64_t m_connectPassGeneration = 0;
   bool m_connectPassActive = false;
   bool m_connectWhenEnabled = false;
+  bool m_connectionNotifications = true;
   bool m_hasStateSnapshot = false;
   StateCallback m_stateCallback;
   DevicesCallback m_devicesCallback;

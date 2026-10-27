@@ -224,7 +224,7 @@ font_family       = ""
 | `show_week_numbers` | bool   | `false` | Show ISO week numbers beside the month grid                      |
 | `font_family`       | string | `""`    | Typeface for calendar text; empty inherits the global shell font |
 
-The event list uses the shared `event_date_format` and `event_time_format` from [`[calendar]`](/noctalia/services/calendar/), so the desktop widget and control center use the same event formatting.
+The event list uses the shared `event_date_format` and `event_time_format` from [`[calendar]`](/noctalia/services/calendar/), so the desktop widget and control center use the same event formatting. It also follows [`hide_past_events` and `past_events_threshold_minutes`](/noctalia/control-center/#calendar) from `[control_center.calendar]` when deciding which of today's finished events to list.
 
 Use the arrow buttons or vertical scrolling to change months. Select a day to update the event list; selecting a day from the preceding or following month also navigates to that month. Select the date or month heading to return to today.
 
@@ -535,19 +535,20 @@ background     = true
 # label_min_width = 0
 ```
 
-| Setting                 | Type   | Default        | Description                                                                                                                                        |
-| ----------------------- | ------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `display`               | string | `"graph"`      | `"graph"` shows a scrolling history chart; `"gauge"` shows a compact pill gauge like the bar sysmon widget                                         |
-| `stat`                  | string | `"cpu_usage"`  | Primary stat. See [Available stats](/noctalia/services/system-monitor/#available-stats)                                                            |
-| `stat2`                 | string | -              | Graph mode only. Optional secondary stat (same values as `stat`). Omit for single curve.                                                           |
-| `gauge_layout`          | string | `"horizontal"` | Gauge mode only. `"horizontal"` lays out icon, vertical pill gauge, and value in a row; `"vertical"` stacks icon, horizontal pill gauge, and value |
-| `interface`             | string | `""`           | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across all non-loopback interfaces                                        |
-| `network_speed_unit`    | string | `"auto"`       | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, kB/s, MB/s, GB/s), `"kb"` (always kB/s), or `"mb"` (always MB/s)                         |
-| `network_speed_compact` | bool   | `false`        | Use short unit suffixes such as `1.2M` instead of `1.2 MB/s` for `net_rx`/`net_tx`                                                                 |
-| `color`                 | string | `"primary"`    | Primary color role (graph line or gauge fill); fixed hex colors are also supported                                                                 |
-| `color2`                | string | `"secondary"`  | Graph mode only. Secondary line color role when `stat2` is set                                                                                     |
-| `highlight_color`       | string | `"error"`      | Gauge mode only. Color role used when the stat crosses activity/critical thresholds from `[system.monitor]`                                        |
-| `show_label`            | bool   | `true`         | Show the current value as text                                                                                                                     |
-| `label_min_width`       | int    | `0`            | Gauge mode only. Minimum width for the value label in logical pixels (`0` = auto)                                                                  |
+| Setting                        | Type   | Default        | Description                                                                                                                                        |
+| ------------------------------ | ------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `display`                      | string | `"graph"`      | `"graph"` shows a scrolling history chart; `"gauge"` shows a compact pill gauge like the bar sysmon widget                                         |
+| `stat`                         | string | `"cpu_usage"`  | Primary stat. See [Available stats](/noctalia/services/system-monitor/#available-stats)                                                            |
+| `stat2`                        | string | -              | Graph mode only. Optional secondary stat (same values as `stat`). Omit for single curve.                                                           |
+| `gauge_layout`                 | string | `"horizontal"` | Gauge mode only. `"horizontal"` lays out icon, vertical pill gauge, and value in a row; `"vertical"` stacks icon, horizontal pill gauge, and value |
+| `interface`                    | string | `""`           | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across all non-loopback interfaces                                        |
+| `network_speed_unit`           | string | `"auto"`       | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, kB/s, MB/s, GB/s), `"kb"` (always kB/s), or `"mb"` (always MB/s)                         |
+| `network_speed_compact`        | bool   | `false`        | Use short unit suffixes such as `1.2M` instead of `1.2 MB/s` for `net_rx`/`net_tx`                                                                 |
+| `network_speed_decimal_places` | int    | `1`            | Number of decimal places for compact `net_rx`/`net_tx` values, from `0` to `3`                                                                     |
+| `color`                        | string | `"primary"`    | Primary color role (graph line or gauge fill); fixed hex colors are also supported                                                                 |
+| `color2`                       | string | `"secondary"`  | Graph mode only. Secondary line color role when `stat2` is set                                                                                     |
+| `highlight_color`              | string | `"error"`      | Gauge mode only. Color role used when the stat crosses activity/critical thresholds from `[system.monitor]`                                        |
+| `show_label`                   | bool   | `true`         | Show the current value as text                                                                                                                     |
+| `label_min_width`              | int    | `0`            | Gauge mode only. Minimum width for the value label in logical pixels (`0` = auto)                                                                  |
 
 The stats a `sysmon` widget can show, what each one displays, and where the values come from are listed under [Available stats](/noctalia/services/system-monitor/#available-stats). Desktop widgets support CPU frequency and every other stat except `ram_used` and the four disk stats.

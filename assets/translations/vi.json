@@ -44,12 +44,13 @@
       "cursor-live": "Dừng màn hình trước để thay đổi con trỏ bị chụp (F)",
       "cursor-not-captured": "Không thể bật/tắt con trỏ: trình quản lý hiển thị không hỗ trợ chụp con trỏ riêng biệt",
       "done": "Áp dụng cài đặt chụp màn hình (Enter)",
-      "fill-off": "Lấp đầy hình khối: tắt",
+      "fill-off": "Lấp đầy hình khối: tắt (f)",
+      "fill-opaque": "Lấp đầy hình khối: đục (f)",
+      "fill-semi": "Lấp đầy hình khối: bán trong suốt (f)",
       "freeze": "Dừng màn hình dưới nét vẽ (f)",
       "move-toolbar": "Kéo để di chuyển thanh công cụ",
       "redo": "Làm lại (Ctrl+Shift+Z)",
       "save": "Lưu hình ảnh đã được ghi chú (Ctrl+S)",
-      "size-advanced": "Điều chỉnh kích thước chi tiết",
       "size-decrease": "Mỏng hơn ([)",
       "size-increase": "Dày hơn (])",
       "size-large": "Lớn",
@@ -1559,10 +1560,6 @@
       "orientation": {
         "horizontal": "Ngang",
         "vertical": "Dọc"
-      },
-      "panel-bar-alignment": {
-        "centered": "Căn giữa",
-        "near-trigger": "Gần vị trí kích hoạt"
       },
       "panel-position": {
         "auto": "Theo Bar"

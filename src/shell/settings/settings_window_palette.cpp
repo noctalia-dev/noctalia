@@ -51,8 +51,8 @@ namespace settings {
         setAlign(FlexAlign::Stretch);
         setGap(Style::spaceXs * scale);
         setPadding(Style::spaceSm * scale);
-        setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F));
-        setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), Style::borderWidth);
+        setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
+        setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), Style::borderWidth);
         setRadius(Style::scaledRadiusMd(scale));
         addChild(
             ui::row(
@@ -61,7 +61,7 @@ namespace settings {
                  .justify = FlexJustify::End,
                  .padding = Style::spaceXs * scale,
                  .radius = Style::scaledRadiusSm(scale),
-                 .border = colorSpecFromRole(ColorRole::Outline),
+                 .border = colorSpecFromRole(ColorRole::OutlineVariant),
                  .borderWidth = Style::borderWidth,
                  .fillWidth = true,
                  .height = 52.0F * scale},
@@ -141,10 +141,10 @@ namespace settings {
                 : std::string{}
         );
         m_copyName->setTooltip(i18n::tr("settings.palette-inspector.copy-name") + ": " + color.name);
-        m_copyName->setOnClick([copy, name = color.name]() { copy(name); });
+        m_copyName->setOnClick([copy, name = color.name] { copy(name); });
         m_hex->setText(color.argb.has_value() ? color.hex : i18n::tr("settings.palette-inspector.missing"));
         m_copyHex->setEnabled(color.argb.has_value());
-        m_copyHex->setOnClick([copy, value = color.hex]() { copy(value); });
+        m_copyHex->setOnClick([copy, value = color.hex] { copy(value); });
       }
 
     private:
@@ -339,10 +339,10 @@ void SettingsWindow::openPaletteInspector() {
   }
   if (m_editorSheetModal == nullptr) {
     m_editorSheetModal = std::make_unique<settings::SettingsSheetModal>();
-    m_editorSheetModal->initialize(m_modalHost, [this]() { dismissOpenSelectDropdown(); });
+    m_editorSheetModal->initialize(m_modalHost, [this] { dismissOpenSelectDropdown(); });
   }
   const float scale = uiScale();
-  auto content = std::make_shared<settings::PaletteInspectorContent>(scale, [this](std::string value) {
+  auto content = std::make_shared<settings::PaletteInspectorContent>(scale, [this](const std::string& value) {
     if (m_clipboardService != nullptr && m_clipboardService->copyText(value)) {
       m_editorSheetModal->setStatusMessage(i18n::tr("settings.palette-inspector.copied", "value", value), false);
     } else {
@@ -361,7 +361,7 @@ void SettingsWindow::openPaletteInspector() {
           .parentFraction = 0.9F,
           .fillParentHeight = true,
           .scrollableBody = false,
-          .onClosed = [this]() { m_paletteInspectorContent.reset(); },
+          .onClosed = [this] { m_paletteInspectorContent.reset(); },
       }
   );
 }

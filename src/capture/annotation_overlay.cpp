@@ -23,11 +23,15 @@
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/image.h"
+#include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/segmented.h"
 #include "ui/controls/separator.h"
+#include "ui/controls/slider.h"
+#include "ui/controls/toggle.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 #include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -50,6 +54,7 @@ namespace capture {
     constexpr float kCropFrameWidth = 2.0F;
     constexpr float kSwatchSize = 20.0F;
     constexpr float kSwatchGlyphSize = 12.0F;
+    constexpr float kStrokeButtonSize = 24.0F;
     constexpr float kToolbarFillAlpha = 0.9F;
     constexpr float kImageSurroundAlpha = 0.85F;
     constexpr float kSemiFillAlpha = 0.3F;
@@ -69,6 +74,8 @@ namespace capture {
     // weight for a 6 px brush and a 32 px blur.
     constexpr std::array<double, 3> kSizePresets = {0.5, 1.0, 2.0};
     constexpr std::size_t kDefaultSizePreset = 1;
+    // The stroke button's dot grows with the S / M / L preset nearest the current width.
+    constexpr std::array<float, kSizePresets.size()> kStrokeDotSizes = {8.0F, 12.0F, 16.0F};
 
     struct Swatch {
       AnnotationColor color;
@@ -109,6 +116,125 @@ namespace capture {
 
     [[nodiscard]] std::size_t toolIndex(AnnotationTool tool) { return static_cast<std::size_t>(tool); }
 
+    // Move and Crop carry no stroke; Eraser and Blur take a size but no color.
+    [[nodiscard]] bool toolUsesSize(AnnotationTool tool) {
+      return tool != AnnotationTool::Move && tool != AnnotationTool::Crop;
+    }
+
+    [[nodiscard]] bool toolUsesColor(AnnotationTool tool) {
+      return toolUsesSize(tool) && tool != AnnotationTool::Eraser && tool != AnnotationTool::Blur;
+    }
+
+    using BackdropConfig = ScreenshotBackdropSettings;
+
+    constexpr float kGradientChipSize = 22.0F;
+    // Rows stretch to this width, so toggles, chip strip and value boxes share one right edge.
+    constexpr float kBackdropPanelContentWidth = 300.0F;
+    constexpr float kBackdropLabelWidth = 72.0F;
+    // Value box width matches the settings slider rows.
+    constexpr float kBackdropValueWidth = 50.0F;
+    // The preview frame is smooth (gradient, blurred shadow), so half device resolution is plenty.
+    constexpr double kBackdropPreviewDownscale = 2.0;
+
+    struct GradientPreset {
+      ColorSpec start;
+      ColorSpec end;
+      const char* tooltipKey;
+    };
+
+    constexpr std::size_t kGradientPresetCount = 9;
+
+    [[nodiscard]] const std::array<GradientPreset, kGradientPresetCount>& gradientPresets() {
+      static const std::array<GradientPreset, kGradientPresetCount> presets = {{
+          {colorSpecFromRole(ColorRole::Primary), colorSpecFromRole(ColorRole::Tertiary),
+           "bar.annotate.gradient-theme"},
+          {colorSpecFromRole(ColorRole::Primary), colorSpecFromRole(ColorRole::Secondary),
+           "bar.annotate.gradient-theme-accent"},
+          {colorSpecFromRole(ColorRole::PrimaryContainer), colorSpecFromRole(ColorRole::TertiaryContainer),
+           "bar.annotate.gradient-theme-soft"},
+          {colorSpecFromRole(ColorRole::SurfaceContainer), colorSpecFromRole(ColorRole::SurfaceContainerHigh),
+           "bar.annotate.gradient-theme-subtle"},
+          {fixedColorSpec(rgbHex(0x232526)), fixedColorSpec(rgbHex(0x414345)), "bar.annotate.gradient-graphite"},
+          {fixedColorSpec(rgbHex(0xE0E0E0)), fixedColorSpec(rgbHex(0xFAFAFA)), "bar.annotate.gradient-paper"},
+          {fixedColorSpec(rgbHex(0x2F80ED)), fixedColorSpec(rgbHex(0x56CCF2)), "bar.annotate.gradient-sky"},
+          {fixedColorSpec(rgbHex(0x00B09B)), fixedColorSpec(rgbHex(0x96C93D)), "bar.annotate.gradient-mint"},
+          {fixedColorSpec(rgbHex(0xFF7E5F)), fixedColorSpec(rgbHex(0xFEB47B)), "bar.annotate.gradient-sunset"},
+      }};
+      return presets;
+    }
+
+    enum class BackdropSlider : std::uint8_t {
+      Angle,
+      Padding,
+      Radius,
+      ShadowBlur,
+      ShadowOpacity,
+      ShadowOffsetX,
+      ShadowOffsetY
+    };
+    constexpr std::size_t kBackdropSliderCount = 7;
+
+    // Values are in the units the panel shows (whole degrees, pixels, 0..1 opacity).
+    struct BackdropSliderSpec {
+      const char* labelKey;
+      double minValue;
+      double maxValue;
+      double step;
+      double (*get)(const BackdropConfig&);
+      void (*set)(BackdropConfig&, double);
+    };
+
+    [[nodiscard]] std::int32_t toPixels(double v) { return static_cast<std::int32_t>(std::lround(v)); }
+    // Whole-step sliders show integers; fractional ones (opacity) two decimals, like settings sliders.
+    [[nodiscard]] std::string formatBackdropValue(const BackdropSliderSpec& spec, double v) {
+      return spec.step >= 1.0 ? std::format("{}", std::lround(v)) : StringUtils::formatFixedDotDecimal(v, 2);
+    }
+
+    [[nodiscard]] const std::array<BackdropSliderSpec, kBackdropSliderCount>& backdropSliders() {
+      static const std::array<BackdropSliderSpec, kBackdropSliderCount> specs = {{
+          {"bar.annotate.backdrop-angle", 0.0, 360.0, 5.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.gradientAngle); },
+           [](BackdropConfig& s, double v) { s.gradientAngle = static_cast<float>(v); }},
+          {"bar.annotate.backdrop-padding", 0.0, 256.0, 4.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.padding); },
+           [](BackdropConfig& s, double v) { s.padding = toPixels(v); }},
+          {"bar.annotate.backdrop-radius", 0.0, 64.0, 1.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.cornerRadius); },
+           [](BackdropConfig& s, double v) { s.cornerRadius = toPixels(v); }},
+          {"bar.annotate.backdrop-shadow-blur", 0.0, 100.0, 1.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.shadowBlur); },
+           [](BackdropConfig& s, double v) { s.shadowBlur = toPixels(v); }},
+          {"bar.annotate.backdrop-shadow-opacity", 0.0, 1.0, 0.01,
+           [](const BackdropConfig& s) { return static_cast<double>(s.shadowOpacity); },
+           [](BackdropConfig& s, double v) { s.shadowOpacity = static_cast<float>(v); }},
+          {"bar.annotate.backdrop-shadow-offset-x", -64.0, 64.0, 1.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.shadowOffsetX); },
+           [](BackdropConfig& s, double v) { s.shadowOffsetX = toPixels(v); }},
+          {"bar.annotate.backdrop-shadow-offset-y", -64.0, 64.0, 1.0,
+           [](const BackdropConfig& s) { return static_cast<double>(s.shadowOffsetY); },
+           [](BackdropConfig& s, double v) { s.shadowOffsetY = toPixels(v); }},
+      }};
+      return specs;
+    }
+
+    void paintGradientChip(Box& box, const GradientPreset& preset, bool selected) {
+      const Color start = resolveColorSpec(preset.start);
+      const Color end = resolveColorSpec(preset.end);
+      box.setStyle(
+          RoundedRectStyle{
+              .fill = start,
+              .border = colorForRole(selected ? ColorRole::Primary : ColorRole::OutlineVariant),
+              .fillMode = FillMode::LinearGradient,
+              .gradientDirection = GradientDirection::Horizontal,
+              .gradientStops =
+                  {GradientStop{0.0F, start}, GradientStop{0.0F, start}, GradientStop{1.0F, end},
+                   GradientStop{1.0F, end}},
+              .radius = Style::radiusSm,
+              .borderWidth = selected ? 2.5F : Style::borderWidth,
+          }
+      );
+    }
+
     [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
       for (const auto& entry : wayland.outputs()) {
         if (entry.output == output) {
@@ -129,7 +255,7 @@ namespace capture {
       const Color fill = rgba(color.r, color.g, color.b, 1.0F);
       Button::ButtonStateColors state{
           .bg = fixedColorSpec(fill),
-          .border = colorSpecFromRole(ColorRole::Outline),
+          .border = colorSpecFromRole(ColorRole::OutlineVariant),
           .label = fixedColorSpec(swatchContrast(color)),
       };
       Button::ButtonPalette palette;
@@ -360,7 +486,7 @@ namespace capture {
     Box* cropFrame = nullptr;
     Flex* toolbar = nullptr;
     std::array<Button*, kAnnotationToolCount> toolButtons{};
-    std::array<Button*, kSwatches.size()> swatchButtons{};
+    Button* strokeButton = nullptr;
     Button* fillButton = nullptr;
     Button* freezeButton = nullptr;
     Button* cursorButton = nullptr;
@@ -370,13 +496,32 @@ namespace capture {
     Button* saveButton = nullptr;
     Button* doneButton = nullptr;
     Button* dragHandle = nullptr;
-    Button* advancedButton = nullptr;
+    Separator* strokeSeparator = nullptr;
+    Separator* exportSeparator = nullptr;
+    Button* backdropButton = nullptr;
+
+    // Stroke popover: the color swatches and the size controls of the current tool.
+    Flex* strokePanel = nullptr;
+    Flex* strokeSwatchRow = nullptr;
+    std::array<Button*, kSwatches.size()> swatchButtons{};
+    Segmented* sizePresets = nullptr;
     Button* sizeDownButton = nullptr;
     Button* sizeUpButton = nullptr;
     Label* sizeLabel = nullptr;
-    Segmented* sizePresets = nullptr;
-    Separator* sizeSeparator = nullptr;
-    Separator* exportSeparator = nullptr;
+
+    // Backdrop panel and the Image-mode preview frame drawn behind the canvas.
+    Flex* backdropPanel = nullptr;
+    Flex* backdropBody = nullptr;
+    Flex* backdropGradientRows = nullptr;
+    Flex* backdropShadowRows = nullptr;
+    std::array<Box*, kGradientPresetCount> gradientChips{};
+    std::array<Input*, kBackdropSliderCount> backdropValueInputs{};
+    Image* backdropPreview = nullptr;
+    Box* imageOutline = nullptr;
+    std::optional<ScreenshotBackdrop> previewBackdrop;
+    AnnotationRect previewCanvas{};
+    // -2 = chips not yet painted, -1 = no preset matches the current colors.
+    int markedGradient = -2;
 
     TextureHandle committedTexture{};
     TextureHandle activeTexture{};
@@ -400,7 +545,11 @@ namespace capture {
     const ScreencopyImage* backdropImage = nullptr;
     bool pointerInside = false;
     // Toolbar glyph state, so a mark only moves (and forces a relayout) when it really changed.
-    std::optional<std::size_t> markedSwatch;
+    // -2 = swatches not yet marked, -1 = no swatch matches the tool color.
+    int markedSwatch = -2;
+    // Stroke button face; an empty preset means it is not painted yet.
+    std::optional<AnnotationColor> strokeFaceColor;
+    std::optional<std::size_t> strokeFacePreset;
     AnnotationFillMode fillGlyphMode = AnnotationFillMode::Off;
     const char* cursorTooltip = nullptr;
   };
@@ -430,7 +579,17 @@ namespace capture {
 
   void AnnotationOverlay::setStateSetter(StateSetter setter) { m_stateSetter = std::move(setter); }
 
-  void AnnotationOverlay::setToolState(AnnotationToolState state) {
+  void AnnotationOverlay::setBackdropChangedCallback(BackdropChangedCallback callback) {
+    m_onBackdropChanged = std::move(callback);
+  }
+
+  void AnnotationOverlay::setScreenshotBackdrop(const BackdropConfig& backdrop) {
+    m_backdrop = backdrop;
+    m_backdropEdited = false;
+    m_backdropLayoutPadding = m_backdrop.enabled ? std::max(0, m_backdrop.padding) : 0;
+  }
+
+  void AnnotationOverlay::setToolState(const AnnotationToolState& state) {
     m_tools = state;
     for (std::size_t i = 0; i < kAnnotationToolCount; ++i) {
       const auto tool = static_cast<AnnotationTool>(i);
@@ -438,7 +597,6 @@ namespace capture {
       const double floorWidth = tool == AnnotationTool::Text ? kMinTextWidth : kMinToolWidth;
       m_tools.width[i] = std::clamp(m_tools.width[i], floorWidth, limit);
     }
-    m_advancedSize = state.advancedSize;
     m_toolbarPositions.clear();
     for (auto& inst : m_instances) {
       if (inst != nullptr) {
@@ -535,6 +693,7 @@ namespace capture {
     m_cropDragging = false;
     m_textInstance = nullptr;
     m_textIndex.reset();
+    m_strokePanelOpen = false;
     destroySurfaces();
     m_documents.clear();
     m_frozen.clear();
@@ -543,6 +702,10 @@ namespace capture {
     m_mode = AnnotationMode::Live;
     if (wasActive) {
       persistToolState();
+      if (m_backdropEdited && m_onBackdropChanged) {
+        m_onBackdropChanged(m_backdrop);
+      }
+      m_backdropEdited = false;
       if (m_onClosed) {
         m_onClosed();
       }
@@ -559,7 +722,7 @@ namespace capture {
     });
     if (m_mode == AnnotationMode::Image) {
       if (findOutput(*m_wayland, m_imageOutput) == nullptr) {
-        DeferredCall::callLater([this]() { cancel(); });
+        DeferredCall::callLater([this] { cancel(); });
       }
       return;
     }
@@ -794,7 +957,7 @@ namespace capture {
     m_active = false;
     kLog.warn("aborting annotation overlay: {}", message);
     FailureCallback onFailure = m_onFailure;
-    DeferredCall::callLater([this, onFailure, message]() {
+    DeferredCall::callLater([this, onFailure, message] {
       m_active = true; // cancel() only fires the closed callback for an active overlay
       cancel();
       if (onFailure) {
@@ -824,8 +987,12 @@ namespace capture {
     const double availableHeight = std::max(1.0, surfaceH - areaTop - Style::spaceLg);
     const auto imageWidth = static_cast<double>(m_image.image.width);
     const auto imageHeight = static_cast<double>(m_image.image.height);
-    const double fitScale =
-        std::max({0.1, static_cast<double>(inst.scale), imageWidth / availableWidth, imageHeight / availableHeight});
+    // Room for the backdrop frame, so its preview stays on screen around a large capture.
+    const double frame = 2.0 * static_cast<double>(m_backdropLayoutPadding);
+    const double fitScale = std::max(
+        {0.1, static_cast<double>(inst.scale), (imageWidth + frame) / availableWidth,
+         (imageHeight + frame) / availableHeight}
+    );
     const double displayWidth = imageWidth / fitScale;
     const double displayHeight = imageHeight / fitScale;
 
@@ -865,11 +1032,29 @@ namespace capture {
     inst.dimTop = inst.dimBottom = inst.dimLeft = inst.dimRight = inst.cropFrame = nullptr;
     inst.toolbar = nullptr;
     inst.toolButtons.fill(nullptr);
-    inst.swatchButtons.fill(nullptr);
-    inst.fillButton = inst.freezeButton = inst.cursorButton = nullptr;
+    inst.strokeButton = inst.fillButton = inst.freezeButton = inst.cursorButton = nullptr;
     inst.cursorTooltip = nullptr;
-    inst.undoButton = inst.redoButton = inst.copyButton = inst.saveButton = inst.doneButton = nullptr;
-    inst.exportSeparator = nullptr;
+    inst.undoButton = inst.redoButton = inst.copyButton = inst.saveButton = inst.doneButton = inst.dragHandle = nullptr;
+    inst.strokeSeparator = inst.exportSeparator = nullptr;
+    inst.backdropButton = nullptr;
+    inst.strokePanel = inst.strokeSwatchRow = nullptr;
+    inst.swatchButtons.fill(nullptr);
+    inst.sizePresets = nullptr;
+    inst.sizeDownButton = inst.sizeUpButton = nullptr;
+    inst.sizeLabel = nullptr;
+    inst.markedSwatch = -2;
+    inst.strokeFaceColor.reset();
+    inst.strokeFacePreset.reset();
+    if (inst.backdropPreview != nullptr) {
+      inst.backdropPreview->clear(renderer);
+    }
+    inst.backdropPanel = inst.backdropBody = inst.backdropGradientRows = inst.backdropShadowRows = nullptr;
+    inst.gradientChips.fill(nullptr);
+    inst.backdropValueInputs.fill(nullptr);
+    inst.backdropPreview = nullptr;
+    inst.imageOutline = nullptr;
+    inst.previewBackdrop.reset();
+    inst.markedGradient = -2;
     inst.activePainted = AnnotationRect{};
     inst.committedDirty.reset();
     inst.activeDirty.reset();
@@ -882,6 +1067,10 @@ namespace capture {
     // The toolbar is measured first because the Image-mode canvas centers below it.
     auto toolbar = buildToolbar(inst);
     toolbar->layout(renderer);
+    auto backdropPanel = buildBackdropPanel(inst);
+    backdropPanel->layout(renderer);
+    auto strokePanel = buildStrokePanel(inst);
+    strokePanel->layout(renderer);
     positionToolbar(inst);
     layoutCanvas(inst);
 
@@ -932,6 +1121,9 @@ namespace capture {
           .configure = [](Box& box) { box.setPosition(0.0F, 0.0F); },
       });
       inst.surround = static_cast<Box*>(canvas->addChild(std::move(surround)));
+      inst.backdropPreview = static_cast<Image*>(
+          canvas->addChild(ui::image({.fit = ImageFit::Stretch, .width = 0.0F, .height = 0.0F, .visible = false}))
+      );
     }
 
     if (bg != nullptr) {
@@ -961,20 +1153,20 @@ namespace capture {
 
     if (m_mode == AnnotationMode::Image) {
       // Box borders paint inward without changing the canvas or exported pixels.
-      canvas->addChild(
+      inst.imageOutline = static_cast<Box*>(canvas->addChild(
           ui::box({
               .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 0.0F)),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
               .borderWidth = Style::borderWidth,
               .radius = 0.0F,
               .width = canvasW,
               .height = canvasH,
               .configure = [canvasX, canvasY](Box& box) { box.setPosition(canvasX, canvasY); },
           })
-      );
+      ));
     }
 
-    const auto makeDimStrip = [&]() {
+    const auto makeDimStrip = [&] {
       auto strip = ui::box({
           // Fixed black scrim so the cropped-away area darkens under every theme.
           .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
@@ -1013,6 +1205,8 @@ namespace capture {
     inst.canvas = canvas.get();
     inst.sceneRoot->addChild(std::move(canvas));
     inst.sceneRoot->addChild(std::move(toolbar));
+    inst.sceneRoot->addChild(std::move(backdropPanel));
+    inst.sceneRoot->addChild(std::move(strokePanel));
 
     inst.surface->setSceneRoot(inst.sceneRoot.get());
     inst.inputDispatcher.setSceneRoot(inst.sceneRoot.get());
@@ -1123,6 +1317,7 @@ namespace capture {
       redrawActive(inst, inst.pendingActiveBounds);
     }
     uploadDirty(inst, renderer);
+    updateBackdropPreview(inst, renderer);
     refreshToolbar(inst, &renderer);
   }
 
@@ -1138,11 +1333,11 @@ namespace capture {
         .paddingH = Style::spaceMd,
         .fill = fixedColorSpec(toolbarFill),
         .radius = Style::radiusXl,
-        .border = colorSpecFromRole(ColorRole::Outline),
+        .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
     });
 
-    const auto addSeparator = [&]() {
+    const auto addSeparator = [&] {
       return static_cast<Separator*>(toolbar->addChild(
           ui::separator({
               .orientation = SeparatorOrientation::VerticalRule,
@@ -1175,16 +1370,21 @@ namespace capture {
       }
     });
     if (InputArea* dragArea = inst.dragHandle->inputArea(); dragArea != nullptr) {
-      dragArea->setOnCancel([this, instPtr]() {
+      dragArea->setOnCancel([this, instPtr] {
         if (m_toolbarDragInstance == instPtr) {
           m_toolbarDragInstance = nullptr;
         }
       });
     }
+
+    // Editor controls lead the bar, keeping Close well away from Done at the trailing end.
+    if (Style::closeButtonsEnabled()) {
+      addGhostButton("x", "bar.annotate.close", [this] { requestClose(); });
+    }
     addSeparator();
 
-    inst.undoButton = addGhostButton("arrow-back-up", "bar.annotate.undo", [this]() { undo(); });
-    inst.redoButton = addGhostButton("arrow-forward-up", "bar.annotate.redo", [this]() { redo(); });
+    inst.undoButton = addGhostButton("arrow-back-up", "bar.annotate.undo", [this] { undo(); });
+    inst.redoButton = addGhostButton("arrow-forward-up", "bar.annotate.redo", [this] { redo(); });
     addSeparator();
 
     for (const auto& spec : kToolButtons) {
@@ -1194,14 +1394,35 @@ namespace capture {
               .selected = m_tools.tool == spec.tool,
               .variant = ButtonVariant::Ghost,
               .tooltip = i18n::tr(spec.tooltipKey),
-              .onClick = [this, tool = spec.tool]() { selectTool(tool); },
+              .onClick = [this, tool = spec.tool] { selectTool(tool); },
           })
       ));
     }
 
+    // Separators sit before each group; refreshToolbar hides the ones whose group is empty.
+    inst.strokeSeparator = addSeparator();
+    inst.strokeButton = static_cast<Button*>(toolbar->addChild(
+        ui::button({
+            .glyph = std::string("circle-filled"),
+            .glyphSize = kStrokeDotSizes[kDefaultSizePreset],
+            .variant = ButtonVariant::Ghost,
+            .tooltip = i18n::tr("bar.annotate.stroke"),
+            .minWidth = kStrokeButtonSize,
+            .minHeight = kStrokeButtonSize,
+            .maxWidth = kStrokeButtonSize,
+            .maxHeight = kStrokeButtonSize,
+            .padding = 0.0F,
+            .radius = Style::radiusSm,
+            .width = kStrokeButtonSize,
+            .height = kStrokeButtonSize,
+            .onClick = [this] { toggleStrokePanel(); },
+        })
+    ));
+    inst.fillButton = addGhostButton("bucket-off", "bar.annotate.fill-off", [this] { cycleFill(); });
+    inst.fillButton->setOnRightClick([this] { cycleFill(false); });
+
     addSeparator();
-    inst.freezeButton = addGhostButton("snowflake", "bar.annotate.freeze", [this]() { requestFreeze(); });
-    inst.cursorButton = addGhostButton("pointer", "bar.annotate.cursor", [this, instPtr]() { toggleCursor(instPtr); });
+    inst.cursorButton = addGhostButton("pointer", "bar.annotate.cursor", [this, instPtr] { toggleCursor(instPtr); });
     if (const ScreenshotImage* image = screenshot(inst);
         image != nullptr && !image->canToggleCursor() && image->cursorVisible) {
       // Keep the captured-on state visible even when this capture cannot be toggled.
@@ -1212,75 +1433,22 @@ namespace capture {
       }
       inst.cursorButton->setCustomPalette(palette);
     }
-    inst.fillButton = addGhostButton("bucket-off", "bar.annotate.fill-off", [this]() { cycleFill(); });
-    inst.fillButton->setOnRightClick([this]() { cycleFill(false); });
-    addSeparator();
-
-    for (std::size_t i = 0; i < kSwatches.size(); ++i) {
-      const AnnotationColor color = kSwatches[i].color;
-      inst.swatchButtons[i] = static_cast<Button*>(toolbar->addChild(
-          ui::button({
-              .glyph = std::string("check"),
-              .glyphSize = kSwatchGlyphSize,
-              .customPalette = swatchPalette(color),
-              .tooltip = i18n::tr(kSwatches[i].tooltipKey),
-              .minWidth = kSwatchSize,
-              .minHeight = kSwatchSize,
-              .maxWidth = kSwatchSize,
-              .maxHeight = kSwatchSize,
-              .padding = 0.0F,
-              .radius = Style::radiusSm,
-              .width = kSwatchSize,
-              .height = kSwatchSize,
-              .onClick = [this, color]() { setToolColor(color); },
-          })
-      ));
-    }
-
-    inst.sizeSeparator = addSeparator();
-    inst.sizePresets = static_cast<Segmented*>(toolbar->addChild(
-        ui::segmented({
-            .options =
-                std::vector<ui::SegmentedOption>{
-                    {.label = "S", .glyph = {}, .tooltip = i18n::tr("bar.annotate.size-small")},
-                    {.label = "M", .glyph = {}, .tooltip = i18n::tr("bar.annotate.size-medium")},
-                    {.label = "L", .glyph = {}, .tooltip = i18n::tr("bar.annotate.size-large")},
-                },
-            .selectedIndex = kDefaultSizePreset,
-            .fontSize = Style::fontSizeCaption,
-            .compact = true,
-            .onChange = [this](std::size_t index) { applySizePreset(index); },
-        })
-    ));
-    inst.advancedButton =
-        addGhostButton("adjustments-horizontal", "bar.annotate.size-advanced", [this]() { toggleAdvancedSize(); });
-    inst.sizeDownButton = addGhostButton("minus", "bar.annotate.size-decrease", [this]() { adjustToolWidth(-1.0); });
-    inst.sizeLabel = static_cast<Label*>(toolbar->addChild(
-        ui::label({
-            .fontSize = Style::fontSizeCaption,
-            .color = colorSpecFromRole(ColorRole::OnSurface),
-            .minWidth = kSizeLabelWidth,
-            .textAlign = TextAlign::Center,
-        })
-    ));
-    inst.sizeUpButton = addGhostButton("plus", "bar.annotate.size-increase", [this]() { adjustToolWidth(1.0); });
+    inst.freezeButton = addGhostButton("snowflake", "bar.annotate.freeze", [this] { requestFreeze(); });
+    addGhostButton("screenshot", "bar.annotate.capture-new-region", [this] { requestCaptureRegion(); });
 
     inst.exportSeparator = addSeparator();
-    inst.copyButton = addGhostButton("copy", "bar.annotate.copy", [this]() { requestExport(AnnotationExport::Copy); });
+    inst.backdropButton = addGhostButton("background", "bar.annotate.backdrop", [this] { toggleBackdropPanel(); });
+    inst.copyButton = addGhostButton("copy", "bar.annotate.copy", [this] { requestExport(AnnotationExport::Copy); });
     inst.saveButton =
-        addGhostButton("device-floppy", "bar.annotate.save", [this]() { requestExport(AnnotationExport::Save); });
+        addGhostButton("device-floppy", "bar.annotate.save", [this] { requestExport(AnnotationExport::Save); });
     inst.doneButton = static_cast<Button*>(toolbar->addChild(
         ui::button({
             .glyph = std::string("check"),
             .variant = ButtonVariant::Primary,
             .tooltip = i18n::tr("bar.annotate.done"),
-            .onClick = [this]() { requestExport(AnnotationExport::Done); },
+            .onClick = [this] { requestExport(AnnotationExport::Done); },
         })
     ));
-    addGhostButton("screenshot", "bar.annotate.capture-new-region", [this]() { requestCaptureRegion(); });
-    if (Style::closeButtonsEnabled()) {
-      addGhostButton("x", "bar.annotate.close", [this]() { closeOverlay(); });
-    }
 
     inst.toolbar = toolbar.get();
     refreshToolbar(inst, nullptr);
@@ -1337,6 +1505,30 @@ namespace capture {
         );
       }
     }
+
+    // Move and Crop carry no stroke, so the stroke group (and its separator) has nothing to act on.
+    const bool sizedTool = toolUsesSize(m_tools.tool);
+    show(inst.strokeSeparator, sizedTool);
+    show(inst.strokeButton, sizedTool);
+    if (inst.strokeButton != nullptr && sizedTool) {
+      inst.strokeButton->setSelected(m_strokePanelOpen);
+      // The face is the tool color, neutral for tools that ignore color, with a dot sized by
+      // the nearest S / M / L preset.
+      std::optional<AnnotationColor> faceColor;
+      if (toolUsesColor(m_tools.tool)) {
+        faceColor = m_tools.color[toolIndex(m_tools.tool)];
+      }
+      const std::size_t facePreset = nearestSizePreset(m_tools.tool);
+      if (faceColor != inst.strokeFaceColor || inst.strokeFacePreset != facePreset) {
+        inst.strokeButton->setCustomPalette(
+            faceColor.has_value() ? swatchPalette(*faceColor) : Button::defaultPalette(ButtonVariant::Ghost)
+        );
+        inst.strokeButton->setGlyphSize(kStrokeDotSizes[facePreset]);
+        inst.strokeFaceColor = faceColor;
+        inst.strokeFacePreset = facePreset;
+        needsLayout = true;
+      }
+    }
     show(inst.fillButton, shapeTool);
     if (inst.fillButton != nullptr) {
       inst.fillButton->setSelected(m_tools.fill != AnnotationFillMode::Off);
@@ -1350,58 +1542,15 @@ namespace capture {
       }
     }
 
-    // Move and Crop carry no stroke weight, so the size controls have nothing to act on.
-    const bool sizedTool = m_tools.tool != AnnotationTool::Move && m_tools.tool != AnnotationTool::Crop;
-    show(inst.sizeSeparator, sizedTool);
-    show(inst.sizePresets, sizedTool);
-    show(inst.advancedButton, sizedTool);
-    show(inst.sizeDownButton, sizedTool && m_advancedSize);
-    show(inst.sizeUpButton, sizedTool && m_advancedSize);
-    show(inst.sizeLabel, sizedTool && m_advancedSize);
-    if (inst.advancedButton != nullptr) {
-      inst.advancedButton->setSelected(m_advancedSize);
-    }
-    if (inst.sizeLabel != nullptr && sizedTool && m_advancedSize) {
-      inst.sizeLabel->setText(std::format("{}", static_cast<int>(std::lround(m_tools.width[toolIndex(m_tools.tool)]))));
-    }
-    if (inst.sizePresets != nullptr && sizedTool) {
-      // setSelectedIndex fires onChange, which would snap a fine-tuned width back to a preset.
-      m_syncingSizePreset = true;
-      inst.sizePresets->setSelectedIndex(nearestSizePreset(m_tools.tool));
-      m_syncingSizePreset = false;
+    show(inst.backdropButton, imageMode);
+    if (inst.backdropButton != nullptr) {
+      inst.backdropButton->setSelected(m_backdropPanelOpen);
     }
 
     show(inst.exportSeparator, frozenOrImage);
     show(inst.copyButton, frozenOrImage);
     show(inst.saveButton, frozenOrImage);
     show(inst.doneButton, imageMode);
-
-    // The tick moves between swatches, and a button laid out while its glyph was empty keeps a
-    // zero-sized glyph box, which parks the mark in a corner. Relayout when the mark moves.
-    std::optional<std::size_t> markedSwatch;
-    for (std::size_t i = 0; i < kSwatches.size(); ++i) {
-      if (m_tools.color[toolIndex(m_tools.tool)] == kSwatches[i].color) {
-        markedSwatch = i;
-        break;
-      }
-    }
-    if (markedSwatch != inst.markedSwatch) {
-      for (std::size_t i = 0; i < kSwatches.size(); ++i) {
-        Button* swatch = inst.swatchButtons[i];
-        if (swatch == nullptr || swatch->glyph() == nullptr) {
-          continue;
-        }
-        const bool current = markedSwatch.has_value() && *markedSwatch == i;
-        swatch->setSelected(current);
-        if (current) {
-          swatch->setGlyph("check");
-        } else {
-          (void)swatch->glyph()->setCodepoint(0);
-        }
-      }
-      inst.markedSwatch = markedSwatch;
-      needsLayout = true;
-    }
 
     const AnnotationDocument& doc = documentFor(inst);
     if (inst.undoButton != nullptr) {
@@ -1414,6 +1563,8 @@ namespace capture {
     if (needsLayout && renderer != nullptr) {
       inst.toolbar->layout(*renderer);
     }
+    refreshBackdropPanel(inst, renderer);
+    refreshStrokePanel(inst, renderer);
     positionToolbar(inst);
   }
 
@@ -1443,11 +1594,6 @@ namespace capture {
         text ? kMaxTextWidth : kMaxToolWidth
     );
     restyleActiveText();
-    requestRedrawAll();
-  }
-
-  void AnnotationOverlay::toggleAdvancedSize() {
-    m_advancedSize = !m_advancedSize;
     requestRedrawAll();
   }
 
@@ -1489,6 +1635,8 @@ namespace capture {
         m_tools.toolbarPositions.insert_or_assign(output->connectorName, positionIt->second);
       }
     }
+    positionBackdropPanel(inst);
+    positionStrokePanel(inst);
   }
 
   void AnnotationOverlay::syncToolbarPositionsForConnectedOutputs() {
@@ -1719,7 +1867,7 @@ namespace capture {
       return;
     }
     const auto crop = documentFor(inst).crop();
-    const auto hide = [&]() {
+    const auto hide = [&] {
       for (Box* box : {inst.dimTop, inst.dimBottom, inst.dimLeft, inst.dimRight, inst.cropFrame}) {
         if (box != nullptr) {
           box->setVisible(false);
@@ -1850,6 +1998,12 @@ namespace capture {
     if (!pressed) {
       finishGesture();
       return;
+    }
+
+    // Drawing dismisses the stroke popover; the press still starts the mark.
+    if (m_strokePanelOpen) {
+      m_strokePanelOpen = false;
+      requestRedrawAll();
     }
 
     // A fresh press elsewhere ends an open text edit before starting anything new.
@@ -2160,7 +2314,7 @@ namespace capture {
       commitTextEdit();
       return true;
     }
-    if (KeySymbol::isEscape(event.sym) || KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
       cancelTextEdit();
       return true;
     }
@@ -2244,6 +2398,20 @@ namespace capture {
     case XKB_KEY_P:
       toggleCursor();
       return true;
+    case XKB_KEY_1:
+    case XKB_KEY_2:
+    case XKB_KEY_3:
+    case XKB_KEY_4:
+    case XKB_KEY_5:
+    case XKB_KEY_6:
+    case XKB_KEY_7:
+    case XKB_KEY_8:
+      // Same as clicking swatch 1 to 8; tools that ignore color leave the key unhandled.
+      if (!toolUsesColor(m_tools.tool)) {
+        return false;
+      }
+      setToolColor(kSwatches[sym - XKB_KEY_1].color);
+      return true;
     case XKB_KEY_bracketleft:
       adjustToolWidth(-1.0);
       return true;
@@ -2259,8 +2427,30 @@ namespace capture {
     if (!m_active || m_wayland == nullptr) {
       return false;
     }
-    if (instanceForSurface(m_wayland->lastKeyboardSurface()) == nullptr) {
+    Instance* keyboardInst = instanceForSurface(m_wayland->lastKeyboardSurface());
+    if (keyboardInst == nullptr) {
       return false;
+    }
+
+    // A focused backdrop value box takes the keyboard; Escape hands focus back to the canvas, which
+    // commits the box like clicking elsewhere.
+    if (backdropPanelInputFocused(*keyboardInst)) {
+      Instance& inst = *keyboardInst;
+      if (event.pressed && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+        inst.inputDispatcher.setFocus(inst.canvas);
+      } else {
+        inst.inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+      }
+      if (inst.surface != nullptr
+          && inst.sceneRoot != nullptr
+          && (inst.sceneRoot->paintDirty() || inst.sceneRoot->layoutDirty())) {
+        if (inst.sceneRoot->layoutDirty()) {
+          inst.surface->requestLayout();
+        } else {
+          inst.surface->requestRedraw();
+        }
+      }
+      return true;
     }
 
     if (!event.pressed) {
@@ -2274,7 +2464,12 @@ namespace capture {
     const bool ctrl = (event.modifiers & KeyMod::Ctrl) != 0;
     const bool shift = (event.modifiers & KeyMod::Shift) != 0;
 
-    if (KeySymbol::isEscape(event.sym) || KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+      if (m_strokePanelOpen) {
+        m_strokePanelOpen = false;
+        requestRedrawAll();
+        return true;
+      }
       if (m_gestureActive && m_gestureInstance != nullptr) {
         Instance* inst = m_gestureInstance;
         AnnotationDocument& doc = documentFor(*inst);
@@ -2301,7 +2496,7 @@ namespace capture {
         }
         return true;
       }
-      closeOverlay();
+      requestClose();
       return true;
     }
 
@@ -2317,13 +2512,11 @@ namespace capture {
       redo();
       return true;
     }
-    if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)
-        || (ctrl && (event.sym == XKB_KEY_c || event.sym == XKB_KEY_C))) {
+    if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
       requestExport(AnnotationExport::Copy);
       return true;
     }
-    if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)
-        || (ctrl && (event.sym == XKB_KEY_s || event.sym == XKB_KEY_S))) {
+    if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
       requestExport(AnnotationExport::Save);
       return true;
     }
@@ -2380,6 +2573,10 @@ namespace capture {
       return;
     }
     m_tools.tool = tool;
+    // The stroke button hides for tools without a stroke; its popover goes with it.
+    if (!toolUsesSize(tool)) {
+      m_strokePanelOpen = false;
+    }
     requestRedrawAll();
   }
 
@@ -2446,7 +2643,7 @@ namespace capture {
       return;
     }
     FreezeCallback onFreeze = m_onFreeze;
-    DeferredCall::callLater([onFreeze]() { onFreeze(); });
+    DeferredCall::callLater([onFreeze] { onFreeze(); });
   }
 
   void AnnotationOverlay::requestCaptureRegion() {
@@ -2454,7 +2651,7 @@ namespace capture {
       return;
     }
     CaptureRegionCallback onCaptureRegion = m_onCaptureRegion;
-    DeferredCall::callLater([onCaptureRegion]() { onCaptureRegion(); });
+    DeferredCall::callLater([onCaptureRegion] { onCaptureRegion(); });
   }
 
   void AnnotationOverlay::toggleCursor(Instance* instance) {
@@ -2472,7 +2669,7 @@ namespace capture {
       if (m_onFeedback) {
         const std::string message = i18n::tr(cursorTooltipKey(*instance));
         FeedbackCallback onFeedback = m_onFeedback;
-        DeferredCall::callLater([onFeedback, message]() { onFeedback(message); });
+        DeferredCall::callLater([onFeedback, message] { onFeedback(message); });
       }
       return;
     }
@@ -2515,11 +2712,515 @@ namespace capture {
     }
   }
 
+  void AnnotationOverlay::requestClose() {
+    if (m_copyOnClose && m_mode != AnnotationMode::Live) {
+      // Closes even when the copy fails; the failure is already notified.
+      requestExport(AnnotationExport::Copy);
+    }
+    closeOverlay();
+  }
+
   void AnnotationOverlay::closeOverlay() {
     if (!m_active) {
       return;
     }
-    DeferredCall::callLater([this]() { cancel(); });
+    DeferredCall::callLater([this] { cancel(); });
+  }
+
+  std::unique_ptr<Flex> AnnotationOverlay::buildBackdropPanel(Instance& inst) {
+    Color panelFill = colorForRole(ColorRole::Surface);
+    panelFill.a = kToolbarFillAlpha;
+
+    auto panel = ui::column({
+        .align = FlexAlign::Stretch,
+        .gap = Style::spaceSm,
+        .paddingV = Style::spaceMd,
+        .paddingH = Style::spaceMd,
+        .fill = fixedColorSpec(panelFill),
+        .radius = Style::radiusXl,
+        .border = colorSpecFromRole(ColorRole::OutlineVariant),
+        .borderWidth = Style::borderWidth,
+        .width = kBackdropPanelContentWidth + (2.0F * Style::spaceMd),
+        .visible = false,
+        .participatesInLayout = false,
+    });
+
+    // Label on the left, switch flush with the panel's right edge.
+    const auto toggleRow = [](const char* key, bool checked, bool strong, std::function<void(bool)> onChange) {
+      auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm});
+      row->addChild(
+          ui::label({
+              .text = i18n::tr(key),
+              .fontSize = strong ? Style::fontSizeBody : Style::fontSizeCaption,
+              .fontWeight = strong ? FontWeight::Bold : FontWeight::Normal,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .flexGrow = 1.0F,
+          })
+      );
+      row->addChild(ui::toggle({.checked = checked, .toggleSize = ToggleSize::Small, .onChange = std::move(onChange)}));
+      return row;
+    };
+
+    // Same cluster as a settings slider: track plus editable value box.
+    const auto sliderRow = [this, &inst](BackdropSlider which) {
+      const auto index = static_cast<std::size_t>(which);
+      const BackdropSliderSpec& spec = backdropSliders()[index];
+      const double value = spec.get(m_backdrop);
+      auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm});
+      row->addChild(
+          ui::label({
+              .text = i18n::tr(spec.labelKey),
+              .fontSize = Style::fontSizeCaption,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .minWidth = kBackdropLabelWidth,
+              .maxWidth = kBackdropLabelWidth,
+          })
+      );
+
+      Input* valueInput = nullptr;
+      auto input = ui::input({
+          .out = &valueInput,
+          .value = formatBackdropValue(spec, value),
+          .fontSize = Style::fontSizeCaption,
+          .controlHeight = Style::controlHeightSm,
+          .horizontalPadding = Style::spaceXs,
+          .width = kBackdropValueWidth,
+          .height = Style::controlHeightSm,
+      });
+
+      Slider* slider = nullptr;
+      row->addChild(
+          ui::slider({
+              .out = &slider,
+              .minValue = spec.minValue,
+              .maxValue = spec.maxValue,
+              .step = spec.step,
+              .value = value,
+              .flexGrow = 1.0F,
+              .onValueChanged = [this, index, valueInput](double next) {
+                valueInput->setInvalid(false);
+                valueInput->setValue(formatBackdropValue(backdropSliders()[index], next));
+                editBackdrop([index, next](BackdropConfig& backdrop) { backdropSliders()[index].set(backdrop, next); });
+              },
+          })
+      );
+
+      const auto commitText = [this, index, slider, valueInput](const std::string& text) {
+        const BackdropSliderSpec& sliderSpec = backdropSliders()[index];
+        const auto parsed = StringUtils::parseDotDecimal<double>(text);
+        if (!parsed.has_value() || *parsed < sliderSpec.minValue || *parsed > sliderSpec.maxValue) {
+          valueInput->setInvalid(true);
+          return;
+        }
+        slider->setValue(*parsed);
+        const double snapped = slider->value();
+        valueInput->setInvalid(false);
+        valueInput->setValue(formatBackdropValue(sliderSpec, snapped));
+        editBackdrop([index, snapped](BackdropConfig& backdrop) { backdropSliders()[index].set(backdrop, snapped); });
+      };
+      valueInput->setOnChange([valueInput](const std::string& /*text*/) { valueInput->setInvalid(false); });
+      valueInput->setOnSubmit(commitText);
+      valueInput->setOnFocusLoss([commitText, valueInput] { commitText(valueInput->value()); });
+      inst.backdropValueInputs[index] = valueInput;
+      row->addChild(std::move(input));
+      return row;
+    };
+
+    panel->addChild(toggleRow("bar.annotate.backdrop-enabled", m_backdrop.enabled, true, [this](bool on) {
+      editBackdrop([on](BackdropConfig& backdrop) { backdrop.enabled = on; });
+    }));
+
+    auto body = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm});
+    body->addChild(ui::separator({}));
+    body->addChild(toggleRow("bar.annotate.backdrop-gradient", m_backdrop.gradient, false, [this](bool on) {
+      editBackdrop([on](BackdropConfig& backdrop) { backdrop.gradient = on; });
+    }));
+
+    auto gradientRows = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm});
+    auto chips = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween});
+    const auto& presets = gradientPresets();
+    for (std::size_t i = 0; i < presets.size(); ++i) {
+      auto chip = ui::inputArea({
+          .cursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
+          .tooltip = i18n::tr(presets[i].tooltipKey),
+          .width = kGradientChipSize,
+          .height = kGradientChipSize,
+          .onClick = [this, i](const InputArea::PointerData& /*data*/) {
+            editBackdrop([i](BackdropConfig& backdrop) {
+              backdrop.gradientStart = gradientPresets()[i].start;
+              backdrop.gradientEnd = gradientPresets()[i].end;
+              backdrop.gradient = true;
+            });
+          },
+      });
+      inst.gradientChips[i] =
+          static_cast<Box*>(chip->addChild(ui::box({.width = kGradientChipSize, .height = kGradientChipSize})));
+      chips->addChild(std::move(chip));
+    }
+    gradientRows->addChild(std::move(chips));
+    gradientRows->addChild(sliderRow(BackdropSlider::Angle));
+    inst.backdropGradientRows = static_cast<Flex*>(body->addChild(std::move(gradientRows)));
+
+    body->addChild(sliderRow(BackdropSlider::Padding));
+    body->addChild(sliderRow(BackdropSlider::Radius));
+    body->addChild(ui::separator({}));
+    body->addChild(toggleRow("bar.annotate.backdrop-shadow", m_backdrop.shadow, false, [this](bool on) {
+      editBackdrop([on](BackdropConfig& backdrop) { backdrop.shadow = on; });
+    }));
+
+    auto shadowRows = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm});
+    shadowRows->addChild(sliderRow(BackdropSlider::ShadowBlur));
+    shadowRows->addChild(sliderRow(BackdropSlider::ShadowOpacity));
+    shadowRows->addChild(sliderRow(BackdropSlider::ShadowOffsetX));
+    shadowRows->addChild(sliderRow(BackdropSlider::ShadowOffsetY));
+    inst.backdropShadowRows = static_cast<Flex*>(body->addChild(std::move(shadowRows)));
+
+    inst.backdropBody = static_cast<Flex*>(panel->addChild(std::move(body)));
+    inst.backdropPanel = panel.get();
+    refreshBackdropPanel(inst, nullptr);
+    return panel;
+  }
+
+  void AnnotationOverlay::refreshBackdropPanel(Instance& inst, Renderer* renderer) {
+    if (inst.backdropPanel == nullptr) {
+      return;
+    }
+    bool needsLayout = false;
+    const auto show = [&needsLayout](Node* node, bool visible) {
+      if (node != nullptr && node->visible() != visible) {
+        node->setVisible(visible);
+        node->setParticipatesInLayout(visible);
+        needsLayout = true;
+      }
+    };
+    show(inst.backdropPanel, m_backdropPanelOpen && m_mode == AnnotationMode::Image);
+    show(inst.backdropBody, m_backdrop.enabled);
+    show(inst.backdropGradientRows, m_backdrop.gradient);
+    show(inst.backdropShadowRows, m_backdrop.shadow);
+
+    int marked = -1;
+    const auto& presets = gradientPresets();
+    for (std::size_t i = 0; i < presets.size(); ++i) {
+      if (m_backdrop.gradientStart == presets[i].start && m_backdrop.gradientEnd == presets[i].end) {
+        marked = static_cast<int>(i);
+        break;
+      }
+    }
+    if (marked != inst.markedGradient) {
+      for (std::size_t i = 0; i < presets.size(); ++i) {
+        if (inst.gradientChips[i] != nullptr) {
+          paintGradientChip(*inst.gradientChips[i], presets[i], static_cast<int>(i) == marked);
+        }
+      }
+      inst.markedGradient = marked;
+    }
+
+    // The surface does not lay out the overlay scene itself; edits in a value box mark the panel
+    // layout-dirty and only a panel relayout moves the caret to the new text.
+    if ((needsLayout || inst.backdropPanel->layoutDirty()) && renderer != nullptr) {
+      inst.backdropPanel->layout(*renderer);
+    }
+  }
+
+  // Hangs off the toolbar's trailing edge, on whichever side of it has more room.
+  void AnnotationOverlay::positionBackdropPanel(Instance& inst) {
+    if (inst.backdropPanel == nullptr || inst.toolbar == nullptr || inst.surface == nullptr) {
+      return;
+    }
+    const auto surfaceW = static_cast<float>(inst.surface->width());
+    const auto surfaceH = static_cast<float>(inst.surface->height());
+    const float width = inst.backdropPanel->width();
+    const float height = inst.backdropPanel->height();
+    const float toolbarBottom = inst.toolbar->y() + inst.toolbar->height();
+    const bool below = inst.toolbar->y() + (inst.toolbar->height() * 0.5F) <= surfaceH * 0.5F;
+
+    float x = inst.toolbar->x() + inst.toolbar->width() - width;
+    float y = below ? toolbarBottom + Style::spaceSm : inst.toolbar->y() - Style::spaceSm - height;
+    x = std::clamp(x, kToolbarEdgeMargin, std::max(kToolbarEdgeMargin, surfaceW - width - kToolbarEdgeMargin));
+    y = std::clamp(y, kToolbarEdgeMargin, std::max(kToolbarEdgeMargin, surfaceH - height - kToolbarEdgeMargin));
+    inst.backdropPanel->setPosition(x, y);
+  }
+
+  // The preview reuses the export raster on a transparent stand-in for the capture, so the frame
+  // matches the delivered image; the canvas layers cover the middle and only the frame shows.
+  void AnnotationOverlay::updateBackdropPreview(Instance& inst, Renderer& renderer) {
+    if (m_mode != AnnotationMode::Image
+        || inst.backdropPreview == nullptr
+        || inst.deviceWidth <= 0
+        || inst.deviceHeight <= 0) {
+      return;
+    }
+    const std::optional<ScreenshotBackdrop> backdrop = resolveScreenshotBackdrop(m_backdrop);
+
+    const float maxRadius = static_cast<float>(std::min(inst.deviceWidth, inst.deviceHeight)) * 0.5F;
+    const float radius = backdrop.has_value()
+        ? std::clamp(static_cast<float>(backdrop->cornerRadius), 0.0F, maxRadius) / static_cast<float>(inst.canvasScale)
+        : 0.0F;
+    for (Image* layer : {inst.backdrop, inst.committedLayer, inst.activeLayer}) {
+      if (layer != nullptr) {
+        layer->setRadius(radius);
+      }
+    }
+    if (inst.imageOutline != nullptr) {
+      inst.imageOutline->setVisible(!backdrop.has_value());
+    }
+
+    if (!backdrop.has_value()) {
+      inst.backdropPreview->setVisible(false);
+      inst.previewBackdrop.reset();
+      return;
+    }
+    const AnnotationRect& rect = inst.canvasRect;
+    if (inst.previewBackdrop == backdrop
+        && inst.previewCanvas.x == rect.x
+        && inst.previewCanvas.y == rect.y
+        && inst.previewCanvas.width == rect.width
+        && inst.previewCanvas.height == rect.height) {
+      return;
+    }
+
+    const double downscale =
+        std::max(1.0, (inst.canvasScale / std::max(0.1, static_cast<double>(inst.scale))) * kBackdropPreviewDownscale);
+    const auto scaled = [downscale](int pixels) { return static_cast<int>(std::lround(pixels / downscale)); };
+    const int standInWidth = std::max(1, scaled(inst.deviceWidth));
+    const int standInHeight = std::max(1, scaled(inst.deviceHeight));
+    const ScreencopyImage standIn{
+        .width = standInWidth,
+        .height = standInHeight,
+        .yInvert = false,
+        .rgba = std::vector<std::uint8_t>(static_cast<std::size_t>(standInWidth) * standInHeight * 4U, 0),
+    };
+    ScreenshotBackdrop previewBackdrop = *backdrop;
+    previewBackdrop.padding = scaled(backdrop->padding);
+    previewBackdrop.cornerRadius = scaled(backdrop->cornerRadius);
+    previewBackdrop.shadowBlur = scaled(backdrop->shadowBlur);
+    previewBackdrop.shadowOffsetX = scaled(backdrop->shadowOffsetX);
+    previewBackdrop.shadowOffsetY = scaled(backdrop->shadowOffsetY);
+    const ScreencopyImage frame = applyScreenshotBackdrop(standIn, previewBackdrop);
+
+    inst.backdropPreview->clear(renderer);
+    if (!inst.backdropPreview->setSourceRaw(
+            renderer, frame.rgba.data(), frame.rgba.size(), frame.width, frame.height, frame.width * 4,
+            PixmapFormat::RGBA, false
+        )) {
+      kLog.warn("failed to upload screenshot backdrop preview");
+      inst.backdropPreview->setVisible(false);
+      return;
+    }
+    // Map preview pixels onto the canvas so the stand-in lands exactly under it.
+    const double unitX = rect.width / standInWidth;
+    const double unitY = rect.height / standInHeight;
+    inst.backdropPreview->setFit(ImageFit::Stretch);
+    inst.backdropPreview->setSize(static_cast<float>(frame.width * unitX), static_cast<float>(frame.height * unitY));
+    inst.backdropPreview->setPosition(
+        static_cast<float>(rect.x - (previewBackdrop.padding * unitX)),
+        static_cast<float>(rect.y - (previewBackdrop.padding * unitY))
+    );
+    inst.backdropPreview->setVisible(true);
+    inst.previewBackdrop = backdrop;
+    inst.previewCanvas = rect;
+  }
+
+  void AnnotationOverlay::toggleBackdropPanel() {
+    m_backdropPanelOpen = !m_backdropPanelOpen;
+    if (m_backdropPanelOpen) {
+      m_strokePanelOpen = false;
+    }
+    requestRedrawAll();
+  }
+
+  void AnnotationOverlay::editBackdrop(const std::function<void(BackdropConfig&)>& edit) {
+    edit(m_backdrop);
+    m_backdropEdited = true;
+    requestRedrawAll();
+  }
+
+  bool AnnotationOverlay::backdropPanelInputFocused(const Instance& inst) const {
+    const InputArea* focused = inst.inputDispatcher.focusedArea();
+    return focused != nullptr && std::ranges::any_of(inst.backdropValueInputs, [focused](const Input* input) {
+             return input != nullptr && input->inputArea() == focused;
+           });
+  }
+
+  std::unique_ptr<Flex> AnnotationOverlay::buildStrokePanel(Instance& inst) {
+    Color panelFill = colorForRole(ColorRole::Surface);
+    panelFill.a = kToolbarFillAlpha;
+
+    auto panel = ui::column({
+        .align = FlexAlign::Stretch,
+        .gap = Style::spaceSm,
+        .paddingV = Style::spaceMd,
+        .paddingH = Style::spaceMd,
+        .fill = fixedColorSpec(panelFill),
+        .radius = Style::radiusXl,
+        .border = colorSpecFromRole(ColorRole::OutlineVariant),
+        .borderWidth = Style::borderWidth,
+        .visible = false,
+        .participatesInLayout = false,
+    });
+
+    auto swatches = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween, .gap = Style::spaceSm});
+    for (std::size_t i = 0; i < kSwatches.size(); ++i) {
+      const AnnotationColor color = kSwatches[i].color;
+      inst.swatchButtons[i] = static_cast<Button*>(swatches->addChild(
+          ui::button({
+              .glyph = std::string("check"),
+              .glyphSize = kSwatchGlyphSize,
+              .customPalette = swatchPalette(color),
+              .tooltip = i18n::tr(kSwatches[i].tooltipKey),
+              .minWidth = kSwatchSize,
+              .minHeight = kSwatchSize,
+              .maxWidth = kSwatchSize,
+              .maxHeight = kSwatchSize,
+              .padding = 0.0F,
+              .radius = Style::radiusSm,
+              .width = kSwatchSize,
+              .height = kSwatchSize,
+              .onClick = [this, color] { setToolColor(color); },
+          })
+      ));
+    }
+    inst.strokeSwatchRow = static_cast<Flex*>(panel->addChild(std::move(swatches)));
+
+    // S / M / L on the left, the pixel stepper for anything in between on the right.
+    auto sizes = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween, .gap = Style::spaceSm});
+    inst.sizePresets = static_cast<Segmented*>(sizes->addChild(
+        ui::segmented({
+            .options =
+                std::vector<ui::SegmentedOption>{
+                    {.label = "S", .glyph = {}, .tooltip = i18n::tr("bar.annotate.size-small")},
+                    {.label = "M", .glyph = {}, .tooltip = i18n::tr("bar.annotate.size-medium")},
+                    {.label = "L", .glyph = {}, .tooltip = i18n::tr("bar.annotate.size-large")},
+                },
+            .selectedIndex = kDefaultSizePreset,
+            .fontSize = Style::fontSizeCaption,
+            .compact = true,
+            .onChange = [this](std::size_t index) { applySizePreset(index); },
+        })
+    ));
+
+    auto stepper = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs});
+    inst.sizeDownButton = static_cast<Button*>(stepper->addChild(
+        ui::button({
+            .glyph = std::string("minus"),
+            .variant = ButtonVariant::Ghost,
+            .tooltip = i18n::tr("bar.annotate.size-decrease"),
+            .onClick = [this] { adjustToolWidth(-1.0); },
+        })
+    ));
+    inst.sizeLabel = static_cast<Label*>(stepper->addChild(
+        ui::label({
+            .fontSize = Style::fontSizeCaption,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .minWidth = kSizeLabelWidth,
+            .textAlign = TextAlign::Center,
+        })
+    ));
+    inst.sizeUpButton = static_cast<Button*>(stepper->addChild(
+        ui::button({
+            .glyph = std::string("plus"),
+            .variant = ButtonVariant::Ghost,
+            .tooltip = i18n::tr("bar.annotate.size-increase"),
+            .onClick = [this] { adjustToolWidth(1.0); },
+        })
+    ));
+    sizes->addChild(std::move(stepper));
+    panel->addChild(std::move(sizes));
+
+    inst.strokePanel = panel.get();
+    refreshStrokePanel(inst, nullptr);
+    return panel;
+  }
+
+  void AnnotationOverlay::refreshStrokePanel(Instance& inst, Renderer* renderer) {
+    if (inst.strokePanel == nullptr) {
+      return;
+    }
+    bool needsLayout = false;
+    const auto show = [&needsLayout](Node* node, bool visible) {
+      if (node != nullptr && node->visible() != visible) {
+        node->setVisible(visible);
+        node->setParticipatesInLayout(visible);
+        needsLayout = true;
+      }
+    };
+    const std::size_t index = toolIndex(m_tools.tool);
+    show(inst.strokePanel, m_strokePanelOpen);
+    show(inst.strokeSwatchRow, toolUsesColor(m_tools.tool));
+
+    if (inst.sizeLabel != nullptr) {
+      inst.sizeLabel->setText(std::format("{}", static_cast<int>(std::lround(m_tools.width[index]))));
+    }
+    if (inst.sizePresets != nullptr && toolUsesSize(m_tools.tool)) {
+      // setSelectedIndex fires onChange, which would snap a fine-tuned width back to a preset.
+      m_syncingSizePreset = true;
+      inst.sizePresets->setSelectedIndex(nearestSizePreset(m_tools.tool));
+      m_syncingSizePreset = false;
+    }
+
+    // The tick moves between swatches, and a button laid out while its glyph was empty keeps a
+    // zero-sized glyph box, which parks the mark in a corner. Relayout when the mark moves.
+    int marked = -1;
+    for (std::size_t i = 0; i < kSwatches.size(); ++i) {
+      if (m_tools.color[index] == kSwatches[i].color) {
+        marked = static_cast<int>(i);
+        break;
+      }
+    }
+    if (marked != inst.markedSwatch) {
+      for (std::size_t i = 0; i < kSwatches.size(); ++i) {
+        Button* swatch = inst.swatchButtons[i];
+        if (swatch == nullptr || swatch->glyph() == nullptr) {
+          continue;
+        }
+        const bool current = static_cast<int>(i) == marked;
+        swatch->setSelected(current);
+        if (current) {
+          swatch->setGlyph("check");
+        } else {
+          (void)swatch->glyph()->setCodepoint(0);
+        }
+      }
+      inst.markedSwatch = marked;
+      needsLayout = true;
+    }
+
+    // The surface does not lay out the overlay scene itself; a new size label marks the panel
+    // layout-dirty and only a panel relayout re-centers it.
+    if ((needsLayout || inst.strokePanel->layoutDirty()) && renderer != nullptr) {
+      inst.strokePanel->layout(*renderer);
+    }
+  }
+
+  // Drops from the stroke button, centered on it, toward whichever side of the toolbar has more room.
+  void AnnotationOverlay::positionStrokePanel(Instance& inst) {
+    if (inst.strokePanel == nullptr
+        || inst.strokeButton == nullptr
+        || inst.toolbar == nullptr
+        || inst.surface == nullptr) {
+      return;
+    }
+    const auto surfaceW = static_cast<float>(inst.surface->width());
+    const auto surfaceH = static_cast<float>(inst.surface->height());
+    const float width = inst.strokePanel->width();
+    const float height = inst.strokePanel->height();
+    const float toolbarBottom = inst.toolbar->y() + inst.toolbar->height();
+    const bool below = inst.toolbar->y() + (inst.toolbar->height() * 0.5F) <= surfaceH * 0.5F;
+
+    float x = inst.toolbar->x() + inst.strokeButton->x() + ((inst.strokeButton->width() - width) * 0.5F);
+    float y = below ? toolbarBottom + Style::spaceSm : inst.toolbar->y() - Style::spaceSm - height;
+    x = std::clamp(x, kToolbarEdgeMargin, std::max(kToolbarEdgeMargin, surfaceW - width - kToolbarEdgeMargin));
+    y = std::clamp(y, kToolbarEdgeMargin, std::max(kToolbarEdgeMargin, surfaceH - height - kToolbarEdgeMargin));
+    inst.strokePanel->setPosition(x, y);
+  }
+
+  // Only one panel is open at a time, so opening this one closes the backdrop panel.
+  void AnnotationOverlay::toggleStrokePanel() {
+    m_strokePanelOpen = !m_strokePanelOpen;
+    if (m_strokePanelOpen) {
+      m_backdropPanelOpen = false;
+    }
+    requestRedrawAll();
   }
 
   void AnnotationOverlay::persistToolState() {
@@ -2528,7 +3229,6 @@ namespace capture {
     }
     m_stateSetter("tool", annotationToolName(m_tools.tool));
     m_stateSetter("fill", annotationFillModeName(m_tools.fill));
-    m_stateSetter("advanced_size", m_advancedSize ? "1" : "0");
     syncToolbarPositionsForConnectedOutputs();
     nlohmann::json toolbarPositions = nlohmann::json::object();
     for (const auto& [outputName, position] : m_tools.toolbarPositions) {

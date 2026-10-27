@@ -71,11 +71,10 @@ void CalendarReminderMonitor::initialize() {
     return;
   }
   loadPersistedState();
-  m_notifications.setInternalActionCallback(
-      [this](std::uint32_t id, const std::string& actionKey, const std::string& activationToken) {
-        onNotificationAction(id, actionKey, activationToken);
-      }
-  );
+  m_notifications.setInternalActionCallback([this](
+                                                std::uint32_t id, const std::string& actionKey,
+                                                const std::string& activationToken, const std::string& /*sender*/
+                                            ) { onNotificationAction(id, actionKey, activationToken); });
   m_initialized = true;
 }
 
@@ -130,7 +129,7 @@ void CalendarReminderMonitor::schedulePersist() {
     return;
   }
   m_persistScheduled = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     if (m_persistScheduled) {
       persistState();
     }
@@ -144,7 +143,7 @@ void CalendarReminderMonitor::onSnapshotChanged(const CalendarSnapshot& snapshot
 
 void CalendarReminderMonitor::onConfigReload() {
   m_nextWake.reset();
-  DeferredCall::callLater([this]() { evaluate(std::chrono::system_clock::now()); });
+  DeferredCall::callLater([this] { evaluate(std::chrono::system_clock::now()); });
 }
 
 int CalendarReminderMonitor::pollTimeoutMs() const {

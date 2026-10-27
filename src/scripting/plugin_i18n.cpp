@@ -3,6 +3,7 @@
 #include "core/log.h"
 #include "i18n/i18n_service.h"
 
+#include <format>
 #include <fstream>
 #include <nlohmann/json.hpp>
 
@@ -16,7 +17,7 @@ namespace scripting {
     ) {
       if (node.is_object()) {
         for (const auto& [key, value] : node.items()) {
-          flattenTranslations(value, prefix.empty() ? key : prefix + "." + key, out);
+          flattenTranslations(value, prefix.empty() ? key : std::format("{}.{}", prefix, key), out);
         }
       } else if (node.is_string()) {
         out[prefix] = node.get<std::string>();

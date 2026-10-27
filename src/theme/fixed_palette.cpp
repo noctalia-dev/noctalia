@@ -110,7 +110,7 @@ namespace noctalia::theme {
     void applyAnsiColors(TokenMap& tokens, std::string_view prefix, const TerminalAnsiColors& colors) {
       for (const auto key : kTerminalAnsiColorJsonKeys) {
         std::string tokenKey(prefix);
-        tokenKey += "_";
+        tokenKey += '_';
         tokenKey += key;
         setToken(tokens, tokenKey, ansiColorForKey(colors, key));
       }
@@ -213,7 +213,7 @@ namespace noctalia::theme {
     }
   }
 
-  TokenMap expandFixedPaletteMode(const ::Palette& palette, bool isDark) {
+  TokenMap expandFixedPaletteMode(const FixedPalette& palette, bool isDark) {
     const Color primary = toUiColor(palette.primary);
     const Color onPrimary = toUiColor(palette.onPrimary);
     const Color secondary = toUiColor(palette.secondary);
@@ -231,18 +231,10 @@ namespace noctalia::theme {
     const Color hover = toUiColor(palette.hover);
     const Color onHover = toUiColor(palette.onHover);
 
-    auto makeContainerDark = [](const Color& base) {
-      auto [h, s, l] = base.toHsl();
-      // Scale the saturation step by the remaining headroom instead of adding a
-      // constant: on already-saturated accents (e.g. pastel palettes with S near
-      // 1.0) a flat +0.15 clamps at the gamut wall while L still drops into the
-      // midtones, producing a neon "container" instead of a muted one.
-      return Color::fromHsl(h, s + 0.15 * (1.0 - s), std::max(l - 0.35, 0.15));
-    };
-    auto makeContainerLight = [](const Color& base) {
-      auto [h, s, l] = base.toHsl();
-      return Color::fromHsl(h, std::max(s - 0.20, 0.30), std::min(l + 0.35, 0.85));
-    };
+    // A container is the accent mixed into the palette's own surface, so it keeps the accent's
+    // identity (a pastel stays pastel) at a lower emphasis. Its content color is the accent itself,
+    // adjusted only when it lacks contrast.
+    auto makeContainer = [&surface](const Color& accent) { return interpolateColor(surface, accent, 0.30); };
     auto makeFixedDark = [](const Color& base) {
       auto [h, s, _] = base.toHsl();
       return std::make_tuple(Color::fromHsl(h, std::max(s, 0.70), 0.85), Color::fromHsl(h, std::max(s, 0.65), 0.75));
@@ -252,27 +244,19 @@ namespace noctalia::theme {
       return std::make_tuple(Color::fromHsl(h, std::max(s, 0.70), 0.40), Color::fromHsl(h, std::max(s, 0.65), 0.30));
     };
 
-    const Color primaryContainer = isDark ? makeContainerDark(primary) : makeContainerLight(primary);
-    const Color secondaryContainer = isDark ? makeContainerDark(secondary) : makeContainerLight(secondary);
-    const Color tertiaryContainer = isDark ? makeContainerDark(tertiary) : makeContainerLight(tertiary);
-    const Color errorContainer = isDark ? makeContainerDark(error) : makeContainerLight(error);
+    const Color primaryContainer = makeContainer(primary);
+    const Color secondaryContainer = makeContainer(secondary);
+    const Color tertiaryContainer = makeContainer(tertiary);
+    const Color errorContainer = makeContainer(error);
 
     const auto [primaryH, primaryS, _primaryL] = primary.toHsl();
     const auto [secondaryH, secondaryS, _secondaryL] = secondary.toHsl();
     const auto [tertiaryH, tertiaryS, _tertiaryL] = tertiary.toHsl();
-    const auto [errorH, errorS, _errorL] = error.toHsl();
 
-    const Color onPrimaryContainer = isDark
-        ? ensureContrast(Color::fromHsl(primaryH, primaryS, 0.90), primaryContainer, 4.5)
-        : ensureContrast(Color::fromHsl(primaryH, primaryS, 0.15), primaryContainer, 4.5);
-    const Color onSecondaryContainer = isDark
-        ? ensureContrast(Color::fromHsl(secondaryH, secondaryS, 0.90), secondaryContainer, 4.5)
-        : ensureContrast(Color::fromHsl(secondaryH, secondaryS, 0.15), secondaryContainer, 4.5);
-    const Color onTertiaryContainer = isDark
-        ? ensureContrast(Color::fromHsl(tertiaryH, tertiaryS, 0.90), tertiaryContainer, 4.5)
-        : ensureContrast(Color::fromHsl(tertiaryH, tertiaryS, 0.15), tertiaryContainer, 4.5);
-    const Color onErrorContainer = isDark ? ensureContrast(Color::fromHsl(errorH, errorS, 0.90), errorContainer, 4.5)
-                                          : ensureContrast(Color::fromHsl(errorH, errorS, 0.15), errorContainer, 4.5);
+    const Color onPrimaryContainer = ensureContrast(primary, primaryContainer, 4.5);
+    const Color onSecondaryContainer = ensureContrast(secondary, secondaryContainer, 4.5);
+    const Color onTertiaryContainer = ensureContrast(tertiary, tertiaryContainer, 4.5);
+    const Color onErrorContainer = ensureContrast(error, errorContainer, 4.5);
 
     const auto [primaryFixed, primaryFixedDim] = isDark ? makeFixedDark(primary) : makeFixedLight(primary);
     const auto [secondaryFixed, secondaryFixedDim] = isDark ? makeFixedDark(secondary) : makeFixedLight(secondary);
@@ -312,7 +296,7 @@ namespace noctalia::theme {
         ? Color::fromHsl(surfaceVariantH, surfaceVariantS, std::min(surfaceVariantL + 0.12, 0.50))
         : Color::fromHsl(surfaceH, surfaceS, std::min(surfaceL + 0.03, 0.98));
 
-    // The outline role reads outline_variant, so it must be mOutline as given.
+    // The outline_variant role is mOutline as given; outline is its contrast-adjusted form.
     const Color outline = ensureContrast(outlineRaw, surface, 3.0);
     const Color outlineVariant = outlineRaw;
     const Color scrim(0, 0, 0);
@@ -379,15 +363,15 @@ namespace noctalia::theme {
     return result;
   }
 
-  GeneratedPalette expandFixedPalettes(const ::Palette& dark, const ::Palette& light) {
+  GeneratedPalette expandFixedPalettes(const FixedPalette& dark, const FixedPalette& light) {
     return GeneratedPalette{
         .dark = expandFixedPaletteMode(dark, true),
         .light = expandFixedPaletteMode(light, false),
     };
   }
 
-  ::Palette mapGeneratedPaletteMode(const TokenMap& t) {
-    return ::Palette{
+  FixedPalette fixedPaletteFromTokens(const TokenMap& t) {
+    return FixedPalette{
         .primary = tokenToColor(t, "primary"),
         .onPrimary = tokenToColor(t, "on_primary"),
         .secondary = tokenToColor(t, "secondary"),
@@ -402,6 +386,39 @@ namespace noctalia::theme {
         .onSurfaceVariant = tokenToColor(t, "on_surface_variant"),
         .outline = tokenToColor(t, "outline_variant"),
         .shadow = tokenToColor(t, "shadow"),
+        .hover = tokenToColor(t, "hover"),
+        .onHover = tokenToColor(t, "on_hover"),
+    };
+  }
+
+  ::Palette mapGeneratedPaletteMode(const TokenMap& t) {
+    return ::Palette{
+        .primary = tokenToColor(t, "primary"),
+        .onPrimary = tokenToColor(t, "on_primary"),
+        .primaryContainer = tokenToColor(t, "primary_container"),
+        .onPrimaryContainer = tokenToColor(t, "on_primary_container"),
+        .secondary = tokenToColor(t, "secondary"),
+        .onSecondary = tokenToColor(t, "on_secondary"),
+        .secondaryContainer = tokenToColor(t, "secondary_container"),
+        .onSecondaryContainer = tokenToColor(t, "on_secondary_container"),
+        .tertiary = tokenToColor(t, "tertiary"),
+        .onTertiary = tokenToColor(t, "on_tertiary"),
+        .tertiaryContainer = tokenToColor(t, "tertiary_container"),
+        .onTertiaryContainer = tokenToColor(t, "on_tertiary_container"),
+        .error = tokenToColor(t, "error"),
+        .onError = tokenToColor(t, "on_error"),
+        .errorContainer = tokenToColor(t, "error_container"),
+        .onErrorContainer = tokenToColor(t, "on_error_container"),
+        .surface = tokenToColor(t, "surface"),
+        .onSurface = tokenToColor(t, "on_surface"),
+        .onSurfaceVariant = tokenToColor(t, "on_surface_variant"),
+        .surfaceContainerLow = tokenToColor(t, "surface_container_low"),
+        .surfaceContainer = tokenToColor(t, "surface_container"),
+        .surfaceContainerHigh = tokenToColor(t, "surface_container_high"),
+        .surfaceContainerHighest = tokenToColor(t, "surface_container_highest"),
+        .outlineVariant = tokenToColor(t, "outline_variant"),
+        .shadow = tokenToColor(t, "shadow"),
+        .scrim = tokenToColor(t, "scrim"),
         .hover = tokenToColor(t, "hover"),
         .onHover = tokenToColor(t, "on_hover"),
     };

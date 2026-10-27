@@ -20,7 +20,7 @@ int main() {
   int closeCallbacks = 0;
   int closedEvents = 0;
 
-  manager.setCloseCallback([&closeCallbacks](uint32_t, CloseReason) { ++closeCallbacks; });
+  manager.setCloseCallback([&closeCallbacks](uint32_t, CloseReason, const std::string&) { ++closeCallbacks; });
   manager.addEventCallback([&closedEvents](const Notification&, NotificationEvent event) {
     if (event == NotificationEvent::Closed) {
       ++closedEvents;

@@ -56,9 +56,9 @@ void GlyphPickerDialogPopup::populateContent(Node* contentParent, std::uint32_t 
   auto sheet = std::make_unique<GlyphPicker>(uiScale());
   sheet->setTitle(GlyphPickerDialog::currentOptions().title);
   sheet->setInitialGlyph(GlyphPickerDialog::currentOptions().initialGlyph);
-  sheet->setOnCancel([this]() { DeferredCall::callLater([this]() { cancel(); }); });
+  sheet->setOnCancel([this] { DeferredCall::callLater([this] { cancel(); }); });
   sheet->setOnApply([this](const GlyphPickerResult& result) {
-    DeferredCall::callLater([this, result]() { accept(result); });
+    DeferredCall::callLater([this, result] { accept(result); });
   });
   m_sheet = sheet.get();
   contentParent->addChild(std::move(sheet));

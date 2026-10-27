@@ -1388,10 +1388,6 @@
         "horizontal": "Vassrett",
         "vertical": "Loddrett"
       },
-      "panel-bar-alignment": {
-        "centered": "I midten",
-        "near-trigger": "Nær utløysar"
-      },
       "panel-position": {
         "auto": "Fylg stonga"
       },

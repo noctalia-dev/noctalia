@@ -18,7 +18,7 @@ main_axis_padding   = 16          # inner padding along the icon row (main axis)
 cross_axis_padding  = 8           # inner padding perpendicular to the icon row
 item_spacing        = 6          # gap between items in pixels
 background_opacity  = 0.88
-border              = "outline"  # color role or #RRGGBB for the dock outline
+border              = "outline_variant"  # color role or #RRGGBB for the dock outline
 border_width        = 0.0        # inside outline width in pixels; 0 disables it
 shadow              = true       # cast the global [shell.shadow]
 radius              = 16
@@ -120,6 +120,14 @@ Configure in **Settings → Appearance → Interface**, or under `[shell]` in th
 - All other apps use `inactive_scale` and `inactive_opacity`.
 - Focus changes animate smoothly between the two states.
 
+## Window actions and minimise state
+
+Left-click an app with no open windows to launch it. With one window, left-click focuses or restores that window. On **Umbriel, KDE Plasma, and labwc**, clicking an already focused window minimises it when the compositor allows it. Apps with multiple windows continue cycling their windows.
+
+Minimised windows remain running and stay in window counts. A small dash marks an app when all its windows are minimised, including when `show_dots = false`. Apps with mixed window states keep their usual appearance; the tooltip reports how many windows are minimised. Right-click for per-window **Minimise** or **Restore** actions when available.
+
+Minimise features require a connected compositor backend reporting the window state. No additional configuration is needed.
+
 ## Magnification
 
 When `magnification = true` (default), icons grow as the pointer moves along the dock - similar to the macOS dock. Icons under the pointer grow the most; nearby entries scale down smoothly with distance.
@@ -157,6 +165,8 @@ When `auto_hide = true`, the dock slides out after the pointer leaves and slides
 ### Smart auto-hide
 
 Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `auto_hide = false` in config). The dock stays visible while the active workspace on that monitor is empty and hides when the workspace has windows.
+
+Windows reported as minimised by Umbriel, KDE Plasma, or labwc do not hide the dock. Minimising the last visible window keeps the dock visible; workspace occupancy and window counts still include minimised windows.
 
 - Mutually exclusive with pointer auto-hide; if both are set in config, smart auto-hide takes precedence.
 - Uses the same slide animation and edge reveal strip while hidden.

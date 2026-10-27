@@ -10,8 +10,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <limits>
+#include <mutex>
+#include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <variant>
@@ -152,7 +158,7 @@ namespace scripting {
         const auto value =
             node.value<std::int64_t>().transform(
                                           [](std::int64_t integer) { return static_cast<double>(integer); }
-            ).or_else([&node]() { return node.value<double>(); });
+            ).or_else([&node] { return node.value<double>(); });
         if (!value.has_value() || !std::isfinite(*value)) {
           error = "setting '" + out.key + "' double default must be a finite number";
           return false;
@@ -791,102 +797,160 @@ namespace scripting {
     return seeded;
   }
 
-  std::optional<PluginManifest> parsePluginManifest(const std::filesystem::path& manifestPath, std::string* error) {
-    const auto fail = [error](std::string message) -> std::optional<PluginManifest> {
-      if (error != nullptr) {
-        *error = std::move(message);
+  namespace {
+
+    // `text` holds the file contents; std::nullopt parses from disk to keep toml++'s open-error text.
+    std::optional<PluginManifest> parseManifest(
+        const std::filesystem::path& manifestPath, const std::optional<std::string>& text, std::string* error
+    ) {
+      const auto fail = [error](std::string message) -> std::optional<PluginManifest> {
+        if (error != nullptr) {
+          *error = std::move(message);
+        }
+        return std::nullopt;
+      };
+
+      toml::table root;
+      try {
+        root = text.has_value() ? toml::parse(*text, manifestPath.string()) : toml::parse_file(manifestPath.string());
+      } catch (const toml::parse_error& e) {
+        return fail(std::string("parse error: ") + e.description().data());
       }
-      return std::nullopt;
+
+      PluginManifest manifest;
+      manifest.id = tableString(root, "id");
+      if (manifest.id.empty()) {
+        return fail("missing mandatory key 'id'");
+      }
+      if (!isValidPluginId(manifest.id)) {
+        return fail("invalid plugin id '" + manifest.id + "' (expected author/plugin)");
+      }
+      manifest.name = tableString(root, "name");
+      if (manifest.name.empty()) {
+        return fail("missing mandatory key 'name'");
+      }
+      if (!root.contains("version")) {
+        return fail("missing mandatory key 'version'");
+      }
+      manifest.version = tableString(root, "version");
+      if (!isValidPluginVersion(manifest.version)) {
+        return fail("invalid 'version' (expected MAJOR.MINOR.PATCH)");
+      }
+      if (!root.contains("plugin_api")) {
+        return fail("missing mandatory key 'plugin_api'");
+      }
+      const auto pluginApiVersion = root["plugin_api"].value<std::int64_t>();
+      if (!pluginApiVersion.has_value()
+          || *pluginApiVersion <= 0
+          || static_cast<std::uint64_t>(*pluginApiVersion) > std::numeric_limits<std::uint32_t>::max()) {
+        return fail("invalid 'plugin_api' (expected a positive integer)");
+      }
+      manifest.pluginApiVersion = static_cast<std::uint32_t>(*pluginApiVersion);
+
+      manifest.author = tableString(root, "author");
+      manifest.license = tableString(root, "license", "MIT");
+      manifest.deprecated = tableBool(root, "deprecated", false);
+      manifest.icon = tableString(root, "icon");
+      manifest.description = tableString(root, "description");
+      manifest.tags = tableStringArray(root, "tags");
+      manifest.dependencies = tableStringArray(root, "dependencies");
+
+      std::string manifestError;
+      for (const auto& [kind, tableName] : kEntryKinds) {
+        if (!parseEntries(root, kind, tableName, manifest, manifestError)) {
+          return fail(manifestError);
+        }
+      }
+
+      if (const auto* settings = root["setting"].as_array()) {
+        for (const auto& node : *settings) {
+          if (const auto* settingTable = node.as_table()) {
+            auto field = parseField(*settingTable, manifest.pluginApiVersion, manifestError);
+            if (!field.has_value()) {
+              return fail(manifestError);
+            }
+            if (!field->key.empty()) {
+              manifest.settings.push_back(std::move(*field));
+            }
+          }
+        }
+      }
+
+      std::unordered_set<std::string> seenEntryIds;
+      for (const auto& entry : manifest.entries) {
+        if (!seenEntryIds.insert(entry.id).second) {
+          return fail("duplicate entry id '" + entry.id + "'");
+        }
+      }
+
+      std::unordered_set<std::string> pluginLevelKeys;
+      for (const auto& field : manifest.settings) {
+        pluginLevelKeys.insert(field.key);
+      }
+      for (const auto& entry : manifest.entries) {
+        for (const auto& field : entry.settings) {
+          if (pluginLevelKeys.contains(field.key)) {
+            kLog.warn(
+                "plugin '{}' entry '{}' setting '{}' shadows a plugin-level setting; entry value wins", manifest.id,
+                entry.id, field.key
+            );
+          }
+        }
+      }
+
+      return manifest;
+    }
+
+    // Config validation, the plugin registry and the plugin manager each rescan every manifest on
+    // each config reload. Reading a manifest is cheap; parsing it is not, so reuse the parse while
+    // the file's contents are unchanged.
+    struct ManifestCacheEntry {
+      std::string contents;
+      std::optional<PluginManifest> manifest;
+      std::string error;
     };
 
-    toml::table root;
-    try {
-      root = toml::parse_file(manifestPath.string());
-    } catch (const toml::parse_error& e) {
-      return fail(std::string("parse error: ") + e.description().data());
+    std::mutex& manifestCacheMutex() {
+      static std::mutex mutex;
+      return mutex;
     }
 
-    PluginManifest manifest;
-    manifest.id = tableString(root, "id");
-    if (manifest.id.empty()) {
-      return fail("missing mandatory key 'id'");
-    }
-    if (!isValidPluginId(manifest.id)) {
-      return fail("invalid plugin id '" + manifest.id + "' (expected author/plugin)");
-    }
-    manifest.name = tableString(root, "name");
-    if (manifest.name.empty()) {
-      return fail("missing mandatory key 'name'");
-    }
-    if (!root.contains("version")) {
-      return fail("missing mandatory key 'version'");
-    }
-    manifest.version = tableString(root, "version");
-    if (!isValidPluginVersion(manifest.version)) {
-      return fail("invalid 'version' (expected MAJOR.MINOR.PATCH)");
-    }
-    if (!root.contains("plugin_api")) {
-      return fail("missing mandatory key 'plugin_api'");
-    }
-    const auto pluginApiVersion = root["plugin_api"].value<std::int64_t>();
-    if (!pluginApiVersion.has_value()
-        || *pluginApiVersion <= 0
-        || static_cast<std::uint64_t>(*pluginApiVersion) > std::numeric_limits<std::uint32_t>::max()) {
-      return fail("invalid 'plugin_api' (expected a positive integer)");
-    }
-    manifest.pluginApiVersion = static_cast<std::uint32_t>(*pluginApiVersion);
-
-    manifest.author = tableString(root, "author");
-    manifest.license = tableString(root, "license", "MIT");
-    manifest.deprecated = tableBool(root, "deprecated", false);
-    manifest.icon = tableString(root, "icon");
-    manifest.description = tableString(root, "description");
-    manifest.tags = tableStringArray(root, "tags");
-    manifest.dependencies = tableStringArray(root, "dependencies");
-
-    std::string manifestError;
-    for (const auto& [kind, tableName] : kEntryKinds) {
-      if (!parseEntries(root, kind, tableName, manifest, manifestError)) {
-        return fail(manifestError);
-      }
+    std::unordered_map<std::string, ManifestCacheEntry>& manifestCache() {
+      static std::unordered_map<std::string, ManifestCacheEntry> cache;
+      return cache;
     }
 
-    if (const auto* settings = root["setting"].as_array()) {
-      for (const auto& node : *settings) {
-        if (const auto* settingTable = node.as_table()) {
-          auto field = parseField(*settingTable, manifest.pluginApiVersion, manifestError);
-          if (!field.has_value()) {
-            return fail(manifestError);
-          }
-          if (!field->key.empty()) {
-            manifest.settings.push_back(std::move(*field));
-          }
+  } // namespace
+
+  std::optional<PluginManifest> parsePluginManifest(const std::filesystem::path& manifestPath, std::string* error) {
+    std::ifstream file(manifestPath, std::ios::binary);
+    if (!file) {
+      return parseManifest(manifestPath, std::nullopt, error);
+    }
+    std::string contents{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+
+    const std::string key = manifestPath.string();
+    {
+      std::scoped_lock lock(manifestCacheMutex());
+      if (const auto it = manifestCache().find(key); it != manifestCache().end() && it->second.contents == contents) {
+        if (!it->second.manifest.has_value() && error != nullptr) {
+          *error = it->second.error;
         }
+        return it->second.manifest;
       }
     }
 
-    std::unordered_set<std::string> seenEntryIds;
-    for (const auto& entry : manifest.entries) {
-      if (!seenEntryIds.insert(entry.id).second) {
-        return fail("duplicate entry id '" + entry.id + "'");
-      }
+    std::string parseError;
+    auto manifest = parseManifest(manifestPath, contents, &parseError);
+    {
+      std::scoped_lock lock(manifestCacheMutex());
+      manifestCache().insert_or_assign(
+          key, ManifestCacheEntry{.contents = std::move(contents), .manifest = manifest, .error = parseError}
+      );
     }
-
-    std::unordered_set<std::string> pluginLevelKeys;
-    for (const auto& field : manifest.settings) {
-      pluginLevelKeys.insert(field.key);
+    if (!manifest.has_value() && error != nullptr) {
+      *error = std::move(parseError);
     }
-    for (const auto& entry : manifest.entries) {
-      for (const auto& field : entry.settings) {
-        if (pluginLevelKeys.contains(field.key)) {
-          kLog.warn(
-              "plugin '{}' entry '{}' setting '{}' shadows a plugin-level setting; entry value wins", manifest.id,
-              entry.id, field.key
-          );
-        }
-      }
-    }
-
     return manifest;
   }
 
@@ -910,13 +974,11 @@ namespace scripting {
     if (a.size() != b.size()) {
       return false;
     }
-    for (const auto& [key, value] : a) {
+    return std::ranges::all_of(a, [&](const auto& entry) {
+      const auto& [key, value] = entry;
       const auto it = b.find(key);
-      if (it == b.end() || !valueEqual(value, it->second)) {
-        return false;
-      }
-    }
-    return true;
+      return it != b.end() && valueEqual(value, it->second);
+    });
   }
 
 } // namespace scripting

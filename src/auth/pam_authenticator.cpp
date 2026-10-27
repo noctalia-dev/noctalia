@@ -5,17 +5,17 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <csignal>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <fcntl.h>
 #include <pthread.h>
 #include <pwd.h>
 #include <security/pam_appl.h>
-#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <time.h>
 #include <unistd.h>
 #include <vector>
 
@@ -337,7 +337,7 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
 ) const {
   // Re-exec before invoking PAM so the helper cannot inherit locked library
   // state from the shell's other threads.
-  const auto fail = [startFailureMessage]() {
+  const auto fail = [startFailureMessage] {
     return Result{.success = false, .message = std::string(startFailureMessage)};
   };
 

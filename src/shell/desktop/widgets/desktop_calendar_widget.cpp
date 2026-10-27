@@ -98,7 +98,7 @@ void DesktopCalendarWidget::create() {
           .out = &m_previousButton,
           .glyph = Style::rtl() ? "chevron-right" : "chevron-left",
           .variant = ButtonVariant::Ghost,
-          .onClick = [this]() { changeMonthBy(-1); },
+          .onClick = [this] { changeMonthBy(-1); },
       })
   );
   header->addChild(
@@ -122,7 +122,7 @@ void DesktopCalendarWidget::create() {
           .out = &m_nextButton,
           .glyph = Style::rtl() ? "chevron-left" : "chevron-right",
           .variant = ButtonVariant::Ghost,
-          .onClick = [this]() { changeMonthBy(1); },
+          .onClick = [this] { changeMonthBy(1); },
       })
   );
   calendarColumn->addChild(std::move(header));
@@ -164,7 +164,7 @@ void DesktopCalendarWidget::create() {
   focusToday();
 
   if (m_calendar != nullptr) {
-    m_calendarCallbackId = m_calendar->addChangeCallback([this]() { markDirty(); });
+    m_calendarCallbackId = m_calendar->addChangeCallback([this] { markDirty(); });
   }
 }
 
@@ -360,6 +360,7 @@ void DesktopCalendarWidget::rebuildEventList() {
     return;
   }
   const auto& calendarConfig = m_config->config().calendar;
+  const auto& tabConfig = m_config->config().controlCenter.calendarTab;
   calendar_view::rebuildEventList({
       .scroll = *m_eventsScroll,
       .reserveScrollbarGutter = true,
@@ -371,6 +372,13 @@ void DesktopCalendarWidget::rebuildEventList() {
       .timeFormat = calendarConfig.eventTimeFormat,
       .fontFamily = m_fontFamily,
       .state = &m_eventListState,
-      .requestRedraw = [this]() { requestRedraw(); },
+      .hidePastEvents = tabConfig.hidePastEvents,
+      .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
+      .onToggleHiddenPast =
+          [this] {
+            m_dirty = true;
+            requestLayout();
+          },
+      .requestRedraw = [this] { requestRedraw(); },
   });
 }

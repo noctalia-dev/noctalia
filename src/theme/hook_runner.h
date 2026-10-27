@@ -67,7 +67,7 @@ namespace noctalia::theme {
 
     static void pump(const std::shared_ptr<State>& state);
     [[nodiscard]] static bool
-    launch(const std::shared_ptr<State>& state, const std::string& command, FailureCallback onFailure);
+    launch(const std::shared_ptr<State>& state, const std::string& command, const FailureCallback& onFailure);
 
     std::shared_ptr<State> m_state;
   };

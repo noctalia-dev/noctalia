@@ -104,11 +104,17 @@ namespace {
 
     const auto assignments = platform.workspaceWindowAssignments(output);
     for (const auto& assignment : assignments) {
+      if (assignment.minimizeState.has_value() && assignment.minimizeState->minimized) {
+        continue;
+      }
       if (workspaceKeyMatchesAssignment(assignment.workspaceKey, *active)) {
         return true;
       }
     }
     if (!assignments.empty()) {
+      return false;
+    }
+    if (platform.hasUnminimizedToplevels(output) == false) {
       return false;
     }
     return active->occupied;
@@ -874,6 +880,44 @@ namespace {
     };
   }
 
+  // Click-through dead zone: one rect per interactive widget, spanning the bar's thickness and padded
+  // along the bar by the capsule padding that widens widget hit targets past their bounds. Spacers and
+  // passive widgets are dead zone (see widgetAtPoint), so they pass through too.
+  [[nodiscard]] std::vector<InputRect> barWidgetsInputRegion(const BarInstance& instance, const InputRect& bar) {
+    const bool isVertical = (instance.barConfig.position == "left" || instance.barConfig.position == "right");
+    const float pad = instance.barConfig.widgetCapsulePadding;
+    std::vector<InputRect> rects;
+    for (const auto* widgets : {&instance.startWidgets, &instance.centerWidgets, &instance.endWidgets}) {
+      for (const auto& widget : *widgets) {
+        const Node* node = widget != nullptr ? widget->outerNode() : nullptr;
+        if (node == nullptr
+            || widget->isBarClickThrough()
+            || !node->visible()
+            || node->width() <= 0.0F
+            || node->height() <= 0.0F) {
+          continue;
+        }
+        float x = 0.0F;
+        float y = 0.0F;
+        Node::absolutePosition(node, x, y);
+        if (isVertical) {
+          const int top = std::max(bar.y, static_cast<int>(std::floor(y - pad)));
+          const int bottom = std::min(bar.y + bar.height, static_cast<int>(std::ceil(y + node->height() + pad)));
+          if (bottom > top) {
+            rects.push_back(InputRect{bar.x, top, bar.width, bottom - top});
+          }
+        } else {
+          const int left = std::max(bar.x, static_cast<int>(std::floor(x - pad)));
+          const int right = std::min(bar.x + bar.width, static_cast<int>(std::ceil(x + node->width() + pad)));
+          if (right > left) {
+            rects.push_back(InputRect{left, bar.y, right - left, bar.height});
+          }
+        }
+      }
+    }
+    return rects;
+  }
+
   std::pair<float, float> computeAutoHideHiddenDelta(
       bool isVertical, bool isBottom, bool isRight, float w, float h, float contentLeft, float contentTop,
       float contentRight, float contentBottom
@@ -1019,7 +1063,7 @@ namespace {
         const float ih = content->height();
         auto memberMainPos = [isVertical](const Node* node) { return isVertical ? node->y() : node->x(); };
         auto memberMainExtent = [isVertical](const Node* node) { return isVertical ? node->height() : node->width(); };
-        auto clearAccordionSuppression = [&run]() {
+        auto clearAccordionSuppression = [&run] {
           for (Widget* widget : run.widgets) {
             if (widget != nullptr) {
               widget->setBarPointerSuppressed(false);
@@ -1492,7 +1536,7 @@ bool Bar::initialize(const BarServices& services) {
   m_lastShadow = m_config->config().shell.shadow;
   m_lastPlugins = m_config->config().plugins;
   m_config->addReloadCallback(
-      [this]() {
+      [this] {
         const auto& cfg = m_config->config();
         if (cfg.bars == m_lastBars
             && cfg.widgets == m_lastWidgets
@@ -1628,7 +1672,7 @@ void Bar::reload() {
   std::erase_if(m_instances, [&](const std::unique_ptr<BarInstance>& instUp) {
     auto& inst = *instUp;
     auto it = newBarsByName.find(inst.barConfig.name);
-    auto destroy = [&]() {
+    auto destroy = [&] {
       if (inst.surface != nullptr) {
         m_surfaceMap.erase(inst.surface->wlSurface());
       }
@@ -1661,17 +1705,15 @@ void Bar::reload() {
     return false;
   });
 
-  if (destroyedAny) {
-    // Drain pending Wayland events for the just-destroyed surfaces before
-    // creating new ones. Without this, the roundtrip inside LayerSurface::initialize
-    // reads stale closures for dead proxies, which libwayland drops without freeing.
-    if (wl_display_roundtrip(m_platform->display()) < 0) {
-      const int roundtripErrno = errno;
-      kLog.error(
-          "Wayland roundtrip failed after destroying stale bar surfaces: {}",
-          m_platform->wayland().describeDisplayError(roundtripErrno)
-      );
-    }
+  // Drain pending Wayland events for the just-destroyed surfaces before
+  // creating new ones. Without this, the roundtrip inside LayerSurface::initialize
+  // reads stale closures for dead proxies, which libwayland drops without freeing.
+  if (destroyedAny && wl_display_roundtrip(m_platform->display()) < 0) {
+    const int roundtripErrno = errno;
+    kLog.error(
+        "Wayland roundtrip failed after destroying stale bar surfaces: {}",
+        m_platform->wayland().describeDisplayError(roundtripErrno)
+    );
   }
 
   syncInstances();
@@ -1706,7 +1748,7 @@ void Bar::onWorkspaceChanged() {
   }
 
   if (anyChanged) {
-    m_workspaceRevealDebounce.start(kWorkspaceRevealDebounce, [this]() { applyPendingWorkspaceReveal(); });
+    m_workspaceRevealDebounce.start(kWorkspaceRevealDebounce, [this] { applyPendingWorkspaceReveal(); });
   }
   scheduleSmartAutoHideReevaluation();
 }
@@ -1716,7 +1758,7 @@ void Bar::scheduleSmartAutoHideReevaluation() {
     return;
   }
   m_smartAutoHideReevalQueued = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_smartAutoHideReevalQueued = false;
     reevaluateSmartAutoHide();
   });
@@ -1751,12 +1793,15 @@ void Bar::reevaluateSmartAutoHide() {
         syncBarSurfaceChrome(*instance);
         needsRedraw = true;
       }
-    } else if (!instance->pointerInside && instance->attachedPopupCount == 0 && !suppressAutoHide) {
-      if ((instance->hideOpacity > 0.0F || pinnedChanged)
-          && (!instance->barConfig.showOnWorkspaceSwitch || !isWorkspacePeekActive())) {
-        startHideFadeOut(*instance);
-        needsRedraw = true;
-      }
+    } else if (
+        !instance->pointerInside
+        && instance->attachedPopupCount == 0
+        && !suppressAutoHide
+        && (instance->hideOpacity > 0.0F || pinnedChanged)
+        && (!instance->barConfig.showOnWorkspaceSwitch || !isWorkspacePeekActive())
+    ) {
+      startHideFadeOut(*instance);
+      needsRedraw = true;
     }
 
     if (needsRedraw && instance->surface != nullptr) {
@@ -1807,7 +1852,7 @@ void Bar::applyPendingWorkspaceReveal() {
     return;
   }
 
-  m_workspacePeekHideTimer.start(kWorkspacePeekHold, [this, peeked = std::move(peeked)]() {
+  m_workspacePeekHideTimer.start(kWorkspacePeekHold, [this, peeked = std::move(peeked)] {
     for (BarInstance* instance : peeked) {
       if (instance == nullptr || !instance->barConfig.isAutoHideEnabled() || instance->pointerInside) {
         continue;
@@ -1972,7 +2017,7 @@ void Bar::setInstanceIpcVisible(BarInstance& instance, bool visible) {
         syncBarSlideLayerTransform(*inst);
         syncBarSurfaceChrome(*inst);
       },
-      [inst = &instance, this]() {
+      [inst = &instance, this] {
         syncBarSlideLayerTransform(*inst);
         syncBarAutoHideInputRegion(*inst);
         syncBarSurfaceChrome(*inst);
@@ -2661,23 +2706,23 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
 
     for (auto& widget : widgets) {
       widget->setAnimationManager(&instance.animations);
-      widget->setUpdateCallback([surface = instance.surface.get()]() {
+      widget->setUpdateCallback([surface = instance.surface.get()] {
         if (surface != nullptr) {
           surface->requestUpdate();
         }
       });
-      widget->setRedrawCallback([surface = instance.surface.get()]() {
+      widget->setRedrawCallback([surface = instance.surface.get()] {
         if (surface != nullptr) {
           surface->requestRedraw();
         }
       });
-      widget->setFrameTickRequestCallback([surface = instance.surface.get()]() {
+      widget->setFrameTickRequestCallback([surface = instance.surface.get()] {
         if (surface != nullptr) {
           surface->requestFrameTick();
         }
       });
       if (auto* plugin = dynamic_cast<PluginWidget*>(widget.get()); plugin != nullptr) {
-        plugin->setUpdateDeferralCallback([]() {
+        plugin->setUpdateDeferralCallback([] {
           auto* panel = PanelManager::current();
           return panel != nullptr && panel->isPanelTransitionActive();
         });
@@ -3035,7 +3080,7 @@ void Bar::updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea
         continue;
       }
       run.accordionDelayTimer.start(
-          std::chrono::milliseconds(static_cast<int>(run.accordionDelayMs)), [this, &instance, &run]() {
+          std::chrono::milliseconds(static_cast<int>(run.accordionDelayMs)), [this, &instance, &run] {
             const Widget* nowTarget = widgetFromHoveredArea(instance, instance.inputDispatcher.hoveredArea());
             if (run.accordionExpanded || !accordionRunWantsExpansion(instance, run, nowTarget)) {
               return;
@@ -3177,6 +3222,7 @@ void Bar::syncBarAutoHideInputRegion(BarInstance& instance) const {
   const int surfW = static_cast<int>(instance.surface->width());
   const int surfH = static_cast<int>(instance.surface->height());
   if (!instanceAcceptsPointerInput(instance)) {
+    instance.clickThroughInputRegion.reset();
     instance.surface->setInputRegion({});
     return;
   }
@@ -3185,12 +3231,21 @@ void Bar::syncBarAutoHideInputRegion(BarInstance& instance) const {
         || instance.attachedPopupCount > 0
         || instance.hideOpacity > 0.5F
         || (instance.barConfig.smartAutoHide && instance.smartAutoHidePinnedVisible);
+    instance.clickThroughInputRegion.reset();
     instance.surface->setInputRegion(barAutoHideSurfaceInputRegion(instance.barConfig, surfW, surfH, fullSurface));
     return;
   }
-  instance.surface->setInputRegion(
-      {barContentInputRegion(instance.barConfig, m_config->config().shell.shadow, surfW, surfH)}
-  );
+  const auto barRect = barContentInputRegion(instance.barConfig, m_config->config().shell.shadow, surfW, surfH);
+  if (instance.barConfig.deadZone.clickThrough) {
+    auto rects = barWidgetsInputRegion(instance, barRect);
+    if (instance.clickThroughInputRegion != rects) {
+      instance.surface->setInputRegion(rects);
+      instance.clickThroughInputRegion = std::move(rects);
+    }
+    return;
+  }
+  instance.clickThroughInputRegion.reset();
+  instance.surface->setInputRegion({barRect});
 }
 
 void Bar::revealAutoHideBar(BarInstance& instance) {
@@ -3207,7 +3262,7 @@ void Bar::revealAutoHideBar(BarInstance& instance) {
   const float current = instance.hideOpacity;
   wl_output* output = instance.output;
   const std::string barName = instance.barConfig.name;
-  const auto notifyAttachedPanel = [output, barName]() {
+  const auto notifyAttachedPanel = [output, barName] {
     PanelManager::instance().onAttachedBarRevealSettled(output, barName);
   };
 
@@ -3215,6 +3270,7 @@ void Bar::revealAutoHideBar(BarInstance& instance) {
   if (current >= kSettledThreshold) {
     const int surfW = static_cast<int>(instance.surface->width());
     const int surfH = static_cast<int>(instance.surface->height());
+    instance.clickThroughInputRegion.reset();
     instance.surface->setInputRegion(barAutoHideSurfaceInputRegion(instance.barConfig, surfW, surfH, true));
     syncBarSurfaceChrome(instance);
     instance.surface->requestRedraw();
@@ -3233,6 +3289,7 @@ void Bar::revealAutoHideBar(BarInstance& instance) {
   );
   const int surfW = static_cast<int>(instance.surface->width());
   const int surfH = static_cast<int>(instance.surface->height());
+  instance.clickThroughInputRegion.reset();
   instance.surface->setInputRegion(barAutoHideSurfaceInputRegion(instance.barConfig, surfW, surfH, true));
   syncBarSurfaceChrome(instance);
   instance.surface->requestRedraw();
@@ -3297,7 +3354,7 @@ void Bar::startHideFadeOut(BarInstance& instance, bool immediate) {
       && instance.barConfig.autoHideDelayMs > 0) {
     if (!instance.autoHideDelayTimer.active()) {
       instance.autoHideDelayTimer.start(
-          std::chrono::milliseconds(instance.barConfig.autoHideDelayMs), [this, inst = &instance]() {
+          std::chrono::milliseconds(instance.barConfig.autoHideDelayMs), [this, inst = &instance] {
             if (inst->pointerInside || inst->attachedPopupCount > 0 || !barPointerHideAllowed(*inst)) {
               return;
             }
@@ -3320,7 +3377,7 @@ void Bar::startHideFadeOut(BarInstance& instance, bool immediate) {
         syncBarSlideLayerTransform(*inst);
         syncBarSurfaceChrome(*inst);
       },
-      [inst = &instance, this]() {
+      [inst = &instance, this] {
         if (inst->surface == nullptr) {
           return;
         }
@@ -3409,7 +3466,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
     hoverUnderlay->setSize(static_cast<float>(w), static_cast<float>(h));
     instance.hoverUnderlay = instance.slideRoot->addChild(std::move(hoverUnderlay));
 
-    auto makeSlot = [&instance]() {
+    auto makeSlot = [&instance] {
       auto slot = ui::node({});
       slot->setClipChildren(true);
       return instance.contentClip->addChild(std::move(slot));
@@ -3419,7 +3476,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
     instance.endSlot = makeSlot();
 
     // Create section boxes
-    auto makeSection = [widgetSpacing, isVertical]() {
+    auto makeSection = [widgetSpacing, isVertical] {
       auto section = ui::flex(
           isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal,
           {
@@ -3542,6 +3599,8 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
   instance.slideHiddenDy = hiddenDelta.second;
   syncBarSlideLayerTransform(instance);
 
+  // A rebuilt scene may sit on a new surface, so always send the region once.
+  instance.clickThroughInputRegion.reset();
   syncBarAutoHideInputRegion(instance);
   syncBarSurfaceChrome(instance);
 }
@@ -3576,6 +3635,9 @@ void Bar::updateWidgets(BarInstance& instance) {
   updateSection(instance.centerWidgets);
   updateSection(instance.endWidgets);
   layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
+  if (instance.barConfig.deadZone.clickThrough) {
+    syncBarAutoHideInputRegion(instance);
+  }
 }
 
 void Bar::prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout) {
@@ -3618,6 +3680,10 @@ void Bar::prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout
       widget->layout(renderer, barAreaW, barAreaH);
     }
     layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
+  }
+  // Click-through input follows the widgets, which move whenever a widget resizes.
+  if (instance.barConfig.deadZone.clickThrough) {
+    syncBarAutoHideInputRegion(instance);
   }
 }
 
@@ -3749,11 +3815,12 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
     consumed = m_hoveredInstance->inputDispatcher.pointerButton(
         sx, sy, event.button, pressed, event.serial, event.time, event.touch
     );
-    if (pressed && !consumed) {
-      if (handleBarDeadZoneButton(*m_hoveredInstance, sx, sy, event.button, m_platform, m_actionDispatcher)) {
-        consumed = true;
-      }
+    if (pressed
+        && !consumed
+        && handleBarDeadZoneButton(*m_hoveredInstance, sx, sy, event.button, m_platform, m_actionDispatcher)) {
+      consumed = true;
     }
+
     break;
   }
   case PointerEvent::Type::Axis: {
@@ -3889,7 +3956,7 @@ std::optional<std::string> Bar::collectBarIpcInstances(
     if (!knownOutputs.empty()) {
       error += " (available: " + StringUtils::join(knownOutputs, ", ") + ")";
     }
-    error += "\n";
+    error += '\n';
     return error;
   }
   if (outputMatches.size() > 1) {
@@ -4126,7 +4193,7 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
             syncBarSlideLayerTransform(*inst);
             syncBarSurfaceChrome(*inst);
           },
-          [this, inst = &instance, applySurfaceSpec]() {
+          [this, inst = &instance, applySurfaceSpec] {
             inst->autoHideDisablePending = false;
             inst->barConfig.autoHide = false;
             applySurfaceSpec(*inst);

@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
+#include <initializer_list>
 #include <stdexcept>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -652,12 +653,10 @@ bool outputMatchesSelector(const std::string& match, const WaylandOutput& output
 
   // Each identity field is searched independently so selector semantics don't depend on
   // whether the compositor advertised output management, nor on any join order.
-  for (const std::string* field : {&output.description, &output.make, &output.model, &output.serialNumber}) {
-    if (StringUtils::containsWholeToken(*field, match)) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(
+      std::initializer_list{&output.description, &output.make, &output.model, &output.serialNumber},
+      [&](const std::string* field) { return StringUtils::containsWholeToken(*field, match); }
+  );
 }
 
 DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorOverride& override) {

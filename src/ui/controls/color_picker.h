@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+class Button;
 class Box;
 class Image;
 class Input;
@@ -71,10 +72,13 @@ private:
   void applyStyle();
   void setFormat(Format format);
   void syncFields(Origin origin);
+  // The three field values of the RGB or HSL format; RGB when the format is hex.
+  [[nodiscard]] std::array<int, 3> componentValues() const;
+  [[nodiscard]] std::string colorText() const;
   void positionOverlays();
   void updateHueThumbStyle();
   // Shared drag wiring for the plane and the strips; a release after any pick commits.
-  InputArea* addPickArea(std::function<void(const InputArea::PointerData&)> pick);
+  InputArea* addPickArea(const std::function<void(const InputArea::PointerData&)>& pick);
   void applyPickFromSv(float localX, float localY);
   void applyPickFromHue(float localX);
   void applyPickFromAlpha(float localX);
@@ -119,6 +123,7 @@ private:
   Input* m_hexInput = nullptr;
   std::array<Input*, 3> m_componentInputs{};
   Input* m_alphaField = nullptr;
+  Button* m_copyButton = nullptr;
 
   Flex* m_swatchRow = nullptr;
   std::vector<Color> m_swatches;

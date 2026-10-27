@@ -34,6 +34,7 @@ enabled                      = false
 interval_seconds             = 1800
 order                        = "random" # random | alphabetical
 recursive                    = false    # scan subdirectories when selecting random wallpapers (default: false)
+pause_on_fullscreen          = false    # hold rotation while any window is fullscreen (default: false)
 
 # Per-monitor overrides - same match rules as bar monitor overrides
 # Only active when per_monitor_directories = true
@@ -85,6 +86,8 @@ Monitor overrides may also set `fill_color`.
 By default, the first wallpaper on each output appears immediately with no transition. Set `transition_on_startup = true` to fade (or wipe, etc.) in from a black screen at shell startup, matching v4 behavior. Later wallpaper changes always use the configured transition pool.
 
 When automation is enabled, Noctalia picks one image from the resolved browse folder at shell startup, then keeps picking on the configured interval and applies it to all connected outputs in sync. `order = "random"` chooses a random image each cycle. `order = "alphabetical"` sorts paths case-insensitively and advances to the next image each cycle (wrapping at the end).
+
+Rotation also holds while the lock screen is up. With `pause_on_fullscreen = true` it holds while any window is fullscreen as well, so games and videos are not interrupted by a transition and theme regeneration; a switch that came due in the meantime happens as soon as the window leaves fullscreen. Fullscreen detection uses the `wlr-foreign-toplevel-management` protocol, so it has no effect on compositors that do not provide it.
 
 ## Favorites
 

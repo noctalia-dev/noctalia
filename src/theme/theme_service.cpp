@@ -112,8 +112,8 @@ namespace noctalia::theme {
       return Color{};
     }
 
-    Palette readPaletteJson(const nlohmann::json& obj) {
-      return Palette{
+    FixedPalette readPaletteJson(const nlohmann::json& obj) {
+      return FixedPalette{
           .primary = readColorField(obj, "primary"),
           .onPrimary = readColorField(obj, "onPrimary"),
           .secondary = readColorField(obj, "secondary"),
@@ -392,7 +392,7 @@ namespace noctalia::theme {
     m_pendingResolvedMode.clear();
 
     if (defer) {
-      DeferredCall::callLater([this, generation, generated = std::move(generated), mode = std::move(mode)]() mutable {
+      DeferredCall::callLater([this, generation, generated = std::move(generated), mode = std::move(mode)] mutable {
         if (generation == m_resolvedCallbackGeneration && m_resolvedCallback) {
           m_resolvedCallback(generated, mode);
         }
@@ -512,7 +512,7 @@ namespace noctalia::theme {
       m_wallpaperQueued = key;
     }
     if (!m_wallpaperWorker.joinable()) {
-      m_wallpaperWorker = std::thread([this]() { wallpaperWorkerLoop(); });
+      m_wallpaperWorker = std::thread([this] { wallpaperWorkerLoop(); });
     }
     m_wallpaperWorkerCv.notify_one();
   }
@@ -523,7 +523,7 @@ namespace noctalia::theme {
       WallpaperPaletteKey key;
       {
         std::unique_lock lock(m_wallpaperWorkerMutex);
-        m_wallpaperWorkerCv.wait(lock, [this]() { return m_wallpaperWorkerShutdown || m_wallpaperQueued.has_value(); });
+        m_wallpaperWorkerCv.wait(lock, [this] { return m_wallpaperWorkerShutdown || m_wallpaperQueued.has_value(); });
         if (m_wallpaperWorkerShutdown) {
           return;
         }
@@ -531,7 +531,7 @@ namespace noctalia::theme {
         m_wallpaperQueued.reset();
       }
       auto generated = decodeWallpaperPalette(key.path, key.scheme);
-      DeferredCall::callLater([this, alive, key = std::move(key), generated = std::move(generated)]() mutable {
+      DeferredCall::callLater([this, alive, key = std::move(key), generated = std::move(generated)] mutable {
         if (alive.expired()) {
           return;
         }
@@ -688,7 +688,7 @@ namespace noctalia::theme {
         day_night_schedule::evaluate(m_config.config().location, m_autoLatitude, m_autoLongitude).untilBoundary;
     const auto delay =
         std::min(nextBoundary, std::chrono::duration_cast<std::chrono::milliseconds>(kAutoRecheckInterval));
-    m_autoTimer.start(delay, [this]() { onAutoSchemeChanged(); });
+    m_autoTimer.start(delay, [this] { onAutoSchemeChanged(); });
   }
 
   bool ThemeService::hasAutoMode() const noexcept {
@@ -726,7 +726,7 @@ namespace noctalia::theme {
             flushResolvedCallback(/*defer=*/true);
           }
         },
-        [this]() { finishTransition(/*deferResolvedCallback=*/false); }
+        [this] { finishTransition(/*deferResolvedCallback=*/false); }
     );
     if (m_transitionAnimId == 0) {
       m_transitionTimer.stop();

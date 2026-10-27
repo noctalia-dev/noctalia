@@ -134,7 +134,7 @@ namespace {
     return {reinterpret_cast<const char*>(data.data()), data.size()};
   }
 
-  std::string extensionForImageMimeType(std::string_view mimeType) {
+  std::string_view extensionForImageMimeType(std::string_view mimeType) {
     if (mimeType == "image/png")
       return ".png";
     if (mimeType == "image/jpeg" || mimeType == "image/jpg")
@@ -161,7 +161,7 @@ namespace {
   }
 
   std::string exportExtensionForEntry(const ClipboardEntry& entry) {
-    std::string extension = extensionForImageMimeType(entry.dataMimeType);
+    std::string extension(extensionForImageMimeType(entry.dataMimeType));
     if (extension != ".img") {
       return extension;
     }
@@ -1226,10 +1226,8 @@ void ClipboardService::handleSourceSend(void* source, const char* mimeType, int 
   const auto it = std::ranges::find(m_outgoingSources, source, &OutgoingSource::source);
   if (it != m_outgoingSources.end() && mimeType != nullptr) {
     const auto mimeIt = std::ranges::find(it->mimeTypes, std::string_view(mimeType));
-    if (mimeIt != it->mimeTypes.end()) {
-      if (queueOutgoingWrite(source, fd, it->data)) {
-        return;
-      }
+    if (mimeIt != it->mimeTypes.end() && queueOutgoingWrite(source, fd, it->data)) {
+      return;
     }
   }
   if (fd >= 0) {
@@ -1771,16 +1769,16 @@ bool ClipboardService::persistHistory(bool force) {
       entry.payloadPath = payloadPathForId(entry.storageId);
 
       activeStorageIds.insert(entry.storageId);
-      if (entry.payloadLoaded && !entry.data.empty()) {
-        if (!security::writeEncryptedFile(
-                entry.payloadPath, entry.data, *m_dataKey,
-                security::EncryptionContext{
-                    .purpose = std::string(kPayloadPurpose),
-                    .objectId = entry.storageId,
-                }
-            )) {
-          throw std::runtime_error("failed to write clipboard payload");
-        }
+      if (entry.payloadLoaded
+          && !entry.data.empty()
+          && !security::writeEncryptedFile(
+              entry.payloadPath, entry.data, *m_dataKey,
+              security::EncryptionContext{
+                  .purpose = std::string(kPayloadPurpose),
+                  .objectId = entry.storageId,
+              }
+          )) {
+        throw std::runtime_error("failed to write clipboard payload");
       }
 
       const auto capturedAtMs =
@@ -1847,7 +1845,7 @@ void ClipboardService::trimHistoryToBudget() {
   };
 
   // Oldest first, since entries are inserted at the front of the unpinned run.
-  const auto oldestUnpinnedImage = [this]() -> std::optional<std::size_t> {
+  const auto oldestUnpinnedImage = [this] -> std::optional<std::size_t> {
     for (std::size_t i = m_history.size(); i-- > 0;) {
       if (!m_history[i].pinned && m_history[i].isImage()) {
         return i;
@@ -2053,7 +2051,7 @@ void ClipboardService::dispatchWriteEvents(int fd, short revents) {
     return;
   }
 
-  const auto findWrite = [this, fd]() { return std::ranges::find(m_activeWrites, fd, &ActiveWrite::fd); };
+  const auto findWrite = [this, fd] { return std::ranges::find(m_activeWrites, fd, &ActiveWrite::fd); };
 
   auto it = findWrite();
   if (it == m_activeWrites.end()) {
@@ -2121,7 +2119,7 @@ std::string ClipboardService::buildTextPreview(const std::vector<std::uint8_t>& 
   std::size_t i = 0;
   while (i < limit) {
     const auto b = static_cast<uint8_t>(data[i]);
-    int seqLen = 1;
+    std::size_t seqLen = 1;
     if ((b & 0x80) == 0)
       seqLen = 1;
     else if ((b & 0xE0) == 0xC0)
@@ -2130,7 +2128,7 @@ std::string ClipboardService::buildTextPreview(const std::vector<std::uint8_t>& 
       seqLen = 3;
     else if ((b & 0xF8) == 0xF0)
       seqLen = 4;
-    if (i + static_cast<std::size_t>(seqLen) > limit)
+    if (i + seqLen > limit)
       break;
     safeSize = i + seqLen;
     i += seqLen;

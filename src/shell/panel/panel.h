@@ -87,8 +87,9 @@ public:
   // Panel placement policy. `Attached` anchors the panel surface to a suitable
   // bar edge; `Floating` opens detached and uses panelScreenPosition().
   [[nodiscard]] virtual PanelPlacement panelPlacement() const noexcept { return PanelPlacement::Floating; }
-  // Floating screen position (one of kPanelPositions). Plugin panels override; built-in
-  // panels resolve through shell.panel.*_position in PanelManager.
+  // Screen position (one of kPanelPositions): pins a floating panel; aligns an attached
+  // panel when it lies on the bar's edge. Plugin panels override; built-in panels resolve
+  // through shell.panel.*_position in PanelManager.
   [[nodiscard]] virtual std::string panelScreenPosition() const { return "auto"; }
   [[nodiscard]] virtual bool panelOpenNearClick() const { return false; }
   // For attached panels: which bar edge to attach to when more than one bar exists on
@@ -102,6 +103,7 @@ public:
   [[nodiscard]] virtual float attachedBackgroundOpacityOverride() const noexcept { return 1.0F; }
   [[nodiscard]] virtual bool wantsCloseAnimation() const noexcept { return true; }
   [[nodiscard]] virtual bool dismissOnOutsideClick() const { return true; }
+  [[nodiscard]] virtual bool ignorePointerEvent() const { return false; }
   // True to live in PersistentPanelHost instead of PanelManager's single active
   // slot: opening another panel leaves it on screen, and only an explicit toggle
   // or close dismisses it.

@@ -53,7 +53,7 @@ public:
   void initialize(WaylandConnection& wayland);
 
   // Map a fullscreen shield on each of the given outputs.
-  void activate(const std::vector<wl_output*>& outputs, LayerShellLayer layer, ExcludeProvider excludeProvider);
+  void activate(const std::vector<wl_output*>& outputs, LayerShellLayer layer, const ExcludeProvider& excludeProvider);
   // Exclude the panel's output-local input rect from its co-output shield.
   void setPanelInputRect(wl_output* output, InputRect rect);
   void setLayer(LayerShellLayer layer);

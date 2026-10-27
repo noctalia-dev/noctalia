@@ -49,7 +49,6 @@
       "move-toolbar": "Arrastra para mover la barra de herramientas",
       "redo": "Rehacer (Ctrl+Shift+Z)",
       "save": "Guardar la imagen anotada (Ctrl+S)",
-      "size-advanced": "Ajuste fino de tamaño",
       "size-decrease": "Más fino ([)",
       "size-increase": "Más grueso (])",
       "size-large": "Grande",
@@ -1517,10 +1516,6 @@
       "orientation": {
         "horizontal": "Horizontal",
         "vertical": "Vertical"
-      },
-      "panel-bar-alignment": {
-        "centered": "Centrado",
-        "near-trigger": "Activador de proximidad"
       },
       "panel-position": {
         "auto": "Seguir barra"

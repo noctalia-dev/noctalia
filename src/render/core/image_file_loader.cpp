@@ -159,7 +159,7 @@ namespace {
       return std::unexpected(message);
     };
 
-    auto emitQuad = [&]() -> bool {
+    auto emitQuad = [&] -> bool {
       if (quad[0] < 0 || quad[1] < 0) {
         return false;
       }

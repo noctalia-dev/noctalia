@@ -24,7 +24,7 @@
 
 namespace {
 
-  std::string wrapLongRuns(std::string text, std::size_t maxRun = 48) {
+  std::string wrapLongRuns(const std::string& text, std::size_t maxRun = 48) {
     std::string out;
     out.reserve(text.size() + text.size() / maxRun);
     std::size_t run = 0;
@@ -161,7 +161,7 @@ void PolkitPanel::create() {
               .text = i18n::tr("common.actions.cancel"),
               .variant = ButtonVariant::Outline,
               .onClick =
-                  [this]() {
+                  [this] {
                     cancelAuth();
                     PanelManager::instance().close();
                   },
@@ -170,7 +170,7 @@ void PolkitPanel::create() {
               .out = &m_submitButton,
               .text = i18n::tr("auth.polkit.authenticate"),
               .variant = ButtonVariant::Primary,
-              .onClick = [this]() { submit(); },
+              .onClick = [this] { submit(); },
           })
       )
   );

@@ -43,7 +43,7 @@ namespace settings {
     )>;
 
     WidgetAddPopup() = default;
-    ~WidgetAddPopup();
+    ~WidgetAddPopup() override;
 
     void initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext);
 

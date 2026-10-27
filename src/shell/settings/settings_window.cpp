@@ -210,12 +210,12 @@ void SettingsWindow::initialize(
   m_showAdvanced = m_config != nullptr ? m_config->config().shell.settingsShowAdvanced : false;
   m_modalHost.initialize(
       m_inputDispatcher,
-      [this]() {
+      [this] {
         if (m_surface != nullptr) {
           m_surface->requestLayout();
         }
       },
-      [this]() {
+      [this] {
         if (m_surface != nullptr) {
           m_surface->requestUpdateOnly();
         }
@@ -230,8 +230,7 @@ void SettingsWindow::initializeDialogPresenter(
   m_dialogPresenter = std::make_unique<settings::SettingsDialogPresenter>();
   m_dialogPresenter->initialize(
       m_modalHost, m_animations, thumbnails, colorFallback, glyphFallback, fileFallback,
-      [this]() { return shouldUseModalDialogs(); }, [this]() { return uiScale(); },
-      [this]() { dismissOpenSelectDropdown(); }
+      [this] { return shouldUseModalDialogs(); }, [this] { return uiScale(); }, [this] { dismissOpenSelectDropdown(); }
   );
 }
 
@@ -325,7 +324,7 @@ std::optional<LayerPopupParentContext> SettingsWindow::topmostPopupParentContext
     };
   };
 
-  const auto selectContext = [this, &makeContext]() -> std::optional<LayerPopupParentContext> {
+  const auto selectContext = [this, &makeContext] -> std::optional<LayerPopupParentContext> {
     if (m_selectPopup == nullptr || !m_selectPopup->isSelectDropdownOpen()) {
       return std::nullopt;
     }
@@ -426,7 +425,7 @@ void SettingsWindow::open(std::string context) {
   }
 
   if (isOpen()) {
-    const auto refocus = [this]() {
+    const auto refocus = [this] {
       if (m_platform != nullptr && m_wayland != nullptr && m_surface != nullptr) {
         focusExistingSettingsWindow(*m_platform, *m_wayland, m_surface->wlSurface());
       }
@@ -451,7 +450,7 @@ void SettingsWindow::open(std::string context) {
   m_surface->setRenderContext(m_renderContext);
   m_surface->setAnimationManager(&m_animations);
 
-  m_surface->setClosedCallback([this]() { destroyWindow(); });
+  m_surface->setClosedCallback([this] { destroyWindow(); });
 
   m_surface->setOutputChangedCallback([this](wl_output* currentOutput) {
     m_output = currentOutput;
@@ -470,7 +469,7 @@ void SettingsWindow::open(std::string context) {
     prepareFrame(needsUpdate, needsLayout);
   });
 
-  m_surface->setUpdateCallback([]() {});
+  m_surface->setUpdateCallback([] {});
 
   const float scale = uiScale();
   float desiredWidth = kWindowWidth * scale;
@@ -569,7 +568,7 @@ void SettingsWindow::closeForWidgetEditor() {
     return;
   }
   m_reopenAfterWidgetEditorSection = m_selectedSection;
-  DeferredCall::callLater([this]() { close(); });
+  DeferredCall::callLater([this] { close(); });
 }
 
 void SettingsWindow::reopenAfterWidgetEditor() {
@@ -674,7 +673,7 @@ void SettingsWindow::destroyWindow() {
   // Plugin-store thumbnails are the only async textures this window holds; drop the
   // zero-ref residents once the scene (and with it every Image) is gone.
   if (m_asyncTextures != nullptr) {
-    DeferredCall::callLater([asyncTextures = m_asyncTextures]() { asyncTextures->trimUnused(0); });
+    DeferredCall::callLater([asyncTextures = m_asyncTextures] { asyncTextures->trimUnused(0); });
   }
 }
 
@@ -837,7 +836,7 @@ void SettingsWindow::scheduleDeferredRebuild() {
     return;
   }
   m_deferredRebuildQueued = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_deferredRebuildQueued = false;
     const bool sceneRebuild = m_deferredSceneRebuild;
     const bool refreshRegistry = m_deferredRefreshRegistry;
@@ -892,12 +891,12 @@ void SettingsWindow::refreshPluginListIfNeeded() {
   const std::uint64_t generation = m_pluginListRefreshGeneration;
   auto* manager = m_pluginManager;
   PluginsConfig pluginsSnapshot = m_config->config().plugins;
-  std::thread([this, manager, generation, pluginsSnapshot = std::move(pluginsSnapshot)]() {
+  std::thread([this, manager, generation, pluginsSnapshot = std::move(pluginsSnapshot)] {
     // Refresh the browsable catalog (throttled) so newly published plugins and update
     // badges appear on open, then list against the fetched revision.
     manager->fetchStaleCatalogs(pluginsSnapshot);
     auto plugins = manager->list(pluginsSnapshot, scripting::CatalogAccess::Network);
-    DeferredCall::callLater([this, generation, plugins = std::move(plugins)]() mutable {
+    DeferredCall::callLater([this, generation, plugins = std::move(plugins)] mutable {
       m_pluginListRefreshInFlight = false;
       if (generation != m_pluginListRefreshGeneration) {
         refreshPluginListIfNeeded();
@@ -1100,7 +1099,13 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  const auto requestRebuild = [this]() {
+  if (const InputArea* focused = m_inputDispatcher.focusedArea(); focused != nullptr && focused->capturesAllKeys()) {
+    m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+    requestSceneInvalidation(m_sceneRoot.get(), m_surface.get());
+    return;
+  }
+
+  const auto requestRebuild = [this] {
     if (m_surface != nullptr) {
       m_rebuildRequested = true;
       m_surface->requestLayout();

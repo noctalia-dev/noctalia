@@ -8,6 +8,7 @@
 #include "util/string_utils.h"
 #include "wayland/wayland_toplevels.h"
 
+#include <algorithm>
 #include <unordered_map>
 
 namespace {
@@ -62,12 +63,9 @@ namespace shell::dock {
     bool
     alreadyListsResolvedEntry(const std::vector<DesktopEntry>& entries, const app_identity::ResolvedRunningApp& run) {
       const std::string resolvedIdLower = StringUtils::toLower(run.entry.id);
-      for (const auto& entry : entries) {
-        if (StringUtils::toLower(entry.id) == resolvedIdLower) {
-          return true;
-        }
-      }
-      return false;
+      return std::ranges::any_of(entries, [&](const auto& entry) {
+        return StringUtils::toLower(entry.id) == resolvedIdLower;
+      });
     }
 
   } // namespace
@@ -130,8 +128,17 @@ namespace shell::dock {
       }
 
       dockItem.active = !snapshot.activeAppIdLower.empty() && snapshot.activeAppIdLower == dockItem.idLower;
-      if (deps.config.showDots || deps.config.showInstanceCount) {
-        dockItem.instanceCount = windowsForDockItem(deps.platform, dockItem, snapshot.filterOutput).size();
+      const auto windows = windowsForDockItem(deps.platform, dockItem, snapshot.filterOutput);
+      dockItem.running = dockItem.running || !windows.empty();
+      dockItem.instanceCount = windows.size();
+      for (const auto& window : windows) {
+        if (window.minimizeState.has_value() && window.minimizeState->minimized) {
+          ++dockItem.minimizedCount;
+        }
+      }
+      dockItem.allMinimized = !windows.empty() && dockItem.minimizedCount == windows.size();
+      if (dockItem.allMinimized) {
+        dockItem.active = false;
       }
       snapshot.items.push_back(std::move(dockItem));
     }

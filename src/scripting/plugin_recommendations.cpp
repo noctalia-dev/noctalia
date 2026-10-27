@@ -313,7 +313,8 @@ namespace scripting {
     });
   }
 
-  void PluginRecommendations::setRecommended(const PluginSourceConfig& source, std::string id, bool recommended) {
+  void
+  PluginRecommendations::setRecommended(const PluginSourceConfig& source, const std::string& id, bool recommended) {
     const auto key = pluginKey(source, id);
     if (!key.has_value() || m_config.config().shell.offlineMode || !loadState()) {
       return;

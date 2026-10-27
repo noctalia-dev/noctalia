@@ -1431,10 +1431,6 @@
         "horizontal": "가로",
         "vertical": "세로"
       },
-      "panel-bar-alignment": {
-        "centered": "중앙",
-        "near-trigger": "트리거 근처"
-      },
       "panel-position": {
         "auto": "바 따르기"
       },
@@ -1535,7 +1531,7 @@
         },
         "open-near-click": {
           "description": "바 위젯을 클릭하여 패널이 배치되는 위치",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "placement": {
           "description": "패널을 바에 연결하거나 바 가장자리 근처에 플로팅으로 설정",
@@ -1716,7 +1712,7 @@
           "label": "셸 테마 모드"
         },
         "theme-mode": {
-          "description": "시간에 따라 어두움, 밝음 또는 자동 선택",
+          "description": "시간에 따라 어둡게, 밝게 또는 자동으로 설정하세요. 템플릿을 통한 앱에서도 적용됩니다.",
           "label": "테마 모드"
         },
         "ui-scale": {
@@ -2471,23 +2467,23 @@
         },
         "open-near-click-clipboard": {
           "description": "클립보드 패널을 연 바 위젯 근처에 클립보드 패널을 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "open-near-click-control-center": {
           "description": "제어 센터를 연 바 위젯 근처에 제어 센터를 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "open-near-click-launcher": {
           "description": "런처를 연 바 위젯 근처에 런처를 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "open-near-click-session": {
           "description": "세션 패널을 연 바 위젯 근처에 세션 패널을 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "open-near-click-wallpaper": {
           "description": "배경 화면 선택기를 연 바 위젯 근처에 배경 화면 선택기를 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
-          "label": "바를 따라"
+          "label": "클릭한 위젯 근처에서 열기"
         },
         "panel-anchor-bar": {
           "description": "단축키 또는 독에서 열릴 때 패널이 연결될 바. 비워 두면 패널을 연 위젯을 따릅니다",

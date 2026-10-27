@@ -536,6 +536,8 @@ hook_async  = false
 
 When several entries share the same `input_path` but write to different client config roots (for example Discord forks or VS Code vs VSCodium), the engine infers each output's client root and skips outputs whose root is missing. Single-app templates (one entry per input) still create missing directories as before.
 
+`gtk_extension` (`"gtk3"` or `"gtk4"`) is for community templates only. It marks the entry as app-scoped CSS for a GTK app: Noctalia renders it to `noctalia-extensions/<template>.<entry>.css` in the matching `gtk-3.0`/`gtk-4.0` config directory and lists it in `noctalia-extensions.css`, which the built-in GTK template's `noctalia.css` imports. The entry is skipped while that built-in GTK template is disabled, and an extension may not set `output_path`, `output_path_dynamic`, hooks, `post_action`, or `requires_path`. Disabling the template removes its import and file on the next application.
+
 ### Closest Color
 
 `compare_to` and `colors_to_compare` can be used to compute `closest_color`.

@@ -51,7 +51,6 @@
       "move-toolbar": "Trascina per spostare la barra degli strumenti",
       "redo": "Ripeti (Ctrl+Maiusc+Z)",
       "save": "Salva l'immagine annotata (Ctrl+S)",
-      "size-advanced": "Regolazione fine delle dimensioni",
       "size-decrease": "Più sottile ([)",
       "size-increase": "Più spesso (])",
       "size-large": "Grande",
@@ -1571,10 +1570,6 @@
       "orientation": {
         "horizontal": "Orizzontale",
         "vertical": "Verticale"
-      },
-      "panel-bar-alignment": {
-        "centered": "Centrato",
-        "near-trigger": "Vicino al click"
       },
       "panel-position": {
         "auto": "Segui la barra"

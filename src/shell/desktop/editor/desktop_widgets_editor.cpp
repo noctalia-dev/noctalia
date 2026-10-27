@@ -342,7 +342,7 @@ void DesktopWidgetsEditor::handleWidgetPress(const std::string& id) {
   }
 
   if (selectionChanged) {
-    DeferredCall::callLater([this]() { requestLayout(); });
+    DeferredCall::callLater([this] { requestLayout(); });
   }
   startDrag(DragMode::Move, id, false);
 }
@@ -688,7 +688,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   }
 
   auto dim = ui::box({
-      .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.14F),
+      .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.14F),
   });
   dim->setPosition(0.0F, 0.0F);
   dim->setFrameSize(root->width(), root->height());
@@ -742,7 +742,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       const int idx = std::abs(static_cast<int>(std::lround((x - centerX) / cell)));
       const bool major = (idx % majorInterval) == 0;
       auto line = ui::box({
-          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::Outline, major ? 0.18F : 0.08F),
+          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::OutlineVariant, major ? 0.18F : 0.08F),
       });
       line->setPosition(x, 0.0F);
       line->setFrameSize(1.0F, height);
@@ -754,7 +754,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       const int idx = std::abs(static_cast<int>(std::lround((y - centerY) / cell)));
       const bool major = (idx % majorInterval) == 0;
       auto line = ui::box({
-          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::Outline, major ? 0.18F : 0.08F),
+          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::OutlineVariant, major ? 0.18F : 0.08F),
       });
       line->setPosition(0.0F, y);
       line->setFrameSize(width, 1.0F);
@@ -809,22 +809,22 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     }
     widget->setAnimationManager(&surface.animations);
     auto* surfacePtr = &surface;
-    widget->setUpdateCallback([surfacePtr]() {
+    widget->setUpdateCallback([surfacePtr] {
       if (surfacePtr->surface != nullptr) {
         surfacePtr->surface->requestUpdateOnly();
       }
     });
-    widget->setLayoutCallback([surfacePtr]() {
+    widget->setLayoutCallback([surfacePtr] {
       if (surfacePtr->surface != nullptr) {
         surfacePtr->surface->requestUpdate();
       }
     });
-    widget->setRedrawCallback([surfacePtr]() {
+    widget->setRedrawCallback([surfacePtr] {
       if (surfacePtr->surface != nullptr) {
         surfacePtr->surface->requestRedraw();
       }
     });
-    widget->setFrameTickRequestCallback([surfacePtr]() {
+    widget->setFrameTickRequestCallback([surfacePtr] {
       if (surfacePtr->surface != nullptr) {
         surfacePtr->surface->requestFrameTick();
       }
@@ -1119,7 +1119,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           [](Flex& flex) {
                             flex.setPadding(Style::spaceSm, Style::spaceMd);
                             flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
-                            flex.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+                            flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
                             flex.setRadius(Style::scaledRadiusXl());
                             flex.setZIndex(200);
                           },
@@ -1131,7 +1131,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .gap = Style::spaceXs,
                           .paddingV = Style::spaceXs,
                           .paddingH = Style::spaceSm,
-                          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.85F),
+                          .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
                           .radius = Style::scaledRadiusLg(),
                           .minHeight = Style::controlHeightSm,
                       },
@@ -1164,8 +1164,8 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                       .variant = ButtonVariant::Primary,
                       .tooltip = i18n::tr("desktop-widgets.editor.actions.add"),
                       .onClick =
-                          [this, outputName = surface.outputName]() {
-                            deferEditorMutation([this, outputName]() { addWidget(outputName, m_addWidgetType); });
+                          [this, outputName = surface.outputName] {
+                            deferEditorMutation([this, outputName] { addWidget(outputName, m_addWidgetType); });
                           },
                   }),
                   ui::button({
@@ -1173,21 +1173,21 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                       .enabled = canCloneSelected,
                       .variant = ButtonVariant::Default,
                       .tooltip = i18n::tr("desktop-widgets.editor.actions.clone"),
-                      .onClick = [this]() { deferEditorMutation([this]() { cloneSelectedWidgets(); }); },
+                      .onClick = [this] { deferEditorMutation([this] { cloneSelectedWidgets(); }); },
                   }),
                   ui::button({
                       .glyph = "stack-back",
                       .enabled = canSendSelectedToBack,
                       .variant = ButtonVariant::Default,
                       .tooltip = i18n::tr("desktop-widgets.editor.actions.stack-back"),
-                      .onClick = [this]() { deferEditorMutation([this]() { sendSelectedWidgetToBack(); }); },
+                      .onClick = [this] { deferEditorMutation([this] { sendSelectedWidgetToBack(); }); },
                   }),
                   ui::button({
                       .glyph = "stack-front",
                       .enabled = canBringSelectedToFront,
                       .variant = ButtonVariant::Default,
                       .tooltip = i18n::tr("desktop-widgets.editor.actions.stack-front"),
-                      .onClick = [this]() { deferEditorMutation([this]() { bringSelectedWidgetToFront(); }); },
+                      .onClick = [this] { deferEditorMutation([this] { bringSelectedWidgetToFront(); }); },
                   }),
                   ui::button({
                       .glyph = "flip-vertical",
@@ -1195,7 +1195,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                       .selected = selectedFlipX,
                       .variant = ButtonVariant::Default,
                       .tooltip = i18n::tr("desktop-widgets.editor.actions.flip-horizontal"),
-                      .onClick = [this]() { deferEditorMutation([this]() { flipSelectedWidgetHorizontal(); }); },
+                      .onClick = [this] { deferEditorMutation([this] { flipSelectedWidgetHorizontal(); }); },
                   }),
                   ui::button({
                       .glyph = "flip-horizontal",
@@ -1203,7 +1203,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                       .selected = selectedFlipY,
                       .variant = ButtonVariant::Default,
                       .tooltip = i18n::tr("desktop-widgets.editor.actions.flip-vertical"),
-                      .onClick = [this]() { deferEditorMutation([this]() { flipSelectedWidgetVertical(); }); },
+                      .onClick = [this] { deferEditorMutation([this] { flipSelectedWidgetVertical(); }); },
                   }),
                   ui::button(
                       {
@@ -1213,15 +1213,15 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .variant = ButtonVariant::Default,
                           .tooltip = i18n::tr("desktop-widgets.editor.actions.settings"),
                           .onClick =
-                              [this]() {
-                                deferEditorMutation([this]() {
+                              [this] {
+                                deferEditorMutation([this] {
                                   m_inspectorOpen = !m_inspectorOpen;
                                   requestLayout();
                                 });
                               },
                       }
                   ),
-                  [&]() -> std::unique_ptr<Node> {
+                  [&] -> std::unique_ptr<Node> {
                     bool canToggleVisibility = hasSelectedWidget;
                     if (hasSelectedWidget
                         && lockscreen_login_box::isLoginBoxWidget(*selectedWidgetIt)
@@ -1243,7 +1243,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                         .variant = ButtonVariant::Default,
                         .tooltip = selectedWidgetEnabled ? i18n::tr("desktop-widgets.editor.actions.hide")
                                                          : i18n::tr("desktop-widgets.editor.actions.show"),
-                        .onClick = [this]() { deferEditorMutation([this]() { toggleSelectedWidgetEnabled(); }); },
+                        .onClick = [this] { deferEditorMutation([this] { toggleSelectedWidgetEnabled(); }); },
                     });
                   }(),
                   ui::button(
@@ -1252,7 +1252,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .enabled = hasSelectedWidget && !selectedIsLoginBox,
                           .variant = ButtonVariant::Destructive,
                           .tooltip = i18n::tr("desktop-widgets.editor.actions.trash"),
-                          .onClick = [this]() { deferEditorMutation([this]() { removeSelectedWidget(); }); },
+                          .onClick = [this] { deferEditorMutation([this] { removeSelectedWidget(); }); },
                       }
                   ),
                   ui::separator(
@@ -1269,8 +1269,8 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .selected = m_snapshot.grid.visible,
                           .variant = ButtonVariant::Default,
                           .onClick =
-                              [this]() {
-                                deferEditorMutation([this]() {
+                              [this] {
+                                deferEditorMutation([this] {
                                   m_snapshot.grid.visible = !m_snapshot.grid.visible;
                                   requestLayout();
                                 });
@@ -1284,7 +1284,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .controlHeight = Style::controlHeightSm,
                           .onSelectionChanged =
                               [this](std::size_t /*index*/, std::string_view text) {
-                                deferEditorMutation([this, value = std::string(text)]() {
+                                deferEditorMutation([this, value = std::string(text)] {
                                   try {
                                     m_snapshot.grid.cellSize = std::stoi(value);
                                     requestLayout();
@@ -1298,7 +1298,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                       .text = i18n::tr("desktop-widgets.editor.actions.done"),
                       .controlHeight = Style::controlHeightSm,
                       .variant = ButtonVariant::Secondary,
-                      .onClick = [this]() { requestExit(); },
+                      .onClick = [this] { requestExit(); },
                   })
               );
 
@@ -1375,10 +1375,8 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
       return;
     }
   }
-  if (!selectedIsLoginBox) {
-    if (surface.rotationRing == nullptr || surface.rotateArea == nullptr) {
-      return;
-    }
+  if (!selectedIsLoginBox && (surface.rotationRing == nullptr || surface.rotateArea == nullptr)) {
+    return;
   }
 
   const float width = selectedIt->second.intrinsicWidth;
@@ -1587,7 +1585,7 @@ void DesktopWidgetsEditor::addWidget(const std::string& outputName, const std::s
     options.title = i18n::tr("desktop-widgets.editor.dialogs.select-sticker-image");
     options.extensions = DirectoryScanner::imageExtensionFilter(true);
     if (!FileDialog::open(std::move(options), [this, widgetId](std::optional<std::filesystem::path> result) {
-          deferEditorMutation([this, widgetId, result = std::move(result)]() {
+          deferEditorMutation([this, widgetId, result = std::move(result)] {
             auto* state = findWidgetState(widgetId);
             if (state == nullptr) {
               return;
@@ -1885,7 +1883,7 @@ void DesktopWidgetsEditor::clampInspectorPosition(
 // buildInspector and applySettingChange are in desktop_widgets_editor_settings.cpp
 
 void DesktopWidgetsEditor::deferEditorMutation(std::function<void()> action) {
-  DeferredCall::callLater([this, action = std::move(action)]() mutable {
+  DeferredCall::callLater([this, action = std::move(action)] mutable {
     if (m_open) {
       action();
     }
@@ -1896,7 +1894,7 @@ void DesktopWidgetsEditor::requestExit() {
   if (!m_exitRequestedCallback) {
     return;
   }
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     if (m_open && m_exitRequestedCallback) {
       m_exitRequestedCallback();
     }
@@ -2392,7 +2390,7 @@ void DesktopWidgetsEditor::finishDrag() {
   const DragMode mode = m_drag.mode;
   const std::string widgetId = m_drag.widgetId;
   const bool rebuildOnFinish = m_drag.rebuildOnFinish;
-  const auto groupIds = [&]() {
+  const auto groupIds = [&] {
     std::vector<std::string> ids;
     ids.reserve(m_drag.groupInitialStates.size());
     for (const auto& [id, initial] : m_drag.groupInitialStates) {
@@ -2713,7 +2711,7 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
       && path != surface.wallpaperPreviewFailedPath) {
     OverlaySurface* surfacePtr = &surface;
     surface.wallpaperPreviewPendingLease = m_textureCache->acquire(
-        SharedTextureRequest{.path = path, .coverage = coverage}, &m_renderContext->backend(), [surfacePtr]() {
+        SharedTextureRequest{.path = path, .coverage = coverage}, &m_renderContext->backend(), [surfacePtr] {
           if (surfacePtr->surface != nullptr) {
             surfacePtr->surface->requestUpdate();
           }

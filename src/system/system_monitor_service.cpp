@@ -113,10 +113,6 @@ namespace {
     return reading.totalBytes > 0 && reading.usedBytes <= reading.totalBytes;
   }
 
-  // Per-core CPU sampling cadence. Fixed rather than configurable: it is opt-in via
-  // retainCpuCores(), and its only consumers want per-second resolution.
-  constexpr std::chrono::steady_clock::duration kCpuCoreInterval = std::chrono::seconds(1);
-
   // 0 disables a metric; any other value is clamped to the supported poll range.
   [[nodiscard]] float clampPollSeconds(float seconds) noexcept {
     if (seconds <= 0.0F) {
@@ -1199,7 +1195,7 @@ void SystemMonitorService::start() {
   m_running = true;
   m_prevNetBytes.clear();
   try {
-    m_thread = std::thread([this]() { samplingLoop(); });
+    m_thread = std::thread([this] { samplingLoop(); });
   } catch (...) {
     m_running = false;
     throw;
@@ -1569,7 +1565,7 @@ void SystemMonitorService::samplingLoop() {
     considerWake(historyEnabled, nextHistory);
 
     std::unique_lock wakeLock{m_wakeMutex};
-    m_wakeCv.wait_until(wakeLock, nextWake, [this, wakeGeneration]() {
+    m_wakeCv.wait_until(wakeLock, nextWake, [this, wakeGeneration] {
       return !m_running.load() || m_wakeGeneration.load() != wakeGeneration;
     });
   }

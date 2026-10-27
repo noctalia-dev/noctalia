@@ -67,7 +67,7 @@ public:
   void setSubmitOnEnter(bool enabled);
   void setEnabled(bool enabled);
   void setSurfaceOpacity(float opacity);
-  /// Unfocused frame fill. Fields on a SurfaceVariant card use Surface so they stand out; focus always fills with
+  /// Unfocused frame fill. Fields on a SurfaceContainer card use Surface so they stand out; focus always fills with
   /// Surface.
   void setSurfaceRole(ColorRole role);
   void setFrameRadius(float radius);
@@ -79,6 +79,7 @@ public:
 
   // Set once at application startup; all Input instances use this for Ctrl+C/X/V.
   static void setTextClipboard(TextClipboard* clipboard) noexcept;
+  [[nodiscard]] static TextClipboard* textClipboard() noexcept;
   /// Submit invokes onSubmit only when this matcher returns true (Application wires ConfigService validate keybinds).
   static void setValidateKeyMatcher(std::function<bool(std::uint32_t sym, std::uint32_t modifiers)> matcher) noexcept;
   static void setPasswordMaskStyle(PasswordMaskStyle style) noexcept;
@@ -158,6 +159,10 @@ private:
   void restoreEditSnapshot(const EditSnapshot& snapshot);
   [[nodiscard]] std::size_t xToByteOffset(float localX) const;
   [[nodiscard]] float stopXForByte(std::size_t bytePos) const;
+  [[nodiscard]] std::size_t visuallyAdjacentByte(std::size_t bytePos, bool left, bool wordStart) const;
+  [[nodiscard]] bool valueLaidOutRtl() const noexcept;
+  [[nodiscard]] bool labelSlicingEnabled() const noexcept;
+  [[nodiscard]] float restingScrollOffset() const;
   void syncPasswordGlyphNodes(std::size_t count);
   void animatePasswordGlyphIn(GlyphNode& glyph);
 
@@ -213,12 +218,20 @@ private:
   std::vector<float> m_stopX;
   std::vector<std::size_t> m_stopByte;
   std::vector<TextCursorStop> m_stopRect;
+  // Single-line text only: false when bidi reordering puts some cursor stops out of byte order (any
+  // right-to-left run). Multiline and masked text keep it true.
+  bool m_stopsInLogicalOrder = true;
+  // Per-character screen extents (parallel to m_stopByte minus the last stop), measured only for
+  // single-line text whose stops are out of byte order.
+  std::vector<TextCharSpan> m_charSpans;
   float m_stopsBuiltForWidth = -1.0F;
   bool m_textMetricsDirty = true;
   float m_cachedLabelY = 0.0F;
   std::string m_labelVisibleSlice;
   std::size_t m_labelVisibleStartByte = 0;
   float m_labelSliceOriginX = 0.0F;
+  // Multiline: x of the wrapped label, so its lines land on the cursor stops.
+  float m_multilineLabelX = 0.0F;
   std::vector<GlyphNode*> m_passwordGlyphs;
   std::vector<RectNode*> m_selectionLineRects;
   float m_scrollOffset = 0.0F;
@@ -245,7 +258,7 @@ private:
   bool m_invalid = false;
   bool m_frameVisible = true;
   bool m_embeddedOnSolidPrimary = false;
-  ColorRole m_surfaceRole = ColorRole::SurfaceVariant;
+  ColorRole m_surfaceRole = ColorRole::SurfaceContainer;
   float m_surfaceOpacity = 1.0F;
   float m_frameRadius = Style::radiusMd;
   bool m_enabled = true;

@@ -84,6 +84,8 @@ struct BarInstance {
   float lastPointerSx = 0.0F;
   float lastPointerSy = 0.0F;
   std::size_t attachedPopupCount = 0;
+  // Last region sent for dead_zone.click_through; skips resending an unchanged region every layout pass.
+  std::optional<std::vector<InputRect>> clickThroughInputRegion;
 
   // Bar background, shadow, and layout sections (start/center/end along main axis)
   Box* bg = nullptr;

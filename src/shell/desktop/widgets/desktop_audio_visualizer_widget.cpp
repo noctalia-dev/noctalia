@@ -208,7 +208,7 @@ void DesktopAudioVisualizerWidget::subscribeSpectrum() {
   if (m_listenerId != 0) {
     m_spectrum->removeChangeListener(m_listenerId);
   }
-  m_listenerId = m_spectrum->addChangeListener(m_wave ? kAudioSpectrumWaveBands : m_bands, [this]() {
+  m_listenerId = m_spectrum->addChangeListener(m_wave ? kAudioSpectrumWaveBands : m_bands, [this] {
     m_pendingSpectrumUpdate = true;
     requestFrameTick();
   });
@@ -322,7 +322,7 @@ void DesktopAudioVisualizerWidget::startOpacityAnimation(float targetOpacity, bo
           root()->setOpacity(opacity);
         }
       },
-      [this, collapseOnComplete]() {
+      [this, collapseOnComplete] {
         m_visibilityAnimId = 0;
         if (!collapseOnComplete) {
           return;

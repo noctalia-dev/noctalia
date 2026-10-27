@@ -41,15 +41,16 @@
       "copy": "注釈付きの画像をコピーする（Ctrl+C）",
       "cursor": "ポインターが写っている画面を映す（p）",
       "cursor-capture-failed": "ポインターの切替を利用できません。コンポジターからポインターの画像を個別に取得できませんでした",
-      "cursor-live": "撮影するポインターを変更するには、先に画面を固定してください（F）",
+      "cursor-live": "撮影するポインターを変更するには、先に画面を固定してください（Z）",
       "cursor-not-captured": "ポインターの切替を利用できません。このコンポジターはポインターの個別撮影に対応していません",
       "done": "スクリーンショットの設定を適用（Enter）",
-      "fill-off": "図形の塗りつぶし：オフ",
-      "freeze": "描画の下にある画面を固定（f）",
+      "fill-off": "図形の塗りつぶし：オフ（f）",
+      "fill-opaque": "図形の塗りつぶし：不透明（f）",
+      "fill-semi": "図形の塗りつぶし：半透明（f）",
+      "freeze": "描画の下にある画面を固定（z）",
       "move-toolbar": "ドラッグしてツールバーを移動",
       "redo": "やり直す（Ctrl+Shift+Z）",
       "save": "注釈付き画像を保存（Ctrl+S）",
-      "size-advanced": "サイズを細かく調整",
       "size-decrease": "細くする（[）",
       "size-increase": "太くする（]）",
       "size-large": "大",
@@ -888,6 +889,8 @@
       "lockscreen-widgets-editor-blocked-locked": "ロック画面ウィジェットを編集する前にセッションのロックを解除してください。",
       "lockscreen-widgets-editor-enabled": "ロック画面ウィジェット編集が有効です。開いているウィンドウで編集画面が隠れないよう、空のワークスペースに切り替えてください。",
       "mpris-disabled": "MPRISは無効です",
+      "network-connect-failed-auth": "パスワードが拒否されたか、入力されていません。",
+      "network-connect-failed-no-reply": "NetworkManagerが応答しませんでした。応答するpolkitエージェントがないまま、認証要求が待機しているの可能性があります。",
       "network-connect-failed-permission": "ネットワーク接続を変更する権限がありません。セキュリティ設定でpolkitエージェントを有効化するか、polkitのルールでNetworkManagerの操作を許可してください。",
       "polkit-agent": "Polkitエージェント",
       "polkit-no-session": "Polkitエージェントにはlogind、elogind、またはXDG_SESSION_IDが必要です。seatdのみの環境では、画面上の認証要求を受け付けることができません。グリーターの同期にはターミナルからpkexecを使用するか、セッション内認証を利用するためにelogindをインストールしてください。",
@@ -1319,10 +1322,6 @@
           "wipe": "ワイプ",
           "zoom": "ズーム"
         }
-      },
-      "panel-bar-alignment": {
-        "centered": "中央",
-        "near-trigger": "トリガー付近"
       },
       "panel-position": {
         "auto": "バーに追従"
@@ -2471,7 +2470,7 @@
           "description-migration": "平文のカレンダー予定キャッシュは暗号化待ちです。移行が成功するまで保持されます",
           "description-missing-key": "カレンダー予定キャッシュの暗号化鍵がありません。アカウントの認証情報は別の保存領域を使用します（既存のキャッシュファイルは保持されています）",
           "description-opening": "暗号化されたカレンダー予定キャッシュを開いています",
-          "description-recovery": "カレンダー予定のキャッシュの認証に失敗したか、破損しています。正しい鍵を復元してからもう一度お試しいただくか、非公開保存領域をリセットしてください",
+          "description-recovery": "カレンダー予定のキャッシュの認証に失敗したか、破損しています。正しい鍵を復元してからもう一度試すか、プライベートストレージをリセットしてください",
           "description-unavailable": "利用可能なSecret Serviceプロバイダーがありません。カレンダーの予定はこのセッション中のみ利用できます",
           "label": "カレンダー予定の保存先"
         },
@@ -3562,7 +3561,7 @@
           "description": "天気情報のテキストを表示する"
         },
         "show-unlock-hint": {
-          "description": "ロック解除のヒントや認証要求を表示する状態カードをログイン欄の上に表示します。無効にしても、エラーとCaps Lock警告は引き続き表示されます。"
+          "description": "ロック解除のヒントや認証要求を表示するステータスカードをログイン欄の上に表示します。無効にしても、エラーとCaps Lock警告は引き続き表示されます。"
         },
         "show-vpn-label": {
           "description": "Replaceモードではネットワーク名をVPN名に置き換え、BothモードではVPNアイコンの横にVPN名を表示します"

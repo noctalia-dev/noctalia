@@ -28,6 +28,7 @@
   },
   "bar": {
     "annotate": {
+      "color-black": "Fekete",
       "color-blue": "Kék",
       "color-green": "Zöld",
       "color-orange": "Narancssárga",
@@ -187,7 +188,8 @@
       "auto": "Automatikus",
       "custom": "Egyéni",
       "inherit": "Örököl",
-      "off": "Ki"
+      "off": "Ki",
+      "on": "Be"
     }
   },
   "control-center": {
@@ -1344,10 +1346,6 @@
         "horizontal": "Vízszintes",
         "vertical": "Függőleges"
       },
-      "panel-bar-alignment": {
-        "centered": "Középre igazítva",
-        "near-trigger": "Kattintásnál"
-      },
       "panel-position": {
         "auto": "Sáv követése"
       },
@@ -2437,7 +2435,7 @@
         "calendar-credentials": {
           "button": "Újrapróbál",
           "description-cancelled": "A Secret Service kérése meg lett szakítva. Próbáld újra",
-          "description-error": "A naptárhoz tartozó hitelesítő-adatokhoz nem sikerült hozzáférni a Secret Service-en keresztül.",
+          "description-error": "A naptárhoz tartozó hitelesítőadatokhoz nem sikerült hozzáférni a Secret Service-en keresztül.",
           "description-locked": "A naptár hitelesítő-adatai zárolva vannak, vagy a hozzáférés megtagadásra került. Oldd fel a Secret Service zárolását, majd próbáld meg újra.",
           "description-migration": "A naptár hitelesítő-adatai egyszerű szöveges formátumban várnak átvitelre a Secret Service-be. Ezeket nincsenek használva a naptár szinkronizálásához.",
           "description-opening": "A naptárhoz tartozó hozzáférési-adatok a Secret Service-en keresztül válnak hozzáférhetővé.",

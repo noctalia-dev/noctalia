@@ -76,7 +76,7 @@ namespace scripting::plugin_git {
       options.env.insert(options.env.end(), extraEnv.begin(), extraEnv.end());
 
       const auto start = std::chrono::steady_clock::now();
-      const auto r = process::runSync(args, std::move(options));
+      const auto r = process::runSync(args, options);
       const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
       if (ms >= kSlowGitMs) {
         kLog.info("{} took {:.0F}ms (exit {})", desc, ms, r.exitCode);

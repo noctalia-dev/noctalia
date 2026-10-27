@@ -41,7 +41,6 @@
       "cursor-capture-failed": "Impossible d'afficher le curseur: le compositeur n'a pas fourni d'image séparée pour le curseur",
       "redo": "Annuler (Ctrl+Shift+Z)",
       "save": "Enregistrer l’image annotée (Ctrl+S)",
-      "size-advanced": "Régler l’épaisseur précisément ",
       "size-decrease": "Plus fin ([)",
       "size-increase": "Plus épais (])",
       "size-large": "Grand",
@@ -1444,9 +1443,6 @@
       "orientation": {
         "horizontal": "Horizontal",
         "vertical": "Vertical"
-      },
-      "panel-bar-alignment": {
-        "centered": "Centré"
       },
       "panel-position": {
         "auto": "Suivre la Bar"

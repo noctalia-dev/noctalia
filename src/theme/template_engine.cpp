@@ -1018,7 +1018,9 @@ namespace noctalia::theme {
             return joinLower(formatColor(color, formatType), "-");
           if (name == "to_color") {
             continue;
-          } else if (kColorArgFilters.contains(name)) {
+          }
+
+          if (kColorArgFilters.contains(name)) {
             try {
               color = applyColorArgFilter(color, name, arg);
             } catch (...) {
@@ -1054,7 +1056,7 @@ namespace noctalia::theme {
         std::string toneStr = match[2].str();
         const std::string formatType = match[3].str();
 
-        if (toneStr.starts_with("_"))
+        if (toneStr.starts_with('_'))
           toneStr = toneStr.substr(1);
 
         const auto mapped = paletteColorMap.find(family);
@@ -1101,7 +1103,9 @@ namespace noctalia::theme {
             return joinLower(formatColor(color, formatType), "-");
           if (name == "to_color") {
             continue;
-          } else if (kColorArgFilters.contains(name)) {
+          }
+
+          if (kColorArgFilters.contains(name)) {
             try {
               color = applyColorArgFilter(color, name, arg);
             } catch (...) {
@@ -1470,7 +1474,7 @@ namespace noctalia::theme {
   } // namespace
 
   bool TemplateEngine::processConfigFile(const std::filesystem::path& configPath) {
-    auto cancelRequested = [this]() { return m_options.cancelRequested && m_options.cancelRequested(); };
+    auto cancelRequested = [this] { return m_options.cancelRequested && m_options.cancelRequested(); };
     if (cancelRequested()) {
       return true;
     }
@@ -1569,7 +1573,7 @@ namespace noctalia::theme {
   }
 
   bool TemplateEngine::processConfigTemplates(const toml::table& root, const std::filesystem::path& configPath) {
-    auto cancelRequested = [this]() { return m_options.cancelRequested && m_options.cancelRequested(); };
+    auto cancelRequested = [this] { return m_options.cancelRequested && m_options.cancelRequested(); };
     if (cancelRequested()) {
       return true;
     }
@@ -1658,7 +1662,7 @@ namespace noctalia::theme {
 
         HookRunner::FailureCallback onFailure;
         if (renderOptions.hookWarningCallback) {
-          onFailure = [callback = renderOptions.hookWarningCallback, name = entry.name](std::string message) {
+          onFailure = [callback = renderOptions.hookWarningCallback, name = entry.name](const std::string& message) {
             const std::string diagnostic = StringUtils::trim(message);
             if (diagnostic.starts_with("Warning:")) {
               callback(std::format("{}: {}", name, diagnostic));
@@ -1686,7 +1690,7 @@ namespace noctalia::theme {
         }
       };
 
-      auto runPostAction = [&]() {
+      auto runPostAction = [&] {
         if (entry.postAction.empty()) {
           return true;
         }

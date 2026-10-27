@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/annotation_overlay.h"
+#include "capture/screenshot_backdrop.h"
 #include "capture/screenshot_capture.h"
 #include "capture/screenshot_region_overlay.h"
 #include "capture/toplevel_thumbnail_capture.h"
@@ -45,11 +46,14 @@ public:
     bool skipAnnotateOnCopySave = false;
     bool closeOnCopy = true;
     bool closeOnSave = true;
+    bool copyOnClose = false;
     std::string pipeCommand;
     std::string directory;
     std::string filenamePattern;
     ScreenshotFormat format = ScreenshotFormat::Png;
     std::int32_t quality = 90;
+    // Set from the annotation editor's backdrop panel; applied to the final image just before encoding.
+    std::optional<capture::ScreenshotBackdrop> backdrop;
 
     bool operator==(const OutputOptions&) const = default;
   };
@@ -184,8 +188,11 @@ private:
   );
   bool
   finishDelivery(ScreencopyImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath);
+  void applyEditorBackdrop(OutputOptions& options) const;
+  void persistScreenshotBackdrop(const capture::ScreenshotBackdropSettings& backdrop);
+  [[nodiscard]] capture::ScreenshotBackdropSettings loadScreenshotBackdrop() const;
   void onCaptureComplete(
-      std::optional<capture::ScreenshotImage> image, const std::string& error, OutputOptions options,
+      std::optional<capture::ScreenshotImage> image, const std::string& error, const OutputOptions& options,
       std::optional<std::filesystem::path> destPath
   );
   [[nodiscard]] wl_output* preferredCaptureOutput() const;

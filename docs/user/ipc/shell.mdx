@@ -11,16 +11,18 @@ These commands control shell state, logging, settings windows, the window switch
 
 ## General
 
-| Action               | Command                                                      | Description                                                                                                 |
-| -------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Print status         | <IpcCommand command="status" />                              | Print basic shell state as JSON.                                                                            |
-| Show log level       | <IpcCommand command="log-level-status" />                    | Print the current console log level.                                                                        |
-| Set log level        | <IpcCommand command="log-level-set debug" />                 | Set the console log level for the running session. Use `debug`, `info`, `warn`, or `error`.                 |
-| Reload config        | <IpcCommand command="config-reload" />                       | Reload the merged Noctalia config stack immediately.                                                        |
-| Open settings        | <IpcCommand command="settings-open [context]" />             | Open or focus the graphical settings window, optionally at a specific section (e.g. `bar`).                 |
-| Open plugin settings | <IpcCommand command="settings-open-plugin noctalia/notes" /> | Open the settings window at an installed plugin's settings. The plugin must be enabled and expose settings. |
-| Close settings       | <IpcCommand command="settings-close" />                      | Close the graphical settings window.                                                                        |
-| Toggle settings      | <IpcCommand command="settings-toggle [context]" />           | Open or close the graphical settings window, optionally at a specific section.                              |
+| Action               | Command                                                      | Description                                                                                                                                            |
+| -------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Print status         | <IpcCommand command="status" />                              | Print basic shell state as JSON.                                                                                                                       |
+| Show log level       | <IpcCommand command="log-level-status" />                    | Print the current console log level.                                                                                                                   |
+| Set log level        | <IpcCommand command="log-level-set debug" />                 | Set the console log level for the running session. Use `debug`, `info`, `warn`, or `error`.                                                            |
+| Reload config        | <IpcCommand command="config-reload" />                       | Reload the merged Noctalia config stack immediately.                                                                                                   |
+| Get config           | <IpcCommand command="config-get <path>" />                   | Print the effective value at a config path, including built-in defaults (e.g. `config-get shell.font_family`). Unknown paths return an error.          |
+| Set config           | <IpcCommand command="config-set <path> <value>" />           | Validate a TOML value and save it at a config path in `settings.toml`, then reload. Quote strings (e.g. `config-set shell.font_family "'Noto Sans'"`). |
+| Open settings        | <IpcCommand command="settings-open [context]" />             | Open or focus the graphical settings window, optionally at a specific section (e.g. `bar`).                                                            |
+| Open plugin settings | <IpcCommand command="settings-open-plugin noctalia/notes" /> | Open the settings window at an installed plugin's settings. The plugin must be enabled and expose settings.                                            |
+| Close settings       | <IpcCommand command="settings-close" />                      | Close the graphical settings window.                                                                                                                   |
+| Toggle settings      | <IpcCommand command="settings-toggle [context]" />           | Open or close the graphical settings window, optionally at a specific section.                                                                         |
 
 Set `NOCTALIA_LOG_LEVEL` to `debug`, `info`, `warn`, or `error` before startup to choose the initial console log level. The default is `info`; the file log remains unfiltered.
 
