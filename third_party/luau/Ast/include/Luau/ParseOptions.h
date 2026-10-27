@@ -19,7 +19,7 @@ enum class Mode
 
 struct FragmentParseResumeSettings
 {
-    DenseHashMap<AstName, AstLocal*> localMap{AstName()};
+    DenseHashMap<AstName, AstLocal*> localMap;
     std::vector<AstLocal*> localStack;
     Position resumePosition;
 };

@@ -967,6 +967,10 @@ void WaylandConnection::setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCal
   m_seatHandler.setLockKeysChangeCallback(std::move(callback));
 }
 
+void WaylandConnection::setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback) {
+  m_seatHandler.setKeyboardLayoutChangeCallback(std::move(callback));
+}
+
 void WaylandConnection::setClipboardService(ClipboardService* clipboardService) {
   m_clipboardService = clipboardService;
   bindClipboardService();
@@ -1009,6 +1013,8 @@ std::optional<ActiveToplevel> WaylandConnection::matchToplevelByTitleAndAppId(
 
 wl_output* WaylandConnection::activeToplevelOutput() const { return m_toplevelsHandler.currentOutput(); }
 
+bool WaylandConnection::hasFullscreenToplevel() const { return m_toplevelsHandler.anyFullscreen(); }
+
 std::vector<std::string> WaylandConnection::runningAppIds(wl_output* outputFilter) const {
   if (compositors::isKde() && m_extForeignToplevels.isBound() && !m_hasForeignToplevelManagerGlobal) {
     (void)outputFilter;
@@ -1047,12 +1053,24 @@ std::vector<ToplevelInfo> WaylandConnection::extWindowsWithoutAppId() const {
   return m_extForeignToplevels.isBound() ? m_extForeignToplevels.windowsWithoutAppId() : std::vector<ToplevelInfo>{};
 }
 
+ext_foreign_toplevel_handle_v1* WaylandConnection::extHandleForIdentifier(std::string_view identifier) const {
+  return m_extForeignToplevels.isBound() ? m_extForeignToplevels.extHandleForIdentifier(identifier) : nullptr;
+}
+
 bool WaylandConnection::containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const {
   return m_toplevelsHandler.containsWlrHandle(handle);
 }
 
 void WaylandConnection::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
   m_toplevelsHandler.activateHandle(handle, m_seat);
+}
+
+bool WaylandConnection::minimizeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
+  return m_toplevelsHandler.minimizeHandle(handle);
+}
+
+std::optional<bool> WaylandConnection::toplevelMinimized(zwlr_foreign_toplevel_handle_v1* handle) const {
+  return m_toplevelsHandler.minimized(handle);
 }
 
 void WaylandConnection::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
@@ -1146,18 +1164,6 @@ void WaylandConnection::activateSurface(wl_surface* surface) {
   }
 }
 
-void WaylandConnection::activateToplevelForAppId(std::string_view appId) {
-  if (!hasForeignToplevelManager() || appId.empty()) {
-    return;
-  }
-  const std::string idLower = StringUtils::toLower(std::string(appId));
-  const auto windows = windowsForApp(idLower, idLower);
-  if (windows.empty()) {
-    return;
-  }
-  activateToplevel(windows.back().handle);
-}
-
 wl_display* WaylandConnection::display() const noexcept { return m_display; }
 
 std::string WaylandConnection::describeDisplayError(int operationErrno) const {
@@ -1212,6 +1218,18 @@ ext_idle_notification_v1* WaylandConnection::createIdleNotification(std::uint32_
   }
 
   return ext_idle_notifier_v1_get_idle_notification(m_idleNotifier, timeoutMs, seat);
+}
+
+ext_idle_notification_v1* WaylandConnection::createInputIdleNotification(std::uint32_t timeoutMs) const {
+  wl_seat* const seat = this->seat();
+  if (m_idleNotifier == nullptr
+      || seat == nullptr
+      || ext_idle_notifier_v1_get_version(m_idleNotifier)
+          < EXT_IDLE_NOTIFIER_V1_GET_INPUT_IDLE_NOTIFICATION_SINCE_VERSION) {
+    return nullptr;
+  }
+
+  return ext_idle_notifier_v1_get_input_idle_notification(m_idleNotifier, timeoutMs, seat);
 }
 
 zwp_idle_inhibit_manager_v1* WaylandConnection::idleInhibitManager() const noexcept { return m_idleInhibitManager; }
@@ -1540,8 +1558,8 @@ void WaylandConnection::bindGlobal(
 
   if (interfaceName == ext_foreign_toplevel_list_v1_interface.name) {
     const auto compositor = compositors::detect();
-    // Niri needs the ext identifier for an exact join with its numeric IPC window id. Keep the
-    // wlr manager bound as well because other shell features still consume its richer state.
+    // ext handles carry the exact identifier joined with Niri/Umbriel IPC window ids and are the source for toplevel
+    // image capture. Keep the wlr manager bound as well because other shell features still consume its richer state.
     if (!wayland_protocol_policy::shouldBindExtForeignToplevelList(compositor)) {
       return;
     }

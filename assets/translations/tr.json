@@ -1386,10 +1386,6 @@
         "horizontal": "Yatay",
         "vertical": "Dikey"
       },
-      "panel-bar-alignment": {
-        "centered": "Ortalanmış",
-        "near-trigger": "Tetikleyiciye Yakın"
-      },
       "panel-position": {
         "auto": "Çubuğu Takip Et"
       },
@@ -2340,10 +2336,6 @@
           "description": "Sonuçlarda uygulamaların yanında uygulama eylem girdilerini de göster",
           "label": "Uygulama Eylemlerini Göster"
         },
-        "launcher-app-grid": {
-          "description": "Sonuçlar yalnızca uygulamalarken uygulamaları, altlarında etiketleri yer alan bir uygulama ikonu ızgarası olarak göster",
-          "label": "Uygulama Izgarası Görünümü"
-        },
         "launcher-auto-paste": {
           "description": "Hesap makinesi, emoji ve diğer kopyalama olaylarından sonra sonucu odaktaki pencereye yapıştır (panonun otomatik yapıştırma kısa yollarıyla aynı)",
           "label": "Otomatik Yapıştırma"
@@ -2379,6 +2371,10 @@
         "launcher-global-windows": {
           "description": "Pencereleri önek olmadan aramada göster",
           "label": "Global Aramada Pencereler"
+        },
+        "launcher-grid": {
+          "description": "Sonuçlar yalnızca uygulamalarken uygulamaları, altlarında etiketleri yer alan bir uygulama ikonu ızgarası olarak göster",
+          "label": "Uygulama Izgarası Görünümü"
         },
         "launcher-pinned-apps": {
           "description": "Başlat menüsüne sabitlenmiş uygulamaların masaüstü girdi ID'leri; başlat menüsü açıldığında ilk olarak onlar görünür",

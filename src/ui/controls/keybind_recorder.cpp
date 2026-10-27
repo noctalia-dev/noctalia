@@ -256,6 +256,7 @@ void KeybindRecorder::enterRecording() {
     return;
   }
   m_recording = true;
+  m_inputArea->setCapturesAllKeys(true);
   m_pendingModifiers = 0;
   applyVisualState(VisualState::Recording);
   refreshLabel();
@@ -266,6 +267,7 @@ void KeybindRecorder::exitRecording(bool /*commit*/) {
     return;
   }
   m_recording = false;
+  m_inputArea->setCapturesAllKeys(false);
   m_pendingModifiers = 0;
   applyVisualState(VisualState::Idle);
   refreshLabel();
@@ -304,8 +306,8 @@ void KeybindRecorder::refreshLabel() {
 void KeybindRecorder::applyVisualState(VisualState state) {
   m_visualState = state;
   if (!m_enabled) {
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.4F));
-    setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), Style::borderWidth);
+    setFill(colorSpecFromRole(ColorRole::SurfaceContainer, 0.4F));
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), Style::borderWidth);
     if (m_label != nullptr) {
       m_label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.55F));
     }
@@ -317,8 +319,8 @@ void KeybindRecorder::applyVisualState(VisualState state) {
 
   switch (state) {
   case VisualState::Idle:
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
-    setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+    setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
     if (m_label != nullptr) {
       const bool placeholder = !m_chord.has_value() || m_chord->sym == 0;
       m_label->setColor(
@@ -330,7 +332,7 @@ void KeybindRecorder::applyVisualState(VisualState state) {
     }
     break;
   case VisualState::Focused:
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
+    setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
     setBorder(focusRingColorSpec(), Style::focusRingWidth);
     if (m_label != nullptr) {
       const bool placeholder = !m_chord.has_value() || m_chord->sym == 0;
@@ -343,13 +345,13 @@ void KeybindRecorder::applyVisualState(VisualState state) {
     }
     break;
   case VisualState::Recording:
-    setFill(colorSpecFromRole(ColorRole::Primary, 0.12F));
+    setFill(colorSpecFromRole(ColorRole::PrimaryContainer));
     setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth);
     if (m_label != nullptr) {
-      m_label->setColor(colorSpecFromRole(ColorRole::Primary));
+      m_label->setColor(colorSpecFromRole(ColorRole::OnPrimaryContainer));
     }
     if (m_glyph != nullptr) {
-      m_glyph->setColor(colorSpecFromRole(ColorRole::Primary));
+      m_glyph->setColor(colorSpecFromRole(ColorRole::OnPrimaryContainer));
     }
     break;
   }

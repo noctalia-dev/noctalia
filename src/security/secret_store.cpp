@@ -329,7 +329,11 @@ namespace security {
       lookup(const SecretStoreAttributes& attributes, SecretStoreCancellation& cancellation) override {
         return withCancellable(cancellation, [&attributes](GCancellable* cancellable) {
           auto table = makeAttributes(attributes);
-          const auto loadUnlocked = [cancellable](
+          // KWallet's ksecretd answers GetSecret on a wallet it has not opened yet with an empty secret
+          // instead of an error, and counts each such request toward its "repeated failed attempts"
+          // warning. Stored secrets are never empty, so an empty one means the wallet must be opened.
+          bool emptySecretFound = false;
+          const auto loadUnlocked = [cancellable, &emptySecretFound](
                                         const SecretItemListPtr& items, bool& lockedItemFound
                                     ) -> std::optional<SecretStoreBackendResult> {
             for (GList* node = items.get(); node != nullptr; node = node->next) {
@@ -369,6 +373,11 @@ namespace security {
                     .errorCategory = SecretStoreErrorCategory::Protocol,
                 };
               }
+              if (length == 0) {
+                emptySecretFound = true;
+                lockedItemFound = true;
+                continue;
+              }
               const auto bytes = std::span(reinterpret_cast<const std::uint8_t*>(secret), length);
               return SecretStoreBackendResult{
                   .status = SecretStoreStatus::Success,
@@ -404,19 +413,22 @@ namespace security {
           if (auto result = loadUnlocked(items, lockedItemFound); result.has_value()) {
             return std::move(*result);
           }
-          if (!lockedItemFound) {
+          if (!lockedItemFound || emptySecretFound) {
             // No matching item surfaced. A locked default collection cannot be enumerated, so an
             // empty result there is indistinguishable from "absent" until it is unlocked. Unlock it
             // and retry; a reachable (unlocked or missing) collection is reported absent without a
-            // prompt.
-            const auto collectionState = inspectDefaultCollection(cancellable);
-            if (collectionState != SecretStoreCollectionState::Locked) {
-              SecretStoreBackendResult notFound{
-                  .status = SecretStoreStatus::NotFound,
-                  .errorCategory = SecretStoreErrorCategory::None,
-              };
-              notFound.defaultCollectionState = collectionState;
-              return notFound;
+            // prompt. An empty secret means the provider has not opened the wallet even though it
+            // may report it unlocked, so ask it to open the wallet regardless.
+            if (!emptySecretFound) {
+              const auto collectionState = inspectDefaultCollection(cancellable);
+              if (collectionState != SecretStoreCollectionState::Locked) {
+                SecretStoreBackendResult notFound{
+                    .status = SecretStoreStatus::NotFound,
+                    .errorCategory = SecretStoreErrorCategory::None,
+                };
+                notFound.defaultCollectionState = collectionState;
+                return notFound;
+              }
             }
 
             SecretStoreBackendResult unlockResult = unlockDefaultCollection(cancellable);
@@ -470,12 +482,13 @@ namespace security {
           const SecretStoreAttributes& attributes, std::span<const std::uint8_t> bytes, const std::string& label,
           SecretStoreCancellation& cancellation
       ) override {
-        if (bytes.size() > static_cast<std::size_t>(std::numeric_limits<gssize>::max())) {
+        // Empty secrets are refused: lookup treats an empty secret as an unopened KWallet wallet.
+        if (bytes.empty() || bytes.size() > static_cast<std::size_t>(std::numeric_limits<gssize>::max())) {
           return invalidRequestResult();
         }
         return withCancellable(cancellation, [&attributes, bytes, &label](GCancellable* cancellable) {
           auto table = makeAttributes(attributes);
-          const char* data = bytes.empty() ? "" : reinterpret_cast<const char*>(bytes.data());
+          const auto* data = reinterpret_cast<const char*>(bytes.data());
           SecretValuePtr value(
               secret_value_new(data, static_cast<gssize>(bytes.size()), "application/octet-stream"), &secret_value_unref
           );

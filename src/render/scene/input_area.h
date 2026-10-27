@@ -112,6 +112,11 @@ public:
   // Keyboard-capturing controls (e.g. keybind recorder) keep focus after a pointer release.
   void setRetainsFocusOnPointerRelease(bool retain);
   [[nodiscard]] bool retainsFocusOnPointerRelease() const noexcept { return m_retainsFocusOnPointerRelease; }
+  // While set, the focused area receives every key first, including chords hosts
+  // would otherwise intercept (Cancel, Tab): a recording keybind recorder must be
+  // able to record Escape.
+  void setCapturesAllKeys(bool capture) noexcept { m_capturesAllKeys = capture; }
+  [[nodiscard]] bool capturesAllKeys() const noexcept { return m_capturesAllKeys; }
 
   // Configuration
   void setCursorShape(std::uint32_t shape);
@@ -245,6 +250,7 @@ private:
   bool m_focused = false;
   TextInputClient* m_textInputClient = nullptr;
   bool m_retainsFocusOnPointerRelease = false;
+  bool m_capturesAllKeys = false;
 
   TooltipContent m_tooltipContent;
   TooltipProvider m_tooltipProvider;

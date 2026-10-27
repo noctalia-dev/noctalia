@@ -45,7 +45,6 @@
       "cursor-not-captured": "Alternado del puntero no disponible: este compositor no admite la captura separada del cursor",
       "done": "Aplicar la configuración de captura de pantalla (Enter)",
       "fill-off": "Relleno forma: off",
-      "fill-on": "Relleno forma: on",
       "freeze": "Congelar la pantalla bajo la tinta (f)",
       "move-toolbar": "Arrastra para mover la barra de herramientas",
       "redo": "Rehacer (Ctrl+Shift+Z)",
@@ -226,7 +225,9 @@
       "auto": "Automático",
       "custom": "Personalizado",
       "inherit": "Heredar",
-      "off": "Apagado"
+      "inherit-value": "Heredar ({value})",
+      "off": "Apagado",
+      "on": "Encendido"
     }
   },
   "control-center": {
@@ -551,7 +552,10 @@
         "select-sticker-image": "Seleccionar imagen de la pegatina"
       },
       "settings": {
+        "album-art-background": "Fondo de la portada del álbum",
+        "album-art-blur": "Desenfoque de la portada del álbum",
         "aspect-ratio": "Relación de aspecto",
+        "audio-visualizer": "Visualizador de audio",
         "background": "Fondo",
         "background-color": "Color",
         "background-opacity": "Opacidad",
@@ -1514,10 +1518,6 @@
         "horizontal": "Horizontal",
         "vertical": "Vertical"
       },
-      "panel-bar-alignment": {
-        "centered": "Centrado",
-        "near-trigger": "Activador de proximidad"
-      },
       "panel-position": {
         "auto": "Seguir barra"
       },
@@ -1974,6 +1974,10 @@
         "show-on-workspace-switch": {
           "description": "Mostrar brevemente la barra cuando cambia el espacio de trabajo activo",
           "label": "Mostrar al cambiar de espacio de trabajo"
+        },
+        "show-tooltip": {
+          "description": "Mostrar información emergente al pasar el cursor sobre los widgets en esta barra; la configuración Mostrar información sobre herramientas de un widget anula esta configuración",
+          "label": "Mostrar información sobre herramientas"
         },
         "start-widgets": {
           "description": "Widgets en el lado inicial (izquierda/arriba) de la barra",
@@ -2522,10 +2526,6 @@
           "description": "Mostrar entradas de acciones de la aplicación junto a las aplicaciones en los resultados",
           "label": "Mostrar acciones de la aplicación"
         },
-        "launcher-app-grid": {
-          "description": "Mostrar una cuadrícula de iconos de aplicaciones con etiquetas debajo cuando los resultados sean solo aplicaciones",
-          "label": "Vista de cuadrícula de aplicaciones"
-        },
         "launcher-app-origin-indicator": {
           "description": "Mostrar indicadores de origen del paquete en los resultados de la aplicación",
           "label": "Mostrar indicadores de origen de la aplicación"
@@ -2569,6 +2569,10 @@
         "launcher-global-windows": {
           "description": "Mostrar también las ventanas abiertas en la búsqueda sin prefijo",
           "label": "Ventanas en la búsqueda global"
+        },
+        "launcher-grid": {
+          "description": "Mostrar una cuadrícula de iconos de aplicaciones con etiquetas debajo cuando los resultados sean solo aplicaciones",
+          "label": "Vista de cuadrícula de aplicaciones"
         },
         "launcher-ignored-panels": {
           "description": "Paneles que el proveedor del panel nunca incluye en la lista (por ejemplo, avisos de autenticación, el asistente de configuración)",
@@ -2705,6 +2709,10 @@
         "transparency-mode": {
           "description": "Estilo de cristal del panel, incluida la opacidad del panel flotante y la translucidez de las tarjetas",
           "label": "Transparencia"
+        },
+        "wallpaper-show-names": {
+          "description": "En el selector de fondos de pantalla, añade el nombre del archivo a cada miniatura.",
+          "label": "Mostrar nombres de archivo"
         }
       },
       "power": {
@@ -2748,6 +2756,14 @@
           "description-opening": "Las credenciales del calendario se están abriendo a través del Servicio Secreto",
           "description-unavailable": "No hay ningún proveedor del Servicio Secreto disponible en esta sesión",
           "label": "Almacenamiento de las credenciales del Calendario"
+        },
+        "calendar-dedupe-events": {
+          "description": "Combinar un evento que aparece en más de uno de tus calendarios en una sola entrada",
+          "label": "Combinar eventos duplicados"
+        },
+        "calendar-dedupe-ignore-patterns": {
+          "description": "Las expresiones regulares se eliminan del título de un evento antes de compararlo, por lo que los títulos que difieren solo en una parte coincidente aún se fusionan",
+          "label": "Ignorar en el título al fusionar"
         },
         "calendar-digest-time": {
           "description": "Hora para mostrar una única notificación con todos los eventos de todo el día. Déjalo vacío para desactivar.",
@@ -2857,8 +2873,20 @@
           "label": "Sonido de notificación",
           "placeholder": "/ruta/al/sonido.wav"
         },
+        "notification-sounds": {
+          "description": "Reproducir un sonido cuando lleguen las notificaciones",
+          "label": "Sonidos de notificación"
+        },
+        "power-sounds": {
+          "description": "Reproducir un sonido cuando el cargador se conecte o se desconecte",
+          "label": "Sonidos de energía"
+        },
+        "screenshot-sounds": {
+          "description": "Reproducir un sonido al capturar la pantalla",
+          "label": "Screenshot Sounds"
+        },
         "shell-sounds": {
-          "description": "Reproducir efectos de sonido para eventos del shell",
+          "description": "Interruptor principal para efectos de sonido del shell",
           "label": "Sonidos del shell"
         },
         "sound-theme": {
@@ -2931,6 +2959,10 @@
           "description": "Archivo de sonido usado para la respuesta de volumen",
           "label": "Sonido de cambio de volumen",
           "placeholder": "/path/to/sound.wav"
+        },
+        "volume-sounds": {
+          "description": "Reproducir un sonido cuando cambie el volumen de entrada o salida",
+          "label": "Sonidos de volumen"
         },
         "weather": {
           "description": "Habilitar el servicio de clima via open-meteo.com",
@@ -4313,6 +4345,10 @@
           "description": "Ocultar el widget de batería cuando esté completamente cargada",
           "label": "Ocultar cuando esté completo"
         },
+        "hide-when-idle": {
+          "description": "Ocultar el widget mientras el reproductor MPRIS activo está en pausa o detenido",
+          "label": "Ocultar cuando está inactivo"
+        },
         "hide-when-inactive": {
           "description": "Ocultar el widget del micrófono cuando ninguna aplicación esté capturando audio",
           "label": "Ocultar cuando está inactivo"
@@ -4573,8 +4609,8 @@
           "label": "Mostrar temperatura"
         },
         "show-tooltip": {
-          "description": "Mostrar el nombre completo de un espacio de trabajo al pasar el cursor cuando su indicador no lo muestra.",
-          "label": "Mostrar nombre al pasar el cursor"
+          "description": "Mostrar la información emergente de este widget al pasar el cursor sobre él",
+          "label": "Mostrar información sobre herramientas"
         },
         "show-unlock-hint": {
           "description": "Mostra la tarjeta de estado encima del cuadro de inicio de sesión para obtener sugerencias de desbloqueo y avisos de autenticación; los errores y las advertencias de Bloq Mayús siguen apareciendo cuando esta opción está desactivada",

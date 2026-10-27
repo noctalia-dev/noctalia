@@ -45,6 +45,9 @@ namespace {
     if (action == "reboot") {
       return "reboot restart";
     }
+    if (action == "reboot_uefi") {
+      return "reboot uefi bios firmware setup";
+    }
     if (action == "shutdown") {
       return "shutdown shut down power off poweroff";
     }

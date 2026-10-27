@@ -1385,10 +1385,6 @@
         "horizontal": "אופקי",
         "vertical": "אנכי"
       },
-      "panel-bar-alignment": {
-        "centered": "ממורכז",
-        "near-trigger": "טריגר קרבה"
-      },
       "panel-position": {
         "auto": "עקוב אחר הסרגל"
       },
@@ -2335,10 +2331,6 @@
           "description": "הצג פעולות של יישומים לצד היישומים בתוצאות",
           "label": "הצג פעולות של אפליקציות"
         },
-        "launcher-app-grid": {
-          "description": "הצג סמלי יישומים ברשת עם תוויות מתחת, כאשר התוצאות הן יישומים בלבד",
-          "label": "תצוגת רשת אפליקציות"
-        },
         "launcher-app-origin-indicator": {
           "description": "הצג סמני מקור חבילה בתוצאות היישומים",
           "label": "הצג מחווני מקור של אפליקציות"
@@ -2378,6 +2370,10 @@
         "launcher-global-windows": {
           "description": "הצג גם חלונות פתוחים בחיפוש ללא קידומת",
           "label": "חלונות בחיפוש הגלובלי"
+        },
+        "launcher-grid": {
+          "description": "הצג סמלי יישומים ברשת עם תוויות מתחת, כאשר התוצאות הן יישומים בלבד",
+          "label": "תצוגת רשת אפליקציות"
         },
         "launcher-pinned-apps": {
           "description": "מזהי Desktop entry של יישומים שנעוצים למפעיל; הם מופיעים ראשונים עם פתיחת המפעיל.",

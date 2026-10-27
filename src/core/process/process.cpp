@@ -18,10 +18,10 @@
 #include <limits>
 #include <mutex>
 #include <optional>
+#include <poll.h>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <sys/poll.h>
 #include <sys/wait.h>
 #include <system_error>
 #include <thread>

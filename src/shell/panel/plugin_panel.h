@@ -37,6 +37,9 @@ struct PluginPanelOptions {
   // only the fallback if the compositor never assigns one.
   bool widthFill = false;
   bool heightFill = false;
+  // Height follows the rendered tree, up to maxHeight.
+  bool heightContent = false;
+  double maxHeight = 0.0;
   bool dismissOnOutsideClick = true;
   // One of scripting::kPanelKeyboardFocusModes.
   std::string keyboardFocus = "on_demand";
@@ -64,7 +67,12 @@ public:
   [[nodiscard]] bool isContextActive(std::string_view context) const override;
 
   [[nodiscard]] float preferredWidth() const override { return scaled(m_preferredWidth); }
-  [[nodiscard]] float preferredHeight() const override { return scaled(m_preferredHeight); }
+  // A content-fitted panel's preferred height is its maximum.
+  [[nodiscard]] float preferredHeight() const override {
+    return scaled(m_heightContent ? m_maxContentHeight : m_preferredHeight);
+  }
+  [[nodiscard]] bool fitsContentHeight() const noexcept override { return m_heightContent; }
+  [[nodiscard]] float measureContentHeight(Renderer& renderer, float contentWidth) override;
   [[nodiscard]] bool fillsWidth() const noexcept override { return m_widthFill; }
   [[nodiscard]] bool fillsHeight() const noexcept override { return m_heightFill; }
   [[nodiscard]] bool dismissOnOutsideClick() const override { return m_dismissOnOutsideClick; }
@@ -146,6 +154,8 @@ private:
   float m_preferredHeight;
   bool m_widthFill = false;
   bool m_heightFill = false;
+  bool m_heightContent = false;
+  float m_maxContentHeight = 0.0F;
   bool m_dismissOnOutsideClick = true;
   LayerShellKeyboard m_keyboardMode = LayerShellKeyboard::OnDemand;
   LayerShellLayer m_layer = LayerShellLayer::Top;

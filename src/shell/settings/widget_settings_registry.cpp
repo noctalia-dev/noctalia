@@ -920,7 +920,6 @@ namespace settings {
         spec.schema.enumValues.push_back(option.value);
       }
       spec.schema.type = schemaTypeForControl(spec.control);
-      spec.visibleWhen = WidgetSettingVisibility{placementKey, {"floating"}};
       return spec;
     };
 
@@ -950,14 +949,8 @@ namespace settings {
       spec.schema.key = openNearClickKey;
       spec.literalLabel = entryPrefix(tr("settings.plugins.panels.open-near-click.label"));
       spec.literalDescription = tr("settings.plugins.panels.open-near-click.description");
-      spec.control = WidgetControlKind::Select;
-      spec.segmented = true;
-      spec.literalLabels = true;
+      spec.control = WidgetControlKind::Bool;
       spec.schema.defaultValue = field != nullptr ? field->defaultValue() : entry.panelOpenNearClickDefault;
-      spec.options = {
-          {"false", tr("settings.options.panel-bar-alignment.centered")},
-          {"true", tr("settings.options.panel-bar-alignment.near-trigger")},
-      };
       spec.schema.type = schema::WidgetSettingType::Bool;
       spec.visibleWhen = WidgetSettingVisibility{
           {placementKey, {"attached"}},

@@ -198,6 +198,7 @@ location = "https://example.invalid/bad"
     bar.position = "bottom";
     bar.enabled = false;
     bar.autoHide = true;
+    bar.autoHideDelayMs = 300000;
     bar.smartAutoHide = false;
     bar.showOnWorkspaceSwitch = true;
     bar.reserveSpace = false;
@@ -226,6 +227,7 @@ location = "https://example.invalid/bad"
         {"back", "media previous"},
         {"forward", "media next"},
     };
+    bar.deadZone.clickThrough = true;
     bar.padding = 12;
     bar.widgetSpacing = 8;
     bar.shadow = false;
@@ -273,6 +275,7 @@ location = "https://example.invalid/bad"
     ovr.position = "top";
     ovr.enabled = true;
     ovr.autoHide = false;
+    ovr.autoHideDelayMs = 5000;
     ovr.smartAutoHide = false;
     ovr.showOnWorkspaceSwitch = true;
     ovr.reserveSpace = true;
@@ -295,6 +298,7 @@ location = "https://example.invalid/bad"
         {"left", "exec notify-send bar-left"},
         {"right", "exec notify-send bar-right"},
     };
+    ovr.deadZone.clickThrough = false;
     ovr.padding = 11;
     ovr.widgetSpacing = 7;
     ovr.shadow = true;
@@ -365,6 +369,7 @@ location = "https://example.invalid/bad"
     c.osd.kinds.lockKeys = false;
     c.osd.kinds.keyboardLayout = false;
     c.osd.kinds.mediaVolume = false;
+    c.osd.kinds.custom = false;
     c.backdrop = BackdropConfig{true, 0.8F, 0.2F};
     c.lockscreen = LockscreenConfig{
         .lockBeforeSuspend = false,
@@ -449,10 +454,13 @@ location = "https://example.invalid/bad"
     };
     c.battery.warningThreshold = 15;
     c.battery.deviceThresholds = {{"BAT0", 10}, {"hidpp:1", 25}};
+    c.bluetooth.connectWhenEnabled = true;
     c.controlCenter.sidebarMode = ControlCenterSidebarMode::Full;
     c.controlCenter.sidebarSectionMode = ControlCenterSidebarMode::None;
+    c.controlCenter.circularAvatar = false;
     c.controlCenter.calendarTab.showEventsCard = false;
     c.controlCenter.calendarTab.showWeekNumbers = true;
+    c.controlCenter.mediaTab.showVisualizer = false;
     c.controlCenter.shortcuts = {{"wifi"}, {"bluetooth"}};
     c.calendar.enabled = true;
     c.calendar.dedupeEvents = true;
@@ -528,7 +536,17 @@ location = "https://example.invalid/bad"
     c.shell.panel.transparencyMode = PanelTransparencyMode::Glass;
     c.shell.panel.floatingLayer = "top";
     c.shell.panel.launcherPlacement = PanelPlacement::Floating;
+    c.shell.launcher.layout = ShellConfig::LauncherLayout::Simple;
+    c.shell.launcher.width = 680;
+    c.shell.launcher.searchPosition = ShellConfig::LauncherSearchPosition::Bottom;
+    c.shell.launcher.defaultView = ShellConfig::LauncherDefaultView::Categories;
+    c.shell.launcher.categories = false;
+    c.shell.launcher.categoryIconsOnly = true;
+    c.shell.launcher.showNavigationLabels = false;
+    c.shell.launcher.showSettingsButton = false;
+    c.shell.launcher.showSessionButton = false;
     c.shell.launcher.compact = true;
+    c.shell.launcher.trackUsage = false;
     c.shell.launcher.sortByUsage = false;
     DmenuEntryConfig notifyDmenu;
     notifyDmenu.id = "notify";
@@ -555,6 +573,14 @@ location = "https://example.invalid/bad"
     c.shell.screenshot.pipeToCommand = true;
     c.shell.screenshot.skipAnnotateOnCopySave = true;
     c.shell.screenshot.closeOnSave = false; // non-default (default is true) so the round-trip exercises it
+    c.shell.screenshot.copyOnClose = true;
+    c.shell.screenshot.regionModifier = ScreenshotRegionModifier::Super;
+    c.shell.screenshot.regionBorderWidth = 4.0F;
+    c.shell.screenshot.regionDimOpacity = 0.8F;
+    c.shell.screenshot.showRegionHint = false;
+    c.shell.screenshot.showRegionDimensions = false;
+    c.shell.screenshot.format = ScreenshotFormat::Webp;
+    c.shell.screenshot.quality = 75;
     c.shell.session.actions = {
         SessionPanelActionConfig{
             "lock",
@@ -691,7 +717,7 @@ location = "https://example.invalid/bad"
     // Invalid transition values are surfaced instead of silently changing the
     // configured effect pool.
     {
-      auto t = toml::parse(R"(transition = ["fade", "unknown", 3])");
+      auto t = toml::parse(R"(transition = ["fade", "Fade", "unknown", 3])");
       LockscreenConfig lockscreen{};
       Diagnostics d;
       readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
@@ -701,8 +727,8 @@ location = "https://example.invalid/bad"
       const auto warnings = std::ranges::count_if(d.entries, [](const Diagnostics::Entry& entry) {
         return entry.severity == Diagnostics::Severity::Warning && entry.path.starts_with("lockscreen.transition[");
       });
-      if (warnings != 2) {
-        fail("lockscreen.transition: invalid entries were not reported");
+      if (warnings != 3) {
+        fail("lockscreen.transition: invalid or incorrectly-cased entries were not reported");
       }
     }
     // Grace period is strictly opt-in: a config that never mentions the key keeps
@@ -1095,7 +1121,8 @@ color = "#0000FF"
 blend = false
 )");
     Config config;
-    liftTemplateConfigCustomColors(root, config);
+    Diagnostics diag;
+    liftTemplateConfigCustomColors(root, config, diag);
     if (config.theme.templates.customColors.size() != 2) {
       fail("config.custom_colors lift: expected two custom colors in config");
     }
@@ -1122,6 +1149,7 @@ int main() {
 
 [default]
 auto_hide = true
+auto_hide_delay_ms = 300000
 background_opacity = 0.85000002384185791
 border = "#123456"
 border_width = 2.0
@@ -1172,17 +1200,21 @@ widget_spacing = 8
     middle = "none"
     right = "media toggle"
 
-    [default.dead_zone.actions]
-    back = "media previous"
-    forward = "media next"
-    left = "exec notify-send bar-left"
-    middle = "exec notify-send bar-middle"
-    right = "exec notify-send bar-right"
-    scroll_down = "exec notify-send bar-scroll-down"
-    scroll_up = "exec notify-send bar-scroll-up"
+    [default.dead_zone]
+    click_through = true
+
+        [default.dead_zone.actions]
+        back = "media previous"
+        forward = "media next"
+        left = "exec notify-send bar-left"
+        middle = "exec notify-send bar-middle"
+        right = "exec notify-send bar-right"
+        scroll_down = "exec notify-send bar-scroll-down"
+        scroll_up = "exec notify-send bar-scroll-up"
 
     [default.monitor.DP-1]
     auto_hide = false
+    auto_hide_delay_ms = 5000
     background_opacity = 0.69999998807907104
     border = "#A1A2A3"
     border_width = 3.0
@@ -1234,9 +1266,12 @@ widget_spacing = 8
         middle = "none"
         right = "media toggle"
 
-        [default.monitor.DP-1.dead_zone.actions]
-        left = "exec notify-send bar-left"
-        right = "exec notify-send bar-right"
+        [default.monitor.DP-1.dead_zone]
+        click_through = false
+
+            [default.monitor.DP-1.dead_zone.actions]
+            left = "exec notify-send bar-left"
+            right = "exec notify-send bar-right"
 
         [[default.monitor.DP-1.capsule_group]]
         accordion = false

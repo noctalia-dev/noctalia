@@ -6,25 +6,30 @@
 #include "shell/keyboard_layout_label.h"
 #include "shell/osd/osd_overlay.h"
 
+#include <string>
+#include <utility>
+
 namespace {
 
-  OsdContent makeKeyboardLayoutContent(const std::string& layoutName, const Config& config) {
+  OsdContent makeKeyboardLayoutContent(std::string value) {
     return OsdContent{
         .kind = OsdKind::KeyboardLayout,
         .icon = "keyboard",
-        .value = resolveKeyboardLayoutLabel(
-            layoutName, KeyboardLayoutDisplayMode::Short, config.shell.keyboardLayout.customLabels
-        ),
+        .value = std::move(value),
         .showProgress = false,
     };
   }
 
+  OsdContent makeLayoutContent(const std::string& layoutName, const Config& config) {
+    return makeKeyboardLayoutContent(resolveKeyboardLayoutLabel(
+        layoutName, KeyboardLayoutDisplayMode::Short, config.shell.keyboardLayout.customLabels
+    ));
+  }
+
   OsdContent makeInputMethodContent(const FcitxInputMethodState& state, const Config& config) {
-    auto content = makeKeyboardLayoutContent(state.label, config);
-    if (content.value == "--") {
-      content.value = state.label;
-    }
-    return content;
+    return makeKeyboardLayoutContent(
+        resolveInputMethodLabel(state.label, KeyboardLayoutDisplayMode::Short, config.shell.keyboardLayout.customLabels)
+    );
   }
 
 } // namespace
@@ -60,7 +65,7 @@ void KeyboardLayoutOsd::onLayoutChanged(const CompositorPlatform& platform, cons
     return;
   }
 
-  m_overlay->show(makeKeyboardLayoutContent(layoutName, config));
+  m_overlay->show(makeLayoutContent(layoutName, config));
 }
 
 void KeyboardLayoutOsd::onTrayChanged(const TrayService& tray, const Config& config, bool enabled) {

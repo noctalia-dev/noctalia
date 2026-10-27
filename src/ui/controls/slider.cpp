@@ -287,15 +287,15 @@ void Slider::applyVisualState() {
   const bool pressing = m_inputArea != nullptr && m_inputArea->pressed();
   const bool focused = m_inputArea != nullptr && m_inputArea->focused();
 
-  Color trackColor = resolved(ColorRole::Outline);
+  Color trackColor = resolved(ColorRole::OutlineVariant);
   Color fillColor = resolved(ColorRole::Primary);
   Color thumbColor = resolved(ColorRole::OnPrimary);
-  Color thumbBorder = resolved(ColorRole::Outline);
+  Color thumbBorder = resolved(ColorRole::OutlineVariant);
 
   m_thumb->setVisible(m_enabled);
 
   if (!m_enabled) {
-    trackColor = resolved(ColorRole::Outline, Style::disabledOutlineAlpha);
+    trackColor = resolved(ColorRole::OutlineVariant, Style::disabledOutlineAlpha);
     fillColor = resolved(ColorRole::Primary, 0.5F);
   } else if (pressing) {
     fillColor = resolved(ColorRole::Primary);

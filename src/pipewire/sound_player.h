@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -45,6 +46,7 @@ public:
   static void onStreamStateChanged(void* userdata, pw_stream_state oldState, pw_stream_state state, const char* error);
   static void onDrained(void* userdata);
   static void onStreamCloseTimer(void* userdata, std::uint64_t expirations);
+  static void onStartTimeoutTimer(void* userdata, std::uint64_t expirations);
 
 private:
   struct SoundBuffer {
@@ -56,21 +58,28 @@ private:
   struct ActiveStream {
     SoundPlayer* owner = nullptr;
     pw_stream* stream = nullptr;
+    std::string name;
     std::shared_ptr<const SoundBuffer> buffer;
+    std::chrono::steady_clock::time_point createdAt;
     std::size_t cursor = 0;
+    bool started = false;
     bool draining = false;
     bool finished = false;
   };
 
   [[nodiscard]] static std::optional<std::string> decode(const std::filesystem::path& path, SoundBuffer& out);
+  void loadThemeSounds();
   void playBuffer(const std::string& name, const std::shared_ptr<const SoundBuffer>& buffer);
 
   void processStream(ActiveStream& streamState);
   void markFinished(ActiveStream& streamState);
   void removeFinished();
+  void expireUnstarted();
+  void armStartTimeout();
 
   pw_loop* m_loop = nullptr;
   spa_source* m_streamCloseTimer = nullptr;
+  spa_source* m_startTimeoutTimer = nullptr;
   float m_volume = 1.0F;
   std::string m_theme;
   bool m_shellSoundsEnabled = true;

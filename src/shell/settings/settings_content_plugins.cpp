@@ -70,17 +70,17 @@ namespace settings {
           .padding = Style::spaceSm * scale,
           .configure = [scale](Flex& p) {
             p.setRadius(Style::scaledRadiusSm(scale));
-            p.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
-            p.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
+            p.setFill(colorSpecFromRole(ColorRole::ErrorContainer));
+            p.setBorder(colorSpecFromRole(ColorRole::Error), Style::borderWidth);
           },
       });
       panel->addChild(makeLabel(
           i18n::tr("settings.plugins.plugins.delete-confirm-title", "name", plugin.name), Style::fontSizeBody * scale,
-          ColorRole::Error, FontWeight::Bold
+          ColorRole::OnErrorContainer, FontWeight::Bold
       ));
       panel->addChild(makeLabel(
           i18n::tr("settings.plugins.plugins.delete-confirm-desc"), Style::fontSizeCaption * scale,
-          ColorRole::OnSurfaceVariant
+          ColorRole::OnErrorContainer
       ));
       panel->addChild(
           ui::row(

@@ -260,7 +260,8 @@ namespace {
     LocalizedValues localizedComments;
     LocalizedValues localizedKeywords;
     std::string type;
-    bool hasAppImageMetadata = false;
+    bool hasAppImageVersion = false;
+    bool appImageIntegrationDisabled = false;
 
     // Desktop-environment visibility lists (OnlyShowIn/NotShowIn)
     std::vector<std::string> onlyShowIn;
@@ -396,8 +397,10 @@ namespace {
         splitMultipleDesktopStrings(notShowIn, value);
       } else if (key == "Actions") {
         splitMultipleDesktopStrings(actionOrder, value);
-      } else if (key.starts_with("X-AppImage-")) {
-        hasAppImageMetadata = true;
+      } else if (key == "X-AppImage-Integrate") {
+        appImageIntegrationDisabled = !parseDesktopBool(value);
+      } else if (key == "X-AppImage-Version") {
+        hasAppImageVersion = !value.empty();
       }
     }
 
@@ -440,8 +443,9 @@ namespace {
     entry.startupWmClassLower = StringUtils::toLower(entry.startupWmClass);
     entry.idLower = StringUtils::toLower(entry.id);
     entry.execLower = StringUtils::toLower(entry.exec);
-    entry.origin =
-        detectOrigin(filepath, hasAppImageMetadata || executableIsAppImage(entry.exec, isUserDesktopEntry(filepath)));
+    const bool appImage = !appImageIntegrationDisabled
+        && (hasAppImageVersion || executableIsAppImage(entry.exec, isUserDesktopEntry(filepath)));
+    entry.origin = detectOrigin(filepath, appImage);
 
     // Build actions in the declared order.
     for (const auto& id : actionOrder) {
@@ -683,27 +687,30 @@ namespace {
           m_inotify.unwatch(wd);
       }
       m_watches.clear();
-      m_watchedPaths.clear();
     }
 
+    // Re-adding a watched directory keeps its descriptor and queues nothing. Only directories the scan no longer
+    // visited are unwatched, so the IN_IGNORED events a refresh queues scale with what changed, not with the tree.
     void rebuildWatches(const std::vector<fs::path>& dirs) {
-      clearWatches();
-
       if (m_inotify.fd() < 0) {
         return;
       }
 
+      std::unordered_map<int, std::string> watches;
       for (const auto& dir : dirs) {
-        addWatch(dir);
+        if (const auto wd = addWatch(dir)) {
+          watches[*wd] = dir.string();
+        }
       }
+      for (const auto& [wd, _] : m_watches) {
+        if (!watches.contains(wd)) {
+          m_inotify.unwatch(wd);
+        }
+      }
+      m_watches = std::move(watches);
     }
 
-    void addWatch(const fs::path& path) {
-      const auto key = path.string();
-      if (!m_watchedPaths.insert(key).second) {
-        return;
-      }
-
+    std::optional<int> addWatch(const fs::path& path) {
       constexpr std::uint32_t kMask = IN_CREATE
           | IN_DELETE
           | IN_MOVED_FROM
@@ -712,12 +719,11 @@ namespace {
           | IN_DELETE_SELF
           | IN_MOVE_SELF
           | IN_ATTRIB;
-      const auto wd = m_inotify.watch(key.c_str(), kMask);
-      if (wd.has_value()) {
-        m_watches[wd.value()] = key;
-      } else {
-        kLog.warn("failed to watch desktop entry directory '{}'", key);
+      const auto wd = m_inotify.watch(path, kMask);
+      if (!wd.has_value()) {
+        kLog.warn("failed to watch desktop entry directory '{}'", path.string());
       }
+      return wd;
     }
 
     std::shared_ptr<const std::vector<DesktopEntry>> m_entries = std::make_shared<std::vector<DesktopEntry>>();
@@ -726,7 +732,6 @@ namespace {
     Inotify m_inotify;
     bool m_dirty = true;
     std::unordered_map<int, std::string> m_watches;
-    std::unordered_set<std::string> m_watchedPaths;
     std::string m_sourceSignature;
     std::string m_language;
   };

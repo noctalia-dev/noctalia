@@ -451,23 +451,21 @@ void PipeWireSpectrum::rebuildStream() {
   m_stream.reset();
   m_boundNodeId = 0;
   m_boundTargetObject.clear();
+  clearValues(true);
 
   const std::uint32_t target = resolvedTargetNodeId();
   const auto* targetNode = resolvedTargetNode();
   if (!hasListeners() || target == 0 || targetNode == nullptr) {
-    clearValues(true);
     return;
   }
   if (targetNode->name.empty()) {
     kLog.warn("spectrum target node {} has no PipeWire node name", target);
-    clearValues(true);
     return;
   }
 
   m_stream = std::make_unique<Stream>(*this, target, targetNode->name);
   if (!m_stream->start()) {
     m_stream.reset();
-    clearValues(true);
     return;
   }
 
@@ -485,12 +483,6 @@ void PipeWireSpectrum::rebuildStream() {
     resetListenerState(state, false);
   }
   m_nextFrameAt = std::chrono::steady_clock::now();
-  if (m_idle) {
-    for (const auto& [id, state] : m_listeners) {
-      (void)state;
-      emitChanged(id);
-    }
-  }
 }
 
 std::uint32_t PipeWireSpectrum::resolvedTargetNodeId() const noexcept {

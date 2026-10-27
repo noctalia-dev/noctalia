@@ -39,6 +39,9 @@ namespace noctalia::theme {
       if (const auto category = info->get_as<std::string>("category")) {
         entry.category = category->get();
       }
+      if (const auto url = info->get_as<std::string>("documentation_url")) {
+        entry.documentationUrl = url->get();
+      }
       out.push_back(std::move(entry));
     }
 
@@ -92,6 +95,7 @@ namespace noctalia::theme {
       t.id = std::move(entry.id);
       t.displayName = entry.name.empty() ? t.id : std::move(entry.name);
       t.category = std::move(entry.category);
+      t.documentationUrl = std::move(entry.documentationUrl);
       t.outputPaths = std::move(entry.outputPaths);
       t.outputDynamic = entry.outputDynamic;
       out.push_back(std::move(t));

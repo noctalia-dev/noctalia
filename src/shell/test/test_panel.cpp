@@ -533,7 +533,7 @@ void TestPanel::create() {
         .width = 28.0F * scale,
         .height = 28.0F * scale,
         .configure = [scale](Box& box) {
-          box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
+          box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * scale);
         },
     });
 
@@ -709,13 +709,13 @@ void TestPanel::create() {
         .width = 280.0F * scale,
         .height = 220.0F * scale,
         .configure = [scale](Box& box) {
-          box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
+          box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * scale);
         },
     });
 
     auto demoBox = ui::box({
         .out = &m_transformDemoBox,
-        .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+        .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
         .radius = Style::scaledRadiusLg(scale),
         .width = 180.0F * scale,
         .height = 100.0F * scale,
@@ -764,7 +764,7 @@ void TestPanel::create() {
         .width = 28.0F * scale,
         .height = 28.0F * scale,
         .configure = [scale](Box& box) {
-          box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
+          box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * scale);
         },
     });
 
@@ -1231,7 +1231,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
               .width = w * scale,
               .height = 0.0F,
           },
@@ -1281,7 +1281,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
               .width = kBoxW * scale,
               .height = 0.0F,
           },
@@ -1362,7 +1362,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = 0.0F,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
           },
           ui::glyph({
               .glyph = c.glyph,

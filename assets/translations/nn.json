@@ -41,7 +41,6 @@
       "copy": "Kopier biletet med merknad (Ctrl+C)",
       "cursor": "Vis peikaren fanga med skjermen",
       "fill-off": "Formfyll: av",
-      "fill-on": "Formfyll: på",
       "size-decrease": "Tynnare ([)",
       "size-increase": "Tjukkare (])",
       "size-large": "Stor",
@@ -1389,10 +1388,6 @@
         "horizontal": "Vassrett",
         "vertical": "Loddrett"
       },
-      "panel-bar-alignment": {
-        "centered": "I midten",
-        "near-trigger": "Nær utløysar"
-      },
       "panel-position": {
         "auto": "Fylg stonga"
       },
@@ -2324,10 +2319,6 @@
           "description": "Vis tekstmerkelappar under snarvegmerke i heimfana",
           "label": "Vis snarvegmerkelappar"
         },
-        "launcher-app-grid": {
-          "description": "Vis ei rutenett med appmerke med namn under når søket gjev berre appar",
-          "label": "Apprutenett"
-        },
         "launcher-auto-paste": {
           "description": "Etter kalkulator, emoji og andre avritsgjerningar, lima inn til ruta med åtgaum (same snarvegar som utklippstavla auto-lim)",
           "label": "Auto-lim"
@@ -2363,6 +2354,10 @@
         "launcher-global-windows": {
           "description": "Vis opne ruter i søk utan førefeste i tillegg",
           "label": "Ruter i allsøk"
+        },
+        "launcher-grid": {
+          "description": "Vis ei rutenett med appmerke med namn under når søket gjev berre appar",
+          "label": "Apprutenett"
         },
         "launcher-pinned-apps": {
           "description": "Skriverbords-IDar til appane feste til veljaren; desse viser seg fyrst når veljaren opnar",

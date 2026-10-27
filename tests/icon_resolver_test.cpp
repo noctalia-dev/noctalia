@@ -32,21 +32,86 @@ int main() {
   const fs::path root(tempDir);
   const fs::path iconThemeRoot = root / "icons/hicolor";
   const fs::path iconDir = iconThemeRoot / "scalable/apps";
+  const fs::path app16Dir = iconThemeRoot / "16x16/apps";
   const fs::path bitmapIconDir = iconThemeRoot / "48x48/apps";
+  const fs::path status16Dir = iconThemeRoot / "16x16/status";
+  const fs::path status24Dir = iconThemeRoot / "24x24/status";
+  const fs::path panel16Dir = iconThemeRoot / "16x16/panel";
+  const fs::path panel24Dir = iconThemeRoot / "24x24/panel";
+  const fs::path scalableStatusDir = iconThemeRoot / "scalable/status";
+  const fs::path defaultScalableDir = iconThemeRoot / "default/status";
   const fs::path deniedDataHome = root / "denied";
   const fs::path deniedIcon = deniedDataHome / "private-icon.svg";
   fs::create_directories(iconDir);
+  fs::create_directories(app16Dir);
   fs::create_directories(bitmapIconDir);
-  std::ofstream(iconThemeRoot / "index.theme") << "[Icon Theme]\n"
-                                                  "Directories = 48x48/apps, scalable/apps\n"
-                                                  "Inherits = noctalia-bare-test\n"
-                                                  "[48x48/apps]\n"
-                                                  "Size = 48\n"
-                                                  "Type = Fixed\n"
-                                                  "[scalable/apps]\n"
-                                                  "Size = 64\n"
-                                                  "Type = Scalable\n"
-                                                  "MaxSize = 128\n";
+  fs::create_directories(status16Dir);
+  fs::create_directories(status24Dir);
+  fs::create_directories(panel16Dir);
+  fs::create_directories(panel24Dir);
+  fs::create_directories(scalableStatusDir);
+  fs::create_directories(defaultScalableDir);
+  const std::string indexContents = "[Icon Theme]\n"
+                                    "Directories = 48x48/apps, scalable/apps, 16x16/apps, 16x16/status, 24x24/status, "
+                                    "16x16/panel, 24x24/panel, scalable/status, default/status\n"
+                                    "Inherits = noctalia-status-test, noctalia-bare-test\n"
+                                    "[48x48/apps]\n"
+                                    "Size = 48\n"
+                                    "Type = Fixed\n"
+                                    "[scalable/apps]\n"
+                                    "Size = 64\n"
+                                    "Type = Scalable\n"
+                                    "MaxSize = 128\n"
+                                    "[16x16/apps]\n"
+                                    "Size = 16\n"
+                                    "Type = Fixed\n"
+                                    "[16x16/status]\n"
+                                    "Size = 16\n"
+                                    "Type = Fixed\n"
+                                    "[24x24/status]\n"
+                                    "Size = 24\n"
+                                    "Type = Fixed\n"
+                                    "[16x16/panel]\n"
+                                    "Size = 16\n"
+                                    "Type = Threshold\n"
+                                    "[24x24/panel]\n"
+                                    "Size = 24\n"
+                                    "Threshold = 3\n"
+                                    "[scalable/status]\n"
+                                    "Size = 48\n"
+                                    "Type = Scalable\n"
+                                    "MinSize = 32\n"
+                                    "MaxSize = 64\n"
+                                    "[default/status]\n"
+                                    "Size = 24\n"
+                                    "Type = Scalable\n";
+  std::ofstream(iconThemeRoot / "index.theme") << indexContents;
+  const fs::path status16 = status16Dir / "test-status-symbolic.svg";
+  const fs::path status24 = status24Dir / "test-status-symbolic.svg";
+  const fs::path ordinaryIcon = iconDir / "ordinary-icon.svg";
+  const fs::path symbolicApp16 = app16Dir / "test-app-symbolic.svg";
+  const fs::path symbolicAppScalable = iconDir / "test-app-symbolic.svg";
+  const fs::path bitmapStatus = bitmapIconDir / "bitmap-status.png";
+  std::ofstream(status16) << "<svg/>";
+  std::ofstream(status24) << "<svg/>";
+  std::ofstream(ordinaryIcon) << "<svg/>";
+  std::ofstream(symbolicApp16) << "<svg/>";
+  std::ofstream(symbolicAppScalable) << "<svg/>";
+  std::ofstream(bitmapStatus) << "png";
+
+  std::ofstream(panel16Dir / "threshold.svg") << "<svg/>";
+  std::ofstream(panel24Dir / "threshold.svg") << "<svg/>";
+  std::ofstream(panel24Dir / "range-distance.svg") << "<svg/>";
+  std::ofstream(status16Dir / "range-distance.svg") << "<svg/>";
+  std::ofstream(panel16Dir / "scalable-range.svg") << "<svg/>";
+  std::ofstream(scalableStatusDir / "scalable-range.svg") << "<svg/>";
+  std::ofstream(scalableStatusDir / "scalable-only.svg") << "<svg/>";
+  std::ofstream(status24Dir / "split-root.svg") << "<svg/>";
+  std::ofstream(defaultScalableDir / "scalable-max-default.svg") << "<svg/>";
+  std::ofstream(panel24Dir / "scalable-max-default.svg") << "<svg/>";
+  std::ofstream(defaultScalableDir / "scalable-defaults.svg") << "<svg/>";
+  std::ofstream(status16Dir / "scalable-defaults.svg") << "<svg/>";
+  std::ofstream(status16Dir / "bitmap-only.png") << "png";
 
   // An inherited theme with no index.theme exercises the fallback search paths
   // (theme root and 512x512/apps) that only apply to index-less themes.
@@ -67,6 +132,18 @@ int main() {
   fs::create_directories(extraIcons);
   std::ofstream(extraIcons / "later-root.svg") << "<svg/>";
   std::ofstream(bareThemeRoot / "later-root.svg") << "<svg/>";
+  const fs::path extraThemeRoot = extraData / "icons/hicolor";
+  const fs::path extraStatusDir = extraThemeRoot / "16x16/status";
+  fs::create_directories(extraStatusDir);
+  std::ofstream(extraStatusDir / "split-root.svg") << "<svg/>";
+  const fs::path statusThemeRoot = root / "icons/noctalia-status-test";
+  const fs::path inheritedStatusDir = statusThemeRoot / "16x16/status";
+  fs::create_directories(inheritedStatusDir);
+  std::ofstream(statusThemeRoot / "index.theme") << "[Icon Theme]\nDirectories = 16x16/status\n"
+                                                    "[16x16/status]\nSize = 16\nType = Fixed\n";
+  std::ofstream(inheritedStatusDir / "test-app-symbolic.svg") << "<svg/>";
+  std::ofstream(inheritedStatusDir / "bitmap-only.svg") << "<svg/>";
+  std::ofstream(inheritedStatusDir / "inherited-status.svg") << "<svg/>";
   fs::create_directories(deniedDataHome);
   std::ofstream(deniedIcon) << "<svg/>";
   fs::permissions(deniedDataHome, fs::perms::none);
@@ -92,8 +169,14 @@ int main() {
   }
 
   IconResolver resolver(true);
-  const auto initialIconDirModified = fs::last_write_time(iconDir);
-
+  const auto initialGeneration = IconResolver::themeGeneration();
+  std::ofstream(iconThemeRoot / "index.theme") << indexContents;
+  ok = expect(!IconResolver::checkThemePlanChanged(), "an equivalent theme metadata rewrite should be ignored") && ok;
+  ok = expect(
+           IconResolver::themeGeneration() == initialGeneration,
+           "an equivalent theme metadata rewrite should preserve the theme generation"
+       )
+      && ok;
   std::fflush(stderr);
   (void)::dup2(savedStderr, STDERR_FILENO);
   ::close(savedStderr);
@@ -106,6 +189,124 @@ int main() {
     startupLogs.append(logBuffer.data(), static_cast<std::size_t>(count));
   }
   ::close(logPipe[0]);
+
+  ok = expect(
+           resolver.resolveStatusVector("test-status-symbolic", 16) == status16.string(),
+           "status vector should use the matching 16px theme asset"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("test-status-symbolic", 24) == status24.string(),
+           "status vector should use the matching 24px theme asset"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("ordinary-icon", 16).empty()
+               && resolver.resolve("ordinary-icon", 32) == ordinaryIcon.string(),
+           "ordinary application icons should keep normal resolution"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("test-app-symbolic", 16).empty()
+               && resolver.resolve("test-app-symbolic", 32) == symbolicAppScalable.string(),
+           "symbolic application icons should keep normal resolution"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("bitmap-status", 16).empty()
+               && resolver.resolve("bitmap-status", 32) == bitmapStatus.string(),
+           "bitmap status icons should keep the larger raster request"
+       )
+      && ok;
+
+  for (const int size : {14, 16, 18, 19}) {
+    ok = expect(
+             resolver.resolveStatusVector("threshold", size) == (panel16Dir / "threshold.svg").string(),
+             "16px Threshold art should match its default tolerance and nearest range"
+         )
+        && ok;
+  }
+  for (const int size : {20, 21, 24, 27, 28}) {
+    ok = expect(
+             resolver.resolveStatusVector("threshold", size) == (panel24Dir / "threshold.svg").string(),
+             "24px default-Type art should use its explicit Threshold range"
+         )
+        && ok;
+  }
+  ok = expect(
+           resolver.resolveStatusVector("range-distance", 19) == (panel24Dir / "range-distance.svg").string(),
+           "distance to a Threshold range should precede distance to nominal size"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("scalable-range", 32) == (scalableStatusDir / "scalable-range.svg").string(),
+           "matching scalable range should precede an undersized Threshold icon"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("scalable-range", 16) == (panel16Dir / "scalable-range.svg").string(),
+           "matching Threshold range should precede an oversized scalable range"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("scalable-only", 16) == (scalableStatusDir / "scalable-only.svg").string(),
+           "scalable status art should remain available outside its preferred range"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string(),
+           "status lookup should share theme metadata with an index-less second root"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("bitmap-only", 16).empty()
+               && resolver.resolve("bitmap-only", 32) == (status16Dir / "bitmap-only.png").string(),
+           "current-theme bitmap must precede inherited status SVG"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("inherited-status", 16)
+               == (inheritedStatusDir / "inherited-status.svg").string(),
+           "inherited status art should resolve when the current theme lacks the name"
+       )
+      && ok;
+
+  ok = expect(
+           resolver.resolveStatusVector("scalable-defaults", 32)
+               == (defaultScalableDir / "scalable-defaults.svg").string(),
+           "omitted scalable bounds should default to nominal Size"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("scalable-defaults", 17) == (status16Dir / "scalable-defaults.svg").string(),
+           "default scalable bounds should not match every requested size"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("scalable-max-default", 26)
+               == (panel24Dir / "scalable-max-default.svg").string(),
+           "omitted scalable maximum should not extend beyond nominal Size"
+       )
+      && ok;
+  std::string widerThreshold = indexContents;
+  const auto thresholdSection = widerThreshold.find("[16x16/panel]\nSize = 16\nType = Threshold\n");
+  widerThreshold.insert(
+      thresholdSection + std::string("[16x16/panel]\nSize = 16\nType = Threshold\n").size(), "Threshold = 5\n"
+  );
+  const auto rangeGeneration = IconResolver::themeGeneration();
+  std::ofstream(iconThemeRoot / "index.theme") << widerThreshold;
+  ok = expect(IconResolver::checkThemePlanChanged(), "changing only a Threshold range should refresh the theme plan")
+      && ok;
+  ok = expect(IconResolver::themeGeneration() > rangeGeneration, "range changes should advance the theme generation")
+      && ok;
+  ok = expect(
+           resolver.resolveStatusVector("threshold", 20) == (panel16Dir / "threshold.svg").string(),
+           "range metadata changes should refresh status selection"
+       )
+      && ok;
+  std::ofstream(iconThemeRoot / "index.theme") << indexContents;
+  ok = expect(IconResolver::checkThemePlanChanged(), "restoring the Threshold range should refresh the theme plan")
+      && ok;
 
   const bool permissionsEnforced = (geteuid() != 0);
   if (permissionsEnforced) {
@@ -140,12 +341,10 @@ int main() {
   const fs::path polledIcon = iconDir / "polled-icon.svg";
   ok = expect(resolver.resolve("polled-icon", 32).empty(), "second initial icon miss should be cached") && ok;
   std::ofstream(polledIcon) << "<svg/>";
-  // Some filesystems do not expose a distinct directory mtime for rapid changes.
-  fs::last_write_time(iconDir, initialIconDirModified);
-  ok = expect(IconResolver::checkThemeChanged(), "theme poll should detect icon directory changes") && ok;
+  IconResolver::invalidateThemeContent();
   ok = expect(
            resolver.resolve("polled-icon", 32) == polledIcon.string(),
-           "theme generation change should invalidate cached misses"
+           "icon content invalidation should clear cached misses"
        )
       && ok;
 
@@ -201,6 +400,24 @@ int main() {
          )
         && ok;
   }
+
+  setenv("XDG_DATA_DIRS", (extraData.string() + ":" + root.string()).c_str(), 1);
+  (void)IconResolver::checkThemePlanChanged();
+  ok = expect(
+           resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string(),
+           "an index-less first root should use metadata from the next theme root"
+       )
+      && ok;
+  setenv("XDG_DATA_DIRS", (root.string() + ":" + extraData.string()).c_str(), 1);
+  std::ofstream(extraThemeRoot / "index.theme")
+      << "[Icon Theme]\nDirectories = 24x24/status\nInherits = conflicting-parent\n"
+         "[24x24/status]\nSize = 24\nType = Fixed\n";
+  (void)IconResolver::checkThemePlanChanged();
+  ok = expect(
+           resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string(),
+           "later-root metadata should not replace the first index.theme directory list"
+       )
+      && ok;
 
   fs::remove_all(root, ec);
   return ok ? 0 : 1;

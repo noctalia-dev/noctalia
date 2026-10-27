@@ -122,6 +122,12 @@ private:
     // if exp then block {elseif exp then block} [else block] end
     AstStat* parseIf();
 
+    // (`if' | `elseif') (`local' | `const') binding `=' exp then block ... end -- parses an entire `if local`/`if const`
+    AstStat* parseIfLocalCondition(const Location& start);
+
+    // Parse the trailing `{elseif exp then block} [else block] end` shared by `parseIf` and `parseIfLocalCondition`
+    AstStat* parseElseBody(const Location& start, const Lexeme& matchThen, AstStatBlock* thenbody, Location& end, std::optional<Location>& elseLocation);
+
     // while exp do block end
     AstStat* parseWhile();
 
@@ -145,7 +151,7 @@ private:
     AstExpr* parseFunctionName(bool& hasself, AstName& debugname);
 
     // function funcname funcbody
-    LUAU_FORCEINLINE AstStatFunction* parseFunctionStat(const AstArray<AstAttr*>& attributes = {nullptr, 0});
+    LUAU_FORCEINLINE AstStatFunction* parseFunctionStat(const AstArray<AstAttr*>& attributes, TempVector<CstAttrList*>* cstAttrLists = nullptr);
 
     std::optional<AstAttr::Type> validateAttribute(
         Location loc,
@@ -154,11 +160,20 @@ private:
         const AstArray<AstExpr*>& args
     );
 
-    // attribute ::= '@' NAME
+    Location getAttributeStartLocation(
+        const AstArray<AstAttr*>& attributes,
+        const TempVector<CstAttrList*>* cstAttrLists,
+        const Location& defaultLocation
+    );
+
+    // attrlist = '@[' parattr {',' parattr} ']'
+    void parseAttrList(TempVector<AstAttr*>& attributes, TempVector<CstAttrList*>* cstAttrLists);
+
+    // attribute ::= '@' NAME | attrlist
     void parseAttribute(TempVector<AstAttr*>& attribute);
 
     // attributes ::= {attribute}
-    AstArray<AstAttr*> parseAttributes();
+    AstArray<AstAttr*> parseAttributes(TempVector<CstAttrList*>* cstAttrLists = nullptr);
 
     // attributes local function Name funcbody
     // attributes function funcname funcbody
@@ -168,8 +183,13 @@ private:
 
     // local function Name funcbody |
     // local namelist [`=' explist]
-    AstStat* parseLocal_DEPRECATED(const AstArray<AstAttr*>& attributes);
-    AstStat* parseLocal(const Location start, const Position keywordPosition, const AstArray<AstAttr*>& attributes, bool isConst);
+    AstStat* parseLocal(
+        const Location start,
+        const Position keywordPosition,
+        const AstArray<AstAttr*>& attributes,
+        bool isConst,
+        TempVector<CstAttrList*>* cstAttrLists = nullptr
+    );
 
     // return [explist]
     AstStat* parseReturn();
@@ -177,7 +197,7 @@ private:
     // type Name `=' Type
     AstStat* parseTypeAlias(const Location& start, bool exported, Position typeKeywordPosition);
 
-    AstStat* parseClassStat(const Location& start, bool exported);
+    AstStat* parseClassStat(const Location& start, bool exported, bool open);
 
     // type function Name ... end
     AstStat* parseTypeFunction(const Location& start, bool exported, Position typeKeywordPosition);
@@ -193,7 +213,12 @@ private:
     // varlist `=' explist
     AstStat* parseAssignment(AstExpr* initial);
 
-    AstStat* parseExportValue(const Location& start, const Position keywordPosition, const AstArray<AstAttr*>& attributes);
+    AstStat* parseExportValue(
+        const Location& start,
+        const Position keywordPosition,
+        const AstArray<AstAttr*>& attributes,
+        TempVector<CstAttrList*>* cstAttrLists = nullptr
+    );
 
     // var [`+=' | `-=' | `*=' | `/=' | `%=' | `^=' | `..='] exp
     AstStat* parseCompoundAssignment(AstExpr* initial, AstExprBinary::Op op);
@@ -208,7 +233,8 @@ private:
         const AstName& debugname,
         const Name* localName,
         const AstArray<AstAttr*>& attributes,
-        const bool isConst = false
+        const bool isConst = false,
+        TempVector<CstAttrList*>* cstAttrLists = nullptr
     );
 
     // explist ::= {exp `,'} exp
@@ -318,7 +344,9 @@ private:
     // simpleexp -> NUMBER | STRING | NIL | true | false | ... | constructor | [attributes] FUNCTION body | primaryexp
     AstExpr* parseSimpleExpr();
 
-    std::tuple<AstArray<AstExpr*>, Location, Location> parseCallList(TempVector<Position>* commaPositions);
+    AstExpr* parseAttributedFunction(const Location& start);
+
+    std::tuple<AstArray<AstExpr*>, Location, Location> parseCallList(TempVector<Position>* commaPositions, Position* closeParenPosition = nullptr);
     // args ::=  `(' [explist] `)' | tableconstructor | String
     AstExpr* parseFunctionArgs(AstExpr* func, bool self);
 
@@ -333,6 +361,12 @@ private:
     // TODO: Add grammar rules here?
     AstExpr* parseIfElseExpr();
 
+    // (`if' | `elseif') (`local' | `const') binding `=' exp then exp ... else exp -- parses an entire `if local`/`if const` expression
+    AstExpr* parseIfElseExprLocalCondition(const Location& start);
+
+    // Parse the trailing `else exp` / `elseif ...` shared by `parseIfElseExpr` and `parseIfElseExprLocalCondition`
+    AstExpr* parseIfElseExprTail(bool& hasElse, bool& isElseIf);
+
     // stringinterp ::= <INTERP_BEGIN> exp {<INTERP_MID> exp} <INTERP_END>
     AstExpr* parseInterpString();
 
@@ -340,6 +374,8 @@ private:
     AstArray<AstTypeOrPack> parseTypeInstantiationExpr(CstTypeInstantiation* cstNodeOut = nullptr, Location* endLocationOut = nullptr);
 
     AstExpr* parseExplicitTypeInstantiationExpr(Position start, AstExpr& basedOnExpr);
+
+    AstExpr* parseClassRefExpr();
 
     // Name
     std::optional<Name> parseNameOpt(const char* context = nullptr);
@@ -519,7 +555,7 @@ private:
 
     DenseHashMap<AstName, AstLocal*> localMap;
     std::vector<AstLocal*> localStack;
-    DenseHashSet<AstName> classesWithinModule{{}};
+    DenseHashSet<AstName> classesWithinModule;
 
     std::vector<ParseError> parseErrors;
 
@@ -552,6 +588,7 @@ private:
     std::vector<std::optional<AstArgumentName>> scratchOptArgName;
     std::vector<Position> scratchPosition;
     std::vector<Position> scratchPosition2;
+    std::vector<CstAttrList*> scratchCstAttrList;
     std::string scratchData;
 
     CstNodeMap cstNodeMap;

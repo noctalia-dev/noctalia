@@ -12,6 +12,7 @@
 #include "core/log.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
+#include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
@@ -282,6 +283,7 @@ namespace {
       entry.windowId = *windowId;
     }
     entry.closeHandle = wlrHandleForToplevel(info);
+    entry.minimizeState = info.minimizeState;
     entry.captureHandle = extHandleForToplevel(info);
     entry.appId = info.appId.empty() ? appId : info.appId;
     entry.appLabel = resolveWindowAppLabel(entry.appId);
@@ -309,6 +311,7 @@ namespace {
       entry.windowId = assignment.windowId;
     }
     entry.appId = assignment.appId;
+    entry.minimizeState = assignment.minimizeState;
     entry.appLabel = resolveWindowAppLabel(entry.appId);
     entry.title = !assignment.title.empty() ? assignment.title : entry.appLabel;
     entry.iconPath = resolveWindowIconPath(entry.appId, iconResolver, iconSize);
@@ -506,6 +509,7 @@ namespace {
       candidate.sortX = assignment.x;
       candidate.sortY = assignment.y;
       if (const auto live = liveToplevelByIdentity.find(key); live != liveToplevelByIdentity.end()) {
+        candidate.entry.minimizeState = live->second.minimizeState;
         if (!live->second.title.empty()) {
           candidate.entry.title = live->second.title;
         }
@@ -573,6 +577,22 @@ namespace {
     }
   }
 
+  [[nodiscard]] std::optional<WindowSwitcherScope> parseWindowSwitcherScope(std::string_view token) {
+    if (token == "all") {
+      return WindowSwitcherScope::All;
+    }
+    if (token == "output") {
+      return WindowSwitcherScope::Output;
+    }
+    if (token == "workspace") {
+      return WindowSwitcherScope::Workspace;
+    }
+    if (token == "current") {
+      return WindowSwitcherScope::Current;
+    }
+    return std::nullopt;
+  }
+
 } // namespace
 
 WindowSwitcher::WindowSwitcher() = default;
@@ -623,15 +643,30 @@ void WindowSwitcher::initialize(
 
 void WindowSwitcher::registerIpc(IpcService& ipc) {
   ipc.bind(noctalia::cli::msg::windowSwitcher, [this](const std::string& args) -> std::string {
-    const std::string token = StringUtils::trim(args);
-    if (token == "close" || token == "hide") {
+    const std::vector<std::string> words = noctalia::ipc::splitWords(args);
+    std::string_view action;
+    std::optional<WindowSwitcherScope> scope;
+    for (const std::string& word : words) {
+      if (word == "close" || word == "hide" || word == "hold") {
+        if (!action.empty()) {
+          return "error: duplicate window-switcher action\n";
+        }
+        action = word;
+      } else if (const auto parsed = parseWindowSwitcherScope(word); parsed.has_value()) {
+        if (scope.has_value()) {
+          return "error: duplicate window-switcher scope\n";
+        }
+        scope = parsed;
+      } else {
+        return "error: unknown window-switcher argument '" + word + "'\n";
+      }
+    }
+
+    if (action == "close" || action == "hide") {
       if (m_active) {
         hide();
       }
       return "ok\n";
-    }
-    if (!token.empty() && token != "hold") {
-      return "error: unknown window-switcher action '" + token + "'\n";
     }
     if (m_platform == nullptr) {
       return "error: compositor unavailable\n";
@@ -643,10 +678,11 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
     if (output == nullptr) {
       return "error: no output available\n";
     }
+    m_scopeOverride = scope.value_or(WindowSwitcherScope::None);
     const bool wasActive = m_active;
     const std::uint32_t modifiers = m_active && m_wayland != nullptr ? m_wayland->keyboardModifiers() : 0;
     showFromShortcut(output, modifiers);
-    if (token == "hold" && !wasActive && m_active) {
+    if (action == "hold" && !wasActive && m_active) {
       m_shortcutState.expectHeldModifier();
     }
     return "ok\n";
@@ -718,6 +754,7 @@ void WindowSwitcher::onToplevelChange() {
   } else if (m_instance != nullptr) {
     m_instance->contentSyncPending = true;
   }
+  enqueueMissingThumbnailCaptures();
   requestSceneUpdate();
 }
 
@@ -773,6 +810,8 @@ void WindowSwitcher::showWithDirection(wl_output* output, int direction) {
   requestSceneUpdate();
   if (!wasActive || outputChanged) {
     startThumbnailCaptures();
+  } else {
+    enqueueMissingThumbnailCaptures();
   }
 }
 
@@ -787,6 +826,7 @@ void WindowSwitcher::hide() {
   m_output = nullptr;
   m_windows.clear();
   m_selectedIndex = 0;
+  m_scopeOverride = WindowSwitcherScope::None;
   cancelShortcutModifierReleaseCheck();
   m_shortcutState.reset();
   ++m_shortcutSessionGeneration;
@@ -819,8 +859,28 @@ void WindowSwitcher::refreshWindows() {
   }
 
   const int iconSize = static_cast<int>(std::round((Style::controlHeightLg + Style::spaceLg) * shellUiScale(m_config)));
-  const bool allOutputs = m_config == nullptr || m_config->config().shell.windowSwitcher.showAllOutputs;
-  const bool currentWorkspaceOnly = m_config != nullptr && m_config->config().shell.windowSwitcher.currentWorkspaceOnly;
+  bool allOutputs = m_config == nullptr || m_config->config().shell.windowSwitcher.showAllOutputs;
+  bool currentWorkspaceOnly = m_config != nullptr && m_config->config().shell.windowSwitcher.currentWorkspaceOnly;
+  switch (m_scopeOverride) {
+  case WindowSwitcherScope::All:
+    allOutputs = true;
+    currentWorkspaceOnly = false;
+    break;
+  case WindowSwitcherScope::Output:
+    allOutputs = false;
+    currentWorkspaceOnly = false;
+    break;
+  case WindowSwitcherScope::Workspace:
+    allOutputs = true;
+    currentWorkspaceOnly = true;
+    break;
+  case WindowSwitcherScope::Current:
+    allOutputs = false;
+    currentWorkspaceOnly = true;
+    break;
+  case WindowSwitcherScope::None:
+    break;
+  }
   buildWindowEntries(
       *m_platform, *m_wayland, m_iconResolver, iconSize, allOutputs ? nullptr : m_output, m_windows,
       currentFocusedWindowKey(*m_platform), mruEnabled() ? &m_mruKeys : nullptr, currentWorkspaceOnly
@@ -850,6 +910,10 @@ void WindowSwitcher::refreshWindows() {
 
 void WindowSwitcher::startThumbnailCaptures() {
   cancelThumbnailCaptures();
+  enqueueMissingThumbnailCaptures();
+}
+
+void WindowSwitcher::enqueueMissingThumbnailCaptures() {
   if (!m_active || m_wayland == nullptr || m_thumbnailCapture == nullptr || !m_thumbnailCapture->available()) {
     return;
   }
@@ -862,9 +926,20 @@ void WindowSwitcher::startThumbnailCaptures() {
     queued[index] = true;
     const WindowSwitcherEntry& entry = m_windows[index];
     const std::string key = identityKeyForEntry(entry);
-    if (!key.empty() && entry.captureHandle != 0 && entry.thumbnail == nullptr) {
-      m_thumbnailQueue.push_back(ThumbnailRequest{.windowKey = key, .captureHandle = entry.captureHandle});
+    if (key.empty()
+        || entry.captureHandle == 0
+        || entry.thumbnail != nullptr
+        || key == m_inFlightThumbnailKey
+        || (entry.minimizeState.has_value() && entry.minimizeState->minimized)) {
+      return;
     }
+    const bool alreadyQueued = std::ranges::any_of(m_thumbnailQueue, [&key](const ThumbnailRequest& request) {
+      return request.windowKey == key;
+    });
+    if (alreadyQueued) {
+      return;
+    }
+    m_thumbnailQueue.push_back(ThumbnailRequest{.windowKey = key, .captureHandle = entry.captureHandle});
   };
   if (m_selectedIndex < m_windows.size()) {
     enqueue(m_selectedIndex);
@@ -889,6 +964,13 @@ void WindowSwitcher::captureNextThumbnail() {
   while (!m_thumbnailQueue.empty()) {
     ThumbnailRequest request = std::move(m_thumbnailQueue.front());
     m_thumbnailQueue.pop_front();
+    const auto foundWindow = std::ranges::find_if(m_windows, [&](const WindowSwitcherEntry& candidate) {
+      return identityKeyForEntry(candidate) == request.windowKey;
+    });
+    if (foundWindow == m_windows.end()
+        || (foundWindow->minimizeState.has_value() && foundWindow->minimizeState->minimized)) {
+      continue;
+    }
     auto* handle = reinterpret_cast<ext_foreign_toplevel_handle_v1*>(request.captureHandle);
     bool handleIsLive = false;
     m_wayland->visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* live) { handleIsLive |= live == handle; });
@@ -896,6 +978,7 @@ void WindowSwitcher::captureNextThumbnail() {
       continue;
     }
 
+    m_inFlightThumbnailKey = request.windowKey;
     m_thumbnailCapture->capture(
         handle, 640, 400,
         [this, windowKey = std::move(request.windowKey)](std::optional<ScreencopyImage> image, std::string error) {
@@ -913,6 +996,7 @@ void WindowSwitcher::captureNextThumbnail() {
             }
             requestSceneUpdate();
           }
+          m_inFlightThumbnailKey.clear();
           captureNextThumbnail();
         }
     );
@@ -922,6 +1006,7 @@ void WindowSwitcher::captureNextThumbnail() {
 
 void WindowSwitcher::cancelThumbnailCaptures() {
   m_thumbnailQueue.clear();
+  m_inFlightThumbnailKey.clear();
   if (m_thumbnailCapture != nullptr) {
     m_thumbnailCapture->cancelInFlight();
   }
@@ -1741,6 +1826,20 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
     (void)onKeyboardEvent(event);
   });
 
+  input->setOnAxisHandler([this](const InputArea::PointerData& data) -> bool {
+    if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL && data.axis != WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+      return false;
+    }
+
+    const float steps = data.scrollSteps();
+    if (steps == 0.0F) {
+      return false;
+    }
+
+    cycleSelection(steps > 0.0F ? 1 : -1);
+    return true;
+  });
+
   const WindowSwitcherStyleLayout& layout = instance.styleLayout;
 
   input->addChild(
@@ -1765,7 +1864,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
       ui::box({
           .out = &instance.panelBackground,
           .fill = colorSpecFromRole(ColorRole::Surface),
-          .border = scaleAlpha(colorSpecFromRole(ColorRole::Outline), Style::disabledOutlineAlpha),
+          .border = scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha),
           .borderWidth = Style::borderWidth,
           .radius = Style::scaledRadiusXl(scale),
           .visible = layout.boxed,
@@ -1824,7 +1923,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
     auto countBackground = ui::box({
         .out = &instance.countBackground,
         .fill = colorSpecFromRole(ColorRole::Surface),
-        .border = scaleAlpha(colorSpecFromRole(ColorRole::Outline), Style::disabledOutlineAlpha),
+        .border = scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha),
         .borderWidth = Style::borderWidth,
         .radius = Style::scaledRadiusMd(scale),
         .width = layout.countWidth,

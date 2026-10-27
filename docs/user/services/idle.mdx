@@ -19,8 +19,7 @@ behavior_order = ["lock", "screen-off", "suspend"]
 pre_action_fade_seconds = 2.0
 ```
 
-`behavior_order` controls the order named behaviors are evaluated and emitted by Settings. Names not listed are appended
-after the listed entries; unknown names are ignored.
+`behavior_order` controls the order named behaviors are evaluated and emitted by Settings. Names not listed are appended after the listed entries; unknown names are ignored.
 
 While a fade is in progress, the overlay is click-through so pointer/keyboard activity still reaches the compositor; if the session becomes active again during that window, the pending command is cancelled. The dim is a layer-shell **overlay** that covers the full monitor (including the bar).
 
@@ -48,16 +47,19 @@ command = "notify-send 'Idle' 'Going idle'"
 resume_command = "notify-send 'Idle' 'Back from idle'"
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `action` | string | `"command"` | What the behavior does: `lock`, `screen_off`, `suspend`, `lock_and_suspend`, or `command` |
-| `enabled` | bool | `true` | Enable or disable this behavior |
-| `timeout` | number | `0` | Seconds before the behavior triggers; fractional values are allowed (e.g. `0.3`); `0` disables this behavior |
-| `command` | string | `""` | Only for `action = "command"`: a shell command to run when idle |
-| `resume_command` | string | `""` | Optional shell command to run when activity resumes |
-| `lock_before_suspend` | bool | `true` | For `action = "suspend"`, lock the session first (equivalent to `action = "lock_and_suspend"`). Set `false` to suspend without locking. |
+| Setting               | Type   | Default     | Description                                                                                                                                    |
+| --------------------- | ------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `action`              | string | `"command"` | What the behavior does: `lock`, `screen_off`, `suspend`, `lock_and_suspend`, or `command`                                                      |
+| `enabled`             | bool   | `true`      | Enable or disable this behavior                                                                                                                |
+| `timeout`             | number | `0`         | Seconds before the behavior triggers; fractional values are allowed (e.g. `0.3`); `0` disables this behavior while unlocked                    |
+| `locked_timeout`      | number | `0`         | Alternate timeout while the session is locked; `0` uses `timeout`. With `timeout = 0`, a positive value enables the behavior only while locked |
+| `command`             | string | `""`        | Only for `action = "command"`: a shell command to run when idle                                                                                |
+| `resume_command`      | string | `""`        | Optional shell command to run when activity resumes                                                                                            |
+| `lock_before_suspend` | bool   | `true`      | For `action = "suspend"`, lock the session first (equivalent to `action = "lock_and_suspend"`). Set `false` to suspend without locking.        |
 
 `action = "screen_off"` turns the monitors off on idle and **back on automatically** when you return. If `resume_command` is set, Noctalia restores monitor power first and then runs the command. The command still runs if monitor power restoration reports a failure.
+
+Locking the session does not count as resumed activity. If monitors are already off when a later lock behavior runs, they stay off until activity resumes or the session unlocks. Behaviors whose timeout does not change keep their existing timers. A waiting behavior switches to `locked_timeout` when locking; a fade already underway finishes on its current schedule. A behavior that has already fired keeps its effect and switches timeout after activity resumes. Unlocking restores normal timeouts.
 
 For a fully custom power action, use the canonical IPC CLI as part of a shell command:
 
@@ -70,6 +72,8 @@ resume_command = "noctalia msg dpms-on && some_shell_command"
 ```
 
 Idle behavior uses the Wayland `ext_idle_notifier_v1` protocol and respects active idle inhibitors.
+
+Applications can also inhibit idle over D-Bus (`org.freedesktop.ScreenSaver`), as browsers do during video playback. While such an inhibit is held, idle behaviors do not fire and a pre-action fade already underway is cancelled. When the inhibit is released for more than a second, waiting behaviors restart their countdowns from that moment; brief renewals during playback do not reset them.
 
 ## Related IPC
 

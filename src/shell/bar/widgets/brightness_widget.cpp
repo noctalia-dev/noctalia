@@ -24,20 +24,22 @@ namespace {
 } // namespace
 
 BrightnessWidget::BrightnessWidget(BrightnessService* brightness, wl_output* output, Options options)
-    : m_brightness(brightness), m_output(output), m_showLabel(options.showLabel),
+    : m_brightness(brightness), m_output(output), m_showGlyph(options.showGlyph), m_showLabel(options.showLabel),
       m_showWhenUnavailable(options.showWhenUnavailable) {}
 
 void BrightnessWidget::create() {
   auto area = ui::inputArea({});
 
-  area->addChild(
-      ui::glyph({
-          .out = &m_glyph,
-          .glyph = "brightness-high",
-          .glyphSize = Style::baseGlyphSize * m_contentScale,
-          .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
-      })
-  );
+  if (m_showGlyph) {
+    area->addChild(
+        ui::glyph({
+            .out = &m_glyph,
+            .glyph = "brightness-high",
+            .glyphSize = Style::baseGlyphSize * m_contentScale,
+            .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
+        })
+    );
+  }
 
   area->addChild(
       ui::label({
@@ -54,7 +56,7 @@ void BrightnessWidget::create() {
 
 void BrightnessWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
-  if (m_glyph == nullptr || m_label == nullptr || rootNode == nullptr) {
+  if (m_label == nullptr || rootNode == nullptr) {
     return;
   }
   m_isVertical = containerHeight > containerWidth;
@@ -64,23 +66,31 @@ void BrightnessWidget::doLayout(Renderer& renderer, float containerWidth, float 
     return;
   }
 
-  m_glyph->measure(renderer);
+  if (m_glyph != nullptr) {
+    m_glyph->measure(renderer);
+  }
+  const float iconW = m_glyph != nullptr ? m_glyph->width() : 0.0F;
+  const float iconH = m_glyph != nullptr ? m_glyph->height() : 0.0F;
   if (m_label->visible()) {
     m_label->measure(renderer);
   }
 
   const bool labelVisible = m_label->visible();
   if (m_isVertical && labelVisible) {
-    const float w = std::max(m_glyph->width(), m_label->width());
-    m_glyph->setPosition(std::round((w - m_glyph->width()) * 0.5F), 0.0F);
-    m_label->setPosition(std::round((w - m_label->width()) * 0.5F), m_glyph->height());
-    rootNode->setSize(w, m_glyph->height() + m_label->height());
+    const float w = std::max(iconW, m_label->width());
+    if (m_glyph != nullptr) {
+      m_glyph->setPosition(std::round((w - iconW) * 0.5F), 0.0F);
+    }
+    m_label->setPosition((w - m_label->width()) * 0.5F, iconH);
+    rootNode->setSize(w, iconH + m_label->height());
   } else {
-    const float h = labelVisible ? std::max(m_glyph->height(), m_label->height()) : m_glyph->height();
-    m_glyph->setPosition(0.0F, std::round((h - m_glyph->height()) * 0.5F));
-    float totalWidth = m_glyph->width();
+    const float h = labelVisible ? std::max(iconH, m_label->height()) : iconH;
+    if (m_glyph != nullptr) {
+      m_glyph->setPosition(0.0F, std::round((h - iconH) * 0.5F));
+    }
+    float totalWidth = iconW;
     if (labelVisible) {
-      m_label->setPosition(m_glyph->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5F));
+      m_label->setPosition(iconW + (m_showGlyph ? Style::spaceXs : 0.0F), (h - m_label->height()) * 0.5F);
       totalWidth = m_label->x() + m_label->width();
     }
     rootNode->setSize(totalWidth, h);
@@ -100,7 +110,7 @@ void BrightnessWidget::syncWidgetVisibility(bool showWidget) {
 }
 
 void BrightnessWidget::syncState(Renderer& renderer) {
-  if (m_glyph == nullptr || m_label == nullptr) {
+  if (m_label == nullptr) {
     return;
   }
 
@@ -119,12 +129,12 @@ void BrightnessWidget::syncState(Renderer& renderer) {
   m_lastBrightness = brightness;
   m_lastVertical = m_isVertical;
 
-  syncWidgetVisibility(available || m_showWhenUnavailable);
+  syncWidgetVisibility(available || (m_showWhenUnavailable && m_showGlyph));
   if (!available) {
     m_label->setVisible(false);
     if (rootNode != nullptr) {
       auto* area = static_cast<InputArea*>(rootNode);
-      if (m_showWhenUnavailable) {
+      if (m_showWhenUnavailable && m_glyph != nullptr) {
         m_glyph->setGlyph("sun-off");
         m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
         m_glyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
@@ -138,10 +148,12 @@ void BrightnessWidget::syncState(Renderer& renderer) {
     return;
   }
 
-  m_glyph->setGlyph(brightnessGlyphName(brightness));
-  m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
-  m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
-  m_glyph->measure(renderer);
+  if (m_glyph != nullptr) {
+    m_glyph->setGlyph(brightnessGlyphName(brightness));
+    m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
+    m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+    m_glyph->measure(renderer);
+  }
 
   m_label->setVisible(m_showLabel);
   if (m_showLabel) {

@@ -71,6 +71,7 @@ namespace {
   constexpr auto kInitialSampleRetryDelay = std::chrono::milliseconds(250);
   constexpr double kBytesPerMb = 1000.0 * 1000.0;
   constexpr double kFreqFallbackCeilingMhz = 5000.0;
+  constexpr float kCoreGaugeGap = 1.0F;
 
   [[nodiscard]] std::chrono::steady_clock::duration historyInterval(const SystemMonitorService* monitor) {
     return monitor != nullptr ? monitor->historySampleInterval()
@@ -182,14 +183,16 @@ namespace {
 
 SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configService, Options options)
     : m_monitor(monitor), m_stat(options.stat), m_visualization(options.visualization),
-      m_highlightColor(options.highlightColor), m_configService(configService), m_showGlyph(options.showGlyph),
-      m_showValue(options.showValue), m_labelMinWidth(static_cast<float>(options.labelMinWidth)),
+      m_showCpuCores(options.showCpuCores), m_highlightColor(options.highlightColor), m_configService(configService),
+      m_showGlyph(options.showGlyph), m_showValue(options.showValue),
+      m_labelMinWidth(static_cast<float>(options.labelMinWidth)),
       m_diskPath(FileUtils::expandUserPath(options.diskPath).string()),
       m_networkInterface(std::move(options.networkInterface)), m_networkSpeedUnit(options.networkSpeedUnit),
       m_networkSpeedLabelStyle(
           options.networkSpeedCompact ? FormatUnits::ByteRateLabelStyle::Compact : FormatUnits::ByteRateLabelStyle::Full
       ),
-      m_glyphOverride(std::move(options.glyph)), m_customLabelText(std::move(options.customLabel)),
+      m_networkSpeedDecimalPlaces(options.networkSpeedDecimalPlaces), m_glyphOverride(std::move(options.glyph)),
+      m_customLabelText(std::move(options.customLabel)),
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
       m_showUnits(options.showUnits), m_glyphPosition(options.glyphPosition) {
   if (m_monitor != nullptr) {
@@ -207,6 +210,9 @@ SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configS
     }
     if (isDiskStat(m_stat) && !m_diskPath.empty()) {
       m_monitor->retainDiskPath(m_diskPath);
+    }
+    if (splitCoresActive()) {
+      m_monitor->retainCpuCores();
     }
   }
 }
@@ -227,6 +233,9 @@ SysmonWidget::~SysmonWidget() {
     }
     if (isDiskStat(m_stat) && !m_diskPath.empty()) {
       m_monitor->releaseDiskPath(m_diskPath);
+    }
+    if (splitCoresActive()) {
+      m_monitor->releaseCpuCores();
     }
   }
 }
@@ -282,7 +291,11 @@ void SysmonWidget::create() {
     m_graph = static_cast<Graph*>(m_chartBg->addChild(std::move(graph)));
   }
 
-  if (m_visualization == SysmonVisualization::Gauge) {
+  if (splitCoresActive()) {
+    auto coreRaw = ui::row({.gap = kCoreGaugeGap * m_contentScale});
+    m_coreGaugeRow = static_cast<Flex*>(coreRaw.get());
+    graphOrGaugeNode = std::move(coreRaw);
+  } else if (m_visualization == SysmonVisualization::Gauge) {
     const ColorSpec base = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
     graphOrGaugeNode = ui::progressBar({
         .fill = base,
@@ -339,7 +352,7 @@ void SysmonWidget::create() {
 void SysmonWidget::syncVisualPalette() {
   if (m_chartBg != nullptr) {
     RoundedRectStyle bgStyle;
-    bgStyle.fill = colorForRole(ColorRole::SurfaceVariant);
+    bgStyle.fill = colorForRole(ColorRole::SurfaceContainer);
     bgStyle.radius = Style::scaledRadiusSm();
     bgStyle.softness = 0.5F;
     m_chartBg->setStyle(bgStyle);
@@ -350,6 +363,17 @@ void SysmonWidget::syncVisualPalette() {
   if (m_gauge != nullptr) {
     const ColorSpec base = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
     m_gauge->setTrack(gaugeTrackColor(base));
+  }
+  const ColorSpec coreBase = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
+  const ColorSpec coreTrack = gaugeTrackColor(coreBase);
+  const std::size_t coreCount = std::min(m_coreGauges.size(), m_lastCoreUsage.size());
+  for (ProgressBar* gauge : m_coreGauges) {
+    gauge->setTrack(coreTrack);
+  }
+  // Fills read the cached per-core values so a palette change recolors immediately instead of
+  // waiting for the next 1s sample tick.
+  for (std::size_t i = 0; i < coreCount; ++i) {
+    m_coreGauges[i]->setFill(currentValueColor(coreBase, m_lastCoreUsage[i]));
   }
   syncValueColor();
 }
@@ -377,11 +401,12 @@ void SysmonWidget::syncValueColor() {
   }
 }
 
-Color SysmonWidget::currentValueColor(ColorSpec baseColor) {
+Color SysmonWidget::currentValueColor(ColorSpec baseColor, std::optional<double> value) {
   const Color base = resolveColorSpec(baseColor);
   const Color highlight = resolveColorSpec(m_highlightColor);
   const auto [activityThreshold, criticalThreshold] = currentThresholds();
-  const auto factor = static_cast<float>(gradientFactor(currentGradientValue(), activityThreshold, criticalThreshold));
+  const double gradientValue = value ? *value : currentGradientValue();
+  const auto factor = static_cast<float>(gradientFactor(gradientValue, activityThreshold, criticalThreshold));
   return lerpHsvChromaWeighted(base, highlight, factor);
 }
 
@@ -576,6 +601,58 @@ void SysmonWidget::syncGaugeProgress(double normalized) {
   requestRedraw();
 }
 
+bool SysmonWidget::splitCoresActive() const {
+  return m_showCpuCores && m_stat == SysmonStat::CpuUsage && m_visualization == SysmonVisualization::Gauge;
+}
+
+void SysmonWidget::syncCoreGauge() {
+  if (m_coreGaugeRow == nullptr || m_monitor == nullptr) {
+    return;
+  }
+
+  if (!m_monitor->isRunning()) {
+    m_lastCoreUsage.clear();
+    for (ProgressBar* gauge : m_coreGauges) {
+      gauge->setProgress(0.0F);
+    }
+    return;
+  }
+
+  // Per-core ticks never advance sampledAt, so split gauges self-schedule on the sampler's own
+  // fixed cadence rather than the history-driven timing the graph uses.
+  m_updateTimer.start(SystemMonitorService::kCpuCoreInterval, [this]() { requestUpdate(); });
+
+  std::vector<double> cores = m_monitor->latest().cpuCoreUsagePercent;
+  if (cores.empty()) {
+    return;
+  }
+
+  if (cores.size() != m_coreGauges.size()) {
+    rebuildCoreGauge(cores.size());
+  }
+
+  for (std::size_t i = 0; i < m_coreGauges.size(); ++i) {
+    m_coreGauges[i]->setProgress(static_cast<float>(std::clamp(cores[i] / 100.0, 0.0, 1.0)));
+  }
+  m_lastCoreUsage = std::move(cores);
+  requestRedraw();
+}
+
+void SysmonWidget::rebuildCoreGauge(std::size_t coreCount) {
+  m_coreGauges.clear();
+  while (!m_coreGaugeRow->children().empty()) {
+    (void)m_coreGaugeRow->removeChild(m_coreGaugeRow->children().front().get());
+  }
+
+  const ColorSpec track = gaugeTrackColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
+  m_coreGauges.reserve(coreCount);
+  for (std::size_t i = 0; i < coreCount; ++i) {
+    m_coreGauges.push_back(
+        static_cast<ProgressBar*>(m_coreGaugeRow->addChild(ui::progressBar({.track = track, .progress = 0.0F})))
+    );
+  }
+}
+
 void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
   if (rootNode == nullptr
@@ -599,6 +676,9 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   const float baseSize = Style::fontSizeBody * m_contentScale;
 
   if (m_label != nullptr) {
+    // TextAlign is logical (End is the left edge in RTL); keep values physically right-aligned in both directions.
+    const TextAlign rightAlign = Style::rtl() ? TextAlign::Start : TextAlign::End;
+    m_label->setTextAlign(isVerticalBar ? TextAlign::Center : rightAlign);
     if (orientationChanged || m_lastRawValue.empty()) {
       syncLabelText(m_lastRawValue.empty() ? formatValue() : m_lastRawValue);
     }
@@ -611,8 +691,32 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   Node* visualizationNode = nullptr;
   float visualizationW = 0.0F;
   float visualizationH = 0.0F;
-  if (m_visualization == SysmonVisualization::Gauge && m_gauge != nullptr) {
-    const float gaugeStem = hasIdentity ? std::round(baseSize * 0.85F) : std::round(baseSize * 1.2F);
+  const float gaugeStem = hasIdentity ? std::round(baseSize * 0.85F) : std::round(baseSize * 1.2F);
+  if (m_visualization == SysmonVisualization::Gauge && m_coreGaugeRow != nullptr) {
+    const float coreThickness = std::max(2.0F, roundf(baseSize * 0.2F));
+    const float coreGap = kCoreGaugeGap * m_contentScale;
+    m_coreGaugeRow->setDirection(isVerticalBar ? FlexDirection::Vertical : FlexDirection::Horizontal);
+    if (!m_coreGauges.empty()) {
+      const auto coreCount = static_cast<float>(m_coreGauges.size());
+      const float coresExtent = coreCount * coreThickness + (coreCount - 1.0F) * coreGap;
+      if (isVerticalBar) {
+        visualizationW = std::max(identitySize.width, gaugeStem);
+        visualizationH = coresExtent;
+      } else {
+        visualizationW = coresExtent;
+        visualizationH = gaugeStem;
+      }
+      for (ProgressBar* gauge : m_coreGauges) {
+        gauge->setOrientation(isVerticalBar ? ProgressBarOrientation::Horizontal : ProgressBarOrientation::Vertical);
+        gauge->setRadius(coreThickness / 2.0F);
+        const float gaugeW = isVerticalBar ? visualizationW : coreThickness;
+        const float gaugeH = isVerticalBar ? coreThickness : visualizationH;
+        gauge->setSize(gaugeW, gaugeH);
+      }
+      m_coreGaugeRow->setSize(visualizationW, visualizationH);
+      visualizationNode = m_coreGaugeRow;
+    }
+  } else if (m_visualization == SysmonVisualization::Gauge && m_gauge != nullptr) {
     const float gaugeThickness = std::max(3.0F, roundf(baseSize * 0.3F));
     if (isVerticalBar) {
       visualizationW = std::max(identitySize.width, gaugeStem);
@@ -747,7 +851,11 @@ void SysmonWidget::doUpdate(Renderer& renderer) {
   }
 
   if (m_visualization == SysmonVisualization::Gauge) {
-    syncGaugeProgress(currentNormalized());
+    if (splitCoresActive()) {
+      syncCoreGauge();
+    } else {
+      syncGaugeProgress(currentNormalized());
+    }
     return;
   }
 
@@ -1076,12 +1184,14 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
 
   case SysmonStat::NetRx:
     return FormatUnits::formatDecimalBytesPerSecond(
-        netRxFromStats(stats, m_networkInterface), m_networkSpeedUnit, m_networkSpeedLabelStyle
+        netRxFromStats(stats, m_networkInterface), m_networkSpeedUnit, m_networkSpeedLabelStyle,
+        m_networkSpeedDecimalPlaces
     );
 
   case SysmonStat::NetTx:
     return FormatUnits::formatDecimalBytesPerSecond(
-        netTxFromStats(stats, m_networkInterface), m_networkSpeedUnit, m_networkSpeedLabelStyle
+        netTxFromStats(stats, m_networkInterface), m_networkSpeedUnit, m_networkSpeedLabelStyle,
+        m_networkSpeedDecimalPlaces
     );
 
   case SysmonStat::DiskUsedPct:

@@ -14,9 +14,11 @@
 #include <format>
 #include <limits>
 #include <map>
+#include <optional>
 #include <sdbus-c++/IObject.h>
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
+#include <string>
 #include <string_view>
 #include <tuple>
 #include <unordered_set>
@@ -41,6 +43,16 @@ namespace {
   constexpr auto kMprisPlayerInterface = "org.mpris.MediaPlayer2.Player";
   constexpr auto kNoctaliaMprisInterface = "dev.noctalia.Mpris";
   constexpr auto kPropertiesDebounceWindow = std::chrono::milliseconds{120};
+  constexpr float kMediaVolumeStepDefault = 0.05F;
+  constexpr auto kVolumeHoldWindow = std::chrono::milliseconds{800};
+  constexpr auto kVolumeHoldMinIpcInterval = std::chrono::milliseconds{50};
+  constexpr auto kVolumeWriteGuard = std::chrono::milliseconds{400};
+  constexpr double kVolumeWriteGuardEpsilon = 0.02;
+  constexpr auto kMediaVolumeStepError =
+      "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
+  constexpr auto kMediaVolumeValueError =
+      "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
+  constexpr auto kMediaVolumeUnsupportedOrNoActive = "error: no active player or volume unsupported\n";
   constexpr auto kMetadataStabilizeWindow = std::chrono::milliseconds{900};
   const sdbus::ServiceName kDbusName{"org.freedesktop.DBus"};
   const sdbus::ObjectPath kDbusPath{"/org/freedesktop/DBus"};
@@ -688,12 +700,48 @@ void MprisService::refreshPlayers() {
 void MprisService::registerIpc(IpcService& ipc) {
   ipc.bindCycle(noctalia::cli::msg::media, [this](const std::string& args) -> std::string {
     const auto parts = noctalia::ipc::splitWords(args);
-    if (parts.size() != 1) {
-      return "error: media requires exactly one action "
-             "<next|previous|toggle|play|pause|stop|next-player|previous-player>\n";
+    if (parts.empty() || parts.size() > 2) {
+      return "error: media requires an action "
+             "<next|previous|toggle|play|pause|stop|next-player|previous-player|volume-up|volume-down|volume-set>\n";
     }
 
     const std::string& action = parts[0];
+    if (action == "volume-set") {
+      if (parts.size() != 2) {
+        return "error: media volume-set requires <value>\n";
+      }
+      const auto amount = noctalia::ipc::parseNormalizedOrPercent(parts[1]);
+      if (!amount.has_value()) {
+        return kMediaVolumeValueError;
+      }
+      return setVolumeActive(*amount) ? "ok\n" : kMediaVolumeUnsupportedOrNoActive;
+    }
+    if (action == "volume-up" || action == "volume-down") {
+      const auto step = parts.size() == 1 ? std::optional<float>(kMediaVolumeStepDefault)
+                                          : noctalia::ipc::parseNormalizedOrPercent(parts[1]);
+      if (!step.has_value()) {
+        return kMediaVolumeStepError;
+      }
+
+      const auto active = chooseActivePlayer();
+      if (!active.has_value()) {
+        return kMediaVolumeUnsupportedOrNoActive;
+      }
+      const auto current = volume(*active);
+      if (!current.has_value()) {
+        return kMediaVolumeUnsupportedOrNoActive;
+      }
+      const float direction = action == "volume-up" ? 1.0F : -1.0F;
+      const double newVolume = relativeAdjustTarget(
+          *active, static_cast<int>(direction), *step, direction, static_cast<float>(*current),
+          std::max(1.0F, static_cast<float>(*current))
+      );
+      return setVolume(*active, newVolume) ? "ok\n" : kMediaVolumeUnsupportedOrNoActive;
+    }
+    if (parts.size() != 1) {
+      return "error: media requires exactly one action "
+             "<next|previous|toggle|play|pause|stop|next-player|previous-player|volume-up|volume-down|volume-set>\n";
+    }
     if (action == "next") {
       return nextActive() ? "ok\n" : "error: no active player or Next unsupported\n";
     }
@@ -720,7 +768,7 @@ void MprisService::registerIpc(IpcService& ipc) {
     }
 
     return "error: invalid media action (use next, previous, toggle, play, pause, stop, next-player, "
-           "previous-player)\n";
+           "previous-player, volume-up, volume-down, volume-set)\n";
   });
 }
 
@@ -1017,6 +1065,19 @@ bool MprisService::setVolume(const std::string& busName, double volume) {
         .onInterface(kPropertiesInterface)
         .withArguments(std::string{kMprisPlayerInterface}, std::string{"Volume"}, sdbus::Variant{volume})
         .uponReplyInvoke(makeAsyncReplyHandler("set-volume", busName));
+    const double previousVolume = it->second.volume;
+    it->second.volume = volume;
+    // An absolute set replaces the ramp target the echo guard compares against. The same value
+    // relativeAdjustTarget just stored leaves the hold alone.
+    auto& adjust = m_relativeAdjust[busName];
+    if (std::abs(static_cast<double>(adjust.target) - volume) > kVolumeWriteGuardEpsilon) {
+      adjust.target = static_cast<float>(volume);
+      adjust.lastAt = std::chrono::steady_clock::now();
+      adjust.gesture = 0;
+    }
+    if (previousVolume != volume && m_changeCallback) {
+      m_changeCallback();
+    }
     return true;
   } catch (const sdbus::Error& e) {
     kLog.warn("set-volume dispatch failed name={} err={}", busName, e.what());
@@ -2082,6 +2143,15 @@ void MprisService::applyPlayerSnapshot(
       m_lastPositionSampleAt[busName] = now;
     }
 
+    // The debounced PropertiesChanged often reports the previous step. Keep the volume we just sent
+    // until the player echoes that value.
+    if (const auto adjust = m_relativeAdjust.find(busName); adjust != m_relativeAdjust.end()) {
+      const bool recent = now - adjust->second.lastAt <= kVolumeWriteGuard;
+      if (recent && std::abs(merged.volume - static_cast<double>(adjust->second.target)) > kVolumeWriteGuardEpsilon) {
+        merged.volume = adjust->second.target;
+      }
+    }
+
     existing->second = merged;
 
     const bool trackChanged = previous_info.title != merged.title
@@ -2175,6 +2245,7 @@ void MprisService::clearPlayerState(const std::string& busName) {
     m_lastActivePlayer.clear();
   }
   m_stoppedPlayers.erase(busName);
+  m_relativeAdjust.erase(busName);
 }
 
 void MprisService::removePlayer(const std::string& busName) {
@@ -2785,4 +2856,30 @@ MprisPlayerInfo MprisService::readPlayerInfoFromProperties(
       .canGoPrevious = get_bool_from_props(playerProps, "CanGoPrevious"),
       .canSeek = get_bool_from_props(playerProps, "CanSeek"),
   };
+}
+
+float MprisService::relativeAdjustTarget(
+    const std::string& busName, int gesture, float baseStep, float direction, float current, float maxVolume
+) {
+  const auto now = std::chrono::steady_clock::now();
+  auto& relativeAdjust = m_relativeAdjust[busName];
+  const bool held = relativeAdjust.gesture == gesture && (now - relativeAdjust.lastAt) <= kVolumeHoldWindow;
+
+  if (held && (now - relativeAdjust.lastAt) < kVolumeHoldMinIpcInterval) {
+    return relativeAdjust.target;
+  }
+
+  relativeAdjust.gesture = gesture;
+  relativeAdjust.lastAt = now;
+
+  if (!held) {
+    // Isolated tap or new gesture: a fixed, granular step from the live volume.
+    relativeAdjust.target = std::clamp(current + direction * baseStep, 0.0F, maxVolume);
+    return relativeAdjust.target;
+  }
+
+  // Held: advance the gesture-local target by a flat baseStep on every event, relying on
+  // the gesture-local target accumulator to bypass asynchronous read-back echoes.
+  relativeAdjust.target = std::clamp(relativeAdjust.target + direction * baseStep, 0.0F, maxVolume);
+  return relativeAdjust.target;
 }

@@ -414,6 +414,9 @@ namespace ui {
     if (props.fontFamily.has_value()) {
       control->setFontFamily(std::move(*props.fontFamily));
     }
+    if (props.fontFeatures.has_value()) {
+      control->setFontFeatures(std::move(*props.fontFeatures));
+    }
     if (props.color.has_value()) {
       control->setColor(*props.color);
     }

@@ -12,7 +12,7 @@ class Input;
 class Separator;
 class Renderer;
 
-// Horizontal numeric stepper styled like Segmented (shared SurfaceVariant track, Tab-style ends + center).
+// Horizontal numeric stepper styled like Segmented (shared SurfaceContainer track, Tab-style ends + center).
 class Stepper : public Flex {
 public:
   Stepper();

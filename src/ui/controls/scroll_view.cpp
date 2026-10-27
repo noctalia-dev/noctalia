@@ -255,6 +255,14 @@ void ScrollView::setScrollbarVisible(bool visible) {
   markLayoutDirty();
 }
 
+void ScrollView::setReserveScrollbarGutter(bool reserve) {
+  if (m_reserveScrollbarGutter == reserve) {
+    return;
+  }
+  m_reserveScrollbarGutter = reserve;
+  markLayoutDirty();
+}
+
 void ScrollView::setScrollbarInsetV(float inset) {
   if (m_scrollbar != nullptr) {
     m_scrollbar->setTrackInset(inset);
@@ -306,9 +314,9 @@ void ScrollView::setSoftness(float softness) {
 }
 
 void ScrollView::setCardStyle(float scale, float fillOpacity, bool showBorder) {
-  setFill(colorSpecFromRole(ColorRole::SurfaceVariant, fillOpacity));
+  setFill(colorSpecFromRole(ColorRole::SurfaceContainer, fillOpacity));
   if (showBorder) {
-    setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
   } else {
     clearBorder();
   }
@@ -376,7 +384,8 @@ float ScrollView::scrollbarGutter() const noexcept {
 }
 
 float ScrollView::contentViewportWidth(bool reserveScrollbarGutter) const noexcept {
-  const float gutter = m_orientation == ScrollOrientation::Vertical && (m_scrollbarShown || reserveScrollbarGutter)
+  const float gutter = m_orientation == ScrollOrientation::Vertical
+          && (m_scrollbarShown || m_reserveScrollbarGutter || reserveScrollbarGutter)
       ? scrollbarGutter()
       : 0.0F;
   return std::max(0.0F, width() - (m_viewportPaddingH + m_backgroundBorderWidth) * 2.0F - gutter);
@@ -477,7 +486,7 @@ void ScrollView::doLayout(Renderer& renderer) {
     m_viewportArea->setFrameSize(clipW, clipH);
 
     m_scrollbarShown = m_showScrollbar && m_content->height() > viewportH + 0.5F;
-    const float gutter = m_scrollbarShown ? scrollbarGutter() : 0.0F;
+    const float gutter = m_scrollbarShown || m_reserveScrollbarGutter ? scrollbarGutter() : 0.0F;
     const float contentWidth = std::max(0.0F, availableW - gutter);
     if (std::abs(m_content->width() - contentWidth) >= 0.5F) {
       contentConstraints = {};

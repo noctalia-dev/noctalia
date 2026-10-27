@@ -17,7 +17,7 @@ namespace noctalia::theme {
                     .dark =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#E6B450"),
                                     .onPrimary = hex("#0B0E14"),
                                     .secondary = hex("#AAD94C"),
@@ -70,7 +70,7 @@ namespace noctalia::theme {
                     .light =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#FF8F40"),
                                     .onPrimary = hex("#F8F9FA"),
                                     .secondary = hex("#86B300"),
@@ -126,7 +126,7 @@ namespace noctalia::theme {
                     .dark =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#cba6f7"),
                                     .onPrimary = hex("#11111b"),
                                     .secondary = hex("#fab387"),
@@ -179,7 +179,7 @@ namespace noctalia::theme {
                     .light =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#8839ef"),
                                     .onPrimary = hex("#eff1f5"),
                                     .secondary = hex("#fe640b"),
@@ -235,7 +235,7 @@ namespace noctalia::theme {
                     .dark =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#bd93f9"),
                                     .onPrimary = hex("#282A36"),
                                     .secondary = hex("#ff79c6"),
@@ -288,7 +288,7 @@ namespace noctalia::theme {
                     .light =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#8332f4"),
                                     .onPrimary = hex("#ffffff"),
                                     .secondary = hex("#ff1399"),
@@ -344,7 +344,7 @@ namespace noctalia::theme {
                     .dark =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#37f499"),
                                     .onPrimary = hex("#171928"),
                                     .secondary = hex("#04d1f9"),
@@ -397,7 +397,7 @@ namespace noctalia::theme {
                     .light =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#fb5bb6"),
                                     .onPrimary = hex("#1e2029"),
                                     .secondary = hex("#0ad6ff"),
@@ -453,7 +453,7 @@ namespace noctalia::theme {
                     .dark =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#b8bb26"),
                                     .onPrimary = hex("#282828"),
                                     .secondary = hex("#fabd2F"),
@@ -506,7 +506,7 @@ namespace noctalia::theme {
                     .light =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#98971a"),
                                     .onPrimary = hex("#fbf1c7"),
                                     .secondary = hex("#d79921"),
@@ -562,7 +562,7 @@ namespace noctalia::theme {
                     .dark =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#76946a"),
                                     .onPrimary = hex("#1f1f28"),
                                     .secondary = hex("#c0a36e"),
@@ -615,7 +615,7 @@ namespace noctalia::theme {
                     .light =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#6f894e"),
                                     .onPrimary = hex("#f2ecbc"),
                                     .secondary = hex("#77713F"),
@@ -671,7 +671,7 @@ namespace noctalia::theme {
                     .dark =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#fff59b"),
                                     .onPrimary = hex("#0e0e43"),
                                     .secondary = hex("#a9aefe"),
@@ -724,7 +724,7 @@ namespace noctalia::theme {
                     .light =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#5d65f5"),
                                     .onPrimary = hex("#dadcff"),
                                     .secondary = hex("#8E93D8"),
@@ -780,7 +780,7 @@ namespace noctalia::theme {
                     .dark =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#8fbcbb"),
                                     .onPrimary = hex("#2e3440"),
                                     .secondary = hex("#88c0d0"),
@@ -833,7 +833,7 @@ namespace noctalia::theme {
                     .light =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#5e81ac"),
                                     .onPrimary = hex("#eceff4"),
                                     .secondary = hex("#64adc2"),
@@ -889,7 +889,7 @@ namespace noctalia::theme {
                     .dark =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#ebbcba"),
                                     .onPrimary = hex("#191724"),
                                     .secondary = hex("#9ccfd8"),
@@ -942,7 +942,7 @@ namespace noctalia::theme {
                     .light =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#d7827e"),
                                     .onPrimary = hex("#faf4ed"),
                                     .secondary = hex("#56949F"),
@@ -998,7 +998,7 @@ namespace noctalia::theme {
                     .dark =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#7aa2f7"),
                                     .onPrimary = hex("#16161e"),
                                     .secondary = hex("#bb9af7"),
@@ -1051,7 +1051,7 @@ namespace noctalia::theme {
                     .light =
                         FixedPaletteMode{
                             .palette =
-                                Palette{
+                                FixedPalette{
                                     .primary = hex("#2e7de9"),
                                     .onPrimary = hex("#e1e2e7"),
                                     .secondary = hex("#9854f1"),

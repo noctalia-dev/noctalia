@@ -27,6 +27,16 @@
     }
   },
   "bar": {
+    "annotate": {
+      "color-black": "Fekete",
+      "color-blue": "Kék",
+      "color-green": "Zöld",
+      "color-orange": "Narancssárga",
+      "color-purple": "Lila",
+      "color-red": "Piros",
+      "color-white": "Fehér",
+      "color-yellow": "Sárga"
+    },
     "screenshot": {
       "choose-display": "Kijelző kiválasztása",
       "confirm-region": "{copy} a másoláshoz · {save} a mentéshez · Enter vagy Space az alapértelmezéshez · {cancel} a megszakításhoz · Húzás az újra kijelöléshez",
@@ -178,7 +188,8 @@
       "auto": "Automatikus",
       "custom": "Egyéni",
       "inherit": "Örököl",
-      "off": "Ki"
+      "off": "Ki",
+      "on": "Be"
     }
   },
   "control-center": {
@@ -256,7 +267,7 @@
       },
       "select-avatar": "Profilkép kiválasztása",
       "unknown": "ismeretlen",
-      "uptime": "Rendszeridő - {uptime}",
+      "uptime": "Működési idő - {uptime}",
       "weather": {
         "data-unavailable": "Az időjárási adatok nem érhetők el.",
         "fetching": "Előrejelzés lekérése…"
@@ -1335,10 +1346,6 @@
         "horizontal": "Vízszintes",
         "vertical": "Függőleges"
       },
-      "panel-bar-alignment": {
-        "centered": "Középre igazítva",
-        "near-trigger": "Kattintásnál"
-      },
       "panel-position": {
         "auto": "Sáv követése"
       },
@@ -2225,10 +2232,6 @@
           "description": "Válassz legfeljebb hat gyorsgombot a kezdőlaphoz",
           "label": "Kezdőlap Parancsikonok"
         },
-        "launcher-app-grid": {
-          "description": "Ha az eredmények kizárólag alkalmazásokból állnak, akkor jelenítse meg rácsosan az alkalmazásikonokat, alattuk címkével",
-          "label": "Alkalmazásrács-nézet"
-        },
         "launcher-auto-paste": {
           "description": "A számológép, az emoji és egyéb másolási műveletek után illessze be a fókuszban lévő ablakba (ugyanazok a gyorsbillentyűk, mint a vágólap automatikus beillesztésénél)",
           "label": "Automatikus beillesztés"
@@ -2264,6 +2267,10 @@
         "launcher-global-windows": {
           "description": "Az előtag nélküli keresés során a nyitott ablakokat is mutassa",
           "label": "Ablakok a Globális keresésben"
+        },
+        "launcher-grid": {
+          "description": "Ha az eredmények kizárólag alkalmazásokból állnak, akkor jelenítse meg rácsosan az alkalmazásikonokat, alattuk címkével",
+          "label": "Alkalmazásrács-nézet"
         },
         "launcher-pinned-apps": {
           "label": "Rögzített alkalmazások"
@@ -2428,7 +2435,7 @@
         "calendar-credentials": {
           "button": "Újrapróbál",
           "description-cancelled": "A Secret Service kérése meg lett szakítva. Próbáld újra",
-          "description-error": "A naptárhoz tartozó hitelesítő-adatokhoz nem sikerült hozzáférni a Secret Service-en keresztül.",
+          "description-error": "A naptárhoz tartozó hitelesítőadatokhoz nem sikerült hozzáférni a Secret Service-en keresztül.",
           "description-locked": "A naptár hitelesítő-adatai zárolva vannak, vagy a hozzáférés megtagadásra került. Oldd fel a Secret Service zárolását, majd próbáld meg újra.",
           "description-migration": "A naptár hitelesítő-adatai egyszerű szöveges formátumban várnak átvitelre a Secret Service-be. Ezeket nincsenek használva a naptár szinkronizálásához.",
           "description-opening": "A naptárhoz tartozó hozzáférési-adatok a Secret Service-en keresztül válnak hozzáférhetővé.",

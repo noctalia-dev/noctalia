@@ -1,5 +1,6 @@
 #include "shell/settings/settings_window.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -95,10 +96,10 @@ namespace {
     return {"bar", barName, std::string(lane)};
   }
 
-  void focusExistingSettingsWindow(WaylandConnection& wayland, wl_surface* surface) {
+  void focusExistingSettingsWindow(CompositorPlatform& platform, WaylandConnection& wayland, wl_surface* surface) {
     static constexpr std::string_view kSettingsAppId = "dev.noctalia.Noctalia";
     wayland.activateSurface(surface);
-    wayland.activateToplevelForAppId(kSettingsAppId);
+    platform.activateToplevelForAppId(kSettingsAppId);
   }
 
   [[nodiscard]] bool isSettingsSearchTypingKey(const KeyboardEvent& event) {
@@ -400,8 +401,8 @@ void SettingsWindow::open(std::string context) {
 
   if (isOpen()) {
     const auto refocus = [this]() {
-      if (m_wayland != nullptr && m_surface != nullptr) {
-        focusExistingSettingsWindow(*m_wayland, m_surface->wlSurface());
+      if (m_platform != nullptr && m_wayland != nullptr && m_surface != nullptr) {
+        focusExistingSettingsWindow(*m_platform, *m_wayland, m_surface->wlSurface());
       }
     };
     refocus();
@@ -1073,6 +1074,12 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
+  if (const InputArea* focused = m_inputDispatcher.focusedArea(); focused != nullptr && focused->capturesAllKeys()) {
+    m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+    requestSceneInvalidation(m_sceneRoot.get(), m_surface.get());
+    return;
+  }
+
   const auto requestRebuild = [this]() {
     if (m_surface != nullptr) {
       m_rebuildRequested = true;
@@ -1254,3 +1261,7 @@ void SettingsWindow::onIdleLiveStatusChanged() {
 }
 
 void SettingsWindow::onSecondTick() { onIdleLiveStatusChanged(); }
+
+bool SettingsWindow::wantsSecondTicks() const noexcept {
+  return m_idleLiveStatusLabel != nullptr && m_surface != nullptr;
+}

@@ -1368,10 +1368,6 @@
         "horizontal": "Horitzontal",
         "vertical": "Vertical"
       },
-      "panel-bar-alignment": {
-        "centered": "Centrat",
-        "near-trigger": "Prop del disparador"
-      },
       "panel-position": {
         "auto": "Segueix la barra"
       },
@@ -2307,10 +2303,6 @@
           "description": "Mostra entrades d'accions d'aplicació al costat de les aplicacions als resultats",
           "label": "Mostra les accions d'aplicació"
         },
-        "launcher-app-grid": {
-          "description": "Mostra una graella d'icones d'aplicació amb etiquetes a sota quan els resultats són només aplicacions",
-          "label": "Vista de graella d'aplicacions"
-        },
         "launcher-app-origin-indicator": {
           "description": "Mostra indicadors d'origen del paquet als resultats d'aplicacions",
           "label": "Mostra els indicadors d'origen de l'aplicació"
@@ -2350,6 +2342,10 @@
         "launcher-global-windows": {
           "description": "Mostra també les finestres obertes a la cerca sense prefix",
           "label": "Finestres a la cerca global"
+        },
+        "launcher-grid": {
+          "description": "Mostra una graella d'icones d'aplicació amb etiquetes a sota quan els resultats són només aplicacions",
+          "label": "Vista de graella d'aplicacions"
         },
         "launcher-pinned-apps": {
           "description": "Identificadors d'entrada d'escriptori de les aplicacions fixades al llançador; apareixen primer en obrir el llançador",

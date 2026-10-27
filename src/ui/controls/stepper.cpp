@@ -35,7 +35,7 @@ namespace {
     auto sep = std::make_unique<Separator>();
     sep->setOrientation(SeparatorOrientation::VerticalRule);
     sep->setThickness(std::max(1.0F, Style::borderWidth * scale));
-    sep->setColor(colorSpecFromRole(ColorRole::Outline));
+    sep->setColor(colorSpecFromRole(ColorRole::OutlineVariant));
     sep->setFlexGrow(0.0F);
     return sep;
   }
@@ -61,7 +61,7 @@ Stepper::Stepper() {
   setGap(0.0F);
   setPadding(0.0F);
   setMinWidth(kDefaultMinWidth);
-  setFill(colorSpecFromRole(ColorRole::SurfaceVariant, m_surfaceOpacity));
+  setFill(colorSpecFromRole(ColorRole::SurfaceContainer, m_surfaceOpacity));
   clearBorder();
   setRadius(Style::scaledRadiusMd());
 
@@ -256,8 +256,8 @@ void Stepper::syncValueFieldMinWidth(Renderer& renderer) {
   const float fs = Style::fontSizeBody * m_scale;
   const std::string minText = std::to_string(m_min) + m_valueSuffix;
   const std::string maxText = std::to_string(m_max) + m_valueSuffix;
-  const float wMin = renderer.measureText(minText, fs, FontWeight::Normal).width;
-  const float wMax = renderer.measureText(maxText, fs, FontWeight::Normal).width;
+  const float wMin = renderer.measureText(minText, fs, {FontWeight::Normal}).width;
+  const float wMax = renderer.measureText(maxText, fs, {FontWeight::Normal}).width;
   const float textInset = valueInputHorizontalPadding(m_scale) + kInputTextInnerInset;
   m_valueInput->setMinLayoutWidth(std::max(wMin, wMax) + textInset * 2.0F);
 }
@@ -420,7 +420,7 @@ void Stepper::refreshButtons() {
 
 void Stepper::refreshSegmentStyle() {
   const float r = Style::scaledRadiusMd(m_scale);
-  setFill(colorSpecFromRole(ColorRole::SurfaceVariant, m_surfaceOpacity));
+  setFill(colorSpecFromRole(ColorRole::SurfaceContainer, m_surfaceOpacity));
   clearBorder();
   setRadius(r);
   if (m_decrement != nullptr) {

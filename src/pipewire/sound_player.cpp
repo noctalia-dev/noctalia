@@ -22,6 +22,8 @@ namespace {
 
   constexpr Logger kLog("sound");
   constexpr float kUiSoundGamma = 2.2F;
+  // A stream that WirePlumber never links to a sink gets no callbacks at all; give up on it after this long.
+  constexpr auto kStreamStartTimeout = std::chrono::seconds(5);
 
   namespace fs = std::filesystem;
   constexpr std::array<std::string_view, 4> kExtensions = {".disabled", ".oga", ".ogg", ".wav"};
@@ -167,6 +169,7 @@ namespace {
 SoundPlayer::SoundPlayer(pw_loop* loop) : m_loop(loop) {
   if (m_loop != nullptr) {
     m_streamCloseTimer = pw_loop_add_timer(m_loop, onStreamCloseTimer, this);
+    m_startTimeoutTimer = pw_loop_add_timer(m_loop, onStartTimeoutTimer, this);
   }
 }
 
@@ -199,16 +202,25 @@ void SoundPlayer::setTheme(std::string theme) {
     return;
   }
 
-  std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>> buffers;
+  m_theme = std::move(theme);
+  loadThemeSounds();
+}
+
+void SoundPlayer::loadThemeSounds() {
+  m_buffers.clear();
+  if (!m_shellSoundsEnabled || m_theme.empty()) {
+    return;
+  }
+
   for (const std::string_view event :
        {kEventNotification, kEventVolumeChange, kEventPowerPlug, kEventPowerUnplug, kEventScreenCapture}) {
-    const auto result = findThemeSound(event, theme);
+    const auto result = findThemeSound(event, m_theme);
     if (result.state == ThemeSoundLookupState::Disabled) {
-      kLog.info("sound theme '{}': event '{}' is disabled", theme, event);
+      kLog.info("sound theme '{}': event '{}' is disabled", m_theme, event);
       continue;
     }
     if (result.state == ThemeSoundLookupState::NotFound) {
-      kLog.error("sound theme '{}' is missing sound '{}'", theme, event);
+      kLog.error("sound theme '{}' is missing sound '{}'", m_theme, event);
       continue;
     }
 
@@ -217,18 +229,19 @@ void SoundPlayer::setTheme(std::string theme) {
       kLog.warn("failed to load sound \"{}\" from {}: {}", event, result.path.string(), *error);
       continue;
     }
-    buffers[std::string(event)] = std::make_shared<const SoundBuffer>(std::move(buffer));
-    kLog.info("sound theme '{}': loaded {} for event '{}'", theme, result.path.c_str(), event);
+    m_buffers[std::string(event)] = std::make_shared<const SoundBuffer>(std::move(buffer));
+    kLog.info("sound theme '{}': loaded {} for event '{}'", m_theme, result.path.c_str(), event);
   }
-
-  m_buffers = std::move(buffers);
-  m_theme = std::move(theme);
 }
 
 SoundPlayer::~SoundPlayer() {
   if (m_streamCloseTimer != nullptr) {
     pw_loop_destroy_source(m_loop, m_streamCloseTimer);
     m_streamCloseTimer = nullptr;
+  }
+  if (m_startTimeoutTimer != nullptr) {
+    pw_loop_destroy_source(m_loop, m_startTimeoutTimer);
+    m_startTimeoutTimer = nullptr;
   }
   for (auto& active : m_active) {
     if (active->stream != nullptr) {
@@ -322,7 +335,9 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
 
   auto active = std::make_unique<ActiveStream>();
   active->owner = this;
+  active->name = name;
   active->buffer = buffer;
+  active->createdAt = std::chrono::steady_clock::now();
 
   pw_properties* props = pw_properties_new(
       PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Playback", PW_KEY_MEDIA_ROLE, "Notification", PW_KEY_APP_NAME,
@@ -354,10 +369,18 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
     return;
   }
 
+  kLog.debug("sound \"{}\": stream created (media.role=Notification)", name);
   m_active.push_back(std::move(active));
+  armStartTimeout();
 }
 
-void SoundPlayer::setShellSoundsEnabled(bool enabled) { m_shellSoundsEnabled = enabled; }
+void SoundPlayer::setShellSoundsEnabled(bool enabled) {
+  if (m_shellSoundsEnabled == enabled) {
+    return;
+  }
+  m_shellSoundsEnabled = enabled;
+  loadThemeSounds();
+}
 
 void SoundPlayer::setEventEnabled(std::string_view event, bool enabled) {
   if (enabled) {
@@ -378,13 +401,20 @@ void SoundPlayer::onProcess(void* userdata) {
 }
 
 void SoundPlayer::onStreamStateChanged(
-    void* userdata, pw_stream_state /*oldState*/, pw_stream_state state, const char* error
+    void* userdata, pw_stream_state oldState, pw_stream_state state, const char* error
 ) {
   auto* streamState = static_cast<ActiveStream*>(userdata);
   if (streamState == nullptr || streamState->owner == nullptr) {
     return;
   }
 
+  kLog.debug(
+      "sound \"{}\": {} -> {} (node {})", streamState->name, pw_stream_state_as_string(oldState),
+      pw_stream_state_as_string(state), pw_stream_get_node_id(streamState->stream)
+  );
+  if (state == PW_STREAM_STATE_STREAMING) {
+    streamState->started = true;
+  }
   if (state == PW_STREAM_STATE_ERROR) {
     kLog.warn("sound stream error: {}", error != nullptr ? error : "unknown");
     streamState->owner->markFinished(*streamState);
@@ -451,6 +481,53 @@ void SoundPlayer::processStream(ActiveStream& streamState) {
 
 void SoundPlayer::onStreamCloseTimer(void* userdata, std::uint64_t /*expirations*/) {
   static_cast<SoundPlayer*>(userdata)->removeFinished();
+}
+
+void SoundPlayer::onStartTimeoutTimer(void* userdata, std::uint64_t /*expirations*/) {
+  auto* self = static_cast<SoundPlayer*>(userdata);
+  self->expireUnstarted();
+  self->removeFinished();
+  self->armStartTimeout();
+}
+
+void SoundPlayer::expireUnstarted() {
+  const auto now = std::chrono::steady_clock::now();
+  for (auto& active : m_active) {
+    if (active->finished || active->started || now - active->createdAt < kStreamStartTimeout) {
+      continue;
+    }
+    kLog.warn(
+        "sound \"{}\": stream was never linked to an output after {}s; check the media.role=Notification routing "
+        "in WirePlumber (see the FAQ)",
+        active->name, std::chrono::duration_cast<std::chrono::seconds>(kStreamStartTimeout).count()
+    );
+    active->finished = true;
+  }
+}
+
+void SoundPlayer::armStartTimeout() {
+  if (m_startTimeoutTimer == nullptr) {
+    return;
+  }
+  std::optional<std::chrono::steady_clock::time_point> earliest;
+  for (const auto& active : m_active) {
+    if (!active->finished && !active->started && (!earliest || active->createdAt < *earliest)) {
+      earliest = active->createdAt;
+    }
+  }
+  if (!earliest) {
+    pw_loop_update_timer(m_loop, m_startTimeoutTimer, nullptr, nullptr, false);
+    return;
+  }
+  const auto remaining = std::max(
+      std::chrono::nanoseconds(1),
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+          *earliest + kStreamStartTimeout - std::chrono::steady_clock::now()
+      )
+  );
+  const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(remaining);
+  timespec value{.tv_sec = seconds.count(), .tv_nsec = (remaining - seconds).count()};
+  pw_loop_update_timer(m_loop, m_startTimeoutTimer, &value, nullptr, false);
 }
 
 void SoundPlayer::markFinished(ActiveStream& streamState) {

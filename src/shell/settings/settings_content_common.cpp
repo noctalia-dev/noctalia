@@ -6,6 +6,7 @@
 #include "shell/settings/settings_content.h"
 #include "ui/builders.h"
 #include "ui/controls/collapsible.h"
+#include "ui/controls/scroll_view.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -18,7 +19,7 @@
 namespace settings {
 
   namespace {
-    // Cards sit on the Surface window background and hold controls that fill SurfaceVariant at full
+    // Cards sit on the Surface window background and hold controls that fill SurfaceContainer at full
     // opacity, so a full-strength card fill would match them. Mixing the theme's own elevated tone
     // partway toward Surface keeps the palette hue and still reads distinct from those controls.
     constexpr float kCardFillOpacity = 0.4F;
@@ -49,6 +50,9 @@ namespace settings {
     }
     if (key == "auto_hide") {
       return override->autoHide.has_value();
+    }
+    if (key == "auto_hide_delay_ms") {
+      return override->autoHideDelayMs.has_value();
     }
     if (key == "smart_auto_hide") {
       return override->smartAutoHide.has_value();
@@ -154,6 +158,9 @@ namespace settings {
     }
     if (key == "end") {
       return override->endWidgets.has_value();
+    }
+    if (path.size() >= 6 && path[4] == "dead_zone" && path[5] == "click_through") {
+      return override->deadZone.clickThrough.has_value();
     }
     if (path.size() >= 6 && path[4] == "dead_zone") {
       return override->deadZone.actions.has_value();
@@ -287,17 +294,39 @@ namespace settings {
           row.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
         },
     });
-    banner->addChild(
-        ui::label({
-            .out = props.messageOut,
-            .text = std::move(props.message),
-            .fontSize = Style::fontSizeCaption * scale,
-            .fontWeight = FontWeight::Bold,
-            .color = colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary),
-            .maxLines = 3,
-            .flexGrow = 1.0F,
-        })
-    );
+    auto message = ui::label({
+        .out = props.messageOut,
+        .text = std::move(props.message),
+        .fontSize = Style::fontSizeCaption * scale,
+        .fontWeight = FontWeight::Bold,
+        .color = colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary),
+        .maxLines = props.scrollable ? 0 : 3,
+        .flexGrow = props.scrollable ? 0.0F : 1.0F,
+    });
+    if (props.scrollable) {
+      auto messageColumn = ui::column({
+          .align = FlexAlign::Stretch,
+          .maxHeight = 160.0F * scale,
+          .flexGrow = 1.0F,
+      });
+      auto messageScroll = ui::scrollView({
+          .contentScale = scale,
+          .scrollbarVisible = true,
+          .viewportPaddingH = 0.0F,
+          .viewportPaddingV = 0.0F,
+          .flexGrow = 1.0F,
+          .configure = [](ScrollView& scroll) {
+            scroll.clearFill();
+            scroll.clearBorder();
+            scroll.content()->setAlign(FlexAlign::Stretch);
+          },
+      });
+      messageScroll->content()->addChild(std::move(message));
+      messageColumn->addChild(std::move(messageScroll));
+      banner->addChild(std::move(messageColumn));
+    } else {
+      banner->addChild(std::move(message));
+    }
     if (props.onDismiss) {
       banner->addChild(
           ui::button({
@@ -395,8 +424,8 @@ namespace settings {
         .padding = Style::spaceSm * scale,
         .configure = [scale](Flex& column) {
           column.setRadius(Style::scaledRadiusMd(scale));
-          column.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
-          column.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
+          column.setFill(colorSpecFromRole(ColorRole::ErrorContainer));
+          column.setBorder(colorSpecFromRole(ColorRole::Error), Style::borderWidth);
         },
     });
     panel->addChild(
@@ -404,14 +433,14 @@ namespace settings {
             .text = i18n::tr("settings.window.offline-mode-notice.title"),
             .fontSize = Style::fontSizeBody * scale,
             .fontWeight = FontWeight::Bold,
-            .color = colorSpecFromRole(ColorRole::Error),
+            .color = colorSpecFromRole(ColorRole::OnErrorContainer),
         })
     );
     panel->addChild(
         ui::label({
             .text = std::move(message),
             .fontSize = Style::fontSizeCaption * scale,
-            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .color = colorSpecFromRole(ColorRole::OnErrorContainer),
             .maxLines = 4,
         })
     );
@@ -481,6 +510,7 @@ namespace settings {
         {"suspend", i18n::tr("session.actions.suspend"), {}},
         {"lock_and_suspend", i18n::tr("session.actions.lock-and-suspend"), {}},
         {"reboot", i18n::tr("session.actions.reboot"), {}},
+        {"reboot_uefi", i18n::tr("session.actions.reboot-uefi"), {}},
         {"shutdown", i18n::tr("session.actions.shutdown"), {}},
         {"command", i18n::tr("session.actions.custom"), {}},
     };

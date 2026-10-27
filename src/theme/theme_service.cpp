@@ -112,8 +112,8 @@ namespace noctalia::theme {
       return Color{};
     }
 
-    Palette readPaletteJson(const nlohmann::json& obj) {
-      return Palette{
+    FixedPalette readPaletteJson(const nlohmann::json& obj) {
+      return FixedPalette{
           .primary = readColorField(obj, "primary"),
           .onPrimary = readColorField(obj, "onPrimary"),
           .secondary = readColorField(obj, "secondary"),
@@ -449,7 +449,7 @@ namespace noctalia::theme {
         .path = wallpaperPath,
         .schemeName = cfg.wallpaperScheme,
         .scheme = *scheme,
-        .mtimeNs = ec ? 0 : writeTime.time_since_epoch().count(),
+        .mtimeNs = ec ? 0 : static_cast<std::int64_t>(writeTime.time_since_epoch().count()),
     };
   }
 

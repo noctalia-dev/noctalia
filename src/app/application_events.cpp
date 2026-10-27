@@ -32,7 +32,7 @@ namespace {
 } // namespace
 
 void Application::onIconThemeChanged() {
-  kLog.info("system icon theme changed; refreshing icon consumers");
+  kLog.info("system icons changed; refreshing icon consumers");
   m_bar.reload();
   m_dock.reload();
   m_panelManager.onIconThemeChanged();
@@ -111,6 +111,7 @@ void Application::requestAllSurfacesRedraw() {
     m_colorPickerDialogPopup.requestRedraw();
     m_glyphPickerDialogPopup.requestRedraw();
     m_fileDialogPopup.requestRedraw();
+    m_searchPickerDialogPopup.requestRedraw();
   });
 }
 

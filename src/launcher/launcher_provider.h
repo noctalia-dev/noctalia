@@ -64,6 +64,9 @@ public:
   [[nodiscard]] virtual std::string displayName() const { return std::string(id()); }
   [[nodiscard]] virtual std::string_view defaultGlyphName() const { return "search"; }
 
+  // List-only providers keep their subtitles and text results visible.
+  [[nodiscard]] virtual bool supportsGrid() const { return false; }
+
   // Return true to opt in to usage-based score boosting. The panel will
   // record each activation and surface frequently used entries higher.
   [[nodiscard]] virtual bool trackUsage() const { return false; }
@@ -106,6 +109,9 @@ public:
   virtual void setActivationDoneCallback(std::function<void(std::string, bool)> /*callback*/) {}
 
   virtual void initialize() {}
+
+  // Called each time the launcher panel opens, before the first query.
+  virtual void onLauncherOpened() {}
 
   // Called when the launcher panel closes. Async providers should drop any cached
   // result set so a later session doesn't briefly show the previous query's results.

@@ -67,6 +67,7 @@ public:
       std::optional<LockscreenTransitionKind> transition, const LockscreenTransitionParams& params, float durationMs
   );
   void startEnterTransition();
+  void suppressEntryTransition();
   void startExitTransition();
   [[nodiscard]] bool transitionInputReady() const noexcept;
   [[nodiscard]] bool exitTransitionComplete() const noexcept;
@@ -95,8 +96,8 @@ public:
   void setOutputKey(std::string outputKey) { m_outputKey = std::move(outputKey); }
   void setWidgetsHost(LockscreenWidgetsHost* host) noexcept { m_widgetsHost = host; }
 
-  [[nodiscard]] bool firstFrameRendered() const noexcept { return m_firstFrameRendered; }
-  void setRenderCallback(std::function<void()> callback) { m_renderCallback = std::move(callback); }
+  [[nodiscard]] bool readyForSleep() const noexcept { return m_sleepFrameReady; }
+  void setSleepReadyCallback(std::function<void()> callback) { m_sleepReadyCallback = std::move(callback); }
 
   static void handleConfigure(
       void* data, ext_session_lock_surface_v1* lockSurface, std::uint32_t serial, std::uint32_t width,
@@ -104,6 +105,7 @@ public:
   );
 
 protected:
+  void render() override;
   void onFrameCallbackDone() override;
 
 private:
@@ -120,6 +122,7 @@ private:
     FinalPrime,
     Ready,
     Entering,
+    EnterEndpoint,
     Stable,
     Exiting,
     ExitEndpoint,
@@ -134,6 +137,8 @@ private:
   void cancelTransitionAnimation();
   void beginEnterAnimation();
   void notifyTransitionStateChanged();
+  void invalidateSleepFrame();
+  static void handleSleepFrameDone(void* data, wl_callback* callback, std::uint32_t callbackData);
   void applyWallpaperTexture();
   void applyBlurredDesktopTexture();
   void releaseCaptureTextures();
@@ -233,8 +238,9 @@ private:
   std::string m_layoutLabel;
   std::string m_outputKey;
   LockscreenWidgetsHost* m_widgetsHost = nullptr;
-  bool m_firstFrameRendered = false;
-  std::function<void()> m_renderCallback;
+  wl_callback* m_sleepFrameCallback = nullptr;
+  bool m_sleepFrameReady = false;
+  std::function<void()> m_sleepReadyCallback;
   std::function<void()> m_transitionCallback;
 
   SessionActionRunner* m_sessionActions = nullptr;

@@ -1656,15 +1656,33 @@ namespace noctalia::theme {
           return;
         }
 
+        HookRunner::FailureCallback onFailure;
+        if (renderOptions.hookWarningCallback) {
+          onFailure = [callback = renderOptions.hookWarningCallback, name = entry.name](std::string message) {
+            const std::string diagnostic = StringUtils::trim(message);
+            if (diagnostic.starts_with("Warning:")) {
+              callback(std::format("{}: {}", name, diagnostic));
+            }
+          };
+        }
         if (async && renderOptions.hookRunner != nullptr) {
-          renderOptions.hookRunner->enqueue(hookRendered.text, renderOptions.generation);
+          renderOptions.hookRunner->enqueue(hookRendered.text, renderOptions.generation, std::move(onFailure));
         } else {
           // A started hook is allowed to finish (a supersede waits it out; killing
           // mid-write could corrupt an app's config). Only the shutdown flag, raised
           // after the caller's grace period, terminates its process group.
           process::RunOptions opts;
           opts.cancel = renderOptions.hookCancel;
-          [[maybe_unused]] const bool hookOk = process::runSync(hookRendered.text, opts);
+          const process::RunResult result = process::runSync(hookRendered.text, opts);
+          if (!result && !(renderOptions.hookCancel && renderOptions.hookCancel->load())) {
+            const std::string message = result.err.empty()
+                ? std::format("hook failed with exit code {}", result.exitCode)
+                : StringUtils::trim(result.err);
+            kLog.warn("hook for template {} failed: {}", entry.name, message);
+            if (onFailure) {
+              onFailure(message);
+            }
+          }
         }
       };
 

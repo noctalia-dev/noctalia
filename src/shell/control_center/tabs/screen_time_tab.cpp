@@ -270,7 +270,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
     plotColumn->addChild(
         ui::box({
             .out = &bucketColumn.track,
-            .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+            .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
             .participatesInLayout = false,
             .configure = [](Box& box) { box.setZIndex(-1); },
         })
@@ -448,7 +448,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
                   {.out = &m_appRows[i].barHost, .align = FlexAlign::Center, .minHeight = kUsageBarHeight * scale},
                   ui::box({
                       .out = &m_appRows[i].barTrack,
-                      .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+                      .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
                       .radius = Style::scaledRadiusSm(scale),
                       .participatesInLayout = false,
                       .configure = [](Box& box) { box.setZIndex(-1); },

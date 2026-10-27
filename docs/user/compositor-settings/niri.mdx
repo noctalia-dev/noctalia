@@ -82,6 +82,17 @@ niri_overview_type_to_launch_enabled = true
 
 You can also enable this from **Settings → Niri → Overview**.
 
+## Optional Close on Launch
+
+Close the overview when opening an app from the launcher.
+
+```toml
+[shell]
+niri_overview_close_on_launch_enabled = true
+```
+
+Only launching an application (a desktop entry or one of its desktop actions) closes the overview; other launcher results such as calculator or emoji do not. You can also enable this from **Settings → Niri → Overview**.
+
 ## Wallpapers setup
 
 Next, choose one of the following options for your wallpaper and overview setup.
@@ -254,19 +265,19 @@ With the lock screen enabled, Noctalia locks before sleep by default (`[lockscre
 
 To lock and suspend yourself from Niri (for example when logind lid handling is ignored), add:
 
-``` kdl
+```kdl
 switch-events {
     lid-close { spawn "noctalia" "msg" "session" "lock-and-suspend"; }
 }
 ```
 
 You may also need to edit your `logind.conf` to set:
+
 ```
 HandleLidSwitch=ignore
 HandleLidSwitchExternalPower=ignore
 ```
 
 :::note
-This file is usually located in `/etc/systemd/logind.conf` or `/etc/elogind/logind.conf` if you don't use systemd.
-If you can't find it, use this command: `find / -name "logind.conf" 2>/dev/null`.
+This file is usually located in `/etc/systemd/logind.conf` or `/etc/elogind/logind.conf` if you don't use systemd. If you can't find it, use this command: `find / -name "logind.conf" 2>/dev/null`.
 :::

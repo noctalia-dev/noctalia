@@ -32,7 +32,9 @@ namespace {
 int main() {
   NotificationManager manager;
   std::vector<std::pair<uint32_t, CloseReason>> closes;
-  manager.setCloseCallback([&closes](uint32_t id, CloseReason reason) { closes.emplace_back(id, reason); });
+  manager.setCloseCallback([&closes](uint32_t id, CloseReason reason, const std::string&) {
+    closes.emplace_back(id, reason);
+  });
 
   const uint32_t firstId = addExternal(manager, "first");
   const uint32_t secondId = addExternal(manager, "second");
@@ -91,7 +93,7 @@ int main() {
   std::vector<std::pair<uint32_t, CloseReason>> discardCloses;
   int unreadStateChanges = 0;
   discardManager.setKeepDismissedInHistory(false);
-  discardManager.setCloseCallback([&discardCloses](uint32_t id, CloseReason reason) {
+  discardManager.setCloseCallback([&discardCloses](uint32_t id, CloseReason reason, const std::string&) {
     discardCloses.emplace_back(id, reason);
   });
   discardManager.setStateCallback([&unreadStateChanges]() { ++unreadStateChanges; });

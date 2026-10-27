@@ -47,9 +47,10 @@ public:
   // Optional tooltip for the item under the pointer.
   [[nodiscard]] virtual std::string itemTooltip(std::size_t /*index*/) const { return {}; }
 
-  // Optional bounds, relative to a cell, for anchoring an item's tooltip.
-  [[nodiscard]] virtual std::optional<TooltipAnchorInsets>
-  itemTooltipAnchorInsets(std::size_t /*index*/, float /*cellWidth*/, float /*cellHeight*/) const {
+  // Optional bounds, relative to a cell, for anchoring the item or hovered overlay tooltip.
+  [[nodiscard]] virtual std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+      std::size_t /*index*/, float /*cellWidth*/, float /*cellHeight*/, bool /*overlayHovered*/
+  ) const {
     return std::nullopt;
   }
 
@@ -129,7 +130,8 @@ public:
   void setScale(float scale);
 
   void scrollToIndex(std::size_t index);
-  void setSelectedIndex(std::optional<std::size_t> index);
+  // Pointer selection can keep the viewport stable until release.
+  void setSelectedIndex(std::optional<std::size_t> index, bool scrollToSelection = true);
   [[nodiscard]] std::optional<std::size_t> selectedIndex() const noexcept { return m_selectedIndex; }
   // Surface-local anchor point for item `index` (cell center). False when layout
   // metrics are unavailable or the index is out of range.
@@ -166,6 +168,7 @@ private:
     return Style::rtl() ? m_layoutColumns - 1 - col : col;
   }
   void setOverlayHoveredForIndex(std::size_t index, bool hovered);
+  void updateTooltipAnchor(std::size_t slot, std::size_t index, bool overlayHovered);
 
   ScrollView* m_scroll = nullptr;
   Canvas* m_canvas = nullptr;
