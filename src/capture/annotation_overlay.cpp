@@ -119,9 +119,8 @@ namespace capture {
     // Rows stretch to this width, so toggles, chip strip and value boxes share one right edge.
     constexpr float kStylePanelContentWidth = 300.0F;
     constexpr float kStyleLabelWidth = 72.0F;
-    // Value box and unit slot match the settings slider rows.
+    // Value box width matches the settings slider rows.
     constexpr float kStyleValueWidth = 50.0F;
-    constexpr float kStyleSuffixWidth = 18.0F;
     // The preview frame is smooth (gradient, blurred shadow), so half device resolution is plenty.
     constexpr double kStylePreviewDownscale = 2.0;
 
@@ -162,7 +161,6 @@ namespace capture {
     // Values are in the units the panel shows (whole degrees, pixels, percent).
     struct StyleSliderSpec {
       const char* labelKey;
-      const char* suffix;
       double minValue;
       double maxValue;
       double step;
@@ -175,25 +173,25 @@ namespace capture {
 
     [[nodiscard]] const std::array<StyleSliderSpec, kStyleSliderCount>& styleSliders() {
       static const std::array<StyleSliderSpec, kStyleSliderCount> specs = {{
-          {"bar.annotate.style-angle", "°", 0.0, 360.0, 5.0,
+          {"bar.annotate.style-angle", 0.0, 360.0, 5.0,
            [](const StyleConfig& s) { return static_cast<double>(s.gradientAngle); },
            [](StyleConfig& s, double v) { s.gradientAngle = static_cast<float>(v); }},
-          {"bar.annotate.style-padding", "px", 0.0, 512.0, 4.0,
+          {"bar.annotate.style-padding", 0.0, 512.0, 4.0,
            [](const StyleConfig& s) { return static_cast<double>(s.padding); },
            [](StyleConfig& s, double v) { s.padding = toPixels(v); }},
-          {"bar.annotate.style-radius", "px", 0.0, 128.0, 1.0,
+          {"bar.annotate.style-radius", 0.0, 128.0, 1.0,
            [](const StyleConfig& s) { return static_cast<double>(s.cornerRadius); },
            [](StyleConfig& s, double v) { s.cornerRadius = toPixels(v); }},
-          {"bar.annotate.style-shadow-blur", "px", 0.0, 200.0, 1.0,
+          {"bar.annotate.style-shadow-blur", 0.0, 200.0, 1.0,
            [](const StyleConfig& s) { return static_cast<double>(s.shadowBlur); },
            [](StyleConfig& s, double v) { s.shadowBlur = toPixels(v); }},
-          {"bar.annotate.style-shadow-opacity", "%", 0.0, 100.0, 1.0,
+          {"bar.annotate.style-shadow-opacity", 0.0, 100.0, 1.0,
            [](const StyleConfig& s) { return std::round(static_cast<double>(s.shadowOpacity) * 100.0); },
            [](StyleConfig& s, double v) { s.shadowOpacity = static_cast<float>(v / 100.0); }},
-          {"bar.annotate.style-shadow-offset-x", "px", -200.0, 200.0, 1.0,
+          {"bar.annotate.style-shadow-offset-x", -200.0, 200.0, 1.0,
            [](const StyleConfig& s) { return static_cast<double>(s.shadowOffsetX); },
            [](StyleConfig& s, double v) { s.shadowOffsetX = toPixels(v); }},
-          {"bar.annotate.style-shadow-offset-y", "px", -200.0, 200.0, 1.0,
+          {"bar.annotate.style-shadow-offset-y", -200.0, 200.0, 1.0,
            [](const StyleConfig& s) { return static_cast<double>(s.shadowOffsetY); },
            [](StyleConfig& s, double v) { s.shadowOffsetY = toPixels(v); }},
       }};
@@ -2748,11 +2746,11 @@ namespace capture {
               .flexGrow = 1.0F,
           })
       );
-      row->addChild(ui::toggle({.checked = checked, .onChange = std::move(onChange)}));
+      row->addChild(ui::toggle({.checked = checked, .toggleSize = ToggleSize::Small, .onChange = std::move(onChange)}));
       return row;
     };
 
-    // Same cluster as a settings slider: track, editable value box, unit slot.
+    // Same cluster as a settings slider: track plus editable value box.
     const auto sliderRow = [this, &inst](StyleSlider which) {
       const auto index = static_cast<std::size_t>(which);
       const StyleSliderSpec& spec = styleSliders()[index];
@@ -2814,16 +2812,6 @@ namespace capture {
       valueInput->setOnFocusLoss([commitText, valueInput]() { commitText(valueInput->value()); });
       inst.styleValueInputs[index] = valueInput;
       row->addChild(std::move(input));
-
-      row->addChild(
-          ui::label({
-              .text = spec.suffix,
-              .fontSize = Style::fontSizeCaption,
-              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-              .minWidth = kStyleSuffixWidth,
-              .maxWidth = kStyleSuffixWidth,
-          })
-      );
       return row;
     };
 
