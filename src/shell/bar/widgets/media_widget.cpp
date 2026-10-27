@@ -397,7 +397,7 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
 }
 
 std::string MediaWidget::buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst) {
-  const std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
+  std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
   if (!player.title.empty() && !artists.empty()) {
     if (artistFirst) {
       return artists + " - " + player.title;

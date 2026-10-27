@@ -1167,7 +1167,7 @@ std::string WeatherTab::weekdayLabel(const std::string& isoDate) {
     return isoDate;
   }
 
-  const std::string weekday = formatStrftime("%A", tm);
+  std::string weekday = formatStrftime("%A", tm);
   if (weekday.empty()) {
     return isoDate;
   }

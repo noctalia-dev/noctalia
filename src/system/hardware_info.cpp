@@ -313,9 +313,9 @@ namespace {
   std::string readDmiField(const char* path) { return readSysfsLine(path); }
 
   std::string detectMotherboard() {
-    const std::string boardName = readDmiField("/sys/class/dmi/id/board_name");
+    std::string boardName = readDmiField("/sys/class/dmi/id/board_name");
     const std::string boardVersion = readDmiField("/sys/class/dmi/id/board_version");
-    const std::string productName = readDmiField("/sys/class/dmi/id/product_name");
+    std::string productName = readDmiField("/sys/class/dmi/id/product_name");
 
     if (!boardName.empty()) {
       if (!boardVersion.empty()) {

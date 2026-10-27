@@ -678,7 +678,7 @@ std::string IconResolver::resolveStatusVector(const std::string& iconName, int t
   if (iconName.empty()) {
     return {};
   }
-  const std::string normal = resolve(iconName, std::max(1, targetSize));
+  std::string normal = resolve(iconName, std::max(1, targetSize));
   const auto isStatusVector = [](std::string_view path) {
     return path.ends_with(".svg") && (path.contains("/status/") || path.contains("/panel/"));
   };

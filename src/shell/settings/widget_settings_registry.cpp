@@ -323,7 +323,7 @@ namespace settings {
       if (version.empty()) {
         return text;
       }
-      const std::string versionText = "version " + std::string(version);
+      std::string versionText = "version " + std::string(version);
       if (text.empty()) {
         return versionText;
       }
@@ -1355,7 +1355,8 @@ namespace settings {
       if (const auto value = valueInConfig(cfg, widgetName, settingKey); value.has_value()) {
         return *value;
       }
-      return defaultValue;
+      // The captured default is reused by both calls to this lambda.
+      return defaultValue; // NOLINT(performance-no-automatic-move)
     };
 
     return !widgetSettingValuesEqual(resolvedValue(withOverride), resolvedValue(withoutOverride));

@@ -255,7 +255,7 @@ namespace {
       return url;
     }
 
-    const std::string base = url.substr(0, queryPos);
+    std::string base = url.substr(0, queryPos);
     const std::string query = url.substr(queryPos + 1);
     std::vector<std::string> keptParams;
     std::size_t start = 0;

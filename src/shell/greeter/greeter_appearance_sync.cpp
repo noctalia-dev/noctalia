@@ -252,7 +252,7 @@ namespace {
         return path;
       }
     }
-    const std::string defaultPath = configService.getDefaultWallpaperPath();
+    std::string defaultPath = configService.getDefaultWallpaperPath();
     if (!defaultPath.empty()) {
       return defaultPath;
     }
@@ -363,7 +363,7 @@ namespace {
       return {};
     }
 
-    const auto staging = runtimeDirectory / "noctalia-greeter-sync";
+    auto staging = runtimeDirectory / "noctalia-greeter-sync";
     std::filesystem::remove_all(staging, ec);
     if (ec) {
       kLog.warn("failed to clear greeter sync staging directory '{}': {}", staging.string(), ec.message());
@@ -824,7 +824,7 @@ namespace {
     }
 
     const std::string extension = source.extension().string();
-    const std::string installedName = extension.empty() ? "wallpaper" : "wallpaper" + extension;
+    std::string installedName = extension.empty() ? "wallpaper" : "wallpaper" + extension;
     const auto destination = staging / installedName;
     std::filesystem::copy_file(source, destination, std::filesystem::copy_options::overwrite_existing, ec);
     if (ec) {

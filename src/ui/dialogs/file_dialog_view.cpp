@@ -1292,7 +1292,7 @@ std::filesystem::path FileDialogView::resolveStartDirectory(const std::filesyste
     return preferred;
   }
 
-  const std::filesystem::path home = homeDirectory();
+  std::filesystem::path home = homeDirectory();
   if (std::filesystem::exists(home, ec) && !ec && std::filesystem::is_directory(home, ec) && !ec) {
     return home;
   }

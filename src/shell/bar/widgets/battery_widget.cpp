@@ -46,8 +46,8 @@ namespace {
   std::string formatCompactDuration(std::int64_t seconds) {
     const auto hours = seconds / 3600;
     const auto minutes = (seconds % 3600) / 60;
-    const std::string hourText = i18n::tr("time.units.hour-compact", "count", hours);
-    const std::string minuteText = i18n::tr("time.units.minute-compact", "count", minutes);
+    std::string hourText = i18n::tr("time.units.hour-compact", "count", hours);
+    std::string minuteText = i18n::tr("time.units.minute-compact", "count", minutes);
     if (hours > 0 && minutes > 0) {
       return i18n::tr("time.duration.two-parts", "first", hourText, "second", minuteText);
     }

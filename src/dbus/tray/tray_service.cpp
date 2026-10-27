@@ -485,7 +485,7 @@ namespace {
     if (value == nullptr) {
       return fallback;
     }
-    const auto decoded = iconPixmapsFromVariant(*value);
+    auto decoded = iconPixmapsFromVariant(*value);
     if (!decoded.empty()) {
       return decoded;
     }

@@ -45,7 +45,7 @@ namespace {
   }
 
   fs::path resolveExecutable(std::string_view executable) {
-    const fs::path path(executable);
+    fs::path path(executable);
     if (path.has_parent_path()) {
       return path;
     }

@@ -1384,7 +1384,7 @@ namespace noctalia::theme {
     }
 
     std::filesystem::path resolveConfigPath(const std::filesystem::path& configPath, const std::string& path) {
-      const std::filesystem::path expanded = FileUtils::expandUserPath(expandXdgBaseDir(path));
+      std::filesystem::path expanded = FileUtils::expandUserPath(expandXdgBaseDir(path));
       if (expanded.is_absolute())
         return expanded;
       const std::filesystem::path base =

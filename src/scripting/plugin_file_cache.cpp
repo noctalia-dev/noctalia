@@ -86,7 +86,7 @@ namespace scripting {
     }
 
     // Git sources: check cache, then background-fetch.
-    const std::string cached = cacheFilePath(source.name, *subdir, filename);
+    std::string cached = cacheFilePath(source.name, *subdir, filename);
     if (!cached.empty() && std::filesystem::exists(cached)) {
       return cached;
     }

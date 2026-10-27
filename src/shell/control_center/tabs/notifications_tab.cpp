@@ -128,7 +128,7 @@ namespace {
       return {};
     }
 
-    const std::string localPath = normalizeLocalIconPath(iconValue);
+    std::string localPath = normalizeLocalIconPath(iconValue);
     if (!localPath.empty() && localPath.front() == '/') {
       if (access(localPath.c_str(), R_OK) == 0) {
         return localPath;

@@ -2259,7 +2259,7 @@ std::string ConfigService::getPaletteWallpaperPath() const {
 }
 
 std::string ConfigService::getGreeterSyncWallpaperPath() const {
-  const std::string palettePath = getPaletteWallpaperPath();
+  std::string palettePath = getPaletteWallpaperPath();
   if (!palettePath.empty()) {
     return palettePath;
   }

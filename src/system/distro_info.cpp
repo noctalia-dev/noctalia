@@ -184,7 +184,7 @@ std::string osAgeLabel() {
   const std::uint64_t years = days / 365;
   const std::uint64_t months = (days % 365) / 30;
   if (years > 0) {
-    const std::string yearText = i18n::trp("time.units.year", static_cast<long>(years));
+    std::string yearText = i18n::trp("time.units.year", static_cast<long>(years));
     if (months > 0) {
       const std::string monthText = i18n::trp("time.units.month", static_cast<long>(months));
       return i18n::tr("time.duration.two-parts", "first", yearText, "second", monthText);

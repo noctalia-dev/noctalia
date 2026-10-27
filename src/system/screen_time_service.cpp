@@ -177,7 +177,7 @@ namespace {
       }
     }
 
-    const std::string baseKey = canonicalAppKey(appKey);
+    std::string baseKey = canonicalAppKey(appKey);
     if (const auto entry = app_identity::findDesktopEntry(baseKey, desktopEntries()); entry.has_value()) {
       if (!entry->name.empty()) {
         return entry->name;
