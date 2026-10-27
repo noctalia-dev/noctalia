@@ -43,9 +43,7 @@ namespace {
       if (n > 0) {
         p += static_cast<size_t>(n);
         remaining -= static_cast<size_t>(n);
-      } else if (n == 0) {
-        return;
-      } else if (errno != EINTR) {
+      } else if (n == 0 || errno != EINTR) {
         return;
       }
     }

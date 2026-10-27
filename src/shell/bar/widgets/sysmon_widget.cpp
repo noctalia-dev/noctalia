@@ -1286,7 +1286,6 @@ const char* SysmonWidget::glyphName(SysmonStat stat) {
     return "gpu-usage";
   case SysmonStat::GpuVram:
   case SysmonStat::GpuVramUsed:
-    return "memory";
   case SysmonStat::RamUsed:
   case SysmonStat::RamPct:
     return "memory";

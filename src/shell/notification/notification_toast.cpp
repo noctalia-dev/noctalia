@@ -863,10 +863,7 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
           m_notifications->pauseExpiry(n.id);
         }
 
-        if (!hasPlacement(m_entries[i])) {
-          syncEntryVisibility(i);
-          revealQueuedEntries();
-        } else if (std::abs(previousHeight - m_entries[i].height) > 0.5F) {
+        if (!hasPlacement(m_entries[i]) || std::abs(previousHeight - m_entries[i].height) > 0.5F) {
           syncEntryVisibility(i);
           revealQueuedEntries();
         }

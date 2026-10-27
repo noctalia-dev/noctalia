@@ -934,7 +934,6 @@ const char* DesktopSysmonWidget::glyphName(DesktopSysmonStat stat) {
     return "gpu-usage";
   case DesktopSysmonStat::GpuVram:
   case DesktopSysmonStat::GpuVramUsed:
-    return "memory";
   case DesktopSysmonStat::RamPct:
     return "memory";
   case DesktopSysmonStat::SwapPct:

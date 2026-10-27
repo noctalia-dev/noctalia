@@ -881,9 +881,10 @@ void MediaTab::refresh(Renderer& renderer) {
     std::int64_t displayPositionUs = livePositionUs;
     if (seekPending) {
       displayPositionUs = m_pendingSeekUs;
-    } else if (withinProgressSettle && livePositionUs + kTransientPositionRegressionDeltaUs < m_positionUs) {
-      displayPositionUs = m_positionUs;
-    } else if (preserveDisplayedPosition) {
+    } else if (
+        (withinProgressSettle && livePositionUs + kTransientPositionRegressionDeltaUs < m_positionUs)
+        || preserveDisplayedPosition
+    ) {
       displayPositionUs = m_positionUs;
     }
 

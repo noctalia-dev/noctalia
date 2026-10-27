@@ -292,9 +292,7 @@ bool DialogPopupHost::onPointerEvent(const PointerEvent& event) {
     }
     break;
   case PointerEvent::Type::Motion:
-    if (captured) {
-      m_inputDispatcher.pointerMotion(localX, localY, event.serial);
-    } else if (!m_pointerInside) {
+    if (!captured && !m_pointerInside) {
       m_pointerInside = true;
       m_inputDispatcher.pointerEnter(localX, localY, event.serial);
     } else {
@@ -302,9 +300,7 @@ bool DialogPopupHost::onPointerEvent(const PointerEvent& event) {
     }
     break;
   case PointerEvent::Type::Button:
-    if (captured) {
-      m_inputDispatcher.pointerMotion(localX, localY, event.serial);
-    } else if (!m_pointerInside) {
+    if (!captured && !m_pointerInside) {
       m_pointerInside = true;
       m_inputDispatcher.pointerEnter(localX, localY, event.serial);
     } else {
@@ -313,9 +309,7 @@ bool DialogPopupHost::onPointerEvent(const PointerEvent& event) {
     m_inputDispatcher.pointerButton(localX, localY, event.button, event.pressed, event.serial, event.time, event.touch);
     break;
   case PointerEvent::Type::Axis:
-    if (captured) {
-      m_inputDispatcher.pointerMotion(localX, localY, event.serial);
-    } else if (!m_pointerInside) {
+    if (!captured && !m_pointerInside) {
       m_pointerInside = true;
       m_inputDispatcher.pointerEnter(localX, localY, event.serial);
     } else {

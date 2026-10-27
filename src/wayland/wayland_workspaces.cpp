@@ -168,11 +168,6 @@ void WaylandWorkspaces::initialize() {
     }
     break;
   case compositors::CompositorKind::Labwc:
-    if (availableOrConnected(m_extBackend)) {
-      setActiveBackend(m_extBackend);
-      return;
-    }
-    break;
   case compositors::CompositorKind::Umbriel:
     if (availableOrConnected(m_extBackend)) {
       setActiveBackend(m_extBackend);
