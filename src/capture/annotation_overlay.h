@@ -130,6 +130,7 @@ namespace capture {
     void updateStylePreview(Instance& instance, Renderer& renderer);
     void toggleStylePanel();
     void editStyle(const std::function<void(StyleConfig&)>& edit);
+    [[nodiscard]] bool stylePanelInputFocused(const Instance& instance) const;
     void refreshToolbar(Instance& instance, Renderer* renderer);
     void positionToolbar(Instance& instance);
     void syncToolbarPositionsForConnectedOutputs();

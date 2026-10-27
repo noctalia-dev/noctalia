@@ -23,6 +23,7 @@
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/image.h"
+#include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/segmented.h"
 #include "ui/controls/separator.h"
@@ -30,6 +31,7 @@
 #include "ui/controls/toggle.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 #include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -114,9 +116,12 @@ namespace capture {
     using StyleConfig = ScreenshotStyleSettings;
 
     constexpr float kGradientChipSize = 22.0F;
-    constexpr float kStyleLabelWidth = 64.0F;
-    constexpr float kStyleSliderWidth = 150.0F;
-    constexpr float kStyleValueWidth = 40.0F;
+    // Rows stretch to this width, so toggles, chip strip and value boxes share one right edge.
+    constexpr float kStylePanelContentWidth = 300.0F;
+    constexpr float kStyleLabelWidth = 72.0F;
+    // Value box and unit slot match the settings slider rows.
+    constexpr float kStyleValueWidth = 50.0F;
+    constexpr float kStyleSuffixWidth = 18.0F;
     // The preview frame is smooth (gradient, blurred shadow), so half device resolution is plenty.
     constexpr double kStylePreviewDownscale = 2.0;
 
@@ -154,44 +159,43 @@ namespace capture {
     };
     constexpr std::size_t kStyleSliderCount = 7;
 
+    // Values are in the units the panel shows (whole degrees, pixels, percent).
     struct StyleSliderSpec {
       const char* labelKey;
+      const char* suffix;
       double minValue;
       double maxValue;
       double step;
       double (*get)(const StyleConfig&);
       void (*set)(StyleConfig&, double);
-      std::string (*format)(double);
     };
 
-    [[nodiscard]] std::string formatPixels(double v) { return std::format("{}", std::lround(v)); }
     [[nodiscard]] std::int32_t toPixels(double v) { return static_cast<std::int32_t>(std::lround(v)); }
+    [[nodiscard]] std::string formatStyleValue(double v) { return std::format("{}", std::lround(v)); }
 
     [[nodiscard]] const std::array<StyleSliderSpec, kStyleSliderCount>& styleSliders() {
       static const std::array<StyleSliderSpec, kStyleSliderCount> specs = {{
-          {"bar.annotate.style-angle", 0.0, 360.0, 5.0,
+          {"bar.annotate.style-angle", "°", 0.0, 360.0, 5.0,
            [](const StyleConfig& s) { return static_cast<double>(s.gradientAngle); },
-           [](StyleConfig& s, double v) { s.gradientAngle = static_cast<float>(v); },
-           [](double v) { return std::format("{}°", std::lround(v)); }},
-          {"bar.annotate.style-padding", 0.0, 512.0, 4.0,
+           [](StyleConfig& s, double v) { s.gradientAngle = static_cast<float>(v); }},
+          {"bar.annotate.style-padding", "px", 0.0, 512.0, 4.0,
            [](const StyleConfig& s) { return static_cast<double>(s.padding); },
-           [](StyleConfig& s, double v) { s.padding = toPixels(v); }, formatPixels},
-          {"bar.annotate.style-radius", 0.0, 128.0, 1.0,
+           [](StyleConfig& s, double v) { s.padding = toPixels(v); }},
+          {"bar.annotate.style-radius", "px", 0.0, 128.0, 1.0,
            [](const StyleConfig& s) { return static_cast<double>(s.cornerRadius); },
-           [](StyleConfig& s, double v) { s.cornerRadius = toPixels(v); }, formatPixels},
-          {"bar.annotate.style-shadow-blur", 0.0, 200.0, 1.0,
+           [](StyleConfig& s, double v) { s.cornerRadius = toPixels(v); }},
+          {"bar.annotate.style-shadow-blur", "px", 0.0, 200.0, 1.0,
            [](const StyleConfig& s) { return static_cast<double>(s.shadowBlur); },
-           [](StyleConfig& s, double v) { s.shadowBlur = toPixels(v); }, formatPixels},
-          {"bar.annotate.style-shadow-opacity", 0.0, 1.0, 0.01,
-           [](const StyleConfig& s) { return static_cast<double>(s.shadowOpacity); },
-           [](StyleConfig& s, double v) { s.shadowOpacity = static_cast<float>(v); },
-           [](double v) { return std::format("{}%", std::lround(v * 100.0)); }},
-          {"bar.annotate.style-shadow-offset-x", -200.0, 200.0, 1.0,
+           [](StyleConfig& s, double v) { s.shadowBlur = toPixels(v); }},
+          {"bar.annotate.style-shadow-opacity", "%", 0.0, 100.0, 1.0,
+           [](const StyleConfig& s) { return std::round(static_cast<double>(s.shadowOpacity) * 100.0); },
+           [](StyleConfig& s, double v) { s.shadowOpacity = static_cast<float>(v / 100.0); }},
+          {"bar.annotate.style-shadow-offset-x", "px", -200.0, 200.0, 1.0,
            [](const StyleConfig& s) { return static_cast<double>(s.shadowOffsetX); },
-           [](StyleConfig& s, double v) { s.shadowOffsetX = toPixels(v); }, formatPixels},
-          {"bar.annotate.style-shadow-offset-y", -200.0, 200.0, 1.0,
+           [](StyleConfig& s, double v) { s.shadowOffsetX = toPixels(v); }},
+          {"bar.annotate.style-shadow-offset-y", "px", -200.0, 200.0, 1.0,
            [](const StyleConfig& s) { return static_cast<double>(s.shadowOffsetY); },
-           [](StyleConfig& s, double v) { s.shadowOffsetY = toPixels(v); }, formatPixels},
+           [](StyleConfig& s, double v) { s.shadowOffsetY = toPixels(v); }},
       }};
       return specs;
     }
@@ -490,7 +494,7 @@ namespace capture {
     Flex* styleGradientRows = nullptr;
     Flex* styleShadowRows = nullptr;
     std::array<Box*, kGradientPresetCount> gradientChips{};
-    std::array<Label*, kStyleSliderCount> styleValueLabels{};
+    std::array<Input*, kStyleSliderCount> styleValueInputs{};
     Image* stylePreview = nullptr;
     Box* imageOutline = nullptr;
     std::optional<ScreenshotStyle> previewStyle;
@@ -1014,7 +1018,7 @@ namespace capture {
     }
     inst.stylePanel = inst.styleBody = inst.styleGradientRows = inst.styleShadowRows = nullptr;
     inst.gradientChips.fill(nullptr);
-    inst.styleValueLabels.fill(nullptr);
+    inst.styleValueInputs.fill(nullptr);
     inst.stylePreview = nullptr;
     inst.imageOutline = nullptr;
     inst.previewStyle.reset();
@@ -2423,8 +2427,30 @@ namespace capture {
     if (!m_active || m_wayland == nullptr) {
       return false;
     }
-    if (instanceForSurface(m_wayland->lastKeyboardSurface()) == nullptr) {
+    Instance* keyboardInst = instanceForSurface(m_wayland->lastKeyboardSurface());
+    if (keyboardInst == nullptr) {
       return false;
+    }
+
+    // A focused style value box takes the keyboard; Escape hands focus back to the canvas, which
+    // commits the box like clicking elsewhere.
+    if (stylePanelInputFocused(*keyboardInst)) {
+      Instance& inst = *keyboardInst;
+      if (event.pressed && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+        inst.inputDispatcher.setFocus(inst.canvas);
+      } else {
+        inst.inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+      }
+      if (inst.surface != nullptr
+          && inst.sceneRoot != nullptr
+          && (inst.sceneRoot->paintDirty() || inst.sceneRoot->layoutDirty())) {
+        if (inst.sceneRoot->layoutDirty()) {
+          inst.surface->requestLayout();
+        } else {
+          inst.surface->requestRedraw();
+        }
+      }
+      return true;
     }
 
     if (!event.pressed) {
@@ -2697,7 +2723,7 @@ namespace capture {
     panelFill.a = kToolbarFillAlpha;
 
     auto panel = ui::column({
-        .align = FlexAlign::Start,
+        .align = FlexAlign::Stretch,
         .gap = Style::spaceSm,
         .paddingV = Style::spaceMd,
         .paddingH = Style::spaceMd,
@@ -2705,59 +2731,99 @@ namespace capture {
         .radius = Style::radiusXl,
         .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
+        .width = kStylePanelContentWidth + (2.0F * Style::spaceMd),
         .visible = false,
         .participatesInLayout = false,
     });
 
-    const auto label = [](const char* key, float minWidth, bool strong = false) {
-      return ui::label({
-          .text = i18n::tr(key),
-          .fontSize = Style::fontSizeCaption,
-          .fontWeight = strong ? FontWeight::Bold : FontWeight::Normal,
-          .color = colorSpecFromRole(ColorRole::OnSurface),
-          .minWidth = minWidth,
-      });
-    };
-
-    // Label on the left, switch pinned to the panel's right edge.
-    const auto toggleRow = [&](const char* key, bool checked, bool strong, std::function<void(bool)> onChange) {
+    // Label on the left, switch flush with the panel's right edge.
+    const auto toggleRow = [](const char* key, bool checked, bool strong, std::function<void(bool)> onChange) {
       auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm});
-      row->addChild(label(key, kStyleLabelWidth + kStyleSliderWidth + kStyleValueWidth - 32.0F, strong));
       row->addChild(
-          ui::toggle({
-              .checked = checked,
-              .toggleSize = ToggleSize::Small,
-              .onChange = std::move(onChange),
+          ui::label({
+              .text = i18n::tr(key),
+              .fontSize = strong ? Style::fontSizeBody : Style::fontSizeCaption,
+              .fontWeight = strong ? FontWeight::Bold : FontWeight::Normal,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .flexGrow = 1.0F,
           })
       );
+      row->addChild(ui::toggle({.checked = checked, .onChange = std::move(onChange)}));
       return row;
     };
 
-    const auto sliderRow = [&](StyleSlider which) {
+    // Same cluster as a settings slider: track, editable value box, unit slot.
+    const auto sliderRow = [this, &inst](StyleSlider which) {
       const auto index = static_cast<std::size_t>(which);
       const StyleSliderSpec& spec = styleSliders()[index];
+      const double value = spec.get(m_style);
       auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm});
-      row->addChild(label(spec.labelKey, kStyleLabelWidth));
+      row->addChild(
+          ui::label({
+              .text = i18n::tr(spec.labelKey),
+              .fontSize = Style::fontSizeCaption,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .minWidth = kStyleLabelWidth,
+              .maxWidth = kStyleLabelWidth,
+          })
+      );
+
+      Input* valueInput = nullptr;
+      auto input = ui::input({
+          .out = &valueInput,
+          .value = formatStyleValue(value),
+          .fontSize = Style::fontSizeCaption,
+          .controlHeight = Style::controlHeightSm,
+          .horizontalPadding = Style::spaceXs,
+          .width = kStyleValueWidth,
+          .height = Style::controlHeightSm,
+      });
+
+      Slider* slider = nullptr;
       row->addChild(
           ui::slider({
+              .out = &slider,
               .minValue = spec.minValue,
               .maxValue = spec.maxValue,
               .step = spec.step,
-              .value = spec.get(m_style),
-              .width = kStyleSliderWidth,
-              .onValueChanged = [this, index](double value) {
-                editStyle([index, value](StyleConfig& style) { styleSliders()[index].set(style, value); });
+              .value = value,
+              .flexGrow = 1.0F,
+              .onValueChanged = [this, index, valueInput](double next) {
+                valueInput->setInvalid(false);
+                valueInput->setValue(formatStyleValue(next));
+                editStyle([index, next](StyleConfig& style) { styleSliders()[index].set(style, next); });
               },
           })
       );
-      inst.styleValueLabels[index] = static_cast<Label*>(row->addChild(
+
+      const auto commitText = [this, index, slider, valueInput](const std::string& text) {
+        const StyleSliderSpec& sliderSpec = styleSliders()[index];
+        const auto parsed = StringUtils::parseDotDecimal<double>(text);
+        if (!parsed.has_value() || *parsed < sliderSpec.minValue || *parsed > sliderSpec.maxValue) {
+          valueInput->setInvalid(true);
+          return;
+        }
+        slider->setValue(*parsed);
+        const double snapped = slider->value();
+        valueInput->setInvalid(false);
+        valueInput->setValue(formatStyleValue(snapped));
+        editStyle([index, snapped](StyleConfig& style) { styleSliders()[index].set(style, snapped); });
+      };
+      valueInput->setOnChange([valueInput](const std::string& /*text*/) { valueInput->setInvalid(false); });
+      valueInput->setOnSubmit(commitText);
+      valueInput->setOnFocusLoss([commitText, valueInput]() { commitText(valueInput->value()); });
+      inst.styleValueInputs[index] = valueInput;
+      row->addChild(std::move(input));
+
+      row->addChild(
           ui::label({
+              .text = spec.suffix,
               .fontSize = Style::fontSizeCaption,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-              .minWidth = kStyleValueWidth,
-              .textAlign = TextAlign::End,
+              .minWidth = kStyleSuffixWidth,
+              .maxWidth = kStyleSuffixWidth,
           })
-      ));
+      );
       return row;
     };
 
@@ -2765,14 +2831,14 @@ namespace capture {
       editStyle([on](StyleConfig& style) { style.enabled = on; });
     }));
 
-    auto body = ui::column({.align = FlexAlign::Start, .gap = Style::spaceSm});
-    body->addChild(ui::separator({.width = kStyleLabelWidth + kStyleSliderWidth + kStyleValueWidth}));
+    auto body = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm});
+    body->addChild(ui::separator({}));
     body->addChild(toggleRow("bar.annotate.style-background", m_style.background, false, [this](bool on) {
       editStyle([on](StyleConfig& style) { style.background = on; });
     }));
 
-    auto gradientRows = ui::column({.align = FlexAlign::Start, .gap = Style::spaceSm});
-    auto chips = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm});
+    auto gradientRows = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm});
+    auto chips = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween});
     const auto& presets = gradientPresets();
     for (std::size_t i = 0; i < presets.size(); ++i) {
       auto chip = ui::inputArea({
@@ -2798,12 +2864,12 @@ namespace capture {
 
     body->addChild(sliderRow(StyleSlider::Padding));
     body->addChild(sliderRow(StyleSlider::Radius));
-    body->addChild(ui::separator({.width = kStyleLabelWidth + kStyleSliderWidth + kStyleValueWidth}));
+    body->addChild(ui::separator({}));
     body->addChild(toggleRow("bar.annotate.style-shadow", m_style.shadow, false, [this](bool on) {
       editStyle([on](StyleConfig& style) { style.shadow = on; });
     }));
 
-    auto shadowRows = ui::column({.align = FlexAlign::Start, .gap = Style::spaceSm});
+    auto shadowRows = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm});
     shadowRows->addChild(sliderRow(StyleSlider::ShadowBlur));
     shadowRows->addChild(sliderRow(StyleSlider::ShadowOpacity));
     shadowRows->addChild(sliderRow(StyleSlider::ShadowOffsetX));
@@ -2832,13 +2898,6 @@ namespace capture {
     show(inst.styleBody, m_style.enabled);
     show(inst.styleGradientRows, m_style.background);
     show(inst.styleShadowRows, m_style.shadow);
-
-    for (std::size_t i = 0; i < kStyleSliderCount; ++i) {
-      if (Label* value = inst.styleValueLabels[i]; value != nullptr) {
-        const StyleSliderSpec& spec = styleSliders()[i];
-        value->setText(spec.format(spec.get(m_style)));
-      }
-    }
 
     int marked = -1;
     const auto& presets = gradientPresets();
@@ -2970,6 +3029,13 @@ namespace capture {
     edit(m_style);
     m_styleEdited = true;
     requestRedrawAll();
+  }
+
+  bool AnnotationOverlay::stylePanelInputFocused(const Instance& inst) const {
+    const InputArea* focused = inst.inputDispatcher.focusedArea();
+    return focused != nullptr && std::ranges::any_of(inst.styleValueInputs, [focused](const Input* input) {
+             return input != nullptr && input->inputArea() == focused;
+           });
   }
 
   void AnnotationOverlay::persistToolState() {
