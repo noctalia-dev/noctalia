@@ -42,7 +42,7 @@ namespace capture {
     ColorSpec shadowColor = colorSpecFromRole(ColorRole::Shadow);
     float shadowOpacity = 0.5F;
     std::int32_t shadowBlur = 40;
-    std::int32_t shadowOffsetX = 0;
+    std::int32_t shadowOffsetX = 16;
     std::int32_t shadowOffsetY = 16;
 
     bool operator==(const ScreenshotBackdropSettings&) const = default;
