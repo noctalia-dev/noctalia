@@ -417,7 +417,7 @@ bool Wallpaper::initialize(
   m_themeService = themeService;
 
   // Register reload callback unconditionally so toggling enabled in config works.
-  m_config->addReloadCallback([this]() { reload(); }, "wallpaper");
+  m_config->addReloadCallback([this] { reload(); }, "wallpaper");
   m_paletteConn = paletteChanged().connect([this] {
     for (auto& inst : m_instances) {
       updateRendererState(*inst);
@@ -826,7 +826,7 @@ void Wallpaper::syncInstances() {
 
   // Remove instances for outputs that no longer exist or are now disabled by monitor override
   std::erase_if(m_instances, [&](const auto& inst) {
-    const auto* output = [&]() -> const WaylandOutput* {
+    const auto* output = [&] -> const WaylandOutput* {
       for (const auto& out : outputs) {
         if (out.name == inst->outputName)
           return &out;
@@ -1304,7 +1304,7 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
 
   instance->surface->setAnimationManager(&instance->animations);
 
-  instance->surface->setUpdateCallback([this, inst]() { updateRendererState(*inst); });
+  instance->surface->setUpdateCallback([this, inst] { updateRendererState(*inst); });
 
   if (!instance->surface->initialize(output.output)) {
     kLog.warn("failed to initialize surface for output {}", output.name);
@@ -1370,7 +1370,7 @@ void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& pa
     image = m_textureCache->acquire(
         SharedTextureRequest{.path = path, .coverage = textureCoverage(instance)},
         m_renderContext != nullptr ? &m_renderContext->backend() : nullptr,
-        [this, inst = &instance]() { onImageChanged(*inst); }
+        [this, inst = &instance] { onImageChanged(*inst); }
     );
   }
   if (image.empty() || image.failed()) {
@@ -1516,7 +1516,7 @@ void Wallpaper::startTransitionAnimation(
   // animations-enabled toggle (disabling animations must not skip the crossfade).
   instance.transitionAnimId = instance.animations.animateTimer(
       fromTime, toTime, durationMs, Easing::Linear, [inst](float time) { setTransitionTime(*inst, time); },
-      [this, inst]() { finishTransition(*inst); }
+      [this, inst] { finishTransition(*inst); }
   );
 
   updateRendererState(instance);

@@ -304,7 +304,7 @@ namespace lockscreen_login_box {
     style.layout = resolveLayout(settings);
     style.panelOpacity = std::clamp(readFloat(settings, "background_opacity", style.panelOpacity), 0.0F, 1.0F);
     ColorSpec panelFill =
-        colorSpecFromConfigString(readString(settings, "background_color", "surface_variant"), "background_color");
+        colorSpecFromConfigString(readString(settings, "background_color", "surface_container"), "background_color");
     panelFill.alpha *= style.panelOpacity;
     style.panelFill = panelFill;
     style.panelRadius = std::clamp(readFloat(settings, "background_radius", style.panelRadius), 0.0F, 32.0F);
@@ -340,7 +340,7 @@ namespace lockscreen_login_box {
       settings.insert_or_assign(std::string(kCenterPasswordTextKey), false);
     }
     if (scope == desktop_settings::DesktopWidgetSettingsScope::Background) {
-      settings.insert_or_assign("background_color", std::string("surface_variant"));
+      settings.insert_or_assign("background_color", std::string("surface_container"));
       settings.insert_or_assign("background_opacity", 0.88);
       settings.insert_or_assign("background_radius", 12.0);
     }

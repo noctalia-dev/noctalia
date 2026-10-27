@@ -19,7 +19,7 @@
 namespace settings {
 
   namespace {
-    // Cards sit on the Surface window background and hold controls that fill SurfaceVariant at full
+    // Cards sit on the Surface window background and hold controls that fill SurfaceContainer at full
     // opacity, so a full-strength card fill would match them. Mixing the theme's own elevated tone
     // partway toward Surface keeps the palette hue and still reads distinct from those controls.
     constexpr float kCardFillOpacity = 0.4F;
@@ -241,7 +241,7 @@ namespace settings {
     const std::string group = std::move(props.group);
     if (props.pill != nullptr) {
       props.pill->setOnClick([expandedGroups, group, pill = props.pill, collapsibleRaw,
-                              scrollToTop = props.scrollToTop]() {
+                              scrollToTop = props.scrollToTop] {
         if (expandedGroups->contains(group)) {
           expandedGroups->erase(group);
           pill->setVariant(ButtonVariant::Default);
@@ -424,8 +424,8 @@ namespace settings {
         .padding = Style::spaceSm * scale,
         .configure = [scale](Flex& column) {
           column.setRadius(Style::scaledRadiusMd(scale));
-          column.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
-          column.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
+          column.setFill(colorSpecFromRole(ColorRole::ErrorContainer));
+          column.setBorder(colorSpecFromRole(ColorRole::Error), Style::borderWidth);
         },
     });
     panel->addChild(
@@ -433,14 +433,14 @@ namespace settings {
             .text = i18n::tr("settings.window.offline-mode-notice.title"),
             .fontSize = Style::fontSizeBody * scale,
             .fontWeight = FontWeight::Bold,
-            .color = colorSpecFromRole(ColorRole::Error),
+            .color = colorSpecFromRole(ColorRole::OnErrorContainer),
         })
     );
     panel->addChild(
         ui::label({
             .text = std::move(message),
             .fontSize = Style::fontSizeCaption * scale,
-            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .color = colorSpecFromRole(ColorRole::OnErrorContainer),
             .maxLines = 4,
         })
     );
@@ -582,7 +582,7 @@ namespace settings {
     IdleBehaviorConfig norm = row;
     normalizeIdleBehaviorAction(norm);
 
-    const auto displayName = [&]() -> std::string {
+    const auto displayName = [&] -> std::string {
       if (norm.action == "lock") {
         return i18n::tr("settings.idle.behavior.kind.lock");
       }

@@ -42,6 +42,7 @@ public:
   bool setText(std::string_view text);
   void setFontSize(float size);
   void setFontFamily(std::string family);
+  void setFontFeatures(std::string features);
   void setColor(const ColorSpec& color);
   // Explicit fixed color.
   void setColor(const Color& color);

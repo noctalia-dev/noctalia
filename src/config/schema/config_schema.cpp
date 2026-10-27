@@ -66,6 +66,7 @@ namespace noctalia::config::schema {
         field(&OsdKindsConfig::lockKeys, "lock_keys"),
         field(&OsdKindsConfig::keyboardLayout, "keyboard_layout"),
         field(&OsdKindsConfig::media, "media"),
+        field(&OsdKindsConfig::mediaVolume, "media_volume"),
         field(&OsdKindsConfig::privacy, "privacy"),
         field(&OsdKindsConfig::keyboardBacklight, "keyboard_backlight"),
         field(&OsdKindsConfig::custom, "custom"),
@@ -282,8 +283,8 @@ namespace noctalia::config::schema {
             [](toml::table&, const NotificationFilterConfig&) {}
         ),
         finalize<NotificationFilterConfig>([](NotificationFilterConfig& filter, std::string_view, Diagnostics&) {
-          filter.match = normalizeNotificationMatchToken(std::move(filter.match));
-          filter.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(std::move(filter.allowedUrgencies));
+          filter.match = normalizeNotificationMatchToken(filter.match);
+          filter.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(filter.allowedUrgencies);
         }),
     };
     return s;
@@ -530,6 +531,11 @@ namespace noctalia::config::schema {
       static const Schema<ControlCenterConfig::CalendarTabConfig> s = {
           field(&ControlCenterConfig::CalendarTabConfig::showEventsCard, "show_events_card"),
           field(&ControlCenterConfig::CalendarTabConfig::showWeekNumbers, "show_week_numbers"),
+          field(&ControlCenterConfig::CalendarTabConfig::hidePastEvents, "hide_past_events"),
+          field(
+              &ControlCenterConfig::CalendarTabConfig::pastEventsThresholdMinutes, "past_events_threshold_minutes",
+              kPastEventsThresholdMinutesRange
+          ),
       };
       return s;
     }
@@ -918,6 +924,7 @@ namespace noctalia::config::schema {
               }
           ),
           field(&WallpaperAutomationConfig::recursive, "recursive"),
+          field(&WallpaperAutomationConfig::pauseOnFullscreen, "pause_on_fullscreen"),
       };
       return s;
     }
@@ -2392,6 +2399,7 @@ namespace noctalia::config::schema {
           optionalIntField(&DockMonitorOverride::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
           optionalIntField(&DockMonitorOverride::itemSpacing, "item_spacing", kDockItemSpacingRange),
           optionalFloatField(&DockMonitorOverride::backgroundOpacity, "background_opacity", kUnitRange),
+          optionalBoolField(&DockMonitorOverride::compositorBlur, "compositor_blur"),
           optionalColorField(&DockMonitorOverride::border, "border"),
           optionalFloatField(&DockMonitorOverride::borderWidth, "border_width", kDockBorderWidthRange),
           optionalIntField(&DockMonitorOverride::radius, "radius", kDockRadiusRange),
@@ -2456,6 +2464,7 @@ namespace noctalia::config::schema {
         field(&DockConfig::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
         field(&DockConfig::itemSpacing, "item_spacing", kDockItemSpacingRange),
         field(&DockConfig::backgroundOpacity, "background_opacity", kUnitRange),
+        field(&DockConfig::compositorBlur, "compositor_blur"),
         colorField(&DockConfig::border, "border"),
         field(&DockConfig::borderWidth, "border_width", kDockBorderWidthRange),
         custom<DockConfig>(

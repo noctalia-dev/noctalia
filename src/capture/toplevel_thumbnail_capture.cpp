@@ -395,7 +395,7 @@ void ToplevelThumbnailCapture::capture(
     fail("failed to create toplevel image capture session");
     return;
   }
-  m_timeout.start(std::chrono::seconds(1), [this]() {
+  m_timeout.start(std::chrono::seconds(1), [this] {
     fail("toplevel capture timed out: compositor did not provide a capturable image");
   });
   if (wl_display_flush(m_wayland.display()) < 0 && errno != EAGAIN) {

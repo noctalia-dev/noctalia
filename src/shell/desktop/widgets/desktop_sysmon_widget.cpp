@@ -199,7 +199,7 @@ bool DesktopSysmonWidget::needsFrameTick() const {
 void DesktopSysmonWidget::onFrameTick(float deltaMs, Renderer& renderer) {
   (void)deltaMs;
   if (m_displayMode == DesktopSysmonDisplayMode::Gauge) {
-    if (!m_redrawLimiter.shouldStep([this]() { requestFrameTick(); })) {
+    if (!m_redrawLimiter.shouldStep([this] { requestFrameTick(); })) {
       return;
     }
     if (m_monitor != nullptr) {
@@ -211,7 +211,7 @@ void DesktopSysmonWidget::onFrameTick(float deltaMs, Renderer& renderer) {
     return;
   }
 
-  if (!m_redrawLimiter.shouldStep([this]() { requestFrameTick(); })) {
+  if (!m_redrawLimiter.shouldStep([this] { requestFrameTick(); })) {
     return;
   }
   if (m_monitor != nullptr) {
@@ -744,7 +744,7 @@ double DesktopSysmonWidget::normalizedFromStats(
     return 0.0;
 
   case DesktopSysmonStat::NetRx: {
-    const double value = networkInterface.empty() ? stats.netRxBytesPerSec : [&stats, networkInterface]() {
+    const double value = networkInterface.empty() ? stats.netRxBytesPerSec : [&stats, networkInterface] {
       if (const auto it = stats.netThroughputByInterface.find(std::string(networkInterface));
           it != stats.netThroughputByInterface.end()) {
         return it->second.rxBytesPerSec;
@@ -756,7 +756,7 @@ double DesktopSysmonWidget::normalizedFromStats(
   }
 
   case DesktopSysmonStat::NetTx: {
-    const double value = networkInterface.empty() ? stats.netTxBytesPerSec : [&stats, networkInterface]() {
+    const double value = networkInterface.empty() ? stats.netTxBytesPerSec : [&stats, networkInterface] {
       if (const auto it = stats.netThroughputByInterface.find(std::string(networkInterface));
           it != stats.netThroughputByInterface.end()) {
         return it->second.txBytesPerSec;

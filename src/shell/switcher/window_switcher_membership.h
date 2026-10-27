@@ -65,12 +65,9 @@ namespace switcher_membership {
     if (workspaceKey.empty()) {
       return false;
     }
-    for (const auto& workspace : workspaces) {
-      if (workspace.active && workspaceKeyMatchesAssignment(workspaceKey, workspace)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(workspaces, [&](const auto& workspace) {
+      return workspace.active && workspaceKeyMatchesAssignment(workspaceKey, workspace);
+    });
   }
 
   [[nodiscard]] inline bool

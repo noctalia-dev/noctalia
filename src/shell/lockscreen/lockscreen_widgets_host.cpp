@@ -1,7 +1,6 @@
 #include "shell/lockscreen/lockscreen_widgets_host.h"
 
 #include "config/config_service.h"
-#include "core/log.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "scripting/plugin_id.h"
@@ -18,8 +17,6 @@
 #include <wayland-client-protocol.h>
 
 namespace {
-
-  constexpr Logger kLog("lockscreen");
 
   DesktopWidgetState* findStateById(LockscreenWidgetsSnapshot& snapshot, const std::string& id) {
     for (auto& widget : snapshot.widgets) {
@@ -255,7 +252,7 @@ void LockscreenWidgetsHost::createInstance(
   desktop_widgets::clampStateToOutput(*m_wayland, clampedState, intrinsicWidth, intrinsicHeight);
 
   auto instance = std::make_unique<WidgetInstance>();
-  instance->state = clampedState;
+  instance->state = std::move(clampedState);
   instance->surface = &surface;
   instance->widget = std::move(widget);
   instance->intrinsicWidth = intrinsicWidth;
@@ -263,22 +260,22 @@ void LockscreenWidgetsHost::createInstance(
 
   auto* rawInstance = instance.get();
   instance->widget->setAnimationManager(&instance->animations);
-  instance->widget->setUpdateCallback([rawInstance]() {
+  instance->widget->setUpdateCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestUpdateOnly();
     }
   });
-  instance->widget->setLayoutCallback([rawInstance]() {
+  instance->widget->setLayoutCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestUpdate();
     }
   });
-  instance->widget->setRedrawCallback([rawInstance]() {
+  instance->widget->setRedrawCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestRedraw();
     }
   });
-  instance->widget->setFrameTickRequestCallback([this, rawInstance]() {
+  instance->widget->setFrameTickRequestCallback([this, rawInstance] {
     if (rawInstance->surface != nullptr) {
       syncSurfaceFrameTick(rawInstance->surface);
       rawInstance->surface->requestFrameTick();

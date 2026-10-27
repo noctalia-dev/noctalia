@@ -77,7 +77,7 @@ public:
   using ChangeCallback = std::function<void()>;
 
   explicit ClipboardService(security::StorageKeyProvider& storageKeyProvider);
-  ~ClipboardService();
+  ~ClipboardService() override;
 
   ClipboardService(const ClipboardService&) = delete;
   ClipboardService& operator=(const ClipboardService&) = delete;

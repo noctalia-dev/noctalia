@@ -50,6 +50,7 @@ namespace {
   std::size_t hashFont(const TextFont& font) {
     std::size_t seed = std::hash<std::string>{}(font.family);
     hashCombine(seed, std::hash<int>{}(static_cast<int>(font.weight)));
+    hashCombine(seed, std::hash<std::string>{}(font.features));
     return seed;
   }
 
@@ -409,16 +410,27 @@ PangoLayout* CairoTextRenderer::buildLayout(
   // blow up memory / GL textures. Higher than any real UI needs, so unlimited
   // wrap never reaches it in practice.
   constexpr int kHardMaxLines = 500;
-  if (maxWidthPxScaled > 0.0F) {
-    // Avoid Pango inserting hyphens at intra-word line breaks (looks like stray "-" in wrapped UI text).
-    PangoAttrList* attrs = pango_attr_list_new();
-    PangoAttribute* hyphens = pango_attr_insert_hyphens_new(FALSE);
-    hyphens->start_index = 0;
-    hyphens->end_index = PANGO_ATTR_INDEX_TO_TEXT_END;
-    pango_attr_list_insert(attrs, hyphens);
+  if (!font.features.empty() || maxWidthPxScaled > 0.0F) {
+    PangoAttrList* existingAttrs = pango_layout_get_attributes(layout);
+    PangoAttrList* attrs = existingAttrs != nullptr ? pango_attr_list_copy(existingAttrs) : pango_attr_list_new();
+    if (!font.features.empty()) {
+      PangoAttribute* featureAttr = pango_attr_font_features_new(font.features.c_str());
+      featureAttr->start_index = 0;
+      featureAttr->end_index = PANGO_ATTR_INDEX_TO_TEXT_END;
+      pango_attr_list_insert(attrs, featureAttr);
+    }
+    if (maxWidthPxScaled > 0.0F) {
+      // Avoid Pango inserting hyphens at intra-word line breaks (looks like stray "-" in wrapped UI text).
+      PangoAttribute* hyphens = pango_attr_insert_hyphens_new(FALSE);
+      hyphens->start_index = 0;
+      hyphens->end_index = PANGO_ATTR_INDEX_TO_TEXT_END;
+      pango_attr_list_insert(attrs, hyphens);
+    }
     pango_layout_set_attributes(layout, attrs);
     pango_attr_list_unref(attrs);
+  }
 
+  if (maxWidthPxScaled > 0.0F) {
     const int lineBudget = maxLines > 0 ? std::min(maxLines, kHardMaxLines) : kHardMaxLines;
     pango_layout_set_width(layout, static_cast<int>(maxWidthPxScaled * PANGO_SCALE));
     pango_layout_set_wrap(layout, PANGO_WRAP_WORD_CHAR);
@@ -475,6 +487,8 @@ CairoTextRenderer::TextMetrics CairoTextRenderer::metricsFromLayout(float conten
   m.inkLeft = inkLeft;
   m.inkRight = inkRight;
   m.lineCount = pango_layout_get_line_count(layout);
+  // Whole raster pixels, as rasterizeLayout's blockLeftPx.
+  m.alignOffsetX = static_cast<float>(logical.x / PANGO_SCALE) * invScale;
   return m;
 }
 
@@ -650,6 +664,37 @@ void CairoTextRenderer::measureCursorStopsWrapped(
             static_cast<float>(strong.height) * pscale * invScale,
         }
     );
+  }
+
+  g_object_unref(layout);
+}
+
+void CairoTextRenderer::measureCharSpans(
+    float contentScale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+    std::vector<TextCharSpan>& outSpans, const TextFont& font
+) {
+  maybeSyncFontConfig();
+  outSpans.clear();
+  if (m_pangoContext == nullptr || text.empty() || byteOffsets.size() < 2) {
+    return;
+  }
+  outSpans.reserve(byteOffsets.size() - 1);
+
+  // Same layout as measureCursorStops, so spans and caret stops share one coordinate space.
+  PangoLayout* layout = buildLayout(contentScale, text, fontSize, font, 0.0F, 0, TextAlign::Start);
+  const float invScale = 1.0F / contentScale;
+  const float pscale = 1.0F / static_cast<float>(PANGO_SCALE);
+  for (std::size_t i = 0; i + 1 < byteOffsets.size(); ++i) {
+    const std::size_t clampedOffset = std::min(byteOffsets[i], text.size());
+    const int index = clampedOffset > static_cast<std::size_t>(std::numeric_limits<int>::max())
+        ? std::numeric_limits<int>::max()
+        : static_cast<int>(clampedOffset);
+    PangoRectangle pos{};
+    // Width is negative for a right-to-left character.
+    pango_layout_index_to_pos(layout, index, &pos);
+    const float x0 = static_cast<float>(pos.x) * pscale * invScale;
+    const float x1 = static_cast<float>(pos.x + pos.width) * pscale * invScale;
+    outSpans.push_back(TextCharSpan{std::min(x0, x1), std::max(x0, x1)});
   }
 
   g_object_unref(layout);

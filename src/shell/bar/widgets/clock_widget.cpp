@@ -102,6 +102,7 @@ void ClockWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontFeatures = "tnum",
           .textAlign = TextAlign::Center,
       })
   );
@@ -112,6 +113,7 @@ void ClockWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale() * kStackedSecondaryScale,
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontFeatures = "tnum",
           .textAlign = TextAlign::Center,
           .visible = false,
       })
@@ -174,9 +176,10 @@ void ClockWidget::doLayout(Renderer& renderer, float containerWidth, float conta
 
   if (showSecondary) {
     const auto primaryMetrics =
-        renderer.measureText(m_lastPrimaryText, primaryFontSize, {fontWeight}, 0.0F, 1, TextAlign::Start);
-    const auto secondaryMetrics =
-        renderer.measureText(m_lastSecondaryText, secondaryFontSize, {fontWeight}, 0.0F, 1, TextAlign::Start);
+        renderer.measureText(m_lastPrimaryText, primaryFontSize, m_label->font(), 0.0F, 1, TextAlign::Start);
+    const auto secondaryMetrics = renderer.measureText(
+        m_lastSecondaryText, secondaryFontSize, m_secondaryLabel->font(), 0.0F, 1, TextAlign::Start
+    );
     const float primaryInkWidth = std::max(0.0F, primaryMetrics.inkRight - primaryMetrics.inkLeft);
     const float secondaryInkWidth = std::max(0.0F, secondaryMetrics.inkRight - secondaryMetrics.inkLeft);
     width = std::max({width, primaryInkWidth, secondaryInkWidth});

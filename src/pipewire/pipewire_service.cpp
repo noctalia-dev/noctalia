@@ -238,9 +238,8 @@ namespace {
       }
       const std::string name = extractDefaultMetadataNodeName(std::string_view(value));
       if (!name.empty()) {
-        spa_dict_item items[1];
-        items[0] = SPA_DICT_ITEM_INIT(key, name.c_str());
-        spa_dict dict = SPA_DICT_INIT(items, 1);
+        spa_dict_item items[] = {{.key = key, .value = name.c_str()}};
+        spa_dict dict{.flags = 0, .n_items = 1, .items = items};
         md->service->parseDefaultNodes(&dict);
       }
       return 0;
@@ -1043,11 +1042,12 @@ void PipeWireService::dispatch() {
   }
 
   if (m_core == nullptr) {
-    if (m_reconnectAt.time_since_epoch().count() != 0 && std::chrono::steady_clock::now() >= m_reconnectAt) {
-      if (!connectRemote(false)) {
-        scheduleReconnect();
-      }
+    if (m_reconnectAt.time_since_epoch().count() != 0
+        && std::chrono::steady_clock::now() >= m_reconnectAt
+        && !connectRemote(false)) {
+      scheduleReconnect();
     }
+
     return;
   }
 
@@ -1294,7 +1294,7 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
         spa_zero(*md->listener);
         pw_metadata_add_listener(proxy, md->listener, &kMetadataEvents, md);
         pw_core_sync(md->service->coreHandle(), PW_ID_CORE, 0);
-        m_metadataCleanups.emplace_back([md]() {
+        m_metadataCleanups.emplace_back([md] {
           if (md->listener != nullptr) {
             spa_hook_remove(md->listener);
             delete md->listener;

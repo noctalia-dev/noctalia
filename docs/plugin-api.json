@@ -238,5 +238,11 @@
     "noctaliaVersion": null,
     "feature": "panel-content-height",
     "introduced": "`height = \"content\"` and `max_height` on `[[panel]]` entries: the panel follows the height of its rendered tree."
+  },
+  {
+    "level": 43,
+    "noctaliaVersion": null,
+    "feature": "container-color-roles",
+    "introduced": "Container color roles (`primary_container`, `surface_container`, `surface_container_high`, `outline_variant`, `scrim`, ...). `surface_variant` and `outline` are retired as role names; use `surface_container` and `outline_variant`."
   }
 ]

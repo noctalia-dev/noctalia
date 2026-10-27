@@ -47,6 +47,14 @@ void ScaledRenderer::measureTextCursorStopsWrapped(
   m_context->measureTextCursorStopsWrappedScaled(currentScale(), text, fontSize, byteOffsets, maxWidth, outStops, font);
 }
 
+void ScaledRenderer::measureTextCharSpans(
+    std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+    std::vector<TextCharSpan>& outSpans, const TextFont& font
+) {
+  assert(m_context != nullptr && "ScaledRenderer char spans without a bound RenderContext");
+  m_context->measureTextCharSpansScaled(currentScale(), text, fontSize, byteOffsets, outSpans, font);
+}
+
 TextMetrics ScaledRenderer::measureGlyph(char32_t codepoint, float fontSize) {
   assert(m_context != nullptr && "ScaledRenderer measureGlyph without a bound RenderContext");
   return m_context->measureGlyphScaled(currentScale(), codepoint, fontSize);

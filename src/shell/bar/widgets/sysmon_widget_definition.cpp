@@ -18,6 +18,11 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
       hasVisualization.any[0],
       showValue.any[0],
   };
+  settings::WidgetSettingVisibility splitCpuCores;
+  splitCpuCores.all = {
+      {"stat", {"cpu_usage"}},
+      {"visualization", {"gauge"}},
+  };
 
   static const noctalia::bar::WidgetDefinition<Options, SysmonWidgetDefinitionContext> definition{
       .type = "sysmon",
@@ -188,6 +193,14 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                   settings::WidgetSettingPresentation{
                       .group = "presentation",
                       .segmented = true,
+                  },
+          }),
+          field<&Options::showCpuCores>({
+              .key = "show_cpu_cores",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .group = "presentation",
+                      .visibleWhen = splitCpuCores,
                   },
           }),
           field<&Options::showValue>({

@@ -209,7 +209,7 @@ namespace noctalia::theme {
         }
         explicitConfigTitle += " (";
         explicitConfigTitle += templateConfigPath.filename().string();
-        explicitConfigTitle += ")";
+        explicitConfigTitle += ')';
       } else {
         userTemplates = loadConfiguredUserTemplateList();
       }
@@ -239,7 +239,7 @@ namespace noctalia::theme {
       dst[std::string(key)] = Color::fromHex(hex).toArgb();
     }
 
-    std::optional<::Palette> parseFixedPaletteJson(const nlohmann::json& src, std::string& err) {
+    std::optional<FixedPalette> parseFixedPaletteJson(const nlohmann::json& src, std::string& err) {
       const auto primary = loadHexColor(src, "mPrimary");
       const auto onPrimary = loadHexColor(src, "mOnPrimary");
       const auto secondary = loadHexColor(src, "mSecondary");
@@ -275,7 +275,7 @@ namespace noctalia::theme {
         err = "fixed palette json is missing required colors";
         return std::nullopt;
       }
-      return ::Palette{
+      return FixedPalette{
           .primary = rgbHex(primary->toArgb() & 0x00FFFFFFU),
           .onPrimary = rgbHex(onPrimary->toArgb() & 0x00FFFFFFU),
           .secondary = rgbHex(secondary->toArgb() & 0x00FFFFFFU),

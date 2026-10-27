@@ -119,7 +119,7 @@ namespace app_identity {
       std::string token;
       token.reserve(value.size());
 
-      auto flush = [&]() {
+      auto flush = [&] {
         if (token.size() >= 4U && !isGenericIdentityToken(token)) {
           tokens.insert(std::move(token));
         }

@@ -91,6 +91,7 @@
 #include "ui/dialogs/color_picker_dialog.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/dialogs/glyph_picker_dialog.h"
+#include "ui/dialogs/search_picker_popup.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
@@ -173,7 +174,7 @@ Application::Application()
     scheduleNotificationShellRefresh();
   });
 
-  m_notificationManager.setStateCallback([this]() {
+  m_notificationManager.setStateCallback([this] {
     if (m_notificationManager.doNotDisturb()) {
       m_notificationToast.hideDndSuppressed();
     }
@@ -188,6 +189,7 @@ Application::~Application() {
   ColorPickerDialog::setPresenter(nullptr);
   GlyphPickerDialog::setPresenter(nullptr);
   FileDialog::setPresenter(nullptr);
+  SearchPickerDialog::setPopup(nullptr);
   m_settingsWindow.shutdownDialogPresenter();
   // m_systemMonitor is declared after the plugin hosts, so it is destroyed first; drop the script
   // API's pointer to it here, while both are still alive, or a plugin that used noctalia.cpuCores
@@ -201,7 +203,7 @@ Application::~Application() {
   notify::setInstance(nullptr);
 }
 
-void Application::run(std::function<void()> startupReadyCallback) {
+void Application::run(const std::function<void()>& startupReadyCallback) {
   initLogFile();
   initLogLevelFromEnvironment();
   kLog.info("noctalia {}", noctalia::build_info::displayVersion());
@@ -209,20 +211,20 @@ void Application::run(std::function<void()> startupReadyCallback) {
   // Item callbacks run from deferred work on the main loop, after the shell
   // is initialized.
   initEarlySessionBusAndTray();
-  runStartupPhase("initServices", [this]() { initServices(); });
-  runStartupPhase("initPlugins", [this]() {
+  runStartupPhase("initServices", [this] { initServices(); });
+  runStartupPhase("initPlugins", [this] {
     // Configure the plugin registry from [plugins] before any UI consumes it, and
     // re-apply on reload. Registered first so the registry updates ahead of bar /
     // control-center rebuilds when a plugin is enabled or disabled.
     m_pluginManager.refresh();
-    m_configService.addReloadCallback([this]() { m_pluginManager.refresh(); });
+    m_configService.addReloadCallback([this] { m_pluginManager.refresh(); });
     // Opt-in auto-update: pull each flagged git source in the background, once now
     // and then every 6h so a long-running session isn't stuck on the startup snapshot.
     runPluginAutoUpdate();
-    m_pluginAutoUpdateTimer.startRepeating(std::chrono::hours(6), [this]() { runPluginAutoUpdate(); });
+    m_pluginAutoUpdateTimer.startRepeating(std::chrono::hours(6), [this] { runPluginAutoUpdate(); });
   });
-  runStartupPhase("initUi", [this]() { initUi(); });
-  runStartupPhase("initPluginServices", [this]() {
+  runStartupPhase("initUi", [this] { initUi(); });
+  runStartupPhase("initPluginServices", [this] {
     // Outputs are enumerated by now (wallpaper created its surfaces in initUi); refresh
     // the script-visible output snapshot before any service/panel reads noctalia.outputs().
     if (m_syncScriptApiOutputs) {
@@ -231,7 +233,7 @@ void Application::run(std::function<void()> startupReadyCallback) {
     m_pluginServiceHost.start(m_configService.config().plugins.pluginSettings);
     // Reconcile services when plugin settings change (start new, stop removed, re-seed
     // changed). Guarded by the plugins change flag so unrelated reloads don't churn.
-    m_configService.addReloadCallback([this]() {
+    m_configService.addReloadCallback([this] {
       if (m_configService.lastChange().plugins) {
         m_pluginServiceHost.refresh(m_configService.config().plugins.pluginSettings);
         reloadPluginLauncherProviders();
@@ -244,7 +246,7 @@ void Application::run(std::function<void()> startupReadyCallback) {
     // update() advance a source without a config change, so they bypass the config-reload
     // path. reload() rebuilds the bar widget tree against the now-populated registry —
     // refresh() only repaints, leaving newly available plugin widgets uncreated.
-    m_pluginManager.setOnChanged([this]() {
+    m_pluginManager.setOnChanged([this] {
       m_pluginServiceHost.refresh(m_configService.config().plugins.pluginSettings);
       m_bar.reload();
       reloadPluginLauncherProviders();
@@ -254,25 +256,25 @@ void Application::run(std::function<void()> startupReadyCallback) {
     });
     // A git-source enable exports on a worker thread; redraw the plugins list so the
     // row swaps between its spinner and toggle as the export starts and finishes.
-    m_pluginManager.setOnEnablingChanged([this]() { m_settingsWindow.onPluginsChanged(); });
+    m_pluginManager.setOnEnablingChanged([this] { m_settingsWindow.onPluginsChanged(); });
     m_pluginManager.setOnSourceUpdated([this](const std::string& sourceName) {
       m_settingsWindow.invalidatePluginSourceCache(sourceName);
     });
     m_pluginManager.setOnEnabled([this](std::string_view pluginId) { m_pluginServiceHost.enablePlugin(pluginId); });
   });
-  runStartupPhase("initIpc", [this]() { initIpc(); });
-  runStartupPhase("buildPollSources", [this]() { (void)buildPollSources(); });
+  runStartupPhase("initIpc", [this] { initIpc(); });
+  runStartupPhase("buildPollSources", [this] { (void)buildPollSources(); });
 
-  runStartupPhase("startup hooks", [this]() {
+  runStartupPhase("startup hooks", [this] {
     m_hookManager.reload(m_configService.config().hooks);
     m_hookManager.fire(HookKind::Started);
   });
-  runStartupPhase("telemetry enqueue", [this]() {
+  runStartupPhase("telemetry enqueue", [this] {
     m_telemetryService.maybeSend(m_configService, m_httpClient, m_wayland);
   });
 
 #ifdef __GLIBC__
-  runStartupPhase("allocator_trim", []() {
+  runStartupPhase("allocator_trim", [] {
 #ifdef NOCTALIA_USE_JEMALLOC
     // jemalloc exports no malloc_trim; purge unused pages in every arena.
     const int purgeResult =
@@ -286,9 +288,9 @@ void Application::run(std::function<void()> startupReadyCallback) {
   });
 #endif
 
-  m_polkitInitTimer.start(std::chrono::milliseconds(1000), [this]() { syncPolkitAgent(); });
+  m_polkitInitTimer.start(std::chrono::milliseconds(1000), [this] { syncPolkitAgent(); });
 
-  m_mainLoop = std::make_unique<MainLoop>(m_wayland, m_bar, [this]() { return currentPollSources(); });
+  m_mainLoop = std::make_unique<MainLoop>(m_wayland, m_bar, [this] { return currentPollSources(); });
   if (startupReadyCallback) {
     startupReadyCallback();
   }

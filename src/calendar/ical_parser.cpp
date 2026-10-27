@@ -143,7 +143,7 @@ namespace calendar {
     }
 
     icaltimetype utcICalTime(std::chrono::system_clock::time_point t) {
-      return icaltime_from_timet_with_zone(toUnix(t), 0, icaltimezone_get_utc_timezone());
+      return icaltime_from_timet_with_zone(toUnix(t), false, icaltimezone_get_utc_timezone());
     }
 
     icaltimetype localICalTime(std::chrono::system_clock::time_point t) {
@@ -440,7 +440,7 @@ namespace calendar {
         icalcomponent* component, const icaltimetype& componentStart, ICalParseControl& control, RecurrenceData& data
     ) {
       const icaltimetype componentEnd = icalcomponent_get_dtend(component);
-      const icaltime_span baseSpan = icaltime_span_new(componentStart, componentEnd, 1);
+      const icaltime_span baseSpan = icaltime_span_new(componentStart, componentEnd, true);
       const time_t duration = baseSpan.end - baseSpan.start;
       const icaltimetype endBound = recurrenceBound(data.windowEnd, componentStart);
 
@@ -584,7 +584,8 @@ namespace calendar {
       const icaltimetype componentStart = icalcomponent_get_dtstart(component);
       CalendarEvent event = baseEventFromComponent(component);
 
-      if (!hasProperty(component, ICAL_RRULE_PROPERTY) && !hasProperty(component, ICAL_RDATE_PROPERTY)) {
+      if (recurrenceId(component).has_value()
+          || (!hasProperty(component, ICAL_RRULE_PROPERTY) && !hasProperty(component, ICAL_RDATE_PROPERTY))) {
         events.push_back(std::move(event));
         continue;
       }

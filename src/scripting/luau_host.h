@@ -108,7 +108,7 @@ public:
   void setStateWatchHandler(StateWatchHandler handler) { m_stateWatchHandler = std::move(handler); }
 
   // noctalia.state.* — host-mediated per-plugin shared data.
-  void stateSet(const std::string& key, std::string json);
+  void stateSet(const std::string& key, const std::string& json);
   [[nodiscard]] std::optional<std::string> stateGet(const std::string& key) const;
   void stateWatch(std::string key, int callbackRef);
   bool callStateWatchCallback(int callbackRef, const std::string& json, std::chrono::milliseconds budget);
@@ -224,7 +224,7 @@ public:
   // noctalia.layer.show()/hide()/configure() for this plugin's [[layer]] entry `localEntryId`.
   // Queued, applied on the main thread.
   void scriptLayerCommand(
-      scripting::PluginLayerCommand command, std::string localEntryId, scripting::PluginLayerConfigPatch patch
+      scripting::PluginLayerCommand command, const std::string& localEntryId, scripting::PluginLayerConfigPatch patch
   );
   [[nodiscard]] bool scriptCopyToClipboard(std::string text, std::string mimeType);
   [[nodiscard]] std::optional<std::string> scriptFocusedOutputName() const;

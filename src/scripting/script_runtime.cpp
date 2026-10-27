@@ -285,7 +285,7 @@ namespace scripting {
       }
 
       auto self = shared_from_this();
-      DeferredCall::callLater([self, id, replay = std::move(replay)]() mutable {
+      DeferredCall::callLater([self, id, replay = std::move(replay)] mutable {
         ScriptResultCallback subscriber;
         {
           std::scoped_lock replayLock(self->mutex);
@@ -781,7 +781,7 @@ namespace scripting {
       std::weak_ptr<State> weak = shared_from_this();
       const std::string pluginId = runtimeName.substr(0, runtimeName.find(':'));
       const std::uint64_t token = stateToken;
-      host->setStateWatchHandler([weak, pluginId, token](std::string key, int callbackRef) {
+      host->setStateWatchHandler([weak, pluginId, token](const std::string& key, int callbackRef) {
         PluginStateStore::instance().watch(pluginId, key, token, [weak, callbackRef](const std::string& json) {
           if (auto state = weak.lock()) {
             state->enqueueStateWatchResult(callbackRef, json);
@@ -999,7 +999,7 @@ namespace scripting {
 
     void postResult(ScriptResult result) {
       auto self = shared_from_this();
-      DeferredCall::callLater([self, result = std::move(result)]() mutable { self->deliverResult(std::move(result)); });
+      DeferredCall::callLater([self, result = std::move(result)] mutable { self->deliverResult(std::move(result)); });
     }
 
     void deliverResult(ScriptResult result) {

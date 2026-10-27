@@ -328,7 +328,7 @@ namespace {
         std::vector<std::string>{
             std::string(helper), std::string(kCapabilityArgument), std::string(kSecureSyncCapability)
         },
-        std::move(options)
+        options
     );
     return greeter::detail::classifyApplyHelperProtocol(result);
   }
@@ -450,6 +450,8 @@ namespace {
       appearance.insert_or_assign("font_family", config.shell.fontFamily);
     }
 
+    // Keys follow the greeter's own 16-color palette schema; its surface_variant and outline are the
+    // shell's surface_container and outline_variant.
     toml::table palette;
     putPaletteColor(palette, "primary", ::palette.primary);
     putPaletteColor(palette, "on_primary", ::palette.onPrimary);
@@ -461,9 +463,9 @@ namespace {
     putPaletteColor(palette, "on_error", ::palette.onError);
     putPaletteColor(palette, "surface", ::palette.surface);
     putPaletteColor(palette, "on_surface", ::palette.onSurface);
-    putPaletteColor(palette, "surface_variant", ::palette.surfaceVariant);
+    putPaletteColor(palette, "surface_variant", ::palette.surfaceContainer);
     putPaletteColor(palette, "on_surface_variant", ::palette.onSurfaceVariant);
-    putPaletteColor(palette, "outline", ::palette.outline);
+    putPaletteColor(palette, "outline", ::palette.outlineVariant);
     putPaletteColor(palette, "shadow", ::palette.shadow);
     putPaletteColor(palette, "hover", ::palette.hover);
     putPaletteColor(palette, "on_hover", ::palette.onHover);

@@ -194,7 +194,7 @@ namespace settings {
       return SelectSetting{std::move(opts), std::string(selected)};
     }
 
-    [[nodiscard]] std::string barAutoHideMode(bool autoHide, bool smartAutoHide) {
+    [[nodiscard]] std::string_view barAutoHideMode(bool autoHide, bool smartAutoHide) {
       if (smartAutoHide) {
         return "smart";
       }
@@ -223,7 +223,7 @@ namespace settings {
       return select;
     }
 
-    ColorSwatchPreview palettePreviewFromPalette(const ::Palette& palette) {
+    ColorSwatchPreview palettePreviewFromPalette(const noctalia::theme::FixedPalette& palette) {
       return ColorSwatchPreview{
           .surface = fixedColorSpec(palette.surface),
           .swatches = {
@@ -326,7 +326,7 @@ namespace settings {
 
     SettingEntry makeEntry(
         SettingsSection section, std::string group, std::string title, std::string subtitle,
-        std::vector<std::string> path, SettingControl control, std::string tags = {}, bool advanced = false
+        std::vector<std::string> path, SettingControl control, const std::string& tags = {}, bool advanced = false
     ) {
       std::string searchText = std::string(settingsSectionId(section))
           + " "
@@ -877,6 +877,12 @@ namespace settings {
         tr("settings.schema.wallpaper.automation-recursive.description"), {"wallpaper", "automation", "recursive"},
         ToggleSetting{cfg.wallpaper.automation.recursive}, "subdirectories", true
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Wallpaper, "automation", tr("settings.schema.wallpaper.automation-pause-on-fullscreen.label"),
+        tr("settings.schema.wallpaper.automation-pause-on-fullscreen.description"),
+        {"wallpaper", "automation", "pause_on_fullscreen"}, ToggleSetting{cfg.wallpaper.automation.pauseOnFullscreen},
+        "rotate slideshow game video"
+    ));
 
     // Templates
     const auto builtInTemplatesOn =
@@ -928,7 +934,7 @@ namespace settings {
     // Dock and per-monitor dock pages share the same controls. Override pages display effective values while
     // writing to their own table, so untouched fields continue to inherit from the global dock.
     const auto addDockSettings = [&](const DockConfig& dock, std::vector<std::string> root,
-                                     std::optional<std::string> monitorTable) {
+                                     const std::optional<std::string>& monitorTable) {
       const auto path = [&root](std::string key) {
         auto result = root;
         result.push_back(std::move(key));
@@ -1117,6 +1123,13 @@ namespace settings {
           sliderFor(dock.backgroundOpacity, noctalia::config::schema::kUnitRange, false),
           "alpha transparency translucent opacity"
       ));
+      if (env.backgroundEffectBlurSupported) {
+        entries.push_back(makeEntry(
+            SettingsSection::Dock, "effects", tr("settings.schema.dock.compositor-blur.label"),
+            tr("settings.schema.dock.compositor-blur.description"), path("compositor_blur"),
+            ToggleSetting{dock.compositorBlur}, "blur background effect"
+        ));
+      }
       entries.push_back(makeEntry(
           SettingsSection::Dock, "effects", tr("settings.schema.shared.shadow.label"),
           tr("settings.schema.dock.shadow.description"), path("shadow"), ToggleSetting{dock.shadow}, "shadow"
@@ -2482,6 +2495,15 @@ namespace settings {
         tr("settings.schema.shell.osd-kinds-media.description"), {"osd", "kinds", "media"},
         ToggleSetting{cfg.osd.kinds.media}, "hud overlay mpris audio music"
     ));
+    {
+      SettingEntry mediaVolumeEntry = makeEntry(
+          SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media-volume.label"),
+          tr("settings.schema.shell.osd-kinds-media-volume.description"), {"osd", "kinds", "media_volume"},
+          ToggleSetting{cfg.osd.kinds.mediaVolume}, "hud overlay mpris media player volume level"
+      );
+      mediaVolumeEntry.visibleWhen = [](const Config& c) { return c.osd.kinds.media; };
+      entries.push_back(std::move(mediaVolumeEntry));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-privacy.label"),
         tr("settings.schema.shell.osd-kinds-privacy.description"), {"osd", "kinds", "privacy"},
@@ -3087,6 +3109,26 @@ namespace settings {
         {"control_center", "calendar", "show_week_numbers"},
         ToggleSetting{cfg.controlCenter.calendarTab.showWeekNumbers}, "calendar week numbers iso"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-hide-past-events.label"),
+        tr("settings.schema.services.calendar-hide-past-events.description"),
+        {"control_center", "calendar", "hide_past_events"}, ToggleSetting{cfg.controlCenter.calendarTab.hidePastEvents},
+        "calendar past events today finished hide"
+    ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-past-events-threshold.label"),
+          tr("settings.schema.services.calendar-past-events-threshold.description"),
+          {"control_center", "calendar", "past_events_threshold_minutes"},
+          sliderFor(
+              cfg.controlCenter.calendarTab.pastEventsThresholdMinutes,
+              noctalia::config::schema::kPastEventsThresholdMinutesRange, true
+          ),
+          "calendar past events threshold minutes hide old finished"
+      );
+      e.visibleWhen = [](const Config& c) { return c.controlCenter.calendarTab.hidePastEvents; };
+      entries.push_back(std::move(e));
+    }
     {
       auto e = makeEntry(
           SettingsSection::Calendar, "calendar-reminders", tr("settings.schema.services.calendar-reminders.label"),

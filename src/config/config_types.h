@@ -31,7 +31,7 @@ struct BarCapsuleGroupStyle {
   std::string id;
   std::vector<std::string> members; // ordered member widget references
   bool enabled = true;
-  ColorSpec fill = colorSpecFromRole(ColorRole::SurfaceVariant);
+  ColorSpec fill = colorSpecFromRole(ColorRole::SurfaceContainer);
   // True when `border` is explicitly present (empty value = no outline); mirrors bar/widget border semantics.
   bool borderSpecified = false;
   std::optional<ColorSpec> border;
@@ -157,7 +157,7 @@ struct BarConfig {
   float backgroundOpacity = 1.0F;
   bool compositorBlur = true;
   // Inside outline for the bar background; attached panels inherit the resolved values.
-  ColorSpec border = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = 0.0F;
   std::int32_t radius = static_cast<std::int32_t>(Style::radiusXl);
   std::int32_t radiusTopLeft = static_cast<std::int32_t>(Style::radiusXl);
@@ -189,7 +189,7 @@ struct BarConfig {
                                          "battery", "control-center", "session"};
   // When true, widgets on this bar use a capsule unless `[widget.*] capsule = false`.
   bool widgetCapsuleDefault = false;
-  ColorSpec widgetCapsuleFill = colorSpecFromRole(ColorRole::SurfaceVariant);
+  ColorSpec widgetCapsuleFill = colorSpecFromRole(ColorRole::SurfaceContainer);
   // When set, bar widgets with capsules use this for icon + primary label color unless overridden per widget.
   std::optional<ColorSpec> widgetCapsuleForeground;
   // Default primary label color for all widgets on this bar (same as per-widget `color`); per-widget `color`
@@ -387,7 +387,7 @@ using ConfigOverrideValue = std::variant<
 // Corner shape and edge softness are fixed in the shell code; padding, radius, and border width are configurable.
 struct WidgetBarCapsuleSpec {
   bool enabled = false;
-  ColorSpec fill = colorSpecFromRole(ColorRole::SurfaceVariant);
+  ColorSpec fill = colorSpecFromRole(ColorRole::SurfaceContainer);
   // Opaque group ID (auto-generated). Adjacent widgets in the same section with the same non-empty ID share one
   // shell and inherit the group's `BarCapsuleGroupStyle`.
   std::string group;
@@ -485,7 +485,7 @@ capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& 
 [[nodiscard]] float
 resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget.scale");
 [[nodiscard]] float
-resolveWidgetFontScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget");
+resolveWidgetFontScale(float barFontScale, const WidgetConfig* widget, std::string_view context = "widget");
 
 // Shared output selector matching used by monitor-scoped config and IPC selectors.
 // Matches connector name exactly, or a word-boundary token within output description.
@@ -549,6 +549,7 @@ struct WallpaperAutomationConfig {
   std::int32_t intervalSeconds = 1800;
   Order order = Order::Random;
   bool recursive = false;
+  bool pauseOnFullscreen = false;
 
   bool operator==(const WallpaperAutomationConfig&) const = default;
 };
@@ -690,6 +691,7 @@ struct DockMonitorOverride {
   std::optional<std::int32_t> crossAxisPadding;
   std::optional<std::int32_t> itemSpacing;
   std::optional<float> backgroundOpacity;
+  std::optional<bool> compositorBlur;
   std::optional<ColorSpec> border;
   std::optional<float> borderWidth;
   std::optional<std::int32_t> radius;
@@ -732,8 +734,9 @@ struct DockConfig {
   std::int32_t crossAxisPadding = 8; // inner padding perpendicular to the icon row
   std::int32_t itemSpacing = 6;      // gap between items
   float backgroundOpacity = 0.88F;
+  bool compositorBlur = true;
   // Inside outline for the dock background.
-  ColorSpec border = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = 0.0F;
   std::int32_t radius = 16;            // dock background corner radius
   std::int32_t radiusTopLeft = 16;     // dock background top-left corner radius
@@ -761,7 +764,7 @@ struct DockConfig {
   bool showInstanceCount = true;    // show a badge with count when app has >1 window
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
-  std::string launcherCustomImage = "";     // image path; overrides launcherIcon glyph when set
+  std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set
   bool launcherCustomImageColorize = false; // tint the custom image with the icon color role
   std::vector<std::string> pinned;          // desktop entry IDs to always show
   std::vector<DockMonitorOverride> monitorOverrides;
@@ -833,6 +836,7 @@ struct OsdKindsConfig {
   bool lockKeys = true;
   bool keyboardLayout = true;
   bool media = true;
+  bool mediaVolume = true;
   bool privacy = true;
   bool keyboardBacklight = true;
   bool custom = true;
@@ -848,7 +852,7 @@ struct OsdConfig {
   float scale = 1.0F;
   float backgroundOpacity = 0.97F;
   bool border = true; // outline around OSD popup cards
-  ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec borderColor = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = Style::borderWidth;
   bool followFocusedOutput = false;
   int offsetX = 20;
@@ -871,7 +875,7 @@ struct NotificationConfig {
   std::int32_t width = kDefaultWidth;
   float backgroundOpacity = 0.97F; // toast card background alpha (0.0–1.0)
   bool border = true;              // outline around toast cards
-  ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec borderColor = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = Style::borderWidth;
   bool followFocusedOutput = false;
   int offsetX = 20; // absolute horizontal margin from the screen edge
@@ -1139,7 +1143,7 @@ struct ShellConfig {
   struct PanelConfig {
     PanelTransparencyMode transparencyMode = PanelTransparencyMode::Solid;
     bool borders = true; // outline on floating panel surfaces
-    ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
+    ColorSpec borderColor = colorSpecFromRole(ColorRole::OutlineVariant);
     float borderWidth = Style::borderWidth;
     bool shadow = true;                    // cast the global [shell.shadow] from panel surfaces
     bool listItemBackground = false;       // filled rounded background behind launcher/clipboard list items
@@ -1791,8 +1795,8 @@ struct ThemeConfig {
   struct TemplateColorConfig {
     std::string name;
     std::string color;
-    std::string color_dark = "";
-    std::string color_light = "";
+    std::string color_dark;
+    std::string color_light;
     bool blend = true;
 
     bool operator==(const TemplateColorConfig&) const = default;
@@ -1878,6 +1882,9 @@ struct ControlCenterConfig {
   struct CalendarTabConfig {
     bool showEventsCard = true;
     bool showWeekNumbers = false;
+    bool hidePastEvents = false; // false keeps every finished event in today's list
+    // With hidePastEvents, hide today's events that ended more than this many minutes ago. 0 = as soon as they end.
+    std::int32_t pastEventsThresholdMinutes = 30;
     bool operator==(const CalendarTabConfig&) const = default;
   };
 

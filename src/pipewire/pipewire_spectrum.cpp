@@ -147,7 +147,7 @@ private:
   std::string m_targetObject;
   pw_stream* m_stream = nullptr;
   spa_hook m_listener{};
-  spa_audio_info_raw m_format = SPA_AUDIO_INFO_RAW_INIT(.format = SPA_AUDIO_FORMAT_UNKNOWN);
+  spa_audio_info_raw m_format{.format = SPA_AUDIO_FORMAT_UNKNOWN};
   bool m_formatReady = false;
 };
 
@@ -191,9 +191,9 @@ bool PipeWireSpectrum::Stream::start() {
   pw_stream_add_listener(m_stream, &m_listener, &kEvents, this);
 
   auto buffer = std::array<std::uint8_t, 512>{};
-  auto builder = SPA_POD_BUILDER_INIT(buffer.data(), buffer.size());
+  spa_pod_builder builder{.data = buffer.data(), .size = static_cast<std::uint32_t>(buffer.size())};
   auto params = std::array<const spa_pod*, 1>{};
-  auto raw = SPA_AUDIO_INFO_RAW_INIT(.format = SPA_AUDIO_FORMAT_F32);
+  spa_audio_info_raw raw{.format = SPA_AUDIO_FORMAT_F32};
   params[0] = spa_format_audio_raw_build(&builder, SPA_PARAM_EnumFormat, &raw);
 
   const auto flags = static_cast<pw_stream_flags>(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS);
@@ -253,7 +253,7 @@ void PipeWireSpectrum::Stream::handleParamChanged(std::uint32_t id, const spa_po
     return;
   }
 
-  auto raw = SPA_AUDIO_INFO_RAW_INIT(.format = SPA_AUDIO_FORMAT_UNKNOWN);
+  spa_audio_info_raw raw{.format = SPA_AUDIO_FORMAT_UNKNOWN};
   if (spa_format_audio_raw_parse(param, &raw) < 0) {
     return;
   }

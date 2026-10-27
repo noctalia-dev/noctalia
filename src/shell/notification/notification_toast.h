@@ -7,6 +7,7 @@
 #include "system/icon_resolver.h"
 
 #include <memory>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -173,7 +174,7 @@ private:
   canKeepPlacement(const PopupEntry& entry, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
   [[nodiscard]] bool fitsOnSurface(const PopupEntry& entry, float surfaceHeight) const;
   [[nodiscard]] std::string notificationPosition() const;
-  [[nodiscard]] std::string notificationLayer() const;
+  [[nodiscard]] std::string_view notificationLayer() const;
   [[nodiscard]] std::vector<std::string> notificationMonitors() const;
   [[nodiscard]] bool shouldRenderOnOutput(const WaylandOutput& output) const;
   [[nodiscard]] bool entryTargetsOutput(const PopupEntry& entry, wl_output* output) const;
@@ -191,7 +192,7 @@ private:
   [[nodiscard]] float cardSurfaceY(const Instance& inst, std::size_t entryIndex) const;
   void alignBottomStackToPlacementBottom(wl_output* output);
   [[nodiscard]] std::optional<float> findPlacementY(
-      float entryHeight, wl_output* output, std::optional<uint32_t> ignoreNotificationId = std::nullopt
+      float candidateHeight, wl_output* targetOutput, std::optional<uint32_t> ignoreNotificationId = std::nullopt
   ) const;
   [[nodiscard]] uint32_t surfaceHeightForOutput(wl_output* output) const;
   // Configured render scale of a notification output, for pre-surface sizing.

@@ -24,7 +24,7 @@ Set `sidebar` under `[control_center]` for tab navigation when Control Center op
 
 Set `sidebar_section` for opens that jump straight to a tab (volume, network, and media bar widgets, or `noctalia msg panel-toggle control-center audio`).
 
-Keyboard navigation uses the global [`[keybinds]`](/noctalia/configuration/shell/#keybinds) actions: `tab_next` / `tab_previous` switch between the sidebar and the active tab body; arrow keys move within the focused pane.
+Keyboard navigation uses the global [`[keybinds]`](/noctalia/configuration/shell/#keybinds) actions: `tab_next` / `tab_previous` switch between the sidebar and the active tab body; arrow keys move within the focused pane. In the notifications tab, `delete` removes the topmost notification.
 
 ```toml
 [control_center]
@@ -184,12 +184,16 @@ Right-click a day to launch the application registered for the `text/calendar` M
 [control_center.calendar]
 show_events_card  = true
 show_week_numbers = false       # ISO 8601 week numbers in the month grid
+hide_past_events  = false       # hide today's finished events from the event list
+past_events_threshold_minutes = 30
 ```
 
-| Option              | Type | Default | Description                                                                                                                                                   |
-| ------------------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `show_events_card`  | bool | `true`  | Show the event list beside the month grid. Also toggled from the calendar button in the tab header.                                                           |
-| `show_week_numbers` | bool | `false` | Show a column of ISO 8601 week numbers to the left of the month grid, separated from it by a divider. Each row is numbered by the week its Thursday falls in. |
+| Option                          | Type | Default | Description                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `show_events_card`              | bool | `true`  | Show the event list beside the month grid. Also toggled from the calendar button in the tab header.                                                                                                                                                                                                                                                    |
+| `show_week_numbers`             | bool | `false` | Show a column of ISO 8601 week numbers to the left of the month grid, separated from it by a divider. Each row is numbered by the week its Thursday falls in.                                                                                                                                                                                          |
+| `hide_past_events`              | bool | `false` | Hide today's events that have already ended from the event list. When `false`, every event of the day is shown and finished ones are dimmed. Other days are not affected. The desktop calendar widget follows this option too. While events are hidden, a **Show N past events** row at the top of the list reveals them; click it again to hide them. |
+| `past_events_threshold_minutes` | int  | `30`    | With `hide_past_events` on, an event stays visible for this many minutes after it ends (0–1440). `0` hides it as soon as it ends.                                                                                                                                                                                                                      |
 
 The shared `event_date_format` and `event_time_format` options are documented under [Calendar](/noctalia/services/calendar/). Week numbers are a decoration of the month grid, so they work with `[calendar].enabled = false` and no accounts configured.
 

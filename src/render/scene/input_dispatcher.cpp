@@ -77,13 +77,12 @@ void InputDispatcher::setSceneRoot(Node* root) {
       updateCursor(m_lastSerial);
     }
   }
-  if (root == nullptr) {
-    if (m_focusedArea != nullptr) {
-      clearTextInputFocus(m_focusedArea);
-      m_focusedArea->dispatchFocusLoss();
-      m_focusedArea = nullptr;
-    }
+  if (root == nullptr && m_focusedArea != nullptr) {
+    clearTextInputFocus(m_focusedArea);
+    m_focusedArea->dispatchFocusLoss();
+    m_focusedArea = nullptr;
   }
+
   m_sceneRoot = root;
   if (m_sceneRoot != nullptr && m_hasPointerPosition) {
     updateHover(m_lastPointerX, m_lastPointerY, m_lastSerial);
@@ -415,15 +414,12 @@ void InputDispatcher::keyEvent(
 ) {
   pruneDetachedAreas();
   if (pressed && !preedit) {
-    if (KeybindMatcher::matches(KeybindAction::TabPrevious, sym, modifiers)) {
-      if (cycleTabFocus(true)) {
-        return;
-      }
+    if (KeybindMatcher::matches(KeybindAction::TabPrevious, sym, modifiers) && cycleTabFocus(true)) {
+      return;
     }
-    if (KeybindMatcher::matches(KeybindAction::TabNext, sym, modifiers)) {
-      if (cycleTabFocus(false)) {
-        return;
-      }
+
+    if (KeybindMatcher::matches(KeybindAction::TabNext, sym, modifiers) && cycleTabFocus(false)) {
+      return;
     }
   }
   if (m_focusedArea != nullptr) {
@@ -630,17 +626,16 @@ void InputDispatcher::pruneDetachedAreas() {
   if (m_touchGesture.horizontalArea != nullptr && !isAttachedToScene(m_touchGesture.horizontalArea)) {
     m_touchGesture.horizontalArea = nullptr;
   }
-  if (!isAttachedToScene(m_hoveredArea)) {
-    if (m_hoveredArea != nullptr) {
-      auto* old = m_hoveredArea;
-      old->dispatchLeave();
-      m_hoveredArea = nullptr;
-      if (m_hoverChangeCallback) {
-        m_hoverChangeCallback(old, nullptr);
-      }
-      updateCursor(m_lastSerial);
+  if (!isAttachedToScene(m_hoveredArea) && m_hoveredArea != nullptr) {
+    auto* old = m_hoveredArea;
+    old->dispatchLeave();
+    m_hoveredArea = nullptr;
+    if (m_hoverChangeCallback) {
+      m_hoverChangeCallback(old, nullptr);
     }
+    updateCursor(m_lastSerial);
   }
+
   if (!isAttachedToScene(m_focusedArea)) {
     if (m_focusedArea != nullptr) {
       clearTextInputFocus(m_focusedArea);

@@ -113,7 +113,7 @@ void WorkspacesWidget::create() {
   setRoot(std::move(container));
 
   if (showsActiveIcon()) {
-    m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+    m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] {
       m_iconColorizeRefreshPending = true;
       requestUpdate();
     });
@@ -653,7 +653,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         requestFrameTick();
       });
 
-      area->setOnLeave([this, areaPtr]() {
+      area->setOnLeave([this, areaPtr] {
         if (m_hoveredArea != areaPtr) {
           return;
         }
@@ -1022,7 +1022,7 @@ void WorkspacesWidget::startAnimation() {
           root()->markPaintDirty();
         }
       },
-      [this]() { finishAnimation(); }, this
+      [this] { finishAnimation(); }, this
   );
 
   // Reserve final bounds before the first animated frame to avoid one-frame overflow.
@@ -1535,15 +1535,31 @@ ColorRole WorkspacesWidget::onRoleForFill(ColorRole fill) {
     return ColorRole::OnTertiary;
   case ColorRole::Error:
     return ColorRole::OnError;
+  case ColorRole::PrimaryContainer:
+    return ColorRole::OnPrimaryContainer;
+  case ColorRole::SecondaryContainer:
+    return ColorRole::OnSecondaryContainer;
+  case ColorRole::TertiaryContainer:
+    return ColorRole::OnTertiaryContainer;
+  case ColorRole::ErrorContainer:
+    return ColorRole::OnErrorContainer;
   case ColorRole::Surface:
-  case ColorRole::SurfaceVariant:
-  case ColorRole::Outline:
+  case ColorRole::SurfaceContainerLow:
+  case ColorRole::SurfaceContainer:
+  case ColorRole::SurfaceContainerHigh:
+  case ColorRole::SurfaceContainerHighest:
+  case ColorRole::OutlineVariant:
   case ColorRole::Shadow:
+  case ColorRole::Scrim:
   case ColorRole::Hover:
   case ColorRole::OnPrimary:
+  case ColorRole::OnPrimaryContainer:
   case ColorRole::OnSecondary:
+  case ColorRole::OnSecondaryContainer:
   case ColorRole::OnTertiary:
+  case ColorRole::OnTertiaryContainer:
   case ColorRole::OnError:
+  case ColorRole::OnErrorContainer:
   case ColorRole::OnSurface:
   case ColorRole::OnSurfaceVariant:
   case ColorRole::OnHover:

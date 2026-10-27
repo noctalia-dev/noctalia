@@ -23,7 +23,7 @@ public:
   static constexpr std::string_view kEventPowerUnplug = "power-unplug";
   static constexpr std::string_view kEventScreenCapture = "screen-capture";
 
-  explicit SoundPlayer(pw_loop* loop);
+  SoundPlayer();
   ~SoundPlayer();
 
   [[nodiscard]] static std::vector<std::pair<std::string, std::string>> availableThemes();
@@ -77,6 +77,7 @@ private:
   void expireUnstarted();
   void armStartTimeout();
 
+  pw_thread_loop* m_threadLoop = nullptr;
   pw_loop* m_loop = nullptr;
   spa_source* m_streamCloseTimer = nullptr;
   spa_source* m_startTimeoutTimer = nullptr;

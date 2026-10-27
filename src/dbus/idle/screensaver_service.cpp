@@ -210,8 +210,10 @@ void ScreenSaverService::applyLogindBlockInhibited(const std::string& inhibits) 
 }
 
 std::uint32_t ScreenSaverService::onInhibit(std::string app, std::string reason, const char* sender) {
-  kLog.debug("screensaver inhibit from {} ({}): {}", app, sender != nullptr ? sender : "?", reason);
   onInhibitDelta(1);
+  kLog.debug(
+      "screensaver inhibit from {} ({}): {} (locks={})", app, sender != nullptr ? sender : "?", reason, m_inhibitLocks
+  );
 
   const auto cookie = m_nextCookieId++;
   m_cookies.push_back(
@@ -232,9 +234,13 @@ void ScreenSaverService::onUninhibit(std::uint32_t cookie, const char* sender) {
     return;
   }
 
-  kLog.debug("screensaver uninhibit from {} ({}): {}", it->app, sender != nullptr ? sender : "?", it->reason);
+  const InhibitCookie released = std::move(*it);
   m_cookies.erase(it);
   onInhibitDelta(-1);
+  kLog.debug(
+      "screensaver uninhibit from {} ({}): {} (locks={})", released.app, sender != nullptr ? sender : "?",
+      released.reason, m_inhibitLocks
+  );
 }
 
 void ScreenSaverService::onInhibitDelta(std::int64_t delta) {

@@ -34,6 +34,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <functional>
 #include <memory>
 #include <string_view>
@@ -199,7 +200,7 @@ namespace {
       style.compact = launcher.compact;
       style.appIconColorizeTint = effectiveShellAppIconColorizationTint(config->config().shell);
       if (config->config().shell.panel.listItemBackground) {
-        style.listItemBackground = colorSpecFromRole(ColorRole::SurfaceVariant, cardOpacity);
+        style.listItemBackground = colorSpecFromRole(ColorRole::SurfaceContainer, cardOpacity);
       }
     }
     return style;
@@ -249,7 +250,7 @@ namespace {
           })
       );
 
-      m_image->setAsyncReadyCallback([this]() {
+      m_image->setAsyncReadyCallback([this] {
         if (!m_style.showIcons
             || m_badgeVisible
             || m_iconPath.empty()
@@ -544,7 +545,7 @@ namespace {
           })
       );
 
-      m_image->setAsyncReadyCallback([this]() {
+      m_image->setAsyncReadyCallback([this] {
         if (!m_style.showIcons
             || m_badgeVisible
             || m_iconPath.empty()
@@ -779,7 +780,7 @@ namespace {
         area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
         area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
         area->setOnEnter([this](const InputArea::PointerData&) { markLayoutDirty(); });
-        area->setOnLeave([this]() { markLayoutDirty(); });
+        area->setOnLeave([this] { markLayoutDirty(); });
         area->setOnPress([this, slot](const InputArea::PointerData& data) {
           if (!m_boundResultIndices[slot].has_value()) {
             return;
@@ -802,7 +803,7 @@ namespace {
             }
           }
         });
-        area->setTooltipProvider([this, slot]() -> TooltipContent {
+        area->setTooltipProvider([this, slot] -> TooltipContent {
           if (m_results == nullptr || !m_boundResultIndices[slot].has_value()) {
             return {};
           }
@@ -1505,8 +1506,8 @@ void LauncherPanel::finishActivation(
 void LauncherPanel::addProvider(std::unique_ptr<LauncherProvider> provider) {
   applyProviderConfig(*provider);
   provider->initialize();
-  provider->setResultsChangedCallback([this]() { onProviderResultsChanged(); });
-  provider->setQueryRequestedCallback([this](std::string query) { setQuery(std::move(query)); });
+  provider->setResultsChangedCallback([this] { onProviderResultsChanged(); });
+  provider->setQueryRequestedCallback([this](const std::string& query) { setQuery(query); });
   LauncherProvider* providerPtr = provider.get();
   provider->setActivationDoneCallback([this, providerPtr](const std::string& resultId, bool copied) {
     finishActivation(*providerPtr, resultId, copied);
@@ -1623,7 +1624,7 @@ void LauncherPanel::create() {
             .radius = Style::scaledRadiusMd(scale),
             .width = Style::controlHeightSm * scale,
             .onClick =
-                [this]() {
+                [this] {
                   if (m_config == nullptr) {
                     return;
                   }
@@ -1649,7 +1650,7 @@ void LauncherPanel::create() {
             .radius = Style::scaledRadiusMd(scale),
             .width = Style::controlHeightSm * scale,
             .onClick =
-                [this]() {
+                [this] {
                   if (m_config == nullptr || !supportsResultGrid()) {
                     return;
                   }
@@ -1674,7 +1675,7 @@ void LauncherPanel::create() {
               .tooltip = i18n::tr("launcher.browser.actions.settings"),
               .radius = Style::scaledRadiusMd(scale),
               .width = Style::controlHeightSm * scale,
-              .onClick = []() { PanelManager::instance().openSettingsWindow(); },
+              .onClick = [] { PanelManager::instance().openSettingsWindow(); },
               .configure =
                   [scale](Button& button) {
                     button.setControlHeight(Style::controlHeightSm * scale);
@@ -1862,7 +1863,7 @@ void LauncherPanel::create() {
             .color = colorSpecFromRole(ColorRole::Primary),
         })
     );
-    m_launcherAvatar->setAsyncReadyCallback([this]() {
+    m_launcherAvatar->setAsyncReadyCallback([this] {
       if (m_launcherAvatar == nullptr || m_launcherAvatarFallback == nullptr || !m_launcherAvatar->hasImage()) {
         return;
       }
@@ -1906,7 +1907,7 @@ void LauncherPanel::create() {
               .tooltip = i18n::tr("launcher.browser.actions.power"),
               .radius = Style::scaledRadiusMd(scale),
               .width = toolbarSideWidth,
-              .onClick = [this]() { showSessionActions(); },
+              .onClick = [this] { showSessionActions(); },
               .configure =
                   [scale](Button& button) {
                     button.setControlHeight(kLauncherAvatarSize * scale);
@@ -1940,7 +1941,7 @@ void LauncherPanel::create() {
     root()->setAnimationManager(m_animations);
   }
 
-  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() { refreshLauncherAppIconColorization(); });
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] { refreshLauncherAppIconColorization(); });
 
   syncLauncherListStyle();
 }
@@ -2022,11 +2023,11 @@ void LauncherPanel::animateResultsTransition() {
   viewport->setPosition(m_resultsTransitionBaseX + direction * travel, viewport->y());
   animations->animate(
       0.0F, 1.0F, duration, Easing::EaseOutCubic,
-      [this, viewport, startOpacity, direction, travel](float progress) {
+      [this, viewport, direction, travel](float progress) {
         viewport->setOpacity(startOpacity + (1.0F - startOpacity) * progress);
         viewport->setPosition(m_resultsTransitionBaseX + direction * travel * (1.0F - progress), viewport->y());
       },
-      [this, viewport]() {
+      [this, viewport] {
         viewport->setOpacity(1.0F);
         viewport->setScale(1.0F);
         viewport->setPosition(m_resultsTransitionBaseX, viewport->y());
@@ -2372,7 +2373,7 @@ void LauncherPanel::onClose() {
     m_actionsMenu->close();
   }
   if (m_asyncTextures != nullptr) {
-    DeferredCall::callLater([asyncTextures = m_asyncTextures]() { asyncTextures->trimUnused(0); });
+    DeferredCall::callLater([asyncTextures = m_asyncTextures] { asyncTextures->trimUnused(0); });
   }
 
   for (auto& provider : m_providers) {
@@ -2474,7 +2475,7 @@ void LauncherPanel::reapplyCurrentQuery() {
   refreshResults();
 }
 
-void LauncherPanel::setQuery(std::string query) {
+void LauncherPanel::setQuery(const std::string& query) {
   if (m_input == nullptr) {
     return;
   }
@@ -2523,10 +2524,8 @@ bool LauncherPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, 
     }
   }
 
-  if (m_categoryFilter != nullptr && m_categoryFilter->visible()) {
-    if (focused == m_categoryFilter->focusArea()) {
-      return false;
-    }
+  if (m_categoryFilter != nullptr && m_categoryFilter->visible() && focused == m_categoryFilter->focusArea()) {
+    return false;
   }
 
   return handleKeyEvent(sym, modifiers);
@@ -2990,7 +2989,7 @@ void LauncherPanel::rebuildLauncherNavigation() {
     if (m_syncingLauncherNavigation) {
       return;
     }
-    DeferredCall::callLater([this, index]() {
+    DeferredCall::callLater([this, index] {
       if (index < m_categoryFilterSlots.size()) {
         setActiveCategorySlot(index);
       } else {
@@ -3195,7 +3194,7 @@ std::vector<LauncherResult> LauncherPanel::providerOverviewResults(std::string_v
 
     const std::string title(provider->displayName());
     const std::string prefixText(prefix);
-    const std::string searchable = StringUtils::toLower(title + " " + prefixText);
+    const std::string searchable = StringUtils::toLower(std::format("{} {}", title, prefixText));
     const double score = filter.empty() ? 0.0 : FuzzyMatch::score(filter, searchable);
     if (!filter.empty() && !FuzzyMatch::isMatch(score)) {
       continue;
@@ -3454,7 +3453,7 @@ bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   PanelManager::instance().beginAttachedPopup(parentCtx->surface);
   PanelManager::instance().setActivePopup(m_actionsMenu.get());
 
-  m_actionsMenu->setOnDismissed([parentSurface = parentCtx->surface]() {
+  m_actionsMenu->setOnDismissed([parentSurface = parentCtx->surface] {
     PanelManager::instance().clearActivePopup();
     PanelManager::instance().endAttachedPopup(parentSurface);
   });
@@ -3682,13 +3681,12 @@ bool LauncherPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) {
       Node::absolutePosition(m_launcherSections, anchorX, anchorY);
       anchorX += m_launcherSections->width() * 0.5F;
       anchorY += m_launcherSections->height() * 0.5F;
-    } else if (m_grid == nullptr || !m_grid->absoluteAnchorForIndex(m_selectedIndex, anchorX, anchorY)) {
-      if (m_grid != nullptr) {
-        Node::absolutePosition(m_grid, anchorX, anchorY);
-        anchorX += m_grid->width() * 0.5F;
-        anchorY += m_grid->height() * 0.5F;
-      }
+    } else if (m_grid != nullptr && !m_grid->absoluteAnchorForIndex(m_selectedIndex, anchorX, anchorY)) {
+      Node::absolutePosition(m_grid, anchorX, anchorY);
+      anchorX += m_grid->width() * 0.5F;
+      anchorY += m_grid->height() * 0.5F;
     }
+
     return openAppActionsMenu(m_selectedIndex, anchorX, anchorY);
   }
 

@@ -165,7 +165,7 @@ void BatteryWidget::createGraphicMode() {
   );
 
   syncPalette();
-  m_paletteConn = paletteChanged().connect([this]() {
+  m_paletteConn = paletteChanged().connect([this] {
     syncPalette();
     requestRedraw();
   });
@@ -261,7 +261,7 @@ void BatteryWidget::layoutGraphicMode(Renderer& renderer) {
     }
     labelW = m_overlayLabel->width();
     if (m_isVertical) {
-      labelW = std::max(labelW, std::ceil(renderer.measureText("00", fontSize, {fontWeight}).width));
+      labelW = std::max(labelW, std::ceil(renderer.measureText("00", fontSize, m_overlayLabel->font()).width));
     }
   }
   if (showStateGlyph) {
@@ -469,7 +469,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
             updateFillGeometry();
             requestRedraw();
           },
-          [this]() { m_fillAnim = 0; }, this
+          [this] { m_fillAnim = 0; }, this
       );
       requestFrameTick();
     } else {
@@ -485,11 +485,9 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
     // State icon
     const char* stateGlyph = batteryStateGlyph(s.state);
-    if (m_overlayGlyph != nullptr) {
-      if (stateGlyph != nullptr) {
-        m_overlayGlyph->setGlyph(stateGlyph);
-        m_overlayGlyph->measure(renderer);
-      }
+    if (m_overlayGlyph != nullptr && stateGlyph != nullptr) {
+      m_overlayGlyph->setGlyph(stateGlyph);
+      m_overlayGlyph->measure(renderer);
     }
 
     // A full battery needs no number, and three digits would stretch the narrow vertical body.

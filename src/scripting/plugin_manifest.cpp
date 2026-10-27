@@ -158,7 +158,7 @@ namespace scripting {
         const auto value =
             node.value<std::int64_t>().transform(
                                           [](std::int64_t integer) { return static_cast<double>(integer); }
-            ).or_else([&node]() { return node.value<double>(); });
+            ).or_else([&node] { return node.value<double>(); });
         if (!value.has_value() || !std::isfinite(*value)) {
           error = "setting '" + out.key + "' double default must be a finite number";
           return false;
@@ -974,13 +974,11 @@ namespace scripting {
     if (a.size() != b.size()) {
       return false;
     }
-    for (const auto& [key, value] : a) {
+    return std::ranges::all_of(a, [&](const auto& entry) {
+      const auto& [key, value] = entry;
       const auto it = b.find(key);
-      if (it == b.end() || !valueEqual(value, it->second)) {
-        return false;
-      }
-    }
-    return true;
+      return it != b.end() && valueEqual(value, it->second);
+    });
   }
 
 } // namespace scripting

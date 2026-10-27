@@ -73,6 +73,8 @@ resume_command = "noctalia msg dpms-on && some_shell_command"
 
 Idle behavior uses the Wayland `ext_idle_notifier_v1` protocol and respects active idle inhibitors.
 
+Applications can also inhibit idle over D-Bus (`org.freedesktop.ScreenSaver`), as browsers do during video playback. While such an inhibit is held, idle behaviors do not fire and a pre-action fade already underway is cancelled. When the inhibit is released for more than a second, waiting behaviors restart their countdowns from that moment; brief renewals during playback do not reset them.
+
 ## Related IPC
 
 Custom commands can use the canonical IPC references:

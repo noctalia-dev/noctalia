@@ -147,19 +147,20 @@ namespace {
   }
 
   [[nodiscard]] bool requestLoginSessionExit() {
-    if (const char* sessionId = std::getenv("XDG_SESSION_ID"); sessionId != nullptr && sessionId[0] != '\0') {
-      if (process::launchFirstAvailable({{"loginctl", "terminate-session", sessionId}})) {
-        return true;
-      }
+    if (const char* sessionId = std::getenv("XDG_SESSION_ID"); sessionId != nullptr
+        && sessionId[0] != '\0'
+        && process::launchFirstAvailable({{"loginctl", "terminate-session", sessionId}})) {
+      return true;
     }
+
     if (process::launchFirstAvailable({{"systemctl", "--user", "stop", "graphical-session.target"}})) {
       return true;
     }
-    if (const char* user = std::getenv("USER"); user != nullptr && user[0] != '\0') {
-      if (process::launchFirstAvailable({{"loginctl", "terminate-user", user}})) {
-        return true;
-      }
+    if (const char* user = std::getenv("USER");
+        user != nullptr && user[0] != '\0' && process::launchFirstAvailable({{"loginctl", "terminate-user", user}})) {
+      return true;
     }
+
     return false;
   }
 
@@ -599,7 +600,7 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
       m_workspaces(std::make_unique<WaylandWorkspaces>(*m_runtimeRegistry)) {
   m_workspaceMetadataBackend = createWorkspaceMetadataBackend(*m_runtimeRegistry);
   if (m_workspaceMetadataBackend != nullptr) {
-    m_workspaceMetadataBackend->setWindowChangeCallback([this]() { notifyToplevelsChanged(); });
+    m_workspaceMetadataBackend->setWindowChangeCallback([this] { notifyToplevelsChanged(); });
   }
   if (auto focusedOutputBackend = createFocusedOutputBackend(*m_runtimeRegistry); focusedOutputBackend != nullptr) {
     m_focusedOutputBackends.push_back(std::move(focusedOutputBackend));
@@ -619,7 +620,7 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
   m_wayland.setHyprlandToplevelMappingManagerCallback([this](hyprland_toplevel_mapping_manager_v1* manager) {
     bindHyprlandToplevelMappingManager(manager);
   });
-  m_wayland.setToplevelChangeCallback([this]() { notifyToplevelsChanged(); });
+  m_wayland.setToplevelChangeCallback([this] { notifyToplevelsChanged(); });
   m_wayland.setOutputLifecycleCallbacks(
       [this](wl_output* output) { onOutputAdded(output); }, [this](wl_output* output) { onOutputRemoved(output); }
   );
@@ -648,7 +649,7 @@ void CompositorPlatform::startKdeActiveWindow(SessionBus& bus) {
   }
 
   m_kwinActiveWindow = std::make_unique<compositors::kde::KwinActiveWindow>(bus);
-  m_kwinActiveWindow->setChangeCallback([this]() { notifyToplevelsChanged(); });
+  m_kwinActiveWindow->setChangeCallback([this] { notifyToplevelsChanged(); });
   m_kwinActiveWindow->start();
 }
 
@@ -751,26 +752,20 @@ wl_output* CompositorPlatform::focusedInteractiveOutput(std::chrono::millisecond
   };
 
   if (compositors::detect() == compositors::CompositorKind::Mango && m_workspaces != nullptr) {
-    if (wl_output* ipc = m_workspaces->mangoIpcSelectedOutput(); ipc != nullptr) {
-      if (outputReady(ipc)) {
-        return ipc;
-      }
+    if (wl_output* ipc = m_workspaces->mangoIpcSelectedOutput(); ipc != nullptr && outputReady(ipc)) {
+      return ipc;
     }
   }
   if (compositors::detect() == compositors::CompositorKind::Dwl && m_workspaces != nullptr) {
-    if (wl_output* ipc = m_workspaces->dwlIpcSelectedOutput(); ipc != nullptr) {
-      if (outputReady(ipc)) {
-        return ipc;
-      }
+    if (wl_output* ipc = m_workspaces->dwlIpcSelectedOutput(); ipc != nullptr && outputReady(ipc)) {
+      return ipc;
     }
   }
 
   if (compositors::isKde() && m_kwinActiveWindow != nullptr) {
     if (const auto focusedName = m_kwinActiveWindow->focusedOutputName(); focusedName.has_value()) {
-      if (wl_output* output = resolveOutputName(*focusedName); output != nullptr) {
-        if (outputReady(output)) {
-          return output;
-        }
+      if (wl_output* output = resolveOutputName(*focusedName); output != nullptr && outputReady(output)) {
+        return output;
       }
     }
   }
@@ -780,25 +775,19 @@ wl_output* CompositorPlatform::focusedInteractiveOutput(std::chrono::millisecond
       continue;
     }
     if (const auto focusedName = backend->focusedOutputName(); focusedName.has_value()) {
-      if (wl_output* output = resolveOutputName(*focusedName); output != nullptr) {
-        if (outputReady(output)) {
-          return output;
-        }
+      if (wl_output* output = resolveOutputName(*focusedName); output != nullptr && outputReady(output)) {
+        return output;
       }
     }
   }
 
-  if (wl_output* output = m_wayland.activeToplevelOutput(); output != nullptr) {
-    if (outputReady(output)) {
-      return output;
-    }
+  if (wl_output* output = m_wayland.activeToplevelOutput(); output != nullptr && outputReady(output)) {
+    return output;
   }
 
   if (wl_surface* keyboardSurface = m_wayland.lastKeyboardSurface(); keyboardSurface != nullptr) {
-    if (wl_output* output = m_wayland.outputForSurface(keyboardSurface); output != nullptr) {
-      if (outputReady(output)) {
-        return output;
-      }
+    if (wl_output* output = m_wayland.outputForSurface(keyboardSurface); output != nullptr && outputReady(output)) {
+      return output;
     }
   }
 
@@ -1165,7 +1154,7 @@ void CompositorPlatform::bindHyprlandToplevelMappingManager(hyprland_toplevel_ma
   }
   if (m_hyprlandToplevelMapping == nullptr) {
     m_hyprlandToplevelMapping = std::make_unique<compositors::hyprland::HyprlandToplevelMapping>();
-    m_hyprlandToplevelMapping->setChangeCallback([this]() { notifyToplevelsChanged(); });
+    m_hyprlandToplevelMapping->setChangeCallback([this] { notifyToplevelsChanged(); });
   }
   m_hyprlandToplevelMapping->initialize(manager);
   syncHyprlandToplevelMappings();
@@ -1253,10 +1242,9 @@ bool CompositorPlatform::isCompositorWindowIdKnown(const std::string_view window
     }
   }
 
-  if (const auto* extHandle = m_hyprlandToplevelMapping->extHandleForWindowId(normalized)) {
-    if (extToplevelIsLive(extHandle)) {
-      return true;
-    }
+  if (const auto* extHandle = m_hyprlandToplevelMapping->extHandleForWindowId(normalized);
+      extHandle && extToplevelIsLive(extHandle)) {
+    return true;
   }
 
   return false;
@@ -1323,7 +1311,7 @@ void CompositorPlatform::setWorkspaceChangeCallback(ChangeCallback callback) {
   m_workspaceChangeCallback = std::move(callback);
   m_lastWorkspaceModelSnapshot = workspaceModelSnapshot();
   m_lastFocusedCompositorWindowId = focusedCompositorWindowId();
-  auto wrapper = [this]() {
+  auto wrapper = [this] {
     auto nextSnapshot = workspaceModelSnapshot();
     auto nextFocused = focusedCompositorWindowId();
     if (sameWorkspaceModelSnapshot(nextSnapshot, m_lastWorkspaceModelSnapshot)
@@ -1455,12 +1443,9 @@ bool CompositorPlatform::isKnownWorkspaceAlertKey(std::string_view workspaceId) 
   if (outputs.empty()) {
     return WorkspaceAlertService::isKnownWorkspaceToken(workspaceId, workspaces());
   }
-  for (const auto& output : outputs) {
-    if (WorkspaceAlertService::isKnownWorkspaceToken(workspaceId, workspaces(output.output))) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(outputs, [&](const auto& output) {
+    return WorkspaceAlertService::isKnownWorkspaceToken(workspaceId, workspaces(output.output));
+  });
 }
 
 std::optional<std::string> CompositorPlatform::workspaceAlertKeyForWindow(std::string_view windowId) const {
@@ -1840,7 +1825,7 @@ bool CompositorPlatform::shouldSuppressLockTransition() const {
   return m_lastRequestedOutputPowerState == false;
 }
 
-void CompositorPlatform::setOutputPowerChangeCallback(ChangeCallback callback) {
+void CompositorPlatform::setOutputPowerChangeCallback(const ChangeCallback& callback) {
   for (auto& backend : m_focusedOutputBackends) {
     backend->setOutputPowerChangeCallback(callback);
   }

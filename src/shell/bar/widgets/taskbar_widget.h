@@ -46,6 +46,8 @@ struct TaskbarWidgetOptions {
   bool showWorkspaceLabel = true;
   WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   WorkspaceGroupContent workspaceGroupContent = WorkspaceGroupContent::Icons;
+  ColorSpec workspaceGroupActiveBorderColor = colorSpecFromRole(ColorRole::Primary);
+  ColorSpec workspaceGroupInactiveBorderColor = colorSpecFromRole(ColorRole::OutlineVariant);
   bool hideEmptyWorkspaces = false;
   std::vector<std::string> hiddenWorkspaces;
   bool workspaceGroupCapsule = true;
@@ -192,7 +194,7 @@ private:
   void buildTaskButtons(Renderer& renderer);
   void updateModels();
   void syncWorkspaceGroupingCapability();
-  [[nodiscard]] static std::string toLower(std::string value);
+  [[nodiscard]] static std::string toLower(const std::string& value);
   [[nodiscard]] static const std::string& displayTitle(const TaskModel& task) noexcept;
   [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
   [[nodiscard]] static ModelComparison compareModels(
@@ -255,6 +257,8 @@ private:
   bool m_showWorkspaceLabel = true;
   WorkspaceLabelPlacement m_workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   WorkspaceGroupContent m_workspaceGroupContent = WorkspaceGroupContent::Icons;
+  ColorSpec m_workspaceGroupActiveBorder = colorSpecFromRole(ColorRole::Primary);
+  ColorSpec m_workspaceGroupInactiveBorder = colorSpecFromRole(ColorRole::OutlineVariant);
   bool m_hideEmptyWorkspaces = false;
   bool m_workspaceGroupCapsule = true;
   bool m_focusedOutputOnly = false;

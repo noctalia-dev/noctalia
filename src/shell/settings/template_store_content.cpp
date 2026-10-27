@@ -414,7 +414,7 @@ namespace settings {
             .glyphSize = Style::fontSizeCaption * scale,
             .contentAlign = ButtonContentAlign::Start,
             .variant = ButtonVariant::Ghost,
-            .onClick = [this]() {
+            .onClick = [this] {
               m_categoryFiltersCollapsed = !m_categoryFiltersCollapsed;
               if (m_onRebuildNeeded) {
                 m_onRebuildNeeded();
@@ -432,7 +432,7 @@ namespace settings {
                 .fontSize = Style::fontSizeCaption * scale,
                 .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
                 .radius = Style::scaledRadiusMd(scale),
-                .onClick = [this, filterKey = std::move(filterKey)]() {
+                .onClick = [this, filterKey = std::move(filterKey)] {
                   m_selectedCategory = filterKey;
                   applyFilter();
                   if (m_onRebuildNeeded) {
@@ -472,7 +472,7 @@ namespace settings {
             .minHeight = Style::controlHeight * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [this]() { cycleSortMode(); },
+            .onClick = [this] { cycleSortMode(); },
         })
     );
 

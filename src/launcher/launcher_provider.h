@@ -92,6 +92,8 @@ public:
   // Async providers (plugin-backed) deliver results after query() returns; the
   // panel installs this callback so the provider can ask for the current query to
   // be re-gathered when fresh results land. Synchronous providers ignore it.
+  // Overrides take ownership of the callback.
+  // NOLINTNEXTLINE(performance-unnecessary-value-param)
   virtual void setResultsChangedCallback(std::function<void()> /*callback*/) {}
 
   // True while an async provider is still producing results. The launcher uses
@@ -100,12 +102,16 @@ public:
 
   // Plugin-backed providers can request that the open launcher input be replaced,
   // e.g. to implement autocomplete.
+  // Overrides take ownership of the callback.
+  // NOLINTNEXTLINE(performance-unnecessary-value-param)
   virtual void setQueryRequestedCallback(std::function<void(std::string)> /*callback*/) {}
 
   // Async (plugin-backed) providers defer the launcher close until their activation
   // handler resolves: if it rewrote the query the panel stays open, otherwise the
   // provider invokes this to close it (and record usage). Arguments are the
   // activated result id and whether onActivate copied to the clipboard.
+  // Overrides take ownership of the callback.
+  // NOLINTNEXTLINE(performance-unnecessary-value-param)
   virtual void setActivationDoneCallback(std::function<void(std::string, bool)> /*callback*/) {}
 
   virtual void initialize() {}

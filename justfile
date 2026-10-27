@@ -112,7 +112,7 @@ format-docs-check: _docs_formatter
 _clang_tidy m=mode *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    meson compile -C "build-{{m}}" wayland-protocol-headers
+    meson compile -C "build-{{m}}" generated-headers
     src_root="$(realpath src)"
     # compile_commands.json stores build-relative paths, so clang-tidy emits header
     # diagnostics as ../src/...; the header-filter must match that form (an absolute
@@ -126,6 +126,12 @@ lint m=mode: (_ensure-configured m)
 fix m=mode: (_ensure-configured m)
     just _clang_tidy {{m}} -fix
     just format-code
+
+role-alpha-check:
+    python3 tools/role-alpha-check.py
+
+role-alpha-update:
+    python3 tools/role-alpha-check.py --update
 
 clean m=mode:
     #!/usr/bin/env bash

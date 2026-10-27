@@ -28,6 +28,7 @@
   },
   "bar": {
     "annotate": {
+      "close": "Zamknij edytor",
       "color-black": "Czarny",
       "color-blue": "Niebieski",
       "color-green": "Zielony",
@@ -35,7 +36,9 @@
       "color-purple": "Fioletowy",
       "color-red": "Czerwony",
       "color-white": "Biały",
-      "color-yellow": "Żółty"
+      "color-yellow": "Żółty",
+      "copy": "Skopiuj zdjęcie z adnotacjami",
+      "cursor": "Pokaż wskaźnik przechwycony razem z ekranem (p) "
     },
     "screenshot": {
       "choose-display": "Wybierz ekran",
@@ -188,7 +191,8 @@
       "auto": "Auto",
       "custom": "Niestandardowy",
       "inherit": "Dziedzicz",
-      "off": "Wyłączone"
+      "off": "Wyłączone",
+      "on": "Włączony"
     }
   },
   "control-center": {
@@ -235,6 +239,7 @@
         "connected": "Połączone",
         "paired": "Sparowane"
       },
+      "trust-and-allow": "Zaufaj i pozwól ",
       "unavailable": "Usługa Bluetooth niedostępna",
       "unknown-device": "Nieznane urządzenie",
       "visible": "Widoczne dla pobliskich urządzeń"
@@ -1809,7 +1814,7 @@
         },
         "open-near-click-clipboard": {
           "description": "Umieść panel schowka blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Wzdłuż Paska"
+          "label": "Otwórz w pobliżu klikniętego widżetu"
         },
         "open-near-click-control-center": {
           "description": "Umieść panel Centrum sterowania blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",

@@ -44,6 +44,8 @@ public:
     float inkRight = 0.0F;  // visible ink right edge relative to layout origin
     float capHeight = 0.0F; // measured baseline-to-cap-top of 'H' (0 if unavailable)
     int lineCount = 0;      // laid-out line count (0 for empty text)
+    // Left edge of the leftmost line within maxWidth; rasterizeLayout crops it.
+    float alignOffsetX = 0.0F;
   };
 
   CairoTextRenderer();
@@ -80,6 +82,10 @@ public:
   void measureCursorStopsWrapped(
       float contentScale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
       float maxWidth, std::vector<TextCursorStop>& outStops, const TextFont& font = {}
+  );
+  void measureCharSpans(
+      float contentScale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+      std::vector<TextCharSpan>& outSpans, const TextFont& font = {}
   );
 
   void draw(

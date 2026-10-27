@@ -66,12 +66,7 @@ namespace {
     }
     static constexpr std::string_view kBad[] = {"audio-src",   "audio-source", "audio-sink", "audio-output",
                                                 "audio-input", "output",       "input",      "stream"};
-    for (const auto token : kBad) {
-      if (normalized == token) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::contains(kBad, normalized);
   }
 
   bool looksLikeRuntimeLauncher(std::string_view value) {
@@ -83,12 +78,9 @@ namespace {
         "wine",   "wine64",       "wine64-preloader", "wineserver",
         "proton", "protontricks", "steam-runtime",    "pressure-vessel",
     };
-    for (const auto token : kRuntimeTokens) {
-      if (normalized == token || normalized.contains(token)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(kRuntimeTokens, [&](const auto token) {
+      return normalized == token || normalized.contains(token);
+    });
   }
 
   bool looksLikeWaydroidRuntime(std::string_view value) {
@@ -321,12 +313,7 @@ namespace {
     // Spelled-out sequel ordinals (generic English product naming, not title-specific).
     static constexpr std::string_view kEnglishNumberWords[] = {"two",   "three", "four", "five",   "six",   "seven",
                                                                "eight", "nine",  "ten",  "eleven", "twelve"};
-    for (const auto w : kEnglishNumberWords) {
-      if (tok == w) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::contains(kEnglishNumberWords, tok);
   }
 
   bool crossMatchDesktopSearch(std::string_view lookupKey, std::string_view desktopField) {
@@ -908,7 +895,7 @@ namespace {
       auto area = ui::inputArea({});
       area->setPropagateEvents(true);
       area->setOnEnter([this](const InputArea::PointerData&) { applyState(); });
-      area->setOnLeave([this]() { applyState(); });
+      area->setOnLeave([this] { applyState(); });
       area->setOnPress([this](const InputArea::PointerData&) { applyState(); });
       area->setOnClick([this](const InputArea::PointerData&) {
         if (m_onSelect) {
@@ -1091,7 +1078,7 @@ namespace {
                             }
                           },
                       .onDragEnd =
-                          [this]() {
+                          [this] {
                             if (m_audio == nullptr) {
                               return;
                             }
@@ -1119,7 +1106,7 @@ namespace {
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 if (m_onRoutingMenuRequested) {
                   m_onRoutingMenuRequested(m_routingButton);
                 }
@@ -1137,7 +1124,7 @@ namespace {
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 if (m_audio == nullptr) {
                   return;
                 }
@@ -1532,7 +1519,7 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
     activate(id);
   });
 
-  m_deviceMenuPopup->setOnDismissed([this, parentSurface = parentCtx->surface]() {
+  m_deviceMenuPopup->setOnDismissed([this, parentSurface = parentCtx->surface] {
     m_openDeviceMenuCard = nullptr;
     PanelManager::instance().clearActivePopup();
     PanelManager::instance().endAttachedPopup(parentSurface);
@@ -1620,7 +1607,7 @@ void AudioTab::openProgramRoutingMenu(Node* anchor, std::uint32_t programStreamI
     m_audio->moveProgramOutput(programStreamId, static_cast<std::uint32_t>(std::max<std::int32_t>(0, entry.id)));
   });
 
-  m_deviceMenuPopup->setOnDismissed([this, parentSurface = parentCtx->surface]() {
+  m_deviceMenuPopup->setOnDismissed([this, parentSurface = parentCtx->surface] {
     m_openProgramRoutingMenuStreamId = 0;
     PanelManager::instance().clearActivePopup();
     PanelManager::instance().endAttachedPopup(parentSurface);
@@ -1658,13 +1645,10 @@ bool AudioTab::dragging() const noexcept {
       || (m_inputDeviceVolume.slider != nullptr && m_inputDeviceVolume.slider->dragging())) {
     return true;
   }
-  for (Flex* row : m_programRows) {
+  return std::ranges::any_of(m_programRows, [&](Flex* row) {
     auto* programRow = static_cast<ProgramVolumeRow*>(row);
-    if (programRow != nullptr && programRow->dragging()) {
-      return true;
-    }
-  }
-  return false;
+    return programRow != nullptr && programRow->dragging();
+  });
 }
 
 bool AudioTab::dismissTransientUi() {
@@ -1733,7 +1717,7 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusMd(scale),
               .onClick =
-                  [this, state = &card.state, menu = card.deviceMenu]() {
+                  [this, state = &card.state, menu = card.deviceMenu] {
                     const bool wasOpen = m_deviceMenuPopup != nullptr && m_deviceMenuPopup->isOpen();
                     const bool wasOpenForThisCard = wasOpen && m_openDeviceMenuCard == state;
                     if (wasOpen) {
@@ -1775,7 +1759,7 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
                     }
                   },
               .onDragEnd =
-                  [this, state = &card.state]() {
+                  [this, state = &card.state] {
                     state->volumeDebounceTimer.stop();
                     flushPendingVolumes();
                   },
@@ -1803,7 +1787,7 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
                   .padding = Style::spaceXs * scale,
                   .radius = Style::scaledRadiusMd(scale),
                   .onClick =
-                      [this, toggleMute = card.toggleMute]() {
+                      [this, toggleMute = card.toggleMute] {
                         if (m_audio == nullptr || !toggleMute) {
                           return;
                         }
@@ -1877,7 +1861,7 @@ std::unique_ptr<Flex> AudioTab::create() {
                     m_pendingSinkVolume = std::clamp(value, 0.0F, sliderMaxPercent() / 100.0F);
                   },
               .toggleMute =
-                  [this]() {
+                  [this] {
                     const AudioNode* sink = m_audio->defaultSink();
                     if (sink == nullptr) {
                       return;
@@ -1905,7 +1889,7 @@ std::unique_ptr<Flex> AudioTab::create() {
                     m_pendingSourceVolume = std::clamp(value, 0.0F, sliderMaxPercent() / 100.0F);
                   },
               .toggleMute =
-                  [this]() {
+                  [this] {
                     const AudioNode* source = m_audio->defaultSource();
                     if (source == nullptr) {
                       return;
@@ -2266,7 +2250,7 @@ void AudioTab::rebuildProgramVolumes(Renderer& renderer) {
       auto row = std::make_unique<ProgramVolumeRow>(
           m_audio, sink.id, sliderMax, scale,
           [this, sinkId = sink.id](float value) { queueProgramSinkVolume(sinkId, value); },
-          [this]() { flushPendingProgramVolumes(true); }
+          [this] { flushPendingProgramVolumes(true); }
       );
       row->syncFromNode(sink, player, false, sliderMax, true, players.size());
       row->setRoutingMenuRequestedCallback([this, streamId = sink.id](Node* anchor) {
@@ -2329,7 +2313,7 @@ void AudioTab::queueProgramSinkVolume(std::uint32_t id, float value) {
   m_pendingProgramSinkVolume = std::clamp(value, 0.0F, sliderMax);
 
   m_programSinkDebounceTimer.stop();
-  m_programSinkDebounceTimer.start(kVolumeCommitInterval, [this]() { flushPendingProgramVolumes(false); });
+  m_programSinkDebounceTimer.start(kVolumeCommitInterval, [this] { flushPendingProgramVolumes(false); });
 }
 
 void AudioTab::flushPendingProgramVolumes(bool) {
@@ -2419,7 +2403,7 @@ void AudioTab::rebuildLists(Renderer& renderer) {
     );
   } else {
     for (const auto& sink : sortedDevices(availableDevices(state.sinks, state.defaultSinkId))) {
-      auto row = std::make_unique<AudioDeviceRow>(scale, [this, id = sink.id]() {
+      auto row = std::make_unique<AudioDeviceRow>(scale, [this, id = sink.id] {
         if (m_audio != nullptr) {
           m_audio->setDefaultSink(id);
         }
@@ -2437,7 +2421,7 @@ void AudioTab::rebuildLists(Renderer& renderer) {
     );
   } else {
     for (const auto& source : sortedDevices(availableDevices(state.sources, state.defaultSourceId))) {
-      auto row = std::make_unique<AudioDeviceRow>(scale, [this, id = source.id]() {
+      auto row = std::make_unique<AudioDeviceRow>(scale, [this, id = source.id] {
         if (m_audio != nullptr) {
           m_audio->setDefaultSource(id);
         }
@@ -2519,7 +2503,7 @@ void AudioTab::flushPendingVolumes(bool force) {
       const auto nextSendAt = m_lastSinkCommitAt + kVolumeCommitInterval;
       if (now < nextSendAt) {
         m_outputDeviceVolume.volumeDebounceTimer.start(
-            std::chrono::duration_cast<std::chrono::milliseconds>(nextSendAt - now), [this]() { flushPendingVolumes(); }
+            std::chrono::duration_cast<std::chrono::milliseconds>(nextSendAt - now), [this] { flushPendingVolumes(); }
         );
         shouldSendSink = false;
       }
@@ -2548,7 +2532,7 @@ void AudioTab::flushPendingVolumes(bool force) {
       const auto nextSendAt = m_lastSourceCommitAt + kVolumeCommitInterval;
       if (now < nextSendAt) {
         m_inputDeviceVolume.volumeDebounceTimer.start(
-            std::chrono::duration_cast<std::chrono::milliseconds>(nextSendAt - now), [this]() { flushPendingVolumes(); }
+            std::chrono::duration_cast<std::chrono::milliseconds>(nextSendAt - now), [this] { flushPendingVolumes(); }
         );
         shouldSendSource = false;
       }

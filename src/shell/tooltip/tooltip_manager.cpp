@@ -620,7 +620,7 @@ void TooltipManager::scheduleProviderRefresh() {
   }
 
   InputArea* area = m_pendingArea;
-  m_refreshTimer.start(interval, [this, area]() { refreshFromArea(area); });
+  m_refreshTimer.start(interval, [this, area] { refreshFromArea(area); });
 }
 
 float TooltipManager::pendingOutputScale() const {
@@ -696,7 +696,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
           .radius = Style::scaledRadiusMd(),
           .width = w,
           .height = h,
-          .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Outline), kBorder); },
+          .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), kBorder); },
       })
   );
 

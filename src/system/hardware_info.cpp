@@ -41,7 +41,7 @@ namespace {
     return i18n::tr("system.hardware.unknown-cpu");
   }
 
-  std::string shortVendorPrefix(const std::string& vendorName) {
+  std::string_view shortVendorPrefix(const std::string& vendorName) {
     if (vendorName.contains("AMD") || vendorName.contains("ATI")) {
       return "AMD";
     }
@@ -55,7 +55,7 @@ namespace {
   }
 
   std::string formatGpuName(const std::string& vendorName, const std::string& rawName) {
-    std::string prefix = shortVendorPrefix(vendorName);
+    std::string prefix(shortVendorPrefix(vendorName));
     std::string name = rawName;
 
     // pci.ids uses brackets inconsistently:
@@ -157,7 +157,7 @@ namespace {
       if (line.size() >= 2 && line[0] == '\t' && line[1] == '\t') {
         if (inDevice && !subVendorId.empty() && !subDeviceId.empty()) {
           auto stripped = StringUtils::trim(line);
-          const std::string subKey = subVendorId + " " + subDeviceId;
+          const std::string subKey = std::format("{} {}", subVendorId, subDeviceId);
           if (stripped.starts_with(subKey)) {
             const auto nameStart = stripped.find("  ");
             if (nameStart != std::string::npos) {
@@ -189,7 +189,7 @@ namespace {
       return formatGpuName(vendorName, deviceName);
     }
     if (!vendorName.empty()) {
-      return shortVendorPrefix(vendorName).empty() ? vendorName : shortVendorPrefix(vendorName);
+      return shortVendorPrefix(vendorName).empty() ? vendorName : std::string(shortVendorPrefix(vendorName));
     }
     return {};
   }
@@ -224,15 +224,12 @@ namespace {
 
     std::vector<std::string> gpus;
     for (const auto& cardPath : cardPaths) {
-      const auto name = cardPath.filename().string();
-
       const auto deviceDir = cardPath / "device";
       if (!fs::exists(deviceDir)) {
         continue;
       }
 
-      auto driverLine = readSysfsLine(deviceDir / "uevent");
-      // uevent has multiple lines; re-read and search for DRIVER=
+      // uevent has multiple lines; search for DRIVER=
       std::string driver;
       {
         std::ifstream uevent{deviceDir / "uevent"};
@@ -271,7 +268,7 @@ namespace {
           auto amdName = lookupAmdGpuIds(deviceHex, revisionHex);
           if (!amdName.empty()) {
             if (!amdName.contains("AMD")) {
-              amdName = "AMD " + amdName;
+              amdName.insert(0, "AMD ");
             }
             if (!std::ranges::contains(gpus, amdName)) {
               gpus.push_back(std::move(amdName));
@@ -433,28 +430,28 @@ namespace {
 std::string cpuModelName() {
   static std::once_flag flag;
   static std::string cached;
-  std::call_once(flag, [&]() { cached = readCpuModel(); });
+  std::call_once(flag, [&] { cached = readCpuModel(); });
   return cached;
 }
 
 std::string gpuLabel() {
   static std::once_flag flag;
   static std::string cached;
-  std::call_once(flag, [&]() { cached = detectGpu(); });
+  std::call_once(flag, [&] { cached = detectGpu(); });
   return cached;
 }
 
 std::string motherboardLabel() {
   static std::once_flag flag;
   static std::string cached;
-  std::call_once(flag, [&]() { cached = detectMotherboard(); });
+  std::call_once(flag, [&] { cached = detectMotherboard(); });
   return cached;
 }
 
 std::string memoryTotalLabel() {
   static std::once_flag flag;
   static std::string cached;
-  std::call_once(flag, [&]() { cached = detectMemoryTotal(); });
+  std::call_once(flag, [&] { cached = detectMemoryTotal(); });
   return cached;
 }
 
@@ -520,13 +517,13 @@ std::optional<std::string> compositorVersionLine(std::function<void()> onResolve
       command,
       process::RunCallbacks{
           .onExit =
-              [finish](process::RunResult result) {
+              [finish](const process::RunResult& result) {
                 // Worker thread: extract here, publish on the main loop. Some compositors print to stderr.
                 std::string parsed = result.timedOut ? std::string{} : firstNonBlankLine(result.out);
                 if (parsed.empty() && !result.timedOut) {
                   parsed = firstNonBlankLine(result.err);
                 }
-                DeferredCall::callLater([finish, parsed = std::move(parsed)]() mutable { finish(std::move(parsed)); });
+                DeferredCall::callLater([finish, parsed = std::move(parsed)] mutable { finish(std::move(parsed)); });
               },
       },
       options

@@ -143,6 +143,33 @@ namespace calendar_view {
     return eventEndInstant(event) < now;
   }
 
+  bool eventHiddenAsPast(
+      const CalendarEvent& event, std::chrono::system_clock::time_point now, bool hidePast, int thresholdMinutes
+  ) {
+    if (!hidePast) {
+      return false;
+    }
+    return eventEndInstant(event) < now - std::chrono::minutes{std::max(thresholdMinutes, 0)};
+  }
+
+  int countHiddenPastEvents(
+      const CalendarSnapshot& snapshot, Date selected, std::chrono::system_clock::time_point now, bool hidePast,
+      int thresholdMinutes
+  ) {
+    const int selectedKey = dateKey(selected);
+    if (!hidePast || selectedKey != localDateKey(now)) {
+      return 0;
+    }
+    int count = 0;
+    for (const CalendarEvent& event : snapshot.events) {
+      const auto [start, end] = eventDayRange(event);
+      if (selectedKey >= start && selectedKey <= end && eventHiddenAsPast(event, now, hidePast, thresholdMinutes)) {
+        ++count;
+      }
+    }
+    return count;
+  }
+
   void rebuildMonth(const MonthBuildOptions& options) {
     uiAssertNotRendering("calendar_view::rebuildMonth");
     while (!options.grid.children().empty()) {
@@ -298,14 +325,14 @@ namespace calendar_view {
         }
       }
 
-      const auto selectDate = [callback = options.onDateSelected, date, monthShift]() {
+      const auto selectDate = [callback = options.onDateSelected, date, monthShift] {
         if (callback) {
           callback(date, monthShift);
         }
       };
       button->setOnClick(selectDate);
       if (options.onDateRightClicked) {
-        button->setOnRightClick([callback = options.onDateRightClicked, date]() { callback(date); });
+        button->setOnRightClick([callback = options.onDateRightClicked, date] { callback(date); });
       }
       tile->addChild(std::move(button));
 
@@ -401,6 +428,75 @@ namespace calendar_view {
     options.grid.setSize(layout.width, gridHeight);
   }
 
+  namespace {
+
+    // Row at the top of the list: "Show N past events" / "Hide N past events"; clicking flips state->showHiddenPast.
+    // Left-aligned with no resting fill so it reads like the event rows below it.
+    std::unique_ptr<Flex> buildHiddenPastToggle(const EventListBuildOptions& options, int count, bool expanded) {
+      const float scale = options.scale;
+      const std::string text = i18n::trp(
+          expanded ? "control-center.calendar.hide-past-events" : "control-center.calendar.show-past-events",
+          static_cast<long>(count)
+      );
+      Flex* chip = nullptr;
+      Label* label = nullptr;
+      Glyph* glyph = nullptr;
+      auto node = ui::row(
+          {.out = &chip,
+           .align = FlexAlign::Center,
+           .justify = FlexJustify::Start,
+           .gap = Style::spaceSm * scale,
+           .paddingV = Style::spaceXs * scale,
+           .radius = Style::radiusSm * scale},
+          ui::glyph({
+              .out = &glyph,
+              .glyph = expanded ? "chevron-up" : "chevron-down",
+              .glyphSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .flexGrow = 0.0F,
+          }),
+          ui::label({
+              .out = &label,
+              .text = text,
+              .fontSize = Style::fontSizeCaption * scale,
+              .fontFamily = options.fontFamily,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .maxLines = 1,
+          })
+      );
+
+      auto area = ui::inputArea({});
+      area->setParticipatesInLayout(false);
+      area->setZIndex(1);
+      area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
+      const auto setHovered = [chip, label, glyph, requestRedraw = options.requestRedraw](bool hovered) {
+        if (hovered) {
+          chip->setFill(colorSpecFromRole(ColorRole::Hover));
+        } else {
+          chip->clearFill();
+        }
+        const ColorSpec color = colorSpecFromRole(hovered ? ColorRole::OnHover : ColorRole::OnSurfaceVariant);
+        label->setColor(color);
+        glyph->setColor(color);
+        if (requestRedraw) {
+          requestRedraw();
+        }
+      };
+      area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
+      area->setOnLeave([setHovered] { setHovered(false); });
+      area->setOnClick([state = options.state, toggle = options.onToggleHiddenPast](const InputArea::PointerData&) {
+        state->showHiddenPast = !state->showHiddenPast;
+        if (toggle) {
+          toggle();
+        }
+      });
+      options.state->linkOverlays.push_back({.row = chip, .area = area.get()});
+      chip->addChild(std::move(area));
+      return node;
+    }
+
+  } // namespace
+
   void rebuildEventList(const EventListBuildOptions& options) {
     uiAssertNotRendering("calendar_view::rebuildEventList");
     Flex* content = options.scroll.content();
@@ -435,11 +531,26 @@ namespace calendar_view {
     const float linkGlyphGap = Style::spaceXs * options.scale;
     const int selectedKey = dateKey(options.selected);
     const auto now = std::chrono::system_clock::now();
+    const bool selectedIsToday = selectedKey == localDateKey(now);
     bool hasEvents = false;
+    const bool expanded = options.state != nullptr && options.state->showHiddenPast;
+    if (options.snapshot != nullptr && options.state != nullptr) {
+      const int hiddenCount = countHiddenPastEvents(
+          *options.snapshot, options.selected, now, options.hidePastEvents, options.pastEventsThresholdMinutes
+      );
+      if (hiddenCount > 0) {
+        content->addChild(buildHiddenPastToggle(options, hiddenCount, expanded));
+      }
+    }
     if (options.snapshot != nullptr) {
       for (const CalendarEvent& event : options.snapshot->events) {
         const auto [start, end] = eventDayRange(event);
         if (selectedKey < start || selectedKey > end) {
+          continue;
+        }
+        if (selectedIsToday
+            && !expanded
+            && eventHiddenAsPast(event, now, options.hidePastEvents, options.pastEventsThresholdMinutes)) {
           continue;
         }
         hasEvents = true;
@@ -536,7 +647,7 @@ namespace calendar_view {
             }
           };
           area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
-          area->setOnLeave([setHovered]() { setHovered(false); });
+          area->setOnLeave([setHovered] { setHovered(false); });
           area->setOnClick([url = link](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
 
           options.state->linkOverlays.push_back({.row = row, .area = area.get()});

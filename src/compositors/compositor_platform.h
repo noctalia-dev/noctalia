@@ -200,7 +200,7 @@ public:
   [[nodiscard]] bool setOutputPower(bool on) const;
   void setOutputPowerOffPending(bool pending) noexcept { m_outputPowerOffPending = pending; }
   [[nodiscard]] bool shouldSuppressLockTransition() const;
-  void setOutputPowerChangeCallback(ChangeCallback callback);
+  void setOutputPowerChangeCallback(const ChangeCallback& callback);
 
   [[nodiscard]] bool tracksOverviewState() const noexcept;
   [[nodiscard]] bool hasOverviewState() const noexcept;

@@ -161,17 +161,16 @@ namespace desktop_settings {
     if (type == "login_box") {
       return i18n::tr("desktop-widgets.editor.types.login-box");
     }
-    if (auto entry = resolvePluginDesktopWidget(type); entry.has_value()) {
-      if (!entry->manifest->name.empty()) {
-        return entry->manifest->name;
-      }
+    if (auto entry = resolvePluginDesktopWidget(type); entry.has_value() && !entry->manifest->name.empty()) {
+      return entry->manifest->name;
     }
+
     return std::string(type);
   }
 
   std::vector<WidgetSettingSpec> commonDesktopWidgetSettingSpecs(std::string_view type) {
     if (type == "login_box") {
-      auto bgColor = colorSpec("background_color", "surface_variant");
+      auto bgColor = colorSpec("background_color", "surface_container");
       auto bgRadius = intSpec("background_radius", 12.0, 0.0, 32.0, 1.0);
       auto bgOpacity = doubleSpec("background_opacity", 0.88, 0.0, 1.0, 0.01);
       return {

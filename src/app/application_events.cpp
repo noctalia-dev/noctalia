@@ -45,7 +45,7 @@ void Application::onGraphicsReset(RenderGraphicsResetStatus status) {
     return;
   }
   m_graphicsRecoveryScheduled = true;
-  DeferredCall::callLater([this]() { recoverGraphicsAfterReset(); });
+  DeferredCall::callLater([this] { recoverGraphicsAfterReset(); });
 }
 
 void Application::recoverGraphicsAfterReset() {
@@ -95,12 +95,12 @@ void Application::recoverGraphicsAfterReset() {
         delay.count(), e.what()
     );
     m_graphicsRecoveryScheduled = true;
-    m_graphicsRecoveryTimer.start(delay, [this]() { recoverGraphicsAfterReset(); });
+    m_graphicsRecoveryTimer.start(delay, [this] { recoverGraphicsAfterReset(); });
   }
 }
 
 void Application::requestAllSurfacesRedraw() {
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_bar.requestRedraw();
     m_dock.requestRedraw();
     m_desktopWidgetsController.requestRedraw();
@@ -111,6 +111,7 @@ void Application::requestAllSurfacesRedraw() {
     m_colorPickerDialogPopup.requestRedraw();
     m_glyphPickerDialogPopup.requestRedraw();
     m_fileDialogPopup.requestRedraw();
+    m_searchPickerDialogPopup.requestRedraw();
   });
 }
 

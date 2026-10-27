@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <gio/gio.h>
 #include <limits>
 #include <memory>
@@ -248,7 +249,7 @@ namespace {
   };
 
   GSettings* iconSettings() {
-    static std::unique_ptr<GSettings, GSettingsDeleter> settings = []() {
+    static std::unique_ptr<GSettings, GSettingsDeleter> settings = [] {
       GSettingsSchemaSource* source = g_settings_schema_source_get_default();
       if (source == nullptr) {
         return std::unique_ptr<GSettings, GSettingsDeleter>{nullptr};
@@ -461,7 +462,7 @@ namespace {
     std::vector<IconSearchDir> dirs;
     std::vector<std::string> parents;
     for (const auto& base : baseDirs) {
-      const std::string themeRoot = base + "/" + themeName;
+      const std::string themeRoot = std::format("{}/{}", base, themeName);
       if (!pathIsDirectory(themeRoot)) {
         continue;
       }
@@ -533,7 +534,7 @@ namespace {
     for (const auto& candidate : readGtkThemeCandidates()) {
       bool exists = false;
       for (const auto& base : plan.baseDirs) {
-        if (pathIsDirectory(base + "/" + candidate)) {
+        if (pathIsDirectory(std::format("{}/{}", base, candidate))) {
           exists = true;
           break;
         }
@@ -847,7 +848,7 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
   // Fallback: pixmaps
   for (const auto& dir : m_pixmapDirs) {
     for (const char* ext : {".svg", ".png"}) {
-      std::string path = dir + "/" + name + ext;
+      std::string path = std::format("{}/{}{}", dir, name, ext);
       if (pathExists(path)) {
         return path;
       }

@@ -245,9 +245,7 @@ namespace screencopy {
         },
     };
     const wayland::DispatchResult waitResult =
-        wayland::dispatchUntil(targets, captureDeadline, [&finished, &capture]() {
-          return finished || !capture.busy();
-        });
+        wayland::dispatchUntil(targets, captureDeadline, [&finished, &capture] { return finished || !capture.busy(); });
     if (waitResult.status != wayland::DispatchStatus::Completed) {
       capture.cancelInFlight();
       if (waitResult.status == wayland::DispatchStatus::TimedOut) {

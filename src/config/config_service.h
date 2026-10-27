@@ -111,7 +111,7 @@ public:
   [[nodiscard]] const std::vector<WallpaperFavorite>& wallpaperFavorites() const noexcept;
   [[nodiscard]] bool isWallpaperFavorite(std::string_view path) const;
   [[nodiscard]] const WallpaperFavorite* wallpaperFavorite(std::string_view path) const;
-  void addWallpaperFavorite(std::string path, std::optional<WallpaperFavorite> preset = std::nullopt);
+  void addWallpaperFavorite(std::string path, const std::optional<WallpaperFavorite>& preset = std::nullopt);
   void removeWallpaperFavorite(std::string_view path);
   void setWallpaperFavoriteThemeMode(std::string_view path, ThemeMode themeMode);
   void setWallpaperFavoritePaletteSource(std::string_view path, std::optional<PaletteSource> source);
@@ -179,8 +179,9 @@ public:
   [[nodiscard]] bool validateOverride(
       const std::vector<std::string>& path, const ConfigOverrideValue& value, std::string* error = nullptr
   );
-  bool setOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides);
-  bool setOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides, bool* changed);
+  bool setOverrides(const std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>& overrides);
+  bool
+  setOverrides(const std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>& overrides, bool* changed);
   // Sets and clears in one commit. Callers that both write new keys and retire keys the new shape no
   // longer owns must use this: two separate commits publish an intermediate config that fails schema
   // validation and raises a config-error notification.

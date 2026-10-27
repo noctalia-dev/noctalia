@@ -15,7 +15,7 @@ class InputArea;
 class Label;
 class Node;
 class PolkitAgent;
-class PolkitRequest;
+struct PolkitRequest;
 class Renderer;
 class ConfigService;
 

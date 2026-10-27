@@ -82,6 +82,10 @@ color = "#FF0000"
 
 **Credentials are never stored in your config.** The `password_file` setting contains only a path; the file contents hold the CalDAV password.
 
+## Sync status
+
+Each account's row in **Settings → Calendar → Accounts** shows its status: that it is syncing (connecting, or downloading events), when it last synced, or why its last sync failed and what fixes it. Most failures are fixed with **Edit**; a locked keyring with **Retry** once it is unlocked; a Google account whose authorization is missing or was revoked with **Reconnect**. Syncs keep being retried at the refresh interval, and the events last synced stay shown meanwhile.
+
 ## Merging duplicate events
 
 `dedupe_events` (also **Settings → Calendar → General → Merge Duplicate Events**) is off by default. When enabled, an event that shows up in more than one of your calendars, whether those calendars sit in a single account or in several, is shown once instead of once per calendar. Two events are treated as the same occurrence when their start, end, all-day flag, and title match. The copy kept is the one that shows the most: more filled-in fields (color, link, location), then the longer title.

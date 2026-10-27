@@ -164,11 +164,10 @@ std::vector<WorkspaceWindow> HyprlandWorkspaceBackend::workspaceWindows(wl_outpu
     if (toplevel.workspaceKey.empty() || (m_ipcSchema == IpcSchema::LegacyId && toplevel.workspaceKey == "-1")) {
       continue;
     }
-    if (filterByOutput && !m_workspaces.empty()) {
-      if (!workspacesOnOutput.contains(toplevel.workspaceKey)) {
-        continue;
-      }
+    if (filterByOutput && !m_workspaces.empty() && !workspacesOnOutput.contains(toplevel.workspaceKey)) {
+      continue;
     }
+
     result.push_back(
         WorkspaceWindow{
             .windowId = compositors::hyprland::formatWindowAddress(address),
@@ -283,10 +282,8 @@ void HyprlandWorkspaceBackend::reconcileFromCompositor() {
 
 void HyprlandWorkspaceBackend::ensureSnapshotFresh() const {
   auto* self = const_cast<HyprlandWorkspaceBackend*>(this);
-  if (!m_runtime.available()) {
-    if (!self->connectSocket()) {
-      return;
-    }
+  if (!m_runtime.available() && !self->connectSocket()) {
+    return;
   }
 
   bool changed = false;
@@ -294,12 +291,11 @@ void HyprlandWorkspaceBackend::ensureSnapshotFresh() const {
     self->refreshClients();
     changed = true;
   }
-  if (m_workspaces.empty()) {
-    if (self->refreshWorkspaces() != WorkspaceRefreshResult::Invalid) {
-      self->refreshMonitors();
-      changed = true;
-    }
+  if (m_workspaces.empty() && self->refreshWorkspaces() != WorkspaceRefreshResult::Invalid) {
+    self->refreshMonitors();
+    changed = true;
   }
+
   if (changed) {
     self->recomputeWorkspaceFlags();
   }
@@ -1113,7 +1109,7 @@ HyprlandWorkspaceBackend::parseJsonWorkspaceIdentity(const nlohmann::json& json,
       identity.selector = identity.key;
       return identity;
     }
-    const auto id = [&]() -> std::optional<std::uint64_t> {
+    const auto id = [&] -> std::optional<std::uint64_t> {
       if (idIt->is_number_unsigned()) {
         return idIt->get<std::uint64_t>();
       }

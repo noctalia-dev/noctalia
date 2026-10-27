@@ -25,6 +25,7 @@
 #include <array>
 #include <cmath>
 #include <filesystem>
+#include <format>
 #include <optional>
 #include <span>
 #include <string>
@@ -118,11 +119,11 @@ namespace noctalia::config {
       if (launcherTbl == nullptr) {
         return;
       }
-      if (const auto* prefixVal = (*launcherTbl)["provider_prefix"].as_string()) {
-        if (prefixVal->get().empty()) {
-          diag.warn("shell.launcher.provider_prefix", "is empty, falling back to '/'");
-        }
+      if (const auto* prefixVal = (*launcherTbl)["provider_prefix"].as_string();
+          prefixVal && prefixVal->get().empty()) {
+        diag.warn("shell.launcher.provider_prefix", "is empty, falling back to '/'");
       }
+
       const auto* providersTbl = (*launcherTbl)["providers"].as_table();
       if (providersTbl == nullptr) {
         return;
@@ -390,11 +391,11 @@ namespace noctalia::config {
         const auto field = std::ranges::find(fields, keyStr, &schema::WidgetSettingField::key);
         if (field == fields.end()) {
           if (flagUnknown) {
-            diag.warn(base + "." + keyStr, "unknown setting");
+            diag.warn(std::format("{}.{}", base, keyStr), "unknown setting");
           }
           continue;
         }
-        validateWidgetValue(node, *field, base + "." + keyStr, diag, componentOwner);
+        validateWidgetValue(node, *field, std::format("{}.{}", base, keyStr), diag, componentOwner);
       }
     }
 

@@ -249,7 +249,7 @@ void SetupWizardPanel::create() {
               .paddingV = Style::spaceSm * scale,
               .paddingH = Style::spaceMd * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 FileDialogOptions options;
                 options.mode = FileDialogMode::Open;
                 options.defaultViewMode = FileDialogViewMode::Grid;
@@ -421,7 +421,7 @@ void SetupWizardPanel::create() {
             .paddingV = Style::spaceSm * scale,
             .paddingH = Style::spaceLg * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [this]() { commit(); },
+            .onClick = [this] { commit(); },
         })
     );
     root->addChild(std::move(footer));

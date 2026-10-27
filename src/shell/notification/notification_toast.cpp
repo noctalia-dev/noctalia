@@ -129,7 +129,7 @@ namespace {
       return colorSpecFromRole(ColorRole::Error);
     }
     if (config == nullptr) {
-      return colorSpecFromRole(ColorRole::Outline);
+      return colorSpecFromRole(ColorRole::OutlineVariant);
     }
     return config->config().notification.borderColor;
   }
@@ -796,7 +796,7 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
                         viewport, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width, edgePad
                     );
                   },
-                  [this, instPtr, id = n.id]() {
+                  [this, instPtr, id = n.id] {
                     if (auto* state = findCardState(*instPtr, id); state != nullptr) {
                       state->entryAnimId = 0;
                     }
@@ -832,8 +832,8 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
                       popup->remainingProgress = v;
                     }
                   },
-                  [this, id = n.id]() {
-                    DeferredCall::callLater([this, id]() { requestClose(id, CloseReason::Expired); });
+                  [this, id = n.id] {
+                    DeferredCall::callLater([this, id] { requestClose(id, CloseReason::Expired); });
                   },
                   cs.progressBar
               );
@@ -887,7 +887,7 @@ void NotificationToast::schedulePendingAdds() {
     return;
   }
   m_pendingAddsScheduled = true;
-  DeferredCall::callLater([this]() { flushPendingAdds(); });
+  DeferredCall::callLater([this] { flushPendingAdds(); });
 }
 
 void NotificationToast::flushPendingAdds() {
@@ -984,8 +984,7 @@ void NotificationToast::dismissPopup(std::size_t index) {
   }
   entry.exiting = true;
   entry.exitFallbackTimer.start(
-      std::chrono::milliseconds(Style::animNormal) + kExitFallbackGrace,
-      [this, notificationId = entry.notificationId]() {
+      std::chrono::milliseconds(Style::animNormal) + kExitFallbackGrace, [this, notificationId = entry.notificationId] {
         if (findEntry(notificationId) != nullptr) {
           finishRemoval(notificationId);
           for (auto& inst : m_instances) {
@@ -1083,7 +1082,7 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
             viewport, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width, edgePad
         );
       },
-      [this, &inst, id = entry.notificationId]() {
+      [this, &inst, id = entry.notificationId] {
         if (auto* state = findCardState(inst, id); state != nullptr) {
           state->entryAnimId = 0;
         }
@@ -1115,8 +1114,8 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
               popup->remainingProgress = v;
             }
           },
-          [this, id = entry.notificationId]() {
-            DeferredCall::callLater([this, id]() { requestClose(id, CloseReason::Expired); });
+          [this, id = entry.notificationId] {
+            DeferredCall::callLater([this, id] { requestClose(id, CloseReason::Expired); });
           },
           cs.progressBar
       );
@@ -1136,7 +1135,7 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
     beginPopupHover(notificationId, progressBarPtr);
   });
 
-  card->setOnLeave([this, notificationId, totalDuration, progressBarPtr, cardInput]() {
+  card->setOnLeave([this, notificationId, totalDuration, progressBarPtr, cardInput] {
     cardInput->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT);
     endPopupHover(notificationId, totalDuration, progressBarPtr);
   });
@@ -1288,12 +1287,12 @@ void NotificationToast::dismissCardFromInstance(Instance& inst, std::size_t entr
             card, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width, edgePad
         );
       },
-      [this, &inst, removingId]() {
+      [this, &inst, removingId] {
         if (removingId != 0) {
           if (auto* state = findCardState(inst, removingId); state != nullptr) {
             state->exitAnimId = 0;
           }
-          DeferredCall::callLater([this, removingId]() { finishRemoval(removingId); });
+          DeferredCall::callLater([this, removingId] { finishRemoval(removingId); });
         }
       },
       card
@@ -1355,7 +1354,7 @@ void NotificationToast::endPopupHover(uint32_t notificationId, int totalDuration
 
   popup->hoverResetPending = true;
   const std::uint64_t resetToken = ++popup->hoverResetToken;
-  DeferredCall::callLater([this, notificationId, totalDuration, resetToken]() {
+  DeferredCall::callLater([this, notificationId, totalDuration, resetToken] {
     auto* deferredPopup = findEntry(notificationId);
     if (deferredPopup == nullptr) {
       return;
@@ -1491,9 +1490,9 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
             popup->remainingProgress = v;
           }
         },
-        [this, notificationId, isDriver]() {
+        [this, notificationId, isDriver] {
           if (isDriver) {
-            DeferredCall::callLater([this, notificationId]() { requestClose(notificationId, CloseReason::Expired); });
+            DeferredCall::callLater([this, notificationId] { requestClose(notificationId, CloseReason::Expired); });
           }
         },
         state->progressBar
@@ -1657,7 +1656,7 @@ std::string NotificationToast::notificationPosition() const {
   return m_config->config().notification.position;
 }
 
-std::string NotificationToast::notificationLayer() const {
+std::string_view NotificationToast::notificationLayer() const {
   if (m_config == nullptr) {
     return "top";
   }
@@ -1968,7 +1967,7 @@ void NotificationToast::collapseStack() {
                     viewport, content, foreground, v, newSurfY, revealDirection(), cardHeight, scale, width, edgePad
                 );
               },
-              [this, instPtr, entryId]() {
+              [this, instPtr, entryId] {
                 if (auto* state = findCardState(*instPtr, entryId); state != nullptr) {
                   state->entryAnimId = 0;
                 }
@@ -1985,7 +1984,7 @@ void NotificationToast::collapseStack() {
         cs.slideAnimId = inst->animations.animate(
             oldSurfY, newSurfY, Style::animNormal, Easing::EaseInOutQuad,
             [cardNode, px](float v) { cardNode->setPosition(px, v); },
-            [this, instPtr, entryId]() {
+            [this, instPtr, entryId] {
               if (auto* state = findCardState(*instPtr, entryId); state != nullptr) {
                 state->slideAnimId = 0;
               }
@@ -2093,7 +2092,7 @@ void NotificationToast::ensureSurfaces() {
 
   const float scale = notificationUiScale(m_config);
   const std::string position = notificationPosition();
-  const std::string layer = notificationLayer();
+  const std::string_view layer = notificationLayer();
   const bool wasFollowingFocusedOutput = m_followFocusedOutput;
   m_followFocusedOutput = m_config->config().notification.followFocusedOutput;
   m_focusedOutput = m_followFocusedOutput && m_platform != nullptr ? m_platform->preferredInteractiveOutput() : nullptr;
@@ -2344,7 +2343,7 @@ void NotificationToast::buildScene(Instance& inst, uint32_t width, uint32_t heig
     }
   }
   if (!exitingIds.empty()) {
-    DeferredCall::callLater([this, exitingIds = std::move(exitingIds)]() {
+    DeferredCall::callLater([this, exitingIds = std::move(exitingIds)] {
       for (const uint32_t id : exitingIds) {
         finishExitingEntryIfOrphaned(id);
       }
@@ -2427,13 +2426,11 @@ InputArea* NotificationToast::buildCard(
                             hasNotificationAction(entry.actions, "default")](const InputArea::PointerData& data) {
     if (data.button == BTN_RIGHT) {
       requestClose(id, CloseReason::Dismissed);
-    } else if (data.button == BTN_LEFT && hasDefaultAction) {
-      if (m_notifications != nullptr) {
-        const std::string activationToken =
-            m_wayland != nullptr ? m_wayland->requestActivationToken(sourceSurface) : std::string{};
-        if (!m_notifications->invokeAction(id, "default", activationToken, true)) {
-          kLog.warn("notification toast: failed to invoke default action for #{}", id);
-        }
+    } else if (data.button == BTN_LEFT && hasDefaultAction && m_notifications != nullptr) {
+      const std::string activationToken =
+          m_wayland != nullptr ? m_wayland->requestActivationToken(sourceSurface) : std::string{};
+      if (!m_notifications->invokeAction(id, "default", activationToken, true)) {
+        kLog.warn("notification toast: failed to invoke default action for #{}", id);
       }
     }
   });
@@ -2622,11 +2619,11 @@ InputArea* NotificationToast::buildCard(
 
         auto actionButton = makeNotificationActionButton(actionLabel, scale);
         actionButton->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
-        actionButton->setOnEnter([this, notificationId]() { beginPopupHover(notificationId); });
-        actionButton->setOnLeave([this, notificationId, totalDuration]() {
+        actionButton->setOnEnter([this, notificationId] { beginPopupHover(notificationId); });
+        actionButton->setOnLeave([this, notificationId, totalDuration] {
           endPopupHover(notificationId, totalDuration);
         });
-        actionButton->setOnClick([this, id = entry.notificationId, actionKey, sourceSurface]() {
+        actionButton->setOnClick([this, id = entry.notificationId, actionKey, sourceSurface] {
           if (actionKey == "inline-reply") {
             enterInlineReplyMode(id);
             return;
@@ -2677,7 +2674,7 @@ InputArea* NotificationToast::buildCard(
           .configure =
               [this, replyNotificationId, replyTotalDuration](Input& input) {
                 InputArea* const replyInputArea = input.inputArea();
-                replyInputArea->setOnFocusGain([this, replyNotificationId]() {
+                replyInputArea->setOnFocusGain([this, replyNotificationId] {
                   if (auto* popup = findEntry(replyNotificationId); popup != nullptr) {
                     popup->replyInputFocused = true;
                     for (auto& inst : m_instances) {
@@ -2693,7 +2690,7 @@ InputArea* NotificationToast::buildCard(
                     m_notifications->pauseExpiry(replyNotificationId);
                   }
                 });
-                replyInputArea->setOnFocusLoss([this, replyNotificationId, replyTotalDuration]() {
+                replyInputArea->setOnFocusLoss([this, replyNotificationId, replyTotalDuration] {
                   if (auto* popup = findEntry(replyNotificationId); popup != nullptr) {
                     for (auto& inst : m_instances) {
                       if (auto* state = findCardState(*inst, replyNotificationId);
@@ -2710,7 +2707,7 @@ InputArea* NotificationToast::buildCard(
                 replyInputArea->setOnEnter([this, replyNotificationId](const InputArea::PointerData&) {
                   beginPopupHover(replyNotificationId);
                 });
-                replyInputArea->setOnLeave([this, replyNotificationId, replyTotalDuration]() {
+                replyInputArea->setOnLeave([this, replyNotificationId, replyTotalDuration] {
                   endPopupHover(replyNotificationId, replyTotalDuration);
                 });
               },
@@ -2724,10 +2721,10 @@ InputArea* NotificationToast::buildCard(
           .minHeight = kInlineReplySendButtonSize * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this, id = entry.notificationId, sourceSurface]() { submitInlineReply(id, {}, sourceSurface); },
-          .onEnter = [this, notificationId = entry.notificationId]() { beginPopupHover(notificationId); },
+          .onClick = [this, id = entry.notificationId, sourceSurface] { submitInlineReply(id, {}, sourceSurface); },
+          .onEnter = [this, notificationId = entry.notificationId] { beginPopupHover(notificationId); },
           .onLeave = [this, notificationId = entry.notificationId,
-                      totalDuration = entry.displayDurationMs]() { endPopupHover(notificationId, totalDuration); },
+                      totalDuration = entry.displayDurationMs] { endPopupHover(notificationId, totalDuration); },
           .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER); },
       });
 
@@ -2816,10 +2813,10 @@ InputArea* NotificationToast::buildCard(
             .minWidth = closeButtonSize(scale),
             .minHeight = closeButtonSize(scale),
             .padding = 0.0F,
-            .onClick = [this, id = entry.notificationId]() { requestClose(id, CloseReason::Dismissed); },
-            .onEnter = [this, notificationId = entry.notificationId]() { beginPopupHover(notificationId); },
+            .onClick = [this, id = entry.notificationId] { requestClose(id, CloseReason::Dismissed); },
+            .onEnter = [this, notificationId = entry.notificationId] { beginPopupHover(notificationId); },
             .onLeave = [this, notificationId = entry.notificationId,
-                        totalDuration = entry.displayDurationMs]() { endPopupHover(notificationId, totalDuration); },
+                        totalDuration = entry.displayDurationMs] { endPopupHover(notificationId, totalDuration); },
             .configure =
                 [cardW, scale](Button& button) {
                   button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
@@ -2893,12 +2890,9 @@ bool NotificationToast::isInlineReplyInputArea(const Instance& inst, const Input
   if (area == nullptr) {
     return false;
   }
-  for (const auto& cs : inst.cards) {
-    if (cs.inlineReplyInput != nullptr && cs.inlineReplyInput->inputArea() == area) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(inst.cards, [&](const auto& cs) {
+    return cs.inlineReplyInput != nullptr && cs.inlineReplyInput->inputArea() == area;
+  });
 }
 
 void NotificationToast::clearInlineReplyFocus(Instance& inst) {

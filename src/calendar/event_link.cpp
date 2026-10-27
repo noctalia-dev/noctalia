@@ -2,6 +2,7 @@
 
 #include "util/string_utils.h"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <cstddef>
@@ -45,13 +46,10 @@ namespace calendar {
       if (schemeLength == 0 || !hasHost(link, schemeLength)) {
         return false;
       }
-      for (const char c : link) {
+      return std::ranges::all_of(link, [&](const char c) {
         const auto byte = static_cast<unsigned char>(c);
-        if (byte <= 0x20 || byte == 0x7f) {
-          return false;
-        }
-      }
-      return true;
+        return byte > 0x20 && byte != 0x7f;
+      });
     }
 
     // Drop sentence punctuation and unbalanced closing wrappers a link picks up when it is embedded

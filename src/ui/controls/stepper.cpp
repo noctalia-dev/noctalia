@@ -35,7 +35,7 @@ namespace {
     auto sep = std::make_unique<Separator>();
     sep->setOrientation(SeparatorOrientation::VerticalRule);
     sep->setThickness(std::max(1.0F, Style::borderWidth * scale));
-    sep->setColor(colorSpecFromRole(ColorRole::Outline));
+    sep->setColor(colorSpecFromRole(ColorRole::OutlineVariant));
     sep->setFlexGrow(0.0F);
     return sep;
   }
@@ -61,7 +61,7 @@ Stepper::Stepper() {
   setGap(0.0F);
   setPadding(0.0F);
   setMinWidth(kDefaultMinWidth);
-  setFill(colorSpecFromRole(ColorRole::SurfaceVariant, m_surfaceOpacity));
+  setFill(colorSpecFromRole(ColorRole::SurfaceContainer, m_surfaceOpacity));
   clearBorder();
   setRadius(Style::scaledRadiusMd());
 
@@ -82,7 +82,7 @@ Stepper::Stepper() {
         stopStepRepeat();
       }
     });
-    btn->setOnLeave([this]() { stopStepRepeat(); });
+    btn->setOnLeave([this] { stopStepRepeat(); });
     btn->setTabStop(false);
     return btn;
   };
@@ -121,7 +121,7 @@ Stepper::Stepper() {
     field->setHorizontalPadding(valueInputHorizontalPadding(m_scale));
     field->setFlexGrow(1.0F);
     field->setOnSubmit([this](const std::string& /*text*/) { commitValueField(); });
-    field->setOnFocusLoss([this]() { commitValueField(); });
+    field->setOnFocusLoss([this] { commitValueField(); });
     field->setOnKeyEvent([this](std::uint32_t sym, std::uint32_t mod) { return swallowNonNumericKey(sym, mod); });
     m_valueInput = field.get();
     track->addChild(std::move(field));
@@ -289,11 +289,11 @@ void Stepper::beginStepRepeat(int directionSign) {
   if (m_repeatDirection == 0) {
     return;
   }
-  m_repeatDelayTimer.start(kStepRepeatDelay, [this]() {
+  m_repeatDelayTimer.start(kStepRepeatDelay, [this] {
     if (m_repeatDirection == 0) {
       return;
     }
-    m_repeatTimer.startRepeating(kStepRepeatInterval, [this]() { repeatStep(); });
+    m_repeatTimer.startRepeating(kStepRepeatInterval, [this] { repeatStep(); });
   });
 }
 
@@ -420,7 +420,7 @@ void Stepper::refreshButtons() {
 
 void Stepper::refreshSegmentStyle() {
   const float r = Style::scaledRadiusMd(m_scale);
-  setFill(colorSpecFromRole(ColorRole::SurfaceVariant, m_surfaceOpacity));
+  setFill(colorSpecFromRole(ColorRole::SurfaceContainer, m_surfaceOpacity));
   clearBorder();
   setRadius(r);
   if (m_decrement != nullptr) {

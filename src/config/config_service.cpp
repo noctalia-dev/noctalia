@@ -591,7 +591,7 @@ void ConfigService::setNotificationManager(NotificationManager* manager) {
   if (m_notificationManager != nullptr && !m_pendingError.empty()) {
     ConfigProblem pendingError = std::move(m_pendingError);
     m_pendingError = {};
-    DeferredCall::callLater([this, pendingError = std::move(pendingError)]() mutable {
+    DeferredCall::callLater([this, pendingError = std::move(pendingError)] mutable {
       if (m_notificationManager == nullptr) {
         m_pendingError = std::move(pendingError);
         return;
@@ -600,7 +600,7 @@ void ConfigService::setNotificationManager(NotificationManager* manager) {
     });
   }
   if (m_notificationManager != nullptr && m_legacyReminderPending) {
-    DeferredCall::callLater([this]() { notifyLegacyConfigIssues(); });
+    DeferredCall::callLater([this] { notifyLegacyConfigIssues(); });
   }
 }
 
@@ -883,11 +883,10 @@ void ConfigService::checkReload() {
   m_inotify.drain([this, &configChanged, &overridesChanged](const inotify_event* event) {
     if (event->len > 0) {
       const std::string_view name{event->name};
-      if (event->wd == m_configWatchWd) {
-        if (name.size() >= 5 && name.substr(name.size() - 5) == ".toml") {
-          configChanged = true;
-        }
+      if (event->wd == m_configWatchWd && name.ends_with(".toml")) {
+        configChanged = true;
       }
+
       if (event->wd == m_overridesWatchWd) {
         const auto overridesFilename = std::filesystem::path(m_overridesPath).filename().string();
         if (name == overridesFilename) {
@@ -911,7 +910,7 @@ void ConfigService::checkReload() {
       }
 
       // Any *.toml change in a watched [include] directory is a config change.
-      if (m_includeDirWds.contains(event->wd) && name.size() >= 5 && name.substr(name.size() - 5) == ".toml") {
+      if (m_includeDirWds.contains(event->wd) && name.ends_with(".toml")) {
         configChanged = true;
       }
     }
@@ -932,7 +931,7 @@ void ConfigService::checkReload() {
   // or briefly missing file is never applied.
   m_pendingConfigReload = m_pendingConfigReload || configChanged;
   m_pendingOverridesReload = m_pendingOverridesReload || overridesChanged;
-  m_watchReloadTimer.start(kWatchReloadDebounce, [this]() { applyPendingWatchReload(); });
+  m_watchReloadTimer.start(kWatchReloadDebounce, [this] { applyPendingWatchReload(); });
 }
 
 void ConfigService::applyPendingWatchReload() {
@@ -1357,7 +1356,7 @@ void ConfigService::updateLegacyConfigIssues(noctalia::config::LegacyConfigIssue
 
   const auto elapsed = std::chrono::seconds(now - reminderState->epochSeconds);
   const auto remaining = std::chrono::seconds(noctalia::config::kLegacyConfigReminderIntervalSeconds) - elapsed;
-  m_legacyReminderTimer.start(std::chrono::duration_cast<std::chrono::milliseconds>(remaining), [this]() {
+  m_legacyReminderTimer.start(std::chrono::duration_cast<std::chrono::milliseconds>(remaining), [this] {
     m_legacyReminderPending = true;
     notifyLegacyConfigIssues();
   });
@@ -1381,7 +1380,7 @@ void ConfigService::notifyLegacyConfigIssues() {
   (void)m_stateStore.setString(kMigrationReminderOwner, kMigrationReminderKey, std::format("{}\n{}", now, fingerprint));
   m_legacyReminderPending = false;
   m_legacyReminderTimer.start(
-      std::chrono::milliseconds(noctalia::config::kLegacyConfigReminderIntervalSeconds * 1000), [this]() {
+      std::chrono::milliseconds(noctalia::config::kLegacyConfigReminderIntervalSeconds * 1000), [this] {
         m_legacyReminderPending = true;
         notifyLegacyConfigIssues();
       }

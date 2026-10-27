@@ -144,7 +144,7 @@ namespace {
     }
 
     try {
-      std::thread([args = std::move(args)]() mutable {
+      std::thread([args = std::move(args)] mutable {
         try {
           (void)process::runAsync(args);
         } catch (...) {
@@ -159,7 +159,7 @@ namespace {
     return true;
   }
 
-  bool startDetachedCommandInTerminalAsync(std::string command) {
+  bool startDetachedCommandInTerminalAsync(const std::string& command) {
     auto prepared = terminal_launch::prepareCommand(command);
     return prepared.has_value() && startDetachedProcessAsync(std::move(*prepared));
   }
@@ -749,7 +749,7 @@ namespace {
   int luau_getColor(lua_State* L) {
     size_t len = 0;
     const char* role = luaL_checklstring(L, 1, &len);
-    const auto colorRole = colorRoleFromToken(std::string_view(role, len));
+    const auto colorRole = colorRoleFromPluginToken(std::string_view(role, len));
     if (!colorRole.has_value()) {
       lua_pushnil(L);
       return 1;
@@ -1945,7 +1945,7 @@ namespace {
   int luau_layer_show(lua_State* L) {
     std::string id = checkLayerEntryId(L, "show");
     if (auto* host = hostForState(L)) {
-      host->scriptLayerCommand(scripting::PluginLayerCommand::Show, std::move(id), {});
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Show, id, {});
     }
     return 0;
   }
@@ -1953,7 +1953,7 @@ namespace {
   int luau_layer_hide(lua_State* L) {
     std::string id = checkLayerEntryId(L, "hide");
     if (auto* host = hostForState(L)) {
-      host->scriptLayerCommand(scripting::PluginLayerCommand::Hide, std::move(id), {});
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Hide, id, {});
     }
     return 0;
   }
@@ -1963,7 +1963,7 @@ namespace {
     luaL_checktype(L, 2, LUA_TTABLE);
     auto patch = readLayerPatch(L, 2);
     if (auto* host = hostForState(L)) {
-      host->scriptLayerCommand(scripting::PluginLayerCommand::Configure, std::move(id), std::move(patch));
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Configure, id, std::move(patch));
     }
     return 0;
   }
@@ -2329,17 +2329,17 @@ LuauHost::~LuauHost() {
     lua_close(m_L);
   }
   if (unloadPluginSounds) {
-    DeferredCall::callLater([unloadPluginSounds = std::move(unloadPluginSounds), hostId = m_hostId]() mutable {
+    DeferredCall::callLater([unloadPluginSounds = std::move(unloadPluginSounds), hostId = m_hostId] mutable {
       unloadPluginSounds(hostId);
     });
   }
   if (clearWallpaperMasks) {
-    DeferredCall::callLater([clearWallpaperMasks = std::move(clearWallpaperMasks), hostId = m_hostId]() mutable {
+    DeferredCall::callLater([clearWallpaperMasks = std::move(clearWallpaperMasks), hostId = m_hostId] mutable {
       clearWallpaperMasks(hostId);
     });
   }
   if (releaseIdleWatches) {
-    DeferredCall::callLater([releaseIdleWatches = std::move(releaseIdleWatches), hostId = m_hostId]() mutable {
+    DeferredCall::callLater([releaseIdleWatches = std::move(releaseIdleWatches), hostId = m_hostId] mutable {
       releaseIdleWatches(hostId);
     });
   }
@@ -2373,7 +2373,7 @@ bool LuauHost::startAsyncProcess(std::vector<std::string> args, int callbackRef,
   }
   try {
     std::thread([hostId = m_hostId, callbackRef, args = std::move(args), timeout,
-                 handler = std::move(handler)]() mutable {
+                 handler = std::move(handler)] mutable {
       auto result = process::runSyncWithTimeoutAndOutputLimit(args, timeout, kMaxAsyncCommandOutputBytes);
       inFlightAsyncCommands().fetch_sub(1, std::memory_order_relaxed);
       handler(hostId, callbackRef, std::move(result));
@@ -2398,7 +2398,7 @@ bool LuauHost::startAsyncFileRead(std::filesystem::path path, int callbackRef) {
 
   m_asyncFileCallbackRefs.insert(callbackRef);
   const bool queued = scripting::ScriptIoPool::instance().post([hostId = m_hostId, callbackRef, path = std::move(path),
-                                                                handler = std::move(handler)]() mutable {
+                                                                handler = std::move(handler)] mutable {
     std::ifstream file(path, std::ios::binary);
     if (!file) {
       handler(hostId, callbackRef, false, {}, "cannot open file");
@@ -2457,7 +2457,7 @@ bool LuauHost::startAsyncProcessMatch(std::vector<std::string> needles, int call
   }
 
   try {
-    std::thread([hostId = m_hostId, callbackRef, needles = std::move(needles), handler = std::move(handler)]() mutable {
+    std::thread([hostId = m_hostId, callbackRef, needles = std::move(needles), handler = std::move(handler)] mutable {
       bool matched = false;
       try {
         matched = process::commandLineMatchesAll(needles);
@@ -2529,7 +2529,7 @@ bool LuauHost::startColorPicker(const Color& initialColor, int callbackRef) {
   }
 
   m_colorPickerCallbackRefs.insert(callbackRef);
-  DeferredCall::callLater([hostId = m_hostId, callbackRef, initialColor, handler = std::move(handler)]() mutable {
+  DeferredCall::callLater([hostId = m_hostId, callbackRef, initialColor, handler = std::move(handler)] mutable {
     ColorPickerDialogOptions options;
     options.initialColor = initialColor;
     (void)ColorPickerDialog::open(
@@ -2585,7 +2585,7 @@ bool LuauHost::startAsyncHttp(HttpRequest request, int callbackRef) {
   // HttpClient must be driven from the main loop; marshal there, then deliver the
   // response back through the handler (which enqueues onto the runtime thread).
   DeferredCall::callLater([client = m_httpClient, request = std::move(request), handler = std::move(handler),
-                           hostId = m_hostId, callbackRef]() mutable {
+                           hostId = m_hostId, callbackRef] mutable {
     client->request(std::move(request), [handler, hostId, callbackRef](HttpResponse response) {
       handler(
           hostId, callbackRef, response.transportOk, static_cast<int>(response.status), std::move(response.body), false
@@ -2610,7 +2610,7 @@ bool LuauHost::startAsyncDownload(std::string url, std::string destPath, int cal
   m_asyncHttpCallbackRefs.insert(callbackRef);
 
   DeferredCall::callLater([client = m_httpClient, url = std::move(url), destPath = std::move(destPath),
-                           handler = std::move(handler), hostId = m_hostId, callbackRef]() mutable {
+                           handler = std::move(handler), hostId = m_hostId, callbackRef] mutable {
     client->download(url, std::filesystem::path(destPath), [handler, hostId, callbackRef](bool success) {
       handler(hostId, callbackRef, success, 0, std::string(), true);
     });
@@ -2666,8 +2666,8 @@ bool LuauHost::callAsyncDownloadCallback(int callbackRef, bool ok, std::chrono::
   return callWithBudget("async download callback", 1, 0, budget);
 }
 
-void LuauHost::stateSet(const std::string& key, std::string json) {
-  scripting::PluginStateStore::instance().set(m_pluginId, key, std::move(json));
+void LuauHost::stateSet(const std::string& key, const std::string& json) {
+  scripting::PluginStateStore::instance().set(m_pluginId, key, json);
 }
 
 std::optional<std::string> LuauHost::stateGet(const std::string& key) const {
@@ -2726,7 +2726,7 @@ bool LuauHost::startStream(std::string command, int callbackRef) {
       buffer->clear(); // drop a pathological unbounded line
     }
   };
-  callbacks.onExit = [alive](process::RunResult) { alive->store(false, std::memory_order_relaxed); };
+  callbacks.onExit = [alive](const process::RunResult&) { alive->store(false, std::memory_order_relaxed); };
 
   process::RunOptions options;
   options.cancel = std::move(cancel);
@@ -2787,7 +2787,7 @@ int LuauHost::startHttpStream(HttpRequest request, int lineRef, int closeRef) {
   // lambdas run on the main loop and forward through the handler, which enqueues
   // onto the runtime thread. Line splitting mirrors runStream.
   DeferredCall::callLater([client = m_httpClient, request = std::move(request), handler = std::move(handler), hostId,
-                           streamKey, control, buffer]() mutable {
+                           streamKey, control, buffer] mutable {
     if (control->cancelled.load(std::memory_order_relaxed)) {
       return;
     }
@@ -2837,7 +2837,7 @@ void LuauHost::stopHttpStream(int streamKey) {
   }
   if (record.control) {
     record.control->cancelled.store(true, std::memory_order_relaxed);
-    DeferredCall::callLater([client = m_httpClient, control = record.control]() {
+    DeferredCall::callLater([client = m_httpClient, control = record.control] {
       const auto id = control->clientStreamId.load(std::memory_order_relaxed);
       if (id != 0 && client != nullptr) {
         client->cancelStream(id);
@@ -2896,7 +2896,7 @@ void LuauHost::stopAllHttpStreams() noexcept {
       continue;
     }
     record.control->cancelled.store(true, std::memory_order_relaxed);
-    DeferredCall::callLater([client = m_httpClient, control = record.control]() {
+    DeferredCall::callLater([client = m_httpClient, control = record.control] {
       const auto id = control->clientStreamId.load(std::memory_order_relaxed);
       if (id != 0 && client != nullptr) {
         client->cancelStream(id);
@@ -3179,7 +3179,7 @@ void LuauHost::scriptOpenSettings() {
 }
 
 void LuauHost::scriptLayerCommand(
-    scripting::PluginLayerCommand command, std::string localEntryId, scripting::PluginLayerConfigPatch patch
+    scripting::PluginLayerCommand command, const std::string& localEntryId, scripting::PluginLayerConfigPatch patch
 ) {
   if (m_scriptContext == nullptr) {
     return;

@@ -77,8 +77,8 @@ namespace noctalia::config::schema {
   template <typename Parent, typename Elem>
   Field<Parent> namedMap(
       std::vector<Elem> Parent::* member, std::string_view key, const Schema<Elem>& subSchema,
-      std::function<void(Elem&, std::string_view name)> setName, std::function<std::string(const Elem&)> getName,
-      bool readSkipEmptyName = false
+      const std::function<void(Elem&, std::string_view name)>& setName,
+      const std::function<std::string(const Elem&)>& getName, bool readSkipEmptyName = false
   ) {
     return Field<Parent>{
         key,
@@ -137,7 +137,7 @@ namespace noctalia::config::schema {
   template <typename Parent, typename Elem>
   Field<Parent> arrayOf(
       std::vector<Elem> Parent::* member, std::string_view key, const Schema<Elem>& subSchema,
-      std::function<bool(const Elem&)> keep
+      const std::function<bool(const Elem&)>& keep
   ) {
     return Field<Parent>{
         key,

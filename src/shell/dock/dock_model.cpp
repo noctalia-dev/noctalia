@@ -8,6 +8,7 @@
 #include "util/string_utils.h"
 #include "wayland/wayland_toplevels.h"
 
+#include <algorithm>
 #include <unordered_map>
 
 namespace {
@@ -62,12 +63,9 @@ namespace shell::dock {
     bool
     alreadyListsResolvedEntry(const std::vector<DesktopEntry>& entries, const app_identity::ResolvedRunningApp& run) {
       const std::string resolvedIdLower = StringUtils::toLower(run.entry.id);
-      for (const auto& entry : entries) {
-        if (StringUtils::toLower(entry.id) == resolvedIdLower) {
-          return true;
-        }
-      }
-      return false;
+      return std::ranges::any_of(entries, [&](const auto& entry) {
+        return StringUtils::toLower(entry.id) == resolvedIdLower;
+      });
     }
 
   } // namespace

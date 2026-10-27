@@ -36,6 +36,7 @@ enum class OsdKind : std::uint8_t {
   LockKeys,
   KeyboardLayout,
   Media,
+  MediaVolume,
   Privacy,
   KeyboardBacklight,
   Custom

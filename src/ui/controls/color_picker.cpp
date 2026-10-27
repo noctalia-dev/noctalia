@@ -101,7 +101,9 @@ ColorPicker::ColorPicker() {
       ui::image({
           .out = &m_svImage,
           .fit = ImageFit::Stretch,
-          .configure = [](Image& image) { image.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth); },
+          .configure = [](Image& image) {
+            image.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
+          },
       })
   );
   addChild(ui::image({.out = &m_hueImage, .fit = ImageFit::Stretch}));
@@ -158,7 +160,7 @@ ColorPicker::ColorPicker() {
           .controlHeight = Style::controlHeightSm,
           .variant = ButtonVariant::Ghost,
           .tooltip = i18n::tr("ui.dialogs.color-picker.copy"),
-          .onClick = [this]() {
+          .onClick = [this] {
             if (TextClipboard* clipboard = Input::textClipboard(); clipboard != nullptr) {
               clipboard->setClipboardText(colorText());
             }
@@ -213,7 +215,7 @@ InputArea* ColorPicker::primaryInputArea() const noexcept {
   return m_hexInput != nullptr ? m_hexInput->inputArea() : nullptr;
 }
 
-InputArea* ColorPicker::addPickArea(std::function<void(const InputArea::PointerData&)> pick) {
+InputArea* ColorPicker::addPickArea(const std::function<void(const InputArea::PointerData&)>& pick) {
   auto area = std::make_unique<InputArea>();
   area->setParticipatesInLayout(false);
   area->setZIndex(10);
@@ -277,9 +279,9 @@ void ColorPicker::applyStyle() {
   m_alphaThumb->setSize(hueThumb, hueThumb);
   m_alphaThumb->setRadius(hueThumb * 0.5F);
   for (Box* swatch : m_swatchBoxes) {
-    swatch->setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * m_scale);
+    swatch->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * m_scale);
   }
-  m_svImage->setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * m_scale);
+  m_svImage->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * m_scale);
   updateHueThumbStyle();
 }
 
@@ -401,7 +403,7 @@ void ColorPicker::rebuildSwatches() {
             .out = &box,
             .fill = fixedColorSpec(m_swatches[i]),
             .configure = [this](Box& swatch) {
-              swatch.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * m_scale);
+              swatch.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * m_scale);
             },
         })
     );
@@ -823,7 +825,7 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
             .minHeight = Style::controlHeightSm * m_chromeScale,
             .padding = Style::spaceXs * m_chromeScale,
             .radius = Style::scaledRadiusMd(m_chromeScale),
-            .onClick = [this]() {
+            .onClick = [this] {
               if (m_onCancel) {
                 m_onCancel();
               }
@@ -854,7 +856,7 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
               .paddingH = Style::spaceMd * m_chromeScale,
               .radius = Style::scaledRadiusMd(m_chromeScale),
               .onClick =
-                  [this]() {
+                  [this] {
                     if (m_onCancel) {
                       m_onCancel();
                     }
@@ -868,7 +870,7 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
               .radius = Style::scaledRadiusMd(m_chromeScale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 if (m_picker != nullptr && m_onApply) {
                   m_onApply(m_picker->color());
                 }

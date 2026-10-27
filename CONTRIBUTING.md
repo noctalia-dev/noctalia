@@ -75,6 +75,8 @@ clang-tidy -p build-debug --warnings-as-errors='*' <touched .cpp files...>
 
 Headers are linted through the `.cpp` files that include them. Fix every finding before opening a pull request.
 
+sdbus-c++ async reply handlers take the error as `std::optional<sdbus::Error>` by value. sdbus-c++ releases before 2.3 (shipped by Fedora 44, Debian 13, and Ubuntu 26.04) do not recognize a `const&` error parameter, so the code fails to compile there even though it builds on Arch. Suppress the resulting clang-tidy finding on that lambda with `// NOLINT(performance-unnecessary-value-param)`. The `Build (Fedora 44)` CI job guards this.
+
 ### Naming Conventions
 
 |                        | Convention           | Example              |
@@ -120,6 +122,10 @@ The documentation site is generated from these files by `tools/sync-docs.sh`, wh
 ### Vendored code
 
 Do not patch vendored code under `third_party/` for Noctalia behavior; local edits are lost when the dependency is refreshed. Put compatibility code in Noctalia-owned sources under `src/`, or fix the issue upstream and update the vendored snapshot from upstream.
+
+### Palette colors
+
+Fills, tints, and borders use a palette role: `surface_container_low` to `surface_container_highest` for raised backgrounds, the `*_container` roles for tinted fills, and `outline_variant` for borders. Do not blend a role with a hardcoded alpha (`colorSpecFromRole(ColorRole::Primary, 0.16F)`) to get a color the palette does not have; if no role fits, propose a new one. Alpha is for real transparency only: shadows, scrims, overlays, disabled content, and hover or pressed state layers, ideally through a named `Style` constant. `just role-alpha-check` (run in CI) counts role-plus-literal-alpha uses and fails when the count goes up; after removing some, run `just role-alpha-update` to lower the baseline.
 
 ## Testing
 

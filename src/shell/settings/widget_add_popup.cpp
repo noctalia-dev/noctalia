@@ -84,13 +84,10 @@ namespace settings {
       if (id.empty()) {
         return false;
       }
-      for (char c : id) {
+      return std::ranges::all_of(id, [&](char c) {
         const auto uc = static_cast<unsigned char>(c);
-        if (!std::isalnum(uc) && c != '_' && c != '-') {
-          return false;
-        }
-      }
-      return true;
+        return std::isalnum(uc) != 0 || c == '_' || c == '-';
+      });
     }
 
     std::string normalizedWidgetInstanceBase(std::string_view type) {
@@ -329,7 +326,7 @@ namespace settings {
       m_onSelect(m_lanePath, id, m_createType, id, {});
     }
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-    DeferredCall::callLater([this, aliveGuard]() {
+    DeferredCall::callLater([this, aliveGuard] {
       if (aliveGuard.expired()) {
         return;
       }
@@ -407,9 +404,9 @@ namespace settings {
               .minHeight = Style::controlHeightSm * m_scale,
               .padding = Style::spaceXs * m_scale,
               .radius = Style::scaledRadiusMd(m_scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                DeferredCall::callLater([this, aliveGuard]() {
+                DeferredCall::callLater([this, aliveGuard] {
                   if (aliveGuard.expired()) {
                     return;
                   }
@@ -448,7 +445,7 @@ namespace settings {
                       m_onSelect(m_lanePath, option.value, option.value, instanceId, {});
                     }
                     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                    DeferredCall::callLater([this, aliveGuard]() {
+                    DeferredCall::callLater([this, aliveGuard] {
                       if (aliveGuard.expired()) {
                         return;
                       }
@@ -464,7 +461,7 @@ namespace settings {
                     m_onSelect(m_lanePath, option.value, {}, {}, {});
                   }
                   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                  DeferredCall::callLater([this, aliveGuard]() {
+                  DeferredCall::callLater([this, aliveGuard] {
                     if (aliveGuard.expired()) {
                       return;
                     }
@@ -472,9 +469,9 @@ namespace settings {
                   });
                 },
             .onCancel =
-                [this]() {
+                [this] {
                   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                  DeferredCall::callLater([this, aliveGuard]() {
+                  DeferredCall::callLater([this, aliveGuard] {
                     if (aliveGuard.expired()) {
                       return;
                     }
@@ -543,7 +540,7 @@ namespace settings {
                 .paddingH = Style::spaceSm * m_scale,
                 .radius = Style::scaledRadiusSm(m_scale),
                 .onClick =
-                    [this]() {
+                    [this] {
                       m_createFormVisible = false;
                       m_createType.clear();
                       m_createLabel.clear();
@@ -561,7 +558,7 @@ namespace settings {
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceSm * m_scale,
                 .radius = Style::scaledRadiusSm(m_scale),
-                .onClick = [this]() { finishCreateFlow(); },
+                .onClick = [this] { finishCreateFlow(); },
             })
         )
     );

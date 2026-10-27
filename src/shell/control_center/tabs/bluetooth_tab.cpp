@@ -217,7 +217,7 @@ public:
           .variant = primaryVariant,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusSm(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_service == nullptr) {
               return;
             }
@@ -246,7 +246,7 @@ public:
               .variant = ButtonVariant::Ghost,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 if (m_service != nullptr) {
                   m_service->forget(m_device.path);
                 }
@@ -423,7 +423,7 @@ std::unique_ptr<Flex> BluetoothTab::create() {
           .text = i18n::tr("control-center.bluetooth.accept"),
           .variant = ButtonVariant::Default,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_agent == nullptr) {
                   return;
                 }
@@ -465,7 +465,7 @@ std::unique_ptr<Flex> BluetoothTab::create() {
           .text = i18n::tr("control-center.bluetooth.trust-and-allow"),
           .variant = ButtonVariant::Default,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_agent == nullptr) {
                   return;
                 }
@@ -483,7 +483,7 @@ std::unique_ptr<Flex> BluetoothTab::create() {
           .out = &m_pairingReject,
           .text = i18n::tr("control-center.bluetooth.reject"),
           .variant = ButtonVariant::Ghost,
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_agent != nullptr) {
               m_agent->rejectConfirm();
             }
@@ -869,7 +869,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
             .minHeight = Style::fontSizeBody * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [this]() {
+            .onClick = [this] {
               if (m_service == nullptr) {
                 return;
               }
@@ -878,7 +878,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
                 m_discoveryLease = DiscoveryLease::Pending;
                 m_service->startDiscovery();
               }
-              m_discoveryTimer.start(kDiscoveryTimeout, [this]() { stopRequestedDiscovery(); });
+              m_discoveryTimer.start(kDiscoveryTimeout, [this] { stopRequestedDiscovery(); });
             },
         })
     );

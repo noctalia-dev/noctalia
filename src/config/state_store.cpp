@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "util/file_utils.h"
 
+#include <algorithm>
 #include <format>
 #include <sstream>
 #include <utility>
@@ -15,13 +16,9 @@ namespace {
     if (value.empty()) {
       return false;
     }
-    for (char c : value) {
-      if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
-        continue;
-      }
-      return false;
-    }
-    return true;
+    return std::ranges::all_of(value, [&](char c) {
+      return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+    });
   }
 
   toml::table* ensureTable(toml::table& parent, std::string_view key) {

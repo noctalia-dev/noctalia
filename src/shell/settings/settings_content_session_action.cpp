@@ -49,7 +49,7 @@ namespace settings {
     // Every field is a caption label stacked over its control, with one gap inside
     // a field and a wider one between fields, so all labels and controls share the
     // same left edge and rhythm.
-    const auto field = [scale](std::string label, std::unique_ptr<Node> control, float grow) {
+    const auto field = [scale](const std::string& label, std::unique_ptr<Node> control, float grow) {
       auto block = ui::column(
           {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = grow},
           makeLabel(
@@ -74,13 +74,13 @@ namespace settings {
     });
 
     // Glyph + behavior
-    const auto previewGlyphForRow = [&row]() {
+    const auto previewGlyphForRow = [&row] {
       if (row.glyph.has_value() && !row.glyph->empty()) {
         return *row.glyph;
       }
       return std::string(session_action::defaultGlyph(row.action));
     };
-    const auto hasCustomGlyph = [&row]() { return row.glyph.has_value() && !row.glyph->empty(); };
+    const auto hasCustomGlyph = [&row] { return row.glyph.has_value() && !row.glyph->empty(); };
 
     auto glyphBtnRow = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale});
 
@@ -112,7 +112,7 @@ namespace settings {
         .participatesInLayout = hasCustomGlyph(),
     });
 
-    glyphPickBtn->setOnClick([&row, persist, glyphPickBtnPtr, clearGlyphBtnPtr]() {
+    glyphPickBtn->setOnClick([&row, persist, glyphPickBtnPtr, clearGlyphBtnPtr] {
       GlyphPickerDialogOptions options;
       options.title = i18n::tr("settings.session-actions.glyph-picker-title");
       if (row.glyph.has_value() && !row.glyph->empty()) {
@@ -134,7 +134,7 @@ namespace settings {
     });
     glyphBtnRow->addChild(std::move(glyphPickBtn));
 
-    clearG->setOnClick([&row, persist, glyphPickBtnPtr, clearGlyphBtnPtr, previewGlyphForRow]() {
+    clearG->setOnClick([&row, persist, glyphPickBtnPtr, clearGlyphBtnPtr, previewGlyphForRow] {
       row.glyph = std::nullopt;
       glyphPickBtnPtr->setGlyph(previewGlyphForRow());
       clearGlyphBtnPtr->setVisible(false);
@@ -144,7 +144,7 @@ namespace settings {
     glyphBtnRow->addChild(std::move(clearG));
 
     Input* cmdPtr = nullptr;
-    const auto commandPlaceholder = [&row]() {
+    const auto commandPlaceholder = [&row] {
       if (row.action == "command") {
         return i18n::tr("settings.session-actions.command-required-placeholder");
       }
@@ -161,7 +161,7 @@ namespace settings {
         .horizontalPadding = Style::spaceSm * scale,
         .minLayoutWidth = 280.0F * scale,
     });
-    const auto commitCommand = [&row, persist, cmdPtr]() {
+    const auto commitCommand = [&row, persist, cmdPtr] {
       const std::string t = StringUtils::trim(cmdPtr->value());
       if (row.action == "command" && t.empty()) {
         row.command = std::nullopt;
@@ -227,7 +227,7 @@ namespace settings {
         .horizontalPadding = Style::spaceSm * scale,
         .minLayoutWidth = 200.0F * scale,
     });
-    const auto commitLabel = [&row, persist, labelPtr]() {
+    const auto commitLabel = [&row, persist, labelPtr] {
       const std::string t = StringUtils::trim(labelPtr->value());
       if (t.empty()) {
         row.label = std::nullopt;
@@ -321,7 +321,7 @@ namespace settings {
         clearBtnPtr->setVisible(true);
         persist();
       });
-      clearBtnPtr->setOnClick([&row, member, persist, recorderPtr, clearBtnPtr]() {
+      clearBtnPtr->setOnClick([&row, member, persist, recorderPtr, clearBtnPtr] {
         row.*member = std::nullopt;
         recorderPtr->setChord(std::nullopt);
         clearBtnPtr->setVisible(false);
