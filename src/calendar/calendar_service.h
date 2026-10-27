@@ -121,7 +121,7 @@ public:
     Action action = Action::Edit;
   };
   [[nodiscard]] AccountStatus accountStatus(const CalendarConfig::Account& account) const;
-  // The status as one line, as the account's Settings row and the calendar's sync button show it.
+  // The status as one line, as the account's Settings row shows it.
   [[nodiscard]] std::string accountStatusText(const CalendarConfig::Account& account) const;
   // Changes whenever an account's status does, so a view can refresh only then.
   [[nodiscard]] std::uint64_t syncStatusRevision() const noexcept { return m_syncStatusRevision; }

@@ -183,7 +183,7 @@ void SettingsWindow::setCalendarService(CalendarService* service) {
     return;
   }
   m_calendarSyncStatusRevision = service->syncStatusRevision();
-  m_calendarCallbackId = service->addChangeCallback([this]() {
+  m_calendarCallbackId = service->addChangeCallback([this] {
     const std::uint64_t revision = m_calendarService->syncStatusRevision();
     if (revision == m_calendarSyncStatusRevision) {
       return;
