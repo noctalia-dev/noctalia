@@ -636,9 +636,6 @@ namespace ui {
     if (props.controlHeight.has_value()) {
       control->setControlHeight(*props.controlHeight);
     }
-    if (props.wheelAdjustEnabled.has_value()) {
-      control->setWheelAdjustEnabled(*props.wheelAdjustEnabled);
-    }
     if (props.onValueChanged) {
       control->setOnValueChanged(std::move(props.onValueChanged));
     }

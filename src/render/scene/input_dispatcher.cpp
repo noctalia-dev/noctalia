@@ -6,6 +6,7 @@
 #include "wayland/text_input_service.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <optional>
 #include <string>
@@ -14,7 +15,9 @@
 
 namespace {
   constexpr float kTouchScrollSlop = 8.0F;
-
+  // Matches InputArea's scroll gesture gap (input_area.cpp): a pause longer than this ends a
+  // scroll gesture, so the next axis event resolves a fresh target.
+  constexpr auto kAxisGestureGap = std::chrono::milliseconds(100);
   bool nodeVisibleInScene(const Node* node) {
     for (const Node* current = node; current != nullptr; current = current->parent()) {
       if (!current->visible()) {
@@ -119,6 +122,7 @@ void InputDispatcher::pointerEnter(float x, float y, std::uint32_t serial) {
   m_lastPointerX = x;
   m_lastPointerY = y;
   m_hasPointerPosition = true;
+  m_axisGestureArea = nullptr;
   updateHover(x, y, serial);
 }
 
@@ -146,6 +150,8 @@ void InputDispatcher::pointerMotion(float x, float y, std::uint32_t serial) {
   m_lastPointerX = x;
   m_lastPointerY = y;
   m_hasPointerPosition = true;
+  // Pointer movement ends the scroll gesture: the next axis event hit-tests at the new position.
+  m_axisGestureArea = nullptr;
 
   if (m_touchGesture.pending) {
     const float dx = x - m_touchGesture.pressX;
@@ -189,6 +195,9 @@ bool InputDispatcher::pointerButton(
   m_lastPointerX = x;
   m_lastPointerY = y;
   m_hasPointerPosition = true;
+  if (pressed) {
+    m_axisGestureArea = nullptr;
+  }
 
   pruneDetachedAreas();
 
@@ -316,10 +325,22 @@ bool InputDispatcher::pointerAxis(
     std::int32_t value120, float lines, std::uint32_t axisGestureSerial
 ) {
   pruneDetachedAreas();
-  InputArea* target = m_capturedArea != nullptr ? m_capturedArea : findInputAreaAt(x, y);
+  const auto now = std::chrono::steady_clock::now();
+  // A pause longer than the gesture gap, or the compositor ending the gesture (axis_stop bumps
+  // the serial), ends the scroll gesture: the next axis event hit-tests afresh.
+  if (m_axisGestureArea != nullptr && now - m_lastAxisTime > kAxisGestureGap) {
+    m_axisGestureArea = nullptr;
+  }
+  m_lastAxisTime = now;
+
+  InputArea* target = m_axisGestureArea;
+  if (target == nullptr) {
+    target = m_capturedArea != nullptr ? m_capturedArea : findInputAreaAt(x, y);
+  }
   if (target == nullptr) {
     return false;
   }
+  const bool mayAnchor = m_axisGestureArea == nullptr && m_capturedArea == nullptr;
 
   bool consumedAny = false;
   for (Node* node = target; node != nullptr; node = node->parent()) {
@@ -343,11 +364,16 @@ bool InputDispatcher::pointerAxis(
       break;
     }
   }
+  if (mayAnchor && consumedAny) {
+    m_axisGestureArea = target;
+    trackArea(target);
+  }
   return consumedAny;
 }
 
 void InputDispatcher::cancelPointerCapture() {
   m_touchGesture = {};
+  m_axisGestureArea = nullptr;
   if (m_capturedArea == nullptr || m_cancelingPointerCapture) {
     return;
   }
@@ -626,6 +652,9 @@ void InputDispatcher::pruneDetachedAreas() {
   if (m_touchGesture.horizontalArea != nullptr && !isAttachedToScene(m_touchGesture.horizontalArea)) {
     m_touchGesture.horizontalArea = nullptr;
   }
+  if (m_axisGestureArea != nullptr && !isAttachedToScene(m_axisGestureArea)) {
+    m_axisGestureArea = nullptr;
+  }
   if (!isAttachedToScene(m_hoveredArea) && m_hoveredArea != nullptr) {
     auto* old = m_hoveredArea;
     old->dispatchLeave();
@@ -656,6 +685,9 @@ void InputDispatcher::trackArea(InputArea* area) {
     }
     if (m_touchGesture.horizontalArea == a) {
       m_touchGesture.horizontalArea = nullptr;
+    }
+    if (m_axisGestureArea == a) {
+      m_axisGestureArea = nullptr;
     }
     if (m_hoveredArea == a) {
       m_hoveredArea = nullptr;

@@ -95,7 +95,7 @@ RangeSlider::RangeSlider() {
       return false;
     }
     const float frameDelta = data.axisLines != 0.0F ? data.axisLines : static_cast<float>(data.axisValue);
-    if (frameDelta == 0.0) {
+    if (frameDelta == 0.0F) {
       return false;
     }
     const double step = m_step > 0.0 ? m_step : (m_max - m_min) * 0.05;
@@ -118,12 +118,12 @@ RangeSlider::RangeSlider() {
         return false;
       }
     }
-    const auto lines = static_cast<double>(data.scrollSteps());
-    if (lines != 0.0F) {
+    const float steps = data.scrollSteps();
+    if (steps != 0.0F) {
       if (adjustLow) {
-        setLowValue(m_low - lines * step);
+        setLowValue(m_low - steps * step);
       } else {
-        setHighValue(m_high - lines * step);
+        setHighValue(m_high - steps * step);
       }
       if (m_onDragEnd) {
         m_onDragEnd();
