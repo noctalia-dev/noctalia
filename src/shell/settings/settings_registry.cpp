@@ -3110,6 +3110,12 @@ namespace settings {
         ToggleSetting{cfg.controlCenter.calendarTab.showWeekNumbers}, "calendar week numbers iso"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-show-events-location.label"),
+        tr("settings.schema.services.calendar-show-events-location.description"),
+        {"control_center", "calendar", "show_events_location"},
+        ToggleSetting{cfg.controlCenter.calendarTab.showEventsLocation}, "calendar events location display"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-hide-past-events.label"),
         tr("settings.schema.services.calendar-hide-past-events.description"),
         {"control_center", "calendar", "hide_past_events"}, ToggleSetting{cfg.controlCenter.calendarTab.hidePastEvents},

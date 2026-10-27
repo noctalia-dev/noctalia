@@ -3093,6 +3093,10 @@
           "description": "Show ISO 8601 week numbers alongside the calendar grid",
           "label": "Week Numbers"
         },
+        "calendar-show-events-location": {
+          "description": "Display event location in the calendar view",
+          "label": "Show Event Location"
+        },
         "custom-schedule": {
           "description": "Use manual sunrise/sunset times instead of computing from coordinates",
           "label": "Custom Schedule"
