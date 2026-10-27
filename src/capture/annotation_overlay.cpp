@@ -2911,7 +2911,9 @@ namespace capture {
       inst.markedGradient = marked;
     }
 
-    if (needsLayout && renderer != nullptr) {
+    // The surface does not lay out the overlay scene itself; edits in a value box mark the panel
+    // layout-dirty and only a panel relayout moves the caret to the new text.
+    if ((needsLayout || inst.backdropPanel->layoutDirty()) && renderer != nullptr) {
       inst.backdropPanel->layout(*renderer);
     }
   }
