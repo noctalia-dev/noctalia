@@ -416,7 +416,7 @@ Find answers to common setup and troubleshooting questions for Noctalia.
 </FaqItem>
 
 <FaqItem question="Why can't I connect to my VPN in NetworkManager?">
-  By default, NetworkManager generates VPN system connections for the current user only. This saves secrets to `nm-applet`. Noctalia prompts for VPN secrets in the Control Center's Network tab, but it does not save them yet, so without `nm-applet` such a connection asks for its password every time. To have NetworkManager remember it instead, store the password for all users.
+  By default, NetworkManager generates VPN system connections for the current user only. This saves secrets to `nm-applet`. Noctalia prompts for VPN secrets in the Control Center's Network tab and saves secrets stored "for this user only" to your keyring, the same entries `nm-applet` uses, so it needs a running Secret Service (e.g. GNOME Keyring or KWallet). Without one, such a connection asks for its password every time; to have NetworkManager remember it instead, store the password for all users.
 
   To do this
 

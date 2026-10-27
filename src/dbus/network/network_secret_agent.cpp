@@ -3,6 +3,7 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/process/process.h"
+#include "dbus/network/network_secret_keyring.h"
 #include "dbus/network/vpn_auth_dialog.h"
 #include "dbus/system_bus.h"
 
@@ -40,6 +41,7 @@ namespace {
   constexpr auto kDbusInterface = "org.freedesktop.DBus";
 
   constexpr std::uint32_t kNmSecretAgentGetSecretsFlagAllowInteraction = 0x1;
+  constexpr std::uint32_t kNmSecretAgentGetSecretsFlagRequestNew = 0x2;
   // NM_SECRET_AGENT_CAPABILITY_VPN_HINTS: we pass GetSecrets hints on to the VPN
   // auth dialog. NM only starts a VPN with ConnectInteractive, which lets the plugin
   // ask for more secrets mid-connection (e.g. an OTP after the server's challenge),
@@ -105,11 +107,16 @@ struct NetworkSecretAgent::Impl {
   RequestCallback requestCallback;
   std::optional<sdbus::Result<SecretsDict>> pendingResult;
   std::string pendingSettingName;
-  // VPN requests: the running auth dialog (set while it runs), which run its exit
-  // belongs to, and the secrets it already knew, sent along with the user's answers.
+  // The connection the pending request is for: its flags say which answers to save.
+  SecretsDict pendingConnection;
+  // Which request a keyring lookup or auth dialog run belongs to; anything that
+  // answers or cancels a request moves on from it.
+  std::uint64_t requestGeneration = 0;
+  // VPN requests: the running auth dialog (set while it runs), and the secrets it
+  // already knew, sent along with the user's answers.
   std::shared_ptr<std::atomic<bool>> authDialogCancel;
-  std::uint64_t authDialogGeneration = 0;
   vpn_auth::StringMap pendingVpnSecrets;
+  nm_keyring::Keyring keyring;
   // Expires with the agent, so a dialog finishing after teardown is ignored.
   std::shared_ptr<int> lifetime = std::make_shared<int>(0);
 
@@ -133,16 +140,6 @@ struct NetworkSecretAgent::Impl {
       sdbus::Result<SecretsDict>&& result, const SecretsDict& connection, sdbus::ObjectPath connectionPath,
       std::string settingName, const std::vector<std::string>& hints, std::uint32_t flags
   ) {
-    if ((flags & kNmSecretAgentGetSecretsFlagAllowInteraction) == 0U) {
-      kLog.debug("GetSecrets without ALLOW_INTERACTION -> NoSecrets");
-      result.returnError(
-          sdbus::Error{
-              sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.NoSecrets"},
-              "no interactive prompt permitted"
-          }
-      );
-      return;
-    }
     // NM asks for the pre-shared key under "802-11-wireless-security" and for EAP
     // credentials under "802-1x". Rejecting the latter is what leaves an
     // enterprise profile unable to re-authenticate after its password changes.
@@ -150,37 +147,70 @@ struct NetworkSecretAgent::Impl {
         && settingName != kEnterpriseSettingName
         && settingName != kVpnSettingName) {
       kLog.debug("GetSecrets for unsupported setting \"{}\" -> NoSecrets", settingName);
-      result.returnError(
-          sdbus::Error{
-              sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.NoSecrets"}, "unsupported setting"
-          }
-      );
+      result.returnError(sdbus::Error{sdbus::Error::Name{kNoSecretsError}, "unsupported setting"});
       return;
     }
     if (pendingResult.has_value()) {
       kLog.debug("GetSecrets while another is pending -> NoSecrets");
       result.returnError(
-          sdbus::Error{
-              sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.NoSecrets"},
-              "another secret request is already pending"
-          }
+          sdbus::Error{sdbus::Error::Name{kNoSecretsError}, "another secret request is already pending"}
       );
       return;
     }
 
-    if (settingName == kVpnSettingName) {
-      startAuthDialog(std::move(result), connection, hints, flags);
+    pendingResult = std::move(result);
+    pendingSettingName = settingName;
+    pendingConnection = connection;
+    const std::uint64_t generation = ++requestGeneration;
+    // Secrets saved for this user come first, even when NM may not prompt.
+    keyring.lookup(
+        connectionUuid(), settingName,
+        [this, generation, hints, flags,
+         path = std::string(std::move(connectionPath))](std::map<std::string, std::string> stored) mutable {
+          onStoredSecrets(generation, std::move(stored), std::move(hints), flags, path);
+        }
+    );
+  }
+
+  [[nodiscard]] std::string connectionUuid() const {
+    return settingValue<std::string>(pendingConnection, "connection", "uuid").value_or("");
+  }
+
+  [[nodiscard]] std::string connectionId() const {
+    return settingValue<std::string>(pendingConnection, "connection", "id").value_or("");
+  }
+
+  void onStoredSecrets(
+      std::uint64_t generation, std::map<std::string, std::string> stored, std::vector<std::string> hints,
+      std::uint32_t flags, const std::string& connectionPath
+  ) {
+    if (generation != requestGeneration || !pendingResult.has_value()) {
+      return;
+    }
+    const bool allowInteraction = (flags & kNmSecretAgentGetSecretsFlagAllowInteraction) != 0U;
+    const bool requestNew = (flags & kNmSecretAgentGetSecretsFlagRequestNew) != 0U;
+    // REQUEST_NEW means the stored secret was just rejected. A VPN that may prompt
+    // still goes through its auth dialog, which can need more than what is stored.
+    if (!stored.empty() && !requestNew && (!allowInteraction || pendingSettingName != kVpnSettingName)) {
+      kLog.info("GetSecrets {} for \"{}\" answered from the keyring", pendingSettingName, connectionId());
+      replyPending(nm_keyring::secretsReply(pendingSettingName, stored), false);
+      return;
+    }
+    if (!allowInteraction) {
+      kLog.debug("GetSecrets without ALLOW_INTERACTION -> NoSecrets");
+      rejectPending(kNoSecretsError, "no interactive prompt permitted");
+      return;
+    }
+
+    if (pendingSettingName == kVpnSettingName) {
+      startAuthDialog(std::move(hints), flags, std::move(stored));
       return;
     }
 
     SecretRequest request;
-    request.ssid = extractSsid(connection);
-    request.settingName = settingName;
-    kLog.info("GetSecrets prompt ssid=\"{}\" path={}", request.ssid, std::string(std::move(connectionPath)));
-
-    pendingResult = std::move(result);
-    pendingSettingName = settingName;
-
+    request.ssid = extractSsid(pendingConnection);
+    request.settingName = pendingSettingName;
+    kLog.info("GetSecrets prompt ssid=\"{}\" path={}", request.ssid, connectionPath);
     if (requestCallback) {
       requestCallback(request);
     } else {
@@ -189,24 +219,24 @@ struct NetworkSecretAgent::Impl {
     }
   }
 
-  void startAuthDialog(
-      sdbus::Result<SecretsDict>&& result, const SecretsDict& connection, std::vector<std::string> hints,
-      std::uint32_t flags
-  ) {
+  void startAuthDialog(std::vector<std::string> hints, std::uint32_t flags, vpn_auth::StringMap stored) {
     vpn_auth::DialogRequest request{
-        .connectionUuid = settingValue<std::string>(connection, "connection", "uuid").value_or(""),
-        .connectionId = settingValue<std::string>(connection, "connection", "id").value_or(""),
-        .serviceType = settingValue<std::string>(connection, kVpnSettingName, "service-type").value_or(""),
+        .connectionUuid = connectionUuid(),
+        .connectionId = connectionId(),
+        .serviceType = settingValue<std::string>(pendingConnection, kVpnSettingName, "service-type").value_or(""),
         .hints = std::move(hints),
         .flags = flags,
-        .data = settingValue<vpn_auth::StringMap>(connection, kVpnSettingName, "data").value_or(vpn_auth::StringMap{}),
-        .secrets =
-            settingValue<vpn_auth::StringMap>(connection, kVpnSettingName, "secrets").value_or(vpn_auth::StringMap{}),
+        .data = settingValue<vpn_auth::StringMap>(pendingConnection, kVpnSettingName, "data")
+                    .value_or(vpn_auth::StringMap{}),
+        .secrets = settingValue<vpn_auth::StringMap>(pendingConnection, kVpnSettingName, "secrets")
+                       .value_or(vpn_auth::StringMap{}),
     };
+    // Stored secrets let the dialog skip what it already has; ones NM sent win.
+    request.secrets.merge(stored);
     const auto plugin = vpn_auth::findPlugin(request.serviceType, vpn_auth::defaultPluginDirs());
     if (!plugin.has_value() || plugin->authDialog.empty()) {
       kLog.warn("GetSecrets vpn=\"{}\": no auth dialog for {}", request.connectionId, request.serviceType);
-      result.returnError(sdbus::Error{sdbus::Error::Name{kNoSecretsError}, "no auth dialog for VPN service"});
+      rejectPending(kNoSecretsError, "no auth dialog for VPN service");
       return;
     }
     kLog.info(
@@ -214,9 +244,7 @@ struct NetworkSecretAgent::Impl {
         plugin->externalUiMode ? " (external UI)" : ""
     );
 
-    pendingResult = std::move(result);
-    pendingSettingName = kVpnSettingName;
-    const std::uint64_t generation = ++authDialogGeneration;
+    const std::uint64_t generation = requestGeneration;
     authDialogCancel = std::make_shared<std::atomic<bool>>(false);
 
     process::RunOptions options{
@@ -248,7 +276,7 @@ struct NetworkSecretAgent::Impl {
 
   void onAuthDialogExit(std::uint64_t generation, bool externalUi, const std::string& name, process::RunResult run) {
     // A cancel or a newer request already answered the request this run belonged to.
-    if (generation != authDialogGeneration || !pendingResult.has_value() || !authDialogCancel) {
+    if (generation != requestGeneration || !pendingResult.has_value() || !authDialogCancel) {
       return;
     }
     authDialogCancel.reset();
@@ -300,13 +328,29 @@ struct NetworkSecretAgent::Impl {
       authDialogCancel->store(true);
       authDialogCancel.reset();
     }
-    pendingVpnSecrets.clear();
     if (!pendingResult.has_value()) {
       return;
     }
     pendingResult->returnError(sdbus::Error{sdbus::Error::Name{errorName}, reason});
+    clearPending();
+  }
+
+  // Answers the pending request. `remember` saves what the agent owns among the
+  // answers to the keyring, since NM keeps agent-owned secrets in memory only.
+  void replyPending(const SecretsDict& secrets, bool remember) {
+    if (remember) {
+      keyring.apply(connectionUuid(), connectionId(), nm_keyring::secretChanges(pendingConnection, secrets));
+    }
+    pendingResult->returnResults(secrets);
+    clearPending();
+  }
+
+  void clearPending() {
     pendingResult.reset();
     pendingSettingName.clear();
+    pendingConnection.clear();
+    pendingVpnSecrets.clear();
+    ++requestGeneration;
   }
 
   void cancelPending(const std::string& reason) { rejectPending(kUserCanceledError, reason); }
@@ -320,11 +364,7 @@ struct NetworkSecretAgent::Impl {
     for (const auto& [key, value] : values) {
       merged.insert_or_assign(key, value);
     }
-    SecretsDict secrets;
-    secrets[kVpnSettingName]["secrets"] = sdbus::Variant{merged};
-    pendingResult->returnResults(secrets);
-    pendingResult.reset();
-    pendingSettingName.clear();
+    replyPending(nm_keyring::secretsReply(kVpnSettingName, merged), true);
   }
 
   void submitPending(const std::string& secret) {
@@ -334,9 +374,7 @@ struct NetworkSecretAgent::Impl {
     SecretsDict secrets;
     const auto* key = pendingSettingName == kEnterpriseSettingName ? kEapPasswordKey : kPskKey;
     secrets[pendingSettingName][key] = sdbus::Variant{secret};
-    pendingResult->returnResults(secrets);
-    pendingResult.reset();
-    pendingSettingName.clear();
+    replyPending(secrets, true);
   }
 };
 
@@ -362,12 +400,24 @@ NetworkSecretAgent::NetworkSecretAgent(SystemBus& bus) : m_impl(std::make_unique
               .implementedAs([this](const sdbus::ObjectPath& /*connectionPath*/, const std::string& /*settingName*/) {
                 m_impl->cancelPending("NM canceled");
               }),
+          // NM sends these when a connection is added or edited over D-Bus (e.g. in
+          // nm-connection-editor), with the agent-owned secrets it now has, and when
+          // the connection or its secrets are deleted. A connection saved without its
+          // secrets keeps the stored ones: only a change of flags clears them.
           sdbus::registerMethod("SaveSecrets")
               .withInputParamNames("connection", "connection_path")
-              .implementedAs([](const SecretsDict& /*connection*/, const sdbus::ObjectPath& /*connectionPath*/) {}),
+              .implementedAs([this](const SecretsDict& connection, const sdbus::ObjectPath& /*connectionPath*/) {
+                m_impl->keyring.apply(
+                    settingValue<std::string>(connection, "connection", "uuid").value_or(""),
+                    settingValue<std::string>(connection, "connection", "id").value_or(""),
+                    nm_keyring::secretChanges(connection, connection)
+                );
+              }),
           sdbus::registerMethod("DeleteSecrets")
               .withInputParamNames("connection", "connection_path")
-              .implementedAs([](const SecretsDict& /*connection*/, const sdbus::ObjectPath& /*connectionPath*/) {})
+              .implementedAs([this](const SecretsDict& connection, const sdbus::ObjectPath& /*connectionPath*/) {
+                m_impl->keyring.eraseAll(settingValue<std::string>(connection, "connection", "uuid").value_or(""));
+              })
       )
       .forInterface(kAgentInterface);
 
