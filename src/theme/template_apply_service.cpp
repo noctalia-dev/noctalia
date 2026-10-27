@@ -552,7 +552,7 @@ namespace noctalia::theme {
         resolved.push_back(id);
         continue;
       }
-      const auto hook = entry->get_as<std::string>("undo_hook");
+      const auto* hook = entry->get_as<std::string>("undo_hook");
       if (hook == nullptr || runUndoHook(request, configPath, hook->get(), std::format("built-in template '{}'", id))) {
         resolved.push_back(id);
       }

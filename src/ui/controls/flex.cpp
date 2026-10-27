@@ -468,7 +468,7 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
   auto& items = scratch.items();
   items.reserve(children().size());
   float totalGrow = 0.0F;
-  for (auto& child : children()) {
+  for (const auto& child : children()) {
     if (!child->visible() || !child->participatesInLayout() || child.get() == m_background) {
       continue;
     }

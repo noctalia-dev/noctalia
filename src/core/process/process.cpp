@@ -36,7 +36,7 @@ namespace {
   constexpr std::chrono::milliseconds kProcessCommandLineCacheTtl{250};
 
   void writePipeOrIgnore(int fd, const void* data, size_t len) {
-    auto p = reinterpret_cast<const char*>(data);
+    const auto* p = reinterpret_cast<const char*>(data);
     size_t remaining = len;
     while (remaining > 0) {
       const ssize_t n = ::write(fd, p, remaining);

@@ -2419,9 +2419,9 @@ void PipeWireService::moveProgramOutput(std::uint32_t programStreamId, std::uint
 
 void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) {
   const auto maxVolume = [&config] { return maxAudioVolume(config.config().audio); };
-  const auto parseVolumeValueError =
+  const auto* parseVolumeValueError =
       "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
-  const auto parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
+  const auto* parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
 
   ipc.bind(
       noctalia::cli::msg::volumeSet, [this, maxVolume, parseVolumeValueError](const std::string& args) -> std::string {

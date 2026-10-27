@@ -699,7 +699,7 @@ namespace {
       if (i + 1 == path.size()) {
         return table->get(path[i]);
       }
-      auto* next = table->get_as<toml::table>(path[i]);
+      const auto* next = table->get_as<toml::table>(path[i]);
       if (next == nullptr) {
         return nullptr;
       }
@@ -2351,26 +2351,26 @@ void ConfigService::extractWallpaperFromTable(const toml::table& table) {
   m_monitorWallpaperPaths.clear();
   m_wallpaperFavorites.clear();
 
-  if (auto* wpDefault = table["wallpaper"]["default"].as_table()) {
+  if (const auto* wpDefault = table["wallpaper"]["default"].as_table()) {
     if (auto v = (*wpDefault)["path"].value<std::string>()) {
       m_defaultWallpaperPath = FileUtils::expandUserPath(*v).string();
     }
   }
-  if (auto* wpLast = table["wallpaper"]["last"].as_table()) {
+  if (const auto* wpLast = table["wallpaper"]["last"].as_table()) {
     if (auto v = (*wpLast)["path"].value<std::string>()) {
       m_lastWallpaperPath = FileUtils::expandUserPath(*v).string();
     }
   }
-  if (auto* monitors = table["wallpaper"]["monitors"].as_table()) {
+  if (const auto* monitors = table["wallpaper"]["monitors"].as_table()) {
     for (const auto& [key, value] : *monitors) {
-      if (auto* monTbl = value.as_table()) {
+      if (const auto* monTbl = value.as_table()) {
         if (auto v = (*monTbl)["path"].value<std::string>()) {
           m_monitorWallpaperPaths[std::string(key.str())] = FileUtils::expandUserPath(*v).string();
         }
       }
     }
   }
-  if (auto* favorites = table["wallpaper"]["favorite"].as_array()) {
+  if (const auto* favorites = table["wallpaper"]["favorite"].as_array()) {
     for (const auto& node : *favorites) {
       const auto* favTbl = node.as_table();
       if (favTbl == nullptr) {

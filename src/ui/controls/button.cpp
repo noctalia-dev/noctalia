@@ -552,7 +552,7 @@ void Button::ensureGlyph() {
   // insertChildAt so the glyph lands before the label in the children vector,
   // which is what Flex iterates to assign layout positions
   if (m_label != nullptr) {
-    auto& kids = children();
+    const auto& kids = children();
     std::size_t labelIndex = 0;
     for (std::size_t i = 0; i < kids.size(); ++i) {
       if (kids[i].get() == m_label) {
@@ -585,7 +585,7 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
   if (m_glyph != nullptr) {
     m_glyph->setColor(label);
   }
-  for (auto& child : children()) {
+  for (const auto& child : children()) {
     if (child.get() == m_label || child.get() == m_glyph || child.get() == m_badge) {
       continue;
     }
@@ -769,7 +769,7 @@ void Button::doLayout(Renderer& renderer) {
     float contentBottom = 0.0F;
     bool haveContent = false;
 
-    for (auto& child : children()) {
+    for (const auto& child : children()) {
       Node* node = child.get();
       if (node == nullptr || !node->visible() || !node->participatesInLayout() || node->zIndex() < 0) {
         continue;
@@ -805,7 +805,7 @@ void Button::doLayout(Renderer& renderer) {
       const float targetTop = (height() - contentHeight) * 0.5F;
       const float shiftY = targetTop - contentTop;
       if (std::abs(shiftX) > 0.01F || std::abs(shiftY) > 0.01F) {
-        for (auto& child : children()) {
+        for (const auto& child : children()) {
           Node* node = child.get();
           if (node == nullptr || !node->visible() || !node->participatesInLayout() || node->zIndex() < 0) {
             continue;

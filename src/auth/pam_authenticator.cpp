@@ -119,7 +119,7 @@ namespace {
   }
 
   [[nodiscard]] bool writeAll(int fd, const void* data, std::size_t len) {
-    auto* bytes = static_cast<const std::uint8_t*>(data);
+    const auto* bytes = static_cast<const std::uint8_t*>(data);
     std::size_t remaining = len;
     while (remaining > 0) {
       const ssize_t n = ::write(fd, bytes, remaining);

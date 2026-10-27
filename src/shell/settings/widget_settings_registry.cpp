@@ -173,7 +173,7 @@ namespace settings {
     };
 
     const TypedWidgetDefinitionProjection* findTypedWidgetDefinitionProjection(std::string_view type) {
-      const auto projection =
+      const auto* projection =
           std::ranges::find_if(kTypedWidgetDefinitions, [type](const TypedWidgetDefinitionProjection& candidate) {
             return candidate.type() == type;
           });

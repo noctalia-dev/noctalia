@@ -380,7 +380,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
       .widgetSpacing = widgetSpacing,
       .verticalBar = barPosition == "left" || barPosition == "right",
   };
-  if (const auto builtin = std::ranges::find(kBuiltinWidgets, type, &BuiltinWidget::type);
+  if (const auto* builtin = std::ranges::find(kBuiltinWidgets, type, &BuiltinWidget::type);
       builtin != kBuiltinWidgets.end()) {
     return builtin->create(*this, context);
   }

@@ -635,7 +635,7 @@ void CalendarService::accountDone(
     m_eventsByAccount[accountId] = std::move(events);
   } else {
     const auto it = m_eventsByAccount.find(accountId);
-    const auto status = failure == calendar::SyncFailure::Cancelled ? "was cancelled" : "failed";
+    const auto* status = failure == calendar::SyncFailure::Cancelled ? "was cancelled" : "failed";
     kLog.warn(
         "calendar account {} refresh {}; keeping {} previously loaded event(s)", accountId, status,
         it == m_eventsByAccount.end() ? 0 : it->second.size()

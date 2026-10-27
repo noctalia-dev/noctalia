@@ -304,7 +304,7 @@ namespace noctalia::config::schema {
     return Field<Struct>{
         key,
         [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
-          if (auto* arr = tbl[key].as_array()) {
+          if (const auto* arr = tbl[key].as_array()) {
             out.*member = readStringArray(*arr, joinPath(parentPath, key), diag);
           } else {
             warnWrongType(tbl, key, parentPath, diag, "an array of strings");

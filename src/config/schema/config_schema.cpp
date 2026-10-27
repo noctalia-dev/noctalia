@@ -1150,23 +1150,23 @@ namespace noctalia::config::schema {
           color.color = str->get();
         } else if (const auto* t = value.as_table()) {
           const std::string entryPath = joinPath(path, name.str());
-          if (auto c = t->get_as<std::string>("color_dark")) {
+          if (const auto* c = t->get_as<std::string>("color_dark")) {
             color.color_dark = c->get();
           } else {
             warnWrongType(*t, "color_dark", entryPath, diag, "a string");
           }
-          if (auto c = t->get_as<std::string>("color_light")) {
+          if (const auto* c = t->get_as<std::string>("color_light")) {
             color.color_light = c->get();
           } else {
             warnWrongType(*t, "color_light", entryPath, diag, "a string");
           }
-          if (auto c = t->get_as<std::string>("color")) {
+          if (const auto* c = t->get_as<std::string>("color")) {
             color.color = c->get();
           } else {
             warnWrongType(*t, "color", entryPath, diag, "a string");
             color.color = !color.color_dark.empty() ? color.color_dark : color.color_light;
           }
-          if (auto b = t->get_as<bool>("blend")) {
+          if (const auto* b = t->get_as<bool>("blend")) {
             color.blend = b->get();
           } else {
             warnWrongType(*t, "blend", entryPath, diag, "a boolean");
@@ -1228,11 +1228,11 @@ namespace noctalia::config::schema {
                   warnWrongType(tbl, "input_path_modes", parentPath, diag, "a table");
                   return;
                 }
-                auto dark = m->get_as<std::string>("dark");
+                const auto* dark = m->get_as<std::string>("dark");
                 if (dark == nullptr) {
                   warnWrongType(*m, "dark", joinPath(parentPath, "input_path_modes"), diag, "a string");
                 }
-                auto light = m->get_as<std::string>("light");
+                const auto* light = m->get_as<std::string>("light");
                 if (light == nullptr) {
                   warnWrongType(*m, "light", joinPath(parentPath, "input_path_modes"), diag, "a string");
                 }
@@ -1296,11 +1296,11 @@ namespace noctalia::config::schema {
                     warnWrongType(diag, itemPath(index), item, "a table");
                     continue;
                   }
-                  auto name = t->get_as<std::string>("name");
+                  const auto* name = t->get_as<std::string>("name");
                   if (name == nullptr) {
                     warnWrongType(*t, "name", itemPath(index), diag, "a string");
                   }
-                  auto color = t->get_as<std::string>("color");
+                  const auto* color = t->get_as<std::string>("color");
                   if (color == nullptr) {
                     warnWrongType(*t, "color", itemPath(index), diag, "a string");
                   }
@@ -2224,7 +2224,7 @@ namespace noctalia::config::schema {
       return custom<Struct>(
           key,
           [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
-            if (auto* arr = tbl[key].as_array()) {
+            if (const auto* arr = tbl[key].as_array()) {
               out.*member = readStringArray(*arr, joinPath(parentPath, key), diag);
             } else {
               warnWrongType(tbl, key, parentPath, diag, "an array of strings");

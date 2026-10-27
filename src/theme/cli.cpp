@@ -114,9 +114,9 @@ namespace noctalia::theme {
         const auto id = std::string(idNode.str());
         TemplateListEntry entry{.id = id, .category = {}, .name = id};
         if (const toml::table* info = node.as_table()) {
-          if (const auto name = info->get_as<std::string>("name"))
+          if (const auto* name = info->get_as<std::string>("name"))
             entry.name = name->get();
-          if (const auto category = info->get_as<std::string>("category"))
+          if (const auto* category = info->get_as<std::string>("category"))
             entry.category = category->get();
         }
         out[id] = std::move(entry);
