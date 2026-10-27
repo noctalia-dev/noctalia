@@ -130,7 +130,7 @@ namespace capture {
       const char* tooltipKey;
     };
 
-    constexpr std::size_t kGradientPresetCount = 8;
+    constexpr std::size_t kGradientPresetCount = 9;
 
     [[nodiscard]] const std::array<GradientPreset, kGradientPresetCount>& gradientPresets() {
       static const std::array<GradientPreset, kGradientPresetCount> presets = {{
@@ -145,6 +145,7 @@ namespace capture {
           {fixedColorSpec(rgbHex(0x232526)), fixedColorSpec(rgbHex(0x414345)), "bar.annotate.gradient-graphite"},
           {fixedColorSpec(rgbHex(0xE0E0E0)), fixedColorSpec(rgbHex(0xFAFAFA)), "bar.annotate.gradient-paper"},
           {fixedColorSpec(rgbHex(0x2F80ED)), fixedColorSpec(rgbHex(0x56CCF2)), "bar.annotate.gradient-sky"},
+          {fixedColorSpec(rgbHex(0x00B09B)), fixedColorSpec(rgbHex(0x96C93D)), "bar.annotate.gradient-mint"},
           {fixedColorSpec(rgbHex(0xFF7E5F)), fixedColorSpec(rgbHex(0xFEB47B)), "bar.annotate.gradient-sunset"},
       }};
       return presets;
