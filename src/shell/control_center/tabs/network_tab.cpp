@@ -607,7 +607,12 @@ NetworkTab::NetworkTab(
   if (m_secrets != nullptr) {
     m_secrets->setRequestCallback([this](const NetworkSecretAgent::SecretRequest& request) {
       showPasswordPrompt(request);
-      PanelManager::instance().refresh();
+      // NM may ask with the panel closed (autoconnect, a VPN's second challenge
+      // after the user moved on), and the request waits until answered, so bring
+      // the prompt up rather than leave it hidden. Closing the panel again leaves
+      // the request pending: the panel closes on any outside click, e.g. to go and
+      // look up the code being asked for, and NM gives up on its own eventually.
+      PanelManager::instance().showPanel("control-center", PanelOpenRequest{.context = "network"});
     });
   }
 }
@@ -904,6 +909,10 @@ void NetworkTab::setActive(bool active) {
   m_active = active;
   if (m_active && m_network != nullptr) {
     m_network->requestScan();
+  }
+  // A prompt that arrived while the tab was hidden gets focus once it is shown.
+  if (m_active && m_hasPendingSecret) {
+    m_focusPasswordPrompt = true;
   }
 }
 
