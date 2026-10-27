@@ -22,6 +22,7 @@ Checks: >-
   modernize-use-std-numbers,
   modernize-use-std-print,
   modernize-use-string-view,
+  modernize-use-using,
   performance-inefficient-string-concatenation,
   performance-inefficient-vector-operation,
   performance-move-const-arg,
