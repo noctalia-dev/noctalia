@@ -652,8 +652,9 @@ void CalendarService::accountDone(
     rebuildSnapshot();
     saveCache();
     scheduleNextRefresh();
-    notifyChanged();
   }
+  // Each account's status changes when it finishes, not only when the last one does.
+  notifyChanged();
 }
 
 void CalendarService::recordSyncResult(const std::string& accountId, calendar::SyncFailure failure) {
