@@ -28,10 +28,6 @@ The fade is anchored to the wall clock, not to when Noctalia started. The temper
 - Enabling, disabling, or toggling `force` (from settings or [IPC](/noctalia/ipc/system-controls/#night-light)) snaps straight to the new temperature.
 - Disabling night light releases gamma control, which restores the compositor's native output instantly.
 
-## Related IPC
-
-For night light commands, see [System Controls → Night light](/noctalia/ipc/system-controls/#night-light).
-
 ## Scheduled Brightness
 
 When enabled alongside night light, scheduled brightness adjusts screen brightness using the same day/night schedule and gradient fade logic:
@@ -52,3 +48,7 @@ Brightness transitions use a **30-minute fade window** before sunrise and sunset
 - Once the boundary is reached, brightness stays at the target value until the next fade window begins.
 
 The schedule timer recalculates brightness every 5 minutes during the fade window, producing smooth gradient updates without manual slider adjustments.
+
+## Related IPC
+
+For night light commands, see [System Controls → Night light](/noctalia/ipc/system-controls/#night-light).
