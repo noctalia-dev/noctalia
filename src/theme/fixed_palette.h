@@ -86,9 +86,36 @@ namespace noctalia::theme {
     ::Color cursor;
   };
 
-  TokenMap expandFixedPaletteMode(const ::Palette& palette, bool isDark);
-  GeneratedPalette expandFixedPalettes(const ::Palette& dark, const ::Palette& light);
+  // Source format of builtin, community, and custom palettes: the 16 hand-picked colors (`mPrimary`, ...) that
+  // expandFixedPaletteMode() grows into the full token set. Not the runtime UI palette.
+  struct FixedPalette {
+    ::Color primary;
+    ::Color onPrimary;
+    ::Color secondary;
+    ::Color onSecondary;
+    ::Color tertiary;
+    ::Color onTertiary;
+    ::Color error;
+    ::Color onError;
+    ::Color surface;
+    ::Color onSurface;
+    ::Color surfaceVariant;
+    ::Color onSurfaceVariant;
+    ::Color outline;
+    ::Color shadow;
+    ::Color hover;
+    ::Color onHover;
+  };
+
+  TokenMap expandFixedPaletteMode(const FixedPalette& palette, bool isDark);
+  GeneratedPalette expandFixedPalettes(const FixedPalette& dark, const FixedPalette& light);
+  // Inverse of expandFixedPaletteMode(): reads the source colors back out of a token set.
+  [[nodiscard]] FixedPalette fixedPaletteFromTokens(const TokenMap& tokens);
   ::Palette mapGeneratedPaletteMode(const TokenMap& tokens);
+
+  // Wallpaper schemes have no hover role of their own: hover mirrors the tertiary accent,
+  // the pairing the builtin palettes use.
+  void setGeneratedHoverTokens(GeneratedPalette& palette);
 
   void applyTerminalPalette(TokenMap& tokens, const TerminalPalette& terminal);
   void synthesizeTerminalPaletteTokens(TokenMap& tokens);

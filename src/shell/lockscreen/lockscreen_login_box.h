@@ -4,12 +4,13 @@
 #include "ui/palette.h"
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
 
-class WaylandConnection;
+struct WaylandOutput;
 
 namespace desktop_settings {
   enum class DesktopWidgetSettingsScope;
@@ -33,6 +34,7 @@ namespace lockscreen_login_box {
   constexpr std::string_view kShowCapsLockKey = "show_caps_lock";
   constexpr std::string_view kShowKeyboardLayoutKey = "show_keyboard_layout";
   constexpr std::string_view kShowUnlockHintKey = "show_unlock_hint";
+  constexpr std::string_view kShowPasswordRevealKey = "show_password_reveal";
 
   enum class LayoutMode : std::uint8_t {
     Compact,
@@ -41,7 +43,7 @@ namespace lockscreen_login_box {
 
   struct LoginBoxStyle {
     LayoutMode layout = LayoutMode::Regular;
-    ColorSpec panelFill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.88F);
+    ColorSpec panelFill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.88F);
     float panelOpacity = 0.88F;
     float panelRadius = 12.0F;
     float inputOpacity = 1.0F;
@@ -49,6 +51,7 @@ namespace lockscreen_login_box {
     bool centerPasswordText = false;
     bool showLoginButton = true;
     bool showCapsLock = true;
+    bool showPasswordReveal = true;
     bool showKeyboardLayout = true;
     bool showSessionButtons = true;
     bool showMedia = true;
@@ -141,8 +144,9 @@ namespace lockscreen_login_box {
   // Height flags from settings.
   [[nodiscard]] bool styleShowsInfoExtras(const LoginBoxStyle& style) noexcept;
 
-  [[nodiscard]] const DesktopWidgetState*
-  findForOutput(const std::vector<DesktopWidgetState>& widgets, std::string_view outputKey);
+  [[nodiscard]] const DesktopWidgetState* findForOutput(
+      const std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs, std::string_view outputKey
+  );
 
   [[nodiscard]] LoginBoxStyle resolveStyle(const std::unordered_map<std::string, WidgetSettingValue>& settings);
   void applyDefaultSettings(
@@ -151,6 +155,6 @@ namespace lockscreen_login_box {
   void applyAllDefaultSettings(std::unordered_map<std::string, WidgetSettingValue>& settings);
   void normalizeSettings(std::unordered_map<std::string, WidgetSettingValue>& settings);
 
-  void ensureWidgets(std::vector<DesktopWidgetState>& widgets, const WaylandConnection& wayland);
+  void ensureWidgets(std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs);
 
 } // namespace lockscreen_login_box

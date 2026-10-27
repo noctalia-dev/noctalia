@@ -56,9 +56,8 @@ namespace {
   };
 
   constexpr std::array kImageMimeTypes = {
-      std::string_view{"image/png"},
-      std::string_view{"image/jpeg"},
-      std::string_view{"image/jxl"},
+      std::string_view{"image/png"},  std::string_view{"image/jpeg"}, std::string_view{"image/jxl"},
+      std::string_view{"image/avif"}, std::string_view{"image/heic"}, std::string_view{"image/heif"},
   };
 
   constexpr std::array kPasswordHintMimeTypes = {
@@ -156,6 +155,8 @@ namespace {
       return ".avif";
     if (mimeType == "image/heic")
       return ".heic";
+    if (mimeType == "image/heif")
+      return ".heif";
     return ".img";
   }
 
@@ -1177,8 +1178,8 @@ bool ClipboardService::payloadLooksComplete(std::string_view mimeType, std::span
     return endsWith(kGifTrailer);
   }
 
-  // Everything else carries no end marker worth trusting; text in particular is
-  // still useful when partial.
+  // Everything else carries no end marker worth trusting (ISOBMFF images such as
+  // HEIC and AVIF have no trailer); text in particular is still useful when partial.
   return true;
 }
 

@@ -3,19 +3,36 @@
 #include "Luau/Cst.h"
 #include "Luau/Common.h"
 
-LUAU_FASTFLAG(LuauCstExprGroup)
-LUAU_FASTFLAG(LuauCstTypeGroup)
-
 namespace Luau
 {
 
 int gCstRttiIndex = 0;
 
+CstAttr::CstAttr(bool hasAt)
+    : CstNode(CstClassIndex())
+    , hasAt(hasAt)
+{
+}
+
+CstParametrizedAttr::CstParametrizedAttr(Position openParenPosition, Position closeParenPosition, AstArray<Position> argsCommaPositions)
+    : CstNode(CstClassIndex())
+    , openParenPosition(openParenPosition)
+    , closeParenPosition(closeParenPosition)
+    , argsCommaPositions(argsCommaPositions)
+{
+}
+
+CstAttrList::CstAttrList(Position atBracketPosition, Position closeBracketPosition, AstArray<Position> commaPositions)
+    : atBracketPosition(atBracketPosition)
+    , closeBracketPosition(closeBracketPosition)
+    , commaPositions(commaPositions)
+{
+}
+
 CstExprGroup::CstExprGroup(Position closePosition)
     : CstNode(CstClassIndex())
     , closePosition(closePosition)
 {
-    LUAU_ASSERT(FFlag::LuauCstExprGroup);
 }
 
 CstExprConstantNumber::CstExprConstantNumber(const AstArray<char>& value)
@@ -77,11 +94,12 @@ CstExprTypeAssertion::CstExprTypeAssertion(Position opPosition)
 {
 }
 
-CstExprIfElse::CstExprIfElse(Position thenPosition, Position elsePosition, bool isElseIf)
+CstExprIfElse::CstExprIfElse(Position thenPosition, Position elsePosition, bool isElseIf, Position annotationColonPosition)
     : CstNode(CstClassIndex())
     , thenPosition(thenPosition)
     , elsePosition(elsePosition)
     , isElseIf(isElseIf)
+    , annotationColonPosition(annotationColonPosition)
 {
 }
 
@@ -123,7 +141,6 @@ CstStatLocal::CstStatLocal(
     AstArray<Position> valuesCommaPositions
 )
     : CstNode(CstClassIndex())
-    , declarationKeywordPosition(Position::missing())
     , varsAnnotationColonPositions(varsAnnotationColonPositions)
     , varsCommaPositions(varsCommaPositions)
     , valuesCommaPositions(valuesCommaPositions)
@@ -151,6 +168,12 @@ CstStatForIn::CstStatForIn(
 {
 }
 
+CstStatIf::CstStatIf(Position annotationColonPosition)
+    : CstNode(CstClassIndex())
+    , annotationColonPosition(annotationColonPosition)
+{
+}
+
 CstStatAssign::CstStatAssign(AstArray<Position> varsCommaPositions, Position equalsPosition, AstArray<Position> valuesCommaPositions)
     : CstNode(CstClassIndex())
     , varsCommaPositions(varsCommaPositions)
@@ -167,12 +190,29 @@ CstStatCompoundAssign::CstStatCompoundAssign(Position opPosition)
 
 CstStatFunction::CstStatFunction(Position functionKeywordPosition)
     : CstNode(CstClassIndex())
+    , attrLists({})
+    , functionKeywordPosition(functionKeywordPosition)
+{
+}
+
+CstStatFunction::CstStatFunction(AstArray<CstAttrList*> attrLists, Position functionKeywordPosition)
+    : CstNode(CstClassIndex())
+    , attrLists(attrLists)
     , functionKeywordPosition(functionKeywordPosition)
 {
 }
 
 CstStatLocalFunction::CstStatLocalFunction(Position localKeywordPosition, Position functionKeywordPosition)
     : CstNode(CstClassIndex())
+    , attrLists({})
+    , localKeywordPosition(localKeywordPosition)
+    , functionKeywordPosition(functionKeywordPosition)
+{
+}
+
+CstStatLocalFunction::CstStatLocalFunction(AstArray<CstAttrList*> attrLists, Position localKeywordPosition, Position functionKeywordPosition)
+    : CstNode(CstClassIndex())
+    , attrLists(attrLists)
     , localKeywordPosition(localKeywordPosition)
     , functionKeywordPosition(functionKeywordPosition)
 {
@@ -284,14 +324,13 @@ CstTypeSingletonString::CstTypeSingletonString(AstArray<char> sourceString, CstE
     , quoteStyle(quoteStyle)
     , blockDepth(blockDepth)
 {
-    LUAU_ASSERT(quoteStyle != CstExprConstantString::QuotedInterp);
+    LUAU_ASSERT(quoteStyle != CstExprConstantString::QuoteStyle::QuotedInterp);
 }
 
 CstTypeGroup::CstTypeGroup(Position closePosition)
     : CstNode(CstClassIndex())
     , closePosition(closePosition)
 {
-    LUAU_ASSERT(FFlag::LuauCstTypeGroup);
 }
 
 CstTypePackExplicit::CstTypePackExplicit()

@@ -6,6 +6,7 @@
 #include "dbus/session_bus.h"
 #include "notification/notification_manager.h"
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -78,16 +79,18 @@ KdeNotificationClient::KdeNotificationClient(SessionBus& bus, NotificationManage
     throw;
   }
 
-  m_manager.setActionInvokeCallback(
-      [this](uint32_t id, const std::string& actionKey, const std::string& /*activationToken*/) {
-        proxyInvokeAction(id, actionKey);
-      }
-  );
-  m_manager.setCloseCallback([this](uint32_t id, CloseReason /*reason*/) {
+  m_manager.setActionInvokeCallback([this](
+                                        uint32_t id, const std::string& actionKey,
+                                        const std::string& /*activationToken*/, const std::string& /*sender*/
+                                    ) { proxyInvokeAction(id, actionKey); });
+  m_manager.setCloseCallback([this](uint32_t id, CloseReason /*reason*/, const std::string& /*sender*/) {
     if (m_suppressPlasmaClose) {
       return;
     }
     proxyCloseNotification(id);
+  });
+  m_manager.setReplyCallback([this](uint32_t id, const std::string&, const std::string&, const std::string&) {
+    proxyInvokeAction(id, "inline-reply");
   });
 
   m_active = true;
@@ -96,6 +99,7 @@ KdeNotificationClient::KdeNotificationClient(SessionBus& bus, NotificationManage
 KdeNotificationClient::~KdeNotificationClient() {
   m_manager.setCloseCallback(nullptr);
   m_manager.setActionInvokeCallback(nullptr);
+  m_manager.setReplyCallback(nullptr);
   unregisterWatcher();
 
   if (m_inhibitCookie != 0 && m_plasmaProxy != nullptr) {

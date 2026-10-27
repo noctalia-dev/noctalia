@@ -98,7 +98,7 @@ void RadioButton::applyState() {
   }
 
   ColorSpec fill = colorSpecFromRole(ColorRole::Surface);
-  ColorSpec border = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   if (m_checked) {
     fill = colorSpecFromRole(ColorRole::Primary);
     border = colorSpecFromRole(ColorRole::Primary);

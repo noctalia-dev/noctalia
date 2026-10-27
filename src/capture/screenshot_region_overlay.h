@@ -42,6 +42,12 @@ namespace capture {
     void setFailureCallback(FailureCallback callback);
     void setConfirmKeybindLabels(std::string copyLabel, std::string saveLabel, std::string cancelLabel);
     void setFrozenScreenshots(std::vector<FrozenScreenshot> screenshots);
+    // KeyMod bitmask to hold to move/resize a selection; 0 = no modifier needed.
+    void setRegionModifier(std::uint32_t mask);
+    void setSelectionBorderWidth(float width);
+    void setDimOpacity(float opacity);
+    void setShowRegionHint(bool show);
+    void setShowRegionDimensions(bool show);
     [[nodiscard]] std::vector<FrozenScreenshot> takeFrozenScreenshots();
     void begin(
         bool freezeScreen, bool fullscreenPick = false, bool confirmRegion = false,
@@ -57,6 +63,8 @@ namespace capture {
     [[nodiscard]] bool isActive() const noexcept { return m_active; }
     [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
     [[nodiscard]] bool onKeyboardEvent(const KeyboardEvent& event);
+    // Seat modifier change; refreshes the gesture cursor without pointer motion.
+    void onModifiersChanged();
 
   private:
     struct Instance;
@@ -64,6 +72,9 @@ namespace capture {
     DragMode m_dragMode = DragMode::None;
     double m_moveOffsetX = 0.0;
     double m_moveOffsetY = 0.0;
+    // Edge-to-pointer grab offset at press, so modifier resize follows the pointer relatively.
+    double m_resizeBaseX = 0.0;
+    double m_resizeBaseY = 0.0;
     double m_cursorGlobalX = 0.0;
     double m_cursorGlobalY = 0.0;
 
@@ -73,6 +84,9 @@ namespace capture {
     void prepareFrame(Instance& instance, bool needsUpdate, bool needsLayout);
     void abortWithError(const std::string& message);
     void updateSelectionVisuals();
+    // Stores the shape on every instance and pushes it to the compositor right away.
+    void applyCursorShape(std::uint32_t shape);
+    [[nodiscard]] bool modifierHeld() const;
     void completeSelection();
     void confirmPendingSelection(ConfirmAction action = ConfirmAction::None);
     void completeFullscreenPick(wl_output* output);
@@ -88,12 +102,18 @@ namespace capture {
     std::string m_copyKeybindLabel;
     std::string m_saveKeybindLabel;
     std::string m_cancelKeybindLabel;
+    std::uint32_t m_regionModifierMask = 0;
+    float m_selectionBorderWidth = 2.0F;
+    float m_dimOpacity = 0.65F;
+    bool m_showRegionHint = true;
+    bool m_showRegionDimensions = true;
     bool m_active = false;
     bool m_freezeScreen = false;
     bool m_fullscreenPick = false;
     bool m_confirmRegion = false;
     bool m_confirming = false;
     bool m_dragging = false;
+    std::uint32_t m_dragButton = 0;
     double m_startGlobalX = 0.0;
     double m_startGlobalY = 0.0;
     double m_currentGlobalX = 0.0;

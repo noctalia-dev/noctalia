@@ -115,7 +115,13 @@ public:
   [[nodiscard]] bool hasExactWindowIdentity() const noexcept;
   [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
+  void activateToplevelForAppId(std::string_view appId);
   void activateToplevelInfo(const ToplevelInfo& window);
+  // Primary click on one window; multi-window cycling continues to use activation.
+  void activateOrMinimizeToplevelInfo(const ToplevelInfo& window);
+  [[nodiscard]] std::optional<WindowMinimizeState> windowMinimizeState(const ToplevelInfo& window) const;
+  [[nodiscard]] bool minimizeToplevelInfo(const ToplevelInfo& window);
+  [[nodiscard]] std::optional<bool> hasUnminimizedToplevels(wl_output* outputFilter) const;
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void closeToplevelInfo(const ToplevelInfo& window);
   void focusCompositorWindow(const std::string& windowId, bool warpPointer = false) const;
@@ -138,6 +144,15 @@ public:
   [[nodiscard]] zwlr_foreign_toplevel_handle_v1* toplevelHandleForCompositorWindowId(std::string_view windowId) const;
   [[nodiscard]] bool isCompositorWindowIdKnown(std::string_view windowId) const;
   [[nodiscard]] std::optional<std::string> focusedCompositorWindowId() const;
+  // Live ext handle for a compositor window id (Hyprland mapping, or the committed ext identifier
+  // on compositors that publish one), nullptr when unknown.
+  [[nodiscard]] ext_foreign_toplevel_handle_v1* extHandleForCompositorWindowId(std::string_view windowId) const;
+  // Focused window's ext-foreign-toplevel identifier. Separate from focusedCompositorWindowId(),
+  // whose values drive focus/close actions and the taskbar's active-window match.
+  [[nodiscard]] std::optional<std::string> focusedExtToplevelIdentifier() const;
+  // True when the focused window can be named exactly, so a failed lookup means the join is
+  // still pending rather than that the title fallback should be tried.
+  [[nodiscard]] bool hasExactExtToplevelIdentity() const noexcept;
 
   void setWorkspaceChangeCallback(ChangeCallback callback);
   void setOverviewChangeCallback(ChangeCallback callback);
@@ -183,10 +198,15 @@ public:
 
   [[nodiscard]] bool requestSessionExit() const;
   [[nodiscard]] bool setOutputPower(bool on) const;
+  void setOutputPowerOffPending(bool pending) noexcept { m_outputPowerOffPending = pending; }
+  [[nodiscard]] bool shouldSuppressLockTransition() const;
+  void setOutputPowerChangeCallback(ChangeCallback callback);
 
   [[nodiscard]] bool tracksOverviewState() const noexcept;
   [[nodiscard]] bool hasOverviewState() const noexcept;
   [[nodiscard]] bool isOverviewOpen() const noexcept;
+
+  [[nodiscard]] bool closeOverview() const;
 
   [[nodiscard]] compositors::niri::NiriRuntime& niriRuntime() noexcept;
   [[nodiscard]] const compositors::niri::NiriRuntime& niriRuntime() const noexcept;
@@ -213,6 +233,7 @@ private:
   [[nodiscard]] static bool sameWorkspaceModelSnapshot(
       const std::vector<WorkspaceModelSnapshot>& lhs, const std::vector<WorkspaceModelSnapshot>& rhs
   );
+  [[nodiscard]] bool extToplevelIsLive(const ext_foreign_toplevel_handle_v1* handle) const;
 
   WaylandConnection& m_wayland;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;
@@ -222,6 +243,7 @@ private:
   std::vector<std::unique_ptr<compositors::FocusedOutputBackend>> m_focusedOutputBackends;
   std::unique_ptr<compositors::OutputPowerBackend> m_outputPowerBackend;
   mutable std::optional<bool> m_lastRequestedOutputPowerState;
+  bool m_outputPowerOffPending = false;
   std::unique_ptr<KeyboardLayoutBackend> m_keyboardLayoutBackend;
   ChangeCallback m_workspaceChangeCallback;
   ChangeCallback m_overviewChangeCallback;

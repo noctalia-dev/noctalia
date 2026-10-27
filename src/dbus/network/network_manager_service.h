@@ -33,6 +33,9 @@ public:
   void setChangeCallback(ChangeCallback callback) override;
   void refresh() override;
 
+  // Follows the org.freedesktop.NetworkManager bus name: NetworkManager may start after the shell or
+  // restart mid-session. Nothing is sent to it while it is off the bus.
+  [[nodiscard]] bool available() const noexcept override { return m_nm != nullptr; }
   [[nodiscard]] const NetworkState& state() const noexcept override { return m_state; }
   [[nodiscard]] bool hasStateSnapshot() const noexcept override { return m_hasStateSnapshot; }
   [[nodiscard]] const std::vector<AccessPointInfo>& accessPoints() const noexcept override { return m_accessPoints; }
@@ -76,7 +79,6 @@ public:
 
   // Whether any saved connection matches the SSID (uses cached snapshot refreshed on every refresh()).
   [[nodiscard]] bool hasSavedConnection(const std::string& ssid) const override;
-  [[nodiscard]] bool supportsSecretAgent() const noexcept override { return true; }
 
 private:
   void refreshAccessPoints(std::function<void()> onComplete);
@@ -96,7 +98,8 @@ private:
       const std::optional<network_enterprise::EnterpriseCredentials>& credentials = std::nullopt
   );
   void watchPendingAccessPointActivation(
-      const std::string& ssid, const std::string& connectionPath, const std::string& activePath
+      const std::string& ssid, const std::string& devicePath, const std::string& connectionPath,
+      const std::string& activePath
   );
   void handlePendingAccessPointActivationState(const std::string& activePath, std::uint32_t state);
   void persistConnectionToDisk(const std::string& connectionPath, const std::string& ssid);
@@ -123,6 +126,10 @@ private:
   // toggles. Deactivates active (or stuck-activating) connections whose profile
   // path is in the set. Returns false only on an immediate dispatch error.
   bool deactivateConnectionsByProfilePaths(const std::set<std::string>& profilePaths, std::string_view kindTag);
+  // Subscribe to the running NetworkManager and read its state.
+  void attach();
+  // Drop every proxy, cached object path, and derived state of the instance that left.
+  void detach();
   void readStateAsync(std::function<void(NetworkState)> onComplete);
   [[nodiscard]] NetworkChangeOrigin consumeWirelessEnabledChangeOrigin(bool enabled);
   void beginScan(std::int64_t lastScanBaseline);
@@ -131,6 +138,7 @@ private:
   struct PendingAccessPointActivation;
 
   SystemBus& m_bus;
+  std::unique_ptr<sdbus::IProxy> m_busDaemon; // NameOwnerChanged watch for NetworkManager.
   std::unique_ptr<sdbus::IProxy> m_nm;
   std::unique_ptr<sdbus::IProxy> m_activeConnection;
   std::unique_ptr<sdbus::IProxy> m_activeDevice;
@@ -163,6 +171,7 @@ private:
   Timer m_scanTimeoutTimer;
   std::uint64_t m_scanGeneration = 0;
   std::optional<bool> m_pendingLocalWirelessEnabled;
+  std::vector<std::shared_ptr<WirelessEnabledCompletion>> m_pendingWirelessCompletions;
   bool m_hasStateSnapshot = false;
   ChangeCallback m_changeCallback;
 

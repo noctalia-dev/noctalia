@@ -25,37 +25,29 @@ tags         = ["demo"]  # optional, for catalog search
 dependencies = ["slurp"] # optional, external tools/packages users must install
 ```
 
-`id`, `name`, `version`, and `plugin_api` are required - a manifest without any of them is rejected. `version` must use
-exactly `MAJOR.MINOR.PATCH`, with non-negative decimal components and no leading zeros (except `0` itself). Prerelease
-and build suffixes are not accepted.
+`id`, `name`, `version`, and `plugin_api` are required - a manifest without any of them is rejected. `version` must use exactly `MAJOR.MINOR.PATCH`, with non-negative decimal components and no leading zeros (except `0` itself). Prerelease and build suffixes are not accepted.
 
-`plugin_api` is a positive integer and gates enable, the catalog badge, and update safety. API levels are cumulative:
-leave the value unchanged until the plugin adopts a capability introduced by a newer level. Noctalia currently
-supports plugin APIs <PluginApiRange />; see
-[Plugin API Versions](/noctalia/plugins/development/plugin-api/) for the capability introduced by each level.
+`plugin_api` is a positive integer and gates enable, the catalog badge, and update safety. API levels are cumulative: leave the value unchanged until the plugin adopts a capability introduced by a newer level. Noctalia currently supports plugin APIs <PluginApiRange />; see [Plugin API Versions](/noctalia/plugins/development/plugin-api/) for the capability introduced by each level.
 
-`license` defaults to `MIT` when omitted. `deprecated = true` marks the plugin as deprecated in plugin listings; it is a
-soft status marker, not a compatibility gate.
+`license` defaults to `MIT` when omitted. `deprecated = true` marks the plugin as deprecated in plugin listings; it is a soft status marker, not a compatibility gate.
 
-`dependencies` is optional metadata for external packages or tools the plugin expects the user to have installed. It is
-shown in plugin listings but does not block enabling the plugin.
+`dependencies` is optional metadata for external packages or tools the plugin expects the user to have installed. It is shown in plugin listings but does not block enabling the plugin.
 
 ## Entries
 
-A plugin ships one or more entries. Each declares an `id` (unique within the plugin), the `entry` `.luau` file, and an
-optional settings schema. The supported entry kinds:
+A plugin ships one or more entries. Each declares an `id` (unique within the plugin), the `entry` `.luau` file, and an optional settings schema. The supported entry kinds:
 
-| Table | Kind | Runs |
-|-------|------|------|
-| `[[widget]]` | Bar widget | Placed on a bar; ticks + handles clicks/IPC |
-| `[[shortcut]]` | Control-center tile | A toggle tile in the control center |
-| `[[launcher_provider]]` | Launcher provider | Answers launcher queries with results, behind a prefix |
-| `[[desktop_widget]]` | Desktop widget | A tile on the desktop; declares its UI as a `ui.*` tree |
-| `[[panel]]` | Panel | A pop-up surface; declares its UI as a `ui.*` tree, opened by id |
-| `[[service]]` | Headless service | Background loop, no UI - feeds the plugin's other entries |
+| Table                   | Kind                | Runs                                                                                         |
+| ----------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
+| `[[widget]]`            | Bar widget          | Placed on a bar; ticks + handles clicks/IPC                                                  |
+| `[[shortcut]]`          | Control-center tile | A toggle tile in the control center                                                          |
+| `[[launcher_provider]]` | Launcher provider   | Answers launcher queries with results, behind a prefix                                       |
+| `[[desktop_widget]]`    | Desktop widget      | A tile on the desktop; declares its UI as a `ui.*` tree                                      |
+| `[[panel]]`             | Panel               | A pop-up surface; declares its UI as a `ui.*` tree, opened by id                             |
+| `[[layer]]`             | Layer surface       | A plugin-owned layer-shell surface; declares its UI as a `ui.*` tree, shown and hidden by id |
+| `[[service]]`           | Headless service    | Background loop, no UI - feeds the plugin's other entries                                    |
 
-An entry is addressed `<author>/<plugin>:<entry-id>` - e.g. a bar widget is configured with
-`type = "me/hello:hello"`.
+An entry is addressed `<author>/<plugin>:<entry-id>` - e.g. a bar widget is configured with `type = "me/hello:hello"`.
 
 ```toml
 [[widget]]
@@ -75,11 +67,7 @@ entry = "ticker.luau"
 
 ### Widget gesture defaults
 
-A `[[widget]]` entry can declare what its bar widget does on click and scroll, in a `[widget.actions]`
-table <PluginApiBadge feature="widget-gesture-actions" />. These are defaults: they show up in the
-settings editor as the widget's own, and the user overrides any of them per instance with
-`[widget.<name>.actions]`. See [Widget Actions](/noctalia/bar/actions/) for the gesture keys and the action
-grammar.
+A `[[widget]]` entry can declare what its bar widget does on click and scroll, in a `[widget.actions]` table <PluginApiBadge feature="widget-gesture-actions" />. These are defaults: they show up in the settings editor as the widget's own, and the user overrides any of them per instance with `[widget.<name>.actions]`. See [Widget Actions](/noctalia/bar/actions/) for the gesture keys and the action grammar.
 
 ```toml
 [[widget]]
@@ -91,28 +79,64 @@ entry = "widget.luau"
   scroll_up = "volume-up"
 ```
 
-A binding takes precedence over the script: bind `right` and `onRightClick` stops firing. Gestures you
-do not declare, and the user does not bind, still reach your callbacks.
+A binding takes precedence over the script: bind `right` and `onRightClick` stops firing. Gestures you do not declare, and the user does not bind, still reach your callbacks.
 
-Middle click is worth knowing about: every widget gets a built-in `middle` binding that opens its
-settings, so `onMiddleClick` does not fire out of the box. Declaring `middle = "none"` frees the button
-for your script - though a declared action is visible in the settings editor where a Luau callback is
-not.
+Middle click is worth knowing about: every widget gets a built-in `middle` binding that opens its settings, so `onMiddleClick` does not fire out of the box. Declaring `middle = "none"` frees the button for your script - though a declared action is visible in the settings editor where a Luau callback is not.
+
+### Widget hover highlight
+
+By default the bar tints the whole widget under the pointer. A `[[widget]]` entry that draws its own hover per item (like the built-in workspaces widget) can turn the bar's tint off with `hover_highlight = false` <PluginApiBadge feature="widget-hover-highlight" />. Put the key on the entry itself, before any `[widget.*]` subtable such as `[widget.actions]`; after one, TOML reads it as part of that subtable.
+
+```toml
+[[widget]]
+id    = "hello"
+entry = "widget.luau"
+hover_highlight = false
+```
+
+This removes only the whole-widget tint; the widget still receives clicks and scrolls. `[bar.<name>] hover_highlight = false` still turns the tint off for every widget on that bar.
+
+### Layer entries
+
+A `[[layer]]` entry <PluginApiBadge feature="layer-entry" /> declares a plugin-owned layer-shell surface. A manifest with a `[[layer]]` entry and a lower `plugin_api` is rejected with `layer entry '<id>' requires plugin_api >= 36`. See [Layer surfaces](/noctalia/plugins/development/entries/#layer-surfaces) for how layers behave at runtime.
+
+```toml
+[[layer]]
+id = "saver"
+entry = "saver.luau"
+layer = "overlay"
+anchors = ["top", "bottom", "left", "right"]
+keyboard = "exclusive"
+```
+
+| Key              | Type                | Default         | Notes                                                                                                                                                                                                                                                 |
+| ---------------- | ------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `layer`          | string              | `"top"`         | `"background"`, `"bottom"`, `"top"`, or `"overlay"`                                                                                                                                                                                                   |
+| `anchors`        | array of strings    | `[]` (centered) | Any distinct subset of `"top"`, `"bottom"`, `"left"`, `"right"`                                                                                                                                                                                       |
+| `width`          | integer             | `0`             | Logical px, 0 to 65536. `0` stretches when anchored to both `left` and `right`, otherwise sizes to content                                                                                                                                            |
+| `height`         | integer             | `0`             | Same as `width`, for `top` and `bottom`                                                                                                                                                                                                               |
+| `margins`        | table               | all `0`         | Integer `top`, `right`, `bottom`, `left`; missing sides are `0`                                                                                                                                                                                       |
+| `exclusive_zone` | integer or `"auto"` | `0`             | Integer >= -1 with layer-shell semantics: `-1` ignores other surfaces' zones, `0` reserves none, `n` reserves `n` px. `"auto"` reserves the surface's extent perpendicular to its single anchored edge; corner or centered anchoring reserves nothing |
+| `keyboard`       | string              | `"none"`        | `"none"`, `"on_demand"`, or `"exclusive"`. When an `"on_demand"` layer gets focus is up to the compositor: some (umbriel) focus it when it appears, others only on click                                                                              |
+| `click_through`  | bool                | `false`         | `true` gives the surface an empty input region, so the pointer reaches what is below                                                                                                                                                                  |
+| `output`         | string              | `"all"`         | `"all"`, `"focused"` (picked when shown), or a connector name such as `"DP-1"`                                                                                                                                                                        |
+| `visible`        | bool                | `false`         | `true` shows the layer as soon as the plugin loads                                                                                                                                                                                                    |
+
+Invalid values fail with `layer entry '<id>': <message>`, for example `layer must be "background", "bottom", "top", or "overlay"` or `exclusive_zone must be "auto" or an integer >= -1`.
+
+The surface namespace is fixed to `noctalia-plugin:<author>/<plugin>:<entry>`, so compositor layer rules can match it; it is not configurable. Values changed at runtime with [`noctalia.layer.configure`](/noctalia/plugins/development/runtime-api/#layers) persist until the plugin reloads (a settings change or update), then return to the manifest values.
+
+Layers do not support entry-level settings (`[[layer.setting]]`); use plugin-level `[[setting]]` instead.
 
 ## Settings schema
 
-A setting becomes a typed control in the settings GUI and is read back via `noctalia.getConfig(key)`. Only declared keys
-resolve - reading an undeclared key logs a loud warning and returns `nil` (no silent fallbacks).
+A setting becomes a typed control in the settings GUI and is read back via `noctalia.getConfig(key)`. Only declared keys resolve - reading an undeclared key logs a loud warning and returns `nil` (no silent fallbacks).
 
 Settings come in two scopes:
 
-- **Plugin-level** - a `[[setting]]` block at the **manifest root**. One shared set for the whole plugin, edited under
-  **Settings → Plugins** (the gear on the plugin's row), and seeded into **every** entry - widget, shortcut, panel, and
-  service. Use this for configuration the service or panel needs.
-- **Widget entry settings** - a `[[<entry>.setting]]` block under a `[[widget]]`. These are edited with the bar widget's
-  own settings. Use this for widget presentation tweaks; they are not a second enabled plugin instance.
-- **Panel entry settings** - a `[[panel.setting]]` block under a `[[panel]]`. These also appear in **Settings → Plugins**
-  (the gear on the plugin row) and are read with `noctalia.getConfig(key)` in the panel script.
+- **Plugin-level** - a `[[setting]]` block at the **manifest root**. One shared set for the whole plugin, edited under **Settings → Plugins** (the gear on the plugin's row), and seeded into **every** entry - widget, shortcut, panel, and service. Use this for configuration the service or panel needs.
+- **Widget entry settings** - a `[[<entry>.setting]]` block under a `[[widget]]`. These are edited with the bar widget's own settings. Use this for widget presentation tweaks; they are not a second enabled plugin instance.
+- **Panel entry settings** - a `[[panel.setting]]` block under a `[[panel]]`. These also appear in **Settings → Plugins** (the gear on the plugin row) and are read with `noctalia.getConfig(key)` in the panel script.
 
 When both declare the same key, the widget entry value wins for that widget. Both scopes use the same field schema:
 
@@ -137,28 +161,24 @@ entry = "widget.luau"
   default = "Hello"
 ```
 
-The manifest only declares an entry's settings schema. Named widget instances, their configured values, and bar
-placement belong in the user's Noctalia configuration. See [Plugin widgets](/noctalia/bar/widgets/#plugin-widgets) for
-that configuration.
+The manifest only declares an entry's settings schema. Named widget instances, their configured values, and bar placement belong in the user's Noctalia configuration. See [Plugin widgets](/noctalia/bar/widgets/#plugin-widgets) for that configuration.
 
-| Field | Notes |
-|-------|-------|
-| `key` | required; the config key |
-| `type` | `string`, `string_list`, `string_map`, `bool`, `int`, `double`, `select`, `file`, `folder`, `glyph`, `color` |
-| `label_key` | required; translation key for the label shown in the settings GUI |
-| `description_key` | optional; translation key for the description |
-| `default` | seeded value (must match the type) |
-| `min` / `max` | for `int` / `double` |
-| `options` | for `select`: array of `{ value, label_key }`; both fields are required |
-| `extensions` | optional array of extensions for `file`, such as `[".toml", ".json"]`; empty allows any file |
-| `visible_when` | `{ key = "other_key", values = ["true"] }` - conditional visibility |
-| `advanced` | hide behind the "show advanced" toggle |
+| Field             | Notes                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `key`             | required; the config key                                                                                     |
+| `type`            | `string`, `string_list`, `string_map`, `bool`, `int`, `double`, `select`, `file`, `folder`, `glyph`, `color` |
+| `label_key`       | required; translation key for the label shown in the settings GUI                                            |
+| `description_key` | optional; translation key for the description                                                                |
+| `default`         | seeded value (must match the type)                                                                           |
+| `min` / `max`     | for `int` / `double`                                                                                         |
+| `options`         | for `select`: array of `{ value, label_key }`; both fields are required                                      |
+| `extensions`      | optional array of extensions for `file`, such as `[".toml", ".json"]`; empty allows any file                 |
+| `visible_when`    | `{ key = "other_key", values = ["true"] }` - conditional visibility                                          |
+| `advanced`        | hide behind the "show advanced" toggle                                                                       |
 
-`file` and `folder` store strings but render as a text input with a browse button in each settings editor. Use
-`extensions` to filter a `file` picker; users can still enter a path directly.
+`file` and `folder` store strings but render as a text input with a browse button in each settings editor. Use `extensions` to filter a `file` picker; users can still enter a path directly.
 
-`string_map` requires <PluginApiBadge feature="string-map-setting" />. It stores string keys associated with string values and is returned from
-`noctalia.getConfig()` as an associative Luau table. Its default is a TOML table:
+`string_map` requires <PluginApiBadge feature="string-map-setting" />. It stores string keys associated with string values and is returned from `noctalia.getConfig()` as an associative Luau table. Its default is a TOML table:
 
 ```toml
 plugin_api = 6
@@ -178,9 +198,7 @@ Configure a widget instance with a subtable:
 "DP-1" = "monitor"
 ```
 
-Setting labels and descriptions are always translation keys - literal `label` / `description` fields are rejected. The
-text lives in the same `translations/<lang>.json` files as script strings, so a plugin with settings needs at least a
-`translations/en.json`:
+Setting labels and descriptions are always translation keys - literal `label` / `description` fields are rejected. The text lives in the same `translations/<lang>.json` files as script strings, so a plugin with settings needs at least a `translations/en.json`:
 
 ```json
 {

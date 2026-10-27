@@ -34,8 +34,13 @@ public:
   void requestScrollToOffset(float offset);
   // One-shot jump to the bottom under the same layout-time semantics.
   void requestScrollToBottom();
+  // One-shot minimal scroll that brings a descendant of content() fully into the
+  // viewport, under the same layout-time semantics. Ignored once the node has
+  // left content(), so callers need not clear it when they drop the node.
+  void requestScrollIntoView(const Node* target);
   void scrollBy(float delta);
   void setScrollbarVisible(bool visible);
+  void setReserveScrollbarGutter(bool reserve);
   // Vertical clearance at both track ends (e.g. the host card's corner radius).
   void setScrollbarInsetV(float inset);
   // Layout scale of the surface hosting this view (1.0 = base logical px). Scales the
@@ -66,6 +71,7 @@ public:
   [[nodiscard]] float contentViewportHeight() const noexcept;
   [[nodiscard]] float viewportPaddingH() const noexcept { return m_viewportPaddingH; }
   [[nodiscard]] float viewportPaddingV() const noexcept { return m_viewportPaddingV; }
+  [[nodiscard]] bool reservesScrollbarGutter() const noexcept { return m_reserveScrollbarGutter; }
   // Width reserved for the vertical scrollbar plus its gap, at the current content scale.
   [[nodiscard]] float scrollbarGutter() const noexcept;
   [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
@@ -92,6 +98,8 @@ private:
   bool m_stickToBottom = false;
   bool m_pendingScrollToBottom = false;
   std::optional<float> m_pendingScrollOffset;
+  // May dangle by layout time; located under content() before it is dereferenced.
+  const Node* m_pendingScrollIntoView = nullptr;
   std::function<void(float)> m_onScrollChanged;
   ColorSpec m_backgroundFill = clearColorSpec();
   ColorSpec m_backgroundBorder = clearColorSpec();
@@ -117,6 +125,7 @@ private:
   float m_backgroundSoftness = 1.0F;
   bool m_scrollbarShown = false;
   bool m_showScrollbar = true;
+  bool m_reserveScrollbarGutter = false;
   bool m_dragging = false;
   ScrollOrientation m_orientation = ScrollOrientation::Vertical;
 };

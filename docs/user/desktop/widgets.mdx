@@ -7,8 +7,7 @@ sidebar:
 
 # Desktop Widgets
 
-Desktop widgets are configured through the normal Noctalia config stack. Declare layouts in `~/.config/noctalia/*.toml`;
-the interactive editor writes its layout overrides to `settings.toml`.
+Desktop widgets are configured through the normal Noctalia config stack. Declare layouts in `~/.config/noctalia/*.toml`; the interactive editor writes its layout overrides to `settings.toml`.
 
 - Declarative config: `[desktop_widgets]` in `~/.config/noctalia/*.toml`
 - GUI/editor overrides: `$NOCTALIA_STATE_HOME/noctalia/settings.toml`, `$XDG_STATE_HOME/noctalia/settings.toml`, or `~/.local/state/noctalia/settings.toml`
@@ -52,37 +51,31 @@ Widget previews are non-interactive in edit mode. Clicking anywhere within a wid
 
 ### Controls
 
-| Action | Effect |
-|--------|--------|
-| Drag widget body | Move (moves the whole multi-selection together) |
-| Drag empty desktop | Lasso-select widgets whose bounds intersect the rectangle |
-| `Ctrl` + click widget | Add/remove that widget from the selection |
-| `Ctrl` + lasso | Add intersecting widgets to the current selection |
-| Drag outer selection ring | Rotate (rotates and orbits the whole multi-selection) |
-| Drag corner handles | Resize (scales the whole multi-selection about the resize anchor) |
-| Drag toolbar handle | Reposition the editor toolbar on that output |
-| `G` | Toggle snap grid |
-| `Shift` + drag | Temporarily disable snapping |
-| `Delete` / `Backspace` | Remove selected widgets |
-| `Ctrl`+`C` / `Ctrl`+`V` | Copy / paste selection |
+| Action                                     | Effect                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------- |
+| Drag widget body                           | Move (moves the whole multi-selection together)                   |
+| Drag empty desktop                         | Lasso-select widgets whose bounds intersect the rectangle         |
+| `Ctrl` + click widget                      | Add/remove that widget from the selection                         |
+| `Ctrl` + lasso                             | Add intersecting widgets to the current selection                 |
+| Drag outer selection ring                  | Rotate (rotates and orbits the whole multi-selection)             |
+| Drag corner handles                        | Resize (scales the whole multi-selection about the resize anchor) |
+| Drag toolbar handle                        | Reposition the editor toolbar on that output                      |
+| `G`                                        | Toggle snap grid                                                  |
+| `Shift` + drag                             | Temporarily disable snapping                                      |
+| `Delete` / `Backspace`                     | Remove selected widgets                                           |
+| `Ctrl`+`C` / `Ctrl`+`V`                    | Copy / paste selection                                            |
 | Settings inspector → **Reset to Defaults** | Restore all settings for the selected widget to built-in defaults |
-| `Escape` / click `Done` | Exit edit mode |
+| `Escape` / click `Done`                    | Exit edit mode                                                    |
 
-When the snap grid is active, moving a widget snaps the nearest outer edge or center line to the grid, screen edges, and
-nearby widgets. Resizing keeps the opposite edge anchored and snaps the dragged edge to the same guides, with a horizontal
-bias for corner drags so matching widget widths is easier.
+When the snap grid is active, moving a widget snaps the nearest outer edge or center line to the grid, screen edges, and nearby widgets. Resizing keeps the opposite edge anchored and snaps the dragged edge to the same guides, with a horizontal bias for corner drags so matching widget widths is easier.
 
-Primary-colored center guides are always shown in edit mode. Dragging a widget snaps its center to the monitor center
-when nearby, even if the snap grid is hidden or temporarily disabled with `Shift`.
+Primary-colored center guides are always shown in edit mode. Dragging a widget snaps its center to the monitor center when nearby, even if the snap grid is hidden or temporarily disabled with `Shift`.
 
 ---
 
 ## Config Format
 
-Widget definitions are named tables under `[desktop_widgets.widget.<id>]`. This makes them friendly to split config
-files and deep-merge overrides. Edit mode writes the same schema into `settings.toml`; use Settings -> Export Config... -> Merged User Config to promote
-GUI-edited layouts back into declarative config.
-When `widget_order` is present, it is the authoritative widget list and order; unlisted widget tables are ignored.
+Widget definitions are named tables under `[desktop_widgets.widget.<id>]`. This makes them friendly to split config files and deep-merge overrides. Edit mode writes the same schema into `settings.toml`; use Settings -> Export Config... -> Merged User Config to promote GUI-edited layouts back into declarative config. When `widget_order` is present, it is the authoritative widget list and order; unlisted widget tables are ignored.
 
 ```toml
 [desktop_widgets]
@@ -110,18 +103,18 @@ format = "{:%H:%M}"
 
 ### Per-widget fields
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| Table key | string | (required) | Unique widget identifier (`clock_main` in `[desktop_widgets.widget.clock_main]`) |
-| `type` | string | (required) | Widget type (`clock`, `weather`, `media_player`, etc.) |
-| `output` | string | - | Monitor name (e.g. `"DP-1"`) |
-| `cx`, `cy` | float | - | Center position in logical pixels |
-| `box_width` | float | `0.0` | Widget box width in logical pixels; `0.0` auto-fits the content |
-| `box_height` | float | `0.0` | Widget box height in logical pixels; `0.0` auto-fits the content |
-| `rotation` | float | `0.0` | Rotation in radians |
-| `flip_x` | bool | `false` | Mirror the widget horizontally around its center |
-| `flip_y` | bool | `false` | Mirror the widget vertically around its center |
-| `enabled` | bool | `true` | Set to `false` to temporarily hide a widget without removing it |
+| Field        | Type   | Default    | Description                                                                                           |
+| ------------ | ------ | ---------- | ----------------------------------------------------------------------------------------------------- |
+| Table key    | string | (required) | Unique widget identifier (`clock_main` in `[desktop_widgets.widget.clock_main]`)                      |
+| `type`       | string | (required) | Widget type (`clock`, `weather`, `media_player`, etc.)                                                |
+| `output`     | string | -          | Exact connector name (e.g. `"DP-1"`) or a unique monitor description, make, model, or serial selector |
+| `cx`, `cy`   | float  | -          | Center position in logical pixels                                                                     |
+| `box_width`  | float  | `0.0`      | Widget box width in logical pixels; `0.0` auto-fits the content                                       |
+| `box_height` | float  | `0.0`      | Widget box height in logical pixels; `0.0` auto-fits the content                                      |
+| `rotation`   | float  | `0.0`      | Rotation in radians                                                                                   |
+| `flip_x`     | bool   | `false`    | Mirror the widget horizontally around its center                                                      |
+| `flip_y`     | bool   | `false`    | Mirror the widget vertically around its center                                                        |
+| `enabled`    | bool   | `true`     | Set to `false` to temporarily hide a widget without removing it                                       |
 
 ```toml
 [desktop_widgets.widget.clock_main]
@@ -129,17 +122,25 @@ type    = "clock"
 enabled = false   # hidden, but preserved
 ```
 
+### Monitor matching
+
+`output` uses the same monitor matcher as bar and dock overrides: an exact connector name, or a case-sensitive, whole-token substring of the monitor's description, make, model, or serial. For example, `output = "HP E273q"` follows that monitor when docking changes its connector name. Use a serial reported by your compositor to distinguish identical monitors. An exact connector name takes precedence over identity matches.
+
+Each widget targets one monitor. If an identity selector matches multiple connected monitors, the widget stays hidden and Noctalia logs a warning; make the selector more specific. If no monitor matches, its saved layout is retained until the monitor returns. Widgets with no `output` keep the existing first-available-monitor behavior.
+
+The editor preserves a description or serial selector when moving, resizing, or copying a widget on the same monitor. Moving or pasting it onto a different monitor assigns that monitor's connector name.
+
 ### Common settings
 
 All desktop widget types support an optional rounded background rectangle:
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `background` | bool | `true` (`false` for `fancy_audio_visualizer`) | Show a filled rounded rectangle behind the widget |
-| `background_color` | string | `"surface"` | Background fill color role; fixed hex colors are also supported |
-| `background_opacity` | float | `0.8` | Background fill opacity from `0.0` to `1.0` |
-| `background_radius` | float | `12.0` | Corner radius in logical pixels |
-| `background_padding` | float | `10.0` | Padding between content and background edge |
+| Setting              | Type   | Default                                       | Description                                                     |
+| -------------------- | ------ | --------------------------------------------- | --------------------------------------------------------------- |
+| `background`         | bool   | `true` (`false` for `fancy_audio_visualizer`) | Show a filled rounded rectangle behind the widget               |
+| `background_color`   | string | `"surface"`                                   | Background fill color role; fixed hex colors are also supported |
+| `background_opacity` | float  | `0.8`                                         | Background fill opacity from `0.0` to `1.0`                     |
+| `background_radius`  | float  | `12.0`                                        | Corner radius in logical pixels                                 |
+| `background_padding` | float  | `10.0`                                        | Padding between content and background edge                     |
 
 Prefer color role names so desktop widgets follow the active palette. Fixed hex colors (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) are supported when a non-palette color is intentional. Invalid role names or malformed hex colors are treated as config errors.
 
@@ -151,14 +152,13 @@ background_color = "surface"
 
 The `clock`, `weather`, `media_player`, `label`, and `sysmon` widget types additionally support text styling:
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `color` | string | *(type default)* | Text/glyph color role; fixed hex colors are also supported |
-| `font_family` | string | `""` | Typeface for this widget; empty inherits the global shell font |
-| `shadow` | bool | `true` | Draw a drop shadow behind text and glyphs for readability on wallpapers |
+| Setting       | Type   | Default          | Description                                                             |
+| ------------- | ------ | ---------------- | ----------------------------------------------------------------------- |
+| `color`       | string | *(type default)* | Text/glyph color role; fixed hex colors are also supported              |
+| `font_family` | string | `""`             | Typeface for this widget; empty inherits the global shell font          |
+| `shadow`      | bool   | `true`           | Draw a drop shadow behind text and glyphs for readability on wallpapers |
 
-The `button` and `volume` types also accept `font_family`; their remaining visual settings are listed in their
-type-specific sections below.
+The `button` and `volume` types also accept `font_family`; their remaining visual settings are listed in their type-specific sections below.
 
 ```toml
 [desktop_widgets.widget.clock_main.settings]
@@ -187,22 +187,23 @@ color  = "on_surface"
 shadow = true
 center_text = false
 circle = true
+show_seconds = true
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `clock_style` | string | `"digital"` | `"digital"` renders a formatted text clock; `"analog"` renders a circular clock with hour, minute, and second hands. |
-| `format` | string | `"{:%H:%M}"` | Digital clock format string. Ignored when `clock_style = "analog"`. Supports the same syntax and tokens as the bar clock `format`; see [Date format tokens](/noctalia/configuration/date-format-tokens/). |
-| `center_text` | bool | `false` | Digital only. Center-aligns the formatted time inside the clock box. When `false`, the clock keeps the leading edge stable as digits change width. |
-| `circle` | bool | `true` | Analog only. Shows the outer ring and minute tick marks around the dial. When disabled, only the hands are drawn. |
-| `timezone` | string | `""` | Optional timezone identifier (e.g. `Europe/Berlin`, `UTC`) to use for this clock. If empty, uses the system's local time. |
+| Setting        | Type   | Default      | Description                                                                                                                                                                                               |
+| -------------- | ------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clock_style`  | string | `"digital"`  | `"digital"` renders a formatted text clock; `"analog"` renders a circular clock with hands.                                                                                                               |
+| `format`       | string | `"{:%H:%M}"` | Digital clock format string. Ignored when `clock_style = "analog"`. Supports the same syntax and tokens as the bar clock `format`; see [Date format tokens](/noctalia/configuration/date-format-tokens/). |
+| `center_text`  | bool   | `false`      | Digital only. Center-aligns the formatted time inside the clock box. When `false`, the clock keeps the leading edge stable as digits change width.                                                        |
+| `circle`       | bool   | `true`       | Analog only. Shows the outer ring and minute tick marks around the dial. When disabled, only the hands are drawn.                                                                                         |
+| `show_seconds` | bool   | `true`       | Analog only. Shows the second hand. Disable it for a clock that updates once per minute.                                                                                                                  |
+| `timezone`     | string | `""`         | Optional timezone identifier (e.g. `Europe/Berlin`, `UTC`) to use for this clock. If empty, uses the system's local time.                                                                                 |
 
 ---
 
 ### calendar
 
-The calendar widget uses the configured [calendar service](/noctalia/services/calendar/) accounts. It shows event indicators
-in the month grid and can show the selected day's events beside the grid.
+The calendar widget uses the configured [calendar service](/noctalia/services/calendar/) accounts. It shows event indicators in the month grid and can show the selected day's events beside the grid.
 
 ```toml
 [desktop_widgets.widget.calendar_main]
@@ -217,17 +218,15 @@ show_week_numbers = false
 font_family       = ""
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `show_events` | bool | `true` | Show the selected day's event list beside the month grid |
-| `show_week_numbers` | bool | `false` | Show ISO week numbers beside the month grid |
-| `font_family` | string | `""` | Typeface for calendar text; empty inherits the global shell font |
+| Setting             | Type   | Default | Description                                                      |
+| ------------------- | ------ | ------- | ---------------------------------------------------------------- |
+| `show_events`       | bool   | `true`  | Show the selected day's event list beside the month grid         |
+| `show_week_numbers` | bool   | `false` | Show ISO week numbers beside the month grid                      |
+| `font_family`       | string | `""`    | Typeface for calendar text; empty inherits the global shell font |
 
-The event list uses the shared `event_date_format` and `event_time_format` from [`[calendar]`](/noctalia/services/calendar/),
-so the desktop widget and control center use the same event formatting.
+The event list uses the shared `event_date_format` and `event_time_format` from [`[calendar]`](/noctalia/services/calendar/), so the desktop widget and control center use the same event formatting. It also follows [`hide_past_events` and `past_events_threshold_minutes`](/noctalia/control-center/#calendar) from `[control_center.calendar]` when deciding which of today's finished events to list.
 
-Use the arrow buttons or vertical scrolling to change months. Select a day to update the event list; selecting a day
-from the preceding or following month also navigates to that month. Select the date or month heading to return to today.
+Use the arrow buttons or vertical scrolling to change months. Select a day to update the event list; selecting a day from the preceding or following month also navigates to that month. Select the date or month heading to return to today.
 
 Right-click a day to launch the application registered for the `text/calendar` MIME type.
 
@@ -235,7 +234,7 @@ Right-click a day to launch the application registered for the `text/calendar` M
 
 ### audio_visualizer
 
-Desktop audio visualizers fill their widget box: the spectrum spans the full box width and the bars use the full box height. `box_width` and `box_height` set the box size - resize the box to change the visualizer's shape; leave both `0.0` to start from the default footprint. They also accept optional `mirrored`, `centered`, `show_when_idle`, `color_1`, and `color_2` settings; both colors default to `primary`.
+Desktop audio visualizers fill their widget box: the spectrum spans the full box width and the bars use the full box height. `box_width` and `box_height` set the box size - resize the box to change the visualizer's shape; leave both `0.0` to start from the default footprint. They also accept optional `mirrored`, `centered`, `show_wave`, `show_when_idle`, `color_1`, and `color_2` settings; both colors default to `primary`.
 
 ```toml
 [desktop_widgets.widget.audio_main]
@@ -256,14 +255,15 @@ color_1      = "primary"
 color_2      = "secondary"
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `bands` | int | `32` | Number of frequency bands |
-| `mirrored` | bool | `true` | Mirror the spectrum horizontally |
-| `centered` | bool | `true` | Center bars vertically instead of aligning them to the bottom edge |
-| `show_when_idle` | bool | `true` | Keep the widget visible even when no media is playing |
-| `color_1` | string | `"primary"` | First gradient color role; fixed hex colors are also supported |
-| `color_2` | string | `"primary"` | Second gradient color role; fixed hex colors are also supported |
+| Setting          | Type   | Default     | Description                                                                                                 |
+| ---------------- | ------ | ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `bands`          | int    | `32`        | Number of frequency bands; ignored when `show_wave` is enabled                                              |
+| `mirrored`       | bool   | `true`      | Mirror the spectrum horizontally                                                                            |
+| `centered`       | bool   | `true`      | Center bars vertically instead of aligning them to the bottom edge; no effect when `show_wave` is enabled   |
+| `show_wave`      | bool   | `false`     | Render the spectrum as a smooth filled wave instead of discrete bars, with a smaller echo wave in `color_2` |
+| `show_when_idle` | bool   | `true`      | Keep the widget visible even when no media is playing                                                       |
+| `color_1`        | string | `"primary"` | First gradient color role; fixed hex colors are also supported                                              |
+| `color_2`        | string | `"primary"` | Second gradient color role; fixed hex colors are also supported                                             |
 
 ---
 
@@ -294,19 +294,19 @@ primary_color      = "primary"
 secondary_color    = "secondary"
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
+| Setting              | Type   | Default        | Description                                                                      |
+| -------------------- | ------ | -------------- | -------------------------------------------------------------------------------- |
 | `visualization_mode` | string | `"bars_rings"` | One of `"bars"`, `"wave"`, `"rings"`, `"bars_rings"`, `"wave_rings"`, or `"all"` |
-| `sensitivity` | float | `1.5` | Multiplier for bar and wave response |
-| `rotation_speed` | float | `0.5` | Rotation speed for animated elements |
-| `bar_width` | float | `0.6` | Width of radial bars |
-| `wave_thickness` | float | `1.0` | Thickness of the wave fill and edge |
-| `ring_opacity` | float | `0.8` | Opacity multiplier for ring elements |
-| `inner_diameter` | float | `0.7` | Diameter of the inner circular area |
-| `bloom_intensity` | float | `0.5` | Glow intensity around active bars, waves, and rings |
-| `fade_when_idle` | bool | `true` | Fade the widget out when no audio is active |
-| `primary_color` | string | `"primary"` | Primary color role; fixed hex colors are also supported |
-| `secondary_color` | string | `"secondary"` | Secondary color role; fixed hex colors are also supported |
+| `sensitivity`        | float  | `1.5`          | Multiplier for bar and wave response                                             |
+| `rotation_speed`     | float  | `0.5`          | Rotation speed for animated elements                                             |
+| `bar_width`          | float  | `0.6`          | Width of radial bars                                                             |
+| `wave_thickness`     | float  | `1.0`          | Thickness of the wave fill and edge                                              |
+| `ring_opacity`       | float  | `0.8`          | Opacity multiplier for ring elements                                             |
+| `inner_diameter`     | float  | `0.7`          | Diameter of the inner circular area                                              |
+| `bloom_intensity`    | float  | `0.5`          | Glow intensity around active bars, waves, and rings                              |
+| `fade_when_idle`     | bool   | `true`         | Fade the widget out when no audio is active                                      |
+| `primary_color`      | string | `"primary"`    | Primary color role; fixed hex colors are also supported                          |
+| `secondary_color`    | string | `"secondary"`  | Secondary color role; fixed hex colors are also supported                        |
 
 ---
 
@@ -331,10 +331,10 @@ show_forecast  = false
 forecast_days  = 3
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `show_forecast` | bool | `false` | Show upcoming daily forecast rows below the current conditions |
-| `forecast_days` | int | `3` | Number of forecast days to show (1–6; only applies when `show_forecast` is enabled) |
+| Setting         | Type | Default | Description                                                                         |
+| --------------- | ---- | ------- | ----------------------------------------------------------------------------------- |
+| `show_forecast` | bool | `false` | Show upcoming daily forecast rows below the current conditions                      |
+| `forecast_days` | int  | `3`     | Number of forecast days to show (1–6; only applies when `show_forecast` is enabled) |
 
 ---
 
@@ -357,12 +357,18 @@ layout = "horizontal"
 color  = "on_surface"
 shadow = true
 hide_when_no_media = true
+album_art_background = false
+album_art_blur = 24
+audio_visualizer = false
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `layout` | string | `"horizontal"` | `"horizontal"` (cover on left) or `"vertical"` (cover on top) |
-| `hide_when_no_media` | bool | `false` | Hide the widget when no MPRIS player is active |
+| Setting                | Type   | Default        | Description                                                                                                                                                               |
+| ---------------------- | ------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `layout`               | string | `"horizontal"` | Preferred auto-fit layout: `"horizontal"` (cover on left) or `"vertical"` (cover on top). Explicitly sized boxes adapt between the two layouts to fit their aspect ratio. |
+| `album_art_background` | bool   | `false`        | Fill the player card with a blurred, palette-scrimmed copy of the current album art                                                                                       |
+| `album_art_blur`       | int    | `24`           | Album-art background blur radius from `0` (sharp) to `96` pixels                                                                                                          |
+| `audio_visualizer`     | bool   | `false`        | Show a subtle PipeWire spectrum behind the metadata and playback controls                                                                                                 |
+| `hide_when_no_media`   | bool   | `false`        | Hide the widget when no MPRIS player is active                                                                                                                            |
 
 ---
 
@@ -389,15 +395,15 @@ hover_background = "hover"
 background       = true
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `glyph` | string | `""` | Tabler glyph name shown before the label; omit for text-only |
-| `label` | string | `""` | Button text; omit for glyph-only |
-| `command` | string | `""` | Shell command run on left click |
-| `background` | bool | `true` | Show the button's own fill and border; when `false`, only the label and glyph are drawn |
-| `variant` | string | `"default"` | Button style: `default`, `primary`, `secondary`, `outline`, `ghost`, `destructive` |
-| `color` | string | *(variant default)* | Label and glyph color role or fixed hex; omit to use the variant's default foreground |
-| `hover_background` | string | `"hover"` | Background color role on hover; fixed hex colors are also supported |
+| Setting            | Type   | Default             | Description                                                                             |
+| ------------------ | ------ | ------------------- | --------------------------------------------------------------------------------------- |
+| `glyph`            | string | `""`                | Tabler glyph name shown before the label; omit for text-only                            |
+| `label`            | string | `""`                | Button text; omit for glyph-only                                                        |
+| `command`          | string | `""`                | Shell command run on left click                                                         |
+| `background`       | bool   | `true`              | Show the button's own fill and border; when `false`, only the label and glyph are drawn |
+| `variant`          | string | `"default"`         | Button style: `default`, `primary`, `secondary`, `outline`, `ghost`, `destructive`      |
+| `color`            | string | *(variant default)* | Label and glyph color role or fixed hex; omit to use the variant's default foreground   |
+| `hover_background` | string | `"hover"`           | Background color role on hover; fixed hex colors are also supported                     |
 
 ---
 
@@ -420,10 +426,10 @@ image_path = "/path/to/image.png"
 opacity    = 1.0
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `image_path` | string | - | Absolute path to the image file (PNG, JPEG, WebP, SVG, or GIF) |
-| `opacity` | float | `1.0` | Sticker image opacity from `0.0` to `1.0` |
+| Setting      | Type   | Default | Description                                                    |
+| ------------ | ------ | ------- | -------------------------------------------------------------- |
+| `image_path` | string | -       | Absolute path to the image file (PNG, JPEG, WebP, SVG, or GIF) |
+| `opacity`    | float  | `1.0`   | Sticker image opacity from `0.0` to `1.0`                      |
 
 ---
 
@@ -450,13 +456,13 @@ shadow      = true
 background  = true
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `title` | string | `"Title"` | Primary heading text |
-| `description` | string | `""` | Body text under the title (omitted from layout when empty) |
-| `color` | string | `"on_surface"` | Text color role for both lines; fixed hex colors are also supported |
-| `opacity` | float | `1.0` | Text opacity from `0.0` to `1.0` |
-| `shadow` | bool | `true` | Drop shadow on the text |
+| Setting       | Type   | Default        | Description                                                         |
+| ------------- | ------ | -------------- | ------------------------------------------------------------------- |
+| `title`       | string | `"Title"`      | Primary heading text                                                |
+| `description` | string | `""`           | Body text under the title (omitted from layout when empty)          |
+| `color`       | string | `"on_surface"` | Text color role for both lines; fixed hex colors are also supported |
+| `opacity`     | float  | `1.0`          | Text opacity from `0.0` to `1.0`                                    |
+| `shadow`      | bool   | `true`         | Drop shadow on the text                                             |
 
 ---
 
@@ -485,15 +491,15 @@ shadow       = true
 background   = true
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `device` | string | `"output"` | `"output"` for the default sink, `"input"` for the default source (mic). Same key as the bar volume widget. |
-| `glyph` | string | `""` | Optional glyph override. Empty uses the same dynamic volume/mic glyphs as the bar. |
-| `fill_color` | string | `"primary"` | Accent color for the percentage and the filled portion of the glyph |
-| `track_color` | string | `"on_surface_variant"` | Dim base glyph color (shown at reduced opacity) |
-| `show_device` | bool | `true` | Show the default sink/source name under the status line |
-| `scroll_step` | int | `5` | Percent change per scroll step |
-| `shadow` | bool | `true` | Drop shadow on text and the track glyph |
+| Setting       | Type   | Default                | Description                                                                                                 |
+| ------------- | ------ | ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `device`      | string | `"output"`             | `"output"` for the default sink, `"input"` for the default source (mic). Same key as the bar volume widget. |
+| `glyph`       | string | `""`                   | Optional glyph override. Empty uses the same dynamic volume/mic glyphs as the bar.                          |
+| `fill_color`  | string | `"primary"`            | Accent color for the percentage and the filled portion of the glyph                                         |
+| `track_color` | string | `"on_surface_variant"` | Dim base glyph color (shown at reduced opacity)                                                             |
+| `show_device` | bool   | `true`                 | Show the default sink/source name under the status line                                                     |
+| `scroll_step` | int    | `5`                    | Percent change per scroll step                                                                              |
+| `shadow`      | bool   | `true`                 | Drop shadow on text and the track glyph                                                                     |
 
 ---
 
@@ -529,19 +535,20 @@ background     = true
 # label_min_width = 0
 ```
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `display` | string | `"graph"` | `"graph"` shows a scrolling history chart; `"gauge"` shows a compact pill gauge like the bar sysmon widget |
-| `stat` | string | `"cpu_usage"` | Primary stat. See [Available stats](/noctalia/services/system-monitor/#available-stats) |
-| `stat2` | string | - | Graph mode only. Optional secondary stat (same values as `stat`). Omit for single curve. |
-| `gauge_layout` | string | `"horizontal"` | Gauge mode only. `"horizontal"` lays out icon, vertical pill gauge, and value in a row; `"vertical"` stacks icon, horizontal pill gauge, and value |
-| `interface` | string | `""` | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across all non-loopback interfaces |
-| `network_speed_unit` | string | `"auto"` | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, kB/s, MB/s, GB/s), `"kb"` (always kB/s), or `"mb"` (always MB/s) |
-| `network_speed_compact` | bool | `false` | Use short unit suffixes such as `1.2M` instead of `1.2 MB/s` for `net_rx`/`net_tx` |
-| `color` | string | `"primary"` | Primary color role (graph line or gauge fill); fixed hex colors are also supported |
-| `color2` | string | `"secondary"` | Graph mode only. Secondary line color role when `stat2` is set |
-| `highlight_color` | string | `"error"` | Gauge mode only. Color role used when the stat crosses activity/critical thresholds from `[system.monitor]` |
-| `show_label` | bool | `true` | Show the current value as text |
-| `label_min_width` | int | `0` | Gauge mode only. Minimum width for the value label in logical pixels (`0` = auto) |
+| Setting                        | Type   | Default        | Description                                                                                                                                        |
+| ------------------------------ | ------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `display`                      | string | `"graph"`      | `"graph"` shows a scrolling history chart; `"gauge"` shows a compact pill gauge like the bar sysmon widget                                         |
+| `stat`                         | string | `"cpu_usage"`  | Primary stat. See [Available stats](/noctalia/services/system-monitor/#available-stats)                                                            |
+| `stat2`                        | string | -              | Graph mode only. Optional secondary stat (same values as `stat`). Omit for single curve.                                                           |
+| `gauge_layout`                 | string | `"horizontal"` | Gauge mode only. `"horizontal"` lays out icon, vertical pill gauge, and value in a row; `"vertical"` stacks icon, horizontal pill gauge, and value |
+| `interface`                    | string | `""`           | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across all non-loopback interfaces                                        |
+| `network_speed_unit`           | string | `"auto"`       | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, kB/s, MB/s, GB/s), `"kb"` (always kB/s), or `"mb"` (always MB/s)                         |
+| `network_speed_compact`        | bool   | `false`        | Use short unit suffixes such as `1.2M` instead of `1.2 MB/s` for `net_rx`/`net_tx`                                                                 |
+| `network_speed_decimal_places` | int    | `1`            | Number of decimal places for compact `net_rx`/`net_tx` values, from `0` to `3`                                                                     |
+| `color`                        | string | `"primary"`    | Primary color role (graph line or gauge fill); fixed hex colors are also supported                                                                 |
+| `color2`                       | string | `"secondary"`  | Graph mode only. Secondary line color role when `stat2` is set                                                                                     |
+| `highlight_color`              | string | `"error"`      | Gauge mode only. Color role used when the stat crosses activity/critical thresholds from `[system.monitor]`                                        |
+| `show_label`                   | bool   | `true`         | Show the current value as text                                                                                                                     |
+| `label_min_width`              | int    | `0`            | Gauge mode only. Minimum width for the value label in logical pixels (`0` = auto)                                                                  |
 
 The stats a `sysmon` widget can show, what each one displays, and where the values come from are listed under [Available stats](/noctalia/services/system-monitor/#available-stats). Desktop widgets support CPU frequency and every other stat except `ram_used` and the four disk stats.

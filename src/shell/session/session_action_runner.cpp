@@ -11,10 +11,12 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -89,6 +91,13 @@ namespace {
     static const std::vector<std::vector<std::string>> variants = {
         {"systemctl", "reboot"}, {"loginctl", "reboot"}, {"reboot"},         {"/sbin/reboot"},
         {"/usr/sbin/reboot"},    {"pkexec", "reboot"},   {"run0", "reboot"}, {"sudo", "-n", "reboot"},
+    };
+    return variants;
+  }
+
+  [[nodiscard]] const std::vector<std::vector<std::string>>& rebootUefiCommandVariants() {
+    static const std::vector<std::vector<std::string>> variants = {
+        {"systemctl", "reboot", "--firmware-setup"},
     };
     return variants;
   }
@@ -185,6 +194,12 @@ namespace {
     return runResolvedPowerCommand(action, variants, cacheIdx, mode);
   }
 
+  // `systemctl reboot --firmware-setup` needs systemd and a UEFI boot.
+  [[nodiscard]] bool rebootUefiSupported() {
+    std::error_code ec;
+    return std::filesystem::is_directory("/sys/firmware/efi", ec) && process::commandExists("systemctl");
+  }
+
   [[nodiscard]] bool requestLock(LockScreen& lockScreen) {
     logActionContext("lock");
     if (!lockScreen.lock()) {
@@ -233,6 +248,7 @@ void SessionActionRunner::setPowerConfig(const ShellSessionConfig::ShellSessionP
   m_shutdownCommandOverride = power.shutdown;
   m_cachedSuspendAutoStartIdx.reset();
   m_cachedRebootAutoStartIdx.reset();
+  m_cachedRebootUefiAutoStartIdx.reset();
   m_cachedShutdownAutoStartIdx.reset();
 }
 
@@ -265,6 +281,15 @@ void SessionActionRunner::invoke(const SessionPanelActionConfig& cfg) const {
     runPowerAction(m_hooks.onReboot, [this]() { return requestRebootDetached(); }, "reboot");
     return;
   }
+  if (cfg.action == "reboot_uefi") {
+    // Check before the rebooting hook runs so an unsupported system doesn't fire it for nothing.
+    if (!rebootUefiSupported()) {
+      kLog.error("reboot_uefi: requires systemd and a UEFI boot");
+      return;
+    }
+    runPowerAction(m_hooks.onReboot, [this]() { return requestRebootUefiDetached(); }, "reboot_uefi");
+    return;
+  }
   if (cfg.action == "shutdown") {
     runPowerAction(m_hooks.onShutdown, [this]() { return requestShutdownDetached(); }, "shutdown");
     return;
@@ -281,7 +306,7 @@ std::function<bool()> SessionActionRunner::hookFor(std::string_view action) cons
   if (action == "logout") {
     return m_hooks.onLogout;
   }
-  if (action == "reboot") {
+  if (action == "reboot" || action == "reboot_uefi") {
     return m_hooks.onReboot;
   }
   if (action == "shutdown") {
@@ -316,6 +341,15 @@ bool SessionActionRunner::requestRebootDetached() const {
   );
 }
 
+bool SessionActionRunner::requestRebootUefiDetached() const {
+  logActionContext("reboot_uefi");
+  std::scoped_lock lock(m_powerMutex);
+  return runPowerActionResolved(
+      "reboot_uefi", std::nullopt, rebootUefiCommandVariants(), m_cachedRebootUefiAutoStartIdx,
+      PowerLaunchMode::Detached
+  );
+}
+
 bool SessionActionRunner::requestShutdownDetached() const {
   logActionContext("shutdown");
   std::scoped_lock lock(m_powerMutex);
@@ -327,6 +361,7 @@ bool SessionActionRunner::requestShutdownDetached() const {
 
 bool SessionActionRunner::lockThenSuspendDetached() const {
   m_lockScreen.runAfterSessionLocked([this]() { (void)requestSuspendDetached(); });
+  m_lockScreen.prepareForSleep();
   return true;
 }
 

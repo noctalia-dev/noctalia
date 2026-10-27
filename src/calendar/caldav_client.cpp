@@ -11,6 +11,8 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include <mutex>
+#include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 
@@ -45,6 +47,27 @@ namespace calendar {
           + e
           + "\"/></C:comp-filter></C:comp-filter></C:filter>"
             "</C:calendar-query>";
+    }
+
+    // First value of an iCalendar property (e.g. "UID", "SUMMARY") of the first VEVENT, for log messages.
+    // Searching from BEGIN:VEVENT skips the DTSTART and RRULE lines of a preceding VTIMEZONE.
+    std::string icsProperty(const std::string& ics, std::string_view name) {
+      const std::size_t eventStart = ics.find("BEGIN:VEVENT");
+      std::size_t pos = eventStart == std::string::npos ? 0 : eventStart;
+      while ((pos = ics.find(name, pos)) != std::string::npos) {
+        const bool lineStart = pos == 0 || ics[pos - 1] == '\n';
+        const std::size_t after = pos + name.size();
+        if (lineStart && after < ics.size() && (ics[after] == ':' || ics[after] == ';')) {
+          const std::size_t colon = ics.find(':', after);
+          const std::size_t eol = ics.find_first_of("\r\n", colon);
+          if (colon == std::string::npos) {
+            return {};
+          }
+          return ics.substr(colon + 1, eol == std::string::npos ? std::string::npos : eol - colon - 1);
+        }
+        pos = after;
+      }
+      return {};
     }
 
     // Collect the text of every element whose local name is "calendar-data".
@@ -141,9 +164,28 @@ namespace calendar {
       ICalParseControl control{.stopToken = stopToken};
 
       std::vector<CalendarEvent> events;
+      std::size_t skipped = 0;
       for (const std::string& ics : calendarDataBlocks) {
         ICalParseResult result = parseICalEvents(ics, request.start, request.end, control);
+        if (result.status == ICalParseStatus::InvalidCalendar) {
+          // One unusable resource must not hide the whole collection: skip it and say why.
+          ++skipped;
+          const std::string uid = icsProperty(ics, "UID");
+          kLog.warn("caldav calendar '{}': skipping invalid resource uid={}", request.calendarName, uid);
+          kLog.debug(
+              "caldav calendar '{}': skipped resource uid={} summary='{}' dtstart={} rrule={} status={} ({} bytes)",
+              request.calendarName, uid, icsProperty(ics, "SUMMARY"), icsProperty(ics, "DTSTART"),
+              icsProperty(ics, "RRULE"), icsProperty(ics, "STATUS"), ics.size()
+          );
+          continue;
+        }
         if (result.status != ICalParseStatus::Complete) {
+          if (result.status == ICalParseStatus::WorkBudgetExceeded) {
+            kLog.warn(
+                "caldav calendar '{}': recurrence work budget exceeded at event uid={}", request.calendarName,
+                icsProperty(ics, "UID")
+            );
+          }
           return {false, {}};
         }
         for (CalendarEvent& event : result.events) {
@@ -154,6 +196,19 @@ namespace calendar {
           events.push_back(std::move(event));
         }
       }
+      if (!calendarDataBlocks.empty() && skipped == calendarDataBlocks.size()) {
+        // Nothing usable at all: report a failed refresh instead of an empty calendar, matching the
+        // InvalidCalendar contract of parseICalEvents().
+        kLog.warn(
+            "caldav calendar '{}': all {} resource(s) were invalid; reporting the calendar as failed",
+            request.calendarName, calendarDataBlocks.size()
+        );
+        return {false, {}};
+      }
+      kLog.debug(
+          "caldav calendar '{}': {} resource(s), {} event(s), {} skipped", request.calendarName,
+          calendarDataBlocks.size(), events.size(), skipped
+      );
       return {true, std::move(events)};
     }
 
@@ -212,6 +267,7 @@ namespace calendar {
     req.allowRedirectAuth = allowRedirectAuth;
     req.basicUsername = account.username;
     req.basicPassword = secretString(account.password);
+    req.tlsClientCert = account.tls;
     req.headers = {
         "Depth: 1",
         "Content-Type: application/xml; charset=utf-8",
@@ -226,7 +282,7 @@ namespace calendar {
         return;
       }
       if (!resp.transportOk || (resp.status != 207 && resp.status != 200)) {
-        kLog.warn("caldav REPORT failed http={}", resp.status);
+        kLog.warn("caldav REPORT for calendar '{}' failed http={}", calendarName, resp.status);
         state->deliver(std::move(cb), false, {});
         return;
       }

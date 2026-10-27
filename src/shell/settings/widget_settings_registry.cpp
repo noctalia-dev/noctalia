@@ -1,5 +1,6 @@
 #include "shell/settings/widget_settings_registry.h"
 
+#include "config/schema/ranges.h"
 #include "i18n/i18n.h"
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_panel_shell.h"
@@ -642,6 +643,10 @@ namespace settings {
     enabled.visibleInInspector = false;
     auto anchor = withGroup(boolSpec("anchor", false, true), "presentation");
     auto interactive = withGroup(boolSpec("interactive", true), "presentation");
+    // Non-interactive widgets never show tooltips.
+    auto showTooltip = withGroup(boolSpec("show_tooltip", true), "presentation");
+    showTooltip.schema.inheritsFromBar = true;
+    showTooltip.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
     auto scale = withGroup(doubleSpec("scale", 1.0, 0.2, 2.5, 0.05), "presentation");
     auto fontScale = withGroup(doubleSpec("font_scale", 1.0, 0.2, 2.5, 0.01), "presentation");
     auto widgetColor = withGroup(colorSpec("color", {}, true), "presentation");
@@ -670,11 +675,22 @@ namespace settings {
     fontFamily = withGroup(std::move(fontFamily), "presentation");
 
     auto capsuleToggle = withGroup(boolSpec("capsule", false), "presentation");
+    capsuleToggle.schema.inheritsFromBar = true;
     auto capsuleFill = withGroup(colorSpec("capsule_fill", "", true), "presentation");
     capsuleFill.visibleWhen = capsuleOn;
 
     auto capsuleBorder = withGroup(colorSpec("capsule_border", {}, true), "presentation");
     capsuleBorder.visibleWhen = capsuleOn;
+
+    const auto& borderWidthRange = noctalia::config::schema::kBarCapsuleBorderWidthRange;
+    auto capsuleBorderWidth = withGroup(
+        doubleSpec(
+            "capsule_border_width", static_cast<double>(Style::borderWidth), static_cast<double>(*borderWidthRange.min),
+            static_cast<double>(*borderWidthRange.max), static_cast<double>(*borderWidthRange.step)
+        ),
+        "presentation"
+    );
+    capsuleBorderWidth.visibleWhen = capsuleOn;
 
     auto capsuleForeground = withGroup(colorSpec("capsule_foreground", {}, true), "presentation");
     capsuleForeground.visibleWhen = capsuleOn;
@@ -705,15 +721,13 @@ namespace settings {
     actions.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
 
     return {
-        std::move(enabled),         std::move(anchor),
-        std::move(interactive),     std::move(scale),
-        std::move(fontScale),       std::move(widgetColor),
-        std::move(widgetIconColor), std::move(fontFamily),
-        std::move(fontWeight),      std::move(capsuleToggle),
-        std::move(capsuleRadius),   std::move(capsuleFill),
-        std::move(capsuleBorder),   std::move(capsuleForeground),
-        std::move(capsulePadding),  std::move(capsuleOpacity),
-        std::move(scrollRepeat),    std::move(actions),
+        std::move(enabled),           std::move(anchor),          std::move(interactive),
+        std::move(showTooltip),       std::move(scale),           std::move(fontScale),
+        std::move(widgetColor),       std::move(widgetIconColor), std::move(fontFamily),
+        std::move(fontWeight),        std::move(capsuleToggle),   std::move(capsuleRadius),
+        std::move(capsuleFill),       std::move(capsuleBorder),   std::move(capsuleBorderWidth),
+        std::move(capsuleForeground), std::move(capsulePadding),  std::move(capsuleOpacity),
+        std::move(scrollRepeat),      std::move(actions),
     };
   }
 
@@ -906,7 +920,6 @@ namespace settings {
         spec.schema.enumValues.push_back(option.value);
       }
       spec.schema.type = schemaTypeForControl(spec.control);
-      spec.visibleWhen = WidgetSettingVisibility{placementKey, {"floating"}};
       return spec;
     };
 
@@ -936,14 +949,8 @@ namespace settings {
       spec.schema.key = openNearClickKey;
       spec.literalLabel = entryPrefix(tr("settings.plugins.panels.open-near-click.label"));
       spec.literalDescription = tr("settings.plugins.panels.open-near-click.description");
-      spec.control = WidgetControlKind::Select;
-      spec.segmented = true;
-      spec.literalLabels = true;
+      spec.control = WidgetControlKind::Bool;
       spec.schema.defaultValue = field != nullptr ? field->defaultValue() : entry.panelOpenNearClickDefault;
-      spec.options = {
-          {"false", tr("settings.options.panel-bar-alignment.centered")},
-          {"true", tr("settings.options.panel-bar-alignment.near-trigger")},
-      };
       spec.schema.type = schema::WidgetSettingType::Bool;
       spec.visibleWhen = WidgetSettingVisibility{
           {placementKey, {"attached"}},
@@ -1263,8 +1270,9 @@ namespace settings {
     if (!field.has_value()) {
       return false;
     }
-    // OptionalDouble unset means inherit/auto, 0 is a valid explicit radius and must persist.
-    if (field->type == schema::WidgetSettingType::OptionalDouble) {
+    // OptionalDouble unset means inherit/auto, 0 is a valid explicit radius and must persist. Bar-inherited
+    // settings resolve an unset value from the bar, so an explicit default value must persist too.
+    if (field->type == schema::WidgetSettingType::OptionalDouble || field->inheritsFromBar) {
       return false;
     }
     return configOverrideValueMatchesWidgetSetting(overrideValue, field->defaultValue);
@@ -1335,7 +1343,7 @@ namespace settings {
       }
       return !widgetSettingValuesEqual(*withValue, *withoutValue);
     }
-    if (field->type == schema::WidgetSettingType::OptionalDouble) {
+    if (field->type == schema::WidgetSettingType::OptionalDouble || field->inheritsFromBar) {
       if (!withValue.has_value() || !withoutValue.has_value()) {
         return true;
       }

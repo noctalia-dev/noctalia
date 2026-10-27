@@ -223,6 +223,31 @@ namespace {
 
 } // namespace
 
+bool formatShowsSeconds(std::string_view fmt) noexcept {
+  for (std::size_t i = 0; i < fmt.size(); ++i) {
+    if (fmt[i] != '%') {
+      continue;
+    }
+    std::size_t j = i + 1;
+    if (j < fmt.size() && fmt[j] == '%') {
+      i = j;
+      continue;
+    }
+    // glibc flags and field width, then the E/O alternative-representation modifier.
+    while (j < fmt.size() && (std::string_view{"-_0^#"}.contains(fmt[j]) || (fmt[j] >= '0' && fmt[j] <= '9'))) {
+      ++j;
+    }
+    if (j < fmt.size() && (fmt[j] == 'E' || fmt[j] == 'O')) {
+      ++j;
+    }
+    if (j < fmt.size() && std::string_view{"STXrcs"}.contains(fmt[j])) {
+      return true;
+    }
+    i = j - 1;
+  }
+  return false;
+}
+
 std::string formatLocalTime(const char* fmt) {
   using namespace std::chrono;
   if (fmt == nullptr || isBlankClockFormat(fmt)) {

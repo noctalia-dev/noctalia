@@ -44,6 +44,7 @@ public:
   void setMaxVisible(std::size_t maxVisible);
   void setMenuWidth(float width);
   void setContentScale(float scale);
+  void setReserveToggleSpace(bool reserve);
   void setSubmenuDirection(ContextSubmenuDirection direction);
   void setOnActivate(std::function<void(const ContextMenuControlEntry&)> onActivate);
   void setOnSubmenuOpen(std::function<void(const ContextMenuControlEntry&, float rowCenterY)> onSubmenuOpen);
@@ -61,8 +62,10 @@ public:
   [[nodiscard]] static float
   preferredHeight(const std::vector<ContextMenuControlEntry>& entries, std::size_t maxVisible, float scale = 1.0F);
   // Width that fits the widest entry without elision (label + toggle/submenu slots + padding).
-  [[nodiscard]] static float
-  preferredWidth(Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale = 1.0F);
+  [[nodiscard]] static float preferredWidth(
+      Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale = 1.0F,
+      bool reserveToggleSpace = false
+  );
 
 private:
   struct RowVisual {
@@ -86,6 +89,7 @@ private:
   float m_contentScale = 1.0F;
   ContextSubmenuDirection m_submenuDirection = ContextSubmenuDirection::Right;
   bool m_needsRebuild = true;
+  bool m_reserveToggleSpace = false;
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;
   std::function<void(const ContextMenuControlEntry&, float rowCenterY)> m_onSubmenuOpen;
   std::function<void()> m_redrawCallback;

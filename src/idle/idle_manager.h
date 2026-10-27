@@ -40,13 +40,14 @@ public:
   void setActionRunner(ActionRunner runner);
   void setLiveIdleChangeCallback(std::function<void()> callback);
   void reload(const IdleConfig& config);
-  /// D-Bus screensaver inhibits (e.g. Chrome video playback). Suppresses idle actions while > 0.
+  /// D-Bus screensaver inhibits (e.g. Chrome video playback). Suppresses idle actions while > 0; a
+  /// release restarts waiting countdowns once it outlasts a short debounce that absorbs inhibit renewals.
   void setScreenSaverInhibitLocks(std::int64_t locks);
-  /// While locked, behaviors with a positive lockedTimeoutSeconds re-arm at that shorter timeout.
+  /// Apply locked timeouts without resuming completed actions or resetting unchanged timers.
   void setSessionLocked(bool locked);
-  /// Seconds the compositor has reported session-idle (1s heartbeat notification); 0 when active.
-  [[nodiscard]] std::int64_t liveIdleSeconds() const noexcept { return m_liveIdleSeconds; }
-  void onSecondTick();
+  /// Seconds the compositor has reported session-idle (1s heartbeat notification); 0 when active or inhibited.
+  /// Derived from elapsed monotonic time, so it stays accurate however rarely it is read.
+  [[nodiscard]] std::int64_t liveIdleSeconds() const noexcept;
   static void handleIdled(void* data, ext_idle_notification_v1* notification);
   static void handleResumed(void* data, ext_idle_notification_v1* notification);
   static void handleHeartbeatIdled(void* data, ext_idle_notification_v1* notification);
@@ -63,25 +64,25 @@ private:
     IdleManager* owner = nullptr;
     IdleBehaviorConfig config;
     ext_idle_notification_v1* notification = nullptr;
+    std::uint32_t notificationTimeoutMs = 0;
     BehaviorPhase phase = BehaviorPhase::Waiting;
   };
 
   [[nodiscard]] double effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const;
-  /// True while media holds an inhibit, including the short debounce that swallows renewals.
+  [[nodiscard]] std::uint32_t effectiveTimeoutMilliseconds(const IdleBehaviorConfig& config) const;
+  /// True while media holds an inhibit, including the debounce that absorbs inhibit renewals.
   [[nodiscard]] bool screenSaverInhibited() const noexcept {
     return m_screenSaverInhibitLocks > 0 || m_inhibitReleasePending;
   }
   void applyScreenSaverInhibitRelease();
-  void rearmWaitingBehaviors();
   void clearBehaviors();
   void syncHeartbeat();
   void destroyHeartbeat();
   void notifyLiveIdleChanged();
   void createBehavior(const IdleBehaviorConfig& config);
-  /// `resumeIfIdled` decides what happens to a behavior whose idle action already ran: run its resume
-  /// action and re-arm, or leave it idled so the input that wakes the seat still triggers the resume.
-  void recreateBehaviorNotification(BehaviorState& behavior, bool resumeIfIdled);
-  void recreateBehaviorNotifications(bool resumeIdledBehaviors);
+  void recreateBehaviorNotification(BehaviorState& behavior);
+  void syncBehaviorNotification(BehaviorState& behavior);
+  void recreateBehaviorNotifications();
   bool runBehavior(BehaviorState& behavior);
   void runResumeBehavior(BehaviorState& behavior);
   bool runAction(const IdleBehaviorConfig& behavior, const IdleActionRequest& action) const;
@@ -104,7 +105,7 @@ private:
   std::vector<std::unique_ptr<BehaviorState>> m_behaviors;
   ext_idle_notification_v1* m_heartbeatNotification = nullptr;
   bool m_heartbeatCompositorIdle = false;
-  std::int64_t m_liveIdleSeconds = 0;
+  std::chrono::steady_clock::time_point m_heartbeatIdleSince;
   std::int64_t m_screenSaverInhibitLocks = 0;
   bool m_inhibitReleasePending = false;
   bool m_sessionLocked = false;

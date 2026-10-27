@@ -54,19 +54,21 @@ void TestPanel::create() {
   headerRow->addChild(std::move(tabSwitch));
   headerRow->addChild(ui::row({.flexGrow = 1.0F}));
 
-  auto closeButton = ui::button({
-      .out = &m_closeButton,
-      .glyph = "close",
-      .glyphSize = Style::fontSizeBody * scale,
-      .variant = ButtonVariant::Default,
-      .surfaceOpacity = panelCardOpacity(),
-      .minWidth = Style::controlHeightSm * scale,
-      .minHeight = Style::controlHeightSm * scale,
-      .padding = Style::spaceXs * scale,
-      .radius = Style::scaledRadiusMd(scale),
-      .onClick = []() { PanelManager::instance().closePanel(); },
-  });
-  headerRow->addChild(std::move(closeButton));
+  if (Style::closeButtonsEnabled()) {
+    auto closeButton = ui::button({
+        .out = &m_closeButton,
+        .glyph = "close",
+        .glyphSize = Style::fontSizeBody * scale,
+        .variant = ButtonVariant::Default,
+        .surfaceOpacity = panelCardOpacity(),
+        .minWidth = Style::controlHeightSm * scale,
+        .minHeight = Style::controlHeightSm * scale,
+        .padding = Style::spaceXs * scale,
+        .radius = Style::scaledRadiusMd(scale),
+        .onClick = []() { PanelManager::instance().closePanel(); },
+    });
+    headerRow->addChild(std::move(closeButton));
+  }
   rootLayout->addChild(std::move(headerRow));
 
   auto content = ui::row({
@@ -531,7 +533,7 @@ void TestPanel::create() {
         .width = 28.0F * scale,
         .height = 28.0F * scale,
         .configure = [scale](Box& box) {
-          box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
+          box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * scale);
         },
     });
 
@@ -707,13 +709,13 @@ void TestPanel::create() {
         .width = 280.0F * scale,
         .height = 220.0F * scale,
         .configure = [scale](Box& box) {
-          box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
+          box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * scale);
         },
     });
 
     auto demoBox = ui::box({
         .out = &m_transformDemoBox,
-        .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+        .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
         .radius = Style::scaledRadiusLg(scale),
         .width = 180.0F * scale,
         .height = 100.0F * scale,
@@ -762,7 +764,7 @@ void TestPanel::create() {
         .width = 28.0F * scale,
         .height = 28.0F * scale,
         .configure = [scale](Box& box) {
-          box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
+          box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * scale);
         },
     });
 
@@ -1229,7 +1231,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
               .width = w * scale,
               .height = 0.0F,
           },
@@ -1279,7 +1281,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
               .width = kBoxW * scale,
               .height = 0.0F,
           },
@@ -1360,7 +1362,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = 0.0F,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
           },
           ui::glyph({
               .glyph = c.glyph,

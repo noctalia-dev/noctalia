@@ -10,6 +10,7 @@ struct BackdropInstance;
 class ConfigService;
 class GlSharedContext;
 class SharedTextureCache;
+struct TextureCoverage;
 class WaylandConnection;
 struct WaylandOutput;
 
@@ -41,7 +42,10 @@ private:
   void createInstance(const WaylandOutput& output);
   void loadWallpaper(BackdropInstance& inst, const std::string& path);
   void updateRendererState(BackdropInstance& inst);
-  void releaseInstanceTexture(BackdropInstance& inst, bool clearPath = true);
+  [[nodiscard]] TextureCoverage textureCoverage(const BackdropInstance& inst) const;
+  void refreshCoverage(BackdropInstance& inst);
+  void promotePendingTexture(BackdropInstance& inst);
+  void releaseInstanceTexture(BackdropInstance& inst);
 
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;

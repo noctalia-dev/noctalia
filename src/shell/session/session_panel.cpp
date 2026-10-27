@@ -326,7 +326,12 @@ void SessionPanel::executeEntry(std::size_t index) {
   m_actionQueued = true;
   m_pendingCountdown.reset();
   DeferredCall::callLater([actionRunner, cfg]() {
-    PanelManager::instance().closePanel(/*animateClose=*/false);
+    auto& manager = PanelManager::instance();
+    if (cfg.action == "lock" || cfg.action == "lock_and_suspend") {
+      manager.closePanelForCapture([actionRunner, cfg]() { actionRunner->invoke(cfg); });
+      return;
+    }
+    manager.closePanel(/*animateClose=*/false);
     actionRunner->invoke(cfg);
   });
 }

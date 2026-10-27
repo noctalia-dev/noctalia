@@ -1,5 +1,7 @@
 #include "config/config_migrations.h"
 
+#include "util/string_utils.h"
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -27,6 +29,8 @@ namespace noctalia::config {
     constexpr int kKeyboardLayoutCustomLabelsMigrationVersion = 12;
     constexpr int kPluginAutoUpdateModeMigrationVersion = 13;
     constexpr int kCalendarEventFormatsMigrationVersion = 14;
+    constexpr int kDockMonitorOverridesMigrationVersion = 15;
+    constexpr int kPaletteRoleNamesMigrationVersion = 16;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -692,6 +696,68 @@ namespace noctalia::config {
       });
     }
 
+    template <typename OnChanged> void migrateDockMonitorAllowList(toml::table& root, OnChanged&& onChanged) {
+      auto* dock = root["dock"].as_table();
+      if (dock == nullptr) {
+        return;
+      }
+      auto* legacyMonitors = (*dock)["monitors"].as_array();
+      if (legacyMonitors == nullptr) {
+        return;
+      }
+
+      std::vector<std::string> selectors;
+      selectors.reserve(legacyMonitors->size());
+      for (const auto& node : *legacyMonitors) {
+        const auto selector = node.value<std::string>();
+        if (!selector.has_value()) {
+          return;
+        }
+        selectors.push_back(*selector);
+      }
+
+      if ((*dock)["enabled"].value_or(false) && !selectors.empty()) {
+        auto* monitorOverrides = (*dock)["monitor"].as_table();
+        if (monitorOverrides == nullptr) {
+          if (dock->contains("monitor")) {
+            return;
+          }
+          dock->insert("monitor", toml::table{});
+          monitorOverrides = (*dock)["monitor"].as_table();
+        }
+        if (monitorOverrides == nullptr) {
+          return;
+        }
+
+        for (const std::string& selector : selectors) {
+          if (selector.empty()) {
+            continue;
+          }
+          auto* monitorOverride = (*monitorOverrides)[selector].as_table();
+          if (monitorOverride == nullptr) {
+            if (monitorOverrides->contains(selector)) {
+              return;
+            }
+            monitorOverrides->insert(selector, toml::table{});
+            monitorOverride = (*monitorOverrides)[selector].as_table();
+          }
+          if (monitorOverride != nullptr && !monitorOverride->contains("enabled")) {
+            monitorOverride->insert("enabled", true);
+          }
+        }
+        dock->insert_or_assign("enabled", false);
+      }
+
+      dock->erase("monitors");
+      onChanged("dock.monitors");
+    }
+
+    void migrateDockMonitorAllowListSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateDockMonitorAllowList(root, [&diag](const std::string& path) {
+        diag.warn(path, "migrated dock monitor allow-list to per-monitor enabled overrides");
+      });
+    }
+
     template <typename OnChanged> void migratePluginAutoUpdateMode(toml::table& root, OnChanged&& onChanged) {
       auto* plugins = root["plugins"].as_table();
       if (plugins == nullptr) {
@@ -712,6 +778,66 @@ namespace noctalia::config {
       migratePluginAutoUpdateMode(root, [&diag](const std::string& path, std::string_view mode) {
         diag.warn(path, "migrated boolean plugin auto-update setting to \"" + std::string(mode) + "\"");
       });
+    }
+
+    // The `surface_variant` and `outline` palette roles resolved to surface_container and outline_variant,
+    // so they were retired in favor of those names. `theme` is skipped (template custom colors use template
+    // tokens, not shell roles) and so are `variant` keys (button styles, where "outline" is not a color).
+    std::optional<std::string_view> renamedPaletteRole(std::string_view raw) {
+      std::string token = StringUtils::trim(raw);
+      StringUtils::toLowerInPlace(token);
+      if (token == "surface_variant") {
+        return "surface_container";
+      }
+      if (token == "outline") {
+        return "outline_variant";
+      }
+      return std::nullopt;
+    }
+
+    template <typename OnChanged>
+    void migratePaletteRoleNamesIn(toml::node& node, const std::string& path, OnChanged& onChanged) {
+      if (auto* table = node.as_table()) {
+        for (auto& [key, child] : *table) {
+          if (key.str() != "variant") {
+            migratePaletteRoleNamesIn(child, path + "." + std::string(key.str()), onChanged);
+          }
+        }
+        return;
+      }
+      if (auto* array = node.as_array()) {
+        for (std::size_t i = 0; i < array->size(); ++i) {
+          migratePaletteRoleNamesIn((*array)[i], std::format("{}[{}]", path, i), onChanged);
+        }
+        return;
+      }
+      auto* value = node.as_string();
+      if (value == nullptr) {
+        return;
+      }
+      const auto renamed = renamedPaletteRole(value->get());
+      if (!renamed.has_value()) {
+        return;
+      }
+      const std::string previous = value->get();
+      *value = std::string(*renamed);
+      onChanged(path, previous, *renamed);
+    }
+
+    template <typename OnChanged> void migratePaletteRoleNames(toml::table& root, OnChanged&& onChanged) {
+      for (auto& [key, child] : root) {
+        if (key.str() != "theme") {
+          migratePaletteRoleNamesIn(child, std::string(key.str()), onChanged);
+        }
+      }
+    }
+
+    void migratePaletteRoleNamesSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migratePaletteRoleNames(
+          root, [&diag](const std::string& path, std::string_view previous, std::string_view renamed) {
+            diag.warn(path, std::format(R"(migrated palette role "{}" to "{}")", previous, renamed));
+          }
+      );
     }
 
     std::uint64_t stableIssueHash(int migrationVersion, std::string_view path) {
@@ -820,6 +946,16 @@ namespace noctalia::config {
             .toVersion = kCalendarEventFormatsMigrationVersion,
             .summary = "calendar: move event formats to calendar configuration",
             .apply = migrateCalendarEventFormatsSidecar,
+        },
+        {
+            .toVersion = kDockMonitorOverridesMigrationVersion,
+            .summary = "dock: migrate monitor allow-list to per-monitor enabled overrides",
+            .apply = migrateDockMonitorAllowListSidecar,
+        },
+        {
+            .toVersion = kPaletteRoleNamesMigrationVersion,
+            .summary = "theme: rename surface_variant and outline palette roles",
+            .apply = migratePaletteRoleNamesSidecar,
         },
     };
     return migrations;
@@ -976,6 +1112,22 @@ namespace noctalia::config {
               : "event format is deprecated; move it to [calendar]",
       });
     });
+    migrateDockMonitorAllowList(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kDockMonitorOverridesMigrationVersion,
+          .path = path,
+          .message = "dock monitors is deprecated; use per-monitor enabled overrides",
+      });
+    });
+    migratePaletteRoleNames(
+        root, [&issues](const std::string& path, std::string_view previous, std::string_view renamed) {
+          issues.push_back({
+              .migrationVersion = kPaletteRoleNamesMigrationVersion,
+              .path = path,
+              .message = std::format(R"(palette role "{}" is now "{}")", previous, renamed),
+          });
+        }
+    );
   }
 
   std::string legacyConfigIssueFingerprint(const LegacyConfigIssues& issues) {

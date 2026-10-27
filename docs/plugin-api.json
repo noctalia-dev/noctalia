@@ -169,14 +169,80 @@
   },
   {
     "level": 31,
-    "noctaliaVersion": null,
+    "noctaliaVersion": "v5.2.0",
     "feature": "get-color",
     "introduced": "`noctalia.getColor(role)` for reading colors from the active theme palette."
   },
   {
     "level": 32,
-    "noctaliaVersion": null,
+    "noctaliaVersion": "v5.2.0",
     "feature": "container-tooltip",
     "introduced": "The `tooltip` prop on `ui.box`, `ui.row`, `ui.column`, and `ui.image`, shown on hover."
+  },
+  {
+    "level": 33,
+    "noctaliaVersion": "v5.3.0",
+    "feature": "scroll-reveal-key",
+    "introduced": "The `revealKey` prop on `ui.scroll` for scrolling a keyed child into view."
+  },
+  {
+    "level": 34,
+    "noctaliaVersion": "v5.3.0",
+    "feature": "widget-hover-highlight",
+    "introduced": "The `hover_highlight` widget entry option for opting out of the bar's whole-widget hover highlight."
+  },
+  {
+    "level": 35,
+    "noctaliaVersion": null,
+    "feature": "idle-watch",
+    "introduced": "`noctalia.idle.watch` and `noctalia.idle.unwatch` for compositor idle notifications, available to every entry kind."
+  },
+  {
+    "level": 36,
+    "noctaliaVersion": null,
+    "feature": "layer-entry",
+    "introduced": "`[[layer]]` entries for plugin-owned layer-shell surfaces, with `layer.*` and `noctalia.layer.show`, `hide`, and `configure`."
+  },
+  {
+    "level": 37,
+    "noctaliaVersion": null,
+    "feature": "calendar-events",
+    "introduced": "`noctalia.calendarEvents()` for reading the shell's synced calendar events."
+  },
+  {
+    "level": 38,
+    "noctaliaVersion": null,
+    "feature": "bar-drag-and-drop",
+    "introduced": "`ui.dragSource()` and `ui.dropZone()` in bar widgets (`barWidget.render`), not only panels; `dragSource.grabCursor` and `dragSource.onClick` for a source that wraps a whole clickable item; `expandOnDrag` grows a zone along its thin axis."
+  },
+  {
+    "level": 39,
+    "noctaliaVersion": null,
+    "feature": "osd",
+    "introduced": "`noctalia.osd.show(icon, value, opts)` for showing the shell OSD from plugins."
+  },
+  {
+    "level": 40,
+    "noctaliaVersion": null,
+    "feature": "pixel-stream",
+    "introduced": "`ui.pixelStream` for showing frames from a companion process over a shared-memory socket protocol, with pointer, scroll, and keyboard callbacks."
+  },
+  {
+    "level": 41,
+    "noctaliaVersion": null,
+    "feature": "color-picker",
+    "introduced": "`ui.colorPicker` for an inline color picker with optional alpha, hex-only or hidden inputs, swatches, and `onChange` / `onChangeEnd` callbacks."
+  },
+  {
+    "level": 42,
+    "noctaliaVersion": null,
+    "feature": "panel-content-height",
+    "introduced": "`height = \"content\"` and `max_height` on `[[panel]]` entries: the panel follows the height of its rendered tree."
+  },
+  {
+    "level": 43,
+    "noctaliaVersion": null,
+    "feature": "container-color-roles",
+    "introduced": "Container color roles (`primary_container`, `surface_container`, `surface_container_high`, `outline_variant`, `scrim`, ...). `surface_variant` and `outline` are retired as role names; use `surface_container` and `outline_variant`."
   }
 ]

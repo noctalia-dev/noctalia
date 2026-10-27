@@ -1,8 +1,6 @@
 # Building Noctalia from source
 
-This guide covers source dependencies, distro-specific package installation, build modes, and install layouts.
-For prebuilt packages and other installation methods, see the
-[installation documentation](https://docs.noctalia.dev/noctalia/getting-started/installation/).
+This guide covers source dependencies, distro-specific package installation, build modes, and install layouts. For prebuilt packages and other installation methods, see the [installation documentation](https://docs.noctalia.dev/noctalia/getting-started/installation/).
 
 ## Dependencies
 
@@ -94,10 +92,12 @@ sudo xbps-install meson ninja pkg-config git \
   polkit-devel librsvg-devel libqalculate-devel libxml2-devel jemalloc-devel
 ```
 
-### AerynOS
+### aerynOS
+
+The command below uses the new moss CLI available in Volatile. On Unstable, use `sudo moss install` with the same package list until the CLI update reaches that repository.
 
 ```sh
-sudo moss install meson gcc clang just \
+sudo moss pkg add meson gcc clang just \
   wayland-devel wayland-protocols-devel \
   libglvnd-devel freetype-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \
@@ -111,43 +111,27 @@ sudo moss install meson gcc clang just \
   jemalloc-devel
 ```
 
-Vendored dependencies, with no system package needed: `Wuffs`,
-`Luau`, `fzy`, and Material Color Utilities.
+Vendored dependencies, with no system package needed: `Wuffs`, `Luau`, `fzy`, and Material Color Utilities.
 
-System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding,
-`libjxl` handles JPEG XL decoding, `libsndfile` decodes shell sound effects (WAV, FLAC, Ogg/Vorbis, Opus, MP3, and
-AIFF), and Wuffs handles the other supported raster image formats. `libqalculate` powers
-the launcher calculator (arithmetic, unit and currency conversion).
+System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and encoding (thumbnails, screenshots), `libjxl` handles JPEG XL decoding and screenshot encoding, `libsndfile` decodes shell sound effects (WAV, FLAC, Ogg/Vorbis, Opus, MP3, and AIFF), and Wuffs handles the other supported raster image formats. `libqalculate` powers the launcher calculator (arithmetic, unit and currency conversion).
 
-Polkit agent support requires development files that provide the `polkit-agent-1` and `polkit-gobject-1` pkg-config
-modules. Some distros ship these in the runtime `polkit` package, while split-package distros use names such as
-`polkit-devel`, `polkit-dev`, or `libpolkit-agent-1-dev` / `libpolkit-gobject-1-dev`.
+HEIC, HEIF, and AVIF decoding is optional and needs no build-time package: Noctalia loads `libheif.so.1` with `dlopen` the first time it meets such an image. Install `libheif` with its AV1 (dav1d or aom) and HEVC (libde265) decoder plugins to use those formats; on Fedora the HEVC plugin comes from RPM Fusion's `libheif-freeworld`.
 
-PipeWire libraries/headers are sufficient to build Noctalia, but the PipeWire daemon is required for audio features at
-runtime. Noctalia remains running and reconnects in the background while the daemon is unavailable. If your distro
-splits the PipeWire libraries and daemon into separate packages, make sure you have both installed.
+Polkit agent support requires development files that provide the `polkit-agent-1` and `polkit-gobject-1` pkg-config modules. Some distros ship these in the runtime `polkit` package, while split-package distros use names such as `polkit-devel`, `polkit-dev`, or `libpolkit-agent-1-dev` / `libpolkit-gobject-1-dev`.
+
+PipeWire libraries/headers are sufficient to build Noctalia, but the PipeWire daemon is required for audio features at runtime. Noctalia remains running and reconnects in the background while the daemon is unavailable. If your distro splits the PipeWire libraries and daemon into separate packages, make sure you have both installed.
 
 `upower` is an optional dependency used for battery and power device integration.
 
 `ddcutil` is an optional dependency used for controlling monitor brightness.
 
-Credential and encrypted-state persistence requires a Secret Service provider at runtime, such as GNOME Keyring,
-KWallet, or KeePassXC. `libsecret` is the client library and does not provide the session service by itself. Noctalia
-continues to run when no provider is available, but features requiring durable secrets cannot persist them.
-CalDAV accounts may instead read their password from one explicitly configured regular file, which supports secret
-provisioners such as agenix and sops-nix without installing a Secret Service provider. Google refresh tokens and
-other writable credentials still require Secret Service. Encrypted state, including clipboard history and the calendar
-event cache, may instead read one storage master key from an explicitly configured file.
+Credential and encrypted-state persistence requires a Secret Service provider at runtime, such as GNOME Keyring, KWallet, or KeePassXC. `libsecret` is the client library and does not provide the session service by itself. Noctalia continues to run when no provider is available, but features requiring durable secrets cannot persist them. CalDAV accounts may instead read their password from one explicitly configured regular file, which supports secret provisioners such as agenix and sops-nix without installing a Secret Service provider. Google refresh tokens and other writable credentials still require Secret Service. Encrypted state, including clipboard history and the calendar event cache, may instead read one storage master key from an explicitly configured file.
 
-`jemalloc` is recommended but optional. It reduces memory fragmentation in long-running sessions, and on glibc systems
-it is used automatically when detected. Use Meson's `-Djemalloc=enabled` or `-Djemalloc=disabled` option to require or
-disable it explicitly.
+`jemalloc` is recommended but optional. It reduces memory fragmentation in long-running sessions, and on glibc systems it is used automatically when detected. Use Meson's `-Djemalloc=enabled` or `-Djemalloc=disabled` option to require or disable it explicitly.
 
 Sanitizer runtime packages are only needed for ASan/UBSan builds configured with `just configure asan`.
 
-The sources are built as C++23, which requires GCC 13+ or Clang 16+. Current rolling and recent stable distros (Arch,
-Fedora 38+, Debian 13, Ubuntu 24.04+) ship a new enough compiler by default. On Debian 12 "bookworm" install `g++-13`
-and point Meson at it (e.g. `CXX=g++-13 just configure`).
+The sources are built as C++23, which requires GCC 13+ or Clang 16+. Current rolling and recent stable distros (Arch, Fedora 38+, Debian 13, Ubuntu 24.04+) ship a new enough compiler by default. On Debian 12 "bookworm" install `g++-13` and point Meson at it (e.g. `CXX=g++-13 just configure`).
 
 ## Building and installing
 
@@ -179,8 +163,7 @@ just build release
 just install release
 ```
 
-To remove files installed from a build directory, run `just uninstall release`. The `install` and `uninstall` recipes
-require an explicit build mode so debug builds are not installed by accident.
+To remove files installed from a build directory, run `just uninstall release`. The `install` and `uninstall` recipes require an explicit build mode so debug builds are not installed by accident.
 
 ### Debug build
 
@@ -193,10 +176,7 @@ just build
 just run
 ```
 
-Unit tests are not compiled by `just build`, which targets only the Noctalia executable. Build and run them explicitly
-with `just test` (use `just test release` to force them on for a release build). Direct Meson users can control test
-target generation with the `-Dtests=enabled|disabled|auto` option.
-Production sources compile once into an internal static library shared by the shell and test executables.
+Unit tests are not compiled by `just build`, which targets only the Noctalia executable. Build and run them explicitly with `just test` (use `just test release` to force them on for a release build). Direct Meson users can control test target generation with the `-Dtests=enabled|disabled|auto` option. Production sources compile once into an internal static library shared by the shell and test executables.
 
 Meson installs the binary and shipped assets using the normal prefix layout:
 
@@ -207,9 +187,7 @@ Meson installs the binary and shipped assets using the normal prefix layout:
 
 Noctalia needs the shipped `assets/` tree at runtime. Copying only the `noctalia` binary is not enough.
 
-Firefox theming uses the built-in template `post_action = "firefox-theme"` (same pattern as
-`kde-color-scheme`) plus the [Pywalfox](https://addons.mozilla.org/en-US/firefox/addon/pywalfox/)
-browser extension. Manual host helpers: `noctalia firefox-theme --help`.
+Firefox theming uses the built-in template `post_action = "firefox-theme"` (same pattern as `kde-color-scheme`) plus the [Pywalfox](https://addons.mozilla.org/en-US/firefox/addon/pywalfox/) browser extension. Manual host helpers: `noctalia firefox-theme --help`.
 
 Portable bundle layouts are also supported:
 
@@ -225,4 +203,4 @@ bundle/
   share/noctalia/assets/
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md#runtime-assets) for the full runtime asset lookup order.
+See [PACKAGING.md](PACKAGING.md#runtime-asset-lookup) for the full runtime asset lookup order.

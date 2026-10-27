@@ -39,17 +39,26 @@ namespace capture {
     Image,
   };
 
+  enum class AnnotationFillMode : std::uint8_t {
+    Off,
+    Semi,
+    Opaque,
+  };
+
   struct AnnotationToolState {
     AnnotationTool tool = AnnotationTool::Brush;
     std::array<AnnotationColor, kAnnotationToolCount> color{};
     std::array<double, kAnnotationToolCount> width{};
-    bool fill = false;
+    AnnotationFillMode fill = AnnotationFillMode::Off;
     // Fine size stepper revealed, and each output's dragged toolbar spot; both survive across runs.
     bool advancedSize = false;
     std::unordered_map<std::string, AnnotationPoint> toolbarPositions;
   };
 
   [[nodiscard]] AnnotationToolState defaultAnnotationToolState();
+
+  [[nodiscard]] std::string_view annotationFillModeName(AnnotationFillMode mode) noexcept;
+  [[nodiscard]] std::optional<AnnotationFillMode> annotationFillModeFromName(std::string_view name) noexcept;
 
   class AnnotationOverlay {
   public:
@@ -80,6 +89,7 @@ namespace capture {
     void setFrozenScreenshots(std::vector<FrozenScreenshot> frozen);
     void setCursorVisible(bool visible);
     [[nodiscard]] bool cursorVisible() const noexcept;
+    void setCopyOnClose(bool copy) noexcept { m_copyOnClose = copy; }
 
     void begin();
     void beginImage(ScreenshotImage image, wl_output* target);
@@ -142,13 +152,14 @@ namespace capture {
     void selectTool(AnnotationTool tool);
     void setToolColor(AnnotationColor color);
     void adjustToolWidth(double delta);
-    void toggleFill();
+    void cycleFill(bool forward = true);
     void undo();
     void redo();
     void requestExport(AnnotationExport action);
     void requestFreeze();
     void requestCaptureRegion();
     void toggleCursor(Instance* instance = nullptr);
+    void requestClose();
     void closeOverlay();
     void persistToolState();
 
@@ -176,6 +187,7 @@ namespace capture {
     AnnotationToolState m_tools = defaultAnnotationToolState();
     bool m_active = false;
     bool m_cursorVisible = false;
+    bool m_copyOnClose = false;
 
     // One gesture at a time, owned by the instance the press landed on.
     Instance* m_gestureInstance = nullptr;

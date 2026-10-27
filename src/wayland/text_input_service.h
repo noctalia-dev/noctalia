@@ -3,6 +3,8 @@
 #include "ui/text_input_client.h"
 
 #include <cstdint>
+#include <optional>
+#include <string>
 
 struct wl_seat;
 struct wl_surface;
@@ -39,6 +41,22 @@ public:
   void handleAction(std::uint32_t action);
 
 private:
+  // Protocol state sent with a text-input commit request.
+  struct StateSignature {
+    bool sendSurrounding = false;
+    std::string surroundingText;
+    std::int32_t cursor = 0;
+    std::int32_t anchor = 0;
+    std::uint32_t contentHint = 0;
+    std::uint32_t contentPurpose = 0;
+    std::int32_t rectX = 0;
+    std::int32_t rectY = 0;
+    std::int32_t rectWidth = 1;
+    std::int32_t rectHeight = 1;
+
+    [[nodiscard]] bool operator==(const StateSignature& other) const noexcept = default;
+  };
+
   [[nodiscard]] bool activeSurfaceAcceptsTextInput() const noexcept;
   void enableActive(TextInputChangeCause cause);
   void disableActive();
@@ -57,6 +75,8 @@ private:
   bool m_activeAcceptsKeyboardFocusActivation = false;
   TextInputEdit m_pendingEdit;
   std::uint32_t m_commitSerial = 0;
+  // Last state committed since the most recent enable or enter; deduplicates commits.
+  std::optional<StateSignature> m_lastCommittedState;
   std::uint32_t m_textInputVersion = 0;
   bool m_enabled = false;
 };

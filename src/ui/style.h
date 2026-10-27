@@ -18,6 +18,7 @@ namespace Style {
   inline constexpr float borderWidth = 1.0F;
   inline constexpr float emphasizedBorderWidth = 3.0F;
   inline constexpr float focusRingWidth = 2.0F;
+  inline constexpr float progressMarkerWidth = 2.0F;
   inline constexpr float disabledOutlineAlpha = 0.5F;
 
   inline constexpr float spaceXs = 4.0F;
@@ -116,6 +117,9 @@ namespace Style {
 
   [[nodiscard]] bool popupShadowsEnabled() noexcept;
   void setPopupShadowsEnabled(bool enabled);
+
+  [[nodiscard]] bool closeButtonsEnabled() noexcept;
+  void setCloseButtonsEnabled(bool enabled);
 
   [[nodiscard]] float scaledRadius(float radius, float localScale = 1.0F) noexcept;
   [[nodiscard]] float scaledRadiusSm(float localScale = 1.0F) noexcept;

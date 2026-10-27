@@ -36,7 +36,7 @@ namespace {
       return Button::ButtonPalette{
           .borderWidth = Style::borderWidth,
           .normal = makeState(
-              colorSpecFromRole(ColorRole::SurfaceVariant), colorSpecFromRole(ColorRole::Outline),
+              colorSpecFromRole(ColorRole::SurfaceContainer), colorSpecFromRole(ColorRole::OutlineVariant),
               colorSpecFromRole(ColorRole::OnSurface)
           ),
           .hover =
@@ -46,8 +46,8 @@ namespace {
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::SurfaceVariant, kDisabledAlpha),
-              colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha),
+              colorSpecFromRole(ColorRole::SurfaceContainer, kDisabledAlpha),
+              colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
               colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)
           ),
           .selected = selectedState(),
@@ -73,7 +73,7 @@ namespace {
       return Button::ButtonPalette{
           .borderWidth = Style::borderWidth,
           .normal = makeState(
-              colorSpecFromRole(ColorRole::Secondary), colorSpecFromRole(ColorRole::Outline),
+              colorSpecFromRole(ColorRole::Secondary), colorSpecFromRole(ColorRole::OutlineVariant),
               colorSpecFromRole(ColorRole::OnSecondary)
           ),
           .hover =
@@ -84,7 +84,7 @@ namespace {
           ),
           .disabled = makeState(
               colorSpecFromRole(ColorRole::Secondary, kDisabledAlpha),
-              colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha),
+              colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
               colorSpecFromRole(ColorRole::OnSecondary)
           ),
           .selected = selectedState(),
@@ -93,7 +93,7 @@ namespace {
       return Button::ButtonPalette{
           .borderWidth = Style::borderWidth,
           .normal = makeState(
-              colorSpecFromRole(ColorRole::Error), colorSpecFromRole(ColorRole::Outline),
+              colorSpecFromRole(ColorRole::Error), colorSpecFromRole(ColorRole::OutlineVariant),
               colorSpecFromRole(ColorRole::OnError)
           ),
           .hover =
@@ -104,7 +104,8 @@ namespace {
           ),
           .disabled = makeState(
               colorSpecFromRole(ColorRole::Error, kDisabledAlpha),
-              colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), colorSpecFromRole(ColorRole::OnError)
+              colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
+              colorSpecFromRole(ColorRole::OnError)
           ),
           .selected = selectedState(),
       };
@@ -112,7 +113,7 @@ namespace {
       return Button::ButtonPalette{
           .borderWidth = Style::borderWidth,
           .normal = makeState(
-              colorSpecFromRole(ColorRole::Surface), colorSpecFromRole(ColorRole::Outline),
+              colorSpecFromRole(ColorRole::Surface), colorSpecFromRole(ColorRole::OutlineVariant),
               colorSpecFromRole(ColorRole::OnSurface)
           ),
           .hover =
@@ -123,7 +124,7 @@ namespace {
           ),
           .disabled = makeState(
               colorSpecFromRole(ColorRole::Surface, kDisabledAlpha),
-              colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha),
+              colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
               colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)
           ),
           .selected = selectedState(),
@@ -135,7 +136,7 @@ namespace {
           .hover =
               makeState(colorSpecFromRole(ColorRole::Hover), clearColorSpec(), colorSpecFromRole(ColorRole::OnHover)),
           .pressed = makeState(
-              colorSpecFromRole(ColorRole::SurfaceVariant), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
+              colorSpecFromRole(ColorRole::SurfaceContainer), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
           ),
           .disabled =
               makeState(clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)),
@@ -148,7 +149,7 @@ namespace {
           .hover =
               makeState(colorSpecFromRole(ColorRole::Hover), clearColorSpec(), colorSpecFromRole(ColorRole::OnHover)),
           .pressed = makeState(
-              colorSpecFromRole(ColorRole::SurfaceVariant), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
+              colorSpecFromRole(ColorRole::SurfaceContainer), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
           ),
           .disabled = makeState(clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)),
           .selected = std::nullopt,
@@ -573,6 +574,9 @@ void Button::ensureGlyph() {
 }
 
 void Button::applyColors(const Color& bg, const Color& border, const Color& label) {
+  m_displayedBg = bg;
+  m_displayedBorder = border;
+  m_displayedLabel = label;
   setFill(bg);
   setBorder(border, effectiveBorderWidth());
   if (m_label != nullptr) {
@@ -672,9 +676,9 @@ void Button::applyVisualState() {
   }
 
   // Snapshot current display colors as the animation start point
-  m_fromBg = m_targetBg;
-  m_fromBorder = m_targetBorder;
-  m_fromLabel = m_targetLabel;
+  m_fromBg = m_displayedBg;
+  m_fromBorder = m_displayedBorder;
+  m_fromLabel = m_displayedLabel;
   m_targetBg = targetBg;
   m_targetBorder = targetBorder;
   m_targetLabel = targetLabel;

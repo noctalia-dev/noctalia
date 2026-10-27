@@ -397,26 +397,28 @@ namespace settings {
       );
     }
 
-    header->addChild(
-        ui::button({
-            .glyph = "close",
-            .glyphSize = Style::fontSizeBody * m_scale,
-            .variant = ButtonVariant::Default,
-            .minWidth = Style::controlHeightSm * m_scale,
-            .minHeight = Style::controlHeightSm * m_scale,
-            .padding = Style::spaceXs * m_scale,
-            .radius = Style::scaledRadiusMd(m_scale),
-            .onClick = [this]() {
-              const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-              DeferredCall::callLater([this, aliveGuard]() {
-                if (aliveGuard.expired()) {
-                  return;
-                }
-                close();
-              });
-            },
-        })
-    );
+    if (Style::closeButtonsEnabled()) {
+      header->addChild(
+          ui::button({
+              .glyph = "close",
+              .glyphSize = Style::fontSizeBody * m_scale,
+              .variant = ButtonVariant::Default,
+              .minWidth = Style::controlHeightSm * m_scale,
+              .minHeight = Style::controlHeightSm * m_scale,
+              .padding = Style::spaceXs * m_scale,
+              .radius = Style::scaledRadiusMd(m_scale),
+              .onClick = [this]() {
+                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                DeferredCall::callLater([this, aliveGuard]() {
+                  if (aliveGuard.expired()) {
+                    return;
+                  }
+                  close();
+                });
+              },
+          })
+      );
+    }
     root->addChild(std::move(header));
 
     root->addChild(
@@ -606,7 +608,7 @@ namespace settings {
         }
       }
       ScaledRenderer measureRenderer(*m_renderContext, measureScale);
-      const TextMetrics titleMetrics = measureRenderer.measureText(instanceFormTitle(), fontSize, FontWeight::Bold);
+      const TextMetrics titleMetrics = measureRenderer.measureText(instanceFormTitle(), fontSize, {FontWeight::Bold});
       const float closeBtn = Style::controlHeightSm * m_scale;
       const float headerGap = Style::spaceSm * m_scale;
       const float rootPadding = Style::spaceSm * m_scale * 2.0F;

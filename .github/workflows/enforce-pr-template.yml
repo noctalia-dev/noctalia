@@ -17,7 +17,10 @@ jobs:
     if: ${{ github.repository == 'noctalia-dev/noctalia' }}
     runs-on: ubuntu-latest
     permissions:
-      # GitHub's GraphQL draft mutation requires both write permissions.
+      # The built-in token converts pull requests to drafts (the GraphQL mutation needs
+      # both contents and pull-requests write) and authors the explanation comment as
+      # github-actions[bot], so contributors can always see why their PR became a draft.
+      # issues: write also lets it delete marker comments left by earlier accounts.
       contents: write
       issues: write
       pull-requests: write
@@ -32,5 +35,5 @@ jobs:
 
       - name: Validate pull request description
         env:
-          GITHUB_TOKEN: ${{ secrets.PR_ENFORCER_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 .github/workflows/scripts/enforce-pr-template.py "$GITHUB_EVENT_PATH"

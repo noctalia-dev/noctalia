@@ -22,6 +22,9 @@ public:
   virtual void setChangeCallback(ChangeCallback callback) = 0;
   virtual void refresh() = 0;
 
+  // False while the backend daemon is off the bus. State then reads as defaults and actions are no-ops;
+  // the UI presents the network as unavailable.
+  [[nodiscard]] virtual bool available() const noexcept { return true; }
   [[nodiscard]] virtual const NetworkState& state() const noexcept = 0;
   [[nodiscard]] virtual bool hasStateSnapshot() const noexcept = 0;
   [[nodiscard]] virtual const std::vector<AccessPointInfo>& accessPoints() const noexcept = 0;
@@ -54,6 +57,5 @@ public:
   virtual void disconnect() = 0;
   virtual void forgetSsid(const std::string& ssid) = 0;
   [[nodiscard]] virtual bool hasSavedConnection(const std::string& ssid) const = 0;
-  [[nodiscard]] virtual bool supportsSecretAgent() const noexcept { return false; }
   void registerIpc(IpcService& ipc, WirelessFeedbackCallback wirelessFeedback = {});
 };

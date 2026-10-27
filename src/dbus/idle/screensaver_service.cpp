@@ -234,12 +234,12 @@ void ScreenSaverService::onUninhibit(std::uint32_t cookie, const char* sender) {
     return;
   }
 
-  const std::string app = it->app;
-  const std::string reason = it->reason;
+  const InhibitCookie released = std::move(*it);
   m_cookies.erase(it);
   onInhibitDelta(-1);
   kLog.debug(
-      "screensaver uninhibit from {} ({}): {} (locks={})", app, sender != nullptr ? sender : "?", reason, m_inhibitLocks
+      "screensaver uninhibit from {} ({}): {} (locks={})", released.app, sender != nullptr ? sender : "?",
+      released.reason, m_inhibitLocks
   );
 }
 

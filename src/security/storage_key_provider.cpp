@@ -15,7 +15,7 @@
 namespace security {
   namespace {
     constexpr Logger kLog("storage-key");
-    constexpr SecretId kStorageMasterKeyId{
+    const SecretId kStorageMasterKeyId{
         .scope = "storage",
         .owner = "encrypted-state",
         .name = "master-key",
@@ -212,9 +212,10 @@ namespace security {
     setState(StorageKeyState::Opening);
     m_operation = m_secretStore.lookup(kStorageMasterKeyId, [this](SecretStoreStatus status, SecureBuffer value) {
       if (status == SecretStoreStatus::Success) {
+        const std::size_t size = value.size();
         auto key = SecureKey::fromBuffer(std::move(value));
         if (!key.has_value()) {
-          kLog.warn("storage master key has an invalid size");
+          kLog.warn("storage master key has an invalid size ({} bytes)", size);
           setState(StorageKeyState::BackendError);
           return;
         }

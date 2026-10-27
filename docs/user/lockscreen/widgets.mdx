@@ -41,8 +41,7 @@ Edit mode is only available while the session is **unlocked**. The editor shows 
 
 ### Related IPC
 
-For lockscreen widget edit-mode commands, see
-[Surfaces → Lockscreen widgets](/noctalia/ipc/surfaces/#lockscreen-widgets).
+For lockscreen widget edit-mode commands, see [Surfaces → Lockscreen widgets](/noctalia/ipc/surfaces/#lockscreen-widgets).
 
 You can also use **Settings → Security → Lock screen → Toggle Editor**.
 
@@ -56,7 +55,17 @@ Same interaction model as desktop widget edit mode (move, rotate, resize, grid s
 
 The schema mirrors `[desktop_widgets]`: `enabled`, `schema_version`, optional `[lockscreen_widgets.grid]`, `widget_order`, and `[lockscreen_widgets.widget.<id>]` tables with `type`, `output`, `cx`, `cy`, `box_width`, `box_height`, `rotation`, `enabled`, and `[lockscreen_widgets.widget.<id>.settings]`.
 
-Widget IDs generated in the editor use the `lockscreen-widget-` prefix. Login box placement uses fixed IDs `lockscreen-login-box@<output>` with `type = "login_box"` (not shown in the add-widget list).
+`output` accepts an exact connector name or a unique monitor description, make, model, or serial selector, with the same case-sensitive, whole-token matching as bar and dock overrides. See [Desktop widgets - Monitor matching](/noctalia/desktop/widgets/#monitor-matching). The selector stays in the saved configuration when connectors change, so placement follows the matching monitor. Selectors matching multiple monitors are inactive and logged as warnings; use a more specific description or serial.
+
+Widget IDs generated in the editor use the `lockscreen-widget-` prefix. Login box placement uses IDs `lockscreen-login-box@<output>` with `type = "login_box"` (not shown in the add-widget list). New boxes receive a numeric suffix if that ID is already used by a saved box. A login box is assigned by its `output` field, independently of the ID suffix. To follow a monitor across docking cycles, change that field on the existing box while keeping its ID and settings:
+
+```toml
+[lockscreen_widgets.widget."lockscreen-login-box@DP-1"]
+type = "login_box"
+output = "HP E273q"
+```
+
+Noctalia reuses a matching login box instead of creating a default box for its new connector. If several login boxes target the same monitor, the first matching box in widget order is used. Newly generated defaults are appended after saved boxes, so a saved selector takes priority when its monitor returns or its identity metadata arrives. Login boxes for disconnected monitors are retained with their placement and size, so reconnecting restores the layout. Remove unused boxes explicitly from your configuration. A connected monitor without a matching box still receives a default login box, and at least one connected login box remains enabled.
 
 ### Login box settings
 
@@ -72,22 +81,25 @@ The login box uses the same inspector layout as other lockscreen widgets:
 
 Auth status is a separate fixed-size card outside the login panel (above it by default, flipping below when the panel is near the top of the screen). It does not change the login box size. With `show_unlock_hint = true` (default), the card shows the idle unlock hint and auth prompts (for example fingerprint or “Authenticating…”). With it off, the card stays hidden except for errors and Caps Lock warnings (when `show_caps_lock` is enabled). The editor preview shows a matching ghost for the unlock-hint card that follows the same above/below placement.
 
-| Setting | Default | Range | Description |
-| --- | --- | --- | --- |
-| `layout` | `regular` | `compact` \| `regular` | Login panel layout |
-| `show_session_buttons` | `true` | bool | Regular: show session actions from `[shell.session].actions` (lock actions omitted) |
-| `show_media` | `true` | bool | Regular: show media in the info row. Both media and weather may be off (the info strip collapses) |
-| `show_weather` | `true` | bool | Regular: show weather beside media. Alone, weather is centered and shows more forecast days; when unavailable while media is on, media fills the row |
-| `background_color` | `surface_variant` | color role | Outer login bar fill |
-| `background_opacity` | `0.88` | `0.0`–`1.0` | Outer login bar opacity |
-| `background_radius` | `12` | `0`–`32` | Outer login bar corner radius (logical px) |
-| `show_login_button` | `true` | bool | Show the check button beside the password field |
-| `show_unlock_hint` | `true` | bool | Show the status card for the idle unlock hint and auth prompts; errors and Caps Lock still appear when off |
-| `show_caps_lock` | `true` | bool | Show a Caps Lock warning in the status card |
-| `show_keyboard_layout` | `true` | bool | Show the keyboard layout chip (cycles when multiple layouts are available) |
-| `input_opacity` | `1.0` | `0.0`–`1.0` | Password field background opacity |
-| `input_radius` | `6` | `0`–`32` | Password field corner radius (logical px) |
-| `center_password_text` | `false` | bool | Center password dots and placeholder inside the field |
+The eye button beside the password field shows the typed password as plain text on that monitor only; other monitors keep it masked. It hides again on every lock. While revealed, the field still blocks copy and cut to the clipboard and keeps reporting itself to input methods as a sensitive password field.
+
+| Setting                | Default             | Range                  | Description                                                                                                                                          |
+| ---------------------- | ------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `layout`               | `regular`           | `compact` \| `regular` | Login panel layout                                                                                                                                   |
+| `show_session_buttons` | `true`              | bool                   | Regular: show session actions from `[shell.session].actions` (lock actions omitted)                                                                  |
+| `show_media`           | `true`              | bool                   | Regular: show media in the info row. Both media and weather may be off (the info strip collapses)                                                    |
+| `show_weather`         | `true`              | bool                   | Regular: show weather beside media. Alone, weather is centered and shows more forecast days; when unavailable while media is on, media fills the row |
+| `background_color`     | `surface_container` | color role             | Outer login bar fill                                                                                                                                 |
+| `background_opacity`   | `0.88`              | `0.0`–`1.0`            | Outer login bar opacity                                                                                                                              |
+| `background_radius`    | `12`                | `0`–`32`               | Outer login bar corner radius (logical px)                                                                                                           |
+| `show_password_reveal` | `true`              | bool                   | Show the eye button that reveals the typed password                                                                                                  |
+| `show_login_button`    | `true`              | bool                   | Show the check button beside the password field                                                                                                      |
+| `show_unlock_hint`     | `true`              | bool                   | Show the status card for the idle unlock hint and auth prompts; errors and Caps Lock still appear when off                                           |
+| `show_caps_lock`       | `true`              | bool                   | Show a Caps Lock warning in the status card                                                                                                          |
+| `show_keyboard_layout` | `true`              | bool                   | Show the keyboard layout chip (cycles when multiple layouts are available)                                                                           |
+| `input_opacity`        | `1.0`               | `0.0`–`1.0`            | Password field background opacity                                                                                                                    |
+| `input_radius`         | `6`                 | `0`–`32`               | Password field corner radius (logical px)                                                                                                            |
+| `center_password_text` | `false`             | bool                   | Center password dots and placeholder inside the field                                                                                                |
 
 ```toml
 [lockscreen_widgets.widget."lockscreen-login-box@DP-1".settings]
@@ -96,7 +108,7 @@ show_session_buttons = true
 show_media = true
 show_weather = true
 show_unlock_hint = true
-background_color = "surface_variant"
+background_color = "surface_container"
 background_opacity = 0.75
 background_radius = 16.0
 input_opacity = 0.9

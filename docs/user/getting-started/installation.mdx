@@ -16,6 +16,7 @@ Noctalia is available on the following distributions. Choose your platform below
 - [Gentoo](#gentoo)
 - [GNU Guix](#guix)
 - [Debian](#debian) (including Ubuntu)
+- [Chimera Linux](#chimera)
 
 You can also [install manually](#manual-install) on any other Linux distribution.
 
@@ -33,24 +34,23 @@ The Noctalia team maintains the **manual installation method**. Official distrib
 
 ## Arch Linux {#arch}
 
-Noctalia is available in the [extra] repository.
+Noctalia is available in the \[extra] repository.
 
 ```bash
 sudo pacman -S noctalia
 ```
+
 ---
 
 ## Fedora {#fedora}
 
 Noctalia is available from the default repos for Fedora 44 and up.
 
-**Step 1**: Install noctalia
-
 ```bash
 sudo dnf install noctalia
 ```
 
-An alternate version using git snapshots is available from the [LionHeartP Copr](https://copr.fedorainfracloud.org/coprs/lionheartp/Hyprland/) repository.
+##### An alternate version using git snapshots is available from the [LionHeartP Copr](https://copr.fedorainfracloud.org/coprs/lionheartp/Hyprland/) repository.
 
 **Step 1**: Enable the repository
 
@@ -58,7 +58,7 @@ An alternate version using git snapshots is available from the [LionHeartP Copr]
 sudo dnf copr enable lionheartp/Hyprland 
 ```
 
-**Step 2**: Install noctalia
+**Step 2**: Install noctalia-git
 
 ```bash
 sudo dnf install noctalia-git
@@ -68,55 +68,49 @@ sudo dnf install noctalia-git
 
 ## openSUSE {#opensuse}
 
-Noctalia is available via [home:neifua:Noctalia](https://build.opensuse.org/package/show/home:neifua:Noctalia/noctalia-git) repository on the openSUSE Build Service.
+Noctalia is available in the official openSUSE repository.
+
+```bash
+sudo zypper refresh
+sudo zypper install noctalia
+```
+
+##### An alternate version using git snapshots is available from the [home\:neifua:Noctalia](https://build.opensuse.org/project/show/home\:neifua\:Noctalia) repository on OBS.
 
 **Step 1**: Add the OBS repository
 
 <Tabs>
   <TabItem label="Tumbleweed">
     ```bash
-	sudo zypper addrepo --refresh --name noctalia-v5 https://download.opensuse.org/repositories/home:neifua:Noctalia/openSUSE_Tumbleweed/home:neifua:Noctalia.repo
+    sudo zypper addrepo --refresh --name 'Noctalia Project' https://download.opensuse.org/repositories/home:neifua:Noctalia/openSUSE_Tumbleweed/home:neifua:Noctalia.repo
     ```
   </TabItem>
+
   <TabItem label="Slowroll">
     ```bash
-	sudo zypper addrepo --refresh --name noctalia-v5 https://download.opensuse.org/repositories/home:neifua:Noctalia/openSUSE_Slowroll/home:neifua:Noctalia.repo
+    sudo zypper addrepo --refresh --name 'Noctalia Project' https://download.opensuse.org/repositories/home:neifua:Noctalia/openSUSE_Slowroll/home:neifua:Noctalia.repo
     ```
   </TabItem>
 </Tabs>
 
+**Step 2**: Refresh and install noctalia-git
 
-**Step 2**: Refresh and install noctalia:
-
-<Tabs>
-	<TabItem label="Stable (recommended)">
-	```bash
-	sudo zypper refresh
-	sudo zypper install noctalia
-	```
-	</TabItem>
-	<TabItem label="Unstable">
-	```bash
-	sudo zypper refresh
-	sudo zypper install noctalia-git
-	```
-	</TabItem>
-</Tabs>
+```bash
+sudo zypper refresh
+sudo zypper install noctalia-git
+```
 
 :::note
-v5 will only be available for **Tumbleweed** and **Slowroll**. **Leap 16.0** is unable to build because *sdbus-c++* is still on v1.6.0 while v5 requires >= v2.x.x
-
-- **[Stable version](https://build.opensuse.org/package/show/home:neifua:Noctalia/noctalia)**: Updated when a new release is tagged
-- **[Unstable version](https://build.opensuse.org/package/show/home:neifua:Noctalia/noctalia-git)**: Automatically rebuilt on OBS whenever a new commit is pushed
+v5 will only be available for **Tumbleweed** and **Slowroll**. **Leap 16.0** is unable to build because ***sdbus-c++*** is still on v1.6.0 while v5 requires >= v2.x.x
 :::
 
 ---
 
 ## Gentoo {#gentoo}
 
-Noctalia is available in the [GURU](https://wiki.gentoo.org/wiki/Project:GURU) overlay.
+Noctalia is available in the [GURU](https://wiki.gentoo.org/wiki/Project\:GURU) overlay.
 
-**Step 1**: Enable and sync the overlay as read in [Project:GURU/Information_for_End_Users](https://wiki.gentoo.org/wiki/Project:GURU/Information_for_End_Users).
+**Step 1**: Enable and sync the overlay as read in [Project:GURU/Information_for_End_Users](https://wiki.gentoo.org/wiki/Project\:GURU/Information_for_End_Users).
 
 **Step 2**: [Unmask](https://wiki.gentoo.org/wiki/Live_ebuilds#Unmasking_live_ebuilds) the `gui-apps/noctalia` package:
 
@@ -134,64 +128,42 @@ emerge --ask gui-apps/noctalia
 
 ## GNU Guix {#guix}
 
-The Git repository of Noctalia is also available as a [Guix channel](https://guix.gnu.org/manual/devel/en/html_node/Channels.html).  It provides a `(noctalia)` [module](https://guix.gnu.org/manual/devel/en/html_node/Package-Modules.html) with the `noctalia-git` package.
+Noctalia is available in the main Guix repository as the package `noctalia-shell`. Simply add `(gnu packages window-management)` to your list of imported modules, then add `noctalia-shell` to your list of packages.
 
-```scheme
-(channel
-  (name 'noctalia)
-  (url "https://github.com/noctalia-dev/noctalia")
-  (branch "main"))
-```
+Due to the fast pace of development on Noctalia, the main Guix channel is likely to lag behind in version. If you don't wish to wait for it to update then you have two alternative channels. Do note that with both options you will be compiling the package yourself, because only the main Guix channel provides substitutes for it.
 
-To use this channel, add it into your `~/.config/guix/channels.scm`.  For example:
+<Tabs>
+  <TabItem label="Noctalia channel">
+    The Git repository of Noctalia is also available as a [Guix channel](https://guix.gnu.org/manual/devel/en/html_node/Channels.html).  It provides a `(noctalia)` module with the `noctalia-git` package.
 
-```scheme
-(list (channel
-        (name 'noctalia)
-        (url "https://github.com/noctalia-dev/noctalia")
-        (branch "main"))
-      %default-guix-channel)
-```
+    Do note that since this is a git package, there might be times (though rare) where it fails to compile when either dependencies or something about the build process changes. If that happens you might want to [pin the channel](https://guix.gnu.org/manual/devel/en/html_node/Replicating-Guix.html) to an older working commit by adding `(commit "[full commit hash]")` to the channel definition.
 
-After updating channels via [`guix pull`](https://guix.gnu.org/manual/devel/en/html_node/Invoking-guix-pull.html), Noctalia will be available to your Guix installation.  Then you're free to do what you want with the `noctalia-git` package ;-)
+    ```scheme
+    (channel
+      (name 'noctalia)
+      (url "https://github.com/noctalia-dev/noctalia")
+      (branch "main"))
+    ```
 
-For example, spawn one-off software environment via [`guix shell`](https://guix.gnu.org/manual/devel/en/html_node/Invoking-guix-shell.html):
+    Whenver you run `guix pull` you will get the latest commit of noctalia, which will start compiling and be available for use when you reconfigure your system or home environment, whichever you added the `noctalia-shell` package to. You can use `guix pull --select=noctalia` if you wish to update only noctalia without needing to pull your other channels.
+  </TabItem>
 
-```bash
-guix shell noctalia-git
-```
+  <TabItem label="Midnight channel">
+    The third-party [`midnight`](https://codeberg.org/stampede/midnight) guix channel provides the `noctalia` package under the module `(midnight packages noctalia)`. It provides up-to-date stable releases of noctalia for those who prefer that over a git package.
 
-install it into your user profile via [`guix package`](https://guix.gnu.org/manual/devel/en/html_node/Invoking-guix-package.html):
-
-```bash
-guix install noctalia-git
-```
-
-declare it in your [home environment](https://guix.gnu.org/manual/devel/en/html_node/Home-Configuration.html) (`...`s are placeholders for your existing configuration):
-
-```scheme
-(use-modules (noctalia)
-             ...)
-
-(home-environment
-  (packages
-   (list noctalia-git
-         ...))
-  ...)
-```
-
-or [whole-system configuration](https://guix.gnu.org/manual/devel/en/html_node/System-Configuration.html):
-
-```scheme
-(use-modules (noctalia)
-             ...)
-
-(operating-system
-  (packages
-   (list noctalia-git
-         ...))
-  ...)
-```
+    ```scheme
+    (channel
+      (name 'midnight)
+      (url "https://codeberg.org/stampede/midnight.git")
+      (branch "main")
+      (introduction
+        (make-channel-introduction
+          "d97d1568954cfcbf543c9fcdfd5771e2b730ae19"
+          (openpgp-fingerprint
+            "640A 2C3C E948 22D3 394B 40C3 CAFA EECA 00FF 9B1E"))))
+    ```
+  </TabItem>
+</Tabs>
 
 ---
 
@@ -213,11 +185,13 @@ wget https://pkg.noctalia.dev/deb/nickh-archive-keyring.deb && sudo dpkg -i nick
     sudo wget -O /etc/apt/sources.list.d/noctalia-trixie.sources https://pkg.noctalia.dev/deb/noctalia-trixie.sources
     ```
   </TabItem>
+
   <TabItem label="Debian Sid">
     ```bash
     sudo wget -O /etc/apt/sources.list.d/noctalia-unstable.sources https://pkg.noctalia.dev/deb/noctalia-unstable.sources
     ```
   </TabItem>
+
   <TabItem label="Ubuntu 26.04">
     ```bash
     sudo wget -O /etc/apt/sources.list.d/noctalia-resolute.sources https://pkg.noctalia.dev/deb/noctalia-resolute.sources
@@ -238,31 +212,55 @@ You can also install the `noctalia-greeter`, `umbriel`, and `xdg-desktop-portal-
 The APT repository provides `amd64` and `arm64` packages only.
 :::
 
-
 ***Configuring `noctalia-greeter`***
+
 <ol>
-<li>
-If already using `greetd`, no configuration is required. Just restart greetd with:
+  <li>
+    If already using `greetd`, no configuration is required. Just restart greetd with:
 
-```bash
-sudo systemctl restart greetd
-```
-</li>
-<li>
-If not currently using `greetd`
+    ```bash
+    sudo systemctl restart greetd
+    ```
+  </li>
 
-First stop and disable your current display manager. Eg:
+  <li>
+    If not currently using `greetd`
 
-```bash
-sudo systemctl disable --now gdm3
-```
-Then enable and start `greetd`. Eg:
+    First stop and disable your current display manager. Eg:
 
-```bash
-sudo systemctl enable --now greetd
-```
-</li>
+    ```bash
+    sudo systemctl disable --now gdm3
+    ```
+
+    Then enable and start `greetd`. Eg:
+
+    ```bash
+    sudo systemctl enable --now greetd
+    ```
+  </li>
 </ol>
+
+---
+
+## Chimera Linux {#chimera}
+
+Noctalia is available in Chimera's `user` repository.
+
+Run the following commands as root.
+
+**Step 1**: Enable the `user` repository if it isn't already:
+
+```bash
+apk add chimera-repo-user
+```
+
+**Step 2**: Refresh the package indexes and install Noctalia:
+
+```bash
+apk update
+apk add noctalia
+```
+
 ---
 
 ## Manual Installation {#manual-install}
@@ -292,6 +290,7 @@ If you prefer to install Noctalia locally or want more control over the installa
       jemalloc
     ```
   </TabItem>
+
   <TabItem label="Fedora">
     ```bash
     sudo dnf install meson gcc-c++ just \
@@ -309,6 +308,7 @@ If you prefer to install Noctalia locally or want more control over the installa
       jemalloc-devel
     ```
   </TabItem>
+
   <TabItem label="Debian/Ubuntu">
     ```bash
     sudo apt install just meson libwayland-dev \
@@ -325,20 +325,15 @@ If you prefer to install Noctalia locally or want more control over the installa
   </TabItem>
 </Tabs>
 
-Vendored dependencies, with no system package needed: `Wuffs`,
-`Luau`, `fzy`, and Material Color Utilities.
+Vendored dependencies, with no system package needed: `Wuffs`, `Luau`, `fzy`, and Material Color Utilities.
 
-System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding. Wuffs
-handles the other supported raster image formats.
+System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding. Wuffs handles the other supported raster image formats.
 
+HEIC, HEIF, and AVIF images are optional and need no build-time package: Noctalia loads `libheif.so.1` at runtime the first time it meets one. Install `libheif` with its AV1 (dav1d or aom) and HEVC (libde265) decoder plugins to use them; on Fedora the HEVC plugin comes from RPM Fusion's `libheif-freeworld`.
 
-Polkit agent support requires development files that provide the `polkit-agent-1` and `polkit-gobject-1` pkg-config
-modules. Some distros ship these in the runtime `polkit` package, while split-package distros use names such as
-`polkit-devel`, `polkit-dev`, or `libpolkit-agent-1-dev` / `libpolkit-gobject-1-dev`.
+Polkit agent support requires development files that provide the `polkit-agent-1` and `polkit-gobject-1` pkg-config modules. Some distros ship these in the runtime `polkit` package, while split-package distros use names such as `polkit-devel`, `polkit-dev`, or `libpolkit-agent-1-dev` / `libpolkit-gobject-1-dev`.
 
-**Optional:** installing `jemalloc` (Fedora: `jemalloc-devel`, Arch: `jemalloc`, Debian/Ubuntu: `libjemalloc-dev`, Void:
-`jemalloc`) reduces memory fragmentation in long-running sessions. On glibc systems it is used automatically when
-detected. Use Meson's `-Djemalloc=enabled` or `-Djemalloc=disabled` option to require or disable it explicitly.
+**Optional:** installing `jemalloc` (Fedora: `jemalloc-devel`, Arch: `jemalloc`, Debian/Ubuntu: `libjemalloc-dev`, Void: `jemalloc`) reduces memory fragmentation in long-running sessions. On glibc systems it is used automatically when detected. Use Meson's `-Djemalloc=enabled` or `-Djemalloc=disabled` option to require or disable it explicitly.
 
 Sanitizer runtime packages are only needed for ASan/UBSan builds configured with `just configure asan`.
 
@@ -355,34 +350,35 @@ Requires [just](https://github.com/casey/just) and [meson](https://mesonbuild.co
 
 <Tabs>
   <TabItem label="Release Mode">
-		```bash
-	# Optimized release build in build-release/
-	just configure release
-	just build release
+    ```bash
+    # Optimized release build in build-release/
+    just configure release
+    just build release
 
-	# Install the selected build mode. This does not build or reconfigure.
-	sudo just install release
-		```
+    # Install the selected build mode. This does not build or reconfigure.
+    sudo just install release
+    ```
 
-	Pass a prefix to `configure` to install somewhere other than `/usr/local`:
+    Pass a prefix to `configure` to install somewhere other than `/usr/local`:
 
-	```bash
-	just configure release "$HOME/.local"
-	just build release
-	just install release
-	```
+    ```bash
+    just configure release "$HOME/.local"
+    just build release
+    just install release
+    ```
 
-	To remove files installed from a build directory, run `just uninstall release`.
+    To remove files installed from a build directory, run `just uninstall release`.
   </TabItem>
-  <TabItem label="Debug Mode">
-		```bash
-	# Debug build in build-debug/ for local development and troubleshooting.
-	just configure
-	just build
 
-	# Test your local debug build with 
-	just run
-		```
+  <TabItem label="Debug Mode">
+    ```bash
+    # Debug build in build-debug/ for local development and troubleshooting.
+    just configure
+    just build
+
+    # Test your local debug build with 
+    just run
+    ```
   </TabItem>
 </Tabs>
 
@@ -409,7 +405,7 @@ bundle/
   share/noctalia/assets/
 ```
 
-See [CONTRIBUTING.md](https://github.com/noctalia-dev/noctalia/blob/main/CONTRIBUTING.md#runtime-assets) for the full runtime asset lookup order.
+See [PACKAGING.md](https://github.com/noctalia-dev/noctalia/blob/main/PACKAGING.md#runtime-asset-lookup) for the full runtime asset lookup order.
 
 ## Getting Help
 

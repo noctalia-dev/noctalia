@@ -33,9 +33,6 @@ public:
   void finishGraphicsResetRecovery() noexcept { m_graphicsResetPending = false; }
 
   void renderScene(RenderTarget& target, Node* sceneRoot, const WallpaperMaskDrawParams* wallpaperMask = nullptr);
-  void setGraphicsResetCallback(std::function<void(RenderGraphicsResetStatus)> callback) {
-    m_graphicsResetCallback = std::move(callback);
-  }
   // Returns false if the surface could not be made current (e.g. teardown);
   // best-effort callers may ignore it, render paths must skip the frame.
   bool makeCurrent(RenderTarget& target);
@@ -63,17 +60,21 @@ private:
   // Scale-parameterized measurement/text ops. ScaledRenderer forwards here with
   // an explicit scale; no call mutates any shared render scale.
   [[nodiscard]] TextMetrics measureTextScaled(
-      float scale, std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines,
-      TextAlign align, std::string_view fontFamily, TextEllipsize ellipsize, bool useMarkup
+      float scale, std::string_view text, float fontSize, const TextFont& font, float maxWidth, int maxLines,
+      TextAlign align, TextEllipsize ellipsize, bool useMarkup
   );
-  [[nodiscard]] TextMetrics measureFontScaled(float scale, float fontSize, FontWeight fontWeight);
+  [[nodiscard]] TextMetrics measureFontScaled(float scale, float fontSize, const TextFont& font);
   void measureTextCursorStopsScaled(
       float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
-      std::vector<float>& outStops, FontWeight fontWeight
+      std::vector<float>& outStops, const TextFont& font
   );
   void measureTextCursorStopsWrappedScaled(
       float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
-      std::vector<TextCursorStop>& outStops, FontWeight fontWeight
+      std::vector<TextCursorStop>& outStops, const TextFont& font
+  );
+  void measureTextCharSpansScaled(
+      float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+      std::vector<TextCharSpan>& outSpans, const TextFont& font
   );
   [[nodiscard]] TextMetrics measureGlyphScaled(float scale, char32_t codepoint, float fontSize);
 
@@ -94,5 +95,5 @@ private:
   std::uint64_t m_gpuResourceGeneration = 0;
   bool m_glyphTexturesDirty = false;
   bool m_graphicsResetPending = false;
-  std::function<void(RenderGraphicsResetStatus)> m_graphicsResetCallback;
+  GlSharedContext* m_shared = nullptr;
 };

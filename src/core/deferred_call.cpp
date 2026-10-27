@@ -19,20 +19,6 @@ namespace {
     return fds;
   }
 
-  void setNonBlocking(int fd) {
-    const int flags = ::fcntl(fd, F_GETFL, 0);
-    if (flags >= 0) {
-      (void)::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-    }
-  }
-
-  void setCloseOnExec(int fd) {
-    const int flags = ::fcntl(fd, F_GETFD, 0);
-    if (flags >= 0) {
-      (void)::fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
-    }
-  }
-
   bool ensureWakePipe() {
     auto& fds = wakePipe();
     if (fds[0] >= 0 && fds[1] >= 0) {
@@ -40,13 +26,9 @@ namespace {
     }
 
     int pipeFds[2] = {-1, -1};
-    if (::pipe(pipeFds) != 0) {
+    if (::pipe2(pipeFds, O_CLOEXEC | O_NONBLOCK) != 0) {
       return false;
     }
-    setNonBlocking(pipeFds[0]);
-    setNonBlocking(pipeFds[1]);
-    setCloseOnExec(pipeFds[0]);
-    setCloseOnExec(pipeFds[1]);
     fds = {pipeFds[0], pipeFds[1]};
     return true;
   }

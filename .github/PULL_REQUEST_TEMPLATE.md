@@ -3,7 +3,7 @@
 
      Required: the Summary, Motivation, Type of Change, Testing, and Checklist
      headings, and the Checklist wording below. Before marking a pull request ready for
-     review, select at least one change type and check every Checklist item.
+     review, check exactly one change type and every Checklist item.
 
      Everything else may be deleted, including these guidance comments and any of the
      Related Issue, Manual Coverage, Screenshots / Videos, and Additional Notes sections.
@@ -22,13 +22,16 @@
 
 ## Type of Change
 
-<!-- Mark all that apply. -->
+<!-- A pull request covers one feature, fix, or refactor; split unrelated changes into
+     separate pull requests. Check exactly one type, plus Breaking change if it applies.
+     Documentation that ships with a feature or fix is part of that type. -->
 
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Breaking change
 - [ ] Refactoring
 - [ ] Build / packaging
+- [ ] Documentation only
 
 ## Related Issue
 

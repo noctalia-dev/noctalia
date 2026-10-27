@@ -606,6 +606,14 @@ void MainLoop::run() {
       logSlowMainLoopOperation(ms, "wl_display_dispatch_pending took {:.1F}ms after poll", ms);
     }
 
+    // The compositor closed the socket. libwayland reports EOF as EPIPE only when its input buffer is empty;
+    // a trailing partial message makes wl_display_read_events succeed forever and the loop spins on POLLHUP.
+    // Everything readable was consumed and dispatched above, so treat the hangup as the disconnect it is.
+    if ((pollFds[0].revents & (POLLHUP | POLLERR)) != 0) {
+      handleWaylandDisconnect(m_wayland, "Wayland socket hangup", EPIPE);
+      return;
+    }
+
     // Dispatch only sources that actually woke: an fd reported revents, or the
     // timeout the source advertised before poll has elapsed. A source callback
     // (notably config reload) can synchronously rebuild services and destroy

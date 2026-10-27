@@ -1581,6 +1581,7 @@ namespace noctalia::theme {
       out.dark["source_color"] = palette[0].toArgb();
       out.light["source_color"] = palette[0].toArgb();
     }
+    setGeneratedHoverTokens(out);
     synthesizeTerminalPaletteTokens(out);
     return out;
   }

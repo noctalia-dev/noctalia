@@ -4,6 +4,7 @@
 #include "config/schema/field.h"
 #include "core/toml.h"
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -28,6 +29,17 @@ namespace noctalia::config::schema {
     toml::table tbl;
     for (const auto& f : schema) {
       f.write(tbl, in);
+    }
+    return tbl;
+  }
+
+  // Serialize only the field named `key`; the table is empty when the schema has no such field or the
+  // field does not emit (e.g. an unset optional).
+  template <typename Struct>
+  toml::table writeField(const Struct& in, const Schema<Struct>& schema, std::string_view key) {
+    toml::table tbl;
+    if (const auto it = std::ranges::find(schema, key, &Field<Struct>::key); it != schema.end()) {
+      it->write(tbl, in);
     }
     return tbl;
   }
@@ -74,11 +86,13 @@ namespace noctalia::config::schema {
          readSkipEmptyName](const toml::table& tbl, Parent& out, std::string_view parentPath, Diagnostics& diag) {
           auto* map = tbl[key].as_table();
           if (map == nullptr) {
+            warnWrongType(tbl, key, parentPath, diag, "a table");
             return;
           }
           for (const auto& [name, node] : *map) {
             const auto* sub = node.as_table();
             if (sub == nullptr) {
+              warnWrongType(diag, joinPath(joinPath(parentPath, key), name.str()), node, "a table");
               continue;
             }
             Elem elem{};
@@ -131,14 +145,18 @@ namespace noctalia::config::schema {
          keep](const toml::table& tbl, Parent& out, std::string_view parentPath, Diagnostics& diag) {
           auto* arr = tbl[key].as_array();
           if (arr == nullptr) {
+            warnWrongType(tbl, key, parentPath, diag, "an array of tables");
             return;
           }
           (out.*member).clear();
+          std::size_t index = 0;
           for (const auto& node : *arr) {
             const auto* sub = node.as_table();
             if (sub == nullptr) {
+              warnWrongType(diag, joinPath(parentPath, key) + '[' + std::to_string(index++) + ']', node, "a table");
               continue;
             }
+            ++index;
             Elem elem{};
             readInto(*sub, elem, subSchema, joinPath(parentPath, key), diag);
             if (keep(elem)) {
@@ -177,6 +195,8 @@ namespace noctalia::config::schema {
         [member, key, &subSchema](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto* sub = tbl[key].as_table()) {
             readInto(*sub, out.*member, subSchema, joinPath(parentPath, key), diag);
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, "a table");
           }
         },
         [member, key, &subSchema](toml::table& tbl, const Struct& in) {

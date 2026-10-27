@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_service.h"
+#include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
@@ -33,6 +34,13 @@ struct BarCapsuleRun {
   // Hover highlight overlays, parallel to `widgets` for group runs; one shared box for single runs.
   std::vector<Box*> hoverBoxes;
   bool accordion = false;
+  // Unfold animation time in milliseconds. Matches Style::animNormal; always overwritten from the
+  // group's accordion_duration setting when the run is built.
+  float accordionDurationMs = 200.0F;
+  // Hover time in milliseconds before unfolding starts (expand only; collapse is immediate).
+  float accordionDelayMs = 0.0F;
+  // Pending delayed expand; cancelled when the pointer leaves, the state resolves, or the run dies.
+  Timer accordionDelayTimer;
   // Clips accordion members to the reveal window (inside the capsule padding).
   Node* accordionClip = nullptr;
   BarAccordionDirection accordionDirection = BarAccordionDirection::End;
@@ -69,12 +77,15 @@ struct BarInstance {
   bool ipcLayoutReleased = false;
   // bar-auto-hide-set off keeps autoHide true until the reveal completes; block hover helpers from replacing it.
   bool autoHideDisablePending = false;
+  Timer autoHideDelayTimer;
   // smart_auto_hide: active workspace empty (or overview open) — keep the bar visible.
   bool smartAutoHidePinnedVisible = false;
   bool pointerInside = false;
   float lastPointerSx = 0.0F;
   float lastPointerSy = 0.0F;
   std::size_t attachedPopupCount = 0;
+  // Last region sent for dead_zone.click_through; skips resending an unchanged region every layout pass.
+  std::optional<std::vector<InputRect>> clickThroughInputRegion;
 
   // Bar background, shadow, and layout sections (start/center/end along main axis)
   Box* bg = nullptr;

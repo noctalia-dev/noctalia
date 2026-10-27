@@ -46,6 +46,11 @@ namespace {
     return static_cast<std::uint8_t>(2 * (dBm + 100));
   }
 
+  // wpa_supplicant quotes D-Bus string values for "ssid" itself; a byte array is taken verbatim.
+  sdbus::Variant ssidVariant(const std::string& ssid) {
+    return sdbus::Variant{std::vector<std::uint8_t>{ssid.begin(), ssid.end()}};
+  }
+
   // Read all BSS properties in one GetAll round-trip.
   struct BssInfo {
     std::string ssid;
@@ -258,7 +263,7 @@ bool WpaSupplicantService::activateAccessPoint(const AccessPointInfo& ap) {
   try {
     using VariantMap = std::map<std::string, sdbus::Variant>;
     VariantMap args;
-    args["ssid"] = sdbus::Variant{'"' + ap.ssid + '"'};
+    args["ssid"] = ssidVariant(ap.ssid);
     args["key_mgmt"] = sdbus::Variant{std::string{"NONE"}};
     sdbus::ObjectPath netPath;
     iface->callMethod("AddNetwork").onInterface(kWpaIfaceInterface).withArguments(args).storeResultsTo(netPath);
@@ -278,7 +283,7 @@ bool WpaSupplicantService::activateAccessPoint(const AccessPointInfo& ap, const 
   try {
     using VariantMap = std::map<std::string, sdbus::Variant>;
     VariantMap args;
-    args["ssid"] = sdbus::Variant{'"' + ap.ssid + '"'};
+    args["ssid"] = ssidVariant(ap.ssid);
     args["psk"] = sdbus::Variant{psk}; // raw passphrase, no quotes
     sdbus::ObjectPath netPath;
     iface->callMethod("AddNetwork").onInterface(kWpaIfaceInterface).withArguments(args).storeResultsTo(netPath);
@@ -305,7 +310,6 @@ void WpaSupplicantService::disconnect() {
 void WpaSupplicantService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete) {
   const bool softBlocked = !enabled;
   bool rfkillDone = false;
-  bool hardBlocked = false;
   for (const auto& [ifacePath, proxy] : m_interfaces) {
     (void)ifacePath;
     const auto ifname = getPropertyOr<std::string>(*proxy, kWpaIfaceInterface, "Ifname", "");
@@ -314,10 +318,7 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled, WirelessEnabledCompl
     }
     const RfkillSwitchResult result = setRfkillSoftBlockedForNetInterface(ifname, softBlocked);
     if (result.hardBlocked) {
-      kLog.warn("setWirelessEnabled: rfkill hard block on {}", ifname);
-      hardBlocked = enabled;
-      rfkillDone = !enabled;
-      break;
+      kLog.warn("setWirelessEnabled: rfkill reports a hard block on {}", ifname);
     }
     if (result.success) {
       rfkillDone = true;
@@ -328,10 +329,9 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled, WirelessEnabledCompl
   if (!rfkillDone) {
     const RfkillSwitchResult fallback = setRfkillSoftBlocked(RfkillDeviceType::Wlan, softBlocked);
     if (fallback.hardBlocked) {
-      kLog.warn("setWirelessEnabled: wlan rfkill hard block is active");
-      hardBlocked = enabled;
-      rfkillDone = !enabled;
-    } else if (fallback.success) {
+      kLog.warn("setWirelessEnabled: wlan rfkill reports a hard block");
+    }
+    if (fallback.success) {
       rfkillDone = true;
     } else if (!fallback.detail.empty()) {
       kLog.debug("setWirelessEnabled: wlan rfkill fallback: {}", fallback.detail);
@@ -355,7 +355,7 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled, WirelessEnabledCompl
     }
   }
 
-  const bool success = !hardBlocked && (rfkillDone || fallbackCommandSucceeded);
+  const bool success = rfkillDone || fallbackCommandSucceeded;
   if (success) {
     m_wirelessEnabledOverride = enabled;
   }

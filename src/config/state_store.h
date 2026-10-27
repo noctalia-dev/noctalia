@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 class StateStore {
 public:
@@ -19,6 +20,12 @@ public:
   [[nodiscard]] const std::string& parseError() const noexcept { return m_parseError; }
   [[nodiscard]] std::optional<bool> boolValue(std::string_view owner, std::string_view key) const;
   [[nodiscard]] std::optional<std::string> stringValue(std::string_view owner, std::string_view key) const;
+
+  [[nodiscard]] bool ownerValid(std::string_view owner) const;
+  [[nodiscard]] bool contains(std::string_view owner, std::string_view key) const;
+  [[nodiscard]] std::optional<std::vector<std::string>>
+  stringArrayValue(std::string_view owner, std::string_view key) const;
+  bool setStringArray(std::string_view owner, std::string_view key, const std::vector<std::string>& value);
 
   bool setBool(std::string_view owner, std::string_view key, bool value);
   bool setString(std::string_view owner, std::string_view key, std::string_view value);

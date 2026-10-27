@@ -23,6 +23,7 @@
 #include "shell/desktop/widgets/desktop_login_box_widget.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wallpaper/wallpaper_geometry.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/select_dropdown_popup.h"
@@ -247,7 +248,7 @@ void DesktopWidgetsEditor::setExitRequestedCallback(std::function<void()> callba
 void DesktopWidgetsEditor::open(const DesktopWidgetsEditorSnapshot& snapshot) {
   m_snapshot = snapshot;
   if (m_profile.showLockscreenLoginPreview && m_wayland != nullptr) {
-    lockscreen_login_box::ensureWidgets(m_snapshot.widgets, *m_wayland);
+    lockscreen_login_box::ensureWidgets(m_snapshot.widgets, m_wayland->outputs());
   }
   m_open = true;
   clearSelection();
@@ -558,7 +559,12 @@ std::string DesktopWidgetsEditor::effectiveOutputName(const DesktopWidgetState& 
     return state.outputName;
   }
   if (const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, state); output != nullptr) {
-    return desktop_widgets::outputKey(*output);
+    const std::string outputName = desktop_widgets::outputKey(*output);
+    if (lockscreen_login_box::isLoginBoxWidget(state)
+        && lockscreen_login_box::findForOutput(m_snapshot.widgets, m_wayland->outputs(), outputName) != &state) {
+      return {};
+    }
+    return outputName;
   }
   return {};
 }
@@ -682,7 +688,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   }
 
   auto dim = ui::box({
-      .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.14F),
+      .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.14F),
   });
   dim->setPosition(0.0F, 0.0F);
   dim->setFrameSize(root->width(), root->height());
@@ -736,7 +742,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       const int idx = std::abs(static_cast<int>(std::lround((x - centerX) / cell)));
       const bool major = (idx % majorInterval) == 0;
       auto line = ui::box({
-          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::Outline, major ? 0.18F : 0.08F),
+          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::OutlineVariant, major ? 0.18F : 0.08F),
       });
       line->setPosition(x, 0.0F);
       line->setFrameSize(1.0F, height);
@@ -748,7 +754,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       const int idx = std::abs(static_cast<int>(std::lround((y - centerY) / cell)));
       const bool major = (idx % majorInterval) == 0;
       auto line = ui::box({
-          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::Outline, major ? 0.18F : 0.08F),
+          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::OutlineVariant, major ? 0.18F : 0.08F),
       });
       line->setPosition(0.0F, y);
       line->setFrameSize(width, 1.0F);
@@ -1113,7 +1119,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           [](Flex& flex) {
                             flex.setPadding(Style::spaceSm, Style::spaceMd);
                             flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
-                            flex.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+                            flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
                             flex.setRadius(Style::scaledRadiusXl());
                             flex.setZIndex(200);
                           },
@@ -1125,7 +1131,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .gap = Style::spaceXs,
                           .paddingV = Style::spaceXs,
                           .paddingH = Style::spaceSm,
-                          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.85F),
+                          .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
                           .radius = Style::scaledRadiusLg(),
                           .minHeight = Style::controlHeightSm,
                       },
@@ -1222,7 +1228,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                         && selectedWidgetIt->enabled) {
                       int enabledCount = 0;
                       for (const auto& w : m_snapshot.widgets) {
-                        if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled) {
+                        if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled && !effectiveOutputName(w).empty()) {
                           enabledCount++;
                         }
                       }
@@ -1639,7 +1645,7 @@ void DesktopWidgetsEditor::toggleSelectedWidgetEnabled() {
   if (lockscreen_login_box::isLoginBoxWidget(*state) && state->enabled) {
     int enabledCount = 0;
     for (const auto& w : m_snapshot.widgets) {
-      if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled) {
+      if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled && !effectiveOutputName(w).empty()) {
         enabledCount++;
       }
     }
@@ -1753,7 +1759,7 @@ std::vector<std::string> DesktopWidgetsEditor::insertWidgetCopies(
 
     DesktopWidgetState copy = templateState;
     copy.id = nextWidgetId();
-    if (!targetOutputName.empty()) {
+    if (!targetOutputName.empty() && effectiveOutputName(copy) != targetOutputName) {
       copy.outputName = targetOutputName;
     }
     copy.cx += offsetX;
@@ -2177,7 +2183,7 @@ void DesktopWidgetsEditor::updateDrag() {
   if (m_drag.mode == DragMode::Move) {
     state->cx = dragSceneX + m_drag.movePointerOffsetX;
     state->cy = dragSceneY + m_drag.movePointerOffsetY;
-    if (!m_drag.surfaceOutputName.empty()) {
+    if (!m_drag.surfaceOutputName.empty() && effectiveOutputName(*state) != m_drag.surfaceOutputName) {
       outputAssignmentChanged = outputAssignmentChanged || (state->outputName != m_drag.surfaceOutputName);
       state->outputName = m_drag.surfaceOutputName;
     }
@@ -2209,7 +2215,7 @@ void DesktopWidgetsEditor::updateDrag() {
       }
       groupState->cx = initial.state.cx + deltaX;
       groupState->cy = initial.state.cy + deltaY;
-      if (!m_drag.surfaceOutputName.empty()) {
+      if (!m_drag.surfaceOutputName.empty() && effectiveOutputName(*groupState) != m_drag.surfaceOutputName) {
         outputAssignmentChanged = outputAssignmentChanged || (groupState->outputName != m_drag.surfaceOutputName);
         groupState->outputName = m_drag.surfaceOutputName;
       }
@@ -2654,22 +2660,11 @@ void DesktopWidgetsEditor::onSecondTick() {
 }
 
 void DesktopWidgetsEditor::releaseWallpaperPreview(OverlaySurface& surface) {
-  if (surface.wallpaperPreviewTexture.id == 0) {
-    surface.wallpaperPreviewLoadedPath.clear();
-    return;
-  }
-
-  const std::string& releasePath = surface.wallpaperPreviewLoadedPath;
-  if (m_textureCache != nullptr && m_textureCache->shared()) {
-    if (!releasePath.empty()) {
-      m_textureCache->release(surface.wallpaperPreviewTexture, releasePath);
-    }
-  } else if (m_renderContext != nullptr) {
-    m_renderContext->backend().makeCurrentNoSurface();
-    m_renderContext->textureManager().unload(surface.wallpaperPreviewTexture);
-  }
-  surface.wallpaperPreviewTexture = {};
+  surface.wallpaperPreviewLease.reset();
+  surface.wallpaperPreviewPendingLease.reset();
   surface.wallpaperPreviewLoadedPath.clear();
+  surface.wallpaperPreviewPendingPath.clear();
+  surface.wallpaperPreviewFailedPath.clear();
 }
 
 void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
@@ -2693,9 +2688,7 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
 
   Color color = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   if (parseColorWallpaperPath(path, color)) {
-    if (surface.wallpaperPreviewTexture.id != 0) {
-      releaseWallpaperPreview(surface);
-    }
+    releaseWallpaperPreview(surface);
     surface.wallpaperPreview->setSources(
         WallpaperSourceKind::Color, {}, color, WallpaperSourceKind::Image, {}, rgba(0.0F, 0.0F, 0.0F, 1.0F), 0.0F, 0.0F,
         0.0F, 0.0F
@@ -2704,30 +2697,50 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
     return;
   }
 
-  const bool needsReload = surface.wallpaperPreviewTexture.id == 0 || surface.wallpaperPreviewLoadedPath != path;
-  TextureHandle texture = surface.wallpaperPreviewTexture;
-  if (needsReload) {
-    if (m_textureCache != nullptr) {
-      texture = m_textureCache->acquire(path);
-      if (texture.id == 0 && !m_textureCache->shared()) {
-        m_renderContext->backend().makeCurrentNoSurface();
-        texture = m_renderContext->textureManager().loadFromFile(path, 0, true);
-      }
-    } else {
-      m_renderContext->backend().makeCurrentNoSurface();
-      texture = m_renderContext->textureManager().loadFromFile(path, 0, true);
+  TextureCoverage coverage;
+  if (m_wayland != nullptr) {
+    if (const WaylandOutput* output = desktop_widgets::findOutputByKey(*m_wayland, surface.outputName);
+        output != nullptr) {
+      coverage = wallpaperTextureCoverage(m_wayland->outputs(), output->name, surface.wallpaperPreview->fillMode());
+    }
+  }
+  surface.wallpaperPreviewLease.setCoverage(coverage);
+  surface.wallpaperPreviewPendingLease.setCoverage(coverage);
+
+  if (m_textureCache != nullptr
+      && path != surface.wallpaperPreviewLoadedPath
+      && path != surface.wallpaperPreviewPendingPath
+      && path != surface.wallpaperPreviewFailedPath) {
+    OverlaySurface* surfacePtr = &surface;
+    surface.wallpaperPreviewPendingLease = m_textureCache->acquire(
+        SharedTextureRequest{.path = path, .coverage = coverage}, &m_renderContext->backend(), [surfacePtr]() {
+          if (surfacePtr->surface != nullptr) {
+            surfacePtr->surface->requestUpdate();
+          }
+        }
+    );
+    surface.wallpaperPreviewPendingPath = path;
+  }
+
+  if (!surface.wallpaperPreviewPendingLease.empty()) {
+    if (surface.wallpaperPreviewPendingLease.texture().id != 0) {
+      surface.wallpaperPreviewLease = std::move(surface.wallpaperPreviewPendingLease);
+      surface.wallpaperPreviewLoadedPath = std::move(surface.wallpaperPreviewPendingPath);
+      surface.wallpaperPreviewPendingPath.clear();
+    } else if (surface.wallpaperPreviewPendingLease.failed()) {
+      Logger(m_profile.logSection.data())
+          .warn("{} widgets editor: failed to load wallpaper preview {}", m_profile.logSection, path);
+      surface.wallpaperPreviewPendingLease.reset();
+      surface.wallpaperPreviewFailedPath = std::move(surface.wallpaperPreviewPendingPath);
+      surface.wallpaperPreviewPendingPath.clear();
     }
   }
 
+  const TextureHandle texture = surface.wallpaperPreviewLease.texture();
   if (texture.id == 0) {
     return;
   }
 
-  if (needsReload && surface.wallpaperPreviewTexture.id != 0 && surface.wallpaperPreviewLoadedPath != path) {
-    releaseWallpaperPreview(surface);
-  }
-  surface.wallpaperPreviewTexture = texture;
-  surface.wallpaperPreviewLoadedPath = path;
   surface.wallpaperPreview->setTextures(
       texture.id, {}, static_cast<float>(texture.width), static_cast<float>(texture.height), 0.0F, 0.0F
   );

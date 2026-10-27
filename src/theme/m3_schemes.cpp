@@ -445,6 +445,7 @@ namespace noctalia::theme {
     out.light = buildTokenMap(*lightScheme);
     out.dark["source_color"] = seed;
     out.light["source_color"] = seed;
+    setGeneratedHoverTokens(out);
     synthesizeTerminalPaletteTokens(out);
     return out;
   }

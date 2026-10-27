@@ -25,6 +25,7 @@ namespace compositors::umbriel {
     UmbrielRuntime& operator=(const UmbrielRuntime&) = delete;
 
     [[nodiscard]] bool available() const;
+    [[nodiscard]] const std::string& socketPath() const;
     [[nodiscard]] std::optional<nlohmann::json>
     requestCommand(std::string_view cmd, std::optional<std::string_view> arg = std::nullopt) const;
     [[nodiscard]] bool requestAction(std::string_view action) const;

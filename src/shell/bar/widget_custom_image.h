@@ -27,7 +27,7 @@ namespace widget_custom_image {
   [[nodiscard]] inline float logicalSize(float contentScale) noexcept { return Style::baseGlyphSize * contentScale; }
 
   [[nodiscard]] inline int targetSize(float contentScale) noexcept {
-    return std::max(1, static_cast<int>(std::round(48.0F * contentScale)));
+    return std::max(1, static_cast<int>(std::round(logicalSize(contentScale))));
   }
 
   inline void syncTint(Image& image, const WidgetCustomImage& customImage, ColorSpec tint) {
@@ -39,7 +39,7 @@ namespace widget_custom_image {
     syncTint(image, customImage, tint);
     const float size = logicalSize(contentScale);
     image.setSize(size, size);
-    image.setSourceFile(renderer, customImage.path, targetSize(contentScale), true);
+    image.setSourceFile(renderer, customImage.path, targetSize(contentScale), false);
   }
 
 } // namespace widget_custom_image

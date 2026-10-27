@@ -139,6 +139,8 @@ namespace config_export {
         resolved.enabled = *ovr.enabled;
       if (ovr.autoHide)
         resolved.autoHide = *ovr.autoHide;
+      if (ovr.autoHideDelayMs)
+        resolved.autoHideDelayMs = *ovr.autoHideDelayMs;
       if (ovr.smartAutoHide)
         resolved.smartAutoHide = *ovr.smartAutoHide;
       if (ovr.showOnWorkspaceSwitch)
@@ -151,6 +153,8 @@ namespace config_export {
         resolved.thickness = *ovr.thickness;
       if (ovr.backgroundOpacity)
         resolved.backgroundOpacity = *ovr.backgroundOpacity;
+      if (ovr.compositorBlur)
+        resolved.compositorBlur = *ovr.compositorBlur;
       if (ovr.border)
         resolved.border = *ovr.border;
       if (ovr.borderWidth)
@@ -225,10 +229,16 @@ namespace config_export {
       }
       if (ovr.widgetCapsuleOpacity)
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);
+      if (ovr.widgetCapsuleBorderWidth)
+        resolved.widgetCapsuleBorderWidth = *ovr.widgetCapsuleBorderWidth;
       if (ovr.hoverHighlight)
         resolved.hoverHighlight = *ovr.hoverHighlight;
+      if (ovr.showTooltip)
+        resolved.showTooltip = *ovr.showTooltip;
       if (ovr.deadZone.actions)
         resolved.deadZone.actions = *ovr.deadZone.actions;
+      if (ovr.deadZone.clickThrough)
+        resolved.deadZone.clickThrough = *ovr.deadZone.clickThrough;
       return resolved;
     }
 

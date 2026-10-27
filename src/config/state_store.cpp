@@ -133,6 +133,61 @@ std::optional<std::string> StateStore::stringValue(std::string_view owner, std::
   return std::nullopt;
 }
 
+bool StateStore::ownerValid(std::string_view owner) const {
+  return validStateIdentifier(owner) && (!m_state.contains(owner) || m_state[owner].is_table());
+}
+
+bool StateStore::contains(std::string_view owner, std::string_view key) const {
+  const auto* table = m_state[owner].as_table();
+  return validStateIdentifier(owner) && validStateIdentifier(key) && table != nullptr && table->contains(key);
+}
+
+std::optional<std::vector<std::string>>
+StateStore::stringArrayValue(std::string_view owner, std::string_view key) const {
+  if (!validStateIdentifier(owner) || !validStateIdentifier(key)) {
+    kLog.warn("invalid state key {}.{}", owner, key);
+    return std::nullopt;
+  }
+  if (!contains(owner, key)) {
+    return std::nullopt;
+  }
+  const auto* array = m_state[owner][key].as_array();
+  if (array != nullptr) {
+    std::vector<std::string> values;
+    values.reserve(array->size());
+    for (const auto& item : *array) {
+      auto value = item.value<std::string>();
+      if (!value.has_value()) {
+        kLog.warn("state value {}.{} is not a string array", owner, key);
+        return std::nullopt;
+      }
+      values.push_back(std::move(*value));
+    }
+    return values;
+  }
+  kLog.warn("state value {}.{} is not a string array", owner, key);
+  return std::nullopt;
+}
+
+bool StateStore::setStringArray(std::string_view owner, std::string_view key, const std::vector<std::string>& value) {
+  if (m_path.empty() || !validStateIdentifier(owner) || !validStateIdentifier(key)) {
+    return false;
+  }
+  auto previous = m_state;
+  auto* table = ensureTable(m_state, owner);
+  toml::array array;
+  for (const auto& item : value) {
+    array.push_back(item);
+  }
+  table->insert_or_assign(key, std::move(array));
+  if (!write()) {
+    m_state = std::move(previous);
+    return false;
+  }
+  m_parseError.clear();
+  return true;
+}
+
 bool StateStore::setBool(std::string_view owner, std::string_view key, bool value) {
   if (m_path.empty()) {
     return false;
@@ -170,6 +225,7 @@ bool StateStore::setString(std::string_view owner, std::string_view key, std::st
     return false;
   }
 
+  auto previous = m_state;
   auto* table = ensureTable(m_state, owner);
   if (table == nullptr) {
     return false;
@@ -181,6 +237,7 @@ bool StateStore::setString(std::string_view owner, std::string_view key, std::st
 
   table->insert_or_assign(key, std::string(value));
   if (!write()) {
+    m_state = std::move(previous);
     kLog.warn("failed to write {}", m_path.string());
     return false;
   }

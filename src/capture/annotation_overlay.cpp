@@ -52,6 +52,7 @@ namespace capture {
     constexpr float kSwatchGlyphSize = 12.0F;
     constexpr float kToolbarFillAlpha = 0.9F;
     constexpr float kImageSurroundAlpha = 0.85F;
+    constexpr float kSemiFillAlpha = 0.3F;
     constexpr double kMoveHitTolerance = 8.0;
     constexpr double kFreehandMinDistance = 2.5;
     constexpr double kFreehandSimplifyTolerance = 0.75;
@@ -128,7 +129,7 @@ namespace capture {
       const Color fill = rgba(color.r, color.g, color.b, 1.0F);
       Button::ButtonStateColors state{
           .bg = fixedColorSpec(fill),
-          .border = colorSpecFromRole(ColorRole::Outline),
+          .border = colorSpecFromRole(ColorRole::OutlineVariant),
           .label = fixedColorSpec(swatchContrast(color)),
       };
       Button::ButtonPalette palette;
@@ -255,6 +256,53 @@ namespace capture {
       }
     }
 
+    const char* fillGlyph(AnnotationFillMode mode) {
+      switch (mode) {
+      case AnnotationFillMode::Off:
+        return "bucket-off";
+      case AnnotationFillMode::Semi:
+        return "bucket-droplet";
+      case AnnotationFillMode::Opaque:
+        return "bucket";
+      }
+      return "bucket-off";
+    }
+
+    const char* fillTooltipKey(AnnotationFillMode mode) {
+      switch (mode) {
+      case AnnotationFillMode::Off:
+        return "bar.annotate.fill-off";
+      case AnnotationFillMode::Semi:
+        return "bar.annotate.fill-semi";
+      case AnnotationFillMode::Opaque:
+        return "bar.annotate.fill-opaque";
+      }
+      return "bar.annotate.fill-off";
+    }
+
+    [[nodiscard]] AnnotationFillMode nextFillMode(AnnotationFillMode mode, bool forward) {
+      if (forward) {
+        switch (mode) {
+        case AnnotationFillMode::Off:
+          return AnnotationFillMode::Semi;
+        case AnnotationFillMode::Semi:
+          return AnnotationFillMode::Opaque;
+        case AnnotationFillMode::Opaque:
+          return AnnotationFillMode::Off;
+        }
+      } else {
+        switch (mode) {
+        case AnnotationFillMode::Off:
+          return AnnotationFillMode::Opaque;
+        case AnnotationFillMode::Semi:
+          return AnnotationFillMode::Off;
+        case AnnotationFillMode::Opaque:
+          return AnnotationFillMode::Semi;
+        }
+      }
+      return AnnotationFillMode::Off;
+    }
+
   } // namespace
 
   AnnotationToolState defaultAnnotationToolState() {
@@ -265,6 +313,31 @@ namespace capture {
     }
     state.color[toolIndex(AnnotationTool::Highlighter)] = kSwatches[1].color;
     return state;
+  }
+
+  std::string_view annotationFillModeName(AnnotationFillMode mode) noexcept {
+    switch (mode) {
+    case AnnotationFillMode::Off:
+      return "off";
+    case AnnotationFillMode::Semi:
+      return "semi";
+    case AnnotationFillMode::Opaque:
+      return "opaque";
+    }
+    return "off";
+  }
+
+  std::optional<AnnotationFillMode> annotationFillModeFromName(std::string_view name) noexcept {
+    if (name == "off") {
+      return AnnotationFillMode::Off;
+    }
+    if (name == "semi") {
+      return AnnotationFillMode::Semi;
+    }
+    if (name == "opaque") {
+      return AnnotationFillMode::Opaque;
+    }
+    return std::nullopt;
   }
 
   struct AnnotationOverlay::Instance {
@@ -328,7 +401,7 @@ namespace capture {
     bool pointerInside = false;
     // Toolbar glyph state, so a mark only moves (and forces a relayout) when it really changed.
     std::optional<std::size_t> markedSwatch;
-    bool fillGlyphOn = false;
+    AnnotationFillMode fillGlyphMode = AnnotationFillMode::Off;
     const char* cursorTooltip = nullptr;
   };
 
@@ -891,7 +964,7 @@ namespace capture {
       canvas->addChild(
           ui::box({
               .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 0.0F)),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
               .borderWidth = Style::borderWidth,
               .radius = 0.0F,
               .width = canvasW,
@@ -1065,7 +1138,7 @@ namespace capture {
         .paddingH = Style::spaceMd,
         .fill = fixedColorSpec(toolbarFill),
         .radius = Style::radiusXl,
-        .border = colorSpecFromRole(ColorRole::Outline),
+        .border = colorSpecFromRole(ColorRole::OutlineVariant),
         .borderWidth = Style::borderWidth,
     });
 
@@ -1139,7 +1212,8 @@ namespace capture {
       }
       inst.cursorButton->setCustomPalette(palette);
     }
-    inst.fillButton = addGhostButton("paint-off", "bar.annotate.fill-off", [this]() { toggleFill(); });
+    inst.fillButton = addGhostButton("bucket-off", "bar.annotate.fill-off", [this]() { cycleFill(); });
+    inst.fillButton->setOnRightClick([this]() { cycleFill(false); });
     addSeparator();
 
     for (std::size_t i = 0; i < kSwatches.size(); ++i) {
@@ -1204,7 +1278,9 @@ namespace capture {
         })
     ));
     addGhostButton("screenshot", "bar.annotate.capture-new-region", [this]() { requestCaptureRegion(); });
-    addGhostButton("x", "bar.annotate.close", [this]() { closeOverlay(); });
+    if (Style::closeButtonsEnabled()) {
+      addGhostButton("x", "bar.annotate.close", [this]() { requestClose(); });
+    }
 
     inst.toolbar = toolbar.get();
     refreshToolbar(inst, nullptr);
@@ -1263,13 +1339,13 @@ namespace capture {
     }
     show(inst.fillButton, shapeTool);
     if (inst.fillButton != nullptr) {
-      inst.fillButton->setSelected(m_tools.fill);
-      // The glyph carries the state as well as the highlight: a struck-through paint can
-      // reads as off next to eight solid color chips, a filled square does not.
-      if (inst.fillGlyphOn != m_tools.fill) {
-        inst.fillButton->setGlyph(m_tools.fill ? "paint" : "paint-off");
-        inst.fillButton->setTooltip(i18n::tr(m_tools.fill ? "bar.annotate.fill-on" : "bar.annotate.fill-off"));
-        inst.fillGlyphOn = m_tools.fill;
+      inst.fillButton->setSelected(m_tools.fill != AnnotationFillMode::Off);
+      // The glyph carries the state as well as the highlight: a struck-through bucket reads
+      // as off, a droplet bucket as semi, and a full bucket as opaque.
+      if (inst.fillGlyphMode != m_tools.fill) {
+        inst.fillButton->setGlyph(fillGlyph(m_tools.fill));
+        inst.fillButton->setTooltip(i18n::tr(fillTooltipKey(m_tools.fill)));
+        inst.fillGlyphMode = m_tools.fill;
         needsLayout = true;
       }
     }
@@ -1875,9 +1951,12 @@ namespace capture {
       doc.beginInteraction();
       m_gestureActive = true;
       AnnotationColor fill{.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 0.0F};
-      if (m_tools.fill && (tool == AnnotationTool::Rectangle || tool == AnnotationTool::Circle)) {
+      const bool shape = tool == AnnotationTool::Rectangle || tool == AnnotationTool::Circle;
+      if (shape && m_tools.fill != AnnotationFillMode::Off) {
         fill = color;
-        fill.a = 0.3F;
+        if (m_tools.fill == AnnotationFillMode::Semi) {
+          fill.a = kSemiFillAlpha;
+        }
       }
       std::vector<AnnotationPoint> points{point};
       if (annotationToolIsShape(tool)) {
@@ -2081,7 +2160,7 @@ namespace capture {
       commitTextEdit();
       return true;
     }
-    if (KeySymbol::isEscape(event.sym) || KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
       cancelTextEdit();
       return true;
     }
@@ -2155,6 +2234,10 @@ namespace capture {
       return pick(AnnotationTool::Crop);
     case XKB_KEY_f:
     case XKB_KEY_F:
+      cycleFill();
+      return true;
+    case XKB_KEY_z:
+    case XKB_KEY_Z:
       requestFreeze();
       return true;
     case XKB_KEY_p:
@@ -2191,7 +2274,7 @@ namespace capture {
     const bool ctrl = (event.modifiers & KeyMod::Ctrl) != 0;
     const bool shift = (event.modifiers & KeyMod::Shift) != 0;
 
-    if (KeySymbol::isEscape(event.sym) || KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
       if (m_gestureActive && m_gestureInstance != nullptr) {
         Instance* inst = m_gestureInstance;
         AnnotationDocument& doc = documentFor(*inst);
@@ -2218,7 +2301,7 @@ namespace capture {
         }
         return true;
       }
-      closeOverlay();
+      requestClose();
       return true;
     }
 
@@ -2234,13 +2317,11 @@ namespace capture {
       redo();
       return true;
     }
-    if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)
-        || (ctrl && (event.sym == XKB_KEY_c || event.sym == XKB_KEY_C))) {
+    if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
       requestExport(AnnotationExport::Copy);
       return true;
     }
-    if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)
-        || (ctrl && (event.sym == XKB_KEY_s || event.sym == XKB_KEY_S))) {
+    if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
       requestExport(AnnotationExport::Save);
       return true;
     }
@@ -2316,9 +2397,9 @@ namespace capture {
     requestRedrawAll();
   }
 
-  void AnnotationOverlay::toggleFill() {
+  void AnnotationOverlay::cycleFill(bool forward) {
     commitPendingText();
-    m_tools.fill = !m_tools.fill;
+    m_tools.fill = nextFillMode(m_tools.fill, forward);
     requestRedrawAll();
   }
 
@@ -2432,6 +2513,14 @@ namespace capture {
     }
   }
 
+  void AnnotationOverlay::requestClose() {
+    if (m_copyOnClose && m_mode != AnnotationMode::Live) {
+      // Closes even when the copy fails; the failure is already notified.
+      requestExport(AnnotationExport::Copy);
+    }
+    closeOverlay();
+  }
+
   void AnnotationOverlay::closeOverlay() {
     if (!m_active) {
       return;
@@ -2444,7 +2533,7 @@ namespace capture {
       return;
     }
     m_stateSetter("tool", annotationToolName(m_tools.tool));
-    m_stateSetter("fill", m_tools.fill ? "1" : "0");
+    m_stateSetter("fill", annotationFillModeName(m_tools.fill));
     m_stateSetter("advanced_size", m_advancedSize ? "1" : "0");
     syncToolbarPositionsForConnectedOutputs();
     nlohmann::json toolbarPositions = nlohmann::json::object();

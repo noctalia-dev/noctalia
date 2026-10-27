@@ -462,17 +462,17 @@ void ContextMenuPopup::requestVisualUpdate() {
 }
 
 void ContextMenuPopup::restoreParentKeyboardInteractivity() {
-  if (m_keyboardParentLayerSurface == nullptr) {
-    return;
-  }
-  zwlr_layer_surface_v1_set_keyboard_interactivity(
-      m_keyboardParentLayerSurface, static_cast<std::uint32_t>(LayerShellKeyboard::None)
-  );
-  if (m_keyboardParentWlSurface != nullptr) {
-    wl_surface_commit(m_keyboardParentWlSurface);
-  }
+  zwlr_layer_surface_v1* layerSurface = m_keyboardParentLayerSurface;
+  wl_surface* wlSurface = m_keyboardParentWlSurface;
   m_keyboardParentLayerSurface = nullptr;
   m_keyboardParentWlSurface = nullptr;
+  // The parent surface can be destroyed while the menu is open (bar rebuild,
+  // output removal). Its proxies are then freed, so only touch it while still registered.
+  if (layerSurface == nullptr || m_wayland.layerSurfaceFor(wlSurface) != layerSurface) {
+    return;
+  }
+  zwlr_layer_surface_v1_set_keyboard_interactivity(layerSurface, static_cast<std::uint32_t>(LayerShellKeyboard::None));
+  wl_surface_commit(wlSurface);
 }
 
 bool ContextMenuPopup::dispatchKeyboardEvent(const KeyboardEvent& event) {

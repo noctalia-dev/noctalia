@@ -1722,10 +1722,6 @@
         "main-axis-padding": {
           "description": "Vnitřní odsazení podél hlavní osy docku (mezi ikonami a krátkými konci kapsle)"
         },
-        "monitors": {
-          "description": "Vybrat, které monitory zobrazují dock (ponechte prázdné pro všechny); filtrování aktivního monitoru se uplatní v rámci těchto monitorů",
-          "label": "Monitory"
-        },
         "pinned-apps": {
           "description": "ID desktop entry aplikací připnutých k docku",
           "label": "Připnuté aplikace"
@@ -2007,10 +2003,6 @@
           "description": "Vybrat až šest tlačítek zkratek pro domovskou kartu",
           "label": "Domovské zkratky"
         },
-        "launcher-app-grid": {
-          "description": "Zobrazit mřížku ikon aplikací s popisky pod nimi, pokud jsou výsledky pouze aplikace",
-          "label": "Mřížkové zobrazení aplikací"
-        },
         "launcher-categories": {
           "description": "Zobrazit filtry kategorií ve spouštěči; odhalte klávesou F6, poté procházejte pomocí F6 a Shift+F6",
           "label": "Zobrazit kategorie"
@@ -2018,6 +2010,10 @@
         "launcher-compact": {
           "description": "Použít menší ikony a hustší řádky výsledků",
           "label": "Kompaktní řádky"
+        },
+        "launcher-grid": {
+          "description": "Zobrazit mřížku ikon aplikací s popisky pod nimi, pokud jsou výsledky pouze aplikace",
+          "label": "Mřížkové zobrazení aplikací"
         },
         "launcher-reset-usage": {
           "button": "Obnovit",

@@ -187,7 +187,7 @@ std::unique_ptr<Separator> Segmented::makeSegmentSeparator() {
   auto sep = std::make_unique<Separator>();
   sep->setOrientation(SeparatorOrientation::VerticalRule);
   sep->setThickness(std::max(1.0F, Style::borderWidth * m_scale));
-  sep->setColor(colorSpecFromRole(ColorRole::Outline));
+  sep->setColor(colorSpecFromRole(ColorRole::OutlineVariant));
   sep->setFlexGrow(0.0F);
   return sep;
 }

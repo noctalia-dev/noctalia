@@ -23,8 +23,8 @@ namespace {
 
 DesktopAudioVisualizerWidget::DesktopAudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options)
     : m_spectrum(spectrum), m_bands(std::max(1, options.bands)), m_mirrored(options.mirrored),
-      m_reversed(options.reversed), m_centered(options.centered), m_showWhenIdle(options.showWhenIdle),
-      m_color1(options.color1), m_color2(options.color2) {}
+      m_reversed(options.reversed), m_centered(options.centered), m_wave(options.wave),
+      m_showWhenIdle(options.showWhenIdle), m_color1(options.color1), m_color2(options.color2) {}
 
 DesktopAudioVisualizerWidget::~DesktopAudioVisualizerWidget() {
   cancelVisibilityAnimation();
@@ -42,16 +42,12 @@ void DesktopAudioVisualizerWidget::create() {
   visualizer->setCentered(m_centered);
   visualizer->setMirrored(m_mirrored);
   visualizer->setReversed(m_reversed);
+  visualizer->setWave(m_wave);
   visualizer->setGradient(m_color1, m_color2);
   m_visualizer = visualizer.get();
   rootNode->addChild(std::move(visualizer));
 
-  if (m_spectrum != nullptr) {
-    m_listenerId = m_spectrum->addChangeListener(m_bands, [this]() {
-      m_pendingSpectrumUpdate = true;
-      requestFrameTick();
-    });
-  }
+  subscribeSpectrum();
 
   setRoot(std::move(rootNode));
 }
@@ -95,6 +91,15 @@ bool DesktopAudioVisualizerWidget::applySetting(
     if (const auto* v = std::get_if<bool>(&value)) {
       m_centered = *v;
       m_visualizer->setCentered(m_centered);
+      return true;
+    }
+    return false;
+  }
+  if (key == "show_wave") {
+    if (const auto* v = std::get_if<bool>(&value)) {
+      m_wave = *v;
+      m_visualizer->setWave(m_wave);
+      subscribeSpectrum();
       return true;
     }
     return false;
@@ -194,6 +199,20 @@ void DesktopAudioVisualizerWidget::doUpdate(Renderer& renderer) {
     requestLayout();
   }
   syncSpectrum(&renderer);
+}
+
+void DesktopAudioVisualizerWidget::subscribeSpectrum() {
+  if (m_spectrum == nullptr) {
+    return;
+  }
+  if (m_listenerId != 0) {
+    m_spectrum->removeChangeListener(m_listenerId);
+  }
+  m_listenerId = m_spectrum->addChangeListener(m_wave ? kAudioSpectrumWaveBands : m_bands, [this]() {
+    m_pendingSpectrumUpdate = true;
+    requestFrameTick();
+  });
+  m_pendingSpectrumUpdate = true;
 }
 
 void DesktopAudioVisualizerWidget::pullSpectrumValues() {

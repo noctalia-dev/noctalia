@@ -19,6 +19,7 @@ namespace {
       return path[1] == "corner_radius_scale"
           || path[1] == "font_family"
           || path[1] == "lang"
+          || path[1] == "show_close_buttons"
           || path[1] == "settings_window_translucent";
     }
     if (path.size() == 2 && path[0] == "accessibility") {
@@ -401,6 +402,62 @@ void SettingsWindow::deleteMonitorOverride(std::string barName, std::string matc
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
+      markSettingsWriteSuccess();
+      return;
+    }
+    markSettingsWriteError(i18n::tr("settings.errors.monitor-override.delete"));
+  });
+}
+
+void SettingsWindow::createDockMonitorOverride(std::string match) {
+  DeferredCall::callLater([this, match = std::move(match)]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    if (m_config->createDockMonitorOverride(match)) {
+      m_selectedSection = "dock";
+      m_selectedMonitorOverride = match;
+      m_renamingDockMonitorOverride.clear();
+      m_pendingDeleteDockMonitorOverride.clear();
+      m_contentScrollState.offset = 0.0F;
+      markSettingsWriteSuccess();
+      return;
+    }
+    markSettingsWriteError(i18n::tr("settings.errors.monitor-override.create"));
+  });
+}
+
+void SettingsWindow::renameDockMonitorOverride(std::string oldTableName, std::string newMatch) {
+  DeferredCall::callLater([this, oldTableName = std::move(oldTableName), newMatch = std::move(newMatch)]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    if (m_config->renameDockMonitorOverride(oldTableName, newMatch)) {
+      if (m_selectedSection == "dock" && m_selectedMonitorOverride == oldTableName) {
+        m_selectedMonitorOverride = newMatch;
+      }
+      m_renamingDockMonitorOverride.clear();
+      m_pendingDeleteDockMonitorOverride.clear();
+      m_contentScrollState.offset = 0.0F;
+      markSettingsWriteSuccess();
+      return;
+    }
+    markSettingsWriteError(i18n::tr("settings.errors.monitor-override.rename"));
+  });
+}
+
+void SettingsWindow::deleteDockMonitorOverride(std::string tableName) {
+  DeferredCall::callLater([this, tableName = std::move(tableName)]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    if (m_config->deleteDockMonitorOverride(tableName)) {
+      if (m_selectedSection == "dock" && m_selectedMonitorOverride == tableName) {
+        m_selectedMonitorOverride.clear();
+        m_contentScrollState.offset = 0.0F;
+      }
+      m_renamingDockMonitorOverride.clear();
+      m_pendingDeleteDockMonitorOverride.clear();
       markSettingsWriteSuccess();
       return;
     }

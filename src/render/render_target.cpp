@@ -17,36 +17,42 @@ float ScaledRenderer::currentScale() const noexcept {
 }
 
 TextMetrics ScaledRenderer::measureText(
-    std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines, TextAlign align,
-    std::string_view fontFamily, TextEllipsize ellipsize, bool useMarkup
+    std::string_view text, float fontSize, const TextFont& font, float maxWidth, int maxLines, TextAlign align,
+    TextEllipsize ellipsize, bool useMarkup
 ) {
   assert(m_context != nullptr && "ScaledRenderer measure without a bound RenderContext");
   return m_context->measureTextScaled(
-      currentScale(), text, fontSize, fontWeight, maxWidth, maxLines, align, fontFamily, ellipsize, useMarkup
+      currentScale(), text, fontSize, font, maxWidth, maxLines, align, ellipsize, useMarkup
   );
 }
 
-TextMetrics ScaledRenderer::measureFont(float fontSize, FontWeight fontWeight) {
+TextMetrics ScaledRenderer::measureFont(float fontSize, const TextFont& font) {
   assert(m_context != nullptr && "ScaledRenderer measureFont without a bound RenderContext");
-  return m_context->measureFontScaled(currentScale(), fontSize, fontWeight);
+  return m_context->measureFontScaled(currentScale(), fontSize, font);
 }
 
 void ScaledRenderer::measureTextCursorStops(
     std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, std::vector<float>& outStops,
-    FontWeight fontWeight
+    const TextFont& font
 ) {
   assert(m_context != nullptr && "ScaledRenderer cursor stops without a bound RenderContext");
-  m_context->measureTextCursorStopsScaled(currentScale(), text, fontSize, byteOffsets, outStops, fontWeight);
+  m_context->measureTextCursorStopsScaled(currentScale(), text, fontSize, byteOffsets, outStops, font);
 }
 
 void ScaledRenderer::measureTextCursorStopsWrapped(
     std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
-    std::vector<TextCursorStop>& outStops, FontWeight fontWeight
+    std::vector<TextCursorStop>& outStops, const TextFont& font
 ) {
   assert(m_context != nullptr && "ScaledRenderer wrapped cursor stops without a bound RenderContext");
-  m_context->measureTextCursorStopsWrappedScaled(
-      currentScale(), text, fontSize, byteOffsets, maxWidth, outStops, fontWeight
-  );
+  m_context->measureTextCursorStopsWrappedScaled(currentScale(), text, fontSize, byteOffsets, maxWidth, outStops, font);
+}
+
+void ScaledRenderer::measureTextCharSpans(
+    std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+    std::vector<TextCharSpan>& outSpans, const TextFont& font
+) {
+  assert(m_context != nullptr && "ScaledRenderer char spans without a bound RenderContext");
+  m_context->measureTextCharSpansScaled(currentScale(), text, fontSize, byteOffsets, outSpans, font);
 }
 
 TextMetrics ScaledRenderer::measureGlyph(char32_t codepoint, float fontSize) {

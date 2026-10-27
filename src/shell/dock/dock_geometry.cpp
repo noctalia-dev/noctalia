@@ -19,7 +19,7 @@ namespace shell::dock {
     // Keep in sync with dock_items instance-count badge geometry.
     constexpr float kBadgeSizeRatio = 0.30F;
     constexpr float kBadgeMinSize = 16.0F;
-    // Badge hangs past the icon's top and right by this fraction of badge diameter.
+    // Badge hangs past its icon corner by this fraction of its diameter.
     constexpr float kBadgeCornerOverhang = 0.45F;
 
     [[nodiscard]] int dockAutoHideEdgeGutter(const DockConfig& cfg) noexcept {
@@ -70,15 +70,6 @@ namespace shell::dock {
       }
       const float badgeSize = std::max(kBadgeMinSize, static_cast<float>(cfg.iconSize) * kBadgeSizeRatio);
       return badgeSize * kBadgeCornerOverhang * peak;
-    }
-
-    // On top docks the badge's local top points toward the screen edge (opposite
-    // the icon growth pad). Reserve space on that edge so the badge is not clipped.
-    [[nodiscard]] std::int32_t dockHoverZoomEdgeBadgePad(const DockConfig& cfg) noexcept {
-      if (cfg.position != DockEdge::Top) {
-        return 0;
-      }
-      return static_cast<std::int32_t>(std::ceil(dockHoverZoomBadgeOverhang(cfg)));
     }
 
   } // namespace
@@ -217,7 +208,6 @@ namespace shell::dock {
     const auto panelH = dockThickness(cfg);
     const std::int32_t zoomPad = dockHoverZoomCrossPad(cfg);
     const std::int32_t mainPad = dockHoverZoomMainPad(cfg);
-    const std::int32_t edgeBadgePad = dockHoverZoomEdgeBadgePad(cfg);
     const bool isBottom = edge == DockEdge::Bottom;
     const bool isRight = edge == DockEdge::Right;
     const std::int32_t mEdge = cfg.marginEdge;
@@ -239,11 +229,10 @@ namespace shell::dock {
         geometry.exclusiveZone = cfg.reserveSpace ? (panelH + std::min(mEdge, sb.down)) : 0;
       } else {
         if (edgeGutter > 0) {
-          geometry.surfaceH = static_cast<std::uint32_t>(edgeBadgePad + sb.down + panelH + edgeGutter + zoomPad);
+          geometry.surfaceH = static_cast<std::uint32_t>(sb.down + panelH + edgeGutter + zoomPad);
         } else {
           geometry.marginTop = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.up);
-          geometry.surfaceH =
-              static_cast<std::uint32_t>(edgeBadgePad + std::min(mEdge, sb.up) + panelH + sb.down + zoomPad);
+          geometry.surfaceH = static_cast<std::uint32_t>(std::min(mEdge, sb.up) + panelH + sb.down + zoomPad);
         }
         geometry.exclusiveZone = cfg.reserveSpace ? (std::min(mEdge, sb.up) + panelH) : 0;
       }
@@ -316,15 +305,14 @@ namespace shell::dock {
     const bool isRight = edge == DockEdge::Right;
     const auto panelThickness = static_cast<float>(dockThickness(cfg));
     const auto mainPad = static_cast<float>(dockHoverZoomMainPad(cfg));
-    const auto edgeBadgePad = static_cast<float>(dockHoverZoomEdgeBadgePad(cfg));
 
     if (!vertical) {
-      float y = isBottom ? surfaceH - std::min(mEdge, bleedD) - panelThickness : edgeBadgePad + std::min(mEdge, bleedU);
+      float y = isBottom ? surfaceH - std::min(mEdge, bleedD) - panelThickness : std::min(mEdge, bleedU);
       if (const int gutter = dockAutoHideEdgeGutter(cfg); gutter > 0) {
         if (isBottom) {
           y = surfaceH - static_cast<float>(gutter) - panelThickness;
         } else {
-          y = edgeBadgePad + static_cast<float>(gutter);
+          y = static_cast<float>(gutter);
         }
       }
       return DockPanelGeometry{

@@ -61,6 +61,15 @@ namespace {
     if (startsWith(target, "anon_inode:")) {
       return target;
     }
+    // Unlinked files (shm pools, dmabuf format tables) carry random names, so each would be its own bucket of one and
+    // never rank. Group them by directory instead.
+    constexpr std::string_view kDeletedSuffix = " (deleted)";
+    if (target.ends_with(kDeletedSuffix)) {
+      const std::size_t slash = target.rfind('/');
+      if (slash != std::string::npos) {
+        return std::format("{}/*{}", std::string_view(target).substr(0, slash), kDeletedSuffix);
+      }
+    }
     if (target.size() > 120) {
       target.resize(117);
       target += "...";

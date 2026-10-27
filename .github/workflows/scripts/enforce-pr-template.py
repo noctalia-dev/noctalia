@@ -27,7 +27,11 @@ TYPE_CHANGE_ITEMS = (
     "Breaking change",
     "Refactoring",
     "Build / packaging",
+    "Documentation only",
 )
+# "Breaking change" qualifies another type; every other type is a primary kind of change.
+PRIMARY_CHANGE_TYPES = tuple(item for item in TYPE_CHANGE_ITEMS if item != "Breaking change")
+CHANGE_TYPE_REQUIREMENT = "exactly one checked change type other than Breaking change"
 MANDATORY_CHECKLIST_ITEMS = (
     "This PR is ready for review, or it is marked as Draft.",
     "I read and followed the relevant guidance in `CONTRIBUTING.md`.",
@@ -55,8 +59,9 @@ Missing:
 OUTRO = """
 Add the items above to the description, keeping their exact wording, then mark the pull
 request ready for review. That re-runs this check. Draft pull requests may leave boxes
-unchecked. Before a pull request is ready for review, select at least one change type and
-check every item under Checklist.
+unchecked. Before a pull request is ready for review, check exactly one change type (add
+Breaking change alongside it when it applies) and check every item under Checklist. A pull
+request should contain one feature, fix, or refactor; split unrelated changes.
 
 Sections that only offer context may be deleted; nothing else about this pull request was
 changed.
@@ -103,11 +108,13 @@ def missing_requirements(body: object, *, require_completed: bool = False) -> li
     if not require_completed:
         return missing
 
-    if not any(
-        checklist_state(normalized_body, item) in ("x", "X")
-        for item in TYPE_CHANGE_ITEMS
-    ):
-        missing.append("at least one checked change type")
+    checked_primary_types = [
+        item
+        for item in PRIMARY_CHANGE_TYPES
+        if checklist_state(normalized_body, item) in ("x", "X")
+    ]
+    if len(checked_primary_types) != 1:
+        missing.append(CHANGE_TYPE_REQUIREMENT)
 
     for item in MANDATORY_CHECKLIST_ITEMS:
         if states[item] == " ":
@@ -169,9 +176,15 @@ def convert_to_draft(pull_request_url: str, node_id: str, token: str) -> None:
         raise RuntimeError("GitHub did not confirm that the pull request became a draft")
 
 
-def latest_enforcement_comment(issue_url: str, token: str) -> dict[str, Any] | None:
+# The workflow's built-in token authors comments as this account. Marker comments left by
+# any other author (such as the Noctalia-CI machine account, whose comments GitHub hides)
+# would stay invisible even if edited, so they are deleted and the comment posted afresh.
+COMMENT_AUTHOR = "github-actions[bot]"
+
+
+def enforcement_comments(issue_url: str, token: str) -> list[dict[str, Any]]:
     page = 1
-    latest: dict[str, Any] | None = None
+    found: list[dict[str, Any]] = []
     while True:
         comments = github_request(
             f"{issue_url}/comments?per_page=100&page={page}",
@@ -181,15 +194,39 @@ def latest_enforcement_comment(issue_url: str, token: str) -> dict[str, Any] | N
             raise RuntimeError("GitHub returned an invalid pull request comment list")
         for comment in comments:
             if isinstance(comment, dict) and COMMENT_MARKER in str(comment.get("body", "")):
-                latest = comment
+                found.append(comment)
         if len(comments) < 100:
-            return latest
+            return found
         page += 1
 
 
+def comment_api_url(comment: dict[str, Any]) -> str:
+    comment_url = comment.get("url")
+    if not isinstance(comment_url, str):
+        raise RuntimeError("GitHub comment is missing its API URL")
+    return comment_url
+
+
+def is_own_comment(comment: dict[str, Any]) -> bool:
+    user = comment.get("user")
+    return isinstance(user, dict) and user.get("login") == COMMENT_AUTHOR
+
+
 def sync_enforcement_comment(issue_url: str, token: str, comment: str) -> None:
-    """Keep the latest bot comment current while a pull request remains a draft."""
-    existing = latest_enforcement_comment(issue_url, token)
+    """Keep the latest bot comment current while a pull request remains a draft.
+
+    Marker comments left by another author are deleted, then the comment is posted afresh.
+    """
+    existing: dict[str, Any] | None = None
+    foreign: list[dict[str, Any]] = []
+    for candidate in enforcement_comments(issue_url, token):
+        if is_own_comment(candidate):
+            existing = candidate
+        else:
+            foreign.append(candidate)
+    for stale in foreign:
+        github_request(comment_api_url(stale), token, method="DELETE")
+
     if existing is None:
         if comment == RESOLVED_COMMENT:
             return
@@ -202,10 +239,7 @@ def sync_enforcement_comment(issue_url: str, token: str, comment: str) -> None:
         return
     if str(existing.get("body", "")) == comment:
         return
-    comment_url = existing.get("url")
-    if not isinstance(comment_url, str):
-        raise RuntimeError("GitHub comment is missing its API URL")
-    github_request(comment_url, token, method="PATCH", payload={"body": comment})
+    github_request(comment_api_url(existing), token, method="PATCH", payload={"body": comment})
 
 
 def enforce(event: dict[str, object], token: str) -> list[str]:

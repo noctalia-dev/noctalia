@@ -739,6 +739,9 @@ std::optional<std::size_t> NiriWorkspaceBackend::parseLeadingNumber(const std::s
 }
 
 std::string NiriWorkspaceBackend::workspaceKey(const WorkspaceState& workspace) {
+  if (!workspace.name.empty()) {
+    return workspace.name;
+  }
   if (workspace.idx > 0) {
     return std::to_string(workspace.idx);
   }

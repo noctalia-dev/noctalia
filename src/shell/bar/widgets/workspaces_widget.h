@@ -39,7 +39,6 @@ public:
     WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
     bool showLabels = true;
     bool showIcons = true;
-    bool showTooltip = true;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -159,11 +158,11 @@ private:
     float opacity = 1.0F;
   };
 
-  [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace) const;
-  [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace) const;
+  [[nodiscard]] bool workspaceUsesFocusedStyle(const Workspace& workspace, wl_output* output) const;
+  [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace, wl_output* output) const;
+  [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace, wl_output* output) const;
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
-  [[nodiscard]] bool isFocusedOutput() const;
 
   CompositorPlatform& m_platform;
   ConfigService& m_configService;
@@ -173,7 +172,6 @@ private:
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
   bool m_showIcons = true;
-  bool m_showTooltip = true;
   bool m_hideWhenEmpty = false;
   bool m_showAllOutputs = false;
   float m_pillScale = 1.0F;
@@ -182,8 +180,7 @@ private:
   WorkspacesStyle m_style = WorkspacesStyle::Regular;
   bool m_focusedOutputOnly = false;
   bool m_changeColorOnHover = true;
-  bool m_wasFocusedOutput = true;
-  bool m_activeUsesFocusedColor = true;
+  wl_output* m_lastFocusedOutput = nullptr;
   std::string m_cachedActiveWindowAppId;
   IconResolver m_iconResolver;
   std::unordered_map<std::string, std::string> m_appIcons;

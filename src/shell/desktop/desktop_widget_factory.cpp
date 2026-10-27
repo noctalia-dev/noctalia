@@ -213,6 +213,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
         .shadow = getBoolSetting(settings, "shadow", true),
         .showCircle = getBoolSetting(settings, "circle", true),
+        .showSeconds = getBoolSetting(settings, "show_seconds", true),
         .centerText = getBoolSetting(settings, "center_text", true),
         .timezone = getStringSetting(settings, "timezone", ""),
     });
@@ -233,6 +234,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
             .mirrored = getBoolSetting(settings, "mirrored", true),
             .reversed = getBoolSetting(settings, "reversed", false),
             .centered = getBoolSetting(settings, "centered", true),
+            .wave = getBoolSetting(settings, "show_wave", false),
             .showWhenIdle = getBoolSetting(settings, "show_when_idle", true),
             .color1 = getColorSpecSetting(settings, "color_1", colorSpecFromRole(ColorRole::Primary)),
             .color2 = getColorSpecSetting(settings, "color_2", colorSpecFromRole(ColorRole::Primary)),
@@ -307,12 +309,15 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
       return nullptr;
     }
     auto widget = std::make_unique<DesktopMediaPlayerWidget>(
-        m_mpris, m_httpClient,
+        m_mpris, m_httpClient, m_pipewireSpectrum,
         DesktopMediaPlayerWidget::Options{
             .vertical = getStringSetting(settings, "layout", "horizontal") == "vertical",
             .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
             .shadow = getBoolSetting(settings, "shadow", true),
             .hideWhenNoMedia = getBoolSetting(settings, "hide_when_no_media", false),
+            .albumArtBackground = getBoolSetting(settings, "album_art_background", false),
+            .albumArtBlur = getIntSetting(settings, "album_art_blur", 24),
+            .audioVisualizer = getBoolSetting(settings, "audio_visualizer", false),
         }
     );
     applyCommonSettings(*widget, settings);
@@ -406,6 +411,10 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
             .networkSpeedLabelStyle = getBoolSetting(settings, "network_speed_compact", false)
                 ? FormatUnits::ByteRateLabelStyle::Compact
                 : FormatUnits::ByteRateLabelStyle::Full,
+            .networkSpeedDecimalPlaces = std::clamp(
+                getIntSetting(settings, "network_speed_decimal_places", 1),
+                FormatUnits::kMinCompactByteRateDecimalPlaces, FormatUnits::kMaxCompactByteRateDecimalPlaces
+            ),
             .showLabel = getBoolSetting(settings, "show_label", true),
             .labelMinWidth = getFloatSetting(settings, "label_min_width", 0.0F),
             .shadow = getBoolSetting(settings, "shadow", true),
