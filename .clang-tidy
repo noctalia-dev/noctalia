@@ -48,5 +48,6 @@ Checks: >-
   readability-static-definition-in-anonymous-namespace,
   readability-uppercase-literal-suffix,
   readability-use-anyofallof,
+  readability-use-concise-preprocessor-directives,
   readability-use-std-min-max,
 HeaderFilterRegex: '(^|/)src/.*\.h$'

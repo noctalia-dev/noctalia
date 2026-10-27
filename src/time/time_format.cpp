@@ -417,7 +417,7 @@ std::string formatUtcTime(std::chrono::system_clock::time_point tp, std::string_
 
 int localeFirstDayOfWeek() {
   // The _NL_TIME_* week items are glibc-only; elsewhere we keep the Monday fallback.
-#if defined(__GLIBC__)
+#ifdef __GLIBC__
   // WEEK_1STDAY is a YYYYMMDD anchor packed into the low 32 bits of the returned
   // pointer; FIRST_WEEKDAY is a 1-based offset from that anchor in the first byte.
   const char* firstWeekdayInfo = nl_langinfo(_NL_TIME_FIRST_WEEKDAY);
