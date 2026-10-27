@@ -1560,6 +1560,10 @@
         "right": "Right",
         "top": "Top"
       },
+      "font-style": {
+        "italic": "Italic",
+        "normal": "Normal"
+      },
       "font-weight": {
         "bold": "Bold",
         "book": "Book",
@@ -1927,6 +1931,10 @@
         "font-family": {
           "description": "Font family for the shell interface",
           "label": "Font Family"
+        },
+        "font-style": {
+          "description": "Font style for the shell interface",
+          "label": "Font Style"
         },
         "global-shadow-alpha": {
           "description": "Global surface shadow opacity"

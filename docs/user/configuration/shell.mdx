@@ -32,6 +32,7 @@ card_borders          = true            # draw outlines around section cards ins
 show_close_buttons    = true            # show close buttons on shell surfaces (panels, toasts, popups, dialogs, Settings)
 popup_shadows         = true            # draw drop shadows behind popups and dropdowns
 font_family           = "sans-serif"    # Pango family string; Fontconfig handles fallback
+font_style            = "normal"        # "normal" or "italic"
 lang                  = ""              # empty = auto-detect; otherwise BCP-47 or POSIX locale
 time_format           = "{:%H:%M}"      # default time format for shell UI without its own setting
 date_format           = "%A, %x"        # default date format for shell UI without its own setting
@@ -229,6 +230,8 @@ Notes:
 - `avatar_path` controls the avatar Noctalia shows in shell UI such as the Control Center Home tab. When AccountsService is reachable, Noctalia also updates your user's `IconFile` there so other consumers such as Noctalia Greeter can reuse the same avatar. If **accountsservice** is missing or disabled, the shell still uses `avatar_path`, but login greeters that depend on AccountsService will not see that image.
 
 - `font_family` sets the primary Pango family for all shell text. Can be a concrete family like `Inter` or a generic like `sans-serif`.
+
+- `font_style` draws all shell text upright (`"normal"`, the default) or in italic (`"italic"`). Configure under **Settings → Appearance**. Icons stay upright, but Nerd Font icons and emoji placed inside text slant with it. Fonts without an italic face get a slanted version of the upright face.
 
 - `time_format` and `date_format` are fallbacks for shell-owned displays such as the home tab, calendar tab, and lock screen. Widget-specific clock formats still use their own widget settings. See [Date format tokens](/noctalia/configuration/date-format-tokens/).
 
