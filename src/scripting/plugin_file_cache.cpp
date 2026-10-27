@@ -100,7 +100,7 @@ namespace scripting {
     }
 
     const auto repoRoot = plugin_paths::gitRepoRoot(source);
-    std::thread([this, pluginId, key, repoPath = *subdir + "/" + filename, repoRoot, cached, filename]() {
+    std::thread([this, pluginId, key, repoPath = *subdir + "/" + filename, repoRoot, cached, filename] {
       const auto result = plugin_git::showFile(repoRoot, repoPath);
       if (!result.ok || result.out.empty()) {
         std::scoped_lock lock(m_mutex);
@@ -118,7 +118,7 @@ namespace scripting {
 
       const std::string resolvedPath = (!ec && std::filesystem::exists(cached)) ? cached : std::string{};
 
-      DeferredCall::callLater([this, pluginId, filename, resolvedPath, key]() {
+      DeferredCall::callLater([this, pluginId, filename, resolvedPath, key] {
         {
           std::scoped_lock lock(m_mutex);
           m_inFlight.erase(key);

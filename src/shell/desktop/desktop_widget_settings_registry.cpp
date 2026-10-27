@@ -5,6 +5,7 @@
 #include "scripting/plugin_registry.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/widget_settings_registry.h"
+#include "system/format_units.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -160,17 +161,16 @@ namespace desktop_settings {
     if (type == "login_box") {
       return i18n::tr("desktop-widgets.editor.types.login-box");
     }
-    if (auto entry = resolvePluginDesktopWidget(type); entry.has_value()) {
-      if (!entry->manifest->name.empty()) {
-        return entry->manifest->name;
-      }
+    if (auto entry = resolvePluginDesktopWidget(type); entry.has_value() && !entry->manifest->name.empty()) {
+      return entry->manifest->name;
     }
+
     return std::string(type);
   }
 
   std::vector<WidgetSettingSpec> commonDesktopWidgetSettingSpecs(std::string_view type) {
     if (type == "login_box") {
-      auto bgColor = colorSpec("background_color", "surface_variant");
+      auto bgColor = colorSpec("background_color", "surface_container");
       auto bgRadius = intSpec("background_radius", 12.0, 0.0, 32.0, 1.0);
       auto bgOpacity = doubleSpec("background_opacity", 0.88, 0.0, 1.0, 0.01);
       return {
@@ -377,6 +377,8 @@ namespace desktop_settings {
       };
       const WidgetSettingVisibility graphOnly{"display", {"graph"}};
       const WidgetSettingVisibility gaugeOnly{"display", {"gauge"}};
+      WidgetSettingVisibility compactNetworkStat{{{"stat", {"net_rx", "net_tx"}}, {"stat2", {"net_rx", "net_tx"}}}};
+      compactNetworkStat.all = {{"network_speed_compact", {"true"}}};
 
       add(selectSpec("stat", "cpu_usage", sysmonStats));
       {
@@ -400,6 +402,14 @@ namespace desktop_settings {
         compact.visibleWhen =
             WidgetSettingVisibility{{{"stat", {"net_rx", "net_tx"}}, {"stat2", {"net_rx", "net_tx"}}}};
         add(std::move(compact));
+      }
+      {
+        auto decimalPlaces = intSpec(
+            "network_speed_decimal_places", 1, FormatUnits::kMinCompactByteRateDecimalPlaces,
+            FormatUnits::kMaxCompactByteRateDecimalPlaces, 1.0
+        );
+        decimalPlaces.visibleWhen = compactNetworkStat;
+        add(std::move(decimalPlaces));
       }
       add(segmentedSpec("display", "graph", sysmonDisplay));
       {

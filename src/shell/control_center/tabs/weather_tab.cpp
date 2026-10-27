@@ -449,7 +449,7 @@ void WeatherTab::beginForecastSlideOut(ForecastView nextView) {
         applyForecastSlide(progress, false);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_forecastSlideAnimId = 0;
         m_forecastView = m_pendingForecastView;
         m_startForecastSlideIn = true;
@@ -473,7 +473,7 @@ void WeatherTab::beginForecastSlideIn() {
         applyForecastSlide(progress, true);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_forecastSlideAnimId = 0;
         if (m_forecastRowsContainer != nullptr) {
           m_forecastRowsContainer->setPosition(m_forecastRowsBaseX, m_forecastRowsBaseY);

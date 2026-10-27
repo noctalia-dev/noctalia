@@ -2,7 +2,6 @@
 
 #include "cli/parse.h"
 #include "cli/schema_theme.h"
-#include "config/config_export.h"
 #include "config/config_service.h"
 #include "core/files/resource_paths.h"
 #include "core/toml.h" // IWYU pragma: keep
@@ -210,7 +209,7 @@ namespace noctalia::theme {
         }
         explicitConfigTitle += " (";
         explicitConfigTitle += templateConfigPath.filename().string();
-        explicitConfigTitle += ")";
+        explicitConfigTitle += ')';
       } else {
         userTemplates = loadConfiguredUserTemplateList();
       }
@@ -240,7 +239,7 @@ namespace noctalia::theme {
       dst[std::string(key)] = Color::fromHex(hex).toArgb();
     }
 
-    std::optional<::Palette> parseFixedPaletteJson(const nlohmann::json& src, std::string& err) {
+    std::optional<FixedPalette> parseFixedPaletteJson(const nlohmann::json& src, std::string& err) {
       const auto primary = loadHexColor(src, "mPrimary");
       const auto onPrimary = loadHexColor(src, "mOnPrimary");
       const auto secondary = loadHexColor(src, "mSecondary");
@@ -276,7 +275,7 @@ namespace noctalia::theme {
         err = "fixed palette json is missing required colors";
         return std::nullopt;
       }
-      return ::Palette{
+      return FixedPalette{
           .primary = rgbHex(primary->toArgb() & 0x00FFFFFFU),
           .onPrimary = rgbHex(onPrimary->toArgb() & 0x00FFFFFFU),
           .secondary = rgbHex(secondary->toArgb() & 0x00FFFFFFU),
@@ -490,7 +489,7 @@ namespace noctalia::theme {
       options.schemeType = schemeName.starts_with("m3-") ? schemeName.substr(3) : schemeName;
       options.verbose = true;
       ConfigService config;
-      options.configTable = std::make_shared<toml::table>(config_export::serialize(config.config()));
+      options.configTable = config.configTable();
       TemplateEngine engine(TemplateEngine::makeThemeData(palette), std::move(options));
 
       // Custom colors from -c must be in the theme data before -r templates render.

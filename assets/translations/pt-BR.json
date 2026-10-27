@@ -29,7 +29,7 @@
   "bar": {
     "annotate": {
       "capture-new-region": "Capturar nova região (descarta a edição atual)",
-      "close": "Fechar sem aplicar (Esc)",
+      "close": "Fechar editor",
       "color-black": "Preto",
       "color-blue": "Azul",
       "color-green": "Verde",
@@ -41,16 +41,16 @@
       "copy": "Copiar a imagem anotada (Ctrl+C)",
       "cursor": "Mostrar o ponteiro capturado com a tela (p)",
       "cursor-capture-failed": "Alternação de ponteiro não disponível: o compositor não pôde prover uma imagem de cursor separada.",
-      "cursor-live": "Congelar a tela primeiro para mudar o ponteiro capturado (F)",
+      "cursor-live": "Congelar a tela primeiro para mudar o ponteiro capturado (Z)",
       "cursor-not-captured": "Alternação de ponteiro não disponível: este compositor não suporta captura separada de cursor.",
       "done": "Aplicar as configurações da captura de tela (Enter)",
-      "fill-off": "Preenchimento da forma: desligado",
-      "fill-on": "Preenchimento da forma: ligado",
-      "freeze": "Congelar a tela sob a tinta (f)",
+      "fill-off": "Preenchimento da forma: desligado (f)",
+      "fill-opaque": "Preenchimento de forma: opaco (f)",
+      "fill-semi": "Preenchimento de forma: semi-transparente (f)",
+      "freeze": "Congelar a tela sob a tinta (z)",
       "move-toolbar": "Arraste para mover a barra de ferramentas",
       "redo": "Refazer (Ctrl+Shift+Z)",
       "save": "Salvar a imagem anotada (Ctrl+S)",
-      "size-advanced": "Ajuste fino de tamanho",
       "size-decrease": "Mais fino ([)",
       "size-increase": "Mais grosso (])",
       "size-large": "Grande",
@@ -222,6 +222,10 @@
       "apply": "Aplicar",
       "cancel": "Cancelar"
     },
+    "minimize": "Minimizar",
+    "minimized": "Minimizado",
+    "minimized-count": "{count} minimizado(s)",
+    "restore": "Restaurar",
     "states": {
       "auto": "Automático",
       "custom": "Personalizado",
@@ -283,7 +287,11 @@
     "calendar": {
       "all-day": "O dia todo",
       "events": "Eventos",
+      "hide-past-events": "Ocultar {count} evento passado",
+      "hide-past-events-plural": "Ocultar {count} eventos passados",
       "no-events": "Nenhum evento.",
+      "show-past-events": "Mostrar {count} evento passado",
+      "show-past-events-plural": "Mostrar {count} eventos passados",
       "today": "Hoje",
       "toggle-events-card": "Ligar card de eventos"
     },
@@ -318,7 +326,8 @@
       "active-player": "Player ativo",
       "nothing-playing": "Nada Reproduzindo",
       "now-playing": "Reproduzindo agora",
-      "start-playback": "Iniciar reprodução em um aplicativo MPRIS"
+      "start-playback": "Iniciar reprodução em um aplicativo MPRIS",
+      "toggle-visualizer": "Alternar Visualizador"
     },
     "network": {
       "anonymous-identity": "Identidade anônima (opcional)",
@@ -609,6 +618,7 @@
         "layout": "Layout",
         "mirrored": "Espelhado",
         "network-speed-compact": "Velocidade de Rede Compacta",
+        "network-speed-decimal-places": "Velocidade de Rede Casas Decimais",
         "network-speed-unit": "Unidade de Velocidade da Internet",
         "network-speed-unit-auto": "Automático",
         "network-speed-unit-kilobytes": "kB/s",
@@ -637,6 +647,7 @@
         "show-session-buttons": "Botões de Sessão",
         "show-unlock-hint": "Dica de Desbloqueio",
         "show-vpn-label": "Mostra Rótulo VPN",
+        "show-wave": "Mostrar Onda",
         "show-weather": "Clima",
         "show-week-numbers": "Exibir Números da Semana",
         "show-when-idle": "Mostrar Quando Ocioso",
@@ -876,6 +887,10 @@
       "battery-device": "Dispositivo de bateria",
       "battery-low-body": "{device}: {percent}% restantes",
       "battery-low-title": "Bateria baixa",
+      "bluetooth": "Bluetooth",
+      "bluetooth-connect-failed-title": "Não foi possível conectar à {device}",
+      "bluetooth-connected-title": "{device} conectado",
+      "bluetooth-disconnected-title": "{device} desconectado",
       "calendar": "Calendário",
       "calendar-credential-locked-body": "Desbloqueie o chaveiro usado pelo Serviço Secreto e, em seguida, tente novamente em “Configurações”. No GNOME Keyring, defina como padrão um chaveiro que seja desbloqueado automaticamente, como o “Login”.",
       "calendar-credential-locked-title": "Keyring do calendário está bloqueado",
@@ -1033,6 +1048,7 @@
       "lock-and-suspend": "Bloquear e Suspender",
       "logout": "Sair",
       "reboot": "Reiniciar",
+      "reboot-uefi": "Reiniciar para UEFI",
       "shutdown": "Desligar",
       "suspend": "Suspender"
     },
@@ -1058,6 +1074,8 @@
     "calendar-accounts": {
       "add-title": "Adicionar Conta de Calendário",
       "calendars-label": "Calendários",
+      "client-cert-label": "Certificado de Client (PEM)",
+      "client-key-label": "Chave de Cliente (PEM)",
       "color-label": "Cor",
       "credential-source-file": "Arquivo de Senha",
       "credential-source-keyring": "Chaveiro",
@@ -1159,9 +1177,13 @@
         },
         "group": {
           "accordion": "Acordeão",
+          "accordion-delay": "Atraso de Desdobramento",
+          "accordion-delay-description": "Número de milissegundos antes de desdobrar o grupo (0 ativa na mesma hora)",
           "accordion-description": "Mostra somente o primeiro widget; pairando sobre a capsula revela o resto",
-          "accordion-direction": "Direção de revelação",
+          "accordion-direction": "Direção de Revelação",
           "accordion-direction-description": "Lado do ",
+          "accordion-duration": "Tempo de Desdobramento",
+          "accordion-duration-description": "Milissegundos que o grupo leva pra desdobrar ao passar o mouse (0 é isntantaneamente)",
           "action": "Grupo",
           "border": "Borda",
           "border-description": "Cor do contorno da cápsula; deixe em Padrão para nenhum contorno.",
@@ -1307,6 +1329,8 @@
       "merged-user-description": "Combina arquivos de configuração e alterações na interface gráfica em um único arquivo TOML. Os valores padrão predefinidos permanecem implícitos.",
       "merged-user-save-title": "Salvar Configuração de Usuário Mesclada",
       "merged-user-title": "Configuração de Usuário Mesclada (Recomendado)",
+      "privacy-warning-description": "Ambos modos de exportação podem incluir chaves de API, senhas ou outros dados sensíveis armazenados em seu arquivo de configuração, incluindo plugins. Trate arquivos exportados como privados. Revise e remova dados sensíveis antes de compartilhar.",
+      "privacy-warning-title": "Exportações podem conter segredos",
       "title": "Exportar Configuração"
     },
     "idle": {
@@ -1348,6 +1372,7 @@
         "background": "Plano de Fundo",
         "battery": "Bateria",
         "behavior": "Comportamento",
+        "bluetooth": "Bluetooth",
         "borders": "Bordas",
         "brightness": "Brilho",
         "built-in": "Integrado",
@@ -1542,10 +1567,15 @@
       },
       "lockscreen": {
         "transition": {
+          "diamond": "Diamante",
           "disc": "Disco",
           "fade": "Esvanescer",
+          "golden": "Dourado",
           "honeycomb": "Favo de Mel",
+          "melt": "Derretido",
+          "pixel": "Pixel",
           "stripes": "Listras",
+          "vortex": "Vórtice",
           "wipe": "Limpar",
           "zoom": "Zoom"
         }
@@ -1558,10 +1588,6 @@
       "orientation": {
         "horizontal": "Horizontal",
         "vertical": "Vertical"
-      },
-      "panel-bar-alignment": {
-        "centered": "Centralizado",
-        "near-trigger": "Próximo ao Gatilho"
       },
       "panel-position": {
         "auto": "Seguir a Barra"
@@ -1585,6 +1611,12 @@
         "top-right": "Topo à direita"
       },
       "screenshot": {
+        "format": {
+          "jpeg": "JPEG",
+          "jxl": "JPEG XL",
+          "png": "PNG",
+          "webp": "WebP"
+        },
         "region-modifier": {
           "alt": "Alt",
           "ctrl": "Ctrl",
@@ -1670,10 +1702,15 @@
           "random": "Aleatória"
         },
         "transition": {
+          "diamond": "Diamante",
           "disc": "Disco",
           "fade": "Desvanecer",
+          "golden": "Dourado",
           "honeycomb": "Favo de mel",
+          "melt": "Derretido",
+          "pixel": "Pixel",
           "stripes": "Listras",
+          "vortex": "Vórtice",
           "wipe": "Expurgar",
           "zoom": "Zoom"
         }
@@ -1708,15 +1745,15 @@
           "label": "Camada"
         },
         "open-near-click": {
-          "description": "Onde o painel é posicionado quando aberto ao clicar no widget da barra",
-          "label": "Abrir Próximo ao Clique"
+          "description": "Quando aberto ao clicar no widget de sua barra, abrir painel próximo ao widget ao invés de sua Posição",
+          "label": "Abrir Próximo ao Widget Clicado"
         },
         "placement": {
           "description": "Anexe o painel à barra ou deixe-o flutuando próximo à borda da barra",
           "label": "Posicionamento"
         },
         "position": {
-          "description": "Posição na tela quando o painel está flutuando",
+          "description": "Fluturante: onde o Painel  fica na tela; Seguir Barra mantém-no perto da barra. Anexado: uma posição ao longo da extremidade da barra alinha-o ao fim da barra",
           "label": "Posição"
         }
       },
@@ -2034,6 +2071,10 @@
         },
         "dead-zone-action": {
           "description": "Ação executada nas partes da barra que não são cobertas widgets"
+        },
+        "dead-zone-click-through": {
+          "description": "Deixe que cliques em partes da barra que não está coberta por widgets alcancem a janela abaixo; ações de zonas mortas não acionarão",
+          "label": "Clicar Através"
         },
         "edge-margin": {
           "description": "Espaço entre a barra e a borda da tela em que ela está; defina como 0 px para alinhar exatamente com a borda"
@@ -2635,6 +2676,14 @@
           "description": "Espaço, em pixels, entre um painel flutuante ou separado e a extremidade da barra",
           "label": "Deslocamento de Flutuação"
         },
+        "home-avatar-border": {
+          "description": "Mostrar o anel de destaque ao redor do avatar da guia “Início”",
+          "label": "Mostrar Borda do Avatar"
+        },
+        "home-circular-avatar": {
+          "description": "Usar avatares circulares; desabilite para seguir o arredondamento dos cantos do shell",
+          "label": "Avatar Circular"
+        },
         "home-session-button": {
           "description": "Mostrar o botão de ações de sessão no cabeçalho da aba Início",
           "label": "Mostrar Botão de Sessão no Cabeçalho"
@@ -2704,8 +2753,12 @@
           "label": "Janelas na Busca Global"
         },
         "launcher-grid": {
-          "description": "Exibir previsão de resultados e de provedores como grade de ícones ao invés de linhas",
+          "description": "Mostrar os resultados dos provedores compatíveis com grade e a visão geral dos provedores como uma grade de ícones ao invés de linhas",
           "label": "Visão em Grade"
+        },
+        "launcher-ignore-mouse": {
+          "description": "Ignorar passagem de mouse, movimento e cliques dentro do launcher para navegação via exclusiva via teclado",
+          "label": "Ignorar Mouse"
         },
         "launcher-ignored-panels": {
           "description": "Painéis que o provedor de painéis nunca lista (ex. caixas de diálogo, o assistente de configuração)",
@@ -2764,6 +2817,10 @@
           "description": "Exibir ícones dos aplicativos nos resultados do launcher",
           "label": "Exibir Ícones dos Apps"
         },
+        "launcher-show-navigation-labels": {
+          "description": "Mostrar texto ao lado de ícones de Recente, Fixado, Todos, Categories e Provedores quando o espaço permite",
+          "label": "Mostrar Rótulos de Navegação"
+        },
         "launcher-show-session-button": {
           "description": "Mostrar um atalho para as ações de sessão configuradas",
           "label": "Mostrar Botão de Sessão"
@@ -2789,24 +2846,24 @@
           "label": "Fundo dos Itens de Lista"
         },
         "open-near-click-clipboard": {
-          "description": "Onde a área de tranferência é posicionada quando aberto ao clicar no widget da barra",
-          "label": "Ao Longo da Barra"
+          "description": "Quando aberto ao clicar no widget de sua barra, abrir a área de transferência próxima ao widget ao invés de sua Posição",
+          "label": "Abrir Próximo ao Widget Clicado"
         },
         "open-near-click-control-center": {
-          "description": "Onde a Central de Controle é posicionada quando aberto ao clicar no widget da barra",
-          "label": "Abrir Próximo ao Clique"
+          "description": "Quando aberto ao clicar no widget de sua barra, abrir a Central de Configurações próxima ao widget ao invés de sua Posição",
+          "label": "Abrir Próximo ao Widget Clicado"
         },
         "open-near-click-launcher": {
-          "description": "Onde o launcher é posicionado quando aberto ao clicar no widget da barra",
-          "label": "Abrir Próximo ao Clique"
+          "description": "Quando aberto ao clicar no widget de sua barra, abrir o Launcher próximo ao widget ao invés de sua Posição",
+          "label": "Abrir Próximo ao Widget Clicado"
         },
         "open-near-click-session": {
-          "description": "Onde o painel da sessão é posicionado quando aberto ao clicar no widget da barra",
-          "label": "Abrir Próximo ao Clique"
+          "description": "Quando aberto ao clicar no widget de sua barra, abrir o Painel de Sessão próximo ao widget ao invés de sua Posição",
+          "label": "Abrir Próximo ao Widget Clicado"
         },
         "open-near-click-wallpaper": {
-          "description": "Onde o seletor de papel de parede é posicionado quando aberto ao clicar no widget da barra",
-          "label": "Abrir Próximo ao Clique"
+          "description": "Quando aberto ao clicar no widget de sua barra, abrir o Seletor de Papel de Parede próximo ao widget ao invés de sua Posição",
+          "label": "Abrir Próximo ao Widget Clicado"
         },
         "panel-anchor-bar": {
           "description": "Barra à qual os painéis se anexam quando abertos; Deixe vazio para seguir o widget, atalho ou Dock que os abriu",
@@ -2837,27 +2894,27 @@
           "label": "Posicionamento"
         },
         "position-clipboard": {
-          "description": "Onde a área de transferência fica na tela; Seguir Barra a mantém próxima à barra",
+          "description": "Fluturante: onde a Área de Transferência fica na tela; Seguir Barra mantém-na perto da barra. Anexado: uma posição ao longo da extremidade da barra alinha-a ao fim da barra",
           "label": "Posição"
         },
         "position-control-center": {
-          "description": "Onde a Central de Controle fica na tela; Seguir Barra a mantém próximo à barra",
+          "description": "Fluturante: onde a Central de Controle fica na tela; Seguir Barra mantém-na perto da barra. Anexado: uma posição ao longo da extremidade da barra alinha-a ao fim da barra",
           "label": "Posição"
         },
         "position-launcher": {
-          "description": "Onde o launcher fica na tela - Seguir Barra o mantém próximo à barra",
+          "description": "Fluturante: onde o Launcher fica na tela; Seguir Barra mantém-no perto da barra. Anexado: uma posição ao longo da extremidade da barra alinha-o ao fim da barra",
           "label": "Posição"
         },
         "position-polkit": {
-          "description": "Onde a caixa de diálogo do polkit aparece na tela; 'Seguir a Barra' o mantém perto da barra",
+          "description": "Fluturante: onde a Caixa de Diálogo polkit fica na tela; Seguir Barra mantém-no perto da barra. Anexado: uma posição ao longo da extremidade da barra alinha-a ao fim da barra",
           "label": "Posição"
         },
         "position-session": {
-          "description": "Onde o menu de sessão fica na tela; Seguir Barra mantém-no próximo à barra",
+          "description": "Fluturante: onde o Painel de Sessão fica na tela; Seguir Barra mantém-no perto da barra. Anexado: uma posição ao longo da extremidade da barra alinha-o ao fim da barra",
           "label": "Posição"
         },
         "position-wallpaper": {
-          "description": "Onde o seletor de papel de parede fica na tela; Seguir Barra mantém-no próximo à barra",
+          "description": "Fluturante: onde o Seletor de Papéis de Parede fica na tela; Seguir Barra mantém-no perto da barra. Anexado: uma posição ao longo da extremidade da barra alinha-o ao fim da barra",
           "label": "Posição"
         },
         "shadow": {
@@ -2894,6 +2951,14 @@
         "audio-overdrive": {
           "description": "Permitir volume acima de 100%",
           "label": "Amplificação Extra de Áudio"
+        },
+        "bluetooth-connect-when-enabled": {
+          "description": "Conectar dispositivos pareados, de confiança ao ligar o Bluetooth, ao iniciar e depois de retornar de suspensão",
+          "label": "Conectar Dispositivos Ao Ligar o Bluetooth"
+        },
+        "bluetooth-connection-notifications": {
+          "description": "Mostrar uma notificação quando um dispositivo Bluetooth conectar or desconectar por sí próprio ou quando uma conexão que você iniciou falhar",
+          "label": "Notificações de Conexão de Dispositivos"
         },
         "calendar": {
           "description": "Mostrar eventos das suas contas de calendários on-line",
@@ -2941,6 +3006,14 @@
         "calendar-event-time-format": {
           "description": "O formato de hora mostrado para eventos de calendário nas visões do calendário",
           "label": "Formato de Hora do Evento"
+        },
+        "calendar-hide-past-events": {
+          "description": "Ocultar eventos finalizados de hoje da lista de eventos; quando desligado, todos eventos passados são mostrados",
+          "label": "Ocultar Eventos Passados"
+        },
+        "calendar-past-events-threshold": {
+          "description": "Com Ocultar Eventos Passados ligado, mantenha eventos de hoje visíveis por esta quantidade de minutos depois deles terem acabado; 0 oculta-os assim que acabam",
+          "label": "Limite de Eventos Passados"
         },
         "calendar-refresh-interval": {
           "description": "Com que frequência sincronizar eventos do calendário (minutos)",
@@ -3270,6 +3343,10 @@
           "label": "Comando de Launcher Personalizado",
           "placeholder": "$CMD"
         },
+        "niri-overview-close-on-launch": {
+          "description": "Fechar a overview quando uma aplicação for executada do launcher enquanto a overview do Niri estiver aberta",
+          "label": "Fechar para Executar"
+        },
         "niri-overview-type-to-launch": {
           "description": "Abra o launcher ao digitar na visão geral do Niri; utiliza uma pequena superfície de foco do teclado enquanto a visão geral estiver aberta",
           "label": "Digitar para Abrir Launcher"
@@ -3317,6 +3394,10 @@
         "osd-kinds-caffeine": {
           "description": "Exibir um OSD quando o estado da cafeína (inibidor de inatividade) for alterado",
           "label": "Cafeína"
+        },
+        "osd-kinds-custom": {
+          "description": "Mostrar popups OSD personalizados enviador por plugins ou scripts",
+          "label": "Personalizar"
         },
         "osd-kinds-dnd": {
           "description": "Exibir um OSD quando o Não Pertube é alterado",
@@ -3443,18 +3524,26 @@
           "description": "Depois de desenhar uma região, manter o overlay aberto até confirmar com Enter ou Espaço",
           "label": "Confirmar Região"
         },
+        "screenshot-copy-on-close": {
+          "description": "Copiar a imagem anotada para a área de transferência ao fechar o editor com a tecla de cancelar ou o botão de fechar",
+          "label": "Copiar ao Fechar"
+        },
         "screenshot-copy-to-clipboard": {
           "description": "Coloca o PNG capturado na seleção da área de transferência",
           "label": "Copiar para a Área de Transferência"
         },
         "screenshot-directory": {
-          "description": "Pasta para arquivos PNG salvos; deixe vazia para usar o padrão XDG do diretório Imagens",
+          "description": "Pasta para arquivos de captura de tela salvos; deixe vazia para usar o padrão XDG do diretório Imagens",
           "label": "Diretório de Saída",
           "placeholder": "Diretório Imagens XDG"
         },
         "screenshot-filename-pattern": {
-          "description": "Padrão strftime sem extensão (.png é adicionado); use %s para a unix epoch.",
+          "description": "Padrão strftime sem extensão (a extensão do formato é adicionada); use %s para unix epoch.",
           "label": "Padrão do Nome de Arquivo"
+        },
+        "screenshot-format": {
+          "description": "Formato de arquivo para salvar capturas de tela; cópias de área de transferência e comandos pipe sempre recebem PNG",
+          "label": "Formato de Arquivo"
         },
         "screenshot-freeze-screen": {
           "description": "Captura a área de trabalho antes de selecionar a região para que o conteúdo em movimento permaneça estático",
@@ -3472,6 +3561,18 @@
           "description": "Envia o PNG capturado para um comando do shell em stdin",
           "label": "Pipe para Comando"
         },
+        "screenshot-quality": {
+          "description": "Qualidade de compressão para arquivo JPEG, WebP e JPEG XL; 100 salva WebP e JPEG XL \"losslessly\"",
+          "label": "Qualidade"
+        },
+        "screenshot-region-border-width": {
+          "description": "Largura da borda ao redor da região selecionada",
+          "label": "Largura de Borda da Região"
+        },
+        "screenshot-region-dim-opacity": {
+          "description": "Opacidade da área escurecida ao redor da região selecionada",
+          "label": "Opacidade do Escurecimento da Região"
+        },
         "screenshot-region-modifier": {
           "description": "Modificador para mover ou redimensionar uma região selecionada: arraste com o botão esquerdo para mover, arraste com o botão direito para redimensionar a partir dos terços externos (os cantos redimensionam em ambos os eixos). Nenhuma opção (padrão) mantém o comportamento padrão de arrastar para ajustar",
           "label": "Modificador de Movimento/Redimensionamento"
@@ -3481,12 +3582,20 @@
           "label": "Lembrar Última Região"
         },
         "screenshot-save-to-file": {
-          "description": "Salva as capturas de tela como arquivos PNG no diretório de saída",
+          "description": "Salva as capturas de tela no diretório definido no formato de arquivo selecionado",
           "label": "Salvar para Arquivo"
         },
         "screenshot-show-cursor": {
           "description": "Incluir o ponteiro do mouse nas capturas de tela",
           "label": "Mostrar Cursor"
+        },
+        "screenshot-show-region-dimensions": {
+          "description": "Mostrar o emblema de tamanho enquanto redimensiona ou move uma região",
+          "label": "Mostrar Dimensões da Região"
+        },
+        "screenshot-show-region-hint": {
+          "description": "Mostrar a dica de confirmação com atalhos de teclado (Copiar, Salvar, Cancelar) enquanto confirma uma região",
+          "label": "Mostrar Sugestão de Região "
         },
         "screenshot-skip-annotate-on-copy-save": {
           "description": "Copia e Salva na região do overlay é entregue imediatamente; Enter ou Espaço continuam abrindo o editor",
@@ -3520,6 +3629,10 @@
         "umbriel-audio-provider": {
           "description": "Compartilhe o espectro de áudio com os efeitos do Umbriel, mesmo sem um widget visualizador",
           "label": "Prover Áudio para Umbriel"
+        },
+        "umbriel-overview-close-on-launch": {
+          "description": "Fechar a overview quando uma aplicação executa do launcher enquanto a overview do Umbriel está aberta",
+          "label": "Fechar ao Executar"
         },
         "umbriel-overview-type-to-launch": {
           "description": "Abrir o Launcher enquanto digite na Overveiw do Umbriel; utiliza uma pequena superfície de foco de teclado enquanto a Overview está aberta",
@@ -3678,6 +3791,7 @@
       "kind-section-label": "Comportamento",
       "label-field": "Rótulo",
       "label-placeholder": "Texto opcional do botão",
+      "lockscreen-shortcut-label": "Atalho de bloqueio de tela",
       "shortcut-label": "Atalho",
       "variant": {
         "default": "Padrão",
@@ -3699,6 +3813,8 @@
       "success": "Redefinição do armazenamento privado bem sucedida"
     },
     "templates": {
+      "documentation": "Documentação",
+      "readme": "Leiame",
       "store": {
         "browse": "Navegar pelos modelos",
         "categories": "Categorias",
@@ -3721,7 +3837,7 @@
         "command-placeholder": "Comando do shell",
         "commands": {
           "annotate": {
-            "description": "Desenhar na tela sobre os aplicativos em execução; pressione F ou o botão Congelar para capturar o fundo",
+            "description": "Desenhar na tela sobre os aplicativos em execução; pressione Z ou o botão Congelar para capturar o fundo",
             "label": "Anotar tela"
           },
           "bar-auto-hide-set": {
@@ -4000,6 +4116,10 @@
             "description": "Habilitar popups OSD",
             "label": "Habilitar OSD"
           },
+          "osd-show": {
+            "description": "Mostrar um popup de OSD personalizado",
+            "label": "Mostrar OSD personalizado"
+          },
           "osd-toggle": {
             "description": "Alternar popups OSD",
             "label": "Alternar OSD"
@@ -4043,6 +4163,10 @@
           "screenshot-region": {
             "description": "Iniciar uma captura de tela de região interativa",
             "label": "Captura de tela de região"
+          },
+          "screenshot-window": {
+            "description": "Capturar a janela focada",
+            "label": "Capturar de janela"
           },
           "session": {
             "description": "Executar uma ação de sessão integrada",
@@ -4294,7 +4418,7 @@
           "workspaces-description": "Comprimento mínimo da pílula ativa da área de trabalho ao longo da barra, expresso como um múltiplo da espessura da pílula; as pílulas podem se estender além desse limite"
         },
         "album-art-only": {
-          "description": "Mostrar apenas a capa circular do álbum, sem o título da faixa",
+          "description": "Mostrar apenas a arte do álbum sem o título da faixa",
           "label": "Apenas Arte do Álbum"
         },
         "anchor": {
@@ -4666,6 +4790,10 @@
           "description": "Use sufixos de unidade curtos, como 1,2M, em vez de 1,2 MB/s",
           "label": "Velocidade de Rede Compacta"
         },
+        "network-speed-decimal-places": {
+          "description": "Número de casas decimais mostradas para versão compacta da velocidade de rede, de 0 a 3",
+          "label": "Casas Decimais da Velocidade de Rede"
+        },
         "network-speed-unit": {
           "description": "Unidade usada para velocidades de recepção e transmissão de rede; alterna automaticamente entre B/s, kB/s, MB/s e GB/s",
           "label": "Unidade de Velocidade da Internet"
@@ -4702,7 +4830,7 @@
           "label": "Invertido"
         },
         "rotate-album-art": {
-          "description": "Rotacionar a arte de álbum circular enquanto a mídia está tocando",
+          "description": "Rotacionar a arte de álbum enquanto a mídia está tocando",
           "label": "Girar Art do Album"
         },
         "scale": {
@@ -4740,6 +4868,10 @@
         "show-condition": {
           "description": "Mostra texto com as condições meteorológicas",
           "label": "Mostrar Condição"
+        },
+        "show-cpu-cores": {
+          "description": "Substituir o único medidor de CPU com uma medidor pequeno por núcleo lógico",
+          "label": "Mostrar Uso Por Core"
         },
         "show-empty-label": {
           "description": "Exibe o placeholder quando nenhuma janela estiver em foco, em vez de ocultar o widget",
@@ -4796,6 +4928,10 @@
         "show-vpn-label": {
           "description": "Substitui rótulo de rede com rótulo da VPN em modo Substituir; adiciona rótulo VPN próximo ao ícone de VPN no modo Ambos",
           "label": "Mostrar Rótulo VPN"
+        },
+        "show-wave": {
+          "description": "Exibir como uma onda com área preenchida, em vez de barras separadas",
+          "label": "Mostrar Onda"
         },
         "show-when-idle": {
           "description": "Mantenha o visualizador visível mesmo quando nenhum conteúdo estiver sendo reproduzido",
@@ -4878,6 +5014,10 @@
           "description": "Largura máxima em pixels dos títulos de janela",
           "label": "Largura Máxima do Título de Janela"
         },
+        "workspace-group-active-border-color": {
+          "description": "Cor de borda para o espaço de trabalho ativo",
+          "label": "Cor de Borda Ativa"
+        },
         "workspace-group-capsule": {
           "description": "Desenha o fundo e a borda ao redor de cada workspace agrupado. Desligue para manter apenas o agrupamento de ícones e os rótulos circulares dos workspaces",
           "label": "Cápsula do grupo de Espaço de Trabalho"
@@ -4885,6 +5025,10 @@
         "workspace-group-content": {
           "description": "O que cada grupo de espaços de trabalho exibe: ícones de aplicativos, o número de janelas ou pontos (até cinco, e depois +N para o restante)",
           "label": "Agrupar Conteúdo"
+        },
+        "workspace-group-inactive-border-color": {
+          "description": "Cor de borda para espaços de trabalho inativos",
+          "label": "Cor de Borda Inativa"
         },
         "workspace-label-placement": {
           "description": "No canto, centralizado na extremidade ou dentro de uma pílula",
@@ -5048,6 +5192,7 @@
     },
     "dialogs": {
       "color-picker": {
+        "copy": "Copiar código de cor no formato atual",
         "title": "Cor"
       },
       "file": {

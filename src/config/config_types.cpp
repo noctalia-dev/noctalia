@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
+#include <initializer_list>
 #include <stdexcept>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -504,6 +505,12 @@ WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsule
   spec.opacity = group.opacity;
   spec.accordion = group.accordion;
   spec.accordionDirection = group.accordionDirection;
+  spec.accordionDurationMs = group.accordionDurationMs.has_value()
+      ? std::optional<float>{static_cast<float>(*group.accordionDurationMs)}
+      : std::nullopt;
+  spec.accordionDelayMs = group.accordionDelayMs.has_value()
+      ? std::optional<float>{static_cast<float>(*group.accordionDelayMs)}
+      : std::nullopt;
   spec.widgetSpacing =
       group.widgetSpacing.has_value() ? std::optional<float>{static_cast<float>(*group.widgetSpacing)} : std::nullopt;
   spec.hoverHighlight = bar.hoverHighlight;
@@ -646,12 +653,10 @@ bool outputMatchesSelector(const std::string& match, const WaylandOutput& output
 
   // Each identity field is searched independently so selector semantics don't depend on
   // whether the compositor advertised output management, nor on any join order.
-  for (const std::string* field : {&output.description, &output.make, &output.model, &output.serialNumber}) {
-    if (StringUtils::containsWholeToken(*field, match)) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(
+      std::initializer_list{&output.description, &output.make, &output.model, &output.serialNumber},
+      [&](const std::string* field) { return StringUtils::containsWholeToken(*field, match); }
+  );
 }
 
 DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorOverride& override) {

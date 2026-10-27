@@ -119,7 +119,7 @@ namespace settings {
           .type = [] { return DefinitionAccessor().type; },
           .schemaFields = [] { return DefinitionAccessor().schemaFields(); },
           .presentedSettingSpecs = [] { return DefinitionAccessor().presentedSettingSpecs(); },
-          .commonOverrides = []() -> const std::vector<noctalia::bar::WidgetCommonSettingOverride>& {
+          .commonOverrides = [] -> const std::vector<noctalia::bar::WidgetCommonSettingOverride>& {
             return DefinitionAccessor().commonOverrides;
           },
           .glyph = [](const WidgetConfig* config) -> std::string {
@@ -329,7 +329,7 @@ namespace settings {
       }
       text += " (";
       text += versionText;
-      text += ")";
+      text += ')';
       return text;
     }
 
@@ -597,7 +597,7 @@ namespace settings {
       std::string label = pluginWidgetDisplayLabel(entry);
       // Lead with the entry id so same-plugin widgets stay distinguishable.
       std::string description = appendVersion(entry.manifest->description, entry.manifest->version);
-      description = description.empty() ? entryId : entryId + " - " + description;
+      description = description.empty() ? entryId : std::format("{} - {}", entryId, description);
       entries.push_back(
           WidgetPickerEntry{
               .value = entryId,
@@ -696,7 +696,7 @@ namespace settings {
     capsuleForeground.visibleWhen = capsuleOn;
 
     auto capsulePadding = withGroup(
-        intSpec("capsule_padding", static_cast<double>(Style::barCapsulePadding), 0.0, 48.0, 1.0), "presentation"
+        intSpec("capsule_padding", static_cast<std::int64_t>(Style::barCapsulePadding), 0.0, 48.0, 1.0), "presentation"
     );
     capsulePadding.visibleWhen = capsuleOn;
     auto capsuleRadius = withGroup(optionalDoubleSpec("capsule_radius", 0.0, 80.0), "presentation");
@@ -920,7 +920,6 @@ namespace settings {
         spec.schema.enumValues.push_back(option.value);
       }
       spec.schema.type = schemaTypeForControl(spec.control);
-      spec.visibleWhen = WidgetSettingVisibility{placementKey, {"floating"}};
       return spec;
     };
 
@@ -950,14 +949,8 @@ namespace settings {
       spec.schema.key = openNearClickKey;
       spec.literalLabel = entryPrefix(tr("settings.plugins.panels.open-near-click.label"));
       spec.literalDescription = tr("settings.plugins.panels.open-near-click.description");
-      spec.control = WidgetControlKind::Select;
-      spec.segmented = true;
-      spec.literalLabels = true;
+      spec.control = WidgetControlKind::Bool;
       spec.schema.defaultValue = field != nullptr ? field->defaultValue() : entry.panelOpenNearClickDefault;
-      spec.options = {
-          {"false", tr("settings.options.panel-bar-alignment.centered")},
-          {"true", tr("settings.options.panel-bar-alignment.near-trigger")},
-      };
       spec.schema.type = schema::WidgetSettingType::Bool;
       spec.visibleWhen = WidgetSettingVisibility{
           {placementKey, {"attached"}},
@@ -1001,7 +994,7 @@ namespace settings {
       }
       return false;
     };
-    const auto* widget = [&]() -> const WidgetConfig* {
+    const auto* widget = [&] -> const WidgetConfig* {
       const auto it = config.widgets.find(std::string(widgetName));
       return it != config.widgets.end() ? &it->second : nullptr;
     }();

@@ -5,12 +5,14 @@
 #include "shell/bar/widget.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
+#include "system/window_state.h"
 #include "ui/palette.h"
 #include "ui/signal.h"
 
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -44,6 +46,8 @@ struct TaskbarWidgetOptions {
   bool showWorkspaceLabel = true;
   WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   WorkspaceGroupContent workspaceGroupContent = WorkspaceGroupContent::Icons;
+  ColorSpec workspaceGroupActiveBorderColor = colorSpecFromRole(ColorRole::Primary);
+  ColorSpec workspaceGroupInactiveBorderColor = colorSpecFromRole(ColorRole::OutlineVariant);
   bool hideEmptyWorkspaces = false;
   std::vector<std::string> hiddenWorkspaces;
   bool workspaceGroupCapsule = true;
@@ -120,6 +124,8 @@ private:
     bool pinned = false;
     bool running = true;
     zwlr_foreign_toplevel_handle_v1* firstHandle = nullptr;
+    std::optional<WindowMinimizeState> minimizeState;
+    std::size_t minimizedCount = 0;
   };
 
   struct WorkspaceModel {
@@ -139,6 +145,7 @@ private:
     // Meaningful only when layoutEqual is true and the existing task tiles will be retained.
     bool titlesChanged = false;
     bool activesChanged = false;
+    bool minimizeStatesChanged = false;
   };
 
   struct TaskRef {
@@ -153,6 +160,7 @@ private:
     Label* titleLabel = nullptr;
     // Present when m_showActiveIndicator; visibility tracks task.active.
     Box* activeIndicator = nullptr;
+    Box* minimizeIndicator = nullptr;
   };
 
   // Gesture state for drag-to-reorder of pinned tiles in the flat strip. Holds no obligation to
@@ -185,7 +193,7 @@ private:
   void buildTaskButtons(Renderer& renderer);
   void updateModels();
   void syncWorkspaceGroupingCapability();
-  [[nodiscard]] static std::string toLower(std::string value);
+  [[nodiscard]] static std::string toLower(const std::string& value);
   [[nodiscard]] static const std::string& displayTitle(const TaskModel& task) noexcept;
   [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
   [[nodiscard]] static ModelComparison compareModels(
@@ -195,7 +203,7 @@ private:
   );
   void buildDesktopIconIndex();
   [[nodiscard]] std::string resolveIconPath(const std::string& appId, const std::string& iconNameOrPath);
-  void openTaskContextMenu(const TaskModel& task, InputArea& area);
+  void openTaskContextMenu(const TaskModel& task, InputArea& area, const std::vector<TaskRef>& members = {});
   void activateAdjacentWorkspace(int direction);
   void activateAdjacentTask(int direction);
   [[nodiscard]] bool activeWorkspaceIndex(std::size_t& index) const;
@@ -213,11 +221,15 @@ private:
   [[nodiscard]] static const TaskModel*
   resolveTask(const std::vector<TaskModel>& tasks, TaskRef ref, std::uint64_t currentGeneration);
   [[nodiscard]] static std::string_view workspaceBindingWindowId(const TaskModel& task);
-  void activateTaskModel(const TaskModel& task);
+  [[nodiscard]] static ToplevelInfo toplevelInfoForTask(const TaskModel& task);
+  [[nodiscard]] static bool allWindowsMinimized(const TaskModel& task);
+  [[nodiscard]] static std::string
+  taskTooltip(const TaskModel& task, std::size_t minimizedCount, std::size_t windowCount);
+  void activateTaskModel(const TaskModel& task, bool primaryClick = false);
   void closeTaskModel(const TaskModel& task);
   void applyPinnedMerge(std::vector<TaskModel>& tasks);
   static void dropUnpinnedTasks(std::vector<TaskModel>& tasks, bool showRunning);
-  void activateOrLaunchPinned(const TaskModel& task);
+  void activateOrLaunchPinned(const TaskModel& task, bool primaryClick = true);
   void launchDesktopEntry(const TaskModel& task);
   [[nodiscard]] const std::vector<std::string>& pinnedConfigIds() const noexcept;
   [[nodiscard]] bool reorderEnabled() const;
@@ -244,6 +256,8 @@ private:
   bool m_showWorkspaceLabel = true;
   WorkspaceLabelPlacement m_workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   WorkspaceGroupContent m_workspaceGroupContent = WorkspaceGroupContent::Icons;
+  ColorSpec m_workspaceGroupActiveBorder = colorSpecFromRole(ColorRole::Primary);
+  ColorSpec m_workspaceGroupInactiveBorder = colorSpecFromRole(ColorRole::OutlineVariant);
   bool m_hideEmptyWorkspaces = false;
   bool m_workspaceGroupCapsule = true;
   bool m_focusedOutputOnly = false;

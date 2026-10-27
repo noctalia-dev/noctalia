@@ -34,6 +34,7 @@ enabled                      = false
 interval_seconds             = 1800
 order                        = "random" # random | alphabetical
 recursive                    = false    # scan subdirectories when selecting random wallpapers (default: false)
+pause_on_fullscreen          = false    # hold rotation while any window is fullscreen (default: false)
 
 # Per-monitor overrides - same match rules as bar monitor overrides
 # Only active when per_monitor_directories = true
@@ -44,6 +45,10 @@ directory       = "/home/user/Wallpapers/Vertical"
 directory_light = "/home/user/Wallpapers/Vertical/Light"
 directory_dark  = "/home/user/Wallpapers/Vertical/Dark"
 ```
+
+### Image formats
+
+Wallpapers can be PNG, JPEG, WebP, JPEG XL, BMP, GIF, HEIC, HEIF, or AVIF files. HEIC, HEIF, and AVIF need `libheif` installed at runtime, with its AV1 decoder plugin (dav1d or aom) for AVIF and an HEVC decoder plugin (such as libde265) for HEIC. On Fedora the HEVC plugin comes from RPM Fusion's `libheif-freeworld`. Without libheif those files still show up in the picker but fail to load, and the log reports that HEIF/AVIF decoding requires libheif.
 
 ### Fill modes
 
@@ -64,10 +69,7 @@ Wallpapers are decoded in the background, so a huge file never freezes the shell
 
 An empty global `wallpaper.directory` resolves to the standard XDG Pictures directory, using `XDG_PICTURES_DIR` or the `user-dirs.dirs` configuration file, and falls back to `~/Pictures`. This keeps the picker, launcher provider, and automatic rotation aligned without requiring a separate wallpaper folder.
 
-The wallpaper picker panel lists images from the resolved browse folder as a grid of thumbnails and highlights the
-wallpaper currently applied to the selected monitor. In the **ALL** monitor view, the highlight follows the default
-wallpaper path. Theme-aware directories (`directory_light` / `directory_dark`) are used when the shell is in Light or
-Dark mode; **Auto** mode falls back to `directory`. Missing per-mode paths fall back to `directory`.
+The wallpaper picker panel lists images from the resolved browse folder as a grid of thumbnails and highlights the wallpaper currently applied to the selected monitor. In the **ALL** monitor view, the highlight follows the default wallpaper path. Theme-aware directories (`directory_light` / `directory_dark`) are used when the shell is in Light or Dark mode; **Auto** mode falls back to `directory`. Missing per-mode paths fall back to `directory`.
 
 When `per_monitor_directories` is **true**, each connected monitor can define its own `directory` / `directory_light` / `directory_dark` under `[wallpaper.monitor.<name>]`. The picker and automatic rotation resolve the folder per-monitor, so selecting a monitor in the panel toolbar switches to that monitor's override (falling back to the global folder if unset). When **false**, all monitors share the global directories regardless of which monitor is selected in the panel.
 
@@ -83,9 +85,9 @@ Monitor overrides may also set `fill_color`.
 
 By default, the first wallpaper on each output appears immediately with no transition. Set `transition_on_startup = true` to fade (or wipe, etc.) in from a black screen at shell startup, matching v4 behavior. Later wallpaper changes always use the configured transition pool.
 
-When automation is enabled, Noctalia picks one image from the resolved browse folder at shell startup, then keeps picking on the configured interval and applies it to all connected outputs in sync.
-`order = "random"` chooses a random image each cycle.
-`order = "alphabetical"` sorts paths case-insensitively and advances to the next image each cycle (wrapping at the end).
+When automation is enabled, Noctalia picks one image from the resolved browse folder at shell startup, then keeps picking on the configured interval and applies it to all connected outputs in sync. `order = "random"` chooses a random image each cycle. `order = "alphabetical"` sorts paths case-insensitively and advances to the next image each cycle (wrapping at the end).
+
+Rotation also holds while the lock screen is up. With `pause_on_fullscreen = true` it holds while any window is fullscreen as well, so games and videos are not interrupted by a transition and theme regeneration; a switch that came due in the meantime happens as soon as the window leaves fullscreen. Fullscreen detection uses the `wlr-foreign-toplevel-management` protocol, so it has no effect on compositors that do not provide it.
 
 ## Favorites
 

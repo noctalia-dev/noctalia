@@ -41,7 +41,6 @@
       "cursor-capture-failed": "Impossible d'afficher le curseur: le compositeur n'a pas fourni d'image séparée pour le curseur",
       "redo": "Annuler (Ctrl+Shift+Z)",
       "save": "Enregistrer l’image annotée (Ctrl+S)",
-      "size-advanced": "Régler l’épaisseur précisément ",
       "size-decrease": "Plus fin ([)",
       "size-increase": "Plus épais (])",
       "size-large": "Grand",
@@ -530,7 +529,7 @@
       "actions": {
         "add": "Ajouter",
         "clone": "Dupliquer (Ctrl+C, Ctrl+V pour copier/coller)",
-        "done": "Fait",
+        "done": "Terminé",
         "flip-horizontal": "Miroir horizontal",
         "flip-vertical": "Miroir vertical",
         "hide": "Cacher",
@@ -1299,7 +1298,7 @@
         "osd": "OSD",
         "overview": "Aperçu",
         "pinned-apps": "Applications épinglées",
-        "polkit": "Pokit",
+        "polkit": "Polkit",
         "power": "Alimentation",
         "privacy": "Confidentialité",
         "profile": "Profil",
@@ -1307,6 +1306,8 @@
         "screen-corners": "Coins d’écran",
         "screen-time": "Temps d’écran",
         "screenshot": "Capture d'écran",
+        "screenshot-annotation": "Annotation",
+        "screenshot-capture": "Capture",
         "security": "Sécurité",
         "session-panel": "Panneau de session",
         "shape": "Forme",
@@ -1339,6 +1340,7 @@
         "plugins": "Plugins",
         "popups": "Popups",
         "power": "Alimentation",
+        "screenshot": "Capture d'écran",
         "security": "Sécurité",
         "services": "Services",
         "shell": "Shell",
@@ -1442,9 +1444,6 @@
         "horizontal": "Horizontal",
         "vertical": "Vertical"
       },
-      "panel-bar-alignment": {
-        "centered": "Centré"
-      },
       "panel-position": {
         "auto": "Suivre la Bar"
       },
@@ -1458,6 +1457,15 @@
         "top-center": "Haut centre",
         "top-left": "Haut gauche",
         "top-right": "Haut droit"
+      },
+      "screenshot": {
+        "region-modifier": {
+          "alt": "Alt",
+          "ctrl": "Ctrl",
+          "none": "Aucun",
+          "shift": "Maj",
+          "super": "Super"
+        }
       },
       "shell": {
         "panel-placement": {
@@ -1652,8 +1660,11 @@
           "label": "Palette intégrée"
         },
         "button-borders": {
-          "description": "Dessinez des contours autour des boutons dans tout le shell",
-          "label": "Contour des boutons"
+          "description": "Dessine des contours autour des boutons dans tout le shell",
+          "label": "Contours des boutons"
+        },
+        "card-borders": {
+          "label": "Contours des sections"
         },
         "community-palette": {
           "description": "Choisir une palette dans le catalogue communautaire",
@@ -1684,22 +1695,45 @@
         "global-shadow-direction": {
           "description": "Direction de l’ombre projetée par les surfaces"
         },
+        "input-borders": {
+          "description": "Dessine des contours autour des champs d'entrée texte et autres composants d'entrée dans tout le shell"
+        },
         "language": {
           "description": "Remplacer la détection automatique de la langue",
           "label": "Langue"
         },
         "palette-inspector": {
-          "description": "Voir les noms, couleurs et valeurs hex des variables de modèle pour la palette actuelle"
+          "button": "Inspecter les couleurs",
+          "description": "Voir les noms, couleurs et valeurs hex des variables de modèle pour la palette actuelle",
+          "label": "Inspecteur de palette"
         },
         "palette-source": {
           "description": "Source de génération de la palette de couleurs",
           "label": "Source de la palette"
         },
+        "popup-borders": {
+          "description": "Dessine des contours autour des popups et des listes déroulantes",
+          "label": "Contours des popups"
+        },
+        "popup-shadows": {
+          "description": "Dessine des ombres derrière les popups et les listes déroulantes",
+          "label": "Ombres des popups"
+        },
         "pure-black-dark": {
-          "label": "Noir Pur"
+          "description": "Rendre les surfaces sombres complètement noires, pour éviter les bandes sur les écrans OLED (mode sombre uniquement)",
+          "label": "Noir pur"
         },
         "shell-theme-mode": {
-          "description": "Fixer le mode sombre ou clair de Noctalia; Suivre le synchronise avec le mode du thème"
+          "description": "Fixer le mode sombre ou clair de Noctalia; Suivre le synchronise avec le mode du thème",
+          "label": "Mode du thème du shell"
+        },
+        "show-close-buttons": {
+          "description": "Afficher un bouton « Fermer » sur les panneaux, notifications, popups, boîtes de dialogue et le menu des paramètres",
+          "label": "Afficher le bouton « Fermer »"
+        },
+        "sync-color-scheme": {
+          "description": "Synchroniser la préférence de mode sombre/clair lue par les navigateurs et autres applications avec le mode du thème",
+          "label": "Synchroniser les couleurs des applications"
         },
         "theme-mode": {
           "description": "Choisir sombre, clair ou automatique selon l’heure de la journée",
@@ -2291,6 +2325,14 @@
         }
       },
       "panels": {
+        "border-color": {
+          "description": "Couleur des contours pour les panneaux flottants. Choisis un role de thème pour suivre le thème actif, ou une couleur personnalisée",
+          "label": "Couleur des contours"
+        },
+        "border-width": {
+          "description": "Épaisseur des contours des panneaux flottants; 0 cache le trait",
+          "label": "Épaisseur des contours"
+        },
         "borders": {
           "description": "Affiche un contour sur les panneaux flottants",
           "label": "Contours"
@@ -2310,6 +2352,10 @@
         "control-center-width": {
           "description": "Définit la largeur du panneau du centre de contrôle en pixels. Les modes compact et sans barre latérale sont calculés à partir de cette valeur",
           "label": "Largeur du centre de contrôle"
+        },
+        "floating-layer": {
+          "description": "Utilise « Haut » si des panneaux flottants cachent des champs d'entrée ; « Superposition » place les panneaux au-dessus du contenu plein écran",
+          "label": "Placement des panneaux flottants"
         },
         "floating-offset": {
           "description": "Écart en pixels entre un panel flottant (ou détaché) et le bord de la barre.",
@@ -2438,6 +2484,10 @@
         "transparency-mode": {
           "description": "Style d'effet de verre du panel, incluant l'opacité du panel flottant et des cards",
           "label": "Transparence"
+        },
+        "wallpaper-show-names": {
+          "description": "Légende chaque vignette de fond d'écran avec son nom de fichier dans le sélecteur de fond d'écran",
+          "label": "Afficher les noms de fichier"
         }
       },
       "power": {
@@ -2547,6 +2597,10 @@
           "description": "Fichier audio utilisé pour les notifications",
           "label": "Son de notification",
           "placeholder": "/chemin/vers/le/son.wav"
+        },
+        "screenshot-sounds": {
+          "description": "Jouer un son lorsque l'écran est capturé",
+          "label": "Son de capture"
         },
         "shell-sounds": {
           "description": "Joue des effets sonores pour les événements de l’interface",
@@ -2880,6 +2934,18 @@
           "description": "Efface l’historique enregistré du temps d’utilisation au premier plan pour chaque application",
           "label": "Réinitialiser les données de temps d’écran"
         },
+        "screenshot-annotate": {
+          "description": "Ouvre l'éditeur d'annotations à chaque capture d'écran. « Terminé » applique les paramètres d'enregistrement, copie ou de commande de traitement",
+          "label": "Annoter avant de terminer"
+        },
+        "screenshot-close-on-copy": {
+          "description": "Ferme l'éditeur après avoir copié avec succès, y compris quand il a été ouvert directement",
+          "label": "Fermer l'éditeur après avoir copié"
+        },
+        "screenshot-close-on-save": {
+          "description": "Ferme l'éditeur après avoir enregistré avec succès, y compris quand il a été ouvert directement",
+          "label": "Fermer l'éditeur après avoir enregistré"
+        },
         "screenshot-confirm-region": {
           "description": "Après avoir dessiné une région, garde l'Overlay ouvert jusqu'à confirmation avec Entrée ou Espace",
           "label": "Confirmer la région"
@@ -2901,6 +2967,9 @@
           "description": "Capture le bureau avant la sélection de la zone afin que les éléments en mouvement restent figés",
           "label": "Figer l’écran"
         },
+        "screenshot-output": {
+          "description": "Actions appliquées après la capture, ou quand « Terminé » est choisi dans l'éditeur d'annotations"
+        },
         "screenshot-pipe-command": {
           "description": "Commande exécutée via /bin/sh -lc avec l’image PNG sur l’entrée standard. Utile pour les outils d’annotation ou d’envoi (par exemple : swappy -f - ou satty -f -)",
           "label": "Commande de traitement",
@@ -2909,6 +2978,10 @@
         "screenshot-pipe-to-command": {
           "description": "Transmet l’image PNG capturée à une commande shell via l’entrée standard",
           "label": "Transmettre à une commande"
+        },
+        "screenshot-region-modifier": {
+          "description": "Touche pour déplacer ou redimensionner une sélection: tirer vers la gauche pour déplacer, vers la droite pour redimensionner depuis les tiers extérieurs des bordures (les coins redimensionnent les deux bordures en même temps). « Aucun » (par défaut) préserve le comportement de base « tirer pour ajuster »",
+          "label": "Modificateur de mouvement et redimensionnement"
         },
         "screenshot-remember-last-region": {
           "description": "Pré-sélectionne la dernière région (dont la dernière après annulation) sur la prochaine capture région",

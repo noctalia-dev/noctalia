@@ -67,6 +67,9 @@ public:
   SystemMonitorService& operator=(const SystemMonitorService&) = delete;
 
   static constexpr int kHistorySize = 120;
+  // Per-core CPU sampling cadence. Fixed rather than configurable: it is opt-in via
+  // retainCpuCores(), and its only consumers want per-second resolution.
+  static constexpr std::chrono::seconds kCpuCoreInterval{1};
 
   [[nodiscard]] bool isRunning() const noexcept;
   void applyConfig(const SystemConfig::MonitorConfig& config);

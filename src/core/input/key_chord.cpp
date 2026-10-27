@@ -245,6 +245,10 @@ bool isPrintableKey(std::uint32_t sym) {
   }
 }
 
+bool isTextKeyChord(const KeyChord& chord) {
+  return isPrintableKey(chord.sym) && (chord.modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == 0;
+}
+
 bool isPlainPrintableKey(std::uint32_t utf32, std::uint32_t modifiers, bool preedit) noexcept {
   return !preedit
       && utf32 >= 0x20U

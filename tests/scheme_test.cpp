@@ -114,14 +114,34 @@ namespace {
   bool checkContainerSaturationHeadroom() {
     bool ok = true;
 
-    const auto* catppuccin = noctalia::theme::findBuiltinPalette("Catppuccin");
-    if (!expect(catppuccin != nullptr, "finds Catppuccin builtin palette"))
-      return false;
-
-    const auto fixed = noctalia::theme::expandBuiltinPalette(*catppuccin);
-    const auto fixedContainer = noctalia::theme::Color::fromArgb(token(fixed, "primary_container"));
-    ok = expect(fixedContainer.toHex() == "#6d10da", "fixed palette container saturation scales by remaining headroom")
-        && ok;
+    // Fixed palette containers keep the accent's identity: a container sits between the surface and
+    // its accent, and its content color stays readable on it.
+    for (const auto& builtin : noctalia::theme::builtinPalettes()) {
+      const auto fixed = noctalia::theme::expandBuiltinPalette(builtin);
+      for (const auto* tokens : {&fixed.dark, &fixed.light}) {
+        for (const std::string accent : {"primary", "secondary", "tertiary", "error"}) {
+          const auto read = [tokens](const std::string& name) {
+            return noctalia::theme::Color::fromArgb(tokens->at(name));
+          };
+          const auto surface = read("surface");
+          const auto accentColor = read(accent);
+          const auto container = read(accent + "_container");
+          const auto onContainer = read("on_" + accent + "_container");
+          const std::string where = std::string(builtin.name) + " " + accent;
+          ok = expect(
+                   noctalia::theme::contrastRatio(surface, container)
+                       < noctalia::theme::contrastRatio(surface, accentColor) + 0.01,
+                   where + " container is no further from the surface than its accent"
+               )
+              && ok;
+          ok = expect(
+                   noctalia::theme::contrastRatio(onContainer, container) >= 4.5,
+                   where + " container content color is readable"
+               )
+              && ok;
+        }
+      }
+    }
 
     const auto custom = noctalia::theme::generateCustom(makeColorfulBuffer(), noctalia::theme::Scheme::Faithful);
     const double customPrimarySaturation = saturation(token(custom, "primary"));

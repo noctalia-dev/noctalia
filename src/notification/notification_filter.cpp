@@ -2,6 +2,7 @@
 
 #include "util/string_utils.h"
 
+#include <algorithm>
 #include <cctype>
 #include <regex>
 #include <unordered_set>
@@ -16,10 +17,12 @@ namespace {
     for (char ch : text) {
       if (std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '-' || ch == '_') {
         out.push_back(ch);
-      } else if (std::isspace(static_cast<unsigned char>(ch)) != 0 || ch == '.' || ch == '/') {
-        if (!out.empty() && out.back() != '-') {
-          out.push_back('-');
-        }
+      } else if (
+          (std::isspace(static_cast<unsigned char>(ch)) != 0 || ch == '.' || ch == '/')
+          && !out.empty()
+          && out.back() != '-'
+      ) {
+        out.push_back('-');
       }
     }
     while (!out.empty() && out.back() == '-') {
@@ -63,7 +66,7 @@ namespace {
 
 } // namespace
 
-std::string normalizeNotificationMatchToken(std::string token) { return normalizeFilterToken(token); }
+std::string normalizeNotificationMatchToken(const std::string& token) { return normalizeFilterToken(token); }
 
 bool notificationMatchesToken(std::string_view token, const NotificationFilterFields& fields) {
   if (token.empty()) {
@@ -88,7 +91,7 @@ bool notificationMatchesToken(std::string_view token, const NotificationFilterFi
   return !appName.empty() && appName.contains(normalizedToken);
 }
 
-std::vector<std::string> normalizeNotificationMatchTokens(std::vector<std::string> tokens) {
+std::vector<std::string> normalizeNotificationMatchTokens(const std::vector<std::string>& tokens) {
   std::unordered_set<std::string> seen;
   std::vector<std::string> normalized;
   normalized.reserve(tokens.size());
@@ -107,18 +110,13 @@ std::vector<std::string> normalizeNotificationMatchTokens(std::vector<std::strin
 }
 
 bool notificationMatchesTokens(const std::vector<std::string>& tokens, const NotificationFilterFields& fields) {
-  for (const auto& token : tokens) {
-    if (notificationMatchesToken(token, fields)) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(tokens, [&](const auto& token) { return notificationMatchesToken(token, fields); });
 }
 
 std::vector<NotificationFilterConfig> normalizeNotificationFilters(std::vector<NotificationFilterConfig> filters) {
   for (auto& filter : filters) {
-    filter.match = normalizeNotificationMatchToken(std::move(filter.match));
-    filter.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(std::move(filter.allowedUrgencies));
+    filter.match = normalizeNotificationMatchToken(filter.match);
+    filter.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(filter.allowedUrgencies);
   }
   normalizeNotificationFilterNames(filters);
   return filters;
@@ -174,7 +172,7 @@ void normalizeNotificationFilterNames(std::vector<NotificationFilterConfig>& fil
   filters = std::move(normalized);
 }
 
-std::unordered_set<Urgency> normalizeAllowedUrgencies(std::vector<std::string> values) {
+std::unordered_set<Urgency> normalizeAllowedUrgencies(const std::vector<std::string>& values) {
   std::unordered_set<Urgency> allowed;
   for (auto& raw : values) {
     const std::string token = normalizeFilterToken(raw);
@@ -189,8 +187,8 @@ std::unordered_set<Urgency> normalizeAllowedUrgencies(std::vector<std::string> v
   return allowed;
 }
 
-std::vector<std::string> normalizeFilterAllowedUrgencyStrings(std::vector<std::string> values) {
-  const auto allowed = normalizeAllowedUrgencies(std::move(values));
+std::vector<std::string> normalizeFilterAllowedUrgencyStrings(const std::vector<std::string>& values) {
+  const auto allowed = normalizeAllowedUrgencies(values);
   if (allowed.empty() || allowed.size() == 3) {
     return {};
   }

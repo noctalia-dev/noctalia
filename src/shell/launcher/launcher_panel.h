@@ -60,14 +60,19 @@ public:
   // supports auto-paste. The host schedules virtual-keyboard paste (clipboard path).
   void setCopiedActivationCallback(std::function<void()> callback) { m_onCopiedActivation = std::move(callback); }
 
+  void setOnAppLaunchCallback(std::function<void()> callback) { m_onAppLaunch = std::move(callback); }
+
   [[nodiscard]] float preferredWidth() const override;
   [[nodiscard]] float preferredHeight() const override;
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   [[nodiscard]] InputArea* initialFocusArea() const override;
   [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
+  [[nodiscard]] bool ignorePointerEvent() const override;
 
 private:
+  friend class LauncherPanelTestAccess;
+
   enum ActiveCategoryType { All, Pinned, RecentlyUsed, Category };
   enum class ResultsTransition : std::uint8_t { None, NavigationForward, NavigationBackward };
 
@@ -88,7 +93,7 @@ private:
   void doLayout(Renderer& renderer, float width, float height) override;
   void doUpdate(Renderer& renderer) override;
   void onInputChanged(const std::string& text);
-  void setQuery(std::string query);
+  void setQuery(const std::string& query);
   // Re-gather the current query, preserving the selected result by identity.
   void reapplyCurrentQuery();
   // A plugin provider delivered fresh async results — re-gather if the panel is open.
@@ -102,12 +107,13 @@ private:
   [[nodiscard]] bool shouldUseDetailPresentation() const;
   [[nodiscard]] bool startsWithLauncherPrefix(std::string_view text) const;
   void applyProviderConfig(LauncherProvider& provider) const;
-  void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied);
+  void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied, bool appLaunch = false);
   [[nodiscard]] std::vector<LauncherResult> providerOverviewResults(std::string_view text) const;
   [[nodiscard]] bool openAppActionsMenu(std::size_t index, float anchorX, float anchorY);
   void updateCategoryFilterModel(const std::vector<LauncherCategory>& categories);
   void rebuildCategoryFilter();
   void rebuildLauncherNavigation();
+  [[nodiscard]] ActiveCategoryType defaultCategoryType() const;
   void applyDefaultView();
   void updateCategorySelectionChrome();
   void updateLauncherOptionButtons();
@@ -120,6 +126,7 @@ private:
   void queueResultsTransition(ResultsTransition transition);
   void animateResultsTransition();
   [[nodiscard]] bool shouldUseAppGrid() const;
+  [[nodiscard]] bool supportsResultGrid() const;
   [[nodiscard]] bool shouldUseLauncherSections() const;
   void rebuildLauncherSections();
   void selectResult(std::size_t index, bool scrollToSelection);
@@ -164,6 +171,7 @@ private:
   std::unique_ptr<LauncherSectionsAdapter> m_launcherSectionsAdapter;
 
   std::string m_query;
+  std::string m_resultProviderId;
   std::string m_scopedProviderId;
   std::string m_scopedPlaceholder;
   ActiveCategoryType m_activeCategoryType = All;
@@ -199,4 +207,5 @@ private:
   std::unique_ptr<ContextMenuPopup> m_actionsMenu;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   std::function<void()> m_onCopiedActivation;
+  std::function<void()> m_onAppLaunch;
 };

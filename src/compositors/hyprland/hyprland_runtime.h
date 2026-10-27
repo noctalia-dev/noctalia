@@ -37,7 +37,7 @@ namespace compositors::hyprland {
   private:
     void ensureResolved() const;
     void resolveSocketPaths() const;
-    void updateConfigProvider();
+    void updateConfigProvider() const;
     void readSocket();
     void parseMessages();
     void handleEvent(std::string_view line);
@@ -45,7 +45,7 @@ namespace compositors::hyprland {
     int m_eventSocketFd = -1;
     std::vector<char> m_readBuffer;
     mutable bool m_resolved = false;
-    bool m_configIsLua = false;
+    mutable std::optional<bool> m_configIsLua;
     mutable IpcSocketPaths m_socketPaths;
     std::vector<HyprlandEventHandler*> m_eventHandlers;
   };

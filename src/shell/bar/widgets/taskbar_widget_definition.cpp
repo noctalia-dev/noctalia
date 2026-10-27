@@ -192,6 +192,14 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                           .presentation = presentation("taskbar.grouping", groupedOnly(), true),
                       }
                   ),
+                  field<&Options::workspaceGroupActiveBorderColor>({
+                      .key = "workspace_group_active_border_color",
+                      .presentation = presentation("taskbar.grouping", groupedOnly(), true),
+                  }),
+                  field<&Options::workspaceGroupInactiveBorderColor>({
+                      .key = "workspace_group_inactive_border_color",
+                      .presentation = presentation("taskbar.grouping", groupedOnly(), true),
+                  }),
                   field<&Options::groupSingleIconPerApp>(
                       {
                           .key = "group_single_icon_per_app",

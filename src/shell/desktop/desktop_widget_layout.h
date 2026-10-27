@@ -5,6 +5,7 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -39,32 +40,43 @@ namespace desktop_widgets {
     return nullptr;
   }
 
-  inline const WaylandOutput*
-  resolveEffectiveOutput(const WaylandConnection& wayland, const std::string& requestedOutput) {
-    const auto& outputs = wayland.outputs();
-    const WaylandOutput* primary = nullptr;
+  struct OutputSelection {
+    const WaylandOutput* output = nullptr;
+    bool ambiguous = false;
+  };
+
+  inline OutputSelection selectOutput(std::span<const WaylandOutput> outputs, const std::string& selector) {
+    for (const auto& output : outputs) {
+      if (output.done
+          && output.output != nullptr
+          && output.hasUsableGeometry()
+          && (selector.empty() || outputKey(output) == selector)) {
+        return {&output, false};
+      }
+    }
+
+    const WaylandOutput* selected = nullptr;
     for (const auto& output : outputs) {
       if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
         continue;
       }
-      if (primary == nullptr) {
-        primary = &output;
-      }
-      if (!requestedOutput.empty() && outputKey(output) == requestedOutput) {
-        return &output;
+      if (outputMatchesSelector(selector, output)) {
+        if (selected != nullptr) {
+          return {nullptr, true};
+        }
+        selected = &output;
       }
     }
-    if (!requestedOutput.empty()) {
-      return nullptr;
-    }
-    return primary;
+    return {selected, false};
+  }
+
+  inline const WaylandOutput*
+  resolveEffectiveOutput(const WaylandConnection& wayland, const std::string& requestedOutput) {
+    return selectOutput(wayland.outputs(), requestedOutput).output;
   }
 
   inline const WaylandOutput* resolveStateOutput(const WaylandConnection& wayland, const DesktopWidgetState& state) {
-    if (state.outputName.empty()) {
-      return resolveEffectiveOutput(wayland, state.outputName);
-    }
-    return findOutputByKey(wayland, state.outputName);
+    return resolveEffectiveOutput(wayland, state.outputName);
   }
 
   inline float outputLogicalWidth(const WaylandOutput& output) {
@@ -78,10 +90,10 @@ namespace desktop_widgets {
   class PlacementMapper {
   public:
     [[nodiscard]] bool
-    remapForOutputChange(const WaylandConnection& wayland, std::vector<DesktopWidgetState>& widgets) const {
+    remapForOutputChange(std::span<const WaylandOutput> outputs, std::vector<DesktopWidgetState>& widgets) const {
       bool changed = false;
       for (auto& widget : widgets) {
-        const WaylandOutput* output = resolveStateOutput(wayland, widget);
+        const WaylandOutput* output = selectOutput(outputs, widget.outputName).output;
         if (output == nullptr) {
           continue;
         }
@@ -108,9 +120,10 @@ namespace desktop_widgets {
       return changed;
     }
 
-    void rebaseForCurrentOutputs(const WaylandConnection& wayland, std::vector<DesktopWidgetState>& widgets) const {
+    void
+    rebaseForCurrentOutputs(std::span<const WaylandOutput> outputs, std::vector<DesktopWidgetState>& widgets) const {
       for (auto& widget : widgets) {
-        const WaylandOutput* output = resolveStateOutput(wayland, widget);
+        const WaylandOutput* output = selectOutput(outputs, widget.outputName).output;
         if (output == nullptr) {
           continue;
         }
@@ -127,9 +140,9 @@ namespace desktop_widgets {
   // passes the widget's current box size as intrinsicWidth/intrinsicHeight, so no extra scale
   // multiplier is applied here.
   inline const WaylandOutput* clampStateToOutput(
-      const WaylandConnection& wayland, DesktopWidgetState& state, float intrinsicWidth, float intrinsicHeight
+      std::span<const WaylandOutput> outputs, DesktopWidgetState& state, float intrinsicWidth, float intrinsicHeight
   ) {
-    const WaylandOutput* output = resolveStateOutput(wayland, state);
+    const WaylandOutput* output = selectOutput(outputs, state.outputName).output;
     if (output == nullptr) {
       return nullptr;
     }
@@ -140,6 +153,12 @@ namespace desktop_widgets {
     state.cx = clamped.cx;
     state.cy = clamped.cy;
     return output;
+  }
+
+  inline const WaylandOutput* clampStateToOutput(
+      const WaylandConnection& wayland, DesktopWidgetState& state, float intrinsicWidth, float intrinsicHeight
+  ) {
+    return clampStateToOutput(wayland.outputs(), state, intrinsicWidth, intrinsicHeight);
   }
 
 } // namespace desktop_widgets

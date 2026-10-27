@@ -95,11 +95,6 @@ name = "Umbriel"
 category = "compositor"
 documentation_url = "https://docs.noctalia.dev/noctalia/templates/official/umbriel/"
 
-[catalog.starship]
-name = "Starship"
-category = "terminal"
-documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
-
 [catalog.wezterm]
 name = "Wezterm"
 category = "terminal"
@@ -220,12 +215,6 @@ input_path = "./umbriel/umbriel.toml"
 output_path = "$XDG_CONFIG_HOME/umbriel/noctalia.toml"
 post_hook = "bash '{{ config_dir }}/umbriel/apply.sh'"
 undo_hook = "bash '{{ config_dir }}/umbriel/undo.sh'"
-
-[templates.starship]
-input_path = "./starship/starship.toml"
-output_path = "$XDG_CACHE_HOME/noctalia/starship-palette.toml"
-post_hook = "bash '{{ config_dir }}/starship/apply.sh'"
-undo_hook = "bash '{{ config_dir }}/starship/undo.sh'"
 
 [templates.wezterm]
 input_path = "./wezterm/wezterm.toml"

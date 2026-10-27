@@ -44,13 +44,13 @@
       "cursor-live": "Dừng màn hình trước để thay đổi con trỏ bị chụp (F)",
       "cursor-not-captured": "Không thể bật/tắt con trỏ: trình quản lý hiển thị không hỗ trợ chụp con trỏ riêng biệt",
       "done": "Áp dụng cài đặt chụp màn hình (Enter)",
-      "fill-off": "Lấp đầy hình khối: tắt",
-      "fill-on": "Lấp đầy hình khối: bật",
+      "fill-off": "Lấp đầy hình khối: tắt (f)",
+      "fill-opaque": "Lấp đầy hình khối: đục (f)",
+      "fill-semi": "Lấp đầy hình khối: bán trong suốt (f)",
       "freeze": "Dừng màn hình dưới nét vẽ (f)",
       "move-toolbar": "Kéo để di chuyển thanh công cụ",
       "redo": "Làm lại (Ctrl+Shift+Z)",
       "save": "Lưu hình ảnh đã được ghi chú (Ctrl+S)",
-      "size-advanced": "Điều chỉnh kích thước chi tiết",
       "size-decrease": "Mỏng hơn ([)",
       "size-increase": "Dày hơn (])",
       "size-large": "Lớn",
@@ -1033,6 +1033,7 @@
       "lock-and-suspend": "Khóa & Ngủ",
       "logout": "Đăng xuất",
       "reboot": "Khởi động lại",
+      "reboot-uefi": "Khởi động lại vào UEFI",
       "shutdown": "Tắt máy",
       "suspend": "Ngủ"
     },
@@ -1165,6 +1166,8 @@
           "action": "Nhóm",
           "border": "Viền",
           "border-description": "Vai trò màu sắc đường viền của Vùng chứa; để Mặc định nếu không muốn có đường viền",
+          "border-width": "Độ dày viền",
+          "border-width-description": "Độ dày của viền viên nang tính theo pixel, chỉ hiển thị khi màu viền được thiết lập",
           "clear": "Xóa",
           "deselect": "Bỏ chọn",
           "drag": "Sắp xếp lại",
@@ -1278,6 +1281,7 @@
         "rename": "Không thể đổi tên thanh."
       },
       "batch-write": "Một số cài đặt không thể lưu.",
+      "custom-schedule-times": "Một lịch trình tùy chỉnh cần thời gian bình minh và hoàng hôn ở dạng HH:MM.",
       "export-config": "Lưu xuất cấu hình thất bại.",
       "export-wallpaper-palette": "Không thể lưu bảng màu hình nền thành bảng màu tùy chỉnh.",
       "monitor-override": {
@@ -1290,6 +1294,7 @@
       "sync-greeter": "Không thể đồng bộ giao diện với Noctalia Greeter.",
       "sync-greeter-timeout": "Quá trình đồng bộ màn hình chào vẫn đang chờ quyền phê duyệt của quản trị viên. Hãy kiểm tra TTY hoặc bảng điều khiển để tìm hộp thoại polkit, bật tác nhân polkit trong phần cài đặt Bảo mật hoặc tự chạy pkexec thủ công.",
       "sync-greeter-timeout-manual": "Đồng bộ hóa màn hình chào vẫn cần quyền phê duyệt của quản trị viên. Hãy chạy lệnh sau trong Terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout-manual-pkexec": "Đồng bộ hóa màn hình chào vẫn cần được ủy quyền. Vui lòng mở terminal và chạy lệnh: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "widget": {
         "rename": "Không thể đổi tên tiện ích đã đặt tên."
       },
@@ -1303,6 +1308,8 @@
       "merged-user-description": "Kết hợp các tệp cấu hình và ghi đè GUI vào một tệp TOML duy nhất. Các giá trị mặc định tích hợp sẵn vẫn ngầm định.",
       "merged-user-save-title": "Lưu cấu hình người dùng đã hợp nhất",
       "merged-user-title": "Cấu hình người dùng hợp nhất (Khuyên dùng)",
+      "privacy-warning-description": "Cả hai chế độ xuất đều có thể bao gồm khóa API, mật khẩu hoặc dữ liệu nhạy cảm khác được lưu trong cấu hình của bạn, bao gồm cả các plugin. Hãy xem các tệp đã xuất là dữ liệu riêng tư. Kiểm tra và xóa dữ liệu nhạy cảm trước khi chia sẻ.",
+      "privacy-warning-title": "Tệp xuất có thể chứa dữ liệu bảo mật",
       "title": "Xuất cấu hình"
     },
     "idle": {
@@ -1318,6 +1325,7 @@
           "suspend": "Ngủ"
         },
         "kind-section-label": "Hành động",
+        "locked-timeout-label": "Thời gian chờ khi khóa (giây, 0 = tắt)",
         "name-label": "Tên",
         "name-placeholder": "Hành vi khi không hoạt động",
         "resume-command-label": "Lệnh khôi phục",
@@ -1346,6 +1354,8 @@
         "borders": "Viền",
         "brightness": "Độ sáng",
         "built-in": "Tích hợp sẵn",
+        "calendar-accounts": "Tài khoản",
+        "calendar-reminders": "Nhắc nhở",
         "capsules": "Viên nang",
         "clipboard": "Bảng tạm",
         "community": "Cộng đồng",
@@ -1379,6 +1389,7 @@
         "monitor-thresholds": "Các ngưỡng nổi bật",
         "monitors": "Màn hình",
         "motion": "Chuyển động",
+        "navigation": "Định vị",
         "network": "Mạng",
         "night-light": "Ánh sáng đêm",
         "notifications": "Thông báo",
@@ -1393,6 +1404,9 @@
         "screen-corners": "Các góc màn hình",
         "screen-time": "Thời gian sử dụng màn hình",
         "screenshot": "Chụp màn hình",
+        "screenshot-annotation": "Ghi chú",
+        "screenshot-capture": "Chụp",
+        "screenshot-output": "Đầu ra",
         "security": "Bảo mật",
         "session-panel": "Phiên",
         "shape": "Hình dạng",
@@ -1404,13 +1418,15 @@
         "wallpaper": "Hình nền",
         "weather": "Thời tiết",
         "widget-list": "Danh sách Widget",
-        "widgets": "Tiện ích"
+        "widgets": "Tiện ích",
+        "window-switcher": "Trình chuyển đổi cửa sổ"
       },
       "sections": {
         "accessibility": "Trợ năng",
         "appearance": "Giao diện",
         "backdrop": "Nền",
         "bar": "Thanh",
+        "calendar": "Lịch",
         "control-center": "Trung tâm điều khiển",
         "desktop": "Màn hình nền",
         "dock": "Dock",
@@ -1425,11 +1441,13 @@
         "plugins": "Plugins",
         "popups": "Pop-up",
         "power": "Nguồn",
+        "screenshot": "Chụp màn hình",
         "security": "Bảo mật",
         "services": "Dịch vụ",
         "shell": "Giao diện",
         "system": "Hệ thống",
         "templates": "Mẫu",
+        "umbriel": "Umbriel",
         "wallpaper": "Hình nền"
       }
     },
@@ -1439,11 +1457,13 @@
         "add-title": "Thêm bộ lọc thông báo",
         "allow-permanent": "Cho phép vĩnh viễn",
         "allowed-urgencies-label": "Mức độ ưu tiên được phép",
+        "bypass-dnd": "Bỏ qua chế độ Không làm phiền",
         "flag": {
+          "dnd-bypass": "Bỏ qua DND",
           "history": "lịch sử",
-          "permanent": "Vĩnh viễn",
+          "permanent": "vĩnh viễn",
           "sound": "âm thanh",
-          "toast": "thông báo nổi"
+          "toast": "toast"
         },
         "flags-label": "Khi phù hợp",
         "match-content-label": "Nội dung regex",
@@ -1523,6 +1543,15 @@
         "overlay": "Overlay",
         "top": "Trên"
       },
+      "lockscreen": {
+        "transition": {
+          "diamond": "Kim cương",
+          "golden": "Hoàng kim",
+          "melt": "Tan chảy",
+          "pixel": "Pixel",
+          "stripes": "Sọc"
+        }
+      },
       "notification-urgency": {
         "critical": "Nghiêm trọng",
         "low": "Thấp",
@@ -1532,12 +1561,15 @@
         "horizontal": "Ngang",
         "vertical": "Dọc"
       },
-      "panel-bar-alignment": {
-        "centered": "Căn giữa",
-        "near-trigger": "Gần vị trí kích hoạt"
-      },
       "panel-position": {
         "auto": "Theo Bar"
+      },
+      "plugins": {
+        "auto-update": {
+          "all": "Tất cả",
+          "none": "Không",
+          "official": "Chính thức"
+        }
       },
       "screen-position": {
         "bottom-center": "Giữa dưới",
@@ -1550,7 +1582,30 @@
         "top-left": "Góc trên bên trái",
         "top-right": "Trên cùng bên phải"
       },
+      "screenshot": {
+        "region-modifier": {
+          "alt": "Alt",
+          "ctrl": "Ctrl",
+          "none": "Không",
+          "shift": "Shift",
+          "super": "Super"
+        }
+      },
       "shell": {
+        "launcher-default-view": {
+          "all": "Tất cả",
+          "categories": "Danh mục",
+          "pinned": "Đã ghim",
+          "recent": "Gần đây"
+        },
+        "launcher-layout": {
+          "full": "Đầy đủ",
+          "simple": "Đơn giản"
+        },
+        "launcher-search-position": {
+          "bottom": "Dưới cùng",
+          "top": "Trên cùng"
+        },
         "panel-placement": {
           "attached": "Gắn vào",
           "floating": "Nổi"
@@ -1574,12 +1629,19 @@
           "up": "Hoạt động",
           "up-left": "Trên Trái",
           "up-right": "Trên bên phải"
+        },
+        "window-switcher-style": {
+          "carousel": "Băng chuyền",
+          "compact": "Thu gọn"
         }
       },
       "theme": {
         "mode": {
           "dark": "Tối",
           "light": "Sáng"
+        },
+        "shell-mode": {
+          "follow": "Theo hình nền"
         },
         "source": {
           "built-in": "Tích hợp sẵn",
@@ -1606,10 +1668,15 @@
           "random": "Ngẫu nhiên"
         },
         "transition": {
+          "diamond": "Kim cương",
           "disc": "Ổ đĩa",
           "fade": "Mờ dần",
+          "golden": "Hoàng kim",
           "honeycomb": "Tổ ong",
+          "melt": "Tan chảy",
+          "pixel": "Pixel",
           "stripes": "Sọc",
+          "vortex": "Dòng xoáy",
           "wipe": "Xóa",
           "zoom": "Thu phóng"
         }
@@ -1621,9 +1688,28 @@
         }
       }
     },
+    "palette-inspector": {
+      "copied": "Sao chép {value}",
+      "copy-failed": "Không thể sao chép màu tới bảng tạm.",
+      "copy-hex": "Sao chép giá trị hex",
+      "copy-name": "Sao chép tên màu",
+      "description": "Mẫu màu trong chế độ {mode}.",
+      "empty": "Không có màu khớp.",
+      "filter-all": "Toàn bộ màu",
+      "filter-palette": "Palette",
+      "filter-terminal": "Terminal",
+      "missing": "Không khả dụng",
+      "search-placeholder": "Tìm kiếm tên màu hoặc giá trị hex...",
+      "terminal-number": "{number} · ANSI {index}",
+      "title": "Bộ kiểm tra bảng màu"
+    },
     "plugins": {
       "browse-store": "Tìm kiếm plugin",
       "panels": {
+        "layer": {
+          "description": "Lớp layer-shell được sử dụng khi bảng ở trạng thái nổi",
+          "label": "Lớp"
+        },
         "open-near-click": {
           "description": "Mở bảng điều khiển gần widget trên thanh đã kích hoạt nó",
           "label": "Mở tại nơi click"
@@ -1645,9 +1731,12 @@
         "deprecated": "đã lỗi thời",
         "empty": "Không tìm thấy plugin nào. Hãy thêm nguồn hoặc kiểm tra mạng của bạn.",
         "held-back": "phiên bản cũ",
+        "held-back-hint": "Phiên bản v{version} yêu cầu API plugin {required}, phiên bản Noctalia này chỉ hỗ trợ tới {current}. Vui lòng nâng cấp Noctalia để sử dụng.",
         "incompatible-plugin-api": "API plugin không tương thích",
         "remove": "Loại bỏ plugin",
         "requires": "Cần: {dependencies}",
+        "search-empty": "Không tồn tại plugin khớp \"{query}\".",
+        "search-placeholder": "Tìm kiếm plugin đã cài đặt",
         "title": "Plugins",
         "update-all": "Cập nhật tất cả ({count})",
         "update-available": "có thể cập nhật",
@@ -1660,6 +1749,7 @@
         "add": "Thêm nguồn",
         "add-title": "Thêm nguồn của plugin",
         "auto-update": "Tự động cập nhật plugin",
+        "auto-update-desc": "Kiểm tra phiên bản mới từ các nguồn đã bật và giữ cho các plugin đã cài đặt luôn ở phiên bản mới nhất",
         "edit": "Chỉnh sửa nguồn",
         "edit-title": "Chỉnh sửa nguồn plugin",
         "empty": "Chưa có nguồn nào được cấu hình.",
@@ -1686,21 +1776,33 @@
       },
       "store": {
         "add": "Thêm vào Noctalia",
+        "back-to-catalog": "Về lại danh mục plugin",
         "categories": "Danh mục",
         "category-all": "Tất cả",
         "empty": "Không tìm thấy plugin",
         "held-back": "Phiên bản cũ",
-        "incompatible": "Không phù hợp",
+        "held-back-hint": "Cài đặt phiên bản v{version} cho plugin API {resolved}. Phiên bản mới nhất v{latest} cần plugin API {latestRequired}, phiên bản Noctalia này chỉ hỗ trợ tới {current}.",
+        "incompatible": "Không tương thích",
+        "incompatible-hint": "Yêu cầu plugin API {required}, phiên bản Noctalia này chỉ hỗ trợ từ {oldest} cho tới {current}.",
+        "installed": "Đã cài đặt",
         "loading": "Đang tải danh mục...",
         "no-readme": "Không có mô tả",
+        "not-listed": "Không nằm trong danh sách",
         "open-page": "Mở trang plugin tại noctalia.dev",
         "open-source": "Mở repo nguồn plugin",
+        "recommend": "Đề xuất",
+        "recommendation-pending": "Đang gửi đề xuất...",
+        "recommendation-rate-limited": "Quá nhiều yều cầu. Vui lòng đợi trước khi thử lại thay đổi này.",
+        "recommendation-retry": "Thử lại thay đổi đề xuất",
+        "remove-recommendation": "Hủy bỏ đề xuất",
         "results-count": "{count} plugins",
         "search-placeholder": "Tìm plugins...",
         "sort-added-at-asc": "Sắp xếp theo ngày được thêm (cũ nhất trước)",
         "sort-added-at-desc": "Sắp xếp theo ngày được thêm (mới nhất trước)",
+        "sort-most-recommended": "Được đề xuất nhiều nhất",
         "sort-name-asc": "Sắp xếp theo tên (A-Z)",
         "sort-name-desc": "Sắp xếp theo tên (Z-A)",
+        "sort-trending": "Xu hướng",
         "sort-updated-at-asc": "Sắp xếp theo ngày (cũ nhất trước)",
         "sort-updated-at-desc": "Sắp xếp theo ngày (mới nhất trước)",
         "source-all": "Tất cả các nguồn",
@@ -1777,6 +1879,9 @@
         "language": {
           "description": "Ghi đè phát hiện ngôn ngữ tự động",
           "label": "Ngôn ngữ"
+        },
+        "palette-inspector": {
+          "button": "Kiểm tra màu"
         },
         "palette-source": {
           "description": "Lấy bảng màu từ đâu",
@@ -2582,6 +2687,10 @@
           "description": "Tần suất đồng bộ hóa sự kiện lịch (phút)",
           "label": "Khoảng thời gian làm mới"
         },
+        "custom-schedule": {
+          "description": "Dùng thời gian bình minh/hoàng hôn thủ công thay vì tính toán dựa trên tọa độ",
+          "label": "Thời gian biểu tùy chỉnh"
+        },
         "day-temperature": {
           "description": "Nhiệt độ màu vào ban ngày (Kelvin)",
           "label": "Nhiệt độ ban ngày"
@@ -2867,6 +2976,7 @@
           "label": "Đang phát"
         },
         "osd-kinds-nightlight": {
+          "description": "Hiển thị một thông báo OSD khi ánh sáng đêm bật/tắt",
           "label": "Ánh sáng đêm"
         },
         "osd-kinds-power-profile": {
@@ -3135,6 +3245,24 @@
     "widgets": {
       "actions": {
         "command-placeholder": "Câu lệnh",
+        "commands": {
+          "nightlight-disable": {
+            "description": "Tắt lập lịch ánh sáng đêm",
+            "label": "Tắt ánh sáng đêm"
+          },
+          "nightlight-enable": {
+            "description": "Bật lập lịch ánh sáng đêm",
+            "label": "Bật ánh sáng đêm"
+          },
+          "nightlight-force-toggle": {
+            "description": "Bật/tắt chế độ ánh sáng đêm bắt buộc",
+            "label": "Bật/tắt ánh sáng đêm"
+          },
+          "nightlight-toggle": {
+            "description": "Bật/tắt lập lịch ánh sáng đêm",
+            "label": "Bật/tắt ánh sáng đêm"
+          }
+        },
         "default": "Mặc định",
         "disabled": "Tắt",
         "run-command": "Chạy một câu lệnh...",

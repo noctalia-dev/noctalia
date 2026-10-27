@@ -303,6 +303,8 @@ namespace settings {
     bool niriBackdropSupported = false;             // hide niri backdrop entries when false
     bool niriOverviewTypeToLaunchSupported = false; // show niri-only type-to-launch integration
     bool umbrielOverviewTypeToLaunchSupported = false;
+    bool niriOverviewCloseOnLaunchSupported = false;
+    bool umbrielOverviewCloseOnLaunchSupported = false;
     bool screencopySupported = false;           // lockscreen blurred desktop + screenshot features
     bool backgroundEffectBlurSupported = false; // hide compositor blur toggles without ext-background-effect-v1
     bool ddcutilAvailable = false;              // disable ddcutil toggle when ddcutil is not on PATH

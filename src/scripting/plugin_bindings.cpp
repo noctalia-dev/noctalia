@@ -610,6 +610,15 @@ namespace {
       {nullptr, nullptr},
   };
 
+  // layer.*: declarative UI tree for a [[layer]] entry. One runtime runs per output, and
+  // outputName() names the output this instance draws on.
+  const luaL_Reg kLayerLib[] = {
+      {"render", luau_ui_render},
+      {"setNeedsFrameTick", luau_ui_setNeedsFrameTick},
+      {"outputName", luau_outputName},
+      {nullptr, nullptr},
+  };
+
   // ── panel.* — declarative UI tree for a [[panel]] entry ──
 
   // panel.close() — request the host close this panel.
@@ -881,6 +890,8 @@ namespace scripting {
     luaL_register(L, "desktopWidget", kDesktopWidgetLib);
     lua_pop(L, 1);
     luaL_register(L, "panel", kPanelLib);
+    lua_pop(L, 1);
+    luaL_register(L, "layer", kLayerLib);
     lua_pop(L, 1);
   }
 

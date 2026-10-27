@@ -43,11 +43,10 @@ namespace {
     }
 
     std::string workspaceName = currentWorkspace;
-    if (const auto typeIt = node.find("type"); typeIt != node.end() && typeIt->is_string()) {
-      if (typeIt->get<std::string>() == "workspace") {
-        if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
-          workspaceName = name;
-        }
+    if (const auto typeIt = node.find("type");
+        typeIt != node.end() && typeIt->is_string() && typeIt->get<std::string>() == "workspace") {
+      if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
+        workspaceName = name;
       }
     }
 
@@ -91,11 +90,10 @@ namespace {
     }
 
     std::string workspaceName = currentWorkspace;
-    if (const auto typeIt = node.find("type"); typeIt != node.end() && typeIt->is_string()) {
-      if (typeIt->get<std::string>() == "workspace") {
-        if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
-          workspaceName = name;
-        }
+    if (const auto typeIt = node.find("type");
+        typeIt != node.end() && typeIt->is_string() && typeIt->get<std::string>() == "workspace") {
+      if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
+        workspaceName = name;
       }
     }
 
@@ -143,17 +141,16 @@ namespace {
 
     std::string workspaceName = currentWorkspace;
     std::string workspaceKey = currentWorkspaceKey;
-    if (const auto typeIt = node.find("type"); typeIt != node.end() && typeIt->is_string()) {
-      if (typeIt->get<std::string>() == "workspace") {
-        if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
-          workspaceName = name;
-        }
-        if (const auto numIt = node.find("num"); numIt != node.end() && numIt->is_number_integer()) {
-          const int num = numIt->get<int>();
-          workspaceKey = num > 0 ? std::to_string(num) : workspaceName;
-        } else {
-          workspaceKey = workspaceName;
-        }
+    if (const auto typeIt = node.find("type");
+        typeIt != node.end() && typeIt->is_string() && typeIt->get<std::string>() == "workspace") {
+      if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
+        workspaceName = name;
+      }
+      if (const auto numIt = node.find("num"); numIt != node.end() && numIt->is_number_integer()) {
+        const int num = numIt->get<int>();
+        workspaceKey = num > 0 ? std::to_string(num) : workspaceName;
+      } else {
+        workspaceKey = workspaceName;
       }
     }
 

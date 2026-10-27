@@ -1,6 +1,6 @@
 ;;; noctalia-theme.el --- Theme using Template SCSS variables -*- lexical-binding: t -*-
 
-;; Copyright (C) 2025 
+;; Copyright (C) 2025
 
 ;; Author: Generated (Improved)
 ;; Version: 1.2
@@ -118,7 +118,7 @@
    `(warning ((t (:foreground ,secondary))))
    `(error ((t (:foreground ,err))))
    `(match ((t (:background ,secondary-container :foreground ,on-secondary-container))))
-   
+
    ;; Font-lock
    `(font-lock-builtin-face ((t (:foreground ,primary))))
    `(font-lock-comment-face ((t (:foreground ,outline-color :slant italic))))
@@ -137,14 +137,14 @@
    ;; Show paren
    `(show-paren-match ((t (:background ,primary-container :foreground ,on-primary-container :weight bold))))
    `(show-paren-mismatch ((t (:background ,err-container :foreground ,on-err-container :weight bold))))
-   
+
    ;; Mode line - improved status bar styling
    `(mode-line ((t (:background ,surface-container-high :foreground ,on-surface :box nil))))
    `(mode-line-inactive ((t (:background ,surface :foreground ,on-surface-variant :box nil))))
    `(mode-line-buffer-id ((t (:foreground ,primary :weight bold))))
    `(mode-line-emphasis ((t (:foreground ,primary :weight bold))))
    `(mode-line-highlight ((t (:foreground ,primary :box nil))))
-   
+
    ;; Improved Source blocks - make them integrated with the theme
    `(org-block ((t (:background ,surface-container-low :extend t :inherit fixed-pitch))))
    `(org-block-begin-line ((t (:background ,surface-container-low :foreground ,primary-fixed-dim :extend t :slant italic :inherit fixed-pitch))))
@@ -152,7 +152,7 @@
    `(org-code ((t (:background ,surface-container-low :foreground ,tertiary-fixed :inherit fixed-pitch))))
    `(org-verbatim ((t (:background ,surface-container-low :foreground ,primary-fixed :inherit fixed-pitch))))
    `(org-meta-line ((t (:foreground ,outline-color :slant italic))))
-   
+
    ;; Org mode with hidden asterisks
    `(org-level-1 ((t (:foreground ,primary :weight bold :height 1.2))))
    `(org-level-2 ((t (:foreground ,secondary :weight bold :height 1.1))))
@@ -175,7 +175,7 @@
    `(org-date ((t (:foreground ,secondary-fixed :underline t))))
    `(org-special-keyword ((t (:foreground ,on-surface-variant :slant italic))))
    `(org-tag ((t (:foreground ,outline-color :weight normal))))
-   
+
    ;; Magit
    `(magit-section-highlight ((t (:background ,surface-container-low))))
    `(magit-diff-hunk-heading ((t (:background ,surface-container :foreground ,on-surface-variant))))
@@ -189,7 +189,7 @@
    `(magit-hash ((t (:foreground ,outline-color))))
    `(magit-branch-local ((t (:foreground ,tertiary :weight bold))))
    `(magit-branch-remote ((t (:foreground ,primary :weight bold))))
-   
+
    ;; Company
    `(company-tooltip ((t (:background ,surface-container :foreground ,on-surface))))
    `(company-tooltip-selection ((t (:background ,primary-container :foreground ,on-primary-container))))
@@ -200,14 +200,14 @@
    `(company-scrollbar-bg ((t (:background ,surface-variant))))
    `(company-preview ((t (:foreground ,on-surface-variant :slant italic))))
    `(company-preview-common ((t (:foreground ,primary :slant italic))))
-   
+
    ;; Ido
    `(ido-first-match ((t (:foreground ,primary :weight bold))))
    `(ido-only-match ((t (:foreground ,tertiary :weight bold))))
    `(ido-subdir ((t (:foreground ,secondary))))
    `(ido-indicator ((t (:foreground ,err))))
    `(ido-virtual ((t (:foreground ,outline-color))))
-   
+
    ;; Helm
    `(helm-selection ((t (:background ,primary-container :foreground ,on-primary-container))))
    `(helm-match ((t (:foreground ,primary :weight bold))))
@@ -220,22 +220,22 @@
    ;; corfu
    `(corfu-default ((t (:background ,surface-container :foreground ,on-surface))))
    `(corfu-current ((t (:background ,primary-container :foreground ,on-primary-container))))
-   
+
    ;; Which-key
    `(which-key-key-face ((t (:foreground ,primary :weight bold))))
    `(which-key-separator-face ((t (:foreground ,outline-variant))))
    `(which-key-command-description-face ((t (:foreground ,on-surface))))
    `(which-key-group-description-face ((t (:foreground ,secondary))))
    `(which-key-special-key-face ((t (:foreground ,tertiary :weight bold))))
-   
+
    ;; Line numbers
    `(line-number ((t (:foreground ,outline-variant :inherit fixed-pitch))))
    `(line-number-current-line ((t (:foreground ,primary :weight bold :inherit fixed-pitch))))
-   
+
    ;; Parenthesis matching
    `(sp-show-pair-match-face ((t (:background ,primary-container :foreground ,on-primary-container))))
    `(sp-show-pair-mismatch-face ((t (:background ,err-container :foreground ,on-err-container))))
-   
+
    ;; Rainbow delimiters
    `(rainbow-delimiters-depth-1-face ((t (:foreground ,primary))))
    `(rainbow-delimiters-depth-2-face ((t (:foreground ,secondary))))
@@ -248,7 +248,7 @@
    `(rainbow-delimiters-depth-9-face ((t (:foreground ,tertiary-fixed-dim))))
    `(rainbow-delimiters-mismatched-face ((t (:foreground ,err :weight bold))))
    `(rainbow-delimiters-unmatched-face ((t (:foreground ,err :weight bold))))
-   
+
    ;; Dired
    `(dired-directory ((t (:foreground ,primary :weight bold))))
    `(dired-ignored ((t (:foreground ,outline-variant))))
@@ -256,7 +256,7 @@
    `(dired-marked ((t (:foreground ,tertiary :weight bold))))
    `(dired-symlink ((t (:foreground ,secondary :slant italic))))
    `(dired-header ((t (:foreground ,primary :weight bold :height 1.1))))
-   
+
    ;; Terminal colors
    `(term-color-black ((t (:foreground ,term0 :background ,term0))))
    `(term-color-red ((t (:foreground ,term1 :background ,term1))))
@@ -266,7 +266,25 @@
    `(term-color-magenta ((t (:foreground ,term5 :background ,term5))))
    `(term-color-cyan ((t (:foreground ,term6 :background ,term6))))
    `(term-color-white ((t (:foreground ,term7 :background ,term7))))
-   
+
+   ;; ANSI terminal colors
+   `(ansi-color-black ((t (:foreground ,term0 :background ,term0))))
+   `(ansi-color-red ((t (:foreground ,term1 :background ,term1))))
+   `(ansi-color-green ((t (:foreground ,term2 :background ,term2))))
+   `(ansi-color-yellow ((t (:foreground ,term3 :background ,term3))))
+   `(ansi-color-blue ((t (:foreground ,term4 :background ,term4))))
+   `(ansi-color-magenta ((t (:foreground ,term5 :background ,term5))))
+   `(ansi-color-cyan ((t (:foreground ,term6 :background ,term6))))
+   `(ansi-color-white ((t (:foreground ,term7 :background ,term7))))
+   `(ansi-color-bright-black ((t (:foreground ,term8 :background ,term8))))
+   `(ansi-color-bright-red ((t (:foreground ,term9 :background ,term9))))
+   `(ansi-color-bright-green ((t (:foreground ,term10 :background ,term10))))
+   `(ansi-color-bright-yellow ((t (:foreground ,term11 :background ,term11))))
+   `(ansi-color-bright-blue ((t (:foreground ,term12 :background ,term12))))
+   `(ansi-color-bright-magenta ((t (:foreground ,term13 :background ,term13))))
+   `(ansi-color-bright-cyan ((t (:foreground ,term14 :background ,term14))))
+   `(ansi-color-bright-white ((t (:foreground ,term15 :background ,term15))))
+
    ;; EShell
    `(eshell-prompt ((t (:foreground ,primary :weight bold))))
    `(eshell-ls-directory ((t (:foreground ,primary :weight bold))))
@@ -280,7 +298,7 @@
    `(eshell-ls-readonly ((t (:foreground ,on-surface-variant))))
    `(eshell-ls-special ((t (:foreground ,secondary-fixed))))
    `(eshell-ls-unreadable ((t (:foreground ,outline-variant))))
-   
+
    ;; Improved markdown mode
    `(markdown-header-face ((t (:foreground ,primary :weight bold))))
    `(markdown-header-face-1 ((t (:foreground ,primary :weight bold :height 1.2))))
@@ -291,7 +309,7 @@
    `(markdown-code-face ((t (:background ,surface-container-low :extend t :inherit fixed-pitch))))
    `(markdown-pre-face ((t (:background ,surface-container-low :inherit fixed-pitch))))
    `(markdown-table-face ((t (:foreground ,secondary-fixed :inherit fixed-pitch))))
-   
+
    ;; Web mode
    `(web-mode-html-tag-face ((t (:foreground ,primary))))
    `(web-mode-html-tag-bracket-face ((t (:foreground ,on-surface-variant))))
@@ -300,7 +318,7 @@
    `(web-mode-css-selector-face ((t (:foreground ,primary))))
    `(web-mode-css-property-name-face ((t (:foreground ,secondary))))
    `(web-mode-css-string-face ((t (:foreground ,tertiary))))
-   
+
    ;; Flycheck
    `(flycheck-error ((t (:underline (:style wave :color ,err)))))
    `(flycheck-warning ((t (:underline (:style wave :color ,secondary)))))
@@ -308,15 +326,15 @@
    `(flycheck-fringe-error ((t (:foreground ,err))))
    `(flycheck-fringe-warning ((t (:foreground ,secondary))))
    `(flycheck-fringe-info ((t (:foreground ,tertiary))))
-   
+
    ;; Mini-buffer customization
    `(minibuffer-prompt ((t (:foreground ,primary :weight bold))))
-   
+
    ;; Improved search highlighting
    `(lsp-face-highlight-textual ((t (:background ,primary-container :foreground ,on-primary-container :weight bold))))
    `(lsp-face-highlight-read ((t (:background ,secondary-container :foreground ,on-secondary-container :weight bold))))
    `(lsp-face-highlight-write ((t (:background ,tertiary-container :foreground ,on-tertiary-container :weight bold))))
-   
+
    ;; Info and help modes
    `(info-title-1 ((t (:foreground ,primary :weight bold :height 1.3))))
    `(info-title-2 ((t (:foreground ,primary-container :weight bold :height 1.2))))
@@ -344,7 +362,7 @@
    `(centaur-tabs-selected-modified ((t (:background ,surface-container-high :foreground ,tertiary :weight bold))))
    `(centaur-tabs-unselected-modified ((t (:background ,surface :foreground ,tertiary))))
    `(centaur-tabs-active-bar-face ((t (:background ,primary))))
-   
+
    ;; message
    `(message-header-to ((t (:foreground ,primary))))
    `(message-header-cc ((t (:foreground ,secondary))))
@@ -364,7 +382,7 @@
    ;; Fixed-pitch faces
    `(fixed-pitch ((t (:family "monospace"))))
    `(fixed-pitch-serif ((t (:family "monospace serif"))))
-   
+
    ;; Variable-pitch face
    `(variable-pitch ((t (:family "sans serif"))))
    ))

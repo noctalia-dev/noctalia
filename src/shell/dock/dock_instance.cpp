@@ -464,7 +464,7 @@ namespace shell::dock {
           syncDockSlideLayerTransform(inst, inst.config);
           applyDockCompositorBlur(inst, inst.config);
         },
-        [&inst]() { inst.hideAnimId = 0; }
+        [&inst] { inst.hideAnimId = 0; }
     );
     syncDockAutoHideInputRegion(inst, cfg, DockPanelGeometry{});
     inst.surface->requestRedraw();
@@ -486,7 +486,7 @@ namespace shell::dock {
           syncDockSlideLayerTransform(inst, inst.config);
           applyDockCompositorBlur(inst, inst.config);
         },
-        [&inst]() { inst.hideAnimId = 0; }
+        [&inst] { inst.hideAnimId = 0; }
     );
     syncDockAutoHideInputRegion(inst, inst.config, DockPanelGeometry{});
     if (inst.surface) {

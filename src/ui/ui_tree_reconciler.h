@@ -12,7 +12,9 @@
 
 class Flex;
 class InputArea;
+class ColorPicker;
 class Node;
+class PixelStreamView;
 class Renderer;
 class DragDropController;
 enum class FontWeight : int;
@@ -98,6 +100,10 @@ namespace ui {
     void setCompactControls(bool compact) { m_compactControls = compact; }
     void setDragDropEnabled(bool enabled);
     void setDragDropOverlayRoot(Node* root);
+    // Abort an in-progress drag (preview removed, source restored, no drop
+    // callback) while keeping the retained tree and overlay wiring. For a host
+    // that is about to discard or hide its tree without tearing the scene down.
+    void cancelDragDrop();
 
     // Reconciles `tree` as the single child of `host`. Props are (re)applied on
     // every call — setters are change-checked, and the scale may differ between
@@ -137,6 +143,14 @@ namespace ui {
     void openPointer(const Node* owner, std::string leaveCallback, std::string streamKey);
     void closePointer();
     void releasePointer(const Node* owner);
+    // Ends the owner's pointer session without delivering its leave/cancel callback (a drag that
+    // finished normally).
+    void endPointer(const Node* owner);
+    // ui.pixelStream pointer and keyboard wiring. A left drag is a pointer session, so the
+    // view's onPointerCancel is the session's closing callback.
+    void syncPixelStreamCallbacks(Slot& slot, const UiTreeNode& desired, PixelStreamView& view);
+    // ui.colorPicker props. `value` is applied only when it differs from the shown color.
+    void applyColorPickerProps(Slot& slot, const UiTreeNode& desired, ColorPicker& picker);
     [[nodiscard]] bool subtreeOwnsPointer(const Slot& slot) const;
     [[nodiscard]] std::unique_ptr<Node> createControl(const UiTreeNode& desired);
     // Scroll revealKey. Runs after the scroll's children reconcile, since the key

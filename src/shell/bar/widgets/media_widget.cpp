@@ -34,12 +34,13 @@ MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output*
       m_artistFirst(options.artistFirst), m_showProgress(options.showProgress) {}
 
 void MediaWidget::create() {
+  const float artSize = m_artSize * m_contentScale;
   auto area = ui::inputArea({});
   area->setOnEnter([this](const InputArea::PointerData&) {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
   });
@@ -63,9 +64,9 @@ void MediaWidget::create() {
       ui::image({
           .out = &m_art,
           .fit = ImageFit::Cover,
-          .radius = (m_artSize * m_contentScale) * 0.5F,
-          .width = m_artSize * m_contentScale,
-          .height = m_artSize * m_contentScale,
+          .radius = resolvedBarCapsuleRadius(artSize, artSize),
+          .width = artSize,
+          .height = artSize,
       })
   );
 
@@ -135,7 +136,7 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
     artSize = artOnly ? requestedArtSize : std::min(requestedArtSize, m_label->height());
     m_art->setVisible(true);
     m_art->setSize(artSize, artSize);
-    m_art->setRadius(artSize * 0.5F);
+    m_art->setRadius(resolvedBarCapsuleRadius(artSize, artSize));
   } else {
     m_art->setVisible(false);
     m_art->setSize(0.0F, 0.0F);
@@ -250,12 +251,11 @@ void MediaWidget::applyTitleScrollMode(bool titleVisible) {
 }
 
 void MediaWidget::syncWidgetVisibility(bool showWidget) {
-  if (Node* rootNode = root(); rootNode != nullptr) {
-    if (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget) {
-      rootNode->setVisible(showWidget);
-      rootNode->setParticipatesInLayout(showWidget);
-      requestUpdate();
-    }
+  if (Node* rootNode = root();
+      rootNode != nullptr && (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget)) {
+    rootNode->setVisible(showWidget);
+    rootNode->setParticipatesInLayout(showWidget);
+    requestUpdate();
   }
 }
 
@@ -294,7 +294,7 @@ void MediaWidget::syncProgress(const std::optional<MprisPlayerInfo>& active) {
   const float fillWidth = std::max(1.0F, m_progressBar->width());
   const auto intervalMs =
       static_cast<std::int64_t>(std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.0F, 1000.0F));
-  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this]() { requestUpdate(); });
+  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this] { requestUpdate(); });
 }
 
 void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerInfo>& active) {
@@ -380,10 +380,8 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
     }
   } else if (!m_lastArtUrl.empty() && !m_art->hasImage() && !m_hideAlbumArt) {
     const std::string artPath = cachedArtworkPath(m_lastArtUrl);
-    if (!artPath.empty()) {
-      if (m_art->setSourceFile(renderer, artPath, artDecodePx, false, true)) {
-        requestRedraw();
-      }
+    if (!artPath.empty() && m_art->setSourceFile(renderer, artPath, artDecodePx, false, true)) {
+      requestRedraw();
     }
   }
 

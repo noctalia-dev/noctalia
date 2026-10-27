@@ -134,7 +134,7 @@ SharedTextureCache::SharedTextureCache() {
     kLog.warn("failed to create eventfd; wallpaper textures will never finish loading");
   }
   // One worker: wallpapers decode to hundreds of MB each, and they are requested one at a time anyway.
-  m_worker = std::thread([this]() { workerLoop(); });
+  m_worker = std::thread([this] { workerLoop(); });
 }
 
 SharedTextureCache::~SharedTextureCache() {
@@ -488,7 +488,7 @@ void SharedTextureCache::workerLoop() {
     std::vector<SharedTextureRequest> batch;
     {
       std::unique_lock lock(m_queueMutex);
-      m_queueCv.wait(lock, [this]() { return m_shutdown.load() || !m_jobQueue.empty(); });
+      m_queueCv.wait(lock, [this] { return m_shutdown.load() || !m_jobQueue.empty(); });
       if (m_shutdown.load()) {
         return;
       }

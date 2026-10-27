@@ -5,6 +5,7 @@
 #include "core/process/process.h"
 #include "util/string_utils.h"
 
+#include <algorithm>
 #include <chrono>
 #include <nlohmann/json.hpp>
 #include <string_view>
@@ -116,16 +117,13 @@ namespace compositors::sway {
       if (!json.is_array() || json.empty()) {
         return false;
       }
-      for (const auto& item : json) {
+      return std::ranges::all_of(json, [&](const nlohmann::json& item) {
         if (!item.is_object()) {
           return false;
         }
         const auto success = item.find("success");
-        if (success == item.end() || !success->is_boolean() || !success->get<bool>()) {
-          return false;
-        }
-      }
-      return true;
+        return success != item.end() && success->is_boolean() && success->get<bool>();
+      });
     } catch (const nlohmann::json::exception&) {
       return false;
     }

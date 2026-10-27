@@ -39,6 +39,8 @@ public:
   void registerIpc(IpcService& ipc);
   void onOutputChange();
   void onSecondTick();
+  // True when a visible widget renders a value that changes every second.
+  [[nodiscard]] bool wantsSecondTicks() const;
   void requestUpdate();
   void requestLayout();
   void requestRedraw();

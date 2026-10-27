@@ -28,6 +28,11 @@ namespace {
   constexpr float kGraphicTerminalHeight = 7.0F;
   constexpr float kGraphicCornerRadius = 4.0F;
 
+  // The bar updates once a minute unless a widget renders seconds, so a shorter
+  // interval would never be honoured. The second of slack keeps an update that
+  // lands just short of a full minute from pushing the refresh out to two.
+  constexpr auto kTooltipForceRefreshInterval = std::chrono::seconds(59);
+
   const char* batteryStateGlyph(BatteryState state) {
     if (state == BatteryState::Charging) {
       return "bolt-filled";
@@ -160,7 +165,7 @@ void BatteryWidget::createGraphicMode() {
   );
 
   syncPalette();
-  m_paletteConn = paletteChanged().connect([this]() {
+  m_paletteConn = paletteChanged().connect([this] {
     syncPalette();
     requestRedraw();
   });
@@ -256,7 +261,7 @@ void BatteryWidget::layoutGraphicMode(Renderer& renderer) {
     }
     labelW = m_overlayLabel->width();
     if (m_isVertical) {
-      labelW = std::max(labelW, std::ceil(renderer.measureText("00", fontSize, fontWeight).width));
+      labelW = std::max(labelW, std::ceil(renderer.measureText("00", fontSize, m_overlayLabel->font()).width));
     }
   }
   if (showStateGlyph) {
@@ -408,7 +413,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
   const auto now = std::chrono::steady_clock::now();
   const bool forceTimeRefresh = (m_lastTooltipRefreshTime == std::chrono::steady_clock::time_point{})
-      || (now - m_lastTooltipRefreshTime >= std::chrono::seconds(15));
+      || (now - m_lastTooltipRefreshTime >= kTooltipForceRefreshInterval);
 
   if (s.percentage == m_lastPct
       && s.state == m_lastState
@@ -464,7 +469,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
             updateFillGeometry();
             requestRedraw();
           },
-          [this]() { m_fillAnim = 0; }, this
+          [this] { m_fillAnim = 0; }, this
       );
       requestFrameTick();
     } else {
@@ -480,11 +485,9 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
     // State icon
     const char* stateGlyph = batteryStateGlyph(s.state);
-    if (m_overlayGlyph != nullptr) {
-      if (stateGlyph != nullptr) {
-        m_overlayGlyph->setGlyph(stateGlyph);
-        m_overlayGlyph->measure(renderer);
-      }
+    if (m_overlayGlyph != nullptr && stateGlyph != nullptr) {
+      m_overlayGlyph->setGlyph(stateGlyph);
+      m_overlayGlyph->measure(renderer);
     }
 
     // A full battery needs no number, and three digits would stretch the narrow vertical body.

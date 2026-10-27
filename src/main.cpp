@@ -231,7 +231,7 @@ namespace {
     }
     try {
       Application app;
-      app.run([]() { completeDaemonStartup(0); });
+      app.run([] { completeDaemonStartup(0); });
     } catch (const std::exception& e) {
       logError("fatal: {}", e.what());
       completeDaemonStartup(1);

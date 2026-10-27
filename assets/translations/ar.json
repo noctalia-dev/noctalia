@@ -1405,10 +1405,6 @@
         "horizontal": "أفقي",
         "vertical": "رأسي"
       },
-      "panel-bar-alignment": {
-        "centered": "متمركز",
-        "near-trigger": "بالقرب من المشغّل"
-      },
       "panel-position": {
         "auto": "متابعة الشريط"
       },
