@@ -158,7 +158,7 @@ namespace capture {
     };
     constexpr std::size_t kStyleSliderCount = 7;
 
-    // Values are in the units the panel shows (whole degrees, pixels, percent).
+    // Values are in the units the panel shows (whole degrees, pixels, 0..1 opacity).
     struct StyleSliderSpec {
       const char* labelKey;
       double minValue;
@@ -169,7 +169,10 @@ namespace capture {
     };
 
     [[nodiscard]] std::int32_t toPixels(double v) { return static_cast<std::int32_t>(std::lround(v)); }
-    [[nodiscard]] std::string formatStyleValue(double v) { return std::format("{}", std::lround(v)); }
+    // Whole-step sliders show integers; fractional ones (opacity) two decimals, like settings sliders.
+    [[nodiscard]] std::string formatStyleValue(const StyleSliderSpec& spec, double v) {
+      return spec.step >= 1.0 ? std::format("{}", std::lround(v)) : StringUtils::formatFixedDotDecimal(v, 2);
+    }
 
     [[nodiscard]] const std::array<StyleSliderSpec, kStyleSliderCount>& styleSliders() {
       static const std::array<StyleSliderSpec, kStyleSliderCount> specs = {{
@@ -185,9 +188,9 @@ namespace capture {
           {"bar.annotate.style-shadow-blur", 0.0, 200.0, 1.0,
            [](const StyleConfig& s) { return static_cast<double>(s.shadowBlur); },
            [](StyleConfig& s, double v) { s.shadowBlur = toPixels(v); }},
-          {"bar.annotate.style-shadow-opacity", 0.0, 100.0, 1.0,
-           [](const StyleConfig& s) { return std::round(static_cast<double>(s.shadowOpacity) * 100.0); },
-           [](StyleConfig& s, double v) { s.shadowOpacity = static_cast<float>(v / 100.0); }},
+          {"bar.annotate.style-shadow-opacity", 0.0, 1.0, 0.01,
+           [](const StyleConfig& s) { return static_cast<double>(s.shadowOpacity); },
+           [](StyleConfig& s, double v) { s.shadowOpacity = static_cast<float>(v); }},
           {"bar.annotate.style-shadow-offset-x", -200.0, 200.0, 1.0,
            [](const StyleConfig& s) { return static_cast<double>(s.shadowOffsetX); },
            [](StyleConfig& s, double v) { s.shadowOffsetX = toPixels(v); }},
@@ -2769,7 +2772,7 @@ namespace capture {
       Input* valueInput = nullptr;
       auto input = ui::input({
           .out = &valueInput,
-          .value = formatStyleValue(value),
+          .value = formatStyleValue(spec, value),
           .fontSize = Style::fontSizeCaption,
           .controlHeight = Style::controlHeightSm,
           .horizontalPadding = Style::spaceXs,
@@ -2788,7 +2791,7 @@ namespace capture {
               .flexGrow = 1.0F,
               .onValueChanged = [this, index, valueInput](double next) {
                 valueInput->setInvalid(false);
-                valueInput->setValue(formatStyleValue(next));
+                valueInput->setValue(formatStyleValue(styleSliders()[index], next));
                 editStyle([index, next](StyleConfig& style) { styleSliders()[index].set(style, next); });
               },
           })
@@ -2804,7 +2807,7 @@ namespace capture {
         slider->setValue(*parsed);
         const double snapped = slider->value();
         valueInput->setInvalid(false);
-        valueInput->setValue(formatStyleValue(snapped));
+        valueInput->setValue(formatStyleValue(sliderSpec, snapped));
         editStyle([index, snapped](StyleConfig& style) { styleSliders()[index].set(style, snapped); });
       };
       valueInput->setOnChange([valueInput](const std::string& /*text*/) { valueInput->setInvalid(false); });
