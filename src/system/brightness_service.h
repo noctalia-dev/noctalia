@@ -34,7 +34,9 @@ public:
     End,
   };
 
-  BrightnessService(SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, const LocationConfig& location);
+  BrightnessService(
+      SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, const LocationConfig& location
+  );
   ~BrightnessService();
 
   BrightnessService(const BrightnessService&) = delete;

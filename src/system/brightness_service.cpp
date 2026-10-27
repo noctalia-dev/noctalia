@@ -4,8 +4,8 @@
 #include "config/config_types.h"
 #include "core/inotify/inotify.h"
 #include "core/log.h"
-#include "core/timer_manager.h"
 #include "core/process/process.h"
+#include "core/timer_manager.h"
 #include "dbus/system_bus.h"
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
@@ -837,10 +837,11 @@ struct BrightnessService::Impl {
 
     const bool manualMode = day_night_schedule::isManualMode(locationConfig);
     const auto eval = day_night_schedule::evaluate(locationConfig, std::nullopt, std::nullopt);
-    
+
     if (manualMode) {
       const auto boundaryDelay = eval.untilBoundary;
-      const auto delay = std::min(boundaryDelay, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::minutes(5)));
+      const auto delay =
+          std::min(boundaryDelay, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::minutes(5)));
       m_scheduleTimer.start(delay, [this, boundaryTimer = delay == boundaryDelay] {
         if (boundaryTimer) {
           kLog.info("brightness schedule: phase boundary reached");
@@ -852,7 +853,8 @@ struct BrightnessService::Impl {
       const auto coords = day_night_schedule::resolveCoordinates(locationConfig, std::nullopt, std::nullopt);
       if (coords.latitude.has_value() && coords.longitude.has_value()) {
         const auto boundaryDelay = eval.untilBoundary;
-        const auto delay = std::min(boundaryDelay, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::minutes(5)));
+        const auto delay =
+            std::min(boundaryDelay, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::minutes(5)));
         m_scheduleTimer.start(delay, [this, boundaryTimer = delay == boundaryDelay] {
           if (boundaryTimer) {
             kLog.info("brightness schedule: phase boundary reached");
@@ -1271,7 +1273,7 @@ struct BrightnessService::Impl {
     // Clock-anchored fade window: 30 minutes before boundary
     const float fadeMs = std::chrono::duration<float, std::milli>(std::chrono::minutes(60)).count();
     const float halfFade = fadeMs / 2.0F;
-    const float untilMs = static_cast<float>(eval.untilBoundary.count());
+    auto untilMs = static_cast<float>(eval.untilBoundary.count());
 
     float fromBright = eval.night ? nightBright : dayBright;
     float toBright = eval.night ? nightBright : dayBright;
@@ -1292,7 +1294,8 @@ struct BrightnessService::Impl {
     const float targetBright = std::lerp(fromBright, toBright, progress);
 
     for (auto& display : internals) {
-      if (!display.pub.controllable || (display.backend != RuntimeBackend::Ddcutil && display.backend != RuntimeBackend::Backlight)) {
+      if (!display.pub.controllable
+          || (display.backend != RuntimeBackend::Ddcutil && display.backend != RuntimeBackend::Backlight)) {
         continue;
       }
 
@@ -1804,7 +1807,9 @@ struct BrightnessService::Impl {
   }
 };
 
-BrightnessService::BrightnessService(SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, const LocationConfig& location)
+BrightnessService::BrightnessService(
+    SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, const LocationConfig& location
+)
     : m_impl(new Impl(bus, platform, config, location)) {
   m_impl->rebuildState(false);
 }
@@ -1848,7 +1853,7 @@ void BrightnessService::reload(const BrightnessConfig& config, const LocationCon
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
-void BrightnessService::reevaluateSchedule() { 
+void BrightnessService::reevaluateSchedule() {
   if (m_impl != nullptr) {
     m_impl->applyScheduledBrightnessIfNeeded();
     m_impl->scheduleScheduleTimer();

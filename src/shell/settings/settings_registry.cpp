@@ -2966,7 +2966,7 @@ namespace settings {
           ToggleSetting{cfg.nightlight.enabled}, "nightlight"
       ));
       const SettingVisibility nightLightOn = [](const Config& c) { return c.nightlight.enabled; };
-      
+
       // Force Night Light toggle
       {
         auto e = makeEntry(
@@ -2977,7 +2977,7 @@ namespace settings {
         e.visibleWhen = nightLightOn;
         entries.push_back(std::move(e));
       }
-      
+
       // Both sliders span the same range; the day > night invariant is enforced at commit time
       // via SliderSetting::linkedCommit, which pushes the other temperature when needed.
       const auto tempMin = static_cast<double>(NightLightConfig::kTemperatureMin);
@@ -3055,17 +3055,22 @@ namespace settings {
       // Scheduled brightness toggle
       entries.push_back(makeEntry(
           SettingsSection::Location, "night-light", tr("settings.schema.services.scheduled-brightness.label"),
-          tr("settings.schema.services.scheduled-brightness.description"), {"brightness", "enable_scheduled_brightness"},
-          ToggleSetting{cfg.brightness.enableScheduledBrightness}, "scheduled brightness schedule"
+          tr("settings.schema.services.scheduled-brightness.description"),
+          {"brightness", "enable_scheduled_brightness"}, ToggleSetting{cfg.brightness.enableScheduledBrightness},
+          "scheduled brightness schedule"
       ));
-      const SettingVisibility scheduledBrightOn = [](const Config& c) { return c.nightlight.enabled && c.brightness.enableScheduledBrightness; };
+      const SettingVisibility scheduledBrightOn = [](const Config& c) {
+        return c.nightlight.enabled && c.brightness.enableScheduledBrightness;
+      };
 
       // Scheduled brightness sliders
       {
         auto e = makeEntry(
             SettingsSection::Location, "night-light", tr("settings.schema.services.scheduled-day-brightness.label"),
-            tr("settings.schema.services.scheduled-day-brightness.description"), {"brightness", "scheduled_day_brightness"},
-            sliderFor(cfg.brightness.scheduledDayBrightness, noctalia::config::schema::kUnitRange, false), "day brightness scheduled"
+            tr("settings.schema.services.scheduled-day-brightness.description"),
+            {"brightness", "scheduled_day_brightness"},
+            sliderFor(cfg.brightness.scheduledDayBrightness, noctalia::config::schema::kUnitRange, false),
+            "day brightness scheduled"
         );
         e.visibleWhen = scheduledBrightOn;
         entries.push_back(std::move(e));
@@ -3073,8 +3078,10 @@ namespace settings {
       {
         auto e = makeEntry(
             SettingsSection::Location, "night-light", tr("settings.schema.services.scheduled-night-brightness.label"),
-            tr("settings.schema.services.scheduled-night-brightness.description"), {"brightness", "scheduled_night_brightness"},
-            sliderFor(cfg.brightness.scheduledNightBrightness, noctalia::config::schema::kUnitRange, false), "night brightness scheduled"
+            tr("settings.schema.services.scheduled-night-brightness.description"),
+            {"brightness", "scheduled_night_brightness"},
+            sliderFor(cfg.brightness.scheduledNightBrightness, noctalia::config::schema::kUnitRange, false),
+            "night brightness scheduled"
         );
         e.visibleWhen = scheduledBrightOn;
         entries.push_back(std::move(e));
