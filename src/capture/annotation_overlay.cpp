@@ -126,8 +126,10 @@ namespace capture {
       const char* tooltipKey;
     };
 
-    [[nodiscard]] const std::array<GradientPreset, 8>& gradientPresets() {
-      static const std::array<GradientPreset, 8> presets = {{
+    constexpr std::size_t kGradientPresetCount = 8;
+
+    [[nodiscard]] const std::array<GradientPreset, kGradientPresetCount>& gradientPresets() {
+      static const std::array<GradientPreset, kGradientPresetCount> presets = {{
           {colorSpecFromRole(ColorRole::Primary), colorSpecFromRole(ColorRole::Tertiary),
            "bar.annotate.gradient-theme"},
           {fixedColorSpec(rgbHex(0x8E2DE2)), fixedColorSpec(rgbHex(0xEC6EAD)), "bar.annotate.gradient-grape"},
@@ -487,7 +489,7 @@ namespace capture {
     Flex* styleBody = nullptr;
     Flex* styleGradientRows = nullptr;
     Flex* styleShadowRows = nullptr;
-    std::array<Box*, 8> gradientChips{};
+    std::array<Box*, kGradientPresetCount> gradientChips{};
     std::array<Label*, kStyleSliderCount> styleValueLabels{};
     Image* stylePreview = nullptr;
     Box* imageOutline = nullptr;
@@ -2880,7 +2882,7 @@ namespace capture {
   }
 
   // The preview reuses the export raster on a transparent stand-in for the capture, so the frame
-  // matches the delivered PNG; the canvas layers cover the middle and only the frame shows.
+  // matches the delivered image; the canvas layers cover the middle and only the frame shows.
   void AnnotationOverlay::updateStylePreview(Instance& inst, Renderer& renderer) {
     if (m_mode != AnnotationMode::Image
         || inst.stylePreview == nullptr
