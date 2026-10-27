@@ -871,7 +871,6 @@ struct BrightnessService::Impl {
   void reload(const BrightnessConfig& config, const LocationConfig& location) {
     activeConfig = config;
     locationConfig = location;
-    // Clear scheduled brightness state to force re-application when slider values change
     scheduledBrightnessApplied = false;
     lastNightPhaseEval = -1;
     baselineBrightness.clear();
@@ -1256,7 +1255,6 @@ struct BrightnessService::Impl {
     if (lastNightPhaseEval == -1) {
       lastNightPhaseEval = nightPhase;
     } else if (nightPhase != lastNightPhaseEval) {
-      // Phase changed, update baseline when transitioning from day to night
       if (lastNightPhaseEval == 0 && nightPhase == 1) {
         for (auto& display : internals) {
           if (display.pub.controllable) {
@@ -1270,7 +1268,7 @@ struct BrightnessService::Impl {
     const float dayBright = activeConfig.scheduledDayBrightness;
     const float nightBright = activeConfig.scheduledNightBrightness;
 
-    // Clock-anchored fade window: 30 minutes before boundary
+    // Fade window: 30 minutes before boundary
     const float fadeMs = std::chrono::duration<float, std::milli>(std::chrono::minutes(60)).count();
     const float halfFade = fadeMs / 2.0F;
     auto untilMs = static_cast<float>(eval.untilBoundary.count());
@@ -1282,9 +1280,6 @@ struct BrightnessService::Impl {
 
     // Fade before boundary: approaching sunset or sunrise
     if (untilMs < halfFade) {
-      // Before boundary: fade from current phase brightness to next phase brightness
-      // before sunset: fade from dayBright → nightBright
-      // before sunrise: fade from nightBright → dayBright
       fromBright = eval.night ? nightBright : dayBright;
       toBright = eval.night ? dayBright : nightBright;
       progress = 1.0F - (untilMs / halfFade);
@@ -1300,7 +1295,6 @@ struct BrightnessService::Impl {
       }
 
       float value = targetBright;
-      // For day phase, restore from per-monitor baseline if it exists (saved during day→night transition)
       if (!eval.night && !transitioning) {
         auto it = baselineBrightness.find(display.pub.id);
         if (it != baselineBrightness.end()) {

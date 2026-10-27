@@ -3053,12 +3053,15 @@ namespace settings {
       }
 
       // Scheduled brightness toggle
-      entries.push_back(makeEntry(
-          SettingsSection::Location, "night-light", tr("settings.schema.services.scheduled-brightness.label"),
-          tr("settings.schema.services.scheduled-brightness.description"),
-          {"brightness", "enable_scheduled_brightness"}, ToggleSetting{cfg.brightness.enableScheduledBrightness},
-          "scheduled brightness schedule"
-      ));
+      {
+        auto e = makeEntry(
+            SettingsSection::Location, "night-light", tr("settings.schema.services.scheduled-brightness.label"),
+            tr("settings.schema.services.scheduled-brightness.description"), {"brightness", "enable_scheduled_brightness"},
+            ToggleSetting{cfg.brightness.enableScheduledBrightness}, "scheduled brightness schedule"
+        );
+        e.visibleWhen = nightLightOn;
+        entries.push_back(std::move(e));
+      }
       const SettingVisibility scheduledBrightOn = [](const Config& c) {
         return c.nightlight.enabled && c.brightness.enableScheduledBrightness;
       };
