@@ -584,7 +584,8 @@ namespace calendar {
       const icaltimetype componentStart = icalcomponent_get_dtstart(component);
       CalendarEvent event = baseEventFromComponent(component);
 
-      if (!hasProperty(component, ICAL_RRULE_PROPERTY) && !hasProperty(component, ICAL_RDATE_PROPERTY)) {
+      if (recurrenceId(component).has_value()
+          || (!hasProperty(component, ICAL_RRULE_PROPERTY) && !hasProperty(component, ICAL_RDATE_PROPERTY))) {
         events.push_back(std::move(event));
         continue;
       }
