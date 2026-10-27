@@ -4,10 +4,12 @@
 #include "config/config_types.h"
 #include "core/inotify/inotify.h"
 #include "core/log.h"
+#include "core/timer_manager.h"
 #include "core/process/process.h"
 #include "dbus/system_bus.h"
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
+#include "system/day_night_schedule.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 
@@ -724,10 +726,17 @@ struct BrightnessService::Impl {
   WaylandConnection& wayland;
   CompositorPlatform& platform;
   BrightnessConfig activeConfig;
+  LocationConfig locationConfig;
   ChangeCallback changeCallback;
 
   std::vector<BrightnessDisplay> publicDisplays;
   std::vector<DisplayInternal> internals;
+
+  int lastNightPhaseEval = -1; // -1=unknown, 0=day, 1=night
+  bool scheduledBrightnessApplied = false;
+  std::unordered_map<std::string, float> baselineBrightness;
+
+  Timer m_scheduleTimer;
 
   std::unique_ptr<sdbus::IProxy> sessionProxy;
   sdbus::ObjectPath sessionPath;
@@ -752,9 +761,9 @@ struct BrightnessService::Impl {
   std::unordered_map<std::string, DdcJob> pendingRefreshes;
   std::queue<WorkerCompletion> completions;
 
-  Impl(SystemBus* systemBus, CompositorPlatform& compositorPlatform, BrightnessConfig config)
+  Impl(SystemBus* systemBus, CompositorPlatform& compositorPlatform, BrightnessConfig config, LocationConfig location)
       : bus(systemBus), wayland(compositorPlatform.wayland()), platform(compositorPlatform),
-        activeConfig(std::move(config)) {
+        activeConfig(std::move(config)), locationConfig(std::move(location)) {
     setupPollFds();
     workerThread = std::thread([this] { workerLoop(); });
   }
@@ -820,9 +829,52 @@ struct BrightnessService::Impl {
     }
   }
 
-  void reload(const BrightnessConfig& config) {
+  void scheduleScheduleTimer() {
+    if (!activeConfig.enableScheduledBrightness) {
+      m_scheduleTimer.stop();
+      return;
+    }
+
+    const bool manualMode = day_night_schedule::isManualMode(locationConfig);
+    const auto eval = day_night_schedule::evaluate(locationConfig, std::nullopt, std::nullopt);
+    
+    if (manualMode) {
+      const auto boundaryDelay = eval.untilBoundary;
+      const auto delay = std::min(boundaryDelay, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::minutes(5)));
+      m_scheduleTimer.start(delay, [this, boundaryTimer = delay == boundaryDelay] {
+        if (boundaryTimer) {
+          kLog.info("brightness schedule: phase boundary reached");
+        }
+        applyScheduledBrightnessIfNeeded();
+        scheduleScheduleTimer();
+      });
+    } else {
+      const auto coords = day_night_schedule::resolveCoordinates(locationConfig, std::nullopt, std::nullopt);
+      if (coords.latitude.has_value() && coords.longitude.has_value()) {
+        const auto boundaryDelay = eval.untilBoundary;
+        const auto delay = std::min(boundaryDelay, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::minutes(5)));
+        m_scheduleTimer.start(delay, [this, boundaryTimer = delay == boundaryDelay] {
+          if (boundaryTimer) {
+            kLog.info("brightness schedule: phase boundary reached");
+          }
+          applyScheduledBrightnessIfNeeded();
+          scheduleScheduleTimer();
+        });
+      } else {
+        m_scheduleTimer.stop();
+      }
+    }
+  }
+
+  void reload(const BrightnessConfig& config, const LocationConfig& location) {
     activeConfig = config;
-    rebuildState(true);
+    locationConfig = location;
+    // Clear scheduled brightness state to force re-application when slider values change
+    scheduledBrightnessApplied = false;
+    lastNightPhaseEval = -1;
+    baselineBrightness.clear();
+    applyScheduledBrightnessIfNeeded();
+    scheduleScheduleTimer();
   }
 
   void onOutputsChanged() { rebuildState(true); }
@@ -1186,6 +1238,79 @@ struct BrightnessService::Impl {
     for (auto& display : internals) {
       setBrightness(&display, value);
     }
+  }
+
+  void applyScheduledBrightnessIfNeeded() {
+    if (!activeConfig.enableScheduledBrightness) {
+      scheduledBrightnessApplied = false;
+      lastNightPhaseEval = -1;
+      baselineBrightness.clear();
+      return;
+    }
+
+    const auto eval = day_night_schedule::evaluate(locationConfig, std::nullopt, std::nullopt);
+    const int nightPhase = eval.night ? 1 : 0;
+
+    if (lastNightPhaseEval == -1) {
+      lastNightPhaseEval = nightPhase;
+    } else if (nightPhase != lastNightPhaseEval) {
+      // Phase changed, update baseline when transitioning from day to night
+      if (lastNightPhaseEval == 0 && nightPhase == 1) {
+        for (auto& display : internals) {
+          if (display.pub.controllable) {
+            baselineBrightness[display.pub.id] = std::max(display.pub.brightness, activeConfig.minimumBrightness);
+          }
+        }
+      }
+      lastNightPhaseEval = nightPhase;
+    }
+
+    const float dayBright = activeConfig.scheduledDayBrightness;
+    const float nightBright = activeConfig.scheduledNightBrightness;
+
+    // Clock-anchored fade window: 60 minutes total, 30 min before/after boundary
+    const float fadeMs = std::chrono::duration<float, std::milli>(std::chrono::minutes(60)).count();
+    const float halfFade = fadeMs / 2.0F;
+    const float sinceMs = static_cast<float>(eval.sinceBoundary.count());
+    const float untilMs = static_cast<float>(eval.untilBoundary.count());
+
+    float fromBright = eval.night ? nightBright : dayBright;
+    float toBright = eval.night ? nightBright : dayBright;
+    float progress = 0.0F;
+    bool transitioning = false;
+
+    // Fade before boundary: approaching sunset or sunrise
+    if (untilMs < halfFade) {
+      // Before boundary: fade from current phase brightness to next phase brightness
+      // before sunset: fade from dayBright → nightBright
+      // before sunrise: fade from nightBright → dayBright
+      fromBright = eval.night ? nightBright : dayBright;
+      toBright = eval.night ? dayBright : nightBright;
+      progress = 1.0F - (untilMs / halfFade);
+      transitioning = true;
+    }
+
+    const float targetBright = std::lerp(fromBright, toBright, progress);
+
+    for (auto& display : internals) {
+      if (!display.pub.controllable || (display.backend != RuntimeBackend::Ddcutil && display.backend != RuntimeBackend::Backlight)) {
+        continue;
+      }
+
+      float value = targetBright;
+      // For day phase, restore from per-monitor baseline if it exists (saved during day→night transition)
+      if (!eval.night && !transitioning) {
+        auto it = baselineBrightness.find(display.pub.id);
+        if (it != baselineBrightness.end()) {
+          value = std::max(targetBright, it->second);
+        }
+      }
+
+      value = std::clamp(value, activeConfig.minimumBrightness, 1.0F);
+      setBrightness(&display, value);
+    }
+
+    scheduledBrightnessApplied = eval.night;
   }
 
   void setBacklightBrightness(DisplayInternal& display, float value) {
@@ -1680,8 +1805,8 @@ struct BrightnessService::Impl {
   }
 };
 
-BrightnessService::BrightnessService(SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config)
-    : m_impl(new Impl(bus, platform, config)) {
+BrightnessService::BrightnessService(SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, const LocationConfig& location)
+    : m_impl(new Impl(bus, platform, config, location)) {
   m_impl->rebuildState(false);
 }
 
@@ -1718,9 +1843,18 @@ void BrightnessService::requestDdcRefresh() { m_impl->queueDdcRefreshes(); }
 
 void BrightnessService::requestDdcRescan() { m_impl->scheduleDdcDetect(); }
 
-void BrightnessService::reload(const BrightnessConfig& config) { m_impl->reload(config); }
+void BrightnessService::reload(const BrightnessConfig& config, const LocationConfig& location) {
+  m_impl->reload(config, location);
+}
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
+
+void BrightnessService::reevaluateSchedule() { 
+  if (m_impl != nullptr) {
+    m_impl->applyScheduledBrightnessIfNeeded();
+    m_impl->scheduleScheduleTimer();
+  }
+}
 
 void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(BatchChangePhase)>& onBatchChange) {
   auto resolveTargets = [this,

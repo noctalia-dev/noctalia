@@ -1595,6 +1595,10 @@ struct BrightnessConfig {
   std::vector<BrightnessMonitorOverride> monitorOverrides;
   float minimumBrightness = 0.0F;
 
+  bool enableScheduledBrightness = false;
+  float scheduledNightBrightness = 0.5F;
+  float scheduledDayBrightness = 1.0F;
+
   bool operator==(const BrightnessConfig&) const = default;
 };
 
