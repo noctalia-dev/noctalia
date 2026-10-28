@@ -1493,7 +1493,7 @@ noctalia::config::schema::Diagnostics ConfigService::diagnosticsForOverrides(con
 }
 
 bool ConfigService::validateOverrideMutation(const toml::table& candidateOverrides, const OverrideDiagnostics& known) {
-  using Diagnostics = noctalia::config::schema::Diagnostics;
+  using noctalia::config::schema::Diagnostics;
   m_lastMutationError.clear();
   if (!m_overridesParseError.empty()) {
     m_lastMutationError = m_overridesParseError.flatten(m_configDir);
