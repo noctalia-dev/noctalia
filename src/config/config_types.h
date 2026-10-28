@@ -1882,9 +1882,9 @@ struct ControlCenterConfig {
   struct CalendarTabConfig {
     bool showEventsCard = true;
     bool showWeekNumbers = false;
+    bool showEventsLocation = false;
     bool hidePastEvents = false; // false keeps every finished event in today's list
     // With hidePastEvents, hide today's events that ended more than this many minutes ago. 0 = as soon as they end.
-    bool showEventsLocation = false;
     std::int32_t pastEventsThresholdMinutes = 30;
     bool operator==(const CalendarTabConfig&) const = default;
   };
