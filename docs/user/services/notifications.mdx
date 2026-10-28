@@ -24,6 +24,7 @@ offset_y                 = 8           # absolute vertical margin from the scree
 monitors                 = []          # empty = all monitors; otherwise connector/description selectors (e.g. ["eDP-1", "DP-1"])
 collapse_on_dismiss      = true        # slide remaining toasts to close gaps when one is dismissed
 keep_dismissed_in_history = true       # keep history entries when their toasts are dismissed
+group_history_by_app     = true        # group notification history entries by application into expandable stacks
 max_visible              = 0           # maximum on-screen toasts; 0 = fill available space (all visible)
 history_retention_hours  = 0           # delete stored history older than this; 0 keeps it indefinitely
 
@@ -52,6 +53,7 @@ play_sound      = true
 - Notification summaries are always plain text. Noctalia does not advertise body-markup support, so it strips the standard notification body tags (`b`, `i`, `u`, `a`, `img`, `br`) while preserving malformed or unsupported angle-bracket text literally. A `br` tag becomes a line break.
 - By default, dismissing a toast (right-click, close button, or `noctalia msg notification-clear-active`) only hides it. The entry stays in control-center history and still counts as unread until the notifications tab is opened. Set `keep_dismissed_in_history = false` to remove the history entry when its toast is dismissed. Timed-out notifications remain in history.
 - When the sending app withdraws a notification itself (for example a chat app once the message has been read there), its history entry is kept but no longer counts as unread.
+- `group_history_by_app = true` (default) groups multiple notifications from the same application into expandable stacked cards in control-center history. Set to `false` to display all history entries in a flat chronological list. Configure in **Settings → Notifications → History**.
 - `history_retention_hours` removes stored notifications older than the configured number of hours. The default `0` retains history indefinitely; accepted values are `0`–`8760`.
 - `collapse_on_dismiss = true` (default) causes remaining toasts to slide into a compact stack when one is dismissed. Set to `false` for stable-slot behavior where toasts keep their original positions.
 - `border = true` (default) draws an outline around toast cards. Set to `false` for a borderless look.

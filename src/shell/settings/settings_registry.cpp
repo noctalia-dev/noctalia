@@ -3554,6 +3554,11 @@ namespace settings {
         "history dismissed toast remove keep"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "history", tr("settings.schema.notifications.group-history-by-app.label"),
+        tr("settings.schema.notifications.group-history-by-app.description"), {"notification", "group_history_by_app"},
+        ToggleSetting{cfg.notification.groupHistoryByApp}, "history group app stack bundle collapse"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "history", tr("settings.schema.notifications.history-retention-hours.label"),
         tr("settings.schema.notifications.history-retention-hours.description"),
         {"notification", "history_retention_hours"},
