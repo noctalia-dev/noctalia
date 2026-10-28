@@ -18,6 +18,7 @@ namespace {
   // Matches InputArea's scroll gesture gap (input_area.cpp): a pause longer than this ends a
   // scroll gesture, so the next axis event resolves a fresh target.
   constexpr auto kAxisGestureGap = std::chrono::milliseconds(100);
+
   bool nodeVisibleInScene(const Node* node) {
     for (const Node* current = node; current != nullptr; current = current->parent()) {
       if (!current->visible()) {
@@ -326,8 +327,8 @@ bool InputDispatcher::pointerAxis(
 ) {
   pruneDetachedAreas();
   const auto now = std::chrono::steady_clock::now();
-  // A pause longer than the gesture gap, or the compositor ending the gesture (axis_stop bumps
-  // the serial), ends the scroll gesture: the next axis event hit-tests afresh.
+  // A pause longer than the gesture gap ends the scroll gesture: the next axis event hit-tests
+  // afresh.
   if (m_axisGestureArea != nullptr && now - m_lastAxisTime > kAxisGestureGap) {
     m_axisGestureArea = nullptr;
   }
