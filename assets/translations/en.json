@@ -681,6 +681,7 @@
         "show-caps-lock": "Caps Lock Warning",
         "show-device": "Show Device",
         "show-events": "Show Events",
+        "show-events-location": "Show Event Location",
         "show-forecast": "Show Forecast",
         "show-keyboard-layout": "Keyboard Layout",
         "show-label": "Show Label",
@@ -695,7 +696,6 @@
         "show-wave": "Show Wave",
         "show-weather": "Weather",
         "show-week-numbers": "Show Week Numbers",
-        "show-events-location": "Show event location",
         "show-when-idle": "Show When Idle",
         "stat": "Stat",
         "stat-cpu-freq": "CPU Freq",
@@ -3078,6 +3078,10 @@
           "description": "Notify before an event starts.",
           "label": "Calendar Reminders"
         },
+        "calendar-show-events-location": {
+          "description": "Show each event's location below its time in the event list",
+          "label": "Show Event Location"
+        },
         "calendar-storage": {
           "button": "Retry",
           "description-cancelled": "The encrypted storage prompt was cancelled; calendar events remain available for this session only",
@@ -3093,10 +3097,6 @@
         "calendar-week-numbers": {
           "description": "Show ISO 8601 week numbers alongside the calendar grid",
           "label": "Week Numbers"
-        },
-        "calendar-show-events-location": {
-          "description": "Display event location in the calendar view",
-          "label": "Show Event Location"
         },
         "custom-schedule": {
           "description": "Use manual sunrise/sunset times instead of computing from coordinates",
