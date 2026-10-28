@@ -17,6 +17,7 @@
 #include <format>
 #include <fstream>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <sys/statvfs.h>
 #include <vector>
@@ -378,7 +379,7 @@ namespace {
     case compositors::CompositorKind::Niri:
       return {"niri", "--version"};
     case compositors::CompositorKind::Hyprland:
-      return {"Hyprland", "--version"};
+      return {"hyprctl", "version", "-j"};
     case compositors::CompositorKind::Sway:
       return {"sway", "--version"};
     case compositors::CompositorKind::Mango:
@@ -395,6 +396,43 @@ namespace {
       break;
     }
     return {};
+  }
+
+  std::string hyprlandVersionLine(std::string_view text) {
+    const auto json = nlohmann::json::parse(text, nullptr, false);
+    if (!json.is_object()) {
+      return {};
+    }
+
+    auto version = json.find("version");
+    if (version == json.end()) {
+      // Older Hyprland releases expose the version as a tag instead.
+      version = json.find("tag");
+    }
+
+    if (version == json.end() || !version->is_string()) {
+      return {};
+    }
+
+    std::string versionText = StringUtils::trim(version->get<std::string>());
+    if (versionText.empty()) {
+      return {};
+    }
+
+    if (!versionText.starts_with('v')) {
+      versionText.insert(versionText.begin(), 'v');
+    }
+
+    std::string label = "Hyprland " + versionText;
+    const auto commit = json.find("commit");
+    if (commit != json.end() && commit->is_string()) {
+      const std::string revision = StringUtils::trim(commit->get<std::string>());
+      if (!revision.empty()) {
+        label += " (" + revision.substr(0, 12) + ")";
+      }
+    }
+
+    return label;
   }
 
   // First non-blank line, verbatim apart from surrounding whitespace and an ASCII-capitalized first letter
@@ -501,7 +539,8 @@ std::optional<std::string> compositorVersionLine(std::function<void()> onResolve
     }
   };
 
-  const std::vector<std::string> command = compositorVersionCommand(compositors::detect());
+  const auto kind = compositors::detect();
+  const std::vector<std::string> command = compositorVersionCommand(kind);
   if (command.empty() || !process::commandExists(command.front().c_str())) {
     state = State::Resolved;
     version.clear();
@@ -517,11 +556,18 @@ std::optional<std::string> compositorVersionLine(std::function<void()> onResolve
       command,
       process::RunCallbacks{
           .onExit =
-              [finish](const process::RunResult& result) {
+              [finish, kind](const process::RunResult& result) {
                 // Worker thread: extract here, publish on the main loop. Some compositors print to stderr.
-                std::string parsed = result.timedOut ? std::string{} : firstNonBlankLine(result.out);
-                if (parsed.empty() && !result.timedOut) {
-                  parsed = firstNonBlankLine(result.err);
+                std::string parsed;
+                if (kind == compositors::CompositorKind::Hyprland) {
+                  if (result && !result.outTruncated) {
+                    parsed = hyprlandVersionLine(result.out);
+                  }
+                } else if (!result.timedOut) {
+                  parsed = firstNonBlankLine(result.out);
+                  if (parsed.empty()) {
+                    parsed = firstNonBlankLine(result.err);
+                  }
                 }
                 DeferredCall::callLater([finish, parsed = std::move(parsed)] mutable { finish(std::move(parsed)); });
               },

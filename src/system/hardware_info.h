@@ -12,9 +12,11 @@
 [[nodiscard]] std::string compositorLabel();
 
 // First non-blank line of the compositor's version output with its first letter capitalized (e.g.
-// "Umbriel 0.1.0 (350794892e2b)"). Probed once per process on a worker thread. Main thread only. Returns nullopt while
-// unresolved; `onResolved` then runs on the main loop once the probe finishes (only the latest pending
-// callback is kept). Resolves to an empty string when the compositor is unknown or printed nothing.
+// "Umbriel 0.1.0 (350794892e2b)"). For Hyprland, the running version with short commit (e.g.
+// "Hyprland v0.56.2 (efb509937800)"). Probed once per process on a worker thread. Main thread only.
+// Returns nullopt while unresolved; `onResolved` then runs on the main loop once the probe finishes
+// (only the latest pending callback is kept). Resolves to an empty string when the compositor is
+// unknown or printed nothing.
 [[nodiscard]] std::optional<std::string> compositorVersionLine(std::function<void()> onResolved);
 
 // Mount points of physical (block-device backed) filesystems, deduped by backing device and sorted
