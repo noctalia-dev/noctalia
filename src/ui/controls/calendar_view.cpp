@@ -620,7 +620,7 @@ namespace calendar_view {
               ui::label({
                   .out = &locationLabel,
                   .text = event.location,
-                  .fontSize = Style::fontSizeBody * options.scale,
+                  .fontSize = Style::fontSizeCaption * options.scale,
                   .fontFamily = options.fontFamily,
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
                   .maxWidth = textMaxWidth,
