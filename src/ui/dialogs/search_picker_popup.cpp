@@ -98,14 +98,6 @@ void SearchPickerPopup::open(SearchPickerPopupRequest request) {
 
 void SearchPickerPopup::close() { destroyPopup(); }
 
-bool SearchPickerPopup::isOpen() const noexcept { return DialogPopupHost::isOpen(); }
-
-bool SearchPickerPopup::onPointerEvent(const PointerEvent& event) { return DialogPopupHost::onPointerEvent(event); }
-
-void SearchPickerPopup::onKeyboardEvent(const KeyboardEvent& event) { DialogPopupHost::onKeyboardEvent(event); }
-
-wl_surface* SearchPickerPopup::wlSurface() const noexcept { return DialogPopupHost::wlSurface(); }
-
 void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*width*/, std::uint32_t /*height*/) {
   const float panelPadding = Style::spaceSm * m_scale;
   const float panelGap = Style::spaceSm * m_scale;

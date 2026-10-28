@@ -53,13 +53,6 @@ namespace settings {
     void open(WidgetAddPopupRequest request);
     void close();
 
-    [[nodiscard]] bool isOpen() const noexcept;
-    [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
-    void onKeyboardEvent(const KeyboardEvent& event);
-    [[nodiscard]] wl_surface* wlSurface() const noexcept;
-    void requestLayout();
-    void requestRedraw();
-
   protected:
     void populateContent(Node* contentParent, std::uint32_t width, std::uint32_t height) override;
     void layoutSheet(float contentWidth, float contentHeight) override;
