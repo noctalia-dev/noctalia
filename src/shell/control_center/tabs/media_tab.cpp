@@ -289,6 +289,7 @@ std::unique_ptr<Flex> MediaTab::create() {
           .trackHeight = 7.0F * scale,
           .thumbSize = 16.0F * scale,
           .controlHeight = (Style::controlHeight + Style::spaceXs) * scale,
+          .wheelAdjustEnabled = false,
           .onValueChanged =
               [this](double value) {
                 if (m_syncingProgress || m_mpris == nullptr) {

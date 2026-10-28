@@ -76,7 +76,7 @@ Slider::Slider() {
     updateFromLocalX(data.localX);
   });
   area->setOnAxisHandler([this](const InputArea::PointerData& data) {
-    if (!m_enabled || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
+    if (!m_enabled || !m_wheelAdjustEnabled || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
       return false;
     }
     // Frame direction comes from the raw delta: detent-less streams (touchpads) quantize to a
@@ -230,6 +230,8 @@ void Slider::setControlHeight(float height) {
   updateGeometry();
   markLayoutDirty();
 }
+
+void Slider::setWheelAdjustEnabled(bool enabled) { m_wheelAdjustEnabled = enabled; }
 
 void Slider::setOnValueChanged(std::function<void(double)> callback) { m_onValueChanged = std::move(callback); }
 
