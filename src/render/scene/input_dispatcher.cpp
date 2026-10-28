@@ -15,9 +15,10 @@
 
 namespace {
   constexpr float kTouchScrollSlop = 8.0F;
-  // Matches InputArea's scroll gesture gap (input_area.cpp): a pause longer than this ends a
-  // scroll gesture, so the next axis event resolves a fresh target.
-  constexpr auto kAxisGestureGap = std::chrono::milliseconds(100);
+  // A scroll gesture keeps its target until the pointer moves or the wheel rests this long. Slow
+  // notch-by-notch wheel scrolling leaves several hundred ms between notches, so a short gap would
+  // let a slider that scrolled under a still pointer take over the page scroll.
+  constexpr auto kAxisGestureGap = std::chrono::milliseconds(1000);
 
   bool nodeVisibleInScene(const Node* node) {
     for (const Node* current = node; current != nullptr; current = current->parent()) {
@@ -148,11 +149,14 @@ void InputDispatcher::pointerMotion(float x, float y, std::uint32_t serial) {
   if (serial != 0) {
     m_lastSerial = serial;
   }
+  // Pointer movement ends the scroll gesture: the next axis event hit-tests at the new position.
+  // Hosts that replay the current position before each axis event must not end it.
+  if (!m_hasPointerPosition || x != m_lastPointerX || y != m_lastPointerY) {
+    m_axisGestureArea = nullptr;
+  }
   m_lastPointerX = x;
   m_lastPointerY = y;
   m_hasPointerPosition = true;
-  // Pointer movement ends the scroll gesture: the next axis event hit-tests at the new position.
-  m_axisGestureArea = nullptr;
 
   if (m_touchGesture.pending) {
     const float dx = x - m_touchGesture.pressX;
