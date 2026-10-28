@@ -5,7 +5,6 @@
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "shell/bar/widget_action.h"
-#include "shell/bar/widget_gesture.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content_common.h"

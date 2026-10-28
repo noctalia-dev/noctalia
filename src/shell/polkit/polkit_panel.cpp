@@ -16,7 +16,6 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
-#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <memory>

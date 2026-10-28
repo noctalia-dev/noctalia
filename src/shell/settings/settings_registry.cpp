@@ -5,7 +5,6 @@
 #include "config/schema/ranges.h"
 #include "core/files/directory_scanner.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "i18n/i18n.h"
 #include "launcher/panel_catalog.h"
 #include "pipewire/sound_player.h"

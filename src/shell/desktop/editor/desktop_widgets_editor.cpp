@@ -12,7 +12,6 @@
 #include "render/backend/render_backend.h"
 #include "render/core/color.h"
 #include "render/core/shared_texture_cache.h"
-#include "render/core/texture_manager.h"
 #include "render/core/wallpaper_types.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"

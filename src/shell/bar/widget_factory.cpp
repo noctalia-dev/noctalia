@@ -71,12 +71,10 @@
 #include "shell/bar/widgets/weather_widget_definition.h"
 #include "shell/bar/widgets/workspaces_widget.h"
 #include "shell/bar/widgets/workspaces_widget_definition.h"
-#include "ui/style.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <format>
 #include <memory>
 #include <string>

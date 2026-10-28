@@ -2,7 +2,6 @@
 
 #include "core/files/resource_paths.h"
 #include "core/log.h"
-#include "core/scoped_timer.h"
 #include "core/ui_phase.h"
 #include "render/backend/render_backend.h"
 #include "render/core/lockscreen_transition_types.h"

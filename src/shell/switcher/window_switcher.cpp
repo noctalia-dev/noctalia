@@ -49,7 +49,6 @@
 #include <unordered_set>
 #include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
-#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 

@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
-#include <vector>
 
 namespace noctalia::theme::firefox_theme::css {
   namespace {

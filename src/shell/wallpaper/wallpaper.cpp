@@ -27,7 +27,6 @@
 #include "wayland/wayland_seat.h"
 
 #include <algorithm>
-#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
