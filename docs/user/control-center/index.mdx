@@ -182,10 +182,10 @@ Right-click a day to launch the application registered for the `text/calendar` M
 
 ```toml
 [control_center.calendar]
-show_events_card  = true
-show_week_numbers = false       # ISO 8601 week numbers in the month grid
-show_events_location = false    # show the location of the events on the event list
-hide_past_events  = false       # hide today's finished events from the event list
+show_events_card     = true
+show_week_numbers    = false    # ISO 8601 week numbers in the month grid
+show_events_location = false    # show each event's location below its time
+hide_past_events     = false    # hide today's finished events from the event list
 past_events_threshold_minutes = 30
 ```
 
@@ -193,7 +193,7 @@ past_events_threshold_minutes = 30
 | ------------------------------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `show_events_card`              | bool | `true`  | Show the event list beside the month grid. Also toggled from the calendar button in the tab header.                                                                                                                                                                                                                                                    |
 | `show_week_numbers`             | bool | `false` | Show a column of ISO 8601 week numbers to the left of the month grid, separated from it by a divider. Each row is numbered by the week its Thursday falls in.                                                                                                                                                                                          |
-| `show_events_location`          | bool | `false` | Show the events' location on the list underneath the name and time.                                                                                                                                                                                                                                                                                    |
+| `show_events_location`          | bool | `false` | Show each event's location below its time in the event list. Locations that are web links (`http://` or `https://`) are not shown. The desktop calendar widget has its own `show_events_location` setting.                                                                                                                                             |
 | `hide_past_events`              | bool | `false` | Hide today's events that have already ended from the event list. When `false`, every event of the day is shown and finished ones are dimmed. Other days are not affected. The desktop calendar widget follows this option too. While events are hidden, a **Show N past events** row at the top of the list reveals them; click it again to hide them. |
 | `past_events_threshold_minutes` | int  | `30`    | With `hide_past_events` on, an event stays visible for this many minutes after it ends (0–1440). `0` hides it as soon as it ends.                                                                                                                                                                                                                      |
 
