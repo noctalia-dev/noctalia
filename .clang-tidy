@@ -14,6 +14,7 @@ Checks: >-
   modernize-raw-string-literal,
   modernize-use-auto,
   modernize-use-bool-literals,
+  modernize-use-constraints,
   modernize-use-emplace,
   modernize-use-override,
   modernize-use-ranges,
