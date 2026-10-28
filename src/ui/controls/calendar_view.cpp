@@ -572,8 +572,8 @@ namespace calendar_view {
         const bool showLocation = options.showEventsLocation
             && !event.location.empty()
             && event.location != link
-            && event.location.rfind("http://", 0) != 0
-            && event.location.rfind("https://", 0) != 0;
+            && !event.location.starts_with("http://")
+            && !event.location.starts_with("https://");
 
         Label* locationLabel = nullptr;
         Label* timeLabel = nullptr;
