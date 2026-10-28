@@ -17,6 +17,7 @@ Noctalia is available on the following distributions. Choose your platform below
 - [GNU Guix](#guix)
 - [Debian](#debian) (including Ubuntu)
 - [Chimera Linux](#chimera)
+- [Void Linux](#void)
 
 You can also [install manually](#manual-install) on any other Linux distribution.
 
@@ -259,6 +260,30 @@ apk add chimera-repo-user
 ```bash
 apk update
 apk add noctalia
+```
+
+---
+
+## Void Linux {#void}
+
+Noctalia is provided by third-party repository [`UniversalRepository`](https://universalrepo.pages.dev)
+
+**Step 1**: Install repository
+
+```bash
+echo 'repository=https://universalrepo.pages.dev/void' | sudo tee /etc/xbps.d/10-universalrepository.conf
+```
+
+**Step 2**: Sync and import the signkey
+
+```bash
+sudo xbps-install -S
+```
+
+**Step 3**: Install noctalia
+
+```bash
+sudo xbps-install -S noctalia
 ```
 
 ---
