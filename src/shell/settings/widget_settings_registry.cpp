@@ -1350,13 +1350,11 @@ namespace settings {
       return !widgetSettingValuesEqual(*withValue, *withoutValue);
     }
 
-    const WidgetSettingValue defaultValue = field->defaultValue;
     const auto resolvedValue = [&](const Config& cfg) -> WidgetSettingValue {
       if (const auto value = valueInConfig(cfg, widgetName, settingKey); value.has_value()) {
         return *value;
       }
-      // The captured default is reused by both calls to this lambda.
-      return defaultValue; // NOLINT(performance-no-automatic-move)
+      return field->defaultValue;
     };
 
     return !widgetSettingValuesEqual(resolvedValue(withOverride), resolvedValue(withoutOverride));
