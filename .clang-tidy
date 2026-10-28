@@ -29,6 +29,7 @@ Checks: >-
   performance-no-automatic-move,
   performance-prefer-single-char-overloads,
   performance-string-view-conversions,
+  performance-trivially-destructible,
   performance-unnecessary-copy-initialization,
   performance-unnecessary-value-param,
   performance-use-std-move,

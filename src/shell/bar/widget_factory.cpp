@@ -109,8 +109,6 @@ WidgetFactory::WidgetFactory(const BarServices& services)
   scripting::PluginRegistry::instance().ensureScanned();
 }
 
-WidgetFactory::~WidgetFactory() = default;
-
 std::unique_ptr<Widget> WidgetFactory::create(
     const std::string& name, wl_output* output, float contentScale, const std::string& barPosition,
     const std::string& barName, float widgetSpacing, bool enableScroll
