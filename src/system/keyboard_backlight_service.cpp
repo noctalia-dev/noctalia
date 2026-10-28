@@ -27,6 +27,7 @@ namespace {
   constexpr auto kUpowerInterface = "org.freedesktop.UPower";
   constexpr auto kKbdBacklightInterface = "org.freedesktop.UPower.KbdBacklight";
   constexpr std::string_view kKbdBacklightPathPrefix = "/org/freedesktop/UPower/KbdBacklight/";
+  constexpr int kDefaultKeyboardBacklightStepPercent = 5;
 
   bool isKbdBacklightPath(const sdbus::ObjectPath& path) {
     return std::string_view{path}.starts_with(kKbdBacklightPathPrefix);
@@ -49,6 +50,17 @@ namespace {
   }
 
 } // namespace
+
+// Raw quanta for one device from a percentage of its maximum, floored at one quanta so
+// LEDs with a small maximum range still move.
+int keyboardBacklightStepQuanta(int stepPercent, int maxBrightness) {
+  if (stepPercent == 0) {
+    return 0;
+  }
+  const int percent = stepPercent > 0 ? stepPercent : -stepPercent;
+  const int magnitude = std::max(1, static_cast<int>(std::round(percent / 100.0 * maxBrightness)));
+  return stepPercent > 0 ? magnitude : -magnitude;
+}
 
 struct KeyboardBacklightService::Device {
   std::string path;
@@ -171,10 +183,10 @@ bool KeyboardBacklightService::setPercent(int percent) {
   return success;
 }
 
-bool KeyboardBacklightService::adjustBrightness(int delta) {
+bool KeyboardBacklightService::adjustBrightness(int stepPercent) {
   bool success = true;
   for (auto& device : m_devices) {
-    if (!setBrightness(*device, device->brightness + delta)) {
+    if (!setBrightness(*device, device->brightness + keyboardBacklightStepQuanta(stepPercent, device->maxBrightness))) {
       success = false;
     }
   }
@@ -216,7 +228,8 @@ void KeyboardBacklightService::registerIpc(IpcService& ipc) {
     if (!available()) {
       return "error: keyboard backlight unavailable\n";
     }
-    return adjustBrightness(1) ? "ok\n" : "error: failed to set keyboard backlight\n";
+    return adjustBrightness(kDefaultKeyboardBacklightStepPercent) ? "ok\n"
+                                                                  : "error: failed to set keyboard backlight\n";
   });
 
   ipc.bind(noctalia::cli::msg::keyboardBacklightDown, [this](const std::string& args) -> std::string {
@@ -226,7 +239,8 @@ void KeyboardBacklightService::registerIpc(IpcService& ipc) {
     if (!available()) {
       return "error: keyboard backlight unavailable\n";
     }
-    return adjustBrightness(-1) ? "ok\n" : "error: failed to set keyboard backlight\n";
+    return adjustBrightness(-kDefaultKeyboardBacklightStepPercent) ? "ok\n"
+                                                                   : "error: failed to set keyboard backlight\n";
   });
 
   ipc.bind(noctalia::cli::msg::keyboardBacklightToggle, [this](const std::string& args) -> std::string {
