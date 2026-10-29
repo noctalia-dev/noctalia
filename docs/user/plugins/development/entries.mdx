@@ -19,6 +19,7 @@ A script defines **global functions** that Noctalia calls, and drives the UI thr
 | `onQuery(text)`                        |        |          |     ✓    |         |       |       |         | launcher text changed (behind the prefix)                                                                                           |
 | `onActivate(id)`                       |        |          |     ✓    |         |       |       |         | a launcher result was selected                                                                                                      |
 | `onEnable()`                           |        |          |          |         |       |       |    ✓    | the plugin was explicitly enabled successfully (see below)                                                                          |
+| `onSuspend()` / `onResume()`           |        |          |          |         |       |       |    ✓    | the system is about to sleep / has woken up (see below)                                                                             |
 | `onOpen(context)` / `onClose()`        |        |          |          |         |   ✓   |       |         | the panel is opened / closed                                                                                                        |
 | `onKey(chord, pressed)`                |        |          |          |         |   ✓   |       |         | a `capture_keys` chord while the panel is focused ([details](/noctalia/plugins/development/declarative-ui/#handling-keys-directly)) |
 | `onFrameTick(deltaMs)`                 |        |          |          |    ✓    |   ✓   |   ✓   |         | every frame, after `desktopWidget.setNeedsFrameTick(true)` / `panel.setNeedsFrameTick(true)` / `layer.setNeedsFrameTick(true)`      |
@@ -149,6 +150,21 @@ end
 `onEnable()` describes an explicit plugin-manager action, not every service start. It does not run during ordinary Noctalia startup, a source update, a script reload, or a settings-driven service restart. Use top-level initialization for normal service startup.
 
 Lifecycle hooks can only run while an entry runtime exists. Removing a plugin that was already disabled cannot invoke `onExit(0, "uninstall")` because none of its entries are loaded. Cleanup that must also cover that sequence should therefore be idempotent and available through the plugin's normal controls.
+
+### Reacting to suspend and resume in a service
+
+Service entries can define `onSuspend()` and `onResume()` <PluginApiBadge feature="sleep-callbacks" />. Noctalia calls them when logind announces that the system is about to sleep and when it has woken up again:
+
+```lua
+function onResume()
+  -- Connections opened before the suspend may be dead; reconnect and refresh now.
+  reconnect()
+end
+```
+
+Use `onResume()` for anything that does not survive a suspend on its own: open connections, sockets, streams, and sampling baselines. `noctalia.nowMs()` is wall-clock time, so the first delta after waking up spans the whole sleep; reset such baselines in `onResume()`. The network may still be coming up when `onResume()` runs, so retry failed requests instead of giving up.
+
+`onSuspend()` is best effort. Noctalia does not delay the suspend for plugins, so the system can freeze before the callback runs. Keep it short and do not rely on it for cleanup that must happen; `onResume()` runs after every wake-up.
 
 ### Reacting to settings changes in a service
 

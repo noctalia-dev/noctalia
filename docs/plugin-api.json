@@ -244,5 +244,11 @@
     "noctaliaVersion": null,
     "feature": "container-color-roles",
     "introduced": "Container color roles (`primary_container`, `surface_container`, `surface_container_high`, `outline_variant`, `scrim`, ...). `surface_variant` and `outline` are retired as role names; use `surface_container` and `outline_variant`."
+  },
+  {
+    "level": 44,
+    "noctaliaVersion": null,
+    "feature": "sleep-callbacks",
+    "introduced": "`onSuspend()` and `onResume()` on `[[service]]` entries, called when the system goes to sleep and wakes up."
   }
 ]
