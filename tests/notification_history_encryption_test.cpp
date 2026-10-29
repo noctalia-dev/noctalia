@@ -86,11 +86,14 @@ namespace {
     std::uint32_t nextId = 0;
     std::uint64_t serial = 0;
     TEST_CHECK(loadNotificationHistoryFromFile(path, loaded, nextId, serial, key));
-    TEST_CHECK(loaded.size() == 1 && loaded.front().notification.body == "Your code is 482913");
+    TEST_CHECK(loaded.size() == 1);
+    TEST_CHECK(loaded.front().notification.body == "Your code is 482913");
     TEST_CHECK(loaded.front().notification.imageData->data.size() == 16);
-    TEST_CHECK(nextId == 8 && serial == 9);
+    TEST_CHECK(nextId == 8);
+    TEST_CHECK(serial == 9);
     TEST_CHECK(!loadNotificationHistoryFromFile(path, loaded, nextId, serial, wrongKey));
-    TEST_CHECK(contents(path) == ciphertext && loaded.size() == 1);
+    TEST_CHECK(contents(path) == ciphertext);
+    TEST_CHECK(loaded.size() == 1);
 
     // A corrupt encrypted file must never fall back to a stale plaintext manifest.
     write(dir / "history.json", R"({"entries":[],"next_id":1})");
@@ -98,14 +101,20 @@ namespace {
     damaged.back() ^= 1;
     write(path, damaged);
     TEST_CHECK(!loadNotificationHistoryFromFile(path, loaded, nextId, serial, key));
-    TEST_CHECK(contents(path) == damaged && fs::exists(dir / "history.json"));
-    write(path, ciphertext);
-    write(asset, "damaged image");
-    TEST_CHECK(!loadNotificationHistoryFromFile(path, loaded, nextId, serial, key));
+    TEST_CHECK(contents(path) == damaged);
     TEST_CHECK(fs::exists(dir / "history.json"));
+    write(path, ciphertext);
+    // A damaged preview drops only that image; the authenticated manifest still loads.
+    write(asset, "damaged image");
+    TEST_CHECK(loadNotificationHistoryFromFile(path, loaded, nextId, serial, key));
+    TEST_CHECK(loaded.size() == 1);
+    TEST_CHECK(loaded.front().notification.body == "Your code is 482913");
+    TEST_CHECK(!loaded.front().notification.imageData.has_value());
+    TEST_CHECK(!fs::exists(dir / "history.json"));
+    TEST_CHECK(contents(path) == ciphertext);
     write(asset, imageCiphertext);
     TEST_CHECK(loadNotificationHistoryFromFile(path, loaded, nextId, serial, key));
-    TEST_CHECK(!fs::exists(dir / "history.json"));
+    TEST_CHECK(loaded.front().notification.imageData->data.size() == 16);
 
     write(asset.parent_path() / "n_123.rgba", "old plaintext pixels");
     TEST_CHECK(saveNotificationHistoryToFile(path, {}, 8, 9, key));
@@ -141,14 +150,18 @@ namespace {
     const auto originalPixels = contents(assets / "n_1.rgba");
     TEST_CHECK(!loadNotificationHistoryFromFile(path, loaded, nextId, serial, key));
     TEST_CHECK(!fs::exists(path));
-    TEST_CHECK(contents(legacy) == originalJson && contents(assets / "n_1.rgba") == originalPixels);
+    TEST_CHECK(contents(legacy) == originalJson);
+    TEST_CHECK(contents(assets / "n_1.rgba") == originalPixels);
     TEST_CHECK(contents(legacy.string() + ".tmp") == "abandoned plaintext write");
     fs::remove(path.string() + ".tmp");
     TEST_CHECK(loadNotificationHistoryFromFile(path, loaded, nextId, serial, key));
-    TEST_CHECK(loaded.size() == 1 && loaded.front().notification.body == "legacy secret");
+    TEST_CHECK(loaded.size() == 1);
+    TEST_CHECK(loaded.front().notification.body == "legacy secret");
     TEST_CHECK(loaded.front().notification.imageData->data.size() == 16);
-    TEST_CHECK(!fs::exists(legacy) && !fs::exists(legacy.string() + ".tmp"));
-    TEST_CHECK(!fs::exists(assets / "n_1.rgba") && !fs::exists(assets / "i_orphan.webp"));
+    TEST_CHECK(!fs::exists(legacy));
+    TEST_CHECK(!fs::exists(legacy.string() + ".tmp"));
+    TEST_CHECK(!fs::exists(assets / "n_1.rgba"));
+    TEST_CHECK(!fs::exists(assets / "i_orphan.webp"));
     for (const auto& item : fs::directory_iterator(assets)) {
       TEST_CHECK(contents(item.path()).starts_with("NOCTALIAENC1"));
       privateFile(item.path());
@@ -162,11 +175,24 @@ namespace {
     const auto invalid = dir / "invalid.enc";
     write(dir / "invalid.json", R"({"entries":[{"notification":{"id":"invalid"}}]})");
     TEST_CHECK(!loadNotificationHistoryFromFile(invalid, loaded, nextId, serial, key));
-    TEST_CHECK(fs::exists(dir / "invalid.json") && !fs::exists(invalid));
+    TEST_CHECK(fs::exists(dir / "invalid.json"));
+    TEST_CHECK(!fs::exists(invalid));
     write(dir / "invalid.json", R"({"entries":[{"notification":{"image_data":{"image_file":"../outside"}}}]})");
     TEST_CHECK(!loadNotificationHistoryFromFile(invalid, loaded, nextId, serial, key));
     write(dir / "invalid.json", std::string(16 * 1024 * 1024 + 1, 'x'));
     TEST_CHECK(!loadNotificationHistoryFromFile(invalid, loaded, nextId, serial, key));
+
+    // A missing legacy preview must not block migration and leave plaintext behind.
+    const auto missing = dir / "missing.enc";
+    write(
+        dir / "missing.json",
+        R"({"version":2,"entries":[{"notification":{"id":1,"body":"legacy secret","image_data":{"width":2,"height":2,"channels":4,"image_file":"n_404.rgba"}}}]})"
+    );
+    TEST_CHECK(loadNotificationHistoryFromFile(missing, loaded, nextId, serial, key));
+    TEST_CHECK(loaded.size() == 1);
+    TEST_CHECK(!loaded.front().notification.imageData.has_value());
+    TEST_CHECK(!fs::exists(dir / "missing.json"));
+    TEST_CHECK(fs::exists(missing));
   }
 
   void testManager(const fs::path& dir) {
@@ -181,7 +207,9 @@ namespace {
     const auto key = provider.deriveKey(security::StorageKeyPurpose::NotificationHistory);
     const auto clipboardKey = provider.deriveKey(security::StorageKeyPurpose::ClipboardHistory);
     const auto calendarKey = provider.deriveKey(security::StorageKeyPurpose::CalendarEvents);
-    TEST_CHECK(key && clipboardKey && calendarKey);
+    TEST_CHECK(key);
+    TEST_CHECK(clipboardKey);
+    TEST_CHECK(calendarKey);
     const std::deque<NotificationHistoryEntry> saved{
         {.notification = {
              .id = 1, .origin = NotificationOrigin::External, .body = "saved secret", .urgency = Urgency::Normal
@@ -200,7 +228,8 @@ namespace {
     TEST_CHECK(contents(path) == before);
     TEST_CHECK(!fs::exists(path.parent_path() / "notification_history.json"));
     manager.syncHistoryPersistence(provider);
-    TEST_CHECK(manager.history().size() == 2 && !manager.historyNeedsRecovery());
+    TEST_CHECK(manager.history().size() == 2);
+    TEST_CHECK(!manager.historyNeedsRecovery());
     TEST_CHECK(manager.history().front().notification.id != liveId);
     TEST_CHECK(manager.all().front().id == liveId);
     manager.syncHistoryPersistence(provider);
@@ -217,7 +246,8 @@ namespace {
     write(keyFile, std::string(64, '1'));
     provider.retry();
     manager.syncHistoryPersistence(provider);
-    TEST_CHECK(!manager.historyNeedsRecovery() && manager.history().size() == 3);
+    TEST_CHECK(!manager.historyNeedsRecovery());
+    TEST_CHECK(manager.history().size() == 3);
     drain();
 
     fs::remove(keyFile);
@@ -226,15 +256,19 @@ namespace {
     TEST_CHECK(manager.historyNeedsRecovery());
     const auto locked = contents(path);
     manager.flushPersistedHistory();
-    TEST_CHECK(contents(path) == locked && manager.hasEncryptedHistory());
+    TEST_CHECK(contents(path) == locked);
+    TEST_CHECK(manager.hasEncryptedHistory());
     TEST_CHECK(manager.clearEncryptedHistoryForRecovery());
-    TEST_CHECK(!fs::exists(path) && !manager.hasEncryptedHistory());
-    TEST_CHECK(!manager.historyNeedsRecovery() && manager.history().empty());
+    TEST_CHECK(!fs::exists(path));
+    TEST_CHECK(!manager.hasEncryptedHistory());
+    TEST_CHECK(!manager.historyNeedsRecovery());
+    TEST_CHECK(manager.history().empty());
     write(keyFile, std::string(64, '1'));
     provider.setChangeCallback([&]() { manager.syncHistoryPersistence(provider); });
     bool reset = false;
     provider.resetAfterEncryptedDataCleared([&](bool success) { reset = success; });
-    TEST_CHECK(reset && manager.historyPersistenceReady());
+    TEST_CHECK(reset);
+    TEST_CHECK(manager.historyPersistenceReady());
     TEST_CHECK(contents(keyFile) == std::string(64, '1'));
     TEST_CHECK(readNotificationHistoryJson(path, *key)["entries"].empty());
     TEST_CHECK(!fs::exists(path.parent_path() / "notification_history_assets"));

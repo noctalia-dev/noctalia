@@ -299,17 +299,21 @@ namespace {
       if (std::filesystem::path(fileOnly).filename() != fileOnly || fileOnly == "." || fileOnly == "..") {
         throw std::runtime_error("invalid notification image filename");
       }
+      // A preview that is missing, unreadable, or fails authentication is dropped; the authenticated manifest
+      // still loads, and the next save prunes the unreferenced file.
       const auto blobPath = assetsDirectoryForJson(jsonFilePath) / fileOnly;
       if (legacy) {
         auto bytes = readLegacy(blobPath, kMaxImageBytes);
         if (!bytes) {
-          throw std::runtime_error("could not read legacy notification image");
+          kLog.warn("dropping unreadable legacy notification image {}", blobPath.string());
+          return std::nullopt;
         }
         img.data = std::move(*bytes);
       } else {
         auto result = security::readEncryptedFile(blobPath, key, imageContext(blobPath), kMaxImageBytes);
         if (!result.succeeded()) {
-          throw std::runtime_error("could not authenticate notification image");
+          kLog.warn("dropping unreadable or unauthenticated notification image {}", blobPath.string());
+          return std::nullopt;
         }
         img.data = std::move(result.plaintext);
       }
@@ -335,10 +339,10 @@ namespace {
           }
         }
         kLog.warn("could not decode notification image blob {} ({})", blobPath.string(), decoded.error());
-      } else if (img.width > 0 && img.height > 0) {
-        kLog.warn("missing or empty image blob {}", blobPath.string());
+      } else {
+        kLog.warn("empty notification image blob {}", blobPath.string());
       }
-      return img;
+      return std::nullopt;
     }
 
     const auto b64 = j.value("data_b64", std::string());
@@ -609,6 +613,7 @@ bool loadNotificationHistoryFromFile(
     std::error_code ec;
     if (!std::filesystem::exists(legacyPath, ec)) {
       if (ec || std::filesystem::exists(legacyPath.string() + ".tmp", ec) || ec) {
+        kLog.warn("uncommitted notification history write {}.tmp was preserved", legacyPath.string());
         return false;
       }
       out.clear();
@@ -618,6 +623,7 @@ bool loadNotificationHistoryFromFile(
     }
     auto bytes = readLegacy(legacyPath, kMaxHistoryBytes);
     if (!bytes) {
+      kLog.warn("could not read legacy notification history {}", legacyPath.string());
       return false;
     }
     result.plaintext = std::move(*bytes);
@@ -632,11 +638,11 @@ bool loadNotificationHistoryFromFile(
   try {
     const auto root = nlohmann::json::parse(result.plaintext);
     if (!root.is_object()) {
-      return false;
+      throw std::runtime_error("history root is not an object");
     }
     const auto version = root.value("version", legacy ? 2 : 3);
     if ((legacy && version != 1 && version != 2) || (!legacy && version != 3)) {
-      return false;
+      throw std::runtime_error("unsupported history version");
     }
 
     nextId = root.value("next_id", 1U);
@@ -644,7 +650,7 @@ bool loadNotificationHistoryFromFile(
 
     const auto entries = root.find("entries");
     if (entries == root.end() || !entries->is_array()) {
-      return false;
+      throw std::runtime_error("history entries are missing");
     }
 
     std::uint32_t maxId = 0;
@@ -652,7 +658,7 @@ bool loadNotificationHistoryFromFile(
 
     for (const auto& item : *entries) {
       if (!item.is_object()) {
-        return false;
+        throw std::runtime_error("history entry is not an object");
       }
       NotificationHistoryEntry he;
       he.notification = notificationFromJson(item.at("notification"), path, key, legacy);
@@ -673,25 +679,24 @@ bool loadNotificationHistoryFromFile(
     nextId = std::max(nextId, maxId + 1);
     changeSerial = std::max(changeSerial, maxSerial);
 
-    constexpr std::size_t kMaxHistoryEntries = 100;
-    while (loaded.size() > kMaxHistoryEntries) {
+    while (loaded.size() > kNotificationHistoryMaxEntries) {
       loaded.pop_front();
     }
 
-  } catch (const std::exception&) {
-    kLog.warn("notification history contains invalid data");
+  } catch (const std::exception& e) {
+    kLog.warn("notification history contains invalid data: {}", e.what());
     return false;
   }
 
   if (legacy && !saveNotificationHistoryToFile(path, loaded, nextId, changeSerial, key)) {
+    kLog.warn("could not migrate plaintext notification history; plaintext files were preserved");
     return false;
   }
   const auto manifest = security::readEncryptedFile(path, key, kHistoryContext, kMaxHistoryBytes);
-  if (!manifest.succeeded()) {
-    return false;
-  }
-  const auto savedRoot = nlohmann::json::parse(manifest.plaintext, nullptr, false);
+  const auto savedRoot = manifest.succeeded() ? nlohmann::json::parse(manifest.plaintext, nullptr, false)
+                                              : nlohmann::json(nlohmann::json::value_t::discarded);
   if (savedRoot.is_discarded()) {
+    kLog.warn("could not verify encrypted notification history");
     return false;
   }
   std::unordered_set<std::string> keepImageFiles;
@@ -700,17 +705,18 @@ bool loadNotificationHistoryFromFile(
     for (const auto& filename : keepImageFiles) {
       const auto asset = assetsDirectoryForJson(path) / filename;
       if (!security::readEncryptedFile(asset, key, imageContext(asset), kMaxImageBytes).succeeded()) {
+        kLog.warn("could not verify migrated notification image {}", asset.string());
         return false;
       }
     }
   }
   std::error_code ec;
   std::filesystem::remove(legacyPath, ec);
-  if (ec) {
-    return false;
+  if (!ec) {
+    std::filesystem::remove(legacyPath.string() + ".tmp", ec);
   }
-  std::filesystem::remove(legacyPath.string() + ".tmp", ec);
   if (ec || !pruneOrphanImageBlobs(path, keepImageFiles)) {
+    kLog.warn("could not remove stale notification history files: {}", ec ? ec.message() : "image cleanup failed");
     return false;
   }
   out = std::move(loaded);
