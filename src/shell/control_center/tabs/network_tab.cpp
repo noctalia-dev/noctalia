@@ -795,6 +795,17 @@ std::unique_ptr<Flex> NetworkTab::create() {
 
   passwordCard->addChild(std::move(enterpriseFields));
 
+  passwordCard->addChild(
+      ui::input({
+          .out = &m_hiddenSsidInput,
+          .placeholder = i18n::tr("control-center.network.hidden-ssid"),
+          .surfaceOpacity = panelCardOpacity(),
+          .surfaceRole = ColorRole::Surface,
+          .visible = false,
+          .onSubmit = submitFromForm,
+      })
+  );
+
   auto inputRow = ui::row(
       {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
       ui::input({
@@ -956,6 +967,7 @@ void NetworkTab::onClose() {
 void NetworkTab::syncPasswordCard() {
   if (m_hasPendingSecret
       && !m_pendingAccessPoint.has_value()
+      && !m_pendingHidden
       && m_secrets != nullptr
       && !m_secrets->hasPendingRequest()) {
     clearPasswordPrompt();
@@ -967,8 +979,13 @@ void NetworkTab::syncPasswordCard() {
   if (m_enterpriseFields != nullptr) {
     m_enterpriseFields->setVisible(m_hasPendingSecret && m_pendingEnterprise);
   }
+  if (m_hiddenSsidInput != nullptr) {
+    m_hiddenSsidInput->setVisible(m_hasPendingSecret && m_pendingHidden);
+  }
   if (m_hasPendingSecret && m_passwordTitle != nullptr) {
-    if (m_pendingSsid.empty()) {
+    if (m_pendingHidden) {
+      m_passwordTitle->setText(i18n::tr("control-center.network.hidden-prompt"));
+    } else if (m_pendingSsid.empty()) {
       m_passwordTitle->setText(i18n::tr("control-center.network.password-prompt"));
     } else if (m_pendingEnterprise) {
       m_passwordTitle->setText(i18n::tr("control-center.network.enterprise-prompt-for", "ssid", m_pendingSsid));
@@ -983,7 +1000,7 @@ void NetworkTab::focusPendingPasswordPrompt() {
     return;
   }
   // The enterprise form starts with the identity; a plain prompt only has the password.
-  Input* target = m_pendingEnterprise ? m_identityInput : m_passwordInput;
+  Input* target = m_pendingHidden ? m_hiddenSsidInput : m_pendingEnterprise ? m_identityInput : m_passwordInput;
   if (target != nullptr) {
     PanelManager::instance().focusArea(target->inputArea());
   }
@@ -1034,7 +1051,7 @@ void NetworkTab::showPasswordPrompt(const NetworkSecretAgent::SecretRequest& req
   // through would replace the card mid-typing and discard what has been entered.
   // Decline instead, so NM stops waiting rather than blocking on a prompt that
   // will never be answered.
-  if (m_hasPendingSecret && m_pendingAccessPoint.has_value()) {
+  if (m_hasPendingSecret && (m_pendingAccessPoint.has_value() || m_pendingHidden)) {
     if (m_secrets != nullptr) {
       m_secrets->cancelSecret();
     }
@@ -1069,8 +1086,42 @@ void NetworkTab::showPasswordPrompt(const AccessPointInfo& ap) {
   PanelManager::instance().requestLayout();
 }
 
+void NetworkTab::showHiddenNetworkPrompt() {
+  clearPasswordPrompt();
+  m_hasPendingSecret = true;
+  m_pendingHidden = true;
+  m_focusPasswordPrompt = m_active;
+  if (m_listScroll != nullptr) {
+    m_listScroll->setScrollOffset(0.0F);
+  }
+  PanelManager::instance().requestLayout();
+}
+
 void NetworkTab::submitPasswordPrompt(const std::string& value) {
-  if (m_pendingAccessPoint.has_value() && m_pendingEnterprise) {
+  if (m_pendingHidden) {
+    if (m_network == nullptr) {
+      return;
+    }
+    const std::string ssid = m_hiddenSsidInput != nullptr ? m_hiddenSsidInput->value() : std::string{};
+    // Rejections keep the card open with a reason, like the enterprise form.
+    switch (network_hidden::validateSsid(ssid)) {
+    case network_hidden::Validation::MissingSsid:
+      setCredentialError(i18n::tr("control-center.network.error-missing-ssid"));
+      PanelManager::instance().refresh();
+      return;
+    case network_hidden::Validation::SsidTooLong:
+      setCredentialError(i18n::tr("control-center.network.error-ssid-too-long"));
+      PanelManager::instance().refresh();
+      return;
+    case network_hidden::Validation::Ok:
+      break;
+    }
+    if (!m_network->activateHiddenNetwork(ssid, value)) {
+      setCredentialError(i18n::tr("control-center.network.error-hidden-unsupported"));
+      PanelManager::instance().refresh();
+      return;
+    }
+  } else if (m_pendingAccessPoint.has_value() && m_pendingEnterprise) {
     if (m_network == nullptr) {
       return;
     }
@@ -1104,7 +1155,7 @@ void NetworkTab::submitPasswordPrompt(const std::string& value) {
 }
 
 void NetworkTab::cancelPasswordPrompt() {
-  if (!m_pendingAccessPoint.has_value() && m_secrets != nullptr) {
+  if (!m_pendingAccessPoint.has_value() && !m_pendingHidden && m_secrets != nullptr) {
     m_secrets->cancelSecret();
   }
   clearPasswordPrompt();
@@ -1114,6 +1165,7 @@ void NetworkTab::cancelPasswordPrompt() {
 void NetworkTab::clearPasswordPrompt() {
   m_hasPendingSecret = false;
   m_pendingEnterprise = false;
+  m_pendingHidden = false;
   m_pendingSsid.clear();
   m_pendingAccessPoint.reset();
   if (m_passwordInput != nullptr) {
@@ -1123,7 +1175,8 @@ void NetworkTab::clearPasswordPrompt() {
   if (m_passwordRevealButton != nullptr) {
     m_passwordRevealButton->setGlyph("eye");
   }
-  for (Input* input : {m_identityInput, m_anonymousIdentityInput, m_caCertInput, m_domainMatchInput}) {
+  for (Input* input :
+       {m_hiddenSsidInput, m_identityInput, m_anonymousIdentityInput, m_caCertInput, m_domainMatchInput}) {
     if (input != nullptr) {
       input->setValue("");
     }
@@ -1516,6 +1569,23 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .visible = false,
           })
       );
+
+      if (m_network->supportsHiddenNetworks()) {
+        wifiHeader->addChild(
+            ui::button({
+                .glyph = "eye-off",
+                .glyphSize = Style::baseGlyphSize * scale,
+                .variant = ButtonVariant::Ghost,
+                .tooltip = i18n::tr("control-center.network.hidden-network"),
+                .padding = Style::spaceXs * scale,
+                .radius = Style::scaledRadiusSm(scale),
+                .onClick = [this]() {
+                  showHiddenNetworkPrompt();
+                  PanelManager::instance().refresh();
+                },
+            })
+        );
+      }
 
       wifiHeader->addChild(
           ui::button({

@@ -60,6 +60,8 @@ public:
 
   // Activate / deactivate a saved VPN connection profile. Deactivate also
   // aborts a connection that is stuck activating.
+  [[nodiscard]] bool supportsHiddenNetworks() const noexcept override { return true; }
+  bool activateHiddenNetwork(const std::string& ssid, const std::string& psk) override;
   bool activateVpnConnection(const VpnConnectionInfo& vpn) override;
   bool deactivateVpnConnection(const VpnConnectionInfo& vpn) override;
   [[nodiscard]] bool canActivateWiredConnection() const noexcept override;

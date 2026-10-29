@@ -2,6 +2,7 @@
 
 #include "core/timer_manager.h"
 #include "dbus/network/enterprise_credentials.h"
+#include "dbus/network/hidden_network.h"
 #include "dbus/network/network_secret_agent.h"
 #include "dbus/network/network_types.h"
 #include "shell/control_center/tab.h"
@@ -66,6 +67,8 @@ private:
   void focusPendingPasswordPrompt();
   void showPasswordPrompt(const NetworkSecretAgent::SecretRequest& request);
   void showPasswordPrompt(const AccessPointInfo& ap);
+  // Opens the credential card with an SSID field for a network that does not broadcast one.
+  void showHiddenNetworkPrompt();
   void submitPasswordPrompt(const std::string& value);
   void cancelPasswordPrompt();
   void clearPasswordPrompt();
@@ -102,6 +105,8 @@ private:
   Input* m_anonymousIdentityInput = nullptr;
   Input* m_caCertInput = nullptr;
   Input* m_domainMatchInput = nullptr;
+  // Hidden-network form: an SSID field above the shared password field.
+  Input* m_hiddenSsidInput = nullptr;
   Label* m_credentialError = nullptr;
   ScrollView* m_listScroll = nullptr;
   Flex* m_list = nullptr;
@@ -123,6 +128,7 @@ private:
 
   bool m_hasPendingSecret = false;
   bool m_pendingEnterprise = false;
+  bool m_pendingHidden = false;
   bool m_focusPasswordPrompt = false;
   std::string m_pendingSsid;
   std::optional<AccessPointInfo> m_pendingAccessPoint;

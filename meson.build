@@ -1280,6 +1280,7 @@ if build_tests
     'font_family_catalog',
     'google_client_calendar_list',
     'google_client_reminders',
+    'hidden_network',
     'greeter_appearance_sync',
     'grid_item_cursor',
     'gtk_extensions',
