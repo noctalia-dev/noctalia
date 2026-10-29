@@ -40,22 +40,19 @@ namespace {
     };
   }
 
-  struct TempFile {
+  struct TempHistory {
+    std::filesystem::path dir;
     std::filesystem::path path;
 
-    explicit TempFile(const std::string& suffix)
-        : path(
-              std::filesystem::temp_directory_path()
-              / ("noctalia-test-" + std::to_string(static_cast<long long>(getpid())) + "-" + suffix)
-          ) {
-      std::filesystem::remove(path);
-      std::filesystem::remove(path.string() + ".tmp");
+    explicit TempHistory(const std::string& suffix)
+        : dir(std::filesystem::temp_directory_path()
+              / ("noctalia-test-" + std::to_string(static_cast<long long>(getpid())) + "-" + suffix)),
+          path(dir / "history.enc") {
+      std::filesystem::remove_all(dir);
+      std::filesystem::create_directories(dir);
     }
 
-    ~TempFile() {
-      std::filesystem::remove(path);
-      std::filesystem::remove(path.string() + ".tmp");
-    }
+    ~TempHistory() { std::filesystem::remove_all(dir); }
   };
 
   bool check(bool cond, const char* msg) {
@@ -128,7 +125,7 @@ int main() {
 
   // Persistence: malformed body serializes without throwing and produces valid JSON
   {
-    TempFile tmp("utf8-history.enc");
+    TempHistory tmp("utf8-history");
     const auto key = notificationHistoryTestKey();
 
     std::string body = "prefix ";
