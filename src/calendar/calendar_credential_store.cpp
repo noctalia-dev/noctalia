@@ -141,7 +141,7 @@ namespace calendar {
     return {};
   }
 
-  std::string CalendarCredentialStore::label(CredentialKind kind) {
+  std::string_view CalendarCredentialStore::label(CredentialKind kind) {
     switch (kind) {
     case CredentialKind::Password:
       return "Noctalia calendar password";
@@ -307,7 +307,7 @@ namespace calendar {
   ) {
     auto cachedValue = std::make_shared<security::SecureBuffer>(value.bytes());
     m_secretStore.store(
-        secretId(kind, accountId), std::move(value), label(kind),
+        secretId(kind, accountId), std::move(value), std::string(label(kind)),
         [this, kind, accountId, cachedValue = std::move(cachedValue),
          callback = std::move(callback)](security::SecretStoreStatus status) mutable {
           const bool statusChanged = updateRefreshTokenStatus(kind, accountId, status);

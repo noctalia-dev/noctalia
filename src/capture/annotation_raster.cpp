@@ -560,8 +560,6 @@ namespace capture {
     case AnnotationTool::Circle:
     case AnnotationTool::Line:
     case AnnotationTool::Arrow:
-      break;
-
     case AnnotationTool::Brush:
       break;
     }

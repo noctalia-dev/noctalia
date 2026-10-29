@@ -9,13 +9,13 @@ Shows Caps Lock / Num Lock / Scroll Lock state from the active XKB keyboard stat
 
 Configuring this widget keeps lock-key state polling active even when `[osd.kinds].lock_keys = false`.
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `display` | string | `"short"` | `"short"` (`C N S`) or `"full"` (`Caps Num Scroll`) |
-| `show_caps_lock` | bool | `true` | Show the Caps Lock indicator |
-| `show_num_lock` | bool | `true` | Show the Num Lock indicator |
-| `show_scroll_lock` | bool | `false` | Show the Scroll Lock indicator |
-| `hide_when_off` | bool | `false` | Hide each indicator when it is off |
+| Setting            | Type   | Default   | Description                                         |
+| ------------------ | ------ | --------- | --------------------------------------------------- |
+| `display`          | string | `"short"` | `"short"` (`C N S`) or `"full"` (`Caps Num Scroll`) |
+| `show_caps_lock`   | bool   | `true`    | Show the Caps Lock indicator                        |
+| `show_num_lock`    | bool   | `true`    | Show the Num Lock indicator                         |
+| `show_scroll_lock` | bool   | `false`   | Show the Scroll Lock indicator                      |
+| `hide_when_off`    | bool   | `false`   | Hide each indicator when it is off                  |
 
 ```toml
 [widget.lock_keys]

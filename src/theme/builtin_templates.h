@@ -12,6 +12,7 @@ namespace noctalia::theme {
     std::string id;
     std::string name;
     std::string category;
+    std::string documentationUrl;
     std::vector<std::string> outputPaths;
     bool outputDynamic = false;
     std::string outputPathDynamicCommand;
@@ -21,6 +22,7 @@ namespace noctalia::theme {
     std::string id;          // canonical TOML value (what gets written to config)
     std::string displayName; // friendly label for the GUI; falls back to id when not provided
     std::string category;
+    std::string documentationUrl;
     std::vector<std::string> outputPaths;
     bool outputDynamic = false;
   };

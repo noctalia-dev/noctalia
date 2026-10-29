@@ -3,7 +3,6 @@
 #include "core/log.h"
 
 #include <algorithm>
-#include <unistd.h>
 
 namespace {
   constexpr Logger kLog("file-watcher");

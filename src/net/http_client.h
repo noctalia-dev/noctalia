@@ -12,6 +12,12 @@
 #include <unordered_map>
 #include <vector>
 
+// mTLS client certificate and key, both PEM file paths (CURLOPT_SSLCERT / CURLOPT_SSLKEY).
+struct HttpTlsClientCert {
+  std::string clientCertPath;
+  std::string clientKeyPath;
+};
+
 struct HttpRequest {
   std::string method = "GET"; // GET/POST/PUT/PROPFIND/REPORT/… -> CURLOPT_CUSTOMREQUEST
   std::string url;
@@ -25,10 +31,12 @@ struct HttpRequest {
                                   // keep-alive connection answers via the old path
   std::string basicUsername;
   std::string basicPassword;
+  std::shared_ptr<const HttpTlsClientCert> tlsClientCert; // non-null enables client-certificate TLS
 };
 
 struct HttpResponse {
   bool transportOk = false; // true when the request completed without a transport error
+  bool timedOut = false;    // the transport error was the timeout
   long status = 0;          // HTTP status code (0 when transportOk is false)
   std::string effectiveUrl; // final URL after redirects (empty when unavailable)
   std::string body;
@@ -148,7 +156,7 @@ private:
     std::size_t index = 0;
   };
 
-  void downloadSequential(std::shared_ptr<SequentialDownload> state);
+  void downloadSequential(const std::shared_ptr<SequentialDownload>& state);
   void finishTransfer(CURL* easy, CURLcode result);
   void finishPostTransfer(CURL* easy, CURLcode result);
   void finishRequestTransfer(CURL* easy, CURLcode result);
@@ -157,6 +165,8 @@ private:
   // Applies the options every transfer shares, including the non-blocking abandonment of a
   // stuck DNS lookup. Call before the request-specific options.
   void applyCommonOptions(CURL* easy) const;
+  // Applies the client certificate and key of cert; no-op when cert is null.
+  static void applyTlsClientCert(CURL* easy, const std::shared_ptr<const HttpTlsClientCert>& cert);
   [[nodiscard]] bool hasActiveTransfers() const;
 
   CURLM* m_multi = nullptr;

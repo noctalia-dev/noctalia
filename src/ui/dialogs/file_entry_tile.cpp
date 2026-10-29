@@ -36,7 +36,7 @@ FileEntryTile::FileEntryTile(float scale, ThumbnailService* thumbnails) : m_scal
       m_onEnter(m_boundIndex);
     }
   });
-  setOnLeave([this]() {
+  setOnLeave([this] {
     if (m_boundIndex != static_cast<std::size_t>(-1) && m_onLeave) {
       m_onLeave(m_boundIndex);
     }

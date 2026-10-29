@@ -88,7 +88,7 @@ void TrayDrawerPanel::create() {
   );
   auto options = std::move(resolved.options);
   options.drawerMode = false;
-  options.itemActivated = []() { PanelManager::instance().close(); };
+  options.itemActivated = [] { PanelManager::instance().close(); };
   options.panelGridMode = true;
   options.customItemSize = resolved.drawerItemSize;
   m_drawerWidget = std::make_unique<TrayWidget>(*m_config, m_tray, std::move(options));
@@ -98,16 +98,16 @@ void TrayDrawerPanel::create() {
     m_drawerWidget->setBarCapsuleSpec(tray::resolvedTrayCapsuleSpec(*m_config, barConfig));
   }
   m_drawerWidget->setAnimationManager(m_animations);
-  m_drawerWidget->setUpdateCallback([]() { PanelManager::instance().requestUpdateOnly(); });
-  m_drawerWidget->setRedrawCallback([]() { PanelManager::instance().requestRedraw(); });
-  m_drawerWidget->setFrameTickRequestCallback([]() { PanelManager::instance().requestFrameTick(); });
+  m_drawerWidget->setUpdateCallback([] { PanelManager::instance().requestUpdateOnly(); });
+  m_drawerWidget->setRedrawCallback([] { PanelManager::instance().requestRedraw(); });
+  m_drawerWidget->setFrameTickRequestCallback([] { PanelManager::instance().requestFrameTick(); });
   m_drawerWidget->setPanelToggleCallback([](std::string_view id, std::string_view context, std::optional<float> ax,
                                             std::optional<float> ay, Widget::PanelActivation activation) {
     PanelOpenRequest request{
         .anchorX = ax.has_value() ? std::round(*ax) : 0.0F,
         .anchorY = ay.has_value() ? std::round(*ay) : 0.0F,
         .hasAnchorPosition = ax.has_value() && ay.has_value(),
-        .context = std::string(context),
+        .context = context,
     };
     if (activation == Widget::PanelActivation::Open) {
       PanelManager::instance().openPanel(std::string(id), request);

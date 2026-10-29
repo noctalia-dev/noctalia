@@ -189,7 +189,7 @@ ThumbnailService::ThumbnailService() {
   const std::size_t n = std::clamp<std::size_t>(suggested, kMinWorkers, kMaxWorkers);
   m_workers.reserve(n);
   for (std::size_t i = 0; i < n; ++i) {
-    m_workers.emplace_back([this]() { workerLoop(); });
+    m_workers.emplace_back([this] { workerLoop(); });
   }
   kLog.info("spawned {} decode worker(s)", n);
 }
@@ -237,7 +237,7 @@ ThumbnailService::Subscription ThumbnailService::subscribePendingUpload(PendingU
   }
 
   std::weak_ptr<bool> token = m_lifetimeToken;
-  return Subscription([this, token, id]() {
+  return Subscription([this, token, id] {
     auto alive = token.lock();
     if (alive == nullptr || !*alive) {
       return;
@@ -264,7 +264,7 @@ ThumbnailService::subscribeReady(const std::string& path, ReadyCallback callback
   );
 
   std::weak_ptr<bool> token = m_lifetimeToken;
-  return Subscription([this, token, id]() {
+  return Subscription([this, token, id] {
     auto alive = token.lock();
     if (alive == nullptr || !*alive) {
       return;
@@ -511,7 +511,7 @@ void ThumbnailService::workerLoop() {
     RequestKey key;
     {
       std::unique_lock<std::mutex> lock(m_queueMutex);
-      m_queueCv.wait(lock, [this]() { return m_shutdown.load() || !m_jobQueue.empty(); });
+      m_queueCv.wait(lock, [this] { return m_shutdown.load() || !m_jobQueue.empty(); });
       if (m_shutdown.load()) {
         return;
       }

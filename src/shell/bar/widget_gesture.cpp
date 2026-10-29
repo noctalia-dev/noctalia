@@ -53,7 +53,7 @@ namespace noctalia::bar {
   std::string_view gestureLabelKey(Gesture gesture) noexcept { return entryFor(gesture).labelKey; }
 
   std::optional<Gesture> parseGestureKey(std::string_view key) noexcept {
-    const auto it = std::ranges::find(kGestures, key, &GestureEntry::configKey);
+    const auto* it = std::ranges::find(kGestures, key, &GestureEntry::configKey);
     if (it == kGestures.end()) {
       return std::nullopt;
     }

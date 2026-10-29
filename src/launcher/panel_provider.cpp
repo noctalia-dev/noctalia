@@ -135,7 +135,7 @@ bool PanelProvider::activate(const LauncherResult& result) {
   // Preserve the launcher's output and source bar across its close, then defer
   // the toggle so that close cannot immediately undo the selected panel's open.
   DeferredCall::callLater([panelManager, panelId = std::move(panelId), context = std::move(context), output,
-                           sourceBarName = std::move(sourceBarName)]() {
+                           sourceBarName = std::move(sourceBarName)] {
     panelManager->togglePanel(
         panelId, PanelOpenRequest{.output = output, .context = context, .sourceBarName = sourceBarName}
     );

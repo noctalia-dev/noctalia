@@ -9,7 +9,7 @@ namespace scripting {
     return store;
   }
 
-  void PluginStateStore::set(const std::string& pluginId, const std::string& key, std::string json) {
+  void PluginStateStore::set(const std::string& pluginId, const std::string& key, const std::string& json) {
     std::vector<Watcher> toNotify;
     {
       std::scoped_lock lock(m_mutex);

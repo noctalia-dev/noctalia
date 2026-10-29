@@ -57,5 +57,5 @@ public:
   virtual void disconnect() = 0;
   virtual void forgetSsid(const std::string& ssid) = 0;
   [[nodiscard]] virtual bool hasSavedConnection(const std::string& ssid) const = 0;
-  void registerIpc(IpcService& ipc, WirelessFeedbackCallback wirelessFeedback = {});
+  void registerIpc(IpcService& ipc, const WirelessFeedbackCallback& wirelessFeedback = {});
 };

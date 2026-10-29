@@ -67,7 +67,7 @@ struct UPowerChargeLimitState {
   // Values configured in UPower. They are presets, not necessarily what the kernel currently applies.
   std::optional<std::uint32_t> configuredStart;
   std::optional<std::uint32_t> configuredEnd;
-  // Read-only values currently exposed by the kernel.
+  // Read-only values the kernel currently applies; empty while charge_types selects a mode other than Custom.
   std::optional<std::uint32_t> effectiveStart;
   std::optional<std::uint32_t> effectiveEnd;
   std::optional<std::uint32_t> supportedSettings;

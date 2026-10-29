@@ -1,5 +1,7 @@
 #include "config/config_migrations.h"
 
+#include "util/string_utils.h"
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -28,6 +30,7 @@ namespace noctalia::config {
     constexpr int kPluginAutoUpdateModeMigrationVersion = 13;
     constexpr int kCalendarEventFormatsMigrationVersion = 14;
     constexpr int kDockMonitorOverridesMigrationVersion = 15;
+    constexpr int kPaletteRoleNamesMigrationVersion = 16;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -777,6 +780,66 @@ namespace noctalia::config {
       });
     }
 
+    // The `surface_variant` and `outline` palette roles resolved to surface_container and outline_variant,
+    // so they were retired in favor of those names. `theme` is skipped (template custom colors use template
+    // tokens, not shell roles) and so are `variant` keys (button styles, where "outline" is not a color).
+    std::optional<std::string_view> renamedPaletteRole(std::string_view raw) {
+      std::string token = StringUtils::trim(raw);
+      StringUtils::toLowerInPlace(token);
+      if (token == "surface_variant") {
+        return "surface_container";
+      }
+      if (token == "outline") {
+        return "outline_variant";
+      }
+      return std::nullopt;
+    }
+
+    template <typename OnChanged>
+    void migratePaletteRoleNamesIn(toml::node& node, const std::string& path, OnChanged& onChanged) {
+      if (auto* table = node.as_table()) {
+        for (auto& [key, child] : *table) {
+          if (key.str() != "variant") {
+            migratePaletteRoleNamesIn(child, path + "." + std::string(key.str()), onChanged);
+          }
+        }
+        return;
+      }
+      if (auto* array = node.as_array()) {
+        for (std::size_t i = 0; i < array->size(); ++i) {
+          migratePaletteRoleNamesIn((*array)[i], std::format("{}[{}]", path, i), onChanged);
+        }
+        return;
+      }
+      auto* value = node.as_string();
+      if (value == nullptr) {
+        return;
+      }
+      const auto renamed = renamedPaletteRole(value->get());
+      if (!renamed.has_value()) {
+        return;
+      }
+      const std::string previous = value->get();
+      *value = std::string(*renamed);
+      onChanged(path, previous, *renamed);
+    }
+
+    template <typename OnChanged> void migratePaletteRoleNames(toml::table& root, OnChanged&& onChanged) {
+      for (auto& [key, child] : root) {
+        if (key.str() != "theme") {
+          migratePaletteRoleNamesIn(child, std::string(key.str()), onChanged);
+        }
+      }
+    }
+
+    void migratePaletteRoleNamesSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migratePaletteRoleNames(
+          root, [&diag](const std::string& path, std::string_view previous, std::string_view renamed) {
+            diag.warn(path, std::format(R"(migrated palette role "{}" to "{}")", previous, renamed));
+          }
+      );
+    }
+
     std::uint64_t stableIssueHash(int migrationVersion, std::string_view path) {
       constexpr std::uint64_t kOffset = 14695981039346656037ULL;
       constexpr std::uint64_t kPrime = 1099511628211ULL;
@@ -888,6 +951,11 @@ namespace noctalia::config {
             .toVersion = kDockMonitorOverridesMigrationVersion,
             .summary = "dock: migrate monitor allow-list to per-monitor enabled overrides",
             .apply = migrateDockMonitorAllowListSidecar,
+        },
+        {
+            .toVersion = kPaletteRoleNamesMigrationVersion,
+            .summary = "theme: rename surface_variant and outline palette roles",
+            .apply = migratePaletteRoleNamesSidecar,
         },
     };
     return migrations;
@@ -1051,6 +1119,15 @@ namespace noctalia::config {
           .message = "dock monitors is deprecated; use per-monitor enabled overrides",
       });
     });
+    migratePaletteRoleNames(
+        root, [&issues](const std::string& path, std::string_view previous, std::string_view renamed) {
+          issues.push_back({
+              .migrationVersion = kPaletteRoleNamesMigrationVersion,
+              .path = path,
+              .message = std::format(R"(palette role "{}" is now "{}")", previous, renamed),
+          });
+        }
+    );
   }
 
   std::string legacyConfigIssueFingerprint(const LegacyConfigIssues& issues) {

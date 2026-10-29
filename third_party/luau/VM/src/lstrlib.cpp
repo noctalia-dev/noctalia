@@ -8,6 +8,9 @@
 #include <string.h>
 #include <stdio.h>
 
+LUAU_DYNAMIC_FASTFLAGVARIABLE(LuauOptimizeStringSplit, false)
+LUAU_DYNAMIC_FASTFLAGVARIABLE(LuauOptimizeStringGsub, false)
+
 // macro to `unsign' a character
 #define uchar(c) ((unsigned char)(c))
 
@@ -828,6 +831,61 @@ static void add_value(MatchState* ms, luaL_Strbuf* b, const char* s, const char*
     luaL_addvalue(b); // add result to accumulator
 }
 
+// checks if a pattern only matches its own text
+// ')' is not in SPECIALS, but it is still an error in a pattern, so it has to take the regular path
+// ']' is intentionally left out: it is only special inside a set, and a set always starts with '[' which is in SPECIALS
+static bool isliteralpattern(const char* p, size_t lp)
+{
+    // lookup table built from SPECIALS and ')', so that each character is checked without a strchr call
+    struct SpecialChars
+    {
+        bool chars[256] = {};
+
+        SpecialChars()
+        {
+            for (const char* c = SPECIALS ")"; *c; c++)
+                chars[uchar(*c)] = true;
+        }
+    };
+
+    static const SpecialChars specials;
+
+    for (size_t i = 0; i < lp; i++)
+    {
+        if (specials.chars[uchar(p[i])])
+            return false;
+    }
+
+    return true;
+}
+
+// finds the first occurrence of a non-empty literal in [s, end)
+static const char* findliteral(const char* s, const char* end, const char* p, size_t lp)
+{
+    if (size_t(end - s) < lp)
+        return NULL;
+
+    const char* last = end - lp;
+
+    if (lp == 1)
+    {
+        // matches that immediately follow each other don't need a memchr call
+        if (*s == p[0])
+            return s;
+
+        return (const char*)memchr(s, p[0], last - s + 1);
+    }
+
+    // the first and the last characters are checked inline to avoid a memcmp call at most positions
+    for (; s <= last; s++)
+    {
+        if (s[0] == p[0] && s[lp - 1] == p[lp - 1] && memcmp(s, p, lp) == 0)
+            return s;
+    }
+
+    return NULL;
+}
+
 static int str_gsub(lua_State* L)
 {
     size_t srcl, lp;
@@ -847,24 +905,67 @@ static int str_gsub(lua_State* L)
         lp--; // skip anchor character
     }
     prepstate(&ms, L, src, srcl, p, lp);
-    while (n < max_s)
+
+    // a non-empty pattern without special characters can only match its own text, so we can search for it directly
+    if (DFFlag::LuauOptimizeStringGsub && !anchor && lp > 0 && isliteralpattern(p, lp))
     {
-        const char* e;
-        reprepstate(&ms);
-        e = match(&ms, src, p);
-        if (e)
+        // replacement strings without escapes can be appended as is; this is determined on the first match
+        int plainrepl = -1;
+        const char* repl = NULL;
+        size_t repll = 0;
+
+        while (n < max_s)
         {
+            const char* e = findliteral(src, ms.src_end, p, lp);
+            if (!e)
+                break;
+
             n++;
-            add_value(&ms, &b, src, e, tr);
+
+            if (e != src)
+                luaL_addlstring(&b, src, e - src);
+
+            if (plainrepl < 0)
+            {
+                repl = (tr == LUA_TSTRING || tr == LUA_TNUMBER) ? lua_tolstring(L, 3, &repll) : NULL;
+                plainrepl = repl && !memchr(repl, L_ESC, repll);
+            }
+
+            if (plainrepl)
+            {
+                if (repll != 0)
+                    luaL_addlstring(&b, repl, repll);
+            }
+            else
+            {
+                reprepstate(&ms);
+                add_value(&ms, &b, e, e + lp, tr);
+            }
+
+            src = e + lp;
         }
-        if (e && e > src) // non empty match?
-            src = e;      // skip it
-        else if (src < ms.src_end)
-            luaL_addchar(&b, *src++);
-        else
-            break;
-        if (anchor)
-            break;
+    }
+    else
+    {
+        while (n < max_s)
+        {
+            const char* e;
+            reprepstate(&ms);
+            e = match(&ms, src, p);
+            if (e)
+            {
+                n++;
+                add_value(&ms, &b, src, e, tr);
+            }
+            if (e && e > src) // non empty match?
+                src = e;      // skip it
+            else if (src < ms.src_end)
+                luaL_addchar(&b, *src++);
+            else
+                break;
+            if (anchor)
+                break;
+        }
     }
     luaL_addlstring(&b, src, ms.src_end - src);
     luaL_pushresult(&b);
@@ -1084,42 +1185,119 @@ static int str_split(lua_State* L)
     size_t needleLen;
     const char* needle = luaL_optlstring(L, 2, ",", &needleLen);
 
-    const char* begin = haystack;
-    const char* end = haystack + haystackLen;
-    const char* spanStart = begin;
-    int numMatches = 0;
-
-    lua_createtable(L, 0, 0);
-
-    if (needleLen == 0)
-        begin++;
-
-    // Don't iterate the last needleLen - 1 bytes of the string - they are
-    // impossible to be splits and would let us memcmp past the end of the
-    // buffer.
-    for (const char* iter = begin; iter <= end - needleLen; iter++)
+    if (DFFlag::LuauOptimizeStringSplit)
     {
-        // Use of memcmp here instead of strncmp is so that we allow embedded
-        // nulls to be used in either of the haystack or the needle strings.
-        // Most Lua string APIs allow embedded nulls, and this should be no
-        // exception.
-        if (memcmp(iter, needle, needleLen) == 0)
+        const char* end = haystack + haystackLen;
+        const char* spanStart = haystack;
+        int numMatches = 0;
+
+        // Use of memchr/memcmp here instead of strchr/strncmp is so that we allow
+        // embedded nulls to be used in either of the haystack or the needle
+        // strings. Most Lua string APIs allow embedded nulls, and this should be
+        // no exception.
+        if (needleLen == 0)
+        {
+            // empty separator splits the string into individual characters, so the result size is known up front
+            lua_createtable(L, int(haystackLen), 0);
+
+            for (const char* iter = haystack; iter < end; iter++)
+            {
+                lua_pushlstring(L, iter, 1);
+                lua_rawseti(L, -2, ++numMatches);
+            }
+
+            return 1;
+        }
+        else if (needleLen == 1)
+        {
+            // every occurrence of a single character separator is a split, so we can cheaply count them up front
+            // and allocate the result table at its final size
+            char sep = needle[0];
+
+            int count = 1;
+            for (const char* iter = haystack; (iter = (const char*)memchr(iter, sep, end - iter)) != NULL; iter++)
+                count++;
+
+            lua_createtable(L, count, 0);
+
+            for (const char* found; (found = (const char*)memchr(spanStart, sep, end - spanStart)) != NULL; spanStart = found + 1)
+            {
+                lua_pushlstring(L, spanStart, found - spanStart);
+                lua_rawseti(L, -2, ++numMatches);
+            }
+        }
+        else
+        {
+            lua_createtable(L, 0, 0);
+
+            if (needleLen <= haystackLen)
+            {
+                // Don't iterate the last needleLen - 1 bytes of the string - they are
+                // impossible to be splits and would let us memcmp past the end of the
+                // buffer.
+                const char* last = end - needleLen;
+
+                for (const char* iter = haystack; iter <= last;)
+                {
+                    // the first and the last characters are checked inline to avoid a memcmp call at most positions
+                    if (iter[0] == needle[0] && iter[needleLen - 1] == needle[needleLen - 1] && memcmp(iter, needle, needleLen) == 0)
+                    {
+                        lua_pushlstring(L, spanStart, iter - spanStart);
+                        lua_rawseti(L, -2, ++numMatches);
+
+                        spanStart = iter + needleLen;
+                        iter = spanStart;
+                    }
+                    else
+                    {
+                        iter++;
+                    }
+                }
+            }
+        }
+
+        lua_pushlstring(L, spanStart, end - spanStart);
+        lua_rawseti(L, -2, ++numMatches);
+    }
+    else
+    {
+        const char* begin = haystack;
+        const char* end = haystack + haystackLen;
+        const char* spanStart = begin;
+        int numMatches = 0;
+
+        lua_createtable(L, 0, 0);
+
+        if (needleLen == 0)
+            begin++;
+
+        // Don't iterate the last needleLen - 1 bytes of the string - they are
+        // impossible to be splits and would let us memcmp past the end of the
+        // buffer.
+        for (const char* iter = begin; iter <= end - needleLen; iter++)
+        {
+            // Use of memcmp here instead of strncmp is so that we allow embedded
+            // nulls to be used in either of the haystack or the needle strings.
+            // Most Lua string APIs allow embedded nulls, and this should be no
+            // exception.
+            if (memcmp(iter, needle, needleLen) == 0)
+            {
+                lua_pushinteger(L, ++numMatches);
+                lua_pushlstring(L, spanStart, iter - spanStart);
+                lua_settable(L, -3);
+
+                spanStart = iter + needleLen;
+                if (needleLen > 0)
+                    iter += needleLen - 1;
+            }
+        }
+
+        if (needleLen > 0)
         {
             lua_pushinteger(L, ++numMatches);
-            lua_pushlstring(L, spanStart, iter - spanStart);
+            lua_pushlstring(L, spanStart, end - spanStart);
             lua_settable(L, -3);
-
-            spanStart = iter + needleLen;
-            if (needleLen > 0)
-                iter += needleLen - 1;
         }
-    }
-
-    if (needleLen > 0)
-    {
-        lua_pushinteger(L, ++numMatches);
-        lua_pushlstring(L, spanStart, end - spanStart);
-        lua_settable(L, -3);
     }
 
     return 1;

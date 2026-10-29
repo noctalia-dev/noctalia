@@ -7,7 +7,6 @@
 #include "scripting/plugin_file_cache.h"
 #include "scripting/plugin_manager.h"
 #include "shell/settings/config_export_dialog_modal.h"
-#include "shell/settings/search_picker_popup.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_modal_host.h"
 #include "shell/settings/settings_registry.h"
@@ -18,6 +17,7 @@
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/dialogs/layer_popup_host.h"
+#include "ui/dialogs/search_picker_popup.h"
 #include "wayland/toplevel_surface.h"
 
 #include <cstdint>
@@ -60,7 +60,12 @@ namespace scripting {
   class PluginRecommendations;
 }
 
+namespace noctalia::theme {
+  struct GeneratedPalette;
+}
+
 namespace settings {
+  class PaletteInspectorContent;
   class SettingsDialogPresenter;
   struct SettingsContentContext;
 } // namespace settings
@@ -97,6 +102,7 @@ public:
   [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   void onThemeChanged();
+  void setResolvedPalette(const noctalia::theme::GeneratedPalette& generated, std::string_view mode);
   void onFontChanged();
   void requestRedraw();
   void onExternalOptionsChanged();
@@ -119,7 +125,8 @@ public:
   void setSaveWallpaperPaletteAsCustom(std::function<void()> callback) {
     m_saveWallpaperPaletteAsCustom = std::move(callback);
   }
-  void setCalendarService(CalendarService* service) { m_calendarService = service; }
+  // Also rebuilds the calendar account rows when an account's sync failure changes.
+  void setCalendarService(CalendarService* service);
   // Source for the bar widget gesture action picker.
   void setIpcService(IpcService* service) { m_ipcService = service; }
   void setClipboardService(ClipboardService* service) { m_clipboardService = service; }
@@ -135,6 +142,8 @@ public:
   [[nodiscard]] FileDialogPresenter* fileDialogPresenter() noexcept;
 
   void onSecondTick();
+  // True while the idle settings pane renders a live seconds counter.
+  [[nodiscard]] bool wantsSecondTicks() const noexcept;
   void onIdleLiveStatusChanged();
   void markSettingsWriteSuccess(bool requestRebuild = true);
   void markSettingsWriteError(std::string message);
@@ -208,6 +217,7 @@ private:
   void openPluginSettingsEditor(std::string pluginId);
   void openPluginStore();
   void openCommunityTemplateStore();
+  void openPaletteInspector();
   void openBarWidgetEditorSheet(
       std::string title, std::function<void(Flex&)> populate, std::function<void()> removeAction = nullptr
   );
@@ -263,7 +273,12 @@ private:
   UPowerService* m_upower = nullptr;
   AccountsService* m_accounts = nullptr;
   CalendarService* m_calendarService = nullptr;
+  std::optional<std::uint64_t> m_calendarCallbackId;
+  std::uint64_t m_calendarSyncStatusRevision = 0;
   ClipboardService* m_clipboardService = nullptr;
+  std::unordered_map<std::string, std::uint32_t> m_templateColors;
+  std::string m_templateColorMode;
+  std::shared_ptr<settings::PaletteInspectorContent> m_paletteInspectorContent;
   IpcService* m_ipcService = nullptr;
   AsyncTextureCache* m_asyncTextures = nullptr;
   Label* m_idleLiveStatusLabel = nullptr;
@@ -288,7 +303,7 @@ private:
   std::unique_ptr<ContextMenuPopup> m_actionsMenuPopup;
   std::unique_ptr<settings::WidgetAddPopup> m_widgetAddPopup;
   std::unique_ptr<settings::ConfigExportDialogModal> m_configExportDialogModal;
-  std::unique_ptr<settings::SearchPickerPopup> m_searchPickerPopup;
+  std::unique_ptr<SearchPickerPopup> m_searchPickerPopup;
   InputDispatcher m_inputDispatcher;
   settings::SettingsModalHost m_modalHost;
   std::unique_ptr<settings::SettingsDialogPresenter> m_dialogPresenter;

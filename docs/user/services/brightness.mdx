@@ -23,6 +23,7 @@ backend = "ddcutil"
 ```
 
 Notes:
+
 - `enable_ddcutil = true` only enables DDC/CI discovery - it does not force every monitor to `ddcutil`.
 - `ignore_mmids` passes `--ignore-mmid` to every `ddcutil` invocation. Run `ddcutil --verbose detect` to find monitor model id strings.
 - `minimum_brightness` is an opt-in floor (default `0.0` = disabled). Any brightness change is clamped to at least this value, and the control center slider cannot go below it - useful to keep the screen from going completely dark.
@@ -33,7 +34,10 @@ Notes:
 - `backlight_device` pins a monitor to a specific sysfs backlight device when a connector exposes more than one - accepts a bare name (`intel_backlight`) or a full path; run `noctalia msg brightness-list-backlight-devices` to list the available device names.
 - `ddcutil` is treated as best-effort - repeated DDC failures cool down that monitor to avoid hammering the bus.
 
+DDC/CI discovery runs in the background. If a monitor is not ready when Noctalia starts or outputs change, Noctalia retries discovery up to three times, waiting one, two, and four seconds after each completed attempt. Working brightness controls remain available while other monitors are being discovered. Command timeouts can extend the total recovery time.
+
+If controls are still missing after those retries, open **Control Center → Monitor** and use **Rescan DDC/CI monitors** (the refresh icon) to start another discovery attempt and retry cycle. Changing brightness configuration also starts a new cycle. Outputs configured with `backend = "none"` or `backend = "backlight"`, and outputs already served by kernel backlight in `auto` mode, are excluded from DDC recovery.
+
 ## Related IPC
 
-For brightness commands, targets, accepted value formats, and OSD behavior, see
-[System Controls → Brightness](/noctalia/ipc/system-controls/#brightness).
+For brightness commands, targets, accepted value formats, and OSD behavior, see [System Controls → Brightness](/noctalia/ipc/system-controls/#brightness).

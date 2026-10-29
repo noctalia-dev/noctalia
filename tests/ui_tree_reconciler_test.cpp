@@ -1,3 +1,4 @@
+#include "cursor-shape-v1-client-protocol.h"
 #include "render/backend/render_backend.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
@@ -43,19 +44,17 @@ namespace {
   class StubRenderer : public Renderer {
   public:
     TextMetrics measureText(
-        std::string_view text, float fontSize, FontWeight, float, int, TextAlign, std::string_view, TextEllipsize, bool
+        std::string_view text, float fontSize, const TextFont&, float, int, TextAlign, TextEllipsize, bool
     ) override {
       return TextMetrics{.width = static_cast<float>(text.size()) * fontSize * 0.5F, .bottom = fontSize};
     }
-    TextMetrics measureFont(float fontSize, FontWeight, std::string_view) override {
-      return TextMetrics{.bottom = fontSize};
-    }
+    TextMetrics measureFont(float fontSize, const TextFont&) override { return TextMetrics{.bottom = fontSize}; }
     void measureTextCursorStops(
-        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, FontWeight
+        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, const TextFont&
     ) override {}
     void measureTextCursorStopsWrapped(
         std::string_view, float fontSize, const std::vector<std::size_t>& byteOffsets, float,
-        std::vector<TextCursorStop>& outStops, FontWeight
+        std::vector<TextCursorStop>& outStops, const TextFont&
     ) override {
       outStops.assign(byteOffsets.size(), TextCursorStop{0.0F, 0.0F, fontSize});
     }
@@ -2838,6 +2837,117 @@ int main() {
              "an unchanged re-render keeps the graph's coalescing stream"
          )
         && ok;
+  }
+
+  // Sideways sortable list: inside a row, an expandOnDrag zone with a width
+  // opens a horizontal gap sized to the dragged item (a bar's pills); a
+  // whole-item source with grabCursor = false keeps the plain pointer until
+  // the drag starts, and a tap on it is a click, not a drag.
+  {
+    ui::UiTreeReconciler reconciler;
+    reconciler.setDragDropEnabled(true);
+    std::vector<std::string> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb.fn); });
+    Node overlay;
+    overlay.setSize(400.0F, 40.0F);
+    overlay.setHitTestVisible(false);
+    reconciler.setDragDropOverlayRoot(&overlay);
+    Flex host;
+
+    ui::UiTreeNode pillSource = makeDragSource("pill-a", "pill", "ws:1");
+    pillSource.props["width"] = 90.0;
+    pillSource.props["height"] = 24.0;
+    pillSource.props.emplace("liftFromLayout", true);
+    pillSource.props.emplace("grabCursor", false);
+    pillSource.props.emplace("onClick", std::string("onPillClicked"));
+    pillSource.children.push_back(makeLabel("1 - alpha"));
+
+    ui::UiTreeNode gap = makeDropZone("gap-2", {"pill"}, "2", "onPillDropped");
+    gap.props["width"] = 4.0;
+    gap.props["height"] = 22.0;
+    gap.props.emplace("expandOnDrag", true);
+    gap.props.emplace("hitSlop", 14.0);
+
+    ui::UiTreeNode other = makeNode("row");
+    other.key = "pill-b";
+    other.props.emplace("width", 70.0);
+    other.props.emplace("height", 24.0);
+    other.children.push_back(makeLabel("2 - beta"));
+
+    ui::UiTreeNode tree = makeNode("row");
+    tree.props.emplace("gap", 2.0);
+    tree.children.push_back(std::move(pillSource));
+    tree.children.push_back(std::move(gap));
+    tree.children.push_back(std::move(other));
+    (void)reconciler.reconcile(host, tree, renderer);
+    host.setSize(400.0F, 40.0F);
+    host.layout(renderer);
+
+    auto* rootRow = dynamic_cast<Flex*>(host.children().front().get());
+    auto* source = rootRow != nullptr ? dynamic_cast<DragSource*>(rootRow->children()[0].get()) : nullptr;
+    auto* zone = rootRow != nullptr ? dynamic_cast<DropZone*>(rootRow->children()[1].get()) : nullptr;
+    ok = expect(source != nullptr && zone != nullptr && source->inputArea() != nullptr, "row drag fixture built") && ok;
+    if (source != nullptr && zone != nullptr && source->inputArea() != nullptr) {
+      ok = expect(
+               source->inputArea()->cursorShape() == WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
+               "grabCursor = false hovers with the plain pointer"
+           )
+          && ok;
+      ok = expect(zone->width() == 4.0F, "row insertion zone keeps its collapsed width at rest") && ok;
+
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, false);
+      ok = expect(
+               fired.size() == 1 && fired.front() == "onPillClicked",
+               "a press released before the drag threshold is a click on the source"
+           )
+          && ok;
+      fired.clear();
+
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+      source->inputArea()->dispatchMotion(-1.0F, 2.0F);
+      source->inputArea()->dispatchPress(-1.0F, 2.0F, BTN_LEFT, false);
+      ok = expect(fired.empty(), "a press that slides off the source below the threshold is not a click") && ok;
+
+      float localX = 0.0F;
+      float localY = 0.0F;
+      sourceLocalPointFor(*source, *zone, localX, localY);
+      const float sourceWidth = source->width();
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+      source->inputArea()->dispatchMotion(localX, localY);
+      ok = expect(
+               source->dragging() && source->inputArea()->cursorShape() == WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRABBING,
+               "dragging shows the grabbing hand even without the grab hover cursor"
+           )
+          && ok;
+      ok = expect(
+               zone->minWidth() == sourceWidth && zone->maxWidth() == sourceWidth && zone->minHeight() == 22.0F,
+               "expandOnDrag inside a row opens a gap of the dragged width, not height"
+           )
+          && ok;
+      source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
+      ok = expect(zone->minWidth() == 4.0F && zone->maxWidth() == 4.0F, "the gap collapses again after the drop") && ok;
+      ok = expect(
+               fired.size() == 1 && fired.front() == "onPillDropped",
+               "a completed drag fires onDrop, never the source's onClick"
+           )
+          && ok;
+      fired.clear();
+
+      // A host that discards its tree mid-drag (script reload) cancels the
+      // gesture: preview gone, source restored, and the later release is inert.
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+      source->inputArea()->dispatchMotion(localX, localY);
+      ok = expect(source->dragging() && !overlay.children().empty(), "drag in flight before the cancel") && ok;
+      reconciler.cancelDragDrop();
+      ok = expect(
+               !source->dragging() && overlay.children().empty() && zone->minWidth() == 4.0F,
+               "cancelDragDrop removes the preview, restores the source and collapses the gap"
+           )
+          && ok;
+      source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
+      ok = expect(fired.empty(), "a release after the cancel fires neither onDrop nor onClick") && ok;
+    }
   }
 
   return ok ? 0 : 1;

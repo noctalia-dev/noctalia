@@ -98,6 +98,21 @@ void WaylandSeat::setLockKeysChangeCallback(LockKeysChangeCallback callback) {
   m_lockKeysChangeCallback = std::move(callback);
 }
 
+void WaylandSeat::setKeyboardLayoutChangeCallback(KeyboardLayoutChangeCallback callback) {
+  m_keyboardLayoutChangeCallback = std::move(callback);
+}
+
+void WaylandSeat::notifyLayoutIfChanged() {
+  std::string current = currentLayoutName();
+  if (current == m_lastLayoutName) {
+    return;
+  }
+  m_lastLayoutName = std::move(current);
+  if (m_keyboardLayoutChangeCallback) {
+    m_keyboardLayoutChangeCallback();
+  }
+}
+
 void WaylandSeat::setCursorShape(std::uint32_t serial, std::uint32_t shape) {
   if (m_cursorShapeDevice == nullptr) {
     return;
@@ -660,6 +675,7 @@ void WaylandSeat::handleKeyboardKeymap(
   }
 
   kLog.debug("keyboard: keymap loaded");
+  self->notifyLayoutIfChanged();
 }
 
 void WaylandSeat::handleKeyboardEnter(
@@ -800,6 +816,7 @@ void WaylandSeat::handleKeyboardModifiers(
       self->m_lockKeysChangeCallback();
     }
   }
+  self->notifyLayoutIfChanged();
 }
 
 void WaylandSeat::handleKeyboardRepeatInfo(

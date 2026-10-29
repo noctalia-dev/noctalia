@@ -32,8 +32,8 @@ void RovingListNavController::bindFocusArea(InputArea* area) {
   if (m_focusArea == nullptr) {
     return;
   }
-  m_focusArea->setOnFocusGain([this]() { onFocusGain(); });
-  m_focusArea->setOnFocusLoss([this]() { onFocusLoss(); });
+  m_focusArea->setOnFocusGain([this] { onFocusGain(); });
+  m_focusArea->setOnFocusLoss([this] { onFocusLoss(); });
   m_focusArea->setOnKeyDown([this](const InputArea::KeyData& key) {
     if (key.pressed) {
       handleKey(key.sym, key.modifiers);

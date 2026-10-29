@@ -32,7 +32,7 @@ public:
   [[nodiscard]] bool available() const noexcept;
   void setChangeCallback(ChangeCallback callback);
 
-  void registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback = {});
+  void registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback = {});
   /// Re-resolve Wayland inhibitor anchors when output topology changes.
   void onOutputChange();
   /// Re-sync inhibitors (Wayland fallback anchors only when logind is unavailable).

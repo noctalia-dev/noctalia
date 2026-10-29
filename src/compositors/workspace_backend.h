@@ -1,10 +1,13 @@
 #pragma once
 
+#include "system/window_state.h"
+
 #include <cstdint>
 #include <functional>
 #include <optional>
 #include <poll.h>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -31,6 +34,7 @@ struct WorkspaceWindow {
   std::int32_t x = 0;
   std::int32_t y = 0;
   std::string outputName;
+  std::optional<WindowMinimizeState> minimizeState;
 };
 
 struct WorkspaceWindowAssignment {
@@ -40,6 +44,7 @@ struct WorkspaceWindowAssignment {
   std::string title;
   std::int32_t x = 0;
   std::int32_t y = 0;
+  std::optional<WindowMinimizeState> minimizeState;
 };
 
 struct TaskbarWindowCandidate {
@@ -85,6 +90,16 @@ public:
   // WorkspaceWindow::workspaceKey namespace.
   [[nodiscard]] virtual std::vector<std::string> openOverlayWorkspaceKeys(wl_output* /*output*/) const { return {}; }
   virtual void focusWindow(const std::string& /*windowId*/) {}
+  // Ext-foreign-toplevel identifier of the focused window, for compositors that publish one in
+  // their IPC tree. Window capture itself needs sway >= 1.12, where
+  // ext_foreign_toplevel_image_capture_source_manager_v1 landed. Separate namespace from
+  // focusedWindowId(): sway's node ids drive focus/close actions, while this joins the
+  // compositor-assigned ext capture source. Read together with publishesExtToplevelIdentity():
+  // a nullopt here with true there means the compositor publishes one but has none right now,
+  // whereas false there means it never will and callers may fall back.
+  [[nodiscard]] virtual std::optional<std::string> focusedExtToplevelIdentifier() const { return std::nullopt; }
+  // True only when this compositor is connected and observed publishing the identifier.
+  [[nodiscard]] virtual bool publishesExtToplevelIdentity() const noexcept { return false; }
   virtual void cleanup() = 0;
 
   [[nodiscard]] virtual int pollFd() const noexcept { return -1; }
@@ -133,6 +148,11 @@ namespace compositors {
 
     virtual ~WorkspaceMetadataBackend() = default;
     virtual void setChangeCallback(ChangeCallback callback) = 0;
+    // Overrides take ownership of the callback.
+    // NOLINTNEXTLINE(performance-unnecessary-value-param)
+    virtual void setWindowChangeCallback(ChangeCallback callback) { (void)callback; }
+    // Overrides take ownership of the callback.
+    // NOLINTNEXTLINE(performance-unnecessary-value-param)
     virtual void setOverviewChangeCallback(ChangeCallback callback) { (void)callback; }
     [[nodiscard]] virtual int pollFd() const noexcept { return -1; }
     [[nodiscard]] virtual short pollEvents() const noexcept { return POLLIN | POLLHUP | POLLERR; }
@@ -161,6 +181,10 @@ namespace compositors {
     // both interfaces don't hit a conflicting-return-type override.
     virtual bool focusWindowById(const std::string& /*windowId*/, bool /*warpPointer*/ = false) { return false; }
     virtual bool closeWindowById(const std::string& /*windowId*/) { return false; }
+    [[nodiscard]] virtual std::optional<WindowMinimizeState> windowMinimizeState(std::string_view /*windowId*/) const {
+      return std::nullopt;
+    }
+    virtual bool minimizeWindowById(const std::string& /*windowId*/) { return false; }
     [[nodiscard]] virtual bool canTrackOverviewState() const noexcept { return false; }
     [[nodiscard]] virtual bool hasOverviewState() const noexcept { return false; }
     [[nodiscard]] virtual bool isOverviewOpen() const noexcept { return true; }

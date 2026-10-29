@@ -52,6 +52,12 @@
 // Version 9: Adds atom-based userdata field access acceleration. Currently supported.
 // Version 10: Adds LBC_CONSTANT_CLASS_SHAPE and NEWCLASSMEMBER for use with Luau Classes. Experimental.
 // Version 11: Adds CALLFB, CMPPROTO and feedback vector description. Experimental.
+// Version 12: Adds cost function serialized for proto and prepend each proto with size in bytes. Experimental.
+// Version 13: Adds support for double-precision vector constants. Experimental.
+// Version 14: Adds FASTPCALL. Currently supported.
+
+// WIP Versions: Used for in-progress features that might require multiple changes to bytecode. Since these versions are higher than the non-WIP versions, they are responsible for maintaining compatibility with them. For example, tests exercising WIP bytecode versions may need to enable flags for unreleased but non-WIP bytecode versions.
+// Version 100: Adds NEWCLASS for use with Luau Classes. Future class-related bytecode changes should go in this version before release. Experimental.
 
 // # Bytecode type information history
 // Version 1: (from bytecode version 4) Type information for function signature. Currently supported.
@@ -363,7 +369,7 @@ enum LuauOpcode
 
     // CAPTURE: capture a local or an upvalue as an upvalue into a newly created closure; only valid after NEWCLOSURE
     // A: capture type, see LuauCaptureType
-    // B: source register (for VAL/REF) or upvalue index (for UPVAL/UPREF)
+    // B: source register (for VAL/REF) or upvalue index (for UPVAL)
     LOP_CAPTURE,
 
     // SUBRK, DIVRK: compute arithmetic operation between the constant and a source register and put the result into target register
@@ -427,6 +433,7 @@ enum LuauOpcode
     // Atom-based userdata field access acceleration
     // These are equivalent to their GETTABLEKS/SETTABLEKS/NAMECALL counterparts, except tailored towards userdata field accesses
     // If the user has registered metamethods for a userdata tag, callbacks will be called by these instructions
+    // NOTE: it uses only lower 2 bytes in AUX for constant index. Higher bytes are used for runtime cache.
     LOP_GETUDATAKS,
     LOP_SETUDATAKS,
     LOP_NAMECALLUDATA,
@@ -450,6 +457,36 @@ enum LuauOpcode
     // D: jump offset if proto doesn't match
     // AUX: proto id
     LOP_CMPPROTO,
+
+    // FASTPCALL: perform a fastcall of a built-in protected call function
+    // A: protected function id (0 - pcall, 1 - xpcall)
+    // B: number of explicit arguments before a variadic tail
+    // C: jump offset to get to following CALL
+    LOP_FASTPCALL,
+
+
+    // The following instructions appear only in experimental bytecode versions and are subject to change
+
+    // NEWCLASS: reify a class object
+    // A: target register of class
+    // B: source register of superclass, or 0xFF if no superclass
+    // C: bottom bit is 1 if the class is open, else 0; upper 7 bits are reserved
+    // AUX: constant table index of unreified class object
+    LOP_NEWCLASS,
+
+    // CONSTRUCT: duplicate table to ra using the constant table template specified in the feedback slot. if rb is a class with default constructor and duplicated table matches shape required by the class, creates an object using class's default constructor
+    // A: target register
+    // B: register that is likely to hold a class
+    // C: reserved
+    // AUX: feedback slot id
+    LOP_CONSTRUCT,
+
+    // FINCONSTRUCT: checks if object construction initiated by a preceding CONSTRUCT succeeded and either finishes result placement or fallbacks to a CALL instruction
+    // Note that FINCONSTRUCT will read the actual call arguments, such as argument/result registers and counts, from the CALL instruction
+    // A: source register
+    // B: reserved
+    // C: jump offset to get to following CALL
+    LOP_FINCONSTRUCT,
 
     // Enum entry for number of opcodes, not a valid opcode by itself!
     LOP__COUNT
@@ -487,7 +524,7 @@ enum LuauOpcode
 // Used in LOP_JUMPXEQK* instructions
 #define LUAU_INSN_AUX_NOT(aux) ((aux) >> 31)
 
-// Auxilary 16-bit constant index and 16-bit cachedslot
+// Auxiliary 16-bit constant index and 16-bit cachedslot
 // Used in LOP_GETUDATAKS, LOP_SETUDATAKS and LOP_NAMECALLUDATA
 #define LUAU_INSN_AUX_KV16(aux) ((aux) & 0xffffu)
 #define LUAU_INSN_AUX_SLOT(aux) ((aux) >> 16)
@@ -499,8 +536,9 @@ enum LuauBytecodeTag
 {
     // Bytecode version; runtime supports [MIN, MAX], compiler emits TARGET by default but may emit a higher version when flags are enabled
     LBC_VERSION_MIN = 3,
-    LBC_VERSION_MAX = 11,
-    LBC_VERSION_TARGET = 6,
+    LBC_VERSION_MAX = 14,
+    LBC_VERSION_TARGET = 9,
+    LBC_VERSION_CLASSES = 100,
     // Type encoding version
     LBC_TYPE_VERSION_MIN = 1,
     LBC_TYPE_VERSION_MAX = 3,
@@ -517,6 +555,7 @@ enum LuauBytecodeTag
     LBC_CONSTANT_TABLE_WITH_CONSTANTS,
     LBC_CONSTANT_INTEGER,
     LBC_CONSTANT_CLASS_SHAPE,
+    LBC_CONSTANT_VECTORD,
 
     /** WARNING: This must always be last. */
     LBC_CONSTANT__COUNT
@@ -536,6 +575,8 @@ enum LuauBytecodeType
     LBC_TYPE_VECTOR,
     LBC_TYPE_BUFFER,
     LBC_TYPE_INTEGER,
+    LBC_TYPE_CLASS,
+    LBC_TYPE_OBJECT,
 
     LBC_TYPE_ANY = 15,
 
@@ -754,9 +795,14 @@ enum LuauProtoFlag
     LPF_NATIVE_FUNCTION = 1 << 2,
     // function can be inlined
     LPF_INLINABLE = 1 << 3,
+    // top-level function uses export statements and returns the export table
+    LPF_USES_EXPORT = 1 << 4,
 };
 
 enum LuauFeedbackType
 {
-    LFT_CALLTARGET = 0
+    LFT_CALLTARGET = 0,
+
+    // The following enumerations appear only in experimental bytecode versions and are subject to change
+    LFT_CONSTRUCT = 1,
 };

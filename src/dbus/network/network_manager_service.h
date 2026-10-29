@@ -81,18 +81,18 @@ public:
   [[nodiscard]] bool hasSavedConnection(const std::string& ssid) const override;
 
 private:
-  void refreshAccessPoints(std::function<void()> onComplete);
-  void refreshSavedConnections(std::function<void()> onComplete);
+  void refreshAccessPoints(const std::function<void()>& onComplete);
+  void refreshSavedConnections(const std::function<void()>& onComplete);
   // Rebuilds the VPN profile list and, from one pass over NM's active
   // connections, the derived flags those profiles share with cellular
   // (m_anyVpnConnected, m_anyCellularActive).
-  void refreshVpnAndActiveConnections(std::function<void()> onComplete);
+  void refreshVpnAndActiveConnections(const std::function<void()>& onComplete);
   void reconcileVpnActiveWatchers(const std::set<std::string>& activePaths);
   void finishSavedConnections(
       std::vector<std::string>& ssids, std::vector<std::string>& wiredConnectionPaths,
-      std::vector<std::string>& cellularConnectionPaths, std::function<void()> onComplete
+      std::vector<std::string>& cellularConnectionPaths, const std::function<void()>& onComplete
   );
-  void finishRefreshAccessPoints(std::vector<AccessPointInfo>& aps, std::function<void()> onComplete);
+  void finishRefreshAccessPoints(std::vector<AccessPointInfo>& aps, const std::function<void()>& onComplete);
   bool addAndActivateAccessPoint(
       const AccessPointInfo& ap, const std::optional<std::string>& psk,
       const std::optional<network_enterprise::EnterpriseCredentials>& credentials = std::nullopt
@@ -112,16 +112,17 @@ private:
   // may be a bridge/bond slave or a link that has not become the default route.
   // Only mid-activation links are surfaced (resolving state).
   void resolvePhysicalPrimary(
-      bool allowActivatedAsPrimary, std::function<void(std::string connectionPath, std::string devicePath)> done
+      bool allowActivatedAsPrimary, const std::function<void(std::string connectionPath, std::string devicePath)>& done
   );
   void adoptActiveConnection(const std::string& connectionPath, const std::string& devicePath);
   void rebindActiveDevice(const std::string& devicePath);
   void rebindActiveAccessPoint(const std::string& apPath);
   void ensureWifiDeviceSubscribed(const std::string& devicePath);
-  void
-  collectWifiDevices(std::function<void(std::vector<std::string> devicePaths, std::int64_t lastScanBaseline)> done);
-  void tryActivateWiredConnection(std::shared_ptr<std::vector<std::string>> candidates, std::size_t index);
-  void tryActivateCellularConnection(std::shared_ptr<std::vector<std::string>> candidates, std::size_t index);
+  void collectWifiDevices(
+      const std::function<void(std::vector<std::string> devicePaths, std::int64_t lastScanBaseline)>& done
+  );
+  void tryActivateWiredConnection(const std::shared_ptr<std::vector<std::string>>& candidates, std::size_t index);
+  void tryActivateCellularConnection(const std::shared_ptr<std::vector<std::string>>& candidates, std::size_t index);
   // Shared deactivate-by-profile-paths machinery used by the VPN and cellular
   // toggles. Deactivates active (or stuck-activating) connections whose profile
   // path is in the set. Returns false only on an immediate dispatch error.
@@ -130,7 +131,7 @@ private:
   void attach();
   // Drop every proxy, cached object path, and derived state of the instance that left.
   void detach();
-  void readStateAsync(std::function<void(NetworkState)> onComplete);
+  void readStateAsync(const std::function<void(NetworkState)>& onComplete);
   [[nodiscard]] NetworkChangeOrigin consumeWirelessEnabledChangeOrigin(bool enabled);
   void beginScan(std::int64_t lastScanBaseline);
   void endScan();

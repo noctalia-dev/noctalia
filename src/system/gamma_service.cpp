@@ -175,7 +175,7 @@ void GammaService::scheduleManualTimer() {
   kLog.debug(
       "manual schedule: next phase boundary in {}s, recheck in {}s", boundaryDelay.count() / 1000, delay.count() / 1000
   );
-  m_scheduleTimer.start(delay, [this, boundaryTimer = delay == boundaryDelay]() {
+  m_scheduleTimer.start(delay, [this, boundaryTimer = delay == boundaryDelay] {
     if (boundaryTimer) {
       kLog.info("manual schedule: phase boundary reached");
     }
@@ -191,7 +191,7 @@ void GammaService::scheduleGeoTimer() {
   kLog.debug(
       "geo schedule: next phase boundary in {}s, recheck in {}s", boundaryDelay.count() / 1000, delay.count() / 1000
   );
-  m_scheduleTimer.start(delay, [this, boundaryTimer = delay == boundaryDelay]() {
+  m_scheduleTimer.start(delay, [this, boundaryTimer = delay == boundaryDelay] {
     if (boundaryTimer) {
       kLog.info("geo schedule: phase boundary reached");
     }
@@ -429,7 +429,7 @@ void GammaService::ensureTick() {
           interval.count(), static_cast<long>(ramp) / std::max<long>(1, interval.count())
       );
     }
-    m_transitionTimer.startRepeating(interval, [this]() { tickGamma(); });
+    m_transitionTimer.startRepeating(interval, [this] { tickGamma(); });
   }
 }
 
