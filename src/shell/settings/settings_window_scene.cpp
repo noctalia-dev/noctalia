@@ -12,6 +12,7 @@
 #include "dbus/upower/upower_service.h"
 #include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
+#include "notification/notification_manager.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
@@ -1755,13 +1756,40 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     m_settingsRegistry.insert(it, std::move(retry));
   }
 
+  if (m_notificationManager != nullptr && !m_notificationManager->historyPersistenceReady()) {
+    auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& entry) {
+      return entry.section == settings::SettingsSection::Notifications && entry.group == "general";
+    });
+    settings::SettingEntry retry{
+        .section = settings::SettingsSection::Notifications,
+        .group = "general",
+        .title = i18n::tr("settings.schema.notifications.history-storage.label"),
+        .subtitle = i18n::tr(
+            m_notificationManager->historyNeedsRecovery()
+                ? "settings.schema.notifications.history-storage.description-recovery"
+                : "settings.schema.notifications.history-storage.description-unavailable"
+        ),
+        .path = {},
+        .control =
+            settings::ButtonSetting{
+                .label = i18n::tr("settings.schema.notifications.history-storage.button"),
+                .action = [this] { m_notificationManager->retryHistoryPersistence(); },
+                .glyph = "refresh",
+            },
+        .searchText = "notification history encryption keyring secret service retry migration unlock",
+    };
+    m_settingsRegistry.insert(it, std::move(retry));
+  }
+
   const bool calendarStorageRecovery = m_calendarService != nullptr
       && (m_calendarService->cachePersistenceState() == CalendarService::CachePersistenceState::MissingKey
           || m_calendarService->cachePersistenceState() == CalendarService::CachePersistenceState::RecoveryRequired);
   const bool clipboardStorageRecovery = m_clipboardService != nullptr
       && (m_clipboardService->persistenceState() == ClipboardPersistenceState::MissingKey
           || m_clipboardService->persistenceState() == ClipboardPersistenceState::RecoveryRequired);
-  if (!calendarStorageRecovery && !clipboardStorageRecovery) {
+  const bool notificationStorageRecovery =
+      m_notificationManager != nullptr && m_notificationManager->historyNeedsRecovery();
+  if (!calendarStorageRecovery && !clipboardStorageRecovery && !notificationStorageRecovery) {
     m_pendingEncryptedStorageReset = false;
   }
 
@@ -1807,6 +1835,9 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
 
   if (calendarStorageRecovery && m_resetEncryptedStorage) {
     insertStorageRecovery(settings::SettingsSection::Calendar, "general");
+  }
+  if (notificationStorageRecovery && m_resetEncryptedStorage) {
+    insertStorageRecovery(settings::SettingsSection::Notifications, "general");
   }
   if (clipboardStorageRecovery && m_resetEncryptedStorage) {
     insertStorageRecovery(settings::SettingsSection::Shell, "clipboard");

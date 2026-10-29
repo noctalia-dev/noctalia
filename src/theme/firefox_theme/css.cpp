@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
-#include <vector>
 
 namespace noctalia::theme::firefox_theme::css {
   namespace {
@@ -38,7 +37,7 @@ namespace noctalia::theme::firefox_theme::css {
         return std::filesystem::path(*overridePath);
       }
 
-      const auto xdg = xdgConfigHome() / "firefox";
+      auto xdg = xdgConfigHome() / "firefox";
       if (std::filesystem::is_regular_file(xdg / "profiles.ini")) {
         return xdg;
       }
@@ -102,12 +101,12 @@ namespace noctalia::theme::firefox_theme::css {
       };
 
       if (!defaultRelative.empty()) {
-        const auto path = resolve(defaultRelative, true);
+        auto path = resolve(defaultRelative, true);
         if (std::filesystem::is_directory(path)) {
           return path;
         }
       }
-      const auto profile0 = resolve(profile0Path, profile0Relative);
+      auto profile0 = resolve(profile0Path, profile0Relative);
       if (std::filesystem::is_directory(profile0)) {
         return profile0;
       }
@@ -131,7 +130,7 @@ namespace noctalia::theme::firefox_theme::css {
       }
       return std::nullopt;
     }
-    const auto chrome = *profile / "chrome";
+    auto chrome = *profile / "chrome";
     std::error_code ec;
     std::filesystem::create_directories(chrome, ec);
     if (ec) {

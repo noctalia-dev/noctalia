@@ -114,13 +114,11 @@ namespace settings {
 
   struct SliderSetting {
     SliderSetting() = default;
-    template <
-        typename Value, typename MinValue, typename MaxValue, typename Step,
-        typename = std::enable_if_t<
-            std::is_arithmetic_v<Value>
-            && std::is_arithmetic_v<MinValue>
-            && std::is_arithmetic_v<MaxValue>
-            && std::is_arithmetic_v<Step>>>
+    template <typename Value, typename MinValue, typename MaxValue, typename Step>
+      requires(std::is_arithmetic_v<Value>
+               && std::is_arithmetic_v<MinValue>
+               && std::is_arithmetic_v<MaxValue>
+               && std::is_arithmetic_v<Step>)
     SliderSetting(Value valueIn, MinValue minValueIn, MaxValue maxValueIn, Step stepIn, bool integerValueIn)
         : value(static_cast<double>(valueIn)), minValue(static_cast<double>(minValueIn)),
           maxValue(static_cast<double>(maxValueIn)), step(static_cast<double>(stepIn)), integerValue(integerValueIn) {}

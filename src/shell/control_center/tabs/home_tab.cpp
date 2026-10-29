@@ -13,7 +13,6 @@
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
 #include "render/animation/animation_manager.h"
-#include "render/core/async_texture_cache.h"
 #include "render/scene/input_area.h"
 #include "scripting/plugin_id.h"
 #include "shell/control_center/shortcut_registry.h"

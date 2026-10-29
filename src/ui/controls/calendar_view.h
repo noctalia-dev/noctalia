@@ -76,6 +76,7 @@ namespace calendar_view {
     const CalendarSnapshot* snapshot = nullptr;
     Date selected;
     float scale = 1.0F;
+    bool showEventsLocation = false;
     std::string_view dateFormat;
     std::string_view timeFormat;
     std::string fontFamily;

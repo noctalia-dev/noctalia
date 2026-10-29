@@ -59,6 +59,11 @@ namespace {
   constexpr std::string_view kProviderOverviewProviderId = "__launcher_provider_overview__";
   constexpr std::string_view kProviderOverviewResultPrefix = "provider:";
 
+  void applyLauncherToolbarStyle(Flex& toolbar, float scale, float opacity) {
+    toolbar.setCardStyle(scale, opacity);
+    toolbar.setPadding(std::round(Style::cardPadding * scale));
+  }
+
   double usageBoostForScore(double score, int usageCount, bool typedQuery) {
     if (usageCount <= 0) {
       return 0.0;
@@ -224,11 +229,19 @@ namespace {
       addChild(std::move(row));
 
       m_row->addChild(
+          ui::box({
+              .out = &m_badgeHost,
+              .fill = clearColorSpec(),
+              .visible = false,
+              .participatesInLayout = false,
+          })
+      );
+      m_badgeHost->addChild(
           ui::label({
               .out = &m_badgeLabel,
-              .fontSize = iconSize,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .visible = false,
+              .baselineMode = LabelBaselineMode::InkCentered,
+              .participatesInLayout = false,
           })
       );
 
@@ -327,8 +340,8 @@ namespace {
       setSize(width, height);
       m_row->setFrameSize(width, height);
 
-      m_badgeLabel->setVisible(false);
-      m_badgeLabel->setParticipatesInLayout(false);
+      m_badgeHost->setVisible(m_badgeVisible);
+      m_badgeHost->setParticipatesInLayout(m_badgeVisible);
       m_image->setVisible(false);
       m_image->setParticipatesInLayout(false);
       m_glyph->setVisible(false);
@@ -337,10 +350,17 @@ namespace {
       const bool showAppIcon = m_style.showIcons && !m_badgeVisible;
       const bool showLeadingVisual = m_badgeVisible || showAppIcon;
       if (m_badgeVisible) {
+        const float paddingV = (m_style.compact ? Style::spaceXs * 0.5F : Style::spaceXs) * m_style.scale;
+        const float badgeSize = std::min(iconSize, std::max(0.0F, height - paddingV * 2.0F));
+        m_badgeHost->setFrameSize(iconSize, badgeSize);
         m_badgeLabel->setText(singleLinePreview(result.badge));
-        m_badgeLabel->setSize(iconSize, iconSize);
-        m_badgeLabel->setVisible(true);
-        m_badgeLabel->setParticipatesInLayout(true);
+        m_badgeLabel->setFontSize(badgeSize * 0.8F);
+        m_badgeLabel->measure(renderer);
+        const float badgeExtent = std::max(m_badgeLabel->width(), m_badgeLabel->height());
+        m_badgeLabel->setScale(badgeExtent > badgeSize ? badgeSize / badgeExtent : 1.0F);
+        m_badgeLabel->setPosition(
+            (iconSize - m_badgeLabel->width()) * 0.5F, (badgeSize - m_badgeLabel->height()) * 0.5F
+        );
         m_image->clear(renderer);
       } else if (showAppIcon) {
         m_image->setParticipatesInLayout(true);
@@ -455,6 +475,7 @@ namespace {
     bool m_selected = false;
     bool m_hovered = false;
     Flex* m_row = nullptr;
+    Box* m_badgeHost = nullptr;
     Label* m_badgeLabel = nullptr;
     Image* m_image = nullptr;
     Glyph* m_glyph = nullptr;
@@ -1470,7 +1491,7 @@ void LauncherPanel::applyProviderConfig(LauncherProvider& provider) const {
     const auto& launcherCfg = m_config->config().shell.launcher;
     prefix = launcherCfg.providerPrefix;
     if (provider.allowCustomPrefix()) {
-      const std::string key = StringUtils::toLower(std::string(provider.id()));
+      const std::string key = StringUtils::toLower(provider.id());
       auto it = std::ranges::find(launcherCfg.providers, key, &LauncherProviderConfig::name);
       if (it != launcherCfg.providers.end()) {
         if (!it->prefix.empty()) {
@@ -1832,25 +1853,26 @@ void LauncherPanel::create() {
     auto toolbar = ui::row({
         .out = &m_launcherToolbar,
         .align = FlexAlign::Center,
-        .gap = Style::spaceSm * scale,
-        .padding = Style::spaceSm * scale,
+        .gap = std::round(Style::spaceSm * scale),
         .fillWidth = true,
-        .configure = [scale, opacity = panelCardOpacity()](Flex& flex) { flex.setCardStyle(scale, opacity); },
+        .configure = [scale, opacity = panelCardOpacity()](Flex& flex) {
+          applyLauncherToolbarStyle(flex, scale, opacity);
+        },
     });
-    const float toolbarSideWidth = kLauncherAvatarSize * scale;
+    const float toolbarSideWidth = std::round(kLauncherAvatarSize * scale);
     auto profile = ui::row({
         .align = FlexAlign::Center,
         .justify = FlexJustify::Center,
         .width = toolbarSideWidth,
-        .height = kLauncherAvatarSize * scale,
+        .height = toolbarSideWidth,
     });
     profile->addChild(
         ui::image({
             .out = &m_launcherAvatar,
             .fit = ImageFit::Cover,
-            .radius = kLauncherAvatarSize * 0.5F * scale,
-            .width = kLauncherAvatarSize * scale,
-            .height = kLauncherAvatarSize * scale,
+            .radius = toolbarSideWidth * 0.5F,
+            .width = toolbarSideWidth,
+            .height = toolbarSideWidth,
             .visible = false,
             .participatesInLayout = false,
         })
@@ -1878,8 +1900,8 @@ void LauncherPanel::create() {
         ui::inputArea({
             .acceptedButtons = 0,
             .tooltip = sessionDisplayName() + "\n" + distroLabel(),
-            .width = kLauncherAvatarSize * scale,
-            .height = kLauncherAvatarSize * scale,
+            .width = toolbarSideWidth,
+            .height = toolbarSideWidth,
             .zIndex = 1,
             .participatesInLayout = false,
         })
@@ -1887,16 +1909,16 @@ void LauncherPanel::create() {
     toolbar->addChild(std::move(profile));
     input->setFlexGrow(1.0F);
     toolbar->addChild(std::move(input));
-    auto shortcuts = ui::row({
-        .align = FlexAlign::Center,
-        .justify = FlexJustify::End,
-        .gap = Style::spaceSm * scale,
-        .width = toolbarSideWidth,
-    });
     const bool showSessionButton = m_config == nullptr || m_config->config().shell.launcher.showSessionButton;
     const bool searchOnTop = m_config != nullptr
         && m_config->config().shell.launcher.searchPosition == ShellConfig::LauncherSearchPosition::Top;
     if (showSessionButton) {
+      auto shortcuts = ui::row({
+          .align = FlexAlign::Center,
+          .justify = FlexJustify::End,
+          .gap = Style::spaceSm * scale,
+          .width = toolbarSideWidth,
+      });
       shortcuts->addChild(
           ui::button({
               .out = &m_launcherPowerButton,
@@ -1909,14 +1931,14 @@ void LauncherPanel::create() {
               .width = toolbarSideWidth,
               .onClick = [this] { showSessionActions(); },
               .configure =
-                  [scale](Button& button) {
-                    button.setControlHeight(kLauncherAvatarSize * scale);
+                  [toolbarSideWidth](Button& button) {
+                    button.setControlHeight(toolbarSideWidth);
                     button.inputArea()->setTabFocusKey("launcher.power");
                   },
           })
       );
+      toolbar->addChild(std::move(shortcuts));
     }
-    toolbar->addChild(std::move(shortcuts));
     if (searchOnTop) {
       container->addChild(std::move(toolbar));
       container->addChild(std::move(body));
@@ -2189,7 +2211,7 @@ void LauncherPanel::onPanelCardOpacityChanged(float opacity) {
     m_launcherNavigation->setSurfaceOpacity(opacity);
   }
   if (m_launcherToolbar != nullptr) {
-    m_launcherToolbar->setCardStyle(contentScale(), opacity);
+    applyLauncherToolbarStyle(*m_launcherToolbar, contentScale(), opacity);
   }
   if (m_launcherSections != nullptr) {
     m_launcherSections->notifyDataChanged();
@@ -3228,7 +3250,7 @@ void LauncherPanel::applyActiveCategory() {
   switch (m_activeCategoryType) {
   case All:
     m_results = m_allResults;
-    if (!m_browserMode && m_scopedProviderId.empty() && m_query.empty()) {
+    if (m_scopedProviderId.empty() && m_query.empty()) {
       applyPinnedApplicationOrder();
     }
     break;

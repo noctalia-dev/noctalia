@@ -328,7 +328,7 @@ sound_theme = "freedesktop"
 
 [bluetooth]
 connect_when_enabled = false        # connect paired, trusted devices when Bluetooth turns on, at startup, and after resume
-connection_notifications = true     # notify when a device connects or disconnects on its own, or a connect you start fails
+connection_notifications = false    # notify when a device connects or disconnects on its own, or a connect you start fails
 
 # ── Brightness ────────────────────────────────────────────────────────────────
 
@@ -457,6 +457,7 @@ main_axis_padding   = 16
 cross_axis_padding  = 8
 item_spacing        = 6
 background_opacity  = 0.88
+compositor_blur     = true
 radius              = 16
 radius_top_left     = 16
 radius_top_right    = 16

@@ -39,6 +39,7 @@ struct MprisPlayerInfo {
   std::string loopStatus{"None"};
   bool shuffle{false};
   double volume{1.0};
+  double rate{1.0};
   int64_t positionUs{0};
   int64_t lengthUs{0};
   bool canControl{false};

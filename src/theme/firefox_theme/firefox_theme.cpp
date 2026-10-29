@@ -191,12 +191,12 @@ namespace noctalia::theme {
     }
 
     [[nodiscard]] std::filesystem::path resolveNoctaliaExecutable() {
-      const std::string self = selfExePath();
+      std::string self = selfExePath();
       if (!self.empty()) {
         return self;
       }
 #ifdef NOCTALIA_INSTALL_PREFIX
-      const auto installed = std::filesystem::path(NOCTALIA_INSTALL_PREFIX) / "bin" / "noctalia";
+      auto installed = std::filesystem::path(NOCTALIA_INSTALL_PREFIX) / "bin" / "noctalia";
       std::error_code ec;
       if (std::filesystem::is_regular_file(installed, ec)) {
         return installed;

@@ -162,6 +162,7 @@ Bar-specific constraints:
 
 - **Cross-axis is the bar thickness**: the widget capsule clips to it, so keep the tree one control tall (row on a horizontal bar, column on a side bar - branch on `barWidget.isVertical()`). Only the main axis grows with content.
 - **No keyboard**: the bar never takes keyboard focus, so `ui.input`, `ui.select`, and `ui.scroll` are skipped with a warning. Pointer controls (`ui.button`, `ui.toggle`, `ui.slider`, `ui.progress`, `ui.graph`, …) work.
+- **Wheel**: a slider in a bar widget consumes vertical wheel events over it and steps its value, so the wheel no longer reaches the widget's own scroll handling while the pointer is over a slider. Scroll gestures that start elsewhere keep their original target.
 - **Clicks compose**: an inline control consumes its own clicks; the widget-level `onClick`/`onRightClick` still fire for the rest of the capsule (and its padding).
 - **Drag and drop works** (<PluginApiBadge feature="bar-drag-and-drop" />): `ui.dragSource` / `ui.dropZone` behave as in panels, with the ghost confined to the widget's extent - see [Drag and drop](#drag-and-drop-panels-only).
 - Ticks stay on `noctalia.setUpdateInterval` - there is no frame-tick API in the bar.

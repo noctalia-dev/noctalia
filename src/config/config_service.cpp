@@ -120,9 +120,9 @@ namespace {
 
   std::vector<std::string> readStringArray(const toml::node& node) {
     std::vector<std::string> result;
-    if (auto* arr = node.as_array()) {
+    if (const auto* arr = node.as_array()) {
       for (const auto& item : *arr) {
-        if (auto* str = item.as_string()) {
+        if (const auto* str = item.as_string()) {
           result.push_back(str->get());
         }
       }
@@ -508,7 +508,7 @@ namespace {
     if (!settingsPath.empty() && std::filesystem::exists(std::filesystem::path(std::string(settingsPath)))) {
       const std::filesystem::path settingsFile{std::string(settingsPath)};
       try {
-        toml::table sidecar = toml::parse_file(std::string(settingsPath));
+        toml::table sidecar = toml::parse_file(settingsPath);
         seedLegacyDockAllowListEnabled(sidecar, merged);
         noctalia::config::ConfigOriginIndex origins;
         origins.record(settingsFile, sidecar);
@@ -1675,10 +1675,10 @@ void ConfigService::parseConfigTable(
   schema::Diagnostics schemaDiag;
 
   // Parse [bar.*] named subtables
-  if (auto* barTblMap = tbl["bar"].as_table()) {
+  if (const auto* barTblMap = tbl["bar"].as_table()) {
     std::vector<BarConfig> parsedBars;
     for (const auto& [barName, barNode] : *barTblMap) {
-      auto* barTbl = barNode.as_table();
+      const auto* barTbl = barNode.as_table();
       if (barTbl == nullptr) {
         continue;
       }
@@ -1693,9 +1693,9 @@ void ConfigService::parseConfigTable(
       readConfigSection(*barTbl, bar, schema::barFieldsSchema(), "bar." + bar.name, schemaDiag);
 
       // Parse [bar.<name>.monitor.*] overrides — insertion order preserved by toml++.
-      if (auto* monTblMap = (*barTbl)["monitor"].as_table()) {
+      if (const auto* monTblMap = (*barTbl)["monitor"].as_table()) {
         for (const auto& [monName, monNode] : *monTblMap) {
-          auto* monTbl = monNode.as_table();
+          const auto* monTbl = monNode.as_table();
           if (monTbl == nullptr) {
             continue;
           }
@@ -1713,7 +1713,7 @@ void ConfigService::parseConfigTable(
     }
 
     std::vector<std::string> order;
-    if (auto* orderNode = (*barTblMap)["order"].as_array()) {
+    if (const auto* orderNode = (*barTblMap)["order"].as_array()) {
       order = readStringArray(*orderNode);
     }
 
@@ -1736,9 +1736,9 @@ void ConfigService::parseConfigTable(
   }
 
   // Parse [widget.*] — named widget instances with per-widget settings
-  if (auto* widgetTbl = tbl["widget"].as_table()) {
+  if (const auto* widgetTbl = tbl["widget"].as_table()) {
     for (const auto& [name, node] : *widgetTbl) {
-      auto* entryTbl = node.as_table();
+      const auto* entryTbl = node.as_table();
       if (entryTbl == nullptr) {
         continue;
       }
@@ -1851,7 +1851,7 @@ void ConfigService::parseConfigTable(
   });
 
   // Parse [desktop_widgets]
-  if (auto* desktopWidgetsTbl = tbl["desktop_widgets"].as_table()) {
+  if (const auto* desktopWidgetsTbl = tbl["desktop_widgets"].as_table()) {
     auto& desktopWidgets = config.desktopWidgets;
     if (auto v = (*desktopWidgetsTbl)["enabled"].value<bool>()) {
       desktopWidgets.enabled = *v;
@@ -1863,7 +1863,7 @@ void ConfigService::parseConfigTable(
   }
 
   // Parse [lockscreen_widgets]
-  if (auto* lockscreenWidgetsTbl = tbl["lockscreen_widgets"].as_table()) {
+  if (const auto* lockscreenWidgetsTbl = tbl["lockscreen_widgets"].as_table()) {
     auto& lockscreenWidgets = config.lockscreenWidgets;
     if (auto v = (*lockscreenWidgetsTbl)["enabled"].value<bool>()) {
       lockscreenWidgets.enabled = *v;
@@ -1879,7 +1879,7 @@ void ConfigService::parseConfigTable(
   // Parse [plugin_settings."author/plugin"] — open-ended per-plugin setting maps,
   // validated against the manifest schema (not the static pluginsSchema). Keys may
   // contain '/', so this is a top-level table rather than nested under [plugins].
-  if (auto* pluginSettingsTbl = tbl["plugin_settings"].as_table()) {
+  if (const auto* pluginSettingsTbl = tbl["plugin_settings"].as_table()) {
     for (const auto& [pluginId, pluginNode] : *pluginSettingsTbl) {
       const auto* perPlugin = pluginNode.as_table();
       if (perPlugin == nullptr) {

@@ -428,7 +428,7 @@ Notes:
 
 ### Encrypted storage master key
 
-The default `storage.key_source = "secret-service"` keeps the master key in the desktop Secret Service. Clipboard history and the calendar event cache reopen automatically after boot only when the collection holding it is unlocked at login. See [Secret Service & keyrings](/noctalia/configuration/secret-service/) for the `default`-collection requirement, the GNOME Keyring multiple-keyrings fix (a common cause of "locked after every reboot"), and automatic recovery.
+The default `storage.key_source = "secret-service"` keeps the master key in the desktop Secret Service. Clipboard history, notification history, and the calendar event cache reopen automatically after boot only when the collection holding it is unlocked at login. See [Secret Service & keyrings](/noctalia/configuration/secret-service/) for the `default`-collection requirement, the GNOME Keyring multiple-keyrings fix (a common cause of "locked after every reboot"), and automatic recovery.
 
 `storage.key_source = "file"` makes the configured `key_file` authoritative. Noctalia does not look up, create, edit, or delete a Secret Service storage key in this mode. The path must be absolute and resolve to a regular file containing exactly 64 lowercase hexadecimal characters (32 random bytes), with an optional final LF. This works with agenix, sops-nix, and systemd credentials as long as the decrypted file is readable by the user running Noctalia.
 
@@ -439,9 +439,9 @@ umask 077
 head -c 32 /dev/urandom | xxd -p -c 64 > noctalia-storage-key
 ```
 
-Noctalia derives independent clipboard-history and calendar-event keys from this master key. Keep it stable. Replacing it does not rotate existing data: authentication fails, Settings reports storage errors, and Noctalia preserves the encrypted files. Restore the original key to reopen them. If the configured file is missing or invalid, clipboard history and the calendar event cache remain session-only; after provisioning the correct file, use the relevant Retry action in Settings.
+Noctalia derives independent clipboard-history, notification-history, and calendar-event keys from this master key. Keep it stable. Replacing it does not rotate existing data: authentication fails, Settings reports storage errors, and Noctalia preserves the encrypted files. Restore the original key to reopen them. If the configured file is missing or invalid, clipboard history, notification history, and the calendar event cache remain session-only; after provisioning the correct file, use the relevant Retry action in Settings.
 
-When the original key cannot be restored, or saved data is damaged, Settings also offers **Recover Private Storage**. The first click arms a confirmation and the second permanently removes both saved clipboard history and the calendar event cache. With `key_source = "secret-service"`, Noctalia then replaces the shared master key. With `key_source = "file"`, the configured file remains authoritative and is never edited or deleted; recovery simply reopens storage using its current contents. Retry with the correct key before resetting if the saved data is still needed.
+When the original key cannot be restored, or saved data is damaged, Settings also offers **Recover Private Storage**. The first click arms a confirmation and the second permanently removes saved clipboard history, notification history and images, and the calendar event cache. With `key_source = "secret-service"`, Noctalia then replaces the shared master key. With `key_source = "file"`, the configured file remains authoritative and is never edited or deleted; recovery simply reopens storage using its current contents. Retry with the correct key before resetting if the saved data is still needed.
 
 ### App icon colorization
 

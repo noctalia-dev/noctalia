@@ -398,8 +398,8 @@ namespace noctalia::bar {
   template <auto Member>
   auto field(WidgetFieldSpec<typename detail::MemberPointerTraits<decltype(Member)>::ValueType> spec) {
     using Traits = detail::MemberPointerTraits<decltype(Member)>;
-    using Options = typename Traits::OptionsType;
-    using T = typename Traits::ValueType;
+    using Options = Traits::OptionsType;
+    using T = Traits::ValueType;
 
     if (spec.key.empty()) {
       throw std::logic_error("widget field key cannot be empty");

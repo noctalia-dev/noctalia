@@ -49,7 +49,6 @@
 #include <unordered_set>
 #include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
-#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
@@ -533,6 +532,12 @@ namespace {
       }
       WindowSwitcherCandidate candidate;
       candidate.entry = makeEntryFromToplevel(platform, iconResolver, iconSize, info.appId, info);
+      // wlr toplevels carry no ext handle; only a unique exact app id + title match is trusted.
+      if (candidate.entry.captureHandle == 0 && !info.title.empty()) {
+        const std::string idLower = StringUtils::toLower(info.appId);
+        const auto match = uniqueExtHandleForTitle(wayland.extWindowsForApp(idLower, idLower), info.title);
+        candidate.entry.captureHandle = reinterpret_cast<std::uintptr_t>(match.handle);
+      }
       candidate.toplevelOrder = info.order;
       addCandidate(std::move(candidate), key);
     }

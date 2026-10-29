@@ -485,7 +485,7 @@ namespace {
     if (value == nullptr) {
       return fallback;
     }
-    const auto decoded = iconPixmapsFromVariant(*value);
+    auto decoded = iconPixmapsFromVariant(*value);
     if (!decoded.empty()) {
       return decoded;
     }
@@ -1615,13 +1615,17 @@ void TrayService::tryRegisterItemForBusName(const std::string& busName, std::fun
           .onInterface("org.freedesktop.DBus.Properties")
           .withTimeout(kItemPropertyTimeout)
           .withArguments(kItemInterface)
-          .uponReplyInvoke([this, busName, candidatePathString, pending, registeredAny, finish,
-                            probe](std::optional<sdbus::Error> error, const std::map<std::string, sdbus::Variant>&) {
-            if (!error.has_value()) {
+          .uponReplyInvoke([this, busName, candidatePathString, pending, registeredAny, finish, probe](
+                               std::optional<sdbus::Error> error,
+                               const std::map<std::string, sdbus::Variant>& properties
+                           ) {
+            if (error.has_value()) {
+              kLog.debug("tray probe failed bus='{}' path='{}' err={}", busName, candidatePathString, error->what());
+            } else if (properties.empty()) {
+              kLog.debug("tray probe ignored bus='{}' path='{}': no item properties", busName, candidatePathString);
+            } else {
               registerOrRefreshItem(busName, candidatePathString);
               *registeredAny = true;
-            } else {
-              kLog.debug("tray probe failed bus='{}' path='{}' err={}", busName, candidatePathString, error->what());
             }
             if (*pending > 0) {
               --(*pending);

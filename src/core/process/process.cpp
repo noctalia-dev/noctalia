@@ -36,16 +36,14 @@ namespace {
   constexpr std::chrono::milliseconds kProcessCommandLineCacheTtl{250};
 
   void writePipeOrIgnore(int fd, const void* data, size_t len) {
-    auto p = reinterpret_cast<const char*>(data);
+    const auto* p = reinterpret_cast<const char*>(data);
     size_t remaining = len;
     while (remaining > 0) {
       const ssize_t n = ::write(fd, p, remaining);
       if (n > 0) {
         p += static_cast<size_t>(n);
         remaining -= static_cast<size_t>(n);
-      } else if (n == 0) {
-        return;
-      } else if (errno != EINTR) {
+      } else if (n == 0 || errno != EINTR) {
         return;
       }
     }
@@ -563,7 +561,7 @@ namespace {
       int status = 0;
       while (::waitpid(intermediate, &status, 0) < 0 && errno == EINTR) {
       }
-      if (!(WIFEXITED(status) && WEXITSTATUS(status) == 0)) {
+      if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
         closeFd(execStatusPipe[0]);
         return false;
       }
@@ -714,7 +712,7 @@ namespace {
     char** s = ::environ;
     for (; *s; s++) {
       char c = **s;
-      if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
+      if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') {
         continue;
       }
       std::string name{*s, std::string_view(*s).find('=')};

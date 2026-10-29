@@ -98,7 +98,12 @@ void TrayDrawerPanel::create() {
     m_drawerWidget->setBarCapsuleSpec(tray::resolvedTrayCapsuleSpec(*m_config, barConfig));
   }
   m_drawerWidget->setAnimationManager(m_animations);
-  m_drawerWidget->setUpdateCallback([] { PanelManager::instance().requestUpdateOnly(); });
+  // Replacing the icon grid is structural. An update-only frame ignores the layout
+  // invalidation raised by those new nodes, so they stay stacked at the origin.
+  m_drawerWidget->setUpdateCallback([] {
+    PanelManager::instance().requestUpdateOnly();
+    PanelManager::instance().requestLayout();
+  });
   m_drawerWidget->setRedrawCallback([] { PanelManager::instance().requestRedraw(); });
   m_drawerWidget->setFrameTickRequestCallback([] { PanelManager::instance().requestFrameTick(); });
   m_drawerWidget->setPanelToggleCallback([](std::string_view id, std::string_view context, std::optional<float> ax,

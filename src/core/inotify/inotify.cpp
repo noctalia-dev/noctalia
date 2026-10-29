@@ -19,7 +19,7 @@ Inotify::Inotify() {
 Inotify::~Inotify() {
   if (m_inotifyFd < 0)
     return;
-  for (auto& wd : m_watchDescriptors)
+  for (const auto& wd : m_watchDescriptors)
     inotify_rm_watch(m_inotifyFd, wd);
   ::close(m_inotifyFd);
 }

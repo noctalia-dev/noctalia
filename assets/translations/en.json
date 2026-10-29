@@ -681,6 +681,7 @@
         "show-caps-lock": "Caps Lock Warning",
         "show-device": "Show Device",
         "show-events": "Show Events",
+        "show-events-location": "Show Event Location",
         "show-forecast": "Show Forecast",
         "show-keyboard-layout": "Keyboard Layout",
         "show-label": "Show Label",
@@ -1404,7 +1405,10 @@
       "live-status": {
         "active": "Active",
         "idle-for-one": "Idle for 1 second",
-        "idle-for-seconds": "Idle for {seconds} seconds"
+        "idle-for-seconds": "Idle for {seconds} seconds",
+        "inhibit-reason-caffeine": "Caffeine",
+        "inhibit-reason-external": "external source",
+        "inhibited": "Inhibited: {inhibitors}"
       }
     },
     "navigation": {
@@ -2289,6 +2293,10 @@
           "description": "Inside outline width for the dock",
           "label": "Border Width"
         },
+        "compositor-blur": {
+          "description": "Allow the compositor to blur behind the dock when the background effect protocol is available",
+          "label": "Compositor Blur"
+        },
         "concave-edge-corners": {
           "description": "Carve inward corners on the side that touches the screen edge; requires the margin to the screen edge to be 0",
           "label": "Concave Edge Corners"
@@ -2634,6 +2642,12 @@
         "history-retention-hours": {
           "description": "Automatically remove notification history entries older than the specified number of hours (0 to keep forever)",
           "label": "Retention Period"
+        },
+        "history-storage": {
+          "button": "Retry",
+          "description-recovery": "Saved notification history could not be authenticated or is damaged; retry after restoring the correct key, or reset private storage",
+          "description-unavailable": "Encrypted notification history is not open, so notifications are kept for this session only; unlock private storage or restore the configured key, then retry",
+          "label": "Notification History Storage"
         },
         "keep-dismissed-in-history": {
           "description": "Keep notifications in history after their toasts are dismissed",
@@ -3072,6 +3086,10 @@
         "calendar-reminders": {
           "description": "Notify before an event starts.",
           "label": "Calendar Reminders"
+        },
+        "calendar-show-events-location": {
+          "description": "Show each event's location below its time in the event list",
+          "label": "Show Event Location"
         },
         "calendar-storage": {
           "button": "Retry",
@@ -3868,7 +3886,7 @@
     "storage-recovery": {
       "button": "Reset Private Storage",
       "button-confirm": "Confirm Storage Reset",
-      "description": "Permanently delete saved clipboard history and the calendar event cache, then reopen private storage (a configured key file is never modified)",
+      "description": "Permanently delete saved clipboard and notification history, notification images, and the calendar event cache, then reopen private storage (a configured key file is never modified)",
       "error-delete": "Some private storage files could not be deleted. The storage key was preserved.",
       "error-key": "Private storage files were deleted, but secure storage could not be reopened. Fix access and retry.",
       "label": "Recover Private Storage",
@@ -4886,6 +4904,10 @@
         "pinned-opacity": {
           "description": "Opacity of pinned apps that are not currently running",
           "label": "Pinned App Opacity"
+        },
+        "prefer-symbolic-icons": {
+          "description": "Prefer -symbolic variants from the active icon theme when available, falling back to regular application icons",
+          "label": "Prefer Symbolic Icons"
         },
         "reversed": {
           "description": "Reverse the low-to-high frequency order of the bars",

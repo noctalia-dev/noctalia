@@ -875,7 +875,7 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
       notifyChanged();
       return;
     }
-    const auto workspace = findWorkspaceByName(workspaceName);
+    auto* workspace = findWorkspaceByName(workspaceName);
     if (workspace == nullptr) {
       refreshClients();
       recomputeWorkspaceFlags();

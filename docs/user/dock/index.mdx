@@ -18,6 +18,7 @@ main_axis_padding   = 16          # inner padding along the icon row (main axis)
 cross_axis_padding  = 8           # inner padding perpendicular to the icon row
 item_spacing        = 6          # gap between items in pixels
 background_opacity  = 0.88
+compositor_blur     = true       # publish a compositor blur region for the dock
 border              = "outline_variant"  # color role or #RRGGBB for the dock outline
 border_width        = 0.0        # inside outline width in pixels; 0 disables it
 shadow              = true       # cast the global [shell.shadow]
@@ -61,6 +62,8 @@ pinned = ["firefox", "code", "kitty"]
 `border_width` draws an inside outline using `border`.
 
 Shadow blur, offset, and alpha are global under `[shell.shadow]`. The dock only exposes `shadow = true|false`.
+
+`compositor_blur = true` publishes the dock's shape as a blur region when the compositor supports `ext-background-effect-v1`. Set it to `false` to clear the dock's blur request. It defaults to `true` and can be overridden per monitor. In the Settings GUI it lives under **Dock → Effects** and only appears when the compositor supports `ext-background-effect-v1`; on other compositors the key has no effect.
 
 ## Per-monitor overrides
 

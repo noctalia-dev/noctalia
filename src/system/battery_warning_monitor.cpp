@@ -36,7 +36,7 @@ namespace {
       return i18n::tr("notifications.internal.battery");
     }
 
-    const std::string nativeName =
+    std::string nativeName =
         !device.nativePath.empty() ? StringUtils::pathTail(device.nativePath) : StringUtils::pathTail(device.path);
     if (!device.vendor.empty() && !device.model.empty()) {
       return device.vendor + " " + device.model;

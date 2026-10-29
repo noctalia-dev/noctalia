@@ -16,7 +16,6 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
-#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <memory>
@@ -287,12 +286,8 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
   const bool isInvalidPassword = supplementaryError && supplementaryRaw == i18n::tr("auth.polkit.invalid-password");
   std::string promptText = wrapLongRuns(agent->inputPrompt());
   std::string supplementaryText = wrapLongRuns(supplementaryRaw);
-  if (!needsInput && !supplementaryText.empty() && !supplementaryError) {
-    promptText = supplementaryText;
-    supplementaryText.clear();
-  } else if (
-      !supplementaryText.empty() && (supplementaryError || supplementaryText == i18n::tr("auth.polkit.authenticating"))
-  ) {
+  if (!supplementaryText.empty()
+      && (!needsInput || supplementaryError || supplementaryText == i18n::tr("auth.polkit.authenticating"))) {
     promptText = supplementaryText;
     supplementaryText.clear();
   }

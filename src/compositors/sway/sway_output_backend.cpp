@@ -30,7 +30,7 @@ namespace {
           continue;
         }
         if (auto it = item.find("name"); it != item.end() && it->is_string()) {
-          const auto value = StringUtils::trim(it->get<std::string>());
+          auto value = StringUtils::trim(it->get<std::string>());
           if (!value.empty()) {
             return value;
           }

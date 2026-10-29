@@ -5,6 +5,12 @@ sidebar:
   order: 8
 ---
 
+## History privacy
+
+Notification history and its image previews are encrypted at rest using a purpose-specific key derived from the [storage master key](/noctalia/configuration/shell/#encrypted-storage-master-key). The encrypted history is stored in `notification_history.enc`; encrypted previews are stored in `notification_history_assets/`. Files are private to the owner (0600), and the image directory uses 0700 permissions.
+
+When the keyring is locked or unavailable, notifications continue to work in memory, without plaintext disk writes. History reopens when the key becomes available, preserving notifications received during the current session. Use **Settings > Notifications > Notification History Storage > Retry** after restoring a configured key file. Existing `notification_history.json` and plaintext previews are migrated automatically; plaintext is removed only after the encrypted replacement has been saved and authenticated. A damaged history file, or one that cannot be opened with the current key, is preserved instead of being overwritten. A damaged or missing image preview only removes that preview from its entry; the rest of the history still loads. Restore the original key before using **Recover Private Storage** in Settings, which permanently deletes saved private data.
+
 ```toml
 [notification]
 enable_daemon            = true        # when false, don't claim org.freedesktop.Notifications; internal toasts still work

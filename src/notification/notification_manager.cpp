@@ -182,8 +182,7 @@ void NotificationManager::upsertHistory(
       }
   );
 
-  constexpr std::size_t kMaxHistoryEntries = 100;
-  while (m_history.size() > kMaxHistoryEntries) {
+  while (m_history.size() > kNotificationHistoryMaxEntries) {
     const NotificationHistoryEntry evicted = m_history.front();
     emitPendingDBusClose(evicted.notification.id, evicted.closeReason.value_or(CloseReason::Expired));
     m_history.pop_front();
@@ -710,6 +709,7 @@ void NotificationManager::removeHistoryEntry(uint32_t id, std::optional<CloseRea
 }
 
 void NotificationManager::clearHistory() {
+  m_historyCleared = true;
   if (m_history.empty()) {
     return;
   }
@@ -892,36 +892,141 @@ void NotificationManager::schedulePersistHistory() {
   });
 }
 
+namespace {
+  std::filesystem::path historyPath() {
+    const auto dir = FileUtils::stateDir();
+    return dir.empty() ? std::filesystem::path{} : std::filesystem::path(dir) / "notification_history.enc";
+  }
+} // namespace
+
+bool NotificationManager::hasEncryptedHistory() const {
+  const auto path = historyPath();
+  std::error_code ec;
+  const bool exists = !path.empty() && std::filesystem::exists(path, ec);
+  return exists || static_cast<bool>(ec);
+}
+
 void NotificationManager::persistHistoryToDisk() {
-  const std::string dir = FileUtils::stateDir();
-  if (dir.empty()) {
+  const auto path = historyPath();
+  if (path.empty() || !m_historyWritable || !m_historyKey) {
     return;
   }
-  std::filesystem::path path(dir);
-  std::error_code ec;
-  std::filesystem::create_directories(path, ec);
-  path /= "notification_history.json";
-  (void)saveNotificationHistoryToFile(path, m_history, m_nextId, m_changeSerial);
+  if (saveNotificationHistoryToFile(path, m_history, m_nextId, m_changeSerial, *m_historyKey)
+      && m_historyKeyProvider != nullptr) {
+    m_historyKeyProvider->noteEncryptedDataExists();
+  }
+}
+
+void NotificationManager::syncHistoryPersistence(security::StorageKeyProvider& provider) {
+  m_historyKeyProvider = &provider;
+  m_historyKey.reset();
+  m_historyWritable = false;
+  m_historyNeedsRecovery = provider.state() == security::StorageKeyState::MissingKey;
+  if (provider.state() != security::StorageKeyState::Ready) {
+    loadPersistedHistory();
+    return;
+  }
+  m_historyKey = provider.deriveKey(security::StorageKeyPurpose::NotificationHistory);
+  if (!m_historyKey) {
+    return;
+  }
+  loadPersistedHistory();
+  if (hasEncryptedHistory()) {
+    provider.noteEncryptedDataExists();
+  }
+  if (m_historyWritable) {
+    persistHistoryToDisk();
+  }
 }
 
 void NotificationManager::loadPersistedHistory() {
-  const std::string dir = FileUtils::stateDir();
-  if (dir.empty()) {
+  const auto path = historyPath();
+  if (path.empty()) {
     return;
   }
-  std::filesystem::path path(dir);
-  path /= "notification_history.json";
-  std::uint32_t nextId = m_nextId;
-  std::uint64_t serial = m_changeSerial;
+  if (!secureNotificationHistory(path)) {
+    kLog.warn("could not secure existing notification history");
+    return;
+  }
+  if (!m_historyKey) {
+    return;
+  }
+  std::uint32_t nextId = 1;
+  std::uint64_t serial = 0;
   std::deque<NotificationHistoryEntry> loaded;
-  if (!loadNotificationHistoryFromFile(path, loaded, nextId, serial)) {
+  if (!loadNotificationHistoryFromFile(path, loaded, nextId, serial, *m_historyKey)) {
+    m_historyNeedsRecovery = true;
+    kLog.warn("notification persistence disabled; saved history was preserved");
     return;
   }
-  std::erase_if(loaded, [](const NotificationHistoryEntry& entry) { return !shouldRetainHistoryEntry(entry); });
-  m_history = std::move(loaded);
-  m_nextId = nextId;
-  m_changeSerial = serial;
-  rebuildHistoryIndex();
+  m_historyWritable = true;
+  m_historyNeedsRecovery = false;
+  if (!m_historyLoaded) {
+    std::erase_if(loaded, [](const NotificationHistoryEntry& entry) { return !shouldRetainHistoryEntry(entry); });
+    if (m_historyCleared) {
+      loaded.clear();
+    }
+    const bool hasSessionNotifications = !m_notifications.empty() || !m_history.empty();
+    m_nextId = std::max(m_nextId, nextId);
+    m_changeSerial = std::max(m_changeSerial, serial);
+    if (hasSessionNotifications) {
+      // Restored ids must not collide with notifications received while the keyring was locked.
+      for (auto& entry : loaded) {
+        entry.notification.id = m_nextId++;
+      }
+      for (auto& entry : m_history) {
+        entry.eventSerial = ++m_changeSerial;
+      }
+    }
+    for (auto& entry : m_history) {
+      loaded.push_back(std::move(entry));
+    }
+    while (loaded.size() > kNotificationHistoryMaxEntries) {
+      loaded.pop_front();
+    }
+    m_history = std::move(loaded);
+    m_historyLoaded = true;
+    rebuildHistoryIndex();
+    cleanupOldHistoryEntries();
+    if (m_stateCallback) {
+      m_stateCallback();
+    }
+  }
+}
+
+void NotificationManager::retryHistoryPersistence() {
+  if (m_historyKeyProvider != nullptr) {
+    m_historyKeyProvider->retry();
+  }
+}
+
+bool NotificationManager::clearEncryptedHistoryForRecovery() {
+  m_historyKey.reset();
+  m_historyWritable = false;
+  const auto path = historyPath();
+  if (path.empty()) {
+    return false;
+  }
+  auto legacyPath = path;
+  legacyPath.replace_extension(".json");
+  std::error_code ec;
+  for (const auto& file : {path, legacyPath, std::filesystem::path(legacyPath.string() + ".tmp")}) {
+    std::filesystem::remove(file, ec);
+    if (ec) {
+      return false;
+    }
+  }
+  std::filesystem::remove_all(path.parent_path() / "notification_history_assets", ec);
+  if (ec) {
+    return false;
+  }
+  clearHistory();
+  m_historyLoaded = true;
+  m_historyNeedsRecovery = false;
+  if (m_stateCallback) {
+    m_stateCallback();
+  }
+  return true;
 }
 
 void NotificationManager::flushPersistedHistory() {

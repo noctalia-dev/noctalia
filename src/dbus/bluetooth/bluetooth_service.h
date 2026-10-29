@@ -154,7 +154,7 @@ private:
   std::uint64_t m_connectPassGeneration = 0;
   bool m_connectPassActive = false;
   bool m_connectWhenEnabled = false;
-  bool m_connectionNotifications = true;
+  bool m_connectionNotifications = false;
   bool m_hasStateSnapshot = false;
   StateCallback m_stateCallback;
   DevicesCallback m_devicesCallback;

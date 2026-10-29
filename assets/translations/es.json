@@ -2771,10 +2771,7 @@
         "calendar-edit": {
           "button": "Editar",
           "button-reconnect": "Reconectar",
-          "button-retry": "Reintentar",
-          "description": "Actualizar esta cuenta de calendario",
-          "description-locked": "El token de actualización se encuentra en un keyring bloqueado; desbloquee el keyring y vuelva a intentarlo",
-          "description-reconnect": "Se ha perdido la autorización de Google; reconecta esta cuenta"
+          "button-retry": "Reintentar"
         },
         "calendar-event-date-format": {
           "description": "El formato de fecha que se muestra para los eventos del calendario en las vistas de calendario",

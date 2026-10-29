@@ -143,7 +143,11 @@ private:
   void onConfigReload();
   void notifyChanged();
   void startRefresh();
-  void accountDone(const std::string& accountId, calendar::SyncFailure failure, std::vector<CalendarEvent> events);
+  // `retainedSources` lists the calendars of the account that failed to load; their previous events are kept.
+  void accountDone(
+      const std::string& accountId, calendar::SyncFailure failure, std::vector<CalendarEvent> events,
+      const std::vector<std::string>& retainedSources = {}
+  );
   // Records the account's latest failure, or its last successful sync.
   void recordSyncResult(const std::string& accountId, calendar::SyncFailure failure);
   void loadLastSynced();
@@ -206,6 +210,9 @@ private:
   std::map<std::string, std::vector<CalendarEvent>> m_eventsByAccount;
   std::chrono::steady_clock::time_point m_nextRefreshAt;
   bool m_refreshing = false;
+  // Bumped on every config change; results of a refresh started under an older generation are dropped.
+  std::uint64_t m_refreshGeneration = 0;
+  std::uint64_t m_runningRefreshGeneration = 0;
   bool m_credentialsInitialized = false;
   bool m_initialized = false;
   bool m_cacheWritable = false;

@@ -14,7 +14,6 @@
 
 #include <algorithm>
 #include <string>
-#include <wayland-client-protocol.h>
 
 namespace {
 

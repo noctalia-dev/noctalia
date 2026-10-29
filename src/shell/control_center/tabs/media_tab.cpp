@@ -289,6 +289,7 @@ std::unique_ptr<Flex> MediaTab::create() {
           .trackHeight = 7.0F * scale,
           .thumbSize = 16.0F * scale,
           .controlHeight = (Style::controlHeight + Style::spaceXs) * scale,
+          .wheelAdjustEnabled = false,
           .onValueChanged =
               [this](double value) {
                 if (m_syncingProgress || m_mpris == nullptr) {
@@ -881,9 +882,10 @@ void MediaTab::refresh(Renderer& renderer) {
     std::int64_t displayPositionUs = livePositionUs;
     if (seekPending) {
       displayPositionUs = m_pendingSeekUs;
-    } else if (withinProgressSettle && livePositionUs + kTransientPositionRegressionDeltaUs < m_positionUs) {
-      displayPositionUs = m_positionUs;
-    } else if (preserveDisplayedPosition) {
+    } else if (
+        (withinProgressSettle && livePositionUs + kTransientPositionRegressionDeltaUs < m_positionUs)
+        || preserveDisplayedPosition
+    ) {
       displayPositionUs = m_positionUs;
     }
 

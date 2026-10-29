@@ -77,7 +77,7 @@ namespace {
     if (tzName.empty()) {
       const std::time_t timestamp = system_clock::to_time_t(now);
       std::tm localTime{};
-#if defined(_WIN32)
+#ifdef _WIN32
       localtime_s(&localTime, &timestamp);
 #else
       localtime_r(&timestamp, &localTime);

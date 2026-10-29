@@ -269,7 +269,7 @@ namespace noctalia::theme {
   }
 
   std::string allocateCustomPaletteName(std::string_view wallpaperPath, std::string_view scheme) {
-    const std::string base = suggestCustomPaletteName(wallpaperPath, scheme);
+    std::string base = suggestCustomPaletteName(wallpaperPath, scheme);
     if (base.empty()) {
       return {};
     }

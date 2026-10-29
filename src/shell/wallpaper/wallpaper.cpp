@@ -27,10 +27,10 @@
 #include "wayland/wayland_seat.h"
 
 #include <algorithm>
-#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string_view>
 #include <system_error>
@@ -277,15 +277,19 @@ namespace {
 
     kLog.info("syncing wallpaper to KDE Plasma: {} (connector: {})", imagePath, connector);
 
+    // An ASCII-only JSON string is a valid JS literal: quotes cannot end it, and U+2028/U+2029 (raw line
+    // terminators to Plasma's JS engine) are escaped.
+    const std::string imageUrl =
+        nlohmann::json("file://" + imagePath).dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
     std::string script;
     if (output == nullptr) {
       script = "var d = desktops();"
                "for (var i = 0; i < d.length; i++) {"
                "  d[i].wallpaperPlugin = 'org.kde.image';"
                "  d[i].currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];"
-               "  d[i].writeConfig('Image', 'file://"
-          + imagePath
-          + "');"
+               "  d[i].writeConfig('Image', "
+          + imageUrl
+          + ");"
             "}";
     } else {
       script = "var d = desktops();"
@@ -302,9 +306,9 @@ namespace {
           + ") {"
             "    d[i].wallpaperPlugin = 'org.kde.image';"
             "    d[i].currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];"
-            "    d[i].writeConfig('Image', 'file://"
-          + imagePath
-          + "');"
+            "    d[i].writeConfig('Image', "
+          + imageUrl
+          + ");"
             "  }"
             "}";
     }
@@ -1180,8 +1184,7 @@ Wallpaper::SwitchOutcome Wallpaper::switchWallpaperTo(PickWallpaper action, std:
       return SwitchOutcome::Unavailable;
     }
     const std::string currentPath = m_config->getWallpaperPath(std::string(*connector));
-    const std::string picked =
-        pick(std::move(candidates), currentPath, outputShuffleScope(std::string(*connector)), dir);
+    const std::string picked = pick(std::move(candidates), currentPath, outputShuffleScope(*connector), dir);
     if (picked.empty() || picked == currentPath) {
       return SwitchOutcome::NoChange;
     }

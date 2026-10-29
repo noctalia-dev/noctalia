@@ -19,7 +19,6 @@
 #include "idle-inhibit-unstable-v1-client-protocol.h"
 #include "org-kde-plasma-virtual-desktop-client-protocol.h"
 #include "text-input-unstable-v3-client-protocol.h"
-#include "util/string_utils.h"
 #include "viewporter-client-protocol.h"
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
 #include "wayland/clipboard_service.h"
@@ -42,7 +41,6 @@
 #include <array>
 #include <cerrno>
 #include <chrono>
-#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <format>

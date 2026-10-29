@@ -79,8 +79,11 @@ Slider::Slider() {
     if (!m_enabled || !m_wheelAdjustEnabled || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
       return false;
     }
-    const auto lines = static_cast<double>(data.scrollSteps());
-    if (lines == 0.0) {
+    // Frame direction comes from the raw delta: detent-less streams (touchpads) quantize to a
+    // whole step only every ~80 ms, and the frames between must stay owned by the slider or an
+    // ancestor ScrollView scrolls the page while the wheel is still adjusting this slider.
+    const float frameDelta = data.axisLines != 0.0F ? data.axisLines : static_cast<float>(data.axisValue);
+    if (frameDelta == 0.0F) {
       return false;
     }
     // Per-line step: use the slider's snap step, else 5% of range.
@@ -88,10 +91,17 @@ Slider::Slider() {
     if (step <= 0.0) {
       return false;
     }
-    // Wayland convention: positive axisLines = scroll down. Scroll up should increase.
-    setValue(m_value - lines * step);
-    if (m_onDragEnd) {
-      m_onDragEnd();
+    // Wayland convention: positive frameDelta = scroll down. Scroll up should increase.
+    const bool increase = frameDelta < 0.0F;
+    if ((increase && m_value >= m_max - kValueEpsilon) || (!increase && m_value <= m_min + kValueEpsilon)) {
+      return false;
+    }
+    const float steps = data.scrollSteps();
+    if (steps != 0.0F) {
+      setValue(m_value - steps * step);
+      if (m_onDragEnd) {
+        m_onDragEnd();
+      }
     }
     return true;
   });

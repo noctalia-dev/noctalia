@@ -485,6 +485,8 @@ void CalendarService::onConfigReload() {
     return;
   }
   m_activeConfig = next;
+  // A refresh still running was started with the old config; its results are dropped.
+  ++m_refreshGeneration;
   loadLastSynced();
   updateVdirWatches();
   std::unordered_set<std::string> activeAccountIds;
@@ -506,6 +508,10 @@ void CalendarService::onConfigReload() {
     m_snapshot = CalendarSnapshot{};
     notifyChanged();
     return;
+  }
+  if (m_snapshot.valid) {
+    // Drops the events of calendars that are no longer selected right away.
+    rebuildSnapshot();
   }
   // Re-sync soon after any account/config change.
   m_nextRefreshAt = std::chrono::steady_clock::now();
@@ -586,7 +592,8 @@ void CalendarService::dispatchPoll(const std::vector<pollfd>& fds, std::size_t s
 
 void CalendarService::scheduleNextRefresh() {
   const int minutes = std::max<std::int32_t>(1, m_activeConfig.refreshMinutes);
-  m_nextRefreshAt = std::chrono::steady_clock::now() + std::chrono::minutes{minutes};
+  // Never postpone a refresh requested while the last one was running.
+  m_nextRefreshAt = std::min(m_nextRefreshAt, std::chrono::steady_clock::now() + std::chrono::minutes{minutes});
 }
 
 void CalendarService::requestRefresh() {
@@ -598,11 +605,14 @@ void CalendarService::requestRefresh() {
 }
 
 void CalendarService::startRefresh() {
+  // Nothing is due until scheduleNextRefresh() or a request made while this refresh runs says so.
+  m_nextRefreshAt = std::chrono::steady_clock::time_point::max();
   if (m_activeConfig.accounts.empty()) {
     scheduleNextRefresh();
     return;
   }
   m_refreshing = true;
+  m_runningRefreshGeneration = m_refreshGeneration;
   m_pendingAccounts = m_activeConfig.accounts.size();
   // CalDAV finds its calendars and Google authorizes before downloading; the others download at once.
   for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
@@ -628,14 +638,25 @@ void CalendarService::startRefresh() {
 }
 
 void CalendarService::accountDone(
-    const std::string& accountId, calendar::SyncFailure failure, std::vector<CalendarEvent> events
+    const std::string& accountId, calendar::SyncFailure failure, std::vector<CalendarEvent> events,
+    const std::vector<std::string>& retainedSources
 ) {
-  if (failure == calendar::SyncFailure::None) {
+  const bool outdated = m_runningRefreshGeneration != m_refreshGeneration;
+  if (outdated) {
+    kLog.debug("calendar account {} refreshed with an outdated config; dropping the result", accountId);
+  } else if (failure == calendar::SyncFailure::None) {
     kLog.debug("calendar account {} refreshed: {} event(s)", accountId, events.size());
-    m_eventsByAccount[accountId] = std::move(events);
+    std::vector<CalendarEvent>& stored = m_eventsByAccount[accountId];
+    // Calendars that failed this time keep what they had.
+    for (CalendarEvent& event : stored) {
+      if (!event.sourceId.empty() && std::ranges::contains(retainedSources, event.sourceId)) {
+        events.push_back(std::move(event));
+      }
+    }
+    stored = std::move(events);
   } else {
     const auto it = m_eventsByAccount.find(accountId);
-    const auto status = failure == calendar::SyncFailure::Cancelled ? "was cancelled" : "failed";
+    const auto* status = failure == calendar::SyncFailure::Cancelled ? "was cancelled" : "failed";
     kLog.warn(
         "calendar account {} refresh {}; keeping {} previously loaded event(s)", accountId, status,
         it == m_eventsByAccount.end() ? 0 : it->second.size()
@@ -643,7 +664,9 @@ void CalendarService::accountDone(
   }
   m_syncPhases.erase(accountId);
   ++m_syncStatusRevision;
-  recordSyncResult(accountId, failure);
+  if (!outdated) {
+    recordSyncResult(accountId, failure);
+  }
   if (m_pendingAccounts > 0) {
     --m_pendingAccounts;
   }
@@ -755,6 +778,16 @@ void CalendarService::rebuildSnapshot() {
         std::ranges::contains(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
     it = stillConfigured ? std::next(it) : m_eventsByAccount.erase(it);
   }
+  // Drop cached events of CalDAV calendars no longer selected. An empty selection means all calendars.
+  for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
+    const auto it = m_eventsByAccount.find(account.id);
+    if (account.type != "caldav" || account.calendars.empty() || it == m_eventsByAccount.end()) {
+      continue;
+    }
+    std::erase_if(it->second, [&account](const CalendarEvent& event) {
+      return !event.sourceId.empty() && !std::ranges::contains(account.calendars, event.sourceId);
+    });
+  }
   for (auto it = m_discoveredVdirPathsByAccount.begin(); it != m_discoveredVdirPathsByAccount.end();) {
     const bool stillConfigured =
         std::ranges::contains(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
@@ -843,6 +876,7 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
                 bool anyOk = false;
                 calendar::SyncFailure firstFailure = calendar::SyncFailure::None;
                 std::vector<CalendarEvent> events;
+                std::vector<std::string> failedSources;
               };
               auto ctx = std::make_shared<FetchContext>();
               ctx->service = this;
@@ -860,16 +894,20 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
 
                 m_caldav.fetchEvents(
                     caldav, now - kWindowBefore, now + kWindowAfter, allowRedirectAuth,
-                    [ctx,
-                     calendarName = collection.name](calendar::SyncFailure failure, std::vector<CalendarEvent> events) {
+                    [ctx, calendarName = collection.name,
+                     sourceId = collection.id](calendar::SyncFailure failure, std::vector<CalendarEvent> events) {
                       if (failure == calendar::SyncFailure::None) {
                         ctx->anyOk = true;
+                        for (CalendarEvent& event : events) {
+                          event.sourceId = sourceId;
+                        }
                         ctx->events.insert(
                             ctx->events.end(), std::make_move_iterator(events.begin()),
                             std::make_move_iterator(events.end())
                         );
                       } else {
                         kLog.warn("caldav account {}: calendar '{}' failed to load", ctx->accountId, calendarName);
+                        ctx->failedSources.push_back(sourceId);
                         if (ctx->firstFailure == calendar::SyncFailure::None) {
                           ctx->firstFailure = failure;
                         }
@@ -878,10 +916,10 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
                         --ctx->pending;
                       }
                       if (ctx->pending == 0) {
-                        // Calendars that synced are kept when others failed.
+                        // Calendars that synced are updated; those that failed keep their previous events.
                         ctx->service->accountDone(
                             ctx->accountId, ctx->anyOk ? calendar::SyncFailure::None : ctx->firstFailure,
-                            std::move(ctx->events)
+                            std::move(ctx->events), ctx->failedSources
                         );
                       }
                     }
@@ -1610,6 +1648,7 @@ bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
       event.title = item.value("title", std::string{});
       event.calendarName = item.value("calendar", std::string{});
       event.colorHex = item.value("color", std::string{});
+      event.sourceId = item.value("source", std::string{});
       event.location = item.value("location", std::string{});
       event.url = calendar::resolveEventLink(event.location, {}, item.value("url", std::string{}));
       event.webUrl = calendar::resolveEventLink({}, {}, item.value("web_url", std::string{}));
@@ -1651,6 +1690,7 @@ void CalendarService::saveCache() {
           {"title", event.title},
           {"calendar", event.calendarName},
           {"color", event.colorHex},
+          {"source", event.sourceId},
           {"location", event.location},
           {"url", event.url},
           {"web_url", event.webUrl},

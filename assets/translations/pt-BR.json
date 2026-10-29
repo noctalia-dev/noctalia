@@ -28,16 +28,27 @@
   },
   "bar": {
     "annotate": {
+      "backdrop": "Camada de Fundo",
+      "backdrop-angle": "Ângulo",
+      "backdrop-enabled": "Camada de Fundo",
+      "backdrop-gradient": "Gradiente",
+      "backdrop-padding": "Espaçamento Interno",
+      "backdrop-radius": "Cantos",
+      "backdrop-shadow": "Sombra",
+      "backdrop-shadow-blur": "Borrar",
+      "backdrop-shadow-offset-x": "Deslocamento X",
+      "backdrop-shadow-offset-y": "Deslocamento Y",
+      "backdrop-shadow-opacity": "Opacidade",
       "capture-new-region": "Capturar nova região (descarta a edição atual)",
       "close": "Fechar editor",
-      "color-black": "Preto",
-      "color-blue": "Azul",
-      "color-green": "Verde",
-      "color-orange": "Laranja",
-      "color-purple": "Roxo",
-      "color-red": "Vermelho",
-      "color-white": "Branco",
-      "color-yellow": "Amarelo",
+      "color-black": "Preto (8)",
+      "color-blue": "Azul (4)",
+      "color-green": "Verde (3)",
+      "color-orange": "Laranja (5)",
+      "color-purple": "Roxo (6)",
+      "color-red": "Vermelho (1)",
+      "color-white": "Branco (7)",
+      "color-yellow": "Amarelo (2)",
       "copy": "Copiar a imagem anotada (Ctrl+C)",
       "cursor": "Mostrar o ponteiro capturado com a tela (p)",
       "cursor-capture-failed": "Alternação de ponteiro não disponível: o compositor não pôde prover uma imagem de cursor separada.",
@@ -48,6 +59,15 @@
       "fill-opaque": "Preenchimento de forma: opaco (f)",
       "fill-semi": "Preenchimento de forma: semi-transparente (f)",
       "freeze": "Congelar a tela sob a tinta (z)",
+      "gradient-graphite": "Grafite",
+      "gradient-mint": "Menta",
+      "gradient-paper": "Papel",
+      "gradient-sky": "Céu",
+      "gradient-sunset": "Por do Sol",
+      "gradient-theme": "Tema",
+      "gradient-theme-accent": "Tonalidade do tema",
+      "gradient-theme-soft": "Tema suave",
+      "gradient-theme-subtle": "Tema sutil",
       "move-toolbar": "Arraste para mover a barra de ferramentas",
       "redo": "Refazer (Ctrl+Shift+Z)",
       "save": "Salvar a imagem anotada (Ctrl+S)",
@@ -56,6 +76,7 @@
       "size-large": "Grande",
       "size-medium": "Médio",
       "size-small": "Pequeno",
+      "stroke": "Cor e espessura",
       "tool-arrow": "Seta (a) · segure Shift para ajustar o ângulo",
       "tool-blur": "Borrar uma região (u)",
       "tool-brush": "Pincel (b)",
@@ -181,6 +202,30 @@
           "wind": "Vento"
         }
       }
+    }
+  },
+  "calendar": {
+    "sync": {
+      "connecting": "Sincronizando: conectando...",
+      "downloading": "Sincronizando: baixando eventos...",
+      "failed": "Sincronização falhou: {reason}",
+      "failure": {
+        "access-denied": "O servidor negou acesso ao recurso.",
+        "authentication": "O servidor rejeitou o nome de usuário e senha.",
+        "client-certificate": "O certificado de cliente ou arquivo chave não pôde ser lido.",
+        "configuration": "As configurações de conta estão incompletas.",
+        "credentials": "Não há senha armazenada para esta conta ou não pôde ser lida.",
+        "credentials-locked": "O chaveiro que contém as credenciais está trancado; destranque-o e então tente novamente.",
+        "google-authorization": "Autorização Google está faltando ou foi revogada; reconecte a conta.",
+        "invalid-response": "Não foi possível ler a resposta do servidor.",
+        "network": "O servidor não pôde ser alcançado.",
+        "no-calendars": "Não foram encontrados calendários com eventos.",
+        "not-found": "Não foi encontrado calendário no endereço configurado.",
+        "server": "O servidor reportou um erro.",
+        "timeout": "O servidor levou muito tempo pra responder."
+      },
+      "not-synced": "Ainda não sincronizado",
+      "synced": "Sincronizado {when}"
     }
   },
   "clipboard": {
@@ -339,7 +384,7 @@
       "cellular-connection": "Conexão do celular",
       "cellular-enabling": "Ativando...",
       "cellular-failed": "Falhou",
-      "cellular-locked": "SIM bloqueado",
+      "cellular-locked": "SIM trancado",
       "cellular-no-service": "Sem serviço",
       "cellular-off": "Desligado",
       "cellular-registered": "Registrado",
@@ -636,6 +681,7 @@
         "show-caps-lock": "Aviso de Caps Lock",
         "show-device": "Mostrar Dispositivo",
         "show-events": "Exibir Eventos",
+        "show-events-location": "Mostrar Local do Evento",
         "show-forecast": "Mostrar Previsão do Tempo",
         "show-keyboard-layout": "Layout do Teclado",
         "show-label": "Exibir Rótulo",
@@ -645,7 +691,7 @@
         "show-password-reveal": "Revelar Senha",
         "show-seconds": "Ponteiro dos Segundos",
         "show-session-buttons": "Botões de Sessão",
-        "show-unlock-hint": "Dica de Desbloqueio",
+        "show-unlock-hint": "Dica de Destrancamento",
         "show-vpn-label": "Mostra Rótulo VPN",
         "show-wave": "Mostrar Onda",
         "show-weather": "Clima",
@@ -868,8 +914,8 @@
     "password-cleared": "Senha apagada",
     "password-placeholder": "Senha",
     "ready": "Digite sua senha e pressione Enter.",
-    "unlocked": "Desbloqueado",
-    "waiting": "Aguardando confirmação de bloqueio…"
+    "unlocked": "Destrancado",
+    "waiting": "Aguardando confirmação de tranca…"
   },
   "notifications": {
     "actions": {
@@ -892,12 +938,12 @@
       "bluetooth-connected-title": "{device} conectado",
       "bluetooth-disconnected-title": "{device} desconectado",
       "calendar": "Calendário",
-      "calendar-credential-locked-body": "Desbloqueie o chaveiro usado pelo Serviço Secreto e, em seguida, tente novamente em “Configurações”. No GNOME Keyring, defina como padrão um chaveiro que seja desbloqueado automaticamente, como o “Login”.",
-      "calendar-credential-locked-title": "Keyring do calendário está bloqueado",
+      "calendar-credential-locked-body": "Destranque o chaveiro usado pelo Serviço Secreto e, em seguida, tente novamente em “Configurações”. No GNOME Keyring, defina como padrão um chaveiro que seja destrancado automaticamente, como o “Login”.",
+      "calendar-credential-locked-title": "Keyring do calendário está trancado",
       "calendar-digest-more": "mais +{count}",
       "calendar-digest-title": "Dia todo hoje",
       "calendar-google-connect-browser-failed": "Não foi possível abrir nenhum navegador com a autorização do Google. Verifique seu navegador padrão ou a configuração do xdg-open.",
-      "calendar-google-connect-credential-store-failed": "A autorização foi concluída, mas não foi possível salvar o token de atualização. Desbloqueie ou inicie o Secret Service e, em seguida, conecte-se novamente.",
+      "calendar-google-connect-credential-store-failed": "A autorização foi concluída, mas não foi possível salvar o token de atualização. Destranque ou inicie o Secret Service e, em seguida, conecte-se novamente.",
       "calendar-google-connect-expired": "A autorização do Google expirou antes da conclusão do login. Inicie a conexão novamente.",
       "calendar-google-connect-failed-title": "A conexão com o Google Calendar falhou",
       "calendar-google-connect-missing-account": "Nenhuma conta configurada do google Calendar corresponde a \"{account}\".",
@@ -936,7 +982,7 @@
       "launcher-usage-reset": "Launcher",
       "launcher-usage-reset-success": "Dados de uso limpos.",
       "lockscreen-widgets-editor": "Editor de widgets da tela de bloqueio",
-      "lockscreen-widgets-editor-blocked-locked": "Desbloqueie a sessão antes de editar os widgets da tela de bloqueio.",
+      "lockscreen-widgets-editor-blocked-locked": "Destranque a sessão antes de editar os widgets da tela de bloqueio.",
       "lockscreen-widgets-editor-enabled": "O editor de widgets da tela de bloqueio está ligado. Mude para um espaço de trabalho vazio para que as janelas abertas não cubram o editor.",
       "mpris-disabled": "MPRIS desabilitado",
       "network": "Rede",
@@ -1104,10 +1150,10 @@
       "save": "Salvar",
       "save-connect": "Salvar e Conectar",
       "save-error": "Não foi possível salvar a conta de calendário.",
-      "secret-cleanup-error": "Não foi possível salvar a conta, e as credenciais do chaveiro não puderam ser restauradas ou removidas. Tente novamente após desbloquear o Secret Service.",
-      "secret-service-cancelled": "A caixa de diálogo do Secret Service foi cancelada. Tente novamente quando estiver pronto para desbloqueá-la.",
+      "secret-cleanup-error": "Não foi possível salvar a conta, e as credenciais do chaveiro não puderam ser restauradas ou removidas. Tente novamente após destrancar o Secret Service.",
+      "secret-service-cancelled": "A caixa de diálogo do Secret Service foi cancelada. Tente novamente quando estiver pronto para destrancá-la.",
       "secret-service-error": "Não foi possível acessar as credenciais do calendário no Secret Service. Tente novamente a operação.",
-      "secret-service-locked": "As credenciais do calendário estão bloqueadas ou o acesso foi negado. Desbloqueie o Secret Service e tente novamente.",
+      "secret-service-locked": "As credenciais do calendário estão trancadas ou o acesso foi negado. Destranque o Secret Service e tente novamente.",
       "secret-service-unavailable": "Não há nenhum provedor de Secret Service disponível. Inicie um provedor compatível e tente novamente.",
       "server-url-label": "URL do servidor",
       "username-label": "Nome de usuário",
@@ -1969,14 +2015,14 @@
       },
       "backdrop": {
         "blur-intensity": {
-          "description": "Intensidade do desfoque do fundo",
+          "description": "Intensidade do desfoque da Camada de Fundo",
           "label": "Intensidade do Desfoque"
         },
         "enabled": {
-          "description": "Habilitar a camada de fundo"
+          "description": "Habilitar a Camada de Fundo"
         },
         "tint-intensity": {
-          "description": "Intensidade da tonalidade do fundo",
+          "description": "Intensidade da tonalidade da Camada de Fundo",
           "label": "Intensidade da Tonalidade"
         }
       },
@@ -2244,6 +2290,10 @@
           "description": "Largura interna do contorno da dock",
           "label": "Largura de Borda"
         },
+        "compositor-blur": {
+          "description": "Permitir que o compositor desfoque atrás da Dock quando o protocolo de efeito de fundo estiver disponível",
+          "label": "Desfoque do Compositor"
+        },
         "concave-edge-corners": {
           "description": "Cria entalhes nos cantos que tocam a borda da tela; requer que a margem em relação à borda da tela seja 0",
           "label": "Cantos com Bordas Côncavas"
@@ -2397,8 +2447,8 @@
             "label": "Ao Bloquear a Sessão"
           },
           "session-unlocked": {
-            "description": "Comando para executar depois que a sessão for desbloqueada ",
-            "label": "Ao Desbloquear a Sessão"
+            "description": "Comando para executar depois que a sessão for destrancada ",
+            "label": "Ao Destrancar a Sessão"
           },
           "shutting-down": {
             "description": "Comando para executar antes de desligar",
@@ -2973,7 +3023,7 @@
           "button": "Tentar Novamente",
           "description-cancelled": "A caixa de diálogo do Secret Service foi cancelada; tente novamente quando estiver pronto",
           "description-error": "Não foi possível acessar as credenciais do calendário por meio do Secret Service",
-          "description-locked": "Credenciais do calendário estão bloqueadas ou o acesso foi negado; desbloqueie o Secret Service e tente novamente",
+          "description-locked": "Credenciais do calendário estão trancadas ou o acesso foi negado; destrancar o Secret Service e tente novamente",
           "description-migration": "As credenciais do calendário em texto puro estão aguardando para serem movidas para o Secret Service; elas não são usadas para a sincronização",
           "description-opening": "Credenciais para o calendário estão sendo abertas através do Secret Service",
           "description-unavailable": "Nenhum provedor de Secret Service disponível nesta sessão",
@@ -2994,10 +3044,7 @@
         "calendar-edit": {
           "button": "Editar",
           "button-reconnect": "Reconectar",
-          "button-retry": "Tentar novamente",
-          "description": "Atualizar essa conta de Calendário",
-          "description-locked": "O token de atualização está em um chaveiro bloqueado; desbloqueie o chaveiro e tente novamente",
-          "description-reconnect": "Autorização do Google está ausente; reconecte esta conta."
+          "button-retry": "Tentar novamente"
         },
         "calendar-event-date-format": {
           "description": "O formato de data mostrado acima da lista de eventos nas visões do calendário",
@@ -3031,11 +3078,15 @@
           "description": "Notificar antes de um evento começar.",
           "label": "Lembretes de Calendário"
         },
+        "calendar-show-events-location": {
+          "description": "Mostrar localização de cada evento embaixo de seu horário na lista de eventos",
+          "label": "Mostrar Localização do Evento"
+        },
         "calendar-storage": {
           "button": "Tentar Novamente",
           "description-cancelled": "A caixa de diálogo de armazenamento criptografado foi cancelada; eventos do calendário permanecerão disponíveis apenas nesta sessão",
           "description-error": "Não foi possível abrir ou salvar o cache criptografado de eventos do calendário",
-          "description-locked": "Armazenamento criptografado está bloqueado ou o acesso foi negado; corrija o acesso e tente novamente",
+          "description-locked": "Armazenamento criptografado está trancado ou o acesso foi negado; corrija o acesso e tente novamente",
           "description-migration": "O cache de eventos do calendário em texto puro está aguardando criptografia; ele será preservado até que a migração seja bem sucedida",
           "description-missing-key": "Faltando chave do cache de evento do calendário; As credenciais da conta utilizam um armazenamento separado (arquivos de cache existentes foram preservados)",
           "description-opening": "O cache criptografado de eventos de calendário está sendo aberto",
@@ -3305,7 +3356,7 @@
           "button": "Tentar Novamente",
           "description-cancelled": "A caixa de diálogo do Secret Service foi cancelada; histórico da área de transferência permanecerá disponível apenas nesta sessão",
           "description-error": "Não foi possível abrir ou salvar o histórico criptografado da área de transferência",
-          "description-locked": "Armazenamento da chave da área de transferência está bloqueado ou o acesso foi negado; corrija o acesso e tente novamente",
+          "description-locked": "Armazenamento da chave da área de transferência está trancado ou o acesso foi negado; corrija o acesso e tente novamente",
           "description-migration": "Histórico da área de transferência em texto simples está aguardando criptografia; Os arquivos existentes serão preservados até que a migração seja  bem sucedida",
           "description-missing-key": "A chave de armazenamento criptografado configurada está ausente; os arquivos existentes do histórico da área de transferência foram preservados.",
           "description-opening": "O histórico criptografado da área de transferência está sendo aberto.",
@@ -3418,6 +3469,10 @@
         "osd-kinds-media": {
           "description": "Exibir um OSD quando uma nova faixa começar a tocar",
           "label": "Reproduzindo Agora"
+        },
+        "osd-kinds-media-volume": {
+          "description": "Mostrar um popup OSD quando o volume de tocador de mídia mudar",
+          "label": "Volume de Mídia"
         },
         "osd-kinds-nightlight": {
           "description": "Exibir um OSD quando luz noturna for alternada",
@@ -3710,6 +3765,10 @@
         "automation-order": {
           "description": "Escolhe papéis de parede aleatoriamente ou em ordem alfabética",
           "label": "Ordem"
+        },
+        "automation-pause-on-fullscreen": {
+          "description": "Segurar rotação enquanto uma janela estiver em tela cheia",
+          "label": "Pausar em Tela Cheia"
         },
         "automation-recursive": {
           "description": "Busca papéis de parede em subpastas",
@@ -4824,6 +4883,10 @@
         "pinned-opacity": {
           "description": "Opacidade dos apps fixados que não estão em execução",
           "label": "Opacidade do App Fixado"
+        },
+        "prefer-symbolic-icons": {
+          "description": "Preferir variantes -symbolic do tema ativo de ícones quando disponível, revertendo para ícones normais de aplicações",
+          "label": "Preferir Ícones Simbólicos"
         },
         "reversed": {
           "description": "Inverta a ordem de frequência de baixo-para-alto da barras",

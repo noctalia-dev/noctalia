@@ -28,16 +28,27 @@
   },
   "bar": {
     "annotate": {
+      "backdrop": "Фон",
+      "backdrop-angle": "Угол",
+      "backdrop-enabled": "Фон",
+      "backdrop-gradient": "Градиент",
+      "backdrop-padding": "Внутренний отступ",
+      "backdrop-radius": "Углы",
+      "backdrop-shadow": "Тень",
+      "backdrop-shadow-blur": "Блюр",
+      "backdrop-shadow-offset-x": "Смещение по X",
+      "backdrop-shadow-offset-y": "Смещение по Y",
+      "backdrop-shadow-opacity": "Непрозрачность",
       "capture-new-region": "Захватить новую область (отменяет текущие правки)",
       "close": "Закрыть редактор",
-      "color-black": "Чёрный",
-      "color-blue": "Синий",
-      "color-green": "Зелёный",
-      "color-orange": "Оранжевый",
-      "color-purple": "Фиолетовый",
-      "color-red": "Красный",
-      "color-white": "Белый",
-      "color-yellow": "Жёлтый",
+      "color-black": "Чёрный (8)",
+      "color-blue": "Синий (4)",
+      "color-green": "Зелёный (3)",
+      "color-orange": "Оранжевый (5)",
+      "color-purple": "Фиолетовый (6)",
+      "color-red": "Красный (1)",
+      "color-white": "Белый (7)",
+      "color-yellow": "Жёлтый (2)",
       "copy": "Скопировать рисунок с пометками (Ctrl+C)",
       "cursor": "Показывать указатель на снимке экрана (p)",
       "cursor-capture-failed": "Переключение указателя недоступно: композитор не может предоставить отдельное изображение курсора",
@@ -48,6 +59,15 @@
       "fill-opaque": "Заливка фигуры: непрозрачная (f)",
       "fill-semi": "Заливка фигуры: полупрозрачная (f)",
       "freeze": "Заморозить изображение под рисунком (z)",
+      "gradient-graphite": "Графитовый",
+      "gradient-mint": "Мятный",
+      "gradient-paper": "Бумажный",
+      "gradient-sky": "Небесный",
+      "gradient-sunset": "Закат",
+      "gradient-theme": "Тема",
+      "gradient-theme-accent": "Акцентный цвет темы",
+      "gradient-theme-soft": "Мягкий цвет темы",
+      "gradient-theme-subtle": "Приглушённый цвет темы",
       "move-toolbar": "Панель инструментов можно перемещать",
       "redo": "Повторить (Ctrl+Shift+Z)",
       "save": "Сохранить рисунок с пометками (Ctrl+S)",
@@ -56,6 +76,7 @@
       "size-large": "Большой",
       "size-medium": "Средний",
       "size-small": "Маленький",
+      "stroke": "Цвет и толщина",
       "tool-arrow": "Стрелка (a) · удерживайте Shift для привязки угла",
       "tool-blur": "Размытие области (u)",
       "tool-brush": "Кисть (b)",
@@ -2994,10 +3015,7 @@
         "calendar-edit": {
           "button": "Редактировать",
           "button-reconnect": "Переподключиться",
-          "button-retry": "Повторить",
-          "description": "Обновить эту учётную запись календаря",
-          "description-locked": "Токен обновления находится в заблокированной связке ключей; разблокируйте связку ключей и повторите попытку",
-          "description-reconnect": "Авторизация Google отсутствует; подключите эту учётную запись снова"
+          "button-retry": "Повторить"
         },
         "calendar-event-date-format": {
           "description": "Формат даты в списке событий календаря",
@@ -3419,6 +3437,10 @@
           "description": "Показывать окно OSD при начале воспроизведения нового трека",
           "label": "Сейчас играет"
         },
+        "osd-kinds-media-volume": {
+          "description": "Показывать экранное уведомление при изменении громкости медиаплеера",
+          "label": "Громкость мультимедиа"
+        },
         "osd-kinds-nightlight": {
           "description": "Показывать окно OSD при переключении ночного режима",
           "label": "Ночной свет"
@@ -3710,6 +3732,10 @@
         "automation-order": {
           "description": "Выбирать обои случайно или по алфавиту",
           "label": "Порядок"
+        },
+        "automation-pause-on-fullscreen": {
+          "description": "Приостанавливать вращение, пока окно открыто в полноэкранном режиме",
+          "label": "Приостанавливать в полноэкранном режиме"
         },
         "automation-recursive": {
           "description": "Искать обои во вложенных папках",

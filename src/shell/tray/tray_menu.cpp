@@ -1147,21 +1147,14 @@ void TrayMenu::openSubmenuAtLevel(std::size_t levelIndex, std::int32_t parentEnt
     }
   }
 
-  const std::int32_t anchorX = isRight ? parentContentX + parentWidth : parentContentX;
+  // applyToConfig would put the bleed in offsetX, which compositors may not mirror on flip_x.
+  // Put the gap and bleed in the anchor rect instead so either side keeps the same gap.
+  const std::int32_t anchorX = parentContentX - subGap + chrome.bleed.right;
+  const std::int32_t anchorWidth = parentWidth + (2 * subGap) - chrome.bleed.left - chrome.bleed.right;
   const std::int32_t anchorY = static_cast<std::int32_t>(std::lround(parentMenu->chrome.contentY())) + rowTop;
   const std::uint32_t anchor = isRight ? XDG_POSITIONER_ANCHOR_TOP_RIGHT : XDG_POSITIONER_ANCHOR_TOP_LEFT;
   const std::uint32_t gravity = isRight ? XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT : XDG_POSITIONER_GRAVITY_BOTTOM_LEFT;
-  const std::int32_t offsetX = isRight ? subGap : -subGap;
   const auto subDir = isRight ? ContextSubmenuDirection::Right : ContextSubmenuDirection::Left;
-  const auto chromeAttachment = isRight
-                                    ? popup_chrome::Attachment{
-                                          .horizontal = popup_chrome::HorizontalAttachment::Left,
-                                          .vertical = popup_chrome::VerticalAttachment::Top,
-                                      }
-                                    : popup_chrome::Attachment{
-                                          .horizontal = popup_chrome::HorizontalAttachment::Right,
-                                          .vertical = popup_chrome::VerticalAttachment::Top,
-                                      };
 
   auto inst = std::make_unique<MenuInstance>();
   inst->output = parentMenu->output;
@@ -1180,19 +1173,18 @@ void TrayMenu::openSubmenuAtLevel(std::size_t levelIndex, std::int32_t parentEnt
   auto popupConfig = PopupSurfaceConfig{
       .anchorX = anchorX,
       .anchorY = anchorY,
-      .anchorWidth = 1,
+      .anchorWidth = anchorWidth,
       .anchorHeight = rowH,
       .width = chrome.surfaceWidth,
       .height = chrome.surfaceHeight,
       .anchor = anchor,
       .gravity = gravity,
       .constraintAdjustment = kPopupConstraintAdjust,
-      .offsetX = offsetX,
-      .offsetY = 0,
+      .offsetX = 0,
+      .offsetY = popup_chrome::adjustedOffsetY(0, chrome, popup_chrome::VerticalAttachment::Top),
       .serial = m_wayland->lastInputSerial(),
       .grab = (m_focusGrab == nullptr),
   };
-  popup_chrome::applyToConfig(popupConfig, chrome, chromeAttachment);
 
   xdg_surface* parentXdg = parentMenu->surface->xdgSurface();
   if (!inst->surface->initializeAsChild(parentXdg, parentMenu->output, popupConfig)) {

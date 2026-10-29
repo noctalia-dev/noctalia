@@ -173,7 +173,7 @@ namespace settings {
     };
 
     const TypedWidgetDefinitionProjection* findTypedWidgetDefinitionProjection(std::string_view type) {
-      const auto projection =
+      const auto* projection =
           std::ranges::find_if(kTypedWidgetDefinitions, [type](const TypedWidgetDefinitionProjection& candidate) {
             return candidate.type() == type;
           });
@@ -323,7 +323,7 @@ namespace settings {
       if (version.empty()) {
         return text;
       }
-      const std::string versionText = "version " + std::string(version);
+      std::string versionText = "version " + std::string(version);
       if (text.empty()) {
         return versionText;
       }
@@ -1350,12 +1350,11 @@ namespace settings {
       return !widgetSettingValuesEqual(*withValue, *withoutValue);
     }
 
-    const WidgetSettingValue defaultValue = field->defaultValue;
     const auto resolvedValue = [&](const Config& cfg) -> WidgetSettingValue {
       if (const auto value = valueInConfig(cfg, widgetName, settingKey); value.has_value()) {
         return *value;
       }
-      return defaultValue;
+      return field->defaultValue;
     };
 
     return !widgetSettingValuesEqual(resolvedValue(withOverride), resolvedValue(withoutOverride));

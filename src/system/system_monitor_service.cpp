@@ -209,11 +209,7 @@ namespace {
     const std::string lbl = StringUtils::toLower(label);
 
     int score = 0;
-    if (name == "amdgpu") {
-      score += 20;
-    } else if (name == "nvidia" || name.contains("nvidia")) {
-      score += 20;
-    } else if (name == "i915" || name == "xe") {
+    if (name == "amdgpu" || name.contains("nvidia") || name == "i915" || name == "xe") {
       score += 20;
     } else if (name == "nouveau") {
       score += 10;

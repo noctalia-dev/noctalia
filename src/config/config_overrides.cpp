@@ -699,7 +699,7 @@ namespace {
       if (i + 1 == path.size()) {
         return table->get(path[i]);
       }
-      auto* next = table->get_as<toml::table>(path[i]);
+      const auto* next = table->get_as<toml::table>(path[i]);
       if (next == nullptr) {
         return nullptr;
       }
@@ -1078,7 +1078,7 @@ bool ConfigService::setThemeColorScheme(PaletteSource source, std::string_view v
     return false;
   }
 
-  const std::string value = StringUtils::trim(std::string(valueRaw));
+  const std::string value = StringUtils::trim(valueRaw);
   if (value.empty()) {
     return false;
   }
@@ -1493,7 +1493,7 @@ noctalia::config::schema::Diagnostics ConfigService::diagnosticsForOverrides(con
 }
 
 bool ConfigService::validateOverrideMutation(const toml::table& candidateOverrides, const OverrideDiagnostics& known) {
-  using Diagnostics = noctalia::config::schema::Diagnostics;
+  using noctalia::config::schema::Diagnostics;
   m_lastMutationError.clear();
   if (!m_overridesParseError.empty()) {
     m_lastMutationError = m_overridesParseError.flatten(m_configDir);
@@ -1631,7 +1631,7 @@ bool ConfigService::createBarOverride(std::string_view name) {
   }
 
   auto* barRoot = ensureTable(m_overridesTable, "bar");
-  if (barRoot == nullptr || barRoot->get(std::string(name)) != nullptr) {
+  if (barRoot == nullptr || barRoot->get(name) != nullptr) {
     return false;
   }
 
@@ -1778,7 +1778,7 @@ bool ConfigService::createMonitorOverride(std::string_view barName, std::string_
     return false;
   }
   auto* monitorRoot = ensureTable(*barTbl, "monitor");
-  if (monitorRoot == nullptr || monitorRoot->get(std::string(match)) != nullptr) {
+  if (monitorRoot == nullptr || monitorRoot->get(match) != nullptr) {
     return false;
   }
   if (ensureTable(*monitorRoot, match) == nullptr) {
@@ -1847,7 +1847,7 @@ bool ConfigService::createDockMonitorOverride(std::string_view match) {
     return false;
   }
   auto* monitorRoot = ensureTable(*dockRoot, "monitor");
-  if (monitorRoot == nullptr || monitorRoot->get(std::string(match)) != nullptr) {
+  if (monitorRoot == nullptr || monitorRoot->get(match) != nullptr) {
     return false;
   }
   if (ensureTable(*monitorRoot, match) == nullptr) {
@@ -2259,7 +2259,7 @@ std::string ConfigService::getPaletteWallpaperPath() const {
 }
 
 std::string ConfigService::getGreeterSyncWallpaperPath() const {
-  const std::string palettePath = getPaletteWallpaperPath();
+  std::string palettePath = getPaletteWallpaperPath();
   if (!palettePath.empty()) {
     return palettePath;
   }
@@ -2351,26 +2351,26 @@ void ConfigService::extractWallpaperFromTable(const toml::table& table) {
   m_monitorWallpaperPaths.clear();
   m_wallpaperFavorites.clear();
 
-  if (auto* wpDefault = table["wallpaper"]["default"].as_table()) {
+  if (const auto* wpDefault = table["wallpaper"]["default"].as_table()) {
     if (auto v = (*wpDefault)["path"].value<std::string>()) {
       m_defaultWallpaperPath = FileUtils::expandUserPath(*v).string();
     }
   }
-  if (auto* wpLast = table["wallpaper"]["last"].as_table()) {
+  if (const auto* wpLast = table["wallpaper"]["last"].as_table()) {
     if (auto v = (*wpLast)["path"].value<std::string>()) {
       m_lastWallpaperPath = FileUtils::expandUserPath(*v).string();
     }
   }
-  if (auto* monitors = table["wallpaper"]["monitors"].as_table()) {
+  if (const auto* monitors = table["wallpaper"]["monitors"].as_table()) {
     for (const auto& [key, value] : *monitors) {
-      if (auto* monTbl = value.as_table()) {
+      if (const auto* monTbl = value.as_table()) {
         if (auto v = (*monTbl)["path"].value<std::string>()) {
           m_monitorWallpaperPaths[std::string(key.str())] = FileUtils::expandUserPath(*v).string();
         }
       }
     }
   }
-  if (auto* favorites = table["wallpaper"]["favorite"].as_array()) {
+  if (const auto* favorites = table["wallpaper"]["favorite"].as_array()) {
     for (const auto& node : *favorites) {
       const auto* favTbl = node.as_table();
       if (favTbl == nullptr) {

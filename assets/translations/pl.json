@@ -1881,8 +1881,7 @@
           "label": "Konta kalendarza"
         },
         "calendar-edit": {
-          "button": "Edytuj",
-          "description": "Zaktualizuj to konto kalendarza"
+          "button": "Edytuj"
         },
         "calendar-refresh-interval": {
           "description": "Jak często synchronizować zdarzenia kalendarza (minuty)",

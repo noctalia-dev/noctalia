@@ -313,9 +313,9 @@ namespace {
   std::string readDmiField(const char* path) { return readSysfsLine(path); }
 
   std::string detectMotherboard() {
-    const std::string boardName = readDmiField("/sys/class/dmi/id/board_name");
+    std::string boardName = readDmiField("/sys/class/dmi/id/board_name");
     const std::string boardVersion = readDmiField("/sys/class/dmi/id/board_version");
-    const std::string productName = readDmiField("/sys/class/dmi/id/product_name");
+    std::string productName = readDmiField("/sys/class/dmi/id/product_name");
 
     if (!boardName.empty()) {
       if (!boardVersion.empty()) {
@@ -522,6 +522,10 @@ std::optional<std::string> compositorVersionLine(std::function<void()> onResolve
                 std::string parsed = result.timedOut ? std::string{} : firstNonBlankLine(result.out);
                 if (parsed.empty() && !result.timedOut) {
                   parsed = firstNonBlankLine(result.err);
+                }
+                // Hyprland appends build provenance: "Hyprland 0.57.0 built from branch ... at commit ...".
+                if (const std::size_t pos = parsed.find(" built from "); pos != std::string::npos) {
+                  parsed.resize(pos);
                 }
                 DeferredCall::callLater([finish, parsed = std::move(parsed)] mutable { finish(std::move(parsed)); });
               },

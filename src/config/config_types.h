@@ -691,6 +691,7 @@ struct DockMonitorOverride {
   std::optional<std::int32_t> crossAxisPadding;
   std::optional<std::int32_t> itemSpacing;
   std::optional<float> backgroundOpacity;
+  std::optional<bool> compositorBlur;
   std::optional<ColorSpec> border;
   std::optional<float> borderWidth;
   std::optional<std::int32_t> radius;
@@ -733,6 +734,7 @@ struct DockConfig {
   std::int32_t crossAxisPadding = 8; // inner padding perpendicular to the icon row
   std::int32_t itemSpacing = 6;      // gap between items
   float backgroundOpacity = 0.88F;
+  bool compositorBlur = true;
   // Inside outline for the dock background.
   ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = 0.0F;
@@ -1622,7 +1624,7 @@ struct BluetoothConfig {
   // Connect paired, trusted devices when Bluetooth turns on, at startup, and after resume.
   bool connectWhenEnabled = false;
   // Show a notification when a Bluetooth device connects or disconnects.
-  bool connectionNotifications = true;
+  bool connectionNotifications = false;
 
   bool operator==(const BluetoothConfig&) const = default;
 };
@@ -1884,6 +1886,7 @@ struct ControlCenterConfig {
   struct CalendarTabConfig {
     bool showEventsCard = true;
     bool showWeekNumbers = false;
+    bool showEventsLocation = false;
     bool hidePastEvents = false; // false keeps every finished event in today's list
     // With hidePastEvents, hide today's events that ended more than this many minutes ago. 0 = as soon as they end.
     std::int32_t pastEventsThresholdMinutes = 30;

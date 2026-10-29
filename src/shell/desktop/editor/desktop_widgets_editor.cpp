@@ -12,7 +12,6 @@
 #include "render/backend/render_backend.h"
 #include "render/core/color.h"
 #include "render/core/shared_texture_cache.h"
-#include "render/core/texture_manager.h"
 #include "render/core/wallpaper_types.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
@@ -559,7 +558,7 @@ std::string DesktopWidgetsEditor::effectiveOutputName(const DesktopWidgetState& 
     return state.outputName;
   }
   if (const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, state); output != nullptr) {
-    const std::string outputName = desktop_widgets::outputKey(*output);
+    std::string outputName = desktop_widgets::outputKey(*output);
     if (lockscreen_login_box::isLoginBoxWidget(state)
         && lockscreen_login_box::findForOutput(m_snapshot.widgets, m_wayland->outputs(), outputName) != &state) {
       return {};

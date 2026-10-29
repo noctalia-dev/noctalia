@@ -12,10 +12,10 @@
 #include <vector>
 
 // Forward declarations to avoid dragging Pango headers into every TU.
-typedef struct _PangoContext PangoContext;
-typedef struct _PangoFontDescription PangoFontDescription;
-typedef struct _PangoFontMap PangoFontMap;
-typedef struct _PangoLayout PangoLayout;
+using PangoContext = struct _PangoContext;
+using PangoFontDescription = struct _PangoFontDescription;
+using PangoFontMap = struct _PangoFontMap;
+using PangoLayout = struct _PangoLayout;
 
 class RenderBackend;
 class TextureManager;

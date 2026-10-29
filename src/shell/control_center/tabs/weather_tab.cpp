@@ -942,7 +942,7 @@ void WeatherTab::sync(Renderer& renderer) {
                                        : std::string("--")
     );
   }
-  auto unit = m_weather->displayTemperatureUnit();
+  const auto* unit = m_weather->displayTemperatureUnit();
   if (m_feelsLikeLabel != nullptr) {
     const auto& apparent = snapshot.current.apparentTemperatureC;
     m_feelsLikeLabel->setText(
@@ -1167,7 +1167,7 @@ std::string WeatherTab::weekdayLabel(const std::string& isoDate) {
     return isoDate;
   }
 
-  const std::string weekday = formatStrftime("%A", tm);
+  std::string weekday = formatStrftime("%A", tm);
   if (weekday.empty()) {
     return isoDate;
   }

@@ -1,6 +1,5 @@
 #include "shell/bar/widgets/volume_widget.h"
 
-#include "config/config_types.h"
 #include "i18n/i18n.h"
 #include "pipewire/pipewire_service.h"
 #include "render/scene/input_area.h"

@@ -998,7 +998,7 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
 }
 
 std::string TrayWidget::iconForItem(const TrayItemInfo& item) const {
-  const std::string preferred =
+  std::string preferred =
       item.needsAttention && !item.attentionIconName.empty() ? item.attentionIconName : item.iconName;
   if (!preferred.empty() && GlyphRegistry::contains(preferred)) {
     return preferred;

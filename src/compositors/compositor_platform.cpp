@@ -1022,7 +1022,7 @@ void CompositorPlatform::activateToplevelForAppId(std::string_view appId) {
   if (appId.empty()) {
     return;
   }
-  const std::string idLower = StringUtils::toLower(std::string(appId));
+  const std::string idLower = StringUtils::toLower(appId);
   const auto windows = windowsForApp(idLower, idLower);
   if (windows.empty()) {
     return;
@@ -1456,7 +1456,7 @@ std::optional<std::string> CompositorPlatform::workspaceAlertKeyForWindow(std::s
   // matches it against a workspace's id/name/index, so store it directly once
   // it resolves to a current workspace.
   const auto resolveForOutput = [this, windowId](wl_output* output) -> std::optional<std::string> {
-    const auto token = WorkspaceAlertService::workspaceTokenForWindow(windowId, workspaceWindowAssignments(output));
+    auto token = WorkspaceAlertService::workspaceTokenForWindow(windowId, workspaceWindowAssignments(output));
     if (token.has_value() && WorkspaceAlertService::isKnownWorkspaceToken(*token, workspaces(output))) {
       return token;
     }

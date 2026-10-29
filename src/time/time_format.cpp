@@ -254,7 +254,7 @@ std::string formatLocalTime(const char* fmt) {
   if (fmt == nullptr || isBlankClockFormat(fmt)) {
     return {};
   }
-  const std::string normalizedFmt = normalizeFormatEscapes(fmt);
+  std::string normalizedFmt = normalizeFormatEscapes(fmt);
   const auto now = floor<seconds>(system_clock::now());
   const auto unixSeconds = duration_cast<seconds>(now.time_since_epoch()).count();
   const std::time_t raw = system_clock::to_time_t(now);
@@ -300,7 +300,7 @@ std::string formatTimezoneUnixTime(std::int64_t unixSeconds, std::string_view fm
     return formatLocalUnixTime(unixSeconds, fmt);
   }
 
-  const std::string normalizedFmt = normalizeFormatEscapes(fmt);
+  std::string normalizedFmt = normalizeFormatEscapes(fmt);
   if (isBlankClockFormat(normalizedFmt)) {
     return {};
   }
@@ -350,7 +350,7 @@ std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt) 
   if (isBlankClockFormat(fmt)) {
     return {};
   }
-  const std::string normalizedFmt = normalizeFormatEscapes(fmt);
+  std::string normalizedFmt = normalizeFormatEscapes(fmt);
   const auto tp = sys_seconds{seconds{unixSeconds}};
   const std::time_t raw = system_clock::to_time_t(tp);
   std::tm localTm{};
@@ -381,7 +381,7 @@ std::string formatIsoTime(std::string_view isoTime, const char* fmt) {
   tm.tm_isdst = -1;
   const std::time_t unixSeconds = mktime(&tm);
 
-  const std::string normalizedFmt = normalizeFormatEscapes(fmt);
+  std::string normalizedFmt = normalizeFormatEscapes(fmt);
   if (auto compat = formatStrftimeCompat(
           normalizedFmt, tm,
           unixSeconds == static_cast<std::time_t>(-1) ? std::nullopt : std::make_optional<std::int64_t>(unixSeconds)
@@ -417,7 +417,7 @@ std::string formatUtcTime(std::chrono::system_clock::time_point tp, std::string_
 
 int localeFirstDayOfWeek() {
   // The _NL_TIME_* week items are glibc-only; elsewhere we keep the Monday fallback.
-#if defined(__GLIBC__)
+#ifdef __GLIBC__
   // WEEK_1STDAY is a YYYYMMDD anchor packed into the low 32 bits of the returned
   // pointer; FIRST_WEEKDAY is a 1-based offset from that anchor in the first byte.
   const char* firstWeekdayInfo = nl_langinfo(_NL_TIME_FIRST_WEEKDAY);
@@ -479,7 +479,7 @@ std::string formatFileTime(const std::filesystem::file_time_type& time) {
   const std::time_t value = std::chrono::system_clock::to_time_t(systemTime);
   std::tm tm{};
   localtime_r(&value, &tm);
-  const std::string formatted = formatStrftime("%Y-%m-%d %H:%M", tm);
+  std::string formatted = formatStrftime("%Y-%m-%d %H:%M", tm);
   if (formatted.empty()) {
     return i18n::tr("time.file.unknown");
   }
@@ -506,7 +506,7 @@ std::string formatDuration(std::chrono::seconds duration) {
   rem %= 3600;
   const std::uint64_t minutes = rem / 60;
   if (days > 0) {
-    const std::string dayText = formatDurationUnit("time.units.day", days);
+    std::string dayText = formatDurationUnit("time.units.day", days);
     if (hours > 0 && minutes > 0) {
       return formatDurationParts(
           dayText, formatDurationUnit("time.units.hour", hours), formatDurationUnit("time.units.minute", minutes)
@@ -521,7 +521,7 @@ std::string formatDuration(std::chrono::seconds duration) {
     return dayText;
   }
   if (hours > 0) {
-    const std::string hourText = formatDurationUnit("time.units.hour", hours);
+    std::string hourText = formatDurationUnit("time.units.hour", hours);
     if (minutes > 0) {
       return formatDurationParts(hourText, formatDurationUnit("time.units.minute", minutes));
     }

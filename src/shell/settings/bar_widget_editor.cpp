@@ -135,7 +135,7 @@ namespace settings {
 
         SettingEntry rowEntry = entry;
         rowEntry.path = path;
-        rowEntry.title = i18n::tr(std::string(noctalia::bar::gestureLabelKey(gesture)));
+        rowEntry.title = i18n::tr(noctalia::bar::gestureLabelKey(gesture));
         rowEntry.subtitle.clear();
 
         GestureActionSetting setting{
@@ -2537,7 +2537,7 @@ namespace settings {
                 std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> batch;
                 // Replace the group token with its members in whichever lane holds it.
                 const std::string token = makeCapsuleGroupToken(groupId);
-                for (const auto laneKey : {"start", "center", "end"}) {
+                for (const auto* laneKey : {"start", "center", "end"}) {
                   std::vector<std::string> lanePath = pathWithLastSegment(laneListPath, laneKey);
                   std::vector<std::string> lane = barWidgetItemsForPath(*config, lanePath);
                   const auto it = std::ranges::find(lane, token);

@@ -679,6 +679,8 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.itemSpacing = *override.itemSpacing;
   if (override.backgroundOpacity)
     resolved.backgroundOpacity = *override.backgroundOpacity;
+  if (override.compositorBlur)
+    resolved.compositorBlur = *override.compositorBlur;
   if (override.border)
     resolved.border = *override.border;
   if (override.borderWidth)

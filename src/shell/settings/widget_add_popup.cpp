@@ -237,18 +237,6 @@ namespace settings {
 
   void WidgetAddPopup::close() { destroyPopup(); }
 
-  bool WidgetAddPopup::isOpen() const noexcept { return DialogPopupHost::isOpen(); }
-
-  bool WidgetAddPopup::onPointerEvent(const PointerEvent& event) { return DialogPopupHost::onPointerEvent(event); }
-
-  void WidgetAddPopup::onKeyboardEvent(const KeyboardEvent& event) { DialogPopupHost::onKeyboardEvent(event); }
-
-  wl_surface* WidgetAddPopup::wlSurface() const noexcept { return DialogPopupHost::wlSurface(); }
-
-  void WidgetAddPopup::requestLayout() { DialogPopupHost::requestLayout(); }
-
-  void WidgetAddPopup::requestRedraw() { DialogPopupHost::requestRedraw(); }
-
   void WidgetAddPopup::refreshPickerOptions() {
     if (m_searchPicker == nullptr) {
       return;

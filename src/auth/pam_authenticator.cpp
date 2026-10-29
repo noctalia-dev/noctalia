@@ -119,7 +119,7 @@ namespace {
   }
 
   [[nodiscard]] bool writeAll(int fd, const void* data, std::size_t len) {
-    auto* bytes = static_cast<const std::uint8_t*>(data);
+    const auto* bytes = static_cast<const std::uint8_t*>(data);
     std::size_t remaining = len;
     while (remaining > 0) {
       const ssize_t n = ::write(fd, bytes, remaining);
@@ -285,7 +285,8 @@ namespace {
     kLog.debug("authenticating user='{}' service='{}'", user, service);
 
     PamHandle pamh;
-    const int startRc = pam_start(service.data(), user.c_str(), &conv, &pamh.h);
+    const std::string serviceName(service);
+    const int startRc = pam_start(serviceName.c_str(), user.c_str(), &conv, &pamh.h);
     if (startRc != PAM_SUCCESS || pamh.h == nullptr) {
       kLog.error(
           "pam_start failed rc={} ({})", startRc, pamh.h != nullptr ? pam_strerror(pamh.h, startRc) : "no handle"

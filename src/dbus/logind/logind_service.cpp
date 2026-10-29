@@ -97,6 +97,10 @@ void LogindService::ensureSessionLockMonitor() {
     }
   });
   m_sessionProxy->uponSignal("Unlock").onInterface(kLogindSessionInterface).call([this] {
+    if (!m_bus.isNameOwner(kLogindBusName, m_sessionProxy->getCurrentlyProcessedMessage().getSender())) {
+      kLog.warn("ignoring Unlock signal not sent by logind");
+      return;
+    }
     if (m_unlockCallback) {
       m_unlockCallback();
     }

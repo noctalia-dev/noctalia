@@ -101,7 +101,7 @@ namespace {
         return *name;
       }
     }
-    if (const auto meta = internal_apps::metadataForAppId(std::string(primary)); meta.has_value()) {
+    if (const auto meta = internal_apps::metadataForAppId(primary); meta.has_value()) {
       return meta->displayName;
     }
     if (looksLikeTechnicalId(primary)) {

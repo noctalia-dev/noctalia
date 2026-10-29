@@ -59,7 +59,7 @@ namespace scripting {
       if (pos == std::string_view::npos) {
         return std::chrono::seconds(0);
       }
-      const auto first = value.data() + pos + std::string_view("max-age=").size();
+      const auto* first = value.data() + pos + std::string_view("max-age=").size();
       std::int64_t seconds = 0;
       if (std::from_chars(first, value.data() + value.size(), seconds).ec != std::errc{} || seconds < 0) {
         return std::chrono::seconds(0);

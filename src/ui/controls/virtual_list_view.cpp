@@ -2,7 +2,6 @@
 
 #include "render/scene/input_area.h"
 #include "ui/controls/scroll_view.h"
-#include "ui/style.h"
 
 #include <algorithm>
 #include <cmath>

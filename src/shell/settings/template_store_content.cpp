@@ -197,7 +197,7 @@ namespace settings {
     }
     m_sortMode = mode;
     if (m_config != nullptr) {
-      (void)m_config->setStateString("template_store", "sort", std::string(sortModeStateValue(mode)));
+      (void)m_config->setStateString("template_store", "sort", sortModeStateValue(mode));
     }
     syncSortButtonGlyph();
     sortFiltered();
