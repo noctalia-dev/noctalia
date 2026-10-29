@@ -24,6 +24,10 @@ namespace capture {
   // annotation.points[0].y.
   [[nodiscard]] AnnotationRect measureText(const Annotation& annotation);
 
+  // Edit caret after the last character of a Text annotation, on the side where the next
+  // character of the paragraph's direction appears.
+  [[nodiscard]] AnnotationRect measureTextCaret(const Annotation& annotation, double caretWidth);
+
   // Frozen straight-alpha RGBA -> cairo ARGB32 (premultiplied, device pixels). Caller destroys.
   [[nodiscard]] cairo_surface_t* frozenToCairo(const ScreencopyImage& image);
 

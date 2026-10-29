@@ -1801,13 +1801,11 @@ namespace capture {
         cairo_scale(cr, inst.canvasScale, inst.canvasScale);
         renderAnnotation(cr, *target, inst.backgroundSurface, inst.canvasScale);
         if (editingText) {
-          const AnnotationRect text = measureText(*target);
+          const AnnotationRect caret = measureTextCaret(*target, kCaretWidth);
           cairo_set_source_rgba(cr, target->stroke.r, target->stroke.g, target->stroke.b, target->stroke.a);
-          cairo_rectangle(cr, text.x + text.width, text.y, kCaretWidth, text.height);
+          cairo_rectangle(cr, caret.x, caret.y, caret.width, caret.height);
           cairo_fill(cr);
-          bounds = unionRect(
-              bounds, AnnotationRect{.x = text.x + text.width, .y = text.y, .width = kCaretWidth, .height = text.height}
-          );
+          bounds = unionRect(bounds, caret);
         }
         cairo_restore(cr);
       }
