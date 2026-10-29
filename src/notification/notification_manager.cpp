@@ -182,8 +182,7 @@ void NotificationManager::upsertHistory(
       }
   );
 
-  constexpr std::size_t kMaxHistoryEntries = 100;
-  while (m_history.size() > kMaxHistoryEntries) {
+  while (m_history.size() > kNotificationHistoryMaxEntries) {
     const NotificationHistoryEntry evicted = m_history.front();
     emitPendingDBusClose(evicted.notification.id, evicted.closeReason.value_or(CloseReason::Expired));
     m_history.pop_front();
@@ -982,7 +981,7 @@ void NotificationManager::loadPersistedHistory() {
     for (auto& entry : m_history) {
       loaded.push_back(std::move(entry));
     }
-    while (loaded.size() > 100) {
+    while (loaded.size() > kNotificationHistoryMaxEntries) {
       loaded.pop_front();
     }
     m_history = std::move(loaded);

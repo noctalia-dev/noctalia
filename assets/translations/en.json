@@ -2640,6 +2640,12 @@
           "description": "Automatically remove notification history entries older than the specified number of hours (0 to keep forever)",
           "label": "Retention Period"
         },
+        "history-storage": {
+          "button": "Retry",
+          "description-recovery": "Saved notification history could not be authenticated or is damaged; retry after restoring the correct key, or reset private storage",
+          "description-unavailable": "Encrypted notification history is not open, so notifications are kept for this session only; unlock private storage or restore the configured key, then retry",
+          "label": "Notification History Storage"
+        },
         "keep-dismissed-in-history": {
           "description": "Keep notifications in history after their toasts are dismissed",
           "label": "Keep Dismissed Notifications"
@@ -3861,10 +3867,6 @@
         "secondary": "Secondary"
       },
       "variant-label": "Button style"
-    },
-    "notification-storage": {
-      "label": "Notification history storage",
-      "description": "Saved history is unavailable. Notifications work for this session; unlock private storage or restore its original key, then retry."
     },
     "storage-recovery": {
       "button": "Reset Private Storage",

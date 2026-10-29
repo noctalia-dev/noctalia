@@ -1763,12 +1763,16 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     settings::SettingEntry retry{
         .section = settings::SettingsSection::Notifications,
         .group = "general",
-        .title = i18n::tr("settings.notification-storage.label"),
-        .subtitle = i18n::tr("settings.notification-storage.description"),
+        .title = i18n::tr("settings.schema.notifications.history-storage.label"),
+        .subtitle = i18n::tr(
+            m_notificationManager->historyNeedsRecovery()
+                ? "settings.schema.notifications.history-storage.description-recovery"
+                : "settings.schema.notifications.history-storage.description-unavailable"
+        ),
         .path = {},
         .control =
             settings::ButtonSetting{
-                .label = i18n::tr("settings.schema.shell.clipboard-storage.button"),
+                .label = i18n::tr("settings.schema.notifications.history-storage.button"),
                 .action = [this]() { m_notificationManager->retryHistoryPersistence(); },
                 .glyph = "refresh",
             },

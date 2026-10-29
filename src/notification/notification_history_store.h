@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <filesystem>
@@ -9,6 +10,8 @@ namespace security {
 }
 
 struct NotificationHistoryEntry;
+
+inline constexpr std::size_t kNotificationHistoryMaxEntries = 100;
 
 bool secureNotificationHistory(const std::filesystem::path& path);
 
