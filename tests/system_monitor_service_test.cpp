@@ -53,12 +53,35 @@ namespace {
     expect(stats.sampledAtWall <= std::chrono::system_clock::now(), "sample wall time should not be in the future");
   }
 
+  void testGpuMonitoring(SystemMonitorService& monitor) {
+    monitor.retainGpuUsage();
+    monitor.retainGpuTemp();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    do {
+      const auto stats = monitor.latest();
+      if (stats.gpuUsagePercent.has_value() || stats.gpuTempC.has_value()) {
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    } while (std::chrono::steady_clock::now() < deadline);
+
+    const auto stats = monitor.latest();
+    if (stats.gpuUsagePercent.has_value()) {
+      expect(*stats.gpuUsagePercent >= 0.0 && *stats.gpuUsagePercent <= 100.0, "gpu usage should be between 0 and 100");
+    }
+    if (stats.gpuTempC.has_value()) {
+      expect(*stats.gpuTempC >= -50.0 && *stats.gpuTempC <= 150.0, "gpu temp should be in a plausible range");
+    }
+    monitor.releaseGpuUsage();
+    monitor.releaseGpuTemp();
+  }
+
 } // namespace
 
 int main() {
   SystemConfig::MonitorConfig config;
   config.cpuPollSeconds = 1.0F;
-  config.gpuPollSeconds = 0.0F;
+  config.gpuPollSeconds = 1.0F;
   config.memoryPollSeconds = 0.0F;
   config.networkPollSeconds = 0.0F;
   config.diskPollSeconds = 1.0F;
@@ -66,5 +89,6 @@ int main() {
   SystemMonitorService monitor(config);
   testDiskSnapshot(monitor);
   testSampleTimestamp(monitor);
+  testGpuMonitoring(monitor);
   return g_failures == 0 ? 0 : 1;
 }
