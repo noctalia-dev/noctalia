@@ -256,9 +256,10 @@ namespace {
 
     kLog.info("syncing wallpaper to KDE Plasma: {} (connector: {})", imagePath, connector);
 
-    // JSON string literal is a valid JS literal, so quotes in the filename cannot end the string.
+    // An ASCII-only JSON string is a valid JS literal: quotes cannot end it, and U+2028/U+2029 (raw line
+    // terminators to Plasma's JS engine) are escaped.
     const std::string imageUrl =
-        nlohmann::json("file://" + imagePath).dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+        nlohmann::json("file://" + imagePath).dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
     std::string script;
     if (output == nullptr) {
       script = "var d = desktops();"
