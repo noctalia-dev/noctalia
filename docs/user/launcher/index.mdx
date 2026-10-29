@@ -11,7 +11,7 @@ The Noctalia launcher is a centralized search interface that provides quick acce
 
 The launcher has two layouts, selected with `shell.launcher.layout`.
 
-- **Full** (default) combines search with compact views for Recent, Pinned, All, Categories, and Providers. The Pinned view appears when at least one app is pinned. The profile, search field, Settings shortcut, and session shortcut share one toolbar that can sit above or below the results. The toolbar's outer edges align with the view tabs and results area.
+- **Full** (default) combines search with compact views for Recent, Pinned, All, Categories, and Providers. The Pinned view appears when at least one app is pinned. A compact toolbar sits above or below the results, with the profile avatar on the left, a wide search field in the center, and the session shortcut on the right. Hover the avatar to see your name and distro. The avatar and session shortcut occupy equal-sized slots. Hiding the session shortcut lets the search field expand into its space. The toolbar keeps equal outer padding at fractional UI scales. Settings sits at the top right beside the view controls. The toolbar's outer edges align with the view tabs and results area.
 - **Simple** shows a search field on top, an optional row of category chips (All, Recently Used, and app categories), and the results, at a fixed 560 × 500 size. Pinned apps lead the list when the search is empty. Set `categories = false` to hide the chip row.
 
 Configure the layout under **Settings → Panels → Launcher**, or in your config:
@@ -29,9 +29,11 @@ app_grid = false
 track_usage = true
 ```
 
-`width`, `search_position`, `default_view`, and the shortcut toggles apply to the Full layout; `categories` applies to the Simple layout. `width` sets the panel width from 560 to 1100 pixels. At narrower widths, the view tabs use icons with full-name tooltips so the navigation stays on one row. `search_position = "top"` moves the whole toolbar above the results. `default_view` accepts `recent`, `pinned`, `all`, or `categories`; when a conditional view is unavailable, the launcher opens All. **All** stays flat, while **Categories** adds a second row for switching between desktop-entry categories. Hover a view or category tab to see its full name. `app_grid` switches application browsing, global search results, and the provider overview between rows and an icon grid. Search results from an explicitly selected or prefixed provider remain rows.
+`width`, `search_position`, `default_view`, and the shortcut toggles apply to the Full layout; `categories` applies to the Simple layout. `width` sets the panel width from 560 to 1100 pixels. At narrower widths, the view tabs use icons with full-name tooltips so the navigation stays on one row. `search_position = "top"` moves the whole toolbar above the results. `default_view` accepts `recent`, `pinned`, `all`, or `categories`; when a conditional view is unavailable, the launcher opens All. **All** stays flat, while **Categories** adds a second row for switching between desktop-entry categories. With an empty search, **All** lists pinned apps first in their pinned order, followed by the remaining apps in the current ordering. Hover a view or category tab to see its full name. `app_grid` switches grid-capable results between rows and an icon grid. Applications, Emoji, Wallpaper, Session, and the provider overview support both layouts. Calculator, Windows, and Panels use rows to keep their text visible. The grid toggle is hidden for list-only providers and when icons are disabled. Global search uses rows if any visible result comes from a list-only provider.
 
-In the Full layout, the view tabs sit on the left, with buttons on the right to toggle usage-based ordering and grid view without opening Settings. The grid/list button shows the layout it will switch to: a list icon while grid view is active, and a grid icon while list view is active. The ordering button also shows the ordering it will switch to: an alphabetical icon while frequency sorting is active, and a frequency icon while default ordering is active. Turning usage ordering off keeps recording frequency and recent launches. The selected result stays visible when you change ordering. The ordering button appears for All, Categories, and search results while `track_usage` is enabled. It is hidden for Recent, Pinned, Providers, and session actions, where changing the order does not apply. The buttons change the same persistent options shown under **Settings → Panels → Launcher**.
+In the Full layout, the view tabs sit on the left, with buttons on the right to toggle usage-based ordering and grid view, followed by the optional Settings shortcut. The grid/list button shows the layout it will switch to: a list icon while grid view is active, and a grid icon while list view is active. The ordering button also shows the ordering it will switch to: an alphabetical icon while frequency sorting is active, and a frequency icon while default ordering is active. Turning usage ordering off keeps recording frequency and recent launches. The selected result stays visible when you change ordering. The ordering button appears for All, Categories, and search results while `track_usage` is enabled. It is hidden for Recent, Pinned, Providers, and session actions, where changing the order does not apply. The ordering and grid buttons change the same persistent options shown under **Settings → Panels → Launcher**.
+
+The Full layout puts the available `default_view` tab first, keeping the other tabs in their usual relative order and Providers last. For example, `default_view = "all"` orders the tabs as All, Recent, Pinned, Categories, Providers when all views are available. The Simple layout keeps its existing chip order.
 
 ## How search works
 
@@ -51,9 +53,7 @@ The launcher tracks how often you activate specific results (applications and wa
 The **Categories** view, marked with a tag icon, lets you switch between desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities. Category tabs show icons and text by default. Enable **Category Icons Only** in **Settings → Panels → Launcher** (`shell.launcher.category_icons_only = true`) to hide their text labels; hover tooltips still show the full names. This setting applies only to app category tabs (and to the category chips in the Simple layout). **All** remains an uninterrupted list or grid.
 
 :::note[Application options]
-
 Right-click an application result to open its menu of additional per-app options. The same menu opens with **Shift + Validate** (default: `Shift+Return`).
-
 :::
 
 ---
@@ -64,14 +64,14 @@ Right-click an application result to open its menu of additional per-app options
 
 The primary provider for finding and launching your installed apps.
 
-Enabling `shell.launcher.app_grid` switches application browsing, global search results, and the provider overview to a multi-column icon grid with the item name underneath. Results from an explicitly selected or prefixed provider keep the list layout. Left/right keybinds move between columns in grid mode; up/down move by row.
+Enabling `shell.launcher.app_grid` uses a multi-column icon grid with the item name underneath for grid-capable results, including `/emo`, `/wall`, and `/session`. Emoji tiles show the actual emoji, and wallpaper tiles show image previews. Session actions use the same layout whether opened by prefix or by the power button. Calculator, Windows, Panels, dmenu, and plugin providers use lists. Left/right keybinds move between columns in grid mode; up/down move by row.
 
 - **Source**: Reads `.desktop` entries from standard XDG directories (e.g., `/usr/share/applications`, `~/.local/share/applications`).
 - **Package origins**: Results identify Flatpak, Snap, Nix, and AppImage applications when their desktop entries or executable metadata provide that information. AppImages are recognized from the official `X-AppImage-Version` key or executable evidence, including extensionless files managed by AppImageLauncher. Other `X-AppImage-*` keys alone do not classify a native package as an AppImage. `X-AppImage-Integrate=false` explicitly opts a desktop entry out of AppImage classification.
 - **Search**: Matches against the application name, generic name, keywords, and categories.
 - **Desktop actions**: Set `shell.launcher.show_app_actions = true` to search and launch `.desktop` actions directly alongside applications. This is disabled by default; actions remain available from an application's right-click menu.
 - **Scoring**: Uses fuzzy matching with weights. Activation count boosts the score.
-- **Pinned apps**: The Pinned view follows the configured manual order. Drag a pinned app onto another pinned app to reorder them. Pin markers appear in both the list and app-grid views.
+- **Pinned apps**: The Pinned view follows the configured manual order. A single click launches an app even when its row or grid tile is only partly visible. Drag a pinned app onto another pinned app to reorder them. Pin markers appear in both the list and app-grid views.
 - **Terminal apps**: Entries with `Terminal=true` run inside a terminal. Prefer `export TERMINAL=wezterm` (or another emulator on `PATH`); do not put `-e` in `$TERMINAL`. See [Shell: launching apps](/noctalia/configuration/shell/#shell-settings) for discovery order and how this differs from `launch_apps_custom_command`.
 
 ### Calculator
@@ -79,15 +79,10 @@ Enabling `shell.launcher.app_grid` switches application browsing, global search 
 A built-in expression evaluator powered by [`libqalculate`](https://qalculate.github.io/).
 
 - **Prefix**: `/calc ` (also available globally).
-- **Trigger**: Automatically activates in global search when the query contains a digit. The explicit `/calc` prefix
-  also accepts digit-free expressions such as `/calc EUR`.
-- **Functionality**: Standard arithmetic and functions (`sin`, `cos`, `sqrt`, `pi`, `e`, …), plus
-  unit conversion (`10 cm to in`, `100 km/h to mph`), number bases (`0xff`), and currency conversion
-  (`10 USD to EUR`). Decimal and thousands separators follow the system numeric locale
-  (for example `10000,50+2000,25` under `pt_BR`). Pressing **Enter** copies the result to your clipboard.
-- **Currency rates**: Exchange rates are cached locally and refreshed in the background from libqalculate's
-  ECB/global providers when `shell.launcher.fetch_exchange_rates` is enabled (the default). Refresh is also
-  skipped when `[shell].offline_mode` is enabled; in either case the last cached rates are used.
+- **Trigger**: Automatically activates in global search when the query contains a digit. The explicit `/calc` prefix also accepts digit-free expressions such as `/calc EUR`.
+- **Functionality**: Standard arithmetic and functions (`sin`, `cos`, `sqrt`, `pi`, `e`, …), plus unit conversion (`10 cm to in`, `100 km/h to mph`), number bases (`0xff`), and currency conversion (`10 USD to EUR`). Decimal and thousands separators follow the system numeric locale (for example `10000,50+2000,25` under `pt_BR`). Pressing **Enter** copies the result to your clipboard.
+- **Currency rates**: Exchange rates are cached locally and refreshed in the background from libqalculate's ECB/global providers when `shell.launcher.fetch_exchange_rates` is enabled (the default). Refresh is also skipped when `[shell].offline_mode` is enabled; in either case the last cached rates are used.
+- **User definitions**: Constants, functions, and units you define in libqalculate's XML files under `$XDG_DATA_HOME/qalculate/definitions/` (default `~/.local/share/qalculate/definitions/`) are available too. Edit them by hand or graphically with [Qalculate! (GTK)](https://github.com/Qalculate/qalculate-gtk). Changes are picked up the next time the launcher opens.
 
 ### Emoji
 
@@ -95,6 +90,7 @@ A quick way to find and copy emojis.
 
 - **Prefix**: `/emo `
 - **Functionality**: Searches `emoji.json` by name, category, and keywords. Activating a result copies the emoji character directly to your clipboard.
+- **Display**: Emoji fit within each result row, including compact mode and rows with application icons hidden.
 - **Usage**: With `shell.launcher.track_usage` enabled, the **Recently Used** filter lists recent picks newest first. When `shell.launcher.sort_by_usage` is also enabled, frequently copied emojis rise to the top of an empty `/emo` query.
 
 Example: `/emo heart`
@@ -133,6 +129,7 @@ Find and focus any currently open window.
 - **Prefix**: `/win `
 - **Source**: Lists the windows reported by your compositor across every monitor and workspace.
 - **Functionality**: Fuzzy-matches against the window title and app id. Activating a result focuses the window, switching to its workspace if needed.
+- **Minimised windows**: On Umbriel, KDE Plasma, and labwc, results include a **Minimised** status when reported by the connected compositor backend. Activating a minimised result restores and focuses it.
 
 ---
 
@@ -144,19 +141,13 @@ Find and focus any currently open window.
 printf 'alpha\nbeta\ngamma\n' | noctalia dmenu -p "Pick"
 ```
 
-It opens the launcher scoped to those candidates, prints the selected line to stdout, and exits `0`. Closing the launcher
-or pressing Escape prints nothing and exits `1`. `-p` / `--prompt` sets the launcher input placeholder for that picker.
-A tab inside a candidate splits the display into title and description, but the full original line is still returned. If
-the current filter has no candidate match, pressing Enter returns the typed text.
+It opens the launcher scoped to those candidates, prints the selected line to stdout, and exits `0`. Closing the launcher or pressing Escape prints nothing and exits `1`. `-p` / `--prompt` sets the launcher input placeholder for that picker. A tab inside a candidate splits the display into title and description, but the full original line is still returned. If the current filter has no candidate match, pressing Enter returns the typed text.
 
-The command talks to the running Noctalia instance on the same `XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY`; start Noctalia
-first, then call `noctalia dmenu` from scripts or compositor commands.
+The command talks to the running Noctalia instance on the same `XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY`; start Noctalia first, then call `noctalia dmenu` from scripts or compositor commands.
 
 ### Persistent dmenu entries
 
-You can also add persistent dmenu-style launcher providers from config. These are useful for custom command palettes,
-small script menus, SSH host lists, package-maintenance commands, and other actions you want to run from the launcher
-without writing a plugin.
+You can also add persistent dmenu-style launcher providers from config. These are useful for custom command palettes, small script menus, SSH host lists, package-maintenance commands, and other actions you want to run from the launcher without writing a plugin.
 
 Each entry lives under `[shell.launcher.dmenu.entry.<id>]`, where `<id>` is the provider's stable config id:
 
@@ -170,8 +161,7 @@ global = false
 exec = "case \"{selection}\" in Open*) xdg-open ~/.config/noctalia ;; Show*) notify-send \"$(date)\" ;; esac"
 ```
 
-Open the launcher, type `/cmd`, then select one of the listed results. `command` is run to produce newline-separated
-candidates. A tab in a candidate splits the display into title and description:
+Open the launcher, type `/cmd`, then select one of the listed results. `command` is run to produce newline-separated candidates. A tab in a candidate splits the display into title and description:
 
 ```toml
 [shell.launcher.dmenu.entry.commands]
@@ -195,13 +185,9 @@ Fields:
 | `global`   | Whether results participate in normal non-prefixed launcher search                                                                                                                   |
 | `freeform` | Whether non-empty typed text can become an activatable result                                                                                                                        |
 
-Noctalia runs `exec` as a detached command; it does not automatically open a terminal. For interactive commands such as
-`dnf upgrade`, launch your terminal emulator explicitly (`foot -e ...`, `kitty -e ...`, `alacritty -e ...`, etc.).
-That is different from Application results with `Terminal=true`, which use `$TERMINAL` / terminal discovery
-(see [Shell settings](/noctalia/configuration/shell/#shell-settings)).
+Noctalia runs `exec` as a detached command; it does not automatically open a terminal. For interactive commands such as `dnf upgrade`, launch your terminal emulator explicitly (`foot -e ...`, `kitty -e ...`, `alacritty -e ...`, etc.). That is different from Application results with `Terminal=true`, which use `$TERMINAL` / terminal discovery (see [Shell settings](/noctalia/configuration/shell/#shell-settings)).
 
-Set `freeform = true` when the typed text itself should be activatable. The typed text after the prefix is available as
-`{query}`:
+Set `freeform = true` when the typed text itself should be activatable. The typed text after the prefix is available as `{query}`:
 
 ```toml
 [shell.launcher.dmenu.entry.notify]
@@ -213,16 +199,13 @@ freeform = true
 exec = "notify-send \"{query}\""
 ```
 
-Typing `/notify Build finished` shows `Build finished` as a result. Activating it runs
-`notify-send "Build finished"`. `command` is optional for freeform entries; add one only when you also want suggested
-results.
+Typing `/notify Build finished` shows `Build finished` as a result. Activating it runs `notify-send "Build finished"`. `command` is optional for freeform entries; add one only when you also want suggested results.
 
 ---
 
 ## Text editing shortcuts
 
-When `shell.readline_shortcuts` is enabled (Settings → Shell → General), every text field, including the launcher input,
-supports readline-style shortcuts. Otherwise `Ctrl+A` selects all and `Ctrl+U` clears the field.
+When `shell.readline_shortcuts` is enabled (Settings → Shell → General), every text field, including the launcher input, supports readline-style shortcuts. Otherwise `Ctrl+A` selects all and `Ctrl+U` clears the field.
 
 | Shortcut            | Action                                  |
 | ------------------- | --------------------------------------- |
@@ -241,7 +224,7 @@ supports readline-style shortcuts. Otherwise `Ctrl+A` selects all and `Ctrl+U` c
 The launcher itself is mostly automatic, but its behavior is influenced by other sections of your config:
 
 - **[Keybinds](/noctalia/configuration/shell/#keybinds)**: Customize navigation (`up`, `down`) and activation (`validate`, `cancel`).
-- **[Shell](/noctalia/configuration/shell/#shell-settings)**: `ui_scale` and `font_family` affect the launcher's appearance. `shell.launcher.layout` picks the Full or Simple layout. `width`, `search_position`, `default_view`, `show_settings_button`, and `show_session_button` configure the Full panel, toolbar, and opening view; `categories` toggles the Simple chip row. `show_icons`, `show_app_origin_indicator`, `compact`, `app_grid`, `show_app_actions`, `track_usage`, `sort_by_usage`, `pinned`, `fetch_exchange_rates`, and `auto_paste` adjust result layout, origin overlays, action search, usage history and ordering, pinning, currency rate refresh, and paste-after-copy (Settings → Launcher). `[shell.launcher.dmenu.entry.<id>]` adds custom dmenu-style providers backed by a shell command.
+- **[Shell](/noctalia/configuration/shell/#shell-settings)**: `ui_scale` and `font_family` affect the launcher's appearance. `shell.launcher.layout` picks the Full or Simple layout. `width`, `search_position`, `default_view`, `show_settings_button`, and `show_session_button` configure the Full panel, toolbar, and opening view; `categories` toggles the Simple chip row. `show_icons`, `show_app_origin_indicator`, `compact`, `app_grid`, `show_app_actions`, `track_usage`, `sort_by_usage`, `ignore_mouse`, `pinned`, `fetch_exchange_rates`, and `auto_paste` adjust result layout, origin overlays, action search, usage history and ordering, mouse input handling, pinning, currency rate refresh, and paste-after-copy (Settings → Launcher). `[shell.launcher.dmenu.entry.<id>]` adds custom dmenu-style providers backed by a shell command.
 - **[Wallpaper](/noctalia/desktop/wallpaper/)**: Defines the search paths for the Wallpaper provider.
 - **[Session actions](/noctalia/configuration/shell/#session-panel)**: Defines the actions shown by the Session provider.
 
@@ -267,7 +250,7 @@ See [Shell: Launcher settings](/noctalia/configuration/shell/#shell-settings) fo
 The built-in providers can be configured without editing your config, under **Settings → Panels → Launcher → Providers**:
 
 - **Common Prefix Character**: the shared `provider_prefix` (defaults to `/`).
-- **&lt;Provider&gt; Prefix**: the trigger word for each built-in provider (Calculator, Emoji, Panels, Session, Wallpaper, Windows). Leave blank to fall back to the built-in default.
-- **&lt;Provider&gt; in Global Search**: toggles whether that provider also contributes results to the un-prefixed search.
+- **\<Provider> Prefix**: the trigger word for each built-in provider (Calculator, Emoji, Panels, Session, Wallpaper, Windows). Leave blank to fall back to the built-in default.
+- **\<Provider> in Global Search**: toggles whether that provider also contributes results to the un-prefixed search.
 
 Dmenu and plugin provider prefixes are configured only through their config tables (see the reference linked above); they do not appear in the Settings UI.

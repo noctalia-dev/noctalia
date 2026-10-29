@@ -176,7 +176,7 @@ void NotificationManager::upsertHistory(
       NotificationHistoryEntry{
           .notification = notification,
           .active = active,
-          .seen = seen,
+          .seen = seen || closeReason == CloseReason::ClosedByCall,
           .closeReason = closeReason,
           .eventSerial = ++m_changeSerial,
       }
@@ -202,6 +202,10 @@ void NotificationManager::markHistoryClosed(uint32_t id, CloseReason reason) {
 
   NotificationHistoryEntry& entry = m_history[it->second];
   entry.active = false;
+  // The sender withdrew it (e.g. the message was read in the app), so it no longer needs attention.
+  if (reason == CloseReason::ClosedByCall) {
+    entry.seen = true;
+  }
   entry.closeReason = reason;
   entry.eventSerial = ++m_changeSerial;
   schedulePersistHistory();
@@ -533,7 +537,7 @@ void NotificationManager::dismissAfterInvoke(uint32_t id) {
 }
 
 bool NotificationManager::invokeAction(
-    uint32_t id, const std::string& actionKey, std::string activationToken, bool closeAfterInvoke
+    uint32_t id, const std::string& actionKey, const std::string& activationToken, bool closeAfterInvoke
 ) {
   if (actionKey.empty()) {
     return false;
@@ -555,10 +559,10 @@ bool NotificationManager::invokeAction(
   // Internal notifications have no D-Bus owner, so their actions are dispatched in-process instead.
   if (notification->origin == NotificationOrigin::Internal) {
     if (m_internalActionCallback) {
-      m_internalActionCallback(id, actionKey, activationToken);
+      m_internalActionCallback(id, actionKey, activationToken, notification->sender);
     }
   } else if (m_actionInvokeCallback) {
-    m_actionInvokeCallback(id, actionKey, activationToken);
+    m_actionInvokeCallback(id, actionKey, activationToken, notification->sender);
   }
 
   if (closeAfterInvoke) {
@@ -572,7 +576,7 @@ bool NotificationManager::invokeInlineReply(uint32_t id, const std::string& repl
 }
 
 bool NotificationManager::invokeInlineReply(
-    uint32_t id, const std::string& replyText, std::string activationToken, bool closeAfterInvoke
+    uint32_t id, const std::string& replyText, const std::string& activationToken, bool closeAfterInvoke
 ) {
   if (StringUtils::isBlank(replyText)) {
     return false;
@@ -594,12 +598,14 @@ bool NotificationManager::invokeInlineReply(
 }
 
 void NotificationManager::emitPendingDBusClose(uint32_t id, CloseReason reason) {
-  if (!m_pendingDBusClose.contains(id)) {
+  const auto it = m_pendingDBusClose.find(id);
+  if (it == m_pendingDBusClose.end()) {
     return;
   }
-  m_pendingDBusClose.erase(id);
+  const std::string sender = std::move(it->second);
+  m_pendingDBusClose.erase(it);
   if (m_closeCallback) {
-    m_closeCallback(id, reason);
+    m_closeCallback(id, reason, sender);
   }
 }
 
@@ -621,7 +627,9 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
       if (reason == CloseReason::Dismissed && !m_keepDismissedInHistory) {
         removeHistoryEntry(id);
       } else {
+        const bool hadUnreadBefore = computeHasUnreadNotificationHistory();
         markHistoryClosed(id, reason);
+        notifyUnreadStateChangedIfNeeded(hadUnreadBefore);
       }
       return true;
     }
@@ -661,9 +669,9 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
 
   const bool deferDBusClose = reason == CloseReason::Expired && notificationHasInvokableActions(closed);
   if (deferDBusClose) {
-    m_pendingDBusClose.insert(id);
+    m_pendingDBusClose.emplace(id, closed.sender);
   } else if (m_closeCallback) {
-    m_closeCallback(id, reason);
+    m_closeCallback(id, reason, closed.sender);
   }
 
   if (!historyHandledUnreadChange) {
@@ -676,6 +684,11 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
 const std::deque<Notification>& NotificationManager::all() const noexcept { return m_notifications; }
 
 const std::deque<NotificationHistoryEntry>& NotificationManager::history() const noexcept { return m_history; }
+
+const NotificationHistoryEntry* NotificationManager::findHistoryEntry(uint32_t id) const noexcept {
+  const auto it = m_historyIndex.find(id);
+  return it != m_historyIndex.end() && it->second < m_history.size() ? &m_history[it->second] : nullptr;
+}
 
 std::uint64_t NotificationManager::changeSerial() const noexcept { return m_changeSerial; }
 
@@ -759,7 +772,7 @@ void NotificationManager::pauseExpiry(uint32_t id) {
 void NotificationManager::setHistoryRetentionHours(int hours) {
   m_historyRetentionHours = hours;
   if (hours > 0) {
-    m_historyRetentionTimer.startRepeating(std::chrono::seconds(60), [this]() { cleanupOldHistoryEntries(); });
+    m_historyRetentionTimer.startRepeating(std::chrono::seconds(60), [this] { cleanupOldHistoryEntries(); });
   } else {
     m_historyRetentionTimer.stop();
   }
@@ -874,7 +887,7 @@ void NotificationManager::schedulePersistHistory() {
     return;
   }
   m_persistScheduled = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_persistScheduled = false;
     persistHistoryToDisk();
   });
@@ -1018,7 +1031,11 @@ bool NotificationManager::clearEncryptedHistoryForRecovery() {
 }
 
 void NotificationManager::flushPersistedHistory() {
-  const std::vector<uint32_t> pending(m_pendingDBusClose.begin(), m_pendingDBusClose.end());
+  std::vector<uint32_t> pending;
+  pending.reserve(m_pendingDBusClose.size());
+  for (const auto& [id, sender] : m_pendingDBusClose) {
+    pending.push_back(id);
+  }
   for (const uint32_t id : pending) {
     emitPendingDBusClose(id, CloseReason::Expired);
   }

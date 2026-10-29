@@ -20,6 +20,9 @@ struct KeyChord {
 [[nodiscard]] std::string keyChordDisplayLabel(const KeyChord& chord);
 [[nodiscard]] bool keyChordMatches(const KeyChord& chord, std::uint32_t sym, std::uint32_t modifiers) noexcept;
 [[nodiscard]] bool isPrintableKey(std::uint32_t sym);
+// True when the chord types text (printable key with at most Shift held), so a
+// focused text input such as the lock-screen password field must own it.
+[[nodiscard]] bool isTextKeyChord(const KeyChord& chord);
 
 // True for a text-producing key a focused text input should own: a printable
 // codepoint (>= U+0020, excluding DEL), no Ctrl/Alt/Super held, not a dead-key

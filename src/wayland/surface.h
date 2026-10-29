@@ -29,6 +29,8 @@ struct InputRect {
   int y = 0;
   int width = 0;
   int height = 0;
+
+  bool operator==(const InputRect&) const = default;
 };
 
 struct SurfaceIdleProfileEntry {

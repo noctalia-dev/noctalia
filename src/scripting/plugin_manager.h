@@ -7,12 +7,14 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 class ConfigService;
@@ -67,10 +69,10 @@ namespace scripting {
   public:
     explicit PluginManager(ConfigService& config) : m_config(config) {}
 
-    // Called after an out-of-band registry change that isn't a config reload — i.e. a
-    // git `update()` that advanced a source. Lets Application rebuild the bar and
-    // reconcile services for the new revision. Enable/disable already propagate via the
-    // config-reload path, so they don't use this.
+    // Called after an out-of-band registry change: a git `update()`, or a manifest edit
+    // found during a config reload where the plugins config hasn't changed. Lets
+    // Application rebuild the bar and reconcile services. Enable/disable already
+    // propagate via the config-reload path, so they don't use this.
     void setOnChanged(std::function<void()> onChanged) { m_onChanged = std::move(onChanged); }
 
     // Called when a plugin starts or finishes its background git export (the in-flight
@@ -88,7 +90,8 @@ namespace scripting {
     void setOnEnabled(std::function<void(std::string_view pluginId)> cb) { m_onEnabled = std::move(cb); }
 
     // Resolve source roots + enabled filter from config and (re)scan the registry.
-    // No-op when the plugins config is unchanged since the last applied refresh.
+    // Reconcile local manifest edits even when config is unchanged. Unchanged
+    // config and manifests leave the registry and running entries alone.
     void refresh();
 
     // Enable a plugin by id ("author/plugin"). For a git source the runtime export
@@ -147,7 +150,7 @@ namespace scripting {
     // previous copy without blocking the source revision or unrelated exports; later
     // updates reconcile copies that do not match the catalog. Re-scans on the main
     // thread. No-op for path / unknown sources.
-    void update(std::string sourceName);
+    void update(const std::string& sourceName);
 
     // Remove a source: delete its git repo cache and exported runtime files, disable
     // its plugins, drop it from config. Path sources keep their externally-owned
@@ -187,6 +190,9 @@ namespace scripting {
     // only on the main thread (enable() inserts, the DeferredCall completion erases).
     std::unordered_set<std::string> m_enabling;
     PluginsConfig m_lastApplied;
+    // Applied runtime snapshot; only updated on the main thread, including
+    // deferred completions of const source-materialization operations.
+    mutable std::map<std::string, std::pair<std::filesystem::path, std::string>> m_lastManifests;
     bool m_applied = false;
 
     // Wall-clock of the last browse fetch per git source name; throttles store-open

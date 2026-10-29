@@ -95,7 +95,7 @@ void WaylandWorkspaces::bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager) {
   }
 }
 
-void WaylandWorkspaces::setOutputNameResolver(std::function<std::string(wl_output*)> resolver) {
+void WaylandWorkspaces::setOutputNameResolver(const std::function<std::string(wl_output*)>& resolver) {
   for (auto* backend : m_outputNameResolvers) {
     if (backend != nullptr) {
       backend->setOutputNameResolver(resolver);
@@ -168,11 +168,6 @@ void WaylandWorkspaces::initialize() {
     }
     break;
   case compositors::CompositorKind::Labwc:
-    if (availableOrConnected(m_extBackend)) {
-      setActiveBackend(m_extBackend);
-      return;
-    }
-    break;
   case compositors::CompositorKind::Umbriel:
     if (availableOrConnected(m_extBackend)) {
       setActiveBackend(m_extBackend);
@@ -220,7 +215,7 @@ void WaylandWorkspaces::setChangeCallback(ChangeCallback callback) {
       // FIXME: after Hyprland posts change_id on socket2
       // (https://github.com/hyprwm/Hyprland/discussions/15527), drop this
       // reconcile path and rely on changeworkspaceid in HyprlandWorkspaceBackend.
-      backend->setChangeCallback([this]() {
+      backend->setChangeCallback([this] {
         if (m_activeBackend == m_hyprlandBackend && m_hyprlandBackend != nullptr) {
           static_cast<HyprlandWorkspaceBackend*>(m_hyprlandBackend)->reconcileFromCompositor();
           return;
@@ -229,7 +224,7 @@ void WaylandWorkspaces::setChangeCallback(ChangeCallback callback) {
       });
       continue;
     }
-    backend->setChangeCallback([this]() { notifyChanged(); });
+    backend->setChangeCallback([this] { notifyChanged(); });
   }
 }
 
@@ -315,6 +310,14 @@ std::optional<std::string> WaylandWorkspaces::focusedWindowId() const {
     return static_cast<const HyprlandWorkspaceBackend*>(m_hyprlandBackend)->focusedWindowId();
   }
   return std::nullopt;
+}
+
+std::optional<std::string> WaylandWorkspaces::focusedExtToplevelIdentifier() const {
+  return m_swayBackend->focusedExtToplevelIdentifier();
+}
+
+bool WaylandWorkspaces::publishesExtToplevelIdentity() const noexcept {
+  return m_swayBackend->publishesExtToplevelIdentity();
 }
 
 std::vector<Workspace> WaylandWorkspaces::all() const {

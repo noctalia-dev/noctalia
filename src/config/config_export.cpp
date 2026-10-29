@@ -237,6 +237,8 @@ namespace config_export {
         resolved.showTooltip = *ovr.showTooltip;
       if (ovr.deadZone.actions)
         resolved.deadZone.actions = *ovr.deadZone.actions;
+      if (ovr.deadZone.clickThrough)
+        resolved.deadZone.clickThrough = *ovr.deadZone.clickThrough;
       return resolved;
     }
 

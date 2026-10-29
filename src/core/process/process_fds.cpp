@@ -169,7 +169,7 @@ std::string ProcessFds::describeOpenFileDescriptors(std::size_t maxTargets) {
       }
       out += std::format("{}={}", targets[i].first, targets[i].second);
     }
-    out += "]";
+    out += ']';
   }
   return out;
 }

@@ -62,7 +62,7 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
       m_onEnter(m_boundIndex);
     }
   });
-  setOnLeave([this]() {
+  setOnLeave([this] {
     if (m_boundIndex != static_cast<std::size_t>(-1) && m_onLeave) {
       m_onLeave(m_boundIndex);
     }

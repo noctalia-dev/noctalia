@@ -13,7 +13,7 @@
 
 AudioVisualizerWidget::AudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options)
     : m_spectrum(spectrum), m_width(static_cast<float>(options.width)), m_bands(options.bands),
-      m_mirrored(options.mirrored), m_reversed(options.reversed), m_centered(options.centered),
+      m_mirrored(options.mirrored), m_reversed(options.reversed), m_centered(options.centered), m_wave(options.wave),
       m_showWhenIdle(options.showWhenIdle), m_color1(options.color1), m_color2(options.color2) {}
 
 AudioVisualizerWidget::~AudioVisualizerWidget() {
@@ -33,12 +33,13 @@ void AudioVisualizerWidget::create() {
   visualizer->setCentered(m_centered);
   visualizer->setMirrored(m_mirrored);
   visualizer->setReversed(m_reversed);
+  visualizer->setWave(m_wave);
   visualizer->setGradient(m_color1, m_color2);
   m_visualizer = visualizer.get();
   root->addChild(std::move(visualizer));
 
   if (m_spectrum != nullptr) {
-    m_listenerId = m_spectrum->addChangeListener(m_bands, [this]() {
+    m_listenerId = m_spectrum->addChangeListener(m_wave ? kAudioSpectrumWaveBands : m_bands, [this] {
       m_pendingSpectrumUpdate = true;
       requestFrameTick();
     });
@@ -60,7 +61,8 @@ void AudioVisualizerWidget::doLayout(Renderer& renderer, float containerWidth, f
   // containerWidth/Height are the bar's logical cross/main extents (not the widget slot).
   const bool barIsVertical = containerHeight > containerWidth;
   const float crossLimit = std::max(1.0F, barIsVertical ? containerWidth : containerHeight);
-  const float bodyExtent = renderer.fontRowExtent(Style::fontSizeBody * m_contentScale);
+  const float bodyExtent =
+      renderer.fontRowExtent(Style::fontSizeBody * m_contentScale, {labelFontWeight(), labelFontFamily()});
   const float crossExtent = std::min(bodyExtent, crossLimit);
   const float width = std::max(1.0F, barIsVertical ? crossExtent : m_width * m_contentScale);
   const float height = std::max(1.0F, barIsVertical ? m_width * m_contentScale : crossExtent);
@@ -212,7 +214,7 @@ void AudioVisualizerWidget::startOpacityAnimation(float targetOpacity, bool coll
           root()->setOpacity(opacity);
         }
       },
-      [this, collapseOnComplete]() {
+      [this, collapseOnComplete] {
         m_visibilityAnimId = 0;
         if (!collapseOnComplete) {
           return;

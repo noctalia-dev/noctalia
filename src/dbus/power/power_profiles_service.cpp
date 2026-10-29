@@ -191,7 +191,7 @@ void PowerProfilesService::refresh() {
     m_proxy->callMethodAsync("GetAll")
         .onInterface(kPropertiesInterface)
         .withArguments(std::string{kPowerProfilesInterface})
-        .uponReplyInvoke([this, lifetimeToken](std::optional<sdbus::Error> err, VariantMap properties) {
+        .uponReplyInvoke([this, lifetimeToken](std::optional<sdbus::Error> err, const VariantMap& properties) {
           if (lifetimeToken.expired()) {
             return;
           }
@@ -309,7 +309,7 @@ void PowerProfilesService::emitChangedIfNeeded(PowerProfilesState next, bool sta
   }
 }
 
-void PowerProfilesService::registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback) {
+void PowerProfilesService::registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback) {
   ipc.bind(noctalia::cli::msg::powerSet, [this, stateFeedback](const std::string& args) -> std::string {
     const std::string profile = StringUtils::trim(args);
     if (profile.empty()) {
@@ -317,17 +317,16 @@ void PowerProfilesService::registerIpc(IpcService& ipc, StateFeedbackCallback st
              "power-saver\n";
     }
     const auto& available = profiles();
-    if (!available.empty()) {
-      if (!std::ranges::contains(available, profile)) {
-        std::string suffix = "; available:";
-        for (const auto& availableProfile : available) {
-          suffix.push_back(' ');
-          suffix += availableProfile;
-        }
-        suffix.push_back('\n');
-        return "error: unknown profile \"" + profile + "\"" + suffix;
+    if (!available.empty() && !std::ranges::contains(available, profile)) {
+      std::string suffix = "; available:";
+      for (const auto& availableProfile : available) {
+        suffix.push_back(' ');
+        suffix += availableProfile;
       }
+      suffix.push_back('\n');
+      return "error: unknown profile \"" + profile + "\"" + suffix;
     }
+
     const std::string previous = activeProfile();
     if (!setActiveProfile(profile)) {
       return "error: failed to set power profile\n";

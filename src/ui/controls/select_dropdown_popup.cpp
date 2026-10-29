@@ -74,7 +74,7 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
       onSelect(static_cast<std::size_t>(std::max<std::int32_t>(0, entry.id)));
     }
   });
-  m_popup.setOnDismissed([onDismiss = std::move(callbacks.onDismiss)]() {
+  m_popup.setOnDismissed([onDismiss = std::move(callbacks.onDismiss)] {
     if (onDismiss) {
       onDismiss();
     }

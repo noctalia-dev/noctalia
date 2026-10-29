@@ -1,6 +1,7 @@
 #include "shell/switcher/window_switcher_tile.h"
 
 #include "cursor-shape-v1-client-protocol.h"
+#include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
 #include "ui/builders.h"
@@ -32,7 +33,7 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
     }
   });
   setOnEnter([this](const InputArea::PointerData&) { setPointerHovered(true); });
-  setOnLeave([this]() { setPointerHovered(false); });
+  setOnLeave([this] { setPointerHovered(false); });
 
   addChild(
       ui::box({
@@ -55,7 +56,7 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
   m_frame->addChild(
       ui::box({
           .out = &m_previewHost,
-          .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+          .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
           .radius = previewRadius,
           .participatesInLayout = false,
           .configure = [](Box& box) { box.setClipChildren(true); },
@@ -105,7 +106,7 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
           .width = (Style::controlHeightSm - Style::spaceSm) * m_contentScale,
           .height = (Style::controlHeightSm - Style::spaceSm) * m_contentScale,
           .participatesInLayout = false,
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_onClose) {
               m_onClose();
             }
@@ -113,6 +114,15 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
       })
   );
   const float closeHitSlop = Style::spaceXs * m_contentScale;
+  m_previewHost->addChild(
+      ui::box({
+          .out = &m_minimizeIndicator,
+          .fill = colorSpecFromRole(ColorRole::Secondary),
+          .radius = Style::borderWidth * 2.0F * m_contentScale,
+          .visible = false,
+          .participatesInLayout = false,
+      })
+  );
   m_close->inputArea()->setHitTestOutset(
       HitTestOutset{
           .left = closeHitSlop,
@@ -121,13 +131,13 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
           .bottom = closeHitSlop,
       }
   );
-  m_close->setOnEnter([this]() { setPointerHovered(true); });
-  m_close->setOnLeave([this]() { setPointerHovered(false); });
+  m_close->setOnEnter([this] { setPointerHovered(true); });
+  m_close->setOnLeave([this] { setPointerHovered(false); });
 
   auto captionBadge = ui::box({
       .out = &m_captionBadge,
       .fill = colorSpecFromRole(ColorRole::Surface),
-      .border = scaleAlpha(colorSpecFromRole(ColorRole::Outline), Style::disabledOutlineAlpha),
+      .border = scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha),
       .borderWidth = Style::borderWidth,
       .radius = cardRadius,
       .visible = false,
@@ -164,7 +174,7 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
   captionBadge->setZIndex(2);
   addChild(std::move(captionBadge));
 
-  m_icon->setAsyncReadyCallback([this]() {
+  m_icon->setAsyncReadyCallback([this] {
     if (!m_showAppIcon || m_icon == nullptr || m_fallbackGlyph == nullptr || !m_icon->hasImage()) {
       return;
     }
@@ -221,6 +231,14 @@ void WindowSwitcherTile::bind(
   m_closePlacement = closePlacement;
   m_title->setText(entry.title.empty() ? entry.appLabel : entry.title);
   m_subtitle->setText(entry.appLabel.empty() ? entry.appId : entry.appLabel);
+  const bool minimized = entry.minimizeState.has_value() && entry.minimizeState->minimized;
+  m_minimizeIndicator->setVisible(minimized);
+  if (minimized) {
+    const auto appLabel = entry.appLabel.empty() ? entry.appId : entry.appLabel;
+    m_subtitle->setText(
+        appLabel.empty() ? i18n::tr("common.minimized") : appLabel + " · " + i18n::tr("common.minimized")
+    );
+  }
 
   if (entry.iconPath != m_iconPath) {
     m_iconPath = entry.iconPath;
@@ -282,17 +300,17 @@ void WindowSwitcherTile::applyVisualState() {
   if (m_selected) {
     m_frame->setFill(colorSpecFromRole(ColorRole::Surface));
     m_frame->setBorder(colorSpecFromRole(ColorRole::Primary), Style::emphasizedBorderWidth);
-    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
+    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
   } else if (m_pointerHovered) {
     m_frame->setFill(colorSpecFromRole(ColorRole::Surface));
     m_frame->setBorder(colorSpecFromRole(ColorRole::Hover), Style::emphasizedBorderWidth);
-    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
+    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
   } else {
     m_frame->setFill(colorSpecFromRole(ColorRole::Surface));
     m_frame->setBorder(
-        scaleAlpha(colorSpecFromRole(ColorRole::Outline), Style::disabledOutlineAlpha), Style::borderWidth
+        scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha), Style::borderWidth
     );
-    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
+    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
   }
   if (m_toneOverlay != nullptr) {
     const float tone = m_depth == WindowSwitcherTileDepth::Far
@@ -333,6 +351,13 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
   m_thumbnail->setSize(innerW, previewH);
   m_toneOverlay->setPosition(0.0F, 0.0F);
   m_toneOverlay->setFrameSize(innerW, previewH);
+  const float indicatorWidth = Style::spaceMd * m_contentScale;
+  const float indicatorHeight = Style::borderWidth * 3.0F * m_contentScale;
+  m_minimizeIndicator->setFrameSize(indicatorWidth, indicatorHeight);
+  m_minimizeIndicator->setPosition(
+      std::round((innerW - indicatorWidth) * 0.5F),
+      std::round(std::max(0.0F, previewH - indicatorHeight - Style::spaceSm * m_contentScale))
+  );
 
   const bool hasThumbnail = m_thumbnail->visible();
   const float iconScale = hasThumbnail ? Style::windowSwitcherPreviewIconScale : Style::windowSwitcherFallbackIconScale;

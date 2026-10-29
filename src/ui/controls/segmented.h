@@ -71,6 +71,6 @@ private:
   bool m_compact = false;
   float m_outerPadding = 0.0F;
   float m_surfaceOpacity = 1.0F;
-  ColorRole m_surfaceRole = ColorRole::SurfaceVariant;
+  ColorRole m_surfaceRole = ColorRole::SurfaceContainer;
   bool m_enabled = true;
 };

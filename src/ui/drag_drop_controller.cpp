@@ -141,7 +141,14 @@ void DragDropController::release(DragSource& source, float localX, float localY)
     return;
   }
   if (m_state != State::Dragging) {
+    // Released before the drag threshold: a tap on the source, not a drag,
+    // provided the release is still inside it (the InputArea click contract);
+    // a press that slides off the edge is an abort, not an activation.
+    const bool inside = localX >= 0.0F && localY >= 0.0F && localX < source.width() && localY < source.height();
     cancel();
+    if (inside) {
+      source.fireClick();
+    }
     return;
   }
 
@@ -322,9 +329,10 @@ void DragDropController::updateTarget(float sceneX, float sceneY) {
   m_target = next;
   if (m_target != nullptr) {
     m_targetValue = m_target->value();
-    const float draggedHeight =
-        m_previewTarget != nullptr ? m_previewTarget->height() : (m_source != nullptr ? m_source->height() : 0.0F);
-    m_target->setDragOver(true, draggedHeight);
+    const Node* dragged = m_previewTarget != nullptr ? m_previewTarget : m_source;
+    const float draggedWidth = dragged != nullptr ? dragged->width() : 0.0F;
+    const float draggedHeight = dragged != nullptr ? dragged->height() : 0.0F;
+    m_target->setDragOver(true, draggedWidth, draggedHeight);
   }
 }
 

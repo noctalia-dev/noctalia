@@ -449,7 +449,7 @@ void WeatherTab::beginForecastSlideOut(ForecastView nextView) {
         applyForecastSlide(progress, false);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_forecastSlideAnimId = 0;
         m_forecastView = m_pendingForecastView;
         m_startForecastSlideIn = true;
@@ -473,7 +473,7 @@ void WeatherTab::beginForecastSlideIn() {
         applyForecastSlide(progress, true);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_forecastSlideAnimId = 0;
         if (m_forecastRowsContainer != nullptr) {
           m_forecastRowsContainer->setPosition(m_forecastRowsBaseX, m_forecastRowsBaseY);
@@ -942,7 +942,7 @@ void WeatherTab::sync(Renderer& renderer) {
                                        : std::string("--")
     );
   }
-  auto unit = m_weather->displayTemperatureUnit();
+  const auto* unit = m_weather->displayTemperatureUnit();
   if (m_feelsLikeLabel != nullptr) {
     const auto& apparent = snapshot.current.apparentTemperatureC;
     m_feelsLikeLabel->setText(
@@ -1167,7 +1167,7 @@ std::string WeatherTab::weekdayLabel(const std::string& isoDate) {
     return isoDate;
   }
 
-  const std::string weekday = formatStrftime("%A", tm);
+  std::string weekday = formatStrftime("%A", tm);
   if (weekday.empty()) {
     return isoDate;
   }

@@ -352,7 +352,7 @@ bool TrayMenu::onKeyboardEvent(const KeyboardEvent& event) {
     return false;
   }
   if (event.pressed && !event.preedit && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-    DeferredCall::callLater([this]() { close(); });
+    DeferredCall::callLater([this] { close(); });
   }
   // The menu holds a modal grab while open — swallow keys so they don't leak.
   return true;
@@ -569,7 +569,7 @@ void TrayMenu::scheduleEntryRetry(int attempt) {
   }
   const auto delay = std::chrono::milliseconds(kDelays[attempt]);
   const std::string capturedItemId = m_activeItemId;
-  m_retryTimer.start(delay, [this, attempt, capturedItemId]() {
+  m_retryTimer.start(delay, [this, attempt, capturedItemId] {
     // Abort if the menu closed or the user switched tray items — we only retry
     // while the placeholder menu is still visible to the user.
     if (!m_visible || m_tray == nullptr || m_activeItemId != capturedItemId) {
@@ -695,7 +695,7 @@ void TrayMenu::ensureSurface() {
   inst->surface->setPrepareFrameCallback([this, instPtr](bool needsUpdate, bool needsLayout) {
     prepareMainMenuFrame(*instPtr, needsUpdate, needsLayout);
   });
-  inst->surface->setDismissedCallback([this]() { close(); });
+  inst->surface->setDismissedCallback([this] { close(); });
 
   const auto chrome = popup_chrome::computeGeometry(
       menuWidth(), static_cast<float>(surfaceHeightPx()), popupShadowConfig(m_config), Style::popupShadowsEnabled()
@@ -766,7 +766,7 @@ void TrayMenu::ensureSurface() {
   // after the configure round-trip completes; committing the grab synchronously
   // here makes the compositor fire `cleared` immediately and the menu never
   // appears.
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     if (!m_visible || m_instance == nullptr || m_wayland == nullptr) {
       return;
     }
@@ -787,7 +787,7 @@ void TrayMenu::ensureSurface() {
     if (m_focusGrab == nullptr) {
       return;
     }
-    m_focusGrab->setOnCleared([this]() {
+    m_focusGrab->setOnCleared([this] {
       if (m_visible) {
         close();
       }
@@ -935,14 +935,14 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
   menu->setMaxVisible(entries.size()); // Always lay out all entries for scrolling
   menu->setSubmenuDirection(inst.submenuDirection);
   menu->setEntries(std::move(entries));
-  menu->setRedrawCallback([&inst]() {
+  menu->setRedrawCallback([&inst] {
     if (inst.surface != nullptr) {
       inst.surface->requestRedraw();
     }
   });
   menu->setOnActivate([this](const ContextMenuControlEntry& entry) {
     if (entry.id == kPinToggleEntryId) {
-      DeferredCall::callLater([this]() {
+      DeferredCall::callLater([this] {
         (void)toggleActiveItemPinned();
         close();
         closeTrayDrawerPanelIfOpen();
@@ -952,7 +952,7 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
     if (m_tray == nullptr || m_activeItemId.empty()) {
       return;
     }
-    DeferredCall::callLater([this, entry]() {
+    DeferredCall::callLater([this, entry] {
       if (m_tray != nullptr) {
         (void)m_tray->activateMenuEntry(m_activeItemId, entry.id);
       }
@@ -995,12 +995,9 @@ bool TrayMenu::activeItemPinned() const {
     return false;
   }
   const auto resolved = tray::resolvedTrayOptions(*m_config);
-  for (const auto& token : resolved.options.pinnedItems) {
-    if (tray::tokenMatchesItem(token, *item)) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(resolved.options.pinnedItems, [&](const auto& token) {
+    return tray::tokenMatchesItem(token, *item);
+  });
 }
 
 bool TrayMenu::toggleActiveItemPinned() {
@@ -1150,21 +1147,14 @@ void TrayMenu::openSubmenuAtLevel(std::size_t levelIndex, std::int32_t parentEnt
     }
   }
 
-  const std::int32_t anchorX = isRight ? parentContentX + parentWidth : parentContentX;
+  // applyToConfig would put the bleed in offsetX, which compositors may not mirror on flip_x.
+  // Put the gap and bleed in the anchor rect instead so either side keeps the same gap.
+  const std::int32_t anchorX = parentContentX - subGap + chrome.bleed.right;
+  const std::int32_t anchorWidth = parentWidth + (2 * subGap) - chrome.bleed.left - chrome.bleed.right;
   const std::int32_t anchorY = static_cast<std::int32_t>(std::lround(parentMenu->chrome.contentY())) + rowTop;
   const std::uint32_t anchor = isRight ? XDG_POSITIONER_ANCHOR_TOP_RIGHT : XDG_POSITIONER_ANCHOR_TOP_LEFT;
   const std::uint32_t gravity = isRight ? XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT : XDG_POSITIONER_GRAVITY_BOTTOM_LEFT;
-  const std::int32_t offsetX = isRight ? subGap : -subGap;
   const auto subDir = isRight ? ContextSubmenuDirection::Right : ContextSubmenuDirection::Left;
-  const auto chromeAttachment = isRight
-                                    ? popup_chrome::Attachment{
-                                          .horizontal = popup_chrome::HorizontalAttachment::Left,
-                                          .vertical = popup_chrome::VerticalAttachment::Top,
-                                      }
-                                    : popup_chrome::Attachment{
-                                          .horizontal = popup_chrome::HorizontalAttachment::Right,
-                                          .vertical = popup_chrome::VerticalAttachment::Top,
-                                      };
 
   auto inst = std::make_unique<MenuInstance>();
   inst->output = parentMenu->output;
@@ -1178,24 +1168,23 @@ void TrayMenu::openSubmenuAtLevel(std::size_t levelIndex, std::int32_t parentEnt
   inst->surface->setPrepareFrameCallback([this, levelIndex, instPtr](bool needsUpdate, bool needsLayout) {
     prepareSubmenuFrame(levelIndex, *instPtr, needsUpdate, needsLayout);
   });
-  inst->surface->setDismissedCallback([this, levelIndex]() { closeSubmenusFrom(levelIndex); });
+  inst->surface->setDismissedCallback([this, levelIndex] { closeSubmenusFrom(levelIndex); });
 
   auto popupConfig = PopupSurfaceConfig{
       .anchorX = anchorX,
       .anchorY = anchorY,
-      .anchorWidth = 1,
+      .anchorWidth = anchorWidth,
       .anchorHeight = rowH,
       .width = chrome.surfaceWidth,
       .height = chrome.surfaceHeight,
       .anchor = anchor,
       .gravity = gravity,
       .constraintAdjustment = kPopupConstraintAdjust,
-      .offsetX = offsetX,
-      .offsetY = 0,
+      .offsetX = 0,
+      .offsetY = popup_chrome::adjustedOffsetY(0, chrome, popup_chrome::VerticalAttachment::Top),
       .serial = m_wayland->lastInputSerial(),
       .grab = (m_focusGrab == nullptr),
   };
-  popup_chrome::applyToConfig(popupConfig, chrome, chromeAttachment);
 
   xdg_surface* parentXdg = parentMenu->surface->xdgSurface();
   if (!inst->surface->initializeAsChild(parentXdg, parentMenu->output, popupConfig)) {
@@ -1298,7 +1287,7 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
   menu->setMaxVisible(entries.size()); // Always lay out all entries for scrolling
   menu->setSubmenuDirection(inst.submenuDirection);
   menu->setEntries(std::move(entries));
-  menu->setRedrawCallback([&inst]() {
+  menu->setRedrawCallback([&inst] {
     if (inst.surface != nullptr) {
       inst.surface->requestRedraw();
     }
@@ -1307,7 +1296,7 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
     if (m_tray == nullptr || m_activeItemId.empty()) {
       return;
     }
-    DeferredCall::callLater([this, entry]() {
+    DeferredCall::callLater([this, entry] {
       if (m_tray != nullptr) {
         (void)m_tray->activateMenuEntry(m_activeItemId, entry.id);
       }

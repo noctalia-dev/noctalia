@@ -6,3 +6,9 @@ option(
   value: false,
   description: 'Optimize for the build machine CPU; output may not be portable',
 )
+option(
+  'system_libraries',
+  type: 'boolean',
+  value: false,
+  description: 'Link system Wuffs, Luau, fzy, and Material Color Utilities instead of the vendored copies in third_party/',
+)

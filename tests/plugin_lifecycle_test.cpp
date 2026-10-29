@@ -2,17 +2,21 @@
 #include "core/deferred_call.h"
 #include "core/toml.h"
 #include "scripting/plugin_manager.h"
+#include "scripting/plugin_registry.h"
 #include "scripting/plugin_script_watcher.h"
 #include "scripting/plugin_service_host.h"
 #include "scripting/plugin_state_store.h"
 #include "scripting/script_api_context.h"
 #include "scripting/script_runtime.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <print>
 #include <string>
@@ -923,6 +927,57 @@ int main() {
              enables == std::vector<std::string>{"test/plugin"}, "first enable did not publish exactly one enable event"
          )
         && ok;
+
+    {
+      const auto path = root / "path-plugins/plugin/plugin.toml";
+      std::ifstream input(path);
+      TEST_CHECK(input.is_open());
+      const std::string original{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+      const std::string provider = original
+          + "[[launcher_provider]]\nid = \"search\"\n"
+            "entry = \"launcher.luau\"\nprefix = \"one\"\n";
+      int reconciliations = 0;
+      manager.setOnChanged([&]() { ++reconciliations; });
+      config.forceReload();
+      TEST_CHECK(reconciliations == 0);
+
+      TEST_CHECK(writeText(path, provider));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 1);
+      TEST_CHECK(scripting::PluginRegistry::instance().hasEntry("test/plugin:search"));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 1);
+
+      TEST_CHECK(writeText(path.parent_path() / "launcher.luau", "function onQuery() end\n"));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 1);
+
+      // Content changes must not depend on timestamp granularity or file size.
+      const auto timestamp = std::filesystem::last_write_time(path);
+      std::string changed = provider;
+      changed.replace(changed.find("one"), 3, "two");
+      TEST_CHECK(writeText(path, changed));
+      std::filesystem::last_write_time(path, timestamp);
+      config.forceReload();
+      TEST_CHECK(reconciliations == 2);
+      const auto resolved = scripting::PluginRegistry::instance().resolve("test/plugin:search");
+      TEST_CHECK(resolved.has_value() && resolved->entry->launcherPrefix == "two");
+
+      TEST_CHECK(writeText(path, original));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 3);
+      TEST_CHECK(!scripting::PluginRegistry::instance().hasEntry("test/plugin:search"));
+      TEST_CHECK(std::filesystem::remove(path));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 4);
+      TEST_CHECK(scripting::PluginRegistry::instance().findManifest("test/plugin") == nullptr);
+      TEST_CHECK(writeText(path, original));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 5);
+      config.forceReload();
+      TEST_CHECK(reconciliations == 5);
+      manager.setOnChanged({});
+    }
 
     lifecyclePluginId = "test/plugin";
     lifecycleRuntime =

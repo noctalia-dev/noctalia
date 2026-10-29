@@ -16,6 +16,8 @@
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/keyboard_layout_label.h"
 #include "shell/lockscreen/lock_surface.h"
+#include "shell/lockscreen/lockscreen_session_actions.h"
+#include "shell/session/session_action_runner.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
@@ -40,6 +42,10 @@ namespace {
     clock_gettime(CLOCK_BOOTTIME, &ts);
     return static_cast<std::int64_t>(ts.tv_sec) * 1000 + static_cast<std::int64_t>(ts.tv_nsec) / 1000000;
   }
+
+  // Keys arriving this soon after a resume or output power change are treated as
+  // wake keys and never fire lock-screen action shortcuts.
+  constexpr std::int64_t kWakeShortcutGuardMillis = 1000;
 
   Color resolveWallpaperFillColor(const WallpaperConfig& config) {
     // The lockscreen is an ext-session-lock surface: any transparency lets the
@@ -66,6 +72,16 @@ namespace {
       return LockscreenTransitionKind::Zoom;
     case LockscreenTransition::Honeycomb:
       return LockscreenTransitionKind::Honeycomb;
+    case LockscreenTransition::Vortex:
+      return LockscreenTransitionKind::Vortex;
+    case LockscreenTransition::Pixel:
+      return LockscreenTransitionKind::Pixel;
+    case LockscreenTransition::Diamond:
+      return LockscreenTransitionKind::Diamond;
+    case LockscreenTransition::Golden:
+      return LockscreenTransitionKind::Golden;
+    case LockscreenTransition::Melt:
+      return LockscreenTransitionKind::Melt;
     }
     std::unreachable();
   }
@@ -87,6 +103,7 @@ namespace {
 LockScreen::LockScreen() = default;
 
 LockScreen::~LockScreen() {
+  m_aliveGuard.reset();
   invalidatePendingAuthentication();
   clearInstances();
   resetLockState();
@@ -106,7 +123,7 @@ bool LockScreen::initialize(
 
   if (m_systemBus != nullptr) {
     m_fingerprint = std::make_unique<FingerprintAuthenticator>(*m_systemBus);
-    m_fingerprint->setAuthenticatedCallback([this]() {
+    m_fingerprint->setAuthenticatedCallback([this] {
       m_status = i18n::tr("lockscreen.unlocked");
       m_statusIsError = false;
       updatePromptOnSurfaces();
@@ -120,11 +137,13 @@ bool LockScreen::initialize(
 }
 
 void LockScreen::setSessionHooks(
-    std::function<void()> onLocked, std::function<void()> onUnlocked, std::function<void()> onLockAborted
+    std::function<void()> onLocked, std::function<void()> onUnlocked, std::function<void()> onLockAborted,
+    std::function<void()> onReadyForSleep
 ) {
   m_onSessionLocked = std::move(onLocked);
   m_onSessionUnlocked = std::move(onUnlocked);
   m_onLockAborted = std::move(onLockAborted);
+  m_onReadyForSleep = std::move(onReadyForSleep);
 }
 
 void LockScreen::setLoginBoxServices(
@@ -153,6 +172,9 @@ bool LockScreen::lock() {
     notifyLockAborted();
     return false;
   }
+  if (m_compositorPlatform != nullptr && m_compositorPlatform->shouldSuppressLockTransition()) {
+    suppressEntryTransition();
+  }
   if (isActive() || m_lockStarting) {
     return true;
   }
@@ -171,6 +193,7 @@ bool LockScreen::lock() {
     // No output can ever show a lock surface, so run any pending post-lock action (e.g. suspend)
     // immediately instead of holding it until a monitor reconnects.
     dispatchPendingAfterLocked();
+    flushPendingOutputPowerOff();
     return true;
   }
 
@@ -190,9 +213,15 @@ bool LockScreen::lock() {
     m_lockDeferred = true;
     kLog.warn("outputs disappeared while preparing lock screen; lock deferred until an output is connected");
     dispatchPendingAfterLocked();
+    flushPendingOutputPowerOff();
     return true;
   }
 
+  if (!m_transitionSuppressed
+      && m_compositorPlatform != nullptr
+      && m_compositorPlatform->shouldSuppressLockTransition()) {
+    suppressEntryTransition();
+  }
   chooseTransition();
 
   m_lock = ext_session_lock_manager_v1_lock(m_wayland->sessionLockManager());
@@ -231,7 +260,11 @@ bool LockScreen::lock() {
 
 void LockScreen::unlock() {
   m_lockDeferred = false;
+  cancelPendingAfterLocked();
+  cancelOutputPowerOff();
   if (!isActive()) {
+    m_transitionSuppressed = false;
+    invalidateDesktopCaptures();
     return;
   }
 
@@ -240,8 +273,6 @@ void LockScreen::unlock() {
   }
 
   resetGracePeriod();
-  m_pendingAfterLocked = {};
-  m_suspendTimeoutTimer.stop();
   invalidatePendingAuthentication();
   stopFingerprint();
 
@@ -255,7 +286,7 @@ void LockScreen::unlock() {
     tryFinishAnimatedUnlock();
     if (m_unlocking) {
       const auto timeoutMs = static_cast<std::int64_t>(std::ceil(m_transitionDurationMs)) + 1000;
-      m_unlockTransitionTimer.start(std::chrono::milliseconds(timeoutMs), [this]() {
+      m_unlockTransitionTimer.start(std::chrono::milliseconds(timeoutMs), [this] {
         if (!m_unlocking) {
           return;
         }
@@ -299,6 +330,7 @@ void LockScreen::finishUnlock() {
   m_wayland->stopKeyRepeat();
   invalidateDesktopCaptures();
   m_activeTransition.reset();
+  m_transitionSuppressed = false;
 
   // Tear down widgets while lock surfaces still exist. Session hooks run only after
   // isActive() is false so LockscreenWidgetsController::applyVisibility() hides first.
@@ -353,6 +385,10 @@ void LockScreen::onOutputChange() {
   }
   syncInstances();
   applyWallpaperStyleToSurfaces();
+  handleSleepReady();
+  if (m_locked && !allSurfacesReady()) {
+    armSleepReadyTimeout();
+  }
   if (m_unlocking) {
     for (auto& instance : m_instances) {
       if (instance.surface != nullptr && !instance.surface->exitTransitionComplete()) {
@@ -520,7 +556,16 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+  // Cancel clears a non-empty password before any action shortcut bound to the
+  // same key can fire, so a stray key mid-password never runs a session action.
+  const bool cancel = KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers);
+  if ((!cancel || m_password.empty())
+      && !isPlainPrintableKey(event.utf32, event.modifiers, event.preedit)
+      && tryActionShortcut(event.sym, event.modifiers)) {
+    return;
+  }
+
+  if (cancel) {
     clearSensitiveString(m_password);
     m_status = i18n::tr("lockscreen.password-cleared");
     m_statusIsError = false;
@@ -530,6 +575,32 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
 
   targetSurface->onKeyboardEvent(event);
 }
+
+bool LockScreen::tryActionShortcut(std::uint32_t sym, std::uint32_t modifiers) {
+  if (m_sessionActions == nullptr || m_configService == nullptr) {
+    return false;
+  }
+  const auto actions =
+      lockscreen::resolveSessionActions(m_configService->config().shell.session.actions, defaultSessionPanelActions());
+  const auto match = std::ranges::find_if(actions, [sym, modifiers](const SessionPanelActionConfig& row) {
+    return row.lockscreenShortcut.has_value() && keyChordMatches(*row.lockscreenShortcut, sym, modifiers);
+  });
+  if (match == actions.end()) {
+    return false;
+  }
+  // A key that wakes the screen must only wake it: suspending again on the wake
+  // key would trap the user in a sleep loop.
+  const bool outputsOff = m_compositorPlatform != nullptr && m_compositorPlatform->shouldSuppressLockTransition();
+  if (outputsOff || (m_wokeAtMillis > 0 && bootTimeMillis() < m_wokeAtMillis + kWakeShortcutGuardMillis)) {
+    kLog.debug("ignoring lock-screen shortcut for \"{}\": outputs waking", match->action);
+    return true;
+  }
+  kLog.info("lock-screen shortcut invoking \"{}\"", match->action);
+  m_sessionActions->invoke(*match);
+  return true;
+}
+
+void LockScreen::markOutputsWoke() { m_wokeAtMillis = bootTimeMillis(); }
 
 bool LockScreen::isActive() const noexcept { return m_lockPending || m_locked; }
 
@@ -564,17 +635,163 @@ void LockScreen::onSystemResumed() {
   if (m_graceAllowed) {
     kLog.info("system resumed; revoking passwordless grace period");
   }
+  markOutputsWoke();
   resetGracePeriod();
+  cancelPendingAfterLocked();
+  cancelOutputPowerOff();
 }
 
 bool LockScreen::isSessionLocked() const noexcept { return m_locked; }
 
+bool LockScreen::isReadyForSleep() const { return m_locked && !m_unlocking && allSurfacesReady(); }
+
+void LockScreen::prepareForSleep() {
+  resetGracePeriod();
+  if (isReadyForSleep()) {
+    handleSleepReady();
+  } else if (m_locked) {
+    armSleepReadyTimeout();
+  }
+}
+
+void LockScreen::suppressEntryTransition() {
+  if (m_transitionSuppressed || m_unlocking) {
+    return;
+  }
+  m_transitionSuppressed = true;
+  m_activeTransition.reset();
+  if (m_configService == nullptr || !m_configService->config().lockscreen.blurredDesktop) {
+    invalidateDesktopCaptures();
+  }
+  for (auto& instance : m_instances) {
+    if (instance.surface != nullptr) {
+      instance.surface->suppressEntryTransition();
+    }
+  }
+  kLog.debug("desktop lock transition suppressed for powered-off outputs");
+}
+
+void LockScreen::onOutputPowerChanged() {
+  if (m_compositorPlatform == nullptr) {
+    return;
+  }
+  if (!m_compositorPlatform->shouldSuppressLockTransition()) {
+    markOutputsWoke();
+    return;
+  }
+  if (isActive() || m_lockStarting || m_lockDeferred) {
+    suppressEntryTransition();
+  } else if (m_configService == nullptr || !m_configService->config().lockscreen.blurredDesktop) {
+    invalidateDesktopCaptures();
+  }
+}
+
+void LockScreen::prepareForOutputPowerOff(std::function<void(bool)> done) {
+  cancelOutputPowerOff();
+  if (!done) {
+    return;
+  }
+  if (m_unlocking) {
+    done(false);
+    return;
+  }
+  if (!isActive() && !m_lockStarting) {
+    if (m_lockDeferred) {
+      suppressEntryTransition();
+    }
+    if (m_configService == nullptr || !m_configService->config().lockscreen.blurredDesktop) {
+      invalidateDesktopCaptures();
+    }
+    done(true);
+    return;
+  }
+  m_pendingOutputPowerOff = std::move(done);
+  suppressEntryTransition();
+  armOutputPowerOffTimeout();
+  flushPendingOutputPowerOff();
+}
+
+void LockScreen::cancelOutputPowerOff() {
+  ++m_outputPowerOffGeneration;
+  m_outputPowerOffQueued = false;
+  m_outputPowerOffTimer.stop();
+  if (m_pendingOutputPowerOff) {
+    auto pending = std::move(m_pendingOutputPowerOff);
+    m_pendingOutputPowerOff = {};
+    pending(false);
+  }
+}
+
+void LockScreen::armOutputPowerOffTimeout() {
+  if (m_outputPowerOffTimer.active() || !m_pendingOutputPowerOff) {
+    return;
+  }
+  m_outputPowerOffTimer.start(std::chrono::seconds(3), [this] {
+    kLog.warn("output power-off cancelled: safe lock frame was not acknowledged before the deadline");
+    cancelOutputPowerOff();
+  });
+}
+
+void LockScreen::flushPendingOutputPowerOff() {
+  if (!m_pendingOutputPowerOff || m_outputPowerOffQueued || ((!isReadyForSleep()) && (isActive() || m_lockStarting))) {
+    return;
+  }
+  m_outputPowerOffQueued = true;
+  const auto generation = m_outputPowerOffGeneration;
+  const std::weak_ptr<void> guard = m_aliveGuard;
+  DeferredCall::callLater([this, guard, generation] {
+    if (guard.expired() || generation != m_outputPowerOffGeneration) {
+      return;
+    }
+    m_outputPowerOffQueued = false;
+    if ((isActive() || m_lockStarting) && !isReadyForSleep()) {
+      return;
+    }
+    m_outputPowerOffTimer.stop();
+    auto pending = std::move(m_pendingOutputPowerOff);
+    m_pendingOutputPowerOff = {};
+    pending(true);
+  });
+}
+
+void LockScreen::armSleepReadyTimeout() {
+  if (!m_locked || m_unlocking || m_suspendTimeoutTimer.active()) {
+    return;
+  }
+  const auto animationMs =
+      m_activeTransition.has_value() ? static_cast<std::int64_t>(std::ceil(m_transitionDurationMs)) : 0;
+  m_suspendTimeoutTimer.start(std::chrono::milliseconds(animationMs) + std::chrono::seconds(3), [this] {
+    if (!m_locked || m_unlocking) {
+      return;
+    }
+    if (allSurfacesReady()) {
+      handleSleepReady();
+      return;
+    }
+    kLog.warn("lock screen did not acknowledge its revealed frame before the sleep deadline");
+    if (m_onReadyForSleep) {
+      m_onReadyForSleep();
+    }
+    dispatchPendingAfterLocked(true);
+  });
+}
+
+void LockScreen::handleSleepReady() {
+  if (!isReadyForSleep()) {
+    return;
+  }
+  m_suspendTimeoutTimer.stop();
+  kLog.debug("lock screen ready for sleep");
+  if (m_onReadyForSleep) {
+    m_onReadyForSleep();
+  }
+  (void)tryFlushPendingAfterLocked();
+  flushPendingOutputPowerOff();
+}
+
 bool LockScreen::tryFlushPendingAfterLocked() {
-  if (m_locked && m_pendingAfterLocked && allSurfacesReady()) {
-    auto pending = std::move(m_pendingAfterLocked);
-    m_pendingAfterLocked = {};
-    m_suspendTimeoutTimer.stop();
-    DeferredCall::callLater(std::move(pending));
+  if (m_pendingAfterLocked && isReadyForSleep()) {
+    dispatchPendingAfterLocked();
     return true;
   }
   return false;
@@ -598,19 +815,37 @@ void LockScreen::tryFinishAnimatedUnlock() {
   }
 
   m_unlockFinishQueued = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     if (m_unlocking) {
       finishUnlock();
     }
   });
 }
 
-void LockScreen::dispatchPendingAfterLocked() {
+void LockScreen::cancelPendingAfterLocked() {
+  ++m_afterLockedGeneration;
+  m_pendingAfterLocked = {};
+  m_suspendTimeoutTimer.stop();
+}
+
+void LockScreen::dispatchPendingAfterLocked(bool timedOut) {
   if (m_pendingAfterLocked) {
     auto pending = std::move(m_pendingAfterLocked);
     m_pendingAfterLocked = {};
     m_suspendTimeoutTimer.stop();
-    DeferredCall::callLater(std::move(pending));
+    const auto generation = m_afterLockedGeneration;
+    const std::weak_ptr<void> guard = m_aliveGuard;
+    DeferredCall::callLater([this, guard, generation, timedOut, pending = std::move(pending)] mutable {
+      if (guard.expired() || generation != m_afterLockedGeneration || m_unlocking || (!isActive() && !m_lockDeferred)) {
+        return;
+      }
+      if (!timedOut && isActive() && !isReadyForSleep()) {
+        m_pendingAfterLocked = std::move(pending);
+        armSleepReadyTimeout();
+        return;
+      }
+      pending();
+    });
   }
 }
 
@@ -618,15 +853,19 @@ void LockScreen::runAfterSessionLocked(std::function<void()> fn) {
   if (fn == nullptr) {
     return;
   }
+  cancelPendingAfterLocked();
   m_pendingAfterLocked = std::move(fn);
   if (tryFlushPendingAfterLocked()) {
     return;
   }
   if (isActive()) {
+    if (m_locked) {
+      armSleepReadyTimeout();
+    }
     return;
   }
   if (!lock()) {
-    m_pendingAfterLocked = {};
+    cancelPendingAfterLocked();
   }
 }
 
@@ -644,19 +883,11 @@ void LockScreen::handleLocked(void* data, ext_session_lock_v1* /*lock*/) {
   self->m_statusIsError = false;
   for (auto& instance : self->m_instances) {
     instance.surface->setLockedState(true);
-    instance.surface->setOnLogin([self]() { self->tryAuthenticate(); });
+    instance.surface->setOnLogin([self] { self->tryAuthenticate(); });
     instance.surface->startEnterTransition();
   }
 
-  // Start the fallback timer (3 seconds) to trigger suspend anyway if surfaces take too long to render
-  self->m_suspendTimeoutTimer.start(std::chrono::seconds(3), [self]() {
-    if (self->m_pendingAfterLocked) {
-      kLog.warn("Lock screen surfaces took too long to render; suspending fallback triggered");
-      auto pending = std::move(self->m_pendingAfterLocked);
-      self->m_pendingAfterLocked = {};
-      DeferredCall::callLater(std::move(pending));
-    }
-  });
+  self->armSleepReadyTimeout();
 
   self->updatePromptOnSurfaces();
   self->updateIndicatorsOnSurfaces();
@@ -665,7 +896,7 @@ void LockScreen::handleLocked(void* data, ext_session_lock_v1* /*lock*/) {
   if (self->m_onSessionLocked) {
     self->m_onSessionLocked();
   }
-  self->tryFlushPendingAfterLocked();
+  self->handleSleepReady();
 }
 
 void LockScreen::handleFinished(void* data, ext_session_lock_v1* /*lock*/) {
@@ -673,7 +904,8 @@ void LockScreen::handleFinished(void* data, ext_session_lock_v1* /*lock*/) {
   kLog.info("session lock finished by compositor");
   const bool wasLockedInteractive = self->m_locked;
   self->resetGracePeriod();
-  self->m_pendingAfterLocked = {};
+  self->cancelPendingAfterLocked();
+  self->cancelOutputPowerOff();
   self->m_unlockTransitionTimer.stop();
   self->m_unlocking = false;
   self->m_unlockFinishQueued = false;
@@ -696,6 +928,7 @@ void LockScreen::handleFinished(void* data, ext_session_lock_v1* /*lock*/) {
   self->m_statusIsError = false;
   self->invalidateDesktopCaptures();
   self->m_activeTransition.reset();
+  self->m_transitionSuppressed = false;
   if (wasLockedInteractive && self->m_onSessionUnlocked) {
     self->m_onSessionUnlocked();
   } else if (!wasLockedInteractive && self->m_onLockAborted) {
@@ -749,12 +982,12 @@ bool LockScreen::shouldCaptureDesktop() const {
     return false;
   }
   const auto& lockscreen = m_configService->config().lockscreen;
-  return lockscreen.blurredDesktop || !lockscreen.transitions.empty();
+  return lockscreen.blurredDesktop || (!m_transitionSuppressed && !lockscreen.transitions.empty());
 }
 
 bool LockScreen::allSurfacesReady() const {
   for (const auto& instance : m_instances) {
-    if (instance.surface != nullptr && !instance.surface->firstFrameRendered()) {
+    if (instance.surface != nullptr && !instance.surface->readyForSleep()) {
       return false;
     }
   }
@@ -772,6 +1005,11 @@ void LockScreen::primeDesktopCaptures() {
     return;
   }
   invalidateDesktopCaptures();
+  if (m_compositorPlatform != nullptr
+      && m_compositorPlatform->shouldSuppressLockTransition()
+      && (m_configService == nullptr || !m_configService->config().lockscreen.blurredDesktop)) {
+    return;
+  }
   if (!shouldCaptureDesktop()) {
     return;
   }
@@ -896,6 +1134,9 @@ void LockScreen::chooseTransition() {
   m_activeTransition.reset();
   m_transitionParams = {};
   m_transitionDurationMs = 1500.0F;
+  if (m_transitionSuppressed) {
+    return;
+  }
   if (m_configService == nullptr || m_wayland == nullptr || !m_wayland->hasScreencopy()) {
     return;
   }
@@ -929,6 +1170,28 @@ void LockScreen::chooseTransition() {
     m_transitionParams.cellSize = Random::randomFloat(0.02F, 0.06F);
     m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
     m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::Vortex:
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::Pixel:
+    m_transitionParams.cellSize = Random::randomFloat(0.02F, 0.05F);
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::Diamond:
+    m_transitionParams.cellSize = Random::randomFloat(0.0345F, 0.069F);
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::Golden:
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
+    break;
+  case LockscreenTransition::Melt:
+    m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
     break;
   case LockscreenTransition::Fade:
   case LockscreenTransition::Zoom:
@@ -995,9 +1258,13 @@ std::string LockScreen::wallpaperPathForOutput(const std::string& connectorName)
   if (m_configService == nullptr) {
     return {};
   }
-  const std::string& customWallpaper = m_configService->config().lockscreen.wallpaper;
+  const auto& config = m_configService->config();
+  const std::string& customWallpaper = config.lockscreen.wallpaper;
   if (!customWallpaper.empty()) {
     return customWallpaper;
+  }
+  if (!config.wallpaper.enabled) {
+    return {};
   }
   return m_configService->getWallpaperPath(connectorName);
 }
@@ -1046,10 +1313,10 @@ void LockScreen::createInstance(const WaylandOutput& output) {
   const std::optional<LockscreenTransitionKind> transition =
       m_activeTransition.has_value() ? std::optional{renderTransitionKind(*m_activeTransition)} : std::nullopt;
   surface->configureTransition(transition, m_transitionParams, m_transitionDurationMs);
-  surface->setRenderCallback([this]() { tryFlushPendingAfterLocked(); });
-  surface->setTransitionCallback([this]() { handleTransitionStateChanged(); });
-  surface->setOnLogin([this]() { tryAuthenticate(); });
-  surface->setOnCycleLayout([this]() { cycleKeyboardLayout(); });
+  surface->setSleepReadyCallback([this] { handleSleepReady(); });
+  surface->setTransitionCallback([this] { handleTransitionStateChanged(); });
+  surface->setOnLogin([this] { tryAuthenticate(); });
+  surface->setOnCycleLayout([this] { cycleKeyboardLayout(); });
   surface->setOnPasswordChanged([this](const std::string& value) { handlePasswordEdited(value); });
   surface->setLoginBoxServices(m_sessionActions, m_mpris, m_weather, m_httpClient);
   surface->setPromptState(m_user, m_password, m_status, m_statusIsError, m_authenticating);
@@ -1073,17 +1340,20 @@ void LockScreen::createInstance(const WaylandOutput& output) {
 }
 
 void LockScreen::notifyLockAborted() {
+  m_transitionSuppressed = false;
+  cancelOutputPowerOff();
   if (m_onLockAborted) {
     m_onLockAborted();
   }
 }
 
 void LockScreen::resetLockState() {
-  m_pendingAfterLocked = {};
-  m_suspendTimeoutTimer.stop();
+  cancelPendingAfterLocked();
+  cancelOutputPowerOff();
   m_unlockTransitionTimer.stop();
   m_lockDeferred = false;
   m_lockStarting = false;
+  m_transitionSuppressed = false;
   m_unlocking = false;
   m_unlockFinishQueued = false;
   m_activeTransition.reset();
@@ -1211,14 +1481,14 @@ void LockScreen::tryAuthenticate() {
   const std::string pamLanguage(i18n::Service::instance().language());
   const std::string pamStartFailure = i18n::tr("auth.pam.start-failed");
   std::thread([this, generation, password = std::move(password), authenticator, pamService, pamLanguage,
-               pamStartFailure]() mutable {
+               pamStartFailure] mutable {
     const auto result = authenticator.authenticateCurrentUser(password, pamService, pamLanguage, pamStartFailure);
     clearSensitiveString(password);
-    DeferredCall::callLater([this, generation, result]() { handleAuthResult(generation, result); });
+    DeferredCall::callLater([this, generation, result] { handleAuthResult(generation, result); });
   }).detach();
 }
 
-void LockScreen::handleAuthResult(std::uint64_t generation, PamAuthenticator::Result result) {
+void LockScreen::handleAuthResult(std::uint64_t generation, const PamAuthenticator::Result& result) {
   if (generation != m_authGeneration || !m_locked) {
     return;
   }

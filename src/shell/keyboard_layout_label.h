@@ -14,3 +14,8 @@ formatKeyboardLayoutLabel(const std::string& layoutName, KeyboardLayoutDisplayMo
     const std::string& layoutName, KeyboardLayoutDisplayMode displayMode,
     const std::unordered_map<std::string, std::string>& customLabels
 );
+// Like resolveKeyboardLayoutLabel, but keeps an unrecognized name (e.g. "Mozc") instead of returning "--".
+[[nodiscard]] std::string resolveInputMethodLabel(
+    const std::string& inputMethodName, KeyboardLayoutDisplayMode displayMode,
+    const std::unordered_map<std::string, std::string>& customLabels
+);

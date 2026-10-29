@@ -1,15 +1,13 @@
 #include "Luau/BytecodeBuilder.h"
 #include "Luau/BytecodeGraph.h"
-#include "Luau/BytecodeUtils.h"
 #include "Luau/BytecodeWire.h"
 
 #include "BytecodeGraphParser.h"
 #include "BytecodeGraphSerializer.h"
 
-#include <unordered_set>
-#include <algorithm>
-
 LUAU_FASTFLAG(DebugLuauUserDefinedClasses)
+LUAU_FASTFLAG(LuauCostModel)
+LUAU_FASTFLAG(LuauCompileRefactorFeedback)
 
 namespace Luau
 {
@@ -94,11 +92,21 @@ std::optional<CompTimeBcFunction> fromFunctionBytecode(std::string bytecode, std
 
         case LBC_CONSTANT_VECTOR:
         {
-            fn.constants[i].kind = BcVmConstKind::Vector;
-            fn.constants[i].valueVector[0] = read<float>(data, offset);
-            fn.constants[i].valueVector[1] = read<float>(data, offset);
-            fn.constants[i].valueVector[2] = read<float>(data, offset);
-            fn.constants[i].valueVector[3] = read<float>(data, offset);
+            fn.constants[i].kind = BcVmConstKind::Vectorf;
+            fn.constants[i].valueVectorf[0] = read<float>(data, offset);
+            fn.constants[i].valueVectorf[1] = read<float>(data, offset);
+            fn.constants[i].valueVectorf[2] = read<float>(data, offset);
+            fn.constants[i].valueVectorf[3] = read<float>(data, offset);
+            break;
+        }
+
+        case LBC_CONSTANT_VECTORD:
+        {
+            fn.constants[i].kind = BcVmConstKind::Vectord;
+            fn.constants[i].valueVectord[0] = read<double>(data, offset);
+            fn.constants[i].valueVectord[1] = read<double>(data, offset);
+            fn.constants[i].valueVectord[2] = read<double>(data, offset);
+            fn.constants[i].valueVectord[3] = read<double>(data, offset);
             break;
         }
 
@@ -157,6 +165,33 @@ std::optional<CompTimeBcFunction> fromFunctionBytecode(std::string bytecode, std
             fn.constants[i].valueInteger = isNegative ? (int64_t)(~magnitude + 1) : (int64_t)magnitude;
             break;
         }
+
+        case LBC_CONSTANT_CLASS_SHAPE:
+        {
+            LUAU_ASSERT(FFlag::DebugLuauUserDefinedClasses);
+
+            fn.constants[i].kind = BcVmConstKind::ClassShape;
+            fn.constants[i].valueClassShape = uint32_t(fn.classShapes.size());
+
+            BytecodeBuilder::ClassShape shape;
+            shape.className = readVarInt(data, offset);
+
+            uint32_t numProps = readVarInt(data, offset);
+            uint32_t numMethods = readVarInt(data, offset);
+
+            shape.propertyNames.reserve(numProps);
+            shape.methodNames.reserve(numMethods);
+
+            for (uint32_t i = 0; i < numProps; ++i)
+                shape.propertyNames.emplace_back(readVarInt(data, offset));
+
+            for (uint32_t i = 0; i < numMethods; ++i)
+                shape.methodNames.emplace_back(readVarInt(data, offset));
+
+            fn.classShapes.push_back(shape);
+            break;
+        }
+
         default:
             LUAU_ASSERT(!"Unknown constant type!");
         }
@@ -226,10 +261,52 @@ std::optional<CompTimeBcFunction> fromFunctionBytecode(std::string bytecode, std
             fn.upvalueNames[i] = readString(strings, data, offset);
     }
 
+    uint32_t feedbackvecsize = readVarInt(data, offset);
+    fn.feedbackSlots.resize(feedbackvecsize);
+
+    for (uint32_t j = 0; j < feedbackvecsize; j++)
+    {
+        uint8_t slottype = read<uint8_t>(data, offset);
+
+        BcFeedbackSlot& slot = fn.feedbackSlots[j];
+        slot.kind = static_cast<LuauFeedbackType>(slottype);
+
+        if (slottype == LFT_CALLTARGET)
+        {
+            uint32_t pc = readVarInt(data, offset);
+            LUAU_ASSERT(pc < uint32_t(codesize));
+            LUAU_ASSERT(LUAU_INSN_OP(code[pc]) == LOP_CALLFB);
+            slot.callTarget.inst = pc;
+        }
+        else if (slottype == LFT_CONSTRUCT)
+        {
+            uint32_t shape = readVarInt(data, offset);
+            LUAU_ASSERT(shape < fn.constants.size());
+            LUAU_ASSERT(fn.constants[shape].kind == BcVmConstKind::Table);
+            slot.construct.shape = shape;
+        }
+        else
+        {
+            LUAU_ASSERT(!"unknown feedback slot kind");
+        }
+    }
+
+    if (FFlag::LuauCostModel)
+    {
+        if ((fn.flags & LPF_INLINABLE) != 0)
+            readVarInt64(data, offset);
+    }
+
     std::vector<uint32_t> insnsPC;
     BytecodeGraphParser<BcVmConst> graphParser(fn);
     if (!graphParser.rebuildGraph(code, codesize, lines, insnsPC))
         return {};
+
+    for (BcFeedbackSlot& slot : fn.feedbackSlots)
+    {
+        if (slot.kind == LFT_CALLTARGET)
+            slot.callTarget.inst = insnsPC[slot.callTarget.inst];
+    }
 
     for (TypedLocal& l : fn.localTypes)
     {
@@ -248,8 +325,8 @@ std::optional<CompTimeBcFunction> fromFunctionBytecode(std::string bytecode, std
 
 struct CompTimeBytecodeGraphSerializer : public BytecodeGraphSerializer<BcVmConst>
 {
-    std::vector<uint16_t>& consts;
-    CompTimeBytecodeGraphSerializer(BytecodeBuilder& bcb, CompTimeBcFunction& fn, std::vector<uint16_t>& consts)
+    std::vector<uint32_t>& consts;
+    CompTimeBytecodeGraphSerializer(BytecodeBuilder& bcb, CompTimeBcFunction& fn, std::vector<uint32_t>& consts)
         : BytecodeGraphSerializer<BcVmConst>(bcb, fn)
         , consts(consts)
     {
@@ -275,8 +352,9 @@ std::string toFunctionBytecode(BytecodeBuilder& bcb, CompTimeBcFunction& fn)
     for (auto& upval : fn.upvalueNames)
         bcb.pushDebugUpval({upval.data(), upval.size()});
 
-    std::vector<uint16_t> consts;
+    std::vector<uint32_t> consts;
     consts.reserve(fn.constants.size());
+
     for (auto& c : fn.constants)
     {
         switch (c.kind)
@@ -293,8 +371,12 @@ std::string toFunctionBytecode(BytecodeBuilder& bcb, CompTimeBcFunction& fn)
             consts.push_back(bcb.addConstantNumber(c.valueNumber));
             break;
 
-        case BcVmConstKind::Vector:
-            consts.push_back(bcb.addConstantVector(c.valueVector[0], c.valueVector[1], c.valueVector[2], c.valueVector[3]));
+        case BcVmConstKind::Vectorf:
+            consts.push_back(bcb.addConstantVectorf(c.valueVectorf[0], c.valueVectorf[1], c.valueVectorf[2], c.valueVectorf[3]));
+            break;
+
+        case BcVmConstKind::Vectord:
+            consts.push_back(bcb.addConstantVectord(c.valueVectord[0], c.valueVectord[1], c.valueVectord[2], c.valueVectord[3]));
             break;
 
         case BcVmConstKind::String:
@@ -319,6 +401,14 @@ std::string toFunctionBytecode(BytecodeBuilder& bcb, CompTimeBcFunction& fn)
         case BcVmConstKind::Integer:
             consts.push_back(bcb.addConstantInteger(c.valueInteger));
             break;
+
+        case BcVmConstKind::ClassShape:
+        {
+            LUAU_ASSERT(FFlag::DebugLuauUserDefinedClasses);
+            LUAU_ASSERT(c.valueClassShape < fn.classShapes.size());
+            consts.push_back(bcb.addClassShape(fn.classShapes[c.valueClassShape]));
+            break;
+        }
         }
     }
 
@@ -327,6 +417,34 @@ std::string toFunctionBytecode(BytecodeBuilder& bcb, CompTimeBcFunction& fn)
 
     CompTimeBytecodeGraphSerializer serializer(bcb, fn, consts);
     std::vector<uint32_t> insnsPC = serializer.emitBytecode();
+
+    for (uint32_t i = 0; i < fn.feedbackSlots.size(); ++i)
+    {
+        BcFeedbackSlot& slot = fn.feedbackSlots[i];
+        uint32_t slotId = ~0u;
+
+        if (slot.kind == LFT_CALLTARGET)
+        {
+            LUAU_ASSERT(slot.callTarget.inst < insnsPC.size());
+            LUAU_ASSERT(insnsPC[slot.callTarget.inst] != ~0u);
+
+            if (FFlag::LuauCompileRefactorFeedback || FFlag::DebugLuauUserDefinedClasses)
+                slotId = bcb.addCallTargetSlot(insnsPC[slot.callTarget.inst]);
+            else
+                slotId = bcb.addFbSlot_DEPRECATED(LFT_CALLTARGET, insnsPC[slot.callTarget.inst]);
+        }
+        else if (slot.kind == LFT_CONSTRUCT)
+        {
+            LUAU_ASSERT(slot.construct.shape < consts.size());
+            slotId = bcb.addConstructSlot(consts[slot.construct.shape]);
+        }
+        else
+        {
+            LUAU_ASSERT(!"unknown feedback slot kind");
+        }
+
+        LUAU_ASSERT(slotId == i);
+    }
 
     for (auto& local : fn.localTypes)
     {
@@ -343,7 +461,11 @@ std::string toFunctionBytecode(BytecodeBuilder& bcb, CompTimeBcFunction& fn)
 
     bcb.foldJumps();
 
-    bcb.expandJumps();
+    bool hasLongJumpError = false;
+    bcb.expandJumps(hasLongJumpError);
+
+    if (hasLongJumpError)
+        return "";
 
     bcb.endFunction(fn.maxstacksize, fn.nups, fn.flags);
 

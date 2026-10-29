@@ -19,6 +19,25 @@ background_tint = "#{{colors.surface.default.hex_stripped}}88"
 badge = "#{{colors.primary.default.hex_stripped}}FF"
 workspace_background = "#{{colors.surface.default.hex_stripped}}FF"
 
+[colors.tab_bar]
+background = "#{{colors.surface_container.default.hex_stripped}}FF"
+text = "#{{colors.on_surface_variant.default.hex_stripped}}FF"
+active = "#{{colors.primary.default.hex_stripped}}FF"
+active_text = "#{{colors.on_primary.default.hex_stripped}}FF"
+active_unfocused = "#{{colors.surface_variant.default.hex_stripped}}FF"
+active_unfocused_text = "#{{colors.on_surface.default.hex_stripped}}FF"
+urgent = "#{{colors.error.default.hex_stripped}}FF"
+urgent_text = "#{{colors.on_error.default.hex_stripped}}FF"
+
+[colors.title_bar]
+background = "#{{colors.surface_container.default.hex_stripped}}FF"
+background_unfocused = "#{{colors.surface.default.hex_stripped}}FF"
+text = "#{{colors.on_surface.default.hex_stripped}}FF"
+text_unfocused = "#{{colors.on_surface_variant.default.hex_stripped}}FF"
+close = "#{{colors.error.default.hex_stripped}}FF"
+maximize = "#{{colors.primary.default.hex_stripped}}FF"
+minimize = "#{{colors.secondary.default.hex_stripped}}FF"
+
 [[window_rule]]
 match.is_scratchpad = true
 border_color_focused = "#{{colors.tertiary.default.hex_stripped}}FF"

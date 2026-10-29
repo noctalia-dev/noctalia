@@ -2,7 +2,6 @@
 
 #include "render/scene/input_area.h"
 #include "ui/controls/scroll_view.h"
-#include "ui/style.h"
 
 #include <algorithm>
 #include <cmath>
@@ -221,7 +220,7 @@ void VirtualListView::doLayout(Renderer& renderer) {
     slot->setParticipatesInLayout(false);
     slot->setOnEnter([this, slotPtr](const InputArea::PointerData&) { setHoveredIndex(slotPtr->boundIndex()); });
     slot->setOnMotion([this, slotPtr](const InputArea::PointerData&) { setHoveredIndex(slotPtr->boundIndex()); });
-    slot->setOnLeave([this, slotPtr]() {
+    slot->setOnLeave([this, slotPtr] {
       if (m_hoveredIndex == slotPtr->boundIndex()) {
         setHoveredIndex(std::nullopt);
       }

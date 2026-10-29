@@ -139,10 +139,11 @@ namespace scripting {
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
-    template <typename SoundLoadCompletion>
+    template <typename SoundLoadCompletion, typename IdleDeliveryFactory>
     void dispatchSideEffects(
         const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard, ScriptApiContext& api,
-        const ScriptRuntime::TogglePanelCallback& togglePanelCallback, const SoundLoadCompletion& soundLoadCompletion
+        const ScriptRuntime::TogglePanelCallback& togglePanelCallback, const SoundLoadCompletion& soundLoadCompletion,
+        const IdleDeliveryFactory& idleDelivery
     ) {
       for (const auto& effect : effects) {
         switch (effect.kind) {
@@ -190,6 +191,21 @@ namespace scripting {
         }
         case ScriptSideEffectKind::PlaySound:
           api.invokePlaySound(effect.hostId, effect.title);
+          break;
+        case ScriptSideEffectKind::IdleWatch:
+          api.invokeIdleWatch(
+              effect.hostId, effect.callbackRef, effect.timeoutMs, effect.flag,
+              idleDelivery(effect.hostId, effect.callbackRef)
+          );
+          break;
+        case ScriptSideEffectKind::IdleUnwatch:
+          api.invokeIdleUnwatch(effect.hostId, effect.callbackRef);
+          break;
+        case ScriptSideEffectKind::LayerCommand:
+          api.invokeLayerCommand(effect.layerCommand, effect.title, effect.layerPatch);
+          break;
+        case ScriptSideEffectKind::ShowOsd:
+          api.invokeShowOsd(effect.title, effect.body, effect.number, effect.flag);
           break;
         }
       }
@@ -269,7 +285,7 @@ namespace scripting {
       }
 
       auto self = shared_from_this();
-      DeferredCall::callLater([self, id, replay = std::move(replay)]() mutable {
+      DeferredCall::callLater([self, id, replay = std::move(replay)] mutable {
         ScriptResultCallback subscriber;
         {
           std::scoped_lock replayLock(self->mutex);
@@ -507,6 +523,16 @@ namespace scripting {
       (void)enqueue(std::move(event));
     }
 
+    void enqueueIdleWatchResult(std::uint64_t hostId, int callbackRef, bool idle) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::IdleWatchResult;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.idle = idle;
+      event.budget = kCallBudget;
+      (void)enqueue(std::move(event));
+    }
+
     void enqueueStreamLine(std::uint64_t hostId, int callbackRef, std::string line) {
       ScriptEvent event;
       event.kind = ScriptEventKind::StreamLine;
@@ -656,6 +682,15 @@ namespace scripting {
         return collectResult(event, "state watch callback", ok);
       }
 
+      if (event.kind == ScriptEventKind::IdleWatchResult) {
+        if (event.hostId != host->hostId() || !host->hasIdleWatchCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok = host->callIdleWatchCallback(event.callbackRef, event.idle, event.budget);
+        return collectResult(event, "idle watch callback", ok);
+      }
+
       if (event.kind == ScriptEventKind::StreamLine) {
         if (event.hostId != host->hostId() || !host->hasStreamCallback(event.callbackRef)) {
           return std::nullopt; // stale (reloaded host) or unregistered
@@ -746,7 +781,7 @@ namespace scripting {
       std::weak_ptr<State> weak = shared_from_this();
       const std::string pluginId = runtimeName.substr(0, runtimeName.find(':'));
       const std::uint64_t token = stateToken;
-      host->setStateWatchHandler([weak, pluginId, token](std::string key, int callbackRef) {
+      host->setStateWatchHandler([weak, pluginId, token](const std::string& key, int callbackRef) {
         PluginStateStore::instance().watch(pluginId, key, token, [weak, callbackRef](const std::string& json) {
           if (auto state = weak.lock()) {
             state->enqueueStateWatchResult(callbackRef, json);
@@ -964,7 +999,7 @@ namespace scripting {
 
     void postResult(ScriptResult result) {
       auto self = shared_from_this();
-      DeferredCall::callLater([self, result = std::move(result)]() mutable { self->deliverResult(std::move(result)); });
+      DeferredCall::callLater([self, result = std::move(result)] mutable { self->deliverResult(std::move(result)); });
     }
 
     void deliverResult(ScriptResult result) {
@@ -1011,6 +1046,13 @@ namespace scripting {
             if (auto state = weak.lock()) {
               state->enqueueSoundLoadResult(hostId, callbackRef, ok, std::move(error));
             }
+          },
+          [weak](std::uint64_t hostId, int callbackRef) {
+            return [weak, hostId, callbackRef](bool idle) {
+              if (auto state = weak.lock()) {
+                state->enqueueIdleWatchResult(hostId, callbackRef, idle);
+              }
+            };
           }
       );
       for (const auto& effect : result.sideEffects) {

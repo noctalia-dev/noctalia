@@ -12,8 +12,10 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cctype>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
@@ -22,6 +24,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -53,6 +56,9 @@ namespace {
   constexpr std::chrono::milliseconds kDdcSetTimeout{8000};
   constexpr std::chrono::seconds kDdcFailureCooldown{30};
   constexpr int kDdcFailureThreshold = 3;
+  constexpr std::array kDdcDiscoveryRetryDelays{
+      std::chrono::seconds{1}, std::chrono::seconds{2}, std::chrono::seconds{4}
+  };
   enum class RuntimeBackend : std::uint8_t {
     Backlight,
     Ddcutil,
@@ -81,6 +87,24 @@ namespace {
     int bus = -1;
     int currentRaw = -1;
     int maxRaw = 100;
+    std::uint64_t writeEpoch = 0;
+  };
+
+  struct DdcDetectResult {
+    std::vector<DdcCandidate> candidates;
+    std::set<std::pair<std::string, int>> reportedDisplays;
+  };
+
+  struct DdcDetectJob {
+    std::uint64_t generation = 0;
+    std::uint64_t discoveryEpoch = 0;
+    std::chrono::steady_clock::time_point dueAt;
+    std::vector<std::string> ignoreMmids;
+    std::set<std::string> connectors;
+    std::map<int, std::string> pinnedConnectors;
+    std::set<std::pair<std::string, int>> controlledDisplays;
+    std::map<std::pair<std::string, int>, std::uint64_t> writeEpochs;
+    std::shared_ptr<std::atomic<bool>> cancel;
   };
 
   struct CommandResult {
@@ -109,14 +133,17 @@ namespace {
 
     Type type = Type::Detect;
     std::uint64_t generation = 0;
+    std::uint64_t discoveryEpoch = 0;
     std::uint64_t writeEpoch = 0;
     std::string displayId;
+    int bus = -1;
     bool success = false;
     bool timedOut = false;
     int currentRaw = -1;
     int maxRaw = 100;
     std::string detail;
     std::vector<DdcCandidate> candidates;
+    std::set<std::pair<std::string, int>> reportedDisplays;
   };
 
   const sdbus::ServiceName kLogindBusName{"org.freedesktop.login1"};
@@ -285,7 +312,7 @@ namespace {
         continue;
       }
 
-      const auto drmConnectorPath = fs::canonical(drmClassPath + "/" + name, ec);
+      const auto drmConnectorPath = fs::canonical(fs::path(drmClassPath) / name, ec);
       if (ec) {
         continue;
       }
@@ -412,7 +439,12 @@ namespace {
       return std::nullopt;
     }
 
-    return std::atoi(std::string(input.substr(start, end - start)).c_str());
+    int value = 0;
+    const auto result = std::from_chars(input.data() + start, input.data() + end, value);
+    if (result.ec != std::errc{} || result.ptr != input.data() + end) {
+      return std::nullopt;
+    }
+    return value;
   }
 
   std::optional<int> parseI2cBus(std::string_view line) {
@@ -475,7 +507,7 @@ namespace {
     process::RunOptions options;
     options.timeout = timeout;
     options.cancel = cancel;
-    process::RunResult runResult = process::runSync(args, std::move(options));
+    process::RunResult runResult = process::runSync(args, options);
 
     std::string output = std::move(runResult.out);
     if (!runResult.err.empty()) {
@@ -528,11 +560,10 @@ namespace {
     return parseDdcVcpBrightness(result.output);
   }
 
-  std::vector<DdcCandidate> detectDdcDisplays(
-      std::chrono::milliseconds timeout, const std::vector<std::string>& ignoreMmids, std::string* detailOut,
-      const std::shared_ptr<std::atomic<bool>>& cancel
-  ) {
-    auto args = ddcDetectArgs(ignoreMmids);
+  DdcDetectResult
+  detectDdcDisplays(std::chrono::milliseconds timeout, const DdcDetectJob& job, std::string* detailOut) {
+    const auto& cancel = job.cancel;
+    auto args = ddcDetectArgs(job.ignoreMmids);
     const CommandResult detectResult = runCommandCapture(args, timeout, cancel);
     if (detailOut != nullptr) {
       *detailOut = detectResult.output;
@@ -555,16 +586,37 @@ namespace {
       return {};
     }
 
-    std::vector<DdcCandidate> candidates;
+    DdcDetectResult result;
     DdcCandidate current;
     bool inDisplay = false;
 
-    auto flushCurrent = [&]() {
+    auto flushCurrent = [&] {
       if (cancel->load(std::memory_order_relaxed)) {
         current = DdcCandidate{};
         return;
       }
       if (inDisplay && current.bus >= 0 && !current.connectorName.empty()) {
+        std::string connector = current.connectorName;
+        if (const auto pin = job.pinnedConnectors.find(current.bus); pin != job.pinnedConnectors.end()) {
+          connector = pin->second;
+        } else if (std::ranges::any_of(job.pinnedConnectors, [&connector](const auto& entry) {
+                     return entry.second == connector;
+                   })) {
+          current = DdcCandidate{};
+          return;
+        }
+        if (!job.connectors.contains(connector)) {
+          current = DdcCandidate{};
+          return;
+        }
+        result.reportedDisplays.emplace(connector, current.bus);
+        if (job.controlledDisplays.contains({connector, current.bus})) {
+          current = DdcCandidate{};
+          return;
+        }
+        if (const auto epoch = job.writeEpochs.find({connector, current.bus}); epoch != job.writeEpochs.end()) {
+          current.writeEpoch = epoch->second;
+        }
         if (std::string getvcpDetail; true) {
           const auto brightness = queryDdcBrightness(current.bus, kDdcQueryTimeout, &getvcpDetail, cancel);
           if (brightness.has_value()) {
@@ -578,7 +630,7 @@ namespace {
           }
         }
         if (current.currentRaw >= 0 && current.maxRaw > 0) {
-          candidates.push_back(current);
+          result.candidates.push_back(current);
         }
       }
       current = DdcCandidate{};
@@ -620,8 +672,8 @@ namespace {
     if (cancel->load(std::memory_order_relaxed)) {
       return {};
     }
-    kLog.info("ddcutil detect parsed {} candidate display(s)", candidates.size());
-    return candidates;
+    kLog.info("ddcutil detect parsed {} candidate display(s)", result.candidates.size());
+    return result;
   }
 
   std::map<int, std::string> pinnedConnectorByBus(const BrightnessConfig& config, const WaylandConnection& wayland) {
@@ -685,6 +737,8 @@ struct BrightnessService::Impl {
   int eventFd = -1;
   int epollFd = -1;
   std::uint64_t generation = 0;
+  std::uint64_t discoveryEpoch = 0;
+  std::size_t discoveryRetryCount = 0;
   bool warnedMissingDdcutil = false;
 
   std::mutex workerMutex;
@@ -692,8 +746,8 @@ struct BrightnessService::Impl {
   std::thread workerThread;
   std::shared_ptr<std::atomic<bool>> workerCancel = std::make_shared<std::atomic<bool>>(false);
   bool workerStop = false;
-  bool detectPending = false;
-  std::uint64_t detectGeneration = 0;
+  std::optional<DdcDetectJob> pendingDetect;
+  std::shared_ptr<std::atomic<bool>> discoveryCancel;
   std::unordered_map<std::string, DdcJob> pendingWrites;
   std::unordered_map<std::string, DdcJob> pendingRefreshes;
   std::queue<WorkerCompletion> completions;
@@ -702,7 +756,7 @@ struct BrightnessService::Impl {
       : bus(systemBus), wayland(compositorPlatform.wayland()), platform(compositorPlatform),
         activeConfig(std::move(config)) {
     setupPollFds();
-    workerThread = std::thread([this]() { workerLoop(); });
+    workerThread = std::thread([this] { workerLoop(); });
   }
 
   ~Impl() {
@@ -724,7 +778,10 @@ struct BrightnessService::Impl {
     {
       std::scoped_lock lock(workerMutex);
       workerStop = true;
-      detectPending = false;
+      if (discoveryCancel != nullptr) {
+        discoveryCancel->store(true, std::memory_order_relaxed);
+      }
+      pendingDetect.reset();
       pendingWrites.clear();
       pendingRefreshes.clear();
       workerCv.notify_all();
@@ -816,7 +873,11 @@ struct BrightnessService::Impl {
       std::scoped_lock lock(workerMutex);
       pendingWrites.clear();
       pendingRefreshes.clear();
-      detectPending = false;
+      if (discoveryCancel != nullptr) {
+        discoveryCancel->store(true, std::memory_order_relaxed);
+      }
+      pendingDetect.reset();
+      workerCv.notify_all();
     }
   }
 
@@ -835,7 +896,7 @@ struct BrightnessService::Impl {
         continue;
       }
 
-      const std::string path = backlightDir + "/" + name;
+      const std::string path = std::format("{}/{}", backlightDir, name);
       const int maxBrightness = readSysfsInt(path + "/max_brightness");
       if (maxBrightness <= 0) {
         continue;
@@ -957,8 +1018,43 @@ struct BrightnessService::Impl {
     }
   }
 
-  void scheduleDdcDetect() {
+  std::set<std::string> ddcConnectors() const {
+    std::set<std::string> connectors;
+    for (const auto& output : wayland.outputs()) {
+      if (!output.done || output.connectorName.empty()) {
+        continue;
+      }
+      const auto preference = backendPreferenceForOutput(activeConfig, &output);
+      if (preference == BrightnessBackendPreference::None || preference == BrightnessBackendPreference::Backlight) {
+        continue;
+      }
+      const bool hasBacklight = std::ranges::any_of(internals, [&output](const DisplayInternal& display) {
+        return display.backend == RuntimeBackend::Backlight && display.connectorName == output.connectorName;
+      });
+      if (!hasBacklight || preference == BrightnessBackendPreference::Ddcutil) {
+        connectors.insert(output.connectorName);
+      }
+    }
+    return connectors;
+  }
+
+  void scheduleDdcDetect(std::chrono::seconds delay = {}, bool restartDiscovery = true) {
+    if (restartDiscovery) {
+      ++discoveryEpoch;
+      discoveryRetryCount = 0;
+      std::scoped_lock lock(workerMutex);
+      if (discoveryCancel != nullptr) {
+        discoveryCancel->store(true, std::memory_order_relaxed);
+      }
+      discoveryCancel = std::make_shared<std::atomic<bool>>(false);
+      pendingDetect.reset();
+      workerCv.notify_all();
+    }
     if (!activeConfig.enableDdcutil) {
+      return;
+    }
+    const auto connectors = ddcConnectors();
+    if (connectors.empty()) {
       return;
     }
     if (!process::commandExists("ddcutil")) {
@@ -970,10 +1066,45 @@ struct BrightnessService::Impl {
     }
 
     warnedMissingDdcutil = false;
+    DdcDetectJob job{
+        .generation = generation,
+        .discoveryEpoch = discoveryEpoch,
+        .dueAt = std::chrono::steady_clock::now() + delay,
+        .ignoreMmids = activeConfig.ddcutilIgnoreMmids,
+        .connectors = connectors,
+        .pinnedConnectors = pinnedConnectorByBus(activeConfig, wayland),
+        .cancel = discoveryCancel,
+    };
+    for (const auto& display : internals) {
+      if (display.backend == RuntimeBackend::Ddcutil) {
+        if (!display.quarantined) {
+          job.controlledDisplays.emplace(display.connectorName, display.ddcBus);
+        }
+        job.writeEpochs.emplace(std::pair{display.connectorName, display.ddcBus}, display.ddcWriteEpoch);
+      }
+    }
     std::scoped_lock lock(workerMutex);
-    detectPending = true;
-    detectGeneration = generation;
+    pendingDetect = std::move(job);
     workerCv.notify_all();
+  }
+
+  void retryDdcDiscovery() {
+    const auto connectors = ddcConnectors();
+    const bool missingControl = std::ranges::any_of(connectors, [this](const std::string& connector) {
+      return std::ranges::none_of(internals, [&connector](const DisplayInternal& display) {
+        return display.backend == RuntimeBackend::Ddcutil && display.connectorName == connector;
+      });
+    });
+    if (!missingControl) {
+      return;
+    }
+    if (discoveryRetryCount == kDdcDiscoveryRetryDelays.size()) {
+      kLog.warn("ddcutil discovery retries exhausted; missing controls can be retried from the Monitor tab");
+      return;
+    }
+    const auto delay = kDdcDiscoveryRetryDelays[discoveryRetryCount++];
+    kLog.debug("ddcutil discovery retry {} in {}s", discoveryRetryCount, delay.count());
+    scheduleDdcDetect(delay, false);
   }
 
   void rebuildPublic() {
@@ -1158,47 +1289,52 @@ struct BrightnessService::Impl {
 
   void workerLoop() {
     while (true) {
-      bool runDetect = false;
-      std::uint64_t detectGen = 0;
+      std::optional<DdcDetectJob> detectJob;
       std::optional<DdcJob> writeJob;
       std::optional<DdcJob> refreshJob;
-      std::vector<std::string> ignoreMmids;
 
       {
         std::unique_lock lock(workerMutex);
-        workerCv.wait(lock, [this]() {
-          return workerStop || detectPending || !pendingWrites.empty() || !pendingRefreshes.empty();
-        });
-
-        if (workerStop) {
-          return;
-        }
-
-        ignoreMmids = activeConfig.ddcutilIgnoreMmids;
-
-        if (detectPending) {
-          runDetect = true;
-          detectGen = detectGeneration;
-          detectPending = false;
-        } else if (!pendingWrites.empty()) {
-          auto it = pendingWrites.begin();
-          writeJob = it->second;
-          pendingWrites.erase(it);
-          pendingRefreshes.erase(writeJob->displayId);
-        } else if (!pendingRefreshes.empty()) {
-          auto it = pendingRefreshes.begin();
-          refreshJob = it->second;
-          pendingRefreshes.erase(it);
+        while (true) {
+          if (workerStop) {
+            return;
+          }
+          if (!pendingWrites.empty()) {
+            auto it = pendingWrites.begin();
+            writeJob = it->second;
+            pendingWrites.erase(it);
+            pendingRefreshes.erase(writeJob->displayId);
+            break;
+          }
+          if (pendingDetect.has_value() && pendingDetect->dueAt <= std::chrono::steady_clock::now()) {
+            detectJob = std::move(pendingDetect);
+            pendingDetect.reset();
+            break;
+          }
+          if (!pendingRefreshes.empty()) {
+            auto it = pendingRefreshes.begin();
+            refreshJob = it->second;
+            pendingRefreshes.erase(it);
+            break;
+          }
+          if (pendingDetect.has_value()) {
+            const auto dueAt = pendingDetect->dueAt;
+            workerCv.wait_until(lock, dueAt);
+          } else {
+            workerCv.wait(lock);
+          }
         }
       }
 
-      if (runDetect) {
+      if (detectJob.has_value()) {
         WorkerCompletion completion;
         completion.type = WorkerCompletion::Type::Detect;
-        completion.generation = detectGen;
-        completion.success = true;
+        completion.generation = detectJob->generation;
+        completion.discoveryEpoch = detectJob->discoveryEpoch;
         std::string detail;
-        completion.candidates = detectDdcDisplays(kDdcDetectTimeout, ignoreMmids, &detail, workerCancel);
+        auto result = detectDdcDisplays(kDdcDetectTimeout, *detectJob, &detail);
+        completion.candidates = std::move(result.candidates);
+        completion.reportedDisplays = std::move(result.reportedDisplays);
         completion.detail = std::move(detail);
         enqueueCompletion(std::move(completion));
         continue;
@@ -1210,6 +1346,7 @@ struct BrightnessService::Impl {
         completion.generation = writeJob->generation;
         completion.writeEpoch = writeJob->writeEpoch;
         completion.displayId = writeJob->displayId;
+        completion.bus = writeJob->bus;
 
         auto args = ddcBaseArgs(writeJob->bus);
         args.emplace_back("--noverify");
@@ -1234,6 +1371,7 @@ struct BrightnessService::Impl {
         completion.generation = refreshJob->generation;
         completion.writeEpoch = refreshJob->writeEpoch;
         completion.displayId = refreshJob->displayId;
+        completion.bus = refreshJob->bus;
 
         std::string detail;
         const auto brightness = queryDdcBrightness(refreshJob->bus, kDdcQueryTimeout, &detail, workerCancel);
@@ -1320,6 +1458,9 @@ struct BrightnessService::Impl {
 
     switch (completion.type) {
     case WorkerCompletion::Type::Detect:
+      if (completion.discoveryEpoch != discoveryEpoch) {
+        return false;
+      }
       return applyDetectCompletion(completion);
     case WorkerCompletion::Type::Refresh:
     case WorkerCompletion::Type::Set:
@@ -1331,15 +1472,12 @@ struct BrightnessService::Impl {
   bool applyDetectCompletion(const WorkerCompletion& completion) {
     const auto oldPublic = publicDisplays;
 
-    std::erase_if(internals, [](const DisplayInternal& display) { return display.backend == RuntimeBackend::Ddcutil; });
-
     const std::map<int, std::string> pins = pinnedConnectorByBus(activeConfig, wayland);
+    const auto connectors = ddcConnectors();
 
-    if (!completion.candidates.empty()) {
+    if (!completion.reportedDisplays.empty()) {
       for (const auto& [b, connectorName] : pins) {
-        if (std::ranges::none_of(completion.candidates, [b](const DdcCandidate& candidate) {
-              return candidate.bus == b;
-            })) {
+        if (connectors.contains(connectorName) && !completion.reportedDisplays.contains({connectorName, b})) {
           kLog.warn("ddc_bus {} is pinned to connector '{}' but ddcutil did not report that bus", b, connectorName);
         }
       }
@@ -1383,15 +1521,37 @@ struct BrightnessService::Impl {
         continue;
       }
 
-      const auto alreadyControlled = std::ranges::any_of(internals, [&candidate](const DisplayInternal& display) {
+      const auto controlled = std::ranges::find_if(internals, [&candidate](const DisplayInternal& display) {
         return display.backend == RuntimeBackend::Ddcutil && display.connectorName == candidate.connectorName;
       });
-      if (alreadyControlled) {
-        kLog.warn(
-            "ddcutil: ignoring bus {} because connector '{}' is already controlled; identical EDIDs hide which "
-            "monitor this is, so pin it with [brightness.monitor.<connector>] ddc_bus = {}",
-            candidate.bus, candidate.connectorName, candidate.bus
-        );
+      if (controlled != internals.end()) {
+        if (controlled->ddcBus != candidate.bus
+            && completion.reportedDisplays.contains({candidate.connectorName, controlled->ddcBus})) {
+          kLog.warn(
+              "ddcutil: ignoring bus {} because connector '{}' is already controlled; identical EDIDs hide which "
+              "monitor this is, so pin it with [brightness.monitor.<connector>] ddc_bus = {}",
+              candidate.bus, candidate.connectorName, candidate.bus
+          );
+          continue;
+        }
+        if (controlled->ddcBus != candidate.bus) {
+          // A replacement bus invalidates jobs for the old device while retaining the connector identity.
+          {
+            std::scoped_lock lock(workerMutex);
+            pendingWrites.erase(controlled->pub.id);
+            pendingRefreshes.erase(controlled->pub.id);
+          }
+          controlled->ddcBus = candidate.bus;
+          ++controlled->ddcWriteEpoch;
+          controlled->maxRaw = candidate.maxRaw;
+          controlled->pub.brightness = normalizedBrightness(candidate.currentRaw, candidate.maxRaw);
+        } else if (controlled->ddcWriteEpoch == candidate.writeEpoch) {
+          controlled->maxRaw = candidate.maxRaw;
+          controlled->pub.brightness = normalizedBrightness(candidate.currentRaw, candidate.maxRaw);
+        }
+        controlled->failureCount = 0;
+        controlled->quarantined = false;
+        controlled->cooldownUntil = {};
         continue;
       }
 
@@ -1412,12 +1572,13 @@ struct BrightnessService::Impl {
     }
 
     rebuildPublic();
+    retryDdcDiscovery();
     return oldPublic != publicDisplays;
   }
 
   bool applyDdcUpdateCompletion(const WorkerCompletion& completion) {
     DisplayInternal* display = findInternal(completion.displayId);
-    if (display == nullptr || display->backend != RuntimeBackend::Ddcutil) {
+    if (display == nullptr || display->backend != RuntimeBackend::Ddcutil || display->ddcBus != completion.bus) {
       return false;
     }
 
@@ -1561,7 +1722,7 @@ void BrightnessService::reload(const BrightnessConfig& config) { m_impl->reload(
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
-void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchChangePhase)> onBatchChange) {
+void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(BatchChangePhase)>& onBatchChange) {
   auto resolveTargets = [this,
                          &ipc](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
     if (!available()) {
@@ -1638,7 +1799,7 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchCha
     if (available()) {
       error += " (available: " + joinBrightnessDisplayIds(*this) + ")";
     }
-    error += "\n";
+    error += '\n';
     return false;
   };
 

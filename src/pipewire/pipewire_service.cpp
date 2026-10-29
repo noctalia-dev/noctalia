@@ -238,9 +238,8 @@ namespace {
       }
       const std::string name = extractDefaultMetadataNodeName(std::string_view(value));
       if (!name.empty()) {
-        spa_dict_item items[1];
-        items[0] = SPA_DICT_ITEM_INIT(key, name.c_str());
-        spa_dict dict = SPA_DICT_INIT(items, 1);
+        spa_dict_item items[] = {{.key = key, .value = name.c_str()}};
+        spa_dict dict{.flags = 0, .n_items = 1, .items = items};
         md->service->parseDefaultNodes(&dict);
       }
       return 0;
@@ -465,8 +464,8 @@ namespace {
     if (propsPod == nullptr) {
       return;
     }
-    auto* obj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(propsPod));
-    spa_pod_prop* prop = nullptr;
+    const auto* obj = reinterpret_cast<const spa_pod_object*>(propsPod);
+    const spa_pod_prop* prop = nullptr;
     SPA_POD_OBJECT_FOREACH(obj, prop) {
       if (prop->key == SPA_PROP_channelVolumes) {
         parseVolumeArrayProp(prop, out->channelVol, &out->channelCount);
@@ -1043,11 +1042,12 @@ void PipeWireService::dispatch() {
   }
 
   if (m_core == nullptr) {
-    if (m_reconnectAt.time_since_epoch().count() != 0 && std::chrono::steady_clock::now() >= m_reconnectAt) {
-      if (!connectRemote(false)) {
-        scheduleReconnect();
-      }
+    if (m_reconnectAt.time_since_epoch().count() != 0
+        && std::chrono::steady_clock::now() >= m_reconnectAt
+        && !connectRemote(false)) {
+      scheduleReconnect();
     }
+
     return;
   }
 
@@ -1294,7 +1294,7 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
         spa_zero(*md->listener);
         pw_metadata_add_listener(proxy, md->listener, &kMetadataEvents, md);
         pw_core_sync(md->service->coreHandle(), PW_ID_CORE, 0);
-        m_metadataCleanups.emplace_back([md]() {
+        m_metadataCleanups.emplace_back([md] {
           if (md->listener != nullptr) {
             spa_hook_remove(md->listener);
             delete md->listener;
@@ -1540,8 +1540,8 @@ void PipeWireService::onNodeParam(
       route.priority = routePriority;
       route.available = routeAvailable;
       if (routeProps != nullptr) {
-        spa_pod_prop* prop = nullptr;
-        auto* propsObj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(routeProps));
+        const spa_pod_prop* prop = nullptr;
+        const auto* propsObj = reinterpret_cast<const spa_pod_object*>(routeProps);
         SPA_POD_OBJECT_FOREACH(propsObj, prop) {
           if (prop->key == SPA_PROP_mute) {
             bool routeMuted = false;
@@ -1596,8 +1596,8 @@ void PipeWireService::onNodeParam(
   ParsedPropsVolumes parsed{};
   parsePropsObjectVolumeFields(param, basis, &parsed);
 
-  auto* obj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(param));
-  spa_pod_prop* prop = nullptr;
+  const auto* obj = reinterpret_cast<const spa_pod_object*>(param);
+  const spa_pod_prop* prop = nullptr;
   SPA_POD_OBJECT_FOREACH(obj, prop) {
     if (prop->key == SPA_PROP_mute) {
       bool swMuted = false;
@@ -1691,8 +1691,8 @@ void PipeWireService::onDeviceParam(
 
   bool muted = false;
   if (routeProps != nullptr) {
-    spa_pod_prop* prop = nullptr;
-    auto* propsObj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(routeProps));
+    const spa_pod_prop* prop = nullptr;
+    const auto* propsObj = reinterpret_cast<const spa_pod_object*>(routeProps);
     SPA_POD_OBJECT_FOREACH(propsObj, prop) {
       if (prop->key == SPA_PROP_mute) {
         bool routeMuted = false;
@@ -2419,9 +2419,9 @@ void PipeWireService::moveProgramOutput(std::uint32_t programStreamId, std::uint
 
 void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) {
   const auto maxVolume = [&config] { return maxAudioVolume(config.config().audio); };
-  const auto parseVolumeValueError =
+  const auto* parseVolumeValueError =
       "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
-  const auto parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
+  const auto* parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
 
   ipc.bind(
       noctalia::cli::msg::volumeSet, [this, maxVolume, parseVolumeValueError](const std::string& args) -> std::string {

@@ -181,6 +181,10 @@ namespace shell::dock {
     if (instance.surface == nullptr) {
       return;
     }
+    if (!cfg.compositorBlur) {
+      instance.surface->clearBlurRegion();
+      return;
+    }
     // Compositor blur is independent of scene opacity — clear it while auto-hide
     // has faded the dock out so a transparent buffer does not leave a blur halo.
     constexpr float kBlurVisibleOpacity = 0.02F;
@@ -464,7 +468,7 @@ namespace shell::dock {
           syncDockSlideLayerTransform(inst, inst.config);
           applyDockCompositorBlur(inst, inst.config);
         },
-        [&inst]() { inst.hideAnimId = 0; }
+        [&inst] { inst.hideAnimId = 0; }
     );
     syncDockAutoHideInputRegion(inst, cfg, DockPanelGeometry{});
     inst.surface->requestRedraw();
@@ -486,7 +490,7 @@ namespace shell::dock {
           syncDockSlideLayerTransform(inst, inst.config);
           applyDockCompositorBlur(inst, inst.config);
         },
-        [&inst]() { inst.hideAnimId = 0; }
+        [&inst] { inst.hideAnimId = 0; }
     );
     syncDockAutoHideInputRegion(inst, inst.config, DockPanelGeometry{});
     if (inst.surface) {

@@ -137,7 +137,7 @@ namespace noctalia::theme {
     }
 
     nlohmann::ordered_json fixedPaletteModeToJson(const TokenMap& tokens) {
-      const ::Palette palette = mapGeneratedPaletteMode(tokens);
+      const FixedPalette palette = fixedPaletteFromTokens(tokens);
       const TerminalPalette terminal = terminalPaletteFromTokens(tokens);
 
       nlohmann::ordered_json out = nlohmann::ordered_json::object();
@@ -269,7 +269,7 @@ namespace noctalia::theme {
   }
 
   std::string allocateCustomPaletteName(std::string_view wallpaperPath, std::string_view scheme) {
-    const std::string base = suggestCustomPaletteName(wallpaperPath, scheme);
+    std::string base = suggestCustomPaletteName(wallpaperPath, scheme);
     if (base.empty()) {
       return {};
     }

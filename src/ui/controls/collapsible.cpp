@@ -94,7 +94,7 @@ void Collapsible::setExpanded(bool expanded) {
     float to = m_expanded ? 1.0F : 0.0F;
     m_animId = animationManager()->animate(
         from, to, Style::animNormal, Easing::EaseOutCubic, [this](float t) { applyExpandedProgress(t); },
-        [this]() { m_animId = 0; }, this
+        [this] { m_animId = 0; }, this
     );
     markPaintDirty();
   } else {

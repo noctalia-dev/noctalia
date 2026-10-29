@@ -87,7 +87,7 @@ namespace calendar {
     struct MigrationContext;
 
     static std::string_view secretName(CredentialKind kind);
-    static std::string label(CredentialKind kind);
+    static std::string_view label(CredentialKind kind);
     static CredentialState stateForStatus(security::SecretStoreStatus status);
 
     void setState(CredentialState state, bool migrationPending, bool forceNotify = false);

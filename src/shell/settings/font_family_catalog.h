@@ -3,9 +3,13 @@
 #include "shell/settings/widget_settings_registry.h"
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace settings {
+
+  // Parses `fc-list : family` output into unescaped families, deduplicated and sorted case-insensitively.
+  [[nodiscard]] std::vector<std::string> parseFontFamilyList(std::string_view output);
 
   // Installed font families, deduplicated and sorted case-insensitively. Discovered once via
   // `fc-list` and cached for the process lifetime.
