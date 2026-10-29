@@ -21,7 +21,8 @@ namespace capture {
   );
 
   // Logical extents of a Text annotation: x/y are the top-left, the first baseline sits at
-  // annotation.points[0].y.
+  // annotation.points[0].y, and annotation.points[0].x is the paragraph's start edge (the left
+  // edge of left-to-right text, the right edge of right-to-left text).
   [[nodiscard]] AnnotationRect measureText(const Annotation& annotation);
 
   // Edit caret after the last character of a Text annotation, on the side where the next
