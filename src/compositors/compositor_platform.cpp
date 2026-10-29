@@ -1770,7 +1770,7 @@ bool CompositorPlatform::requestSessionExit() const {
     break;
   case compositors::CompositorKind::Umbriel:
     // noctalia's session menu is its own confirmation, so bypass umbriel's.
-    if (m_runtimeRegistry->umbriel().requestAction("session-quit:skip-confirmation")) {
+    if (m_runtimeRegistry->umbriel().requestAction("session-quit", {{"skip_confirmation", true}})) {
       return true;
     }
     break;

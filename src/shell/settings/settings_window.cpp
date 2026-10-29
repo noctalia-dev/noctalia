@@ -15,6 +15,7 @@
 #include "i18n/i18n.h"
 #include "idle/idle_inhibitor.h"
 #include "idle/idle_manager.h"
+#include "net/url_open.h"
 #include "render/core/async_texture_cache.h"
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
@@ -285,6 +286,15 @@ bool SettingsWindow::headerDragRegionContains(float sceneX, float sceneY) const 
   const float dragRight = std::max(sceneWidth, right);
   const float dragBottom = std::clamp(bottom, 0.0F, sceneHeight);
   return sceneX >= dragLeft && sceneX < dragRight && sceneY >= dragTop && sceneY < dragBottom;
+}
+
+void SettingsWindow::openBrowserUrl(const std::string& url) {
+  if (m_platform == nullptr || m_surface == nullptr) {
+    return;
+  }
+
+  const auto token = m_platform->requestActivationToken(m_surface->wlSurface());
+  (void)net::openInBrowser(url, token);
 }
 
 bool SettingsWindow::ownsKeyboardSurface(wl_surface* surface) const noexcept {

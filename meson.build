@@ -1454,6 +1454,14 @@ if build_tests
   )
   dbus_run_session = find_program('dbus-run-session', required: false)
   if dbus_run_session.found()
+    url_open_test_exe = executable('url_open_test',
+      sources: files('tests/url_open_test.cpp'),
+      dependencies: noctalia_core_dep,
+      override_options: ['b_ndebug=false'],
+    )
+    test('url_open', dbus_run_session, args: ['--', url_open_test_exe])
+  endif
+  if dbus_run_session.found()
     test('upower_charge_limit_integration',
       dbus_run_session,
       args: [

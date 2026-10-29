@@ -3,7 +3,6 @@
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "i18n/i18n.h"
-#include "net/url_open.h"
 #include "notification/notification_filter.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/settings_content_common.h"
@@ -522,7 +521,12 @@ namespace settings {
                   .tooltip = i18n::tr("settings.templates.documentation"),
                   .width = Style::controlHeightSm * scale,
                   .height = Style::controlHeightSm * scale,
-                  .onClick = [url = option.documentationUrl] { (void)net::openInBrowser(url); },
+                  .onClick =
+                      [openBrowserUrl = ctx.openBrowserUrl, url = option.documentationUrl] {
+                        if (openBrowserUrl) {
+                          openBrowserUrl(url);
+                        }
+                      },
                   .configure = [](Button& button) { button.setZIndex(2); },
               })
           );

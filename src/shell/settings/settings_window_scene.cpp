@@ -962,6 +962,7 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
             }
           },
       .focusArea = [this](InputArea* area) { m_inputDispatcher.setFocus(area); },
+      .openBrowserUrl = [this](const std::string& url) { openBrowserUrl(url); },
       .openBarWidgetAddPopup = [this](const std::vector<std::string>& lanePath) { openBarWidgetAddPopup(lanePath); },
       .openSearchPickerPopup =
           [this](settings::SearchPickerOpenRequest request) { openSearchPickerPopup(std::move(request)); },

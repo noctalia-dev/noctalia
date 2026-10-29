@@ -26,9 +26,9 @@ namespace compositors::umbriel {
 
     [[nodiscard]] bool available() const;
     [[nodiscard]] const std::string& socketPath() const;
-    [[nodiscard]] std::optional<nlohmann::json>
-    requestCommand(std::string_view cmd, std::optional<std::string_view> arg = std::nullopt) const;
-    [[nodiscard]] bool requestAction(std::string_view action) const;
+    [[nodiscard]] std::optional<nlohmann::json> requestCommand(std::string_view cmd) const;
+    // Runs an umbriel action. `fields` holds its typed arguments, such as {"window": id}.
+    [[nodiscard]] bool requestAction(std::string_view action, nlohmann::json fields = nlohmann::json::object()) const;
     void refresh();
     void cleanup();
 
@@ -45,6 +45,8 @@ namespace compositors::umbriel {
     struct IpcReply;
 
     [[nodiscard]] IpcReply request(std::string_view payload) const;
+    // Sends one JSON request; the reply when it is `ok`, otherwise nullopt.
+    [[nodiscard]] std::optional<nlohmann::json> send(const nlohmann::json& request) const;
     void ensureResolved() const;
     void resolveSocketPath() const;
 

@@ -2613,6 +2613,7 @@ void SettingsWindow::openCommunityTemplateStore() {
           .setSelected = [this](
                              std::vector<std::string> ids
                          ) { setSettingOverride({"theme", "templates", "community_ids"}, std::move(ids)); },
+          .openBrowserUrl = [this](const std::string& url) { openBrowserUrl(url); },
           .scale = scale,
       }
   );

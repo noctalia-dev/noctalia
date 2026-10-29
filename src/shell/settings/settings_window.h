@@ -158,6 +158,7 @@ public:
 
 private:
   void destroyWindow();
+  void openBrowserUrl(const std::string& url);
   [[nodiscard]] bool shouldUseModalDialogs() const noexcept;
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void buildScene(std::uint32_t width, std::uint32_t height);
