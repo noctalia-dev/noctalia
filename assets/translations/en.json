@@ -89,7 +89,10 @@
       "tool-numbering": "Numbered marker (n)",
       "tool-rectangle": "Rectangle (s) · hold Shift for a square",
       "tool-text": "Text (t)",
-      "undo": "Undo (Ctrl+Z)"
+      "undo": "Undo (Ctrl+Z)",
+      "zoom-in": "Zoom in (Ctrl+wheel up)",
+      "zoom-out": "Zoom out (Ctrl+wheel down)",
+      "zoom-reset": "Fit to view (reset zoom)"
     },
     "screenshot": {
       "annotate-export-failed": "Failed to build the annotated image",
