@@ -88,6 +88,7 @@ private:
   void applyThemeFromControls();
   void toggleFavoriteForPath(const std::string& path);
   void syncThemeControls();
+  void syncFillModeControl();
   void rebuildFavoritePaletteDetailPicker(const WallpaperFavorite* favorite);
   void openFavoritePaletteDetailPicker();
   [[nodiscard]] std::optional<PaletteSource> paletteSourceForSegment(std::size_t index) const;
@@ -138,6 +139,7 @@ private:
   Select* m_monitorSelect = nullptr;
   Input* m_filterInput = nullptr;
   Button* m_favoriteCurrentButton = nullptr;
+  Select* m_fillModeSelect = nullptr;
   Toggle* m_flattenToggle = nullptr;
   Label* m_flattenLabel = nullptr;
   Button* m_sortButton = nullptr;

@@ -717,6 +717,32 @@ void WallpaperPanel::create() {
 
   favoritesOptions->addChild(ui::spacer());
 
+  std::vector<std::string> fillModeOptions;
+  fillModeOptions.reserve(std::size(kWallpaperFillModes));
+  for (const auto& option : kWallpaperFillModes) {
+    fillModeOptions.emplace_back(i18n::tr(option.labelKey));
+  }
+
+  favoritesOptions->addChild(
+      ui::select(
+          {.out = &m_fillModeSelect,
+           .options = fillModeOptions,
+           .fontSize = Style::fontSizeBody * scale,
+           .controlHeight = Style::controlHeightSm * scale,
+           .surfaceOpacity = panelCardOpacity(),
+           .onSelectionChanged = [this](std::size_t idx, std::string_view) {
+             if (m_config == nullptr || idx >= std::size(kWallpaperFillModes)) {
+               return;
+             }
+             const std::string key{enumToKey(kWallpaperFillModes, kWallpaperFillModes[idx].value)};
+             if (!m_config->setOverride({"wallpaper", "fill_mode"}, key)) {
+               kLog.warn("failed to set wallpaper fill mode {}", key);
+             }
+             syncFillModeControl();
+           }}
+      )
+  );
+
   favoritesOptions->addChild(
       ui::segmented({
           .out = &m_favoriteThemeSegmented,
@@ -905,6 +931,9 @@ void WallpaperPanel::onPanelCardOpacityChanged(float opacity) {
   if (m_monitorSelect != nullptr) {
     m_monitorSelect->setSurfaceOpacity(opacity);
   }
+  if (m_fillModeSelect != nullptr) {
+    m_fillModeSelect->setSurfaceOpacity(opacity);
+  }
   if (m_favoriteThemeSegmented != nullptr) {
     m_favoriteThemeSegmented->setSurfaceOpacity(opacity);
   }
@@ -935,6 +964,7 @@ void WallpaperPanel::onOpen(std::string_view /*context*/) {
   }
   m_navStack.clear();
   populateMonitorChoices();
+  syncFillModeControl();
   syncSortButtonGlyph();
   reseedRandomSort();
   refreshVisibleEntries();
@@ -943,6 +973,19 @@ void WallpaperPanel::onOpen(std::string_view /*context*/) {
   syncBrowseChrome();
   syncBackButton();
   m_dirty = true;
+}
+
+void WallpaperPanel::syncFillModeControl() {
+  if (m_fillModeSelect == nullptr || m_config == nullptr) {
+    return;
+  }
+  const WallpaperFillMode current = m_config->config().wallpaper.fillMode;
+  for (std::size_t i = 0; i < std::size(kWallpaperFillModes); ++i) {
+    if (kWallpaperFillModes[i].value == current) {
+      m_fillModeSelect->setSelectedIndexSilently(i);
+      return;
+    }
+  }
 }
 
 void WallpaperPanel::onClose() {
@@ -967,6 +1010,7 @@ void WallpaperPanel::onClose() {
   m_backButton = nullptr;
   m_monitorSelect = nullptr;
   m_favoriteCurrentButton = nullptr;
+  m_fillModeSelect = nullptr;
   m_filterInput = nullptr;
   m_flattenToggle = nullptr;
   m_flattenLabel = nullptr;
