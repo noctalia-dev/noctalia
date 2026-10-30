@@ -23,6 +23,8 @@ public:
   [[nodiscard]] virtual std::optional<std::string> currentLayoutName() const = 0;
 
   virtual bool connectSocket() { return false; }
+  // Overrides take ownership of the callback.
+  // NOLINTNEXTLINE(performance-unnecessary-value-param)
   virtual void setChangeCallback(ChangeCallback /*callback*/) {}
   [[nodiscard]] virtual int pollFd() const noexcept { return -1; }
   [[nodiscard]] virtual short pollEvents() const noexcept { return POLLIN | POLLHUP | POLLERR; }

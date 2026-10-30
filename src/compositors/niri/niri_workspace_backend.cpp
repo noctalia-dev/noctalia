@@ -698,13 +698,11 @@ bool NiriWorkspaceBackend::sameWindowMembership(
   if (lhs.size() != rhs.size()) {
     return false;
   }
-  for (const auto& [id, lhsWindow] : lhs) {
+  return std::ranges::all_of(lhs, [&](const auto& entry) {
+    const auto& [id, lhsWindow] = entry;
     const auto rhsIt = rhs.find(id);
-    if (rhsIt == rhs.end() || !sameWindowMembership(lhsWindow, rhsIt->second)) {
-      return false;
-    }
-  }
-  return true;
+    return rhsIt != rhs.end() && sameWindowMembership(lhsWindow, rhsIt->second);
+  });
 }
 
 bool NiriWorkspaceBackend::sameWindowLayout(const WindowState& lhs, const WindowState& rhs) noexcept {

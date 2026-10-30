@@ -60,7 +60,9 @@ public:
     std::string networkInterface;
     FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
     bool networkSpeedCompact = false;
+    int networkSpeedDecimalPlaces = 1;
     SysmonVisualization visualization = SysmonVisualization::Gauge;
+    bool showCpuCores = false;
     ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
     bool showGlyph = true;
     bool showValue = true;
@@ -82,6 +84,9 @@ private:
   [[nodiscard]] bool needsFrameTick() const override;
   bool syncLabelText(const std::string& raw);
   void syncGaugeProgress(double normalized);
+  [[nodiscard]] bool splitCoresActive() const;
+  void syncCoreGauge();
+  void rebuildCoreGauge(std::size_t coreCount);
   [[nodiscard]] std::string formatValue() const;
   [[nodiscard]] double currentNormalized();
   void scheduleNextUpdate(std::chrono::steady_clock::time_point latestSampleAt);
@@ -95,7 +100,7 @@ private:
   [[nodiscard]] float iconHeight() const;
   void setIconPosition(float x, float y);
   [[nodiscard]] float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
-  [[nodiscard]] Color currentValueColor(ColorSpec baseColor);
+  [[nodiscard]] Color currentValueColor(ColorSpec baseColor, std::optional<double> value = std::nullopt);
   [[nodiscard]] double currentGradientValue();
   [[nodiscard]] std::pair<double, double> currentThresholds() const;
   [[nodiscard]] std::optional<std::string> formatValueFor(SysmonStat stat, const SystemStats& stats) const;
@@ -108,6 +113,7 @@ private:
   SystemMonitorService* m_monitor;
   SysmonStat m_stat;
   SysmonVisualization m_visualization;
+  bool m_showCpuCores = false;
   ColorSpec m_highlightColor = colorSpecFromRole(ColorRole::Error);
   ConfigService& m_configService;
   bool m_showGlyph;
@@ -117,6 +123,7 @@ private:
   std::string m_networkInterface;
   FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
   FormatUnits::ByteRateLabelStyle m_networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
+  int m_networkSpeedDecimalPlaces = 1;
   std::string m_glyphOverride;
   std::string m_customLabelText;
   WidgetCustomImage m_customImage;
@@ -146,6 +153,12 @@ private:
 
   // Gauge mode
   ProgressBar* m_gauge = nullptr;
+
+  // Per-core split gauges (show_cpu_cores). The row repopulates whenever the sampler's core
+  // count changes, because an entry's position is not its core id.
+  Flex* m_coreGaugeRow = nullptr;
+  std::vector<ProgressBar*> m_coreGauges;
+  std::vector<double> m_lastCoreUsage;
 
   Signal<>::ScopedConnection m_paletteConn;
 };

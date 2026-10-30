@@ -119,7 +119,7 @@ namespace app_identity {
       std::string token;
       token.reserve(value.size());
 
-      auto flush = [&]() {
+      auto flush = [&] {
         if (token.size() >= 4U && !isGenericIdentityToken(token)) {
           tokens.insert(std::move(token));
         }
@@ -191,8 +191,8 @@ namespace app_identity {
 
     std::optional<DesktopEntry>
     findDesktopEntryByIdTail(std::string_view appKey, std::span<const DesktopEntry> allEntries) {
-      const std::string appLower = StringUtils::toLower(std::string(appKey));
-      const std::string tailLower = StringUtils::toLower(std::string(appIdTail(appKey)));
+      const std::string appLower = StringUtils::toLower(appKey);
+      const std::string tailLower = StringUtils::toLower(appIdTail(appKey));
       if (tailLower.empty() || tailLower == appLower) {
         return std::nullopt;
       }
@@ -200,7 +200,7 @@ namespace app_identity {
       std::vector<const DesktopEntry*> candidates;
       candidates.reserve(2);
       for (const auto& entry : allEntries) {
-        if (StringUtils::toLower(std::string(appIdTail(entry.id))) == tailLower) {
+        if (StringUtils::toLower(appIdTail(entry.id)) == tailLower) {
           candidates.push_back(&entry);
         }
       }
@@ -248,7 +248,7 @@ namespace app_identity {
       DesktopEntry fallback;
       fallback.id = std::string(runningAppId);
       fallback.name = std::string(runningAppId);
-      fallback.nameLower = StringUtils::toLower(std::string(runningAppId));
+      fallback.nameLower = StringUtils::toLower(runningAppId);
       internal_apps::applyMetadataToDesktopEntry(fallback);
 
       return DesktopEntryResolution{
@@ -279,7 +279,7 @@ namespace app_identity {
       return std::nullopt;
     }
 
-    const std::string appLower = StringUtils::toLower(std::string(appKey));
+    const std::string appLower = StringUtils::toLower(appKey);
     if (auto matched = findBestRankedMatch(appLower, priorityEntries)) {
       return matched;
     }

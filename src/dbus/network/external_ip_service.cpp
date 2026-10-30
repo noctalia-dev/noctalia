@@ -111,7 +111,7 @@ void ExternalIpService::probeNow() {
   // A pooled keep-alive connection predating a VPN/route change would answer
   // via the old path and report the stale address.
   req.freshConnection = true;
-  m_http->request(std::move(req), [this, alive, key](HttpResponse response) {
+  m_http->request(std::move(req), [this, alive, key](const HttpResponse& response) {
     if (alive.expired()) {
       return;
     }

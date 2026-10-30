@@ -74,9 +74,12 @@ TextureHandle GlesTextureManager::decodeEncodedRaster(
     return {};
   }
 
-  if (auto decoded = decodeRasterImage(data, size)) {
+  auto decoded = decodeRasterImage(data, size);
+  if (decoded) {
     return uploadRgba(decoded->pixels.data(), decoded->width, decoded->height, mipmap);
-  } else if (debugPath != nullptr) {
+  }
+
+  if (debugPath != nullptr) {
     kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(*debugPath), decoded.error());
   }
 

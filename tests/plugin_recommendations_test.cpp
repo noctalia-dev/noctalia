@@ -10,10 +10,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <print>
 #include <string>
@@ -65,7 +67,7 @@ namespace {
     const auto metrics = PluginRecommendations::parseMetrics(doc);
     TEST_CHECK(metrics.has_value());
     TEST_CHECK(metrics->at(*key).recommendations == 0);
-    TEST_CHECK(metrics->at(*key).trendingScore == 1.23456789);
+    TEST_CHECK(std::abs(metrics->at(*key).trendingScore - 1.23456789) <= std::numeric_limits<double>::epsilon());
     TEST_CHECK(!metrics->contains("community:CaseAuthor/Case.Plugin"));
     auto invalid = nlohmann::json::parse(doc);
     invalid["schema"] = 2;

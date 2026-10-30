@@ -84,7 +84,7 @@ ScrollView::ScrollView() {
       startFling();
     }
   });
-  viewportArea->setOnLeave([this]() {
+  viewportArea->setOnLeave([this] {
     if (!m_dragging) {
       return;
     }
@@ -205,7 +205,7 @@ void ScrollView::animateScrollTo(float target, float durationMs) {
 
   m_scrollAnimId = animationManager()->animate(
       m_scrollOffset, clampedTarget, resolvedDuration, Easing::EaseOutCubic,
-      [this](float value) { applyScrollOffsetValue(value); }, [this]() { m_scrollAnimId = 0; }, this
+      [this](float value) { applyScrollOffsetValue(value); }, [this] { m_scrollAnimId = 0; }, this
   );
   markPaintDirty();
 }
@@ -314,9 +314,9 @@ void ScrollView::setSoftness(float softness) {
 }
 
 void ScrollView::setCardStyle(float scale, float fillOpacity, bool showBorder) {
-  setFill(colorSpecFromRole(ColorRole::SurfaceVariant, fillOpacity));
+  setFill(colorSpecFromRole(ColorRole::SurfaceContainer, fillOpacity));
   if (showBorder) {
-    setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
   } else {
     clearBorder();
   }

@@ -56,7 +56,7 @@ Scrollbar::Scrollbar() {
     return true;
   });
   trackArea->setOnEnter([this](const InputArea::PointerData&) { updateExpanded(); });
-  trackArea->setOnLeave([this]() { updateExpanded(); });
+  trackArea->setOnLeave([this] { updateExpanded(); });
   m_trackArea = static_cast<InputArea*>(addChild(std::move(trackArea)));
 
   auto thumbArea = std::make_unique<InputArea>();
@@ -91,7 +91,7 @@ Scrollbar::Scrollbar() {
     return true;
   });
   thumbArea->setOnEnter([this](const InputArea::PointerData&) { updateExpanded(); });
-  thumbArea->setOnLeave([this]() { updateExpanded(); });
+  thumbArea->setOnLeave([this] { updateExpanded(); });
   m_thumbArea = static_cast<InputArea*>(addChild(std::move(thumbArea)));
 
   applyPalette();

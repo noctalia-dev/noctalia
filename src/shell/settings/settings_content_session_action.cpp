@@ -43,60 +43,57 @@ namespace settings {
       Flex& parent, SettingsContentContext& ctx, SessionPanelActionConfig& row, const std::function<void()>& persist
   ) {
     const float scale = ctx.scale;
+    const float controlHeight = Style::controlHeight * scale;
     const std::vector<SelectOption> kindOptions = sessionActionKindOptions();
 
-    const float iconSq = Style::controlHeight * scale;
-    const float iconGlyphSize = Style::fontSizeBody * scale;
-    const float captionSize = Style::fontSizeCaption * scale;
-    const std::string glyphLabelText = i18n::tr("settings.session-actions.glyph-label");
-    const float glyphColumnWidth =
-        std::max(iconSq, static_cast<float>(glyphLabelText.size()) * captionSize * 0.62F + 2.0F * scale);
+    // Every field is a caption label stacked over its control, with one gap inside
+    // a field and a wider one between fields, so all labels and controls share the
+    // same left edge and rhythm.
+    const auto field = [scale](const std::string& label, std::unique_ptr<Node> control, float grow) {
+      auto block = ui::column(
+          {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = grow},
+          makeLabel(
+              std::move(label), Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              FontWeight::Normal
+          )
+      );
+      block->addChild(std::move(control));
+      return block;
+    };
+    const auto pair = [scale](std::unique_ptr<Node> left, std::unique_ptr<Node> right) {
+      auto line = ui::row({.align = FlexAlign::Start, .gap = Style::spaceMd * scale, .fillWidth = true});
+      line->addChild(std::move(left));
+      line->addChild(std::move(right));
+      return line;
+    };
 
-    auto body = ui::row({
-        .align = FlexAlign::Start,
+    auto fields = ui::column({
+        .align = FlexAlign::Stretch,
         .gap = Style::spaceMd * scale,
         .fillWidth = true,
     });
 
-    auto iconCol = ui::column({
-        .align = FlexAlign::Start,
-        .gap = Style::spaceSm * scale,
-    });
-    iconCol->setMinWidth(glyphColumnWidth);
-    auto glyphLabel =
-        makeLabel(glyphLabelText, captionSize, colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal);
-    glyphLabel->setMinWidth(glyphColumnWidth);
-    iconCol->addChild(std::move(glyphLabel));
-
-    auto glyphBtnRow = ui::row({
-        .align = FlexAlign::Center,
-        .gap = Style::spaceXs * scale,
-    });
-
-    const std::string previewGlyph = [&] {
-      if (row.glyph.has_value() && !row.glyph->empty()) {
-        return *row.glyph;
-      }
-      return std::string(session_action::defaultGlyph(row.action));
-    }();
-    const auto previewGlyphForRow = [&row]() {
+    // Glyph + behavior
+    const auto previewGlyphForRow = [&row] {
       if (row.glyph.has_value() && !row.glyph->empty()) {
         return *row.glyph;
       }
       return std::string(session_action::defaultGlyph(row.action));
     };
-    const auto hasCustomGlyph = [&row]() { return row.glyph.has_value() && !row.glyph->empty(); };
+    const auto hasCustomGlyph = [&row] { return row.glyph.has_value() && !row.glyph->empty(); };
+
+    auto glyphBtnRow = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale});
 
     Button* glyphPickBtnPtr = nullptr;
     auto glyphPickBtn = ui::button({
         .out = &glyphPickBtnPtr,
         .text = "",
-        .glyph = previewGlyph,
-        .glyphSize = iconGlyphSize,
-        .controlHeight = iconSq,
+        .glyph = previewGlyphForRow(),
+        .glyphSize = Style::fontSizeBody * scale,
+        .controlHeight = controlHeight,
         .variant = ButtonVariant::Default,
-        .minWidth = iconSq,
-        .maxWidth = iconSq,
+        .minWidth = controlHeight,
+        .maxWidth = controlHeight,
         .padding = 0.0F,
         .radius = Style::scaledRadiusMd(scale),
     });
@@ -107,7 +104,7 @@ namespace settings {
         .text = i18n::tr("settings.session-actions.clear-glyph"),
         .fontSize = Style::fontSizeCaption * scale,
         .variant = ButtonVariant::Ghost,
-        .minHeight = iconSq,
+        .minHeight = controlHeight,
         .paddingV = Style::spaceXs * scale,
         .paddingH = Style::spaceSm * scale,
         .radius = Style::scaledRadiusSm(scale),
@@ -115,7 +112,7 @@ namespace settings {
         .participatesInLayout = hasCustomGlyph(),
     });
 
-    glyphPickBtn->setOnClick([&row, persist, glyphPickBtnPtr, clearGlyphBtnPtr]() {
+    glyphPickBtn->setOnClick([&row, persist, glyphPickBtnPtr, clearGlyphBtnPtr] {
       GlyphPickerDialogOptions options;
       options.title = i18n::tr("settings.session-actions.glyph-picker-title");
       if (row.glyph.has_value() && !row.glyph->empty()) {
@@ -137,7 +134,7 @@ namespace settings {
     });
     glyphBtnRow->addChild(std::move(glyphPickBtn));
 
-    clearG->setOnClick([&row, persist, glyphPickBtnPtr, clearGlyphBtnPtr, previewGlyphForRow]() {
+    clearG->setOnClick([&row, persist, glyphPickBtnPtr, clearGlyphBtnPtr, previewGlyphForRow] {
       row.glyph = std::nullopt;
       glyphPickBtnPtr->setGlyph(previewGlyphForRow());
       clearGlyphBtnPtr->setVisible(false);
@@ -146,46 +143,25 @@ namespace settings {
     });
     glyphBtnRow->addChild(std::move(clearG));
 
-    iconCol->addChild(std::move(glyphBtnRow));
-    body->addChild(std::move(iconCol));
-
-    auto fields = ui::column({
-        .align = FlexAlign::Stretch,
-        .gap = Style::spaceSm * scale,
-        .flexGrow = 1.0F,
-    });
-
-    fields->addChild(makeLabel(
-        i18n::tr("settings.session-actions.kind-section-label"), Style::fontSizeCaption * scale,
-        colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
-    ));
-
     Input* cmdPtr = nullptr;
-
-    const auto commandPlaceholder = [&row]() {
+    const auto commandPlaceholder = [&row] {
       if (row.action == "command") {
         return i18n::tr("settings.session-actions.command-required-placeholder");
       }
       return i18n::tr("settings.session-actions.command-placeholder");
     };
 
-    auto cmdBlock = ui::column(
-        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
-        makeLabel(
-            i18n::tr("settings.session-actions.command-label"), Style::fontSizeCaption * scale,
-            colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
-        )
-    );
+    // Shell command
     auto cmdIn = ui::input({
         .out = &cmdPtr,
         .value = row.command.value_or(""),
         .placeholder = commandPlaceholder(),
         .fontSize = Style::fontSizeBody * scale,
-        .controlHeight = Style::controlHeight * scale,
+        .controlHeight = controlHeight,
         .horizontalPadding = Style::spaceSm * scale,
         .minLayoutWidth = 280.0F * scale,
     });
-    const auto commitCommand = [&row, persist, cmdPtr]() {
+    const auto commitCommand = [&row, persist, cmdPtr] {
       const std::string t = StringUtils::trim(cmdPtr->value());
       if (row.action == "command" && t.empty()) {
         row.command = std::nullopt;
@@ -203,7 +179,6 @@ namespace settings {
     cmdIn->setOnChange([cmdPtr](const std::string& /*t*/) { cmdPtr->setInvalid(false); });
     cmdIn->setOnSubmit([commitCommand](const std::string& /*text*/) { commitCommand(); });
     cmdIn->setOnFocusLoss(commitCommand);
-    cmdBlock->addChild(std::move(cmdIn));
 
     const auto selectedKindIndex = optionIndex(kindOptions, row.action);
     auto kindSelect = ui::select({
@@ -211,7 +186,7 @@ namespace settings {
         .selectedIndex = selectedKindIndex,
         .clearSelection = !selectedKindIndex.has_value(),
         .fontSize = Style::fontSizeBody * scale,
-        .controlHeight = Style::controlHeight * scale,
+        .controlHeight = controlHeight,
         .glyphSize = Style::fontSizeBody * scale,
         .onSelectionChanged =
             [&row, kindOptions, persist, glyphPickBtnPtr, previewGlyphForRow, hasCustomGlyph, cmdPtr,
@@ -235,26 +210,24 @@ namespace settings {
             },
         .configure = [](Select& select) { select.setFillWidth(true); },
     });
-    fields->addChild(std::move(kindSelect));
 
-    auto labelBlock = ui::column(
-        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
-        makeLabel(
-            i18n::tr("settings.session-actions.label-field"), Style::fontSizeCaption * scale,
-            colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
-        )
-    );
+    fields->addChild(pair(
+        field(i18n::tr("settings.session-actions.glyph-label"), std::move(glyphBtnRow), 0.0F),
+        field(i18n::tr("settings.session-actions.kind-section-label"), std::move(kindSelect), 1.0F)
+    ));
+
+    // Label
     Input* labelPtr = nullptr;
     auto labelIn = ui::input({
         .out = &labelPtr,
         .value = row.label.value_or(""),
         .placeholder = i18n::tr("settings.session-actions.label-placeholder"),
         .fontSize = Style::fontSizeBody * scale,
-        .controlHeight = Style::controlHeight * scale,
+        .controlHeight = controlHeight,
         .horizontalPadding = Style::spaceSm * scale,
         .minLayoutWidth = 200.0F * scale,
     });
-    const auto commitLabel = [&row, persist, labelPtr]() {
+    const auto commitLabel = [&row, persist, labelPtr] {
       const std::string t = StringUtils::trim(labelPtr->value());
       if (t.empty()) {
         row.label = std::nullopt;
@@ -267,26 +240,20 @@ namespace settings {
     labelIn->setOnChange([labelPtr](const std::string& /*t*/) { labelPtr->setInvalid(false); });
     labelIn->setOnSubmit([commitLabel](const std::string& /*text*/) { commitLabel(); });
     labelIn->setOnFocusLoss(commitLabel);
-    labelBlock->addChild(std::move(labelIn));
-    fields->addChild(std::move(labelBlock));
-    fields->addChild(std::move(cmdBlock));
+    fields->addChild(field(i18n::tr("settings.session-actions.label-field"), std::move(labelIn), 0.0F));
 
+    fields->addChild(field(i18n::tr("settings.session-actions.command-label"), std::move(cmdIn), 0.0F));
+
+    // Button style + countdown
     const std::vector<SelectOption> variantOptions = sessionActionVariantOptions();
     const std::string selectedVariant(enumToKey(kSessionActionButtonVariants, row.variant));
     const auto selectedVariantIndex = optionIndex(variantOptions, selectedVariant);
-    auto variantBlock = ui::column(
-        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
-        makeLabel(
-            i18n::tr("settings.session-actions.variant-label"), Style::fontSizeCaption * scale,
-            colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
-        )
-    );
     auto variantSelect = ui::select({
         .options = optionLabels(variantOptions),
         .selectedIndex = selectedVariantIndex,
         .clearSelection = !selectedVariantIndex.has_value(),
         .fontSize = Style::fontSizeBody * scale,
-        .controlHeight = Style::controlHeight * scale,
+        .controlHeight = controlHeight,
         .glyphSize = Style::fontSizeBody * scale,
         .onSelectionChanged =
             [&row, variantOptions, persist](std::size_t index, std::string_view /*label*/) {
@@ -299,59 +266,7 @@ namespace settings {
             },
         .configure = [](Select& select) { select.setFillWidth(true); },
     });
-    variantBlock->addChild(std::move(variantSelect));
-    fields->addChild(std::move(variantBlock));
 
-    auto shortcutBlock = ui::row(
-        {.align = FlexAlign::Center, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
-        makeLabel(
-            i18n::tr("settings.session-actions.shortcut-label"), Style::fontSizeCaption * scale,
-            colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
-        )
-    );
-
-    KeybindRecorder* shortcutRecorderPtr = nullptr;
-    auto shortcutRecorder = ui::keybindRecorder({
-        .out = &shortcutRecorderPtr,
-        .chord = row.shortcut,
-        .scale = scale,
-        .unsetPlaceholder = i18n::tr("settings.controls.keybind.unset-placeholder"),
-        .recordingPlaceholder = i18n::tr("settings.controls.keybind.recording-placeholder"),
-        .modifierPolicy = ModifierPolicy::Optional,
-        .onCommit = [&row, persist](KeyChord chord) {
-          row.shortcut = chord;
-          persist();
-        },
-    });
-    shortcutBlock->addChild(std::move(shortcutRecorder));
-
-    if (row.shortcut.has_value()) {
-      auto clearBtn = ui::button({
-          .glyph = "close",
-          .glyphSize = Style::fontSizeCaption * scale,
-          .variant = ButtonVariant::Ghost,
-          .minWidth = Style::controlHeightSm * scale,
-          .minHeight = Style::controlHeightSm * scale,
-          .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusSm(scale),
-          .onClick = [&row, persist, shortcutRecorderPtr]() {
-            row.shortcut = std::nullopt;
-            shortcutRecorderPtr->setChord(std::nullopt);
-            persist();
-          },
-      });
-      shortcutBlock->addChild(std::move(clearBtn));
-    }
-
-    fields->addChild(std::move(shortcutBlock));
-
-    auto countdownBlock = ui::column(
-        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
-        makeLabel(
-            i18n::tr("settings.session-actions.countdown-seconds-label"), Style::fontSizeCaption * scale,
-            colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
-        )
-    );
     const int countdownValue = std::clamp(static_cast<int>(std::lround(row.countdownSeconds)), 0, 60);
     auto countdownStepper = ui::stepper({
         .minValue = 0,
@@ -365,11 +280,71 @@ namespace settings {
           persist();
         },
     });
-    countdownBlock->addChild(std::move(countdownStepper));
-    fields->addChild(std::move(countdownBlock));
 
-    body->addChild(std::move(fields));
-    parent.addChild(std::move(body));
+    fields->addChild(pair(
+        field(i18n::tr("settings.session-actions.variant-label"), std::move(variantSelect), 1.0F),
+        field(i18n::tr("settings.session-actions.countdown-seconds-label"), std::move(countdownStepper), 1.0F)
+    ));
+
+    // Shortcuts: the clear button always holds its slot so both recorders keep the
+    // same width whether or not a chord is set.
+    const auto shortcutControl = [&row, persist, scale, controlHeight](
+                                     std::optional<KeyChord> SessionPanelActionConfig::* member, ModifierPolicy policy
+                                 ) {
+      auto line = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale, .fillWidth = true});
+
+      KeybindRecorder* recorderPtr = nullptr;
+      Button* clearBtnPtr = nullptr;
+      auto recorder = ui::keybindRecorder({
+          .out = &recorderPtr,
+          .chord = row.*member,
+          .scale = scale,
+          .unsetPlaceholder = i18n::tr("settings.controls.keybind.unset-placeholder"),
+          .recordingPlaceholder = i18n::tr("settings.controls.keybind.recording-placeholder"),
+          .modifierPolicy = policy,
+          .flexGrow = 1.0F,
+          .configure = [controlHeight](KeybindRecorder& control) { control.setMinHeight(controlHeight); },
+      });
+      auto clearBtn = ui::button({
+          .out = &clearBtnPtr,
+          .glyph = "close",
+          .glyphSize = Style::fontSizeCaption * scale,
+          .variant = ButtonVariant::Ghost,
+          .minWidth = controlHeight,
+          .minHeight = controlHeight,
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusSm(scale),
+          .visible = (row.*member).has_value(),
+      });
+      recorderPtr->setOnCommit([&row, member, persist, clearBtnPtr](KeyChord chord) {
+        row.*member = chord;
+        clearBtnPtr->setVisible(true);
+        persist();
+      });
+      clearBtnPtr->setOnClick([&row, member, persist, recorderPtr, clearBtnPtr] {
+        row.*member = std::nullopt;
+        recorderPtr->setChord(std::nullopt);
+        clearBtnPtr->setVisible(false);
+        persist();
+      });
+      line->addChild(std::move(recorder));
+      line->addChild(std::move(clearBtn));
+      return line;
+    };
+
+    fields->addChild(pair(
+        field(
+            i18n::tr("settings.session-actions.shortcut-label"),
+            shortcutControl(&SessionPanelActionConfig::shortcut, ModifierPolicy::Optional), 1.0F
+        ),
+        // Required: bare or Shift+printable chords would be typed into the password field instead.
+        field(
+            i18n::tr("settings.session-actions.lockscreen-shortcut-label"),
+            shortcutControl(&SessionPanelActionConfig::lockscreenShortcut, ModifierPolicy::Required), 1.0F
+        )
+    ));
+
+    parent.addChild(std::move(fields));
   }
 
 } // namespace settings

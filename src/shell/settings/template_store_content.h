@@ -33,6 +33,7 @@ namespace settings {
   struct TemplateStoreCallbacks {
     // Called with catalog-ordered enabled ids whenever the selection changes.
     std::function<void(std::vector<std::string> ids)> setSelected;
+    std::function<void(const std::string&)> openBrowserUrl;
     float scale = 1.0F;
   };
 
@@ -56,6 +57,7 @@ namespace settings {
 
     void toggleAtFilteredIndex(std::size_t filteredIndex);
     void setEnabledAtFilteredIndex(std::size_t filteredIndex, bool enabled);
+    [[nodiscard]] bool openDocumentationAtFilteredIndex(std::size_t filteredIndex);
 
   private:
     void collectCategories();

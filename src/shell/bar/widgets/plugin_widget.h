@@ -93,7 +93,7 @@ private:
 
   void reloadScript();
   void reloadImage();
-  void handleScriptResult(scripting::ScriptResult result);
+  void handleScriptResult(const scripting::ScriptResult& result);
   void applyScriptPatch(const scripting::ScriptPatch& patch);
   void applyUiTreePatch(const ui::UiTreeNode& patchTree);
   [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
@@ -150,6 +150,8 @@ private:
   // Declarative mode: barWidget.render(tree) reconciles into m_uiHost and hides
   // the imperative glyph/image/label row.
   Flex* m_uiHost = nullptr;
+  // Preview layer for ui.dragSource ghosts (see create()).
+  Node* m_dragOverlay = nullptr;
   ui::UiTreeReconciler m_reconciler;
   std::optional<ui::UiTreeNode> m_tree;
   bool m_warnedImperativeWhileDeclarative = false;

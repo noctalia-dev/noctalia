@@ -1386,10 +1386,6 @@
         "horizontal": "Yatay",
         "vertical": "Dikey"
       },
-      "panel-bar-alignment": {
-        "centered": "Ortalanmış",
-        "near-trigger": "Tetikleyiciye Yakın"
-      },
       "panel-position": {
         "auto": "Çubuğu Takip Et"
       },
@@ -2554,10 +2550,7 @@
         "calendar-edit": {
           "button": "Düzenle",
           "button-reconnect": "Yeniden Bağlan",
-          "button-retry": "Yeniden Dene",
-          "description": "Bu takvim hesabını güncelle",
-          "description-locked": "Yenileme jetonu kilitli bir anahtarlıkta; anahtarlığın kilidini açın ve tekrar deneyin",
-          "description-reconnect": "Google yetkilendirmesi eksik; bu hesaba yeniden bağlanın"
+          "button-retry": "Yeniden Dene"
         },
         "calendar-event-date-format": {
           "description": "Seçili tarih için etkinlik kartında gösterilen tarih biçimi",

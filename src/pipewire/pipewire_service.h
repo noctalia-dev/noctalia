@@ -1,11 +1,14 @@
 #pragma once
 
 #include "pipewire/audio_glyphs.h"
+#include "system/v4l2_camera.h"
 
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <memory>
+#include <optional>
 #include <spa/param/param.h>
 #include <string>
 #include <unordered_map>
@@ -100,8 +103,10 @@ public:
 
   // Poll integration
   [[nodiscard]] int fd() const noexcept;
+  [[nodiscard]] int cameraFd() const noexcept { return m_cameraWatch.fd(); }
   [[nodiscard]] int pollTimeoutMs() const noexcept;
   void dispatch();
+  void dispatchCamera();
   [[nodiscard]] pw_core* coreHandle() const noexcept { return m_core; }
   [[nodiscard]] pw_loop* loop() const noexcept { return m_loop; }
   [[nodiscard]] bool serverSupportsPassiveFollow() const noexcept { return m_serverSupportsPassiveFollow; }
@@ -245,6 +250,8 @@ private:
   void enumDefaultAudioDeviceParams();
 
   void rebuildState();
+  void requestCameraScan(std::chrono::steady_clock::time_point now);
+  void pollCameraApps();
   // Resolves a metadata "target.object" value to a sink node id, or 0 when no sink matches.
   [[nodiscard]] std::uint32_t resolveTargetObjectSink(const std::string& target) const;
   void refreshNodeIdentity(NodeData& nd);
@@ -310,6 +317,13 @@ private:
   std::string m_defaultSourceName;
   AudioState m_state;
   PrivacyState m_privacyState;
+  std::vector<std::string> m_cameraApps;
+  V4l2CameraWatch m_cameraWatch;
+  std::future<std::vector<std::string>> m_cameraScan;
+  // Next scan start or completion check; empty while idle so the camera never wakes the loop.
+  std::optional<std::chrono::steady_clock::time_point> m_cameraScanAt;
+  // Set when the camera nodes changed during an in-flight scan, whose result may be stale.
+  bool m_cameraRescan = false;
   ChangeCallback m_changeCallback;
   VolumePreviewCallback m_volumePreviewCallback;
   WirePlumberMixer* m_wpMixer = nullptr;

@@ -20,6 +20,7 @@
 #include "theme/theme_service.h"
 #include "ui/builders.h"
 #include "ui/dialogs/color_picker_dialog.h"
+#include "ui/dialogs/search_picker_popup.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
@@ -27,7 +28,6 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
-#include <cctype>
 #include <chrono>
 #include <filesystem>
 #include <memory>
@@ -368,8 +368,9 @@ public:
     );
   }
 
-  [[nodiscard]] std::optional<TooltipAnchorInsets>
-  itemTooltipAnchorInsets(std::size_t index, float cellWidth, float cellHeight) const override {
+  [[nodiscard]] std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+      std::size_t index, float cellWidth, float cellHeight, bool /*overlayHovered*/
+  ) const override {
     if (m_entries == nullptr || index >= m_entries->size() || (*m_entries)[index].isDir) {
       return std::nullopt;
     }
@@ -410,7 +411,7 @@ WallpaperPanel::WallpaperPanel(
     }
   }
   if (m_scanner != nullptr) {
-    m_scanner->setOnComplete([this]() { onScanComplete(); });
+    m_scanner->setOnComplete([this] { onScanComplete(); });
   }
 }
 
@@ -466,7 +467,7 @@ void WallpaperPanel::create() {
                   return;
                 }
                 m_pendingFilterQuery = text;
-                m_filterDebounceTimer.start(kFilterDebounceInterval, [this]() {
+                m_filterDebounceTimer.start(kFilterDebounceInterval, [this] {
                   if (m_pendingFilterQuery == m_filterQuery) {
                     return;
                   }
@@ -494,7 +495,7 @@ void WallpaperPanel::create() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { navigateUp(); },
+          .onClick = [this] { navigateUp(); },
       })
   );
 
@@ -561,7 +562,7 @@ void WallpaperPanel::create() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { applyColorWallpaper(); },
+          .onClick = [this] { applyColorWallpaper(); },
       })
   );
 
@@ -576,7 +577,7 @@ void WallpaperPanel::create() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { cycleSortMode(); },
+          .onClick = [this] { cycleSortMode(); },
       })
   );
 
@@ -591,7 +592,7 @@ void WallpaperPanel::create() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_scanner != nullptr) {
               m_scanner->invalidate();
             }
@@ -616,7 +617,7 @@ void WallpaperPanel::create() {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = []() { PanelManager::instance().close(); },
+            .onClick = [] { PanelManager::instance().close(); },
         })
     );
   }
@@ -673,7 +674,7 @@ void WallpaperPanel::create() {
               seed.themeMode = themeModeFromSegmentIndex(m_favoriteThemeSegmented->selectedIndex());
             }
             m_syncingFavoriteControls = true;
-            rebuildFavoritePaletteDetailSelect(&seed);
+            rebuildFavoritePaletteDetailPicker(&seed);
             m_syncingFavoriteControls = false;
 
             applyThemeFromControls();
@@ -684,24 +685,18 @@ void WallpaperPanel::create() {
   );
 
   favoritesOptions->addChild(
-      ui::select({
-          .out = &m_favoritePaletteDetailSelect,
+      ui::button({
+          .out = &m_favoritePaletteDetailButton,
           .fontSize = favoritesLabelFontSize,
           .controlHeight = favoritesControlHeight,
-          .horizontalPadding = Style::spaceSm * scale,
-          .glyphSize = Style::fontSizeCaption * scale,
+          .contentAlign = ButtonContentAlign::Start,
+          .variant = ButtonVariant::Default,
           .surfaceOpacity = panelCardOpacity(),
+          .minWidth = kFavoriteSelectMinWidth * scale,
+          .paddingH = Style::spaceSm * scale,
+          .radius = Style::scaledRadiusMd(scale),
           .visible = false,
-          .onSelectionChanged =
-              [this](std::size_t index, std::string_view) {
-                if (m_syncingFavoriteControls || m_config == nullptr || index >= m_favoritePaletteDetailValues.size()) {
-                  return;
-                }
-                applyThemeFromControls();
-                m_dirty = true;
-                PanelManager::instance().refresh();
-              },
-          .configure = [scale](Select& select) { select.setMinWidth(kFavoriteSelectMinWidth * scale); },
+          .onClick = [this] { openFavoritePaletteDetailPicker(); },
       })
   );
 
@@ -716,11 +711,37 @@ void WallpaperPanel::create() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { toggleFavoriteForPath(currentWallpaperPathForSelection()); },
+          .onClick = [this] { toggleFavoriteForPath(currentWallpaperPathForSelection()); },
       })
   );
 
   favoritesOptions->addChild(ui::spacer());
+
+  std::vector<std::string> fillModeOptions;
+  fillModeOptions.reserve(std::size(kWallpaperFillModes));
+  for (const auto& option : kWallpaperFillModes) {
+    fillModeOptions.emplace_back(i18n::tr(option.labelKey));
+  }
+
+  favoritesOptions->addChild(
+      ui::select(
+          {.out = &m_fillModeSelect,
+           .options = std::move(fillModeOptions),
+           .fontSize = Style::fontSizeBody * scale,
+           .controlHeight = Style::controlHeightSm * scale,
+           .surfaceOpacity = panelCardOpacity(),
+           .onSelectionChanged = [this](std::size_t idx, std::string_view) {
+             if (m_config == nullptr || idx >= std::size(kWallpaperFillModes)) {
+               return;
+             }
+             const std::string key{kWallpaperFillModes[idx].key};
+             if (!m_config->setOverride({"wallpaper", "fill_mode"}, key)) {
+               kLog.warn("failed to set wallpaper fill mode {}", key);
+             }
+             syncFillModeControl();
+           }}
+      )
+  );
 
   favoritesOptions->addChild(
       ui::segmented({
@@ -797,7 +818,7 @@ void WallpaperPanel::create() {
   );
 
   if (m_grid != nullptr && m_grid->focusArea() != nullptr) {
-    m_grid->focusArea()->setOnFocusGain([this]() {
+    m_grid->focusArea()->setOnFocusGain([this] {
       m_gridKeyboardActive = true;
       if (m_grid != nullptr && hasVisibleSelection()) {
         m_syncingGridSelectionVisual = true;
@@ -805,7 +826,7 @@ void WallpaperPanel::create() {
         m_syncingGridSelectionVisual = false;
       }
     });
-    m_grid->focusArea()->setOnFocusLoss([this]() {
+    m_grid->focusArea()->setOnFocusLoss([this] {
       m_gridKeyboardActive = false;
       if (m_grid != nullptr) {
         m_syncingGridSelectionVisual = true;
@@ -847,7 +868,7 @@ void WallpaperPanel::create() {
   }
 
   if (m_thumbnails != nullptr) {
-    m_thumbnailPendingSub = m_thumbnails->subscribePendingUpload([this]() {
+    m_thumbnailPendingSub = m_thumbnails->subscribePendingUpload([this] {
       if (m_rootLayout == nullptr) {
         return;
       }
@@ -910,14 +931,17 @@ void WallpaperPanel::onPanelCardOpacityChanged(float opacity) {
   if (m_monitorSelect != nullptr) {
     m_monitorSelect->setSurfaceOpacity(opacity);
   }
+  if (m_fillModeSelect != nullptr) {
+    m_fillModeSelect->setSurfaceOpacity(opacity);
+  }
   if (m_favoriteThemeSegmented != nullptr) {
     m_favoriteThemeSegmented->setSurfaceOpacity(opacity);
   }
   if (m_favoritePaletteSourceSegmented != nullptr) {
     m_favoritePaletteSourceSegmented->setSurfaceOpacity(opacity);
   }
-  if (m_favoritePaletteDetailSelect != nullptr) {
-    m_favoritePaletteDetailSelect->setSurfaceOpacity(opacity);
+  if (m_favoritePaletteDetailButton != nullptr) {
+    m_favoritePaletteDetailButton->setSurfaceOpacity(opacity);
   }
 }
 
@@ -940,6 +964,7 @@ void WallpaperPanel::onOpen(std::string_view /*context*/) {
   }
   m_navStack.clear();
   populateMonitorChoices();
+  syncFillModeControl();
   syncSortButtonGlyph();
   reseedRandomSort();
   refreshVisibleEntries();
@@ -948,6 +973,19 @@ void WallpaperPanel::onOpen(std::string_view /*context*/) {
   syncBrowseChrome();
   syncBackButton();
   m_dirty = true;
+}
+
+void WallpaperPanel::syncFillModeControl() {
+  if (m_fillModeSelect == nullptr || m_config == nullptr) {
+    return;
+  }
+  const WallpaperFillMode current = m_config->config().wallpaper.fillMode;
+  for (std::size_t i = 0; i < std::size(kWallpaperFillModes); ++i) {
+    if (kWallpaperFillModes[i].value == current) {
+      m_fillModeSelect->setSelectedIndexSilently(i);
+      return;
+    }
+  }
 }
 
 void WallpaperPanel::onClose() {
@@ -972,6 +1010,7 @@ void WallpaperPanel::onClose() {
   m_backButton = nullptr;
   m_monitorSelect = nullptr;
   m_favoriteCurrentButton = nullptr;
+  m_fillModeSelect = nullptr;
   m_filterInput = nullptr;
   m_flattenToggle = nullptr;
   m_flattenLabel = nullptr;
@@ -981,7 +1020,7 @@ void WallpaperPanel::onClose() {
   m_closeButton = nullptr;
   m_favoriteThemeSegmented = nullptr;
   m_favoritePaletteSourceSegmented = nullptr;
-  m_favoritePaletteDetailSelect = nullptr;
+  m_favoritePaletteDetailButton = nullptr;
   m_grid = nullptr;
   m_loadingBox = nullptr;
   m_spinner = nullptr;
@@ -1213,14 +1252,14 @@ void WallpaperPanel::appendFilteredFavoriteEntries(
   }
 }
 
-void WallpaperPanel::rebuildFavoritePaletteDetailSelect(const WallpaperFavorite* favorite) {
-  if (m_favoritePaletteDetailSelect == nullptr) {
+void WallpaperPanel::rebuildFavoritePaletteDetailPicker(const WallpaperFavorite* favorite) {
+  if (m_favoritePaletteDetailButton == nullptr) {
     return;
   }
 
   m_favoritePaletteDetailValues.clear();
-  std::vector<std::string> labels;
-  std::size_t selectedIndex = 0;
+  m_favoritePaletteDetailLabels.clear();
+  m_favoritePaletteDetailIndex = 0;
   std::string selectedValue;
 
   if (favorite != nullptr) {
@@ -1229,50 +1268,105 @@ void WallpaperPanel::rebuildFavoritePaletteDetailSelect(const WallpaperFavorite*
     case PaletteSource::Builtin:
       for (const auto& builtin : noctalia::theme::builtinPalettes()) {
         m_favoritePaletteDetailValues.emplace_back(builtin.name);
-        labels.emplace_back(builtin.name);
+        m_favoritePaletteDetailLabels.emplace_back(builtin.name);
       }
       selectedValue = favorite->builtinPalette;
       break;
     case PaletteSource::Wallpaper:
       m_favoritePaletteDetailValues = wallpaperSchemeValues();
-      labels = wallpaperSchemeOptions();
+      m_favoritePaletteDetailLabels = wallpaperSchemeOptions();
       selectedValue = favorite->wallpaperScheme;
       break;
     case PaletteSource::Community:
       for (const auto& community : noctalia::theme::availableCommunityPalettes()) {
         m_favoritePaletteDetailValues.push_back(community.name);
-        labels.push_back(community.name);
+        m_favoritePaletteDetailLabels.push_back(community.name);
       }
       selectedValue = favorite->communityPalette;
       break;
     case PaletteSource::Custom:
       for (const auto& custom : noctalia::theme::availableCustomPalettes()) {
         m_favoritePaletteDetailValues.push_back(custom.name);
-        labels.push_back(custom.name);
+        m_favoritePaletteDetailLabels.push_back(custom.name);
       }
       selectedValue = favorite->customPalette;
       break;
     }
   }
 
-  const bool visible = !labels.empty();
-  m_favoritePaletteDetailSelect->setVisible(visible);
+  const bool visible = !m_favoritePaletteDetailLabels.empty();
+  m_favoritePaletteDetailButton->setVisible(visible);
   if (!visible) {
-    m_favoritePaletteDetailSelect->setOptions({});
-    m_favoritePaletteDetailSelect->clearSelection();
+    m_favoritePaletteDetailButton->setText("");
     return;
   }
 
-  m_favoritePaletteDetailSelect->setOptions(std::move(labels));
   if (!selectedValue.empty()) {
-    for (std::size_t i = 0; i < m_favoritePaletteDetailValues.size(); ++i) {
-      if (m_favoritePaletteDetailValues[i] == selectedValue) {
-        selectedIndex = i;
-        break;
-      }
+    const auto it = std::ranges::find(m_favoritePaletteDetailValues, selectedValue);
+    if (it != m_favoritePaletteDetailValues.end()) {
+      m_favoritePaletteDetailIndex = static_cast<std::size_t>(it - m_favoritePaletteDetailValues.begin());
     }
   }
-  m_favoritePaletteDetailSelect->setSelectedIndex(selectedIndex);
+  m_favoritePaletteDetailButton->setText(m_favoritePaletteDetailLabels[m_favoritePaletteDetailIndex]);
+}
+
+void WallpaperPanel::openFavoritePaletteDetailPicker() {
+  if (m_favoritePaletteDetailValues.empty()) {
+    return;
+  }
+
+  const char* titleKey = "settings.schema.appearance.builtin-palette.label";
+  if (m_favoritePaletteSourceSegmented != nullptr) {
+    switch (
+        paletteSourceForSegment(m_favoritePaletteSourceSegmented->selectedIndex()).value_or(PaletteSource::Builtin)) {
+    case PaletteSource::Builtin:
+      break;
+    case PaletteSource::Wallpaper:
+      titleKey = "settings.schema.appearance.wallpaper-generation-scheme.label";
+      break;
+    case PaletteSource::Community:
+      titleKey = "settings.schema.appearance.community-palette.label";
+      break;
+    case PaletteSource::Custom:
+      titleKey = "settings.schema.appearance.custom-palette.label";
+      break;
+    }
+  }
+
+  std::vector<SearchPickerOption> options;
+  options.reserve(m_favoritePaletteDetailValues.size());
+  for (std::size_t i = 0; i < m_favoritePaletteDetailValues.size(); ++i) {
+    options.push_back(
+        SearchPickerOption{
+            .value = m_favoritePaletteDetailValues[i],
+            .label = m_favoritePaletteDetailLabels[i],
+        }
+    );
+  }
+
+  (void)SearchPickerDialog::open(
+      SearchPickerPopupRequest{
+          .title = i18n::tr(titleKey),
+          .options = std::move(options),
+          .selectedValue = m_favoritePaletteDetailValues[m_favoritePaletteDetailIndex],
+          .placeholder = i18n::tr("ui.controls.search-picker.placeholder"),
+          .emptyText = i18n::tr("ui.controls.search-picker.empty"),
+          .scale = contentScale(),
+      },
+      [this](const std::string& value) {
+        const auto it = std::ranges::find(m_favoritePaletteDetailValues, value);
+        if (it == m_favoritePaletteDetailValues.end() || m_config == nullptr) {
+          return;
+        }
+        m_favoritePaletteDetailIndex = static_cast<std::size_t>(it - m_favoritePaletteDetailValues.begin());
+        if (m_favoritePaletteDetailButton != nullptr) {
+          m_favoritePaletteDetailButton->setText(m_favoritePaletteDetailLabels[m_favoritePaletteDetailIndex]);
+        }
+        applyThemeFromControls();
+        m_dirty = true;
+        PanelManager::instance().refresh();
+      }
+  );
 }
 
 std::optional<PaletteSource> WallpaperPanel::paletteSourceForSegment(std::size_t index) const {
@@ -1352,7 +1446,7 @@ void WallpaperPanel::syncThemeControls() {
     m_favoritePaletteSourceSegmented->setSelectedIndex(sourceIndex);
   }
 
-  rebuildFavoritePaletteDetailSelect(&themeSettings);
+  rebuildFavoritePaletteDetailPicker(&themeSettings);
   m_syncingFavoriteControls = false;
 }
 
@@ -1514,8 +1608,8 @@ WallpaperFavorite WallpaperPanel::themeFromControls() const {
   if (m_favoritePaletteSourceSegmented != nullptr) {
     theme.paletteSource = paletteSourceForSegment(m_favoritePaletteSourceSegmented->selectedIndex());
   }
-  if (m_favoritePaletteDetailSelect != nullptr && !m_favoritePaletteDetailValues.empty()) {
-    const std::size_t index = m_favoritePaletteDetailSelect->selectedIndex();
+  if (!m_favoritePaletteDetailValues.empty()) {
+    const std::size_t index = m_favoritePaletteDetailIndex;
     if (index < m_favoritePaletteDetailValues.size()) {
       const std::string& value = m_favoritePaletteDetailValues[index];
       switch (theme.paletteSource.value_or(PaletteSource::Builtin)) {
@@ -1782,7 +1876,7 @@ void WallpaperPanel::setSortMode(SortMode mode) {
     reseedRandomSort();
   }
   if (m_config != nullptr) {
-    (void)m_config->setStateString("wallpaper_panel", "sort", std::string(sortModeStateValue(mode)));
+    (void)m_config->setStateString("wallpaper_panel", "sort", sortModeStateValue(mode));
   }
   syncSortButtonGlyph();
   sortVisibleEntries();

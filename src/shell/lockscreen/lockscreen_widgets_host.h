@@ -30,6 +30,8 @@ public:
   void reloadPluginWidgets(LockScreen& lockScreen);
   void onOutputChange(LockScreen& lockScreen);
   void onSecondTick();
+  // True when a live widget renders a value that changes every second.
+  [[nodiscard]] bool wantsSecondTicks() const;
   void prepareFrame(LockSurface& surface, bool needsUpdate, bool needsLayout);
 
 private:

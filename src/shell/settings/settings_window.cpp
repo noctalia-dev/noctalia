@@ -1,5 +1,6 @@
 #include "shell/settings/settings_window.h"
 
+#include "calendar/calendar_service.h"
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
@@ -10,8 +11,11 @@
 #include "core/log.h"
 #include "core/scoped_timer.h"
 #include "core/ui_phase.h"
+#include "dbus/idle/screensaver_service.h"
 #include "i18n/i18n.h"
+#include "idle/idle_inhibitor.h"
 #include "idle/idle_manager.h"
+#include "net/url_open.h"
 #include "render/core/async_texture_cache.h"
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
@@ -167,15 +171,42 @@ namespace {
 
 SettingsWindow::SettingsWindow() = default;
 
-SettingsWindow::~SettingsWindow() { destroyWindow(); }
+SettingsWindow::~SettingsWindow() {
+  setCalendarService(nullptr);
+  destroyWindow();
+}
+
+void SettingsWindow::setCalendarService(CalendarService* service) {
+  if (m_calendarService != nullptr && m_calendarCallbackId.has_value()) {
+    m_calendarService->removeChangeCallback(*m_calendarCallbackId);
+  }
+  m_calendarCallbackId.reset();
+  m_calendarService = service;
+  if (service == nullptr) {
+    return;
+  }
+  m_calendarSyncStatusRevision = service->syncStatusRevision();
+  m_calendarCallbackId = service->addChangeCallback([this] {
+    const std::uint64_t revision = m_calendarService->syncStatusRevision();
+    if (revision == m_calendarSyncStatusRevision) {
+      return;
+    }
+    m_calendarSyncStatusRevision = revision;
+    if (isOpen()) {
+      requestContentRebuild(true);
+    }
+  });
+}
 
 void SettingsWindow::initialize(
     WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, DependencyService* dependencies,
-    UPowerService* upower, IdleManager* idleManager, CompositorPlatform* platform, AccountsService* accounts
+    UPowerService* upower, IdleManager* idleManager, IdleInhibitor* idleInhibitor, CompositorPlatform* platform,
+    AccountsService* accounts
 ) {
   m_wayland = &wayland;
   m_platform = platform;
   m_idleManager = idleManager;
+  m_idleInhibitor = idleInhibitor;
   m_config = config;
   m_renderContext = renderContext;
   m_dependencies = dependencies;
@@ -184,12 +215,12 @@ void SettingsWindow::initialize(
   m_showAdvanced = m_config != nullptr ? m_config->config().shell.settingsShowAdvanced : false;
   m_modalHost.initialize(
       m_inputDispatcher,
-      [this]() {
+      [this] {
         if (m_surface != nullptr) {
           m_surface->requestLayout();
         }
       },
-      [this]() {
+      [this] {
         if (m_surface != nullptr) {
           m_surface->requestUpdateOnly();
         }
@@ -204,8 +235,7 @@ void SettingsWindow::initializeDialogPresenter(
   m_dialogPresenter = std::make_unique<settings::SettingsDialogPresenter>();
   m_dialogPresenter->initialize(
       m_modalHost, m_animations, thumbnails, colorFallback, glyphFallback, fileFallback,
-      [this]() { return shouldUseModalDialogs(); }, [this]() { return uiScale(); },
-      [this]() { dismissOpenSelectDropdown(); }
+      [this] { return shouldUseModalDialogs(); }, [this] { return uiScale(); }, [this] { dismissOpenSelectDropdown(); }
   );
 }
 
@@ -258,6 +288,15 @@ bool SettingsWindow::headerDragRegionContains(float sceneX, float sceneY) const 
   return sceneX >= dragLeft && sceneX < dragRight && sceneY >= dragTop && sceneY < dragBottom;
 }
 
+void SettingsWindow::openBrowserUrl(const std::string& url) {
+  if (m_platform == nullptr || m_surface == nullptr) {
+    return;
+  }
+
+  const auto token = m_platform->requestActivationToken(m_surface->wlSurface());
+  (void)net::openInBrowser(url, token);
+}
+
 bool SettingsWindow::ownsKeyboardSurface(wl_surface* surface) const noexcept {
   if (!isOpen() || surface == nullptr || m_surface == nullptr) {
     return false;
@@ -299,7 +338,7 @@ std::optional<LayerPopupParentContext> SettingsWindow::topmostPopupParentContext
     };
   };
 
-  const auto selectContext = [this, &makeContext]() -> std::optional<LayerPopupParentContext> {
+  const auto selectContext = [this, &makeContext] -> std::optional<LayerPopupParentContext> {
     if (m_selectPopup == nullptr || !m_selectPopup->isSelectDropdownOpen()) {
       return std::nullopt;
     }
@@ -400,7 +439,7 @@ void SettingsWindow::open(std::string context) {
   }
 
   if (isOpen()) {
-    const auto refocus = [this]() {
+    const auto refocus = [this] {
       if (m_platform != nullptr && m_wayland != nullptr && m_surface != nullptr) {
         focusExistingSettingsWindow(*m_platform, *m_wayland, m_surface->wlSurface());
       }
@@ -425,7 +464,7 @@ void SettingsWindow::open(std::string context) {
   m_surface->setRenderContext(m_renderContext);
   m_surface->setAnimationManager(&m_animations);
 
-  m_surface->setClosedCallback([this]() { destroyWindow(); });
+  m_surface->setClosedCallback([this] { destroyWindow(); });
 
   m_surface->setOutputChangedCallback([this](wl_output* currentOutput) {
     m_output = currentOutput;
@@ -444,7 +483,7 @@ void SettingsWindow::open(std::string context) {
     prepareFrame(needsUpdate, needsLayout);
   });
 
-  m_surface->setUpdateCallback([]() {});
+  m_surface->setUpdateCallback([] {});
 
   const float scale = uiScale();
   float desiredWidth = kWindowWidth * scale;
@@ -543,7 +582,7 @@ void SettingsWindow::closeForWidgetEditor() {
     return;
   }
   m_reopenAfterWidgetEditorSection = m_selectedSection;
-  DeferredCall::callLater([this]() { close(); });
+  DeferredCall::callLater([this] { close(); });
 }
 
 void SettingsWindow::reopenAfterWidgetEditor() {
@@ -648,7 +687,7 @@ void SettingsWindow::destroyWindow() {
   // Plugin-store thumbnails are the only async textures this window holds; drop the
   // zero-ref residents once the scene (and with it every Image) is gone.
   if (m_asyncTextures != nullptr) {
-    DeferredCall::callLater([asyncTextures = m_asyncTextures]() { asyncTextures->trimUnused(0); });
+    DeferredCall::callLater([asyncTextures = m_asyncTextures] { asyncTextures->trimUnused(0); });
   }
 }
 
@@ -811,7 +850,7 @@ void SettingsWindow::scheduleDeferredRebuild() {
     return;
   }
   m_deferredRebuildQueued = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_deferredRebuildQueued = false;
     const bool sceneRebuild = m_deferredSceneRebuild;
     const bool refreshRegistry = m_deferredRefreshRegistry;
@@ -866,12 +905,12 @@ void SettingsWindow::refreshPluginListIfNeeded() {
   const std::uint64_t generation = m_pluginListRefreshGeneration;
   auto* manager = m_pluginManager;
   PluginsConfig pluginsSnapshot = m_config->config().plugins;
-  std::thread([this, manager, generation, pluginsSnapshot = std::move(pluginsSnapshot)]() {
+  std::thread([this, manager, generation, pluginsSnapshot = std::move(pluginsSnapshot)] {
     // Refresh the browsable catalog (throttled) so newly published plugins and update
     // badges appear on open, then list against the fetched revision.
     manager->fetchStaleCatalogs(pluginsSnapshot);
     auto plugins = manager->list(pluginsSnapshot, scripting::CatalogAccess::Network);
-    DeferredCall::callLater([this, generation, plugins = std::move(plugins)]() mutable {
+    DeferredCall::callLater([this, generation, plugins = std::move(plugins)] mutable {
       m_pluginListRefreshInFlight = false;
       if (generation != m_pluginListRefreshGeneration) {
         refreshPluginListIfNeeded();
@@ -1074,7 +1113,13 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  const auto requestRebuild = [this]() {
+  if (const InputArea* focused = m_inputDispatcher.focusedArea(); focused != nullptr && focused->capturesAllKeys()) {
+    m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+    requestSceneInvalidation(m_sceneRoot.get(), m_surface.get());
+    return;
+  }
+
+  const auto requestRebuild = [this] {
     if (m_surface != nullptr) {
       m_rebuildRequested = true;
       m_surface->requestLayout();
@@ -1229,6 +1274,37 @@ void SettingsWindow::refreshIdleLiveStatusText() {
     return;
   }
 
+  if (m_screenSaverService != nullptr && m_screenSaverService->inhibitLocks() > 0) {
+    std::string inhibitors;
+    std::int64_t inhibitorCount = 0;
+    const auto append = [&inhibitors, &inhibitorCount](std::string_view entry) {
+      if (inhibitorCount > 0) {
+        inhibitors += ", ";
+      }
+      inhibitors += entry;
+      ++inhibitorCount;
+    };
+
+    if (m_idleInhibitor != nullptr && m_idleInhibitor->enabled()) {
+      append(i18n::tr("settings.idle.live-status.inhibit-reason-caffeine"));
+    }
+
+    for (const auto& [app, reason] : m_screenSaverService->inhibitorList()) {
+      append(app);
+      if (!reason.empty()) {
+        inhibitors.append(" (").append(reason).append(")");
+      }
+    }
+
+    if (inhibitorCount < m_screenSaverService->inhibitLocks()) {
+      append(i18n::tr("settings.idle.live-status.inhibit-reason-external"));
+    }
+
+    m_idleLiveStatusLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    m_idleLiveStatusLabel->setText(i18n::tr("settings.idle.live-status.inhibited", "inhibitors", inhibitors));
+    return;
+  }
+
   const std::int64_t sec = m_idleManager != nullptr ? m_idleManager->liveIdleSeconds() : 0;
   if (sec <= 0) {
     m_idleLiveStatusLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
@@ -1255,3 +1331,7 @@ void SettingsWindow::onIdleLiveStatusChanged() {
 }
 
 void SettingsWindow::onSecondTick() { onIdleLiveStatusChanged(); }
+
+bool SettingsWindow::wantsSecondTicks() const noexcept {
+  return m_idleLiveStatusLabel != nullptr && m_surface != nullptr;
+}

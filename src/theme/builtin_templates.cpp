@@ -33,11 +33,14 @@ namespace noctalia::theme {
       }
       BuiltinTemplateInfo entry;
       entry.id = std::string(idNode.str());
-      if (const auto name = info->get_as<std::string>("name")) {
+      if (const auto* name = info->get_as<std::string>("name")) {
         entry.name = name->get();
       }
-      if (const auto category = info->get_as<std::string>("category")) {
+      if (const auto* category = info->get_as<std::string>("category")) {
         entry.category = category->get();
+      }
+      if (const auto* url = info->get_as<std::string>("documentation_url")) {
+        entry.documentationUrl = url->get();
       }
       out.push_back(std::move(entry));
     }
@@ -49,17 +52,17 @@ namespace noctalia::theme {
         if (tpl == nullptr) {
           continue;
         }
-        if (const auto opd = tpl->get_as<std::string>("output_path_dynamic")) {
+        if (const auto* opd = tpl->get_as<std::string>("output_path_dynamic")) {
           entry.outputDynamic = true;
           entry.outputPathDynamicCommand = opd->get();
         }
         const toml::node* op = tpl->get("output_path");
         if (op != nullptr) {
-          if (const auto str = op->as_string()) {
+          if (const auto* str = op->as_string()) {
             entry.outputPaths.push_back(str->get());
-          } else if (const auto arr = op->as_array()) {
+          } else if (const auto* arr = op->as_array()) {
             for (const auto& item : *arr) {
-              if (const auto itemStr = item.as_string()) {
+              if (const auto* itemStr = item.as_string()) {
                 entry.outputPaths.push_back(itemStr->get());
               }
             }
@@ -92,6 +95,7 @@ namespace noctalia::theme {
       t.id = std::move(entry.id);
       t.displayName = entry.name.empty() ? t.id : std::move(entry.name);
       t.category = std::move(entry.category);
+      t.documentationUrl = std::move(entry.documentationUrl);
       t.outputPaths = std::move(entry.outputPaths);
       t.outputDynamic = entry.outputDynamic;
       out.push_back(std::move(t));

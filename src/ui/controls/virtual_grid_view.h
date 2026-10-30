@@ -47,9 +47,10 @@ public:
   // Optional tooltip for the item under the pointer.
   [[nodiscard]] virtual std::string itemTooltip(std::size_t /*index*/) const { return {}; }
 
-  // Optional bounds, relative to a cell, for anchoring an item's tooltip.
-  [[nodiscard]] virtual std::optional<TooltipAnchorInsets>
-  itemTooltipAnchorInsets(std::size_t /*index*/, float /*cellWidth*/, float /*cellHeight*/) const {
+  // Optional bounds, relative to a cell, for anchoring the item or hovered overlay tooltip.
+  [[nodiscard]] virtual std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+      std::size_t /*index*/, float /*cellWidth*/, float /*cellHeight*/, bool /*overlayHovered*/
+  ) const {
     return std::nullopt;
   }
 
@@ -167,6 +168,7 @@ private:
     return Style::rtl() ? m_layoutColumns - 1 - col : col;
   }
   void setOverlayHoveredForIndex(std::size_t index, bool hovered);
+  void updateTooltipAnchor(std::size_t slot, std::size_t index, bool overlayHovered);
 
   ScrollView* m_scroll = nullptr;
   Canvas* m_canvas = nullptr;

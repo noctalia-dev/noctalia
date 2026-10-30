@@ -1262,10 +1262,6 @@
         "horizontal": "Horizontal",
         "vertical": "Vertical"
       },
-      "panel-bar-alignment": {
-        "centered": "Centrado",
-        "near-trigger": "Preto do disparador"
-      },
       "panel-position": {
         "auto": "Seguir a barra"
       },
@@ -2235,8 +2231,7 @@
           "label": "Contas de calendario"
         },
         "calendar-edit": {
-          "button": "Editar",
-          "description": "Actualiza esta conta de calendario"
+          "button": "Editar"
         },
         "calendar-refresh-interval": {
           "description": "Cada canto sincronizar os eventos do calendario (minutos)",

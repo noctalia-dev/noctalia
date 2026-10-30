@@ -94,7 +94,7 @@ namespace settings {
               .minHeight = Style::controlHeightSm * m_scale,
               .padding = Style::spaceXs * m_scale,
               .radius = Style::scaledRadiusMd(m_scale),
-              .onClick = [removeAction = m_removeAction]() {
+              .onClick = [removeAction = m_removeAction] {
                 if (removeAction) {
                   DeferredCall::callLater(removeAction);
                 }
@@ -112,10 +112,10 @@ namespace settings {
               .minHeight = Style::controlHeightSm * m_scale,
               .padding = Style::spaceXs * m_scale,
               .radius = Style::scaledRadiusMd(m_scale),
-              .onClick = [onCloseRequested = m_onCloseRequested, closeAction = m_closeAction]() {
+              .onClick = [onCloseRequested = m_onCloseRequested, closeAction = m_closeAction] {
                 // Snapshot the callbacks so the deferred close never depends on
                 // the SettingsSheet still being alive.
-                DeferredCall::callLater([onCloseRequested, closeAction]() {
+                DeferredCall::callLater([onCloseRequested, closeAction] {
                   performCloseRequest(onCloseRequested, closeAction);
                 });
               },
@@ -127,7 +127,7 @@ namespace settings {
         .message = m_statusMessage,
         .error = m_statusIsError,
         .scale = m_scale,
-        .onDismiss = [this]() { clearStatusMessage(); },
+        .onDismiss = [this] { clearStatusMessage(); },
         .out = &m_statusBanner,
         .messageOut = &m_statusLabel,
     }));

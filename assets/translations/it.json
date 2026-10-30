@@ -41,16 +41,16 @@
       "copy": "Copia l'immagine annotata (Ctrl+C)",
       "cursor": "Mostra il puntatore catturato con lo schermo (p)",
       "cursor-capture-failed": "Attiva/disattiva puntatore non disponibile: il compositor non è riuscito a fornire un puntatore separato",
-      "cursor-live": "Blocca prima lo schermo per modificare il puntatore catturato (F)",
+      "cursor-live": "Prima di cambiare il puntatore catturato (Z), blocca lo schermo",
       "cursor-not-captured": "Attiva/disattiva puntatore non disponibile: il compositor non supporta la cattura separata del puntatore",
       "done": "Applica le impostazioni dello screenshot (Invio)",
-      "fill-off": "Riempimento forma: disattivato",
-      "fill-on": "Riempimento forma: attivo",
-      "freeze": "Congela lo schermo sotto l'inchiostro (f)",
+      "fill-off": "Riempimento forma: off (f)",
+      "fill-opaque": "Riempimento forma: opaco (f)",
+      "fill-semi": "Riempimento della forma: semitrasparente (f)",
+      "freeze": "Congela lo schermo sotto l'inchiostro (z)",
       "move-toolbar": "Trascina per spostare la barra degli strumenti",
       "redo": "Ripeti (Ctrl+Maiusc+Z)",
       "save": "Salva l'immagine annotata (Ctrl+S)",
-      "size-advanced": "Regolazione fine delle dimensioni",
       "size-decrease": "Più sottile ([)",
       "size-increase": "Più spesso (])",
       "size-large": "Grande",
@@ -632,10 +632,12 @@
         "show-login-button": "Pulsante di login",
         "show-media": "Media",
         "show-password-hint": "Suggerimento password",
+        "show-password-reveal": "Mostra password",
         "show-seconds": "Lancetta Secondi",
         "show-session-buttons": "Pulsanti di sessione",
         "show-unlock-hint": "Sblocca avvisi",
         "show-vpn-label": "Mostra etichetta VPN",
+        "show-wave": "Mostra onda",
         "show-weather": "Meteo",
         "show-week-numbers": "Mostra i numeri delle settimane",
         "show-when-idle": "Mostra quando inattivo",
@@ -1012,7 +1014,7 @@
         "device": "Batteria",
         "device-numbered": "Batteria {index}",
         "health": "Salute",
-        "rate": "Velocità",
+        "rate": "Potenza",
         "status": "Stato",
         "time-left": "Tempo rimanente",
         "time-to-full": "Tempo rimanente alla carica completa",
@@ -1032,6 +1034,7 @@
       "lock-and-suspend": "Blocca e sospendi",
       "logout": "Disconnetti",
       "reboot": "Riavvia",
+      "reboot-uefi": "Riavvia in modalità UEFI",
       "shutdown": "Spegni",
       "suspend": "Sospendi"
     },
@@ -1057,6 +1060,8 @@
     "calendar-accounts": {
       "add-title": "Aggiungi account calendario",
       "calendars-label": "Calendari",
+      "client-cert-label": "Certificato client (PEM)",
+      "client-key-label": "Chiave client (PEM)",
       "color-label": "Colore",
       "credential-source-file": "File password",
       "credential-source-keyring": "Keyring",
@@ -1306,6 +1311,8 @@
       "merged-user-description": "Combina file di configurazione e override della GUI in un unico file TOML. I valori predefiniti integrati restano impliciti.",
       "merged-user-save-title": "Salva configurazione utente unificata",
       "merged-user-title": "Configurazione utente unificata (consigliata)",
+      "privacy-warning-description": "Entrambe le modalità di esportazione possono includere chiavi API, password o altri dati sensibili memorizzati nella configurazione, inclusi quelli dei plugin. Tratta i file esportati come privati. Rivedi e rimuovi i dati sensibili prima di condividerli.",
+      "privacy-warning-title": "Le esportazioni possono contenere segreti",
       "title": "Esporta configurazione"
     },
     "idle": {
@@ -1347,6 +1354,7 @@
         "background": "Sfondo",
         "battery": "Batteria",
         "behavior": "Comportamento",
+        "bluetooth": "Bluetooth",
         "borders": "Bordi",
         "brightness": "Luminosità",
         "built-in": "Integrato",
@@ -1541,10 +1549,15 @@
       },
       "lockscreen": {
         "transition": {
+          "diamond": "Diamond",
           "disc": "Disco",
           "fade": "Dissolvenza",
+          "golden": "Golden",
           "honeycomb": "Nido d'ape",
+          "melt": "Melt",
+          "pixel": "Pixel",
           "stripes": "Strisce",
+          "vortex": "Vortex",
           "wipe": "Wipe",
           "zoom": "Zoom"
         }
@@ -1557,10 +1570,6 @@
       "orientation": {
         "horizontal": "Orizzontale",
         "vertical": "Verticale"
-      },
-      "panel-bar-alignment": {
-        "centered": "Centrato",
-        "near-trigger": "Vicino al click"
       },
       "panel-position": {
         "auto": "Segui la barra"
@@ -1669,10 +1678,15 @@
           "random": "Casuale"
         },
         "transition": {
+          "diamond": "Diamond",
           "disc": "Disco",
           "fade": "Dissolvenza",
+          "golden": "Golden",
           "honeycomb": "Nido d'ape",
+          "melt": "Melt",
+          "pixel": "Pixel",
           "stripes": "Strisce",
+          "vortex": "Vortex",
           "wipe": "Tendina",
           "zoom": "Zoom"
         }
@@ -1683,6 +1697,21 @@
           "metric": "Metrico"
         }
       }
+    },
+    "palette-inspector": {
+      "copied": "Copiato {value}",
+      "copy-failed": "Impossibile copiare il colore negli appunti.",
+      "copy-hex": "Copia il valore esadecimale",
+      "copy-name": "Copia il nome del colore",
+      "description": "Template colori in modalità {mode}.",
+      "empty": "Nessun abbinamento di colori.",
+      "filter-all": "Tutti i colori",
+      "filter-palette": "Palette",
+      "filter-terminal": "Terminale",
+      "missing": "Non disponibile",
+      "search-placeholder": "Cerca i nomi dei colori o i valori esadecimali...",
+      "terminal-number": "{number} · ANSI {index}",
+      "title": "Analizzatore palette"
     },
     "plugins": {
       "browse-store": "Sfoglia plugin",
@@ -1868,6 +1897,11 @@
           "description": "Sovrascrivi il rilevamento automatico della lingua",
           "label": "Lingua"
         },
+        "palette-inspector": {
+          "button": "Ispeziona i colori",
+          "description": "Visualizza i nomi dei colori del modello, i campioni e i valori esadecimali per la tavolozza attiva",
+          "label": "Analizzatore palette"
+        },
         "palette-source": {
           "description": "Da dove ricavare la palette colori",
           "label": "Sorgente palette"
@@ -1891,6 +1925,10 @@
         "show-close-buttons": {
           "description": "Mostra i pulsanti di chiusura nei pannelli, notifiche, popup, finestre di dialogo e nella finestra delle impostazioni",
           "label": "Mostra pulsanti Chiudi"
+        },
+        "sync-color-scheme": {
+          "description": "Imposta la preferenza scura/chiara del sistema letta dai browser e da altre app in modo che segua la Modalità Tema",
+          "label": "Sincronizza schema colore app"
         },
         "theme-mode": {
           "description": "Scegli tra Scuro, Chiaro o Automatico in base all'ora del giorno; questa opzione si applica anche alle app tramite i modelli.",
@@ -1921,6 +1959,10 @@
       "bar": {
         "auto-hide": {
           "description": "Off mantiene la barra visibile; On la nasconde finché non sposti il ​​puntatore sul bordo dello schermo; Smart mostra la barra su un'area di lavoro vuota e la nasconde quando le finestre sono aperte"
+        },
+        "auto-hide-delay": {
+          "description": "Attendi questo numero di millisecondi dopo che il puntatore esce prima di nascondere la barra; 0 nasconde immediatamente (solo in modalità attiva)",
+          "label": "Ritardo auto-hide"
         },
         "background-opacity": {
           "description": "Opacità dello sfondo della barra"
@@ -2866,6 +2908,10 @@
           "description": "Consenti volume sopra il 100%",
           "label": "Overdrive audio"
         },
+        "bluetooth-connect-when-enabled": {
+          "description": "Connetti i dispositivi associati e attendibili quando il Bluetooth è attivo, all'avvio e dopo il resume",
+          "label": "Connetti i dispositivi quando il Bluetooth è attivo"
+        },
         "calendar": {
           "description": "Mostra eventi dai tuoi account calendario online",
           "label": "Calendario"
@@ -2900,10 +2946,7 @@
         "calendar-edit": {
           "button": "Modifica",
           "button-reconnect": "Riconnetti",
-          "button-retry": "Riprova",
-          "description": "Aggiorna questo account calendario",
-          "description-locked": "Il refresh token si trova in un portachiavi bloccato; sbloccare il portachiavi e riprovare",
-          "description-reconnect": "Manca l'autorizzazione di Google; riconnetti questo account"
+          "button-retry": "Riprova"
         },
         "calendar-event-date-format": {
           "description": "Il formato della data mostrato sopra l'elenco degli eventi nelle visualizzazioni del calendario",
@@ -3241,6 +3284,10 @@
           "label": "Comando di avvio app personalizzato",
           "placeholder": "$CMD"
         },
+        "niri-overview-close-on-launch": {
+          "description": "Chiudi la panoramica quando un'app viene avviata dal launcher mentre la panoramica di Niri è aperta",
+          "label": "Chiudi al lancio"
+        },
         "niri-overview-type-to-launch": {
           "description": "Apre il launcher quando si digita nella panoramica niri (overiew)",
           "label": "Digita per avviare launcher"
@@ -3288,6 +3335,10 @@
         "osd-kinds-caffeine": {
           "description": "Mostra un popup OSD quando cambia lo stato della modalità Caffeine (inibitore inattività)",
           "label": "Modalità Caffeine"
+        },
+        "osd-kinds-custom": {
+          "description": "Mostra i popup OSD personalizzati inviati da plugin o script",
+          "label": "Personalizzato"
         },
         "osd-kinds-dnd": {
           "description": "Mostra un popup OSD quando la modalità DND viene attivata/disattivata",
@@ -3443,6 +3494,14 @@
           "description": "Invia il PNG catturato a un comando shell su stdin",
           "label": "Invia a comando"
         },
+        "screenshot-region-border-width": {
+          "description": "Ampiezza del bordo attorno all'area selezionata",
+          "label": "Larghezza del confine dell'area"
+        },
+        "screenshot-region-dim-opacity": {
+          "description": "Larghezza del confine dell'area",
+          "label": "Dim opacità area"
+        },
         "screenshot-region-modifier": {
           "description": "Modificatore per muovere o ridimensionare la regione selezionata: trascina-sinistro per muovere, trascina-destro per ridimensionare dai terzi esterni (gli angoli ridimensionano entrambi gli assi). Nessuno (default) mantiene il comportamento trascina-per-aggiustare semplice",
           "label": "Modificatore Muovi/Ridimensiona"
@@ -3458,6 +3517,14 @@
         "screenshot-show-cursor": {
           "description": "Includi il puntatore del mouse negli screenshot",
           "label": "Mostra cursore"
+        },
+        "screenshot-show-region-dimensions": {
+          "description": "Mostra l'indicatore di dimensione durante il ridimensionamento o lo spostamento di un'area",
+          "label": "Mostra le dimensioni dell'area"
+        },
+        "screenshot-show-region-hint": {
+          "description": "Mostra il suggerimento di conferma con le scorciatoie da tastiera (Copia, Salva, Annulla) durante la conferma di un'area",
+          "label": "Mostra suggerimento area"
         },
         "screenshot-skip-annotate-on-copy-save": {
           "description": "Copia e salva nella zona di sovrapposizione, il salvataggio avviene immediatamente; Invio e Spazio aprono comunque l'editor.",
@@ -3487,6 +3554,14 @@
         "time-format": {
           "description": "Formato ora predefinito per la shell UI senza impostazione propria",
           "label": "Formato ora"
+        },
+        "umbriel-audio-provider": {
+          "description": "Condividi lo spettro audio con gli effetti Umbriel, anche senza un widget visualizzatore.",
+          "label": "Fornire l'audio a Umbriel"
+        },
+        "umbriel-overview-close-on-launch": {
+          "description": "Chiudi la panoramica quando un'app viene avviata dal launcher mentre la panoramica di Umbriel è aperta.",
+          "label": "Chiudi al lancio"
         },
         "umbriel-overview-type-to-launch": {
           "description": "Apri il launcher mentre digiti in nella Overview di Umbriel; utilizza una piccola area di focus della tastiera mentre l'Overview è aperta",
@@ -3666,6 +3741,8 @@
       "success": "L'archiviazione privata è stata reimpostata correttamente."
     },
     "templates": {
+      "documentation": "Documentazione",
+      "readme": "Readme",
       "store": {
         "browse": "Sfoglia template",
         "categories": "Categorie",
@@ -3688,7 +3765,7 @@
         "command-placeholder": "Comando della shell",
         "commands": {
           "annotate": {
-            "description": "Disegna sullo schermo sopra le app in esecuzione; premi F o il pulsante Freeze per catturare lo sfondo",
+            "description": "Disegna sullo schermo sopra le app in esecuzione; premi Z o il pulsante Freeze per catturare lo sfondo",
             "label": "Annota lo schermo"
           },
           "bar-auto-hide-set": {
@@ -3967,6 +4044,10 @@
             "description": "Abilita i popup OSD",
             "label": "Abilita OSD"
           },
+          "osd-show": {
+            "description": "Mostra un popup OSD personalizzato",
+            "label": "Mostra OSD personalizzato"
+          },
           "osd-toggle": {
             "description": "Attiva/disattiva i popup OSD",
             "label": "Attiva/disattiva OSD"
@@ -4010,6 +4091,10 @@
           "screenshot-region": {
             "description": "Avvia uno screenshot interattivo di un'area",
             "label": "Screenshot area"
+          },
+          "screenshot-window": {
+            "description": "Cattura la finestra in focus",
+            "label": "Screenshot della finestra"
           },
           "session": {
             "description": "Eseguire un'azione di sessione integrata",
@@ -4736,6 +4821,10 @@
           "description": "Riempi lo sfondo del widget per mostrare l'avanzamento della riproduzione",
           "label": "Mostra l'avanzamento della riproduzione"
         },
+        "show-running": {
+          "description": "Mostra le finestre in esecuzione che non sono nell'elenco fissato",
+          "label": "Mostra in esecuzione"
+        },
         "show-scroll-lock": {
           "description": "Mostra stato Scroll Lock",
           "label": "Mostra Scroll Lock"
@@ -4759,6 +4848,10 @@
         "show-vpn-label": {
           "description": "Sostituisce l'etichetta di rete con l'etichetta VPN in modalità di Sostituisci; aggiunge l'etichetta VPN accanto all'icona VPN in modalità Entrambi",
           "label": "Mostra etichetta VPN"
+        },
+        "show-wave": {
+          "description": "Visualizza come area riempita ad onde anziché come barre discrete",
+          "label": "Mostra onda"
         },
         "show-when-idle": {
           "description": "Mantiene visibile il visualizzatore anche quando nessun media è in riproduzione",
