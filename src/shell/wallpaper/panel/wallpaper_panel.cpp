@@ -726,7 +726,7 @@ void WallpaperPanel::create() {
   favoritesOptions->addChild(
       ui::select(
           {.out = &m_fillModeSelect,
-           .options = fillModeOptions,
+           .options = std::move(fillModeOptions),
            .fontSize = Style::fontSizeBody * scale,
            .controlHeight = Style::controlHeightSm * scale,
            .surfaceOpacity = panelCardOpacity(),
@@ -734,7 +734,7 @@ void WallpaperPanel::create() {
              if (m_config == nullptr || idx >= std::size(kWallpaperFillModes)) {
                return;
              }
-             const std::string key{enumToKey(kWallpaperFillModes, kWallpaperFillModes[idx].value)};
+             const std::string key{kWallpaperFillModes[idx].key};
              if (!m_config->setOverride({"wallpaper", "fill_mode"}, key)) {
                kLog.warn("failed to set wallpaper fill mode {}", key);
              }
