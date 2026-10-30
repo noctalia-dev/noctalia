@@ -164,7 +164,7 @@ private:
   void resumeTimeout(uint32_t notificationId, int totalDuration);
   void pauseCountdowns(uint32_t notificationId);
   void resumeCountdowns(uint32_t notificationId);
-  void revealQueuedEntries();
+  bool revealQueuedEntries();
   void enforceMaxVisible();
   void collapseStack();
   void reflowNewestOnEdge();
