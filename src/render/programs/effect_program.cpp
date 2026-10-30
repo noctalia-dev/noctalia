@@ -207,7 +207,9 @@ void main() {
 }
 )";
 
-  // --- Rain effect (atmospheric haze + discrete falling drops) ---
+  // --- Rain effect v2 (sharper-edged streaks, random per-streak tilt, fewer/clearer
+  // layers instead of 3 overlapping Gaussian-blurred ones - see
+  // openspec/changes/weather-rain-effect-v2 for the prototyping history) ---
   constexpr char kRainFragment[] = R"(
 float rain_hash(vec2 p) {
     p = fract(p * vec2(443.897, 441.423));
@@ -226,15 +228,14 @@ float rain_noise(vec2 p) {
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-float rainLayer(vec2 uv, float columns, float rows, float speed, float dropLen, float tilt, float iTime, float seed) {
+float rainLayer(
+    vec2 uv, float columns, float rows, float speedBase, float speedVar, float dropLenBase,
+    float tilt, float widthBase, float widthVar, float iTime, float seed
+) {
     float x = uv.x + uv.y * tilt;
-    float y = uv.y - iTime * speed;
-
     float col = x * columns;
     float colId = floor(col);
     float colFrac = fract(col);
-
-    float row = y * rows;
 
     float streaks = 0.0;
 
@@ -242,29 +243,42 @@ float rainLayer(vec2 uv, float columns, float rows, float speed, float dropLen, 
         float cId = colId + float(dc);
 
         float rnd = rain_hash(vec2(cId, seed));
-        if (rnd < 0.55) continue;
+        if (rnd < 0.35) continue;
 
-        float xPos = rain_hash(vec2(cId * 1.73, seed + 7.0)) * 0.4 + 0.3;
+        float xPos = rain_hash(vec2(cId * 1.73, seed + 7.0)) * 0.6 + 0.2;
         float px = colFrac - (float(dc) + xPos);
 
-        float width = 0.02 + rnd * 0.015;
-        float xFade = exp(-0.5 * (px * px) / (width * width));
+        // Per-streak size/speed/length variety, not just two fixed layer presets -
+        // every drop gets its own width, fall speed, and streak length from its column hash.
+        float width = widthBase * (0.7 + rain_hash(vec2(cId, seed + 13.0)) * widthVar);
+        float speed = speedBase * (0.7 + rain_hash(vec2(cId, seed + 11.0)) * speedVar);
+        float dropLen = dropLenBase * (0.7 + rain_hash(vec2(cId, seed + 17.0)) * 0.6);
 
-        // Per-column phase offset so drops don't align across columns
+        // Each stream gets its own tilt, not one shared global slant - some streaks lean
+        // left, some right, some nearly straight down, like gusty wind hitting different
+        // streaks differently instead of a uniform wind direction.
+        float tiltJitter = (rain_hash(vec2(cId, seed + 29.0)) - 0.5) * 1.8;
+        px += uv.y * tiltJitter;
+
+        // Wider, softer falloff from the centerline (smaller exponent) - reads as a
+        // blurry smear instead of a crisp line, no flat plateau either way.
+        float edge = exp(-1.6 * (px * px) / (width * width));
+
+        float y = uv.y - iTime * speed;
+        float row = y * rows;
         float phase = rain_hash(vec2(cId, seed + 3.0));
         float dropY = fract(row + phase);
 
-        // Drop: visible from 0 to dropLen, gap from dropLen to 1
-        float head = smoothstep(0.0, 0.06, dropY);
-        float tail = smoothstep(dropLen, dropLen - 0.1, dropY);
+        float head = smoothstep(0.0, 0.04, dropY);
+        float tail = smoothstep(dropLen, dropLen - 0.15, dropY);
         float yFade = head * tail;
 
-        // Brightness tapers toward tail (brighter at head)
-        float taper = 1.0 - dropY / dropLen;
-        taper = clamp(taper, 0.0, 1.0);
+        // uv.y grows downward, and increasing dropY tracks increasing uv.y here, so the
+        // drop's leading (falling) edge is at the HIGH end of dropY, not dropY=0 - bright
+        // there, fading toward dropY=0 (where the drop "already was", trailing above it).
+        float brightFactor = mix(0.22, 1.0, clamp(dropY / dropLen, 0.0, 1.0));
 
-        float brightness = (0.4 + rain_hash(vec2(cId, seed + 5.0)) * 0.4) * (0.5 + taper * 0.5);
-        streaks += xFade * yFade * brightness;
+        streaks += edge * yFade * brightFactor;
     }
 
     return streaks;
@@ -276,28 +290,25 @@ void main() {
     float aspect = u_item_width / u_item_height;
     vec2 uvA = vec2(uv.x * aspect, uv.y);
 
-    // Atmospheric haze
-    float n1 = rain_noise(uv * 2.0 + vec2(iTime * 0.02, iTime * 0.015));
-    float n2 = rain_noise(uv * 4.0 - vec2(iTime * 0.03, -iTime * 0.01));
-    float n3 = rain_noise(uv * 8.0 + vec2(-iTime * 0.01, iTime * 0.025));
-    float haze = n1 * 0.5 + n2 * 0.3 + n3 * 0.2;
-    haze = smoothstep(0.25, 0.7, haze) * 0.25;
+    // Single cheap SMOOTH noise octave, much lower weight than v1 - atmosphere, not mud.
+    float haze = rain_noise(uv * 2.5 + vec2(iTime * 0.02, iTime * 0.015));
+    haze = smoothstep(0.3, 0.7, haze) * 0.08;
 
-    // 3 rain layers: columns, rows (drops per unit height), speed, dropLen (0-1 fraction visible), tilt
-    float tilt = 0.07;
-    float r1 = rainLayer(uvA, 40.0, 3.5, 2.4, 0.35, tilt,          iTime, 0.0);
-    float r2 = rainLayer(uvA, 25.0, 2.5, 1.7, 0.40, tilt * 0.7,    iTime, 100.0);
-    float r3 = rainLayer(uvA, 14.0, 1.8, 1.1, 0.50, tilt * 0.4,    iTime, 200.0);
+    // 2 layers with a clear foreground/background split instead of 3 similar ones:
+    // foreground is fewer, wider, faster, brighter; background is more, thinner, slower, dimmer.
+    float tilt = 0.35;
+    //                    uv    cols  rows  speed var  dropLen tilt        width var   time   seed
+    float fg = rainLayer(uvA, 12.0, 2.2, 7.0, 0.7, 0.45, tilt,       0.045, 0.7, iTime, 0.0);
+    float bg = rainLayer(uvA, 22.0, 1.6, 3.8, 0.8, 0.55, tilt * 0.6, 0.022, 0.7, iTime, 100.0);
 
-    float rain = r1 * 0.3 + r2 * 0.4 + r3 * 0.55;
-    rain = clamp(rain, 0.0, 1.0);
+    float rain = clamp(fg + bg * 0.4, 0.0, 1.0);
 
-    // Compose: background → haze → rain
     vec3 hazeColor = particleColor(vec3(0.82, 0.85, 0.9), vec3(0.55, 0.6, 0.68));
     vec3 col = mix(u_bg_color.rgb, hazeColor, haze);
 
-    vec3 rainTint = particleColor(vec3(0.88, 0.91, 1.0), vec3(0.35, 0.45, 0.6));
-    vec3 resultRGB = mix(col, rainTint, rain * 0.45);
+    // Pale blue-grey, not near-white - reads as water, not a paint stroke.
+    vec3 rainTint = particleColor(vec3(0.55, 0.65, 0.8), vec3(0.3, 0.42, 0.58));
+    vec3 resultRGB = mix(col, rainTint, rain * 0.08);
 
     float mask = cornerMask();
     float finalAlpha = mask * u_bg_color.a;
