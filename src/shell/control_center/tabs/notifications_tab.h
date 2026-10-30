@@ -29,6 +29,7 @@ public:
   std::unique_ptr<Flex> create() override;
   std::unique_ptr<Flex> createHeaderActions() override;
   void onClose() override;
+  bool handleKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
 
 private:
   void onPanelCardOpacityChanged(float opacity) override;
@@ -45,6 +46,9 @@ private:
   void syncDndButton();
   void updateEmptyState(bool hasHistory, bool hasFiltered);
   std::optional<std::size_t> filteredIndexForId(uint32_t id) const;
+  [[nodiscard]] const NotificationHistoryEntry* filteredEntry(std::size_t index) const;
+  // The filter slide keeps its snapshot; this only removes ids history no longer holds.
+  void dropVanishedFiltered();
   void cancelFilterSlide();
   void beginFilterSlideOut(std::size_t nextIndex);
   void beginFilterSlideIn();
@@ -55,7 +59,8 @@ private:
   CompositorPlatform* m_platform = nullptr;
   IconResolver m_iconResolver;
   std::unique_ptr<NotificationHistoryAdapter> m_adapter;
-  std::vector<const NotificationHistoryEntry*> m_filtered;
+  // Notification ids from the current filter snapshot, looked up with findHistoryEntry().
+  std::vector<uint32_t> m_filtered;
   Flex* m_root = nullptr;
   VirtualListView* m_list = nullptr;
   Flex* m_emptyCard = nullptr;

@@ -620,7 +620,7 @@ void TooltipManager::scheduleProviderRefresh() {
   }
 
   InputArea* area = m_pendingArea;
-  m_refreshTimer.start(interval, [this, area]() { refreshFromArea(area); });
+  m_refreshTimer.start(interval, [this, area] { refreshFromArea(area); });
 }
 
 float TooltipManager::pendingOutputScale() const {
@@ -661,8 +661,7 @@ TooltipManager::Size TooltipManager::measureContent(Renderer& renderer, const To
     float rowH = 0.0F;
     for (const auto& row : *rows) {
       auto km = renderer.measureText(row.key, fontSize);
-      const auto vm =
-          renderer.measureText(row.value, fontSize, FontWeight::Normal, 0.0F, 0, TextAlign::Start, kValueFontFamily);
+      const auto vm = renderer.measureText(row.value, fontSize, {FontWeight::Normal, std::string(kValueFontFamily)});
       maxKeyW = std::max(maxKeyW, km.width);
       maxValW = std::max(maxValW, vm.width);
       rowH = std::max({rowH, km.bottom - km.top, vm.bottom - vm.top});
@@ -697,7 +696,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
           .radius = Style::scaledRadiusMd(),
           .width = w,
           .height = h,
-          .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Outline), kBorder); },
+          .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), kBorder); },
       })
   );
 
@@ -723,8 +722,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
     float maxValW = 0.0F;
     for (const auto& row : *rows) {
       auto km = renderer.measureText(row.key, fontSize);
-      const auto vm =
-          renderer.measureText(row.value, fontSize, FontWeight::Normal, 0.0F, 0, TextAlign::Start, kValueFontFamily);
+      const auto vm = renderer.measureText(row.value, fontSize, {FontWeight::Normal, std::string(kValueFontFamily)});
       maxKeyW = std::max(maxKeyW, km.width);
       maxValW = std::max(maxValW, vm.width);
     }
@@ -758,8 +756,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
           .textAlign = TextAlign::End,
           .ellipsize = row.valueEllipsize,
       });
-      const auto vm =
-          renderer.measureText(row.value, fontSize, FontWeight::Normal, 0.0F, 0, TextAlign::Start, kValueFontFamily);
+      const auto vm = renderer.measureText(row.value, fontSize, {FontWeight::Normal, std::string(kValueFontFamily)});
       if (vm.width > columns.value + 0.5F) {
         valLabel->setMaxWidth(columns.value);
       }

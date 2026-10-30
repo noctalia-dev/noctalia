@@ -53,7 +53,7 @@ RangeSlider::RangeSlider() {
     applyVisualState();
     markPaintDirty();
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     applyVisualState();
     markPaintDirty();
   });
@@ -90,15 +90,56 @@ RangeSlider::RangeSlider() {
     }
     updateFromLocalX(data.localX);
   });
+  area->setOnAxisHandler([this](const InputArea::PointerData& data) {
+    if (!m_enabled || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
+      return false;
+    }
+    const float frameDelta = data.axisLines != 0.0F ? data.axisLines : static_cast<float>(data.axisValue);
+    if (frameDelta == 0.0F) {
+      return false;
+    }
+    const double step = m_step > 0.0 ? m_step : (m_max - m_min) * 0.05;
+    if (step <= 0.0) {
+      return false;
+    }
+    const bool increase = frameDelta < 0.0F;
+    // Wheel drives the thumb nearest the pointer; a pinned thumb declines so ancestor views scroll.
+    const float lowX = thumbCenterX(m_low);
+    const float highX = thumbCenterX(m_high);
+    // On a tie (thumbs coincide) the pointer side picks, mirroring the press handler.
+    const bool adjustLow = std::abs(data.localX - lowX) < std::abs(data.localX - highX)
+        || (std::abs(data.localX - lowX) == std::abs(data.localX - highX) && data.localX < lowX);
+    if (adjustLow) {
+      if ((increase && m_low >= m_high - kValueEpsilon) || (!increase && m_low <= m_min + kValueEpsilon)) {
+        return false;
+      }
+    } else {
+      if ((increase && m_high >= m_max - kValueEpsilon) || (!increase && m_high <= m_low + kValueEpsilon)) {
+        return false;
+      }
+    }
+    const float steps = data.scrollSteps();
+    if (steps != 0.0F) {
+      if (adjustLow) {
+        setLowValue(m_low - steps * step);
+      } else {
+        setHighValue(m_high - steps * step);
+      }
+      if (m_onDragEnd) {
+        m_onDragEnd();
+      }
+    }
+    return true;
+  });
   area->setFocusable(true);
-  area->setOnFocusGain([this]() {
+  area->setOnFocusGain([this] {
     if (m_activeThumb == ActiveThumb::None) {
       m_activeThumb = ActiveThumb::Low;
     }
     applyVisualState();
     markPaintDirty();
   });
-  area->setOnFocusLoss([this]() {
+  area->setOnFocusLoss([this] {
     m_activeThumb = ActiveThumb::None;
     applyVisualState();
     markPaintDirty();
@@ -321,16 +362,16 @@ void RangeSlider::applyVisualState() {
   const bool hovering = m_inputArea != nullptr && m_inputArea->hovered();
   const bool focused = m_inputArea != nullptr && m_inputArea->focused();
 
-  Color trackColor = resolved(ColorRole::Outline);
+  Color trackColor = resolved(ColorRole::OutlineVariant);
   Color fillColor = resolved(ColorRole::Primary);
   Color thumbColor = resolved(ColorRole::OnPrimary);
-  Color thumbBorder = resolved(ColorRole::Outline);
+  Color thumbBorder = resolved(ColorRole::OutlineVariant);
 
   m_lowThumb->setVisible(m_enabled);
   m_highThumb->setVisible(m_enabled);
 
   if (!m_enabled) {
-    trackColor = resolved(ColorRole::Outline, Style::disabledOutlineAlpha);
+    trackColor = resolved(ColorRole::OutlineVariant, Style::disabledOutlineAlpha);
     fillColor = resolved(ColorRole::Primary, 0.5F);
   } else if (focused) {
     thumbBorder = resolveColorSpec(focusRingColorSpec());

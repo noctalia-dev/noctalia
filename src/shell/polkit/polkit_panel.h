@@ -15,7 +15,7 @@ class InputArea;
 class Label;
 class Node;
 class PolkitAgent;
-class PolkitRequest;
+struct PolkitRequest;
 class Renderer;
 class ConfigService;
 
@@ -28,7 +28,10 @@ public:
   void onClose() override;
 
   [[nodiscard]] float preferredWidth() const override { return scaled(480.0F); }
-  [[nodiscard]] float preferredHeight() const override;
+  // Fits its content (the prompt grows when a password is needed); this is the maximum.
+  [[nodiscard]] float preferredHeight() const override { return scaled(640.0F); }
+  [[nodiscard]] bool fitsContentHeight() const noexcept override { return true; }
+  [[nodiscard]] float measureContentHeight(Renderer& renderer, float contentWidth) override;
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
   [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }

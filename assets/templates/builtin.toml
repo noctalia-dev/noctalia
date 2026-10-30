@@ -3,86 +3,102 @@
 [catalog.alacritty]
 name = "Alacritty"
 category = "terminal"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.btop]
 name = "Btop"
 category = "misc"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.cava]
 name = "Cava"
 category = "audio"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.emacs]
 name = "Emacs"
 category = "editor"
+documentation_url = "https://docs.noctalia.dev/noctalia/templates/official/emacs/"
 
 [catalog.foot]
 name = "Foot"
 category = "terminal"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.ghostty]
 name = "Ghostty"
 category = "terminal"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.gtk3]
 name = "GTK 3"
 category = "system"
+documentation_url = "https://docs.noctalia.dev/noctalia/templates/official/gtk-qt/#gtk-34-applications"
 
 [catalog.gtk4]
 name = "GTK 4"
 category = "system"
+documentation_url = "https://docs.noctalia.dev/noctalia/templates/official/gtk-qt/#gtk-34-applications"
 
 [catalog.helix]
 name = "Helix"
 category = "editor"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.kcolorscheme]
 name = "KColorScheme"
 category = "system"
+documentation_url = "https://docs.noctalia.dev/noctalia/templates/official/gtk-qt/#kde-plasma-kcolorscheme"
 
 [catalog.kitty]
 name = "Kitty"
 category = "terminal"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.labwc]
 name = "Labwc"
 category = "compositor"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.niri]
 name = "Niri"
 category = "compositor"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.hyprland]
 name = "Hyprland"
 category = "compositor"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.mango]
 name = "Mango"
 category = "compositor"
+documentation_url = "https://docs.noctalia.dev/noctalia/templates/official/mango/"
 
 [catalog.qt]
 name = "Qt"
 category = "system"
+documentation_url = "https://docs.noctalia.dev/noctalia/templates/official/gtk-qt/#qt-applications"
 
 [catalog.scroll]
 name = "Scroll"
 category = "compositor"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.sway]
 name = "Sway"
 category = "compositor"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [catalog.umbriel]
 name = "Umbriel"
 category = "compositor"
-
-[catalog.starship]
-name = "Starship"
-category = "terminal"
+documentation_url = "https://docs.noctalia.dev/noctalia/templates/official/umbriel/"
 
 [catalog.wezterm]
 name = "Wezterm"
 category = "terminal"
+documentation_url = "https://docs.noctalia.dev/noctalia/theming/app-theming/#built-in-templates"
 
 [templates.alacritty]
 input_path = "./alacritty/alacritty.toml"
@@ -199,12 +215,6 @@ input_path = "./umbriel/umbriel.toml"
 output_path = "$XDG_CONFIG_HOME/umbriel/noctalia.toml"
 post_hook = "bash '{{ config_dir }}/umbriel/apply.sh'"
 undo_hook = "bash '{{ config_dir }}/umbriel/undo.sh'"
-
-[templates.starship]
-input_path = "./starship/starship.toml"
-output_path = "$XDG_CACHE_HOME/noctalia/starship-palette.toml"
-post_hook = "bash '{{ config_dir }}/starship/apply.sh'"
-undo_hook = "bash '{{ config_dir }}/starship/undo.sh'"
 
 [templates.wezterm]
 input_path = "./wezterm/wezterm.toml"

@@ -26,8 +26,9 @@ public:
   void refreshProfiles();
   void refreshActiveEffectsProfiles();
   bool loadEffectsProfile(AudioEffectsProfileKind kind, std::string_view profile);
-  void
-  registerIpc(IpcService& ipc, const ConfigService& config, EffectsProfileFeedbackCallback effectsProfileFeedback = {});
+  void registerIpc(
+      IpcService& ipc, const ConfigService& config, const EffectsProfileFeedbackCallback& effectsProfileFeedback = {}
+  );
 
 private:
   void emitChanged();

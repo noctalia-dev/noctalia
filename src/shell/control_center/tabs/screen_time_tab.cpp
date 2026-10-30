@@ -178,7 +178,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
               .out = &m_detailBackButton,
               .text = i18n::tr("control-center.screen-time.back"),
               .variant = ButtonVariant::Outline,
-              .onClick = [this]() { clearDayDetail(); },
+              .onClick = [this] { clearDayDetail(); },
           }),
           ui::label({
               .out = &m_detailTitle,
@@ -270,7 +270,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
     plotColumn->addChild(
         ui::box({
             .out = &bucketColumn.track,
-            .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+            .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
             .participatesInLayout = false,
             .configure = [](Box& box) { box.setZIndex(-1); },
         })
@@ -329,7 +329,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
               PanelManager::instance().requestRedraw();
             },
         .onLeave =
-            [this, bucketIndex]() {
+            [this, bucketIndex] {
               if (Label* dayLabel = m_bucketColumns[bucketIndex].label; dayLabel != nullptr) {
                 dayLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
               }
@@ -448,7 +448,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
                   {.out = &m_appRows[i].barHost, .align = FlexAlign::Center, .minHeight = kUsageBarHeight * scale},
                   ui::box({
                       .out = &m_appRows[i].barTrack,
-                      .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+                      .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
                       .radius = Style::scaledRadiusSm(scale),
                       .participatesInLayout = false,
                       .configure = [](Box& box) { box.setZIndex(-1); },
@@ -554,7 +554,7 @@ void ScreenTimeTab::beginRangeSlideOut(int nextRangeDays) {
         applyRangeSlide(progress, false);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_rangeSlideAnimId = 0;
         m_rangeDays = m_pendingRangeDays;
         m_startRangeSlideIn = true;
@@ -578,7 +578,7 @@ void ScreenTimeTab::beginRangeSlideIn() {
         applyRangeSlide(progress, true);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_rangeSlideAnimId = 0;
         if (m_scroll != nullptr) {
           m_scroll->setPosition(m_scrollBaseX, m_scrollBaseY);

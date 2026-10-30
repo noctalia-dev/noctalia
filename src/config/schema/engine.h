@@ -77,20 +77,22 @@ namespace noctalia::config::schema {
   template <typename Parent, typename Elem>
   Field<Parent> namedMap(
       std::vector<Elem> Parent::* member, std::string_view key, const Schema<Elem>& subSchema,
-      std::function<void(Elem&, std::string_view name)> setName, std::function<std::string(const Elem&)> getName,
-      bool readSkipEmptyName = false
+      const std::function<void(Elem&, std::string_view name)>& setName,
+      const std::function<std::string(const Elem&)>& getName, bool readSkipEmptyName = false
   ) {
     return Field<Parent>{
         key,
         [member, key, &subSchema, setName, getName,
          readSkipEmptyName](const toml::table& tbl, Parent& out, std::string_view parentPath, Diagnostics& diag) {
-          auto* map = tbl[key].as_table();
+          const auto* map = tbl[key].as_table();
           if (map == nullptr) {
+            warnWrongType(tbl, key, parentPath, diag, "a table");
             return;
           }
           for (const auto& [name, node] : *map) {
             const auto* sub = node.as_table();
             if (sub == nullptr) {
+              warnWrongType(diag, joinPath(joinPath(parentPath, key), name.str()), node, "a table");
               continue;
             }
             Elem elem{};
@@ -117,9 +119,9 @@ namespace noctalia::config::schema {
           tbl.insert_or_assign(key, std::move(map));
         },
         [key, &subSchema](const toml::table& tbl, std::string_view parentPath, std::vector<std::string>& unknown) {
-          if (auto* map = tbl[key].as_table()) {
+          if (const auto* map = tbl[key].as_table()) {
             for (const auto& [name, node] : *map) {
-              if (auto* sub = node.as_table()) {
+              if (const auto* sub = node.as_table()) {
                 collectUnknownKeys(*sub, subSchema, joinPath(joinPath(parentPath, key), name.str()), unknown);
               }
             }
@@ -135,22 +137,26 @@ namespace noctalia::config::schema {
   template <typename Parent, typename Elem>
   Field<Parent> arrayOf(
       std::vector<Elem> Parent::* member, std::string_view key, const Schema<Elem>& subSchema,
-      std::function<bool(const Elem&)> keep
+      const std::function<bool(const Elem&)>& keep
   ) {
     return Field<Parent>{
         key,
         [member, key, &subSchema,
          keep](const toml::table& tbl, Parent& out, std::string_view parentPath, Diagnostics& diag) {
-          auto* arr = tbl[key].as_array();
+          const auto* arr = tbl[key].as_array();
           if (arr == nullptr) {
+            warnWrongType(tbl, key, parentPath, diag, "an array of tables");
             return;
           }
           (out.*member).clear();
+          std::size_t index = 0;
           for (const auto& node : *arr) {
             const auto* sub = node.as_table();
             if (sub == nullptr) {
+              warnWrongType(diag, joinPath(parentPath, key) + '[' + std::to_string(index++) + ']', node, "a table");
               continue;
             }
+            ++index;
             Elem elem{};
             readInto(*sub, elem, subSchema, joinPath(parentPath, key), diag);
             if (keep(elem)) {
@@ -169,9 +175,9 @@ namespace noctalia::config::schema {
           tbl.insert_or_assign(key, std::move(arr));
         },
         [key, &subSchema](const toml::table& tbl, std::string_view parentPath, std::vector<std::string>& unknown) {
-          if (auto* arr = tbl[key].as_array()) {
+          if (const auto* arr = tbl[key].as_array()) {
             for (const auto& node : *arr) {
-              if (auto* sub = node.as_table()) {
+              if (const auto* sub = node.as_table()) {
                 collectUnknownKeys(*sub, subSchema, joinPath(parentPath, key), unknown);
               }
             }
@@ -187,15 +193,17 @@ namespace noctalia::config::schema {
     return Field<Struct>{
         key,
         [member, key, &subSchema](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
-          if (auto* sub = tbl[key].as_table()) {
+          if (const auto* sub = tbl[key].as_table()) {
             readInto(*sub, out.*member, subSchema, joinPath(parentPath, key), diag);
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, "a table");
           }
         },
         [member, key, &subSchema](toml::table& tbl, const Struct& in) {
           tbl.insert_or_assign(key, writeTable(in.*member, subSchema));
         },
         [key, &subSchema](const toml::table& tbl, std::string_view parentPath, std::vector<std::string>& unknown) {
-          if (auto* sub = tbl[key].as_table()) {
+          if (const auto* sub = tbl[key].as_table()) {
             collectUnknownKeys(*sub, subSchema, joinPath(parentPath, key), unknown);
           }
         },

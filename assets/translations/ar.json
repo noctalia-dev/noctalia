@@ -1405,10 +1405,6 @@
         "horizontal": "أفقي",
         "vertical": "رأسي"
       },
-      "panel-bar-alignment": {
-        "centered": "متمركز",
-        "near-trigger": "بالقرب من المشغّل"
-      },
       "panel-position": {
         "auto": "متابعة الشريط"
       },
@@ -2585,10 +2581,7 @@
         "calendar-edit": {
           "button": "تعديل",
           "button-reconnect": "إعادة الاتصال",
-          "button-retry": "إعادة المحاولة",
-          "description": "تحديث حساب التقويم هذا",
-          "description-locked": "رمز التحديث موجود في حلقة المفاتيح مقفلة؛ افتح حلقة المفاتيح وأعد المحاولة",
-          "description-reconnect": "مصادقة Google مفقودة؛ أعد الاتصال بهذا الحساب"
+          "button-retry": "إعادة المحاولة"
         },
         "calendar-event-date-format": {
           "description": "تنسيق التاريخ الذي يظهر أعلى قائمة الأحداث في طرق عرض التقويم",

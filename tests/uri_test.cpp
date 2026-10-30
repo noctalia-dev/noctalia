@@ -3,6 +3,7 @@
 #include "net/uri.h"
 #include "notification/notification_history_store.h"
 #include "notification/notification_manager.h"
+#include "notification_history_test_utils.h"
 #include "render/core/image_encoder.h"
 #include "render/core/image_file_loader.h"
 #include "tests/test_check.h"
@@ -126,12 +127,13 @@ int main() {
   // History must keep the captured pixels even after the original images vanish.
   std::filesystem::remove(literal);
   std::filesystem::remove(space);
-  const auto historyFile = temp.path / "history.json";
-  TEST_CHECK(saveNotificationHistoryToFile(historyFile, manager.history(), 100, manager.changeSerial()));
+  const auto historyFile = temp.path / "history.enc";
+  const auto key = notificationHistoryTestKey();
+  TEST_CHECK(saveNotificationHistoryToFile(historyFile, manager.history(), 100, manager.changeSerial(), key));
   std::deque<NotificationHistoryEntry> restored;
   std::uint32_t nextId = 0;
   std::uint64_t serial = 0;
-  TEST_CHECK(loadNotificationHistoryFromFile(historyFile, restored, nextId, serial));
+  TEST_CHECK(loadNotificationHistoryFromFile(historyFile, restored, nextId, serial, key));
   TEST_CHECK(restored.size() == expectedSnapshots.size());
   for (const auto& entry : restored) {
     const auto& snapshot = entry.notification.imageData;

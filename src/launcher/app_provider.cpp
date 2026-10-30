@@ -160,7 +160,7 @@ namespace {
     return {};
   }
 
-  std::string originGlyph(DesktopEntryOrigin origin) {
+  std::string_view originGlyph(DesktopEntryOrigin origin) {
     switch (origin) {
     case DesktopEntryOrigin::Flatpak:
     case DesktopEntryOrigin::Snap:

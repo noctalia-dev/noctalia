@@ -136,6 +136,9 @@ private:
   ButtonVariant m_variant = ButtonVariant::Default;
   ButtonPalette m_palette;
   std::optional<ButtonPalette> m_customPalette;
+  Color m_displayedBg{};
+  Color m_displayedBorder{};
+  Color m_displayedLabel{};
   // Animation: snapshot of colors at transition start
   Color m_fromBg{};
   Color m_fromBorder{};

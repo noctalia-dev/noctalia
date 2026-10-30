@@ -4,6 +4,7 @@
 #include "dbus/tray/tray_service.h"
 #include "tests/test_check.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <functional>
@@ -39,18 +40,31 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
-  TEST_CHECK(argc == 2);
+  TEST_CHECK(argc == 3);
   TEST_CHECK(std::string{argv[1]} == "discovery" || std::string{argv[1]} == "registration");
   const bool discovery = std::string{argv[1]} == "discovery";
+  const std::string scenario{argv[2]};
+  TEST_CHECK(scenario == "default" || scenario == "ayatana" || scenario == "both");
+  const std::size_t expectedCount = scenario == "both" ? 2 : 1;
   auto itemConnection = sdbus::createSessionBusConnection();
   const sdbus::ServiceName itemName{"org.kde.StatusNotifierItem-4242-1"};
   if (discovery) {
     itemConnection->requestName(itemName);
   }
-  auto item = sdbus::createObject(*itemConnection, sdbus::ObjectPath{"/StatusNotifierItem"});
-  item->addVTable(
-          sdbus::registerProperty("IconName").withGetter([]() { return std::string{"test-tray-icon"}; })
-  ).forInterface(kItemInterface);
+  auto createItem = [&](const std::string& path, bool hasProperties) {
+    auto item = sdbus::createObject(*itemConnection, sdbus::ObjectPath{path});
+    if (hasProperties) {
+      item->addVTable(
+              sdbus::registerProperty("IconName").withGetter([]() { return std::string{"test-tray-icon"}; })
+      ).forInterface(kItemInterface);
+    } else {
+      // An interface without properties returns a successful, empty GetAll reply.
+      item->addVTable(sdbus::registerSignal("NewIcon").withParameters<>()).forInterface(kItemInterface);
+    }
+    return item;
+  };
+  auto defaultItem = createItem("/StatusNotifierItem", scenario != "ayatana");
+  auto ayatanaItem = createItem("/org/ayatana/NotificationItem", scenario != "default");
   itemConnection->enterEventLoopAsync();
 
   SessionBus bus;
@@ -69,7 +83,8 @@ int main(int argc, char** argv) {
     watcher->callMethodAsync("RegisterStatusNotifierItem")
         .onInterface(kWatcherInterface)
         .withArguments(uniqueName)
-        .uponReplyInvoke([&](std::optional<sdbus::Error> error) {
+        // sdbus-c++ recognizes the error parameter only when it is passed by value.
+        .uponReplyInvoke([&](std::optional<sdbus::Error> error) { // NOLINT(performance-unnecessary-value-param)
           registrationFailed = error.has_value();
           acknowledged = true;
         });
@@ -103,15 +118,20 @@ int main(int argc, char** argv) {
   std::this_thread::sleep_for(std::chrono::milliseconds(350));
   TEST_CHECK(drainUntil(bus, [&]() {
     const auto items = tray.items();
-    return items.size() == 1 && items.front().iconName == "test-tray-icon";
+    return items.size() == expectedCount
+        && std::ranges::all_of(items, [](const auto& item) { return item.iconName == "test-tray-icon"; });
   }));
 
   if (!discovery) {
     registerItem();
-    TEST_CHECK(drainUntil(bus, [&]() { return tray.itemCount() == 1; }));
-    TEST_CHECK(tray.items().front().busName == uniqueName);
-  } else {
-    TEST_CHECK(tray.items().front().busName == std::string{itemName});
+    TEST_CHECK(drainUntil(bus, [&]() { return tray.itemCount() == expectedCount; }));
+  }
+  TEST_CHECK(tray.registeredItems().size() == expectedCount);
+  for (const auto& item : tray.items()) {
+    TEST_CHECK(item.busName == (discovery ? std::string{itemName} : uniqueName));
+    if (scenario != "both") {
+      TEST_CHECK(item.objectPath == (scenario == "default" ? "/StatusNotifierItem" : "/org/ayatana/NotificationItem"));
+    }
   }
   itemConnection->leaveEventLoop();
 }

@@ -902,6 +902,59 @@ monitors = ["eDP-1"]
     expect(disabled["dock"]["monitor"].node() == nullptr, "disabled dock gained enabled monitor overrides");
   }
 
+  void checkPaletteRoleNamesMigration() {
+    toml::table sidecar = toml::parse(R"(
+config_version = 15
+[bar.main]
+capsule_fill = "surface_variant"
+capsule_border = " Outline "
+[[session.actions]]
+variant = "outline"
+[desktop_widgets.widget.login]
+settings = { background_color = "surface_variant", track_color = "on_surface_variant" }
+[theme.templates.custom_colors]
+accent = "outline"
+)");
+    noctalia::config::schema::Diagnostics diagnostics;
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 15, diagnostics);
+    expect(applied == noctalia::config::currentConfigVersion(), "palette role migration was not applied");
+    expect(
+        sidecar["bar"]["main"]["capsule_fill"].value<std::string>() == std::optional<std::string>{"surface_container"},
+        "surface_variant was not renamed"
+    );
+    expect(
+        sidecar["bar"]["main"]["capsule_border"].value<std::string>() == std::optional<std::string>{"outline_variant"},
+        "outline was not renamed with the role token normalization"
+    );
+    expect(
+        sidecar["session"]["actions"][0]["variant"].value<std::string>() == std::optional<std::string>{"outline"},
+        "button variant outline was treated as a color"
+    );
+    expect(
+        sidecar["desktop_widgets"]["widget"]["login"]["settings"]["background_color"].value<std::string>()
+                == std::optional<std::string>{"surface_container"}
+            && sidecar["desktop_widgets"]["widget"]["login"]["settings"]["track_color"].value<std::string>()
+                == std::optional<std::string>{"on_surface_variant"},
+        "nested widget colors were not migrated precisely"
+    );
+    expect(
+        sidecar["theme"]["templates"]["custom_colors"]["accent"].value<std::string>()
+            == std::optional<std::string>{"outline"},
+        "template token under theme was rewritten"
+    );
+
+    toml::table legacyConfig = toml::parse("[bar.main]\ncapsule_fill = \"surface_variant\"\n");
+    noctalia::config::LegacyConfigIssues issues;
+    noctalia::config::normalizeLegacyConfig(legacyConfig, issues);
+    expect(
+        issues.size() == 1 && hasIssuePath(issues, "bar.main.capsule_fill"),
+        "hand-written palette role did not produce a migration issue"
+    );
+    noctalia::config::LegacyConfigIssues secondPassIssues;
+    noctalia::config::normalizeLegacyConfig(legacyConfig, secondPassIssues);
+    expect(secondPassIssues.empty(), "palette role normalization was not idempotent");
+  }
+
   void checkVersionGating() {
     toml::table legacy = toml::parse(R"(
 [bar.main]
@@ -1053,6 +1106,7 @@ int main() {
   checkKeyboardLayoutShowGlyphMigration();
   checkKeyboardLayoutCustomLabelsMigration();
   checkWorkspacesDisplayMigration();
+  checkPaletteRoleNamesMigration();
   checkPluginAutoUpdateModeMigration();
   checkVersionGating();
   checkReminderFingerprint();

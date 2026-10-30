@@ -32,7 +32,9 @@ namespace {
 int main() {
   NotificationManager manager;
   std::vector<std::pair<uint32_t, CloseReason>> closes;
-  manager.setCloseCallback([&closes](uint32_t id, CloseReason reason) { closes.emplace_back(id, reason); });
+  manager.setCloseCallback([&closes](uint32_t id, CloseReason reason, const std::string&) {
+    closes.emplace_back(id, reason);
+  });
 
   const uint32_t firstId = addExternal(manager, "first");
   const uint32_t secondId = addExternal(manager, "second");
@@ -91,7 +93,7 @@ int main() {
   std::vector<std::pair<uint32_t, CloseReason>> discardCloses;
   int unreadStateChanges = 0;
   discardManager.setKeepDismissedInHistory(false);
-  discardManager.setCloseCallback([&discardCloses](uint32_t id, CloseReason reason) {
+  discardManager.setCloseCallback([&discardCloses](uint32_t id, CloseReason reason, const std::string&) {
     discardCloses.emplace_back(id, reason);
   });
   discardManager.setStateCallback([&unreadStateChanges]() { ++unreadStateChanges; });
@@ -113,5 +115,38 @@ int main() {
   TEST_CHECK(discardManager.history().size() == 1);
   TEST_CHECK(findEntry(discardManager, expiredId) != nullptr);
   TEST_CHECK(findEntry(discardManager, expiredId)->closeReason == CloseReason::Expired);
+
+  // A notification withdrawn by its sender stays in history but is no longer unread, whether it was
+  // still live or had already expired with a deferred NotificationClosed.
+  NotificationManager withdrawManager;
+  int withdrawStateChanges = 0;
+  withdrawManager.setStateCallback([&withdrawStateChanges]() { ++withdrawStateChanges; });
+
+  const uint32_t liveId = addExternal(withdrawManager, "live");
+  TEST_CHECK(withdrawStateChanges == 1);
+  TEST_CHECK(withdrawManager.close(liveId, CloseReason::ClosedByCall));
+  TEST_CHECK(findEntry(withdrawManager, liveId) != nullptr);
+  TEST_CHECK(findEntry(withdrawManager, liveId)->seen);
+  TEST_CHECK(!withdrawManager.hasUnreadNotificationHistory());
+  TEST_CHECK(withdrawStateChanges == 2);
+
+  const uint32_t pendingId = withdrawManager.addOrReplace(
+      NotificationRequest{
+          .appName = "history-test",
+          .summary = "pending",
+          .timeout = 0,
+          .actions = {"default", "Open"},
+      }
+  );
+  TEST_CHECK(withdrawManager.close(pendingId, CloseReason::Expired));
+  TEST_CHECK(withdrawManager.hasPendingDBusClose(pendingId));
+  TEST_CHECK(withdrawManager.hasUnreadNotificationHistory());
+  TEST_CHECK(withdrawStateChanges == 3);
+  TEST_CHECK(withdrawManager.close(pendingId, CloseReason::ClosedByCall));
+  TEST_CHECK(!withdrawManager.hasPendingDBusClose(pendingId));
+  TEST_CHECK(findEntry(withdrawManager, pendingId) != nullptr);
+  TEST_CHECK(findEntry(withdrawManager, pendingId)->seen);
+  TEST_CHECK(!withdrawManager.hasUnreadNotificationHistory());
+  TEST_CHECK(withdrawStateChanges == 4);
   return 0;
 }

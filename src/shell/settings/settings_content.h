@@ -73,6 +73,7 @@ namespace settings {
     std::function<void(Node*)> setScrollTarget;
     std::function<void(const Node&)> scrollContentToTop;
     std::function<void(InputArea*)> focusArea;
+    std::function<void(const std::string&)> openBrowserUrl;
     std::function<void(const std::vector<std::string>&)> openBarWidgetAddPopup;
     std::function<void(SearchPickerOpenRequest request)> openSearchPickerPopup;
     std::function<void(std::vector<std::string>, ConfigOverrideValue)> setOverride;

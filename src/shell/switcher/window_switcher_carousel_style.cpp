@@ -32,7 +32,7 @@ WindowSwitcherStyleLayout computeWindowSwitcherCarouselLayout(const WindowSwitch
   layout.visibleCards = std::max<std::size_t>(1, std::min(kVisibleCards, context.windowCount));
 
   const float availableWidth = std::max(kMinimumLayoutExtent, context.screenWidth - screenMargin * 2.0F);
-  auto desiredWidth = [&]() {
+  auto desiredWidth = [&] {
     const std::size_t sideSlots = layout.visibleCards / 2;
     float width = Style::windowSwitcherSelectedCardWidth;
     if (sideSlots >= 1) {
@@ -54,7 +54,7 @@ WindowSwitcherStyleLayout computeWindowSwitcherCarouselLayout(const WindowSwitch
   float farWidth = Style::windowSwitcherFarCardWidth * context.scale * widthScale;
   float overlap = Style::windowSwitcherCardOverlap * context.scale * widthScale;
 
-  auto updateExtents = [&]() {
+  auto updateExtents = [&] {
     const std::size_t sideSlots = layout.visibleCards / 2;
     layout.stripWidth = selectedWidth;
     if (sideSlots >= 1) {

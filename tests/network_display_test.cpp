@@ -37,5 +37,15 @@ int main() {
   cellular.connected = false;
   ok = expectGlyph(network_display::glyphForState(cellular), "cell-signal-off", "disconnected cellular fallback") && ok;
 
+  // A Wi-Fi device running a hotspot is in use, not failing to connect.
+  NetworkState hotspot;
+  hotspot.kind = NetworkConnectivity::Cellular;
+  hotspot.connected = true;
+  hotspot.wirelessEnabled = true;
+  hotspot.hotspotActive = true;
+  ok = expectGlyph(network_display::wifiGlyphForState(hotspot), "access-point", "hotspot over cellular") && ok;
+  hotspot.hotspotActive = false;
+  ok = expectGlyph(network_display::wifiGlyphForState(hotspot), "wifi-exclamation", "wifi idle over cellular") && ok;
+
   return ok ? 0 : 1;
 }

@@ -11,16 +11,16 @@ These commands control user-facing shell features that are not tied to one persi
 
 ## Notifications
 
-| Action | Command | Description |
-|--------|---------|-------------|
-| Enable Do Not Disturb | <IpcCommand command="notification-dnd-set on" /> | Hide current notification toasts and suppress new ones. Notification history still fills. |
-| Disable Do Not Disturb | <IpcCommand command="notification-dnd-set off" /> | Allow new notification toasts; hidden or suppressed toasts are not replayed. |
-| Toggle Do Not Disturb | <IpcCommand command="notification-dnd-toggle" /> | Toggle notification toast suppression. Notification history still fills. |
-| Show Do Not Disturb status | <IpcCommand command="notification-dnd-status" /> | Print the current Do Not Disturb state. |
-| Send internal notification | <IpcCommand command="notification-show <summary>" /> | Create a Noctalia-origin notification with the provided summary text. |
-| Invoke latest notification | <IpcCommand command="notification-invoke-latest" /> | Invoke the default action of the most recent active notification (raises/focuses the source app), mirroring a toast left-click. |
-| Clear active notifications | <IpcCommand command="notification-clear-active" /> | Dismiss all currently visible active notifications. Dismissed notifications stay in control-center history. |
-| Clear notification history | <IpcCommand command="notification-clear-history" /> | Remove all entries from notification history. |
+| Action                     | Command                                              | Description                                                                                                                     |
+| -------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Enable Do Not Disturb      | <IpcCommand command="notification-dnd-set on" />     | Hide current notification toasts and suppress new ones. Notification history still fills.                                       |
+| Disable Do Not Disturb     | <IpcCommand command="notification-dnd-set off" />    | Allow new notification toasts; hidden or suppressed toasts are not replayed.                                                    |
+| Toggle Do Not Disturb      | <IpcCommand command="notification-dnd-toggle" />     | Toggle notification toast suppression. Notification history still fills.                                                        |
+| Show Do Not Disturb status | <IpcCommand command="notification-dnd-status" />     | Print the current Do Not Disturb state.                                                                                         |
+| Send internal notification | <IpcCommand command="notification-show <summary>" /> | Create a Noctalia-origin notification with the provided summary text.                                                           |
+| Invoke latest notification | <IpcCommand command="notification-invoke-latest" />  | Invoke the default action of the most recent active notification (raises/focuses the source app), mirroring a toast left-click. |
+| Clear active notifications | <IpcCommand command="notification-clear-active" />   | Dismiss all currently visible active notifications. Dismissed notifications stay in control-center history.                     |
+| Clear notification history | <IpcCommand command="notification-clear-history" />  | Remove all entries from notification history.                                                                                   |
 
 DND enable/disable IPC commands show a short OSD for the new state.
 
@@ -52,39 +52,46 @@ Supported JSON fields:
 
 ## Clipboard
 
-| Action | Command | Description |
-|--------|---------|-------------|
-| Clear clipboard history | <IpcCommand command="clipboard-clear" /> | Clear clipboard history without opening the panel. Pinned entries survive, so with nothing pinned this clears everything. Does not ask for confirmation. The live selection is untouched; pasting still works until something else is copied. |
-| Copy text to clipboard | <IpcCommand command="clipboard-copy <text>" /> | Set the clipboard selection to `<text>`. Everything after the verb is the payload, so spaces and newlines are kept verbatim. Payloads are capped at 64 KiB by the IPC transport. |
-| Print clipboard text | <IpcCommand command="clipboard-text" /> | Print the most recent clipboard text on stdout with no trailing newline. Pinned entries and images are skipped, so this matches what pasting into a Noctalia input would insert. Prints nothing when the history holds no text. |
+| Action                  | Command                                        | Description                                                                                                                                                                                                                                   |
+| ----------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Clear clipboard history | <IpcCommand command="clipboard-clear" />       | Clear clipboard history without opening the panel. Pinned entries survive, so with nothing pinned this clears everything. Does not ask for confirmation. The live selection is untouched; pasting still works until something else is copied. |
+| Copy text to clipboard  | <IpcCommand command="clipboard-copy <text>" /> | Set the clipboard selection to `<text>`. Everything after the verb is the payload, so spaces and newlines are kept verbatim. Payloads are capped at 64 KiB by the IPC transport.                                                              |
+| Print clipboard text    | <IpcCommand command="clipboard-text" />        | Print the most recent clipboard text on stdout with no trailing newline. Pinned entries and images are skipped, so this matches what pasting into a Noctalia input would insert. Prints nothing when the history holds no text.               |
 
 ## Media
 
-| Action | Command | Description |
-|--------|---------|-------------|
-| Previous track | <IpcCommand command="media previous" /> | Ask the active MPRIS player to go to the previous item. |
-| Next track | <IpcCommand command="media next" /> | Ask the active MPRIS player to go to the next item. |
-| Play/pause toggle | <IpcCommand command="media toggle" /> | Toggle play/pause on the active MPRIS player. |
-| Play | <IpcCommand command="media play" /> | Resume playback on the active MPRIS player. |
-| Pause | <IpcCommand command="media pause" /> | Pause the active MPRIS player. No-op when nothing is playing. |
-| Stop playback | <IpcCommand command="media stop" /> | Send the MPRIS `Stop` command to the active player and dismiss it: the player is hidden from the media widget until it starts playing again or is explicitly selected with `next-player`/`previous-player`. Use `media pause` to pause without dismissing. |
-| Previous player | <IpcCommand command="media previous-player" /> | Switch the active player to the previous available MPRIS player and pin it. |
-| Next player | <IpcCommand command="media next-player" /> | Switch the active player to the next available MPRIS player and pin it. |
+| Action                 | Command                                        | Description                                                                                                                                                                                                                                                |
+| ---------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Previous track         | <IpcCommand command="media previous" />        | Ask the active MPRIS player to go to the previous item.                                                                                                                                                                                                    |
+| Next track             | <IpcCommand command="media next" />            | Ask the active MPRIS player to go to the next item.                                                                                                                                                                                                        |
+| Play/pause toggle      | <IpcCommand command="media toggle" />          | Toggle play/pause on the active MPRIS player.                                                                                                                                                                                                              |
+| Play                   | <IpcCommand command="media play" />            | Resume playback on the active MPRIS player.                                                                                                                                                                                                                |
+| Pause                  | <IpcCommand command="media pause" />           | Pause the active MPRIS player. No-op when nothing is playing.                                                                                                                                                                                              |
+| Stop playback          | <IpcCommand command="media stop" />            | Send the MPRIS `Stop` command to the active player and dismiss it: the player is hidden from the media widget until it starts playing again or is explicitly selected with `next-player`/`previous-player`. Use `media pause` to pause without dismissing. |
+| Previous player        | <IpcCommand command="media previous-player" /> | Switch the active player to the previous available MPRIS player and pin it.                                                                                                                                                                                |
+| Next player            | <IpcCommand command="media next-player" />     | Switch the active player to the next available MPRIS player and pin it.                                                                                                                                                                                    |
+| Set player volume      | <IpcCommand command="media volume-set 65" />   | Set the active player's volume. Accepts `65`, `65%`, or a normalized value such as `0.65`.                                                                                                                                                                 |
+| Raise player volume    | <IpcCommand command="media volume-up" />       | Raise the active player's volume by the default step (5%).                                                                                                                                                                                                 |
+| Raise player by amount | <IpcCommand command="media volume-up 10" />    | Raise the active player's volume by a custom step. Accepts `10`, `10%`, or a normalized value such as `0.1`.                                                                                                                                               |
+| Lower player volume    | <IpcCommand command="media volume-down" />     | Lower the active player's volume by the default step (5%).                                                                                                                                                                                                 |
+| Lower player by amount | <IpcCommand command="media volume-down 5%" />  | Lower the active player's volume by a custom step.                                                                                                                                                                                                         |
+
+Player volume is clamped to 0–100%. A player already above 100% can be lowered from that level, and raising it will not push it further past its current level. Repeated calls during a held key accumulate instead of re-reading a stale player volume.
 
 ## Wallpaper
 
-| Action | Command | Description |
-|--------|---------|-------------|
-| Random wallpaper now | <IpcCommand command="wallpaper-random" /> | Switch to a random wallpaper immediately on all monitors. |
-| Random wallpaper (one monitor) | <IpcCommand command="wallpaper-random <connector>" /> | Switch to a random wallpaper on the monitor named by **connector** (e.g. `DP-1`). Other monitors are unchanged. Respects per-monitor directory configuration and theme mode. |
-| Next wallpaper | <IpcCommand command="wallpaper-next" /> | Advance to the next wallpaper in order immediately on all monitors. |
-| Next wallpaper (one monitor) | <IpcCommand command="wallpaper-next <connector>" /> | Advance to the next wallpaper on the monitor named by **connector** (e.g. `DP-1`). Other monitors are unchanged. Respects per-monitor directory configuration and theme mode. |
-| Previous wallpaper | <IpcCommand command="wallpaper-previous" /> | Go back to the previous wallpaper in order immediately on all monitors. |
-| Previous wallpaper (one monitor) | <IpcCommand command="wallpaper-previous <connector>" /> | Go back to the previous wallpaper on the monitor named by **connector** (e.g. `DP-1`). Other monitors are unchanged. Respects per-monitor directory configuration and theme mode. |
-| Get wallpaper | <IpcCommand command="wallpaper-get" /> | Print the default wallpaper path persisted in `settings.toml`. |
-| Get wallpaper (one monitor) | <IpcCommand command="wallpaper-get <connector>" /> | Print the effective wallpaper path for the monitor named by **connector** (e.g. `DP-1`). |
-| Set wallpaper (all monitors) | <IpcCommand command="wallpaper-set <path>" /> | Set every connected monitor and the default wallpaper, persisted to `settings.toml` (per-monitor entries plus `wallpaper.default.path`). |
-| Set wallpaper (one monitor) | <IpcCommand command="wallpaper-set <connector> <path>" /> | Set only the monitor named by **connector** (e.g. `DP-1`). Remaining tokens are joined as the path. Other monitors are unchanged. |
+| Action                           | Command                                                   | Description                                                                                                                                                                       |
+| -------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Random wallpaper now             | <IpcCommand command="wallpaper-random" />                 | Switch to a random wallpaper immediately on all monitors.                                                                                                                         |
+| Random wallpaper (one monitor)   | <IpcCommand command="wallpaper-random <connector>" />     | Switch to a random wallpaper on the monitor named by **connector** (e.g. `DP-1`). Other monitors are unchanged. Respects per-monitor directory configuration and theme mode.      |
+| Next wallpaper                   | <IpcCommand command="wallpaper-next" />                   | Advance to the next wallpaper in order immediately on all monitors.                                                                                                               |
+| Next wallpaper (one monitor)     | <IpcCommand command="wallpaper-next <connector>" />       | Advance to the next wallpaper on the monitor named by **connector** (e.g. `DP-1`). Other monitors are unchanged. Respects per-monitor directory configuration and theme mode.     |
+| Previous wallpaper               | <IpcCommand command="wallpaper-previous" />               | Go back to the previous wallpaper in order immediately on all monitors.                                                                                                           |
+| Previous wallpaper (one monitor) | <IpcCommand command="wallpaper-previous <connector>" />   | Go back to the previous wallpaper on the monitor named by **connector** (e.g. `DP-1`). Other monitors are unchanged. Respects per-monitor directory configuration and theme mode. |
+| Get wallpaper                    | <IpcCommand command="wallpaper-get" />                    | Print the default wallpaper path persisted in `settings.toml`.                                                                                                                    |
+| Get wallpaper (one monitor)      | <IpcCommand command="wallpaper-get <connector>" />        | Print the effective wallpaper path for the monitor named by **connector** (e.g. `DP-1`).                                                                                          |
+| Set wallpaper (all monitors)     | <IpcCommand command="wallpaper-set <path>" />             | Set every connected monitor and the default wallpaper, persisted to `settings.toml` (per-monitor entries plus `wallpaper.default.path`).                                          |
+| Set wallpaper (one monitor)      | <IpcCommand command="wallpaper-set <connector> <path>" /> | Set only the monitor named by **connector** (e.g. `DP-1`). Remaining tokens are joined as the path. Other monitors are unchanged.                                                 |
 
 Wallpaper paths accept an image path (`~` expanded) or `color:#RRGGBB` / `color:#RRGGBBAA`. Non-color paths must exist at call time.
 
@@ -92,14 +99,14 @@ The CLI forwards everything after the command as one string (`noctalia msg wallp
 
 ## Theme
 
-| Action | Command | Description |
-|--------|---------|-------------|
-| Get theme mode | <IpcCommand command="theme-mode-get" /> | Print the current resolved theme mode: `dark` or `light` (from `[theme].mode` or from the `[location]` schedule when mode is `auto`). |
-| Toggle theme mode | <IpcCommand command="theme-mode-toggle" /> | Switch between dark and light theme mode (same as the bar control when `[theme].mode` is not `auto`). |
-| Set theme mode | <IpcCommand command="theme-mode-set dark" /> | Persist `[theme].mode` in `settings.toml` and reload. Pass `dark`, `light`, or `auto` (example shows `dark`). |
-| Get color scheme | <IpcCommand command="color-scheme-get" /> | Print the active palette selection as two tokens: `builtin Noctalia`, `wallpaper m3-content`, `community Oxocarbon`, or `custom MyScheme`. |
-| Set color scheme | <IpcCommand command="color-scheme-set builtin Noctalia" /> | Persist `[theme].source` and the palette for that source, then reload. |
-| Apply templates | <IpcCommand command="templates-apply" /> | Rerender the enabled configured theme templates for the current palette without changing theme mode or firing shell palette hooks. |
+| Action            | Command                                                    | Description                                                                                                                                |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Get theme mode    | <IpcCommand command="theme-mode-get" />                    | Print the current resolved theme mode: `dark` or `light` (from `[theme].mode` or from the `[location]` schedule when mode is `auto`).      |
+| Toggle theme mode | <IpcCommand command="theme-mode-toggle" />                 | Switch between dark and light theme mode (same as the bar control when `[theme].mode` is not `auto`).                                      |
+| Set theme mode    | <IpcCommand command="theme-mode-set dark" />               | Persist `[theme].mode` in `settings.toml` and reload. Pass `dark`, `light`, or `auto` (example shows `dark`).                              |
+| Get color scheme  | <IpcCommand command="color-scheme-get" />                  | Print the active palette selection as two tokens: `builtin Noctalia`, `wallpaper m3-content`, `community Oxocarbon`, or `custom MyScheme`. |
+| Set color scheme  | <IpcCommand command="color-scheme-set builtin Noctalia" /> | Persist `[theme].source` and the palette for that source, then reload.                                                                     |
+| Apply templates   | <IpcCommand command="templates-apply" />                   | Rerender the enabled configured theme templates for the current palette without changing theme mode or firing shell palette hooks.         |
 
 `color-scheme-set` accepts these source kinds:
 
@@ -110,33 +117,99 @@ The CLI forwards everything after the command as one string (`noctalia msg wallp
 
 ## Screenshots
 
-Requires compositor support for `wlr-screencopy-unstable-v1`. Uses the global `[shell.screenshot]` output policy (directory, filename pattern, freeze, save to file, clipboard, pipe command). See [Shell settings](/noctalia/configuration/shell/#shell-settings).
+Region and fullscreen capture require compositor support for `wlr-screencopy-unstable-v1`. Window capture uses `ext-image-copy-capture-v1` and `ext-foreign-toplevel-image-capture-source-manager-v1`. All screenshot commands use the global `[shell.screenshot]` output policy (directory, filename pattern, file format, freeze, save to file, clipboard, pipe command) unless [per-call options](#per-call-options) override it; window capture ignores `freeze`. See [Shell settings](/noctalia/configuration/shell/#shell-settings).
 
-| Action | Command | Description |
-|--------|---------|-------------|
-| Region screenshot | <IpcCommand command="screenshot-region" /> | Start interactive region capture (drag to select; press **`[keybinds].cancel`** to dismiss). |
-| Fullscreen screenshot | <IpcCommand command="screenshot-fullscreen" /> | Capture the focused monitor (compositor-selected output, active toplevel, keyboard focus, or recent pointer). |
-| Fullscreen (pick monitor) | <IpcCommand command="screenshot-fullscreen pick" /> | Open the display picker on multi-monitor setups. On a single monitor, captures immediately. |
-| Fullscreen (specific output) | <IpcCommand command="screenshot-fullscreen DP-2" /> | Capture one output without the picker. Pass the Wayland connector name (e.g. `DP-1`, `HDMI-A-1`) or a word-boundary match in the output description. |
-| Fullscreen (all monitors) | <IpcCommand command="screenshot-fullscreen all" /> | One combined desktop PNG spanning every monitor. |
-| Annotate a frozen screen | <IpcCommand command="screenshot-annotate" /> | Freeze every monitor and open the annotation editor over the frozen image. **Copy** and **Save** deliver the annotated PNG; **`[keybinds].cancel`** closes without delivering. |
-| Annotate the live screen | <IpcCommand command="annotate" /> | Transparent drawing overlay for presentations. Apps keep updating behind the ink; **`F`** freezes the screen under it and reveals Blur, Crop, Copy, and Save. |
-| Annotate an image file | <IpcCommand command="annotate ~/Pictures/shot.png" /> | Open an image from disk in the editor instead of the screen. No screencopy support needed. |
+| Action                       | Command                                               | Description                                                                                                                                                                      |
+| ---------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Region screenshot            | <IpcCommand command="screenshot-region" />            | Start interactive region capture (drag to select; press **`[keybinds].cancel`** to dismiss).                                                                                     |
+| Fullscreen screenshot        | <IpcCommand command="screenshot-fullscreen" />        | Capture the focused monitor (compositor-selected output, active toplevel, keyboard focus, or recent pointer).                                                                    |
+| Fullscreen (pick monitor)    | <IpcCommand command="screenshot-fullscreen pick" />   | Open the display picker on multi-monitor setups. On a single monitor, captures immediately.                                                                                      |
+| Fullscreen (specific output) | <IpcCommand command="screenshot-fullscreen DP-2" />   | Capture one output without the picker. Pass the Wayland connector name (e.g. `DP-1`, `HDMI-A-1`) or a word-boundary match in the output description.                             |
+| Fullscreen (all monitors)    | <IpcCommand command="screenshot-fullscreen all" />    | One combined desktop image spanning every monitor.                                                                                                                               |
+| Window screenshot            | <IpcCommand command="screenshot-window" />            | Capture the focused window at native resolution. Requires `ext-image-copy-capture-v1` and `ext-foreign-toplevel-image-capture-source-manager-v1` support from the compositor.    |
+| Annotate a frozen screen     | <IpcCommand command="screenshot-annotate" />          | Freeze every monitor and open the annotation editor over the frozen image. **Copy** and **Save** deliver the annotated image; **`[keybinds].cancel`** closes without delivering. |
+| Annotate the live screen     | <IpcCommand command="annotate" />                     | Transparent drawing overlay for presentations. Apps keep updating behind the ink; **`Z`** freezes the screen under it and reveals Blur, Crop, Copy, and Save.                    |
+| Annotate an image file       | <IpcCommand command="annotate ~/Pictures/shot.png" /> | Open an image from disk in the editor instead of the screen. No screencopy support needed.                                                                                       |
 
 In picker mode, choose a connector from the top bar on any screen, or click the desktop to capture the monitor under the cursor. Errors list available connector names when the selector is unknown.
 
+### Per-call options
+
+`screenshot-region`, `screenshot-fullscreen`, `screenshot-window`, `screenshot-annotate`, and `annotate` accept options that override single `[shell.screenshot]` keys for one invocation, so two keybinds for the same command can behave differently. Each call starts from the config and only the named keys change; a call without options behaves exactly as the config says. Options work from `noctalia msg`, compositor binds, and bar widget actions, and `noctalia msg <command> --help` lists them.
+
+| Option                                                             | `[shell.screenshot]` key                   |
+| ------------------------------------------------------------------ | ------------------------------------------ |
+| `--save-to-file` / `--no-save-to-file`                             | `save_to_file`                             |
+| `--copy-to-clipboard` / `--no-copy-to-clipboard`                   | `copy_to_clipboard`                        |
+| `--pipe-to-command` / `--no-pipe-to-command`                       | `pipe_to_command`                          |
+| `--freeze-screen` / `--no-freeze-screen`                           | `freeze_screen`                            |
+| `--confirm-region` / `--no-confirm-region`                         | `confirm_region`                           |
+| `--remember-last-region` / `--no-remember-last-region`             | `remember_last_region`                     |
+| `--show-cursor` / `--no-show-cursor`                               | `show_cursor`                              |
+| `--annotate` / `--no-annotate`                                     | `annotate`                                 |
+| `--skip-annotate-on-copy-save` / `--no-skip-annotate-on-copy-save` | `skip_annotate_on_copy_save`               |
+| `--close-on-copy` / `--no-close-on-copy`                           | `close_on_copy`                            |
+| `--close-on-save` / `--no-close-on-save`                           | `close_on_save`                            |
+| `--copy-on-close` / `--no-copy-on-close`                           | `copy_on_close`                            |
+| `--pipe-command <command>`                                         | `pipe_command`                             |
+| `--directory <dir>`                                                | `directory`                                |
+| `--filename-pattern <pattern>`                                     | `filename_pattern`                         |
+| `--format <format>`                                                | `format` (`png`, `jpeg`, `webp`, or `jxl`) |
+| `--quality <1-100>`                                                | `quality`                                  |
+
+- Options go before the fullscreen target or the annotate path; everything after the first non-option word is the target or path.
+- Quote values that contain spaces, for example `--pipe-command 'satty -f -'`.
+- Combining an option with its `--no-` form is an error, and so is an unknown option, a `--format` outside the listed values, or a `--quality` that is not a whole number from 1 to 100; the command then does nothing.
+- `--pipe-command` only sets the command; add `--pipe-to-command` when the config does not already enable piping.
+- A relative `--directory` resolves against the directory the command ran in. An empty value selects the default folder, like an empty `directory` key.
+- `--format` and `--quality` change only the saved file; the clipboard and the pipe command still receive PNG.
+- An option for a key that does not affect the command is accepted and ignored, the same as that key in the config.
+- **Capture new region** in the editor keeps the options of the command that opened it.
+
+```sh
+# Annotate this region even though annotate = false in the config
+noctalia msg screenshot-region --annotate
+# Copy straight to the clipboard without the editor and without saving a file
+noctalia msg screenshot-region --no-annotate --copy-to-clipboard --no-save-to-file
+# Send a combined capture of every monitor to satty
+noctalia msg screenshot-fullscreen --pipe-to-command --pipe-command 'satty -f -' all
+# Save this region as a lossless WebP file
+noctalia msg screenshot-region --format webp --quality 100
+```
+
+A Niri bind and a screenshot widget action using the same options:
+
+```kdl
+binds {
+    Mod+Shift+S { spawn-sh "noctalia msg screenshot-region --annotate"; }
+}
+```
+
+```toml
+[widget.screenshot.actions]
+left = "screenshot-region --annotate"
+```
+
 `annotate <path>` edits a file instead of the screen. The image is decoded with the shell's own loader (PNG, JPEG, GIF, WebP, JPEG XL, ICO, SVG, and the other formats used for wallpapers and icons) and opens centered at its native pixel size on the focused output, scaled down when it does not fit. EXIF orientation is applied, so camera and phone photos open upright. Relative paths resolve against the directory the command ran in, and `~` expands. The pointer button stays disabled because no cursor was captured, and **Freeze** is not offered. **Copy** and **Save** deliver the annotated PNG, and **Done** applies the `[shell.screenshot]` output policy. Saving never overwrites the source: it writes a new PNG into the screenshot folder using the configured filename pattern.
 
-Annotation tool keys (no modifier): **`m`** move, **`b`** brush, **`h`** highlighter, **`l`** line, **`a`** arrow, **`s`** rectangle, **`o`** circle, **`t`** text, **`n`** numbering, **`u`** blur, **`e`** eraser, **`c`** crop, **`f`** freeze (live overlay), **`p`** toggle the captured pointer, **`[`** and **`]`** change the current tool's size. **`Ctrl+Z`** undoes, **`Ctrl+Shift+Z`** and **`Ctrl+Y`** redo, **`[keybinds].copy`** copies, **`[keybinds].save`** saves.
+Noctalia also installs a hidden desktop entry, `dev.noctalia.Noctalia.Annotator.desktop`, that runs `noctalia msg annotate` on the chosen file. It does not appear in launchers, but file managers list **Noctalia Image Annotator** under **Open With** for the supported image types. Noctalia must already be running.
 
-The pointer button and **P** work the same in region, fullscreen, and frozen-screen editing. `[shell.screenshot].show_cursor` sets the initial choice; toggling does not change that setting. Only the pointer recorded inside the captured area can appear. Noctalia captures the cursor separately through `ext-image-copy-capture-v1` and composites it over the same cursor-free background for both choices. When separate cursor capture is unsupported or fails, the ordinary screenshot keeps the configured pointer choice, the button is disabled with an explanatory tooltip, and **P** shows the same explanation. In live annotation, freeze with **F** first.
+Annotation tool keys (no modifier): **`m`** move, **`b`** brush, **`h`** highlighter, **`l`** line, **`a`** arrow, **`s`** rectangle, **`o`** circle, **`t`** text, **`n`** numbering, **`u`** blur, **`e`** eraser, **`c`** crop, **`z`** freeze (live overlay), **`p`** toggle the captured pointer, **`f`** cycle the shape fill through off, semi-transparent, and opaque, **`1`** to **`8`** pick the current tool's color from the eight swatches, **`[`** and **`]`** change the current tool's size. **`Ctrl+Z`** undoes, **`Ctrl+Shift+Z`** and **`Ctrl+Y`** redo, **`[keybinds].copy`** copies, **`[keybinds].save`** saves.
 
-`[shell.screenshot].close_on_copy` and `[shell.screenshot].close_on_save` default to `true`: a successful **Copy** or **Ctrl+C** (including a custom **`[keybinds].copy`** binding) and a successful **Save** or **Ctrl+S** (including **`[keybinds].save`**) close the editor. Set either to `false` to keep editing after that action. Failed copies and failed saves leave the editor open.
+The pointer button and **P** work the same in region, fullscreen, and frozen-screen editing. `[shell.screenshot].show_cursor` sets the initial choice; toggling does not change that setting. Only the pointer recorded inside the captured area can appear. Noctalia captures the cursor separately through `ext-image-copy-capture-v1` and composites it over the same cursor-free background for both choices. When separate cursor capture is unsupported or fails, the ordinary screenshot keeps the configured pointer choice, the button is disabled with an explanatory tooltip, and **P** shows the same explanation. In live annotation, freeze with **Z** first.
+
+**Exception**: window capture never includes the pointer, so `[shell.screenshot].show_cursor` applies only to region, fullscreen, and frozen-screen capture. The pointer button and **P** stay disabled for window capture.
+
+`[shell.screenshot].close_on_copy` and `[shell.screenshot].close_on_save` default to `true`: a successful **Copy** or **`[keybinds].copy`** (default **Ctrl+C**) and a successful **Save** or **`[keybinds].save`** (default **Ctrl+S**) close the editor. Set either to `false` to keep editing after that action. Failed copies and failed saves leave the editor open.
+
+With `[shell.screenshot].copy_on_close = true`, closing the editor (**`[keybinds].cancel`** or the close button) first copies the annotated image to the clipboard.
 
 **Capture new region** in the toolbar discards the current edit, captures a fresh desktop region without the annotation overlay, and opens it in the editor with the same pointer control and remembered tool preferences. Starting from a captured image preserves the editor's current pointer choice. It is available in live, frozen, and image modes, regardless of `[shell.screenshot].annotate`. Cancelling region selection closes the capture.
 
 Captured images have an inset **Outline** color-role border to distinguish the canvas from its surroundings. The border does not change the image size or appear in copied or saved images.
 
-The toolbar carries a grab handle on its left edge: drag it to move the bar out of the way. Each output's position is remembered independently for later sessions and clamped to that output. Moving one toolbar does not reposition the others. Every control has a tooltip naming its shortcut. **S**, **M**, and **L** set the current tool's size to half, one, or twice its default weight, and the adjustments button next to them reveals the fine stepper (`-`, the current pixel size, `+`) for anything in between; fine values are kept, not snapped back to the nearest preset.
+The toolbar carries a grab handle on its left edge: drag it to move the bar out of the way. Each output's position is remembered independently for later sessions and clamped to that output. Moving one toolbar does not reposition the others. Every control has a tooltip naming its shortcut.
 
-The live color is the swatch carrying a check mark, and the shape-fill button shows a struck-through paint roller while fill is off. Size and color are per tool, so each remembers its own weight and color. While a text caret is open, changing size or color restyles the text under the caret instead of only the next one, and touching any other control (a tool, undo, freeze, export) commits that text first.
+The stroke button after the tools shows the current tool's color, with a dot that grows with its size. It opens a popover with the eight color swatches, **S**, **M**, and **L** (half, one, or twice the tool's default weight), and a fine stepper (`-`, the current pixel size, `+`) for anything in between; fine values are kept, not snapped back to the nearest preset. The popover stays open while you pick and closes on the stroke button, **`[keybinds].cancel`**, a press on the canvas, or opening the backdrop panel. Move and Crop have no stroke button, and Eraser and Blur show only the size controls.
+
+The live color is the swatch carrying a check mark. The shape-fill button cycles **off** (crossed-out bucket), **semi-transparent** (droplet bucket), and **opaque** (full bucket); it applies to Rectangle and Circle, and a right-click cycles the states in reverse. Size and color are per tool, so each remembers its own weight and color. While a text caret is open, changing size or color restyles the text under the caret instead of only the next one, and touching any other control (a tool, undo, freeze, export) commits that text first.

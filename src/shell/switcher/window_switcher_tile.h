@@ -4,6 +4,7 @@
 #include "render/core/render_styles.h"
 #include "render/scene/input_area.h"
 #include "shell/switcher/window_switcher_style.h"
+#include "system/window_state.h"
 #include "ui/palette.h"
 
 #include <cstdint>
@@ -21,6 +22,14 @@ class Image;
 class Label;
 class Renderer;
 
+// Physical-pixel bounds requested for a window preview capture.
+struct ThumbnailTarget {
+  int width = 0;
+  int height = 0;
+
+  [[nodiscard]] bool operator==(const ThumbnailTarget&) const = default;
+};
+
 struct WindowSwitcherEntry {
   // Switcher bookkeeping only; never pass this process-local key to compositor APIs.
   std::string identityKey;
@@ -33,6 +42,8 @@ struct WindowSwitcherEntry {
   std::uintptr_t closeHandle = 0;
   std::uintptr_t captureHandle = 0;
   std::shared_ptr<const ScreencopyImage> thumbnail;
+  int thumbnailTargetWidth = 0;
+  std::optional<WindowMinimizeState> minimizeState;
 };
 
 // Preview card shared by window-switcher presentation styles.
@@ -72,6 +83,7 @@ protected:
   Box* m_previewHost = nullptr;
   Image* m_thumbnail = nullptr;
   Box* m_toneOverlay = nullptr;
+  Box* m_minimizeIndicator = nullptr;
   Image* m_icon = nullptr;
   Glyph* m_fallbackGlyph = nullptr;
   Box* m_captionBadge = nullptr;

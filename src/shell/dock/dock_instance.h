@@ -3,6 +3,7 @@
 #include "config/config_types.h"
 #include "core/timer_manager.h"
 #include "render/scene/input_dispatcher.h"
+#include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_items.h"
 #include "shell/dock/dock_model.h"
 #include "ui/signal.h"
@@ -50,6 +51,7 @@ namespace shell::dock {
     float slideHiddenDy = 0.0F;
     Box* shadow = nullptr;
     Box* panel = nullptr;
+    DockPanelGeometry panelGeometry;
     InputArea* viewport = nullptr;
     Flex* row = nullptr;
     float scrollOffset = 0.0F;
@@ -67,8 +69,9 @@ namespace shell::dock {
     float launcherHoverMainOffset = 0.0F;
     float launcherVisualScale = -1.0F;
     AnimationManager::Id launcherScaleAnimId = 0;
-    // Auto-hide: tracks visibility [0,1] driven by hover.
-    float hideOpacity = 1.0F;
+    // Auto-hide: tracks visibility [0,1] driven by hover. Starts hidden so a fade queued before the
+    // first scene build cannot animate from a visible state; the scene build sets the configured value.
+    float hideOpacity = 0.0F;
     AnimationManager::Id hideAnimId = 0;
     // smart_auto_hide: active workspace empty (or overview open) — keep the dock visible.
     bool smartAutoHidePinnedVisible = false;

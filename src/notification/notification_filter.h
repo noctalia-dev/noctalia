@@ -29,11 +29,11 @@ struct ResolvedNotificationFilter {
   bool matched = false;
 };
 
-[[nodiscard]] std::string normalizeNotificationMatchToken(std::string token);
+[[nodiscard]] std::string normalizeNotificationMatchToken(const std::string& token);
 
 [[nodiscard]] bool notificationMatchesToken(std::string_view token, const NotificationFilterFields& fields);
 
-[[nodiscard]] std::vector<std::string> normalizeNotificationMatchTokens(std::vector<std::string> tokens);
+[[nodiscard]] std::vector<std::string> normalizeNotificationMatchTokens(const std::vector<std::string>& tokens);
 
 [[nodiscard]] bool
 notificationMatchesTokens(const std::vector<std::string>& tokens, const NotificationFilterFields& fields);
@@ -47,16 +47,17 @@ resolveNotificationFilter(const std::vector<NotificationFilterConfig>& filters, 
 void normalizeNotificationFilterNames(std::vector<NotificationFilterConfig>& filters);
 
 /// Empty result means all urgencies are allowed.
-[[nodiscard]] std::unordered_set<Urgency> normalizeAllowedUrgencies(std::vector<std::string> values);
+[[nodiscard]] std::unordered_set<Urgency> normalizeAllowedUrgencies(const std::vector<std::string>& values);
 
 /// Canonical config form: empty vector when all three levels are allowed.
-[[nodiscard]] std::vector<std::string> normalizeFilterAllowedUrgencyStrings(std::vector<std::string> values);
+[[nodiscard]] std::vector<std::string> normalizeFilterAllowedUrgencyStrings(const std::vector<std::string>& values);
 
 [[nodiscard]] bool urgencyIsAllowed(const std::unordered_set<Urgency>& allowed, Urgency urgency) noexcept;
 
 // Deprecated aliases kept for existing call sites/tests.
-[[nodiscard]] inline std::vector<std::string> normalizeNotificationBlacklist(std::vector<std::string> blacklist) {
-  return normalizeNotificationMatchTokens(std::move(blacklist));
+[[nodiscard]] inline std::vector<std::string>
+normalizeNotificationBlacklist(const std::vector<std::string>& blacklist) {
+  return normalizeNotificationMatchTokens(blacklist);
 }
 
 [[nodiscard]] inline bool

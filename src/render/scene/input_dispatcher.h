@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -98,6 +99,11 @@ private:
   InputArea* m_focusedArea = nullptr;
   InputArea* m_capturedArea = nullptr; // held while any button is pressed
   TouchScrollGesture m_touchGesture;
+  // Scroll-gesture owner: set on the first consumed axis frame of a gesture, held until the
+  // gesture ends (pointer moved, button pressed, or pause), so content moving under a
+  // stationary pointer cannot take over the rest of the gesture.
+  InputArea* m_axisGestureArea = nullptr;
+  std::chrono::steady_clock::time_point m_lastAxisTime;
   std::optional<std::size_t> m_stashedTabFocusIndex;
   std::optional<std::string> m_stashedTabFocusKey;
   std::uint32_t m_lastSerial = 0;

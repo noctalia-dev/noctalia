@@ -98,6 +98,14 @@ const char* batteryDeviceGlyphName(UPowerDeviceType type) {
   case UPowerDeviceType::Phone:
   case UPowerDeviceType::Pda:
     return "device-mobile";
+  case UPowerDeviceType::Headset:
+    return "headset";
+  case UPowerDeviceType::Headphones:
+    return "headphones";
+  case UPowerDeviceType::Speakers:
+    return "device-speaker";
+  case UPowerDeviceType::GamingInput:
+    return "device-gamepad-2";
   default:
     return "bluetooth";
   }
@@ -470,29 +478,35 @@ void UPowerService::rescanDevices() {
   }
 }
 
-UPowerState UPowerService::readDefaultState() const {
-  UPowerState next;
+UPowerService::DefaultState UPowerService::readDefaultState() const {
+  DefaultState next;
 
-  next.onBattery = getPropertyOr<bool>(*m_upowerProxy, kUpowerInterface, "OnBattery", false);
+  next.state.onBattery = getPropertyOr<bool>(*m_upowerProxy, kUpowerInterface, "OnBattery", false);
 
   if (m_displayDeviceProxy != nullptr) {
-    next = readDeviceState(*m_displayDeviceProxy);
-    next.onBattery = getPropertyOr<bool>(*m_upowerProxy, kUpowerInterface, "OnBattery", false);
-    if (next.isPresent) {
+    next.state = readDeviceState(*m_displayDeviceProxy);
+    next.state.onBattery = getPropertyOr<bool>(*m_upowerProxy, kUpowerInterface, "OnBattery", false);
+    if (next.state.isPresent) {
       return next;
     }
   }
 
   const auto* device = defaultSystemBattery();
   if (device == nullptr) {
+    device = lowestPeripheralBattery();
+    if (device != nullptr) {
+      next.peripheralPath = device->path;
+    }
+  }
+  if (device == nullptr) {
     return next;
   }
 
-  next = device->state;
+  next.state = device->state;
   if (m_dummyDevice && device == &*m_dummyDevice) {
     return next;
   }
-  next.onBattery = getPropertyOr<bool>(*m_upowerProxy, kUpowerInterface, "OnBattery", false);
+  next.state.onBattery = getPropertyOr<bool>(*m_upowerProxy, kUpowerInterface, "OnBattery", false);
   return next;
 }
 
@@ -671,6 +685,17 @@ const UPowerDeviceInfo* UPowerService::defaultSystemBattery() const noexcept {
   return nullptr;
 }
 
+const UPowerDeviceInfo* UPowerService::lowestPeripheralBattery() const noexcept {
+  const UPowerDeviceInfo* lowest = nullptr;
+  for (const auto& device : m_devices) {
+    if (isPeripheralBattery(device.info)
+        && (lowest == nullptr || device.info.state.percentage < lowest->state.percentage)) {
+      lowest = &device.info;
+    }
+  }
+  return lowest;
+}
+
 const UPowerDeviceInfo* UPowerService::deviceForSelector(std::string_view selector) const {
   const std::string trimmed = StringUtils::trim(selector);
   if (trimmed.empty()) {
@@ -746,12 +771,13 @@ void UPowerService::refreshDisplayDeviceProxy() {
 }
 
 bool UPowerService::refreshDefaultState() {
-  const UPowerState next = readDefaultState();
-  if (next == m_state) {
+  auto next = readDefaultState();
+  if (next.state == m_state && next.peripheralPath == m_statePeripheralPath) {
     return false;
   }
 
-  m_state = next;
+  m_state = next.state;
+  m_statePeripheralPath = std::move(next.peripheralPath);
   if (m_changeCallback) {
     m_changeCallback(UPowerChange{.origin = ChangeOrigin::DeviceState});
   }
@@ -809,7 +835,9 @@ void UPowerService::emitChangedIfNeeded(bool devicesChanged, bool chargeLimitCha
     return;
   }
 
-  m_state = readDefaultState();
+  auto next = readDefaultState();
+  m_state = next.state;
+  m_statePeripheralPath = std::move(next.peripheralPath);
   if (m_changeCallback) {
     m_changeCallback(UPowerChange{.origin = ChangeOrigin::DeviceState, .deviceCatalogChanged = deviceCatalogChanged});
   }

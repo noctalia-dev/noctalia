@@ -63,10 +63,12 @@ private:
   );
 
   void onCloseNotification(uint32_t id);
-  void emitClose(uint32_t id, CloseReason reason);
+  void emitClose(uint32_t id, CloseReason reason, const std::string& sender);
 
   void onInvokeAction(uint32_t id, const std::string& actionKey);
-  void emitActionInvoked(uint32_t id, const std::string& actionKey, const std::string& activationToken);
+  void emitActionInvoked(
+      uint32_t id, const std::string& actionKey, const std::string& activationToken, const std::string& sender
+  );
   void emitActivationToken(uint32_t id, const std::string& activationToken, const std::string& sender = "");
   void emitNotificationReplied(
       uint32_t id, const std::string& text, const std::string& activationToken, const std::string& sender

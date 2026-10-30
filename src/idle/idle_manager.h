@@ -40,13 +40,14 @@ public:
   void setActionRunner(ActionRunner runner);
   void setLiveIdleChangeCallback(std::function<void()> callback);
   void reload(const IdleConfig& config);
-  /// D-Bus screensaver inhibits (e.g. Chrome video playback). Suppresses idle actions while > 0.
+  /// D-Bus screensaver inhibits (e.g. Chrome video playback). Suppresses idle actions while > 0; a
+  /// release restarts waiting countdowns once it outlasts a short debounce that absorbs inhibit renewals.
   void setScreenSaverInhibitLocks(std::int64_t locks);
   /// Apply locked timeouts without resuming completed actions or resetting unchanged timers.
   void setSessionLocked(bool locked);
-  /// Seconds the compositor has reported session-idle (1s heartbeat notification); 0 when active.
-  [[nodiscard]] std::int64_t liveIdleSeconds() const noexcept { return m_liveIdleSeconds; }
-  void onSecondTick();
+  /// Seconds the compositor has reported session-idle (1s heartbeat notification); 0 when active or inhibited.
+  /// Derived from elapsed monotonic time, so it stays accurate however rarely it is read.
+  [[nodiscard]] std::int64_t liveIdleSeconds() const noexcept;
   static void handleIdled(void* data, ext_idle_notification_v1* notification);
   static void handleResumed(void* data, ext_idle_notification_v1* notification);
   static void handleHeartbeatIdled(void* data, ext_idle_notification_v1* notification);
@@ -69,6 +70,11 @@ private:
 
   [[nodiscard]] double effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const;
   [[nodiscard]] std::uint32_t effectiveTimeoutMilliseconds(const IdleBehaviorConfig& config) const;
+  /// True while media holds an inhibit, including the debounce that absorbs inhibit renewals.
+  [[nodiscard]] bool screenSaverInhibited() const noexcept {
+    return m_screenSaverInhibitLocks > 0 || m_inhibitReleasePending;
+  }
+  void applyScreenSaverInhibitRelease();
   void clearBehaviors();
   void syncHeartbeat();
   void destroyHeartbeat();
@@ -92,14 +98,15 @@ private:
   std::function<void()> m_onLiveIdleChange;
   IdleConfig m_idleConfig;
   Timer m_graceFallbackTimer;
+  Timer m_inhibitReleaseTimer;
   std::vector<BehaviorState*> m_graceBehaviors;
   bool m_activeGraceWillLock = false;
   std::uint64_t m_graceGeneration = 0;
   std::vector<std::unique_ptr<BehaviorState>> m_behaviors;
   ext_idle_notification_v1* m_heartbeatNotification = nullptr;
   bool m_heartbeatCompositorIdle = false;
-  std::int64_t m_liveIdleSeconds = 0;
+  std::chrono::steady_clock::time_point m_heartbeatIdleSince;
   std::int64_t m_screenSaverInhibitLocks = 0;
-  bool m_idledWhileScreenSaverInhibited = false;
+  bool m_inhibitReleasePending = false;
   bool m_sessionLocked = false;
 };

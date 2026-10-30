@@ -3,6 +3,7 @@
 #include "cli/help.h"
 #include "cli/schema_msg.h"
 #include "ipc/ipc_client.h"
+#include "util/string_utils.h"
 
 #include <cstdio>
 #include <nlohmann/json.hpp>
@@ -48,10 +49,19 @@ namespace noctalia::ipc {
       return IpcClient::send(std::string(argv[2]) + " " + payload.dump());
     }
 
+    // Commands with flags are re-split by the shell-word parser, so arguments that would not
+    // survive whitespace splitting are quoted; plain tokens go out unchanged.
+    const cli::Command* spec = cli::findMsgCommand(command);
+    const bool quoteArgs = spec != nullptr && !spec->flags.empty();
     std::string cmd = argv[2];
     for (int i = 3; i < argc; ++i) {
+      const std::string_view arg = argv[i];
       cmd += ' ';
-      cmd += argv[i];
+      if (quoteArgs && (arg.empty() || arg.find_first_of(" \t\n\r'\"\\") != std::string_view::npos)) {
+        cmd += StringUtils::shellQuote(arg);
+      } else {
+        cmd += arg;
+      }
     }
     return IpcClient::send(cmd);
   }
