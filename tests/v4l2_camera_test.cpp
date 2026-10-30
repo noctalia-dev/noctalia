@@ -78,11 +78,11 @@ int main() {
   writeFile(proc / "101/fd/5", "not a symlink");
   TEST_CHECK(scan() == both);
 
-  // An inaccessible process must not prevent finding other camera users.
-  addProcess(proc, "113", "private", "/dev/video0");
-  fs::permissions(proc / "113/fd", fs::perms::none);
+  // A process whose fd directory cannot be listed must not prevent finding other camera users.
+  // A non-directory fd fails like a permission error, but root (as in CI) cannot bypass it.
+  writeFile(proc / "113/comm", "private\n");
+  writeFile(proc / "113/fd", "not a directory");
   TEST_CHECK(scan() == both);
-  fs::permissions(proc / "113/fd", fs::perms::owner_all);
   fs::remove_all(proc / "113");
 
   // Close and process-exit transitions must clear stale activity.
