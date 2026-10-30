@@ -1,7 +1,6 @@
 #include "system/v4l2_camera.h"
 #include "test_check.h"
 
-#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -32,11 +31,6 @@ int main() {
   TEST_CHECK(!v4l2CameraSameApp("firefox", "firefox-bin"));
   TEST_CHECK(!v4l2CameraSameApp("", "firefox"));
   TEST_CHECK(!v4l2CameraSameApp("Firefox", "chromium"));
-
-  const auto now = std::chrono::steady_clock::now();
-  TEST_CHECK(v4l2CameraPollTimeoutMs(now + std::chrono::seconds(1), now) == 1000);
-  TEST_CHECK(v4l2CameraPollTimeoutMs(now - std::chrono::seconds(1), now) == 0);
-  TEST_CHECK(v4l2CameraPollTimeoutMs({}, now) == 0);
 
   std::string pattern = (fs::temp_directory_path() / "noctalia-v4l2-XXXXXX").string();
   const char* result = ::mkdtemp(pattern.data());

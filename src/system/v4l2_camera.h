@@ -1,6 +1,7 @@
 #pragma once
 
-#include <chrono>
+#include "core/inotify/inotify.h"
+
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -16,8 +17,22 @@
 // (basename, case-insensitive, including 15-character comm truncation).
 [[nodiscard]] bool v4l2CameraSameApp(std::string_view pipewireLabel, std::string_view comm);
 
-// Milliseconds until deadline, clamped to [0, INT_MAX]. Expired deadlines (including epoch)
-// return zero; the caller must advance the deadline when handling the pending work.
-[[nodiscard]] int v4l2CameraPollTimeoutMs(
-    std::chrono::steady_clock::time_point deadline, std::chrono::steady_clock::time_point now
-) noexcept;
+// Wakes only when camera users may have changed, so idle cameras cost nothing: inotify reports
+// opens and closes of readable non-metadata /dev/video* nodes, and attribute changes in /dev
+// announce hotplugged nodes once udev grants access to them.
+class V4l2CameraWatch {
+public:
+  V4l2CameraWatch();
+
+  [[nodiscard]] int fd() const noexcept { return m_inotify.fd(); }
+
+  // Drains pending events. Returns true when v4l2CameraApps() should run again.
+  [[nodiscard]] bool drain();
+
+private:
+  void watchDevices();
+  void watchDevice(std::string_view name);
+
+  Inotify m_inotify;
+  int m_devWd = -1;
+};

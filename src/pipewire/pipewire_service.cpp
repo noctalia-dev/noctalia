@@ -57,6 +57,19 @@ namespace {
   constexpr auto kInitialSyncTimeout = std::chrono::seconds(1);
   constexpr auto kReconnectInitialDelay = std::chrono::milliseconds(250);
   constexpr auto kReconnectMaxDelay = std::chrono::seconds(5);
+  // Camera node opens and closes come in bursts (browsers probe every device), and procfs may not
+  // list the new descriptor yet when IN_OPEN arrives, so scans run once the burst has settled.
+  constexpr auto kCameraScanDelay = std::chrono::milliseconds(500);
+  constexpr auto kCameraScanCheckInterval = std::chrono::milliseconds(50);
+
+  // Milliseconds until deadline, rounded up and clamped to [0, INT_MAX].
+  [[nodiscard]] int
+  pollMsUntil(std::chrono::steady_clock::time_point deadline, std::chrono::steady_clock::time_point now) noexcept {
+    const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now);
+    return static_cast<int>(
+        std::clamp(remaining, std::chrono::milliseconds::zero(), std::chrono::milliseconds{INT_MAX}).count()
+    );
+  }
 
   [[nodiscard]] bool pipeWireVersionSupportsPassiveFollow(std::string_view version) {
     const auto majorEnd = version.find('.');
@@ -790,13 +803,8 @@ PipeWireService::PipeWireService() {
   }
 
   pw_loop_enter(m_loop);
-  try {
-    m_cameraScan = std::async(std::launch::async, [] { return v4l2CameraApps(); });
-    m_cameraScanAt = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
-  } catch (const std::exception& e) {
-    kLog.warn("could not start camera scan: {}", e.what());
-    m_cameraScanAt = std::chrono::steady_clock::now() + std::chrono::seconds(1);
-  }
+  // Applications may already hold a camera open before the shell starts.
+  m_cameraScanAt = std::chrono::steady_clock::now();
   if (!connectRemote(true)) {
     kLog.warn("PipeWire daemon unavailable at startup; retrying in the background");
     scheduleReconnect();
@@ -1057,49 +1065,64 @@ int PipeWireService::fd() const noexcept {
 
 int PipeWireService::pollTimeoutMs() const noexcept {
   const auto now = std::chrono::steady_clock::now();
-  const int cameraTimeout = v4l2CameraPollTimeoutMs(m_cameraScanAt, now);
-  if (m_core != nullptr || m_reconnectAt.time_since_epoch().count() == 0) {
-    return cameraTimeout;
+  int timeout = m_cameraScanAt.has_value() ? pollMsUntil(*m_cameraScanAt, now) : -1;
+  if (m_core == nullptr && m_reconnectAt.time_since_epoch().count() != 0) {
+    const int reconnect = pollMsUntil(m_reconnectAt, now);
+    timeout = timeout < 0 ? reconnect : std::min(timeout, reconnect);
   }
+  return timeout;
+}
 
-  const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(m_reconnectAt - now);
-  if (remaining <= std::chrono::milliseconds::zero()) {
-    return 0;
+void PipeWireService::dispatchCamera() {
+  if (m_cameraWatch.drain()) {
+    requestCameraScan(std::chrono::steady_clock::now());
   }
-  return std::min(cameraTimeout, static_cast<int>(std::min(remaining, std::chrono::milliseconds{INT_MAX}).count()));
+}
+
+void PipeWireService::requestCameraScan(std::chrono::steady_clock::time_point now) {
+  if (m_cameraScan.valid()) {
+    m_cameraRescan = true;
+  } else if (!m_cameraScanAt.has_value()) {
+    // Keep an existing deadline so a continuous event stream cannot postpone the scan forever.
+    m_cameraScanAt = now + kCameraScanDelay;
+  }
 }
 
 void PipeWireService::pollCameraApps() {
   const auto now = std::chrono::steady_clock::now();
-  if (now < m_cameraScanAt) {
-    return;
-  }
-  if (m_cameraScan.valid()) {
-    if (m_cameraScan.wait_for(std::chrono::milliseconds::zero()) != std::future_status::ready) {
-      m_cameraScanAt = now + std::chrono::milliseconds(100);
-      return;
-    }
-    try {
-      auto apps = m_cameraScan.get();
-      // Advance the deadline before rebuildState so a change callback cannot start a second scan.
-      m_cameraScanAt = now + std::chrono::seconds(1);
-      if (apps != m_cameraApps) {
-        m_cameraApps = std::move(apps);
-        rebuildState();
-      }
-    } catch (const std::exception& e) {
-      kLog.warn("camera scan failed: {}", e.what());
-      m_cameraScanAt = now + std::chrono::seconds(1);
-    }
+  if (!m_cameraScanAt.has_value() || now < *m_cameraScanAt) {
     return;
   }
 
+  if (!m_cameraScan.valid()) {
+    try {
+      m_cameraScan = std::async(std::launch::async, [] { return v4l2CameraApps(); });
+      m_cameraScanAt = now + kCameraScanCheckInterval;
+    } catch (const std::exception& e) {
+      kLog.warn("could not start camera scan: {}", e.what());
+      m_cameraScanAt.reset();
+    }
+    return;
+  }
+  if (m_cameraScan.wait_for(std::chrono::milliseconds::zero()) != std::future_status::ready) {
+    m_cameraScanAt = now + kCameraScanCheckInterval;
+    return;
+  }
+
+  // Schedule the follow-up before rebuildState so a change callback sees consistent scan state.
+  m_cameraScanAt.reset();
+  if (m_cameraRescan) {
+    m_cameraRescan = false;
+    m_cameraScanAt = now + kCameraScanDelay;
+  }
   try {
-    m_cameraScan = std::async(std::launch::async, [] { return v4l2CameraApps(); });
-    m_cameraScanAt = now + std::chrono::milliseconds(100);
+    auto apps = m_cameraScan.get();
+    if (apps != m_cameraApps) {
+      m_cameraApps = std::move(apps);
+      rebuildState();
+    }
   } catch (const std::exception& e) {
-    kLog.warn("could not start camera scan: {}", e.what());
-    m_cameraScanAt = now + std::chrono::seconds(1);
+    kLog.warn("camera scan failed: {}", e.what());
   }
 }
 

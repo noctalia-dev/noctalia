@@ -3,15 +3,27 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
-#include <climits>
 #include <fstream>
 #include <set>
 #include <string_view>
+#include <sys/inotify.h>
 #include <system_error>
+#include <unistd.h>
 
 namespace {
+  constexpr std::string_view kVideoClass = "/sys/class/video4linux";
+
   bool isNumber(std::string_view value) {
     return !value.empty() && std::ranges::all_of(value, [](char ch) { return ch >= '0' && ch <= '9'; });
+  }
+
+  bool isVideoNodeName(std::string_view name) { return name.starts_with("video") && isNumber(name.substr(5)); }
+
+  // True for a video4linux class entry whose device name is readable and not a metadata node.
+  bool isCaptureNode(const std::filesystem::path& classEntry) {
+    std::ifstream nameFile(classEntry / "name");
+    std::string name;
+    return std::getline(nameFile, name) && !name.contains("Metadata");
   }
 } // namespace
 
@@ -36,28 +48,13 @@ bool v4l2CameraSameApp(std::string_view pipewireLabel, std::string_view comm) {
   return false;
 }
 
-int v4l2CameraPollTimeoutMs(
-    std::chrono::steady_clock::time_point deadline, std::chrono::steady_clock::time_point now
-) noexcept {
-  const auto remaining = std::clamp(
-      std::chrono::ceil<std::chrono::milliseconds>(deadline - now), std::chrono::milliseconds::zero(),
-      std::chrono::milliseconds{INT_MAX}
-  );
-  return static_cast<int>(remaining.count());
-}
-
 std::vector<std::string> v4l2CameraApps(const std::filesystem::path& videoClass, const std::filesystem::path& proc) {
   namespace fs = std::filesystem;
   std::set<fs::path> devices;
   std::error_code ec;
   for (fs::directory_iterator it(videoClass, ec), end; !ec && it != end; it.increment(ec)) {
     const auto device = it->path().filename().string();
-    if (!device.starts_with("video") || !isNumber(std::string_view(device).substr(5))) {
-      continue;
-    }
-    std::ifstream nameFile(it->path() / "name");
-    std::string name;
-    if (std::getline(nameFile, name) && !name.contains("Metadata")) {
+    if (isVideoNodeName(device) && isCaptureNode(it->path())) {
       devices.insert(fs::path("/dev") / device);
     }
   }
@@ -90,4 +87,49 @@ std::vector<std::string> v4l2CameraApps(const std::filesystem::path& videoClass,
     }
   }
   return {apps.begin(), apps.end()};
+}
+
+V4l2CameraWatch::V4l2CameraWatch() {
+  // Only attribute changes: /dev sees constant opens of other nodes, which must not wake the shell.
+  m_devWd = m_inotify.watch("/dev", IN_ATTRIB).value_or(-1);
+  watchDevices();
+}
+
+bool V4l2CameraWatch::drain() {
+  bool changed = false;
+  bool overflow = false;
+  m_inotify.drain([&](const inotify_event* event) {
+    if ((event->mask & IN_Q_OVERFLOW) != 0) {
+      overflow = true;
+    } else if (event->wd != m_devWd) {
+      changed = true;
+    } else if (event->len > 0 && isVideoNodeName(event->name)) {
+      // A node that just became readable may already be held open by an application.
+      watchDevice(event->name);
+      changed = true;
+    }
+  });
+  if (overflow) {
+    watchDevices();
+    changed = true;
+  }
+  return changed;
+}
+
+void V4l2CameraWatch::watchDevices() {
+  std::error_code ec;
+  for (std::filesystem::directory_iterator it(kVideoClass, ec), end; !ec && it != end; it.increment(ec)) {
+    watchDevice(it->path().filename().string());
+  }
+}
+
+void V4l2CameraWatch::watchDevice(std::string_view name) {
+  if (!isVideoNodeName(name) || !isCaptureNode(std::filesystem::path(kVideoClass) / name)) {
+    return;
+  }
+  // inotify needs read access; udev may not have applied the seat ACL yet, so retry on its IN_ATTRIB.
+  const auto path = std::filesystem::path("/dev") / name;
+  if (::access(path.c_str(), R_OK) == 0) {
+    (void)m_inotify.watch(path, IN_OPEN | IN_CLOSE);
+  }
 }
