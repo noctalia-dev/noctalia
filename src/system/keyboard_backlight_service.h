@@ -45,5 +45,3 @@ private:
   int m_maxBrightness = 0;
   ChangeCallback m_changeCallback;
 };
-
-int keyboardBacklightStepQuanta(int stepPercent, int maxBrightness);

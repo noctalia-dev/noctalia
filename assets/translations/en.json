@@ -4047,7 +4047,7 @@
             "label": "Sync greeter appearance"
           },
           "keyboard-backlight-down": {
-            "description": "Decrease all keyboard backlights by one level",
+            "description": "Decrease all keyboard backlights by 5%",
             "label": "Decrease keyboard backlight"
           },
           "keyboard-backlight-osd": {
@@ -4063,7 +4063,7 @@
             "label": "Toggle keyboard backlight"
           },
           "keyboard-backlight-up": {
-            "description": "Increase all keyboard backlights by one level",
+            "description": "Increase all keyboard backlights by 5%",
             "label": "Increase keyboard backlight"
           },
           "keyboard-layout-cycle": {
