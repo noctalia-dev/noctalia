@@ -77,9 +77,6 @@ bool LabwcWorkspaceBackend::sync() const {
     return false;
   }
   const std::string activeKey = activeWorkspaceKey(workspaces);
-  if (activeKey.empty()) {
-    return false;
-  }
 
   // labwc exposes no per-window workspace info and keeps the output set even
   // for windows on hidden desktops, so a mapped window is not proof of being
