@@ -94,6 +94,24 @@ bool LabwcWorkspaceBackend::sync() const {
   std::size_t visibleCount = 0;
   std::size_t hiddenCount = 0;
 
+  // Only a window appearing, disappearing or changing workspace counts as a
+  // change. Title, app id and minimize updates are stored silently: they do
+  // not alter occupancy, and the toplevel change callback already refreshes
+  // their consumers. Reporting them would fire the workspace change handler,
+  // which clears workspace alerts.
+  const auto store = [&](const std::uintptr_t handleKey, TrackedWindow want) {
+    const auto it = m_windows.find(handleKey);
+    if (it == m_windows.end()) {
+      m_windows.emplace(handleKey, std::move(want));
+      changed = true;
+      return;
+    }
+    if (it->second.workspaceKey != want.workspaceKey) {
+      changed = true;
+    }
+    it->second = std::move(want);
+  };
+
   m_toplevelsProvider([&](const WlrToplevelSnapshot& toplevel) {
     if (toplevel.handle == nullptr) {
       return;
@@ -101,85 +119,46 @@ bool LabwcWorkspaceBackend::sync() const {
     const auto handleKey = reinterpret_cast<std::uintptr_t>(toplevel.handle);
     seen.insert(handleKey);
     const auto it = m_windows.find(handleKey);
-    const WindowMinimizeState minimizeState{.minimized = toplevel.minimized, .minimizable = true};
+    std::string key = it != m_windows.end() ? it->second.workspaceKey : std::string{};
 
     if (toplevel.output != nullptr && !toplevel.minimized) {
       ++visibleCount;
       if (toplevel.activated && singleActive) {
-        const TrackedWindow want{
-            .workspaceKey = activeKey,
-            .appId = toplevel.appId,
-            .title = toplevel.title,
-            .minimizeState = minimizeState,
-        };
-        if (it == m_windows.end() || !(it->second == want)) {
-          m_windows[handleKey] = want;
-          changed = true;
-        }
-        return;
-      }
-      if (it == m_windows.end()) {
+        key = activeKey;
+      } else if (key.empty()) {
         if (!singleActive) {
           // Transient double-active with no history to confirm: wait for the
           // next sync rather than guessing.
           return;
         }
-        TrackedWindow want{
-            .workspaceKey = activeKey,
-            .appId = toplevel.appId,
-            .title = toplevel.title,
-            .minimizeState = minimizeState,
-        };
-        m_windows.emplace(handleKey, std::move(want));
-        changed = true;
-        return;
+        key = activeKey;
       }
-      if (it->second.appId != toplevel.appId
-          || it->second.title != toplevel.title
-          || it->second.minimizeState != minimizeState) {
-        it->second.appId = toplevel.appId;
-        it->second.title = toplevel.title;
-        it->second.minimizeState = minimizeState;
-        changed = true;
-      }
-      return;
-    }
-
-    if (toplevel.output != nullptr) {
+    } else if (toplevel.output != nullptr) {
       // Minimized but still mapped: keep the previous workspace when known,
       // otherwise the window still occupies the visible desktop.
       ++visibleCount;
-      std::string key = activeKey;
-      if (it != m_windows.end() && !it->second.workspaceKey.empty()) {
-        key = it->second.workspaceKey;
+      if (key.empty()) {
+        key = activeKey;
       }
-      const TrackedWindow want{
-          .workspaceKey = std::move(key),
-          .appId = toplevel.appId,
-          .title = toplevel.title,
-          .minimizeState = minimizeState,
-      };
-      if (it == m_windows.end() || !(it->second == want)) {
-        m_windows[handleKey] = want;
-        changed = true;
+    } else {
+      ++hiddenCount;
+      if (key.empty()) {
+        // A hidden toplevel never seen while visible cannot be attributed to
+        // any workspace without guessing, so it is ignored until it appears
+        // mapped.
+        return;
       }
-      return;
     }
 
-    ++hiddenCount;
-    if (it != m_windows.end()) {
-      // Hidden desktop or unmapped: retain occupancy, refresh metadata.
-      if (it->second.appId != toplevel.appId
-          || it->second.title != toplevel.title
-          || it->second.minimizeState != minimizeState) {
-        it->second.appId = toplevel.appId;
-        it->second.title = toplevel.title;
-        it->second.minimizeState = minimizeState;
-        changed = true;
-      }
-    }
-    // A hidden toplevel never seen while visible cannot be attributed to any
-    // workspace without guessing, so it is ignored until it appears mapped.
+    store(
+        handleKey,
+        TrackedWindow{
+            .workspaceKey = std::move(key),
+            .appId = toplevel.appId,
+            .title = toplevel.title,
+            .minimizeState = {.minimized = toplevel.minimized, .minimizable = true},
+        }
+    );
   });
 
   for (auto it = m_windows.begin(); it != m_windows.end();) {

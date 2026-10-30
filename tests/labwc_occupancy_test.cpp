@@ -122,10 +122,15 @@ int main() {
     TEST_CHECK(!isOccupied(workspaces, "3"));
   }
 
-  // 5. Hidden title refresh is picked up without losing occupancy.
+  // 5. Hidden title refresh is stored without reporting a change (occupancy
+  // is unchanged, and a reported change would clear workspace alerts).
   currentToplevels = {hidden(fakeA, "app-a", "A2"), hidden(fakeB, "app-b", "B")};
-  TEST_CHECK(backend.sync());
-  TEST_CHECK(backend.workspaceWindows().size() == 2);
+  TEST_CHECK(!backend.sync());
+  {
+    const auto windows = backend.workspaceWindows();
+    TEST_CHECK(windows.size() == 2);
+    TEST_CHECK(windows[0].title == "A2" || windows[1].title == "A2");
+  }
 
   // 6. Close A while hidden: ws1 becomes empty, ws2 stays occupied.
   currentToplevels = {hidden(fakeB, "app-b", "B")};
