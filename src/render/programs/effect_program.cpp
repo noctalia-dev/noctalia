@@ -308,7 +308,7 @@ void main() {
 
     // Pale blue-grey, not near-white - reads as water, not a paint stroke.
     vec3 rainTint = particleColor(vec3(0.55, 0.65, 0.8), vec3(0.3, 0.42, 0.58));
-    vec3 resultRGB = mix(col, rainTint, rain * 0.08);
+    vec3 resultRGB = mix(col, rainTint, rain * 0.75);
 
     float mask = cornerMask();
     float finalAlpha = mask * u_bg_color.a;
