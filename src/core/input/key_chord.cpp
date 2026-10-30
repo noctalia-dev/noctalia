@@ -85,7 +85,7 @@ namespace {
     if (name == "Escape") {
       return i18n::tr("ui.controls.key-names.escape");
     }
-    if (name == "Tab") {
+    if (name == "Tab" || name == "ISO_Left_Tab") {
       return i18n::tr("ui.controls.key-names.tab");
     }
     if (name == "BackSpace") {
