@@ -1181,7 +1181,7 @@ void NotificationToast::removeCardFromInstance(Instance& inst, std::size_t entry
     return;
   }
 
-  if (entryIndex < m_entries.size()) {
+  if (entryIndex < m_entries.size() && (m_entries[entryIndex].hovered || m_entries[entryIndex].hoverOwners > 0)) {
     resetPopupHover(m_entries[entryIndex].notificationId, m_entries[entryIndex].displayDurationMs, false);
   }
 
