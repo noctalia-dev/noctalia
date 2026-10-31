@@ -38,10 +38,11 @@ Alt+Tab-style overlay with two presentations selected by `[shell.window_switcher
 | Open with a fixed scope           | <IpcCommand command="window-switcher current" /> | Open the switcher listing only the windows of a given scope for this session, instead of the `show_all_outputs` / `current_workspace_only` settings: `all` (every window), `output` (the monitor showing the switcher), `workspace` (the workspace shown on each monitor), or `current` (the workspace shown on that monitor). Scope and action words can be combined in any order, e.g. `window-switcher hold current`. The scope applies until the overlay closes or another `window-switcher` invocation replaces it (an invocation without a scope returns to the settings); the settings are never modified. |
 | Close                             | <IpcCommand command="window-switcher close" />   | Hide the overlay without changing focus. `hide` is an alias.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
-Example Hyprland bind (use `hold` so a quick tap switches to the previous window):
+Example Hyprland binds (use `hold` so a quick tap switches to the previous window, and `reverse` so Shift opens one step backward):
 
 ```ini
 hl.bind("ALT + TAB", hl.dsp.exec_cmd("noctalia msg window-switcher hold"))
+hl.bind("ALT + SHIFT + TAB", hl.dsp.exec_cmd("noctalia msg window-switcher hold reverse"))
 ```
 
 While the overlay is open it takes exclusive keyboard focus on its layer surface:
