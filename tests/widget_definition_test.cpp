@@ -309,6 +309,35 @@ int main() {
   checkDefinition("text", textWidgetDefinition);
   checkDefinition<true>("theme_mode", themeModeWidgetDefinition);
   checkDefinition("tray", trayWidgetDefinition, TrayWidgetDefinitionContext{});
+  {
+    WidgetConfig trayConfig;
+    trayConfig.type = "tray";
+    trayConfig.settings["drawer"] = true;
+    trayConfig.settings["drawer_background_opacity"] = 0.85;
+    const auto trayOptions = trayWidgetDefinition().resolve(&trayConfig, "tray", TrayWidgetDefinitionContext{});
+    if (std::abs(trayOptions.drawerBackgroundOpacity - 0.85) > 0.001) {
+      fail("tray", "drawer_background_opacity did not resolve");
+    }
+    const auto defaultTrayOptions = trayWidgetDefinition().resolve(nullptr, "tray", TrayWidgetDefinitionContext{});
+    if (std::abs(defaultTrayOptions.drawerBackgroundOpacity - 1.0) > 0.001) {
+      fail("tray", "drawer_background_opacity did not default to 1.0");
+    }
+    const auto specs = trayWidgetDefinition().presentedSettingSpecs();
+    const auto it =
+        std::ranges::find_if(specs, [](const auto& s) { return s.schema.key == "drawer_background_opacity"; });
+    if (it == specs.end() || !it->visibleWhen.has_value()) {
+      fail("tray", "drawer_background_opacity missing visibleWhen");
+    }
+    const bool hasDrawerCondition = std::ranges::any_of(it->visibleWhen->all, [](const auto& c) {
+      return c.key == "drawer" && c.values == std::vector<std::string>{"true"};
+    });
+    const bool hasDetachedCondition = std::ranges::any_of(it->visibleWhen->all, [](const auto& c) {
+      return c.key == "detached_panel" && c.values == std::vector<std::string>{"true"};
+    });
+    if (!hasDrawerCondition || !hasDetachedCondition) {
+      fail("tray", "drawer_background_opacity visibleWhen requires drawer and detached_panel");
+    }
+  }
   checkDefinition("volume", volumeWidgetDefinition);
 
   WidgetConfig inputVolume;

@@ -203,6 +203,7 @@ private:
   // using the cached attached background opacity and bar position. Geometry/positions are not touched.
   // Safe to call any time after buildScene has run.
   void applyAttachedDecorationStyle();
+  [[nodiscard]] float activeDetachedBackgroundOpacity() const noexcept;
   // Submit a wl_region matching the panel body after applying the current reveal clip.
   void applyPanelCompositorBlur(int bodyX, int bodyY, int bodyW, int bodyH, int clipX, int clipY, int clipW, int clipH);
   // Positions the background, shadows, and content node around the current card and sets

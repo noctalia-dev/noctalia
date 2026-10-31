@@ -1086,6 +1086,11 @@ namespace settings {
         if (!spec.schema.inheritsFromBar) {
           continue;
         }
+        if (spec.schema.key == "drawer_background_opacity") {
+          spec.schema.defaultValue =
+              static_cast<double>(detachedPanelBackgroundOpacityForTransparencyMode(cfg.shell.panel.transparencyMode));
+          continue;
+        }
         if (const auto inherited = inheritedBarBoolForLane(cfg, lanePath, spec.schema.key)) {
           spec.schema.defaultValue = *inherited;
         }

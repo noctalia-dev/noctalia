@@ -5,6 +5,14 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
   using Options = TrayWidget::Options;
 
   static const settings::WidgetSettingVisibility drawerOn{"drawer", {"true"}};
+  static const settings::WidgetSettingVisibility detachedDrawerOn = [] {
+    settings::WidgetSettingVisibility visibility;
+    visibility.all = {
+        settings::WidgetSettingVisibilityCondition{"drawer", {"true"}},
+        settings::WidgetSettingVisibilityCondition{"detached_panel", {"true"}},
+    };
+    return visibility;
+  }();
 
   static const noctalia::bar::WidgetDefinition<Options, TrayWidgetDefinitionContext> definition{
       .type = "tray",
@@ -51,6 +59,17 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                       settings::WidgetSettingPresentation{
                           .visibleWhen = drawerOn,
                       },
+              }),
+              field<&Options::drawerBackgroundOpacity>({
+                  .key = "drawer_background_opacity",
+                  .minValue = 0.0,
+                  .maxValue = 1.0,
+                  .step = 0.01,
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .visibleWhen = detachedDrawerOn,
+                      },
+                  .inheritsFromBar = true,
               }),
           },
       .finalize = [](Options& options, const TrayWidgetDefinitionContext& context) {

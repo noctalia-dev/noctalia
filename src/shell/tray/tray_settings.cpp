@@ -26,6 +26,10 @@ namespace tray {
     if (widgetConfig != nullptr && widgetConfig->hasSetting("drawer_item_size")) {
       resolved.drawerItemSize = static_cast<float>(resolved.options.drawerItemSize);
     }
+    if (widgetConfig != nullptr && widgetConfig->hasSetting("drawer_background_opacity")) {
+      resolved.drawerBackgroundOpacity =
+          std::clamp(static_cast<float>(resolved.options.drawerBackgroundOpacity), 0.0F, 1.0F);
+    }
     return resolved;
   }
 
