@@ -4,7 +4,7 @@
 # Documentation assets are copied from docs/assets/ into the docs site's
 # src/assets/. Existing generated pages are replaced atomically, and stale
 # generated pages are removed only after a non-empty source sync succeeds.
-# Usage: tools/sync-docs.sh [docs-site-root]
+# Usage: [FORCE_SYNC=1] tools/sync-docs.sh [docs-site-root]
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,6 +16,17 @@ asset_dest="$site_root/src/assets"
 plugin_api_source="$repo_root/docs/plugin-api.json"
 plugin_api_dest="$site_root/src/data/plugin-api.json"
 versions_dest="$site_root/src/data/versions.json"
+
+active_extract_dir=""
+active_staging_dir=""
+active_versions_tmp=""
+cleanup_temp_dirs() {
+    [[ -n "$active_extract_dir" ]] && rm -rf "$active_extract_dir"
+    [[ -n "$active_staging_dir" ]] && rm -rf "$active_staging_dir"
+    [[ -n "$active_versions_tmp" ]] && rm -f "$active_versions_tmp"
+    return 0
+}
+trap cleanup_temp_dirs EXIT
 
 [[ -d "$source_dir" ]] || {
     printf 'sync-docs: source directory does not exist: %s\n' "$source_dir" >&2
@@ -33,6 +44,15 @@ versions_dest="$site_root/src/data/versions.json"
     printf 'sync-docs: plugin API metadata does not exist: %s\n' "$plugin_api_source" >&2
     exit 1
 }
+command -v jq > /dev/null 2>&1 || {
+    printf 'sync-docs: jq is required but not installed\n' >&2
+    exit 1
+}
+git -C "$repo_root" rev-parse --is-inside-work-tree > /dev/null 2>&1 || {
+    printf 'sync-docs: %s is not a git work tree\n' "$repo_root" >&2
+    exit 1
+}
+
 generate_versions_manifest() {
     local manifest_entries=()
     manifest_entries+=( "$(jq -n '{version: "main", tag: "main", label: "main (rolling)", path: "/noctalia/", status: "rolling", isDefault: true, isLatest: false}')" )
@@ -65,15 +85,18 @@ generate_versions_manifest() {
             '{version: $version, tag: $tag, label: $label, path: $path, releaseDate: $releaseDate, commit: $commit, status: $status, isLatest: $isLatest}')" )
     done < <(git -C "$repo_root" tag -l 'v*' --sort=-v:refname 2>/dev/null)
 
-    printf '%s\n' "${manifest_entries[@]}" | jq -s '.' > "$versions_dest.tmp"
-    mv "$versions_dest.tmp" "$versions_dest"
+    if (( first_release )); then
+        printf 'sync-docs: no v* release tags with docs/user found in %s\n' "$repo_root" >&2
+        exit 1
+    fi
+
+    active_versions_tmp="$(mktemp "$site_root/src/data/.versions.json.tmp.XXXXXX")"
+    printf '%s\n' "${manifest_entries[@]}" | jq -s '.' > "$active_versions_tmp"
 }
 
 mkdir -p "$dest_dir" "$asset_dest" "$(dirname "$plugin_api_dest")" "$(dirname "$versions_dest")"
 
-if command -v jq > /dev/null 2>&1 && git -C "$repo_root" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-    generate_versions_manifest
-fi
+generate_versions_manifest
 
 declare -A expected_mdx=()
 source_count=0
@@ -117,13 +140,13 @@ sync_version_docs() {
     local version_source_dir="$1"
     local version_tag="$2"
     local version_dest_dir="$dest_dir/$version_tag"
+    local version_source_count=0
 
-    mkdir -p "$version_dest_dir"
-    declare -A expected_version_mdx=()
+    active_staging_dir="$(mktemp -d "$dest_dir/.${version_tag}.tmp.XXXXXX")"
 
     while IFS= read -r -d '' mdx_file; do
         local relative_path="${mdx_file#"$version_source_dir"/}"
-        local destination_file="$version_dest_dir/$relative_path"
+        local destination_file="$active_staging_dir/$relative_path"
         mkdir -p "$(dirname "$destination_file")"
 
         local relative_slug="${relative_path%.mdx}"
@@ -145,32 +168,36 @@ sync_version_docs() {
             -e "s|href=\"/noctalia/|href=\"/noctalia/${version_tag}/|g" \
             "$mdx_file" > "$destination_file.tmp"
         mv "$destination_file.tmp" "$destination_file"
-        expected_version_mdx["$destination_file"]=1
+        version_source_count=$((version_source_count + 1))
     done < <(find "$version_source_dir" -type f -name '*.mdx' -print0 | sort -z)
 
-    while IFS= read -r -d '' mdx_file; do
-        if [[ -n "${expected_version_mdx["$mdx_file"]+present}" ]]; then
-            continue
-        fi
-        rm "$mdx_file"
-    done < <(find "$version_dest_dir" -type f -name '*.mdx' -print0 | sort -z)
+    if (( version_source_count == 0 )); then
+        printf 'sync-docs: no MDX files found for release %s\n' "$version_tag" >&2
+        exit 1
+    fi
+
+    rm -rf "$version_dest_dir"
+    mv "$active_staging_dir" "$version_dest_dir"
+    active_staging_dir=""
 }
 
-if command -v jq > /dev/null 2>&1 && [[ -f "$versions_dest" ]]; then
-    mapfile -t release_tags < <(jq -r '.[] | select(.tag != "main") | .tag' "$versions_dest")
-    for release_tag in "${release_tags[@]}"; do
-        version_destination="$dest_dir/$release_tag"
-        if [[ -d "$version_destination" && "${FORCE_SYNC:-0}" != "1" ]]; then
-            continue
-        fi
+mapfile -t release_tags < <(jq -r '.[] | select(.tag != "main") | .tag' "$active_versions_tmp")
+for release_tag in "${release_tags[@]}"; do
+    version_destination="$dest_dir/$release_tag"
+    if [[ -d "$version_destination" && "${FORCE_SYNC:-0}" != "1" ]]; then
+        continue
+    fi
 
-        printf 'syncing release %s -> %s\n' "$release_tag" "${version_destination#"$site_root"/}"
-        temporary_extract_dir="$(mktemp -d)"
-        if git -C "$repo_root" archive "$release_tag" docs/user/ 2>/dev/null | tar -x -C "$temporary_extract_dir" 2>/dev/null; then
-            sync_version_docs "$temporary_extract_dir/docs/user" "$release_tag"
-        else
-            printf 'sync-docs: warning: git tag %s could not be archived\n' "$release_tag" >&2
-        fi
-        rm -rf "$temporary_extract_dir"
-    done
-fi
+    printf 'syncing release %s -> %s\n' "$release_tag" "${version_destination#"$site_root"/}"
+    active_extract_dir="$(mktemp -d)"
+    if ! git -C "$repo_root" archive "$release_tag" docs/user/ 2>/dev/null | tar -x -C "$active_extract_dir" 2>/dev/null; then
+        printf 'sync-docs: failed to archive git tag %s\n' "$release_tag" >&2
+        exit 1
+    fi
+    sync_version_docs "$active_extract_dir/docs/user" "$release_tag"
+    rm -rf "$active_extract_dir"
+    active_extract_dir=""
+done
+
+mv "$active_versions_tmp" "$versions_dest"
+active_versions_tmp=""
