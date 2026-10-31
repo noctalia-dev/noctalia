@@ -102,29 +102,92 @@ float atmosphericShimmer(vec2 uv, float iTime) {
     return (n1 * 0.5 + n2 * 0.3 + n3 * 0.2) * 0.15;
 }
 
-float sunCore(vec2 uv, vec2 sunPos, float iTime) {
-    vec2 toSun = uv - sunPos;
-    float dist = length(toSun);
-    float mainFlare = exp(-dist * 15.0) * 2.0;
-    float flares = 0.0;
-    for (int i = 1; i <= 3; i++) {
-        vec2 flarePos = sunPos + toSun * float(i) * 0.3;
-        float flareDist = length(uv - flarePos);
-        float flareSize = 0.02 + float(i) * 0.01;
-        flares += smoothstep(flareSize * 2.0, flareSize * 0.5, flareDist) * (0.3 / float(i));
+// Same drifting cloud/fog backdrop as the Rain effect's rainFogColor() (see that
+// definition's comment), reusing this shader's own efx_noise instead of duplicating a
+// second near-identical hash/noise pair - every effect in this file already keeps its own
+// copy of those rather than sharing one through kCommonFragment.
+float sunFogFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+        float fi = float(i + 1);
+        v += amp * efx_noise(p + vec2(iTime * 0.03 * fi, -iTime * 0.02 * fi));
+        p *= 2.0;
+        amp *= 0.5;
     }
+    return v;
+}
+
+vec3 sunFogColor(vec2 uv, float iTime) {
+    vec3 base = mix(u_bg_color.rgb * 0.7, u_bg_color.rgb * 0.95, uv.y);
+
+    vec3 secondary = particleColor(vec3(0.314, 0.353, 0.416), vec3(0.2, 0.24, 0.3));
+    vec3 tertiary = particleColor(vec3(0.404, 0.553, 0.498), vec3(0.2, 0.32, 0.28));
+    vec3 primary = particleColor(vec3(0.561, 0.459, 0.259), vec3(0.42, 0.33, 0.16));
+    vec3 accent = particleColor(vec3(0.275, 0.314, 0.22), vec3(0.19, 0.22, 0.14));
+
+    float n1 = sunFogFbm(uv * 2.2, iTime);
+    float n2 = sunFogFbm(uv * 3.5 + 10.0, iTime * 1.3);
+    float n3 = sunFogFbm(uv * 2.8 - 5.0, iTime * 0.8);
+
+    vec3 col = base;
+    col = mix(col, secondary, smoothstep(0.35, 0.68, n1) * 0.48);
+    col = mix(col, tertiary, smoothstep(0.52, 0.84, n2) * 0.33);
+    col = mix(col, primary, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.45);
+    col = mix(col, accent, smoothstep(0.5, 0.8, n3) * 0.4);
+    return col;
+}
+
+float sunCore(vec2 uv, vec2 sunPos, float iTime) {
+    float dist = length(uv - sunPos);
+    float mainFlare = exp(-dist * 15.0) * 2.0;
     float pulse = sin(iTime) * 0.1 + 0.9;
-    return (mainFlare + flares) * pulse;
+    return mainFlare * pulse;
+}
+
+// Hollow coating rings close around the disc, plus a true off-axis ghost chain along the
+// sun -> screen-center line (fixed screen-space positions, unlike the old "flares" loop
+// here, which multiplied toSun = uv - sunPos back into flarePos and so cancelled uv out
+// to length(toSun)*|1 - i*0.3| - just more concentric rings around the sun itself, not
+// actual secondary reflections on the opposite side of frame center like a real lens).
+// Returns a tinted vec3 directly (each ring/ghost gets its own hue, like anti-reflective
+// coating fringing) instead of a scalar multiplied by one flat sunColor.
+vec3 sunLensFlares(vec2 uv, vec2 sunPos, vec2 screenCenter, float iTime) {
+    vec3 result = vec3(0.0);
+    float dist = length(uv - sunPos);
+
+    for (int i = 1; i <= 3; i++) {
+        float radius = 0.025 + float(i) * 0.018;
+        float thickness = 0.006;
+        float ring = 1.0 - smoothstep(0.0, thickness, abs(dist - radius));
+        vec3 tint = 0.5 + 0.5 * cos(vec3(0.0, 2.1, 4.2) + float(i) * 1.1);
+        result += tint * ring * (0.22 / float(i));
+    }
+
+    vec2 axis = screenCenter - sunPos;
+    for (int i = 0; i < 4; i++) {
+        float t = 0.4 + float(i) * 0.35;
+        vec2 ghostPos = sunPos + axis * t;
+        float gDist = length(uv - ghostPos);
+        float gRadius = 0.012 + float(i) * 0.01;
+        float gThickness = gRadius * 0.5;
+        float ghost = 1.0 - smoothstep(0.0, gThickness, abs(gDist - gRadius));
+        vec3 tint = 0.5 + 0.5 * cos(vec3(1.0, 3.0, 5.0) + float(i) * 1.7);
+        float fade = 1.0 / (1.2 + float(i) * 0.8);
+        result += tint * ghost * fade * 0.12;
+    }
+
+    return result;
 }
 
 void main() {
     vec2 uv = v_uv;
     float iTime = u_time * 0.08;
-    vec4 col = vec4(u_bg_color.rgb, 1.0);
     vec2 sunPos = vec2(0.85, 0.2);
     float aspect = u_item_width / u_item_height;
     vec2 uvAspect = vec2(uv.x * aspect, uv.y);
     vec2 sunPosAspect = vec2(sunPos.x * aspect, sunPos.y);
+    vec4 col = vec4(sunFogColor(uvAspect, iTime), 1.0);
 
     float rays = sunRays(uvAspect, sunPosAspect, iTime);
     float shimmerEffect = atmosphericShimmer(uv, iTime);
@@ -150,6 +213,12 @@ void main() {
     float flareAlpha = clamp(flare, 0.0, 1.0) * 0.6;
     resultRGB = flareContribution + resultRGB * (1.0 - flareAlpha);
     resultAlpha = flareAlpha + resultAlpha * (1.0 - flareAlpha);
+
+    // Additive, not alpha-blended like the terms above - these are thin bright ring
+    // outlines (mostly zero coverage), so a blend would barely show; additive lets each
+    // ring's own tint punch through regardless of what's already composited underneath.
+    vec2 screenCenter = vec2(0.5 * aspect, 0.5);
+    resultRGB += sunLensFlares(uvAspect, sunPosAspect, screenCenter, iTime);
 
     resultRGB = mix(resultRGB, resultRGB * vec3(1.08, 1.04, 0.98), 0.15);
 
