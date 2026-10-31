@@ -5,6 +5,7 @@
 #include "capture/screenshot_image.h"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -139,6 +140,11 @@ namespace capture {
     void syncToolbarPositionsForConnectedOutputs();
     void beginToolbarDrag(Instance& instance);
     void dragToolbarTo(double surfaceX, double surfaceY);
+    void applyCanvasView(Instance& instance);
+    void zoomViewTo(Instance& instance, double anchorX, double anchorY, double factor);
+    void zoomViewByButton(Instance& instance, double factor);
+    void resetView(Instance& instance);
+    void clampView(Instance& instance);
     [[nodiscard]] std::size_t nearestSizePreset(AnnotationTool tool) const;
     void applySizePreset(std::size_t index);
     void layoutCanvas(Instance& instance);
@@ -219,6 +225,16 @@ namespace capture {
     bool m_moved = false;
     bool m_cropDragging = false;
     AnnotationPoint m_cropStart{};
+
+    // Ctrl+drag pans the view transform, anchored at the press in surface coordinates.
+    Instance* m_panInstance = nullptr;
+    double m_panAnchorX = 0.0;
+    double m_panAnchorY = 0.0;
+    double m_panStartX = 0.0;
+    double m_panStartY = 0.0;
+    // Ctrl+wheel zoom step accumulation for detent-less (touchpad) axis streams.
+    double m_zoomScrollAccum = 0.0;
+    std::chrono::steady_clock::time_point m_lastZoomStep{};
 
     Instance* m_textInstance = nullptr;
     std::optional<std::size_t> m_textIndex;
