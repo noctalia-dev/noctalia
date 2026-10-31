@@ -1,0 +1,80 @@
+---
+title: Noctalia systemd user service
+description: How to enable the Noctalia systemd user service, instead of starting it from the compositor config.
+sidebar:
+  order: 10
+---
+
+We provide an experimental systemd user service for Noctalia. If your compositor is started as a systemd user service, then instead of launching Noctalia from your compositor configuration, you can enable this service so that systemd automatically starts Noctalia after the compositor.
+
+Benefits:
+
+- The Noctalia service blocks subsequent services having `After=graphical-session.target` (e.g. XDG autostart apps) from starting, until Noctalia finishes starting up. This cleanly fixes the race condition, where an autostart app might try to register with the systray before Noctalia starts listening on the systray D-Bus interface, thus failing to show its systray icon.
+- Noctalia runs in its own cgroup, isolating its resource usage from other processes. And you can set resource limits for it independently in the service file.
+
+## Supported Compositors
+
+The following compositors are supported in their own Wayland sessions:
+
+- KDE Plasma
+- Labwc
+- Mango
+- Niri
+- Umbriel
+
+The following compositors are only supported in [uwsm](https://github.com/Vladimir-csp/uwsm) sessions (because they don't run as systemd user services in their own sessions):
+
+- Hyprland
+- Sway / Scroll
+
+## Installation
+
+1. Copy `noctalia.service` from `/usr/share/noctalia/assets` to `$HOME/.config/systemd/user/`. (Depending on your installation method, the source dir could be `/usr/local/share/noctalia/assets` or `$HOME/.local/share/noctalia/assets` instead.)
+2. Edit the copied service file. Uncomment (remove the leading `#`) the `WantedBy=` line for the compositor you want to enable Noctalia for.
+3. Reload the systemd user daemon: `systemctl --user daemon-reload`
+4. Enable the Noctalia service: `systemctl --user enable noctalia.service`
+
+To uninstall, run `systemctl --user disable noctalia.service` (or delete `$HOME/.config/systemd/user/*.wants/noctalia.service`).
+
+It's also recommended to enable the "Launch Apps as systemd Services" option in "Shell" settings. This puts apps launched from Noctalia in their own transient systemd services, so they won't be killed when you restart Noctalia (e.g., after upgrading it).
+
+### Labwc
+
+For Labwc (when not started via `uwsm`), you also need to add the following line to `$HOME/.config/labwc/autostart`:
+
+```sh
+systemctl --user --no-block start labwc-session.target
+```
+
+## Implementation Details
+
+We need to ensure that:
+
+1. Noctalia starts after the compositor is ready.
+2. Noctalia is ready before XDG autostart apps are launched. (This ensures that autostart apps can register with the systray successfully.)
+
+### Start Noctalia after the compositor is ready
+
+#### Compositors that run as systemd user services: KDE Plasma, Niri, Umbriel
+
+These compositors run in their own systemd user services, and only mark the unit active when they are ready. So `noctalia.service` has `WantedBy=` for their services or session targets, and `After=` for their services.
+
+#### Compositors that do not run as systemd user services: Labwc, Mango
+
+These compositors do not run as systemd user services, but they start a session target only after they are ready. So `noctalia.service` has `WantedBy=` for their session targets. We don't need `After=` for them, because when the session target starts, they are already ready.
+
+#### Compositors managed by `uwsm`: Hyprland, Sway / Scroll
+
+For these compositors, `uwsm` handles starting the compositor and marking it ready. `noctalia.service` has `WantedBy=` for `wayland-session@<compositor>.desktop.target`, and `After=` for `wayland-session-waitenv.service`, which waits for the necessary environment variables (`WAYLAND_DISPLAY` and others) are set (thus the compositor is ready) before Noctalia starts.
+
+### Ensure Noctalia is ready before XDG autostart apps are launched
+
+`noctalia.service` has `Before=graphical-session.target`, while XDG autostart units have `After=graphical-session.target`. So Noctalia will be ready before any XDG autostart apps launch.
+
+## Troubleshooting
+
+If some apps launched from Noctalia don't use the cursor theme and size in your compositor config, but when launched via a compositor keybinding they work correctly, it's usually because the compositor doesn't export the `XCURSOR_THEME` and `XCURSOR_SIZE` environment variables to the systemd user manager, so apps spawned directly for the compositor inherit them, but Noctalia itself and apps launched from Noctalia do not. To fix this, you can add the following to the autostart section in your compositor's configuration file:
+
+```sh
+systemctl --user import-environment XCURSOR_THEME XCURSOR_SIZE
+```

@@ -1195,9 +1195,21 @@ noctalia_exe = executable('noctalia',
   install: true,
 )
 
+noctalia_session_config = configuration_data()
+noctalia_session_config.set(
+  'NOCTALIA_EXECUTABLE',
+  get_option('prefix') / get_option('bindir') / 'noctalia', 
+)
+configure_file(
+  input: 'assets/noctalia.service.in',
+  output: 'noctalia.service',
+  configuration: noctalia_session_config,
+  install_dir: get_option('datadir') / 'noctalia' / 'assets',
+)
+
 install_subdir('assets',
   install_dir: get_option('datadir') / 'noctalia',
-  exclude_files: ['dev.noctalia.Noctalia.desktop', 'dev.noctalia.Noctalia.Annotator.desktop'],
+  exclude_files: ['dev.noctalia.Noctalia.desktop', 'dev.noctalia.Noctalia.Annotator.desktop', 'noctalia.service.in'],
 )
 
 install_data(
