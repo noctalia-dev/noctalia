@@ -672,6 +672,7 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
     const std::vector<std::string> words = noctalia::ipc::splitWords(args);
     std::string_view action;
     std::optional<WindowSwitcherScope> scope;
+    bool reverse = false;
     for (const std::string& word : words) {
       if (word == "close" || word == "hide" || word == "hold") {
         if (!action.empty()) {
@@ -683,6 +684,11 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
           return "error: duplicate window-switcher scope\n";
         }
         scope = parsed;
+      } else if (word == "reverse") {
+        if (reverse) {
+          return "error: duplicate window-switcher direction\n";
+        }
+        reverse = true;
       } else {
         return "error: unknown window-switcher argument '" + word + "'\n";
       }
@@ -706,7 +712,10 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
     }
     m_scopeOverride = scope.value_or(WindowSwitcherScope::None);
     const bool wasActive = m_active;
-    const std::uint32_t modifiers = m_active && m_wayland != nullptr ? m_wayland->keyboardModifiers() : 0;
+    std::uint32_t modifiers = m_active && m_wayland != nullptr ? m_wayland->keyboardModifiers() : 0;
+    if (reverse) {
+      modifiers |= KeyMod::Shift;
+    }
     showFromShortcut(output, modifiers);
     if (action == "hold" && !wasActive && m_active) {
       m_shortcutState.expectHeldModifier();
