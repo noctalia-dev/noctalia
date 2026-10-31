@@ -233,11 +233,26 @@ constexpr bool operator==(const FancyAudioVisualizerStyle& lhs, const FancyAudio
 
 enum class EffectType : std::uint8_t { None, Sun, Snow, Rain, Cloud, Fog, Stars };
 
+// Fixed capacity for the Rain effect's glass-droplet layer. Kept small since each drop is
+// uploaded as a uniform (no texture/FBO plumbing) and summed per-pixel in the fragment shader.
+inline constexpr int kMaxRainDrops = 24;
+
+// x/y in the effect's local uv space [0,1], radius in the same space, depth in [0,1] used to
+// vary refraction/shading strength per drop (bigger/older drops read as deeper).
+struct RainDrop {
+  float x = 0.0F;
+  float y = 0.0F;
+  float radius = 0.0F;
+  float depth = 0.0F;
+};
+
 struct EffectStyle {
   EffectType type = EffectType::None;
   float time = 0.0F;
   float radius = 0.0F;
   Color bgColor{};
+  std::array<RainDrop, kMaxRainDrops> drops{};
+  int dropCount = 0;
 };
 
 struct GraphStyle {

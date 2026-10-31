@@ -42,6 +42,10 @@ private:
     GLint bgColorLoc = -1;
     GLint radiusLoc = -1;
     GLint alternativeLoc = -1;
+    // Rain-only: glass-droplet layer (see render_styles.h's kMaxRainDrops). -1 on every
+    // other effect type's program, where the uniform doesn't exist in the shader source.
+    GLint dropsLoc = -1;
+    GLint dropCountLoc = -1;
   };
 
   void initProgram(EffectType type, const char* fragSource);
