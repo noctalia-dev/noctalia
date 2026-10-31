@@ -107,6 +107,9 @@ public:
   // Call outside input dispatch to clear the displayed buffer before closing and running the action.
   void closePanelForCapture(std::function<void()> afterClose);
   void togglePanel(const std::string& panelId, PanelOpenRequest request);
+  // Opens the panel on the request's context, like togglePanel, but never closes
+  // it: an open panel just switches context. For prompts that must reach the user.
+  void showPanel(const std::string& panelId, PanelOpenRequest request);
   // IPC-friendly overload: asks CompositorPlatform for preferred interactive output.
   void togglePanel(const std::string& panelId);
 

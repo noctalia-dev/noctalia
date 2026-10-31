@@ -388,8 +388,36 @@ namespace {
       return {-1, {}, {}};
     }
 
+    // Stdin is filled before fork() and its write end closed, so the child sees the
+    // whole input then EOF, and the parent never blocks on (or takes SIGPIPE from)
+    // a child that stops reading.
+    int inPipe[2] = {-1, -1};
+    if (options.stdinData.has_value()) {
+      const std::string& input = *options.stdinData;
+      bool filled = ::pipe2(inPipe, O_CLOEXEC | O_NONBLOCK) == 0;
+      for (std::size_t written = 0; filled && written < input.size();) {
+        const ssize_t n = ::write(inPipe[1], input.data() + written, input.size() - written);
+        if (n > 0) {
+          written += static_cast<std::size_t>(n);
+        } else if (n < 0 && errno == EINTR) {
+          continue;
+        } else {
+          filled = false;
+        }
+      }
+      closeFd(inPipe[1]);
+      if (!filled) {
+        kLog.warn("process stdin ({} bytes) could not be buffered for {}", input.size(), args.front());
+        closePipe(inPipe);
+        closePipe(outPipe);
+        closePipe(errPipe);
+        return {-1, {}, {}};
+      }
+    }
+
     const pid_t pid = ::fork();
     if (pid < 0) {
+      closePipe(inPipe);
       closePipe(outPipe);
       closePipe(errPipe);
       return {-1, {}, {}};
@@ -401,6 +429,13 @@ namespace {
       ::setpgid(0, 0);
       closeFd(outPipe[0]);
       closeFd(errPipe[0]);
+      if (inPipe[0] >= 0) {
+        // The read end was opened O_NONBLOCK alongside the write end; the child
+        // expects ordinary blocking reads.
+        ::fcntl(inPipe[0], F_SETFL, ::fcntl(inPipe[0], F_GETFL) & ~O_NONBLOCK);
+        ::dup2(inPipe[0], STDIN_FILENO);
+        closeFd(inPipe[0]);
+      }
       ::dup2(outPipe[1], STDOUT_FILENO);
       ::dup2(errPipe[1], STDERR_FILENO);
       closeFd(outPipe[1]);
@@ -417,6 +452,7 @@ namespace {
     // wins the race; harmless if the child has already exec'd.
     ::setpgid(pid, pid);
 
+    closeFd(inPipe[0]);
     closeFd(outPipe[1]);
     closeFd(errPipe[1]);
     (void)setNonBlocking(outPipe[0]);
