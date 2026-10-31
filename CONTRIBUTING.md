@@ -119,6 +119,8 @@ End-user documentation lives in [`docs/user/`](docs/user/) (MDX), with images un
 
 The documentation site is generated from these files by `tools/sync-docs.sh`, which copies `docs/user/**/*.mdx` into the docs site checkout and deletes pages that no longer exist here. Never edit the generated copies; the next sync overwrites them.
 
+The same script archives each `vX.Y.Z` release tag once, from the tag's own `docs/user/`, `docs/assets/`, and `docs/plugin-api.json`, under `/noctalia/<tag>/`, and writes the version list the site's switcher reads. It needs `jq` and a checkout with the release tags fetched. Archives are never rewritten afterwards; run it with `FORCE_SYNC=1` to rebuild them after changing the archiving itself.
+
 ### Vendored code
 
 Do not patch vendored code under `third_party/` for Noctalia behavior; local edits are lost when the dependency is refreshed. Put compatibility code in Noctalia-owned sources under `src/`, or fix the issue upstream and update the vendored snapshot from upstream.

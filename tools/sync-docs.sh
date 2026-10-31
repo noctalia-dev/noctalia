@@ -4,6 +4,10 @@
 # Documentation assets are copied from docs/assets/ into the docs site's
 # src/assets/. Existing generated pages are replaced atomically, and stale
 # generated pages are removed only after a non-empty source sync succeeds.
+# Each vX.Y.Z release tag is archived once, from the tag itself, into
+# noctalia/<tag>/ with its assets in src/assets/<tag>/ and its plugin API
+# metadata in src/data/plugin-api/<tag>.json; src/data/versions.json lists
+# them. FORCE_SYNC=1 re-archives every release.
 # Usage: [FORCE_SYNC=1] tools/sync-docs.sh [docs-site-root]
 set -euo pipefail
 
@@ -19,10 +23,12 @@ versions_dest="$site_root/src/data/versions.json"
 
 active_extract_dir=""
 active_staging_dir=""
+active_asset_staging_dir=""
 active_versions_tmp=""
 cleanup_temp_dirs() {
     [[ -n "$active_extract_dir" ]] && rm -rf "$active_extract_dir"
     [[ -n "$active_staging_dir" ]] && rm -rf "$active_staging_dir"
+    [[ -n "$active_asset_staging_dir" ]] && rm -rf "$active_asset_staging_dir"
     [[ -n "$active_versions_tmp" ]] && rm -f "$active_versions_tmp"
     return 0
 }
@@ -59,7 +65,7 @@ generate_versions_manifest() {
 
     local first_release=1
     while IFS= read -r release_tag; do
-        [[ -z "$release_tag" ]] && continue
+        [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
         if [[ -z "$(git -C "$repo_root" ls-tree "$release_tag" docs/user 2>/dev/null)" ]]; then
             continue
         fi
@@ -86,11 +92,11 @@ generate_versions_manifest() {
     done < <(git -C "$repo_root" tag -l 'v*' --sort=-v:refname 2>/dev/null)
 
     if (( first_release )); then
-        printf 'sync-docs: no v* release tags with docs/user found in %s\n' "$repo_root" >&2
+        printf 'sync-docs: no vX.Y.Z release tags with docs/user found in %s\n' "$repo_root" >&2
         exit 1
     fi
 
-    active_versions_tmp="$(mktemp "$site_root/src/data/.versions.json.tmp.XXXXXX")"
+    active_versions_tmp="$versions_dest.tmp"
     printf '%s\n' "${manifest_entries[@]}" | jq -s '.' > "$active_versions_tmp"
 }
 
@@ -134,15 +140,34 @@ while IFS= read -r -d '' mdx; do
     fi
     rm "$mdx"
     printf 'removed stale %s\n' "${mdx#"$site_root"/}"
-done < <(find "$dest_dir" -path "$dest_dir/v*" -prune -o -type f -name '*.mdx' -print0 | sort -z)
+done < <(find "$dest_dir" -path "$dest_dir/v[0-9]*" -prune -o -type f -name '*.mdx' -print0 | sort -z)
 
+# Archives one release from its extracted tree. Assets go to src/assets/<tag>/ and plugin API
+# metadata to src/data/plugin-api/<tag>.json so archived pages never depend on the rolling copies.
+# Pages are moved into place last: their directory existing marks the release as fully archived.
 sync_version_docs() {
-    local version_source_dir="$1"
+    local version_source_root="$1"
     local version_tag="$2"
+    local version_source_dir="$version_source_root/docs/user"
     local version_dest_dir="$dest_dir/$version_tag"
+    local version_asset_dest="$asset_dest/$version_tag"
+    local version_plugin_api_dest="$site_root/src/data/plugin-api/$version_tag.json"
     local version_source_count=0
 
-    active_staging_dir="$(mktemp -d "$dest_dir/.${version_tag}.tmp.XXXXXX")"
+    rm -rf "$version_asset_dest.tmp"
+    active_asset_staging_dir="$version_asset_dest.tmp"
+    cp -a "$version_source_root/docs/assets" "$active_asset_staging_dir"
+    rm -rf "$version_asset_dest"
+    mv "$active_asset_staging_dir" "$version_asset_dest"
+    active_asset_staging_dir=""
+
+    mkdir -p "$(dirname "$version_plugin_api_dest")"
+    cp "$version_source_root/docs/plugin-api.json" "$version_plugin_api_dest.tmp"
+    mv "$version_plugin_api_dest.tmp" "$version_plugin_api_dest"
+
+    rm -rf "$dest_dir/.$version_tag.tmp"
+    active_staging_dir="$dest_dir/.$version_tag.tmp"
+    mkdir "$active_staging_dir"
 
     while IFS= read -r -d '' mdx_file; do
         local relative_path="${mdx_file#"$version_source_dir"/}"
@@ -150,24 +175,30 @@ sync_version_docs() {
         mkdir -p "$(dirname "$destination_file")"
 
         local relative_slug="${relative_path%.mdx}"
-        relative_slug="${relative_slug%.md}"
         relative_slug="${relative_slug%/index}"
         local page_slug="noctalia/${version_tag}/${relative_slug}"
         if [[ "$relative_slug" == "index" ]]; then
             page_slug="noctalia/${version_tag}"
         fi
 
+        # Source pages reach docs/assets/ through one ../ per directory level plus one; the archived
+        # copy sits three levels deeper (src/content/docs/noctalia/<tag>/) and uses its tag's assets.
+        local parent_dirs="${relative_path//[^\/]/}"
+        local source_asset_prefix="" archived_asset_prefix="../../../"
+        local level
+        for (( level = 0; level <= ${#parent_dirs}; level++ )); do
+            source_asset_prefix+='\.\./'
+            archived_asset_prefix+='../'
+        done
+        archived_asset_prefix+="assets/${version_tag}/"
+
         sed \
             -e "1s|^---$|---\nslug: ${page_slug}|" \
-            -e "s|from '../../assets/|from '../../../../../assets/|g" \
-            -e "s|](../../assets/|](../../../../../assets/|g" \
-            -e "s|from '../../../assets/|from '../../../../../../assets/|g" \
-            -e "s|](../../../assets/|](../../../../../../assets/|g" \
+            -e "s#\(['\"(]\)${source_asset_prefix}assets/#\1${archived_asset_prefix}#g" \
             -e "s|\.\./components/|../../components/|g" \
             -e "s|](/noctalia/|](/noctalia/${version_tag}/|g" \
             -e "s|href=\"/noctalia/|href=\"/noctalia/${version_tag}/|g" \
-            "$mdx_file" > "$destination_file.tmp"
-        mv "$destination_file.tmp" "$destination_file"
+            "$mdx_file" > "$destination_file"
         version_source_count=$((version_source_count + 1))
     done < <(find "$version_source_dir" -type f -name '*.mdx' -print0 | sort -z)
 
@@ -190,11 +221,12 @@ for release_tag in "${release_tags[@]}"; do
 
     printf 'syncing release %s -> %s\n' "$release_tag" "${version_destination#"$site_root"/}"
     active_extract_dir="$(mktemp -d)"
-    if ! git -C "$repo_root" archive "$release_tag" docs/user/ 2>/dev/null | tar -x -C "$active_extract_dir" 2>/dev/null; then
+    if ! git -C "$repo_root" archive "$release_tag" docs/user/ docs/assets/ docs/plugin-api.json \
+        | tar -x -C "$active_extract_dir"; then
         printf 'sync-docs: failed to archive git tag %s\n' "$release_tag" >&2
         exit 1
     fi
-    sync_version_docs "$active_extract_dir/docs/user" "$release_tag"
+    sync_version_docs "$active_extract_dir" "$release_tag"
     rm -rf "$active_extract_dir"
     active_extract_dir=""
 done
