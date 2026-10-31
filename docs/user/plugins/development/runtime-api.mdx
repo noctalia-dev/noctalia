@@ -141,7 +141,7 @@ The view is read-only: an entry observes the shell's calendar but cannot add, ed
 | `noctalia.diskMounts()`    | array          | Physical block-device-backed filesystems available to `diskStats()`. Requires <PluginApiBadge feature="extended-system-stats" />.                                    |
 | `noctalia.diskStats(path)` | table or `nil` | Latest disk usage snapshot for an absolute or `~/` path. `nil` when the monitor or path is unavailable. Requires <PluginApiBadge feature="extended-system-stats" />. |
 
-`systemStats()` returns a copy of the host's most recent sample. Its first call opts the plugin into the optional CPU temperature and GPU probes represented in the snapshot; those probes are released when the plugin unloads.
+`systemStats()` returns a copy of the host's most recent sample. Its first call opts the plugin into CPU temperature sampling until the entry unloads. It does not enable GPU probes: reading CPU, RAM or network statistics must not keep a discrete GPU awake. The `gpu` fields still contain the last available sample, which may be absent or stale unless a consumer requests GPU monitoring.
 
 ```lua
 local stats = noctalia.systemStats()
@@ -167,6 +167,26 @@ end
 Absent sensors are `nil` rather than `0`, so a plugin can tell "no probe" from "idle". Test with `if stats.gpu.tempC ~= nil then` before using an optional field. A newly enabled probe may remain `nil` until its first configured poll.
 
 Values refresh on the poll intervals configured in [`[system.monitor]`](/noctalia/services/system-monitor/), CPU every 2 seconds by default, not on every call. Calling `systemStats()` more often than that returns the same sample again.
+
+### GPU monitoring
+
+`noctalia.setGpuMonitoring(enabled)` requests GPU temperature, usage and VRAM sampling for the current plugin entry. Requires <PluginApiBadge feature="gpu-monitoring" />. Pass a boolean: `true` acquires a request, `false` releases it. Repeated calls with the same value do not accumulate requests. It returns `true` when the request is accepted and `false` if the monitor service is unavailable; retry when the service becomes available. The global `gpu_poll_seconds = 0` setting still disables all GPU probing.
+
+Acquire only while displaying GPU statistics and release when that display closes or changes to another metric. Unloading or reloading the entry also releases its request. A panel's `onClose` callback should release explicitly because closing a panel keeps its runtime alive:
+
+```lua
+function onOpen()
+  noctalia.setGpuMonitoring(true)
+end
+
+function onClose()
+  noctalia.setGpuMonitoring(false)
+end
+```
+
+Read results from `noctalia.systemStats().gpu` after checking that `systemStats()` is not `nil`. Sampling remains asynchronous and follows the configured GPU poll interval; enabling monitoring does not immediately populate a reading. Releasing one entry's request does not stop other entries or native GPU widgets from sampling.
+
+**Migration:** GPU plugins that previously relied on `systemStats()` to enable sampling must add these calls and declare `plugin_api = 46`. CPU, RAM and network plugins need no changes. Older GPU plugins can still read the snapshot, but it is no longer refreshed on their behalf without an explicit request.
 
 ### Disk usage
 

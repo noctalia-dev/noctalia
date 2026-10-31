@@ -434,8 +434,8 @@ namespace {
   //     loadAvg = { 1.2, 0.9, 0.7 } }
   //
   // Percentages are 0-100. Absent sensors are nil rather than 0. The first call opts the host
-  // into the optional CPU/GPU probes represented by this snapshot. Per-core and disk sampling
-  // remain opt-in through cpuCores() and diskStats().
+  // into CPU temperature sampling only. GPU sampling requires setGpuMonitoring(true): reading
+  // CPU, RAM or network stats must not keep a discrete GPU's monitoring session alive.
   int luau_systemStats(lua_State* L) {
     auto* monitor = runningMonitorForState(L);
     if (monitor == nullptr) {
@@ -505,6 +505,13 @@ namespace {
     lua_rawseti(L, -2, 3);
     lua_setfield(L, -2, "loadAvg");
 
+    return 1;
+  }
+
+  int luau_setGpuMonitoring(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    auto* host = hostForState(L);
+    lua_pushboolean(L, host != nullptr && host->setGpuMonitoring(lua_toboolean(L, 1) != 0));
     return 1;
   }
 
@@ -2130,6 +2137,7 @@ namespace {
       {"focusedOutputName", luau_focusedOutputName},
       {"outputs", luau_outputs},
       {"systemStats", luau_systemStats},
+      {"setGpuMonitoring", luau_setGpuMonitoring},
       {"cpuCores", luau_cpuCores},
       {"diskMounts", luau_diskMounts},
       {"diskStats", luau_diskStats},
@@ -2283,10 +2291,28 @@ void LuauHost::ensureSystemStatsRetained() {
     return;
   }
   monitor->retainCpuTemp();
-  monitor->retainGpuTemp();
-  monitor->retainGpuUsage();
-  monitor->retainGpuVram();
   m_systemStatsRetained = true;
+}
+
+bool LuauHost::setGpuMonitoring(bool enabled) {
+  if (enabled == m_gpuStatsRetained) {
+    return true;
+  }
+  auto* monitor = m_api.systemMonitor();
+  if (monitor == nullptr) {
+    return false;
+  }
+  if (enabled) {
+    monitor->retainGpuTemp();
+    monitor->retainGpuUsage();
+    monitor->retainGpuVram();
+  } else {
+    monitor->releaseGpuTemp();
+    monitor->releaseGpuUsage();
+    monitor->releaseGpuVram();
+  }
+  m_gpuStatsRetained = enabled;
+  return true;
 }
 
 void LuauHost::ensureCpuCoresRetained() {
@@ -2329,12 +2355,10 @@ LuauHost::~LuauHost() {
   if (m_systemStatsRetained) {
     if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
       monitor->releaseCpuTemp();
-      monitor->releaseGpuTemp();
-      monitor->releaseGpuUsage();
-      monitor->releaseGpuVram();
     }
     m_systemStatsRetained = false;
   }
+  (void)setGpuMonitoring(false);
   if (!m_diskPathsRetained.empty()) {
     if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
       for (const auto& path : m_diskPathsRetained) {

@@ -1341,6 +1341,7 @@ if build_tests
     'plugin_lifecycle',
     'plugin_manifest',
     'plugin_process',
+    'plugin_gpu_monitoring',
     'plugin_recommendations',
     'plugin_source_locks',
     'plugin_source_paths',

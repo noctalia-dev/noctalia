@@ -100,6 +100,9 @@ public:
   [[nodiscard]] std::uint64_t diskAvailBytes(const std::string& path) const;
 
 private:
+  friend class SystemMonitorServiceTestAccess;
+  void releaseGpuRef(std::atomic<int>& refs);
+
   struct NvidiaNvmlReader;
   struct AmdRsmiReader;
   struct IntelGpuReader;
