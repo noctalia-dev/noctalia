@@ -129,7 +129,7 @@ The Network tab uses the configured network backend to show wireless state and c
 
 NetworkManager is preferred and followed on the system bus: when it starts after the shell or restarts, the tab picks it up, and while it is stopped the tab shows the network as unavailable. If NetworkManager's systemd unit is enabled, it stays the backend even when it is not running yet at startup. Otherwise a standalone wpa_supplicant or iwd backend is used when one of them is running at startup and lets you list its interfaces; with neither, the tab waits for NetworkManager.
 
-The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency. NetworkManager and wpa_supplicant report it; iwd reports it when Station diagnostics provide a positive frequency.
+The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency. NetworkManager and wpa_supplicant report it; iwd reports it when Station diagnostics provide a positive frequency. While connected, the **LAN** and **WAN** buttons next to it copy the IPv4 address and the external IP to the clipboard; each shows a check for a moment after copying, and **WAN** appears only once the external IP is known.
 
 Clicking a secured network you have not joined, or a password request from the backend while the tab is open, shows a password prompt above the network list and focuses its first text field, so you can type right away. The eye button shows the password as plain text; copy and cut stay blocked while it is visible.
 
