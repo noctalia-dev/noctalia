@@ -610,7 +610,7 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
     // info: feed the metadata backend with the ext workspace list plus the
     // wlr-foreign-toplevel snapshots so it can derive occupancy.
     labwcBackend->setProviders(
-        [this]() -> std::vector<Workspace> {
+        [this] -> std::vector<Workspace> {
           return m_workspaces != nullptr ? m_workspaces->all() : std::vector<Workspace>{};
         },
         [this](const std::function<void(const WlrToplevelSnapshot&)>& visit) { m_wayland.visitWlrToplevels(visit); }

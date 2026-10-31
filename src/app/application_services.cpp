@@ -1547,7 +1547,7 @@ void Application::initBrightnessAndPipewire() {
         "sound"
     );
 
-    auto applySpectrumConfig = [this]() {
+    auto applySpectrumConfig = [this] {
       if (m_pipewireSpectrum == nullptr) {
         return;
       }
@@ -1555,7 +1555,7 @@ void Application::initBrightnessAndPipewire() {
     };
     applySpectrumConfig();
     m_configService.addReloadCallback(
-        [this, applySpectrumConfig]() {
+        [this, applySpectrumConfig] {
           if (m_configService.lastChange().audio) {
             applySpectrumConfig();
           }

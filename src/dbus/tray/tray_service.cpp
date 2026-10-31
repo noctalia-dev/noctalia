@@ -578,7 +578,7 @@ void TrayService::startWithWatcherDetection() {
             if (!old_owner.empty()) {
               disconnectExternalWatcher();
             }
-            DeferredCall::callLater([this]() {
+            DeferredCall::callLater([this] {
               if (m_watcherRole != WatcherRole::Client) {
                 return;
               }
