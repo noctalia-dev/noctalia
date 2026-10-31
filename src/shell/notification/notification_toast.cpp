@@ -591,7 +591,9 @@ void NotificationToast::onConfigReload() {
     }
   }
 
-  for (std::size_t i = 0; i < m_entries.size(); ++i) {
+  const bool newestOnEdge = isNewestOnEdge();
+  for (std::size_t n = 0; n < m_entries.size(); ++n) {
+    const std::size_t i = newestOnEdge ? m_entries.size() - 1 - n : n;
     auto& entry = m_entries[i];
     if (entry.exiting || !wasPlaced[i]) {
       continue;
@@ -713,7 +715,7 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
             || prevToastBodyLines != m_entries[i].toastBodyLines;
         const bool hovered = m_entries[i].hovered;
 
-        if (previouslyPlaced) {
+        if (previouslyPlaced && !isNewestOnEdge()) {
           if (canKeepPlacement(m_entries[i], n.id)) {
             evictOverlappingEntries(i);
             if (!canKeepPlacement(m_entries[i], n.id)) {
@@ -929,9 +931,19 @@ void NotificationToast::addPopup(const Notification& n) {
   entry.rawTimeoutMs = n.timeout;
   entry.remainingProgress = 1.0F;
   refreshEntryGeometry(entry);
-  if (const auto placement = findPlacementY(entry.height, entry.targetOutput); placement.has_value()) {
+  bool placed = false;
+  if (isNewestOnEdge()) {
+    const float placementBottom = maxPlacementBottom(entry.targetOutput);
+    const float edgeY = isBottomStacking() ? placementBottom - entry.height : paddingTop(notificationUiScale(m_config));
+    if (edgeY >= 0.0F && edgeY + entry.height <= placementBottom + 0.5F) {
+      entry.y = edgeY;
+      placed = true;
+    }
+  } else if (const auto placement = findPlacementY(entry.height, entry.targetOutput); placement.has_value()) {
     entry.y = *placement;
-  } else if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
+    placed = true;
+  }
+  if (!placed && entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
     // Queued off-screen: freeze the manager-side auto-dismiss timer so the notification
     // doesn't expire silently before a slot opens up. It will be resumed with the full
     // duration when revealQueuedEntries() places the card.
