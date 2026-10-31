@@ -869,6 +869,7 @@ struct NotificationConfig {
   bool enableDaemon = true;
   bool showAppName = true;
   bool showActions = true;
+  bool groupByApp = true;
   std::string position = "top_right";
   std::string layer = "top"; // top | overlay
   float scale = 1.0F;

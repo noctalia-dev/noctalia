@@ -3567,6 +3567,11 @@ namespace settings {
       entries.push_back(std::move(e));
     }
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "history", tr("settings.schema.notifications.group-by-app.label"),
+        tr("settings.schema.notifications.group-by-app.description"), {"notification", "group_by_app"},
+        ToggleSetting{cfg.notification.groupByApp}, "notification history group-by-app"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "history", tr("settings.schema.notifications.keep-dismissed-in-history.label"),
         tr("settings.schema.notifications.keep-dismissed-in-history.description"),
         {"notification", "keep_dismissed_in_history"}, ToggleSetting{cfg.notification.keepDismissedInHistory},
