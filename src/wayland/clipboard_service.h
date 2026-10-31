@@ -126,7 +126,7 @@ public:
   void setMaxHistoryBytesForTesting(std::size_t maxBytes);
 
   bool copyText(std::string text);
-  bool copyText(std::string text, std::string mimeType);
+  bool copyText(std::string text, const std::string& mimeType);
   bool copyImagePng(std::vector<std::uint8_t> png);
   bool copyEntry(const ClipboardEntry& entry);
   bool promoteEntry(std::size_t index);

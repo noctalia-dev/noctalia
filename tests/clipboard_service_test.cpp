@@ -441,6 +441,22 @@ int main() {
     );
   }
 
+  {
+    // Scripts copy with an explicit type; text still gets the aliases GTK apps paste from.
+    Harness harness;
+    expect(harness.clipboard.copyText("100.64.0.1", "text/plain"), "copying text with a MIME type failed");
+    expect(
+        fake.offeredMimeTypes == std::vector<std::string>{"text/plain", "text/plain;charset=utf-8"},
+        "text copied with an explicit MIME type did not offer the UTF-8 alias"
+    );
+
+    expect(harness.clipboard.copyText("<b>hi</b>", "text/html"), "copying html with a MIME type failed");
+    expect(
+        fake.offeredMimeTypes == std::vector<std::string>{"text/html"},
+        "non-plain text copied with an explicit MIME type was widened"
+    );
+  }
+
   gFake = nullptr;
   if (gFailures != 0) {
     std::println(stderr, "clipboard_service_test: {} failure(s)", gFailures);

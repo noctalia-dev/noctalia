@@ -837,9 +837,9 @@ bool ClipboardService::copyText(std::string text) {
   return copyData({"text/plain;charset=utf-8", "text/plain"}, std::move(data));
 }
 
-bool ClipboardService::copyText(std::string text, std::string mimeType) {
+bool ClipboardService::copyText(std::string text, const std::string& mimeType) {
   std::vector<std::uint8_t> data(text.begin(), text.end());
-  return copyData({std::move(mimeType)}, std::move(data));
+  return copyData(mimeTypesForPayload(mimeType), std::move(data));
 }
 
 bool ClipboardService::copyImagePng(std::vector<std::uint8_t> png) {
