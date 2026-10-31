@@ -42,7 +42,6 @@ public:
   [[nodiscard]] bool smoothing() const noexcept { return m_smoothing; }
 
   void setFrameRate(int framesPerSecond);
-  [[nodiscard]] int frameRate() const noexcept { return m_frameRateHz; }
 
   [[nodiscard]] const std::vector<float>& values(ListenerId id) const noexcept;
   [[nodiscard]] bool idle() const noexcept { return m_idle; }
