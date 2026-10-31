@@ -262,10 +262,16 @@ vec3 rainFogColor(vec2 uv, float iTime) {
     // that text to keep reading over it.
     vec3 base = mix(u_bg_color.rgb * 0.7, u_bg_color.rgb * 0.95, uv.y);
 
-    vec3 secondary = particleColor(vec3(0.314, 0.353, 0.416), vec3(0.62, 0.68, 0.76));
-    vec3 tertiary = particleColor(vec3(0.404, 0.553, 0.498), vec3(0.64, 0.8, 0.72));
-    vec3 primary = particleColor(vec3(0.561, 0.459, 0.259), vec3(0.86, 0.73, 0.5));
-    vec3 accent = particleColor(vec3(0.275, 0.314, 0.22), vec3(0.64, 0.7, 0.54));
+    // particleColor()'s 2nd arg must be the DARKER/muted tint (used on light backgrounds,
+    // per its own doc comment) - every other call site in this file follows
+    // dark-bg-param=bright, light-bg-param=darker (sunColor, snowColor, starColor*,
+    // hazeColor, rainTint above). These four were accidentally the other way around
+    // (lighter pastel for the light-bg param), which washes the fog out to near-nothing
+    // against an already-light Surface instead of giving it contrast.
+    vec3 secondary = particleColor(vec3(0.314, 0.353, 0.416), vec3(0.2, 0.24, 0.3));
+    vec3 tertiary = particleColor(vec3(0.404, 0.553, 0.498), vec3(0.2, 0.32, 0.28));
+    vec3 primary = particleColor(vec3(0.561, 0.459, 0.259), vec3(0.42, 0.33, 0.16));
+    vec3 accent = particleColor(vec3(0.275, 0.314, 0.22), vec3(0.19, 0.22, 0.14));
 
     float n1 = rainFogFbm(uv * 2.2, iTime);
     float n2 = rainFogFbm(uv * 3.5 + 10.0, iTime * 1.3);
