@@ -827,10 +827,11 @@ bool ScreenshotService::onPointerEvent(const PointerEvent& event) {
 }
 
 bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
-  if (m_annotationOverlay != nullptr
-      && m_annotationOverlay->isActive()
-      && m_annotationOverlay->onKeyboardEvent(event)) {
-    return true;
+  // While a capture is up, every press is the capture's: a compositor without a focus grab (niri)
+  // leaves the keyboard on an older exclusive panel such as the launcher, and a press that fell
+  // through from here would land in that panel's search field or launch its selected app (#4641).
+  if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
+    return m_annotationOverlay->onKeyboardEvent(event) || event.pressed;
   }
 
   if (!event.pressed) {
@@ -840,13 +841,13 @@ bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
   if (!m_freezeCaptureActive && !regionActive) {
     return false;
   }
-  if (regionActive && m_regionOverlay->onKeyboardEvent(event)) {
+  if (regionActive) {
+    std::ignore = m_regionOverlay->onKeyboardEvent(event);
     return true;
   }
-  if (!KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-    return false;
+  if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    cancelRegionCapture();
   }
-  cancelRegionCapture();
   return true;
 }
 
