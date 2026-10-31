@@ -57,6 +57,7 @@ struct RenderImageDraw {
   float width = 0.0F;
   float height = 0.0F;
   Color tint = rgba(1.0F, 1.0F, 1.0F, 1.0F);
+  float saturation = 1.0F;
   bool monochromeTint = false;
   bool alphaMaskTint = false;
   float opacity = 1.0F;

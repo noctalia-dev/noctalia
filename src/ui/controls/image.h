@@ -36,6 +36,7 @@ public:
   void setBorder(const ColorSpec& color, float width);
   void setBorder(const Color& color, float width);
   void setTint(const Color& tint);
+  void setSaturation(float saturation);
   void setAppIconColorization(std::optional<ColorSpec> tint);
   // Alpha-mask recolor for bar widget custom_image (widget Color, not app-icon bake).
   void setForegroundTint(std::optional<ColorSpec> tint);
