@@ -4,6 +4,9 @@
 #include "render/scene/custom_draw_node.h"
 #include "shell/render/shell_render_styles.h"
 
+#include <algorithm>
+#include <array>
+
 class EffectNode : public CustomDrawNode {
 public:
   const EffectStyle& style() const noexcept { return m_style; }
@@ -34,6 +37,14 @@ public:
       return;
     }
     m_style.bgColor = color;
+    markPaintDirty();
+  }
+
+  // Drives the Rain effect's glass-droplet layer. `count` is clamped to kMaxRainDrops;
+  // ignored by every other effect type's shader.
+  void setDrops(const std::array<RainDrop, kMaxRainDrops>& drops, int count) {
+    m_style.drops = drops;
+    m_style.dropCount = std::clamp(count, 0, kMaxRainDrops);
     markPaintDirty();
   }
 

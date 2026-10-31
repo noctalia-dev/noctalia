@@ -648,6 +648,7 @@ _noctalia_sources = files(
   'src/shell/control_center/shortcut_registry.cpp',
   'src/shell/control_center/tabs/system_tab.cpp',
   'src/shell/control_center/tab.cpp',
+  'src/shell/control_center/tabs/rain_droplet_simulation.cpp',
   'src/shell/control_center/tabs/weather_tab.cpp',
   'src/shell/launcher/launcher_panel.cpp',
   'src/shell/switcher/window_switcher.cpp',

@@ -6,6 +6,7 @@
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_area.h"
+#include "render/scene/rect_node.h"
 #include "render/scene/tooltip_content.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/render/effect_node.h"
@@ -84,6 +85,18 @@ std::unique_ptr<Flex> WeatherTab::create() {
   effectNode->setVisible(false);
   effectNode->setRadius(Style::scaledRadiusXl(scale));
   m_effectNode = static_cast<EffectNode*>(currentCard->addChild(std::move(effectNode)));
+
+  // Same zIndex as the effect (-1, behind the layout content at 0) but added after it, so
+  // stable insertion order keeps it painted on top of the effect and below the text.
+  auto scrimNode = std::make_unique<RectNode>();
+  scrimNode->setParticipatesInLayout(false);
+  scrimNode->setZIndex(-1);
+  scrimNode->setVisible(false);
+  RoundedRectStyle scrimStyle;
+  scrimStyle.fill = colorForRole(ColorRole::Surface, 0.45F);
+  scrimStyle.radius = Style::scaledRadiusXl(scale);
+  scrimNode->setStyle(scrimStyle);
+  m_scrimNode = static_cast<RectNode*>(currentCard->addChild(std::move(scrimNode)));
 
   auto glyphColumn = ui::row(
       {.out = &m_glyphColumn,
@@ -628,6 +641,10 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     m_effectNode->setPosition(0.0F, 0.0F);
     m_effectNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
   }
+  if (m_scrimNode != nullptr && m_currentCard != nullptr) {
+    m_scrimNode->setPosition(0.0F, 0.0F);
+    m_scrimNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
+  }
 
   // The weather tab derives several width constraints from the first measurement
   // pass. Run layout again so the final geometry reflects those constraints
@@ -636,6 +653,9 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
 
   if (m_effectNode != nullptr && m_currentCard != nullptr) {
     m_effectNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
+  }
+  if (m_scrimNode != nullptr && m_currentCard != nullptr) {
+    m_scrimNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
   }
 
   for (std::size_t i = 0; i < kForecastRowCount; ++i) {
@@ -729,8 +749,10 @@ void WeatherTab::onClose() {
   m_forecastTemps.fill(nullptr);
   m_forecastHitAreas.fill(nullptr);
   m_effectNode = nullptr;
+  m_scrimNode = nullptr;
   m_activeEffect = EffectType::None;
   m_shaderTime = 0.0F;
+  m_rainDrops.reset();
 }
 
 void WeatherTab::sync(Renderer& renderer) {
@@ -795,7 +817,7 @@ void WeatherTab::sync(Renderer& renderer) {
     return;
   }
 
-  if (!m_weather->locationConfigured()) {
+  if (!m_weather->locationConfigured() && kTestEffect == EffectType::None) {
     showLocationPrompt(true);
     if (m_windLabel != nullptr) {
       m_windLabel->setText("--");
@@ -830,7 +852,7 @@ void WeatherTab::sync(Renderer& renderer) {
   }
 
   const auto& snapshot = m_weather->snapshot();
-  if (!snapshot.valid) {
+  if (!snapshot.valid && kTestEffect == EffectType::None) {
     m_currentGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
     m_currentTempLabel->setText(std::format("--{}", m_weather->displayTemperatureUnit()));
     if (m_currentHiLoLabel != nullptr) {
@@ -1007,11 +1029,15 @@ void WeatherTab::sync(Renderer& renderer) {
     if (newEffect != m_activeEffect) {
       m_activeEffect = newEffect;
       m_shaderTime = 0.0F;
+      m_rainDrops.reset();
     }
     m_effectNode->setEffectType(m_activeEffect);
     m_effectNode->setBgColor(colorForRole(ColorRole::Surface));
     m_effectNode->setRadius(Style::scaledRadiusXl(contentScale()));
     m_effectNode->setVisible(m_activeEffect != EffectType::None);
+    if (m_scrimNode != nullptr) {
+      m_scrimNode->setVisible(m_activeEffect != EffectType::None);
+    }
   }
 }
 
@@ -1177,9 +1203,13 @@ std::string WeatherTab::weekdayLabel(const std::string& isoDate) {
 void WeatherTab::hideEffect() {
   m_activeEffect = EffectType::None;
   m_shaderTime = 0.0F;
+  m_rainDrops.reset();
   if (m_effectNode != nullptr) {
     m_effectNode->setEffectType(EffectType::None);
     m_effectNode->setVisible(false);
+  }
+  if (m_scrimNode != nullptr) {
+    m_scrimNode->setVisible(false);
   }
 }
 
@@ -1187,8 +1217,14 @@ void WeatherTab::onFrameTick(float deltaMs) {
   if (m_effectNode == nullptr || !m_effectNode->visible() || m_activeEffect == EffectType::None) {
     return;
   }
-  m_shaderTime += deltaMs * 0.001F;
+  const float deltaSeconds = deltaMs * 0.001F;
+  m_shaderTime += deltaSeconds;
   m_effectNode->setTime(m_shaderTime);
+
+  if (m_activeEffect == EffectType::Rain) {
+    m_rainDrops.update(deltaSeconds);
+    m_effectNode->setDrops(m_rainDrops.drops(), m_rainDrops.dropCount());
+  }
 }
 
 EffectType WeatherTab::effectForWeatherCode(std::int32_t code, bool isDay) {

@@ -210,7 +210,12 @@ void main() {
   // --- Rain effect v2 (sharper-edged streaks, random per-streak tilt, fewer/clearer
   // layers instead of 3 overlapping Gaussian-blurred ones - see
   // openspec/changes/weather-rain-effect-v2 for the prototyping history) ---
+  // kMaxDropsGlsl must match render_styles.h's kMaxRainDrops (a literal here, since GLSL
+  // ES 1.00 array sizes must be compile-time constants, not an includable C++ constant).
   constexpr char kRainFragment[] = R"(
+uniform vec4 u_drops[24];
+uniform int u_dropCount;
+
 float rain_hash(vec2 p) {
     p = fract(p * vec2(443.897, 441.423));
     p += dot(p, p + 19.19);
@@ -226,6 +231,107 @@ float rain_noise(vec2 p) {
     float c = rain_hash(i + vec2(0.0, 1.0));
     float d = rain_hash(i + vec2(1.0, 1.0));
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// Drifting fog/bokeh backdrop wash, replacing the flat u_bg_color base - an inline
+// analytic approximation of the lab prototype's dedicated multi-pass fog FBO
+// (openspec/changes/weather-rain-effect-v2/lab's FOG_BG_FRAGMENT: low-res render +
+// bilinear-upscale blur). A single-pass per-pixel FBM is affordable here since this is a
+// small Control Center card, not a full-screen effect, so the separate render target
+// that approach exists to amortize isn't worth the added FBO/blur-pass plumbing.
+float rainFogFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+        float fi = float(i + 1);
+        v += amp * rain_noise(p + vec2(iTime * 0.03 * fi, -iTime * 0.02 * fi));
+        p *= 2.0;
+        amp *= 0.5;
+    }
+    return v;
+}
+
+// Tinted with the same four-hue spread as the lab version (gold/slate-blue/teal/olive),
+// mixed via particleColor() against u_bg_color's luminance instead of hardcoded wallust
+// colors, so it reads correctly against this app's actual light/dark theme.
+vec3 rainFogColor(vec2 uv, float iTime) {
+    // Capped at u_bg_color's own brightness (no *1.2 ceiling) and the four hue washes
+    // toned down ~40% below - the first pass matched the lab's saturation, but the lab's
+    // version sits behind a separate dark text panel; here the fog is the only backdrop
+    // behind the card's temperature/label text, so it has to stay dark/muted enough for
+    // that text to keep reading over it.
+    vec3 base = mix(u_bg_color.rgb * 0.7, u_bg_color.rgb * 0.95, uv.y);
+
+    vec3 secondary = particleColor(vec3(0.314, 0.353, 0.416), vec3(0.62, 0.68, 0.76));
+    vec3 tertiary = particleColor(vec3(0.404, 0.553, 0.498), vec3(0.64, 0.8, 0.72));
+    vec3 primary = particleColor(vec3(0.561, 0.459, 0.259), vec3(0.86, 0.73, 0.5));
+    vec3 accent = particleColor(vec3(0.275, 0.314, 0.22), vec3(0.64, 0.7, 0.54));
+
+    float n1 = rainFogFbm(uv * 2.2, iTime);
+    float n2 = rainFogFbm(uv * 3.5 + 10.0, iTime * 1.3);
+    float n3 = rainFogFbm(uv * 2.8 - 5.0, iTime * 0.8);
+
+    vec3 col = base;
+    col = mix(col, secondary, smoothstep(0.35, 0.68, n1) * 0.48);
+    col = mix(col, tertiary, smoothstep(0.52, 0.84, n2) * 0.33);
+    col = mix(col, primary, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.45);
+    col = mix(col, accent, smoothstep(0.5, 0.8, n3) * 0.4);
+    return col;
+}
+
+// Good-quality 2D -> 4D hash (Dave Hoskins' public-domain hash-without-sine family).
+// Returns four well-decorrelated values from a single seed, used instead of repeatedly
+// calling a scalar hash with small constants added to the same cell id - those correlate
+// and show up as visible patterning.
+vec4 rain_hash42(vec2 p) {
+    vec4 p4 = fract(vec4(p.x, p.y, p.x, p.y) * vec4(0.1031, 0.1030, 0.0973, 0.1099));
+    p4 += dot(p4, p4.wzxy + 33.33);
+    return fract((p4.xxyz + p4.yzzw) * p4.zywx);
+}
+
+// Each droplet contributes a small paraboloid "dome" of height (zero outside its radius)
+// instead of a signed distance; domes are summed (not blended) into heightSum/gradSum so
+// overlapping droplets merge into one smooth bump automatically.
+void rain_addDome(vec2 uv, vec2 c, float r, inout float heightSum, inout vec2 gradSum) {
+    vec2 duv = uv - c;
+    float d2 = dot(duv, duv);
+    float rr = r * r;
+    if (d2 < rr) {
+        heightSum += rr - d2;
+        gradSum += -2.0 * duv;
+    }
+}
+
+// Dense field of small static droplets stuck to the pane, scattered on a jittered grid
+// with each one slowly fading in and out over time so the field renews itself instead of
+// looking frozen in place. Pure per-pixel procedural decoration - not simulated state,
+// so it costs nothing to update and needs no uniform of its own.
+void rain_staticField(vec2 uv, float iTime, inout float heightSum, inout vec2 gradSum) {
+    float cellSize = 0.042;
+    vec2 baseCell = floor(uv / cellSize);
+    float density = rain_noise(uv * 3.2 + 11.0);
+
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            vec2 cId = baseCell + vec2(float(dx), float(dy));
+            vec4 h = rain_hash42(cId);
+            float threshold = mix(0.35, 0.7, density);
+            if (h.x < threshold) continue;
+
+            vec2 jitter = h.yz;
+            vec2 c = (cId + jitter) * cellSize;
+            float sizeT = pow(h.w, 2.2);
+            float r = mix(0.006, 0.024, sizeT);
+
+            float phase = rain_hash42(cId * 1.7 + 9.3).x;
+            float life = fract(iTime * 0.045 + phase);
+            float fade = smoothstep(0.0, 0.15, life) * smoothstep(1.0, 0.82, life);
+            r *= fade;
+            if (r < 0.0015) continue;
+
+            rain_addDome(uv, c, r, heightSum, gradSum);
+        }
+    }
 }
 
 float rainLayer(
@@ -290,6 +396,59 @@ void main() {
     float aspect = u_item_width / u_item_height;
     vec2 uvA = vec2(uv.x * aspect, uv.y);
 
+    // Glass droplets: summed parabolic "domes" (heights simply add, so overlapping drops
+    // merge into one smooth bump with no per-pair blend-radius tuning) - the same
+    // height-field + lighting math validated in the lab's Glass/Flow shader-only
+    // iteration. A dense procedural static field gives the pane its frosted texture (pure
+    // per-pixel decoration, no state to simulate); the real simulated drops (u_drops) are
+    // the bigger falling/merging ones with actual physics driving their position.
+    float heightSum = 0.0;
+    vec2 gradSum = vec2(0.0);
+    rain_staticField(uvA, iTime, heightSum, gradSum);
+    // Each real drop draws as a short trailing chain of shrinking domes (not a single
+    // circle) - same technique as the lab's runnerDrop(), now lengthed by the drop's own
+    // simulated momentum (u_drops[i].w) instead of a hashed fake speed.
+    for (int i = 0; i < 24; i++) {
+        if (i < u_dropCount) {
+            vec4 drop = u_drops[i];
+            vec2 c = vec2(drop.x * aspect, drop.y);
+            float rCur = drop.z;
+            float tailStep = drop.z * (0.65 + drop.w * 0.6);
+            for (int k = 0; k < 5; k++) {
+                vec2 duv = uvA - c;
+                float r2 = rCur * rCur;
+                float d2 = dot(duv, duv);
+                if (d2 < r2) {
+                    heightSum += r2 - d2;
+                    gradSum += -2.0 * duv;
+                }
+                c -= vec2(0.0, tailStep);
+                rCur *= 0.65;
+            }
+        }
+    }
+
+    // Epsilon lowered from the first pass's 0.00012 (~r=0.011) to ~r=0.006, so the
+    // smaller static-field droplets clear the threshold too instead of only the bigger
+    // simulated ones - matching the lab's densely-covered "wet pane" read.
+    float inside = smoothstep(0.0, 0.00004, heightSum);
+
+    // Surface normal from the height field's gradient - clamped so dense overlapping
+    // areas (where several domes' gradients stack) don't blow out into noise.
+    vec2 slope = clamp(gradSum * 16.0, vec2(-2.5), vec2(2.5));
+    vec3 normal = normalize(vec3(slope, 1.0));
+    vec3 lightDir = normalize(vec3(-0.4, -0.6, 0.65));
+
+    // Refraction: bend the sampled rain-streak AND fog-backdrop position by the surface
+    // tilt - this is what makes a droplet read as a lens bulging the scene behind it
+    // (the lab's real-texture refraction), not just a flat tinted circle. Fog is pulled a
+    // touch harder than the streaks (1.3x vs 1.0x) since it is the richer, more legible
+    // backdrop - the same relative weighting the lab's two-texture (sharp/blurred) sample
+    // achieved by using different source resolutions.
+    vec2 uvOffset = normal.xy * 0.4 * inside;
+    vec2 streakUvA = uvA - uvOffset;
+    vec2 fogUvA = uvA - uvOffset * 1.3;
+
     // Single cheap SMOOTH noise octave, much lower weight than v1 - atmosphere, not mud.
     float haze = rain_noise(uv * 2.5 + vec2(iTime * 0.02, iTime * 0.015));
     haze = smoothstep(0.3, 0.7, haze) * 0.08;
@@ -297,18 +456,39 @@ void main() {
     // 2 layers with a clear foreground/background split instead of 3 similar ones:
     // foreground is fewer, wider, faster, brighter; background is more, thinner, slower, dimmer.
     float tilt = 0.35;
-    //                    uv    cols  rows  speed var  dropLen tilt        width var   time   seed
-    float fg = rainLayer(uvA, 12.0, 2.2, 7.0, 0.7, 0.45, tilt,       0.045, 0.7, iTime, 0.0);
-    float bg = rainLayer(uvA, 22.0, 1.6, 3.8, 0.8, 0.55, tilt * 0.6, 0.022, 0.7, iTime, 100.0);
+    //                          uv         cols  rows  speed var  dropLen tilt        width var   time   seed
+    float fg = rainLayer(streakUvA, 12.0, 2.2, 7.0, 0.7, 0.45, tilt,       0.045, 0.7, iTime, 0.0);
+    float bg = rainLayer(streakUvA, 22.0, 1.6, 3.8, 0.8, 0.55, tilt * 0.6, 0.022, 0.7, iTime, 100.0);
 
     float rain = clamp(fg + bg * 0.4, 0.0, 1.0);
 
     vec3 hazeColor = particleColor(vec3(0.82, 0.85, 0.9), vec3(0.55, 0.6, 0.68));
-    vec3 col = mix(u_bg_color.rgb, hazeColor, haze);
+    vec3 col = mix(rainFogColor(fogUvA, iTime), hazeColor, haze);
 
-    // Pale blue-grey, not near-white - reads as water, not a paint stroke.
-    vec3 rainTint = particleColor(vec3(0.55, 0.65, 0.8), vec3(0.3, 0.42, 0.58));
-    vec3 resultRGB = mix(col, rainTint, rain * 0.75);
+    // Neutral grey, not blue - a noticeable blue cast (the old vec3(0.55, 0.65, 0.8) had
+    // a 0.25 R-to-B gap) read fine over a flat dark background, but now stacks with the
+    // fog's own blue/teal wash and the streaks cover enough of the card at this density
+    // to dominate the whole card's color instead of reading as individual water lines.
+    // Mix weight also dropped (0.75 -> 0.4) so the fog shows through the streaks instead
+    // of being painted over by them - more "wet glass over a backdrop", less "blue film".
+    vec3 rainTint = particleColor(vec3(0.68, 0.7, 0.74), vec3(0.42, 0.46, 0.5));
+    vec3 resultRGB = mix(col, rainTint, rain * 0.4);
+
+    // Water-surface shading, all derived from the one continuous normal field: a soft
+    // specular highlight where the surface faces the light, and a grazing-angle edge
+    // darkening (fresnel-like falloff from normal.z) instead of a hard uniform dark ring
+    // around every circle - this is what keeps merged drops reading as one smooth shape.
+    // Exponent raised (24 -> 40) and intensity cut by more than half (1.1 -> 0.45) - the
+    // first pass's highlight blew out into a flat white wash across most of each droplet
+    // instead of a small bright point, since this card never has a strong single light
+    // source to justify a wide, intense specular lobe.
+    float spec = pow(max(dot(normal, lightDir), 0.0), 40.0);
+    resultRGB += vec3(0.95, 0.98, 1.0) * spec * 0.45 * inside;
+
+    float edgeDark = pow(clamp(1.0 - normal.z, 0.0, 1.0), 2.2) * inside;
+    resultRGB -= vec3(0.05, 0.06, 0.07) * edgeDark;
+
+    resultRGB = mix(resultRGB, resultRGB * 1.08 + vec3(0.015, 0.018, 0.022), inside * 0.4);
 
     float mask = cornerMask();
     float finalAlpha = mask * u_bg_color.a;
@@ -564,6 +744,8 @@ void EffectProgram::initProgram(EffectType type, const char* fragSource) {
   pd.bgColorLoc = glGetUniformLocation(id, "u_bg_color");
   pd.radiusLoc = glGetUniformLocation(id, "u_radius");
   pd.alternativeLoc = glGetUniformLocation(id, "u_alternative");
+  pd.dropsLoc = glGetUniformLocation(id, "u_drops");
+  pd.dropCountLoc = glGetUniformLocation(id, "u_dropCount");
 
   if (pd.positionLoc < 0 || pd.surfaceSizeLoc < 0 || pd.transformLoc < 0) {
     throw std::runtime_error("failed to query effect shader locations");
@@ -618,6 +800,21 @@ void EffectProgram::draw(
   }
   if (pd.alternativeLoc >= 0) {
     glUniform1f(pd.alternativeLoc, isFog ? 1.0F : 0.0F);
+  }
+  if (pd.dropsLoc >= 0) {
+    static_assert(kMaxRainDrops <= 24, "kRainFragment's u_drops array is sized for 24 drops");
+    std::array<float, kMaxRainDrops * 4> dropData{};
+    for (int i = 0; i < style.dropCount; ++i) {
+      const auto& drop = style.drops[static_cast<std::size_t>(i)];
+      dropData[static_cast<std::size_t>(i) * 4 + 0] = drop.x;
+      dropData[static_cast<std::size_t>(i) * 4 + 1] = drop.y;
+      dropData[static_cast<std::size_t>(i) * 4 + 2] = drop.radius;
+      dropData[static_cast<std::size_t>(i) * 4 + 3] = drop.depth;
+    }
+    glUniform4fv(pd.dropsLoc, kMaxRainDrops, dropData.data());
+  }
+  if (pd.dropCountLoc >= 0) {
+    glUniform1i(pd.dropCountLoc, style.dropCount);
   }
 
   auto posAttr = static_cast<GLuint>(pd.positionLoc);
