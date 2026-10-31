@@ -38,6 +38,12 @@ DDC/CI discovery runs in the background. If a monitor is not ready when Noctalia
 
 If controls are still missing after those retries, open **Control Center → Monitor** and use **Rescan DDC/CI monitors** (the refresh icon) to start another discovery attempt and retry cycle. Changing brightness configuration also starts a new cycle. Outputs configured with `backend = "none"` or `backend = "backlight"`, and outputs already served by kernel backlight in `auto` mode, are excluded from DDC recovery.
 
+## HDR output under Umbriel
+
+A monitor in HDR mode is brightened through the compositor as well, which sets the level its HDR content is rendered at: 0% selects 80 cd/m² and 100% selects 203 cd/m². One slider covers the SDR and the HDR content of that monitor, and while HDR content is on screen the percentage you see is that compositor level.
+
+A monitor in HDR mode always gets a brightness control, even when none was found for it. `backend = "none"` still hides a monitor.
+
 ## Related IPC
 
 For brightness commands, targets, accepted value formats, and OSD behavior, see [System Controls → Brightness](/noctalia/ipc/system-controls/#brightness).

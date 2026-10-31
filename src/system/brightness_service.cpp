@@ -1,6 +1,8 @@
 #include "system/brightness_service.h"
 
+#include "compositors/compositor_detect.h"
 #include "compositors/compositor_platform.h"
+#include "compositors/umbriel/umbriel_color_backend.h"
 #include "config/config_types.h"
 #include "core/inotify/inotify.h"
 #include "core/log.h"
@@ -59,9 +61,13 @@ namespace {
   constexpr std::array kDdcDiscoveryRetryDelays{
       std::chrono::seconds{1}, std::chrono::seconds{2}, std::chrono::seconds{4}
   };
+  // The compositor colour request blocks this thread and runs several times a second while scrolling.
+  constexpr std::chrono::milliseconds kColorStateCacheTtl{250};
   enum class RuntimeBackend : std::uint8_t {
     Backlight,
     Ddcutil,
+    // The compositor SDR white of an output with no panel control of its own.
+    SdrWhite,
   };
 
   struct DisplayInternal {
@@ -71,6 +77,10 @@ namespace {
     std::string backlightName;
     std::string sysfsPath;
     std::string connectorName;
+    // The output can render HDR, so a brightness change also sets the compositor SDR white.
+    bool sdrWhite = false;
+    // The output renders HDR right now, so its SDR white and not its panel is the level it shows.
+    bool hdrActive = false;
     int inotifyWd = -1;
 
     int ddcBus = -1;
@@ -729,6 +739,10 @@ struct BrightnessService::Impl {
   std::vector<BrightnessDisplay> publicDisplays;
   std::vector<DisplayInternal> internals;
 
+  compositors::umbriel::ColorStates colorStates;
+  std::chrono::steady_clock::time_point colorStatesAt;
+  std::string outputsFingerprint;
+
   std::unique_ptr<sdbus::IProxy> sessionProxy;
   sdbus::ObjectPath sessionPath;
 
@@ -825,16 +839,36 @@ struct BrightnessService::Impl {
     rebuildState(true);
   }
 
-  void onOutputsChanged() { rebuildState(true); }
+  // Some compositors re-send wl_output.done on a layer commit, and a rebuild drops queued DDC writes.
+  void onOutputsChanged() {
+    if (outputFingerprint() == outputsFingerprint) {
+      return;
+    }
+    rebuildState(true);
+  }
+
+  [[nodiscard]] std::string outputFingerprint() const {
+    std::string fingerprint;
+    for (const auto& output : wayland.outputs()) {
+      fingerprint += std::format(
+          "{}|{}|{}|{}x{}|{}x{}|{};\n", output.connectorName, output.done, output.description, output.width,
+          output.height, output.logicalWidth, output.logicalHeight, output.scale
+      );
+    }
+    return fingerprint;
+  }
 
   void rebuildState(bool notify) {
     const auto oldPublic = publicDisplays;
     ++generation;
+    outputsFingerprint = outputFingerprint();
 
     clearBacklightWatches();
     removeDdcDisplays();
     updateSessionProxy();
     enumerateBacklights();
+    syncSdrWhiteDisplays();
+    refreshColorStates();
     rebuildPublic();
     scheduleDdcDetect();
 
@@ -1157,14 +1191,125 @@ struct BrightnessService::Impl {
     }
   }
 
+  // A written level is stored back into the cached answer, so a refresh cannot publish a pre-write value.
+  [[nodiscard]] const compositors::umbriel::ColorStates& compositorColorStates() {
+    const auto now = std::chrono::steady_clock::now();
+    if (now - colorStatesAt > kColorStateCacheTtl) {
+      colorStatesAt = now;
+      colorStates = compositors::isUmbriel() ? compositors::umbriel::requestColorStates(platform.umbrielRuntime())
+                                             : compositors::umbriel::ColorStates{};
+    }
+    return colorStates;
+  }
+
+  // Updates the colour state of the existing displays and leaves the display set alone.
+  void refreshColorStates() {
+    const auto& states = compositorColorStates();
+    for (auto& display : internals) {
+      display.sdrWhite = controlsSdrWhite(states, display.connectorName);
+      display.hdrActive = rendersHdrNow(states, display.connectorName);
+      if (!display.hdrActive) {
+        continue;
+      }
+
+      const float whiteBrightness = readBackSdrWhite(states, display.connectorName);
+      if (std::abs(whiteBrightness - display.pub.brightness) > 0.001F) {
+        display.pub.brightness = whiteBrightness;
+        syncPublicDisplay(display);
+      }
+    }
+  }
+
+  // Adds the displays that carry HDR levels. Callers publish right after, since this changes the display set.
+  void syncSdrWhiteDisplays() {
+    const auto& states = compositorColorStates();
+    std::erase_if(internals, [](const DisplayInternal& display) {
+      return display.backend == RuntimeBackend::SdrWhite;
+    });
+
+    for (const auto& output : wayland.outputs()) {
+      if (!output.done || output.connectorName.empty()) {
+        continue;
+      }
+      if (!controlsSdrWhite(states, output.connectorName)) {
+        continue;
+      }
+      // An explicitly chosen backend stays in charge.
+      const auto preference = backendPreferenceForOutput(activeConfig, &output);
+      if (preference == BrightnessBackendPreference::None || preference == BrightnessBackendPreference::Backlight) {
+        continue;
+      }
+      const bool hasPanel = std::ranges::any_of(internals, [&output](const DisplayInternal& display) {
+        return display.connectorName == output.connectorName;
+      });
+      if (hasPanel) {
+        continue;
+      }
+
+      DisplayInternal display;
+      display.backend = RuntimeBackend::SdrWhite;
+      display.sdrWhite = true;
+      display.connectorName = output.connectorName;
+      display.pub.id = output.connectorName;
+      display.pub.brightness = readBackSdrWhite(states, output.connectorName);
+      applyOutputMetadata(display.pub, output);
+      if (display.pub.label.empty()) {
+        display.pub.label = output.connectorName;
+      }
+      kLog.debug("controlling '{}' brightness through the compositor SDR white level", display.pub.id);
+      internals.push_back(std::move(display));
+    }
+  }
+
+  [[nodiscard]] bool controlsSdrWhite(const compositors::umbriel::ColorStates& states, const std::string& connector) {
+    const auto state = states.find(connector);
+    return state != states.end() && compositors::umbriel::controlsBrightness(state->second);
+  }
+
+  [[nodiscard]] bool rendersHdrNow(const compositors::umbriel::ColorStates& states, const std::string& connector) {
+    const auto state = states.find(connector);
+    return state != states.end() && compositors::umbriel::rendersHdrNow(state->second);
+  }
+
+  [[nodiscard]] float readBackSdrWhite(const compositors::umbriel::ColorStates& states, const std::string& connector) {
+    const auto state = states.find(connector);
+    if (state == states.end()) {
+      return 0.0F;
+    }
+    return compositors::umbriel::brightnessFromSdrWhite(state->second.sdrWhite);
+  }
+
+  void publishSdrWhiteBrightness(DisplayInternal& display, float value) {
+    display.pub.brightness = value;
+    syncPublicDisplay(display);
+    if (changeCallback) {
+      changeCallback();
+    }
+  }
+
   void setBrightness(DisplayInternal* display, float value) {
     value = std::clamp(value, activeConfig.minimumBrightness, 1.0F);
+
+    // An HDR-capable output carries the level twice: panel for SDR content, SDR white for HDR content.
+    if (display->sdrWhite) {
+      const bool written =
+          compositors::umbriel::setOutputBrightness(platform.umbrielRuntime(), display->connectorName, value);
+      if (!written) {
+        kLog.warn("compositor rejected the SDR white level for '{}'", display->pub.id);
+      } else if (const auto state = colorStates.find(display->connectorName); state != colorStates.end()) {
+        state->second.sdrWhite = compositors::umbriel::sdrWhiteFromBrightness(value);
+      }
+    }
+
     switch (display->backend) {
     case RuntimeBackend::Backlight:
       setBacklightBrightness(*display, value);
       break;
     case RuntimeBackend::Ddcutil:
       setDdcBrightness(*display, value);
+      break;
+    case RuntimeBackend::SdrWhite:
+      publishSdrWhiteBrightness(*display, value);
       break;
     }
   }
@@ -1175,14 +1320,18 @@ struct BrightnessService::Impl {
       return;
     }
 
+    refreshColorStates();
+
     DisplayInternal* display = findInternal(displayId);
     if (display == nullptr) {
       return;
     }
+
     setBrightness(display, value);
   }
 
   void setAllBrightness(float value) {
+    refreshColorStates();
     for (auto& display : internals) {
       setBrightness(&display, value);
     }
@@ -1437,6 +1586,8 @@ struct BrightnessService::Impl {
       std::swap(ready, completions);
     }
 
+    refreshColorStates();
+
     bool changed = false;
     while (!ready.empty()) {
       changed = applyCompletion(ready.front()) || changed;
@@ -1571,6 +1722,9 @@ struct BrightnessService::Impl {
       );
     }
 
+    // Displays added above take their colour state from this refresh.
+    syncSdrWhiteDisplays();
+    refreshColorStates();
     rebuildPublic();
     retryDdcDiscovery();
     return oldPublic != publicDisplays;
@@ -1597,7 +1751,9 @@ struct BrightnessService::Impl {
       display->quarantined = false;
       display->cooldownUntil = {};
       display->maxRaw = completion.maxRaw;
-      display->pub.brightness = normalizedBrightness(completion.currentRaw, completion.maxRaw);
+      if (!display->hdrActive) {
+        display->pub.brightness = normalizedBrightness(completion.currentRaw, completion.maxRaw);
+      }
       syncPublicDisplay(*display);
       return std::abs(display->pub.brightness - oldBrightness) > 0.001F;
     }
@@ -1628,10 +1784,16 @@ struct BrightnessService::Impl {
 
     bool changed = false;
 
+    refreshColorStates();
+
     m_inotify.drain([this, &changed](const inotify_event* event) {
       for (auto& display : internals) {
         if (display.backend != RuntimeBackend::Backlight || display.inotifyWd != event->wd) {
           continue;
+        }
+
+        if (display.hdrActive) {
+          break;
         }
 
         const float newBrightness = readBacklightBrightness(display.sysfsPath, display.maxRaw);
