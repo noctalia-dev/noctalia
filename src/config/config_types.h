@@ -1558,7 +1558,7 @@ struct AudioConfig {
   bool enableScreenshotSounds = true;
   float soundVolume = 0.5F;
   std::string soundTheme = "freedesktop";
-  std::int32_t spectrumFrameRate = 30;
+  std::int32_t spectrumFrameRate = 60;
 
   bool operator==(const AudioConfig&) const = default;
 };

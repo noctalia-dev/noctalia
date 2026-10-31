@@ -96,7 +96,7 @@ private:
   int m_upperCutoff = 20000;
   float m_noiseReduction = 0.77F;
   bool m_smoothing = true;
-  int m_frameRateHz = 30;
+  int m_frameRateHz = 60;
   std::vector<float> m_analysisBands;
   bool m_idle = true;
 
