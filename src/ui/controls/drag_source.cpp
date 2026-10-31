@@ -35,7 +35,7 @@ DragSource::DragSource(DragDropController* controller) : m_controller(controller
       m_controller->motion(*this, data.localX, data.localY);
     }
   });
-  area->setOnCancel([this]() {
+  area->setOnCancel([this] {
     if (m_controller != nullptr) {
       m_controller->cancel();
     }
@@ -150,11 +150,34 @@ void DragSource::setDragging(bool dragging) {
   m_dragging = dragging;
   applyVisualState();
   applyTooltip();
-  if (m_inputArea != nullptr) {
-    m_inputArea->setCursorShape(
-        dragging ? WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRABBING : WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRAB
-    );
+  applyCursor();
+}
+
+void DragSource::setOnClick(std::function<void()> handler) { m_onClick = std::move(handler); }
+
+void DragSource::fireClick() {
+  if (m_onClick && m_enabled) {
+    m_onClick();
   }
+}
+
+void DragSource::setGrabCursor(bool enabled) {
+  if (m_grabCursor == enabled) {
+    return;
+  }
+  m_grabCursor = enabled;
+  applyCursor();
+}
+
+void DragSource::applyCursor() {
+  if (m_inputArea == nullptr) {
+    return;
+  }
+  m_inputArea->setCursorShape(
+      m_dragging         ? WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRABBING
+          : m_grabCursor ? WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRAB
+                         : WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER
+  );
 }
 
 void DragSource::setSize(float width, float height) {

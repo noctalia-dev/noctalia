@@ -88,7 +88,9 @@ private:
   void applyThemeFromControls();
   void toggleFavoriteForPath(const std::string& path);
   void syncThemeControls();
-  void rebuildFavoritePaletteDetailSelect(const WallpaperFavorite* favorite);
+  void syncFillModeControl();
+  void rebuildFavoritePaletteDetailPicker(const WallpaperFavorite* favorite);
+  void openFavoritePaletteDetailPicker();
   [[nodiscard]] std::optional<PaletteSource> paletteSourceForSegment(std::size_t index) const;
   [[nodiscard]] std::size_t segmentForPaletteSource(PaletteSource source) const;
   [[nodiscard]] std::string selectedWallpaperPath() const;
@@ -133,10 +135,11 @@ private:
   Button* m_backButton = nullptr;
   Segmented* m_favoriteThemeSegmented = nullptr;
   Segmented* m_favoritePaletteSourceSegmented = nullptr;
-  Select* m_favoritePaletteDetailSelect = nullptr;
+  Button* m_favoritePaletteDetailButton = nullptr;
   Select* m_monitorSelect = nullptr;
   Input* m_filterInput = nullptr;
   Button* m_favoriteCurrentButton = nullptr;
+  Select* m_fillModeSelect = nullptr;
   Toggle* m_flattenToggle = nullptr;
   Label* m_flattenLabel = nullptr;
   Button* m_sortButton = nullptr;
@@ -172,7 +175,10 @@ private:
   bool m_syncingFavoriteControls = false;
   bool m_syncingGridSelectionVisual = false;
   bool m_gridKeyboardActive = false;
+  // Options of the palette-detail picker for the active palette source; index-aligned.
   std::vector<std::string> m_favoritePaletteDetailValues;
+  std::vector<std::string> m_favoritePaletteDetailLabels;
+  std::size_t m_favoritePaletteDetailIndex = 0;
   std::vector<PaletteSource> m_paletteSourceOrder;
   static constexpr std::size_t kNoVisibleSelection = std::numeric_limits<std::size_t>::max();
   std::size_t m_selectedVisibleIndex = kNoVisibleSelection;

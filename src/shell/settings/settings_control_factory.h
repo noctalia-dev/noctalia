@@ -37,10 +37,11 @@ namespace settings {
     void makeRow(Flex& section, const SettingEntry& entry, std::unique_ptr<Node> control);
 
     [[nodiscard]] std::unique_ptr<Toggle> makeToggle(
-        bool checked, bool enabled, std::vector<std::string> path, std::optional<bool> clearWhenValue = std::nullopt
+        bool checked, bool enabled, const std::vector<std::string>& path,
+        std::optional<bool> clearWhenValue = std::nullopt
     );
 
-    [[nodiscard]] std::unique_ptr<Node> makeSelect(const SelectSetting& setting, std::vector<std::string> path);
+    [[nodiscard]] std::unique_ptr<Node> makeSelect(const SelectSetting& setting, const std::vector<std::string>& path);
 
     // Filterable search-picker button (opens the search popup). `title` is the popup heading.
     [[nodiscard]] std::unique_ptr<Node>
@@ -49,13 +50,15 @@ namespace settings {
     // One gesture binding: a picker over Default / Disabled / every bindable command / a free-form
     // shell command, plus an argument field when the choice takes one. Shared by every surface that
     // binds gestures (bar widgets, the bar dead zone), so they all behave identically.
-    [[nodiscard]] std::unique_ptr<Node>
-    makeGestureActionRow(const GestureActionSetting& setting, const std::string& title, std::vector<std::string> path);
+    [[nodiscard]] std::unique_ptr<Node> makeGestureActionRow(
+        const GestureActionSetting& setting, const std::string& title, const std::vector<std::string>& path
+    );
 
     [[nodiscard]] std::unique_ptr<Flex> makeSlider(
-        double value, double minValue, double maxValue, double step, std::vector<std::string> path,
+        double value, double minValue, double maxValue, double step, const std::vector<std::string>& path,
         bool integerValue = false,
-        std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit = {},
+        const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>&
+            linkedCommit = {},
         std::string valueSuffix = {}, SliderSetting::InvertSlot invertSlot = SliderSetting::InvertSlot::None,
         bool invertEnabled = true
     );
@@ -64,21 +67,23 @@ namespace settings {
     makeRangeSlider(const RangeSliderSetting& setting, const std::vector<std::string>& lowPath);
 
     [[nodiscard]] std::unique_ptr<Input> makeText(
-        const std::string& value, const std::string& placeholder, std::vector<std::string> path, float width = 0.0F
+        const std::string& value, const std::string& placeholder, const std::vector<std::string>& path,
+        float width = 0.0F
     );
 
     [[nodiscard]] std::unique_ptr<Node> makePathBrowse(const TextSetting& setting, std::vector<std::string> path);
 
     [[nodiscard]] std::unique_ptr<Input>
-    makeOptionalNumber(const OptionalNumberSetting& setting, std::vector<std::string> path);
+    makeOptionalNumber(const OptionalNumberSetting& setting, const std::vector<std::string>& path);
 
-    [[nodiscard]] std::unique_ptr<Stepper> makeStepper(const StepperSetting& setting, std::vector<std::string> path);
+    [[nodiscard]] std::unique_ptr<Stepper>
+    makeStepper(const StepperSetting& setting, const std::vector<std::string>& path);
 
     [[nodiscard]] std::unique_ptr<Flex>
-    makeOptionalStepper(const OptionalStepperSetting& setting, std::vector<std::string> path);
+    makeOptionalStepper(const OptionalStepperSetting& setting, const std::vector<std::string>& path);
 
     [[nodiscard]] std::unique_ptr<Node>
-    makeColorSpecPicker(const ColorSpecPickerSetting& setting, std::vector<std::string> path);
+    makeColorSpecPicker(const ColorSpecPickerSetting& setting, const std::vector<std::string>& path);
 
     [[nodiscard]] std::unique_ptr<Flex> makeCollectionBlock(
         const SettingEntry& entry, bool overridden, bool reserveTitleHeight = false, bool titleMaxTwoLines = false,

@@ -88,7 +88,7 @@ namespace {
       return std::nullopt;
     }
 
-    const auto destination = cacheDir / "avatar.png";
+    auto destination = cacheDir / "avatar.png";
     const auto tempPath = cacheDir / "avatar.png.tmp";
     {
       std::ofstream out(tempPath, std::ios::binary | std::ios::trunc);

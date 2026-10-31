@@ -106,7 +106,7 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
       m_onEnter();
     }
   });
-  setOnLeave([this]() {
+  setOnLeave([this] {
     if (m_hasEntry && m_onLeave) {
       m_onLeave();
     }
@@ -590,7 +590,7 @@ void WallpaperTile::animateThumbScale(float targetScale) {
 
   m_thumbScaleAnimId = animationManager()->animate(
       m_thumbScale, targetScale, Style::animFast, Easing::EaseOutCubic, [this](float value) { applyThumbScale(value); },
-      [this]() { m_thumbScaleAnimId = 0; }, this
+      [this] { m_thumbScaleAnimId = 0; }, this
   );
   markPaintDirty();
 }
@@ -638,16 +638,16 @@ void WallpaperTile::applyVisualState() {
   ColorSpec borderColor = m_selected ? colorSpecFromRole(ColorRole::Primary)
       : m_current                    ? colorSpecFromRole(ColorRole::Secondary)
       : m_hoveredVisual              ? colorSpecFromRole(ColorRole::Hover)
-                                     : colorSpecFromRole(ColorRole::Outline);
+                                     : colorSpecFromRole(ColorRole::OutlineVariant);
   ColorSpec labelColor =
       m_current ? colorSpecFromRole(ColorRole::Secondary) : colorSpecFromRole(ColorRole::OnSurfaceVariant);
-  ColorSpec frameBg = colorSpecFromRole(ColorRole::SurfaceVariant);
+  ColorSpec frameBg = colorSpecFromRole(ColorRole::SurfaceContainer);
   m_label->setColor(labelColor);
 
   m_thumbHost->setFill(frameBg);
   if (m_entry.isDir) {
     m_thumbHost->setBorder(borderColor, outlineWidth);
-    m_thumb->setBorder(colorSpecFromRole(ColorRole::Outline), outlineWidth);
+    m_thumb->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), outlineWidth);
   } else {
     m_thumbHost->clearBorder();
     m_thumb->setBorder(borderColor, outlineWidth);

@@ -5,17 +5,17 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <csignal>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <fcntl.h>
 #include <pthread.h>
 #include <pwd.h>
 #include <security/pam_appl.h>
-#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <time.h>
 #include <unistd.h>
 #include <vector>
 
@@ -119,7 +119,7 @@ namespace {
   }
 
   [[nodiscard]] bool writeAll(int fd, const void* data, std::size_t len) {
-    auto* bytes = static_cast<const std::uint8_t*>(data);
+    const auto* bytes = static_cast<const std::uint8_t*>(data);
     std::size_t remaining = len;
     while (remaining > 0) {
       const ssize_t n = ::write(fd, bytes, remaining);
@@ -285,7 +285,8 @@ namespace {
     kLog.debug("authenticating user='{}' service='{}'", user, service);
 
     PamHandle pamh;
-    const int startRc = pam_start(service.data(), user.c_str(), &conv, &pamh.h);
+    const std::string serviceName(service);
+    const int startRc = pam_start(serviceName.c_str(), user.c_str(), &conv, &pamh.h);
     if (startRc != PAM_SUCCESS || pamh.h == nullptr) {
       kLog.error(
           "pam_start failed rc={} ({})", startRc, pamh.h != nullptr ? pam_strerror(pamh.h, startRc) : "no handle"
@@ -337,7 +338,7 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
 ) const {
   // Re-exec before invoking PAM so the helper cannot inherit locked library
   // state from the shell's other threads.
-  const auto fail = [startFailureMessage]() {
+  const auto fail = [startFailureMessage] {
     return Result{.success = false, .message = std::string(startFailureMessage)};
   };
 

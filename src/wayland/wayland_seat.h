@@ -76,6 +76,7 @@ public:
   using KeyboardFocusCallback = std::function<void(wl_surface* surface, bool entered)>;
   using KeyboardModifiersCallback = std::function<void(std::uint32_t modifiers)>;
   using LockKeysChangeCallback = std::function<void()>;
+  using KeyboardLayoutChangeCallback = std::function<void()>;
 
   void bind(wl_seat* seat);
   void setCursorShapeManager(wp_cursor_shape_manager_v1* manager);
@@ -84,6 +85,8 @@ public:
   void setKeyboardFocusCallback(KeyboardFocusCallback callback);
   void setKeyboardModifiersCallback(KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(LockKeysChangeCallback callback);
+  // Fired when the effective xkb layout name changes (group switch or new keymap).
+  void setKeyboardLayoutChangeCallback(KeyboardLayoutChangeCallback callback);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
   void forgetSurface(wl_surface* surface) noexcept;
   void cleanup();
@@ -128,6 +131,8 @@ public:
   handleTouchMotion(void* data, wl_touch* touch, std::uint32_t time, std::int32_t id, std::int32_t x, std::int32_t y);
   static void handleTouchFrame(void* data, wl_touch* touch);
   static void handleTouchCancel(void* data, wl_touch* touch);
+
+  void notifyLayoutIfChanged();
 
   // Keyboard listener entrypoints
   static void handleKeyboardKeymap(void* data, wl_keyboard* keyboard, std::uint32_t format, int fd, std::uint32_t size);
@@ -213,6 +218,8 @@ private:
   KeyboardModifiersCallback m_keyboardModifiersCallback;
   LockKeysChangeCallback m_lockKeysChangeCallback;
   LockKeysState m_lastLockKeysState;
+  KeyboardLayoutChangeCallback m_keyboardLayoutChangeCallback;
+  std::string m_lastLayoutName;
 
   // Key repeat
   SteadyClock::time_point m_lastUserActivitySteady;

@@ -45,7 +45,7 @@ void Application::onGraphicsReset(RenderGraphicsResetStatus status) {
     return;
   }
   m_graphicsRecoveryScheduled = true;
-  DeferredCall::callLater([this]() { recoverGraphicsAfterReset(); });
+  DeferredCall::callLater([this] { recoverGraphicsAfterReset(); });
 }
 
 void Application::recoverGraphicsAfterReset() {
@@ -95,12 +95,12 @@ void Application::recoverGraphicsAfterReset() {
         delay.count(), e.what()
     );
     m_graphicsRecoveryScheduled = true;
-    m_graphicsRecoveryTimer.start(delay, [this]() { recoverGraphicsAfterReset(); });
+    m_graphicsRecoveryTimer.start(delay, [this] { recoverGraphicsAfterReset(); });
   }
 }
 
 void Application::requestAllSurfacesRedraw() {
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_bar.requestRedraw();
     m_dock.requestRedraw();
     m_desktopWidgetsController.requestRedraw();
@@ -111,6 +111,7 @@ void Application::requestAllSurfacesRedraw() {
     m_colorPickerDialogPopup.requestRedraw();
     m_glyphPickerDialogPopup.requestRedraw();
     m_fileDialogPopup.requestRedraw();
+    m_searchPickerDialogPopup.requestRedraw();
   });
 }
 
@@ -119,6 +120,16 @@ void Application::onUpowerStateChangedForHooks() {
     return;
   }
   const auto& state = m_upowerService->state();
+  // Without a system battery the default state follows the lowest-charged peripheral. When that
+  // selection moves to another device, rebaseline instead of reporting the new device's charge
+  // state as a plug/unplug or a battery hook transition.
+  if (const auto& peripheralPath = m_upowerService->statePeripheralPath();
+      peripheralPath != m_prevBatteryPeripheralPathForEvents) {
+    m_prevBatteryPeripheralPathForEvents = peripheralPath;
+    m_prevBatteryPluggedForEvents = state.isPresent ? batteryStatePlugged(state.state) : std::nullopt;
+    m_batteryHookState.reset(state);
+    return;
+  }
   const auto plugged = state.isPresent ? batteryStatePlugged(state.state) : std::nullopt;
   if (plugged.has_value()) {
     if (m_prevBatteryPluggedForEvents.has_value()

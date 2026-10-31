@@ -96,5 +96,15 @@ int main() {
            formatLocalUnixTime(kFixedStamp, "{}"), "2023-11-15 03:58:20", "chrono path honors the configured timezone"
        )
       && ok;
+
+  // Every directive that changes each second must request second ticks, in any
+  // spelling the formatter accepts; minute-level and escaped ones must not.
+  for (const char* fmt :
+       {"{:%H:%M:%S}", "%T", "{:%X}", "%r", "{:%c}", "%s", "{:%OS}", "%EX", "%Ec", "%-S", "%_2S", "%H:%M\\n%S"}) {
+    ok = expectEqual(formatShowsSeconds(fmt) ? "seconds" : "minutes", "seconds", fmt) && ok;
+  }
+  for (const char* fmt : {"", "{:%H:%M}", "%R", "%-I:%M %p", "%x", "%%S", "100%% %H", "%OH:%EM", "%"}) {
+    ok = expectEqual(formatShowsSeconds(fmt) ? "seconds" : "minutes", "minutes", fmt) && ok;
+  }
   return ok ? 0 : 1;
 }

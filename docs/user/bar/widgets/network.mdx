@@ -13,11 +13,11 @@ Hovering the widget shows a tooltip with the network name, signal strength, radi
 
 When a cellular connection is the active one, the glyph shows live ModemManager signal bars and the label shows the operator name. An enabled modem that is not the active connection contributes extra tooltip rows (state, operator, signal, technology) instead; a powered-off modem is not shown. Cellular status requires ModemManager and is configured from the control center's [Cellular card](/noctalia/control-center/#cellular).
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `show_label` | bool | `true` | Show the SSID or interface name next to the glyph |
-| `vpn_status` | string | `"replace"` | VPN indicator mode: `"replace"` swaps the network glyph for a shield, `"both"` shows both glyphs, and `"hidden"` disables the indicator. |
-| `show_vpn_label` | bool | `false` | Show the VPN name when `vpn_status` is `"replace"` or `"both"` and labels are enabled. |
+| Setting          | Type   | Default     | Description                                                                                                                              |
+| ---------------- | ------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `show_label`     | bool   | `true`      | Show the SSID or interface name next to the glyph                                                                                        |
+| `vpn_status`     | string | `"replace"` | VPN indicator mode: `"replace"` swaps the network glyph for a shield, `"both"` shows both glyphs, and `"hidden"` disables the indicator. |
+| `show_vpn_label` | bool   | `false`     | Show the VPN name when `vpn_status` is `"replace"` or `"both"` and labels are enabled.                                                   |
 
 ```toml
 [widget.network]

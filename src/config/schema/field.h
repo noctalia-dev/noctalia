@@ -51,6 +51,89 @@ namespace noctalia::config::schema {
     return std::nullopt;
   }
 
+  inline std::string_view tomlTypeName(const toml::node& node) {
+    switch (node.type()) {
+    case toml::node_type::string:
+      return "a string";
+    case toml::node_type::integer:
+      return "an integer";
+    case toml::node_type::floating_point:
+      return "a number";
+    case toml::node_type::boolean:
+      return "a boolean";
+    case toml::node_type::date:
+    case toml::node_type::time:
+    case toml::node_type::date_time:
+      return "a date/time";
+    case toml::node_type::array:
+      return "an array";
+    case toml::node_type::table:
+      return "a table";
+    case toml::node_type::none:
+      break;
+    }
+    return "an unknown value";
+  }
+
+  // Reports a value of the wrong type at `path`. The field keeps its default (or drops the entry),
+  // which used to happen silently.
+  inline void warnWrongType(Diagnostics& diag, std::string path, const toml::node& node, std::string_view expected) {
+    diag.warn(std::move(path), "expected " + std::string(expected) + ", found " + std::string(tomlTypeName(node)));
+  }
+
+  // Same, for a key of `tbl` that is present but was not read.
+  inline void warnWrongType(
+      const toml::table& tbl, std::string_view key, std::string_view parentPath, Diagnostics& diag,
+      std::string_view expected
+  ) {
+    if (const toml::node* node = tbl.get(key); node != nullptr) {
+      warnWrongType(diag, joinPath(parentPath, key), *node, expected);
+    }
+  }
+
+  // A non-finite float is the right type but unusable; report it apart from wrong types.
+  inline void
+  warnUnusableNumber(const toml::table& tbl, std::string_view key, std::string_view parentPath, Diagnostics& diag) {
+    const toml::node* node = tbl.get(key);
+    if (node == nullptr) {
+      return;
+    }
+    if (node->is_floating_point()) {
+      diag.warn(joinPath(parentPath, key), "expected a finite number");
+      return;
+    }
+    warnWrongType(diag, joinPath(parentPath, key), *node, "a number");
+  }
+
+  // String list entries: non-strings are dropped with a warning at `path[index]`.
+  inline std::vector<std::string> readStringArray(const toml::array& arr, std::string_view path, Diagnostics& diag) {
+    std::vector<std::string> values;
+    std::size_t index = 0;
+    for (const auto& item : arr) {
+      if (auto s = item.value<std::string>()) {
+        values.push_back(*s);
+      } else {
+        warnWrongType(diag, std::string(path) + '[' + std::to_string(index) + ']', item, "a string");
+      }
+      ++index;
+    }
+    return values;
+  }
+
+  // Free-form string map entries: non-strings are dropped with a warning at `path.key`.
+  inline std::unordered_map<std::string, std::string>
+  readStringMap(const toml::table& sub, std::string_view path, Diagnostics& diag) {
+    std::unordered_map<std::string, std::string> values;
+    for (const auto& [entryKey, node] : sub) {
+      if (auto value = node.value<std::string>()) {
+        values.emplace(std::string(entryKey.str()), std::move(*value));
+      } else {
+        warnWrongType(diag, joinPath(path, entryKey.str()), node, "a string");
+      }
+    }
+    return values;
+  }
+
   // One descriptor: binds a single TOML key in a parent table to part of a
   // Struct. read() pulls the key into `out`; write() emits it from `in`. Both
   // are no-ops when the key is absent (read) — leaving the struct default.
@@ -73,9 +156,11 @@ namespace noctalia::config::schema {
   template <typename Struct> Field<Struct> field(bool Struct::* member, std::string_view key) {
     return Field<Struct>{
         key,
-        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto v = tbl[key].value<bool>()) {
             out.*member = *v;
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, "a boolean");
           }
         },
         [member, key](toml::table& tbl, const Struct& in) { tbl.insert_or_assign(key, in.*member); },
@@ -85,9 +170,11 @@ namespace noctalia::config::schema {
   template <typename Struct> Field<Struct> field(std::string Struct::* member, std::string_view key) {
     return Field<Struct>{
         key,
-        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto v = tbl[key].value<std::string>()) {
             out.*member = *v;
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, "a string");
           }
         },
         [member, key](toml::table& tbl, const Struct& in) { tbl.insert_or_assign(key, in.*member); },
@@ -99,13 +186,15 @@ namespace noctalia::config::schema {
   field(std::int32_t Struct::* member, std::string_view key, std::optional<Range<std::int64_t>> range = std::nullopt) {
     return Field<Struct>{
         key,
-        [member, key, range](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key, range](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto v = tbl[key].value<std::int64_t>()) {
             std::int64_t value = *v;
             if (range) {
               value = applyRange(value, *range);
             }
             out.*member = static_cast<std::int32_t>(value);
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, "an integer");
           }
         },
         [member, key](toml::table& tbl, const Struct& in) {
@@ -118,13 +207,15 @@ namespace noctalia::config::schema {
   Field<Struct> field(float Struct::* member, std::string_view key, std::optional<Range<float>> range = std::nullopt) {
     return Field<Struct>{
         key,
-        [member, key, range](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key, range](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto v = finiteDouble(tbl[key])) {
             auto value = static_cast<float>(*v);
             if (range) {
               value = applyRange(value, *range);
             }
             out.*member = value;
+          } else {
+            warnUnusableNumber(tbl, key, parentPath, diag);
           }
         },
         [member, key](toml::table& tbl, const Struct& in) {
@@ -138,13 +229,15 @@ namespace noctalia::config::schema {
   field(double Struct::* member, std::string_view key, std::optional<Range<double>> range = std::nullopt) {
     return Field<Struct>{
         key,
-        [member, key, range](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key, range](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto v = finiteDouble(tbl[key])) {
             double value = *v;
             if (range) {
               value = applyRange(value, *range);
             }
             out.*member = value;
+          } else {
+            warnUnusableNumber(tbl, key, parentPath, diag);
           }
         },
         [member, key](toml::table& tbl, const Struct& in) { tbl.insert_or_assign(key, in.*member); },
@@ -156,9 +249,11 @@ namespace noctalia::config::schema {
   template <typename Struct> Field<Struct> field(std::optional<double> Struct::* member, std::string_view key) {
     return Field<Struct>{
         key,
-        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto v = finiteDouble(tbl[key])) {
             out.*member = v;
+          } else {
+            warnUnusableNumber(tbl, key, parentPath, diag);
           }
         },
         [member, key](toml::table& tbl, const Struct& in) {
@@ -172,9 +267,11 @@ namespace noctalia::config::schema {
   template <typename Struct> Field<Struct> field(std::optional<std::int32_t> Struct::* member, std::string_view key) {
     return Field<Struct>{
         key,
-        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto v = tbl[key].value<std::int64_t>()) {
             out.*member = static_cast<std::int32_t>(*v);
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, "an integer");
           }
         },
         [member, key](toml::table& tbl, const Struct& in) {
@@ -188,9 +285,11 @@ namespace noctalia::config::schema {
   template <typename Struct> Field<Struct> field(std::optional<std::string> Struct::* member, std::string_view key) {
     return Field<Struct>{
         key,
-        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto v = tbl[key].value<std::string>()) {
             out.*member = *v;
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, "a string");
           }
         },
         [member, key](toml::table& tbl, const Struct& in) {
@@ -204,15 +303,11 @@ namespace noctalia::config::schema {
   template <typename Struct> Field<Struct> field(std::vector<std::string> Struct::* member, std::string_view key) {
     return Field<Struct>{
         key,
-        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
-          if (auto* arr = tbl[key].as_array()) {
-            std::vector<std::string> values;
-            for (const auto& item : *arr) {
-              if (auto s = item.value<std::string>()) {
-                values.push_back(*s);
-              }
-            }
-            out.*member = std::move(values);
+        [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
+          if (const auto* arr = tbl[key].as_array()) {
+            out.*member = readStringArray(*arr, joinPath(parentPath, key), diag);
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, "an array of strings");
           }
         },
         [member, key](toml::table& tbl, const Struct& in) {
@@ -231,18 +326,13 @@ namespace noctalia::config::schema {
   Field<Struct> field(std::unordered_map<std::string, std::string> Struct::* member, std::string_view key) {
     return Field<Struct>{
         key,
-        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           const auto* sub = tbl[key].as_table();
           if (sub == nullptr) {
+            warnWrongType(tbl, key, parentPath, diag, "a table of strings");
             return;
           }
-          std::unordered_map<std::string, std::string> values;
-          for (const auto& [entryKey, node] : *sub) {
-            if (auto value = node.value<std::string>()) {
-              values.emplace(std::string(entryKey.str()), std::move(*value));
-            }
-          }
-          out.*member = std::move(values);
+          out.*member = readStringMap(*sub, joinPath(parentPath, key), diag);
         },
         [member, key](toml::table& tbl, const Struct& in) {
           // Omitted entirely when unset, so an untouched config gains no empty table.
@@ -265,18 +355,13 @@ namespace noctalia::config::schema {
   field(std::optional<std::unordered_map<std::string, std::string>> Struct::* member, std::string_view key) {
     return Field<Struct>{
         key,
-        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           const auto* sub = tbl[key].as_table();
           if (sub == nullptr) {
+            warnWrongType(tbl, key, parentPath, diag, "a table of strings");
             return;
           }
-          std::unordered_map<std::string, std::string> values;
-          for (const auto& [entryKey, node] : *sub) {
-            if (auto value = node.value<std::string>()) {
-              values.emplace(std::string(entryKey.str()), std::move(*value));
-            }
-          }
-          out.*member = std::move(values);
+          out.*member = readStringMap(*sub, joinPath(parentPath, key), diag);
         },
         [member, key](toml::table& tbl, const Struct& in) {
           if (!(in.*member).has_value()) {
@@ -306,9 +391,11 @@ namespace noctalia::config::schema {
   template <typename Struct> Field<Struct> pathStringField(std::string Struct::* member, std::string_view key) {
     return custom<Struct>(
         key,
-        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto v = tbl[key].value<std::string>()) {
             out.*member = v->empty() ? *v : FileUtils::expandUserPath(FileUtils::expandEnvVars(*v)).string();
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, "a string");
           }
         },
         [member, key](toml::table& tbl, const Struct& in) { tbl.insert_or_assign(key, in.*member); }
@@ -319,9 +406,11 @@ namespace noctalia::config::schema {
   Field<Struct> optionalPathStringField(std::optional<std::string> Struct::* member, std::string_view key) {
     return custom<Struct>(
         key,
-        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+        [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
           if (auto v = tbl[key].value<std::string>()) {
             out.*member = v->empty() ? *v : FileUtils::expandUserPath(FileUtils::expandEnvVars(*v)).string();
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, "a string");
           }
         },
         [member, key](toml::table& tbl, const Struct& in) {
@@ -367,6 +456,17 @@ namespace noctalia::config::schema {
     return {};
   }
 
+  template <typename Enum> std::string enumKeyList(const EnumOption<Enum>* opts, std::size_t n) {
+    std::string list = "one of ";
+    for (std::size_t i = 0; i < n; ++i) {
+      if (i > 0) {
+        list += ", ";
+      }
+      list += opts[i].key;
+    }
+    return list;
+  }
+
   // Optional enum: read like enumField, but written only when the optional is
   // set (mirrors `if (x.has_value()) emit`).
   template <typename Struct, typename Enum, std::size_t N>
@@ -383,6 +483,8 @@ namespace noctalia::config::schema {
             } else {
               diag.warn(joinPath(parentPath, key), "unknown value \"" + *v + "\"");
             }
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, enumKeyList(opts, N));
           }
         },
         [member, key, opts](toml::table& tbl, const Struct& in) {
@@ -408,6 +510,8 @@ namespace noctalia::config::schema {
             } else {
               diag.warn(joinPath(parentPath, key), "unknown value \"" + *v + "\"");
             }
+          } else {
+            warnWrongType(tbl, key, parentPath, diag, enumKeyList(opts, N));
           }
         },
         [member, key, opts](toml::table& tbl, const Struct& in) {

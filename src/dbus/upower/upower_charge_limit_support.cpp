@@ -31,6 +31,26 @@ namespace {
     return threshold;
   }
 
+  // charge_types lists the available modes with the active one in brackets, e.g. "Standard [Custom]".
+  std::optional<std::string> readActiveChargeType(const std::filesystem::path& path) {
+    std::ifstream input(path);
+    if (!input) {
+      return std::nullopt;
+    }
+
+    std::string value;
+    std::getline(input, value);
+    const auto open = value.find('[');
+    if (open == std::string::npos) {
+      return std::nullopt;
+    }
+    const auto close = value.find(']', open);
+    if (close == std::string::npos) {
+      return std::nullopt;
+    }
+    return value.substr(open + 1, close - open - 1);
+  }
+
   bool isPlainPowerSupplyComponent(std::string_view value) {
     if (value.empty() || value == "." || value == "..") {
       return false;
@@ -53,7 +73,7 @@ namespace {
     }
 
     const auto normalized = path.lexically_normal();
-    const std::string component = normalized.filename().string();
+    std::string component = normalized.filename().string();
     if (normalized.parent_path().filename() != "power_supply" || !isPlainPowerSupplyComponent(component)) {
       return std::nullopt;
     }
@@ -75,6 +95,12 @@ namespace upower::detail {
     // NativePath selects a kernel power_supply name only. Always read through the fixed class root,
     // even when UPower supplies its documented absolute /sys/devices/.../power_supply path.
     const auto batteryPath = powerSupplyRoot / *component;
+    // The thresholds only apply while charge_types selects Custom. Drivers such as dell-laptop keep the stored
+    // values in every other mode, where the battery charges to full.
+    const auto activeChargeType = readActiveChargeType(batteryPath / "charge_types");
+    if (activeChargeType.has_value() && *activeChargeType != "Custom") {
+      return result;
+    }
     result.start = readThresholdFile(batteryPath / "charge_control_start_threshold");
     result.end = readThresholdFile(batteryPath / "charge_control_end_threshold");
     return result;

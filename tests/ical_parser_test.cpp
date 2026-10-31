@@ -668,6 +668,22 @@ int main() {
         && ok;
   }
 
+  // Some CalDAV servers answer an expand request with per-instance components that still carry the
+  // series RRULE. Each RECURRENCE-ID component is one occurrence, so it must not expand again.
+  {
+    const std::string ics = "BEGIN:VEVENT\r\nUID:expanded\r\nDTSTART:20261020T110000Z\r\n"
+                            "DTEND:20261020T115500Z\r\nRECURRENCE-ID:20261020T130000Z\r\n"
+                            "RRULE:FREQ=WEEKLY;WKST=SU;BYDAY=TU\r\nEND:VEVENT\r\n"
+                            "BEGIN:VEVENT\r\nUID:expanded\r\nDTSTART:20261027T110000Z\r\n"
+                            "DTEND:20261027T115500Z\r\nRECURRENCE-ID:20261027T130000Z\r\n"
+                            "RRULE:FREQ=WEEKLY;WKST=SU;BYDAY=TU\r\nEND:VEVENT\r\n";
+    ok = expectStarts(
+             ics, utc(2026, 10, 1), utc(2026, 11, 30), {utc(2026, 10, 20, 11), utc(2026, 10, 27, 11)},
+             "expanded instance with rrule is not expanded again"
+         )
+        && ok;
+  }
+
   // Responses that are not iCalendar at all must be distinguishable from an empty calendar, so a
   // captive portal or expired share link cannot overwrite cached events with nothing.
   {

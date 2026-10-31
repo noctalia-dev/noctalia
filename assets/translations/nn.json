@@ -41,7 +41,6 @@
       "copy": "Kopier biletet med merknad (Ctrl+C)",
       "cursor": "Vis peikaren fanga med skjermen",
       "fill-off": "Formfyll: av",
-      "fill-on": "Formfyll: på",
       "size-decrease": "Tynnare ([)",
       "size-increase": "Tjukkare (])",
       "size-large": "Stor",
@@ -1389,10 +1388,6 @@
         "horizontal": "Vassrett",
         "vertical": "Loddrett"
       },
-      "panel-bar-alignment": {
-        "centered": "I midten",
-        "near-trigger": "Nær utløysar"
-      },
       "panel-position": {
         "auto": "Fylg stonga"
       },
@@ -2538,10 +2533,7 @@
         "calendar-edit": {
           "button": "Brigda",
           "button-reconnect": "Kopla til att",
-          "button-retry": "Prøv att",
-          "description": "Oppdater denne kalenderkontoen",
-          "description-locked": "Oppattnyingsteiknet ligg i ein låst lykelring; lås han opp og prøv att",
-          "description-reconnect": "Google-sanning vantar; kopla til kontoen att."
+          "button-retry": "Prøv att"
         },
         "calendar-event-date-format": {
           "description": "Datoformatet vist på arrangementskortet på dagen du vel",

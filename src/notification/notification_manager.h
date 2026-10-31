@@ -3,6 +3,7 @@
 #include "config/config_types.h"
 #include "core/timer_manager.h"
 #include "notification.h"
+#include "security/storage_key_provider.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -72,8 +73,9 @@ public:
   NotificationManager() = default;
 
   using EventCallback = std::function<void(const Notification&, NotificationEvent)>;
-  using ActionInvokeCallback = std::function<void(uint32_t, const std::string&, const std::string&)>;
-  using CloseCallback = std::function<void(uint32_t, CloseReason)>;
+  using ActionInvokeCallback =
+      std::function<void(uint32_t, const std::string&, const std::string&, const std::string& sender)>;
+  using CloseCallback = std::function<void(uint32_t, CloseReason, const std::string& sender)>;
   using StateCallback = std::function<void()>;
   using ReplyCallback =
       std::function<void(uint32_t, const std::string&, const std::string&, const std::string& sender)>;
@@ -112,12 +114,13 @@ public:
   void setReplyCallback(ReplyCallback callback);
   [[nodiscard]] bool hasPendingDBusClose(uint32_t id) const noexcept;
   [[nodiscard]] bool invokeAction(uint32_t id, const std::string& actionKey, bool closeAfterInvoke = true);
-  [[nodiscard]] bool
-  invokeAction(uint32_t id, const std::string& actionKey, std::string activationToken, bool closeAfterInvoke = true);
+  [[nodiscard]] bool invokeAction(
+      uint32_t id, const std::string& actionKey, const std::string& activationToken, bool closeAfterInvoke = true
+  );
   // Passes non-blank reply text and the notification's D-Bus sender to the reply callback.
   [[nodiscard]] bool invokeInlineReply(uint32_t id, const std::string& replyText, bool closeAfterInvoke = true);
   [[nodiscard]] bool invokeInlineReply(
-      uint32_t id, const std::string& replyText, std::string activationToken, bool closeAfterInvoke = true
+      uint32_t id, const std::string& replyText, const std::string& activationToken, bool closeAfterInvoke = true
   );
 
   // Closes a notification by ID. Returns false if not found.
@@ -143,6 +146,7 @@ public:
 
   // Recent notification history including closed notifications.
   [[nodiscard]] const std::deque<NotificationHistoryEntry>& history() const noexcept;
+  [[nodiscard]] const NotificationHistoryEntry* findHistoryEntry(uint32_t id) const noexcept;
   [[nodiscard]] std::uint64_t changeSerial() const noexcept;
   void removeHistoryEntry(uint32_t id, std::optional<CloseReason> dbusCloseReason = std::nullopt);
   void clearHistory();
@@ -161,8 +165,14 @@ public:
   [[nodiscard]] bool hasUnreadNotificationHistory() const noexcept;
   void markNotificationHistorySeen();
 
-  /// Loads persisted history from disk (call once at startup before emitting events).
+  // Secure existing files at startup; load history when its encryption key is ready.
   void loadPersistedHistory();
+  void syncHistoryPersistence(security::StorageKeyProvider& provider);
+  [[nodiscard]] bool hasEncryptedHistory() const;
+  [[nodiscard]] bool historyNeedsRecovery() const noexcept { return m_historyNeedsRecovery; }
+  bool clearEncryptedHistoryForRecovery();
+  [[nodiscard]] bool historyPersistenceReady() const noexcept { return m_historyWritable; }
+  void retryHistoryPersistence();
   /// Writes pending history to disk immediately (e.g. shutdown).
   void flushPersistedHistory();
 
@@ -198,6 +208,12 @@ private:
   int m_historyRetentionHours = 0;
   bool m_keepDismissedInHistory = true;
   bool m_persistScheduled = false;
+  bool m_historyLoaded = false;
+  bool m_historyWritable = false;
+  bool m_historyNeedsRecovery = false;
+  bool m_historyCleared = false;
+  security::StorageKeyProvider* m_historyKeyProvider = nullptr;
+  std::optional<security::SecureKey> m_historyKey;
   Timer m_historyRetentionTimer;
 
   std::deque<Notification> m_notifications;
@@ -205,7 +221,8 @@ private:
   std::unordered_set<uint32_t> m_suppressedIds;
   std::vector<NotificationFilterConfig> m_filters;
   /// Expired notifications with actions: NotificationClosed deferred until dismiss, action, or history removal.
-  std::unordered_set<uint32_t> m_pendingDBusClose;
+  /// Maps id -> D-Bus sender, so the deferred signal still reaches the notification's owner.
+  std::unordered_map<uint32_t, std::string> m_pendingDBusClose;
   std::deque<NotificationHistoryEntry> m_history;
   std::unordered_map<uint32_t, size_t> m_historyIndex;
   std::vector<std::pair<int, EventCallback>> m_eventCallbacks;

@@ -55,11 +55,14 @@ namespace settings {
         auto* t = static_cast<TemplateStoreTile*>(&tile);
         const auto& entry = (*m_catalog)[(*m_indices)[index]];
         const bool enabled = m_selectedIds != nullptr && m_selectedIds->contains(entry.id);
-        t->bind(entry.displayName, entry.category, enabled, selected, hovered, [this, index](bool nextEnabled) {
-          if (m_content != nullptr) {
-            m_content->setEnabledAtFilteredIndex(index, nextEnabled);
-          }
-        });
+        t->bind(
+            entry.displayName, entry.category, enabled, selected, hovered, !entry.documentationUrl.empty(),
+            [this, index](bool nextEnabled) {
+              if (m_content != nullptr) {
+                m_content->setEnabledAtFilteredIndex(index, nextEnabled);
+              }
+            }
+        );
       }
 
       [[nodiscard]] std::string itemTooltip(std::size_t index) const override {
@@ -73,6 +76,39 @@ namespace settings {
         if (m_content != nullptr) {
           m_content->toggleAtFilteredIndex(index);
         }
+      }
+
+      bool onPointerPress(std::size_t index, float localX, float localY, float cellWidth, float cellHeight) override {
+        if (m_content == nullptr || !overlayHitTest(index, localX, localY, cellWidth, cellHeight)) {
+          return false;
+        }
+        return m_content->openDocumentationAtFilteredIndex(index);
+      }
+
+      [[nodiscard]] bool
+      overlayHitTest(std::size_t index, float localX, float localY, float cellWidth, float cellHeight) const override {
+        return m_indices != nullptr
+            && m_catalog != nullptr
+            && index < m_indices->size()
+            && !(*m_catalog)[(*m_indices)[index]].documentationUrl.empty()
+            && TemplateStoreTile::hitTestReadme(cellWidth, cellHeight, m_scale, localX, localY);
+      }
+
+      void applyOverlayHover(Node& tile, bool hovered) override {
+        static_cast<TemplateStoreTile&>(tile).setReadmeHovered(hovered);
+      }
+
+      [[nodiscard]] std::string overlayTooltip(std::size_t /*index*/) const override {
+        return i18n::tr("settings.templates.readme");
+      }
+
+      [[nodiscard]] std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+          std::size_t /*index*/, float cellWidth, float cellHeight, bool overlayHovered
+      ) const override {
+        if (!overlayHovered) {
+          return std::nullopt;
+        }
+        return TemplateStoreTile::readmeTooltipAnchorInsets(cellWidth, cellHeight, m_scale);
       }
 
     private:
@@ -159,7 +195,7 @@ namespace settings {
     }
     m_sortMode = mode;
     if (m_config != nullptr) {
-      (void)m_config->setStateString("template_store", "sort", std::string(sortModeStateValue(mode)));
+      (void)m_config->setStateString("template_store", "sort", sortModeStateValue(mode));
     }
     syncSortButtonGlyph();
     sortFiltered();
@@ -376,7 +412,7 @@ namespace settings {
             .glyphSize = Style::fontSizeCaption * scale,
             .contentAlign = ButtonContentAlign::Start,
             .variant = ButtonVariant::Ghost,
-            .onClick = [this]() {
+            .onClick = [this] {
               m_categoryFiltersCollapsed = !m_categoryFiltersCollapsed;
               if (m_onRebuildNeeded) {
                 m_onRebuildNeeded();
@@ -394,7 +430,7 @@ namespace settings {
                 .fontSize = Style::fontSizeCaption * scale,
                 .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
                 .radius = Style::scaledRadiusMd(scale),
-                .onClick = [this, filterKey = std::move(filterKey)]() {
+                .onClick = [this, filterKey = std::move(filterKey)] {
                   m_selectedCategory = filterKey;
                   applyFilter();
                   if (m_onRebuildNeeded) {
@@ -434,7 +470,7 @@ namespace settings {
             .minHeight = Style::controlHeight * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [this]() { cycleSortMode(); },
+            .onClick = [this] { cycleSortMode(); },
         })
     );
 
@@ -465,7 +501,7 @@ namespace settings {
 
     // Intrinsic height of the same card layout as built-in templates (padding + checkbox/text).
     auto probe = std::make_unique<TemplateStoreTile>(scale);
-    probe->bind("Mg", "category", false, false, false, {});
+    probe->bind("Mg", "category", false, false, false, true, {});
     const float cardHeight = std::ceil(probe->measure(renderer, LayoutConstraints{}).height);
     // Floor above checkbox+tight padding — two caption lines need more than controlHeightSm alone.
     const float minCardHeight = (Style::controlHeightSm + Style::spaceSm * 2.0F) * scale;
@@ -550,6 +586,18 @@ namespace settings {
     selectIndex(static_cast<std::size_t>(next));
   }
 
+  bool TemplateStoreContent::openDocumentationAtFilteredIndex(std::size_t filteredIndex) {
+    if (filteredIndex >= m_filteredIndices.size() || !m_callbacks.openBrowserUrl) {
+      return false;
+    }
+    const auto& url = m_catalog[m_filteredIndices[filteredIndex]].documentationUrl;
+    if (url.empty()) {
+      return false;
+    }
+    m_callbacks.openBrowserUrl(url);
+    return true;
+  }
+
   bool TemplateStoreContent::activateSelection() {
     const auto index = indexOfTemplateId(m_selectedTemplateId.value_or(""));
     if (!index.has_value()) {
@@ -573,6 +621,11 @@ namespace settings {
 
     if (m_filteredIndices.empty()) {
       return false;
+    }
+
+    if (sym == XKB_KEY_F1) {
+      const auto index = indexOfTemplateId(m_selectedTemplateId.value_or(""));
+      return index.has_value() && openDocumentationAtFilteredIndex(*index);
     }
 
     const int columns = m_grid != nullptr ? static_cast<int>(std::max<std::size_t>(1, m_grid->layoutColumnCount())) : 1;
