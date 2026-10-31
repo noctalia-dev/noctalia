@@ -151,8 +151,9 @@ public:
   [[nodiscard]] bool hasHttpStream(int streamKey) const;
 
   // System-monitor probes requested by this host are refcounted and released in ~LuauHost.
-  // Per-core and disk sampling remain opt-in through their dedicated calls.
+  // GPU, per-core and disk sampling are opt-in through their dedicated calls.
   void ensureSystemStatsRetained();
+  bool setGpuMonitoring(bool enabled);
   void ensureCpuCoresRetained();
   [[nodiscard]] bool ensureDiskPathRetained(const std::string& path);
 
@@ -348,6 +349,7 @@ private:
   std::size_t m_suppressedCallFailures = 0;
   bool m_cpuCoresRetained = false; // this host holds a SystemMonitorService per-core reference
   bool m_systemStatsRetained = false;
+  bool m_gpuStatsRetained = false;
   std::unordered_set<std::string> m_diskPathsRetained;
   bool m_budgetActive = false;
   bool m_lastCallTimedOut = false;

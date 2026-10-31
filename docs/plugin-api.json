@@ -256,5 +256,11 @@
     "noctaliaVersion": null,
     "feature": "umbriel-action",
     "introduced": "`noctalia.umbriel.action` for sending typed actions straight to the Umbriel IPC socket, without spawning `umbriel msg`."
+  },
+  {
+    "level": 46,
+    "noctaliaVersion": null,
+    "feature": "gpu-monitoring",
+    "introduced": "`noctalia.setGpuMonitoring(bool)` explicitly acquires or releases GPU sampling. `systemStats()` no longer enables GPU probes implicitly."
   }
 ]
