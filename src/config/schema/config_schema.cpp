@@ -490,6 +490,11 @@ namespace noctalia::config::schema {
         field(&BrightnessConfig::syncBrightnessOfAllMonitors, "sync_all_monitors"),
         field(&BrightnessConfig::ddcutilIgnoreMmids, "ignore_mmids"),
         field(&BrightnessConfig::minimumBrightness, "minimum_brightness", kUnitRange),
+
+        field(&BrightnessConfig::enableScheduledBrightness, "enable_scheduled_brightness"),
+        field(&BrightnessConfig::scheduledNightBrightness, "scheduled_night_brightness", kUnitRange),
+        field(&BrightnessConfig::scheduledDayBrightness, "scheduled_day_brightness", kUnitRange),
+
         // Map key seeds `match`; an explicit `match` key inside overrides it.
         namedMap<BrightnessConfig, BrightnessMonitorOverride>(
             &BrightnessConfig::monitorOverrides, "monitor", brightnessMonitorSchema(),
