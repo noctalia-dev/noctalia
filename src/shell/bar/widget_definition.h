@@ -93,11 +93,13 @@ namespace noctalia::bar {
         const std::vector<WidgetSettingChoice<T>>& choices,
         const std::optional<settings::WidgetSettingPresentation>& presentation
     ) {
-      if (!choices.empty()
-          || std::is_enum_v<T>
-          || (presentation.has_value()
-              && (presentation->optionSource != settings::WidgetSettingOptionSource::Static
-                  || !presentation->options.empty()))) {
+      if (!choices.empty() || std::is_enum_v<T> || (presentation.has_value() && !presentation->options.empty())) {
+        return settings::WidgetControlKind::Select;
+      }
+      if constexpr (std::is_same_v<T, std::vector<std::string>>) {
+        return settings::WidgetControlKind::StringList;
+      }
+      if (presentation.has_value() && presentation->optionSource != settings::WidgetSettingOptionSource::Static) {
         return settings::WidgetControlKind::Select;
       }
       if constexpr (std::is_same_v<T, bool>) {
@@ -106,8 +108,6 @@ namespace noctalia::bar {
         return settings::WidgetControlKind::Int;
       } else if constexpr (std::is_floating_point_v<T>) {
         return settings::WidgetControlKind::Double;
-      } else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
-        return settings::WidgetControlKind::StringList;
       } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
         return settings::WidgetControlKind::StringMap;
       } else if constexpr (std::is_same_v<T, ColorSpec>) {
