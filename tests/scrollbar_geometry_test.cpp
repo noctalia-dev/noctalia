@@ -1,6 +1,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "tests/test_check.h"
 #include "ui/controls/box.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/scrollbar.h"
@@ -122,6 +123,47 @@ namespace {
 int main() {
   StubRenderer renderer;
   AnimationManager animations;
+
+  // Content measurement must stay independent of a previous viewport allocation.
+  for (const auto orientation : {ScrollOrientation::Vertical, ScrollOrientation::Horizontal}) {
+    ScrollView view;
+    view.setOrientation(orientation);
+    view.setViewportPaddingH(0.0F);
+    view.setViewportPaddingV(0.0F);
+    auto content = std::make_unique<Box>();
+    auto* item = content.get();
+    item->setSize(10.0F, 40.0F);
+    view.content()->addChild(std::move(content));
+    LayoutConstraints constraints;
+    constraints.setExactWidth(kViewWidth);
+    TEST_CHECK(std::abs(view.measure(renderer, constraints).height - 40.0F) < 0.01F);
+
+    for (const float contentHeight : {80.0F, 1000.0F, 20.0F, 0.0F, 80.0F}) {
+      view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+      item->setSize(10.0F, contentHeight);
+      TEST_CHECK(std::abs(view.measure(renderer, constraints).height - contentHeight) < 0.01F);
+      TEST_CHECK(std::abs(view.measure(renderer, constraints).height - contentHeight) < 0.01F);
+      view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+      if (orientation == ScrollOrientation::Vertical) {
+        const float overflow = contentHeight > 30.0F ? contentHeight - 30.0F : 0.0F;
+        TEST_CHECK(std::abs(view.maxScrollOffset() - overflow) < 0.01F);
+        if (contentHeight == 1000.0F) {
+          view.setScrollOffset(100.0F);
+          (void)view.measure(renderer, constraints);
+          TEST_CHECK(std::abs(view.scrollOffset() - 100.0F) < 0.01F);
+          view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+          view.requestScrollToBottom();
+          (void)view.measure(renderer, constraints);
+          view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+          TEST_CHECK(std::abs(view.scrollOffset() - overflow) < 0.01F);
+        }
+      }
+    }
+
+    // Caller-pinned sizes still win over natural content height.
+    view.setSize(kViewWidth, 30.0F);
+    TEST_CHECK(std::abs(view.measure(renderer, constraints).height - 30.0F) < 0.01F);
+  }
 
   // Base scale: the reserved gutter and bar thickness are the historical logical sizes.
   {
