@@ -706,6 +706,7 @@ _noctalia_sources = files(
   'src/shell/control_center/tabs/system_tab.cpp',
   'src/shell/control_center/tab.cpp',
   'src/shell/control_center/tabs/rain_droplet_simulation.cpp',
+  'src/shell/control_center/tabs/snowflake_simulation.cpp',
   'src/shell/control_center/tabs/weather_tab.cpp',
   'src/core/files/directory_scanner.cpp',
   'src/ui/dialogs/color_picker_dialog.cpp',

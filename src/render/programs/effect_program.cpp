@@ -234,46 +234,124 @@ void main() {
 )";
 
   // --- Snow effect ---
+  // kMaxFlakesGlsl must match render_styles.h's kMaxSnowFlakes (a literal here, since
+  // GLSL ES 1.00 array sizes must be compile-time constants, not an includable C++
+  // constant - same constraint as kRainFragment's u_drops[24] above).
   constexpr char kSnowFragment[] = R"(
+uniform vec3 u_flakes[60];
+uniform int u_flakeCount;
+
+float snow_hash(vec2 p) {
+    p = fract(p * vec2(234.34, 435.345));
+    p += dot(p, p + 34.23);
+    return fract(p.x * p.y);
+}
+
+float snow_noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = snow_hash(i);
+    float b = snow_hash(i + vec2(1.0, 0.0));
+    float c = snow_hash(i + vec2(0.0, 1.0));
+    float d = snow_hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// Same drifting cloud/fog backdrop as Rain's rainFogColor()/Sun's sunFogColor() - see
+// rainFogColor's comment for why this is an inline per-pixel FBM copy per effect instead
+// of one shared function in kCommonFragment.
+float snowFogFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+        float fi = float(i + 1);
+        v += amp * snow_noise(p + vec2(iTime * 0.03 * fi, -iTime * 0.02 * fi));
+        p *= 2.0;
+        amp *= 0.5;
+    }
+    return v;
+}
+
+vec3 snowFogColor(vec2 uv, float iTime) {
+    vec3 base = mix(u_bg_color.rgb * 0.7, u_bg_color.rgb * 0.95, uv.y);
+
+    // A winter sky should read cold, not like the same warm gold+olive wash Rain/Sun use
+    // recolored - icy blue, pale cyan, soft lavender-grey, cool slate instead.
+    vec3 secondary = particleColor(vec3(0.247, 0.361, 0.447), vec3(0.17, 0.26, 0.32));
+    vec3 tertiary = particleColor(vec3(0.318, 0.482, 0.49), vec3(0.19, 0.3, 0.3));
+    vec3 primary = particleColor(vec3(0.42, 0.38, 0.49), vec3(0.28, 0.25, 0.34));
+    vec3 accent = particleColor(vec3(0.267, 0.31, 0.333), vec3(0.18, 0.21, 0.22));
+
+    float n1 = snowFogFbm(uv * 2.2, iTime);
+    float n2 = snowFogFbm(uv * 3.5 + 10.0, iTime * 1.3);
+    float n3 = snowFogFbm(uv * 2.8 - 5.0, iTime * 0.8);
+
+    // Weights cut to ~70% of Rain/Sun's - an overcast winter sky reads calmer/greyer than
+    // a moody rain backdrop, and a quieter background gives the white flakes more
+    // contrast to stand out against instead of competing with a busy colored wash.
+    vec3 col = base;
+    col = mix(col, secondary, smoothstep(0.35, 0.68, n1) * 0.34);
+    col = mix(col, tertiary, smoothstep(0.52, 0.84, n2) * 0.23);
+    col = mix(col, primary, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.32);
+    col = mix(col, accent, smoothstep(0.5, 0.8, n3) * 0.28);
+    return col;
+}
+
 void main() {
     float aspect = u_item_width / u_item_height;
-    vec2 uv = v_uv;
-    uv.x *= aspect;
-    uv.y = 1.0 - uv.y;
-
+    vec2 uvA = vec2(v_uv.x * aspect, v_uv.y);
     float iTime = u_time * 0.15;
+
+    // 1 pixel of the card's own height, in the same uv-space the flake positions/radii
+    // are in - the anti-alias transition band below is expressed in this unit so it can
+    // never collapse to a near-binary threshold regardless of how small a flake's radius
+    // is, which is what made the old jittered-cell-noise field flicker on/off for its
+    // smallest/most distant flakes (a per-pixel threshold test on a sub-pixel shape has
+    // no way to antialias without supersampling - CPU-simulated explicit flakes with a
+    // pixel-floored radius here sidestep that class of bug entirely).
+    float pixelUv = 1.0 / max(u_item_height, 1.0);
+
     float snow = 0.0;
-
-    for (int k = 0; k < 6; k++) {
-        for (int i = 0; i < 12; i++) {
-            float cellSize = 2.0 + (float(i) * 3.0);
-            float downSpeed = 0.3 + (sin(iTime * 0.4 + float(k + i * 20)) + 1.0) * 0.00008;
-
-            vec2 uvAnim = uv + vec2(
-                0.01 * sin((iTime + float(k * 6185)) * 0.6 + float(i)) * (5.0 / float(i + 1)),
-                downSpeed * (iTime + float(k * 1352)) * (1.0 / float(i + 1))
-            );
-
-            vec2 uvStep = (ceil((uvAnim) * cellSize - vec2(0.5, 0.5)) / cellSize);
-            float x = fract(sin(dot(uvStep.xy, vec2(12.9898 + float(k) * 12.0, 78.233 + float(k) * 315.156))) * 43758.5453 + float(k) * 12.0) - 0.5;
-            float y = fract(sin(dot(uvStep.xy, vec2(62.2364 + float(k) * 23.0, 94.674 + float(k) * 95.0))) * 62159.8432 + float(k) * 12.0) - 0.5;
-
-            float randomMagnitude1 = sin(iTime * 2.5) * 0.7 / cellSize;
-            float randomMagnitude2 = cos(iTime * 1.65) * 0.7 / cellSize;
-
-            float d = 5.0 * distance((uvStep.xy + vec2(x * sin(y), y) * randomMagnitude1 + vec2(y, x) * randomMagnitude2), uvAnim.xy);
-
-            float omiVal = fract(sin(dot(uvStep.xy, vec2(32.4691, 94.615))) * 31572.1684);
-            if (omiVal < 0.03) {
-                float newd = (x + 1.0) * 0.4 * clamp(1.9 - d * (15.0 + (x * 6.3)) * (cellSize / 1.4), 0.0, 1.0);
-                snow += newd;
-            }
+    for (int i = 0; i < 60; i++) {
+        if (i < u_flakeCount) {
+            vec3 flake = u_flakes[i];
+            vec2 c = vec2(flake.x * aspect, flake.y);
+            float r = max(flake.z, pixelUv * 1.5);
+            float dist = length(uvA - c);
+            // Blur band grows quadratically with size (big/close flakes end up genuinely
+            // soft, almost bokeh-like, small/distant ones stay near the 1px floor and
+            // read crisp) - a real depth-of-field look now that each flake has enough
+            // pixels of its own to represent a soft edge (unlike the old sub-pixel cell
+            // noise, where any blur widening just flickered instead of reading as soft).
+            float sizeT = clamp(r / 0.028, 0.0, 1.0);
+            float aa = mix(pixelUv, r * 0.85, sizeT * sizeT);
+            float coverage = smoothstep(r + aa, r - aa, dist);
+            // Bigger (closer) flakes read slightly brighter than small (distant) ones.
+            snow += coverage * mix(0.55, 1.0, sizeT);
         }
     }
+    snow = clamp(snow, 0.0, 1.0);
 
-    float snowAlpha = clamp(snow * 2.0, 0.0, 1.0);
     vec3 snowColor = particleColor(vec3(1.0), vec3(0.45, 0.55, 0.65));
-    vec3 blended = mix(u_bg_color.rgb, snowColor, snowAlpha);
+    vec3 fogBackdrop = snowFogColor(uvA, iTime);
+    vec3 blended = mix(fogBackdrop, snowColor, snow);
+
+    // A pale, slow-drifting cloud bank confined to the top fifth of the card - the snow
+    // appears to be falling out of something, instead of the fog backdrop just fading
+    // into empty space up top. Reuses the same FBM as the fog backdrop (snowFogFbm/
+    // snow_noise), just at a flatter horizontal stretch and a higher brightness threshold
+    // so it reads as cloud, not more of the ambient haze wash.
+    float cloudBand = 1.0 - smoothstep(0.1, 0.22, v_uv.y);
+    if (cloudBand > 0.0) {
+        float cloudNoise = snowFogFbm(uvA * vec2(2.6, 7.0) + vec2(iTime * 0.012, 0.0), iTime * 0.5);
+        float cloudShape = smoothstep(0.42, 0.72, cloudNoise) * cloudBand;
+        vec3 cloudColor = particleColor(vec3(0.93, 0.94, 0.96), vec3(0.8, 0.82, 0.86));
+        // Opacity pushed toward fully opaque in the densest cloud regions (not capped at
+        // 0.7) so the cloud bank actually occludes flakes behind it where it's thick,
+        // instead of always letting them show through faintly.
+        blended = mix(blended, cloudColor, clamp(cloudShape * 1.4, 0.0, 1.0));
+    }
 
     float mask = cornerMask();
     float finalAlpha = mask * u_bg_color.a;
@@ -955,6 +1033,8 @@ void EffectProgram::initProgram(EffectType type, const char* fragSource) {
   pd.alternativeLoc = glGetUniformLocation(id, "u_alternative");
   pd.dropsLoc = glGetUniformLocation(id, "u_drops");
   pd.dropCountLoc = glGetUniformLocation(id, "u_dropCount");
+  pd.flakesLoc = glGetUniformLocation(id, "u_flakes");
+  pd.flakeCountLoc = glGetUniformLocation(id, "u_flakeCount");
 
   if (pd.positionLoc < 0 || pd.surfaceSizeLoc < 0 || pd.transformLoc < 0) {
     throw std::runtime_error("failed to query effect shader locations");
@@ -1029,6 +1109,20 @@ void EffectProgram::draw(
   }
   if (pd.dropCountLoc >= 0) {
     glUniform1i(pd.dropCountLoc, style.dropCount);
+  }
+  if (pd.flakesLoc >= 0) {
+    static_assert(kMaxSnowFlakes <= 60, "kSnowFragment's u_flakes array is sized for 60 flakes");
+    std::array<float, kMaxSnowFlakes * 3> flakeData{};
+    for (int i = 0; i < style.flakeCount; ++i) {
+      const auto& flake = style.flakes[static_cast<std::size_t>(i)];
+      flakeData[static_cast<std::size_t>(i) * 3 + 0] = flake.x;
+      flakeData[static_cast<std::size_t>(i) * 3 + 1] = flake.y;
+      flakeData[static_cast<std::size_t>(i) * 3 + 2] = flake.radius;
+    }
+    glUniform3fv(pd.flakesLoc, kMaxSnowFlakes, flakeData.data());
+  }
+  if (pd.flakeCountLoc >= 0) {
+    glUniform1i(pd.flakeCountLoc, style.flakeCount);
   }
 
   auto posAttr = static_cast<GLuint>(pd.positionLoc);

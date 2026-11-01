@@ -754,6 +754,7 @@ void WeatherTab::onClose() {
   m_activeEffect = EffectType::None;
   m_shaderTime = 0.0F;
   m_rainDrops.reset();
+  m_snowFlakes.reset();
 }
 
 void WeatherTab::sync(Renderer& renderer) {
@@ -1031,6 +1032,7 @@ void WeatherTab::sync(Renderer& renderer) {
       m_activeEffect = newEffect;
       m_shaderTime = 0.0F;
       m_rainDrops.reset();
+      m_snowFlakes.reset();
     }
     m_effectNode->setEffectType(m_activeEffect);
     m_effectNode->setBgColor(colorForRole(ColorRole::Surface));
@@ -1206,6 +1208,7 @@ void WeatherTab::hideEffect() {
   m_activeEffect = EffectType::None;
   m_shaderTime = 0.0F;
   m_rainDrops.reset();
+  m_snowFlakes.reset();
   if (m_effectNode != nullptr) {
     m_effectNode->setEffectType(EffectType::None);
     m_effectNode->setVisible(false);
@@ -1226,6 +1229,9 @@ void WeatherTab::onFrameTick(float deltaMs) {
   if (m_activeEffect == EffectType::Rain) {
     m_rainDrops.update(deltaSeconds);
     m_effectNode->setDrops(m_rainDrops.drops(), m_rainDrops.dropCount());
+  } else if (m_activeEffect == EffectType::Snow) {
+    m_snowFlakes.update(deltaSeconds);
+    m_effectNode->setFlakes(m_snowFlakes.flakes(), m_snowFlakes.flakeCount());
   }
 }
 

@@ -246,6 +246,20 @@ struct RainDrop {
   float depth = 0.0F;
 };
 
+// Fixed capacity for the Snow effect's flake layer - explicit per-flake state (not the
+// jittered-cell-noise field the first pass used), so each flake can be drawn as a properly
+// anti-aliased circle with a pixel-floor minimum radius instead of a per-pixel threshold
+// test that flickers on/off for sub-pixel-sized shapes.
+inline constexpr int kMaxSnowFlakes = 60;
+
+// x/y in the effect's local uv space [0,1] (x wraps, y resets to the top on exit), radius
+// in the same space - bigger radius reads as closer/nearer-camera.
+struct SnowFlake {
+  float x = 0.0F;
+  float y = 0.0F;
+  float radius = 0.0F;
+};
+
 struct EffectStyle {
   EffectType type = EffectType::None;
   float time = 0.0F;
@@ -257,6 +271,8 @@ struct EffectStyle {
   Color accentColor{};
   std::array<RainDrop, kMaxRainDrops> drops{};
   int dropCount = 0;
+  std::array<SnowFlake, kMaxSnowFlakes> flakes{};
+  int flakeCount = 0;
 };
 
 struct GraphStyle {
