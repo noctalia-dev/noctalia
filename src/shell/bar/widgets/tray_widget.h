@@ -88,6 +88,8 @@ private:
   bool m_hidePassive = true;
   std::vector<Image*> m_loadedImages;
   std::vector<Image*> m_colorizedAppIcons;
+  // Item InputAreas by tray item id, reused across rebuilds so icon updates keep hover and press capture.
+  std::unordered_map<std::string, InputArea*> m_itemAreas;
   std::unordered_map<std::string, std::size_t> m_initialPixmaps;
   std::unordered_map<std::string, bool> m_preferPixmap;
   float m_contentHeight = 0.0F;

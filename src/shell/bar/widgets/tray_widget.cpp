@@ -418,6 +418,16 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
   clearHoverOverlays();
 
+  // Keep each item's InputArea across rebuilds: animated icons rebuild faster than a click, and fresh
+  // areas would drop hover and press capture.
+  std::unordered_map<std::string, std::unique_ptr<Node>> reusableAreas;
+  for (auto& [id, area] : m_itemAreas) {
+    if (area->parent() != nullptr) {
+      reusableAreas.emplace(id, area->parent()->removeChild(area));
+    }
+  }
+  m_itemAreas.clear();
+
   while (!m_container->children().empty()) {
     m_container->removeChild(m_container->children().back().get());
   }
@@ -429,7 +439,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
     Box* hoverBoxPtr = nullptr;
     ColorSpec hoverFill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
-    hoverFill.alpha = 0.0F;
+    hoverFill.alpha = area.hovered() ? 0.1F : 0.0F;
     const float padding = barCapsuleSpec().padding * m_contentScale;
     const float boxSize = size + padding * 2.0F;
 
@@ -453,7 +463,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       area.addChild(std::move(hoverBox));
     }
 
-    auto progress = std::make_shared<float>(0.0F);
+    auto progress = std::make_shared<float>(area.hovered() ? 1.0F : 0.0F);
     area.setOnEnter([this, hoverBoxPtr, progress](const InputArea::PointerData&) {
       if (m_animations == nullptr)
         return;
@@ -734,13 +744,26 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
 
     // Wrap icon in InputArea for click handling
-    auto area = ui::inputArea({});
-    area->setSize(itemSize, itemSize);
+    std::unique_ptr<Node> areaNode;
+    InputArea* areaPtr = nullptr;
+    if (auto reusable = reusableAreas.find(item.id); reusable != reusableAreas.end()) {
+      areaNode = std::move(reusable->second);
+      reusableAreas.erase(reusable);
+      areaPtr = static_cast<InputArea*>(areaNode.get());
+      while (!areaPtr->children().empty()) {
+        areaPtr->removeChild(areaPtr->children().back().get());
+      }
+    } else {
+      auto fresh = ui::inputArea({});
+      areaPtr = fresh.get();
+      areaNode = std::move(fresh);
+    }
+    m_itemAreas[item.id] = areaPtr;
+    areaPtr->setSize(itemSize, itemSize);
     iconNode->setPosition(std::round((itemSize - iconW) * 0.5F), std::round((itemSize - iconH) * 0.5F));
     auto itemId = item.id;
-    area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-    InputArea* areaPtr = area.get();
-    area->setOnClick([this, itemId, areaPtr](const InputArea::PointerData& data) {
+    areaPtr->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
+    areaPtr->setOnClick([this, itemId, areaPtr](const InputArea::PointerData& data) {
       if (m_tray == nullptr) {
         return;
       }
@@ -758,13 +781,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
         }
       }
     });
-    area->addChild(std::move(iconNode));
+    areaPtr->addChild(std::move(iconNode));
 
-    if (const std::string tooltipText = tray::formatTrayItemTooltip(item); !tooltipText.empty()) {
-      area->setTooltip(tooltipText);
-    }
-
-    attachHover(*area, itemSize);
+    attachHover(*areaPtr, itemSize);
 
     if (m_panelGridMode) {
       if (gridRow == nullptr || gridCol >= m_panelGridColumns) {
@@ -776,10 +795,23 @@ void TrayWidget::rebuild(Renderer& renderer) {
         ));
         gridCol = 0;
       }
-      gridRow->addChild(std::move(area));
+      gridRow->addChild(std::move(areaNode));
       ++gridCol;
     } else {
-      m_container->addChild(std::move(area));
+      m_container->addChild(std::move(areaNode));
+    }
+
+    // Touch the tooltip only when its text changed, and only once the area is back in the scene:
+    // a change notification re-anchors the shown tooltip, and a detached area has no on-screen position.
+    const std::string tooltipText = tray::formatTrayItemTooltip(item);
+    const TooltipContent currentTooltip = areaPtr->tooltipContent();
+    const auto* currentText = std::get_if<std::string>(&currentTooltip);
+    if (tooltipText.empty()) {
+      if (areaPtr->hasTooltip()) {
+        areaPtr->clearTooltip();
+      }
+    } else if (currentText == nullptr || *currentText != tooltipText) {
+      areaPtr->setTooltip(tooltipText);
     }
   }
 
