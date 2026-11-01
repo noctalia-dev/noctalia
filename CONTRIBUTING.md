@@ -157,14 +157,6 @@ Follow the Conventional Commits style used in the history: `type(scope): summary
 
 Default to the summary line alone. Add a body only when it carries information a reader would otherwise miss: a non-obvious root cause, a constraint that forced the approach, a behavior change users will notice, or a `Fixes #N` reference. Do not restate the diff or list touched files.
 
-## Issue Triage
-
-Maintainers decide every item in the `Inbox` column of the Maintainer Triage board within 7 days: close it (`out-of-scope`, `duplicate`, or fixed), ask the reporter (`needs-info` or `needs-retest`), or accept it by moving it to `Analyzed`. `Analyzed` is the accepted backlog, so nothing that [SCOPE.md](SCOPE.md) excludes is moved there.
-
-After every minor release, run `python3 tools/issue-triage.py candidates --out /tmp/triage` and work through `stale-version-bugs.tsv`, `fixed-by-commit.tsv`, and `duplicates.tsv`. Write the decisions to a TSV (`number`, `action`, `arg`; see the script header for the actions), review the output of `python3 tools/issue-triage.py apply decisions.tsv`, then add `--execute`. The script closes with templated replies, so each reply links [SCOPE.md](SCOPE.md) or names the fixing commit.
-
-`needs-info` and `needs-retest` mark issues waiting on the reporter, and a workflow moves their board card to `Waiting`. A daily workflow marks them `stale` after 7 days without activity and closes them after 7 more. A reply from the reporter removes the labels and moves the card to `Reviewing`. Closed issues can be reopened. Issues with 3 or more reactions or the `PRs welcome` label are never closed by the script and are closed by hand only.
-
 ## Pull Request Template
 
 Pull request descriptions are checked automatically when they are opened, edited, reopened, or marked ready for review. Keep the `## Summary`, `## Motivation`, `## Type of Change`, `## Testing`, and `## Checklist` headings and the Checklist wording from [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). The remaining sections are context only: fill them in, leave them empty, or delete them. In Type of Change, keep only the lines that apply.
