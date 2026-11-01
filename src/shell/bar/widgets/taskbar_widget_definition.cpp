@@ -225,6 +225,37 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                               .key = "show_workspace_label",
                               .presentation = presentation("taskbar.workspace-labels", groupedOnly(), true),
                           }),
+                          field<&Options::labelSource>(
+                              {
+                                  .key = "label_source",
+                                  .choices =
+                                      {
+                                          {
+                                              .value = TaskbarLabelSource::Id,
+                                              .configValue = "id",
+                                              .labelKey = "settings.widgets.options.id",
+                                          },
+                                          {
+                                              .value = TaskbarLabelSource::Name,
+                                              .configValue = "name",
+                                              .labelKey = "settings.widgets.options.name",
+                                          },
+                                      },
+                                  .presentation =
+                                      settings::WidgetSettingPresentation{
+                                          .group = "taskbar.workspace-labels",
+                                          .requiresCapability = settings::WidgetSettingCapability::TaskbarWorkspaceGrouping,
+                                          .segmented = true,
+                                          .visibleWhen =
+                                              all(
+                                                  {
+                                                      {"group_by_workspace", {"true"}},
+                                                      {"show_workspace_label", {"true"}},
+                                                  }
+                                              ),
+                                      },
+                              }
+                          ),
                           field<&Options::workspaceLabelPlacement>(
                               {
                                   .key = "workspace_label_placement",
