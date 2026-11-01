@@ -421,10 +421,16 @@
     },
     "notifications": {
       "clear-all": "Clear all notifications",
+      "collapse": "Collapse",
+      "collapse-group": "Collapse group",
+      "dismiss": "Dismiss",
+      "dismiss-group": "Dismiss group",
       "dnd-off": "Turn Do Not Disturb Off",
       "dnd-on": "Turn Do Not Disturb On",
       "empty-body": "Recent notifications will show here.",
       "empty-title": "No Notifications",
+      "expand": "Expand",
+      "expand-group": "Expand group",
       "filter": {
         "all": "All",
         "older": "Older",
@@ -2648,6 +2654,10 @@
         "follow-focused-output": {
           "description": "Show new notification toasts on the focused monitor",
           "label": "Follow Focused Output"
+        },
+        "group-by-app": {
+          "description": "Group notifications in the history tab by application",
+          "label": "Group by Application"
         },
         "history-retention-hours": {
           "description": "Automatically remove notification history entries older than the specified number of hours (0 to keep forever)",

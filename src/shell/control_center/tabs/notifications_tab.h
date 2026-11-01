@@ -4,6 +4,7 @@
 #include "shell/control_center/tab.h"
 #include "system/icon_resolver.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -14,6 +15,7 @@
 
 class NotificationManager;
 class CompositorPlatform;
+class ConfigService;
 struct NotificationHistoryEntry;
 class Button;
 class Segmented;
@@ -21,9 +23,25 @@ class VirtualListView;
 class Label;
 class NotificationHistoryAdapter;
 
+enum class NotificationDisplayItemKind : uint8_t {
+  Single,         // single notification
+  CollapsedGroup, // group bundle, shows latest + count badge
+  GroupHeader,    // header bar for an expanded group
+  GroupChild      // individual message under the expanded group
+};
+
+struct NotificationDisplayItem {
+  NotificationDisplayItemKind kind = NotificationDisplayItemKind::Single;
+  uint32_t notificationId = 0;
+  std::string groupKey;
+  std::string appName;
+  std::size_t total_count = 1;
+  std::size_t childIndex = 0;
+};
+
 class NotificationsTab : public Tab {
 public:
-  NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform);
+  NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform, ConfigService* config = nullptr);
   ~NotificationsTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -39,14 +57,15 @@ private:
   void doUpdate(Renderer& renderer) override;
   void clearAllNotifications();
   void removeNotificationEntry(uint32_t id, bool wasActive);
+  void removeGroupEntries(const std::string& key);
   void toggleDoNotDisturb();
   void toggleNotificationExpanded(uint32_t id);
+  void toggleGroupExpanded(const std::string& key);
   void invokeNotificationAction(uint32_t id, const std::string& actionKey);
   bool refreshDataSnapshot();
   void syncDndButton();
   void updateEmptyState(bool hasHistory, bool hasFiltered);
   std::optional<std::size_t> filteredIndexForId(uint32_t id) const;
-  [[nodiscard]] const NotificationHistoryEntry* filteredEntry(std::size_t index) const;
   // The filter slide keeps its snapshot; this only removes ids history no longer holds.
   void dropVanishedFiltered();
   void cancelFilterSlide();
@@ -57,10 +76,11 @@ private:
 
   NotificationManager* m_notifications = nullptr;
   CompositorPlatform* m_platform = nullptr;
+  ConfigService* m_config = nullptr;
+  bool m_lastGroupByApp = true;
   IconResolver m_iconResolver;
   std::unique_ptr<NotificationHistoryAdapter> m_adapter;
-  // Notification ids from the current filter snapshot, looked up with findHistoryEntry().
-  std::vector<uint32_t> m_filtered;
+  std::vector<NotificationDisplayItem> m_filtered;
   Flex* m_root = nullptr;
   VirtualListView* m_list = nullptr;
   Flex* m_emptyCard = nullptr;
@@ -71,6 +91,7 @@ private:
   Segmented* m_filter = nullptr;
   std::size_t m_filterIndex = 0;
   std::unordered_set<uint32_t> m_expandedIds;
+  std::unordered_set<std::string> m_expandedGroupKeys;
   std::uint64_t m_lastSerial = 0;
   /// Wall-clock coarse slot so relative times (e.g. "2 min ago") refresh without churning every frame.
   std::int64_t m_lastRelativeTimeSlot = -1;
