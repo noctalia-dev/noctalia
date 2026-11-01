@@ -125,8 +125,6 @@ void AudioOsd::showInput(std::uint32_t sourceId, float volume, bool muted) {
     m_overlay->show(makeInputContent(volume, muted));
     m_currentKind = OsdKind::Microphone;
   }
-  // Input volume/mute feedback is intentionally silent: the change sound goes to the output and
-  // would both be captured by the microphone and be surprising while adjusting the input level.
   m_lastSourceId = sourceId;
   m_lastSourceVolume = volume;
   m_lastSourcePercent = static_cast<int>(std::round(std::max(0.0F, volume) * 100.0F));
