@@ -33,6 +33,7 @@ namespace noctalia::config {
     constexpr int kPaletteRoleNamesMigrationVersion = 16;
     constexpr int kSettingsCustomScheduleMigrationVersion = 17;
     constexpr int kWorkspacesMonitorsMigrationVersion = 18;
+    constexpr int kTrayIconTypeMigrationVersion = 19;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -626,6 +627,36 @@ namespace noctalia::config {
       });
     }
 
+    template <typename OnChanged> void migrateTrayIconType(toml::table& root, OnChanged&& onChanged) {
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr || (*widget)["type"].value_or(std::string(widgetName.str())) != "tray") {
+          continue;
+        }
+
+        const auto forceAppIcons = (*widget)["force_app_icons"].value<bool>();
+        if (!forceAppIcons.has_value()) {
+          continue;
+        }
+        if (*forceAppIcons && !widget->contains("icon_type")) {
+          widget->insert_or_assign("icon_type", "desktop");
+        }
+        widget->erase("force_app_icons");
+        onChanged("widget." + std::string(widgetName.str()) + ".force_app_icons");
+      }
+    }
+
+    void migrateTrayIconTypeSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
+      migrateTrayIconType(root, [&diag](const std::string& path) {
+        diag.warn(path, "removed force_app_icons; true now maps to icon_type = \"desktop\"");
+      });
+    }
+
     template <typename OnChanged> void migrateKeyboardLayoutCustomLabels(toml::table& root, OnChanged&& onChanged) {
       auto* widgets = root["widget"].as_table();
       if (widgets == nullptr) {
@@ -1039,6 +1070,11 @@ namespace noctalia::config {
             .summary = "widget: replace workspaces show_all_outputs with monitors",
             .apply = migrateWorkspacesMonitorsSidecar,
         },
+        {
+            .toVersion = kTrayIconTypeMigrationVersion,
+            .summary = "tray: migrate force_app_icons to icon_type",
+            .apply = migrateTrayIconTypeSidecar,
+        },
     };
     return migrations;
   }
@@ -1221,6 +1257,13 @@ namespace noctalia::config {
           .migrationVersion = kWorkspacesMonitorsMigrationVersion,
           .path = path,
           .message = "workspaces show_all_outputs is now monitors; true becomes monitors = [\"*\"]",
+      });
+    });
+    migrateTrayIconType(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kTrayIconTypeMigrationVersion,
+          .path = path,
+          .message = "tray force_app_icons is now icon_type; true becomes \"desktop\"",
       });
     });
   }
