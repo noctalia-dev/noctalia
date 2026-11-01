@@ -160,55 +160,17 @@ std::size_t TrayDrawerPanel::visibleItemCount() const {
     return 0;
   }
   const auto options = m_config != nullptr ? tray::resolvedTrayOptions(*m_config).options : TrayWidget::Options{};
-  const auto& hiddenItems = options.hiddenItems;
-  const auto& pinnedItems = options.pinnedItems;
-  std::vector<std::string> hiddenLower;
-  hiddenLower.reserve(hiddenItems.size());
-  for (const auto& v : hiddenItems) {
-    hiddenLower.push_back(StringUtils::toLower(v));
-  }
-  std::vector<std::string> pinnedLower;
-  pinnedLower.reserve(pinnedItems.size());
-  for (const auto& v : pinnedItems) {
-    pinnedLower.push_back(StringUtils::toLower(v));
-  }
-  auto hasVariant = [&](std::string_view token, std::string_view value) {
-    std::string raw(value);
-    if (raw.empty()) {
-      return false;
-    }
-    std::vector<std::string> variants;
-    variants.push_back(raw);
-    variants.push_back(StringUtils::toLower(raw));
-    if (const auto slash = raw.find_last_of('/'); slash != std::string::npos && slash + 1 < raw.size()) {
-      variants.push_back(raw.substr(slash + 1));
-      variants.push_back(StringUtils::toLower(raw.substr(slash + 1)));
-    }
-    return std::ranges::contains(variants, token);
-  };
-  auto tokenMatches = [&](std::string_view token, const TrayItemInfo& item) {
-    if (token.empty()) {
-      return false;
-    }
-    const auto lowered = StringUtils::toLower(token);
-    return hasVariant(lowered, item.id)
-        || hasVariant(lowered, item.busName)
-        || hasVariant(lowered, item.itemName)
-        || hasVariant(lowered, item.processName)
-        || hasVariant(lowered, item.objectPath)
-        || hasVariant(lowered, item.iconName)
-        || hasVariant(lowered, item.overlayIconName)
-        || hasVariant(lowered, item.attentionIconName);
-  };
   std::size_t visible = 0;
   for (const auto& item : m_tray->items()) {
     if (options.hidePassive && tray::isPassiveStatus(item)) {
       continue;
     }
-    const bool hidden =
-        std::ranges::any_of(hiddenLower, [&](const std::string& token) { return tokenMatches(token, item); });
-    const bool pinned =
-        std::ranges::any_of(pinnedLower, [&](const std::string& token) { return tray::tokenMatchesItem(token, item); });
+    const bool hidden = std::ranges::any_of(options.hiddenItems, [&](const std::string& token) {
+      return tray::hiddenTokenMatchesItem(token, item);
+    });
+    const bool pinned = std::ranges::any_of(options.pinnedItems, [&](const std::string& token) {
+      return tray::pinnedTokenMatchesItem(token, item);
+    });
     if (!hidden && !pinned) {
       ++visible;
     }

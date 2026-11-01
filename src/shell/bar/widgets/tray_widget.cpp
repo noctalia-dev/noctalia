@@ -170,7 +170,8 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
       m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
-      m_customItemSize(options.customItemSize), m_forceAppIcons(options.forceAppIcons) {
+      m_customItemSize(options.customItemSize), m_iconOverrideBlacklist(std::move(options.iconOverrideBlacklist)),
+      m_iconType(options.iconType) {
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
     normalized.reserve(tokens.size());
@@ -196,22 +197,28 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
 }
 
 std::string TrayWidget::resolveDesktopIconPath(const TrayItemInfo& item) {
-  std::vector<std::string> candidates;
-  tray::appendIdentifierVariants(candidates, item.itemName);
-  tray::appendIdentifierVariants(candidates, item.processName);
-  tray::appendIdentifierVariants(candidates, item.title);
-  tray::appendIdentifierVariants(candidates, item.busName);
-  tray::appendIdentifierVariants(candidates, item.id);
-  tray::appendIdentifierVariants(candidates, item.objectPath);
-  tray::appendIdentifierVariants(candidates, item.iconName);
-
   const float logicalSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
   const int rasterSize = std::max(32, static_cast<int>(std::round(logicalSize * 2.0F)));
 
-  for (const auto& candidate : candidates) {
+  for (const auto& candidate : tray::pinMatchCandidates(item)) {
     if (const auto it = m_appIcons.find(candidate); it != m_appIcons.end()) {
       if (const auto path = m_iconResolver.resolve(it->second, rasterSize); !path.empty()) {
         return path;
+      }
+    }
+  }
+  return {};
+}
+
+std::string TrayWidget::resolveSymbolicIconPath(const TrayItemInfo& item) {
+  const float logicalSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
+  const int rasterSize = std::max(32, static_cast<int>(std::round(logicalSize * 2.0F)));
+
+  for (const auto& candidate : tray::pinMatchCandidates(item)) {
+    if (const auto it = m_appIcons.find(candidate); it != m_appIcons.end()) {
+      if (const auto icon = m_iconResolver.resolveSymbolicPreferred(it->second, rasterSize);
+          icon.symbolic && !icon.path.empty()) {
+        return icon.path;
       }
     }
   }
@@ -858,40 +865,27 @@ bool TrayWidget::isHiddenItem(const TrayItemInfo& item) const {
   if (m_hiddenItems.empty()) {
     return false;
   }
-
-  std::vector<std::string> candidates;
-  auto appendVariants = [&candidates](std::string_view text) {
-    for (const auto& variant : identifierVariants(text)) {
-      if (!std::ranges::contains(candidates, variant)) {
-        candidates.push_back(variant);
-      }
-    }
-  };
-
-  appendVariants(item.id);
-  appendVariants(item.busName);
-  appendVariants(item.objectPath);
-  appendVariants(item.itemName);
-  appendVariants(item.processName);
-  appendVariants(item.title);
-  appendVariants(item.iconName);
-  appendVariants(item.attentionIconName);
-
-  for (const auto& needle : m_hiddenItems) {
-    if (std::ranges::contains(candidates, needle)) {
-      return true;
-    }
-  }
-
-  return false;
+  return std::ranges::any_of(m_hiddenItems, [&](const auto& needle) {
+    return tray::hiddenTokenMatchesItem(needle, item);
+  });
 }
 
 bool TrayWidget::isPinnedItem(const TrayItemInfo& item) const {
   if (m_pinnedItems.empty()) {
     return false;
   }
+  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) {
+    return tray::pinnedTokenMatchesItem(needle, item);
+  });
+}
 
-  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) { return tray::tokenMatchesItem(needle, item); });
+bool TrayWidget::isIconOverrideBlacklisted(const TrayItemInfo& item) const {
+  if (m_iconOverrideBlacklist.empty()) {
+    return false;
+  }
+  return std::ranges::any_of(m_iconOverrideBlacklist, [&](const auto& needle) {
+    return tray::hiddenTokenMatchesItem(needle, item);
+  });
 }
 
 void TrayWidget::buildDesktopIconIndex() {
@@ -915,9 +909,16 @@ void TrayWidget::buildDesktopIconIndex() {
 }
 
 std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
-  if (m_forceAppIcons) {
-    if (const auto desktopIcon = resolveDesktopIconPath(item); !desktopIcon.empty()) {
-      return desktopIcon;
+  if (!isIconOverrideBlacklisted(item)) {
+    if (m_iconType == TrayIconType::Desktop) {
+      if (const auto desktopIcon = resolveDesktopIconPath(item); !desktopIcon.empty()) {
+        return desktopIcon;
+      }
+    }
+    if (m_iconType == TrayIconType::Symbolic) {
+      if (const auto symbolicIcon = resolveSymbolicIconPath(item); !symbolicIcon.empty()) {
+        return symbolicIcon;
+      }
     }
   }
 

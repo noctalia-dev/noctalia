@@ -22,6 +22,8 @@ class InputArea;
 class Glyph;
 class Box;
 
+enum class TrayIconType : std::uint8_t { Default, Desktop, Symbolic };
+
 class TrayWidget : public Widget {
 public:
   struct Options {
@@ -39,7 +41,8 @@ public:
     // Read by TrayDrawerPanel, not by TrayWidget: they live here so the tray widget definition owns their defaults.
     double drawerItemSize = Style::baseGlyphSize;
     bool detachedPanel = false;
-    bool forceAppIcons = false;
+    std::vector<std::string> iconOverrideBlacklist;
+    TrayIconType iconType = TrayIconType::Default;
   };
 
   TrayWidget(ConfigService& config, TrayService* tray, Options options);
@@ -62,11 +65,13 @@ private:
   void buildDesktopIconIndex();
   [[nodiscard]] std::string resolveIconPath(const TrayItemInfo& item);
   [[nodiscard]] std::string resolveDesktopIconPath(const TrayItemInfo& item);
+  [[nodiscard]] std::string resolveSymbolicIconPath(const TrayItemInfo& item);
   void syncState(Renderer& renderer);
   void rebuild(Renderer& renderer);
   [[nodiscard]] std::string iconForItem(const TrayItemInfo& item) const;
   [[nodiscard]] bool isPinnedItem(const TrayItemInfo& item) const;
   [[nodiscard]] bool isHiddenItem(const TrayItemInfo& item) const;
+  [[nodiscard]] bool isIconOverrideBlacklisted(const TrayItemInfo& item) const;
   [[nodiscard]] std::string_view drawerChevronGlyph(bool panelOpen) const;
   // Bar section gap is between capsule shells; inline tray icons share one shell, so add the
   // lateral inset that adjacent single-icon capsules would contribute between their icons.
@@ -114,5 +119,6 @@ private:
   Node* m_hoverOverlayParent = nullptr;
   std::vector<HoverOverlayEntry> m_hoverOverlays;
   float m_capsuleCross = 0.0F;
-  bool m_forceAppIcons = false;
+  std::vector<std::string> m_iconOverrideBlacklist;
+  TrayIconType m_iconType = TrayIconType::Default;
 };
