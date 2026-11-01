@@ -375,16 +375,73 @@ If you prefer to install Noctalia locally or want more control over the installa
 
   <TabItem label="Debian/Ubuntu">
     ```bash
-    sudo apt install just meson libwayland-dev \
-      wayland-protocols libfreetype-dev libfontconfig-dev \
-      libcairo2-dev libpango1.0-dev librsvg2-dev libxkbcommon-dev \
-      libepoxy-dev libgles-dev libwebp-dev libcurl4-gnutls-dev \
-      libmd4c-dev nlohmann-json3-dev libsdbus-c++-dev libsecret-1-dev \
-      libsodium-dev libstb-dev libtomlplusplus-dev \
-      libpipewire-0.3-dev libpam0g-dev libpolkit-agent-1-dev \
-      libpolkit-gobject-1-dev libqalculate-dev libwireplumber-0.5-dev \
-      libxml2-dev libjemalloc-dev git
+    sudo apt install meson g++ just \
+      libwayland-dev wayland-protocols \
+      libegl-dev libgles-dev \
+      libfreetype-dev libfontconfig-dev \
+      libcairo2-dev libpango1.0-dev libharfbuzz-dev \
+      libxkbcommon-dev libglib2.0-dev \
+      libsecret-1-dev libsodium-dev \
+      libsdbus-c++-dev libpipewire-0.3-dev libwireplumber-0.5-dev \
+      libpam0g-dev libpolkit-agent-1-dev libpolkit-gobject-1-dev \
+      libcurl4-openssl-dev libwebp-dev libjxl-dev libsndfile1-dev librsvg2-dev \
+      libqalculate-dev libxml2-dev \
+      libmd4c-dev libtomlplusplus-dev libical-dev \
+      nlohmann-json3-dev libstb-dev \
+      libjemalloc-dev
+    ```
+  </TabItem>
 
+  <TabItem label="openSUSE Tumbleweed / Slowroll">
+    ```bash
+    sudo zypper install meson gcc-c++ just \
+      wayland-devel wayland-protocols-devel \
+      Mesa-libEGL-devel Mesa-libGLESv2-devel \
+      freetype2-devel fontconfig-devel \
+      cairo-devel pango-devel harfbuzz-devel \
+      libxkbcommon-devel glib2-devel \
+      libsecret-devel libsodium-devel \
+      sdbus-cpp-devel pipewire-devel wireplumber-devel \
+      pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg-devel \
+      libqalculate-devel libxml2-devel \
+      md4c-devel tomlplusplus-devel libical-devel \
+      nlohmann_json-devel stb-devel \
+      jemalloc-devel
+    ```
+  </TabItem>
+
+  <TabItem label="Void Linux">
+    ```bash
+    sudo xbps-install meson ninja pkg-config git \
+      wayland-devel wayland-protocols libepoxy-devel \
+      MesaLib-devel libglvnd-devel cairo-devel \
+      pango-devel fontconfig-devel freetype-devel \
+      harfbuzz-devel libxkbcommon-devel pipewire-devel wireplumber-devel \
+      libsecret-devel libsodium-devel \
+      libcurl-devel pam-devel libwebp-devel libjxl-devel libsndfile-devel \
+      basu-devel sdbus-c++-devel \
+      libmd4c-devel tomlplusplus-devel libical-devel \
+      json-c++ stb \
+      polkit-devel librsvg-devel libqalculate-devel libxml2-devel jemalloc-devel
+    ```
+  </TabItem>
+
+  <TabItem label="aerynOS">
+    The command below uses the new moss CLI available in Volatile. On Unstable, use `sudo moss install` with the same package list until the CLI update reaches that repository.
+
+    ```bash
+    sudo moss pkg add meson gcc clang just \
+      wayland-devel wayland-protocols-devel \
+      libglvnd-devel freetype-devel fontconfig-devel \
+      cairo-devel pango-devel harfbuzz-devel \
+      libxkbcommon-devel glib2-devel \
+      libsecret-devel libsodium-devel \
+      sdbus-cpp-devel pipewire-devel wireplumber-devel polkit-devel \
+      linux-pam-devel curl libwebp-devel libjxl-devel libsndfile-devel librsvg-devel \
+      libqalculate-devel libxml2-devel \
+      md4c-devel tomlplusplus-devel libical-devel \
+      nlohmann-json stb \
+      jemalloc-devel
     ```
   </TabItem>
 </Tabs>
