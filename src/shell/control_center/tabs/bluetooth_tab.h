@@ -5,6 +5,7 @@
 #include "dbus/bluetooth/bluetooth_service.h"
 #include "shell/control_center/tab.h"
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -69,10 +70,13 @@ private:
   Input* m_pairingInput = nullptr;
   Flex* m_pairingButtonRow = nullptr;
   Button* m_pairingAccept = nullptr;
+  Button* m_pairingTrustAndAllow = nullptr;
   Button* m_pairingReject = nullptr;
 
   ScrollView* m_listScroll = nullptr;
   Flex* m_list = nullptr;
+  // First child of m_list, kept across list rebuilds so the scan spinner keeps spinning.
+  Flex* m_adapterCard = nullptr;
 
   Toggle* m_powerToggle = nullptr;
   Toggle* m_discoverableToggle = nullptr;
@@ -83,6 +87,13 @@ private:
   DiscoveryLease m_discoveryLease = DiscoveryLease::None;
 
   std::unordered_map<std::string, BluetoothDeviceRow*> m_deviceRows;
+
+  // Order in which Available devices were first listed; new ones append so rows never move.
+  std::unordered_map<std::string, std::uint64_t> m_firstSeen;
+  std::uint64_t m_nextSeen = 0;
+  // Defers rebuilds that only touch the Available section while a scan churns it.
+  Timer m_rebuildTimer;
+  std::chrono::steady_clock::time_point m_lastRebuildAt;
 
   std::string m_lastStructureKey;
   float m_lastListWidth = -1.0F;

@@ -50,6 +50,10 @@ struct lua_CompileOptions
     // alternative vector type name for type tables, in addition to default type 'vector'
     const char* vectorType;
 
+    // 0 - 32-bit float vector components
+    // 1 - 64-bit double vector components
+    int vectorPrecision; // default=0
+
     // null-terminated array of globals that are mutable; disables the import optimization for fields accessed through these
     const char* const* mutableGlobals;
 
@@ -77,4 +81,5 @@ LUACODE_API void luau_set_compile_constant_boolean(lua_CompileConstant* constant
 LUACODE_API void luau_set_compile_constant_number(lua_CompileConstant* constant, double n);
 LUACODE_API void luau_set_compile_constant_integer64(lua_CompileConstant* constant, int64_t l);
 LUACODE_API void luau_set_compile_constant_vector(lua_CompileConstant* constant, float x, float y, float z, float w);
+LUACODE_API void luau_set_compile_constant_vectord(lua_CompileConstant* constant, double x, double y, double z, double w);
 LUACODE_API void luau_set_compile_constant_string(lua_CompileConstant* constant, const char* s, size_t l);

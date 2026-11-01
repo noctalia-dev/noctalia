@@ -63,7 +63,7 @@ Select::Select() {
     applyVisualState();
     markPaintDirty();
   });
-  triggerArea->setOnLeave([this]() {
+  triggerArea->setOnLeave([this] {
     applyVisualState();
     markPaintDirty();
   });
@@ -77,11 +77,11 @@ Select::Select() {
     }
     toggleOpen();
   });
-  triggerArea->setOnFocusGain([this]() {
+  triggerArea->setOnFocusGain([this] {
     applyVisualState();
     markPaintDirty();
   });
-  triggerArea->setOnFocusLoss([this]() {
+  triggerArea->setOnFocusLoss([this] {
     applyVisualState();
     markPaintDirty();
   });
@@ -281,7 +281,7 @@ void Select::doLayout(Renderer& renderer) {
     m_triggerIndicator->setVisible(showTriggerIndicator);
     if (showTriggerIndicator) {
       m_triggerIndicator->setFill(m_indicatorColors[m_selectedIndex]);
-      m_triggerIndicator->setBorder(colorSpecFromRole(ColorRole::Outline), indicatorBorder);
+      m_triggerIndicator->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), indicatorBorder);
       m_triggerIndicator->setFrameSize(indicatorSize, indicatorSize);
       m_triggerIndicator->setRadius(indicatorSize * 0.5F);
       const float indicatorX = Style::rtl() ? dropdownWidth - m_horizontalPadding - indicatorSize : m_horizontalPadding;
@@ -324,10 +324,8 @@ void Select::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, std::uint32_t
     return;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
-    if (!m_open) {
-      toggleOpen();
-    }
+  if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers) && !m_open) {
+    toggleOpen();
   }
 }
 
@@ -340,17 +338,17 @@ void Select::applyVisualState() {
   const bool triggerPressed = m_triggerArea != nullptr && m_triggerArea->pressed();
   const bool triggerFocused = m_triggerArea != nullptr && m_triggerArea->focused();
 
-  Color triggerBg = resolved(ColorRole::SurfaceVariant, m_surfaceOpacity);
-  Color triggerBorder = resolved(ColorRole::Outline);
+  Color triggerBg = resolved(ColorRole::SurfaceContainer, m_surfaceOpacity);
+  Color triggerBorder = resolved(ColorRole::OutlineVariant);
   ColorSpec triggerText = selectedText().empty() ? colorSpecFromRole(ColorRole::OnSurfaceVariant, kPlaceholderAlpha)
                                                  : colorSpecFromRole(ColorRole::OnSurface);
 
   if (!m_enabled) {
-    triggerBg = resolved(ColorRole::SurfaceVariant, m_surfaceOpacity * 0.75F);
-    triggerBorder = resolved(ColorRole::Outline, Style::disabledOutlineAlpha);
+    triggerBg = resolved(ColorRole::SurfaceContainer, m_surfaceOpacity * 0.75F);
+    triggerBorder = resolved(ColorRole::OutlineVariant, Style::disabledOutlineAlpha);
     triggerText = colorSpecFromRole(ColorRole::OnSurface, 0.55F);
   } else if (triggerHovered || triggerPressed) {
-    triggerBg = resolved(ColorRole::SurfaceVariant, m_surfaceOpacity);
+    triggerBg = resolved(ColorRole::SurfaceContainer, m_surfaceOpacity);
     triggerBorder = resolved(ColorRole::Hover);
   } else if (triggerFocused) {
     triggerBorder = resolveColorSpec(focusRingColorSpec());
@@ -392,7 +390,7 @@ void Select::animateCaret(bool open) {
           applyVisualState();
           markPaintDirty();
         },
-        [this]() { m_caretAnimId = 0; }, this
+        [this] { m_caretAnimId = 0; }, this
     );
     markPaintDirty();
   } else {
@@ -474,7 +472,7 @@ void Select::openPopupDropdown() {
             setSelectedIndex(index);
           },
       .onDismiss =
-          [this]() {
+          [this] {
             m_open = false;
             animateCaret(false);
           },

@@ -28,7 +28,19 @@ namespace {
 
 ClockWidget::ClockWidget(wl_output* /*output*/, Options options)
     : m_format(std::move(options.format)), m_verticalFormat(std::move(options.verticalFormat)),
-      m_tooltipFormat(std::move(options.tooltipFormat)), m_timezone(std::move(options.timezone)) {}
+      m_tooltipFormat(std::move(options.tooltipFormat)), m_timezone(std::move(options.timezone)),
+      m_labelShowsSeconds(formatShowsSeconds(m_format) || formatShowsSeconds(m_verticalFormat)),
+      m_tooltipShowsSeconds(formatShowsSeconds(m_tooltipFormat)) {}
+
+bool ClockWidget::wantsSecondTicks() const {
+  if (m_labelShowsSeconds) {
+    return true;
+  }
+  // Tooltip text is only regenerated on update, so a seconds-bearing tooltip
+  // needs ticks while it can be showing, i.e. while the clock is hovered.
+  const auto* area = static_cast<const InputArea*>(root());
+  return m_tooltipShowsSeconds && showsTooltip() && area != nullptr && area->hovered();
+}
 
 std::string ClockWidget::formatTimeText() const {
   if (!m_isVertical) {
@@ -90,6 +102,7 @@ void ClockWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontFeatures = "tnum",
           .textAlign = TextAlign::Center,
       })
   );
@@ -100,6 +113,7 @@ void ClockWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale() * kStackedSecondaryScale,
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontFeatures = "tnum",
           .textAlign = TextAlign::Center,
           .visible = false,
       })
@@ -162,9 +176,10 @@ void ClockWidget::doLayout(Renderer& renderer, float containerWidth, float conta
 
   if (showSecondary) {
     const auto primaryMetrics =
-        renderer.measureText(m_lastPrimaryText, primaryFontSize, fontWeight, 0.0F, 1, TextAlign::Start);
-    const auto secondaryMetrics =
-        renderer.measureText(m_lastSecondaryText, secondaryFontSize, fontWeight, 0.0F, 1, TextAlign::Start);
+        renderer.measureText(m_lastPrimaryText, primaryFontSize, m_label->font(), 0.0F, 1, TextAlign::Start);
+    const auto secondaryMetrics = renderer.measureText(
+        m_lastSecondaryText, secondaryFontSize, m_secondaryLabel->font(), 0.0F, 1, TextAlign::Start
+    );
     const float primaryInkWidth = std::max(0.0F, primaryMetrics.inkRight - primaryMetrics.inkLeft);
     const float secondaryInkWidth = std::max(0.0F, secondaryMetrics.inkRight - secondaryMetrics.inkLeft);
     width = std::max({width, primaryInkWidth, secondaryInkWidth});

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config/config_credentials.h"
 #include "config/config_migrations.h"
 #include "config/config_types.h"
 #include "config/schema/diagnostics.h"
@@ -21,6 +22,13 @@
 
 class IpcService;
 class NotificationManager;
+
+// Diagnostics a caller already computed for an override mutation, so validation does not merge
+// and validate the same tables again. Null members are computed on demand.
+struct OverrideDiagnostics {
+  const noctalia::config::schema::Diagnostics* baseline = nullptr;  // for the persisted overrides
+  const noctalia::config::schema::Diagnostics* candidate = nullptr; // for the candidate table
+};
 
 class ConfigService {
 public:
@@ -48,6 +56,7 @@ public:
   ConfigService& operator=(const ConfigService&) = delete;
 
   [[nodiscard]] const Config& config() const noexcept { return m_config; }
+  [[nodiscard]] std::shared_ptr<const toml::table> configTable() const noexcept { return m_configTable; }
   [[nodiscard]] bool isLockScreenEnabled() const noexcept { return ::isLockScreenEnabled(m_config.lockscreen); }
   [[nodiscard]] bool shouldLockBeforeSuspend() const noexcept { return ::shouldLockBeforeSuspend(m_config.lockscreen); }
   // Which sections changed in the reload currently being dispatched. Valid while
@@ -57,16 +66,24 @@ public:
   [[nodiscard]] bool matchesKeybind(KeybindAction action, std::uint32_t sym, std::uint32_t modifiers) const;
   [[nodiscard]] int watchFd() const noexcept { return m_inotify.fd(); }
   [[nodiscard]] std::string buildSupportReport() const;
-  [[nodiscard]] std::string buildMergedUserConfig() const;
-  [[nodiscard]] std::string buildEffectiveConfig() const;
+  [[nodiscard]] std::string buildMergedUserConfig(noctalia::config::CredentialExportMode credentials) const;
+  [[nodiscard]] std::string buildEffectiveConfig(noctalia::config::CredentialExportMode credentials) const;
   [[nodiscard]] static std::string buildMergedUserConfigFromSources(
-      std::string_view configDir, std::string_view settingsPath, std::string* error = nullptr
+      std::string_view configDir, std::string_view settingsPath, std::string* error = nullptr,
+      noctalia::config::CredentialExportMode credentials = noctalia::config::CredentialExportMode::Keep
   );
   [[nodiscard]] static std::string buildEffectiveConfigFromSources(
-      std::string_view configDir, std::string_view settingsPath, std::string* error = nullptr
+      std::string_view configDir, std::string_view settingsPath, std::string* error = nullptr,
+      noctalia::config::CredentialExportMode credentials = noctalia::config::CredentialExportMode::Keep
   );
   [[nodiscard]] bool shouldRunSetupWizard() const;
   [[nodiscard]] std::optional<bool> stateBool(std::string_view owner, std::string_view key) const;
+  [[nodiscard]] bool stateOwnerValid(std::string_view owner) const;
+  [[nodiscard]] bool stateContains(std::string_view owner, std::string_view key) const;
+  [[nodiscard]] const std::string& stateParseError() const noexcept { return m_stateStore.parseError(); }
+  [[nodiscard]] std::optional<std::vector<std::string>>
+  stateStringArray(std::string_view owner, std::string_view key) const;
+  bool setStateStringArray(std::string_view owner, std::string_view key, const std::vector<std::string>& value);
   [[nodiscard]] std::optional<std::string> stateString(std::string_view owner, std::string_view key) const;
   [[nodiscard]] const noctalia::config::LegacyConfigIssues& legacyConfigIssues() const noexcept {
     return m_legacyConfigIssues;
@@ -97,7 +114,7 @@ public:
   [[nodiscard]] const std::vector<WallpaperFavorite>& wallpaperFavorites() const noexcept;
   [[nodiscard]] bool isWallpaperFavorite(std::string_view path) const;
   [[nodiscard]] const WallpaperFavorite* wallpaperFavorite(std::string_view path) const;
-  void addWallpaperFavorite(std::string path, std::optional<WallpaperFavorite> preset = std::nullopt);
+  void addWallpaperFavorite(std::string path, const std::optional<WallpaperFavorite>& preset = std::nullopt);
   void removeWallpaperFavorite(std::string_view path);
   void setWallpaperFavoriteThemeMode(std::string_view path, ThemeMode themeMode);
   void setWallpaperFavoritePaletteSource(std::string_view path, std::optional<PaletteSource> source);
@@ -165,8 +182,9 @@ public:
   [[nodiscard]] bool validateOverride(
       const std::vector<std::string>& path, const ConfigOverrideValue& value, std::string* error = nullptr
   );
-  bool setOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides);
-  bool setOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides, bool* changed);
+  bool setOverrides(const std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>& overrides);
+  bool
+  setOverrides(const std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>& overrides, bool* changed);
   // Sets and clears in one commit. Callers that both write new keys and retire keys the new shape no
   // longer owns must use this: two separate commits publish an intermediate config that fails schema
   // validation and raises a config-error notification.
@@ -187,15 +205,15 @@ public:
 
 private:
   void loadAll();
+  void applyPendingWatchReload();
   [[nodiscard]] static Config makeDefaultConfig();
   static void
   parseConfigTable(const toml::table& tbl, Config& config, bool logSummary, bool logSchemaDiagnostics = true);
   [[nodiscard]] std::optional<Config> configForOverrides(const toml::table& overrides) const;
   [[nodiscard]] noctalia::config::schema::Diagnostics diagnosticsForOverrides(const toml::table& overrides) const;
-  [[nodiscard]] bool validateOverrideMutation(
-      const toml::table& candidateOverrides, const toml::table* baselineOverrides = nullptr,
-      const noctalia::config::schema::Diagnostics* candidateDiagnostics = nullptr
-  );
+  // Rejects a candidate that adds errors compared to the persisted overrides.
+  [[nodiscard]] bool
+  validateOverrideMutation(const toml::table& candidateOverrides, const OverrideDiagnostics& known = {});
   [[nodiscard]] bool overridePathEffectiveInTable(
       const std::vector<std::string>& path, const toml::table& overrides, const Config* parsedWith = nullptr
   ) const;
@@ -205,7 +223,7 @@ private:
   // arrays in `candidate` so every referenced group resolves again.
   void reconcileCapsuleGroupOverrides(toml::table& candidate) const;
   // Validates `next`, persists it, and reloads. `changed` reports whether anything moved.
-  bool commitOverrideTable(toml::table next, bool* changed);
+  bool commitOverrideTable(toml::table next, bool* changed, const OverrideDiagnostics& known = {});
   void setupWatch();
   // Reconciles inotify watches for [include]d files: watches the parent dir of
   // every loaded file plus every directory named in an [include].files list, and
@@ -231,7 +249,9 @@ private:
   void setConfigParseError(ConfigProblem problem);
   void updateLegacyConfigIssues(noctalia::config::LegacyConfigIssues issues);
   void notifyLegacyConfigIssues();
-  bool writeOverridesToFile();
+  // Validates m_overridesTable against the persisted table and writes it; restores the persisted
+  // table on failure.
+  bool writeOverridesToFile(const OverrideDiagnostics& known = {});
   void extractWallpaperFromOverrides();
   void extractWallpaperFromTable(const toml::table& table);
   void syncWallpaperFavoritesToOverridesTable();
@@ -240,6 +260,8 @@ private:
 
   Config m_config;
   ConfigChangeSet m_lastChange;
+
+  std::shared_ptr<const toml::table> m_configTable;
 
   // Hand-authored config directory: all *.toml merged alphabetically.
   std::string m_configDir;
@@ -278,6 +300,10 @@ private:
   Inotify m_inotify;
   int m_configWatchWd = -1;
   int m_overridesWatchWd = -1;
+  // Watch events are coalesced into one reload after a short quiet period.
+  Timer m_watchReloadTimer;
+  bool m_pendingConfigReload = false;
+  bool m_pendingOverridesReload = false;
   struct SymlinkTargetWatch {
     std::string filename;
     bool overrides = false;

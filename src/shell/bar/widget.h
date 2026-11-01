@@ -54,17 +54,24 @@ public:
   }
   virtual void onFrameTick(float deltaMs) { (void)deltaMs; }
   [[nodiscard]] virtual bool needsFrameTick() const { return false; }
+  // True when the widget renders a value that changes every second. The bar uses
+  // this to decide whether it needs second-precision time ticks at all.
+  [[nodiscard]] virtual bool wantsSecondTicks() const { return false; }
   [[nodiscard]] virtual bool onPointerEvent(const PointerEvent& event) {
     (void)event;
     return false;
   }
 
   [[nodiscard]] virtual bool noGapAroundMe() const noexcept { return false; }
+  // Takes a share of its lane's free space (start and end lanes only; the center lane sizes to its content).
+  [[nodiscard]] virtual bool expandsInLane() const noexcept { return false; }
   // Layout-only or non-interactive bar widgets: clicks pass through to bar dead-zone handlers.
   [[nodiscard]] virtual bool isBarClickThrough() const noexcept { return m_nonInteractive; }
   // Widgets with interactive sub-items (workspaces, taskbar, tray) manage hover per item and
   // opt out of the bar's generic whole-widget hover highlight.
   [[nodiscard]] virtual bool wantsBarHoverHighlight() const noexcept { return !m_nonInteractive; }
+  // Whether the hover box tints while the widget is hovered. The box still sizes the hit target.
+  [[nodiscard]] virtual bool wantsBarHoverTint() const noexcept { return true; }
 
   // The node this widget built. Widgets size and position it in doLayout().
   [[nodiscard]] Node* root() const noexcept { return m_innerRoot; }
@@ -108,6 +115,8 @@ public:
   [[nodiscard]] std::string_view configName() const noexcept { return m_configName; }
   void setAnchor(bool anchor) noexcept { m_anchor = anchor; }
   [[nodiscard]] bool isAnchor() const noexcept { return m_anchor; }
+  // Bar-owned gate: when false the bar never shows this widget's tooltips; widgets keep setting their content.
+  [[nodiscard]] bool showsTooltip() const noexcept { return m_showTooltip; }
 
   void setBarCapsuleSpec(WidgetBarCapsuleSpec spec) noexcept { m_barCapsuleSpec = std::move(spec); }
   void setWidgetForeground(std::optional<ColorSpec> color) noexcept { m_widgetForeground = color; }
@@ -172,6 +181,7 @@ protected:
   std::string m_labelFontFamily; // empty = inherit renderer-global family
   std::string m_configName;
   bool m_anchor = false;
+  bool m_showTooltip = true;
   AnimationManager* m_animations = nullptr;
   UpdateCallback m_updateCallback;
   RedrawCallback m_redrawCallback;

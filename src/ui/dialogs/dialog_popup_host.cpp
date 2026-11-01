@@ -2,7 +2,7 @@
 
 #include "config/config_service.h"
 #include "core/deferred_call.h"
-#include "core/input/key_symbols.h"
+#include "core/input/keybind_matcher.h"
 #include "core/ui_phase.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
@@ -108,7 +108,7 @@ bool DialogPopupHost::openPopup(std::uint32_t width, std::uint32_t height) {
   });
   // Defer: the compositor can send popup_done synchronously inside the init roundtrip below (e.g. a
   // grab serial it rejects). Running cancel() there would destroy this popup mid-initialization.
-  surface->setDismissedCallback([this]() { DeferredCall::callLater([this]() { cancel(); }); });
+  surface->setDismissedCallback([this] { DeferredCall::callLater([this] { cancel(); }); });
 
   m_chrome = popup_chrome::computeGeometry(
       static_cast<float>(width), static_cast<float>(height), popupShadowConfig(m_config), Style::popupShadowsEnabled()
@@ -164,7 +164,7 @@ bool DialogPopupHost::openPopupAsChild(PopupSurfaceConfig config, const XdgPopup
   });
   // Defer: the compositor can send popup_done synchronously inside the init roundtrip below (e.g. a
   // grab serial it rejects). Running cancel() there would destroy this popup mid-initialization.
-  surface->setDismissedCallback([this]() { DeferredCall::callLater([this]() { cancel(); }); });
+  surface->setDismissedCallback([this] { DeferredCall::callLater([this] { cancel(); }); });
 
   m_chrome = popup_chrome::computeGeometry(
       static_cast<float>(config.width), static_cast<float>(config.height), popupShadowConfig(m_config),
@@ -292,9 +292,7 @@ bool DialogPopupHost::onPointerEvent(const PointerEvent& event) {
     }
     break;
   case PointerEvent::Type::Motion:
-    if (captured) {
-      m_inputDispatcher.pointerMotion(localX, localY, event.serial);
-    } else if (!m_pointerInside) {
+    if (!captured && !m_pointerInside) {
       m_pointerInside = true;
       m_inputDispatcher.pointerEnter(localX, localY, event.serial);
     } else {
@@ -302,9 +300,7 @@ bool DialogPopupHost::onPointerEvent(const PointerEvent& event) {
     }
     break;
   case PointerEvent::Type::Button:
-    if (captured) {
-      m_inputDispatcher.pointerMotion(localX, localY, event.serial);
-    } else if (!m_pointerInside) {
+    if (!captured && !m_pointerInside) {
       m_pointerInside = true;
       m_inputDispatcher.pointerEnter(localX, localY, event.serial);
     } else {
@@ -313,9 +309,7 @@ bool DialogPopupHost::onPointerEvent(const PointerEvent& event) {
     m_inputDispatcher.pointerButton(localX, localY, event.button, event.pressed, event.serial, event.time, event.touch);
     break;
   case PointerEvent::Type::Axis:
-    if (captured) {
-      m_inputDispatcher.pointerMotion(localX, localY, event.serial);
-    } else if (!m_pointerInside) {
+    if (!captured && !m_pointerInside) {
       m_pointerInside = true;
       m_inputDispatcher.pointerEnter(localX, localY, event.serial);
     } else {
@@ -337,7 +331,7 @@ void DialogPopupHost::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  if (event.pressed && !event.preedit && KeySymbol::isEscape(event.sym)) {
+  if (event.pressed && !event.preedit && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
     cancel();
     return;
   }
@@ -466,7 +460,7 @@ void DialogPopupHost::buildScene(std::uint32_t width, std::uint32_t height) {
   layoutScene(static_cast<float>(width), static_cast<float>(height));
   syncPointerStateFromCurrentPosition();
 
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     if (m_surface == nullptr) {
       return;
     }

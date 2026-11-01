@@ -173,22 +173,19 @@ namespace {
   }
 
   [[nodiscard]] bool captureNeedsOutputTransform(const ScreencopyImage& image, const WaylandOutput& output) {
-    if (output.transform == WL_OUTPUT_TRANSFORM_NORMAL) {
+    if (output.effectiveTransform() == WL_OUTPUT_TRANSFORM_NORMAL) {
       return false;
     }
 
     const bool dimsMatchLogical = image.width == output.logicalWidth && image.height == output.logicalHeight;
     const bool dimsMatchPhysical =
         output.width > 0 && output.height > 0 && image.width == output.width && image.height == output.height;
-    if (dimsMatchLogical && !dimsMatchPhysical) {
-      return false;
-    }
-    return true;
+    return !dimsMatchLogical || dimsMatchPhysical;
   }
 
   void orientCaptureToLogical(ScreencopyImage& image, const WaylandOutput& output) {
     const std::int32_t transform =
-        captureNeedsOutputTransform(image, output) ? output.transform : WL_OUTPUT_TRANSFORM_NORMAL;
+        captureNeedsOutputTransform(image, output) ? output.effectiveTransform() : WL_OUTPUT_TRANSFORM_NORMAL;
     screencopy::orientCaptureForTransform(image, transform);
   }
 
@@ -245,9 +242,7 @@ namespace screencopy {
         },
     };
     const wayland::DispatchResult waitResult =
-        wayland::dispatchUntil(targets, captureDeadline, [&finished, &capture]() {
-          return finished || !capture.busy();
-        });
+        wayland::dispatchUntil(targets, captureDeadline, [&finished, &capture] { return finished || !capture.busy(); });
     if (waitResult.status != wayland::DispatchStatus::Completed) {
       capture.cancelInFlight();
       if (waitResult.status == wayland::DispatchStatus::TimedOut) {

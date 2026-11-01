@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render/animation/animation_manager.h"
-#include "render/core/texture_handle.h"
+#include "render/core/shared_texture_cache.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
 #include "shell/desktop/desktop_widget_factory.h"
@@ -20,7 +20,6 @@ class WaylandConnection;
 struct PointerEvent;
 struct WaylandOutput;
 struct wl_output;
-class SharedTextureCache;
 
 class DesktopWidgetsHost {
 public:
@@ -37,6 +36,8 @@ public:
   void reloadPluginWidgets();
   void onOutputChange();
   void onSecondTick();
+  // True when a live widget renders a value that changes every second.
+  [[nodiscard]] bool wantsSecondTicks() const;
   void requestUpdate();
   void requestLayout();
   void requestRedraw();
@@ -60,7 +61,10 @@ private:
 
   struct LoadedWallpaperMask {
     OutputWallpaperMask descriptor;
-    TextureHandle retainedTexture;
+    SharedTextureCache::Lease mask;
+    // Held until the mask's source dimensions have been checked against the wallpaper's.
+    SharedTextureCache::Lease wallpaper;
+    bool validated = false;
   };
 
   void syncInstances();
@@ -68,7 +72,13 @@ private:
   void buildScene(DesktopWidgetInstance& instance);
   void prepareFrame(DesktopWidgetInstance& instance, bool needsUpdate, bool needsLayout);
   [[nodiscard]] DesktopWidgetInstance* findInstance(const std::string& id);
-  void releaseWallpaperMasks();
+  // Coverage of the wallpaper as drawn on the output with this key; empty (full resolution) if the output is unknown.
+  [[nodiscard]] TextureCoverage wallpaperMaskCoverage(const std::string& outputName) const;
+  // Re-targets every mask after output geometry or the wallpaper fill mode may have changed.
+  void refreshWallpaperMasks();
+  // Checks a pending mask against its wallpaper once both are decoded; erases the entry if they do not match.
+  void validateWallpaperMask(const std::string& outputName);
+  void onWallpaperMaskTextureChanged(const std::string& outputName);
   void updateWallpaperMask(DesktopWidgetInstance& instance);
 
   WaylandConnection* m_wayland = nullptr;

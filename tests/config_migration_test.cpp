@@ -14,7 +14,7 @@ namespace {
   int g_failures = 0;
   int g_syntheticMigrationApplications = 0;
 
-  void countSyntheticMigration(toml::table&, noctalia::config::schema::Diagnostics&) {
+  void countSyntheticMigration(toml::table&, const toml::table&, noctalia::config::schema::Diagnostics&) {
     ++g_syntheticMigrationApplications;
   }
 
@@ -130,6 +130,42 @@ sunrise = "07:30"
     expect(
         explicitOff["location"]["custom_schedule"].value<bool>() == false,
         "an explicit custom_schedule = false was overwritten"
+    );
+
+    // Times written by Settings mean what they say: without custom_schedule the schedule stays off.
+    const toml::table settingsTimes = toml::parse(R"(
+config_version = 17
+[location]
+sunset = "20:30"
+sunrise = "07:30"
+)");
+    toml::table mergedSettings = settingsTimes;
+    noctalia::config::LegacyConfigIssues settingsIssues;
+    noctalia::config::normalizeLegacyConfig(mergedSettings, settingsIssues, &settingsTimes);
+    expect(
+        !mergedSettings["location"]["custom_schedule"].value<bool>().has_value(),
+        "settings sunset/sunrise were treated as a legacy custom schedule"
+    );
+    expect(settingsIssues.empty(), "settings sunset/sunrise reported a legacy issue");
+
+    // Older settings files relied on that implicit schedule; the upgrade keeps it unless config.toml
+    // supplies coordinates, which used to win.
+    toml::table olderSettings =
+        toml::parse("config_version = 16\n[location]\nsunset = \"20:30\"\nsunrise = \"07:30\"\n");
+    noctalia::config::schema::Diagnostics upgradeDiag;
+    (void)noctalia::config::applyPendingConfigMigrations(olderSettings, {}, 16, upgradeDiag);
+    expect(
+        olderSettings["location"]["custom_schedule"].value<bool>() == true,
+        "upgrading times-only settings did not keep the custom schedule"
+    );
+
+    toml::table coordinateSettings =
+        toml::parse("config_version = 16\n[location]\nsunset = \"20:30\"\nsunrise = \"07:30\"\n");
+    const toml::table coordinateBase = toml::parse("[location]\nlatitude = 52.52\nlongitude = 13.405\n");
+    (void)noctalia::config::applyPendingConfigMigrations(coordinateSettings, coordinateBase, 16, upgradeDiag);
+    expect(
+        !coordinateSettings["location"]["custom_schedule"].value<bool>().has_value(),
+        "upgrading settings times enabled a custom schedule over config.toml coordinates"
     );
   }
 
@@ -771,7 +807,7 @@ German = "Clock"
 
     toml::table sidecar = toml::parse("config_version = 12\n[plugins]\nauto_update = false");
     noctalia::config::schema::Diagnostics diagnostics;
-    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 12, diagnostics);
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, {}, 12, diagnostics);
     expect(applied == noctalia::config::currentConfigVersion(), "plugin auto-update sidecar migration was not applied");
     expect(
         sidecar["plugins"]["auto_update"].value<std::string_view>() == std::optional<std::string_view>{"none"},
@@ -787,7 +823,7 @@ event_date_format = "%Y-%m-%d"
 event_time_format = "%I:%M %p"
 )");
     noctalia::config::schema::Diagnostics diagnostics;
-    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 13, diagnostics);
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, {}, 13, diagnostics);
     expect(applied == noctalia::config::currentConfigVersion(), "calendar event format migration was not applied");
     expect(
         sidecar["calendar"]["event_date_format"].value<std::string_view>()
@@ -835,7 +871,7 @@ event_date_format = "%A"
 event_time_format = "%H:%M"
 )");
     noctalia::config::schema::Diagnostics conflictDiagnostics;
-    (void)noctalia::config::applyPendingConfigMigrations(conflict, 13, conflictDiagnostics);
+    (void)noctalia::config::applyPendingConfigMigrations(conflict, {}, 13, conflictDiagnostics);
     expect(
         conflict["calendar"]["event_date_format"].value<std::string_view>() == std::optional<std::string_view>{"%d"},
         "calendar event format migration overwrote the canonical date format"
@@ -854,7 +890,7 @@ enabled = true
 monitors = ["DP-1", "Dell Inc."]
 )");
     noctalia::config::schema::Diagnostics diagnostics;
-    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 14, diagnostics);
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, {}, 14, diagnostics);
     expect(applied == noctalia::config::currentConfigVersion(), "dock monitor allow-list migration was not applied");
     expect(sidecar["dock"]["monitors"].node() == nullptr, "legacy dock monitors key was not removed");
     expect(sidecar["dock"]["enabled"].value<bool>() == false, "migrated dock was not disabled globally");
@@ -902,6 +938,59 @@ monitors = ["eDP-1"]
     expect(disabled["dock"]["monitor"].node() == nullptr, "disabled dock gained enabled monitor overrides");
   }
 
+  void checkPaletteRoleNamesMigration() {
+    toml::table sidecar = toml::parse(R"(
+config_version = 15
+[bar.main]
+capsule_fill = "surface_variant"
+capsule_border = " Outline "
+[[session.actions]]
+variant = "outline"
+[desktop_widgets.widget.login]
+settings = { background_color = "surface_variant", track_color = "on_surface_variant" }
+[theme.templates.custom_colors]
+accent = "outline"
+)");
+    noctalia::config::schema::Diagnostics diagnostics;
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, {}, 15, diagnostics);
+    expect(applied == noctalia::config::currentConfigVersion(), "palette role migration was not applied");
+    expect(
+        sidecar["bar"]["main"]["capsule_fill"].value<std::string>() == std::optional<std::string>{"surface_container"},
+        "surface_variant was not renamed"
+    );
+    expect(
+        sidecar["bar"]["main"]["capsule_border"].value<std::string>() == std::optional<std::string>{"outline_variant"},
+        "outline was not renamed with the role token normalization"
+    );
+    expect(
+        sidecar["session"]["actions"][0]["variant"].value<std::string>() == std::optional<std::string>{"outline"},
+        "button variant outline was treated as a color"
+    );
+    expect(
+        sidecar["desktop_widgets"]["widget"]["login"]["settings"]["background_color"].value<std::string>()
+                == std::optional<std::string>{"surface_container"}
+            && sidecar["desktop_widgets"]["widget"]["login"]["settings"]["track_color"].value<std::string>()
+                == std::optional<std::string>{"on_surface_variant"},
+        "nested widget colors were not migrated precisely"
+    );
+    expect(
+        sidecar["theme"]["templates"]["custom_colors"]["accent"].value<std::string>()
+            == std::optional<std::string>{"outline"},
+        "template token under theme was rewritten"
+    );
+
+    toml::table legacyConfig = toml::parse("[bar.main]\ncapsule_fill = \"surface_variant\"\n");
+    noctalia::config::LegacyConfigIssues issues;
+    noctalia::config::normalizeLegacyConfig(legacyConfig, issues);
+    expect(
+        issues.size() == 1 && hasIssuePath(issues, "bar.main.capsule_fill"),
+        "hand-written palette role did not produce a migration issue"
+    );
+    noctalia::config::LegacyConfigIssues secondPassIssues;
+    noctalia::config::normalizeLegacyConfig(legacyConfig, secondPassIssues);
+    expect(secondPassIssues.empty(), "palette role normalization was not idempotent");
+  }
+
   void checkVersionGating() {
     toml::table legacy = toml::parse(R"(
 [bar.main]
@@ -910,7 +999,7 @@ radius = -10
     noctalia::config::schema::Diagnostics diag;
     const auto stored = noctalia::config::storedConfigVersion(legacy, diag);
     expect(stored == 0, "missing config_version was not treated as legacy version 0");
-    const int applied = noctalia::config::applyPendingConfigMigrations(legacy, stored.value_or(0), diag);
+    const int applied = noctalia::config::applyPendingConfigMigrations(legacy, {}, stored.value_or(0), diag);
     expect(applied == noctalia::config::currentConfigVersion(), "pending migration did not reach current version");
     expect(legacy["bar"]["main"]["radius"].value<std::int64_t>() == 10, "sidecar migration did not run");
 
@@ -922,7 +1011,7 @@ radius = -10
     noctalia::config::schema::Diagnostics currentDiag;
     const auto currentStored = noctalia::config::storedConfigVersion(current, currentDiag);
     expect(currentStored == 1, "current config_version was not read");
-    (void)noctalia::config::applyPendingConfigMigrations(current, currentStored.value_or(0), currentDiag);
+    (void)noctalia::config::applyPendingConfigMigrations(current, {}, currentStored.value_or(0), currentDiag);
     expect(
         current["bar"]["main"]["radius"].value<std::int64_t>() == -10, "current sidecar replayed a historical migration"
     );
@@ -1027,11 +1116,11 @@ radius = -10
     toml::table root;
     noctalia::config::schema::Diagnostics diag;
     g_syntheticMigrationApplications = 0;
-    const int current = noctalia::config::applyPendingConfigMigrations(root, 100, diag, migrations);
+    const int current = noctalia::config::applyPendingConfigMigrations(root, {}, 100, diag, migrations);
     expect(current == 100, "synthetic current version changed");
     expect(g_syntheticMigrationApplications == 0, "current sidecar executed historical migration bodies");
 
-    const int upgraded = noctalia::config::applyPendingConfigMigrations(root, 99, diag, migrations);
+    const int upgraded = noctalia::config::applyPendingConfigMigrations(root, {}, 99, diag, migrations);
     expect(upgraded == 100, "synthetic upgrade did not reach the current version");
     expect(g_syntheticMigrationApplications == 1, "synthetic upgrade did not execute exactly one pending body");
   }
@@ -1053,6 +1142,7 @@ int main() {
   checkKeyboardLayoutShowGlyphMigration();
   checkKeyboardLayoutCustomLabelsMigration();
   checkWorkspacesDisplayMigration();
+  checkPaletteRoleNamesMigration();
   checkPluginAutoUpdateModeMigration();
   checkVersionGating();
   checkReminderFingerprint();

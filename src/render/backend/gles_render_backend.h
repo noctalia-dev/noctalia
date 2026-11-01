@@ -99,20 +99,15 @@ public:
   [[nodiscard]] TextureManager& textureManager() override { return m_textureManager; }
 
 private:
-  using GraphicsResetStatusProc = GLenum(GL_APIENTRY*)();
-
   void drawFullscreenQuad(const ShaderProgram& program);
   void ensureFullscreenTextureProgram();
   void ensureFullscreenTintProgram();
-  void resolveGraphicsResetStatusProc();
   void destroyGpuObjects();
   void abandonGpuObjects() noexcept;
 
   EGLDisplay m_display = EGL_NO_DISPLAY;
   EGLConfig m_config = nullptr;
   EGLContext m_context = EGL_NO_CONTEXT;
-  GraphicsResetStatusProc m_graphicsResetStatus = nullptr;
-  bool m_resetStatusLogged = false;
   int m_maxTextureSize = 0;
   bool m_viewportValid = false;
   std::uint32_t m_viewportWidth = 0;

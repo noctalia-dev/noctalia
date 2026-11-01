@@ -1,5 +1,6 @@
 #include "shell/settings/template_store_tile.h"
 
+#include "shell/tooltip/tooltip_content.h"
 #include "ui/builders.h"
 #include "ui/controls/checkbox.h"
 #include "ui/controls/label.h"
@@ -14,8 +15,8 @@ namespace settings {
     setAlign(FlexAlign::Center);
     setGap(Style::spaceXs * scale);
     setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F));
-    setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), Style::borderWidth * scale);
+    setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), Style::borderWidth * scale);
     setRadius(Style::scaledRadiusMd(scale));
 
     addChild(
@@ -50,18 +51,44 @@ namespace settings {
         })
     );
     addChild(std::move(text));
+    addChild(
+        ui::button({
+            .out = &m_readmeButton,
+            .glyph = "external-link",
+            .glyphSize = Style::fontSizeBody * scale,
+            .controlHeight = Style::controlHeightSm * scale,
+            .variant = ButtonVariant::Ghost,
+            .width = Style::controlHeightSm * scale,
+            .height = Style::controlHeightSm * scale,
+            .visible = false,
+            .participatesInLayout = false,
+            .configure = [](Button& button) {
+              button.setHitTestVisible(false);
+              button.setTabStop(false);
+            },
+        })
+    );
   }
 
   void TemplateStoreTile::bind(
-      std::string_view name, std::string_view category, bool enabled, bool selected, bool hovered,
+      std::string_view name, std::string_view category, bool enabled, bool selected, bool hovered, bool hasReadme,
       std::function<void(bool enabled)> onToggle
   ) {
-    m_nameLabel->setText(std::string(name));
-    m_categoryLabel->setText(std::string(category));
+    m_nameLabel->setText(name);
+    m_categoryLabel->setText(category);
 
     const bool hasCategory = !category.empty();
     m_categoryLabel->setVisible(hasCategory);
     m_categoryLabel->setParticipatesInLayout(hasCategory);
+    m_readmeButton->setVisible(hasReadme);
+    m_readmeButton->setParticipatesInLayout(hasReadme);
+    auto readmePalette = Button::defaultPalette(ButtonVariant::Ghost);
+    readmePalette.normal.label = colorSpecFromRole(
+        enabled ? ColorRole::OnPrimary : (hovered || selected ? ColorRole::OnHover : ColorRole::OnSurface)
+    );
+    readmePalette.hover.bg = colorSpecFromRole(ColorRole::Surface);
+    readmePalette.hover.label = colorSpecFromRole(ColorRole::OnSurface);
+    m_readmeButton->setCustomPalette(readmePalette);
 
     if (m_checkbox != nullptr) {
       m_checkbox->setOnChange(nullptr);
@@ -90,11 +117,29 @@ namespace settings {
       m_nameLabel->setColor(colorSpecFromRole(ColorRole::OnHover));
       m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnHover, 0.75F));
     } else {
-      setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F));
-      setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), borderWidth);
+      setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
+      setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), borderWidth);
       m_nameLabel->setColor(colorSpecFromRole(ColorRole::OnSurface));
       m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
     }
+  }
+
+  void TemplateStoreTile::setReadmeHovered(bool hovered) { m_readmeButton->setHoveredVisual(hovered); }
+
+  bool TemplateStoreTile::hitTestReadme(float cellWidth, float cellHeight, float scale, float localX, float localY) {
+    const auto insets = readmeTooltipAnchorInsets(cellWidth, cellHeight, scale);
+    return localX >= insets.left
+        && localX < cellWidth - insets.right
+        && localY >= insets.top
+        && localY < cellHeight - insets.bottom;
+  }
+
+  TooltipAnchorInsets TemplateStoreTile::readmeTooltipAnchorInsets(float cellWidth, float cellHeight, float scale) {
+    const float size = Style::controlHeightSm * scale;
+    const float inset = Style::spaceSm * scale;
+    const float left = Style::rtl() ? inset : cellWidth - inset - size;
+    const float top = (cellHeight - size) * 0.5F;
+    return TooltipAnchorInsets{.top = top, .right = cellWidth - left - size, .bottom = top, .left = left};
   }
 
 } // namespace settings

@@ -22,6 +22,15 @@ class WaylandConnection;
 struct wl_callback;
 struct wl_output;
 
+// Session-scoped override of the [shell.window_switcher] window filters, set per invocation by the IPC command.
+enum class WindowSwitcherScope : std::uint8_t {
+  None,
+  All,
+  Output,
+  Workspace,
+  Current,
+};
+
 // Fullscreen keyboard-driven switcher with selectable preview presentations.
 class WindowSwitcher {
 public:
@@ -55,6 +64,8 @@ private:
   void closeWindowAt(std::size_t index);
   void requestSceneUpdate();
   void startThumbnailCaptures();
+  void enqueueMissingThumbnailCaptures();
+  [[nodiscard]] std::optional<ThumbnailTarget> currentThumbnailTarget() const;
   void captureNextThumbnail();
   void cancelThumbnailCaptures();
   [[nodiscard]] bool matchesTrigger(const KeyboardEvent& event) const noexcept;
@@ -89,15 +100,19 @@ private:
   struct ThumbnailRequest {
     std::string windowKey;
     std::uintptr_t captureHandle = 0;
+    ThumbnailTarget target;
   };
   std::unique_ptr<ToplevelThumbnailCapture> m_thumbnailCapture;
   std::deque<ThumbnailRequest> m_thumbnailQueue;
+  std::string m_inFlightThumbnailKey;
+  ThumbnailTarget m_thumbnailTarget;
   std::deque<std::string> m_mruKeys;
   std::size_t m_selectedIndex = 0;
   wl_output* m_output = nullptr;
   wl_callback* m_shortcutReleaseSync = nullptr;
   WindowSwitcherShortcutState m_shortcutState;
   std::uint64_t m_shortcutSessionGeneration = 0;
+  WindowSwitcherScope m_scopeOverride = WindowSwitcherScope::None;
   bool m_active = false;
   bool m_shortcutSession = false;
 };

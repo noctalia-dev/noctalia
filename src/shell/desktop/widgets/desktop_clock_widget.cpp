@@ -18,10 +18,6 @@
 
 namespace {
 
-  bool formatShowsSeconds(const std::string& format) {
-    return format.contains("%S") || format.contains("%T") || format.contains("%X");
-  }
-
   float clockFontSize(float contentScale) { return Style::fontSizeBody * 4.0F * contentScale; }
 
   float analogClockSize(float contentScale) { return Style::fontSizeBody * 5.25F * contentScale; }
@@ -81,7 +77,7 @@ namespace {
     if (tzName.empty()) {
       const std::time_t timestamp = system_clock::to_time_t(now);
       std::tm localTime{};
-#if defined(_WIN32)
+#ifdef _WIN32
       localtime_s(&localTime, &timestamp);
 #else
       localtime_r(&timestamp, &localTime);
@@ -208,8 +204,9 @@ DesktopClockWidget::Style DesktopClockWidget::styleFromSetting(std::string_view 
 
 DesktopClockWidget::DesktopClockWidget(Options options)
     : m_style(options.style), m_format(std::move(options.format)), m_color(options.color), m_shadow(options.shadow),
-      m_showCircle(options.showCircle), m_timezone(std::move(options.timezone)), m_centerText(options.centerText),
-      m_showsSeconds(m_style == Style::Analog || formatShowsSeconds(m_format)) {}
+      m_showCircle(options.showCircle), m_showSeconds(options.showSeconds), m_timezone(std::move(options.timezone)),
+      m_centerText(options.centerText),
+      m_showsSeconds((m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format)) {}
 
 void DesktopClockWidget::create() {
   auto rootNode = ui::node({});
@@ -220,6 +217,7 @@ void DesktopClockWidget::create() {
       .out = &m_label,
       .fontSize = clockFontSize(contentScale()),
       .fontWeight = FontWeight::Bold,
+      .fontFeatures = "tnum",
       .color = m_color,
   });
   m_digitalRoot->addChild(std::move(label));
@@ -276,6 +274,7 @@ void DesktopClockWidget::create() {
   syncDigitalTextAlign();
   syncStyleVisibility();
   syncCircleVisibility();
+  syncSecondHandVisibility();
   applyShadow();
   syncAnalogColors();
   updateAnalogHands();
@@ -305,6 +304,12 @@ void DesktopClockWidget::syncCircleVisibility() {
   }
   if (m_ticksRoot != nullptr) {
     m_ticksRoot->setVisible(m_showCircle);
+  }
+}
+
+void DesktopClockWidget::syncSecondHandVisibility() {
+  if (m_secondPivot != nullptr) {
+    m_secondPivot->setVisible(m_showSeconds);
   }
 }
 
@@ -426,23 +431,24 @@ void DesktopClockWidget::layoutDigital(Renderer& renderer) {
 
 void DesktopClockWidget::updateAnalogHands() {
   const LocalTimeParts time = currentLocalTimeParts(m_timezone);
-  if (time.hour == m_lastHour && time.minute == m_lastMinute && time.second == m_lastSecond) {
+  const int second = m_showSeconds ? time.second : 0;
+  if (time.hour == m_lastHour && time.minute == m_lastMinute && second == m_lastSecond) {
     return;
   }
 
   m_lastHour = time.hour;
   m_lastMinute = time.minute;
-  m_lastSecond = time.second;
+  m_lastSecond = second;
 
   const float hourAngle = degreesToRadians(
       (static_cast<float>(time.hour % 12)
        + static_cast<float>(time.minute) / 60.0F
-       + static_cast<float>(time.second) / 3600.0F)
+       + static_cast<float>(second) / 3600.0F)
       * 30.0F
   );
   const float minuteAngle =
-      degreesToRadians((static_cast<float>(time.minute) + static_cast<float>(time.second) / 60.0F) * 6.0F);
-  const float secondAngle = degreesToRadians(static_cast<float>(time.second) * 6.0F);
+      degreesToRadians((static_cast<float>(time.minute) + static_cast<float>(second) / 60.0F) * 6.0F);
+  const float secondAngle = degreesToRadians(static_cast<float>(second) * 6.0F);
 
   if (m_hourPivot != nullptr) {
     m_hourPivot->setRotation(hourAngle);
@@ -462,9 +468,11 @@ bool DesktopClockWidget::applySetting(
   if (key == "clock_style") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_style = styleFromSetting(*v);
-      m_showsSeconds = m_style == Style::Analog || formatShowsSeconds(m_format);
+      m_showsSeconds = (m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format);
       syncStyleVisibility();
       syncCircleVisibility();
+      syncSecondHandVisibility();
+      m_lastHour = m_lastMinute = m_lastSecond = -1;
       requestLayout();
       (void)allSettings;
       (void)renderer;
@@ -485,7 +493,7 @@ bool DesktopClockWidget::applySetting(
   if (key == "format") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_format = *v;
-      m_showsSeconds = m_style == Style::Analog || formatShowsSeconds(m_format);
+      m_showsSeconds = (m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format);
       m_lastText.clear();
       requestUpdate();
       return true;
@@ -520,6 +528,17 @@ bool DesktopClockWidget::applySetting(
       syncCircleVisibility();
       syncAnalogColors();
       requestLayout();
+      return true;
+    }
+    return false;
+  }
+  if (key == "show_seconds") {
+    if (const auto* v = std::get_if<bool>(&value)) {
+      m_showSeconds = *v;
+      m_showsSeconds = (m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format);
+      m_lastHour = m_lastMinute = m_lastSecond = -1;
+      syncSecondHandVisibility();
+      requestUpdate();
       return true;
     }
     return false;
@@ -573,8 +592,7 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
     float widest = -1.0F;
     for (char digit = '0'; digit <= '9'; ++digit) {
       const std::string glyph(1, digit);
-      const float advance =
-          renderer.measureText(glyph, fontSize, FontWeight::Bold, 0.0F, 0, TextAlign::Start, m_fontFamily).width;
+      const float advance = renderer.measureText(glyph, fontSize, {FontWeight::Bold, m_fontFamily, "tnum"}).width;
       if (advance > widest) {
         widest = advance;
         m_widestDigit = digit;
@@ -596,8 +614,7 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
   }
   m_stableSample = sample;
 
-  const float width =
-      renderer.measureText(sample, fontSize, FontWeight::Bold, 0.0F, 0, TextAlign::Start, m_fontFamily).width;
+  const float width = renderer.measureText(sample, fontSize, {FontWeight::Bold, m_fontFamily, "tnum"}).width;
   if (std::abs(width - m_stableWidth) > 0.5F) {
     m_stableWidth = width;
     m_label->setMinWidth(m_stableWidth);

@@ -1,9 +1,11 @@
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -15,9 +17,15 @@ namespace noctalia::theme {
   // on that call's own thread, which keeps the shared state alive past destruction.
   class HookRunner {
   public:
+    using FailureCallback = std::function<void(std::string)>;
+
     static constexpr std::size_t kDefaultMaxConcurrent = 4;
 
-    explicit HookRunner(std::size_t maxConcurrent = kDefaultMaxConcurrent);
+    // Raising `cancel` terminates the process group of every running hook. The owner sets it
+    // to bound shutdown; without one, running hooks are always waited out.
+    explicit HookRunner(
+        std::size_t maxConcurrent = kDefaultMaxConcurrent, std::shared_ptr<std::atomic<bool>> cancel = nullptr
+    );
     ~HookRunner();
 
     HookRunner(const HookRunner&) = delete;
@@ -26,7 +34,9 @@ namespace noctalia::theme {
     // Starts a hook, or queues it while maxConcurrent hooks are already running.
     // Hooks whose generation predates the current one are discarded so superseded
     // requests cannot leave stale state.
-    void enqueue(std::string command, std::uint64_t generation);
+    // Failures report stderr on the process completion thread, before marking the
+    // hook complete. Launch failures report on the launching thread.
+    void enqueue(std::string command, std::uint64_t generation, FailureCallback onFailure = {});
     // Discards queued hooks from older generations. Hooks that already started
     // keep running; waitIdle() waits them out.
     void invalidateBefore(std::uint64_t generation);
@@ -40,6 +50,7 @@ namespace noctalia::theme {
     struct QueuedHook {
       std::string command;
       std::uint64_t generation = 0;
+      FailureCallback onFailure;
     };
 
     struct State {
@@ -50,10 +61,13 @@ namespace noctalia::theme {
       std::size_t maxConcurrent = kDefaultMaxConcurrent;
       std::uint64_t currentGeneration = 0;
       bool shutdown = false;
+      // Passed to every hook's process::runAsync; null when the owner never cancels.
+      std::shared_ptr<std::atomic<bool>> cancel;
     };
 
     static void pump(const std::shared_ptr<State>& state);
-    [[nodiscard]] static bool launch(const std::shared_ptr<State>& state, const std::string& command);
+    [[nodiscard]] static bool
+    launch(const std::shared_ptr<State>& state, const std::string& command, const FailureCallback& onFailure);
 
     std::shared_ptr<State> m_state;
   };

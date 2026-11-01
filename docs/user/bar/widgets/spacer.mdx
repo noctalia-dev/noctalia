@@ -7,13 +7,26 @@ sidebar:
 
 Empty space between widgets.
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `length` | number | `8` | Spacer length in screen pixels |
-| `interactive` | bool | `false` | Spacers are click-through by default. Set `true` to enable hover/clicks/scrolls (for example as a hidden hot zone with `[widget.spacer.actions]`). |
+| Setting       | Type   | Default | Description                                                                                                                                        |
+| ------------- | ------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `length`      | number | `8`     | Spacer length in screen pixels                                                                                                                     |
+| `expand`      | bool   | `false` | Grow into an equal share of the lane's free space. Start and end lanes only; in the center lane, a capsule group or a full lane it keeps `length`. |
+| `interactive` | bool   | `false` | Spacers are click-through by default. Set `true` to enable hover/clicks/scrolls (for example as a hidden hot zone with `[widget.spacer.actions]`). |
 
 ```toml
 [widget.gap]
 type   = "spacer"
 length = 24
 ```
+
+Two expanding spacers around a widget center it in the free space of its lane, whatever the width of its neighbours. Here the media widget sits halfway between the center lane and the system tray:
+
+```toml
+[bar.default]
+end = ["spacer", "media", "spacer", "tray", "volume", "session"]
+
+[widget.spacer]
+expand = true
+```
+
+This makes every plain `spacer` expand. To keep fixed spacers too, give the expanding ones their own name, for example `[widget.spring]` with `type = "spacer"` and `expand = true`.

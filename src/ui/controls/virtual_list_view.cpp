@@ -2,7 +2,6 @@
 
 #include "render/scene/input_area.h"
 #include "ui/controls/scroll_view.h"
-#include "ui/style.h"
 
 #include <algorithm>
 #include <cmath>
@@ -182,10 +181,10 @@ void VirtualListView::doLayout(Renderer& renderer) {
   const float viewportH = std::max(0.0F, ourH - 2.0F * padV);
   const float scrollbarGutter = m_scroll->scrollbarGutter();
 
-  // Match ScrollView: only reserve the scrollbar gutter when content overflows vertically.
+  // Match ScrollView's configured gutter behavior.
   recomputeMetrics(renderer, innerW);
   float viewportW = innerW;
-  if (m_virtualHeight > viewportH + 0.5F) {
+  if (m_scroll->reservesScrollbarGutter() || m_virtualHeight > viewportH + 0.5F) {
     viewportW = std::max(0.0F, innerW - scrollbarGutter);
     recomputeMetrics(renderer, viewportW);
   }
@@ -221,7 +220,7 @@ void VirtualListView::doLayout(Renderer& renderer) {
     slot->setParticipatesInLayout(false);
     slot->setOnEnter([this, slotPtr](const InputArea::PointerData&) { setHoveredIndex(slotPtr->boundIndex()); });
     slot->setOnMotion([this, slotPtr](const InputArea::PointerData&) { setHoveredIndex(slotPtr->boundIndex()); });
-    slot->setOnLeave([this, slotPtr]() {
+    slot->setOnLeave([this, slotPtr] {
       if (m_hoveredIndex == slotPtr->boundIndex()) {
         setHoveredIndex(std::nullopt);
       }

@@ -111,6 +111,9 @@ const noctalia::bar::WidgetDefinition<MediaWidget::Options>& mediaWidgetDefiniti
           field<&Options::hideWhenNoMedia>({
               .key = "hide_when_no_media",
           }),
+          field<&Options::hideWhenIdle>({
+              .key = "hide_when_idle",
+          }),
       },
   };
   return definition;

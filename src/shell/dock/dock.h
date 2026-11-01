@@ -37,6 +37,8 @@ public:
 
   bool initialize(CompositorPlatform& platform, ConfigService* config, RenderContext* renderContext);
   void reload();
+  // Re-resolves item icons on the existing surfaces; never recreates the layer surface.
+  void onIconThemeChanged();
   void show();
   /// Tears down dock surfaces without changing config (e.g. lockscreen widget editor overlay).
   void suppressDisplay();

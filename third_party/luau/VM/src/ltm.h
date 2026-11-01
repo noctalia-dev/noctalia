@@ -4,6 +4,8 @@
 
 #include "lobject.h"
 
+LUAU_FASTFLAG(LuauFrozenMetaButterfly)
+
 /*
  * WARNING: if you change the order of this enumeration,
  * grep "ORDER TM"
@@ -40,7 +42,11 @@ typedef enum
 } TMS;
 // clang-format on
 
-#define gfasttm(g, et, e) ((et) == NULL ? NULL : ((et)->tmcache & (1u << (e))) ? NULL : luaT_gettm(et, e, (g)->tmname[e]))
+#define gfasttm(g, et, e) \
+    ((et) == NULL ? NULL \
+     : ((et)->tmcache & (1u << (e))) \
+         ? NULL \
+         : (FFlag::LuauFrozenMetaButterfly && hasmetacache(et) ? getmetacache(et, e) : luaT_gettm(et, e, (g)->tmname[e])))
 
 #define fasttm(l, et, e) gfasttm(l->global, et, e)
 #define fastnotm(et, e) ((et) == NULL || ((et)->tmcache & (1u << (e))))

@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "core/input/key_chord.h"
+#include "theme/builtin_templates.h"
 #include "ui/controls/button.h"
 #include "ui/controls/color_swatch_preview.h"
 #include "ui/palette.h"
@@ -28,6 +29,7 @@ namespace settings {
     Wallpaper,
     Templates,
     Desktop,
+    LockScreen,
     Dock,
     Panels,
     Launcher,
@@ -109,17 +111,17 @@ namespace settings {
     float preferredHeight = 240.0F;
     // When set, replaces the default commit for the setting path.
     std::function<void(const std::string&)> onSelect;
+    // Keep the picker open after a pick so options can be tried one after another.
+    bool keepOpenOnSelect = false;
   };
 
   struct SliderSetting {
     SliderSetting() = default;
-    template <
-        typename Value, typename MinValue, typename MaxValue, typename Step,
-        typename = std::enable_if_t<
-            std::is_arithmetic_v<Value>
-            && std::is_arithmetic_v<MinValue>
-            && std::is_arithmetic_v<MaxValue>
-            && std::is_arithmetic_v<Step>>>
+    template <typename Value, typename MinValue, typename MaxValue, typename Step>
+      requires(std::is_arithmetic_v<Value>
+               && std::is_arithmetic_v<MinValue>
+               && std::is_arithmetic_v<MaxValue>
+               && std::is_arithmetic_v<Step>)
     SliderSetting(Value valueIn, MinValue minValueIn, MaxValue maxValueIn, Step stepIn, bool integerValueIn)
         : value(static_cast<double>(valueIn)), minValue(static_cast<double>(minValueIn)),
           maxValue(static_cast<double>(maxValueIn)), step(static_cast<double>(stepIn)), integerValue(integerValueIn) {}
@@ -246,7 +248,7 @@ namespace settings {
   };
 
   struct TemplateGridSetting {
-    std::vector<SelectOption> options;
+    std::vector<noctalia::theme::AvailableTemplate> options;
     std::vector<std::string> selectedValues;
     std::string emptyText;
   };
@@ -302,6 +304,8 @@ namespace settings {
     bool niriBackdropSupported = false;             // hide niri backdrop entries when false
     bool niriOverviewTypeToLaunchSupported = false; // show niri-only type-to-launch integration
     bool umbrielOverviewTypeToLaunchSupported = false;
+    bool niriOverviewCloseOnLaunchSupported = false;
+    bool umbrielOverviewCloseOnLaunchSupported = false;
     bool screencopySupported = false;           // lockscreen blurred desktop + screenshot features
     bool backgroundEffectBlurSupported = false; // hide compositor blur toggles without ext-background-effect-v1
     bool ddcutilAvailable = false;              // disable ddcutil toggle when ddcutil is not on PATH

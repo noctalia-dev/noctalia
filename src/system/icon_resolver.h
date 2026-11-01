@@ -13,6 +13,22 @@ struct IconSearchDir {
   int size = 0;
   bool scalable = false;
   std::string theme;
+  int minSize = 0;
+  int maxSize = 0;
+};
+
+struct IconThemeWatchPaths {
+  std::vector<std::string> baseDirs;
+  std::vector<std::string> themeRoots;
+  std::vector<std::string> iconDirs;
+  std::vector<std::string> settingsFiles;
+};
+
+struct ResolvedIcon {
+  std::string path;
+  bool symbolic = false;
+
+  bool operator==(const ResolvedIcon&) const = default;
 };
 
 class IconResolver {
@@ -27,9 +43,16 @@ public:
   // downscale gently instead of crushing a 1024px PNG. targetSize == 0 keeps the
   // legacy "prefer scalable, then largest" behavior for callers that have no size.
   const std::string& resolve(const std::string& iconName, int targetSize = 0);
+  [[nodiscard]] ResolvedIcon resolveSymbolicPreferred(const std::string& iconName, int targetSize = 0);
+  // Select status SVG artwork by logical size within the normal winner's theme.
+  // Returns empty when normal lookup selects application artwork or a bitmap.
+  std::string resolveStatusVector(const std::string& iconName, int targetSize);
   void invalidateMissingCache();
 
   static bool checkThemeChanged();
+  static bool checkThemePlanChanged();
+  static void invalidateThemeContent();
+  static IconThemeWatchPaths themeWatchPaths();
   static std::uint64_t themeGeneration();
   static std::string activeThemeName();
 
@@ -39,8 +62,9 @@ private:
   std::string findIcon(const std::string& name, int targetSize) const;
 
   std::unordered_map<std::string, std::string> m_cache;
+  std::unordered_map<std::string, ResolvedIcon> m_symbolicPreferredCache;
   std::unordered_set<std::string> m_missingCache;
-  std::vector<std::string> m_baseDirs;     // XDG icon theme roots
+  std::vector<std::string> m_baseDirs;     // XDG icon base dirs: theme roots and unthemed fallback
   std::vector<IconSearchDir> m_searchDirs; // Ordered list of concrete theme dirs to search
   std::vector<std::string> m_pixmapDirs;   // XDG pixmap fallback roots
   std::string m_empty;

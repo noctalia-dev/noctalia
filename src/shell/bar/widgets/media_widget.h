@@ -34,6 +34,7 @@ public:
     int artSize = 16;
     MediaTitleScrollMode titleScrollMode = MediaTitleScrollMode::None;
     bool hideWhenNoMedia = false;
+    bool hideWhenIdle = false;
     bool rotateAlbumArt = false;
     bool albumArtOnly = false;
     bool hideAlbumArt = false;
@@ -53,7 +54,7 @@ private:
   void doUpdate(Renderer& renderer) override;
   void applyTitleScrollMode(bool titleVisible);
   void syncState(Renderer& renderer, const std::optional<MprisPlayerInfo>& active);
-  void syncWidgetVisibility(bool hasMedia);
+  void syncWidgetVisibility(bool showWidget);
   // Applies playback position to the fill and arms the update timer. Update-phase only: it decides
   // eligibility itself instead of reading the visibility that doLayout() applies afterwards.
   void syncProgress(const std::optional<MprisPlayerInfo>& active);
@@ -68,6 +69,7 @@ private:
   float m_artSize = 16.0F;
   MediaTitleScrollMode m_titleScrollMode = MediaTitleScrollMode::None;
   bool m_hideWhenNoMedia = false;
+  bool m_hideWhenIdle = false;
   bool m_rotateAlbumArt = false;
   bool m_albumArtOnly = false;
   bool m_hideAlbumArt = false;

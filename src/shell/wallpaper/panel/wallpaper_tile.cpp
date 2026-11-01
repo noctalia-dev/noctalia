@@ -106,7 +106,7 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
       m_onEnter();
     }
   });
-  setOnLeave([this]() {
+  setOnLeave([this] {
     if (m_hasEntry && m_onLeave) {
       m_onLeave();
     }
@@ -259,6 +259,21 @@ void WallpaperTile::layoutThumbOverlays() {
   }
 }
 
+float WallpaperTile::captionHeight(float contentScale) noexcept {
+  return Style::spaceXs * contentScale + Style::fontSizeCaption * contentScale * 1.4F;
+}
+
+void WallpaperTile::setShowName(bool showName) {
+  if (m_showName == showName) {
+    return;
+  }
+  m_showName = showName;
+  if (m_label != nullptr) {
+    m_label->setVisible(showName);
+  }
+  setCellSize(m_cellWidth, m_cellHeight);
+}
+
 void WallpaperTile::setCellSize(float cellWidth, float cellHeight) {
   m_cellWidth = cellWidth;
   m_cellHeight = cellHeight;
@@ -266,12 +281,12 @@ void WallpaperTile::setCellSize(float cellWidth, float cellHeight) {
 
   const float padding = Style::spaceXs * m_contentScale;
   const float innerGap = Style::spaceXs * m_contentScale;
-  const float labelH = Style::fontSizeCaption * m_contentScale * 1.4F;
+  const float captionH = m_showName ? captionHeight(m_contentScale) : 0.0F;
   m_thumbFrameWidth = std::max(0.0F, cellWidth - padding * 2.0F);
-  m_thumbFrameHeight = std::max(0.0F, cellHeight - padding * 2.0F - innerGap - labelH);
+  m_thumbFrameHeight = std::max(0.0F, cellHeight - padding * 2.0F - captionH);
 
   if (m_layout != nullptr) {
-    m_layout->setGap(innerGap);
+    m_layout->setGap(m_showName ? innerGap : 0.0F);
     m_layout->setPadding(padding);
     m_layout->setFrameSize(cellWidth, cellHeight);
   }
@@ -575,7 +590,7 @@ void WallpaperTile::animateThumbScale(float targetScale) {
 
   m_thumbScaleAnimId = animationManager()->animate(
       m_thumbScale, targetScale, Style::animFast, Easing::EaseOutCubic, [this](float value) { applyThumbScale(value); },
-      [this]() { m_thumbScaleAnimId = 0; }, this
+      [this] { m_thumbScaleAnimId = 0; }, this
   );
   markPaintDirty();
 }
@@ -623,16 +638,16 @@ void WallpaperTile::applyVisualState() {
   ColorSpec borderColor = m_selected ? colorSpecFromRole(ColorRole::Primary)
       : m_current                    ? colorSpecFromRole(ColorRole::Secondary)
       : m_hoveredVisual              ? colorSpecFromRole(ColorRole::Hover)
-                                     : colorSpecFromRole(ColorRole::Outline);
+                                     : colorSpecFromRole(ColorRole::OutlineVariant);
   ColorSpec labelColor =
       m_current ? colorSpecFromRole(ColorRole::Secondary) : colorSpecFromRole(ColorRole::OnSurfaceVariant);
-  ColorSpec frameBg = colorSpecFromRole(ColorRole::SurfaceVariant);
+  ColorSpec frameBg = colorSpecFromRole(ColorRole::SurfaceContainer);
   m_label->setColor(labelColor);
 
   m_thumbHost->setFill(frameBg);
   if (m_entry.isDir) {
     m_thumbHost->setBorder(borderColor, outlineWidth);
-    m_thumb->setBorder(colorSpecFromRole(ColorRole::Outline), outlineWidth);
+    m_thumb->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), outlineWidth);
   } else {
     m_thumbHost->clearBorder();
     m_thumb->setBorder(borderColor, outlineWidth);

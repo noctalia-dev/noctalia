@@ -4,9 +4,12 @@
 #include "core/log.h"
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
+#include "pipewire/audio_media_class.h"
 #include "pipewire/audio_route_selection.h"
 #include "pipewire/pipewire_error.h"
+#include "pipewire/privacy_capture_classification.h"
 #include "pipewire/wireplumber_mixer.h"
+#include "system/v4l2_camera.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -56,6 +59,22 @@ namespace {
   constexpr auto kInitialSyncTimeout = std::chrono::seconds(1);
   constexpr auto kReconnectInitialDelay = std::chrono::milliseconds(250);
   constexpr auto kReconnectMaxDelay = std::chrono::seconds(5);
+  // Camera node opens and closes come in bursts (browsers probe every device), and procfs may not
+  // list the new descriptor yet when IN_OPEN arrives, so scans run once the burst has settled.
+  constexpr auto kCameraScanDelay = std::chrono::milliseconds(500);
+  constexpr auto kCameraScanCheckInterval = std::chrono::milliseconds(50);
+  // Applications such as Discord briefly open every camera to query its capabilities. A direct
+  // V4L2 user is reported only once it has held the device this long, so probes never show.
+  constexpr auto kCameraHoldTime = std::chrono::seconds(3);
+
+  // Milliseconds until deadline, rounded up and clamped to [0, INT_MAX].
+  [[nodiscard]] int
+  pollMsUntil(std::chrono::steady_clock::time_point deadline, std::chrono::steady_clock::time_point now) noexcept {
+    const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now);
+    return static_cast<int>(
+        std::clamp(remaining, std::chrono::milliseconds::zero(), std::chrono::milliseconds{INT_MAX}).count()
+    );
+  }
 
   [[nodiscard]] bool pipeWireVersionSupportsPassiveFollow(std::string_view version) {
     const auto majorEnd = version.find('.');
@@ -236,9 +255,8 @@ namespace {
       }
       const std::string name = extractDefaultMetadataNodeName(std::string_view(value));
       if (!name.empty()) {
-        spa_dict_item items[1];
-        items[0] = SPA_DICT_ITEM_INIT(key, name.c_str());
-        spa_dict dict = SPA_DICT_INIT(items, 1);
+        spa_dict_item items[] = {{.key = key, .value = name.c_str()}};
+        spa_dict dict{.flags = 0, .n_items = 1, .items = items};
         md->service->parseDefaultNodes(&dict);
       }
       return 0;
@@ -463,8 +481,8 @@ namespace {
     if (propsPod == nullptr) {
       return;
     }
-    auto* obj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(propsPod));
-    spa_pod_prop* prop = nullptr;
+    const auto* obj = reinterpret_cast<const spa_pod_object*>(propsPod);
+    const spa_pod_prop* prop = nullptr;
     SPA_POD_OBJECT_FOREACH(obj, prop) {
       if (prop->key == SPA_PROP_channelVolumes) {
         parseVolumeArrayProp(prop, out->channelVol, &out->channelCount);
@@ -578,23 +596,12 @@ namespace {
     return 0;
   }
 
-  constexpr auto kTrackedNodeClasses = std::to_array<std::string_view>({
-      "Audio/Sink",
-      "Audio/Source",
-      "Stream/Output/Audio",
-      "Stream/Input/Audio",
-  });
-
   constexpr auto kPrivacyAudioNodeClasses = std::to_array<std::string_view>({
       "Stream/Input/Audio",
   });
 
   constexpr auto kMicrophoneSourceClasses = std::to_array<std::string_view>({
       "Audio/Source",
-  });
-
-  constexpr auto kAudioCaptureConsumerClasses = std::to_array<std::string_view>({
-      "Stream/Input/Audio",
   });
 
   constexpr auto kCameraSourceClasses = std::to_array<std::string_view>({
@@ -636,21 +643,6 @@ namespace {
 
   bool isProgramStreamClass(std::string_view mediaClass) { return mediaClass == "Stream/Output/Audio"; }
 
-  [[nodiscard]] bool isTrackedNodeClass(std::string_view mediaClass) {
-    return std::ranges::contains(kTrackedNodeClasses, mediaClass) || mediaClass.contains("Video");
-  }
-
-  // PipeWire exposes virtual endpoints (e.g. EasyEffects) with a suffix such
-  // as `Audio/Sink/Virtual`; collapse them to the base class so downstream
-  // tracking treats them like normal sinks/sources.
-  void normalizeAudioMediaClass(std::string& mediaClass) {
-    if (mediaClass.starts_with("Audio/Sink")) {
-      mediaClass = "Audio/Sink";
-    } else if (mediaClass.starts_with("Audio/Source")) {
-      mediaClass = "Audio/Source";
-    }
-  }
-
   [[nodiscard]] bool isPrivacyCandidateClass(std::string_view mediaClass) {
     return std::ranges::contains(kPrivacyAudioNodeClasses, mediaClass)
         || (mediaClass.contains("Video") && !mediaClass.contains("Audio"));
@@ -686,7 +678,12 @@ namespace {
   }
 
   [[nodiscard]] bool isAudioCaptureConsumer(const PipeWireService::NodeData& nd) {
-    return std::ranges::contains(kAudioCaptureConsumerClasses, nd.mediaClass) && !nd.streamCaptureSink;
+    return noctalia::pipewire::isPrivacyAudioCaptureConsumer({
+        .mediaClass = nd.mediaClass,
+        .linkGroup = nd.linkGroup,
+        .nodePassive = nd.nodePassive,
+        .streamCaptureSink = nd.streamCaptureSink,
+    });
   }
 
   [[nodiscard]] bool isCameraSource(const PipeWireService::NodeData& nd) {
@@ -789,6 +786,8 @@ PipeWireService::PipeWireService() {
   }
 
   pw_loop_enter(m_loop);
+  // Applications may already hold a camera open before the shell starts.
+  m_cameraScanAt = std::chrono::steady_clock::now();
   if (!connectRemote(true)) {
     kLog.warn("PipeWire daemon unavailable at startup; retrying in the background");
     scheduleReconnect();
@@ -796,6 +795,9 @@ PipeWireService::PipeWireService() {
 }
 
 PipeWireService::~PipeWireService() {
+  if (m_cameraScan.valid()) {
+    m_cameraScan.wait();
+  }
   disconnectRemote(false);
   if (m_context != nullptr) {
     pw_context_destroy(m_context);
@@ -1045,28 +1047,106 @@ int PipeWireService::fd() const noexcept {
 }
 
 int PipeWireService::pollTimeoutMs() const noexcept {
-  if (m_core != nullptr || m_reconnectAt.time_since_epoch().count() == 0) {
-    return -1;
+  const auto now = std::chrono::steady_clock::now();
+  int timeout = m_cameraScanAt.has_value() ? pollMsUntil(*m_cameraScanAt, now) : -1;
+  if (m_core == nullptr && m_reconnectAt.time_since_epoch().count() != 0) {
+    const int reconnect = pollMsUntil(m_reconnectAt, now);
+    timeout = timeout < 0 ? reconnect : std::min(timeout, reconnect);
+  }
+  return timeout;
+}
+
+void PipeWireService::dispatchCamera() {
+  if (m_cameraWatch.drain()) {
+    requestCameraScan(std::chrono::steady_clock::now());
+  }
+}
+
+void PipeWireService::requestCameraScan(std::chrono::steady_clock::time_point now) {
+  if (m_cameraScan.valid()) {
+    m_cameraRescan = true;
+    return;
+  }
+  // Never postpone an existing deadline, so a continuous event stream cannot delay the scan
+  // forever, but pull a later hold confirmation forward so a quick close is not missed.
+  const auto deadline = now + kCameraScanDelay;
+  if (!m_cameraScanAt.has_value() || deadline < *m_cameraScanAt) {
+    m_cameraScanAt = deadline;
+  }
+}
+
+void PipeWireService::pollCameraApps() {
+  const auto now = std::chrono::steady_clock::now();
+  if (!m_cameraScanAt.has_value() || now < *m_cameraScanAt) {
+    return;
   }
 
-  const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(m_reconnectAt - std::chrono::steady_clock::now());
-  if (remaining <= std::chrono::milliseconds::zero()) {
-    return 0;
+  if (!m_cameraScan.valid()) {
+    try {
+      m_cameraScan = std::async(std::launch::async, [] { return v4l2CameraApps(); });
+      m_cameraScanAt = now + kCameraScanCheckInterval;
+    } catch (const std::exception& e) {
+      kLog.warn("could not start camera scan: {}", e.what());
+      m_cameraScanAt.reset();
+    }
+    return;
   }
-  return static_cast<int>(std::min(remaining, std::chrono::milliseconds{INT_MAX}).count());
+  if (m_cameraScan.wait_for(std::chrono::milliseconds::zero()) != std::future_status::ready) {
+    m_cameraScanAt = now + kCameraScanCheckInterval;
+    return;
+  }
+
+  // Schedule the follow-up before rebuildState so a change callback sees consistent scan state.
+  m_cameraScanAt.reset();
+  if (m_cameraRescan) {
+    m_cameraRescan = false;
+    m_cameraScanAt = now + kCameraScanDelay;
+  }
+  try {
+    auto apps = m_cameraScan.get();
+    std::vector<std::string> confirmed;
+    std::vector<PendingCameraApp> pending;
+    for (auto& app : apps) {
+      if (std::ranges::binary_search(m_cameraApps, app)) {
+        confirmed.push_back(std::move(app));
+        continue;
+      }
+      // Pending users missing from this scan are dropped, so a reopen starts a new hold.
+      const auto it = std::ranges::find(m_cameraPending, app, &PendingCameraApp::app);
+      const auto firstSeen = it != m_cameraPending.end() ? it->firstSeen : now;
+      if (now - firstSeen >= kCameraHoldTime) {
+        confirmed.push_back(std::move(app));
+      } else {
+        const auto confirmAt = firstSeen + kCameraHoldTime;
+        if (!m_cameraScanAt.has_value() || confirmAt < *m_cameraScanAt) {
+          m_cameraScanAt = confirmAt;
+        }
+        pending.push_back({.app = std::move(app), .firstSeen = firstSeen});
+      }
+    }
+    m_cameraPending = std::move(pending);
+    if (confirmed != m_cameraApps) {
+      m_cameraApps = std::move(confirmed);
+      rebuildState();
+    }
+  } catch (const std::exception& e) {
+    kLog.warn("camera scan failed: {}", e.what());
+  }
 }
 
 void PipeWireService::dispatch() {
+  pollCameraApps();
   if (m_loop == nullptr) {
     return;
   }
 
   if (m_core == nullptr) {
-    if (m_reconnectAt.time_since_epoch().count() != 0 && std::chrono::steady_clock::now() >= m_reconnectAt) {
-      if (!connectRemote(false)) {
-        scheduleReconnect();
-      }
+    if (m_reconnectAt.time_since_epoch().count() != 0
+        && std::chrono::steady_clock::now() >= m_reconnectAt
+        && !connectRemote(false)) {
+      scheduleReconnect();
     }
+
     return;
   }
 
@@ -1313,7 +1393,7 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
         spa_zero(*md->listener);
         pw_metadata_add_listener(proxy, md->listener, &kMetadataEvents, md);
         pw_core_sync(md->service->coreHandle(), PW_ID_CORE, 0);
-        m_metadataCleanups.emplace_back([md]() {
+        m_metadataCleanups.emplace_back([md] {
           if (md->listener != nullptr) {
             spa_hook_remove(md->listener);
             delete md->listener;
@@ -1559,8 +1639,8 @@ void PipeWireService::onNodeParam(
       route.priority = routePriority;
       route.available = routeAvailable;
       if (routeProps != nullptr) {
-        spa_pod_prop* prop = nullptr;
-        auto* propsObj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(routeProps));
+        const spa_pod_prop* prop = nullptr;
+        const auto* propsObj = reinterpret_cast<const spa_pod_object*>(routeProps);
         SPA_POD_OBJECT_FOREACH(propsObj, prop) {
           if (prop->key == SPA_PROP_mute) {
             bool routeMuted = false;
@@ -1591,8 +1671,19 @@ void PipeWireService::onNodeParam(
     return;
   }
 
-  // Props volume/mute is authoritative only for program streams; device nodes use mixer-api.
+  // Props volume/mute is authoritative only for program streams; device nodes use mixer-api. Route-less
+  // virtual sources still report their monitor-port mute here, which mixer-api does not track.
   if (isDeviceNode) {
+    if (nd.mediaClass == "Audio/Source" && !nd.hasRoute) {
+      if (const spa_pod_prop* prop = spa_pod_find_prop(param, nullptr, SPA_PROP_monitorMute); prop != nullptr) {
+        bool monitorMuted = false;
+        if (spa_pod_get_bool(&prop->value, &monitorMuted) == 0 && monitorMuted != nd.monitorMute) {
+          nd.monitorMute = monitorMuted;
+          recomputeEffectiveMute(nd);
+          rebuildState();
+        }
+      }
+    }
     return;
   }
 
@@ -1604,8 +1695,8 @@ void PipeWireService::onNodeParam(
   ParsedPropsVolumes parsed{};
   parsePropsObjectVolumeFields(param, basis, &parsed);
 
-  auto* obj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(param));
-  spa_pod_prop* prop = nullptr;
+  const auto* obj = reinterpret_cast<const spa_pod_object*>(param);
+  const spa_pod_prop* prop = nullptr;
   SPA_POD_OBJECT_FOREACH(obj, prop) {
     if (prop->key == SPA_PROP_mute) {
       bool swMuted = false;
@@ -1699,8 +1790,8 @@ void PipeWireService::onDeviceParam(
 
   bool muted = false;
   if (routeProps != nullptr) {
-    spa_pod_prop* prop = nullptr;
-    auto* propsObj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(routeProps));
+    const spa_pod_prop* prop = nullptr;
+    const auto* propsObj = reinterpret_cast<const spa_pod_object*>(routeProps);
     SPA_POD_OBJECT_FOREACH(propsObj, prop) {
       if (prop->key == SPA_PROP_mute) {
         bool routeMuted = false;
@@ -1963,6 +2054,24 @@ void PipeWireService::rebuildState() {
     addCapture(*kind, consumer->id, privacyAppName(*consumer));
   }
 
+  for (const auto& app : m_cameraApps) {
+    // Keep PipeWire's richer application label when it already reports this camera client.
+    const bool reported = std::ranges::any_of(nextPrivacy.captures, [&](const PrivacyCapture& capture) {
+      if (capture.kind != PrivacyCaptureKind::Camera) {
+        return false;
+      }
+      if (v4l2CameraSameApp(capture.appName, app)) {
+        return true;
+      }
+      const auto* node = findNode(capture.nodeId);
+      return node != nullptr
+          && (v4l2CameraSameApp(node->applicationBinary, app) || v4l2CameraSameApp(node->applicationName, app));
+    });
+    if (!reported) {
+      addCapture(PrivacyCaptureKind::Camera, 0, app);
+    }
+  }
+
   // Sort by id for stable ordering
   std::ranges::sort(next.sinks, {}, &AudioNode::id);
   std::ranges::sort(next.sources, {}, &AudioNode::id);
@@ -2025,7 +2134,8 @@ void PipeWireService::recomputeEffectiveMute(NodeData& nd) {
   }
 
   const bool deviceRouteMuted = deviceRoute != nullptr && deviceRoute->muted;
-  nd.muted = nd.swMute || routeMuted || deviceRouteMuted;
+  const bool monitorMuted = nd.mediaClass == "Audio/Source" && nodeRoute == nullptr && nd.monitorMute;
+  nd.muted = nd.swMute || routeMuted || deviceRouteMuted || monitorMuted;
 }
 
 void PipeWireService::applyVolumePropsFromDict(NodeData& nd, const spa_dict* props, bool applyMixerFieldsFromDict) {
@@ -2180,12 +2290,23 @@ void PipeWireService::setNodeMuted(std::uint32_t id, bool muted) {
     return;
   }
 
-  // Device nodes with a hardware route go through WirePlumber's mixer-api to keep pipewire-pulse /
-  // pavucontrol in sync. Route-less virtual sources also need the direct SPA node mute below: the mixer
-  // write can update the optimistic UI state without stopping capture in the virtual filter graph.
+  // Device nodes go through WirePlumber's mixer-api to keep pipewire-pulse / pavucontrol in sync.
+  // Route-less virtual sources (e.g. EasyEffects) are captured from monitor ports, which ignore the
+  // SPA_PROP_mute that mixer-api writes, so they also need SPA_PROP_monitorMute to stop capture.
   const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
+  const bool isRoutelessSource = nd.mediaClass == "Audio/Source" && !nd.hasRoute;
   if (isDeviceNode && m_wpMixer != nullptr) {
     m_wpMixer->setMuted(id, muted);
+    if (isRoutelessSource) {
+      std::uint8_t monitorBuffer[128];
+      spa_pod_builder monitorBuilder;
+      spa_pod_builder_init(&monitorBuilder, monitorBuffer, sizeof(monitorBuffer));
+      auto* monitorPod = static_cast<spa_pod*>(spa_pod_builder_add_object(
+          &monitorBuilder, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props, SPA_PROP_monitorMute, SPA_POD_Bool(muted)
+      ));
+      pw_node_set_param(nd.proxy, SPA_PARAM_Props, 0, monitorPod);
+      nd.monitorMute = muted;
+    }
     const bool before = nd.muted;
     nd.swMute = muted;
     recomputeEffectiveMute(nd);
@@ -2197,9 +2318,7 @@ void PipeWireService::setNodeMuted(std::uint32_t id, bool muted) {
       }
       rebuildState();
     }
-    if (nd.hasRoute) {
-      return;
-    }
+    return;
   }
 
   // Program streams, and device nodes for immediate local/UI consistency.
@@ -2236,12 +2355,19 @@ void PipeWireService::setNodeMuted(std::uint32_t id, bool muted) {
   spa_pod_builder_push_object(&builder, &frame, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
   spa_pod_builder_prop(&builder, SPA_PROP_mute, 0);
   spa_pod_builder_bool(&builder, muted);
+  if (isRoutelessSource) {
+    spa_pod_builder_prop(&builder, SPA_PROP_monitorMute, 0);
+    spa_pod_builder_bool(&builder, muted);
+  }
   auto* pod = static_cast<spa_pod*>(spa_pod_builder_pop(&builder, &frame));
 
   pw_node_set_param(nd.proxy, SPA_PARAM_Props, 0, pod);
 
   const bool before = nd.muted;
   nd.swMute = muted;
+  if (isRoutelessSource) {
+    nd.monitorMute = muted;
+  }
   if (nd.hasRoute && nd.routeIndex >= 0) {
     nd.nodeRouteMute = muted;
   }
@@ -2410,9 +2536,9 @@ void PipeWireService::moveProgramOutput(std::uint32_t programStreamId, std::uint
 
 void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) {
   const auto maxVolume = [&config] { return maxAudioVolume(config.config().audio); };
-  const auto parseVolumeValueError =
+  const auto* parseVolumeValueError =
       "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
-  const auto parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
+  const auto* parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
 
   ipc.bind(
       noctalia::cli::msg::volumeSet, [this, maxVolume, parseVolumeValueError](const std::string& args) -> std::string {

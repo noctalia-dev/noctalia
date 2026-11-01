@@ -104,7 +104,7 @@ bool LayerSurface::initialize(wl_output* output) {
     throw std::runtime_error("failed to add layer surface listener");
   }
 
-  m_connection.registerLayerSurface(m_surface, m_layerSurface);
+  m_connection.registerLayerSurface(*this);
 
   zwlr_layer_surface_v1_set_anchor(m_layerSurface, m_config.anchor);
   zwlr_layer_surface_v1_set_size(m_layerSurface, m_config.width, m_config.height);
@@ -192,6 +192,28 @@ void LayerSurface::requestSize(std::uint32_t width, std::uint32_t height) {
   }
   zwlr_layer_surface_v1_set_size(m_layerSurface, resolvedWidth, resolvedHeight);
   traceLayerCommit(*this, m_config, "request-size");
+  wl_surface_commit(m_surface);
+}
+
+void LayerSurface::setAnchorAndSize(std::uint32_t anchor, std::uint32_t width, std::uint32_t height) {
+  if (m_config.anchor == anchor && m_config.width == width && m_config.height == height) {
+    return;
+  }
+  m_config.anchor = anchor;
+  m_config.width = width;
+  m_config.height = height;
+  if (width != 0) {
+    m_config.defaultWidth = width;
+  }
+  if (height != 0) {
+    m_config.defaultHeight = height;
+  }
+  if (m_layerSurface == nullptr || m_surface == nullptr) {
+    return;
+  }
+  zwlr_layer_surface_v1_set_anchor(m_layerSurface, anchor);
+  zwlr_layer_surface_v1_set_size(m_layerSurface, width, height);
+  traceLayerCommit(*this, m_config, "set-anchor-size");
   wl_surface_commit(m_surface);
 }
 

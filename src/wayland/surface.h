@@ -29,6 +29,8 @@ struct InputRect {
   int y = 0;
   int width = 0;
   int height = 0;
+
+  bool operator==(const InputRect&) const = default;
 };
 
 struct SurfaceIdleProfileEntry {
@@ -85,6 +87,8 @@ public:
   void setOutputChangedCallback(OutputChangedCallback callback);
   void setInputRegion(const std::vector<InputRect>& rects);
   void setBlurRegion(const std::vector<InputRect>& rects);
+  // Declares the whole surface opaque, or not, from its next commit, so the compositor can skip what lies beneath it.
+  void setOpaque(bool opaque);
   void clearBlurRegion();
   void setDebugName(std::string name);
 
@@ -210,6 +214,7 @@ private:
   bool m_layoutRequested = false;
   bool m_redrawRequested = false;
   bool m_running = false;
+  bool m_opaque = false;
   bool m_configured = false;
   bool m_inFrameHandler = false;
   bool m_inPrepareFrame = false;

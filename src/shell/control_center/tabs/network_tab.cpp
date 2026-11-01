@@ -199,7 +199,7 @@ namespace {
         .align = FlexAlign::Center,
         .paddingV = Style::spaceXs * 0.5F * scale,
         .paddingH = Style::spaceSm * scale,
-        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.8F),
+        .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
         .radius = Style::scaledRadiusSm(scale),
     });
     pill->addChild(
@@ -302,7 +302,7 @@ public:
       action->setGlyph("check");
     } else if (saved) {
       action->setGlyph("trash");
-      action->setOnClick([this]() {
+      action->setOnClick([this] {
         if (m_onForget) {
           m_onForget(m_ap);
         }
@@ -313,7 +313,7 @@ public:
     auto area = ui::inputArea({});
     area->setPropagateEvents(true);
     area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-    area->setOnLeave([this]() { applyState(); });
+    area->setOnLeave([this] { applyState(); });
     area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
     area->setOnClick([this](const InputArea::PointerData& /*data*/) {
       if (m_onActivate) {
@@ -448,14 +448,14 @@ namespace {
               .variant = m_vpn.active ? ButtonVariant::Destructive : ButtonVariant::Default,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .onClick = [this]() { triggerAction(); },
+              .onClick = [this] { triggerAction(); },
           })
       );
 
       auto area = ui::inputArea({});
       area->setPropagateEvents(true);
       area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-      area->setOnLeave([this]() { applyState(); });
+      area->setOnLeave([this] { applyState(); });
       area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
       area->setOnClick([this](const InputArea::PointerData& /*data*/) { triggerAction(); });
       m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
@@ -654,7 +654,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .variant = ButtonVariant::Destructive,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusSm(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_network == nullptr || m_actionPending) {
               return;
             }
@@ -758,6 +758,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .out = &m_identityInput,
           .placeholder = i18n::tr("control-center.network.identity"),
           .surfaceOpacity = panelCardOpacity(),
+          .surfaceRole = ColorRole::Surface,
           .onSubmit = submitFromForm,
       })
   );
@@ -767,6 +768,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .out = &m_anonymousIdentityInput,
           .placeholder = i18n::tr("control-center.network.anonymous-identity"),
           .surfaceOpacity = panelCardOpacity(),
+          .surfaceRole = ColorRole::Surface,
           .onSubmit = submitFromForm,
       })
   );
@@ -776,6 +778,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .out = &m_domainMatchInput,
           .placeholder = i18n::tr("control-center.network.domain-suffix-match"),
           .surfaceOpacity = panelCardOpacity(),
+          .surfaceRole = ColorRole::Surface,
           .onSubmit = submitFromForm,
       })
   );
@@ -785,6 +788,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .out = &m_caCertInput,
           .placeholder = i18n::tr("control-center.network.ca-certificate"),
           .surfaceOpacity = panelCardOpacity(),
+          .surfaceRole = ColorRole::Surface,
           .onSubmit = submitFromForm,
       })
   );
@@ -798,6 +802,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .placeholder = i18n::tr("control-center.network.password"),
           .passwordMode = true,
           .surfaceOpacity = panelCardOpacity(),
+          .surfaceRole = ColorRole::Surface,
           .flexGrow = 1.0F,
           .onSubmit = [this](const std::string& value) { submitPasswordPrompt(value); },
       }),
@@ -811,14 +816,14 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
           .onClick =
-              [this]() {
+              [this] {
                 if (m_passwordInput == nullptr) {
                   return;
                 }
-                m_passwordRevealed = !m_passwordRevealed;
-                m_passwordInput->setPasswordMode(!m_passwordRevealed);
+                const bool revealed = !m_passwordInput->passwordRevealed();
+                m_passwordInput->setPasswordRevealed(revealed);
                 if (m_passwordRevealButton != nullptr) {
-                  m_passwordRevealButton->setGlyph(m_passwordRevealed ? "eye-off" : "eye");
+                  m_passwordRevealButton->setGlyph(revealed ? "eye-off" : "eye");
                 }
               },
       }),
@@ -826,12 +831,12 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .text = i18n::tr("control-center.network.connect"),
           .variant = ButtonVariant::Default,
           .onClick =
-              [this]() { submitPasswordPrompt(m_passwordInput != nullptr ? m_passwordInput->value() : std::string{}); },
+              [this] { submitPasswordPrompt(m_passwordInput != nullptr ? m_passwordInput->value() : std::string{}); },
       }),
       ui::button({
           .text = i18n::tr("common.actions.cancel"),
           .variant = ButtonVariant::Ghost,
-          .onClick = [this]() { cancelPasswordPrompt(); },
+          .onClick = [this] { cancelPasswordPrompt(); },
       })
   );
 
@@ -896,6 +901,7 @@ void NetworkTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
 
 void NetworkTab::doUpdate(Renderer& renderer) {
   syncPasswordCard();
+  focusPendingPasswordPrompt();
   rebuildApList(renderer);
   // A signal percent's text changes its width, so the list has to be laid out again.
   bool listChanged = syncApRows();
@@ -915,7 +921,6 @@ void NetworkTab::onClose() {
   m_passwordTitle = nullptr;
   m_passwordInput = nullptr;
   m_passwordRevealButton = nullptr;
-  m_passwordRevealed = false;
   m_enterpriseFields = nullptr;
   m_eapSelect = nullptr;
   m_phase2Select = nullptr;
@@ -970,6 +975,17 @@ void NetworkTab::syncPasswordCard() {
     } else {
       m_passwordTitle->setText(i18n::tr("control-center.network.password-prompt-for", "ssid", m_pendingSsid));
     }
+  }
+}
+
+void NetworkTab::focusPendingPasswordPrompt() {
+  if (!std::exchange(m_focusPasswordPrompt, false) || !m_hasPendingSecret) {
+    return;
+  }
+  // The enterprise form starts with the identity; a plain prompt only has the password.
+  Input* target = m_pendingEnterprise ? m_identityInput : m_passwordInput;
+  if (target != nullptr) {
+    PanelManager::instance().focusArea(target->inputArea());
   }
 }
 
@@ -1031,6 +1047,7 @@ void NetworkTab::showPasswordPrompt(const NetworkSecretAgent::SecretRequest& req
   // NM is asking for one secret against a profile it already holds, so only the
   // password is missing; the rest of the 802.1X form would have nothing to fill.
   m_pendingEnterprise = false;
+  m_focusPasswordPrompt = m_active;
   PanelManager::instance().requestLayout();
 }
 
@@ -1040,6 +1057,7 @@ void NetworkTab::showPasswordPrompt(const AccessPointInfo& ap) {
   m_pendingSsid = ap.ssid;
   m_pendingAccessPoint = ap;
   m_pendingEnterprise = ap.isEnterprise();
+  m_focusPasswordPrompt = m_active;
   if (m_pendingEnterprise) {
     // Say up front when this network cannot be joined with a password, rather
     // than after the user has filled in the whole form.
@@ -1098,10 +1116,9 @@ void NetworkTab::clearPasswordPrompt() {
   m_pendingEnterprise = false;
   m_pendingSsid.clear();
   m_pendingAccessPoint.reset();
-  m_passwordRevealed = false;
   if (m_passwordInput != nullptr) {
     m_passwordInput->setValue("");
-    m_passwordInput->setPasswordMode(true);
+    m_passwordInput->setPasswordRevealed(false);
   }
   if (m_passwordRevealButton != nullptr) {
     m_passwordRevealButton->setGlyph("eye");
@@ -1187,7 +1204,7 @@ void NetworkTab::beginPendingAction(bool wasConnected) {
   m_actionPending = true;
   m_actionPendingConnected = wasConnected;
   m_actionPendingSince = std::chrono::steady_clock::now();
-  m_actionPendingTimer.start(kActionPendingTimeout + std::chrono::milliseconds(50), []() {
+  m_actionPendingTimer.start(kActionPendingTimeout + std::chrono::milliseconds(50), [] {
     PanelManager::instance().requestUpdateOnly();
     PanelManager::instance().requestRedraw();
   });
@@ -1265,6 +1282,8 @@ NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vec
   key += wirelessEnabled ? '1' : '0';
   key += "\nscan:";
   key += scanning ? '1' : '0';
+  key += "\nhotspot:";
+  key += (m_network != nullptr && m_network->state().hotspotActive) ? '1' : '0';
   // Cellular rows live-sync their state/signal, so only the structural
   // identity (which modems exist) belongs to the key.
   key += "\ncellular:\n";
@@ -1302,15 +1321,17 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
   m_lastStructureKey = nextStructure;
   const float scale = contentScale();
 
-  auto buildApRows = [&]() {
+  auto buildApRows = [&] {
     auto container = ui::column({
         .align = FlexAlign::Stretch,
         .gap = Style::spaceSm * scale,
     });
     if (aps.empty()) {
+      const bool hotspotActive = m_network != nullptr && m_network->state().hotspotActive;
       container->addChild(
           ui::label({
-              .text = i18n::tr("control-center.network.no-networks"),
+              .text = hotspotActive ? i18n::tr("control-center.network.hotspot-active")
+                                    : i18n::tr("control-center.network.no-networks"),
               .fontSize = Style::fontSizeBody * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           })
@@ -1508,7 +1529,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .variant = ButtonVariant::Ghost,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 if (m_network != nullptr) {
                   m_network->requestScan();
                 }
@@ -1622,7 +1643,7 @@ void NetworkTab::requestCellularEnabled(bool enabled) {
   m_cellularToggleTarget = enabled;
   m_cellularTogglePendingSince = std::chrono::steady_clock::now();
   // Nothing else wakes the panel if the request never changes any state.
-  m_cellularTogglePendingTimer.start(kCellularPendingTimeout + std::chrono::milliseconds(50), []() {
+  m_cellularTogglePendingTimer.start(kCellularPendingTimeout + std::chrono::milliseconds(50), [] {
     PanelManager::instance().requestUpdateOnly();
     PanelManager::instance().requestRedraw();
   });

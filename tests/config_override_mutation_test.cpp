@@ -146,6 +146,72 @@ int main() {
     );
   }
 
+  // A bar-inherited widget setting resolves an unset value from the bar, so an explicit value equal to the
+  // widget schema default is a real override and must survive the no-op override pruning.
+  const std::filesystem::path inheritRoot = root / "bar-inherit-case";
+  writeFile(
+      inheritRoot / "config" / "noctalia" / "config.toml",
+      "[bar.default]\nshow_tooltip = false\n\n[widget.clock]\ntype = \"clock\"\n"
+  );
+  ::setenv("NOCTALIA_CONFIG_HOME", (inheritRoot / "config").c_str(), 1);
+  ::setenv("XDG_STATE_HOME", (inheritRoot / "state").c_str(), 1);
+  {
+    ConfigService config;
+    const std::vector<std::string> tooltipPath{"widget", "clock", "show_tooltip"};
+    expect(config.setOverride(tooltipPath, true), "explicit widget show_tooltip = true was accepted");
+    expect(config.hasOverride(tooltipPath), "explicit widget show_tooltip = true survived pruning");
+    expect(config.clearOverride(tooltipPath), "widget show_tooltip override was cleared");
+    expect(!config.hasOverride(tooltipPath), "clearing restored inheritance from the bar");
+  }
+
+  // shell.panel_anchor_bar names a bar: renaming that bar in Settings must carry the key along, or every
+  // panel open without a source bar (IPC, shortcuts) fails on the stale name. Deleting it clears the key.
+  const std::filesystem::path anchorRoot = root / "anchor-bar-case";
+  writeFile(anchorRoot / "config" / "noctalia" / "config.toml", "");
+  ::setenv("NOCTALIA_CONFIG_HOME", (anchorRoot / "config").c_str(), 1);
+  ::setenv("XDG_STATE_HOME", (anchorRoot / "state").c_str(), 1);
+  {
+    ConfigService config;
+    expect(config.createBarOverride("second"), "second bar was created");
+    expect(config.setOverride({"shell", "panel_anchor_bar"}, std::string("default")), "anchor bar was set");
+    expect(config.renameBarOverride("default", "topbar"), "anchor bar was renamed");
+    expect(config.config().shell.panelAnchorBar == "topbar", "rename carried panel_anchor_bar to the new name");
+    expect(config.renameBarOverride("second", "other"), "non-anchor bar was renamed");
+    expect(config.config().shell.panelAnchorBar == "topbar", "renaming another bar left panel_anchor_bar alone");
+    expect(config.deleteBarOverride("topbar"), "anchor bar was deleted");
+    expect(config.config().shell.panelAnchorBar.empty(), "deleting the anchor bar cleared panel_anchor_bar");
+  }
+
+  // A times-only location without coordinates is migrated to custom_schedule = true on the fly. An
+  // explicit true override is what opts the user out of that migration, so it must survive pruning
+  // even though the no-override config resolves to the same value. Otherwise the Settings toggle
+  // drops the key again and the legacy-config warning will be back.
+  const std::filesystem::path customScheduleRoot = root / "custom-schedule-case";
+  writeFile(
+      customScheduleRoot / "config" / "noctalia" / "config.toml",
+      "[location]\nsunset = \"20:30\"\nsunrise = \"07:30\"\n"
+  );
+  ::setenv("NOCTALIA_CONFIG_HOME", (customScheduleRoot / "config").c_str(), 1);
+  ::setenv("XDG_STATE_HOME", (customScheduleRoot / "state").c_str(), 1);
+  {
+    ConfigService config;
+    const std::vector<std::string> customSchedulePath{"location", "custom_schedule"};
+
+    expect(config.setOverride(customSchedulePath, true), "custom_schedule = true was accepted");
+    expect(config.hasOverride(customSchedulePath), "custom_schedule = true survived pruning");
+    expect(config.config().location.customSchedule, "custom_schedule = true is active");
+
+    expect(config.setOverride(customSchedulePath, false), "custom_schedule = false was accepted");
+    expect(config.hasOverride(customSchedulePath), "custom_schedule = false survived pruning");
+    expect(!config.config().location.customSchedule, "custom_schedule = false is active");
+
+    expect(config.setOverride(customSchedulePath, true), "custom_schedule back to true was accepted");
+    expect(
+        config.hasOverride(customSchedulePath), "toggling custom_schedule back on kept the override in settings.toml"
+    );
+    expect(config.config().location.customSchedule, "custom_schedule is active again");
+  }
+
   std::filesystem::remove_all(root);
 
   if (g_failures == 0) {

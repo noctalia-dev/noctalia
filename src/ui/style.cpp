@@ -11,6 +11,7 @@ namespace {
   bool g_rtl = false;
   bool g_popupShadowsEnabled = true;
   bool g_cardBordersEnabled = true;
+  bool g_closeButtonsEnabled = true;
 
 } // namespace
 
@@ -60,6 +61,9 @@ namespace Style {
 
   bool popupShadowsEnabled() noexcept { return g_popupShadowsEnabled; }
   void setPopupShadowsEnabled(bool enabled) { g_popupShadowsEnabled = enabled; }
+
+  bool closeButtonsEnabled() noexcept { return g_closeButtonsEnabled; }
+  void setCloseButtonsEnabled(bool enabled) { g_closeButtonsEnabled = enabled; }
 
   float scaledRadius(float radius, float localScale) noexcept { return radius * localScale * g_cornerRadiusScale; }
 

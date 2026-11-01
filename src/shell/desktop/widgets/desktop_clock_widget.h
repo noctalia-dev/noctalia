@@ -23,6 +23,7 @@ public:
     ColorSpec color = colorSpecFromRole(ColorRole::OnSurface);
     bool shadow = true;
     bool showCircle = true;
+    bool showSeconds = true;
     bool centerText = true;
     std::string timezone;
   };
@@ -45,6 +46,7 @@ private:
   void applyShadow();
   void syncStyleVisibility();
   void syncCircleVisibility();
+  void syncSecondHandVisibility();
   void syncDigitalTextAlign();
   void syncAnalogColors();
   void layoutAnalog(Renderer& renderer, float size);
@@ -60,6 +62,7 @@ private:
   ColorSpec m_color;
   bool m_shadow;
   bool m_showCircle;
+  bool m_showSeconds;
   std::string m_timezone;
   bool m_centerText = true;
   bool m_showsSeconds = false;

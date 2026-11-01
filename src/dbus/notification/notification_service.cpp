@@ -11,6 +11,9 @@
 #include "util/string_utils.h"
 
 #include <cstdint>
+#include <sdbus-c++/Error.h>
+#include <sdbus-c++/Types.h>
+#include <string>
 #include <tuple>
 #include <unistd.h>
 
@@ -21,6 +24,8 @@ namespace {
 static const sdbus::ServiceName kBusName{notification_dbus::kFreedesktopNotificationsBusName};
 static const sdbus::ObjectPath kObjectPath{"/org/freedesktop/Notifications"};
 static constexpr auto kInterface = "org.freedesktop.Notifications";
+static constexpr auto kSignalNotificationReplied = "NotificationReplied";
+static constexpr auto kSignalActivationToken = "ActivationToken";
 
 namespace {
 
@@ -110,17 +115,17 @@ NotificationService::NotificationService(SessionBus& bus, NotificationManager& m
                   return onNotify(app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout);
                 }),
 
-            sdbus::registerMethod("GetCapabilities").withOutputParamNames("capabilities").implementedAs([this]() {
+            sdbus::registerMethod("GetCapabilities").withOutputParamNames("capabilities").implementedAs([this] {
               return onGetCapabilities();
             }),
 
             sdbus::registerMethod("GetNotifications")
                 .withOutputParamNames("active_notifications")
-                .implementedAs([this]() { return onGetNotifications(); }),
+                .implementedAs([this] { return onGetNotifications(); }),
 
             sdbus::registerMethod("GetServerInformation")
                 .withOutputParamNames("name", "vendor", "version", "spec_version")
-                .implementedAs([this]() { return onGetServerInformation(); }),
+                .implementedAs([this] { return onGetServerInformation(); }),
 
             sdbus::registerMethod("CloseNotification").withInputParamNames("id").implementedAs([this](uint32_t id) {
               onCloseNotification(id);
@@ -132,21 +137,33 @@ NotificationService::NotificationService(SessionBus& bus, NotificationManager& m
 
             sdbus::registerSignal("NotificationClosed").withParameters<uint32_t, uint32_t>("id", "reason"),
 
-            sdbus::registerSignal("ActivationToken").withParameters<uint32_t, std::string>("id", "activation_token"),
+            sdbus::registerSignal(kSignalActivationToken)
+                .withParameters<uint32_t, std::string>("id", "activation_token"),
 
-            sdbus::registerSignal("ActionInvoked").withParameters<uint32_t, std::string>("id", "action_key")
+            sdbus::registerSignal("ActionInvoked").withParameters<uint32_t, std::string>("id", "action_key"),
+
+            sdbus::registerSignal(kSignalNotificationReplied).withParameters<uint32_t, std::string>("id", "text")
         )
         .forInterface(kInterface);
 
     notification_dbus::acquireBusName(m_bus.connection());
     m_nameAcquired = true;
     m_manager.setActionInvokeCallback([this](
-                                          uint32_t id, const std::string& actionKey, const std::string& activationToken
-                                      ) { emitActionInvoked(id, actionKey, activationToken); });
-    m_manager.setCloseCallback([this](uint32_t id, CloseReason reason) { emitClose(id, reason); });
+                                          uint32_t id, const std::string& actionKey, const std::string& activationToken,
+                                          const std::string& sender
+                                      ) { emitActionInvoked(id, actionKey, activationToken, sender); });
+    m_manager.setCloseCallback([this](uint32_t id, CloseReason reason, const std::string& sender) {
+      emitClose(id, reason, sender);
+    });
+    m_manager.setReplyCallback(
+        [this](uint32_t id, const std::string& text, const std::string& activationToken, const std::string& sender) {
+          emitNotificationReplied(id, text, activationToken, sender);
+        }
+    );
   } catch (...) {
     m_manager.setCloseCallback(nullptr);
     m_manager.setActionInvokeCallback(nullptr);
+    m_manager.setReplyCallback(nullptr);
     if (m_nameAcquired) {
       try {
         m_bus.connection().releaseName(kBusName);
@@ -162,6 +179,7 @@ NotificationService::NotificationService(SessionBus& bus, NotificationManager& m
 NotificationService::~NotificationService() {
   m_manager.setCloseCallback(nullptr);
   m_manager.setActionInvokeCallback(nullptr);
+  m_manager.setReplyCallback(nullptr);
 
   if (m_nameAcquired) {
     try {
@@ -325,7 +343,7 @@ namespace notification_dbus {
       // Many screenshot tools (e.g. HyprCap) provide a single temp file via "image-path" which gets
       // overwritten on every new capture. Snapshot it into `imageData` so history thumbnails stay
       // immutable.
-      const std::string normalizedPath = uri::normalizeFileUrl(std::string(imagePath));
+      const std::string normalizedPath = uri::normalizeFileUrl(imagePath);
       if (normalizedPath.empty() || normalizedPath.front() != '/') {
         return std::nullopt;
       }
@@ -399,7 +417,7 @@ namespace notification_dbus {
   uint32_t ingestNotify(
       NotificationManager& manager, const std::string& app_name, uint32_t replaces_id, const std::string& app_icon,
       const std::string& summary, const std::string& body, const std::vector<std::string>& actions,
-      const std::map<std::string, sdbus::Variant>& hints, int32_t expire_timeout
+      const std::map<std::string, sdbus::Variant>& hints, int32_t expire_timeout, const std::string& sender
   ) {
     const int32_t timeout = normalizeNotifyExpireTimeout(expire_timeout);
     const auto sanitizedActions = sanitizeNotifyActions(actions);
@@ -410,6 +428,7 @@ namespace notification_dbus {
             .appName = StringUtils::truncateUtf8(app_name, kMaxStringLen),
             .summary = StringUtils::truncateUtf8(summary, kMaxStringLen),
             .body = StringUtils::sanitizeMarkup(StringUtils::truncateUtf8(body, kMaxStringLen)),
+            .sender = sender,
             .urgency = notifyUrgencyFromHints(hints),
             .timeout = timeout,
             .origin = NotificationOrigin::External,
@@ -430,8 +449,9 @@ uint32_t NotificationService::onNotify(
     const std::string& body, const std::vector<std::string>& actions,
     const std::map<std::string, sdbus::Variant>& hints, int32_t expire_timeout
 ) {
+  const std::string sender = m_object->getCurrentlyProcessedMessage().getSender();
   return notification_dbus::ingestNotify(
-      m_manager, app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout
+      m_manager, app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout, sender
   );
 }
 
@@ -466,7 +486,7 @@ void NotificationService::onCloseNotification(uint32_t id) {
   }
 }
 
-void NotificationService::emitClose(uint32_t id, CloseReason reason) {
+void NotificationService::emitClose(uint32_t id, CloseReason reason, const std::string& sender) {
   if (m_object == nullptr) {
     return;
   }
@@ -477,7 +497,18 @@ void NotificationService::emitClose(uint32_t id, CloseReason reason) {
     // dispatching the next queued incoming Notify/CloseNotification re-enters the
     // manager mid-mutation — invalidating live references/indices and crashing
     // under a notification burst. The poll loop flushes the queued signal.
-    m_object->emitSignal("NotificationClosed").onInterface(kInterface).withArguments(id, static_cast<uint32_t>(reason));
+    // Like ActionInvoked, address the signal to the notification's owner: other clients must not
+    // see (and act on) closes of notifications they never sent.
+    if (sender.empty()) {
+      m_object->emitSignal("NotificationClosed")
+          .onInterface(kInterface)
+          .withArguments(id, static_cast<uint32_t>(reason));
+      return;
+    }
+    auto signal = m_object->createSignal(sdbus::InterfaceName{kInterface}, sdbus::SignalName{"NotificationClosed"});
+    signal.setDestination(sender);
+    signal << id << static_cast<uint32_t>(reason);
+    m_object->emitSignal(signal);
   } catch (const sdbus::Error& e) {
     kLog.debug("notification #{}: NotificationClosed emit failed: {}", id, e.what());
   }
@@ -502,12 +533,10 @@ void NotificationService::onInvokeAction(uint32_t id, const std::string& actionK
 }
 
 void NotificationService::emitActionInvoked(
-    uint32_t id, const std::string& actionKey, const std::string& activationToken
+    uint32_t id, const std::string& actionKey, const std::string& activationToken, const std::string& sender
 ) {
   if (actionKey == "inline-reply") {
     kLog.warn("notification #{}: ActionInvoked with bare inline-reply (missing reply text)", id);
-  } else if (actionKey.starts_with("inline-reply::")) {
-    kLog.debug("notification #{}: inline-reply action invoked ({} bytes)", id, actionKey.size());
   } else {
     kLog.debug("notification #{}: action '{}'", id, actionKey);
   }
@@ -515,25 +544,69 @@ void NotificationService::emitActionInvoked(
     return;
   }
   if (!activationToken.empty()) {
-    emitActivationToken(id, activationToken);
+    emitActivationToken(id, activationToken, sender);
   }
   try {
     // See emitClose(): never re-enter the bus dispatch from inside a manager
     // callback. Queue the signal; the poll loop flushes it.
-    m_object->emitSignal("ActionInvoked").onInterface(kInterface).withArguments(id, actionKey);
+    // Address it to the notification's owner: clients that don't check the id would otherwise treat
+    // a click on another app's notification as their own (and e.g. request window activation).
+    if (sender.empty()) {
+      m_object->emitSignal("ActionInvoked").onInterface(kInterface).withArguments(id, actionKey);
+      return;
+    }
+    auto signal = m_object->createSignal(sdbus::InterfaceName{kInterface}, sdbus::SignalName{"ActionInvoked"});
+    signal.setDestination(sender);
+    signal << id << actionKey;
+    m_object->emitSignal(signal);
   } catch (const sdbus::Error& e) {
     kLog.debug("notification #{}: ActionInvoked emit failed key='{}': {}", id, actionKey, e.what());
   }
 }
 
-void NotificationService::emitActivationToken(uint32_t id, const std::string& activationToken) {
+void NotificationService::emitActivationToken(
+    uint32_t id, const std::string& activationToken, const std::string& sender
+) {
   if (m_object == nullptr || activationToken.empty()) {
     return;
   }
   try {
-    m_object->emitSignal("ActivationToken").onInterface(kInterface).withArguments(id, activationToken);
+    if (sender.empty()) {
+      m_object->emitSignal(kSignalActivationToken).onInterface(kInterface).withArguments(id, activationToken);
+      kLog.debug("notification #{}: ActivationToken sender is empty", id);
+      return;
+    }
+    auto signal = m_object->createSignal(sdbus::InterfaceName{kInterface}, sdbus::SignalName{kSignalActivationToken});
+    signal.setDestination(sender);
+    signal << id << activationToken;
+    m_object->emitSignal(signal);
   } catch (const sdbus::Error& e) {
     kLog.debug("notification #{}: ActivationToken emit failed: {}", id, e.what());
+  }
+}
+
+void NotificationService::emitNotificationReplied(
+    uint32_t id, const std::string& text, const std::string& activationToken, const std::string& sender
+) {
+  if (m_object == nullptr || text.empty()) {
+    return;
+  }
+  if (!activationToken.empty()) {
+    emitActivationToken(id, activationToken, sender);
+  }
+  if (sender.empty()) {
+    kLog.debug("notification #{}: NotificationReplied sender is empty", id);
+    return;
+  }
+  try {
+    auto signal =
+        m_object->createSignal(sdbus::InterfaceName{kInterface}, sdbus::SignalName{kSignalNotificationReplied});
+    signal.setDestination(sender);
+    signal << id << text;
+    m_object->emitSignal(signal);
+    kLog.debug("notification #{}: NotificationReplied emitted ({} bytes)", id, text.size());
+  } catch (const sdbus::Error& e) {
+    kLog.debug("notification #{}: NotificationReplied emit failed: {}", id, e.what());
   }
 }
 

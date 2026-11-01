@@ -18,14 +18,15 @@
 #include <limits>
 #include <mutex>
 #include <optional>
+#include <poll.h>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <sys/poll.h>
 #include <sys/wait.h>
 #include <system_error>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 namespace {
 
@@ -35,16 +36,14 @@ namespace {
   constexpr std::chrono::milliseconds kProcessCommandLineCacheTtl{250};
 
   void writePipeOrIgnore(int fd, const void* data, size_t len) {
-    auto p = reinterpret_cast<const char*>(data);
+    const auto* p = reinterpret_cast<const char*>(data);
     size_t remaining = len;
     while (remaining > 0) {
       const ssize_t n = ::write(fd, p, remaining);
       if (n > 0) {
         p += static_cast<size_t>(n);
         remaining -= static_cast<size_t>(n);
-      } else if (n == 0) {
-        return;
-      } else if (errno != EINTR) {
+      } else if (n == 0 || errno != EINTR) {
         return;
       }
     }
@@ -377,12 +376,14 @@ namespace {
       return {-1, {}, {}};
     }
 
+    // O_CLOEXEC atomically: a concurrent fork() on another thread must not inherit the write
+    // ends, or EOF is delayed for that unrelated child's lifetime. dup2() clears the flag.
     int outPipe[2] = {-1, -1};
     int errPipe[2] = {-1, -1};
-    if (::pipe(outPipe) != 0) {
+    if (::pipe2(outPipe, O_CLOEXEC) != 0) {
       return {-1, {}, {}};
     }
-    if (::pipe(errPipe) != 0) {
+    if (::pipe2(errPipe, O_CLOEXEC) != 0) {
       closePipe(outPipe);
       return {-1, {}, {}};
     }
@@ -516,13 +517,15 @@ namespace {
       const std::vector<std::string>& args, pid_t* reportPid, const std::string& activationToken,
       const std::string& workingDir = {}
   ) {
+    // O_CLOEXEC atomically so concurrent forks on other threads cannot inherit the write ends
+    // and hold the handshake open. The grandchild's exec closes its copy, signalling success.
     int reportPipe[2] = {-1, -1};
     int execStatusPipe[2] = {-1, -1};
     const bool needPid = reportPid != nullptr;
-    if (::pipe(execStatusPipe) != 0) {
+    if (::pipe2(execStatusPipe, O_CLOEXEC) != 0) {
       return false;
     }
-    if (needPid && ::pipe(reportPipe) != 0) {
+    if (needPid && ::pipe2(reportPipe, O_CLOEXEC) != 0) {
       closePipe(execStatusPipe);
       return false;
     }
@@ -558,7 +561,7 @@ namespace {
       int status = 0;
       while (::waitpid(intermediate, &status, 0) < 0 && errno == EINTR) {
       }
-      if (!(WIFEXITED(status) && WEXITSTATUS(status) == 0)) {
+      if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
         closeFd(execStatusPipe[0]);
         return false;
       }
@@ -620,11 +623,6 @@ namespace {
       const pid_t self = ::getpid();
       writePipeOrIgnore(reportPipe[1], &self, sizeof(self));
       ::close(reportPipe[1]);
-    }
-
-    const int flags = ::fcntl(execStatusPipe[1], F_GETFD);
-    if (flags >= 0) {
-      ::fcntl(execStatusPipe[1], F_SETFD, flags | FD_CLOEXEC);
     }
 
     if (!workingDir.empty() && ::chdir(workingDir.c_str()) != 0) {
@@ -714,7 +712,7 @@ namespace {
     char** s = ::environ;
     for (; *s; s++) {
       char c = **s;
-      if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
+      if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') {
         continue;
       }
       std::string name{*s, std::string_view(*s).find('=')};
@@ -806,7 +804,7 @@ namespace process {
     }
 
     try {
-      std::thread([args, callbacks = std::move(callbacks), options]() mutable {
+      std::thread([args, callbacks = std::move(callbacks), options] mutable {
         if (!callbacks.onExit) {
           options.maxOutputBytes = 0;
         }
@@ -832,7 +830,7 @@ namespace process {
 
   bool runAsync(std::initializer_list<const char*> args, RunCallbacks callbacks, RunOptions options) {
     const auto command = makeCommand(args);
-    return command.has_value() && runAsync(*command, std::move(callbacks), options);
+    return command.has_value() && runAsync(*command, std::move(callbacks), std::move(options));
   }
 
   bool runAsync(const std::string& command) {
@@ -846,7 +844,7 @@ namespace process {
     if (command.empty()) {
       return false;
     }
-    return runAsync(std::vector<std::string>{"/bin/sh", "-lc", command}, std::move(callbacks), options);
+    return runAsync(std::vector<std::string>{"/bin/sh", "-lc", command}, std::move(callbacks), std::move(options));
   }
 
   std::optional<int> launchDetachedTracked(const std::vector<std::string>& args) {
@@ -883,7 +881,9 @@ namespace process {
 
   RunResult runSync(const std::vector<std::string>& args) { return runSyncProcess(args, {}); }
 
-  RunResult runSync(const std::vector<std::string>& args, RunOptions options) { return runSyncProcess(args, options); }
+  RunResult runSync(const std::vector<std::string>& args, const RunOptions& options) {
+    return runSyncProcess(args, options);
+  }
 
   RunResult runSync(std::initializer_list<const char*> args) {
     const auto command = makeCommand(args);
@@ -956,26 +956,25 @@ namespace process {
     return false;
   }
 
-  RunResult runSync(const std::string& command) {
+  RunResult runSync(const std::string& command) { return runSync(command, RunOptions{}); }
+
+  RunResult runSync(const std::string& command, const RunOptions& options) {
     if (command.empty())
       return {-1, {}, {}};
-    return runSync(std::vector<std::string>{"/bin/sh", "-lc", command});
+    return runSyncProcess(std::vector<std::string>{"/bin/sh", "-lc", command}, options);
   }
 
   bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants) {
-    for (const auto& variant : commandVariants) {
+    return std::ranges::any_of(commandVariants, [&](const auto& variant) {
       const auto command = makeCommand(variant);
       if (!command.has_value() || command->empty()) {
-        continue;
+        return false;
       }
       if (!commandExists(command->front().c_str())) {
-        continue;
+        return false;
       }
-      if (runAsync(*command)) {
-        return true;
-      }
-    }
-    return false;
+      return runAsync(*command);
+    });
   }
 
   bool cgroupIndicatesSystemdUserManager(std::string_view cgroupFileContents, unsigned int uid) {

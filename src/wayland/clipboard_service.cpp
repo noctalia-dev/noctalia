@@ -56,9 +56,8 @@ namespace {
   };
 
   constexpr std::array kImageMimeTypes = {
-      std::string_view{"image/png"},
-      std::string_view{"image/jpeg"},
-      std::string_view{"image/jxl"},
+      std::string_view{"image/png"},  std::string_view{"image/jpeg"}, std::string_view{"image/jxl"},
+      std::string_view{"image/avif"}, std::string_view{"image/heic"}, std::string_view{"image/heif"},
   };
 
   constexpr std::array kPasswordHintMimeTypes = {
@@ -135,7 +134,7 @@ namespace {
     return {reinterpret_cast<const char*>(data.data()), data.size()};
   }
 
-  std::string extensionForImageMimeType(std::string_view mimeType) {
+  std::string_view extensionForImageMimeType(std::string_view mimeType) {
     if (mimeType == "image/png")
       return ".png";
     if (mimeType == "image/jpeg" || mimeType == "image/jpg")
@@ -156,11 +155,13 @@ namespace {
       return ".avif";
     if (mimeType == "image/heic")
       return ".heic";
+    if (mimeType == "image/heif")
+      return ".heif";
     return ".img";
   }
 
   std::string exportExtensionForEntry(const ClipboardEntry& entry) {
-    std::string extension = extensionForImageMimeType(entry.dataMimeType);
+    std::string extension(extensionForImageMimeType(entry.dataMimeType));
     if (extension != ".img") {
       return extension;
     }
@@ -468,8 +469,8 @@ void ClipboardService::setHistoryRetentionEnabled(bool enabled) {
       (void)loadPersistedHistory();
     }
   } else {
-    // Keep only the live selection (most recent unpinned entry) in memory so
-    // paste keeps working; drop pins and older/persisted history.
+    // Keep only the most recent unpinned entry in memory; drop pins and
+    // older/persisted history.
     std::deque<ClipboardEntry> live;
     for (auto& entry : m_history) {
       if (!entry.pinned) {
@@ -572,6 +573,7 @@ void ClipboardService::cleanup() {
 
   m_device = nullptr;
   m_selectionOffer = nullptr;
+  setSelectionText(std::nullopt);
   m_seat = nullptr;
   m_ops = nullptr;
   m_manager = nullptr;
@@ -814,19 +816,14 @@ void ClipboardService::evictAllPayloads() {
   }
 }
 
-std::optional<std::string> ClipboardService::clipboardText() {
-  for (auto& entry : m_history) {
-    // Pinned entries sit at the front but are not the newest capture; paste
-    // must reflect the most recent real clipboard content.
-    if (entry.pinned || entry.isImage()) {
-      continue;
-    }
-    if (!loadEntryPayload(entry) || entry.data.empty()) {
-      continue;
-    }
-    return std::string(entry.data.begin(), entry.data.end());
+std::optional<std::string> ClipboardService::clipboardText() { return m_selectionText; }
+
+void ClipboardService::setSelectionText(std::optional<std::string> text) {
+  if (m_selectionText.has_value()) {
+    // May hold a password-hinted secret; do not leave it in freed memory.
+    sodium_memzero(m_selectionText->data(), m_selectionText->size());
   }
-  return std::nullopt;
+  m_selectionText = std::move(text);
 }
 
 void ClipboardService::setClipboardText(std::string text) { (void)copyText(std::move(text)); }
@@ -836,9 +833,9 @@ bool ClipboardService::copyText(std::string text) {
   return copyData({"text/plain;charset=utf-8", "text/plain"}, std::move(data));
 }
 
-bool ClipboardService::copyText(std::string text, std::string mimeType) {
+bool ClipboardService::copyText(std::string text, const std::string& mimeType) {
   std::vector<std::uint8_t> data(text.begin(), text.end());
-  return copyData({std::move(mimeType)}, std::move(data));
+  return copyData(mimeTypesForPayload(mimeType), std::move(data));
 }
 
 bool ClipboardService::copyImagePng(std::vector<std::uint8_t> png) {
@@ -1143,13 +1140,23 @@ void ClipboardService::handleSelection(void* offer) {
     // until the next poll tick so a replacement offer in the same dispatch batch
     // can arrive first; only adopt if the selection is still empty then.
     m_pendingOrphanAdopt = true;
+    if (m_selectionText.has_value()) {
+      setSelectionText(std::nullopt);
+      notifyChanged();
+    }
     return;
   }
 
   m_pendingOrphanAdopt = false;
   m_selectionBackup.reset();
+  // Cleared without notifying: the read that follows reports the new content.
+  const bool hadText = m_selectionText.has_value();
+  setSelectionText(std::nullopt);
   if (!startReceive(offer)) {
     kLog.debug("selection offer has no supported MIME types");
+    if (hadText) {
+      notifyChanged();
+    }
   }
 }
 
@@ -1177,8 +1184,8 @@ bool ClipboardService::payloadLooksComplete(std::string_view mimeType, std::span
     return endsWith(kGifTrailer);
   }
 
-  // Everything else carries no end marker worth trusting; text in particular is
-  // still useful when partial.
+  // Everything else carries no end marker worth trusting (ISOBMFF images such as
+  // HEIC and AVIF have no trailer); text in particular is still useful when partial.
   return true;
 }
 
@@ -1225,10 +1232,8 @@ void ClipboardService::handleSourceSend(void* source, const char* mimeType, int 
   const auto it = std::ranges::find(m_outgoingSources, source, &OutgoingSource::source);
   if (it != m_outgoingSources.end() && mimeType != nullptr) {
     const auto mimeIt = std::ranges::find(it->mimeTypes, std::string_view(mimeType));
-    if (mimeIt != it->mimeTypes.end()) {
-      if (queueOutgoingWrite(source, fd, it->data)) {
-        return;
-      }
+    if (mimeIt != it->mimeTypes.end() && queueOutgoingWrite(source, fd, it->data)) {
+      return;
     }
   }
   if (fd >= 0) {
@@ -1290,10 +1295,14 @@ void ClipboardService::clearOffers() {
 
 void ClipboardService::cancelActiveRead() {
   closeFd(m_activeRead.fd);
+  if (m_activeRead.sensitive) {
+    sodium_memzero(m_activeRead.buffer.data(), m_activeRead.buffer.size());
+  }
   m_activeRead.buffer.clear();
   m_activeRead.mimeType.clear();
   m_activeRead.offeredMimeTypes.clear();
   m_activeRead.offer = nullptr;
+  m_activeRead.sensitive = false;
 }
 
 void ClipboardService::cancelActiveWrites() {
@@ -1313,13 +1322,12 @@ bool ClipboardService::startReceive(void* offer) {
     return false;
   }
 
-  if (selectionAdvertisesPasswordHint(state->mimeTypes)) {
-    kLog.debug("ignoring clipboard selection: password-hint MIME advertised");
-    return false;
-  }
-
+  // A password-hinted selection is still read so it can be pasted into shell
+  // text fields; finishRead keeps it out of history and adoption. Only its text
+  // flavour is useful for that.
+  const bool sensitive = selectionAdvertisesPasswordHint(state->mimeTypes);
   const std::string mimeType = chooseMimeType(*state);
-  if (mimeType.empty()) {
+  if (mimeType.empty() || (sensitive && !isTextMimeType(mimeType))) {
     return false;
   }
 
@@ -1336,11 +1344,13 @@ bool ClipboardService::startReceive(void* offer) {
   m_activeRead.mimeType = mimeType;
   m_activeRead.buffer.clear();
   m_activeRead.offeredMimeTypes = state->mimeTypes;
+  m_activeRead.sensitive = sensitive;
   return true;
 }
 
 void ClipboardService::finishRead(bool discard) {
   const bool shouldStore = !discard && !m_activeRead.buffer.empty();
+  const bool sensitive = m_activeRead.sensitive;
   const std::string mimeType = m_activeRead.mimeType;
   auto mimeTypes = std::move(m_activeRead.offeredMimeTypes);
   auto data = std::move(m_activeRead.buffer);
@@ -1354,8 +1364,29 @@ void ClipboardService::finishRead(bool discard) {
   }
 
   if (!shouldStore) {
+    if (sensitive) {
+      sodium_memzero(data.data(), data.size());
+    }
+    // handleSelection cleared the live text without notifying, expecting this
+    // read to report the new content.
+    notifyChanged();
     return;
   }
+
+  // Paste follows the live selection whatever history makes of it below.
+  if (isTextMimeType(mimeType)) {
+    setSelectionText(std::string(data.begin(), data.end()));
+  }
+
+  if (sensitive) {
+    kLog.debug("keeping clipboard selection out of history: password-hint MIME advertised");
+    sodium_memzero(data.data(), data.size());
+    notifyChanged();
+    return;
+  }
+  // Paste and scripts follow the live text, so a selection history declines to
+  // keep still has to be reported.
+  const std::uint64_t serialBefore = m_changeSerial;
 
   // A selection too large to hold is simply not backed up; the reset in
   // handleSelection already dropped the previous one, so nothing stale can be
@@ -1378,6 +1409,7 @@ void ClipboardService::finishRead(bool discard) {
 
     if (payload->size() > maxEntryBytesFor(mimeType)) {
       // History would drop it; do not copy bytes that are not going to be kept.
+      notifyChanged();
       return;
     }
     entry.data = *payload;
@@ -1401,6 +1433,9 @@ void ClipboardService::finishRead(bool discard) {
   }
 
   addToHistory(std::move(entry));
+  if (m_changeSerial == serialBefore) {
+    notifyChanged();
+  }
 }
 
 void ClipboardService::addToHistory(ClipboardEntry entry) {
@@ -1428,9 +1463,9 @@ void ClipboardService::addToHistory(ClipboardEntry entry) {
   }
 
   if (!m_historyRetention) {
-    // History is disabled: retain only the live selection in memory (so paste
-    // still works) and never persist. Ignore the self-copy echo of unchanged
-    // content to avoid needless churn.
+    // History is disabled: retain only the latest capture in memory and never
+    // persist. Ignore the self-copy echo of unchanged content to avoid
+    // needless churn.
     if (!m_history.empty()
         && !entry.data.empty()
         && m_history.front().byteSize == entry.byteSize
@@ -1770,16 +1805,16 @@ bool ClipboardService::persistHistory(bool force) {
       entry.payloadPath = payloadPathForId(entry.storageId);
 
       activeStorageIds.insert(entry.storageId);
-      if (entry.payloadLoaded && !entry.data.empty()) {
-        if (!security::writeEncryptedFile(
-                entry.payloadPath, entry.data, *m_dataKey,
-                security::EncryptionContext{
-                    .purpose = std::string(kPayloadPurpose),
-                    .objectId = entry.storageId,
-                }
-            )) {
-          throw std::runtime_error("failed to write clipboard payload");
-        }
+      if (entry.payloadLoaded
+          && !entry.data.empty()
+          && !security::writeEncryptedFile(
+              entry.payloadPath, entry.data, *m_dataKey,
+              security::EncryptionContext{
+                  .purpose = std::string(kPayloadPurpose),
+                  .objectId = entry.storageId,
+              }
+          )) {
+        throw std::runtime_error("failed to write clipboard payload");
       }
 
       const auto capturedAtMs =
@@ -1846,7 +1881,7 @@ void ClipboardService::trimHistoryToBudget() {
   };
 
   // Oldest first, since entries are inserted at the front of the unpinned run.
-  const auto oldestUnpinnedImage = [this]() -> std::optional<std::size_t> {
+  const auto oldestUnpinnedImage = [this] -> std::optional<std::size_t> {
     for (std::size_t i = m_history.size(); i-- > 0;) {
       if (!m_history[i].pinned && m_history[i].isImage()) {
         return i;
@@ -2052,7 +2087,7 @@ void ClipboardService::dispatchWriteEvents(int fd, short revents) {
     return;
   }
 
-  const auto findWrite = [this, fd]() { return std::ranges::find(m_activeWrites, fd, &ActiveWrite::fd); };
+  const auto findWrite = [this, fd] { return std::ranges::find(m_activeWrites, fd, &ActiveWrite::fd); };
 
   auto it = findWrite();
   if (it == m_activeWrites.end()) {
@@ -2120,7 +2155,7 @@ std::string ClipboardService::buildTextPreview(const std::vector<std::uint8_t>& 
   std::size_t i = 0;
   while (i < limit) {
     const auto b = static_cast<uint8_t>(data[i]);
-    int seqLen = 1;
+    std::size_t seqLen = 1;
     if ((b & 0x80) == 0)
       seqLen = 1;
     else if ((b & 0xE0) == 0xC0)
@@ -2129,7 +2164,7 @@ std::string ClipboardService::buildTextPreview(const std::vector<std::uint8_t>& 
       seqLen = 3;
     else if ((b & 0xF8) == 0xF0)
       seqLen = 4;
-    if (i + static_cast<std::size_t>(seqLen) > limit)
+    if (i + seqLen > limit)
       break;
     safeSize = i + seqLen;
     i += seqLen;

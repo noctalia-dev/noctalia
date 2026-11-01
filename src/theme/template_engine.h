@@ -2,9 +2,11 @@
 
 #include "core/toml.h" // IWYU pragma: keep
 
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -39,11 +41,15 @@ namespace noctalia::theme {
       std::string configFile;
       std::unordered_set<std::string> enabledTemplates;
       std::function<bool()> cancelRequested;
+      std::function<void(std::string)> hookWarningCallback;
       std::string schemeType = "content";
       bool verbose = true;
       std::shared_ptr<const toml::table> configTable;
       HookRunner* hookRunner = nullptr;
       std::uint64_t generation = 0;
+      // Hard cancel for synchronous user commands: when set true (e.g. at shutdown) an in-flight
+      // inline hook or dynamic path command has its process group terminated instead of blocking teardown.
+      std::shared_ptr<std::atomic<bool>> hookCancel;
     };
 
     explicit TemplateEngine(ThemeData themeData);

@@ -1,5 +1,7 @@
 #include "ui/ui_tree_reconciler.h"
 
+#include "core/input/key_chord.h"
+#include "core/input/key_modifiers.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "render/core/color.h"
@@ -7,6 +9,7 @@
 #include "render/scene/input_area.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
+#include "ui/controls/color_picker.h"
 #include "ui/controls/drag_source.h"
 #include "ui/controls/drop_zone.h"
 #include "ui/controls/flex.h"
@@ -16,6 +19,7 @@
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/markdown_view.h"
+#include "ui/controls/pixel_stream_view.h"
 #include "ui/controls/progress_bar.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select.h"
@@ -27,7 +31,10 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "ui/ui_tree.h"
+#include "util/string_utils.h"
 
+#include <algorithm>
+#include <array>
 #include <charconv>
 #include <cmath>
 #include <format>
@@ -70,6 +77,24 @@ namespace ui {
     constexpr std::size_t kDragPayloadMaxBytes = 16 * 1024;
     constexpr std::size_t kDragIdentifierMaxBytes = 256;
     constexpr std::size_t kDropAcceptsMaxEntries = 16;
+
+    // ui.pixelStream callback props, indexed by PixelStreamCallback.
+    enum PixelStreamCallback : std::uint8_t {
+      kStreamMove,
+      kStreamDown,
+      kStreamUp,
+      kStreamCancel,
+      kStreamRightClick,
+      kStreamMiddleClick,
+      kStreamScroll,
+      kStreamTextInput,
+      kStreamKeyEvent,
+      kStreamCallbackCount,
+    };
+    constexpr std::array<const char*, kStreamCallbackCount> kPixelStreamCallbackProps = {
+        "onPointerMove", "onPointerDown", "onPointerUp", "onPointerCancel", "onRightClick",
+        "onMiddleClick", "onScroll",      "onTextInput", "onKeyEvent",
+    };
 
     bool isDragDropType(std::string_view type) { return type == "drag_source" || type == "drop_zone"; }
 
@@ -172,7 +197,7 @@ namespace ui {
           return std::nullopt;
         }
       }
-      if (auto role = colorRoleFromToken(base); role.has_value()) {
+      if (auto role = colorRoleFromPluginToken(base); role.has_value()) {
         return colorSpecFromRole(*role, alpha);
       }
       if (base.size() != token->size()) {
@@ -475,11 +500,21 @@ namespace ui {
       static const std::unordered_set<std::string> kImage = {"width",   "height",  "flexGrow", "opacity", "visible",
                                                              "path",    "radius",  "fit",      "border",  "borderWidth",
                                                              "onClick", "onHover", "tooltip"};
+      static const std::unordered_set<std::string> kPixelStream = {
+          "width",         "height",        "flexGrow",      "opacity",     "visible",         "path",
+          "radius",        "onPointerMove", "onPointerDown", "onPointerUp", "onPointerCancel", "onRightClick",
+          "onMiddleClick", "onScroll",      "onTextInput",   "onKeyEvent",
+      };
+      static const std::unordered_set<std::string> kColorPicker = {
+          "width",  "flexGrow", "opacity", "visible",  "value",       "alpha",
+          "inputs", "swatches", "enabled", "onChange", "onChangeEnd",
+      };
       static const std::unordered_set<std::string> kSeparator = {"width",   "height",  "flexGrow",
                                                                  "opacity", "visible", "thickness",
                                                                  "color",   "spacing", "orientation"};
-      static const std::unordered_set<std::string> kProgress = {"width",    "height", "flexGrow", "opacity", "visible",
-                                                                "progress", "fill",   "track",    "radius"};
+      static const std::unordered_set<std::string> kProgress = {"width",   "height",   "flexGrow",   "opacity",
+                                                                "visible", "progress", "fill",       "track",
+                                                                "radius",  "marker",   "markerColor"};
       static const std::unordered_set<std::string> kButton = {"width",       "height",  "flexGrow",     "opacity",
                                                               "visible",     "text",    "glyph",        "fontSize",
                                                               "glyphSize",   "variant", "contentAlign", "enabled",
@@ -506,15 +541,15 @@ namespace ui {
       static const std::unordered_set<std::string> kToggle = {"width",   "height",  "flexGrow", "opacity",
                                                               "visible", "checked", "enabled",  "onChange"};
       static const std::unordered_set<std::string> kScroll = {
-          "width",    "height", "flexGrow",    "opacity",       "visible",  "fill",
-          "radius",   "border", "borderWidth", "gap",           "padding",  "paddingH",
-          "paddingV", "align",  "justify",     "stickToBottom", "onScroll", "scrollToBottomRev"
+          "width",   "height",        "flexGrow", "opacity",           "visible",  "fill",     "radius",
+          "border",  "borderWidth",   "gap",      "padding",           "paddingH", "paddingV", "align",
+          "justify", "stickToBottom", "onScroll", "scrollToBottomRev", "revealKey"
       };
       static const std::unordered_set<std::string> kDragSource = {
-          "width",   "height",   "flexGrow",    "opacity",         "visible",       "gap",
-          "padding", "paddingH", "paddingV",    "align",           "justify",       "fill",
-          "radius",  "border",   "borderWidth", "minWidth",        "minHeight",     "dragType",
-          "payload", "enabled",  "tooltip",     "previewAncestor", "liftFromLayout"
+          "width",           "height",         "flexGrow",   "opacity",  "visible", "gap",     "padding",
+          "paddingH",        "paddingV",       "align",      "justify",  "fill",    "radius",  "border",
+          "borderWidth",     "minWidth",       "minHeight",  "dragType", "payload", "enabled", "tooltip",
+          "previewAncestor", "liftFromLayout", "grabCursor", "onClick"
       };
       static const std::unordered_set<std::string> kDropZone = {
           "width",     "height",  "flexGrow", "opacity", "visible",   "gap",     "padding",      "paddingH",
@@ -536,6 +571,12 @@ namespace ui {
       }
       if (type == "image") {
         return kImage;
+      }
+      if (type == "pixel_stream") {
+        return kPixelStream;
+      }
+      if (type == "color_picker") {
+        return kColorPicker;
       }
       if (type == "separator") {
         return kSeparator;
@@ -589,11 +630,15 @@ namespace ui {
     std::string dragEndCallbackName;      // last-wired slider onDragEnd target
     std::string pointerMoveCallbackName;  // last-wired graph onPointerMove target
     std::string pointerLeaveCallbackName; // last-wired graph onPointerLeave target
-    std::string pointerStreamKey;         // coalescing stream shared by this graph's pointer callbacks
-    std::string imagePath;                // last-applied resolved image source
-    std::string lastText;                 // markdown source cache - setMarkdown re-parses, only call on change
-    float lastMarkdownScale = 0.0F;       // content scale baked into the parsed markdown
-    float lastMarkdownFontScale = 0.0F;   // text-only multiplier baked into the parsed markdown
+    std::string pointerStreamKey; // coalescing stream shared by this graph's or pixel stream's pointer callbacks
+    // Last-wired ui.pixelStream callback targets, indexed by PixelStreamCallback.
+    std::array<std::string, kStreamCallbackCount> pixelStreamCallbackNames;
+    std::string imagePath;              // last-applied resolved image source
+    std::string colorValue;             // last-applied colorPicker value prop
+    std::string lastText;               // markdown source cache - setMarkdown re-parses, only call on change
+    std::string revealKey;              // last-applied scroll revealKey, empty while no child carries it
+    float lastMarkdownScale = 0.0F;     // content scale baked into the parsed markdown
+    float lastMarkdownFontScale = 0.0F; // text-only multiplier baked into the parsed markdown
     float imageTargetSize = 0.0F;
     // Controlled-with-change-detection: a value-driven control (toggle/slider/
     // select) only re-applies its declared value when it differs from the last
@@ -633,6 +678,8 @@ namespace ui {
 
   void UiTreeReconciler::setDragDropOverlayRoot(Node* root) { m_dragDropController->setOverlayRoot(root); }
 
+  void UiTreeReconciler::cancelDragDrop() { m_dragDropController->cancel(); }
+
   bool UiTreeReconciler::reconcile(Flex& host, const UiTreeNode& tree, Renderer& renderer) {
     std::vector<UiTreeNode> desired;
     desired.push_back(tree); // single root child of the host container
@@ -651,7 +698,7 @@ namespace ui {
 
   std::unique_ptr<Node> UiTreeReconciler::createControl(const UiTreeNode& desired) {
     if (isDragDropType(desired.type) && !m_dragDropEnabled) {
-      kLog.error("ui tree: '{}' is only supported in plugin panels; node skipped", desired.type);
+      kLog.error("ui tree: '{}' is only supported in plugin panels and bar widgets; node skipped", desired.type);
       return nullptr;
     }
     // ui.* flex containers default to stretching children across the cross axis
@@ -705,6 +752,12 @@ namespace ui {
         return wrapClickable(std::make_unique<Image>(), callbackProp(desired, "onClick") != nullptr);
       }
       return std::make_unique<Image>();
+    }
+    if (desired.type == "pixel_stream") {
+      return std::make_unique<PixelStreamView>();
+    }
+    if (desired.type == "color_picker") {
+      return std::make_unique<ColorPicker>();
     }
     if (desired.type == "separator") {
       return std::make_unique<Separator>();
@@ -857,8 +910,44 @@ namespace ui {
       } else if (container != nullptr && want.children.empty() && !slot.children.empty()) {
         structureChanged |= syncChildren(*container, slot.children, {}, renderer);
       }
+      if (want.type == "scroll" && slot.node != nullptr) {
+        syncScrollReveal(slot, want);
+      }
     }
     return structureChanged;
+  }
+
+  const UiTreeReconciler::Slot*
+  UiTreeReconciler::findKeyedSlot(const std::vector<Slot>& slots, const std::string& key) {
+    for (const auto& slot : slots) {
+      if (slot.key == key) {
+        return &slot;
+      }
+      if (const Slot* match = findKeyedSlot(slot.children, key)) {
+        return match;
+      }
+    }
+    return nullptr;
+  }
+
+  void UiTreeReconciler::syncScrollReveal(Slot& slot, const UiTreeNode& desired) {
+    const std::string* revealKey = strProp(desired, "revealKey");
+    if (revealKey == nullptr || revealKey->empty()) {
+      slot.revealKey.clear();
+      return;
+    }
+    // Looked up before the unchanged check, so a key whose child is missing is
+    // forgotten and the reveal lands on the render that adds or restores it.
+    const Slot* target = findKeyedSlot(slot.children, *revealKey);
+    if (target == nullptr) {
+      slot.revealKey.clear();
+      return;
+    }
+    if (*revealKey == slot.revealKey) {
+      return;
+    }
+    slot.revealKey = *revealKey;
+    static_cast<ScrollView*>(slot.node)->requestScrollIntoView(target->node);
   }
 
   void UiTreeReconciler::syncWrapperCallbacks(Slot& slot, const UiTreeNode& desired, Node* node) {
@@ -867,7 +956,7 @@ namespace ui {
       if (*onClick != slot.callbackName) {
         slot.callbackName = *onClick;
         if (inputArea != nullptr) {
-          wireWrapperActivation(inputArea, [this, name = slot.callbackName]() {
+          wireWrapperActivation(inputArea, [this, name = slot.callbackName] {
             if (m_sink) {
               m_sink(ControlCallback{name});
             }
@@ -887,7 +976,7 @@ namespace ui {
         if (inputArea != nullptr) {
           inputArea->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key,
                                  node](const InputArea::PointerData&) { openHover(name, key, node); });
-          inputArea->setOnLeave([this, node]() { releaseHover(node); });
+          inputArea->setOnLeave([this, node] { releaseHover(node); });
         }
       }
     } else if (!slot.hoverCallbackName.empty()) {
@@ -954,12 +1043,7 @@ namespace ui {
     if (slot.node == m_hoveredOwner) {
       return true;
     }
-    for (const Slot& child : slot.children) {
-      if (subtreeOwnsHover(child)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(slot.children, [&](const Slot& child) { return subtreeOwnsHover(child); });
   }
 
   // Both edges of a graph's pointer session are wired together: the enter/motion
@@ -1009,7 +1093,7 @@ namespace ui {
       report(pointer);
     });
     inputArea->setOnMotion(report);
-    inputArea->setOnLeave([this, node]() { releasePointer(node); });
+    inputArea->setOnLeave([this, node] { releasePointer(node); });
   }
 
   void UiTreeReconciler::openPointer(const Node* owner, std::string leaveCallback, std::string streamKey) {
@@ -1040,6 +1124,220 @@ namespace ui {
     }
   }
 
+  void UiTreeReconciler::endPointer(const Node* owner) {
+    if (owner != nullptr && owner == m_pointerOwner) {
+      m_pointerOwner = nullptr;
+      m_pointerLeaveCallback.clear();
+      m_pointerStreamKey.clear();
+    }
+  }
+
+  void UiTreeReconciler::applyColorPickerProps(Slot& slot, const UiTreeNode& desired, ColorPicker& picker) {
+    constexpr std::size_t kMaxSwatches = 16;
+    picker.setScale(m_scale);
+    if (const double* width = numProp(desired, "width")) {
+      picker.setPickerWidth(static_cast<float>(*width) * m_scale);
+    } else {
+      picker.setFillWidth();
+    }
+
+    const bool* alpha = boolProp(desired, "alpha");
+    const bool withAlpha = alpha != nullptr && *alpha;
+    picker.setAlphaEnabled(withAlpha);
+
+    ColorPicker::Inputs inputs = ColorPicker::Inputs::Full;
+    if (const std::string* mode = strProp(desired, "inputs")) {
+      if (*mode == "hex") {
+        inputs = ColorPicker::Inputs::Hex;
+      } else if (*mode == "none") {
+        inputs = ColorPicker::Inputs::None;
+      } else if (*mode != "full") {
+        kLog.warn("ui tree: colorPicker has unknown inputs '{}'", *mode);
+      }
+    }
+    picker.setInputs(inputs);
+
+    std::vector<Color> swatches;
+    if (const std::vector<std::string>* entries = strArrayProp(desired, "swatches")) {
+      for (const std::string& entry : *entries) {
+        if (swatches.size() == kMaxSwatches) {
+          kLog.warn("ui tree: colorPicker keeps the first {} swatches", kMaxSwatches);
+          break;
+        }
+        Color color{};
+        if (tryParseHexColor(entry, color)) {
+          swatches.push_back(color);
+        } else {
+          kLog.warn("ui tree: colorPicker skips invalid swatch '{}'", entry);
+        }
+      }
+    }
+    picker.setSwatches(std::move(swatches));
+
+    // Reads the picker's current alpha mode, so callbacks wired earlier stay correct when it changes.
+    const auto format = [owner = &picker](const Color& color) {
+      return owner->alphaEnabled() ? formatRgbaHex(color) : formatRgbHex(color);
+    };
+    // Like a slider's value: applied only when the prop itself changes, so re-applying an
+    // unchanged tree never undoes the user's edits, and never mid-drag.
+    if (const std::string* value = strProp(desired, "value"); value != nullptr && !picker.dragging()) {
+      Color color{};
+      if (*value == slot.colorValue) {
+        // Unchanged since the last render.
+      } else if (!tryParseHexColor(*value, color)) {
+        kLog.warn("ui tree: colorPicker has invalid value '{}'", *value);
+        slot.colorValue = *value;
+      } else {
+        slot.colorValue = *value;
+        if (!withAlpha) {
+          color.a = 1.0F;
+        }
+        // Echoing onChange back is a no-op, so it never rewrites the field being typed in.
+        if (format(color) != format(picker.color())) {
+          picker.setColor(color);
+        }
+      }
+    }
+    if (const bool* enabled = boolProp(desired, "enabled")) {
+      picker.setEnabled(*enabled);
+    }
+
+    const std::string* onChange = callbackProp(desired, "onChange");
+    const std::string changeName = onChange != nullptr ? *onChange : std::string{};
+    if (changeName != slot.callbackName) {
+      slot.callbackName = changeName;
+      picker.setOnColorChanged(
+          changeName.empty() ? std::function<void(const Color&)>{} : [this, changeName, format](const Color& color) {
+            if (m_sink) {
+              m_sink(ControlCallback{changeName, format(color), "", true});
+            }
+          }
+      );
+    }
+    const std::string* onChangeEnd = callbackProp(desired, "onChangeEnd");
+    const std::string endName = onChangeEnd != nullptr ? *onChangeEnd : std::string{};
+    if (endName != slot.dragEndCallbackName) {
+      slot.dragEndCallbackName = endName;
+      picker.setOnColorCommitted(
+          endName.empty() ? std::function<void(const Color&)>{} : [this, endName, format](const Color& color) {
+            if (m_sink) {
+              m_sink(ControlCallback{endName, format(color)});
+            }
+          }
+      );
+    }
+  }
+
+  void UiTreeReconciler::syncPixelStreamCallbacks(Slot& slot, const UiTreeNode& desired, PixelStreamView& view) {
+    std::array<std::string, kStreamCallbackCount> names;
+    for (std::size_t i = 0; i < names.size(); ++i) {
+      if (const std::string* name = callbackProp(desired, kPixelStreamCallbackProps[i])) {
+        names[i] = *name;
+      }
+    }
+    if (names == slot.pixelStreamCallbackNames) {
+      return;
+    }
+    // A drag that began under the old callbacks ends under them.
+    view.cancelDrag();
+    slot.pixelStreamCallbackNames = names;
+    slot.pointerStreamKey = std::format("pixel-stream:{}", ++m_pointerStreamSeq);
+
+    const auto wants = [&names](PixelStreamCallback callback) { return !names[callback].empty(); };
+    std::uint32_t buttons = 0;
+    if (wants(kStreamDown) || wants(kStreamUp) || wants(kStreamCancel)) {
+      buttons |= InputArea::buttonMask(BTN_LEFT);
+    }
+    if (wants(kStreamRightClick)) {
+      buttons |= InputArea::buttonMask(BTN_RIGHT);
+    }
+    if (wants(kStreamMiddleClick)) {
+      buttons |= InputArea::buttonMask(BTN_MIDDLE);
+    }
+    if (buttons != 0 || wants(kStreamMove) || wants(kStreamScroll)) {
+      view.setPointerHandler(
+          [this, owner = static_cast<const Node*>(&view), stream = slot.pointerStreamKey,
+           names](const PixelStreamView::PointerEvent& event) {
+            if (!m_sink) {
+              return;
+            }
+            const auto coordinate = [](float value) { return std::format("{:.4F}", value); };
+            // One coalescing stream per segment: a newer move may replace a queued one, but
+            // never one queued before the press, release, or scroll that separates them.
+            const std::string segment = std::format("{}:{}", stream, event.segment);
+            const auto call = [this, &names, &event, &coordinate](PixelStreamCallback callback) {
+              if (!names[callback].empty()) {
+                m_sink(ControlCallback{names[callback], coordinate(event.x), coordinate(event.y)});
+              }
+            };
+            switch (event.kind) {
+            case PixelStreamView::PointerKind::Move:
+              if (!names[kStreamMove].empty()) {
+                m_sink(ControlCallback{names[kStreamMove], coordinate(event.x), coordinate(event.y), true, segment});
+              }
+              break;
+            case PixelStreamView::PointerKind::Down:
+              // The drag is a pointer session: if the view is dropped, rewired, or reset away
+              // mid-drag, closing the session still delivers onPointerCancel.
+              if (!names[kStreamCancel].empty()) {
+                openPointer(owner, names[kStreamCancel], segment);
+              }
+              call(kStreamDown);
+              break;
+            case PixelStreamView::PointerKind::Up:
+              endPointer(owner);
+              call(kStreamUp);
+              break;
+            case PixelStreamView::PointerKind::Cancel:
+              releasePointer(owner);
+              break;
+            case PixelStreamView::PointerKind::RightClick:
+              call(kStreamRightClick);
+              break;
+            case PixelStreamView::PointerKind::MiddleClick:
+              call(kStreamMiddleClick);
+              break;
+            case PixelStreamView::PointerKind::Scroll:
+              if (!names[kStreamScroll].empty()) {
+                m_sink(ControlCallback{names[kStreamScroll], std::format("{}", event.dx), std::format("{}", event.dy)});
+              }
+              break;
+            }
+          },
+          buttons, wants(kStreamScroll)
+      );
+    } else {
+      view.setPointerHandler({}, 0, false);
+    }
+
+    if (wants(kStreamTextInput) || wants(kStreamKeyEvent)) {
+      view.setKeyHandler([this, text = names[kStreamTextInput],
+                          keyEvent = names[kStreamKeyEvent]](const InputArea::KeyData& key) {
+        // Composition previews are not input yet; Super chords belong to the compositor.
+        if (!m_sink || key.preedit || (key.modifiers & KeyMod::Super) != 0) {
+          return;
+        }
+        if (isPlainPrintableKey(key.utf32, key.modifiers, key.preedit)) {
+          if (key.pressed && !text.empty()) {
+            if (std::string utf8 = StringUtils::utf32ToUtf8(key.utf32); !utf8.empty()) {
+              m_sink(ControlCallback{text, std::move(utf8)});
+            }
+          }
+          return;
+        }
+        if (keyEvent.empty()) {
+          return;
+        }
+        if (std::string chord = keyChordToString(KeyChord{.sym = key.sym, .modifiers = key.modifiers});
+            !chord.empty()) {
+          m_sink(ControlCallback{keyEvent, std::move(chord), key.pressed ? "true" : "false"});
+        }
+      });
+    } else {
+      view.setKeyHandler({});
+    }
+  }
+
   bool UiTreeReconciler::subtreeOwnsPointer(const Slot& slot) const {
     if (m_pointerOwner == nullptr) {
       return false;
@@ -1047,12 +1345,7 @@ namespace ui {
     if (slot.node == m_pointerOwner) {
       return true;
     }
-    for (const Slot& child : slot.children) {
-      if (subtreeOwnsPointer(child)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(slot.children, [&](const Slot& child) { return subtreeOwnsPointer(child); });
   }
 
   void UiTreeReconciler::applyProps(Slot& slot, const UiTreeNode& desired, Renderer& renderer) {
@@ -1129,6 +1422,24 @@ namespace ui {
         warnMistypedOptionalProp(desired, "liftFromLayout", "a boolean");
       }
       source->setLiftFromLayout(liftFromLayout != nullptr && *liftFromLayout);
+      const bool* grabCursor = boolProp(desired, "grabCursor");
+      if (grabCursor == nullptr) {
+        warnMistypedOptionalProp(desired, "grabCursor", "a boolean");
+      }
+      source->setGrabCursor(grabCursor == nullptr || *grabCursor);
+      if (const std::string* onClick = callbackProp(desired, "onClick"); onClick != nullptr) {
+        if (*onClick != slot.callbackName) {
+          slot.callbackName = *onClick;
+          source->setOnClick([this, name = slot.callbackName] {
+            if (m_sink) {
+              m_sink(ControlCallback{name});
+            }
+          });
+        }
+      } else if (!slot.callbackName.empty()) {
+        slot.callbackName.clear();
+        source->setOnClick(nullptr);
+      }
     } else if (desired.type == "drop_zone") {
       auto* zone = static_cast<DropZone*>(node);
       if (auto error = validateDragDropProps(desired)) {
@@ -1236,8 +1547,12 @@ namespace ui {
         flex->setMinHeight(scaled(*minHeight));
       }
       if (width != nullptr) {
-        flex->setMinWidth(scaled(*width));
-        flex->setMaxWidth(scaled(*width));
+        if (desired.type == "drop_zone") {
+          static_cast<DropZone*>(node)->setCollapsedWidth(scaled(*width));
+        } else {
+          flex->setMinWidth(scaled(*width));
+          flex->setMaxWidth(scaled(*width));
+        }
       }
       if (height != nullptr) {
         if (desired.type == "drop_zone") {
@@ -1343,6 +1658,24 @@ namespace ui {
       return;
     }
 
+    if (desired.type == "color_picker") {
+      applyColorPickerProps(slot, desired, *static_cast<ColorPicker*>(node));
+      return;
+    }
+
+    if (desired.type == "pixel_stream") {
+      auto* view = static_cast<PixelStreamView*>(node);
+      view->setSize(
+          width != nullptr ? scaled(*width) : view->width(), height != nullptr ? scaled(*height) : view->height()
+      );
+      const std::string* path = strProp(desired, "path");
+      view->setPath(path != nullptr && !path->empty() ? (m_resolver ? m_resolver(*path) : *path) : std::string{});
+      const double* radius = numProp(desired, "radius");
+      view->setRadius(radius != nullptr ? std::max(0.0F, scaled(*radius)) : 0.0F);
+      syncPixelStreamCallbacks(slot, desired, *view);
+      return;
+    }
+
     if (desired.type == "image") {
       auto* image = controlFromSlot<Image>(node);
       if (image == nullptr) {
@@ -1428,6 +1761,16 @@ namespace ui {
       if (const double* radius = numProp(desired, "radius")) {
         progress->setRadius(scaled(*radius));
       }
+      // An absent marker clears the line, so a tree can drop it without restructuring.
+      if (const double* marker = numProp(desired, "marker")) {
+        progress->setMarkerWidth(Style::progressMarkerWidth * m_scale);
+        progress->setMarker(static_cast<float>(*marker));
+      } else {
+        progress->clearMarker();
+      }
+      if (auto markerColor = parseColor(desired, "markerColor")) {
+        progress->setMarkerColor(*markerColor);
+      }
       progress->setSize(
           width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
       );
@@ -1489,10 +1832,10 @@ namespace ui {
         if (*onHover != slot.hoverCallbackName) {
           releaseHover(node);
           slot.hoverCallbackName = *onHover;
-          button->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key, node]() {
+          button->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key, node] {
             openHover(name, key, node);
           });
-          button->setOnLeave([this, node]() { releaseHover(node); });
+          button->setOnLeave([this, node] { releaseHover(node); });
         }
       } else if (!slot.hoverCallbackName.empty()) {
         releaseHover(node);
@@ -1503,7 +1846,7 @@ namespace ui {
       if (const std::string* onClick = strProp(desired, "onClick");
           onClick != nullptr && *onClick != slot.callbackName) {
         slot.callbackName = *onClick;
-        button->setOnClick([this, name = slot.callbackName]() {
+        button->setOnClick([this, name = slot.callbackName] {
           if (m_sink) {
             m_sink(ControlCallback{name});
           }
@@ -1614,13 +1957,13 @@ namespace ui {
       if (const double* step = numProp(desired, "step")) {
         slider->setStep(*step);
       }
-      if (const double* value = numProp(desired, "value")) {
-        // Don't fight an in-progress drag, and only re-apply a changed value.
-        if (!slider->dragging() && (!slot.lastScalar.has_value() || *slot.lastScalar != *value)) {
-          slot.lastScalar = *value;
-          slider->setValue(*value);
-        }
+      // Don't fight an in-progress drag, and only re-apply a changed value.
+      if (const double* value = numProp(desired, "value");
+          value && !slider->dragging() && (!slot.lastScalar.has_value() || *slot.lastScalar != *value)) {
+        slot.lastScalar = *value;
+        slider->setValue(*value);
       }
+
       if (const bool* enabled = boolProp(desired, "enabled")) {
         slider->setEnabled(*enabled);
       }
@@ -1636,7 +1979,7 @@ namespace ui {
       if (const std::string* onDragEnd = strProp(desired, "onDragEnd");
           onDragEnd != nullptr && *onDragEnd != slot.dragEndCallbackName) {
         slot.dragEndCallbackName = *onDragEnd;
-        slider->setOnDragEnd([this, name = slot.dragEndCallbackName]() {
+        slider->setOnDragEnd([this, name = slot.dragEndCallbackName] {
           if (m_sink) {
             m_sink(ControlCallback{name});
           }
@@ -1655,12 +1998,12 @@ namespace ui {
         select->setOptions(*options);
         slot.lastScalar.reset(); // re-apply the selection against the new option set
       }
-      if (const double* index = numProp(desired, "selectedIndex")) {
-        if (!slot.lastScalar.has_value() || *slot.lastScalar != *index) {
-          slot.lastScalar = *index;
-          select->setSelectedIndexSilently(static_cast<std::size_t>(std::max(0.0, *index)));
-        }
+      if (const double* index = numProp(desired, "selectedIndex");
+          index && (!slot.lastScalar.has_value() || *slot.lastScalar != *index)) {
+        slot.lastScalar = *index;
+        select->setSelectedIndexSilently(static_cast<std::size_t>(std::max(0.0, *index)));
       }
+
       if (const bool* enabled = boolProp(desired, "enabled")) {
         select->setEnabled(*enabled);
       }
@@ -1812,14 +2155,14 @@ namespace ui {
           }
         });
       }
-      if (const double* scrollToBottomRev = numProp(desired, "scrollToBottomRev")) {
-        if (!slot.lastScalar.has_value() || *slot.lastScalar != *scrollToBottomRev) {
-          slot.lastScalar = *scrollToBottomRev;
-          // Deferred: children reconcile after applyProps, so an immediate
-          // setScrollOffset would clamp against the previous scroll extent.
-          scroll->requestScrollToBottom();
-        }
+      if (const double* scrollToBottomRev = numProp(desired, "scrollToBottomRev");
+          scrollToBottomRev && (!slot.lastScalar.has_value() || *slot.lastScalar != *scrollToBottomRev)) {
+        slot.lastScalar = *scrollToBottomRev;
+        // Deferred: children reconcile after applyProps, so an immediate
+        // setScrollOffset would clamp against the previous scroll extent.
+        scroll->requestScrollToBottom();
       }
+
       // gap / padding / align / justify configure the inner content Flex that
       // hosts the children.
       Flex* content = scroll->content();

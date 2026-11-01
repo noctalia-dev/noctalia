@@ -62,6 +62,8 @@ private:
   [[nodiscard]] bool cellularToggleDisplayChecked() const;
   void requestCellularEnabled(bool enabled);
   void syncPasswordCard();
+  // Moves keyboard focus into the prompt once after it appears on the active tab.
+  void focusPendingPasswordPrompt();
   void showPasswordPrompt(const NetworkSecretAgent::SecretRequest& request);
   void showPasswordPrompt(const AccessPointInfo& ap);
   void submitPasswordPrompt(const std::string& value);
@@ -91,7 +93,6 @@ private:
   Label* m_passwordTitle = nullptr;
   Input* m_passwordInput = nullptr;
   Button* m_passwordRevealButton = nullptr;
-  bool m_passwordRevealed = false;
   // 802.1X form. Hidden for pre-shared-key networks, which keep the single
   // password field below it.
   Flex* m_enterpriseFields = nullptr;
@@ -122,6 +123,7 @@ private:
 
   bool m_hasPendingSecret = false;
   bool m_pendingEnterprise = false;
+  bool m_focusPasswordPrompt = false;
   std::string m_pendingSsid;
   std::optional<AccessPointInfo> m_pendingAccessPoint;
   bool m_active = false;
