@@ -1114,6 +1114,7 @@ void Application::initSystemBusServices() {
             m_lockScreen.resetGracePeriod();
             // Screen time must not accumulate across suspend even when lock-before-suspend is off.
             m_screenTimeService.setSuspendPaused(true);
+            m_pluginServiceHost.onSleepChanged(true);
             // The readiness hook releases the delay inhibit after the revealed lock frames are acknowledged.
             if (m_skipLockOnNextSleep) {
               // Noctalia-initiated suspend: skip lock-before-sleep (plain Suspend or already locked).
@@ -1181,6 +1182,7 @@ void Application::initSystemBusServices() {
             m_lockScreen.onSystemResumed();
           }
           m_weatherService.requestRefresh();
+          m_pluginServiceHost.onSleepChanged(false);
           m_gammaService.reevaluateSchedule();
           // Auto theme mode schedules with steady_clock timers, which do not advance while
           // suspended. Re-resolve so a day/night boundary crossed during sleep is applied.
