@@ -108,12 +108,7 @@ namespace {
     }
     auto matches = [&](const std::string& key, const std::vector<std::string>& values) {
       const auto current = settingValueAsString(s, key, allSpecs);
-      for (const auto& val : values) {
-        if (val == current) {
-          return true;
-        }
-      }
-      return false;
+      return std::ranges::contains(values, current);
     };
     for (const auto& cond : spec.visibleWhen->all) {
       if (!matches(cond.key, cond.values)) {
@@ -123,21 +118,11 @@ namespace {
     if (spec.visibleWhen->any.empty()) {
       return true;
     }
-    for (const auto& cond : spec.visibleWhen->any) {
-      if (matches(cond.key, cond.values)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(spec.visibleWhen->any, [&](const auto& cond) { return matches(cond.key, cond.values); });
   }
 
   bool hasVisibleSpecs(const std::vector<settings::WidgetSettingSpec>& specs, const Settings& s) {
-    for (const auto& spec : specs) {
-      if (isSpecVisible(spec, s, specs)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(specs, [&](const auto& spec) { return isSpecVisible(spec, s, specs); });
   }
 
   bool settingChangeAffectsInspectorVisibility(std::string_view type, std::string_view changedKey) {
@@ -253,7 +238,7 @@ namespace {
 
     valueInput->setOnChange([valueInputPtr](const std::string& /*text*/) { valueInputPtr->setInvalid(false); });
     valueInput->setOnSubmit([commitInputText](const std::string& text) { commitInputText(text); });
-    valueInput->setOnFocusLoss([commitInputText, valueInputPtr]() { commitInputText(valueInputPtr->value()); });
+    valueInput->setOnFocusLoss([commitInputText, valueInputPtr] { commitInputText(valueInputPtr->value()); });
 
     return ui::row(
         {
@@ -325,7 +310,7 @@ namespace {
   }
 
   std::unique_ptr<Flex> makeColorSpecRow(
-      std::string_view labelText, const std::string& key, std::string fallbackValue, const Settings& s,
+      std::string_view labelText, const std::string& key, const std::string& fallbackValue, const Settings& s,
       DesktopWidgetsEditor* editor
   ) {
     settings::ColorSpecSelectOptions options{
@@ -340,7 +325,7 @@ namespace {
     };
     auto select = settings::makeColorSpecSelect(
         std::move(options), [editor, key](std::string value) { editor->applySettingChange(key, std::move(value)); },
-        []() {}
+        [] {}
     );
     return makeRow(labelText, std::move(select));
   }
@@ -362,7 +347,7 @@ namespace {
         .minHeight = Style::controlHeightSm,
         .paddingV = Style::spaceXs,
         .paddingH = Style::spaceSm,
-        .onClick = [editor, key, currentValue = value]() {
+        .onClick = [editor, key, currentValue = value] {
           GlyphPickerDialogOptions options;
           if (!currentValue.empty()) {
             options.initialGlyph = currentValue;
@@ -405,6 +390,16 @@ namespace {
   std::unique_ptr<Flex> makeStringListRow(
       std::string_view labelText, const std::string& key, std::vector<std::string> items, DesktopWidgetsEditor* editor
   ) {
+
+    auto row = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceXs, .fillWidth = true});
+    row->addChild(
+        ui::label({
+            .text = std::string(labelText),
+            .fontSize = Style::fontSizeCaption,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        })
+    );
+
     auto listEditor = std::make_unique<ListEditor>();
     listEditor->setAddPlaceholder(i18n::tr("settings.controls.list.add-entry-placeholder"));
     listEditor->setItems(items);
@@ -429,7 +424,8 @@ namespace {
       std::swap(items[from], items[to]);
       editor->applySettingChange(key, items);
     });
-    return makeRow(labelText, std::move(listEditor));
+    row->addChild(std::move(listEditor));
+    return row;
   }
 
   std::unique_ptr<Flex> makeStringMapRow(
@@ -496,7 +492,7 @@ namespace {
               .variant = ButtonVariant::Ghost,
               .minWidth = Style::controlHeightSm,
               .minHeight = Style::controlHeightSm,
-              .onClick = [editor, key, entries, entryKey]() mutable {
+              .onClick = [editor, key, entries, entryKey] mutable {
                 entries.erase(entryKey);
                 editor->applySettingChange(key, entries);
               },
@@ -538,7 +534,7 @@ namespace {
             .variant = ButtonVariant::Ghost,
             .minWidth = Style::controlHeightSm,
             .minHeight = Style::controlHeightSm,
-            .onClick = [editor, key, entries = std::move(entries), keyInput, valueInput]() mutable {
+            .onClick = [editor, key, entries = std::move(entries), keyInput, valueInput] mutable {
               if (keyInput == nullptr
                   || valueInput == nullptr
                   || keyInput->value().empty()
@@ -575,7 +571,7 @@ namespace {
         .minHeight = Style::controlHeightSm,
         .paddingV = Style::spaceXs,
         .paddingH = Style::spaceSm,
-        .onClick = [editor, key, inputPtr, kind, selectFolder, extensions = std::move(extensions)]() {
+        .onClick = [editor, key, inputPtr, kind, selectFolder, extensions = std::move(extensions)] {
           FileDialogOptions options;
           options.mode = selectFolder ? FileDialogMode::SelectFolder : FileDialogMode::Open;
           options.defaultViewMode = FileDialogViewMode::List;
@@ -615,7 +611,7 @@ namespace {
             .text = i18n::tr("desktop-widgets.editor.settings.change-image"),
             .variant = ButtonVariant::Default,
             .flexGrow = 1.0F,
-            .onClick = [editor, key]() {
+            .onClick = [editor, key] {
               FileDialogOptions options;
               options.mode = FileDialogMode::Open;
               options.title = i18n::tr("desktop-widgets.editor.dialogs.select-sticker-image");
@@ -859,7 +855,7 @@ namespace {
         ui::button({
             .text = i18n::tr("desktop-widgets.editor.settings.reset-defaults"),
             .variant = ButtonVariant::Ghost,
-            .onClick = [editor, onReset = std::move(onReset)]() {
+            .onClick = [editor, onReset = std::move(onReset)] {
               if (editor != nullptr) {
                 onReset();
               }
@@ -888,7 +884,7 @@ namespace {
 } // namespace
 
 void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSettingValue value) {
-  deferEditorMutation([this, key, value = std::move(value)]() {
+  deferEditorMutation([this, key, value = std::move(value)] {
     auto* state = findWidgetState(m_selectedWidgetId);
     if (state == nullptr) {
       return;
@@ -974,22 +970,22 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
     }
     newWidget->setAnimationManager(&surface->animations);
     auto* surfacePtr = surface;
-    newWidget->setUpdateCallback([surfacePtr]() {
+    newWidget->setUpdateCallback([surfacePtr] {
       if (surfacePtr->surface != nullptr) {
         surfacePtr->surface->requestUpdateOnly();
       }
     });
-    newWidget->setLayoutCallback([surfacePtr]() {
+    newWidget->setLayoutCallback([surfacePtr] {
       if (surfacePtr->surface != nullptr) {
         surfacePtr->surface->requestUpdate();
       }
     });
-    newWidget->setRedrawCallback([surfacePtr]() {
+    newWidget->setRedrawCallback([surfacePtr] {
       if (surfacePtr->surface != nullptr) {
         surfacePtr->surface->requestRedraw();
       }
     });
-    newWidget->setFrameTickRequestCallback([surfacePtr]() {
+    newWidget->setFrameTickRequestCallback([surfacePtr] {
       if (surfacePtr->surface != nullptr) {
         surfacePtr->surface->requestFrameTick();
       }
@@ -1020,7 +1016,7 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
 }
 
 void DesktopWidgetsEditor::resetSelectedWidgetSettings() {
-  deferEditorMutation([this]() {
+  deferEditorMutation([this] {
     auto* state = findWidgetState(m_selectedWidgetId);
     if (state == nullptr) {
       return;
@@ -1086,7 +1082,7 @@ void DesktopWidgetsEditor::buildInspector(
   );
   addBackgroundSection(*content, selectedState.settings, this, selectedState.type);
   if (hasVisibleSpecs(typeSpecs, selectedState.settings) || hasVisibleSpecs(backgroundSpecs, selectedState.settings)) {
-    content->addChild(makeResetDefaultsRow(this, [this]() { resetSelectedWidgetSettings(); }));
+    content->addChild(makeResetDefaultsRow(this, [this] { resetSelectedWidgetSettings(); }));
   }
 
   Flex* panelPtr = nullptr;
@@ -1104,7 +1100,7 @@ void DesktopWidgetsEditor::buildInspector(
           .configure =
               [panelRadius](Flex& flex) {
                 flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
-                flex.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+                flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
                 flex.setRadius(panelRadius);
                 flex.setZIndex(201);
               },
@@ -1116,7 +1112,7 @@ void DesktopWidgetsEditor::buildInspector(
               .gap = Style::spaceSm,
               .paddingV = Style::spaceXs,
               .paddingH = Style::spaceMd,
-              .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.85F),
+              .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
               .minHeight = Style::controlHeightSm,
               .fillWidth = true,
               .width = kInspectorWidth,
@@ -1155,8 +1151,8 @@ void DesktopWidgetsEditor::buildInspector(
               .width = kInspectorCloseSize,
               .height = kInspectorCloseSize,
               .onClick =
-                  [this]() {
-                    deferEditorMutation([this]() {
+                  [this] {
+                    deferEditorMutation([this] {
                       m_inspectorOpen = false;
                       requestLayout();
                     });

@@ -19,6 +19,7 @@
 #include <utility>
 
 class ClipboardService;
+class ContextMenuPopup;
 class Flex;
 class HttpClient;
 class Node;
@@ -36,6 +37,9 @@ struct PluginPanelOptions {
   // only the fallback if the compositor never assigns one.
   bool widthFill = false;
   bool heightFill = false;
+  // Height follows the rendered tree, up to maxHeight.
+  bool heightContent = false;
+  double maxHeight = 0.0;
   bool dismissOnOutsideClick = true;
   // One of scripting::kPanelKeyboardFocusModes.
   std::string keyboardFocus = "on_demand";
@@ -52,28 +56,37 @@ struct PluginPanelOptions {
 // but never-opened plugin panels cost nothing.
 class PluginPanel : public Panel, public scripting::PluginIpcEndpoint {
 public:
-  PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOptions options);
+  PluginPanel(scripting::PluginRuntimeContext context, const PluginPanelOptions& options);
   ~PluginPanel() override;
 
   void create() override;
   void onOpen(std::string_view context) override;
   void onClose() override;
   void onFrameTick(float deltaMs) override;
+  void scrollFocusedInputIntoView(InputArea* area) override;
+  [[nodiscard]] bool isContextActive(std::string_view context) const override;
 
   [[nodiscard]] float preferredWidth() const override { return scaled(m_preferredWidth); }
-  [[nodiscard]] float preferredHeight() const override { return scaled(m_preferredHeight); }
+  // A content-fitted panel's preferred height is its maximum.
+  [[nodiscard]] float preferredHeight() const override {
+    return scaled(m_heightContent ? m_maxContentHeight : m_preferredHeight);
+  }
+  [[nodiscard]] bool fitsContentHeight() const noexcept override { return m_heightContent; }
+  [[nodiscard]] float measureContentHeight(Renderer& renderer, float contentWidth) override;
   [[nodiscard]] bool fillsWidth() const noexcept override { return m_widthFill; }
   [[nodiscard]] bool fillsHeight() const noexcept override { return m_heightFill; }
   [[nodiscard]] bool dismissOnOutsideClick() const override { return m_dismissOnOutsideClick; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return m_keyboardMode; }
+  [[nodiscard]] LayerShellLayer layer() const override { return m_layer; }
   [[nodiscard]] bool isPersistent() const noexcept override { return m_persistent; }
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override { return m_shellConfig.placement; }
   [[nodiscard]] std::string panelScreenPosition() const override { return m_shellConfig.position; }
   [[nodiscard]] bool panelOpenNearClick() const override { return m_shellConfig.openNearClick; }
   [[nodiscard]] InputArea* takePendingFocusArea() override { return std::exchange(m_pendingFocusArea, nullptr); }
+  [[nodiscard]] bool dismissTransientUi() override;
 
   // Delivers a manifest-declared capture_keys chord to the script's onKey(chord, pressed) and
-  // reports it consumed. Declared chords only: everything else keeps its host behaviour, and a
+  // reports it consumed. Declared chords only: everything else keeps its host behavior, and a
   // focused text input still wins printable keys (PanelManager reserves those before calling).
   [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
 
@@ -89,6 +102,8 @@ private:
   void doUpdate(Renderer& renderer) override;
 
   void handleScriptResult(scripting::ScriptResult result);
+  void openContextMenu(scripting::ScriptContextMenuRequest request);
+  void closeContextMenu();
   [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
   [[nodiscard]] std::string resolvePluginPath(const std::string& path) const;
   void releaseCapturedKeys();
@@ -125,19 +140,25 @@ private:
   Node* m_dragOverlay = nullptr;
   InputArea* m_pendingFocusArea = nullptr;
   ui::UiTreeReconciler m_reconciler;
+  std::unique_ptr<ContextMenuPopup> m_contextMenuPopup;
   std::optional<ui::UiTreeNode> m_tree;
   bool m_treeDirty = false;
   bool m_wantsSecondTicks = false;
   bool m_needsFrameTick = false;
   bool m_open = false;
+  std::string m_openContext;
+  std::uint64_t m_openGeneration = 0;
   bool m_hasOnIpc = false;
   bool m_hasOnIpcKnown = false;
   float m_preferredWidth;
   float m_preferredHeight;
   bool m_widthFill = false;
   bool m_heightFill = false;
+  bool m_heightContent = false;
+  float m_maxContentHeight = 0.0F;
   bool m_dismissOnOutsideClick = true;
   LayerShellKeyboard m_keyboardMode = LayerShellKeyboard::OnDemand;
+  LayerShellLayer m_layer = LayerShellLayer::Top;
   bool m_persistent = false;
   scripting::PluginPanelShellConfig m_shellConfig;
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);

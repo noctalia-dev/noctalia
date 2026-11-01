@@ -45,7 +45,7 @@ namespace {
 } // namespace
 
 BluetoothWidget::BluetoothWidget(BluetoothService* bluetooth, wl_output* /*output*/, Options options)
-    : m_bluetooth(bluetooth), m_showLabel(options.showLabel),
+    : m_bluetooth(bluetooth), m_showLabel(options.showLabel), m_hideWhenAdapterOff(options.hideWhenAdapterOff),
       m_hideWhenNoConnectedDevice(options.hideWhenNoConnectedDevice) {}
 
 void BluetoothWidget::create() {
@@ -64,7 +64,7 @@ void BluetoothWidget::create() {
     area->addChild(
         ui::label({
             .out = &m_label,
-            .fontSize = Style::fontSizeBody * m_contentScale,
+            .fontSize = Style::fontSizeBody * fontScale(),
             .fontWeight = labelFontWeight(),
             .fontFamily = labelFontFamily(),
         })
@@ -100,12 +100,11 @@ void BluetoothWidget::doLayout(Renderer& renderer, float /*containerWidth*/, flo
 void BluetoothWidget::doUpdate(Renderer& renderer) { syncState(renderer); }
 
 void BluetoothWidget::syncWidgetVisibility(bool showWidget) {
-  if (Node* rootNode = root(); rootNode != nullptr) {
-    if (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget) {
-      rootNode->setVisible(showWidget);
-      rootNode->setParticipatesInLayout(showWidget);
-      requestUpdate();
-    }
+  if (Node* rootNode = root();
+      rootNode != nullptr && (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget)) {
+    rootNode->setVisible(showWidget);
+    rootNode->setParticipatesInLayout(showWidget);
+    requestUpdate();
   }
 }
 
@@ -128,7 +127,8 @@ void BluetoothWidget::syncState(Renderer& renderer) {
   m_lastConnectedAlias = alias;
 
   const bool hasConnectedDevice = numConnected > 0;
-  const bool showWidget = s.adapterPresent && (!m_hideWhenNoConnectedDevice || hasConnectedDevice);
+  const bool showWidget =
+      s.adapterPresent && (!m_hideWhenAdapterOff || s.powered) && (!m_hideWhenNoConnectedDevice || hasConnectedDevice);
   syncWidgetVisibility(showWidget);
   if (!showWidget) {
     if (Node* rootNode = root(); rootNode != nullptr) {

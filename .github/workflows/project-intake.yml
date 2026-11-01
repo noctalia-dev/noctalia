@@ -1,0 +1,145 @@
+name: Maintainer Triage Intake
+
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request_target:
+    types: [opened, reopened]
+  workflow_dispatch:
+    inputs:
+      number:
+        description: Existing issue or pull request number
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: maintainer-triage-intake-${{ github.event.issue.number || github.event.pull_request.number || inputs.number }}
+  cancel-in-progress: false
+
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    steps:
+      # Short-lived token from the Noctalia Automation GitHub App (org variable
+      # AUTOMATION_APP_CLIENT_ID, org secret AUTOMATION_APP_PRIVATE_KEY), limited to
+      # this repository and to what intake needs.
+      - name: Create Noctalia Automation token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.AUTOMATION_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          permission-organization-projects: write
+          permission-issues: read
+          permission-pull-requests: read
+
+      - name: Add native issues and pull requests to maintainer triage
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const projectId = 'PVT_kwDODYBPq84BmIDl';
+            const { owner, repo } = context.repo;
+            if (owner !== 'noctalia-dev' || repo !== 'noctalia') throw new Error('Unexpected intake repository');
+
+            let number;
+            let expectedKind;
+            if (context.eventName === 'workflow_dispatch') {
+              const raw = context.payload.inputs?.number;
+              if (typeof raw !== 'string' || !/^[1-9][0-9]*$/.test(raw)) throw new Error('Dispatch number must be a positive decimal issue or pull request number');
+              number = Number(raw);
+            } else {
+              const subject = context.payload.issue || context.payload.pull_request;
+              if (!subject) throw new Error('Intake event has no issue or pull request');
+              number = subject.number;
+              expectedKind = context.payload.pull_request ? 'PR' : 'Issue';
+            }
+            if (!Number.isSafeInteger(number) || number < 1) throw new Error('Invalid issue or pull request number');
+            const issueResult = await github.rest.issues.get({ owner, repo, issue_number: number });
+            const isPullRequest = Boolean(issueResult.data.pull_request);
+            const kind = isPullRequest ? 'PR' : 'Issue';
+            if (expectedKind && expectedKind !== kind) throw new Error(`Event type disagrees with source ${number}`);
+            const source = isPullRequest
+              ? (await github.rest.pulls.get({ owner, repo, pull_number: number })).data
+              : issueResult.data;
+            if (isPullRequest ? source.state !== 'open' || source.merged : source.state !== 'open') {
+              core.info(`Skipping closed source ${number}`);
+              return;
+            }
+            const sourceId = issueResult.data.node_id;
+            const projectData = await github.graphql(`query($id:ID!) {
+              node(id:$id) { ... on ProjectV2 {
+                id fields(first:100) { nodes {
+                  ... on ProjectV2Field { id name }
+                  ... on ProjectV2SingleSelectField { id name options { id name } }
+                } }
+              } }
+            }`, { id: projectId });
+            if (!projectData.node) throw new Error('Maintainer triage project is inaccessible');
+            const fields = new Map(projectData.node.fields.nodes.filter(field => field.name).map(field => [field.name, field]));
+            function option(name, label) {
+              const field = fields.get(name);
+              const match = field?.options?.find(candidate => candidate.name === label);
+              if (!match) throw new Error(`Missing project field/option: ${name}/${label}`);
+              return { fieldId: field.id, value: { singleSelectOptionId: match.id } };
+            }
+            const component = option('Component', 'Noctalia');
+            const kindValue = option('Kind', kind);
+            const inbox = option('Status', 'Inbox');
+            const membershipQuery = `query($id:ID!,$cursor:String) {
+              node(id:$id) { ... on Issue { projectItems(first:100,after:$cursor,includeArchived:true) {
+                nodes { id isArchived project { id } content { ... on Issue { id } ... on PullRequest { id } } }
+                pageInfo { hasNextPage endCursor }
+              } } ... on PullRequest { projectItems(first:100,after:$cursor,includeArchived:true) {
+                nodes { id isArchived project { id } content { ... on Issue { id } ... on PullRequest { id } } }
+                pageInfo { hasNextPage endCursor }
+              } } }
+            }`;
+            const members = [];
+            let cursor = null;
+            do {
+              const result = await github.graphql(membershipQuery, { id: sourceId, cursor });
+              const connection = result.node?.projectItems;
+              if (!connection) throw new Error('Source project membership is unavailable');
+              members.push(...connection.nodes.filter(item => item.project?.id === projectId));
+              cursor = connection.pageInfo.hasNextPage ? connection.pageInfo.endCursor : null;
+            } while (cursor);
+            if (members.length > 1) throw new Error(`Duplicate native cards for source ${number}`);
+            let item = members[0] || null;
+            if (item?.isArchived) { core.info(`Preserving archived card ${item.id}`); return; }
+            const fieldRead = async id => {
+              const result = await github.graphql(`query($id:ID!) { node(id:$id) { ... on ProjectV2Item { id content { ... on Issue { id } ... on PullRequest { id } } fieldValues(first:100) { nodes { ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2SingleSelectField { name } } } } } } } }`, { id });
+              if (!result.node) throw new Error(`Project item ${id} disappeared`);
+              return result.node;
+            };
+            let current = item ? await fieldRead(item.id) : null;
+            const values = new Map((current?.fieldValues.nodes || []).filter(value => value.field).map(value => [value.field.name, value.name]));
+            for (const [name, desired] of [['Component','Noctalia'],['Kind',kind]]) {
+              if (values.has(name) && values.get(name) !== desired) throw new Error(`Conflicting ${name} on ${item.id}`);
+            }
+            const added = !item;
+            if (added) {
+              const result = await github.graphql(`mutation($project:ID!,$content:ID!) { addProjectV2ItemById(input:{projectId:$project,contentId:$content}) { item { id } } }`, { project: projectId, content: sourceId });
+              item = result.addProjectV2ItemById.item;
+              if (!item?.id) throw new Error('Native item addition returned no item');
+              current = await fieldRead(item.id);
+              values.clear();
+              for (const value of current.fieldValues.nodes.filter(entry => entry.field)) values.set(value.field.name, value.name);
+            }
+            const updates = [];
+            if (!values.has('Component')) updates.push(['component', component]);
+            if (!values.has('Kind')) updates.push(['kind', kindValue]);
+            if (added || !values.has('Status')) updates.push(['status', inbox]);
+            if (updates.length) {
+              const definitions = updates.map((_, index) => `$input${index}:UpdateProjectV2ItemFieldValueInput!`).join(',');
+              const aliases = updates.map((entry, index) => `${entry[0]}:updateProjectV2ItemFieldValue(input:$input${index}){projectV2Item{id}}`).join(' ');
+              const variables = Object.fromEntries(updates.map((entry, index) => [`input${index}`, { projectId, itemId: item.id, ...entry[1] }]));
+              await github.graphql(`mutation(${definitions}) { ${aliases} }`, variables);
+            }
+            const verified = await fieldRead(item.id);
+            const actual = new Map(verified.fieldValues.nodes.filter(value => value.field).map(value => [value.field.name, value.name]));
+            if (verified.content.id !== sourceId || actual.get('Component') !== 'Noctalia' || actual.get('Kind') !== kind) throw new Error(`Native item verification failed for ${number}`);
+            if ((added || !values.has('Status')) && actual.get('Status') !== 'Inbox') throw new Error(`Inbox verification failed for ${number}`);
+            core.info(`${added ? 'Added' : 'Verified'} ${kind} ${number}: ${item.id}`);

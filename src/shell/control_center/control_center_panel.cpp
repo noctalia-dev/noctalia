@@ -20,6 +20,7 @@
 #include "ui/controls/scroll_view.h"
 #include "ui/scroll_into_view.h"
 #include "ui/split_pane_focus.h"
+#include "ui/style.h"
 
 #include <algorithm>
 #include <chrono>
@@ -64,7 +65,7 @@ ControlCenterPanel::ControlCenterPanel(const ControlCenterServices& services) {
   m_tabs[tabIndex(TabId::Notifications)] =
       std::make_unique<NotificationsTab>(services.notifications, services.platform);
   m_tabs[tabIndex(TabId::Network)] =
-      std::make_unique<NetworkTab>(services.network, services.networkSecrets, services.externalIp);
+      std::make_unique<NetworkTab>(services.network, services.networkSecrets, services.externalIp, services.modem);
   m_tabs[tabIndex(TabId::Bluetooth)] = std::make_unique<BluetoothTab>(services.bluetooth, services.bluetoothAgent);
   m_tabs[tabIndex(TabId::Monitor)] = std::make_unique<MonitorTab>(services.brightness, services.config);
   m_tabs[tabIndex(TabId::System)] = std::make_unique<SystemTab>(services.sysmon);
@@ -125,7 +126,7 @@ void ControlCenterPanel::create() {
         .fillWidth = false,
         .fillHeight = true,
         .configure = [this, scale](Flex& column) {
-          column.setFill(colorSpecFromRole(ColorRole::SurfaceVariant, panelCardOpacity()));
+          column.setFill(colorSpecFromRole(ColorRole::SurfaceContainer, panelCardOpacity()));
           column.setRadius(Style::scaledRadiusXl(scale));
         },
     });
@@ -143,6 +144,7 @@ void ControlCenterPanel::create() {
     auto sidebarScroll = ui::scrollView({
         .out = &m_sidebarScrollView,
         .state = &m_sidebarScrollState,
+        .contentScale = scale,
         .scrollbarVisible = true,
         .viewportPaddingH = 0.0F,
         .viewportPaddingV = 0.0F,
@@ -175,7 +177,7 @@ void ControlCenterPanel::create() {
 
     for (const auto& tab : kTabs) {
       const std::size_t idx = tabIndex(tab.id);
-      const auto onClick = [this, id = tab.id]() {
+      const auto onClick = [this, id = tab.id] {
         selectTab(id, true);
         PanelManager::instance().refresh();
       };
@@ -271,14 +273,16 @@ void ControlCenterPanel::create() {
     }
   }
 
-  m_contentHeaderActions->addChild(
-      ui::button({
-          .out = &m_closeButton,
-          .glyph = "close",
-          .onClick = []() { PanelManager::instance().close(); },
-          .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
-      })
-  );
+  if (Style::closeButtonsEnabled()) {
+    m_contentHeaderActions->addChild(
+        ui::button({
+            .out = &m_closeButton,
+            .glyph = "close",
+            .onClick = [] { PanelManager::instance().close(); },
+            .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
+        })
+    );
+  }
   header->addChild(std::move(headerActions));
 
   content->addChild(std::move(header));
@@ -320,7 +324,7 @@ void ControlCenterPanel::onPanelCardOpacityChanged(float opacity) {
     }
   }
   if (m_sidebar != nullptr) {
-    m_sidebar->setFill(colorSpecFromRole(ColorRole::SurfaceVariant, opacity));
+    m_sidebar->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, opacity));
   }
 }
 
@@ -418,6 +422,9 @@ bool ControlCenterPanel::isContextActive(std::string_view context) const {
 }
 
 bool ControlCenterPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+  if (auto& tab = m_tabs[tabIndex(m_activeTab)]; tab != nullptr && tab->handleKey(sym, modifiers, pressed, preedit)) {
+    return true;
+  }
   if (!m_showSidebar || m_sidebarNav == nullptr || m_sidebarScrollView == nullptr || m_content == nullptr) {
     return false;
   }
@@ -527,6 +534,18 @@ std::vector<ControlCenterPanel::TabCatalogEntry> ControlCenterPanel::hideableTab
       continue;
     }
     out.push_back({.key = meta.key, .titleKey = meta.titleKey});
+  }
+  return out;
+}
+
+std::vector<ControlCenterPanel::LauncherTabEntry> ControlCenterPanel::visibleTabsForLauncher() const {
+  std::vector<LauncherTabEntry> out;
+  out.reserve(kTabCount - 1);
+  for (const auto& meta : kTabs) {
+    if (meta.id == TabId::Home || !isTabVisible(meta.id)) {
+      continue;
+    }
+    out.push_back({.key = meta.key, .titleKey = meta.titleKey, .glyph = meta.glyph});
   }
   return out;
 }
@@ -710,7 +729,7 @@ void ControlCenterPanel::startTabTransition(TabId from, TabId to) {
         applyTabTransitionLayout();
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_tabTransitionAnimId = 0;
         finishTabTransition();
         PanelManager::instance().requestLayout();
@@ -811,7 +830,7 @@ void ControlCenterPanel::scheduleMprisRefreshFor(TabId tab) {
 
   m_lastMprisRefreshAt = now;
   m_mprisRefreshScheduled = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_mprisRefreshScheduled = false;
     if (m_mpris == nullptr || !PanelManager::instance().isOpenPanel("control-center")) {
       return;
@@ -826,12 +845,7 @@ bool ControlCenterPanel::isDirectSectionOpenContext(std::string_view context) co
   if (context.empty() || context == "home") {
     return false;
   }
-  for (const auto& tab : kTabs) {
-    if (tab.id != TabId::Home && context == tab.key) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(kTabs, [&](const auto& tab) { return tab.id != TabId::Home && context == tab.key; });
 }
 
 ControlCenterSidebarMode ControlCenterPanel::sidebarModeForOpen(std::string_view context) const {
@@ -869,7 +883,7 @@ void ControlCenterPanel::layoutFullSidebarWidth(Renderer& renderer) {
     if (!isTabVisible(meta.id)) {
       continue;
     }
-    const TextMetrics text = renderer.measureText(i18n::tr(meta.titleKey), fontSize, FontWeight::Bold);
+    const TextMetrics text = renderer.measureText(i18n::tr(meta.titleKey), fontSize, {FontWeight::Bold});
     maxTabWidth = std::max(maxTabWidth, paddingH + glyphW + gap + text.width);
   }
 
@@ -884,7 +898,7 @@ void ControlCenterPanel::layoutFullSidebarWidth(Renderer& renderer) {
     navConstraints.setExactWidth(contentWidth);
     const float navHeight = m_sidebarNav->measure(renderer, navConstraints).height;
     if (navHeight > scrollHeight + 0.5F) {
-      targetWidth = contentWidth + Style::scrollbarWidth + Style::scrollbarGap;
+      targetWidth = contentWidth + m_sidebarScrollView->scrollbarGutter();
     }
   }
 

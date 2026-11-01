@@ -41,7 +41,8 @@ namespace scripting {
 class PluginWidget : public Widget, public scripting::PluginIpcEndpoint {
 public:
   PluginWidget(
-      scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool enableScroll = true
+      scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool isVertical,
+      bool enableScroll = true
   );
   ~PluginWidget() override;
 
@@ -58,6 +59,8 @@ public:
   void luaSetUpdateInterval(float ms);
   void setUpdateDeferralCallback(std::function<bool()> callback);
   [[nodiscard]] bool isVertical() const { return m_isVertical; }
+  void setBarHoverTint(bool enabled) noexcept { m_barHoverTint = enabled; }
+  [[nodiscard]] bool wantsBarHoverTint() const noexcept override { return m_barHoverTint; }
 
   // PluginIpcEndpoint
   [[nodiscard]] std::string_view ipcEntryId() const override { return m_entryId; }
@@ -82,14 +85,15 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
 
-  [[nodiscard]] ColorSpec resolveScriptColor(const ScriptColorState& state) const noexcept;
+  [[nodiscard]] static ColorSpec
+  resolveScriptColor(const ScriptColorState& state, const ColorSpec& defaultColor) noexcept;
   [[nodiscard]] static ScriptColorMode scriptColorModeFromToken(std::string_view token) noexcept;
   [[nodiscard]] static std::optional<ColorSpec> scriptColorFromToken(std::string_view token) noexcept;
   [[nodiscard]] std::filesystem::path resolvePluginPath(std::string_view path) const;
 
   void reloadScript();
   void reloadImage();
-  void handleScriptResult(scripting::ScriptResult result);
+  void handleScriptResult(const scripting::ScriptResult& result);
   void applyScriptPatch(const scripting::ScriptPatch& patch);
   void applyUiTreePatch(const ui::UiTreeNode& patchTree);
   [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
@@ -146,6 +150,8 @@ private:
   // Declarative mode: barWidget.render(tree) reconciles into m_uiHost and hides
   // the imperative glyph/image/label row.
   Flex* m_uiHost = nullptr;
+  // Preview layer for ui.dragSource ghosts (see create()).
+  Node* m_dragOverlay = nullptr;
   ui::UiTreeReconciler m_reconciler;
   std::optional<ui::UiTreeNode> m_tree;
   bool m_warnedImperativeWhileDeclarative = false;
@@ -162,6 +168,7 @@ private:
   bool m_updateDeferred = false;
   bool m_isVertical = false;
   bool m_enableScroll = true;
+  bool m_barHoverTint = true;
   bool m_glyphVisible = false;
   bool m_imageWatch = false;
   bool m_imageDirty = false;

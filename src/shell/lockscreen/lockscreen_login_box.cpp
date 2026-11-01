@@ -1,5 +1,6 @@
 #include "shell/lockscreen/lockscreen_login_box.h"
 
+#include "core/log.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widget_settings_registry.h"
 #include "ui/style.h"
@@ -12,6 +13,8 @@
 namespace lockscreen_login_box {
 
   namespace {
+
+    constexpr Logger kLog("lockscreen-widgets");
 
     [[nodiscard]] float readFloat(
         const std::unordered_map<std::string, WidgetSettingValue>& settings, std::string_view key, float fallback
@@ -83,18 +86,6 @@ namespace lockscreen_login_box {
       if (const auto* intValue = std::get_if<std::int64_t>(&it->second)) {
         settings.insert_or_assign(keyStr, std::clamp(static_cast<double>(*intValue), 0.0, 32.0));
       }
-    }
-
-    [[nodiscard]] float screenWidthForOutput(const WaylandConnection& wayland, std::string_view outputName) {
-      for (const auto& output : wayland.outputs()) {
-        if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
-          continue;
-        }
-        if (desktop_widgets::outputKey(output) == outputName) {
-          return desktop_widgets::outputLogicalWidth(output);
-        }
-      }
-      return 1920.0F;
     }
 
   } // namespace
@@ -293,12 +284,15 @@ namespace lockscreen_login_box {
     panelY = cy - panelHeightOut * 0.5F;
   }
 
-  const DesktopWidgetState* findForOutput(const std::vector<DesktopWidgetState>& widgets, std::string_view outputKey) {
+  const DesktopWidgetState* findForOutput(
+      const std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs, std::string_view outputKey
+  ) {
     for (const auto& widget : widgets) {
-      if (!isLoginBoxWidget(widget)) {
+      if (!isLoginBoxWidget(widget) || widget.outputName.empty()) {
         continue;
       }
-      if (widget.outputName == outputKey) {
+      const auto selection = desktop_widgets::selectOutput(outputs, widget.outputName);
+      if (selection.output != nullptr && desktop_widgets::outputKey(*selection.output) == outputKey) {
         return &widget;
       }
     }
@@ -310,7 +304,7 @@ namespace lockscreen_login_box {
     style.layout = resolveLayout(settings);
     style.panelOpacity = std::clamp(readFloat(settings, "background_opacity", style.panelOpacity), 0.0F, 1.0F);
     ColorSpec panelFill =
-        colorSpecFromConfigString(readString(settings, "background_color", "surface_variant"), "background_color");
+        colorSpecFromConfigString(readString(settings, "background_color", "surface_container"), "background_color");
     panelFill.alpha *= style.panelOpacity;
     style.panelFill = panelFill;
     style.panelRadius = std::clamp(readFloat(settings, "background_radius", style.panelRadius), 0.0F, 32.0F);
@@ -320,6 +314,7 @@ namespace lockscreen_login_box {
     style.showLoginButton = readBool(settings, kShowLoginButtonKey, style.showLoginButton);
     style.showCapsLock = readBool(settings, kShowCapsLockKey, style.showCapsLock);
     style.showKeyboardLayout = readBool(settings, kShowKeyboardLayoutKey, style.showKeyboardLayout);
+    style.showPasswordReveal = readBool(settings, kShowPasswordRevealKey, style.showPasswordReveal);
     style.showSessionButtons = readBool(settings, kShowSessionButtonsKey, style.showSessionButtons);
     style.showMedia = readBool(settings, kShowMediaKey, style.showMedia);
     style.showWeather = readBool(settings, kShowWeatherKey, style.showWeather);
@@ -338,13 +333,14 @@ namespace lockscreen_login_box {
       settings.insert_or_assign(std::string(kShowLoginButtonKey), true);
       settings.insert_or_assign(std::string(kShowCapsLockKey), true);
       settings.insert_or_assign(std::string(kShowKeyboardLayoutKey), true);
+      settings.insert_or_assign(std::string(kShowPasswordRevealKey), true);
       settings.insert_or_assign(std::string(kShowUnlockHintKey), true);
       settings.insert_or_assign(std::string(kInputOpacityKey), 1.0);
       settings.insert_or_assign(std::string(kInputRadiusKey), 6.0);
       settings.insert_or_assign(std::string(kCenterPasswordTextKey), false);
     }
     if (scope == desktop_settings::DesktopWidgetSettingsScope::Background) {
-      settings.insert_or_assign("background_color", std::string("surface_variant"));
+      settings.insert_or_assign("background_color", std::string("surface_container"));
       settings.insert_or_assign("background_opacity", 0.88);
       settings.insert_or_assign("background_radius", 12.0);
     }
@@ -382,6 +378,9 @@ namespace lockscreen_login_box {
     if (!settings.contains(std::string(kShowKeyboardLayoutKey))) {
       settings.insert_or_assign(std::string(kShowKeyboardLayoutKey), true);
     }
+    if (!settings.contains(std::string(kShowPasswordRevealKey))) {
+      settings.insert_or_assign(std::string(kShowPasswordRevealKey), true);
+    }
     if (!settings.contains(std::string(kShowUnlockHintKey))) {
       settings.insert_or_assign(std::string(kShowUnlockHintKey), true);
     }
@@ -394,16 +393,16 @@ namespace lockscreen_login_box {
     clampRadiusSetting(settings, kInputRadiusKey);
   }
 
-  void ensureWidgets(std::vector<DesktopWidgetState>& widgets, const WaylandConnection& wayland) {
-    std::unordered_set<std::string> outputsWithLoginBox;
+  void ensureWidgets(std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs) {
+    std::unordered_set<std::string> loginBoxSelectors;
     std::erase_if(widgets, [&](const DesktopWidgetState& widget) {
       if (!isLoginBoxWidget(widget)) {
         return false;
       }
-      if (widget.outputName.empty() || outputsWithLoginBox.contains(widget.outputName)) {
+      if (widget.outputName.empty() || loginBoxSelectors.contains(widget.outputName)) {
         return true;
       }
-      outputsWithLoginBox.insert(widget.outputName);
+      loginBoxSelectors.insert(widget.outputName);
       return false;
     });
 
@@ -411,11 +410,21 @@ namespace lockscreen_login_box {
       if (!isLoginBoxWidget(widget)) {
         continue;
       }
+      const auto selection = desktop_widgets::selectOutput(outputs, widget.outputName);
+      if (selection.ambiguous) {
+        kLog.warn(
+            "login box {} output selector '{}' matches multiple monitors; use a unique description or serial",
+            widget.id, widget.outputName
+        );
+      }
+      if (selection.output == nullptr) {
+        continue;
+      }
       widget.rotationRad = 0.0F;
       widget.type = std::string(kWidgetType);
       normalizeSettings(widget.settings);
       const LoginBoxStyle style = resolveStyle(widget.settings);
-      const float screenWidth = screenWidthForOutput(wayland, widget.outputName);
+      const float screenWidth = desktop_widgets::outputLogicalWidth(*selection.output);
       const bool showInfo = styleShowsInfoExtras(style);
       if (widget.boxWidth <= 0.0F || widget.boxHeight <= 0.0F) {
         defaultPanelSize(
@@ -428,20 +437,25 @@ namespace lockscreen_login_box {
             screenWidth, widget.boxWidth, widget.boxHeight, style.layout, style.showSessionButtons, showInfo
         );
       }
-      desktop_widgets::clampStateToOutput(wayland, widget, widget.boxWidth, widget.boxHeight);
+      desktop_widgets::clampStateToOutput(outputs, widget, widget.boxWidth, widget.boxHeight);
     }
 
-    for (const auto& output : wayland.outputs()) {
+    for (const auto& output : outputs) {
       if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
         continue;
       }
       const std::string outputKey = desktop_widgets::outputKey(output);
-      if (outputsWithLoginBox.contains(outputKey)) {
+      if (findForOutput(widgets, outputs, outputKey) != nullptr) {
         continue;
       }
 
       DesktopWidgetState widget;
-      widget.id = widgetIdForOutput(outputKey);
+      const std::string baseId = widgetIdForOutput(outputKey);
+      widget.id = baseId;
+      for (std::size_t suffix = 2; std::ranges::find(widgets, widget.id, &DesktopWidgetState::id) != widgets.end();
+           ++suffix) {
+        widget.id = std::format("{}-{}", baseId, suffix);
+      }
       widget.type = std::string(kWidgetType);
       widget.outputName = outputKey;
       widget.rotationRad = 0.0F;
@@ -458,20 +472,24 @@ namespace lockscreen_login_box {
       defaultPanelSize(
           screenWidth, widget.boxWidth, widget.boxHeight, style.layout, style.showSessionButtons, showInfo
       );
-      widgets.insert(widgets.begin(), std::move(widget));
-      outputsWithLoginBox.insert(outputKey);
+      widgets.push_back(std::move(widget));
     }
 
+    const auto isAssigned = [&](const DesktopWidgetState& widget) {
+      const auto selection = desktop_widgets::selectOutput(outputs, widget.outputName);
+      return selection.output != nullptr
+          && findForOutput(widgets, outputs, desktop_widgets::outputKey(*selection.output)) == &widget;
+    };
     bool anyEnabled = false;
     for (const auto& widget : widgets) {
-      if (isLoginBoxWidget(widget) && widget.enabled) {
+      if (isLoginBoxWidget(widget) && widget.enabled && isAssigned(widget)) {
         anyEnabled = true;
         break;
       }
     }
     if (!anyEnabled) {
       for (auto& widget : widgets) {
-        if (isLoginBoxWidget(widget)) {
+        if (isLoginBoxWidget(widget) && isAssigned(widget)) {
           widget.enabled = true;
           break;
         }

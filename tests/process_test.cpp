@@ -104,7 +104,7 @@ namespace {
       cv.notify_one();
     };
 
-    const bool launched = process::runAsync("printf ok; exit 7", std::move(callbacks));
+    const bool launched = process::runAsync({"/bin/sh", "-c", "printf ok; exit 7"}, std::move(callbacks));
     if (!expect(launched, "completion-only async command did not launch")) {
       return false;
     }

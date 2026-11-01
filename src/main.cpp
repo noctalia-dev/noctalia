@@ -1,5 +1,6 @@
 #include "app/application.h"
 #include "app/single_instance_lock.h"
+#include "auth/pam_authenticator.h"
 #include "cli/completions.h"
 #include "cli/help.h"
 #include "cli/schema_root.h"
@@ -230,7 +231,7 @@ namespace {
     }
     try {
       Application app;
-      app.run([]() { completeDaemonStartup(0); });
+      app.run([] { completeDaemonStartup(0); });
     } catch (const std::exception& e) {
       logError("fatal: {}", e.what());
       completeDaemonStartup(1);
@@ -242,7 +243,9 @@ namespace {
 } // namespace
 
 #ifdef NOCTALIA_USE_JEMALLOC
-const char* malloc_conf = "narenas:2,dirty_decay_ms:1000,muzzy_decay_ms:5000,lg_tcache_max:12";
+// jemalloc reads this before its first allocation; the background thread runs
+// decay even while the shell is idle.
+const char* malloc_conf = "background_thread:true,narenas:2,dirty_decay_ms:1000,muzzy_decay_ms:5000,lg_tcache_max:12";
 #endif
 
 int main(int argc, char* argv[]) {
@@ -282,6 +285,9 @@ int main(int argc, char* argv[]) {
       return noctalia::theme::runCli(argc, argv);
     if (std::strcmp(argv[1], "msg") == 0)
       return noctalia::ipc::runCli(argc, argv);
+    // Internal mode for PAM authentication after re-exec.
+    if (std::strcmp(argv[1], "pam-helper") == 0)
+      return PamAuthenticator::runHelperMode(argc, argv);
     if (std::strcmp(argv[1], "config") == 0)
       return noctalia::config::runCli(argc, argv);
     if (std::strcmp(argv[1], "dmenu") == 0)

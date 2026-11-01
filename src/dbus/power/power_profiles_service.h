@@ -58,7 +58,7 @@ public:
   /// or when the D-Bus set dispatch fails synchronously.
   [[nodiscard]] bool cycleActiveProfile(int direction = 1);
 
-  void registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback = {});
+  void registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback = {});
 
 private:
   [[nodiscard]] PowerProfilesChangeOrigin consumeActiveProfileChangeOrigin(std::string_view profile);

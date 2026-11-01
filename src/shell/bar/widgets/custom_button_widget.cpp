@@ -9,11 +9,10 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdint>
 #include <memory>
 #include <utility>
 
-CustomButtonWidget::CustomButtonWidget(Options options)
+CustomButtonWidget::CustomButtonWidget(const Options& options)
     : m_glyphName(StringUtils::trim(options.glyph)), m_labelText(StringUtils::trim(options.label)),
       m_tooltip(StringUtils::trim(options.tooltip)),
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
@@ -43,7 +42,7 @@ void CustomButtonWidget::create() {
       ui::label({
           .out = &m_label,
           .text = m_labelText,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
@@ -84,7 +83,7 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
   }
 
   if (showLabel) {
-    m_label->setFontSize((isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+    m_label->setFontSize((isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
     m_label->setFontWeight(labelFontWeight());
     m_label->setTextAlign(isVertical ? TextAlign::Center : TextAlign::Start);
     m_label->setMaxWidth(isVertical ? containerWidth : 0.0F);

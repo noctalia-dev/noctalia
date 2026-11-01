@@ -1,6 +1,5 @@
 #include "shell/bar/widgets/volume_widget.h"
 
-#include "config/config_types.h"
 #include "i18n/i18n.h"
 #include "pipewire/pipewire_service.h"
 #include "render/scene/input_area.h"
@@ -17,18 +16,19 @@
 #include <utility>
 
 VolumeWidget::VolumeWidget(PipeWireService* audio, EasyEffectsService* easyEffects, Options options)
-    : m_audio(audio), m_easyEffects(easyEffects), m_showLabel(options.showLabel), m_target(options.device),
-      m_muteColor(options.muteColor), m_glyphOverride(std::move(options.glyph)),
+    : m_audio(audio), m_easyEffects(easyEffects), m_showGlyph(options.showGlyph), m_showLabel(options.showLabel),
+      m_target(options.device), m_muteColor(options.muteColor), m_glyphOverride(std::move(options.glyph)),
       m_muteGlyphOverride(std::move(options.muteGlyph)),
       m_effectsProfileGlyphs(std::move(options.effectsProfileGlyphs)),
-      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
+      m_hideWhenInactive(options.hideWhenInactive && options.device == VolumeWidgetTarget::Input) {}
 
 void VolumeWidget::create() {
   auto area = ui::inputArea({});
 
-  if (m_customImage.enabled()) {
+  if (m_showGlyph && m_customImage.enabled()) {
     area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));
-  } else {
+  } else if (m_showGlyph) {
     area->addChild(
         ui::glyph({
             .out = &m_glyph,
@@ -42,7 +42,7 @@ void VolumeWidget::create() {
   area->addChild(
       ui::label({
           .out = &m_label,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .visible = m_showLabel,
@@ -54,14 +54,14 @@ void VolumeWidget::create() {
 
 void VolumeWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
-  if ((m_glyph == nullptr && m_image == nullptr) || m_label == nullptr || rootNode == nullptr) {
+  if (m_label == nullptr || rootNode == nullptr) {
     return;
   }
   m_isVertical = containerHeight > containerWidth;
   syncState(renderer);
 
-  const float iconW = m_image != nullptr ? m_image->width() : m_glyph->width();
-  const float iconH = m_image != nullptr ? m_image->height() : m_glyph->height();
+  const float iconW = m_showGlyph ? (m_image != nullptr ? m_image->width() : m_glyph->width()) : 0.0F;
+  const float iconH = m_showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0F;
   if (m_label->visible()) {
     m_label->measure(renderer);
   }
@@ -71,21 +71,21 @@ void VolumeWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     const float w = std::max(iconW, m_label->width());
     if (m_image != nullptr) {
       m_image->setPosition(std::round((w - iconW) * 0.5F), 0.0F);
-    } else {
+    } else if (m_glyph != nullptr) {
       m_glyph->setPosition(std::round((w - iconW) * 0.5F), 0.0F);
     }
-    m_label->setPosition(std::round((w - m_label->width()) * 0.5F), iconH);
+    m_label->setPosition((w - m_label->width()) * 0.5F, iconH);
     rootNode->setSize(w, iconH + m_label->height());
   } else {
     const float h = labelVisible ? std::max(iconH, m_label->height()) : iconH;
     if (m_image != nullptr) {
       m_image->setPosition(0.0F, std::round((h - iconH) * 0.5F));
-    } else {
+    } else if (m_glyph != nullptr) {
       m_glyph->setPosition(0.0F, std::round((h - iconH) * 0.5F));
     }
     float totalWidth = iconW;
     if (labelVisible) {
-      m_label->setPosition(iconW + Style::spaceXs, std::round((h - m_label->height()) * 0.5F));
+      m_label->setPosition(iconW + (m_showGlyph ? Style::spaceXs : 0.0F), (h - m_label->height()) * 0.5F);
       totalWidth = m_label->x() + m_label->width();
     }
     rootNode->setSize(totalWidth, h);
@@ -94,8 +94,17 @@ void VolumeWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
 void VolumeWidget::doUpdate(Renderer& renderer) { syncState(renderer); }
 
+void VolumeWidget::syncWidgetVisibility(bool showWidget) {
+  if (Node* rootNode = root();
+      rootNode != nullptr && (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget)) {
+    rootNode->setVisible(showWidget);
+    rootNode->setParticipatesInLayout(showWidget);
+    requestUpdate();
+  }
+}
+
 void VolumeWidget::syncState(Renderer& renderer) {
-  if (m_audio == nullptr || (m_glyph == nullptr && m_image == nullptr) || m_label == nullptr) {
+  if (m_audio == nullptr || m_label == nullptr) {
     return;
   }
 
@@ -106,11 +115,18 @@ void VolumeWidget::syncState(Renderer& renderer) {
       m_target == VolumeWidgetTarget::Input ? AudioEffectsProfileKind::Input : AudioEffectsProfileKind::Output;
   const std::string effectsProfile =
       m_easyEffects != nullptr ? m_easyEffects->activeEffectsProfile(kind) : std::string{};
+  // Reuses the privacy signal: a microphone capture exists while an application is linked to a
+  // source. Skipped entirely for the output widget, where m_hideWhenInactive is always false.
+  const bool micActive =
+      m_hideWhenInactive && std::ranges::any_of(m_audio->privacyState().captures, [](const PrivacyCapture& capture) {
+        return capture.kind == PrivacyCaptureKind::Microphone;
+      });
 
   if (volume == m_lastVolume
       && muted == m_lastMuted
       && m_isVertical == m_lastVertical
-      && effectsProfile == m_lastEffectsProfile) {
+      && effectsProfile == m_lastEffectsProfile
+      && micActive == m_lastMicActive) {
     return;
   }
 
@@ -118,13 +134,20 @@ void VolumeWidget::syncState(Renderer& renderer) {
   m_lastMuted = muted;
   m_lastVertical = m_isVertical;
   m_lastEffectsProfile = effectsProfile;
+  m_lastMicActive = micActive;
+
+  const bool showWidget = !m_hideWhenInactive || micActive;
+  syncWidgetVisibility(showWidget);
+  if (!showWidget) {
+    return;
+  }
 
   if (m_image != nullptr) {
     widget_custom_image::sync(
         *m_image, renderer, m_customImage, m_contentScale,
         muted ? m_muteColor : widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface))
     );
-  } else {
+  } else if (m_glyph != nullptr) {
     m_glyph->setGlyph(glyphName(volume, muted, effectsProfile));
     m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
     m_glyph->setColor(muted ? m_muteColor : widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
@@ -134,7 +157,7 @@ void VolumeWidget::syncState(Renderer& renderer) {
   m_label->setVisible(m_showLabel);
   if (m_showLabel) {
     int pct = static_cast<int>(std::round(volume * 100.0F));
-    m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+    m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
     m_label->setText(m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%");
     m_label->setColor(muted ? m_muteColor : widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
     m_label->measure(renderer);

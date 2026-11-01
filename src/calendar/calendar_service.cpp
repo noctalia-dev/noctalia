@@ -4,24 +4,36 @@
 #include "calendar/caldav_discovery.h"
 #include "calendar/calendar_cache.h"
 #include "calendar/calendar_discovery_state.h"
+#include "calendar/calendar_reminders.h"
 #include "calendar/event_link.h"
+#include "calendar/event_merge.h"
 #include "calendar/ical_parser.h"
+#include "calendar/sync_failure.h"
+#include "calendar/vdir_reader.h"
 #include "config/config_service.h"
+#include "core/deferred_call.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "net/http_client.h"
 #include "net/url_open.h"
 #include "notification/notification_manager.h"
 #include "security/secret_store.h"
+#include "time/time_format.h"
 
 #include <algorithm>
 #include <cctype>
+#include <condition_variable>
 #include <cstdlib>
+#include <deque>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <sodium.h>
+#include <thread>
+#include <unistd.h>
 #include <unordered_set>
+#include <utility>
 
 namespace {
   constexpr Logger kLog("calendar");
@@ -29,12 +41,16 @@ namespace {
   constexpr const char* kSecurityMigrationOwner = "security_migrations";
   constexpr const char* kCalendarCredentialMigration = "calendar_credentials_v1";
   constexpr const char* kCalendarDiscoveryOwner = "calendar_discovery";
+  constexpr const char* kCalendarSyncOwner = "calendar_sync";
   constexpr const char* kICloudCalDavServerUrl = "https://caldav.icloud.com/";
   constexpr auto kConnectPollInterval = std::chrono::seconds{2};
   // Wide enough for month navigation in the control-center calendar (~1 year each way).
   constexpr auto kWindowBefore = std::chrono::hours{24 * 365};
   constexpr auto kWindowAfter = std::chrono::hours{24 * 365};
   constexpr std::size_t kMaxCacheBytes = 32U * 1024U * 1024U;
+  // Ceiling on the events one vdir account may contribute. A vdir tree is arbitrary user data with no
+  // server-side bound, so the read stops here rather than growing the snapshot without limit.
+  constexpr std::size_t kMaxVdirEventsPerAccount = 100'000;
 
   std::int64_t toUnix(std::chrono::system_clock::time_point tp) {
     return std::chrono::duration_cast<std::chrono::seconds>(tp.time_since_epoch()).count();
@@ -81,6 +97,27 @@ namespace {
     return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
   }
 
+  // The failure of a password or token lookup that didn't return one.
+  calendar::SyncFailure credentialFailure(security::SecretStoreStatus status, CalendarCredentialSource source) {
+    switch (status) {
+    case security::SecretStoreStatus::Cancelled:
+      return calendar::SyncFailure::Cancelled;
+    case security::SecretStoreStatus::Unavailable:
+    case security::SecretStoreStatus::DeniedOrLocked:
+      // A locked keyring is fixed by unlocking it (Retry); an unreadable password file in the account's settings.
+      return source == CalendarCredentialSource::File ? calendar::SyncFailure::Credentials
+                                                      : calendar::SyncFailure::CredentialsLocked;
+    case security::SecretStoreStatus::Success: // found, but empty
+    case security::SecretStoreStatus::NotFound:
+    case security::SecretStoreStatus::BackendError:
+      return calendar::SyncFailure::Credentials;
+    }
+    return calendar::SyncFailure::Credentials;
+  }
+
+  // Whether this process can read the file at path, as libcurl must to load a client certificate or key.
+  bool isReadableFile(const std::string& path) { return !path.empty() && ::access(path.c_str(), R_OK) == 0; }
+
   void wipeString(std::string& value) {
     if (!value.empty()) {
       sodium_memzero(value.data(), value.size());
@@ -89,18 +126,176 @@ namespace {
   }
 } // namespace
 
+struct CalendarService::VdirWorker : std::enable_shared_from_this<CalendarService::VdirWorker> {
+  struct Request {
+    std::string accountId;
+    std::string displayName;
+    std::string color;
+    std::vector<std::string> configuredCalendars;
+    std::filesystem::path rootPath;
+    std::chrono::system_clock::time_point windowStart;
+    std::chrono::system_clock::time_point windowEnd;
+    std::function<void(
+        calendar::SyncFailure failure, std::vector<CalendarSource> sources,
+        std::vector<std::filesystem::path> watchedPaths, std::vector<CalendarEvent> events
+    )>
+        callback;
+  };
+
+  VdirWorker() : worker([this](std::stop_token stopToken) { workerLoop(std::move(stopToken)); }) {}
+  ~VdirWorker() { stop(); }
+
+  bool enqueue(Request request) {
+    {
+      std::scoped_lock lock(mutex);
+      if (stopping) {
+        return false;
+      }
+      requests.push_back(std::move(request));
+    }
+    cv.notify_one();
+    return true;
+  }
+
+  void deliver(
+      Request request, calendar::SyncFailure failure, std::vector<CalendarSource> sources,
+      std::vector<std::filesystem::path> watchedPaths, std::vector<CalendarEvent> events
+  ) {
+    const std::weak_ptr<VdirWorker> weak = weak_from_this();
+    DeferredCall::callLater([weak, cb = std::move(request.callback), failure, sources = std::move(sources),
+                             watchedPaths = std::move(watchedPaths), events = std::move(events)] mutable {
+      const auto state = weak.lock();
+      if (!state || !state->accepting()) {
+        return;
+      }
+      cb(failure, std::move(sources), std::move(watchedPaths), std::move(events));
+    });
+  }
+
+  void stop() {
+    worker.request_stop();
+    {
+      std::scoped_lock lock(mutex);
+      stopping = true;
+      requests.clear();
+    }
+    cv.notify_one();
+    if (worker.joinable()) {
+      worker.join();
+    }
+  }
+
+private:
+  [[nodiscard]] bool accepting() const {
+    std::scoped_lock lock(mutex);
+    return !stopping;
+  }
+
+  void workerLoop(std::stop_token stopToken) {
+    while (true) {
+      Request request;
+      {
+        std::unique_lock lock(mutex);
+        cv.wait(lock, [this, &stopToken] { return stopping || stopToken.stop_requested() || !requests.empty(); });
+        if (stopping || stopToken.stop_requested()) {
+          return;
+        }
+        request = std::move(requests.front());
+        requests.pop_front();
+      }
+
+      std::error_code ec;
+      if (!std::filesystem::exists(request.rootPath, ec) || !std::filesystem::is_directory(request.rootPath, ec)) {
+        kLog.warn(
+            "vdir account {} path does not exist or is not a directory: {}", request.accountId,
+            request.rootPath.string()
+        );
+        deliver(std::move(request), calendar::SyncFailure::NotFound, {}, {}, {});
+        continue;
+      }
+
+      auto collections = calendar::discoverVdirCollections(request.rootPath);
+      if (collections.empty()) {
+        kLog.warn("vdir account {} found no calendar collections in {}", request.accountId, request.rootPath.string());
+        const auto rootPath = request.rootPath;
+        deliver(std::move(request), calendar::SyncFailure::NoCalendars, {}, {rootPath}, {});
+        continue;
+      }
+
+      std::vector<CalendarSource> sources;
+      sources.reserve(collections.size());
+      std::vector<std::filesystem::path> watchedPaths;
+      watchedPaths.reserve(collections.size() + 1);
+      watchedPaths.push_back(request.rootPath);
+
+      for (const auto& col : collections) {
+        sources.push_back({
+            .id = col.id,
+            .name = col.name,
+        });
+        watchedPaths.push_back(col.path);
+      }
+
+      const std::vector<std::string> selectedIds =
+          calendar::selectedCalendarSourceIds(sources, request.configuredCalendars);
+      std::erase_if(collections, [&](const calendar::VdirCollection& col) {
+        return !std::ranges::contains(selectedIds, col.id);
+      });
+
+      std::vector<CalendarEvent> allEvents;
+      std::size_t remainingEvents = kMaxVdirEventsPerAccount;
+      for (auto& col : collections) {
+        if (stopToken.stop_requested()) {
+          return;
+        }
+        if (!request.displayName.empty() && collections.size() == 1) {
+          col.name = request.displayName;
+        }
+        if (!request.color.empty()) {
+          col.colorHex = request.color;
+        }
+        auto events =
+            calendar::loadVdirCollectionEvents(col, request.windowStart, request.windowEnd, remainingEvents, stopToken);
+        allEvents.insert(
+            allEvents.end(), std::make_move_iterator(events.begin()), std::make_move_iterator(events.end())
+        );
+      }
+
+      if (stopToken.stop_requested()) {
+        return;
+      }
+
+      deliver(
+          std::move(request), calendar::SyncFailure::None, std::move(sources), std::move(watchedPaths),
+          std::move(allEvents)
+      );
+    }
+  }
+
+  mutable std::mutex mutex;
+  std::condition_variable cv;
+  std::deque<Request> requests;
+  bool stopping = false;
+  std::jthread worker;
+};
+
 CalendarService::CalendarService(
     ConfigService& configService, HttpClient& httpClient, security::SecretStore& secretStore,
     security::StorageKeyProvider& storageKeyProvider, NotificationManager* notifications
 )
     : m_configService(configService), m_httpClient(httpClient), m_notifications(notifications), m_oauth(httpClient),
-      m_google(httpClient), m_credentials(secretStore), m_storageKeyProvider(storageKeyProvider), m_caldav(httpClient) {
-}
+      m_google(httpClient), m_credentials(secretStore), m_storageKeyProvider(storageKeyProvider), m_caldav(httpClient),
+      m_vdirWorker(std::make_shared<VdirWorker>()) {}
+
+CalendarService::~CalendarService() = default;
 
 void CalendarService::initialize() {
   m_activeConfig = m_configService.config().calendar;
-  m_configService.addReloadCallback([this]() { onConfigReload(); });
-  m_credentials.setChangeCallback([this]() {
+  loadLastSynced();
+  m_configService.addReloadCallback([this] { onConfigReload(); });
+  m_credentials.setChangeCallback([this] {
+    // A Google account's authorization may have changed (accountStatus).
+    ++m_syncStatusRevision;
     notifyChanged();
     if (m_credentialChangeCallback) {
       m_credentialChangeCallback();
@@ -109,6 +304,7 @@ void CalendarService::initialize() {
   m_initialized = true;
   syncCachePersistence();
   initializeCredentials();
+  updateVdirWatches();
 }
 
 void CalendarService::syncCachePersistence() {
@@ -126,11 +322,10 @@ void CalendarService::syncCachePersistence() {
       return;
     }
     m_cacheKey = std::move(*key);
-    if (!loadCache()) {
-      if (m_cachePersistenceState == CachePersistenceState::Opening) {
-        setCachePersistenceState(CachePersistenceState::BackendError, m_cacheMigrationPending);
-      }
+    if (!loadCache() && m_cachePersistenceState == CachePersistenceState::Opening) {
+      setCachePersistenceState(CachePersistenceState::BackendError, m_cacheMigrationPending);
     }
+
     return;
   }
 
@@ -204,7 +399,7 @@ calendar::CredentialMigration CalendarService::credentialMigration() {
     append("_refresh_token", calendar::CredentialKind::RefreshToken);
   }
 
-  migration.finalize = [this]() {
+  migration.finalize = [this] {
     if (!m_configService.clearStateOwner(kCredentialOwner)) {
       return false;
     }
@@ -290,6 +485,10 @@ void CalendarService::onConfigReload() {
     return;
   }
   m_activeConfig = next;
+  // A refresh still running was started with the old config; its results are dropped.
+  ++m_refreshGeneration;
+  loadLastSynced();
+  updateVdirWatches();
   std::unordered_set<std::string> activeAccountIds;
   activeAccountIds.reserve(m_activeConfig.accounts.size());
   for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
@@ -310,6 +509,10 @@ void CalendarService::onConfigReload() {
     notifyChanged();
     return;
   }
+  if (m_snapshot.valid) {
+    // Drops the events of calendars that are no longer selected right away.
+    rebuildSnapshot();
+  }
   // Re-sync soon after any account/config change.
   m_nextRefreshAt = std::chrono::steady_clock::now();
   notifyChanged();
@@ -325,6 +528,9 @@ int CalendarService::pollTimeoutMs() const {
     timeout = timeout < 0 ? clamped : std::min(timeout, clamped);
   };
 
+  if (m_vdirDebouncePending) {
+    consider(m_vdirDebounceUntil);
+  }
   if (m_connect.state == ConnectState::Pending && !m_connect.inFlight) {
     consider(m_connect.nextPollAt);
   }
@@ -336,6 +542,11 @@ int CalendarService::pollTimeoutMs() const {
 
 void CalendarService::tick() {
   const auto now = std::chrono::steady_clock::now();
+
+  if (m_vdirDebouncePending && now >= m_vdirDebounceUntil) {
+    m_vdirDebouncePending = false;
+    requestRefresh();
+  }
 
   if (m_connect.state == ConnectState::Pending && !m_connect.inFlight && now >= m_connect.nextPollAt) {
     if (now >= m_connect.deadline) {
@@ -353,9 +564,36 @@ void CalendarService::tick() {
   }
 }
 
+void CalendarService::addPollFds(std::vector<pollfd>& fds) {
+  if (m_vdirInotify.fd() >= 0) {
+    fds.push_back({.fd = m_vdirInotify.fd(), .events = POLLIN, .revents = 0});
+  }
+}
+
+void CalendarService::dispatchPoll(const std::vector<pollfd>& fds, std::size_t startIdx) {
+  if (m_vdirInotify.fd() >= 0 && startIdx < fds.size() && (fds[startIdx].revents & POLLIN) != 0) {
+    bool changed = false;
+    m_vdirInotify.drain([&](const inotify_event* event) {
+      changed = true;
+      if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF | IN_IGNORED)) != 0) {
+        if (auto it = m_watchedVdirWds.find(event->wd); it != m_watchedVdirWds.end()) {
+          m_watchedVdirPaths.erase(it->second);
+          m_watchedVdirWds.erase(it);
+        }
+      }
+    });
+    if (changed) {
+      m_vdirDebouncePending = true;
+      m_vdirDebounceUntil = std::chrono::steady_clock::now() + std::chrono::milliseconds{300};
+    }
+  }
+  tick();
+}
+
 void CalendarService::scheduleNextRefresh() {
   const int minutes = std::max<std::int32_t>(1, m_activeConfig.refreshMinutes);
-  m_nextRefreshAt = std::chrono::steady_clock::now() + std::chrono::minutes{minutes};
+  // Never postpone a refresh requested while the last one was running.
+  m_nextRefreshAt = std::min(m_nextRefreshAt, std::chrono::steady_clock::now() + std::chrono::minutes{minutes});
 }
 
 void CalendarService::requestRefresh() {
@@ -367,12 +605,22 @@ void CalendarService::requestRefresh() {
 }
 
 void CalendarService::startRefresh() {
+  // Nothing is due until scheduleNextRefresh() or a request made while this refresh runs says so.
+  m_nextRefreshAt = std::chrono::steady_clock::time_point::max();
   if (m_activeConfig.accounts.empty()) {
     scheduleNextRefresh();
     return;
   }
   m_refreshing = true;
+  m_runningRefreshGeneration = m_refreshGeneration;
   m_pendingAccounts = m_activeConfig.accounts.size();
+  // CalDAV finds its calendars and Google authorizes before downloading; the others download at once.
+  for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
+    m_syncPhases[account.id] = account.type == "caldav" || account.type == "google" ? AccountStatus::Phase::Connecting
+                                                                                    : AccountStatus::Phase::Downloading;
+  }
+  ++m_syncStatusRevision;
+  notifyChanged();
   for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
     if (account.type == "caldav") {
       fetchCalDav(account);
@@ -380,16 +628,44 @@ void CalendarService::startRefresh() {
       fetchGoogle(account);
     } else if (account.type == "ics") {
       fetchIcs(account);
+    } else if (account.type == "vdir") {
+      fetchVdir(account);
     } else {
       kLog.warn("unknown calendar account type '{}' for id {}", account.type, account.id);
-      accountDone(account.id, false, {});
+      accountDone(account.id, calendar::SyncFailure::Configuration, {});
     }
   }
 }
 
-void CalendarService::accountDone(const std::string& accountId, bool ok, std::vector<CalendarEvent> events) {
-  if (ok) {
-    m_eventsByAccount[accountId] = std::move(events);
+void CalendarService::accountDone(
+    const std::string& accountId, calendar::SyncFailure failure, std::vector<CalendarEvent> events,
+    const std::vector<std::string>& retainedSources
+) {
+  const bool outdated = m_runningRefreshGeneration != m_refreshGeneration;
+  if (outdated) {
+    kLog.debug("calendar account {} refreshed with an outdated config; dropping the result", accountId);
+  } else if (failure == calendar::SyncFailure::None) {
+    kLog.debug("calendar account {} refreshed: {} event(s)", accountId, events.size());
+    std::vector<CalendarEvent>& stored = m_eventsByAccount[accountId];
+    // Calendars that failed this time keep what they had.
+    for (CalendarEvent& event : stored) {
+      if (!event.sourceId.empty() && std::ranges::contains(retainedSources, event.sourceId)) {
+        events.push_back(std::move(event));
+      }
+    }
+    stored = std::move(events);
+  } else {
+    const auto it = m_eventsByAccount.find(accountId);
+    const auto* status = failure == calendar::SyncFailure::Cancelled ? "was cancelled" : "failed";
+    kLog.warn(
+        "calendar account {} refresh {}; keeping {} previously loaded event(s)", accountId, status,
+        it == m_eventsByAccount.end() ? 0 : it->second.size()
+    );
+  }
+  m_syncPhases.erase(accountId);
+  ++m_syncStatusRevision;
+  if (!outdated) {
+    recordSyncResult(accountId, failure);
   }
   if (m_pendingAccounts > 0) {
     --m_pendingAccounts;
@@ -399,24 +675,128 @@ void CalendarService::accountDone(const std::string& accountId, bool ok, std::ve
     rebuildSnapshot();
     saveCache();
     scheduleNextRefresh();
-    notifyChanged();
+  }
+  // Each account's status changes when it finishes, not only when the last one does.
+  notifyChanged();
+}
+
+void CalendarService::recordSyncResult(const std::string& accountId, calendar::SyncFailure failure) {
+  if (failure == calendar::SyncFailure::Cancelled) {
+    return;
+  }
+  if (failure != calendar::SyncFailure::None) {
+    m_lastFailures[accountId] = failure;
+    return;
+  }
+  m_lastFailures.erase(accountId);
+  const auto now = std::chrono::system_clock::now();
+  m_lastSynced[accountId] = now;
+  (void)m_configService.setStateString(kCalendarSyncOwner, accountId + "_last_synced", std::to_string(toUnix(now)));
+}
+
+CalendarService::AccountStatus CalendarService::accountStatus(const CalendarConfig::Account& account) const {
+  AccountStatus status;
+  if (const auto it = m_lastSynced.find(account.id); it != m_lastSynced.end()) {
+    status.lastSynced = it->second;
+  }
+  const bool google = account.type == "google";
+  // A Google account's stored authorization is known before any sync: when it was last looked up.
+  if (google && m_credentials.refreshTokenLocked(account.id)) {
+    status.failure = calendar::SyncFailure::CredentialsLocked;
+  } else if (google && m_credentials.refreshTokenMissing(account.id)) {
+    status.failure = calendar::SyncFailure::Credentials;
+  } else if (const auto it = m_lastFailures.find(account.id); it != m_lastFailures.end()) {
+    status.failure = it->second;
+  }
+  if (const auto it = m_syncPhases.find(account.id); it != m_syncPhases.end()) {
+    status.phase = it->second;
+  }
+  if (status.failure == calendar::SyncFailure::CredentialsLocked) {
+    status.action = AccountStatus::Action::Retry;
+  } else if (
+      google
+      && (status.failure == calendar::SyncFailure::Credentials
+          || status.failure == calendar::SyncFailure::Authentication)
+  ) {
+    status.action = AccountStatus::Action::Reconnect;
+  }
+  return status;
+}
+
+std::string CalendarService::accountStatusText(const CalendarConfig::Account& account) const {
+  const AccountStatus status = accountStatus(account);
+  if (status.phase.has_value()) {
+    return i18n::tr(
+        status.phase == AccountStatus::Phase::Connecting ? "calendar.sync.connecting" : "calendar.sync.downloading"
+    );
+  }
+  if (status.failure.has_value()) {
+    return i18n::tr(
+        "calendar.sync.failed", "reason",
+        i18n::tr(calendar::syncFailureMessageKey(*status.failure, account.type == "google"))
+    );
+  }
+  if (status.lastSynced.has_value()) {
+    return i18n::tr("calendar.sync.synced", "when", formatTimeAgo(*status.lastSynced));
+  }
+  return i18n::tr("calendar.sync.not-synced");
+}
+
+void CalendarService::setSyncPhase(const std::string& accountId, AccountStatus::Phase phase) {
+  m_syncPhases[accountId] = phase;
+  ++m_syncStatusRevision;
+  notifyChanged();
+}
+
+void CalendarService::loadLastSynced() {
+  m_lastSynced.clear();
+  for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
+    const auto stored = m_configService.stateString(kCalendarSyncOwner, account.id + "_last_synced");
+    if (!stored.has_value()) {
+      continue;
+    }
+    try {
+      m_lastSynced[account.id] = std::chrono::system_clock::time_point{std::chrono::seconds{std::stoll(*stored)}};
+    } catch (const std::exception&) {
+      kLog.debug("ignoring invalid last sync time for calendar account {}", account.id);
+    }
   }
 }
 
 void CalendarService::rebuildSnapshot() {
+  // Drop the sync status of accounts no longer configured.
+  const auto unconfigured = [&](const auto& entry) {
+    return !std::ranges::contains(m_activeConfig.accounts, entry.first, &CalendarConfig::Account::id);
+  };
+  const auto removed = std::erase_if(m_lastFailures, unconfigured) + std::erase_if(m_lastSynced, unconfigured);
+  if (removed > 0) {
+    ++m_syncStatusRevision;
+  }
   // Drop cached events for accounts no longer configured.
   for (auto it = m_eventsByAccount.begin(); it != m_eventsByAccount.end();) {
     const bool stillConfigured =
         std::ranges::contains(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
     it = stillConfigured ? std::next(it) : m_eventsByAccount.erase(it);
   }
-
-  std::vector<CalendarEvent> merged;
-  for (const auto& [accountId, events] : m_eventsByAccount) {
-    merged.insert(merged.end(), events.begin(), events.end());
+  // Drop cached events of CalDAV calendars no longer selected. An empty selection means all calendars.
+  for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
+    const auto it = m_eventsByAccount.find(account.id);
+    if (account.type != "caldav" || account.calendars.empty() || it == m_eventsByAccount.end()) {
+      continue;
+    }
+    std::erase_if(it->second, [&account](const CalendarEvent& event) {
+      return !event.sourceId.empty() && !std::ranges::contains(account.calendars, event.sourceId);
+    });
   }
-  std::ranges::sort(merged, {}, &CalendarEvent::start);
-  m_snapshot.events = std::move(merged);
+  for (auto it = m_discoveredVdirPathsByAccount.begin(); it != m_discoveredVdirPathsByAccount.end();) {
+    const bool stillConfigured =
+        std::ranges::contains(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
+    it = stillConfigured ? std::next(it) : m_discoveredVdirPathsByAccount.erase(it);
+  }
+
+  m_snapshot.events = calendar::mergeCalendarEvents(
+      m_eventsByAccount, m_activeConfig.dedupeEvents, m_activeConfig.dedupeIgnorePatterns
+  );
   m_snapshot.valid = true;
 }
 
@@ -425,19 +805,33 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
   const std::string username = account.username;
   if (serverUrl.empty() || username.empty()) {
     kLog.warn("caldav account {} is missing server_url/username", account.id);
-    accountDone(account.id, false, {});
+    accountDone(account.id, calendar::SyncFailure::Configuration, {});
     return;
+  }
+
+  std::shared_ptr<const HttpTlsClientCert> tls;
+  if (!account.clientCertFile.empty() || !account.clientKeyFile.empty()) {
+    // libcurl would only report an unreadable file as a failed connection.
+    if (!isReadableFile(account.clientCertFile) || !isReadableFile(account.clientKeyFile)) {
+      kLog.warn("caldav account {} client_cert_file or client_key_file is not readable", account.id);
+      accountDone(account.id, calendar::SyncFailure::ClientCertificate, {});
+      return;
+    }
+    auto material = std::make_shared<HttpTlsClientCert>();
+    material->clientCertPath = account.clientCertFile;
+    material->clientKeyPath = account.clientKeyFile;
+    tls = std::move(material);
   }
 
   lookupCalDavPassword(
       account,
-      [this, account, serverUrl,
-       username](security::SecretStoreStatus status, calendar::CalendarCredentialStore::Secret password) mutable {
+      [this, account, serverUrl, username,
+       tls](security::SecretStoreStatus status, const calendar::CalendarCredentialStore::Secret& password) mutable {
         if (status != security::SecretStoreStatus::Success || !password || password->empty()) {
           if (status == security::SecretStoreStatus::NotFound) {
             kLog.warn("caldav account {} has no stored password", account.id);
           }
-          accountDone(account.id, false, {});
+          accountDone(account.id, credentialFailure(status, account.credentialSource), {});
           return;
         }
 
@@ -448,13 +842,14 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
         const bool allowRedirectAuth = account.provider == "icloud";
 
         calendar::discoverCalDavCollections(
-            m_httpClient, serverUrl, username, password, allowRedirectAuth,
-            [this, accountId, username, password, accountColor, selectedCalendars, allowRedirectAuth,
-             now](bool discovered, std::vector<calendar::CalDavCollection> collections) {
-              if (!discovered) {
-                accountDone(accountId, false, {});
+            m_httpClient, serverUrl, username, password, allowRedirectAuth, tls,
+            [this, accountId, username, password, accountColor, selectedCalendars, allowRedirectAuth, tls,
+             now](calendar::SyncFailure discoveryFailure, std::vector<calendar::CalDavCollection> collections) {
+              if (discoveryFailure != calendar::SyncFailure::None) {
+                accountDone(accountId, discoveryFailure, {});
                 return;
               }
+              setSyncPhase(accountId, AccountStatus::Phase::Downloading);
 
               const std::vector<CalendarSource> discoveredSources = sourcesFromCollections(collections);
               (void)m_configService.setStateString(
@@ -470,7 +865,7 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
 
               if (collections.empty()) {
                 kLog.warn("caldav account {} has no selected calendars after discovery", accountId);
-                accountDone(accountId, false, {});
+                accountDone(accountId, calendar::SyncFailure::NoCalendars, {});
                 return;
               }
 
@@ -479,7 +874,9 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
                 std::string accountId;
                 std::size_t pending = 0;
                 bool anyOk = false;
+                calendar::SyncFailure firstFailure = calendar::SyncFailure::None;
                 std::vector<CalendarEvent> events;
+                std::vector<std::string> failedSources;
               };
               auto ctx = std::make_shared<FetchContext>();
               ctx->service = this;
@@ -493,22 +890,37 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
                 caldav.password = password;
                 caldav.calendarName = collection.name;
                 caldav.color = accountColor.empty() ? collection.color : accountColor;
+                caldav.tls = tls;
 
                 m_caldav.fetchEvents(
                     caldav, now - kWindowBefore, now + kWindowAfter, allowRedirectAuth,
-                    [ctx](bool ok, std::vector<CalendarEvent> events) {
-                      if (ok) {
+                    [ctx, calendarName = collection.name,
+                     sourceId = collection.id](calendar::SyncFailure failure, std::vector<CalendarEvent> events) {
+                      if (failure == calendar::SyncFailure::None) {
                         ctx->anyOk = true;
+                        for (CalendarEvent& event : events) {
+                          event.sourceId = sourceId;
+                        }
                         ctx->events.insert(
                             ctx->events.end(), std::make_move_iterator(events.begin()),
                             std::make_move_iterator(events.end())
                         );
+                      } else {
+                        kLog.warn("caldav account {}: calendar '{}' failed to load", ctx->accountId, calendarName);
+                        ctx->failedSources.push_back(sourceId);
+                        if (ctx->firstFailure == calendar::SyncFailure::None) {
+                          ctx->firstFailure = failure;
+                        }
                       }
                       if (ctx->pending > 0) {
                         --ctx->pending;
                       }
                       if (ctx->pending == 0) {
-                        ctx->service->accountDone(ctx->accountId, ctx->anyOk, std::move(ctx->events));
+                        // Calendars that synced are updated; those that failed keep their previous events.
+                        ctx->service->accountDone(
+                            ctx->accountId, ctx->anyOk ? calendar::SyncFailure::None : ctx->firstFailure,
+                            std::move(ctx->events), ctx->failedSources
+                        );
                       }
                     }
                 );
@@ -560,7 +972,7 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
   std::string url = account.serverUrl;
   if (url.empty()) {
     kLog.warn("ics account {} is missing server_url", account.id);
-    accountDone(account.id, false, {});
+    accountDone(account.id, calendar::SyncFailure::Configuration, {});
     return;
   }
 
@@ -594,7 +1006,7 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
   m_httpClient.request(req, [this, accountId, displayName, colorHex](HttpResponse resp) {
     if (!resp.transportOk || resp.status != 200) {
       kLog.warn("failed to fetch ics for account {}: http status {}", accountId, resp.status);
-      accountDone(accountId, false, {});
+      accountDone(accountId, calendar::syncFailureFromResponse(resp), {});
       return;
     }
 
@@ -603,18 +1015,19 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
     auto result = calendar::parseICalEvents(resp.body, now - kWindowBefore, now + kWindowAfter, control);
     for (auto& event : result.events) {
       event.calendarName = displayName;
-      if (!colorHex.empty()) {
+      if (event.colorHex.empty() && !colorHex.empty()) {
         event.colorHex = colorHex;
       }
     }
 
     switch (result.status) {
     case calendar::ICalParseStatus::Complete:
-      accountDone(accountId, true, std::move(result.events));
+      accountDone(accountId, calendar::SyncFailure::None, std::move(result.events));
       return;
     case calendar::ICalParseStatus::Cancelled:
       kLog.warn("iCalendar parsing was cancelled for id {}", accountId);
-      break;
+      accountDone(accountId, calendar::SyncFailure::Cancelled, {});
+      return;
     case calendar::ICalParseStatus::InvalidCalendar:
       kLog.warn("The URL for {} returned an invalid ICS calendar", accountId);
       break;
@@ -622,15 +1035,112 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
       kLog.warn("iCalendar recurrence expansion exceeded the work limit for id {}", accountId);
       break;
     }
-    accountDone(accountId, false, {});
+    accountDone(accountId, calendar::SyncFailure::InvalidResponse, {});
   });
 }
 
-void CalendarService::refreshGoogleToken(const std::string& accountId, std::function<void(bool, std::string)> cb) {
+void CalendarService::updateVdirWatches() {
+  if (m_vdirInotify.fd() < 0) {
+    return;
+  }
+
+  std::unordered_set<std::string> desired;
+  if (m_activeConfig.enabled) {
+    for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
+      if (account.type != "vdir") {
+        continue;
+      }
+      const std::filesystem::path rootPath =
+          account.path.empty() ? calendar::defaultVdirPath() : std::filesystem::path(account.path);
+      std::error_code ec;
+      if (!std::filesystem::exists(rootPath, ec) || !std::filesystem::is_directory(rootPath, ec)) {
+        continue;
+      }
+
+      desired.insert(rootPath.lexically_normal().string());
+      if (auto it = m_discoveredVdirPathsByAccount.find(account.id); it != m_discoveredVdirPathsByAccount.end()) {
+        for (const auto& p : it->second) {
+          if (std::filesystem::is_directory(p, ec)) {
+            desired.insert(p.lexically_normal().string());
+          }
+        }
+      }
+    }
+  }
+
+  // Drop watches no longer desired
+  for (auto it = m_watchedVdirPaths.begin(); it != m_watchedVdirPaths.end();) {
+    if (!desired.contains(it->first.string())) {
+      m_vdirInotify.unwatch(it->second);
+      m_watchedVdirWds.erase(it->second);
+      it = m_watchedVdirPaths.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  // Add newly desired watches
+  constexpr std::uint32_t mask =
+      IN_CREATE | IN_DELETE | IN_MODIFY | IN_MOVED_TO | IN_MOVED_FROM | IN_CLOSE_WRITE | IN_DELETE_SELF | IN_MOVE_SELF;
+  for (const auto& pathStr : desired) {
+    const std::filesystem::path path(pathStr);
+    if (m_watchedVdirPaths.contains(path)) {
+      continue;
+    }
+    const auto wd = m_vdirInotify.watch(path, mask);
+    if (!wd.has_value()) {
+      continue;
+    }
+    m_watchedVdirPaths.emplace(path, *wd);
+    m_watchedVdirWds.emplace(*wd, path);
+  }
+}
+
+void CalendarService::fetchVdir(const CalendarConfig::Account& account) {
+  const std::filesystem::path rootPath =
+      account.path.empty() ? calendar::defaultVdirPath() : std::filesystem::path(account.path);
+
+  const auto now = std::chrono::system_clock::now();
+  const auto windowStart = now - kWindowBefore;
+  const auto windowEnd = now + kWindowAfter;
+
+  const std::string accountId = account.id;
+
+  VdirWorker::Request request{
+      .accountId = account.id,
+      .displayName = account.displayName,
+      .color = account.color,
+      .configuredCalendars = account.calendars,
+      .rootPath = rootPath,
+      .windowStart = windowStart,
+      .windowEnd = windowEnd,
+      .callback = [this, accountId](
+                      calendar::SyncFailure failure, const std::vector<CalendarSource>& sources,
+                      std::vector<std::filesystem::path> watchedPaths, std::vector<CalendarEvent> events
+                  ) {
+        if (failure == calendar::SyncFailure::None) {
+          (void)m_configService.setStateString(
+              kCalendarDiscoveryOwner, accountId + "_calendars", calendar::serializeCalendarSources(sources)
+          );
+        }
+        m_discoveredVdirPathsByAccount[accountId] = std::move(watchedPaths);
+        updateVdirWatches();
+        accountDone(accountId, failure, std::move(events));
+      },
+  };
+
+  if (!m_vdirWorker || !m_vdirWorker->enqueue(std::move(request))) {
+    accountDone(account.id, calendar::SyncFailure::Cancelled, {});
+  }
+}
+
+void CalendarService::refreshGoogleToken(
+    const std::string& accountId, std::function<void(calendar::SyncFailure, std::string)> cb
+) {
   m_credentials.lookupRefreshToken(
       accountId,
       [this, accountId, cb = std::move(cb)](
-          security::SecretStoreStatus status, calendar::CalendarCredentialStore::Secret storedRefreshToken
+          security::SecretStoreStatus status, const calendar::CalendarCredentialStore::Secret& storedRefreshToken
       ) mutable {
         if (status == security::SecretStoreStatus::DeniedOrLocked) {
           if (!m_googleCredentialLockedNotificationShown) {
@@ -662,13 +1172,13 @@ void CalendarService::refreshGoogleToken(const std::string& accountId, std::func
           case security::SecretStoreStatus::Success:
             break;
           }
-          cb(false, {});
+          cb(credentialFailure(status, CalendarCredentialSource::SecretService), {});
           return;
         }
         if (!storedRefreshToken || storedRefreshToken->empty()) {
           kLog.warn("google account {} has an empty refresh token; reconnect required", accountId);
           m_credentials.eraseRefreshToken(accountId, [](security::SecretStoreStatus) {});
-          cb(false, {});
+          cb(calendar::SyncFailure::Credentials, {});
           return;
         }
         std::string refreshToken = secretString(storedRefreshToken);
@@ -681,7 +1191,8 @@ void CalendarService::refreshGoogleToken(const std::string& accountId, std::func
                   clearGoogleSession(accountId);
                   m_credentials.eraseRefreshToken(accountId, [](security::SecretStoreStatus) {});
                 }
-                cb(false, {});
+                // Without a rejected grant, the token broker couldn't be reached or answered with an error.
+                cb(invalidGrant ? calendar::SyncFailure::Authentication : calendar::SyncFailure::Network, {});
                 return;
               }
               storeGoogleTokens(
@@ -689,10 +1200,10 @@ void CalendarService::refreshGoogleToken(const std::string& accountId, std::func
                   [this, accountId, cb = std::move(cb)](security::SecretStoreStatus storeStatus) mutable {
                     if (storeStatus != security::SecretStoreStatus::Success) {
                       clearGoogleSession(accountId);
-                      cb(false, {});
+                      cb(credentialFailure(storeStatus, CalendarCredentialSource::SecretService), {});
                       return;
                     }
-                    cb(true, m_googleSessions[accountId].accessToken);
+                    cb(calendar::SyncFailure::None, m_googleSessions[accountId].accessToken);
                   }
               );
             }
@@ -705,21 +1216,24 @@ void CalendarService::refreshGoogleToken(const std::string& accountId, std::func
 void CalendarService::googleFetchWithToken(
     const std::string& accountId, const std::string& accessToken, bool allowRefreshRetry
 ) {
+  setSyncPhase(accountId, AccountStatus::Phase::Downloading);
   const auto now = std::chrono::system_clock::now();
   m_google.fetchEvents(
       accessToken, now - kWindowBefore, now + kWindowAfter,
-      [this, accountId, allowRefreshRetry](bool ok, bool unauthorized, std::vector<CalendarEvent> events) {
-        if (unauthorized && allowRefreshRetry) {
-          refreshGoogleToken(accountId, [this, accountId](bool refreshed, std::string newToken) {
-            if (!refreshed) {
-              accountDone(accountId, false, {});
-            } else {
-              googleFetchWithToken(accountId, newToken, false);
-            }
-          });
+      [this, accountId, allowRefreshRetry](calendar::SyncFailure failure, std::vector<CalendarEvent> events) {
+        if (failure == calendar::SyncFailure::Authentication && allowRefreshRetry) {
+          refreshGoogleToken(
+              accountId, [this, accountId](calendar::SyncFailure refreshFailure, const std::string& newToken) {
+                if (refreshFailure != calendar::SyncFailure::None) {
+                  accountDone(accountId, refreshFailure, {});
+                } else {
+                  googleFetchWithToken(accountId, newToken, false);
+                }
+              }
+          );
           return;
         }
-        accountDone(accountId, ok && !unauthorized, std::move(events));
+        accountDone(accountId, failure, std::move(events));
       }
   );
 }
@@ -733,9 +1247,9 @@ void CalendarService::fetchGoogle(const CalendarConfig::Account& account) {
   if (valid) {
     googleFetchWithToken(id, session->second.accessToken, true);
   } else {
-    refreshGoogleToken(id, [this, id](bool ok, std::string token) {
-      if (!ok) {
-        accountDone(id, false, {});
+    refreshGoogleToken(id, [this, id](calendar::SyncFailure failure, const std::string& token) {
+      if (failure != calendar::SyncFailure::None) {
+        accountDone(id, failure, {});
       } else {
         googleFetchWithToken(id, token, false);
       }
@@ -820,7 +1334,7 @@ void CalendarService::saveCalDavAccount(
     m_credentials.lookupPassword(
         accountId,
         [persistConfig = std::move(persistConfig), callback = std::move(callback)](
-            security::SecretStoreStatus status, calendar::CalendarCredentialStore::Secret passwordValue
+            security::SecretStoreStatus status, const calendar::CalendarCredentialStore::Secret& passwordValue
         ) mutable {
           if (status != security::SecretStoreStatus::Success || !passwordValue || passwordValue->empty()) {
             callback(
@@ -1134,11 +1648,20 @@ bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
       event.title = item.value("title", std::string{});
       event.calendarName = item.value("calendar", std::string{});
       event.colorHex = item.value("color", std::string{});
+      event.sourceId = item.value("source", std::string{});
       event.location = item.value("location", std::string{});
-      event.url = calendar::resolveEventLink(event.location, item.value("url", std::string{}));
+      event.url = calendar::resolveEventLink(event.location, {}, item.value("url", std::string{}));
+      event.webUrl = calendar::resolveEventLink({}, {}, item.value("web_url", std::string{}));
       event.start = fromUnix(item.value("start", std::int64_t{0}));
       event.end = fromUnix(item.value("end", std::int64_t{0}));
       event.allDay = item.value("all_day", false);
+      // A missing key means the source said nothing; an empty array means "explicitly no reminder".
+      if (const auto reminders = item.find("reminders"); reminders != item.end() && reminders->is_array()) {
+        auto leads = reminders->get<std::vector<std::int32_t>>();
+        // Normalize on read so a hand-edited or corrupted cache cannot inflate the fired set.
+        calendar::normalizeReminderLeads(leads);
+        event.reminderLeadSeconds = std::move(leads);
+      }
       const std::string account = item.value("account", std::string{});
       parsed[account].push_back(std::move(event));
     }
@@ -1167,12 +1690,17 @@ void CalendarService::saveCache() {
           {"title", event.title},
           {"calendar", event.calendarName},
           {"color", event.colorHex},
+          {"source", event.sourceId},
           {"location", event.location},
           {"url", event.url},
+          {"web_url", event.webUrl},
           {"start", toUnix(event.start)},
           {"end", toUnix(event.end)},
           {"all_day", event.allDay},
       });
+      if (event.reminderLeadSeconds.has_value()) {
+        events.back()["reminders"] = *event.reminderLeadSeconds;
+      }
     }
   }
 

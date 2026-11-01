@@ -49,7 +49,13 @@ void ShaderProgram::create(const char* vertexSource, const char* fragmentSource)
   destroy();
 
   const GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSource);
-  const GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSource);
+  GLuint fragmentShader = 0;
+  try {
+    fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSource);
+  } catch (...) {
+    glDeleteShader(vertexShader);
+    throw;
+  }
 
   m_program = glCreateProgram();
   if (m_program == 0) {

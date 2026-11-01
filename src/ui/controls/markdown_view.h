@@ -9,7 +9,7 @@ class Label;
 
 class MarkdownView : public Flex {
 public:
-  void setMarkdown(const std::string& markdown, float scale);
+  void setMarkdown(const std::string& markdown, float scale, float fontScale = 1.0F);
   void clear();
   void trackWrappableLabel(Label* label) { m_wrappableLabels.push_back(label); }
 

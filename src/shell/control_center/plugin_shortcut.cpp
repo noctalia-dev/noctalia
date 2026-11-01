@@ -31,7 +31,7 @@ PluginShortcut::PluginShortcut(scripting::PluginRuntimeContext context)
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
       m_pluginDir(std::move(context.pluginDir)), m_settings(std::move(context.settings)),
       m_scriptApi(context.scriptApi), m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient),
-      m_platform(context.platform) {
+      m_clipboard(context.clipboard), m_platform(context.platform) {
   start();
 }
 

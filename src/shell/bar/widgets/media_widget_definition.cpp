@@ -18,6 +18,13 @@ const noctalia::bar::WidgetDefinition<MediaWidget::Options>& mediaWidgetDefiniti
                       .horizontalBarOnly = true,
                   },
           }),
+          field<&Options::rotateAlbumArt>({
+              .key = "rotate_album_art",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .visibleWhen = notHideAlbumArt,
+                  },
+          }),
           field<&Options::hideAlbumArt>({
               .key = "hide_album_art",
               .presentation =
@@ -93,8 +100,19 @@ const noctalia::bar::WidgetDefinition<MediaWidget::Options>& mediaWidgetDefiniti
                       .visibleWhen = notAlbumArtOnly,
                   },
           }),
+          field<&Options::showProgress>({
+              .key = "show_progress",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .visibleWhen = notAlbumArtOnly,
+                      .horizontalBarOnly = true,
+                  },
+          }),
           field<&Options::hideWhenNoMedia>({
               .key = "hide_when_no_media",
+          }),
+          field<&Options::hideWhenIdle>({
+              .key = "hide_when_idle",
           }),
       },
   };

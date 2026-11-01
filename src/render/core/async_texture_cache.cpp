@@ -74,7 +74,7 @@ AsyncTextureCache::AsyncTextureCache() {
   const std::size_t workerCount = std::clamp<std::size_t>(suggested, kMinWorkers, kMaxWorkers);
   m_workers.reserve(workerCount);
   for (std::size_t i = 0; i < workerCount; ++i) {
-    m_workers.emplace_back([this]() { workerLoop(); });
+    m_workers.emplace_back([this] { workerLoop(); });
   }
 }
 
@@ -274,6 +274,8 @@ void AsyncTextureCache::dispatch(const std::vector<pollfd>& fds, std::size_t sta
       entryIt->second.failed = true;
       continue;
     }
+    entryIt->second.handle.sourceWidth = job.sourceWidth;
+    entryIt->second.handle.sourceHeight = job.sourceHeight;
     touchEntry(entryIt->second);
     notifyReady(job.key, entryIt->second.handle);
   }
@@ -332,6 +334,8 @@ void AsyncTextureCache::reloadResidentTextures() {
       entry.failed = true;
       continue;
     }
+    entry.handle.sourceWidth = loaded->sourceWidth;
+    entry.handle.sourceHeight = loaded->sourceHeight;
     touchEntry(entry);
     notifyReady(key, entry.handle);
   }
@@ -349,7 +353,7 @@ void AsyncTextureCache::workerLoop() {
     RequestKey key;
     {
       std::unique_lock<std::mutex> lock(m_queueMutex);
-      m_queueCv.wait(lock, [this]() { return m_shutdown.load() || !m_jobQueue.empty(); });
+      m_queueCv.wait(lock, [this] { return m_shutdown.load() || !m_jobQueue.empty(); });
       if (m_shutdown.load()) {
         return;
       }
@@ -364,6 +368,8 @@ void AsyncTextureCache::workerLoop() {
       result.rgba = std::move(loaded->rgba);
       result.width = loaded->width;
       result.height = loaded->height;
+      result.sourceWidth = loaded->sourceWidth;
+      result.sourceHeight = loaded->sourceHeight;
     } else {
       result.failed = true;
       kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(key.path), loaded.error());

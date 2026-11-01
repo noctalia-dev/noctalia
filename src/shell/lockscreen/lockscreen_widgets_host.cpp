@@ -1,10 +1,9 @@
 #include "shell/lockscreen/lockscreen_widgets_host.h"
 
 #include "config/config_service.h"
-#include "core/log.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
-#include "scripting/plugin_registry.h"
+#include "scripting/plugin_id.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/lockscreen/lock_screen.h"
 #include "shell/lockscreen/lock_surface.h"
@@ -15,11 +14,8 @@
 
 #include <algorithm>
 #include <string>
-#include <wayland-client-protocol.h>
 
 namespace {
-
-  constexpr Logger kLog("lockscreen");
 
   DesktopWidgetState* findStateById(LockscreenWidgetsSnapshot& snapshot, const std::string& id) {
     for (auto& widget : snapshot.widgets) {
@@ -71,9 +67,11 @@ void LockscreenWidgetsHost::reloadPluginWidgets(LockScreen& lockScreen) {
   if (!m_visible) {
     return;
   }
+  // Match on the id syntax, not the registry: a plugin disabled by this reload has
+  // already left the registry, and its instances must go down with it.
   const auto before = m_instances.size();
   std::erase_if(m_instances, [this](std::unique_ptr<WidgetInstance>& instance) {
-    if (!scripting::isPluginEntryOfKind(instance->state.type, scripting::PluginEntryKind::DesktopWidget)) {
+    if (!scripting::isValidPluginEntryId(instance->state.type)) {
       return false;
     }
     detachFromSurface(*instance);
@@ -108,6 +106,18 @@ void LockscreenWidgetsHost::onSecondTick() {
       instance->surface->requestUpdate();
     }
   }
+}
+
+bool LockscreenWidgetsHost::wantsSecondTicks() const {
+  if (!m_visible) {
+    return false;
+  }
+  for (const auto& instance : m_instances) {
+    if (instance->widget != nullptr && instance->widget->wantsSecondTicks()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 LockscreenWidgetsHost::WidgetInstance* LockscreenWidgetsHost::findInstance(const std::string& id) {
@@ -241,7 +251,7 @@ void LockscreenWidgetsHost::createInstance(
   desktop_widgets::clampStateToOutput(*m_wayland, clampedState, intrinsicWidth, intrinsicHeight);
 
   auto instance = std::make_unique<WidgetInstance>();
-  instance->state = clampedState;
+  instance->state = std::move(clampedState);
   instance->surface = &surface;
   instance->widget = std::move(widget);
   instance->intrinsicWidth = intrinsicWidth;
@@ -249,22 +259,22 @@ void LockscreenWidgetsHost::createInstance(
 
   auto* rawInstance = instance.get();
   instance->widget->setAnimationManager(&instance->animations);
-  instance->widget->setUpdateCallback([rawInstance]() {
+  instance->widget->setUpdateCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestUpdateOnly();
     }
   });
-  instance->widget->setLayoutCallback([rawInstance]() {
+  instance->widget->setLayoutCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestUpdate();
     }
   });
-  instance->widget->setRedrawCallback([rawInstance]() {
+  instance->widget->setRedrawCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestRedraw();
     }
   });
-  instance->widget->setFrameTickRequestCallback([this, rawInstance]() {
+  instance->widget->setFrameTickRequestCallback([this, rawInstance] {
     if (rawInstance->surface != nullptr) {
       syncSurfaceFrameTick(rawInstance->surface);
       rawInstance->surface->requestFrameTick();

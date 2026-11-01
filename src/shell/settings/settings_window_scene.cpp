@@ -4,6 +4,7 @@
 #include "config/config_service.h"
 #include "config/schema/config_schema.h"
 #include "config/schema/engine.h"
+#include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/process/process.h"
 #include "core/scoped_timer.h"
@@ -11,6 +12,7 @@
 #include "dbus/upower/upower_service.h"
 #include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
+#include "notification/notification_manager.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
@@ -34,6 +36,7 @@
 #include "ui/builders.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/palette.h"
+#include "ui/palette_swatch_preview.h"
 #include "ui/scroll_into_view.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -46,6 +49,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <memory>
 #include <optional>
 #include <string>
@@ -60,33 +64,10 @@ namespace {
 
   constexpr auto kSearchDebounceInterval = std::chrono::milliseconds(120);
 
-  bool useLightPalettePreview(ThemeMode mode) { return mode == ThemeMode::Light; }
-
-  ColorSwatchPreview palettePreviewFromMetadata(const noctalia::theme::AvailablePalette::PreviewMode& metadata) {
-    ColorSwatchPreview preview;
-    Color surface;
-    if (tryParseHexColor(metadata.surface, surface)) {
-      preview.surface = fixedColorSpec(surface);
-    }
-    preview.swatches.reserve(metadata.accents.size());
-    for (const auto& hexColor : metadata.accents) {
-      Color color;
-      if (tryParseHexColor(hexColor, color)) {
-        preview.swatches.push_back(fixedColorSpec(color));
-      }
-    }
-    return preview;
-  }
-
-  ColorSwatchPreview availablePalettePreview(const noctalia::theme::AvailablePalette& palette, ThemeMode mode) {
-    if (useLightPalettePreview(mode)) {
-      ColorSwatchPreview preview = palettePreviewFromMetadata(palette.preview.light);
-      if (!preview.empty()) {
-        return preview;
-      }
-      return palettePreviewFromMetadata(palette.preview.dark);
-    }
-    return palettePreviewFromMetadata(palette.preview.dark);
+  // The IPC command set is closed (IpcService::bind takes a static cli::Command), so a missing key
+  // means en.json drifted from the schema; tr() surfaces that as !!key!! instead of hiding it.
+  std::string translatedIpcActionField(std::string_view command, std::string_view field) {
+    return i18n::tr(std::format("settings.widgets.actions.commands.{}.{}", command, field));
   }
 
   std::unique_ptr<Label>
@@ -404,6 +385,9 @@ namespace {
     if (section == "battery") {
       return schema::writeTable(cfg.battery, schema::batterySchema());
     }
+    if (section == "bluetooth") {
+      return schema::writeTable(cfg.bluetooth, schema::bluetoothSchema());
+    }
     if (section == "brightness") {
       return schema::writeTable(cfg.brightness, schema::brightnessSchema());
     }
@@ -585,6 +569,9 @@ namespace {
       const settings::SettingEntry& entry, std::string_view selectedSection, std::string_view selectedBarName,
       std::string_view selectedMonitorOverride
   ) {
+    if (selectedSection == "dock") {
+      return settings::settingEntryMatchesDockNavigation(entry, selectedMonitorOverride);
+    }
     if (selectedSection != "bar") {
       const auto section = settings::settingsSectionFromId(selectedSection);
       return section.has_value() && entry.section == *section;
@@ -607,6 +594,13 @@ namespace {
   std::string pageScopeKey(
       std::string_view selectedSection, std::string_view selectedBarName, std::string_view selectedMonitorOverride
   ) {
+    if (selectedSection == "dock") {
+      std::string key = "dock";
+      if (!selectedMonitorOverride.empty()) {
+        key += ":monitor:" + std::string(selectedMonitorOverride);
+      }
+      return key;
+    }
     if (selectedSection != "bar") {
       return std::string(selectedSection);
     }
@@ -680,7 +674,7 @@ void SettingsWindow::applyPendingContentScrollTarget(float margin) {
     return;
   }
 
-  auto clearPending = [this]() {
+  auto clearPending = [this] {
     m_scrollToPendingContentTarget = false;
     m_pendingContentScrollTarget = nullptr;
   };
@@ -738,20 +732,26 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   }
   env.niriBackdropSupported = (m_wayland != nullptr && compositors::isNiri());
   env.screencopySupported = m_wayland != nullptr && m_wayland->hasScreencopy();
+  env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->hasBackgroundEffectBlur();
   env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
+  env.umbrielOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isUmbriel());
+  env.niriOverviewCloseOnLaunchSupported =
+      env.niriOverviewTypeToLaunchSupported && m_platform != nullptr && m_platform->tracksOverviewState();
+  env.umbrielOverviewCloseOnLaunchSupported =
+      env.umbrielOverviewTypeToLaunchSupported && m_platform != nullptr && m_platform->tracksOverviewState();
   env.ddcutilAvailable = (m_dependencies != nullptr && m_dependencies->hasDdcutil());
   env.systemdUserManaged = process::runningUnderSystemdUserManager();
   env.gammaControlAvailable = (m_wayland != nullptr && m_wayland->hasGammaControl());
   env.greeterSyncAvailable =
       m_config != nullptr && greeter::appearanceSyncAvailable(m_config->config().shell.greeterSync);
-  const ThemeMode previewMode = m_config != nullptr ? m_config->config().theme.mode : ThemeMode::Dark;
+  const ThemeMode previewMode = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
   for (const auto& paletteInfo : noctalia::theme::availableCommunityPalettes()) {
     env.communityPalettes.push_back(
         settings::SelectOption{
             .value = paletteInfo.name,
             .label = paletteInfo.name,
             .description = {},
-            .preview = availablePalettePreview(paletteInfo, previewMode),
+            .preview = availablePaletteSwatchPreview(paletteInfo, previewMode),
         }
     );
   }
@@ -761,7 +761,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
             .value = p.name,
             .label = p.name,
             .description = {},
-            .preview = availablePalettePreview(p, previewMode),
+            .preview = availablePaletteSwatchPreview(p, previewMode),
         }
     );
   }
@@ -795,6 +795,12 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
     }
   }
   env.keyboardLayoutNames = m_wayland != nullptr ? m_wayland->keyboardLayoutNames() : std::vector<std::string>{};
+  env.availableOutputs = availableOutputs();
+  return env;
+}
+
+std::vector<settings::SelectOption> SettingsWindow::availableOutputs() const {
+  std::vector<settings::SelectOption> outputs;
   if (m_wayland != nullptr) {
     for (const auto& output : m_wayland->outputs()) {
       if (output.output == nullptr || output.connectorName.empty()) {
@@ -804,10 +810,10 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
       if (!output.description.empty()) {
         label += " (" + output.description + ")";
       }
-      env.availableOutputs.push_back(settings::SelectOption{output.connectorName, std::move(label)});
+      outputs.push_back(settings::SelectOption{output.connectorName, std::move(label)});
     }
   }
-  return env;
+  return outputs;
 }
 
 void SettingsWindow::syncSelectedBarState(const Config& cfg, const std::vector<std::string>& availableBars) {
@@ -817,12 +823,23 @@ void SettingsWindow::syncSelectedBarState(const Config& cfg, const std::vector<s
     m_selectedBarName = availableBars.front();
   }
 
-  const BarConfig* selectedBar = settings::findBar(cfg, m_selectedBarName);
-  if (selectedBar != nullptr
-      && !m_selectedMonitorOverride.empty()
-      && settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride) == nullptr) {
-    m_selectedMonitorOverride.clear();
+  if (m_selectedMonitorOverride.empty()) {
+    return;
   }
+  if (m_selectedSection == "dock") {
+    if (settings::findDockMonitorOverride(cfg.dock, m_selectedMonitorOverride) == nullptr) {
+      m_selectedMonitorOverride.clear();
+    }
+    return;
+  }
+  if (m_selectedSection == "bar") {
+    const BarConfig* selectedBar = settings::findBar(cfg, m_selectedBarName);
+    if (selectedBar == nullptr || settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride) == nullptr) {
+      m_selectedMonitorOverride.clear();
+    }
+    return;
+  }
+  m_selectedMonitorOverride.clear();
 }
 
 std::vector<settings::SelectOption> SettingsWindow::batteryDeviceOptions() const {
@@ -847,9 +864,8 @@ std::vector<settings::GestureActionOption> SettingsWindow::gestureActionCatalog(
             .option =
                 settings::SelectOption{
                     .value = std::string(handler.command),
-                    // The verb is the label: it is what goes in the config and what errors name.
-                    .label = std::string(handler.command),
-                    .description = std::string(handler.description),
+                    .label = translatedIpcActionField(handler.command, "label"),
+                    .description = translatedIpcActionField(handler.command, "description"),
                 },
             .argsSpec = std::string(handler.args),
         }
@@ -861,8 +877,8 @@ std::vector<settings::GestureActionOption> SettingsWindow::gestureActionCatalog(
 settings::SettingsContentContext SettingsWindow::makeContentContext(
     const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride
 ) {
-  const auto requestRebuild = [this]() { requestContentRebuild(/*refreshRegistry=*/true, /*refreshFilterRow=*/true); };
-  const auto requestContent = [this]() { requestContentRebuild(); };
+  const auto requestRebuild = [this] { requestContentRebuild(/*refreshRegistry=*/true, /*refreshFilterRow=*/true); };
+  const auto requestContent = [this] { requestContentRebuild(); };
   const auto setOverride = [this](std::vector<std::string> path, ConfigOverrideValue value) {
     setSettingOverride(std::move(path), std::move(value));
   };
@@ -888,7 +904,9 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .searchQuery = m_searchQuery,
       .selectedSection = m_selectedSection,
       .selectedBar = selectedBar,
-      .selectedMonitorOverride = selectedMonitorOverride,
+      .selectedMonitorOverride = m_selectedSection == "bar" && selectedMonitorOverride != nullptr
+          ? std::string_view(selectedMonitorOverride->match)
+          : std::string_view(m_selectedMonitorOverride),
       .showAdvanced = m_showAdvanced,
       .showOverriddenOnly = m_showOverriddenOnly,
       .batteryDeviceOptions = batteryDeviceOptions(),
@@ -901,12 +919,22 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .pendingGestureKey = m_pendingGestureKey,
       .pendingGestureVerb = m_pendingGestureVerb,
       .actionsExpandedFor = m_actionsExpandedFor,
+      .expandedGroupsByPage = m_expandedSettingGroups,
+      .pageTitleRow = m_pageTitleRow,
+      .groupJumpRow = m_groupJumpRow,
       .actionCatalog = gestureActionCatalog(),
       .requestRebuild = requestRebuild,
       .requestContentRebuild = requestContent,
-      .resetContentScroll = [this]() { m_contentScrollState.offset = 0.0F; },
+      .resetContentScroll = [this] { m_contentScrollState.offset = 0.0F; },
       .setScrollTarget = [this](Node* target) { m_pendingContentScrollTarget = target; },
+      .scrollContentToTop =
+          [this](const Node& target) {
+            if (m_contentScrollView != nullptr) {
+              scrollNodeToScrollViewTop(*m_contentScrollView, target, Style::spaceMd * uiScale());
+            }
+          },
       .focusArea = [this](InputArea* area) { m_inputDispatcher.setFocus(area); },
+      .openBrowserUrl = [this](const std::string& url) { openBrowserUrl(url); },
       .openBarWidgetAddPopup = [this](const std::vector<std::string>& lanePath) { openBarWidgetAddPopup(lanePath); },
       .openSearchPickerPopup =
           [this](settings::SearchPickerOpenRequest request) { openSearchPickerPopup(std::move(request)); },
@@ -925,10 +953,10 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .renameWidgetInstance = renameWidget,
       .openSessionActionEntryEditor = [this](std::size_t entryIndex) { openSessionActionEntryEditor(entryIndex); },
       .openIdleBehaviorEntryEditor = [this](std::size_t entryIndex) { openIdleBehaviorEntryEditor(entryIndex); },
-      .openIdleBehaviorCreateEditor = [this]() { openIdleBehaviorCreateEditor(); },
+      .openIdleBehaviorCreateEditor = [this] { openIdleBehaviorCreateEditor(); },
       .openNotificationFilterEntryEditor =
           [this](std::size_t entryIndex) { openNotificationFilterEntryEditor(entryIndex); },
-      .openNotificationFilterCreateEditor = [this]() { openNotificationFilterCreateEditor(); },
+      .openNotificationFilterCreateEditor = [this] { openNotificationFilterCreateEditor(); },
       .openWidgetInspectorEditor = [this](
                                        std::vector<std::string> laneListPath, std::string widgetName
                                    ) { openWidgetInspectorEditor(std::move(laneListPath), std::move(widgetName)); },
@@ -984,6 +1012,16 @@ void SettingsWindow::rebuildSettingsContent() {
   while (!m_contentContainer->children().empty()) {
     m_contentContainer->removeChild(m_contentContainer->children().back().get());
   }
+  if (m_pageTitleRow != nullptr) {
+    while (!m_pageTitleRow->children().empty()) {
+      m_pageTitleRow->removeChild(m_pageTitleRow->children().back().get());
+    }
+  }
+  if (m_groupJumpRow != nullptr) {
+    while (!m_groupJumpRow->children().empty()) {
+      m_groupJumpRow->removeChild(m_groupJumpRow->children().back().get());
+    }
+  }
   logSettingsProfile("rebuildContent clear", phaseProfileWatch);
   phaseProfileWatch.reset();
 
@@ -994,6 +1032,14 @@ void SettingsWindow::rebuildSettingsContent() {
   const BarMonitorOverride* selectedMonitorOverride = nullptr;
   if (selectedBar != nullptr && !m_selectedMonitorOverride.empty()) {
     selectedMonitorOverride = settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride);
+  }
+  const DockMonitorOverride* selectedDockMonitorOverride = nullptr;
+  if (m_selectedSection == "dock" && !m_selectedMonitorOverride.empty()) {
+    selectedDockMonitorOverride = settings::findDockMonitorOverride(cfg.dock, m_selectedMonitorOverride);
+  }
+  if (cfg.shell.settingsExpandAllGroups != m_expandedSettingGroupsSeededExpandAll) {
+    m_expandedSettingGroups.clear();
+    m_expandedSettingGroupsSeededExpandAll = cfg.shell.settingsExpandAllGroups;
   }
 
   m_contentContainer->setDirection(FlexDirection::Vertical);
@@ -1012,13 +1058,16 @@ void SettingsWindow::rebuildSettingsContent() {
           .selectedSection = m_selectedSection,
           .selectedBar = selectedBar,
           .selectedMonitorOverride = selectedMonitorOverride,
+          .selectedDockMonitorOverride = selectedDockMonitorOverride,
           .renamingBarName = m_renamingBarName,
           .pendingDeleteBarName = m_pendingDeleteBarName,
           .renamingMonitorOverrideBarName = m_renamingMonitorOverrideBarName,
           .renamingMonitorOverrideMatch = m_renamingMonitorOverrideMatch,
           .pendingDeleteMonitorOverrideBarName = m_pendingDeleteMonitorOverrideBarName,
           .pendingDeleteMonitorOverrideMatch = m_pendingDeleteMonitorOverrideMatch,
-          .requestRebuild = [this]() { requestContentRebuild(/*refreshRegistry=*/true, /*refreshFilterRow=*/true); },
+          .renamingDockMonitorOverride = m_renamingDockMonitorOverride,
+          .pendingDeleteDockMonitorOverride = m_pendingDeleteDockMonitorOverride,
+          .requestRebuild = [this] { requestContentRebuild(/*refreshRegistry=*/true, /*refreshFilterRow=*/true); },
           .renameBar =
               [this](std::string oldName, std::string newName) { renameBar(std::move(oldName), std::move(newName)); },
           .deleteBar = [this](std::string name) { deleteBar(std::move(name)); },
@@ -1030,6 +1079,11 @@ void SettingsWindow::rebuildSettingsContent() {
           .deleteMonitorOverride = [this](
                                        std::string barName, std::string match
                                    ) { deleteMonitorOverride(std::move(barName), std::move(match)); },
+          .renameDockMonitorOverride = [this](
+                                           std::string oldTableName, std::string newMatch
+                                       ) { renameDockMonitorOverride(std::move(oldTableName), std::move(newMatch)); },
+          .deleteDockMonitorOverride =
+              [this](std::string tableName) { deleteDockMonitorOverride(std::move(tableName)); },
       }
   );
   logSettingsProfile("rebuildContent barManagement", phaseProfileWatch);
@@ -1038,6 +1092,7 @@ void SettingsWindow::rebuildSettingsContent() {
   const std::size_t visibleEntries = settings::addSettingsContentSections(
       *m_contentContainer, m_settingsRegistry, makeContentContext(cfg, selectedBar, selectedMonitorOverride)
   );
+
   logSettingsProfile("rebuildContent sections", phaseProfileWatch);
   phaseProfileWatch.reset();
 
@@ -1048,11 +1103,30 @@ void SettingsWindow::rebuildSettingsContent() {
         settings::SettingsPluginsContext{
             .scale = scale,
             .selectedSection = m_selectedSection,
+            .searchQuery = m_pluginSearchQuery,
+            .setSearchQuery =
+                [this](std::string query) {
+                  m_pluginSearchQuery = std::move(query);
+                  m_contentScrollState.offset = 0.0F;
+                  m_pendingDeletePluginId.clear();
+                  m_pluginSearchDebounceTimer.start(kSearchDebounceInterval, [this] { requestContentRebuild(); });
+                },
             .plugins = m_pluginList,
             .sources = cfg.plugins.sources,
+            .searchActive = !m_searchQuery.empty(),
+            .pageTitleRow = m_pageTitleRow,
+            .groupJumpRow = m_groupJumpRow,
+            .scrollContentToTop =
+                [this](const Node& target) {
+                  if (m_contentScrollView != nullptr) {
+                    scrollNodeToScrollViewTop(*m_contentScrollView, target, Style::spaceMd * uiScale());
+                  }
+                },
+            .expandedGroupsByPage = m_expandedSettingGroups,
+            .expandAllGroups = cfg.shell.settingsExpandAllGroups,
             .pluginsLoading = m_pluginListDirty || m_pluginListRefreshInFlight,
             .setEnabled =
-                [this](std::string id, bool enable) {
+                [this](const std::string& id, bool enable) {
                   if (enable) {
                     (void)m_pluginManager->enable(id);
                   } else {
@@ -1062,7 +1136,7 @@ void SettingsWindow::rebuildSettingsContent() {
                   requestSceneRebuild();
                 },
             .isEnabling = [this](const std::string& id) { return m_pluginManager->isEnabling(id); },
-            .addSource = [this]() { openPluginSourceCreateEditor(); },
+            .addSource = [this] { openPluginSourceCreateEditor(); },
             .setSourceEnabled =
                 [this](PluginSourceConfig source, bool enabled) {
                   source.enabled = enabled;
@@ -1071,24 +1145,24 @@ void SettingsWindow::rebuildSettingsContent() {
                   requestSceneRebuild();
                 },
             .editSource = [this](PluginSourceConfig source) { openPluginSourceCreateEditor(std::move(source)); },
-            .updateSource = [this](std::string source) { m_pluginManager->update(std::move(source)); },
+            .updateSource = [this](const std::string& source) { m_pluginManager->update(source); },
             .refresh =
-                [this]() {
+                [this] {
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
-            .autoUpdateEnabled = cfg.plugins.autoUpdate,
+            .autoUpdateMode = cfg.plugins.autoUpdate,
             .setAutoUpdate =
-                [this](bool on) {
-                  m_pluginManager->setAutoUpdateEnabled(on);
+                [this](PluginAutoUpdateMode mode) {
+                  m_pluginManager->setAutoUpdateMode(mode);
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
-            .updateAll = [this]() { m_pluginManager->updateAll(); },
+            .updateAll = [this] { m_pluginManager->updateAutoUpdateScope(PluginAutoUpdateMode::All); },
             .config = &cfg,
             .onConfigure = [this](std::string id) { openPluginSettingsEditor(std::move(id)); },
             .onRemove =
-                [this](std::string id) {
+                [this](const std::string& id) {
                   if (m_pluginManager != nullptr) {
                     m_pluginManager->remove(id);
                     m_pendingDeletePluginId.clear();
@@ -1096,7 +1170,7 @@ void SettingsWindow::rebuildSettingsContent() {
                     requestSceneRebuild();
                   }
                 },
-            .openStore = [this]() { openPluginStore(); },
+            .openStore = [this] { openPluginStore(); },
             .pendingDeletePluginId = m_pendingDeletePluginId,
             .requestDeleteConfirm =
                 [this](std::string id) {
@@ -1104,12 +1178,23 @@ void SettingsWindow::rebuildSettingsContent() {
                   requestSceneRebuild();
                 },
             .cancelDelete =
-                [this]() {
+                [this] {
                   m_pendingDeletePluginId.clear();
                   requestSceneRebuild();
                 },
         }
     );
+  }
+
+  if (m_pageTitleRow != nullptr) {
+    const bool hasPageTitle = !m_pageTitleRow->children().empty();
+    m_pageTitleRow->setVisible(hasPageTitle);
+    m_pageTitleRow->setParticipatesInLayout(hasPageTitle);
+  }
+  if (m_groupJumpRow != nullptr) {
+    const bool hasJumpRow = !m_groupJumpRow->children().empty();
+    m_groupJumpRow->setVisible(hasJumpRow);
+    m_groupJumpRow->setParticipatesInLayout(hasJumpRow);
   }
   logSettingsProfile("rebuildContent plugins", phaseProfileWatch);
   logSettingsProfile("rebuildContent total", totalProfileWatch);
@@ -1122,7 +1207,7 @@ void SettingsWindow::rebuildSettingsContent() {
 }
 
 std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
-  return ui::row(
+  auto row = ui::row(
       {
           .align = FlexAlign::Center,
           .justify = FlexJustify::SpaceBetween,
@@ -1144,27 +1229,32 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { openActionsMenu(); },
-          .configure = [](Button& button) { button.setTabStop(false); },
-      }),
-      ui::button({
-          .glyph = "close",
-          .glyphSize = Style::fontSizeBody * scale,
-          .variant = ButtonVariant::Default,
-          .minWidth = Style::controlHeightSm * scale,
-          .minHeight = Style::controlHeightSm * scale,
-          .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { close(); },
+          .onClick = [this] { openActionsMenu(); },
           .configure = [](Button& button) { button.setTabStop(false); },
       })
   );
+  if (Style::closeButtonsEnabled()) {
+    row->addChild(
+        ui::button({
+            .glyph = "close",
+            .glyphSize = Style::fontSizeBody * scale,
+            .variant = ButtonVariant::Default,
+            .minWidth = Style::controlHeightSm * scale,
+            .minHeight = Style::controlHeightSm * scale,
+            .padding = Style::spaceXs * scale,
+            .radius = Style::scaledRadiusMd(scale),
+            .onClick = [this] { close(); },
+            .configure = [](Button& button) { button.setTabStop(false); },
+        })
+    );
+  }
+  return row;
 }
 
 std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
     float scale, const std::string& resetPageScope, std::vector<std::vector<std::string>> resetPagePaths
 ) {
-  const auto requestRebuild = [this]() { requestSceneRebuild(); };
+  const auto requestRebuild = [this] { requestSceneRebuild(); };
   const auto clearOverrides = [this](std::vector<std::vector<std::string>> paths) {
     clearSettingOverrides(std::move(paths));
   };
@@ -1204,7 +1294,7 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
             } else {
               // Typing/deleting within an active query only re-filters the content list. Coalesce
               // bursts (held backspace, fast typing) so each key repeat doesn't walk the registry.
-              m_searchDebounceTimer.start(kSearchDebounceInterval, [this]() { requestContentRebuild(); });
+              m_searchDebounceTimer.start(kSearchDebounceInterval, [this] { requestContentRebuild(); });
             }
           },
       })
@@ -1302,7 +1392,7 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
             .paddingH = Style::spaceSm * scale,
             .radius = Style::scaledRadiusMd(scale),
             .onClick = [this, resetPageScope, resetPagePaths = std::move(resetPagePaths), clearOverrides,
-                        pendingReset]() mutable {
+                        pendingReset] mutable {
               if (!pendingReset) {
                 m_pendingResetSettingPaths.clear();
                 m_pendingResetPageScope = resetPageScope;
@@ -1337,8 +1427,9 @@ std::unique_ptr<Flex> SettingsWindow::buildStatusRow(float scale) {
   return settings::makeSettingsStatusBanner({
       .message = messageText,
       .error = statusIsError,
+      .scrollable = true,
       .scale = scale,
-      .onDismiss = transientStatus ? std::function<void()>{[this]() {
+      .onDismiss = transientStatus ? std::function<void()>{[this] {
         clearStatusMessage();
         requestSceneRebuild();
       }}
@@ -1350,13 +1441,18 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
     float scale, const Config& cfg, const std::vector<settings::SettingsSection>& sections,
     const std::vector<std::string>& availableBars
 ) {
-  const auto requestRebuild = [this]() { requestSceneRebuild(); };
+  const auto requestRebuild = [this] { requestSceneRebuild(); };
   const auto createBar = [this](std::string name) { this->createBar(std::move(name)); };
-  const auto createMonitorOverride = [this](std::string barName, std::string match) {
-    this->createMonitorOverride(std::move(barName), std::move(match));
+  const auto openMonitorOverrideCreate = [this](std::string barName) {
+    openMonitorOverrideCreateDialog(std::move(barName));
   };
-  const auto clearTransientSettingsState = [this]() { this->clearTransientSettingsState(); };
-  const auto clearSearchQuery = [this]() { m_searchQuery.clear(); };
+  const auto openDockMonitorOverrideCreate = [this] { openMonitorOverrideCreateDialog(std::nullopt); };
+  const auto clearTransientSettingsState = [this] { this->clearTransientSettingsState(); };
+  const auto clearSearchQuery = [this] {
+    m_searchQuery.clear();
+    m_pluginSearchQuery.clear();
+    m_pluginSearchDebounceTimer.stop();
+  };
 
   auto body = ui::row({
       .align = FlexAlign::Stretch,
@@ -1376,13 +1472,12 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
           .selectedBarName = m_selectedBarName,
           .selectedMonitorOverride = m_selectedMonitorOverride,
           .creatingBarName = m_creatingBarName,
-          .creatingMonitorOverrideBarName = m_creatingMonitorOverrideBarName,
-          .creatingMonitorOverrideMatch = m_creatingMonitorOverrideMatch,
           .clearTransientState = clearTransientSettingsState,
           .clearSearchQuery = clearSearchQuery,
           .requestRebuild = requestRebuild,
           .createBar = createBar,
-          .createMonitorOverride = createMonitorOverride,
+          .openMonitorOverrideCreate = openMonitorOverrideCreate,
+          .openDockMonitorOverrideCreate = openDockMonitorOverrideCreate,
           .scrollSidebarNodeIntoView = [this](const Node* node) { scrollSidebarNodeIntoView(node); },
           .outNav = &m_sidebarNav,
       }
@@ -1392,9 +1487,34 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
   body->addChild(std::move(sidebar));
   body->addChild(ui::separator());
 
+  auto contentColumn = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm * scale, .flexGrow = 1.0F});
+  contentColumn->addChild(
+      ui::row({
+          .out = &m_pageTitleRow,
+          .align = FlexAlign::Center,
+          .fillWidth = true,
+          .configure = [scale](Flex& flex) {
+            flex.setPadding(Style::spaceMd * scale, Style::spaceLg * scale, 0.0F, Style::spaceLg * scale);
+          },
+      })
+  );
+  contentColumn->addChild(
+      ui::row({
+          .out = &m_groupJumpRow,
+          .align = FlexAlign::Center,
+          .wrap = true,
+          .gap = Style::spaceXs * scale,
+          .fillWidth = true,
+          .configure = [scale](Flex& flex) {
+            flex.setPadding(Style::spaceSm * scale, Style::spaceLg * scale, 0.0F, Style::spaceLg * scale);
+          },
+      })
+  );
+
   auto scroll = ui::scrollView({
       .out = &m_contentScrollView,
       .state = &m_contentScrollState,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = Style::spaceSm * scale,
@@ -1414,7 +1534,8 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
   content->setGap(Style::spaceMd * scale);
   rebuildSettingsContent();
 
-  body->addChild(std::move(scroll));
+  contentColumn->addChild(std::move(scroll));
+  body->addChild(std::move(contentColumn));
   return body;
 }
 
@@ -1429,11 +1550,16 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
   phaseProfileWatch.reset();
 
   for (auto& entry : m_settingsRegistry) {
+    if (entry.section == settings::SettingsSection::Appearance && entry.path.empty() && entry.group == "theme") {
+      if (auto* button = std::get_if<settings::ButtonSetting>(&entry.control)) {
+        button->action = [this] { DeferredCall::callLater([this] { openPaletteInspector(); }); };
+      }
+    }
     if (entry.section != settings::SettingsSection::Templates || entry.group != "community") {
       continue;
     }
     if (auto* button = std::get_if<settings::ButtonSetting>(&entry.control)) {
-      button->action = [this]() { openCommunityTemplateStore(); };
+      button->action = [this] { openCommunityTemplateStore(); };
     }
   }
 
@@ -1465,21 +1591,21 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     }
 
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& entry) {
-      return entry.section == settings::SettingsSection::Services && entry.group == "calendar";
+      return entry.section == settings::SettingsSection::Calendar && entry.group == "general";
     });
     if (it != m_settingsRegistry.end()) {
       ++it;
     }
     settings::SettingEntry retry{
-        .section = settings::SettingsSection::Services,
-        .group = "calendar",
+        .section = settings::SettingsSection::Calendar,
+        .group = "general",
         .title = i18n::tr("settings.schema.services.calendar-credentials.label"),
         .subtitle = i18n::tr(descriptionKey),
         .path = {},
         .control =
             settings::ButtonSetting{
                 .label = i18n::tr("settings.schema.services.calendar-credentials.button"),
-                .action = [this]() { m_calendarService->retryCredentialMigration(); },
+                .action = [this] { m_calendarService->retryCredentialMigration(); },
                 .glyph = "refresh",
                 .variant = ButtonVariant::Secondary,
             },
@@ -1522,21 +1648,21 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     }
 
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& entry) {
-      return entry.section == settings::SettingsSection::Services && entry.group == "calendar";
+      return entry.section == settings::SettingsSection::Calendar && entry.group == "general";
     });
     if (it != m_settingsRegistry.end()) {
       ++it;
     }
     settings::SettingEntry retry{
-        .section = settings::SettingsSection::Services,
-        .group = "calendar",
+        .section = settings::SettingsSection::Calendar,
+        .group = "general",
         .title = i18n::tr("settings.schema.services.calendar-storage.label"),
         .subtitle = i18n::tr(descriptionKey),
         .path = {},
         .control =
             settings::ButtonSetting{
                 .label = i18n::tr("settings.schema.services.calendar-storage.button"),
-                .action = [this]() { m_calendarService->retryCachePersistence(); },
+                .action = [this] { m_calendarService->retryCachePersistence(); },
                 .glyph = "refresh",
                 .variant = ButtonVariant::Secondary,
             },
@@ -1594,11 +1720,36 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
         .control =
             settings::ButtonSetting{
                 .label = i18n::tr("settings.schema.shell.clipboard-storage.button"),
-                .action = [this]() { m_clipboardService->retryPersistence(); },
+                .action = [this] { m_clipboardService->retryPersistence(); },
                 .glyph = "refresh",
             },
         .searchText = "clipboard history encryption keyring secret service retry migration unlock",
         .visibleWhen = [](const Config& config) { return config.shell.clipboardEnabled; },
+    };
+    m_settingsRegistry.insert(it, std::move(retry));
+  }
+
+  if (m_notificationManager != nullptr && !m_notificationManager->historyPersistenceReady()) {
+    auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& entry) {
+      return entry.section == settings::SettingsSection::Notifications && entry.group == "general";
+    });
+    settings::SettingEntry retry{
+        .section = settings::SettingsSection::Notifications,
+        .group = "general",
+        .title = i18n::tr("settings.schema.notifications.history-storage.label"),
+        .subtitle = i18n::tr(
+            m_notificationManager->historyNeedsRecovery()
+                ? "settings.schema.notifications.history-storage.description-recovery"
+                : "settings.schema.notifications.history-storage.description-unavailable"
+        ),
+        .path = {},
+        .control =
+            settings::ButtonSetting{
+                .label = i18n::tr("settings.schema.notifications.history-storage.button"),
+                .action = [this] { m_notificationManager->retryHistoryPersistence(); },
+                .glyph = "refresh",
+            },
+        .searchText = "notification history encryption keyring secret service retry migration unlock",
     };
     m_settingsRegistry.insert(it, std::move(retry));
   }
@@ -1609,7 +1760,9 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
   const bool clipboardStorageRecovery = m_clipboardService != nullptr
       && (m_clipboardService->persistenceState() == ClipboardPersistenceState::MissingKey
           || m_clipboardService->persistenceState() == ClipboardPersistenceState::RecoveryRequired);
-  if (!calendarStorageRecovery && !clipboardStorageRecovery) {
+  const bool notificationStorageRecovery =
+      m_notificationManager != nullptr && m_notificationManager->historyNeedsRecovery();
+  if (!calendarStorageRecovery && !clipboardStorageRecovery && !notificationStorageRecovery) {
     m_pendingEncryptedStorageReset = false;
   }
 
@@ -1634,7 +1787,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
                                         : "settings.storage-recovery.button"
                 ),
                 .action =
-                    [this, pendingConfirmation]() {
+                    [this, pendingConfirmation] {
                       if (!pendingConfirmation) {
                         m_pendingEncryptedStorageReset = true;
                         onExternalOptionsChanged();
@@ -1654,7 +1807,10 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
   };
 
   if (calendarStorageRecovery && m_resetEncryptedStorage) {
-    insertStorageRecovery(settings::SettingsSection::Services, "calendar");
+    insertStorageRecovery(settings::SettingsSection::Calendar, "general");
+  }
+  if (notificationStorageRecovery && m_resetEncryptedStorage) {
+    insertStorageRecovery(settings::SettingsSection::Notifications, "general");
   }
   if (clipboardStorageRecovery && m_resetEncryptedStorage) {
     insertStorageRecovery(settings::SettingsSection::Shell, "clipboard");
@@ -1662,12 +1818,12 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
 
   if (m_syncGreeterAppearance && env.greeterSyncAvailable) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
-      return e.section == settings::SettingsSection::Security
+      return e.section == settings::SettingsSection::LockScreen
           && e.group == "greeter"
           && e.path == std::vector<std::string>{"shell", "greeter_sync", "privilege_command"};
     });
     settings::SettingEntry btn{
-        .section = settings::SettingsSection::Security,
+        .section = settings::SettingsSection::LockScreen,
         .group = "greeter",
         .title = i18n::tr("settings.schema.shell.sync-greeter.label"),
         .subtitle = i18n::tr("settings.schema.shell.sync-greeter.description"),
@@ -1683,7 +1839,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     auto insertedIt = m_settingsRegistry.insert(it, std::move(btn));
     ++insertedIt;
     settings::SettingEntry toggle{
-        .section = settings::SettingsSection::Security,
+        .section = settings::SettingsSection::LockScreen,
         .group = "greeter",
         .title = i18n::tr("settings.schema.shell.greeter-sync-auto.label"),
         .subtitle = i18n::tr("settings.schema.shell.greeter-sync-auto.description"),
@@ -1697,7 +1853,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
   if (m_resetLauncherUsage) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::Launcher
-          && e.group == "launcher"
+          && e.group == "history"
           && e.path == std::vector<std::string>{"shell", "launcher", "sort_by_usage"};
     });
     if (it != m_settingsRegistry.end()) {
@@ -1705,7 +1861,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     }
     settings::SettingEntry btn{
         .section = settings::SettingsSection::Launcher,
-        .group = "launcher",
+        .group = "history",
         .title = i18n::tr("settings.schema.panels.launcher-reset-usage.label"),
         .subtitle = i18n::tr("settings.schema.panels.launcher-reset-usage.description"),
         .path = {},
@@ -1822,16 +1978,16 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
 
   if (m_openLockscreenWidgetEditor) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
-      return e.section == settings::SettingsSection::Security
-          && e.group == "lock-screen"
+      return e.section == settings::SettingsSection::LockScreen
+          && e.group == "widgets"
           && e.path == std::vector<std::string>{"lockscreen_widgets", "enabled"};
     });
     if (it != m_settingsRegistry.end()) {
       ++it;
     }
     settings::SettingEntry btn{
-        .section = settings::SettingsSection::Security,
-        .group = "lock-screen",
+        .section = settings::SettingsSection::LockScreen,
+        .group = "widgets",
         .title = i18n::tr("settings.schema.lockscreen.widgets-editor.label"),
         .subtitle = i18n::tr("settings.schema.lockscreen.widgets-editor.description"),
         .path = {},
@@ -1849,8 +2005,8 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
 
   if (m_config != nullptr) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
-      return e.section == settings::SettingsSection::Services
-          && e.group == "calendar"
+      return e.section == settings::SettingsSection::Calendar
+          && e.group == "calendar-accounts"
           && e.path == std::vector<std::string>{"calendar", "refresh_minutes"};
     });
     if (it != m_settingsRegistry.end()) {
@@ -1858,62 +2014,60 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     }
     const settings::SettingVisibility calendarOn = [](const Config& c) { return c.calendar.enabled; };
     settings::SettingEntry addBtn{
-        .section = settings::SettingsSection::Services,
-        .group = "calendar",
+        .section = settings::SettingsSection::Calendar,
+        .group = "calendar-accounts",
         .title = i18n::tr("settings.schema.services.calendar-add.label"),
         .subtitle = i18n::tr("settings.schema.services.calendar-add.description"),
         .path = {},
         .control =
             settings::ButtonSetting{
                 .label = i18n::tr("settings.schema.services.calendar-add.button"),
-                .action = [this]() { openCalendarAccountEditor(std::nullopt); },
+                .action = [this] { openCalendarAccountEditor(std::nullopt); },
                 .glyph = "plus",
             },
-        .searchText = "calendar add account icloud caldav google ics ical subscription",
+        .searchText = "calendar add account icloud caldav google ics ical subscription vdir vdirsyncer local",
     };
     it = m_settingsRegistry.insert(it, std::move(addBtn));
     ++it;
 
     for (const CalendarConfig::Account& account : cfg.calendar.accounts) {
-      if (account.type != "google" && account.type != "caldav" && account.type != "ics") {
+      if (account.type != "google" && account.type != "caldav" && account.type != "ics" && account.type != "vdir") {
         continue;
       }
-      const bool credentialLocked = account.type == "google"
-          && m_calendarService != nullptr
-          && m_calendarService->googleAccountCredentialLocked(account.id);
-      const bool reconnectRequired = account.type == "google"
-          && m_calendarService != nullptr
-          && m_calendarService->googleAccountNeedsReconnect(account.id);
-      const std::string_view descriptionKey = credentialLocked
-          ? "settings.schema.services.calendar-edit.description-locked"
-          : reconnectRequired ? "settings.schema.services.calendar-edit.description-reconnect"
-                              : "settings.schema.services.calendar-edit.description";
-      const std::string_view buttonKey = credentialLocked ? "settings.schema.services.calendar-edit.button-retry"
-          : reconnectRequired                             ? "settings.schema.services.calendar-edit.button-reconnect"
-                                                          : "settings.schema.services.calendar-edit.button";
+      using Action = CalendarService::AccountStatus::Action;
+      const CalendarService::AccountStatus status =
+          m_calendarService != nullptr ? m_calendarService->accountStatus(account) : CalendarService::AccountStatus{};
+      const std::string subtitle = m_calendarService != nullptr ? m_calendarService->accountStatusText(account)
+                                                                : i18n::tr("calendar.sync.not-synced");
+      const Action action = status.action;
       settings::SettingEntry btn{
-          .section = settings::SettingsSection::Services,
-          .group = "calendar",
+          .section = settings::SettingsSection::Calendar,
+          .group = "calendar-accounts",
           .title = account.displayName.empty() ? account.id : account.displayName,
-          .subtitle = i18n::tr(descriptionKey),
+          .subtitle = subtitle,
           .path = {},
           .control =
               settings::ButtonSetting{
-                  .label = i18n::tr(buttonKey),
+                  .label = i18n::tr(
+                      action == Action::Retry           ? "settings.schema.services.calendar-edit.button-retry"
+                          : action == Action::Reconnect ? "settings.schema.services.calendar-edit.button-reconnect"
+                                                        : "settings.schema.services.calendar-edit.button"
+                  ),
                   .action =
-                      [this, id = account.id, credentialLocked]() {
-                        if (credentialLocked) {
+                      [this, id = account.id, action] {
+                        if (action == Action::Retry) {
                           m_calendarService->requestRefresh();
                           return;
                         }
                         openCalendarAccountEditor(id);
                       },
-                  .glyph = credentialLocked ? "key"
-                      : reconnectRequired   ? "brand-google"
-                                            : "edit",
-                  .variant = credentialLocked ? ButtonVariant::Secondary : ButtonVariant::Default,
+                  .glyph = action == Action::Retry  ? "key"
+                      : action == Action::Reconnect ? "brand-google"
+                                                    : "edit",
+                  .variant = action == Action::Retry ? ButtonVariant::Secondary : ButtonVariant::Default,
               },
-          .searchText = "calendar account edit connect authorize caldav icloud google password ics ical subscription "
+          .searchText =
+              "calendar account edit connect authorize caldav icloud google password ics ical subscription vdir local "
               + account.id,
           .visibleWhen = calendarOn,
       };
@@ -2020,6 +2174,8 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   const auto h = static_cast<float>(height);
   const float scale = uiScale();
   m_actionsMenuButton = nullptr;
+  m_pageTitleRow = nullptr;
+  m_groupJumpRow = nullptr;
   m_contentScrollView = nullptr;
   m_sidebarScrollView = nullptr;
   m_sidebarNav = nullptr;
@@ -2082,7 +2238,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
     m_sceneRoot->setPopupContext(m_selectPopup.get());
   }
 
-  const float bgOpacity = cfg.shell.settingsWindowTranslucent ? 0.75F : 1.0F;
+  const float bgOpacity = cfg.shell.settingsWindowTranslucent ? 0.8F : 1.0F;
 
   auto bg = ui::box({
       .width = w,

@@ -44,7 +44,7 @@ private:
     GLint alternativeLoc = -1;
   };
 
-  void initProgram(std::size_t index, const char* fragSource);
+  void initProgram(EffectType type, const char* fragSource);
 
   std::array<ProgramData, kEffectCount> m_programs;
 };

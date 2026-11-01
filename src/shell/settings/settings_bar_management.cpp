@@ -59,8 +59,8 @@ namespace settings {
           .padding = Style::spaceSm * scale,
           .configure = [scale](Flex& panel) {
             panel.setRadius(Style::scaledRadiusSm(scale));
-            panel.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
-            panel.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
+            panel.setFill(colorSpecFromRole(ColorRole::ErrorContainer));
+            panel.setBorder(colorSpecFromRole(ColorRole::Error), Style::borderWidth);
           },
       });
     }
@@ -79,24 +79,45 @@ namespace settings {
       return std::ranges::contains(cfg.bars, name, &BarConfig::name);
     }
 
+    // Management is an action banner, not a settings group: no collapsible card, Secondary tint, and the
+    // same horizontal inset the registry page sections give their group cards.
     Flex* makeSection(Flex& content, std::string_view title, float scale) {
-      auto section = ui::column(
+      Flex* banner = nullptr;
+      auto wrapper = ui::column(
           {
               .align = FlexAlign::Stretch,
-              .gap = Style::spaceSm * scale,
-              .configure =
-                  [scale](Flex& container) {
-                    container.setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-                    container.setCardStyle(scale, 1.0F);
-                    container.setFill(colorSpecFromRole(ColorRole::Surface));
-                  },
+              .configure = [scale](Flex& container) { container.setPadding(0.0F, Style::spaceLg * scale); },
           },
-          makeLabel(title, Style::fontSizeTitle * scale, colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold)
+          ui::column(
+              {
+                  .out = &banner,
+                  .align = FlexAlign::Stretch,
+                  .gap = Style::spaceSm * scale,
+                  .configure =
+                      [scale](Flex& container) {
+                        container.setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
+                        container.setRadius(Style::scaledRadiusMd(scale));
+                        container.setFill(colorSpecFromRole(ColorRole::SecondaryContainer));
+                        container.setBorder(colorSpecFromRole(ColorRole::Secondary), Style::borderWidth);
+                      },
+              },
+              ui::row(
+                  {.align = FlexAlign::Center, .gap = Style::spaceXs * scale},
+                  ui::glyph({
+                      .glyph = "settings",
+                      .glyphSize = Style::fontSizeBody * scale,
+                      .color = colorSpecFromRole(ColorRole::OnSecondaryContainer),
+                  }),
+                  makeLabel(
+                      title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSecondaryContainer),
+                      FontWeight::Bold
+                  )
+              )
+          )
       );
 
-      auto* raw = section.get();
-      content.addChild(std::move(section));
-      return raw;
+      content.addChild(std::move(wrapper));
+      return banner;
     }
 
     void addMonitorManagement(Flex& content, SettingsBarManagementContext& ctx) {
@@ -142,7 +163,7 @@ namespace settings {
                            &renamingMonitorOverrideMatch = ctx.renamingMonitorOverrideMatch, barName, match,
                            renameMonitorOverride = ctx.renameMonitorOverride, inputPtr,
                            existingMatches = std::move(existingMatches),
-                           requestRebuild = ctx.requestRebuild](std::string rawMatch) {
+                           requestRebuild = ctx.requestRebuild](const std::string& rawMatch) {
             const std::string newMatch = normalizedConfigId(rawMatch);
             if (newMatch == match) {
               renamingMonitorOverrideBarName.clear();
@@ -171,13 +192,13 @@ namespace settings {
                   std::move(input),
                   makeManagementButton(
                       i18n::tr("settings.entities.monitor-override.rename-save"), ButtonVariant::Default, ctx.scale,
-                      [doRename, inputPtr]() mutable { doRename(inputPtr->value()); }
+                      [doRename, inputPtr] mutable { doRename(inputPtr->value()); }
                   ),
                   makeManagementButton(
                       i18n::tr("common.actions.cancel"), ButtonVariant::Ghost, ctx.scale,
                       [&renamingMonitorOverrideBarName = ctx.renamingMonitorOverrideBarName,
                        &renamingMonitorOverrideMatch = ctx.renamingMonitorOverrideMatch,
-                       requestRebuild = ctx.requestRebuild]() {
+                       requestRebuild = ctx.requestRebuild] {
                         renamingMonitorOverrideBarName.clear();
                         renamingMonitorOverrideMatch.clear();
                         requestRebuild();
@@ -190,11 +211,11 @@ namespace settings {
 
           confirmPanel->addChild(makeLabel(
               i18n::tr("settings.entities.monitor-override.delete-confirm-title", "name", match),
-              Style::fontSizeBody * ctx.scale, colorSpecFromRole(ColorRole::Error), FontWeight::Bold
+              Style::fontSizeBody * ctx.scale, colorSpecFromRole(ColorRole::OnErrorContainer), FontWeight::Bold
           ));
           confirmPanel->addChild(makeLabel(
               i18n::tr("settings.entities.monitor-override.delete-confirm-desc"), Style::fontSizeCaption * ctx.scale,
-              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+              colorSpecFromRole(ColorRole::OnErrorContainer), FontWeight::Normal
           ));
 
           confirmPanel->addChild(
@@ -208,7 +229,7 @@ namespace settings {
                       i18n::tr("common.actions.cancel"), ButtonVariant::Ghost, ctx.scale,
                       [&pendingDeleteMonitorOverrideBarName = ctx.pendingDeleteMonitorOverrideBarName,
                        &pendingDeleteMonitorOverrideMatch = ctx.pendingDeleteMonitorOverrideMatch,
-                       requestRebuild = ctx.requestRebuild]() {
+                       requestRebuild = ctx.requestRebuild] {
                         pendingDeleteMonitorOverrideBarName.clear();
                         pendingDeleteMonitorOverrideMatch.clear();
                         requestRebuild();
@@ -216,7 +237,7 @@ namespace settings {
                   ),
                   makeManagementButton(
                       i18n::tr("settings.entities.monitor-override.delete"), ButtonVariant::Destructive, ctx.scale,
-                      [deleteMonitorOverride = ctx.deleteMonitorOverride, barName, match]() {
+                      [deleteMonitorOverride = ctx.deleteMonitorOverride, barName, match] {
                         deleteMonitorOverride(barName, match);
                       },
                       "trash"
@@ -238,7 +259,7 @@ namespace settings {
                        &renamingMonitorOverrideMatch = ctx.renamingMonitorOverrideMatch,
                        &pendingDeleteMonitorOverrideBarName = ctx.pendingDeleteMonitorOverrideBarName,
                        &pendingDeleteMonitorOverrideMatch = ctx.pendingDeleteMonitorOverrideMatch, barName, match,
-                       requestRebuild = ctx.requestRebuild]() {
+                       requestRebuild = ctx.requestRebuild] {
                         renamingMonitorOverrideBarName = barName;
                         renamingMonitorOverrideMatch = match;
                         pendingDeleteMonitorOverrideBarName.clear();
@@ -252,7 +273,7 @@ namespace settings {
                        &pendingDeleteMonitorOverrideMatch = ctx.pendingDeleteMonitorOverrideMatch,
                        &renamingMonitorOverrideBarName = ctx.renamingMonitorOverrideBarName,
                        &renamingMonitorOverrideMatch = ctx.renamingMonitorOverrideMatch, barName, match,
-                       requestRebuild = ctx.requestRebuild]() {
+                       requestRebuild = ctx.requestRebuild] {
                         pendingDeleteMonitorOverrideBarName = barName;
                         pendingDeleteMonitorOverrideMatch = match;
                         renamingMonitorOverrideBarName.clear();
@@ -265,6 +286,146 @@ namespace settings {
           );
         }
       }
+    }
+
+    void addDockMonitorManagement(Flex& content, SettingsBarManagementContext& ctx) {
+      if (!ctx.searchQuery.empty()
+          || ctx.selectedSection != "dock"
+          || ctx.selectedDockMonitorOverride == nullptr
+          || ctx.configService == nullptr
+          || !ctx.configService->isOverrideOnlyDockMonitorOverride(ctx.selectedDockMonitorOverride->tableName)) {
+        return;
+      }
+
+      const std::string tableName = ctx.selectedDockMonitorOverride->tableName;
+      const std::string match = ctx.selectedDockMonitorOverride->match;
+      const bool pendingDelete = ctx.pendingDeleteDockMonitorOverride == tableName;
+      const bool renaming = ctx.renamingDockMonitorOverride == tableName;
+      auto* management = makeSection(content, i18n::tr("settings.entities.monitor-override.management"), ctx.scale);
+
+      if (renaming) {
+        Input* inputPtr = nullptr;
+        auto input = ui::input({
+            .out = &inputPtr,
+            .value = match,
+            .placeholder = i18n::tr("settings.entities.monitor-override.match-placeholder"),
+            .fontSize = Style::fontSizeBody * ctx.scale,
+            .controlHeight = Style::controlHeight * ctx.scale,
+            .horizontalPadding = Style::spaceSm * ctx.scale,
+            .width = 190.0F * ctx.scale,
+            .height = Style::controlHeight * ctx.scale,
+            .flexGrow = 1.0F,
+        });
+
+        std::vector<std::string> existingMatches;
+        existingMatches.reserve(ctx.config.dock.monitorOverrides.size());
+        for (const auto& override : ctx.config.dock.monitorOverrides) {
+          if (override.tableName != tableName) {
+            existingMatches.push_back(override.match);
+          }
+        }
+
+        auto doRename = [&renamingDockMonitorOverride = ctx.renamingDockMonitorOverride, tableName, match,
+                         renameDockMonitorOverride = ctx.renameDockMonitorOverride, inputPtr,
+                         existingMatches = std::move(existingMatches),
+                         requestRebuild = ctx.requestRebuild](const std::string& rawMatch) {
+          const std::string newMatch = normalizedConfigId(rawMatch);
+          if (newMatch == match) {
+            renamingDockMonitorOverride.clear();
+            inputPtr->setInvalid(false);
+            requestRebuild();
+            return;
+          }
+          if (newMatch.empty() || std::ranges::contains(existingMatches, newMatch)) {
+            inputPtr->setInvalid(true);
+            return;
+          }
+          inputPtr->setInvalid(false);
+          renameDockMonitorOverride(tableName, newMatch);
+        };
+
+        inputPtr->setOnChange([inputPtr](const std::string& /*value*/) { inputPtr->setInvalid(false); });
+        inputPtr->setOnSubmit([doRename](const std::string& text) mutable { doRename(text); });
+        management->addChild(
+            ui::row(
+                {.align = FlexAlign::Center, .gap = Style::spaceXs * ctx.scale}, std::move(input),
+                makeManagementButton(
+                    i18n::tr("settings.entities.monitor-override.rename-save"), ButtonVariant::Default, ctx.scale,
+                    [doRename, inputPtr] mutable { doRename(inputPtr->value()); }
+                ),
+                makeManagementButton(
+                    i18n::tr("common.actions.cancel"), ButtonVariant::Ghost, ctx.scale,
+                    [&renamingDockMonitorOverride = ctx.renamingDockMonitorOverride,
+                     requestRebuild = ctx.requestRebuild] {
+                      renamingDockMonitorOverride.clear();
+                      requestRebuild();
+                    }
+                )
+            )
+        );
+        return;
+      }
+
+      if (pendingDelete) {
+        auto confirmPanel = makeConfirmPanel(ctx.scale);
+        confirmPanel->addChild(makeLabel(
+            i18n::tr("settings.entities.monitor-override.delete-confirm-title", "name", match),
+            Style::fontSizeBody * ctx.scale, colorSpecFromRole(ColorRole::OnErrorContainer), FontWeight::Bold
+        ));
+        confirmPanel->addChild(makeLabel(
+            i18n::tr("settings.entities.monitor-override.delete-confirm-desc"), Style::fontSizeCaption * ctx.scale,
+            colorSpecFromRole(ColorRole::OnErrorContainer)
+        ));
+        confirmPanel->addChild(
+            ui::row(
+                {.align = FlexAlign::Center, .gap = Style::spaceSm * ctx.scale}, ui::spacer(),
+                makeManagementButton(
+                    i18n::tr("common.actions.cancel"), ButtonVariant::Ghost, ctx.scale,
+                    [&pendingDeleteDockMonitorOverride = ctx.pendingDeleteDockMonitorOverride,
+                     requestRebuild = ctx.requestRebuild] {
+                      pendingDeleteDockMonitorOverride.clear();
+                      requestRebuild();
+                    }
+                ),
+                makeManagementButton(
+                    i18n::tr("settings.entities.monitor-override.delete"), ButtonVariant::Destructive, ctx.scale,
+                    [deleteDockMonitorOverride = ctx.deleteDockMonitorOverride, tableName] {
+                      deleteDockMonitorOverride(tableName);
+                    },
+                    "trash"
+                )
+            )
+        );
+        management->addChild(std::move(confirmPanel));
+        return;
+      }
+
+      management->addChild(
+          ui::row(
+              {.align = FlexAlign::Center, .gap = Style::spaceXs * ctx.scale}, ui::spacer(),
+              makeManagementButton(
+                  i18n::tr("settings.entities.monitor-override.rename"), ButtonVariant::Ghost, ctx.scale,
+                  [&renamingDockMonitorOverride = ctx.renamingDockMonitorOverride,
+                   &pendingDeleteDockMonitorOverride = ctx.pendingDeleteDockMonitorOverride, tableName,
+                   requestRebuild = ctx.requestRebuild] {
+                    renamingDockMonitorOverride = tableName;
+                    pendingDeleteDockMonitorOverride.clear();
+                    requestRebuild();
+                  }
+              ),
+              makeManagementButton(
+                  i18n::tr("settings.entities.monitor-override.delete"), ButtonVariant::Ghost, ctx.scale,
+                  [&pendingDeleteDockMonitorOverride = ctx.pendingDeleteDockMonitorOverride,
+                   &renamingDockMonitorOverride = ctx.renamingDockMonitorOverride, tableName,
+                   requestRebuild = ctx.requestRebuild] {
+                    pendingDeleteDockMonitorOverride = tableName;
+                    renamingDockMonitorOverride.clear();
+                    requestRebuild();
+                  },
+                  "trash"
+              )
+          )
+      );
     }
 
     void addBarManagement(Flex& content, SettingsBarManagementContext& ctx) {
@@ -301,7 +462,7 @@ namespace settings {
 
           auto doRename = [&renamingBarName = ctx.renamingBarName, config = ctx.config, barName,
                            renameBar = ctx.renameBar, inputPtr,
-                           requestRebuild = ctx.requestRebuild](std::string rawName) {
+                           requestRebuild = ctx.requestRebuild](const std::string& rawName) {
             const std::string newName = normalizedConfigId(rawName);
             if (newName == barName) {
               renamingBarName.clear();
@@ -329,11 +490,11 @@ namespace settings {
                   std::move(input),
                   makeManagementButton(
                       i18n::tr("settings.entities.bar.rename-save"), ButtonVariant::Default, ctx.scale,
-                      [doRename, inputPtr]() mutable { doRename(inputPtr->value()); }
+                      [doRename, inputPtr] mutable { doRename(inputPtr->value()); }
                   ),
                   makeManagementButton(
                       i18n::tr("common.actions.cancel"), ButtonVariant::Ghost, ctx.scale,
-                      [&renamingBarName = ctx.renamingBarName, requestRebuild = ctx.requestRebuild]() {
+                      [&renamingBarName = ctx.renamingBarName, requestRebuild = ctx.requestRebuild] {
                         renamingBarName.clear();
                         requestRebuild();
                       }
@@ -345,11 +506,11 @@ namespace settings {
 
           confirmPanel->addChild(makeLabel(
               i18n::tr("settings.entities.bar.delete-confirm-title", "name", barName), Style::fontSizeBody * ctx.scale,
-              colorSpecFromRole(ColorRole::Error), FontWeight::Bold
+              colorSpecFromRole(ColorRole::OnErrorContainer), FontWeight::Bold
           ));
           confirmPanel->addChild(makeLabel(
               i18n::tr("settings.entities.bar.delete-confirm-desc"), Style::fontSizeCaption * ctx.scale,
-              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+              colorSpecFromRole(ColorRole::OnErrorContainer), FontWeight::Normal
           ));
 
           confirmPanel->addChild(
@@ -361,14 +522,14 @@ namespace settings {
                   ui::spacer(),
                   makeManagementButton(
                       i18n::tr("common.actions.cancel"), ButtonVariant::Ghost, ctx.scale,
-                      [&pendingDeleteBarName = ctx.pendingDeleteBarName, requestRebuild = ctx.requestRebuild]() {
+                      [&pendingDeleteBarName = ctx.pendingDeleteBarName, requestRebuild = ctx.requestRebuild] {
                         pendingDeleteBarName.clear();
                         requestRebuild();
                       }
                   ),
                   makeManagementButton(
                       i18n::tr("settings.entities.bar.delete"), ButtonVariant::Destructive, ctx.scale,
-                      [deleteBar = ctx.deleteBar, barName]() { deleteBar(barName); }, "trash"
+                      [deleteBar = ctx.deleteBar, barName] { deleteBar(barName); }, "trash"
                   )
               )
           );
@@ -383,11 +544,11 @@ namespace settings {
           if (canMoveUp || canMoveDown) {
             actionRow->addChild(makeManagementButton(
                 i18n::tr("settings.entities.bar.move-up"), ButtonVariant::Ghost, ctx.scale,
-                [moveBar = ctx.moveBar, barName]() { moveBar(barName, -1); }, "chevron-up", canMoveUp
+                [moveBar = ctx.moveBar, barName] { moveBar(barName, -1); }, "chevron-up", canMoveUp
             ));
             actionRow->addChild(makeManagementButton(
                 i18n::tr("settings.entities.bar.move-down"), ButtonVariant::Ghost, ctx.scale,
-                [moveBar = ctx.moveBar, barName]() { moveBar(barName, 1); }, "chevron-down", canMoveDown
+                [moveBar = ctx.moveBar, barName] { moveBar(barName, 1); }, "chevron-down", canMoveDown
             ));
           }
 
@@ -395,7 +556,7 @@ namespace settings {
             actionRow->addChild(makeManagementButton(
                 i18n::tr("settings.entities.bar.rename"), ButtonVariant::Ghost, ctx.scale,
                 [&renamingBarName = ctx.renamingBarName, &pendingDeleteBarName = ctx.pendingDeleteBarName, barName,
-                 requestRebuild = ctx.requestRebuild]() {
+                 requestRebuild = ctx.requestRebuild] {
                   renamingBarName = barName;
                   pendingDeleteBarName.clear();
                   requestRebuild();
@@ -407,7 +568,7 @@ namespace settings {
             actionRow->addChild(makeManagementButton(
                 i18n::tr("settings.entities.bar.delete"), ButtonVariant::Ghost, ctx.scale,
                 [&pendingDeleteBarName = ctx.pendingDeleteBarName, &renamingBarName = ctx.renamingBarName, barName,
-                 requestRebuild = ctx.requestRebuild]() {
+                 requestRebuild = ctx.requestRebuild] {
                   pendingDeleteBarName = barName;
                   renamingBarName.clear();
                   requestRebuild();
@@ -424,6 +585,7 @@ namespace settings {
   } // namespace
 
   void addSettingsBarManagement(Flex& content, SettingsBarManagementContext ctx) {
+    addDockMonitorManagement(content, ctx);
     addMonitorManagement(content, ctx);
     addBarManagement(content, ctx);
   }

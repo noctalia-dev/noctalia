@@ -9,6 +9,7 @@
 #include "ui/dialogs/layer_popup_host.h"
 #include "wayland/surface.h"
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -26,11 +27,13 @@ class HttpClient;
 class IdleInhibitor;
 class IpcService;
 class LockKeysService;
+class ModemManagerService;
 class MprisService;
 class BluetoothService;
 class BrightnessService;
 class ClipboardService;
 class EasyEffectsService;
+class ExternalIpService;
 class ScreenshotService;
 class INetworkService;
 class NotificationManager;
@@ -70,11 +73,18 @@ public:
   void onWorkspaceChanged();
   void scheduleSmartAutoHideReevaluation();
   void onSecondTick();
+  // True when any bar widget renders a value that changes every second, so the
+  // time source should wake on second boundaries.
+  [[nodiscard]] bool wantsSecondTicks() const;
   void refresh();
   void requestLayout();
   void setAutoHideSuppressionCallback(std::function<bool(const BarInstance&)> callback);
   // Re-run auto-hide after a panel closes so unrelated bars are not left visible.
   void reevaluateAutoHide();
+  // A panel closed without the pointer moving (key press, etc.). Hover state is
+  // unchanged, so no hover event will re-arm the tooltip for the widget the pointer
+  // is still sitting on — do it here. No-op when the pointer is not on a bar.
+  void rearmTooltipForHoveredWidget();
   // Grabbed popups often swallow Leave; resync pointerInside from the compositor
   // then re-run auto-hide (tray menus, same pattern as dock context menus).
   void reevaluateAutoHideAfterPopup();
@@ -98,7 +108,7 @@ public:
   void
   setAttachedPanelGeometry(wl_output* output, std::string_view barName, std::optional<AttachedPanelGeometry> geometry);
   [[nodiscard]] bool canAttachPanelToBar(wl_output* output, std::string_view barName) const noexcept;
-  [[nodiscard]] std::optional<std::string> layerForBar(wl_output* output, std::string_view barName) const noexcept;
+  [[nodiscard]] std::optional<BarConfig> configForBar(wl_output* output, std::string_view barName) const;
   // Highest layer-shell layer occupied by any enabled bar on the given output (defaults to Top when no bar is present).
   // Hot corners use this to sit on the highest bar's layer so they are always activable.
   [[nodiscard]] LayerShellLayer highestLayerForOutput(wl_output* output) const noexcept;
@@ -119,6 +129,8 @@ private:
   static void tickWidgets(std::vector<std::unique_ptr<Widget>>& widgets, float deltaMs);
   [[nodiscard]] static bool widgetsNeedFrameTick(const std::vector<std::unique_ptr<Widget>>& widgets);
   [[nodiscard]] static bool instanceNeedsFrameTick(const BarInstance& instance);
+  [[nodiscard]] static bool widgetsWantSecondTicks(const std::vector<std::unique_ptr<Widget>>& widgets);
+  [[nodiscard]] static bool instanceWantsSecondTicks(const BarInstance& instance);
   void syncInstances();
   void createInstance(const WaylandOutput& output, std::size_t barIndex, const BarConfig& barConfig);
   void destroyInstance(std::uint32_t outputName);
@@ -128,6 +140,7 @@ private:
   void updateWidgetHoverHighlight(BarInstance& instance, InputArea* hoveredArea);
   void animateWidgetHoverHighlight(BarInstance& instance, Widget& widget, bool hovered);
   void updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea);
+  void beginAccordionAnimation(BarInstance& instance, BarCapsuleRun& run, bool expanded);
   void rebuildInstanceContents(BarInstance& instance, const BarConfig& newConfig);
   [[nodiscard]] BarServices services() const;
   void buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t height);
@@ -146,7 +159,7 @@ private:
   [[nodiscard]] bool isWorkspacePeekActive() const noexcept;
   void applyPendingWorkspaceReveal();
   void reevaluateSmartAutoHide();
-  void startHideFadeOut(BarInstance& instance);
+  void startHideFadeOut(BarInstance& instance, bool immediate = false);
   static void applyBackgroundPalette(BarInstance& instance);
   [[nodiscard]] std::string showBarIpc(std::string_view args);
   [[nodiscard]] std::string hideBarIpc(std::string_view args);
@@ -172,6 +185,8 @@ private:
   SystemMonitorService* m_sysmon = nullptr;
   PowerProfilesService* m_powerProfiles = nullptr;
   INetworkService* m_network = nullptr;
+  ModemManagerService* m_modem = nullptr;
+  ExternalIpService* m_externalIp = nullptr;
   IdleInhibitor* m_idleInhibitor = nullptr;
   MprisService* m_mpris = nullptr;
   PipeWireSpectrum* m_audioSpectrum = nullptr;
@@ -189,6 +204,10 @@ private:
   scripting::ScriptApiContext* m_scriptApi = nullptr;
   std::unique_ptr<WidgetFactory> m_widgetFactory;
   std::vector<std::unique_ptr<BarInstance>> m_instances;
+  // Wall-clock minute of the last full second-tick update, so minute-changing
+  // widgets refresh on the first tick of a new minute even when it lands off
+  // the :00 boundary (after suspend, a clock step, or the lock screen).
+  std::chrono::sys_time<std::chrono::minutes> m_lastTickMinute;
 
   // Snapshot of the config fields the bar depends on. Used to skip reloads
   // triggered by unrelated config changes (theme, weather, idle, etc.).

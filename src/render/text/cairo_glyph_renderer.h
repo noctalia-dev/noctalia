@@ -8,12 +8,12 @@
 #include <unordered_map>
 
 // FreeType forwards
-typedef struct FT_LibraryRec_* FT_Library;
-typedef struct FT_FaceRec_* FT_Face;
+using FT_Library = struct FT_LibraryRec_*;
+using FT_Face = struct FT_FaceRec_*;
 
 // Cairo forwards
-typedef struct _cairo_font_face cairo_font_face_t;
-typedef struct _cairo_font_options cairo_font_options_t;
+using cairo_font_face_t = struct _cairo_font_face;
+using cairo_font_options_t = struct _cairo_font_options;
 
 class RenderBackend;
 class TextureManager;
@@ -21,7 +21,7 @@ struct Color;
 struct Mat3;
 
 // Direct FreeType + Cairo renderer for single codepoints in a dedicated font
-// (tabler.ttf icon font). No Pango, no shaping, no fallback — the icon font
+// (noctalia-tabler.ttf icon font). No Pango, no shaping, no fallback — the icon font
 // MUST be used, never substituted.
 class CairoGlyphRenderer {
 public:

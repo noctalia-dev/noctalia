@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include <expected>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -11,7 +12,7 @@ namespace {
 
   bool check(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "ico_decoder_test: FAIL: %s\n", message);
+      std::println(stderr, "ico_decoder_test: FAIL: {}", message);
     }
     return condition;
   }
@@ -284,7 +285,7 @@ namespace {
     bool ok = true;
     ok = check(!result, "empty ICO should fail") && ok;
     if (!result) {
-      const bool mentionsNoImages = result.error().find("no images") != std::string::npos;
+      const bool mentionsNoImages = result.error().contains("no images");
       ok = check(mentionsNoImages, "empty ICO error should mention 'no images'") && ok;
     }
     return ok;
@@ -297,7 +298,7 @@ namespace {
     bool ok = true;
     ok = check(!result, "truncated directory should fail") && ok;
     if (!result) {
-      const bool mentionsPastEnd = result.error().find("past end") != std::string::npos;
+      const bool mentionsPastEnd = result.error().contains("past end");
       ok = check(mentionsPastEnd, "truncated error should mention 'past end'") && ok;
     }
     return ok;
@@ -314,7 +315,7 @@ namespace {
     bool ok = true;
     ok = check(!result, "out-of-bounds entry should fail") && ok;
     if (!result) {
-      const bool mentionsOutside = result.error().find("outside") != std::string::npos;
+      const bool mentionsOutside = result.error().contains("outside");
       ok = check(mentionsOutside, "out-of-bounds error should mention 'outside'") && ok;
     }
     return ok;

@@ -97,6 +97,8 @@ private:
     std::vector<std::uint8_t> rgba;
     int width = 0;
     int height = 0;
+    int sourceWidth = 0;
+    int sourceHeight = 0;
     bool failed = false;
   };
 

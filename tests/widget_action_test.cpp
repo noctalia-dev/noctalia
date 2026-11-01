@@ -288,6 +288,7 @@ namespace {
     std::string actionsExpandedFor;
     std::string storedAction;
     std::vector<std::string> storedPath;
+    std::unordered_map<std::string, std::unordered_set<std::string>> expandedGroupsByPage;
 
     settings::SettingsControlFactory factory(
         settings::SettingsContentContext{
@@ -301,6 +302,7 @@ namespace {
             .pendingGestureKey = pendingGestureKey,
             .pendingGestureVerb = pendingGestureVerb,
             .actionsExpandedFor = actionsExpandedFor,
+            .expandedGroupsByPage = expandedGroupsByPage,
             .actionCatalog = {settings::GestureActionOption{
                 .option = settings::SelectOption{.value = "volume-up", .label = "volume-up"},
                 .argsSpec = "[step]",

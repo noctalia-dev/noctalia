@@ -7,11 +7,13 @@
 #include "system/icon_resolver.h"
 
 #include <memory>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 class ConfigService;
+class CompositorPlatform;
 class HttpClient;
 class Input;
 class InputArea;
@@ -39,8 +41,8 @@ public:
   NotificationToast& operator=(const NotificationToast&) = delete;
 
   void initialize(
-      WaylandConnection& wayland, ConfigService* config, NotificationManager* notifications,
-      RenderContext* renderContext, HttpClient* httpClient = nullptr
+      WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config,
+      NotificationManager* notifications, RenderContext* renderContext, HttpClient* httpClient = nullptr
   );
   void onConfigReload();
   void onOutputChange();
@@ -67,6 +69,7 @@ private:
     NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect;
     int displayDurationMs = 0; // -1 = persistent (no auto-dismiss)
     int32_t rawTimeoutMs = 0;  // raw DBus timeout; >0 means manager has an auto-expire timer we must coordinate with
+    wl_output* targetOutput = nullptr;
     float remainingProgress = 1.0F;
     float y = -1.0F; // stable top position while visible; negative = queued/off-screen
     float height = 0.0F;
@@ -171,29 +174,33 @@ private:
   canKeepPlacement(const PopupEntry& entry, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
   [[nodiscard]] bool fitsOnSurface(const PopupEntry& entry, float surfaceHeight) const;
   [[nodiscard]] std::string notificationPosition() const;
-  [[nodiscard]] std::string notificationLayer() const;
+  [[nodiscard]] std::string_view notificationLayer() const;
   [[nodiscard]] std::vector<std::string> notificationMonitors() const;
   [[nodiscard]] bool shouldRenderOnOutput(const WaylandOutput& output) const;
+  [[nodiscard]] bool entryTargetsOutput(const PopupEntry& entry, wl_output* output) const;
+  [[nodiscard]] bool entriesShareStack(const PopupEntry& lhs, const PopupEntry& rhs) const;
   [[nodiscard]] bool isBottomStacking() const;
   [[nodiscard]] RevealDirection revealDirection() const;
   void refreshEntryGeometry(PopupEntry& entry) const;
   [[nodiscard]] float layoutBottomForSurfaceHeight(float surfaceHeight) const;
-  [[nodiscard]] float maxPlacementBottom() const;
+  [[nodiscard]] float maxPlacementBottom(wl_output* output) const;
   [[nodiscard]] float entryOffsetFromPlacementBottom(const PopupEntry& entry) const;
   // Resting surface Y for one instance's card, packed from the stacking edge using this
   // instance's real per-card heights (CardState::clipHeight). Inter-card gaps are taken
   // from the shared placement skeleton, so hover spacing and dismiss gaps are preserved,
   // but heights are per-monitor real values so cards never overlap or leave height-mismatch gaps.
   [[nodiscard]] float cardSurfaceY(const Instance& inst, std::size_t entryIndex) const;
-  void alignBottomStackToPlacementBottom();
-  [[nodiscard]] std::optional<float>
-  findPlacementY(float entryHeight, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
+  void alignBottomStackToPlacementBottom(wl_output* output);
+  [[nodiscard]] std::optional<float> findPlacementY(
+      float candidateHeight, wl_output* targetOutput, std::optional<uint32_t> ignoreNotificationId = std::nullopt
+  ) const;
   [[nodiscard]] uint32_t surfaceHeightForOutput(wl_output* output) const;
   // Configured render scale of a notification output, for pre-surface sizing.
   [[nodiscard]] float notificationScale() const;
   [[nodiscard]] std::string resolveNotificationIconPath(const PopupEntry& entry);
 
   WaylandConnection* m_wayland = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
   NotificationManager* m_notifications = nullptr;
   RenderContext* m_renderContext = nullptr;
@@ -211,4 +218,6 @@ private:
   std::string m_lastPosition;
   std::string m_lastLayer;
   std::vector<std::string> m_lastMonitorSelectors;
+  bool m_followFocusedOutput = false;
+  wl_output* m_focusedOutput = nullptr;
 };

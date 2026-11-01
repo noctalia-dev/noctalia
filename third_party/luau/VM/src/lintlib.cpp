@@ -123,10 +123,11 @@ static int int64_idiv(lua_State* L)
         luaL_error(L, "integer overflow");
 
     int64_t result = a / b;
-    if ((result < 0) && (a % b))
-        lua_pushinteger64(L, result - 1);
-    else
-        lua_pushinteger64(L, result);
+    // Floored division rounds toward -inf: adjust the truncated quotient down by 1
+    // when the operands have opposite signs and the division is inexact.
+    if (((a ^ b) < 0) && (a % b))
+        result -= 1;
+    lua_pushinteger64(L, result);
 
     return 1;
 }

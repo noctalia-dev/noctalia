@@ -124,14 +124,14 @@ namespace {
     for (std::size_t i = 0; i < previewCount; ++i) {
       const auto& rect = rects[i];
       if (i > 0) {
-        out += " ";
+        out += ' ';
       }
       out += std::format("{}:{}+{}x{}", rect.x, rect.y, rect.width, rect.height);
     }
     if (rects.size() > previewCount) {
       out += std::format(" +{}", rects.size() - previewCount);
     }
-    out += "]";
+    out += ']';
     return out;
   }
 
@@ -396,6 +396,9 @@ void Surface::handleFrameDone(void* data, wl_callback* callback, std::uint32_t c
   if (hasPendingWork) {
     self->queueFrameWork(runFrameTick, deltaMs);
   }
+
+  // Keep this last: a derived callback may schedule teardown of its owning surface.
+  self->onFrameCallbackDone();
 }
 
 void Surface::onSurfaceOutputEnter(wl_surface* surface, wl_output* output) {
@@ -468,6 +471,8 @@ void Surface::onConfigure(std::uint32_t width, std::uint32_t height) {
   m_redrawRequested = true;
   queueFrameWork();
 }
+
+void Surface::onFrameCallbackDone() {}
 
 void Surface::setConfigureCallback(ConfigureCallback callback) { m_configureCallback = std::move(callback); }
 
@@ -649,6 +654,26 @@ void Surface::setInputRegion(const std::vector<InputRect>& rects) {
   wl_region_destroy(region);
 }
 
+void Surface::setOpaque(bool opaque) {
+  if (m_surface == nullptr || m_opaque == opaque) {
+    return;
+  }
+  if (!opaque) {
+    wl_surface_set_opaque_region(m_surface, nullptr);
+    m_opaque = false;
+    return;
+  }
+  wl_region* region = wl_compositor_create_region(m_connection.compositor());
+  if (region == nullptr) {
+    return;
+  }
+  // The compositor clips the region to the surface, so it stays valid across resizes.
+  wl_region_add(region, 0, 0, std::numeric_limits<std::int32_t>::max(), std::numeric_limits<std::int32_t>::max());
+  wl_surface_set_opaque_region(m_surface, region);
+  wl_region_destroy(region);
+  m_opaque = true;
+}
+
 bool Surface::prepareBlurEffect() {
   if (m_surface == nullptr) {
     traceSurfaceEvent(*this, "blur-effect-skip-no-surface");
@@ -676,13 +701,31 @@ bool Surface::prepareBlurEffect() {
   return true;
 }
 
+bool Surface::regionIntersectsBounds(const std::vector<InputRect>& rects, std::uint32_t width, std::uint32_t height) {
+  if (width == 0 || height == 0) {
+    return false;
+  }
+  return std::ranges::any_of(rects, [&](const auto& r) {
+    const std::int64_t right = static_cast<std::int64_t>(r.x) + r.width;
+    const std::int64_t bottom = static_cast<std::int64_t>(r.y) + r.height;
+    return r.width > 0
+        && r.height > 0
+        && right > 0
+        && bottom > 0
+        && static_cast<std::int64_t>(r.x) < width
+        && static_cast<std::int64_t>(r.y) < height;
+  });
+}
+
 void Surface::setBlurRegion(const std::vector<InputRect>& rects) {
   if (!prepareBlurEffect()) {
     return;
   }
 
+  // Hyprland renders a fully off-surface non-empty blur region as full-surface blur, so send null instead.
+  const bool hasVisibleRegion = regionIntersectsBounds(rects, m_width, m_height);
   wl_region* region = nullptr;
-  if (!rects.empty()) {
+  if (hasVisibleRegion) {
     region = wl_compositor_create_region(m_connection.compositor());
     if (region == nullptr) {
       traceSurfaceEvent(*this, "blur-set-skip-region-failed");
@@ -692,7 +735,11 @@ void Surface::setBlurRegion(const std::vector<InputRect>& rects) {
       wl_region_add(region, r.x, r.y, r.width, r.height);
     }
   }
-  traceBlurRegionEvent(*this, rects.empty() ? "blur-set-empty" : "blur-set", rects);
+  const char* traceLabel = "blur-set";
+  if (!hasVisibleRegion) {
+    traceLabel = rects.empty() ? "blur-set-empty" : "blur-set-offsurface";
+  }
+  traceBlurRegionEvent(*this, traceLabel, rects);
   ext_background_effect_surface_v1_set_blur_region(m_backgroundEffect, region);
   if (region != nullptr) {
     wl_region_destroy(region);
@@ -1135,6 +1182,19 @@ void Surface::requestUpdate() {
   kickFrameLoop();
 }
 
+void Surface::discardPendingFrameCallback() {
+  if (m_frameCallback == nullptr) {
+    return;
+  }
+
+  // Carry the in-flight callback's tick intent to the replacement callback.
+  // Queued frame work and pending update/layout/redraw state remain untouched.
+  m_nextFrameCallbackShouldTick = m_nextFrameCallbackShouldTick || m_frameCallbackShouldTick;
+  m_frameCallbackShouldTick = false;
+  wl_callback_destroy(m_frameCallback);
+  m_frameCallback = nullptr;
+}
+
 void Surface::requestUpdateOnly() {
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::RequestUpdateOnly);
   m_updateRequested = true;
@@ -1257,6 +1317,7 @@ void Surface::destroySurface() {
   if (m_surface != nullptr) {
     wl_surface_destroy(m_surface);
     m_surface = nullptr;
+    m_opaque = false;
   }
 
   m_running = false;

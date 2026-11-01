@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <wayland-client-protocol.h>
 
@@ -35,14 +34,12 @@ namespace {
   constexpr float kDayButtonSize = 34.0F;
   constexpr float kDotDiameter = 4.0F;
   constexpr float kWeekColumnWidth = 24.0F;
-  constexpr std::string_view kEventDateFormat = "%A %e %B";
-  constexpr std::string_view kEventTimeFormat = "%H:%M";
 
 } // namespace
 
 DesktopCalendarWidget::DesktopCalendarWidget(ConfigService* config, CalendarService* calendar, Options options)
     : m_config(config), m_calendar(calendar), m_showEvents(options.showEvents),
-      m_showWeekNumbers(options.showWeekNumbers) {}
+      m_showWeekNumbers(options.showWeekNumbers), m_showEventsLocation(options.showEventsLocation) {}
 
 DesktopCalendarWidget::~DesktopCalendarWidget() {
   if (m_calendar != nullptr && m_calendarCallbackId != 0) {
@@ -101,7 +98,7 @@ void DesktopCalendarWidget::create() {
           .out = &m_previousButton,
           .glyph = Style::rtl() ? "chevron-right" : "chevron-left",
           .variant = ButtonVariant::Ghost,
-          .onClick = [this]() { changeMonthBy(-1); },
+          .onClick = [this] { changeMonthBy(-1); },
       })
   );
   header->addChild(
@@ -125,7 +122,7 @@ void DesktopCalendarWidget::create() {
           .out = &m_nextButton,
           .glyph = Style::rtl() ? "chevron-left" : "chevron-right",
           .variant = ButtonVariant::Ghost,
-          .onClick = [this]() { changeMonthBy(1); },
+          .onClick = [this] { changeMonthBy(1); },
       })
   );
   calendarColumn->addChild(std::move(header));
@@ -155,6 +152,7 @@ void DesktopCalendarWidget::create() {
   eventsColumn->addChild(
       ui::scrollView({
           .out = &m_eventsScroll,
+          .contentScale = contentScale(),
           .fillWidth = true,
           .fillHeight = true,
           .flexGrow = 1.0F,
@@ -166,7 +164,7 @@ void DesktopCalendarWidget::create() {
   focusToday();
 
   if (m_calendar != nullptr) {
-    m_calendarCallbackId = m_calendar->addChangeCallback([this]() { markDirty(); });
+    m_calendarCallbackId = m_calendar->addChangeCallback([this] { markDirty(); });
   }
 }
 
@@ -189,6 +187,15 @@ bool DesktopCalendarWidget::applySetting(
   if (key == "show_week_numbers") {
     if (const auto* enabled = std::get_if<bool>(&value)) {
       m_showWeekNumbers = *enabled;
+      m_dirty = true;
+      layout(renderer);
+      return true;
+    }
+    return false;
+  }
+  if (key == "show_events_location") {
+    if (const auto* enabled = std::get_if<bool>(&value)) {
+      m_showEventsLocation = *enabled;
       m_dirty = true;
       layout(renderer);
       return true;
@@ -358,9 +365,11 @@ void DesktopCalendarWidget::rebuildCalendar() {
 }
 
 void DesktopCalendarWidget::rebuildEventList() {
-  if (m_eventsScroll == nullptr) {
+  if (m_eventsScroll == nullptr || m_config == nullptr) {
     return;
   }
+  const auto& calendarConfig = m_config->config().calendar;
+  const auto& tabConfig = m_config->config().controlCenter.calendarTab;
   calendar_view::rebuildEventList({
       .scroll = *m_eventsScroll,
       .reserveScrollbarGutter = true,
@@ -368,10 +377,18 @@ void DesktopCalendarWidget::rebuildEventList() {
       .snapshot = m_calendar != nullptr ? &m_calendar->snapshot() : nullptr,
       .selected = {.year = m_selectedYear, .month = m_selectedMonth, .day = m_selectedDay},
       .scale = contentScale(),
-      .dateFormat = kEventDateFormat,
-      .timeFormat = kEventTimeFormat,
+      .showEventsLocation = m_showEventsLocation,
+      .dateFormat = calendarConfig.eventDateFormat,
+      .timeFormat = calendarConfig.eventTimeFormat,
       .fontFamily = m_fontFamily,
       .state = &m_eventListState,
-      .requestRedraw = [this]() { requestRedraw(); },
+      .hidePastEvents = tabConfig.hidePastEvents,
+      .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
+      .onToggleHiddenPast =
+          [this] {
+            m_dirty = true;
+            requestLayout();
+          },
+      .requestRedraw = [this] { requestRedraw(); },
   });
 }

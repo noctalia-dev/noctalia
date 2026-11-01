@@ -7,7 +7,6 @@
 #include "scripting/plugin_file_cache.h"
 #include "scripting/plugin_manager.h"
 #include "shell/settings/config_export_dialog_modal.h"
-#include "shell/settings/search_picker_popup.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_modal_host.h"
 #include "shell/settings/settings_registry.h"
@@ -18,6 +17,7 @@
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/dialogs/layer_popup_host.h"
+#include "ui/dialogs/search_picker_popup.h"
 #include "wayland/toplevel_surface.h"
 
 #include <cstdint>
@@ -25,6 +25,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -34,6 +36,7 @@ class Button;
 class AccountsService;
 class CalendarService;
 class ClipboardService;
+class NotificationManager;
 class IpcService;
 class ConfigService;
 class CompositorPlatform;
@@ -43,9 +46,11 @@ class FileDialogPresenter;
 class Flex;
 class GlyphPickerDialogPresenter;
 class IdleManager;
+class IdleInhibitor;
 class Input;
 class Label;
 class RenderContext;
+class ScreenSaverService;
 class ThumbnailService;
 class UPowerService;
 class WaylandConnection;
@@ -54,7 +59,16 @@ struct PointerEvent;
 struct wl_output;
 struct wl_surface;
 
+namespace scripting {
+  class PluginRecommendations;
+}
+
+namespace noctalia::theme {
+  struct GeneratedPalette;
+}
+
 namespace settings {
+  class PaletteInspectorContent;
   class SettingsDialogPresenter;
   struct SettingsContentContext;
 } // namespace settings
@@ -67,7 +81,8 @@ public:
 
   void initialize(
       WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, DependencyService* dependencies,
-      UPowerService* upower, IdleManager* idleManager, CompositorPlatform* platform, AccountsService* accounts = nullptr
+      UPowerService* upower, IdleManager* idleManager, IdleInhibitor* idleInhibitor, CompositorPlatform* platform,
+      AccountsService* accounts = nullptr
   );
 
   void open(std::string context = "");
@@ -76,6 +91,10 @@ public:
   // Returns false when the plugin is unknown, disabled, or exposes no settings.
   [[nodiscard]] bool openToPlugin(std::string pluginId);
   void close();
+  // Closes the window for a widget editor while preserving the active section for its return.
+  void closeForWidgetEditor();
+  // Reopens the section saved by closeForWidgetEditor(), if any.
+  void reopenAfterWidgetEditor();
   [[nodiscard]] bool isOpen() const noexcept { return m_surface != nullptr && m_surface->isRunning(); }
   [[nodiscard]] wl_surface* wlSurface() const noexcept {
     return m_surface != nullptr ? m_surface->wlSurface() : nullptr;
@@ -87,6 +106,7 @@ public:
   [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   void onThemeChanged();
+  void setResolvedPalette(const noctalia::theme::GeneratedPalette& generated, std::string_view mode);
   void onFontChanged();
   void requestRedraw();
   void onExternalOptionsChanged();
@@ -98,7 +118,11 @@ public:
     m_openLockscreenWidgetEditor = std::move(callback);
   }
   void setOpenWallpaperPanel(std::function<void()> callback) { m_openWallpaperPanel = std::move(callback); }
+  void setPluginRecommendations(scripting::PluginRecommendations* recommendations) {
+    m_pluginRecommendations = recommendations;
+  }
   void setPluginManager(scripting::PluginManager* manager) { m_pluginManager = manager; }
+  void setScreenSaverService(ScreenSaverService* service) { m_screenSaverService = service; }
   void setSyncGreeterAppearance(std::function<void()> callback) { m_syncGreeterAppearance = std::move(callback); }
   void setResetLauncherUsage(std::function<void()> callback) { m_resetLauncherUsage = std::move(callback); }
   void setResetScreenTime(std::function<void()> callback) { m_resetScreenTime = std::move(callback); }
@@ -106,9 +130,11 @@ public:
   void setSaveWallpaperPaletteAsCustom(std::function<void()> callback) {
     m_saveWallpaperPaletteAsCustom = std::move(callback);
   }
-  void setCalendarService(CalendarService* service) { m_calendarService = service; }
+  // Also rebuilds the calendar account rows when an account's sync failure changes.
+  void setCalendarService(CalendarService* service);
   // Source for the bar widget gesture action picker.
   void setIpcService(IpcService* service) { m_ipcService = service; }
+  void setNotificationManager(NotificationManager* manager) { m_notificationManager = manager; }
   void setClipboardService(ClipboardService* service) { m_clipboardService = service; }
   // Backs plugin-store thumbnails; trimmed when the window closes.
   void setAsyncTextureCache(AsyncTextureCache* cache) { m_asyncTextures = cache; }
@@ -122,6 +148,8 @@ public:
   [[nodiscard]] FileDialogPresenter* fileDialogPresenter() noexcept;
 
   void onSecondTick();
+  // True while the idle settings pane renders a live seconds counter.
+  [[nodiscard]] bool wantsSecondTicks() const noexcept;
   void onIdleLiveStatusChanged();
   void markSettingsWriteSuccess(bool requestRebuild = true);
   void markSettingsWriteError(std::string message);
@@ -130,11 +158,13 @@ public:
 
 private:
   void destroyWindow();
+  void openBrowserUrl(const std::string& url);
   [[nodiscard]] bool shouldUseModalDialogs() const noexcept;
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void buildScene(std::uint32_t width, std::uint32_t height);
   void rebuildSettingsContent();
   [[nodiscard]] settings::RegistryEnvironment buildRegistryEnvironment() const;
+  [[nodiscard]] std::vector<settings::SelectOption> availableOutputs() const;
   void refreshSettingsRegistry(const Config& cfg);
   void syncSelectedBarState(const Config& cfg, const std::vector<std::string>& availableBars);
   [[nodiscard]] std::unique_ptr<Flex> buildHeaderRow(float scale);
@@ -180,6 +210,7 @@ private:
   void openBarWidgetAddPopup(const std::vector<std::string>& lanePath);
   // Request is taken by value because opening the popup can close the sheet that owns the forwarding control.
   void openSearchPickerPopup(settings::SearchPickerOpenRequest request);
+  void openMonitorOverrideCreateDialog(std::optional<std::string> barName);
   void openSessionActionEntryEditor(std::size_t index);
   void syncSessionActionInlineSummary(std::size_t index, const SessionPanelActionConfig& row);
   void openIdleBehaviorEntryEditor(std::size_t index);
@@ -193,6 +224,7 @@ private:
   void openPluginSettingsEditor(std::string pluginId);
   void openPluginStore();
   void openCommunityTemplateStore();
+  void openPaletteInspector();
   void openBarWidgetEditorSheet(
       std::string title, std::function<void(Flex&)> populate, std::function<void()> removeAction = nullptr
   );
@@ -218,6 +250,9 @@ private:
   void createMonitorOverride(std::string barName, std::string match);
   void renameMonitorOverride(std::string barName, std::string oldMatch, std::string newMatch);
   void deleteMonitorOverride(std::string barName, std::string match);
+  void createDockMonitorOverride(std::string match);
+  void renameDockMonitorOverride(std::string oldTableName, std::string newMatch);
+  void deleteDockMonitorOverride(std::string tableName);
   [[nodiscard]] float uiScale() const;
 
   [[nodiscard]] std::optional<LayerPopupParentContext> topmostPopupParentContext() const;
@@ -226,20 +261,34 @@ private:
   WaylandConnection* m_wayland = nullptr;
   CompositorPlatform* m_platform = nullptr;
   IdleManager* m_idleManager = nullptr;
+  IdleInhibitor* m_idleInhibitor = nullptr;
+  ScreenSaverService* m_screenSaverService = nullptr;
   ConfigService* m_config = nullptr;
   scripting::PluginManager* m_pluginManager = nullptr;
+  scripting::PluginRecommendations* m_pluginRecommendations = nullptr;
   // Cached PluginManager::list() — discovery can spawn git, so refresh it off the UI path.
   std::vector<scripting::PluginStatus> m_pluginList;
   bool m_pluginListDirty = true;
   bool m_pluginListRefreshInFlight = false;
   std::uint64_t m_pluginListRefreshGeneration = 0;
+  // The plugin store sheet is the sheet currently on screen, so plugin events may rebuild
+  // the sheet body; any other editor sheet must be left alone.
+  bool m_pluginStoreSheetOpen = false;
+  // Plugin catalog scroll state outlives both the store sheet and its async file callbacks.
+  ScrollViewState m_pluginStoreScrollState;
   scripting::PluginFileCache m_pluginFileCache;
   RenderContext* m_renderContext = nullptr;
   DependencyService* m_dependencies = nullptr;
   UPowerService* m_upower = nullptr;
   AccountsService* m_accounts = nullptr;
   CalendarService* m_calendarService = nullptr;
+  std::optional<std::uint64_t> m_calendarCallbackId;
+  std::uint64_t m_calendarSyncStatusRevision = 0;
+  NotificationManager* m_notificationManager = nullptr;
   ClipboardService* m_clipboardService = nullptr;
+  std::unordered_map<std::string, std::uint32_t> m_templateColors;
+  std::string m_templateColorMode;
+  std::shared_ptr<settings::PaletteInspectorContent> m_paletteInspectorContent;
   IpcService* m_ipcService = nullptr;
   AsyncTextureCache* m_asyncTextures = nullptr;
   Label* m_idleLiveStatusLabel = nullptr;
@@ -256,13 +305,15 @@ private:
   Node* m_filterRow = nullptr;
   Button* m_actionsMenuButton = nullptr;
   Flex* m_contentContainer = nullptr;
+  Flex* m_pageTitleRow = nullptr;
+  Flex* m_groupJumpRow = nullptr;
   ScrollView* m_contentScrollView = nullptr;
   ScrollView* m_sidebarScrollView = nullptr;
   RovingListNavHost* m_sidebarNav = nullptr;
   std::unique_ptr<ContextMenuPopup> m_actionsMenuPopup;
   std::unique_ptr<settings::WidgetAddPopup> m_widgetAddPopup;
   std::unique_ptr<settings::ConfigExportDialogModal> m_configExportDialogModal;
-  std::unique_ptr<settings::SearchPickerPopup> m_searchPickerPopup;
+  std::unique_ptr<SearchPickerPopup> m_searchPickerPopup;
   InputDispatcher m_inputDispatcher;
   settings::SettingsModalHost m_modalHost;
   std::unique_ptr<settings::SettingsDialogPresenter> m_dialogPresenter;
@@ -297,7 +348,9 @@ private:
   bool m_deferFocusScrollToLayout = false;
   Node* m_pendingContentScrollTarget = nullptr;
   std::string m_searchQuery;
+  std::string m_pluginSearchQuery;
   Timer m_searchDebounceTimer;
+  Timer m_pluginSearchDebounceTimer;
   // Set by openToBarWidget (e.g. middle-click on a bar widget) / openToPlugin and consumed after
   // the Settings scene is available so the requested editor can be mounted into it.
   std::string m_pendingOpenWidgetInspectorName;
@@ -315,19 +368,25 @@ private:
   // plain flag so the group survives the rebuild an edit triggers, but starts folded on every
   // other widget.
   std::string m_actionsExpandedFor;
+  // Expanded setting groups per page, keyed by content section key (pageScopeKey).
+  // A page gets its default expansion (first group, or all with settings_expand_all_groups) when first
+  // rendered; changing settings_expand_all_groups drops this state so every page re-seeds.
+  std::unordered_map<std::string, std::unordered_set<std::string>> m_expandedSettingGroups;
+  bool m_expandedSettingGroupsSeededExpandAll = false;
   std::string m_creatingBarName;
   std::string m_renamingBarName;
   std::string m_pendingDeleteBarName;
-  std::string m_creatingMonitorOverrideBarName;
-  std::string m_creatingMonitorOverrideMatch;
   std::string m_renamingMonitorOverrideBarName;
   std::string m_renamingMonitorOverrideMatch;
   std::string m_pendingDeleteMonitorOverrideBarName;
   std::string m_pendingDeleteMonitorOverrideMatch;
+  std::string m_renamingDockMonitorOverride;
+  std::string m_pendingDeleteDockMonitorOverride;
   std::string m_pendingDeletePluginId;
   std::string m_selectedBarName;
   std::string m_selectedMonitorOverride;
   std::string m_selectedSection;
+  std::string m_reopenAfterWidgetEditorSection;
   std::string m_statusMessage;
   std::string m_pendingResetPageScope;
   std::vector<std::vector<std::string>> m_pendingResetSettingPaths;

@@ -1,5 +1,5 @@
 #pragma once
-
+#include "config/config_types.h"
 #include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
@@ -16,6 +16,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 
 class ConfigService;
 class CompositorPlatform;
@@ -31,10 +32,12 @@ class RenderContext;
 class Surface;
 class WaylandConnection;
 enum class LayerShellLayer : std::uint32_t;
+enum class LayerShellKeyboard : std::uint32_t;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_output;
 struct wl_surface;
+struct wl_callback;
 
 struct PanelOpenRequest {
   wl_output* output = nullptr;
@@ -49,7 +52,7 @@ struct PanelOpenRequest {
 class PanelManager : public PopupGrabHost {
 public:
   PanelManager();
-  ~PanelManager();
+  ~PanelManager() override;
 
   PanelManager(const PanelManager&) = delete;
   PanelManager& operator=(const PanelManager&) = delete;
@@ -87,7 +90,7 @@ public:
   void setPanelClosedCallback(std::function<void()> callback);
   void setPanelOpenedCallback(std::function<void()> callback);
   void setAttachedPanelAvailabilityCallback(std::function<bool(wl_output*, std::string_view)> callback);
-  void setAttachedPanelLayerProvider(std::function<std::optional<std::string>(wl_output*, std::string_view)> provider);
+  void setBarConfigProvider(std::function<std::optional<BarConfig>(wl_output*, std::string_view)> provider);
   void setAttachedPanelBarSettledCallback(std::function<bool(wl_output*, std::string_view)> callback);
   // Called when an auto-hide bar finishes revealing for an attached panel open.
   void onAttachedBarRevealSettled(wl_output* output, std::string_view barName);
@@ -96,9 +99,13 @@ public:
   // Drops a previously registered panel, closing it first if it is open. Used to
   // retire plugin-backed panels on a plugin enable/disable/reload.
   void unregisterPanel(const std::string& id);
+  // Every currently registered panel id (regular and persistent), unsorted.
+  [[nodiscard]] std::vector<std::string> availablePanelIds() const;
 
   void openPanel(const std::string& panelId, PanelOpenRequest request = {});
   void closePanel(bool animateClose = true);
+  // Call outside input dispatch to clear the displayed buffer before closing and running the action.
+  void closePanelForCapture(std::function<void()> afterClose);
   void togglePanel(const std::string& panelId, PanelOpenRequest request);
   // IPC-friendly overload: asks CompositorPlatform for preferred interactive output.
   void togglePanel(const std::string& panelId);
@@ -120,17 +127,19 @@ public:
   [[nodiscard]] bool isActivePanelContext(std::string_view context) const noexcept;
   [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const noexcept;
   [[nodiscard]] std::optional<LayerPopupParentContext> fallbackPopupParentContext() const noexcept;
+  [[nodiscard]] std::optional<LayerPopupParentContext>
+  popupParentContextForPanel(std::string_view panelId) const noexcept;
 
   [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
   [[nodiscard]] WaylandConnection* wayland() const noexcept;
 
+  // Applies the shell's effective popup shadow settings to a panel-owned
+  // context menu before it opens.
+  void configureContextMenuPopup(ContextMenuPopup& popup) const;
   void setActivePopup(ContextMenuPopup* popup);
   void clearActivePopup();
 
   void refresh();
-  // Re-read preferredWidth/Height on the active detached panel and request a new
-  // layer-shell size (e.g. polkit growing when a password field appears).
-  void relayoutActivePanelPreferredSize();
   // Refresh a single panel by id, whichever host owns it. Used by content that
   // knows which panel it belongs to (e.g. a plugin panel's new UI tree).
   void refreshPanel(std::string_view panelId);
@@ -174,6 +183,7 @@ private:
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void applyPendingPanelFocus();
   void destroyPanel();
+  static void handleCaptureCloseFrame(void* data, wl_callback* callback, std::uint32_t time);
   // Called before the panel surface commits so outside-click dismissal is ready
   // for its first frame. The panel rect is excluded separately because
   // same-layer stacking order is compositor-defined.
@@ -181,6 +191,9 @@ private:
   // Called AFTER the panel surface is mapped so the panel wl_surface is
   // available for the whitelist. No-op when focus-grab is unavailable.
   void activateFocusGrab();
+  void applyKeyboardRelaxation(LayerShellKeyboard mode);
+  void addFocusGrabWhitelistSurfaces(FocusGrab& grab, wl_surface* excludedSurface);
+  [[nodiscard]] bool isFocusGrabWhitelistSurface(wl_surface* surface) const;
   void deactivateOutsideClickHandlers();
   void applyAttachedReveal(float progress);
   void applyDetachedReveal(float progress);
@@ -192,6 +205,16 @@ private:
   void applyAttachedDecorationStyle();
   // Submit a wl_region matching the panel body after applying the current reveal clip.
   void applyPanelCompositorBlur(int bodyX, int bodyY, int bodyW, int bodyH, int clipX, int clipY, int clipW, int clipH);
+  // Positions the background, shadows, and content node around the current card and sets
+  // the content size the panel lays out at.
+  void placePanelChrome();
+  // Lays out the active panel; a content-fitted panel is then measured, its card animated
+  // toward the fitted height, and its content laid out again at that height.
+  void layoutActivePanel(Renderer& renderer);
+  // Moves and resizes the visible card inside the fixed content-fit slot, along with the
+  // input region, click-shield rect, attached-bar geometry, and blur. Returns false when
+  // the height is unchanged.
+  bool setCardHeight(std::uint32_t height);
 
   CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
@@ -209,11 +232,12 @@ private:
   std::function<void()> m_panelClosedCallback;
   std::function<void()> m_panelOpenedCallback;
   std::function<bool(wl_output*, std::string_view)> m_attachedPanelAvailabilityCallback;
-  std::function<std::optional<std::string>(wl_output*, std::string_view)> m_attachedPanelLayerProvider;
+  std::function<std::optional<BarConfig>(wl_output*, std::string_view)> m_barConfigProvider;
   std::function<bool(wl_output*, std::string_view)> m_attachedPanelBarSettledCallback;
   PanelClickShield m_clickShield;
   PersistentPanelHost m_persistentHost;
   std::unique_ptr<FocusGrab> m_focusGrab;
+  std::unordered_set<wl_surface*> m_focusGrabPopupSurfaces;
 
   std::unique_ptr<Surface> m_surface;
   LayerSurface* m_layerSurface = nullptr;
@@ -234,6 +258,8 @@ private:
   InputDispatcher m_inputDispatcher;
 
   std::unordered_map<std::string, std::unique_ptr<Panel>> m_panels;
+  // Active panel unregistered while its surface was initializing; destroyed once the open finishes.
+  std::unique_ptr<Panel> m_retiredActivePanel;
   Panel* m_activePanel = nullptr;
   std::string m_activePanelId;
   std::string m_pendingOpenContext;
@@ -247,6 +273,23 @@ private:
   std::uint32_t m_panelVisualWidth = 0;
   std::uint32_t m_panelVisualHeight = 0;
   std::optional<InputRect> m_panelOutputInputRect;
+  // Content-fitted panels (Panel::fitsContentHeight): the surface is sized once at open for
+  // the panel's maximum height (the slot), and the visible card moves within it as the
+  // content changes. The card keeps the slot edge the panel is anchored to: top-anchored
+  // panels grow down, bottom-anchored ones up, centered ones both ways.
+  enum class CardAlign : std::uint8_t { Start, Center, End };
+  struct ContentFit {
+    bool enabled = false;
+    CardAlign align = CardAlign::Start;
+    std::int32_t slotInsetY = 0;
+    std::uint32_t slotHeight = 0;
+    std::int32_t slotOutputY = 0;
+    std::optional<AttachedPanelGeometry> attachedSlotGeometry;
+    // Height the content asked for; the card animates toward it. 0 until first measured.
+    std::uint32_t targetHeight = 0;
+    AnimationManager::Id animation = 0;
+  };
+  ContentFit m_contentFit;
   // Fill axes derive their visual size from the compositor-configured surface
   // size in buildScene; that math also needs the trailing shadow bleed.
   bool m_panelFillWidth = false;
@@ -260,6 +303,9 @@ private:
   AttachedRevealDirection m_attachedRevealDirection = AttachedRevealDirection::Down;
   AttachedRevealDirection m_detachedRevealDirection = AttachedRevealDirection::Down;
   Timer m_keyboardRelaxTimer;
+  Timer m_captureCloseTimer;
+  wl_callback* m_captureCloseFrame = nullptr;
+  std::function<void()> m_afterCaptureClose;
   std::string m_attachedBarPosition; // "top" / "bottom" / "left" / "right" while attached, empty otherwise
   std::string m_sourceBarName;       // name of the bar that opened the current panel
   std::optional<AttachedPanelGeometry> m_attachedPanelGeometry;

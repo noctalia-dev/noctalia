@@ -97,9 +97,12 @@ PipeWireSpectrum::ListenerId PipeWireSpectrum::addChangeListener(int bandCount, 
   state.bandCount = clampBandCount(bandCount);
   state.callback = std::move(callback);
   m_listeners.emplace(id, std::move(state));
-  reconfigureAnalysisLayout();
+  const bool notifiedAll = reconfigureAnalysisLayout();
   if (wasEmpty) {
     rebuildStream();
+  } else if (!notifiedAll) {
+    // Existing listeners keep their state; the new one still needs its initial values.
+    emitChanged(id);
   }
   return id;
 }
@@ -147,7 +150,7 @@ private:
   std::string m_targetObject;
   pw_stream* m_stream = nullptr;
   spa_hook m_listener{};
-  spa_audio_info_raw m_format = SPA_AUDIO_INFO_RAW_INIT(.format = SPA_AUDIO_FORMAT_UNKNOWN);
+  spa_audio_info_raw m_format{.format = SPA_AUDIO_FORMAT_UNKNOWN};
   bool m_formatReady = false;
 };
 
@@ -167,10 +170,13 @@ bool PipeWireSpectrum::Stream::start() {
     return false;
   }
 
+  const char* const passiveMode = m_spectrum.m_service.serverSupportsPassiveFollow() ? "in-follow" : "true";
+
   auto* props = pw_properties_new(
       PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_NAME, "Noctalia Spectrum",
       PW_KEY_APP_NAME, "Noctalia Spectrum", PW_KEY_STREAM_MONITOR, "true", PW_KEY_STREAM_CAPTURE_SINK, "true",
-      PW_KEY_MEDIA_ROLE, "Music", PW_KEY_TARGET_OBJECT, m_targetObject.c_str(), PW_KEY_NODE_PASSIVE, "true", nullptr
+      // No media.role: WirePlumber restore-stream keys on media.role first, sharing volume across Music-role captures.
+      PW_KEY_TARGET_OBJECT, m_targetObject.c_str(), PW_KEY_NODE_PASSIVE, passiveMode, nullptr
   );
   if (props == nullptr) {
     kLog.warn("failed to create spectrum stream properties");
@@ -188,9 +194,9 @@ bool PipeWireSpectrum::Stream::start() {
   pw_stream_add_listener(m_stream, &m_listener, &kEvents, this);
 
   auto buffer = std::array<std::uint8_t, 512>{};
-  auto builder = SPA_POD_BUILDER_INIT(buffer.data(), buffer.size());
+  spa_pod_builder builder{.data = buffer.data(), .size = static_cast<std::uint32_t>(buffer.size())};
   auto params = std::array<const spa_pod*, 1>{};
-  auto raw = SPA_AUDIO_INFO_RAW_INIT(.format = SPA_AUDIO_FORMAT_F32);
+  spa_audio_info_raw raw{.format = SPA_AUDIO_FORMAT_F32};
   params[0] = spa_format_audio_raw_build(&builder, SPA_PARAM_EnumFormat, &raw);
 
   const auto flags = static_cast<pw_stream_flags>(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS);
@@ -250,7 +256,7 @@ void PipeWireSpectrum::Stream::handleParamChanged(std::uint32_t id, const spa_po
     return;
   }
 
-  auto raw = SPA_AUDIO_INFO_RAW_INIT(.format = SPA_AUDIO_FORMAT_UNKNOWN);
+  spa_audio_info_raw raw{.format = SPA_AUDIO_FORMAT_UNKNOWN};
   if (spa_format_audio_raw_parse(param, &raw) < 0) {
     return;
   }
@@ -394,6 +400,14 @@ void PipeWireSpectrum::setSmoothing(bool enabled) {
   m_smoothing = enabled;
 }
 
+void PipeWireSpectrum::setFrameRate(int framesPerSecond) {
+  framesPerSecond = std::max(1, framesPerSecond);
+  if (framesPerSecond == m_frameRateHz) {
+    return;
+  }
+  m_frameRateHz = framesPerSecond;
+}
+
 int PipeWireSpectrum::pollTimeoutMs() const {
   if (!hasListeners() || m_stream == nullptr) {
     return -1;
@@ -448,23 +462,21 @@ void PipeWireSpectrum::rebuildStream() {
   m_stream.reset();
   m_boundNodeId = 0;
   m_boundTargetObject.clear();
+  clearValues(true);
 
   const std::uint32_t target = resolvedTargetNodeId();
   const auto* targetNode = resolvedTargetNode();
   if (!hasListeners() || target == 0 || targetNode == nullptr) {
-    clearValues(true);
     return;
   }
   if (targetNode->name.empty()) {
     kLog.warn("spectrum target node {} has no PipeWire node name", target);
-    clearValues(true);
     return;
   }
 
   m_stream = std::make_unique<Stream>(*this, target, targetNode->name);
   if (!m_stream->start()) {
     m_stream.reset();
-    clearValues(true);
     return;
   }
 
@@ -482,12 +494,6 @@ void PipeWireSpectrum::rebuildStream() {
     resetListenerState(state, false);
   }
   m_nextFrameAt = std::chrono::steady_clock::now();
-  if (m_idle) {
-    for (const auto& [id, state] : m_listeners) {
-      (void)state;
-      emitChanged(id);
-    }
-  }
 }
 
 std::uint32_t PipeWireSpectrum::resolvedTargetNodeId() const noexcept {
@@ -564,7 +570,7 @@ void PipeWireSpectrum::initProcessing() {
   reconfigureAnalysisLayout();
 }
 
-void PipeWireSpectrum::reconfigureAnalysisLayout() {
+bool PipeWireSpectrum::reconfigureAnalysisLayout() {
   int maxBandCount = kDefaultViewBandCount;
   for (const auto& [id, state] : m_listeners) {
     (void)id;
@@ -587,6 +593,7 @@ void PipeWireSpectrum::reconfigureAnalysisLayout() {
       emitChanged(id);
     }
   }
+  return analysisChanged;
 }
 
 void PipeWireSpectrum::configureListenerState(ListenerState& state, bool resetState) {
@@ -702,7 +709,7 @@ bool PipeWireSpectrum::processListenerView(ListenerState& state, float nrFactor,
 }
 
 std::chrono::nanoseconds PipeWireSpectrum::frameInterval() const noexcept {
-  return std::chrono::nanoseconds{std::chrono::seconds{1}} / kFrameRateHz;
+  return std::chrono::nanoseconds{std::chrono::seconds{1}} / m_frameRateHz;
 }
 
 void PipeWireSpectrum::feedSamples(const float* monoSamples, int count) {
@@ -784,7 +791,13 @@ void PipeWireSpectrum::processFrame() {
     band *= m_sensitivity;
   }
 
-  const double gravityMod = std::max(1.0, 1.54 / std::max(static_cast<double>(m_noiseReduction), 0.01));
+  // Gravity is tuned for 60 fps; other frame rates rescale it the way cava does.
+  const double gravityMod = std::max(
+      1.0,
+      std::pow(60.0 / static_cast<double>(m_frameRateHz), 2.5)
+          * 1.54
+          / std::max(static_cast<double>(m_noiseReduction), 0.01)
+  );
 
   bool overshoot = false;
   bool silence = true;
@@ -831,7 +844,7 @@ void PipeWireSpectrum::processFrame() {
 
   if (silence) {
     ++m_idleFrames;
-    if (m_idleFrames >= kFrameRateHz) {
+    if (m_idleFrames >= m_frameRateHz) {
       if (!m_idle) {
         m_idle = true;
         clearValues(true);

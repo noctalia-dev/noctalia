@@ -15,7 +15,7 @@ namespace {
     return true;
   }
 
-  BarCapsuleGroupStyle group(std::string id, std::vector<std::string> members, float padding = 6.0f) {
+  BarCapsuleGroupStyle group(std::string id, std::vector<std::string> members, float padding = 6.0F) {
     BarCapsuleGroupStyle style;
     style.id = std::move(id);
     style.members = std::move(members);
@@ -64,13 +64,13 @@ int main() {
 
   // A style edit on another group survives the repair.
   {
-    const std::vector<BarCapsuleGroupStyle> current{group("monit", {"cpu", "weather", "brightness"}, 12.0f), base[2]};
+    const std::vector<BarCapsuleGroupStyle> current{group("monit", {"cpu", "weather", "brightness"}, 12.0F), base[2]};
     const std::set<std::string> referenced{"left", "monit", "right"};
     const auto reconciled = reconcileCapsuleGroups(current, base, referenced);
     ok =
         expect(ids(reconciled) == std::vector<std::string>{"left", "monit", "right"}, "repaired array keeps file order")
         && ok;
-    ok = expect(reconciled[1].padding == 12.0f, "overridden group keeps its edited style") && ok;
+    ok = expect(reconciled[1].padding == 12.0F, "overridden group keeps its edited style") && ok;
   }
 
   // GUI-created groups have no file entry: they are appended while referenced, dropped once not.
@@ -93,11 +93,11 @@ int main() {
   // Duplicate ids in the config file pair up one-to-one with the override entries.
   {
     const std::vector<BarCapsuleGroupStyle> dupBase{group("dup", {"a"}), group("dup", {"b"})};
-    const std::vector<BarCapsuleGroupStyle> current{group("dup", {"a"}, 20.0f)};
+    const std::vector<BarCapsuleGroupStyle> current{group("dup", {"a"}, 20.0F)};
     const auto reconciled = reconcileCapsuleGroups(current, dupBase, {"dup"});
     ok = expect(reconciled.size() == 2, "both duplicate-id file groups are present") && ok;
     ok = expect(
-             reconciled.size() == 2 && reconciled[0].padding == 20.0f && reconciled[1].members == dupBase[1].members,
+             reconciled.size() == 2 && reconciled[0].padding == 20.0F && reconciled[1].members == dupBase[1].members,
              "the override entry consumes one duplicate, the file supplies the other"
          )
         && ok;

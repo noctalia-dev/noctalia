@@ -8,7 +8,6 @@
 #include "core/input/key_chord.h"
 #include "notification/notification_filter.h"
 #include "scripting/plugin_id.h"
-#include "util/file_utils.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -19,13 +18,25 @@
 
 namespace noctalia::config::schema {
 
+  namespace {
+    template <typename Struct, typename Enum, std::size_t N>
+    Field<Struct> enumArrayField(
+        std::vector<Enum> Struct::* member, std::string_view key, const EnumOption<Enum> (&options)[N],
+        std::optional<Enum> fallbackIfEmpty
+    );
+  }
+
   const Schema<AudioConfig>& audioSchema() {
     static const Schema<AudioConfig> s = {
         field(&AudioConfig::enableOverdrive, "enable_overdrive"),
         field(&AudioConfig::enableSounds, "enable_sounds"),
+        field(&AudioConfig::enableVolumeSounds, "enable_volume_sounds"),
+        field(&AudioConfig::enableNotificationSounds, "enable_notification_sounds"),
+        field(&AudioConfig::enablePowerSounds, "enable_power_sounds"),
+        field(&AudioConfig::enableScreenshotSounds, "enable_screenshot_sounds"),
         field(&AudioConfig::soundVolume, "sound_volume", kUnitRange),
-        field(&AudioConfig::volumeChangeSound, "volume_change_sound"),
-        field(&AudioConfig::notificationSound, "notification_sound"),
+        field(&AudioConfig::soundTheme, "sound_theme"),
+        field(&AudioConfig::spectrumFrameRate, "spectrum_frame_rate", kSpectrumFrameRateRange)
     };
     return s;
   }
@@ -55,11 +66,37 @@ namespace noctalia::config::schema {
         field(&OsdKindsConfig::lockKeys, "lock_keys"),
         field(&OsdKindsConfig::keyboardLayout, "keyboard_layout"),
         field(&OsdKindsConfig::media, "media"),
+        field(&OsdKindsConfig::mediaVolume, "media_volume"),
         field(&OsdKindsConfig::privacy, "privacy"),
         field(&OsdKindsConfig::keyboardBacklight, "keyboard_backlight"),
+        field(&OsdKindsConfig::custom, "custom"),
     };
     return s;
   }
+
+  namespace {
+    // Concrete ColorSpec stored as a config string; always emitted. A present
+    // non-string value is a hard error (mirrors colorStringValue).
+    // Define before all the schema, so colorField can be use when needs.
+    template <typename Struct> Field<Struct> colorField(ColorSpec Struct::* member, std::string_view key) {
+      return custom<Struct>(
+          key,
+          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics&) {
+            if (!tbl.contains(key)) {
+              return;
+            }
+            auto v = tbl[key].value<std::string>();
+            if (!v) {
+              throw std::runtime_error(joinPath(parentPath, key) + ": expected string ColorSpec");
+            }
+            out.*member = colorSpecFromConfigString(*v, joinPath(parentPath, key));
+          },
+          [member, key](toml::table& tbl, const Struct& in) {
+            tbl.insert_or_assign(key, colorSpecToConfigString(in.*member));
+          }
+      );
+    }
+  } // namespace
 
   const Schema<OsdConfig>& osdSchema() {
     static const Schema<OsdConfig> s = {
@@ -67,9 +104,13 @@ namespace noctalia::config::schema {
         field(&OsdConfig::position, "position"),
         field(&OsdConfig::positionVertical, "position_vertical"),
         field(&OsdConfig::orientation, "orientation"),
+        field(&OsdConfig::hideDelayMs, "hide_delay_ms", kOsdHideDelayMsRange),
         field(&OsdConfig::scale, "scale", kScaleRange),
         field(&OsdConfig::backgroundOpacity, "background_opacity", kUnitRange),
         field(&OsdConfig::border, "border"),
+        colorField(&OsdConfig::borderColor, "border_color"),
+        field(&OsdConfig::borderWidth, "border_width", kOsdBorderWidthRange),
+        field(&OsdConfig::followFocusedOutput, "follow_focused_output"),
         field(&OsdConfig::offsetX, "offset_x", Range<std::int64_t>{0, std::nullopt}),
         field(&OsdConfig::offsetY, "offset_y", Range<std::int64_t>{0, std::nullopt}),
         field(&OsdConfig::monitors, "monitors"),
@@ -91,9 +132,15 @@ namespace noctalia::config::schema {
     static const Schema<LockscreenConfig> s = {
         field(&LockscreenConfig::enabled, "enabled"),
         field(&LockscreenConfig::lockBeforeSuspend, "lock_before_suspend"),
+        field(&LockscreenConfig::gracePeriodSeconds, "grace_period_seconds", Range<std::int64_t>{0, 60}),
         field(&LockscreenConfig::fingerprint, "fingerprint"),
         field(&LockscreenConfig::allowEmptyPassword, "allow_empty_password"),
         field(&LockscreenConfig::blurredDesktop, "blurred_desktop"),
+        enumArrayField(
+            &LockscreenConfig::transitions, "transition", kLockscreenTransitions, std::optional<LockscreenTransition>{}
+        ),
+        field(&LockscreenConfig::transitionDurationMs, "transition_duration", kLockscreenTransitionDurationRange),
+        field(&LockscreenConfig::edgeSmoothness, "edge_smoothness", kUnitRange),
         field(&LockscreenConfig::blurIntensity, "blur_intensity", kUnitRange),
         field(&LockscreenConfig::tintIntensity, "tint_intensity", kUnitRange),
         pathStringField(&LockscreenConfig::wallpaper, "wallpaper"),
@@ -104,7 +151,7 @@ namespace noctalia::config::schema {
 
   namespace {
     // Poll-second floats are stored verbatim here; the [1,120]/disabled clamping
-    // happens at consumption, not at parse time — so no Range is attached.
+    // happens at consumption, not at parse time; so no Range is attached.
     const Schema<SystemConfig::MonitorConfig>& systemMonitorSchema() {
       static const Schema<SystemConfig::MonitorConfig> s = {
           field(&SystemConfig::MonitorConfig::enabled, "enabled"),
@@ -203,20 +250,20 @@ namespace noctalia::config::schema {
         field(&NotificationFilterConfig::enabled, "enabled"),
         custom<NotificationFilterConfig>(
             "matches",
-            [](const toml::table& tbl, NotificationFilterConfig& out, std::string_view, Diagnostics&) {
+            [](const toml::table& tbl, NotificationFilterConfig& out, std::string_view parentPath, Diagnostics& diag) {
               if (!out.match.empty()) {
                 return;
               }
               const auto* arr = tbl["matches"].as_array();
               if (arr == nullptr) {
+                warnWrongType(tbl, "matches", parentPath, diag, "an array of strings");
                 return;
               }
-              for (const auto& node : *arr) {
-                const auto token = node.value<std::string>();
-                if (!token.has_value() || StringUtils::trim(*token).empty()) {
+              for (const auto& token : readStringArray(*arr, joinPath(parentPath, "matches"), diag)) {
+                if (StringUtils::trim(token).empty()) {
                   continue;
                 }
-                out.match = normalizeNotificationMatchToken(*token);
+                out.match = normalizeNotificationMatchToken(token);
                 return;
               }
             },
@@ -236,8 +283,8 @@ namespace noctalia::config::schema {
             [](toml::table&, const NotificationFilterConfig&) {}
         ),
         finalize<NotificationFilterConfig>([](NotificationFilterConfig& filter, std::string_view, Diagnostics&) {
-          filter.match = normalizeNotificationMatchToken(std::move(filter.match));
-          filter.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(std::move(filter.allowedUrgencies));
+          filter.match = normalizeNotificationMatchToken(filter.match);
+          filter.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(filter.allowedUrgencies);
         }),
     };
     return s;
@@ -251,31 +298,36 @@ namespace noctalia::config::schema {
         field(&NotificationConfig::position, "position"),
         field(&NotificationConfig::layer, "layer"),
         field(&NotificationConfig::scale, "scale", kScaleRange),
+        field(&NotificationConfig::width, "width", kNotificationWidthRange),
         field(&NotificationConfig::backgroundOpacity, "background_opacity", kUnitRange),
         field(&NotificationConfig::border, "border"),
+        colorField(&NotificationConfig::borderColor, "border_color"),
+        field(&NotificationConfig::borderWidth, "border_width", kNotificationToastBorderWidthRange),
+        field(&NotificationConfig::followFocusedOutput, "follow_focused_output"),
         field(&NotificationConfig::offsetX, "offset_x"),
         field(&NotificationConfig::offsetY, "offset_y"),
         field(&NotificationConfig::monitors, "monitors"),
         field(&NotificationConfig::collapseOnDismiss, "collapse_on_dismiss"),
+        field(&NotificationConfig::keepDismissedInHistory, "keep_dismissed_in_history"),
         field(&NotificationConfig::historyRetentionHours, "history_retention_hours", Range<std::int64_t>{0, 8760}),
         field(&NotificationConfig::maxVisible, "max_visible", Range<std::int64_t>{0, 20}),
         custom<NotificationConfig>(
             "blacklist",
-            [](const toml::table& tbl, NotificationConfig& out, std::string_view, Diagnostics&) {
+            [](const toml::table& tbl, NotificationConfig& out, std::string_view parentPath, Diagnostics& diag) {
               if (!out.filters.empty()) {
                 return;
               }
               const auto* arr = tbl["blacklist"].as_array();
               if (arr == nullptr) {
+                warnWrongType(tbl, "blacklist", parentPath, diag, "an array of strings");
                 return;
               }
-              for (const auto& node : *arr) {
-                const auto token = node.value<std::string>();
-                if (!token.has_value() || StringUtils::trim(*token).empty()) {
+              for (const auto& token : readStringArray(*arr, joinPath(parentPath, "blacklist"), diag)) {
+                if (StringUtils::trim(token).empty()) {
                   continue;
                 }
                 NotificationFilterConfig filter;
-                filter.match = normalizeNotificationMatchToken(*token);
+                filter.match = normalizeNotificationMatchToken(token);
                 filter.showToast = false;
                 filter.saveHistory = false;
                 filter.playSound = false;
@@ -310,15 +362,11 @@ namespace noctalia::config::schema {
         ),
         custom<NotificationConfig>(
             "",
-            [](const toml::table& tbl, NotificationConfig& out, std::string_view, Diagnostics&) {
+            [](const toml::table& tbl, NotificationConfig& out, std::string_view parentPath, Diagnostics& diag) {
               if (const auto* arr = tbl["allowed_urgencies"].as_array()) {
-                std::vector<std::string> global;
-                for (const auto& node : *arr) {
-                  if (auto value = node.value<std::string>()) {
-                    global.push_back(*value);
-                  }
-                }
-                global = normalizeFilterAllowedUrgencyStrings(std::move(global));
+                const std::vector<std::string> global = normalizeFilterAllowedUrgencyStrings(
+                    readStringArray(*arr, joinPath(parentPath, "allowed_urgencies"), diag)
+                );
                 if (!global.empty()) {
                   for (auto& filter : out.filters) {
                     if (filter.allowedUrgencies.empty()) {
@@ -326,9 +374,14 @@ namespace noctalia::config::schema {
                     }
                   }
                 }
+              } else {
+                warnWrongType(tbl, "allowed_urgencies", parentPath, diag, "an array of strings");
               }
 
               const auto* orderArr = tbl["filter_order"].as_array();
+              if (orderArr == nullptr) {
+                warnWrongType(tbl, "filter_order", parentPath, diag, "an array of strings");
+              }
               if (orderArr == nullptr || out.filters.empty()) {
                 normalizeNotificationFilterNames(out.filters);
                 return;
@@ -345,17 +398,13 @@ namespace noctalia::config::schema {
               std::vector<NotificationFilterConfig> ordered;
               ordered.reserve(byName.size());
               std::unordered_set<std::string> placed;
-              for (const auto& node : *orderArr) {
-                const auto name = node.value<std::string>();
-                if (!name.has_value()) {
-                  continue;
-                }
-                const auto it = byName.find(*name);
+              for (const auto& name : readStringArray(*orderArr, joinPath(parentPath, "filter_order"), diag)) {
+                const auto it = byName.find(name);
                 if (it == byName.end()) {
                   continue;
                 }
                 ordered.push_back(std::move(it->second));
-                placed.insert(*name);
+                placed.insert(name);
               }
               for (auto& [name, filter] : byName) {
                 if (!placed.contains(name)) {
@@ -421,19 +470,8 @@ namespace noctalia::config::schema {
       static const Schema<BrightnessMonitorOverride> s = {
           field(&BrightnessMonitorOverride::match, "match"),
           optionalEnumField(&BrightnessMonitorOverride::backend, "backend", kBrightnessBackendPreferences),
-          custom<BrightnessMonitorOverride>(
-              "backlight_device",
-              [](const toml::table& tbl, BrightnessMonitorOverride& out, std::string_view, Diagnostics&) {
-                if (auto v = tbl["backlight_device"].value<std::string>()) {
-                  out.backlightDevice = *v;
-                }
-              },
-              [](toml::table& tbl, const BrightnessMonitorOverride& in) {
-                if (in.backlightDevice.has_value()) {
-                  tbl.insert_or_assign("backlight_device", *in.backlightDevice);
-                }
-              }
-          ),
+          field(&BrightnessMonitorOverride::backlightDevice, "backlight_device"),
+          field(&BrightnessMonitorOverride::ddcBus, "ddc_bus"),
       };
       return s;
     }
@@ -475,6 +513,14 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  const Schema<BluetoothConfig>& bluetoothSchema() {
+    static const Schema<BluetoothConfig> s = {
+        field(&BluetoothConfig::connectWhenEnabled, "connect_when_enabled"),
+        field(&BluetoothConfig::connectionNotifications, "connection_notifications"),
+    };
+    return s;
+  }
+
   namespace {
     const Schema<ShortcutConfig>& shortcutSchema() {
       static const Schema<ShortcutConfig> s = {field(&ShortcutConfig::type, "type")};
@@ -485,8 +531,19 @@ namespace noctalia::config::schema {
       static const Schema<ControlCenterConfig::CalendarTabConfig> s = {
           field(&ControlCenterConfig::CalendarTabConfig::showEventsCard, "show_events_card"),
           field(&ControlCenterConfig::CalendarTabConfig::showWeekNumbers, "show_week_numbers"),
-          field(&ControlCenterConfig::CalendarTabConfig::eventDateFormat, "event_date_format"),
-          field(&ControlCenterConfig::CalendarTabConfig::eventTimeFormat, "event_time_format"),
+          field(&ControlCenterConfig::CalendarTabConfig::showEventsLocation, "show_events_location"),
+          field(&ControlCenterConfig::CalendarTabConfig::hidePastEvents, "hide_past_events"),
+          field(
+              &ControlCenterConfig::CalendarTabConfig::pastEventsThresholdMinutes, "past_events_threshold_minutes",
+              kPastEventsThresholdMinutesRange
+          ),
+      };
+      return s;
+    }
+
+    const Schema<ControlCenterConfig::MediaTabConfig>& mediaTabSchema() {
+      static const Schema<ControlCenterConfig::MediaTabConfig> s = {
+          field(&ControlCenterConfig::MediaTabConfig::showVisualizer, "show_visualizer"),
       };
       return s;
     }
@@ -499,8 +556,11 @@ namespace noctalia::config::schema {
         field(&ControlCenterConfig::width, "width", kControlCenterWidthRange),
         field(&ControlCenterConfig::showShortcutLabels, "show_shortcut_labels"),
         field(&ControlCenterConfig::showSessionButton, "show_session_button"),
+        field(&ControlCenterConfig::circularAvatar, "circular_avatar"),
+        field(&ControlCenterConfig::showAvatarBorder, "show_avatar_border"),
         field(&ControlCenterConfig::hiddenTabs, "hidden_tabs"),
         subTable(&ControlCenterConfig::calendarTab, "calendar", calendarTabSchema()),
+        subTable(&ControlCenterConfig::mediaTab, "media", mediaTabSchema()),
         arrayOf<ControlCenterConfig, ShortcutConfig>(
             &ControlCenterConfig::shortcuts, "shortcuts", shortcutSchema(),
             [](const ShortcutConfig& sc) { return !sc.type.empty(); }
@@ -536,7 +596,27 @@ namespace noctalia::config::schema {
             [](const PluginSourceConfig& src) { return isValidPluginSourceName(src.name); }
         ),
         field(&PluginsConfig::enabled, "enabled"),
-        field(&PluginsConfig::autoUpdate, "auto_update"),
+        // auto_update accepts only "all"|"official"|"none"
+        custom<PluginsConfig>(
+            "auto_update",
+            [](const toml::table& tbl, PluginsConfig& out, std::string_view parentPath, Diagnostics& diag) {
+              if (auto v = tbl["auto_update"].value<std::string>()) {
+                const std::string trimmed = StringUtils::trim(*v);
+                if (auto parsed = enumFromKey(kPluginAutoUpdateModes, trimmed)) {
+                  out.autoUpdate = *parsed;
+                } else {
+                  diag.error(
+                      joinPath(parentPath, "auto_update"), "unknown value \"" + *v + "\"; expected all|official|none"
+                  );
+                }
+              } else if (tbl.contains("auto_update")) {
+                diag.error(joinPath(parentPath, "auto_update"), "expected all|official|none");
+              }
+            },
+            [](toml::table& tbl, const PluginsConfig& in) {
+              tbl.insert_or_assign("auto_update", std::string(enumToKey(kPluginAutoUpdateModes, in.autoUpdate)));
+            }
+        ),
         finalize<PluginsConfig>([](PluginsConfig& plugins, std::string_view parentPath, Diagnostics& diag) {
           for (auto it = plugins.enabled.begin(); it != plugins.enabled.end();) {
             if (scripting::isValidPluginId(*it)) {
@@ -545,6 +625,19 @@ namespace noctalia::config::schema {
             }
             diag.warn(joinPath(parentPath, "enabled"), "invalid plugin id \"" + *it + "\"; expected author/plugin");
             it = plugins.enabled.erase(it);
+          }
+          // Duplicate names would share one checkout on disk: keep the first, error on the rest.
+          std::unordered_set<std::string> seen;
+          for (auto it = plugins.sources.begin(); it != plugins.sources.end();) {
+            if (seen.insert(it->name).second) {
+              ++it;
+              continue;
+            }
+            diag.error(
+                joinPath(parentPath, "source"),
+                "duplicate plugin source name \"" + it->name + "\"; source names must be unique"
+            );
+            it = plugins.sources.erase(it);
           }
         }),
     };
@@ -568,6 +661,7 @@ namespace noctalia::config::schema {
                  Diagnostics& diag) {
                 const auto value = table["credential_source"].value<std::string>();
                 if (!value.has_value()) {
+                  warnWrongType(table, "credential_source", parentPath, diag, "a string");
                   return;
                 }
                 const std::string source = StringUtils::trim(*value);
@@ -590,8 +684,37 @@ namespace noctalia::config::schema {
               }
           ),
           pathStringField(&CalendarConfig::Account::passwordFile, "password_file"),
+          pathStringField(&CalendarConfig::Account::clientCertFile, "client_cert_file"),
+          pathStringField(&CalendarConfig::Account::clientKeyFile, "client_key_file"),
+          pathStringField(&CalendarConfig::Account::path, "path"),
           finalize<CalendarConfig::Account>([](CalendarConfig::Account& out, std::string_view parentPath,
                                                Diagnostics& diag) {
+            if (out.type != "caldav") {
+              if (!out.clientCertFile.empty()) {
+                diag.error(joinPath(parentPath, "client_cert_file"), "client_cert_file is only valid for caldav");
+              }
+              if (!out.clientKeyFile.empty()) {
+                diag.error(joinPath(parentPath, "client_key_file"), "client_key_file is only valid for caldav");
+              }
+            }
+            if (out.type == "vdir") {
+              if (out.credentialSource != CalendarCredentialSource::SecretService) {
+                diag.error(joinPath(parentPath, "credential_source"), "credential_source is only valid for caldav");
+              }
+              if (!out.passwordFile.empty()) {
+                diag.error(joinPath(parentPath, "password_file"), "password_file is only valid for caldav");
+              }
+              if (!out.username.empty()) {
+                diag.error(joinPath(parentPath, "username"), "username is only valid for caldav");
+              }
+              if (!out.provider.empty()) {
+                diag.error(joinPath(parentPath, "provider"), "provider is only valid for caldav");
+              }
+              if (!out.serverUrl.empty()) {
+                diag.error(joinPath(parentPath, "server_url"), "server_url is not used for vdir accounts (use path)");
+              }
+              return;
+            }
             if (out.type == "ics") {
               if (out.serverUrl.empty()) {
                 diag.error(joinPath(parentPath, "server_url"), "ics accounts require server_url (.ics file URL)");
@@ -630,6 +753,20 @@ namespace noctalia::config::schema {
               }
             } else if (!out.passwordFile.empty()) {
               diag.error(joinPath(parentPath, "password_file"), R"(password_file requires credential_source = "file")");
+            }
+            if (!out.clientCertFile.empty() || !out.clientKeyFile.empty()) {
+              if (out.clientCertFile.empty()) {
+                diag.error(joinPath(parentPath, "client_key_file"), "client_key_file without client_cert_file");
+              } else if (!std::filesystem::path(out.clientCertFile).is_absolute()) {
+                diag.error(
+                    joinPath(parentPath, "client_cert_file"), "client_cert_file must resolve to an absolute path"
+                );
+              }
+              if (out.clientKeyFile.empty()) {
+                diag.error(joinPath(parentPath, "client_cert_file"), "client_cert_file without client_key_file");
+              } else if (!std::filesystem::path(out.clientKeyFile).is_absolute()) {
+                diag.error(joinPath(parentPath, "client_key_file"), "client_key_file must resolve to an absolute path");
+              }
             }
             if (out.provider.empty()) {
               diag.error(
@@ -692,9 +829,11 @@ namespace noctalia::config::schema {
     Field<Struct> optionalBoolField(std::optional<bool> Struct::* member, std::string_view key) {
       return custom<Struct>(
           key,
-          [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
             if (auto v = tbl[key].value<bool>()) {
               out.*member = v;
+            } else {
+              warnWrongType(tbl, key, parentPath, diag, "a boolean");
             }
           },
           [member, key](toml::table& tbl, const Struct& in) {
@@ -714,18 +853,32 @@ namespace noctalia::config::schema {
       const EnumOption<Enum>* opts = options;
       return custom<Struct>(
           key,
-          [member, key, opts, fallbackIfEmpty](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          [member, key, opts,
+           fallbackIfEmpty](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
+            if (!tbl.contains(key)) {
+              return;
+            }
             const auto* arr = tbl[key].as_array();
             if (arr == nullptr) {
+              diag.warn(joinPath(parentPath, key), "expected an array of strings");
               return;
             }
             (out.*member).clear();
+            std::size_t index = 0;
             for (const auto& item : *arr) {
               if (auto s = item.value<std::string>()) {
-                if (auto e = enumLookup(opts, N, *s)) {
+                const std::string trimmed = StringUtils::trim(*s);
+                if (auto e = enumLookup(opts, N, trimmed)) {
                   (out.*member).push_back(*e);
+                } else {
+                  diag.warn(
+                      joinPath(parentPath, key) + '[' + std::to_string(index) + ']', "unknown value \"" + *s + "\""
+                  );
                 }
+              } else {
+                diag.warn(joinPath(parentPath, key) + '[' + std::to_string(index) + ']', "expected a string");
               }
+              ++index;
             }
             if ((out.*member).empty() && fallbackIfEmpty) {
               (out.*member).push_back(*fallbackIfEmpty);
@@ -760,6 +913,11 @@ namespace noctalia::config::schema {
                   } else {
                     diag.warn(joinPath(parentPath, "order"), "expected random|alphabetical, got \"" + *v + "\"");
                   }
+                } else {
+                  warnWrongType(
+                      tbl, "order", parentPath, diag,
+                      enumKeyList(kWallpaperAutomationOrders, std::size(kWallpaperAutomationOrders))
+                  );
                 }
               },
               [](toml::table& tbl, const WallpaperAutomationConfig& in) {
@@ -767,6 +925,7 @@ namespace noctalia::config::schema {
               }
           ),
           field(&WallpaperAutomationConfig::recursive, "recursive"),
+          field(&WallpaperAutomationConfig::pauseOnFullscreen, "pause_on_fullscreen"),
       };
       return s;
     }
@@ -813,11 +972,11 @@ namespace noctalia::config::schema {
               return;
             }
             if (const auto* arr = node->as_array()) {
-              for (const auto& item : *arr) {
-                if (auto v = item.value<std::string>()) {
-                  parseOne(*v);
-                }
+              for (const auto& spec : readStringArray(*arr, joinPath(parentPath, key), diag)) {
+                parseOne(spec);
               }
+            } else {
+              warnWrongType(diag, joinPath(parentPath, key), *node, "a string or an array of strings");
             }
           },
           [member, key, action](toml::table& tbl, const KeybindsConfig& in) {
@@ -868,9 +1027,11 @@ namespace noctalia::config::schema {
           // action is trimmed on read.
           custom<IdleBehaviorConfig>(
               "action",
-              [](const toml::table& tbl, IdleBehaviorConfig& out, std::string_view, Diagnostics&) {
+              [](const toml::table& tbl, IdleBehaviorConfig& out, std::string_view parentPath, Diagnostics& diag) {
                 if (auto v = tbl["action"].value<std::string>()) {
                   out.action = StringUtils::trim(*v);
+                } else {
+                  warnWrongType(tbl, "action", parentPath, diag, "a string");
                 }
               },
               [](toml::table& tbl, const IdleBehaviorConfig& in) { tbl.insert_or_assign("action", in.action); }
@@ -880,9 +1041,11 @@ namespace noctalia::config::schema {
           // Emitted only for a bare `suspend` that opts out of pre-suspend locking.
           custom<IdleBehaviorConfig>(
               "lock_before_suspend",
-              [](const toml::table& tbl, IdleBehaviorConfig& out, std::string_view, Diagnostics&) {
+              [](const toml::table& tbl, IdleBehaviorConfig& out, std::string_view parentPath, Diagnostics& diag) {
                 if (auto v = tbl["lock_before_suspend"].value<bool>()) {
                   out.lockBeforeSuspend = *v;
+                } else {
+                  warnWrongType(tbl, "lock_before_suspend", parentPath, diag, "a boolean");
                 }
               },
               [](toml::table& tbl, const IdleBehaviorConfig& in) {
@@ -925,15 +1088,18 @@ namespace noctalia::config::schema {
         // any unlisted behaviors in their original relative order at the end.
         custom<IdleConfig>(
             "",
-            [](const toml::table& tbl, IdleConfig& out, std::string_view, Diagnostics&) {
+            [](const toml::table& tbl, IdleConfig& out, std::string_view parentPath, Diagnostics& diag) {
               const auto* orderArr = tbl["behavior_order"].as_array();
+              if (orderArr == nullptr) {
+                warnWrongType(tbl, "behavior_order", parentPath, diag, "an array of strings");
+              }
               if (orderArr == nullptr || out.behaviors.empty()) {
                 return;
               }
               std::vector<std::string> orderedNames;
-              for (const auto& item : *orderArr) {
-                if (auto name = item.value<std::string>(); name && !name->empty()) {
-                  orderedNames.push_back(*name);
+              for (auto& name : readStringArray(*orderArr, joinPath(parentPath, "behavior_order"), diag)) {
+                if (!name.empty()) {
+                  orderedNames.push_back(std::move(name));
                 }
               }
               if (orderedNames.empty()) {
@@ -974,29 +1140,40 @@ namespace noctalia::config::schema {
     // bare color string or a { color, color_dark, color_light, blend } table.
     // Kept only when name+color are non-empty (color falls back to color_dark then
     // color_light when not provided); emitted only when the list is non-empty.
-    void parseCustomColorsMapImpl(const toml::table& map, std::vector<TemplateColor>& out) {
+    // Entries and table keys of the wrong type are skipped with a warning under `path`.
+    void parseCustomColorsMapImpl(
+        const toml::table& map, std::vector<TemplateColor>& out, std::string_view path, Diagnostics& diag
+    ) {
       for (const auto& [name, value] : map) {
         TemplateColor color;
         color.name = std::string(name.str());
         if (const auto* str = value.as_string()) {
           color.color = str->get();
         } else if (const auto* t = value.as_table()) {
-          if (auto c = t->get_as<std::string>("color_dark")) {
+          const std::string entryPath = joinPath(path, name.str());
+          if (const auto* c = t->get_as<std::string>("color_dark")) {
             color.color_dark = c->get();
-          }
-          if (auto c = t->get_as<std::string>("color_light")) {
-            color.color_light = c->get();
-          }
-          if (auto c = t->get_as<std::string>("color")) {
-            color.color = c->get();
-          } else if (!color.color_dark.empty()) {
-            color.color = color.color_dark;
           } else {
-            color.color = color.color_light;
+            warnWrongType(*t, "color_dark", entryPath, diag, "a string");
           }
-          if (auto b = t->get_as<bool>("blend")) {
+          if (const auto* c = t->get_as<std::string>("color_light")) {
+            color.color_light = c->get();
+          } else {
+            warnWrongType(*t, "color_light", entryPath, diag, "a string");
+          }
+          if (const auto* c = t->get_as<std::string>("color")) {
+            color.color = c->get();
+          } else {
+            warnWrongType(*t, "color", entryPath, diag, "a string");
+            color.color = !color.color_dark.empty() ? color.color_dark : color.color_light;
+          }
+          if (const auto* b = t->get_as<bool>("blend")) {
             color.blend = b->get();
+          } else {
+            warnWrongType(*t, "blend", entryPath, diag, "a boolean");
           }
+        } else {
+          warnWrongType(diag, joinPath(path, name.str()), value, "a string or a table");
         }
         if (!StringUtils::trim(color.name).empty() && !StringUtils::trim(color.color).empty()) {
           out.push_back(std::move(color));
@@ -1007,13 +1184,15 @@ namespace noctalia::config::schema {
     Field<ThemeConfig::TemplatesConfig> customColorsField() {
       return custom<ThemeConfig::TemplatesConfig>(
           "custom_colors",
-          [](const toml::table& tbl, ThemeConfig::TemplatesConfig& out, std::string_view, Diagnostics&) {
+          [](const toml::table& tbl, ThemeConfig::TemplatesConfig& out, std::string_view parentPath,
+             Diagnostics& diag) {
             const auto* map = tbl["custom_colors"].as_table();
             if (map == nullptr) {
+              warnWrongType(tbl, "custom_colors", parentPath, diag, "a table");
               return;
             }
             out.customColors.clear();
-            parseCustomColorsMapImpl(*map, out.customColors);
+            parseCustomColorsMapImpl(*map, out.customColors, joinPath(parentPath, "custom_colors"), diag);
           },
           [](toml::table& tbl, const ThemeConfig::TemplatesConfig& in) {
             if (in.customColors.empty()) {
@@ -1044,13 +1223,20 @@ namespace noctalia::config::schema {
           // input_path_modes is set only when both dark and light are present.
           custom<UserTemplate>(
               "input_path_modes",
-              [](const toml::table& tbl, UserTemplate& out, std::string_view, Diagnostics&) {
+              [](const toml::table& tbl, UserTemplate& out, std::string_view parentPath, Diagnostics& diag) {
                 const auto* m = tbl["input_path_modes"].as_table();
                 if (m == nullptr) {
+                  warnWrongType(tbl, "input_path_modes", parentPath, diag, "a table");
                   return;
                 }
-                auto dark = m->get_as<std::string>("dark");
-                auto light = m->get_as<std::string>("light");
+                const auto* dark = m->get_as<std::string>("dark");
+                if (dark == nullptr) {
+                  warnWrongType(*m, "dark", joinPath(parentPath, "input_path_modes"), diag, "a string");
+                }
+                const auto* light = m->get_as<std::string>("light");
+                if (light == nullptr) {
+                  warnWrongType(*m, "light", joinPath(parentPath, "input_path_modes"), diag, "a string");
+                }
                 if (dark != nullptr && light != nullptr) {
                   out.inputPathModes = ThemeConfig::TemplateInputPathModesConfig{dark->get(), light->get()};
                 }
@@ -1067,7 +1253,7 @@ namespace noctalia::config::schema {
           // output_path accepts a single string or an array; always emitted as an array.
           custom<UserTemplate>(
               "output_path",
-              [](const toml::table& tbl, UserTemplate& out, std::string_view, Diagnostics&) {
+              [](const toml::table& tbl, UserTemplate& out, std::string_view parentPath, Diagnostics& diag) {
                 const auto* node = tbl.get("output_path");
                 if (node == nullptr) {
                   return;
@@ -1076,11 +1262,9 @@ namespace noctalia::config::schema {
                 if (const auto* str = node->as_string()) {
                   out.outputPaths.push_back(str->get());
                 } else if (const auto* arr = node->as_array()) {
-                  for (const auto& item : *arr) {
-                    if (const auto* itemStr = item.as_string()) {
-                      out.outputPaths.push_back(itemStr->get());
-                    }
-                  }
+                  out.outputPaths = readStringArray(*arr, joinPath(parentPath, "output_path"), diag);
+                } else {
+                  warnWrongType(diag, joinPath(parentPath, "output_path"), *node, "a string or an array of strings");
                 }
               },
               [](toml::table& tbl, const UserTemplate& in) {
@@ -1096,19 +1280,31 @@ namespace noctalia::config::schema {
           // colors_to_compare: array of { name, color }; emitted only when non-empty.
           custom<UserTemplate>(
               "colors_to_compare",
-              [](const toml::table& tbl, UserTemplate& out, std::string_view, Diagnostics&) {
+              [](const toml::table& tbl, UserTemplate& out, std::string_view parentPath, Diagnostics& diag) {
                 const auto* arr = tbl["colors_to_compare"].as_array();
                 if (arr == nullptr) {
+                  warnWrongType(tbl, "colors_to_compare", parentPath, diag, "an array of tables");
                   return;
                 }
+                const auto itemPath = [&](std::size_t index) {
+                  return joinPath(parentPath, "colors_to_compare") + '[' + std::to_string(index) + ']';
+                };
                 out.colorsToCompare.clear();
-                for (const auto& item : *arr) {
+                for (std::size_t index = 0; index < arr->size(); ++index) {
+                  const auto& item = (*arr)[index];
                   const auto* t = item.as_table();
                   if (t == nullptr) {
+                    warnWrongType(diag, itemPath(index), item, "a table");
                     continue;
                   }
-                  auto name = t->get_as<std::string>("name");
-                  auto color = t->get_as<std::string>("color");
+                  const auto* name = t->get_as<std::string>("name");
+                  if (name == nullptr) {
+                    warnWrongType(*t, "name", itemPath(index), diag, "a string");
+                  }
+                  const auto* color = t->get_as<std::string>("color");
+                  if (color == nullptr) {
+                    warnWrongType(*t, "color", itemPath(index), diag, "a string");
+                  }
                   if (name != nullptr && color != nullptr) {
                     out.colorsToCompare.push_back(CompareColor{name->get(), color->get()});
                   }
@@ -1132,6 +1328,7 @@ namespace noctalia::config::schema {
           field(&UserTemplate::postHook, "post_hook"),
           field(&UserTemplate::postAction, "post_action"),
           field(&UserTemplate::index, "index"),
+          field(&UserTemplate::hookAsync, "hook_async"),
       };
       return s;
     }
@@ -1153,8 +1350,11 @@ namespace noctalia::config::schema {
     }
   } // namespace
 
-  void parseCustomColorsMap(const toml::table& map, std::vector<ThemeConfig::TemplateColorConfig>& out) {
-    parseCustomColorsMapImpl(map, out);
+  void parseCustomColorsMap(
+      const toml::table& map, std::vector<ThemeConfig::TemplateColorConfig>& out, std::string_view path,
+      Diagnostics& diag
+  ) {
+    parseCustomColorsMapImpl(map, out, path, diag);
   }
 
   void appendUniqueCustomColors(
@@ -1168,12 +1368,14 @@ namespace noctalia::config::schema {
     }
   }
 
-  void liftTemplateConfigCustomColors(const toml::table& root, Config& config) {
+  void liftTemplateConfigCustomColors(const toml::table& root, Config& config, Diagnostics& diag) {
     if (const auto* configTbl = root["config"].as_table()) {
       if (const auto* customColors = (*configTbl)["custom_colors"].as_table()) {
         std::vector<ThemeConfig::TemplateColorConfig> lifted;
-        parseCustomColorsMap(*customColors, lifted);
+        parseCustomColorsMap(*customColors, lifted, "config.custom_colors", diag);
         appendUniqueCustomColors(config.theme.templates.customColors, std::move(lifted));
+      } else {
+        warnWrongType(*configTbl, "custom_colors", "config", diag, "a table");
       }
     }
   }
@@ -1186,7 +1388,9 @@ namespace noctalia::config::schema {
         field(&ThemeConfig::customPalette, "custom_palette"),
         field(&ThemeConfig::wallpaperScheme, "wallpaper_scheme"),
         enumField(&ThemeConfig::mode, "mode", kThemeModes),
+        enumField(&ThemeConfig::shellMode, "shell_mode", kShellThemeModes),
         field(&ThemeConfig::pureBlackDark, "pure_black_dark"),
+        field(&ThemeConfig::syncColorScheme, "sync_color_scheme"),
         subTable(&ThemeConfig::templates, "templates", templatesSchema()),
     };
     return s;
@@ -1197,9 +1401,11 @@ namespace noctalia::config::schema {
     template <typename Struct> Field<Struct> stringIfNonEmptyField(std::string Struct::* member, std::string_view key) {
       return custom<Struct>(
           key,
-          [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
             if (auto v = tbl[key].value<std::string>()) {
               out.*member = *v;
+            } else {
+              warnWrongType(tbl, key, parentPath, diag, "a string");
             }
           },
           [member, key](toml::table& tbl, const Struct& in) {
@@ -1231,10 +1437,12 @@ namespace noctalia::config::schema {
     dmenuOptionalString(std::optional<std::string> DmenuEntryConfig::* member, std::string_view key) {
       return custom<DmenuEntryConfig>(
           key,
-          [member, key](const toml::table& tbl, DmenuEntryConfig& out, std::string_view, Diagnostics&) {
+          [member, key](const toml::table& tbl, DmenuEntryConfig& out, std::string_view parentPath, Diagnostics& diag) {
             if (auto v = tbl[key].value<std::string>()) {
               const std::string trimmed = StringUtils::trim(*v);
               out.*member = trimmed.empty() ? std::optional<std::string>{} : std::optional<std::string>{trimmed};
+            } else {
+              warnWrongType(tbl, key, parentPath, diag, "a string");
             }
           },
           [member, key](toml::table& tbl, const DmenuEntryConfig& in) {
@@ -1271,8 +1479,11 @@ namespace noctalia::config::schema {
       static const Schema<ShellConfig::PanelConfig> s = {
           enumField(&ShellConfig::PanelConfig::transparencyMode, "transparency_mode", kPanelTransparencyModes),
           field(&ShellConfig::PanelConfig::borders, "borders"),
+          colorField(&ShellConfig::PanelConfig::borderColor, "border_color"),
+          field(&ShellConfig::PanelConfig::borderWidth, "border_width", kPanelBorderWidthRange),
           field(&ShellConfig::PanelConfig::shadow, "shadow"),
           field(&ShellConfig::PanelConfig::listItemBackground, "list_item_background"),
+          field(&ShellConfig::PanelConfig::wallpaperShowNames, "wallpaper_show_names"),
           custom<ShellConfig::PanelConfig>(
               "floating_layer",
               [](const toml::table& tbl, ShellConfig::PanelConfig& out, std::string_view parentPath,
@@ -1283,6 +1494,8 @@ namespace noctalia::config::schema {
                   } else {
                     diag.warn(joinPath(parentPath, "floating_layer"), "expected top or overlay, got \"" + *v + "\"");
                   }
+                } else {
+                  warnWrongType(tbl, "floating_layer", parentPath, diag, "a string");
                 }
               },
               [](toml::table& tbl, const ShellConfig::PanelConfig& in) {
@@ -1319,24 +1532,43 @@ namespace noctalia::config::schema {
       return s;
     }
 
+    const Schema<ShellConfig::LauncherConfig::PanelsConfig>& shellLauncherPanelsSchema() {
+      static const Schema<ShellConfig::LauncherConfig::PanelsConfig> s = {
+          field(&ShellConfig::LauncherConfig::PanelsConfig::ignored, "ignored"),
+      };
+      return s;
+    }
+
     const Schema<ShellConfig::LauncherConfig>& shellLauncherSchema() {
       static const Schema<ShellConfig::LauncherConfig> s = {
+          enumField(&ShellConfig::LauncherConfig::layout, "layout", ShellConfig::kLauncherLayouts),
+          field(&ShellConfig::LauncherConfig::width, "width", noctalia::config::schema::kLauncherWidthRange),
+          enumField(
+              &ShellConfig::LauncherConfig::searchPosition, "search_position", ShellConfig::kLauncherSearchPositions
+          ),
+          enumField(&ShellConfig::LauncherConfig::defaultView, "default_view", ShellConfig::kLauncherDefaultViews),
           field(&ShellConfig::LauncherConfig::categories, "categories"),
+          field(&ShellConfig::LauncherConfig::categoryIconsOnly, "category_icons_only"),
+          field(&ShellConfig::LauncherConfig::showNavigationLabels, "show_navigation_labels"),
+          field(&ShellConfig::LauncherConfig::showSettingsButton, "show_settings_button"),
+          field(&ShellConfig::LauncherConfig::showSessionButton, "show_session_button"),
           field(&ShellConfig::LauncherConfig::showIcons, "show_icons"),
+          field(&ShellConfig::LauncherConfig::showAppOriginIndicator, "show_app_origin_indicator"),
           field(&ShellConfig::LauncherConfig::compact, "compact"),
           field(&ShellConfig::LauncherConfig::appGrid, "app_grid"),
           field(&ShellConfig::LauncherConfig::showAppActions, "show_app_actions"),
+          field(&ShellConfig::LauncherConfig::trackUsage, "track_usage"),
           field(&ShellConfig::LauncherConfig::sortByUsage, "sort_by_usage"),
+          field(&ShellConfig::LauncherConfig::ignoreMouse, "ignore_mouse"),
           field(&ShellConfig::LauncherConfig::pinned, "pinned"),
           field(&ShellConfig::LauncherConfig::fetchExchangeRates, "fetch_exchange_rates"),
           field(&ShellConfig::LauncherConfig::providerPrefix, "provider_prefix"),
           enumField(&ShellConfig::LauncherConfig::autoPaste, "auto_paste", kClipboardAutoPasteModes),
           subTable(&ShellConfig::LauncherConfig::dmenu, "dmenu", shellLauncherDmenuSchema()),
+          subTable(&ShellConfig::LauncherConfig::panels, "panels", shellLauncherPanelsSchema()),
           namedMap<ShellConfig::LauncherConfig, LauncherProviderConfig>(
               &ShellConfig::LauncherConfig::providers, "providers", launcherProviderSchema(),
-              [](LauncherProviderConfig& elem, std::string_view name) {
-                elem.name = StringUtils::toLower(std::string(name));
-              },
+              [](LauncherProviderConfig& elem, std::string_view name) { elem.name = StringUtils::toLower(name); },
               [](const LauncherProviderConfig& elem) { return elem.name; }
           ),
       };
@@ -1346,6 +1578,19 @@ namespace noctalia::config::schema {
     const Schema<ShellConfig::KeyboardLayoutConfig>& shellKeyboardLayoutSchema() {
       static const Schema<ShellConfig::KeyboardLayoutConfig> s = {
           field(&ShellConfig::KeyboardLayoutConfig::customLabels, "custom_labels"),
+      };
+      return s;
+    }
+
+    const Schema<ShellConfig::WindowSwitcherConfig>& shellWindowSwitcherSchema() {
+      static const Schema<ShellConfig::WindowSwitcherConfig> s = {
+          enumField(&ShellConfig::WindowSwitcherConfig::style, "style", ShellConfig::kWindowSwitcherStyles),
+          field(&ShellConfig::WindowSwitcherConfig::mru, "mru"),
+          field(&ShellConfig::WindowSwitcherConfig::showCaption, "show_caption"),
+          field(&ShellConfig::WindowSwitcherConfig::showCount, "show_count"),
+          field(&ShellConfig::WindowSwitcherConfig::showAppIcon, "show_app_icon"),
+          field(&ShellConfig::WindowSwitcherConfig::showAllOutputs, "show_all_outputs"),
+          field(&ShellConfig::WindowSwitcherConfig::currentWorkspaceOnly, "current_workspace_only"),
       };
       return s;
     }
@@ -1374,11 +1619,26 @@ namespace noctalia::config::schema {
           field(&ShellConfig::ScreenshotConfig::freezeScreen, "freeze_screen"),
           field(&ShellConfig::ScreenshotConfig::confirmRegion, "confirm_region"),
           field(&ShellConfig::ScreenshotConfig::rememberLastRegion, "remember_last_region"),
+          enumField(&ShellConfig::ScreenshotConfig::regionModifier, "region_modifier", kScreenshotRegionModifiers),
+          field(
+              &ShellConfig::ScreenshotConfig::regionBorderWidth, "region_border_width",
+              kScreenshotRegionBorderWidthRange
+          ),
+          field(&ShellConfig::ScreenshotConfig::regionDimOpacity, "region_dim_opacity", kUnitRange),
+          field(&ShellConfig::ScreenshotConfig::showRegionHint, "show_region_hint"),
+          field(&ShellConfig::ScreenshotConfig::showRegionDimensions, "show_region_dimensions"),
           field(&ShellConfig::ScreenshotConfig::showCursor, "show_cursor"),
+          field(&ShellConfig::ScreenshotConfig::annotate, "annotate"),
+          field(&ShellConfig::ScreenshotConfig::skipAnnotateOnCopySave, "skip_annotate_on_copy_save"),
+          field(&ShellConfig::ScreenshotConfig::closeOnCopy, "close_on_copy"),
+          field(&ShellConfig::ScreenshotConfig::closeOnSave, "close_on_save"),
+          field(&ShellConfig::ScreenshotConfig::copyOnClose, "copy_on_close"),
           field(&ShellConfig::ScreenshotConfig::pipeToCommand, "pipe_to_command"),
           field(&ShellConfig::ScreenshotConfig::pipeCommand, "pipe_command"),
           field(&ShellConfig::ScreenshotConfig::directory, "directory"),
           field(&ShellConfig::ScreenshotConfig::filenamePattern, "filename_pattern"),
+          enumField(&ShellConfig::ScreenshotConfig::format, "format", kScreenshotFormats),
+          field(&ShellConfig::ScreenshotConfig::quality, "quality", kScreenshotQualityRange),
       };
       return s;
     }
@@ -1397,10 +1657,13 @@ namespace noctalia::config::schema {
     sessionOptionalString(std::optional<std::string> SessionPanelActionConfig::* member, std::string_view key) {
       return custom<SessionPanelActionConfig>(
           key,
-          [member, key](const toml::table& tbl, SessionPanelActionConfig& out, std::string_view, Diagnostics&) {
+          [member,
+           key](const toml::table& tbl, SessionPanelActionConfig& out, std::string_view parentPath, Diagnostics& diag) {
             if (auto v = tbl[key].value<std::string>()) {
               const std::string trimmed = StringUtils::trim(*v);
               out.*member = trimmed.empty() ? std::optional<std::string>{} : std::optional<std::string>{trimmed};
+            } else {
+              warnWrongType(tbl, key, parentPath, diag, "a string");
             }
           },
           [member, key](toml::table& tbl, const SessionPanelActionConfig& in) {
@@ -1413,9 +1676,12 @@ namespace noctalia::config::schema {
       static const Schema<SessionPanelActionConfig> s = {
           custom<SessionPanelActionConfig>(
               "action",
-              [](const toml::table& tbl, SessionPanelActionConfig& out, std::string_view, Diagnostics&) {
+              [](const toml::table& tbl, SessionPanelActionConfig& out, std::string_view parentPath,
+                 Diagnostics& diag) {
                 if (auto v = tbl["action"].value<std::string>()) {
                   out.action = StringUtils::toLower(StringUtils::trim(*v));
+                } else {
+                  warnWrongType(tbl, "action", parentPath, diag, "a string");
                 }
               },
               [](toml::table& tbl, const SessionPanelActionConfig& in) { tbl.insert_or_assign("action", in.action); }
@@ -1427,12 +1693,15 @@ namespace noctalia::config::schema {
           enumField(&SessionPanelActionConfig::variant, "variant", kSessionActionButtonVariants),
           custom<SessionPanelActionConfig>(
               "shortcut",
-              [](const toml::table& tbl, SessionPanelActionConfig& out, std::string_view, Diagnostics&) {
+              [](const toml::table& tbl, SessionPanelActionConfig& out, std::string_view parentPath,
+                 Diagnostics& diag) {
                 if (auto v = tbl["shortcut"].value<std::string>()) {
                   const std::string spec = StringUtils::trim(*v);
                   if (!spec.empty()) {
                     out.shortcut = parseKeyChordSpec(spec);
                   }
+                } else {
+                  warnWrongType(tbl, "shortcut", parentPath, diag, "a string");
                 }
               },
               [](toml::table& tbl, const SessionPanelActionConfig& in) {
@@ -1441,21 +1710,54 @@ namespace noctalia::config::schema {
                 );
               }
           ),
+          custom<SessionPanelActionConfig>(
+              "lockscreen_shortcut",
+              [](const toml::table& tbl, SessionPanelActionConfig& out, std::string_view parentPath,
+                 Diagnostics& diag) {
+                if (auto v = tbl["lockscreen_shortcut"].value<std::string>()) {
+                  const std::string spec = StringUtils::trim(*v);
+                  if (spec.empty()) {
+                    return;
+                  }
+                  auto chord = parseKeyChordSpec(spec);
+                  if (chord.has_value() && isTextKeyChord(*chord)) {
+                    diag.warn(
+                        joinPath(parentPath, "lockscreen_shortcut"),
+                        "\""
+                            + spec
+                            + "\" types text into the password field; use a non-printable key or a Ctrl/Alt chord"
+                    );
+                    return;
+                  }
+                  out.lockscreenShortcut = chord;
+                } else {
+                  warnWrongType(tbl, "lockscreen_shortcut", parentPath, diag, "a string");
+                }
+              },
+              [](toml::table& tbl, const SessionPanelActionConfig& in) {
+                tbl.insert_or_assign(
+                    "lockscreen_shortcut",
+                    in.lockscreenShortcut.has_value() ? keyChordToString(*in.lockscreenShortcut) : std::string{}
+                );
+              }
+          ),
           field(&SessionPanelActionConfig::countdownSeconds, "countdown_seconds"),
       };
       return s;
     }
 
-    const Schema<typename ShellSessionConfig::ShellSessionPowerConfig>& shellSessionPowerSchema();
+    const Schema<ShellSessionConfig::ShellSessionPowerConfig>& shellSessionPowerSchema();
 
     const Schema<ShellGreeterSyncConfig>& shellGreeterSyncSchema() {
       static const Schema<ShellGreeterSyncConfig> s = {
           field(&ShellGreeterSyncConfig::autoSync, "auto_sync"),
           custom<ShellGreeterSyncConfig>(
               "privilege_command",
-              [](const toml::table& tbl, ShellGreeterSyncConfig& out, std::string_view, Diagnostics&) {
+              [](const toml::table& tbl, ShellGreeterSyncConfig& out, std::string_view parentPath, Diagnostics& diag) {
                 if (auto v = tbl["privilege_command"].value<std::string>()) {
                   out.privilegeCommand = StringUtils::trim(*v);
+                } else {
+                  warnWrongType(tbl, "privilege_command", parentPath, diag, "a string");
                 }
               },
               [](toml::table& tbl, const ShellGreeterSyncConfig& in) {
@@ -1491,15 +1793,18 @@ namespace noctalia::config::schema {
         field(&ShellConfig::popupBorders, "popup_borders"),
         field(&ShellConfig::popupShadows, "popup_shadows"),
         field(&ShellConfig::cardBorders, "card_borders"),
+        field(&ShellConfig::showCloseButtons, "show_close_buttons"),
         // font_family is trimmed; empty falls back to sans-serif.
         custom<ShellConfig>(
             "font_family",
-            [](const toml::table& tbl, ShellConfig& out, std::string_view, Diagnostics&) {
+            [](const toml::table& tbl, ShellConfig& out, std::string_view parentPath, Diagnostics& diag) {
               if (auto v = tbl["font_family"].value<std::string>()) {
                 out.fontFamily = StringUtils::trim(*v);
                 if (out.fontFamily.empty()) {
                   out.fontFamily = "sans-serif";
                 }
+              } else {
+                warnWrongType(tbl, "font_family", parentPath, diag, "a string");
               }
             },
             [](toml::table& tbl, const ShellConfig& in) { tbl.insert_or_assign("font_family", in.fontFamily); }
@@ -1513,9 +1818,15 @@ namespace noctalia::config::schema {
         field(&ShellConfig::telemetryEnabled, "telemetry_enabled"),
         field(&ShellConfig::setupWizardEnabled, "setup_wizard_enabled"),
         field(&ShellConfig::niriOverviewTypeToLaunchEnabled, "niri_overview_type_to_launch_enabled"),
+        field(&ShellConfig::umbrielOverviewTypeToLaunchEnabled, "umbriel_overview_type_to_launch_enabled"),
+        field(&ShellConfig::umbrielAudioProviderEnabled, "umbriel_audio_provider_enabled"),
+        field(&ShellConfig::niriOverviewCloseOnLaunchEnabled, "niri_overview_close_on_launch_enabled"),
+        field(&ShellConfig::umbrielOverviewCloseOnLaunchEnabled, "umbriel_overview_close_on_launch_enabled"),
         field(&ShellConfig::polkitAgent, "polkit_agent"),
         enumField(&ShellConfig::passwordMaskStyle, "password_style", kPasswordMaskStyles),
+        field(&ShellConfig::readlineShortcuts, "readline_shortcuts"),
         field(&ShellConfig::settingsShowAdvanced, "settings_show_advanced"),
+        field(&ShellConfig::settingsExpandAllGroups, "settings_expand_all_groups"),
         field(&ShellConfig::settingsWindowTranslucent, "settings_window_translucent"),
         field(&ShellConfig::showLocation, "show_location"),
         field(&ShellConfig::appIconColorize, "app_icon_colorize"),
@@ -1539,6 +1850,7 @@ namespace noctalia::config::schema {
         subTable(&ShellConfig::panel, "panel", shellPanelSchema()),
         subTable(&ShellConfig::launcher, "launcher", shellLauncherSchema()),
         subTable(&ShellConfig::keyboardLayout, "keyboard_layout", shellKeyboardLayoutSchema()),
+        subTable(&ShellConfig::windowSwitcher, "window_switcher", shellWindowSwitcherSchema()),
         subTable(&ShellConfig::screenCorners, "screen_corners", shellScreenCornersSchema()),
         subTable(&ShellConfig::mpris, "mpris", shellMprisSchema()),
         subTable(&ShellConfig::screenshot, "screenshot", shellScreenshotSchema()),
@@ -1585,7 +1897,7 @@ namespace noctalia::config::schema {
         fields.push_back(
             custom<HooksConfig>(
                 key,
-                [i, key](const toml::table& tbl, HooksConfig& out, std::string_view, Diagnostics&) {
+                [i, key](const toml::table& tbl, HooksConfig& out, std::string_view parentPath, Diagnostics& diag) {
                   auto& vec = out.commands[i];
                   vec.clear();
                   const auto* node = tbl.get(key);
@@ -1599,11 +1911,13 @@ namespace noctalia::config::schema {
                     return;
                   }
                   if (const auto* arr = node->as_array()) {
-                    for (const auto& item : *arr) {
-                      if (auto v = item.value<std::string>(); v && !v->empty()) {
-                        vec.push_back(*v);
+                    for (auto& v : readStringArray(*arr, joinPath(parentPath, key), diag)) {
+                      if (!v.empty()) {
+                        vec.push_back(std::move(v));
                       }
                     }
+                  } else {
+                    warnWrongType(diag, joinPath(parentPath, key), *node, "a string or an array of strings");
                   }
                 },
                 [i, key](toml::table& tbl, const HooksConfig& in) {
@@ -1621,10 +1935,25 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  const Schema<CalendarConfig::Reminders>& calendarRemindersSchema() {
+    static const Schema<CalendarConfig::Reminders> s = {
+        field(&CalendarConfig::Reminders::enabled, "enabled"),
+        field(&CalendarConfig::Reminders::useEventReminders, "use_event_reminders"),
+        field(&CalendarConfig::Reminders::defaultLeadMinutes, "default_lead_minutes", kReminderLeadMinutesRange),
+        field(&CalendarConfig::Reminders::allDayDigestTime, "all_day_digest_time"),
+    };
+    return s;
+  }
+
   const Schema<CalendarConfig>& calendarSchema() {
     static const Schema<CalendarConfig> s = {
         field(&CalendarConfig::enabled, "enabled"),
+        field(&CalendarConfig::dedupeEvents, "dedupe_events"),
+        field(&CalendarConfig::dedupeIgnorePatterns, "dedupe_ignore_patterns"),
         field(&CalendarConfig::refreshMinutes, "refresh_minutes", kRefreshMinutesRange),
+        field(&CalendarConfig::eventDateFormat, "event_date_format"),
+        field(&CalendarConfig::eventTimeFormat, "event_time_format"),
+        subTable(&CalendarConfig::reminders, "reminders", calendarRemindersSchema()),
         namedMap<CalendarConfig, CalendarConfig::Account>(
             &CalendarConfig::accounts, "account", calendarAccountSchema(),
             [](CalendarConfig::Account& a, std::string_view id) { a.id = std::string(id); },
@@ -1641,6 +1970,7 @@ namespace noctalia::config::schema {
             [](const toml::table& table, StorageConfig& out, std::string_view parentPath, Diagnostics& diag) {
               const auto value = table["key_source"].value<std::string>();
               if (!value.has_value()) {
+                warnWrongType(table, "key_source", parentPath, diag, "a string");
                 return;
               }
               const std::string source = StringUtils::trim(*value);
@@ -1760,7 +2090,7 @@ namespace noctalia::config::schema {
       return true;
     }
 
-    // [plugin_settings."author/plugin"].<key> — open schema; keys validate against
+    // [plugin_settings."author/plugin"].<key>, open schema; keys validate against
     // the manifest in config_validate's validatePluginSettings, not here.
     if (section == "plugin_settings") {
       return path.size() <= 3;
@@ -1778,7 +2108,7 @@ namespace noctalia::config::schema {
 
   namespace {
     // Clamp ranges shared by the concrete BarConfig fields and the parallel
-    // optional BarMonitorOverride fields — declared once so the two schemas can't
+    // optional BarMonitorOverride fields, declared once so the two schemas can't
     // drift apart.
     constexpr Range<std::int64_t> kBarThicknessRange{10, 300};
     constexpr Range<std::int64_t> kBarRadiusRange{0, 500};
@@ -1792,105 +2122,11 @@ namespace noctalia::config::schema {
     constexpr Range<double> kBarCapsulePaddingRangeD{0.0, 48.0};
     constexpr Range<double> kBarCapsuleRadiusRangeD{0.0, 80.0};
     constexpr Range<double> kBarCapsuleOpacityRangeD{0.0, 1.0};
-
-    // Concrete ColorSpec stored as a config string; always emitted. A present
-    // non-string value is a hard error (mirrors colorStringValue).
-    template <typename Struct> Field<Struct> colorField(ColorSpec Struct::* member, std::string_view key) {
-      return custom<Struct>(
-          key,
-          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics&) {
-            if (!tbl.contains(key)) {
-              return;
-            }
-            auto v = tbl[key].value<std::string>();
-            if (!v) {
-              throw std::runtime_error(joinPath(parentPath, key) + ": expected string ColorSpec");
-            }
-            out.*member = colorSpecFromConfigString(*v, joinPath(parentPath, key));
-          },
-          [member, key](toml::table& tbl, const Struct& in) {
-            tbl.insert_or_assign(key, colorSpecToConfigString(in.*member));
-          }
-      );
-    }
   } // namespace
-
-  const Schema<DockConfig>& dockSchema() {
-    static const Schema<DockConfig> s = {
-        field(&DockConfig::enabled, "enabled"),
-        enumField(&DockConfig::position, "position", kDockEdges),
-        field(&DockConfig::activeMonitorOnly, "active_monitor_only"),
-        field(&DockConfig::iconSize, "icon_size", kDockIconSizeRange),
-        field(&DockConfig::mainAxisPadding, "main_axis_padding", kDockPaddingRange),
-        field(&DockConfig::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
-        field(&DockConfig::itemSpacing, "item_spacing", kDockItemSpacingRange),
-        field(&DockConfig::backgroundOpacity, "background_opacity", kUnitRange),
-        colorField(&DockConfig::border, "border"),
-        field(&DockConfig::borderWidth, "border_width", kDockBorderWidthRange),
-        // `radius` seeds all four corners; per-corner keys below override it.
-        custom<DockConfig>(
-            "radius",
-            [](const toml::table& tbl, DockConfig& d, std::string_view, Diagnostics&) {
-              if (auto v = tbl["radius"].value<std::int64_t>()) {
-                const auto r = static_cast<std::int32_t>(applyRange<std::int64_t>(*v, kDockRadiusRange));
-                d.radius = r;
-                d.radiusTopLeft = r;
-                d.radiusTopRight = r;
-                d.radiusBottomLeft = r;
-                d.radiusBottomRight = r;
-              }
-            },
-            [](toml::table& tbl, const DockConfig& d) {
-              tbl.insert_or_assign("radius", static_cast<std::int64_t>(d.radius));
-            }
-        ),
-        field(&DockConfig::radiusTopLeft, "radius_top_left", kDockRadiusRange),
-        field(&DockConfig::radiusTopRight, "radius_top_right", kDockRadiusRange),
-        field(&DockConfig::radiusBottomLeft, "radius_bottom_left", kDockRadiusRange),
-        field(&DockConfig::radiusBottomRight, "radius_bottom_right", kDockRadiusRange),
-        field(&DockConfig::concaveEdgeCorners, "concave_edge_corners"),
-        field(&DockConfig::marginEnds, "margin_ends", kDockMarginEndsRange),
-        field(&DockConfig::marginEdge, "margin_edge", kDockMarginEdgeRange),
-        field(&DockConfig::shadow, "shadow"),
-        field(&DockConfig::showRunning, "show_running"),
-        field(&DockConfig::autoHide, "auto_hide"),
-        field(&DockConfig::smartAutoHide, "smart_auto_hide"),
-        // layer accepts top|overlay; anything else warns and leaves the default.
-        custom<DockConfig>(
-            "layer",
-            [](const toml::table& tbl, DockConfig& out, std::string_view parentPath, Diagnostics& diag) {
-              if (auto v = tbl["layer"].value<std::string>()) {
-                if (*v == "top" || *v == "overlay") {
-                  out.layer = *v;
-                } else {
-                  diag.warn(joinPath(parentPath, "layer"), "expected top or overlay, got \"" + *v + "\"");
-                }
-              }
-            },
-            [](toml::table& tbl, const DockConfig& in) { tbl.insert_or_assign("layer", in.layer); }
-        ),
-        field(&DockConfig::reserveSpace, "reserve_space"),
-        field(&DockConfig::activeScale, "active_scale", kDockActiveScaleRange),
-        field(&DockConfig::inactiveScale, "inactive_scale", kDockInactiveScaleRange),
-        field(&DockConfig::magnification, "magnification"),
-        field(&DockConfig::magnificationScale, "magnification_scale", kDockMagnificationScaleRange),
-        field(&DockConfig::activeOpacity, "active_opacity", kUnitRange),
-        field(&DockConfig::inactiveOpacity, "inactive_opacity", kUnitRange),
-        field(&DockConfig::showDots, "show_dots"),
-        field(&DockConfig::showInstanceCount, "show_instance_count"),
-        enumField(&DockConfig::launcherPosition, "launcher_position", kDockLauncherPositions),
-        field(&DockConfig::launcherIcon, "launcher_icon"),
-        pathStringField(&DockConfig::launcherCustomImage, "launcher_custom_image"),
-        field(&DockConfig::launcherCustomImageColorize, "launcher_custom_image_colorize"),
-        field(&DockConfig::pinned, "pinned"),
-        field(&DockConfig::monitors, "monitors"),
-    };
-    return s;
-  }
 
   namespace {
     // optional<ColorSpec>, emitted only when set, read when present. Unlike
-    // colorSpecField it does NOT treat an empty string as nullopt — it matches the
+    // colorSpecField it does NOT treat an empty string as nullopt; it matches the
     // legacy bar/capsule_group reads (which parse whatever string is present).
     template <typename Struct>
     Field<Struct> optionalColorField(std::optional<ColorSpec> Struct::* member, std::string_view key) {
@@ -1949,34 +2185,20 @@ namespace noctalia::config::schema {
       );
     }
 
-    template <typename Struct>
-    Field<Struct> optionalStringField(std::optional<std::string> Struct::* member, std::string_view key) {
-      return custom<Struct>(
-          key,
-          [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
-            if (auto v = tbl[key].value<std::string>()) {
-              out.*member = *v;
-            }
-          },
-          [member, key](toml::table& tbl, const Struct& in) {
-            if ((in.*member).has_value()) {
-              tbl.insert_or_assign(key, *(in.*member));
-            }
-          }
-      );
-    }
-
-    // Like optionalStringField but trims; a present-but-empty value stays unset so it inherits the parent.
+    // Like field(std::optional<std::string>…) but trims; a present-but-empty value stays unset so it inherits the
+    // parent.
     template <typename Struct>
     Field<Struct> optionalTrimmedStringField(std::optional<std::string> Struct::* member, std::string_view key) {
       return custom<Struct>(
           key,
-          [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
             if (auto v = tbl[key].value<std::string>()) {
               std::string trimmed = StringUtils::trim(*v);
               if (!trimmed.empty()) {
                 out.*member = std::move(trimmed);
               }
+            } else {
+              warnWrongType(tbl, key, parentPath, diag, "a string");
             }
           },
           [member, key](toml::table& tbl, const Struct& in) {
@@ -1987,7 +2209,7 @@ namespace noctalia::config::schema {
       );
     }
 
-    const Schema<typename ShellSessionConfig::ShellSessionPowerConfig>& shellSessionPowerSchema() {
+    const Schema<ShellSessionConfig::ShellSessionPowerConfig>& shellSessionPowerSchema() {
       using Power = ShellSessionConfig::ShellSessionPowerConfig;
       static const Schema<Power> s = {
           optionalTrimmedStringField(&Power::suspend, "suspend"),
@@ -2002,15 +2224,11 @@ namespace noctalia::config::schema {
     optionalStringVectorField(std::optional<std::vector<std::string>> Struct::* member, std::string_view key) {
       return custom<Struct>(
           key,
-          [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
-            if (auto* arr = tbl[key].as_array()) {
-              std::vector<std::string> values;
-              for (const auto& item : *arr) {
-                if (auto s = item.value<std::string>()) {
-                  values.push_back(*s);
-                }
-              }
-              out.*member = std::move(values);
+          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
+            if (const auto* arr = tbl[key].as_array()) {
+              out.*member = readStringArray(*arr, joinPath(parentPath, key), diag);
+            } else {
+              warnWrongType(tbl, key, parentPath, diag, "an array of strings");
             }
           },
           [member, key](toml::table& tbl, const Struct& in) {
@@ -2032,10 +2250,12 @@ namespace noctalia::config::schema {
     ) {
       return custom<Struct>(
           key,
-          [member, key, range](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          [member, key, range](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
             if (auto v = tbl[key].value<std::int64_t>()) {
               const std::int64_t value = range ? applyRange(*v, *range) : *v;
               out.*member = static_cast<std::int32_t>(value);
+            } else {
+              warnWrongType(tbl, key, parentPath, diag, "an integer");
             }
           },
           [member, key](toml::table& tbl, const Struct& in) {
@@ -2052,13 +2272,15 @@ namespace noctalia::config::schema {
     ) {
       return custom<Struct>(
           key,
-          [member, key, range](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          [member, key, range](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
             if (auto v = finiteDouble(tbl[key])) {
               auto value = static_cast<float>(*v);
               if (range) {
                 value = applyRange(value, *range);
               }
               out.*member = value;
+            } else {
+              warnUnusableNumber(tbl, key, parentPath, diag);
             }
           },
           [member, key](toml::table& tbl, const Struct& in) {
@@ -2075,9 +2297,11 @@ namespace noctalia::config::schema {
     ) {
       return custom<Struct>(
           key,
-          [member, key, range](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          [member, key, range](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
             if (auto v = finiteDouble(tbl[key])) {
               out.*member = range ? applyRange(*v, *range) : *v;
+            } else {
+              warnUnusableNumber(tbl, key, parentPath, diag);
             }
           },
           [member, key](toml::table& tbl, const Struct& in) {
@@ -2093,9 +2317,11 @@ namespace noctalia::config::schema {
           // id is trimmed; empty-id rows are dropped by the consuming keep predicate.
           custom<BarCapsuleGroupStyle>(
               "id",
-              [](const toml::table& tbl, BarCapsuleGroupStyle& out, std::string_view, Diagnostics&) {
+              [](const toml::table& tbl, BarCapsuleGroupStyle& out, std::string_view parentPath, Diagnostics& diag) {
                 if (auto v = tbl["id"].value<std::string>()) {
                   out.id = StringUtils::trim(*v);
+                } else {
+                  warnWrongType(tbl, "id", parentPath, diag, "a string");
                 }
               },
               [](toml::table& tbl, const BarCapsuleGroupStyle& in) { tbl.insert_or_assign("id", in.id); }
@@ -2104,12 +2330,17 @@ namespace noctalia::config::schema {
           field(&BarCapsuleGroupStyle::members, "members"),
           colorField(&BarCapsuleGroupStyle::fill, "fill"),
           capsuleBorderField(&BarCapsuleGroupStyle::border, &BarCapsuleGroupStyle::borderSpecified, "border"),
+          field(&BarCapsuleGroupStyle::borderWidth, "border_width", kBarCapsuleBorderWidthRange),
           optionalColorField(&BarCapsuleGroupStyle::foreground, "foreground"),
           field(&BarCapsuleGroupStyle::padding, "padding", kBarCapsulePaddingRange),
           optionalFloatField(&BarCapsuleGroupStyle::radius, "radius", kBarCapsuleRadiusRangeF),
           field(&BarCapsuleGroupStyle::opacity, "opacity", kBarOpacityRange),
           field(&BarCapsuleGroupStyle::accordion, "accordion"),
           enumField(&BarCapsuleGroupStyle::accordionDirection, "accordion_direction", kBarAccordionDirections),
+          optionalIntField(
+              &BarCapsuleGroupStyle::accordionDurationMs, "accordion_duration", kBarCapsuleAccordionMsRange
+          ),
+          optionalIntField(&BarCapsuleGroupStyle::accordionDelayMs, "accordion_delay_ms", kBarCapsuleAccordionMsRange),
           optionalIntField(&BarCapsuleGroupStyle::widgetSpacing, "widget_spacing"),
       };
       return s;
@@ -2126,6 +2357,8 @@ namespace noctalia::config::schema {
               } else {
                 diag.warn(joinPath(parentPath, "layer"), "expected top or overlay, got \"" + *v + "\"");
               }
+            } else {
+              warnWrongType(tbl, "layer", parentPath, diag, "a string");
             }
           },
           [](toml::table& tbl, const BarConfig& in) { tbl.insert_or_assign("layer", in.layer); }
@@ -2136,7 +2369,7 @@ namespace noctalia::config::schema {
     Field<BarConfig> barRadiusField() {
       return custom<BarConfig>(
           "radius",
-          [](const toml::table& tbl, BarConfig& out, std::string_view, Diagnostics&) {
+          [](const toml::table& tbl, BarConfig& out, std::string_view parentPath, Diagnostics& diag) {
             if (auto v = tbl["radius"].value<std::int64_t>()) {
               const auto r = static_cast<std::int32_t>(std::clamp<std::int64_t>(*v, 0, 500));
               out.radius = r;
@@ -2144,6 +2377,8 @@ namespace noctalia::config::schema {
               out.radiusTopRight = r;
               out.radiusBottomLeft = r;
               out.radiusBottomRight = r;
+            } else {
+              warnWrongType(tbl, "radius", parentPath, diag, "an integer");
             }
           },
           [](toml::table& tbl, const BarConfig& in) {
@@ -2151,11 +2386,160 @@ namespace noctalia::config::schema {
           }
       );
     }
+
+    const Schema<DockMonitorOverride>& dockMonitorOverrideSchema() {
+      static const Schema<DockMonitorOverride> s = {
+          field(&DockMonitorOverride::match, "match"),
+          optionalBoolField(&DockMonitorOverride::enabled, "enabled"),
+          optionalEnumField(&DockMonitorOverride::position, "position", kDockEdges),
+          optionalBoolField(&DockMonitorOverride::activeMonitorOnly, "active_monitor_only"),
+          optionalIntField(&DockMonitorOverride::iconSize, "icon_size", kDockIconSizeRange),
+          optionalIntField(&DockMonitorOverride::mainAxisPadding, "main_axis_padding", kDockPaddingRange),
+          optionalIntField(&DockMonitorOverride::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
+          optionalIntField(&DockMonitorOverride::itemSpacing, "item_spacing", kDockItemSpacingRange),
+          optionalFloatField(&DockMonitorOverride::backgroundOpacity, "background_opacity", kUnitRange),
+          optionalBoolField(&DockMonitorOverride::compositorBlur, "compositor_blur"),
+          optionalColorField(&DockMonitorOverride::border, "border"),
+          optionalFloatField(&DockMonitorOverride::borderWidth, "border_width", kDockBorderWidthRange),
+          optionalIntField(&DockMonitorOverride::radius, "radius", kDockRadiusRange),
+          optionalIntField(&DockMonitorOverride::radiusTopLeft, "radius_top_left", kDockRadiusRange),
+          optionalIntField(&DockMonitorOverride::radiusTopRight, "radius_top_right", kDockRadiusRange),
+          optionalIntField(&DockMonitorOverride::radiusBottomLeft, "radius_bottom_left", kDockRadiusRange),
+          optionalIntField(&DockMonitorOverride::radiusBottomRight, "radius_bottom_right", kDockRadiusRange),
+          optionalBoolField(&DockMonitorOverride::concaveEdgeCorners, "concave_edge_corners"),
+          optionalIntField(&DockMonitorOverride::marginEnds, "margin_ends", kDockMarginEndsRange),
+          optionalIntField(&DockMonitorOverride::marginEdge, "margin_edge", kDockMarginEdgeRange),
+          optionalBoolField(&DockMonitorOverride::shadow, "shadow"),
+          optionalBoolField(&DockMonitorOverride::showRunning, "show_running"),
+          optionalBoolField(&DockMonitorOverride::autoHide, "auto_hide"),
+          optionalBoolField(&DockMonitorOverride::smartAutoHide, "smart_auto_hide"),
+          custom<DockMonitorOverride>(
+              "layer",
+              [](const toml::table& tbl, DockMonitorOverride& out, std::string_view parentPath, Diagnostics& diag) {
+                if (auto v = tbl["layer"].value<std::string>()) {
+                  if (*v == "top" || *v == "overlay") {
+                    out.layer = *v;
+                  } else {
+                    diag.warn(joinPath(parentPath, "layer"), "expected top or overlay, got \"" + *v + "\"");
+                  }
+                } else {
+                  warnWrongType(tbl, "layer", parentPath, diag, "a string");
+                }
+              },
+              [](toml::table& tbl, const DockMonitorOverride& in) {
+                if (in.layer) {
+                  tbl.insert_or_assign("layer", *in.layer);
+                }
+              }
+          ),
+          optionalBoolField(&DockMonitorOverride::reserveSpace, "reserve_space"),
+          optionalFloatField(&DockMonitorOverride::activeScale, "active_scale", kDockActiveScaleRange),
+          optionalFloatField(&DockMonitorOverride::inactiveScale, "inactive_scale", kDockInactiveScaleRange),
+          optionalBoolField(&DockMonitorOverride::magnification, "magnification"),
+          optionalFloatField(
+              &DockMonitorOverride::magnificationScale, "magnification_scale", kDockMagnificationScaleRange
+          ),
+          optionalFloatField(&DockMonitorOverride::activeOpacity, "active_opacity", kUnitRange),
+          optionalFloatField(&DockMonitorOverride::inactiveOpacity, "inactive_opacity", kUnitRange),
+          optionalBoolField(&DockMonitorOverride::showDots, "show_dots"),
+          optionalBoolField(&DockMonitorOverride::showInstanceCount, "show_instance_count"),
+          optionalEnumField(&DockMonitorOverride::launcherPosition, "launcher_position", kDockLauncherPositions),
+          field(&DockMonitorOverride::launcherIcon, "launcher_icon"),
+          optionalPathStringField(&DockMonitorOverride::launcherCustomImage, "launcher_custom_image"),
+          optionalBoolField(&DockMonitorOverride::launcherCustomImageColorize, "launcher_custom_image_colorize"),
+          optionalStringVectorField(&DockMonitorOverride::pinned, "pinned"),
+      };
+      return s;
+    }
   } // namespace
+
+  const Schema<DockConfig>& dockSchema() {
+    static const Schema<DockConfig> s = {
+        field(&DockConfig::enabled, "enabled"),
+        enumField(&DockConfig::position, "position", kDockEdges),
+        field(&DockConfig::activeMonitorOnly, "active_monitor_only"),
+        field(&DockConfig::iconSize, "icon_size", kDockIconSizeRange),
+        field(&DockConfig::mainAxisPadding, "main_axis_padding", kDockPaddingRange),
+        field(&DockConfig::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
+        field(&DockConfig::itemSpacing, "item_spacing", kDockItemSpacingRange),
+        field(&DockConfig::backgroundOpacity, "background_opacity", kUnitRange),
+        field(&DockConfig::compositorBlur, "compositor_blur"),
+        colorField(&DockConfig::border, "border"),
+        field(&DockConfig::borderWidth, "border_width", kDockBorderWidthRange),
+        custom<DockConfig>(
+            "radius",
+            [](const toml::table& tbl, DockConfig& out, std::string_view parentPath, Diagnostics& diag) {
+              if (auto v = tbl["radius"].value<std::int64_t>()) {
+                const auto radius = static_cast<std::int32_t>(applyRange<std::int64_t>(*v, kDockRadiusRange));
+                out.radius = radius;
+                out.radiusTopLeft = radius;
+                out.radiusTopRight = radius;
+                out.radiusBottomLeft = radius;
+                out.radiusBottomRight = radius;
+              } else {
+                warnWrongType(tbl, "radius", parentPath, diag, "an integer");
+              }
+            },
+            [](toml::table& tbl, const DockConfig& in) {
+              tbl.insert_or_assign("radius", static_cast<std::int64_t>(in.radius));
+            }
+        ),
+        field(&DockConfig::radiusTopLeft, "radius_top_left", kDockRadiusRange),
+        field(&DockConfig::radiusTopRight, "radius_top_right", kDockRadiusRange),
+        field(&DockConfig::radiusBottomLeft, "radius_bottom_left", kDockRadiusRange),
+        field(&DockConfig::radiusBottomRight, "radius_bottom_right", kDockRadiusRange),
+        field(&DockConfig::concaveEdgeCorners, "concave_edge_corners"),
+        field(&DockConfig::marginEnds, "margin_ends", kDockMarginEndsRange),
+        field(&DockConfig::marginEdge, "margin_edge", kDockMarginEdgeRange),
+        field(&DockConfig::shadow, "shadow"),
+        field(&DockConfig::showRunning, "show_running"),
+        field(&DockConfig::autoHide, "auto_hide"),
+        field(&DockConfig::smartAutoHide, "smart_auto_hide"),
+        custom<DockConfig>(
+            "layer",
+            [](const toml::table& tbl, DockConfig& out, std::string_view parentPath, Diagnostics& diag) {
+              if (auto v = tbl["layer"].value<std::string>()) {
+                if (*v == "top" || *v == "overlay") {
+                  out.layer = *v;
+                } else {
+                  diag.warn(joinPath(parentPath, "layer"), "expected top or overlay, got \"" + *v + "\"");
+                }
+              } else {
+                warnWrongType(tbl, "layer", parentPath, diag, "a string");
+              }
+            },
+            [](toml::table& tbl, const DockConfig& in) { tbl.insert_or_assign("layer", in.layer); }
+        ),
+        field(&DockConfig::reserveSpace, "reserve_space"),
+        field(&DockConfig::activeScale, "active_scale", kDockActiveScaleRange),
+        field(&DockConfig::inactiveScale, "inactive_scale", kDockInactiveScaleRange),
+        field(&DockConfig::magnification, "magnification"),
+        field(&DockConfig::magnificationScale, "magnification_scale", kDockMagnificationScaleRange),
+        field(&DockConfig::activeOpacity, "active_opacity", kUnitRange),
+        field(&DockConfig::inactiveOpacity, "inactive_opacity", kUnitRange),
+        field(&DockConfig::showDots, "show_dots"),
+        field(&DockConfig::showInstanceCount, "show_instance_count"),
+        enumField(&DockConfig::launcherPosition, "launcher_position", kDockLauncherPositions),
+        field(&DockConfig::launcherIcon, "launcher_icon"),
+        pathStringField(&DockConfig::launcherCustomImage, "launcher_custom_image"),
+        field(&DockConfig::launcherCustomImageColorize, "launcher_custom_image_colorize"),
+        field(&DockConfig::pinned, "pinned"),
+        namedMap<DockConfig, DockMonitorOverride>(
+            &DockConfig::monitorOverrides, "monitor", dockMonitorOverrideSchema(),
+            [](DockMonitorOverride& out, std::string_view name) {
+              out.tableName = name;
+              out.match = name;
+            },
+            [](const DockMonitorOverride& in) { return in.tableName; }
+        ),
+    };
+    return s;
+  }
 
   const Schema<BarDeadZoneConfig>& barDeadZoneSchema() {
     static const Schema<BarDeadZoneConfig> s = {
         field(&BarDeadZoneConfig::actions, "actions"),
+        field(&BarDeadZoneConfig::clickThrough, "click_through"),
     };
     return s;
   }
@@ -2163,6 +2547,7 @@ namespace noctalia::config::schema {
   const Schema<BarDeadZoneOverride>& barDeadZoneOverrideSchema() {
     static const Schema<BarDeadZoneOverride> s = {
         field(&BarDeadZoneOverride::actions, "actions"),
+        optionalBoolField(&BarDeadZoneOverride::clickThrough, "click_through"),
     };
     return s;
   }
@@ -2171,12 +2556,14 @@ namespace noctalia::config::schema {
     static const Schema<BarConfig> s = {
         field(&BarConfig::enabled, "enabled"),
         field(&BarConfig::autoHide, "auto_hide"),
+        field(&BarConfig::autoHideDelayMs, "auto_hide_delay_ms", kBarAutoHideDelayMsRange),
         field(&BarConfig::smartAutoHide, "smart_auto_hide"),
         field(&BarConfig::showOnWorkspaceSwitch, "show_on_workspace_switch"),
         field(&BarConfig::reserveSpace, "reserve_space"),
         barLayerField(),
         field(&BarConfig::thickness, "thickness", kBarThicknessRange),
         field(&BarConfig::backgroundOpacity, "background_opacity", kBarOpacityRange),
+        field(&BarConfig::compositorBlur, "compositor_blur"),
         colorField(&BarConfig::border, "border"),
         field(&BarConfig::borderWidth, "border_width", kBarBorderWidthRange),
         barRadiusField(),
@@ -2195,6 +2582,7 @@ namespace noctalia::config::schema {
         field(&BarConfig::panelOverlap, "panel_overlap", kBarPanelOverlapRange),
         field(&BarConfig::capsuleThickness, "capsule_thickness", kBarCapsuleThicknessRange),
         field(&BarConfig::scale, "scale", kBarScaleRange),
+        field(&BarConfig::fontScale, "font_scale", kBarFontScaleRange),
         field(&BarConfig::fontWeight, "font_weight"),
         optionalTrimmedStringField(&BarConfig::fontFamily, "font_family"),
         field(&BarConfig::startWidgets, "start"),
@@ -2213,7 +2601,9 @@ namespace noctalia::config::schema {
         optionalDoubleField(&BarConfig::widgetCapsuleRadius, "capsule_radius", kBarCapsuleRadiusRangeD),
         field(&BarConfig::widgetCapsuleOpacity, "capsule_opacity", kBarOpacityRange),
         capsuleBorderField(&BarConfig::widgetCapsuleBorder, &BarConfig::widgetCapsuleBorderSpecified, "capsule_border"),
+        field(&BarConfig::widgetCapsuleBorderWidth, "capsule_border_width", kBarCapsuleBorderWidthRange),
         field(&BarConfig::hoverHighlight, "hover_highlight"),
+        field(&BarConfig::showTooltip, "show_tooltip"),
         subTable(&BarConfig::deadZone, "dead_zone", barDeadZoneSchema()),
         field(&BarConfig::actions, "actions"),
     };
@@ -2223,9 +2613,10 @@ namespace noctalia::config::schema {
   const Schema<BarMonitorOverride>& barMonitorOverrideSchema() {
     static const Schema<BarMonitorOverride> s = {
         field(&BarMonitorOverride::match, "match"),
-        optionalStringField(&BarMonitorOverride::position, "position"),
+        field(&BarMonitorOverride::position, "position"),
         optionalBoolField(&BarMonitorOverride::enabled, "enabled"),
         optionalBoolField(&BarMonitorOverride::autoHide, "auto_hide"),
+        optionalIntField(&BarMonitorOverride::autoHideDelayMs, "auto_hide_delay_ms", kBarAutoHideDelayMsRange),
         optionalBoolField(&BarMonitorOverride::smartAutoHide, "smart_auto_hide"),
         optionalBoolField(&BarMonitorOverride::showOnWorkspaceSwitch, "show_on_workspace_switch"),
         optionalBoolField(&BarMonitorOverride::reserveSpace, "reserve_space"),
@@ -2239,6 +2630,8 @@ namespace noctalia::config::schema {
                 } else {
                   diag.warn(joinPath(parentPath, "layer"), "expected top or overlay, got \"" + *v + "\"");
                 }
+              } else {
+                warnWrongType(tbl, "layer", parentPath, diag, "a string");
               }
             },
             [](toml::table& tbl, const BarMonitorOverride& in) {
@@ -2249,6 +2642,7 @@ namespace noctalia::config::schema {
         ),
         optionalIntField(&BarMonitorOverride::thickness, "thickness", kBarThicknessRange),
         optionalFloatField(&BarMonitorOverride::backgroundOpacity, "background_opacity", kBarOpacityRange),
+        optionalBoolField(&BarMonitorOverride::compositorBlur, "compositor_blur"),
         optionalColorField(&BarMonitorOverride::border, "border"),
         optionalFloatField(&BarMonitorOverride::borderWidth, "border_width", kBarBorderWidthRange),
         optionalIntField(&BarMonitorOverride::radius, "radius", kBarRadiusRange),
@@ -2263,6 +2657,7 @@ namespace noctalia::config::schema {
         optionalIntField(&BarMonitorOverride::padding, "padding"),
         optionalIntField(&BarMonitorOverride::widgetSpacing, "widget_spacing"),
         optionalFloatField(&BarMonitorOverride::scale, "scale", kBarScaleRange),
+        optionalFloatField(&BarMonitorOverride::fontScale, "font_scale", kBarFontScaleRange),
         optionalBoolField(&BarMonitorOverride::shadow, "shadow"),
         optionalBoolField(&BarMonitorOverride::contactShadow, "contact_shadow"),
         optionalIntField(&BarMonitorOverride::panelOverlap, "panel_overlap", kBarPanelOverlapRange),
@@ -2283,19 +2678,28 @@ namespace noctalia::config::schema {
             &BarMonitorOverride::widgetCapsuleBorder, &BarMonitorOverride::widgetCapsuleBorderSpecified,
             "capsule_border"
         ),
+        optionalFloatField(
+            &BarMonitorOverride::widgetCapsuleBorderWidth, "capsule_border_width", kBarCapsuleBorderWidthRange
+        ),
         optionalBoolField(&BarMonitorOverride::hoverHighlight, "hover_highlight"),
+        optionalBoolField(&BarMonitorOverride::showTooltip, "show_tooltip"),
         // capsule_group: read-only here (overrides serialize via the resolved bar).
         custom<BarMonitorOverride>(
             "capsule_group",
             [](const toml::table& tbl, BarMonitorOverride& out, std::string_view parentPath, Diagnostics& diag) {
               const auto* arr = tbl["capsule_group"].as_array();
               if (arr == nullptr) {
+                warnWrongType(tbl, "capsule_group", parentPath, diag, "an array of tables");
                 return;
               }
               std::vector<BarCapsuleGroupStyle> groups;
-              for (const auto& node : *arr) {
+              for (std::size_t index = 0; index < arr->size(); ++index) {
+                const auto& node = (*arr)[index];
                 const auto* sub = node.as_table();
                 if (sub == nullptr) {
+                  warnWrongType(
+                      diag, joinPath(parentPath, "capsule_group") + '[' + std::to_string(index) + ']', node, "a table"
+                  );
                   continue;
                 }
                 BarCapsuleGroupStyle g{};

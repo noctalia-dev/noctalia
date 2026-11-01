@@ -26,18 +26,18 @@ namespace {
 
     for (const float delta : deltas) {
       renderer.notifyFontConfigChanged();
-      const auto above = renderer.measure(1.0F, text, fontSize, FontWeight::Normal, naturalWidth + delta, 3);
+      const auto above = renderer.measure(1.0F, text, fontSize, {FontWeight::Normal}, naturalWidth + delta, 3);
       renderer.notifyFontConfigChanged();
-      const auto expectedBelow = renderer.measure(1.0F, text, fontSize, FontWeight::Normal, naturalWidth - delta, 3);
+      const auto expectedBelow = renderer.measure(1.0F, text, fontSize, {FontWeight::Normal}, naturalWidth - delta, 3);
       if (above.lineCount == expectedBelow.lineCount) {
         continue;
       }
 
       renderer.notifyFontConfigChanged();
       [[maybe_unused]] const auto cachedAbove =
-          renderer.measure(1.0F, text, fontSize, FontWeight::Normal, naturalWidth + delta, 3);
-      const auto cachedBelow = renderer.measure(1.0F, text, fontSize, FontWeight::Normal, naturalWidth - delta, 3);
-      if (!sameMetrics(cachedBelow, expectedBelow)) {
+          renderer.measure(1.0F, text, fontSize, {FontWeight::Normal}, naturalWidth + delta, 3);
+      const auto cachedBelow = renderer.measure(1.0F, text, fontSize, {FontWeight::Normal}, naturalWidth - delta, 3);
+      if (cachedBelow.lineCount != expectedBelow.lineCount) {
         std::println(
             stderr,
             "cairo_text_renderer_test: FAIL: cached measurement at width {} reused metrics from width {} "

@@ -51,7 +51,8 @@ vec4 sampleWithFillMode(sampler2D tex, vec2 uv, float imgWidth, float imgHeight)
     vec2 transformedUV = calculateWallpaperUV(uv, imgWidth, imgHeight);
 
     if (u_fillMode > 3.5 && u_fillMode < 4.5) {
-        return texture2D(tex, fract(transformedUV));
+        // Repeat binds the textures with GL_REPEAT; fract() here would break mip selection at tile edges.
+        return texture2D(tex, transformedUV);
     }
 
     if (wallpaperUVOutside(transformedUV)) {
@@ -283,6 +284,158 @@ void main() {
 }
 )";
 
+  constexpr char kVortexFragment[] = R"(
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.015, mappedSmoothness * 1.5);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+    vec2 delta = aspectUV - center;
+    float dist = length(delta);
+    float angle = atan(delta.y, delta.x) + (1.0 - u_progress) * 3.14159265;
+    float normAngle = (angle + 3.14159265) / 6.2831853;
+    float arms = 3.0;
+    float spiral = dist + fract(normAngle * arms) * 0.25;
+
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
+    float edge = u_progress * (maxDist + 0.25 + 2.0 * feather) - feather;
+    float factor = smoothstep(edge - feather, edge + feather, spiral);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kPixelFragment[] = R"(
+uniform float u_cellSize;
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.02, mappedSmoothness * 1.5);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+
+    float size = max(u_cellSize * 0.75, 0.02);
+    vec2 cell = floor(aspectUV / size);
+    float noise = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
+    float distNorm = distance(aspectUV, center) / max(maxDist, 0.001);
+    float threshold = mix(distNorm, noise, 0.35);
+
+    float edge = u_progress * (1.0 + 2.0 * feather) - feather;
+    float factor = smoothstep(edge - feather, edge + feather, threshold);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kDiamondFragment[] = R"(
+uniform float u_cellSize;
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.05, mappedSmoothness * 2.5);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+
+    float size = max(u_cellSize * 1.15, 0.0345);
+    vec2 cellIndex = floor(aspectUV / size);
+    vec2 cellCenter = (cellIndex + 0.5) * size;
+    vec2 inCell = abs(aspectUV - cellCenter) / (size * 0.5);
+    float diamondMetric = inCell.x + inCell.y;
+
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
+    float delay = (distance(cellCenter, center) / max(maxDist, 0.001)) * 0.4;
+    float localProgress = clamp((u_progress - delay) / max(1.0 - delay, 0.0001), 0.0, 1.0);
+    float radius = localProgress * (2.0 + 2.0 * feather) - feather;
+    float factor = smoothstep(radius - feather, radius + feather, diamondMetric);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kGoldenFragment[] = R"(
+uniform float u_angle;
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.02, mappedSmoothness * 1.6);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+    vec2 delta = aspectUV - center;
+    float dist = length(delta);
+    float angle = atan(delta.y, delta.x);
+
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
+
+    // Golden ratio logarithmic spiral (growth rate b = ln(1.6180339887) / (pi / 2) ≈ 0.306349)
+    float b = 0.306349;
+    float phase = radians(u_angle) + u_progress * 6.2831853;
+    float deltaTheta = mod(angle - phase, 6.2831853);
+    float goldenDist = (dist / max(maxDist, 0.001)) * exp(-b * deltaTheta);
+
+    float edge = u_progress * (1.0 + 2.0 * feather) - feather;
+    float factor = smoothstep(edge - feather, edge + feather, goldenDist);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kMeltFragment[] = R"(
+uniform float u_angle;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.02, mappedSmoothness * 1.5);
+
+    // Multi-harmonic organic liquid melt wave
+    float wave = sin(uv.x * 14.0 + radians(u_angle)) * 0.05
+               + sin(uv.x * 32.0 - radians(u_angle) * 1.5) * 0.025
+               + cos(uv.x * 7.0 + 1.2) * 0.04;
+
+    float drip = uv.y + wave;
+    float waveAmplitude = 0.115;
+    float sweepSpan = 1.0 + 2.0 * waveAmplitude;
+    float edge = u_progress * (sweepSpan + 2.0 * feather) - waveAmplitude - feather;
+    float factor = smoothstep(edge - feather, edge + feather, drip);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
 } // namespace
 
 void WallpaperProgram::ensureInitialized() {
@@ -296,6 +449,11 @@ void WallpaperProgram::ensureInitialized() {
   initProgram(static_cast<std::size_t>(WallpaperTransition::Stripes), kStripesFragment);
   initProgram(static_cast<std::size_t>(WallpaperTransition::Zoom), kZoomFragment);
   initProgram(static_cast<std::size_t>(WallpaperTransition::Honeycomb), kHoneycombFragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::Vortex), kVortexFragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::Pixel), kPixelFragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::Diamond), kDiamondFragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::Golden), kGoldenFragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::Melt), kMeltFragment);
 }
 
 void WallpaperProgram::destroy() {
@@ -383,13 +541,23 @@ void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   glUniform2f(pd.quadSizeLoc, p.quadWidth, p.quadHeight);
   glUniformMatrix3fv(pd.transformLoc, 1, GL_FALSE, p.transform.m.data());
 
-  // Textures
+  // Textures. Repeat wraps in the sampler so tile edges keep continuous UV derivatives (mip level) and filter across
+  // the seam. Textures are shared, so other fill modes keep the clamp set at upload.
+  const bool repeat = p.fillMode > 3.5F && p.fillMode < 4.5F;
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(p.from.texture.value()));
+  if (repeat) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  }
   glUniform1i(pd.source1Loc, 0);
 
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(p.to.texture.value()));
+  if (repeat) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  }
   if (pd.source2Loc >= 0) {
     glUniform1i(pd.source2Loc, 1);
   }
@@ -452,6 +620,14 @@ void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   glVertexAttribPointer(posAttr, 2, GL_FLOAT, GL_FALSE, 0, kQuad);
   glEnableVertexAttribArray(posAttr);
   glDrawArrays(GL_TRIANGLES, 0, 6);
+  if (repeat) {
+    glActiveTexture(GL_TEXTURE1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glActiveTexture(GL_TEXTURE0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  }
   glDisableVertexAttribArray(posAttr);
 
   glActiveTexture(GL_TEXTURE0);

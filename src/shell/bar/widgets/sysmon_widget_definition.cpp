@@ -11,13 +11,17 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
   static const settings::WidgetSettingVisibility hasVisualization{"visualization", {"gauge", "graph"}};
   static const settings::WidgetSettingVisibility showValue{"show_value", {"true"}};
   static const settings::WidgetSettingVisibility showGlyph{"show_glyph", {"true"}};
+  settings::WidgetSettingVisibility compactNetworkStat = networkStat;
+  compactNetworkStat.all = {{"network_speed_compact", {"true"}}};
   settings::WidgetSettingVisibility glyphPosition;
   glyphPosition.any = {
       hasVisualization.any[0],
       showValue.any[0],
   };
-  glyphPosition.all = {
-      showGlyph.any[0],
+  settings::WidgetSettingVisibility splitCpuCores;
+  splitCpuCores.all = {
+      {"stat", {"cpu_usage"}},
+      {"visualization", {"gauge"}},
   };
 
   static const noctalia::bar::WidgetDefinition<Options, SysmonWidgetDefinitionContext> definition{
@@ -155,6 +159,16 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                       .visibleWhen = networkStat,
                   },
           }),
+          field<&Options::networkSpeedDecimalPlaces>({
+              .key = "network_speed_decimal_places",
+              .minValue = FormatUnits::kMinCompactByteRateDecimalPlaces,
+              .maxValue = FormatUnits::kMaxCompactByteRateDecimalPlaces,
+              .step = 1,
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .visibleWhen = compactNetworkStat,
+                  },
+          }),
           field<&Options::visualization>({
               .key = "visualization",
               .choices =
@@ -179,6 +193,14 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                   settings::WidgetSettingPresentation{
                       .group = "presentation",
                       .segmented = true,
+                  },
+          }),
+          field<&Options::showCpuCores>({
+              .key = "show_cpu_cores",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .group = "presentation",
+                      .visibleWhen = splitCpuCores,
                   },
           }),
           field<&Options::showValue>({
@@ -240,6 +262,13 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                       .visibleWhen = showGlyph,
                   },
           }),
+          field<&Options::customLabel>({
+              .key = "custom_label",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .group = "presentation",
+                  },
+          }),
           field<&Options::glyphPosition>({
               .key = "glyph_position",
               .choices =
@@ -279,8 +308,9 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
         return options.glyph.empty() ? std::string(SysmonWidget::glyphName(options.stat)) : options.glyph;
       },
       .validateOptions = [](const Options& options) -> std::optional<std::string> {
-        if (!options.showGlyph && !options.showValue && options.visualization == SysmonVisualization::None) {
-          return "show_glyph, show_value, and visualization cannot all be disabled";
+        if (!options.showGlyph && options.customLabel.empty() && !options.showValue &&
+            options.visualization == SysmonVisualization::None) {
+          return "show_glyph, custom_label, show_value, and visualization cannot all be disabled";
         }
         return std::nullopt;
       },

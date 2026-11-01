@@ -18,6 +18,7 @@ namespace scripting {
     ScriptSnapshot snapshot;
     ScriptPatch patch;
     std::vector<ScriptSideEffect> sideEffects;
+    std::optional<ScriptContextMenuRequest> contextMenuRequest;
 
     // Entry id ("author/plugin:entry") for diagnostics, e.g. an undeclared getConfig.
     std::string ownerId;
@@ -26,6 +27,7 @@ namespace scripting {
       snapshot = std::move(nextSnapshot);
       patch = {};
       sideEffects.clear();
+      contextMenuRequest.reset();
     }
   };
 

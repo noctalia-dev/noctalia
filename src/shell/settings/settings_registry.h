@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "core/input/key_chord.h"
+#include "theme/builtin_templates.h"
 #include "ui/controls/button.h"
 #include "ui/controls/color_swatch_preview.h"
 #include "ui/palette.h"
@@ -28,21 +29,25 @@ namespace settings {
     Wallpaper,
     Templates,
     Desktop,
+    LockScreen,
     Dock,
     Panels,
     Launcher,
     ControlCenter,
     Notifications,
     Osd,
+    Screenshot,
     Shell,
     Keybinds,
     Security,
     System,
     Services,
     Location,
+    Calendar,
     Power,
     Hooks,
     Niri,
+    Umbriel,
     Bar,
     Plugins,
   };
@@ -106,17 +111,17 @@ namespace settings {
     float preferredHeight = 240.0F;
     // When set, replaces the default commit for the setting path.
     std::function<void(const std::string&)> onSelect;
+    // Keep the picker open after a pick so options can be tried one after another.
+    bool keepOpenOnSelect = false;
   };
 
   struct SliderSetting {
     SliderSetting() = default;
-    template <
-        typename Value, typename MinValue, typename MaxValue, typename Step,
-        typename = std::enable_if_t<
-            std::is_arithmetic_v<Value>
-            && std::is_arithmetic_v<MinValue>
-            && std::is_arithmetic_v<MaxValue>
-            && std::is_arithmetic_v<Step>>>
+    template <typename Value, typename MinValue, typename MaxValue, typename Step>
+      requires(std::is_arithmetic_v<Value>
+               && std::is_arithmetic_v<MinValue>
+               && std::is_arithmetic_v<MaxValue>
+               && std::is_arithmetic_v<Step>)
     SliderSetting(Value valueIn, MinValue minValueIn, MaxValue maxValueIn, Step stepIn, bool integerValueIn)
         : value(static_cast<double>(valueIn)), minValue(static_cast<double>(minValueIn)),
           maxValue(static_cast<double>(maxValueIn)), step(static_cast<double>(stepIn)), integerValue(integerValueIn) {}
@@ -243,7 +248,7 @@ namespace settings {
   };
 
   struct TemplateGridSetting {
-    std::vector<SelectOption> options;
+    std::vector<noctalia::theme::AvailableTemplate> options;
     std::vector<std::string> selectedValues;
     std::string emptyText;
   };
@@ -298,12 +303,16 @@ namespace settings {
   struct RegistryEnvironment {
     bool niriBackdropSupported = false;             // hide niri backdrop entries when false
     bool niriOverviewTypeToLaunchSupported = false; // show niri-only type-to-launch integration
-    bool screencopySupported = false;               // lockscreen blurred desktop + screenshot features
-    bool ddcutilAvailable = false;                  // disable ddcutil toggle when ddcutil is not on PATH
-    bool systemdUserManaged = false;                // disable systemd app launching when the shell is not a user unit
-    bool gammaControlAvailable = false;             // hide night-light entries when gamma control is unavailable
-    bool greeterSyncAvailable = false;              // hide greeter appearance sync when greeter is not installed
-    std::vector<SelectOption> availableOutputs;     // monitor selectors available on this machine
+    bool umbrielOverviewTypeToLaunchSupported = false;
+    bool niriOverviewCloseOnLaunchSupported = false;
+    bool umbrielOverviewCloseOnLaunchSupported = false;
+    bool screencopySupported = false;           // lockscreen blurred desktop + screenshot features
+    bool backgroundEffectBlurSupported = false; // hide compositor blur toggles without ext-background-effect-v1
+    bool ddcutilAvailable = false;              // disable ddcutil toggle when ddcutil is not on PATH
+    bool systemdUserManaged = false;            // disable systemd app launching when the shell is not a user unit
+    bool gammaControlAvailable = false;         // hide night-light entries when gamma control is unavailable
+    bool greeterSyncAvailable = false;          // hide greeter appearance sync when greeter is not installed
+    std::vector<SelectOption> availableOutputs; // monitor selectors available on this machine
     bool batteryAvailable = false;
     bool systemBatteryAvailable = false;
     std::vector<SelectOption> batteryDeviceOptions;
@@ -318,6 +327,7 @@ namespace settings {
 
   [[nodiscard]] const BarConfig* findBar(const Config& cfg, std::string_view name);
   [[nodiscard]] const BarMonitorOverride* findMonitorOverride(const BarConfig& bar, std::string_view match);
+  [[nodiscard]] const DockMonitorOverride* findDockMonitorOverride(const DockConfig& dock, std::string_view tableName);
   [[nodiscard]] std::vector<std::string> barNames(const Config& cfg);
   [[nodiscard]] std::vector<SettingEntry> buildSettingsRegistry(
       const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride = nullptr,
@@ -327,9 +337,12 @@ namespace settings {
   [[nodiscard]] bool matchesNormalizedSettingQuery(const SettingEntry& entry, std::string_view normalizedQuery);
   [[nodiscard]] bool matchesSettingQuery(const SettingEntry& entry, std::string_view query);
   [[nodiscard]] bool isBarMonitorOverrideSettingPath(const std::vector<std::string>& path);
+  [[nodiscard]] bool isDockMonitorOverrideSettingPath(const std::vector<std::string>& path);
   [[nodiscard]] bool settingEntryMatchesBarNavigation(
       const SettingEntry& entry, std::string_view selectedBarName, std::string_view selectedMonitorOverride
   );
+  [[nodiscard]] bool
+  settingEntryMatchesDockNavigation(const SettingEntry& entry, std::string_view selectedMonitorOverride);
   [[nodiscard]] std::string barSettingContentSectionKey(const SettingEntry& entry);
   [[nodiscard]] std::span<const SettingsSectionDescriptor> settingsSectionDescriptors();
   [[nodiscard]] std::string_view settingsSectionId(SettingsSection section);

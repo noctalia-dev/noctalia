@@ -102,7 +102,7 @@ namespace ui {
     }
   } // namespace
 
-  std::unique_ptr<Flex> flex(FlexDirection direction, FlexProps props) {
+  std::unique_ptr<Flex> flex(FlexDirection direction, const FlexProps& props) {
     auto flex = std::make_unique<Flex>();
     applyFlexProps(*flex, direction, props);
     if (props.configure) {
@@ -282,6 +282,9 @@ namespace ui {
     if (props.surfaceOpacity.has_value()) {
       control->setSurfaceOpacity(*props.surfaceOpacity);
     }
+    if (props.surfaceRole.has_value()) {
+      control->setSurfaceRole(*props.surfaceRole);
+    }
     applyNodeProps(*control, props);
     if (props.configure) {
       props.configure(*control);
@@ -410,6 +413,9 @@ namespace ui {
     }
     if (props.fontFamily.has_value()) {
       control->setFontFamily(std::move(*props.fontFamily));
+    }
+    if (props.fontFeatures.has_value()) {
+      control->setFontFeatures(std::move(*props.fontFeatures));
     }
     if (props.color.has_value()) {
       control->setColor(*props.color);
@@ -745,6 +751,9 @@ namespace ui {
     if (props.orientation.has_value()) {
       control->setOrientation(*props.orientation);
     }
+    if (props.contentScale.has_value()) {
+      control->setContentScale(*props.contentScale);
+    }
     if (props.state != nullptr) {
       control->bindState(props.state);
     }
@@ -793,6 +802,9 @@ namespace ui {
 
   std::unique_ptr<VirtualGridView> virtualGridView(VirtualGridViewProps props) {
     auto control = std::make_unique<VirtualGridView>();
+    if (props.contentScale.has_value()) {
+      control->setScale(*props.contentScale);
+    }
     if (props.columns.has_value()) {
       control->setColumns(*props.columns);
     }
@@ -814,11 +826,17 @@ namespace ui {
     if (props.overscanRows.has_value()) {
       control->setOverscanRows(*props.overscanRows);
     }
+    if (props.itemCursorShape.has_value()) {
+      control->setItemCursorShape(*props.itemCursorShape);
+    }
     if (props.scrollbarVisible.has_value()) {
       control->scrollView().setScrollbarVisible(*props.scrollbarVisible);
     }
     if (props.scrollCardStyleScale.has_value()) {
       control->scrollView().setCardStyle(*props.scrollCardStyleScale);
+    }
+    if (props.state != nullptr) {
+      control->bindScrollState(props.state);
     }
     if (props.adapter != nullptr) {
       control->setAdapter(props.adapter);
@@ -838,11 +856,17 @@ namespace ui {
 
   std::unique_ptr<VirtualListView> virtualListView(VirtualListViewProps props) {
     auto control = std::make_unique<VirtualListView>();
+    if (props.contentScale.has_value()) {
+      control->setContentScale(*props.contentScale);
+    }
     if (props.itemGap.has_value()) {
       control->setItemGap(*props.itemGap);
     }
     if (props.overscanItems.has_value()) {
       control->setOverscanItems(*props.overscanItems);
+    }
+    if (props.state != nullptr) {
+      control->bindScrollState(props.state);
     }
     if (props.adapter != nullptr) {
       control->setAdapter(props.adapter);

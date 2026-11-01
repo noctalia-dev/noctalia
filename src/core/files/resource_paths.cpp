@@ -25,8 +25,6 @@ namespace paths {
       return std::filesystem::path(NOCTALIA_INSTALL_PREFIX) / datadir / "noctalia" / "assets";
     }
 
-    std::filesystem::path sourceAssetsRoot() { return std::filesystem::path(NOCTALIA_SOURCE_ASSETS_DIR); }
-
     bool isAssetRoot(const std::filesystem::path& root) {
       if (root.empty()) {
         return false;
@@ -34,7 +32,7 @@ namespace paths {
 
       std::error_code ec;
       return std::filesystem::exists(root / "emoji.json", ec)
-          && std::filesystem::exists(root / "fonts" / "tabler.ttf", ec)
+          && std::filesystem::exists(root / "fonts" / "noctalia-tabler.ttf", ec)
           && std::filesystem::exists(root / "templates" / "builtin.toml", ec)
           && std::filesystem::exists(root / "translations" / "en.json", ec);
     }
@@ -84,7 +82,6 @@ namespace paths {
       }
 
       appendUnique(candidates, installedAssetsRoot());
-      appendUnique(candidates, sourceAssetsRoot());
       return candidates;
     }
 

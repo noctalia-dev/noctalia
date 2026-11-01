@@ -29,6 +29,41 @@ namespace {
     return {};
   }
 
+  // Empty if `key` is not present. Used so cover APIs that 500 on size=N (common
+  // for Subsonic/Navidrome WebP) can fall back to the original bitstream.
+  [[nodiscard]] std::string withoutQueryParam(std::string_view url, std::string_view key) {
+    const auto queryPos = url.find('?');
+    if (queryPos == std::string_view::npos)
+      return {};
+    std::string out(url.substr(0, queryPos + 1));
+    std::string_view query = url.substr(queryPos + 1);
+    bool anyKept = false;
+    bool stripped = false;
+    while (!query.empty()) {
+      const auto ampPos = query.find('&');
+      const std::string_view pair = query.substr(0, ampPos);
+      const auto eqPos = pair.find('=');
+      const std::string_view k = pair.substr(0, eqPos);
+      if (k == key) {
+        stripped = true;
+      } else {
+        if (anyKept)
+          out.push_back('&');
+        out.append(pair);
+        anyKept = true;
+      }
+      if (ampPos == std::string_view::npos)
+        break;
+      query.remove_prefix(ampPos + 1);
+    }
+    if (!stripped)
+      return {};
+    if (!anyKept) {
+      out.pop_back();
+    }
+    return out;
+  }
+
   std::string deriveYouTubeThumbnailUrl(std::string_view sourceUrl, std::string_view quality) {
     if (sourceUrl.empty())
       return {};
@@ -109,6 +144,9 @@ namespace mpris {
       std::string hq(primaryUrl.substr(0, primaryUrl.size() - kMaxres.size()));
       hq += "/hqdefault.jpg";
       candidates.push_back(std::move(hq));
+    }
+    if (std::string stripped = withoutQueryParam(primaryUrl, "size"); !stripped.empty()) {
+      candidates.push_back(std::move(stripped));
     }
     return candidates;
   }

@@ -1,18 +1,27 @@
 #include "capture/screenshot_service.h"
 
-#include "capture/screencopy_util.h"
 #include "capture/screenshot_region_overlay.h"
+#include "cli/help.h"
+#include "cli/parse.h"
+#include "cli/schema.h"
+#include "cli/schema_msg.h"
 #include "compositors/compositor_platform.h"
+#include "config/color_spec.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "config/schema/ranges.h"
 #include "core/deferred_call.h"
 #include "core/input/key_chord.h"
+#include "core/input/key_modifiers.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "ipc/ipc_service.h"
 #include "notification/notification.h"
 #include "notification/notification_manager.h"
+#include "pipewire/sound_player.h"
 #include "render/core/image_encoder.h"
+#include "render/core/image_file_loader.h"
+#include "render/core/image_resize.h"
 #include "render/render_context.h"
 #include "shell/panel/panel_manager.h"
 #include "time/time_format.h"
@@ -23,7 +32,9 @@
 #include "wayland/wayland_seat.h"
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <csignal>
@@ -34,10 +45,12 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <stb/stb_image_resize2.h>
+#include <nlohmann/json.hpp>
+#include <sstream>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 namespace {
 
@@ -45,6 +58,103 @@ namespace {
   constexpr const char* kScreenshotPathEnv = "NOCTALIA_SCREENSHOT_PATH";
   constexpr const char* kStateOwner = "screenshot";
   constexpr const char* kLastRegionKey = "last_region";
+  constexpr const char* kAnnotateStateOwner = "annotate";
+  constexpr const char* kBackdropStateKey = "backdrop";
+
+  [[nodiscard]] std::optional<double> parseDouble(std::string_view text) {
+    double value = 0.0;
+    const auto* end = text.data() + text.size();
+    const auto result = std::from_chars(text.data(), end, value);
+    if (result.ec != std::errc{} || result.ptr != end || !std::isfinite(value)) {
+      return std::nullopt;
+    }
+    return value;
+  }
+
+  [[nodiscard]] std::uint32_t regionModifierMask(ScreenshotRegionModifier modifier) {
+    switch (modifier) {
+    case ScreenshotRegionModifier::Super:
+      return KeyMod::Super;
+    case ScreenshotRegionModifier::Ctrl:
+      return KeyMod::Ctrl;
+    case ScreenshotRegionModifier::Alt:
+      return KeyMod::Alt;
+    case ScreenshotRegionModifier::Shift:
+      return KeyMod::Shift;
+    case ScreenshotRegionModifier::None:
+      return 0;
+    }
+    return 0;
+  }
+
+  [[nodiscard]] std::string_view screenshotExtension(ScreenshotFormat format) {
+    switch (format) {
+    case ScreenshotFormat::Png:
+      return ".png";
+    case ScreenshotFormat::Jpeg:
+      return ".jpg";
+    case ScreenshotFormat::Webp:
+      return ".webp";
+    case ScreenshotFormat::Jxl:
+      return ".jxl";
+    }
+    return ".png";
+  }
+
+  [[nodiscard]] std::vector<std::uint8_t>
+  encodeScreenshotFile(const ScreencopyImage& image, ScreenshotFormat format, int quality, std::string* errorOut) {
+    switch (format) {
+    case ScreenshotFormat::Png:
+      return encodePng(image.rgba.data(), image.width, image.height, errorOut);
+    case ScreenshotFormat::Jpeg:
+      return encodeJpeg(image.rgba.data(), image.width, image.height, quality, errorOut);
+    case ScreenshotFormat::Webp:
+      return encodeWebp(image.rgba.data(), image.width, image.height, quality, errorOut);
+    case ScreenshotFormat::Jxl:
+      return encodeJxl(image.rgba.data(), image.width, image.height, quality, errorOut);
+    }
+    return {};
+  }
+
+  [[nodiscard]] std::optional<std::int32_t> parseScreenshotQuality(std::string_view text) {
+    std::int32_t value = 0;
+    const auto* end = text.data() + text.size();
+    const auto result = std::from_chars(text.data(), end, value);
+    const auto& range = noctalia::config::schema::kScreenshotQualityRange;
+    if (result.ec != std::errc{} || result.ptr != end || value < *range.min || value > *range.max) {
+      return std::nullopt;
+    }
+    return value;
+  }
+
+  [[nodiscard]] std::optional<capture::AnnotationColor> parseAnnotationColor(std::string_view text) {
+    std::array<float, 4> channels{};
+    std::size_t index = 0;
+    std::size_t start = 0;
+    while (index < channels.size()) {
+      const std::size_t comma = text.find(',', start);
+      const std::string_view field = text.substr(start, comma == std::string_view::npos ? comma : comma - start);
+      const auto parsed = parseDouble(field);
+      if (!parsed.has_value()) {
+        return std::nullopt;
+      }
+      channels[index] = std::clamp(static_cast<float>(*parsed), 0.0F, 1.0F);
+      ++index;
+      if (comma == std::string_view::npos) {
+        break;
+      }
+      start = comma + 1;
+    }
+    if (index != channels.size()) {
+      return std::nullopt;
+    }
+    return capture::AnnotationColor{
+        .r = channels[0],
+        .g = channels[1],
+        .b = channels[2],
+        .a = channels[3],
+    };
+  }
 
   [[nodiscard]] std::string encodeRegion(const LogicalRect& region) {
     return std::format("{},{},{},{}", region.x, region.y, region.width, region.height);
@@ -55,8 +165,14 @@ namespace {
     int y = 0;
     int width = 0;
     int height = 0;
-    const std::string copy(text);
-    if (std::sscanf(copy.c_str(), "%d,%d,%d,%d", &x, &y, &width, &height) != 4) {
+    std::istringstream input{std::string(text)};
+    char firstSeparator = 0;
+    char secondSeparator = 0;
+    char thirdSeparator = 0;
+    if (!(input >> x >> firstSeparator >> y >> secondSeparator >> width >> thirdSeparator >> height)
+        || firstSeparator != ','
+        || secondSeparator != ','
+        || thirdSeparator != ',') {
       return std::nullopt;
     }
     if (width < 2 || height < 2) {
@@ -65,7 +181,7 @@ namespace {
     return LogicalRect{.x = x, .y = y, .width = width, .height = height};
   }
 
-  [[nodiscard]] std::string defaultFilenamePattern() { return "screenshot_%Y%m%d_%H%M%S"; }
+  [[nodiscard]] std::string_view defaultFilenamePattern() { return "screenshot_%Y%m%d_%H%M%S"; }
   [[nodiscard]] std::string primaryKeybindLabel(const std::vector<KeyChord>& configured, KeybindAction action) {
     if (!configured.empty()) {
       return keyChordDisplayLabel(configured.front());
@@ -77,7 +193,7 @@ namespace {
   [[nodiscard]] std::string formatFilenameStem(std::string_view pattern, const std::string& labelBase, int suffix) {
     const auto now = std::chrono::system_clock::now();
     const auto unixSeconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-    const std::string resolvedPattern = pattern.empty() ? defaultFilenamePattern() : std::string(pattern);
+    const std::string_view resolvedPattern = pattern.empty() ? defaultFilenamePattern() : pattern;
     std::string stem = formatLocalUnixTime(unixSeconds, resolvedPattern);
     if (stem.empty()) {
       stem = "screenshot";
@@ -102,6 +218,21 @@ namespace {
     return options.saveToFile || (options.pipeToCommand && !options.pipeCommand.empty());
   }
 
+  // Decoded file pixels stand in for a capture: straight RGBA, no cursor variant.
+  [[nodiscard]] std::expected<capture::ScreenshotImage, std::string> loadImageForAnnotation(const std::string& path) {
+    auto loaded = loadImageFile(path);
+    if (!loaded) {
+      return std::unexpected(loaded.error());
+    }
+    if (loaded->width <= 0 || loaded->height <= 0) {
+      return std::unexpected("image has no pixels");
+    }
+    return capture::ScreenshotImage{
+        .image = ScreencopyImage{.width = loaded->width, .height = loaded->height, .rgba = std::move(loaded->rgba)},
+        .cursorStatus = capture::CursorToggleStatus::NotCaptured,
+    };
+  }
+
   [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
     for (const auto& entry : wayland.outputs()) {
       if (entry.output == output) {
@@ -119,13 +250,9 @@ namespace {
       return true;
     }
 
-    std::vector<std::uint8_t> resized(
-        static_cast<std::size_t>(targetWidth) * static_cast<std::size_t>(targetHeight) * 4U
-    );
-    if (stbir_resize_uint8_srgb(
-            image.rgba.data(), image.width, image.height, 0, resized.data(), targetWidth, targetHeight, 0, STBIR_RGBA
-        )
-        == nullptr) {
+    std::vector<std::uint8_t> resized =
+        resizeToRgba(image.rgba.data(), image.width, image.height, ResizeSourceLayout::Rgba, targetWidth, targetHeight);
+    if (resized.empty()) {
       return false;
     }
 
@@ -135,49 +262,9 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] std::optional<ScreencopyImage>
-  cropFrozenRegion(const ScreencopyImage& source, int logicalOutputWidth, int logicalOutputHeight, LogicalRect region) {
-    if (logicalOutputWidth <= 0 || logicalOutputHeight <= 0 || region.width <= 0 || region.height <= 0) {
-      return std::nullopt;
-    }
-
-    const double scaleX = static_cast<double>(source.width) / static_cast<double>(logicalOutputWidth);
-    const double scaleY = static_cast<double>(source.height) / static_cast<double>(logicalOutputHeight);
-
-    LogicalRect clipped = region;
-    clipped.x = std::clamp(region.x, 0, logicalOutputWidth);
-    clipped.y = std::clamp(region.y, 0, logicalOutputHeight);
-    clipped.width = std::clamp(region.width, 0, logicalOutputWidth - clipped.x);
-    clipped.height = std::clamp(region.height, 0, logicalOutputHeight - clipped.y);
-    if (clipped.width <= 0 || clipped.height <= 0) {
-      return std::nullopt;
-    }
-
-    const int srcX0 = std::clamp(static_cast<int>(std::floor(clipped.x * scaleX)), 0, source.width);
-    const int srcY0 = std::clamp(static_cast<int>(std::floor(clipped.y * scaleY)), 0, source.height);
-    const int srcX1 = std::clamp(static_cast<int>(std::ceil((clipped.x + clipped.width) * scaleX)), 0, source.width);
-    const int srcY1 = std::clamp(static_cast<int>(std::ceil((clipped.y + clipped.height) * scaleY)), 0, source.height);
-    const int outWidth = srcX1 - srcX0;
-    const int outHeight = srcY1 - srcY0;
-    if (outWidth <= 0 || outHeight <= 0) {
-      return std::nullopt;
-    }
-
-    ScreencopyImage cropped;
-    cropped.width = outWidth;
-    cropped.height = outHeight;
-    cropped.rgba.resize(static_cast<std::size_t>(outWidth) * static_cast<std::size_t>(outHeight) * 4U);
-
-    for (int y = 0; y < outHeight; ++y) {
-      const int srcY = srcY0 + y;
-      const auto* srcRow = source.rgba.data()
-          + (static_cast<std::size_t>(srcY) * static_cast<std::size_t>(source.width) + static_cast<std::size_t>(srcX0))
-              * 4U;
-      auto* dstRow = cropped.rgba.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(outWidth) * 4U;
-      std::memcpy(dstRow, srcRow, static_cast<std::size_t>(outWidth) * 4U);
-    }
-
-    return cropped;
+  [[nodiscard]] bool resampleScreenshotImage(capture::ScreenshotImage& image, int width, int height) {
+    return resampleRgbaImage(image.image, width, height)
+        && (!image.alternative || resampleRgbaImage(*image.alternative, width, height));
   }
 
   [[nodiscard]] capture::FrozenScreenshot*
@@ -228,7 +315,7 @@ namespace {
     std::string screenshotPathString = screenshotPath.has_value() ? screenshotPath->string() : std::string{};
 
     std::thread([command = std::move(command), png = std::move(png),
-                 screenshotPathString = std::move(screenshotPathString)]() {
+                 screenshotPathString = std::move(screenshotPathString)] {
       // Block SIGPIPE on this thread so a command that stops reading stdin makes
       // write() fail with EPIPE instead of terminating the whole process.
       sigset_t pipeMask;
@@ -237,7 +324,7 @@ namespace {
       pthread_sigmask(SIG_BLOCK, &pipeMask, nullptr);
 
       int stdinPipe[2] = {-1, -1};
-      if (::pipe(stdinPipe) != 0) {
+      if (::pipe2(stdinPipe, O_CLOEXEC) != 0) {
         kLog.warn("screenshot pipe: failed to create stdin pipe");
         return;
       }
@@ -329,7 +416,7 @@ namespace {
       if (!knownOutputs.empty()) {
         error += " (available: " + StringUtils::join(knownOutputs, ", ") + ")";
       }
-      error += "\n";
+      error += '\n';
       return std::unexpected(std::move(error));
     }
     if (matches.size() > 1) {
@@ -353,7 +440,7 @@ namespace {
   }
 
   struct CapturedOutputFrame {
-    ScreencopyImage image;
+    capture::ScreenshotImage image;
     const WaylandOutput* output = nullptr;
   };
 
@@ -365,7 +452,7 @@ namespace {
   struct GlobalRegionPiece {
     const WaylandOutput* output = nullptr;
     LogicalRect localRegion{};
-    ScreencopyImage image;
+    capture::ScreenshotImage image;
   };
 
   void blitOpaqueRgba(ScreencopyImage& canvas, int destX, int destY, const ScreencopyImage& source) {
@@ -386,6 +473,45 @@ namespace {
              + static_cast<std::size_t>(destX))
               * 4U;
       std::memcpy(dstRow, srcRow, static_cast<std::size_t>(copyWidth) * 4U);
+    }
+  }
+
+  template <typename Piece>
+  [[nodiscard]] capture::ScreenshotImage makeScreenshotCanvas(int width, int height, std::vector<Piece>& pieces) {
+    capture::ScreenshotImage canvas{
+        .image = {.width = width, .height = height},
+        .cursorVisible = pieces.front().image.cursorVisible,
+        .cursorStatus = capture::CursorToggleStatus::Available,
+    };
+    for (const auto& piece : pieces) {
+      if (!piece.image.canToggleCursor()) {
+        canvas.cursorStatus = piece.image.cursorStatus;
+        break;
+      }
+    }
+    const std::size_t bytes = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U;
+    canvas.image.rgba.assign(bytes, 0);
+    const bool hasCursor =
+        std::ranges::any_of(pieces, [](const auto& piece) { return piece.image.alternative.has_value(); });
+    if (canvas.canToggleCursor() && hasCursor) {
+      canvas.alternative = ScreencopyImage{.width = width, .height = height};
+      canvas.alternative->rgba.assign(bytes, 0);
+    } else {
+      for (auto& piece : pieces) {
+        if (piece.image.alternative && piece.image.cursorVisible != canvas.cursorVisible) {
+          std::swap(piece.image.image, *piece.image.alternative);
+          piece.image.cursorVisible = canvas.cursorVisible;
+        }
+        piece.image.alternative.reset();
+      }
+    }
+    return canvas;
+  }
+
+  void blitScreenshot(capture::ScreenshotImage& canvas, int x, int y, const capture::ScreenshotImage& source) {
+    blitOpaqueRgba(canvas.image, x, y, source.imageForCursor(canvas.cursorVisible));
+    if (canvas.alternative) {
+      blitOpaqueRgba(*canvas.alternative, x, y, source.imageForCursor(!canvas.cursorVisible));
     }
   }
 
@@ -423,7 +549,15 @@ namespace {
     return targets;
   }
 
-  [[nodiscard]] std::optional<ScreencopyImage>
+  [[nodiscard]] int scaleLogicalFloor(int logical, double scale) {
+    return static_cast<int>(std::floor(static_cast<double>(logical) * scale));
+  }
+
+  [[nodiscard]] int scaleLogicalCeil(int logical, double scale) {
+    return static_cast<int>(std::ceil(static_cast<double>(logical) * scale));
+  }
+
+  [[nodiscard]] std::optional<capture::ScreenshotImage>
   composeGlobalRegion(LogicalRect globalRegion, std::vector<GlobalRegionPiece> pieces) {
     if (globalRegion.width <= 0 || globalRegion.height <= 0 || pieces.empty()) {
       return std::nullopt;
@@ -440,41 +574,38 @@ namespace {
       }
       canvasScale = std::max({
           canvasScale,
-          static_cast<double>(piece.image.width) / static_cast<double>(piece.localRegion.width),
-          static_cast<double>(piece.image.height) / static_cast<double>(piece.localRegion.height),
+          static_cast<double>(piece.image.image.width) / static_cast<double>(piece.localRegion.width),
+          static_cast<double>(piece.image.image.height) / static_cast<double>(piece.localRegion.height),
       });
     }
 
-    const auto scaled = [canvasScale](int logical) { return static_cast<int>(std::lround(logical * canvasScale)); };
-
-    const int canvasWidth = scaled(globalRegion.width);
-    const int canvasHeight = scaled(globalRegion.height);
+    const int canvasWidth = scaleLogicalCeil(globalRegion.width, canvasScale);
+    const int canvasHeight = scaleLogicalCeil(globalRegion.height, canvasScale);
     if (canvasWidth <= 0 || canvasHeight <= 0) {
       return std::nullopt;
     }
 
-    ScreencopyImage canvas;
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-    canvas.rgba.assign(static_cast<std::size_t>(canvasWidth) * static_cast<std::size_t>(canvasHeight) * 4U, 0);
+    auto canvas = makeScreenshotCanvas(canvasWidth, canvasHeight, pieces);
 
     for (auto& piece : pieces) {
       const int globalPieceX = piece.output->logicalX + piece.localRegion.x;
       const int globalPieceY = piece.output->logicalY + piece.localRegion.y;
-      const int destX = scaled(globalPieceX - globalRegion.x);
-      const int destY = scaled(globalPieceY - globalRegion.y);
-      const int targetWidth = scaled(piece.localRegion.width);
-      const int targetHeight = scaled(piece.localRegion.height);
-      if (!resampleRgbaImage(piece.image, targetWidth, targetHeight)) {
+      const int offsetX = globalPieceX - globalRegion.x;
+      const int offsetY = globalPieceY - globalRegion.y;
+      const int destX = scaleLogicalFloor(offsetX, canvasScale);
+      const int destY = scaleLogicalFloor(offsetY, canvasScale);
+      const int targetWidth = scaleLogicalCeil(offsetX + piece.localRegion.width, canvasScale) - destX;
+      const int targetHeight = scaleLogicalCeil(offsetY + piece.localRegion.height, canvasScale) - destY;
+      if (!resampleScreenshotImage(piece.image, targetWidth, targetHeight)) {
         return std::nullopt;
       }
-      blitOpaqueRgba(canvas, destX, destY, piece.image);
+      blitScreenshot(canvas, destX, destY, piece.image);
     }
 
     return canvas;
   }
 
-  [[nodiscard]] std::optional<ScreencopyImage> stitchOutputFrames(std::vector<CapturedOutputFrame> frames) {
+  [[nodiscard]] std::optional<capture::ScreenshotImage> stitchOutputFrames(std::vector<CapturedOutputFrame> frames) {
     if (frames.empty()) {
       return std::nullopt;
     }
@@ -494,8 +625,10 @@ namespace {
     // multiplied by this density; lower-density outputs are upscaled to keep the layout aligned.
     double canvasScale = 1.0;
     for (const auto& frame : frames) {
-      const double scaleX = static_cast<double>(frame.image.width) / static_cast<double>(frame.output->logicalWidth);
-      const double scaleY = static_cast<double>(frame.image.height) / static_cast<double>(frame.output->logicalHeight);
+      const double scaleX =
+          static_cast<double>(frame.image.image.width) / static_cast<double>(frame.output->logicalWidth);
+      const double scaleY =
+          static_cast<double>(frame.image.image.height) / static_cast<double>(frame.output->logicalHeight);
       canvasScale = std::max({canvasScale, scaleX, scaleY});
     }
 
@@ -506,46 +639,147 @@ namespace {
       minLogicalY = std::min(minLogicalY, frame.output->logicalY);
     }
 
-    const auto scaled = [canvasScale](int logical) { return static_cast<int>(std::lround(logical * canvasScale)); };
+    const auto outputPixelRect = [canvasScale, minLogicalX, minLogicalY](const WaylandOutput& output) {
+      const int offsetX = output.logicalX - minLogicalX;
+      const int offsetY = output.logicalY - minLogicalY;
+      const int x = scaleLogicalFloor(offsetX, canvasScale);
+      const int y = scaleLogicalFloor(offsetY, canvasScale);
+      return LogicalRect{
+          .x = x,
+          .y = y,
+          .width = scaleLogicalCeil(offsetX + output.logicalWidth, canvasScale) - x,
+          .height = scaleLogicalCeil(offsetY + output.logicalHeight, canvasScale) - y,
+      };
+    };
 
     int canvasWidth = 0;
     int canvasHeight = 0;
     for (auto& frame : frames) {
-      const auto* out = frame.output;
-      const int targetWidth = scaled(out->logicalWidth);
-      const int targetHeight = scaled(out->logicalHeight);
-      if (!resampleRgbaImage(frame.image, targetWidth, targetHeight)) {
-        return std::nullopt;
-      }
-      canvasWidth = std::max(canvasWidth, scaled(out->logicalX - minLogicalX) + targetWidth);
-      canvasHeight = std::max(canvasHeight, scaled(out->logicalY - minLogicalY) + targetHeight);
+      const LogicalRect pixelRect = outputPixelRect(*frame.output);
+      canvasWidth = std::max(canvasWidth, pixelRect.x + pixelRect.width);
+      canvasHeight = std::max(canvasHeight, pixelRect.y + pixelRect.height);
     }
 
     if (canvasWidth <= 0 || canvasHeight <= 0) {
       return std::nullopt;
     }
 
-    ScreencopyImage canvas;
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-    canvas.rgba.assign(static_cast<std::size_t>(canvasWidth) * static_cast<std::size_t>(canvasHeight) * 4U, 0);
+    auto canvas = makeScreenshotCanvas(canvasWidth, canvasHeight, frames);
 
-    for (const auto& frame : frames) {
-      const auto* out = frame.output;
-      blitOpaqueRgba(canvas, scaled(out->logicalX - minLogicalX), scaled(out->logicalY - minLogicalY), frame.image);
+    for (auto& frame : frames) {
+      const LogicalRect pixelRect = outputPixelRect(*frame.output);
+      if (!resampleScreenshotImage(frame.image, pixelRect.width, pixelRect.height)) {
+        return std::nullopt;
+      }
+      blitScreenshot(canvas, pixelRect.x, pixelRect.y, frame.image);
     }
 
     return canvas;
   }
 
+  [[nodiscard]] std::optional<std::string_view> callerCwdOf(const IpcService& ipc) {
+    const auto& cwd = ipc.callerCwd();
+    return cwd.has_value() ? std::optional<std::string_view>{*cwd} : std::nullopt;
+  }
+
+  struct ScreenshotBoolFlag {
+    std::string_view on;
+    std::string_view off;
+    bool ScreenshotService::OutputOptions::* field;
+  };
+
+  constexpr std::array kScreenshotBoolFlags{
+      ScreenshotBoolFlag{"--save-to-file", "--no-save-to-file", &ScreenshotService::OutputOptions::saveToFile},
+      ScreenshotBoolFlag{
+          "--copy-to-clipboard", "--no-copy-to-clipboard", &ScreenshotService::OutputOptions::copyToClipboard
+      },
+      ScreenshotBoolFlag{"--pipe-to-command", "--no-pipe-to-command", &ScreenshotService::OutputOptions::pipeToCommand},
+      ScreenshotBoolFlag{"--freeze-screen", "--no-freeze-screen", &ScreenshotService::OutputOptions::freezeScreen},
+      ScreenshotBoolFlag{"--confirm-region", "--no-confirm-region", &ScreenshotService::OutputOptions::confirmRegion},
+      ScreenshotBoolFlag{
+          "--remember-last-region", "--no-remember-last-region", &ScreenshotService::OutputOptions::rememberLastRegion
+      },
+      ScreenshotBoolFlag{"--show-cursor", "--no-show-cursor", &ScreenshotService::OutputOptions::showCursor},
+      ScreenshotBoolFlag{"--annotate", "--no-annotate", &ScreenshotService::OutputOptions::annotate},
+      ScreenshotBoolFlag{
+          "--skip-annotate-on-copy-save", "--no-skip-annotate-on-copy-save",
+          &ScreenshotService::OutputOptions::skipAnnotateOnCopySave
+      },
+      ScreenshotBoolFlag{"--close-on-copy", "--no-close-on-copy", &ScreenshotService::OutputOptions::closeOnCopy},
+      ScreenshotBoolFlag{"--close-on-save", "--no-close-on-save", &ScreenshotService::OutputOptions::closeOnSave},
+      ScreenshotBoolFlag{"--copy-on-close", "--no-copy-on-close", &ScreenshotService::OutputOptions::copyOnClose},
+  };
+
 } // namespace
+
+std::expected<ScreenshotIpcRequest, std::string> parseScreenshotIpcRequest(
+    const noctalia::cli::Command& command, std::string_view args, ScreenshotService::OutputOptions base,
+    std::optional<std::string_view> callerCwd
+) {
+  auto tokens = StringUtils::splitShellWords(args);
+  if (!tokens) {
+    return std::unexpected("error: unterminated quote in arguments\n");
+  }
+  // ParsedArgs holds views into `tokens`, which therefore outlives it.
+  std::vector<char*> pointers;
+  pointers.reserve(tokens->size());
+  for (std::string& token : *tokens) {
+    pointers.push_back(token.data());
+  }
+  const auto parsed = noctalia::cli::parseArgs(command, pointers);
+  if (!parsed) {
+    return std::unexpected(parsed.error() + "\n");
+  }
+  if (parsed->helpRequested) {
+    return std::unexpected(noctalia::cli::renderHelp(command, "noctalia msg " + std::string(command.name)));
+  }
+
+  for (const ScreenshotBoolFlag& flag : kScreenshotBoolFlags) {
+    const bool on = parsed->has(flag.on);
+    const bool off = parsed->has(flag.off);
+    if (on && off) {
+      return std::unexpected(std::format("error: {} and {} cannot be combined\n", flag.on, flag.off));
+    }
+    if (on || off) {
+      base.*flag.field = on;
+    }
+  }
+  if (parsed->has("--pipe-command")) {
+    base.pipeCommand = parsed->value("--pipe-command");
+  }
+  if (parsed->has("--filename-pattern")) {
+    base.filenamePattern = parsed->value("--filename-pattern");
+  }
+  if (parsed->has("--directory")) {
+    const std::string_view directory = parsed->value("--directory");
+    base.directory = directory.empty() ? std::string() : FileUtils::resolvePath(directory, callerCwd).string();
+  }
+  if (parsed->has("--format")) {
+    const std::string_view format = parsed->value("--format");
+    const auto value = enumFromKey(kScreenshotFormats, format);
+    if (!value) {
+      return std::unexpected(std::format("error: invalid value '{}' for --format\n", format));
+    }
+    base.format = *value;
+  }
+  if (parsed->has("--quality")) {
+    const std::string_view quality = parsed->value("--quality");
+    const auto value = parseScreenshotQuality(quality);
+    if (!value) {
+      return std::unexpected(std::format("error: invalid value '{}' for --quality (expected 1 to 100)\n", quality));
+    }
+    base.quality = *value;
+  }
+
+  return ScreenshotIpcRequest{.options = std::move(base), .target = parsed->joinedRemaining};
+}
 
 ScreenshotService::ScreenshotService(
     WaylandConnection& wayland, CompositorPlatform& platform, ConfigService& configService,
     NotificationManager& notifications, ClipboardService* clipboard
 )
     : m_wayland(wayland), m_platform(platform), m_notifications(notifications), m_configService(configService),
-      m_clipboard(clipboard), m_capture(wayland) {}
+      m_clipboard(clipboard), m_capture(wayland), m_toplevelCapture(wayland) {}
 
 ScreenshotService::~ScreenshotService() = default;
 
@@ -577,9 +811,15 @@ void ScreenshotService::onOutputChange() {
   if (m_regionOverlay != nullptr) {
     m_regionOverlay->onOutputChange();
   }
+  if (m_annotationOverlay != nullptr) {
+    m_annotationOverlay->onOutputChange();
+  }
 }
 
 bool ScreenshotService::onPointerEvent(const PointerEvent& event) {
+  if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
+    return m_annotationOverlay->onPointerEvent(event);
+  }
   if (m_regionOverlay == nullptr || !m_regionOverlay->isActive()) {
     return false;
   }
@@ -587,6 +827,12 @@ bool ScreenshotService::onPointerEvent(const PointerEvent& event) {
 }
 
 bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
+  if (m_annotationOverlay != nullptr
+      && m_annotationOverlay->isActive()
+      && m_annotationOverlay->onKeyboardEvent(event)) {
+    return true;
+  }
+
   if (!event.pressed) {
     return false;
   }
@@ -604,6 +850,18 @@ bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
   return true;
 }
 
+void ScreenshotService::onModifiersChanged() {
+  if (m_regionOverlay != nullptr && m_regionOverlay->isActive()) {
+    m_regionOverlay->onModifiersChanged();
+  }
+}
+
+bool ScreenshotService::overlayBusy() const noexcept {
+  return (m_regionOverlay != nullptr && m_regionOverlay->isActive())
+      || (m_annotationOverlay != nullptr && m_annotationOverlay->isActive())
+      || m_freezeCaptureActive;
+}
+
 ScreenshotService::OutputOptions ScreenshotService::outputOptionsFromConfig(const Config& config) {
   const auto& screenshot = config.shell.screenshot;
   OutputOptions options;
@@ -614,60 +872,234 @@ ScreenshotService::OutputOptions ScreenshotService::outputOptionsFromConfig(cons
   options.confirmRegion = screenshot.confirmRegion;
   options.rememberLastRegion = screenshot.rememberLastRegion;
   options.showCursor = screenshot.showCursor;
+  options.annotate = screenshot.annotate;
+  options.skipAnnotateOnCopySave = screenshot.skipAnnotateOnCopySave;
+  options.closeOnCopy = screenshot.closeOnCopy;
+  options.closeOnSave = screenshot.closeOnSave;
+  options.copyOnClose = screenshot.copyOnClose;
   options.pipeCommand = screenshot.pipeCommand;
   options.directory = screenshot.directory;
   options.filenamePattern = screenshot.filenamePattern;
+  options.format = screenshot.format;
+  options.quality = screenshot.quality;
   return options;
 }
 
 void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& configService) {
-  ipc.bind(noctalia::cli::msg::screenshotRegion, [this, &configService](const std::string& /*args*/) -> std::string {
+  ipc.bind(noctalia::cli::msg::screenshotRegion, [this, &ipc, &configService](const std::string& args) -> std::string {
+    auto request = parseScreenshotIpcRequest(
+        noctalia::cli::msg::screenshotRegion, args, outputOptionsFromConfig(configService.config()), callerCwdOf(ipc)
+    );
+    if (!request) {
+      return request.error();
+    }
     if (!available()) {
       return "error: screen capture is not available on this compositor\n";
+    }
+    if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
+      return "error: a screenshot overlay is already active\n";
     }
     auto* renderContext = PanelManager::instance().renderContext();
     if (renderContext == nullptr) {
       return "error: render context unavailable\n";
     }
-    beginRegionCapture(*renderContext, outputOptionsFromConfig(configService.config()));
+    beginRegionCapture(*renderContext, request->options);
     return "ok\n";
   });
 
-  ipc.bind(noctalia::cli::msg::screenshotFullscreen, [this, &configService](const std::string& args) -> std::string {
-    if (!available()) {
-      return "error: screen capture is not available on this compositor\n";
-    }
-    const std::string token = StringUtils::trim(args);
-    const auto options = outputOptionsFromConfig(configService.config());
-    if (token == "all" || token == "*") {
-      captureAllOutputs(options);
-      return "ok\n";
-    }
-    if (token == "pick") {
-      const auto outputs = validOutputs(m_wayland);
-      if (outputs.size() <= 1) {
-        captureFullscreen(options, outputs.empty() ? nullptr : outputs.front());
+  ipc.bind(
+      noctalia::cli::msg::screenshotFullscreen, [this, &ipc, &configService](const std::string& args) -> std::string {
+        auto request = parseScreenshotIpcRequest(
+            noctalia::cli::msg::screenshotFullscreen, args, outputOptionsFromConfig(configService.config()),
+            callerCwdOf(ipc)
+        );
+        if (!request) {
+          return request.error();
+        }
+        if (!available()) {
+          return "error: screen capture is not available on this compositor\n";
+        }
+        if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
+          return "error: a screenshot overlay is already active\n";
+        }
+        const std::string& token = request->target;
+        const auto& options = request->options;
+        if (token == "all" || token == "*") {
+          captureAllOutputs(options);
+          return "ok\n";
+        }
+        if (token == "pick") {
+          const auto outputs = validOutputs(m_wayland);
+          if (outputs.size() <= 1) {
+            captureFullscreen(options, outputs.empty() ? nullptr : outputs.front());
+            return "ok\n";
+          }
+          auto* renderContext = PanelManager::instance().renderContext();
+          if (renderContext == nullptr) {
+            return "error: render context unavailable\n";
+          }
+          beginFullscreenCapture(*renderContext, options);
+          return "ok\n";
+        }
+        if (!token.empty() && token != "pick") {
+          auto output = resolveOutputSelector(m_wayland, token);
+          if (!output) {
+            return output.error();
+          }
+          captureFullscreen(options, *output);
+          return "ok\n";
+        }
+
+        captureFullscreen(options);
         return "ok\n";
       }
-      auto* renderContext = PanelManager::instance().renderContext();
-      if (renderContext == nullptr) {
-        return "error: render context unavailable\n";
-      }
-      beginFullscreenCapture(*renderContext, options);
-      return "ok\n";
-    }
-    if (!token.empty() && token != "pick") {
-      auto output = resolveOutputSelector(m_wayland, token);
-      if (!output) {
-        return output.error();
-      }
-      captureFullscreen(options, *output);
-      return "ok\n";
-    }
+  );
 
-    captureFullscreen(options);
+  ipc.bind(
+      noctalia::cli::msg::screenshotAnnotate, [this, &ipc, &configService](const std::string& args) -> std::string {
+        auto request = parseScreenshotIpcRequest(
+            noctalia::cli::msg::screenshotAnnotate, args, outputOptionsFromConfig(configService.config()),
+            callerCwdOf(ipc)
+        );
+        if (!request) {
+          return request.error();
+        }
+        if (!available()) {
+          return "error: screen capture is not available on this compositor\n";
+        }
+        if (overlayBusy()) {
+          return "error: a screenshot overlay is already active\n";
+        }
+        auto* renderContext = PanelManager::instance().renderContext();
+        if (renderContext == nullptr) {
+          return "error: render context unavailable\n";
+        }
+        beginAnnotation(*renderContext, request->options, true);
+        return "ok\n";
+      }
+  );
+
+  ipc.bind(noctalia::cli::msg::screenshotWindow, [this, &ipc, &configService](const std::string& args) -> std::string {
+    auto request = parseScreenshotIpcRequest(
+        noctalia::cli::msg::screenshotWindow, args, outputOptionsFromConfig(configService.config()), callerCwdOf(ipc)
+    );
+    if (!request) {
+      return request.error();
+    }
+    if (!m_toplevelCapture.available()) {
+      return "error: window capture is not available on this compositor\n";
+    }
+    if (overlayBusy()) {
+      return "error: a screenshot overlay is already active\n";
+    }
+    if (m_toplevelCapture.busy()) {
+      return "error: a window capture is already in progress\n";
+    }
+    const auto& options = request->options;
+    if (!options.annotate && !hasAnyOutput(options)) {
+      return "error: no screenshot output enabled\n";
+    }
+    const auto target = resolveFocusedCaptureTarget();
+    if (!target.has_value()) {
+      return "error: " + target.error() + "\n";
+    }
+    captureWindow(*target, options);
     return "ok\n";
   });
+
+  // The live annotator draws over running apps, so it opens without screencopy;
+  // only its Freeze action needs capture support. With a path it edits that image instead.
+  ipc.bind(noctalia::cli::msg::annotate, [this, &ipc, &configService](const std::string& args) -> std::string {
+    auto request = parseScreenshotIpcRequest(
+        noctalia::cli::msg::annotate, args, outputOptionsFromConfig(configService.config()), callerCwdOf(ipc)
+    );
+    if (!request) {
+      return request.error();
+    }
+    if (overlayBusy()) {
+      return "error: a screenshot overlay is already active\n";
+    }
+    auto* renderContext = PanelManager::instance().renderContext();
+    if (renderContext == nullptr) {
+      return "error: render context unavailable\n";
+    }
+    const auto& options = request->options;
+    const std::string& path = request->target;
+    if (path.empty()) {
+      beginAnnotation(*renderContext, options, false);
+      return "ok\n";
+    }
+    const std::string resolved = FileUtils::resolvePath(path, callerCwdOf(ipc)).string();
+    if (const auto started = beginImageFileAnnotation(*renderContext, resolved, options); !started) {
+      return "error: " + started.error() + " (" + resolved + ")\n";
+    }
+    return "ok\n";
+  });
+}
+
+std::expected<ext_foreign_toplevel_handle_v1*, std::string> ScreenshotService::resolveFocusedCaptureTarget() const {
+  auto focusedId = m_platform.focusedCompositorWindowId();
+  if (!focusedId.has_value() || focusedId->empty()) {
+    focusedId = m_platform.focusedExtToplevelIdentifier();
+  }
+  if (focusedId.has_value() && !focusedId->empty()) {
+    if (auto* handle = m_platform.extHandleForCompositorWindowId(*focusedId); handle != nullptr) {
+      return handle;
+    }
+    if (m_platform.hasExactExtToplevelIdentity()) {
+      return std::unexpected("focused window identity is not available yet: " + *focusedId);
+    }
+  } else if (m_platform.hasExactExtToplevelIdentity()) {
+    return std::unexpected("no focused window identity reported by the compositor");
+  }
+
+  const auto focused = m_wayland.activeToplevel();
+  if (!focused.has_value() || focused->handle == nullptr) {
+    return std::unexpected("no focused window reported by the compositor");
+  }
+  const std::string appIdLower = StringUtils::toLower(focused->appId);
+  const auto appBucketed =
+      appIdLower.empty() ? m_wayland.extWindowsWithoutAppId() : m_wayland.extWindowsForApp(appIdLower, appIdLower);
+  const auto siblings = appIdLower.empty() ? m_wayland.windowsWithoutAppId(nullptr)
+                                           : m_wayland.windowsForApp(appIdLower, appIdLower, nullptr);
+  std::size_t wlrSameTitleCount = 0;
+  for (const auto& sibling : siblings) {
+    if (!focused->title.empty() && sibling.title != focused->title) {
+      continue;
+    }
+    ++wlrSameTitleCount;
+  }
+  const auto match = uniqueExtHandleForTitle(appBucketed, focused->title);
+  if (match.matchCount == 0) {
+    return std::unexpected("no window matches the focused window: " + focused->title);
+  }
+  if (match.handle == nullptr || wlrSameTitleCount != match.matchCount) {
+    return std::unexpected("multiple windows match the focused window: " + focused->title);
+  }
+  return match.handle;
+}
+
+void ScreenshotService::captureWindow(ext_foreign_toplevel_handle_v1* handle, const OutputOptions& options) {
+  const std::optional<std::filesystem::path> destPath =
+      needsScreenshotPath(options) ? std::optional(makeScreenshotPath(options, "window")) : std::nullopt;
+  m_toplevelCapture.capture(
+      handle, 0, 0, [this, options, destPath](std::optional<ScreencopyImage> image, std::string error) {
+        if (error.empty() && image.has_value()) {
+          playCaptureSound();
+          deliverCaptureResult(
+              capture::ScreenshotImage{
+                  .image = std::move(*image),
+                  .cursorVisible = false,
+                  .cursorStatus = capture::CursorToggleStatus::NotCaptured,
+              },
+              options, destPath
+          );
+          return;
+        }
+        kLog.warn("window screenshot failed: {}", error);
+        notifyError(error.empty() ? "Screenshot failed" : error);
+      }
+  );
 }
 
 wl_output* ScreenshotService::preferredCaptureOutput() const {
@@ -687,6 +1119,10 @@ void ScreenshotService::captureFullscreen(const OutputOptions& options, wl_outpu
     notifyError("No screenshot output enabled");
     return;
   }
+  if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
+    notifyError("An annotation overlay is already active");
+    return;
+  }
   if (output == nullptr) {
     output = preferredCaptureOutput();
   }
@@ -694,6 +1130,7 @@ void ScreenshotService::captureFullscreen(const OutputOptions& options, wl_outpu
     notifyError("No outputs available");
     return;
   }
+  playCaptureSound();
   captureOutput(output, std::nullopt, "screenshot", options);
 }
 
@@ -718,8 +1155,12 @@ void ScreenshotService::beginRegionCapture(RenderContext& renderContext, const O
     notifyError("Screen capture is not available on this compositor");
     return;
   }
-  if (!hasAnyOutput(options)) {
+  if (!options.annotate && !hasAnyOutput(options)) {
     notifyError("No screenshot output enabled");
+    return;
+  }
+  if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
+    notifyError("An annotation overlay is already active");
     return;
   }
   if (m_regionOverlay != nullptr && m_regionOverlay->isActive()) {
@@ -734,7 +1175,7 @@ void ScreenshotService::beginRegionCapture(RenderContext& renderContext, const O
   m_regionFullscreenPick = false;
 
   if (options.freezeScreen) {
-    DeferredCall::callLater([this]() { beginFreezeCapture(); });
+    DeferredCall::callLater([this] { beginFreezeCapture(); });
     return;
   }
 
@@ -750,6 +1191,10 @@ void ScreenshotService::beginFullscreenCapture(RenderContext& renderContext, con
     notifyError("No screenshot output enabled");
     return;
   }
+  if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
+    notifyError("An annotation overlay is already active");
+    return;
+  }
   if (m_regionOverlay != nullptr && m_regionOverlay->isActive()) {
     m_regionOverlay->cancel();
   }
@@ -762,7 +1207,7 @@ void ScreenshotService::beginFullscreenCapture(RenderContext& renderContext, con
   m_regionFullscreenPick = true;
 
   if (options.freezeScreen) {
-    DeferredCall::callLater([this]() { beginFreezeCapture(); });
+    DeferredCall::callLater([this] { beginFreezeCapture(); });
     return;
   }
 
@@ -782,6 +1227,12 @@ void ScreenshotService::ensureRegionOverlay() {
       primaryKeybindLabel(keybinds.copy, KeybindAction::Copy), primaryKeybindLabel(keybinds.save, KeybindAction::Save),
       primaryKeybindLabel(keybinds.cancel, KeybindAction::Cancel)
   );
+  const auto& screenshotCfg = m_configService.config().shell.screenshot;
+  m_regionOverlay->setRegionModifier(regionModifierMask(screenshotCfg.regionModifier));
+  m_regionOverlay->setSelectionBorderWidth(screenshotCfg.regionBorderWidth);
+  m_regionOverlay->setDimOpacity(screenshotCfg.regionDimOpacity);
+  m_regionOverlay->setShowRegionHint(screenshotCfg.showRegionHint);
+  m_regionOverlay->setShowRegionDimensions(screenshotCfg.showRegionDimensions);
   m_regionOverlay->setFailureCallback([this](const std::string& message) {
     m_frozenScreenshots.clear();
     m_regionFullscreenPick = false;
@@ -815,6 +1266,7 @@ void ScreenshotService::ensureRegionOverlay() {
           if (m_regionOutputOptions.freezeScreen && m_regionOverlay != nullptr) {
             m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
           }
+          playCaptureSound();
           completeFullscreenSelection(output, m_regionOutputOptions);
           m_regionFullscreenPick = false;
           return;
@@ -825,19 +1277,21 @@ void ScreenshotService::ensureRegionOverlay() {
         }
 
         OutputOptions options = m_regionOutputOptions;
+        if (action != capture::ConfirmAction::None && options.skipAnnotateOnCopySave) {
+          options.annotate = false;
+        }
         if (action == capture::ConfirmAction::ForceClipboard) {
           options.copyToClipboard = true;
           options.saveToFile = false;
-          options.pipeToCommand = false;
         } else if (action == capture::ConfirmAction::ForceSave) {
           options.copyToClipboard = false;
           options.saveToFile = true;
-          options.pipeToCommand = false;
         }
 
         if (options.freezeScreen && m_regionOverlay != nullptr) {
           m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
         }
+        playCaptureSound();
         if (options.freezeScreen && !m_frozenScreenshots.empty()) {
           deliverFrozenGlobalRegion(*region, options);
           return;
@@ -872,65 +1326,93 @@ void ScreenshotService::beginFreezeCapture() {
   }
 
   m_frozenScreenshots.clear();
-  m_pendingFreezeOutputs.clear();
+  m_pendingFreezeCaptures.clear();
   for (const auto& output : m_wayland.outputs()) {
-    if (output.output != nullptr && output.logicalWidth > 0 && output.logicalHeight > 0) {
-      m_pendingFreezeOutputs.push_back(output.output);
+    if (output.output == nullptr || output.logicalWidth <= 0 || output.logicalHeight <= 0) {
+      continue;
     }
+    m_pendingFreezeCaptures.push_back(FreezeRequest{.output = output.output});
   }
-  if (m_pendingFreezeOutputs.empty()) {
+  if (m_pendingFreezeCaptures.empty()) {
     notifyError("No outputs available");
     return;
   }
 
   m_freezeCaptureActive = true;
+  startNextFreezeCapture();
+}
 
-  while (!m_pendingFreezeOutputs.empty()) {
-    if (!m_freezeCaptureActive) {
-      m_frozenScreenshots.clear();
-      return;
-    }
-
-    wl_output* output = m_pendingFreezeOutputs.front();
-    m_pendingFreezeOutputs.erase(m_pendingFreezeOutputs.begin());
-
-    if (m_capture.busy()) {
-      m_capture.cancelInFlight();
-    }
-
-    ScreencopyImage image;
-    std::string error;
-    if (!screencopy::captureOutputBlocking(
-            m_capture, m_wayland, output, image, error, m_regionOutputOptions.showCursor
-        )) {
-      if (!m_freezeCaptureActive) {
-        m_frozenScreenshots.clear();
-        return;
-      }
-      abortFreezeCapture(error.empty() ? "Failed to freeze screen" : error);
-      return;
-    }
-    if (!m_freezeCaptureActive) {
-      m_frozenScreenshots.clear();
-      return;
-    }
-    if (!screencopy::orientCaptureNative(image, m_wayland, output)) {
-      abortFreezeCapture("Failed to orient frozen screenshot");
-      return;
-    }
-    m_frozenScreenshots.push_back(capture::FrozenScreenshot{.output = output, .image = std::move(image)});
+void ScreenshotService::startNextFreezeCapture() {
+  if (!m_freezeCaptureActive) {
+    return;
   }
 
-  m_freezeCaptureActive = false;
-  finishFreezeCapture();
+  if (m_pendingFreezeCaptures.empty()) {
+    m_freezeCaptureActive = false;
+    finishFreezeCapture();
+    return;
+  }
+
+  const FreezeRequest request = m_pendingFreezeCaptures.front();
+  m_pendingFreezeCaptures.erase(m_pendingFreezeCaptures.begin());
+  if (m_capture.busy()) {
+    m_capture.cancelInFlight();
+  }
+
+  m_capture.capture(
+      request.output, std::nullopt, m_regionOutputOptions.showCursor,
+      m_freezeTarget == FreezeTarget::Annotation || m_regionOutputOptions.annotate,
+      [this, request](std::optional<capture::ScreenshotImage> image, const std::string& error) {
+        onFreezeFrameCaptured(request, std::move(image), error);
+      }
+  );
+}
+
+void ScreenshotService::onFreezeFrameCaptured(
+    FreezeRequest request, std::optional<capture::ScreenshotImage> image, const std::string& error
+) {
+  if (!m_freezeCaptureActive) {
+    return;
+  }
+
+  if (!error.empty() || !image.has_value()) {
+    kLog.warn("failed to freeze output: {}", error.empty() ? "empty frame" : error);
+  } else {
+    m_frozenScreenshots.push_back(capture::FrozenScreenshot{.output = request.output, .image = std::move(*image)});
+  }
+
+  DeferredCall::callLater([this] { startNextFreezeCapture(); });
 }
 
 void ScreenshotService::finishFreezeCapture() {
+  m_freezeCaptureActive = false;
+  const FreezeTarget target = std::exchange(m_freezeTarget, FreezeTarget::Region);
+
   if (m_regionRenderContext == nullptr) {
     notifyError("Render context unavailable");
     m_frozenScreenshots.clear();
     return;
   }
+
+  if (target == FreezeTarget::Annotation) {
+    if (m_frozenScreenshots.empty()) {
+      notifyError("Failed to freeze the screen");
+      if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
+        m_annotationOverlay->resumeAfterCapture();
+      }
+      return;
+    }
+    ensureAnnotationOverlay();
+    m_annotationOverlay->setFrozenScreenshots(std::move(m_frozenScreenshots));
+    m_frozenScreenshots.clear();
+    if (m_annotationOverlay->isActive()) {
+      m_annotationOverlay->resumeAfterCapture();
+    } else {
+      m_annotationOverlay->begin();
+    }
+    return;
+  }
+
   if (m_frozenScreenshots.empty()) {
     notifyError("Failed to freeze screen");
     return;
@@ -948,7 +1430,8 @@ void ScreenshotService::finishFreezeCapture() {
 void ScreenshotService::abortFreezeCapture(const std::string& message) {
   cancelAllOutputsBatch();
   m_freezeCaptureActive = false;
-  m_pendingFreezeOutputs.clear();
+  m_pendingFreezeCaptures.clear();
+  m_freezeTarget = FreezeTarget::Region;
   m_frozenScreenshots.clear();
   m_capture.cancelInFlight();
   if (!message.empty()) {
@@ -965,6 +1448,217 @@ void ScreenshotService::cancelRegionCapture() {
   if (m_regionOverlay != nullptr && m_regionOverlay->isActive()) {
     m_regionOverlay->cancelSelection();
   }
+}
+
+capture::AnnotationToolState ScreenshotService::loadAnnotationToolState() const {
+  capture::AnnotationToolState state = capture::defaultAnnotationToolState();
+  if (const auto tool = m_configService.stateString(kAnnotateStateOwner, "tool"); tool.has_value()) {
+    if (const auto parsed = capture::annotationToolFromName(*tool); parsed.has_value()) {
+      state.tool = *parsed;
+    }
+  }
+  if (const auto fill = m_configService.stateString(kAnnotateStateOwner, "fill"); fill.has_value()) {
+    if (const auto parsed = capture::annotationFillModeFromName(*fill); parsed.has_value()) {
+      state.fill = *parsed;
+    }
+  }
+  if (const auto encoded = m_configService.stateString(kAnnotateStateOwner, "toolbar_positions"); encoded.has_value()) {
+    const nlohmann::json positions = nlohmann::json::parse(*encoded, nullptr, false);
+    bool invalid = !positions.is_object();
+    if (positions.is_object()) {
+      for (const auto& [outputName, position] : positions.items()) {
+        if (outputName.empty() || !position.is_object()) {
+          invalid = true;
+          continue;
+        }
+        const auto x = position.find("x");
+        const auto y = position.find("y");
+        if (x == position.end() || y == position.end() || !x->is_number() || !y->is_number()) {
+          invalid = true;
+          continue;
+        }
+        const double parsedX = x->get<double>();
+        const double parsedY = y->get<double>();
+        if (!std::isfinite(parsedX) || !std::isfinite(parsedY)) {
+          invalid = true;
+          continue;
+        }
+        state.toolbarPositions.insert_or_assign(outputName, capture::AnnotationPoint{.x = parsedX, .y = parsedY});
+      }
+    }
+    if (invalid) {
+      kLog.warn("invalid annotation toolbar position state");
+    }
+  }
+  for (std::size_t i = 0; i < capture::kAnnotationToolCount; ++i) {
+    const std::string name(capture::annotationToolName(static_cast<capture::AnnotationTool>(i)));
+    if (const auto width = m_configService.stateString(kAnnotateStateOwner, std::format("width_{}", name));
+        width.has_value()) {
+      if (const auto parsed = parseDouble(*width); parsed.has_value()) {
+        state.width[i] = *parsed;
+      }
+    }
+    if (const auto color = m_configService.stateString(kAnnotateStateOwner, std::format("color_{}", name));
+        color.has_value()) {
+      if (const auto parsed = parseAnnotationColor(*color); parsed.has_value()) {
+        state.color[i] = *parsed;
+      }
+    }
+  }
+  return state;
+}
+
+void ScreenshotService::persistAnnotationToolState(std::string_view key, std::string_view value) {
+  (void)m_configService.setStateString(kAnnotateStateOwner, key, value);
+}
+
+void ScreenshotService::ensureAnnotationOverlay() {
+  if (m_regionRenderContext == nullptr) {
+    m_regionRenderContext = PanelManager::instance().renderContext();
+  }
+  if (m_regionRenderContext == nullptr) {
+    return;
+  }
+  if (m_annotationOverlay == nullptr) {
+    m_annotationOverlay = std::make_unique<capture::AnnotationOverlay>();
+  }
+  m_annotationOverlay->initialize(m_wayland, m_regionRenderContext);
+  m_annotationOverlay->setStateSetter([this](std::string_view key, std::string_view value) {
+    persistAnnotationToolState(key, value);
+  });
+  m_annotationOverlay->setFailureCallback([this](const std::string& message) {
+    m_pendingDelivery.reset();
+    notifyError(message);
+  });
+  m_annotationOverlay->setClosedCallback([this] { m_pendingDelivery.reset(); });
+  m_annotationOverlay->setBackdropChangedCallback([this](const capture::ScreenshotBackdropSettings& backdrop) {
+    persistScreenshotBackdrop(backdrop);
+  });
+  m_annotationOverlay->setFeedbackCallback([this](const std::string& message) { notifyError(message); });
+  m_annotationOverlay->setFreezeCallback([this] {
+    if (m_annotationOverlay == nullptr || !m_annotationOverlay->isActive()) {
+      return;
+    }
+    if (!available()) {
+      notifyError("Screen capture is not available on this compositor");
+      return;
+    }
+    // Surfaces go away before the first capture_output request, so the frame the
+    // compositor copies no longer contains the ink.
+    m_annotationOverlay->hideForCapture();
+    m_freezeTarget = FreezeTarget::Annotation;
+    beginFreezeCapture();
+  });
+  m_annotationOverlay->setCaptureRegionCallback([this] {
+    if (m_annotationOverlay == nullptr || !m_annotationOverlay->isActive()) {
+      return;
+    }
+    if (!available()) {
+      notifyError("Screen capture is not available on this compositor");
+      return;
+    }
+    OutputOptions options = m_pendingDelivery.has_value() ? m_pendingDelivery->options : m_regionOutputOptions;
+    options.annotate = true;
+    if (m_annotationOverlay->mode() != capture::AnnotationMode::Live) {
+      options.showCursor = m_annotationOverlay->cursorVisible();
+    }
+    m_annotationOverlay->cancel();
+    beginRegionCapture(*m_regionRenderContext, options);
+  });
+  m_annotationOverlay->setExportCallback([this](ScreencopyImage image, capture::AnnotationExport action) {
+    if (action == capture::AnnotationExport::Done) {
+      if (!m_pendingDelivery.has_value()) {
+        return;
+      }
+      OutputOptions options = m_pendingDelivery->options;
+      options.annotate = false;
+      applyEditorBackdrop(options);
+      const auto destPath = m_pendingDelivery->destPath;
+      m_pendingDelivery.reset();
+      finishDelivery(std::move(image), options, destPath);
+      return;
+    }
+
+    OutputOptions options = m_pendingDelivery.has_value() ? m_pendingDelivery->options : m_regionOutputOptions;
+    options.copyToClipboard = action == capture::AnnotationExport::Copy;
+    options.saveToFile = action == capture::AnnotationExport::Save;
+    options.pipeToCommand = false;
+    options.annotate = false;
+    applyEditorBackdrop(options);
+    const std::optional<std::filesystem::path> destPath =
+        options.saveToFile ? std::optional(makeScreenshotPath(options, "annotated")) : std::nullopt;
+    const bool delivered = finishDelivery(std::move(image), options, destPath);
+    if (delivered
+        && ((action == capture::AnnotationExport::Copy && options.closeOnCopy)
+            || (action == capture::AnnotationExport::Save && options.closeOnSave))) {
+      DeferredCall::callLater([this] { m_annotationOverlay->cancel(); });
+    }
+  });
+}
+
+void ScreenshotService::beginAnnotation(RenderContext& renderContext, const OutputOptions& options, bool freezeFirst) {
+  m_regionRenderContext = &renderContext;
+  m_regionOutputOptions = options;
+  m_regionFullscreenPick = false;
+  m_pendingDelivery.reset();
+
+  ensureAnnotationOverlay();
+  if (m_annotationOverlay == nullptr) {
+    notifyError("Render context unavailable");
+    return;
+  }
+  m_annotationOverlay->setToolState(loadAnnotationToolState());
+  m_annotationOverlay->setCursorVisible(options.showCursor);
+  m_annotationOverlay->setCopyOnClose(options.copyOnClose);
+
+  if (freezeFirst) {
+    m_freezeTarget = FreezeTarget::Annotation;
+    DeferredCall::callLater([this] { beginFreezeCapture(); });
+    return;
+  }
+
+  m_annotationOverlay->setFrozenScreenshots({});
+  m_annotationOverlay->begin();
+}
+
+std::expected<void, std::string> ScreenshotService::beginImageFileAnnotation(
+    RenderContext& renderContext, const std::string& path, const OutputOptions& options
+) {
+  if (preferredCaptureOutput() == nullptr) {
+    return std::unexpected("no usable output for the annotation editor");
+  }
+  auto image = loadImageForAnnotation(path);
+  if (!image) {
+    return std::unexpected(image.error());
+  }
+
+  m_regionRenderContext = &renderContext;
+  m_regionOutputOptions = options;
+  m_regionFullscreenPick = false;
+  m_frozenScreenshots.clear();
+
+  // Done writes a new screenshot file rather than overwriting the source image.
+  const std::optional<std::filesystem::path> destPath =
+      needsScreenshotPath(options) ? std::optional(makeScreenshotPath(options, "annotated")) : std::nullopt;
+  beginImageAnnotation(std::move(*image), options, destPath);
+  return {};
+}
+
+void ScreenshotService::beginImageAnnotation(
+    capture::ScreenshotImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath
+) {
+  ensureAnnotationOverlay();
+  if (m_annotationOverlay == nullptr) {
+    kLog.warn("annotate requested but no render context is available; delivering unannotated");
+    finishDelivery(std::move(image.image), options, std::move(destPath));
+    return;
+  }
+  m_pendingDelivery = PendingDelivery{.options = options, .destPath = std::move(destPath)};
+  m_annotationOverlay->setToolState(loadAnnotationToolState());
+  m_annotationOverlay->setCursorVisible(options.showCursor);
+  m_annotationOverlay->setCopyOnClose(options.copyOnClose);
+  m_annotationOverlay->setScreenshotBackdrop(loadScreenshotBackdrop());
+  m_annotationOverlay->beginImage(std::move(image), preferredCaptureOutput());
 }
 
 void ScreenshotService::deliverFrozenGlobalRegion(LogicalRect globalRegion, const OutputOptions& options) {
@@ -985,7 +1679,7 @@ void ScreenshotService::deliverFrozenGlobalRegion(LogicalRect globalRegion, cons
       m_frozenScreenshots.clear();
       return;
     }
-    auto cropped = cropFrozenRegion(frozen->image, out->logicalWidth, out->logicalHeight, target.localRegion);
+    auto cropped = cropScreenshotImage(frozen->image, out->logicalWidth, out->logicalHeight, target.localRegion);
     if (!cropped.has_value()) {
       notifyError("Failed to crop frozen screenshot");
       m_frozenScreenshots.clear();
@@ -1072,16 +1766,16 @@ void ScreenshotService::startNextGlobalRegionCapture() {
   }
 
   m_capture.capture(
-      target.output, target.localRegion, batch.options.showCursor,
+      target.output, target.localRegion, batch.options.showCursor, batch.options.annotate,
       [this, output = target.output,
-       localRegion = target.localRegion](std::optional<ScreencopyImage> image, const std::string& error) {
+       localRegion = target.localRegion](std::optional<capture::ScreenshotImage> image, const std::string& error) {
         onGlobalRegionFrameCaptured(output, localRegion, std::move(image), error);
       }
   );
 }
 
 void ScreenshotService::onGlobalRegionFrameCaptured(
-    wl_output* output, LogicalRect localRegion, std::optional<ScreencopyImage> image, const std::string& error
+    wl_output* output, LogicalRect localRegion, std::optional<capture::ScreenshotImage> image, const std::string& error
 ) {
   if (!m_globalRegionBatch) {
     return;
@@ -1089,11 +1783,6 @@ void ScreenshotService::onGlobalRegionFrameCaptured(
   if (!error.empty() || !image.has_value()) {
     kLog.warn("region screenshot failed: {}", error.empty() ? "empty frame" : error);
     notifyError(error.empty() ? "Screenshot failed" : error);
-    cancelGlobalRegionBatch();
-    return;
-  }
-  if (!screencopy::orientCaptureNative(*image, m_wayland, output)) {
-    notifyError("Failed to scale screenshot");
     cancelGlobalRegionBatch();
     return;
   }
@@ -1105,7 +1794,7 @@ void ScreenshotService::onGlobalRegionFrameCaptured(
           .image = std::move(*image),
       }
   );
-  DeferredCall::callLater([this]() { startNextGlobalRegionCapture(); });
+  DeferredCall::callLater([this] { startNextGlobalRegionCapture(); });
 }
 
 void ScreenshotService::finishGlobalRegionBatch() {
@@ -1159,7 +1848,7 @@ void ScreenshotService::deliverFrozenRegion(LogicalRect region, wl_output* outpu
     return;
   }
 
-  auto cropped = cropFrozenRegion(frozen->image, out->logicalWidth, out->logicalHeight, region);
+  auto cropped = cropScreenshotImage(frozen->image, out->logicalWidth, out->logicalHeight, region);
   m_frozenScreenshots.clear();
   if (!cropped.has_value()) {
     notifyError("Failed to crop frozen screenshot");
@@ -1220,10 +1909,10 @@ void ScreenshotService::captureOutput(
   }
 
   m_capture.capture(
-      pending.output, pending.region, pending.outputOptions.showCursor,
-      [this, options = pending.outputOptions, destPath = pending.destPath,
-       output = pending.output](std::optional<ScreencopyImage> image, const std::string& error) {
-        onCaptureComplete(std::move(image), error, options, destPath, output);
+      pending.output, pending.region, pending.outputOptions.showCursor, pending.outputOptions.annotate,
+      [this, options = pending.outputOptions,
+       destPath = pending.destPath](std::optional<capture::ScreenshotImage> image, const std::string& error) {
+        onCaptureComplete(std::move(image), error, options, destPath);
       }
   );
 }
@@ -1232,23 +1921,27 @@ void ScreenshotService::startNextQueuedCapture() {
   if (m_captureQueue.empty() || m_capture.busy()) {
     return;
   }
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     if (m_captureQueue.empty() || m_capture.busy()) {
       return;
     }
     PendingCapture pending = std::move(m_captureQueue.front());
     m_captureQueue.erase(m_captureQueue.begin());
     m_capture.capture(
-        pending.output, pending.region, pending.outputOptions.showCursor,
-        [this, options = pending.outputOptions, destPath = pending.destPath,
-         output = pending.output](std::optional<ScreencopyImage> image, const std::string& error) {
-          onCaptureComplete(std::move(image), error, options, destPath, output);
+        pending.output, pending.region, pending.outputOptions.showCursor, pending.outputOptions.annotate,
+        [this, options = pending.outputOptions,
+         destPath = pending.destPath](std::optional<capture::ScreenshotImage> image, const std::string& error) {
+          onCaptureComplete(std::move(image), error, options, destPath);
         }
     );
   });
 }
 
 void ScreenshotService::captureAllOutputs(const OutputOptions& options) {
+  if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
+    notifyError("An annotation overlay is already active");
+    return;
+  }
   cancelAllOutputsBatch();
   cancelGlobalRegionBatch();
   m_captureQueue.clear();
@@ -1273,6 +1966,7 @@ void ScreenshotService::captureAllOutputs(const OutputOptions& options) {
     notifyError("No outputs available");
     return;
   }
+  playCaptureSound();
   if (targets.size() == 1) {
     captureOutput(targets.front().output, std::nullopt, targets.front().label, options);
     return;
@@ -1308,16 +2002,16 @@ void ScreenshotService::startNextAllOutputsCapture() {
   }
 
   m_capture.capture(
-      target.output, std::nullopt, batch.options.showCursor,
+      target.output, std::nullopt, batch.options.showCursor, batch.options.annotate,
       [this, output = target.output,
-       label = target.label](std::optional<ScreencopyImage> image, const std::string& error) {
+       label = target.label](std::optional<capture::ScreenshotImage> image, const std::string& error) {
         onAllOutputsFrameCaptured(output, label, std::move(image), error);
       }
   );
 }
 
 void ScreenshotService::onAllOutputsFrameCaptured(
-    wl_output* output, const std::string& label, std::optional<ScreencopyImage> image, const std::string& error
+    wl_output* output, const std::string& label, std::optional<capture::ScreenshotImage> image, const std::string& error
 ) {
   if (!m_allOutputsBatch) {
     return;
@@ -1328,14 +2022,9 @@ void ScreenshotService::onAllOutputsFrameCaptured(
     cancelAllOutputsBatch();
     return;
   }
-  if (!screencopy::orientCaptureNative(*image, m_wayland, output)) {
-    notifyError("Failed to scale screenshot");
-    cancelAllOutputsBatch();
-    return;
-  }
 
   m_allOutputsBatch->frames.push_back(capture::FrozenScreenshot{.output = output, .image = std::move(*image)});
-  DeferredCall::callLater([this]() { startNextAllOutputsCapture(); });
+  DeferredCall::callLater([this] { startNextAllOutputsCapture(); });
 }
 
 void ScreenshotService::finishAllOutputsBatch() {
@@ -1378,14 +2067,105 @@ void ScreenshotService::cancelAllOutputsBatch() {
 }
 
 void ScreenshotService::deliverCaptureResult(
+    capture::ScreenshotImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath
+) {
+  if (options.annotate && image.image.width > 0 && image.image.height > 0) {
+    beginImageAnnotation(std::move(image), options, std::move(destPath));
+    return;
+  }
+  finishDelivery(std::move(image.image), options, std::move(destPath));
+}
+
+// The backdrop comes only from the Image-mode editor, which previews and edits it.
+void ScreenshotService::applyEditorBackdrop(OutputOptions& options) const {
+  if (m_annotationOverlay != nullptr && m_annotationOverlay->mode() == capture::AnnotationMode::Image) {
+    options.backdrop = capture::resolveScreenshotBackdrop(m_annotationOverlay->screenshotBackdrop());
+  }
+}
+
+// The editor's backdrop lives in the annotate state, next to its tool preferences.
+void ScreenshotService::persistScreenshotBackdrop(const capture::ScreenshotBackdropSettings& backdrop) {
+  const nlohmann::json json = {
+      {"enabled", backdrop.enabled},
+      {"gradient", backdrop.gradient},
+      {"gradient_start", colorSpecToConfigString(backdrop.gradientStart)},
+      {"gradient_end", colorSpecToConfigString(backdrop.gradientEnd)},
+      {"gradient_angle", backdrop.gradientAngle},
+      {"padding", backdrop.padding},
+      {"corner_radius", backdrop.cornerRadius},
+      {"shadow", backdrop.shadow},
+      {"shadow_color", colorSpecToConfigString(backdrop.shadowColor)},
+      {"shadow_opacity", backdrop.shadowOpacity},
+      {"shadow_blur", backdrop.shadowBlur},
+      {"shadow_offset_x", backdrop.shadowOffsetX},
+      {"shadow_offset_y", backdrop.shadowOffsetY},
+  };
+  persistAnnotationToolState(kBackdropStateKey, json.dump());
+}
+
+capture::ScreenshotBackdropSettings ScreenshotService::loadScreenshotBackdrop() const {
+  capture::ScreenshotBackdropSettings backdrop;
+  const auto text = m_configService.stateString(kAnnotateStateOwner, kBackdropStateKey);
+  if (!text.has_value()) {
+    return backdrop;
+  }
+  const nlohmann::json json = nlohmann::json::parse(*text, nullptr, false);
+  if (!json.is_object()) {
+    return backdrop;
+  }
+  const auto read = [&json](const char* key, auto& out) {
+    if (const auto it = json.find(key); it != json.end()) {
+      try {
+        out = it->get<std::remove_reference_t<decltype(out)>>();
+      } catch (const nlohmann::json::exception&) {
+      }
+    }
+  };
+  const auto readColor = [&json](const char* key, ColorSpec& out) {
+    if (const auto it = json.find(key); it != json.end() && it->is_string()) {
+      try {
+        out = colorSpecFromConfigString(it->get<std::string>());
+      } catch (const std::exception&) {
+      }
+    }
+  };
+  read("enabled", backdrop.enabled);
+  read("gradient", backdrop.gradient);
+  readColor("gradient_start", backdrop.gradientStart);
+  readColor("gradient_end", backdrop.gradientEnd);
+  read("gradient_angle", backdrop.gradientAngle);
+  read("padding", backdrop.padding);
+  read("corner_radius", backdrop.cornerRadius);
+  read("shadow", backdrop.shadow);
+  readColor("shadow_color", backdrop.shadowColor);
+  read("shadow_opacity", backdrop.shadowOpacity);
+  read("shadow_blur", backdrop.shadowBlur);
+  read("shadow_offset_x", backdrop.shadowOffsetX);
+  read("shadow_offset_y", backdrop.shadowOffsetY);
+  return backdrop;
+}
+
+bool ScreenshotService::finishDelivery(
     ScreencopyImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath
 ) {
+  if (options.backdrop.has_value()) {
+    image = capture::applyScreenshotBackdrop(image, *options.backdrop);
+  }
+
+  const bool saveFile = options.saveToFile && destPath.has_value();
+  const bool pipe = options.pipeToCommand && !options.pipeCommand.empty();
+  // Clipboard and pipe consumers always receive PNG; only the saved file uses the configured format.
+  const bool needsPng = options.copyToClipboard || pipe || (saveFile && options.format == ScreenshotFormat::Png);
+
   std::string encodeError;
-  std::vector<std::uint8_t> png = encodePng(image.rgba.data(), image.width, image.height, &encodeError);
-  if (png.empty()) {
-    kLog.warn("screenshot encode failed: {}", encodeError);
-    notifyError(encodeError.empty() ? "Failed to encode screenshot" : encodeError);
-    return;
+  std::vector<std::uint8_t> png;
+  if (needsPng) {
+    png = encodePng(image.rgba.data(), image.width, image.height, &encodeError);
+    if (png.empty()) {
+      kLog.warn("screenshot encode failed: {}", encodeError);
+      notifyError(encodeError.empty() ? "Failed to encode screenshot" : encodeError);
+      return false;
+    }
   }
 
   bool delivered = false;
@@ -1399,15 +2179,25 @@ void ScreenshotService::deliverCaptureResult(
     }
   }
 
-  if (options.saveToFile && destPath.has_value()) {
-    std::ofstream out(*destPath, std::ios::binary | std::ios::trunc);
-    out.write(reinterpret_cast<const char*>(png.data()), static_cast<std::streamsize>(png.size()));
-    if (!out) {
-      kLog.warn("screenshot write failed: {}", destPath->string());
-      failureMessage = "Failed to save screenshot";
+  if (saveFile) {
+    std::vector<std::uint8_t> encoded;
+    if (options.format != ScreenshotFormat::Png) {
+      encoded = encodeScreenshotFile(image, options.format, options.quality, &encodeError);
+    }
+    const std::vector<std::uint8_t>& fileBytes = options.format == ScreenshotFormat::Png ? png : encoded;
+    if (fileBytes.empty()) {
+      kLog.warn("screenshot encode failed: {}", encodeError);
+      failureMessage = encodeError.empty() ? "Failed to encode screenshot" : encodeError;
     } else {
-      notifySaved(*destPath);
-      delivered = true;
+      std::ofstream out(*destPath, std::ios::binary | std::ios::trunc);
+      out.write(reinterpret_cast<const char*>(fileBytes.data()), static_cast<std::streamsize>(fileBytes.size()));
+      if (!out) {
+        kLog.warn("screenshot write failed: {}", destPath->string());
+        failureMessage = "Failed to save screenshot";
+      } else {
+        notifySaved(*destPath);
+        delivered = true;
+      }
     }
   }
 
@@ -1427,19 +2217,20 @@ void ScreenshotService::deliverCaptureResult(
     }
   }
 
-  if (options.pipeToCommand && !options.pipeCommand.empty()) {
-    pipePngToCommandAsync(options.pipeCommand, png, destPath);
+  if (pipe) {
+    pipePngToCommandAsync(options.pipeCommand, std::move(png), destPath);
     delivered = true;
   }
 
   if (!delivered) {
     notifyError(failureMessage.empty() ? "No screenshot output enabled" : failureMessage);
   }
+  return delivered;
 }
 
 void ScreenshotService::onCaptureComplete(
-    std::optional<ScreencopyImage> image, const std::string& error, OutputOptions options,
-    std::optional<std::filesystem::path> destPath, wl_output* output
+    std::optional<capture::ScreenshotImage> image, const std::string& error, const OutputOptions& options,
+    std::optional<std::filesystem::path> destPath
 ) {
   if (!error.empty() || !image.has_value()) {
     kLog.warn("screenshot failed: {}", error.empty() ? "empty frame" : error);
@@ -1448,26 +2239,13 @@ void ScreenshotService::onCaptureComplete(
     return;
   }
 
-  if (!screencopy::orientCaptureNative(*image, m_wayland, output)) {
-    notifyError("Failed to scale screenshot");
-    startNextQueuedCapture();
-    return;
-  }
-
   deliverCaptureResult(std::move(*image), options, std::move(destPath));
   startNextQueuedCapture();
 }
 
-std::filesystem::path ScreenshotService::defaultPicturesDirectory() const {
-  if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
-    return std::filesystem::path(home) / "Pictures";
-  }
-  return std::filesystem::path("/tmp");
-}
-
 std::filesystem::path ScreenshotService::outputDirectory(const OutputOptions& options) const {
   if (options.directory.empty()) {
-    return defaultPicturesDirectory();
+    return FileUtils::defaultPicturesDirectory();
   }
   return FileUtils::expandUserPath(options.directory);
 }
@@ -1475,8 +2253,9 @@ std::filesystem::path ScreenshotService::outputDirectory(const OutputOptions& op
 std::filesystem::path
 ScreenshotService::makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix) const {
   const auto dir = outputDirectory(options);
-  const std::string stem = formatFilenameStem(options.filenamePattern, labelBase, suffix);
-  return dir / (stem + ".png");
+  std::string filename = formatFilenameStem(options.filenamePattern, labelBase, suffix);
+  filename.append(screenshotExtension(options.format));
+  return dir / filename;
 }
 
 void ScreenshotService::notifySaved(const std::filesystem::path& path) {
@@ -1485,4 +2264,12 @@ void ScreenshotService::notifySaved(const std::filesystem::path& path) {
 
 void ScreenshotService::notifyError(const std::string& message) {
   m_notifications.addInternal("Noctalia", "Screenshot failed", message, Urgency::Critical);
+}
+
+void ScreenshotService::setSoundPlayer(SoundPlayer* soundPlayer) { m_soundPlayer = soundPlayer; }
+
+void ScreenshotService::playCaptureSound() {
+  if (m_soundPlayer != nullptr) {
+    m_soundPlayer->play(SoundPlayer::kEventScreenCapture);
+  }
 }

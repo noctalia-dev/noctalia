@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "Anwendungslautstärken",
       "choose-effects-profile": "Wähle ein Profil",
+      "default-device": "Standardgerät",
       "effects-profile": "Effekte",
       "input-device-prefix": "Eingabe",
       "no-application-audio": "Kein Anwendungsaudio",
@@ -257,7 +258,6 @@
       "uptime": "Betriebszeit – {uptime}",
       "weather": {
         "data-unavailable": "Wetterdaten nicht verfügbar.",
-        "disabled": "Wetter ist in der Konfiguration deaktiviert.",
         "fetching": "Vorhersage wird abgerufen…"
       }
     },
@@ -305,6 +305,22 @@
     },
     "power": {
       "battery": "Akku",
+      "charging": {
+        "configured": "Konfiguriert: {limits}",
+        "display-only": "Nur anzeigen",
+        "error-denied": "Autorisierung wurde verweigert. Ladeschwellenwerte wurden nicht geändert.",
+        "error-failed": "Ladeschwellenwerte konnten nicht geändert werden.",
+        "externally-managed": "Von einem anderen Tool festgelegt. Konfiguriere UPower zur Verwaltung der Ladeschwellenwerte.",
+        "firmware-managed": "Laden wird von der System-Firmware verwaltet",
+        "full-charge": "Kann bis 100% laden",
+        "starts": "Startet unter {start}%",
+        "starts-stops": "Startet unter {start}% · Stoppt bei {end}%",
+        "stops": "Stoppt bei {end}%",
+        "title": "Akkuladung",
+        "unreadable": "Nicht verfügbar",
+        "unsupported": "Ladeschwellenwerte werden nicht unterstützt",
+        "use-thresholds": "Ladeschwellenwerte verwenden"
+      },
       "design-capacity": "Der Nennkapazität",
       "health": "Akkuzustand",
       "performance-inhibited": "Leistung nicht verfügbar",
@@ -548,6 +564,7 @@
         "stat-gpu-temp": "GPU-Temperatur",
         "stat-gpu-usage": "GPU-Auslastung",
         "stat-gpu-vram": "GPU VRAM",
+        "stat-gpu-vram-used": "Genutzter GPU-VRAM",
         "stat-net-rx": "Net Rx",
         "stat-net-tx": "Net Tx",
         "stat-none": "Nichts",
@@ -578,6 +595,7 @@
         "grid": "Gitter"
       },
       "title": "Desktop-Widgets",
+      "title-lockscreen": "Sperrbildschirm-Widgets",
       "types": {
         "audio-visualizer": "Audio-Visualizer",
         "button": "Button",
@@ -659,6 +677,7 @@
       "type-to-search": "Zum Suchen eingeben…"
     },
     "origins": {
+      "appimage": "AppImage",
       "flatpak": "Flatpak",
       "nix": "Nix",
       "snap": "Snap",
@@ -726,7 +745,7 @@
     },
     "internal": {
       "battery": "Akku",
-      "battery-critical-body": "{device}: {percent}% – dein Computer fährt bald herunter",
+      "battery-critical-body": "{device}: {percent}%; dein Computer fährt bald herunter",
       "battery-critical-title": "Akkustand kritisch",
       "battery-device": "Akkugerät",
       "battery-low-body": "{device}: {percent}% verbleibend",
@@ -750,12 +769,12 @@
       "desktop-widgets-editor": "Widget-Editor",
       "desktop-widgets-editor-enabled": "Der Desktop-Widget-Editor ist aktiv. Wechsle zu einem leeren Arbeitsbereich, damit offene Fenster den Editor nicht verdecken.",
       "greeter-sync": "Noctalia Greeter",
-      "greeter-sync-pending": "Warte auf Administratorfreigabe zum Schreiben in den Greeter.",
-      "greeter-sync-pending-console": "Warte auf Administratorfreigabe. Bestätige die Polkit-Anfrage in Noctalia, auf einem TTY oder einer Konsole oder führe pkexec manuell aus.",
-      "greeter-sync-pending-manual": "Dateien sind vorbereitet. Führe in einem Terminal aus: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Oder lege shell.greeter_sync.privilege_command fest (z. B. ghostty -e pkexec) und synchronisiere erneut.",
+      "greeter-sync-pending": "Das Erscheinungsbild wird mit dem Greeter synchronisiert. Falls eine Administratorabfrage erscheint, bestätige sie; passwortlose Autorisierung folgt der Systemrichtlinie.",
+      "greeter-sync-pending-console": "Das Erscheinungsbild wird mit dem Greeter synchronisiert. Falls eine Autorisierung erforderlich ist, bestätige die Polkit-Anfrage in Noctalia, auf einem TTY oder in einer Konsole.",
+      "greeter-sync-pending-manual": "Dateien sind für die authentifizierte Legacy-Synchronisierung vorbereitet. Führe den positionalen Apply-Helfer in einem Terminal aus und übergib dabei NOCTALIA_GREETER_STATE_DIR, falls du einen benutzerdefinierten Pfad verwendest oder lege shell.greeter_sync.privilege_command fest und synchronisiere erneut.",
       "greeter-sync-success": "Erscheinungsbild synchronisiert. Änderungen werden beim nächsten Anmeldebildschirm angewendet.",
-      "greeter-sync-timeout": "Die Greeter-Synchronisierung wartet weiterhin auf Administratorfreigabe. Prüfe einen TTY oder eine Konsole auf eine Polkit-Anfrage, aktiviere den Polkit-Agenten in den Sicherheitseinstellungen oder führe pkexec manuell aus.",
-      "greeter-sync-timeout-manual": "Die Greeter-Synchronisierung benötigt weiterhin Administratorfreigabe. Führe in einem Terminal aus: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout": "Die Greeter-Synchronisierung wartet weiterhin auf Autorisierung. Prüfe ein TTY oder eine Konsole auf eine Polkit-Anfrage, aktiviere den Polkit-Agenten in den Sicherheitseinstellungen oder führe pkexec manuell aus.",
+      "greeter-sync-timeout-manual": "Die authentifizierte Legacy-Synchronisierung benötigt weiterhin Administratorfreigabe. Führe den positionalen Apply-Helfer in einem Terminal aus und behalte NOCTALIA_GREETER_STATE_DIR bei, falls du einen benutzerdefinierten Pfad verwendest.",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Dieses Tastenkürzel akzeptiert eine einzelne Taste ohne Zusatztasten.",
       "keybind-invalid-printable": "Druckbare Tasten (Buchstaben, Zahlen, Symbole) benötigen einen Modifikator wie Ctrl oder Alt.",
@@ -887,7 +906,7 @@
       "inherited": "Geerbt",
       "monitor": "Monitor",
       "official": "Offiziell",
-      "override": "Überschrieben"
+      "override": "Überschreiben"
     },
     "calendar-accounts": {
       "add-title": "Kalenderkonto hinzufügen",
@@ -1177,7 +1196,6 @@
         "borders": "Rahmen",
         "brightness": "Helligkeit",
         "built-in": "Integriert",
-        "calendar": "Kalender",
         "capsules": "Kapseln",
         "clipboard": "Zwischenablage",
         "community": "Community",
@@ -1272,7 +1290,9 @@
         "add-title": "Benachrichtigungsfilter hinzufügen",
         "allow-permanent": "Dauerhaft erlauben",
         "allowed-urgencies-label": "Erlaubte Dringlichkeiten",
+        "bypass-dnd": "Nicht stören umgehen",
         "flag": {
+          "dnd-bypass": "DND umgehen",
           "history": "Verlauf",
           "permanent": "dauerhaft",
           "sound": "Ton",
@@ -1365,12 +1385,15 @@
         "horizontal": "Horizontal",
         "vertical": "Vertikal"
       },
-      "panel-bar-alignment": {
-        "centered": "Zentriert",
-        "near-trigger": "Nahe Trigger"
-      },
       "panel-position": {
         "auto": "Leiste folgen"
+      },
+      "plugins": {
+        "auto-update": {
+          "all": "Alle",
+          "none": "Keine",
+          "official": "Offizielle"
+        }
       },
       "screen-position": {
         "bottom-center": "Unten mittig",
@@ -1521,6 +1544,7 @@
       },
       "store": {
         "add": "Zu Noctalia hinzufügen",
+        "back-to-catalog": "Zurück zum Plugin-Katalog",
         "categories": "Kategorien",
         "category-all": "Alle",
         "empty": "Keine Plugins gefunden",
@@ -1634,7 +1658,7 @@
           "label": "Reines Schwarz"
         },
         "theme-mode": {
-          "description": "Wähle dunkel oder hell bzw. automatisch abhängig von der Tageszeit",
+          "description": "Wähle dunkel oder hell bzw. automatisch abhängig von der Tageszeit; gilt über Templates auch für Apps",
           "label": "Theme-Modus"
         },
         "ui-scale": {
@@ -1755,6 +1779,10 @@
         "font-family": {
           "description": "Schriftart für die Widgets dieser Leiste; leer lassen, um die globale Schriftart zu übernehmen (eine widget-spezifische Schriftart überschreibt dies)",
           "label": "Schriftart"
+        },
+        "font-scale": {
+          "description": "Skalierungsfaktor für Text aller Widgets auf dieser Leiste; wird mit dem font_scale des jeweiligen Widgets multipliziert",
+          "label": "Schriftskalierung"
         },
         "font-weight": {
           "description": "Standard-Schriftstärke für Widget-Beschriftungen auf dieser Leiste",
@@ -1977,10 +2005,6 @@
         },
         "main-axis-padding": {
           "description": "Innenabstand an den Enden der Iconreihe (vor dem ersten und nach dem letzten Icon)"
-        },
-        "monitors": {
-          "description": "Wähle, welche Monitore das Dock anzeigen (leer lassen für alle); die Filterung nach aktivem Monitor gilt innerhalb dieser Monitore",
-          "label": "Monitore"
         },
         "pinned-apps": {
           "description": "Desktop-Eintrag-IDs der an das Dock angehefteten Apps",
@@ -2303,16 +2327,20 @@
           "description": "Zeige Textbeschriftungen unter Shortcut-Icons im Start-Tab an",
           "label": "Shortcut-Beschriftungen anzeigen"
         },
-        "launcher-app-grid": {
-          "description": "Zeige ein Raster von App-Icons mit Beschriftungen darunter, wenn die Ergebnisse ausschließlich Apps sind",
-          "label": "App-Rasteransicht"
+        "launcher-app-actions": {
+          "description": "Zeige App-Aktionseinträge neben Apps in den Ergebnissen an",
+          "label": "App-Aktionen anzeigen"
+        },
+        "launcher-app-origin-indicator": {
+          "description": "Zeige Paketherkunft-Indikatoren bei App-Ergebnissen an",
+          "label": "App-Herkunft-Indikatoren anzeigen"
         },
         "launcher-auto-paste": {
           "description": "Füge nach Rechner-, Emoji- und anderen Kopier-Aktivierungen automatisch in das fokussierte Fenster ein (gleiche Tastenkürzel wie beim Zwischenablage-Auto-Paste)",
           "label": "Auto-Paste"
         },
         "launcher-categories": {
-          "description": "Zeige einen Kategoriefilter im Launcher; mit F6 einblenden, danach mit F6 und Shift+F6 wechseln",
+          "description": "Zeige die „Alle“-, „Zuletzt verwendet“- und Kategorie-Chips unter dem Suchfeld an",
           "label": "Kategorien anzeigen"
         },
         "launcher-compact": {
@@ -2343,8 +2371,12 @@
           "description": "Zeige offene Fenster auch in der unpräfixierten Suche",
           "label": "Fenster in globaler Suche"
         },
+        "launcher-grid": {
+          "description": "Zeige rasterfähige Modulergebnisse und die Modulübersicht als Icon-Raster statt als Zeilen an",
+          "label": "Rasteransicht"
+        },
         "launcher-pinned-apps": {
-          "description": "Desktop-Entry-IDs von Apps, die im Launcher angeheftet sind; sie erscheinen zuerst, wenn der Launcher geöffnet wird",
+          "description": "Desktop-Entry-IDs, die in manueller Reihenfolge in der Ansicht „Angeheftet“ angezeigt werden",
           "label": "Angeheftete Apps"
         },
         "launcher-prefix-calculator": {
@@ -2373,7 +2405,7 @@
         },
         "launcher-reset-usage": {
           "button": "Zurücksetzen",
-          "description": "Lösche Startzähler und den Verlauf der zuletzt verwendeten Einträge, die für die Launcher-Sortierung genutzt werden",
+          "description": "Lösche den Launcher-Verlauf, der für „Zuletzt verwendet“ und die nutzungsbasierte Sortierung verwendet wird",
           "label": "Nutzungsdaten zurücksetzen"
         },
         "launcher-session-search": {
@@ -2385,7 +2417,7 @@
           "label": "App-Icons anzeigen"
         },
         "launcher-sort-by-usage": {
-          "description": "Schiebe häufig verwendete Apps weiter nach oben und zeige einen Filter für die Kategorie „Zuletzt verwendet“",
+          "description": "Priorisiere häufig verwendete Ergebnisse in der Standardansicht und bei der Suche",
           "label": "Nach Nutzung sortieren"
         },
         "list-item-background": {
@@ -2517,17 +2549,14 @@
         "calendar-edit": {
           "button": "Bearbeiten",
           "button-reconnect": "Neu verbinden",
-          "button-retry": "Erneut versuchen",
-          "description": "Aktualisiere dieses Kalenderkonto",
-          "description-locked": "Das Refresh-Token befindet sich in einem gesperrten Schlüsselbund; entsperre den Schlüsselbund und versuche es erneut",
-          "description-reconnect": "Google-Autorisierung fehlt; verbinde dieses Konto neu"
+          "button-retry": "Erneut versuchen"
         },
         "calendar-event-date-format": {
-          "description": "Das Datumsformat, das in der Ereigniskarte für das ausgewählte Datum angezeigt wird",
+          "description": "Das Datumsformat, das in Kalenderansichten über der Ereignisliste angezeigt wird",
           "label": "Ereignisdatumsformat"
         },
         "calendar-event-time-format": {
-          "description": "Das Zeitformat, das für Kalenderereignisse angezeigt wird",
+          "description": "Das Zeitformat, das für Kalenderereignisse in Kalenderansichten angezeigt wird",
           "label": "Ereigniszeitformat"
         },
         "calendar-refresh-interval": {
@@ -2607,7 +2636,7 @@
           "placeholder": "/path/to/sound.wav"
         },
         "shell-sounds": {
-          "description": "Soundeffekte für Shell-Ereignisse abspielen",
+          "description": "Hauptschalter für Shell-Soundeffekte",
           "label": "Shell-Sounds"
         },
         "sound-volume": {
@@ -2971,12 +3000,12 @@
           "label": "In Zwischenablage kopieren"
         },
         "screenshot-directory": {
-          "description": "Ordner für gespeicherte PNG-Dateien; leer lassen, um ~/Pictures zu verwenden",
+          "description": "Ordner für gespeicherte Screenshot-Dateien; leer lassen, um das Standard-XDG-Bilderverzeichnis zu verwenden",
           "label": "Ausgabeverzeichnis",
-          "placeholder": "~/Pictures"
+          "placeholder": "XDG-Bilderverzeichnis"
         },
         "screenshot-filename-pattern": {
-          "description": "strftime-Muster ohne Dateiendung (.png wird hinzugefügt); verwende %s für Unix-Epoche",
+          "description": "strftime-Muster ohne Dateiendung (die Endung des Formats wird automatisch hinzugefügt); verwende %s für Unix-Epoche",
           "label": "Dateinamenmuster"
         },
         "screenshot-freeze-screen": {
@@ -2997,7 +3026,7 @@
           "label": "Letzten Bereich merken"
         },
         "screenshot-save-to-file": {
-          "description": "Speichere Screenshots als PNG-Dateien in das Ausgabeverzeichnis",
+          "description": "Speichere Screenshots im gewählten Dateiformat im Ausgabeverzeichnis",
           "label": "In Datei speichern"
         },
         "screenshot-show-cursor": {
@@ -3075,7 +3104,7 @@
           "label": "Unterordner einschließen"
         },
         "directory": {
-          "description": "Ordner mit Hintergrundbildern",
+          "description": "Ordner mit Hintergrundbildern; leer lassen, um das Standard-XDG-Bilderverzeichnis zu verwenden",
           "label": "Hintergrundbildverzeichnis"
         },
         "directory-dark": {
@@ -3248,6 +3277,7 @@
         "gpu-temp": "GPU-Temperatur",
         "gpu-usage": "GPU-Auslastung",
         "gpu-vram": "GPU VRAM",
+        "gpu-vram-used": "Genutzter GPU-VRAM",
         "graph": "Graph",
         "graphic": "Grafik",
         "hidden": "Versteckt",
@@ -3307,7 +3337,7 @@
           "workspaces-description": "Mindestlänge der aktiven Arbeitsbereichs-Pill entlang der Leiste, als Vielfaches der Pill-Dicke; Beschriftungen können darüber hinaus erweitert werden"
         },
         "album-art-only": {
-          "description": "Zeige nur das kreisförmige Albumcover ohne den Titelnamen",
+          "description": "Zeige nur das Albumcover ohne den Titelnamen",
           "label": "Nur Albumcover"
         },
         "anchor": {
@@ -3437,12 +3467,16 @@
         "focused-output-only": {
           "description": "Hebe den aktiven Arbeitsbereich nur auf dem fokussierten Monitor hervor",
           "label": "Nur fokussierten Monitor hervorheben",
-          "taskbar-description": "Verwende die Fokus-Farbe nur für den aktiven Arbeitsbereich auf dem Monitor mit Tastatur- oder Zeigerfokus; andere Monitore verwenden die Belegt-Farbe",
+          "taskbar-description": "Hebe den aktiven Arbeitsbereich nur auf dem Monitor mit Tastatur- oder Zeigerfokus hervor; aktive Arbeitsbereiche auf anderen Monitoren verwenden die Belegt-Farbe und den Stil der inaktiven Kapsel",
           "workspaces-description": "Hebe den aktiven Arbeitsbereich nur auf dem Monitor mit Tastatur- oder Zeigerfokus hervor; andere Monitore zeigen ihren aktiven Arbeitsbereich stattdessen als belegt an"
         },
         "font-family": {
           "description": "Schriftart für dieses Widget; leer lassen, um die Schriftart der Leiste zu übernehmen",
           "label": "Schriftart"
+        },
+        "font-scale": {
+          "description": "Skalierungsmultiplikator für Text in diesem Widget, unabhängig von der Gesamtskalierung des Widgets",
+          "label": "Schriftskalierung"
         },
         "font-weight": {
           "description": "Standard übernimmt die Schriftstärke der Leiste",
@@ -3459,7 +3493,7 @@
           "volume-description": "Benutzerdefinierte Symbol-Glyphe; leer lassen, um die integrierten dynamischen Icons zu verwenden"
         },
         "glyph-position": {
-          "description": "In welcher Reihenfolge das Symbol im Verhältnis zum Text/Graph/Gauge angezeigt wird",
+          "description": "Positioniere das Symbol oder benutzerdefinierte Bild und die benutzerdefinierte Beschriftung relativ zum Wert oder zur Visualisierung",
           "label": "Symbolposition"
         },
         "group-by-workspace": {
@@ -3494,6 +3528,10 @@
           "description": "Blende inaktive Privatsphäre-Icons aus und versteckt das Widget, wenn nichts aktiv ist",
           "label": "Inaktive ausblenden"
         },
+        "hide-passive": {
+          "description": "Blende Tray-Elemente aus, deren StatusNotifierItem-Status „Passive“ ist",
+          "label": "Passive Elemente ausblenden"
+        },
         "hide-when-empty": {
           "description": "Blende Arbeitsbereichs-Pills aus, wenn keine Fenster geöffnet sind",
           "label": "Ausblenden, wenn leer",
@@ -3502,6 +3540,10 @@
         "hide-when-full": {
           "description": "Blende das Akku-Widget aus, wenn der Akku vollständig geladen ist",
           "label": "Ausblenden, wenn voll"
+        },
+        "hide-when-inactive": {
+          "description": "Blende das Mikrofon-Widget aus, während keine Anwendung Audio aufnimmt",
+          "label": "Ausblenden, wenn inaktiv"
         },
         "hide-when-no-connected-device": {
           "description": "Blende das Bluetooth-Widget aus, wenn kein Gerät verbunden ist",
@@ -3539,6 +3581,10 @@
           "description": "Überschreibt die Widget-Farbe nur für Icons; feste Hex-Farben werden ebenfalls unterstützt",
           "label": "Icon-Farbe"
         },
+        "icon-scale": {
+          "description": "Skalierung der Taskleisten-App-Icons relativ zu ihrer Standardgröße",
+          "label": "Icon-Skalierung"
+        },
         "icon-size": {
           "description": "Icon-Größe in Pixeln",
           "label": "Icon-Größe"
@@ -3567,6 +3613,10 @@
         "interface": {
           "description": "Netzwerkschnittstelle zum Überwachen; leer lassen, um die Gesamtsumme über alle Schnittstellen zu verwenden",
           "label": "Schnittstelle"
+        },
+        "item-spacing": {
+          "description": "Abstand zwischen Privatsphäre-Indikator-Icons in Pixeln",
+          "label": "Icon-Abstand"
         },
         "label": {
           "description": "Optionaler statischer Text, der auf diesem Button angezeigt wird",
@@ -3698,6 +3748,10 @@
           "description": "Zeige Fenster von allen Monitoren in diesem Widget an",
           "label": "Alle Monitore anzeigen"
         },
+        "show-all-workspaces": {
+          "description": "Zeige Arbeitsbereiche von allen Monitoren auf diesem Widget an",
+          "label": "Alle Monitore anzeigen"
+        },
         "show-caps-lock": {
           "description": "Zeige den Caps-Lock-Status an",
           "label": "Caps Lock anzeigen"
@@ -3725,6 +3779,10 @@
         "show-num-lock": {
           "description": "Zeige den Num-Lock-Status an",
           "label": "Num Lock anzeigen"
+        },
+        "show-progress": {
+          "description": "Fülle den Widget-Hintergrund, um den Wiedergabefortschritt anzuzeigen",
+          "label": "Wiedergabefortschritt anzeigen"
         },
         "show-scroll-lock": {
           "description": "Zeige den Scroll-Lock-Status an",
@@ -3876,7 +3934,7 @@
     "window": {
       "export-config": "Konfiguration exportieren…",
       "export-config-saved": "Konfigurationsexport gespeichert.",
-      "filter-overridden": "Überschrieben",
+      "filter-overridden": "Überschreiben",
       "legacy-config-warning": "Veraltete Einstellung: {issue}. Bearbeite diesen Quelleintrag; Noctalia wendet den Ersatz nur vorübergehend an. Führe noctalia config validate aus, um alle erforderlichen Änderungen aufzulisten.",
       "native-title": "Noctalia-Einstellungen",
       "no-results": "Keine Einstellungen gefunden",
@@ -3890,7 +3948,6 @@
         "plugin-store": "Fernzugriff auf den Plugin-Katalog und Download-Anfragen werden nicht funktionieren.",
         "plugins": "Plugin-HTTP-Anfragen werden nicht funktionieren; Git-Quellen können weiterhin aktualisiert werden.",
         "security": "Externe IP-Abfrage und Telemetrie werden nicht funktionieren.",
-        "services": "Kalenderkonten-Synchronisierung wird nicht funktionieren.",
         "template-store": "Community-Template-Downloads werden nicht funktionieren.",
         "templates": "Community-Template-Downloads und -Aktualisierungen werden nicht funktionieren.",
         "title": "Offline-Modus"
@@ -4079,7 +4136,7 @@
   },
   "window-switcher": {
     "empty": "Keine offenen Fenster",
-    "hint": "Tab · Shift+Tab · Pfeiltasten · Alt loslassen zum Wechseln · Esc zum Abbrechen",
+    "hint": "Tab · Shift+Tab · Pfeiltasten · Tastenkürzel-Modifikator loslassen zum Wechseln · Esc zum Abbrechen",
     "title": "Fenster"
   }
 }

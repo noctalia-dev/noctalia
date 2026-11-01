@@ -2,9 +2,11 @@
 
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
+#include "ui/dialogs/layer_popup_host.h"
 #include "wayland/layer_surface.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -52,6 +54,7 @@ public:
   void closeAll();
   [[nodiscard]] bool isOpen(std::string_view id) const noexcept;
   [[nodiscard]] bool anyOpen() const noexcept { return !m_instances.empty(); }
+  [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContext(std::string_view id) const noexcept;
 
   bool onPointerEvent(const PointerEvent& event);
   bool onKeyboardEvent(const KeyboardEvent& event);
@@ -61,6 +64,7 @@ public:
   void onConfigReloaded();
   void onIconThemeChanged();
   void refresh();
+  void setPanelClosedCallback(std::function<void()> callback);
 
 private:
   struct Instance {
@@ -99,4 +103,5 @@ private:
   RenderContext* m_renderContext = nullptr;
   std::unordered_map<std::string, std::unique_ptr<Panel>> m_panels;
   std::vector<std::unique_ptr<Instance>> m_instances;
+  std::function<void()> m_panelClosedCallback;
 };

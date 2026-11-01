@@ -11,6 +11,7 @@ struct DesktopWidgetsEditorProfile {
   std::string_view logSection;
   std::string_view layerNamespace;
   std::string_view widgetIdPrefix;
+  std::string_view titleKey;
   bool showLockscreenLoginPreview = false;
 
   [[nodiscard]] static DesktopWidgetsEditorProfile desktop();

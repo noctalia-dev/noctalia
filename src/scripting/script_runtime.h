@@ -68,8 +68,11 @@ namespace scripting {
     [[nodiscard]] bool
     enqueueCallArgs(std::string functionName, ScriptArgs args, ScriptSnapshot snapshot, ScriptCallOptions options = {});
     [[nodiscard]] bool enqueueCallBool(std::string functionName, bool value, ScriptSnapshot snapshot);
+    // `coalesceKey` names the coalescing stream when several callbacks must
+    // supersede one another in order; empty means the callback's own name.
     [[nodiscard]] bool enqueueCallStrings(
-        std::string functionName, std::string first, std::string second, ScriptSnapshot snapshot, bool coalesce = false
+        std::string functionName, std::string first, std::string second, ScriptSnapshot snapshot, bool coalesce = false,
+        std::string coalesceKey = {}
     );
     [[nodiscard]] bool enqueueAsyncCommandResult(std::uint64_t hostId, int callbackRef, process::RunResult result);
     // Swap the live settings snapshot and, if the script defines a global

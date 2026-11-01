@@ -5,6 +5,7 @@
 #include "shell/desktop/desktop_widget_services.h"
 #include "ui/dialogs/layer_popup_host.h"
 
+#include <functional>
 #include <memory>
 
 class Bar;
@@ -44,12 +45,16 @@ public:
   void onLockStateChanged();
   void onOutputChange();
   void onSecondTick();
+  // True when a visible widget renders a value that changes every second.
+  [[nodiscard]] bool wantsSecondTicks() const;
   void requestLayout();
   void requestRedraw();
 
   void enterEdit();
   void exitEdit();
   void toggleEdit();
+  void setOnEnterEditCallback(std::function<void()> callback);
+  void setOnExitEditCallback(std::function<void()> callback);
 
   [[nodiscard]] bool isEditing() const noexcept;
   [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
@@ -75,6 +80,8 @@ private:
   LockscreenWidgetsSnapshot m_snapshot;
   desktop_widgets::PlacementMapper m_placementMapper;
   bool m_initialized = false;
+  std::function<void()> m_onEnterEdit;
+  std::function<void()> m_onExitEdit;
   std::unique_ptr<LockscreenWidgetsHost> m_host;
   std::unique_ptr<DesktopWidgetsEditor> m_editor;
 };

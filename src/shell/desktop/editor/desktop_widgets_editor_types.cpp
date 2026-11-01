@@ -5,6 +5,7 @@ DesktopWidgetsEditorProfile DesktopWidgetsEditorProfile::desktop() {
       .logSection = "desktop",
       .layerNamespace = "noctalia-desktop-widgets-editor",
       .widgetIdPrefix = "desktop-widget-",
+      .titleKey = "desktop-widgets.editor.title",
       .showLockscreenLoginPreview = false,
   };
 }
@@ -14,6 +15,7 @@ DesktopWidgetsEditorProfile DesktopWidgetsEditorProfile::lockscreen() {
       .logSection = "lockscreen",
       .layerNamespace = "noctalia-lockscreen-widgets-editor",
       .widgetIdPrefix = "lockscreen-widget-",
+      .titleKey = "desktop-widgets.editor.title-lockscreen",
       .showLockscreenLoginPreview = true,
   };
 }

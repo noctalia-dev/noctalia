@@ -13,15 +13,15 @@
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
 #include "render/animation/animation_manager.h"
-#include "render/core/async_texture_cache.h"
 #include "render/scene/input_area.h"
-#include "scripting/plugin_registry.h"
+#include "scripting/plugin_id.h"
 #include "shell/control_center/shortcut_registry.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/profile/avatar_path.h"
 #include "shell/wallpaper/wallpaper.h"
 #include "system/distro_info.h"
+#include "system/hardware_info.h"
 #include "system/weather_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
@@ -117,9 +117,14 @@ namespace {
     return formatLocalTime(format);
   }
 
-  std::string userHostLine() { return std::format("{}@{}", sessionDisplayName(), hostName()); }
+  std::string userHostLine() { return std::format("{}@{}", sessionUserName(), hostName()); }
 
   std::string noctaliaVersionLine() { return std::format("Noctalia {}", noctalia::build_info::displayVersion()); }
+
+  // The compositor's own version line already names it; fall back to the detected name.
+  std::string compositorLine(const std::optional<std::string>& versionLine) {
+    return versionLine.has_value() && !versionLine->empty() ? *versionLine : compositorLabel();
+  }
 
   void applyHomeCardStyle(Flex& card, float scale, float fillOpacity) {
     applySectionCardStyle(card, scale, fillOpacity);
@@ -134,20 +139,28 @@ namespace {
   }
 
   // The whole home cards are clickable; on hover swap the card outline to the hover colour. No fill
-  // change — the user card's fill sits behind the wallpaper, so a thin hover border is the one hover
+  // change: the user card's fill sits behind the wallpaper, so a thin hover border is the one hover
   // signal that reads consistently across all three cards.
   void applyHomeCardHover(Flex& card, bool hovered) {
     if (hovered) {
       card.setBorder(colorSpecFromRole(ColorRole::Hover), Style::borderWidth);
     } else if (Style::cardBordersEnabled()) {
-      card.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+      card.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
     } else {
       card.clearBorder();
     }
   }
 
-  void applyAvatarChrome(Image* avatar, bool highlighted) {
+  bool avatarBorderEnabled(const ConfigService* config) {
+    return config == nullptr || config->config().controlCenter.showAvatarBorder;
+  }
+
+  void applyAvatarChrome(Image* avatar, bool highlighted, bool showBorder) {
     if (avatar == nullptr) {
+      return;
+    }
+    if (!showBorder) {
+      avatar->setBorder(colorSpecFromRole(ColorRole::Primary), 0.0F);
       return;
     }
     const float borderWidth = Style::borderWidth * 3.0F;
@@ -166,7 +179,7 @@ HomeTab::HomeTab(const ControlCenterServices& services)
       m_thumbnails(services.thumbnails), m_asyncTextures(services.asyncTextures),
       m_services(services.shortcutServices()) {
   if (m_thumbnails != nullptr) {
-    m_thumbnailPendingSub = m_thumbnails->subscribePendingUpload([this]() {
+    m_thumbnailPendingSub = m_thumbnails->subscribePendingUpload([this] {
       if (m_wallpaperBg == nullptr) {
         return;
       }
@@ -178,7 +191,7 @@ HomeTab::HomeTab(const ControlCenterServices& services)
   // even while the control center is closed, so it is already decoded by the
   // time the panel opens. Uses the last preview size the home card requested.
   if (m_wallpaper != nullptr) {
-    m_wallpaperChangedConn = m_wallpaper->changed().connect([this]() {
+    m_wallpaperChangedConn = m_wallpaper->changed().connect([this] {
       if (m_thumbnails != nullptr && m_loadedWallpaperSize > 0) {
         ensureWallpaperThumbnail(m_wallpaper->currentPath(), m_loadedWallpaperSize);
       }
@@ -241,7 +254,10 @@ std::unique_ptr<Flex> HomeTab::create() {
   }
 
   const float avatarSize = homeAvatarSize(scale);
-  const auto openAvatarPicker = [this]() {
+  const bool circularAvatar = m_config == nullptr || m_config->config().controlCenter.circularAvatar;
+  m_avatarBorderShown = avatarBorderEnabled(m_config);
+  const bool showAvatarBorder = m_avatarBorderShown;
+  const auto openAvatarPicker = [this] {
     if (m_config == nullptr) {
       return;
     }
@@ -259,7 +275,7 @@ std::unique_ptr<Flex> HomeTab::create() {
       }
       const auto applyResult = shell::applyAvatarPath(m_accounts, m_config, pickedPath->string());
       if (applyResult.success()) {
-        DeferredCall::callLater([]() {
+        DeferredCall::callLater([] {
           PanelManager::instance().refresh();
           PanelManager::instance().requestRedraw();
         });
@@ -274,7 +290,7 @@ std::unique_ptr<Flex> HomeTab::create() {
 
   auto avatarArea = ui::inputArea({});
   avatarArea->setSize(avatarSize, avatarSize);
-  avatarArea->setHitShape(InputArea::HitShape::Circle);
+  avatarArea->setHitShape(circularAvatar ? InputArea::HitShape::Circle : InputArea::HitShape::Rect);
   avatarArea->setFocusable(true);
   avatarArea->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
   avatarArea->setOnClick([openAvatarPicker](const InputArea::PointerData&) { openAvatarPicker(); });
@@ -288,27 +304,21 @@ std::unique_ptr<Flex> HomeTab::create() {
       ui::image({
           .out = &m_userAvatar,
           .fit = ImageFit::Cover,
-          .radius = avatarSize * 0.5F,
+          .radius = circularAvatar ? avatarSize * 0.5F : Style::scaledRadiusLg(scale),
           .padding = 1.0F * scale,
           .width = avatarSize,
           .height = avatarSize,
-          .configure = [](Image& image) {
-            image.setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * 3.0F);
+          .configure = [showAvatarBorder](Image& image) {
+            applyAvatarChrome(&image, false, showAvatarBorder);
             image.setHitTestVisible(false);
-            image.setAsyncReadyCallback([]() { PanelManager::instance().refresh(); });
+            image.setAsyncReadyCallback([] { PanelManager::instance().refresh(); });
           },
       })
   );
-  const auto syncAvatarChrome = [this]() {
-    const bool highlighted =
-        m_userAvatarArea != nullptr && (m_userAvatarArea->focused() || m_userAvatarArea->hovered());
-    applyAvatarChrome(m_userAvatar, highlighted);
-    PanelManager::instance().requestRedraw();
-  };
-  avatarArea->setOnEnter([syncAvatarChrome](const InputArea::PointerData&) { syncAvatarChrome(); });
-  avatarArea->setOnLeave([syncAvatarChrome]() { syncAvatarChrome(); });
-  avatarArea->setOnFocusGain(syncAvatarChrome);
-  avatarArea->setOnFocusLoss(syncAvatarChrome);
+  avatarArea->setOnEnter([this](const InputArea::PointerData&) { syncAvatarChrome(); });
+  avatarArea->setOnLeave([this] { syncAvatarChrome(); });
+  avatarArea->setOnFocusGain([this] { syncAvatarChrome(); });
+  avatarArea->setOnFocusLoss([this] { syncAvatarChrome(); });
   const auto configureUserDetailLabel = [scale](Label& label) {
     label.setShadow(colorSpecFromRole(ColorRole::Shadow, 0.36F), 0.0F, 1.0F * scale);
   };
@@ -352,13 +362,20 @@ std::unique_ptr<Flex> HomeTab::create() {
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
               .configure = configureUserDetailLabel,
+          }),
+          ui::label({
+              .out = &m_userCompositor,
+              .text = compositorLine(std::nullopt),
+              .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .configure = configureUserDetailLabel,
           })
       )
   );
   userCard->addChild(std::move(userRow));
 
   // Wallpaper panel: full-card keyboard target; carved pointer target leaves the avatar clickable.
-  const auto openWallpaperPanel = []() { PanelManager::instance().togglePanel("wallpaper"); };
+  const auto openWallpaperPanel = [] { PanelManager::instance().togglePanel("wallpaper"); };
   m_userCardKeyboardArea =
       addCardOverlay(*m_userCard, openWallpaperPanel, {.keyboardFocus = true, .pointerHitTest = false});
   m_userCardArea = addCardOverlay(*m_userCard, openWallpaperPanel, {.keyboardFocus = false, .pointerHitTest = true});
@@ -402,7 +419,7 @@ std::unique_ptr<Flex> HomeTab::create() {
            .height = artSize},
           ui::glyph({
               .out = &m_mediaArtFallback,
-              .glyph = "disc-filled",
+              .glyph = "disc",
               .glyphSize = artSize * 0.55F,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           }),
@@ -423,24 +440,32 @@ std::unique_ptr<Flex> HomeTab::create() {
               .text = "...",
               .fontSize = Style::fontSizeBody * 0.95F * scale,
               .color = colorSpecFromRole(ColorRole::OnSurface),
+              .maxLines = 1,
+              .ellipsize = TextEllipsize::End,
           }),
           ui::label({
               .out = &m_mediaArtist,
               .text = i18n::tr("control-center.home.media.no-active-player"),
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .maxLines = 1,
+              .ellipsize = TextEllipsize::End,
           }),
           ui::label({
               .out = &m_mediaStatus,
               .text = i18n::tr("control-center.home.media.idle"),
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .maxLines = 1,
+              .ellipsize = TextEllipsize::End,
           }),
           ui::label({
               .out = &m_mediaProgress,
               .text = " ",
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::Secondary),
+              .maxLines = 1,
+              .ellipsize = TextEllipsize::End,
               .visible = false,
           })
       )
@@ -448,7 +473,7 @@ std::unique_ptr<Flex> HomeTab::create() {
   mediaCard->addChild(std::move(mediaContent));
 
   // Clicking anywhere on the media card opens the media tab.
-  m_mediaCardArea = addCardOverlay(*m_mediaCard, []() { openControlCenterTab("media"); });
+  m_mediaCardArea = addCardOverlay(*m_mediaCard, [] { openControlCenterTab("media"); });
 
   // --- Date/Time + Weather (below media) ---
   auto dateTimeCard = ui::row(
@@ -483,7 +508,7 @@ std::unique_ptr<Flex> HomeTab::create() {
               .color = colorSpecFromRole(ColorRole::OnSurface),
           }),
           ui::row(
-              {.align = FlexAlign::Center, .gap = Style::spaceXs * scale},
+              {.out = &m_weatherRow, .align = FlexAlign::Center, .gap = Style::spaceXs * scale},
               ui::glyph({
                   .out = &m_weatherGlyph,
                   .glyph = "weather-cloud-sun",
@@ -492,7 +517,7 @@ std::unique_ptr<Flex> HomeTab::create() {
               }),
               ui::label({
                   .out = &m_weatherLine,
-                  .text = "—",
+                  .text = "--",
                   .fontSize = Style::fontSizeCaption * scale,
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
               })
@@ -500,8 +525,10 @@ std::unique_ptr<Flex> HomeTab::create() {
       )
   );
 
-  // Clicking anywhere on the clock/weather card opens the weather tab.
-  m_dateTimeCardArea = addCardOverlay(*m_dateTimeCard, []() { openControlCenterTab("weather"); });
+  // Opens Weather when weather is enabled, otherwise Calendar.
+  m_dateTimeCardArea = addCardOverlay(*m_dateTimeCard, [this] {
+    openControlCenterTab(m_weather != nullptr && m_weather->enabled() ? "weather" : "calendar");
+  });
 
   leftColumn->addChild(std::move(mediaCard));
   leftColumn->addChild(std::move(dateTimeCard));
@@ -547,7 +574,8 @@ std::unique_ptr<Flex> HomeTab::create() {
 
   // A plugin shortcut seeds its Luau runtime once, at construction. Plugin settings changed
   // since the last build means every reusable plugin instance is stale, so drop it and let
-  // ShortcutRegistry::create() re-seed from the current config.
+  // ShortcutRegistry::create() re-seed from the current config. Match on the id syntax, not
+  // the registry: a disabled plugin has already left the registry and must not be reused.
   const bool pluginsChanged = m_config != nullptr && !(m_config->config().plugins == m_lastPlugins);
   if (m_config != nullptr) {
     m_lastPlugins = m_config->config().plugins;
@@ -556,9 +584,7 @@ std::unique_ptr<Flex> HomeTab::create() {
   for (std::size_t i = 0; i < count; ++i) {
     const auto& sc = shortcuts[i];
     auto shortcut = takeReusable(sc.type);
-    if (shortcut != nullptr
-        && pluginsChanged
-        && scripting::isPluginEntryOfKind(sc.type, scripting::PluginEntryKind::Shortcut)) {
+    if (shortcut != nullptr && pluginsChanged && scripting::isValidPluginEntryId(sc.type)) {
       shortcut.reset();
     }
     const bool reused = shortcut != nullptr;
@@ -588,13 +614,13 @@ std::unique_ptr<Flex> HomeTab::create() {
         .gap = Style::spaceXs * scale,
         .radius = Style::scaledRadiusXl(scale),
         .onClick =
-            [this, padIdx]() {
+            [this, padIdx] {
               if (padIdx < m_shortcutPads.size()) {
                 m_shortcutPads[padIdx].shortcut->onClick();
               }
             },
         .onRightClick =
-            [this, padIdx]() {
+            [this, padIdx] {
               if (padIdx < m_shortcutPads.size()) {
                 m_shortcutPads[padIdx].shortcut->onRightClick();
               }
@@ -665,13 +691,13 @@ std::unique_ptr<Flex> HomeTab::createHeaderActions() {
       ui::button({
           .out = &m_settingsButton,
           .glyph = "settings",
-          .onClick = []() { PanelManager::instance().openSettingsWindow(); },
+          .onClick = [] { PanelManager::instance().openSettingsWindow(); },
           .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
       }),
       ui::button({
           .out = &m_sessionButton,
           .glyph = "shutdown",
-          .onClick = []() { PanelManager::instance().togglePanel("session"); },
+          .onClick = [] { PanelManager::instance().togglePanel("session"); },
           .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
       })
   );
@@ -702,7 +728,9 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     const float bottomRowGap = m_bottomRow != nullptr ? m_bottomRow->gap() : 0.0F;
     const bool stacked = m_shortcutPads.size() <= kHomeStackedShortcutMax;
     const std::size_t cols = stacked ? 1U : kHomeShortcutGridColumns;
-    const std::size_t rows = (m_shortcutPads.size() + cols - 1) / cols;
+    // Rows of height the bottom row reserves: a lone shortcut is one row, which would collapse the
+    // row (and the media/clock cards sized from it) to a single tile.
+    const std::size_t heightRows = std::max((m_shortcutPads.size() + cols - 1) / cols, kHomeStackedShortcutMax);
     const float padH = m_shortcutsGrid->paddingLeft() + m_shortcutsGrid->paddingRight();
     const float padV = m_shortcutsGrid->paddingTop() + m_shortcutsGrid->paddingBottom();
     const float colGap = m_shortcutsGrid->columnGap();
@@ -718,8 +746,9 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     const float userCardReserve = homeAvatarSize(scale) + 2.0F * (Style::spaceSm + Style::spaceXs) * scale;
     const float rootGap = m_rootLayout->gap();
     const float availForGrid = std::max(1.0F, bodyHeight - userCardReserve - rootGap);
-    const float maxCellSide =
-        std::max(1.0F, (availForGrid - static_cast<float>(rows - 1) * rowGap - padV) / static_cast<float>(rows));
+    const float maxCellSide = std::max(
+        1.0F, (availForGrid - static_cast<float>(heightRows - 1) * rowGap - padV) / static_cast<float>(heightRows)
+    );
     const float maxGridWidth = static_cast<float>(cols) * (maxCellSide / kHomeShortcutSquareTrim)
         + static_cast<float>(cols - 1) * colGap
         + padH;
@@ -791,26 +820,29 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
             - Style::spaceXs * contentScale()
     );
     m_weatherLine->setMaxWidth(weatherTextWrap);
-    m_weatherLine->setMaxLines(2);
+    m_weatherLine->setMaxLines(1);
+    m_weatherLine->setEllipsize(TextEllipsize::End);
   }
   // Grow the album art square to fill the media card height so the row feels balanced
   // when the card flex-grows. A later bottom-row min-height pass can change the card
   // height, so this runs again after that final layout pass below.
   resizeMediaArtToCard();
 
-  // Labels auto-wrap to mediaText's assigned width via Flex stretch propagation.
-  for (Label* label : {m_mediaArtist, m_mediaStatus, m_mediaProgress}) {
+  // Keep the media card height stable: one ellipsized line each, capped to the
+  // text column width. Wrapping a long title used to grow this card and stretch
+  // the adjacent shortcut buttons (same bottom-row height).
+  const float mediaTextWrap = m_mediaText != nullptr ? innerWidth(m_mediaText) : 1.0F;
+  for (Label* label : {m_mediaTrack, m_mediaArtist, m_mediaStatus, m_mediaProgress}) {
     if (label != nullptr) {
+      label->setMaxWidth(mediaTextWrap);
       label->setMaxLines(1);
+      label->setEllipsize(TextEllipsize::End);
     }
-  }
-  if (m_mediaTrack != nullptr) {
-    m_mediaTrack->setMaxLines(2);
   }
 
   if (m_userCard != nullptr) {
     const float userWrap = innerWidth(m_userCard);
-    for (Label* label : {m_userHost, m_userUptime, m_userVersion}) {
+    for (Label* label : {m_userHost, m_userUptime, m_userVersion, m_userCompositor}) {
       if (label != nullptr) {
         label->setMaxWidth(userWrap);
         label->setMaxLines(1);
@@ -824,8 +856,12 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     const float desiredAvatar = std::max(minAvatar, m_userMain->height());
     if (std::abs(m_userAvatar->width() - desiredAvatar) > 0.5F) {
       m_userAvatar->setSize(desiredAvatar, desiredAvatar);
-      m_userAvatar->setRadius(desiredAvatar * 0.5F);
       m_userAvatar->setPadding(1.0F * scale);
+    }
+    const bool circularAvatar = m_config == nullptr || m_config->config().controlCenter.circularAvatar;
+    m_userAvatar->setRadius(circularAvatar ? desiredAvatar * 0.5F : Style::scaledRadiusLg(scale));
+    if (m_userAvatarArea != nullptr) {
+      m_userAvatarArea->setHitShape(circularAvatar ? InputArea::HitShape::Circle : InputArea::HitShape::Rect);
     }
     m_userMain->setMinHeight(desiredAvatar);
     m_userMain->setSize(m_userMain->width(), desiredAvatar);
@@ -838,7 +874,8 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     const float gridW = m_shortcutsGrid->width();
     const float innerGridW = std::max(1.0F, gridW - m_shortcutsGrid->paddingLeft() - m_shortcutsGrid->paddingRight());
     const std::size_t cols = std::max<std::size_t>(1, std::min(m_shortcutsGrid->columns(), m_shortcutPads.size()));
-    const std::size_t rows = (m_shortcutPads.size() + cols - 1) / cols;
+    // Height floor as in the pre-layout pass: one shortcut reserves the two-row stacked height.
+    const std::size_t heightRows = std::max((m_shortcutPads.size() + cols - 1) / cols, kHomeStackedShortcutMax);
     const float cellWidth = std::max(
         1.0F, (innerGridW - static_cast<float>(cols - 1) * m_shortcutsGrid->columnGap()) / static_cast<float>(cols)
     );
@@ -859,8 +896,8 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     }
 
     const float gridH = std::round(
-        static_cast<float>(rows) * cellSide
-        + static_cast<float>(rows > 0 ? rows - 1 : 0) * m_shortcutsGrid->rowGap()
+        static_cast<float>(heightRows) * cellSide
+        + static_cast<float>(heightRows - 1) * m_shortcutsGrid->rowGap()
         + m_shortcutsGrid->paddingTop()
         + m_shortcutsGrid->paddingBottom()
     );
@@ -877,9 +914,9 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
       const float dateH = std::max(0.0F, avail - mediaH);
 
       m_mediaCard->setMinHeight(mediaH);
-      m_mediaCard->setMaxHeight(0.0F);
+      m_mediaCard->setMaxHeight(mediaH);
       m_dateTimeCard->setMinHeight(dateH);
-      m_dateTimeCard->setMaxHeight(0.0F);
+      m_dateTimeCard->setMaxHeight(dateH);
     }
   }
 
@@ -932,7 +969,7 @@ InputArea* HomeTab::addCardOverlay(Flex& card, std::function<void()> onActivate,
 
   if (options.pointerHitTest) {
     area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
-    area->setOnLeave([setHovered, areaPtr]() {
+    area->setOnLeave([setHovered, areaPtr] {
       if (areaPtr->focused()) {
         return;
       }
@@ -941,8 +978,8 @@ InputArea* HomeTab::addCardOverlay(Flex& card, std::function<void()> onActivate,
     area->setOnClick([activate](const InputArea::PointerData&) { activate(); });
   }
   if (options.keyboardFocus) {
-    area->setOnFocusGain([setHovered]() { setHovered(true); });
-    area->setOnFocusLoss([setHovered, areaPtr]() {
+    area->setOnFocusGain([setHovered] { setHovered(true); });
+    area->setOnFocusLoss([setHovered, areaPtr] {
       if (areaPtr->hovered()) {
         return;
       }
@@ -1056,7 +1093,7 @@ void HomeTab::syncUserCardFill() {
     m_userCard->clearFill();
     return;
   }
-  m_userCard->setFill(colorSpecFromRole(ColorRole::SurfaceVariant, panelCardOpacity()));
+  m_userCard->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, panelCardOpacity()));
 }
 
 void HomeTab::syncWallpaperLayerVisibility() {
@@ -1150,7 +1187,7 @@ void HomeTab::syncWallpaperBackground(Renderer& renderer) {
   if (m_crispNeedsFade) {
     startCrispFade();
   } else {
-    // Ready on the first look (cached) — snap in without a crossfade.
+    // Ready on the first look (cached), so snap in without a crossfade.
     cancelCrispFade();
     m_wallpaperBg->setOpacity(1.0F);
     m_crispOpaque = true;
@@ -1174,7 +1211,7 @@ void HomeTab::startCrispFade() {
   m_wallpaperCrispAnimId = animations->animate(
       0.0F, 1.0F, static_cast<float>(Style::animNormal), Easing::EaseOutCubic,
       [crisp](float v) { crisp->setOpacity(v); },
-      [this]() {
+      [this] {
         m_wallpaperCrispAnimId = 0;
         m_crispOpaque = true;
         syncWallpaperLayerVisibility();
@@ -1199,8 +1236,18 @@ void HomeTab::syncHeaderActions() {
   }
 }
 
+void HomeTab::syncAvatarChrome() {
+  m_avatarBorderShown = avatarBorderEnabled(m_config);
+  const bool highlighted = m_userAvatarArea != nullptr && (m_userAvatarArea->focused() || m_userAvatarArea->hovered());
+  applyAvatarChrome(m_userAvatar, highlighted, m_avatarBorderShown);
+  PanelManager::instance().requestRedraw();
+}
+
 void HomeTab::doUpdate(Renderer& renderer) {
   syncHeaderActions();
+  if (m_avatarBorderShown != avatarBorderEnabled(m_config)) {
+    syncAvatarChrome();
+  }
   if (!m_active) {
     m_progressTimer.stop();
     return;
@@ -1210,7 +1257,7 @@ void HomeTab::doUpdate(Renderer& renderer) {
       m_mpris != nullptr && m_mpris->activePlayer().has_value() && m_mpris->activePlayer()->playbackStatus == "Playing";
   if (playing) {
     if (!m_progressTimer.active()) {
-      m_progressTimer.startRepeating(std::chrono::milliseconds(1000), [this]() {
+      m_progressTimer.startRepeating(std::chrono::milliseconds(1000), [this] {
         if (!m_active) {
           return;
         }
@@ -1233,6 +1280,7 @@ void HomeTab::setActive(bool active) {
   m_active = active;
   if (!active) {
     m_progressTimer.stop();
+    m_clockTimer.stop();
     m_nextRealtimeUpdateAt = {};
     m_lastRealtimeMprisPollAt = {};
     m_mediaPositionBusName.clear();
@@ -1247,15 +1295,37 @@ void HomeTab::setActive(bool active) {
   if (becameActive) {
     // Other tabs were laid out while this body was hidden; flex sizes for the media row can be stale.
     // Defer so the tab container receives its configure size before HomeTab::doLayout runs.
-    DeferredCall::callLater([]() {
+    DeferredCall::callLater([] {
       PanelManager::instance().requestLayout();
       PanelManager::instance().requestUpdateOnly();
+    });
+
+    // Tick the clock once per second so the time/date labels keep moving while the panel is
+    // open and idle. Without this, the clock only refreshes when an unrelated service happens
+    // to force a redraw (see issue #4046). setText() is a no-op when the text is unchanged, so
+    // formats without seconds cost nothing beyond the cheap format + comparison each second.
+    m_clockTimer.startRepeating(std::chrono::milliseconds(1000), [this] {
+      if (!m_active) {
+        return;
+      }
+      bool changed = false;
+      if (m_timeLabel != nullptr) {
+        changed = m_timeLabel->setText(formatShellTime(m_config)) || changed;
+      }
+      if (m_dateLabel != nullptr) {
+        changed = m_dateLabel->setText(formatShellDate(m_config)) || changed;
+      }
+      if (changed) {
+        PanelManager::instance().requestLayout();
+        PanelManager::instance().requestRedraw();
+      }
     });
   }
 }
 
 void HomeTab::onClose() {
   m_progressTimer.stop();
+  m_clockTimer.stop();
   m_rootLayout = nullptr;
   m_bottomRow = nullptr;
   m_dateTimeCard = nullptr;
@@ -1266,11 +1336,13 @@ void HomeTab::onClose() {
   m_userAvatar = nullptr;
   m_timeLabel = nullptr;
   m_dateLabel = nullptr;
+  m_weatherRow = nullptr;
   m_weatherGlyph = nullptr;
   m_weatherLine = nullptr;
   m_userHost = nullptr;
   m_userUptime = nullptr;
   m_userVersion = nullptr;
+  m_userCompositor = nullptr;
   m_settingsButton = nullptr;
   m_sessionButton = nullptr;
   m_userCardKeyboardArea = nullptr;
@@ -1335,7 +1407,7 @@ void HomeTab::syncScaledFonts() {
   if (m_weatherLine != nullptr) {
     m_weatherLine->setFontSize(Style::fontSizeCaption * s);
   }
-  for (Label* label : {m_userHost, m_userUptime, m_userVersion}) {
+  for (Label* label : {m_userHost, m_userUptime, m_userVersion, m_userCompositor}) {
     if (label != nullptr) {
       label->setFontSize(Style::fontSizeCaption * s);
     }
@@ -1356,11 +1428,9 @@ void HomeTab::syncScaledFonts() {
     if (pad.label != nullptr) {
       pad.label->setFontSize(Style::fontSizeMini * s);
     }
-    if (pad.glyph != nullptr) {
-      // Icon-only glyphs are sized from cell side in doLayout.
-      if (m_config == nullptr || m_config->config().controlCenter.showShortcutLabels) {
-        pad.glyph->setGlyphSize(Style::fontSizeTitle * 1.35F * s);
-      }
+    // Icon-only glyphs are sized from cell side in doLayout.
+    if (pad.glyph != nullptr && (m_config == nullptr || m_config->config().controlCenter.showShortcutLabels)) {
+      pad.glyph->setGlyphSize(Style::fontSizeTitle * 1.35F * s);
     }
   }
 }
@@ -1405,13 +1475,25 @@ void HomeTab::sync(Renderer& renderer) {
   if (m_userVersion != nullptr) {
     m_userVersion->setText(noctaliaVersionLine());
   }
+  if (m_userCompositor != nullptr) {
+    const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+    const auto versionLine = compositorVersionLine([this, aliveGuard] {
+      if (aliveGuard.expired() || m_userCompositor == nullptr) {
+        return;
+      }
+      m_userCompositor->setText(compositorLine(compositorVersionLine({})));
+      PanelManager::instance().requestLayout();
+    });
+    m_userCompositor->setText(compositorLine(versionLine));
+  }
 
-  if (m_weatherGlyph != nullptr && m_weatherLine != nullptr) {
-    if (m_weather == nullptr || !m_weather->enabled()) {
-      m_weatherGlyph->setGlyph("weather-cloud-off");
-      m_weatherGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-      m_weatherLine->setText(i18n::tr("control-center.home.weather.disabled"));
-    } else if (!m_weather->locationConfigured()) {
+  const bool weatherEnabled = m_weather != nullptr && m_weather->enabled();
+  if (m_weatherRow != nullptr) {
+    m_weatherRow->setVisible(weatherEnabled);
+    m_weatherRow->setParticipatesInLayout(weatherEnabled);
+  }
+  if (weatherEnabled && m_weatherGlyph != nullptr && m_weatherLine != nullptr) {
+    if (!m_weather->locationConfigured()) {
       m_weatherGlyph->setGlyph("weather-cloud");
       m_weatherGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
       m_weatherLine->setText(i18n::tr("control-center.weather.no-location-title"));

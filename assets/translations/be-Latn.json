@@ -2,15 +2,42 @@
   "auth": {
     "fingerprint": {
       "disconnected": "Čytalnik adbitkaŭ palcaŭ adklučany",
-      "error": "Nia ŭdałosia aŭtaryzavacca pa adbitku palca",
+      "error": "Nie ŭdałosia aŭtaryzavacca pa adbitku palca",
       "no-match": "Adbitak palca nie supadaje",
       "not-centered": "Pastaŭcie vaš palec pa centru čytalnika i pasprabujcie jašče raz",
-      "present": "Čytannie adbitka palcu...",
+      "present": "Čytannie adbitka palcu…",
       "ready": "Prykładzicie palec da čytalniku",
       "remove-and-retry": "Padymicie palec i pasprabujcie jašče raz",
       "retry": "Praskanujcie vaš adbitak palcu jašče raz",
       "swipe-too-short": "Čyrkannie było nadta karotkim, pasprabujcie jašče raz",
       "too-many-attempts": "Adbitak palcu byŭ adklučany (nadta šmat sprob)"
+    },
+    "pam": {
+      "authentication-failed": "Aŭtentyfikacyja nie ŭdałasia",
+      "start-failed": "Nie ŭdałosia zapuscić PAM",
+      "user-unavailable": "Nie ŭdałosia vyznačyć biahučaha karystalnika"
+    },
+    "polkit": {
+      "authenticate": "Aŭtentyfikavacca",
+      "authenticating": "Aŭtentyfikacyja…",
+      "default-message": "Patrabujecca aŭtentyfikacyja",
+      "invalid-password": "Parol niapravilny",
+      "password-placeholder": "Parol",
+      "title": "Patrabujecca aŭtentyfikacyja"
+    }
+  },
+  "bar": {
+    "screenshot": {
+      "choose-display": "Vybiarycie dysplej",
+      "confirm-region": "{copy} dla kapiravannia · {save} dla zachavannia · Uvod abo Prabieł dla skidu · {cancel} dla skasavannia · Pieraciahvannie dla zmieny vobłascy",
+      "fullscreen": "Uvieś ekran",
+      "overlay-alloc-failed": "Nie ŭdałosia adlustravać nakładku zdymka ekrana (u GPU skončyłasia videapamiać?)",
+      "region": "Vybrać vobłasć"
+    },
+    "widgets": {
+      "active-window": {
+        "no-active-window": "Niama aktyŭnyh akon"
+      }
     }
   }
 }

@@ -26,15 +26,8 @@ write_if_changed() {
 }
 
 if [ ! -f "$rc_file" ]; then
-    cat >"$rc_file" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<labwc_config>
-  <theme>
-    <name>noctalia</name>
-  </theme>
-</labwc_config>
-EOF
-    exit 0
+    printf 'Warning: %s is missing; select the installed Noctalia theme in your active Labwc configuration manually by setting this inside <labwc_config>:\n<theme>\n  <name>noctalia</name>\n</theme>\n' "$rc_file" >&2
+    exit 1
 fi
 
 tmp_file="$(mktemp "${rc_file}.tmp.XXXXXX")"
@@ -46,8 +39,16 @@ if grep -q '<theme>' "$rc_file"; then
         exit 1
     fi
 
-    if sed -n '/<theme>/,/<\/theme>/p' "$rc_file" | grep -q '<name>.*</name>'; then
-        sed '/<theme>/,/<\/theme>/s|<name>.*</name>|<name>noctalia</name>|' "$rc_file" >"$tmp_file"
+    if sed -n '/<theme>/,/<\/theme>/ {
+        /<font[[:space:]>].*<\/font>/d
+        /<font[[:space:]>]/,/<\/font>/d
+        /<name>.*<\/name>/p
+    }' "$rc_file" | grep -q .; then
+        sed '/<theme>/,/<\/theme>/ {
+            /<font[[:space:]>].*<\/font>/b
+            /<font[[:space:]>]/,/<\/font>/b
+            s|<name>.*</name>|<name>noctalia</name>|
+        }' "$rc_file" >"$tmp_file"
     else
         sed '/<theme>/a\    <name>noctalia</name>' "$rc_file" >"$tmp_file"
     fi

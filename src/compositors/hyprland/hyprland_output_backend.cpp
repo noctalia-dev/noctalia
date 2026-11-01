@@ -28,7 +28,7 @@ namespace {
           continue;
         }
         if (auto it = item.find("name"); it != item.end() && it->is_string()) {
-          const auto value = StringUtils::trim(it->get<std::string>());
+          auto value = StringUtils::trim(it->get<std::string>());
           if (!value.empty()) {
             return value;
           }
@@ -58,6 +58,29 @@ std::optional<std::string> HyprlandOutputBackend::focusedOutputName() const {
   return parseFocusedOutputName(*response);
 }
 
+std::unordered_map<std::string, bool> HyprlandOutputBackend::outputPowerStates() const {
+  const auto response = m_runtime.requestJson("j/monitors");
+  if (!response || !response->is_array()) {
+    return {};
+  }
+  std::unordered_map<std::string, bool> states;
+  for (const auto& item : *response) {
+    if (!item.is_object()) {
+      continue;
+    }
+    const auto name = item.find("name");
+    const auto power = item.find("dpmsStatus");
+    if (name != item.end()
+        && name->is_string()
+        && !name->get_ref<const std::string&>().empty()
+        && power != item.end()
+        && power->is_boolean()) {
+      states.emplace(name->get<std::string>(), power->get<bool>());
+    }
+  }
+  return states;
+}
+
 namespace compositors::hyprland {
 
   bool setOutputPower(HyprlandRuntime& runtime, bool on) {
@@ -67,7 +90,7 @@ namespace compositors::hyprland {
     } else {
       response = runtime.request(std::format("dispatch dpms {}", on ? "on" : "off"));
     }
-    return response != std::nullopt;
+    return response && StringUtils::trim(*response) == "ok";
   }
 
   bool focusOutput(HyprlandRuntime& runtime, std::string_view connectorName) {

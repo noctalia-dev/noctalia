@@ -92,7 +92,15 @@ int IpcClient::send(const std::string& command) {
   char buf[4096];
   for (;;) {
     const auto n = ::read(fd, buf, sizeof(buf));
-    if (n <= 0) {
+    if (n < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      std::println(stderr, "error: read() failed: {}", std::strerror(errno));
+      ::close(fd);
+      return 1;
+    }
+    if (n == 0) {
       break;
     }
     response.append(buf, static_cast<std::size_t>(n));
@@ -103,5 +111,5 @@ int IpcClient::send(const std::string& command) {
   std::fputs(response.c_str(), stdout);
 
   // Return 1 if the response indicates an error
-  return (response.starts_with("error:")) ? 1 : 0;
+  return response.starts_with("error:") ? 1 : 0;
 }

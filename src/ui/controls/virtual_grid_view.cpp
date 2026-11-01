@@ -8,6 +8,7 @@
 #include <cmath>
 #include <linux/input-event-codes.h>
 #include <memory>
+#include <utility>
 
 // Internal canvas that reports a virtual size set externally and never moves
 // its children during its own layout pass — VirtualGridView positions pool
@@ -65,7 +66,7 @@ VirtualGridView::VirtualGridView() {
   inputArea->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
   inputArea->setOnEnter([this](const InputArea::PointerData& data) { onPointerEnter(data.localX, data.localY); });
   inputArea->setOnMotion([this](const InputArea::PointerData& data) { onPointerMotion(data.localX, data.localY); });
-  inputArea->setOnLeave([this]() { onPointerLeave(); });
+  inputArea->setOnLeave([this] { onPointerLeave(); });
   inputArea->setOnPress([this](const InputArea::PointerData& data) {
     if (data.button == BTN_LEFT) {
       if (data.pressed) {
@@ -77,7 +78,7 @@ VirtualGridView::VirtualGridView() {
       onSecondaryPointerPress(data.localX, data.localY);
     }
   });
-  inputArea->setOnCancel([this]() {
+  inputArea->setOnCancel([this] {
     if (m_adapterPointerCapture && m_adapter != nullptr) {
       m_adapter->onPointerCancel();
     }
@@ -85,6 +86,8 @@ VirtualGridView::VirtualGridView() {
   });
   m_inputArea = static_cast<InputArea*>(m_canvas->addChild(std::move(inputArea)));
 }
+
+void VirtualGridView::bindScrollState(ScrollViewState* state) { m_scroll->bindState(state); }
 
 void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
   if (m_adapter == adapter) {
@@ -145,7 +148,11 @@ void VirtualGridView::setMinCellWidth(float width) {
 }
 
 void VirtualGridView::setCellHeight(float height) {
-  m_cellHeight = std::max(1.0F, height);
+  const float next = std::max(1.0F, height);
+  if (std::abs(m_cellHeight - next) < 0.001F) {
+    return;
+  }
+  m_cellHeight = next;
   notifyDataChanged();
 }
 
@@ -172,15 +179,37 @@ void VirtualGridView::setOverscanRows(std::size_t rows) {
   markLayoutDirty();
 }
 
+void VirtualGridView::setScale(float scale) {
+  m_scale = std::max(0.1F, scale);
+  if (m_scroll != nullptr) {
+    m_scroll->setContentScale(m_scale);
+  }
+}
+
+void VirtualGridView::setItemCursorShape(std::uint32_t shape) {
+  if (m_itemCursorShape == shape) {
+    return;
+  }
+  m_itemCursorShape = shape;
+  for (InputArea* area : m_poolTooltipAreas) {
+    if (area != nullptr) {
+      area->setCursorShape(shape);
+    }
+  }
+}
+
 void VirtualGridView::scrollToIndex(std::size_t index) {
   m_pendingScrollToIndex = true;
   m_pendingScrollIndex = index;
   markLayoutDirty();
 }
 
-void VirtualGridView::setSelectedIndex(std::optional<std::size_t> index) {
+void VirtualGridView::setSelectedIndex(std::optional<std::size_t> index, bool scrollToSelection) {
+  if (!scrollToSelection) {
+    m_pendingScrollToIndex = false;
+  }
   if (m_selectedIndex == index) {
-    if (m_selectedIndex.has_value()) {
+    if (scrollToSelection && m_selectedIndex.has_value()) {
       m_pendingScrollToIndex = true;
       m_pendingScrollIndex = *m_selectedIndex;
       markLayoutDirty();
@@ -188,7 +217,7 @@ void VirtualGridView::setSelectedIndex(std::optional<std::size_t> index) {
     return;
   }
   m_selectedIndex = index;
-  if (m_selectedIndex.has_value()) {
+  if (scrollToSelection && m_selectedIndex.has_value()) {
     m_pendingScrollToIndex = true;
     m_pendingScrollIndex = *m_selectedIndex;
   } else {
@@ -225,15 +254,14 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   }
 
   // Step 1: estimate the canvas's virtual size so ScrollView can measure
-  // content height correctly. Match ScrollView's gutter behavior: reserve
-  // space for the scrollbar only when the content overflows vertically.
+  // content height correctly. Match ScrollView's configured gutter behavior.
   const float ourW = std::max(0.0F, width());
   const float ourH = std::max(0.0F, height());
   const float padH = m_scroll->viewportPaddingH();
   const float padV = m_scroll->viewportPaddingV();
   const float innerW = std::max(0.0F, ourW - 2.0F * padH);
   const float viewportH = std::max(0.0F, ourH - 2.0F * padV);
-  const float scrollbarGutter = Style::scrollbarWidth + Style::scrollbarGap;
+  const float scrollbarGutter = m_scroll->scrollbarGutter();
 
   m_itemCount = m_adapter->itemCount();
 
@@ -267,7 +295,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
 
   float viewportW = innerW;
   GridMetrics metrics = resolveMetrics(viewportW);
-  if (metrics.virtualHeight > viewportH + 0.5F) {
+  if (m_scroll->reservesScrollbarGutter() || metrics.virtualHeight > viewportH + 0.5F) {
     viewportW = std::max(0.0F, innerW - scrollbarGutter);
     metrics = resolveMetrics(viewportW);
   }
@@ -300,14 +328,17 @@ void VirtualGridView::doLayout(Renderer& renderer) {
       const float visibleTop = m_scroll->scrollOffset();
       const float visibleBottom = visibleTop + viewportH;
       if (rowTop < visibleTop) {
-        m_scroll->setScrollOffset(rowTop);
+        m_scroll->requestScrollToOffset(rowTop);
       } else if (rowBottom > visibleBottom) {
-        m_scroll->setScrollOffset(rowBottom - viewportH);
+        m_scroll->requestScrollToOffset(rowBottom - viewportH);
       }
     }
   }
 
-  // Step 2: determine the visible row range from current scroll offset, with overscan.
+  // Resolve pending jumps and clamp the offset against the new canvas before binding tiles.
+  Flex::doLayout(renderer);
+
+  // Step 2: determine the visible row range from the resolved scroll offset, with overscan.
   const float rowStride = cellH + m_rowGap;
   const float scrollY = m_scroll->scrollOffset();
   std::size_t firstRow = 0;
@@ -346,21 +377,30 @@ void VirtualGridView::doLayout(Renderer& renderer) {
     m_slotBoundHovered.push_back(false);
     m_slotBoundOverlayHovered.push_back(false);
 
+    // Per-cell overlay: carries the item tooltip and the item cursor shape.
     auto tooltipArea = std::make_unique<InputArea>();
     tooltipArea->setVisible(false);
     tooltipArea->setAcceptedButtons(0);
+    tooltipArea->setCursorShape(m_itemCursorShape);
     tooltipArea->setOnEnter([this, slot](const InputArea::PointerData& data) {
       onPoolTooltipMotion(slot, data.localX, data.localY);
     });
     tooltipArea->setOnMotion([this, slot](const InputArea::PointerData& data) {
       onPoolTooltipMotion(slot, data.localX, data.localY);
     });
-    tooltipArea->setOnLeave([this, slot]() { onPoolTooltipLeave(slot); });
-    tooltipArea->setTooltipProvider([this, slot]() -> TooltipContent {
-      if (m_adapter == nullptr || slot >= m_slotBoundIndex.size() || !m_slotBoundIndex[slot].has_value()) {
+    tooltipArea->setOnLeave([this, slot] { onPoolTooltipLeave(slot); });
+    tooltipArea->setTooltipProvider([this, slot] -> TooltipContent {
+      if (m_tooltipSuppressed
+          || m_adapter == nullptr
+          || slot >= m_slotBoundIndex.size()
+          || !m_slotBoundIndex[slot].has_value()) {
         return {};
       }
-      std::string tooltip = m_adapter->itemTooltip(*m_slotBoundIndex[slot]);
+      const std::size_t index = *m_slotBoundIndex[slot];
+      std::string tooltip = m_slotBoundOverlayHovered[slot] ? m_adapter->overlayTooltip(index) : std::string{};
+      if (tooltip.empty()) {
+        tooltip = m_adapter->itemTooltip(index);
+      }
       return tooltip.empty() ? TooltipContent{} : TooltipContent{std::move(tooltip)};
     });
     m_poolTooltipAreas.push_back(static_cast<InputArea*>(m_inputArea->addChild(std::move(tooltipArea))));
@@ -398,16 +438,11 @@ void VirtualGridView::doLayout(Renderer& renderer) {
         InputArea* tooltipArea = m_poolTooltipAreas[slot];
         tooltipArea->setPosition(x, y);
         tooltipArea->setFrameSize(cellW, cellH);
-        const auto tooltipInsets = m_adapter->itemTooltipAnchorInsets(logicalIndex, cellW, cellH);
-        if (tooltipInsets.has_value()) {
-          tooltipArea->setTooltipAnchorInsets(*tooltipInsets);
-        } else {
-          tooltipArea->clearTooltipAnchorInsets();
-        }
         tooltipArea->setVisible(true);
         const bool selected = m_selectedIndex.has_value() && *m_selectedIndex == logicalIndex;
         const bool hovered = m_hoveredIndex.has_value() && *m_hoveredIndex == logicalIndex;
         const bool overlayHovered = m_hoveredOverlayIndex.has_value() && *m_hoveredOverlayIndex == logicalIndex;
+        updateTooltipAnchor(slot, logicalIndex, overlayHovered);
         const bool dirty = !m_slotBoundIndex[slot].has_value()
             || *m_slotBoundIndex[slot] != logicalIndex
             || m_slotBoundSelected[slot] != selected
@@ -444,10 +479,6 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   // Step 5: position the input overlay across the entire virtual canvas.
   m_inputArea->setPosition(0.0F, 0.0F);
   m_inputArea->setFrameSize(viewportW, virtualHeight);
-
-  // Step 6: run the outer Flex layout so ScrollView lays itself out around
-  // the canvas with its now-correct virtual size.
-  Flex::doLayout(renderer);
 }
 
 LayoutSize VirtualGridView::doMeasure(Renderer& /*renderer*/, const LayoutConstraints& constraints) {
@@ -488,6 +519,17 @@ void VirtualGridView::onPointerMotion(float localX, float localY) {
   const auto idx = indexAt(localX, localY);
 
   if (m_adapterPointerCapture && m_adapter != nullptr) {
+    // A held press only becomes a drag once the pointer has travelled the same
+    // distance the rest of the shell requires. Pointers emit motion between
+    // press and release (and enter is replayed as motion after a scene-root
+    // swap), so without this every click would reach the adapter as a
+    // zero-distance drag and never as a click.
+    if (!m_dragThresholdPassed) {
+      if (std::hypot(localX - m_pressLocalX, localY - m_pressLocalY) < Style::dragStartThreshold * m_scale) {
+        return;
+      }
+      m_dragThresholdPassed = true;
+    }
     if (m_adapter->onPointerDrag(idx, localX, localY, m_cellWidth, m_cellHeightResolved)) {
       notifyDataChanged();
     }
@@ -508,6 +550,7 @@ void VirtualGridView::onPointerMotion(float localX, float localY) {
     return;
   }
 
+  m_tooltipSuppressed = false;
   if (m_hoveredOverlayIndex.has_value() && m_hoveredOverlayIndex != overlayIdx) {
     setOverlayHoveredForIndex(*m_hoveredOverlayIndex, false);
   }
@@ -524,6 +567,7 @@ void VirtualGridView::onPointerLeave() {
   if (!m_hoveredIndex.has_value() && !m_hoveredOverlayIndex.has_value()) {
     return;
   }
+  m_tooltipSuppressed = false;
   if (m_hoveredOverlayIndex.has_value()) {
     setOverlayHoveredForIndex(*m_hoveredOverlayIndex, false);
   }
@@ -556,7 +600,7 @@ void VirtualGridView::onPointerPress(float localX, float localY) {
   if (!idx.has_value()) {
     return;
   }
-  setSelectedIndex(idx);
+  setSelectedIndex(idx, false);
   if (m_adapter == nullptr) {
     return;
   }
@@ -566,6 +610,15 @@ void VirtualGridView::onPointerPress(float localX, float localY) {
   cellLocalAt(localX, localY, *idx, cellLocalX, cellLocalY);
   if (m_adapter->onPointerPress(*idx, cellLocalX, cellLocalY, m_cellWidth, m_cellHeightResolved)) {
     m_adapterPointerCapture = true;
+    m_pressLocalX = localX;
+    m_pressLocalY = localY;
+    m_dragThresholdPassed = false;
+    m_tooltipSuppressed = true;
+    for (std::size_t slot = 0; slot < m_pool.size(); ++slot) {
+      if (m_slotBoundIndex[slot] == idx) {
+        m_poolTooltipAreas[slot]->requestTooltipRefresh();
+      }
+    }
     return;
   }
   m_adapter->onActivate(*idx);
@@ -576,8 +629,12 @@ void VirtualGridView::onPointerRelease(float localX, float localY) {
     return;
   }
   m_adapterPointerCapture = false;
-  if (m_adapter->onPointerRelease(indexAt(localX, localY))) {
+  const auto result = m_adapter->onPointerRelease(indexAt(localX, localY));
+  if (result.rebind) {
     notifyDataChanged();
+  }
+  if (result.activateIndex.has_value()) {
+    m_adapter->onActivate(*result.activateIndex);
   }
 }
 
@@ -586,7 +643,7 @@ void VirtualGridView::onSecondaryPointerPress(float localX, float localY) {
   if (!idx.has_value()) {
     return;
   }
-  setSelectedIndex(idx);
+  setSelectedIndex(idx, false);
   if (m_adapter != nullptr) {
     float wx = 0.0F;
     float wy = 0.0F;
@@ -682,7 +739,19 @@ void VirtualGridView::setOverlayHoveredForIndex(std::size_t index, bool hovered)
     }
     m_adapter->applyOverlayHover(*m_pool[slot], hovered);
     m_slotBoundOverlayHovered[slot] = hovered;
+    updateTooltipAnchor(slot, index, hovered);
+    m_poolTooltipAreas[slot]->requestTooltipRefresh();
     markPaintDirty();
     return;
+  }
+}
+
+void VirtualGridView::updateTooltipAnchor(std::size_t slot, std::size_t index, bool overlayHovered) {
+  InputArea* area = m_poolTooltipAreas[slot];
+  const auto insets = m_adapter->itemTooltipAnchorInsets(index, area->width(), area->height(), overlayHovered);
+  if (insets.has_value()) {
+    area->setTooltipAnchorInsets(*insets);
+  } else {
+    area->clearTooltipAnchorInsets();
   }
 }

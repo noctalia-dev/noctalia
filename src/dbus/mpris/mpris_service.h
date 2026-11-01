@@ -39,6 +39,7 @@ struct MprisPlayerInfo {
   std::string loopStatus{"None"};
   bool shuffle{false};
   double volume{1.0};
+  double rate{1.0};
   int64_t positionUs{0};
   int64_t lengthUs{0};
   bool canControl{false};
@@ -53,6 +54,11 @@ struct MprisPlayerInfo {
 
 // Joins artist names with ", ".
 [[nodiscard]] std::string joinedArtists(const std::vector<std::string>& artists);
+
+// Identity of the track a player is on, independent of the display strings that churn while a
+// player seeks or buffers. Prefers the track id plus a source URL normalized against playback
+// position parameters, and falls back to the metadata strings when there is no source URL.
+[[nodiscard]] std::string logicalTrackSignature(const MprisPlayerInfo& info);
 
 class MprisService {
 public:
@@ -84,8 +90,8 @@ public:
   bool setVolumeActive(double volume);
   bool setShuffle(const std::string& busName, bool shuffle);
   bool setShuffleActive(bool shuffle);
-  bool setLoopStatus(const std::string& busName, std::string loopStatus);
-  bool setLoopStatusActive(std::string loopStatus);
+  bool setLoopStatus(const std::string& busName, const std::string& loopStatus);
+  bool setLoopStatusActive(const std::string& loopStatus);
   [[nodiscard]] std::optional<int64_t> position(const std::string& busName) const;
   [[nodiscard]] std::optional<int64_t> positionActive() const;
   [[nodiscard]] std::optional<double> volume(const std::string& busName) const;
@@ -98,7 +104,7 @@ public:
   bool setPinnedPlayerPreference(const std::string& busName);
   void clearPinnedPlayerPreference();
   void setPreferredPlayers(std::vector<std::string> preferredBusNames);
-  void setBlacklist(std::vector<std::string> blacklist);
+  void setBlacklist(const std::vector<std::string>& blacklist);
   void setChangeCallback(std::function<void()> callback);
   [[nodiscard]] std::optional<std::string> pinnedPlayerPreference() const;
   [[nodiscard]] const std::vector<std::string>& preferredPlayers() const noexcept;
@@ -182,6 +188,17 @@ private:
   bool onSetPreferredPlayers(const std::vector<std::string>& preferredBusNames);
   [[nodiscard]] std::tuple<bool, std::string, std::vector<std::string>> onGetPlayerPreferences() const;
 
+  /// @see PipeWireService::relativeAdjustTarget
+  [[nodiscard]] float relativeAdjustTarget(
+      const std::string& busName, int gesture, float baseStep, float direction, float current, float maxVolume
+  );
+  struct RelativeAdjust {
+    std::chrono::steady_clock::time_point lastAt;
+    float target = 0.0F;
+    int gesture = 0;
+  };
+  std::unordered_map<std::string, RelativeAdjust> m_relativeAdjust;
+
   SessionBus& m_bus;
   std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
   std::unique_ptr<sdbus::IObject> m_controlObject;
@@ -202,6 +219,7 @@ private:
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_pendingPositionCandidateAt;
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_lastPositionSampleAt;
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_lastPropertiesUpdate;
+  std::unordered_map<std::string, TimerManager::TimerId> m_propertiesRefreshTimers;
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_lastPlayingUpdate;
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_lastStrongMetadataUpdate;
   std::unordered_map<std::string, int> m_playerPropertiesFailures;

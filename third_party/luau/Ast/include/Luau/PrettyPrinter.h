@@ -6,6 +6,7 @@
 #include "Luau/ParseResult.h"
 
 #include <string>
+#include <string_view>
 
 namespace Luau
 {

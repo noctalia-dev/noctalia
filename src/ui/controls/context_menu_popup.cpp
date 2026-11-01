@@ -34,7 +34,12 @@ ContextMenuPopup* ContextMenuPopup::s_openMenu = nullptr;
 ContextMenuPopup::ContextMenuPopup(WaylandConnection& wayland, RenderContext& renderContext)
     : m_wayland(wayland), m_renderContext(renderContext) {}
 
-ContextMenuPopup::~ContextMenuPopup() { close(); }
+ContextMenuPopup::~ContextMenuPopup() {
+  if (m_alive != nullptr) {
+    *m_alive = false;
+  }
+  close();
+}
 
 void ContextMenuPopup::open(ContextMenuPopupRequest request) {
   close();
@@ -94,7 +99,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
           | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y,
       .offsetX = resolvedPlacement.offsetX,
       .offsetY = resolvedPlacement.offsetY,
-      .serial = m_wayland.lastInputSerial(),
+      .serial = request.inputSerial.value_or(m_wayland.lastInputSerial()),
       .grab = true,
   };
   popup_chrome::applyToConfig(popupCfg, chrome, resolvedPlacement.chromeAttachment);
@@ -150,6 +155,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     auto scrollView = std::make_unique<ScrollView>();
     scrollView->setPosition(chrome.contentX(), chrome.contentY());
     scrollView->setSize(chrome.contentWidth, chrome.contentHeight);
+    scrollView->setContentScale(contentScale);
     scrollView->setViewportPaddingH(0.0F);
     scrollView->setViewportPaddingV(0.0F);
     scrollView->clearFill();
@@ -168,23 +174,11 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     ctrl->setEntries(entries);
     ctrl->setHighlightedIndex(self->m_highlightedIndex);
     self->m_highlightedIndex = ctrl->highlightedIndex();
-    ctrl->setRedrawCallback([self]() {
+    ctrl->setRedrawCallback([self] {
       if (self->m_surface)
         self->m_surface->requestRedraw();
     });
-    ctrl->setOnActivate([self](const ContextMenuControlEntry& e) {
-      auto onActivate = self->m_onActivate;
-      DeferredCall::callLater([self, onActivate, e]() {
-        // Close before running the action. The action may open another popup (e.g. the
-        // color picker for a "Custom" entry); that popup must be created against the
-        // now-topmost parent, and this menu cannot be destroyed while it still has a
-        // child popup on top. Activating first violates the xdg_popup topmost rule.
-        self->close();
-        if (onActivate) {
-          onActivate(e);
-        }
-      });
-    });
+    ctrl->setOnActivate([self](const ContextMenuControlEntry& e) { self->deferActivation(e); });
     scrollView->content()->addChild(std::move(ctrl));
     ScrollView* scrollPtr = scrollView.get();
     scrollView->layout(self->m_surface->renderTarget().renderer());
@@ -201,7 +195,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     self->m_surface->setSceneRoot(self->m_sceneRoot.get());
   });
 
-  m_surface->setDismissedCallback([self]() { DeferredCall::callLater([self]() { self->close(); }); });
+  m_surface->setDismissedCallback([self] { self->deferClose(); });
 
   // Layer-shell popups inherit their parent's keyboard interactivity. A bar is
   // None, so flip it to OnDemand before the popup maps or the grabbing popup
@@ -252,6 +246,37 @@ void ContextMenuPopup::close() {
 }
 
 bool ContextMenuPopup::isOpen() const noexcept { return m_surface != nullptr; }
+
+void ContextMenuPopup::deferActivation(ContextMenuControlEntry entry) {
+  auto* self = this;
+  const std::weak_ptr<bool> alive = m_alive;
+  auto onActivate = m_onActivate;
+  DeferredCall::callLater([self, alive, onActivate = std::move(onActivate), entry = std::move(entry)] {
+    const auto token = alive.lock();
+    if (token == nullptr || !*token) {
+      return;
+    }
+    // Close before running the action. The action may open another popup (e.g. the
+    // color picker for a "Custom" entry); that popup must be created against the
+    // now-topmost parent, and this menu cannot be destroyed while it still has a
+    // child popup on top. Activating first violates the xdg_popup topmost rule.
+    self->close();
+    if (onActivate) {
+      onActivate(entry);
+    }
+  });
+}
+
+void ContextMenuPopup::deferClose() {
+  auto* self = this;
+  const std::weak_ptr<bool> alive = m_alive;
+  DeferredCall::callLater([self, alive] {
+    const auto token = alive.lock();
+    if (token != nullptr && *token) {
+      self->close();
+    }
+  });
+}
 
 void ContextMenuPopup::setOnActivate(std::function<void(const ContextMenuControlEntry&)> callback) {
   m_onActivate = std::move(callback);
@@ -327,7 +352,7 @@ bool ContextMenuPopup::onPointerEvent(const PointerEvent& event) {
         m_pointerInside = true;
       }
       const bool pressed = event.pressed;
-      m_inputDispatcher.pointerButton(localX, localY, event.button, pressed);
+      m_inputDispatcher.pointerButton(localX, localY, event.button, pressed, event.serial, event.time, event.touch);
       if (!pressed && captured && !onPopup) {
         m_pointerInside = false;
         m_inputDispatcher.pointerLeave();
@@ -372,8 +397,7 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
   const std::uint32_t modifiers = event.modifiers;
 
   if (KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
-    auto* self = this;
-    DeferredCall::callLater([self]() { self->close(); });
+    deferClose();
     return;
   }
 
@@ -400,13 +424,11 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
     m_highlightedIndex = m_menu->highlightedIndex();
     ensureHighlightedVisible();
     requestVisualUpdate();
-  } else if (KeySymbol::isEnd(sym)) {
-    if (m_menu->entryCount() > 0) {
-      m_menu->setHighlightedIndex(m_menu->entryCount() - 1);
-      m_highlightedIndex = m_menu->highlightedIndex();
-      ensureHighlightedVisible();
-      requestVisualUpdate();
-    }
+  } else if (KeySymbol::isEnd(sym) && m_menu->entryCount() > 0) {
+    m_menu->setHighlightedIndex(m_menu->entryCount() - 1);
+    m_highlightedIndex = m_menu->highlightedIndex();
+    ensureHighlightedVisible();
+    requestVisualUpdate();
   }
 }
 
@@ -438,17 +460,17 @@ void ContextMenuPopup::requestVisualUpdate() {
 }
 
 void ContextMenuPopup::restoreParentKeyboardInteractivity() {
-  if (m_keyboardParentLayerSurface == nullptr) {
-    return;
-  }
-  zwlr_layer_surface_v1_set_keyboard_interactivity(
-      m_keyboardParentLayerSurface, static_cast<std::uint32_t>(LayerShellKeyboard::None)
-  );
-  if (m_keyboardParentWlSurface != nullptr) {
-    wl_surface_commit(m_keyboardParentWlSurface);
-  }
+  zwlr_layer_surface_v1* layerSurface = m_keyboardParentLayerSurface;
+  wl_surface* wlSurface = m_keyboardParentWlSurface;
   m_keyboardParentLayerSurface = nullptr;
   m_keyboardParentWlSurface = nullptr;
+  // The parent surface can be destroyed while the menu is open (bar rebuild,
+  // output removal). Its proxies are then freed, so only touch it while still registered.
+  if (layerSurface == nullptr || m_wayland.layerSurfaceFor(wlSurface) != layerSurface) {
+    return;
+  }
+  zwlr_layer_surface_v1_set_keyboard_interactivity(layerSurface, static_cast<std::uint32_t>(LayerShellKeyboard::None));
+  wl_surface_commit(wlSurface);
 }
 
 bool ContextMenuPopup::dispatchKeyboardEvent(const KeyboardEvent& event) {

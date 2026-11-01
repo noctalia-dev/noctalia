@@ -61,7 +61,7 @@ void PluginDesktopWidget::create() {
   m_reconciler.setCallbackSink([this](const ui::UiTreeReconciler::ControlCallback& callback) {
     if (m_runtime != nullptr) {
       (void)m_runtime->enqueueCallStrings(
-          callback.fn, callback.arg1, callback.arg2, makeScriptSnapshot(), callback.coalesce
+          callback.fn, callback.arg1, callback.arg2, makeScriptSnapshot(), callback.coalesce, callback.coalesceKey
       );
     }
   });
@@ -90,7 +90,7 @@ void PluginDesktopWidget::create() {
     if (result.modulePathsKnown) {
       m_scriptWatcher.setModulePaths(result.modulePaths);
     }
-    handleScriptResult(std::move(result));
+    handleScriptResult(result);
   });
 
   m_runtime->start(m_sourcePath.string(), std::move(source), makeScriptSnapshot());
@@ -147,7 +147,7 @@ PluginDesktopWidget::DispatchResult PluginDesktopWidget::dispatchIpc(
   return DispatchResult::Handled;
 }
 
-void PluginDesktopWidget::handleScriptResult(scripting::ScriptResult result) {
+void PluginDesktopWidget::handleScriptResult(const scripting::ScriptResult& result) {
   if (result.hasOnIpcKnown) {
     m_hasOnIpc = result.hasOnIpc;
     m_hasOnIpcKnown = true;

@@ -12,6 +12,12 @@
 #include <unordered_map>
 #include <vector>
 
+// mTLS client certificate and key, both PEM file paths (CURLOPT_SSLCERT / CURLOPT_SSLKEY).
+struct HttpTlsClientCert {
+  std::string clientCertPath;
+  std::string clientKeyPath;
+};
+
 struct HttpRequest {
   std::string method = "GET"; // GET/POST/PUT/PROPFIND/REPORT/… -> CURLOPT_CUSTOMREQUEST
   std::string url;
@@ -25,13 +31,17 @@ struct HttpRequest {
                                   // keep-alive connection answers via the old path
   std::string basicUsername;
   std::string basicPassword;
+  std::shared_ptr<const HttpTlsClientCert> tlsClientCert; // non-null enables client-certificate TLS
 };
 
 struct HttpResponse {
   bool transportOk = false; // true when the request completed without a transport error
+  bool timedOut = false;    // the transport error was the timeout
   long status = 0;          // HTTP status code (0 when transportOk is false)
   std::string effectiveUrl; // final URL after redirects (empty when unavailable)
   std::string body;
+  // Response header names are lowercase; values exclude surrounding whitespace.
+  std::unordered_map<std::string, std::string> headers;
 };
 
 struct HttpStreamResult {
@@ -47,7 +57,7 @@ public:
   using StreamDataCallback = std::function<void(std::string_view chunk)>;
   using StreamCloseCallback = std::function<void(HttpStreamResult)>;
 
-  HttpClient();
+  explicit HttpClient(std::filesystem::path caBundlePath = {});
   ~HttpClient();
 
   HttpClient(const HttpClient&) = delete;
@@ -123,6 +133,7 @@ private:
     std::string basicUsername;
     std::string basicPassword;
     std::string response;
+    std::unordered_map<std::string, std::string> responseHeaders;
     std::array<char, CURL_ERROR_SIZE> errorBuffer{};
   };
 
@@ -145,7 +156,7 @@ private:
     std::size_t index = 0;
   };
 
-  void downloadSequential(std::shared_ptr<SequentialDownload> state);
+  void downloadSequential(const std::shared_ptr<SequentialDownload>& state);
   void finishTransfer(CURL* easy, CURLcode result);
   void finishPostTransfer(CURL* easy, CURLcode result);
   void finishRequestTransfer(CURL* easy, CURLcode result);
@@ -153,10 +164,13 @@ private:
   void performMulti(const char* reason);
   // Applies the options every transfer shares, including the non-blocking abandonment of a
   // stuck DNS lookup. Call before the request-specific options.
-  static void applyCommonOptions(CURL* easy);
+  void applyCommonOptions(CURL* easy) const;
+  // Applies the client certificate and key of cert; no-op when cert is null.
+  static void applyTlsClientCert(CURL* easy, const std::shared_ptr<const HttpTlsClientCert>& cert);
   [[nodiscard]] bool hasActiveTransfers() const;
 
   CURLM* m_multi = nullptr;
+  std::filesystem::path m_caBundlePath;
   int m_running = 0;
   std::chrono::steady_clock::time_point m_lastServiceAt;
   bool m_offlineMode = false;

@@ -12,11 +12,13 @@
 #include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/glyph.h"
 #include "ui/controls/grid_tile.h"
 #include "ui/controls/grid_view.h"
 #include "ui/controls/label.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/separator.h"
+#include "ui/palette.h"
 #include "ui/style.h"
 
 #include <algorithm>
@@ -52,6 +54,34 @@ namespace {
 #endif
   }
 
+  constexpr float kPassedEventAlpha = 0.55F;
+
+  std::chrono::system_clock::time_point nextLocalMidnight(std::chrono::system_clock::time_point time) {
+    const std::time_t raw = std::chrono::system_clock::to_time_t(time);
+    std::tm local{};
+    if (localtime_r(&raw, &local) == nullptr) {
+      return time + std::chrono::hours{24};
+    }
+    local.tm_hour = 0;
+    local.tm_min = 0;
+    local.tm_sec = 0;
+    ++local.tm_mday;
+    local.tm_isdst = -1;
+    const std::time_t next = std::mktime(&local);
+    return next == static_cast<std::time_t>(-1) ? time + std::chrono::hours{24}
+                                                : std::chrono::system_clock::from_time_t(next);
+  }
+
+  std::chrono::system_clock::time_point eventEndInstant(const CalendarEvent& event) {
+    if (!event.allDay) {
+      return std::max(event.end, event.start);
+    }
+    if (event.end > event.start) {
+      return event.end;
+    }
+    return nextLocalMidnight(event.start);
+  }
+
   int localDateKey(std::chrono::system_clock::time_point time) {
     const std::time_t raw = std::chrono::system_clock::to_time_t(time);
     std::tm value{};
@@ -68,15 +98,15 @@ namespace {
     return {start, std::max(start, localDateKey(endTime))};
   }
 
-  ColorSpec eventColor(const CalendarEvent& event) {
-    Color color;
-    if (!event.colorHex.empty() && tryParseHexColor(event.colorHex, color)) {
-      return fixedColorSpec(color);
+  ColorSpec eventColor(const CalendarEvent& event, float alpha = 1.0F) {
+    ColorSpec spec = colorSpecFromRole(ColorRole::Primary);
+    if (Color color; !event.colorHex.empty() && tryParseHexColor(event.colorHex, color)) {
+      spec = fixedColorSpec(color);
+    } else if (const auto role = colorRoleFromToken(event.colorHex); role.has_value()) {
+      spec = colorSpecFromRole(*role);
     }
-    if (const auto role = colorRoleFromToken(event.colorHex); role.has_value()) {
-      return colorSpecFromRole(*role);
-    }
-    return colorSpecFromRole(ColorRole::Primary);
+    spec.alpha = alpha;
+    return spec;
   }
 
   std::unique_ptr<Flex> spacer(float width, float height) {
@@ -109,6 +139,37 @@ namespace calendar_view {
   }
 
   int dateKey(Date date) noexcept { return date.year * 10000 + (date.month + 1) * 100 + date.day; }
+
+  bool eventPassed(const CalendarEvent& event, std::chrono::system_clock::time_point now) {
+    return eventEndInstant(event) < now;
+  }
+
+  bool eventHiddenAsPast(
+      const CalendarEvent& event, std::chrono::system_clock::time_point now, bool hidePast, int thresholdMinutes
+  ) {
+    if (!hidePast) {
+      return false;
+    }
+    return eventEndInstant(event) < now - std::chrono::minutes{std::max(thresholdMinutes, 0)};
+  }
+
+  int countHiddenPastEvents(
+      const CalendarSnapshot& snapshot, Date selected, std::chrono::system_clock::time_point now, bool hidePast,
+      int thresholdMinutes
+  ) {
+    const int selectedKey = dateKey(selected);
+    if (!hidePast || selectedKey != localDateKey(now)) {
+      return 0;
+    }
+    int count = 0;
+    for (const CalendarEvent& event : snapshot.events) {
+      const auto [start, end] = eventDayRange(event);
+      if (selectedKey >= start && selectedKey <= end && eventHiddenAsPast(event, now, hidePast, thresholdMinutes)) {
+        ++count;
+      }
+    }
+    return count;
+  }
 
   void rebuildMonth(const MonthBuildOptions& options) {
     uiAssertNotRendering("calendar_view::rebuildMonth");
@@ -180,12 +241,14 @@ namespace calendar_view {
     if (options.snapshot != nullptr) {
       const int firstKey = dateKey({.year = year, .month = month, .day = 1});
       const int lastKey = dateKey({.year = year, .month = month, .day = monthDays});
+      const auto now = std::chrono::system_clock::now();
       for (const CalendarEvent& event : options.snapshot->events) {
         const auto [eventStart, eventEnd] = eventDayRange(event);
         if (eventEnd < firstKey || eventStart > lastKey) {
           continue;
         }
-        const ColorSpec color = eventColor(event);
+        const float eventAlpha = eventPassed(event, now) ? kPassedEventAlpha : 1.0F;
+        const ColorSpec color = eventColor(event, eventAlpha);
         for (int day = 1; day <= monthDays; ++day) {
           const int key = dateKey({.year = year, .month = month, .day = day});
           auto& dots = eventDots[static_cast<std::size_t>(day)];
@@ -263,14 +326,14 @@ namespace calendar_view {
         }
       }
 
-      const auto selectDate = [callback = options.onDateSelected, date, monthShift]() {
+      const auto selectDate = [callback = options.onDateSelected, date, monthShift] {
         if (callback) {
           callback(date, monthShift);
         }
       };
       button->setOnClick(selectDate);
       if (options.onDateRightClicked) {
-        button->setOnRightClick([callback = options.onDateRightClicked, date]() { callback(date); });
+        button->setOnRightClick([callback = options.onDateRightClicked, date] { callback(date); });
       }
       tile->addChild(std::move(button));
 
@@ -366,6 +429,75 @@ namespace calendar_view {
     options.grid.setSize(layout.width, gridHeight);
   }
 
+  namespace {
+
+    // Row at the top of the list: "Show N past events" / "Hide N past events"; clicking flips state->showHiddenPast.
+    // Left-aligned with no resting fill so it reads like the event rows below it.
+    std::unique_ptr<Flex> buildHiddenPastToggle(const EventListBuildOptions& options, int count, bool expanded) {
+      const float scale = options.scale;
+      const std::string text = i18n::trp(
+          expanded ? "control-center.calendar.hide-past-events" : "control-center.calendar.show-past-events",
+          static_cast<long>(count)
+      );
+      Flex* chip = nullptr;
+      Label* label = nullptr;
+      Glyph* glyph = nullptr;
+      auto node = ui::row(
+          {.out = &chip,
+           .align = FlexAlign::Center,
+           .justify = FlexJustify::Start,
+           .gap = Style::spaceSm * scale,
+           .paddingV = Style::spaceXs * scale,
+           .radius = Style::radiusSm * scale},
+          ui::glyph({
+              .out = &glyph,
+              .glyph = expanded ? "chevron-up" : "chevron-down",
+              .glyphSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .flexGrow = 0.0F,
+          }),
+          ui::label({
+              .out = &label,
+              .text = text,
+              .fontSize = Style::fontSizeCaption * scale,
+              .fontFamily = options.fontFamily,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .maxLines = 1,
+          })
+      );
+
+      auto area = ui::inputArea({});
+      area->setParticipatesInLayout(false);
+      area->setZIndex(1);
+      area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
+      const auto setHovered = [chip, label, glyph, requestRedraw = options.requestRedraw](bool hovered) {
+        if (hovered) {
+          chip->setFill(colorSpecFromRole(ColorRole::Hover));
+        } else {
+          chip->clearFill();
+        }
+        const ColorSpec color = colorSpecFromRole(hovered ? ColorRole::OnHover : ColorRole::OnSurfaceVariant);
+        label->setColor(color);
+        glyph->setColor(color);
+        if (requestRedraw) {
+          requestRedraw();
+        }
+      };
+      area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
+      area->setOnLeave([setHovered] { setHovered(false); });
+      area->setOnClick([state = options.state, toggle = options.onToggleHiddenPast](const InputArea::PointerData&) {
+        state->showHiddenPast = !state->showHiddenPast;
+        if (toggle) {
+          toggle();
+        }
+      });
+      options.state->linkOverlays.push_back({.row = chip, .area = area.get()});
+      chip->addChild(std::move(area));
+      return node;
+    }
+
+  } // namespace
+
   void rebuildEventList(const EventListBuildOptions& options) {
     uiAssertNotRendering("calendar_view::rebuildEventList");
     Flex* content = options.scroll.content();
@@ -399,17 +531,35 @@ namespace calendar_view {
     const float linkGlyphSize = Style::fontSizeCaption * options.scale;
     const float linkGlyphGap = Style::spaceXs * options.scale;
     const int selectedKey = dateKey(options.selected);
+    const auto now = std::chrono::system_clock::now();
+    const bool selectedIsToday = selectedKey == localDateKey(now);
     bool hasEvents = false;
+    const bool expanded = options.state != nullptr && options.state->showHiddenPast;
+    if (options.snapshot != nullptr && options.state != nullptr) {
+      const int hiddenCount = countHiddenPastEvents(
+          *options.snapshot, options.selected, now, options.hidePastEvents, options.pastEventsThresholdMinutes
+      );
+      if (hiddenCount > 0) {
+        content->addChild(buildHiddenPastToggle(options, hiddenCount, expanded));
+      }
+    }
     if (options.snapshot != nullptr) {
       for (const CalendarEvent& event : options.snapshot->events) {
         const auto [start, end] = eventDayRange(event);
         if (selectedKey < start || selectedKey > end) {
           continue;
         }
+        if (selectedIsToday
+            && !expanded
+            && eventHiddenAsPast(event, now, options.hidePastEvents, options.pastEventsThresholdMinutes)) {
+          continue;
+        }
         hasEvents = true;
-        const bool hasLink = options.state != nullptr && !event.url.empty();
+        const std::string& link = event.url.empty() ? event.webUrl : event.url;
+        const bool hasLink = options.state != nullptr && !link.empty();
         const float timeMaxWidth =
             hasLink ? std::max(40.0F, textMaxWidth - linkGlyphSize - linkGlyphGap) : textMaxWidth;
+        const float eventAlpha = eventPassed(event, now) ? kPassedEventAlpha : 1.0F;
 
         std::string timeText;
         if (event.allDay) {
@@ -419,11 +569,22 @@ namespace calendar_view {
           timeText = formatLocalUnixTime(static_cast<std::int64_t>(raw), options.timeFormat);
         }
 
+        const bool showLocation = options.showEventsLocation
+            && !event.location.empty()
+            && event.location != link
+            && !event.location.starts_with("http://")
+            && !event.location.starts_with("https://");
+
+        Label* locationLabel = nullptr;
+        Label* timeLabel = nullptr;
+        Glyph* linkGlyph = nullptr;
+        Label* titleLabel = nullptr;
         auto time = ui::label({
+            .out = &timeLabel,
             .text = timeText,
             .fontSize = Style::fontSizeCaption * options.scale,
             .fontFamily = options.fontFamily,
-            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
             .maxWidth = timeMaxWidth,
             .maxLines = 1,
         });
@@ -432,9 +593,10 @@ namespace calendar_view {
           timeLine = ui::row(
               {.align = FlexAlign::Center, .gap = linkGlyphGap}, std::move(timeLine),
               ui::glyph({
+                  .out = &linkGlyph,
                   .glyph = "external-link",
                   .glyphSize = linkGlyphSize,
-                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
                   .flexGrow = 0.0F,
               })
           );
@@ -443,21 +605,35 @@ namespace calendar_view {
         auto details = ui::column(
             {.align = FlexAlign::Start, .gap = Style::spaceXs * 0.5F * options.scale, .flexGrow = 1.0F},
             ui::label({
+                .out = &titleLabel,
                 .text = event.title.empty() ? i18n::tr("control-center.calendar.events") : event.title,
                 .fontSize = Style::fontSizeBody * options.scale,
                 .fontFamily = options.fontFamily,
-                .color = colorSpecFromRole(ColorRole::OnSurface),
+                .color = colorSpecFromRole(ColorRole::OnSurface, eventAlpha),
                 .maxWidth = textMaxWidth,
                 .maxLines = 3,
             }),
             std::move(timeLine)
         );
+        if (showLocation) {
+          details->addChild(
+              ui::label({
+                  .out = &locationLabel,
+                  .text = event.location,
+                  .fontSize = Style::fontSizeCaption * options.scale,
+                  .fontFamily = options.fontFamily,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
+                  .maxWidth = textMaxWidth,
+                  .maxLines = 2,
+              })
+          );
+        }
 
         Flex* eventRow = nullptr;
         auto eventRowNode = ui::row(
             {.out = &eventRow, .align = FlexAlign::Stretch, .gap = rowGap},
             ui::box({
-                .fill = eventColor(event),
+                .fill = eventColor(event, eventAlpha),
                 .radius = dotWidth * 0.5F,
                 .width = dotWidth,
                 .flexGrow = 0.0F,
@@ -469,23 +645,34 @@ namespace calendar_view {
           area->setParticipatesInLayout(false);
           area->setZIndex(1);
           area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
-          area->setTooltip(event.url);
+          area->setTooltip(link);
 
           Flex* row = eventRow;
           row->setRadius(Style::radiusSm * options.scale);
-          const auto setHovered = [row, requestRedraw = options.requestRedraw](bool hovered) {
+          const auto setHovered = [row, titleLabel, timeLabel, locationLabel, linkGlyph, eventAlpha,
+                                   requestRedraw = options.requestRedraw](bool hovered) {
             if (hovered) {
               row->setFill(colorSpecFromRole(ColorRole::Hover));
             } else {
               row->clearFill();
             }
+            const ColorSpec titleColor =
+                colorSpecFromRole(hovered ? ColorRole::OnHover : ColorRole::OnSurface, eventAlpha);
+            const ColorSpec detailColor =
+                colorSpecFromRole(hovered ? ColorRole::OnHover : ColorRole::OnSurfaceVariant, eventAlpha);
+            titleLabel->setColor(titleColor);
+            timeLabel->setColor(detailColor);
+            if (locationLabel != nullptr) {
+              locationLabel->setColor(detailColor);
+            }
+            linkGlyph->setColor(detailColor);
             if (requestRedraw) {
               requestRedraw();
             }
           };
           area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
-          area->setOnLeave([setHovered]() { setHovered(false); });
-          area->setOnClick([url = event.url](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
+          area->setOnLeave([setHovered] { setHovered(false); });
+          area->setOnClick([url = link](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
 
           options.state->linkOverlays.push_back({.row = row, .area = area.get()});
           eventRow->addChild(std::move(area));

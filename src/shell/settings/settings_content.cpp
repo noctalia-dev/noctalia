@@ -30,6 +30,8 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -72,10 +74,10 @@ namespace settings {
         .pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
         .pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath,
         .renamingWidgetName = ctx.renamingWidgetName,
-        .makeGestureActionRow =
-            [&factory](const GestureActionSetting& setting, const std::string& title, std::vector<std::string> path) {
-              return factory.makeGestureActionRow(setting, title, std::move(path));
-            },
+        .makeGestureActionRow = [&factory](
+                                    const GestureActionSetting& setting, const std::string& title,
+                                    const std::vector<std::string>& path
+                                ) { return factory.makeGestureActionRow(setting, title, path); },
         .pendingGestureKey = ctx.pendingGestureKey,
         .pendingGestureVerb = ctx.pendingGestureVerb,
         .actionsExpandedFor = ctx.actionsExpandedFor,
@@ -101,32 +103,32 @@ namespace settings {
         .makeRow = [&factory](
                        Flex& section, const SettingEntry& entry, std::unique_ptr<Node> control
                    ) { factory.makeRow(section, entry, std::move(control)); },
-        .makeToggle = [&factory](bool checked, std::vector<std::string> path, std::optional<bool> clearWhenValue)
-            -> std::unique_ptr<Node> { return factory.makeToggle(checked, true, std::move(path), clearWhenValue); },
-        .makeSelect = [&factory](const SelectSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
-          return factory.makeSelect(setting, std::move(path));
-        },
+        .makeToggle = [&factory](bool checked, const std::vector<std::string>& path, std::optional<bool> clearWhenValue)
+            -> std::unique_ptr<Node> { return factory.makeToggle(checked, true, path, clearWhenValue); },
+        .makeSelect = [&factory](const SelectSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeSelect(setting, path); },
         .makeSearchPicker = [&factory](
                                 const SearchPickerSetting& setting, std::string title, std::vector<std::string> path
                             ) -> std::unique_ptr<Node> {
           return factory.makeSearchPicker(setting, std::move(title), std::move(path));
         },
         .makeSlider = [&factory](
-                          double value, double minValue, double maxValue, double step, std::vector<std::string> path,
-                          bool integerValue
+                          double value, double minValue, double maxValue, double step,
+                          const std::vector<std::string>& path, bool integerValue
                       ) -> std::unique_ptr<Node> {
-          return factory.makeSlider(value, minValue, maxValue, step, std::move(path), integerValue);
+          return factory.makeSlider(value, minValue, maxValue, step, path, integerValue);
         },
-        .makeOptionalNumber = [&factory](const OptionalNumberSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeOptionalNumber(setting, std::move(path)); },
-        .makeOptionalStepper = [&factory](const OptionalStepperSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeOptionalStepper(setting, std::move(path)); },
-        .makeStepper = [&factory](const StepperSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeStepper(setting, std::move(path)); },
-        .makeText = [&factory](const std::string& value, const std::string& placeholder, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeText(value, placeholder, std::move(path)); },
-        .makeColorSpecPicker = [&factory](const ColorSpecPickerSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeColorSpecPicker(setting, std::move(path)); },
+        .makeOptionalNumber = [&factory](const OptionalNumberSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeOptionalNumber(setting, path); },
+        .makeOptionalStepper = [&factory](const OptionalStepperSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeOptionalStepper(setting, path); },
+        .makeStepper = [&factory](const StepperSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeStepper(setting, path); },
+        .makeText = [&factory](
+                        const std::string& value, const std::string& placeholder, const std::vector<std::string>& path
+                    ) -> std::unique_ptr<Node> { return factory.makeText(value, placeholder, path); },
+        .makeColorSpecPicker = [&factory](const ColorSpecPickerSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeColorSpecPicker(setting, path); },
         .makeListBlock = [&factory](
                              Flex& section, const SettingEntry& entry, const ListSetting& list
                          ) { factory.makeListBlock(section, entry, list); },
@@ -148,23 +150,26 @@ namespace settings {
     };
 
     const auto makeSection = [&](std::string_view title, SettingsSection sectionKey) -> Flex* {
-      auto section = ui::column(
-          {
-              .align = FlexAlign::Stretch,
-              .gap = Style::spaceSm * scale,
-              .padding = Style::spaceLg * scale,
-              .fill = clearColorSpec(),
-          },
-          ui::row(
-              {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
-              ui::glyph({
-                  .glyph = std::string(sectionGlyph(sectionKey)),
-                  .glyphSize = Style::fontSizeHeader * scale,
-                  .color = colorSpecFromRole(ColorRole::Primary),
-              }),
-              makeLabel(title, Style::fontSizeHeader * scale, colorSpecFromRole(ColorRole::Primary), FontWeight::Bold)
-          )
+      auto titleRow = ui::row(
+          {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+          ui::glyph({
+              .glyph = std::string(sectionGlyph(sectionKey)),
+              .glyphSize = Style::fontSizeHeader * scale,
+              .color = colorSpecFromRole(ColorRole::Primary),
+          }),
+          makeLabel(title, Style::fontSizeHeader * scale, colorSpecFromRole(ColorRole::Primary), FontWeight::Bold)
       );
+      auto section = ui::column({
+          .align = FlexAlign::Stretch,
+          .gap = Style::spaceSm * scale,
+          .padding = Style::spaceLg * scale,
+          .fill = clearColorSpec(),
+      });
+      if (ctx.pageTitleRow != nullptr && ctx.searchQuery.empty() && ctx.pageTitleRow->children().empty()) {
+        ctx.pageTitleRow->addChild(std::move(titleRow));
+      } else {
+        section->addChild(std::move(titleRow));
+      }
       auto* raw = section.get();
       content.addChild(std::move(section));
       return raw;
@@ -197,25 +202,26 @@ namespace settings {
       factory.makeRow(section, entry, std::move(control));
     };
 
-    const auto makeToggle = [&](bool checked, bool enabled, std::vector<std::string> path,
+    const auto makeToggle = [&](bool checked, bool enabled, const std::vector<std::string>& path,
                                 std::optional<bool> clearWhenValue = std::nullopt) {
-      return factory.makeToggle(checked, enabled, std::move(path), clearWhenValue);
+      return factory.makeToggle(checked, enabled, path, clearWhenValue);
     };
 
-    const auto makeSelect = [&](const SelectSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
-      return factory.makeSelect(setting, std::move(path));
+    const auto makeSelect = [&](const SelectSetting& setting,
+                                const std::vector<std::string>& path) -> std::unique_ptr<Node> {
+      return factory.makeSelect(setting, path);
     };
 
     const auto makeSlider =
-        [&](double value, double minValue, double maxValue, double step, std::vector<std::string> path,
+        [&](double value, double minValue, double maxValue, double step, const std::vector<std::string>& path,
             bool integerValue = false, std::string valueSuffix = {},
-            std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit =
-                {},
+            const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>&
+                linkedCommit = {},
             SliderSetting::InvertSlot invertSlot = SliderSetting::InvertSlot::None,
             bool invertEnabled = true) -> std::unique_ptr<Node> {
       return factory.makeSlider(
-          value, minValue, maxValue, step, std::move(path), integerValue, std::move(linkedCommit),
-          std::move(valueSuffix), invertSlot, invertEnabled
+          value, minValue, maxValue, step, path, integerValue, linkedCommit, std::move(valueSuffix), invertSlot,
+          invertEnabled
       );
     };
 
@@ -224,16 +230,16 @@ namespace settings {
       return factory.makeRangeSlider(setting, lowPath);
     };
 
-    const auto makeText = [&](const std::string& value, const std::string& placeholder, std::vector<std::string> path,
-                              float width = 0.0F) {
-      return factory.makeText(value, placeholder, std::move(path), width);
-    };
+    const auto makeText = [&](const std::string& value, const std::string& placeholder,
+                              const std::vector<std::string>& path,
+                              float width = 0.0F) { return factory.makeText(value, placeholder, path, width); };
 
     const auto makeTextWithPathBrowse = [&](const TextSetting& setting, const std::vector<std::string>& path) {
       return factory.makePathBrowse(setting, path);
     };
 
-    const auto makeGlyphText = [&](const TextSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
+    const auto makeGlyphText = [&](const TextSetting& setting,
+                                   const std::vector<std::string>& path) -> std::unique_ptr<Node> {
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
       wrap->addChild(makeText(setting.value, setting.placeholder, path, setting.width));
 
@@ -246,7 +252,7 @@ namespace settings {
           .paddingV = Style::spaceXs * scale,
           .paddingH = Style::spaceSm * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [setOverride = ctx.setOverride, path, currentValue = setting.value]() {
+          .onClick = [setOverride = ctx.setOverride, path, currentValue = setting.value] {
             GlyphPickerDialogOptions options;
             if (!currentValue.empty()) {
               options.initialGlyph = currentValue;
@@ -265,21 +271,21 @@ namespace settings {
       return wrap;
     };
 
-    const auto makeOptionalNumber = [&](const OptionalNumberSetting& setting, std::vector<std::string> path) {
-      return factory.makeOptionalNumber(setting, std::move(path));
+    const auto makeOptionalNumber = [&](const OptionalNumberSetting& setting, const std::vector<std::string>& path) {
+      return factory.makeOptionalNumber(setting, path);
     };
 
-    const auto makeStepper = [&](const StepperSetting& setting, std::vector<std::string> path) {
-      return factory.makeStepper(setting, std::move(path));
+    const auto makeStepper = [&](const StepperSetting& setting, const std::vector<std::string>& path) {
+      return factory.makeStepper(setting, path);
     };
 
-    const auto makeOptionalStepper = [&](const OptionalStepperSetting& setting, std::vector<std::string> path) {
-      return factory.makeOptionalStepper(setting, std::move(path));
+    const auto makeOptionalStepper = [&](const OptionalStepperSetting& setting, const std::vector<std::string>& path) {
+      return factory.makeOptionalStepper(setting, path);
     };
 
     const auto makeColorSpecPicker = [&](const ColorSpecPickerSetting& setting,
-                                         std::vector<std::string> path) -> std::unique_ptr<Node> {
-      return factory.makeColorSpecPicker(setting, std::move(path));
+                                         const std::vector<std::string>& path) -> std::unique_ptr<Node> {
+      return factory.makeColorSpecPicker(setting, path);
     };
 
     const auto makeSearchPickerButton = [&](const SettingEntry& entry,
@@ -377,15 +383,15 @@ namespace settings {
 
       constexpr std::size_t kTemplateCardsPerRow = 5;
       auto selected = std::make_shared<std::vector<std::string>>(setting.selectedValues);
-      const auto options = std::make_shared<std::vector<SelectOption>>(setting.options);
+      const auto options = std::make_shared<std::vector<noctalia::theme::AvailableTemplate>>(setting.options);
       const auto path = entry.path;
 
-      auto commit = [setOverride = ctx.setOverride, path, options, selected]() {
+      auto commit = [setOverride = ctx.setOverride, path, options, selected] {
         std::vector<std::string> ordered;
         ordered.reserve(selected->size());
         for (const auto& opt : *options) {
-          if (std::ranges::contains(*selected, opt.value)) {
-            ordered.push_back(opt.value);
+          if (std::ranges::contains(*selected, opt.id)) {
+            ordered.push_back(opt.id);
           }
         }
         setOverride(path, std::move(ordered));
@@ -398,7 +404,7 @@ namespace settings {
       std::unique_ptr<Flex> row;
       std::size_t countInRow = 0;
 
-      auto flushRow = [&]() {
+      auto flushRow = [&] {
         if (row == nullptr) {
           return;
         }
@@ -416,23 +422,22 @@ namespace settings {
           row = ui::row({.align = FlexAlign::Stretch, .gap = Style::spaceSm * scale, .fillWidth = true});
         }
 
-        const bool checked = std::ranges::contains(*selected, option.value);
-        const std::string value = option.value;
+        const bool checked = std::ranges::contains(*selected, option.id);
+        const std::string value = option.id;
         Button* card = nullptr;
         Label* titleLabel = nullptr;
         Label* categoryLabel = nullptr;
         Checkbox* checkbox = nullptr;
+        Button* documentationButton = nullptr;
         auto checkedState = std::make_shared<bool>(checked);
         const auto cardPaletteFor = [scale](bool active) {
           return Button::ButtonPalette{
               .borderWidth = 1.0F * scale,
               .normal =
                   Button::ButtonStateColors{
-                      .bg = colorSpecFromRole(
-                          active ? ColorRole::Primary : ColorRole::SurfaceVariant, active ? 1.0F : 0.45F
-                      ),
+                      .bg = colorSpecFromRole(active ? ColorRole::Primary : ColorRole::SurfaceContainerLow),
                       .border = active ? colorSpecFromRole(ColorRole::Primary, 0.9F)
-                                       : colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha),
+                                       : colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
                       .label = colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnSurface),
                   },
               .hover =
@@ -449,8 +454,8 @@ namespace settings {
                   },
               .disabled =
                   Button::ButtonStateColors{
-                      .bg = colorSpecFromRole(ColorRole::SurfaceVariant, 0.35F),
-                      .border = colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha),
+                      .bg = colorSpecFromRole(ColorRole::SurfaceContainer, 0.35F),
+                      .border = colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
                       .label = colorSpecFromRole(ColorRole::OnSurfaceVariant),
                   },
               .selected = std::nullopt,
@@ -475,21 +480,6 @@ namespace settings {
                 .checkedFill = colorSpecFromRole(ColorRole::Surface),
                 .checkedBorder = colorSpecFromRole(ColorRole::OnPrimary),
                 .checkedGlyph = colorSpecFromRole(ColorRole::Primary),
-                .onChange = [selected, value, commit, checkedState, card, cardPaletteFor](bool nextChecked) mutable {
-                  auto it = std::find(selected->begin(), selected->end(), value);
-                  if (nextChecked) {
-                    if (it == selected->end()) {
-                      selected->push_back(value);
-                    }
-                  } else if (it != selected->end()) {
-                    selected->erase(it);
-                  }
-                  *checkedState = nextChecked;
-                  if (card != nullptr) {
-                    card->setCustomPalette(cardPaletteFor(nextChecked));
-                  }
-                  commit();
-                },
             })
         );
 
@@ -497,55 +487,87 @@ namespace settings {
         text->addChild(
             ui::label({
                 .out = &titleLabel,
-                .text = option.label,
+                .text = option.displayName,
                 .fontSize = Style::fontSizeBody * scale,
                 .fontWeight = FontWeight::Medium,
                 .color = colorSpecFromRole(checked ? ColorRole::OnPrimary : ColorRole::OnSurface),
                 .maxLines = 1,
+                .ellipsize = TextEllipsize::End,
             })
         );
-        if (!option.description.empty()) {
+        if (!option.category.empty()) {
           text->addChild(
               ui::label({
                   .out = &categoryLabel,
-                  .text = option.description,
+                  .text = option.category,
                   .fontSize = Style::fontSizeCaption * scale,
                   .color = colorSpecFromRole(
                       checked ? ColorRole::OnPrimary : ColorRole::OnSurfaceVariant, checked ? 0.75F : 1.0F
                   ),
                   .maxLines = 1,
+                  .ellipsize = TextEllipsize::End,
               })
           );
         }
         card->addChild(std::move(text));
-        const auto syncNormalText = [titleLabel, categoryLabel](bool active) {
-          if (titleLabel != nullptr) {
-            titleLabel->setColor(colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnSurface));
+        if (!option.documentationUrl.empty()) {
+          card->addChild(
+              ui::button({
+                  .out = &documentationButton,
+                  .glyph = "external-link",
+                  .glyphSize = Style::fontSizeBody * scale,
+                  .controlHeight = Style::controlHeightSm * scale,
+                  .variant = ButtonVariant::Ghost,
+                  .tooltip = i18n::tr("settings.templates.documentation"),
+                  .width = Style::controlHeightSm * scale,
+                  .height = Style::controlHeightSm * scale,
+                  .onClick =
+                      [openBrowserUrl = ctx.openBrowserUrl, url = option.documentationUrl] {
+                        if (openBrowserUrl) {
+                          openBrowserUrl(url);
+                        }
+                      },
+                  .configure = [](Button& button) { button.setZIndex(2); },
+              })
+          );
+        }
+        const auto syncDocumentationColor = [documentationButton](ColorRole role) {
+          if (documentationButton == nullptr) {
+            return;
           }
-          if (categoryLabel != nullptr) {
-            categoryLabel->setColor(
-                colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnSurfaceVariant, active ? 0.75F : 1.0F)
-            );
-          }
+          auto palette = Button::defaultPalette(ButtonVariant::Ghost);
+          palette.normal.label = colorSpecFromRole(role);
+          palette.hover.bg = colorSpecFromRole(ColorRole::Surface);
+          palette.hover.label = colorSpecFromRole(ColorRole::OnSurface);
+          documentationButton->setCustomPalette(palette);
         };
-        const auto syncHoverText = [titleLabel, categoryLabel](bool active) {
+        const auto syncTileState = [checkedState, card, documentationButton, titleLabel, categoryLabel,
+                                    syncDocumentationColor] {
+          const bool linkHovered = documentationButton != nullptr && documentationButton->hovered();
+          card->setHoveredVisual(linkHovered);
+          const bool hovered = card->hovered() || linkHovered;
+          ColorRole foreground = ColorRole::OnSurface;
+          ColorRole detail = ColorRole::OnSurfaceVariant;
+          float detailOpacity = 1.0F;
+          if (*checkedState || card->pressed()) {
+            foreground = ColorRole::OnPrimary;
+            detail = ColorRole::OnPrimary;
+            detailOpacity = 0.75F;
+          } else if (hovered) {
+            foreground = ColorRole::OnHover;
+            detail = ColorRole::OnHover;
+            detailOpacity = 0.75F;
+          }
           if (titleLabel != nullptr) {
-            titleLabel->setColor(colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnHover));
+            titleLabel->setColor(colorSpecFromRole(foreground));
           }
           if (categoryLabel != nullptr) {
-            categoryLabel->setColor(colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnHover, 0.75F));
+            categoryLabel->setColor(colorSpecFromRole(detail, detailOpacity));
           }
-        };
-        const auto syncPressedText = [titleLabel, categoryLabel]() {
-          if (titleLabel != nullptr) {
-            titleLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary));
-          }
-          if (categoryLabel != nullptr) {
-            categoryLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary, 0.75F));
-          }
+          syncDocumentationColor(foreground);
         };
         auto setTileActive = [selected, value, commit, checkedState, card, checkbox, cardPaletteFor,
-                              syncNormalText](bool nextChecked) mutable {
+                              syncTileState](bool nextChecked) mutable {
           auto it = std::find(selected->begin(), selected->end(), value);
           if (nextChecked) {
             if (it == selected->end()) {
@@ -561,21 +583,22 @@ namespace settings {
           if (checkbox != nullptr) {
             checkbox->setChecked(nextChecked);
           }
-          syncNormalText(nextChecked);
+          syncTileState();
           commit();
         };
-        syncNormalText(*checkedState);
-        card->setOnEnter([checkedState, syncHoverText]() { syncHoverText(*checkedState); });
-        card->setOnLeave([checkedState, syncNormalText]() { syncNormalText(*checkedState); });
-        card->setOnPress([syncPressedText](float /*localX*/, float /*localY*/, bool pressed) {
-          if (!pressed) {
-            return;
-          }
-          syncPressedText();
-        });
-        card->setOnClick([checkedState, setTileActive]() mutable { setTileActive(!*checkedState); });
-        if (!option.tooltip.empty()) {
-          card->setTooltip(option.tooltip);
+        checkbox->setOnChange(setTileActive);
+        syncTileState();
+        card->setOnEnter(syncTileState);
+        card->setOnLeave(syncTileState);
+        card->setOnPress([syncTileState](float /*localX*/, float /*localY*/, bool /*pressed*/) { syncTileState(); });
+        if (documentationButton != nullptr) {
+          documentationButton->setOnEnter(syncTileState);
+          documentationButton->setOnLeave(syncTileState);
+        }
+        card->setOnClick([checkedState, setTileActive] mutable { setTileActive(!*checkedState); });
+        const std::string tooltip = noctalia::theme::formatTemplateTooltip(option);
+        if (!tooltip.empty()) {
+          card->setTooltip(tooltip);
         }
 
         row->addChild(std::move(cardNode));
@@ -677,7 +700,7 @@ namespace settings {
             .maxHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [commitItems, items = keybinds.items, i]() mutable {
+            .onClick = [commitItems, items = keybinds.items, i] mutable {
               if (i >= items.size()) {
                 return;
               }
@@ -796,7 +819,7 @@ namespace settings {
       if (ctx.bindSessionActionsEditState) {
         ctx.bindSessionActionsEditState(state);
       }
-      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild]() {
+      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild] {
         setOverride(path, *state);
         req();
       };
@@ -835,7 +858,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex == 0 || rowIndex >= state->size()) {
                 return;
               }
@@ -854,7 +877,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex + 1 >= state->size()) {
                 return;
               }
@@ -873,7 +896,7 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [openEntry = ctx.openSessionActionEntryEditor, rowIndex = idx]() {
+            .onClick = [openEntry = ctx.openSessionActionEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
               }
@@ -908,7 +931,7 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [state, commit]() {
+          .onClick = [state, commit] {
             state->push_back(
                 SessionPanelActionConfig{
                     .action = "command",
@@ -931,7 +954,7 @@ namespace settings {
 
       auto state = std::make_shared<std::vector<IdleBehaviorConfig>>(idle.items);
       normalizeIdleBehaviorNames(*state);
-      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild]() {
+      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild] {
         normalizeIdleBehaviorNames(*state);
         setOverride(path, *state);
         req();
@@ -965,7 +988,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex == 0 || rowIndex >= state->size()) {
                 return;
               }
@@ -984,7 +1007,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex + 1 >= state->size()) {
                 return;
               }
@@ -1003,7 +1026,7 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [openEntry = ctx.openIdleBehaviorEntryEditor, rowIndex = idx]() {
+            .onClick = [openEntry = ctx.openIdleBehaviorEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
               }
@@ -1038,7 +1061,7 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [openCreate = ctx.openIdleBehaviorCreateEditor]() {
+          .onClick = [openCreate = ctx.openIdleBehaviorCreateEditor] {
             if (openCreate) {
               openCreate();
             }
@@ -1057,7 +1080,7 @@ namespace settings {
 
       auto state = std::make_shared<std::vector<NotificationFilterConfig>>(filters.items);
       normalizeNotificationFilterNames(*state);
-      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild]() {
+      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild] {
         normalizeNotificationFilterNames(*state);
         setOverride(path, *state);
         req();
@@ -1087,7 +1110,7 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [openEntry = ctx.openNotificationFilterEntryEditor, rowIndex = idx]() {
+            .onClick = [openEntry = ctx.openNotificationFilterEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
               }
@@ -1123,7 +1146,7 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [openCreate = ctx.openNotificationFilterCreateEditor]() {
+          .onClick = [openCreate = ctx.openNotificationFilterCreateEditor] {
             if (openCreate) {
               openCreate();
             }
@@ -1221,6 +1244,7 @@ namespace settings {
     std::string activeSectionKey;
     std::string activeGroupKey;
     Flex* activeSection = nullptr;
+    Flex* activeGroupBody = nullptr;
     constexpr std::size_t kKeybindsPerRow = 2;
     Flex* activeKeybindRow = nullptr;
     std::size_t activeKeybindRowCount = 0;
@@ -1233,47 +1257,105 @@ namespace settings {
 
     BarWidgetEditorContext barWidgetEditorCtx = makeBarWidgetEditorContext(factory);
 
-    auto isEntryVisible = [&](const SettingEntry& e) -> bool { return !e.visibleWhen || e.visibleWhen(ctx.config); };
+    const auto isEntryVisible = [&](const SettingEntry& e) -> bool {
+      return !e.visibleWhen || e.visibleWhen(ctx.config);
+    };
 
     const std::string_view selectedBarName =
         ctx.selectedBar != nullptr ? std::string_view{ctx.selectedBar->name} : std::string_view{};
-    const std::string_view selectedMonitorMatch = ctx.selectedMonitorOverride != nullptr
-        ? std::string_view{ctx.selectedMonitorOverride->match}
-        : std::string_view{};
+    const std::string_view selectedMonitorMatch = ctx.selectedMonitorOverride;
     const std::optional<SettingsSection> selectedSettingsSection =
-        ctx.selectedSection != "bar" ? settingsSectionFromId(ctx.selectedSection) : std::nullopt;
+        ctx.selectedSection != "bar" && ctx.selectedSection != "dock" ? settingsSectionFromId(ctx.selectedSection)
+                                                                      : std::nullopt;
 
     // Coalesce entries by (content section, group) so each group renders once even if its entries were
     // declared non-contiguously in the registry. See coalesceByGroupKey().
     const auto entryOrder = coalesceByGroupKey(registry.size(), [&](std::size_t i) {
       return barSettingContentSectionKey(registry[i]) + '\x1F' + registry[i].group;
     });
-
-    for (const std::size_t entryIndex : entryOrder) {
-      const auto& entry = registry[entryIndex];
+    const auto entryPassesFilters = [&](const SettingEntry& entry) -> bool {
       if (ctx.searchQuery.empty()
           && !ctx.selectedSection.empty()
           && ctx.selectedSection != "bar"
+          && ctx.selectedSection != "dock"
           && (!selectedSettingsSection.has_value() || entry.section != *selectedSettingsSection)) {
-        continue;
+        return false;
       }
       if (ctx.searchQuery.empty()
           && ctx.selectedSection == "bar"
           && !settingEntryMatchesBarNavigation(entry, selectedBarName, selectedMonitorMatch)) {
-        continue;
+        return false;
+      }
+      if (ctx.searchQuery.empty()
+          && ctx.selectedSection == "dock"
+          && !settingEntryMatchesDockNavigation(entry, selectedMonitorMatch)) {
+        return false;
       }
       if (!ctx.showAdvanced && entry.advanced) {
-        continue;
+        return false;
       }
       if (!isEntryVisible(entry)) {
-        continue;
+        return false;
       }
       if (ctx.showOverriddenOnly
           && ctx.configService != nullptr
           && !settingEntryHasEffectiveOverride(entry, *ctx.configService)) {
-        continue;
+        return false;
       }
-      if (!matchesNormalizedSettingQuery(entry, normalizedSearchQuery)) {
+      return matchesNormalizedSettingQuery(entry, normalizedSearchQuery);
+    };
+
+    std::string pageKey;
+    std::vector<std::string> pageGroupKeys;
+    if (ctx.searchQuery.empty()) {
+      std::unordered_set<std::string> seenGroupKeys;
+      for (const std::size_t entryIndex : entryOrder) {
+        const auto& entry = registry[entryIndex];
+        if (!entryPassesFilters(entry) || entry.group.empty()) {
+          continue;
+        }
+        if (pageKey.empty()) {
+          pageKey = barSettingContentSectionKey(entry);
+        }
+        if (seenGroupKeys.insert(entry.group).second) {
+          pageGroupKeys.push_back(entry.group);
+        }
+      }
+    }
+    const bool collapsibleGroups = ctx.searchQuery.empty() && !pageGroupKeys.empty();
+    std::unordered_set<std::string>* expandedGroups = nullptr;
+    if (collapsibleGroups) {
+      auto [pageIt, fresh] = ctx.expandedGroupsByPage.try_emplace(pageKey);
+      if (fresh) {
+        if (ctx.config.shell.settingsExpandAllGroups) {
+          pageIt->second.insert(pageGroupKeys.begin(), pageGroupKeys.end());
+        } else {
+          pageIt->second.insert(pageGroupKeys.front());
+        }
+      }
+      expandedGroups = &pageIt->second;
+    }
+
+    std::unordered_map<std::string, Button*> pillByGroup;
+    if (collapsibleGroups && ctx.groupJumpRow != nullptr) {
+      for (const auto& group : pageGroupKeys) {
+        Button* pill = nullptr;
+        ctx.groupJumpRow->addChild(
+            ui::button({
+                .out = &pill,
+                .text = groupLabel(group),
+                .fontSize = Style::fontSizeCaption * scale,
+                .variant = expandedGroups->contains(group) ? ButtonVariant::Primary : ButtonVariant::Default,
+                .radius = Style::scaledRadiusMd(scale),
+            })
+        );
+        pillByGroup.emplace(group, pill);
+      }
+    }
+
+    for (const std::size_t entryIndex : entryOrder) {
+      const auto& entry = registry[entryIndex];
+      if (!entryPassesFilters(entry)) {
         continue;
       }
       // Cap only once a genuinely-matching entry is about to be rendered, so the truncation hint never
@@ -1295,10 +1377,13 @@ namespace settings {
           if (isBarMonitorOverrideSettingPath(entry.path)) {
             displayTitle += " / " + entry.path[3];
           }
+        } else if (isDockMonitorOverrideSettingPath(entry.path)) {
+          displayTitle = sectionLabel(entry.section) + " / " + entry.path[2];
         } else {
           displayTitle = sectionLabel(entry.section);
         }
         activeSection = makeSection(displayTitle, entry.section);
+        activeGroupBody = activeSection;
         if (ctx.config.shell.offlineMode && settingsSectionNeedsOfflineModeNotice(entry.section)) {
           const bool showDisableHint = entry.section != SettingsSection::Security;
           activeSection->addChild(
@@ -1306,15 +1391,42 @@ namespace settings {
           );
         }
       }
-      if (activeSection != nullptr) {
+      if (activeSection != nullptr && activeGroupBody != nullptr) {
         if (entry.group != activeGroupKey) {
           const bool isFirstGroup = activeGroupKey.empty();
           activeGroupKey = entry.group;
           activeKeybindRow = nullptr;
           activeKeybindRowCount = 0;
-          addGroupLabel(*activeSection, groupLabel(entry.group), isFirstGroup);
+          if (collapsibleGroups && !entry.group.empty()) {
+            activeGroupBody = addSettingsGroupCard(
+                SettingsGroupCardProps{
+                    .parent = *activeSection,
+                    .group = entry.group,
+                    .title = groupLabel(entry.group),
+                    .scale = scale,
+                    .expandedGroups = *expandedGroups,
+                    .pill = pillByGroup[entry.group],
+                    .scrollToTop = ctx.scrollContentToTop,
+                }
+            );
+          } else if (!entry.group.empty()) {
+            activeGroupBody = addSettingsCard(*activeSection, groupLabel(entry.group), scale);
+          } else {
+            addGroupLabel(*activeSection, groupLabel(entry.group), isFirstGroup);
+            activeGroupBody = activeSection;
+          }
           if (entry.section == SettingsSection::Power && entry.group == "idle") {
-            addIdleLiveStatusPanel(*activeSection, ctx, scale);
+            addIdleLiveStatusPanel(*activeGroupBody, ctx, scale);
+          }
+          if (entry.section == SettingsSection::Screenshot && entry.group == "screenshot-output") {
+            activeGroupBody->addChild(
+                ui::label({
+                    .text = i18n::tr("settings.schema.shell.screenshot-output.description"),
+                    .fontSize = Style::fontSizeBody * scale,
+                    .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                    .maxLines = 0,
+                })
+            );
           }
         }
         if (!std::holds_alternative<KeybindListSetting>(entry.control)) {
@@ -1323,14 +1435,14 @@ namespace settings {
         }
         if (const auto* list = std::get_if<ListSetting>(&entry.control)) {
           if (isFirstBarWidgetListPath(entry.path)) {
-            addBarWidgetLaneEditor(*activeSection, entry, barWidgetEditorCtx);
+            addBarWidgetLaneEditor(*activeGroupBody, entry, barWidgetEditorCtx);
           } else if (!isBarWidgetListPath(entry.path)) {
-            makeListBlock(*activeSection, entry, *list);
+            makeListBlock(*activeGroupBody, entry, *list);
           }
         } else if (const auto* map = std::get_if<StringMapSetting>(&entry.control)) {
-          factory.makeStringMapBlock(*activeSection, entry, *map);
+          factory.makeStringMapBlock(*activeGroupBody, entry, *map);
         } else if (const auto* shortcuts = std::get_if<ShortcutListSetting>(&entry.control)) {
-          makeShortcutListBlock(*activeSection, entry, *shortcuts);
+          makeShortcutListBlock(*activeGroupBody, entry, *shortcuts);
         } else if (const auto* keybindList = std::get_if<KeybindListSetting>(&entry.control)) {
           if (activeKeybindRow == nullptr || activeKeybindRowCount >= kKeybindsPerRow) {
             auto row = ui::row({
@@ -1338,25 +1450,25 @@ namespace settings {
                 .gap = Style::spaceMd * scale,
                 .fillWidth = true,
             });
-            activeKeybindRow = static_cast<Flex*>(activeSection->addChild(std::move(row)));
+            activeKeybindRow = static_cast<Flex*>(activeGroupBody->addChild(std::move(row)));
             activeKeybindRowCount = 0;
           }
           makeKeybindListBlock(*activeKeybindRow, entry, *keybindList);
           ++activeKeybindRowCount;
         } else if (const auto* sessionActs = std::get_if<SessionPanelActionsSetting>(&entry.control)) {
-          makeSessionActionsInlineBlock(*activeSection, entry, *sessionActs);
+          makeSessionActionsInlineBlock(*activeGroupBody, entry, *sessionActs);
         } else if (const auto* idle = std::get_if<IdleBehaviorsSetting>(&entry.control)) {
-          makeIdleBehaviorsInlineBlock(*activeSection, entry, *idle);
+          makeIdleBehaviorsInlineBlock(*activeGroupBody, entry, *idle);
         } else if (const auto* filters = std::get_if<NotificationFiltersSetting>(&entry.control)) {
-          makeNotificationFiltersInlineBlock(*activeSection, entry, *filters);
+          makeNotificationFiltersInlineBlock(*activeGroupBody, entry, *filters);
         } else if (const auto* picker = std::get_if<SearchPickerSetting>(&entry.control)) {
-          makeRow(*activeSection, entry, makeSearchPickerButton(entry, *picker));
+          makeRow(*activeGroupBody, entry, makeSearchPickerButton(entry, *picker));
         } else if (const auto* multi = std::get_if<MultiSelectSetting>(&entry.control)) {
-          makeMultiSelectBlock(*activeSection, entry, *multi);
+          makeMultiSelectBlock(*activeGroupBody, entry, *multi);
         } else if (const auto* templates = std::get_if<TemplateGridSetting>(&entry.control)) {
-          makeTemplateGridBlock(*activeSection, entry, *templates);
+          makeTemplateGridBlock(*activeGroupBody, entry, *templates);
         } else {
-          makeRow(*activeSection, entry, makeControl(entry));
+          makeRow(*activeGroupBody, entry, makeControl(entry));
         }
         ++visibleEntries;
       }
@@ -1377,9 +1489,9 @@ namespace settings {
            .justify = FlexJustify::Center,
            .gap = Style::spaceSm * scale,
            .padding = (Style::spaceLg * 2.0F) * scale,
-           .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.24F),
+           .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
            .radius = Style::scaledRadiusMd(scale),
-           .border = colorSpecFromRole(ColorRole::Outline),
+           .border = colorSpecFromRole(ColorRole::OutlineVariant),
            .minWidth = 360.0F * scale,
            .minHeight = 160.0F * scale,
            .fillWidth = true,

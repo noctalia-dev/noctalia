@@ -43,6 +43,39 @@ bool SystemBus::nameHasOwner(std::string_view name) const {
   return hasOwner;
 }
 
+bool SystemBus::systemdUnitEnabled(std::string_view unit) const {
+  auto proxy = sdbus::createProxy(
+      *m_connection, sdbus::ServiceName{"org.freedesktop.systemd1"}, sdbus::ObjectPath{"/org/freedesktop/systemd1"}
+  );
+  try {
+    std::string state;
+    proxy->callMethod("GetUnitFileState")
+        .onInterface("org.freedesktop.systemd1.Manager")
+        .withArguments(std::string{unit})
+        .storeResultsTo(state);
+    return state == "enabled";
+  } catch (const sdbus::Error& e) {
+    kLog.debug("GetUnitFileState({}) failed: {}", unit, e.what());
+    return false;
+  }
+}
+
+// Directed signals reach the handler even when another peer sent them, so callers check the sender here.
+bool SystemBus::isNameOwner(std::string_view name, std::string_view sender) const {
+  try {
+    auto proxy = sdbus::createProxy(*m_connection, kDbusName, kDbusPath);
+    std::string owner;
+    proxy->callMethod("GetNameOwner")
+        .onInterface(kDbusInterface)
+        .withArguments(std::string{name})
+        .storeResultsTo(owner);
+    return owner == sender;
+  } catch (const sdbus::Error& e) {
+    kLog.debug("GetNameOwner({}) failed: {}", name, e.what());
+    return false;
+  }
+}
+
 void SystemBus::processPendingEvents() {
   m_hasPendingEvents = false;
 

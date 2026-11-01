@@ -171,12 +171,11 @@ void IpcService::dispatch() {
 }
 
 std::string IpcService::execute(const std::string& line) const {
-  auto* self = const_cast<IpcService*>(this);
-  self->m_callerCwd.reset();
+  m_callerCwd.reset();
 
   std::string commandLine = line;
   if (auto cwd = parseCallerCwdPrefix(commandLine); cwd.has_value()) {
-    self->m_callerCwd = std::move(*cwd);
+    m_callerCwd = std::move(*cwd);
   }
 
   std::string command;

@@ -24,6 +24,7 @@ enum class NodeType : std::uint8_t {
   Effect,
   Graph,
   Wallpaper,
+  LockscreenTransition,
   RenderProxy,
 };
 

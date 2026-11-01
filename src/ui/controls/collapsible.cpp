@@ -41,6 +41,7 @@ Collapsible::Collapsible() {
 
   auto clip = std::make_unique<Node>();
   clip->setClipChildren(true);
+  clip->setExcludeSubtreeFromTabOrder(true);
   m_clipContainer = addChild(std::move(clip));
   m_clipContainer->setParticipatesInLayout(false);
 }
@@ -93,7 +94,7 @@ void Collapsible::setExpanded(bool expanded) {
     float to = m_expanded ? 1.0F : 0.0F;
     m_animId = animationManager()->animate(
         from, to, Style::animNormal, Easing::EaseOutCubic, [this](float t) { applyExpandedProgress(t); },
-        [this]() { m_animId = 0; }, this
+        [this] { m_animId = 0; }, this
     );
     markPaintDirty();
   } else {
@@ -143,6 +144,7 @@ void Collapsible::applyExpandedProgress(float t) {
 
   m_clipHeight = t * m_bodyNaturalHeight;
   if (m_clipContainer != nullptr) {
+    m_clipContainer->setExcludeSubtreeFromTabOrder(t <= 0.0F);
     m_clipContainer->setFrameSize(m_clipContainer->width(), m_clipHeight);
   }
 

@@ -2,6 +2,7 @@
 #include "time/time_format.h"
 
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <format>
@@ -42,6 +43,10 @@ int main() {
   i18n::Service::instance().init("en");
 
   bool ok = true;
+  ok = expectEqual(formatLocalUnixTime(1700000000, ""), "", "empty unix format is safe") && ok;
+  ok = expectEqual(formatLocalTime(""), "", "empty local format is safe") && ok;
+  ok = expectEqual(formatLocalTime(nullptr), "", "null local format is safe") && ok;
+  ok = expectEqual(formatTimezoneTime("", "UTC"), "", "empty timezone format is safe") && ok;
   ok = expectEqual(formatLocalUnixTime(1700000000, "%s"), "1700000000", "formats unix epoch token") && ok;
   ok = expectEqual(
            formatLocalUnixTime(1700000000, "recording_%s"), "recording_1700000000",
@@ -62,6 +67,11 @@ int main() {
            "formats configured timezone offset and abbreviation"
        )
       && ok;
+  ok = expectEqual(
+           formatTimezoneTime("{:%Z}", kiritimati->name()), formatTimezoneTime("%Z", kiritimati->name()),
+           "renders the zone abbreviation the same in a chrono field as in a bare spec"
+       )
+      && ok;
   const std::string formattedUtcDay = formatTimezoneTime("%j", "UTC");
   const auto afterTimezoneFormat = floor<seconds>(system_clock::now());
   const bool utcDayMatches =
@@ -71,5 +81,30 @@ int main() {
   ok = expectEqual(formatDuration(1min), "1 minute", "formats singular minute") && ok;
   ok = expectEqual(formatDuration(2h + 1min), "2 hours 1 minute", "formats hours and minutes") && ok;
   ok = expectEqual(formatDuration(24h + 1h + 1min), "1 day 1 hour 1 minute", "formats days hours and minutes") && ok;
+
+  // Both rendering paths must report the same local time: a %-spec goes through strftime, a bare
+  // {} through std::format. Deriving the offset from one clock keeps them on the configured zone.
+  ::setenv("TZ", "Asia/Kathmandu", 1);
+  ::tzset();
+  constexpr std::int64_t kFixedStamp = 1700000000; // 2023-11-14T22:13:20Z, +05:45 in Kathmandu.
+  ok = expectEqual(
+           formatLocalUnixTime(kFixedStamp, "%Y-%m-%d %H:%M:%S"), "2023-11-15 03:58:20",
+           "strftime path honors the configured timezone"
+       )
+      && ok;
+  ok = expectEqual(
+           formatLocalUnixTime(kFixedStamp, "{}"), "2023-11-15 03:58:20", "chrono path honors the configured timezone"
+       )
+      && ok;
+
+  // Every directive that changes each second must request second ticks, in any
+  // spelling the formatter accepts; minute-level and escaped ones must not.
+  for (const char* fmt :
+       {"{:%H:%M:%S}", "%T", "{:%X}", "%r", "{:%c}", "%s", "{:%OS}", "%EX", "%Ec", "%-S", "%_2S", "%H:%M\\n%S"}) {
+    ok = expectEqual(formatShowsSeconds(fmt) ? "seconds" : "minutes", "seconds", fmt) && ok;
+  }
+  for (const char* fmt : {"", "{:%H:%M}", "%R", "%-I:%M %p", "%x", "%%S", "100%% %H", "%OH:%EM", "%"}) {
+    ok = expectEqual(formatShowsSeconds(fmt) ? "seconds" : "minutes", "minutes", fmt) && ok;
+  }
   return ok ? 0 : 1;
 }

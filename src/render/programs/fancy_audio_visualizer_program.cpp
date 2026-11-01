@@ -53,6 +53,8 @@ varying vec2 v_texcoord;
 #define TWOPI 6.28318530718
 #define PI 3.14159265359
 #define NBARS 32.0
+#define MIN_VISUAL_RADIUS 0.35
+#define MIN_VISUAL_THICKNESS 0.025
 #define MAX_VISUAL_RADIUS 0.95
 
 bool hasRings() { return u_mode >= 2.0; }
@@ -75,6 +77,10 @@ float getBass() { return smoothAudio(0.05); }
 float getMid() { return smoothAudio(0.3); }
 float getHighMid() { return smoothAudio(0.6); }
 float getTreble() { return smoothAudio(0.9); }
+
+float visualBaseRadius(float innerRadius) {
+    return max(MIN_VISUAL_RADIUS, innerRadius + MIN_VISUAL_THICKNESS);
+}
 
 float roundedBoxSDF(vec2 center, vec2 size, float radius) {
     vec2 q = abs(center) - size + radius;
@@ -175,7 +181,7 @@ vec4 computePolarWave(vec2 uv, float iTime, float bass, float mid, float highMid
     float theta = atan(centered.y, centered.x);
     float d = length(centered);
     float innerRadius = u_inner_diameter / 2.0;
-    float baseRadius = 0.35;
+    float baseRadius = visualBaseRadius(innerRadius);
 
     vec4 color = vec4(0.0);
     if (hasRings()) {
@@ -220,7 +226,7 @@ vec4 computeBars(vec2 uv, float iTime, float bass, float mid, float highMid, flo
     float theta = atan(centered.y, centered.x);
     float d = length(centered);
     float innerRadius = u_inner_diameter / 2.0;
-    float baseRadius = 0.35;
+    float baseRadius = visualBaseRadius(innerRadius);
 
     vec4 color = vec4(0.0);
     if (hasRings()) {
@@ -279,7 +285,7 @@ void addBloom(inout vec4 color, vec2 uv, float iTime, float bass, float mid, flo
     float theta = atan(centered.y, centered.x);
 
     float innerRadius = u_inner_diameter / 2.0;
-    float baseRadius = 0.35;
+    float baseRadius = visualBaseRadius(innerRadius);
     float glowAmount = 0.0;
     vec3 glowColor = vec3(0.0);
 

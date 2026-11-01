@@ -14,10 +14,10 @@ UsageTracker::UsageTracker() {
   const std::string dir = FileUtils::stateDir();
   m_usageCountsPath = (dir.empty() ? "." : dir) + "/usage_counts.json";
   m_recentlyUsedPath = (dir.empty() ? "." : dir) + "/recently_used.json";
-  load();
 }
 
 void UsageTracker::record(std::string_view providerId, std::string_view resultId) {
+  ensureLoaded();
   ++m_counts[std::string(providerId)][std::string(resultId)];
 
   auto& recentlyUsedList = m_recentlyUsed[std::string(providerId)];
@@ -40,10 +40,12 @@ void UsageTracker::clear() {
   m_counts.clear();
   m_recentlyUsed.clear();
   m_recentlyUsedIndex.clear();
+  m_loaded = true;
   save();
 }
 
-int UsageTracker::getCount(std::string_view providerId, std::string_view resultId) const {
+int UsageTracker::getCount(std::string_view providerId, std::string_view resultId) {
+  ensureLoaded();
   const auto provIt = m_counts.find(std::string(providerId));
   if (provIt == m_counts.end()) {
     return 0;
@@ -52,7 +54,8 @@ int UsageTracker::getCount(std::string_view providerId, std::string_view resultI
   return idIt != provIt->second.end() ? idIt->second : 0;
 }
 
-int UsageTracker::getRecentlyUsedIndex(std::string_view providerId, std::string_view resultId) const {
+int UsageTracker::getRecentlyUsedIndex(std::string_view providerId, std::string_view resultId) {
+  ensureLoaded();
   const auto provIt = m_recentlyUsedIndex.find(std::string(providerId));
   if (provIt == m_recentlyUsedIndex.end()) {
     return 0;
@@ -61,12 +64,18 @@ int UsageTracker::getRecentlyUsedIndex(std::string_view providerId, std::string_
   return idIt != provIt->second.end() ? idIt->second : 0;
 }
 
-std::size_t UsageTracker::getRecentlyUsedCount(std::string_view providerId) const {
+std::size_t UsageTracker::getRecentlyUsedCount(std::string_view providerId) {
+  ensureLoaded();
   const auto provIt = m_recentlyUsed.find(std::string(providerId));
   return provIt != m_recentlyUsed.end() ? provIt->second.size() : 0;
 }
 
-void UsageTracker::load() {
+void UsageTracker::ensureLoaded() {
+  if (m_loaded) {
+    return;
+  }
+  m_loaded = true;
+
   {
     std::ifstream file(m_usageCountsPath);
     if (file.is_open()) {

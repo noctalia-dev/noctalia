@@ -1,5 +1,6 @@
 #include "shell/settings/widget_settings_registry.h"
 
+#include "config/schema/ranges.h"
 #include "i18n/i18n.h"
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_panel_shell.h"
@@ -47,6 +48,7 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <format>
 #include <iterator>
 #include <stdexcept>
@@ -117,7 +119,7 @@ namespace settings {
           .type = [] { return DefinitionAccessor().type; },
           .schemaFields = [] { return DefinitionAccessor().schemaFields(); },
           .presentedSettingSpecs = [] { return DefinitionAccessor().presentedSettingSpecs(); },
-          .commonOverrides = []() -> const std::vector<noctalia::bar::WidgetCommonSettingOverride>& {
+          .commonOverrides = [] -> const std::vector<noctalia::bar::WidgetCommonSettingOverride>& {
             return DefinitionAccessor().commonOverrides;
           },
           .glyph = [](const WidgetConfig* config) -> std::string {
@@ -171,7 +173,7 @@ namespace settings {
     };
 
     const TypedWidgetDefinitionProjection* findTypedWidgetDefinitionProjection(std::string_view type) {
-      const auto projection =
+      const auto* projection =
           std::ranges::find_if(kTypedWidgetDefinitions, [type](const TypedWidgetDefinitionProjection& candidate) {
             return candidate.type() == type;
           });
@@ -238,7 +240,7 @@ namespace settings {
         {.type = "keyboard_layout", .labelKey = "settings.widgets.types.keyboard-layout", .glyph = "keyboard"},
         {.type = "launcher", .labelKey = "settings.widgets.types.launcher", .glyph = "search"},
         {.type = "lock_keys", .labelKey = "settings.widgets.types.lock-keys", .glyph = "lock"},
-        {.type = "media", .labelKey = "settings.widgets.types.media", .glyph = "disc-filled"},
+        {.type = "media", .labelKey = "settings.widgets.types.media", .glyph = "disc"},
         {.type = "network", .labelKey = "settings.widgets.types.network", .glyph = "wifi-off"},
         {.type = "nightlight", .labelKey = "settings.widgets.types.nightlight", .glyph = "nightlight-off"},
         {.type = "notifications", .labelKey = "settings.widgets.types.notifications", .glyph = "bell"},
@@ -321,13 +323,13 @@ namespace settings {
       if (version.empty()) {
         return text;
       }
-      const std::string versionText = "version " + std::string(version);
+      std::string versionText = "version " + std::string(version);
       if (text.empty()) {
         return versionText;
       }
       text += " (";
       text += versionText;
-      text += ")";
+      text += ')';
       return text;
     }
 
@@ -595,7 +597,7 @@ namespace settings {
       std::string label = pluginWidgetDisplayLabel(entry);
       // Lead with the entry id so same-plugin widgets stay distinguishable.
       std::string description = appendVersion(entry.manifest->description, entry.manifest->version);
-      description = description.empty() ? entryId : entryId + " — " + description;
+      description = description.empty() ? entryId : std::format("{} - {}", entryId, description);
       entries.push_back(
           WidgetPickerEntry{
               .value = entryId,
@@ -625,10 +627,11 @@ namespace settings {
     }
 
     std::ranges::sort(entries, [](const auto& a, const auto& b) {
-      if (a.label == b.label) {
+      const int result = std::strcoll(a.label.c_str(), b.label.c_str());
+      if (result == 0) {
         return a.value < b.value;
       }
-      return a.label < b.label;
+      return result < 0;
     });
     return entries;
   }
@@ -640,7 +643,12 @@ namespace settings {
     enabled.visibleInInspector = false;
     auto anchor = withGroup(boolSpec("anchor", false, true), "presentation");
     auto interactive = withGroup(boolSpec("interactive", true), "presentation");
+    // Non-interactive widgets never show tooltips.
+    auto showTooltip = withGroup(boolSpec("show_tooltip", true), "presentation");
+    showTooltip.schema.inheritsFromBar = true;
+    showTooltip.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
     auto scale = withGroup(doubleSpec("scale", 1.0, 0.2, 2.5, 0.05), "presentation");
+    auto fontScale = withGroup(doubleSpec("font_scale", 1.0, 0.2, 2.5, 0.01), "presentation");
     auto widgetColor = withGroup(colorSpec("color", {}, true), "presentation");
     auto widgetIconColor = withGroup(colorSpec("icon_color", {}, true), "presentation");
     std::vector<WidgetSettingSelectOption> fontWeightOptions;
@@ -667,17 +675,28 @@ namespace settings {
     fontFamily = withGroup(std::move(fontFamily), "presentation");
 
     auto capsuleToggle = withGroup(boolSpec("capsule", false), "presentation");
+    capsuleToggle.schema.inheritsFromBar = true;
     auto capsuleFill = withGroup(colorSpec("capsule_fill", "", true), "presentation");
     capsuleFill.visibleWhen = capsuleOn;
 
     auto capsuleBorder = withGroup(colorSpec("capsule_border", {}, true), "presentation");
     capsuleBorder.visibleWhen = capsuleOn;
 
+    const auto& borderWidthRange = noctalia::config::schema::kBarCapsuleBorderWidthRange;
+    auto capsuleBorderWidth = withGroup(
+        doubleSpec(
+            "capsule_border_width", static_cast<double>(Style::borderWidth), static_cast<double>(*borderWidthRange.min),
+            static_cast<double>(*borderWidthRange.max), static_cast<double>(*borderWidthRange.step)
+        ),
+        "presentation"
+    );
+    capsuleBorderWidth.visibleWhen = capsuleOn;
+
     auto capsuleForeground = withGroup(colorSpec("capsule_foreground", {}, true), "presentation");
     capsuleForeground.visibleWhen = capsuleOn;
 
     auto capsulePadding = withGroup(
-        intSpec("capsule_padding", static_cast<double>(Style::barCapsulePadding), 0.0, 48.0, 1.0), "presentation"
+        intSpec("capsule_padding", static_cast<std::int64_t>(Style::barCapsulePadding), 0.0, 48.0, 1.0), "presentation"
     );
     capsulePadding.visibleWhen = capsuleOn;
     auto capsuleRadius = withGroup(optionalDoubleSpec("capsule_radius", 0.0, 80.0), "presentation");
@@ -702,11 +721,13 @@ namespace settings {
     actions.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
 
     return {
-        std::move(enabled),           std::move(anchor),          std::move(interactive),    std::move(scale),
-        std::move(widgetColor),       std::move(widgetIconColor), std::move(fontFamily),     std::move(fontWeight),
-        std::move(capsuleToggle),     std::move(capsuleRadius),   std::move(capsuleFill),    std::move(capsuleBorder),
-        std::move(capsuleForeground), std::move(capsulePadding),  std::move(capsuleOpacity), std::move(scrollRepeat),
-        std::move(actions),
+        std::move(enabled),           std::move(anchor),          std::move(interactive),
+        std::move(showTooltip),       std::move(scale),           std::move(fontScale),
+        std::move(widgetColor),       std::move(widgetIconColor), std::move(fontFamily),
+        std::move(fontWeight),        std::move(capsuleToggle),   std::move(capsuleRadius),
+        std::move(capsuleFill),       std::move(capsuleBorder),   std::move(capsuleBorderWidth),
+        std::move(capsuleForeground), std::move(capsulePadding),  std::move(capsuleOpacity),
+        std::move(scrollRepeat),      std::move(actions),
     };
   }
 
@@ -846,6 +867,7 @@ namespace settings {
     const std::string placementKey = scripting::panelShellSettingKey(entry.id, "placement");
     const std::string positionKey = scripting::panelShellSettingKey(entry.id, "position");
     const std::string openNearClickKey = scripting::panelShellSettingKey(entry.id, "open_near_click");
+    const std::string layerKey = scripting::panelShellSettingKey(entry.id, "layer");
     const std::string entryTitle = entry.id;
     const auto entryPrefix = [&](std::string_view suffix) {
       std::string label = entryTitle;
@@ -898,6 +920,26 @@ namespace settings {
         spec.schema.enumValues.push_back(option.value);
       }
       spec.schema.type = schemaTypeForControl(spec.control);
+      return spec;
+    };
+
+    auto layerSpec = [&](const scripting::ManifestField* field) {
+      WidgetSettingSpec spec;
+      spec.schema.key = layerKey;
+      spec.literalLabel = entryPrefix(tr("settings.plugins.panels.layer.label"));
+      spec.literalDescription = tr("settings.plugins.panels.layer.description");
+      spec.control = WidgetControlKind::Select;
+      spec.segmented = true;
+      spec.literalLabels = true;
+      spec.schema.defaultValue = field != nullptr ? field->defaultValue() : entry.panelLayerDefault;
+      spec.options = {
+          {"top", tr("settings.options.layer.top")},
+          {"overlay", tr("settings.options.layer.overlay")},
+      };
+      for (const auto& option : spec.options) {
+        spec.schema.enumValues.push_back(option.value);
+      }
+      spec.schema.type = schemaTypeForControl(spec.control);
       spec.visibleWhen = WidgetSettingVisibility{placementKey, {"floating"}};
       return spec;
     };
@@ -907,14 +949,8 @@ namespace settings {
       spec.schema.key = openNearClickKey;
       spec.literalLabel = entryPrefix(tr("settings.plugins.panels.open-near-click.label"));
       spec.literalDescription = tr("settings.plugins.panels.open-near-click.description");
-      spec.control = WidgetControlKind::Select;
-      spec.segmented = true;
-      spec.literalLabels = true;
+      spec.control = WidgetControlKind::Bool;
       spec.schema.defaultValue = field != nullptr ? field->defaultValue() : entry.panelOpenNearClickDefault;
-      spec.options = {
-          {"false", tr("settings.options.panel-bar-alignment.centered")},
-          {"true", tr("settings.options.panel-bar-alignment.near-trigger")},
-      };
       spec.schema.type = schema::WidgetSettingType::Bool;
       spec.visibleWhen = WidgetSettingVisibility{
           {placementKey, {"attached"}},
@@ -926,6 +962,7 @@ namespace settings {
     const scripting::ManifestField* placementField = nullptr;
     const scripting::ManifestField* positionField = nullptr;
     const scripting::ManifestField* openNearClickField = nullptr;
+    const scripting::ManifestField* layerField = nullptr;
     for (const auto& field : entry.settings) {
       if (field.key == placementKey) {
         placementField = &field;
@@ -933,12 +970,15 @@ namespace settings {
         positionField = &field;
       } else if (field.key == openNearClickKey) {
         openNearClickField = &field;
+      } else if (field.key == layerKey) {
+        layerField = &field;
       }
     }
 
     return {
         placementSpec(placementField),
         positionSpec(positionField),
+        layerSpec(layerField),
         openNearClickSpec(openNearClickField),
     };
   }
@@ -954,7 +994,7 @@ namespace settings {
       }
       return false;
     };
-    const auto* widget = [&]() -> const WidgetConfig* {
+    const auto* widget = [&] -> const WidgetConfig* {
       const auto it = config.widgets.find(std::string(widgetName));
       return it != config.widgets.end() ? &it->second : nullptr;
     }();
@@ -1135,6 +1175,11 @@ namespace settings {
               .defaultValue = true,
           }
       );
+      // Generic bar-widget settings (scale, color, anchor, capsule_*, gestures, ...) are applied to
+      // plugin widgets at runtime too, so keep this schema in sync with widgetSettingSpecs().
+      for (const auto& spec : commonWidgetSettingSpecs("sans-serif", false)) {
+        out.push_back(spec.schema);
+      }
       return out;
     }
     if (auto fields = typedWidgetSettingSchema(type)) {
@@ -1225,8 +1270,9 @@ namespace settings {
     if (!field.has_value()) {
       return false;
     }
-    // OptionalDouble unset means inherit/auto, 0 is a valid explicit radius and must persist.
-    if (field->type == schema::WidgetSettingType::OptionalDouble) {
+    // OptionalDouble unset means inherit/auto, 0 is a valid explicit radius and must persist. Bar-inherited
+    // settings resolve an unset value from the bar, so an explicit default value must persist too.
+    if (field->type == schema::WidgetSettingType::OptionalDouble || field->inheritsFromBar) {
       return false;
     }
     return configOverrideValueMatchesWidgetSetting(overrideValue, field->defaultValue);
@@ -1297,19 +1343,18 @@ namespace settings {
       }
       return !widgetSettingValuesEqual(*withValue, *withoutValue);
     }
-    if (field->type == schema::WidgetSettingType::OptionalDouble) {
+    if (field->type == schema::WidgetSettingType::OptionalDouble || field->inheritsFromBar) {
       if (!withValue.has_value() || !withoutValue.has_value()) {
         return true;
       }
       return !widgetSettingValuesEqual(*withValue, *withoutValue);
     }
 
-    const WidgetSettingValue defaultValue = field->defaultValue;
     const auto resolvedValue = [&](const Config& cfg) -> WidgetSettingValue {
       if (const auto value = valueInConfig(cfg, widgetName, settingKey); value.has_value()) {
         return *value;
       }
-      return defaultValue;
+      return field->defaultValue;
     };
 
     return !widgetSettingValuesEqual(resolvedValue(withOverride), resolvedValue(withoutOverride));

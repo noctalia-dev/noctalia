@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render/animation/animation_manager.h"
-#include "render/core/texture_handle.h"
+#include "render/core/shared_texture_cache.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
 #include "shell/desktop/desktop_widget_factory.h"
@@ -128,8 +128,12 @@ private:
     bool pointerInside = false;
     bool wallpaperPreviewActive = false;
     std::string wallpaperPreviewPath;
+    SharedTextureCache::Lease wallpaperPreviewLease;
+    // Lease for wallpaperPreviewPath while it decodes; swapped into wallpaperPreviewLease once ready.
+    SharedTextureCache::Lease wallpaperPreviewPendingLease;
     std::string wallpaperPreviewLoadedPath;
-    TextureHandle wallpaperPreviewTexture;
+    std::string wallpaperPreviewPendingPath;
+    std::string wallpaperPreviewFailedPath;
     WallpaperNode* wallpaperPreview = nullptr;
   };
 

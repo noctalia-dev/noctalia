@@ -97,7 +97,7 @@ namespace {
              writeFile(
                  scheme,
                  "[General]\n"
-                 "ColorScheme=Noctalia\n"
+                 "ColorScheme=noctalia\n"
                  "Name=noctalia\n"
                  "\n"
                  "[Colors:Button]\n"
@@ -122,7 +122,7 @@ namespace {
     const bool merged = noctalia::theme::mergeKdeColorScheme(scheme, globals, &error);
     ok = expect(merged, error) && ok;
     ok = expect(keyValue(globals, "General", "ExistingKey") == "keep", "preserves an unrelated key") && ok;
-    ok = expect(keyValue(globals, "General", "ColorScheme") == "Noctalia", "replaces the active scheme") && ok;
+    ok = expect(keyValue(globals, "General", "ColorScheme") == "noctalia", "replaces the active scheme") && ok;
     ok = expect(keyValue(globals, "Colors:Button", "ForegroundNormal") == "9,8,7", "replaces scheme values") && ok;
     ok = expect(keyValue(globals, "Colors:Button", "BackgroundNormal") == "4,5,6", "adds scheme values") && ok;
     ok =

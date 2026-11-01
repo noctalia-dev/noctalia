@@ -28,7 +28,7 @@ namespace noctalia::sysmon {
     double step = 1.0;
   };
 
-  [[nodiscard]] inline constexpr ThresholdProfile thresholdProfile(Stat stat) {
+  [[nodiscard]] constexpr ThresholdProfile thresholdProfile(Stat stat) {
     switch (stat) {
     case Stat::CpuUsage:
       return ThresholdProfile{.activityDefault = 50.0, .criticalDefault = 90.0};

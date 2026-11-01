@@ -135,6 +135,8 @@ constexpr Color lerpColor(const Color& a, const Color& b, float t) {
 [[nodiscard]] Color hsl(float h, float s, float l, float a = 1.0F);
 // Decomposes rgb into hue (turns, [0,1)), saturation, and value (each [0,1]).
 void rgbToHsv(const Color& rgb, float& h, float& s, float& v);
+// Decomposes rgb into hue (degrees, [0,360)), saturation, and lightness (each [0,1]).
+void rgbToHsl(const Color& rgb, float& h, float& s, float& l);
 // Blends from a to b through HSV space on the shortest hue path; t in [0,1].
 [[nodiscard]] Color lerpHsv(const Color& a, const Color& b, float t);
 // HSV blend with shortest-path hue interpolation weighted by endpoint chroma; t in [0,1].
@@ -145,6 +147,8 @@ void rgbToHsv(const Color& rgb, float& h, float& s, float& v);
 [[nodiscard]] Color readableTextColorForBackground(const Color& background);
 // Formats as "#RRGGBB" (alpha dropped).
 [[nodiscard]] std::string formatRgbHex(const Color& color);
+// Formats as "#RRGGBBAA".
+[[nodiscard]] std::string formatRgbaHex(const Color& color);
 // Like hex() but non-throwing, trims whitespace, and tolerates a missing '#'.
 [[nodiscard]] bool tryParseHexColor(std::string_view input, Color& out);
 // Parses a CSS-style color string into out, returning false if it is not a color.
@@ -152,3 +156,5 @@ void rgbToHsv(const Color& rgb, float& h, float& s, float& v);
 // in either comma-separated (legacy) or space-separated (CSS Color 4, with '/' alpha) form.
 // Channels take number or percentage; hue takes an optional deg/grad/rad/turn unit.
 [[nodiscard]] bool tryParseCssColor(std::string_view text, Color& out);
+// Like tryParseCssColor(), but also accepts CSS named colors.
+[[nodiscard]] bool tryParseCssColorWithNamedColors(std::string_view text, Color& out);

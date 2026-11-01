@@ -168,6 +168,10 @@ enum class AudioSpectrumOrientation : std::uint8_t {
   Vertical,
 };
 
+// Wave mode renders from this many control points, so wave visualizers request exactly this
+// many spectrum bands and ignore their `bands` setting.
+inline constexpr int kAudioSpectrumWaveBands = 32;
+
 struct AudioSpectrumStyle {
   Color color1{};
   Color color2{};
@@ -175,6 +179,7 @@ struct AudioSpectrumStyle {
   bool mirrored = false;
   bool reversed = false;
   bool centered = false;
+  bool wave = false;
 };
 
 constexpr bool operator==(const AudioSpectrumStyle& lhs, const AudioSpectrumStyle& rhs) noexcept {
@@ -183,7 +188,8 @@ constexpr bool operator==(const AudioSpectrumStyle& lhs, const AudioSpectrumStyl
       && lhs.orientation == rhs.orientation
       && lhs.mirrored == rhs.mirrored
       && lhs.reversed == rhs.reversed
-      && lhs.centered == rhs.centered;
+      && lhs.centered == rhs.centered
+      && lhs.wave == rhs.wave;
 }
 
 enum class FancyAudioVisualizerMode : std::uint8_t {

@@ -99,9 +99,9 @@ void DesktopWidgetsController::initialize(const DesktopWidgetsControllerServices
   m_host->initialize(services.widgets);
   m_editor = std::make_unique<DesktopWidgetsEditor>(DesktopWidgetsEditorProfile::desktop());
   m_editor->initialize(services.widgets);
-  m_editor->setExitRequestedCallback([this]() { exitEdit(); });
+  m_editor->setExitRequestedCallback([this] { exitEdit(); });
   loadSnapshotFromConfig();
-  const bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  const bool placementChanged = m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
   m_initialized = true;
   if (m_config != nullptr) {
     m_lastEnabled = m_config->config().desktopWidgets.enabled;
@@ -112,7 +112,7 @@ void DesktopWidgetsController::initialize(const DesktopWidgetsControllerServices
   applyVisibility();
 
   if (m_config != nullptr) {
-    m_config->addReloadCallback([this]() { handleConfigReload(); }, "desktop-widgets");
+    m_config->addReloadCallback([this] { handleConfigReload(); }, "desktop-widgets");
   }
 }
 
@@ -259,9 +259,9 @@ void DesktopWidgetsController::onOutputChange() {
   if (!m_initialized) {
     return;
   }
-  bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  bool placementChanged = m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
   normalizeSnapshot();
-  placementChanged |= m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  placementChanged |= m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
   if (placementChanged) {
     saveSnapshotToConfig();
   }
@@ -282,6 +282,18 @@ void DesktopWidgetsController::onSecondTick() {
   } else if (m_host != nullptr) {
     m_host->onSecondTick();
   }
+}
+
+bool DesktopWidgetsController::wantsSecondTicks() const {
+  if (!m_initialized) {
+    return false;
+  }
+  // The editor owns the surfaces while it is open, and it mirrors the live
+  // widget values, so keep second precision for its duration.
+  if (isEditing()) {
+    return true;
+  }
+  return m_host != nullptr && m_host->wantsSecondTicks();
 }
 
 void DesktopWidgetsController::requestUpdate() {
@@ -344,11 +356,14 @@ void DesktopWidgetsController::exitEdit() {
 
   m_snapshot = m_editor->snapshot();
   normalizeSnapshot();
-  m_placementMapper.rebaseForCurrentOutputs(*m_wayland, m_snapshot.widgets);
+  m_placementMapper.rebaseForCurrentOutputs(m_wayland->outputs(), m_snapshot.widgets);
   m_host->show(m_snapshot);
   (void)m_editor->close();
   saveSnapshotToConfig();
   applyVisibility();
+  if (m_onExitEdit) {
+    m_onExitEdit();
+  }
 }
 
 void DesktopWidgetsController::toggleEdit() {
@@ -361,6 +376,10 @@ void DesktopWidgetsController::toggleEdit() {
 
 void DesktopWidgetsController::setOnEnterEditCallback(std::function<void()> callback) {
   m_onEnterEdit = std::move(callback);
+}
+
+void DesktopWidgetsController::setOnExitEditCallback(std::function<void()> callback) {
+  m_onExitEdit = std::move(callback);
 }
 
 void DesktopWidgetsController::suppressDisplay() {
@@ -467,16 +486,22 @@ void DesktopWidgetsController::handleConfigReload() {
   }
   pruneWallpaperMasks();
 
+  const bool calendarChanged = m_config != nullptr && m_config->lastChange().calendar;
   if (!isEditing()) {
     loadSnapshotFromConfig();
     if (m_host != nullptr) {
       m_host->rebuild(m_snapshot);
+      if (calendarChanged) {
+        m_host->requestLayout();
+      }
       // Plugin-level settings live in [plugin_settings], outside the widget snapshot, so
       // the host's instance diff cannot see them change.
       if (m_config != nullptr && m_config->lastChange().plugins) {
         m_host->reloadPluginWidgets();
       }
     }
+  } else if (calendarChanged && m_editor != nullptr) {
+    m_editor->requestLayout();
   }
   applyVisibility();
 }
@@ -514,9 +539,11 @@ void DesktopWidgetsController::normalizeSnapshot() {
       continue;
     }
 
-    if (const WaylandOutput* exact = desktop_widgets::findOutputByKey(*m_wayland, widget.outputName);
-        exact != nullptr) {
-      widget.outputName = desktop_widgets::outputKey(*exact);
+    if (desktop_widgets::selectOutput(m_wayland->outputs(), widget.outputName).ambiguous) {
+      kLog.warn(
+          "widget {} output selector '{}' matches multiple monitors; use a unique description or serial", widget.id,
+          widget.outputName
+      );
     }
     // cx/cy clamping is owned by the editor (during drag) and the host (on widget creation and
     // prepareFrame). Both of those paths know the widget's actual intrinsic size; clamping here

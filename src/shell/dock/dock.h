@@ -37,6 +37,8 @@ public:
 
   bool initialize(CompositorPlatform& platform, ConfigService* config, RenderContext* renderContext);
   void reload();
+  // Re-resolves item icons on the existing surfaces; never recreates the layer surface.
+  void onIconThemeChanged();
   void show();
   /// Tears down dock surfaces without changing config (e.g. lockscreen widget editor overlay).
   void suppressDisplay();
@@ -54,8 +56,6 @@ public:
   void registerIpc(IpcService& ipc);
 
 private:
-  // Returns true if the item list was modified (triggers a rebuild).
-  bool refreshPinnedAppsIfNeeded();
   void pruneCachedToplevelHandles();
   void syncInstances();
   void createInstance(const WaylandOutput& output);
@@ -81,11 +81,7 @@ private:
   RenderContext* m_renderContext = nullptr;
   DockConfig m_lastDockConfig{};
   ShellConfig::ShadowConfig m_lastShadow;
-  std::vector<std::string> m_lastPinnedConfig;
   std::vector<std::string> m_lastBarLayerStack;
-  std::vector<DesktopEntry> m_pinnedEntries;
-  std::uint64_t m_modelSerial = 0;
-  std::uint64_t m_entriesVersion = 0;
   IconResolver m_iconResolver;
   struct PendingLaunchFocus {
     std::string idLower;

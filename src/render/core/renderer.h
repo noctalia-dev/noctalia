@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -29,6 +30,17 @@ enum class FontWeight : int {
   UltraHeavy = 1000,
 };
 
+// Font selection for a run of text. An empty family means the renderer-global
+// family (shell.font_family). `features` is an OpenType feature list in Pango's
+// font-features syntax (e.g. "tnum"); empty applies the font defaults.
+struct TextFont {
+  FontWeight weight = FontWeight::Normal;
+  std::string family;
+  std::string features;
+
+  bool operator==(const TextFont&) const = default;
+};
+
 // Caret geometry for one byte offset in a laid-out text: caret x, top and
 // height in logical px from the layout origin. The wrapped variant of the
 // cursor-stops query fills these so editors can place carets and selections
@@ -37,6 +49,11 @@ struct TextCursorStop {
   float x = 0.0F;
   float y = 0.0F;
   float height = 0.0F;
+};
+
+struct TextCharSpan {
+  float left = 0.0F;
+  float right = 0.0F;
 };
 
 struct TextMetrics {
@@ -57,6 +74,9 @@ struct TextMetrics {
   // consumer tell single-line from wrapped text from the measured result rather
   // than re-deriving it from the requested width/line budget.
   int lineCount = 0;
+  // Left edge of the leftmost line within maxWidth for wrapped text. Drawn text starts at the draw x, so a
+  // caller that needs each line where Pango placed it (e.g. right-aligned RTL paragraphs) offsets by this.
+  float alignOffsetX = 0.0F;
 };
 
 class Renderer {
@@ -64,32 +84,41 @@ public:
   virtual ~Renderer() = default;
 
   [[nodiscard]] virtual TextMetrics measureText(
-      std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0F,
-      int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
-      TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
+      std::string_view text, float fontSize, const TextFont& font = {}, float maxWidth = 0.0F, int maxLines = 0,
+      TextAlign align = TextAlign::Start, TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   ) = 0;
-  [[nodiscard]] virtual TextMetrics measureFont(float fontSize, FontWeight fontWeight = FontWeight::Normal) = 0;
+  // Metrics of `font` at the given size.
+  [[nodiscard]] virtual TextMetrics measureFont(float fontSize, const TextFont& font = {}) = 0;
 
   // Canonical "as tall as a line of text" row height: the rounded vertical
   // extent of the given font. Bar capsule heights and content widgets that must
   // align with text (e.g. the audio visualizer) size their cross-axis to this
   // instead of re-deriving font metrics by hand. Backed by measureFont(), which
   // is memoized — safe to call from every layout pass.
-  [[nodiscard]] virtual float fontRowExtent(float fontSize, FontWeight fontWeight = FontWeight::Normal) {
-    const TextMetrics m = measureFont(fontSize, fontWeight);
+  [[nodiscard]] virtual float fontRowExtent(float fontSize, const TextFont& font = {}) {
+    const TextMetrics m = measureFont(fontSize, font);
     return std::round(m.bottom - m.top);
   }
   virtual void measureTextCursorStops(
       std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, std::vector<float>& outStops,
-      FontWeight fontWeight = FontWeight::Normal
+      const TextFont& font = {}
   ) = 0;
   // Like measureTextCursorStops, but lays the text out wrapped at maxWidth
   // (word-char wrap, '\n' honored — the same layout the draw path uses for a
   // maxLines=0 text node) and reports full caret rects instead of x only.
   virtual void measureTextCursorStopsWrapped(
       std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
-      std::vector<TextCursorStop>& outStops, FontWeight fontWeight = FontWeight::Normal
+      std::vector<TextCursorStop>& outStops, const TextFont& font = {}
   ) = 0;
+  // Horizontal extent of each character on screen: span i covers the bytes from byteOffsets[i] to
+  // byteOffsets[i + 1], laid out on one line like measureTextCursorStops. Right-to-left runs put the
+  // spans out of byte order. Leaves outSpans empty when the renderer cannot shape text.
+  virtual void measureTextCharSpans(
+      std::string_view /*text*/, float /*fontSize*/, const std::vector<std::size_t>& /*byteOffsets*/,
+      std::vector<TextCharSpan>& outSpans, const TextFont& /*font*/ = {}
+  ) {
+    outSpans.clear();
+  }
   [[nodiscard]] virtual TextMetrics measureGlyph(char32_t codepoint, float fontSize) = 0;
   [[nodiscard]] virtual TextureManager& textureManager() = 0;
   [[nodiscard]] virtual float renderScale() const noexcept = 0;

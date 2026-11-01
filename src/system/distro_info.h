@@ -25,7 +25,10 @@ public:
 // Approximate OS install age, formatted as "{y}y {m}mo" / "{y}y" / "{d}d".
 [[nodiscard]] std::string osAgeLabel();
 
-// Display name of the current session user (gecos or login).
+// Login name of the current session user, or its numeric UID if unavailable.
+[[nodiscard]] std::string sessionUserName();
+
+// Display name of the current session user (gecos or login), or its numeric UID if unavailable.
 [[nodiscard]] std::string sessionDisplayName();
 
 // Machine hostname (uname nodename), or "unknown" on failure.

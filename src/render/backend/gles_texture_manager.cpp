@@ -74,9 +74,12 @@ TextureHandle GlesTextureManager::decodeEncodedRaster(
     return {};
   }
 
-  if (auto decoded = decodeRasterImage(data, size)) {
+  auto decoded = decodeRasterImage(data, size);
+  if (decoded) {
     return uploadRgba(decoded->pixels.data(), decoded->width, decoded->height, mipmap);
-  } else if (debugPath != nullptr) {
+  }
+
+  if (debugPath != nullptr) {
     kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(*debugPath), decoded.error());
   }
 
@@ -92,7 +95,16 @@ TextureHandle GlesTextureManager::loadFromFile(const std::string& path, int targ
     return {};
   }
 
-  return loadFromRgba(loaded->rgba.data(), loaded->width, loaded->height, mipmap);
+  auto handle = loadFromRgba(loaded->rgba.data(), loaded->width, loaded->height, mipmap);
+  bool opaque = true;
+  for (std::size_t index = 3; index < loaded->rgba.size(); index += 4) {
+    if (loaded->rgba[index] != 0xFF) {
+      opaque = false;
+      break;
+    }
+  }
+  handle.opaque = handle.valid() && opaque;
+  return handle;
 }
 
 TextureHandle GlesTextureManager::loadFromEncodedBytes(const std::uint8_t* data, std::size_t size, bool mipmap) {
@@ -317,7 +329,14 @@ TextureHandle GlesTextureManager::uploadBgra(const std::uint8_t* data, int width
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   m_textures.emplace_back(tex);
-  return TextureHandle{.id = TextureId{tex}, .width = width, .height = height, .generation = m_generation};
+  return TextureHandle{
+      .id = TextureId{tex},
+      .width = width,
+      .height = height,
+      .sourceWidth = width,
+      .sourceHeight = height,
+      .generation = m_generation,
+  };
 }
 
 TextureHandle GlesTextureManager::uploadRgba(const std::uint8_t* data, int width, int height, bool mipmap) {
@@ -353,5 +372,12 @@ TextureHandle GlesTextureManager::uploadPixels(
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, toGlesFilter(filter));
 
   m_textures.emplace_back(tex);
-  return TextureHandle{.id = TextureId{tex}, .width = width, .height = height, .generation = m_generation};
+  return TextureHandle{
+      .id = TextureId{tex},
+      .width = width,
+      .height = height,
+      .sourceWidth = width,
+      .sourceHeight = height,
+      .generation = m_generation,
+  };
 }

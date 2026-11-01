@@ -5,7 +5,9 @@
 #include "calendar/calendar_types.h"
 #include "calendar/google_client.h"
 #include "calendar/google_oauth.h"
+#include "calendar/sync_failure.h"
 #include "config/config_types.h"
+#include "core/inotify/inotify.h"
 #include "security/storage_key_provider.h"
 
 #include <chrono>
@@ -14,6 +16,8 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <poll.h>
+#include <set>
 #include <span>
 #include <string>
 #include <vector>
@@ -63,6 +67,7 @@ public:
       ConfigService& configService, HttpClient& httpClient, security::SecretStore& secretStore,
       security::StorageKeyProvider& storageKeyProvider, NotificationManager* notifications = nullptr
   );
+  ~CalendarService();
 
   void initialize();
   [[nodiscard]] ChangeCallbackId addChangeCallback(ChangeCallback callback);
@@ -71,6 +76,8 @@ public:
 
   [[nodiscard]] int pollTimeoutMs() const;
   void tick();
+  void addPollFds(std::vector<pollfd>& fds);
+  void dispatchPoll(const std::vector<pollfd>& fds, std::size_t startIdx);
 
   [[nodiscard]] bool enabled() const noexcept { return m_activeConfig.enabled; }
   [[nodiscard]] bool hasData() const noexcept { return m_snapshot.valid; }
@@ -93,13 +100,31 @@ public:
   [[nodiscard]] const std::string& connectingAccountId() const noexcept { return m_connect.accountId; }
   [[nodiscard]] calendar::CredentialState credentialState() const noexcept { return m_credentials.state(); }
   [[nodiscard]] bool credentialMigrationPending() const noexcept { return m_credentials.migrationPending(); }
-  [[nodiscard]] bool googleAccountNeedsReconnect(const std::string& accountId) const {
-    return m_credentials.refreshTokenMissing(accountId);
-  }
-  [[nodiscard]] bool googleAccountCredentialLocked(const std::string& accountId) const {
-    return m_credentials.refreshTokenLocked(accountId);
-  }
   [[nodiscard]] bool hasMissingRefreshTokens() const { return m_credentials.anyRefreshTokenMissing(); }
+  // What an account's Settings row shows, the same way for every account type: why its sync is failing and
+  // what fixes it, or when it last synced.
+  struct AccountStatus {
+    enum class Action : std::uint8_t {
+      Edit,      // in the account's settings
+      Retry,     // once the keyring holding its credentials is unlocked
+      Reconnect, // a Google account's authorization
+    };
+    enum class Phase : std::uint8_t {
+      Connecting,  // finding the calendars, or authorizing
+      Downloading, // the events
+    };
+    // While the account syncs.
+    std::optional<Phase> phase;
+    // Why its last sync failed.
+    std::optional<calendar::SyncFailure> failure;
+    std::optional<std::chrono::system_clock::time_point> lastSynced;
+    Action action = Action::Edit;
+  };
+  [[nodiscard]] AccountStatus accountStatus(const CalendarConfig::Account& account) const;
+  // The status as one line, as the account's Settings row shows it.
+  [[nodiscard]] std::string accountStatusText(const CalendarConfig::Account& account) const;
+  // Changes whenever an account's status does, so a view can refresh only then.
+  [[nodiscard]] std::uint64_t syncStatusRevision() const noexcept { return m_syncStatusRevision; }
   [[nodiscard]] CachePersistenceState cachePersistenceState() const noexcept { return m_cachePersistenceState; }
   [[nodiscard]] bool cacheMigrationPending() const noexcept { return m_cacheMigrationPending; }
   [[nodiscard]] bool hasEncryptedCache() const;
@@ -118,7 +143,15 @@ private:
   void onConfigReload();
   void notifyChanged();
   void startRefresh();
-  void accountDone(const std::string& accountId, bool ok, std::vector<CalendarEvent> events);
+  // `retainedSources` lists the calendars of the account that failed to load; their previous events are kept.
+  void accountDone(
+      const std::string& accountId, calendar::SyncFailure failure, std::vector<CalendarEvent> events,
+      const std::vector<std::string>& retainedSources = {}
+  );
+  // Records the account's latest failure, or its last successful sync.
+  void recordSyncResult(const std::string& accountId, calendar::SyncFailure failure);
+  void loadLastSynced();
+  void setSyncPhase(const std::string& accountId, AccountStatus::Phase phase);
   void rebuildSnapshot();
   void scheduleNextRefresh();
 
@@ -127,8 +160,12 @@ private:
       const CalendarConfig::Account& account, calendar::CalendarCredentialStore::LookupCallback callback
   );
   void fetchIcs(const CalendarConfig::Account& account);
+  void fetchVdir(const CalendarConfig::Account& account);
+  void updateVdirWatches();
   void fetchGoogle(const CalendarConfig::Account& account);
-  void refreshGoogleToken(const std::string& accountId, std::function<void(bool ok, std::string accessToken)> cb);
+  void refreshGoogleToken(
+      const std::string& accountId, std::function<void(calendar::SyncFailure failure, std::string accessToken)> cb
+  );
   void googleFetchWithToken(const std::string& accountId, const std::string& accessToken, bool allowRefreshRetry);
   void pollConnect();
   void notifyGoogleConnectFailure(const std::string& body) const;
@@ -173,6 +210,9 @@ private:
   std::map<std::string, std::vector<CalendarEvent>> m_eventsByAccount;
   std::chrono::steady_clock::time_point m_nextRefreshAt;
   bool m_refreshing = false;
+  // Bumped on every config change; results of a refresh started under an older generation are dropped.
+  std::uint64_t m_refreshGeneration = 0;
+  std::uint64_t m_runningRefreshGeneration = 0;
   bool m_credentialsInitialized = false;
   bool m_initialized = false;
   bool m_cacheWritable = false;
@@ -180,6 +220,18 @@ private:
   bool m_cacheMigrationPending = false;
   std::size_t m_pendingAccounts = 0;
   bool m_googleCredentialLockedNotificationShown = false;
+  std::map<std::string, calendar::SyncFailure> m_lastFailures;
+  std::map<std::string, std::chrono::system_clock::time_point> m_lastSynced;
+  std::map<std::string, AccountStatus::Phase> m_syncPhases;
+  std::uint64_t m_syncStatusRevision = 0;
   ConnectFlow m_connect;
   calendar::CalDavClient m_caldav;
+  Inotify m_vdirInotify;
+  std::map<std::filesystem::path, int> m_watchedVdirPaths;
+  std::map<int, std::filesystem::path> m_watchedVdirWds;
+  std::chrono::steady_clock::time_point m_vdirDebounceUntil;
+  bool m_vdirDebouncePending = false;
+  struct VdirWorker;
+  std::shared_ptr<VdirWorker> m_vdirWorker;
+  std::map<std::string, std::vector<std::filesystem::path>> m_discoveredVdirPathsByAccount;
 };

@@ -116,7 +116,7 @@ namespace i18n::detail {
       return parsed;
     }
 
-    [[nodiscard]] std::string inferredChineseScript(std::string_view language, std::string_view region) {
+    [[nodiscard]] std::string_view inferredChineseScript(std::string_view language, std::string_view region) {
       if (language != "zh") {
         return {};
       }

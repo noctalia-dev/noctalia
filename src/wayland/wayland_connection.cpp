@@ -9,6 +9,8 @@
 #include "ext-data-control-v1-client-protocol.h"
 #include "ext-foreign-toplevel-list-v1-client-protocol.h"
 #include "ext-idle-notify-v1-client-protocol.h"
+#include "ext-image-capture-source-v1-client-protocol.h"
+#include "ext-image-copy-capture-v1-client-protocol.h"
 #include "ext-session-lock-v1-client-protocol.h"
 #include "ext-workspace-v1-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
@@ -17,11 +19,11 @@
 #include "idle-inhibit-unstable-v1-client-protocol.h"
 #include "org-kde-plasma-virtual-desktop-client-protocol.h"
 #include "text-input-unstable-v3-client-protocol.h"
-#include "util/string_utils.h"
 #include "viewporter-client-protocol.h"
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
 #include "wayland/clipboard_service.h"
 #include "wayland/hyprland/focus_grab_service.h"
+#include "wayland/layer_surface.h"
 #include "wayland/text_input_service.h"
 #include "wayland/virtual_keyboard_service.h"
 #include "wayland/wayland_protocol_policy.h"
@@ -36,17 +38,23 @@
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
-#include <cmath>
+#include <chrono>
+#include <cstddef>
 #include <cstring>
 #include <format>
+#include <poll.h>
 #include <stdexcept>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 #include <utility>
 
 namespace {
 
   constexpr std::uint32_t kCompositorVersion = 4;
-  constexpr std::uint32_t kSeatVersion = 5;
+  constexpr std::uint32_t kSeatVersion = 8;
   constexpr std::uint32_t kShmVersion = 1;
   constexpr std::uint32_t kSubcompositorVersion = 1;
   constexpr std::uint32_t kLayerShellVersion = 4;
@@ -62,6 +70,9 @@ namespace {
   constexpr std::uint32_t kExtIdleNotifierVersion = 2;
   constexpr std::uint32_t kIdleInhibitManagerVersion = 1;
   constexpr std::uint32_t kExtBackgroundEffectManagerVersion = 1;
+  // REMOVEME(wayland-protocols-1.45): Use the generated mask after requiring wayland-protocols >= 1.46;
+  // version 1.45 generates zero for blur although the corrected v1 wire mask is 1.
+  constexpr std::uint32_t kExtBackgroundEffectBlurCapabilityMask = 1U;
   constexpr std::uint32_t kFractionalScaleManagerVersion = 1;
   constexpr std::uint32_t kHyprlandFocusGrabManagerVersion = 1;
   constexpr std::uint32_t kHyprlandToplevelMappingManagerVersion = 1;
@@ -71,6 +82,9 @@ namespace {
   constexpr std::uint32_t kVirtualKeyboardManagerVersion = 1;
   constexpr std::uint32_t kGammaControlManagerVersion = 1;
   constexpr std::uint32_t kScreencopyManagerVersion = 3;
+  constexpr std::uint32_t kImageCopyCaptureManagerVersion = 1;
+  constexpr std::uint32_t kOutputImageCaptureSourceManagerVersion = 1;
+  constexpr std::uint32_t kForeignToplevelImageCaptureSourceManagerVersion = 1;
   constexpr std::uint32_t kOutputManagerVersion = 4;
   constexpr std::uint32_t kOutputManagerMinVersion = 3;
 
@@ -142,10 +156,15 @@ namespace {
   void outputDone(void* data, wl_output* wlOut) {
     auto* self = static_cast<WaylandConnection*>(data);
     auto* out = self->findOutputByWl(wlOut);
-    if (out != nullptr) {
-      out->done = true;
-      self->notifyOutputReady(wlOut);
+    if (out == nullptr) {
+      return;
     }
+    // A hot-plugged output's first done precedes its xdg-output logical size.
+    if (out->xdgOutput != nullptr && out->logicalWidth <= 0) {
+      return;
+    }
+    out->done = true;
+    self->notifyOutputReady(wlOut);
   }
 
   void outputScale(void* data, wl_output* wlOut, int32_t factor) {
@@ -214,6 +233,7 @@ namespace {
     auto* self = static_cast<WaylandConnection*>(data);
     auto* out = self->findOutputByXdg(xdgOutput);
     if (out != nullptr && out->output != nullptr) {
+      out->done = true;
       self->notifyOutputReady(out->output);
     }
   }
@@ -269,6 +289,10 @@ namespace {
     static_cast<WaylandConnection*>(data)->onOutputHeadScale(head, wl_fixed_to_double(scale));
   }
 
+  void outputHeadTransform(void* data, zwlr_output_head_v1* head, int32_t transform) {
+    static_cast<WaylandConnection*>(data)->onOutputHeadTransform(head, transform);
+  }
+
   // libwayland aborts on an event with a null listener slot, even one we don't need.
   const zwlr_output_head_v1_listener kOutputHeadListener = {
       .name = outputHeadName,
@@ -278,7 +302,7 @@ namespace {
       .enabled = [](void*, zwlr_output_head_v1*, int32_t) {},
       .current_mode = [](void*, zwlr_output_head_v1*, zwlr_output_mode_v1*) {},
       .position = [](void*, zwlr_output_head_v1*, int32_t, int32_t) {},
-      .transform = [](void*, zwlr_output_head_v1*, int32_t) {},
+      .transform = outputHeadTransform,
       .scale = outputHeadScale,
       .finished = outputHeadFinished,
       .make = outputHeadMake,
@@ -317,29 +341,390 @@ namespace {
 
 } // namespace
 
-WaylandConnection::WaylandConnection() = default;
+namespace wayland {
+
+  DispatchResult dispatchUntil(
+      std::span<const DispatchTarget> targets, std::chrono::steady_clock::time_point deadline,
+      const std::function<bool()>& completed
+  ) {
+    std::vector<DispatchTarget> activeTargets;
+    activeTargets.reserve(targets.size());
+    for (const auto& target : targets) {
+      if (target.connection != nullptr) {
+        activeTargets.push_back(target);
+      }
+    }
+
+    if (completed()) {
+      return {};
+    }
+    if (activeTargets.empty()) {
+      return {
+          .status = DispatchStatus::PollFailed,
+          .error = "no Wayland connections available for event dispatch",
+      };
+    }
+
+    std::vector<bool> prepared(activeTargets.size(), false);
+    std::vector<pollfd> pollFds(activeTargets.size());
+    auto cancelPreparedReads = [&] {
+      for (std::size_t i = 0; i < activeTargets.size(); ++i) {
+        if (prepared[i]) {
+          wl_display_cancel_read(activeTargets[i].connection->display());
+          prepared[i] = false;
+        }
+      }
+    };
+    auto connectionFailure = [&activeTargets](std::size_t index, std::string_view operation, int operationErrno) {
+      WaylandConnection* connection = activeTargets[index].connection;
+      return DispatchResult{
+          .status = DispatchStatus::ConnectionFailed,
+          .failedConnection = connection,
+          .error = std::format(
+              "{} on {} Wayland connection: {}", operation, activeTargets[index].role,
+              connection->describeDisplayError(operationErrno)
+          ),
+      };
+    };
+
+    while (!completed()) {
+      for (std::size_t i = 0; i < activeTargets.size(); ++i) {
+        wl_display* display = activeTargets[i].connection->display();
+        if (wl_display_dispatch_pending(display) < 0) {
+          return connectionFailure(i, "Wayland dispatch failed", errno);
+        }
+        if (completed()) {
+          return {};
+        }
+      }
+
+      for (std::size_t i = 0; i < activeTargets.size(); ++i) {
+        wl_display* display = activeTargets[i].connection->display();
+        while (wl_display_prepare_read(display) != 0) {
+          if (wl_display_dispatch_pending(display) < 0) {
+            const int dispatchErrno = errno;
+            cancelPreparedReads();
+            return connectionFailure(i, "Wayland dispatch failed", dispatchErrno);
+          }
+          if (completed()) {
+            cancelPreparedReads();
+            return {};
+          }
+        }
+        prepared[i] = true;
+      }
+
+      for (std::size_t i = 0; i < activeTargets.size(); ++i) {
+        int flushResult = 0;
+        do {
+          flushResult = wl_display_flush(activeTargets[i].connection->display());
+        } while (flushResult < 0 && errno == EINTR);
+        const int flushErrno = errno;
+        if (flushResult < 0 && flushErrno != EAGAIN && flushErrno != EPIPE) {
+          cancelPreparedReads();
+          return connectionFailure(i, "Wayland flush failed", flushErrno);
+        }
+        pollFds[i] = pollfd{
+            .fd = wl_display_get_fd(activeTargets[i].connection->display()),
+            .events = static_cast<short>(POLLIN | (flushResult < 0 && flushErrno == EAGAIN ? POLLOUT : 0)),
+            .revents = 0,
+        };
+      }
+
+      int ready = 0;
+      while (true) {
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= deadline) {
+          ready = 0;
+          break;
+        }
+        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
+        ready = ::poll(
+            pollFds.data(), static_cast<nfds_t>(pollFds.size()), std::max(1, static_cast<int>(remaining.count()))
+        );
+        if (ready >= 0 || errno != EINTR) {
+          break;
+        }
+      }
+
+      if (ready == 0) {
+        cancelPreparedReads();
+        return {
+            .status = DispatchStatus::TimedOut,
+            .error = "Wayland event wait timed out",
+        };
+      }
+      if (ready < 0) {
+        const int pollErrno = errno;
+        cancelPreparedReads();
+        return {
+            .status = DispatchStatus::PollFailed,
+            .error = std::format("Wayland poll failed: {}", errnoText(pollErrno)),
+        };
+      }
+
+      std::optional<std::pair<std::size_t, int>> readFailure;
+      std::optional<std::size_t> transportFailure;
+      for (std::size_t i = 0; i < activeTargets.size(); ++i) {
+        if (!prepared[i]) {
+          continue;
+        }
+        if ((pollFds[i].revents & POLLIN) != 0) {
+          if (wl_display_read_events(activeTargets[i].connection->display()) < 0 && !readFailure.has_value()) {
+            readFailure = std::pair{i, errno};
+          }
+        } else {
+          wl_display_cancel_read(activeTargets[i].connection->display());
+        }
+        prepared[i] = false;
+        if ((pollFds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0 && !transportFailure.has_value()) {
+          transportFailure = i;
+        }
+      }
+
+      if (readFailure.has_value()) {
+        return connectionFailure(readFailure->first, "Wayland event read failed", readFailure->second);
+      }
+
+      for (std::size_t i = 0; i < activeTargets.size(); ++i) {
+        if (wl_display_dispatch_pending(activeTargets[i].connection->display()) < 0) {
+          return connectionFailure(i, "Wayland dispatch failed", errno);
+        }
+      }
+
+      if (transportFailure.has_value()) {
+        const std::size_t i = *transportFailure;
+        const int displayError = wl_display_get_error(activeTargets[i].connection->display());
+        return connectionFailure(
+            i, "Wayland connection failed during event wait", displayError != 0 ? displayError : EPIPE
+        );
+      }
+    }
+
+    return {};
+  }
+
+} // namespace wayland
+
+namespace {
+
+  struct InitialSyncState {
+    wl_callback* callback = nullptr;
+    bool done = false;
+  };
+
+  void initialSyncDone(void* data, wl_callback* callback, std::uint32_t /*callbackData*/) {
+    auto* state = static_cast<InitialSyncState*>(data);
+    state->callback = nullptr;
+    state->done = true;
+    wl_callback_destroy(callback);
+  }
+
+  const wl_callback_listener kInitialSyncListener = {
+      .done = initialSyncDone,
+  };
+
+  [[nodiscard]] wl_display* connectSiblingDisplay(
+      const WaylandConnection& primary, std::chrono::steady_clock::time_point deadline, std::string& error
+  ) {
+    if (primary.display() == nullptr) {
+      error = "primary Wayland connection is unavailable";
+      return nullptr;
+    }
+
+    sockaddr_un peer{};
+    socklen_t peerLength = sizeof(peer);
+    if (getpeername(wl_display_get_fd(primary.display()), reinterpret_cast<sockaddr*>(&peer), &peerLength) < 0) {
+      error = std::format("failed to identify the primary Wayland endpoint: {}", errnoText(errno));
+      return nullptr;
+    }
+    if (peer.sun_family != AF_UNIX || peerLength <= offsetof(sockaddr_un, sun_path)) {
+      error = "primary Wayland connection has no reconnectable endpoint";
+      return nullptr;
+    }
+
+    const int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+    if (fd < 0) {
+      error = std::format("failed to create a Wayland capture socket: {}", errnoText(errno));
+      return nullptr;
+    }
+
+    bool connectionPending = false;
+    while (true) {
+      const int connectResult = ::connect(fd, reinterpret_cast<const sockaddr*>(&peer), peerLength);
+      if (connectResult == 0 || (connectResult < 0 && errno == EISCONN)) {
+        break;
+      }
+
+      const int connectErrno = errno;
+      if (connectErrno == EINPROGRESS || connectErrno == EINTR || connectErrno == EALREADY) {
+        connectionPending = true;
+        break;
+      }
+      if (connectErrno != EAGAIN) {
+        error = std::format("failed to connect the Wayland capture socket: {}", errnoText(connectErrno));
+        close(fd);
+        return nullptr;
+      }
+
+      const auto now = std::chrono::steady_clock::now();
+      if (now >= deadline) {
+        error = "Wayland capture socket connection timed out";
+        close(fd);
+        return nullptr;
+      }
+      const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
+      const int retryDelay = std::min(10, std::max(1, static_cast<int>(remaining.count())));
+      int retryResult = 0;
+      do {
+        retryResult = ::poll(nullptr, 0, retryDelay);
+      } while (retryResult < 0 && errno == EINTR);
+      if (retryResult < 0) {
+        error = std::format("failed while retrying the Wayland capture socket: {}", errnoText(errno));
+        close(fd);
+        return nullptr;
+      }
+    }
+
+    if (connectionPending) {
+      pollfd pollFd{
+          .fd = fd,
+          .events = POLLOUT,
+          .revents = 0,
+      };
+      while (true) {
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= deadline) {
+          error = "Wayland capture socket connection timed out";
+          close(fd);
+          return nullptr;
+        }
+        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
+        const int ready = ::poll(&pollFd, 1, std::max(1, static_cast<int>(remaining.count())));
+        if (ready > 0) {
+          break;
+        }
+        if (ready == 0) {
+          error = "Wayland capture socket connection timed out";
+          close(fd);
+          return nullptr;
+        }
+        if (errno != EINTR) {
+          error = std::format("failed while connecting the Wayland capture socket: {}", errnoText(errno));
+          close(fd);
+          return nullptr;
+        }
+      }
+
+      int socketError = 0;
+      socklen_t socketErrorLength = sizeof(socketError);
+      if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &socketErrorLength) < 0) {
+        error = std::format("failed to inspect the Wayland capture socket: {}", errnoText(errno));
+        close(fd);
+        return nullptr;
+      }
+      if (socketError != 0) {
+        error = std::format("failed to connect the Wayland capture socket: {}", errnoText(socketError));
+        close(fd);
+        return nullptr;
+      }
+    }
+
+    wl_display* display = wl_display_connect_to_fd(fd);
+    if (display == nullptr) {
+      error = std::format("failed to initialize the Wayland capture connection: {}", errnoText(errno));
+    }
+    return display;
+  }
+
+  [[nodiscard]] bool waitForInitialSync(
+      WaylandConnection& connection, WaylandConnection* eventConnection, std::chrono::steady_clock::time_point deadline,
+      std::string_view phase, std::string& error
+  ) {
+    if (std::chrono::steady_clock::now() >= deadline) {
+      error = std::format("{} timed out", phase);
+      return false;
+    }
+
+    InitialSyncState state;
+    state.callback = wl_display_sync(connection.display());
+    if (state.callback == nullptr) {
+      error = std::format("{} failed: {}", phase, connection.describeDisplayError(errno));
+      return false;
+    }
+    if (wl_callback_add_listener(state.callback, &kInitialSyncListener, &state) != 0) {
+      const int listenerErrno = errno;
+      wl_callback_destroy(state.callback);
+      state.callback = nullptr;
+      error = std::format("{} listener setup failed: {}", phase, errnoText(listenerErrno));
+      return false;
+    }
+
+    const std::array targets{
+        wayland::DispatchTarget{
+            .connection = eventConnection != &connection ? eventConnection : nullptr,
+            .role = "primary",
+        },
+        wayland::DispatchTarget{
+            .connection = &connection,
+            .role = "capture",
+        },
+    };
+    const wayland::DispatchResult result = wayland::dispatchUntil(targets, deadline, [&state] { return state.done; });
+    if (state.callback != nullptr) {
+      wl_callback_destroy(state.callback);
+      state.callback = nullptr;
+    }
+    if (result.status != wayland::DispatchStatus::Completed) {
+      error = std::format("{}: {}", phase, result.error);
+      return false;
+    }
+    return true;
+  }
+
+} // namespace
+
+WaylandConnection::WaylandConnection(Purpose purpose) : m_purpose(purpose) {}
 
 WaylandConnection::~WaylandConnection() { cleanup(); }
+
+bool WaylandConnection::setupDisplay(wl_display* display, std::string& error) {
+  if (m_display != nullptr) {
+    return true;
+  }
+
+  if (display == nullptr) {
+    error = "failed to connect to Wayland display";
+    return false;
+  }
+  m_display = display;
+
+  m_registry = wl_display_get_registry(m_display);
+  if (m_registry == nullptr) {
+    error = "failed to acquire Wayland registry";
+    cleanup();
+    return false;
+  }
+
+  if (wl_registry_add_listener(m_registry, &kRegistryListener, this) != 0) {
+    error = "failed to add Wayland registry listener";
+    cleanup();
+    return false;
+  }
+  return true;
+}
 
 bool WaylandConnection::connect() {
   if (m_display != nullptr) {
     return true;
   }
-
-  m_display = wl_display_connect(nullptr);
-  if (m_display == nullptr) {
-    throw std::runtime_error("failed to connect to Wayland display");
+  if (m_purpose != Purpose::Shell) {
+    throw std::runtime_error("screencopy Wayland connections require a bounded primary connection");
   }
 
-  m_registry = wl_display_get_registry(m_display);
-  if (m_registry == nullptr) {
-    cleanup();
-    throw std::runtime_error("failed to acquire Wayland registry");
-  }
-
-  if (wl_registry_add_listener(m_registry, &kRegistryListener, this) != 0) {
-    cleanup();
-    throw std::runtime_error("failed to add Wayland registry listener");
+  std::string setupError;
+  if (!setupDisplay(wl_display_connect(nullptr), setupError)) {
+    throw std::runtime_error(setupError);
   }
 
   if (wl_display_roundtrip(m_display) < 0) {
@@ -356,10 +741,42 @@ bool WaylandConnection::connect() {
     throw std::runtime_error(std::format("failed during Wayland output discovery roundtrip: {}", detail));
   }
 
-  m_focusGrabService = std::make_unique<FocusGrabService>();
-  m_focusGrabService->initialize(m_hyprlandFocusGrabManager);
+  if (m_purpose == Purpose::Shell) {
+    m_focusGrabService = std::make_unique<FocusGrabService>();
+    m_focusGrabService->initialize(m_hyprlandFocusGrabManager);
 
-  logStartupSummary();
+    logStartupSummary();
+  }
+  return true;
+}
+
+bool WaylandConnection::connectUntil(
+    std::chrono::steady_clock::time_point deadline, WaylandConnection* eventConnection, std::string& error
+) {
+  error.clear();
+  if (m_display != nullptr) {
+    return true;
+  }
+  if (m_purpose != Purpose::Screencopy) {
+    error = "bounded sibling connection is only available for screencopy";
+    return false;
+  }
+  if (eventConnection == nullptr || eventConnection->display() == nullptr) {
+    error = "primary Wayland connection is unavailable";
+    return false;
+  }
+
+  wl_display* siblingDisplay = connectSiblingDisplay(*eventConnection, deadline, error);
+  if (siblingDisplay == nullptr || !setupDisplay(siblingDisplay, error)) {
+    return false;
+  }
+
+  if (!waitForInitialSync(*this, eventConnection, deadline, "Wayland registry discovery", error)
+      || !waitForInitialSync(*this, eventConnection, deadline, "Wayland output discovery", error)) {
+    cleanup();
+    return false;
+  }
+
   return true;
 }
 
@@ -467,9 +884,9 @@ void WaylandConnection::notifySurfaceOutputLeave(wl_surface* surface, wl_output*
   }
 }
 
-void WaylandConnection::registerLayerSurface(wl_surface* surface, zwlr_layer_surface_v1* layerSurface) {
-  if (surface != nullptr && layerSurface != nullptr) {
-    m_layerSurfaceMap[surface] = layerSurface;
+void WaylandConnection::registerLayerSurface(const LayerSurface& layerSurface) {
+  if (layerSurface.wlSurface() != nullptr && layerSurface.layerSurface() != nullptr) {
+    m_layerSurfaceMap[layerSurface.wlSurface()] = &layerSurface;
   }
 }
 
@@ -487,6 +904,11 @@ void WaylandConnection::unregisterSurface(wl_surface* surface) {
 }
 
 zwlr_layer_surface_v1* WaylandConnection::layerSurfaceFor(wl_surface* surface) const noexcept {
+  const LayerSurface* owner = layerSurfaceOwnerFor(surface);
+  return owner != nullptr ? owner->layerSurface() : nullptr;
+}
+
+const LayerSurface* WaylandConnection::layerSurfaceOwnerFor(wl_surface* surface) const noexcept {
   if (surface == nullptr) {
     return nullptr;
   }
@@ -504,6 +926,7 @@ void WaylandConnection::notifyOutputReady(wl_output* output) {
 wl_output* WaylandConnection::lastPointerOutput() const noexcept { return m_lastPointerOutput; }
 wl_surface* WaylandConnection::lastPointerSurface() const noexcept { return m_seatHandler.lastPointerSurface(); }
 wl_surface* WaylandConnection::lastKeyboardSurface() const noexcept { return m_seatHandler.lastKeyboardSurface(); }
+std::uint32_t WaylandConnection::keyboardModifiers() const noexcept { return m_seatHandler.keyboardModifiers(); }
 bool WaylandConnection::hasPointerPosition() const noexcept { return m_seatHandler.hasPointerPosition(); }
 double WaylandConnection::lastPointerX() const noexcept { return m_seatHandler.lastPointerX(); }
 double WaylandConnection::lastPointerY() const noexcept { return m_seatHandler.lastPointerY(); }
@@ -534,8 +957,16 @@ void WaylandConnection::setKeyboardEventCallback(WaylandSeat::KeyboardEventCallb
   m_seatHandler.setKeyboardEventCallback(std::move(callback));
 }
 
+void WaylandConnection::setKeyboardModifiersCallback(WaylandSeat::KeyboardModifiersCallback callback) {
+  m_seatHandler.setKeyboardModifiersCallback(std::move(callback));
+}
+
 void WaylandConnection::setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCallback callback) {
   m_seatHandler.setLockKeysChangeCallback(std::move(callback));
+}
+
+void WaylandConnection::setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback) {
+  m_seatHandler.setKeyboardLayoutChangeCallback(std::move(callback));
 }
 
 void WaylandConnection::setClipboardService(ClipboardService* clipboardService) {
@@ -580,6 +1011,8 @@ std::optional<ActiveToplevel> WaylandConnection::matchToplevelByTitleAndAppId(
 
 wl_output* WaylandConnection::activeToplevelOutput() const { return m_toplevelsHandler.currentOutput(); }
 
+bool WaylandConnection::hasFullscreenToplevel() const { return m_toplevelsHandler.anyFullscreen(); }
+
 std::vector<std::string> WaylandConnection::runningAppIds(wl_output* outputFilter) const {
   if (compositors::isKde() && m_extForeignToplevels.isBound() && !m_hasForeignToplevelManagerGlobal) {
     (void)outputFilter;
@@ -618,12 +1051,24 @@ std::vector<ToplevelInfo> WaylandConnection::extWindowsWithoutAppId() const {
   return m_extForeignToplevels.isBound() ? m_extForeignToplevels.windowsWithoutAppId() : std::vector<ToplevelInfo>{};
 }
 
+ext_foreign_toplevel_handle_v1* WaylandConnection::extHandleForIdentifier(std::string_view identifier) const {
+  return m_extForeignToplevels.isBound() ? m_extForeignToplevels.extHandleForIdentifier(identifier) : nullptr;
+}
+
 bool WaylandConnection::containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const {
   return m_toplevelsHandler.containsWlrHandle(handle);
 }
 
 void WaylandConnection::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
   m_toplevelsHandler.activateHandle(handle, m_seat);
+}
+
+bool WaylandConnection::minimizeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
+  return m_toplevelsHandler.minimizeHandle(handle);
+}
+
+std::optional<bool> WaylandConnection::toplevelMinimized(zwlr_foreign_toplevel_handle_v1* handle) const {
+  return m_toplevelsHandler.minimized(handle);
 }
 
 void WaylandConnection::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
@@ -663,6 +1108,19 @@ bool WaylandConnection::hasScreencopy() const noexcept { return m_screencopyMana
 zwlr_gamma_control_manager_v1* WaylandConnection::gammaControlManager() const noexcept { return m_gammaControlManager; }
 
 zwlr_screencopy_manager_v1* WaylandConnection::screencopyManager() const noexcept { return m_screencopyManager; }
+
+ext_image_copy_capture_manager_v1* WaylandConnection::imageCopyCaptureManager() const noexcept {
+  return m_imageCopyCaptureManager;
+}
+
+ext_output_image_capture_source_manager_v1* WaylandConnection::outputImageCaptureSourceManager() const noexcept {
+  return m_outputImageCaptureSourceManager;
+}
+
+ext_foreign_toplevel_image_capture_source_manager_v1*
+WaylandConnection::foreignToplevelImageCaptureSourceManager() const noexcept {
+  return m_foreignToplevelImageCaptureSourceManager;
+}
 
 std::string WaylandConnection::requestActivationToken(wl_surface* surface) const {
   if (m_xdgActivation == nullptr || m_display == nullptr) {
@@ -704,18 +1162,6 @@ void WaylandConnection::activateSurface(wl_surface* surface) {
   }
 }
 
-void WaylandConnection::activateToplevelForAppId(std::string_view appId) {
-  if (!hasForeignToplevelManager() || appId.empty()) {
-    return;
-  }
-  const std::string idLower = StringUtils::toLower(std::string(appId));
-  const auto windows = windowsForApp(idLower, idLower);
-  if (windows.empty()) {
-    return;
-  }
-  activateToplevel(windows.back().handle);
-}
-
 wl_display* WaylandConnection::display() const noexcept { return m_display; }
 
 std::string WaylandConnection::describeDisplayError(int operationErrno) const {
@@ -751,6 +1197,8 @@ wl_compositor* WaylandConnection::compositor() const noexcept { return m_composi
 
 wl_seat* WaylandConnection::seat() const noexcept { return m_seatHandler.seat(); }
 
+wl_pointer* WaylandConnection::pointer() const noexcept { return m_seatHandler.pointer(); }
+
 wl_shm* WaylandConnection::shm() const noexcept { return m_shm; }
 
 wl_subcompositor* WaylandConnection::subcompositor() const noexcept { return m_subcompositor; }
@@ -770,6 +1218,18 @@ ext_idle_notification_v1* WaylandConnection::createIdleNotification(std::uint32_
   return ext_idle_notifier_v1_get_idle_notification(m_idleNotifier, timeoutMs, seat);
 }
 
+ext_idle_notification_v1* WaylandConnection::createInputIdleNotification(std::uint32_t timeoutMs) const {
+  wl_seat* const seat = this->seat();
+  if (m_idleNotifier == nullptr
+      || seat == nullptr
+      || ext_idle_notifier_v1_get_version(m_idleNotifier)
+          < EXT_IDLE_NOTIFIER_V1_GET_INPUT_IDLE_NOTIFICATION_SINCE_VERSION) {
+    return nullptr;
+  }
+
+  return ext_idle_notifier_v1_get_input_idle_notification(m_idleNotifier, timeoutMs, seat);
+}
+
 zwp_idle_inhibit_manager_v1* WaylandConnection::idleInhibitManager() const noexcept { return m_idleInhibitManager; }
 bool WaylandConnection::hasBackgroundEffectBlur() const noexcept { return m_backgroundEffectBlurSupported; }
 ext_background_effect_manager_v1* WaylandConnection::backgroundEffectManager() const noexcept {
@@ -786,7 +1246,7 @@ FocusGrabService* WaylandConnection::focusGrabService() const noexcept { return 
 wp_viewporter* WaylandConnection::viewporter() const noexcept { return m_viewporter; }
 
 void WaylandConnection::onBackgroundEffectCapabilities(std::uint32_t capabilities) noexcept {
-  m_backgroundEffectBlurSupported = (capabilities & EXT_BACKGROUND_EFFECT_MANAGER_V1_CAPABILITY_BLUR) != 0;
+  m_backgroundEffectBlurSupported = (capabilities & kExtBackgroundEffectBlurCapabilityMask) != 0U;
 }
 
 void WaylandConnection::onOutputManagerHead(zwlr_output_head_v1* head) { m_outputHeads.try_emplace(head); }
@@ -823,6 +1283,13 @@ void WaylandConnection::onOutputHeadScale(zwlr_output_head_v1* head, double scal
   auto it = m_outputHeads.find(head);
   if (it != m_outputHeads.end()) {
     it->second.scaleFactor = scaleFactor;
+  }
+}
+
+void WaylandConnection::onOutputHeadTransform(zwlr_output_head_v1* head, std::int32_t transform) {
+  auto it = m_outputHeads.find(head);
+  if (it != m_outputHeads.end()) {
+    it->second.transform = transform;
   }
 }
 
@@ -867,6 +1334,10 @@ void WaylandConnection::matchPendingOutputHeads() {
       changed = true;
     }
     it->headScaleFactor = info.scaleFactor;
+    if (it->headTransform != info.transform) {
+      it->headTransform = info.transform;
+      changed = true;
+    }
     if (recomputeConfiguredScale(*it)) {
       changed = true;
     }
@@ -973,6 +1444,13 @@ void WaylandConnection::bindGlobal(
 ) {
   const std::string interfaceName = interface;
 
+  if (m_purpose == Purpose::Screencopy
+      && interfaceName != wl_shm_interface.name
+      && interfaceName != wl_output_interface.name
+      && interfaceName != zwlr_screencopy_manager_v1_interface.name) {
+    return;
+  }
+
   if (interfaceName == wl_compositor_interface.name) {
     const auto bindVersion = std::min(version, kCompositorVersion);
     m_compositor = static_cast<wl_compositor*>(wl_registry_bind(registry, name, &wl_compositor_interface, bindVersion));
@@ -1078,8 +1556,8 @@ void WaylandConnection::bindGlobal(
 
   if (interfaceName == ext_foreign_toplevel_list_v1_interface.name) {
     const auto compositor = compositors::detect();
-    // Niri needs the ext identifier for an exact join with its numeric IPC window id. Keep the
-    // wlr manager bound as well because other shell features still consume its richer state.
+    // ext handles carry the exact identifier joined with Niri/Umbriel IPC window ids and are the source for toplevel
+    // image capture. Keep the wlr manager bound as well because other shell features still consume its richer state.
     if (!wayland_protocol_policy::shouldBindExtForeignToplevelList(compositor)) {
       return;
     }
@@ -1233,6 +1711,30 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
+  if (interfaceName == ext_image_copy_capture_manager_v1_interface.name) {
+    const auto bindVersion = std::min(version, kImageCopyCaptureManagerVersion);
+    m_imageCopyCaptureManager = static_cast<ext_image_copy_capture_manager_v1*>(
+        wl_registry_bind(registry, name, &ext_image_copy_capture_manager_v1_interface, bindVersion)
+    );
+    return;
+  }
+
+  if (interfaceName == ext_output_image_capture_source_manager_v1_interface.name) {
+    const auto bindVersion = std::min(version, kOutputImageCaptureSourceManagerVersion);
+    m_outputImageCaptureSourceManager = static_cast<ext_output_image_capture_source_manager_v1*>(
+        wl_registry_bind(registry, name, &ext_output_image_capture_source_manager_v1_interface, bindVersion)
+    );
+    return;
+  }
+
+  if (interfaceName == ext_foreign_toplevel_image_capture_source_manager_v1_interface.name) {
+    const auto bindVersion = std::min(version, kForeignToplevelImageCaptureSourceManagerVersion);
+    m_foreignToplevelImageCaptureSourceManager = static_cast<ext_foreign_toplevel_image_capture_source_manager_v1*>(
+        wl_registry_bind(registry, name, &ext_foreign_toplevel_image_capture_source_manager_v1_interface, bindVersion)
+    );
+    return;
+  }
+
   if (interfaceName == zwlr_output_manager_v1_interface.name) {
     // head/mode release requests need v3; nothing useful to bind below that anyway.
     if (version < kOutputManagerMinVersion) {
@@ -1380,6 +1882,18 @@ void WaylandConnection::cleanup() {
   if (m_screencopyManager != nullptr) {
     zwlr_screencopy_manager_v1_destroy(m_screencopyManager);
     m_screencopyManager = nullptr;
+  }
+  if (m_imageCopyCaptureManager != nullptr) {
+    ext_image_copy_capture_manager_v1_destroy(m_imageCopyCaptureManager);
+    m_imageCopyCaptureManager = nullptr;
+  }
+  if (m_outputImageCaptureSourceManager != nullptr) {
+    ext_output_image_capture_source_manager_v1_destroy(m_outputImageCaptureSourceManager);
+    m_outputImageCaptureSourceManager = nullptr;
+  }
+  if (m_foreignToplevelImageCaptureSourceManager != nullptr) {
+    ext_foreign_toplevel_image_capture_source_manager_v1_destroy(m_foreignToplevelImageCaptureSourceManager);
+    m_foreignToplevelImageCaptureSourceManager = nullptr;
   }
 
   for (auto* mode : m_outputModes) {

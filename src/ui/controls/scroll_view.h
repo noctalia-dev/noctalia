@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <optional>
 
 class InputArea;
 class RectNode;
@@ -28,15 +29,23 @@ public:
   void setScrollOffset(float offset);
   // Keep the view pinned to the bottom while content grows, as long as the user has not scrolled away from the bottom.
   void setStickToBottom(bool enabled);
-  // One-shot jump to the bottom, deferred to the next layout pass: callers
-  // that mutate content in the same frame (e.g. the plugin reconciler) need
-  // the jump to target the new extent, while an immediate setScrollOffset
-  // would clamp against the previous pass's maxScrollOffset().
+  // One-shot absolute jump deferred until the next layout pass, after the
+  // content extent and maxScrollOffset() have been computed.
+  void requestScrollToOffset(float offset);
+  // One-shot jump to the bottom under the same layout-time semantics.
   void requestScrollToBottom();
+  // One-shot minimal scroll that brings a descendant of content() fully into the
+  // viewport, under the same layout-time semantics. Ignored once the node has
+  // left content(), so callers need not clear it when they drop the node.
+  void requestScrollIntoView(const Node* target);
   void scrollBy(float delta);
   void setScrollbarVisible(bool visible);
+  void setReserveScrollbarGutter(bool reserve);
   // Vertical clearance at both track ends (e.g. the host card's corner radius).
   void setScrollbarInsetV(float inset);
+  // Layout scale of the surface hosting this view (1.0 = base logical px). Scales the
+  // scrollbar geometry the same way surfaces scale their own padding and radii.
+  void setContentScale(float scale);
   void setViewportPaddingH(float padding);
   void setViewportPaddingV(float padding);
   void setFill(const ColorSpec& fill);
@@ -62,6 +71,10 @@ public:
   [[nodiscard]] float contentViewportHeight() const noexcept;
   [[nodiscard]] float viewportPaddingH() const noexcept { return m_viewportPaddingH; }
   [[nodiscard]] float viewportPaddingV() const noexcept { return m_viewportPaddingV; }
+  [[nodiscard]] bool reservesScrollbarGutter() const noexcept { return m_reserveScrollbarGutter; }
+  // Width reserved for the vertical scrollbar plus its gap, at the current content scale.
+  [[nodiscard]] float scrollbarGutter() const noexcept;
+  [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
 
 private:
   void doLayout(Renderer& renderer) override;
@@ -73,6 +86,7 @@ private:
   void stopScrollAnimation();
   void animateScrollTo(float target, float durationMs = -1.0F);
   void startFling();
+  void updateTouchScrollAxis();
   [[nodiscard]] float clampOffset(float offset) const noexcept;
 
   RectNode* m_background = nullptr;
@@ -83,6 +97,9 @@ private:
   ScrollViewState* m_boundState = nullptr;
   bool m_stickToBottom = false;
   bool m_pendingScrollToBottom = false;
+  std::optional<float> m_pendingScrollOffset;
+  // May dangle by layout time; located under content() before it is dereferenced.
+  const Node* m_pendingScrollIntoView = nullptr;
   std::function<void(float)> m_onScrollChanged;
   ColorSpec m_backgroundFill = clearColorSpec();
   ColorSpec m_backgroundBorder = clearColorSpec();
@@ -93,6 +110,7 @@ private:
   float m_scrollOffset = 0.0F;
   float m_targetScrollOffset = 0.0F;
   float m_maxScrollOffset = 0.0F;
+  float m_contentScale = 1.0F;
   float m_scrollWheelStep = Style::scrollWheelStep;
   float m_dragStartPosition = 0.0F;
   float m_dragStartOffset = 0.0F;
@@ -107,6 +125,7 @@ private:
   float m_backgroundSoftness = 1.0F;
   bool m_scrollbarShown = false;
   bool m_showScrollbar = true;
+  bool m_reserveScrollbarGutter = false;
   bool m_dragging = false;
   ScrollOrientation m_orientation = ScrollOrientation::Vertical;
 };

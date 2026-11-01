@@ -23,8 +23,8 @@ namespace app_identity {
 
   [[nodiscard]] bool desktopEntryMatchesLower(const DesktopEntry& entry, std::string_view valueLower);
 
-  // Best-effort lookup by app id / StartupWMClass. Operates on the parsed desktop-entry list,
-  // which already excludes hidden/NoDisplay/wrong-desktop entries.
+  // Best-effort lookup by app id, StartupWMClass, and unambiguous identity tokens. Operates on
+  // the parsed desktop-entry list, which already excludes hidden/NoDisplay/wrong-desktop entries.
   [[nodiscard]] std::optional<DesktopEntry> findDesktopEntry(
       std::string_view appKey, std::span<const DesktopEntry> allEntries,
       std::span<const DesktopEntry> priorityEntries = {}

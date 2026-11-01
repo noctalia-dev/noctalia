@@ -1,21 +1,170 @@
 #include "pipewire/sound_player.h"
 
 #include "core/log.h"
+#include "system/freedesktop_key_file.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
+#include <map>
 #include <pipewire/pipewire.h>
+#include <ranges>
+#include <set>
 #include <sndfile.h>
 #include <spa/param/audio/raw-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/builder.h>
 #include <spa/utils/result.h>
+#include <string_view>
 
 namespace {
 
   constexpr Logger kLog("sound");
   constexpr float kUiSoundGamma = 2.2F;
+  // A stream that WirePlumber never links to a sink gets no callbacks at all; give up on it after this long.
+  constexpr auto kStreamStartTimeout = std::chrono::seconds(5);
+
+  class ThreadLoopLock {
+  public:
+    explicit ThreadLoopLock(pw_thread_loop* loop) : m_loop(loop) { pw_thread_loop_lock(m_loop); }
+    ~ThreadLoopLock() { pw_thread_loop_unlock(m_loop); }
+    ThreadLoopLock(const ThreadLoopLock&) = delete;
+    ThreadLoopLock& operator=(const ThreadLoopLock&) = delete;
+
+  private:
+    pw_thread_loop* m_loop;
+  };
+
+  namespace fs = std::filesystem;
+  constexpr std::array<std::string_view, 4> kExtensions = {".disabled", ".oga", ".ogg", ".wav"};
+
+  std::vector<std::string> splitList(std::string_view value) {
+    std::vector<std::string> result;
+    // Spec says "All lists are comma-separated", but its own example and
+    // COSMIC's sound theme use space
+    for (auto part1 : value | std::views::split(' ')) {
+      for (auto part2 : std::string_view(part1) | std::views::split(',')) {
+        std::string_view token(part2);
+        if (!token.empty())
+          result.emplace_back(token);
+      }
+    }
+    return result;
+  }
+
+  std::vector<fs::path> soundBaseDirs() {
+    std::vector<fs::path> dataDirs;
+    if (const char* dataHome = std::getenv("XDG_DATA_HOME"); dataHome != nullptr && *dataHome != '\0') {
+      dataDirs.emplace_back(fs::path(dataHome) / "sounds");
+    } else if (const char* userHome = std::getenv("HOME"); userHome != nullptr && *userHome != '\0') {
+      dataDirs.emplace_back(fs::path(userHome) / ".local/share/sounds");
+    }
+    if (const char* dataDirsEnv = std::getenv("XDG_DATA_DIRS"); dataDirsEnv != nullptr && *dataDirsEnv != '\0') {
+      for (const auto directory : std::string_view(dataDirsEnv) | std::views::split(':')) {
+        std::string_view piece(directory);
+        if (!piece.empty()) {
+          dataDirs.emplace_back(fs::path(piece) / "sounds");
+        }
+      }
+    } else {
+      dataDirs.emplace_back("/usr/local/share/sounds");
+      dataDirs.emplace_back("/usr/share/sounds");
+    }
+    return dataDirs;
+  }
+
+  enum class ThemeSoundLookupState {
+    NotFound,
+    Found,
+    Disabled,
+  };
+
+  struct ThemeSoundLookupResult {
+    ThemeSoundLookupState state = ThemeSoundLookupState::NotFound;
+    fs::path path;
+  };
+
+  ThemeSoundLookupResult
+  findThemeSoundInTree(std::string_view event, std::string_view theme, std::set<std::string>& visited) {
+    if (!visited.insert(std::string(theme)).second) {
+      // Prevent infinite recursion when themes inherit cyclically.
+      return {};
+    }
+
+    std::vector<std::string> parents;
+    const auto baseDirs = soundBaseDirs();
+
+    // Find index.theme.
+    std::optional<freedesktop::ParseResult> parsed;
+    for (const auto& baseDir : baseDirs) {
+      const fs::path root = baseDir / theme;
+      const fs::path indexPath = root / "index.theme";
+      if (!fs::is_regular_file(indexPath)) {
+        continue;
+      }
+      const auto parsedFile = freedesktop::parseKeyFile(indexPath);
+      if (!parsedFile) {
+        return {};
+      }
+      parsed = *parsedFile;
+      break;
+    }
+    if (!parsed.has_value()) {
+      return {};
+    }
+
+    // Find sounds, stripping trailing dash components from the event name until one matches.
+    std::vector<std::string> directories{"stereo"};
+    if (const auto listed = parsed->file.value("Sound Theme", "Directories"); listed.has_value()) {
+      directories = splitList(*listed);
+    }
+    for (std::string_view name = event; !name.empty();) {
+      for (const auto& baseDir : baseDirs) {
+        const fs::path root = baseDir / theme;
+        if (!fs::is_directory(root)) {
+          continue;
+        }
+        for (const auto& directory : directories) {
+          if (parsed->file.value(directory, "OutputProfile").value_or("stereo") != "stereo") {
+            continue;
+          }
+          for (const auto extension : kExtensions) {
+            const fs::path path = root / directory / (std::string(name) + std::string(extension));
+            if (!fs::is_regular_file(path)) {
+              continue;
+            }
+            if (extension == ".disabled") {
+              return {.state = ThemeSoundLookupState::Disabled};
+            }
+            return {.state = ThemeSoundLookupState::Found, .path = path};
+          }
+        }
+      }
+      const auto dash = name.rfind('-');
+      name = dash == std::string_view::npos ? std::string_view{} : name.substr(0, dash);
+    }
+
+    if (const auto inherits = parsed->file.value("Sound Theme", "Inherits"); inherits.has_value()) {
+      parents = splitList(*inherits);
+    }
+    for (const auto& parent : parents) {
+      auto result = findThemeSoundInTree(event, parent, visited);
+      if (result.state != ThemeSoundLookupState::NotFound) {
+        return result;
+      }
+    }
+    return {};
+  }
+
+  ThemeSoundLookupResult findThemeSound(std::string_view event, std::string_view theme) {
+    std::set<std::string> visited;
+    auto result = findThemeSoundInTree(event, theme, visited);
+    if (result.state == ThemeSoundLookupState::NotFound && theme != "freedesktop") {
+      result = findThemeSoundInTree(event, "freedesktop", visited);
+    }
+    return result;
+  }
 
   const pw_stream_events kStreamEvents = [] {
     pw_stream_events events{};
@@ -28,15 +177,99 @@ namespace {
 
 } // namespace
 
-SoundPlayer::SoundPlayer(pw_loop* loop) : m_loop(loop) {}
+SoundPlayer::SoundPlayer() {
+  m_threadLoop = pw_thread_loop_new("noctalia-sound", nullptr);
+  if (m_threadLoop == nullptr) {
+    kLog.warn("failed to create sound playback loop");
+    return;
+  }
+  m_loop = pw_thread_loop_get_loop(m_threadLoop);
+  m_streamCloseTimer = pw_loop_add_timer(m_loop, onStreamCloseTimer, this);
+  m_startTimeoutTimer = pw_loop_add_timer(m_loop, onStartTimeoutTimer, this);
+  if (m_streamCloseTimer == nullptr || m_startTimeoutTimer == nullptr || pw_thread_loop_start(m_threadLoop) < 0) {
+    kLog.warn("failed to start sound playback loop");
+    pw_thread_loop_destroy(m_threadLoop);
+    m_threadLoop = nullptr;
+    m_loop = nullptr;
+    m_streamCloseTimer = nullptr;
+    m_startTimeoutTimer = nullptr;
+  }
+}
+
+std::vector<std::pair<std::string, std::string>> SoundPlayer::availableThemes() {
+  std::map<std::string, std::string> themes;
+  for (const auto& baseDir : soundBaseDirs()) {
+    std::error_code error;
+    for (const auto& entry : fs::directory_iterator(baseDir, error)) {
+      if (error or !entry.is_directory(error)) {
+        continue;
+      }
+      const auto parsed = freedesktop::parseKeyFile(entry.path() / "index.theme");
+      if (!parsed) {
+        continue;
+      }
+      if (parsed->file.value("Sound Theme", "Hidden").value_or("false") == "true") {
+        continue;
+      }
+      themes.emplace(
+          entry.path().filename().string(),
+          std::string(parsed->file.value("Sound Theme", "Name").value_or(entry.path().filename().string()))
+      );
+    }
+  }
+  return {themes.begin(), themes.end()};
+}
+
+void SoundPlayer::setTheme(std::string theme) {
+  if (theme == m_theme) {
+    return;
+  }
+
+  m_theme = std::move(theme);
+  loadThemeSounds();
+}
+
+void SoundPlayer::loadThemeSounds() {
+  m_buffers.clear();
+  if (!m_shellSoundsEnabled || m_theme.empty()) {
+    return;
+  }
+
+  for (const std::string_view event :
+       {kEventNotification, kEventVolumeChange, kEventPowerPlug, kEventPowerUnplug, kEventScreenCapture}) {
+    const auto result = findThemeSound(event, m_theme);
+    if (result.state == ThemeSoundLookupState::Disabled) {
+      kLog.info("sound theme '{}': event '{}' is disabled", m_theme, event);
+      continue;
+    }
+    if (result.state == ThemeSoundLookupState::NotFound) {
+      kLog.error("sound theme '{}' is missing sound '{}'", m_theme, event);
+      continue;
+    }
+
+    SoundBuffer buffer;
+    if (const auto error = decode(result.path, buffer)) {
+      kLog.warn("failed to load sound \"{}\" from {}: {}", event, result.path.string(), *error);
+      continue;
+    }
+    m_buffers[std::string(event)] = std::make_shared<const SoundBuffer>(std::move(buffer));
+    kLog.info("sound theme '{}': loaded {} for event '{}'", m_theme, result.path.c_str(), event);
+  }
+}
 
 SoundPlayer::~SoundPlayer() {
+  if (m_threadLoop != nullptr) {
+    pw_thread_loop_stop(m_threadLoop);
+  }
+  if (m_streamCloseTimer != nullptr) {
+    pw_loop_destroy_source(m_loop, m_streamCloseTimer);
+    m_streamCloseTimer = nullptr;
+  }
+  if (m_startTimeoutTimer != nullptr) {
+    pw_loop_destroy_source(m_loop, m_startTimeoutTimer);
+    m_startTimeoutTimer = nullptr;
+  }
   for (auto& active : m_active) {
-    if (active->listener != nullptr) {
-      spa_hook_remove(active->listener);
-      delete active->listener;
-      active->listener = nullptr;
-    }
     if (active->stream != nullptr) {
       pw_stream_disconnect(active->stream);
       pw_stream_destroy(active->stream);
@@ -44,9 +277,12 @@ SoundPlayer::~SoundPlayer() {
     }
   }
   m_active.clear();
+  if (m_threadLoop != nullptr) {
+    pw_thread_loop_destroy(m_threadLoop);
+  }
 }
 
-std::optional<std::string> SoundPlayer::decode(const std::filesystem::path& path, SoundBuffer& out) {
+std::optional<std::string> SoundPlayer::decode(const fs::path& path, SoundBuffer& out) {
   SF_INFO info{};
   SNDFILE* file = sf_open(path.string().c_str(), SFM_READ, &info);
   if (file == nullptr) {
@@ -72,24 +308,8 @@ std::optional<std::string> SoundPlayer::decode(const std::filesystem::path& path
   return std::nullopt;
 }
 
-bool SoundPlayer::load(const std::string& name, const std::filesystem::path& path) {
-  if (name.empty() || path.empty()) {
-    return false;
-  }
-
-  SoundBuffer buffer;
-  if (const auto error = decode(path, buffer)) {
-    kLog.warn("failed to load sound \"{}\" from {}: {}", name, path.string(), *error);
-    return false;
-  }
-
-  m_buffers[name] = std::make_shared<const SoundBuffer>(std::move(buffer));
-  kLog.info("loaded sound \"{}\" from {}", name, path.string());
-  return true;
-}
-
 std::optional<std::string>
-SoundPlayer::loadPluginSound(std::uint64_t ownerId, const std::string& name, const std::filesystem::path& path) {
+SoundPlayer::loadPluginSound(std::uint64_t ownerId, const std::string& name, const fs::path& path) {
   SoundBuffer buffer;
   if (const auto error = decode(path, buffer)) {
     kLog.warn("failed to load plugin sound \"{}\" from {}: {}", name, path.string(), *error);
@@ -103,12 +323,15 @@ SoundPlayer::loadPluginSound(std::uint64_t ownerId, const std::string& name, con
 
 void SoundPlayer::unloadPluginSounds(std::uint64_t ownerId) { m_pluginBuffers.erase(ownerId); }
 
-void SoundPlayer::play(const std::string& name) {
-  const auto it = m_buffers.find(name);
+void SoundPlayer::play(std::string_view name) {
+  if (!m_shellSoundsEnabled || m_disabledEvents.contains(name)) {
+    return;
+  }
+  const auto it = m_buffers.find(std::string(name));
   if (it == m_buffers.end()) {
     return;
   }
-  playBuffer(name, it->second);
+  playBuffer(std::string(name), it->second);
 }
 
 void SoundPlayer::playPluginSound(std::uint64_t ownerId, const std::string& name) {
@@ -131,6 +354,8 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
     return;
   }
 
+  // Audio callbacks and stream cleanup run independently of the shell's UI loop.
+  const ThreadLoopLock lock(m_threadLoop);
   removeFinished();
 
   for (const auto& active : m_active) {
@@ -141,9 +366,9 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
 
   auto active = std::make_unique<ActiveStream>();
   active->owner = this;
+  active->name = name;
   active->buffer = buffer;
-  active->listener = new spa_hook{};
-  spa_zero(*active->listener);
+  active->createdAt = std::chrono::steady_clock::now();
 
   pw_properties* props = pw_properties_new(
       PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Playback", PW_KEY_MEDIA_ROLE, "Notification", PW_KEY_APP_NAME,
@@ -151,12 +376,9 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
   );
   active->stream = pw_stream_new_simple(m_loop, "noctalia-sound", props, &kStreamEvents, active.get());
   if (active->stream == nullptr) {
-    delete active->listener;
     kLog.warn("failed to create stream for sound \"{}\"", name);
     return;
   }
-
-  pw_stream_add_listener(active->stream, active->listener, &kStreamEvents, active.get());
 
   std::uint8_t formatBuffer[1024];
   spa_pod_builder builder{};
@@ -174,16 +396,40 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
   );
   if (rc < 0) {
     kLog.warn("failed to connect stream for sound \"{}\": {}", name, spa_strerror(rc));
-    spa_hook_remove(active->listener);
-    delete active->listener;
     pw_stream_destroy(active->stream);
     return;
   }
 
+  kLog.debug("sound \"{}\": stream created (media.role=Notification)", name);
   m_active.push_back(std::move(active));
+  armStartTimeout();
 }
 
-void SoundPlayer::setVolume(float volume) { m_volume = std::clamp(volume, 0.0F, 1.0F); }
+void SoundPlayer::setShellSoundsEnabled(bool enabled) {
+  if (m_shellSoundsEnabled == enabled) {
+    return;
+  }
+  m_shellSoundsEnabled = enabled;
+  loadThemeSounds();
+}
+
+void SoundPlayer::setEventEnabled(std::string_view event, bool enabled) {
+  if (enabled) {
+    m_disabledEvents.erase(std::string(event));
+  } else {
+    m_disabledEvents.insert(std::string(event));
+  }
+}
+
+void SoundPlayer::setVolume(float volume) {
+  const float clamped = std::clamp(volume, 0.0F, 1.0F);
+  if (m_threadLoop == nullptr) {
+    m_volume = clamped;
+    return;
+  }
+  const ThreadLoopLock lock(m_threadLoop);
+  m_volume = clamped;
+}
 
 void SoundPlayer::onProcess(void* userdata) {
   auto* streamState = static_cast<ActiveStream*>(userdata);
@@ -194,13 +440,20 @@ void SoundPlayer::onProcess(void* userdata) {
 }
 
 void SoundPlayer::onStreamStateChanged(
-    void* userdata, pw_stream_state /*oldState*/, pw_stream_state state, const char* error
+    void* userdata, pw_stream_state oldState, pw_stream_state state, const char* error
 ) {
   auto* streamState = static_cast<ActiveStream*>(userdata);
   if (streamState == nullptr || streamState->owner == nullptr) {
     return;
   }
 
+  kLog.debug(
+      "sound \"{}\": {} -> {} (node {})", streamState->name, pw_stream_state_as_string(oldState),
+      pw_stream_state_as_string(state), pw_stream_get_node_id(streamState->stream)
+  );
+  if (state == PW_STREAM_STATE_STREAMING) {
+    streamState->started = true;
+  }
   if (state == PW_STREAM_STATE_ERROR) {
     kLog.warn("sound stream error: {}", error != nullptr ? error : "unknown");
     streamState->owner->markFinished(*streamState);
@@ -265,17 +518,71 @@ void SoundPlayer::processStream(ActiveStream& streamState) {
   }
 }
 
-void SoundPlayer::markFinished(ActiveStream& streamState) { streamState.finished = true; }
+void SoundPlayer::onStreamCloseTimer(void* userdata, std::uint64_t /*expirations*/) {
+  static_cast<SoundPlayer*>(userdata)->removeFinished();
+}
+
+void SoundPlayer::onStartTimeoutTimer(void* userdata, std::uint64_t /*expirations*/) {
+  auto* self = static_cast<SoundPlayer*>(userdata);
+  self->expireUnstarted();
+  self->removeFinished();
+  self->armStartTimeout();
+}
+
+void SoundPlayer::expireUnstarted() {
+  const auto now = std::chrono::steady_clock::now();
+  for (auto& active : m_active) {
+    if (active->finished || active->started || now - active->createdAt < kStreamStartTimeout) {
+      continue;
+    }
+    kLog.warn(
+        "sound \"{}\": stream was never linked to an output after {}s; check the media.role=Notification routing "
+        "in WirePlumber (see the FAQ)",
+        active->name, std::chrono::duration_cast<std::chrono::seconds>(kStreamStartTimeout).count()
+    );
+    active->finished = true;
+  }
+}
+
+void SoundPlayer::armStartTimeout() {
+  if (m_startTimeoutTimer == nullptr) {
+    return;
+  }
+  std::optional<std::chrono::steady_clock::time_point> earliest;
+  for (const auto& active : m_active) {
+    if (!active->finished && !active->started && (!earliest || active->createdAt < *earliest)) {
+      earliest = active->createdAt;
+    }
+  }
+  if (!earliest) {
+    pw_loop_update_timer(m_loop, m_startTimeoutTimer, nullptr, nullptr, false);
+    return;
+  }
+  const auto remaining = std::max(
+      std::chrono::nanoseconds(1),
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+          *earliest + kStreamStartTimeout - std::chrono::steady_clock::now()
+      )
+  );
+  const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(remaining);
+  timespec value{.tv_sec = seconds.count(), .tv_nsec = (remaining - seconds).count()};
+  pw_loop_update_timer(m_loop, m_startTimeoutTimer, &value, nullptr, false);
+}
+
+void SoundPlayer::markFinished(ActiveStream& streamState) {
+  streamState.finished = true;
+  // A finished stream stays connected and keeps the sink running until destroyed. Streams cannot be
+  // destroyed from their own callbacks, so close them on the next loop iteration.
+  if (m_streamCloseTimer != nullptr) {
+    timespec soon{.tv_sec = 0, .tv_nsec = 1};
+    pw_loop_update_timer(m_loop, m_streamCloseTimer, &soon, nullptr, false);
+  }
+}
 
 void SoundPlayer::removeFinished() {
   std::erase_if(m_active, [](const std::unique_ptr<ActiveStream>& active) {
     if (!active->finished) {
       return false;
-    }
-    if (active->listener != nullptr) {
-      spa_hook_remove(active->listener);
-      delete active->listener;
-      active->listener = nullptr;
     }
     if (active->stream != nullptr) {
       pw_stream_destroy(active->stream);

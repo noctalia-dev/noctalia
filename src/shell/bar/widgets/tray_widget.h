@@ -11,6 +11,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -44,6 +45,7 @@ public:
   ~TrayWidget() override;
 
   void setHoverOverlayParent(Node* node) noexcept { m_hoverOverlayParent = node; }
+  void setCapsuleCross(float cross) noexcept { m_capsuleCross = cross; }
   void create() override;
   [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
 
@@ -58,13 +60,12 @@ private:
   void doUpdate(Renderer& renderer) override;
   void buildDesktopIconIndex();
   [[nodiscard]] std::string resolveIconPath(const TrayItemInfo& item);
-  [[nodiscard]] std::string resolveFromTrayThemePath(std::string_view themePath, std::string_view iconName);
   void syncState(Renderer& renderer);
   void rebuild(Renderer& renderer);
   [[nodiscard]] std::string iconForItem(const TrayItemInfo& item) const;
   [[nodiscard]] bool isPinnedItem(const TrayItemInfo& item) const;
   [[nodiscard]] bool isHiddenItem(const TrayItemInfo& item) const;
-  [[nodiscard]] std::string drawerChevronGlyph(bool panelOpen) const;
+  [[nodiscard]] std::string_view drawerChevronGlyph(bool panelOpen) const;
   // Bar section gap is between capsule shells; inline tray icons share one shell, so add the
   // lateral inset that adjacent single-icon capsules would contribute between their icons.
   [[nodiscard]] float resolvedInlineEntryGap() const;
@@ -79,8 +80,8 @@ private:
   IconResolver m_iconResolver;
   std::unordered_map<std::string, std::string> m_appIcons;
   std::unordered_map<std::string, std::string> m_preferredIconPaths;
-  std::unordered_map<std::string, std::unordered_map<std::string, std::string>> m_trayThemePathIcons;
   std::uint64_t m_desktopEntriesVersion = 0;
+  std::uint64_t m_themePathIndexListener = 0;
   std::vector<TrayItemInfo> m_items;
   std::vector<std::string> m_hiddenItems;
   std::vector<std::string> m_pinnedItems;
@@ -108,4 +109,5 @@ private:
   Signal<>::ScopedConnection m_appIconColorizeConn;
   Node* m_hoverOverlayParent = nullptr;
   std::vector<HoverOverlayEntry> m_hoverOverlays;
+  float m_capsuleCross = 0.0F;
 };

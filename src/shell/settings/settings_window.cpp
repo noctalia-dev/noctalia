@@ -1,5 +1,7 @@
 #include "shell/settings/settings_window.h"
 
+#include "calendar/calendar_service.h"
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -9,8 +11,11 @@
 #include "core/log.h"
 #include "core/scoped_timer.h"
 #include "core/ui_phase.h"
+#include "dbus/idle/screensaver_service.h"
 #include "i18n/i18n.h"
+#include "idle/idle_inhibitor.h"
 #include "idle/idle_manager.h"
+#include "net/url_open.h"
 #include "render/core/async_texture_cache.h"
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
@@ -95,10 +100,10 @@ namespace {
     return {"bar", barName, std::string(lane)};
   }
 
-  void focusExistingSettingsWindow(WaylandConnection& wayland, wl_surface* surface) {
+  void focusExistingSettingsWindow(CompositorPlatform& platform, WaylandConnection& wayland, wl_surface* surface) {
     static constexpr std::string_view kSettingsAppId = "dev.noctalia.Noctalia";
     wayland.activateSurface(surface);
-    wayland.activateToplevelForAppId(kSettingsAppId);
+    platform.activateToplevelForAppId(kSettingsAppId);
   }
 
   [[nodiscard]] bool isSettingsSearchTypingKey(const KeyboardEvent& event) {
@@ -166,15 +171,42 @@ namespace {
 
 SettingsWindow::SettingsWindow() = default;
 
-SettingsWindow::~SettingsWindow() { destroyWindow(); }
+SettingsWindow::~SettingsWindow() {
+  setCalendarService(nullptr);
+  destroyWindow();
+}
+
+void SettingsWindow::setCalendarService(CalendarService* service) {
+  if (m_calendarService != nullptr && m_calendarCallbackId.has_value()) {
+    m_calendarService->removeChangeCallback(*m_calendarCallbackId);
+  }
+  m_calendarCallbackId.reset();
+  m_calendarService = service;
+  if (service == nullptr) {
+    return;
+  }
+  m_calendarSyncStatusRevision = service->syncStatusRevision();
+  m_calendarCallbackId = service->addChangeCallback([this] {
+    const std::uint64_t revision = m_calendarService->syncStatusRevision();
+    if (revision == m_calendarSyncStatusRevision) {
+      return;
+    }
+    m_calendarSyncStatusRevision = revision;
+    if (isOpen()) {
+      requestContentRebuild(true);
+    }
+  });
+}
 
 void SettingsWindow::initialize(
     WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, DependencyService* dependencies,
-    UPowerService* upower, IdleManager* idleManager, CompositorPlatform* platform, AccountsService* accounts
+    UPowerService* upower, IdleManager* idleManager, IdleInhibitor* idleInhibitor, CompositorPlatform* platform,
+    AccountsService* accounts
 ) {
   m_wayland = &wayland;
   m_platform = platform;
   m_idleManager = idleManager;
+  m_idleInhibitor = idleInhibitor;
   m_config = config;
   m_renderContext = renderContext;
   m_dependencies = dependencies;
@@ -183,12 +215,12 @@ void SettingsWindow::initialize(
   m_showAdvanced = m_config != nullptr ? m_config->config().shell.settingsShowAdvanced : false;
   m_modalHost.initialize(
       m_inputDispatcher,
-      [this]() {
+      [this] {
         if (m_surface != nullptr) {
           m_surface->requestLayout();
         }
       },
-      [this]() {
+      [this] {
         if (m_surface != nullptr) {
           m_surface->requestUpdateOnly();
         }
@@ -203,8 +235,7 @@ void SettingsWindow::initializeDialogPresenter(
   m_dialogPresenter = std::make_unique<settings::SettingsDialogPresenter>();
   m_dialogPresenter->initialize(
       m_modalHost, m_animations, thumbnails, colorFallback, glyphFallback, fileFallback,
-      [this]() { return shouldUseModalDialogs(); }, [this]() { return uiScale(); },
-      [this]() { dismissOpenSelectDropdown(); }
+      [this] { return shouldUseModalDialogs(); }, [this] { return uiScale(); }, [this] { dismissOpenSelectDropdown(); }
   );
 }
 
@@ -257,6 +288,15 @@ bool SettingsWindow::headerDragRegionContains(float sceneX, float sceneY) const 
   return sceneX >= dragLeft && sceneX < dragRight && sceneY >= dragTop && sceneY < dragBottom;
 }
 
+void SettingsWindow::openBrowserUrl(const std::string& url) {
+  if (m_platform == nullptr || m_surface == nullptr) {
+    return;
+  }
+
+  const auto token = m_platform->requestActivationToken(m_surface->wlSurface());
+  (void)net::openInBrowser(url, token);
+}
+
 bool SettingsWindow::ownsKeyboardSurface(wl_surface* surface) const noexcept {
   if (!isOpen() || surface == nullptr || m_surface == nullptr) {
     return false;
@@ -298,7 +338,7 @@ std::optional<LayerPopupParentContext> SettingsWindow::topmostPopupParentContext
     };
   };
 
-  const auto selectContext = [this, &makeContext]() -> std::optional<LayerPopupParentContext> {
+  const auto selectContext = [this, &makeContext] -> std::optional<LayerPopupParentContext> {
     if (m_selectPopup == nullptr || !m_selectPopup->isSelectDropdownOpen()) {
       return std::nullopt;
     }
@@ -399,9 +439,9 @@ void SettingsWindow::open(std::string context) {
   }
 
   if (isOpen()) {
-    const auto refocus = [this]() {
-      if (m_wayland != nullptr && m_surface != nullptr) {
-        focusExistingSettingsWindow(*m_wayland, m_surface->wlSurface());
+    const auto refocus = [this] {
+      if (m_platform != nullptr && m_wayland != nullptr && m_surface != nullptr) {
+        focusExistingSettingsWindow(*m_platform, *m_wayland, m_surface->wlSurface());
       }
     };
     refocus();
@@ -424,7 +464,7 @@ void SettingsWindow::open(std::string context) {
   m_surface->setRenderContext(m_renderContext);
   m_surface->setAnimationManager(&m_animations);
 
-  m_surface->setClosedCallback([this]() { destroyWindow(); });
+  m_surface->setClosedCallback([this] { destroyWindow(); });
 
   m_surface->setOutputChangedCallback([this](wl_output* currentOutput) {
     m_output = currentOutput;
@@ -443,7 +483,7 @@ void SettingsWindow::open(std::string context) {
     prepareFrame(needsUpdate, needsLayout);
   });
 
-  m_surface->setUpdateCallback([]() {});
+  m_surface->setUpdateCallback([] {});
 
   const float scale = uiScale();
   float desiredWidth = kWindowWidth * scale;
@@ -492,6 +532,7 @@ void SettingsWindow::openToBarWidget(std::string barName, std::string widgetName
   clearTransientSettingsState();
   clearStatusMessage();
   m_searchQuery.clear();
+  m_pluginSearchQuery.clear();
   m_selectedSection = "bar";
   m_selectedBarName = std::move(barName);
   m_selectedMonitorOverride.clear();
@@ -515,6 +556,7 @@ bool SettingsWindow::openToPlugin(std::string pluginId) {
   clearTransientSettingsState();
   clearStatusMessage();
   m_searchQuery.clear();
+  m_pluginSearchQuery.clear();
   m_selectedSection = "plugins";
   m_pendingOpenPluginSettingsId = std::move(pluginId);
   m_contentScrollState.offset = 0.0F;
@@ -533,6 +575,21 @@ void SettingsWindow::close() {
     return;
   }
   destroyWindow();
+}
+
+void SettingsWindow::closeForWidgetEditor() {
+  if (!isOpen()) {
+    return;
+  }
+  m_reopenAfterWidgetEditorSection = m_selectedSection;
+  DeferredCall::callLater([this] { close(); });
+}
+
+void SettingsWindow::reopenAfterWidgetEditor() {
+  if (m_reopenAfterWidgetEditorSection.empty()) {
+    return;
+  }
+  open(std::exchange(m_reopenAfterWidgetEditorSection, {}));
 }
 
 void SettingsWindow::dismissOpenSelectDropdown() {
@@ -558,6 +615,8 @@ void SettingsWindow::destroyWindow() {
   m_headerRow = nullptr;
   m_filterRow = nullptr;
   m_contentContainer = nullptr;
+  m_pageTitleRow = nullptr;
+  m_groupJumpRow = nullptr;
   m_contentScrollView = nullptr;
   m_sidebarScrollView = nullptr;
   m_sidebarNav = nullptr;
@@ -598,15 +657,17 @@ void SettingsWindow::destroyWindow() {
   m_creatingBarName.clear();
   m_renamingBarName.clear();
   m_pendingDeleteBarName.clear();
-  m_creatingMonitorOverrideBarName.clear();
-  m_creatingMonitorOverrideMatch.clear();
   m_renamingMonitorOverrideBarName.clear();
   m_renamingMonitorOverrideMatch.clear();
   m_pendingDeleteMonitorOverrideBarName.clear();
   m_pendingDeleteMonitorOverrideMatch.clear();
+  m_renamingDockMonitorOverride.clear();
+  m_pendingDeleteDockMonitorOverride.clear();
   m_pendingResetPageScope.clear();
   m_pendingResetSettingPaths.clear();
   m_searchQuery.clear();
+  m_pluginSearchQuery.clear();
+  m_pluginSearchDebounceTimer.stop();
   m_selectedSection.clear();
   m_selectedBarName.clear();
   m_selectedMonitorOverride.clear();
@@ -621,11 +682,12 @@ void SettingsWindow::destroyWindow() {
   m_showOverriddenOnly = false;
   m_sidebarScrollState = {};
   m_contentScrollState = {};
+  m_expandedSettingGroups.clear();
 
   // Plugin-store thumbnails are the only async textures this window holds; drop the
   // zero-ref residents once the scene (and with it every Image) is gone.
   if (m_asyncTextures != nullptr) {
-    DeferredCall::callLater([asyncTextures = m_asyncTextures]() { asyncTextures->trimUnused(0); });
+    DeferredCall::callLater([asyncTextures = m_asyncTextures] { asyncTextures->trimUnused(0); });
   }
 }
 
@@ -788,7 +850,7 @@ void SettingsWindow::scheduleDeferredRebuild() {
     return;
   }
   m_deferredRebuildQueued = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_deferredRebuildQueued = false;
     const bool sceneRebuild = m_deferredSceneRebuild;
     const bool refreshRegistry = m_deferredRefreshRegistry;
@@ -843,12 +905,12 @@ void SettingsWindow::refreshPluginListIfNeeded() {
   const std::uint64_t generation = m_pluginListRefreshGeneration;
   auto* manager = m_pluginManager;
   PluginsConfig pluginsSnapshot = m_config->config().plugins;
-  std::thread([this, manager, generation, pluginsSnapshot = std::move(pluginsSnapshot)]() {
+  std::thread([this, manager, generation, pluginsSnapshot = std::move(pluginsSnapshot)] {
     // Refresh the browsable catalog (throttled) so newly published plugins and update
     // badges appear on open, then list against the fetched revision.
     manager->fetchStaleCatalogs(pluginsSnapshot);
     auto plugins = manager->list(pluginsSnapshot, scripting::CatalogAccess::Network);
-    DeferredCall::callLater([this, generation, plugins = std::move(plugins)]() mutable {
+    DeferredCall::callLater([this, generation, plugins = std::move(plugins)] mutable {
       m_pluginListRefreshInFlight = false;
       if (generation != m_pluginListRefreshGeneration) {
         refreshPluginListIfNeeded();
@@ -857,7 +919,9 @@ void SettingsWindow::refreshPluginListIfNeeded() {
       m_pluginList = std::move(plugins);
       m_pluginListDirty = false;
       if (isOpen() && m_selectedSection == "plugins") {
-        requestContentRebuild();
+        requestContentRebuild(
+            /*refreshRegistry=*/false, /*refreshFilterRow=*/false, /*rebuildEditorSheet=*/m_pluginStoreSheetOpen
+        );
       }
     });
   }).detach();
@@ -880,8 +944,6 @@ void SettingsWindow::clearTransientSettingsState() {
   m_creatingBarName.clear();
   m_renamingBarName.clear();
   m_pendingDeleteBarName.clear();
-  m_creatingMonitorOverrideBarName.clear();
-  m_creatingMonitorOverrideMatch.clear();
   m_renamingMonitorOverrideBarName.clear();
   m_renamingMonitorOverrideMatch.clear();
   m_pendingDeleteMonitorOverrideBarName.clear();
@@ -989,9 +1051,25 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
         consumed = true;
         break;
       }
+      // A click that neither confirms nor moves a pending reset (empty space, labels, header) cancels it. Buttons act
+      // on release, so compare the pending state across the release dispatch.
+      const bool releaseLeft = !pressed && event.button == BTN_LEFT;
+      const auto pendingPageScope = releaseLeft ? m_pendingResetPageScope : std::string{};
+      const auto pendingSettingPaths =
+          releaseLeft ? m_pendingResetSettingPaths : decltype(m_pendingResetSettingPaths){};
       m_inputDispatcher.pointerButton(
-          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+          event.touch
       );
+      if (releaseLeft
+          && (!pendingPageScope.empty() || !pendingSettingPaths.empty())
+          && m_pendingResetPageScope == pendingPageScope
+          && m_pendingResetSettingPaths == pendingSettingPaths) {
+        m_pendingResetPageScope.clear();
+        m_pendingResetSettingPaths.clear();
+        m_rebuildRequested = true;
+        m_surface->requestLayout();
+      }
       consumed = m_pointerInside;
     }
     break;
@@ -1050,7 +1128,13 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  const auto requestRebuild = [this]() {
+  if (const InputArea* focused = m_inputDispatcher.focusedArea(); focused != nullptr && focused->capturesAllKeys()) {
+    m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
+    requestSceneInvalidation(m_sceneRoot.get(), m_surface.get());
+    return;
+  }
+
+  const auto requestRebuild = [this] {
     if (m_surface != nullptr) {
       m_rebuildRequested = true;
       m_surface->requestLayout();
@@ -1070,9 +1154,10 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
         || !m_creatingBarName.empty()
         || !m_renamingBarName.empty()
         || !m_pendingDeleteBarName.empty()
-        || !m_creatingMonitorOverrideBarName.empty()
         || !m_renamingMonitorOverrideBarName.empty()
-        || !m_pendingDeleteMonitorOverrideBarName.empty()) {
+        || !m_pendingDeleteMonitorOverrideBarName.empty()
+        || !m_pendingResetPageScope.empty()
+        || !m_pendingResetSettingPaths.empty()) {
       m_editingWidgetName.clear();
       m_editingCapsuleGroupId.clear();
       m_selectedLaneWidgets.clear();
@@ -1082,12 +1167,12 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
       m_creatingBarName.clear();
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
+      m_pendingResetPageScope.clear();
+      m_pendingResetSettingPaths.clear();
       requestRebuild();
       return;
     }
@@ -1191,7 +1276,11 @@ void SettingsWindow::onExternalOptionsChanged() { requestSceneRebuild(); }
 void SettingsWindow::onPluginsChanged() {
   markPluginListDirty();
   if (isOpen() && m_selectedSection == "plugins") {
-    requestContentRebuild();
+    // The plugin store's body shows install progress, so it needs the rebuild; any other
+    // editor sheet would just lose its focus for an unrelated plugin event.
+    requestContentRebuild(
+        /*refreshRegistry=*/false, /*refreshFilterRow=*/false, /*rebuildEditorSheet=*/m_pluginStoreSheetOpen
+    );
   }
 }
 
@@ -1201,6 +1290,37 @@ void SettingsWindow::invalidatePluginSourceCache(const std::string& sourceName) 
 
 void SettingsWindow::refreshIdleLiveStatusText() {
   if (m_idleLiveStatusLabel == nullptr) {
+    return;
+  }
+
+  if (m_screenSaverService != nullptr && m_screenSaverService->inhibitLocks() > 0) {
+    std::string inhibitors;
+    std::int64_t inhibitorCount = 0;
+    const auto append = [&inhibitors, &inhibitorCount](std::string_view entry) {
+      if (inhibitorCount > 0) {
+        inhibitors += ", ";
+      }
+      inhibitors += entry;
+      ++inhibitorCount;
+    };
+
+    if (m_idleInhibitor != nullptr && m_idleInhibitor->enabled()) {
+      append(i18n::tr("settings.idle.live-status.inhibit-reason-caffeine"));
+    }
+
+    for (const auto& [app, reason] : m_screenSaverService->inhibitorList()) {
+      append(app);
+      if (!reason.empty()) {
+        inhibitors.append(" (").append(reason).append(")");
+      }
+    }
+
+    if (inhibitorCount < m_screenSaverService->inhibitLocks()) {
+      append(i18n::tr("settings.idle.live-status.inhibit-reason-external"));
+    }
+
+    m_idleLiveStatusLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    m_idleLiveStatusLabel->setText(i18n::tr("settings.idle.live-status.inhibited", "inhibitors", inhibitors));
     return;
   }
 
@@ -1230,3 +1350,7 @@ void SettingsWindow::onIdleLiveStatusChanged() {
 }
 
 void SettingsWindow::onSecondTick() { onIdleLiveStatusChanged(); }
+
+bool SettingsWindow::wantsSecondTicks() const noexcept {
+  return m_idleLiveStatusLabel != nullptr && m_surface != nullptr;
+}

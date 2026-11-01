@@ -70,7 +70,7 @@ namespace scripting {
       return e->ipcEntryId() == entryId && (!hasBarName || e->ipcBarName() == barName);
     };
 
-    const auto focusedOutputName = [&]() -> std::string {
+    const auto focusedOutputName = [&] -> std::string {
       if (m_platform == nullptr) {
         return {};
       }

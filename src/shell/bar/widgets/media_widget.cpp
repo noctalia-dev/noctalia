@@ -12,7 +12,9 @@
 #include "ui/style.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <numbers>
 #include <wayland-client-protocol.h>
 
 using namespace mpris;
@@ -27,35 +29,51 @@ MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output*
     : m_mpris(mpris), m_httpClient(httpClient), m_maxWidth(static_cast<float>(options.maxWidth)),
       m_minWidth(static_cast<float>(options.minWidth)), m_artSize(static_cast<float>(options.artSize)),
       m_titleScrollMode(options.titleScrollMode), m_hideWhenNoMedia(options.hideWhenNoMedia),
+      m_hideWhenIdle(options.hideWhenIdle), m_rotateAlbumArt(options.rotateAlbumArt),
       m_albumArtOnly(options.albumArtOnly), m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist),
-      m_artistFirst(options.artistFirst) {}
+      m_artistFirst(options.artistFirst), m_showProgress(options.showProgress) {}
 
 void MediaWidget::create() {
+  const float artSize = m_artSize * m_contentScale;
   auto area = ui::inputArea({});
   area->setOnEnter([this](const InputArea::PointerData&) {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
   });
   m_area = area.get();
 
   area->addChild(
+      ui::progressBar(
+          {.out = &m_progressBar,
+           .fill = scaleAlpha(widgetForegroundOr(colorSpecFromRole(ColorRole::Primary)), 0.25F),
+           .track = clearColorSpec(),
+           .visible = false,
+           .participatesInLayout = false,
+           .configure = [](ProgressBar& bar) {
+             bar.setZIndex(-1);
+             bar.setHitTestVisible(false);
+             bar.setProgress(0.0F);
+           }}
+      )
+  );
+  area->addChild(
       ui::image({
           .out = &m_art,
           .fit = ImageFit::Cover,
-          .radius = (m_artSize * m_contentScale) * 0.5F,
-          .width = m_artSize * m_contentScale,
-          .height = m_artSize * m_contentScale,
+          .radius = resolvedBarCapsuleRadius(artSize, artSize),
+          .width = artSize,
+          .height = artSize,
       })
   );
 
   area->addChild(
       ui::label({
           .out = &m_label,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
@@ -80,26 +98,33 @@ void MediaWidget::create() {
 
 void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
-  if (rootNode == nullptr || m_art == nullptr || m_label == nullptr || m_emptyGlyph == nullptr) {
+  if (rootNode == nullptr
+      || m_art == nullptr
+      || m_label == nullptr
+      || m_emptyGlyph == nullptr
+      || m_progressBar == nullptr) {
     return;
   }
-  syncState(renderer);
+  const bool wasVertical = m_isVertical;
+  m_isVertical = containerHeight > containerWidth;
+  const auto active = activePlayer();
+  syncState(renderer, active);
 
-  const bool isVertical = containerHeight > containerWidth;
-  const bool artOnly = isVertical || m_albumArtOnly;
+  const bool artOnly = m_isVertical || m_albumArtOnly;
   const float maxLength = std::max(0.0F, m_maxWidth * m_contentScale);
   const float minLength = std::clamp(m_minWidth * m_contentScale, 0.0F, maxLength);
+  const bool showProgressFill = progressFillEligible(active);
 
   m_label->setColor(
       m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
                                         : colorSpecFromRole(ColorRole::OnSurfaceVariant)
   );
-  m_emptyGlyph->setGlyph(m_lastPlaybackStatus.empty() ? "disc-filled" : "music-off");
+  m_emptyGlyph->setGlyph(active.has_value() ? "disc" : "music-off");
   m_emptyGlyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
   m_emptyGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   m_emptyGlyph->measure(renderer);
 
-  const bool hideAlbumArt = m_hideAlbumArt && !isVertical;
+  const bool hideAlbumArt = m_hideAlbumArt && !m_isVertical;
   const bool showArtSlot = !hideAlbumArt && m_art->hasImage();
 
   // Clamp art to the label's single-line height so oversized art_size cannot
@@ -111,7 +136,7 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
     artSize = artOnly ? requestedArtSize : std::min(requestedArtSize, m_label->height());
     m_art->setVisible(true);
     m_art->setSize(artSize, artSize);
-    m_art->setRadius(artSize * 0.5F);
+    m_art->setRadius(resolvedBarCapsuleRadius(artSize, artSize));
   } else {
     m_art->setVisible(false);
     m_art->setSize(0.0F, 0.0F);
@@ -168,9 +193,50 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
                                          : (showArtSlot ? artSize : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0F));
     rootNode->setSize(std::clamp(contentWidth, minLength, maxLength), contentHeight);
   }
+  m_progressBar->setVisible(showProgressFill);
+  if (showProgressFill) {
+    const float fillWidth = rootNode->width();
+    const float fillHeight = rootNode->height();
+    m_progressBar->setPosition(0.0F, 0.0F);
+    m_progressBar->setSize(fillWidth, fillHeight);
+    m_progressBar->setRadius(resolvedBarCapsuleRadius(fillWidth, fillHeight));
+  }
+  // The update phase owns the fill value and the timer, and it runs before layout. Re-enter it when
+  // a layout-only pass changes an input it cannot observe, so the fill never shows a stale value and
+  // the timer cannot stay unarmed while the fill is on screen.
+  if (m_isVertical != wasVertical || showProgressFill != m_progressFillVisible) {
+    m_progressFillVisible = showProgressFill;
+    requestUpdate();
+  }
 }
 
-void MediaWidget::doUpdate(Renderer& renderer) { syncState(renderer); }
+void MediaWidget::doUpdate(Renderer& renderer) {
+  const auto active = activePlayer();
+  syncState(renderer, active);
+  syncProgress(active);
+}
+
+bool MediaWidget::needsFrameTick() const {
+  // hasImage() already implies the art slot is shown: syncState() clears the art when hide_album_art is set. Do not
+  // test visible() here, syncState() runs before doLayout() reveals the art slot for a newly loaded image.
+  return m_rotateAlbumArt && m_lastPlaybackStatus == "Playing" && m_art != nullptr && m_art->hasImage();
+}
+
+void MediaWidget::onFrameTick(float deltaMs) {
+  constexpr float kRotationsPerSecond = 0.1F;
+  constexpr float kTwoPi = 2.0F * std::numbers::pi_v<float>;
+  // The first tick after a pause carries the whole idle gap; clamp it so resuming does not jump the artwork.
+  constexpr float kMaxStepMs = 50.0F;
+
+  m_artRotation += (kTwoPi * kRotationsPerSecond) * (std::min(deltaMs, kMaxStepMs) / 1000.0F);
+  if (m_artRotation >= kTwoPi) {
+    m_artRotation -= kTwoPi;
+  }
+  if (m_art != nullptr) {
+    m_art->setRotation(m_artRotation);
+    requestRedraw();
+  }
+}
 
 void MediaWidget::applyTitleScrollMode(bool titleVisible) {
   if (m_label == nullptr) {
@@ -184,26 +250,71 @@ void MediaWidget::applyTitleScrollMode(bool titleVisible) {
   m_label->setAutoScrollOnlyWhenHovered(false);
 }
 
-void MediaWidget::syncWidgetVisibility(bool hasMedia) {
-  const bool showWidget = !m_hideWhenNoMedia || hasMedia;
-  if (Node* rootNode = root(); rootNode != nullptr) {
-    if (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget) {
-      rootNode->setVisible(showWidget);
-      rootNode->setParticipatesInLayout(showWidget);
-      requestUpdate();
-    }
+void MediaWidget::syncWidgetVisibility(bool showWidget) {
+  if (Node* rootNode = root();
+      rootNode != nullptr && (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget)) {
+    rootNode->setVisible(showWidget);
+    rootNode->setParticipatesInLayout(showWidget);
+    requestUpdate();
   }
 }
 
-void MediaWidget::syncState(Renderer& renderer) {
+std::optional<MprisPlayerInfo> MediaWidget::activePlayer() const {
+  return m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
+}
+
+bool MediaWidget::progressFillEligible(const std::optional<MprisPlayerInfo>& active) const noexcept {
+  return m_showProgress && !m_isVertical && !m_albumArtOnly && active.has_value() && active->lengthUs > 0;
+}
+
+void MediaWidget::syncProgress(const std::optional<MprisPlayerInfo>& active) {
+  if (m_progressBar == nullptr) {
+    return;
+  }
+  // Reset while ineligible so a later reveal cannot flash the previous track's position.
+  if (!progressFillEligible(active)) {
+    m_progressTimer.stop();
+    if (m_progressBar->progress() != 0.0F) {
+      m_progressBar->setProgress(0.0F);
+      requestRedraw();
+    }
+    return;
+  }
+
+  const float progress = static_cast<float>(active->positionUs) / static_cast<float>(active->lengthUs);
+  if (std::abs(progress - m_progressBar->progress()) > 0.0005F) {
+    m_progressBar->setProgress(progress);
+    requestRedraw();
+  }
+  if (active->playbackStatus != "Playing") {
+    m_progressTimer.stop();
+    return;
+  }
+  constexpr float kRateEpsilon = 0.0001F;
+  const float absRate = std::abs(static_cast<float>(active->rate));
+  if (absRate <= kRateEpsilon) {
+    m_progressTimer.stop();
+    return;
+  }
+  // One wakeup per pixel of travel: a 3-minute track in a 200 px widget moves a pixel every ~900 ms.
+  const float fillWidth = std::max(1.0F, m_progressBar->width());
+  const auto intervalMs = static_cast<std::int64_t>(
+      std::clamp(static_cast<float>(active->lengthUs / 1000) / (fillWidth * absRate), 250.0F, 1000.0F)
+  );
+  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this] { requestUpdate(); });
+}
+
+void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerInfo>& active) {
   if (m_art == nullptr || m_label == nullptr) {
     return;
   }
 
-  const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
-  syncWidgetVisibility(active.has_value());
-  if (m_hideWhenNoMedia && !active.has_value()) {
+  const bool playing = active.has_value() && active->playbackStatus == "Playing";
+  const bool showWidget = active.has_value() ? (!m_hideWhenIdle || playing) : !m_hideWhenNoMedia;
+  syncWidgetVisibility(showWidget);
+  if (!showWidget) {
     applyTitleScrollMode(false);
+    m_lastPlaybackStatus.clear();
     return;
   }
 
@@ -231,6 +342,9 @@ void MediaWidget::syncState(Renderer& renderer) {
         m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
                                           : colorSpecFromRole(ColorRole::OnSurfaceVariant)
     );
+    if (needsFrameTick()) {
+      requestFrameTick();
+    }
     requestRedraw();
     return;
   }
@@ -249,6 +363,8 @@ void MediaWidget::syncState(Renderer& renderer) {
 
   const int artDecodePx = static_cast<int>(std::round(64.0F * m_contentScale));
   if (artChanged) {
+    m_artRotation = 0.0F;
+    m_art->setRotation(0.0F);
     if (m_hideAlbumArt) {
       m_art->clear(renderer);
     } else {
@@ -271,11 +387,13 @@ void MediaWidget::syncState(Renderer& renderer) {
     }
   } else if (!m_lastArtUrl.empty() && !m_art->hasImage() && !m_hideAlbumArt) {
     const std::string artPath = cachedArtworkPath(m_lastArtUrl);
-    if (!artPath.empty()) {
-      if (m_art->setSourceFile(renderer, artPath, artDecodePx, false, true)) {
-        requestRedraw();
-      }
+    if (!artPath.empty() && m_art->setSourceFile(renderer, artPath, artDecodePx, false, true)) {
+      requestRedraw();
     }
+  }
+
+  if (needsFrameTick()) {
+    requestFrameTick();
   }
 
   if (textChanged || artChanged) {
@@ -286,7 +404,7 @@ void MediaWidget::syncState(Renderer& renderer) {
 }
 
 std::string MediaWidget::buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst) {
-  const std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
+  std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
   if (!player.title.empty() && !artists.empty()) {
     if (artistFirst) {
       return artists + " - " + player.title;

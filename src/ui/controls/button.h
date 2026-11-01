@@ -66,6 +66,9 @@ public:
   void setSurfaceOpacity(float opacity);
   void setOnClick(std::function<void()> callback);
   void setOnRightClick(std::function<void()> callback);
+  void setOnRightClickWithPointer(
+      std::function<void(float sceneX, float sceneY, std::uint32_t serial, std::uint32_t time)> callback
+  );
   void setOnPress(std::function<void(float localX, float localY, bool pressed)> callback);
   void setOnMotion(std::function<void()> callback);
   void setOnPointerMotion(std::function<void(float localX, float localY)> callback);
@@ -110,7 +113,9 @@ private:
   void applyColors(const Color& bg, const Color& border, const Color& label);
 
   // Constrain the label to the button's max width (minus padding/glyph) and ellipsize on overflow.
-  void applyLabelMaxWidth();
+  // `honorAssignedBox` also caps against the box a parent assigned, which equal-width segmented
+  // buttons rely on; measuring must not, or the label reports the previous pass's width.
+  void applyLabelMaxWidth(bool honorAssignedBox);
 
   void ensureBadge();
 
@@ -122,6 +127,7 @@ private:
   std::uint32_t m_animId = 0;
   std::function<void()> m_onClick;
   std::function<void()> m_onRightClick;
+  std::function<void(float, float, std::uint32_t, std::uint32_t)> m_onRightClickWithPointer;
   std::function<void(float, float, bool)> m_onPress;
   std::function<void()> m_onMotion;
   std::function<void(float, float)> m_onPointerMotion;
@@ -130,6 +136,9 @@ private:
   ButtonVariant m_variant = ButtonVariant::Default;
   ButtonPalette m_palette;
   std::optional<ButtonPalette> m_customPalette;
+  Color m_displayedBg{};
+  Color m_displayedBorder{};
+  Color m_displayedLabel{};
   // Animation: snapshot of colors at transition start
   Color m_fromBg{};
   Color m_fromBorder{};

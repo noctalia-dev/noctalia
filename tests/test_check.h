@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdio>
 #include <cstdlib>
+#include <print>
 #include <source_location>
 
 #ifdef NDEBUG
@@ -12,8 +12,8 @@ namespace noctalia::test {
 
   [[noreturn]] inline void
   failCheck(const char* expression, std::source_location location = std::source_location::current()) {
-    std::fprintf(
-        stderr, "%s:%u: check failed: %s\n", location.file_name(), static_cast<unsigned>(location.line()), expression
+    std::println(
+        stderr, "{}:{}: check failed: {}", location.file_name(), static_cast<unsigned>(location.line()), expression
     );
     std::exit(EXIT_FAILURE);
   }

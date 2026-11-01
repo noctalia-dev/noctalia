@@ -9,6 +9,7 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 
@@ -36,7 +37,7 @@ namespace {
       return Button::ButtonPalette{
           .borderWidth = Style::borderWidth,
           .normal = makeState(
-              colorSpecFromRole(ColorRole::SurfaceVariant), colorSpecFromRole(ColorRole::Outline),
+              colorSpecFromRole(ColorRole::SurfaceContainer), colorSpecFromRole(ColorRole::OutlineVariant),
               colorSpecFromRole(ColorRole::OnSurface)
           ),
           .hover =
@@ -46,8 +47,8 @@ namespace {
               colorSpecFromRole(ColorRole::OnPrimary)
           ),
           .disabled = makeState(
-              colorSpecFromRole(ColorRole::SurfaceVariant, kDisabledAlpha),
-              colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha),
+              colorSpecFromRole(ColorRole::SurfaceContainer, kDisabledAlpha),
+              colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
               colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)
           ),
           .selected = selectedState(),
@@ -73,7 +74,7 @@ namespace {
       return Button::ButtonPalette{
           .borderWidth = Style::borderWidth,
           .normal = makeState(
-              colorSpecFromRole(ColorRole::Secondary), colorSpecFromRole(ColorRole::Outline),
+              colorSpecFromRole(ColorRole::Secondary), colorSpecFromRole(ColorRole::OutlineVariant),
               colorSpecFromRole(ColorRole::OnSecondary)
           ),
           .hover =
@@ -84,7 +85,7 @@ namespace {
           ),
           .disabled = makeState(
               colorSpecFromRole(ColorRole::Secondary, kDisabledAlpha),
-              colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha),
+              colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
               colorSpecFromRole(ColorRole::OnSecondary)
           ),
           .selected = selectedState(),
@@ -93,7 +94,7 @@ namespace {
       return Button::ButtonPalette{
           .borderWidth = Style::borderWidth,
           .normal = makeState(
-              colorSpecFromRole(ColorRole::Error), colorSpecFromRole(ColorRole::Outline),
+              colorSpecFromRole(ColorRole::Error), colorSpecFromRole(ColorRole::OutlineVariant),
               colorSpecFromRole(ColorRole::OnError)
           ),
           .hover =
@@ -104,7 +105,8 @@ namespace {
           ),
           .disabled = makeState(
               colorSpecFromRole(ColorRole::Error, kDisabledAlpha),
-              colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), colorSpecFromRole(ColorRole::OnError)
+              colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
+              colorSpecFromRole(ColorRole::OnError)
           ),
           .selected = selectedState(),
       };
@@ -112,7 +114,7 @@ namespace {
       return Button::ButtonPalette{
           .borderWidth = Style::borderWidth,
           .normal = makeState(
-              colorSpecFromRole(ColorRole::Surface), colorSpecFromRole(ColorRole::Outline),
+              colorSpecFromRole(ColorRole::Surface), colorSpecFromRole(ColorRole::OutlineVariant),
               colorSpecFromRole(ColorRole::OnSurface)
           ),
           .hover =
@@ -123,7 +125,7 @@ namespace {
           ),
           .disabled = makeState(
               colorSpecFromRole(ColorRole::Surface, kDisabledAlpha),
-              colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha),
+              colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha),
               colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)
           ),
           .selected = selectedState(),
@@ -135,7 +137,7 @@ namespace {
           .hover =
               makeState(colorSpecFromRole(ColorRole::Hover), clearColorSpec(), colorSpecFromRole(ColorRole::OnHover)),
           .pressed = makeState(
-              colorSpecFromRole(ColorRole::SurfaceVariant), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
+              colorSpecFromRole(ColorRole::SurfaceContainer), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
           ),
           .disabled =
               makeState(clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha)),
@@ -148,7 +150,7 @@ namespace {
           .hover =
               makeState(colorSpecFromRole(ColorRole::Hover), clearColorSpec(), colorSpecFromRole(ColorRole::OnHover)),
           .pressed = makeState(
-              colorSpecFromRole(ColorRole::SurfaceVariant), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
+              colorSpecFromRole(ColorRole::SurfaceContainer), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)
           ),
           .disabled = makeState(clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)),
           .selected = std::nullopt,
@@ -193,7 +195,7 @@ Button::Button() {
       m_onEnter();
     }
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     applyVisualState();
     if (m_onLeave) {
       m_onLeave();
@@ -217,15 +219,19 @@ Button::Button() {
     if (!m_enabled) {
       return;
     }
-    if (data.button == BTN_RIGHT && m_onRightClick) {
-      m_onRightClick();
+    if (data.button == BTN_RIGHT && (m_onRightClick || m_onRightClickWithPointer)) {
+      if (m_onRightClickWithPointer) {
+        m_onRightClickWithPointer(data.sceneX, data.sceneY, data.serial, data.time);
+      } else {
+        m_onRightClick();
+      }
     } else if (data.button == BTN_LEFT && m_onClick) {
       m_onClick();
     }
   });
   area->setFocusable(true);
-  area->setOnFocusGain([this]() { applyVisualState(); });
-  area->setOnFocusLoss([this]() { applyVisualState(); });
+  area->setOnFocusGain([this] { applyVisualState(); });
+  area->setOnFocusLoss([this] { applyVisualState(); });
   area->setOnKeyDown([this](const InputArea::KeyData& key) {
     if (!key.pressed || !m_enabled || !m_onClick) {
       return;
@@ -306,6 +312,19 @@ void Button::setOnRightClick(std::function<void()> callback) {
   if (m_inputArea != nullptr) {
     m_inputArea->setAcceptedButtons(
         m_onRightClick ? InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}) : InputArea::buttonMask(BTN_LEFT)
+    );
+  }
+  refreshInputAreaEnabled();
+}
+
+void Button::setOnRightClickWithPointer(
+    std::function<void(float sceneX, float sceneY, std::uint32_t serial, std::uint32_t time)> callback
+) {
+  m_onRightClickWithPointer = std::move(callback);
+  if (m_inputArea != nullptr) {
+    m_inputArea->setAcceptedButtons(
+        (m_onRightClick || m_onRightClickWithPointer) ? InputArea::buttonMask({BTN_LEFT, BTN_RIGHT})
+                                                      : InputArea::buttonMask(BTN_LEFT)
     );
   }
   refreshInputAreaEnabled();
@@ -420,6 +439,7 @@ void Button::ensureBadge() {
   m_badgeLabel = static_cast<Label*>(badge->addChild(std::move(label)));
 
   m_badge = static_cast<Flex*>(addChild(std::move(badge)));
+  applyColors(m_targetBg, m_targetBorder, m_targetLabel);
 }
 
 void Button::updateInputArea() {
@@ -505,7 +525,8 @@ void Button::refreshInputAreaEnabled() {
             || static_cast<bool>(m_onPress)
             || static_cast<bool>(m_onEnter)
             || static_cast<bool>(m_onLeave)
-            || static_cast<bool>(m_onRightClick))
+            || static_cast<bool>(m_onRightClick)
+            || static_cast<bool>(m_onRightClickWithPointer))
     );
   }
 }
@@ -532,7 +553,7 @@ void Button::ensureGlyph() {
   // insertChildAt so the glyph lands before the label in the children vector,
   // which is what Flex iterates to assign layout positions
   if (m_label != nullptr) {
-    auto& kids = children();
+    const auto& kids = children();
     std::size_t labelIndex = 0;
     for (std::size_t i = 0; i < kids.size(); ++i) {
       if (kids[i].get() == m_label) {
@@ -554,6 +575,9 @@ void Button::ensureGlyph() {
 }
 
 void Button::applyColors(const Color& bg, const Color& border, const Color& label) {
+  m_displayedBg = bg;
+  m_displayedBorder = border;
+  m_displayedLabel = label;
   setFill(bg);
   setBorder(border, effectiveBorderWidth());
   if (m_label != nullptr) {
@@ -562,7 +586,7 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
   if (m_glyph != nullptr) {
     m_glyph->setColor(label);
   }
-  for (auto& child : children()) {
+  for (const auto& child : children()) {
     if (child.get() == m_label || child.get() == m_glyph || child.get() == m_badge) {
       continue;
     }
@@ -575,10 +599,20 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
   if (m_badge != nullptr) {
     m_badge->setFill(Color{label.r, label.g, label.b, label.a * 0.85F});
     if (m_badgeLabel != nullptr) {
-      m_badgeLabel->setColor(bg);
+      // The badge sits on the button, so its text inverts the button colors. A translucent or clear background
+      // (Ghost, panel transparency) would make the text vanish; composite it over Surface to keep it opaque.
+      const Color surface = resolveColorSpec(colorSpecFromRole(ColorRole::Surface));
+      const float a = std::clamp(bg.a, 0.0F, 1.0F);
+      m_badgeLabel->setColor(
+          Color{
+              surface.r + (bg.r - surface.r) * a,
+              surface.g + (bg.g - surface.g) * a,
+              surface.b + (bg.b - surface.b) * a,
+              1.0F,
+          }
+      );
     }
   }
-  m_visualStateInitialized = true;
 }
 
 float Button::effectiveBorderWidth() const noexcept {
@@ -653,9 +687,9 @@ void Button::applyVisualState() {
   }
 
   // Snapshot current display colors as the animation start point
-  m_fromBg = m_targetBg;
-  m_fromBorder = m_targetBorder;
-  m_fromLabel = m_targetLabel;
+  m_fromBg = m_displayedBg;
+  m_fromBorder = m_displayedBorder;
+  m_fromLabel = m_displayedLabel;
   m_targetBg = targetBg;
   m_targetBorder = targetBorder;
   m_targetLabel = targetLabel;
@@ -672,24 +706,38 @@ void Button::applyVisualState() {
             lerpColor(m_fromLabel, m_targetLabel, t)
         );
       },
-      [this]() { m_animId = 0; }
+      [this] { m_animId = 0; }
   );
   markPaintDirty();
 }
 
-void Button::applyLabelMaxWidth() {
+void Button::applyLabelMaxWidth(bool honorAssignedBox) {
   if (m_label == nullptr) {
     return;
   }
-  const float maxBtnWidth = maxWidth();
-  if (maxBtnWidth > 0.0F) {
-    const float padding = paddingLeft() + paddingRight();
-    const float glyphW = (m_glyph != nullptr && m_glyph->visible()) ? m_glyph->width() + gap() : 0.0F;
-    m_label->setMaxWidth(std::max(0.0F, maxBtnWidth - padding - glyphW));
-    m_label->setEllipsize(TextEllipsize::End);
-  } else {
-    m_label->setMaxWidth(0.0F);
+  // Equal-width segmented buttons never call setMaxWidth, so their labels only learn their
+  // budget from the box a parent assigned.
+  float maxBtnWidth = maxWidth();
+  if (honorAssignedBox && width() > 0.0F && (arrangingByLayout() || sizeAssignedByLayout())) {
+    maxBtnWidth = maxBtnWidth > 0.0F ? std::min(maxBtnWidth, width()) : width();
   }
+  if (maxBtnWidth <= 0.0F) {
+    m_label->setMaxWidth(0.0F);
+    return;
+  }
+
+  const float padding = paddingLeft() + paddingRight();
+  // A glyph only eats into the label's width when it sits beside it; stacked above (vertical
+  // buttons such as the control-center tiles) the label owns the full inner width.
+  const bool glyphSharesRow = m_glyph != nullptr && m_glyph->visible() && direction() == FlexDirection::Horizontal;
+  const float glyphW = glyphSharesRow ? m_glyph->width() + gap() : 0.0F;
+  // Ceil: Label ceils its own box, so a cap derived back out of that box can land a fraction
+  // under the text it already fits and ellipsize a label that does not overflow.
+  m_label->setMaxWidth(std::ceil(std::max(0.0F, maxBtnWidth - padding - glyphW)));
+  // A budget without a line limit wraps instead of ellipsizing: Pango only draws the ellipsis
+  // once the content exceeds an explicit line budget.
+  m_label->setMaxLines(1);
+  m_label->setEllipsize(TextEllipsize::End);
 }
 
 void Button::doLayout(Renderer& renderer) {
@@ -699,12 +747,13 @@ void Button::doLayout(Renderer& renderer) {
   const bool hasVisibleLabel = m_label != nullptr && m_label->visible();
   const bool glyphOnly = m_glyph != nullptr && !hasVisibleLabel;
 
-  if (m_label != nullptr) {
-    applyLabelMaxWidth();
-    m_label->measure(renderer);
-  }
+  // The label's budget subtracts the glyph's measured width, so the glyph measures first.
   if (m_glyph != nullptr) {
     m_glyph->measure(renderer);
+  }
+  if (m_label != nullptr) {
+    applyLabelMaxWidth(/*honorAssignedBox=*/true);
+    m_label->measure(renderer);
   }
 
   Flex::doLayout(renderer);
@@ -732,7 +781,7 @@ void Button::doLayout(Renderer& renderer) {
     float contentBottom = 0.0F;
     bool haveContent = false;
 
-    for (auto& child : children()) {
+    for (const auto& child : children()) {
       Node* node = child.get();
       if (node == nullptr || !node->visible() || !node->participatesInLayout() || node->zIndex() < 0) {
         continue;
@@ -760,15 +809,15 @@ void Button::doLayout(Renderer& renderer) {
       const float contentHeight = contentBottom - contentTop;
       float targetLeft = 0.0F;
       if (m_contentAlign == ButtonContentAlign::Center) {
-        targetLeft = std::round((width() - contentWidth) * 0.5F);
+        targetLeft = (width() - contentWidth) * 0.5F;
       } else { // End
         targetLeft = std::round(Style::rtl() ? paddingLeft() : width() - contentWidth - paddingRight());
       }
       const float shiftX = targetLeft - contentLeft;
-      const float targetTop = std::round((height() - contentHeight) * 0.5F);
+      const float targetTop = (height() - contentHeight) * 0.5F;
       const float shiftY = targetTop - contentTop;
       if (std::abs(shiftX) > 0.01F || std::abs(shiftY) > 0.01F) {
-        for (auto& child : children()) {
+        for (const auto& child : children()) {
           Node* node = child.get();
           if (node == nullptr || !node->visible() || !node->participatesInLayout() || node->zIndex() < 0) {
             continue;
@@ -800,10 +849,13 @@ void Button::doLayout(Renderer& renderer) {
   if (m_animId == 0) {
     applyVisualState();
   }
+  // Color changes before the first layout (the caller's initial variant and state) snap; later ones animate.
+  m_visualStateInitialized = true;
 }
 
 LayoutSize Button::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
-  applyLabelMaxWidth();
+  // Measuring reports intrinsic size; the assigned box is last pass's and would cap it.
+  applyLabelMaxWidth(/*honorAssignedBox=*/false);
   return measureByLayout(renderer, constraints);
 }
 

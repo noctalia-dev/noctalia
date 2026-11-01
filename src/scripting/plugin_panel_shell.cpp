@@ -28,6 +28,14 @@ namespace scripting {
       return field;
     }
 
+    ManifestField makeLayerField(std::string_view entryId, std::string_view defaultValue) {
+      ManifestField field;
+      field.key = panelShellSettingKey(entryId, "layer");
+      field.type = ManifestFieldType::Select;
+      field.stringDefault = std::string(defaultValue);
+      return field;
+    }
+
     ManifestField makeOpenNearClickField(std::string_view entryId, bool defaultValue) {
       ManifestField field;
       field.key = panelShellSettingKey(entryId, "open_near_click");
@@ -84,6 +92,7 @@ namespace scripting {
     const std::string placementKey = panelShellSettingKey(entry.id, "placement");
     const std::string positionKey = panelShellSettingKey(entry.id, "position");
     const std::string openNearClickKey = panelShellSettingKey(entry.id, "open_near_click");
+    const std::string layerKey = panelShellSettingKey(entry.id, "layer");
     // A persistent panel is always placed floating and is never opened from a bar
     // widget's anchor, so those two settings would do nothing.
     if (!entry.panelPersistent && !hasSettingKey(entry, placementKey)) {
@@ -91,6 +100,9 @@ namespace scripting {
     }
     if (!hasSettingKey(entry, positionKey)) {
       entry.settings.push_back(makePositionField(entry.id, entry.panelPositionDefault));
+    }
+    if (!hasSettingKey(entry, layerKey)) {
+      entry.settings.push_back(makeLayerField(entry.id, entry.panelLayerDefault));
     }
     if (!entry.panelPersistent && !hasSettingKey(entry, openNearClickKey)) {
       entry.settings.push_back(makeOpenNearClickField(entry.id, entry.panelOpenNearClickDefault));
@@ -113,10 +125,13 @@ namespace scripting {
     return std::ranges::contains(kPanelKeyboardFocusModes, value);
   }
 
+  bool isValidPanelLayer(std::string_view value) noexcept { return std::ranges::contains(kPanelLayers, value); }
+
   bool isPanelShellSettingKey(std::string_view entryId, std::string_view key) noexcept {
     return key == panelShellSettingKey(entryId, "placement")
         || key == panelShellSettingKey(entryId, "position")
-        || key == panelShellSettingKey(entryId, "open_near_click");
+        || key == panelShellSettingKey(entryId, "open_near_click")
+        || key == panelShellSettingKey(entryId, "layer");
   }
 
   PluginPanelShellConfig resolvePluginPanelShellConfig(
@@ -126,6 +141,7 @@ namespace scripting {
     const std::string placementKey = panelShellSettingKey(entry.id, "placement");
     const std::string positionKey = panelShellSettingKey(entry.id, "position");
     const std::string openNearClickKey = panelShellSettingKey(entry.id, "open_near_click");
+    const std::string layerKey = panelShellSettingKey(entry.id, "layer");
     config.placement = panelPlacementFromString(
         settingString(settings, placementKey, entry.panelPlacementDefault), PanelPlacement::Floating
     );
@@ -134,6 +150,10 @@ namespace scripting {
       config.position = entry.panelPositionDefault;
     }
     config.openNearClick = settingBool(settings, openNearClickKey, entry.panelOpenNearClickDefault);
+    config.layer = settingString(settings, layerKey, entry.panelLayerDefault);
+    if (!isValidPanelLayer(config.layer)) {
+      config.layer = entry.panelLayerDefault;
+    }
     return config;
   }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -38,7 +39,9 @@ public:
   void pointerMotion(float x, float y, std::uint32_t serial);
   void syncPointerHover();
   // Returns true if the event was consumed by a scene widget
-  bool pointerButton(float x, float y, std::uint32_t button, bool pressed);
+  bool pointerButton(
+      float x, float y, std::uint32_t button, bool pressed, std::uint32_t serial, std::uint32_t time, bool touch
+  );
   bool pointerAxis(
       float x, float y, std::uint32_t axis, std::uint32_t axisSource, double value, std::int32_t discrete,
       std::int32_t value120, float lines, std::uint32_t axisGestureSerial = 0
@@ -73,6 +76,17 @@ private:
   void clearTextInputFocus(InputArea* area);
   void syncTextInputFocus();
 
+  struct TouchScrollGesture {
+    bool pending = false;
+    float pressX = 0.0F;
+    float pressY = 0.0F;
+    std::uint32_t button = 0;
+    std::uint32_t serial = 0;
+    std::uint32_t time = 0;
+    InputArea* verticalArea = nullptr;
+    InputArea* horizontalArea = nullptr;
+  };
+
   Node* m_sceneRoot = nullptr;
   CursorShapeCallback m_cursorShapeCallback;
   HoverChangeCallback m_hoverChangeCallback;
@@ -84,6 +98,12 @@ private:
   InputArea* m_hoveredArea = nullptr;
   InputArea* m_focusedArea = nullptr;
   InputArea* m_capturedArea = nullptr; // held while any button is pressed
+  TouchScrollGesture m_touchGesture;
+  // Scroll-gesture owner: set on the first consumed axis frame of a gesture, held until the
+  // gesture ends (pointer moved, button pressed, or pause), so content moving under a
+  // stationary pointer cannot take over the rest of the gesture.
+  InputArea* m_axisGestureArea = nullptr;
+  std::chrono::steady_clock::time_point m_lastAxisTime;
   std::optional<std::size_t> m_stashedTabFocusIndex;
   std::optional<std::string> m_stashedTabFocusKey;
   std::uint32_t m_lastSerial = 0;

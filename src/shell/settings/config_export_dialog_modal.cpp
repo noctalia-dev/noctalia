@@ -49,19 +49,19 @@ namespace settings {
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     m_modalId = m_host->push(
         SettingsModalRequest{
-            .build = [this, aliveGuard]() -> std::unique_ptr<Node> { return aliveGuard.expired() ? nullptr : build(); },
+            .build = [this, aliveGuard] -> std::unique_ptr<Node> { return aliveGuard.expired() ? nullptr : build(); },
             .measure =
                 [this](Renderer& renderer, const SettingsModalLayoutSpace& space) { return measure(renderer, space); },
             .arrange = [this](Renderer& renderer, float width, float height) { arrange(renderer, width, height); },
-            .initialFocusArea = [this]() { return m_exportButton != nullptr ? m_exportButton->inputArea() : nullptr; },
+            .initialFocusArea = [this] { return m_exportButton != nullptr ? m_exportButton->inputArea() : nullptr; },
             .requestClose =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     close();
                   }
                 },
             .onClosed =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     m_open = false;
                     m_modalId.reset();
@@ -100,38 +100,41 @@ namespace settings {
         .padding = gap,
     });
 
-    root->addChild(
-        ui::row(
-            {
-                .align = FlexAlign::Center,
-                .gap = Style::spaceSm * m_scale,
-            },
-            ui::label({
-                .text = i18n::tr("settings.export-config.title"),
-                .fontSize = Style::fontSizeTitle * m_scale,
-                .fontWeight = FontWeight::Bold,
-                .color = colorSpecFromRole(ColorRole::OnSurface),
-                .flexGrow = 1.0F,
-            }),
-            ui::button({
-                .glyph = "close",
-                .glyphSize = Style::fontSizeBody * m_scale,
-                .variant = ButtonVariant::Default,
-                .minWidth = Style::controlHeightSm * m_scale,
-                .minHeight = Style::controlHeightSm * m_scale,
-                .padding = Style::spaceXs * m_scale,
-                .radius = Style::scaledRadiusMd(m_scale),
-                .onClick = [this]() {
-                  const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                  DeferredCall::callLater([this, aliveGuard]() {
-                    if (!aliveGuard.expired()) {
-                      close();
-                    }
-                  });
-                },
-            })
-        )
+    auto header = ui::row({
+        .align = FlexAlign::Center,
+        .gap = Style::spaceSm * m_scale,
+    });
+    header->addChild(
+        ui::label({
+            .text = i18n::tr("settings.export-config.title"),
+            .fontSize = Style::fontSizeTitle * m_scale,
+            .fontWeight = FontWeight::Bold,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .flexGrow = 1.0F,
+        })
     );
+    if (Style::closeButtonsEnabled()) {
+      header->addChild(
+          ui::button({
+              .glyph = "close",
+              .glyphSize = Style::fontSizeBody * m_scale,
+              .variant = ButtonVariant::Default,
+              .minWidth = Style::controlHeightSm * m_scale,
+              .minHeight = Style::controlHeightSm * m_scale,
+              .padding = Style::spaceXs * m_scale,
+              .radius = Style::scaledRadiusMd(m_scale),
+              .onClick = [this] {
+                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                DeferredCall::callLater([this, aliveGuard] {
+                  if (!aliveGuard.expired()) {
+                    close();
+                  }
+                });
+              },
+          })
+      );
+    }
+    root->addChild(std::move(header));
 
     root->addChild(
         ui::column(
@@ -151,6 +154,35 @@ namespace settings {
     );
 
     root->addChild(
+        ui::column(
+            {
+                .align = FlexAlign::Stretch,
+                .gap = Style::spaceXs * m_scale,
+                .padding = Style::spaceSm * m_scale,
+                .configure =
+                    [this](Flex& warning) {
+                      warning.setRadius(Style::scaledRadiusMd(m_scale));
+                      warning.setFill(colorSpecFromRole(ColorRole::SecondaryContainer));
+                      warning.setBorder(colorSpecFromRole(ColorRole::Secondary), Style::borderWidth);
+                    },
+            },
+            ui::label({
+                .text = i18n::tr("settings.export-config.privacy-warning-title"),
+                .fontSize = Style::fontSizeBody * m_scale,
+                .fontWeight = FontWeight::Bold,
+                .color = colorSpecFromRole(ColorRole::OnSecondaryContainer),
+                .maxLines = 0,
+            }),
+            ui::label({
+                .text = i18n::tr("settings.export-config.privacy-warning-description"),
+                .fontSize = Style::fontSizeCaption * m_scale,
+                .color = colorSpecFromRole(ColorRole::OnSecondaryContainer),
+                .maxLines = 0,
+            })
+        )
+    );
+
+    root->addChild(
         ui::row(
             {
                 .align = FlexAlign::Center,
@@ -166,9 +198,9 @@ namespace settings {
                 .paddingH = Style::spaceMd * m_scale,
                 .radius = Style::scaledRadiusMd(m_scale),
                 .onClick =
-                    [this]() {
+                    [this] {
                       const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                      DeferredCall::callLater([this, aliveGuard]() {
+                      DeferredCall::callLater([this, aliveGuard] {
                         if (!aliveGuard.expired()) {
                           close();
                         }
@@ -184,9 +216,9 @@ namespace settings {
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceMd * m_scale,
                 .radius = Style::scaledRadiusMd(m_scale),
-                .onClick = [this]() {
+                .onClick = [this] {
                   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                  DeferredCall::callLater([this, aliveGuard]() {
+                  DeferredCall::callLater([this, aliveGuard] {
                     if (!aliveGuard.expired()) {
                       accept();
                     }
@@ -254,8 +286,8 @@ namespace settings {
             .configure =
                 [this](Flex& row) {
                   row.setRadius(Style::scaledRadiusMd(m_scale));
-                  row.setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F));
-                  row.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+                  row.setFill(colorSpecFromRole(ColorRole::SurfaceContainerLow));
+                  row.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
                 },
         },
         ui::radioButton({
