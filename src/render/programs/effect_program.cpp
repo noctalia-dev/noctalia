@@ -1085,9 +1085,7 @@ void EffectProgram::draw(
     glUniform4f(pd.bgColorLoc, style.bgColor.r, style.bgColor.g, style.bgColor.b, style.bgColor.a);
   }
   if (pd.accentColorLoc >= 0) {
-    glUniform4f(
-        pd.accentColorLoc, style.accentColor.r, style.accentColor.g, style.accentColor.b, style.accentColor.a
-    );
+    glUniform4f(pd.accentColorLoc, style.accentColor.r, style.accentColor.g, style.accentColor.b, style.accentColor.a);
   }
   if (pd.radiusLoc >= 0) {
     glUniform1f(pd.radiusLoc, style.radius);
