@@ -3663,7 +3663,7 @@ namespace settings {
             tr("settings.schema.bar.auto-hide-reserve-space.description"), path("auto_hide_reserve_space"),
             ToggleSetting{bar.autoHideReserveSpace}, "autohide immersive exclusive zone"
         );
-        e.visibleWhen = reserveSpaceOn;
+        e.visibleWhen = [autoHideOn, reserveSpaceOn](const Config& c) { return autoHideOn(c) && reserveSpaceOn(c); };
         entries.push_back(std::move(e));
       }
       entries.push_back(makeEntry(
@@ -4061,7 +4061,9 @@ namespace settings {
               ToggleSetting{ovr.autoHideReserveSpace.value_or(bar.autoHideReserveSpace)},
               "autohide immersive exclusive zone"
           );
-          e.visibleWhen = monitorReserveSpaceOn;
+          e.visibleWhen = [monitorAutoHideOn, monitorReserveSpaceOn](const Config& c) {
+            return monitorAutoHideOn(c) && monitorReserveSpaceOn(c);
+          };
           entries.push_back(std::move(e));
         }
         entries.push_back(makeEntry(
