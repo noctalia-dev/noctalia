@@ -591,13 +591,21 @@ void NotificationToast::onConfigReload() {
     }
   }
 
-  for (std::size_t i = 0; i < m_entries.size(); ++i) {
+  const bool newestOnEdge = isNewestOnEdge();
+  for (std::size_t n = 0; n < m_entries.size(); ++n) {
+    const std::size_t i = newestOnEdge ? m_entries.size() - 1 - n : n;
     auto& entry = m_entries[i];
-    if (entry.exiting || !wasPlaced[i]) {
+    if (entry.exiting || (!newestOnEdge && !wasPlaced[i])) {
       continue;
     }
     if (const auto placement = findPlacementY(entry.height, entry.targetOutput); placement.has_value()) {
       entry.y = *placement;
+      if (!wasPlaced[i]) {
+        entry.remainingProgress = 1.0F;
+        if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
+          m_notifications->resumeExpiry(entry.notificationId, entry.rawTimeoutMs);
+        }
+      }
     } else if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
       m_notifications->pauseExpiry(entry.notificationId);
     }
@@ -608,6 +616,7 @@ void NotificationToast::onConfigReload() {
   }
   revealQueuedEntries();
   enforceMaxVisible();
+  reflowNewestOnEdge();
   requestLayout();
 }
 
@@ -621,6 +630,7 @@ void NotificationToast::onOutputChange() {
   }
   revealQueuedEntries();
   enforceMaxVisible();
+  reflowNewestOnEdge();
   requestLayout();
 }
 
@@ -711,7 +721,7 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
             || prevToastBodyLines != m_entries[i].toastBodyLines;
         const bool hovered = m_entries[i].hovered;
 
-        if (previouslyPlaced) {
+        if (previouslyPlaced && !isNewestOnEdge()) {
           if (canKeepPlacement(m_entries[i], n.id)) {
             evictOverlappingEntries(i);
             if (!canKeepPlacement(m_entries[i], n.id)) {
@@ -866,6 +876,7 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
         if (!hasPlacement(m_entries[i]) || std::abs(previousHeight - m_entries[i].height) > 0.5F) {
           syncEntryVisibility(i);
           revealQueuedEntries();
+          reflowNewestOnEdge();
         }
         break;
       }
@@ -926,9 +937,19 @@ void NotificationToast::addPopup(const Notification& n) {
   entry.rawTimeoutMs = n.timeout;
   entry.remainingProgress = 1.0F;
   refreshEntryGeometry(entry);
-  if (const auto placement = findPlacementY(entry.height, entry.targetOutput); placement.has_value()) {
+  bool placed = false;
+  if (isNewestOnEdge()) {
+    const float placementBottom = maxPlacementBottom(entry.targetOutput);
+    const float edgeY = isBottomStacking() ? placementBottom - entry.height : paddingTop(notificationUiScale(m_config));
+    if (edgeY >= 0.0F && edgeY + entry.height <= placementBottom + 0.5F) {
+      entry.y = edgeY;
+      placed = true;
+    }
+  } else if (const auto placement = findPlacementY(entry.height, entry.targetOutput); placement.has_value()) {
     entry.y = *placement;
-  } else if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
+    placed = true;
+  }
+  if (!placed && entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
     // Queued off-screen: freeze the manager-side auto-dismiss timer so the notification
     // doesn't expire silently before a slot opens up. It will be resumed with the full
     // duration when revealQueuedEntries() places the card.
@@ -943,9 +964,11 @@ void NotificationToast::addPopup(const Notification& n) {
     }
     inst->cards.resize(m_entries.size());
   }
+  reflowNewestOnEdge();
   syncEntryVisibility(index);
   revealQueuedEntries();
   enforceMaxVisible();
+  reflowNewestOnEdge();
 
   kLog.debug("notification toast: showing #{}", n.id);
 }
@@ -1031,7 +1054,9 @@ void NotificationToast::finishRemoval(uint32_t notificationId) {
     if (m_config != nullptr && m_config->config().notification.collapseOnDismiss) {
       collapseStack();
     }
-    revealQueuedEntries();
+    if (revealQueuedEntries()) {
+      reflowNewestOnEdge();
+    }
     // A placed entry can overflow a shorter monitor and stay absent there while it fits a
     // taller one. Now that this dismissal freed room (and any collapse repacked the stack),
     // re-check per-instance visibility so it appears on monitors where it now fits.
@@ -1170,7 +1195,7 @@ void NotificationToast::removeCardFromInstance(Instance& inst, std::size_t entry
     return;
   }
 
-  if (entryIndex < m_entries.size()) {
+  if (entryIndex < m_entries.size() && (m_entries[entryIndex].hovered || m_entries[entryIndex].hoverOwners > 0)) {
     resetPopupHover(m_entries[entryIndex].notificationId, m_entries[entryIndex].displayDurationMs, false);
   }
 
@@ -1381,7 +1406,12 @@ void NotificationToast::resetPopupHover(uint32_t notificationId, int totalDurati
   if (m_config != nullptr && m_config->config().notification.collapseOnDismiss) {
     collapseStack();
   }
-  revealQueuedEntries();
+  if (revealQueuedEntries()) {
+    reflowNewestOnEdge();
+  }
+  for (std::size_t i = 0; i < m_entries.size(); ++i) {
+    syncEntryVisibility(i);
+  }
 }
 
 void NotificationToast::resetInstanceHover(Instance& inst, bool resumeTimers) {
@@ -1500,7 +1530,7 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
   }
 }
 
-void NotificationToast::revealQueuedEntries() {
+bool NotificationToast::revealQueuedEntries() {
   // enforceMaxVisible() only runs on add, config reload and output change; other reveal paths must respect
   // max_visible here.
   const int max = m_config != nullptr ? m_config->config().notification.maxVisible : 0;
@@ -1513,6 +1543,7 @@ void NotificationToast::revealQueuedEntries() {
     });
     return placedInStack >= max;
   };
+  bool revealed = false;
   bool placed = false;
   do {
     placed = false;
@@ -1526,9 +1557,11 @@ void NotificationToast::revealQueuedEntries() {
         continue;
       }
       entry.y = *placement;
-      // Restart the manager-side expiry with the full duration now that the card is
-      // actually visible. Matches displayDurationMs so the progress bar and the
-      // manager timer finish together.
+      revealed = true;
+      // Restart the countdown and the manager-side expiry with the full duration now that
+      // the card is actually visible, so the progress bar and manager timer still finish
+      // together instead of the bar dismissing the toast early.
+      entry.remainingProgress = 1.0F;
       if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
         m_notifications->resumeExpiry(entry.notificationId, entry.rawTimeoutMs);
       }
@@ -1536,6 +1569,7 @@ void NotificationToast::revealQueuedEntries() {
       placed = true;
     }
   } while (placed);
+  return revealed;
 }
 
 void NotificationToast::enforceMaxVisible() {
@@ -1718,6 +1752,10 @@ bool NotificationToast::entriesShareStack(const PopupEntry& lhs, const PopupEntr
 }
 
 bool NotificationToast::isBottomStacking() const { return isBottomPosition(notificationPosition()); }
+
+bool NotificationToast::isNewestOnEdge() const {
+  return m_config != nullptr && m_config->config().notification.newestOnEdge;
+}
 
 NotificationToast::RevealDirection NotificationToast::revealDirection() const {
   return revealDirectionForPosition(notificationPosition());
@@ -1906,7 +1944,7 @@ void NotificationToast::collapseStack() {
       std::size_t index;
       float oldPrimary;
       float newPrimary;
-      bool hovered;
+      bool pinned;
     };
     std::vector<PlacedEntry> placed;
     for (std::size_t i = 0; i < m_entries.size(); ++i) {
@@ -1915,24 +1953,59 @@ void NotificationToast::collapseStack() {
           && (!m_followFocusedOutput || m_entries[i].targetOutput == targetOutput)) {
         const float oldPrimary =
             isBottomStacking() ? placementBottom - (m_entries[i].y + m_entries[i].height) : m_entries[i].y;
-        placed.push_back({i, oldPrimary, oldPrimary, m_entries[i].hovered});
+        placed.push_back({i, oldPrimary, oldPrimary, m_entries[i].hovered || m_entries[i].replyInputFocused});
       }
     }
     if (placed.empty()) {
       return;
     }
 
-    std::ranges::sort(placed, {}, &PlacedEntry::oldPrimary);
-
     float cursor = isBottomStacking() ? 0.0F : topPad;
-    for (auto& p : placed) {
-      if (p.hovered) {
-        cursor = std::max(cursor, p.oldPrimary + m_entries[p.index].height + layoutGap);
-        continue;
-      }
+    if (isNewestOnEdge()) {
+      std::ranges::sort(placed, std::ranges::greater{}, &PlacedEntry::index);
 
-      p.newPrimary = cursor;
-      cursor = cursor + m_entries[p.index].height + layoutGap;
+      struct ReservedSlot {
+        float start;
+        float end;
+      };
+      std::vector<ReservedSlot> reserved;
+      for (const auto& p : placed) {
+        if (p.pinned) {
+          reserved.push_back({p.oldPrimary, p.oldPrimary + m_entries[p.index].height});
+        }
+      }
+      for (auto& p : placed) {
+        const float height = m_entries[p.index].height;
+        if (p.pinned) {
+          p.newPrimary = p.oldPrimary;
+          continue;
+        }
+
+        bool shifted = true;
+        while (shifted) {
+          shifted = false;
+          for (const auto& slot : reserved) {
+            if (cursor < slot.end + layoutGap && cursor + height + layoutGap > slot.start) {
+              cursor = slot.end + layoutGap;
+              shifted = true;
+            }
+          }
+        }
+
+        p.newPrimary = cursor;
+        cursor = cursor + height + layoutGap;
+      }
+    } else {
+      std::ranges::sort(placed, {}, &PlacedEntry::oldPrimary);
+      for (auto& p : placed) {
+        if (p.pinned) {
+          cursor = std::max(cursor, p.oldPrimary + m_entries[p.index].height + layoutGap);
+          continue;
+        }
+
+        p.newPrimary = cursor;
+        cursor = cursor + m_entries[p.index].height + layoutGap;
+      }
     }
 
     for (auto& p : placed) {
@@ -1943,7 +2016,24 @@ void NotificationToast::collapseStack() {
       }
     }
 
+    if (isNewestOnEdge()) {
+      for (auto& p : placed) {
+        const float height = m_entries[p.index].height;
+        if (p.pinned || p.newPrimary + height <= placementBottom + 0.5F) {
+          continue;
+        }
+        m_entries[p.index].y = kQueuedY;
+        if (m_entries[p.index].rawTimeoutMs > 0 && m_notifications != nullptr) {
+          m_notifications->pauseExpiry(m_entries[p.index].notificationId);
+        }
+        syncEntryVisibility(p.index);
+      }
+    }
+
     for (auto& p : placed) {
+      if (!hasPlacement(m_entries[p.index])) {
+        continue;
+      }
       const float newY = m_entries[p.index].y;
       const float oldY = isBottomStacking() ? placementBottom - p.oldPrimary - m_entries[p.index].height : p.oldPrimary;
       if (std::abs(newY - oldY) < 0.5F) {
@@ -2028,6 +2118,16 @@ void NotificationToast::collapseStack() {
   }
   for (wl_output* targetOutput : targetOutputs) {
     collapseOutput(targetOutput);
+  }
+}
+
+void NotificationToast::reflowNewestOnEdge() {
+  if (!isNewestOnEdge()) {
+    return;
+  }
+  collapseStack();
+  for (std::size_t i = 0; i < m_entries.size(); ++i) {
+    syncEntryVisibility(i);
   }
 }
 
@@ -3054,7 +3154,6 @@ bool NotificationToast::onPointerEvent(const PointerEvent& event) {
       if (event.surface == inst->surface->wlSurface()) {
         inst->pointerInside = false;
         resetInstanceHover(*inst, true);
-        clearInlineReplyFocus(*inst);
         inst->inputDispatcher.pointerLeave();
       }
       break;
