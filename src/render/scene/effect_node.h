@@ -42,6 +42,14 @@ public:
     markPaintDirty();
   }
 
+  void setAccentColor(const Color& color) {
+    if (m_style.accentColor == color) {
+      return;
+    }
+    m_style.accentColor = color;
+    markPaintDirty();
+  }
+
   // Drives the Rain effect's glass-droplet layer. `count` is clamped to kMaxRainDrops;
   // ignored by every other effect type's shader.
   void setDrops(const std::array<RainDrop, kMaxRainDrops>& drops, int count) {

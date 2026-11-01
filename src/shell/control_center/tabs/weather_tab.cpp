@@ -1034,6 +1034,7 @@ void WeatherTab::sync(Renderer& renderer) {
     }
     m_effectNode->setEffectType(m_activeEffect);
     m_effectNode->setBgColor(colorForRole(ColorRole::Surface));
+    m_effectNode->setAccentColor(colorForRole(ColorRole::Primary));
     m_effectNode->setRadius(Style::scaledRadiusXl(contentScale()));
     m_effectNode->setVisible(m_activeEffect != EffectType::None);
     if (m_scrimNode != nullptr) {

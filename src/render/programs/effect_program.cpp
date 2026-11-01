@@ -40,6 +40,11 @@ uniform float u_time;
 uniform float u_item_width;
 uniform float u_item_height;
 uniform vec4 u_bg_color;
+// Theme accent (ColorRole::Primary) - only the Fog shader reads this, to mix a touch of
+// the user's actual theme color into its mist. Defaults to opaque black for callers (e.g.
+// the standalone lab demo) that never set it; the Fog shader treats near-black as "no
+// accent configured" and skips the tint rather than darkening the mist.
+uniform vec4 u_accent_color;
 uniform float u_radius;
 uniform float u_alternative;
 varying vec2 v_uv;
@@ -579,7 +584,71 @@ float cloud_hash(vec2 p) {
     return fract(p.x * p.y);
 }
 
-float cloud_noise(vec2 p) {
+// Hand-authored cloud silhouette - a fixed handful of overlapping lobes forming one
+// recognizable puffy outline, the same shape every time, just repositioned/rescaled/
+// drifted as one rigid unit (not a procedural field re-evaluated per pixel). Several
+// noise-field approaches were tried here first (plain fbm, billow, ridged, domain-warped,
+// then a randomly-jittered metaball grid) and each read wrong - flat haze, engraved
+// ridges, swirled marble, or (the jittered grid) an unrecognizable floating-oval/
+// rectangle mess, because none of them actually HAS a cloud shape in it, only whatever a
+// threshold slice happens to carve out. A deliberately-drawn shape is the same strategy
+// that already worked for the Sun effect (rays/lens-flares are drawn shapes, not noise),
+// so the same idea is used here instead of a sixth noise variant.
+float cloudLobe(vec2 uv, vec2 center, float r) {
+    vec2 d = uv - center;
+    float d2 = dot(d, d);
+    float rr = r * r;
+    return d2 < rr ? (rr - d2) : 0.0;
+}
+
+float cloudIconDensity(vec2 localUv) {
+    float h = 0.0;
+    h += cloudLobe(localUv, vec2(-0.55, 0.06), 0.4);
+    h += cloudLobe(localUv, vec2(-0.18, -0.16), 0.46);
+    h += cloudLobe(localUv, vec2(0.22, -0.1), 0.42);
+    h += cloudLobe(localUv, vec2(0.58, 0.08), 0.34);
+    h += cloudLobe(localUv, vec2(0.04, 0.2), 0.56);
+    return h;
+}
+
+// One drifting instance of the icon shape: `center`/`scale`/`stretchX` place and size it
+// in card-space, `speed`/`phase` drive a left-to-right drift that wraps once fully offscreen.
+// Bigger+faster instances read as nearer (pseudo-3D depth via parallax - closer things
+// both look bigger and appear to move faster), matching how Snow's flakes already use
+// size+speed correlation for the same depth cue.
+void cloudInstance(
+    vec2 uvA, float aspect, float iTime, float centerY, float scale, float stretchX,
+    float speed, float phase, inout float density, inout float shade
+) {
+    float travel = aspect + scale * 3.0;
+    float cx = fract(phase + iTime * speed) * travel - scale * 1.5;
+    vec2 center = vec2(cx, centerY);
+    vec2 d = uvA - center;
+    vec2 localUv = vec2(d.x / (scale * stretchX), d.y / scale);
+    float h = cloudIconDensity(localUv);
+    density += h;
+    // Top of the icon shape (negative local y, since uv.y grows downward here same as
+    // every other effect in this file) reads lit; bottom reads shaded - accumulate the
+    // brightest contribution across instances rather than overwriting, so an overlap
+    // between two instances doesn't just take whichever was computed last.
+    float localShade = smoothstep(0.3, -0.3, localUv.y) * step(0.0, h);
+    shade = max(shade, localShade);
+}
+
+// --- Fog: soft drifting mist wash (Vanta.js Fog reference look) ---
+// Vanta.js's Fog demo recursively self-warps FBM (f(p+fbm(p+fbm(p)))) at full-page hero
+// scale, where there's enough screen real estate for the warped folds to read as
+// atmospheric depth. That exact recursive-warp technique was already tried for this
+// card-sized effect and rejected - shrunk down to Control Center size it just read as a
+// shapeless colored smudge, not mist (see cloudIconDensity()'s comment above for the full
+// technique history). The plain multi-octave FBM + layered color blend already proven as
+// the drifting backdrop behind Rain/Sun/Snow/Stars (rainFogFbm/rainFogColor et al. in
+// their own shader sources) gets the same soft, slowly-drifting quality WITHOUT the
+// recursive self-warp, and already reads correctly at this size - so Fog reuses that same
+// machinery as its own primary visual (not just a backdrop behind a foreground shape)
+// instead of the icon-lobe approach Cloud uses, with a denser/cooler mist palette
+// appropriate to being the main subject.
+float fogNoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
@@ -590,72 +659,109 @@ float cloud_noise(vec2 p) {
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-float turbulence(vec2 p, float iTime) {
-    float t = 0.0;
-    float scale = 1.0;
+float fogWashFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
     for (int i = 0; i < 5; i++) {
-        t += abs(cloud_noise(p * scale + iTime * 0.1 * scale)) / scale;
-        scale *= 2.0;
+        float fi = float(i + 1);
+        v += amp * fogNoise(p + vec2(iTime * 0.025 * fi, -iTime * 0.016 * fi));
+        p *= 2.0;
+        amp *= 0.55;
     }
-    return t;
+    return v;
+}
+
+vec3 fogWashColor(vec2 uv, float iTime) {
+    vec3 base = mix(u_bg_color.rgb * 0.72, u_bg_color.rgb * 1.0, uv.y);
+
+    // The previous attempt at contrast linearly re-centered/stretched each fbm octave
+    // (clamp((n-0.5)*1.9+0.5, 0, 1)) BEFORE thresholding it - since fbm output is already
+    // smooth and low-frequency at this scale, stretching it that hard just clipped most of
+    // the card to one flat plateau (either fully "deep" or fully "mist") instead of adding
+    // texture. The actual fix is higher-frequency noise (more, smaller patches = visible
+    // structure across the whole card) plus full-strength (not partial) layer blending, not
+    // a post-hoc stretch on top of coarse noise.
+    bool hasAccent = length(u_accent_color.rgb) > 0.05;
+    // Demo/no-theme fallback keeps the original neutral-grey mist; real app always has an
+    // accent (Material3 Primary is never unset), so this only matters for the lab tool.
+    vec3 accentTint = hasAccent ? u_accent_color.rgb : vec3(0.65, 0.68, 0.74);
+
+    // Accent baked directly into both tonal extremes (not a separate overlay layer riding
+    // a noise mask) so the theme color reads consistently through the whole wash instead
+    // of only flashing in whichever patches happen to cross a threshold.
+    vec3 mist = mix(particleColor(vec3(0.97, 0.98, 1.0), vec3(0.82, 0.85, 0.9)), accentTint, 0.3);
+    vec3 deep = mix(particleColor(vec3(0.3, 0.34, 0.44), vec3(0.18, 0.22, 0.3)), accentTint, 0.35);
+
+    // Higher frequency than the first pass (1.5/2.3 -> 2.6/3.8) so patches are smaller and
+    // more numerous - that's what actually reads as "textured fog" instead of one or two
+    // blobs filling half the card.
+    float n1 = fogWashFbm(uv * 2.6, iTime);
+    float n2 = fogWashFbm(uv * 3.8 + 10.0, iTime * 1.2);
+    float n3 = fogWashFbm(uv * 1.6 - 5.0, iTime * 0.6);
+
+    vec3 col = base;
+    col = mix(col, deep, smoothstep(0.35, 0.6, n2));
+    col = mix(col, mist, smoothstep(0.4, 0.65, n1));
+    col = mix(col, mix(accentTint, vec3(1.0), 0.5), pow(clamp(n3, 0.0, 1.0), 2.2) * 0.25);
+    return col;
 }
 
 void main() {
     vec2 uv = v_uv;
-    vec4 col = vec4(u_bg_color.rgb, 1.0);
-
-    float timeSpeed, layerScale1, layerScale2, layerScale3;
-    float flowSpeed1, flowSpeed2;
-    float densityMin, densityMax;
-    float baseOpacity;
-    float pulseAmount;
+    float aspect = u_item_width / u_item_height;
+    vec2 uvA = vec2(uv.x * aspect, uv.y);
 
     if (u_alternative > 0.5) {
-        timeSpeed = 0.03;
-        layerScale1 = 1.0;
-        layerScale2 = 2.5;
-        layerScale3 = 2.0;
-        flowSpeed1 = 0.0;
-        flowSpeed2 = 0.02;
-        densityMin = 0.1;
-        densityMax = 0.9;
-        baseOpacity = 0.75;
-        pulseAmount = 0.05;
-    } else {
-        timeSpeed = 0.08;
-        layerScale1 = 2.0;
-        layerScale2 = 4.0;
-        layerScale3 = 6.0;
-        flowSpeed1 = 0.03;
-        flowSpeed2 = 0.04;
-        densityMin = 0.35;
-        densityMax = 0.75;
-        baseOpacity = 0.4;
-        pulseAmount = 0.15;
+        float iTime = u_time * 0.02;
+        vec3 fogCol = fogWashColor(uvA, iTime);
+        float mask = cornerMask();
+        float finalAlpha = u_bg_color.a * mask;
+        gl_FragColor = vec4(fogCol * finalAlpha, finalAlpha);
+        return;
     }
 
-    float iTime = u_time * timeSpeed;
+    vec4 col = vec4(u_bg_color.rgb, 1.0);
+    float iTime = u_time * 0.03;
+    float baseOpacity = 0.6;
 
-    vec2 flow1 = vec2(iTime * flowSpeed1, iTime * flowSpeed1 * 0.7);
-    vec2 flow2 = vec2(-iTime * flowSpeed2, iTime * flowSpeed2 * 0.8);
+    float density = 0.0;
+    float shade = 0.0;
+    // Smallest/slowest first (farthest), biggest/fastest last (nearest) - later
+    // instances' shade already wins via max() in cloudInstance, so painting order
+    // doesn't matter for that, only for which density dominates visually once alpha-
+    // composited below.
+    cloudInstance(uvA, aspect, iTime, 0.55, 0.3, 1.0, 0.018, 0.15, density, shade);
+    cloudInstance(uvA, aspect, iTime, 0.25, 0.42, 1.0, 0.027, 0.55, density, shade);
+    cloudInstance(uvA, aspect, iTime, 0.4, 0.52, 1.0, 0.034, 0.85, density, shade);
+    float fogDensity = smoothstep(0.0, 0.035, density);
 
-    float fog1 = cloud_noise(uv * layerScale1 + flow1);
-    float fog2 = cloud_noise(uv * layerScale2 + flow2);
-    float fog3 = turbulence(uv * layerScale3, iTime);
-
-    float fogPattern = fog1 * 0.5 + fog2 * 0.3 + fog3 * 0.2;
-    float fogDensity = smoothstep(densityMin, densityMax, fogPattern);
-
-    float pulse = sin(iTime * 0.4) * pulseAmount + (1.0 - pulseAmount);
-    fogDensity *= pulse;
-
-    vec3 hazeColor = particleColor(vec3(0.88, 0.90, 0.93), vec3(0.5, 0.55, 0.62));
+    vec3 litColor = particleColor(vec3(0.97, 0.96, 1.0), vec3(0.8, 0.82, 0.88));
+    vec3 shadeColor = particleColor(vec3(0.46, 0.48, 0.56), vec3(0.28, 0.31, 0.4));
+    vec3 hazeColor = mix(shadeColor, litColor, shade);
     float hazeOpacity = fogDensity * baseOpacity;
     vec3 fogContribution = hazeColor * hazeOpacity;
     float fogAlpha = hazeOpacity;
 
     vec3 resultRGB = fogContribution + col.rgb * (1.0 - fogAlpha);
     float resultAlpha = fogAlpha + col.a * (1.0 - fogAlpha);
+
+    // Soft light-scattering glow - a diffuse bright patch (light scattering through the
+    // cloud edges from an unseen source) instead of flat uniform luminance everywhere.
+    vec2 glowPos = vec2(0.72 * aspect, 0.12);
+    vec2 toGlow = uvA - glowPos;
+    float glowDist2 = dot(toGlow, toGlow);
+    float glow = exp(-glowDist2 * 3.0) * 0.18 * fogAlpha;
+    vec3 glowColor = particleColor(vec3(1.0, 0.98, 0.92), vec3(0.97, 0.92, 0.78));
+    resultRGB += glowColor * glow;
+
+    // God-rays: the same angular sin-streak technique as the Sun effect's sunRays() -
+    // volumetric-looking shafts radiating from the glow point, fading with distance, only
+    // visible where there's actually some cloud for the light to scatter through.
+    float rayAngle = atan(toGlow.y, toGlow.x);
+    float rayPattern = pow(sin(rayAngle * 9.0 + iTime * 4.0) * 0.5 + 0.5, 4.0);
+    float rayFalloff = 1.0 - smoothstep(0.0, 1.3, length(toGlow));
+    float rays = rayPattern * rayFalloff * 0.12 * fogAlpha;
+    resultRGB += glowColor * rays;
 
     float mask = cornerMask();
     float finalAlpha = resultAlpha * mask * u_bg_color.a;
@@ -817,6 +923,7 @@ void EffectProgram::initProgram(EffectType type, const char* fragSource) {
   pd.itemWidthLoc = glGetUniformLocation(id, "u_item_width");
   pd.itemHeightLoc = glGetUniformLocation(id, "u_item_height");
   pd.bgColorLoc = glGetUniformLocation(id, "u_bg_color");
+  pd.accentColorLoc = glGetUniformLocation(id, "u_accent_color");
   pd.radiusLoc = glGetUniformLocation(id, "u_radius");
   pd.alternativeLoc = glGetUniformLocation(id, "u_alternative");
   pd.dropsLoc = glGetUniformLocation(id, "u_drops");
@@ -869,6 +976,11 @@ void EffectProgram::draw(
   }
   if (pd.bgColorLoc >= 0) {
     glUniform4f(pd.bgColorLoc, style.bgColor.r, style.bgColor.g, style.bgColor.b, style.bgColor.a);
+  }
+  if (pd.accentColorLoc >= 0) {
+    glUniform4f(
+        pd.accentColorLoc, style.accentColor.r, style.accentColor.g, style.accentColor.b, style.accentColor.a
+    );
   }
   if (pd.radiusLoc >= 0) {
     glUniform1f(pd.radiusLoc, style.radius);

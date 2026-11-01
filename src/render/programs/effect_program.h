@@ -40,6 +40,9 @@ private:
     GLint itemWidthLoc = -1;
     GLint itemHeightLoc = -1;
     GLint bgColorLoc = -1;
+    // Fog-only: theme accent tint (see render_styles.h's EffectStyle::accentColor). -1 on
+    // every other effect type's program.
+    GLint accentColorLoc = -1;
     GLint radiusLoc = -1;
     GLint alternativeLoc = -1;
     // Rain-only: glass-droplet layer (see render_styles.h's kMaxRainDrops). -1 on every
