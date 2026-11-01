@@ -17,6 +17,7 @@ class AsyncTextureCache;
 class Flex;
 class InputArea;
 class Label;
+class MarkdownView;
 class Button;
 class Renderer;
 class VirtualGridAdapter;
@@ -79,6 +80,8 @@ namespace settings {
     void onFileReady(const std::string& pluginId, const std::string& filename, const std::string& path);
 
     void setOnRebuildNeeded(std::function<void()> cb);
+    // Relayout without a rebuild, for README images that finished loading.
+    void setOnLayoutNeeded(std::function<void()> cb);
 
     [[nodiscard]] bool isDetailView() const noexcept;
     [[nodiscard]] std::optional<std::string> detailPageUrl() const;
@@ -146,6 +149,8 @@ namespace settings {
     Button* m_sortButton = nullptr;
     std::optional<std::string> m_selectedPluginKey;
     std::function<void()> m_onRebuildNeeded;
+    std::function<void()> m_onLayoutNeeded;
+    MarkdownView* m_detailMarkdown = nullptr;
 
     std::unordered_map<std::string, std::string> m_thumbnailPaths;
 

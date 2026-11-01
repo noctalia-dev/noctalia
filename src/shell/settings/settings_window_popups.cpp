@@ -2480,6 +2480,11 @@ void SettingsWindow::openPluginStore() {
           m_editorSheetModal->rebuildBody();
         }
       });
+      storeContent->setOnLayoutNeeded([this] {
+        if (m_pluginStoreSheetOpen && m_editorSheetModal != nullptr) {
+          m_editorSheetModal->requestLayout();
+        }
+      });
 
       m_editorSheetModal->open(
           settings::SettingsSheetRequest{
@@ -2579,6 +2584,7 @@ void SettingsWindow::openPluginStore() {
                     storeContent->detachGrid();
                     m_pluginFileCache.setOnReady(nullptr);
                     storeContent->setOnRebuildNeeded(nullptr);
+                    storeContent->setOnLayoutNeeded(nullptr);
                     m_pluginStoreSheetOpen = false;
                   },
           }
