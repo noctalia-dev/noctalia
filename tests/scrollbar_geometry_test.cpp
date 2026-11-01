@@ -147,6 +147,16 @@ int main() {
       if (orientation == ScrollOrientation::Vertical) {
         const float overflow = contentHeight > 30.0F ? contentHeight - 30.0F : 0.0F;
         TEST_CHECK(std::abs(view.maxScrollOffset() - overflow) < 0.01F);
+        if (contentHeight == 1000.0F) {
+          view.setScrollOffset(100.0F);
+          (void)view.measure(renderer, constraints);
+          TEST_CHECK(std::abs(view.scrollOffset() - 100.0F) < 0.01F);
+          view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+          view.requestScrollToBottom();
+          (void)view.measure(renderer, constraints);
+          view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+          TEST_CHECK(std::abs(view.scrollOffset() - overflow) < 0.01F);
+        }
       }
     }
 

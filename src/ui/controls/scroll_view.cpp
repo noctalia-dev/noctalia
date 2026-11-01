@@ -506,6 +506,10 @@ void ScrollView::doLayout(Renderer& renderer) {
     m_scrollbar->update(viewportH, contentHeight, m_scrollOffset);
   }
 
+  // Measurement leaves offsets and pending jumps for the allocated viewport.
+  if (m_measuring) {
+    return;
+  }
   if (m_boundState != nullptr) {
     m_scrollOffset = clampOffset(m_boundState->offset);
     m_boundState->offset = m_scrollOffset;
@@ -547,7 +551,12 @@ void ScrollView::doLayout(Renderer& renderer) {
 }
 
 LayoutSize ScrollView::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
-  return measureByLayout(renderer, constraints);
+  const float maxScrollOffset = m_maxScrollOffset;
+  m_measuring = true;
+  const LayoutSize measured = measureByLayout(renderer, constraints);
+  m_measuring = false;
+  m_maxScrollOffset = maxScrollOffset;
+  return measured;
 }
 
 void ScrollView::doArrange(Renderer& renderer, const LayoutRect& rect) { arrangeByLayout(renderer, rect); }

@@ -96,6 +96,7 @@ private:
 
   ScrollViewState* m_boundState = nullptr;
   bool m_stickToBottom = false;
+  bool m_measuring = false;
   bool m_pendingScrollToBottom = false;
   std::optional<float> m_pendingScrollOffset;
   // May dangle by layout time; located under content() before it is dereferenced.
