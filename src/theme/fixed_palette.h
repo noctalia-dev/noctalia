@@ -25,9 +25,9 @@ namespace noctalia::theme {
   inline constexpr std::string_view kTerminalForegroundJsonKey = "foreground";
   inline constexpr std::string_view kTerminalBackgroundJsonKey = "background";
   inline constexpr std::string_view kTerminalCursorJsonKey = "cursor";
-  inline constexpr std::string_view kTerminalCursorTextJsonKey = "cursorText";
-  inline constexpr std::string_view kTerminalSelectionFgJsonKey = "selectionFg";
-  inline constexpr std::string_view kTerminalSelectionBgJsonKey = "selectionBg";
+  inline constexpr std::string_view kTerminalCursorTextJsonKey = "cursor_text";
+  inline constexpr std::string_view kTerminalSelectionFgJsonKey = "selection_fg";
+  inline constexpr std::string_view kTerminalSelectionBgJsonKey = "selection_bg";
 
   struct TerminalColorTokenKey {
     std::string_view jsonKey;
@@ -86,7 +86,7 @@ namespace noctalia::theme {
     ::Color cursor;
   };
 
-  // Source format of builtin, community, and custom palettes: the 16 hand-picked colors (`mPrimary`, ...) that
+  // Source format of builtin, community, and custom palettes: the 16 hand-picked colors that
   // expandFixedPaletteMode() grows into the full token set. Not the runtime UI palette.
   struct FixedPalette {
     ::Color primary;
@@ -99,13 +99,38 @@ namespace noctalia::theme {
     ::Color onError;
     ::Color surface;
     ::Color onSurface;
-    ::Color surfaceVariant;
+    ::Color surfaceContainer;
     ::Color onSurfaceVariant;
-    ::Color outline;
+    ::Color outlineVariant;
     ::Color shadow;
     ::Color hover;
     ::Color onHover;
   };
+
+  struct FixedPaletteJsonKey {
+    std::string_view jsonKey;
+    ::Color FixedPalette::* field;
+  };
+
+  // Palette JSON keys, in file order. Each is the name of the color role it feeds.
+  inline constexpr std::array<FixedPaletteJsonKey, 16> kFixedPaletteJsonKeys = {{
+      {"primary", &FixedPalette::primary},
+      {"on_primary", &FixedPalette::onPrimary},
+      {"secondary", &FixedPalette::secondary},
+      {"on_secondary", &FixedPalette::onSecondary},
+      {"tertiary", &FixedPalette::tertiary},
+      {"on_tertiary", &FixedPalette::onTertiary},
+      {"error", &FixedPalette::error},
+      {"on_error", &FixedPalette::onError},
+      {"surface", &FixedPalette::surface},
+      {"on_surface", &FixedPalette::onSurface},
+      {"surface_container", &FixedPalette::surfaceContainer},
+      {"on_surface_variant", &FixedPalette::onSurfaceVariant},
+      {"outline_variant", &FixedPalette::outlineVariant},
+      {"shadow", &FixedPalette::shadow},
+      {"hover", &FixedPalette::hover},
+      {"on_hover", &FixedPalette::onHover},
+  }};
 
   TokenMap expandFixedPaletteMode(const FixedPalette& palette, bool isDark);
   GeneratedPalette expandFixedPalettes(const FixedPalette& dark, const FixedPalette& light);

@@ -158,7 +158,7 @@ namespace scripting {
         const auto value =
             node.value<std::int64_t>().transform(
                                           [](std::int64_t integer) { return static_cast<double>(integer); }
-            ).or_else([&node]() { return node.value<double>(); });
+            ).or_else([&node] { return node.value<double>(); });
         if (!value.has_value() || !std::isfinite(*value)) {
           error = "setting '" + out.key + "' double default must be a finite number";
           return false;
@@ -364,6 +364,23 @@ namespace scripting {
       }
       out.descriptionKey = tableString(field, "description_key");
       out.advanced = tableBool(field, "advanced", false);
+      if (field.contains("secret")) {
+        if (pluginApiVersion < kSecretSettingPluginApiVersion) {
+          error = "setting '"
+              + out.key
+              + "' key 'secret' requires plugin_api >= "
+              + std::to_string(kSecretSettingPluginApiVersion);
+          return std::nullopt;
+        }
+        out.secret = tableBool(field, "secret", false);
+        if (out.secret
+            && out.type != ManifestFieldType::String
+            && out.type != ManifestFieldType::StringList
+            && out.type != ManifestFieldType::StringMap) {
+          error = "setting '" + out.key + "' secret = true requires type string, string_list, or string_map";
+          return std::nullopt;
+        }
+      }
       if (!parseFieldDefault(field, out, error)) {
         return std::nullopt;
       }
@@ -974,13 +991,11 @@ namespace scripting {
     if (a.size() != b.size()) {
       return false;
     }
-    for (const auto& [key, value] : a) {
+    return std::ranges::all_of(a, [&](const auto& entry) {
+      const auto& [key, value] = entry;
       const auto it = b.find(key);
-      if (it == b.end() || !valueEqual(value, it->second)) {
-        return false;
-      }
-    }
-    return true;
+      return it != b.end() && valueEqual(value, it->second);
+    });
   }
 
 } // namespace scripting

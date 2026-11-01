@@ -383,11 +383,10 @@ void DesktopVolumeWidget::syncState(Renderer& renderer, bool forceLayout) {
     requestRedraw();
   }
 
-  if (changed) {
-    if (!forceLayout && !isLayingOut()) {
-      requestLayout();
-    }
+  if (changed && !forceLayout && !isLayingOut()) {
+    requestLayout();
   }
+
   (void)renderer;
 }
 

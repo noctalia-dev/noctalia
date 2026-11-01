@@ -77,6 +77,7 @@ void SearchPickerPopup::open(SearchPickerPopupRequest request) {
   m_title = std::move(request.title);
   m_options = std::move(request.options);
   m_selectedValue = std::move(request.selectedValue);
+  m_keepOpenOnSelect = request.keepOpenOnSelect;
   m_placeholder = std::move(request.placeholder);
   m_emptyText = std::move(request.emptyText);
   m_root = nullptr;
@@ -97,14 +98,6 @@ void SearchPickerPopup::open(SearchPickerPopupRequest request) {
 }
 
 void SearchPickerPopup::close() { destroyPopup(); }
-
-bool SearchPickerPopup::isOpen() const noexcept { return DialogPopupHost::isOpen(); }
-
-bool SearchPickerPopup::onPointerEvent(const PointerEvent& event) { return DialogPopupHost::onPointerEvent(event); }
-
-void SearchPickerPopup::onKeyboardEvent(const KeyboardEvent& event) { DialogPopupHost::onKeyboardEvent(event); }
-
-wl_surface* SearchPickerPopup::wlSurface() const noexcept { return DialogPopupHost::wlSurface(); }
 
 void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*width*/, std::uint32_t /*height*/) {
   const float panelPadding = Style::spaceSm * m_scale;
@@ -137,9 +130,9 @@ void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*wid
             .minHeight = Style::controlHeightSm * m_scale,
             .padding = Style::spaceXs * m_scale,
             .radius = Style::scaledRadiusMd(m_scale),
-            .onClick = [this]() {
+            .onClick = [this] {
               const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-              DeferredCall::callLater([this, aliveGuard]() {
+              DeferredCall::callLater([this, aliveGuard] {
                 if (aliveGuard.expired()) {
                   return;
                 }
@@ -171,8 +164,15 @@ void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*wid
                     if (m_onSelect) {
                       m_onSelect(option.value);
                     }
+                    if (m_keepOpenOnSelect) {
+                      m_selectedValue = option.value;
+                      if (m_searchPicker != nullptr) {
+                        m_searchPicker->setSelectedValue(option.value);
+                      }
+                      return;
+                    }
                     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                    DeferredCall::callLater([this, aliveGuard]() {
+                    DeferredCall::callLater([this, aliveGuard] {
                       if (aliveGuard.expired()) {
                         return;
                       }
@@ -180,9 +180,9 @@ void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*wid
                     });
                   },
               .onCancel =
-                  [this]() {
+                  [this] {
                     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                    DeferredCall::callLater([this, aliveGuard]() {
+                    DeferredCall::callLater([this, aliveGuard] {
                       if (aliveGuard.expired()) {
                         return;
                       }
@@ -220,7 +220,7 @@ void SearchPickerPopup::onSheetClose() {
   m_root = nullptr;
   m_searchPicker = nullptr;
   if (m_onDismissed) {
-    DeferredCall::callLater([callback = m_onDismissed]() { callback(); });
+    DeferredCall::callLater([callback = m_onDismissed] { callback(); });
   }
 }
 

@@ -23,7 +23,7 @@ Toggle::Toggle() {
 
   auto area = std::make_unique<InputArea>();
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-  area->setOnLeave([this]() { applyState(); });
+  area->setOnLeave([this] { applyState(); });
   area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
   area->setOnClick([this](const InputArea::PointerData& /*data*/) {
     if (!m_enabled) {
@@ -32,8 +32,8 @@ Toggle::Toggle() {
     activateFromInput();
   });
   area->setFocusable(true);
-  area->setOnFocusGain([this]() { applyState(); });
-  area->setOnFocusLoss([this]() { applyState(); });
+  area->setOnFocusGain([this] { applyState(); });
+  area->setOnFocusLoss([this] { applyState(); });
   area->setOnKeyDown([this](const InputArea::KeyData& key) {
     if (!key.pressed || !m_enabled) {
       return;
@@ -65,7 +65,7 @@ void Toggle::setChecked(bool checked) {
     float to = m_checked ? 1.0F : 0.0F;
     m_animId = animationManager()->animate(
         from, to, Style::animFast, Easing::EaseOutCubic, [this](float t) { applyAnimatedState(t); },
-        [this]() { m_animId = 0; }, this
+        [this] { m_animId = 0; }, this
     );
     // Mark dirty so the surface's frame loop restarts and ticks the animation
     markPaintDirty();

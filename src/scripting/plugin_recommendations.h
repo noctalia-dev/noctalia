@@ -60,7 +60,7 @@ namespace scripting {
     [[nodiscard]] RecommendationState state(std::string_view key);
     [[nodiscard]] std::vector<std::string> recommendedKeys();
     void fetchMetrics();
-    void setRecommended(const PluginSourceConfig& source, std::string id, bool recommended);
+    void setRecommended(const PluginSourceConfig& source, const std::string& id, bool recommended);
     void setOnChanged(std::function<void()> cb) { m_onChanged = std::move(cb); }
 
   private:

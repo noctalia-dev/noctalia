@@ -115,7 +115,7 @@ void MediaOsd::scheduleTrackOsd(PendingTrack pending) {
     return;
   }
   m_pendingTrack = std::move(pending);
-  m_trackSettleTimer.start(kTrackSettleDelay, [this]() { showPendingTrackOsd(); });
+  m_trackSettleTimer.start(kTrackSettleDelay, [this] { showPendingTrackOsd(); });
 }
 
 void MediaOsd::cancelTrackOsd(const std::string& busName) {

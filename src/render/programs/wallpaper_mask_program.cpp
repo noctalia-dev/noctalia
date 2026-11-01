@@ -39,9 +39,9 @@ void main() {
     vec2 maskUV = calculateWallpaperUV(outputUV, u_imageSize.x, u_imageSize.y);
 
     float coverage = 0.0;
-    if (u_fillMode > 3.5 && u_fillMode < 4.5) {
-        coverage = texture2D(u_mask, fract(maskUV)).a;
-    } else if (!wallpaperUVOutside(maskUV)) {
+    // Repeat binds the mask with GL_REPEAT; fract() here would break mip selection at tile edges.
+    bool repeat = u_fillMode > 3.5 && u_fillMode < 4.5;
+    if (repeat || !wallpaperUVOutside(maskUV)) {
         coverage = texture2D(u_mask, maskUV).a;
     }
     gl_FragColor = vec4(0.0, 0.0, 0.0, coverage);
@@ -121,12 +121,23 @@ void WallpaperMaskProgram::draw(const WallpaperMaskDrawParams& params) const {
   glUniform2f(m_spanMonitorSizeLoc, params.span.monitorWidth, params.span.monitorHeight);
   glUniform2f(m_spanTotalSizeLoc, params.span.totalWidth, params.span.totalHeight);
 
+  // Repeat wraps in the sampler so tile edges keep continuous UV derivatives (mip level) and filter across the seam.
+  // The texture is shared, so other fill modes keep the clamp set at upload.
+  const bool repeat = params.fillMode > 3.5F && params.fillMode < 4.5F;
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(params.texture.value()));
+  if (repeat) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  }
   glUniform1i(m_maskLoc, 0);
 
   glEnableVertexAttribArray(static_cast<GLuint>(m_positionLoc));
   glVertexAttribPointer(static_cast<GLuint>(m_positionLoc), 2, GL_FLOAT, GL_FALSE, 0, kQuad.data());
   glDrawArrays(GL_TRIANGLES, 0, 6);
+  if (repeat) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  }
   glDisableVertexAttribArray(static_cast<GLuint>(m_positionLoc));
 }

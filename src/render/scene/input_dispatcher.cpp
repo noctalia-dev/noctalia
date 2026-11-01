@@ -6,6 +6,7 @@
 #include "wayland/text_input_service.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <optional>
 #include <string>
@@ -14,6 +15,10 @@
 
 namespace {
   constexpr float kTouchScrollSlop = 8.0F;
+  // A scroll gesture keeps its target until the pointer moves or the wheel rests this long. Slow
+  // notch-by-notch wheel scrolling leaves several hundred ms between notches, so a short gap would
+  // let a slider that scrolled under a still pointer take over the page scroll.
+  constexpr auto kAxisGestureGap = std::chrono::milliseconds(1000);
 
   bool nodeVisibleInScene(const Node* node) {
     for (const Node* current = node; current != nullptr; current = current->parent()) {
@@ -44,7 +49,7 @@ namespace {
     if (node == nullptr || root == nullptr) {
       return false;
     }
-    for (auto* current = node; current != nullptr; current = current->parent()) {
+    for (const auto* current = node; current != nullptr; current = current->parent()) {
       if (current == root) {
         return true;
       }
@@ -77,13 +82,12 @@ void InputDispatcher::setSceneRoot(Node* root) {
       updateCursor(m_lastSerial);
     }
   }
-  if (root == nullptr) {
-    if (m_focusedArea != nullptr) {
-      clearTextInputFocus(m_focusedArea);
-      m_focusedArea->dispatchFocusLoss();
-      m_focusedArea = nullptr;
-    }
+  if (root == nullptr && m_focusedArea != nullptr) {
+    clearTextInputFocus(m_focusedArea);
+    m_focusedArea->dispatchFocusLoss();
+    m_focusedArea = nullptr;
   }
+
   m_sceneRoot = root;
   if (m_sceneRoot != nullptr && m_hasPointerPosition) {
     updateHover(m_lastPointerX, m_lastPointerY, m_lastSerial);
@@ -120,6 +124,7 @@ void InputDispatcher::pointerEnter(float x, float y, std::uint32_t serial) {
   m_lastPointerX = x;
   m_lastPointerY = y;
   m_hasPointerPosition = true;
+  m_axisGestureArea = nullptr;
   updateHover(x, y, serial);
 }
 
@@ -143,6 +148,11 @@ void InputDispatcher::pointerLeave() {
 void InputDispatcher::pointerMotion(float x, float y, std::uint32_t serial) {
   if (serial != 0) {
     m_lastSerial = serial;
+  }
+  // Pointer movement ends the scroll gesture: the next axis event hit-tests at the new position.
+  // Hosts that replay the current position before each axis event must not end it.
+  if (!m_hasPointerPosition || x != m_lastPointerX || y != m_lastPointerY) {
+    m_axisGestureArea = nullptr;
   }
   m_lastPointerX = x;
   m_lastPointerY = y;
@@ -190,6 +200,9 @@ bool InputDispatcher::pointerButton(
   m_lastPointerX = x;
   m_lastPointerY = y;
   m_hasPointerPosition = true;
+  if (pressed) {
+    m_axisGestureArea = nullptr;
+  }
 
   pruneDetachedAreas();
 
@@ -317,10 +330,22 @@ bool InputDispatcher::pointerAxis(
     std::int32_t value120, float lines, std::uint32_t axisGestureSerial
 ) {
   pruneDetachedAreas();
-  InputArea* target = m_capturedArea != nullptr ? m_capturedArea : findInputAreaAt(x, y);
+  const auto now = std::chrono::steady_clock::now();
+  // A pause longer than the gesture gap ends the scroll gesture: the next axis event hit-tests
+  // afresh.
+  if (m_axisGestureArea != nullptr && now - m_lastAxisTime > kAxisGestureGap) {
+    m_axisGestureArea = nullptr;
+  }
+  m_lastAxisTime = now;
+
+  InputArea* target = m_axisGestureArea;
+  if (target == nullptr) {
+    target = m_capturedArea != nullptr ? m_capturedArea : findInputAreaAt(x, y);
+  }
   if (target == nullptr) {
     return false;
   }
+  const bool mayAnchor = m_axisGestureArea == nullptr && m_capturedArea == nullptr;
 
   bool consumedAny = false;
   for (Node* node = target; node != nullptr; node = node->parent()) {
@@ -344,11 +369,16 @@ bool InputDispatcher::pointerAxis(
       break;
     }
   }
+  if (mayAnchor && consumedAny) {
+    m_axisGestureArea = target;
+    trackArea(target);
+  }
   return consumedAny;
 }
 
 void InputDispatcher::cancelPointerCapture() {
   m_touchGesture = {};
+  m_axisGestureArea = nullptr;
   if (m_capturedArea == nullptr || m_cancelingPointerCapture) {
     return;
   }
@@ -415,15 +445,12 @@ void InputDispatcher::keyEvent(
 ) {
   pruneDetachedAreas();
   if (pressed && !preedit) {
-    if (KeybindMatcher::matches(KeybindAction::TabPrevious, sym, modifiers)) {
-      if (cycleTabFocus(true)) {
-        return;
-      }
+    if (KeybindMatcher::matches(KeybindAction::TabPrevious, sym, modifiers) && cycleTabFocus(true)) {
+      return;
     }
-    if (KeybindMatcher::matches(KeybindAction::TabNext, sym, modifiers)) {
-      if (cycleTabFocus(false)) {
-        return;
-      }
+
+    if (KeybindMatcher::matches(KeybindAction::TabNext, sym, modifiers) && cycleTabFocus(false)) {
+      return;
     }
   }
   if (m_focusedArea != nullptr) {
@@ -630,17 +657,19 @@ void InputDispatcher::pruneDetachedAreas() {
   if (m_touchGesture.horizontalArea != nullptr && !isAttachedToScene(m_touchGesture.horizontalArea)) {
     m_touchGesture.horizontalArea = nullptr;
   }
-  if (!isAttachedToScene(m_hoveredArea)) {
-    if (m_hoveredArea != nullptr) {
-      auto* old = m_hoveredArea;
-      old->dispatchLeave();
-      m_hoveredArea = nullptr;
-      if (m_hoverChangeCallback) {
-        m_hoverChangeCallback(old, nullptr);
-      }
-      updateCursor(m_lastSerial);
-    }
+  if (m_axisGestureArea != nullptr && !isAttachedToScene(m_axisGestureArea)) {
+    m_axisGestureArea = nullptr;
   }
+  if (!isAttachedToScene(m_hoveredArea) && m_hoveredArea != nullptr) {
+    auto* old = m_hoveredArea;
+    old->dispatchLeave();
+    m_hoveredArea = nullptr;
+    if (m_hoverChangeCallback) {
+      m_hoverChangeCallback(old, nullptr);
+    }
+    updateCursor(m_lastSerial);
+  }
+
   if (!isAttachedToScene(m_focusedArea)) {
     if (m_focusedArea != nullptr) {
       clearTextInputFocus(m_focusedArea);
@@ -661,6 +690,9 @@ void InputDispatcher::trackArea(InputArea* area) {
     }
     if (m_touchGesture.horizontalArea == a) {
       m_touchGesture.horizontalArea = nullptr;
+    }
+    if (m_axisGestureArea == a) {
+      m_axisGestureArea = nullptr;
     }
     if (m_hoveredArea == a) {
       m_hoveredArea = nullptr;

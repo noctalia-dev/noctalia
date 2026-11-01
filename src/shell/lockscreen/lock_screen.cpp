@@ -123,7 +123,7 @@ bool LockScreen::initialize(
 
   if (m_systemBus != nullptr) {
     m_fingerprint = std::make_unique<FingerprintAuthenticator>(*m_systemBus);
-    m_fingerprint->setAuthenticatedCallback([this]() {
+    m_fingerprint->setAuthenticatedCallback([this] {
       m_status = i18n::tr("lockscreen.unlocked");
       m_statusIsError = false;
       updatePromptOnSurfaces();
@@ -286,7 +286,7 @@ void LockScreen::unlock() {
     tryFinishAnimatedUnlock();
     if (m_unlocking) {
       const auto timeoutMs = static_cast<std::int64_t>(std::ceil(m_transitionDurationMs)) + 1000;
-      m_unlockTransitionTimer.start(std::chrono::milliseconds(timeoutMs), [this]() {
+      m_unlockTransitionTimer.start(std::chrono::milliseconds(timeoutMs), [this] {
         if (!m_unlocking) {
           return;
         }
@@ -726,7 +726,7 @@ void LockScreen::armOutputPowerOffTimeout() {
   if (m_outputPowerOffTimer.active() || !m_pendingOutputPowerOff) {
     return;
   }
-  m_outputPowerOffTimer.start(std::chrono::seconds(3), [this]() {
+  m_outputPowerOffTimer.start(std::chrono::seconds(3), [this] {
     kLog.warn("output power-off cancelled: safe lock frame was not acknowledged before the deadline");
     cancelOutputPowerOff();
   });
@@ -739,7 +739,7 @@ void LockScreen::flushPendingOutputPowerOff() {
   m_outputPowerOffQueued = true;
   const auto generation = m_outputPowerOffGeneration;
   const std::weak_ptr<void> guard = m_aliveGuard;
-  DeferredCall::callLater([this, guard, generation]() {
+  DeferredCall::callLater([this, guard, generation] {
     if (guard.expired() || generation != m_outputPowerOffGeneration) {
       return;
     }
@@ -760,7 +760,7 @@ void LockScreen::armSleepReadyTimeout() {
   }
   const auto animationMs =
       m_activeTransition.has_value() ? static_cast<std::int64_t>(std::ceil(m_transitionDurationMs)) : 0;
-  m_suspendTimeoutTimer.start(std::chrono::milliseconds(animationMs) + std::chrono::seconds(3), [this]() {
+  m_suspendTimeoutTimer.start(std::chrono::milliseconds(animationMs) + std::chrono::seconds(3), [this] {
     if (!m_locked || m_unlocking) {
       return;
     }
@@ -815,7 +815,7 @@ void LockScreen::tryFinishAnimatedUnlock() {
   }
 
   m_unlockFinishQueued = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     if (m_unlocking) {
       finishUnlock();
     }
@@ -835,7 +835,7 @@ void LockScreen::dispatchPendingAfterLocked(bool timedOut) {
     m_suspendTimeoutTimer.stop();
     const auto generation = m_afterLockedGeneration;
     const std::weak_ptr<void> guard = m_aliveGuard;
-    DeferredCall::callLater([this, guard, generation, timedOut, pending = std::move(pending)]() mutable {
+    DeferredCall::callLater([this, guard, generation, timedOut, pending = std::move(pending)] mutable {
       if (guard.expired() || generation != m_afterLockedGeneration || m_unlocking || (!isActive() && !m_lockDeferred)) {
         return;
       }
@@ -883,7 +883,7 @@ void LockScreen::handleLocked(void* data, ext_session_lock_v1* /*lock*/) {
   self->m_statusIsError = false;
   for (auto& instance : self->m_instances) {
     instance.surface->setLockedState(true);
-    instance.surface->setOnLogin([self]() { self->tryAuthenticate(); });
+    instance.surface->setOnLogin([self] { self->tryAuthenticate(); });
     instance.surface->startEnterTransition();
   }
 
@@ -1313,10 +1313,10 @@ void LockScreen::createInstance(const WaylandOutput& output) {
   const std::optional<LockscreenTransitionKind> transition =
       m_activeTransition.has_value() ? std::optional{renderTransitionKind(*m_activeTransition)} : std::nullopt;
   surface->configureTransition(transition, m_transitionParams, m_transitionDurationMs);
-  surface->setSleepReadyCallback([this]() { handleSleepReady(); });
-  surface->setTransitionCallback([this]() { handleTransitionStateChanged(); });
-  surface->setOnLogin([this]() { tryAuthenticate(); });
-  surface->setOnCycleLayout([this]() { cycleKeyboardLayout(); });
+  surface->setSleepReadyCallback([this] { handleSleepReady(); });
+  surface->setTransitionCallback([this] { handleTransitionStateChanged(); });
+  surface->setOnLogin([this] { tryAuthenticate(); });
+  surface->setOnCycleLayout([this] { cycleKeyboardLayout(); });
   surface->setOnPasswordChanged([this](const std::string& value) { handlePasswordEdited(value); });
   surface->setLoginBoxServices(m_sessionActions, m_mpris, m_weather, m_httpClient);
   surface->setPromptState(m_user, m_password, m_status, m_statusIsError, m_authenticating);
@@ -1481,14 +1481,14 @@ void LockScreen::tryAuthenticate() {
   const std::string pamLanguage(i18n::Service::instance().language());
   const std::string pamStartFailure = i18n::tr("auth.pam.start-failed");
   std::thread([this, generation, password = std::move(password), authenticator, pamService, pamLanguage,
-               pamStartFailure]() mutable {
+               pamStartFailure] mutable {
     const auto result = authenticator.authenticateCurrentUser(password, pamService, pamLanguage, pamStartFailure);
     clearSensitiveString(password);
-    DeferredCall::callLater([this, generation, result]() { handleAuthResult(generation, result); });
+    DeferredCall::callLater([this, generation, result] { handleAuthResult(generation, result); });
   }).detach();
 }
 
-void LockScreen::handleAuthResult(std::uint64_t generation, PamAuthenticator::Result result) {
+void LockScreen::handleAuthResult(std::uint64_t generation, const PamAuthenticator::Result& result) {
   if (generation != m_authGeneration || !m_locked) {
     return;
   }

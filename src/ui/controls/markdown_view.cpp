@@ -465,12 +465,6 @@ namespace {
     };
     switch (type) {
     case MD_TEXT_NORMAL:
-      if (ctx->inCodeBlock) {
-        appendRaw();
-      } else {
-        appendEscaped();
-      }
-      break;
     case MD_TEXT_CODE:
       if (ctx->inCodeBlock) {
         appendRaw();

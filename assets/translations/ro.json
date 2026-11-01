@@ -2994,10 +2994,7 @@
         "calendar-edit": {
           "button": "Editează",
           "button-reconnect": "Reconectează",
-          "button-retry": "Reîncearcă",
-          "description": "Actualizează acest cont de calendar",
-          "description-locked": "Tokenul de reîmprospătare este într-un inel de chei blocat; deblochează inelul de chei și reîncearcă",
-          "description-reconnect": "Autorizarea Google lipsește; reconectează acest cont"
+          "button-retry": "Reîncearcă"
         },
         "calendar-event-date-format": {
           "description": "Formatul datei afișat deasupra listei de evenimente în vizualizările calendarului",

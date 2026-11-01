@@ -106,7 +106,7 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
       m_onEnter();
     }
   });
-  setOnLeave([this]() {
+  setOnLeave([this] {
     if (m_hasEntry && m_onLeave) {
       m_onLeave();
     }
@@ -590,7 +590,7 @@ void WallpaperTile::animateThumbScale(float targetScale) {
 
   m_thumbScaleAnimId = animationManager()->animate(
       m_thumbScale, targetScale, Style::animFast, Easing::EaseOutCubic, [this](float value) { applyThumbScale(value); },
-      [this]() { m_thumbScaleAnimId = 0; }, this
+      [this] { m_thumbScaleAnimId = 0; }, this
   );
   markPaintDirty();
 }

@@ -49,13 +49,13 @@ KeybindRecorder::KeybindRecorder() {
 
   auto area = std::make_unique<InputArea>();
   area->setFocusable(true);
-  area->setOnFocusGain([this]() {
+  area->setOnFocusGain([this] {
     if (!m_recording) {
       applyVisualState(VisualState::Focused);
       markPaintDirty();
     }
   });
-  area->setOnFocusLoss([this]() {
+  area->setOnFocusLoss([this] {
     if (m_recording) {
       exitRecording(false);
     } else {

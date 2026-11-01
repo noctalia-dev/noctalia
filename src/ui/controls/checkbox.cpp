@@ -22,10 +22,10 @@ Checkbox::Checkbox() {
   auto area = std::make_unique<InputArea>();
   area->setFocusable(true);
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-  area->setOnLeave([this]() { applyState(); });
+  area->setOnLeave([this] { applyState(); });
   area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
-  area->setOnFocusGain([this]() { applyState(); });
-  area->setOnFocusLoss([this]() { applyState(); });
+  area->setOnFocusGain([this] { applyState(); });
+  area->setOnFocusLoss([this] { applyState(); });
   area->setOnKeyDown([this](const InputArea::KeyData& key) {
     if (!key.pressed || !m_enabled) {
       return;

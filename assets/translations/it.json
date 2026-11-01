@@ -2946,10 +2946,7 @@
         "calendar-edit": {
           "button": "Modifica",
           "button-reconnect": "Riconnetti",
-          "button-retry": "Riprova",
-          "description": "Aggiorna questo account calendario",
-          "description-locked": "Il refresh token si trova in un portachiavi bloccato; sbloccare il portachiavi e riprovare",
-          "description-reconnect": "Manca l'autorizzazione di Google; riconnetti questo account"
+          "button-retry": "Riprova"
         },
         "calendar-event-date-format": {
           "description": "Il formato della data mostrato sopra l'elenco degli eventi nelle visualizzazioni del calendario",

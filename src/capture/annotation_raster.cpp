@@ -32,6 +32,8 @@ namespace capture {
       double top = 0.0;  // relative to the anchor y (baseline), negative above it
       double width = 0.0;
       double height = 0.0;
+      double caretX = 0.0; // strong cursor after the last character, relative to the anchor x
+      bool rtl = false;
     };
 
     [[nodiscard]] PangoFontDescription* makeTextFont(double sizePx) {
@@ -58,16 +60,25 @@ namespace capture {
       int layoutHeight = 0;
       pango_layout_get_pixel_size(layout, &layoutWidth, &layoutHeight);
       const double baseline = static_cast<double>(pango_layout_get_baseline(layout)) / PANGO_SCALE;
+      PangoLayoutLine* line = pango_layout_get_line_readonly(layout, 0);
+      const bool rtl = line != nullptr && pango_layout_line_get_resolved_direction(line) == PANGO_DIRECTION_RTL;
+      PangoRectangle strong{};
+      pango_layout_get_cursor_pos(layout, static_cast<int>(annotation.text.size()), &strong, nullptr);
 
       g_object_unref(layout);
       cairo_destroy(cr);
       cairo_surface_destroy(surface);
 
+      // The anchor is the paragraph's start edge, so right-to-left text extends left of it.
+      const auto width = static_cast<double>(layoutWidth);
+      const double left = rtl ? -width : 0.0;
       return TextMetrics{
-          .left = 0.0,
+          .left = left,
           .top = -baseline,
-          .width = static_cast<double>(layoutWidth),
+          .width = width,
           .height = static_cast<double>(layoutHeight),
+          .caretX = left + (static_cast<double>(strong.x) / PANGO_SCALE),
+          .rtl = rtl,
       };
     }
 
@@ -507,6 +518,20 @@ namespace capture {
     };
   }
 
+  AnnotationRect measureTextCaret(const Annotation& annotation, double caretWidth) {
+    if (annotation.points.empty()) {
+      return AnnotationRect{};
+    }
+    const TextMetrics metrics = textMetrics(annotation);
+    const AnnotationPoint anchor = annotation.points.front();
+    return AnnotationRect{
+        .x = anchor.x + metrics.caretX - (metrics.rtl ? caretWidth : 0.0),
+        .y = anchor.y + metrics.top,
+        .width = caretWidth,
+        .height = metrics.height,
+    };
+  }
+
   void renderAnnotation(cairo_t* cr, const Annotation& annotation, cairo_surface_t* background, double scale) {
     if (annotation.points.empty()) {
       return;
@@ -560,8 +585,6 @@ namespace capture {
     case AnnotationTool::Circle:
     case AnnotationTool::Line:
     case AnnotationTool::Arrow:
-      break;
-
     case AnnotationTool::Brush:
       break;
     }

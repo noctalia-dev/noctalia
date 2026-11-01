@@ -49,7 +49,7 @@ private:
   void subscribeInterface(const std::string& ifacePath);
   void scheduleRebuild();
   void rebuildState();
-  void emitChangedIfNeeded(NetworkState next);
+  void emitChangedIfNeeded(NetworkState next, bool forceNotify = false);
   void loadSavedNetworks(const std::string& ifacePath, sdbus::IProxy& proxy);
   sdbus::IProxy* firstInterface() const;
 
@@ -60,6 +60,8 @@ private:
   std::unordered_map<std::string, std::unique_ptr<sdbus::IProxy>> m_bssProxies;
   // ssid -> network object path.
   std::unordered_map<std::string, std::string> m_savedNetworks;
+  std::unordered_map<std::string, std::string>
+      m_pendingNetworks; // netPath -> ssid, promoted to m_savedNetworks once auth completes
   NetworkState m_state;
   std::vector<AccessPointInfo> m_accessPoints;
   const std::vector<VpnConnectionInfo> m_vpnConnections; // always empty

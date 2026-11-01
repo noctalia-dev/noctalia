@@ -113,7 +113,7 @@ void WorkspacesWidget::create() {
   setRoot(std::move(container));
 
   if (showsActiveIcon()) {
-    m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+    m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] {
       m_iconColorizeRefreshPending = true;
       requestUpdate();
     });
@@ -653,7 +653,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         requestFrameTick();
       });
 
-      area->setOnLeave([this, areaPtr]() {
+      area->setOnLeave([this, areaPtr] {
         if (m_hoveredArea != areaPtr) {
           return;
         }
@@ -1022,7 +1022,7 @@ void WorkspacesWidget::startAnimation() {
           root()->markPaintDirty();
         }
       },
-      [this]() { finishAnimation(); }, this
+      [this] { finishAnimation(); }, this
   );
 
   // Reserve final bounds before the first animated frame to avoid one-frame overflow.

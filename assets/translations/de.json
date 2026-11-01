@@ -2372,7 +2372,7 @@
           "label": "Fenster in globaler Suche"
         },
         "launcher-grid": {
-          "description": "Zeige Ergebnisse und die Modulübersicht als Icon-Raster statt als Zeilen an",
+          "description": "Zeige rasterfähige Modulergebnisse und die Modulübersicht als Icon-Raster statt als Zeilen an",
           "label": "Rasteransicht"
         },
         "launcher-pinned-apps": {
@@ -2549,10 +2549,7 @@
         "calendar-edit": {
           "button": "Bearbeiten",
           "button-reconnect": "Neu verbinden",
-          "button-retry": "Erneut versuchen",
-          "description": "Aktualisiere dieses Kalenderkonto",
-          "description-locked": "Das Refresh-Token befindet sich in einem gesperrten Schlüsselbund; entsperre den Schlüsselbund und versuche es erneut",
-          "description-reconnect": "Google-Autorisierung fehlt; verbinde dieses Konto neu"
+          "button-retry": "Erneut versuchen"
         },
         "calendar-event-date-format": {
           "description": "Das Datumsformat, das in Kalenderansichten über der Ereignisliste angezeigt wird",

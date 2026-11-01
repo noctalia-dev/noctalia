@@ -485,7 +485,7 @@ capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& 
 [[nodiscard]] float
 resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget.scale");
 [[nodiscard]] float
-resolveWidgetFontScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget");
+resolveWidgetFontScale(float barFontScale, const WidgetConfig* widget, std::string_view context = "widget");
 
 // Shared output selector matching used by monitor-scoped config and IPC selectors.
 // Matches connector name exactly, or a word-boundary token within output description.
@@ -691,6 +691,7 @@ struct DockMonitorOverride {
   std::optional<std::int32_t> crossAxisPadding;
   std::optional<std::int32_t> itemSpacing;
   std::optional<float> backgroundOpacity;
+  std::optional<bool> compositorBlur;
   std::optional<ColorSpec> border;
   std::optional<float> borderWidth;
   std::optional<std::int32_t> radius;
@@ -733,6 +734,7 @@ struct DockConfig {
   std::int32_t crossAxisPadding = 8; // inner padding perpendicular to the icon row
   std::int32_t itemSpacing = 6;      // gap between items
   float backgroundOpacity = 0.88F;
+  bool compositorBlur = true;
   // Inside outline for the dock background.
   ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = 0.0F;
@@ -762,7 +764,7 @@ struct DockConfig {
   bool showInstanceCount = true;    // show a badge with count when app has >1 window
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
-  std::string launcherCustomImage = "";     // image path; overrides launcherIcon glyph when set
+  std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set
   bool launcherCustomImageColorize = false; // tint the custom image with the icon color role
   std::vector<std::string> pinned;          // desktop entry IDs to always show
   std::vector<DockMonitorOverride> monitorOverrides;
@@ -1316,11 +1318,13 @@ struct ShellConfig {
   enum class WindowSwitcherStyle : std::uint8_t {
     Carousel = 0,
     Compact = 1,
+    Icons = 2,
   };
 
   static constexpr EnumOption<WindowSwitcherStyle> kWindowSwitcherStyles[] = {
       {WindowSwitcherStyle::Carousel, "carousel", "settings.options.shell.window-switcher-style.carousel"},
       {WindowSwitcherStyle::Compact, "compact", "settings.options.shell.window-switcher-style.compact"},
+      {WindowSwitcherStyle::Icons, "icons", "settings.options.shell.window-switcher-style.icons"},
   };
 
   struct WindowSwitcherConfig {
@@ -1556,6 +1560,7 @@ struct AudioConfig {
   bool enableScreenshotSounds = true;
   float soundVolume = 0.5F;
   std::string soundTheme = "freedesktop";
+  std::int32_t spectrumFrameRate = 60;
 
   bool operator==(const AudioConfig&) const = default;
 };
@@ -1618,7 +1623,7 @@ struct BluetoothConfig {
   // Connect paired, trusted devices when Bluetooth turns on, at startup, and after resume.
   bool connectWhenEnabled = false;
   // Show a notification when a Bluetooth device connects or disconnects.
-  bool connectionNotifications = true;
+  bool connectionNotifications = false;
 
   bool operator==(const BluetoothConfig&) const = default;
 };
@@ -1793,8 +1798,8 @@ struct ThemeConfig {
   struct TemplateColorConfig {
     std::string name;
     std::string color;
-    std::string color_dark = "";
-    std::string color_light = "";
+    std::string color_dark;
+    std::string color_light;
     bool blend = true;
 
     bool operator==(const TemplateColorConfig&) const = default;
@@ -1880,6 +1885,7 @@ struct ControlCenterConfig {
   struct CalendarTabConfig {
     bool showEventsCard = true;
     bool showWeekNumbers = false;
+    bool showEventsLocation = false;
     bool hidePastEvents = false; // false keeps every finished event in today's list
     // With hidePastEvents, hide today's events that ended more than this many minutes ago. 0 = as soon as they end.
     std::int32_t pastEventsThresholdMinutes = 30;

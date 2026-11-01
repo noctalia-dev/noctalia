@@ -231,6 +231,7 @@ namespace scripting {
     AsyncHttpResult,
     SoundLoadResult,
     ColorPickerResult,
+    UmbrielActionResult,
     StateWatchResult,
     IdleWatchResult,
     StreamLine,
@@ -297,6 +298,8 @@ namespace scripting {
     std::string soundLoadError;
     // ColorPickerResult payload (nil on cancellation).
     std::optional<std::string> colorPickerResult;
+    // UmbrielActionResult payload (nullopt when the action was accepted).
+    std::optional<std::string> umbrielActionError;
     // StateWatchResult payload (the changed value as JSON).
     std::string stateJson;
     // IdleWatchResult payload: true on idled, false on resumed.
@@ -305,8 +308,9 @@ namespace scripting {
     int exitSignal = 0;
     // Stop payload: identifies why the runtime is being destroyed.
     ScriptExitReason exitReason = ScriptExitReason::Reload;
-    // SettingsChanged payload: the new seeded settings snapshot to swap in.
-    ScriptSettings newSettings;
+    // SettingsChanged payload: the new seeded settings snapshot to swap in, or nullopt
+    // when only a shell config value read via getSetting changed.
+    std::optional<ScriptSettings> newSettings;
     ScriptSnapshot snapshot;
     std::chrono::milliseconds budget{12};
   };

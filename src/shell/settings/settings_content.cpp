@@ -3,7 +3,6 @@
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "i18n/i18n.h"
-#include "net/url_open.h"
 #include "notification/notification_filter.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/settings_content_common.h"
@@ -75,10 +74,10 @@ namespace settings {
         .pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
         .pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath,
         .renamingWidgetName = ctx.renamingWidgetName,
-        .makeGestureActionRow =
-            [&factory](const GestureActionSetting& setting, const std::string& title, std::vector<std::string> path) {
-              return factory.makeGestureActionRow(setting, title, std::move(path));
-            },
+        .makeGestureActionRow = [&factory](
+                                    const GestureActionSetting& setting, const std::string& title,
+                                    const std::vector<std::string>& path
+                                ) { return factory.makeGestureActionRow(setting, title, path); },
         .pendingGestureKey = ctx.pendingGestureKey,
         .pendingGestureVerb = ctx.pendingGestureVerb,
         .actionsExpandedFor = ctx.actionsExpandedFor,
@@ -104,32 +103,32 @@ namespace settings {
         .makeRow = [&factory](
                        Flex& section, const SettingEntry& entry, std::unique_ptr<Node> control
                    ) { factory.makeRow(section, entry, std::move(control)); },
-        .makeToggle = [&factory](bool checked, std::vector<std::string> path, std::optional<bool> clearWhenValue)
-            -> std::unique_ptr<Node> { return factory.makeToggle(checked, true, std::move(path), clearWhenValue); },
-        .makeSelect = [&factory](const SelectSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
-          return factory.makeSelect(setting, std::move(path));
-        },
+        .makeToggle = [&factory](bool checked, const std::vector<std::string>& path, std::optional<bool> clearWhenValue)
+            -> std::unique_ptr<Node> { return factory.makeToggle(checked, true, path, clearWhenValue); },
+        .makeSelect = [&factory](const SelectSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeSelect(setting, path); },
         .makeSearchPicker = [&factory](
                                 const SearchPickerSetting& setting, std::string title, std::vector<std::string> path
                             ) -> std::unique_ptr<Node> {
           return factory.makeSearchPicker(setting, std::move(title), std::move(path));
         },
         .makeSlider = [&factory](
-                          double value, double minValue, double maxValue, double step, std::vector<std::string> path,
-                          bool integerValue
+                          double value, double minValue, double maxValue, double step,
+                          const std::vector<std::string>& path, bool integerValue
                       ) -> std::unique_ptr<Node> {
-          return factory.makeSlider(value, minValue, maxValue, step, std::move(path), integerValue);
+          return factory.makeSlider(value, minValue, maxValue, step, path, integerValue);
         },
-        .makeOptionalNumber = [&factory](const OptionalNumberSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeOptionalNumber(setting, std::move(path)); },
-        .makeOptionalStepper = [&factory](const OptionalStepperSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeOptionalStepper(setting, std::move(path)); },
-        .makeStepper = [&factory](const StepperSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeStepper(setting, std::move(path)); },
-        .makeText = [&factory](const std::string& value, const std::string& placeholder, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeText(value, placeholder, std::move(path)); },
-        .makeColorSpecPicker = [&factory](const ColorSpecPickerSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeColorSpecPicker(setting, std::move(path)); },
+        .makeOptionalNumber = [&factory](const OptionalNumberSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeOptionalNumber(setting, path); },
+        .makeOptionalStepper = [&factory](const OptionalStepperSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeOptionalStepper(setting, path); },
+        .makeStepper = [&factory](const StepperSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeStepper(setting, path); },
+        .makeText = [&factory](
+                        const std::string& value, const std::string& placeholder, const std::vector<std::string>& path
+                    ) -> std::unique_ptr<Node> { return factory.makeText(value, placeholder, path); },
+        .makeColorSpecPicker = [&factory](const ColorSpecPickerSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeColorSpecPicker(setting, path); },
         .makeListBlock = [&factory](
                              Flex& section, const SettingEntry& entry, const ListSetting& list
                          ) { factory.makeListBlock(section, entry, list); },
@@ -203,25 +202,26 @@ namespace settings {
       factory.makeRow(section, entry, std::move(control));
     };
 
-    const auto makeToggle = [&](bool checked, bool enabled, std::vector<std::string> path,
+    const auto makeToggle = [&](bool checked, bool enabled, const std::vector<std::string>& path,
                                 std::optional<bool> clearWhenValue = std::nullopt) {
-      return factory.makeToggle(checked, enabled, std::move(path), clearWhenValue);
+      return factory.makeToggle(checked, enabled, path, clearWhenValue);
     };
 
-    const auto makeSelect = [&](const SelectSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
-      return factory.makeSelect(setting, std::move(path));
+    const auto makeSelect = [&](const SelectSetting& setting,
+                                const std::vector<std::string>& path) -> std::unique_ptr<Node> {
+      return factory.makeSelect(setting, path);
     };
 
     const auto makeSlider =
-        [&](double value, double minValue, double maxValue, double step, std::vector<std::string> path,
+        [&](double value, double minValue, double maxValue, double step, const std::vector<std::string>& path,
             bool integerValue = false, std::string valueSuffix = {},
-            std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit =
-                {},
+            const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>&
+                linkedCommit = {},
             SliderSetting::InvertSlot invertSlot = SliderSetting::InvertSlot::None,
             bool invertEnabled = true) -> std::unique_ptr<Node> {
       return factory.makeSlider(
-          value, minValue, maxValue, step, std::move(path), integerValue, std::move(linkedCommit),
-          std::move(valueSuffix), invertSlot, invertEnabled
+          value, minValue, maxValue, step, path, integerValue, linkedCommit, std::move(valueSuffix), invertSlot,
+          invertEnabled
       );
     };
 
@@ -230,16 +230,16 @@ namespace settings {
       return factory.makeRangeSlider(setting, lowPath);
     };
 
-    const auto makeText = [&](const std::string& value, const std::string& placeholder, std::vector<std::string> path,
-                              float width = 0.0F) {
-      return factory.makeText(value, placeholder, std::move(path), width);
-    };
+    const auto makeText = [&](const std::string& value, const std::string& placeholder,
+                              const std::vector<std::string>& path,
+                              float width = 0.0F) { return factory.makeText(value, placeholder, path, width); };
 
     const auto makeTextWithPathBrowse = [&](const TextSetting& setting, const std::vector<std::string>& path) {
       return factory.makePathBrowse(setting, path);
     };
 
-    const auto makeGlyphText = [&](const TextSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
+    const auto makeGlyphText = [&](const TextSetting& setting,
+                                   const std::vector<std::string>& path) -> std::unique_ptr<Node> {
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
       wrap->addChild(makeText(setting.value, setting.placeholder, path, setting.width));
 
@@ -252,7 +252,7 @@ namespace settings {
           .paddingV = Style::spaceXs * scale,
           .paddingH = Style::spaceSm * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [setOverride = ctx.setOverride, path, currentValue = setting.value]() {
+          .onClick = [setOverride = ctx.setOverride, path, currentValue = setting.value] {
             GlyphPickerDialogOptions options;
             if (!currentValue.empty()) {
               options.initialGlyph = currentValue;
@@ -271,21 +271,21 @@ namespace settings {
       return wrap;
     };
 
-    const auto makeOptionalNumber = [&](const OptionalNumberSetting& setting, std::vector<std::string> path) {
-      return factory.makeOptionalNumber(setting, std::move(path));
+    const auto makeOptionalNumber = [&](const OptionalNumberSetting& setting, const std::vector<std::string>& path) {
+      return factory.makeOptionalNumber(setting, path);
     };
 
-    const auto makeStepper = [&](const StepperSetting& setting, std::vector<std::string> path) {
-      return factory.makeStepper(setting, std::move(path));
+    const auto makeStepper = [&](const StepperSetting& setting, const std::vector<std::string>& path) {
+      return factory.makeStepper(setting, path);
     };
 
-    const auto makeOptionalStepper = [&](const OptionalStepperSetting& setting, std::vector<std::string> path) {
-      return factory.makeOptionalStepper(setting, std::move(path));
+    const auto makeOptionalStepper = [&](const OptionalStepperSetting& setting, const std::vector<std::string>& path) {
+      return factory.makeOptionalStepper(setting, path);
     };
 
     const auto makeColorSpecPicker = [&](const ColorSpecPickerSetting& setting,
-                                         std::vector<std::string> path) -> std::unique_ptr<Node> {
-      return factory.makeColorSpecPicker(setting, std::move(path));
+                                         const std::vector<std::string>& path) -> std::unique_ptr<Node> {
+      return factory.makeColorSpecPicker(setting, path);
     };
 
     const auto makeSearchPickerButton = [&](const SettingEntry& entry,
@@ -386,7 +386,7 @@ namespace settings {
       const auto options = std::make_shared<std::vector<noctalia::theme::AvailableTemplate>>(setting.options);
       const auto path = entry.path;
 
-      auto commit = [setOverride = ctx.setOverride, path, options, selected]() {
+      auto commit = [setOverride = ctx.setOverride, path, options, selected] {
         std::vector<std::string> ordered;
         ordered.reserve(selected->size());
         for (const auto& opt : *options) {
@@ -404,7 +404,7 @@ namespace settings {
       std::unique_ptr<Flex> row;
       std::size_t countInRow = 0;
 
-      auto flushRow = [&]() {
+      auto flushRow = [&] {
         if (row == nullptr) {
           return;
         }
@@ -521,7 +521,12 @@ namespace settings {
                   .tooltip = i18n::tr("settings.templates.documentation"),
                   .width = Style::controlHeightSm * scale,
                   .height = Style::controlHeightSm * scale,
-                  .onClick = [url = option.documentationUrl]() { (void)net::openInBrowser(url); },
+                  .onClick =
+                      [openBrowserUrl = ctx.openBrowserUrl, url = option.documentationUrl] {
+                        if (openBrowserUrl) {
+                          openBrowserUrl(url);
+                        }
+                      },
                   .configure = [](Button& button) { button.setZIndex(2); },
               })
           );
@@ -537,7 +542,7 @@ namespace settings {
           documentationButton->setCustomPalette(palette);
         };
         const auto syncTileState = [checkedState, card, documentationButton, titleLabel, categoryLabel,
-                                    syncDocumentationColor]() {
+                                    syncDocumentationColor] {
           const bool linkHovered = documentationButton != nullptr && documentationButton->hovered();
           card->setHoveredVisual(linkHovered);
           const bool hovered = card->hovered() || linkHovered;
@@ -590,7 +595,7 @@ namespace settings {
           documentationButton->setOnEnter(syncTileState);
           documentationButton->setOnLeave(syncTileState);
         }
-        card->setOnClick([checkedState, setTileActive]() mutable { setTileActive(!*checkedState); });
+        card->setOnClick([checkedState, setTileActive] mutable { setTileActive(!*checkedState); });
         const std::string tooltip = noctalia::theme::formatTemplateTooltip(option);
         if (!tooltip.empty()) {
           card->setTooltip(tooltip);
@@ -695,7 +700,7 @@ namespace settings {
             .maxHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [commitItems, items = keybinds.items, i]() mutable {
+            .onClick = [commitItems, items = keybinds.items, i] mutable {
               if (i >= items.size()) {
                 return;
               }
@@ -814,7 +819,7 @@ namespace settings {
       if (ctx.bindSessionActionsEditState) {
         ctx.bindSessionActionsEditState(state);
       }
-      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild]() {
+      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild] {
         setOverride(path, *state);
         req();
       };
@@ -853,7 +858,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex == 0 || rowIndex >= state->size()) {
                 return;
               }
@@ -872,7 +877,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex + 1 >= state->size()) {
                 return;
               }
@@ -891,7 +896,7 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [openEntry = ctx.openSessionActionEntryEditor, rowIndex = idx]() {
+            .onClick = [openEntry = ctx.openSessionActionEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
               }
@@ -926,7 +931,7 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [state, commit]() {
+          .onClick = [state, commit] {
             state->push_back(
                 SessionPanelActionConfig{
                     .action = "command",
@@ -949,7 +954,7 @@ namespace settings {
 
       auto state = std::make_shared<std::vector<IdleBehaviorConfig>>(idle.items);
       normalizeIdleBehaviorNames(*state);
-      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild]() {
+      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild] {
         normalizeIdleBehaviorNames(*state);
         setOverride(path, *state);
         req();
@@ -983,7 +988,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex == 0 || rowIndex >= state->size()) {
                 return;
               }
@@ -1002,7 +1007,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex + 1 >= state->size()) {
                 return;
               }
@@ -1021,7 +1026,7 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [openEntry = ctx.openIdleBehaviorEntryEditor, rowIndex = idx]() {
+            .onClick = [openEntry = ctx.openIdleBehaviorEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
               }
@@ -1056,7 +1061,7 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [openCreate = ctx.openIdleBehaviorCreateEditor]() {
+          .onClick = [openCreate = ctx.openIdleBehaviorCreateEditor] {
             if (openCreate) {
               openCreate();
             }
@@ -1075,7 +1080,7 @@ namespace settings {
 
       auto state = std::make_shared<std::vector<NotificationFilterConfig>>(filters.items);
       normalizeNotificationFilterNames(*state);
-      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild]() {
+      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild] {
         normalizeNotificationFilterNames(*state);
         setOverride(path, *state);
         req();
@@ -1105,7 +1110,7 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [openEntry = ctx.openNotificationFilterEntryEditor, rowIndex = idx]() {
+            .onClick = [openEntry = ctx.openNotificationFilterEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
               }
@@ -1141,7 +1146,7 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [openCreate = ctx.openNotificationFilterCreateEditor]() {
+          .onClick = [openCreate = ctx.openNotificationFilterCreateEditor] {
             if (openCreate) {
               openCreate();
             }

@@ -8,12 +8,36 @@
 #include "ui/style.h"
 
 #include <algorithm>
+#include <array>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace settings {
   namespace {
 
     constexpr float kDialogWidth = 560.0F;
+
+    using noctalia::config::CredentialExportMode;
+
+    // Segment order in the credentials control.
+    constexpr std::array kCredentialModes{
+        CredentialExportMode::Keep,
+        CredentialExportMode::Omit,
+        CredentialExportMode::Blank,
+    };
+
+    std::string credentialsDescription(CredentialExportMode credentials) {
+      switch (credentials) {
+      case CredentialExportMode::Keep:
+        return i18n::tr("settings.export-config.credentials-keep-description");
+      case CredentialExportMode::Omit:
+        return i18n::tr("settings.export-config.credentials-omit-description");
+      case CredentialExportMode::Blank:
+        return i18n::tr("settings.export-config.credentials-blank-description");
+      }
+      return {};
+    }
 
   } // namespace
 
@@ -42,6 +66,7 @@ namespace settings {
 
     m_scale = std::max(0.1F, request.scale);
     m_mode = ConfigExportMode::MergedUser;
+    m_credentials = CredentialExportMode::Keep;
     m_callback = std::move(request.callback);
     clearNodePointers();
 
@@ -49,19 +74,19 @@ namespace settings {
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     m_modalId = m_host->push(
         SettingsModalRequest{
-            .build = [this, aliveGuard]() -> std::unique_ptr<Node> { return aliveGuard.expired() ? nullptr : build(); },
+            .build = [this, aliveGuard] -> std::unique_ptr<Node> { return aliveGuard.expired() ? nullptr : build(); },
             .measure =
                 [this](Renderer& renderer, const SettingsModalLayoutSpace& space) { return measure(renderer, space); },
             .arrange = [this](Renderer& renderer, float width, float height) { arrange(renderer, width, height); },
-            .initialFocusArea = [this]() { return m_exportButton != nullptr ? m_exportButton->inputArea() : nullptr; },
+            .initialFocusArea = [this] { return m_exportButton != nullptr ? m_exportButton->inputArea() : nullptr; },
             .requestClose =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     close();
                   }
                 },
             .onClosed =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     m_open = false;
                     m_modalId.reset();
@@ -123,9 +148,9 @@ namespace settings {
               .minHeight = Style::controlHeightSm * m_scale,
               .padding = Style::spaceXs * m_scale,
               .radius = Style::scaledRadiusMd(m_scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                DeferredCall::callLater([this, aliveGuard]() {
+                DeferredCall::callLater([this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     close();
                   }
@@ -150,6 +175,49 @@ namespace settings {
                 ConfigExportMode::FullEffective, i18n::tr("settings.export-config.full-effective-title"),
                 i18n::tr("settings.export-config.full-effective-description")
             )
+        )
+    );
+
+    root->addChild(
+        ui::column(
+            {
+                .align = FlexAlign::Stretch,
+                .gap = Style::spaceXs * m_scale,
+            },
+            ui::label({
+                .text = i18n::tr("settings.export-config.credentials-title"),
+                .fontSize = Style::fontSizeBody * m_scale,
+                .fontWeight = FontWeight::Bold,
+                .color = colorSpecFromRole(ColorRole::OnSurface),
+                .maxLines = 1,
+            }),
+            ui::segmented({
+                .options =
+                    std::vector<ui::SegmentedOption>{
+                        {.label = i18n::tr("settings.export-config.credentials-keep")},
+                        {.label = i18n::tr("settings.export-config.credentials-omit")},
+                        {.label = i18n::tr("settings.export-config.credentials-blank")},
+                    },
+                .selectedIndex = static_cast<std::size_t>(
+                    std::ranges::find(kCredentialModes, m_credentials) - kCredentialModes.begin()
+                ),
+                .fontSize = Style::fontSizeBody,
+                .scale = m_scale,
+                .equalSegmentWidths = true,
+                .onChange =
+                    [this](std::size_t index) {
+                      if (index < kCredentialModes.size()) {
+                        setCredentials(kCredentialModes[index]);
+                      }
+                    },
+            }),
+            ui::label({
+                .out = &m_credentialsDescription,
+                .text = credentialsDescription(m_credentials),
+                .fontSize = Style::fontSizeCaption * m_scale,
+                .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                .maxLines = 0,
+            })
         )
     );
 
@@ -198,9 +266,9 @@ namespace settings {
                 .paddingH = Style::spaceMd * m_scale,
                 .radius = Style::scaledRadiusMd(m_scale),
                 .onClick =
-                    [this]() {
+                    [this] {
                       const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                      DeferredCall::callLater([this, aliveGuard]() {
+                      DeferredCall::callLater([this, aliveGuard] {
                         if (!aliveGuard.expired()) {
                           close();
                         }
@@ -216,9 +284,9 @@ namespace settings {
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceMd * m_scale,
                 .radius = Style::scaledRadiusMd(m_scale),
-                .onClick = [this]() {
+                .onClick = [this] {
                   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                  DeferredCall::callLater([this, aliveGuard]() {
+                  DeferredCall::callLater([this, aliveGuard] {
                     if (!aliveGuard.expired()) {
                       accept();
                     }
@@ -259,18 +327,27 @@ namespace settings {
     requestRedraw();
   }
 
+  void ConfigExportDialogModal::setCredentials(CredentialExportMode credentials) {
+    m_credentials = credentials;
+    if (m_credentialsDescription != nullptr) {
+      m_credentialsDescription->setText(credentialsDescription(credentials));
+    }
+    requestLayout();
+  }
+
   void ConfigExportDialogModal::accept() {
     if (!m_open || m_host == nullptr || !m_modalId.has_value()) {
       return;
     }
     const ConfigExportMode mode = m_mode;
+    const CredentialExportMode credentials = m_credentials;
     ExportCallback callback = std::move(m_callback);
     if (!m_host->pop(*m_modalId)) {
       m_callback = std::move(callback);
       return;
     }
     if (callback) {
-      callback(mode);
+      callback(mode, credentials);
     }
   }
 
@@ -343,6 +420,7 @@ namespace settings {
     m_root = nullptr;
     m_mergedRadio = nullptr;
     m_fullRadio = nullptr;
+    m_credentialsDescription = nullptr;
     m_exportButton = nullptr;
   }
 

@@ -192,7 +192,7 @@ private:
   void persistScreenshotBackdrop(const capture::ScreenshotBackdropSettings& backdrop);
   [[nodiscard]] capture::ScreenshotBackdropSettings loadScreenshotBackdrop() const;
   void onCaptureComplete(
-      std::optional<capture::ScreenshotImage> image, const std::string& error, OutputOptions options,
+      std::optional<capture::ScreenshotImage> image, const std::string& error, const OutputOptions& options,
       std::optional<std::filesystem::path> destPath
   );
   [[nodiscard]] wl_output* preferredCaptureOutput() const;

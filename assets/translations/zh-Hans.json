@@ -29,15 +29,15 @@
   "bar": {
     "annotate": {
       "capture-new-region": "重新框选（放弃当前编辑）",
-      "close": "关闭（Esc）",
-      "color-black": "黑色",
-      "color-blue": "蓝色",
-      "color-green": "绿色",
-      "color-orange": "橙色",
-      "color-purple": "紫色",
-      "color-red": "红色",
-      "color-white": "白色",
-      "color-yellow": "黄色",
+      "close": "关闭",
+      "color-black": "黑色（8）",
+      "color-blue": "蓝色（4）",
+      "color-green": "绿色（3）",
+      "color-orange": "橙色（5）",
+      "color-purple": "紫色（6）",
+      "color-red": "红色（1）",
+      "color-white": "白色（7）",
+      "color-yellow": "黄色（2）",
       "copy": "复制（Ctrl+C）",
       "cursor": "显示鼠标指针（P）",
       "cursor-capture-failed": "无法切换鼠标指针：合成器未能提供独立的鼠标指针图像",
@@ -2986,10 +2986,7 @@
         "calendar-edit": {
           "button": "编辑",
           "button-reconnect": "重新连接",
-          "button-retry": "重试",
-          "description": "更新日历账户",
-          "description-locked": "刷新令牌位于已锁定的密钥环中；请解锁密钥环后重试",
-          "description-reconnect": "未找到 Google 授权信息；请重新连接此账户"
+          "button-retry": "重试"
         },
         "calendar-event-date-format": {
           "description": "日历视图中日程列表上方的日期格式",

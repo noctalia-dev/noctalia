@@ -82,7 +82,7 @@ Stepper::Stepper() {
         stopStepRepeat();
       }
     });
-    btn->setOnLeave([this]() { stopStepRepeat(); });
+    btn->setOnLeave([this] { stopStepRepeat(); });
     btn->setTabStop(false);
     return btn;
   };
@@ -121,7 +121,7 @@ Stepper::Stepper() {
     field->setHorizontalPadding(valueInputHorizontalPadding(m_scale));
     field->setFlexGrow(1.0F);
     field->setOnSubmit([this](const std::string& /*text*/) { commitValueField(); });
-    field->setOnFocusLoss([this]() { commitValueField(); });
+    field->setOnFocusLoss([this] { commitValueField(); });
     field->setOnKeyEvent([this](std::uint32_t sym, std::uint32_t mod) { return swallowNonNumericKey(sym, mod); });
     m_valueInput = field.get();
     track->addChild(std::move(field));
@@ -289,11 +289,11 @@ void Stepper::beginStepRepeat(int directionSign) {
   if (m_repeatDirection == 0) {
     return;
   }
-  m_repeatDelayTimer.start(kStepRepeatDelay, [this]() {
+  m_repeatDelayTimer.start(kStepRepeatDelay, [this] {
     if (m_repeatDirection == 0) {
       return;
     }
-    m_repeatTimer.startRepeating(kStepRepeatInterval, [this]() { repeatStep(); });
+    m_repeatTimer.startRepeating(kStepRepeatInterval, [this] { repeatStep(); });
   });
 }
 

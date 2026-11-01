@@ -40,7 +40,7 @@ void MediaWidget::create() {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
   });
@@ -251,12 +251,11 @@ void MediaWidget::applyTitleScrollMode(bool titleVisible) {
 }
 
 void MediaWidget::syncWidgetVisibility(bool showWidget) {
-  if (Node* rootNode = root(); rootNode != nullptr) {
-    if (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget) {
-      rootNode->setVisible(showWidget);
-      rootNode->setParticipatesInLayout(showWidget);
-      requestUpdate();
-    }
+  if (Node* rootNode = root();
+      rootNode != nullptr && (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget)) {
+    rootNode->setVisible(showWidget);
+    rootNode->setParticipatesInLayout(showWidget);
+    requestUpdate();
   }
 }
 
@@ -291,11 +290,18 @@ void MediaWidget::syncProgress(const std::optional<MprisPlayerInfo>& active) {
     m_progressTimer.stop();
     return;
   }
+  constexpr float kRateEpsilon = 0.0001F;
+  const float absRate = std::abs(static_cast<float>(active->rate));
+  if (absRate <= kRateEpsilon) {
+    m_progressTimer.stop();
+    return;
+  }
   // One wakeup per pixel of travel: a 3-minute track in a 200 px widget moves a pixel every ~900 ms.
   const float fillWidth = std::max(1.0F, m_progressBar->width());
-  const auto intervalMs =
-      static_cast<std::int64_t>(std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.0F, 1000.0F));
-  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this]() { requestUpdate(); });
+  const auto intervalMs = static_cast<std::int64_t>(
+      std::clamp(static_cast<float>(active->lengthUs / 1000) / (fillWidth * absRate), 250.0F, 1000.0F)
+  );
+  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this] { requestUpdate(); });
 }
 
 void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerInfo>& active) {
@@ -381,10 +387,8 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
     }
   } else if (!m_lastArtUrl.empty() && !m_art->hasImage() && !m_hideAlbumArt) {
     const std::string artPath = cachedArtworkPath(m_lastArtUrl);
-    if (!artPath.empty()) {
-      if (m_art->setSourceFile(renderer, artPath, artDecodePx, false, true)) {
-        requestRedraw();
-      }
+    if (!artPath.empty() && m_art->setSourceFile(renderer, artPath, artDecodePx, false, true)) {
+      requestRedraw();
     }
   }
 
@@ -400,7 +404,7 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
 }
 
 std::string MediaWidget::buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst) {
-  const std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
+  std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
   if (!player.title.empty() && !artists.empty()) {
     if (artistFirst) {
       return artists + " - " + player.title;

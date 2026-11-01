@@ -115,17 +115,17 @@ NotificationService::NotificationService(SessionBus& bus, NotificationManager& m
                   return onNotify(app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout);
                 }),
 
-            sdbus::registerMethod("GetCapabilities").withOutputParamNames("capabilities").implementedAs([this]() {
+            sdbus::registerMethod("GetCapabilities").withOutputParamNames("capabilities").implementedAs([this] {
               return onGetCapabilities();
             }),
 
             sdbus::registerMethod("GetNotifications")
                 .withOutputParamNames("active_notifications")
-                .implementedAs([this]() { return onGetNotifications(); }),
+                .implementedAs([this] { return onGetNotifications(); }),
 
             sdbus::registerMethod("GetServerInformation")
                 .withOutputParamNames("name", "vendor", "version", "spec_version")
-                .implementedAs([this]() { return onGetServerInformation(); }),
+                .implementedAs([this] { return onGetServerInformation(); }),
 
             sdbus::registerMethod("CloseNotification").withInputParamNames("id").implementedAs([this](uint32_t id) {
               onCloseNotification(id);
@@ -343,7 +343,7 @@ namespace notification_dbus {
       // Many screenshot tools (e.g. HyprCap) provide a single temp file via "image-path" which gets
       // overwritten on every new capture. Snapshot it into `imageData` so history thumbnails stay
       // immutable.
-      const std::string normalizedPath = uri::normalizeFileUrl(std::string(imagePath));
+      const std::string normalizedPath = uri::normalizeFileUrl(imagePath);
       if (normalizedPath.empty() || normalizedPath.front() != '/') {
         return std::nullopt;
       }

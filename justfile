@@ -112,7 +112,7 @@ format-docs-check: _docs_formatter
 _clang_tidy m=mode *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    meson compile -C "build-{{m}}" wayland-protocol-headers
+    meson compile -C "build-{{m}}" generated-headers
     src_root="$(realpath src)"
     # compile_commands.json stores build-relative paths, so clang-tidy emits header
     # diagnostics as ../src/...; the header-filter must match that form (an absolute

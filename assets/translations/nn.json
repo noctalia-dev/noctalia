@@ -2533,10 +2533,7 @@
         "calendar-edit": {
           "button": "Brigda",
           "button-reconnect": "Kopla til att",
-          "button-retry": "Prøv att",
-          "description": "Oppdater denne kalenderkontoen",
-          "description-locked": "Oppattnyingsteiknet ligg i ein låst lykelring; lås han opp og prøv att",
-          "description-reconnect": "Google-sanning vantar; kopla til kontoen att."
+          "button-retry": "Prøv att"
         },
         "calendar-event-date-format": {
           "description": "Datoformatet vist på arrangementskortet på dagen du vel",

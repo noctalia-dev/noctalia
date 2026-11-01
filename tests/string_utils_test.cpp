@@ -37,7 +37,10 @@ namespace {
       return false;
     }
     if (*actual != expected) {
-      std::println(stderr, "string_utils_test: {}: expected {}, got {}", message, expected, *actual);
+      std::println(
+          stderr, "string_utils_test: {}: expected [{}], got [{}]", message, StringUtils::join(expected, ", "),
+          StringUtils::join(*actual, ", ")
+      );
       return false;
     }
     return true;

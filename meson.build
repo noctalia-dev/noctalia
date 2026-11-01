@@ -133,61 +133,6 @@ if not gles2_dep.found()
   gles2_dep = dependency('epoxy')
 endif
 
-
-# ── Vendored: fzy matcher (C fuzzy scoring) ──────────────────────────────────
-_fzy_lib = static_library('fzy',
-  'third_party/fzy/src/match.c',
-  c_args: ['-Wno-pedantic', '-Wno-conversion'],
-  override_options: ['warning_level=0'],
-)
-fzy_dep = declare_dependency(
-  link_whole: _fzy_lib,
-  include_directories: include_directories('third_party/fzy/src', is_system: true),
-)
-
-# ── Vendored: Material Color Utilities (Google) ───────────────────────────────
-# Upstream uses #include "cpp/..." prefixes, so the include root is the
-# material_color_utilities/ dir itself. Built as a quiet static library.
-_mcu_sources = files(
-  'third_party/material_color_utilities/cpp/blend/blend.cc',
-  'third_party/material_color_utilities/cpp/cam/cam.cc',
-  'third_party/material_color_utilities/cpp/cam/hct.cc',
-  'third_party/material_color_utilities/cpp/cam/hct_solver.cc',
-  'third_party/material_color_utilities/cpp/cam/viewing_conditions.cc',
-  'third_party/material_color_utilities/cpp/contrast/contrast.cc',
-  'third_party/material_color_utilities/cpp/dislike/dislike.cc',
-  'third_party/material_color_utilities/cpp/dynamiccolor/dynamic_color.cc',
-  'third_party/material_color_utilities/cpp/dynamiccolor/dynamic_scheme.cc',
-  'third_party/material_color_utilities/cpp/dynamiccolor/material_dynamic_colors.cc',
-  'third_party/material_color_utilities/cpp/palettes/tones.cc',
-  'third_party/material_color_utilities/cpp/quantize/celebi.cc',
-  'third_party/material_color_utilities/cpp/quantize/lab.cc',
-  'third_party/material_color_utilities/cpp/quantize/wsmeans.cc',
-  'third_party/material_color_utilities/cpp/quantize/wu.cc',
-  'third_party/material_color_utilities/cpp/scheme/scheme_content.cc',
-  'third_party/material_color_utilities/cpp/scheme/scheme_expressive.cc',
-  'third_party/material_color_utilities/cpp/scheme/scheme_fidelity.cc',
-  'third_party/material_color_utilities/cpp/scheme/scheme_fruit_salad.cc',
-  'third_party/material_color_utilities/cpp/scheme/scheme_monochrome.cc',
-  'third_party/material_color_utilities/cpp/scheme/scheme_neutral.cc',
-  'third_party/material_color_utilities/cpp/scheme/scheme_rainbow.cc',
-  'third_party/material_color_utilities/cpp/scheme/scheme_tonal_spot.cc',
-  'third_party/material_color_utilities/cpp/scheme/scheme_vibrant.cc',
-  'third_party/material_color_utilities/cpp/score/score.cc',
-  'third_party/material_color_utilities/cpp/temperature/temperature_cache.cc',
-  'third_party/material_color_utilities/cpp/utils/utils.cc',
-)
-_mcu_lib = static_library('material_color_utilities',
-  _mcu_sources,
-  include_directories: include_directories('third_party/material_color_utilities', is_system: true),
-  cpp_args: ['-Wno-pedantic', '-Wno-conversion', '-Wno-shadow', '-Wno-unused-parameter'],
-  override_options: ['warning_level=0'],
-)
-mcu_dep = declare_dependency(
-  link_whole: _mcu_lib,
-  include_directories: include_directories('third_party/material_color_utilities', is_system: true),
-)
-
 # ── System: stb_image_resize2 and stb_image_write (header-only) ─────────────────────────────────
 if not cc.has_header('stb/stb_image_resize2.h')
   error('stb/stb_image_resize2.h not found')
@@ -207,104 +152,189 @@ libjxl_threads_dep  = dependency('libjxl_threads', required: true)
 # ── System: libsndfile (sound effect decoding) ───────────────────────────────
 sndfile_dep = dependency('sndfile', required: true)
 
-# ── Vendored: Luau (Roblox's Lua fork) ────────────────────────────────────────
-# Built as a quiet static library; only VM + Compiler + Bytecode + Ast + Common are vendored.
-_luau_sources = files(
-  'third_party/luau/Common/src/BytecodeWire.cpp',
-  'third_party/luau/Common/src/StringUtils.cpp',
-  'third_party/luau/Common/src/TimeTrace.cpp',
-  'third_party/luau/Ast/src/Allocator.cpp',
-  'third_party/luau/Ast/src/Ast.cpp',
-  'third_party/luau/Ast/src/Confusables.cpp',
-  'third_party/luau/Ast/src/Cst.cpp',
-  'third_party/luau/Ast/src/Lexer.cpp',
-  'third_party/luau/Ast/src/Location.cpp',
-  'third_party/luau/Ast/src/Parser.cpp',
-  'third_party/luau/Ast/src/PrettyPrinter.cpp',
-  'third_party/luau/Bytecode/src/BytecodeBuilder.cpp',
-  'third_party/luau/Bytecode/src/BytecodeGraph.cpp',
-  'third_party/luau/Compiler/src/BuiltinFolding.cpp',
-  'third_party/luau/Compiler/src/Builtins.cpp',
-  'third_party/luau/Compiler/src/Compiler.cpp',
-  'third_party/luau/Compiler/src/ConstantFolding.cpp',
-  'third_party/luau/Compiler/src/CostModel.cpp',
-  'third_party/luau/Compiler/src/lcode.cpp',
-  'third_party/luau/Compiler/src/TableShape.cpp',
-  'third_party/luau/Compiler/src/Types.cpp',
-  'third_party/luau/Compiler/src/ValueTracking.cpp',
-  'third_party/luau/VM/src/lapi.cpp',
-  'third_party/luau/VM/src/laux.cpp',
-  'third_party/luau/VM/src/lbaselib.cpp',
-  'third_party/luau/VM/src/lbitlib.cpp',
-  'third_party/luau/VM/src/lbuffer.cpp',
-  'third_party/luau/VM/src/lbuflib.cpp',
-  'third_party/luau/VM/src/lbuiltins.cpp',
-  'third_party/luau/VM/src/lcorolib.cpp',
-  'third_party/luau/VM/src/ldblib.cpp',
-  'third_party/luau/VM/src/ldebug.cpp',
-  'third_party/luau/VM/src/ldo.cpp',
-  'third_party/luau/VM/src/lfunc.cpp',
-  'third_party/luau/VM/src/lgc.cpp',
-  'third_party/luau/VM/src/lgcdebug.cpp',
-  'third_party/luau/VM/src/linit.cpp',
-  'third_party/luau/VM/src/lintlib.cpp',
-  'third_party/luau/VM/src/lclass.cpp',
-  'third_party/luau/VM/src/lclasslib.cpp',
-  'third_party/luau/VM/src/lmathlib.cpp',
-  'third_party/luau/VM/src/lmem.cpp',
-  'third_party/luau/VM/src/lnumprint.cpp',
-  'third_party/luau/VM/src/lobject.cpp',
-  'third_party/luau/VM/src/loslib.cpp',
-  'third_party/luau/VM/src/lperf.cpp',
-  'third_party/luau/VM/src/lstate.cpp',
-  'third_party/luau/VM/src/lstring.cpp',
-  'third_party/luau/VM/src/lstrlib.cpp',
-  'third_party/luau/VM/src/ltable.cpp',
-  'third_party/luau/VM/src/ltablib.cpp',
-  'third_party/luau/VM/src/ltm.cpp',
-  'third_party/luau/VM/src/ludata.cpp',
-  'third_party/luau/VM/src/lutf8lib.cpp',
-  'third_party/luau/VM/src/lvector.cpp',
-  'third_party/luau/VM/src/lveclib.cpp',
-  'third_party/luau/VM/src/lvmexecute.cpp',
-  'third_party/luau/VM/src/lvmload.cpp',
-  'third_party/luau/VM/src/lvmutils.cpp',
-)
-_luau_inc = include_directories(
-  'third_party/luau/Common/include',
-  'third_party/luau/Ast/include',
-  'third_party/luau/Bytecode/include',
-  'third_party/luau/Compiler/include',
-  'third_party/luau/VM/include',
-  'third_party/luau/VM/src',
-  is_system: true,
-)
-_luau_lib = static_library('luau',
-  _luau_sources,
-  include_directories: _luau_inc,
-  cpp_args: ['-w'],
-  override_options: ['warning_level=0'],
-)
-luau_dep = declare_dependency(
-  link_whole: _luau_lib,
-  include_directories: _luau_inc,
-)
+# ── Wuffs, fzy, Material Color Utilities, Luau ──────────────────────────────
+# Vendored under third_party/ by default. -Dsystem_libraries=true links system
+# copies instead. None of them ship pkg-config files, so they are found by
+# library and header name using the vendored include layout.
+if get_option('system_libraries')
+  if not cc.has_header('wuffs-v0.4.c')
+    error('system_libraries: wuffs-v0.4.c not found')
+  endif
+  _wuffs_inc = []
 
-# Tests link vendored archives selectively. The application keeps link_whole so
-# release LTO sees every member, but propagating that policy to every small test
-# would embed all vendored code in every test executable.
-_fzy_selective_dep = declare_dependency(
-  link_with: _fzy_lib,
-  include_directories: include_directories('third_party/fzy/src', is_system: true),
-)
-_mcu_selective_dep = declare_dependency(
-  link_with: _mcu_lib,
-  include_directories: include_directories('third_party/material_color_utilities', is_system: true),
-)
-_luau_selective_dep = declare_dependency(
-  link_with: _luau_lib,
-  include_directories: _luau_inc,
-)
+  fzy_dep = cc.find_library('fzy', has_headers: ['fzy/match.h'])
+  mcu_dep = cpp.find_library('material-color-utilities', has_headers: ['cpp/cam/hct.h'])
+  # Static archive order: dependents before their dependencies.
+  luau_dep = declare_dependency(dependencies: [
+    cpp.find_library('Luau.Compiler', has_headers: ['luacode.h']),
+    cpp.find_library('Luau.Bytecode'),
+    cpp.find_library('Luau.Ast'),
+    cpp.find_library('Luau.VM', has_headers: ['lua.h', 'lualib.h']),
+    cpp.find_library('Luau.Common'),
+  ])
+
+  _fzy_selective_dep = fzy_dep
+  _mcu_selective_dep = mcu_dep
+  _luau_selective_dep = luau_dep
+else
+  _wuffs_inc = [include_directories('third_party/wuffs', is_system: true)]
+
+  # ── Vendored: fzy matcher (C fuzzy scoring) ──────────────────────────────────
+  # match.h sits under include/fzy/ to match the system install layout.
+  _fzy_inc = include_directories('third_party/fzy/include', is_system: true)
+  _fzy_lib = static_library('fzy',
+    'third_party/fzy/src/match.c',
+    include_directories: include_directories('third_party/fzy/include/fzy', is_system: true),
+    c_args: ['-Wno-pedantic', '-Wno-conversion'],
+    override_options: ['warning_level=0'],
+  )
+  fzy_dep = declare_dependency(
+    link_whole: _fzy_lib,
+    include_directories: _fzy_inc,
+  )
+
+  # ── Vendored: Material Color Utilities (Google) ───────────────────────────────
+  # Upstream uses #include "cpp/..." prefixes, so the include root is the
+  # material_color_utilities/ dir itself. Built as a quiet static library.
+  _mcu_sources = files(
+    'third_party/material_color_utilities/cpp/blend/blend.cc',
+    'third_party/material_color_utilities/cpp/cam/cam.cc',
+    'third_party/material_color_utilities/cpp/cam/hct.cc',
+    'third_party/material_color_utilities/cpp/cam/hct_solver.cc',
+    'third_party/material_color_utilities/cpp/cam/viewing_conditions.cc',
+    'third_party/material_color_utilities/cpp/contrast/contrast.cc',
+    'third_party/material_color_utilities/cpp/dislike/dislike.cc',
+    'third_party/material_color_utilities/cpp/dynamiccolor/dynamic_color.cc',
+    'third_party/material_color_utilities/cpp/dynamiccolor/dynamic_scheme.cc',
+    'third_party/material_color_utilities/cpp/dynamiccolor/material_dynamic_colors.cc',
+    'third_party/material_color_utilities/cpp/palettes/tones.cc',
+    'third_party/material_color_utilities/cpp/quantize/celebi.cc',
+    'third_party/material_color_utilities/cpp/quantize/lab.cc',
+    'third_party/material_color_utilities/cpp/quantize/wsmeans.cc',
+    'third_party/material_color_utilities/cpp/quantize/wu.cc',
+    'third_party/material_color_utilities/cpp/scheme/scheme_content.cc',
+    'third_party/material_color_utilities/cpp/scheme/scheme_expressive.cc',
+    'third_party/material_color_utilities/cpp/scheme/scheme_fidelity.cc',
+    'third_party/material_color_utilities/cpp/scheme/scheme_fruit_salad.cc',
+    'third_party/material_color_utilities/cpp/scheme/scheme_monochrome.cc',
+    'third_party/material_color_utilities/cpp/scheme/scheme_neutral.cc',
+    'third_party/material_color_utilities/cpp/scheme/scheme_rainbow.cc',
+    'third_party/material_color_utilities/cpp/scheme/scheme_tonal_spot.cc',
+    'third_party/material_color_utilities/cpp/scheme/scheme_vibrant.cc',
+    'third_party/material_color_utilities/cpp/score/score.cc',
+    'third_party/material_color_utilities/cpp/temperature/temperature_cache.cc',
+    'third_party/material_color_utilities/cpp/utils/utils.cc',
+  )
+  _mcu_lib = static_library('material_color_utilities',
+    _mcu_sources,
+    include_directories: include_directories('third_party/material_color_utilities', is_system: true),
+    cpp_args: ['-Wno-pedantic', '-Wno-conversion', '-Wno-shadow', '-Wno-unused-parameter'],
+    override_options: ['warning_level=0'],
+  )
+  mcu_dep = declare_dependency(
+    link_whole: _mcu_lib,
+    include_directories: include_directories('third_party/material_color_utilities', is_system: true),
+  )
+
+  # ── Vendored: Luau (Roblox's Lua fork) ────────────────────────────────────────
+  # Built as a quiet static library; only VM + Compiler + Bytecode + Ast + Common are vendored.
+  _luau_sources = files(
+    'third_party/luau/Common/src/BytecodeWire.cpp',
+    'third_party/luau/Common/src/StringUtils.cpp',
+    'third_party/luau/Common/src/TimeTrace.cpp',
+    'third_party/luau/Ast/src/Allocator.cpp',
+    'third_party/luau/Ast/src/Ast.cpp',
+    'third_party/luau/Ast/src/Confusables.cpp',
+    'third_party/luau/Ast/src/Cst.cpp',
+    'third_party/luau/Ast/src/Lexer.cpp',
+    'third_party/luau/Ast/src/Location.cpp',
+    'third_party/luau/Ast/src/Parser.cpp',
+    'third_party/luau/Ast/src/PrettyPrinter.cpp',
+    'third_party/luau/Bytecode/src/BytecodeBuilder.cpp',
+    'third_party/luau/Bytecode/src/BytecodeGraph.cpp',
+    'third_party/luau/Compiler/src/BuiltinFolding.cpp',
+    'third_party/luau/Compiler/src/Builtins.cpp',
+    'third_party/luau/Compiler/src/Compiler.cpp',
+    'third_party/luau/Compiler/src/ConstantFolding.cpp',
+    'third_party/luau/Compiler/src/CostModel.cpp',
+    'third_party/luau/Compiler/src/lcode.cpp',
+    'third_party/luau/Compiler/src/TableShape.cpp',
+    'third_party/luau/Compiler/src/Types.cpp',
+    'third_party/luau/Compiler/src/ValueTracking.cpp',
+    'third_party/luau/VM/src/lapi.cpp',
+    'third_party/luau/VM/src/laux.cpp',
+    'third_party/luau/VM/src/lbaselib.cpp',
+    'third_party/luau/VM/src/lbitlib.cpp',
+    'third_party/luau/VM/src/lbuffer.cpp',
+    'third_party/luau/VM/src/lbuflib.cpp',
+    'third_party/luau/VM/src/lbuiltins.cpp',
+    'third_party/luau/VM/src/lcorolib.cpp',
+    'third_party/luau/VM/src/ldblib.cpp',
+    'third_party/luau/VM/src/ldebug.cpp',
+    'third_party/luau/VM/src/ldo.cpp',
+    'third_party/luau/VM/src/lfunc.cpp',
+    'third_party/luau/VM/src/lgc.cpp',
+    'third_party/luau/VM/src/lgcdebug.cpp',
+    'third_party/luau/VM/src/linit.cpp',
+    'third_party/luau/VM/src/lintlib.cpp',
+    'third_party/luau/VM/src/lclass.cpp',
+    'third_party/luau/VM/src/lclasslib.cpp',
+    'third_party/luau/VM/src/lmathlib.cpp',
+    'third_party/luau/VM/src/lmem.cpp',
+    'third_party/luau/VM/src/lnumprint.cpp',
+    'third_party/luau/VM/src/lobject.cpp',
+    'third_party/luau/VM/src/loslib.cpp',
+    'third_party/luau/VM/src/lperf.cpp',
+    'third_party/luau/VM/src/lstate.cpp',
+    'third_party/luau/VM/src/lstring.cpp',
+    'third_party/luau/VM/src/lstrlib.cpp',
+    'third_party/luau/VM/src/ltable.cpp',
+    'third_party/luau/VM/src/ltablib.cpp',
+    'third_party/luau/VM/src/ltm.cpp',
+    'third_party/luau/VM/src/ludata.cpp',
+    'third_party/luau/VM/src/lutf8lib.cpp',
+    'third_party/luau/VM/src/lvector.cpp',
+    'third_party/luau/VM/src/lveclib.cpp',
+    'third_party/luau/VM/src/lvmexecute.cpp',
+    'third_party/luau/VM/src/lvmload.cpp',
+    'third_party/luau/VM/src/lvmutils.cpp',
+  )
+  _luau_inc = include_directories(
+    'third_party/luau/Common/include',
+    'third_party/luau/Ast/include',
+    'third_party/luau/Bytecode/include',
+    'third_party/luau/Compiler/include',
+    'third_party/luau/VM/include',
+    'third_party/luau/VM/src',
+    is_system: true,
+  )
+  _luau_lib = static_library('luau',
+    _luau_sources,
+    include_directories: _luau_inc,
+    cpp_args: ['-w'],
+    override_options: ['warning_level=0'],
+  )
+  luau_dep = declare_dependency(
+    link_whole: _luau_lib,
+    include_directories: _luau_inc,
+  )
+
+  # Tests link vendored archives selectively. The application keeps link_whole so
+  # release LTO sees every member, but propagating that policy to every small test
+  # would embed all vendored code in every test executable.
+  _fzy_selective_dep = declare_dependency(
+    link_with: _fzy_lib,
+    include_directories: _fzy_inc,
+  )
+  _mcu_selective_dep = declare_dependency(
+    link_with: _mcu_lib,
+    include_directories: include_directories('third_party/material_color_utilities', is_system: true),
+  )
+  _luau_selective_dep = declare_dependency(
+    link_with: _luau_lib,
+    include_directories: _luau_inc,
+  )
+endif
 
 # ── Wayland protocol generation ───────────────────────────────────────────────
 wayland_scanner    = find_program('wayland-scanner')
@@ -419,8 +449,6 @@ _wlr_ls_c = custom_target('wlr-layer-shell-unstable-v1-client-source',
 _protocol_sources += _wlr_ls_c
 _protocol_headers += _wlr_ls_h
 
-alias_target('wayland-protocol-headers', _protocol_headers)
-
 # ── Main sources ──────────────────────────────────────────────────────────────
 _noctalia_sources = files(
   'src/app/application.cpp',
@@ -447,8 +475,10 @@ _noctalia_sources = files(
   'src/calendar/google_client.cpp',
   'src/calendar/google_oauth.cpp',
   'src/calendar/ical_parser.cpp',
+  'src/calendar/sync_failure.cpp',
   'src/calendar/vdir_reader.cpp',
   'src/config/atomic_file.cpp',
+  'src/config/config_credentials.cpp',
   'src/config/config_export.cpp',
   'src/config/config_merge.cpp',
   'src/config/config_migrations.cpp',
@@ -567,6 +597,7 @@ _noctalia_sources = files(
   'src/render/core/heif_library.cpp',
   'src/render/core/image_encoder.cpp',
   'src/render/core/image_orientation.cpp',
+  'src/render/core/image_resize.cpp',
   'src/render/programs/glyph_program.cpp',
   'src/render/programs/image_program.cpp',
   'src/render/programs/lockscreen_transition_program.cpp',
@@ -693,6 +724,7 @@ _noctalia_sources = files(
   'src/shell/switcher/window_switcher_style.cpp',
   'src/shell/switcher/window_switcher_carousel_style.cpp',
   'src/shell/switcher/window_switcher_compact_style.cpp',
+  'src/shell/switcher/window_switcher_icons_style.cpp',
   'src/shell/switcher/window_switcher_tile.cpp',
   'src/shell/profile/avatar_path.cpp',
   'src/shell/greeter/greeter_appearance_sync.cpp',
@@ -849,6 +881,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/workspaces_widget.cpp',
   'src/shell/bar/widgets/workspaces_widget_definition.cpp',
   'src/system/dependency_service.cpp',
+  'src/system/v4l2_camera.cpp',
   'src/system/desktop_entry.cpp',
   'src/system/freedesktop_key_file.cpp',
   'src/system/desktop_entry_launch.cpp',
@@ -944,6 +977,7 @@ _noctalia_sources = files(
   'src/ui/ui_tree_reconciler.cpp',
   'src/ui/app_icon_colorization.cpp',
   'src/ui/palette.cpp',
+  'src/ui/palette_swatch_preview.cpp',
   'src/ui/popup_chrome.cpp',
   'src/ui/scroll_into_view.cpp',
   'src/ui/split_pane_focus.cpp',
@@ -1016,6 +1050,7 @@ _noctalia_sources = files(
   'src/theme/community_templates.cpp',
   'src/theme/custom_palettes.cpp',
   'src/theme/fixed_palette.cpp',
+  'src/theme/fixed_palette_json.cpp',
   'src/theme/template_apply_service.cpp',
   'src/theme/gtk_extensions.cpp',
   'src/theme/theme_service.cpp',
@@ -1057,14 +1092,20 @@ else
   )
 endif
 
+# Headers clang-tidy needs before any compile has run (see `just lint`).
+_generated_headers = _protocol_headers
+if git_program.found()
+  _generated_headers += _git_revision_h
+endif
+alias_target('generated-headers', _generated_headers)
+
 # ── Include directories ────────────────────────────────────────────────────────
 _noctalia_inc = [
   include_directories('src'),
-  include_directories('third_party/wuffs', is_system: true),
   # '.' adds both the source root and the corresponding build-dir root, so
   # generated protocol headers (written to the build root) are found by #include.
   include_directories('.'),
-]
+] + _wuffs_inc
 
 # ── Application library and executable ────────────────────────────────────────
 _noctalia_system_dependencies = [
@@ -1242,6 +1283,7 @@ if build_tests
     'format_units',
     'freedesktop_key_file',
     'firefox_theme_manifest',
+    'fixed_palette_json',
     'font_family_catalog',
     'google_client_calendar_list',
     'google_client_reminders',
@@ -1269,6 +1311,7 @@ if build_tests
     'jxl_decoder',
     'kde_color_scheme',
     'keyboard_layout_label',
+    'labwc_occupancy',
     'lane_selection_token',
     'launcher_category_state',
     'location_service',
@@ -1282,6 +1325,7 @@ if build_tests
     'notification_dnd',
     'notification_filter',
     'notification_history_dismiss',
+    'notification_history_encryption',
     'notification_history_image_bounds',
     'notification_history_utf8',
     'notification_inline_reply',
@@ -1294,6 +1338,7 @@ if build_tests
     'plugin_catalog',
     'plugin_file_privacy',
     'plugin_git_export',
+    'plugin_gpu_monitoring',
     'plugin_i18n',
     'plugin_lifecycle',
     'plugin_manifest',
@@ -1329,6 +1374,7 @@ if build_tests
     'upower_charge_limit',
     'upower_device_catalog',
     'uri',
+    'v4l2_camera',
     'vdir_reader',
     'virtual_grid_view_gesture',
     'wallpaper_scan_symlink',
@@ -1411,12 +1457,25 @@ if build_tests
     dependencies: noctalia_core_dep,
     override_options: ['b_ndebug=false'],
   )
+  tray_signal_sender_integration_exe = executable('tray_signal_sender_integration_test',
+    sources: files('tests/tray_signal_sender_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
   fingerprint_integration_exe = executable('fingerprint_authenticator_integration_test',
     sources: files('tests/fingerprint_authenticator_integration_test.cpp'),
     dependencies: noctalia_core_dep,
     override_options: ['b_ndebug=false'],
   )
   dbus_run_session = find_program('dbus-run-session', required: false)
+  if dbus_run_session.found()
+    url_open_test_exe = executable('url_open_test',
+      sources: files('tests/url_open_test.cpp'),
+      dependencies: noctalia_core_dep,
+      override_options: ['b_ndebug=false'],
+    )
+    test('url_open', dbus_run_session, args: ['--', url_open_test_exe])
+  endif
   if dbus_run_session.found()
     test('upower_charge_limit_integration',
       dbus_run_session,
@@ -1432,13 +1491,20 @@ if build_tests
       args: ['--', secret_collection_probe_integration_exe.full_path()],
       depends: secret_collection_probe_integration_exe,
     )
-    foreach mode : ['registration', 'discovery']
-      test('tray_' + mode + '_integration',
-        dbus_run_session,
-        args: ['--', tray_registration_integration_exe.full_path(), mode],
-        depends: tray_registration_integration_exe,
-      )
+    foreach mode : ['registration', 'discovery', 'external-watcher']
+      foreach scenario : ['default', 'ayatana', 'both']
+        test('tray_' + mode + '_' + scenario + '_integration',
+          dbus_run_session,
+          args: ['--', tray_registration_integration_exe.full_path(), mode, scenario],
+          depends: tray_registration_integration_exe,
+        )
+      endforeach
     endforeach
+    test('tray_signal_sender_integration',
+      dbus_run_session,
+      args: ['--', tray_signal_sender_integration_exe.full_path()],
+      depends: tray_signal_sender_integration_exe,
+    )
     test('fingerprint_authenticator_integration',
       dbus_run_session,
       args: [

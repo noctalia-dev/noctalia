@@ -28,6 +28,12 @@
   },
   "bar": {
     "annotate": {
+      "backdrop-angle": "Angle",
+      "backdrop-gradient": "Dégradé",
+      "backdrop-shadow": "Ombre",
+      "backdrop-shadow-offset-x": "Décalage X",
+      "backdrop-shadow-offset-y": "Décalage Y",
+      "backdrop-shadow-opacity": "Opacité",
       "color-black": "Noir",
       "color-blue": "Bleu",
       "color-green": "Vert",
@@ -1664,6 +1670,7 @@
           "label": "Contours des boutons"
         },
         "card-borders": {
+          "description": "Dessinez des contours autour des cartes de section à l'intérieur des panneaux et de la fenêtre des paramètres",
           "label": "Contours des sections"
         },
         "community-palette": {
@@ -2529,8 +2536,7 @@
           "description-unavailable": "Aucun fournisseur Secret Service n'est disponible dans cette session"
         },
         "calendar-edit": {
-          "button": "Modifier",
-          "description": "Met à jour ce compte de calendrier"
+          "button": "Modifier"
         },
         "calendar-event-date-format": {
           "label": "Format de date d'événement"

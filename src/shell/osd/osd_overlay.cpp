@@ -976,7 +976,7 @@ void OsdOverlay::animateInstance(Instance& inst) {
       applyReveal(inst, 0.0F);
       inst.showAnimId = inst.animations.animate(
           0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic, [this, &inst](float v) { applyReveal(inst, v); },
-          [&inst]() {
+          [&inst] {
             inst.showAnimId = 0;
             inst.visible = true;
           }
@@ -990,13 +990,13 @@ void OsdOverlay::animateInstance(Instance& inst) {
       static_cast<float>(m_config != nullptr ? m_config->config().osd.hideDelayMs : OsdConfig{}.hideDelayMs);
   inst.hideAnimId = inst.animations.animateTimer(
       1.0F, 0.0F, hideDelayMs, Easing::Linear, [](float /*v*/) {},
-      [this, &inst]() {
+      [this, &inst] {
         inst.hideAnimId = inst.animations.animate(
             1.0F, 0.0F, Style::animNormal, Easing::EaseInQuad, [this, &inst](float v) { applyReveal(inst, v); },
-            [this, &inst]() {
+            [this, &inst] {
               inst.hideAnimId = 0;
               inst.visible = false;
-              DeferredCall::callLater([this]() {
+              DeferredCall::callLater([this] {
                 const bool allIdle = std::ranges::all_of(m_instances, [](const auto& i) {
                   return !i->visible && !i->showPending && i->showAnimId == 0 && i->hideAnimId == 0;
                 });

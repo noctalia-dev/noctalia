@@ -620,7 +620,7 @@ void TooltipManager::scheduleProviderRefresh() {
   }
 
   InputArea* area = m_pendingArea;
-  m_refreshTimer.start(interval, [this, area]() { refreshFromArea(area); });
+  m_refreshTimer.start(interval, [this, area] { refreshFromArea(area); });
 }
 
 float TooltipManager::pendingOutputScale() const {

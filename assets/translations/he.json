@@ -2549,10 +2549,7 @@
         "calendar-edit": {
           "button": "עריכה",
           "button-reconnect": "התחבר מחדש",
-          "button-retry": "נסה שוב",
-          "description": "עדכן את חשבון היומן הזה",
-          "description-locked": "אסימון הרענון נמצא בתוך מחזיק מפתחות נעול; בטל את נעילת מחזיק המפתחות ונסה שוב",
-          "description-reconnect": "אימות Google חסר; התחבר מחדש לחשבון זה"
+          "button-retry": "נסה שוב"
         },
         "calendar-event-date-format": {
           "description": "פורמט התאריך המוצג בכרטיס האירוע עבור התאריך הנבחר",

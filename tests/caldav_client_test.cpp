@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <functional>
+#include <optional>
 #include <print>
 #include <string>
 #include <thread>
@@ -93,12 +94,15 @@ int main() {
     callback(HttpResponse{.transportOk = true, .status = 207, .body = normalBody});
   }};
 
-  client.fetchEvents(account, utc(2024, 1, 1), utc(2024, 2, 1), false, [&](bool ok, std::vector<CalendarEvent> events) {
-    completionOk = ok;
-    completionOnMainThread = std::this_thread::get_id() == mainThread;
-    eventCount = events.size();
-    completed = true;
-  });
+  client.fetchEvents(
+      account, utc(2024, 1, 1), utc(2024, 2, 1), false,
+      [&](calendar::SyncFailure failure, std::vector<CalendarEvent> events) {
+        completionOk = failure == calendar::SyncFailure::None;
+        completionOnMainThread = std::this_thread::get_id() == mainThread;
+        eventCount = events.size();
+        completed = true;
+      }
+  );
 
   bool ok = true;
   ok = expect(requestIssued, "fetch did not issue the HTTP request") && ok;
@@ -114,11 +118,13 @@ int main() {
   calendar::CalDavClient mixedClient{[&](HttpRequest, calendar::CalDavClient::ResponseCallback callback) {
     callback(HttpResponse{.transportOk = true, .status = 207, .body = mixedBody});
   }};
-  mixedClient.fetchEvents(account, utc(2024, 1, 1), utc(2024, 2, 1), false, [&](bool result, auto events) {
-    mixedOk = result;
-    mixedCount = events.size();
-    mixedCompleted = true;
-  });
+  mixedClient.fetchEvents(
+      account, utc(2024, 1, 1), utc(2024, 2, 1), false, [&](calendar::SyncFailure failure, auto events) {
+        mixedOk = failure == calendar::SyncFailure::None;
+        mixedCount = events.size();
+        mixedCompleted = true;
+      }
+  );
   ok = expect(drainUntil([&]() { return mixedCompleted; }), "timed out waiting for mixed collection") && ok;
   ok = expect(mixedOk, "one invalid resource rejected the whole collection") && ok;
   ok = expect(mixedCount == 1, "valid resource next to an invalid one was not kept") && ok;
@@ -128,10 +134,12 @@ int main() {
   calendar::CalDavClient allInvalidClient{[&](HttpRequest, calendar::CalDavClient::ResponseCallback callback) {
     callback(HttpResponse{.transportOk = true, .status = 207, .body = allInvalidBody});
   }};
-  allInvalidClient.fetchEvents(account, utc(2024, 1, 1), utc(2024, 2, 1), false, [&](bool result, auto) {
-    allInvalidOk = result;
-    allInvalidCompleted = true;
-  });
+  allInvalidClient.fetchEvents(
+      account, utc(2024, 1, 1), utc(2024, 2, 1), false, [&](calendar::SyncFailure failure, auto) {
+        allInvalidOk = failure == calendar::SyncFailure::None;
+        allInvalidCompleted = true;
+      }
+  );
   ok = expect(drainUntil([&]() { return allInvalidCompleted; }), "timed out waiting for all-invalid collection") && ok;
   ok = expect(!allInvalidOk, "a collection with only invalid resources was reported as refreshed") && ok;
 
@@ -141,8 +149,8 @@ int main() {
     callback(HttpResponse{.transportOk = true, .status = 207, .body = expensiveBody});
   }};
   const auto beforeLimitedFetch = steady_clock::now();
-  limitedClient.fetchEvents(account, utc(2024, 1, 1), utc(2026, 1, 1), false, [&](bool result, auto) {
-    expensiveOk = result;
+  limitedClient.fetchEvents(account, utc(2024, 1, 1), utc(2026, 1, 1), false, [&](calendar::SyncFailure failure, auto) {
+    expensiveOk = failure == calendar::SyncFailure::None;
     expensiveCompleted = true;
   });
   ok = expect(drainUntil([&]() { return expensiveCompleted; }), "timed out waiting for bounded recurrence rejection")
@@ -150,12 +158,56 @@ int main() {
   ok = expect(steady_clock::now() - beforeLimitedFetch < seconds{2}, "recurrence work limit was not bounded") && ok;
   ok = expect(!expensiveOk, "recurrence exceeding the work limit was accepted") && ok;
 
+  // A failed request reports why.
+  const auto failureOf = [&](HttpResponse response) {
+    std::optional<calendar::SyncFailure> reported;
+    calendar::CalDavClient failingClient{[&](HttpRequest, calendar::CalDavClient::ResponseCallback callback) {
+      callback(response);
+    }};
+    failingClient.fetchEvents(account, utc(2024, 1, 1), utc(2024, 2, 1), false, [&](calendar::SyncFailure f, auto) {
+      reported = f;
+    });
+    (void)drainUntil([&]() { return reported.has_value(); });
+    return reported;
+  };
+  ok = expect(
+           failureOf(HttpResponse{.transportOk = true, .status = 401}) == calendar::SyncFailure::Authentication,
+           "HTTP 401 was not reported as an authentication failure"
+       )
+      && ok;
+  ok = expect(
+           failureOf(HttpResponse{.transportOk = true, .status = 404}) == calendar::SyncFailure::NotFound,
+           "HTTP 404 was not reported as not found"
+       )
+      && ok;
+  ok = expect(
+           failureOf(HttpResponse{.transportOk = true, .status = 503}) == calendar::SyncFailure::Server,
+           "HTTP 503 was not reported as a server failure"
+       )
+      && ok;
+  ok = expect(
+           failureOf(HttpResponse{.transportOk = false, .timedOut = true}) == calendar::SyncFailure::Timeout,
+           "a timed-out transfer was not reported as a timeout"
+       )
+      && ok;
+  ok = expect(
+           failureOf(HttpResponse{.transportOk = false}) == calendar::SyncFailure::Network,
+           "a transport failure was not reported as a network failure"
+       )
+      && ok;
+  ok = expect(
+           failureOf(HttpResponse{.transportOk = true, .status = 207, .body = ""})
+               == calendar::SyncFailure::InvalidResponse,
+           "an empty body was not reported as an invalid response"
+       )
+      && ok;
+
   const auto beforeDestroy = steady_clock::now();
   {
     calendar::CalDavClient stoppingClient{[&](HttpRequest, calendar::CalDavClient::ResponseCallback callback) {
       callback(HttpResponse{.transportOk = true, .status = 207, .body = expensiveBody});
     }};
-    stoppingClient.fetchEvents(account, utc(2024, 1, 1), utc(2026, 1, 1), false, [](bool, auto) {});
+    stoppingClient.fetchEvents(account, utc(2024, 1, 1), utc(2026, 1, 1), false, [](calendar::SyncFailure, auto) {});
     std::this_thread::sleep_for(milliseconds{20});
   }
   ok = expect(steady_clock::now() - beforeDestroy < milliseconds{500}, "destruction blocked on recurrence parsing")

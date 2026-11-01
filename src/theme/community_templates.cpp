@@ -305,12 +305,10 @@ namespace noctalia::theme {
       const std::filesystem::path path(raw);
       if (path.is_absolute())
         return false;
-      for (const auto& part : path) {
+      return std::ranges::all_of(path, [&](const auto& part) {
         const std::string token = part.string();
-        if (token == "." || token == ".." || token.empty())
-          return false;
-      }
-      return true;
+        return token != "." && token != ".." && !token.empty();
+      });
     }
 
     std::filesystem::path sidecarPath(const std::filesystem::path& path) {
@@ -607,11 +605,11 @@ namespace noctalia::theme {
         const toml::node* op = tpl->get("output_path");
         if (op == nullptr)
           continue;
-        if (const auto str = op->as_string()) {
+        if (const auto* str = op->as_string()) {
           output.outputPaths.push_back(str->get());
-        } else if (const auto arr = op->as_array()) {
+        } else if (const auto* arr = op->as_array()) {
           for (const auto& item : *arr) {
-            if (const auto itemStr = item.as_string())
+            if (const auto* itemStr = item.as_string())
               output.outputPaths.push_back(itemStr->get());
           }
         }
@@ -643,9 +641,9 @@ namespace noctalia::theme {
         }
 
         {
-          if (const auto name = info->get_as<std::string>("name"))
+          if (const auto* name = info->get_as<std::string>("name"))
             out.displayName = name->get();
-          if (const auto category = info->get_as<std::string>("category"))
+          if (const auto* category = info->get_as<std::string>("category"))
             out.category = category->get();
         }
         appendTemplateOutputMetadata(out, root);
@@ -692,7 +690,7 @@ namespace noctalia::theme {
           if (!success) {
             kLog.warn("failed to refresh community template catalog; using cached metadata when available");
             if (m_readyCallback) {
-              DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
+              DeferredCall::callLater([callback = m_readyCallback] { callback(); });
             }
             return;
           }
@@ -710,12 +708,12 @@ namespace noctalia::theme {
     const auto catalog = parseCatalogFile(catalogCachePath());
     auto pending = std::make_shared<std::size_t>(0);
     auto completed = std::make_shared<std::size_t>(0);
-    auto notifyIfReady = [this, generation, pending, completed]() {
+    auto notifyIfReady = [this, generation, pending, completed] {
       if (generation != m_generation || *completed < *pending) {
         return;
       }
       if (m_readyCallback) {
-        DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
+        DeferredCall::callLater([callback = m_readyCallback] { callback(); });
       }
     };
 
@@ -786,11 +784,11 @@ namespace noctalia::theme {
     auto pending = std::make_shared<std::size_t>(0);
     auto completed = std::make_shared<std::size_t>(0);
 
-    auto notifyIfReady = [this, generation, notifyWhenReady, pending, completed]() {
+    auto notifyIfReady = [this, generation, notifyWhenReady, pending, completed] {
       if (!notifyWhenReady || generation != m_generation || *completed < *pending)
         return;
       if (m_readyCallback) {
-        DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
+        DeferredCall::callLater([callback = m_readyCallback] { callback(); });
       }
     };
 
@@ -860,7 +858,7 @@ namespace noctalia::theme {
     }
 
     if (*pending == 0 && notifyWhenReady && m_readyCallback) {
-      DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
+      DeferredCall::callLater([callback = m_readyCallback] { callback(); });
     }
   }
 

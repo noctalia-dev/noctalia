@@ -402,7 +402,7 @@ namespace shell::dock {
       ctrl->setMenuWidth(menuPtr->chrome.contentWidth);
       ctrl->setMaxVisible(entries.size());
       ctrl->setEntries(entries);
-      ctrl->setRedrawCallback([menuPtr]() {
+      ctrl->setRedrawCallback([menuPtr] {
         if (menuPtr->surface)
           menuPtr->surface->requestRedraw();
       });
@@ -411,7 +411,7 @@ namespace shell::dock {
         const std::int32_t id = e.id;
         auto menuWindows = menuPtr->windows;
         DeferredCall::callLater([id, entryActions, callbacks, isPinned, menuWindows = std::move(menuWindows),
-                                 closableWindowIndices]() mutable {
+                                 closableWindowIndices] mutable {
           if (id == kMenuPinToggleId) {
             if (callbacks.setEntryPinned) {
               callbacks.setEntryPinned(!isPinned);
@@ -463,8 +463,8 @@ namespace shell::dock {
       menuPtr->surface->setSceneRoot(menuPtr->sceneRoot.get());
     });
 
-    menu->surface->setDismissedCallback([callbacks]() {
-      DeferredCall::callLater([callbacks]() {
+    menu->surface->setDismissedCallback([callbacks] {
+      DeferredCall::callLater([callbacks] {
         if (callbacks.closeMenu) {
           callbacks.closeMenu();
         }

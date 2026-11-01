@@ -446,7 +446,7 @@ namespace scripting {
     // `this` is an Application member and outlives the worker; the registry rescan and
     // bar rebuild marshal back to the main thread via DeferredCall.
     std::thread([this, source = std::move(source), repoRoot = std::move(repoRoot),
-                 enabled = std::move(enabled)]() mutable {
+                 enabled = std::move(enabled)] mutable {
       auto sourceLock = plugin_source_locks::acquire(source.name);
       if (const auto prepared = plugin_git::ensureRepo(repoRoot, source.location); !prepared) {
         if (prepared.timedOut) {
@@ -459,7 +459,7 @@ namespace scripting {
       if (!materializeEnabledFromRepo(source, repoRoot, enabled)) {
         return; // nothing exported; the startup registry scan already reflects disk state
       }
-      DeferredCall::callLater([this]() {
+      DeferredCall::callLater([this] {
         m_lastManifests = manifestSnapshot(m_config.config().plugins);
         PluginRegistry::instance().scan(); // pick up the freshly exported plugins
         if (m_onChanged) {
@@ -517,7 +517,7 @@ namespace scripting {
     }
 
     auto sources = m_config.config().plugins.sources;
-    std::thread([this, id, subdir = *subdir, sources = std::move(sources)]() mutable {
+    std::thread([this, id, subdir = *subdir, sources = std::move(sources)] mutable {
       const auto started = std::chrono::steady_clock::now();
       // Highest precedence wins; skip disabled sources — the registry never scans them.
       struct Offering {
@@ -581,7 +581,7 @@ namespace scripting {
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
 
       DeferredCall::callLater([this, id, ok, incompatible, timedOut, elapsedMs, pluginApiVersion,
-                               error = std::move(error)]() mutable {
+                               error = std::move(error)] mutable {
         m_enabling.erase(id);
         if (ok) {
           kLog.info("enabling plugin '{}' (resolved + exported in {:.0F}ms)", id, elapsedMs);
@@ -793,7 +793,7 @@ namespace scripting {
     m_config.addPluginSource(source); // fires reload -> refresh re-injects the registry
   }
 
-  void PluginManager::update(std::string sourceName) {
+  void PluginManager::update(const std::string& sourceName) {
     const auto source = findSource(sourceName);
     if (!source.has_value()) {
       return; // unknown source
@@ -824,31 +824,31 @@ namespace scripting {
     // The whole git sequence runs off-thread; only the final registry rescan marshals
     // back to the main thread. `this` is an Application member, so it outlives the worker.
     const std::string sourceName = source.name;
-    std::thread([this, source, repoRoot, sourceName, enabled = std::move(enabled)]() mutable {
+    std::thread([this, source, repoRoot, sourceName, enabled = std::move(enabled)] mutable {
       auto sourceLock = plugin_source_locks::acquire(source.name);
       if (const auto prepared = plugin_git::ensureRepo(repoRoot, source.location); !prepared) {
-        DeferredCall::callLater([sourceName, err = prepared.err]() {
+        DeferredCall::callLater([sourceName, err = prepared.err] {
           kLog.warn("update '{}': cannot prepare source cache: {}", sourceName, err);
         });
         return;
       }
       const auto fetched = plugin_git::fetch(repoRoot);
       if (!fetched) {
-        DeferredCall::callLater([sourceName, err = fetched.err]() {
+        DeferredCall::callLater([sourceName, err = fetched.err] {
           kLog.warn("update '{}': fetch failed: {}", sourceName, err);
         });
         return;
       }
       const auto fetchedRevision = plugin_git::remoteHead(repoRoot);
       if (!fetchedRevision || fetchedRevision.out.empty()) {
-        DeferredCall::callLater([sourceName, err = fetchedRevision.err]() {
+        DeferredCall::callLater([sourceName, err = fetchedRevision.err] {
           kLog.warn("update '{}': cannot resolve fetched revision: {}", sourceName, err);
         });
         return;
       }
       const auto currentRevision = plugin_git::headRevision(repoRoot);
       if (!currentRevision || currentRevision.out.empty()) {
-        DeferredCall::callLater([sourceName, err = currentRevision.err]() {
+        DeferredCall::callLater([sourceName, err = currentRevision.err] {
           kLog.warn("update '{}': cannot resolve applied revision: {}", sourceName, err);
         });
         return;
@@ -859,7 +859,7 @@ namespace scripting {
 
       const auto catalogResult = readGitCatalog(repoRoot, newRev);
       if (!catalogResult.ok) {
-        DeferredCall::callLater([sourceName, err = catalogResult.error]() {
+        DeferredCall::callLater([sourceName, err = catalogResult.error] {
           kLog.warn("update '{}': cannot read fetched catalog: {}", sourceName, err);
         });
         return;
@@ -920,7 +920,7 @@ namespace scripting {
       }
       DeferredCall::callLater([this, sourceName, ok = applied, err = std::move(applyError), newRev, curRev,
                                sourceRevisionChanged, materialized, exportFailures = std::move(exportFailures),
-                               withheldUpdates = std::move(withheldUpdates)]() mutable {
+                               withheldUpdates = std::move(withheldUpdates)] mutable {
         for (const auto& [id, exportError] : exportFailures) {
           kLog.warn("update '{}': export '{}' failed: {}", sourceName, id, exportError);
         }

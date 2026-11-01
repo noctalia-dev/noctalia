@@ -52,7 +52,7 @@ namespace {
     return 0.0F;
   }
 
-  std::string toggleGlyphName(const ContextMenuControlEntry& entry) {
+  std::string_view toggleGlyphName(const ContextMenuControlEntry& entry) {
     if (entry.toggleState == 2) {
       return "minus";
     }
@@ -337,11 +337,11 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
 
       const float toggleSlot = (m_reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
       const float indent = entryIndent(entry, scale);
-      const std::string toggleGlyph = toggleGlyphName(entry);
+      const std::string_view toggleGlyph = toggleGlyphName(entry);
       if (!toggleGlyph.empty()) {
         auto glyph = ui::glyph({
             .out = &togglePtr,
-            .glyph = toggleGlyph,
+            .glyph = std::string(toggleGlyph),
             .glyphSize = kMenuGlyphSize * scale,
             .color = entry.enabled ? enabledItemColor() : disabledItemColor(),
         });
@@ -465,7 +465,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
       };
 
       row->setOnEnter([this, i](const InputArea::PointerData& /*data*/) { setHighlightedIndex(i); });
-      row->setOnLeave([this]() {
+      row->setOnLeave([this] {
         applyHighlightVisuals();
         if (m_redrawCallback) {
           m_redrawCallback();

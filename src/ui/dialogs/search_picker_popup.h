@@ -28,6 +28,9 @@ struct SearchPickerPopupRequest {
   std::string placeholder;
   std::string emptyText;
   float scale = 1.0F;
+  // Keep the popup open after a pick and mark the picked option as selected, so several options can be tried in a
+  // row; Escape, the close button, or a click outside dismisses it.
+  bool keepOpenOnSelect = false;
 };
 
 class SearchPickerPopup final : public DialogPopupHost {
@@ -49,11 +52,6 @@ public:
   void open(SearchPickerPopupRequest request);
   void close();
 
-  [[nodiscard]] bool isOpen() const noexcept;
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
-  void onKeyboardEvent(const KeyboardEvent& event);
-  [[nodiscard]] wl_surface* wlSurface() const noexcept;
-
 protected:
   void populateContent(Node* contentParent, std::uint32_t width, std::uint32_t height) override;
   void layoutSheet(float contentWidth, float contentHeight) override;
@@ -71,6 +69,7 @@ private:
   std::string m_title;
   std::vector<SearchPickerOption> m_options;
   std::string m_selectedValue;
+  bool m_keepOpenOnSelect = false;
   std::string m_placeholder;
   std::string m_emptyText;
 

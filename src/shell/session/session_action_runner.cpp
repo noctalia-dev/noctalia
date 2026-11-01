@@ -211,10 +211,10 @@ namespace {
   }
 
   void runPowerAction(std::function<bool()> hook, std::function<bool()> action, std::string_view actionName) {
-    std::thread([hook = std::move(hook), action = std::move(action), actionName = std::string(actionName)]() mutable {
+    std::thread([hook = std::move(hook), action = std::move(action), actionName = std::string(actionName)] mutable {
+      // A failing hook (e.g. killing an app that isn't running) must not block the action.
       if (hook && !hook()) {
-        kLog.warn("{} cancelled because a configured hook failed", actionName);
-        return;
+        kLog.warn("{}: a configured hook failed, continuing", actionName);
       }
       if (!action()) {
         kLog.warn("{} failed after hooks completed", actionName);
@@ -223,10 +223,9 @@ namespace {
   }
 
   void runShellCommand(std::function<bool()> hook, std::string command, std::string_view actionName) {
-    std::thread([hook = std::move(hook), command = std::move(command), actionName = std::string(actionName)]() mutable {
+    std::thread([hook = std::move(hook), command = std::move(command), actionName = std::string(actionName)] mutable {
       if (hook && !hook()) {
-        kLog.warn("{} cancelled because a configured hook failed", actionName);
-        return;
+        kLog.warn("{}: a configured hook failed, continuing", actionName);
       }
       if (!process::runAsync(command)) {
         kLog.warn("{}: command failed", actionName);
@@ -264,11 +263,11 @@ void SessionActionRunner::invoke(const SessionPanelActionConfig& cfg) const {
   }
 
   if (cfg.action == "logout") {
-    runPowerAction(m_hooks.onLogout, [platform = &m_platform]() { return platform->requestSessionExit(); }, "logout");
+    runPowerAction(m_hooks.onLogout, [platform = &m_platform] { return platform->requestSessionExit(); }, "logout");
     return;
   }
   if (cfg.action == "suspend") {
-    runPowerAction({}, [this]() { return requestSuspendDetached(); }, "suspend");
+    runPowerAction({}, [this] { return requestSuspendDetached(); }, "suspend");
     return;
   }
   if (cfg.action == "lock_and_suspend") {
@@ -278,7 +277,7 @@ void SessionActionRunner::invoke(const SessionPanelActionConfig& cfg) const {
     return;
   }
   if (cfg.action == "reboot") {
-    runPowerAction(m_hooks.onReboot, [this]() { return requestRebootDetached(); }, "reboot");
+    runPowerAction(m_hooks.onReboot, [this] { return requestRebootDetached(); }, "reboot");
     return;
   }
   if (cfg.action == "reboot_uefi") {
@@ -287,11 +286,11 @@ void SessionActionRunner::invoke(const SessionPanelActionConfig& cfg) const {
       kLog.error("reboot_uefi: requires systemd and a UEFI boot");
       return;
     }
-    runPowerAction(m_hooks.onReboot, [this]() { return requestRebootUefiDetached(); }, "reboot_uefi");
+    runPowerAction(m_hooks.onReboot, [this] { return requestRebootUefiDetached(); }, "reboot_uefi");
     return;
   }
   if (cfg.action == "shutdown") {
-    runPowerAction(m_hooks.onShutdown, [this]() { return requestShutdownDetached(); }, "shutdown");
+    runPowerAction(m_hooks.onShutdown, [this] { return requestShutdownDetached(); }, "shutdown");
     return;
   }
   if (cfg.action == "lock") {
@@ -360,7 +359,7 @@ bool SessionActionRunner::requestShutdownDetached() const {
 }
 
 bool SessionActionRunner::lockThenSuspendDetached() const {
-  m_lockScreen.runAfterSessionLocked([this]() { (void)requestSuspendDetached(); });
+  m_lockScreen.runAfterSessionLocked([this] { (void)requestSuspendDetached(); });
   m_lockScreen.prepareForSleep();
   return true;
 }

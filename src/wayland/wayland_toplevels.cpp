@@ -236,7 +236,7 @@ void WaylandToplevels::onHandleState(zwlr_foreign_toplevel_handle_v1* handle, wl
   bool minimized = false;
   bool fullscreen = false;
   if (state != nullptr) {
-    auto* value = static_cast<const std::uint32_t*>(state->data);
+    const auto* value = static_cast<const std::uint32_t*>(state->data);
     const auto count = state->size / sizeof(std::uint32_t);
     for (std::size_t i = 0; i < count; ++i) {
       if (value[i] == ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_ACTIVATED) {

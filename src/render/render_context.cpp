@@ -2,7 +2,6 @@
 
 #include "core/files/resource_paths.h"
 #include "core/log.h"
-#include "core/scoped_timer.h"
 #include "core/ui_phase.h"
 #include "render/backend/render_backend.h"
 #include "render/core/lockscreen_transition_types.h"
@@ -145,10 +144,7 @@ bool RenderContext::makeCurrentNoSurface() {
 }
 
 bool RenderContext::makeCurrent(RenderTarget& target) {
-  if (m_backend == nullptr || m_graphicsResetPending || !m_backend->makeCurrent(target)) {
-    return false;
-  }
-  return true;
+  return m_backend != nullptr && !m_graphicsResetPending && m_backend->makeCurrent(target);
 }
 
 void RenderContext::setTextFontFamily(std::string family) {

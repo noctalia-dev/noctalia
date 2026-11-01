@@ -17,6 +17,9 @@ Noctalia is available on the following distributions. Choose your platform below
 - [GNU Guix](#guix)
 - [Debian](#debian) (including Ubuntu)
 - [Chimera Linux](#chimera)
+- [Void Linux](#void)
+- [Solus](#solus)
+- [Alpine Edge](#alpine)
 
 You can also [install manually](#manual-install) on any other Linux distribution.
 
@@ -250,15 +253,76 @@ Run the following commands as root.
 
 **Step 1**: Enable the `user` repository if it isn't already:
 
-```bash
-apk add chimera-repo-user
+```sh
+doas apk add chimera-repo-user
 ```
 
 **Step 2**: Refresh the package indexes and install Noctalia:
 
+```sh
+doas apk update
+doas apk add noctalia
+```
+
+---
+
+## Void Linux {#void}
+
+Noctalia is provided by third-party repository [`UniversalRepository`](https://universalrepo.pages.dev)
+
+**Step 1**: Install repository
+
 ```bash
-apk update
-apk add noctalia
+echo 'repository=https://universalrepo.pages.dev/void' | sudo tee /etc/xbps.d/10-universalrepository.conf
+```
+
+**Step 2**: Sync and import the signkey
+
+```bash
+sudo xbps-install -S
+```
+
+**Step 3**: Install noctalia
+
+```bash
+sudo xbps-install -S noctalia
+```
+
+---
+
+## [Solus](#solus)
+
+Noctalia is available in Solus's official repositories.
+
+```bash
+sudo eopkg install noctalia
+```
+
+---
+
+## [Alpine Edge](#alpine)
+
+Noctalia is provided by third-party repository [`UniversalRepository`](https://universalrepo.pages.dev). This third party repository currently supports Alpine Edge only.
+
+**Step 1**: Import the key
+
+```sh
+curl -fLo universalrepository.rsa.pub https://downloads.sourceforge.net/project/universalrepository/alpine/universalrepository.rsa.pub
+doas install -m 644 universalrepository.rsa.pub /etc/apk/keys/
+rm universalrepository.rsa.pub
+```
+
+**Step 2**: Add the repository and sync
+
+```sh
+echo 'https://downloads.sourceforge.net/project/universalrepository/alpine/community' | doas tee -a /etc/apk/repositories
+doas apk update
+```
+
+**Step 3**: Install Noctalia
+
+```sh
+doas apk add noctalia
 ```
 
 ---

@@ -1,5 +1,7 @@
 #include "theme/fixed_palette.h"
 
+#include "cpp/cam/hct.h"
+#include "cpp/utils/utils.h"
 #include "render/core/color.h"
 #include "theme/color.h"
 #include "theme/contrast.h"
@@ -110,7 +112,7 @@ namespace noctalia::theme {
     void applyAnsiColors(TokenMap& tokens, std::string_view prefix, const TerminalAnsiColors& colors) {
       for (const auto key : kTerminalAnsiColorJsonKeys) {
         std::string tokenKey(prefix);
-        tokenKey += "_";
+        tokenKey += '_';
         tokenKey += key;
         setToken(tokens, tokenKey, ansiColorForKey(colors, key));
       }
@@ -145,6 +147,56 @@ namespace noctalia::theme {
       return ensureContrast(Color::fromArgb(foreground), Color::fromArgb(background), 4.5).toArgb();
     }
 
+    // HCT hues of the sRGB primaries and secondaries. Generated palettes keep these so ANSI colors
+    // keep their meaning (diff red/green, warnings yellow) whatever roles the scheme produced.
+    constexpr double kAnsiRedHue = 27.0;
+    constexpr double kAnsiYellowHue = 100.0;
+    constexpr double kAnsiGreenHue = 142.0;
+    constexpr double kAnsiCyanHue = 196.0;
+    constexpr double kAnsiBlueHue = 270.0;
+    constexpr double kAnsiMagentaHue = 334.0;
+
+    constexpr double kAnsiMinChroma = 36.0;
+    constexpr double kAnsiMaxChroma = 64.0;
+    // Below this chroma the accent hue is noise (monochrome schemes), so hues stay canonical.
+    constexpr double kAnsiHarmonizeMinChroma = 12.0;
+    constexpr double kAnsiMaxHarmonizeDegrees = 15.0;
+    constexpr double kAnsiDarkNormalTone = 70.0;
+    constexpr double kAnsiDarkBrightTone = 82.0;
+    constexpr double kAnsiLightNormalTone = 45.0;
+    constexpr double kAnsiLightBrightTone = 32.0;
+
+    struct AnsiPair {
+      std::uint32_t normal;
+      std::uint32_t bright;
+    };
+
+    // Material's custom-color harmonization: rotate toward the accent by half the hue distance, at most 15 degrees.
+    double harmonizeHue(double hue, const material_color_utilities::Hct& accent) {
+      if (accent.get_chroma() < kAnsiHarmonizeMinChroma) {
+        return hue;
+      }
+      const double rotation =
+          std::min(material_color_utilities::DiffDegrees(hue, accent.get_hue()) * 0.5, kAnsiMaxHarmonizeDegrees);
+      return material_color_utilities::SanitizeDegreesDouble(
+          hue + rotation * material_color_utilities::RotationDirection(hue, accent.get_hue())
+      );
+    }
+
+    AnsiPair ansiPair(double hue, std::uint32_t accent, std::uint32_t background) {
+      const material_color_utilities::Hct accentHct(accent);
+      const double chroma = std::clamp(accentHct.get_chroma(), kAnsiMinChroma, kAnsiMaxChroma);
+      const double harmonizedHue = harmonizeHue(hue, accentHct);
+      const auto at = [&](double tone) {
+        return ensureTerminalTextContrast(
+            material_color_utilities::Hct(harmonizedHue, chroma, tone).ToInt(), background
+        );
+      };
+      return isDark(Color::fromArgb(background))
+          ? AnsiPair{.normal = at(kAnsiDarkNormalTone), .bright = at(kAnsiDarkBrightTone)}
+          : AnsiPair{.normal = at(kAnsiLightNormalTone), .bright = at(kAnsiLightBrightTone)};
+    }
+
   } // namespace
 
   void applyTerminalPalette(TokenMap& tokens, const TerminalPalette& terminal) {
@@ -163,12 +215,7 @@ namespace noctalia::theme {
     const std::uint32_t surfaceVariant = tokenOr(tokens, "surface_variant", surface);
     const std::uint32_t onSurfaceVariant = tokenOr(tokens, "on_surface_variant", foreground);
     const std::uint32_t outline = tokenOr(tokens, "outline", onSurfaceVariant);
-    const std::uint32_t error = tokenOr(tokens, "error", foreground);
     const std::uint32_t primary = tokenOr(tokens, "primary", foreground);
-    const std::uint32_t secondary = tokenOr(tokens, "secondary", primary);
-    const std::uint32_t tertiary = tokenOr(tokens, "tertiary", secondary);
-    const std::uint32_t primaryFixedDim = tokenOr(tokens, "primary_fixed_dim", primary);
-    const std::uint32_t secondaryFixedDim = tokenOr(tokens, "secondary_fixed_dim", secondary);
 
     setMissingToken(tokens, "terminal_foreground", foreground);
     setMissingToken(tokens, "terminal_background", background);
@@ -178,29 +225,29 @@ namespace noctalia::theme {
     setMissingToken(tokens, "terminal_selection_bg", surfaceVariant);
 
     const std::uint32_t terminalBackground = tokenOr(tokens, "terminal_background", background);
-    const std::uint32_t terminalRed = ensureTerminalTextContrast(error, terminalBackground);
-    const std::uint32_t terminalGreen = ensureTerminalTextContrast(primary, terminalBackground);
-    const std::uint32_t terminalYellow = ensureTerminalTextContrast(secondary, terminalBackground);
-    const std::uint32_t terminalBlue = ensureTerminalTextContrast(tertiary, terminalBackground);
-    const std::uint32_t terminalMagenta = ensureTerminalTextContrast(primaryFixedDim, terminalBackground);
-    const std::uint32_t terminalCyan = ensureTerminalTextContrast(secondaryFixedDim, terminalBackground);
+    const AnsiPair red = ansiPair(kAnsiRedHue, primary, terminalBackground);
+    const AnsiPair green = ansiPair(kAnsiGreenHue, primary, terminalBackground);
+    const AnsiPair yellow = ansiPair(kAnsiYellowHue, primary, terminalBackground);
+    const AnsiPair blue = ansiPair(kAnsiBlueHue, primary, terminalBackground);
+    const AnsiPair magenta = ansiPair(kAnsiMagentaHue, primary, terminalBackground);
+    const AnsiPair cyan = ansiPair(kAnsiCyanHue, primary, terminalBackground);
 
     setMissingToken(tokens, "terminal_normal_black", surfaceVariant);
-    setMissingToken(tokens, "terminal_normal_red", terminalRed);
-    setMissingToken(tokens, "terminal_normal_green", terminalGreen);
-    setMissingToken(tokens, "terminal_normal_yellow", terminalYellow);
-    setMissingToken(tokens, "terminal_normal_blue", terminalBlue);
-    setMissingToken(tokens, "terminal_normal_magenta", terminalMagenta);
-    setMissingToken(tokens, "terminal_normal_cyan", terminalCyan);
-    setMissingToken(tokens, "terminal_normal_white", foreground);
+    setMissingToken(tokens, "terminal_normal_red", red.normal);
+    setMissingToken(tokens, "terminal_normal_green", green.normal);
+    setMissingToken(tokens, "terminal_normal_yellow", yellow.normal);
+    setMissingToken(tokens, "terminal_normal_blue", blue.normal);
+    setMissingToken(tokens, "terminal_normal_magenta", magenta.normal);
+    setMissingToken(tokens, "terminal_normal_cyan", cyan.normal);
+    setMissingToken(tokens, "terminal_normal_white", onSurfaceVariant);
 
     setMissingToken(tokens, "terminal_bright_black", outline);
-    setMissingToken(tokens, "terminal_bright_red", terminalRed);
-    setMissingToken(tokens, "terminal_bright_green", terminalGreen);
-    setMissingToken(tokens, "terminal_bright_yellow", terminalYellow);
-    setMissingToken(tokens, "terminal_bright_blue", terminalBlue);
-    setMissingToken(tokens, "terminal_bright_magenta", terminalMagenta);
-    setMissingToken(tokens, "terminal_bright_cyan", terminalCyan);
+    setMissingToken(tokens, "terminal_bright_red", red.bright);
+    setMissingToken(tokens, "terminal_bright_green", green.bright);
+    setMissingToken(tokens, "terminal_bright_yellow", yellow.bright);
+    setMissingToken(tokens, "terminal_bright_blue", blue.bright);
+    setMissingToken(tokens, "terminal_bright_magenta", magenta.bright);
+    setMissingToken(tokens, "terminal_bright_cyan", cyan.bright);
     setMissingToken(tokens, "terminal_bright_white", foreground);
   }
 
@@ -224,9 +271,9 @@ namespace noctalia::theme {
     const Color onError = toUiColor(palette.onError);
     const Color surface = toUiColor(palette.surface);
     const Color onSurface = toUiColor(palette.onSurface);
-    const Color surfaceVariant = toUiColor(palette.surfaceVariant);
+    const Color surfaceContainer = toUiColor(palette.surfaceContainer);
     const Color onSurfaceVariant = toUiColor(palette.onSurfaceVariant);
-    const Color outlineRaw = toUiColor(palette.outline);
+    const Color outlineVariant = toUiColor(palette.outlineVariant);
     const Color shadow = toUiColor(palette.shadow);
     const Color hover = toUiColor(palette.hover);
     const Color onHover = toUiColor(palette.onHover);
@@ -279,26 +326,24 @@ namespace noctalia::theme {
         : ensureContrast(Color::fromHsl(tertiaryH, 0.15, 0.85), tertiaryFixedDim, 4.5);
 
     const auto [surfaceH, surfaceS, surfaceL] = surface.toHsl();
-    const auto [surfaceVariantH, surfaceVariantS, surfaceVariantL] = surfaceVariant.toHsl();
-    const Color surfaceContainer = surfaceVariant;
-    const Color surfaceContainerLowest = interpolateColor(surface, surfaceVariant, 0.2);
-    const Color surfaceContainerLow = interpolateColor(surface, surfaceVariant, 0.5);
+    const auto [surfaceContainerH, surfaceContainerS, surfaceContainerL] = surfaceContainer.toHsl();
+    const Color surfaceContainerLowest = interpolateColor(surface, surfaceContainer, 0.2);
+    const Color surfaceContainerLow = interpolateColor(surface, surfaceContainer, 0.5);
     const Color surfaceContainerHigh = isDark
-        ? Color::fromHsl(surfaceVariantH, surfaceVariantS, std::min(surfaceVariantL + 0.04, 0.40))
-        : Color::fromHsl(surfaceVariantH, surfaceVariantS, std::max(surfaceVariantL - 0.04, 0.60));
+        ? Color::fromHsl(surfaceContainerH, surfaceContainerS, std::min(surfaceContainerL + 0.04, 0.40))
+        : Color::fromHsl(surfaceContainerH, surfaceContainerS, std::max(surfaceContainerL - 0.04, 0.60));
     const Color surfaceContainerHighest = isDark
-        ? Color::fromHsl(surfaceVariantH, surfaceVariantS, std::min(surfaceVariantL + 0.08, 0.45))
-        : Color::fromHsl(surfaceVariantH, surfaceVariantS, std::max(surfaceVariantL - 0.08, 0.55));
+        ? Color::fromHsl(surfaceContainerH, surfaceContainerS, std::min(surfaceContainerL + 0.08, 0.45))
+        : Color::fromHsl(surfaceContainerH, surfaceContainerS, std::max(surfaceContainerL - 0.08, 0.55));
     const Color surfaceDim = isDark
         ? Color::fromHsl(surfaceH, surfaceS, std::max(surfaceL - 0.04, 0.02))
-        : Color::fromHsl(surfaceVariantH, surfaceVariantS, std::max(surfaceVariantL - 0.12, 0.50));
+        : Color::fromHsl(surfaceContainerH, surfaceContainerS, std::max(surfaceContainerL - 0.12, 0.50));
     const Color surfaceBright = isDark
-        ? Color::fromHsl(surfaceVariantH, surfaceVariantS, std::min(surfaceVariantL + 0.12, 0.50))
+        ? Color::fromHsl(surfaceContainerH, surfaceContainerS, std::min(surfaceContainerL + 0.12, 0.50))
         : Color::fromHsl(surfaceH, surfaceS, std::min(surfaceL + 0.03, 0.98));
 
-    // The outline_variant role is mOutline as given; outline is its contrast-adjusted form.
-    const Color outline = ensureContrast(outlineRaw, surface, 3.0);
-    const Color outlineVariant = outlineRaw;
+    // outline_variant is the palette's color as given; outline is its contrast-adjusted form.
+    const Color outline = ensureContrast(outlineVariant, surface, 3.0);
     const Color scrim(0, 0, 0);
     const Color inverseSurface = isDark ? Color::fromHsl(surfaceH, 0.08, 0.90) : Color::fromHsl(surfaceH, 0.08, 0.15);
     const Color inverseOnSurface = isDark ? Color::fromHsl(surfaceH, 0.05, 0.15) : Color::fromHsl(surfaceH, 0.05, 0.90);
@@ -339,7 +384,8 @@ namespace noctalia::theme {
     setToken(result, "on_error_container", onErrorContainer);
     setToken(result, "surface", surface);
     setToken(result, "on_surface", onSurface);
-    setToken(result, "surface_variant", surfaceVariant);
+    // Fixed palettes have no separate Material surface_variant; the template token mirrors surface_container.
+    setToken(result, "surface_variant", surfaceContainer);
     setToken(result, "on_surface_variant", onSurfaceVariant);
     setToken(result, "surface_dim", surfaceDim);
     setToken(result, "surface_bright", surfaceBright);
@@ -382,9 +428,9 @@ namespace noctalia::theme {
         .onError = tokenToColor(t, "on_error"),
         .surface = tokenToColor(t, "surface"),
         .onSurface = tokenToColor(t, "on_surface"),
-        .surfaceVariant = tokenToColor(t, "surface_container"),
+        .surfaceContainer = tokenToColor(t, "surface_container"),
         .onSurfaceVariant = tokenToColor(t, "on_surface_variant"),
-        .outline = tokenToColor(t, "outline_variant"),
+        .outlineVariant = tokenToColor(t, "outline_variant"),
         .shadow = tokenToColor(t, "shadow"),
         .hover = tokenToColor(t, "hover"),
         .onHover = tokenToColor(t, "on_hover"),

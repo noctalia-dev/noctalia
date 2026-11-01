@@ -214,7 +214,7 @@ static void noctalia_polkit_listener_initiate_authentication(
     PolkitDetails* /*details*/, const gchar* cookie, GList* identities, GCancellable* cancellable,
     GAsyncReadyCallback callback, gpointer user_data
 ) noexcept {
-  guardPolkitCallback("initiate_authentication", [&]() {
+  guardPolkitCallback("initiate_authentication", [&] {
     auto* self = reinterpret_cast<NoctaliaPolkitListener*>(listener);
     auto request = std::make_unique<InternalAuthRequest>();
     request->actionId = action_id != nullptr ? action_id : "";
@@ -257,7 +257,7 @@ static gboolean noctalia_polkit_listener_initiate_authentication_finish(
 }
 
 static void noctalia_polkit_request_cancelled(GCancellable* /*cancellable*/, gpointer user_data) noexcept {
-  guardPolkitCallback("request_cancelled", [&]() {
+  guardPolkitCallback("request_cancelled", [&] {
     auto* request = static_cast<InternalAuthRequest*>(user_data);
     request->cancelHandlerId = 0;
     auto* source = G_IS_TASK(request->task) ? g_task_get_source_object(request->task) : nullptr;
@@ -321,7 +321,7 @@ struct PolkitAgent::Impl {
   }
 
   static void sessionReadyTrampoline(GObject* source, GAsyncResult* result, gpointer userData) noexcept {
-    guardPolkitCallback("sessionReady", [&]() {
+    guardPolkitCallback("sessionReady", [&] {
       auto* self = static_cast<Impl*>(userData);
       self->onSessionReady(source, result);
     });
@@ -448,26 +448,26 @@ struct PolkitAgent::Impl {
 
   static void
   completedCallback(PolkitAgentSession* /*session*/, gboolean gainedAuthorization, gpointer userData) noexcept {
-    guardPolkitCallback("completed", [&]() {
+    guardPolkitCallback("completed", [&] {
       static_cast<Impl*>(userData)->handleCompleted(gainedAuthorization != FALSE);
     });
   }
 
   static void
   requestCallback(PolkitAgentSession* /*session*/, gchar* request, gboolean echoOn, gpointer userData) noexcept {
-    guardPolkitCallback("request", [&]() {
+    guardPolkitCallback("request", [&] {
       static_cast<Impl*>(userData)->handleRequest(request != nullptr ? request : "", echoOn != FALSE);
     });
   }
 
   static void showErrorCallback(PolkitAgentSession* /*session*/, gchar* text, gpointer userData) noexcept {
-    guardPolkitCallback("showError", [&]() {
+    guardPolkitCallback("showError", [&] {
       static_cast<Impl*>(userData)->setSupplementary(text != nullptr ? text : "", true);
     });
   }
 
   static void showInfoCallback(PolkitAgentSession* /*session*/, gchar* text, gpointer userData) noexcept {
-    guardPolkitCallback("showInfo", [&]() {
+    guardPolkitCallback("showInfo", [&] {
       static_cast<Impl*>(userData)->setSupplementary(text != nullptr ? text : "", false);
     });
   }

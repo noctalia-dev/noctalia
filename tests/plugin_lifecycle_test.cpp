@@ -216,6 +216,57 @@ int main() {
   }
 
   {
+    // A shell config value read via getSetting reloads a runtime without onConfigChanged
+    // when it changes, and only then.
+    const auto snapshot = [](std::string_view toml) { return std::make_shared<const toml::table>(toml::parse(toml)); };
+    api.setConfigSnapshot(snapshot("[shell]\noffline_mode = true\n[bar]\nposition = 'top'"));
+    scripting::ScriptRuntime runtime("test/get-setting-reload:service", {}, api, {});
+    runtime.start(
+        "=get-setting-reload",
+        "local loads = (noctalia.state.get('loads') or 0) + 1\n"
+        "noctalia.state.set('loads', loads)\n"
+        "noctalia.state.set('offline_' .. tostring(noctalia.getSetting('shell.offline_mode')), loads)\n",
+        {}
+    );
+    ok = expect(waitForState("test/get-setting-reload", "offline_true"), "getSetting runtime did not load") && ok;
+    api.setConfigSnapshot(snapshot("[shell]\noffline_mode = true\n[bar]\nposition = 'bottom'"));
+    api.setConfigSnapshot(snapshot("[shell]\noffline_mode = false\n[bar]\nposition = 'bottom'"));
+    ok = expect(waitForState("test/get-setting-reload", "offline_false"), "getSetting change did not reload") && ok;
+    ok = expect(
+             scripting::PluginStateStore::instance().get("test/get-setting-reload", "offline_false") == "2",
+             "an unrelated config change reloaded the runtime"
+         )
+        && ok;
+  }
+
+  {
+    // With onConfigChanged defined, the handler runs in place instead of a reload.
+    const auto snapshot = [](std::string_view toml) { return std::make_shared<const toml::table>(toml::parse(toml)); };
+    api.setConfigSnapshot(snapshot("[shell]\noffline_mode = true"));
+    scripting::ScriptRuntime runtime("test/get-setting-handler:service", {}, api, {});
+    runtime.start(
+        "=get-setting-handler",
+        "local loads = (noctalia.state.get('loads') or 0) + 1\n"
+        "noctalia.state.set('loads', loads)\n"
+        "noctalia.getSetting('shell.offline_mode')\n"
+        "function onConfigChanged()\n"
+        "  noctalia.state.set('changed', noctalia.getSetting('shell.offline_mode'))\n"
+        "end\n",
+        {}
+    );
+    ok = expect(drainUntil([&] { return runtime.hasOnConfigChanged(); }), "getSetting handler runtime did not load")
+        && ok;
+    api.setConfigSnapshot(snapshot("[shell]\noffline_mode = false"));
+    ok = expect(waitForState("test/get-setting-handler", "changed"), "onConfigChanged did not run") && ok;
+    ok = expect(
+             scripting::PluginStateStore::instance().get("test/get-setting-handler", "changed") == "false"
+                 && scripting::PluginStateStore::instance().get("test/get-setting-handler", "loads") == "1",
+             "getSetting change with onConfigChanged reloaded instead of calling the handler"
+         )
+        && ok;
+  }
+
+  {
     scripting::ScriptRuntime runtime("test/shutdown:service", {}, api, {});
     runtime.start(
         "=shutdown",

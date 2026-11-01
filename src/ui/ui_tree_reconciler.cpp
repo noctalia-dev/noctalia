@@ -33,6 +33,7 @@
 #include "ui/ui_tree.h"
 #include "util/string_utils.h"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <cmath>
@@ -955,7 +956,7 @@ namespace ui {
       if (*onClick != slot.callbackName) {
         slot.callbackName = *onClick;
         if (inputArea != nullptr) {
-          wireWrapperActivation(inputArea, [this, name = slot.callbackName]() {
+          wireWrapperActivation(inputArea, [this, name = slot.callbackName] {
             if (m_sink) {
               m_sink(ControlCallback{name});
             }
@@ -975,7 +976,7 @@ namespace ui {
         if (inputArea != nullptr) {
           inputArea->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key,
                                  node](const InputArea::PointerData&) { openHover(name, key, node); });
-          inputArea->setOnLeave([this, node]() { releaseHover(node); });
+          inputArea->setOnLeave([this, node] { releaseHover(node); });
         }
       }
     } else if (!slot.hoverCallbackName.empty()) {
@@ -1042,12 +1043,7 @@ namespace ui {
     if (slot.node == m_hoveredOwner) {
       return true;
     }
-    for (const Slot& child : slot.children) {
-      if (subtreeOwnsHover(child)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(slot.children, [&](const Slot& child) { return subtreeOwnsHover(child); });
   }
 
   // Both edges of a graph's pointer session are wired together: the enter/motion
@@ -1097,7 +1093,7 @@ namespace ui {
       report(pointer);
     });
     inputArea->setOnMotion(report);
-    inputArea->setOnLeave([this, node]() { releasePointer(node); });
+    inputArea->setOnLeave([this, node] { releasePointer(node); });
   }
 
   void UiTreeReconciler::openPointer(const Node* owner, std::string leaveCallback, std::string streamKey) {
@@ -1349,12 +1345,7 @@ namespace ui {
     if (slot.node == m_pointerOwner) {
       return true;
     }
-    for (const Slot& child : slot.children) {
-      if (subtreeOwnsPointer(child)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(slot.children, [&](const Slot& child) { return subtreeOwnsPointer(child); });
   }
 
   void UiTreeReconciler::applyProps(Slot& slot, const UiTreeNode& desired, Renderer& renderer) {
@@ -1439,7 +1430,7 @@ namespace ui {
       if (const std::string* onClick = callbackProp(desired, "onClick"); onClick != nullptr) {
         if (*onClick != slot.callbackName) {
           slot.callbackName = *onClick;
-          source->setOnClick([this, name = slot.callbackName]() {
+          source->setOnClick([this, name = slot.callbackName] {
             if (m_sink) {
               m_sink(ControlCallback{name});
             }
@@ -1841,10 +1832,10 @@ namespace ui {
         if (*onHover != slot.hoverCallbackName) {
           releaseHover(node);
           slot.hoverCallbackName = *onHover;
-          button->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key, node]() {
+          button->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key, node] {
             openHover(name, key, node);
           });
-          button->setOnLeave([this, node]() { releaseHover(node); });
+          button->setOnLeave([this, node] { releaseHover(node); });
         }
       } else if (!slot.hoverCallbackName.empty()) {
         releaseHover(node);
@@ -1855,7 +1846,7 @@ namespace ui {
       if (const std::string* onClick = strProp(desired, "onClick");
           onClick != nullptr && *onClick != slot.callbackName) {
         slot.callbackName = *onClick;
-        button->setOnClick([this, name = slot.callbackName]() {
+        button->setOnClick([this, name = slot.callbackName] {
           if (m_sink) {
             m_sink(ControlCallback{name});
           }
@@ -1966,13 +1957,13 @@ namespace ui {
       if (const double* step = numProp(desired, "step")) {
         slider->setStep(*step);
       }
-      if (const double* value = numProp(desired, "value")) {
-        // Don't fight an in-progress drag, and only re-apply a changed value.
-        if (!slider->dragging() && (!slot.lastScalar.has_value() || *slot.lastScalar != *value)) {
-          slot.lastScalar = *value;
-          slider->setValue(*value);
-        }
+      // Don't fight an in-progress drag, and only re-apply a changed value.
+      if (const double* value = numProp(desired, "value");
+          value && !slider->dragging() && (!slot.lastScalar.has_value() || *slot.lastScalar != *value)) {
+        slot.lastScalar = *value;
+        slider->setValue(*value);
       }
+
       if (const bool* enabled = boolProp(desired, "enabled")) {
         slider->setEnabled(*enabled);
       }
@@ -1988,7 +1979,7 @@ namespace ui {
       if (const std::string* onDragEnd = strProp(desired, "onDragEnd");
           onDragEnd != nullptr && *onDragEnd != slot.dragEndCallbackName) {
         slot.dragEndCallbackName = *onDragEnd;
-        slider->setOnDragEnd([this, name = slot.dragEndCallbackName]() {
+        slider->setOnDragEnd([this, name = slot.dragEndCallbackName] {
           if (m_sink) {
             m_sink(ControlCallback{name});
           }
@@ -2007,12 +1998,12 @@ namespace ui {
         select->setOptions(*options);
         slot.lastScalar.reset(); // re-apply the selection against the new option set
       }
-      if (const double* index = numProp(desired, "selectedIndex")) {
-        if (!slot.lastScalar.has_value() || *slot.lastScalar != *index) {
-          slot.lastScalar = *index;
-          select->setSelectedIndexSilently(static_cast<std::size_t>(std::max(0.0, *index)));
-        }
+      if (const double* index = numProp(desired, "selectedIndex");
+          index && (!slot.lastScalar.has_value() || *slot.lastScalar != *index)) {
+        slot.lastScalar = *index;
+        select->setSelectedIndexSilently(static_cast<std::size_t>(std::max(0.0, *index)));
       }
+
       if (const bool* enabled = boolProp(desired, "enabled")) {
         select->setEnabled(*enabled);
       }
@@ -2164,14 +2155,14 @@ namespace ui {
           }
         });
       }
-      if (const double* scrollToBottomRev = numProp(desired, "scrollToBottomRev")) {
-        if (!slot.lastScalar.has_value() || *slot.lastScalar != *scrollToBottomRev) {
-          slot.lastScalar = *scrollToBottomRev;
-          // Deferred: children reconcile after applyProps, so an immediate
-          // setScrollOffset would clamp against the previous scroll extent.
-          scroll->requestScrollToBottom();
-        }
+      if (const double* scrollToBottomRev = numProp(desired, "scrollToBottomRev");
+          scrollToBottomRev && (!slot.lastScalar.has_value() || *slot.lastScalar != *scrollToBottomRev)) {
+        slot.lastScalar = *scrollToBottomRev;
+        // Deferred: children reconcile after applyProps, so an immediate
+        // setScrollOffset would clamp against the previous scroll extent.
+        scroll->requestScrollToBottom();
       }
+
       // gap / padding / align / justify configure the inner content Flex that
       // hosts the children.
       Flex* content = scroll->content();

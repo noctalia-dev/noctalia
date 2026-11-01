@@ -182,7 +182,7 @@ std::string tray::ThemePathIconStore::resolve(std::string_view themePath, std::s
     startWorker = !std::exchange(m_workerStarted, true);
   }
   if (startWorker) {
-    m_worker = std::thread([this]() { workerLoop(); });
+    m_worker = std::thread([this] { workerLoop(); });
   }
   m_cv.notify_one();
   return {};
@@ -228,7 +228,7 @@ void tray::ThemePathIconStore::workerLoop() {
     std::string path;
     {
       std::unique_lock lock(m_mutex);
-      m_cv.wait(lock, [this]() { return m_shutdown || !m_queue.empty(); });
+      m_cv.wait(lock, [this] { return m_shutdown || !m_queue.empty(); });
       if (m_shutdown) {
         return;
       }
@@ -242,6 +242,6 @@ void tray::ThemePathIconStore::workerLoop() {
       m_pending.erase(path);
       m_indexes.insert_or_assign(std::move(path), std::move(index));
     }
-    DeferredCall::callLater([]() { instance().notifyListeners(); });
+    DeferredCall::callLater([] { instance().notifyListeners(); });
   }
 }

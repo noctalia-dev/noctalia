@@ -175,8 +175,11 @@ The manifest only declares an entry's settings schema. Named widget instances, t
 | `extensions`      | optional array of extensions for `file`, such as `[".toml", ".json"]`; empty allows any file                 |
 | `visible_when`    | `{ key = "other_key", values = ["true"] }` - conditional visibility                                          |
 | `advanced`        | hide behind the "show advanced" toggle                                                                       |
+| `secret`          | the value is a credential (API key, token, password); see below                                              |
 
 `file` and `folder` store strings but render as a text input with a browse button in each settings editor. Use `extensions` to filter a `file` picker; users can still enter a path directly.
+
+Set `secret = true` <PluginApiBadge feature="secret-setting" /> on a `string`, `string_list`, or `string_map` setting that holds an API key, token, or password. `noctalia config export --credentials omit` then leaves the value out of the exported config and `--credentials blank` empties it, so users can publish their config without the credential. Any other type with `secret = true` fails the manifest.
 
 `string_map` requires <PluginApiBadge feature="string-map-setting" />. It stores string keys associated with string values and is returned from `noctalia.getConfig()` as an associative Luau table. Its default is a TOML table:
 
