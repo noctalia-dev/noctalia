@@ -2425,7 +2425,12 @@ namespace capture {
     if (!m_active || m_wayland == nullptr) {
       return false;
     }
+    // On niri an older exclusive panel such as the launcher keeps the keyboard under the editor;
+    // the keys still belong to the editor, on the instance the export would use (#4641).
     Instance* keyboardInst = instanceForSurface(m_wayland->lastKeyboardSurface());
+    if (keyboardInst == nullptr) {
+      keyboardInst = exportTarget();
+    }
     if (keyboardInst == nullptr) {
       return false;
     }

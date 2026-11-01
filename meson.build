@@ -1242,6 +1242,7 @@ if build_tests
     'bluetooth_uuid_names',
     'button_layout',
     'cairo_text_renderer',
+    'capture_key_routing',
     'caldav_client',
     'calendar_cache_permissions',
     'calendar_credential_store',

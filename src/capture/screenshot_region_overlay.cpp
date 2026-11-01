@@ -1,5 +1,6 @@
 #include "capture/screenshot_region_overlay.h"
 
+#include "capture/capture_key_routing.h"
 #include "capture/screenshot_region_badge.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -975,41 +976,31 @@ namespace capture {
   }
 
   bool ScreenshotRegionOverlay::onKeyboardEvent(const KeyboardEvent& event) {
-    if (!m_active || !event.pressed || m_wayland == nullptr) {
+    if (!m_active) {
       return false;
     }
 
-    wl_surface* const kbSurface = m_wayland->lastKeyboardSurface();
-    bool onOverlay = false;
-    for (const auto& inst : m_instances) {
-      if (inst != nullptr && inst->surface != nullptr && inst->surface->wlSurface() == kbSurface) {
-        onOverlay = true;
-        break;
-      }
-    }
-    if (!onOverlay) {
+    // Whichever Noctalia surface holds the keyboard: on niri an older exclusive panel such as the
+    // launcher keeps it under the overlay, and the keys must still act here, not there (#4641).
+    switch (regionCaptureKeyAction(event.pressed, event.sym, event.modifiers, m_confirming)) {
+    case CaptureKeyAction::Pass:
       return false;
+    case CaptureKeyAction::Cancel:
+      cancelSelection();
+      return true;
+    case CaptureKeyAction::Confirm:
+      confirmPendingSelection(ConfirmAction::None);
+      return true;
+    case CaptureKeyAction::Copy:
+      confirmPendingSelection(ConfirmAction::ForceClipboard);
+      return true;
+    case CaptureKeyAction::Save:
+      confirmPendingSelection(ConfirmAction::ForceSave);
+      return true;
+    case CaptureKeyAction::Swallow:
+      return true;
     }
-
-    if (!KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-      if (m_confirming) {
-        if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
-          confirmPendingSelection(ConfirmAction::ForceClipboard);
-          return true;
-        }
-        if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
-          confirmPendingSelection(ConfirmAction::ForceSave);
-          return true;
-        }
-        if (KeySymbol::isEnterOrSpace(event.sym)) {
-          confirmPendingSelection(ConfirmAction::None);
-          return true;
-        }
-      }
-      return false;
-    }
-    cancelSelection();
-    return true;
+    return false;
   }
 
   void ScreenshotRegionOverlay::abortWithError(const std::string& message) {
