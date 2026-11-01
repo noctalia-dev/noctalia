@@ -121,6 +121,7 @@ namespace {
     case WallpaperTransition::Melt:
       params.angle = randomFloat(0.0F, 360.0F);
       break;
+    case WallpaperTransition::Crt:
     case WallpaperTransition::Fade:
     default:
       break;

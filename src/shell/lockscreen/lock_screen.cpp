@@ -82,6 +82,8 @@ namespace {
       return LockscreenTransitionKind::Golden;
     case LockscreenTransition::Melt:
       return LockscreenTransitionKind::Melt;
+    case LockscreenTransition::Crt:
+      return LockscreenTransitionKind::Crt;
     }
     std::unreachable();
   }
@@ -1195,6 +1197,7 @@ void LockScreen::chooseTransition() {
     break;
   case LockscreenTransition::Fade:
   case LockscreenTransition::Zoom:
+  case LockscreenTransition::Crt:
     break;
   }
 }
