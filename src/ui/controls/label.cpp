@@ -76,6 +76,14 @@ void Label::setFontFamily(std::string family) {
   m_measureCached = false;
 }
 
+void Label::setFontFeatures(std::string features) {
+  if (m_textNode->fontFeatures() == features) {
+    return;
+  }
+  m_textNode->setFontFeatures(std::move(features));
+  m_measureCached = false;
+}
+
 void Label::setColor(const ColorSpec& color) {
   m_color = color;
   applyPalette();
@@ -215,7 +223,7 @@ void Label::syncHoverInteraction() {
   if (m_autoScroll && m_autoScrollHoverOnly) {
     setHitTestVisible(true);
     setOnEnter([this](const PointerData&) { restartScrollIfNeeded(); });
-    setOnLeave([this]() { restartScrollIfNeeded(); });
+    setOnLeave([this] { restartScrollIfNeeded(); });
     m_ownsHoverHandlers = true;
     return;
   }
@@ -343,7 +351,7 @@ void Label::startSnapToZero() {
         m_scrollOffset = v;
         applyScrollPosition();
       },
-      [this]() {
+      [this] {
         m_snapAnimId = 0;
         m_scrollOffset = 0.0F;
         applyScrollPosition();
@@ -383,12 +391,12 @@ void Label::startMarqueeLoop() {
         m_scrollOffset = v;
         applyScrollPosition();
       },
-      [this]() {
+      [this] {
         m_marqueeAnimId = 0;
         m_scrollOffset = 0.0F;
         applyScrollPosition();
         const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-        DeferredCall::callLater([this, aliveGuard]() {
+        DeferredCall::callLater([this, aliveGuard] {
           if (aliveGuard.expired()) {
             return;
           }

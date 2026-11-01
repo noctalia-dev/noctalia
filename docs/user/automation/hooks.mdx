@@ -32,6 +32,8 @@ Hooks do not replace Noctalia's built-in behavior. For example, external or IPC-
 
 ## Battery hooks
 
+Battery hooks follow the system battery. On a machine without one, they follow the lowest-charged peripheral, such as a Bluetooth mouse or headset. When a different peripheral becomes the lowest-charged one, no hook fires for the switch itself; hooks resume with that device's next change.
+
 Battery hook values are exposed as environment variables, not positional arguments. For example:
 
 ```toml

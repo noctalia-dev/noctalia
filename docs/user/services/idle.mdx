@@ -2,7 +2,7 @@
 title: Idle
 description: Idle behaviors, native actions, and pre-action fade.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 Idle behaviors are named entries under `[idle.behavior.*]`. When the resolved config does not define idle behaviors, Noctalia seeds built-in Lock and Monitor off behaviors, both disabled by default.
@@ -72,6 +72,8 @@ resume_command = "noctalia msg dpms-on && some_shell_command"
 ```
 
 Idle behavior uses the Wayland `ext_idle_notifier_v1` protocol and respects active idle inhibitors.
+
+Applications can also inhibit idle over D-Bus (`org.freedesktop.ScreenSaver`), as browsers do during video playback. While such an inhibit is held, idle behaviors do not fire and a pre-action fade already underway is cancelled. When the inhibit is released for more than a second, waiting behaviors restart their countdowns from that moment; brief renewals during playback do not reset them.
 
 ## Related IPC
 

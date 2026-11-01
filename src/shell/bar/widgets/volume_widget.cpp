@@ -1,6 +1,5 @@
 #include "shell/bar/widgets/volume_widget.h"
 
-#include "config/config_types.h"
 #include "i18n/i18n.h"
 #include "pipewire/pipewire_service.h"
 #include "render/scene/input_area.h"
@@ -96,12 +95,11 @@ void VolumeWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 void VolumeWidget::doUpdate(Renderer& renderer) { syncState(renderer); }
 
 void VolumeWidget::syncWidgetVisibility(bool showWidget) {
-  if (Node* rootNode = root(); rootNode != nullptr) {
-    if (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget) {
-      rootNode->setVisible(showWidget);
-      rootNode->setParticipatesInLayout(showWidget);
-      requestUpdate();
-    }
+  if (Node* rootNode = root();
+      rootNode != nullptr && (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget)) {
+    rootNode->setVisible(showWidget);
+    rootNode->setParticipatesInLayout(showWidget);
+    requestUpdate();
   }
 }
 

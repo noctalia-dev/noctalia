@@ -147,7 +147,7 @@ private:
   void cycleKeyboardLayout();
   void handlePasswordEdited(const std::string& value);
   void tryAuthenticate();
-  void handleAuthResult(std::uint64_t generation, PamAuthenticator::Result result);
+  void handleAuthResult(std::uint64_t generation, const PamAuthenticator::Result& result);
   void invalidatePendingAuthentication();
   void startFingerprint();
   void stopFingerprint();

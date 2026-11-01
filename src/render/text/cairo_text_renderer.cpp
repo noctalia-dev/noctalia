@@ -50,6 +50,7 @@ namespace {
   std::size_t hashFont(const TextFont& font) {
     std::size_t seed = std::hash<std::string>{}(font.family);
     hashCombine(seed, std::hash<int>{}(static_cast<int>(font.weight)));
+    hashCombine(seed, std::hash<std::string>{}(font.features));
     return seed;
   }
 
@@ -409,16 +410,27 @@ PangoLayout* CairoTextRenderer::buildLayout(
   // blow up memory / GL textures. Higher than any real UI needs, so unlimited
   // wrap never reaches it in practice.
   constexpr int kHardMaxLines = 500;
-  if (maxWidthPxScaled > 0.0F) {
-    // Avoid Pango inserting hyphens at intra-word line breaks (looks like stray "-" in wrapped UI text).
-    PangoAttrList* attrs = pango_attr_list_new();
-    PangoAttribute* hyphens = pango_attr_insert_hyphens_new(FALSE);
-    hyphens->start_index = 0;
-    hyphens->end_index = PANGO_ATTR_INDEX_TO_TEXT_END;
-    pango_attr_list_insert(attrs, hyphens);
+  if (!font.features.empty() || maxWidthPxScaled > 0.0F) {
+    PangoAttrList* existingAttrs = pango_layout_get_attributes(layout);
+    PangoAttrList* attrs = existingAttrs != nullptr ? pango_attr_list_copy(existingAttrs) : pango_attr_list_new();
+    if (!font.features.empty()) {
+      PangoAttribute* featureAttr = pango_attr_font_features_new(font.features.c_str());
+      featureAttr->start_index = 0;
+      featureAttr->end_index = PANGO_ATTR_INDEX_TO_TEXT_END;
+      pango_attr_list_insert(attrs, featureAttr);
+    }
+    if (maxWidthPxScaled > 0.0F) {
+      // Avoid Pango inserting hyphens at intra-word line breaks (looks like stray "-" in wrapped UI text).
+      PangoAttribute* hyphens = pango_attr_insert_hyphens_new(FALSE);
+      hyphens->start_index = 0;
+      hyphens->end_index = PANGO_ATTR_INDEX_TO_TEXT_END;
+      pango_attr_list_insert(attrs, hyphens);
+    }
     pango_layout_set_attributes(layout, attrs);
     pango_attr_list_unref(attrs);
+  }
 
+  if (maxWidthPxScaled > 0.0F) {
     const int lineBudget = maxLines > 0 ? std::min(maxLines, kHardMaxLines) : kHardMaxLines;
     pango_layout_set_width(layout, static_cast<int>(maxWidthPxScaled * PANGO_SCALE));
     pango_layout_set_wrap(layout, PANGO_WRAP_WORD_CHAR);
@@ -475,6 +487,8 @@ CairoTextRenderer::TextMetrics CairoTextRenderer::metricsFromLayout(float conten
   m.inkLeft = inkLeft;
   m.inkRight = inkRight;
   m.lineCount = pango_layout_get_line_count(layout);
+  // Whole raster pixels, as rasterizeLayout's blockLeftPx.
+  m.alignOffsetX = static_cast<float>(logical.x / PANGO_SCALE) * invScale;
   return m;
 }
 

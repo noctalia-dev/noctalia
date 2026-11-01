@@ -39,6 +39,7 @@ struct MprisPlayerInfo {
   std::string loopStatus{"None"};
   bool shuffle{false};
   double volume{1.0};
+  double rate{1.0};
   int64_t positionUs{0};
   int64_t lengthUs{0};
   bool canControl{false};
@@ -89,8 +90,8 @@ public:
   bool setVolumeActive(double volume);
   bool setShuffle(const std::string& busName, bool shuffle);
   bool setShuffleActive(bool shuffle);
-  bool setLoopStatus(const std::string& busName, std::string loopStatus);
-  bool setLoopStatusActive(std::string loopStatus);
+  bool setLoopStatus(const std::string& busName, const std::string& loopStatus);
+  bool setLoopStatusActive(const std::string& loopStatus);
   [[nodiscard]] std::optional<int64_t> position(const std::string& busName) const;
   [[nodiscard]] std::optional<int64_t> positionActive() const;
   [[nodiscard]] std::optional<double> volume(const std::string& busName) const;
@@ -103,7 +104,7 @@ public:
   bool setPinnedPlayerPreference(const std::string& busName);
   void clearPinnedPlayerPreference();
   void setPreferredPlayers(std::vector<std::string> preferredBusNames);
-  void setBlacklist(std::vector<std::string> blacklist);
+  void setBlacklist(const std::vector<std::string>& blacklist);
   void setChangeCallback(std::function<void()> callback);
   [[nodiscard]] std::optional<std::string> pinnedPlayerPreference() const;
   [[nodiscard]] const std::vector<std::string>& preferredPlayers() const noexcept;

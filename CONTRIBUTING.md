@@ -75,6 +75,8 @@ clang-tidy -p build-debug --warnings-as-errors='*' <touched .cpp files...>
 
 Headers are linted through the `.cpp` files that include them. Fix every finding before opening a pull request.
 
+sdbus-c++ async reply handlers take the error as `std::optional<sdbus::Error>` by value. sdbus-c++ releases before 2.3 (shipped by Fedora 44, Debian 13, and Ubuntu 26.04) do not recognize a `const&` error parameter, so the code fails to compile there even though it builds on Arch. Suppress the resulting clang-tidy finding on that lambda with `// NOLINT(performance-unnecessary-value-param)`. The `Build (Fedora 44)` CI job guards this.
+
 ### Naming Conventions
 
 |                        | Convention           | Example              |
@@ -117,6 +119,8 @@ End-user documentation lives in [`docs/user/`](docs/user/) (MDX), with images un
 
 The documentation site is generated from these files by `tools/sync-docs.sh`, which copies `docs/user/**/*.mdx` into the docs site checkout and deletes pages that no longer exist here. Never edit the generated copies; the next sync overwrites them.
 
+The same script archives each `vX.Y.Z` release tag once, from the tag's own `docs/user/`, `docs/assets/`, and `docs/plugin-api.json`, under `/noctalia/<tag>/`, and writes the version list the site's switcher reads. It needs `jq` and a checkout with the release tags fetched. Archives are never rewritten afterwards; run it with `FORCE_SYNC=1` to rebuild them after changing the archiving itself.
+
 ### Vendored code
 
 Do not patch vendored code under `third_party/` for Noctalia behavior; local edits are lost when the dependency is refreshed. Put compatibility code in Noctalia-owned sources under `src/`, or fix the issue upstream and update the vendored snapshot from upstream.
@@ -152,6 +156,14 @@ Compare parsed floating-point values with an appropriate tolerance, not exact eq
 Follow the Conventional Commits style used in the history: `type(scope): summary`, or `type: summary` when no scope helps. Use lowercase types such as `feat`, `fix`, `refactor`, `chore`, `test`, `i18n`, `ui`, or `config`, and a focused subsystem scope when useful, for example `refactor(bar): use widget option structs`. Keep the summary concise, imperative, and specific.
 
 Default to the summary line alone. Add a body only when it carries information a reader would otherwise miss: a non-obvious root cause, a constraint that forced the approach, a behavior change users will notice, or a `Fixes #N` reference. Do not restate the diff or list touched files.
+
+## Issue Triage
+
+Maintainers decide every item in the `Inbox` column of the Maintainer Triage board within 7 days: close it (`out-of-scope`, `duplicate`, or fixed), ask the reporter (`needs-info` or `needs-retest`), or accept it by moving it to `Analyzed`. `Analyzed` is the accepted backlog, so nothing that [SCOPE.md](SCOPE.md) excludes is moved there.
+
+After every minor release, run `python3 tools/issue-triage.py candidates --out /tmp/triage` and work through `stale-version-bugs.tsv`, `fixed-by-commit.tsv`, and `duplicates.tsv`. Write the decisions to a TSV (`number`, `action`, `arg`; see the script header for the actions), review the output of `python3 tools/issue-triage.py apply decisions.tsv`, then add `--execute`. The script closes with templated replies, so each reply links [SCOPE.md](SCOPE.md) or names the fixing commit.
+
+`needs-info` and `needs-retest` mark issues waiting on the reporter, and a workflow moves their board card to `Waiting`. A daily workflow marks them `stale` after 7 days without activity and closes them after 7 more. A reply from the reporter removes the labels and moves the card to `Reviewing`. Closed issues can be reopened. Issues with 3 or more reactions or the `PRs welcome` label are never closed by the script and are closed by hand only.
 
 ## Pull Request Template
 

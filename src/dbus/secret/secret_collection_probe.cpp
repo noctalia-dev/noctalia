@@ -37,14 +37,13 @@ public:
     m_inFlight = true;
     const std::uint64_t generation = m_generation;
     try {
-      m_pendingCall =
-          m_serviceProxy->callMethodAsync("ReadAlias")
-              .onInterface(kSecretServiceInterface)
-              .withTimeout(kProbeTimeout)
-              .withArguments(std::string{"default"})
-              .uponReplyInvoke([this, generation](std::optional<sdbus::Error> error, sdbus::ObjectPath collection) {
-                onAliasReply(generation, std::move(error), collection);
-              });
+      m_pendingCall = m_serviceProxy->callMethodAsync("ReadAlias")
+                          .onInterface(kSecretServiceInterface)
+                          .withTimeout(kProbeTimeout)
+                          .withArguments(std::string{"default"})
+                          .uponReplyInvoke([this, generation](
+                                               std::optional<sdbus::Error> error, const sdbus::ObjectPath& collection
+                                           ) { onAliasReply(generation, std::move(error), collection); });
     } catch (const sdbus::Error& e) {
       kLog.debug("secret default collection alias probe dispatch failed: {}", e.what());
       finish(generation, false);
@@ -81,28 +80,29 @@ private:
     try {
       auto collectionProxy =
           std::shared_ptr<sdbus::IProxy>(sdbus::createProxy(m_bus.connection(), kSecretServiceBusName, collection));
-      m_pendingCall = collectionProxy->callMethodAsync("Get")
-                          .onInterface(kPropertiesInterface)
-                          .withTimeout(kProbeTimeout)
-                          .withArguments(std::string{kSecretCollectionInterface}, std::string{"Locked"})
-                          .uponReplyInvoke([this, generation, collectionProxy](
-                                               std::optional<sdbus::Error> propertyError, sdbus::Variant lockedValue
-                                           ) {
-                            if (!isCurrent(generation)) {
-                              return;
-                            }
-                            if (propertyError.has_value()) {
-                              kLog.debug("secret default collection lock probe failed: {}", propertyError->what());
-                              finish(generation, false);
-                              return;
-                            }
-                            try {
-                              finish(generation, !lockedValue.get<bool>());
-                            } catch (const sdbus::Error& e) {
-                              kLog.debug("secret default collection lock value invalid: {}", e.what());
-                              finish(generation, false);
-                            }
-                          });
+      m_pendingCall =
+          collectionProxy->callMethodAsync("Get")
+              .onInterface(kPropertiesInterface)
+              .withTimeout(kProbeTimeout)
+              .withArguments(std::string{kSecretCollectionInterface}, std::string{"Locked"})
+              .uponReplyInvoke([this, generation, collectionProxy](
+                                   std::optional<sdbus::Error> propertyError, const sdbus::Variant& lockedValue
+                               ) {
+                if (!isCurrent(generation)) {
+                  return;
+                }
+                if (propertyError.has_value()) {
+                  kLog.debug("secret default collection lock probe failed: {}", propertyError->what());
+                  finish(generation, false);
+                  return;
+                }
+                try {
+                  finish(generation, !lockedValue.get<bool>());
+                } catch (const sdbus::Error& e) {
+                  kLog.debug("secret default collection lock value invalid: {}", e.what());
+                  finish(generation, false);
+                }
+              });
     } catch (const sdbus::Error& e) {
       kLog.debug("secret default collection lock probe dispatch failed: {}", e.what());
       finish(generation, false);

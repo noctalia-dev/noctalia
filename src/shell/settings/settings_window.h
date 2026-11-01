@@ -36,6 +36,7 @@ class Button;
 class AccountsService;
 class CalendarService;
 class ClipboardService;
+class NotificationManager;
 class IpcService;
 class ConfigService;
 class CompositorPlatform;
@@ -45,9 +46,11 @@ class FileDialogPresenter;
 class Flex;
 class GlyphPickerDialogPresenter;
 class IdleManager;
+class IdleInhibitor;
 class Input;
 class Label;
 class RenderContext;
+class ScreenSaverService;
 class ThumbnailService;
 class UPowerService;
 class WaylandConnection;
@@ -78,7 +81,8 @@ public:
 
   void initialize(
       WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, DependencyService* dependencies,
-      UPowerService* upower, IdleManager* idleManager, CompositorPlatform* platform, AccountsService* accounts = nullptr
+      UPowerService* upower, IdleManager* idleManager, IdleInhibitor* idleInhibitor, CompositorPlatform* platform,
+      AccountsService* accounts = nullptr
   );
 
   void open(std::string context = "");
@@ -118,6 +122,7 @@ public:
     m_pluginRecommendations = recommendations;
   }
   void setPluginManager(scripting::PluginManager* manager) { m_pluginManager = manager; }
+  void setScreenSaverService(ScreenSaverService* service) { m_screenSaverService = service; }
   void setSyncGreeterAppearance(std::function<void()> callback) { m_syncGreeterAppearance = std::move(callback); }
   void setResetLauncherUsage(std::function<void()> callback) { m_resetLauncherUsage = std::move(callback); }
   void setResetScreenTime(std::function<void()> callback) { m_resetScreenTime = std::move(callback); }
@@ -125,9 +130,11 @@ public:
   void setSaveWallpaperPaletteAsCustom(std::function<void()> callback) {
     m_saveWallpaperPaletteAsCustom = std::move(callback);
   }
-  void setCalendarService(CalendarService* service) { m_calendarService = service; }
+  // Also rebuilds the calendar account rows when an account's sync failure changes.
+  void setCalendarService(CalendarService* service);
   // Source for the bar widget gesture action picker.
   void setIpcService(IpcService* service) { m_ipcService = service; }
+  void setNotificationManager(NotificationManager* manager) { m_notificationManager = manager; }
   void setClipboardService(ClipboardService* service) { m_clipboardService = service; }
   // Backs plugin-store thumbnails; trimmed when the window closes.
   void setAsyncTextureCache(AsyncTextureCache* cache) { m_asyncTextures = cache; }
@@ -151,6 +158,7 @@ public:
 
 private:
   void destroyWindow();
+  void openBrowserUrl(const std::string& url);
   [[nodiscard]] bool shouldUseModalDialogs() const noexcept;
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void buildScene(std::uint32_t width, std::uint32_t height);
@@ -253,6 +261,8 @@ private:
   WaylandConnection* m_wayland = nullptr;
   CompositorPlatform* m_platform = nullptr;
   IdleManager* m_idleManager = nullptr;
+  IdleInhibitor* m_idleInhibitor = nullptr;
+  ScreenSaverService* m_screenSaverService = nullptr;
   ConfigService* m_config = nullptr;
   scripting::PluginManager* m_pluginManager = nullptr;
   scripting::PluginRecommendations* m_pluginRecommendations = nullptr;
@@ -272,6 +282,9 @@ private:
   UPowerService* m_upower = nullptr;
   AccountsService* m_accounts = nullptr;
   CalendarService* m_calendarService = nullptr;
+  std::optional<std::uint64_t> m_calendarCallbackId;
+  std::uint64_t m_calendarSyncStatusRevision = 0;
+  NotificationManager* m_notificationManager = nullptr;
   ClipboardService* m_clipboardService = nullptr;
   std::unordered_map<std::string, std::uint32_t> m_templateColors;
   std::string m_templateColorMode;

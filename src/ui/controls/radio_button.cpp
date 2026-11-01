@@ -17,7 +17,7 @@ RadioButton::RadioButton() {
 
   auto area = std::make_unique<InputArea>();
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-  area->setOnLeave([this]() { applyState(); });
+  area->setOnLeave([this] { applyState(); });
   area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
   area->setOnClick([this](const InputArea::PointerData& /*data*/) {
     if (!m_enabled || m_checked) {

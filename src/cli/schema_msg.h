@@ -264,9 +264,11 @@ namespace noctalia::cli {
   inline constexpr std::array<std::string_view, 4> kMsgWindowSwitcherScopeChoices{
       "all", "output", "workspace", "current"
   };
+  inline constexpr std::array<std::string_view, 1> kMsgWindowSwitcherDirectionChoices{"reverse"};
   inline constexpr std::array kMsgWindowSwitcherPositionals{
       Positional{"action", {}, kMsgWindowSwitcherActionChoices, false, false, false},
       Positional{"scope", {}, kMsgWindowSwitcherScopeChoices, false, false, false},
+      Positional{"direction", {}, kMsgWindowSwitcherDirectionChoices, false, false, false},
   };
   inline constexpr std::array kMsgWorkspaceAlertAddPositionals{
       Positional{"workspace", {}, {}, true, false, false},
@@ -530,7 +532,7 @@ namespace noctalia::cli {
         "greeter-sync", "Sync wallpaper, colors, and monitor layout to Noctalia Greeter", {}, {}, {}, {}, {}, false
     };
     inline constexpr Command keyboardBacklightDown{
-        "keyboard-backlight-down", "Decrease all keyboard backlights by one level", {}, {}, {}, {}, {}, false
+        "keyboard-backlight-down", "Decrease all keyboard backlights by 5%", {}, {}, {}, {}, {}, false
     };
     inline constexpr Command keyboardBacklightOsd{
         "keyboard-backlight-osd",
@@ -556,7 +558,7 @@ namespace noctalia::cli {
         "keyboard-backlight-toggle", "Toggle all keyboard backlights on/off", {}, {}, {}, {}, {}, false
     };
     inline constexpr Command keyboardBacklightUp{
-        "keyboard-backlight-up", "Increase all keyboard backlights by one level", {}, {}, {}, {}, {}, false
+        "keyboard-backlight-up", "Increase all keyboard backlights by 5%", {}, {}, {}, {}, {}, false
     };
     inline constexpr Command keyboardLayoutCycle{
         "keyboard-layout-cycle", "Switch to the next keyboard layout", {}, {}, {}, {}, {}, false

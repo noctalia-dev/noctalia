@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 // Pointer-only use; keeps the scripting layer off the system layer's header.
@@ -100,12 +101,39 @@ namespace scripting {
       return m_outputs;
     }
 
+    using ConfigSnapshotListener = std::function<
+        void(const std::shared_ptr<const toml::table>& previous, const std::shared_ptr<const toml::table>& current)>;
+
     // Effective shell config, serialized via config_export::serialize — published on the
     // main thread on every config (re)load, read from script worker threads. The pointed-to
     // table is immutable; bindings hold the shared_ptr for the duration of one lookup.
-    void setConfigSnapshot(std::shared_ptr<const toml::table> snapshot) {
+    // Listeners run on the publishing thread after the swap, outside the lock.
+    void setConfigSnapshot(const std::shared_ptr<const toml::table>& snapshot) {
+      std::shared_ptr<const toml::table> previous;
+      std::vector<ConfigSnapshotListener> listeners;
+      {
+        std::scoped_lock lock(m_mutex);
+        previous = std::exchange(m_configSnapshot, snapshot);
+        listeners.reserve(m_configSnapshotListeners.size());
+        for (const auto& [id, listener] : m_configSnapshotListeners) {
+          listeners.push_back(listener);
+        }
+      }
+      for (const auto& listener : listeners) {
+        listener(previous, snapshot);
+      }
+    }
+
+    [[nodiscard]] std::uint64_t addConfigSnapshotListener(ConfigSnapshotListener listener) {
       std::scoped_lock lock(m_mutex);
-      m_configSnapshot = std::move(snapshot);
+      const std::uint64_t id = m_nextConfigSnapshotListenerId++;
+      m_configSnapshotListeners.emplace(id, std::move(listener));
+      return id;
+    }
+
+    void removeConfigSnapshotListener(std::uint64_t id) {
+      std::scoped_lock lock(m_mutex);
+      m_configSnapshotListeners.erase(id);
     }
 
     [[nodiscard]] std::shared_ptr<const toml::table> configSnapshot() const {
@@ -304,6 +332,8 @@ namespace scripting {
     std::atomic<bool> m_darkMode{true};
     mutable std::mutex m_mutex;
     std::shared_ptr<const toml::table> m_configSnapshot;
+    std::unordered_map<std::uint64_t, ConfigSnapshotListener> m_configSnapshotListeners;
+    std::uint64_t m_nextConfigSnapshotListenerId = 1;
     std::string m_wallpaperDirectory;
     std::string m_timeFormat;
     std::string m_dateFormat;

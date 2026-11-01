@@ -18,6 +18,7 @@ public:
   [[nodiscard]] const TextFont& font() const noexcept { return m_font; }
   [[nodiscard]] FontWeight fontWeight() const noexcept { return m_font.weight; }
   [[nodiscard]] const std::string& fontFamily() const noexcept { return m_font.family; }
+  [[nodiscard]] const std::string& fontFeatures() const noexcept { return m_font.features; }
 
   void setText(std::string text) {
     if (m_text == text) {
@@ -72,6 +73,14 @@ public:
       return;
     }
     m_font.family = std::move(family);
+    markLayoutDirty();
+  }
+
+  void setFontFeatures(std::string features) {
+    if (m_font.features == features) {
+      return;
+    }
+    m_font.features = std::move(features);
     markLayoutDirty();
   }
 

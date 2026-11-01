@@ -310,7 +310,7 @@ namespace {
     const auto& entry = model.entry;
     std::string text = !entry.name.empty() ? entry.name : !entry.genericName.empty() ? entry.genericName : entry.id;
     if (model.minimizedCount != 0) {
-      text += "\n";
+      text += '\n';
       text += model.instanceCount == 1 ? i18n::tr("common.minimized")
                                        : i18n::tr("common.minimized-count", "count", model.minimizedCount);
     }
@@ -693,7 +693,7 @@ namespace shell::dock {
           drag.startMain = pointerMainOnRow(dockCfg, instPtr->items[itemIndex].area, d.localX, d.localY);
           drag.currentMain = drag.startMain;
           drag.targetIndex = itemIndex;
-          drag.holdTimer.start(kDragHoldDelay, [instPtr, itemIndex]() {
+          drag.holdTimer.start(kDragHoldDelay, [instPtr, itemIndex] {
             if (instPtr->drag.sourceIndex == itemIndex && !instPtr->drag.active) {
               instPtr->drag.armed = true;
               dismissDockTooltipImpl();
@@ -951,11 +951,11 @@ namespace shell::dock {
     }
 
     // Magnification owns active/inactive scale via updateHoverZoom; kick it on focus updates.
-    if (cfg.magnification && instance.surface != nullptr) {
-      if (updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs)) {
-        instance.surface->requestFrameTick();
-        instance.surface->requestRedraw();
-      }
+    if (cfg.magnification
+        && instance.surface != nullptr
+        && updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs)) {
+      instance.surface->requestFrameTick();
+      instance.surface->requestRedraw();
     }
   }
 

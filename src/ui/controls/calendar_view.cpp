@@ -18,6 +18,7 @@
 #include "ui/controls/label.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/separator.h"
+#include "ui/palette.h"
 #include "ui/style.h"
 
 #include <algorithm>
@@ -325,14 +326,14 @@ namespace calendar_view {
         }
       }
 
-      const auto selectDate = [callback = options.onDateSelected, date, monthShift]() {
+      const auto selectDate = [callback = options.onDateSelected, date, monthShift] {
         if (callback) {
           callback(date, monthShift);
         }
       };
       button->setOnClick(selectDate);
       if (options.onDateRightClicked) {
-        button->setOnRightClick([callback = options.onDateRightClicked, date]() { callback(date); });
+        button->setOnRightClick([callback = options.onDateRightClicked, date] { callback(date); });
       }
       tile->addChild(std::move(button));
 
@@ -483,7 +484,7 @@ namespace calendar_view {
         }
       };
       area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
-      area->setOnLeave([setHovered]() { setHovered(false); });
+      area->setOnLeave([setHovered] { setHovered(false); });
       area->setOnClick([state = options.state, toggle = options.onToggleHiddenPast](const InputArea::PointerData&) {
         state->showHiddenPast = !state->showHiddenPast;
         if (toggle) {
@@ -568,6 +569,13 @@ namespace calendar_view {
           timeText = formatLocalUnixTime(static_cast<std::int64_t>(raw), options.timeFormat);
         }
 
+        const bool showLocation = options.showEventsLocation
+            && !event.location.empty()
+            && event.location != link
+            && !event.location.starts_with("http://")
+            && !event.location.starts_with("https://");
+
+        Label* locationLabel = nullptr;
         Label* timeLabel = nullptr;
         Glyph* linkGlyph = nullptr;
         Label* titleLabel = nullptr;
@@ -607,6 +615,19 @@ namespace calendar_view {
             }),
             std::move(timeLine)
         );
+        if (showLocation) {
+          details->addChild(
+              ui::label({
+                  .out = &locationLabel,
+                  .text = event.location,
+                  .fontSize = Style::fontSizeCaption * options.scale,
+                  .fontFamily = options.fontFamily,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
+                  .maxWidth = textMaxWidth,
+                  .maxLines = 2,
+              })
+          );
+        }
 
         Flex* eventRow = nullptr;
         auto eventRowNode = ui::row(
@@ -628,7 +649,7 @@ namespace calendar_view {
 
           Flex* row = eventRow;
           row->setRadius(Style::radiusSm * options.scale);
-          const auto setHovered = [row, titleLabel, timeLabel, linkGlyph, eventAlpha,
+          const auto setHovered = [row, titleLabel, timeLabel, locationLabel, linkGlyph, eventAlpha,
                                    requestRedraw = options.requestRedraw](bool hovered) {
             if (hovered) {
               row->setFill(colorSpecFromRole(ColorRole::Hover));
@@ -641,13 +662,16 @@ namespace calendar_view {
                 colorSpecFromRole(hovered ? ColorRole::OnHover : ColorRole::OnSurfaceVariant, eventAlpha);
             titleLabel->setColor(titleColor);
             timeLabel->setColor(detailColor);
+            if (locationLabel != nullptr) {
+              locationLabel->setColor(detailColor);
+            }
             linkGlyph->setColor(detailColor);
             if (requestRedraw) {
               requestRedraw();
             }
           };
           area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
-          area->setOnLeave([setHovered]() { setHovered(false); });
+          area->setOnLeave([setHovered] { setHovered(false); });
           area->setOnClick([url = link](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
 
           options.state->linkOverlays.push_back({.row = row, .area = area.get()});

@@ -2590,9 +2590,7 @@
         "calendar-edit": {
           "button": "편집",
           "button-reconnect": "재연결",
-          "button-retry": "다시 시도",
-          "description": "이 캘린더 계정 업데이트",
-          "description-reconnect": "Google 인증 정보가 누락되었습니다. 계정을 다시 연결해 주세요"
+          "button-retry": "다시 시도"
         },
         "calendar-event-date-format": {
           "description": "선택된 날짜의 이벤트 카드에 표시되는 날짜 형식",

@@ -156,7 +156,7 @@ SearchPicker::SearchPicker() {
                   return;
                 }
                 m_filter = value;
-                m_filterDebounceTimer.start(kFilterDebounceInterval, [this]() { applyFilter(); });
+                m_filterDebounceTimer.start(kFilterDebounceInterval, [this] { applyFilter(); });
               },
           .onKeyEvent =
               [this](std::uint32_t sym, std::uint32_t modifiers) {

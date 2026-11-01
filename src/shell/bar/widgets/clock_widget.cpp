@@ -102,6 +102,7 @@ void ClockWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontFeatures = "tnum",
           .textAlign = TextAlign::Center,
       })
   );
@@ -112,6 +113,7 @@ void ClockWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale() * kStackedSecondaryScale,
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontFeatures = "tnum",
           .textAlign = TextAlign::Center,
           .visible = false,
       })

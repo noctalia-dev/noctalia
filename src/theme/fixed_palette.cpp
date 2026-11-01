@@ -110,7 +110,7 @@ namespace noctalia::theme {
     void applyAnsiColors(TokenMap& tokens, std::string_view prefix, const TerminalAnsiColors& colors) {
       for (const auto key : kTerminalAnsiColorJsonKeys) {
         std::string tokenKey(prefix);
-        tokenKey += "_";
+        tokenKey += '_';
         tokenKey += key;
         setToken(tokens, tokenKey, ansiColorForKey(colors, key));
       }
@@ -224,9 +224,9 @@ namespace noctalia::theme {
     const Color onError = toUiColor(palette.onError);
     const Color surface = toUiColor(palette.surface);
     const Color onSurface = toUiColor(palette.onSurface);
-    const Color surfaceVariant = toUiColor(palette.surfaceVariant);
+    const Color surfaceContainer = toUiColor(palette.surfaceContainer);
     const Color onSurfaceVariant = toUiColor(palette.onSurfaceVariant);
-    const Color outlineRaw = toUiColor(palette.outline);
+    const Color outlineVariant = toUiColor(palette.outlineVariant);
     const Color shadow = toUiColor(palette.shadow);
     const Color hover = toUiColor(palette.hover);
     const Color onHover = toUiColor(palette.onHover);
@@ -279,26 +279,24 @@ namespace noctalia::theme {
         : ensureContrast(Color::fromHsl(tertiaryH, 0.15, 0.85), tertiaryFixedDim, 4.5);
 
     const auto [surfaceH, surfaceS, surfaceL] = surface.toHsl();
-    const auto [surfaceVariantH, surfaceVariantS, surfaceVariantL] = surfaceVariant.toHsl();
-    const Color surfaceContainer = surfaceVariant;
-    const Color surfaceContainerLowest = interpolateColor(surface, surfaceVariant, 0.2);
-    const Color surfaceContainerLow = interpolateColor(surface, surfaceVariant, 0.5);
+    const auto [surfaceContainerH, surfaceContainerS, surfaceContainerL] = surfaceContainer.toHsl();
+    const Color surfaceContainerLowest = interpolateColor(surface, surfaceContainer, 0.2);
+    const Color surfaceContainerLow = interpolateColor(surface, surfaceContainer, 0.5);
     const Color surfaceContainerHigh = isDark
-        ? Color::fromHsl(surfaceVariantH, surfaceVariantS, std::min(surfaceVariantL + 0.04, 0.40))
-        : Color::fromHsl(surfaceVariantH, surfaceVariantS, std::max(surfaceVariantL - 0.04, 0.60));
+        ? Color::fromHsl(surfaceContainerH, surfaceContainerS, std::min(surfaceContainerL + 0.04, 0.40))
+        : Color::fromHsl(surfaceContainerH, surfaceContainerS, std::max(surfaceContainerL - 0.04, 0.60));
     const Color surfaceContainerHighest = isDark
-        ? Color::fromHsl(surfaceVariantH, surfaceVariantS, std::min(surfaceVariantL + 0.08, 0.45))
-        : Color::fromHsl(surfaceVariantH, surfaceVariantS, std::max(surfaceVariantL - 0.08, 0.55));
+        ? Color::fromHsl(surfaceContainerH, surfaceContainerS, std::min(surfaceContainerL + 0.08, 0.45))
+        : Color::fromHsl(surfaceContainerH, surfaceContainerS, std::max(surfaceContainerL - 0.08, 0.55));
     const Color surfaceDim = isDark
         ? Color::fromHsl(surfaceH, surfaceS, std::max(surfaceL - 0.04, 0.02))
-        : Color::fromHsl(surfaceVariantH, surfaceVariantS, std::max(surfaceVariantL - 0.12, 0.50));
+        : Color::fromHsl(surfaceContainerH, surfaceContainerS, std::max(surfaceContainerL - 0.12, 0.50));
     const Color surfaceBright = isDark
-        ? Color::fromHsl(surfaceVariantH, surfaceVariantS, std::min(surfaceVariantL + 0.12, 0.50))
+        ? Color::fromHsl(surfaceContainerH, surfaceContainerS, std::min(surfaceContainerL + 0.12, 0.50))
         : Color::fromHsl(surfaceH, surfaceS, std::min(surfaceL + 0.03, 0.98));
 
-    // The outline_variant role is mOutline as given; outline is its contrast-adjusted form.
-    const Color outline = ensureContrast(outlineRaw, surface, 3.0);
-    const Color outlineVariant = outlineRaw;
+    // outline_variant is the palette's color as given; outline is its contrast-adjusted form.
+    const Color outline = ensureContrast(outlineVariant, surface, 3.0);
     const Color scrim(0, 0, 0);
     const Color inverseSurface = isDark ? Color::fromHsl(surfaceH, 0.08, 0.90) : Color::fromHsl(surfaceH, 0.08, 0.15);
     const Color inverseOnSurface = isDark ? Color::fromHsl(surfaceH, 0.05, 0.15) : Color::fromHsl(surfaceH, 0.05, 0.90);
@@ -339,7 +337,8 @@ namespace noctalia::theme {
     setToken(result, "on_error_container", onErrorContainer);
     setToken(result, "surface", surface);
     setToken(result, "on_surface", onSurface);
-    setToken(result, "surface_variant", surfaceVariant);
+    // Fixed palettes have no separate Material surface_variant; the template token mirrors surface_container.
+    setToken(result, "surface_variant", surfaceContainer);
     setToken(result, "on_surface_variant", onSurfaceVariant);
     setToken(result, "surface_dim", surfaceDim);
     setToken(result, "surface_bright", surfaceBright);
@@ -382,9 +381,9 @@ namespace noctalia::theme {
         .onError = tokenToColor(t, "on_error"),
         .surface = tokenToColor(t, "surface"),
         .onSurface = tokenToColor(t, "on_surface"),
-        .surfaceVariant = tokenToColor(t, "surface_container"),
+        .surfaceContainer = tokenToColor(t, "surface_container"),
         .onSurfaceVariant = tokenToColor(t, "on_surface_variant"),
-        .outline = tokenToColor(t, "outline_variant"),
+        .outlineVariant = tokenToColor(t, "outline_variant"),
         .shadow = tokenToColor(t, "shadow"),
         .hover = tokenToColor(t, "hover"),
         .onHover = tokenToColor(t, "on_hover"),

@@ -66,7 +66,7 @@ namespace {
   // Multiline mode: vertical text inset, wheel step in lines, and the stub
   // highlight width (in em) marking a selected line break.
   constexpr float kMultilinePadV = Style::spaceSm;
-  constexpr int kWheelScrollLines = 3;
+  constexpr float kWheelScrollLines = 3.0F;
   constexpr float kSelectionLineBreakStubEm = 0.4F;
   constexpr float kLineYEpsilon = 0.5F;
 
@@ -197,16 +197,17 @@ Input::Input() {
   area->setTextInputClient(this);
   area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_TEXT);
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyVisualState(); });
-  area->setOnLeave([this]() { applyVisualState(); });
-  area->setOnFocusGain([this]() {
+  area->setOnLeave([this] { applyVisualState(); });
+  area->setOnFocusGain([this] {
     revealCursor();
     startCursorBlink();
     applyVisualState();
+    m_revealCursorYPending = true;
     markLayoutDirty();
     // Focus gain is delivered before pointer press in the same dispatch pass.
     // Defer scroll-to-caret so click placement sees the blurred scroll offset (0).
     const std::weak_ptr<int> alive = m_aliveToken;
-    DeferredCall::callLater([this, alive]() {
+    DeferredCall::callLater([this, alive] {
       if (alive.expired() || m_inputArea == nullptr || !m_inputArea->focused()) {
         return;
       }
@@ -216,7 +217,7 @@ Input::Input() {
       m_onFocusGain();
     }
   });
-  area->setOnFocusLoss([this]() {
+  area->setOnFocusLoss([this] {
     const bool removedPreedit = removePreeditText();
     stopCursorBlink();
     updateCursorVisibility();
@@ -337,15 +338,14 @@ Input::Input() {
     if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL || m_inputArea == nullptr || !m_inputArea->focused()) {
       return false;
     }
-    const float delta = data.scrollSteps();
-    if (delta == 0.0F) {
-      return false;
-    }
     if (m_multiline) {
       // Pan the viewport without moving the caret.
-      const float step = currentLineHeight() * static_cast<float>(kWheelScrollLines);
+      const float delta = data.scrollDelta(currentLineHeight() * kWheelScrollLines);
+      if (delta == 0.0F) {
+        return false;
+      }
       const float previous = m_scrollOffsetY;
-      m_scrollOffsetY += delta > 0.0F ? -step : step;
+      m_scrollOffsetY += delta;
       clampScrollOffsetY();
       if (std::abs(m_scrollOffsetY - previous) < 0.001F) {
         return false;
@@ -353,6 +353,10 @@ Input::Input() {
       updateInteractiveGeometry();
       markPaintDirty();
       return true;
+    }
+    const float delta = data.scrollSteps();
+    if (delta == 0.0F) {
+      return false;
     }
     resetUndoCoalescing();
     // Wheel should move caret through text, not pan viewport directly.
@@ -378,7 +382,7 @@ Input::Input() {
   // Optional clear button, kept above the full-field input area for hit-testing.
   auto clearButtonArea = std::make_unique<InputArea>();
   clearButtonArea->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyVisualState(); });
-  clearButtonArea->setOnLeave([this]() { applyVisualState(); });
+  clearButtonArea->setOnLeave([this] { applyVisualState(); });
   clearButtonArea->setOnClick([this](const InputArea::PointerData& data) {
     if (data.button == BTN_LEFT) {
       clearFromButton();
@@ -420,6 +424,9 @@ void Input::setValue(std::string_view value) {
 }
 
 void Input::setPlaceholder(std::string_view placeholder) {
+  if (m_placeholder == placeholder) {
+    return;
+  }
   m_placeholder = std::string(placeholder);
   if (m_value.empty()) {
     updateDisplayText();
@@ -428,7 +435,11 @@ void Input::setPlaceholder(std::string_view placeholder) {
 }
 
 void Input::setFontSize(float size) {
-  m_fontSize = std::max(1.0F, size);
+  const float next = std::max(1.0F, size);
+  if (m_fontSize == next) {
+    return;
+  }
+  m_fontSize = next;
   if (m_label != nullptr) {
     m_label->setFontSize(m_fontSize);
   }
@@ -436,7 +447,11 @@ void Input::setFontSize(float size) {
 }
 
 void Input::setControlHeight(float height) {
-  m_controlHeight = std::max(1.0F, height);
+  const float next = std::max(1.0F, height);
+  if (m_controlHeight == next) {
+    return;
+  }
+  m_controlHeight = next;
   markLayoutDirty();
 }
 
@@ -838,6 +853,7 @@ void Input::textInputDeactivated(TextInputService& service) {
 
 void Input::markTextContentChanged() {
   m_textMetricsDirty = true;
+  m_revealCursorYPending = true;
   markLayoutDirty();
 }
 
@@ -852,6 +868,7 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
   m_stopX.push_back(0.0F);
   m_stopsInLogicalOrder = true;
   m_stopsBuiltForWidth = textViewportWidth();
+  m_multilineLabelX = 0.0F;
 
   if (m_value.empty()) {
     if (m_multiline) {
@@ -882,6 +899,9 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
     for (std::size_t i = 0; i < m_stopRect.size(); ++i) {
       m_stopX[i] = m_stopRect[i].x;
     }
+    // The stops are in layout coordinates, but the label draws from its leftmost line: when every line is
+    // right-aligned (RTL paragraphs in an LTR UI) that line starts inside the viewport.
+    m_multilineLabelX = renderer.measureText(m_value, m_fontSize, m_label->font(), m_stopsBuiltForWidth).alignOffsetX;
   } else if (!showPasswordGlyphs) {
     renderer.measureTextCursorStops(m_value, m_fontSize, m_stopByte, m_stopX, m_label->font());
     if (m_stopX.size() != m_stopByte.size()) {
@@ -997,7 +1017,7 @@ void Input::syncLabelScrollPosition() {
     return;
   }
   if (m_multiline) {
-    m_label->setPosition(0.0F, m_cachedLabelY - m_scrollOffsetY);
+    m_label->setPosition(m_multilineLabelX, m_cachedLabelY - m_scrollOffsetY);
     return;
   }
   if (m_value.empty()) {
@@ -1023,18 +1043,23 @@ void Input::doLayout(Renderer& renderer) {
   // Wrapped stops depend on the viewport width, not just the text.
   if (m_multiline && m_stopsBuiltForWidth != textViewportWidth()) {
     m_textMetricsDirty = true;
+    m_revealCursorYPending = true;
   }
   rebuildCursorStops(renderer);
   recomputeContentLeadSlack(renderer, w, showClearButton);
 
-  if (m_inputArea != nullptr && m_inputArea->focused()) {
-    if (m_multiline) {
+  const bool focused = m_inputArea != nullptr && m_inputArea->focused();
+  if (m_multiline) {
+    // Only follow the caret when it moved or the text reflowed; any other
+    // relayout (e.g. a plugin re-render) keeps the user's wheel position.
+    if (focused && m_revealCursorYPending) {
       ensureCursorVisibleY();
     } else {
-      ensureCursorVisible();
+      clampScrollOffsetY();
     }
-  } else if (m_multiline) {
-    clampScrollOffsetY();
+    m_revealCursorYPending = false;
+  } else if (focused) {
+    ensureCursorVisible();
   } else {
     m_scrollOffset = restingScrollOffset();
   }
@@ -1940,14 +1965,14 @@ void Input::revealCursor() {
   updateCursorVisibility();
   markPaintDirty();
   if (m_inputArea != nullptr && m_inputArea->focused()) {
-    m_cursorBlinkTimer.start(kCursorBlinkResumeDelay, [this]() { startCursorBlink(); });
+    m_cursorBlinkTimer.start(kCursorBlinkResumeDelay, [this] { startCursorBlink(); });
   } else {
     m_cursorBlinkTimer.stop();
   }
 }
 
 void Input::startCursorBlink() {
-  m_cursorBlinkTimer.startRepeating(kCursorBlinkInterval, [this]() {
+  m_cursorBlinkTimer.startRepeating(kCursorBlinkInterval, [this] {
     if (m_inputArea == nullptr || !m_inputArea->focused()) {
       stopCursorBlink();
       return;
@@ -2196,7 +2221,7 @@ void Input::animatePasswordGlyphIn(GlyphNode& glyph) {
         const float wobble = kWobbleAmplitude * std::sin(t * kWobbleSwings * std::numbers::pi_v<float>) * wobbleDecay;
         glyphPtr->setRotation(wobble);
       },
-      [glyphPtr]() {
+      [glyphPtr] {
         glyphPtr->setOpacity(1.0F);
         glyphPtr->setScale(1.0F);
         glyphPtr->setRotation(0.0F);

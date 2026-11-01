@@ -170,7 +170,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
             .minHeight = Style::controlHeightSm * m_chromeScale,
             .padding = Style::spaceXs * m_chromeScale,
             .radius = Style::scaledRadiusMd(m_chromeScale),
-            .onClick = [this]() {
+            .onClick = [this] {
               if (m_onCancel) {
                 m_onCancel();
               }
@@ -252,7 +252,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
               .paddingH = Style::spaceMd * m_chromeScale,
               .radius = Style::scaledRadiusMd(m_chromeScale),
               .onClick =
-                  [this]() {
+                  [this] {
                     if (m_onCancel) {
                       m_onCancel();
                     }
@@ -267,7 +267,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
               .radius = Style::scaledRadiusMd(m_chromeScale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 if (!m_onApply) {
                   return;
                 }

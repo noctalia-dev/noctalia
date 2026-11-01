@@ -31,10 +31,12 @@ enum class FontWeight : int {
 };
 
 // Font selection for a run of text. An empty family means the renderer-global
-// family (shell.font_family).
+// family (shell.font_family). `features` is an OpenType feature list in Pango's
+// font-features syntax (e.g. "tnum"); empty applies the font defaults.
 struct TextFont {
   FontWeight weight = FontWeight::Normal;
   std::string family;
+  std::string features;
 
   bool operator==(const TextFont&) const = default;
 };
@@ -72,6 +74,9 @@ struct TextMetrics {
   // consumer tell single-line from wrapped text from the measured result rather
   // than re-deriving it from the requested width/line budget.
   int lineCount = 0;
+  // Left edge of the leftmost line within maxWidth for wrapped text. Drawn text starts at the draw x, so a
+  // caller that needs each line where Pango placed it (e.g. right-aligned RTL paragraphs) offsets by this.
+  float alignOffsetX = 0.0F;
 };
 
 class Renderer {

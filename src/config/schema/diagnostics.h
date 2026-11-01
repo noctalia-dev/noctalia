@@ -136,21 +136,13 @@ namespace noctalia::config::schema {
     }
 
     [[nodiscard]] bool hasErrors() const {
-      for (const auto& e : entries) {
-        if (e.severity == Severity::Error) {
-          return true;
-        }
-      }
-      return false;
+      return std::ranges::any_of(entries, [&](const auto& e) { return e.severity == Severity::Error; });
     }
 
     [[nodiscard]] bool hasFatalErrors() const {
-      for (const auto& e : entries) {
-        if (e.severity == Severity::Error && e.recoveryScope == RecoveryScope::Document) {
-          return true;
-        }
-      }
-      return false;
+      return std::ranges::any_of(entries, [&](const auto& e) {
+        return e.severity == Severity::Error && e.recoveryScope == RecoveryScope::Document;
+      });
     }
 
     [[nodiscard]] Diagnostics introducedErrorsComparedTo(const Diagnostics& baseline) const {

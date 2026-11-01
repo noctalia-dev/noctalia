@@ -25,6 +25,7 @@
 #include <array>
 #include <cmath>
 #include <filesystem>
+#include <format>
 #include <optional>
 #include <span>
 #include <string>
@@ -61,7 +62,7 @@ namespace noctalia::config {
       if (!settingsTomlPath.empty() && std::filesystem::exists(settingsTomlPath)) {
         const std::filesystem::path settingsFile{std::string(settingsTomlPath)};
         try {
-          toml::table sidecar = toml::parse_file(std::string(settingsTomlPath));
+          toml::table sidecar = toml::parse_file(settingsTomlPath);
           originsOut.record(settingsFile, sidecar);
           if (const auto version = storedConfigVersion(sidecar, diag); version.has_value()) {
             const int appliedVersion = applyPendingConfigMigrations(sidecar, *version, diag);
@@ -118,11 +119,11 @@ namespace noctalia::config {
       if (launcherTbl == nullptr) {
         return;
       }
-      if (const auto* prefixVal = (*launcherTbl)["provider_prefix"].as_string()) {
-        if (prefixVal->get().empty()) {
-          diag.warn("shell.launcher.provider_prefix", "is empty, falling back to '/'");
-        }
+      if (const auto* prefixVal = (*launcherTbl)["provider_prefix"].as_string();
+          prefixVal && prefixVal->get().empty()) {
+        diag.warn("shell.launcher.provider_prefix", "is empty, falling back to '/'");
       }
+
       const auto* providersTbl = (*launcherTbl)["providers"].as_table();
       if (providersTbl == nullptr) {
         return;
@@ -143,7 +144,7 @@ namespace noctalia::config {
         if (provTbl == nullptr) {
           continue;
         }
-        std::string providerName = StringUtils::toLower(std::string(key.str()));
+        std::string providerName = StringUtils::toLower(key.str());
         if (providerName == "applications") {
           diag.warn(
               "shell.launcher.providers.applications", "custom settings are not allowed (Applications is always global)"
@@ -390,11 +391,11 @@ namespace noctalia::config {
         const auto field = std::ranges::find(fields, keyStr, &schema::WidgetSettingField::key);
         if (field == fields.end()) {
           if (flagUnknown) {
-            diag.warn(base + "." + keyStr, "unknown setting");
+            diag.warn(std::format("{}.{}", base, keyStr), "unknown setting");
           }
           continue;
         }
-        validateWidgetValue(node, *field, base + "." + keyStr, diag, componentOwner);
+        validateWidgetValue(node, *field, std::format("{}.{}", base, keyStr), diag, componentOwner);
       }
     }
 
@@ -887,7 +888,7 @@ namespace noctalia::config {
     const std::filesystem::path file{std::string(path)};
     toml::table parsed;
     try {
-      parsed = toml::parse_file(std::string(path));
+      parsed = toml::parse_file(path);
     } catch (const toml::parse_error& e) {
       diag.fatalAt(parseErrorOrigin(e, file), "syntax", std::string(e.description()), "config.syntax");
       return diag;

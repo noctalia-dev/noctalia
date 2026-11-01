@@ -59,7 +59,7 @@ namespace {
 
 } // namespace
 
-PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOptions options)
+PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, const PluginPanelOptions& options)
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
       m_pluginDir(std::move(context.pluginDir)), m_scriptApi(context.scriptApi),
       m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient),

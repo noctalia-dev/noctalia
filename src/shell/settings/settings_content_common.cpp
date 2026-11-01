@@ -241,7 +241,7 @@ namespace settings {
     const std::string group = std::move(props.group);
     if (props.pill != nullptr) {
       props.pill->setOnClick([expandedGroups, group, pill = props.pill, collapsibleRaw,
-                              scrollToTop = props.scrollToTop]() {
+                              scrollToTop = props.scrollToTop] {
         if (expandedGroups->contains(group)) {
           expandedGroups->erase(group);
           pill->setVariant(ButtonVariant::Default);
@@ -272,7 +272,7 @@ namespace settings {
   }
 
   void updateSettingsStatusBanner(Flex& banner, Label& message, std::string_view text, bool error) {
-    message.setText(std::string(text));
+    message.setText(text);
     message.setColor(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary));
     banner.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14F));
     banner.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
@@ -356,6 +356,7 @@ namespace settings {
     case SettingsSection::Services:
     case SettingsSection::Wallpaper:
     case SettingsSection::Desktop:
+    case SettingsSection::LockScreen:
     case SettingsSection::Dock:
     case SettingsSection::Panels:
     case SettingsSection::ControlCenter:
@@ -393,6 +394,7 @@ namespace settings {
     case SettingsSection::Services:
     case SettingsSection::Wallpaper:
     case SettingsSection::Desktop:
+    case SettingsSection::LockScreen:
     case SettingsSection::Dock:
     case SettingsSection::Panels:
     case SettingsSection::ControlCenter:
@@ -582,7 +584,7 @@ namespace settings {
     IdleBehaviorConfig norm = row;
     normalizeIdleBehaviorAction(norm);
 
-    const auto displayName = [&]() -> std::string {
+    const auto displayName = [&] -> std::string {
       if (norm.action == "lock") {
         return i18n::tr("settings.idle.behavior.kind.lock");
       }

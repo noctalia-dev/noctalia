@@ -9,6 +9,10 @@ System tray (StatusNotifierItem). Tray icons use the global `[shell.app_icon_col
 
 When Noctalia restarts, running applications can re-register their tray icons. Noctalia also discovers existing StatusNotifierItem services. Icons may take a few seconds to reappear while startup is busy.
 
+When an application registers only its D-Bus service name, Noctalia ignores tray paths that return no StatusNotifierItem properties. This prevents unused paths from creating blank duplicate icons. Applications with multiple valid tray items can still show multiple icons.
+
+Noctalia uses an existing `org.kde.StatusNotifierWatcher` when one is running. If that watcher exits, Noctalia takes over the watcher name and rediscovers tray items.
+
 For theme icons in `status` or `panel` directories, the tray selects SVG artwork for the displayed logical size across all roots of the first matching theme. Application icons and bitmap icons keep their normal lookup. An inherited theme cannot replace an icon already supplied by a higher-priority theme.
 
 | Setting                  | Type            | Default   | Description                                                                                                                          |

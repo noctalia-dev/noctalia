@@ -27,10 +27,10 @@
 #include "wayland/wayland_seat.h"
 
 #include <algorithm>
-#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string_view>
 #include <system_error>
@@ -277,15 +277,19 @@ namespace {
 
     kLog.info("syncing wallpaper to KDE Plasma: {} (connector: {})", imagePath, connector);
 
+    // An ASCII-only JSON string is a valid JS literal: quotes cannot end it, and U+2028/U+2029 (raw line
+    // terminators to Plasma's JS engine) are escaped.
+    const std::string imageUrl =
+        nlohmann::json("file://" + imagePath).dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
     std::string script;
     if (output == nullptr) {
       script = "var d = desktops();"
                "for (var i = 0; i < d.length; i++) {"
                "  d[i].wallpaperPlugin = 'org.kde.image';"
                "  d[i].currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];"
-               "  d[i].writeConfig('Image', 'file://"
-          + imagePath
-          + "');"
+               "  d[i].writeConfig('Image', "
+          + imageUrl
+          + ");"
             "}";
     } else {
       script = "var d = desktops();"
@@ -302,9 +306,9 @@ namespace {
           + ") {"
             "    d[i].wallpaperPlugin = 'org.kde.image';"
             "    d[i].currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];"
-            "    d[i].writeConfig('Image', 'file://"
-          + imagePath
-          + "');"
+            "    d[i].writeConfig('Image', "
+          + imageUrl
+          + ");"
             "  }"
             "}";
     }
@@ -357,8 +361,15 @@ TextureHandle Wallpaper::currentTexture() const {
 }
 
 std::string Wallpaper::currentPath() const {
-  const WallpaperInstance* inst = currentInstance();
-  return inst != nullptr ? inst->currentPath : std::string{};
+  if (const WallpaperInstance* inst = currentInstance(); inst != nullptr) {
+    return inst->currentPath;
+  }
+  // No instance shows an image (e.g. every output is owned by an external source such
+  // as mpvpaper): report the wallpaper the palette is built from.
+  if (m_wallpaperEnabled && m_config != nullptr) {
+    return m_config->getPaletteWallpaperPath();
+  }
+  return {};
 }
 
 bool Wallpaper::ownsSurface(wl_surface* surface) const noexcept {
@@ -417,7 +428,7 @@ bool Wallpaper::initialize(
   m_themeService = themeService;
 
   // Register reload callback unconditionally so toggling enabled in config works.
-  m_config->addReloadCallback([this]() { reload(); }, "wallpaper");
+  m_config->addReloadCallback([this] { reload(); }, "wallpaper");
   m_paletteConn = paletteChanged().connect([this] {
     for (auto& inst : m_instances) {
       updateRendererState(*inst);
@@ -512,7 +523,7 @@ void Wallpaper::onOutputChange() {
 std::vector<WallpaperChange> Wallpaper::onStateChange() {
   kLog.info("state file changed, checking for updates");
 
-  std::vector<WallpaperChange> changes;
+  std::vector<WallpaperChange> changes = std::exchange(m_pendingStartupChanges, {});
   for (auto& inst : m_instances) {
     auto newPath = m_config->getWallpaperPath(inst->connectorName);
     if (inst->surface == nullptr || inst->wallpaperNode == nullptr) {
@@ -826,7 +837,7 @@ void Wallpaper::syncInstances() {
 
   // Remove instances for outputs that no longer exist or are now disabled by monitor override
   std::erase_if(m_instances, [&](const auto& inst) {
-    const auto* output = [&]() -> const WaylandOutput* {
+    const auto* output = [&] -> const WaylandOutput* {
       for (const auto& out : outputs) {
         if (out.name == inst->outputName)
           return &out;
@@ -946,7 +957,7 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
   const ThemeMode mode = directoryThemeMode();
   bool attempted = false;
 
-  ConfigService::WallpaperBatch batch(*m_config);
+  std::optional<ConfigService::WallpaperBatch> batch(std::in_place, *m_config);
 
   if (wallpaper.perMonitorDirectories) {
     for (const auto& output : outputs) {
@@ -978,6 +989,7 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
       } else {
         m_config->setWallpaperPath(output.connectorName, picked);
       }
+      m_pendingStartupChanges.push_back({.path = picked, .connector = output.connectorName});
       kLog.info("startup automation set {} → {}", output.connectorName, picked);
     }
   } else {
@@ -1000,25 +1012,23 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
         const std::string picked =
             pickAutomationWallpaperPath(automation, std::move(candidates), currentDefault, kGlobalShuffleScope, dir);
         if (!picked.empty()) {
-          if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
-            std::vector<std::string> connectors;
-            for (const auto& output : outputs) {
-              if (output.done
-                  && !output.connectorName.empty()
-                  && output.hasUsableGeometry()
-                  && wallpaperOutputEnabled(wallpaper, output)) {
-                connectors.push_back(output.connectorName);
-              }
+          std::vector<std::string> connectors;
+          for (const auto& output : outputs) {
+            if (output.done
+                && !output.connectorName.empty()
+                && output.hasUsableGeometry()
+                && wallpaperOutputEnabled(wallpaper, output)) {
+              connectors.push_back(output.connectorName);
             }
+          }
+          for (const auto& connector : connectors) {
+            m_pendingStartupChanges.push_back({.path = picked, .connector = connector});
+          }
+          if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
             m_config->applyWallpaperSelection(std::nullopt, picked, favorite, connectors);
           } else {
-            for (const auto& output : outputs) {
-              if (output.done
-                  && !output.connectorName.empty()
-                  && output.hasUsableGeometry()
-                  && wallpaperOutputEnabled(wallpaper, output)) {
-                m_config->setWallpaperPath(output.connectorName, picked);
-              }
+            for (const auto& connector : connectors) {
+              m_config->setWallpaperPath(connector, picked);
             }
             m_config->setWallpaperPath(std::nullopt, picked);
           }
@@ -1027,6 +1037,10 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
       }
     }
   }
+
+  // Flush so onStateChange() reports the picks, then drop any that persisted nothing.
+  batch.reset();
+  m_pendingStartupChanges.clear();
 
   if (attempted) {
     m_lastAutomationSecondStamp = secondStamp;
@@ -1180,8 +1194,7 @@ Wallpaper::SwitchOutcome Wallpaper::switchWallpaperTo(PickWallpaper action, std:
       return SwitchOutcome::Unavailable;
     }
     const std::string currentPath = m_config->getWallpaperPath(std::string(*connector));
-    const std::string picked =
-        pick(std::move(candidates), currentPath, outputShuffleScope(std::string(*connector)), dir);
+    const std::string picked = pick(std::move(candidates), currentPath, outputShuffleScope(*connector), dir);
     if (picked.empty() || picked == currentPath) {
       return SwitchOutcome::NoChange;
     }
@@ -1304,7 +1317,7 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
 
   instance->surface->setAnimationManager(&instance->animations);
 
-  instance->surface->setUpdateCallback([this, inst]() { updateRendererState(*inst); });
+  instance->surface->setUpdateCallback([this, inst] { updateRendererState(*inst); });
 
   if (!instance->surface->initialize(output.output)) {
     kLog.warn("failed to initialize surface for output {}", output.name);
@@ -1370,7 +1383,7 @@ void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& pa
     image = m_textureCache->acquire(
         SharedTextureRequest{.path = path, .coverage = textureCoverage(instance)},
         m_renderContext != nullptr ? &m_renderContext->backend() : nullptr,
-        [this, inst = &instance]() { onImageChanged(*inst); }
+        [this, inst = &instance] { onImageChanged(*inst); }
     );
   }
   if (image.empty() || image.failed()) {
@@ -1516,7 +1529,7 @@ void Wallpaper::startTransitionAnimation(
   // animations-enabled toggle (disabling animations must not skip the crossfade).
   instance.transitionAnimId = instance.animations.animateTimer(
       fromTime, toTime, durationMs, Easing::Linear, [inst](float time) { setTransitionTime(*inst, time); },
-      [this, inst]() { finishTransition(*inst); }
+      [this, inst] { finishTransition(*inst); }
   );
 
   updateRendererState(instance);

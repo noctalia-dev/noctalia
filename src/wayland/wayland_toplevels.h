@@ -72,6 +72,7 @@ public:
 
   [[nodiscard]] std::optional<ActiveToplevel> current() const;
   [[nodiscard]] wl_output* currentOutput() const;
+  [[nodiscard]] bool anyFullscreen() const;
   [[nodiscard]] std::optional<ActiveToplevel>
   matchByTitleAndAppId(std::string_view title, std::string_view appId, wl_output* preferredOutput) const;
   [[nodiscard]] std::vector<std::string> allAppIds(wl_output* outputFilter = nullptr) const;
@@ -131,6 +132,7 @@ private:
     bool minimized = false;
     bool pendingMinimized = false;
     bool ready = false;
+    bool fullscreen = false;
     bool dirty = false;
     // Set on the first output_enter, never cleared: distinguishes "never announced an output"
     // from "left every output".

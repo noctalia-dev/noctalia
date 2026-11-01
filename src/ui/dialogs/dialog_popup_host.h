@@ -108,6 +108,7 @@ protected:
   [[nodiscard]] float uiScale() const;
 
   [[nodiscard]] InputDispatcher& inputDispatcher() noexcept { return m_inputDispatcher; }
+  [[nodiscard]] const InputDispatcher& inputDispatcher() const noexcept { return m_inputDispatcher; }
   [[nodiscard]] AnimationManager& animations() noexcept { return m_animations; }
   [[nodiscard]] WaylandConnection* wayland() const noexcept { return m_wayland; }
   [[nodiscard]] ConfigService* config() const noexcept { return m_config; }

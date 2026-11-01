@@ -6,6 +6,7 @@
 #include <memory>
 #include <sdbus-c++/sdbus-c++.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 class SystemBus;
@@ -26,6 +27,7 @@ public:
   [[nodiscard]] std::int64_t inhibitLocks() const noexcept { return m_inhibitLocks; }
   [[nodiscard]] bool hasPendingEvents() const noexcept { return m_hasPendingEvents; }
   [[nodiscard]] sdbus::IConnection::PollData getPollData() const;
+  [[nodiscard]] std::vector<std::pair<std::string, std::string>> inhibitorList() const;
   void processPendingEvents();
   void setChangeCallback(ChangeCallback callback);
 

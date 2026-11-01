@@ -150,7 +150,7 @@ namespace scripting {
     // previous copy without blocking the source revision or unrelated exports; later
     // updates reconcile copies that do not match the catalog. Re-scans on the main
     // thread. No-op for path / unknown sources.
-    void update(std::string sourceName);
+    void update(const std::string& sourceName);
 
     // Remove a source: delete its git repo cache and exported runtime files, disable
     // its plugins, drop it from config. Path sources keep their externally-owned

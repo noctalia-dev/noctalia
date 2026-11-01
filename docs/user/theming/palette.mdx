@@ -11,38 +11,38 @@ A palette is the set of colors selected by [`[theme]`](/noctalia/theming/). The 
 
 User-facing color settings reference these 28 roles with lowercase `snake_case` names. Prefer role names so UI colors follow the active palette. Fixed hex colors (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) are supported where a deliberately non-palette color is needed.
 
-A palette file defines 16 colors (the `m…` fields). The remaining roles are derived from them, or come straight from the Material scheme when the palette is generated from a wallpaper.
+A palette file sets 16 of these roles directly, keyed by role name. The remaining roles are derived from them, or come straight from the Material scheme when the palette is generated from a wallpaper.
 
-| Role                        | Source                                   | Description                                                       |
-| --------------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
-| `primary`                   | `mPrimary`                               | Primary accent for buttons, links, highlights, and active states. |
-| `on_primary`                | `mOnPrimary`                             | Text and icons placed on `primary`.                               |
-| `primary_container`         | derived from `mPrimary`                  | Lower-emphasis tinted fill in the primary hue.                    |
-| `on_primary_container`      | derived                                  | Text and icons placed on `primary_container`.                     |
-| `secondary`                 | `mSecondary`                             | Secondary accent color.                                           |
-| `on_secondary`              | `mOnSecondary`                           | Text and icons placed on `secondary`.                             |
-| `secondary_container`       | derived from `mSecondary`                | Lower-emphasis tinted fill in the secondary hue.                  |
-| `on_secondary_container`    | derived                                  | Text and icons placed on `secondary_container`.                   |
-| `tertiary`                  | `mTertiary`                              | Tertiary accent color.                                            |
-| `on_tertiary`               | `mOnTertiary`                            | Text and icons placed on `tertiary`.                              |
-| `tertiary_container`        | derived from `mTertiary`                 | Lower-emphasis tinted fill in the tertiary hue.                   |
-| `on_tertiary_container`     | derived                                  | Text and icons placed on `tertiary_container`.                    |
-| `error`                     | `mError`                                 | Error and destructive-action color.                               |
-| `on_error`                  | `mOnError`                               | Text and icons placed on `error`.                                 |
-| `error_container`           | derived from `mError`                    | Lower-emphasis error fill.                                        |
-| `on_error_container`        | derived                                  | Text and icons placed on `error_container`.                       |
-| `surface`                   | `mSurface`                               | Main shell background color.                                      |
-| `on_surface`                | `mOnSurface`                             | Primary text and icon color on shell surfaces.                    |
-| `on_surface_variant`        | `mOnSurfaceVariant`                      | Secondary text and icon color.                                    |
-| `surface_container_low`     | between `mSurface` and `mSurfaceVariant` | Slightly raised background.                                       |
-| `surface_container`         | `mSurfaceVariant`                        | Background for cards, capsules, and controls.                     |
-| `surface_container_high`    | derived from `mSurfaceVariant`           | Raised background, one step above `surface_container`.            |
-| `surface_container_highest` | derived from `mSurfaceVariant`           | Highest raised background.                                        |
-| `outline_variant`           | `mOutline`                               | Borders, separators, and subtle outlines.                         |
-| `shadow`                    | `mShadow`                                | Shadow color.                                                     |
-| `scrim`                     | black                                    | Backdrop behind modal content.                                    |
-| `hover`                     | `mHover`                                 | Hover and interactive highlight background.                       |
-| `on_hover`                  | `mOnHover`                               | Text and icons placed on `hover`.                                 |
+| Role                        | Source                                    | Description                                                       |
+| --------------------------- | ----------------------------------------- | ----------------------------------------------------------------- |
+| `primary`                   | palette file                              | Primary accent for buttons, links, highlights, and active states. |
+| `on_primary`                | palette file                              | Text and icons placed on `primary`.                               |
+| `primary_container`         | derived from `primary`                    | Lower-emphasis tinted fill in the primary hue.                    |
+| `on_primary_container`      | derived                                   | Text and icons placed on `primary_container`.                     |
+| `secondary`                 | palette file                              | Secondary accent color.                                           |
+| `on_secondary`              | palette file                              | Text and icons placed on `secondary`.                             |
+| `secondary_container`       | derived from `secondary`                  | Lower-emphasis tinted fill in the secondary hue.                  |
+| `on_secondary_container`    | derived                                   | Text and icons placed on `secondary_container`.                   |
+| `tertiary`                  | palette file                              | Tertiary accent color.                                            |
+| `on_tertiary`               | palette file                              | Text and icons placed on `tertiary`.                              |
+| `tertiary_container`        | derived from `tertiary`                   | Lower-emphasis tinted fill in the tertiary hue.                   |
+| `on_tertiary_container`     | derived                                   | Text and icons placed on `tertiary_container`.                    |
+| `error`                     | palette file                              | Error and destructive-action color.                               |
+| `on_error`                  | palette file                              | Text and icons placed on `error`.                                 |
+| `error_container`           | derived from `error`                      | Lower-emphasis error fill.                                        |
+| `on_error_container`        | derived                                   | Text and icons placed on `error_container`.                       |
+| `surface`                   | palette file                              | Main shell background color.                                      |
+| `on_surface`                | palette file                              | Primary text and icon color on shell surfaces.                    |
+| `on_surface_variant`        | palette file                              | Secondary text and icon color.                                    |
+| `surface_container_low`     | between `surface` and `surface_container` | Slightly raised background.                                       |
+| `surface_container`         | palette file                              | Background for cards, capsules, and controls.                     |
+| `surface_container_high`    | derived from `surface_container`          | Raised background, one step above `surface_container`.            |
+| `surface_container_highest` | derived from `surface_container`          | Highest raised background.                                        |
+| `outline_variant`           | palette file                              | Borders, separators, and subtle outlines.                         |
+| `shadow`                    | palette file                              | Shadow color.                                                     |
+| `scrim`                     | black                                     | Backdrop behind modal content.                                    |
+| `hover`                     | palette file                              | Hover and interactive highlight background.                       |
+| `on_hover`                  | palette file                              | Text and icons placed on `hover`.                                 |
 
 The former `surface_variant` and `outline` roles are now `surface_container` and `outline_variant`, with the same colors. Noctalia rewrites them in your config on load and warns about it; update hand-written config files to the new names. The new names need plugin API 43, so plugins using them should declare `plugin_api = 43`. Plugins still get the old names mapped to the new roles with a log warning until 5.5.0. Templates are unaffected: they keep the full Material token set, where `surface_variant` and `outline` have their Material meaning.
 
@@ -83,32 +83,35 @@ If you are migrating a v4 color scheme, copy the JSON payload to the v5 palette 
 
 Each palette can provide `dark` and `light` variants. If `light` is omitted, Noctalia uses the dark variant for both modes.
 
+The top-level `version` names the palette format. The current format is `2`, where every key is the name of the color role or terminal color it sets. A file without `version` is read as format 1, which used `m`-prefixed camelCase keys (`mOnPrimary`, terminal `selectionFg`) and called `surface_container` and `outline_variant` `mSurfaceVariant` and `mOutline`; older palette files and v4 color schemes keep working unchanged. Noctalia rejects a palette whose `version` is newer than it supports. `noctalia theme --theme-json` also accepts its own generated token maps; it treats a file as a palette when it has a `version`, or, for format 1, when its variants contain `mPrimary`.
+
 ```json
 {
+  "version": 2,
   "dark": {
-    "mPrimary": "#a6e22e",
-    "mOnPrimary": "#272822",
-    "mSecondary": "#66d9ef",
-    "mOnSecondary": "#272822",
-    "mTertiary": "#f92672",
-    "mOnTertiary": "#272822",
-    "mError": "#f92672",
-    "mOnError": "#272822",
-    "mSurface": "#272822",
-    "mOnSurface": "#f8f8f2",
-    "mSurfaceVariant": "#3e3d32",
-    "mOnSurfaceVariant": "#a6e22e",
-    "mOutline": "#75715e",
-    "mShadow": "#272822",
-    "mHover": "#3a3a32",
-    "mOnHover": "#f8f8f2",
+    "primary": "#a6e22e",
+    "on_primary": "#272822",
+    "secondary": "#66d9ef",
+    "on_secondary": "#272822",
+    "tertiary": "#f92672",
+    "on_tertiary": "#272822",
+    "error": "#f92672",
+    "on_error": "#272822",
+    "surface": "#272822",
+    "on_surface": "#f8f8f2",
+    "surface_container": "#3e3d32",
+    "on_surface_variant": "#a6e22e",
+    "outline_variant": "#75715e",
+    "shadow": "#272822",
+    "hover": "#3a3a32",
+    "on_hover": "#f8f8f2",
     "terminal": {
       "background": "#272822",
       "foreground": "#f8f8f2",
       "cursor": "#f8f8f2",
-      "cursorText": "#272822",
-      "selectionBg": "#f8f8f2",
-      "selectionFg": "#272822",
+      "cursor_text": "#272822",
+      "selection_bg": "#f8f8f2",
+      "selection_fg": "#272822",
       "normal": {
         "black": "#272822",
         "red": "#f92672",
@@ -132,29 +135,29 @@ Each palette can provide `dark` and `light` variants. If `light` is omitted, Noc
     }
   },
   "light": {
-    "mPrimary": "#a6e22e",
-    "mOnPrimary": "#f8f8f2",
-    "mSecondary": "#66d9ef",
-    "mOnSecondary": "#f8f8f2",
-    "mTertiary": "#f92672",
-    "mOnTertiary": "#f8f8f2",
-    "mError": "#f92672",
-    "mOnError": "#f8f8f2",
-    "mSurface": "#f8f8f2",
-    "mOnSurface": "#272822",
-    "mSurfaceVariant": "#e6e1dc",
-    "mOnSurfaceVariant": "#272822",
-    "mOutline": "#a6e22e",
-    "mShadow": "#d8d8d8",
-    "mHover": "#e6e1dc",
-    "mOnHover": "#272822",
+    "primary": "#a6e22e",
+    "on_primary": "#f8f8f2",
+    "secondary": "#66d9ef",
+    "on_secondary": "#f8f8f2",
+    "tertiary": "#f92672",
+    "on_tertiary": "#f8f8f2",
+    "error": "#f92672",
+    "on_error": "#f8f8f2",
+    "surface": "#f8f8f2",
+    "on_surface": "#272822",
+    "surface_container": "#e6e1dc",
+    "on_surface_variant": "#272822",
+    "outline_variant": "#a6e22e",
+    "shadow": "#d8d8d8",
+    "hover": "#e6e1dc",
+    "on_hover": "#272822",
     "terminal": {
       "background": "#f8f8f2",
       "foreground": "#272822",
       "cursor": "#272822",
-      "cursorText": "#f8f8f2",
-      "selectionBg": "#272822",
-      "selectionFg": "#f8f8f2",
+      "cursor_text": "#f8f8f2",
+      "selection_bg": "#272822",
+      "selection_fg": "#f8f8f2",
       "normal": {
         "black": "#f8f8f2",
         "red": "#f92672",
@@ -184,16 +187,16 @@ Each palette can provide `dark` and `light` variants. If `light` is omitted, Noc
 
 The `terminal` object provides colors for terminal templates:
 
-| Field         | Description            |
-| ------------- | ---------------------- |
-| `background`  | Terminal background.   |
-| `foreground`  | Default text color.    |
-| `cursor`      | Cursor color.          |
-| `cursorText`  | Text under the cursor. |
-| `selectionBg` | Selection background.  |
-| `selectionFg` | Selection foreground.  |
-| `normal`      | Normal ANSI colors.    |
-| `bright`      | Bright ANSI colors.    |
+| Field          | Description            |
+| -------------- | ---------------------- |
+| `background`   | Terminal background.   |
+| `foreground`   | Default text color.    |
+| `cursor`       | Cursor color.          |
+| `cursor_text`  | Text under the cursor. |
+| `selection_bg` | Selection background.  |
+| `selection_fg` | Selection foreground.  |
+| `normal`       | Normal ANSI colors.    |
+| `bright`       | Bright ANSI colors.    |
 
 Good terminal colors are important for syntax highlighting. Test both dark and light variants with code, prompts, selections, and diffs.
 

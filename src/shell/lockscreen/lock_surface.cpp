@@ -471,7 +471,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .variant = ButtonVariant::Secondary,
           .visible = false,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_onCycleLayout) {
                   m_onCycleLayout();
                 }
@@ -513,7 +513,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .glyphSize = 16.0F,
           .variant = ButtonVariant::Ghost,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_passwordField == nullptr) {
                   return;
                 }
@@ -535,7 +535,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .glyphSize = 16.0F,
           .variant = ButtonVariant::Primary,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_onLogin) {
                   m_onLogin();
                 }
@@ -865,7 +865,7 @@ void LockSurface::startExitTransition() {
         m_transitionProgress = progress;
         syncTransitionCover();
       },
-      [this]() {
+      [this] {
         m_transitionAnimation = 0;
         m_transitionProgress = 0.0F;
         m_transitionPhase = TransitionPhase::ExitEndpoint;
@@ -1136,7 +1136,7 @@ void LockSurface::beginEnterAnimation() {
         m_transitionProgress = progress;
         syncTransitionCover();
       },
-      [this]() {
+      [this] {
         m_transitionAnimation = 0;
         m_transitionProgress = 1.0F;
         m_transitionPhase = TransitionPhase::EnterEndpoint;
@@ -1719,7 +1719,7 @@ void LockSurface::rebuildSessionButtons() {
         .radius = Style::scaledRadiusMd(),
         .flexGrow = 1.0F,
         .onClick =
-            [this, cfg]() {
+            [this, cfg] {
               if (m_sessionActions != nullptr) {
                 m_sessionActions->invoke(cfg);
               }
@@ -1970,7 +1970,7 @@ void LockSurface::applyWallpaperTexture() {
     } else if (m_pendingWallpaperPath != m_wallpaperPath && renderContext() != nullptr) {
       m_pendingWallpaperLease = m_textureCache->acquire(
           SharedTextureRequest{.path = m_wallpaperPath, .coverage = m_wallpaperCoverage}, &renderContext()->backend(),
-          [this]() {
+          [this] {
             m_wallpaperDirty = true;
             requestLayout();
           }

@@ -12,10 +12,10 @@
 #include <vector>
 
 // Forward declarations to avoid dragging Pango headers into every TU.
-typedef struct _PangoContext PangoContext;
-typedef struct _PangoFontDescription PangoFontDescription;
-typedef struct _PangoFontMap PangoFontMap;
-typedef struct _PangoLayout PangoLayout;
+using PangoContext = struct _PangoContext;
+using PangoFontDescription = struct _PangoFontDescription;
+using PangoFontMap = struct _PangoFontMap;
+using PangoLayout = struct _PangoLayout;
 
 class RenderBackend;
 class TextureManager;
@@ -44,6 +44,8 @@ public:
     float inkRight = 0.0F;  // visible ink right edge relative to layout origin
     float capHeight = 0.0F; // measured baseline-to-cap-top of 'H' (0 if unavailable)
     int lineCount = 0;      // laid-out line count (0 for empty text)
+    // Left edge of the leftmost line within maxWidth; rasterizeLayout crops it.
+    float alignOffsetX = 0.0F;
   };
 
   CairoTextRenderer();

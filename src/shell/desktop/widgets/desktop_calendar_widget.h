@@ -21,6 +21,7 @@ public:
   struct Options {
     bool showEvents = true;
     bool showWeekNumbers = false;
+    bool showEventsLocation = false;
   };
 
   DesktopCalendarWidget(ConfigService* config, CalendarService* calendar, Options options);
@@ -46,6 +47,7 @@ private:
   CalendarService* m_calendar = nullptr;
   bool m_showEvents = true;
   bool m_showWeekNumbers = false;
+  bool m_showEventsLocation = false;
   bool m_dirty = true;
 
   Flex* m_rootLayout = nullptr;

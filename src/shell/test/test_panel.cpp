@@ -65,7 +65,7 @@ void TestPanel::create() {
         .minHeight = Style::controlHeightSm * scale,
         .padding = Style::spaceXs * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = []() { PanelManager::instance().closePanel(); },
+        .onClick = [] { PanelManager::instance().closePanel(); },
     });
     headerRow->addChild(std::move(closeButton));
   }
@@ -95,14 +95,14 @@ void TestPanel::create() {
       .flexGrow = 1.0F,
   });
 
-  auto makeRow = [scale]() {
+  auto makeRow = [scale] {
     return ui::row({
         .align = FlexAlign::Center,
         .gap = Style::spaceMd * scale,
     });
   };
 
-  auto makeCol = [scale]() {
+  auto makeCol = [scale] {
     return ui::column({
         .align = FlexAlign::Start,
         .gap = Style::spaceXs * scale,
@@ -149,7 +149,7 @@ void TestPanel::create() {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = []() {},
+          .onClick = [] {},
       });
     };
 
@@ -183,7 +183,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = []() {},
+        .onClick = [] {},
     });
 
     auto glyphButton = ui::button({
@@ -196,7 +196,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = []() {},
+        .onClick = [] {},
     });
 
     auto section = makeSection("Icon buttons");
@@ -497,7 +497,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = [this]() {
+        .onClick = [this] {
           FileDialogOptions options;
           options.mode = FileDialogMode::Open;
           options.title = "Select Image";
@@ -547,7 +547,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = [this]() {
+        .onClick = [this] {
           ColorPickerDialogOptions options;
           if (const auto last = ColorPickerDialog::lastResult()) {
             options.initialColor = *last;
@@ -595,7 +595,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = [this]() {
+        .onClick = [this] {
           GlyphPickerDialogOptions options;
           if (const auto last = GlyphPickerDialog::lastResult()) {
             options.initialGlyph = last->name;
@@ -660,7 +660,7 @@ void TestPanel::create() {
           .gap = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
           .onClick =
-              [this, tileIndex = i, label = std::string(tileData.label)]() {
+              [this, tileIndex = i, label = std::string(tileData.label)] {
                 if (m_gridSelectionLabel != nullptr) {
                   m_gridSelectionLabel->setText("Selected: " + label);
                   m_gridSelectionLabel->setColor(colorSpecFromRole(ColorRole::Primary));
@@ -736,7 +736,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceLg * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = [this]() {
+        .onClick = [this] {
           if (m_transformHelp != nullptr) {
             m_transformHelp->setText("Transform button clicked!");
             m_transformHelp->setColor(colorSpecFromRole(ColorRole::Secondary));
@@ -855,7 +855,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
       .gap = Style::spaceMd * scale,
   });
 
-  auto makeLabCard = [this, scale]() {
+  auto makeLabCard = [this, scale] {
     return ui::column({
         .align = FlexAlign::Start,
         .gap = Style::spaceSm * scale,
@@ -938,7 +938,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
             .paddingV = Style::spaceSm * scale,
             .paddingH = Style::spaceMd * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [this]() {
+            .onClick = [this] {
               if (m_fontFamilyInput != nullptr) {
                 applyTestFontFamily(m_fontFamilyInput->value());
               }
@@ -957,7 +957,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this, preset]() { applyTestFontFamily(preset); },
+              .onClick = [this, preset] { applyTestFontFamily(preset); },
           })
       );
     }

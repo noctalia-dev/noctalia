@@ -63,7 +63,7 @@ Select::Select() {
     applyVisualState();
     markPaintDirty();
   });
-  triggerArea->setOnLeave([this]() {
+  triggerArea->setOnLeave([this] {
     applyVisualState();
     markPaintDirty();
   });
@@ -77,11 +77,11 @@ Select::Select() {
     }
     toggleOpen();
   });
-  triggerArea->setOnFocusGain([this]() {
+  triggerArea->setOnFocusGain([this] {
     applyVisualState();
     markPaintDirty();
   });
-  triggerArea->setOnFocusLoss([this]() {
+  triggerArea->setOnFocusLoss([this] {
     applyVisualState();
     markPaintDirty();
   });
@@ -324,10 +324,8 @@ void Select::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, std::uint32_t
     return;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
-    if (!m_open) {
-      toggleOpen();
-    }
+  if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers) && !m_open) {
+    toggleOpen();
   }
 }
 
@@ -392,7 +390,7 @@ void Select::animateCaret(bool open) {
           applyVisualState();
           markPaintDirty();
         },
-        [this]() { m_caretAnimId = 0; }, this
+        [this] { m_caretAnimId = 0; }, this
     );
     markPaintDirty();
   } else {
@@ -474,7 +472,7 @@ void Select::openPopupDropdown() {
             setSelectedIndex(index);
           },
       .onDismiss =
-          [this]() {
+          [this] {
             m_open = false;
             animateCaret(false);
           },

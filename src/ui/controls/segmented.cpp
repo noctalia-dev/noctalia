@@ -31,7 +31,7 @@ Segmented::Segmented() {
           .axis = RovingListNavAxis::Horizontal,
           .mode = RovingListNavMode::FollowFocus,
           .scrollIntoView = {},
-          .syncIndexFromSelection = [this]() { return m_selected; },
+          .syncIndexFromSelection = [this] { return m_selected; },
       }
   );
   m_rovingNav.bindFocusArea(m_focusArea);
@@ -49,7 +49,7 @@ std::size_t Segmented::addOption(std::string_view label, std::string_view glyph)
   auto btn = makeSegmentButton(label, glyph, index);
   Button* raw = btn.get();
   m_buttons.push_back(raw);
-  m_rovingNav.registerItem(raw, [this, index]() { setSelectedIndex(index); });
+  m_rovingNav.registerItem(raw, [this, index] { setSelectedIndex(index); });
   addChild(std::move(btn));
   refreshVariants();
   return index;
@@ -204,7 +204,7 @@ Segmented::makeSegmentButton(std::string_view label, std::string_view glyph, std
     btn->setFontSize(effectiveFontSize());
   }
   applyButtonMetrics(*btn);
-  btn->setOnClick([this, index]() { setSelectedIndex(index); });
+  btn->setOnClick([this, index] { setSelectedIndex(index); });
   btn->setTabStop(false);
   btn->setFlexGrow(m_equalSegmentWidths ? 1.0F : 0.0F);
   btn->setContentAlign(ButtonContentAlign::Center);

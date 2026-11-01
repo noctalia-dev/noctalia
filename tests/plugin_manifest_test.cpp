@@ -666,7 +666,7 @@ int main() {
        )
       && ok;
 
-  // height = "content" fits the panel to its tree, optionally capped by max_height.
+  // height = "content" fits the panel to its tree, capped by the required max_height.
   const auto contentPanelManifestPath = root / "content-panel/plugin.toml";
   ok = writeManifest(
            contentPanelManifestPath,

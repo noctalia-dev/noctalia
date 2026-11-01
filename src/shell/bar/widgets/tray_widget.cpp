@@ -186,7 +186,7 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
   normalizeTokens(m_hiddenItems);
   normalizeTokens(m_pinnedItems);
   buildDesktopIconIndex();
-  m_themePathIndexListener = tray::ThemePathIconStore::instance().addListener([this]() {
+  m_themePathIndexListener = tray::ThemePathIconStore::instance().addListener([this] {
     // Paths resolved while the scan was in flight fell back to the system theme and
     // were cached; drop them so the app's own IconThemePath icon takes precedence.
     m_preferredIconPaths.clear();
@@ -219,11 +219,11 @@ void TrayWidget::refreshAppIconColorization(Renderer& renderer) {
 }
 
 void TrayWidget::create() {
-  m_paletteConn = paletteChanged().connect([this]() {
+  m_paletteConn = paletteChanged().connect([this] {
     m_appIconColorizeDirty = true;
     requestUpdate();
   });
-  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] {
     m_rebuildPending = true;
     requestUpdate();
   });
@@ -247,7 +247,7 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
   }
   if (m_drawerMode && m_drawerChevron != nullptr && m_drawerTrigger != nullptr) {
     const bool panelOpen = PanelManager::instance().isOpenPanel("tray-drawer");
-    const std::string glyphName = drawerChevronGlyph(panelOpen);
+    const std::string_view glyphName = drawerChevronGlyph(panelOpen);
     if (m_drawerChevronGlyph != glyphName) {
       m_drawerChevronGlyph = glyphName;
       m_drawerChevron->setGlyph(glyphName);
@@ -474,7 +474,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       requestFrameTick();
     });
 
-    area.setOnLeave([this, hoverBoxPtr, progress]() {
+    area.setOnLeave([this, hoverBoxPtr, progress] {
       if (m_animations == nullptr)
         return;
       m_animations->cancelForOwner(hoverBoxPtr);
@@ -786,7 +786,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
   m_container->setVisible(!m_container->children().empty());
 }
 
-std::string TrayWidget::drawerChevronGlyph(bool panelOpen) const {
+std::string_view TrayWidget::drawerChevronGlyph(bool panelOpen) const {
   if (m_barPosition == "bottom") {
     return panelOpen ? "chevron-down" : "chevron-up";
   }
@@ -836,13 +836,7 @@ bool TrayWidget::isPinnedItem(const TrayItemInfo& item) const {
     return false;
   }
 
-  for (const auto& needle : m_pinnedItems) {
-    if (tray::tokenMatchesItem(needle, item)) {
-      return true;
-    }
-  }
-
-  return false;
+  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) { return tray::tokenMatchesItem(needle, item); });
 }
 
 void TrayWidget::buildDesktopIconIndex() {
@@ -867,12 +861,10 @@ void TrayWidget::buildDesktopIconIndex() {
 
 std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
   const bool hasNamedIcon = item.needsAttention ? !item.attentionIconName.empty() : !item.iconName.empty();
-  if (const auto it = m_preferPixmap.find(item.id); it != m_preferPixmap.end() && it->second) {
-    // Some indicators publish pixmaps late (after startup) that are monochrome
-    // or stale. Keep using named-icon resolution when available.
-    if (!hasNamedIcon) {
-      return {};
-    }
+  // Some indicators publish pixmaps late (after startup) that are monochrome
+  // or stale. Keep using named-icon resolution when available.
+  if (const auto it = m_preferPixmap.find(item.id); it != m_preferPixmap.end() && it->second && !hasNamedIcon) {
+    return {};
   }
 
   if (const auto it = m_preferredIconPaths.find(item.id); it != m_preferredIconPaths.end() && !it->second.empty()) {
@@ -1006,7 +998,7 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
 }
 
 std::string TrayWidget::iconForItem(const TrayItemInfo& item) const {
-  const std::string preferred =
+  std::string preferred =
       item.needsAttention && !item.attentionIconName.empty() ? item.attentionIconName : item.iconName;
   if (!preferred.empty() && GlyphRegistry::contains(preferred)) {
     return preferred;

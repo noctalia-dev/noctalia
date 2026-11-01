@@ -19,7 +19,6 @@
 #include "idle-inhibit-unstable-v1-client-protocol.h"
 #include "org-kde-plasma-virtual-desktop-client-protocol.h"
 #include "text-input-unstable-v3-client-protocol.h"
-#include "util/string_utils.h"
 #include "viewporter-client-protocol.h"
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
 #include "wayland/clipboard_service.h"
@@ -42,7 +41,6 @@
 #include <array>
 #include <cerrno>
 #include <chrono>
-#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <format>
@@ -369,7 +367,7 @@ namespace wayland {
 
     std::vector<bool> prepared(activeTargets.size(), false);
     std::vector<pollfd> pollFds(activeTargets.size());
-    auto cancelPreparedReads = [&]() {
+    auto cancelPreparedReads = [&] {
       for (std::size_t i = 0; i < activeTargets.size(); ++i) {
         if (prepared[i]) {
           wl_display_cancel_read(activeTargets[i].connection->display());
@@ -672,7 +670,7 @@ namespace {
             .role = "capture",
         },
     };
-    const wayland::DispatchResult result = wayland::dispatchUntil(targets, deadline, [&state]() { return state.done; });
+    const wayland::DispatchResult result = wayland::dispatchUntil(targets, deadline, [&state] { return state.done; });
     if (state.callback != nullptr) {
       wl_callback_destroy(state.callback);
       state.callback = nullptr;
@@ -1012,6 +1010,8 @@ std::optional<ActiveToplevel> WaylandConnection::matchToplevelByTitleAndAppId(
 }
 
 wl_output* WaylandConnection::activeToplevelOutput() const { return m_toplevelsHandler.currentOutput(); }
+
+bool WaylandConnection::hasFullscreenToplevel() const { return m_toplevelsHandler.anyFullscreen(); }
 
 std::vector<std::string> WaylandConnection::runningAppIds(wl_output* outputFilter) const {
   if (compositors::isKde() && m_extForeignToplevels.isBound() && !m_hasForeignToplevelManagerGlobal) {

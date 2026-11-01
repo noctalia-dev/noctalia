@@ -356,11 +356,10 @@ static bool parseCssColor(std::string_view text, Color& out, bool allowNamedColo
       return false;
     }
     skipSpaces(inner);
-    if (!inner.empty()) {
-      if (!consumeAlphaSeparator(inner) || !parseAlpha(inner, color.a)) {
-        return false;
-      }
+    if (!inner.empty() && (!consumeAlphaSeparator(inner) || !parseAlpha(inner, color.a))) {
+      return false;
     }
+
     if (!inner.empty()) {
       return false;
     }
@@ -430,11 +429,10 @@ static bool parseCssColor(std::string_view text, Color& out, bool allowNamedColo
       return false;
     }
     skipSpaces(inner);
-    if (!inner.empty()) {
-      if (!consumeAlphaSeparator(inner) || !parseAlpha(inner, a)) {
-        return false;
-      }
+    if (!inner.empty() && (!consumeAlphaSeparator(inner) || !parseAlpha(inner, a))) {
+      return false;
     }
+
     if (!inner.empty()) {
       return false;
     }

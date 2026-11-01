@@ -75,7 +75,7 @@ namespace security {
     void cancel();
     [[nodiscard]] bool cancelled() const;
 
-    void setCancelCallback(std::function<void()> callback);
+    void setCancelCallback(const std::function<void()>& callback);
     void clearCancelCallback();
 
   private:
@@ -125,9 +125,9 @@ namespace security {
     SecretStore(const SecretStore&) = delete;
     SecretStore& operator=(const SecretStore&) = delete;
 
-    SecretStoreOperation lookup(SecretId id, LookupCallback callback);
-    SecretStoreOperation store(SecretId id, SecureBuffer value, std::string label, StatusCallback callback);
-    SecretStoreOperation erase(SecretId id, StatusCallback callback);
+    SecretStoreOperation lookup(const SecretId& id, LookupCallback callback);
+    SecretStoreOperation store(const SecretId& id, SecureBuffer value, std::string label, StatusCallback callback);
+    SecretStoreOperation erase(const SecretId& id, StatusCallback callback);
     SecretStoreOperation retryAvailabilityCheck(StatusCallback callback = {});
 
     [[nodiscard]] std::optional<SecretStoreStatus> availabilityStatus() const;

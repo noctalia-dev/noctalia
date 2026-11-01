@@ -34,6 +34,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <functional>
 #include <memory>
 #include <string_view>
@@ -57,6 +58,11 @@ namespace {
   constexpr double kTypedUsageScoreCap = 0.5;
   constexpr std::string_view kProviderOverviewProviderId = "__launcher_provider_overview__";
   constexpr std::string_view kProviderOverviewResultPrefix = "provider:";
+
+  void applyLauncherToolbarStyle(Flex& toolbar, float scale, float opacity) {
+    toolbar.setCardStyle(scale, opacity);
+    toolbar.setPadding(std::round(Style::cardPadding * scale));
+  }
 
   double usageBoostForScore(double score, int usageCount, bool typedQuery) {
     if (usageCount <= 0) {
@@ -223,11 +229,19 @@ namespace {
       addChild(std::move(row));
 
       m_row->addChild(
+          ui::box({
+              .out = &m_badgeHost,
+              .fill = clearColorSpec(),
+              .visible = false,
+              .participatesInLayout = false,
+          })
+      );
+      m_badgeHost->addChild(
           ui::label({
               .out = &m_badgeLabel,
-              .fontSize = iconSize,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .visible = false,
+              .baselineMode = LabelBaselineMode::InkCentered,
+              .participatesInLayout = false,
           })
       );
 
@@ -249,7 +263,7 @@ namespace {
           })
       );
 
-      m_image->setAsyncReadyCallback([this]() {
+      m_image->setAsyncReadyCallback([this] {
         if (!m_style.showIcons
             || m_badgeVisible
             || m_iconPath.empty()
@@ -326,8 +340,8 @@ namespace {
       setSize(width, height);
       m_row->setFrameSize(width, height);
 
-      m_badgeLabel->setVisible(false);
-      m_badgeLabel->setParticipatesInLayout(false);
+      m_badgeHost->setVisible(m_badgeVisible);
+      m_badgeHost->setParticipatesInLayout(m_badgeVisible);
       m_image->setVisible(false);
       m_image->setParticipatesInLayout(false);
       m_glyph->setVisible(false);
@@ -336,10 +350,17 @@ namespace {
       const bool showAppIcon = m_style.showIcons && !m_badgeVisible;
       const bool showLeadingVisual = m_badgeVisible || showAppIcon;
       if (m_badgeVisible) {
+        const float paddingV = (m_style.compact ? Style::spaceXs * 0.5F : Style::spaceXs) * m_style.scale;
+        const float badgeSize = std::min(iconSize, std::max(0.0F, height - paddingV * 2.0F));
+        m_badgeHost->setFrameSize(iconSize, badgeSize);
         m_badgeLabel->setText(singleLinePreview(result.badge));
-        m_badgeLabel->setSize(iconSize, iconSize);
-        m_badgeLabel->setVisible(true);
-        m_badgeLabel->setParticipatesInLayout(true);
+        m_badgeLabel->setFontSize(badgeSize * 0.8F);
+        m_badgeLabel->measure(renderer);
+        const float badgeExtent = std::max(m_badgeLabel->width(), m_badgeLabel->height());
+        m_badgeLabel->setScale(badgeExtent > badgeSize ? badgeSize / badgeExtent : 1.0F);
+        m_badgeLabel->setPosition(
+            (iconSize - m_badgeLabel->width()) * 0.5F, (badgeSize - m_badgeLabel->height()) * 0.5F
+        );
         m_image->clear(renderer);
       } else if (showAppIcon) {
         m_image->setParticipatesInLayout(true);
@@ -454,6 +475,7 @@ namespace {
     bool m_selected = false;
     bool m_hovered = false;
     Flex* m_row = nullptr;
+    Box* m_badgeHost = nullptr;
     Label* m_badgeLabel = nullptr;
     Image* m_image = nullptr;
     Glyph* m_glyph = nullptr;
@@ -544,7 +566,7 @@ namespace {
           })
       );
 
-      m_image->setAsyncReadyCallback([this]() {
+      m_image->setAsyncReadyCallback([this] {
         if (!m_style.showIcons
             || m_badgeVisible
             || m_iconPath.empty()
@@ -779,7 +801,7 @@ namespace {
         area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
         area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
         area->setOnEnter([this](const InputArea::PointerData&) { markLayoutDirty(); });
-        area->setOnLeave([this]() { markLayoutDirty(); });
+        area->setOnLeave([this] { markLayoutDirty(); });
         area->setOnPress([this, slot](const InputArea::PointerData& data) {
           if (!m_boundResultIndices[slot].has_value()) {
             return;
@@ -802,7 +824,7 @@ namespace {
             }
           }
         });
-        area->setTooltipProvider([this, slot]() -> TooltipContent {
+        area->setTooltipProvider([this, slot] -> TooltipContent {
           if (m_results == nullptr || !m_boundResultIndices[slot].has_value()) {
             return {};
           }
@@ -1469,7 +1491,7 @@ void LauncherPanel::applyProviderConfig(LauncherProvider& provider) const {
     const auto& launcherCfg = m_config->config().shell.launcher;
     prefix = launcherCfg.providerPrefix;
     if (provider.allowCustomPrefix()) {
-      const std::string key = StringUtils::toLower(std::string(provider.id()));
+      const std::string key = StringUtils::toLower(provider.id());
       auto it = std::ranges::find(launcherCfg.providers, key, &LauncherProviderConfig::name);
       if (it != launcherCfg.providers.end()) {
         if (!it->prefix.empty()) {
@@ -1505,8 +1527,8 @@ void LauncherPanel::finishActivation(
 void LauncherPanel::addProvider(std::unique_ptr<LauncherProvider> provider) {
   applyProviderConfig(*provider);
   provider->initialize();
-  provider->setResultsChangedCallback([this]() { onProviderResultsChanged(); });
-  provider->setQueryRequestedCallback([this](std::string query) { setQuery(std::move(query)); });
+  provider->setResultsChangedCallback([this] { onProviderResultsChanged(); });
+  provider->setQueryRequestedCallback([this](const std::string& query) { setQuery(query); });
   LauncherProvider* providerPtr = provider.get();
   provider->setActivationDoneCallback([this, providerPtr](const std::string& resultId, bool copied) {
     finishActivation(*providerPtr, resultId, copied);
@@ -1623,7 +1645,7 @@ void LauncherPanel::create() {
             .radius = Style::scaledRadiusMd(scale),
             .width = Style::controlHeightSm * scale,
             .onClick =
-                [this]() {
+                [this] {
                   if (m_config == nullptr) {
                     return;
                   }
@@ -1649,7 +1671,7 @@ void LauncherPanel::create() {
             .radius = Style::scaledRadiusMd(scale),
             .width = Style::controlHeightSm * scale,
             .onClick =
-                [this]() {
+                [this] {
                   if (m_config == nullptr || !supportsResultGrid()) {
                     return;
                   }
@@ -1674,7 +1696,7 @@ void LauncherPanel::create() {
               .tooltip = i18n::tr("launcher.browser.actions.settings"),
               .radius = Style::scaledRadiusMd(scale),
               .width = Style::controlHeightSm * scale,
-              .onClick = []() { PanelManager::instance().openSettingsWindow(); },
+              .onClick = [] { PanelManager::instance().openSettingsWindow(); },
               .configure =
                   [scale](Button& button) {
                     button.setControlHeight(Style::controlHeightSm * scale);
@@ -1831,25 +1853,26 @@ void LauncherPanel::create() {
     auto toolbar = ui::row({
         .out = &m_launcherToolbar,
         .align = FlexAlign::Center,
-        .gap = Style::spaceSm * scale,
-        .padding = Style::spaceSm * scale,
+        .gap = std::round(Style::spaceSm * scale),
         .fillWidth = true,
-        .configure = [scale, opacity = panelCardOpacity()](Flex& flex) { flex.setCardStyle(scale, opacity); },
+        .configure = [scale, opacity = panelCardOpacity()](Flex& flex) {
+          applyLauncherToolbarStyle(flex, scale, opacity);
+        },
     });
-    const float toolbarSideWidth = kLauncherAvatarSize * scale;
+    const float toolbarSideWidth = std::round(kLauncherAvatarSize * scale);
     auto profile = ui::row({
         .align = FlexAlign::Center,
         .justify = FlexJustify::Center,
         .width = toolbarSideWidth,
-        .height = kLauncherAvatarSize * scale,
+        .height = toolbarSideWidth,
     });
     profile->addChild(
         ui::image({
             .out = &m_launcherAvatar,
             .fit = ImageFit::Cover,
-            .radius = kLauncherAvatarSize * 0.5F * scale,
-            .width = kLauncherAvatarSize * scale,
-            .height = kLauncherAvatarSize * scale,
+            .radius = toolbarSideWidth * 0.5F,
+            .width = toolbarSideWidth,
+            .height = toolbarSideWidth,
             .visible = false,
             .participatesInLayout = false,
         })
@@ -1862,7 +1885,7 @@ void LauncherPanel::create() {
             .color = colorSpecFromRole(ColorRole::Primary),
         })
     );
-    m_launcherAvatar->setAsyncReadyCallback([this]() {
+    m_launcherAvatar->setAsyncReadyCallback([this] {
       if (m_launcherAvatar == nullptr || m_launcherAvatarFallback == nullptr || !m_launcherAvatar->hasImage()) {
         return;
       }
@@ -1877,8 +1900,8 @@ void LauncherPanel::create() {
         ui::inputArea({
             .acceptedButtons = 0,
             .tooltip = sessionDisplayName() + "\n" + distroLabel(),
-            .width = kLauncherAvatarSize * scale,
-            .height = kLauncherAvatarSize * scale,
+            .width = toolbarSideWidth,
+            .height = toolbarSideWidth,
             .zIndex = 1,
             .participatesInLayout = false,
         })
@@ -1886,16 +1909,16 @@ void LauncherPanel::create() {
     toolbar->addChild(std::move(profile));
     input->setFlexGrow(1.0F);
     toolbar->addChild(std::move(input));
-    auto shortcuts = ui::row({
-        .align = FlexAlign::Center,
-        .justify = FlexJustify::End,
-        .gap = Style::spaceSm * scale,
-        .width = toolbarSideWidth,
-    });
     const bool showSessionButton = m_config == nullptr || m_config->config().shell.launcher.showSessionButton;
     const bool searchOnTop = m_config != nullptr
         && m_config->config().shell.launcher.searchPosition == ShellConfig::LauncherSearchPosition::Top;
     if (showSessionButton) {
+      auto shortcuts = ui::row({
+          .align = FlexAlign::Center,
+          .justify = FlexJustify::End,
+          .gap = Style::spaceSm * scale,
+          .width = toolbarSideWidth,
+      });
       shortcuts->addChild(
           ui::button({
               .out = &m_launcherPowerButton,
@@ -1906,16 +1929,16 @@ void LauncherPanel::create() {
               .tooltip = i18n::tr("launcher.browser.actions.power"),
               .radius = Style::scaledRadiusMd(scale),
               .width = toolbarSideWidth,
-              .onClick = [this]() { showSessionActions(); },
+              .onClick = [this] { showSessionActions(); },
               .configure =
-                  [scale](Button& button) {
-                    button.setControlHeight(kLauncherAvatarSize * scale);
+                  [toolbarSideWidth](Button& button) {
+                    button.setControlHeight(toolbarSideWidth);
                     button.inputArea()->setTabFocusKey("launcher.power");
                   },
           })
       );
+      toolbar->addChild(std::move(shortcuts));
     }
-    toolbar->addChild(std::move(shortcuts));
     if (searchOnTop) {
       container->addChild(std::move(toolbar));
       container->addChild(std::move(body));
@@ -1940,7 +1963,7 @@ void LauncherPanel::create() {
     root()->setAnimationManager(m_animations);
   }
 
-  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() { refreshLauncherAppIconColorization(); });
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] { refreshLauncherAppIconColorization(); });
 
   syncLauncherListStyle();
 }
@@ -2022,11 +2045,11 @@ void LauncherPanel::animateResultsTransition() {
   viewport->setPosition(m_resultsTransitionBaseX + direction * travel, viewport->y());
   animations->animate(
       0.0F, 1.0F, duration, Easing::EaseOutCubic,
-      [this, viewport, startOpacity, direction, travel](float progress) {
+      [this, viewport, direction, travel](float progress) {
         viewport->setOpacity(startOpacity + (1.0F - startOpacity) * progress);
         viewport->setPosition(m_resultsTransitionBaseX + direction * travel * (1.0F - progress), viewport->y());
       },
-      [this, viewport]() {
+      [this, viewport] {
         viewport->setOpacity(1.0F);
         viewport->setScale(1.0F);
         viewport->setPosition(m_resultsTransitionBaseX, viewport->y());
@@ -2188,7 +2211,7 @@ void LauncherPanel::onPanelCardOpacityChanged(float opacity) {
     m_launcherNavigation->setSurfaceOpacity(opacity);
   }
   if (m_launcherToolbar != nullptr) {
-    m_launcherToolbar->setCardStyle(contentScale(), opacity);
+    applyLauncherToolbarStyle(*m_launcherToolbar, contentScale(), opacity);
   }
   if (m_launcherSections != nullptr) {
     m_launcherSections->notifyDataChanged();
@@ -2372,7 +2395,7 @@ void LauncherPanel::onClose() {
     m_actionsMenu->close();
   }
   if (m_asyncTextures != nullptr) {
-    DeferredCall::callLater([asyncTextures = m_asyncTextures]() { asyncTextures->trimUnused(0); });
+    DeferredCall::callLater([asyncTextures = m_asyncTextures] { asyncTextures->trimUnused(0); });
   }
 
   for (auto& provider : m_providers) {
@@ -2474,7 +2497,7 @@ void LauncherPanel::reapplyCurrentQuery() {
   refreshResults();
 }
 
-void LauncherPanel::setQuery(std::string query) {
+void LauncherPanel::setQuery(const std::string& query) {
   if (m_input == nullptr) {
     return;
   }
@@ -2523,10 +2546,8 @@ bool LauncherPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, 
     }
   }
 
-  if (m_categoryFilter != nullptr && m_categoryFilter->visible()) {
-    if (focused == m_categoryFilter->focusArea()) {
-      return false;
-    }
+  if (m_categoryFilter != nullptr && m_categoryFilter->visible() && focused == m_categoryFilter->focusArea()) {
+    return false;
   }
 
   return handleKeyEvent(sym, modifiers);
@@ -2990,7 +3011,7 @@ void LauncherPanel::rebuildLauncherNavigation() {
     if (m_syncingLauncherNavigation) {
       return;
     }
-    DeferredCall::callLater([this, index]() {
+    DeferredCall::callLater([this, index] {
       if (index < m_categoryFilterSlots.size()) {
         setActiveCategorySlot(index);
       } else {
@@ -3195,7 +3216,7 @@ std::vector<LauncherResult> LauncherPanel::providerOverviewResults(std::string_v
 
     const std::string title(provider->displayName());
     const std::string prefixText(prefix);
-    const std::string searchable = StringUtils::toLower(title + " " + prefixText);
+    const std::string searchable = StringUtils::toLower(std::format("{} {}", title, prefixText));
     const double score = filter.empty() ? 0.0 : FuzzyMatch::score(filter, searchable);
     if (!filter.empty() && !FuzzyMatch::isMatch(score)) {
       continue;
@@ -3229,7 +3250,7 @@ void LauncherPanel::applyActiveCategory() {
   switch (m_activeCategoryType) {
   case All:
     m_results = m_allResults;
-    if (!m_browserMode && m_scopedProviderId.empty() && m_query.empty()) {
+    if (m_scopedProviderId.empty() && m_query.empty()) {
       applyPinnedApplicationOrder();
     }
     break;
@@ -3454,7 +3475,7 @@ bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   PanelManager::instance().beginAttachedPopup(parentCtx->surface);
   PanelManager::instance().setActivePopup(m_actionsMenu.get());
 
-  m_actionsMenu->setOnDismissed([parentSurface = parentCtx->surface]() {
+  m_actionsMenu->setOnDismissed([parentSurface = parentCtx->surface] {
     PanelManager::instance().clearActivePopup();
     PanelManager::instance().endAttachedPopup(parentSurface);
   });
@@ -3682,13 +3703,12 @@ bool LauncherPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) {
       Node::absolutePosition(m_launcherSections, anchorX, anchorY);
       anchorX += m_launcherSections->width() * 0.5F;
       anchorY += m_launcherSections->height() * 0.5F;
-    } else if (m_grid == nullptr || !m_grid->absoluteAnchorForIndex(m_selectedIndex, anchorX, anchorY)) {
-      if (m_grid != nullptr) {
-        Node::absolutePosition(m_grid, anchorX, anchorY);
-        anchorX += m_grid->width() * 0.5F;
-        anchorY += m_grid->height() * 0.5F;
-      }
+    } else if (m_grid != nullptr && !m_grid->absoluteAnchorForIndex(m_selectedIndex, anchorX, anchorY)) {
+      Node::absolutePosition(m_grid, anchorX, anchorY);
+      anchorX += m_grid->width() * 0.5F;
+      anchorY += m_grid->height() * 0.5F;
     }
+
     return openAppActionsMenu(m_selectedIndex, anchorX, anchorY);
   }
 

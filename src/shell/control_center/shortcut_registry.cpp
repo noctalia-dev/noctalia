@@ -318,7 +318,7 @@ namespace {
       }
       if (m_svc->hasData()) {
         const auto& snapshot = m_svc->snapshot();
-        return WeatherService::glyphForCode(snapshot.current.weatherCode, snapshot.current.isDay);
+        return std::string(WeatherService::glyphForCode(snapshot.current.weatherCode, snapshot.current.isDay));
       }
       return "weather-cloud";
     }

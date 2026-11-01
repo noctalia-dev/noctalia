@@ -352,7 +352,8 @@ location = "https://example.invalid/bad"
         .enablePowerSounds = false,
         .enableScreenshotSounds = false,
         .soundVolume = 0.73F,
-        .soundTheme = "freedesktop"
+        .soundTheme = "freedesktop",
+        .spectrumFrameRate = 144
     };
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";
@@ -368,6 +369,7 @@ location = "https://example.invalid/bad"
     c.osd.monitors = {"DP-1", "HDMI-A-1"};
     c.osd.kinds.lockKeys = false;
     c.osd.kinds.keyboardLayout = false;
+    c.osd.kinds.mediaVolume = false;
     c.osd.kinds.custom = false;
     c.backdrop = BackdropConfig{true, 0.8F, 0.2F};
     c.lockscreen = LockscreenConfig{

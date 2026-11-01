@@ -49,19 +49,19 @@ namespace settings {
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     m_modalId = m_host->push(
         SettingsModalRequest{
-            .build = [this, aliveGuard]() -> std::unique_ptr<Node> { return aliveGuard.expired() ? nullptr : build(); },
+            .build = [this, aliveGuard] -> std::unique_ptr<Node> { return aliveGuard.expired() ? nullptr : build(); },
             .measure =
                 [this](Renderer& renderer, const SettingsModalLayoutSpace& space) { return measure(renderer, space); },
             .arrange = [this](Renderer& renderer, float width, float height) { arrange(renderer, width, height); },
-            .initialFocusArea = [this]() { return m_exportButton != nullptr ? m_exportButton->inputArea() : nullptr; },
+            .initialFocusArea = [this] { return m_exportButton != nullptr ? m_exportButton->inputArea() : nullptr; },
             .requestClose =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     close();
                   }
                 },
             .onClosed =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     m_open = false;
                     m_modalId.reset();
@@ -123,9 +123,9 @@ namespace settings {
               .minHeight = Style::controlHeightSm * m_scale,
               .padding = Style::spaceXs * m_scale,
               .radius = Style::scaledRadiusMd(m_scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                DeferredCall::callLater([this, aliveGuard]() {
+                DeferredCall::callLater([this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     close();
                   }
@@ -198,9 +198,9 @@ namespace settings {
                 .paddingH = Style::spaceMd * m_scale,
                 .radius = Style::scaledRadiusMd(m_scale),
                 .onClick =
-                    [this]() {
+                    [this] {
                       const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                      DeferredCall::callLater([this, aliveGuard]() {
+                      DeferredCall::callLater([this, aliveGuard] {
                         if (!aliveGuard.expired()) {
                           close();
                         }
@@ -216,9 +216,9 @@ namespace settings {
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceMd * m_scale,
                 .radius = Style::scaledRadiusMd(m_scale),
-                .onClick = [this]() {
+                .onClick = [this] {
                   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                  DeferredCall::callLater([this, aliveGuard]() {
+                  DeferredCall::callLater([this, aliveGuard] {
                     if (!aliveGuard.expired()) {
                       accept();
                     }

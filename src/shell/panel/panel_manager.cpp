@@ -484,7 +484,7 @@ void PanelManager::setFocusGrabBarSurfacesProvider(std::function<std::vector<wl_
 
 void PanelManager::setPanelClosedCallback(std::function<void()> callback) {
   m_panelClosedCallback = std::move(callback);
-  m_persistentHost.setPanelClosedCallback([this]() {
+  m_persistentHost.setPanelClosedCallback([this] {
     if (m_panelClosedCallback) {
       m_panelClosedCallback();
     }
@@ -543,7 +543,7 @@ void PanelManager::unregisterPanel(const std::string& id) {
       // panel alive and destroy it from the main loop once the open has returned.
       m_retiredActivePanel = std::move(it->second);
       m_panels.erase(it);
-      DeferredCall::callLater([this]() {
+      DeferredCall::callLater([this] {
         if (m_activePanel != nullptr && m_activePanel == m_retiredActivePanel.get()) {
           ++m_destroyGeneration;
           destroyPanel();
@@ -971,7 +971,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     surface.setAnimationManager(&m_animations);
   };
 
-  const auto resetPanelOpenState = [this]() {
+  const auto resetPanelOpenState = [this] {
     deactivateOutsideClickHandlers();
     m_surface.reset();
     m_layerSurface = nullptr;
@@ -1035,8 +1035,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
     const auto crossPad = static_cast<std::uint32_t>(std::max(0, crossOutsetStart + crossOutsetEnd));
     const auto mainPad = static_cast<std::uint32_t>(std::max(0, mainBleedAway));
-    const std::uint32_t surfaceWidth = barIsVertical ? (panelWidth + mainPad) : (panelWidth + crossPad);
-    const std::uint32_t surfaceHeight = barIsVertical ? (panelHeight + crossPad) : (panelHeight + mainPad);
+    std::uint32_t surfaceWidth = barIsVertical ? (panelWidth + mainPad) : (panelWidth + crossPad);
+    std::uint32_t surfaceHeight = barIsVertical ? (panelHeight + crossPad) : (panelHeight + mainPad);
 
     // Bar visible rect in screen coords, derived from BarConfig + output dimensions.
     const std::int32_t mEnds = std::max(0, barConfig.marginEnds);
@@ -1109,6 +1109,18 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     } else {
       surfaceX = visualX - crossOutsetStart;
       surfaceY = barIsBottom ? visualY - mainBleedAway : visualY;
+    }
+    // Keep the surface origin on the output by trimming overhang past the start edges;
+    // the trimmed bleed is off-screen anyway. Hyprland picks a layer popup's monitor
+    // from the parent surface's top-left corner, so an origin on a neighboring output
+    // places popups (context menus, dropdowns) where they are never drawn.
+    if (surfaceX < 0) {
+      surfaceWidth -= static_cast<std::uint32_t>(-surfaceX);
+      surfaceX = 0;
+    }
+    if (surfaceY < 0) {
+      surfaceHeight -= static_cast<std::uint32_t>(-surfaceY);
+      surfaceY = 0;
     }
 
     m_panelInsetX = visualX - surfaceX;
@@ -1244,7 +1256,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       if (attachedKeyboardPlan.relaxed.has_value()) {
         const std::uint64_t gen = m_destroyGeneration;
         const LayerShellKeyboard relaxed = *attachedKeyboardPlan.relaxed;
-        m_keyboardRelaxTimer.start(kKeyboardRelaxDelay, [this, gen, relaxed]() {
+        m_keyboardRelaxTimer.start(kKeyboardRelaxDelay, [this, gen, relaxed] {
           if (m_destroyGeneration != gen || !isAttachedOpen() || m_layerSurface == nullptr || m_closing) {
             return;
           }
@@ -1339,7 +1351,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   if (keyboardPlan.relaxed.has_value()) {
     const std::uint64_t gen = m_destroyGeneration;
     const LayerShellKeyboard relaxed = *keyboardPlan.relaxed;
-    m_keyboardRelaxTimer.start(kKeyboardRelaxDelay, [this, gen, relaxed]() {
+    m_keyboardRelaxTimer.start(kKeyboardRelaxDelay, [this, gen, relaxed] {
       if (m_destroyGeneration != gen || m_layerSurface == nullptr || m_closing) {
         return;
       }
@@ -1387,7 +1399,7 @@ void PanelManager::activateFocusGrab() {
   if (m_focusGrab == nullptr) {
     return;
   }
-  m_focusGrab->setOnCleared([this]() {
+  m_focusGrab->setOnCleared([this] {
     if (isOpen() && !m_closing) {
       closePanel();
     }
@@ -1423,7 +1435,7 @@ void PanelManager::applyKeyboardRelaxation(LayerShellKeyboard mode) {
   if (replacement == nullptr) {
     return;
   }
-  replacement->setOnCleared([this]() {
+  replacement->setOnCleared([this] {
     if (isOpen() && !m_closing) {
       closePanel();
     }
@@ -1517,8 +1529,8 @@ void PanelManager::closePanel(bool animateClose) {
       m_animations.animate(
           m_attachedRevealProgress, 0.0F, Style::animNormal, Easing::EaseInOutQuad,
           [this](float v) { applyAttachedReveal(v); },
-          [this, gen]() {
-            DeferredCall::callLater([this, gen]() {
+          [this, gen] {
+            DeferredCall::callLater([this, gen] {
               if (m_destroyGeneration == gen) {
                 destroyPanel();
               }
@@ -1531,8 +1543,8 @@ void PanelManager::closePanel(bool animateClose) {
       m_animations.animate(
           m_detachedRevealProgress, 0.0F, Style::animNormal, Easing::EaseInQuad,
           [this](float v) { applyDetachedReveal(v); },
-          [this, gen]() {
-            DeferredCall::callLater([this, gen]() {
+          [this, gen] {
+            DeferredCall::callLater([this, gen] {
               if (m_destroyGeneration == gen) {
                 destroyPanel();
               }
@@ -1587,7 +1599,7 @@ void PanelManager::closePanelForCapture(std::function<void()> afterClose) {
     return;
   }
 
-  m_captureCloseTimer.start(kCaptureCloseTimeout, [this, generation]() {
+  m_captureCloseTimer.start(kCaptureCloseTimeout, [this, generation] {
     if (m_destroyGeneration == generation && m_closing) {
       kLog.warn("panel clear frame timed out; closing before capture");
       destroyPanel();
@@ -1607,7 +1619,7 @@ void PanelManager::handleCaptureCloseFrame(void* data, wl_callback* callback, st
   self->m_captureCloseFrame = nullptr;
   self->m_captureCloseTimer.stop();
   const std::uint64_t generation = self->m_destroyGeneration;
-  DeferredCall::callLater([self, generation]() {
+  DeferredCall::callLater([self, generation] {
     if (self->m_destroyGeneration == generation && self->m_closing) {
       self->destroyPanel();
     }
@@ -1833,12 +1845,15 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
       if (ignorePointer) {
         return true;
       }
-      if (pressed && event.surface == m_wlSurface && m_inputDispatcher.hoveredArea() == nullptr) {
-        if (m_activePanel != nullptr && m_activePanel->dismissTransientUi()) {
-          refresh();
-          return true;
-        }
+      if (pressed
+          && event.surface == m_wlSurface
+          && m_inputDispatcher.hoveredArea() == nullptr
+          && m_activePanel != nullptr
+          && m_activePanel->dismissTransientUi()) {
+        refresh();
+        return true;
       }
+
       m_inputDispatcher.pointerButton(
           static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
           event.touch
@@ -2927,7 +2942,7 @@ void PanelManager::layoutActivePanel(Renderer& renderer) {
               placePanelChrome();
             }
           },
-          [this]() { m_contentFit.animation = 0; }, m_sceneRoot.get()
+          [this] { m_contentFit.animation = 0; }, m_sceneRoot.get()
       );
     }
     placePanelChrome();
