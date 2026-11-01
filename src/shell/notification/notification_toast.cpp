@@ -595,11 +595,17 @@ void NotificationToast::onConfigReload() {
   for (std::size_t n = 0; n < m_entries.size(); ++n) {
     const std::size_t i = newestOnEdge ? m_entries.size() - 1 - n : n;
     auto& entry = m_entries[i];
-    if (entry.exiting || !wasPlaced[i]) {
+    if (entry.exiting || (!newestOnEdge && !wasPlaced[i])) {
       continue;
     }
     if (const auto placement = findPlacementY(entry.height, entry.targetOutput); placement.has_value()) {
       entry.y = *placement;
+      if (!wasPlaced[i]) {
+        entry.remainingProgress = 1.0F;
+        if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
+          m_notifications->resumeExpiry(entry.notificationId, entry.rawTimeoutMs);
+        }
+      }
     } else if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
       m_notifications->pauseExpiry(entry.notificationId);
     }
@@ -1551,9 +1557,10 @@ bool NotificationToast::revealQueuedEntries() {
       }
       entry.y = *placement;
       revealed = true;
-      // Restart the manager-side expiry with the full duration now that the card is
-      // actually visible. Matches displayDurationMs so the progress bar and the
-      // manager timer finish together.
+      // Restart the countdown and the manager-side expiry with the full duration now that
+      // the card is actually visible, so the progress bar and manager timer still finish
+      // together instead of the bar dismissing the toast early.
+      entry.remainingProgress = 1.0F;
       if (entry.rawTimeoutMs > 0 && m_notifications != nullptr) {
         m_notifications->resumeExpiry(entry.notificationId, entry.rawTimeoutMs);
       }
@@ -1936,7 +1943,7 @@ void NotificationToast::collapseStack() {
       std::size_t index;
       float oldPrimary;
       float newPrimary;
-      bool hovered;
+      bool pinned;
     };
     std::vector<PlacedEntry> placed;
     for (std::size_t i = 0; i < m_entries.size(); ++i) {
@@ -1945,7 +1952,7 @@ void NotificationToast::collapseStack() {
           && (!m_followFocusedOutput || m_entries[i].targetOutput == targetOutput)) {
         const float oldPrimary =
             isBottomStacking() ? placementBottom - (m_entries[i].y + m_entries[i].height) : m_entries[i].y;
-        placed.push_back({i, oldPrimary, oldPrimary, m_entries[i].hovered});
+        placed.push_back({i, oldPrimary, oldPrimary, m_entries[i].hovered || m_entries[i].replyInputFocused});
       }
     }
     if (placed.empty()) {
@@ -1962,13 +1969,13 @@ void NotificationToast::collapseStack() {
       };
       std::vector<ReservedSlot> reserved;
       for (const auto& p : placed) {
-        if (p.hovered) {
+        if (p.pinned) {
           reserved.push_back({p.oldPrimary, p.oldPrimary + m_entries[p.index].height});
         }
       }
       for (auto& p : placed) {
         const float height = m_entries[p.index].height;
-        if (p.hovered) {
+        if (p.pinned) {
           p.newPrimary = p.oldPrimary;
           continue;
         }
@@ -1990,7 +1997,7 @@ void NotificationToast::collapseStack() {
     } else {
       std::ranges::sort(placed, {}, &PlacedEntry::oldPrimary);
       for (auto& p : placed) {
-        if (p.hovered) {
+        if (p.pinned) {
           cursor = std::max(cursor, p.oldPrimary + m_entries[p.index].height + layoutGap);
           continue;
         }
@@ -2011,7 +2018,7 @@ void NotificationToast::collapseStack() {
     if (isNewestOnEdge()) {
       for (auto& p : placed) {
         const float height = m_entries[p.index].height;
-        if (p.hovered || p.newPrimary + height <= placementBottom + 0.5F) {
+        if (p.pinned || p.newPrimary + height <= placementBottom + 0.5F) {
           continue;
         }
         m_entries[p.index].y = kQueuedY;
