@@ -289,8 +289,9 @@ void WallpaperRenderer::tint(RenderFramebuffer& target, Color color, float inten
   makeCurrent();
   m_backend->bindFramebuffer(target);
   m_backend->setViewport(target.width(), target.height());
-  m_backend->setBlendMode(RenderBlendMode::StraightAlpha);
-  m_backend->drawFullscreenTint(rgba(color.r, color.g, color.b, intensity));
+  // Premultiplied so the tint leaves the backdrop opaque; straight alpha would also blend alpha to 1 - t + t^2.
+  m_backend->setBlendMode(RenderBlendMode::PremultipliedAlpha);
+  m_backend->drawFullscreenTint(rgba(color.r * intensity, color.g * intensity, color.b * intensity, intensity));
 }
 
 void WallpaperRenderer::blitToSurface(TextureId texture) {
