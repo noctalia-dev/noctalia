@@ -17,6 +17,7 @@
 class AccessPointRow;
 class Button;
 class CellularRow;
+class ClipboardService;
 class ExternalIpService;
 class Flex;
 class Input;
@@ -31,7 +32,8 @@ class INetworkService;
 class NetworkTab : public Tab {
 public:
   NetworkTab(
-      INetworkService* network, NetworkSecretAgent* secrets, ExternalIpService* externalIp, ModemManagerService* modem
+      INetworkService* network, NetworkSecretAgent* secrets, ExternalIpService* externalIp, ModemManagerService* modem,
+      ClipboardService* clipboard
   );
   ~NetworkTab() override;
 
@@ -48,6 +50,8 @@ private:
   // A backend exists and its daemon is on the bus.
   [[nodiscard]] bool networkAvailable() const noexcept;
   void syncCurrentCard();
+  enum class CopiedAddress : std::uint8_t { None, Lan, Wan };
+  void copyAddress(CopiedAddress which, const std::string& value);
   void beginPendingAction(bool wasConnected);
   void requestWirelessEnabled(bool enabled);
   void handleWirelessEnabledCompletion(std::uint64_t generation, bool success);
@@ -84,6 +88,7 @@ private:
   NetworkSecretAgent* m_secrets = nullptr;
   ExternalIpService* m_externalIpService = nullptr;
   ModemManagerService* m_modem = nullptr;
+  ClipboardService* m_clipboard = nullptr;
 
   Flex* m_rootLayout = nullptr;
   Flex* m_currentCard = nullptr;
@@ -109,6 +114,8 @@ private:
   Button* m_rescanButton = nullptr;
   Toggle* m_wifiToggle = nullptr;
   Flex* m_currentRow = nullptr;
+  Button* m_copyLanButton = nullptr;
+  Button* m_copyWanButton = nullptr;
   Button* m_disconnectButton = nullptr;
   Spinner* m_scanSpinner = nullptr;
   bool m_vpnVisible = true;
@@ -150,6 +157,11 @@ private:
   Timer m_actionPendingTimer;
   Timer m_cellularTogglePendingTimer;
 
+  // The copy button just used shows a check until the timer clears it.
+  CopiedAddress m_copiedAddress = CopiedAddress::None;
+  Timer m_copiedTimer;
+
   static constexpr std::chrono::seconds kActionPendingTimeout = std::chrono::seconds(6);
   static constexpr std::chrono::seconds kCellularPendingTimeout = std::chrono::seconds(25);
+  static constexpr std::chrono::milliseconds kCopiedFeedback = std::chrono::milliseconds(1500);
 };
