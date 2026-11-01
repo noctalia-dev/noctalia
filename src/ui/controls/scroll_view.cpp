@@ -450,7 +450,7 @@ void ScrollView::doLayout(Renderer& renderer) {
     const float viewportH = std::max(0.0F, h - insetV * 2.0F - gutter);
     m_viewportWidth = availableW;
     m_viewportHeight = viewportH;
-    setSize(w, h);
+    setSizeFromLayout(w, h);
     const float clipH = std::max(0.0F, h - clipInset * 2.0F);
 
     m_background->setPosition(0.0F, 0.0F);
@@ -477,7 +477,7 @@ void ScrollView::doLayout(Renderer& renderer) {
     const float viewportH = std::max(0.0F, h - insetV * 2.0F);
     m_viewportHeight = viewportH;
     m_viewportWidth = availableW;
-    setSize(w, h);
+    setSizeFromLayout(w, h);
     const float clipH = std::max(0.0F, h - clipInset * 2.0F);
 
     m_background->setPosition(0.0F, 0.0F);
