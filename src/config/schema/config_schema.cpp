@@ -644,6 +644,20 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  PluginsConfig readPluginsSection(const toml::table& root) {
+    PluginsConfig plugins;
+    const auto* pluginsTbl = root["plugins"].as_table();
+    if (pluginsTbl != nullptr) {
+      Diagnostics sink;
+      readInto(*pluginsTbl, plugins, pluginsSchema(), "plugins", sink);
+    }
+    const bool sourcesConfigured = pluginsTbl != nullptr && (*pluginsTbl)["source"].as_array() != nullptr;
+    if (!sourcesConfigured && plugins.sources.empty()) {
+      plugins.sources = defaultPluginSources();
+    }
+    return plugins;
+  }
+
   namespace {
     // TOML key is "name" but the field is displayName.
     const Schema<CalendarConfig::Account>& calendarAccountSchema() {

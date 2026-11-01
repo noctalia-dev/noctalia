@@ -829,20 +829,7 @@ namespace noctalia::config {
 
       // Resolve the candidate's plugin catalog without mutating the live registry.
       scripting::PluginRegistry pluginRegistry;
-      {
-        PluginsConfig pc;
-        schema::Diagnostics sink; // schema issues are already reported by checkSection above
-        if (const auto* pluginsTbl = merged["plugins"].as_table()) {
-          const bool sourcesConfigured = (*pluginsTbl)["source"].as_array() != nullptr;
-          schema::readInto(*pluginsTbl, pc, schema::pluginsSchema(), "plugins", sink);
-          if (!sourcesConfigured && pc.sources.empty()) {
-            pc.sources = defaultPluginSources();
-          }
-        } else {
-          pc.sources = defaultPluginSources();
-        }
-        scripting::applyPluginSourcesToRegistry(pluginRegistry, pc);
-      }
+      scripting::applyPluginSourcesToRegistry(pluginRegistry, schema::readPluginsSection(merged));
 
       validateLocation(merged, diag);
       validateBars(merged, diag);

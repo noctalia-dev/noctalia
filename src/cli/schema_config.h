@@ -28,6 +28,19 @@ namespace noctalia::cli {
   };
 
   inline constexpr std::array<std::string_view, 2> kConfigExportModeChoices{"merged", "full"};
+  inline constexpr std::array<std::string_view, 3> kConfigExportCredentialChoices{"keep", "omit", "blank"};
+  inline constexpr std::array kConfigExportFlags{
+      Flag{
+          "--credentials",
+          {},
+          "<mode>",
+          "keep, omit, or blank credential values",
+          kConfigExportCredentialChoices,
+          "keep",
+          false,
+          false
+      },
+  };
   inline constexpr std::array kConfigExportPositionals{
       Positional{"mode", "Export mode (default: merged)", kConfigExportModeChoices, false, false, false},
   };
@@ -39,9 +52,14 @@ namespace noctalia::cli {
       "  - the state-dir settings.toml overrides.\n\n"
       "Modes:\n"
       "  merged  Export merged user config only (default)\n"
-      "  full    Export full effective config, including built-in defaults",
+      "  full    Export full effective config, including built-in defaults\n\n"
+      "--credentials controls values that can hold credentials: calendar account\n"
+      "server_url, git plugin source location, and plugin settings marked secret.\n"
+      "  keep   Print them as configured (default)\n"
+      "  omit   Leave the keys out\n"
+      "  blank  Keep the keys with empty values",
       {},
-      {},
+      kConfigExportFlags,
       kConfigExportPositionals,
       {},
       false,

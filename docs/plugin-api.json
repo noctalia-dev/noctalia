@@ -262,5 +262,11 @@
     "noctaliaVersion": null,
     "feature": "gpu-monitoring",
     "introduced": "`noctalia.setGpuMonitoring(bool)` explicitly acquires or releases GPU sampling. `systemStats()` no longer enables GPU probes implicitly."
+  },
+  {
+    "level": 47,
+    "noctaliaVersion": null,
+    "feature": "secret-setting",
+    "introduced": "`secret = true` on a string, `string_list`, or `string_map` setting marks it as a credential that `noctalia config export --credentials omit|blank` leaves out."
   }
 ]

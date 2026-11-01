@@ -62,6 +62,9 @@ namespace scripting {
     std::vector<ManifestSelectOption> options;
     std::vector<std::string> extensions;
     bool advanced = false;
+    // The value is a credential (API key, token, password): `noctalia config export --credentials`
+    // omits or blanks it. Only valid on string, string_list, and string_map settings.
+    bool secret = false;
     std::optional<ManifestVisibility> visibleWhen;
 
     // The declared default mapped to a settings value.

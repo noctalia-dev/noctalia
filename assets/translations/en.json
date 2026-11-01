@@ -1369,6 +1369,13 @@
       "write": "Failed to save settings."
     },
     "export-config": {
+      "credentials-blank": "Blank",
+      "credentials-blank-description": "Keeps credential keys with empty values, so you can see what to fill in after importing.",
+      "credentials-keep": "Keep",
+      "credentials-keep-description": "Exports credentials as configured. Keep the file private.",
+      "credentials-omit": "Omit",
+      "credentials-omit-description": "Leaves credentials out of the file.",
+      "credentials-title": "Credentials",
       "export": "Export",
       "full-effective-description": "Exports every active setting, including built-in defaults. Useful for inspection or sharing a snapshot, but pins current defaults explicitly.",
       "full-effective-save-title": "Save Full Effective Config",
@@ -1376,7 +1383,7 @@
       "merged-user-description": "Combines config files and GUI overrides into one TOML file. Built-in defaults stay implicit.",
       "merged-user-save-title": "Save Merged User Config",
       "merged-user-title": "Merged User Config (Recommended)",
-      "privacy-warning-description": "Both export modes may include API keys, passwords, or other sensitive data stored in your config, including by plugins. Treat exported files as private. Review and remove sensitive data before sharing.",
+      "privacy-warning-description": "Credentials are calendar server URLs, git plugin source URLs, and plugin settings the plugin marks as secret. Anything else you typed into your config, such as a token in a command, is always exported. Review the file before sharing it.",
       "privacy-warning-title": "Exports may contain secrets",
       "title": "Export Config"
     },

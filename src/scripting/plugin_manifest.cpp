@@ -364,6 +364,23 @@ namespace scripting {
       }
       out.descriptionKey = tableString(field, "description_key");
       out.advanced = tableBool(field, "advanced", false);
+      if (field.contains("secret")) {
+        if (pluginApiVersion < kSecretSettingPluginApiVersion) {
+          error = "setting '"
+              + out.key
+              + "' key 'secret' requires plugin_api >= "
+              + std::to_string(kSecretSettingPluginApiVersion);
+          return std::nullopt;
+        }
+        out.secret = tableBool(field, "secret", false);
+        if (out.secret
+            && out.type != ManifestFieldType::String
+            && out.type != ManifestFieldType::StringList
+            && out.type != ManifestFieldType::StringMap) {
+          error = "setting '" + out.key + "' secret = true requires type string, string_list, or string_map";
+          return std::nullopt;
+        }
+      }
       if (!parseFieldDefault(field, out, error)) {
         return std::nullopt;
       }

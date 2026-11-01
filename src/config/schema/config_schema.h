@@ -25,6 +25,9 @@ namespace noctalia::config::schema {
   const Schema<BluetoothConfig>& bluetoothSchema();
   const Schema<ControlCenterConfig>& controlCenterSchema();
   const Schema<PluginsConfig>& pluginsSchema();
+  // The [plugins] section of a merged config root, with the default sources when none are
+  // configured, as the shell resolves it. Schema issues are dropped: validation reports them.
+  [[nodiscard]] PluginsConfig readPluginsSection(const toml::table& root);
   const Schema<HotCornersConfig>& hotCornersSchema();
   const Schema<CalendarConfig::Reminders>& calendarRemindersSchema();
   const Schema<CalendarConfig>& calendarSchema();

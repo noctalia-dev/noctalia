@@ -807,14 +807,22 @@ std::string ConfigService::buildSupportReport() const {
   return formatToml(root) + "\n";
 }
 
-std::string ConfigService::buildMergedUserConfig() const {
-  return buildMergedUserConfigFromSources(m_configDir, m_overridesPath);
+std::string ConfigService::buildMergedUserConfig(noctalia::config::CredentialExportMode credentials) const {
+  return buildMergedUserConfigFromSources(m_configDir, m_overridesPath, nullptr, credentials);
 }
 
-std::string ConfigService::buildEffectiveConfig() const { return formatToml(*m_configTable) + "\n"; }
+std::string ConfigService::buildEffectiveConfig(noctalia::config::CredentialExportMode credentials) const {
+  if (credentials == noctalia::config::CredentialExportMode::Keep) {
+    return formatToml(*m_configTable) + "\n";
+  }
+  toml::table effective = *m_configTable;
+  noctalia::config::applyCredentialExportMode(effective, credentials);
+  return formatToml(effective) + "\n";
+}
 
 std::string ConfigService::buildMergedUserConfigFromSources(
-    std::string_view configDir, std::string_view settingsPath, std::string* error
+    std::string_view configDir, std::string_view settingsPath, std::string* error,
+    noctalia::config::CredentialExportMode credentials
 ) {
   const auto merged = mergeUserConfigSources(configDir, settingsPath, error);
   if (!merged.has_value()) {
@@ -824,11 +832,13 @@ std::string ConfigService::buildMergedUserConfigFromSources(
   normalized.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
   noctalia::config::normalizeLegacyConfig(normalized, issues);
+  noctalia::config::applyCredentialExportMode(normalized, credentials);
   return formatToml(normalized) + "\n";
 }
 
 std::string ConfigService::buildEffectiveConfigFromSources(
-    std::string_view configDir, std::string_view settingsPath, std::string* error
+    std::string_view configDir, std::string_view settingsPath, std::string* error,
+    noctalia::config::CredentialExportMode credentials
 ) {
   const auto merged = mergeUserConfigSources(configDir, settingsPath, error);
   if (!merged.has_value()) {
@@ -858,7 +868,9 @@ std::string ConfigService::buildEffectiveConfigFromSources(
   if (error != nullptr) {
     error->clear();
   }
-  return formatToml(config_export::serialize(config)) + "\n";
+  toml::table effective = config_export::serialize(config);
+  noctalia::config::applyCredentialExportMode(effective, credentials);
+  return formatToml(effective) + "\n";
 }
 
 Config ConfigService::makeDefaultConfig() {

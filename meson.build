@@ -478,6 +478,7 @@ _noctalia_sources = files(
   'src/calendar/sync_failure.cpp',
   'src/calendar/vdir_reader.cpp',
   'src/config/atomic_file.cpp',
+  'src/config/config_credentials.cpp',
   'src/config/config_export.cpp',
   'src/config/config_merge.cpp',
   'src/config/config_migrations.cpp',

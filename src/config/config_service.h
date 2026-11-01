@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config/config_credentials.h"
 #include "config/config_migrations.h"
 #include "config/config_types.h"
 #include "config/schema/diagnostics.h"
@@ -65,13 +66,15 @@ public:
   [[nodiscard]] bool matchesKeybind(KeybindAction action, std::uint32_t sym, std::uint32_t modifiers) const;
   [[nodiscard]] int watchFd() const noexcept { return m_inotify.fd(); }
   [[nodiscard]] std::string buildSupportReport() const;
-  [[nodiscard]] std::string buildMergedUserConfig() const;
-  [[nodiscard]] std::string buildEffectiveConfig() const;
+  [[nodiscard]] std::string buildMergedUserConfig(noctalia::config::CredentialExportMode credentials) const;
+  [[nodiscard]] std::string buildEffectiveConfig(noctalia::config::CredentialExportMode credentials) const;
   [[nodiscard]] static std::string buildMergedUserConfigFromSources(
-      std::string_view configDir, std::string_view settingsPath, std::string* error = nullptr
+      std::string_view configDir, std::string_view settingsPath, std::string* error = nullptr,
+      noctalia::config::CredentialExportMode credentials = noctalia::config::CredentialExportMode::Keep
   );
   [[nodiscard]] static std::string buildEffectiveConfigFromSources(
-      std::string_view configDir, std::string_view settingsPath, std::string* error = nullptr
+      std::string_view configDir, std::string_view settingsPath, std::string* error = nullptr,
+      noctalia::config::CredentialExportMode credentials = noctalia::config::CredentialExportMode::Keep
   );
   [[nodiscard]] bool shouldRunSetupWizard() const;
   [[nodiscard]] std::optional<bool> stateBool(std::string_view owner, std::string_view key) const;
