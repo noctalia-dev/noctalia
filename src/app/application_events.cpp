@@ -34,7 +34,7 @@ namespace {
 void Application::onIconThemeChanged() {
   kLog.info("system icons changed; refreshing icon consumers");
   m_bar.reload();
-  m_dock.reload();
+  m_dock.onIconThemeChanged();
   m_panelManager.onIconThemeChanged();
   m_notificationToast.requestLayout();
 }

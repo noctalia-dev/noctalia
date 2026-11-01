@@ -376,6 +376,16 @@ void Dock::reload() {
   syncInstances();
 }
 
+void Dock::onIconThemeChanged() {
+  for (auto& inst : m_instances) {
+    // A new model serial makes the next update rebuild the items, which re-resolves icons.
+    ++inst->modelSerial;
+    if (inst->surface != nullptr) {
+      inst->surface->requestUpdate();
+    }
+  }
+}
+
 void Dock::show() {
   if (m_overlayDisplaySuppressed) {
     return;
