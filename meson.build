@@ -1236,7 +1236,6 @@ if build_tests
     'audio_glyphs',
     'audio_media_class',
     'audio_route_selection',
-    'bar_exclusive_zone',
     'battery_health',
     'battery_hook_state',
     'battery_warning_threshold',
