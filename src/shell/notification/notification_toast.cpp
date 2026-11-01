@@ -3154,7 +3154,6 @@ bool NotificationToast::onPointerEvent(const PointerEvent& event) {
       if (event.surface == inst->surface->wlSurface()) {
         inst->pointerInside = false;
         resetInstanceHover(*inst, true);
-        clearInlineReplyFocus(*inst);
         inst->inputDispatcher.pointerLeave();
       }
       break;
