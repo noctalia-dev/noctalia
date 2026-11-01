@@ -108,7 +108,7 @@ width = 760                # full layout: panel width in pixels (560–1100)
 search_position = "bottom" # full layout: top | bottom; whole launcher toolbar position
 default_view   = "recent" # full layout: recent | pinned | all | categories
 categories     = true     # simple layout: show the category chip row
-category_icons_only = false # show app category icons without text labels
+category_icons_only = false # show category icons without text labels
 show_navigation_labels = true # full layout: show text labels on the main view tabs
 show_settings_button = true # full layout: show the Settings shortcut
 show_session_button = true # full layout: show the session-actions shortcut
@@ -350,7 +350,7 @@ Notes:
 
 - `shell.launcher.categories` shows the All, Recently Used, and app category chips under the search field in the Simple layout (enabled by default). Launchers scoped to one provider, such as dmenu pickers, keep their chips regardless.
 
-- `shell.launcher.category_icons_only` hides text labels on app category tabs (Full) or chips (Simple) such as Internet and Games, keeping full names in hover tooltips. Disabled by default; category tabs show icons and text. It does not change the main view tabs.
+- `shell.launcher.category_icons_only` hides text labels on application and provider category filters in both layouts, keeping full names in hover tooltips. Disabled by default; category tabs show icons and text. Emoji categories in Full always use icons only. It does not change the main view tabs.
 
 - `shell.launcher.show_navigation_labels` shows text on the Full layout's main view tabs: Recent, Pinned, All, Categories, and Providers (default `true`). Turn off **Show navigation labels** in the launcher settings for icons with names in hover tooltips at any panel width. Narrow panels use icons automatically even when this option is enabled.
 

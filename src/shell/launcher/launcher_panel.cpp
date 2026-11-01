@@ -53,6 +53,7 @@ namespace {
   constexpr std::int32_t kCompactNavigationWidth = 680;
   constexpr float kLauncherAvatarSize = 44.0F;
   constexpr std::string_view kApplicationsProviderId = "Applications";
+  constexpr std::string_view kEmojiProviderId = "Emoji";
   constexpr std::string_view kSessionProviderId = "Session";
   constexpr double kUsageScorePerCount = 0.1;
   constexpr double kTypedUsageScoreCap = 0.5;
@@ -2365,6 +2366,8 @@ void LauncherPanel::onOpen(std::string_view context) {
   m_activeCategorySlotIndex = 0;
   m_activeCategory.clear();
   m_currentCategories.clear();
+  m_providerCategories.clear();
+  m_activeProviderCategory.clear();
   m_categoryFilterSlots.clear();
   m_hasRecentlyUsed = false;
   m_hasPinnedApplications = false;
@@ -2411,6 +2414,8 @@ void LauncherPanel::onClose() {
   m_activeCategorySlotIndex = 0;
   m_activeCategory.clear();
   m_currentCategories.clear();
+  m_providerCategories.clear();
+  m_activeProviderCategory.clear();
   m_categoryFilterSlots.clear();
   m_hasRecentlyUsed = false;
   m_hasPinnedApplications = false;
@@ -2561,7 +2566,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
   }
 
   m_query = text;
-  m_resultProviderId.clear();
+  const std::string previousProviderId = std::exchange(m_resultProviderId, {});
   m_showingProviderOverview = false;
   if (m_browserMode && !text.empty() && m_activeCategoryType != All) {
     m_activeCategoryType = All;
@@ -2698,6 +2703,26 @@ void LauncherPanel::onInputChanged(const std::string& text) {
   }
 
   if (m_browserMode) {
+    std::vector<LauncherCategory> providerCategories;
+    if (!m_resultProviderId.empty()) {
+      providerCategories = std::exchange(newCategories, {});
+    }
+    const bool providerChanged = previousProviderId != m_resultProviderId;
+    if (providerChanged
+        || std::ranges::find(providerCategories, m_activeProviderCategory, &LauncherCategory::label)
+            == providerCategories.end()) {
+      m_activeProviderCategory.clear();
+    }
+    if (providerChanged
+        || !std::ranges::equal(
+            providerCategories, m_providerCategories, [](const LauncherCategory& a, const LauncherCategory& b) {
+              return a.label == b.label && a.glyphName == b.glyphName;
+            }
+        )) {
+      m_providerCategories = std::move(providerCategories);
+      m_categoryFilterRebuildPending = true;
+      PanelManager::instance().requestLayout();
+    }
     const auto applications =
         std::ranges::find(m_providers, kApplicationsProviderId, [](const auto& provider) { return provider->id(); });
     if (applications != m_providers.end()) {
@@ -2916,7 +2941,22 @@ void LauncherPanel::rebuildCategoryFilter() {
   m_categoryFilter->setOnChange({});
   m_categoryFilter->clearOptions();
   const bool categoryIconsOnly = m_config != nullptr && m_config->config().shell.launcher.categoryIconsOnly;
-  if (m_browserMode) {
+  if (m_browserMode && !m_providerCategories.empty()) {
+    const bool providerIconsOnly = categoryIconsOnly || m_resultProviderId == kEmojiProviderId;
+    m_categoryFilter->addOption("", "layout-grid");
+    m_categoryFilter->setOptionTooltip(0, i18n::tr("launcher.categories.all"));
+    std::size_t selectedCategory = 0;
+    for (std::size_t i = 0; i < m_providerCategories.size(); ++i) {
+      const LauncherCategory& category = m_providerCategories[i];
+      m_categoryFilter->addOption(providerIconsOnly ? "" : category.label, category.glyphName);
+      m_categoryFilter->setOptionTooltip(i + 1, category.label);
+      if (category.label == m_activeProviderCategory) {
+        selectedCategory = i + 1;
+      }
+    }
+    m_categoryFilter->setSelectedIndex(selectedCategory);
+    m_categoryFilter->setOnChange([this](std::size_t index) { setActiveProviderCategory(index); });
+  } else if (m_browserMode) {
     std::size_t selectedCategory = 0;
     for (std::size_t i = 0; i < m_currentCategories.size(); ++i) {
       const LauncherCategory& category = m_currentCategories[i];
@@ -3140,6 +3180,23 @@ void LauncherPanel::updateCategorySelectionChrome() {
   setCategoryFilterVisible(true);
 }
 
+void LauncherPanel::setActiveProviderCategory(std::size_t index) {
+  if (index > m_providerCategories.size()) {
+    return;
+  }
+  const auto previous = std::ranges::find(m_providerCategories, m_activeProviderCategory, &LauncherCategory::label);
+  const std::size_t previousIndex = previous == m_providerCategories.end()
+      ? 0
+      : static_cast<std::size_t>(previous - m_providerCategories.begin()) + 1;
+  m_activeProviderCategory = index == 0 ? "" : m_providerCategories[index - 1].label;
+  if (index != previousIndex) {
+    queueResultsTransition(
+        index < previousIndex ? ResultsTransition::NavigationBackward : ResultsTransition::NavigationForward
+    );
+  }
+  applyActiveCategory();
+}
+
 void LauncherPanel::updateLauncherOptionButtons() {
   if (m_config == nullptr) {
     return;
@@ -3180,10 +3237,11 @@ void LauncherPanel::setCategoryFilterVisible(bool visible) {
     return;
   }
   const bool show = m_browserMode ? visible
-          && m_activeCategoryType == Category
-          && m_query.empty()
-          && m_launcherProviderViewId.empty()
-          && !m_currentCategories.empty()
+          && (!m_providerCategories.empty()
+              || (m_activeCategoryType == Category
+                  && m_query.empty()
+                  && m_launcherProviderViewId.empty()
+                  && !m_currentCategories.empty()))
                                   : visible
           && !m_categoryFilterSlots.empty()
           && (!m_scopedProviderId.empty() || m_config == nullptr || m_config->config().shell.launcher.categories);
@@ -3240,8 +3298,10 @@ std::vector<LauncherResult> LauncherPanel::providerOverviewResults(std::string_v
 
 void LauncherPanel::applyActiveCategory() {
   m_results.clear();
-  if (m_launcherProviderViewId == kSessionProviderId) {
-    m_results = m_allResults;
+  if (m_browserMode && !m_resultProviderId.empty()) {
+    std::ranges::copy_if(m_allResults, std::back_inserter(m_results), [this](const LauncherResult& result) {
+      return m_activeProviderCategory.empty() || result.category == m_activeProviderCategory;
+    });
     m_selectedIndex = 0;
     updateCategorySelectionChrome();
     refreshResults();

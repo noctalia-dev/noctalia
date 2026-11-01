@@ -2782,7 +2782,7 @@
           "label": "Show Categories"
         },
         "launcher-category-icons-only": {
-          "description": "Show only icons for app categories, with full names in hover tooltips",
+          "description": "Show only icons for application and provider categories, with full names in hover tooltips",
           "label": "Category Icons Only"
         },
         "launcher-compact": {

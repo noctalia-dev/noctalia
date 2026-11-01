@@ -120,6 +120,7 @@ private:
   void setCategoryFilterVisible(bool visible);
   void setActiveCategorySlot(std::size_t slotIndex);
   void setActiveBrowserCategory(std::size_t categoryIndex);
+  void setActiveProviderCategory(std::size_t index);
   void applyActiveCategory();
   void syncLauncherListStyle();
   void syncLauncherViewLayout(Renderer* renderer = nullptr);
@@ -177,6 +178,8 @@ private:
   ActiveCategoryType m_activeCategoryType = All;
   std::string m_activeCategory;
   std::vector<LauncherCategory> m_currentCategories;
+  std::vector<LauncherCategory> m_providerCategories;
+  std::string m_activeProviderCategory;
   std::vector<CategoryFilterSlot> m_categoryFilterSlots;
   bool m_hasRecentlyUsed = false;
   bool m_hasPinnedApplications = false;
