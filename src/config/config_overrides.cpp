@@ -872,6 +872,15 @@ namespace {
     if (path.size() == 3 && path[0] == "widget" && path[2] == "type") {
       return true;
     }
+
+    // migrateCustomSchedule() turns custom_schedule on for a times-only location whenever the key is
+    // absent. The no-override comparison therefore resolves to true too, but writing an explicit
+    // true override is exactly what opts the user's config out of that legacy migration. Dropping it
+    // as a no-op would re-trigger the migration and its "set custom_schedule = true" warning.
+    if (path.size() == 2 && path[0] == "location" && path[1] == "custom_schedule") {
+      return true;
+    }
+
     if (path.size() != 5 || path[0] != "bar" || path[2] != "monitor") {
       return false;
     }
