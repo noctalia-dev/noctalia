@@ -1250,8 +1250,8 @@ namespace settings {
       return selectSetting;
     }
 
-    SelectSetting
-    sourcedSelectSetting(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec, std::string selectedValue) {
+    // Static options from the spec followed by the options of its dynamic source.
+    std::vector<SelectOption> specOptions(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec) {
       std::vector<SelectOption> options;
       const auto appendUnique = [&](SelectOption option) {
         if (!std::ranges::contains(options, option.value, &SelectOption::value)) {
@@ -1283,6 +1283,12 @@ namespace settings {
       for (auto& option : sourcedOptions) {
         appendUnique(std::move(option));
       }
+      return options;
+    }
+
+    SelectSetting
+    sourcedSelectSetting(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec, std::string selectedValue) {
+      std::vector<SelectOption> options = specOptions(ctx, spec);
 
       const auto hasEmptyOption = std::ranges::contains(options, std::string_view{}, &SelectOption::value);
       if (selectedValue.empty() && !hasEmptyOption) {
@@ -1672,12 +1678,7 @@ namespace settings {
         case WidgetControlKind::StringList:
           ctx.makeListBlock(
               *panel, entry,
-              ListSetting{
-                  .items = settingValueAsStringList(value),
-                  .suggestedOptions = spec.optionSource == WidgetSettingOptionSource::Outputs
-                      ? ctx.availableOutputs
-                      : std::vector<SelectOption>{},
-              }
+              ListSetting{.items = settingValueAsStringList(value), .suggestedOptions = specOptions(ctx, spec)}
           );
           break;
         case WidgetControlKind::StringMap: {

@@ -4957,7 +4957,8 @@
           "label": "Show All Monitors"
         },
         "workspace-monitors": {
-          "description": "Choose which monitors' workspaces appear in this widget. Leave empty to show only the workspaces from the monitor hosting the bar",
+          "all": "All Monitors",
+          "description": "Choose which monitors' workspaces appear in this widget, in order. Leave empty to show only the workspaces from the monitor hosting the bar",
           "label": "Workspace Monitors"
         },
         "show-caps-lock": {

@@ -209,12 +209,20 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
     appendWorkspaces(m_output);
   } else {
     std::vector<wl_output*> selected;
+    const auto addOutput = [&selected](wl_output* output) {
+      if (output != nullptr && !std::ranges::contains(selected, output)) {
+        selected.push_back(output);
+      }
+    };
     for (const auto& monitor : m_monitors) {
+      // "*" selects every monitor, starting with the one hosting this bar.
+      const bool all = monitor == "*";
+      if (all) {
+        addOutput(m_output);
+      }
       for (const auto& output : m_platform.outputs()) {
-        if (output.output != nullptr
-            && !std::ranges::contains(selected, output.output)
-            && outputMatchesSelector(monitor, output)) {
-          selected.push_back(output.output);
+        if (all || outputMatchesSelector(monitor, output)) {
+          addOutput(output.output);
         }
       }
     }

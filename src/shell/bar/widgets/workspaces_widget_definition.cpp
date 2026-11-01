@@ -55,6 +55,7 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .labelKey = "settings.widgets.settings.workspace-monitors.label",
                           .descriptionKey = "settings.widgets.settings.workspace-monitors.description",
                           .group = "workspaces.list",
+                          .options = {{.value = "*", .labelKey = "settings.widgets.settings.workspace-monitors.all"}},
                           .optionSource = settings::WidgetSettingOptionSource::Outputs,
                       },
               }),
