@@ -55,8 +55,7 @@ void SnowflakeSimulation::update(float deltaSeconds) {
   // without this the only sideways motion is each flake's own small wobble, and the
   // whole snowfall never visibly leans one way for a while the way real snow does during
   // a gust, then calms again.
-  const float windGust =
-      std::sin(m_windPhase * 0.15F) * 0.035F + std::sin(m_windPhase * 0.067F + 1.7F) * 0.025F;
+  const float windGust = std::sin(m_windPhase * 0.15F) * 0.035F + std::sin(m_windPhase * 0.067F + 1.7F) * 0.025F;
 
   for (int i = 0; i < kMaxSnowFlakes; ++i) {
     SimFlake& flake = m_sim[static_cast<std::size_t>(i)];
