@@ -4433,6 +4433,8 @@
         "cpu-freq": "CPU Freq",
         "cpu-temp": "CPU Temperature",
         "cpu-usage": "CPU Usage",
+        "default": "Default",
+        "desktop": "Desktop",
         "disk-free": "Disk Free",
         "disk-free-percent": "Disk Free %",
         "disk-used": "Disk Used",
@@ -4475,6 +4477,7 @@
         "shared": "Shared",
         "short": "Short",
         "swap-percent": "Swap %",
+        "symbolic": "Symbolic",
         "text": "Text",
         "text-only": "Text Only",
         "time": "Time",
@@ -4662,10 +4665,6 @@
           "description": "Default inherits the bar font weight",
           "label": "Font Weight"
         },
-        "force-app-icons": {
-          "description": "Force tray icons to use desktop app icons",
-          "label": "Force App Icons"
-        },
         "format": {
           "description": "Time format string",
           "label": "Format"
@@ -4776,6 +4775,14 @@
         "icon-color": {
           "description": "Overrides the widget color for icons only; fixed hex colors are also supported",
           "label": "Icon Color"
+        },
+        "icon-override-blacklist": {
+          "description": "List of tray icons to exclude from icon overrides",
+          "label": "Icon Override Blacklist"
+        },
+        "icon-type": {
+          "description": "Select the type of icons to use in the tray",
+          "label": "Icon Type"
         },
         "icon-scale": {
           "description": "Scale of taskbar application icons relative to their default size",
