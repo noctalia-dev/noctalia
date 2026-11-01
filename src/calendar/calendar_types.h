@@ -36,6 +36,8 @@ struct CalendarSnapshot {
 struct CalendarSource {
   std::string id;
   std::string name;
+  // Synced while the account's `calendars` list is empty: Google's sidebar tick, always true for CalDAV and vdir.
+  bool defaultSelected = true;
 
   bool operator==(const CalendarSource&) const = default;
 };

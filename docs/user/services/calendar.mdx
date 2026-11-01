@@ -64,6 +64,7 @@ password_file = "/run/agenix/noctalia-caldav"
 [calendar.account.work_google]
 type = "google"
 name = "Work"
+calendars = []              # empty = the calendars ticked in Google Calendar's sidebar
 
 # Local vdir directory (vdirsyncer / khal)
 [calendar.account.local_vdir]
@@ -232,6 +233,8 @@ The account id is the last segment of the named table. For `[calendar.account.wo
 :::
 
 If a Google account later shows as disconnected (revoked or expired), edit the account and press **Save and Connect** again to reauthorize.
+
+By default Noctalia syncs the calendars ticked in Google Calendar's sidebar. To choose them for Noctalia only, edit the account after its first sync: the **Calendars** list shows every calendar of the Google account, starting from Google's ticks. Changing a toggle saves an explicit `calendars` list of calendar ids, which Noctalia then follows whatever Google's sidebar says; a calendar added to Google later stays off until you tick it. Matching Google's ticks again resets the list to `[]`. The list is refreshed on every sync, including calendars that are not synced.
 
 If Settings reports that Secret Service is unavailable, confirm that a compatible provider is running in the same login session, then use the retry action. Noctalia also reopens calendar credentials and encrypted storage on its own once the provider appears or its keyring unlocks; see [Secret Service & keyrings](/noctalia/configuration/secret-service/) for how automatic recovery works and the multiple-keyrings caveat. If access is locked or denied, unlock the provider and retry. A cancelled prompt is not treated as a missing credential; start the operation again when you are ready.
 
