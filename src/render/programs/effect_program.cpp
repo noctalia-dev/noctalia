@@ -648,9 +648,12 @@ vec3 fogWashColor(vec2 uv, float iTime) {
     float n2 = fogWashFbm(uv * 3.8 + 10.0, iTime * 1.2);
     float n3 = fogWashFbm(uv * 1.6 - 5.0, iTime * 0.6);
 
+    // Lower thresholds than the previous pass (0.35-0.6/0.4-0.65 -> 0.25-0.5/0.3-0.55) so
+    // more of the card's area crosses into "deep"/"mist" territory instead of staying base
+    // background color - a denser, thicker-looking mist instead of a light haze.
     vec3 col = base;
-    col = mix(col, deep, smoothstep(0.35, 0.6, n2));
-    col = mix(col, mist, smoothstep(0.4, 0.65, n1));
+    col = mix(col, deep, smoothstep(0.25, 0.5, n2));
+    col = mix(col, mist, smoothstep(0.3, 0.55, n1));
     col = mix(col, mix(accentTint, vec3(1.0), 0.5), pow(clamp(n3, 0.0, 1.0), 2.2) * 0.25);
     return col;
 }
@@ -753,6 +756,52 @@ vec2 star_hash2(vec2 p) {
     return fract(vec2(p.x * p.y, p.y * p.x));
 }
 
+float star_noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = star_hash(i);
+    float b = star_hash(i + vec2(1.0, 0.0));
+    float c = star_hash(i + vec2(0.0, 1.0));
+    float d = star_hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// Drifting night-sky nebula backdrop, same FBM technique as Rain/Sun/Snow's fog but with
+// a cool indigo/violet/teal palette instead of their warm gold+olive one - a night sky
+// should read cold, not like the same daytime haze recolored.
+float starFogFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+        float fi = float(i + 1);
+        v += amp * star_noise(p + vec2(iTime * 0.02 * fi, -iTime * 0.015 * fi));
+        p *= 2.0;
+        amp *= 0.5;
+    }
+    return v;
+}
+
+vec3 starNebulaColor(vec2 uv, float iTime) {
+    vec3 base = mix(u_bg_color.rgb * 0.7, u_bg_color.rgb * 0.95, uv.y);
+
+    vec3 indigo = particleColor(vec3(0.192, 0.165, 0.329), vec3(0.14, 0.12, 0.22));
+    vec3 violet = particleColor(vec3(0.329, 0.204, 0.388), vec3(0.22, 0.14, 0.26));
+    vec3 teal = particleColor(vec3(0.165, 0.302, 0.376), vec3(0.1, 0.2, 0.24));
+    vec3 roseDust = particleColor(vec3(0.388, 0.247, 0.302), vec3(0.24, 0.16, 0.19));
+
+    float n1 = starFogFbm(uv * 2.0, iTime);
+    float n2 = starFogFbm(uv * 3.2 + 10.0, iTime * 1.2);
+    float n3 = starFogFbm(uv * 2.6 - 5.0, iTime * 0.8);
+
+    vec3 col = base;
+    col = mix(col, indigo, smoothstep(0.35, 0.68, n1) * 0.55);
+    col = mix(col, violet, smoothstep(0.52, 0.84, n2) * 0.4);
+    col = mix(col, teal, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.35);
+    col = mix(col, roseDust, smoothstep(0.5, 0.8, n3) * 0.3);
+    return col;
+}
+
 float stars(vec2 uv, float density, float iTime) {
     vec2 gridUV = uv * density;
     vec2 gridID = floor(gridUV);
@@ -768,15 +817,24 @@ float stars(vec2 uv, float density, float iTime) {
             vec2 starPos = star_hash2(cellID);
 
             float starChance = star_hash(cellID + vec2(12.345, 67.890));
-            if (starChance > 0.85) {
+            if (starChance > 0.7) {
                 vec2 toStar = (offset + starPos - gridPos);
                 float dist = length(toStar) * density;
-                float starSize = 1.5;
+                float starSize = 2.4;
                 float brightness = star_hash(cellID + vec2(23.456, 78.901)) * 0.6 + 0.4;
 
-                float twinkleSpeed = star_hash(cellID + vec2(34.567, 89.012)) * 3.0 + 2.0;
-                float twinklePhase = iTime * twinkleSpeed + star_hash(cellID) * 6.28;
-                float twinkle = pow(sin(twinklePhase) * 0.5 + 0.5, 3.0);
+                // Two independent frequencies per star (not just phase-offset copies of
+                // the same single sine) mixed by a per-star weight, plus a per-star
+                // sharpness exponent - some stars now pulse in slow smooth glows, others
+                // in quick sharp flickers, instead of every star sharing one pulse shape.
+                float twinkleSpeed1 = star_hash(cellID + vec2(34.567, 89.012)) * 3.0 + 2.0;
+                float twinkleSpeed2 = star_hash(cellID + vec2(45.678, 90.123)) * 7.0 + 4.0;
+                float twinkleMix = star_hash(cellID + vec2(56.789, 11.234));
+                float sharpness = star_hash(cellID + vec2(67.891, 22.345)) * 3.5 + 1.5;
+                float phase1 = iTime * twinkleSpeed1 + star_hash(cellID) * 6.28;
+                float phase2 = iTime * twinkleSpeed2 + star_hash(cellID + vec2(1.0, 1.0)) * 6.28;
+                float wave = mix(sin(phase1), sin(phase2), twinkleMix) * 0.5 + 0.5;
+                float twinkle = pow(wave, sharpness);
 
                 float star = 0.0;
                 if (dist < starSize) {
@@ -802,10 +860,9 @@ float stars(vec2 uv, float density, float iTime) {
 void main() {
     vec2 uv = v_uv;
     float iTime = u_time * 0.12;
-    vec4 col = vec4(u_bg_color.rgb, 1.0);
-
     float aspect = u_item_width / u_item_height;
     vec2 uvAspect = vec2(uv.x * aspect, uv.y);
+    vec4 col = vec4(starNebulaColor(uvAspect, iTime * 0.6), 1.0);
 
     float stars1 = stars(uvAspect, 40.0, iTime);
     float stars2 = stars(uvAspect + vec2(0.5, 0.3), 25.0, iTime * 1.3);
