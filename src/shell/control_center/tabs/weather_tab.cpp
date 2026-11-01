@@ -30,6 +30,9 @@ namespace {
 
   constexpr float kCurrentGlyphSize = Style::controlHeightLg * 2.2F;
 
+  // How much to dim the weather effect's background scrim for text contrast.
+  constexpr float kWeatherScrimAlpha = 0.45F;
+
   std::string windDirectionLabel(int degrees) {
     static constexpr std::array<const char*, 8> kDirs = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
     const int normalized = ((degrees % 360) + 360) % 360;
@@ -94,7 +97,8 @@ std::unique_ptr<Flex> WeatherTab::create() {
   scrimNode->setZIndex(-1);
   scrimNode->setVisible(false);
   RoundedRectStyle scrimStyle;
-  scrimStyle.fill = colorForRole(ColorRole::Surface, 0.45F);
+  scrimStyle.fill = colorForRole(ColorRole::Surface);
+  scrimStyle.fill.a *= kWeatherScrimAlpha;
   scrimStyle.radius = Style::scaledRadiusXl(scale);
   scrimNode->setStyle(scrimStyle);
   m_scrimNode = static_cast<RectNode*>(currentCard->addChild(std::move(scrimNode)));
