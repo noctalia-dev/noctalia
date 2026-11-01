@@ -233,11 +233,46 @@ constexpr bool operator==(const FancyAudioVisualizerStyle& lhs, const FancyAudio
 
 enum class EffectType : std::uint8_t { None, Sun, Snow, Rain, Cloud, Fog, Stars };
 
+// Fixed capacity for the Rain effect's glass-droplet layer. Kept small since each drop is
+// uploaded as a uniform (no texture/FBO plumbing) and summed per-pixel in the fragment shader.
+inline constexpr int kMaxRainDrops = 24;
+
+// x/y in the effect's local uv space [0,1], radius in the same space, depth in [0,1] used to
+// vary refraction/shading strength per drop (bigger/older drops read as deeper).
+struct RainDrop {
+  float x = 0.0F;
+  float y = 0.0F;
+  float radius = 0.0F;
+  float depth = 0.0F;
+};
+
+// Fixed capacity for the Snow effect's flake layer - explicit per-flake state (not the
+// jittered-cell-noise field the first pass used), so each flake can be drawn as a properly
+// anti-aliased circle with a pixel-floor minimum radius instead of a per-pixel threshold
+// test that flickers on/off for sub-pixel-sized shapes.
+inline constexpr int kMaxSnowFlakes = 60;
+
+// x/y in the effect's local uv space [0,1] (x wraps, y resets to the top on exit), radius
+// in the same space - bigger radius reads as closer/nearer-camera.
+struct SnowFlake {
+  float x = 0.0F;
+  float y = 0.0F;
+  float radius = 0.0F;
+};
+
 struct EffectStyle {
   EffectType type = EffectType::None;
   float time = 0.0F;
   float radius = 0.0F;
   Color bgColor{};
+  // Theme accent (ColorRole::Primary) - only consulted by the Fog effect, to mix a touch
+  // of the user's actual theme color into its otherwise neutral mist palette. Left at its
+  // default (black) by callers that don't set it, which the shader treats as "no accent".
+  Color accentColor{};
+  std::array<RainDrop, kMaxRainDrops> drops{};
+  int dropCount = 0;
+  std::array<SnowFlake, kMaxSnowFlakes> flakes{};
+  int flakeCount = 0;
 };
 
 struct GraphStyle {

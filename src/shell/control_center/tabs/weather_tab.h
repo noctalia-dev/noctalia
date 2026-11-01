@@ -3,6 +3,8 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/render_styles.h"
 #include "shell/control_center/tab.h"
+#include "shell/control_center/tabs/rain_droplet_simulation.h"
+#include "shell/control_center/tabs/snowflake_simulation.h"
 
 #include <array>
 #include <cstdint>
@@ -12,6 +14,7 @@ class Flex;
 class Glyph;
 class InputArea;
 class Label;
+class RectNode;
 class Separator;
 class Segmented;
 class WeatherService;
@@ -90,6 +93,12 @@ private:
   std::array<Label*, kForecastRowCount> m_forecastTemps{};
   std::array<InputArea*, kForecastRowCount> m_forecastHitAreas{};
   EffectNode* m_effectNode = nullptr;
+  // Semi-transparent Surface-colored panel between the effect and the card's text -
+  // guarantees OnSurface/OnSurfaceVariant text contrast against any effect/theme/accent
+  // combination, since it darkens-or-lightens by always mixing toward the same Surface
+  // color the text colors were chosen to contrast against, rather than relying on each
+  // effect shader's own brightness staying in some safe range.
+  RectNode* m_scrimNode = nullptr;
   EffectType m_activeEffect = EffectType::None;
   ForecastView m_forecastView = ForecastView::Daily;
   int m_forecastSlideDirection = 0;
@@ -99,4 +108,6 @@ private:
   float m_forecastRowsBaseX = 0.0F;
   float m_forecastRowsBaseY = 0.0F;
   float m_shaderTime = 0.0F;
+  RainDropletSimulation m_rainDrops;
+  SnowflakeSimulation m_snowFlakes;
 };

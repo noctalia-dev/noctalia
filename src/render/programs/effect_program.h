@@ -40,8 +40,19 @@ private:
     GLint itemWidthLoc = -1;
     GLint itemHeightLoc = -1;
     GLint bgColorLoc = -1;
+    // Fog-only: theme accent tint (see render_styles.h's EffectStyle::accentColor). -1 on
+    // every other effect type's program.
+    GLint accentColorLoc = -1;
     GLint radiusLoc = -1;
     GLint alternativeLoc = -1;
+    // Rain-only: glass-droplet layer (see render_styles.h's kMaxRainDrops). -1 on every
+    // other effect type's program, where the uniform doesn't exist in the shader source.
+    GLint dropsLoc = -1;
+    GLint dropCountLoc = -1;
+    // Snow-only: flake layer (see render_styles.h's kMaxSnowFlakes). -1 on every other
+    // effect type's program.
+    GLint flakesLoc = -1;
+    GLint flakeCountLoc = -1;
   };
 
   void initProgram(EffectType type, const char* fragSource);

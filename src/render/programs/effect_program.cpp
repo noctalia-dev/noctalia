@@ -40,6 +40,11 @@ uniform float u_time;
 uniform float u_item_width;
 uniform float u_item_height;
 uniform vec4 u_bg_color;
+// Theme accent (ColorRole::Primary) - only the Fog shader reads this, to mix a touch of
+// the user's actual theme color into its mist. Defaults to opaque black for callers (e.g.
+// the standalone lab demo) that never set it; the Fog shader treats near-black as "no
+// accent configured" and skips the tint rather than darkening the mist.
+uniform vec4 u_accent_color;
 uniform float u_radius;
 uniform float u_alternative;
 varying vec2 v_uv;
@@ -102,29 +107,92 @@ float atmosphericShimmer(vec2 uv, float iTime) {
     return (n1 * 0.5 + n2 * 0.3 + n3 * 0.2) * 0.15;
 }
 
-float sunCore(vec2 uv, vec2 sunPos, float iTime) {
-    vec2 toSun = uv - sunPos;
-    float dist = length(toSun);
-    float mainFlare = exp(-dist * 15.0) * 2.0;
-    float flares = 0.0;
-    for (int i = 1; i <= 3; i++) {
-        vec2 flarePos = sunPos + toSun * float(i) * 0.3;
-        float flareDist = length(uv - flarePos);
-        float flareSize = 0.02 + float(i) * 0.01;
-        flares += smoothstep(flareSize * 2.0, flareSize * 0.5, flareDist) * (0.3 / float(i));
+// Same drifting cloud/fog backdrop as the Rain effect's rainFogColor() (see that
+// definition's comment), reusing this shader's own efx_noise instead of duplicating a
+// second near-identical hash/noise pair - every effect in this file already keeps its own
+// copy of those rather than sharing one through kCommonFragment.
+float sunFogFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+        float fi = float(i + 1);
+        v += amp * efx_noise(p + vec2(iTime * 0.03 * fi, -iTime * 0.02 * fi));
+        p *= 2.0;
+        amp *= 0.5;
     }
+    return v;
+}
+
+vec3 sunFogColor(vec2 uv, float iTime) {
+    vec3 base = mix(u_bg_color.rgb * 0.7, u_bg_color.rgb * 0.95, uv.y);
+
+    vec3 secondary = particleColor(vec3(0.314, 0.353, 0.416), vec3(0.2, 0.24, 0.3));
+    vec3 tertiary = particleColor(vec3(0.404, 0.553, 0.498), vec3(0.2, 0.32, 0.28));
+    vec3 primary = particleColor(vec3(0.561, 0.459, 0.259), vec3(0.42, 0.33, 0.16));
+    vec3 accent = particleColor(vec3(0.275, 0.314, 0.22), vec3(0.19, 0.22, 0.14));
+
+    float n1 = sunFogFbm(uv * 2.2, iTime);
+    float n2 = sunFogFbm(uv * 3.5 + 10.0, iTime * 1.3);
+    float n3 = sunFogFbm(uv * 2.8 - 5.0, iTime * 0.8);
+
+    vec3 col = base;
+    col = mix(col, secondary, smoothstep(0.35, 0.68, n1) * 0.48);
+    col = mix(col, tertiary, smoothstep(0.52, 0.84, n2) * 0.33);
+    col = mix(col, primary, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.45);
+    col = mix(col, accent, smoothstep(0.5, 0.8, n3) * 0.4);
+    return col;
+}
+
+float sunCore(vec2 uv, vec2 sunPos, float iTime) {
+    float dist = length(uv - sunPos);
+    float mainFlare = exp(-dist * 15.0) * 2.0;
     float pulse = sin(iTime) * 0.1 + 0.9;
-    return (mainFlare + flares) * pulse;
+    return mainFlare * pulse;
+}
+
+// Hollow coating rings close around the disc, plus a true off-axis ghost chain along the
+// sun -> screen-center line (fixed screen-space positions, unlike the old "flares" loop
+// here, which multiplied toSun = uv - sunPos back into flarePos and so cancelled uv out
+// to length(toSun)*|1 - i*0.3| - just more concentric rings around the sun itself, not
+// actual secondary reflections on the opposite side of frame center like a real lens).
+// Returns a tinted vec3 directly (each ring/ghost gets its own hue, like anti-reflective
+// coating fringing) instead of a scalar multiplied by one flat sunColor.
+vec3 sunLensFlares(vec2 uv, vec2 sunPos, vec2 screenCenter, float iTime) {
+    vec3 result = vec3(0.0);
+    float dist = length(uv - sunPos);
+
+    for (int i = 1; i <= 3; i++) {
+        float radius = 0.025 + float(i) * 0.018;
+        float thickness = 0.006;
+        float ring = 1.0 - smoothstep(0.0, thickness, abs(dist - radius));
+        vec3 tint = 0.5 + 0.5 * cos(vec3(0.0, 2.1, 4.2) + float(i) * 1.1);
+        result += tint * ring * (0.22 / float(i));
+    }
+
+    vec2 axis = screenCenter - sunPos;
+    for (int i = 0; i < 4; i++) {
+        float t = 0.4 + float(i) * 0.35;
+        vec2 ghostPos = sunPos + axis * t;
+        float gDist = length(uv - ghostPos);
+        float gRadius = 0.012 + float(i) * 0.01;
+        float gThickness = gRadius * 0.5;
+        float ghost = 1.0 - smoothstep(0.0, gThickness, abs(gDist - gRadius));
+        vec3 tint = 0.5 + 0.5 * cos(vec3(1.0, 3.0, 5.0) + float(i) * 1.7);
+        float fade = 1.0 / (1.2 + float(i) * 0.8);
+        result += tint * ghost * fade * 0.12;
+    }
+
+    return result;
 }
 
 void main() {
     vec2 uv = v_uv;
     float iTime = u_time * 0.08;
-    vec4 col = vec4(u_bg_color.rgb, 1.0);
     vec2 sunPos = vec2(0.85, 0.2);
     float aspect = u_item_width / u_item_height;
     vec2 uvAspect = vec2(uv.x * aspect, uv.y);
     vec2 sunPosAspect = vec2(sunPos.x * aspect, sunPos.y);
+    vec4 col = vec4(sunFogColor(uvAspect, iTime), 1.0);
 
     float rays = sunRays(uvAspect, sunPosAspect, iTime);
     float shimmerEffect = atmosphericShimmer(uv, iTime);
@@ -151,6 +219,12 @@ void main() {
     resultRGB = flareContribution + resultRGB * (1.0 - flareAlpha);
     resultAlpha = flareAlpha + resultAlpha * (1.0 - flareAlpha);
 
+    // Additive, not alpha-blended like the terms above - these are thin bright ring
+    // outlines (mostly zero coverage), so a blend would barely show; additive lets each
+    // ring's own tint punch through regardless of what's already composited underneath.
+    vec2 screenCenter = vec2(0.5 * aspect, 0.5);
+    resultRGB += sunLensFlares(uvAspect, sunPosAspect, screenCenter, iTime);
+
     resultRGB = mix(resultRGB, resultRGB * vec3(1.08, 1.04, 0.98), 0.15);
 
     float mask = cornerMask();
@@ -160,46 +234,124 @@ void main() {
 )";
 
   // --- Snow effect ---
+  // kMaxFlakesGlsl must match render_styles.h's kMaxSnowFlakes (a literal here, since
+  // GLSL ES 1.00 array sizes must be compile-time constants, not an includable C++
+  // constant - same constraint as kRainFragment's u_drops[24] above).
   constexpr char kSnowFragment[] = R"(
+uniform vec3 u_flakes[60];
+uniform int u_flakeCount;
+
+float snow_hash(vec2 p) {
+    p = fract(p * vec2(234.34, 435.345));
+    p += dot(p, p + 34.23);
+    return fract(p.x * p.y);
+}
+
+float snow_noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = snow_hash(i);
+    float b = snow_hash(i + vec2(1.0, 0.0));
+    float c = snow_hash(i + vec2(0.0, 1.0));
+    float d = snow_hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// Same drifting cloud/fog backdrop as Rain's rainFogColor()/Sun's sunFogColor() - see
+// rainFogColor's comment for why this is an inline per-pixel FBM copy per effect instead
+// of one shared function in kCommonFragment.
+float snowFogFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+        float fi = float(i + 1);
+        v += amp * snow_noise(p + vec2(iTime * 0.03 * fi, -iTime * 0.02 * fi));
+        p *= 2.0;
+        amp *= 0.5;
+    }
+    return v;
+}
+
+vec3 snowFogColor(vec2 uv, float iTime) {
+    vec3 base = mix(u_bg_color.rgb * 0.7, u_bg_color.rgb * 0.95, uv.y);
+
+    // A winter sky should read cold, not like the same warm gold+olive wash Rain/Sun use
+    // recolored - icy blue, pale cyan, soft lavender-grey, cool slate instead.
+    vec3 secondary = particleColor(vec3(0.247, 0.361, 0.447), vec3(0.17, 0.26, 0.32));
+    vec3 tertiary = particleColor(vec3(0.318, 0.482, 0.49), vec3(0.19, 0.3, 0.3));
+    vec3 primary = particleColor(vec3(0.42, 0.38, 0.49), vec3(0.28, 0.25, 0.34));
+    vec3 accent = particleColor(vec3(0.267, 0.31, 0.333), vec3(0.18, 0.21, 0.22));
+
+    float n1 = snowFogFbm(uv * 2.2, iTime);
+    float n2 = snowFogFbm(uv * 3.5 + 10.0, iTime * 1.3);
+    float n3 = snowFogFbm(uv * 2.8 - 5.0, iTime * 0.8);
+
+    // Weights cut to ~70% of Rain/Sun's - an overcast winter sky reads calmer/greyer than
+    // a moody rain backdrop, and a quieter background gives the white flakes more
+    // contrast to stand out against instead of competing with a busy colored wash.
+    vec3 col = base;
+    col = mix(col, secondary, smoothstep(0.35, 0.68, n1) * 0.34);
+    col = mix(col, tertiary, smoothstep(0.52, 0.84, n2) * 0.23);
+    col = mix(col, primary, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.32);
+    col = mix(col, accent, smoothstep(0.5, 0.8, n3) * 0.28);
+    return col;
+}
+
 void main() {
     float aspect = u_item_width / u_item_height;
-    vec2 uv = v_uv;
-    uv.x *= aspect;
-    uv.y = 1.0 - uv.y;
-
+    vec2 uvA = vec2(v_uv.x * aspect, v_uv.y);
     float iTime = u_time * 0.15;
+
+    // 1 pixel of the card's own height, in the same uv-space the flake positions/radii
+    // are in - the anti-alias transition band below is expressed in this unit so it can
+    // never collapse to a near-binary threshold regardless of how small a flake's radius
+    // is, which is what made the old jittered-cell-noise field flicker on/off for its
+    // smallest/most distant flakes (a per-pixel threshold test on a sub-pixel shape has
+    // no way to antialias without supersampling - CPU-simulated explicit flakes with a
+    // pixel-floored radius here sidestep that class of bug entirely).
+    float pixelUv = 1.0 / max(u_item_height, 1.0);
+
     float snow = 0.0;
-
-    for (int k = 0; k < 6; k++) {
-        for (int i = 0; i < 12; i++) {
-            float cellSize = 2.0 + (float(i) * 3.0);
-            float downSpeed = 0.3 + (sin(iTime * 0.4 + float(k + i * 20)) + 1.0) * 0.00008;
-
-            vec2 uvAnim = uv + vec2(
-                0.01 * sin((iTime + float(k * 6185)) * 0.6 + float(i)) * (5.0 / float(i + 1)),
-                downSpeed * (iTime + float(k * 1352)) * (1.0 / float(i + 1))
-            );
-
-            vec2 uvStep = (ceil((uvAnim) * cellSize - vec2(0.5, 0.5)) / cellSize);
-            float x = fract(sin(dot(uvStep.xy, vec2(12.9898 + float(k) * 12.0, 78.233 + float(k) * 315.156))) * 43758.5453 + float(k) * 12.0) - 0.5;
-            float y = fract(sin(dot(uvStep.xy, vec2(62.2364 + float(k) * 23.0, 94.674 + float(k) * 95.0))) * 62159.8432 + float(k) * 12.0) - 0.5;
-
-            float randomMagnitude1 = sin(iTime * 2.5) * 0.7 / cellSize;
-            float randomMagnitude2 = cos(iTime * 1.65) * 0.7 / cellSize;
-
-            float d = 5.0 * distance((uvStep.xy + vec2(x * sin(y), y) * randomMagnitude1 + vec2(y, x) * randomMagnitude2), uvAnim.xy);
-
-            float omiVal = fract(sin(dot(uvStep.xy, vec2(32.4691, 94.615))) * 31572.1684);
-            if (omiVal < 0.03) {
-                float newd = (x + 1.0) * 0.4 * clamp(1.9 - d * (15.0 + (x * 6.3)) * (cellSize / 1.4), 0.0, 1.0);
-                snow += newd;
-            }
+    for (int i = 0; i < 60; i++) {
+        if (i < u_flakeCount) {
+            vec3 flake = u_flakes[i];
+            vec2 c = vec2(flake.x * aspect, flake.y);
+            float r = max(flake.z, pixelUv * 1.5);
+            float dist = length(uvA - c);
+            // Blur band grows quadratically with size (big/close flakes end up genuinely
+            // soft, almost bokeh-like, small/distant ones stay near the 1px floor and
+            // read crisp) - a real depth-of-field look now that each flake has enough
+            // pixels of its own to represent a soft edge (unlike the old sub-pixel cell
+            // noise, where any blur widening just flickered instead of reading as soft).
+            float sizeT = clamp(r / 0.028, 0.0, 1.0);
+            float aa = mix(pixelUv, r * 0.85, sizeT * sizeT);
+            float coverage = smoothstep(r + aa, r - aa, dist);
+            // Bigger (closer) flakes read slightly brighter than small (distant) ones.
+            snow += coverage * mix(0.55, 1.0, sizeT);
         }
     }
+    snow = clamp(snow, 0.0, 1.0);
 
-    float snowAlpha = clamp(snow * 2.0, 0.0, 1.0);
     vec3 snowColor = particleColor(vec3(1.0), vec3(0.45, 0.55, 0.65));
-    vec3 blended = mix(u_bg_color.rgb, snowColor, snowAlpha);
+    vec3 fogBackdrop = snowFogColor(uvA, iTime);
+    vec3 blended = mix(fogBackdrop, snowColor, snow);
+
+    // A pale, slow-drifting cloud bank confined to the top fifth of the card - the snow
+    // appears to be falling out of something, instead of the fog backdrop just fading
+    // into empty space up top. Reuses the same FBM as the fog backdrop (snowFogFbm/
+    // snow_noise), just at a flatter horizontal stretch and a higher brightness threshold
+    // so it reads as cloud, not more of the ambient haze wash.
+    float cloudBand = 1.0 - smoothstep(0.1, 0.22, v_uv.y);
+    if (cloudBand > 0.0) {
+        float cloudNoise = snowFogFbm(uvA * vec2(2.6, 7.0) + vec2(iTime * 0.012, 0.0), iTime * 0.5);
+        float cloudShape = smoothstep(0.42, 0.72, cloudNoise) * cloudBand;
+        vec3 cloudColor = particleColor(vec3(0.93, 0.94, 0.96), vec3(0.8, 0.82, 0.86));
+        // Opacity pushed toward fully opaque in the densest cloud regions (not capped at
+        // 0.7) so the cloud bank actually occludes flakes behind it where it's thick,
+        // instead of always letting them show through faintly.
+        blended = mix(blended, cloudColor, clamp(cloudShape * 1.4, 0.0, 1.0));
+    }
 
     float mask = cornerMask();
     float finalAlpha = mask * u_bg_color.a;
@@ -207,8 +359,15 @@ void main() {
 }
 )";
 
-  // --- Rain effect (atmospheric haze + discrete falling drops) ---
+  // --- Rain effect v2 (sharper-edged streaks, random per-streak tilt, fewer/clearer
+  // layers instead of 3 overlapping Gaussian-blurred ones - see
+  // openspec/changes/weather-rain-effect-v2 for the prototyping history) ---
+  // kMaxDropsGlsl must match render_styles.h's kMaxRainDrops (a literal here, since GLSL
+  // ES 1.00 array sizes must be compile-time constants, not an includable C++ constant).
   constexpr char kRainFragment[] = R"(
+uniform vec4 u_drops[24];
+uniform int u_dropCount;
+
 float rain_hash(vec2 p) {
     p = fract(p * vec2(443.897, 441.423));
     p += dot(p, p + 19.19);
@@ -226,15 +385,121 @@ float rain_noise(vec2 p) {
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-float rainLayer(vec2 uv, float columns, float rows, float speed, float dropLen, float tilt, float iTime, float seed) {
-    float x = uv.x + uv.y * tilt;
-    float y = uv.y - iTime * speed;
+// Drifting fog/bokeh backdrop wash, replacing the flat u_bg_color base - an inline
+// analytic approximation of the lab prototype's dedicated multi-pass fog FBO
+// (openspec/changes/weather-rain-effect-v2/lab's FOG_BG_FRAGMENT: low-res render +
+// bilinear-upscale blur). A single-pass per-pixel FBM is affordable here since this is a
+// small Control Center card, not a full-screen effect, so the separate render target
+// that approach exists to amortize isn't worth the added FBO/blur-pass plumbing.
+float rainFogFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+        float fi = float(i + 1);
+        v += amp * rain_noise(p + vec2(iTime * 0.03 * fi, -iTime * 0.02 * fi));
+        p *= 2.0;
+        amp *= 0.5;
+    }
+    return v;
+}
 
+// Tinted with the same four-hue spread as the lab version (gold/slate-blue/teal/olive),
+// mixed via particleColor() against u_bg_color's luminance instead of hardcoded wallust
+// colors, so it reads correctly against this app's actual light/dark theme.
+vec3 rainFogColor(vec2 uv, float iTime) {
+    // Capped at u_bg_color's own brightness (no *1.2 ceiling) and the four hue washes
+    // toned down ~40% below - the first pass matched the lab's saturation, but the lab's
+    // version sits behind a separate dark text panel; here the fog is the only backdrop
+    // behind the card's temperature/label text, so it has to stay dark/muted enough for
+    // that text to keep reading over it.
+    vec3 base = mix(u_bg_color.rgb * 0.7, u_bg_color.rgb * 0.95, uv.y);
+
+    // particleColor()'s 2nd arg must be the DARKER/muted tint (used on light backgrounds,
+    // per its own doc comment) - every other call site in this file follows
+    // dark-bg-param=bright, light-bg-param=darker (sunColor, snowColor, starColor*,
+    // hazeColor, rainTint above). These four were accidentally the other way around
+    // (lighter pastel for the light-bg param), which washes the fog out to near-nothing
+    // against an already-light Surface instead of giving it contrast.
+    vec3 secondary = particleColor(vec3(0.314, 0.353, 0.416), vec3(0.2, 0.24, 0.3));
+    vec3 tertiary = particleColor(vec3(0.404, 0.553, 0.498), vec3(0.2, 0.32, 0.28));
+    vec3 primary = particleColor(vec3(0.561, 0.459, 0.259), vec3(0.42, 0.33, 0.16));
+    vec3 accent = particleColor(vec3(0.275, 0.314, 0.22), vec3(0.19, 0.22, 0.14));
+
+    float n1 = rainFogFbm(uv * 2.2, iTime);
+    float n2 = rainFogFbm(uv * 3.5 + 10.0, iTime * 1.3);
+    float n3 = rainFogFbm(uv * 2.8 - 5.0, iTime * 0.8);
+
+    vec3 col = base;
+    col = mix(col, secondary, smoothstep(0.35, 0.68, n1) * 0.48);
+    col = mix(col, tertiary, smoothstep(0.52, 0.84, n2) * 0.33);
+    col = mix(col, primary, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.45);
+    col = mix(col, accent, smoothstep(0.5, 0.8, n3) * 0.4);
+    return col;
+}
+
+// Good-quality 2D -> 4D hash (Dave Hoskins' public-domain hash-without-sine family).
+// Returns four well-decorrelated values from a single seed, used instead of repeatedly
+// calling a scalar hash with small constants added to the same cell id - those correlate
+// and show up as visible patterning.
+vec4 rain_hash42(vec2 p) {
+    vec4 p4 = fract(vec4(p.x, p.y, p.x, p.y) * vec4(0.1031, 0.1030, 0.0973, 0.1099));
+    p4 += dot(p4, p4.wzxy + 33.33);
+    return fract((p4.xxyz + p4.yzzw) * p4.zywx);
+}
+
+// Each droplet contributes a small paraboloid "dome" of height (zero outside its radius)
+// instead of a signed distance; domes are summed (not blended) into heightSum/gradSum so
+// overlapping droplets merge into one smooth bump automatically.
+void rain_addDome(vec2 uv, vec2 c, float r, inout float heightSum, inout vec2 gradSum) {
+    vec2 duv = uv - c;
+    float d2 = dot(duv, duv);
+    float rr = r * r;
+    if (d2 < rr) {
+        heightSum += rr - d2;
+        gradSum += -2.0 * duv;
+    }
+}
+
+// Dense field of small static droplets stuck to the pane, scattered on a jittered grid
+// with each one slowly fading in and out over time so the field renews itself instead of
+// looking frozen in place. Pure per-pixel procedural decoration - not simulated state,
+// so it costs nothing to update and needs no uniform of its own.
+void rain_staticField(vec2 uv, float iTime, inout float heightSum, inout vec2 gradSum) {
+    float cellSize = 0.042;
+    vec2 baseCell = floor(uv / cellSize);
+    float density = rain_noise(uv * 3.2 + 11.0);
+
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            vec2 cId = baseCell + vec2(float(dx), float(dy));
+            vec4 h = rain_hash42(cId);
+            float threshold = mix(0.35, 0.7, density);
+            if (h.x < threshold) continue;
+
+            vec2 jitter = h.yz;
+            vec2 c = (cId + jitter) * cellSize;
+            float sizeT = pow(h.w, 2.2);
+            float r = mix(0.006, 0.024, sizeT);
+
+            float phase = rain_hash42(cId * 1.7 + 9.3).x;
+            float life = fract(iTime * 0.045 + phase);
+            float fade = smoothstep(0.0, 0.15, life) * smoothstep(1.0, 0.82, life);
+            r *= fade;
+            if (r < 0.0015) continue;
+
+            rain_addDome(uv, c, r, heightSum, gradSum);
+        }
+    }
+}
+
+float rainLayer(
+    vec2 uv, float columns, float rows, float speedBase, float speedVar, float dropLenBase,
+    float tilt, float widthBase, float widthVar, float iTime, float seed
+) {
+    float x = uv.x + uv.y * tilt;
     float col = x * columns;
     float colId = floor(col);
     float colFrac = fract(col);
-
-    float row = y * rows;
 
     float streaks = 0.0;
 
@@ -242,29 +507,42 @@ float rainLayer(vec2 uv, float columns, float rows, float speed, float dropLen, 
         float cId = colId + float(dc);
 
         float rnd = rain_hash(vec2(cId, seed));
-        if (rnd < 0.55) continue;
+        if (rnd < 0.35) continue;
 
-        float xPos = rain_hash(vec2(cId * 1.73, seed + 7.0)) * 0.4 + 0.3;
+        float xPos = rain_hash(vec2(cId * 1.73, seed + 7.0)) * 0.6 + 0.2;
         float px = colFrac - (float(dc) + xPos);
 
-        float width = 0.02 + rnd * 0.015;
-        float xFade = exp(-0.5 * (px * px) / (width * width));
+        // Per-streak size/speed/length variety, not just two fixed layer presets -
+        // every drop gets its own width, fall speed, and streak length from its column hash.
+        float width = widthBase * (0.7 + rain_hash(vec2(cId, seed + 13.0)) * widthVar);
+        float speed = speedBase * (0.7 + rain_hash(vec2(cId, seed + 11.0)) * speedVar);
+        float dropLen = dropLenBase * (0.7 + rain_hash(vec2(cId, seed + 17.0)) * 0.6);
 
-        // Per-column phase offset so drops don't align across columns
+        // Each stream gets its own tilt, not one shared global slant - some streaks lean
+        // left, some right, some nearly straight down, like gusty wind hitting different
+        // streaks differently instead of a uniform wind direction.
+        float tiltJitter = (rain_hash(vec2(cId, seed + 29.0)) - 0.5) * 1.8;
+        px += uv.y * tiltJitter;
+
+        // Wider, softer falloff from the centerline (smaller exponent) - reads as a
+        // blurry smear instead of a crisp line, no flat plateau either way.
+        float edge = exp(-1.6 * (px * px) / (width * width));
+
+        float y = uv.y - iTime * speed;
+        float row = y * rows;
         float phase = rain_hash(vec2(cId, seed + 3.0));
         float dropY = fract(row + phase);
 
-        // Drop: visible from 0 to dropLen, gap from dropLen to 1
-        float head = smoothstep(0.0, 0.06, dropY);
-        float tail = smoothstep(dropLen, dropLen - 0.1, dropY);
+        float head = smoothstep(0.0, 0.04, dropY);
+        float tail = smoothstep(dropLen, dropLen - 0.15, dropY);
         float yFade = head * tail;
 
-        // Brightness tapers toward tail (brighter at head)
-        float taper = 1.0 - dropY / dropLen;
-        taper = clamp(taper, 0.0, 1.0);
+        // uv.y grows downward, and increasing dropY tracks increasing uv.y here, so the
+        // drop's leading (falling) edge is at the HIGH end of dropY, not dropY=0 - bright
+        // there, fading toward dropY=0 (where the drop "already was", trailing above it).
+        float brightFactor = mix(0.22, 1.0, clamp(dropY / dropLen, 0.0, 1.0));
 
-        float brightness = (0.4 + rain_hash(vec2(cId, seed + 5.0)) * 0.4) * (0.5 + taper * 0.5);
-        streaks += xFade * yFade * brightness;
+        streaks += edge * yFade * brightFactor;
     }
 
     return streaks;
@@ -276,28 +554,99 @@ void main() {
     float aspect = u_item_width / u_item_height;
     vec2 uvA = vec2(uv.x * aspect, uv.y);
 
-    // Atmospheric haze
-    float n1 = rain_noise(uv * 2.0 + vec2(iTime * 0.02, iTime * 0.015));
-    float n2 = rain_noise(uv * 4.0 - vec2(iTime * 0.03, -iTime * 0.01));
-    float n3 = rain_noise(uv * 8.0 + vec2(-iTime * 0.01, iTime * 0.025));
-    float haze = n1 * 0.5 + n2 * 0.3 + n3 * 0.2;
-    haze = smoothstep(0.25, 0.7, haze) * 0.25;
+    // Glass droplets: summed parabolic "domes" (heights simply add, so overlapping drops
+    // merge into one smooth bump with no per-pair blend-radius tuning) - the same
+    // height-field + lighting math validated in the lab's Glass/Flow shader-only
+    // iteration. A dense procedural static field gives the pane its frosted texture (pure
+    // per-pixel decoration, no state to simulate); the real simulated drops (u_drops) are
+    // the bigger falling/merging ones with actual physics driving their position.
+    float heightSum = 0.0;
+    vec2 gradSum = vec2(0.0);
+    rain_staticField(uvA, iTime, heightSum, gradSum);
+    // Each real drop draws as a short trailing chain of shrinking domes (not a single
+    // circle) - same technique as the lab's runnerDrop(), now lengthed by the drop's own
+    // simulated momentum (u_drops[i].w) instead of a hashed fake speed.
+    for (int i = 0; i < 24; i++) {
+        if (i < u_dropCount) {
+            vec4 drop = u_drops[i];
+            vec2 c = vec2(drop.x * aspect, drop.y);
+            float rCur = drop.z;
+            float tailStep = drop.z * (0.65 + drop.w * 0.6);
+            for (int k = 0; k < 5; k++) {
+                vec2 duv = uvA - c;
+                float r2 = rCur * rCur;
+                float d2 = dot(duv, duv);
+                if (d2 < r2) {
+                    heightSum += r2 - d2;
+                    gradSum += -2.0 * duv;
+                }
+                c -= vec2(0.0, tailStep);
+                rCur *= 0.65;
+            }
+        }
+    }
 
-    // 3 rain layers: columns, rows (drops per unit height), speed, dropLen (0-1 fraction visible), tilt
-    float tilt = 0.07;
-    float r1 = rainLayer(uvA, 40.0, 3.5, 2.4, 0.35, tilt,          iTime, 0.0);
-    float r2 = rainLayer(uvA, 25.0, 2.5, 1.7, 0.40, tilt * 0.7,    iTime, 100.0);
-    float r3 = rainLayer(uvA, 14.0, 1.8, 1.1, 0.50, tilt * 0.4,    iTime, 200.0);
+    // Epsilon lowered from the first pass's 0.00012 (~r=0.011) to ~r=0.006, so the
+    // smaller static-field droplets clear the threshold too instead of only the bigger
+    // simulated ones - matching the lab's densely-covered "wet pane" read.
+    float inside = smoothstep(0.0, 0.00004, heightSum);
 
-    float rain = r1 * 0.3 + r2 * 0.4 + r3 * 0.55;
-    rain = clamp(rain, 0.0, 1.0);
+    // Surface normal from the height field's gradient - clamped so dense overlapping
+    // areas (where several domes' gradients stack) don't blow out into noise.
+    vec2 slope = clamp(gradSum * 16.0, vec2(-2.5), vec2(2.5));
+    vec3 normal = normalize(vec3(slope, 1.0));
+    vec3 lightDir = normalize(vec3(-0.4, -0.6, 0.65));
 
-    // Compose: background → haze → rain
+    // Refraction: bend the sampled rain-streak AND fog-backdrop position by the surface
+    // tilt - this is what makes a droplet read as a lens bulging the scene behind it
+    // (the lab's real-texture refraction), not just a flat tinted circle. Fog is pulled a
+    // touch harder than the streaks (1.3x vs 1.0x) since it is the richer, more legible
+    // backdrop - the same relative weighting the lab's two-texture (sharp/blurred) sample
+    // achieved by using different source resolutions.
+    vec2 uvOffset = normal.xy * 0.4 * inside;
+    vec2 streakUvA = uvA - uvOffset;
+    vec2 fogUvA = uvA - uvOffset * 1.3;
+
+    // Single cheap SMOOTH noise octave, much lower weight than v1 - atmosphere, not mud.
+    float haze = rain_noise(uv * 2.5 + vec2(iTime * 0.02, iTime * 0.015));
+    haze = smoothstep(0.3, 0.7, haze) * 0.08;
+
+    // 2 layers with a clear foreground/background split instead of 3 similar ones:
+    // foreground is fewer, wider, faster, brighter; background is more, thinner, slower, dimmer.
+    float tilt = 0.35;
+    //                          uv         cols  rows  speed var  dropLen tilt        width var   time   seed
+    float fg = rainLayer(streakUvA, 12.0, 2.2, 7.0, 0.7, 0.45, tilt,       0.045, 0.7, iTime, 0.0);
+    float bg = rainLayer(streakUvA, 22.0, 1.6, 3.8, 0.8, 0.55, tilt * 0.6, 0.022, 0.7, iTime, 100.0);
+
+    float rain = clamp(fg + bg * 0.4, 0.0, 1.0);
+
     vec3 hazeColor = particleColor(vec3(0.82, 0.85, 0.9), vec3(0.55, 0.6, 0.68));
-    vec3 col = mix(u_bg_color.rgb, hazeColor, haze);
+    vec3 col = mix(rainFogColor(fogUvA, iTime), hazeColor, haze);
 
-    vec3 rainTint = particleColor(vec3(0.88, 0.91, 1.0), vec3(0.35, 0.45, 0.6));
-    vec3 resultRGB = mix(col, rainTint, rain * 0.45);
+    // Neutral grey, not blue - a noticeable blue cast (the old vec3(0.55, 0.65, 0.8) had
+    // a 0.25 R-to-B gap) read fine over a flat dark background, but now stacks with the
+    // fog's own blue/teal wash and the streaks cover enough of the card at this density
+    // to dominate the whole card's color instead of reading as individual water lines.
+    // Mix weight also dropped (0.75 -> 0.4) so the fog shows through the streaks instead
+    // of being painted over by them - more "wet glass over a backdrop", less "blue film".
+    vec3 rainTint = particleColor(vec3(0.68, 0.7, 0.74), vec3(0.42, 0.46, 0.5));
+    vec3 resultRGB = mix(col, rainTint, rain * 0.4);
+
+    // Water-surface shading, all derived from the one continuous normal field: a soft
+    // specular highlight where the surface faces the light, and a grazing-angle edge
+    // darkening (fresnel-like falloff from normal.z) instead of a hard uniform dark ring
+    // around every circle - this is what keeps merged drops reading as one smooth shape.
+    // Exponent raised (24 -> 40) and intensity cut by more than half (1.1 -> 0.45) - the
+    // first pass's highlight blew out into a flat white wash across most of each droplet
+    // instead of a small bright point, since this card never has a strong single light
+    // source to justify a wide, intense specular lobe.
+    float spec = pow(max(dot(normal, lightDir), 0.0), 40.0);
+    resultRGB += vec3(0.95, 0.98, 1.0) * spec * 0.45 * inside;
+
+    float edgeDark = pow(clamp(1.0 - normal.z, 0.0, 1.0), 2.2) * inside;
+    resultRGB -= vec3(0.05, 0.06, 0.07) * edgeDark;
+
+    resultRGB = mix(resultRGB, resultRGB * 1.08 + vec3(0.015, 0.018, 0.022), inside * 0.4);
 
     float mask = cornerMask();
     float finalAlpha = mask * u_bg_color.a;
@@ -313,7 +662,20 @@ float cloud_hash(vec2 p) {
     return fract(p.x * p.y);
 }
 
-float cloud_noise(vec2 p) {
+// --- Fog: soft drifting mist wash (Vanta.js Fog reference look) ---
+// Vanta.js's Fog demo recursively self-warps FBM (f(p+fbm(p+fbm(p)))) at full-page hero
+// scale, where there's enough screen real estate for the warped folds to read as
+// atmospheric depth. That exact recursive-warp technique was already tried for this
+// card-sized effect and rejected - shrunk down to Control Center size it just read as a
+// shapeless colored smudge, not mist (see cloudIconDensity()'s comment above for the full
+// technique history). The plain multi-octave FBM + layered color blend already proven as
+// the drifting backdrop behind Rain/Sun/Snow/Stars (rainFogFbm/rainFogColor et al. in
+// their own shader sources) gets the same soft, slowly-drifting quality WITHOUT the
+// recursive self-warp, and already reads correctly at this size - so Fog reuses that same
+// machinery as its own primary visual (not just a backdrop behind a foreground shape)
+// instead of the icon-lobe approach Cloud uses, with a denser/cooler mist palette
+// appropriate to being the main subject.
+float fogNoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
@@ -324,76 +686,137 @@ float cloud_noise(vec2 p) {
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-float turbulence(vec2 p, float iTime) {
-    float t = 0.0;
-    float scale = 1.0;
+float fogWashFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
     for (int i = 0; i < 5; i++) {
-        t += abs(cloud_noise(p * scale + iTime * 0.1 * scale)) / scale;
-        scale *= 2.0;
+        float fi = float(i + 1);
+        v += amp * fogNoise(p + vec2(iTime * 0.025 * fi, -iTime * 0.016 * fi));
+        p *= 2.0;
+        amp *= 0.55;
     }
-    return t;
+    return v;
+}
+
+vec3 fogWashColor(vec2 uv, float iTime) {
+    vec3 base = mix(u_bg_color.rgb * 0.72, u_bg_color.rgb * 1.0, uv.y);
+
+    // The previous attempt at contrast linearly re-centered/stretched each fbm octave
+    // (clamp((n-0.5)*1.9+0.5, 0, 1)) BEFORE thresholding it - since fbm output is already
+    // smooth and low-frequency at this scale, stretching it that hard just clipped most of
+    // the card to one flat plateau (either fully "deep" or fully "mist") instead of adding
+    // texture. The actual fix is higher-frequency noise (more, smaller patches = visible
+    // structure across the whole card) plus full-strength (not partial) layer blending, not
+    // a post-hoc stretch on top of coarse noise.
+    bool hasAccent = length(u_accent_color.rgb) > 0.05;
+    // Demo/no-theme fallback keeps the original neutral-grey mist; real app always has an
+    // accent (Material3 Primary is never unset), so this only matters for the lab tool.
+    vec3 accentTint = hasAccent ? u_accent_color.rgb : vec3(0.65, 0.68, 0.74);
+
+    // Accent baked directly into both tonal extremes (not a separate overlay layer riding
+    // a noise mask) so the theme color reads consistently through the whole wash instead
+    // of only flashing in whichever patches happen to cross a threshold.
+    vec3 mist = mix(particleColor(vec3(0.97, 0.98, 1.0), vec3(0.82, 0.85, 0.9)), accentTint, 0.3);
+    vec3 deep = mix(particleColor(vec3(0.3, 0.34, 0.44), vec3(0.18, 0.22, 0.3)), accentTint, 0.35);
+
+    // Higher frequency than the first pass (1.5/2.3 -> 2.6/3.8) so patches are smaller and
+    // more numerous - that's what actually reads as "textured fog" instead of one or two
+    // blobs filling half the card.
+    float n1 = fogWashFbm(uv * 2.6, iTime);
+    float n2 = fogWashFbm(uv * 3.8 + 10.0, iTime * 1.2);
+    float n3 = fogWashFbm(uv * 1.6 - 5.0, iTime * 0.6);
+
+    // Lower thresholds than the previous pass (0.35-0.6/0.4-0.65 -> 0.25-0.5/0.3-0.55) so
+    // more of the card's area crosses into "deep"/"mist" territory instead of staying base
+    // background color - a denser, thicker-looking mist instead of a light haze.
+    vec3 col = base;
+    col = mix(col, deep, smoothstep(0.25, 0.5, n2));
+    col = mix(col, mist, smoothstep(0.3, 0.55, n1));
+    col = mix(col, mix(accentTint, vec3(1.0), 0.5), pow(clamp(n3, 0.0, 1.0), 2.2) * 0.25);
+    return col;
+}
+
+// --- Cloud: same full-opacity wash technique as Fog, grey + theme accent palette ---
+// The hand-drawn icon-lobe silhouette read as flat and cartoonish. Sun's warm four-hue
+// backdrop read as a muddy olive swamp without Sun's disc to sell it as "light". A
+// variable-alpha "coverage" cutout (sky visible through gaps between cloud puffs) was
+// tried next to visually distinguish Cloud from Fog's wall-to-wall wash - but a hard alpha
+// edge over this fbm field only antialiases cleanly at the full demo-grid tile's
+// resolution; shrunk down to the actual small Control Center card, the edge spans too few
+// physical pixels and shows every jagged step of the underlying value-noise grid. Back to
+// full-opacity compositing (same as Fog, which never had this problem) with the accent
+// tint baked in like Fog's mist/deep tones, grey instead of Fog's palette, and distinct
+// noise frequencies/offsets from Fog's 2.6/3.8 at offset 10.0 so the two don't trace the
+// same patch layout.
+//
+// Separate from fogWashFbm: that function drifts each of its 5 octaves at a DIFFERENT
+// speed (iTime * 0.025 * fi, fi = 1..5) - fine for Fog's slow 0.02 outer time scale, but at
+// Cloud's higher drift and different frequency the fast-moving high-frequency octaves
+// visibly "boil"/flicker against the slower low-frequency ones in motion (invisible in a
+// still screenshot, obvious live). This copy uses only 3 octaves, all drifting at the same
+// speed, to remove that per-octave relative motion entirely.
+float cloudWashFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
+    vec2 drift = vec2(iTime * 0.02, -iTime * 0.013);
+    // Going back to 5 octaves (all sharing one fixed drift vector) brought the flicker
+    // right back, so it wasn't the per-octave drift speed after all - it's that the
+    // FINEST octave's spatial frequency aliases at this card's small render resolution no
+    // matter how it's time-shifted, any animation of it reads as noisy flicker. The first
+    // 3 octaves (same frequency range as the working no-flicker version) keep drifting
+    // normally for slow cloud motion; a 4th, finer octave is added WITHOUT the `drift`
+    // offset - same spatial detail/roughness, but static over time, so it can't alias
+    // into visible motion.
+    for (int i = 0; i < 3; i++) {
+        v += amp * fogNoise(p + drift);
+        p *= 2.0;
+        amp *= 0.55;
+    }
+    v += amp * fogNoise(p);
+    return v;
+}
+
+vec3 cloudSkyColor(vec2 uv, float iTime) {
+    vec3 base = mix(u_bg_color.rgb * 0.76, u_bg_color.rgb * 0.98, uv.y);
+
+    bool hasAccent = length(u_accent_color.rgb) > 0.05;
+    vec3 accentTint = hasAccent ? u_accent_color.rgb : vec3(0.6, 0.63, 0.68);
+
+    vec3 mist = mix(particleColor(vec3(0.94, 0.95, 0.97), vec3(0.85, 0.87, 0.91)), accentTint, 0.22);
+    vec3 deep = mix(particleColor(vec3(0.4, 0.43, 0.5), vec3(0.28, 0.31, 0.38)), accentTint, 0.3);
+
+    float n1 = cloudWashFbm(uv * 1.9 + vec2(842.0, -266.0), iTime);
+    float n2 = cloudWashFbm(uv * 3.1 + vec2(-519.0, 333.0), iTime * 1.3);
+
+    vec3 col = base;
+    col = mix(col, deep, smoothstep(0.35, 0.6, n2));
+    col = mix(col, mist, smoothstep(0.4, 0.65, n1));
+    // Rounder, more clumped highlight where BOTH noise fields are high at once (same
+    // product trick Sun's backdrop uses for its "primary" layer) - sequential mixing alone
+    // just gradates smoothly from deep to mist, which is why it read as a soft wash rather
+    // than distinct puffy clouds; an AND-like product carves out localized rounder clumps
+    // instead, which is the actual shape cue "looks cloudy".
+    col = mix(col, mist, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.5);
+    return col;
 }
 
 void main() {
     vec2 uv = v_uv;
-    vec4 col = vec4(u_bg_color.rgb, 1.0);
-
-    float timeSpeed, layerScale1, layerScale2, layerScale3;
-    float flowSpeed1, flowSpeed2;
-    float densityMin, densityMax;
-    float baseOpacity;
-    float pulseAmount;
+    float aspect = u_item_width / u_item_height;
+    vec2 uvA = vec2(uv.x * aspect, uv.y);
+    float mask = cornerMask();
+    float finalAlpha = u_bg_color.a * mask;
 
     if (u_alternative > 0.5) {
-        timeSpeed = 0.03;
-        layerScale1 = 1.0;
-        layerScale2 = 2.5;
-        layerScale3 = 2.0;
-        flowSpeed1 = 0.0;
-        flowSpeed2 = 0.02;
-        densityMin = 0.1;
-        densityMax = 0.9;
-        baseOpacity = 0.75;
-        pulseAmount = 0.05;
-    } else {
-        timeSpeed = 0.08;
-        layerScale1 = 2.0;
-        layerScale2 = 4.0;
-        layerScale3 = 6.0;
-        flowSpeed1 = 0.03;
-        flowSpeed2 = 0.04;
-        densityMin = 0.35;
-        densityMax = 0.75;
-        baseOpacity = 0.4;
-        pulseAmount = 0.15;
+        float iTime = u_time * 0.02;
+        vec3 fogCol = fogWashColor(uvA, iTime);
+        gl_FragColor = vec4(fogCol * finalAlpha, finalAlpha);
+        return;
     }
 
-    float iTime = u_time * timeSpeed;
-
-    vec2 flow1 = vec2(iTime * flowSpeed1, iTime * flowSpeed1 * 0.7);
-    vec2 flow2 = vec2(-iTime * flowSpeed2, iTime * flowSpeed2 * 0.8);
-
-    float fog1 = cloud_noise(uv * layerScale1 + flow1);
-    float fog2 = cloud_noise(uv * layerScale2 + flow2);
-    float fog3 = turbulence(uv * layerScale3, iTime);
-
-    float fogPattern = fog1 * 0.5 + fog2 * 0.3 + fog3 * 0.2;
-    float fogDensity = smoothstep(densityMin, densityMax, fogPattern);
-
-    float pulse = sin(iTime * 0.4) * pulseAmount + (1.0 - pulseAmount);
-    fogDensity *= pulse;
-
-    vec3 hazeColor = particleColor(vec3(0.88, 0.90, 0.93), vec3(0.5, 0.55, 0.62));
-    float hazeOpacity = fogDensity * baseOpacity;
-    vec3 fogContribution = hazeColor * hazeOpacity;
-    float fogAlpha = hazeOpacity;
-
-    vec3 resultRGB = fogContribution + col.rgb * (1.0 - fogAlpha);
-    float resultAlpha = fogAlpha + col.a * (1.0 - fogAlpha);
-
-    float mask = cornerMask();
-    float finalAlpha = resultAlpha * mask * u_bg_color.a;
-    gl_FragColor = vec4(resultRGB * (finalAlpha / max(resultAlpha, 0.001)), finalAlpha);
+    float iTime = u_time * 0.025;
+    vec3 cloudCol = cloudSkyColor(uvA, iTime);
+    gl_FragColor = vec4(cloudCol * finalAlpha, finalAlpha);
 }
 )";
 
@@ -411,6 +834,52 @@ vec2 star_hash2(vec2 p) {
     return fract(vec2(p.x * p.y, p.y * p.x));
 }
 
+float star_noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = star_hash(i);
+    float b = star_hash(i + vec2(1.0, 0.0));
+    float c = star_hash(i + vec2(0.0, 1.0));
+    float d = star_hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// Drifting night-sky nebula backdrop, same FBM technique as Rain/Sun/Snow's fog but with
+// a cool indigo/violet/teal palette instead of their warm gold+olive one - a night sky
+// should read cold, not like the same daytime haze recolored.
+float starFogFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+        float fi = float(i + 1);
+        v += amp * star_noise(p + vec2(iTime * 0.02 * fi, -iTime * 0.015 * fi));
+        p *= 2.0;
+        amp *= 0.5;
+    }
+    return v;
+}
+
+vec3 starNebulaColor(vec2 uv, float iTime) {
+    vec3 base = mix(u_bg_color.rgb * 0.7, u_bg_color.rgb * 0.95, uv.y);
+
+    vec3 indigo = particleColor(vec3(0.192, 0.165, 0.329), vec3(0.14, 0.12, 0.22));
+    vec3 violet = particleColor(vec3(0.329, 0.204, 0.388), vec3(0.22, 0.14, 0.26));
+    vec3 teal = particleColor(vec3(0.165, 0.302, 0.376), vec3(0.1, 0.2, 0.24));
+    vec3 roseDust = particleColor(vec3(0.388, 0.247, 0.302), vec3(0.24, 0.16, 0.19));
+
+    float n1 = starFogFbm(uv * 2.0, iTime);
+    float n2 = starFogFbm(uv * 3.2 + 10.0, iTime * 1.2);
+    float n3 = starFogFbm(uv * 2.6 - 5.0, iTime * 0.8);
+
+    vec3 col = base;
+    col = mix(col, indigo, smoothstep(0.35, 0.68, n1) * 0.55);
+    col = mix(col, violet, smoothstep(0.52, 0.84, n2) * 0.4);
+    col = mix(col, teal, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.35);
+    col = mix(col, roseDust, smoothstep(0.5, 0.8, n3) * 0.3);
+    return col;
+}
+
 float stars(vec2 uv, float density, float iTime) {
     vec2 gridUV = uv * density;
     vec2 gridID = floor(gridUV);
@@ -426,15 +895,24 @@ float stars(vec2 uv, float density, float iTime) {
             vec2 starPos = star_hash2(cellID);
 
             float starChance = star_hash(cellID + vec2(12.345, 67.890));
-            if (starChance > 0.85) {
+            if (starChance > 0.7) {
                 vec2 toStar = (offset + starPos - gridPos);
                 float dist = length(toStar) * density;
-                float starSize = 1.5;
+                float starSize = 2.4;
                 float brightness = star_hash(cellID + vec2(23.456, 78.901)) * 0.6 + 0.4;
 
-                float twinkleSpeed = star_hash(cellID + vec2(34.567, 89.012)) * 3.0 + 2.0;
-                float twinklePhase = iTime * twinkleSpeed + star_hash(cellID) * 6.28;
-                float twinkle = pow(sin(twinklePhase) * 0.5 + 0.5, 3.0);
+                // Two independent frequencies per star (not just phase-offset copies of
+                // the same single sine) mixed by a per-star weight, plus a per-star
+                // sharpness exponent - some stars now pulse in slow smooth glows, others
+                // in quick sharp flickers, instead of every star sharing one pulse shape.
+                float twinkleSpeed1 = star_hash(cellID + vec2(34.567, 89.012)) * 3.0 + 2.0;
+                float twinkleSpeed2 = star_hash(cellID + vec2(45.678, 90.123)) * 7.0 + 4.0;
+                float twinkleMix = star_hash(cellID + vec2(56.789, 11.234));
+                float sharpness = star_hash(cellID + vec2(67.891, 22.345)) * 3.5 + 1.5;
+                float phase1 = iTime * twinkleSpeed1 + star_hash(cellID) * 6.28;
+                float phase2 = iTime * twinkleSpeed2 + star_hash(cellID + vec2(1.0, 1.0)) * 6.28;
+                float wave = mix(sin(phase1), sin(phase2), twinkleMix) * 0.5 + 0.5;
+                float twinkle = pow(wave, sharpness);
 
                 float star = 0.0;
                 if (dist < starSize) {
@@ -460,10 +938,9 @@ float stars(vec2 uv, float density, float iTime) {
 void main() {
     vec2 uv = v_uv;
     float iTime = u_time * 0.12;
-    vec4 col = vec4(u_bg_color.rgb, 1.0);
-
     float aspect = u_item_width / u_item_height;
     vec2 uvAspect = vec2(uv.x * aspect, uv.y);
+    vec4 col = vec4(starNebulaColor(uvAspect, iTime * 0.6), 1.0);
 
     float stars1 = stars(uvAspect, 40.0, iTime);
     float stars2 = stars(uvAspect + vec2(0.5, 0.3), 25.0, iTime * 1.3);
@@ -551,8 +1028,13 @@ void EffectProgram::initProgram(EffectType type, const char* fragSource) {
   pd.itemWidthLoc = glGetUniformLocation(id, "u_item_width");
   pd.itemHeightLoc = glGetUniformLocation(id, "u_item_height");
   pd.bgColorLoc = glGetUniformLocation(id, "u_bg_color");
+  pd.accentColorLoc = glGetUniformLocation(id, "u_accent_color");
   pd.radiusLoc = glGetUniformLocation(id, "u_radius");
   pd.alternativeLoc = glGetUniformLocation(id, "u_alternative");
+  pd.dropsLoc = glGetUniformLocation(id, "u_drops");
+  pd.dropCountLoc = glGetUniformLocation(id, "u_dropCount");
+  pd.flakesLoc = glGetUniformLocation(id, "u_flakes");
+  pd.flakeCountLoc = glGetUniformLocation(id, "u_flakeCount");
 
   if (pd.positionLoc < 0 || pd.surfaceSizeLoc < 0 || pd.transformLoc < 0) {
     throw std::runtime_error("failed to query effect shader locations");
@@ -602,11 +1084,43 @@ void EffectProgram::draw(
   if (pd.bgColorLoc >= 0) {
     glUniform4f(pd.bgColorLoc, style.bgColor.r, style.bgColor.g, style.bgColor.b, style.bgColor.a);
   }
+  if (pd.accentColorLoc >= 0) {
+    glUniform4f(pd.accentColorLoc, style.accentColor.r, style.accentColor.g, style.accentColor.b, style.accentColor.a);
+  }
   if (pd.radiusLoc >= 0) {
     glUniform1f(pd.radiusLoc, style.radius);
   }
   if (pd.alternativeLoc >= 0) {
     glUniform1f(pd.alternativeLoc, isFog ? 1.0F : 0.0F);
+  }
+  if (pd.dropsLoc >= 0) {
+    static_assert(kMaxRainDrops <= 24, "kRainFragment's u_drops array is sized for 24 drops");
+    std::array<float, kMaxRainDrops * 4> dropData{};
+    for (int i = 0; i < style.dropCount; ++i) {
+      const auto& drop = style.drops[static_cast<std::size_t>(i)];
+      dropData[static_cast<std::size_t>(i) * 4 + 0] = drop.x;
+      dropData[static_cast<std::size_t>(i) * 4 + 1] = drop.y;
+      dropData[static_cast<std::size_t>(i) * 4 + 2] = drop.radius;
+      dropData[static_cast<std::size_t>(i) * 4 + 3] = drop.depth;
+    }
+    glUniform4fv(pd.dropsLoc, kMaxRainDrops, dropData.data());
+  }
+  if (pd.dropCountLoc >= 0) {
+    glUniform1i(pd.dropCountLoc, style.dropCount);
+  }
+  if (pd.flakesLoc >= 0) {
+    static_assert(kMaxSnowFlakes <= 60, "kSnowFragment's u_flakes array is sized for 60 flakes");
+    std::array<float, kMaxSnowFlakes * 3> flakeData{};
+    for (int i = 0; i < style.flakeCount; ++i) {
+      const auto& flake = style.flakes[static_cast<std::size_t>(i)];
+      flakeData[static_cast<std::size_t>(i) * 3 + 0] = flake.x;
+      flakeData[static_cast<std::size_t>(i) * 3 + 1] = flake.y;
+      flakeData[static_cast<std::size_t>(i) * 3 + 2] = flake.radius;
+    }
+    glUniform3fv(pd.flakesLoc, kMaxSnowFlakes, flakeData.data());
+  }
+  if (pd.flakeCountLoc >= 0) {
+    glUniform1i(pd.flakeCountLoc, style.flakeCount);
   }
 
   auto posAttr = static_cast<GLuint>(pd.positionLoc);
