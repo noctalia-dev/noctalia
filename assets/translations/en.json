@@ -1369,6 +1369,13 @@
       "write": "Failed to save settings."
     },
     "export-config": {
+      "credentials-blank": "Blank",
+      "credentials-blank-description": "Keeps credential keys with empty values, so you can see what to fill in after importing.",
+      "credentials-keep": "Keep",
+      "credentials-keep-description": "Exports credentials as configured. Keep the file private.",
+      "credentials-omit": "Omit",
+      "credentials-omit-description": "Leaves credentials out of the file.",
+      "credentials-title": "Credentials",
       "export": "Export",
       "full-effective-description": "Exports every active setting, including built-in defaults. Useful for inspection or sharing a snapshot, but pins current defaults explicitly.",
       "full-effective-save-title": "Save Full Effective Config",
@@ -1376,7 +1383,7 @@
       "merged-user-description": "Combines config files and GUI overrides into one TOML file. Built-in defaults stay implicit.",
       "merged-user-save-title": "Save Merged User Config",
       "merged-user-title": "Merged User Config (Recommended)",
-      "privacy-warning-description": "Both export modes may include API keys, passwords, or other sensitive data stored in your config, including by plugins. Treat exported files as private. Review and remove sensitive data before sharing.",
+      "privacy-warning-description": "Credentials are calendar server URLs, git plugin source URLs, and plugin settings the plugin marks as secret. Anything else you typed into your config, such as a token in a command, is always exported. Review the file before sharing it.",
       "privacy-warning-title": "Exports may contain secrets",
       "title": "Export Config"
     },
@@ -1506,6 +1513,7 @@
         "keybinds": "Keybinds",
         "launcher": "Launcher",
         "location": "Location",
+        "lock-screen": "Lock Screen",
         "niri": "Niri",
         "notifications": "Notifications",
         "osd": "OSD",
@@ -1514,7 +1522,7 @@
         "popups": "Popups",
         "power": "Power",
         "screenshot": "Screenshot",
-        "security": "Security",
+        "security": "Privacy & Security",
         "services": "Services",
         "shell": "Shell",
         "system": "System",
@@ -1716,7 +1724,8 @@
         },
         "window-switcher-style": {
           "carousel": "Carousel",
-          "compact": "Compact"
+          "compact": "Compact",
+          "icons": "Icons Only"
         }
       },
       "theme": {
@@ -3189,6 +3198,11 @@
           "description": "Volume for shell sound effects",
           "label": "Sound Volume"
         },
+        "spectrum-frame-rate": {
+          "description": "Higher rates are smoother but use more resources",
+          "label": "Visualizer Frame Rate",
+          "option": "{fps} FPS"
+        },
         "sunrise": {
           "description": "Manual sunrise time in HH:MM, used when no location is set",
           "label": "Sunrise"
@@ -3252,7 +3266,7 @@
           "placeholder": "/path/to/sound.wav"
         },
         "volume-sounds": {
-          "description": "Play a sound when output or input volume changes",
+          "description": "Play a sound when the output volume changes",
           "label": "Volume Sounds"
         },
         "weather": {
@@ -3716,19 +3730,19 @@
           "label": "Show All Monitors"
         },
         "window-switcher-show-app-icon": {
-          "description": "Show each application's icon over its window preview",
+          "description": "Show each application's icon over its window preview; icons are always shown in Icons Only",
           "label": "Show Application Icon"
         },
         "window-switcher-show-caption": {
-          "description": "Show window titles and application names below their previews",
+          "description": "Show captions below previews, or the selected window title below the icon grid",
           "label": "Show Caption"
         },
         "window-switcher-show-count": {
-          "description": "Show the current position and total window count above the previews",
+          "description": "Show the current position and total window count above the switcher",
           "label": "Show Window Count"
         },
         "window-switcher-style": {
-          "description": "Choose the freestanding depth carousel or the boxed compact strip",
+          "description": "Choose the preview carousel, compact preview strip, or icons-only grid",
           "label": "Switcher Style"
         }
       },
@@ -4618,6 +4632,10 @@
           "description": "Allow mouse wheel and trackpad scroll actions on this widget",
           "label": "Enable Scroll"
         },
+        "expand": {
+          "description": "Grow into an equal share of the start or end lane's free space; elsewhere the spacer keeps its length",
+          "label": "Expand"
+        },
         "focused-color": {
           "description": "Color role used for the focused workspace; fixed hex colors are also supported",
           "label": "Focused Color"
@@ -4639,6 +4657,10 @@
         "font-weight": {
           "description": "Default inherits the bar font weight",
           "label": "Font Weight"
+        },
+        "force-app-icons": {
+          "description": "Force tray icons to use desktop app icons",
+          "label": "Force App Icons"
         },
         "format": {
           "description": "Time format string",
@@ -5255,6 +5277,24 @@
   },
   "ui": {
     "controls": {
+      "key-names": {
+        "backspace": "Backspace",
+        "delete": "Delete",
+        "down": "Down",
+        "end": "End",
+        "enter": "Enter",
+        "escape": "Escape",
+        "home": "Home",
+        "insert": "Insert",
+        "left": "Left",
+        "numpad-enter": "Numpad Enter",
+        "page-down": "Page Down",
+        "page-up": "Page Up",
+        "right": "Right",
+        "space": "Space",
+        "tab": "Tab",
+        "up": "Up"
+      },
       "search-picker": {
         "empty": "No results",
         "placeholder": "Search…"

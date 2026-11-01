@@ -66,7 +66,7 @@ namespace {
   // Multiline mode: vertical text inset, wheel step in lines, and the stub
   // highlight width (in em) marking a selected line break.
   constexpr float kMultilinePadV = Style::spaceSm;
-  constexpr int kWheelScrollLines = 3;
+  constexpr float kWheelScrollLines = 3.0F;
   constexpr float kSelectionLineBreakStubEm = 0.4F;
   constexpr float kLineYEpsilon = 0.5F;
 
@@ -202,6 +202,7 @@ Input::Input() {
     revealCursor();
     startCursorBlink();
     applyVisualState();
+    m_revealCursorYPending = true;
     markLayoutDirty();
     // Focus gain is delivered before pointer press in the same dispatch pass.
     // Defer scroll-to-caret so click placement sees the blurred scroll offset (0).
@@ -337,15 +338,14 @@ Input::Input() {
     if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL || m_inputArea == nullptr || !m_inputArea->focused()) {
       return false;
     }
-    const float delta = data.scrollSteps();
-    if (delta == 0.0F) {
-      return false;
-    }
     if (m_multiline) {
       // Pan the viewport without moving the caret.
-      const float step = currentLineHeight() * static_cast<float>(kWheelScrollLines);
+      const float delta = data.scrollDelta(currentLineHeight() * kWheelScrollLines);
+      if (delta == 0.0F) {
+        return false;
+      }
       const float previous = m_scrollOffsetY;
-      m_scrollOffsetY += delta > 0.0F ? -step : step;
+      m_scrollOffsetY += delta;
       clampScrollOffsetY();
       if (std::abs(m_scrollOffsetY - previous) < 0.001F) {
         return false;
@@ -353,6 +353,10 @@ Input::Input() {
       updateInteractiveGeometry();
       markPaintDirty();
       return true;
+    }
+    const float delta = data.scrollSteps();
+    if (delta == 0.0F) {
+      return false;
     }
     resetUndoCoalescing();
     // Wheel should move caret through text, not pan viewport directly.
@@ -420,6 +424,9 @@ void Input::setValue(std::string_view value) {
 }
 
 void Input::setPlaceholder(std::string_view placeholder) {
+  if (m_placeholder == placeholder) {
+    return;
+  }
   m_placeholder = std::string(placeholder);
   if (m_value.empty()) {
     updateDisplayText();
@@ -428,7 +435,11 @@ void Input::setPlaceholder(std::string_view placeholder) {
 }
 
 void Input::setFontSize(float size) {
-  m_fontSize = std::max(1.0F, size);
+  const float next = std::max(1.0F, size);
+  if (m_fontSize == next) {
+    return;
+  }
+  m_fontSize = next;
   if (m_label != nullptr) {
     m_label->setFontSize(m_fontSize);
   }
@@ -436,7 +447,11 @@ void Input::setFontSize(float size) {
 }
 
 void Input::setControlHeight(float height) {
-  m_controlHeight = std::max(1.0F, height);
+  const float next = std::max(1.0F, height);
+  if (m_controlHeight == next) {
+    return;
+  }
+  m_controlHeight = next;
   markLayoutDirty();
 }
 
@@ -838,6 +853,7 @@ void Input::textInputDeactivated(TextInputService& service) {
 
 void Input::markTextContentChanged() {
   m_textMetricsDirty = true;
+  m_revealCursorYPending = true;
   markLayoutDirty();
 }
 
@@ -1027,18 +1043,23 @@ void Input::doLayout(Renderer& renderer) {
   // Wrapped stops depend on the viewport width, not just the text.
   if (m_multiline && m_stopsBuiltForWidth != textViewportWidth()) {
     m_textMetricsDirty = true;
+    m_revealCursorYPending = true;
   }
   rebuildCursorStops(renderer);
   recomputeContentLeadSlack(renderer, w, showClearButton);
 
-  if (m_inputArea != nullptr && m_inputArea->focused()) {
-    if (m_multiline) {
+  const bool focused = m_inputArea != nullptr && m_inputArea->focused();
+  if (m_multiline) {
+    // Only follow the caret when it moved or the text reflowed; any other
+    // relayout (e.g. a plugin re-render) keeps the user's wheel position.
+    if (focused && m_revealCursorYPending) {
       ensureCursorVisibleY();
     } else {
-      ensureCursorVisible();
+      clampScrollOffsetY();
     }
-  } else if (m_multiline) {
-    clampScrollOffsetY();
+    m_revealCursorYPending = false;
+  } else if (focused) {
+    ensureCursorVisible();
   } else {
     m_scrollOffset = restingScrollOffset();
   }

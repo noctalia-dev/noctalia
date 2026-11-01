@@ -872,6 +872,15 @@ namespace {
     if (path.size() == 3 && path[0] == "widget" && path[2] == "type") {
       return true;
     }
+
+    // migrateCustomSchedule() turns custom_schedule on for a times-only location whenever the key is
+    // absent. The no-override comparison therefore resolves to true too, but writing an explicit
+    // true override is exactly what opts the user's config out of that legacy migration. Dropping it
+    // as a no-op would re-trigger the migration and its "set custom_schedule = true" warning.
+    if (path.size() == 2 && path[0] == "location" && path[1] == "custom_schedule") {
+      return true;
+    }
+
     if (path.size() != 5 || path[0] != "bar" || path[2] != "monitor") {
       return false;
     }
@@ -1428,7 +1437,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   if (!effectiveOverrides.empty()) {
     const auto storedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, migrationDiag);
     if (storedVersion.has_value()) {
-      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, *storedVersion, migrationDiag);
+      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, merged, *storedVersion, migrationDiag);
     }
   }
   if (migrationDiag.hasErrors()) {
@@ -1438,7 +1447,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   deepMerge(merged, effectiveOverrides);
   merged.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
-  noctalia::config::normalizeLegacyConfig(merged, issues);
+  noctalia::config::normalizeLegacyConfig(merged, issues, &effectiveOverrides);
   if (mergeResult.loadedFiles.empty() && overrides.empty()) {
     parsed.idle.behaviors = defaultIdleBehaviors();
     parsed.bars.push_back(BarConfig{});
@@ -1472,13 +1481,13 @@ noctalia::config::schema::Diagnostics ConfigService::diagnosticsForOverrides(con
   if (!effectiveOverrides.empty()) {
     const auto storedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, diagnostics);
     if (storedVersion.has_value()) {
-      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, *storedVersion, diagnostics);
+      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, merged, *storedVersion, diagnostics);
     }
   }
   deepMerge(merged, effectiveOverrides);
   merged.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
-  noctalia::config::normalizeLegacyConfig(merged, issues);
+  noctalia::config::normalizeLegacyConfig(merged, issues, &effectiveOverrides);
   for (const auto& issue : issues) {
     diagnostics.warn(issue.path, issue.message, "config.legacy");
   }

@@ -404,7 +404,9 @@ void SettingsWindow::openConfigExportDialog() {
   m_configExportDialogModal->open(
       settings::ConfigExportDialogRequest{
           .scale = uiScale(),
-          .callback = [this](settings::ConfigExportMode mode) { saveConfigExport(mode); },
+          .callback = [this](settings::ConfigExportMode mode, noctalia::config::CredentialExportMode credentials) {
+            saveConfigExport(mode, credentials);
+          },
       }
   );
 }
@@ -497,11 +499,13 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
     m_widgetAddPopup->close();
   }
 
-  m_searchPickerPopup->setOnSelect([this, settingPath = request.settingPath, selectedValue = request.selectedValue,
-                                    onSelect = request.onSelect](const std::string& value) {
-    if (value == selectedValue) {
+  // `currentValue` follows picks so a picker that stays open skips re-applying the option already applied.
+  m_searchPickerPopup->setOnSelect([this, settingPath = request.settingPath, currentValue = request.selectedValue,
+                                    onSelect = request.onSelect](const std::string& value) mutable {
+    if (value == currentValue) {
       return;
     }
+    currentValue = value;
     if (onSelect) {
       onSelect(value);
       return;
@@ -544,6 +548,7 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
           .placeholder = std::move(request.placeholder),
           .emptyText = std::move(request.emptyText),
           .scale = uiScale(),
+          .keepOpenOnSelect = request.keepOpenOnSelect,
       }
   );
 }
@@ -2709,7 +2714,9 @@ void SettingsWindow::saveSupportReport() {
   }
 }
 
-void SettingsWindow::saveConfigExport(settings::ConfigExportMode mode) {
+void SettingsWindow::saveConfigExport(
+    settings::ConfigExportMode mode, noctalia::config::CredentialExportMode credentials
+) {
   if (m_config == nullptr) {
     return;
   }
@@ -2723,29 +2730,31 @@ void SettingsWindow::saveConfigExport(settings::ConfigExportMode mode) {
                                 : i18n::tr("settings.export-config.merged-user-save-title");
   options.extensions = {".toml"};
 
-  const bool opened = FileDialog::open(std::move(options), [this, mode](std::optional<std::filesystem::path> result) {
-    if (!result.has_value() || m_config == nullptr) {
-      return;
-    }
+  const bool opened =
+      FileDialog::open(std::move(options), [this, mode, credentials](std::optional<std::filesystem::path> result) {
+        if (!result.has_value() || m_config == nullptr) {
+          return;
+        }
 
-    auto path = *result;
-    if (path.extension().empty()) {
-      path += ".toml";
-    }
+        auto path = *result;
+        if (path.extension().empty()) {
+          path += ".toml";
+        }
 
-    const std::string content = mode == settings::ConfigExportMode::FullEffective ? m_config->buildEffectiveConfig()
-                                                                                  : m_config->buildMergedUserConfig();
-    if (!writeTextFileAtomic(path, content)) {
-      m_statusMessage = i18n::tr("settings.errors.export-config");
-      m_statusIsError = true;
-      requestSceneRebuild();
-      return;
-    }
+        const std::string content = mode == settings::ConfigExportMode::FullEffective
+            ? m_config->buildEffectiveConfig(credentials)
+            : m_config->buildMergedUserConfig(credentials);
+        if (!writeTextFileAtomic(path, content)) {
+          m_statusMessage = i18n::tr("settings.errors.export-config");
+          m_statusIsError = true;
+          requestSceneRebuild();
+          return;
+        }
 
-    m_statusMessage = i18n::tr("settings.window.export-config-saved");
-    m_statusIsError = false;
-    requestSceneRebuild();
-  });
+        m_statusMessage = i18n::tr("settings.window.export-config-saved");
+        m_statusIsError = false;
+        requestSceneRebuild();
+      });
 
   if (!opened) {
     m_statusMessage = i18n::tr("settings.errors.export-config");

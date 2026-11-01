@@ -35,7 +35,8 @@ namespace noctalia::config::schema {
         field(&AudioConfig::enablePowerSounds, "enable_power_sounds"),
         field(&AudioConfig::enableScreenshotSounds, "enable_screenshot_sounds"),
         field(&AudioConfig::soundVolume, "sound_volume", kUnitRange),
-        field(&AudioConfig::soundTheme, "sound_theme")
+        field(&AudioConfig::soundTheme, "sound_theme"),
+        field(&AudioConfig::spectrumFrameRate, "spectrum_frame_rate", kSpectrumFrameRateRange)
     };
     return s;
   }
@@ -641,6 +642,20 @@ namespace noctalia::config::schema {
         }),
     };
     return s;
+  }
+
+  PluginsConfig readPluginsSection(const toml::table& root) {
+    PluginsConfig plugins;
+    const auto* pluginsTbl = root["plugins"].as_table();
+    if (pluginsTbl != nullptr) {
+      Diagnostics sink;
+      readInto(*pluginsTbl, plugins, pluginsSchema(), "plugins", sink);
+    }
+    const bool sourcesConfigured = pluginsTbl != nullptr && (*pluginsTbl)["source"].as_array() != nullptr;
+    if (!sourcesConfigured && plugins.sources.empty()) {
+      plugins.sources = defaultPluginSources();
+    }
+    return plugins;
   }
 
   namespace {

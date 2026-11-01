@@ -582,7 +582,7 @@ Additional variables available inside hooks and templates:
 
 ## Terminal Tokens
 
-Every resolved theme exposes flattened terminal tokens. Built-in and community palettes provide curated terminal colors, while wallpaper-derived themes synthesize terminal colors from the generated palette.
+Every resolved theme exposes flattened terminal tokens. Built-in and community palettes provide curated terminal colors, while wallpaper-derived themes synthesize terminal colors from the generated palette. Generated ANSI red, green, yellow, blue, magenta, and cyan keep their standard hues, nudged slightly toward the palette's primary color, so they stay distinct from each other; bright colors are lighter than normal ones in dark mode and darker in light mode. ANSI black sits near the background and white near the foreground in both modes, as in base16 schemes.
 
 - `terminal_foreground`
 - `terminal_background`

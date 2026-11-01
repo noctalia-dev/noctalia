@@ -1069,17 +1069,30 @@ void SystemMonitorService::releaseCpuCores() {
   m_cpuCoreRefs.fetch_sub(1, std::memory_order_relaxed);
 }
 
+void SystemMonitorService::releaseGpuRef(std::atomic<int>& refs) {
+  {
+    std::scoped_lock lock{m_wakeMutex};
+    if (refs.fetch_sub(1, std::memory_order_relaxed) != 1) {
+      return;
+    }
+    // Drop vendor-library sessions promptly after the last consumer leaves, even with a
+    // long poll interval. Only the sampling thread may destroy the GPU readers.
+    m_wakeGeneration.fetch_add(1, std::memory_order_relaxed);
+  }
+  m_wakeCv.notify_all();
+}
+
 void SystemMonitorService::retainGpuTemp() { m_gpuTempRefs.fetch_add(1, std::memory_order_relaxed); }
 
-void SystemMonitorService::releaseGpuTemp() { m_gpuTempRefs.fetch_sub(1, std::memory_order_relaxed); }
+void SystemMonitorService::releaseGpuTemp() { releaseGpuRef(m_gpuTempRefs); }
 
 void SystemMonitorService::retainGpuUsage() { m_gpuUsageRefs.fetch_add(1, std::memory_order_relaxed); }
 
-void SystemMonitorService::releaseGpuUsage() { m_gpuUsageRefs.fetch_sub(1, std::memory_order_relaxed); }
+void SystemMonitorService::releaseGpuUsage() { releaseGpuRef(m_gpuUsageRefs); }
 
 void SystemMonitorService::retainGpuVram() { m_gpuVramRefs.fetch_add(1, std::memory_order_relaxed); }
 
-void SystemMonitorService::releaseGpuVram() { m_gpuVramRefs.fetch_sub(1, std::memory_order_relaxed); }
+void SystemMonitorService::releaseGpuVram() { releaseGpuRef(m_gpuVramRefs); }
 
 namespace {
   struct DiskStatvfsData {

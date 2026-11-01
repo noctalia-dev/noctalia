@@ -21,6 +21,7 @@
 #include <optional>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace scripting {
@@ -28,6 +29,16 @@ namespace scripting {
     constexpr Logger kLog("script-runtime");
     constexpr std::size_t kMaxQueuedEvents = 64;
     std::atomic<int> g_shutdownSignal{0};
+
+    // True when `path` resolves to the same value (or to nothing) in both snapshots.
+    bool configValueEqual(const toml::table* previous, const toml::table* current, std::string_view path) {
+      const toml::node* before = previous != nullptr ? previous->at_path(path).node() : nullptr;
+      const toml::node* after = current != nullptr ? current->at_path(path).node() : nullptr;
+      if (before == nullptr || after == nullptr) {
+        return before == after;
+      }
+      return toml::node_view<const toml::node>(before) == toml::node_view<const toml::node>(after);
+    }
 
     // Unique per-State id, used to tag and clean up this runtime's state-store watchers.
     std::uint64_t nextStateToken() {
@@ -262,6 +273,50 @@ namespace scripting {
     bool hasOnKeyKnown = false;
     bool unhealthy = false;
     int consecutiveTimeouts = 0;
+    // Shell config paths the current load read via noctalia.getSetting. Written on the
+    // worker thread, read on the main thread when the config snapshot changes.
+    std::unordered_set<std::string> settingDependencies;
+    // Last loaded source, so a getSetting dependency change can reload the script in place.
+    std::string lastChunkName;
+    std::string lastSource;
+    std::uint64_t configListenerId = 0;
+
+    // A shell config value this runtime read via getSetting changed: call onConfigChanged
+    // when the script defines it, otherwise re-run the script from its last source.
+    void onConfigSnapshotChanged(
+        const std::shared_ptr<const toml::table>& previous, const std::shared_ptr<const toml::table>& current
+    ) {
+      ScriptEvent event;
+      {
+        std::scoped_lock lock(mutex);
+        if (stopping || stopped) {
+          return;
+        }
+        const bool changed = std::ranges::any_of(settingDependencies, [&](const std::string& path) {
+          return !configValueEqual(previous.get(), current.get(), path);
+        });
+        if (!changed) {
+          return;
+        }
+        if (hasOnConfigChangedKnown && hasOnConfigChanged) {
+          event.kind = ScriptEventKind::SettingsChanged;
+          event.budget = kCallBudget;
+        } else {
+          if (lastSource.empty()) {
+            return;
+          }
+          event.kind = ScriptEventKind::Reload;
+          event.chunkName = lastChunkName;
+          event.source = lastSource;
+          event.budget = kLoadBudget;
+        }
+      }
+      kLog.info(
+          "plugin {}: shell setting read via getSetting changed, {}", runtimeName,
+          event.kind == ScriptEventKind::Reload ? "reloading" : "calling onConfigChanged"
+      );
+      (void)enqueue(std::move(event));
+    }
 
     SubscriberId subscribe(ScriptResultCallback callback) {
       if (!callback) {
@@ -741,7 +796,9 @@ namespace scripting {
       if (event.kind == ScriptEventKind::SettingsChanged) {
         // Swap the live snapshot first, so getConfig() returns the new values
         // both inside onConfigChanged and on the next update().
-        settings = event.newSettings;
+        if (event.newSettings.has_value()) {
+          settings = *event.newSettings;
+        }
         if (!host->hasGlobal("onConfigChanged")) {
           return std::nullopt;
         }
@@ -788,10 +845,18 @@ namespace scripting {
 
       host = std::make_unique<LuauHost>(scriptApi, runtimeName);
       reportedModuleCount = 0;
+      {
+        std::scoped_lock lock(mutex);
+        settingDependencies.clear();
+      }
       bindingContext.settings = &settings;
       bindingContext.host = host.get();
       bindingContext.ownerId = runtimeName;
       host->setPluginDir(pluginDir);
+      host->setSettingReadRecorder([this](std::string_view path) {
+        std::scoped_lock lock(mutex);
+        settingDependencies.emplace(path);
+      });
       host->loadTranslations();
       host->setHttpClient(httpClient);
       host->setScriptContext(&bindingContext);
@@ -1124,9 +1189,23 @@ namespace scripting {
                 std::move(runtimeName), std::move(settings), api, std::move(pluginDir), httpClient, clipboard,
                 std::move(togglePanelCallback)
             )
-        ) {}
+        ) {
+    std::weak_ptr<State> weak = m_state;
+    m_state->configListenerId = api.addConfigSnapshotListener(
+        [weak](const std::shared_ptr<const toml::table>& previous, const std::shared_ptr<const toml::table>& current) {
+          if (auto state = weak.lock()) {
+            state->onConfigSnapshotChanged(previous, current);
+          }
+        }
+    );
+  }
 
-  ScriptRuntime::~ScriptRuntime() { stop(); }
+  ScriptRuntime::~ScriptRuntime() {
+    if (m_state != nullptr) {
+      m_state->scriptApi.removeConfigSnapshotListener(m_state->configListenerId);
+    }
+    stop();
+  }
 
   ScriptRuntime::SubscriberId ScriptRuntime::subscribe(ScriptResultCallback callback) {
     return m_state != nullptr ? m_state->subscribe(std::move(callback)) : 0;
@@ -1161,6 +1240,11 @@ namespace scripting {
   void ScriptRuntime::reload(std::string chunkName, std::string source, ScriptSnapshot snapshot) {
     if (m_state == nullptr) {
       return;
+    }
+    {
+      std::scoped_lock lock(m_state->mutex);
+      m_state->lastChunkName = chunkName;
+      m_state->lastSource = source;
     }
     ScriptEvent event;
     event.kind = ScriptEventKind::Reload;

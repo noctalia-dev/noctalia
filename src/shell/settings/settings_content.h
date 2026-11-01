@@ -35,6 +35,7 @@ namespace settings {
     // When set, replaces the default "empty clears, otherwise set" commit for settingPath.
     // Needed where the chosen option is not itself the stored value.
     std::function<void(const std::string&)> onSelect;
+    bool keepOpenOnSelect = false;
   };
 
   struct SettingsContentContext {

@@ -393,6 +393,16 @@ UPowerState UPowerService::stateForDevice(std::string_view selector) const {
   return missing;
 }
 
+std::optional<bool> UPowerService::externalPowerConnected() const {
+  if (!m_state.isPresent) {
+    return std::nullopt;
+  }
+  if (!m_statePeripheralPath.empty()) {
+    return batteryStatePlugged(m_state.state);
+  }
+  return !m_state.onBattery;
+}
+
 void UPowerService::rescanDevices() {
   refreshDisplayDeviceProxy();
 

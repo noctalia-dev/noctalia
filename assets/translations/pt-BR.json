@@ -401,6 +401,7 @@
       "error-missing-password": "Entre sua senha.",
       "error-unsupported-phase2": "PEAP requer autenticação interna MSCHAPv2",
       "external-ip": "WAN {ip}",
+      "hotspot-active": "O Wi-Fi em modo Ponto de Acesso; desligar o Wi-Fi interrompe essa função",
       "identity": "Identidade",
       "no-networks": "Nenhuma conexão ao alcance",
       "not-connected": "Não conectado",
@@ -1405,7 +1406,10 @@
       "live-status": {
         "active": "Ativo",
         "idle-for-one": "Idle for 1 second",
-        "idle-for-seconds": "Idle for {seconds} seconds"
+        "idle-for-seconds": "Idle for {seconds} seconds",
+        "inhibit-reason-caffeine": "Cafeína",
+        "inhibit-reason-external": "fonte externa",
+        "inhibited": "Inibido: {inhibitors}"
       }
     },
     "navigation": {
@@ -2640,6 +2644,12 @@
           "description": "Automaticamente remover histórico de notificações se existir por mais que esta quantidade de horas (0 para manter para sempre)",
           "label": "Período de Retenção"
         },
+        "history-storage": {
+          "button": "Tentar novamente",
+          "description-recovery": "Histórico salvo de notificação não pôde ser autenticado ou está danificado; tente novamente após restaurar a chave correta ou redefina o armazenamento privado",
+          "description-unavailable": "Histórico salvo de notificação criptografado não está aberto, então notificações são mantidas somente para esta sessão; destranque o armazenamento privado ou restaure a chave configurada, então tente novamente",
+          "label": "Armazenamento de Histórico de Notificação"
+        },
         "keep-dismissed-in-history": {
           "description": "Manter notificações no histórico depois que suas lâminas foram dispensadas",
           "label": "Manter Notificações Dispensadas"
@@ -3865,7 +3875,7 @@
     "storage-recovery": {
       "button": "Redefinir Armazenamento Privado",
       "button-confirm": "Confirmar Redefinição de Armazenamento",
-      "description": "Permanentemente apaga histórico de área de transferência armazenado e o cache de evento de calendário, então reabra o armazenamento privado (um arquivo de chave configurado nunca é modificado)",
+      "description": "Apagar permanentemente área de transferência salva e histórico de notificação, imagens de notificação e cachê de eventos de calendário, então re-abra o armazenamento privado (um arquivo de chave configurada nunca é modificado)",
       "error-delete": "Alguns arquivos do armazenamento privado não puderam ser apagados. A chave de armazenamento foi preservada.",
       "error-key": "Arquivos do armazenamento privado foram apagados, mas o armazenamento seguro não pôde ser reaberto. Corrija o acesso e tente novamente.",
       "label": "Recuperar Armazenamento Privado",
@@ -4052,7 +4062,7 @@
             "label": "Sincronizar aparência do greeter"
           },
           "keyboard-backlight-down": {
-            "description": "Diminuir retroiluminação de todos teclados em um nível",
+            "description": "Diminuir retroiluminação de todos teclados em 5%",
             "label": "Diminuir retroiluminação de teclado"
           },
           "keyboard-backlight-osd": {
@@ -4068,7 +4078,7 @@
             "label": "Alternar retroiluminação de todos teclados"
           },
           "keyboard-backlight-up": {
-            "description": "Aumentar retroiluminação de todos teclados em um nível",
+            "description": "Aumentar retroiluminação de todos teclados em 5%",
             "label": "Aumentar retroiluminação de teclado"
           },
           "keyboard-layout-cycle": {
@@ -5245,6 +5255,24 @@
   },
   "ui": {
     "controls": {
+      "key-names": {
+        "backspace": "Backspace",
+        "delete": "Delete",
+        "down": "Baixo",
+        "end": "End",
+        "enter": "Enter",
+        "escape": "Escape",
+        "home": "Home",
+        "insert": "Insert",
+        "left": "Esquerda",
+        "numpad-enter": "Enter do Numérico",
+        "page-down": "Page Down",
+        "page-up": "Page Up",
+        "right": "Direita",
+        "space": "Barra de Espaço",
+        "tab": "Tab",
+        "up": "Cima"
+      },
       "search-picker": {
         "empty": "Sem resultados",
         "placeholder": "Buscar..."

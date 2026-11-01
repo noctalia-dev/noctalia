@@ -5,6 +5,7 @@
 #include "render/core/thumbnail_service.h"
 #include "shell/panel/panel.h"
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
+#include "ui/controls/color_swatch_preview.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -89,8 +90,8 @@ private:
   void toggleFavoriteForPath(const std::string& path);
   void syncThemeControls();
   void syncFillModeControl();
-  void rebuildFavoritePaletteDetailPicker(const WallpaperFavorite* favorite);
-  void openFavoritePaletteDetailPicker();
+  void rebuildPalettePicker(const WallpaperFavorite* theme);
+  void openPalettePicker();
   [[nodiscard]] std::optional<PaletteSource> paletteSourceForSegment(std::size_t index) const;
   [[nodiscard]] std::size_t segmentForPaletteSource(PaletteSource source) const;
   [[nodiscard]] std::string selectedWallpaperPath() const;
@@ -130,12 +131,12 @@ private:
   // UI nodes (owned by the root flex tree).
   Flex* m_rootLayout = nullptr;
   Flex* m_toolbar = nullptr;
-  Flex* m_favoritesOptionsColumn = nullptr;
+  Flex* m_themeRow = nullptr;
   Label* m_title = nullptr;
   Button* m_backButton = nullptr;
-  Segmented* m_favoriteThemeSegmented = nullptr;
-  Segmented* m_favoritePaletteSourceSegmented = nullptr;
-  Button* m_favoritePaletteDetailButton = nullptr;
+  Segmented* m_themeModeSegmented = nullptr;
+  Segmented* m_paletteSourceSegmented = nullptr;
+  Button* m_paletteButton = nullptr;
   Select* m_monitorSelect = nullptr;
   Input* m_filterInput = nullptr;
   Button* m_favoriteCurrentButton = nullptr;
@@ -172,13 +173,14 @@ private:
   SortMode m_sortMode = SortMode::NameAsc;
   std::uint64_t m_randomSeed = 0;
   std::size_t m_pinnedFavoriteCount = 0;
-  bool m_syncingFavoriteControls = false;
+  bool m_syncingThemeControls = false;
   bool m_syncingGridSelectionVisual = false;
   bool m_gridKeyboardActive = false;
-  // Options of the palette-detail picker for the active palette source; index-aligned.
-  std::vector<std::string> m_favoritePaletteDetailValues;
-  std::vector<std::string> m_favoritePaletteDetailLabels;
-  std::size_t m_favoritePaletteDetailIndex = 0;
+  // Options of the palette picker for the active palette source; index-aligned.
+  std::vector<std::string> m_paletteValues;
+  std::vector<std::string> m_paletteLabels;
+  std::vector<ColorSwatchPreview> m_palettePreviews;
+  std::size_t m_paletteIndex = 0;
   std::vector<PaletteSource> m_paletteSourceOrder;
   static constexpr std::size_t kNoVisibleSelection = std::numeric_limits<std::size_t>::max();
   std::size_t m_selectedVisibleIndex = kNoVisibleSelection;

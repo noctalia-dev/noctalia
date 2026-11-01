@@ -325,7 +325,7 @@ Find answers to common setup and troubleshooting questions for Noctalia.
 <FaqItem question="Does the lock screen engage before suspend?">
   By default yes, when the lock screen is enabled. Noctalia holds a logind sleep delay inhibitor and locks the session on `PrepareForSleep` before allowing suspend or hibernate to proceed (including lid-close sleep). You do not need a separate idle daemon for lock-before-sleep.
 
-  To suspend without locking (for example lid close or `systemctl suspend`), set `[lockscreen].lock_before_suspend = false` in Settings → Security → Lock Screen, or in TOML. Explicit **Lock and Suspend** session/idle actions still lock first.
+  To suspend without locking (for example lid close or `systemctl suspend`), set `[lockscreen].lock_before_suspend = false` in Settings → Lock Screen, or in TOML. Explicit **Lock and Suspend** session/idle actions still lock first.
 </FaqItem>
 
 <FaqItem question="Why can't NetworkManager communicate with wpa_supplicant?" id="wpa-supplicant">
@@ -387,7 +387,7 @@ Find answers to common setup and troubleshooting questions for Noctalia.
 
   **Option 1: enable Noctalia's polkit agent (recommended)**
 
-  Set `shell.polkit_agent = true` (Settings → Security). Noctalia then shows the authentication prompt itself. Your system's polkit policy stays unchanged. Skip this if another desktop agent already handles prompts in your session.
+  Set `shell.polkit_agent = true` (Settings → Privacy & Security). Noctalia then shows the authentication prompt itself. Your system's polkit policy stays unchanged. Skip this if another desktop agent already handles prompts in your session.
 
   **Option 2: allow NetworkManager actions without a prompt**
 

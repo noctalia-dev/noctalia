@@ -4,6 +4,11 @@ title: "[FEATURE] "
 labels: ["feature"]
 
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Noctalia core keeps a narrow scope. Read [SCOPE.md](https://github.com/noctalia-dev/noctalia/blob/main/SCOPE.md) before opening a request. Ideas and questions are faster on [Discord](https://discord.noctalia.dev). Requests that belong in a plugin or fall outside scope are closed with a pointer, which is not a verdict on the idea.
+
   - type: checkboxes
     id: submission-checklist
     attributes:
@@ -13,6 +18,8 @@ body:
         - label: I have searched existing issues and confirmed this has not been requested before.
           required: true
         - label: I have checked existing pull requests for similar changes.
+          required: true
+        - label: I have read SCOPE.md. This cannot already be done with existing configuration, IPC, a script-backed widget, or a plugin.
           required: true
 
   - type: dropdown

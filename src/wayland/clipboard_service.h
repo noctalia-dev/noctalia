@@ -105,7 +105,9 @@ public:
   [[nodiscard]] std::optional<std::string> exportEntryForExternalTool(std::size_t index);
   void evictEntryPayload(std::size_t index);
   void evictAllPayloads();
-  // TextClipboard implementation (used by UI controls for copy/paste).
+  // TextClipboard implementation (used by UI controls for copy/paste). Reflects
+  // the live selection, not history: a copy history declines to keep (password
+  // hint, duplicate of a pin, blank or oversized text) is still what pastes.
   [[nodiscard]] std::optional<std::string> clipboardText() override;
   void setClipboardText(std::string text) override;
 
@@ -160,6 +162,9 @@ private:
     std::string mimeType;
     std::vector<std::uint8_t> buffer;
     std::vector<std::string> offeredMimeTypes;
+    // Set for selections advertising a password-manager hint: the text is kept
+    // for paste only, never in history or the backup used for adoption.
+    bool sensitive = false;
   };
 
   struct OutgoingSource {
@@ -192,6 +197,7 @@ private:
   void cancelActiveWrites();
   bool startReceive(void* offer);
   void finishRead(bool discard);
+  void setSelectionText(std::optional<std::string> text);
   void adoptOrphanedSelection();
   void flushPendingOrphanAdopt();
   [[nodiscard]] static bool payloadLooksComplete(std::string_view mimeType, std::span<const std::uint8_t> data);
@@ -252,6 +258,8 @@ private:
   bool m_pendingOrphanAdopt = false;
   std::size_t m_maxHistoryBytes;
   std::optional<SelectionBackup> m_selectionBackup;
+  // Text of the live selection, or nullopt when it is empty or not text.
+  std::optional<std::string> m_selectionText;
   std::size_t m_maxHistoryEntries = static_cast<std::size_t>(noctalia::config::kClipboardHistoryDefaultEntries);
   security::StorageKeyProvider& m_storageKeyProvider;
   std::optional<security::SecureKey> m_dataKey;

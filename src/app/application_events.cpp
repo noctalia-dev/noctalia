@@ -34,7 +34,7 @@ namespace {
 void Application::onIconThemeChanged() {
   kLog.info("system icons changed; refreshing icon consumers");
   m_bar.reload();
-  m_dock.reload();
+  m_dock.onIconThemeChanged();
   m_panelManager.onIconThemeChanged();
   m_notificationToast.requestLayout();
 }
@@ -126,11 +126,11 @@ void Application::onUpowerStateChangedForHooks() {
   if (const auto& peripheralPath = m_upowerService->statePeripheralPath();
       peripheralPath != m_prevBatteryPeripheralPathForEvents) {
     m_prevBatteryPeripheralPathForEvents = peripheralPath;
-    m_prevBatteryPluggedForEvents = state.isPresent ? batteryStatePlugged(state.state) : std::nullopt;
+    m_prevBatteryPluggedForEvents = m_upowerService->externalPowerConnected();
     m_batteryHookState.reset(state);
     return;
   }
-  const auto plugged = state.isPresent ? batteryStatePlugged(state.state) : std::nullopt;
+  const auto plugged = m_upowerService->externalPowerConnected();
   if (plugged.has_value()) {
     if (m_prevBatteryPluggedForEvents.has_value()
         && *m_prevBatteryPluggedForEvents != *plugged

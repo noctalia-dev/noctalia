@@ -361,8 +361,15 @@ TextureHandle Wallpaper::currentTexture() const {
 }
 
 std::string Wallpaper::currentPath() const {
-  const WallpaperInstance* inst = currentInstance();
-  return inst != nullptr ? inst->currentPath : std::string{};
+  if (const WallpaperInstance* inst = currentInstance(); inst != nullptr) {
+    return inst->currentPath;
+  }
+  // No instance shows an image (e.g. every output is owned by an external source such
+  // as mpvpaper): report the wallpaper the palette is built from.
+  if (m_wallpaperEnabled && m_config != nullptr) {
+    return m_config->getPaletteWallpaperPath();
+  }
+  return {};
 }
 
 bool Wallpaper::ownsSurface(wl_surface* surface) const noexcept {
@@ -516,7 +523,7 @@ void Wallpaper::onOutputChange() {
 std::vector<WallpaperChange> Wallpaper::onStateChange() {
   kLog.info("state file changed, checking for updates");
 
-  std::vector<WallpaperChange> changes;
+  std::vector<WallpaperChange> changes = std::exchange(m_pendingStartupChanges, {});
   for (auto& inst : m_instances) {
     auto newPath = m_config->getWallpaperPath(inst->connectorName);
     if (inst->surface == nullptr || inst->wallpaperNode == nullptr) {
@@ -950,7 +957,7 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
   const ThemeMode mode = directoryThemeMode();
   bool attempted = false;
 
-  ConfigService::WallpaperBatch batch(*m_config);
+  std::optional<ConfigService::WallpaperBatch> batch(std::in_place, *m_config);
 
   if (wallpaper.perMonitorDirectories) {
     for (const auto& output : outputs) {
@@ -982,6 +989,7 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
       } else {
         m_config->setWallpaperPath(output.connectorName, picked);
       }
+      m_pendingStartupChanges.push_back({.path = picked, .connector = output.connectorName});
       kLog.info("startup automation set {} → {}", output.connectorName, picked);
     }
   } else {
@@ -1004,25 +1012,23 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
         const std::string picked =
             pickAutomationWallpaperPath(automation, std::move(candidates), currentDefault, kGlobalShuffleScope, dir);
         if (!picked.empty()) {
-          if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
-            std::vector<std::string> connectors;
-            for (const auto& output : outputs) {
-              if (output.done
-                  && !output.connectorName.empty()
-                  && output.hasUsableGeometry()
-                  && wallpaperOutputEnabled(wallpaper, output)) {
-                connectors.push_back(output.connectorName);
-              }
+          std::vector<std::string> connectors;
+          for (const auto& output : outputs) {
+            if (output.done
+                && !output.connectorName.empty()
+                && output.hasUsableGeometry()
+                && wallpaperOutputEnabled(wallpaper, output)) {
+              connectors.push_back(output.connectorName);
             }
+          }
+          for (const auto& connector : connectors) {
+            m_pendingStartupChanges.push_back({.path = picked, .connector = connector});
+          }
+          if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
             m_config->applyWallpaperSelection(std::nullopt, picked, favorite, connectors);
           } else {
-            for (const auto& output : outputs) {
-              if (output.done
-                  && !output.connectorName.empty()
-                  && output.hasUsableGeometry()
-                  && wallpaperOutputEnabled(wallpaper, output)) {
-                m_config->setWallpaperPath(output.connectorName, picked);
-              }
+            for (const auto& connector : connectors) {
+              m_config->setWallpaperPath(connector, picked);
             }
             m_config->setWallpaperPath(std::nullopt, picked);
           }
@@ -1031,6 +1037,10 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
       }
     }
   }
+
+  // Flush so onStateChange() reports the picks, then drop any that persisted nothing.
+  batch.reset();
+  m_pendingStartupChanges.clear();
 
   if (attempted) {
     m_lastAutomationSecondStamp = secondStamp;

@@ -23,7 +23,7 @@ A script defines **global functions** that Noctalia calls, and drives the UI thr
 | `onKey(chord, pressed)`                |        |          |          |         |   ✓   |       |         | a `capture_keys` chord while the panel is focused ([details](/noctalia/plugins/development/declarative-ui/#handling-keys-directly)) |
 | `onFrameTick(deltaMs)`                 |        |          |          |    ✓    |   ✓   |   ✓   |         | every frame, after `desktopWidget.setNeedsFrameTick(true)` / `panel.setNeedsFrameTick(true)` / `layer.setNeedsFrameTick(true)`      |
 | `onIpc(event, payload)`                |    ✓   |     ✓    |     ✓    |    ✓    |   ✓   |   ✓   |    ✓    | `noctalia msg plugin …`                                                                                                             |
-| `onConfigChanged()`                    |        |          |          |         |       |   ✓   |    ✓    | a plugin setting changed (see below)                                                                                                |
+| `onConfigChanged()`                    |    ✓   |     ✓    |     ✓    |    ✓    |   ✓   |   ✓   |    ✓    | a plugin setting or a `noctalia.getSetting` value changed (see below)                                                               |
 | `onExit(signal, reason)`               |    ✓   |     ✓    |     ✓    |    ✓    |   ✓   |   ✓   |    ✓    | the entry runtime is about to be destroyed (see below)                                                                              |
 
 The top level of the script runs once at load - set up state and register `noctalia.state.watch` handlers there.
@@ -168,6 +168,15 @@ function onConfigChanged()
   end
 end
 ```
+
+### Reacting to shell setting changes
+
+An entry that reads shell config with [`noctalia.getSetting(path)`](/noctalia/plugins/development/runtime-api/) is notified when any value it read changes; edits to config it never read leave it alone. Every entry type reacts the same way:
+
+- If the entry defines **`onConfigChanged()`**, the host calls it in place, and `noctalia.getSetting(...)` returns the new value from then on.
+- Otherwise the host **reloads the entry's script**: the top-level chunk re-runs and reads the new value.
+
+The set of watched paths is rebuilt on each load from the `getSetting` calls the script actually makes, including calls inside callbacks.
 
 ### Layer surfaces
 

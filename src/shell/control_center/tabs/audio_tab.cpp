@@ -1247,7 +1247,7 @@ namespace {
         m_subtitleLabel->setText("");
       }
 
-      const float clampedVolume = std::clamp(node.volume, 0.0F, sliderMax);
+      const float displayedVolume = std::max(0.0F, node.volume);
       const bool shouldSetSlider = nodeEnabled && m_slider != nullptr && !m_slider->dragging() && !m_syncing;
       if (m_slider != nullptr) {
         if (std::abs(m_sliderMax - sliderMax) >= 0.0001F) {
@@ -1272,11 +1272,11 @@ namespace {
       if (shouldSetSlider) {
         m_syncing = true;
         if (m_slider != nullptr) {
-          m_slider->setValue(clampedVolume);
+          m_slider->setValue(std::min(displayedVolume, sliderMax));
         }
         m_syncing = false;
         if (m_valueLabel != nullptr) {
-          const std::string nextValue = std::to_string(static_cast<int>(std::round(clampedVolume * 100.0F))) + "%";
+          const std::string nextValue = std::to_string(static_cast<int>(std::round(displayedVolume * 100.0F))) + "%";
           if (m_valueLabel->text() != nextValue) {
             m_valueLabel->setText(nextValue);
           }
@@ -2014,16 +2014,19 @@ void AudioTab::doUpdate(Renderer& renderer) {
   const float sourceVolume = source != nullptr ? source->volume : 0.0F;
   const bool showPendingSink = sink != nullptr && m_pendingSinkVolume >= 0.0F && m_pendingSinkId == sink->id;
   const bool showPendingSource = source != nullptr && m_pendingSourceVolume >= 0.0F && m_pendingSourceId == source->id;
-  const float displayedSinkVolume = std::clamp(showPendingSink ? m_pendingSinkVolume : sinkVolume, 0.0F, sliderMax);
-  const float displayedSourceVolume =
-      std::clamp(showPendingSource ? m_pendingSourceVolume : sourceVolume, 0.0F, sliderMax);
+  // Labels show the real level even above the slider range; only the thumb position is clamped.
+  const float displayedSinkVolume = std::max(0.0F, showPendingSink ? m_pendingSinkVolume : sinkVolume);
+  const float displayedSourceVolume = std::max(0.0F, showPendingSource ? m_pendingSourceVolume : sourceVolume);
 
   if (m_outputDeviceVolume.slider != nullptr) {
     m_outputDeviceVolume.slider->setEnabled(sink != nullptr);
+    const float thumbSinkVolume = std::min(displayedSinkVolume, sliderMax);
+    // The thumb can lag the real level when the range changes (overdrive toggled) without a volume change.
     if (!m_outputDeviceVolume.slider->dragging()
-        && std::abs(displayedSinkVolume - m_lastSinkVolume) >= kVolumeSyncEpsilon) {
+        && (std::abs(displayedSinkVolume - m_lastSinkVolume) >= kVolumeSyncEpsilon
+            || std::abs(static_cast<float>(m_outputDeviceVolume.slider->value()) - thumbSinkVolume) >= 0.01F)) {
       m_outputDeviceVolume.syncing = true;
-      m_outputDeviceVolume.slider->setValue(displayedSinkVolume);
+      m_outputDeviceVolume.slider->setValue(thumbSinkVolume);
       m_outputDeviceVolume.syncing = false;
       if (m_outputDeviceVolume.valueLabel != nullptr) {
         m_outputDeviceVolume.valueLabel->setText(std::format("{:.0F}%", displayedSinkVolume * 100.0F));
@@ -2040,10 +2043,12 @@ void AudioTab::doUpdate(Renderer& renderer) {
 
   if (m_inputDeviceVolume.slider != nullptr) {
     m_inputDeviceVolume.slider->setEnabled(source != nullptr);
+    const float thumbSourceVolume = std::min(displayedSourceVolume, sliderMax);
     if (!m_inputDeviceVolume.slider->dragging()
-        && std::abs(displayedSourceVolume - m_lastSourceVolume) >= kVolumeSyncEpsilon) {
+        && (std::abs(displayedSourceVolume - m_lastSourceVolume) >= kVolumeSyncEpsilon
+            || std::abs(static_cast<float>(m_inputDeviceVolume.slider->value()) - thumbSourceVolume) >= 0.01F)) {
       m_inputDeviceVolume.syncing = true;
-      m_inputDeviceVolume.slider->setValue(displayedSourceVolume);
+      m_inputDeviceVolume.slider->setValue(thumbSourceVolume);
       m_inputDeviceVolume.syncing = false;
       if (m_inputDeviceVolume.valueLabel != nullptr) {
         m_inputDeviceVolume.valueLabel->setText(std::format("{:.0F}%", displayedSourceVolume * 100.0F));

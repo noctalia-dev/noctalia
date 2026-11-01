@@ -1035,8 +1035,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
     const auto crossPad = static_cast<std::uint32_t>(std::max(0, crossOutsetStart + crossOutsetEnd));
     const auto mainPad = static_cast<std::uint32_t>(std::max(0, mainBleedAway));
-    const std::uint32_t surfaceWidth = barIsVertical ? (panelWidth + mainPad) : (panelWidth + crossPad);
-    const std::uint32_t surfaceHeight = barIsVertical ? (panelHeight + crossPad) : (panelHeight + mainPad);
+    std::uint32_t surfaceWidth = barIsVertical ? (panelWidth + mainPad) : (panelWidth + crossPad);
+    std::uint32_t surfaceHeight = barIsVertical ? (panelHeight + crossPad) : (panelHeight + mainPad);
 
     // Bar visible rect in screen coords, derived from BarConfig + output dimensions.
     const std::int32_t mEnds = std::max(0, barConfig.marginEnds);
@@ -1109,6 +1109,18 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     } else {
       surfaceX = visualX - crossOutsetStart;
       surfaceY = barIsBottom ? visualY - mainBleedAway : visualY;
+    }
+    // Keep the surface origin on the output by trimming overhang past the start edges;
+    // the trimmed bleed is off-screen anyway. Hyprland picks a layer popup's monitor
+    // from the parent surface's top-left corner, so an origin on a neighboring output
+    // places popups (context menus, dropdowns) where they are never drawn.
+    if (surfaceX < 0) {
+      surfaceWidth -= static_cast<std::uint32_t>(-surfaceX);
+      surfaceX = 0;
+    }
+    if (surfaceY < 0) {
+      surfaceHeight -= static_cast<std::uint32_t>(-surfaceY);
+      surfaceY = 0;
     }
 
     m_panelInsetX = visualX - surfaceX;

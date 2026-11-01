@@ -218,6 +218,15 @@ void WindowSwitcherTile::setShowAppIcon(bool show) {
   markLayoutDirty();
 }
 
+void WindowSwitcherTile::setShowPreview(bool show) {
+  m_showPreview = show;
+  if (!show) {
+    m_thumbnail->setVisible(false);
+    m_toneOverlay->setVisible(false);
+  }
+  markLayoutDirty();
+}
+
 void WindowSwitcherTile::bind(
     Renderer& renderer, const WindowSwitcherEntry& entry, WindowSwitcherTileDepth depth, bool showCaption,
     bool wideCaption, WindowSwitcherHorizontalPlacement iconPlacement, WindowSwitcherHorizontalPlacement closePlacement
@@ -245,7 +254,7 @@ void WindowSwitcherTile::bind(
     m_iconTargetSize = 0;
     m_icon->clear(renderer);
   }
-  if (entry.thumbnail != m_thumbnailImage) {
+  if (m_showPreview && entry.thumbnail != m_thumbnailImage) {
     m_thumbnailImage = entry.thumbnail;
     m_thumbnail->clear(renderer);
     bool loaded = false;
@@ -324,18 +333,19 @@ void WindowSwitcherTile::applyVisualState() {
   if (m_shadow != nullptr) {
     m_shadow->setVisible(m_selected && m_shadowConfigured);
   }
-  const bool showClose = m_pointerHovered;
+  const bool showClose = m_pointerHovered && m_showPreview;
   m_close->setVisible(showClose);
   m_close->setEnabled(showClose);
 }
 
 void WindowSwitcherTile::layoutContent(Renderer& renderer) {
-  const float outerPad = Style::spaceXs * m_contentScale;
+  const float contentScale = m_showPreview ? m_contentScale : m_cardWidth / Style::windowSwitcherIconCardSize;
+  const float outerPad = Style::spaceXs * contentScale;
   const float innerW = std::max(0.0F, m_cardWidth - outerPad * 2.0F);
   const float captionH = m_captionVisible && m_showCaption
-      ? std::min(Style::windowSwitcherCaptionHeight * m_contentScale, m_cardHeight)
+      ? std::min(Style::windowSwitcherCaptionHeight * contentScale, m_cardHeight)
       : 0.0F;
-  const float captionGap = captionH > 0.0F ? Style::spaceMd * m_contentScale : 0.0F;
+  const float captionGap = captionH > 0.0F ? Style::spaceMd * contentScale : 0.0F;
   const float frameH = std::max(0.0F, m_cardHeight - captionGap - captionH);
   const float previewH = std::max(0.0F, frameH - outerPad * 2.0F);
 
@@ -351,19 +361,21 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
   m_thumbnail->setSize(innerW, previewH);
   m_toneOverlay->setPosition(0.0F, 0.0F);
   m_toneOverlay->setFrameSize(innerW, previewH);
-  const float indicatorWidth = Style::spaceMd * m_contentScale;
-  const float indicatorHeight = Style::borderWidth * 3.0F * m_contentScale;
+  const float indicatorWidth = Style::spaceMd * contentScale;
+  const float indicatorHeight = Style::borderWidth * 3.0F * contentScale;
   m_minimizeIndicator->setFrameSize(indicatorWidth, indicatorHeight);
   m_minimizeIndicator->setPosition(
       std::round((innerW - indicatorWidth) * 0.5F),
-      std::round(std::max(0.0F, previewH - indicatorHeight - Style::spaceSm * m_contentScale))
+      std::round(std::max(0.0F, previewH - indicatorHeight - Style::spaceSm * contentScale))
   );
 
   const bool hasThumbnail = m_thumbnail->visible();
-  const float iconScale = hasThumbnail ? Style::windowSwitcherPreviewIconScale : Style::windowSwitcherFallbackIconScale;
+  const float iconScale = !m_showPreview
+      ? Style::windowSwitcherIconScale
+      : (hasThumbnail ? Style::windowSwitcherPreviewIconScale : Style::windowSwitcherFallbackIconScale);
   const float iconSize = std::min(innerW, previewH) * iconScale;
   const int targetSize = std::max(
-      static_cast<int>(std::round(Style::baseGlyphSize * m_contentScale)), static_cast<int>(std::round(iconSize))
+      static_cast<int>(std::round(Style::baseGlyphSize * contentScale)), static_cast<int>(std::round(iconSize))
   );
   if (m_showAppIcon && targetSize != m_iconTargetSize) {
     m_iconTargetSize = targetSize;
@@ -374,7 +386,7 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
     m_icon->setVisible(false);
     m_fallbackGlyph->setVisible(false);
   }
-  const float overlayInset = Style::spaceSm * m_contentScale;
+  const float overlayInset = Style::spaceSm * contentScale;
   float iconX = (innerW - iconSize) * 0.5F;
   if (hasThumbnail && m_iconPlacement == WindowSwitcherHorizontalPlacement::Left) {
     iconX = overlayInset;
@@ -391,16 +403,16 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
       std::round(iconY + (iconSize - m_fallbackGlyph->height()) * 0.5F)
   );
 
-  const float closeSize = (Style::controlHeightSm - Style::spaceSm) * m_contentScale;
-  const float closeInset = Style::spaceXs * m_contentScale;
+  const float closeSize = (Style::controlHeightSm - Style::spaceSm) * contentScale;
+  const float closeInset = Style::spaceXs * contentScale;
   const float closeX =
       m_closePlacement == WindowSwitcherHorizontalPlacement::Left ? closeInset : innerW - closeSize - closeInset;
   m_close->setPosition(std::round(closeX), std::round(closeInset));
   m_close->setSize(closeSize, closeSize);
 
   if (m_captionBadge != nullptr && m_captionVisible && m_showCaption) {
-    const float captionPad = Style::spaceLg * m_contentScale;
-    const float captionMargin = m_wideCaption ? 0.0F : Style::spaceLg * m_contentScale;
+    const float captionPad = Style::spaceLg * contentScale;
+    const float captionMargin = m_wideCaption ? 0.0F : Style::spaceLg * contentScale;
     const float maxCaptionW = std::max(0.0F, m_cardWidth - captionMargin * 2.0F);
     m_title->setMaxWidth(std::max(0.0F, maxCaptionW - captionPad * 2.0F));
     m_subtitle->setMaxWidth(std::max(0.0F, maxCaptionW - captionPad * 2.0F));

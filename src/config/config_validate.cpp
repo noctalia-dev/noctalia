@@ -59,23 +59,25 @@ namespace noctalia::config {
       if (!mergeResult.firstError.empty()) {
         diag.fatalAt(std::move(mergeResult.firstErrorOrigin), "syntax", mergeResult.firstError, "config.syntax");
       }
+      toml::table sidecar;
       if (!settingsTomlPath.empty() && std::filesystem::exists(settingsTomlPath)) {
         const std::filesystem::path settingsFile{std::string(settingsTomlPath)};
         try {
-          toml::table sidecar = toml::parse_file(settingsTomlPath);
+          sidecar = toml::parse_file(settingsTomlPath);
           originsOut.record(settingsFile, sidecar);
           if (const auto version = storedConfigVersion(sidecar, diag); version.has_value()) {
-            const int appliedVersion = applyPendingConfigMigrations(sidecar, *version, diag);
+            const int appliedVersion = applyPendingConfigMigrations(sidecar, merged, *version, diag);
             sidecar.insert_or_assign(kConfigVersionKey, static_cast<std::int64_t>(appliedVersion));
           }
           ConfigService::deepMerge(merged, sidecar);
         } catch (const toml::parse_error& e) {
+          sidecar.clear();
           diag.fatalAt(parseErrorOrigin(e, settingsFile), "syntax", std::string(e.description()), "config.syntax");
         }
       }
       merged.erase(kConfigVersionKey);
       LegacyConfigIssues issues;
-      normalizeLegacyConfig(merged, issues);
+      normalizeLegacyConfig(merged, issues, &sidecar);
       for (const LegacyConfigIssue& issue : issues) {
         diag.warn(issue.path, issue.message);
       }
@@ -829,20 +831,7 @@ namespace noctalia::config {
 
       // Resolve the candidate's plugin catalog without mutating the live registry.
       scripting::PluginRegistry pluginRegistry;
-      {
-        PluginsConfig pc;
-        schema::Diagnostics sink; // schema issues are already reported by checkSection above
-        if (const auto* pluginsTbl = merged["plugins"].as_table()) {
-          const bool sourcesConfigured = (*pluginsTbl)["source"].as_array() != nullptr;
-          schema::readInto(*pluginsTbl, pc, schema::pluginsSchema(), "plugins", sink);
-          if (!sourcesConfigured && pc.sources.empty()) {
-            pc.sources = defaultPluginSources();
-          }
-        } else {
-          pc.sources = defaultPluginSources();
-        }
-        scripting::applyPluginSourcesToRegistry(pluginRegistry, pc);
-      }
+      scripting::applyPluginSourcesToRegistry(pluginRegistry, schema::readPluginsSection(merged));
 
       validateLocation(merged, diag);
       validateBars(merged, diag);

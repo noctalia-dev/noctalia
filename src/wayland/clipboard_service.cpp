@@ -469,8 +469,8 @@ void ClipboardService::setHistoryRetentionEnabled(bool enabled) {
       (void)loadPersistedHistory();
     }
   } else {
-    // Keep only the live selection (most recent unpinned entry) in memory so
-    // paste keeps working; drop pins and older/persisted history.
+    // Keep only the most recent unpinned entry in memory; drop pins and
+    // older/persisted history.
     std::deque<ClipboardEntry> live;
     for (auto& entry : m_history) {
       if (!entry.pinned) {
@@ -573,6 +573,7 @@ void ClipboardService::cleanup() {
 
   m_device = nullptr;
   m_selectionOffer = nullptr;
+  setSelectionText(std::nullopt);
   m_seat = nullptr;
   m_ops = nullptr;
   m_manager = nullptr;
@@ -815,19 +816,14 @@ void ClipboardService::evictAllPayloads() {
   }
 }
 
-std::optional<std::string> ClipboardService::clipboardText() {
-  for (auto& entry : m_history) {
-    // Pinned entries sit at the front but are not the newest capture; paste
-    // must reflect the most recent real clipboard content.
-    if (entry.pinned || entry.isImage()) {
-      continue;
-    }
-    if (!loadEntryPayload(entry) || entry.data.empty()) {
-      continue;
-    }
-    return std::string(entry.data.begin(), entry.data.end());
+std::optional<std::string> ClipboardService::clipboardText() { return m_selectionText; }
+
+void ClipboardService::setSelectionText(std::optional<std::string> text) {
+  if (m_selectionText.has_value()) {
+    // May hold a password-hinted secret; do not leave it in freed memory.
+    sodium_memzero(m_selectionText->data(), m_selectionText->size());
   }
-  return std::nullopt;
+  m_selectionText = std::move(text);
 }
 
 void ClipboardService::setClipboardText(std::string text) { (void)copyText(std::move(text)); }
@@ -1144,13 +1140,23 @@ void ClipboardService::handleSelection(void* offer) {
     // until the next poll tick so a replacement offer in the same dispatch batch
     // can arrive first; only adopt if the selection is still empty then.
     m_pendingOrphanAdopt = true;
+    if (m_selectionText.has_value()) {
+      setSelectionText(std::nullopt);
+      notifyChanged();
+    }
     return;
   }
 
   m_pendingOrphanAdopt = false;
   m_selectionBackup.reset();
+  // Cleared without notifying: the read that follows reports the new content.
+  const bool hadText = m_selectionText.has_value();
+  setSelectionText(std::nullopt);
   if (!startReceive(offer)) {
     kLog.debug("selection offer has no supported MIME types");
+    if (hadText) {
+      notifyChanged();
+    }
   }
 }
 
@@ -1289,10 +1295,14 @@ void ClipboardService::clearOffers() {
 
 void ClipboardService::cancelActiveRead() {
   closeFd(m_activeRead.fd);
+  if (m_activeRead.sensitive) {
+    sodium_memzero(m_activeRead.buffer.data(), m_activeRead.buffer.size());
+  }
   m_activeRead.buffer.clear();
   m_activeRead.mimeType.clear();
   m_activeRead.offeredMimeTypes.clear();
   m_activeRead.offer = nullptr;
+  m_activeRead.sensitive = false;
 }
 
 void ClipboardService::cancelActiveWrites() {
@@ -1312,13 +1322,12 @@ bool ClipboardService::startReceive(void* offer) {
     return false;
   }
 
-  if (selectionAdvertisesPasswordHint(state->mimeTypes)) {
-    kLog.debug("ignoring clipboard selection: password-hint MIME advertised");
-    return false;
-  }
-
+  // A password-hinted selection is still read so it can be pasted into shell
+  // text fields; finishRead keeps it out of history and adoption. Only its text
+  // flavour is useful for that.
+  const bool sensitive = selectionAdvertisesPasswordHint(state->mimeTypes);
   const std::string mimeType = chooseMimeType(*state);
-  if (mimeType.empty()) {
+  if (mimeType.empty() || (sensitive && !isTextMimeType(mimeType))) {
     return false;
   }
 
@@ -1335,11 +1344,13 @@ bool ClipboardService::startReceive(void* offer) {
   m_activeRead.mimeType = mimeType;
   m_activeRead.buffer.clear();
   m_activeRead.offeredMimeTypes = state->mimeTypes;
+  m_activeRead.sensitive = sensitive;
   return true;
 }
 
 void ClipboardService::finishRead(bool discard) {
   const bool shouldStore = !discard && !m_activeRead.buffer.empty();
+  const bool sensitive = m_activeRead.sensitive;
   const std::string mimeType = m_activeRead.mimeType;
   auto mimeTypes = std::move(m_activeRead.offeredMimeTypes);
   auto data = std::move(m_activeRead.buffer);
@@ -1353,8 +1364,29 @@ void ClipboardService::finishRead(bool discard) {
   }
 
   if (!shouldStore) {
+    if (sensitive) {
+      sodium_memzero(data.data(), data.size());
+    }
+    // handleSelection cleared the live text without notifying, expecting this
+    // read to report the new content.
+    notifyChanged();
     return;
   }
+
+  // Paste follows the live selection whatever history makes of it below.
+  if (isTextMimeType(mimeType)) {
+    setSelectionText(std::string(data.begin(), data.end()));
+  }
+
+  if (sensitive) {
+    kLog.debug("keeping clipboard selection out of history: password-hint MIME advertised");
+    sodium_memzero(data.data(), data.size());
+    notifyChanged();
+    return;
+  }
+  // Paste and scripts follow the live text, so a selection history declines to
+  // keep still has to be reported.
+  const std::uint64_t serialBefore = m_changeSerial;
 
   // A selection too large to hold is simply not backed up; the reset in
   // handleSelection already dropped the previous one, so nothing stale can be
@@ -1377,6 +1409,7 @@ void ClipboardService::finishRead(bool discard) {
 
     if (payload->size() > maxEntryBytesFor(mimeType)) {
       // History would drop it; do not copy bytes that are not going to be kept.
+      notifyChanged();
       return;
     }
     entry.data = *payload;
@@ -1400,6 +1433,9 @@ void ClipboardService::finishRead(bool discard) {
   }
 
   addToHistory(std::move(entry));
+  if (m_changeSerial == serialBefore) {
+    notifyChanged();
+  }
 }
 
 void ClipboardService::addToHistory(ClipboardEntry entry) {
@@ -1427,9 +1463,9 @@ void ClipboardService::addToHistory(ClipboardEntry entry) {
   }
 
   if (!m_historyRetention) {
-    // History is disabled: retain only the live selection in memory (so paste
-    // still works) and never persist. Ignore the self-copy echo of unchanged
-    // content to avoid needless churn.
+    // History is disabled: retain only the latest capture in memory and never
+    // persist. Ignore the self-copy echo of unchanged content to avoid
+    // needless churn.
     if (!m_history.empty()
         && !entry.data.empty()
         && m_history.front().byteSize == entry.byteSize

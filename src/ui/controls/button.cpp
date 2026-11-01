@@ -9,6 +9,7 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 
@@ -598,7 +599,18 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
   if (m_badge != nullptr) {
     m_badge->setFill(Color{label.r, label.g, label.b, label.a * 0.85F});
     if (m_badgeLabel != nullptr) {
-      m_badgeLabel->setColor(bg);
+      // The badge sits on the button, so its text inverts the button colors. A translucent or clear background
+      // (Ghost, panel transparency) would make the text vanish; composite it over Surface to keep it opaque.
+      const Color surface = resolveColorSpec(colorSpecFromRole(ColorRole::Surface));
+      const float a = std::clamp(bg.a, 0.0F, 1.0F);
+      m_badgeLabel->setColor(
+          Color{
+              surface.r + (bg.r - surface.r) * a,
+              surface.g + (bg.g - surface.g) * a,
+              surface.b + (bg.b - surface.b) * a,
+              1.0F,
+          }
+      );
     }
   }
 }

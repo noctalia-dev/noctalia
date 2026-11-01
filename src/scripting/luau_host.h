@@ -109,6 +109,15 @@ public:
   [[nodiscard]] const std::string& pluginId() const noexcept { return m_pluginId; }
   [[nodiscard]] const std::string& runtimeName() const noexcept { return m_runtimeName; }
   void setStateWatchHandler(StateWatchHandler handler) { m_stateWatchHandler = std::move(handler); }
+  // Called with every path noctalia.getSetting reads, so the owning runtime can react when
+  // that part of the shell config changes.
+  using SettingReadRecorder = std::function<void(std::string_view path)>;
+  void setSettingReadRecorder(SettingReadRecorder recorder) { m_settingReadRecorder = std::move(recorder); }
+  void recordSettingRead(std::string_view path) const {
+    if (m_settingReadRecorder) {
+      m_settingReadRecorder(path);
+    }
+  }
 
   // noctalia.state.* — host-mediated per-plugin shared data.
   void stateSet(const std::string& key, const std::string& json);
@@ -142,8 +151,9 @@ public:
   [[nodiscard]] bool hasHttpStream(int streamKey) const;
 
   // System-monitor probes requested by this host are refcounted and released in ~LuauHost.
-  // Per-core and disk sampling remain opt-in through their dedicated calls.
+  // GPU, per-core and disk sampling are opt-in through their dedicated calls.
   void ensureSystemStatsRetained();
+  bool setGpuMonitoring(bool enabled);
   void ensureCpuCoresRetained();
   [[nodiscard]] bool ensureDiskPathRetained(const std::string& path);
 
@@ -286,6 +296,7 @@ private:
   CompositorPlatform* m_platform = nullptr;
   scripting::PluginBindingContext* m_scriptContext = nullptr;
   std::filesystem::path m_pluginDir;
+  SettingReadRecorder m_settingReadRecorder;
   std::string m_pluginId;
   std::string m_runtimeName;
   scripting::PluginTranslationCatalog m_translations;
@@ -338,6 +349,7 @@ private:
   std::size_t m_suppressedCallFailures = 0;
   bool m_cpuCoresRetained = false; // this host holds a SystemMonitorService per-core reference
   bool m_systemStatsRetained = false;
+  bool m_gpuStatsRetained = false;
   std::unordered_set<std::string> m_diskPathsRetained;
   bool m_budgetActive = false;
   bool m_lastCallTimedOut = false;

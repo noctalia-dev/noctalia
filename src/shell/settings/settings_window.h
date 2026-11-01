@@ -231,7 +231,7 @@ private:
   void closeWidgetInspectorPopup();
   void refreshIdleLiveStatusText();
   void saveSupportReport();
-  void saveConfigExport(settings::ConfigExportMode mode);
+  void saveConfigExport(settings::ConfigExportMode mode, noctalia::config::CredentialExportMode credentials);
   [[nodiscard]] bool headerDragRegionContains(float sceneX, float sceneY) const;
   void setSettingOverride(std::vector<std::string> path, ConfigOverrideValue value);
   void setSettingOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides);

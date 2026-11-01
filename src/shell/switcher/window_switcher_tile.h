@@ -55,6 +55,7 @@ public:
   void setShadowStyle(const RoundedRectStyle& style);
   void setShowCaption(bool show);
   void setShowAppIcon(bool show);
+  void setShowPreview(bool show);
   void setAppIconColorizeTint(std::optional<ColorSpec> tint) { m_appIconColorizeTint = tint; }
   void setOnInvalidate(std::function<void()> callback) { m_onInvalidate = std::move(callback); }
   void setOnActivate(std::function<void()> callback) { m_onActivate = std::move(callback); }
@@ -100,6 +101,7 @@ protected:
   bool m_captionVisible = false;
   bool m_wideCaption = false;
   bool m_showAppIcon = true;
+  bool m_showPreview = true;
   WindowSwitcherHorizontalPlacement m_iconPlacement = WindowSwitcherHorizontalPlacement::Left;
   WindowSwitcherHorizontalPlacement m_closePlacement = WindowSwitcherHorizontalPlacement::Right;
   WindowSwitcherTileDepth m_depth = WindowSwitcherTileDepth::Far;

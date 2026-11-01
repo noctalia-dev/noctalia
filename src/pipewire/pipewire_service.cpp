@@ -9,6 +9,7 @@
 #include "pipewire/pipewire_error.h"
 #include "pipewire/privacy_capture_classification.h"
 #include "pipewire/wireplumber_mixer.h"
+#include "system/v4l2_camera.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -58,6 +59,22 @@ namespace {
   constexpr auto kInitialSyncTimeout = std::chrono::seconds(1);
   constexpr auto kReconnectInitialDelay = std::chrono::milliseconds(250);
   constexpr auto kReconnectMaxDelay = std::chrono::seconds(5);
+  // Camera node opens and closes come in bursts (browsers probe every device), and procfs may not
+  // list the new descriptor yet when IN_OPEN arrives, so scans run once the burst has settled.
+  constexpr auto kCameraScanDelay = std::chrono::milliseconds(500);
+  constexpr auto kCameraScanCheckInterval = std::chrono::milliseconds(50);
+  // Applications such as Discord briefly open every camera to query its capabilities. A direct
+  // V4L2 user is reported only once it has held the device this long, so probes never show.
+  constexpr auto kCameraHoldTime = std::chrono::seconds(3);
+
+  // Milliseconds until deadline, rounded up and clamped to [0, INT_MAX].
+  [[nodiscard]] int
+  pollMsUntil(std::chrono::steady_clock::time_point deadline, std::chrono::steady_clock::time_point now) noexcept {
+    const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now);
+    return static_cast<int>(
+        std::clamp(remaining, std::chrono::milliseconds::zero(), std::chrono::milliseconds{INT_MAX}).count()
+    );
+  }
 
   [[nodiscard]] bool pipeWireVersionSupportsPassiveFollow(std::string_view version) {
     const auto majorEnd = version.find('.');
@@ -769,6 +786,8 @@ PipeWireService::PipeWireService() {
   }
 
   pw_loop_enter(m_loop);
+  // Applications may already hold a camera open before the shell starts.
+  m_cameraScanAt = std::chrono::steady_clock::now();
   if (!connectRemote(true)) {
     kLog.warn("PipeWire daemon unavailable at startup; retrying in the background");
     scheduleReconnect();
@@ -776,6 +795,9 @@ PipeWireService::PipeWireService() {
 }
 
 PipeWireService::~PipeWireService() {
+  if (m_cameraScan.valid()) {
+    m_cameraScan.wait();
+  }
   disconnectRemote(false);
   if (m_context != nullptr) {
     pw_context_destroy(m_context);
@@ -1025,18 +1047,95 @@ int PipeWireService::fd() const noexcept {
 }
 
 int PipeWireService::pollTimeoutMs() const noexcept {
-  if (m_core != nullptr || m_reconnectAt.time_since_epoch().count() == 0) {
-    return -1;
+  const auto now = std::chrono::steady_clock::now();
+  int timeout = m_cameraScanAt.has_value() ? pollMsUntil(*m_cameraScanAt, now) : -1;
+  if (m_core == nullptr && m_reconnectAt.time_since_epoch().count() != 0) {
+    const int reconnect = pollMsUntil(m_reconnectAt, now);
+    timeout = timeout < 0 ? reconnect : std::min(timeout, reconnect);
+  }
+  return timeout;
+}
+
+void PipeWireService::dispatchCamera() {
+  if (m_cameraWatch.drain()) {
+    requestCameraScan(std::chrono::steady_clock::now());
+  }
+}
+
+void PipeWireService::requestCameraScan(std::chrono::steady_clock::time_point now) {
+  if (m_cameraScan.valid()) {
+    m_cameraRescan = true;
+    return;
+  }
+  // Never postpone an existing deadline, so a continuous event stream cannot delay the scan
+  // forever, but pull a later hold confirmation forward so a quick close is not missed.
+  const auto deadline = now + kCameraScanDelay;
+  if (!m_cameraScanAt.has_value() || deadline < *m_cameraScanAt) {
+    m_cameraScanAt = deadline;
+  }
+}
+
+void PipeWireService::pollCameraApps() {
+  const auto now = std::chrono::steady_clock::now();
+  if (!m_cameraScanAt.has_value() || now < *m_cameraScanAt) {
+    return;
   }
 
-  const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(m_reconnectAt - std::chrono::steady_clock::now());
-  if (remaining <= std::chrono::milliseconds::zero()) {
-    return 0;
+  if (!m_cameraScan.valid()) {
+    try {
+      m_cameraScan = std::async(std::launch::async, [] { return v4l2CameraApps(); });
+      m_cameraScanAt = now + kCameraScanCheckInterval;
+    } catch (const std::exception& e) {
+      kLog.warn("could not start camera scan: {}", e.what());
+      m_cameraScanAt.reset();
+    }
+    return;
   }
-  return static_cast<int>(std::min(remaining, std::chrono::milliseconds{INT_MAX}).count());
+  if (m_cameraScan.wait_for(std::chrono::milliseconds::zero()) != std::future_status::ready) {
+    m_cameraScanAt = now + kCameraScanCheckInterval;
+    return;
+  }
+
+  // Schedule the follow-up before rebuildState so a change callback sees consistent scan state.
+  m_cameraScanAt.reset();
+  if (m_cameraRescan) {
+    m_cameraRescan = false;
+    m_cameraScanAt = now + kCameraScanDelay;
+  }
+  try {
+    auto apps = m_cameraScan.get();
+    std::vector<std::string> confirmed;
+    std::vector<PendingCameraApp> pending;
+    for (auto& app : apps) {
+      if (std::ranges::binary_search(m_cameraApps, app)) {
+        confirmed.push_back(std::move(app));
+        continue;
+      }
+      // Pending users missing from this scan are dropped, so a reopen starts a new hold.
+      const auto it = std::ranges::find(m_cameraPending, app, &PendingCameraApp::app);
+      const auto firstSeen = it != m_cameraPending.end() ? it->firstSeen : now;
+      if (now - firstSeen >= kCameraHoldTime) {
+        confirmed.push_back(std::move(app));
+      } else {
+        const auto confirmAt = firstSeen + kCameraHoldTime;
+        if (!m_cameraScanAt.has_value() || confirmAt < *m_cameraScanAt) {
+          m_cameraScanAt = confirmAt;
+        }
+        pending.push_back({.app = std::move(app), .firstSeen = firstSeen});
+      }
+    }
+    m_cameraPending = std::move(pending);
+    if (confirmed != m_cameraApps) {
+      m_cameraApps = std::move(confirmed);
+      rebuildState();
+    }
+  } catch (const std::exception& e) {
+    kLog.warn("camera scan failed: {}", e.what());
+  }
 }
 
 void PipeWireService::dispatch() {
+  pollCameraApps();
   if (m_loop == nullptr) {
     return;
   }
@@ -1953,6 +2052,24 @@ void PipeWireService::rebuildState() {
     }
 
     addCapture(*kind, consumer->id, privacyAppName(*consumer));
+  }
+
+  for (const auto& app : m_cameraApps) {
+    // Keep PipeWire's richer application label when it already reports this camera client.
+    const bool reported = std::ranges::any_of(nextPrivacy.captures, [&](const PrivacyCapture& capture) {
+      if (capture.kind != PrivacyCaptureKind::Camera) {
+        return false;
+      }
+      if (v4l2CameraSameApp(capture.appName, app)) {
+        return true;
+      }
+      const auto* node = findNode(capture.nodeId);
+      return node != nullptr
+          && (v4l2CameraSameApp(node->applicationBinary, app) || v4l2CameraSameApp(node->applicationName, app));
+    });
+    if (!reported) {
+      addCapture(PrivacyCaptureKind::Camera, 0, app);
+    }
   }
 
   // Sort by id for stable ordering

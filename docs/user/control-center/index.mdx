@@ -127,7 +127,7 @@ System monitor sampling is configured globally under `[system.monitor]`; see [Sy
 
 The Network tab uses the configured network backend to show wireless state and connection details. It is the destination for Wi-Fi shortcuts and network-related right-click actions.
 
-NetworkManager is preferred and followed on the system bus: when it starts after the shell or restarts, the tab picks it up, and while it is stopped the tab shows the network as unavailable. A standalone wpa_supplicant or iwd backend is used only when one of them is running at startup and NetworkManager is not.
+NetworkManager is preferred and followed on the system bus: when it starts after the shell or restarts, the tab picks it up, and while it is stopped the tab shows the network as unavailable. If NetworkManager's systemd unit is enabled, it stays the backend even when it is not running yet at startup. Otherwise a standalone wpa_supplicant or iwd backend is used when one of them is running at startup and lets you list its interfaces; with neither, the tab waits for NetworkManager.
 
 The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency. NetworkManager and wpa_supplicant report it; iwd reports it when Station diagnostics provide a positive frequency.
 
@@ -159,14 +159,7 @@ The Bluetooth tab shows adapter power state, paired devices, and connection cont
 
 When a device asks for access to a service, the prompt names the service (for example, Audio Sink or Hands-Free) instead of showing its raw UUID. **Accept** allows that one request. **Trust and allow** also marks the device as trusted, so BlueZ grants its future service requests without prompting and **Auto-reconnect** turns on; turn off **Auto-reconnect** to revoke that trust.
 
-By default Noctalia does not dial out to devices: BlueZ and the devices handle reconnection, and most trusted headsets, keyboards, and mice reconnect on their own. For devices that wait for the computer to connect, set `connect_when_enabled = true`. When Bluetooth turns on (toggled on, at startup, or after resume), Noctalia then connects each paired, trusted device that is not already connected, once and one device at a time. A device that is switched off holds the queue until its connection attempt times out (several seconds), so leave this off if several trusted devices are usually off:
-
-```toml
-[bluetooth]
-connect_when_enabled = true
-```
-
-Set `[bluetooth] connection_notifications = true` to show a notification when a Bluetooth device connects or disconnects without you acting on it in Noctalia, for example a headset you switch on, a device going out of range, or the auto-reconnect pass above. These notifications are off by default. Connecting, disconnecting, pairing, or forgetting a device from the Bluetooth tab stays silent, except that a connect you start which fails shows an error. Turning Bluetooth off does not notify for each device it drops, and devices that were already connected when Noctalia started never trigger one.
+**Auto-reconnect** only marks a device as trusted in BlueZ. Whether Noctalia itself connects trusted devices at startup, and whether it notifies about connection changes, is set under [Bluetooth](/noctalia/services/bluetooth/).
 
 ## Weather
 

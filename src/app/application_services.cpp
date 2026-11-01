@@ -1255,7 +1255,7 @@ void Application::initSystemBusServices() {
       m_upowerService = std::make_unique<UPowerService>(*m_systemBus);
       const auto& initialPower = m_upowerService->state();
       m_batteryHookState.reset(initialPower);
-      m_prevBatteryPluggedForEvents = initialPower.isPresent ? batteryStatePlugged(initialPower.state) : std::nullopt;
+      m_prevBatteryPluggedForEvents = m_upowerService->externalPowerConnected();
       m_prevBatteryPeripheralPathForEvents = m_upowerService->statePeripheralPath();
       m_batteryWarningMonitor.evaluate(m_configService.config().battery, *m_upowerService, m_notificationManager);
       m_upowerService->setChangeCallback([this, shouldRefreshControlCenter](const UPowerChange& change) {
@@ -1305,14 +1305,20 @@ void Application::initSystemBusServices() {
     }
 
     // NetworkManager is preferred, and its backend follows the bus name when NetworkManager starts later
-    // or restarts. When it is not running at startup, a standalone wpa_supplicant or iwd takes over if
-    // one is; otherwise the NetworkManager backend waits for it to appear.
+    // or restarts. When its unit is enabled but it is not running yet at startup, the backend waits for it:
+    // a wpa_supplicant on the bus then is NetworkManager's own. Otherwise a usable standalone wpa_supplicant
+    // or iwd takes over, and without one the NetworkManager backend still waits.
     try {
       m_networkService = std::make_unique<NetworkManagerService>(*m_systemBus);
     } catch (const std::exception& e) {
       kLog.warn("NetworkManager backend disabled: {}", e.what());
     }
-    if (m_networkService == nullptr || !m_networkService->available()) {
+    const bool nmWaiting = m_networkService != nullptr
+        && !m_networkService->available()
+        && m_systemBus->systemdUnitEnabled("NetworkManager.service");
+    if (nmWaiting) {
+      kLog.info("network service waiting for NetworkManager");
+    } else if (m_networkService == nullptr || !m_networkService->available()) {
       try {
         m_networkService = std::make_unique<WpaSupplicantService>(*m_systemBus);
         kLog.info("network service active (wpa_supplicant)");
@@ -1539,6 +1545,22 @@ void Application::initBrightnessAndPipewire() {
           }
         },
         "sound"
+    );
+
+    auto applySpectrumConfig = [this] {
+      if (m_pipewireSpectrum == nullptr) {
+        return;
+      }
+      m_pipewireSpectrum->setFrameRate(m_configService.config().audio.spectrumFrameRate);
+    };
+    applySpectrumConfig();
+    m_configService.addReloadCallback(
+        [this, applySpectrumConfig] {
+          if (m_configService.lastChange().audio) {
+            applySpectrumConfig();
+          }
+        },
+        "spectrum"
     );
   } catch (const std::exception& e) {
     kLog.warn("pipewire disabled: {}", e.what());

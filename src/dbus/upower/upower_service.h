@@ -162,6 +162,10 @@ public:
   // Object path of the peripheral battery backing state() on machines without a system battery;
   // empty when state() follows the system battery or no battery at all.
   [[nodiscard]] const std::string& statePeripheralPath() const noexcept { return m_statePeripheralPath; }
+  // Whether state() is on external power: UPower's OnBattery for the system battery, the charge state for a
+  // peripheral. A full system battery can flip between fully-charged and discharging while AC stays connected, so
+  // its charge state is not a plug signal. Empty without a battery or when a peripheral's state does not say.
+  [[nodiscard]] std::optional<bool> externalPowerConnected() const;
   [[nodiscard]] UPowerState stateForDevice(std::string_view selector) const;
   [[nodiscard]] std::vector<UPowerDeviceInfo> batteryDevices() const;
   [[nodiscard]] const UPowerDeviceInfo* defaultSystemBattery() const noexcept;

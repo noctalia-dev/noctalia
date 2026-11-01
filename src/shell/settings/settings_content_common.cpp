@@ -356,6 +356,7 @@ namespace settings {
     case SettingsSection::Services:
     case SettingsSection::Wallpaper:
     case SettingsSection::Desktop:
+    case SettingsSection::LockScreen:
     case SettingsSection::Dock:
     case SettingsSection::Panels:
     case SettingsSection::ControlCenter:
@@ -393,6 +394,7 @@ namespace settings {
     case SettingsSection::Services:
     case SettingsSection::Wallpaper:
     case SettingsSection::Desktop:
+    case SettingsSection::LockScreen:
     case SettingsSection::Dock:
     case SettingsSection::Panels:
     case SettingsSection::ControlCenter:

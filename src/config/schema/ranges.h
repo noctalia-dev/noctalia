@@ -49,6 +49,9 @@ namespace noctalia::config::schema {
   inline constexpr Range<float> kWallpaperTransitionDurationRange{100.0F, 30000.0F, 100.0F};
   inline constexpr Range<std::int64_t> kWallpaperAutomationIntervalRange{1, 86400, 1};
 
+  // Audio.
+  inline constexpr Range<std::int64_t> kSpectrumFrameRateRange{30, 240, 1};
+
   // Dock.
   inline constexpr Range<std::int64_t> kDockIconSizeRange{16, 128, 1};
   inline constexpr Range<std::int64_t> kDockPaddingRange{0, 100, 1};

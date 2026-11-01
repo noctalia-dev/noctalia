@@ -236,6 +236,9 @@ private:
   std::vector<RectNode*> m_selectionLineRects;
   float m_scrollOffset = 0.0F;
   float m_scrollOffsetY = 0.0F;
+  // Multiline: the caret moved or the text changed since the last layout, so
+  // the next layout scrolls it into view. Otherwise layout keeps the offset.
+  bool m_revealCursorYPending = false;
   // Sticky caret column for Up/Down runs; negative = unset.
   float m_goalCaretX = -1.0F;
   bool m_cursorBlinkVisible = true;

@@ -308,8 +308,9 @@ namespace scripting {
     int exitSignal = 0;
     // Stop payload: identifies why the runtime is being destroyed.
     ScriptExitReason exitReason = ScriptExitReason::Reload;
-    // SettingsChanged payload: the new seeded settings snapshot to swap in.
-    ScriptSettings newSettings;
+    // SettingsChanged payload: the new seeded settings snapshot to swap in, or nullopt
+    // when only a shell config value read via getSetting changed.
+    std::optional<ScriptSettings> newSettings;
     ScriptSnapshot snapshot;
     std::chrono::milliseconds budget{12};
   };

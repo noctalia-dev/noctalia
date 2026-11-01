@@ -153,6 +153,14 @@ int main() {
   fs::create_directories(deniedDataHome);
   std::ofstream(deniedIcon) << "<svg/>";
   fs::permissions(deniedDataHome, fs::perms::none);
+  // Unthemed icons at the top of base dirs (XDG LookupFallbackIcon).
+  fs::create_directories(root / ".icons");
+  fs::create_directories(root / "pixmaps");
+  std::ofstream(root / "icons/unthemed-app.png") << "png";
+  std::ofstream(root / ".icons/home-unthemed.svg") << "<svg/>";
+  std::ofstream(root / "icons/regular-only.png") << "png";
+  std::ofstream(root / "icons/fallback-order.png") << "png";
+  std::ofstream(root / "pixmaps/fallback-order.png") << "png";
   setenv("HOME", tempDir, 1);
   setenv("XDG_DATA_HOME", deniedDataHome.c_str(), 1);
   setenv("XDG_DATA_DIRS", (root.string() + ":" + extraData.string()).c_str(), 1);
@@ -438,6 +446,29 @@ int main() {
     ok = expect(
              resolver.resolve("later-root", size) == (extraIcons / "later-root.svg").string(),
              "all roots of the current theme must precede inherited themes"
+         )
+        && ok;
+  }
+
+  for (const int size : {0, 48}) {
+    ok = expect(
+             resolver.resolve("unthemed-app", size) == (root / "icons/unthemed-app.png").string(),
+             "an icon at the top of a data dir icons root should resolve"
+         )
+        && ok;
+    ok = expect(
+             resolver.resolve("home-unthemed", size) == (root / ".icons/home-unthemed.svg").string(),
+             "an icon at the top of ~/.icons should resolve"
+         )
+        && ok;
+    ok = expect(
+             resolver.resolve("regular-only", size) == regularOnlyIcon.string(),
+             "a themed icon must precede an unthemed icon of the same name"
+         )
+        && ok;
+    ok = expect(
+             resolver.resolve("fallback-order", size) == (root / "icons/fallback-order.png").string(),
+             "unthemed base dir icons must precede pixmaps"
          )
         && ok;
   }
