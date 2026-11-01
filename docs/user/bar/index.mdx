@@ -21,6 +21,7 @@ auto_hide_delay_ms = 0           # wait after pointer leaves before hiding, 0 to
 smart_auto_hide    = false       # show when the active workspace is empty; hide when it has windows
 show_on_workspace_switch = true  # with auto_hide: briefly reveal when the active workspace changes
 reserve_space      = true        # reserve compositor exclusive zone / push windows away
+auto_hide_reserve_space = false # with auto-hide: reserve the gap only while the bar is shown
 layer              = "top"       # top | overlay; overlay appears above fullscreen apps
 
 thickness          = 34          # bar cross-axis size in pixels (height for horizontal, width for vertical)
@@ -181,6 +182,8 @@ When `auto_hide = true`, the bar:
 - IPC `bar-show`, `bar-hide`, `bar-toggle`, and `bar-reserve-toggle` accept optional `[bar-name] [monitor-selector]` arguments; omit both to affect every bar instance. These commands change only the running shell and do not write configuration. `bar-show`/`hide`/`toggle` use the same hide/reveal animation instead of tearing down surfaces. With `auto_hide`, they retract or reveal the bar like pointer auto-hide; edge reveal still works after `bar-hide`. With `auto_hide` off, `bar-hide` hides the bar and always frees the compositor gap until `bar-show` (or `bar-toggle` while showing), regardless of `reserve_space`. `bar-reserve-toggle` temporarily toggles the exclusive zone reservation for the matched instances; panels opened from those bars use the temporary value.
 
 `reserve_space` controls whether the bar keeps a compositor exclusive zone. With `auto_hide = false`, `reserve_space = true` keeps windows pushed away; `reserve_space = false` overlays the bar on top of full-screen clients. With `auto_hide = true`, `reserve_space = false` retracts the bar as an overlay (no gap); `reserve_space = true` keeps the gap while the bar slides out of view.
+
+Set `auto_hide_reserve_space = true` (**Reserve Space While Visible** in bar settings) to reserve the gap only while an auto-hidden bar is on screen: the exclusive zone is released when the bar slides out, so windows use the full screen, and restored when it slides back in. It applies to both pointer and Smart auto-hide, requires `reserve_space = true`, has no effect when auto-hide is off, and defaults to `false`. It can also be set per monitor.
 
 ### Smart auto-hide
 
