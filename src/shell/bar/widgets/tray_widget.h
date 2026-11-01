@@ -39,6 +39,7 @@ public:
     // Read by TrayDrawerPanel, not by TrayWidget: they live here so the tray widget definition owns their defaults.
     double drawerItemSize = Style::baseGlyphSize;
     bool detachedPanel = false;
+    double drawerBackgroundOpacity = 1.0;
   };
 
   TrayWidget(ConfigService& config, TrayService* tray, Options options);

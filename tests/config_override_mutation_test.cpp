@@ -5,6 +5,7 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "shell/tray/tray_settings.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -151,7 +152,8 @@ int main() {
   const std::filesystem::path inheritRoot = root / "bar-inherit-case";
   writeFile(
       inheritRoot / "config" / "noctalia" / "config.toml",
-      "[bar.default]\nshow_tooltip = false\n\n[widget.clock]\ntype = \"clock\"\n"
+      "[bar.default]\nshow_tooltip = false\n\n[widget.clock]\ntype = \"clock\"\n\n[widget.tray]\ndrawer = "
+      "true\ndetached_panel = true\n"
   );
   ::setenv("NOCTALIA_CONFIG_HOME", (inheritRoot / "config").c_str(), 1);
   ::setenv("XDG_STATE_HOME", (inheritRoot / "state").c_str(), 1);
@@ -162,6 +164,21 @@ int main() {
     expect(config.hasOverride(tooltipPath), "explicit widget show_tooltip = true survived pruning");
     expect(config.clearOverride(tooltipPath), "widget show_tooltip override was cleared");
     expect(!config.hasOverride(tooltipPath), "clearing restored inheritance from the bar");
+
+    const std::vector<std::string> trayOpacityPath{"widget", "tray", "drawer_background_opacity"};
+    expect(!tray::resolvedTrayOptions(config).drawerBackgroundOpacity.has_value(), "tray opacity is unset initially");
+    expect(config.setOverride(trayOpacityPath, 0.5), "tray drawer_background_opacity = 0.5 was accepted");
+    expect(config.hasOverride(trayOpacityPath), "tray drawer_background_opacity = 0.5 survived pruning");
+    expect(
+        tray::resolvedTrayOptions(config).drawerBackgroundOpacity.value_or(0.0F) == 0.5F,
+        "tray resolved options has 0.5 opacity"
+    );
+    expect(config.setOverride(trayOpacityPath, 1.0), "tray drawer_background_opacity = 1.0 was accepted");
+    expect(config.hasOverride(trayOpacityPath), "tray drawer_background_opacity = 1.0 survived pruning");
+    expect(
+        tray::resolvedTrayOptions(config).drawerBackgroundOpacity.value_or(0.0F) == 1.0F,
+        "tray resolved options has 1.0 opacity"
+    );
   }
 
   // shell.panel_anchor_bar names a bar: renaming that bar in Settings must carry the key along, or every

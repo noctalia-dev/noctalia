@@ -4612,6 +4612,10 @@
           "description": "Show a tray button in the bar and open items in a panel",
           "label": "Use Drawer Panel"
         },
+        "drawer-background-opacity": {
+          "description": "Background opacity of the detached drawer panel",
+          "label": "Drawer Background Opacity"
+        },
         "drawer-columns": {
           "description": "Number of tray icons per row in the drawer panel",
           "label": "Drawer Columns"

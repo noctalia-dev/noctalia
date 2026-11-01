@@ -21,6 +21,7 @@ public:
   [[nodiscard]] float preferredWidth() const override;
   [[nodiscard]] float preferredHeight() const override;
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
+  [[nodiscard]] std::optional<float> detachedBackgroundOpacityOverride() const noexcept override;
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::OnDemand; }
   void setAnimationManager(AnimationManager* mgr) noexcept override;
 

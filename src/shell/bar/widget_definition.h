@@ -39,6 +39,7 @@ namespace noctalia::bar {
     std::optional<double> step;
     std::vector<WidgetSettingChoice<T>> choices;
     std::optional<settings::WidgetSettingPresentation> presentation = settings::WidgetSettingPresentation{};
+    bool inheritsFromBar = false;
   };
 
   template <typename Options> struct WidgetDefinitionField {
@@ -424,6 +425,7 @@ namespace noctalia::bar {
         .minValue = effectiveRange.schemaMin,
         .maxValue = effectiveRange.schemaMax,
         .step = spec.step,
+        .inheritsFromBar = spec.inheritsFromBar,
     };
     schema.enumValues.reserve(spec.choices.size());
     std::ranges::transform(

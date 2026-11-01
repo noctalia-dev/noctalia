@@ -101,6 +101,9 @@ public:
   // a fixed alpha for legibility (e.g. wallpaper thumbnails).
   [[nodiscard]] virtual bool inheritsBarBackgroundOpacity() const noexcept { return true; }
   [[nodiscard]] virtual float attachedBackgroundOpacityOverride() const noexcept { return 1.0F; }
+  // For floating/detached panels: when set, overrides the global shell.panel.transparency_mode
+  // background opacity with a custom alpha.
+  [[nodiscard]] virtual std::optional<float> detachedBackgroundOpacityOverride() const noexcept { return std::nullopt; }
   [[nodiscard]] virtual bool wantsCloseAnimation() const noexcept { return true; }
   [[nodiscard]] virtual bool dismissOnOutsideClick() const { return true; }
   [[nodiscard]] virtual bool ignorePointerEvent() const { return false; }
