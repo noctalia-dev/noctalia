@@ -138,6 +138,21 @@ void Application::scheduleNotificationShellRefresh() {
   });
 }
 
+void Application::syncLockScreenDoNotDisturb() {
+  const bool shouldEnable = m_lockScreen.isActive() && m_configService.config().lockscreen.dnd;
+  if (shouldEnable) {
+    if (!m_notificationManager.doNotDisturb()) {
+      m_lockScreenAutoDnd = true;
+      m_notificationManager.setDoNotDisturb(true);
+    }
+    return;
+  }
+  if (m_lockScreenAutoDnd) {
+    m_lockScreenAutoDnd = false;
+    m_notificationManager.setDoNotDisturb(false);
+  }
+}
+
 void Application::syncNotificationDaemon() {
   if (m_bus == nullptr) {
     m_notificationPollSource.setDbusService(nullptr);
