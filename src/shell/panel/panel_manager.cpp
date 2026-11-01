@@ -1737,6 +1737,24 @@ void PanelManager::togglePanel(const std::string& panelId, PanelOpenRequest requ
   }
 }
 
+void PanelManager::showPanel(const std::string& panelId, PanelOpenRequest request) {
+  if (m_persistentHost.hasPanel(panelId)) {
+    if (!m_persistentHost.isOpen(panelId)) {
+      openPanel(panelId, request);
+    }
+    return;
+  }
+  // A closing panel is treated as closed, so it comes back rather than finishing its exit.
+  if (isOpen() && !m_closing && m_activePanelId == panelId && m_activePanel != nullptr) {
+    if (!request.context.empty() && !m_activePanel->isContextActive(request.context)) {
+      m_activePanel->onOpen(request.context);
+    }
+    refresh();
+    return;
+  }
+  openPanel(panelId, request);
+}
+
 void PanelManager::togglePanel(const std::string& panelId) {
   if (m_persistentHost.hasPanel(panelId)) {
     if (m_persistentHost.isOpen(panelId)) {

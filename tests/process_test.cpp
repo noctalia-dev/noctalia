@@ -141,6 +141,22 @@ namespace {
     return ok;
   }
 
+  bool syncFeedsStdinThenEof() {
+    process::RunOptions options;
+    options.stdinData = "first\nsecond\n";
+    options.timeout = std::chrono::seconds(5);
+    // `cat` only exits once it sees EOF, so this also checks stdin gets closed.
+    const auto fed = process::runSync(std::vector<std::string>{"cat"}, options);
+    bool ok = expect(fed.exitCode == 0 && !fed.timedOut, "cat with stdin data failed");
+    ok = expect(fed.out == "first\nsecond", "stdin data did not reach the child") && ok;
+
+    process::RunOptions oversized;
+    oversized.stdinData = std::string(std::size_t{1} << 24, 'x');
+    const auto rejected = process::runSync(std::vector<std::string>{"cat"}, oversized);
+    ok = expect(rejected.exitCode == -1, "stdin larger than a pipe buffer should fail the run") && ok;
+    return ok;
+  }
+
   bool stringCommandsSupportShellComposition() {
     const auto result = process::runSync("printf first && printf second");
     bool ok = expect(result.exitCode == 0, "composed shell command failed");
@@ -249,6 +265,7 @@ int main() {
   ok = capturedAsyncDeliversCallbacksAndResult() && ok;
   ok = capturedAsyncDeliversCompletionOnly() && ok;
   ok = syncAppliesEnvOverrides() && ok;
+  ok = syncFeedsStdinThenEof() && ok;
   ok = stringCommandsSupportShellComposition() && ok;
   ok = detachedAsyncInheritsLaunchEnvironment() && ok;
   ok = detachedMissingBinaryReturnsFalse() && ok;
