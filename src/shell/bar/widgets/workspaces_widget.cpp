@@ -2,6 +2,7 @@
 
 #include "compositors/workspace_backend.h"
 #include "config/config_service.h"
+#include "config/config_types.h"
 #include "core/ui_phase.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
@@ -207,11 +208,18 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   if (m_monitors.empty()) {
     appendWorkspaces(m_output);
   } else {
+    std::vector<wl_output*> selected;
     for (const auto& monitor : m_monitors) {
-      const auto output = std::ranges::find(m_platform.outputs(), monitor, &WaylandOutput::connectorName);
-      if (output != m_platform.outputs().end()) {
-        appendWorkspaces(output->output);
+      for (const auto& output : m_platform.outputs()) {
+        if (output.output != nullptr
+            && !std::ranges::contains(selected, output.output)
+            && outputMatchesSelector(monitor, output)) {
+          selected.push_back(output.output);
+        }
       }
+    }
+    for (auto* output : selected) {
+      appendWorkspaces(output);
     }
   }
 
