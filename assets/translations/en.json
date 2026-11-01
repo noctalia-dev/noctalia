@@ -4658,6 +4658,10 @@
           "description": "Default inherits the bar font weight",
           "label": "Font Weight"
         },
+        "force-app-icons": {
+          "description": "Force tray icons to use desktop app icons",
+          "label": "Force App Icons"
+        },
         "format": {
           "description": "Time format string",
           "label": "Format"
