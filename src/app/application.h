@@ -221,6 +221,8 @@ private:
   void onSecretServiceCollectionChanged();
   void retrySecretServiceConsumers(bool defaultCollectionUnlocked = false);
   void scheduleNotificationShellRefresh();
+  // Enables the lockscreen DND option when locking and restores the pre-lock state on unlock.
+  void syncLockScreenDoNotDisturb();
   void syncPolkitAgent();
   [[nodiscard]] bool likelySupportsInSessionPolkit() const noexcept;
   void syncClipboardService();
@@ -314,6 +316,7 @@ private:
   std::optional<bool> m_notificationDaemonEnabled;
   bool m_notificationDaemonInitFailed = false;
   bool m_notificationShellRefreshScheduled = false;
+  bool m_lockScreenAutoDnd = false;
   BatteryHookState m_batteryHookState;
   BatteryWarningMonitor m_batteryWarningMonitor;
   std::optional<bool> m_prevBatteryPluggedForEvents;

@@ -1785,6 +1785,15 @@ namespace settings {
     }
     {
       auto e = makeEntry(
+          SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.dnd.label"),
+          tr("settings.schema.lockscreen.dnd.description"), {"lockscreen", "dnd"}, ToggleSetting{cfg.lockscreen.dnd},
+          "lock screen do not disturb dnd notifications"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
           SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.grace-period.label"),
           tr("settings.schema.lockscreen.grace-period.description"), {"lockscreen", "grace_period_seconds"},
           StepperSetting{

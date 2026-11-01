@@ -2562,6 +2562,10 @@
           "description": "Use a snapshot of the desktop as the lock screen background",
           "label": "Desktop Capture"
         },
+        "dnd": {
+          "description": "Enable Do Not Disturb while the session is locked; the previous state is restored on unlock",
+          "label": "Do Not Disturb"
+        },
         "edge-smoothness": {
           "description": "Feathering of the lock screen transition edges",
           "label": "Transition Edge Smoothness"
