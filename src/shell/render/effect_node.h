@@ -56,6 +56,14 @@ public:
     markPaintDirty();
   }
 
+  // Drives the Snow effect's flake layer. `count` is clamped to kMaxSnowFlakes; ignored by
+  // every other effect type's shader.
+  void setFlakes(const std::array<SnowFlake, kMaxSnowFlakes>& flakes, int count) {
+    m_style.flakes = flakes;
+    m_style.flakeCount = std::clamp(count, 0, kMaxSnowFlakes);
+    markPaintDirty();
+  }
+
   void draw(RenderBackend& backend, const CustomDrawContext& context) const override;
 
 private:

@@ -3,6 +3,7 @@
 #include "render/animation/animation_manager.h"
 #include "shell/control_center/tab.h"
 #include "shell/control_center/tabs/rain_droplet_simulation.h"
+#include "shell/control_center/tabs/snowflake_simulation.h"
 #include "shell/render/shell_render_styles.h"
 
 #include <array>
@@ -108,4 +109,5 @@ private:
   float m_forecastRowsBaseY = 0.0F;
   float m_shaderTime = 0.0F;
   RainDropletSimulation m_rainDrops;
+  SnowflakeSimulation m_snowFlakes;
 };
