@@ -60,8 +60,8 @@ void ColorPickerDialogPopup::populateContent(Node* contentParent, std::uint32_t 
   } else {
     sheet->colorPicker()->setColor(colorForRole(ColorRole::Primary));
   }
-  sheet->setOnCancel([this]() { DeferredCall::callLater([this]() { cancel(); }); });
-  sheet->setOnApply([this](const Color& color) { DeferredCall::callLater([this, color]() { accept(color); }); });
+  sheet->setOnCancel([this] { DeferredCall::callLater([this] { cancel(); }); });
+  sheet->setOnApply([this](const Color& color) { DeferredCall::callLater([this, color] { accept(color); }); });
   m_sheet = sheet.get();
   contentParent->addChild(std::move(sheet));
 

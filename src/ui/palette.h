@@ -13,18 +13,30 @@
 enum class ColorRole : std::uint8_t {
   Primary,
   OnPrimary,
+  PrimaryContainer,
+  OnPrimaryContainer,
   Secondary,
   OnSecondary,
+  SecondaryContainer,
+  OnSecondaryContainer,
   Tertiary,
   OnTertiary,
+  TertiaryContainer,
+  OnTertiaryContainer,
   Error,
   OnError,
+  ErrorContainer,
+  OnErrorContainer,
   Surface,
   OnSurface,
-  SurfaceVariant,
   OnSurfaceVariant,
-  Outline,
+  SurfaceContainerLow,
+  SurfaceContainer,
+  SurfaceContainerHigh,
+  SurfaceContainerHighest,
+  OutlineVariant,
   Shadow,
+  Scrim,
   Hover,
   OnHover,
 };
@@ -34,21 +46,33 @@ struct ColorRoleToken {
   std::string_view token;
 };
 
-inline constexpr std::array<ColorRoleToken, 16> kColorRoleTokens = {{
+inline constexpr std::array<ColorRoleToken, 28> kColorRoleTokens = {{
     {ColorRole::Primary, "primary"},
     {ColorRole::OnPrimary, "on_primary"},
+    {ColorRole::PrimaryContainer, "primary_container"},
+    {ColorRole::OnPrimaryContainer, "on_primary_container"},
     {ColorRole::Secondary, "secondary"},
     {ColorRole::OnSecondary, "on_secondary"},
+    {ColorRole::SecondaryContainer, "secondary_container"},
+    {ColorRole::OnSecondaryContainer, "on_secondary_container"},
     {ColorRole::Tertiary, "tertiary"},
     {ColorRole::OnTertiary, "on_tertiary"},
+    {ColorRole::TertiaryContainer, "tertiary_container"},
+    {ColorRole::OnTertiaryContainer, "on_tertiary_container"},
     {ColorRole::Error, "error"},
     {ColorRole::OnError, "on_error"},
+    {ColorRole::ErrorContainer, "error_container"},
+    {ColorRole::OnErrorContainer, "on_error_container"},
     {ColorRole::Surface, "surface"},
     {ColorRole::OnSurface, "on_surface"},
-    {ColorRole::SurfaceVariant, "surface_variant"},
     {ColorRole::OnSurfaceVariant, "on_surface_variant"},
-    {ColorRole::Outline, "outline"},
+    {ColorRole::SurfaceContainerLow, "surface_container_low"},
+    {ColorRole::SurfaceContainer, "surface_container"},
+    {ColorRole::SurfaceContainerHigh, "surface_container_high"},
+    {ColorRole::SurfaceContainerHighest, "surface_container_highest"},
+    {ColorRole::OutlineVariant, "outline_variant"},
     {ColorRole::Shadow, "shadow"},
+    {ColorRole::Scrim, "scrim"},
     {ColorRole::Hover, "hover"},
     {ColorRole::OnHover, "on_hover"},
 }};
@@ -78,49 +102,49 @@ constexpr bool operator==(const ColorSpec& a, const ColorSpec& b) noexcept {
   return out;
 }
 
+// Runtime UI palette: one color per ColorRole, resolved from the generated theme tokens.
 struct Palette {
   Color primary;
   Color onPrimary;
+  Color primaryContainer;
+  Color onPrimaryContainer;
   Color secondary;
   Color onSecondary;
+  Color secondaryContainer;
+  Color onSecondaryContainer;
   Color tertiary;
   Color onTertiary;
+  Color tertiaryContainer;
+  Color onTertiaryContainer;
   Color error;
   Color onError;
+  Color errorContainer;
+  Color onErrorContainer;
   Color surface;
   Color onSurface;
-  Color surfaceVariant;
   Color onSurfaceVariant;
-  Color outline;
+  Color surfaceContainerLow;
+  Color surfaceContainer;
+  Color surfaceContainerHigh;
+  Color surfaceContainerHighest;
+  Color outlineVariant;
   Color shadow;
+  Color scrim;
   Color hover;
   Color onHover;
-};
 
-constexpr bool operator==(const Palette& lhs, const Palette& rhs) noexcept {
-  return lhs.primary == rhs.primary
-      && lhs.onPrimary == rhs.onPrimary
-      && lhs.secondary == rhs.secondary
-      && lhs.onSecondary == rhs.onSecondary
-      && lhs.tertiary == rhs.tertiary
-      && lhs.onTertiary == rhs.onTertiary
-      && lhs.error == rhs.error
-      && lhs.onError == rhs.onError
-      && lhs.surface == rhs.surface
-      && lhs.onSurface == rhs.onSurface
-      && lhs.surfaceVariant == rhs.surfaceVariant
-      && lhs.onSurfaceVariant == rhs.onSurfaceVariant
-      && lhs.outline == rhs.outline
-      && lhs.shadow == rhs.shadow
-      && lhs.hover == rhs.hover
-      && lhs.onHover == rhs.onHover;
-}
+  bool operator==(const Palette&) const = default;
+};
 
 extern Palette palette;
 
 [[nodiscard]] const Color& colorForRole(ColorRole role) noexcept;
 [[nodiscard]] Color colorForRole(ColorRole role, float alpha) noexcept;
 [[nodiscard]] std::optional<ColorRole> colorRoleFromToken(std::string_view token);
+// Plugin-facing lookup. Temporarily also accepts the retired `surface_variant` and `outline` roles (as
+// surface_container and outline_variant, warning once per name) so third-party plugins keep working while
+// they migrate. Remove in 5.5.0 and switch callers back to colorRoleFromToken().
+[[nodiscard]] std::optional<ColorRole> colorRoleFromPluginToken(std::string_view token);
 [[nodiscard]] std::string_view colorRoleToken(ColorRole role) noexcept;
 [[nodiscard]] ColorSpec colorSpecFromRole(ColorRole role, float alpha = 1.0F) noexcept;
 [[nodiscard]] ColorSpec fixedColorSpec(const Color& color) noexcept;
@@ -136,7 +160,7 @@ void setPalette(const Palette& p);
 [[nodiscard]] Color colorForRoleSnapshot(ColorRole role);
 
 [[nodiscard]] inline ColorSpec scrollbarTrackColor() noexcept {
-  return colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha);
+  return colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha);
 }
 [[nodiscard]] inline ColorSpec scrollbarThumbColor() noexcept {
   return colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.5F);

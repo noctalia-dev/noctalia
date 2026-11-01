@@ -12,6 +12,7 @@
 #include "render/text/glyph_registry.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
+#include "shell/tray/tray_theme_path_index.h"
 #include "system/desktop_entry.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
@@ -21,15 +22,13 @@
 
 #include <algorithm>
 #include <cmath>
-#include <filesystem>
 #include <linux/input-event-codes.h>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace {
-
-  namespace fs = std::filesystem;
 
   constexpr Logger kLog("tray");
 
@@ -171,7 +170,7 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
       m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
-      m_customItemSize(options.customItemSize) {
+      m_customItemSize(options.customItemSize), m_forceAppIcons(options.forceAppIcons) {
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
     normalized.reserve(tokens.size());
@@ -187,48 +186,35 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
   normalizeTokens(m_hiddenItems);
   normalizeTokens(m_pinnedItems);
   buildDesktopIconIndex();
+  m_themePathIndexListener = tray::ThemePathIconStore::instance().addListener([this] {
+    // Paths resolved while the scan was in flight fell back to the system theme and
+    // were cached; drop them so the app's own IconThemePath icon takes precedence.
+    m_preferredIconPaths.clear();
+    m_rebuildPending = true;
+    requestUpdate();
+  });
 }
 
-std::string TrayWidget::resolveFromTrayThemePath(std::string_view themePath, std::string_view iconName) {
-  if (themePath.empty() || iconName.empty()) {
-    return {};
-  }
+std::string TrayWidget::resolveDesktopIconPath(const TrayItemInfo& item) {
+  std::vector<std::string> candidates;
+  tray::appendIdentifierVariants(candidates, item.itemName);
+  tray::appendIdentifierVariants(candidates, item.processName);
+  tray::appendIdentifierVariants(candidates, item.title);
+  tray::appendIdentifierVariants(candidates, item.busName);
+  tray::appendIdentifierVariants(candidates, item.id);
+  tray::appendIdentifierVariants(candidates, item.objectPath);
+  tray::appendIdentifierVariants(candidates, item.iconName);
 
-  const std::string themePathKey(themePath);
-  auto [cacheIt, inserted] = m_trayThemePathIcons.try_emplace(themePathKey);
-  if (inserted) {
-    std::error_code ec;
-    if (!fs::is_directory(themePathKey, ec)) {
-      return {};
-    }
+  const float logicalSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
+  const int rasterSize = std::max(32, static_cast<int>(std::round(logicalSize * 2.0F)));
 
-    auto& iconIndex = cacheIt->second;
-    for (fs::recursive_directory_iterator it(themePathKey, fs::directory_options::skip_permission_denied, ec), end;
-         !ec && it != end; it.increment(ec)) {
-      if (ec || !it->is_regular_file()) {
-        continue;
-      }
-
-      const fs::path path = it->path();
-      const auto extension = StringUtils::toLower(path.extension().string());
-      if (extension != ".svg" && extension != ".png") {
-        continue;
-      }
-
-      const std::string stem = path.stem().string();
-      for (const auto& variant : identifierVariants(stem)) {
-        iconIndex.try_emplace(variant, path.string());
+  for (const auto& candidate : candidates) {
+    if (const auto it = m_appIcons.find(candidate); it != m_appIcons.end()) {
+      if (const auto path = m_iconResolver.resolve(it->second, rasterSize); !path.empty()) {
+        return path;
       }
     }
   }
-
-  const auto& iconIndex = cacheIt->second;
-  for (const auto& variant : identifierVariants(iconName)) {
-    if (const auto it = iconIndex.find(variant); it != iconIndex.end()) {
-      return it->second;
-    }
-  }
-
   return {};
 }
 
@@ -256,11 +242,11 @@ void TrayWidget::refreshAppIconColorization(Renderer& renderer) {
 }
 
 void TrayWidget::create() {
-  m_paletteConn = paletteChanged().connect([this]() {
+  m_paletteConn = paletteChanged().connect([this] {
     m_appIconColorizeDirty = true;
     requestUpdate();
   });
-  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] {
     m_rebuildPending = true;
     requestUpdate();
   });
@@ -284,7 +270,7 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
   }
   if (m_drawerMode && m_drawerChevron != nullptr && m_drawerTrigger != nullptr) {
     const bool panelOpen = PanelManager::instance().isOpenPanel("tray-drawer");
-    const std::string glyphName = drawerChevronGlyph(panelOpen);
+    const std::string_view glyphName = drawerChevronGlyph(panelOpen);
     if (m_drawerChevronGlyph != glyphName) {
       m_drawerChevronGlyph = glyphName;
       m_drawerChevron->setGlyph(glyphName);
@@ -455,6 +441,16 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
   clearHoverOverlays();
 
+  // Keep each item's InputArea across rebuilds: animated icons rebuild faster than a click, and fresh
+  // areas would drop hover and press capture.
+  std::unordered_map<std::string, std::unique_ptr<Node>> reusableAreas;
+  for (auto& [id, area] : m_itemAreas) {
+    if (area->parent() != nullptr) {
+      reusableAreas.emplace(id, area->parent()->removeChild(area));
+    }
+  }
+  m_itemAreas.clear();
+
   while (!m_container->children().empty()) {
     m_container->removeChild(m_container->children().back().get());
   }
@@ -466,7 +462,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
     Box* hoverBoxPtr = nullptr;
     ColorSpec hoverFill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
-    hoverFill.alpha = 0.0F;
+    hoverFill.alpha = area.hovered() ? 0.1F : 0.0F;
     const float padding = barCapsuleSpec().padding * m_contentScale;
     const float boxSize = size + padding * 2.0F;
 
@@ -490,7 +486,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       area.addChild(std::move(hoverBox));
     }
 
-    auto progress = std::make_shared<float>(0.0F);
+    auto progress = std::make_shared<float>(area.hovered() ? 1.0F : 0.0F);
     area.setOnEnter([this, hoverBoxPtr, progress](const InputArea::PointerData&) {
       if (m_animations == nullptr)
         return;
@@ -511,7 +507,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       requestFrameTick();
     });
 
-    area.setOnLeave([this, hoverBoxPtr, progress]() {
+    area.setOnLeave([this, hoverBoxPtr, progress] {
       if (m_animations == nullptr)
         return;
       m_animations->cancelForOwner(hoverBoxPtr);
@@ -694,7 +690,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
         if (overlayName.empty()) {
           return {};
         }
-        if (const auto themed = resolveFromTrayThemePath(item.iconThemePath, overlayName); !themed.empty()) {
+        if (const auto themed = tray::ThemePathIconStore::instance().resolve(item.iconThemePath, overlayName);
+            !themed.empty()) {
           return themed;
         }
         if (const auto direct = m_iconResolver.resolve(overlayName, iconRequestSize); !direct.empty()) {
@@ -770,13 +767,26 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
 
     // Wrap icon in InputArea for click handling
-    auto area = ui::inputArea({});
-    area->setSize(itemSize, itemSize);
+    std::unique_ptr<Node> areaNode;
+    InputArea* areaPtr = nullptr;
+    if (auto reusable = reusableAreas.find(item.id); reusable != reusableAreas.end()) {
+      areaNode = std::move(reusable->second);
+      reusableAreas.erase(reusable);
+      areaPtr = static_cast<InputArea*>(areaNode.get());
+      while (!areaPtr->children().empty()) {
+        areaPtr->removeChild(areaPtr->children().back().get());
+      }
+    } else {
+      auto fresh = ui::inputArea({});
+      areaPtr = fresh.get();
+      areaNode = std::move(fresh);
+    }
+    m_itemAreas[item.id] = areaPtr;
+    areaPtr->setSize(itemSize, itemSize);
     iconNode->setPosition(std::round((itemSize - iconW) * 0.5F), std::round((itemSize - iconH) * 0.5F));
     auto itemId = item.id;
-    area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-    InputArea* areaPtr = area.get();
-    area->setOnClick([this, itemId, areaPtr](const InputArea::PointerData& data) {
+    areaPtr->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
+    areaPtr->setOnClick([this, itemId, areaPtr](const InputArea::PointerData& data) {
       if (m_tray == nullptr) {
         return;
       }
@@ -794,13 +804,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
         }
       }
     });
-    area->addChild(std::move(iconNode));
+    areaPtr->addChild(std::move(iconNode));
 
-    if (const std::string tooltipText = tray::formatTrayItemTooltip(item); !tooltipText.empty()) {
-      area->setTooltip(tooltipText);
-    }
-
-    attachHover(*area, itemSize);
+    attachHover(*areaPtr, itemSize);
 
     if (m_panelGridMode) {
       if (gridRow == nullptr || gridCol >= m_panelGridColumns) {
@@ -812,17 +818,30 @@ void TrayWidget::rebuild(Renderer& renderer) {
         ));
         gridCol = 0;
       }
-      gridRow->addChild(std::move(area));
+      gridRow->addChild(std::move(areaNode));
       ++gridCol;
     } else {
-      m_container->addChild(std::move(area));
+      m_container->addChild(std::move(areaNode));
+    }
+
+    // Touch the tooltip only when its text changed, and only once the area is back in the scene:
+    // a change notification re-anchors the shown tooltip, and a detached area has no on-screen position.
+    const std::string tooltipText = tray::formatTrayItemTooltip(item);
+    const TooltipContent currentTooltip = areaPtr->tooltipContent();
+    const auto* currentText = std::get_if<std::string>(&currentTooltip);
+    if (tooltipText.empty()) {
+      if (areaPtr->hasTooltip()) {
+        areaPtr->clearTooltip();
+      }
+    } else if (currentText == nullptr || *currentText != tooltipText) {
+      areaPtr->setTooltip(tooltipText);
     }
   }
 
   m_container->setVisible(!m_container->children().empty());
 }
 
-std::string TrayWidget::drawerChevronGlyph(bool panelOpen) const {
+std::string_view TrayWidget::drawerChevronGlyph(bool panelOpen) const {
   if (m_barPosition == "bottom") {
     return panelOpen ? "chevron-down" : "chevron-up";
   }
@@ -872,13 +891,7 @@ bool TrayWidget::isPinnedItem(const TrayItemInfo& item) const {
     return false;
   }
 
-  for (const auto& needle : m_pinnedItems) {
-    if (tray::tokenMatchesItem(needle, item)) {
-      return true;
-    }
-  }
-
-  return false;
+  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) { return tray::tokenMatchesItem(needle, item); });
 }
 
 void TrayWidget::buildDesktopIconIndex() {
@@ -902,13 +915,17 @@ void TrayWidget::buildDesktopIconIndex() {
 }
 
 std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
-  const bool hasNamedIcon = item.needsAttention ? !item.attentionIconName.empty() : !item.iconName.empty();
-  if (const auto it = m_preferPixmap.find(item.id); it != m_preferPixmap.end() && it->second) {
-    // Some indicators publish pixmaps late (after startup) that are monochrome
-    // or stale. Keep using named-icon resolution when available.
-    if (!hasNamedIcon) {
-      return {};
+  if (m_forceAppIcons) {
+    if (const auto desktopIcon = resolveDesktopIconPath(item); !desktopIcon.empty()) {
+      return desktopIcon;
     }
+  }
+
+  const bool hasNamedIcon = item.needsAttention ? !item.attentionIconName.empty() : !item.iconName.empty();
+  // Some indicators publish pixmaps late (after startup) that are monochrome
+  // or stale. Keep using named-icon resolution when available.
+  if (const auto it = m_preferPixmap.find(item.id); it != m_preferPixmap.end() && it->second && !hasNamedIcon) {
+    return {};
   }
 
   if (const auto it = m_preferredIconPaths.find(item.id); it != m_preferredIconPaths.end() && !it->second.empty()) {
@@ -923,7 +940,8 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
   } else {
     preferred = item.iconName;
   }
-  if (const auto themed = resolveFromTrayThemePath(item.iconThemePath, preferred); !themed.empty()) {
+  if (const auto themed = tray::ThemePathIconStore::instance().resolve(item.iconThemePath, preferred);
+      !themed.empty()) {
     m_preferredIconPaths[item.id] = themed;
     return themed;
   }
@@ -1041,7 +1059,7 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
 }
 
 std::string TrayWidget::iconForItem(const TrayItemInfo& item) const {
-  const std::string preferred =
+  std::string preferred =
       item.needsAttention && !item.attentionIconName.empty() ? item.attentionIconName : item.iconName;
   if (!preferred.empty() && GlyphRegistry::contains(preferred)) {
     return preferred;
@@ -1094,7 +1112,7 @@ void TrayWidget::layoutHoverOverlays() {
 // wiped by `attachWidgetsToSections` before the next widget batch), and the entries' `area`
 // pointers are inside our own scene subtree, which the bar destroys *before* clearing the widget
 // vector. Touching either from the destructor is redundant at best and a use-after-free at worst.
-TrayWidget::~TrayWidget() = default;
+TrayWidget::~TrayWidget() { tray::ThemePathIconStore::instance().removeListener(m_themePathIndexListener); }
 
 void TrayWidget::clearHoverOverlays() {
   if (m_hoverOverlayParent != nullptr) {

@@ -51,7 +51,7 @@ namespace shell::panel_surface {
   [[nodiscard]] inline ColorSpec
   borderColor(const ConfigService* configService, float panelBackgroundOpacity) noexcept {
     const ColorSpec spec = configService != nullptr ? configService->config().shell.panel.borderColor
-                                                    : colorSpecFromRole(ColorRole::Outline);
+                                                    : colorSpecFromRole(ColorRole::OutlineVariant);
     return scaleAlpha(spec, panelBackgroundOpacity);
   }
 

@@ -113,10 +113,6 @@ namespace {
     return reading.totalBytes > 0 && reading.usedBytes <= reading.totalBytes;
   }
 
-  // Per-core CPU sampling cadence. Fixed rather than configurable: it is opt-in via
-  // retainCpuCores(), and its only consumers want per-second resolution.
-  constexpr std::chrono::steady_clock::duration kCpuCoreInterval = std::chrono::seconds(1);
-
   // 0 disables a metric; any other value is clamped to the supported poll range.
   [[nodiscard]] float clampPollSeconds(float seconds) noexcept {
     if (seconds <= 0.0F) {
@@ -213,11 +209,7 @@ namespace {
     const std::string lbl = StringUtils::toLower(label);
 
     int score = 0;
-    if (name == "amdgpu") {
-      score += 20;
-    } else if (name == "nvidia" || name.contains("nvidia")) {
-      score += 20;
-    } else if (name == "i915" || name == "xe") {
+    if (name == "amdgpu" || name.contains("nvidia") || name == "i915" || name == "xe") {
       score += 20;
     } else if (name == "nouveau") {
       score += 10;
@@ -1077,17 +1069,30 @@ void SystemMonitorService::releaseCpuCores() {
   m_cpuCoreRefs.fetch_sub(1, std::memory_order_relaxed);
 }
 
+void SystemMonitorService::releaseGpuRef(std::atomic<int>& refs) {
+  {
+    std::scoped_lock lock{m_wakeMutex};
+    if (refs.fetch_sub(1, std::memory_order_relaxed) != 1) {
+      return;
+    }
+    // Drop vendor-library sessions promptly after the last consumer leaves, even with a
+    // long poll interval. Only the sampling thread may destroy the GPU readers.
+    m_wakeGeneration.fetch_add(1, std::memory_order_relaxed);
+  }
+  m_wakeCv.notify_all();
+}
+
 void SystemMonitorService::retainGpuTemp() { m_gpuTempRefs.fetch_add(1, std::memory_order_relaxed); }
 
-void SystemMonitorService::releaseGpuTemp() { m_gpuTempRefs.fetch_sub(1, std::memory_order_relaxed); }
+void SystemMonitorService::releaseGpuTemp() { releaseGpuRef(m_gpuTempRefs); }
 
 void SystemMonitorService::retainGpuUsage() { m_gpuUsageRefs.fetch_add(1, std::memory_order_relaxed); }
 
-void SystemMonitorService::releaseGpuUsage() { m_gpuUsageRefs.fetch_sub(1, std::memory_order_relaxed); }
+void SystemMonitorService::releaseGpuUsage() { releaseGpuRef(m_gpuUsageRefs); }
 
 void SystemMonitorService::retainGpuVram() { m_gpuVramRefs.fetch_add(1, std::memory_order_relaxed); }
 
-void SystemMonitorService::releaseGpuVram() { m_gpuVramRefs.fetch_sub(1, std::memory_order_relaxed); }
+void SystemMonitorService::releaseGpuVram() { releaseGpuRef(m_gpuVramRefs); }
 
 namespace {
   struct DiskStatvfsData {
@@ -1199,7 +1204,7 @@ void SystemMonitorService::start() {
   m_running = true;
   m_prevNetBytes.clear();
   try {
-    m_thread = std::thread([this]() { samplingLoop(); });
+    m_thread = std::thread([this] { samplingLoop(); });
   } catch (...) {
     m_running = false;
     throw;
@@ -1569,7 +1574,7 @@ void SystemMonitorService::samplingLoop() {
     considerWake(historyEnabled, nextHistory);
 
     std::unique_lock wakeLock{m_wakeMutex};
-    m_wakeCv.wait_until(wakeLock, nextWake, [this, wakeGeneration]() {
+    m_wakeCv.wait_until(wakeLock, nextWake, [this, wakeGeneration] {
       return !m_running.load() || m_wakeGeneration.load() != wakeGeneration;
     });
   }

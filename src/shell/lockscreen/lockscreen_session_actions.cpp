@@ -26,8 +26,7 @@ namespace {
       if (row.action == "command" && (!row.command.has_value() || StringUtils::trim(*row.command).empty())) {
         continue;
       }
-      if (row.action == "lock_and_suspend"
-          && (explicitSuspend || (row.command.has_value() && !StringUtils::trim(*row.command).empty()))) {
+      if (row.action == "lock_and_suspend" && explicitSuspend) {
         continue;
       }
       out.push_back(row);

@@ -661,7 +661,53 @@ int main() {
   error.clear();
   const auto badFill = scripting::parsePluginManifest(badFillManifestPath, &error);
   ok = expect(!badFill.has_value(), "height \"full\" should fail loudly") && ok;
-  ok = expectEq(error, "panel entry 'panel': height must be a positive number or \"fill\"", "bad fill error") && ok;
+  ok = expectEq(
+           error, R"(panel entry 'panel': height must be a positive number, "fill", or "content")", "bad fill error"
+       )
+      && ok;
+
+  // height = "content" fits the panel to its tree, capped by the required max_height.
+  const auto contentPanelManifestPath = root / "content-panel/plugin.toml";
+  ok = writeManifest(
+           contentPanelManifestPath,
+           "id = \"me/content-panel\"\n"
+           "name = \"Content Panel\"\n"
+           "plugin_api = 42\n"
+           "[[panel]]\n"
+           "id = \"panel\"\n"
+           "entry = \"panel.luau\"\n"
+           "width = 300\n"
+           "height = \"content\"\n"
+           "max_height = 600\n"
+       )
+      && ok;
+  error.clear();
+  const auto contentPanel = scripting::parsePluginManifest(contentPanelManifestPath, &error);
+  ok = expect(contentPanel.has_value(), error.empty() ? "failed to parse content panel manifest" : error.c_str()) && ok;
+  if (contentPanel.has_value() && expect(contentPanel->entries.size() == 1, "one content panel entry expected")) {
+    const auto& entry = contentPanel->entries.front();
+    ok = expect(entry.panelHeightContent, "height \"content\" should set the content flag") && ok;
+    ok = expect(!entry.panelHeightFill, "content height is not fill") && ok;
+    ok = expect(entry.panelMaxHeight == 600.0, "max_height should parse") && ok;
+  }
+
+  const auto contentErrors = std::vector<std::pair<std::string, std::string>>{
+      {"plugin_api = 41\n[[panel]]\nid = \"panel\"\nentry = \"panel.luau\"\nheight = \"content\"\n",
+       R"(panel entry 'panel': height = "content" requires plugin_api >= 42)"},
+      {"plugin_api = 42\n[[panel]]\nid = \"panel\"\nentry = \"panel.luau\"\nheight = \"content\"\n",
+       R"(panel entry 'panel': height = "content" requires max_height)"},
+      {"plugin_api = 42\n[[panel]]\nid = \"panel\"\nentry = \"panel.luau\"\nheight = 300\nmax_height = 500\n",
+       R"(panel entry 'panel': max_height requires height = "content")"},
+      {"plugin_api = 42\n[[panel]]\nid = \"panel\"\nentry = \"panel.luau\"\nheight = \"content\"\nmax_height = 0\n",
+       "panel entry 'panel': max_height must be a positive number"},
+  };
+  for (std::size_t i = 0; i < contentErrors.size(); ++i) {
+    const auto path = root / ("content-error-" + std::to_string(i)) / "plugin.toml";
+    ok = writeManifest(path, "id = \"me/content-error\"\nname = \"Content Error\"\n" + contentErrors[i].first) && ok;
+    error.clear();
+    ok = expect(!scripting::parsePluginManifest(path, &error).has_value(), "invalid content height should fail") && ok;
+    ok = expectEq(error, contentErrors[i].second, "content height error") && ok;
+  }
 
   const auto negativeSizeManifestPath = root / "negative-size/plugin.toml";
   ok = writeManifest(

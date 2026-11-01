@@ -398,8 +398,8 @@ namespace noctalia::bar {
   template <auto Member>
   auto field(WidgetFieldSpec<typename detail::MemberPointerTraits<decltype(Member)>::ValueType> spec) {
     using Traits = detail::MemberPointerTraits<decltype(Member)>;
-    using Options = typename Traits::OptionsType;
-    using T = typename Traits::ValueType;
+    using Options = Traits::OptionsType;
+    using T = Traits::ValueType;
 
     if (spec.key.empty()) {
       throw std::logic_error("widget field key cannot be empty");
@@ -459,8 +459,9 @@ namespace noctalia::bar {
     WidgetDefinitionField<Options> definitionField{
         .schema = std::move(schema),
         .presentation = std::move(spec.presentation),
-        .resolve = [key, defaultValue, choices = std::move(spec.choices),
-                    effectiveRange](Options& options, const WidgetConfig* config, std::string_view context) {
+        .resolve = [=, choices = std::move(spec.choices)](
+                       Options& options, const WidgetConfig* config, std::string_view context
+                   ) {
           T value = defaultValue;
           if (config != nullptr) {
             if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {

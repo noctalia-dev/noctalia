@@ -182,6 +182,36 @@ int main() {
     expect(config.config().shell.panelAnchorBar.empty(), "deleting the anchor bar cleared panel_anchor_bar");
   }
 
+  // A times-only location without coordinates is migrated to custom_schedule = true on the fly. An
+  // explicit true override is what opts the user out of that migration, so it must survive pruning
+  // even though the no-override config resolves to the same value. Otherwise the Settings toggle
+  // drops the key again and the legacy-config warning will be back.
+  const std::filesystem::path customScheduleRoot = root / "custom-schedule-case";
+  writeFile(
+      customScheduleRoot / "config" / "noctalia" / "config.toml",
+      "[location]\nsunset = \"20:30\"\nsunrise = \"07:30\"\n"
+  );
+  ::setenv("NOCTALIA_CONFIG_HOME", (customScheduleRoot / "config").c_str(), 1);
+  ::setenv("XDG_STATE_HOME", (customScheduleRoot / "state").c_str(), 1);
+  {
+    ConfigService config;
+    const std::vector<std::string> customSchedulePath{"location", "custom_schedule"};
+
+    expect(config.setOverride(customSchedulePath, true), "custom_schedule = true was accepted");
+    expect(config.hasOverride(customSchedulePath), "custom_schedule = true survived pruning");
+    expect(config.config().location.customSchedule, "custom_schedule = true is active");
+
+    expect(config.setOverride(customSchedulePath, false), "custom_schedule = false was accepted");
+    expect(config.hasOverride(customSchedulePath), "custom_schedule = false survived pruning");
+    expect(!config.config().location.customSchedule, "custom_schedule = false is active");
+
+    expect(config.setOverride(customSchedulePath, true), "custom_schedule back to true was accepted");
+    expect(
+        config.hasOverride(customSchedulePath), "toggling custom_schedule back on kept the override in settings.toml"
+    );
+    expect(config.config().location.customSchedule, "custom_schedule is active again");
+  }
+
   std::filesystem::remove_all(root);
 
   if (g_failures == 0) {

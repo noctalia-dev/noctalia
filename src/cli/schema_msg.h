@@ -130,6 +130,13 @@ namespace noctalia::cli {
   inline constexpr std::array kMsgClipboardCopyPositionals{
       Positional{"text", {}, {}, true, false, false},
   };
+  inline constexpr std::array kMsgConfigGetPositionals{
+      Positional{"path", "Dotted config path (e.g. theme.shell_mode)", {}, true, false, false},
+  };
+  inline constexpr std::array kMsgConfigSetPositionals{
+      Positional{"path", "Dotted config path (e.g. theme.shell_mode)", {}, true, false, false},
+      Positional{"value", "TOML value; quote strings (e.g. \"'light'\")", {}, true, false, false},
+  };
   inline constexpr std::array kMsgEffectsProfileSetPositionals{
       Positional{"kind", {}, kMsgEffectsProfileSetKindChoices, true, false, false},
       Positional{"profile", {}, {}, true, false, false},
@@ -257,9 +264,11 @@ namespace noctalia::cli {
   inline constexpr std::array<std::string_view, 4> kMsgWindowSwitcherScopeChoices{
       "all", "output", "workspace", "current"
   };
+  inline constexpr std::array<std::string_view, 1> kMsgWindowSwitcherDirectionChoices{"reverse"};
   inline constexpr std::array kMsgWindowSwitcherPositionals{
       Positional{"action", {}, kMsgWindowSwitcherActionChoices, false, false, false},
       Positional{"scope", {}, kMsgWindowSwitcherScopeChoices, false, false, false},
+      Positional{"direction", {}, kMsgWindowSwitcherDirectionChoices, false, false, false},
   };
   inline constexpr std::array kMsgWorkspaceAlertAddPositionals{
       Positional{"workspace", {}, {}, true, false, false},
@@ -315,6 +324,8 @@ namespace noctalia::cli {
       Flag{"--no-close-on-copy", {}, {}, "Set close_on_copy = false for this call", {}, {}, false, false},
       Flag{"--close-on-save", {}, {}, "Set close_on_save = true for this call", {}, {}, false, false},
       Flag{"--no-close-on-save", {}, {}, "Set close_on_save = false for this call", {}, {}, false, false},
+      Flag{"--copy-on-close", {}, {}, "Set copy_on_close = true for this call", {}, {}, false, false},
+      Flag{"--no-copy-on-close", {}, {}, "Set copy_on_close = false for this call", {}, {}, false, false},
       Flag{"--pipe-command", {}, "<command>", "Set pipe_command for this call", {}, {}, false, false},
       Flag{
           "--directory",
@@ -456,6 +467,10 @@ namespace noctalia::cli {
         kMsgColorSchemeSetSubcommands,
         false
     };
+    inline constexpr Command configGet{"config-get", "Get a config value",     {}, {},
+                                       {},           kMsgConfigGetPositionals, {}, false};
+    inline constexpr Command configSet{"config-set", "Set a config value",     {}, {},
+                                       {},           kMsgConfigSetPositionals, {}, false};
     inline constexpr Command configReload{"config-reload", "Reload the config file", {}, {}, {}, {}, {}, false};
     inline constexpr Command desktopWidgetsEdit{
         "desktop-widgets-edit", "Open the desktop widgets editor", {}, {}, {}, {}, {}, false
@@ -517,7 +532,7 @@ namespace noctalia::cli {
         "greeter-sync", "Sync wallpaper, colors, and monitor layout to Noctalia Greeter", {}, {}, {}, {}, {}, false
     };
     inline constexpr Command keyboardBacklightDown{
-        "keyboard-backlight-down", "Decrease all keyboard backlights by one level", {}, {}, {}, {}, {}, false
+        "keyboard-backlight-down", "Decrease all keyboard backlights by 5%", {}, {}, {}, {}, {}, false
     };
     inline constexpr Command keyboardBacklightOsd{
         "keyboard-backlight-osd",
@@ -543,7 +558,7 @@ namespace noctalia::cli {
         "keyboard-backlight-toggle", "Toggle all keyboard backlights on/off", {}, {}, {}, {}, {}, false
     };
     inline constexpr Command keyboardBacklightUp{
-        "keyboard-backlight-up", "Increase all keyboard backlights by one level", {}, {}, {}, {}, {}, false
+        "keyboard-backlight-up", "Increase all keyboard backlights by 5%", {}, {}, {}, {}, {}, false
     };
     inline constexpr Command keyboardLayoutCycle{
         "keyboard-layout-cycle", "Switch to the next keyboard layout", {}, {}, {}, {}, {}, false
@@ -940,6 +955,8 @@ namespace noctalia::cli {
       msg::clipboardText,
       msg::colorSchemeGet,
       msg::colorSchemeSet,
+      msg::configGet,
+      msg::configSet,
       msg::configReload,
       msg::desktopWidgetsEdit,
       msg::desktopWidgetsExit,

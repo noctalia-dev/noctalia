@@ -8,6 +8,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 class ConfigService;
@@ -129,7 +130,7 @@ public:
   [[nodiscard]] double displayTemperature(double celsius) const noexcept;
   [[nodiscard]] const char* displayTemperatureUnit() const noexcept;
 
-  [[nodiscard]] static std::string glyphForCode(std::int32_t code, bool isDay);
+  [[nodiscard]] static std::string_view glyphForCode(std::int32_t code, bool isDay);
   [[nodiscard]] static std::string shortDescriptionForCode(std::int32_t code);
   [[nodiscard]] static std::string descriptionForCode(std::int32_t code);
 

@@ -89,6 +89,7 @@
 #include "ui/dialogs/file_dialog_popup.h"
 #include "ui/dialogs/glyph_picker_dialog_popup.h"
 #include "ui/dialogs/layer_popup_host.h"
+#include "ui/dialogs/search_picker_popup.h"
 #include "wayland/clipboard_poll_source.h"
 #include "wayland/clipboard_service.h"
 #include "wayland/key_repeat_poll_source.h"
@@ -159,7 +160,7 @@ public:
   Application();
   ~Application();
 
-  void run(std::function<void()> startupReadyCallback = {});
+  void run(const std::function<void()>& startupReadyCallback = {});
 
   // Public for signal handler
   static std::atomic<bool> s_shutdownRequested;
@@ -316,6 +317,7 @@ private:
   BatteryHookState m_batteryHookState;
   BatteryWarningMonitor m_batteryWarningMonitor;
   std::optional<bool> m_prevBatteryPluggedForEvents;
+  std::string m_prevBatteryPeripheralPathForEvents;
   std::optional<bool> m_prevWirelessEnabledForEvents;
   std::optional<bool> m_prevBluetoothPoweredForEvents;
   std::optional<std::string> m_prevPowerProfileActiveForEvents;
@@ -392,6 +394,7 @@ private:
   ColorPickerDialogPopup m_colorPickerDialogPopup;
   GlyphPickerDialogPopup m_glyphPickerDialogPopup;
   FileDialogPopup m_fileDialogPopup;
+  SearchPickerPopup m_searchPickerDialogPopup;
 
   // Poll sources (must outlive MainLoop)
   std::unique_ptr<SessionBusPollSource> m_busPollSource;

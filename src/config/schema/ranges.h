@@ -15,6 +15,7 @@ namespace noctalia::config::schema {
   inline constexpr Range<std::int64_t> kRefreshMinutesRange{5, 240, 5}; // calendar/weather refresh interval
   // Calendar reminder lead time; 0 = notify at event start, 1440 = a full day ahead.
   inline constexpr Range<std::int64_t> kReminderLeadMinutesRange{0, 1440, 5};
+  inline constexpr Range<std::int64_t> kPastEventsThresholdMinutesRange{0, 1440, 5};
 
   // Shell.
   inline constexpr Range<float> kAnimationSpeedRange{0.1F, 4.0F, 0.05F};
@@ -47,6 +48,9 @@ namespace noctalia::config::schema {
   inline constexpr Range<std::int64_t> kBatteryWarningThresholdRange{0, 100, 1};
   inline constexpr Range<float> kWallpaperTransitionDurationRange{100.0F, 30000.0F, 100.0F};
   inline constexpr Range<std::int64_t> kWallpaperAutomationIntervalRange{1, 86400, 1};
+
+  // Audio.
+  inline constexpr Range<std::int64_t> kSpectrumFrameRateRange{30, 240, 1};
 
   // Dock.
   inline constexpr Range<std::int64_t> kDockIconSizeRange{16, 128, 1};

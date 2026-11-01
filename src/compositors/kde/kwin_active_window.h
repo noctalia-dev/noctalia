@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -44,6 +45,8 @@ namespace compositors::kde {
         const std::string& title, const std::string& appId, const std::string& uuid = {}, bool warpPointer = false
     );
     void closeWindow(const std::string& title, const std::string& appId, const std::string& uuid = {});
+    [[nodiscard]] std::optional<WindowMinimizeState> windowMinimizeState(std::string_view uuid) const;
+    bool minimizeWindow(const std::string& uuid);
     [[nodiscard]] bool isAvailable() const noexcept { return m_scriptInstalled; }
 
   private:
@@ -53,6 +56,7 @@ namespace compositors::kde {
       std::string title;
       std::string outputName;
       std::vector<std::string> desktopIds;
+      std::optional<WindowMinimizeState> minimizeState;
     };
 
     [[nodiscard]] bool ensureScriptFile(std::string& scriptPath) const;

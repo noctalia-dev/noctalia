@@ -31,7 +31,7 @@ struct BarCapsuleGroupStyle {
   std::string id;
   std::vector<std::string> members; // ordered member widget references
   bool enabled = true;
-  ColorSpec fill = colorSpecFromRole(ColorRole::SurfaceVariant);
+  ColorSpec fill = colorSpecFromRole(ColorRole::SurfaceContainer);
   // True when `border` is explicitly present (empty value = no outline); mirrors bar/widget border semantics.
   bool borderSpecified = false;
   std::optional<ColorSpec> border;
@@ -63,6 +63,7 @@ inline constexpr std::string_view kCapsuleGroupTokenPrefix = "group:";
 
 struct BarDeadZoneOverride {
   std::optional<std::unordered_map<std::string, std::string>> actions;
+  std::optional<bool> clickThrough;
 
   bool operator==(const BarDeadZoneOverride&) const = default;
 };
@@ -74,6 +75,7 @@ struct BarMonitorOverride {
   std::optional<bool> autoHide;
   std::optional<std::int32_t> autoHideDelayMs;
   std::optional<bool> smartAutoHide;
+  std::optional<bool> autoHideReserveSpace;
   std::optional<bool> showOnWorkspaceSwitch;
   std::optional<bool> reserveSpace;
   std::optional<std::string> layer; // top | overlay
@@ -130,6 +132,9 @@ struct BarDeadZoneConfig {
   // Gesture -> action bindings for the parts of the bar no widget covers. Same grammar as widget
   // actions; see widget_action.h.
   std::unordered_map<std::string, std::string> actions;
+  // Shrink the bar's input region to its widget sections so clicks on the rest of the bar reach
+  // the window below. The dead zone then takes no input, so its actions never fire.
+  bool clickThrough = false;
 
   bool operator==(const BarDeadZoneConfig&) const = default;
 };
@@ -144,6 +149,7 @@ struct BarConfig {
   bool autoHide = false;             // slide out when the pointer leaves; reveal on edge approach
   std::int32_t autoHideDelayMs = 0;  // wait after pointer leaves before hiding; 0 hides immediately
   bool smartAutoHide = false;        // hide while the active workspace has windows; show when it is empty
+  bool autoHideReserveSpace = false; // with auto_hide/smart_auto_hide: reserve layout only while the bar is visible
   bool showOnWorkspaceSwitch = true; // with auto_hide: briefly reveal when the active workspace changes
 
   [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
@@ -153,7 +159,7 @@ struct BarConfig {
   float backgroundOpacity = 1.0F;
   bool compositorBlur = true;
   // Inside outline for the bar background; attached panels inherit the resolved values.
-  ColorSpec border = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = 0.0F;
   std::int32_t radius = static_cast<std::int32_t>(Style::radiusXl);
   std::int32_t radiusTopLeft = static_cast<std::int32_t>(Style::radiusXl);
@@ -185,7 +191,7 @@ struct BarConfig {
                                          "battery", "control-center", "session"};
   // When true, widgets on this bar use a capsule unless `[widget.*] capsule = false`.
   bool widgetCapsuleDefault = false;
-  ColorSpec widgetCapsuleFill = colorSpecFromRole(ColorRole::SurfaceVariant);
+  ColorSpec widgetCapsuleFill = colorSpecFromRole(ColorRole::SurfaceContainer);
   // When set, bar widgets with capsules use this for icon + primary label color unless overridden per widget.
   std::optional<ColorSpec> widgetCapsuleForeground;
   // Default primary label color for all widgets on this bar (same as per-widget `color`); per-widget `color`
@@ -240,6 +246,8 @@ struct SessionPanelActionConfig {
   std::optional<std::string> glyph = std::nullopt;
   SessionActionButtonVariant variant = SessionActionButtonVariant::Default;
   std::optional<KeyChord> shortcut = std::nullopt;
+  // Lock-screen trigger. Never a text-producing key: the password field owns those.
+  std::optional<KeyChord> lockscreenShortcut = std::nullopt;
   /// When > 0, the action arms a countdown (seconds) before running; activate again to confirm immediately.
   double countdownSeconds = 0.0;
 
@@ -381,7 +389,7 @@ using ConfigOverrideValue = std::variant<
 // Corner shape and edge softness are fixed in the shell code; padding, radius, and border width are configurable.
 struct WidgetBarCapsuleSpec {
   bool enabled = false;
-  ColorSpec fill = colorSpecFromRole(ColorRole::SurfaceVariant);
+  ColorSpec fill = colorSpecFromRole(ColorRole::SurfaceContainer);
   // Opaque group ID (auto-generated). Adjacent widgets in the same section with the same non-empty ID share one
   // shell and inherit the group's `BarCapsuleGroupStyle`.
   std::string group;
@@ -479,7 +487,7 @@ capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& 
 [[nodiscard]] float
 resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget.scale");
 [[nodiscard]] float
-resolveWidgetFontScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget");
+resolveWidgetFontScale(float barFontScale, const WidgetConfig* widget, std::string_view context = "widget");
 
 // Shared output selector matching used by monitor-scoped config and IPC selectors.
 // Matches connector name exactly, or a word-boundary token within output description.
@@ -543,6 +551,7 @@ struct WallpaperAutomationConfig {
   std::int32_t intervalSeconds = 1800;
   Order order = Order::Random;
   bool recursive = false;
+  bool pauseOnFullscreen = false;
 
   bool operator==(const WallpaperAutomationConfig&) const = default;
 };
@@ -684,6 +693,7 @@ struct DockMonitorOverride {
   std::optional<std::int32_t> crossAxisPadding;
   std::optional<std::int32_t> itemSpacing;
   std::optional<float> backgroundOpacity;
+  std::optional<bool> compositorBlur;
   std::optional<ColorSpec> border;
   std::optional<float> borderWidth;
   std::optional<std::int32_t> radius;
@@ -726,8 +736,9 @@ struct DockConfig {
   std::int32_t crossAxisPadding = 8; // inner padding perpendicular to the icon row
   std::int32_t itemSpacing = 6;      // gap between items
   float backgroundOpacity = 0.88F;
+  bool compositorBlur = true;
   // Inside outline for the dock background.
-  ColorSpec border = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = 0.0F;
   std::int32_t radius = 16;            // dock background corner radius
   std::int32_t radiusTopLeft = 16;     // dock background top-left corner radius
@@ -755,7 +766,7 @@ struct DockConfig {
   bool showInstanceCount = true;    // show a badge with count when app has >1 window
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
-  std::string launcherCustomImage = "";     // image path; overrides launcherIcon glyph when set
+  std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set
   bool launcherCustomImageColorize = false; // tint the custom image with the icon color role
   std::vector<std::string> pinned;          // desktop entry IDs to always show
   std::vector<DockMonitorOverride> monitorOverrides;
@@ -827,6 +838,7 @@ struct OsdKindsConfig {
   bool lockKeys = true;
   bool keyboardLayout = true;
   bool media = true;
+  bool mediaVolume = true;
   bool privacy = true;
   bool keyboardBacklight = true;
   bool custom = true;
@@ -842,7 +854,7 @@ struct OsdConfig {
   float scale = 1.0F;
   float backgroundOpacity = 0.97F;
   bool border = true; // outline around OSD popup cards
-  ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec borderColor = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = Style::borderWidth;
   bool followFocusedOutput = false;
   int offsetX = 20;
@@ -865,7 +877,7 @@ struct NotificationConfig {
   std::int32_t width = kDefaultWidth;
   float backgroundOpacity = 0.97F; // toast card background alpha (0.0–1.0)
   bool border = true;              // outline around toast cards
-  ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec borderColor = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = Style::borderWidth;
   bool followFocusedOutput = false;
   int offsetX = 20; // absolute horizontal margin from the screen edge
@@ -1133,7 +1145,7 @@ struct ShellConfig {
   struct PanelConfig {
     PanelTransparencyMode transparencyMode = PanelTransparencyMode::Solid;
     bool borders = true; // outline on floating panel surfaces
-    ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
+    ColorSpec borderColor = colorSpecFromRole(ColorRole::OutlineVariant);
     float borderWidth = Style::borderWidth;
     bool shadow = true;                    // cast the global [shell.shadow] from panel surfaces
     bool listItemBackground = false;       // filled rounded background behind launcher/clipboard list items
@@ -1145,8 +1157,11 @@ struct ShellConfig {
     PanelPlacement wallpaperPlacement = PanelPlacement::Attached;
     PanelPlacement sessionPlacement = PanelPlacement::Attached;
     PanelPlacement polkitPlacement = PanelPlacement::Floating;
-    // Floating screen position per panel (one of kPanelPositions). "auto" = bar-relative.
-    // Launcher/clipboard default to "center" (the historical center-screen behavior).
+    // Screen position per panel (one of kPanelPositions). Pins a floating panel to that
+    // screen position. An attached panel follows it only when the position lies on its
+    // bar's edge (e.g. bottom_right on a bottom bar aligns to the bar's right end); any
+    // other value keeps it bar-centered. Launcher/clipboard default to "center" (the
+    // historical center-screen behavior for their floating default).
     std::string launcherPosition = "center";
     std::string clipboardPosition = "center";
     std::string controlCenterPosition = "auto";
@@ -1210,6 +1225,7 @@ struct ShellConfig {
     // Simple layout only: show the category chip row under the search field.
     bool categories = true;
     bool categoryIconsOnly = false;
+    bool showNavigationLabels = true;
     bool showSettingsButton = true;
     bool showSessionButton = true;
     bool showIcons = true;
@@ -1219,6 +1235,7 @@ struct ShellConfig {
     bool showAppActions = false;
     bool trackUsage = true;
     bool sortByUsage = true;
+    bool ignoreMouse = false;
     // Desktop entry IDs shown in manual order in the Pinned view.
     std::vector<std::string> pinned;
     /// When true, refresh currency exchange rates from libqalculate's online sources.
@@ -1276,6 +1293,7 @@ struct ShellConfig {
     bool skipAnnotateOnCopySave = false;
     bool closeOnCopy = true;
     bool closeOnSave = true;
+    bool copyOnClose = false;
     bool pipeToCommand = false;
     std::string pipeCommand;
     std::string directory;       // empty = XDG Pictures directory
@@ -1302,11 +1320,13 @@ struct ShellConfig {
   enum class WindowSwitcherStyle : std::uint8_t {
     Carousel = 0,
     Compact = 1,
+    Icons = 2,
   };
 
   static constexpr EnumOption<WindowSwitcherStyle> kWindowSwitcherStyles[] = {
       {WindowSwitcherStyle::Carousel, "carousel", "settings.options.shell.window-switcher-style.carousel"},
       {WindowSwitcherStyle::Compact, "compact", "settings.options.shell.window-switcher-style.compact"},
+      {WindowSwitcherStyle::Icons, "icons", "settings.options.shell.window-switcher-style.icons"},
   };
 
   struct WindowSwitcherConfig {
@@ -1542,6 +1562,7 @@ struct AudioConfig {
   bool enableScreenshotSounds = true;
   float soundVolume = 0.5F;
   std::string soundTheme = "freedesktop";
+  std::int32_t spectrumFrameRate = 60;
 
   bool operator==(const AudioConfig&) const = default;
 };
@@ -1603,6 +1624,8 @@ struct BatteryConfig {
 struct BluetoothConfig {
   // Connect paired, trusted devices when Bluetooth turns on, at startup, and after resume.
   bool connectWhenEnabled = false;
+  // Show a notification when a Bluetooth device connects or disconnects.
+  bool connectionNotifications = false;
 
   bool operator==(const BluetoothConfig&) const = default;
 };
@@ -1777,8 +1800,8 @@ struct ThemeConfig {
   struct TemplateColorConfig {
     std::string name;
     std::string color;
-    std::string color_dark = "";
-    std::string color_light = "";
+    std::string color_dark;
+    std::string color_light;
     bool blend = true;
 
     bool operator==(const TemplateColorConfig&) const = default;
@@ -1864,6 +1887,10 @@ struct ControlCenterConfig {
   struct CalendarTabConfig {
     bool showEventsCard = true;
     bool showWeekNumbers = false;
+    bool showEventsLocation = false;
+    bool hidePastEvents = false; // false keeps every finished event in today's list
+    // With hidePastEvents, hide today's events that ended more than this many minutes ago. 0 = as soon as they end.
+    std::int32_t pastEventsThresholdMinutes = 30;
     bool operator==(const CalendarTabConfig&) const = default;
   };
 
@@ -1879,6 +1906,8 @@ struct ControlCenterConfig {
   std::int32_t width = kDefaultWidth; // full-sidebar logical width; compact/none modes scale down from this
   bool showShortcutLabels = true;
   bool showSessionButton = true;
+  bool circularAvatar = true;
+  bool showAvatarBorder = true;
   CalendarTabConfig calendarTab;
   MediaTabConfig mediaTab;
   bool operator==(const ControlCenterConfig&) const = default;

@@ -14,4 +14,5 @@ if [ -f "$config_file" ]; then
     fi
 fi
 
-rm -f -- "$theme_file"
+rm -f -- "$theme_file" "$config_dir/noctalia-extensions.css"
+rm -rf -- "$config_dir/noctalia-extensions"

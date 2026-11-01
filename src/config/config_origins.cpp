@@ -33,11 +33,13 @@ namespace noctalia::config {
       if (const auto it = m_entries.find(path); it != m_entries.end()) {
         return &it->second;
       }
-      const std::size_t dot = path.rfind('.');
-      if (dot == std::string_view::npos) {
+      // Walk up one segment: an `[index]` suffix first (arrays record no per-element origin),
+      // then a dotted key.
+      const std::size_t cut = path.back() == ']' ? path.rfind('[') : path.rfind('.');
+      if (cut == std::string_view::npos) {
         return nullptr;
       }
-      path.remove_suffix(path.size() - dot);
+      path.remove_suffix(path.size() - cut);
     }
     return nullptr;
   }

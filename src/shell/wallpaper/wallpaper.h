@@ -66,6 +66,8 @@ public:
 
   // Prefer a landscape image; otherwise use the first available image.
   [[nodiscard]] TextureHandle currentTexture() const;
+  // Path of currentTexture(); when no instance shows an image while wallpaper is enabled,
+  // falls back to the palette wallpaper path so consumers still show what drives colors.
   [[nodiscard]] std::string currentPath() const;
 
   // Emits whenever the displayed wallpaper (path/texture) changes, including
@@ -144,6 +146,9 @@ private:
   WallpaperConfig m_lastWallpaperConfig{};
   std::int64_t m_lastAutomationSecondStamp = -1;
   std::int64_t m_lastAutomationSwitchSecond = -1;
+  // Startup automation runs before instances exist, so onStateChange() cannot derive
+  // per-connector changes from them; it reports these instead.
+  std::vector<WallpaperChange> m_pendingStartupChanges;
   std::function<bool()> m_automationGate;
   wallpaper::ShuffleState m_shuffleState;
   Signal<>::ScopedConnection m_paletteConn;

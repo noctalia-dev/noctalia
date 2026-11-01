@@ -65,6 +65,7 @@ private:
   void requestSceneUpdate();
   void startThumbnailCaptures();
   void enqueueMissingThumbnailCaptures();
+  [[nodiscard]] std::optional<ThumbnailTarget> currentThumbnailTarget() const;
   void captureNextThumbnail();
   void cancelThumbnailCaptures();
   [[nodiscard]] bool matchesTrigger(const KeyboardEvent& event) const noexcept;
@@ -99,10 +100,12 @@ private:
   struct ThumbnailRequest {
     std::string windowKey;
     std::uintptr_t captureHandle = 0;
+    ThumbnailTarget target;
   };
   std::unique_ptr<ToplevelThumbnailCapture> m_thumbnailCapture;
   std::deque<ThumbnailRequest> m_thumbnailQueue;
   std::string m_inFlightThumbnailKey;
+  ThumbnailTarget m_thumbnailTarget;
   std::deque<std::string> m_mruKeys;
   std::size_t m_selectedIndex = 0;
   wl_output* m_output = nullptr;

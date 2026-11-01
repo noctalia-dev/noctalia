@@ -18,6 +18,7 @@ namespace Style {
   inline constexpr float borderWidth = 1.0F;
   inline constexpr float emphasizedBorderWidth = 3.0F;
   inline constexpr float focusRingWidth = 2.0F;
+  inline constexpr float progressMarkerWidth = 2.0F;
   inline constexpr float disabledOutlineAlpha = 0.5F;
 
   inline constexpr float spaceXs = 4.0F;
@@ -65,6 +66,8 @@ namespace Style {
   inline constexpr float windowSwitcherNearCardWidth = 380.0F;
   inline constexpr float windowSwitcherFarCardWidth = 280.0F;
   inline constexpr float windowSwitcherCompactCardWidth = 220.0F;
+  inline constexpr float windowSwitcherIconCardSize = 72.0F;
+  inline constexpr float windowSwitcherIconScale = 0.75F;
   inline constexpr float windowSwitcherPreviewAspect = 1.6F;
   inline constexpr float windowSwitcherCardOverlap = controlHeightLg + spaceLg;
   inline constexpr float windowSwitcherNarrowLayoutThreshold = 0.72F;

@@ -45,6 +45,12 @@ int main() {
   fs::create_directories(iconDir);
   fs::create_directories(app16Dir);
   fs::create_directories(bitmapIconDir);
+  const fs::path regularPairIcon = iconDir / "symbolic-pair.svg";
+  const fs::path symbolicPairIcon = iconDir / "symbolic-pair-symbolic.svg";
+  const fs::path regularOnlyIcon = iconDir / "regular-only.svg";
+  std::ofstream(regularPairIcon) << "<svg/>";
+  std::ofstream(symbolicPairIcon) << "<svg/>";
+  std::ofstream(regularOnlyIcon) << "<svg/>";
   fs::create_directories(status16Dir);
   fs::create_directories(status24Dir);
   fs::create_directories(panel16Dir);
@@ -147,6 +153,14 @@ int main() {
   fs::create_directories(deniedDataHome);
   std::ofstream(deniedIcon) << "<svg/>";
   fs::permissions(deniedDataHome, fs::perms::none);
+  // Unthemed icons at the top of base dirs (XDG LookupFallbackIcon).
+  fs::create_directories(root / ".icons");
+  fs::create_directories(root / "pixmaps");
+  std::ofstream(root / "icons/unthemed-app.png") << "png";
+  std::ofstream(root / ".icons/home-unthemed.svg") << "<svg/>";
+  std::ofstream(root / "icons/regular-only.png") << "png";
+  std::ofstream(root / "icons/fallback-order.png") << "png";
+  std::ofstream(root / "pixmaps/fallback-order.png") << "png";
   setenv("HOME", tempDir, 1);
   setenv("XDG_DATA_HOME", deniedDataHome.c_str(), 1);
   setenv("XDG_DATA_DIRS", (root.string() + ":" + extraData.string()).c_str(), 1);
@@ -348,6 +362,41 @@ int main() {
        )
       && ok;
 
+  ok = expect(
+           resolver.resolve("symbolic-pair", 32) == regularPairIcon.string(),
+           "normal resolution should keep the regular icon"
+       )
+      && ok;
+  const ResolvedIcon preferred = resolver.resolveSymbolicPreferred("symbolic-pair", 32);
+  ok = expect(
+           preferred.path == symbolicPairIcon.string() && preferred.symbolic,
+           "symbolic-preferred resolution should select the -symbolic variant"
+       )
+      && ok;
+
+  const ResolvedIcon fallback = resolver.resolveSymbolicPreferred("regular-only", 32);
+  ok = expect(
+           fallback.path == regularOnlyIcon.string() && !fallback.symbolic,
+           "symbolic-preferred resolution should fall back to the regular icon"
+       )
+      && ok;
+
+  const fs::path lateSymbolicIcon = iconDir / "regular-only-symbolic.svg";
+  std::ofstream(lateSymbolicIcon) << "<svg/>";
+  const ResolvedIcon cachedFallback = resolver.resolveSymbolicPreferred("regular-only", 32);
+  ok = expect(
+           cachedFallback.path == regularOnlyIcon.string() && !cachedFallback.symbolic,
+           "preferred resolution should cache a successful regular fallback"
+       )
+      && ok;
+  resolver.invalidateMissingCache();
+  const ResolvedIcon refreshedPreferred = resolver.resolveSymbolicPreferred("regular-only", 32);
+  ok = expect(
+           refreshedPreferred.path == lateSymbolicIcon.string() && refreshedPreferred.symbolic,
+           "invalidating misses should also refresh symbolic preference results"
+       )
+      && ok;
+
   const fs::path absoluteIcon = root / "absolute-icon.svg";
   ok = expect(resolver.resolve(absoluteIcon.string(), 32).empty(), "missing absolute icon should not resolve") && ok;
   std::ofstream(absoluteIcon) << "<svg/>";
@@ -397,6 +446,29 @@ int main() {
     ok = expect(
              resolver.resolve("later-root", size) == (extraIcons / "later-root.svg").string(),
              "all roots of the current theme must precede inherited themes"
+         )
+        && ok;
+  }
+
+  for (const int size : {0, 48}) {
+    ok = expect(
+             resolver.resolve("unthemed-app", size) == (root / "icons/unthemed-app.png").string(),
+             "an icon at the top of a data dir icons root should resolve"
+         )
+        && ok;
+    ok = expect(
+             resolver.resolve("home-unthemed", size) == (root / ".icons/home-unthemed.svg").string(),
+             "an icon at the top of ~/.icons should resolve"
+         )
+        && ok;
+    ok = expect(
+             resolver.resolve("regular-only", size) == regularOnlyIcon.string(),
+             "a themed icon must precede an unthemed icon of the same name"
+         )
+        && ok;
+    ok = expect(
+             resolver.resolve("fallback-order", size) == (root / "icons/fallback-order.png").string(),
+             "unthemed base dir icons must precede pixmaps"
          )
         && ok;
   }

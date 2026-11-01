@@ -21,8 +21,13 @@ namespace capture {
   );
 
   // Logical extents of a Text annotation: x/y are the top-left, the first baseline sits at
-  // annotation.points[0].y.
+  // annotation.points[0].y, and annotation.points[0].x is the paragraph's start edge (the left
+  // edge of left-to-right text, the right edge of right-to-left text).
   [[nodiscard]] AnnotationRect measureText(const Annotation& annotation);
+
+  // Edit caret after the last character of a Text annotation, on the side where the next
+  // character of the paragraph's direction appears.
+  [[nodiscard]] AnnotationRect measureTextCaret(const Annotation& annotation, double caretWidth);
 
   // Frozen straight-alpha RGBA -> cairo ARGB32 (premultiplied, device pixels). Caller destroys.
   [[nodiscard]] cairo_surface_t* frozenToCairo(const ScreencopyImage& image);

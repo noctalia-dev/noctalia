@@ -17,7 +17,8 @@ namespace noctalia::config {
   struct ConfigMigration {
     int toVersion;
     std::string_view summary;
-    void (*apply)(toml::table& root, schema::Diagnostics& diag);
+    // `root` is the sidecar being migrated; `base` is the config.toml merge it overlays, read-only.
+    void (*apply)(toml::table& root, const toml::table& base, schema::Diagnostics& diag);
   };
 
   struct LegacyConfigIssue {
@@ -35,11 +36,13 @@ namespace noctalia::config {
   [[nodiscard]] int currentConfigVersion();
   [[nodiscard]] std::optional<int> storedConfigVersion(const toml::table& root, schema::Diagnostics& diag);
   [[nodiscard]] int applyPendingConfigMigrations(
-      toml::table& root, int storedVersion, schema::Diagnostics& diag,
+      toml::table& root, const toml::table& base, int storedVersion, schema::Diagnostics& diag,
       std::span<const ConfigMigration> migrations = configMigrations()
   );
 
-  void normalizeLegacyConfig(toml::table& root, LegacyConfigIssues& issues);
+  // `sidecar` is the settings.toml overlay already merged into `root`, if any. Its sidecar migrations
+  // have run, so sunset/sunrise times it carries never imply the legacy custom schedule.
+  void normalizeLegacyConfig(toml::table& root, LegacyConfigIssues& issues, const toml::table* sidecar = nullptr);
 
   [[nodiscard]] std::string legacyConfigIssueFingerprint(const LegacyConfigIssues& issues);
   [[nodiscard]] bool

@@ -24,6 +24,7 @@ Wire launcher / control center / settings the same way as on other compositors, 
 - Layer-shell **bars**, **panels**, **dock**, **OSD**, **notifications**, **launcher**, **control center**, **settings**
 - **Workspaces** via Plasma’s virtual-desktop protocol (`org_kde_plasma_virtual_desktop`)
 - **Taskbar / dock / active window** through a KWin scripting D-Bus bridge (not `wlr`/`ext` foreign-toplevel)
+- **Minimise state and actions** through the same KWin scripting bridge: single-window taskbar/dock icons minimise the focused window when allowed, and restore minimised windows; multi-window icons continue cycling
 - **Window switcher pointer warp** moves the pointer to the selected window through KWin’s native `Move Mouse to Focus` action
 - **System tray** (Plasma StatusNotifier path)
 - **Notifications** via Plasma’s notification watcher (Noctalia does not own `org.freedesktop.Notifications` on Plasma)
@@ -64,6 +65,8 @@ Third-party **Better Blur** (and similar KWin effects) can make blur visible, bu
 ### Window tracking (taskbar, dock, screen time)
 
 KWin does not expose `wlr-foreign-toplevel-management` / `ext-foreign-toplevel-list` to Noctalia. Window list, focus, activate, and close go through an injected **KWin script** over D-Bus. That works for many taskbar/dock cases, but it is more fragile than the protocol path (script install, window identity matching, close sometimes falling back to minimize).
+
+The bridge also reports minimise state and whether each window can be minimised. When it is connected, the taskbar and dock mark fully minimised apps and offer per-window **Minimise** / **Restore** actions. The window switcher and launcher window results also show minimised status. These features require no additional configuration.
 
 **Screen Time** in the control center currently keys off the wlroots foreign-toplevel active window path, so tracking is typically empty or incomplete on Plasma even when the taskbar shows windows.
 

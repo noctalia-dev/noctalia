@@ -36,6 +36,7 @@ struct HttpRequest {
 
 struct HttpResponse {
   bool transportOk = false; // true when the request completed without a transport error
+  bool timedOut = false;    // the transport error was the timeout
   long status = 0;          // HTTP status code (0 when transportOk is false)
   std::string effectiveUrl; // final URL after redirects (empty when unavailable)
   std::string body;
@@ -155,7 +156,7 @@ private:
     std::size_t index = 0;
   };
 
-  void downloadSequential(std::shared_ptr<SequentialDownload> state);
+  void downloadSequential(const std::shared_ptr<SequentialDownload>& state);
   void finishTransfer(CURL* easy, CURLcode result);
   void finishPostTransfer(CURL* easy, CURLcode result);
   void finishRequestTransfer(CURL* easy, CURLcode result);

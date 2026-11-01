@@ -120,7 +120,7 @@ namespace {
     auto block = ui::column({
         .align = FlexAlign::Start,
         .padding = pad,
-        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.5F),
+        .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
         .radius = Style::scaledRadiusSm(ctx.scale),
         .fillWidth = true,
     });
@@ -197,7 +197,7 @@ namespace {
         .align = FlexAlign::Stretch,
         .gap = borderWidth,
         .padding = borderWidth,
-        .fill = colorSpecFromRole(ColorRole::Outline),
+        .fill = colorSpecFromRole(ColorRole::OutlineVariant),
         .radius = Style::scaledRadiusSm(ctx.scale),
         .minWidth = totalWidth,
         .clipChildren = true,
@@ -207,9 +207,9 @@ namespace {
     for (std::size_t rowIndex = 0; rowIndex < ctx.tableRows.size(); ++rowIndex) {
       const auto& [cells, isHeader] = ctx.tableRows[rowIndex];
       const ColorSpec background = isHeader
-          ? colorSpecFromRole(ColorRole::SurfaceVariant)
+          ? colorSpecFromRole(ColorRole::SurfaceContainer)
           : (bodyRowIndex % 2 == 0 ? colorSpecFromRole(ColorRole::Surface)
-                                   : colorSpecFromRole(ColorRole::SurfaceVariant, 0.5F));
+                                   : colorSpecFromRole(ColorRole::SurfaceContainerLow));
       auto row = ui::row({
           .align = FlexAlign::Stretch,
           .gap = 0.0F,
@@ -220,7 +220,7 @@ namespace {
         if (i > 0) {
           row->addChild(
               ui::separator({
-                  .color = colorSpecFromRole(ColorRole::Outline),
+                  .color = colorSpecFromRole(ColorRole::OutlineVariant),
                   .thickness = borderWidth,
                   .orientation = SeparatorOrientation::VerticalRule,
                   .gradientEdges = false,
@@ -465,12 +465,6 @@ namespace {
     };
     switch (type) {
     case MD_TEXT_NORMAL:
-      if (ctx->inCodeBlock) {
-        appendRaw();
-      } else {
-        appendEscaped();
-      }
-      break;
     case MD_TEXT_CODE:
       if (ctx->inCodeBlock) {
         appendRaw();

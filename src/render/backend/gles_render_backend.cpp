@@ -402,12 +402,11 @@ void GlesRenderBackend::invalidateGpuResources() {
   if (m_display == EGL_NO_DISPLAY || m_context == EGL_NO_CONTEXT) {
     return;
   }
-  if (eglGetCurrentDisplay() != m_display || eglGetCurrentContext() != m_context) {
-    if (!makeCurrentNoSurface()) {
-      kLog.warn("skipping GPU resource invalidation: could not make context current");
-      return;
-    }
+  if ((eglGetCurrentDisplay() != m_display || eglGetCurrentContext() != m_context) && !makeCurrentNoSurface()) {
+    kLog.warn("skipping GPU resource invalidation: could not make context current");
+    return;
   }
+
   destroyGpuObjects();
 }
 

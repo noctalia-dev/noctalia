@@ -5,7 +5,6 @@
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "shell/bar/widget_action.h"
-#include "shell/bar/widget_gesture.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content_common.h"
@@ -69,7 +68,7 @@ namespace settings {
     // the same glyph+toggle but invisible, so a slider without a toggle keeps its slider and value
     // box column-aligned with sibling sliders while showing no controls.
     std::unique_ptr<Node> makeInvertSlot(
-        SliderSetting::InvertSlot slot, bool enabled, std::shared_ptr<bool> inverted,
+        SliderSetting::InvertSlot slot, bool enabled, const std::shared_ptr<bool>& inverted,
         std::function<void(double)> commitValue, Slider* sliderPtr, float scale
     ) {
       if (slot == SliderSetting::InvertSlot::None) {
@@ -83,7 +82,7 @@ namespace settings {
           ui::glyph({
               .glyph = "border-corner-pill",
               .glyphSize = Style::fontSizeBody * scale,
-              .color = colorSpecFromRole(enabled ? ColorRole::OnSurfaceVariant : ColorRole::Outline),
+              .color = colorSpecFromRole(enabled ? ColorRole::OnSurfaceVariant : ColorRole::OutlineVariant),
               .visible = hidden,
           })
       );
@@ -123,12 +122,11 @@ namespace settings {
           return true;
         }
       }
-      if (auto* area = dynamic_cast<InputArea*>(&root)) {
-        if (area->focusable() && area->tabStop()) {
-          area->setTabFocusKey(key);
-          return true;
-        }
+      if (auto* area = dynamic_cast<InputArea*>(&root); area && area->focusable() && area->tabStop()) {
+        area->setTabFocusKey(key);
+        return true;
       }
+
       for (const auto& child : root.children()) {
         if (tagTabFocusKey(*child, key)) {
           return true;
@@ -194,7 +192,7 @@ namespace settings {
         .radius = Style::scaledRadiusMd(scale),
         .onClick = [clearOverrides = ctx.clearOverrides, requestConfirmation = ctx.requestResetConfirmation,
                     requestRebuild = ctx.requestRebuild, paths = std::move(paths), onConfirmed = std::move(onConfirmed),
-                    pendingConfirmation]() mutable {
+                    pendingConfirmation] mutable {
           if (!pendingConfirmation) {
             requestConfirmation(paths);
             requestRebuild();
@@ -226,14 +224,14 @@ namespace settings {
 
   std::unique_ptr<Flex> SettingsControlFactory::makeOverrideBadge() {
     return makeStatusBadge(
-        i18n::tr("settings.badges.override"), colorSpecFromRole(ColorRole::Primary, 0.15F),
-        colorSpecFromRole(ColorRole::Primary), false
+        i18n::tr("settings.badges.override"), colorSpecFromRole(ColorRole::PrimaryContainer),
+        colorSpecFromRole(ColorRole::OnPrimaryContainer), false
     );
   }
 
   std::unique_ptr<Flex> SettingsControlFactory::makeAdvancedBadge() {
     return makeStatusBadge(
-        i18n::tr("settings.badges.advanced"), colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12F),
+        i18n::tr("settings.badges.advanced"), colorSpecFromRole(ColorRole::SurfaceContainer),
         colorSpecFromRole(ColorRole::OnSurfaceVariant), false
     );
   }
@@ -272,12 +270,12 @@ namespace settings {
     }
     if (monitorExplicit) {
       titleRow->addChild(makeStatusBadge(
-          i18n::tr("settings.badges.monitor"), colorSpecFromRole(ColorRole::Secondary, 0.15F),
-          colorSpecFromRole(ColorRole::Secondary), false
+          i18n::tr("settings.badges.monitor"), colorSpecFromRole(ColorRole::SecondaryContainer),
+          colorSpecFromRole(ColorRole::OnSecondaryContainer), false
       ));
     } else if (monitorInherited) {
       titleRow->addChild(makeStatusBadge(
-          i18n::tr("settings.badges.inherited"), colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12F),
+          i18n::tr("settings.badges.inherited"), colorSpecFromRole(ColorRole::SurfaceContainer),
           colorSpecFromRole(ColorRole::OnSurfaceVariant), false
       ));
     }
@@ -287,7 +285,7 @@ namespace settings {
     if (!isTemplateEnableTogglePath(entry.path)) {
       copyProps.gap = Style::spaceXs * scale;
     }
-    auto copy = ui::column(std::move(copyProps));
+    auto copy = ui::column(copyProps);
     copy->addChild(std::move(titleRow));
 
     if (!entry.subtitle.empty()) {
@@ -326,7 +324,7 @@ namespace settings {
   }
 
   std::unique_ptr<Toggle> SettingsControlFactory::makeToggle(
-      bool checked, bool enabled, std::vector<std::string> path, std::optional<bool> clearWhenValue
+      bool checked, bool enabled, const std::vector<std::string>& path, std::optional<bool> clearWhenValue
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
@@ -360,7 +358,7 @@ namespace settings {
   }
 
   std::unique_ptr<Node>
-  SettingsControlFactory::makeSelect(const SelectSetting& setting, std::vector<std::string> path) {
+  SettingsControlFactory::makeSelect(const SelectSetting& setting, const std::vector<std::string>& path) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     if (setting.segmented) {
@@ -463,7 +461,8 @@ namespace settings {
         .radius = Style::scaledRadiusMd(scale),
         .onClick = [openPopup = ctx.openSearchPickerPopup, title = std::move(title), options = setting.options,
                     selectedValue = setting.selectedValue, placeholder = setting.placeholder,
-                    emptyText = setting.emptyText, path = std::move(path), onSelect = setting.onSelect]() {
+                    emptyText = setting.emptyText, path = std::move(path), onSelect = setting.onSelect,
+                    keepOpenOnSelect = setting.keepOpenOnSelect] {
           if (openPopup) {
             openPopup(
                 SearchPickerOpenRequest{
@@ -474,6 +473,7 @@ namespace settings {
                     .emptyText = emptyText,
                     .settingPath = path,
                     .onSelect = onSelect,
+                    .keepOpenOnSelect = keepOpenOnSelect,
                 }
             );
           }
@@ -482,8 +482,9 @@ namespace settings {
   }
 
   std::unique_ptr<Flex> SettingsControlFactory::makeSlider(
-      double value, double minValue, double maxValue, double step, std::vector<std::string> path, bool integerValue,
-      std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit,
+      double value, double minValue, double maxValue, double step, const std::vector<std::string>& path,
+      bool integerValue,
+      const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>& linkedCommit,
       std::string valueSuffix, SliderSetting::InvertSlot invertSlot, bool invertEnabled
   ) {
     auto& ctx = m_ctx;
@@ -560,7 +561,7 @@ namespace settings {
       commitValue = [commit, inverted](double magValue) { commit(*inverted ? -magValue : magValue); };
     }
 
-    slider->setOnDragEnd([commitValue, sliderPtr]() { commitValue(sliderPtr->value()); });
+    slider->setOnDragEnd([commitValue, sliderPtr] { commitValue(sliderPtr->value()); });
 
     const auto commitInputText = [commitValue, sliderPtr, valueInputPtr, minValue, maxValue,
                                   integerValue](const std::string& text) {
@@ -580,7 +581,7 @@ namespace settings {
 
     valueInput->setOnChange([valueInputPtr](const std::string& /*text*/) { valueInputPtr->setInvalid(false); });
     valueInput->setOnSubmit([commitInputText](const std::string& text) { (void)commitInputText(text); });
-    valueInput->setOnFocusLoss([commitInputText, valueInputPtr]() { (void)commitInputText(valueInputPtr->value()); });
+    valueInput->setOnFocusLoss([commitInputText, valueInputPtr] { (void)commitInputText(valueInputPtr->value()); });
 
     // Invert toggle leads, then slider, then the numeric value field on the right (reset from makeRow
     // stays left of this cluster).
@@ -655,7 +656,7 @@ namespace settings {
     };
 
     // Drag commits both ends together — they are one linked pair (reset clears both).
-    slider->setOnDragEnd([commitTo, sliderPtr, lowPath, highPath]() {
+    slider->setOnDragEnd([commitTo, sliderPtr, lowPath, highPath] {
       commitTo(lowPath, sliderPtr->lowValue());
       commitTo(highPath, sliderPtr->highValue());
     });
@@ -688,14 +689,14 @@ namespace settings {
     lowInput->setOnSubmit([commitInput, lowInputPtr, lowPath, minValue, maxValue](const std::string& /*text*/) {
       (void)commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
     });
-    lowInput->setOnFocusLoss([commitInput, lowInputPtr, lowPath, minValue, maxValue]() {
+    lowInput->setOnFocusLoss([commitInput, lowInputPtr, lowPath, minValue, maxValue] {
       (void)commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
     });
     highInput->setOnChange([highInputPtr](const std::string& /*text*/) { highInputPtr->setInvalid(false); });
     highInput->setOnSubmit([commitInput, highInputPtr, highPath, minValue, maxValue](const std::string& /*text*/) {
       (void)commitInput(highInputPtr, highPath, minValue, maxValue, false);
     });
-    highInput->setOnFocusLoss([commitInput, highInputPtr, highPath, minValue, maxValue]() {
+    highInput->setOnFocusLoss([commitInput, highInputPtr, highPath, minValue, maxValue] {
       (void)commitInput(highInputPtr, highPath, minValue, maxValue, false);
     });
 
@@ -710,7 +711,7 @@ namespace settings {
   }
 
   std::unique_ptr<Node> SettingsControlFactory::makeGestureActionRow(
-      const GestureActionSetting& setting, const std::string& title, std::vector<std::string> path
+      const GestureActionSetting& setting, const std::string& title, const std::vector<std::string>& path
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
@@ -873,7 +874,7 @@ namespace settings {
   }
 
   std::unique_ptr<Input> SettingsControlFactory::makeText(
-      const std::string& value, const std::string& placeholder, std::vector<std::string> path, float width
+      const std::string& value, const std::string& placeholder, const std::vector<std::string>& path, float width
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
@@ -930,7 +931,7 @@ namespace settings {
             .radius = Style::scaledRadiusMd(scale),
             .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path = std::move(path),
                         inputPtr, selectFolder, extensions = setting.browseFileExtensions,
-                        fallbackDirectory = setting.browseFallbackDirectory]() {
+                        fallbackDirectory = setting.browseFallbackDirectory] {
               FileDialogOptions options;
               options.mode = selectFolder ? FileDialogMode::SelectFolder : FileDialogMode::Open;
               options.defaultViewMode = FileDialogViewMode::List;
@@ -965,8 +966,9 @@ namespace settings {
     );
   }
 
-  std::unique_ptr<Input>
-  SettingsControlFactory::makeOptionalNumber(const OptionalNumberSetting& setting, std::vector<std::string> path) {
+  std::unique_ptr<Input> SettingsControlFactory::makeOptionalNumber(
+      const OptionalNumberSetting& setting, const std::vector<std::string>& path
+  ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     Input* inputPtr = nullptr;
@@ -1005,7 +1007,7 @@ namespace settings {
   }
 
   std::unique_ptr<Stepper>
-  SettingsControlFactory::makeStepper(const StepperSetting& setting, std::vector<std::string> path) {
+  SettingsControlFactory::makeStepper(const StepperSetting& setting, const std::vector<std::string>& path) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     const int minValue = std::min(setting.minValue, setting.maxValue);
@@ -1025,8 +1027,9 @@ namespace settings {
     });
   }
 
-  std::unique_ptr<Flex>
-  SettingsControlFactory::makeOptionalStepper(const OptionalStepperSetting& setting, std::vector<std::string> path) {
+  std::unique_ptr<Flex> SettingsControlFactory::makeOptionalStepper(
+      const OptionalStepperSetting& setting, const std::vector<std::string>& path
+  ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
@@ -1069,8 +1072,9 @@ namespace settings {
     return wrap;
   }
 
-  std::unique_ptr<Node>
-  SettingsControlFactory::makeColorSpecPicker(const ColorSpecPickerSetting& setting, std::vector<std::string> path) {
+  std::unique_ptr<Node> SettingsControlFactory::makeColorSpecPicker(
+      const ColorSpecPickerSetting& setting, const std::vector<std::string>& path
+  ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     ColorSpecSelectOptions options{
@@ -1087,7 +1091,7 @@ namespace settings {
     return makeColorSpecSelect(
         std::move(options), [setOverride = ctx.setOverride, path](std::string value) { setOverride(path, value); },
         [configService = ctx.configService, clearOverride = ctx.clearOverride, requestRebuild = ctx.requestRebuild,
-         path]() {
+         path] {
           if (configService != nullptr && configService->hasOverride(path)) {
             clearOverride(path);
           } else {
@@ -1112,7 +1116,7 @@ namespace settings {
     if (!compactTitleDescription) {
       blockProps.gap = Style::spaceXs * scale;
     }
-    auto block = ui::column(std::move(blockProps));
+    auto block = ui::column(blockProps);
 
     auto titleRow = ui::row({
         .align = FlexAlign::Center,
@@ -1140,7 +1144,7 @@ namespace settings {
       copyProps.gap = Style::spaceXs * scale;
       copyProps.flexGrow = 1.0F;
     }
-    auto copy = ui::column(std::move(copyProps));
+    auto copy = ui::column(copyProps);
     copy->addChild(std::move(titleRow));
     if (!entry.subtitle.empty()) {
       auto subtitle = makeSettingSubtitleLabel(entry.subtitle, scale);
@@ -1294,7 +1298,7 @@ namespace settings {
               .variant = ButtonVariant::Ghost,
               .minWidth = Style::controlHeight * scale,
               .minHeight = Style::controlHeight * scale,
-              .onClick = [removeAndCommit, key, value]() {
+              .onClick = [removeAndCommit, key, value] {
                 if (!value.empty()) {
                   removeAndCommit(key);
                 }
@@ -1355,7 +1359,7 @@ namespace settings {
               .variant = ButtonVariant::Ghost,
               .minWidth = Style::controlHeight * scale,
               .minHeight = Style::controlHeight * scale,
-              .onClick = [removeAndCommit, key]() { removeAndCommit(key); },
+              .onClick = [removeAndCommit, key] { removeAndCommit(key); },
           })
       );
       block->addChild(std::move(row));
@@ -1408,7 +1412,7 @@ namespace settings {
             .variant = ButtonVariant::Ghost,
             .minWidth = Style::controlHeight * scale,
             .minHeight = Style::controlHeight * scale,
-            .onClick = [keyInput, valueInput, setAndCommit]() {
+            .onClick = [keyInput, valueInput, setAndCommit] {
               if (keyInput == nullptr || valueInput == nullptr) {
                 return;
               }

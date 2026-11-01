@@ -51,7 +51,6 @@
       "move-toolbar": "Trascina per spostare la barra degli strumenti",
       "redo": "Ripeti (Ctrl+Maiusc+Z)",
       "save": "Salva l'immagine annotata (Ctrl+S)",
-      "size-advanced": "Regolazione fine delle dimensioni",
       "size-decrease": "Più sottile ([)",
       "size-increase": "Più spesso (])",
       "size-large": "Grande",
@@ -1572,10 +1571,6 @@
         "horizontal": "Orizzontale",
         "vertical": "Verticale"
       },
-      "panel-bar-alignment": {
-        "centered": "Centrato",
-        "near-trigger": "Vicino al click"
-      },
       "panel-position": {
         "auto": "Segui la barra"
       },
@@ -2951,10 +2946,7 @@
         "calendar-edit": {
           "button": "Modifica",
           "button-reconnect": "Riconnetti",
-          "button-retry": "Riprova",
-          "description": "Aggiorna questo account calendario",
-          "description-locked": "Il refresh token si trova in un portachiavi bloccato; sbloccare il portachiavi e riprovare",
-          "description-reconnect": "Manca l'autorizzazione di Google; riconnetti questo account"
+          "button-retry": "Riprova"
         },
         "calendar-event-date-format": {
           "description": "Il formato della data mostrato sopra l'elenco degli eventi nelle visualizzazioni del calendario",

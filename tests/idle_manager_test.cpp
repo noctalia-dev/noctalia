@@ -1,4 +1,5 @@
 #include "core/deferred_call.h"
+#include "core/timer_manager.h"
 #include "ext-idle-notify-v1-test-server-protocol.h"
 #include "idle/idle_manager.h"
 #include "tests/test_check.h"
@@ -371,6 +372,36 @@ namespace {
     TEST_CHECK(fixture.server.notification(5000) != screen);
   }
 
+  void outlastInhibitReleaseDebounce(Fixture& fixture) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+    TimerManager::instance().tick();
+    fixture.sync();
+  }
+
+  void checkScreenSaverInhibitCancelsFadeAndRestartsAfterRelease() {
+    Fixture fixture({{.name = "screen-off", .timeoutSeconds = 60, .action = "screen_off"}}, 2.0F);
+    const auto screen = fixture.server.notification(60000);
+    fixture.send(screen);
+    fixture.idle.setScreenSaverInhibitLocks(1);
+    TEST_CHECK(fixture.fadesEnded == 1);
+
+    // A renewal inside the debounce keeps the countdown instead of restarting it.
+    fixture.idle.setScreenSaverInhibitLocks(0);
+    fixture.idle.setScreenSaverInhibitLocks(1);
+    outlastInhibitReleaseDebounce(fixture);
+    TEST_CHECK(fixture.server.notification(60000) == screen);
+
+    // The cancelled fade left an already-idled notification; the release must re-arm it.
+    fixture.idle.setScreenSaverInhibitLocks(0);
+    TEST_CHECK(fixture.server.notification(60000) == screen);
+    outlastInhibitReleaseDebounce(fixture);
+    TEST_CHECK(fixture.server.notifications()[screen].resource == nullptr);
+    const auto restarted = fixture.server.notification(60000);
+    fixture.send(restarted);
+    fixture.finishFade();
+    TEST_CHECK(fixture.actions == std::vector<Action>({{"screen-off", IdleActionKind::ScreenOff, ""}}));
+  }
+
 } // namespace
 
 int main() {
@@ -379,4 +410,5 @@ int main() {
   checkAlreadyIdledUsesLockedTimeoutAfterResume();
   checkLockDuringFade();
   checkLockDuringCancelledFade();
+  checkScreenSaverInhibitCancelsFadeAndRestartsAfterRelease();
 }

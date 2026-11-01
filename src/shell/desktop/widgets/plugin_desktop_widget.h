@@ -51,7 +51,7 @@ private:
   void doLayout(Renderer& renderer) override;
   void doUpdate(Renderer& renderer) override;
 
-  void handleScriptResult(scripting::ScriptResult result);
+  void handleScriptResult(const scripting::ScriptResult& result);
   [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
   [[nodiscard]] std::string resolvePluginPath(const std::string& path) const;
   void startUpdateTimer();

@@ -52,6 +52,15 @@ namespace {
     return condition;
   }
 
+  // Paste reads the live selection, so persisted history is checked directly.
+  std::optional<std::string> newestEntryText(ClipboardService& clipboard) {
+    if (clipboard.history().empty() || !clipboard.ensureEntryLoaded(0)) {
+      return std::nullopt;
+    }
+    const auto& data = clipboard.history().front().data;
+    return std::string(data.begin(), data.end());
+  }
+
   std::string keyFor(const security::SecretStoreAttributes& attributes) {
     return attributes.application
         + '\x1f'
@@ -263,7 +272,7 @@ namespace {
       ok = expect(!clipboard.persistenceMigrationPending(), "migration remained pending") && ok;
       ok = expect(clipboard.history().size() == 1, "legacy history was not loaded") && ok;
       ok = expect(clipboard.ensureEntryLoaded(0), "migrated payload was not available") && ok;
-      ok = expect(clipboard.clipboardText() == "secret", "migrated plaintext changed") && ok;
+      ok = expect(newestEntryText(clipboard) == "secret", "migrated plaintext changed") && ok;
       ok = expect(!fs::exists(clipboardDir / "index.json"), "legacy manifest was not removed") && ok;
       ok = expect(!fs::exists(entriesDir / "entry.bin"), "legacy payload was not removed") && ok;
       ok = expect(fs::exists(encryptedManifest), "encrypted manifest was not written") && ok;
@@ -288,7 +297,7 @@ namespace {
           && ok;
       ok = expect(clipboard.history().size() == 1, "encrypted history was not loaded") && ok;
       ok = expect(clipboard.ensureEntryLoaded(0), "encrypted payload could not be decrypted") && ok;
-      ok = expect(clipboard.clipboardText() == "secret", "decrypted clipboard text changed") && ok;
+      ok = expect(newestEntryText(clipboard) == "secret", "decrypted clipboard text changed") && ok;
     }
 
     ok = expect(fake->storeCount() == 1, "clipboard data key was unexpectedly replaced") && ok;
@@ -449,7 +458,7 @@ namespace {
                "file key source did not reach ready state"
            )
           && ok;
-      ok = expect(clipboard.clipboardText() == "secret", "file key source did not migrate legacy history") && ok;
+      ok = expect(newestEntryText(clipboard) == "secret", "file key source did not migrate legacy history") && ok;
       ok = expect(fs::exists(encryptedManifest), "file key source did not create encrypted history") && ok;
       ok = expect(
                !fs::exists(stateHome / "noctalia/clipboard/index.json"),
@@ -525,7 +534,7 @@ namespace {
                "retry did not reopen history after the file key was provisioned"
            )
           && ok;
-      ok = expect(clipboard.clipboardText() == "secret", "retried file key decrypted the wrong payload") && ok;
+      ok = expect(newestEntryText(clipboard) == "secret", "retried file key decrypted the wrong payload") && ok;
 
       const std::string keyFileBeforeReset = readFile(keyFile);
       ok = expect(

@@ -151,12 +151,7 @@ namespace {
         "heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs", "mif1", "msf1", "avif", "avis",
     };
     const std::string_view candidate(reinterpret_cast<const char*>(brand), 4);
-    for (const std::string_view known : kBrands) {
-      if (candidate == known) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::contains(kBrands, candidate);
   }
 
 } // namespace

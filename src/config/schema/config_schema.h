@@ -25,6 +25,9 @@ namespace noctalia::config::schema {
   const Schema<BluetoothConfig>& bluetoothSchema();
   const Schema<ControlCenterConfig>& controlCenterSchema();
   const Schema<PluginsConfig>& pluginsSchema();
+  // The [plugins] section of a merged config root, with the default sources when none are
+  // configured, as the shell resolves it. Schema issues are dropped: validation reports them.
+  [[nodiscard]] PluginsConfig readPluginsSection(const toml::table& root);
   const Schema<HotCornersConfig>& hotCornersSchema();
   const Schema<CalendarConfig::Reminders>& calendarRemindersSchema();
   const Schema<CalendarConfig>& calendarSchema();
@@ -34,15 +37,19 @@ namespace noctalia::config::schema {
   const Schema<WallpaperConfig>& wallpaperSchema();
   const Schema<ThemeConfig>& themeSchema();
   // Parses a name-keyed [custom_colors] map (bare string or { color, color_dark,
-  // color_light, blend } table). Appends valid entries to `out`.
-  void parseCustomColorsMap(const toml::table& map, std::vector<ThemeConfig::TemplateColorConfig>& out);
+  // color_light, blend } table). Appends valid entries to `out`; entries and keys
+  // of the wrong type are skipped with a warning under `path`.
+  void parseCustomColorsMap(
+      const toml::table& map, std::vector<ThemeConfig::TemplateColorConfig>& out, std::string_view path,
+      Diagnostics& diag
+  );
   // Adds entries from `additional` whose names are not already in `into`.
   void appendUniqueCustomColors(
       std::vector<ThemeConfig::TemplateColorConfig>& into, std::vector<ThemeConfig::TemplateColorConfig> additional
   );
   // Template palette files (e.g. user-templates.toml) store palette extensions under
   // [config.custom_colors]; lift them into theme.templates.customColors.
-  void liftTemplateConfigCustomColors(const toml::table& root, Config& config);
+  void liftTemplateConfigCustomColors(const toml::table& root, Config& config, Diagnostics& diag);
   const Schema<ShellConfig>& shellSchema();
   const Schema<AccessibilityConfig>& accessibilitySchema();
 

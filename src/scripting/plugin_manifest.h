@@ -62,6 +62,9 @@ namespace scripting {
     std::vector<ManifestSelectOption> options;
     std::vector<std::string> extensions;
     bool advanced = false;
+    // The value is a credential (API key, token, password): `noctalia config export --credentials`
+    // omits or blanks it. Only valid on string, string_list, and string_map settings.
+    bool secret = false;
     std::optional<ManifestVisibility> visibleWhen;
 
     // The declared default mapped to a settings value.
@@ -123,6 +126,10 @@ namespace scripting {
     double panelHeight = 0.0;
     bool panelWidthFill = false;
     bool panelHeightFill = false;
+    // height = "content": the panel's height follows its rendered tree, capped at
+    // panelMaxHeight (required with it).
+    bool panelHeightContent = false;
+    double panelMaxHeight = 0.0;
     // Host-standard shell settings (see plugin_panel_shell.*). Optional
     // [[panel]] keys provide defaults; injected settings use "{id}_placement",
     // "{id}_layer", and the corresponding canonical suffixes.

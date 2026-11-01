@@ -441,6 +441,61 @@ int main() {
     );
   }
 
+  {
+    // A password manager marks its copies with a hint (#4457): they must paste
+    // into shell fields, yet never reach history or outlive their owner.
+    Harness harness;
+    fake.claims = 0;
+    simulateCopy(harness.clipboard, &offerIds[0], "text/plain;charset=utf-8", bytesOf("old"));
+
+    fake.payload = bytesOf("secret");
+    fake.written = 0;
+    harness.clipboard.handleDataOffer(&offerIds[1]);
+    harness.clipboard.handleOfferMimeType(&offerIds[1], "text/plain;charset=utf-8");
+    harness.clipboard.handleOfferMimeType(&offerIds[1], "x-kde-passwordManagerHint");
+    harness.clipboard.handleSelection(&offerIds[1]);
+    drainReads(harness.clipboard);
+
+    expect(harness.clipboard.clipboardText() == "secret", "password-hinted copy did not paste");
+    const auto& history = harness.clipboard.history();
+    expect(
+        history.size() == 1 && std::string(history.front().data.begin(), history.front().data.end()) == "old",
+        "password-hinted copy reached history"
+    );
+
+    harness.clipboard.handleSelection(nullptr);
+    flushDeferredAdopt(harness.clipboard);
+    expect(fake.claims == 0, "adopted a password-hinted selection after its owner exited");
+    expect(!harness.clipboard.clipboardText().has_value(), "cleared selection still pastes the secret");
+  }
+
+  {
+    // Copying text equal to a pin is deduplicated out of history, but it is
+    // still the live selection and has to be what pastes.
+    Harness harness;
+    simulateCopy(harness.clipboard, &offerIds[0], "text/plain;charset=utf-8", bytesOf("pinned"));
+    expect(harness.clipboard.setEntryPinned(0, true), "pinning failed");
+    simulateCopy(harness.clipboard, &offerIds[1], "text/plain;charset=utf-8", bytesOf("other"));
+    simulateCopy(harness.clipboard, &offerIds[2], "text/plain;charset=utf-8", bytesOf("pinned"));
+    expect(harness.clipboard.clipboardText() == "pinned", "copy matching a pin pasted an older entry");
+  }
+
+  {
+    // Scripts copy with an explicit type; text still gets the aliases GTK apps paste from.
+    Harness harness;
+    expect(harness.clipboard.copyText("100.64.0.1", "text/plain"), "copying text with a MIME type failed");
+    expect(
+        fake.offeredMimeTypes == std::vector<std::string>{"text/plain", "text/plain;charset=utf-8"},
+        "text copied with an explicit MIME type did not offer the UTF-8 alias"
+    );
+
+    expect(harness.clipboard.copyText("<b>hi</b>", "text/html"), "copying html with a MIME type failed");
+    expect(
+        fake.offeredMimeTypes == std::vector<std::string>{"text/html"},
+        "non-plain text copied with an explicit MIME type was widened"
+    );
+  }
+
   gFake = nullptr;
   if (gFailures != 0) {
     std::println(stderr, "clipboard_service_test: {} failure(s)", gFailures);

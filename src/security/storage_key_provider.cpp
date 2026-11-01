@@ -28,6 +28,10 @@ namespace security {
         'N', 'O', 'C', 'T', 'C', 'A', 'L', 'E',
     };
 
+    constexpr std::array<char, crypto_kdf_CONTEXTBYTES> kNotificationContext = {
+        'N', 'O', 'C', 'T', 'N', 'O', 'T', 'I',
+    };
+
     std::optional<std::uint8_t> decodeLowerHex(char value) {
       if (value >= '0' && value <= '9') {
         return static_cast<std::uint8_t>(value - '0');
@@ -126,7 +130,9 @@ namespace security {
       return std::nullopt;
     }
 
-    const auto& context = purpose == StorageKeyPurpose::ClipboardHistory ? kClipboardContext : kCalendarContext;
+    const auto& context = purpose == StorageKeyPurpose::ClipboardHistory ? kClipboardContext
+        : purpose == StorageKeyPurpose::CalendarEvents                   ? kCalendarContext
+                                                                         : kNotificationContext;
     SecureBuffer derived(SecureKey::Size);
     if (crypto_kdf_derive_from_key(
             derived.bytes().data(), derived.size(), 1, context.data(), m_masterKey->bytes().data()

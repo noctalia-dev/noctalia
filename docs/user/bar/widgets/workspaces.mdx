@@ -33,6 +33,8 @@ Workspace pills use the workspaces widget's resolved `capsule_radius`. Set `[wid
 | `hide_when_empty`           | bool            | `false`       | Hide workspace pills with no open windows.                                                                                                                                                                                                                                         |
 | `monitors`                  | array of string | `[]`          | Monitors whose workspaces are shown, in listed order. Each entry is a connector name or a monitor selector, matched like bar monitor overrides. Leave empty or omit to show workspaces only from the monitor hosting this bar.                                                     |
 
+On labwc, the compositor does not report which workspace a window is on, so occupancy (`hide_when_empty`, occupied colors, and Smart auto-hide) is inferred. The focused window is assigned to the active workspace, other windows keep their last known workspace, and a new window is assumed to be on the active workspace. Windows that were already open on another workspace when the shell started count as being on the active workspace until you focus them.
+
 ```toml
 [widget.workspaces]
 style = "regular"       # regular | minimal | focus_hint
@@ -49,7 +51,7 @@ active_pill_size = 2.2
 inactive_pill_size = 1.0
 focused_color = "primary"
 occupied_color = "secondary"
-empty_color = "surface_variant"
+empty_color = "surface_container"
 urgent_color = "error"
 change_color_on_hover = true  # false = keep configured workspace colors while hovering
 focused_output_only = false  # true = only the focused monitor highlights its active workspace

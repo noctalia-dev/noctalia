@@ -39,7 +39,7 @@ void AudioVisualizerWidget::create() {
   root->addChild(std::move(visualizer));
 
   if (m_spectrum != nullptr) {
-    m_listenerId = m_spectrum->addChangeListener(m_wave ? kAudioSpectrumWaveBands : m_bands, [this]() {
+    m_listenerId = m_spectrum->addChangeListener(m_wave ? kAudioSpectrumWaveBands : m_bands, [this] {
       m_pendingSpectrumUpdate = true;
       requestFrameTick();
     });
@@ -61,7 +61,8 @@ void AudioVisualizerWidget::doLayout(Renderer& renderer, float containerWidth, f
   // containerWidth/Height are the bar's logical cross/main extents (not the widget slot).
   const bool barIsVertical = containerHeight > containerWidth;
   const float crossLimit = std::max(1.0F, barIsVertical ? containerWidth : containerHeight);
-  const float bodyExtent = renderer.fontRowExtent(Style::fontSizeBody * m_contentScale);
+  const float bodyExtent =
+      renderer.fontRowExtent(Style::fontSizeBody * m_contentScale, {labelFontWeight(), labelFontFamily()});
   const float crossExtent = std::min(bodyExtent, crossLimit);
   const float width = std::max(1.0F, barIsVertical ? crossExtent : m_width * m_contentScale);
   const float height = std::max(1.0F, barIsVertical ? m_width * m_contentScale : crossExtent);
@@ -95,9 +96,12 @@ void AudioVisualizerWidget::onFrameTick(float deltaMs) {
   if (!m_visible) {
     return;
   }
+  const bool audioActive = m_spectrum != nullptr && !m_spectrum->idle();
   syncSpectrum();
-  m_visualizer->tick(deltaMs);
-  if (m_visible && (!m_visualizer->converged() || (m_spectrum != nullptr && !m_spectrum->idle()))) {
+  if (!m_visualizer->advance(deltaMs, audioActive)) {
+    return;
+  }
+  if (!m_visualizer->converged() || audioActive) {
     requestRedraw();
   }
 }
@@ -213,7 +217,7 @@ void AudioVisualizerWidget::startOpacityAnimation(float targetOpacity, bool coll
           root()->setOpacity(opacity);
         }
       },
-      [this, collapseOnComplete]() {
+      [this, collapseOnComplete] {
         m_visibilityAnimId = 0;
         if (!collapseOnComplete) {
           return;

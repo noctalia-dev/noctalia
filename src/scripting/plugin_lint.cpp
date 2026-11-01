@@ -82,7 +82,7 @@ namespace scripting {
         std::string parsed;
         newlineCount = 0;
         std::size_t j = pos + 2;
-        while (j + 1 < n && !(src[j] == ']' && src[j + 1] == ']')) {
+        while (j + 1 < n && (src[j] != ']' || src[j + 1] != ']')) {
           if (src[j] == '\n') {
             ++newlineCount;
           }
@@ -154,7 +154,7 @@ namespace scripting {
         if (c == '-' && i + 1 < n && src[i + 1] == '-') {
           if (i + 3 < n && src[i + 2] == '[' && src[i + 3] == '[') {
             i += 4;
-            while (i + 1 < n && !(src[i] == ']' && src[i + 1] == ']')) {
+            while (i + 1 < n && (src[i] != ']' || src[i + 1] != ']')) {
               if (src[i] == '\n') {
                 ++line;
               }

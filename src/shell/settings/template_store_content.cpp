@@ -5,7 +5,6 @@
 #include "core/input/keybind_matcher.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
-#include "net/url_open.h"
 #include "shell/settings/template_store_tile.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
@@ -80,11 +79,10 @@ namespace settings {
       }
 
       bool onPointerPress(std::size_t index, float localX, float localY, float cellWidth, float cellHeight) override {
-        if (!overlayHitTest(index, localX, localY, cellWidth, cellHeight)) {
+        if (m_content == nullptr || !overlayHitTest(index, localX, localY, cellWidth, cellHeight)) {
           return false;
         }
-        (void)net::openInBrowser((*m_catalog)[(*m_indices)[index]].documentationUrl);
-        return true;
+        return m_content->openDocumentationAtFilteredIndex(index);
       }
 
       [[nodiscard]] bool
@@ -197,7 +195,7 @@ namespace settings {
     }
     m_sortMode = mode;
     if (m_config != nullptr) {
-      (void)m_config->setStateString("template_store", "sort", std::string(sortModeStateValue(mode)));
+      (void)m_config->setStateString("template_store", "sort", sortModeStateValue(mode));
     }
     syncSortButtonGlyph();
     sortFiltered();
@@ -414,7 +412,7 @@ namespace settings {
             .glyphSize = Style::fontSizeCaption * scale,
             .contentAlign = ButtonContentAlign::Start,
             .variant = ButtonVariant::Ghost,
-            .onClick = [this]() {
+            .onClick = [this] {
               m_categoryFiltersCollapsed = !m_categoryFiltersCollapsed;
               if (m_onRebuildNeeded) {
                 m_onRebuildNeeded();
@@ -432,7 +430,7 @@ namespace settings {
                 .fontSize = Style::fontSizeCaption * scale,
                 .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
                 .radius = Style::scaledRadiusMd(scale),
-                .onClick = [this, filterKey = std::move(filterKey)]() {
+                .onClick = [this, filterKey = std::move(filterKey)] {
                   m_selectedCategory = filterKey;
                   applyFilter();
                   if (m_onRebuildNeeded) {
@@ -472,7 +470,7 @@ namespace settings {
             .minHeight = Style::controlHeight * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [this]() { cycleSortMode(); },
+            .onClick = [this] { cycleSortMode(); },
         })
     );
 
@@ -588,6 +586,18 @@ namespace settings {
     selectIndex(static_cast<std::size_t>(next));
   }
 
+  bool TemplateStoreContent::openDocumentationAtFilteredIndex(std::size_t filteredIndex) {
+    if (filteredIndex >= m_filteredIndices.size() || !m_callbacks.openBrowserUrl) {
+      return false;
+    }
+    const auto& url = m_catalog[m_filteredIndices[filteredIndex]].documentationUrl;
+    if (url.empty()) {
+      return false;
+    }
+    m_callbacks.openBrowserUrl(url);
+    return true;
+  }
+
   bool TemplateStoreContent::activateSelection() {
     const auto index = indexOfTemplateId(m_selectedTemplateId.value_or(""));
     if (!index.has_value()) {
@@ -615,15 +625,7 @@ namespace settings {
 
     if (sym == XKB_KEY_F1) {
       const auto index = indexOfTemplateId(m_selectedTemplateId.value_or(""));
-      if (!index.has_value()) {
-        return false;
-      }
-      const auto& url = m_catalog[m_filteredIndices[*index]].documentationUrl;
-      if (url.empty()) {
-        return false;
-      }
-      (void)net::openInBrowser(url);
-      return true;
+      return index.has_value() && openDocumentationAtFilteredIndex(*index);
     }
 
     const int columns = m_grid != nullptr ? static_cast<int>(std::max<std::size_t>(1, m_grid->layoutColumnCount())) : 1;

@@ -1,6 +1,7 @@
 #include "scripting/luau_host.h"
 
 #include "compositors/compositor_platform.h"
+#include "compositors/umbriel/umbriel_runtime.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/process/process.h"
@@ -32,11 +33,13 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -48,6 +51,7 @@
 #include <system_error>
 #include <thread>
 #include <type_traits>
+#include <unistd.h>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -74,6 +78,9 @@ namespace {
   constexpr std::size_t kMaxAsyncHttpPerHost = 8;
   constexpr std::size_t kMaxPendingSoundLoadsPerHost = 8;
   constexpr std::size_t kMaxIdleWatchesPerHost = 8;
+  constexpr std::size_t kMaxPendingUmbrielActionsPerHost = 16;
+  // Matches the reply timeout of `umbriel msg`.
+  constexpr auto kUmbrielActionTimeout = std::chrono::seconds(2);
   constexpr double kMaxIdleWatchSeconds = static_cast<double>(std::numeric_limits<std::uint32_t>::max()) / 1000.0;
   constexpr std::size_t kMaxStreamsPerHost = 4;
   constexpr std::size_t kMaxHttpStreamsPerHost = 4;
@@ -141,7 +148,7 @@ namespace {
     }
 
     try {
-      std::thread([args = std::move(args)]() mutable {
+      std::thread([args = std::move(args)] mutable {
         try {
           (void)process::runAsync(args);
         } catch (...) {
@@ -156,7 +163,7 @@ namespace {
     return true;
   }
 
-  bool startDetachedCommandInTerminalAsync(std::string command) {
+  bool startDetachedCommandInTerminalAsync(const std::string& command) {
     auto prepared = terminal_launch::prepareCommand(command);
     return prepared.has_value() && startDetachedProcessAsync(std::move(*prepared));
   }
@@ -427,8 +434,8 @@ namespace {
   //     loadAvg = { 1.2, 0.9, 0.7 } }
   //
   // Percentages are 0-100. Absent sensors are nil rather than 0. The first call opts the host
-  // into the optional CPU/GPU probes represented by this snapshot. Per-core and disk sampling
-  // remain opt-in through cpuCores() and diskStats().
+  // into CPU temperature sampling only. GPU sampling requires setGpuMonitoring(true): reading
+  // CPU, RAM or network stats must not keep a discrete GPU's monitoring session alive.
   int luau_systemStats(lua_State* L) {
     auto* monitor = runningMonitorForState(L);
     if (monitor == nullptr) {
@@ -498,6 +505,13 @@ namespace {
     lua_rawseti(L, -2, 3);
     lua_setfield(L, -2, "loadAvg");
 
+    return 1;
+  }
+
+  int luau_setGpuMonitoring(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    auto* host = hostForState(L);
+    lua_pushboolean(L, host != nullptr && host->setGpuMonitoring(lua_toboolean(L, 1) != 0));
     return 1;
   }
 
@@ -703,6 +717,9 @@ namespace {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
     auto* host = hostForState(L);
+    if (host != nullptr) {
+      host->recordSettingRead(std::string_view(path, len));
+    }
     const auto snapshot = host != nullptr ? host->api().configSnapshot() : nullptr;
     if (snapshot == nullptr) {
       lua_pushnil(L);
@@ -746,7 +763,7 @@ namespace {
   int luau_getColor(lua_State* L) {
     size_t len = 0;
     const char* role = luaL_checklstring(L, 1, &len);
-    const auto colorRole = colorRoleFromToken(std::string_view(role, len));
+    const auto colorRole = colorRoleFromPluginToken(std::string_view(role, len));
     if (!colorRole.has_value()) {
       lua_pushnil(L);
       return 1;
@@ -1177,14 +1194,31 @@ namespace {
       return 2;
     }
     const BudgetCrossingScope budgetScope(host, "writeFile", std::string_view(path, pathLen));
-    std::ofstream file(resolveHostPath(host, std::string_view(path, pathLen)), std::ios::binary | std::ios::trunc);
-    if (!file) {
+    // New files are owner-only from creation; replacing a file keeps its existing mode.
+    const std::filesystem::path target = resolveHostPath(host, std::string_view(path, pathLen));
+    const int fd = ::open(target.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (fd < 0) {
       lua_pushboolean(L, 0);
       lua_pushstring(L, "cannot open file for writing");
       return 2;
     }
-    file.write(data, static_cast<std::streamsize>(dataLen));
-    lua_pushboolean(L, file.good() ? 1 : 0);
+    bool ok = true;
+    size_t written = 0;
+    while (written < dataLen) {
+      const ssize_t n = ::write(fd, data + written, dataLen - written);
+      if (n < 0) {
+        if (errno == EINTR) {
+          continue;
+        }
+        ok = false;
+        break;
+      }
+      written += static_cast<size_t>(n);
+    }
+    if (::close(fd) != 0) {
+      ok = false;
+    }
+    lua_pushboolean(L, ok ? 1 : 0);
     return 1;
   }
 
@@ -1378,6 +1412,10 @@ namespace {
     }
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
+    if (!ec) {
+      // Plugin data often holds private state; keep it owner-only.
+      std::filesystem::permissions(dir, std::filesystem::perms::owner_all, std::filesystem::perm_options::replace, ec);
+    }
     if (ec) {
       lua_pushnil(L);
       lua_pushstring(L, ec.message().c_str());
@@ -1798,6 +1836,50 @@ namespace {
       {nullptr, nullptr},
   };
 
+  // noctalia.umbriel.action(request, callback?) -> bool. `request` is the typed action request from Umbriel's IPC
+  // reference without `cmd`, for example { action = "workspace-set-layout", layout = "dwindle" }.
+  int luau_umbriel_action(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    if (!lua_isnoneornil(L, 2)) {
+      luaL_checktype(L, 2, LUA_TFUNCTION);
+    }
+
+    nlohmann::json request = luaToJson(L, 1);
+    if (!request.is_object()) {
+      luaL_argerror(L, 1, "expected an action request table");
+    }
+    const auto action = request.find("action");
+    if (action == request.end() || !action->is_string() || action->get_ref<const std::string&>().empty()) {
+      luaL_argerror(L, 1, "expected a non-empty `action` string");
+    }
+    if (request.contains("cmd")) {
+      luaL_argerror(L, 1, "`cmd` is set by the host");
+    }
+    request["cmd"] = "action";
+
+    auto* host = hostForState(L);
+    std::string socketPath = compositors::umbriel::findSocketPath();
+    if (host == nullptr || socketPath.empty()) {
+      lua_pushboolean(L, 0);
+      return 1;
+    }
+
+    std::string payload = request.dump();
+    payload.push_back('\n');
+    const int callbackRef = lua_isfunction(L, 2) ? lua_ref(L, 2) : LUA_NOREF;
+    const bool ok = host->startUmbrielAction(std::move(socketPath), std::move(payload), callbackRef);
+    if (!ok && callbackRef != LUA_NOREF) {
+      lua_unref(L, callbackRef);
+    }
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+  }
+
+  const luaL_Reg kNoctaliaUmbrielLib[] = {
+      {"action", luau_umbriel_action},
+      {nullptr, nullptr},
+  };
+
   // noctalia.layer.*: show, hide, and configure this plugin's [[layer]] entries.
 
   constexpr std::int64_t kMaxLayerExtent = 1 << 16;
@@ -1921,7 +2003,7 @@ namespace {
   int luau_layer_show(lua_State* L) {
     std::string id = checkLayerEntryId(L, "show");
     if (auto* host = hostForState(L)) {
-      host->scriptLayerCommand(scripting::PluginLayerCommand::Show, std::move(id), {});
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Show, id, {});
     }
     return 0;
   }
@@ -1929,7 +2011,7 @@ namespace {
   int luau_layer_hide(lua_State* L) {
     std::string id = checkLayerEntryId(L, "hide");
     if (auto* host = hostForState(L)) {
-      host->scriptLayerCommand(scripting::PluginLayerCommand::Hide, std::move(id), {});
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Hide, id, {});
     }
     return 0;
   }
@@ -1939,7 +2021,7 @@ namespace {
     luaL_checktype(L, 2, LUA_TTABLE);
     auto patch = readLayerPatch(L, 2);
     if (auto* host = hostForState(L)) {
-      host->scriptLayerCommand(scripting::PluginLayerCommand::Configure, std::move(id), std::move(patch));
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Configure, id, std::move(patch));
     }
     return 0;
   }
@@ -2055,6 +2137,7 @@ namespace {
       {"focusedOutputName", luau_focusedOutputName},
       {"outputs", luau_outputs},
       {"systemStats", luau_systemStats},
+      {"setGpuMonitoring", luau_setGpuMonitoring},
       {"cpuCores", luau_cpuCores},
       {"diskMounts", luau_diskMounts},
       {"diskStats", luau_diskStats},
@@ -2135,6 +2218,10 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaLayerLib);
     lua_setfield(L, -2, "layer");
+    // noctalia.umbriel = { action }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaUmbrielLib);
+    lua_setfield(L, -2, "umbriel");
     lua_pop(L, 1);
   }
 } // namespace
@@ -2204,10 +2291,28 @@ void LuauHost::ensureSystemStatsRetained() {
     return;
   }
   monitor->retainCpuTemp();
-  monitor->retainGpuTemp();
-  monitor->retainGpuUsage();
-  monitor->retainGpuVram();
   m_systemStatsRetained = true;
+}
+
+bool LuauHost::setGpuMonitoring(bool enabled) {
+  if (enabled == m_gpuStatsRetained) {
+    return true;
+  }
+  auto* monitor = m_api.systemMonitor();
+  if (monitor == nullptr) {
+    return false;
+  }
+  if (enabled) {
+    monitor->retainGpuTemp();
+    monitor->retainGpuUsage();
+    monitor->retainGpuVram();
+  } else {
+    monitor->releaseGpuTemp();
+    monitor->releaseGpuUsage();
+    monitor->releaseGpuVram();
+  }
+  m_gpuStatsRetained = enabled;
+  return true;
 }
 
 void LuauHost::ensureCpuCoresRetained() {
@@ -2250,12 +2355,10 @@ LuauHost::~LuauHost() {
   if (m_systemStatsRetained) {
     if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
       monitor->releaseCpuTemp();
-      monitor->releaseGpuTemp();
-      monitor->releaseGpuUsage();
-      monitor->releaseGpuVram();
     }
     m_systemStatsRetained = false;
   }
+  (void)setGpuMonitoring(false);
   if (!m_diskPathsRetained.empty()) {
     if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
       for (const auto& path : m_diskPathsRetained) {
@@ -2299,23 +2402,27 @@ LuauHost::~LuauHost() {
         lua_unref(m_T, callbackRef);
       }
       m_idleWatchCallbackRefs.clear();
+      for (int callbackRef : m_umbrielActionCallbackRefs) {
+        lua_unref(m_T, callbackRef);
+      }
+      m_umbrielActionCallbackRefs.clear();
     }
     if (m_threadRef != -1)
       lua_unref(m_L, m_threadRef);
     lua_close(m_L);
   }
   if (unloadPluginSounds) {
-    DeferredCall::callLater([unloadPluginSounds = std::move(unloadPluginSounds), hostId = m_hostId]() mutable {
+    DeferredCall::callLater([unloadPluginSounds = std::move(unloadPluginSounds), hostId = m_hostId] mutable {
       unloadPluginSounds(hostId);
     });
   }
   if (clearWallpaperMasks) {
-    DeferredCall::callLater([clearWallpaperMasks = std::move(clearWallpaperMasks), hostId = m_hostId]() mutable {
+    DeferredCall::callLater([clearWallpaperMasks = std::move(clearWallpaperMasks), hostId = m_hostId] mutable {
       clearWallpaperMasks(hostId);
     });
   }
   if (releaseIdleWatches) {
-    DeferredCall::callLater([releaseIdleWatches = std::move(releaseIdleWatches), hostId = m_hostId]() mutable {
+    DeferredCall::callLater([releaseIdleWatches = std::move(releaseIdleWatches), hostId = m_hostId] mutable {
       releaseIdleWatches(hostId);
     });
   }
@@ -2349,7 +2456,7 @@ bool LuauHost::startAsyncProcess(std::vector<std::string> args, int callbackRef,
   }
   try {
     std::thread([hostId = m_hostId, callbackRef, args = std::move(args), timeout,
-                 handler = std::move(handler)]() mutable {
+                 handler = std::move(handler)] mutable {
       auto result = process::runSyncWithTimeoutAndOutputLimit(args, timeout, kMaxAsyncCommandOutputBytes);
       inFlightAsyncCommands().fetch_sub(1, std::memory_order_relaxed);
       handler(hostId, callbackRef, std::move(result));
@@ -2374,7 +2481,7 @@ bool LuauHost::startAsyncFileRead(std::filesystem::path path, int callbackRef) {
 
   m_asyncFileCallbackRefs.insert(callbackRef);
   const bool queued = scripting::ScriptIoPool::instance().post([hostId = m_hostId, callbackRef, path = std::move(path),
-                                                                handler = std::move(handler)]() mutable {
+                                                                handler = std::move(handler)] mutable {
     std::ifstream file(path, std::ios::binary);
     if (!file) {
       handler(hostId, callbackRef, false, {}, "cannot open file");
@@ -2433,7 +2540,7 @@ bool LuauHost::startAsyncProcessMatch(std::vector<std::string> needles, int call
   }
 
   try {
-    std::thread([hostId = m_hostId, callbackRef, needles = std::move(needles), handler = std::move(handler)]() mutable {
+    std::thread([hostId = m_hostId, callbackRef, needles = std::move(needles), handler = std::move(handler)] mutable {
       bool matched = false;
       try {
         matched = process::commandLineMatchesAll(needles);
@@ -2464,6 +2571,10 @@ bool LuauHost::hasAsyncProcessMatchCallback(int callbackRef) const {
 bool LuauHost::hasAsyncHttpCallback(int callbackRef) const { return m_asyncHttpCallbackRefs.contains(callbackRef); }
 
 bool LuauHost::hasColorPickerCallback(int callbackRef) const { return m_colorPickerCallbackRefs.contains(callbackRef); }
+
+bool LuauHost::hasUmbrielActionCallback(int callbackRef) const {
+  return m_umbrielActionCallbackRefs.contains(callbackRef);
+}
 
 bool LuauHost::hasSoundLoadCallback(int callbackRef) const { return m_soundLoadCallbacks.contains(callbackRef); }
 
@@ -2505,7 +2616,7 @@ bool LuauHost::startColorPicker(const Color& initialColor, int callbackRef) {
   }
 
   m_colorPickerCallbackRefs.insert(callbackRef);
-  DeferredCall::callLater([hostId = m_hostId, callbackRef, initialColor, handler = std::move(handler)]() mutable {
+  DeferredCall::callLater([hostId = m_hostId, callbackRef, initialColor, handler = std::move(handler)] mutable {
     ColorPickerDialogOptions options;
     options.initialColor = initialColor;
     (void)ColorPickerDialog::open(
@@ -2548,6 +2659,84 @@ bool LuauHost::callColorPickerCallback(
   return callWithBudget("color picker callback", 1, 0, budget);
 }
 
+bool LuauHost::startUmbrielAction(std::string socketPath, std::string payload, int callbackRef) {
+  const bool wantsReply = callbackRef > LUA_REFNIL;
+  if (wantsReply && m_umbrielActionCallbackRefs.size() >= kMaxPendingUmbrielActionsPerHost) {
+    return false;
+  }
+  auto handler = m_umbrielActionResultHandler;
+  if (wantsReply && !handler) {
+    return false;
+  }
+
+  if (wantsReply) {
+    m_umbrielActionCallbackRefs.insert(callbackRef);
+  }
+  const bool queued =
+      scripting::ScriptIoPool::instance().post([hostId = m_hostId, callbackRef, wantsReply,
+                                                socketPath = std::move(socketPath), payload = std::move(payload),
+                                                handler = std::move(handler)] {
+        std::optional<std::string> error;
+        const auto reply = compositors::umbriel::exchange(socketPath, payload, kUmbrielActionTimeout);
+        using Status = compositors::umbriel::IpcReply::Status;
+        switch (reply.status) {
+        case Status::Replied:
+          if (!reply.json->is_object()) {
+            error = "invalid reply from umbriel";
+          } else if (const auto err = reply.json->find("err"); err != reply.json->end()) {
+            error = err->is_string() ? err->get<std::string>() : err->dump();
+          } else if (!reply.json->contains("ok")) {
+            error = "invalid reply from umbriel";
+          }
+          break;
+        case Status::Unavailable:
+          error = "cannot connect to umbriel";
+          break;
+        case Status::WriteFailed:
+        case Status::ReadFailed:
+        case Status::NoResponse:
+          error = "no reply from umbriel";
+          break;
+        case Status::InvalidJson:
+          error = "invalid reply from umbriel";
+          break;
+        }
+        if (error.has_value()) {
+          kLog.debug("umbriel action failed: {}", *error);
+        }
+        if (wantsReply) {
+          handler(hostId, callbackRef, std::move(error));
+        }
+      });
+  if (!queued && wantsReply) {
+    m_umbrielActionCallbackRefs.erase(callbackRef);
+  }
+  return queued;
+}
+
+bool LuauHost::callUmbrielActionCallback(
+    int callbackRef, const std::optional<std::string>& error, std::chrono::milliseconds budget
+) {
+  if (m_T == nullptr || m_umbrielActionCallbackRefs.erase(callbackRef) == 0) {
+    return false;
+  }
+
+  lua_getref(m_T, callbackRef);
+  lua_unref(m_T, callbackRef);
+  if (!lua_isfunction(m_T, -1)) {
+    lua_pop(m_T, 1);
+    return false;
+  }
+
+  lua_pushboolean(m_T, error.has_value() ? 0 : 1);
+  if (error.has_value()) {
+    lua_pushlstring(m_T, error->data(), error->size());
+  } else {
+    lua_pushnil(m_T);
+  }
+  return callWithBudget("umbriel action callback", 2, 0, budget);
+}
+
 bool LuauHost::startAsyncHttp(HttpRequest request, int callbackRef) {
   if (m_httpClient == nullptr || callbackRef <= LUA_REFNIL || m_asyncHttpCallbackRefs.size() >= kMaxAsyncHttpPerHost) {
     return false;
@@ -2561,7 +2750,7 @@ bool LuauHost::startAsyncHttp(HttpRequest request, int callbackRef) {
   // HttpClient must be driven from the main loop; marshal there, then deliver the
   // response back through the handler (which enqueues onto the runtime thread).
   DeferredCall::callLater([client = m_httpClient, request = std::move(request), handler = std::move(handler),
-                           hostId = m_hostId, callbackRef]() mutable {
+                           hostId = m_hostId, callbackRef] mutable {
     client->request(std::move(request), [handler, hostId, callbackRef](HttpResponse response) {
       handler(
           hostId, callbackRef, response.transportOk, static_cast<int>(response.status), std::move(response.body), false
@@ -2586,7 +2775,7 @@ bool LuauHost::startAsyncDownload(std::string url, std::string destPath, int cal
   m_asyncHttpCallbackRefs.insert(callbackRef);
 
   DeferredCall::callLater([client = m_httpClient, url = std::move(url), destPath = std::move(destPath),
-                           handler = std::move(handler), hostId = m_hostId, callbackRef]() mutable {
+                           handler = std::move(handler), hostId = m_hostId, callbackRef] mutable {
     client->download(url, std::filesystem::path(destPath), [handler, hostId, callbackRef](bool success) {
       handler(hostId, callbackRef, success, 0, std::string(), true);
     });
@@ -2642,8 +2831,8 @@ bool LuauHost::callAsyncDownloadCallback(int callbackRef, bool ok, std::chrono::
   return callWithBudget("async download callback", 1, 0, budget);
 }
 
-void LuauHost::stateSet(const std::string& key, std::string json) {
-  scripting::PluginStateStore::instance().set(m_pluginId, key, std::move(json));
+void LuauHost::stateSet(const std::string& key, const std::string& json) {
+  scripting::PluginStateStore::instance().set(m_pluginId, key, json);
 }
 
 std::optional<std::string> LuauHost::stateGet(const std::string& key) const {
@@ -2702,7 +2891,7 @@ bool LuauHost::startStream(std::string command, int callbackRef) {
       buffer->clear(); // drop a pathological unbounded line
     }
   };
-  callbacks.onExit = [alive](process::RunResult) { alive->store(false, std::memory_order_relaxed); };
+  callbacks.onExit = [alive](const process::RunResult&) { alive->store(false, std::memory_order_relaxed); };
 
   process::RunOptions options;
   options.cancel = std::move(cancel);
@@ -2763,7 +2952,7 @@ int LuauHost::startHttpStream(HttpRequest request, int lineRef, int closeRef) {
   // lambdas run on the main loop and forward through the handler, which enqueues
   // onto the runtime thread. Line splitting mirrors runStream.
   DeferredCall::callLater([client = m_httpClient, request = std::move(request), handler = std::move(handler), hostId,
-                           streamKey, control, buffer]() mutable {
+                           streamKey, control, buffer] mutable {
     if (control->cancelled.load(std::memory_order_relaxed)) {
       return;
     }
@@ -2813,7 +3002,7 @@ void LuauHost::stopHttpStream(int streamKey) {
   }
   if (record.control) {
     record.control->cancelled.store(true, std::memory_order_relaxed);
-    DeferredCall::callLater([client = m_httpClient, control = record.control]() {
+    DeferredCall::callLater([client = m_httpClient, control = record.control] {
       const auto id = control->clientStreamId.load(std::memory_order_relaxed);
       if (id != 0 && client != nullptr) {
         client->cancelStream(id);
@@ -2872,7 +3061,7 @@ void LuauHost::stopAllHttpStreams() noexcept {
       continue;
     }
     record.control->cancelled.store(true, std::memory_order_relaxed);
-    DeferredCall::callLater([client = m_httpClient, control = record.control]() {
+    DeferredCall::callLater([client = m_httpClient, control = record.control] {
       const auto id = control->clientStreamId.load(std::memory_order_relaxed);
       if (id != 0 && client != nullptr) {
         client->cancelStream(id);
@@ -3155,7 +3344,7 @@ void LuauHost::scriptOpenSettings() {
 }
 
 void LuauHost::scriptLayerCommand(
-    scripting::PluginLayerCommand command, std::string localEntryId, scripting::PluginLayerConfigPatch patch
+    scripting::PluginLayerCommand command, const std::string& localEntryId, scripting::PluginLayerConfigPatch patch
 ) {
   if (m_scriptContext == nullptr) {
     return;

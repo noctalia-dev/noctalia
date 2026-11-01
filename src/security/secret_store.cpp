@@ -301,7 +301,7 @@ namespace security {
       }
 
       CancellablePtr native(g_cancellable_new(), [](GCancellable* value) { g_object_unref(value); });
-      cancellation.setCancelCallback([native]() { g_cancellable_cancel(native.get()); });
+      cancellation.setCancelCallback([native] { g_cancellable_cancel(native.get()); });
       SecretStoreBackendResult result = function(native.get());
       cancellation.clearCancelCallback();
       return result;
@@ -578,7 +578,7 @@ namespace security {
     return m_cancelled;
   }
 
-  void SecretStoreCancellation::setCancelCallback(std::function<void()> callback) {
+  void SecretStoreCancellation::setCancelCallback(const std::function<void()>& callback) {
     bool cancelNow = false;
     {
       std::scoped_lock lock(m_mutex);
@@ -644,7 +644,7 @@ namespace security {
       if (m_eventFd < 0) {
         throw std::runtime_error("failed to create SecretStore eventfd");
       }
-      m_worker = std::thread([this]() { workerLoop(); });
+      m_worker = std::thread([this] { workerLoop(); });
     }
 
     ~Impl() {
@@ -725,7 +725,7 @@ namespace security {
         Request request;
         {
           std::unique_lock lock(m_queueMutex);
-          m_queueCv.wait(lock, [this]() { return m_shutdown || !m_requests.empty(); });
+          m_queueCv.wait(lock, [this] { return m_shutdown || !m_requests.empty(); });
           if (m_shutdown) {
             return;
           }
@@ -866,7 +866,7 @@ namespace security {
 
   SecretStore::~SecretStore() = default;
 
-  SecretStoreOperation SecretStore::lookup(SecretId id, LookupCallback callback) {
+  SecretStoreOperation SecretStore::lookup(const SecretId& id, LookupCallback callback) {
     auto cancellation = std::make_shared<SecretStoreCancellation>();
     const bool valid = isValidSecretId(id);
     return m_impl->enqueue(
@@ -881,7 +881,8 @@ namespace security {
     );
   }
 
-  SecretStoreOperation SecretStore::store(SecretId id, SecureBuffer value, std::string label, StatusCallback callback) {
+  SecretStoreOperation
+  SecretStore::store(const SecretId& id, SecureBuffer value, std::string label, StatusCallback callback) {
     auto cancellation = std::make_shared<SecretStoreCancellation>();
     const bool valid = isValidSecretId(id);
     return m_impl->enqueue(
@@ -898,7 +899,7 @@ namespace security {
     );
   }
 
-  SecretStoreOperation SecretStore::erase(SecretId id, StatusCallback callback) {
+  SecretStoreOperation SecretStore::erase(const SecretId& id, StatusCallback callback) {
     auto cancellation = std::make_shared<SecretStoreCancellation>();
     const bool valid = isValidSecretId(id);
     return m_impl->enqueue(

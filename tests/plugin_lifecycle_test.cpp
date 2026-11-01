@@ -2,17 +2,21 @@
 #include "core/deferred_call.h"
 #include "core/toml.h"
 #include "scripting/plugin_manager.h"
+#include "scripting/plugin_registry.h"
 #include "scripting/plugin_script_watcher.h"
 #include "scripting/plugin_service_host.h"
 #include "scripting/plugin_state_store.h"
 #include "scripting/script_api_context.h"
 #include "scripting/script_runtime.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <print>
 #include <string>
@@ -207,6 +211,57 @@ int main() {
              scripting::PluginStateStore::instance().get("test/reload", "exit_signal") == "0"
                  && scripting::PluginStateStore::instance().get("test/reload", "exit_reason") == R"("reload")",
              "runtime reload reported the wrong exit context"
+         )
+        && ok;
+  }
+
+  {
+    // A shell config value read via getSetting reloads a runtime without onConfigChanged
+    // when it changes, and only then.
+    const auto snapshot = [](std::string_view toml) { return std::make_shared<const toml::table>(toml::parse(toml)); };
+    api.setConfigSnapshot(snapshot("[shell]\noffline_mode = true\n[bar]\nposition = 'top'"));
+    scripting::ScriptRuntime runtime("test/get-setting-reload:service", {}, api, {});
+    runtime.start(
+        "=get-setting-reload",
+        "local loads = (noctalia.state.get('loads') or 0) + 1\n"
+        "noctalia.state.set('loads', loads)\n"
+        "noctalia.state.set('offline_' .. tostring(noctalia.getSetting('shell.offline_mode')), loads)\n",
+        {}
+    );
+    ok = expect(waitForState("test/get-setting-reload", "offline_true"), "getSetting runtime did not load") && ok;
+    api.setConfigSnapshot(snapshot("[shell]\noffline_mode = true\n[bar]\nposition = 'bottom'"));
+    api.setConfigSnapshot(snapshot("[shell]\noffline_mode = false\n[bar]\nposition = 'bottom'"));
+    ok = expect(waitForState("test/get-setting-reload", "offline_false"), "getSetting change did not reload") && ok;
+    ok = expect(
+             scripting::PluginStateStore::instance().get("test/get-setting-reload", "offline_false") == "2",
+             "an unrelated config change reloaded the runtime"
+         )
+        && ok;
+  }
+
+  {
+    // With onConfigChanged defined, the handler runs in place instead of a reload.
+    const auto snapshot = [](std::string_view toml) { return std::make_shared<const toml::table>(toml::parse(toml)); };
+    api.setConfigSnapshot(snapshot("[shell]\noffline_mode = true"));
+    scripting::ScriptRuntime runtime("test/get-setting-handler:service", {}, api, {});
+    runtime.start(
+        "=get-setting-handler",
+        "local loads = (noctalia.state.get('loads') or 0) + 1\n"
+        "noctalia.state.set('loads', loads)\n"
+        "noctalia.getSetting('shell.offline_mode')\n"
+        "function onConfigChanged()\n"
+        "  noctalia.state.set('changed', noctalia.getSetting('shell.offline_mode'))\n"
+        "end\n",
+        {}
+    );
+    ok = expect(drainUntil([&] { return runtime.hasOnConfigChanged(); }), "getSetting handler runtime did not load")
+        && ok;
+    api.setConfigSnapshot(snapshot("[shell]\noffline_mode = false"));
+    ok = expect(waitForState("test/get-setting-handler", "changed"), "onConfigChanged did not run") && ok;
+    ok = expect(
+             scripting::PluginStateStore::instance().get("test/get-setting-handler", "changed") == "false"
+                 && scripting::PluginStateStore::instance().get("test/get-setting-handler", "loads") == "1",
+             "getSetting change with onConfigChanged reloaded instead of calling the handler"
          )
         && ok;
   }
@@ -923,6 +978,57 @@ int main() {
              enables == std::vector<std::string>{"test/plugin"}, "first enable did not publish exactly one enable event"
          )
         && ok;
+
+    {
+      const auto path = root / "path-plugins/plugin/plugin.toml";
+      std::ifstream input(path);
+      TEST_CHECK(input.is_open());
+      const std::string original{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+      const std::string provider = original
+          + "[[launcher_provider]]\nid = \"search\"\n"
+            "entry = \"launcher.luau\"\nprefix = \"one\"\n";
+      int reconciliations = 0;
+      manager.setOnChanged([&]() { ++reconciliations; });
+      config.forceReload();
+      TEST_CHECK(reconciliations == 0);
+
+      TEST_CHECK(writeText(path, provider));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 1);
+      TEST_CHECK(scripting::PluginRegistry::instance().hasEntry("test/plugin:search"));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 1);
+
+      TEST_CHECK(writeText(path.parent_path() / "launcher.luau", "function onQuery() end\n"));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 1);
+
+      // Content changes must not depend on timestamp granularity or file size.
+      const auto timestamp = std::filesystem::last_write_time(path);
+      std::string changed = provider;
+      changed.replace(changed.find("one"), 3, "two");
+      TEST_CHECK(writeText(path, changed));
+      std::filesystem::last_write_time(path, timestamp);
+      config.forceReload();
+      TEST_CHECK(reconciliations == 2);
+      const auto resolved = scripting::PluginRegistry::instance().resolve("test/plugin:search");
+      TEST_CHECK(resolved.has_value() && resolved->entry->launcherPrefix == "two");
+
+      TEST_CHECK(writeText(path, original));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 3);
+      TEST_CHECK(!scripting::PluginRegistry::instance().hasEntry("test/plugin:search"));
+      TEST_CHECK(std::filesystem::remove(path));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 4);
+      TEST_CHECK(scripting::PluginRegistry::instance().findManifest("test/plugin") == nullptr);
+      TEST_CHECK(writeText(path, original));
+      config.forceReload();
+      TEST_CHECK(reconciliations == 5);
+      config.forceReload();
+      TEST_CHECK(reconciliations == 5);
+      manager.setOnChanged({});
+    }
 
     lifecyclePluginId = "test/plugin";
     lifecycleRuntime =

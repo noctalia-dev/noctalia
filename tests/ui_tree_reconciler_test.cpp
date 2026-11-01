@@ -44,19 +44,17 @@ namespace {
   class StubRenderer : public Renderer {
   public:
     TextMetrics measureText(
-        std::string_view text, float fontSize, FontWeight, float, int, TextAlign, std::string_view, TextEllipsize, bool
+        std::string_view text, float fontSize, const TextFont&, float, int, TextAlign, TextEllipsize, bool
     ) override {
       return TextMetrics{.width = static_cast<float>(text.size()) * fontSize * 0.5F, .bottom = fontSize};
     }
-    TextMetrics measureFont(float fontSize, FontWeight, std::string_view) override {
-      return TextMetrics{.bottom = fontSize};
-    }
+    TextMetrics measureFont(float fontSize, const TextFont&) override { return TextMetrics{.bottom = fontSize}; }
     void measureTextCursorStops(
-        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, FontWeight
+        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, const TextFont&
     ) override {}
     void measureTextCursorStopsWrapped(
         std::string_view, float fontSize, const std::vector<std::size_t>& byteOffsets, float,
-        std::vector<TextCursorStop>& outStops, FontWeight
+        std::vector<TextCursorStop>& outStops, const TextFont&
     ) override {
       outStops.assign(byteOffsets.size(), TextCursorStop{0.0F, 0.0F, fontSize});
     }

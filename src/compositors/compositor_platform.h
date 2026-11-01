@@ -117,6 +117,11 @@ public:
   void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void activateToplevelForAppId(std::string_view appId);
   void activateToplevelInfo(const ToplevelInfo& window);
+  // Primary click on one window; multi-window cycling continues to use activation.
+  void activateOrMinimizeToplevelInfo(const ToplevelInfo& window);
+  [[nodiscard]] std::optional<WindowMinimizeState> windowMinimizeState(const ToplevelInfo& window) const;
+  [[nodiscard]] bool minimizeToplevelInfo(const ToplevelInfo& window);
+  [[nodiscard]] std::optional<bool> hasUnminimizedToplevels(wl_output* outputFilter) const;
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void closeToplevelInfo(const ToplevelInfo& window);
   void focusCompositorWindow(const std::string& windowId, bool warpPointer = false) const;
@@ -195,7 +200,7 @@ public:
   [[nodiscard]] bool setOutputPower(bool on) const;
   void setOutputPowerOffPending(bool pending) noexcept { m_outputPowerOffPending = pending; }
   [[nodiscard]] bool shouldSuppressLockTransition() const;
-  void setOutputPowerChangeCallback(ChangeCallback callback);
+  void setOutputPowerChangeCallback(const ChangeCallback& callback);
 
   [[nodiscard]] bool tracksOverviewState() const noexcept;
   [[nodiscard]] bool hasOverviewState() const noexcept;
@@ -220,6 +225,7 @@ private:
   void bindKdeVirtualDesktop(org_kde_plasma_virtual_desktop_management* management);
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager);
   void notifyToplevelsChanged();
+  bool syncLabwcMetadata() const;
   void onOutputAdded(wl_output* output);
   void onOutputRemoved(wl_output* output);
   [[nodiscard]] wl_output* resolveOutputName(const std::string& outputName) const;

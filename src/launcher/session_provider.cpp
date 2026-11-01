@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cstddef>
+#include <format>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -29,7 +30,7 @@ namespace {
     std::string searchable;
   };
 
-  [[nodiscard]] std::string aliasesForAction(std::string_view action) {
+  [[nodiscard]] std::string_view aliasesForAction(std::string_view action) {
     if (action == "lock") {
       return "lock screen session";
     }
@@ -117,7 +118,8 @@ namespace {
       entry.glyph =
           row.glyph.has_value() && !row.glyph->empty() ? *row.glyph : session_action::defaultGlyph(row.action);
       entry.subtitle = actionSubtitle(row);
-      entry.searchable = StringUtils::toLower(entry.title + " " + row.action + " " + aliasesForAction(row.action));
+      entry.searchable =
+          StringUtils::toLower(std::format("{} {} {}", entry.title, row.action, aliasesForAction(row.action)));
       if (row.command.has_value()) {
         entry.searchable += ' ';
         entry.searchable += StringUtils::toLower(*row.command);
@@ -199,11 +201,11 @@ bool SessionProvider::activate(const LauncherResult& result) {
     return false;
   }
 
-  for (const auto& entry : collectActions(m_config)) {
+  return std::ranges::any_of(collectActions(m_config), [&](const auto& entry) {
     if (entry.index == index && entry.config.action == action) {
       m_actionRunner->invoke(entry.config);
       return true;
     }
-  }
-  return false;
+    return false;
+  });
 }
