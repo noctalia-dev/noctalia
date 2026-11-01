@@ -54,6 +54,9 @@ namespace scripting {
     // list is read via noctalia.outputs() inside the callback.
     void onOutputChange();
 
+    // Calls onSuspend() (sleeping) or onResume() on services declaring kSleepCallbacksPluginApiVersion.
+    void onSleepChanged(bool sleeping);
+
   private:
     // A service is reachable by IPC via the `all` target (it is a singleton with no
     // output): `noctalia msg plugin <author/plugin:entry> all <event> [payload]`.

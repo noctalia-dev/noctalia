@@ -2047,6 +2047,10 @@
           "description": "Wait this many milliseconds after the pointer leaves before hiding the bar; 0 hides immediately (On mode only)",
           "label": "Auto-Hide Delay"
         },
+        "auto-hide-reserve-space": {
+          "description": "With auto-hide or smart auto-hide, reserve layout only while the bar is visible so hidden windows use the full screen",
+          "label": "Reserve Space While Visible"
+        },
         "background-opacity": {
           "description": "Background opacity of the bar"
         },
@@ -4657,6 +4661,10 @@
         "font-weight": {
           "description": "Default inherits the bar font weight",
           "label": "Font Weight"
+        },
+        "force-app-icons": {
+          "description": "Force tray icons to use desktop app icons",
+          "label": "Force App Icons"
         },
         "format": {
           "description": "Time format string",
