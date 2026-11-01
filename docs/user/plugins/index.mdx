@@ -91,6 +91,20 @@ Git source operations are non-interactive. Private repos must be reachable throu
 
 A source `name` is its identity, so duplicate names in `[[plugins.source]]` are rejected with a config error. Replacing a git source with the same name but a different `location` deletes Noctalia's app-managed repo cache and exported runtime files for that source, then re-fetches from the new location when needed.
 
+### Plugin settings
+
+Configure individual plugins under `[plugin_settings."<author>/<plugin>"]` in `config.toml`:
+
+```toml
+[plugin_settings."noctalia/screen_recorder"]
+frame_rate = 30
+show_cursor = false
+```
+
+Available keys, types, and defaults come from the plugin's `[[setting]]` entries in `plugin.toml`.
+Changes made in Settings are saved to `settings.toml` and take precedence over `config.toml` until removed.
+For pinned sources and declarative settings with Home Manager, see [Nix-managed plugins](/noctalia/getting-started/nixos/#plugins).
+
 ## Recommendations and discovery
 
 In **Settings → Plugins → Plugin Store**, open an installed plugin and click the **thumbs-up** button to recommend it. The number inside is its recommendation count. A filled thumb shows your recommendation, and the store tile highlights it too. Click again to withdraw it.
