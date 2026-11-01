@@ -4,8 +4,11 @@
 
 #include <algorithm>
 #include <chrono>
+#include <climits>
 #include <cstdint>
 #include <ctime>
+#include <cwchar>
+#include <cwctype>
 #include <format>
 #include <iomanip>
 #include <langinfo.h>
@@ -114,8 +117,59 @@ namespace {
     return out;
   }
 
+  // Uppercases the first character using the active LC_CTYPE locale, so locale-specific casing
+  // applies and uncased scripts pass through unchanged.
+  std::string capitalizeFirst(std::string text) {
+    std::mbstate_t in{};
+    wchar_t wc = 0;
+    const std::size_t len = std::mbrtowc(&wc, text.data(), text.size(), &in);
+    if (len == 0 || len == static_cast<std::size_t>(-1) || len == static_cast<std::size_t>(-2)) {
+      return text;
+    }
+    char encoded[MB_LEN_MAX];
+    std::mbstate_t out{};
+    const std::size_t encodedLen = std::wcrtomb(encoded, static_cast<wchar_t>(std::towupper(wc)), &out);
+    if (encodedLen == static_cast<std::size_t>(-1)) {
+      return text;
+    }
+    text.replace(0, len, encoded, encodedLen);
+    return text;
+  }
+
+  std::string formatStrftimeRaw(std::string_view fmt, const std::tm& tm);
+
+  // Noctalia extension: "%~a", "%~A", "%~b", "%~B" and "%~h" render the localized name with its
+  // first letter capitalized. Like substituteTzAbbrev, the result is interpolated into the spec.
+  std::string substituteCapitalizedNames(std::string_view fmt, const std::tm& tm) {
+    if (!fmt.contains("%~")) {
+      return std::string{fmt};
+    }
+    std::string out;
+    out.reserve(fmt.size());
+    for (std::size_t i = 0; i < fmt.size();) {
+      if (fmt[i] != '%' || i + 1 >= fmt.size()) {
+        out.push_back(fmt[i++]);
+      } else if (fmt[i + 1] == '%') {
+        out.append("%%");
+        i += 2;
+      } else if (i + 2 < fmt.size() && fmt[i + 1] == '~' && std::string_view{"aAbBh"}.contains(fmt[i + 2])) {
+        const std::string token{'%', fmt[i + 2]};
+        for (const char c : capitalizeFirst(formatStrftimeRaw(token, tm))) {
+          if (c == '%') {
+            out.push_back('%');
+          }
+          out.push_back(c);
+        }
+        i += 3;
+      } else {
+        out.push_back(fmt[i++]);
+      }
+    }
+    return out;
+  }
+
   std::string formatStrftimeRaw(std::string_view fmt, const std::tm& tm) {
-    const std::string spec = substituteTzAbbrev(fmt, tm.tm_zone);
+    const std::string spec = substituteCapitalizedNames(substituteTzAbbrev(fmt, tm.tm_zone), tm);
     std::size_t size = std::max<std::size_t>(64, spec.size() * 4 + 16);
     for (int attempt = 0; attempt < 6; ++attempt) {
       std::string buffer(size, '\0');
