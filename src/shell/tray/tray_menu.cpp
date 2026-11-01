@@ -197,7 +197,14 @@ namespace {
     return config != nullptr ? config->config().shell.shadow : ShellConfig::ShadowConfig{};
   }
 
+  bool hasToggleEntries(const std::vector<ContextMenuControlEntry>& entries) {
+    return std::ranges::any_of(entries, [](const ContextMenuControlEntry& entry) {
+      return !entry.separator && (entry.checkmark || entry.radio);
+    });
+  }
+
 } // namespace
+
 void TrayMenu::initialize(
     WaylandConnection& wayland, ConfigService* config, TrayService* tray, RenderContext* renderContext
 ) {
@@ -929,7 +936,7 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
       },
   });
   auto menu = std::make_unique<ContextMenuControl>();
-  menu->setReserveToggleSpace(true);
+  menu->setReserveToggleSpace(hasToggleEntries(entries));
   menu->setContentScale(contentScale());
   menu->setMenuWidth(menuWidth);
   menu->setMaxVisible(entries.size()); // Always lay out all entries for scrolling
@@ -1281,7 +1288,7 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
   });
 
   auto menu = std::make_unique<ContextMenuControl>();
-  menu->setReserveToggleSpace(true);
+  menu->setReserveToggleSpace(hasToggleEntries(entries));
   menu->setContentScale(contentScale());
   menu->setMenuWidth(menuWidth);
   menu->setMaxVisible(entries.size()); // Always lay out all entries for scrolling
