@@ -376,6 +376,72 @@ namespace noctalia::config::schema {
     };
   }
 
+  // Length: pixels as an integer, or a percentage as an "N%" string clamped to `percentRange`.
+  inline std::optional<LengthSpec> readLength(
+      const toml::table& tbl, std::string_view key, std::string_view parentPath, Diagnostics& diag,
+      const Range<std::int64_t>& percentRange
+  ) {
+    const toml::node* node = tbl.get(key);
+    if (node == nullptr) {
+      return std::nullopt;
+    }
+    if (auto px = node->value<std::int64_t>()) {
+      return LengthSpec::fromPixels(static_cast<std::int32_t>(*px));
+    }
+    if (auto text = node->value<std::string>()) {
+      if (auto percent = parsePercentLength(*text)) {
+        return LengthSpec::fromPercent(
+            static_cast<std::int32_t>(applyRange<std::int64_t>(percent->value, percentRange))
+        );
+      }
+      diag.warn(joinPath(parentPath, key), R"(expected a percentage like "10%", found ")" + *text + "\"");
+      return std::nullopt;
+    }
+    warnWrongType(diag, joinPath(parentPath, key), *node, "an integer or a percentage string");
+    return std::nullopt;
+  }
+
+  inline void writeLength(toml::table& tbl, std::string_view key, const LengthSpec& length) {
+    if (length.unit == LengthSpec::Unit::Percent) {
+      tbl.insert_or_assign(key, formatLength(length));
+    } else {
+      tbl.insert_or_assign(key, static_cast<std::int64_t>(length.value));
+    }
+  }
+
+  template <typename Struct>
+  Field<Struct> field(LengthSpec Struct::* member, std::string_view key, Range<std::int64_t> percentRange) {
+    return Field<Struct>{
+        key,
+        [member, key,
+         percentRange](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
+          if (auto v = readLength(tbl, key, parentPath, diag, percentRange)) {
+            out.*member = *v;
+          }
+        },
+        [member, key](toml::table& tbl, const Struct& in) { writeLength(tbl, key, in.*member); },
+    };
+  }
+
+  template <typename Struct>
+  Field<Struct>
+  field(std::optional<LengthSpec> Struct::* member, std::string_view key, Range<std::int64_t> percentRange) {
+    return Field<Struct>{
+        key,
+        [member, key,
+         percentRange](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
+          if (auto v = readLength(tbl, key, parentPath, diag, percentRange)) {
+            out.*member = v;
+          }
+        },
+        [member, key](toml::table& tbl, const Struct& in) {
+          if ((in.*member).has_value()) {
+            writeLength(tbl, key, *(in.*member));
+          }
+        },
+    };
+  }
+
   // Escape hatch for a single key whose read/write don't fit a stock codec
   // (e.g. a value that cascades to sibling fields, or bespoke validation).
   template <typename Struct>

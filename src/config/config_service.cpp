@@ -1116,6 +1116,9 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
     break; // first match wins
   }
 
+  const bool vertical = resolved.position == "left" || resolved.position == "right";
+  const std::int32_t mainAxis = vertical ? output.effectiveLogicalHeight() : output.effectiveLogicalWidth();
+  resolved.marginEnds = LengthSpec::fromPixels(resolved.marginEnds.resolve(mainAxis));
   return resolved;
 }
 

@@ -82,6 +82,8 @@ namespace settings {
     [[nodiscard]] std::unique_ptr<Flex>
     makeOptionalStepper(const OptionalStepperSetting& setting, const std::vector<std::string>& path);
 
+    [[nodiscard]] std::unique_ptr<Flex> makeLength(const LengthSetting& setting, const std::vector<std::string>& path);
+
     [[nodiscard]] std::unique_ptr<Node>
     makeColorSpecPicker(const ColorSpecPickerSetting& setting, const std::vector<std::string>& path);
 

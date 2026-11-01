@@ -98,7 +98,7 @@ namespace {
     const bool barIsRight = barConfig.position == "right";
     const bool barIsVertical = barIsLeft || barIsRight;
     const std::int32_t mEdge = std::max(0, barConfig.marginEdge);
-    const std::int32_t mEnds = std::max(0, barConfig.marginEnds);
+    const std::int32_t mEnds = std::max(0, barConfig.marginEnds.px());
     const std::int32_t thickness = std::max(0, barConfig.thickness);
 
     const std::int32_t left =
@@ -1039,7 +1039,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     std::uint32_t surfaceHeight = barIsVertical ? (panelHeight + crossPad) : (panelHeight + mainPad);
 
     // Bar visible rect in screen coords, derived from BarConfig + output dimensions.
-    const std::int32_t mEnds = std::max(0, barConfig.marginEnds);
+    const std::int32_t mEnds = std::max(0, barConfig.marginEnds.px());
     const std::int32_t barLeft = barRect.left;
     const std::int32_t barTop = barRect.top;
     const std::int32_t barRight = barRect.right;

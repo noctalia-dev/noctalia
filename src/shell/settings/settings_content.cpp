@@ -1187,6 +1187,8 @@ namespace settings {
               return makeOptionalStepper(control, entry.path);
             } else if constexpr (std::is_same_v<T, StepperSetting>) {
               return makeStepper(control, entry.path);
+            } else if constexpr (std::is_same_v<T, LengthSetting>) {
+              return factory.makeLength(control, entry.path);
             } else if constexpr (std::is_same_v<T, SearchPickerSetting>) {
               return nullptr;
             } else if constexpr (std::is_same_v<T, MultiSelectSetting>) {

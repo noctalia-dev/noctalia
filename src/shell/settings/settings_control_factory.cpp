@@ -1072,6 +1072,58 @@ namespace settings {
     return wrap;
   }
 
+  std::unique_ptr<Flex>
+  SettingsControlFactory::makeLength(const LengthSetting& setting, const std::vector<std::string>& path) {
+    auto& ctx = m_ctx;
+    const float scale = m_scale;
+    const bool percent = setting.value.unit == LengthSpec::Unit::Percent;
+    const int maxPixels = std::max(0, setting.maxPixels);
+    const int maxPercent = std::max(0, setting.maxPercent);
+    const int currentValue = std::clamp(setting.value.value, 0, percent ? maxPercent : maxPixels);
+    // Pixels commit as a TOML integer, percentages as the "N%" string the schema parses.
+    const auto commit = [setOverride = ctx.setOverride, path](LengthSpec length) {
+      if (length.unit == LengthSpec::Unit::Percent) {
+        setOverride(path, formatLength(length));
+      } else {
+        setOverride(path, static_cast<std::int64_t>(length.value));
+      }
+    };
+
+    auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
+    wrap->addChild(
+        ui::stepper({
+            .minValue = 0,
+            .maxValue = percent ? maxPercent : maxPixels,
+            .step = 1,
+            .value = currentValue,
+            .scale = scale,
+            .valueSuffix = std::string(percent ? "%" : "px"),
+            .onValueCommitted = [commit, unit = setting.value.unit](int value) {
+              commit(LengthSpec{.value = value, .unit = unit});
+            },
+        })
+    );
+    wrap->addChild(
+        ui::segmented({
+            .options =
+                std::vector<ui::SegmentedOption>{
+                    {.label = "px"},
+                    {.label = "%"},
+                },
+            .selectedIndex = static_cast<std::size_t>(percent ? 1 : 0),
+            .scale = scale,
+            .onChange = [commit, currentValue, maxPixels, maxPercent](std::size_t index) {
+              if (index == 1) {
+                commit(LengthSpec::fromPercent(std::min(currentValue, maxPercent)));
+              } else {
+                commit(LengthSpec::fromPixels(std::min(currentValue, maxPixels)));
+              }
+            },
+        })
+    );
+    return wrap;
+  }
+
   std::unique_ptr<Node> SettingsControlFactory::makeColorSpecPicker(
       const ColorSpecPickerSetting& setting, const std::vector<std::string>& path
   ) {

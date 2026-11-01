@@ -2150,7 +2150,7 @@
           "label": "End Widgets"
         },
         "ends-margin": {
-          "description": "Shortens the bar from both ends along its length; set to 0 px for a full-width or full-height bar"
+          "description": "Shortens the bar from both ends along its length, in pixels or as a percentage of the screen; set to 0 for a full-width or full-height bar"
         },
         "font-family": {
           "description": "Typeface for this bar's widgets; leave empty to inherit the global font (per-widget Font Family overrides this)",

@@ -149,6 +149,14 @@ namespace settings {
       };
     }
 
+    LengthSetting barMarginEndsSetting(const LengthSpec& value) {
+      return LengthSetting{
+          .value = value,
+          .maxPixels = kBarMarginMax,
+          .maxPercent = static_cast<int>(noctalia::config::schema::kBarMarginEndsPercentRange.max.value()),
+      };
+    }
+
     StepperSetting barPanelOverlapStepper(std::int32_t value) {
       return StepperSetting{
           .value = static_cast<int>(value),
@@ -3690,7 +3698,7 @@ namespace settings {
       ));
       entries.push_back(makeEntry(
           section, "layout", tr("settings.schema.shared.ends-margin.label"),
-          tr("settings.schema.bar.ends-margin.description"), path("margin_ends"), barMarginStepper(bar.marginEnds),
+          tr("settings.schema.bar.ends-margin.description"), path("margin_ends"), barMarginEndsSetting(bar.marginEnds),
           "gap inset"
       ));
       entries.push_back(makeEntry(
@@ -4094,7 +4102,7 @@ namespace settings {
         entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.shared.ends-margin.label"),
             tr("settings.schema.bar.ends-margin.description"), monitorPath("margin_ends"),
-            barMarginStepper(ovr.marginEnds.value_or(bar.marginEnds)), "gap inset"
+            barMarginEndsSetting(ovr.marginEnds.value_or(bar.marginEnds)), "gap inset"
         ));
         entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.shared.edge-margin.label"),

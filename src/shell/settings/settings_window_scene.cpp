@@ -261,6 +261,22 @@ namespace {
       stepper->value = *number;
       return true;
     }
+    if (auto* length = std::get_if<settings::LengthSetting>(&entry.control)) {
+      if (const auto number = overrideInt(value); number.has_value()) {
+        length->value = LengthSpec::fromPixels(*number);
+        return true;
+      }
+      const auto* text = std::get_if<std::string>(&value);
+      if (text == nullptr) {
+        return false;
+      }
+      const auto percent = parsePercentLength(*text);
+      if (!percent.has_value()) {
+        return false;
+      }
+      length->value = *percent;
+      return true;
+    }
     if (auto* list = std::get_if<settings::ListSetting>(&entry.control)) {
       const auto* items = std::get_if<std::vector<std::string>>(&value);
       if (items == nullptr) {

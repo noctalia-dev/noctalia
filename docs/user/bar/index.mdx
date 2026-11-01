@@ -38,7 +38,7 @@ radius_top_right   = 12
 radius_bottom_left = 12
 radius_bottom_right = 12
 concave_edge_corners = true      # carve the screen-edge corners inward; requires margin_edge = 0
-margin_ends        = 100         # inset from each end of the bar along its main axis
+margin_ends        = 100         # inset from each end of the bar along its main axis: pixels, or "10%" of the screen
 margin_edge        = 0           # distance from the nearest screen edge (positive values float the bar)
 margin_opposite_edge = 0         # extra reserved space on the inward side of the bar (below for top, above for bottom)
 padding            = 14          # main-axis padding from bar edges to start/end widget sections
@@ -65,6 +65,8 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 ```
 
 Radius precedence: `radius` is the global fallback; per-corner values override it when provided.
+
+`margin_ends` takes either logical pixels (`margin_ends = 100`) or a percentage of the screen length along the bar (`margin_ends = "15%"`, 0 to 49). A percentage keeps the bar proportionally sized across monitors of different widths, and is computed per monitor.
 
 #### Concave edge corners
 

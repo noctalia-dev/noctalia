@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -528,6 +529,28 @@ std::string capsuleGroupTokenId(std::string_view laneEntry) {
 
 std::string makeCapsuleGroupToken(std::string_view groupId) {
   return std::string(kCapsuleGroupTokenPrefix) + std::string(groupId);
+}
+
+std::optional<LengthSpec> parsePercentLength(std::string_view text) {
+  const std::string trimmed = StringUtils::trim(text);
+  if (trimmed.size() < 2 || trimmed.back() != '%') {
+    return std::nullopt;
+  }
+  const std::string_view digits(trimmed.data(), trimmed.size() - 1);
+  std::int32_t value = 0;
+  const auto [ptr, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
+  if (ec != std::errc{} || ptr != digits.data() + digits.size()) {
+    return std::nullopt;
+  }
+  return LengthSpec::fromPercent(value);
+}
+
+std::string formatLength(const LengthSpec& length) {
+  std::string text = std::to_string(length.value);
+  if (length.unit == LengthSpec::Unit::Percent) {
+    text.push_back('%');
+  }
+  return text;
 }
 
 float resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context) {

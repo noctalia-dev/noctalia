@@ -660,7 +660,7 @@ namespace {
     const bool vertical = (barConfig.position == "left" || barConfig.position == "right");
     const bool isBottom = barConfig.position == "bottom";
     const bool isRight = barConfig.position == "right";
-    const std::int32_t mEnds = barConfig.marginEnds;
+    const std::int32_t mEnds = barConfig.marginEnds.px();
     const std::int32_t mEdge = barConfig.marginEdge;
     const auto sb = shell::surface_shadow::bleed(barConfig.shadow, shadowConfig);
     const int edgeGutter = barAutoHideEdgeGutter(barConfig);
@@ -793,7 +793,7 @@ namespace {
       float innerSurfaceExtension = 0.0F
   ) {
     const auto barThickness = static_cast<float>(cfg.thickness);
-    const auto marginEnds = static_cast<float>(cfg.marginEnds);
+    const auto marginEnds = static_cast<float>(cfg.marginEnds.px());
     const auto marginEdge = static_cast<float>(cfg.marginEdge);
     const bool isBottom = cfg.position == "bottom";
     const bool isRight = cfg.position == "right";
@@ -1184,7 +1184,7 @@ namespace {
 
     // When bar touches screen edge, put the padding inside the sections, and extend the hit targets of
     // the first/last widgets to cover the area. So clicking on the screen edge still triggers the widget.
-    const bool screenEdgeClick = instance.barConfig.marginEnds == 0 && padding > 0;
+    const bool screenEdgeClick = instance.barConfig.marginEnds.px() == 0 && padding > 0;
     const float paddingInsideSection = screenEdgeClick ? padding : 0.0F;
     const float contentMainStart = screenEdgeClick ? 0.0F : padding;
     const float contentMainEnd =

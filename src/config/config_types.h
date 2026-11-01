@@ -61,6 +61,36 @@ inline constexpr std::string_view kCapsuleGroupTokenPrefix = "group:";
 [[nodiscard]] std::string capsuleGroupTokenId(std::string_view laneEntry);
 [[nodiscard]] std::string makeCapsuleGroupToken(std::string_view groupId);
 
+// A length along one axis: logical pixels, or a whole percentage of the axis length. TOML spells
+// pixels as an integer (`100`) and a percentage as a string (`"10%"`).
+struct LengthSpec {
+  enum class Unit : std::uint8_t { Pixels, Percent };
+
+  std::int32_t value = 0;
+  Unit unit = Unit::Pixels;
+
+  [[nodiscard]] static constexpr LengthSpec fromPixels(std::int32_t px) noexcept { return {px, Unit::Pixels}; }
+  [[nodiscard]] static constexpr LengthSpec fromPercent(std::int32_t pct) noexcept { return {pct, Unit::Percent}; }
+
+  // Logical pixels for an axis `axisLength` logical pixels long.
+  [[nodiscard]] constexpr std::int32_t resolve(std::int32_t axisLength) const noexcept {
+    if (unit == Unit::Pixels) {
+      return value;
+    }
+    return static_cast<std::int32_t>(static_cast<std::int64_t>(axisLength) * value / 100);
+  }
+
+  // Pixel value of a length already resolved against its axis. An unresolved percentage reads as 0.
+  [[nodiscard]] constexpr std::int32_t px() const noexcept { return unit == Unit::Pixels ? value : 0; }
+
+  bool operator==(const LengthSpec&) const = default;
+};
+
+// Parses the string spelling of a percentage ("10%"); nullopt for anything else.
+[[nodiscard]] std::optional<LengthSpec> parsePercentLength(std::string_view text);
+// Pixels as the bare number ("100"), percentages with a trailing '%' ("10%").
+[[nodiscard]] std::string formatLength(const LengthSpec& length);
+
 struct BarDeadZoneOverride {
   std::optional<std::unordered_map<std::string, std::string>> actions;
   std::optional<bool> clickThrough;
@@ -90,7 +120,7 @@ struct BarMonitorOverride {
   std::optional<std::int32_t> radiusBottomLeft;
   std::optional<std::int32_t> radiusBottomRight;
   std::optional<bool> concaveEdgeCorners;
-  std::optional<std::int32_t> marginEnds;         // inset from each end of the bar along its main axis
+  std::optional<LengthSpec> marginEnds;           // inset from each end of the bar along its main axis
   std::optional<std::int32_t> marginEdge;         // distance from the nearest screen edge (floats the bar when > 0)
   std::optional<std::int32_t> marginOppositeEdge; // extra reserved space on the inward side of the bar
   std::optional<std::int32_t> padding;            // main-axis padding from bar edges to start/end sections
@@ -167,7 +197,9 @@ struct BarConfig {
   std::int32_t radiusBottomLeft = static_cast<std::int32_t>(Style::radiusXl);
   std::int32_t radiusBottomRight = static_cast<std::int32_t>(Style::radiusXl);
   bool concaveEdgeCorners = true;
-  std::int32_t marginEnds = 100;       // inset from each end of the bar along its main axis
+  // Inset from each end of the bar along its main axis. ConfigService::resolveForOutput turns a percentage
+  // into pixels of the output's main axis, so per-output configs always hold pixels.
+  LengthSpec marginEnds = LengthSpec::fromPixels(100);
   std::int32_t marginEdge = 0;         // distance from the nearest screen edge (floats the bar when > 0)
   std::int32_t marginOppositeEdge = 0; // extra reserved space on the inward side of the bar
   std::int32_t padding = 14;           // main-axis padding from bar edges to start/end sections

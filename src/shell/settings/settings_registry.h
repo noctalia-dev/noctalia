@@ -202,6 +202,14 @@ namespace settings {
     std::string valueSuffix;
   };
 
+  /// Integer stepper with a trailing px / % unit toggle. Pixels commit as an integer, percentages as
+  /// an "N%" string. Switching units keeps the number, clamped to the new unit's range.
+  struct LengthSetting {
+    LengthSpec value;
+    int maxPixels = 100;
+    int maxPercent = 100;
+  };
+
   struct ListSetting {
     std::vector<std::string> items;
     // When non-empty, the add UI presents a Select limited to these options (minus already-added values)
@@ -278,9 +286,10 @@ namespace settings {
 
   using SettingControl = std::variant<
       ToggleSetting, SelectSetting, SliderSetting, RangeSliderSetting, TextSetting, OptionalNumberSetting,
-      OptionalStepperSetting, StepperSetting, ListSetting, StringMapSetting, ShortcutListSetting, KeybindListSetting,
-      SessionPanelActionsSetting, IdleBehaviorsSetting, NotificationFiltersSetting, MultiSelectSetting,
-      TemplateGridSetting, ButtonSetting, ColorSpecPickerSetting, SearchPickerSetting, GestureActionSetting>;
+      OptionalStepperSetting, StepperSetting, LengthSetting, ListSetting, StringMapSetting, ShortcutListSetting,
+      KeybindListSetting, SessionPanelActionsSetting, IdleBehaviorsSetting, NotificationFiltersSetting,
+      MultiSelectSetting, TemplateGridSetting, ButtonSetting, ColorSpecPickerSetting, SearchPickerSetting,
+      GestureActionSetting>;
 
   // Visibility predicate, evaluated against the same Config the registry was built from
   // (the registry rebuilds on every config change). Capture snapshot values or read the
