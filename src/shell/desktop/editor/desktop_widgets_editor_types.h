@@ -25,6 +25,8 @@ toDesktopWidgetsEditorSnapshot(const LockscreenWidgetsConfig& config) {
       .schemaVersion = config.schemaVersion,
       .grid = config.grid,
       .widgets = config.widgets,
+      .activeProfileIndex = 0,
+      .profiles = {},
   };
 }
 
