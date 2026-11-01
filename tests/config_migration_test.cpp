@@ -732,6 +732,58 @@ show_icon = false
     expect(secondPassIssues.empty(), "keyboard layout show_glyph normalization was not idempotent");
   }
 
+  void checkWorkspacesMonitorsMigration() {
+    toml::table config = toml::parse(R"(
+[widget.workspaces]
+show_all_outputs = true
+
+[widget.bar-only]
+type = "workspaces"
+show_all_outputs = false
+
+[widget.canonical]
+type = "workspaces"
+show_all_outputs = true
+monitors = ["DP-3"]
+
+[widget.taskbar]
+show_all_outputs = true
+)");
+    noctalia::config::LegacyConfigIssues issues;
+    noctalia::config::normalizeLegacyConfig(config, issues);
+
+    const auto* allMonitors = config["widget"]["workspaces"]["monitors"].as_array();
+    expect(
+        allMonitors != nullptr
+            && allMonitors->size() == 1
+            && (*allMonitors)[0].value<std::string>() == std::optional<std::string>{"*"}
+            && !config["widget"]["workspaces"].as_table()->contains("show_all_outputs"),
+        "show_all_outputs = true was not migrated to monitors = [\"*\"]"
+    );
+    expect(
+        !config["widget"]["bar-only"].as_table()->contains("monitors")
+            && !config["widget"]["bar-only"].as_table()->contains("show_all_outputs"),
+        "show_all_outputs = false was not dropped in favor of the empty monitors default"
+    );
+    const auto* canonical = config["widget"]["canonical"]["monitors"].as_array();
+    expect(
+        canonical != nullptr
+            && canonical->size() == 1
+            && (*canonical)[0].value<std::string>() == std::optional<std::string>{"DP-3"}
+            && !config["widget"]["canonical"].as_table()->contains("show_all_outputs"),
+        "legacy show_all_outputs overwrote canonical monitors"
+    );
+    expect(
+        config["widget"]["taskbar"]["show_all_outputs"].value<bool>() == std::optional<bool>{true},
+        "taskbar show_all_outputs was migrated as workspaces"
+    );
+    expect(issues.size() == 3, "expected one migration issue per workspaces widget");
+
+    noctalia::config::LegacyConfigIssues secondPassIssues;
+    noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
+    expect(secondPassIssues.empty(), "workspaces monitors normalization was not idempotent");
+  }
+
   void checkKeyboardLayoutCustomLabelsMigration() {
     toml::table config = toml::parse(R"toml(
 [shell.keyboard_layout.custom_labels]
@@ -1140,6 +1192,7 @@ int main() {
   checkDockMonitorAllowListMigration();
   checkSysmonPresentationMigration();
   checkKeyboardLayoutShowGlyphMigration();
+  checkWorkspacesMonitorsMigration();
   checkKeyboardLayoutCustomLabelsMigration();
   checkWorkspacesDisplayMigration();
   checkPaletteRoleNamesMigration();

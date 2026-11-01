@@ -116,29 +116,19 @@ void ListEditor::rebuildRows() {
           remainingLabels.push_back(opt.label);
         }
 
-        Select* selectPtr = nullptr;
+        // Nothing is preselected and picking an option adds it, so the trigger never shows an
+        // option that only looks like part of the list.
         auto select = ui::select({
-            .out = &selectPtr,
             .options = std::move(remainingLabels),
+            .clearSelection = true,
             .placeholder = m_addPlaceholder,
             .fontSize = Style::fontSizeCaption * m_scale,
             .controlHeight = suggestedAddHeight,
             .glyphSize = Style::fontSizeCaption * m_scale,
+            .enabled = !atCapacity,
             .width = labelCellWidth,
             .height = suggestedAddHeight,
-        });
-
-        auto addBtn = ui::button({
-            .glyph = "add",
-            .glyphSize = Style::fontSizeCaption * m_scale,
-            .enabled = !atCapacity,
-            .variant = ButtonVariant::Ghost,
-            .minWidth = suggestedAddHeight,
-            .minHeight = suggestedAddHeight,
-            .padding = Style::spaceXs * m_scale,
-            .radius = Style::scaledRadiusSm(m_scale),
-            .onClick = [this, selectPtr, remaining] {
-              const std::size_t index = selectPtr->selectedIndex();
+            .onSelectionChanged = [this, remaining](std::size_t index, std::string_view /*label*/) {
               if (index < remaining.size() && m_onAddRequested) {
                 m_onAddRequested(remaining[index].value);
               }
@@ -146,7 +136,6 @@ void ListEditor::rebuildRows() {
         });
 
         addRow->addChild(std::move(select));
-        addRow->addChild(std::move(addBtn));
       } else {
         addRow.reset();
       }

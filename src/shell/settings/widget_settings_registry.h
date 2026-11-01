@@ -92,6 +92,7 @@ namespace settings {
   enum class WidgetSettingOptionSource : std::uint8_t {
     Static,
     BatteryDevices,
+    Outputs,
   };
 
   enum class WidgetSettingCapability : std::uint8_t {

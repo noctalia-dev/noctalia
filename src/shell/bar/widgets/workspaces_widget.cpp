@@ -2,6 +2,7 @@
 
 #include "compositors/workspace_backend.h"
 #include "config/config_service.h"
+#include "config/config_types.h"
 #include "core/ui_phase.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
@@ -74,7 +75,7 @@ WorkspacesWidget::WorkspacesWidget(
     : m_platform(platform), m_configService(config), m_output(output), m_labelSource(options.labelSource),
       m_showLabels(options.showLabels), m_maxLabelChars(options.maxLabelChars),
       m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_showIcons(options.showIcons),
-      m_hideWhenEmpty(options.hideWhenEmpty), m_showAllOutputs(options.showAllOutputs), m_pillScale(options.pillScale),
+      m_hideWhenEmpty(options.hideWhenEmpty), m_monitors(std::move(options.monitors)), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
@@ -195,28 +196,38 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   }
 
   std::vector<WorkspaceState> current;
-  if (m_showAllOutputs) {
-    const auto appendWorkspaces = [&](wl_output* output) {
-      if (output == nullptr) {
-        return;
-      }
-      for (auto& workspace : m_platform.workspaces(output)) {
-        current.push_back({.workspace = std::move(workspace), .output = output});
+  const auto appendWorkspaces = [&](wl_output* output) {
+    if (output == nullptr) {
+      return;
+    }
+    for (auto& workspace : m_platform.workspaces(output)) {
+      current.push_back({.workspace = std::move(workspace), .output = output});
+    }
+  };
+
+  if (m_monitors.empty()) {
+    appendWorkspaces(m_output);
+  } else {
+    std::vector<wl_output*> selected;
+    const auto addOutput = [&selected](wl_output* output) {
+      if (output != nullptr && !std::ranges::contains(selected, output)) {
+        selected.push_back(output);
       }
     };
-
-    appendWorkspaces(m_output);
-    for (const auto& output : m_platform.outputs()) {
-      if (output.output == nullptr) {
-        continue;
+    for (const auto& monitor : m_monitors) {
+      // "*" selects every monitor, starting with the one hosting this bar.
+      const bool all = monitor == "*";
+      if (all) {
+        addOutput(m_output);
       }
-      if (output.output != m_output) {
-        appendWorkspaces(output.output);
+      for (const auto& output : m_platform.outputs()) {
+        if (all || outputMatchesSelector(monitor, output)) {
+          addOutput(output.output);
+        }
       }
     }
-  } else {
-    for (auto& workspace : m_platform.workspaces(m_output)) {
-      current.push_back({.workspace = std::move(workspace), .output = m_output});
+    for (auto* output : selected) {
+      appendWorkspaces(output);
     }
   }
 
