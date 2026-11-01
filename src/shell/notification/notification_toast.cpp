@@ -964,6 +964,7 @@ void NotificationToast::addPopup(const Notification& n) {
     }
     inst->cards.resize(m_entries.size());
   }
+  reflowNewestOnEdge();
   syncEntryVisibility(index);
   revealQueuedEntries();
   enforceMaxVisible();
