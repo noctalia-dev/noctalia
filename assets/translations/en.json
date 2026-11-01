@@ -3259,7 +3259,7 @@
           "placeholder": "/path/to/sound.wav"
         },
         "volume-sounds": {
-          "description": "Play a sound when output or input volume changes",
+          "description": "Play a sound when the output volume changes",
           "label": "Volume Sounds"
         },
         "weather": {

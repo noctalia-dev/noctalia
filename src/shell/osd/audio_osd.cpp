@@ -116,7 +116,7 @@ void AudioOsd::showOutputName(std::string name, bool muted) {
   }
 }
 
-void AudioOsd::showInput(std::uint32_t sourceId, float volume, bool muted, bool playFeedback) {
+void AudioOsd::showInput(std::uint32_t sourceId, float volume, bool muted) {
   const auto now = std::chrono::steady_clock::now();
   if (now < m_suppressUntil) {
     return;
@@ -125,10 +125,8 @@ void AudioOsd::showInput(std::uint32_t sourceId, float volume, bool muted, bool 
     m_overlay->show(makeInputContent(volume, muted));
     m_currentKind = OsdKind::Microphone;
   }
-  if (playFeedback && m_soundPlayer != nullptr && now - m_lastSoundAt >= kVolumeSoundCooldown) {
-    m_soundPlayer->play(SoundPlayer::kEventVolumeChange);
-    m_lastSoundAt = now;
-  }
+  // Input volume/mute feedback is intentionally silent: the change sound goes to the output and
+  // would both be captured by the microphone and be surprising while adjusting the input level.
   m_lastSourceId = sourceId;
   m_lastSourceVolume = volume;
   m_lastSourcePercent = static_cast<int>(std::round(std::max(0.0F, volume) * 100.0F));
@@ -226,7 +224,7 @@ void AudioOsd::onAudioStateChanged(const PipeWireService& service) {
     } else if (sourceRouteChanged && now >= m_suppressAutoInputOsdUntil) {
       showInputName(sourceName, sourceMuted);
     } else if ((sourceVolumeChanged || sourceMuteChanged) && now >= m_suppressAutoInputOsdUntil) {
-      showInput(source->id, source->volume, sourceMuted, sourceVolumeChanged && !sourceMuted);
+      showInput(source->id, source->volume, sourceMuted);
     }
   }
 
