@@ -1437,7 +1437,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   if (!effectiveOverrides.empty()) {
     const auto storedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, migrationDiag);
     if (storedVersion.has_value()) {
-      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, *storedVersion, migrationDiag);
+      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, merged, *storedVersion, migrationDiag);
     }
   }
   if (migrationDiag.hasErrors()) {
@@ -1447,7 +1447,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   deepMerge(merged, effectiveOverrides);
   merged.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
-  noctalia::config::normalizeLegacyConfig(merged, issues);
+  noctalia::config::normalizeLegacyConfig(merged, issues, &effectiveOverrides);
   if (mergeResult.loadedFiles.empty() && overrides.empty()) {
     parsed.idle.behaviors = defaultIdleBehaviors();
     parsed.bars.push_back(BarConfig{});
@@ -1481,13 +1481,13 @@ noctalia::config::schema::Diagnostics ConfigService::diagnosticsForOverrides(con
   if (!effectiveOverrides.empty()) {
     const auto storedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, diagnostics);
     if (storedVersion.has_value()) {
-      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, *storedVersion, diagnostics);
+      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, merged, *storedVersion, diagnostics);
     }
   }
   deepMerge(merged, effectiveOverrides);
   merged.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
-  noctalia::config::normalizeLegacyConfig(merged, issues);
+  noctalia::config::normalizeLegacyConfig(merged, issues, &effectiveOverrides);
   for (const auto& issue : issues) {
     diagnostics.warn(issue.path, issue.message, "config.legacy");
   }

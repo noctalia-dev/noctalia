@@ -37,7 +37,7 @@ A custom schedule **overrides coordinates**: when it is on and both times are va
 Turning on `custom_schedule` without a valid `sunset` **and** `sunrise` is a configuration error: Noctalia reports it (`noctalia config validate` flags it, Settings shows a banner) rather than silently falling back to coordinates.
 
 :::note[Upgrading from an earlier version]
-`sunset`/`sunrise` used to schedule day and night on their own whenever coordinates were unavailable. They now require `custom_schedule = true`. Noctalia migrates existing configs that relied on the old behavior (times set and no coordinate source) by turning `custom_schedule` on for you, and tells you to add the key to your own config file.
+`sunset`/`sunrise` used to schedule day and night on their own whenever coordinates were unavailable. They now require `custom_schedule = true`. Noctalia migrates existing configs that relied on the old behavior (times set and no coordinate source) by turning `custom_schedule` on for you. For your own config file it warns and asks you to add the key; times saved from Settings get the key written for you once.
 :::
 
 When `auto_locate = true`, location lookup goes through `noctalia.dev` to resolve approximate coordinates from your IP address. See the [Noctalia privacy policy](https://noctalia.dev/privacy) for how this service is handled.

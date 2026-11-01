@@ -492,7 +492,12 @@ namespace {
     return compositor;
   }
 
-  std::optional<toml::table>
+  struct MergedUserConfigSources {
+    toml::table merged;
+    toml::table sidecar; // migrated settings.toml overlay already merged into `merged`
+  };
+
+  std::optional<MergedUserConfigSources>
   mergeUserConfigSources(std::string_view configDir, std::string_view settingsPath, std::string* error) {
     auto mergeResult = noctalia::config::mergeConfigWithIncludes(configDir);
     toml::table merged = std::move(mergeResult.merged);
@@ -505,17 +510,18 @@ namespace {
       kLog.warn("skipping config error in merged user config export: {}", located);
     }
 
+    toml::table sidecar;
     if (!settingsPath.empty() && std::filesystem::exists(std::filesystem::path(std::string(settingsPath)))) {
       const std::filesystem::path settingsFile{std::string(settingsPath)};
       try {
-        toml::table sidecar = toml::parse_file(settingsPath);
+        sidecar = toml::parse_file(settingsPath);
         seedLegacyDockAllowListEnabled(sidecar, merged);
         noctalia::config::ConfigOriginIndex origins;
         origins.record(settingsFile, sidecar);
         schema::Diagnostics migrationDiag;
         const auto storedVersion = noctalia::config::storedConfigVersion(sidecar, migrationDiag);
         if (storedVersion.has_value()) {
-          (void)noctalia::config::applyPendingConfigMigrations(sidecar, *storedVersion, migrationDiag);
+          (void)noctalia::config::applyPendingConfigMigrations(sidecar, merged, *storedVersion, migrationDiag);
         }
         origins.annotate(migrationDiag);
         for (const auto& entry : migrationDiag.entries) {
@@ -533,6 +539,7 @@ namespace {
           *error = noctalia::config::parseErrorOrigin(e, settingsFile).prefixed(e.description());
           return std::nullopt;
         }
+        sidecar.clear();
         kLog.warn("skipping parse error in merged user config export {}: {}", settingsPath, e.description());
       }
     }
@@ -540,7 +547,7 @@ namespace {
     if (error != nullptr) {
       error->clear();
     }
-    return merged;
+    return MergedUserConfigSources{.merged = std::move(merged), .sidecar = std::move(sidecar)};
   }
 
 } // namespace
@@ -824,14 +831,14 @@ std::string ConfigService::buildMergedUserConfigFromSources(
     std::string_view configDir, std::string_view settingsPath, std::string* error,
     noctalia::config::CredentialExportMode credentials
 ) {
-  const auto merged = mergeUserConfigSources(configDir, settingsPath, error);
-  if (!merged.has_value()) {
+  const auto sources = mergeUserConfigSources(configDir, settingsPath, error);
+  if (!sources.has_value()) {
     return {};
   }
-  toml::table normalized = *merged;
+  toml::table normalized = sources->merged;
   normalized.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
-  noctalia::config::normalizeLegacyConfig(normalized, issues);
+  noctalia::config::normalizeLegacyConfig(normalized, issues, &sources->sidecar);
   noctalia::config::applyCredentialExportMode(normalized, credentials);
   return formatToml(normalized) + "\n";
 }
@@ -840,15 +847,15 @@ std::string ConfigService::buildEffectiveConfigFromSources(
     std::string_view configDir, std::string_view settingsPath, std::string* error,
     noctalia::config::CredentialExportMode credentials
 ) {
-  const auto merged = mergeUserConfigSources(configDir, settingsPath, error);
-  if (!merged.has_value()) {
+  const auto sources = mergeUserConfigSources(configDir, settingsPath, error);
+  if (!sources.has_value()) {
     return {};
   }
 
-  toml::table normalized = *merged;
+  toml::table normalized = sources->merged;
   normalized.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
-  noctalia::config::normalizeLegacyConfig(normalized, issues);
+  noctalia::config::normalizeLegacyConfig(normalized, issues, &sources->sidecar);
 
   Config config;
   noctalia::config::seedBuiltinWidgets(config);
@@ -1543,7 +1550,8 @@ void ConfigService::loadAll() {
     const auto parsedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, migrationDiag);
     if (parsedVersion.has_value()) {
       storedVersion = *parsedVersion;
-      appliedVersion = noctalia::config::applyPendingConfigMigrations(effectiveOverrides, storedVersion, migrationDiag);
+      appliedVersion =
+          noctalia::config::applyPendingConfigMigrations(effectiveOverrides, merged, storedVersion, migrationDiag);
       sidecarNeedsPersist = appliedVersion != storedVersion;
       effectiveOverrides.insert_or_assign(
           noctalia::config::kConfigVersionKey, static_cast<std::int64_t>(appliedVersion)
@@ -1566,7 +1574,7 @@ void ConfigService::loadAll() {
   deepMerge(merged, effectiveOverrides);
   merged.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues legacyIssues;
-  noctalia::config::normalizeLegacyConfig(merged, legacyIssues);
+  noctalia::config::normalizeLegacyConfig(merged, legacyIssues, &effectiveOverrides);
   for (auto& issue : legacyIssues) {
     if (const auto* origin = origins.find(issue.path)) {
       issue.origin = *origin;
