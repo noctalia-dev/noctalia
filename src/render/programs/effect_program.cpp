@@ -584,57 +584,6 @@ float cloud_hash(vec2 p) {
     return fract(p.x * p.y);
 }
 
-// Hand-authored cloud silhouette - a fixed handful of overlapping lobes forming one
-// recognizable puffy outline, the same shape every time, just repositioned/rescaled/
-// drifted as one rigid unit (not a procedural field re-evaluated per pixel). Several
-// noise-field approaches were tried here first (plain fbm, billow, ridged, domain-warped,
-// then a randomly-jittered metaball grid) and each read wrong - flat haze, engraved
-// ridges, swirled marble, or (the jittered grid) an unrecognizable floating-oval/
-// rectangle mess, because none of them actually HAS a cloud shape in it, only whatever a
-// threshold slice happens to carve out. A deliberately-drawn shape is the same strategy
-// that already worked for the Sun effect (rays/lens-flares are drawn shapes, not noise),
-// so the same idea is used here instead of a sixth noise variant.
-float cloudLobe(vec2 uv, vec2 center, float r) {
-    vec2 d = uv - center;
-    float d2 = dot(d, d);
-    float rr = r * r;
-    return d2 < rr ? (rr - d2) : 0.0;
-}
-
-float cloudIconDensity(vec2 localUv) {
-    float h = 0.0;
-    h += cloudLobe(localUv, vec2(-0.55, 0.06), 0.4);
-    h += cloudLobe(localUv, vec2(-0.18, -0.16), 0.46);
-    h += cloudLobe(localUv, vec2(0.22, -0.1), 0.42);
-    h += cloudLobe(localUv, vec2(0.58, 0.08), 0.34);
-    h += cloudLobe(localUv, vec2(0.04, 0.2), 0.56);
-    return h;
-}
-
-// One drifting instance of the icon shape: `center`/`scale`/`stretchX` place and size it
-// in card-space, `speed`/`phase` drive a left-to-right drift that wraps once fully offscreen.
-// Bigger+faster instances read as nearer (pseudo-3D depth via parallax - closer things
-// both look bigger and appear to move faster), matching how Snow's flakes already use
-// size+speed correlation for the same depth cue.
-void cloudInstance(
-    vec2 uvA, float aspect, float iTime, float centerY, float scale, float stretchX,
-    float speed, float phase, inout float density, inout float shade
-) {
-    float travel = aspect + scale * 3.0;
-    float cx = fract(phase + iTime * speed) * travel - scale * 1.5;
-    vec2 center = vec2(cx, centerY);
-    vec2 d = uvA - center;
-    vec2 localUv = vec2(d.x / (scale * stretchX), d.y / scale);
-    float h = cloudIconDensity(localUv);
-    density += h;
-    // Top of the icon shape (negative local y, since uv.y grows downward here same as
-    // every other effect in this file) reads lit; bottom reads shaded - accumulate the
-    // brightest contribution across instances rather than overwriting, so an overlap
-    // between two instances doesn't just take whichever was computed last.
-    float localShade = smoothstep(0.3, -0.3, localUv.y) * step(0.0, h);
-    shade = max(shade, localShade);
-}
-
 // --- Fog: soft drifting mist wash (Vanta.js Fog reference look) ---
 // Vanta.js's Fog demo recursively self-warps FBM (f(p+fbm(p+fbm(p)))) at full-page hero
 // scale, where there's enough screen real estate for the warped folds to read as
@@ -706,66 +655,87 @@ vec3 fogWashColor(vec2 uv, float iTime) {
     return col;
 }
 
+// --- Cloud: same full-opacity wash technique as Fog, grey + theme accent palette ---
+// The hand-drawn icon-lobe silhouette read as flat and cartoonish. Sun's warm four-hue
+// backdrop read as a muddy olive swamp without Sun's disc to sell it as "light". A
+// variable-alpha "coverage" cutout (sky visible through gaps between cloud puffs) was
+// tried next to visually distinguish Cloud from Fog's wall-to-wall wash - but a hard alpha
+// edge over this fbm field only antialiases cleanly at the full demo-grid tile's
+// resolution; shrunk down to the actual small Control Center card, the edge spans too few
+// physical pixels and shows every jagged step of the underlying value-noise grid. Back to
+// full-opacity compositing (same as Fog, which never had this problem) with the accent
+// tint baked in like Fog's mist/deep tones, grey instead of Fog's palette, and distinct
+// noise frequencies/offsets from Fog's 2.6/3.8 at offset 10.0 so the two don't trace the
+// same patch layout.
+//
+// Separate from fogWashFbm: that function drifts each of its 5 octaves at a DIFFERENT
+// speed (iTime * 0.025 * fi, fi = 1..5) - fine for Fog's slow 0.02 outer time scale, but at
+// Cloud's higher drift and different frequency the fast-moving high-frequency octaves
+// visibly "boil"/flicker against the slower low-frequency ones in motion (invisible in a
+// still screenshot, obvious live). This copy uses only 3 octaves, all drifting at the same
+// speed, to remove that per-octave relative motion entirely.
+float cloudWashFbm(vec2 p, float iTime) {
+    float v = 0.0;
+    float amp = 0.5;
+    vec2 drift = vec2(iTime * 0.02, -iTime * 0.013);
+    // Going back to 5 octaves (all sharing one fixed drift vector) brought the flicker
+    // right back, so it wasn't the per-octave drift speed after all - it's that the
+    // FINEST octave's spatial frequency aliases at this card's small render resolution no
+    // matter how it's time-shifted, any animation of it reads as noisy flicker. The first
+    // 3 octaves (same frequency range as the working no-flicker version) keep drifting
+    // normally for slow cloud motion; a 4th, finer octave is added WITHOUT the `drift`
+    // offset - same spatial detail/roughness, but static over time, so it can't alias
+    // into visible motion.
+    for (int i = 0; i < 3; i++) {
+        v += amp * fogNoise(p + drift);
+        p *= 2.0;
+        amp *= 0.55;
+    }
+    v += amp * fogNoise(p);
+    return v;
+}
+
+vec3 cloudSkyColor(vec2 uv, float iTime) {
+    vec3 base = mix(u_bg_color.rgb * 0.76, u_bg_color.rgb * 0.98, uv.y);
+
+    bool hasAccent = length(u_accent_color.rgb) > 0.05;
+    vec3 accentTint = hasAccent ? u_accent_color.rgb : vec3(0.6, 0.63, 0.68);
+
+    vec3 mist = mix(particleColor(vec3(0.94, 0.95, 0.97), vec3(0.85, 0.87, 0.91)), accentTint, 0.22);
+    vec3 deep = mix(particleColor(vec3(0.4, 0.43, 0.5), vec3(0.28, 0.31, 0.38)), accentTint, 0.3);
+
+    float n1 = cloudWashFbm(uv * 1.9 + vec2(842.0, -266.0), iTime);
+    float n2 = cloudWashFbm(uv * 3.1 + vec2(-519.0, 333.0), iTime * 1.3);
+
+    vec3 col = base;
+    col = mix(col, deep, smoothstep(0.35, 0.6, n2));
+    col = mix(col, mist, smoothstep(0.4, 0.65, n1));
+    // Rounder, more clumped highlight where BOTH noise fields are high at once (same
+    // product trick Sun's backdrop uses for its "primary" layer) - sequential mixing alone
+    // just gradates smoothly from deep to mist, which is why it read as a soft wash rather
+    // than distinct puffy clouds; an AND-like product carves out localized rounder clumps
+    // instead, which is the actual shape cue "looks cloudy".
+    col = mix(col, mist, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.5);
+    return col;
+}
+
 void main() {
     vec2 uv = v_uv;
     float aspect = u_item_width / u_item_height;
     vec2 uvA = vec2(uv.x * aspect, uv.y);
+    float mask = cornerMask();
+    float finalAlpha = u_bg_color.a * mask;
 
     if (u_alternative > 0.5) {
         float iTime = u_time * 0.02;
         vec3 fogCol = fogWashColor(uvA, iTime);
-        float mask = cornerMask();
-        float finalAlpha = u_bg_color.a * mask;
         gl_FragColor = vec4(fogCol * finalAlpha, finalAlpha);
         return;
     }
 
-    vec4 col = vec4(u_bg_color.rgb, 1.0);
-    float iTime = u_time * 0.03;
-    float baseOpacity = 0.6;
-
-    float density = 0.0;
-    float shade = 0.0;
-    // Smallest/slowest first (farthest), biggest/fastest last (nearest) - later
-    // instances' shade already wins via max() in cloudInstance, so painting order
-    // doesn't matter for that, only for which density dominates visually once alpha-
-    // composited below.
-    cloudInstance(uvA, aspect, iTime, 0.55, 0.3, 1.0, 0.018, 0.15, density, shade);
-    cloudInstance(uvA, aspect, iTime, 0.25, 0.42, 1.0, 0.027, 0.55, density, shade);
-    cloudInstance(uvA, aspect, iTime, 0.4, 0.52, 1.0, 0.034, 0.85, density, shade);
-    float fogDensity = smoothstep(0.0, 0.035, density);
-
-    vec3 litColor = particleColor(vec3(0.97, 0.96, 1.0), vec3(0.8, 0.82, 0.88));
-    vec3 shadeColor = particleColor(vec3(0.46, 0.48, 0.56), vec3(0.28, 0.31, 0.4));
-    vec3 hazeColor = mix(shadeColor, litColor, shade);
-    float hazeOpacity = fogDensity * baseOpacity;
-    vec3 fogContribution = hazeColor * hazeOpacity;
-    float fogAlpha = hazeOpacity;
-
-    vec3 resultRGB = fogContribution + col.rgb * (1.0 - fogAlpha);
-    float resultAlpha = fogAlpha + col.a * (1.0 - fogAlpha);
-
-    // Soft light-scattering glow - a diffuse bright patch (light scattering through the
-    // cloud edges from an unseen source) instead of flat uniform luminance everywhere.
-    vec2 glowPos = vec2(0.72 * aspect, 0.12);
-    vec2 toGlow = uvA - glowPos;
-    float glowDist2 = dot(toGlow, toGlow);
-    float glow = exp(-glowDist2 * 3.0) * 0.18 * fogAlpha;
-    vec3 glowColor = particleColor(vec3(1.0, 0.98, 0.92), vec3(0.97, 0.92, 0.78));
-    resultRGB += glowColor * glow;
-
-    // God-rays: the same angular sin-streak technique as the Sun effect's sunRays() -
-    // volumetric-looking shafts radiating from the glow point, fading with distance, only
-    // visible where there's actually some cloud for the light to scatter through.
-    float rayAngle = atan(toGlow.y, toGlow.x);
-    float rayPattern = pow(sin(rayAngle * 9.0 + iTime * 4.0) * 0.5 + 0.5, 4.0);
-    float rayFalloff = 1.0 - smoothstep(0.0, 1.3, length(toGlow));
-    float rays = rayPattern * rayFalloff * 0.12 * fogAlpha;
-    resultRGB += glowColor * rays;
-
-    float mask = cornerMask();
-    float finalAlpha = resultAlpha * mask * u_bg_color.a;
-    gl_FragColor = vec4(resultRGB * (finalAlpha / max(resultAlpha, 0.001)), finalAlpha);
+    float iTime = u_time * 0.025;
+    vec3 cloudCol = cloudSkyColor(uvA, iTime);
+    gl_FragColor = vec4(cloudCol * finalAlpha, finalAlpha);
 }
 )";
 
