@@ -13,6 +13,7 @@
 #include "scripting/plugin_catalog.h"
 #include "scripting/plugin_recommendations.h"
 #include "scripting/plugin_registry.h"
+#include "shell/dialog_popup_settings.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/plugin_store_content.h"
@@ -492,7 +493,7 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
 
   if (m_searchPickerPopup == nullptr) {
     m_searchPickerPopup = std::make_unique<SearchPickerPopup>();
-    m_searchPickerPopup->initialize(*m_wayland, *m_config, *m_renderContext);
+    m_searchPickerPopup->initialize(*m_wayland, dialogPopupSettings(*m_config), *m_renderContext);
   }
 
   if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {

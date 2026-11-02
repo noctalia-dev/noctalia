@@ -10,10 +10,10 @@
 FileDialogPopup::~FileDialogPopup() { destroyPopup(); }
 
 void FileDialogPopup::initialize(
-    WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext, LayerPopupHostRegistry& popupHosts,
-    ThumbnailService& thumbnails
+    WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext,
+    LayerPopupHostRegistry& popupHosts, ThumbnailService& thumbnails
 ) {
-  initializeBase(wayland, config, renderContext, popupHosts);
+  initializeBase(wayland, std::move(settings), renderContext, popupHosts);
   m_thumbnails = &thumbnails;
 }
 

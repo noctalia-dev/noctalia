@@ -1,6 +1,5 @@
 #include "ui/dialogs/dialog_popup_host.h"
 
-#include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "core/input/keybind_matcher.h"
 #include "core/ui_phase.h"
@@ -28,10 +27,6 @@ namespace {
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y;
-
-  ShadowStyle popupShadowConfig(ConfigService* config) {
-    return config != nullptr ? config->config().shell.shadow : ShadowStyle{};
-  }
 
   // Every live DialogPopupHost, used to resolve parent/child popup relationships
   // across instances that don't own each other (e.g. the editor sheet popup and
@@ -70,18 +65,21 @@ void DialogPopupHost::closeChildPopups() {
   }
 }
 
-void DialogPopupHost::initializeBase(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext) {
+void DialogPopupHost::initializeBase(
+    WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext
+) {
   m_wayland = &wayland;
-  m_config = &config;
+  m_settings = std::move(settings);
   m_renderContext = &renderContext;
   m_popupHosts = nullptr;
 }
 
 void DialogPopupHost::initializeBase(
-    WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext, LayerPopupHostRegistry& popupHosts
+    WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext,
+    LayerPopupHostRegistry& popupHosts
 ) {
   m_wayland = &wayland;
-  m_config = &config;
+  m_settings = std::move(settings);
   m_renderContext = &renderContext;
   m_popupHosts = &popupHosts;
 }
@@ -111,7 +109,7 @@ bool DialogPopupHost::openPopup(std::uint32_t width, std::uint32_t height) {
   surface->setDismissedCallback([this] { DeferredCall::callLater([this] { cancel(); }); });
 
   m_chrome = popup_chrome::computeGeometry(
-      static_cast<float>(width), static_cast<float>(height), popupShadowConfig(m_config), Style::popupShadowsEnabled()
+      static_cast<float>(width), static_cast<float>(height), settings().shadow, Style::popupShadowsEnabled()
   );
   PopupSurfaceConfig popupConfig = defaultPopupConfig(*parentContext, width, height);
   popup_chrome::applyToConfig(
@@ -167,7 +165,7 @@ bool DialogPopupHost::openPopupAsChild(PopupSurfaceConfig config, const XdgPopup
   surface->setDismissedCallback([this] { DeferredCall::callLater([this] { cancel(); }); });
 
   m_chrome = popup_chrome::computeGeometry(
-      static_cast<float>(config.width), static_cast<float>(config.height), popupShadowConfig(m_config),
+      static_cast<float>(config.width), static_cast<float>(config.height), settings().shadow,
       Style::popupShadowsEnabled()
   );
   popup_chrome::applyToConfig(
@@ -230,12 +228,9 @@ void DialogPopupHost::destroyPopup() {
 
 void DialogPopupHost::closeAfterAccept() { destroyPopup(); }
 
-float DialogPopupHost::uiScale() const {
-  if (m_config == nullptr) {
-    return 1.0F;
-  }
-  return std::max(0.1F, m_config->config().accessibility.uiScale);
-}
+DialogPopupSettings DialogPopupHost::settings() const { return m_settings ? m_settings() : DialogPopupSettings{}; }
+
+float DialogPopupHost::uiScale() const { return std::max(0.1F, settings().uiScale); }
 
 PopupSurfaceConfig DialogPopupHost::defaultPopupConfig(
     const LayerPopupParentContext& parent, std::uint32_t width, std::uint32_t height
@@ -424,8 +419,7 @@ void DialogPopupHost::buildScene(std::uint32_t width, std::uint32_t height) {
   m_sceneRoot = ui::node({});
   m_sceneRoot->setAnimationManager(&m_animations);
   if (Style::popupShadowsEnabled()) {
-    m_panelShadow =
-        popup_chrome::addShadow(*m_sceneRoot, m_chrome, popupShadowConfig(m_config), Style::scaledRadiusXl());
+    m_panelShadow = popup_chrome::addShadow(*m_sceneRoot, m_chrome, settings().shadow, Style::scaledRadiusXl());
   }
 
   auto bg = ui::box({
@@ -497,7 +491,7 @@ void DialogPopupHost::syncSceneGeometryFromSurface() {
   const float panelW = m_chrome.contentWidth;
   const float panelH = m_chrome.contentHeight;
   if (m_panelShadow != nullptr && Style::popupShadowsEnabled()) {
-    const auto shadow = popupShadowConfig(m_config);
+    const auto shadow = settings().shadow;
     const auto offset = shadowDirectionOffset(shadow.direction);
     m_panelShadow->setPosition(panelX + static_cast<float>(offset.x), panelY + static_cast<float>(offset.y));
     m_panelShadow->setFrameSize(panelW, panelH);

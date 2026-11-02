@@ -10,7 +10,6 @@
 #include <string>
 #include <vector>
 
-class ConfigService;
 class Flex;
 class RenderContext;
 class WaylandConnection;
@@ -40,9 +39,9 @@ public:
   SearchPickerPopup() = default;
   ~SearchPickerPopup() override;
 
-  void initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext);
+  void initialize(WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext);
   void initialize(
-      WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
+      WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext,
       LayerPopupHostRegistry& popupHosts
   );
 

@@ -48,14 +48,17 @@ namespace {
 
 SearchPickerPopup::~SearchPickerPopup() { destroyPopup(); }
 
-void SearchPickerPopup::initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext) {
-  initializeBase(wayland, config, renderContext);
+void SearchPickerPopup::initialize(
+    WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext
+) {
+  initializeBase(wayland, std::move(settings), renderContext);
 }
 
 void SearchPickerPopup::initialize(
-    WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext, LayerPopupHostRegistry& popupHosts
+    WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext,
+    LayerPopupHostRegistry& popupHosts
 ) {
-  initializeBase(wayland, config, renderContext, popupHosts);
+  initializeBase(wayland, std::move(settings), renderContext, popupHosts);
 }
 
 void SearchPickerPopup::setOnSelect(SelectCallback callback) { m_onSelect = std::move(callback); }

@@ -31,6 +31,7 @@
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/clipboard/clipboard_paste.h"
 #include "shell/control_center/control_center_panel.h"
+#include "shell/dialog_popup_settings.h"
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
@@ -985,12 +986,11 @@ void Application::initBarDockAndLayout() {
       [this] { return m_settingsWindow.fallbackPopupParentContext(); }
   );
 
-  m_colorPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-
-  m_glyphPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-
-  m_fileDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts, m_thumbnailService);
-  m_searchPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
+  const auto dialogSettings = dialogPopupSettings(m_configService);
+  m_colorPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
+  m_glyphPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
+  m_fileDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts, m_thumbnailService);
+  m_searchPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
   SearchPickerDialog::setPopup(&m_searchPickerDialogPopup);
   m_settingsWindow.initializeDialogPresenter(
       m_colorPickerDialogPopup, m_glyphPickerDialogPopup, m_fileDialogPopup, m_thumbnailService
