@@ -199,7 +199,7 @@ lib/                Shared UI library (noctalia-ui); built without src/ on its i
     controls/       Reusable controls (Button, Input, Label, Select, Slider, Box, ...)
     dialogs/        File, color, and glyph picker dialogs
   util/             Generic helpers
-  wayland/          Wayland connection, registry extensions, seats, surfaces, text input
+  wayland/          Wayland connection, registry extensions, seats, xdg toplevel/popup/sub surfaces, text input
 src/
   main.cpp          Entry point
   app/              Application bootstrap, build info, main loop, poll sources
@@ -259,7 +259,7 @@ src/
     tray/           Tray drawer and D-Bus menu UI
     visuals/        Audio visualizer and graph controls
     wallpaper/      Wallpaper surfaces, paths, picker panel
-    wayland/        Shell-only Wayland extensions: toplevels, workspaces, clipboard, capture, idle, output heads, focus grab
+    wayland/        Shell-only Wayland extensions: layer shell and layer surfaces, blur, toplevels, workspaces, clipboard, capture, idle, output heads, focus grab
     widgets_editor/ Background widget editor
   system/           Desktop entries, brightness, weather, location, system monitor, hardware services
   theme/            Palette generation, templates, theme service, template application
