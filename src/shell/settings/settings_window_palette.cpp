@@ -256,7 +256,7 @@ namespace settings {
       );
     }
 
-    [[nodiscard]] std::size_t itemCount() const override { return m_filtered.size(); }
+    std::size_t itemCount() const override { return m_filtered.size(); }
 
     [[nodiscard]] std::unique_ptr<Node> createTile() override {
       auto tile = std::make_unique<PaletteColorTile>(m_scale);

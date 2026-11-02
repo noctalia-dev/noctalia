@@ -887,11 +887,11 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
   inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
   if (Style::popupShadowsEnabled()) {
-    (void)popup_chrome::addShadow(
+    popup_chrome::addShadow(
         *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
     );
   }
-  (void)popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
+  popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
 
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(m_entries.size());
@@ -943,7 +943,7 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
   menu->setOnActivate([this](const ContextMenuControlEntry& entry) {
     if (entry.id == kPinToggleEntryId) {
       DeferredCall::callLater([this] {
-        (void)toggleActiveItemPinned();
+        toggleActiveItemPinned();
         close();
         closeTrayDrawerPanelIfOpen();
       });
@@ -1234,11 +1234,11 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
   inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
   if (Style::popupShadowsEnabled()) {
-    (void)popup_chrome::addShadow(
+    popup_chrome::addShadow(
         *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
     );
   }
-  (void)popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
+  popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
 
   if (levelIndex >= m_submenuLevels.size()) {
     return;

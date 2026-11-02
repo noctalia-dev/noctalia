@@ -5,9 +5,7 @@
 
 namespace {
 
-  [[nodiscard]] int displayedVolumePercent(float volume) {
-    return static_cast<int>(std::round(std::max(0.0F, volume) * 100.0F));
-  }
+  int displayedVolumePercent(float volume) { return static_cast<int>(std::round(std::max(0.0F, volume) * 100.0F)); }
 
 } // namespace
 

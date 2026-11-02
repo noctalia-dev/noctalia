@@ -81,9 +81,9 @@ namespace scripting {
 
   void applyPluginLayerPatch(PluginLayerConfig& config, const PluginLayerConfigPatch& patch);
 
-  [[nodiscard]] std::optional<PluginLayerLevel> parsePluginLayerLevel(std::string_view value);
-  [[nodiscard]] std::optional<PluginLayerKeyboard> parsePluginLayerKeyboard(std::string_view value);
-  [[nodiscard]] std::optional<std::uint32_t> parsePluginLayerAnchor(std::string_view value);
+  std::optional<PluginLayerLevel> parsePluginLayerLevel(std::string_view value);
+  std::optional<PluginLayerKeyboard> parsePluginLayerKeyboard(std::string_view value);
+  std::optional<std::uint32_t> parsePluginLayerAnchor(std::string_view value);
 
   // Parses the surface keys of a [[layer]] table into `config` (keys absent keep their value).
   // Returns false and sets `error` on an invalid value.

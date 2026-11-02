@@ -20,7 +20,7 @@ struct BarConcaveCorners {
 
 /// Corners on the bar's inner edge for a given docked position. Unknown/empty
 /// positions fall through to "top", matching barConcaveShape's else branch.
-[[nodiscard]] inline BarConcaveCorners barInnerEdgeCorners(std::string_view position) {
+inline BarConcaveCorners barInnerEdgeCorners(std::string_view position) {
   if (position == "bottom") {
     return {.topLeft = true, .topRight = true};
   }
@@ -46,7 +46,7 @@ struct BarConcaveShape {
   float innerBulge = 0.0F; // px the surface/box grow on the inner edge
 };
 
-[[nodiscard]] inline BarConcaveShape barConcaveShape(const BarConfig& cfg) {
+inline BarConcaveShape barConcaveShape(const BarConfig& cfg) {
   const auto radius = [](std::int32_t v) { return static_cast<float>(std::max<std::int32_t>(0, v)); };
   const auto cappedRadius = [&](std::int32_t v) {
     return std::min(static_cast<float>(cfg.thickness) * 0.5F, radius(v));

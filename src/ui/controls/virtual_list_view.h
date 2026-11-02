@@ -23,12 +23,12 @@ class VirtualListAdapter {
 public:
   virtual ~VirtualListAdapter() = default;
 
-  [[nodiscard]] virtual std::size_t itemCount() const = 0;
-  [[nodiscard]] virtual std::uint64_t itemKey(std::size_t index) const { return static_cast<std::uint64_t>(index); }
-  [[nodiscard]] virtual std::uint64_t itemRevision(std::size_t /*index*/) const { return 0; }
-  [[nodiscard]] virtual bool itemInteractive(std::size_t /*index*/) const { return false; }
+  virtual std::size_t itemCount() const = 0;
+  virtual std::uint64_t itemKey(std::size_t index) const { return static_cast<std::uint64_t>(index); }
+  virtual std::uint64_t itemRevision(std::size_t /*index*/) const { return 0; }
+  virtual bool itemInteractive(std::size_t /*index*/) const { return false; }
 
-  [[nodiscard]] virtual float measureItem(Renderer& renderer, std::size_t index, float width) = 0;
+  virtual float measureItem(Renderer& renderer, std::size_t index, float width) = 0;
   [[nodiscard]] virtual std::unique_ptr<Node> createItem() = 0;
   virtual void bindItem(Renderer& renderer, Node& item, std::size_t index, float width, bool hovered) = 0;
   virtual void onActivate(std::size_t /*index*/) {}
@@ -52,7 +52,7 @@ public:
   void setContentScale(float scale);
   void scrollToIndex(std::size_t index);
 
-  [[nodiscard]] ScrollView& scrollView() noexcept { return *m_scroll; }
+  ScrollView& scrollView() noexcept { return *m_scroll; }
 
 protected:
   void doLayout(Renderer& renderer) override;
@@ -77,8 +77,8 @@ private:
   void recomputeMetrics(Renderer& renderer, float width);
   void clearSlotBindings();
   void clearHeightCache(std::size_t index);
-  [[nodiscard]] std::size_t firstVisibleIndex(float scrollY) const noexcept;
-  [[nodiscard]] std::size_t visibleEndIndex(std::size_t first, float scrollBottom) const noexcept;
+  std::size_t firstVisibleIndex(float scrollY) const noexcept;
+  std::size_t visibleEndIndex(std::size_t first, float scrollBottom) const noexcept;
 
   ScrollView* m_scroll = nullptr;
   Canvas* m_canvas = nullptr;

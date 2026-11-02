@@ -26,7 +26,7 @@ namespace {
   constexpr Logger kLog("persistent-panel");
 
   // Gap between the panel and the screen edge it is pinned to.
-  [[nodiscard]] std::int32_t screenPadding() { return static_cast<std::int32_t>(Style::spaceSm); }
+  std::int32_t screenPadding() { return static_cast<std::int32_t>(Style::spaceSm); }
 
 } // namespace
 

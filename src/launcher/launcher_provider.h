@@ -48,46 +48,44 @@ class LauncherProvider {
 public:
   virtual ~LauncherProvider() = default;
 
-  [[nodiscard]] virtual std::string_view prefix() const {
-    return m_customPrefix.has_value() ? *m_customPrefix : defaultPrefix();
-  }
-  [[nodiscard]] virtual std::string_view defaultPrefix() const = 0;
+  virtual std::string_view prefix() const { return m_customPrefix.has_value() ? *m_customPrefix : defaultPrefix(); }
+  virtual std::string_view defaultPrefix() const = 0;
 
   virtual void setCustomPrefix(std::optional<std::string> prefix) { m_customPrefix = std::move(prefix); }
-  [[nodiscard]] virtual bool allowCustomPrefix() const { return true; }
+  virtual bool allowCustomPrefix() const { return true; }
 
   // Stable opaque identity. Keys usage-tracking persistence and activation dispatch,
   // so it must never change or be translated.
-  [[nodiscard]] virtual std::string_view id() const = 0;
+  virtual std::string_view id() const = 0;
   // Localizable title shown to the user (e.g. the prefix overview). Defaults to the
   // stable id(); override to return a translated string.
-  [[nodiscard]] virtual std::string displayName() const { return std::string(id()); }
-  [[nodiscard]] virtual std::string_view defaultGlyphName() const { return "search"; }
+  virtual std::string displayName() const { return std::string(id()); }
+  virtual std::string_view defaultGlyphName() const { return "search"; }
 
   // List-only providers keep their subtitles and text results visible.
-  [[nodiscard]] virtual bool supportsGrid() const { return false; }
+  virtual bool supportsGrid() const { return false; }
 
   // Return true to opt in to usage-based score boosting. The panel will
   // record each activation and surface frequently used entries higher.
-  [[nodiscard]] virtual bool trackUsage() const { return false; }
+  virtual bool trackUsage() const { return false; }
 
   // Return true when activate() copies text and should honor shell.launcher.auto_paste
   // after the launcher closes (calculator, emoji, copy-mode dmenu, …).
-  [[nodiscard]] virtual bool supportsAutoPaste() const { return false; }
+  virtual bool supportsAutoPaste() const { return false; }
 
   // Prefixed providers (non-empty prefix()) normally only respond when their prefix is typed.
   // Return true to also contribute results to the general (non-prefixed) search.
-  [[nodiscard]] virtual bool includeInGlobalSearch() const {
+  virtual bool includeInGlobalSearch() const {
     return m_customGlobalSearch.has_value() ? *m_customGlobalSearch : defaultIncludeInGlobalSearch();
   }
-  [[nodiscard]] virtual bool defaultIncludeInGlobalSearch() const { return false; }
+  virtual bool defaultIncludeInGlobalSearch() const { return false; }
   virtual void setCustomIncludeInGlobalSearch(std::optional<bool> value) { m_customGlobalSearch = value; }
 
-  [[nodiscard]] virtual std::vector<LauncherCategory> categories() const { return {}; }
+  virtual std::vector<LauncherCategory> categories() const { return {}; }
 
   // True for providers registered dynamically (plugin-backed). The panel can drop
   // and re-add just these when the enabled plugin set changes.
-  [[nodiscard]] virtual bool isDynamic() const { return false; }
+  virtual bool isDynamic() const { return false; }
 
   // Async providers (plugin-backed) deliver results after query() returns; the
   // panel installs this callback so the provider can ask for the current query to
@@ -98,7 +96,7 @@ public:
 
   // True while an async provider is still producing results. The launcher uses
   // it to show a loading state instead of "No results found".
-  [[nodiscard]] virtual bool isLoading() const { return false; }
+  virtual bool isLoading() const { return false; }
 
   // Plugin-backed providers can request that the open launcher input be replaced,
   // e.g. to implement autocomplete.
@@ -123,9 +121,9 @@ public:
   // result set so a later session doesn't briefly show the previous query's results.
   virtual void reset() {}
 
-  [[nodiscard]] virtual std::vector<LauncherResult> query(std::string_view text) const = 0;
+  virtual std::vector<LauncherResult> query(std::string_view text) const = 0;
   // Query after this provider's prefix was explicitly matched.
-  [[nodiscard]] virtual std::vector<LauncherResult> queryPrefixed(std::string_view text) const { return query(text); }
+  virtual std::vector<LauncherResult> queryPrefixed(std::string_view text) const { return query(text); }
 
   virtual bool activate(const LauncherResult& result) = 0;
 

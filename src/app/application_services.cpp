@@ -888,9 +888,9 @@ void Application::initWaylandCallbacks() {
     // focused output so activity on one monitor doesn't dismiss alerts on
     // another; fall back to all outputs when no focused output is known.
     if (wl_output* output = m_compositorPlatform.preferredInteractiveOutput(); output != nullptr) {
-      (void)m_compositorPlatform.clearActiveWorkspaceAlerts(output);
+      m_compositorPlatform.clearActiveWorkspaceAlerts(output);
     } else {
-      (void)m_compositorPlatform.clearActiveWorkspaceAlerts();
+      m_compositorPlatform.clearActiveWorkspaceAlerts();
     }
     m_bar.onWorkspaceChanged();
     m_dock.onWorkspaceChanged();
@@ -1166,7 +1166,7 @@ void Application::initSystemBusServices() {
           m_releaseSleepDelayWhenLocked = false;
           m_screenTimeService.setSuspendPaused(false);
           if (m_configService.shouldLockBeforeSuspend() && m_logindService != nullptr) {
-            (void)m_logindService->acquireSleepDelayInhibit();
+            m_logindService->acquireSleepDelayInhibit();
           }
           kLog.info("system resumed; rechecking night light and auto theme schedules");
           // Drivers may discard glyph textures while suspended without reporting a

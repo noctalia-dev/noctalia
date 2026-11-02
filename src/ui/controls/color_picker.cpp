@@ -40,7 +40,7 @@ namespace {
   constexpr float kAlphaFieldWidth = 56.0F;
   constexpr float kSwatchSize = 24.0F;
 
-  [[nodiscard]] std::string sanitizeHexFieldInput(std::string_view input) {
+  std::string sanitizeHexFieldInput(std::string_view input) {
     std::string out;
     out.reserve(kHexFieldMaxLen);
     bool hasHash = false;
@@ -63,12 +63,10 @@ namespace {
     return out;
   }
 
-  [[nodiscard]] bool isCompleteHexField(std::string_view value) {
-    return value.size() == kHexFieldMaxLen && value.front() == '#';
-  }
+  bool isCompleteHexField(std::string_view value) { return value.size() == kHexFieldMaxLen && value.front() == '#'; }
 
   // A whole field holding an integer in [lo, hi]; partial or out-of-range input is not a value.
-  [[nodiscard]] std::optional<int> parseComponent(std::string_view text, int lo, int hi) {
+  std::optional<int> parseComponent(std::string_view text, int lo, int hi) {
     int value = 0;
     const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
     if (text.empty() || error != std::errc{} || end != text.data() + text.size() || value < lo || value > hi) {
@@ -77,11 +75,9 @@ namespace {
     return value;
   }
 
-  [[nodiscard]] int toByte(float channel) {
-    return static_cast<int>(std::lround(std::clamp(channel, 0.0F, 1.0F) * 255.0F));
-  }
+  int toByte(float channel) { return static_cast<int>(std::lround(std::clamp(channel, 0.0F, 1.0F) * 255.0F)); }
 
-  [[nodiscard]] std::uint8_t toPixel(float channel) { return static_cast<std::uint8_t>(toByte(channel)); }
+  std::uint8_t toPixel(float channel) { return static_cast<std::uint8_t>(toByte(channel)); }
 
 } // namespace
 
@@ -381,7 +377,7 @@ void ColorPicker::setSwatches(std::vector<Color> swatches) {
 
 void ColorPicker::rebuildSwatches() {
   while (!m_swatchRow->children().empty()) {
-    (void)m_swatchRow->removeChild(m_swatchRow->children().back().get());
+    m_swatchRow->removeChild(m_swatchRow->children().back().get());
   }
   m_swatchBoxes.clear();
   for (std::size_t i = 0; i < m_swatches.size(); ++i) {

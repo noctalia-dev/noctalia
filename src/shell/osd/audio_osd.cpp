@@ -13,7 +13,7 @@ namespace {
   constexpr auto kSuppressInputOsdAfterOutput = std::chrono::milliseconds(500);
   constexpr float kVolumeChangeEpsilon = 0.003F;
 
-  [[nodiscard]] bool volumeChanged(float a, float b) { return std::abs(a - b) > kVolumeChangeEpsilon; }
+  bool volumeChanged(float a, float b) { return std::abs(a - b) > kVolumeChangeEpsilon; }
 
   OsdContent makeOutputContent(float volume, bool muted) {
     const int percent = static_cast<int>(std::round(std::max(0.0F, volume) * 100.0F));

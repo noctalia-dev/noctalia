@@ -31,16 +31,16 @@ public:
   // released node tree) to a stable renderer view; see Node::rebindRenderer.
   void rebindRenderer(Renderer& renderer);
 
-  [[nodiscard]] virtual bool wantsSecondTicks() const { return false; }
-  [[nodiscard]] virtual bool needsFrameTick() const { return false; }
+  virtual bool wantsSecondTicks() const { return false; }
+  virtual bool needsFrameTick() const { return false; }
   virtual void onFrameTick(float deltaMs, Renderer& renderer) {
     (void)deltaMs;
     (void)renderer;
   }
 
-  [[nodiscard]] Node* root() const noexcept { return m_contentRoot; }
-  [[nodiscard]] float intrinsicWidth() const noexcept;
-  [[nodiscard]] float intrinsicHeight() const noexcept;
+  Node* root() const noexcept { return m_contentRoot; }
+  float intrinsicWidth() const noexcept;
+  float intrinsicHeight() const noexcept;
   std::unique_ptr<Node> releaseRoot();
 
   void setAnimationManager(AnimationManager* manager) noexcept { m_animations = manager; }
@@ -62,10 +62,10 @@ public:
     m_baseScale = scale;
     m_contentScale = scale;
   }
-  [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
+  float contentScale() const noexcept { return m_contentScale; }
   // The aspect-preserved content scale that fits the natural-size high-water mark into the given
   // box, clamped to the fit limits.
-  [[nodiscard]] float contentScaleForBox(float boxWidth, float boxHeight) const noexcept;
+  float contentScaleForBox(float boxWidth, float boxHeight) const noexcept;
   // Target box size (logical px) of the widget's grid tile. 0 means auto-fit the content's
   // natural size. When set, layout() scales the content to fill the box (aspect-preserved,
   // centered) and the background/surface take the box dimensions.
@@ -80,11 +80,9 @@ public:
   virtual void setEditorPreview(bool enabled) noexcept { (void)enabled; }
   void setBackgroundStyle(const ColorSpec& color, float radius, float padding);
 
-  [[nodiscard]] bool hasBackground() const noexcept { return m_bgEnabled; }
-  [[nodiscard]] bool hasVisibleBackground() const noexcept;
-  [[nodiscard]] float backgroundRadius() const noexcept {
-    return m_bgEnabled ? std::round(m_bgRadius * m_baseScale) : 0.0F;
-  }
+  bool hasBackground() const noexcept { return m_bgEnabled; }
+  bool hasVisibleBackground() const noexcept;
+  float backgroundRadius() const noexcept { return m_bgEnabled ? std::round(m_bgRadius * m_baseScale) : 0.0F; }
 
   virtual bool applySetting(
       const std::string& key, const WidgetSettingValue& value,
@@ -118,11 +116,11 @@ protected:
     }
   }
 
-  [[nodiscard]] float boxInnerWidth() const noexcept;
-  [[nodiscard]] float boxInnerHeight() const noexcept;
+  float boxInnerWidth() const noexcept;
+  float boxInnerHeight() const noexcept;
   // True while layout() runs, including the nested update() calls a doLayout may make (which open
   // their own Update phase scope). Subclasses use this to avoid re-arming a layout from within one.
-  [[nodiscard]] bool isLayingOut() const noexcept { return m_inLayout; }
+  bool isLayingOut() const noexcept { return m_inLayout; }
 
   virtual void doLayout(Renderer& renderer) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
@@ -138,10 +136,10 @@ protected:
   }
   // Content is centered in boxed desktop widgets by default. Widgets with text that should be
   // start-aligned can opt into the tile's leading edge without changing their intrinsic size.
-  [[nodiscard]] virtual bool contentAlignsToStart() const noexcept { return false; }
+  virtual bool contentAlignsToStart() const noexcept { return false; }
 
   // Outer node released to the host: background wrapper when enabled, otherwise content.
-  [[nodiscard]] Node* presentationRoot() const noexcept;
+  Node* presentationRoot() const noexcept;
 
   bool m_inLayout = false;
   float m_contentScale = 1.0F;

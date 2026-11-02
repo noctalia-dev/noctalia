@@ -69,12 +69,12 @@ public:
   void startEnterTransition();
   void suppressEntryTransition();
   void startExitTransition();
-  [[nodiscard]] bool transitionInputReady() const noexcept;
-  [[nodiscard]] bool exitTransitionComplete() const noexcept;
+  bool transitionInputReady() const noexcept;
+  bool exitTransitionComplete() const noexcept;
   void setTransitionCallback(std::function<void()> callback) { m_transitionCallback = std::move(callback); }
   void setBackgroundStyle(float blurIntensity, float tintIntensity);
   void setBlackout(bool blackout);
-  [[nodiscard]] bool isBlackout() const noexcept { return m_blackout; }
+  bool isBlackout() const noexcept { return m_blackout; }
   void setOnLogin(std::function<void()> onLogin);
   void setOnCycleLayout(std::function<void()> onCycleLayout);
   void setOnPasswordChanged(std::function<void(const std::string&)> onPasswordChanged);
@@ -89,14 +89,14 @@ public:
   void forceRepaintAfterResume();
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
-  [[nodiscard]] wl_output* output() const noexcept { return m_output; }
+  wl_output* output() const noexcept { return m_output; }
   void syncOutputScale(std::int32_t bufferScale, std::uint32_t configuredScaleNumerator);
-  [[nodiscard]] bool usesDesktopCaptureBackground() const noexcept;
-  [[nodiscard]] Node* widgetLayer() noexcept { return m_widgetLayer; }
+  bool usesDesktopCaptureBackground() const noexcept;
+  Node* widgetLayer() noexcept { return m_widgetLayer; }
   void setOutputKey(std::string outputKey) { m_outputKey = std::move(outputKey); }
   void setWidgetsHost(LockscreenWidgetsHost* host) noexcept { m_widgetsHost = host; }
 
-  [[nodiscard]] bool readyForSleep() const noexcept { return m_sleepFrameReady; }
+  bool readyForSleep() const noexcept { return m_sleepFrameReady; }
   void setSleepReadyCallback(std::function<void()> callback) { m_sleepReadyCallback = std::move(callback); }
 
   static void handleConfigure(
@@ -147,11 +147,11 @@ private:
   void syncRegularExtras(Renderer& renderer);
   void rebuildSessionButtons();
   void ensureLayoutChipInPasswordRow();
-  [[nodiscard]] std::vector<SessionPanelActionConfig> resolveSessionActions() const;
-  [[nodiscard]] lockscreen_login_box::LoginBoxStyle resolveLoginStyle() const;
-  [[nodiscard]] bool isLoginBoxEnabled() const;
-  [[nodiscard]] std::string resolveStatusText(const lockscreen_login_box::LoginBoxStyle& style, bool& isError) const;
-  [[nodiscard]] bool passwordFieldContainsPoint(float sceneX, float sceneY) const;
+  std::vector<SessionPanelActionConfig> resolveSessionActions() const;
+  lockscreen_login_box::LoginBoxStyle resolveLoginStyle() const;
+  bool isLoginBoxEnabled() const;
+  std::string resolveStatusText(const lockscreen_login_box::LoginBoxStyle& style, bool& isError) const;
+  bool passwordFieldContainsPoint(float sceneX, float sceneY) const;
   void focusPasswordField();
 
   ext_session_lock_surface_v1* m_lockSurface = nullptr;

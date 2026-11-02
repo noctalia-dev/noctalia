@@ -89,8 +89,8 @@ public:
   ~TaskbarWidget() override;
 
   void create() override;
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event) override;
-  [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
+  bool onPointerEvent(const PointerEvent& event) override;
+  bool wantsBarHoverHighlight() const noexcept override { return false; }
   // Steps through whatever this taskbar shows: workspace groups when grouping, else tasks.
   void cycleAdjacent(int direction);
 
@@ -194,48 +194,47 @@ private:
   void buildTaskButtons(Renderer& renderer);
   void updateModels();
   void syncWorkspaceGroupingCapability();
-  [[nodiscard]] static std::string toLower(const std::string& value);
-  [[nodiscard]] static const std::string& displayTitle(const TaskModel& task) noexcept;
-  [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
-  [[nodiscard]] static ModelComparison compareModels(
+  static std::string toLower(const std::string& value);
+  static const std::string& displayTitle(const TaskModel& task) noexcept;
+  static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
+  static ModelComparison compareModels(
       bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
       const std::vector<WorkspaceModel>& previousWorkspaces, const std::vector<TaskModel>& nextTasks,
       const std::vector<WorkspaceModel>& nextWorkspaces
   );
   void buildDesktopIconIndex();
-  [[nodiscard]] ResolvedIcon resolveIcon(const std::string& appId, const std::string& iconNameOrPath);
+  ResolvedIcon resolveIcon(const std::string& appId, const std::string& iconNameOrPath);
   void openTaskContextMenu(const TaskModel& task, InputArea& area, const std::vector<TaskRef>& members = {});
   void activateAdjacentWorkspace(int direction);
   void activateAdjacentTask(int direction);
-  [[nodiscard]] bool activeWorkspaceIndex(std::size_t& index) const;
-  [[nodiscard]] const std::vector<WorkspaceModel>& navigationWorkspaces() const noexcept;
-  [[nodiscard]] wl_output* toplevelOutputFilter() const noexcept;
-  [[nodiscard]] bool useMultiOutputWorkspaceKeys() const noexcept;
-  [[nodiscard]] std::string workspaceKeyPrefixForOutput(wl_output* out) const;
-  [[nodiscard]] wl_output* workspaceHostOutput(const WorkspaceModel& model) const noexcept;
-  [[nodiscard]] bool workspaceUsesFocusedStyle(const WorkspaceModel& model) const noexcept;
-  [[nodiscard]] ColorSpec workspaceFillColor(const WorkspaceModel& model) const;
-  [[nodiscard]] ColorSpec workspaceTextColor(const WorkspaceModel& model) const;
-  [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
-  [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
-  [[nodiscard]] static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
-  [[nodiscard]] static const TaskModel*
+  bool activeWorkspaceIndex(std::size_t& index) const;
+  const std::vector<WorkspaceModel>& navigationWorkspaces() const noexcept;
+  wl_output* toplevelOutputFilter() const noexcept;
+  bool useMultiOutputWorkspaceKeys() const noexcept;
+  std::string workspaceKeyPrefixForOutput(wl_output* out) const;
+  wl_output* workspaceHostOutput(const WorkspaceModel& model) const noexcept;
+  bool workspaceUsesFocusedStyle(const WorkspaceModel& model) const noexcept;
+  ColorSpec workspaceFillColor(const WorkspaceModel& model) const;
+  ColorSpec workspaceTextColor(const WorkspaceModel& model) const;
+  static ColorSpec readableColorForFill(const ColorSpec& fill);
+  static ColorRole onRoleForFill(ColorRole fill);
+  static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
+  static const TaskModel*
   resolveTask(const std::vector<TaskModel>& tasks, TaskRef ref, std::uint64_t currentGeneration);
-  [[nodiscard]] static std::string_view workspaceBindingWindowId(const TaskModel& task);
-  [[nodiscard]] static ToplevelInfo toplevelInfoForTask(const TaskModel& task);
-  [[nodiscard]] static bool allWindowsMinimized(const TaskModel& task);
-  [[nodiscard]] static std::string
-  taskTooltip(const TaskModel& task, std::size_t minimizedCount, std::size_t windowCount);
+  static std::string_view workspaceBindingWindowId(const TaskModel& task);
+  static ToplevelInfo toplevelInfoForTask(const TaskModel& task);
+  static bool allWindowsMinimized(const TaskModel& task);
+  static std::string taskTooltip(const TaskModel& task, std::size_t minimizedCount, std::size_t windowCount);
   void activateTaskModel(const TaskModel& task, bool primaryClick = false);
   void closeTaskModel(const TaskModel& task);
   void applyPinnedMerge(std::vector<TaskModel>& tasks);
   static void dropUnpinnedTasks(std::vector<TaskModel>& tasks, bool showRunning);
   void activateOrLaunchPinned(const TaskModel& task, bool primaryClick = true);
   void launchDesktopEntry(const TaskModel& task);
-  [[nodiscard]] const std::vector<std::string>& pinnedConfigIds() const noexcept;
-  [[nodiscard]] bool reorderEnabled() const;
-  [[nodiscard]] float pointerMainOnStrip(const InputArea& area, float localX, float localY) const;
-  [[nodiscard]] std::size_t computeDragTargetIndex() const;
+  const std::vector<std::string>& pinnedConfigIds() const noexcept;
+  bool reorderEnabled() const;
+  float pointerMainOnStrip(const InputArea& area, float localX, float localY) const;
+  std::size_t computeDragTargetIndex() const;
   [[nodiscard]] bool commitDragReorder();
   void beginDrag();
   void updateDragTarget();
@@ -243,9 +242,9 @@ private:
   void endDrag(bool commit);
   void applyDragLayout();
   void requestDragLayout();
-  [[nodiscard]] static bool taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry);
+  static bool taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry);
   void setEntryPinned(const DesktopEntry& entry, bool pinned);
-  [[nodiscard]] std::optional<DesktopEntry> desktopEntryForTask(const TaskModel& task) const;
+  std::optional<DesktopEntry> desktopEntryForTask(const TaskModel& task) const;
 
   CompositorPlatform& m_platform;
   ConfigService& m_configService;

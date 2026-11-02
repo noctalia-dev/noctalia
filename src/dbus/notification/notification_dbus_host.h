@@ -5,5 +5,5 @@ public:
   virtual ~NotificationDBusHost() = default;
 
   virtual void processExpired() = 0;
-  [[nodiscard]] virtual bool isHealthy() const = 0;
+  virtual bool isHealthy() const = 0;
 };

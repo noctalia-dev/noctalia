@@ -43,19 +43,19 @@ public:
   // Returns false when the path is unchanged. A new path drops the connection; the first
   // connection attempt is due immediately. An empty path stops streaming.
   bool setPath(std::string path);
-  [[nodiscard]] const std::string& path() const noexcept { return m_path; }
+  const std::string& path() const noexcept { return m_path; }
 
-  [[nodiscard]] int fd() const noexcept { return m_fd; }
-  [[nodiscard]] bool connected() const noexcept { return m_fd >= 0; }
+  int fd() const noexcept { return m_fd; }
+  bool connected() const noexcept { return m_fd >= 0; }
   // When the next connection attempt is due; empty while connected or without a path.
-  [[nodiscard]] std::optional<std::chrono::steady_clock::time_point> retryAt() const;
+  std::optional<std::chrono::steady_clock::time_point> retryAt() const;
   // Attempts a connection once retryAt() has passed.
   void tick(std::chrono::steady_clock::time_point now);
   // Handles poll() results for fd().
   void dispatch(short revents);
 
   // The most recent frame, valid until releaseFrame(), a disconnect, or a path change.
-  [[nodiscard]] std::optional<Frame> frame() const;
+  std::optional<Frame> frame() const;
   // Returns the frame's buffer to the companion and requests the next frame.
   void releaseFrame();
   // Drops the connection and reconnects immediately; a new connection receives the current

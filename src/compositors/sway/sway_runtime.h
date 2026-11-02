@@ -8,11 +8,11 @@ namespace compositors::sway {
   public:
     SwayRuntime() = default;
 
-    [[nodiscard]] const std::string& socketPath() const;
-    [[nodiscard]] const std::string& msgCommand() const;
-    [[nodiscard]] const std::string& outputCommand() const;
-    [[nodiscard]] bool hasMsgCommand() const;
-    [[nodiscard]] bool hasOutputCommand() const;
+    const std::string& socketPath() const;
+    const std::string& msgCommand() const;
+    const std::string& outputCommand() const;
+    bool hasMsgCommand() const;
+    bool hasOutputCommand() const;
     void refresh();
 
   private:

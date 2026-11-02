@@ -57,14 +57,14 @@ public:
   [[nodiscard]] ReadySubscription
   subscribeReady(const std::string& path, int targetSize, bool mipmap, TextureReadyCallback callback);
 
-  [[nodiscard]] TextureHandle acquire(const std::string& path, int targetSize = 0, bool mipmap = false);
-  [[nodiscard]] TextureHandle peek(const std::string& path, int targetSize = 0, bool mipmap = false) const;
+  TextureHandle acquire(const std::string& path, int targetSize = 0, bool mipmap = false);
+  TextureHandle peek(const std::string& path, int targetSize = 0, bool mipmap = false) const;
   void release(const std::string& path, int targetSize = 0, bool mipmap = false);
   void trimUnused(std::size_t maxUnusedEntries = 0);
   void abandonGpuResources() noexcept;
   void reloadResidentTextures();
 
-  [[nodiscard]] int pollTimeoutMs() const override { return -1; }
+  int pollTimeoutMs() const override { return -1; }
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
 
 protected:
@@ -76,13 +76,13 @@ private:
     int targetSize = 0;
     bool mipmap = false;
 
-    [[nodiscard]] bool operator==(const RequestKey& other) const noexcept {
+    bool operator==(const RequestKey& other) const noexcept {
       return path == other.path && targetSize == other.targetSize && mipmap == other.mipmap;
     }
   };
 
   struct RequestKeyHash {
-    [[nodiscard]] std::size_t operator()(const RequestKey& key) const noexcept;
+    std::size_t operator()(const RequestKey& key) const noexcept;
   };
 
   struct Entry {
@@ -116,7 +116,7 @@ private:
   void removeReadyListener(std::uint64_t id);
   void notifyReady(const RequestKey& key, TextureHandle handle);
 
-  [[nodiscard]] static RequestKey makeKey(const std::string& path, int targetSize, bool mipmap);
+  static RequestKey makeKey(const std::string& path, int targetSize, bool mipmap);
 
   GlSharedContext* m_sharedGl = nullptr;
   std::function<void()> m_makeCurrentCallback;

@@ -18,9 +18,9 @@ enum class SplitPaneFocusResult : std::uint8_t {
   Consumed,
 };
 
-[[nodiscard]] bool isNodeInSubtree(const Node* node, const Node* ancestor) noexcept;
+bool isNodeInSubtree(const Node* node, const Node* ancestor) noexcept;
 
-[[nodiscard]] SplitPaneFocusResult handleSplitPaneFocusNavigation(
+SplitPaneFocusResult handleSplitPaneFocusNavigation(
     InputDispatcher& dispatcher, const SplitPaneFocusConfig& config, std::uint32_t sym, std::uint32_t modifiers,
     bool pressed, bool preedit
 );

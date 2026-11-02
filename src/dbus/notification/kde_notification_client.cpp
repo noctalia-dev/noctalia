@@ -127,7 +127,7 @@ bool KdeNotificationClient::isHealthy() const { return m_active; }
 void KdeNotificationClient::processExpired() {
   const std::vector<uint32_t> ids = m_manager.expiredIds();
   for (const uint32_t id : ids) {
-    (void)m_manager.close(id, CloseReason::Expired);
+    m_manager.close(id, CloseReason::Expired);
   }
 }
 
@@ -137,13 +137,11 @@ void KdeNotificationClient::onWatcherNotify(
     const std::map<std::string, sdbus::Variant>& hints, int32_t timeout
 ) {
   if (replacesId != 0) {
-    (void)notification_dbus::ingestNotify(
-        m_manager, appName, replacesId, appIcon, summary, body, actions, hints, timeout
-    );
+    notification_dbus::ingestNotify(m_manager, appName, replacesId, appIcon, summary, body, actions, hints, timeout);
     return;
   }
 
-  (void)m_manager.adoptExternal(
+  m_manager.adoptExternal(
       id,
       NotificationRequest{
           .appName = appName,
@@ -163,7 +161,7 @@ void KdeNotificationClient::onWatcherNotify(
 
 void KdeNotificationClient::onWatcherCloseNotification(uint32_t id) {
   m_suppressPlasmaClose = true;
-  (void)m_manager.close(id, CloseReason::ClosedByCall);
+  m_manager.close(id, CloseReason::ClosedByCall);
   m_suppressPlasmaClose = false;
 }
 

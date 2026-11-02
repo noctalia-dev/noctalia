@@ -26,7 +26,7 @@ namespace scripting {
     using Watcher = std::function<void(const std::string& json)>;
 
     void set(const std::string& pluginId, const std::string& key, const std::string& json);
-    [[nodiscard]] std::optional<std::string> get(const std::string& pluginId, const std::string& key) const;
+    std::optional<std::string> get(const std::string& pluginId, const std::string& key) const;
 
     // Register a watcher for (pluginId, key), tagged with `token` (the watching
     // runtime's identity) so it can be cleaned up on reload/stop.

@@ -82,9 +82,9 @@ public:
   }
 
 protected:
-  [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
-  [[nodiscard]] float panelCardOpacity() const noexcept { return m_panelCardOpacity; }
-  [[nodiscard]] float scaled(float value) const noexcept { return value * m_contentScale; }
+  float contentScale() const noexcept { return m_contentScale; }
+  float panelCardOpacity() const noexcept { return m_panelCardOpacity; }
+  float scaled(float value) const noexcept { return value * m_contentScale; }
   virtual void onPanelCardOpacityChanged(float opacity) { (void)opacity; }
   virtual void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) {
     (void)renderer;

@@ -38,8 +38,8 @@ namespace settings {
   // showDisableHint is false on the Security page (toggle lives there already).
   [[nodiscard]] std::unique_ptr<Flex>
   makeOfflineModeNotice(float scale, std::string message, bool showDisableHint = true);
-  [[nodiscard]] bool settingsSectionNeedsOfflineModeNotice(SettingsSection section);
-  [[nodiscard]] std::string offlineModeNoticeMessage(SettingsSection section);
+  bool settingsSectionNeedsOfflineModeNotice(SettingsSection section);
+  std::string offlineModeNoticeMessage(SettingsSection section);
 
   struct SettingsGroupCardProps {
     Flex& parent;
@@ -51,37 +51,36 @@ namespace settings {
     std::function<void(const Node&)> scrollToTop;
   };
 
-  [[nodiscard]] Flex* addSettingsGroupCard(SettingsGroupCardProps props);
+  Flex* addSettingsGroupCard(SettingsGroupCardProps props);
   // Same card as addSettingsGroupCard without the collapsible header, for transient groupings
   // (search results) that must never start hidden and hold no expanded state.
-  [[nodiscard]] Flex* addSettingsCard(Flex& parent, std::string_view title, float scale);
+  Flex* addSettingsCard(Flex& parent, std::string_view title, float scale);
 
-  [[nodiscard]] std::optional<std::size_t>
-  optionIndex(const std::vector<SelectOption>& options, std::string_view value);
-  [[nodiscard]] std::string optionLabel(const std::vector<SelectOption>& options, std::string_view value);
-  [[nodiscard]] std::vector<std::string> optionLabels(const std::vector<SelectOption>& options);
-  [[nodiscard]] std::vector<ColorSwatchPreview> optionSwatchPreviews(const std::vector<SelectOption>& options);
+  std::optional<std::size_t> optionIndex(const std::vector<SelectOption>& options, std::string_view value);
+  std::string optionLabel(const std::vector<SelectOption>& options, std::string_view value);
+  std::vector<std::string> optionLabels(const std::vector<SelectOption>& options);
+  std::vector<ColorSwatchPreview> optionSwatchPreviews(const std::vector<SelectOption>& options);
 
-  [[nodiscard]] bool isMonitorOverrideSettingPath(const std::vector<std::string>& path);
-  [[nodiscard]] bool monitorOverrideHasExplicitValue(const Config& cfg, const std::vector<std::string>& path);
-  [[nodiscard]] bool settingEntryHasEffectiveOverride(const SettingEntry& entry, const ConfigService& configService);
+  bool isMonitorOverrideSettingPath(const std::vector<std::string>& path);
+  bool monitorOverrideHasExplicitValue(const Config& cfg, const std::vector<std::string>& path);
+  bool settingEntryHasEffectiveOverride(const SettingEntry& entry, const ConfigService& configService);
 
-  [[nodiscard]] bool isBlankInput(std::string_view text);
-  [[nodiscard]] std::string formatSliderValue(double value, bool integerValue);
-  [[nodiscard]] std::optional<double> parseDoubleInput(std::string_view text);
+  bool isBlankInput(std::string_view text);
+  std::string formatSliderValue(double value, bool integerValue);
+  std::optional<double> parseDoubleInput(std::string_view text);
 
-  [[nodiscard]] std::vector<SelectOption> sessionActionKindOptions();
-  [[nodiscard]] std::string
+  std::vector<SelectOption> sessionActionKindOptions();
+  std::string
   sessionActionRowSummary(const std::vector<SelectOption>& kindOptions, const SessionPanelActionConfig& row);
-  [[nodiscard]] std::string sessionActionDisplayTitle(const SessionPanelActionConfig& row);
+  std::string sessionActionDisplayTitle(const SessionPanelActionConfig& row);
 
-  [[nodiscard]] std::string sanitizedIdleBehaviorName(std::string_view text);
-  [[nodiscard]] std::string uniqueIdleBehaviorName(
+  std::string sanitizedIdleBehaviorName(std::string_view text);
+  std::string uniqueIdleBehaviorName(
       std::string base, const std::vector<IdleBehaviorConfig>& rows,
       std::optional<std::size_t> ignoreIndex = std::nullopt
   );
   void normalizeIdleBehaviorNames(std::vector<IdleBehaviorConfig>& rows);
-  [[nodiscard]] std::string idleBehaviorRowSummary(const IdleBehaviorConfig& row);
-  [[nodiscard]] std::string notificationFilterRowSummary(const NotificationFilterConfig& filter);
+  std::string idleBehaviorRowSummary(const IdleBehaviorConfig& row);
+  std::string notificationFilterRowSummary(const NotificationFilterConfig& filter);
 
 } // namespace settings

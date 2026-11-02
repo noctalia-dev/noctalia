@@ -59,7 +59,7 @@ public:
   }
 
 private:
-  [[nodiscard]] bool isCurrent(std::uint64_t generation) const { return m_inFlight && generation == m_generation; }
+  bool isCurrent(std::uint64_t generation) const { return m_inFlight && generation == m_generation; }
 
   void onAliasReply(std::uint64_t generation, std::optional<sdbus::Error> error, const sdbus::ObjectPath& collection) {
     if (!isCurrent(generation)) {

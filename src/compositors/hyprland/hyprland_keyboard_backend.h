@@ -20,10 +20,10 @@ public:
   HyprlandKeyboardBackend(const HyprlandKeyboardBackend&) = delete;
   HyprlandKeyboardBackend& operator=(const HyprlandKeyboardBackend&) = delete;
 
-  [[nodiscard]] bool isAvailable() const noexcept;
-  [[nodiscard]] bool cycleLayout() const;
-  [[nodiscard]] std::optional<KeyboardLayoutState> layoutState() const;
-  [[nodiscard]] std::optional<std::string> currentLayoutName() const;
+  bool isAvailable() const noexcept;
+  bool cycleLayout() const;
+  std::optional<KeyboardLayoutState> layoutState() const;
+  std::optional<std::string> currentLayoutName() const;
 
   void setChangeCallback(ChangeCallback callback);
   void cleanup();

@@ -49,16 +49,16 @@ namespace compositors {
   class FocusedOutputBackend {
   public:
     virtual ~FocusedOutputBackend() = default;
-    [[nodiscard]] virtual std::optional<std::string> focusedOutputName() const = 0;
-    [[nodiscard]] virtual std::unordered_map<std::string, bool> outputPowerStates() const = 0;
+    virtual std::optional<std::string> focusedOutputName() const = 0;
+    virtual std::unordered_map<std::string, bool> outputPowerStates() const = 0;
     virtual void setOutputPowerChangeCallback(CompositorPlatform::ChangeCallback callback) = 0;
   };
 
   class OutputPowerBackend {
   public:
     virtual ~OutputPowerBackend() = default;
-    [[nodiscard]] virtual bool setOutputPower(WaylandConnection& wayland, bool on) const = 0;
-    [[nodiscard]] virtual bool isPerOutputTargeted() const noexcept { return false; }
+    virtual bool setOutputPower(WaylandConnection& wayland, bool on) const = 0;
+    virtual bool isPerOutputTargeted() const noexcept { return false; }
   };
 
 } // namespace compositors
@@ -67,8 +67,7 @@ namespace {
 
   constexpr Logger kLog("compositor_platform");
 
-  [[nodiscard]] std::unordered_set<std::string>
-  windowIdsFromAssignments(const std::vector<WorkspaceWindowAssignment>& assignments) {
+  std::unordered_set<std::string> windowIdsFromAssignments(const std::vector<WorkspaceWindowAssignment>& assignments) {
     std::unordered_set<std::string> windowIds;
     windowIds.reserve(assignments.size());
     for (const auto& assignment : assignments) {
@@ -84,9 +83,7 @@ namespace {
     std::erase_if(windows, [&](const ToplevelInfo& window) { return !windowIds.contains(window.identifier); });
   }
 
-  [[nodiscard]] const char* valueOrUnset(const char* value) {
-    return value != nullptr && value[0] != '\0' ? value : "<unset>";
-  }
+  const char* valueOrUnset(const char* value) { return value != nullptr && value[0] != '\0' ? value : "<unset>"; }
 
   void logSessionExitContext(compositors::CompositorKind compositor) {
     kLog.info(
@@ -252,11 +249,9 @@ namespace {
     template <typename... Args>
     explicit FocusedOutputAdapter(Args&&... args) : m_backend(std::forward<Args>(args)...) {}
 
-    [[nodiscard]] std::optional<std::string> focusedOutputName() const override {
-      return m_backend.focusedOutputName();
-    }
+    std::optional<std::string> focusedOutputName() const override { return m_backend.focusedOutputName(); }
 
-    [[nodiscard]] std::unordered_map<std::string, bool> outputPowerStates() const override {
+    std::unordered_map<std::string, bool> outputPowerStates() const override {
       if constexpr (requires { m_backend.outputPowerStates(); }) {
         return m_backend.outputPowerStates();
       }
@@ -280,12 +275,10 @@ namespace {
     template <typename... Args>
     explicit KeyboardLayoutBackendAdapter(Args&&... args) : m_backend(std::forward<Args>(args)...) {}
 
-    [[nodiscard]] bool isAvailable() const noexcept override { return m_backend.isAvailable(); }
-    [[nodiscard]] bool cycleLayout() const override { return m_backend.cycleLayout(); }
-    [[nodiscard]] std::optional<KeyboardLayoutState> layoutState() const override { return m_backend.layoutState(); }
-    [[nodiscard]] std::optional<std::string> currentLayoutName() const override {
-      return m_backend.currentLayoutName();
-    }
+    bool isAvailable() const noexcept override { return m_backend.isAvailable(); }
+    bool cycleLayout() const override { return m_backend.cycleLayout(); }
+    std::optional<KeyboardLayoutState> layoutState() const override { return m_backend.layoutState(); }
+    std::optional<std::string> currentLayoutName() const override { return m_backend.currentLayoutName(); }
 
     bool connectSocket() override {
       if constexpr (requires { m_backend.connectSocket(); }) {
@@ -298,7 +291,7 @@ namespace {
         m_backend.setChangeCallback(std::move(callback));
       }
     }
-    [[nodiscard]] int pollFd() const noexcept override {
+    int pollFd() const noexcept override {
       if constexpr (requires { m_backend.pollFd(); }) {
         return m_backend.pollFd();
       }
@@ -326,10 +319,10 @@ namespace {
     explicit LambdaOutputPowerBackend(Callback callback, bool perOutputTargeted = false)
         : m_callback(std::move(callback)), m_perOutputTargeted(perOutputTargeted) {}
 
-    [[nodiscard]] bool setOutputPower(WaylandConnection& wayland, bool on) const override {
+    bool setOutputPower(WaylandConnection& wayland, bool on) const override {
       return m_callback && m_callback(wayland, on);
     }
-    [[nodiscard]] bool isPerOutputTargeted() const noexcept override { return m_perOutputTargeted; }
+    bool isPerOutputTargeted() const noexcept override { return m_perOutputTargeted; }
 
   private:
     Callback m_callback;
@@ -445,8 +438,7 @@ namespace {
     return nullptr;
   }
 
-  [[nodiscard]] std::string
-  resolveKdeWorkspaceKey(const std::string& rawKey, const std::vector<Workspace>& workspaces) {
+  std::string resolveKdeWorkspaceKey(const std::string& rawKey, const std::vector<Workspace>& workspaces) {
     if (rawKey.empty()) {
       return {};
     }
@@ -478,7 +470,7 @@ namespace {
     return rawKey;
   }
 
-  [[nodiscard]] std::vector<std::string> kdeWorkspaceDisplayIds(const std::vector<Workspace>& workspaces) {
+  std::vector<std::string> kdeWorkspaceDisplayIds(const std::vector<Workspace>& workspaces) {
     std::vector<Workspace> sorted = workspaces;
     std::ranges::sort(sorted, [](const Workspace& a, const Workspace& b) {
       if (a.coordinates != b.coordinates) {
@@ -496,7 +488,7 @@ namespace {
     return ids;
   }
 
-  [[nodiscard]] std::vector<WorkspaceWindowAssignment> kdeWorkspaceAssignmentsFromTracked(
+  std::vector<WorkspaceWindowAssignment> kdeWorkspaceAssignmentsFromTracked(
       const std::vector<WorkspaceWindow>& tracked, const std::vector<Workspace>& workspaces
   ) {
     const auto allDesktopIds = kdeWorkspaceDisplayIds(workspaces);
@@ -550,7 +542,7 @@ namespace {
     return assignments;
   }
 
-  [[nodiscard]] std::vector<WorkspaceWindow>
+  std::vector<WorkspaceWindow>
   kdeTrackedWindowsForOutput(const std::vector<WorkspaceWindow>& tracked, std::string_view outputName) {
     if (outputName.empty()) {
       return tracked;
@@ -1046,7 +1038,7 @@ void CompositorPlatform::activateToplevelForAppId(std::string_view appId) {
 
 void CompositorPlatform::activateToplevelInfo(const ToplevelInfo& window) {
   if (window.exactIdentity && !window.identifier.empty() && m_workspaceMetadataBackend != nullptr) {
-    (void)m_workspaceMetadataBackend->focusWindowById(window.identifier);
+    m_workspaceMetadataBackend->focusWindowById(window.identifier);
     return;
   }
   if (window.handle != nullptr) {
@@ -1142,7 +1134,7 @@ void CompositorPlatform::closeToplevelInfo(const ToplevelInfo& window) {
     return;
   }
   if (window.exactIdentity && !window.identifier.empty() && m_workspaceMetadataBackend != nullptr) {
-    (void)m_workspaceMetadataBackend->closeWindowById(window.identifier);
+    m_workspaceMetadataBackend->closeWindowById(window.identifier);
     return;
   }
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
@@ -1914,7 +1906,7 @@ void CompositorPlatform::onOutputAdded(wl_output* output) {
   if (m_outputPowerBackend != nullptr
       && m_outputPowerBackend->isPerOutputTargeted()
       && m_lastRequestedOutputPowerState.has_value()) {
-    (void)m_outputPowerBackend->setOutputPower(m_wayland, *m_lastRequestedOutputPowerState);
+    m_outputPowerBackend->setOutputPower(m_wayland, *m_lastRequestedOutputPowerState);
   }
 }
 

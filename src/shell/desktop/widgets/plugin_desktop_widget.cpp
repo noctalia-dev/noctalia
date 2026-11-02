@@ -104,7 +104,7 @@ void PluginDesktopWidget::doLayout(Renderer& renderer) {
   }
   if (m_tree.has_value()) {
     m_reconciler.setScale(contentScale());
-    (void)m_reconciler.reconcile(*m_flex, *m_tree, renderer);
+    m_reconciler.reconcile(*m_flex, *m_tree, renderer);
     m_treeDirty = false;
   }
   m_flex->layout(renderer);

@@ -568,8 +568,8 @@ namespace {
       }
     }
 
-    [[nodiscard]] bool active() const noexcept { return m_watch.has_value(); }
-    [[nodiscard]] double elapsedMs() const { return m_watch.has_value() ? m_watch->elapsedMs() : 0.0; }
+    bool active() const noexcept { return m_watch.has_value(); }
+    double elapsedMs() const { return m_watch.has_value() ? m_watch->elapsedMs() : 0.0; }
 
   private:
     std::optional<noctalia::profiling::StopWatch> m_watch;
@@ -2171,7 +2171,7 @@ void SettingsWindow::rebuildFilterRow(float scale) {
   }
 
   const auto index = static_cast<std::size_t>(std::distance(children.begin(), it));
-  (void)m_mainContainer->removeChild(m_filterRow);
+  m_mainContainer->removeChild(m_filterRow);
   const std::string resetPageScope = pageScopeKey(m_selectedSection, m_selectedBarName, m_selectedMonitorOverride);
   m_filterRow = m_mainContainer->insertChildAt(
       index, centeredRow(buildFilterRow(scale, resetPageScope, currentPageResetPaths()))

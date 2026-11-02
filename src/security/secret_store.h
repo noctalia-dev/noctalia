@@ -33,8 +33,8 @@ namespace security {
     bool operator==(const SecretStoreAttributes&) const = default;
   };
 
-  [[nodiscard]] SecretStoreAttributes secretStoreAttributes(const SecretId& id);
-  [[nodiscard]] bool isValidSecretId(const SecretId& id);
+  SecretStoreAttributes secretStoreAttributes(const SecretId& id);
+  bool isValidSecretId(const SecretId& id);
 
   enum class SecretStoreStatus {
     Success,
@@ -73,7 +73,7 @@ namespace security {
   class SecretStoreCancellation {
   public:
     void cancel();
-    [[nodiscard]] bool cancelled() const;
+    bool cancelled() const;
 
     void setCancelCallback(const std::function<void()>& callback);
     void clearCancelCallback();
@@ -104,7 +104,7 @@ namespace security {
     SecretStoreOperation() = default;
 
     void cancel() const;
-    [[nodiscard]] bool cancelled() const;
+    bool cancelled() const;
 
   private:
     friend class SecretStore;
@@ -130,7 +130,7 @@ namespace security {
     SecretStoreOperation erase(const SecretId& id, StatusCallback callback);
     SecretStoreOperation retryAvailabilityCheck(StatusCallback callback = {});
 
-    [[nodiscard]] std::optional<SecretStoreStatus> availabilityStatus() const;
+    std::optional<SecretStoreStatus> availabilityStatus() const;
 
     void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
 

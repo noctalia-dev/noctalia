@@ -13,8 +13,8 @@ public:
   TimerId
   start(TimerId existingId, std::chrono::milliseconds delay, std::function<void()> callback, bool repeating = false);
   bool cancel(TimerId id);
-  [[nodiscard]] bool active(TimerId id) const noexcept;
-  [[nodiscard]] int pollTimeoutMs() const;
+  bool active(TimerId id) const noexcept;
+  int pollTimeoutMs() const;
   void tick();
 
 private:
@@ -35,7 +35,7 @@ public:
   void start(std::chrono::milliseconds delay, std::function<void()> callback);
   void startRepeating(std::chrono::milliseconds interval, std::function<void()> callback);
   void stop();
-  [[nodiscard]] bool active() const noexcept { return TimerManager::instance().active(m_id); }
+  bool active() const noexcept { return TimerManager::instance().active(m_id); }
 
 private:
   TimerManager::TimerId m_id = 0;

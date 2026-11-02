@@ -16,7 +16,7 @@ namespace noctalia::system::cpu_temp {
     std::string error;
   };
 
-  [[nodiscard]] ProbeResult read(
+  ProbeResult read(
       const std::filesystem::path& hwmonRoot, const std::filesystem::path& thermalRoot,
       const std::string& configuredSensorPath
   );

@@ -46,7 +46,7 @@ namespace {
     result.iconName = appId;
   }
 
-  [[nodiscard]] std::vector<WindowCandidate> collectWindows(const CompositorPlatform* platform) {
+  std::vector<WindowCandidate> collectWindows(const CompositorPlatform* platform) {
     std::vector<WindowCandidate> candidates;
     if (platform == nullptr) {
       return candidates;

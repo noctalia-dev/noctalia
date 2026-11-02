@@ -22,8 +22,8 @@ namespace settings {
         std::function<void(bool enabled)> onToggle
     );
     void setReadmeHovered(bool hovered);
-    [[nodiscard]] static bool hitTestReadme(float cellWidth, float cellHeight, float scale, float localX, float localY);
-    [[nodiscard]] static TooltipAnchorInsets readmeTooltipAnchorInsets(float cellWidth, float cellHeight, float scale);
+    static bool hitTestReadme(float cellWidth, float cellHeight, float scale, float localX, float localY);
+    static TooltipAnchorInsets readmeTooltipAnchorInsets(float cellWidth, float cellHeight, float scale);
 
   private:
     float m_scale;

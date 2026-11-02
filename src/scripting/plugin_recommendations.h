@@ -50,15 +50,14 @@ namespace scripting {
     PluginRecommendations(const PluginRecommendations&) = delete;
     PluginRecommendations& operator=(const PluginRecommendations&) = delete;
 
-    [[nodiscard]] static std::optional<std::string> pluginKey(const PluginSourceConfig& source, std::string_view id);
-    [[nodiscard]] static std::optional<std::string> voterToken(std::string_view secret, std::string_view key);
-    [[nodiscard]] static std::optional<std::unordered_map<std::string, PluginMetric>>
-    parseMetrics(std::string_view body);
-    [[nodiscard]] bool metricsAvailable() const;
-    [[nodiscard]] std::optional<PluginMetric> metric(std::string_view key) const;
-    [[nodiscard]] std::optional<std::uint64_t> count(std::string_view key) const;
-    [[nodiscard]] RecommendationState state(std::string_view key);
-    [[nodiscard]] std::vector<std::string> recommendedKeys();
+    static std::optional<std::string> pluginKey(const PluginSourceConfig& source, std::string_view id);
+    static std::optional<std::string> voterToken(std::string_view secret, std::string_view key);
+    static std::optional<std::unordered_map<std::string, PluginMetric>> parseMetrics(std::string_view body);
+    bool metricsAvailable() const;
+    std::optional<PluginMetric> metric(std::string_view key) const;
+    std::optional<std::uint64_t> count(std::string_view key) const;
+    RecommendationState state(std::string_view key);
+    std::vector<std::string> recommendedKeys();
     void fetchMetrics();
     void setRecommended(const PluginSourceConfig& source, const std::string& id, bool recommended);
     void setOnChanged(std::function<void()> cb) { m_onChanged = std::move(cb); }

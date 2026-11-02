@@ -16,7 +16,7 @@ namespace upower::detail {
     bool operator==(const ChargeThresholdProbe&) const = default;
   };
 
-  [[nodiscard]] ChargeThresholdProbe readChargeThresholdsFromSysfs(
+  ChargeThresholdProbe readChargeThresholdsFromSysfs(
       std::string_view nativePath, const std::filesystem::path& powerSupplyRoot = "/sys/class/power_supply"
   );
 } // namespace upower::detail

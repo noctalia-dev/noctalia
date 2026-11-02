@@ -315,7 +315,7 @@ namespace scripting {
           "plugin {}: shell setting read via getSetting changed, {}", runtimeName,
           event.kind == ScriptEventKind::Reload ? "reloading" : "calling onConfigChanged"
       );
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     SubscriberId subscribe(ScriptResultCallback callback) {
@@ -508,7 +508,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.commandResult = std::move(result);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueAsyncFileResult(std::uint64_t hostId, int callbackRef, bool ok, std::string data, std::string error) {
@@ -520,7 +520,7 @@ namespace scripting {
       event.fileData = std::move(data);
       event.fileError = std::move(error);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueAsyncProcessMatchResult(std::uint64_t hostId, int callbackRef, bool matched) {
@@ -530,7 +530,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.processMatchResult = matched;
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueAsyncHttpResult(
@@ -545,7 +545,7 @@ namespace scripting {
       event.httpBody = std::move(body);
       event.httpIsDownload = isDownload;
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueSoundLoadResult(std::uint64_t hostId, int callbackRef, bool ok, std::string error) {
@@ -556,7 +556,7 @@ namespace scripting {
       event.soundLoadOk = ok;
       event.soundLoadError = std::move(error);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueColorPickerResult(std::uint64_t hostId, int callbackRef, std::optional<std::string> color) {
@@ -566,7 +566,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.colorPickerResult = std::move(color);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueUmbrielActionResult(std::uint64_t hostId, int callbackRef, std::optional<std::string> error) {
@@ -576,7 +576,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.umbrielActionError = std::move(error);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueStateWatchResult(int callbackRef, std::string json) {
@@ -585,7 +585,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.stateJson = std::move(json);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueIdleWatchResult(std::uint64_t hostId, int callbackRef, bool idle) {
@@ -595,7 +595,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.idle = idle;
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void enqueueStreamLine(std::uint64_t hostId, int callbackRef, std::string line) {
@@ -605,7 +605,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.first = std::move(line);
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void
@@ -618,7 +618,7 @@ namespace scripting {
       event.httpOk = ok;
       event.httpStatus = status;
       event.budget = kCallBudget;
-      (void)enqueue(std::move(event));
+      enqueue(std::move(event));
     }
 
     void drain() {
@@ -992,7 +992,7 @@ namespace scripting {
           break;
         }
         const ScriptArgs args{static_cast<double>(signal), std::string(reason)};
-        (void)host->callGlobalWithArgsAndBudget("onExit", args, kCallBudget);
+        host->callGlobalWithArgsAndBudget("onExit", args, kCallBudget);
       }
       PluginStateStore::instance().removeWatchers(stateToken);
       host.reset();
@@ -1252,7 +1252,7 @@ namespace scripting {
     event.source = std::move(source);
     event.snapshot = std::move(snapshot);
     event.budget = kLoadBudget;
-    (void)m_state->enqueue(std::move(event));
+    m_state->enqueue(std::move(event));
   }
 
   bool ScriptRuntime::enqueueUpdate(ScriptSnapshot snapshot) {

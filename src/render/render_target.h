@@ -36,11 +36,11 @@ public:
   void attachTarget(const RenderTarget& target) noexcept { m_target = &target; }
   void setContext(RenderContext* context) noexcept { m_context = context; }
 
-  [[nodiscard]] TextMetrics measureText(
+  TextMetrics measureText(
       std::string_view text, float fontSize, const TextFont& font = {}, float maxWidth = 0.0F, int maxLines = 0,
       TextAlign align = TextAlign::Start, TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   ) override;
-  [[nodiscard]] TextMetrics measureFont(float fontSize, const TextFont& font = {}) override;
+  TextMetrics measureFont(float fontSize, const TextFont& font = {}) override;
   void measureTextCursorStops(
       std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, std::vector<float>& outStops,
       const TextFont& font = {}
@@ -53,14 +53,14 @@ public:
       std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
       std::vector<TextCharSpan>& outSpans, const TextFont& font = {}
   ) override;
-  [[nodiscard]] TextMetrics measureGlyph(char32_t codepoint, float fontSize) override;
-  [[nodiscard]] TextureManager& textureManager() override;
-  [[nodiscard]] float renderScale() const noexcept override;
-  [[nodiscard]] std::uint64_t textMetricsGeneration() const noexcept override;
+  TextMetrics measureGlyph(char32_t codepoint, float fontSize) override;
+  TextureManager& textureManager() override;
+  float renderScale() const noexcept override;
+  std::uint64_t textMetricsGeneration() const noexcept override;
   void notifyFontConfigChanged() override;
 
 private:
-  [[nodiscard]] float currentScale() const noexcept;
+  float currentScale() const noexcept;
 
   RenderContext* m_context = nullptr;
   const RenderTarget* m_target = nullptr;
@@ -80,24 +80,24 @@ public:
   void resize(std::uint32_t bufferWidth, std::uint32_t bufferHeight);
   void destroy();
 
-  [[nodiscard]] std::uint32_t bufferWidth() const noexcept { return m_bufferWidth; }
-  [[nodiscard]] std::uint32_t bufferHeight() const noexcept { return m_bufferHeight; }
-  [[nodiscard]] std::uint32_t logicalWidth() const noexcept { return m_logicalWidth; }
-  [[nodiscard]] std::uint32_t logicalHeight() const noexcept { return m_logicalHeight; }
-  [[nodiscard]] bool isReady() const noexcept;
-  [[nodiscard]] RenderSurfaceTarget* surfaceTarget() noexcept { return m_surfaceTarget.get(); }
-  [[nodiscard]] const RenderSurfaceTarget* surfaceTarget() const noexcept { return m_surfaceTarget.get(); }
+  std::uint32_t bufferWidth() const noexcept { return m_bufferWidth; }
+  std::uint32_t bufferHeight() const noexcept { return m_bufferHeight; }
+  std::uint32_t logicalWidth() const noexcept { return m_logicalWidth; }
+  std::uint32_t logicalHeight() const noexcept { return m_logicalHeight; }
+  bool isReady() const noexcept;
+  RenderSurfaceTarget* surfaceTarget() noexcept { return m_surfaceTarget.get(); }
+  const RenderSurfaceTarget* surfaceTarget() const noexcept { return m_surfaceTarget.get(); }
 
   // This target's stable Renderer view. Retained callbacks and components keep
   // this reference for the target's lifetime; destroying the GPU surface target
   // does not replace the view object.
-  [[nodiscard]] Renderer& renderer() noexcept { return m_renderer; }
-  [[nodiscard]] const Renderer& renderer() const noexcept { return m_renderer; }
+  Renderer& renderer() noexcept { return m_renderer; }
+  const Renderer& renderer() const noexcept { return m_renderer; }
 
   // Physical render scale = buffer-to-logical ratio. Set by the owning surface
   // from its resolved scale; the renderer view reads it on every call.
   void setContentScale(float scale) noexcept;
-  [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
+  float contentScale() const noexcept { return m_contentScale; }
 
   void setLogicalSize(std::uint32_t w, std::uint32_t h) noexcept {
     m_logicalWidth = w;

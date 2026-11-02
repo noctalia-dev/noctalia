@@ -10,5 +10,4 @@ struct TrayWidgetDefinitionContext {
   float inlineEntryGap = Style::spaceXs;
 };
 
-[[nodiscard]] const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionContext>&
-trayWidgetDefinition();
+const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionContext>& trayWidgetDefinition();

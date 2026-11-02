@@ -10,6 +10,6 @@ namespace noctalia::pipewire {
     Report,
   };
 
-  [[nodiscard]] ErrorDisposition classifyError(std::uint32_t objectId, int result) noexcept;
+  ErrorDisposition classifyError(std::uint32_t objectId, int result) noexcept;
 
 } // namespace noctalia::pipewire

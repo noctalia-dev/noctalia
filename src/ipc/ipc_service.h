@@ -40,7 +40,7 @@ public:
     bool cycles = false;
 
     // "panel-toggle <id> [context]" — the form shown in --help.
-    [[nodiscard]] std::string signature() const;
+    std::string signature() const;
   };
 
   // Sets the invocation context for its lifetime, restoring the previous value on destruction so
@@ -70,30 +70,28 @@ public:
   bool start();
 
   // Returns the listening fd, or -1 if not started.
-  [[nodiscard]] int listenFd() const noexcept { return m_listenFd; }
+  int listenFd() const noexcept { return m_listenFd; }
 
   // Returns the socket path used.
-  [[nodiscard]] const std::string& socketPath() const noexcept { return m_socketPath; }
+  const std::string& socketPath() const noexcept { return m_socketPath; }
 
   // Called by IpcPollSource when POLLIN fires on the listening fd.
   void dispatch();
 
   // Execute a command line using the same handler registry as socket IPC.
-  [[nodiscard]] std::string execute(const std::string& line) const;
+  std::string execute(const std::string& line) const;
 
   // When set, relative paths in IPC handlers should resolve against this directory
   // (the caller's cwd) instead of the daemon's cwd. Only populated during execute().
-  [[nodiscard]] const std::optional<std::string>& callerCwd() const noexcept { return m_callerCwd; }
+  const std::optional<std::string>& callerCwd() const noexcept { return m_callerCwd; }
 
   // Where the running command was invoked from, when it did not arrive over the socket.
   // Empty for socket-originated commands.
-  [[nodiscard]] const std::optional<IpcInvocationContext>& invocationContext() const noexcept {
-    return m_invocationContext;
-  }
+  const std::optional<IpcInvocationContext>& invocationContext() const noexcept { return m_invocationContext; }
 
   // Registered commands, sorted by name.
-  [[nodiscard]] std::vector<HandlerInfo> handlers() const;
-  [[nodiscard]] bool hasHandler(std::string_view command) const noexcept;
+  std::vector<HandlerInfo> handlers() const;
+  bool hasHandler(std::string_view command) const noexcept;
 
   // Bind a handler to a canonical `msg` schema command. The handler receives everything after
   // the first space as `args` and must return a string ending with '\n'. Command identity and
@@ -106,7 +104,7 @@ public:
   void bindCycle(const noctalia::cli::Command& command, Handler handler, HandlerOptions options = {});
 
   // True when `command` was registered with bindCycle().
-  [[nodiscard]] bool handlerCycles(std::string_view command) const noexcept;
+  bool handlerCycles(std::string_view command) const noexcept;
 
 private:
   struct HandlerEntry {
@@ -119,8 +117,8 @@ private:
 
   void handleConnection(int connFd);
   std::string buildHelp() const;
-  [[nodiscard]] std::string executeParsed(const std::string& command, const std::string& args) const;
-  [[nodiscard]] static std::string resolveSocketPath();
+  std::string executeParsed(const std::string& command, const std::string& args) const;
+  static std::string resolveSocketPath();
 
   int m_listenFd = -1;
   std::string m_socketPath;

@@ -26,7 +26,7 @@ public:
   SoundPlayer();
   ~SoundPlayer();
 
-  [[nodiscard]] static std::vector<std::pair<std::string, std::string>> availableThemes();
+  static std::vector<std::pair<std::string, std::string>> availableThemes();
 
   SoundPlayer(const SoundPlayer&) = delete;
   SoundPlayer& operator=(const SoundPlayer&) = delete;

@@ -1216,7 +1216,7 @@ std::vector<TrayMenuEntry> TrayService::menuEntriesForParent(const std::string& 
   if (cacheIt == m_menuCache.end() || cacheIt->second.proxy == nullptr) {
     // Fall back to opening the root cache path — if a caller asks for a submenu
     // before the root was fetched we have no idea if the parent is valid.
-    (void)menuEntries(itemId);
+    menuEntries(itemId);
     cacheIt = m_menuCache.find(itemId);
     if (cacheIt == m_menuCache.end() || cacheIt->second.proxy == nullptr) {
       return {};
@@ -1673,7 +1673,7 @@ void TrayService::scheduleBusOnlyRegistrationProbe(const std::string& busName, i
   // First attempt is immediate; later attempts back off so a slow SNI can answer.
   const int attemptIndex = kBusOnlyRegistrationProbeAttempts - retriesRemaining;
   const auto delay = kBusOnlyRegistrationProbeBackoff * std::max(0, attemptIndex);
-  (void)TimerManager::instance().start(0, delay, [this, busName, retriesRemaining] {
+  TimerManager::instance().start(0, delay, [this, busName, retriesRemaining] {
     tryRegisterItemForBusName(busName, [this, busName, retriesRemaining](bool registered) {
       if (!registered) {
         scheduleBusOnlyRegistrationProbe(busName, retriesRemaining - 1);
@@ -1689,7 +1689,7 @@ void TrayService::scheduleMetadataRefreshRetry(const std::string& itemId, int re
 
   // Let the in-flight GetAll finish (or time out) before judging readiness.
   const auto delay = kItemPropertyTimeout + std::chrono::milliseconds(100);
-  (void)TimerManager::instance().start(0, delay, [this, itemId, retriesRemaining] {
+  TimerManager::instance().start(0, delay, [this, itemId, retriesRemaining] {
     auto it = m_items.find(itemId);
     if (it == m_items.end()) {
       return;

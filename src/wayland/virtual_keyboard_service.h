@@ -25,7 +25,7 @@ public:
   bool bind(zwp_virtual_keyboard_manager_v1* manager, wl_seat* seat);
   void cleanup();
 
-  [[nodiscard]] bool isAvailable() const noexcept;
+  bool isAvailable() const noexcept;
   [[nodiscard]] bool sendPasteShortcut(VirtualPasteShortcut shortcut);
 
 private:

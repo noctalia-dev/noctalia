@@ -85,12 +85,12 @@ namespace {
     IdleServer(const IdleServer&) = delete;
     IdleServer& operator=(const IdleServer&) = delete;
 
-    [[nodiscard]] std::vector<Notification> notifications() {
+    std::vector<Notification> notifications() {
       const std::scoped_lock lock(m_mutex);
       return m_notifications;
     }
 
-    [[nodiscard]] std::size_t notification(std::uint32_t timeoutMs) {
+    std::size_t notification(std::uint32_t timeoutMs) {
       const auto registered = notifications();
       const auto it = std::ranges::find_if(registered, [timeoutMs](const Notification& item) {
         return item.timeoutMs == timeoutMs && item.resource != nullptr;

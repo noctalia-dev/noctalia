@@ -33,7 +33,7 @@ public:
   void setMinSize(std::uint32_t minWidth, std::uint32_t minHeight);
   void beginMove(std::uint32_t serial);
 
-  [[nodiscard]] xdg_surface* xdgSurface() const noexcept { return m_xdgSurface; }
+  xdg_surface* xdgSurface() const noexcept { return m_xdgSurface; }
 
   static void handleXdgSurfaceConfigure(void* data, xdg_surface* surface, std::uint32_t serial);
   static void handleToplevelConfigure(

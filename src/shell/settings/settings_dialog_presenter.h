@@ -47,7 +47,7 @@ namespace settings {
     void requestLayout() override;
     void requestRedraw() override;
     void focusArea(InputArea* area) override;
-    [[nodiscard]] InputArea* focusedArea() const override;
+    InputArea* focusedArea() const override;
     void accept(std::optional<std::filesystem::path> result) override;
     void cancel() override;
 
@@ -58,8 +58,8 @@ namespace settings {
       Popup,
     };
 
-    [[nodiscard]] bool useModal() const;
-    [[nodiscard]] float scale() const;
+    bool useModal() const;
+    float scale() const;
     [[nodiscard]] bool openColorModal();
     [[nodiscard]] bool openGlyphModal();
     [[nodiscard]] bool openFileModal();

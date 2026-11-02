@@ -64,7 +64,7 @@ namespace {
 
   // min_size hints are orientation-aware: portrait outputs constrain width, so the hint
   // follows the same 66% short-edge budget as the default open size instead of 1020.
-  [[nodiscard]] std::pair<float, float> settingsWindowMinSize(float outputW, float outputH, float scale) {
+  std::pair<float, float> settingsWindowMinSize(float outputW, float outputH, float scale) {
     float minW = kWindowMinWidth * scale;
     float minH = kWindowMinHeight * scale;
     if (outputW <= 0.0F || outputH <= 0.0F) {
@@ -106,7 +106,7 @@ namespace {
     platform.activateToplevelForAppId(kSettingsAppId);
   }
 
-  [[nodiscard]] bool isSettingsSearchTypingKey(const KeyboardEvent& event) {
+  bool isSettingsSearchTypingKey(const KeyboardEvent& event) {
     if (!event.pressed || event.preedit) {
       return false;
     }
@@ -154,8 +154,8 @@ namespace {
       }
     }
 
-    [[nodiscard]] bool active() const noexcept { return m_watch.has_value(); }
-    [[nodiscard]] double elapsedMs() const { return m_watch.has_value() ? m_watch->elapsedMs() : 0.0; }
+    bool active() const noexcept { return m_watch.has_value(); }
+    double elapsedMs() const { return m_watch.has_value() ? m_watch->elapsedMs() : 0.0; }
 
   private:
     std::optional<noctalia::profiling::StopWatch> m_watch;
@@ -294,7 +294,7 @@ void SettingsWindow::openBrowserUrl(const std::string& url) {
   }
 
   const auto token = m_platform->requestActivationToken(m_surface->wlSurface());
-  (void)net::openInBrowser(url, token);
+  net::openInBrowser(url, token);
 }
 
 bool SettingsWindow::ownsKeyboardSurface(wl_surface* surface) const noexcept {

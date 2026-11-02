@@ -27,13 +27,13 @@ public:
 
   void create() override;
   void onFrameTick(float deltaMs) override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void syncSpectrum();
-  [[nodiscard]] bool shouldBeVisible() const;
+  bool shouldBeVisible() const;
   bool applyVisibility();
   void cancelVisibilityAnimation();
   void setVisibilityCollapsed(bool collapsed);

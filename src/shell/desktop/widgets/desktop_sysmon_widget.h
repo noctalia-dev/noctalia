@@ -66,7 +66,7 @@ public:
       const std::string& key, const WidgetSettingValue& value,
       const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
   ) override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
   void onFrameTick(float deltaMs, Renderer& renderer) override;
 
 private:
@@ -78,20 +78,20 @@ private:
   void layoutGaugeMode(Renderer& renderer);
   void syncGaugeProgress(double normalized);
   void syncValueColor();
-  [[nodiscard]] std::string formatValueFor(DesktopSysmonStat stat) const;
+  std::string formatValueFor(DesktopSysmonStat stat) const;
   void syncLabel();
   void clearGraph();
   void updateGraph(Renderer& renderer);
-  [[nodiscard]] float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
-  [[nodiscard]] double currentNormalized() const;
-  [[nodiscard]] Color currentValueColor(ColorSpec baseColor) const;
-  [[nodiscard]] double currentGradientValue() const;
-  [[nodiscard]] std::pair<double, double> currentThresholds() const;
-  [[nodiscard]] static double normalizedFromStats(
+  float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
+  double currentNormalized() const;
+  Color currentValueColor(ColorSpec baseColor) const;
+  double currentGradientValue() const;
+  std::pair<double, double> currentThresholds() const;
+  static double normalizedFromStats(
       DesktopSysmonStat stat, const SystemStats& stats, double& tempMin, double& tempMax,
       std::string_view networkInterface
   );
-  [[nodiscard]] static const char* glyphName(DesktopSysmonStat stat);
+  static const char* glyphName(DesktopSysmonStat stat);
 
   SystemMonitorService* m_monitor;
   ConfigService* m_config = nullptr;

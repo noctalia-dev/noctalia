@@ -34,7 +34,7 @@ public:
   void setFillWidth();
 
   void setColor(const Color& rgba);
-  [[nodiscard]] const Color& color() const noexcept { return m_color; }
+  const Color& color() const noexcept { return m_color; }
 
   // Fires continuously while the color changes (every drag step, every applied keystroke).
   void setOnColorChanged(std::function<void(const Color&)> callback);
@@ -42,19 +42,19 @@ public:
   void setOnColorCommitted(std::function<void(const Color&)> callback);
 
   void setAlphaEnabled(bool enabled);
-  [[nodiscard]] bool alphaEnabled() const noexcept { return m_alphaEnabled; }
+  bool alphaEnabled() const noexcept { return m_alphaEnabled; }
   void setInputs(Inputs inputs);
   // Clicking a swatch selects its color and keeps the current alpha.
   void setSwatches(std::vector<Color> swatches);
 
   void setEnabled(bool enabled);
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
+  bool enabled() const noexcept { return m_enabled; }
   // True while the plane or a strip is held, so a host does not overwrite a drag in progress.
-  [[nodiscard]] bool dragging() const noexcept;
+  bool dragging() const noexcept;
 
   // Height of the default configuration (format switch, no alpha strip, no swatches).
-  [[nodiscard]] static float intrinsicColumnHeight(float pickerWidth, float scale);
-  [[nodiscard]] InputArea* primaryInputArea() const noexcept;
+  static float intrinsicColumnHeight(float pickerWidth, float scale);
+  InputArea* primaryInputArea() const noexcept;
 
 private:
   enum class Format : std::uint8_t { Hex, Rgb, Hsl };
@@ -73,8 +73,8 @@ private:
   void setFormat(Format format);
   void syncFields(Origin origin);
   // The three field values of the RGB or HSL format; RGB when the format is hex.
-  [[nodiscard]] std::array<int, 3> componentValues() const;
-  [[nodiscard]] std::string colorText() const;
+  std::array<int, 3> componentValues() const;
+  std::string colorText() const;
   void positionOverlays();
   void updateHueThumbStyle();
   // Shared drag wiring for the plane and the strips; a release after any pick commits.
@@ -146,8 +146,8 @@ class ColorPickerSheet : public Flex {
 public:
   explicit ColorPickerSheet(float chromeScale);
 
-  [[nodiscard]] ColorPicker* colorPicker() noexcept { return m_picker; }
-  [[nodiscard]] InputArea* initialFocusArea() const noexcept;
+  ColorPicker* colorPicker() noexcept { return m_picker; }
+  InputArea* initialFocusArea() const noexcept;
 
   void setTitle(std::string_view title);
   void setPickerColumnWidth(float width);
@@ -155,8 +155,8 @@ public:
   void setOnCancel(std::function<void()> callback) { m_onCancel = std::move(callback); }
   void setOnApply(std::function<void(const Color&)> callback) { m_onApply = std::move(callback); }
 
-  [[nodiscard]] static float preferredDialogWidth(float scale);
-  [[nodiscard]] static float preferredDialogHeight(float dialogWidth, float scale);
+  static float preferredDialogWidth(float scale);
+  static float preferredDialogHeight(float dialogWidth, float scale);
 
 private:
   float m_chromeScale = 1.0F;

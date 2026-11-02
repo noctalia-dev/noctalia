@@ -95,15 +95,13 @@ public:
   void closeForWidgetEditor();
   // Reopens the section saved by closeForWidgetEditor(), if any.
   void reopenAfterWidgetEditor();
-  [[nodiscard]] bool isOpen() const noexcept { return m_surface != nullptr && m_surface->isRunning(); }
-  [[nodiscard]] wl_surface* wlSurface() const noexcept {
-    return m_surface != nullptr ? m_surface->wlSurface() : nullptr;
-  }
-  [[nodiscard]] bool ownsKeyboardSurface(wl_surface* surface) const noexcept;
-  [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
-  [[nodiscard]] std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
+  bool isOpen() const noexcept { return m_surface != nullptr && m_surface->isRunning(); }
+  wl_surface* wlSurface() const noexcept { return m_surface != nullptr ? m_surface->wlSurface() : nullptr; }
+  bool ownsKeyboardSurface(wl_surface* surface) const noexcept;
+  std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
+  std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
 
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
+  bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   void onThemeChanged();
   void setResolvedPalette(const noctalia::theme::GeneratedPalette& generated, std::string_view mode);
@@ -143,13 +141,13 @@ public:
       FileDialogPresenter& fileFallback, ThumbnailService& thumbnails
   );
   void shutdownDialogPresenter();
-  [[nodiscard]] ColorPickerDialogPresenter* colorPickerDialogPresenter() noexcept;
-  [[nodiscard]] GlyphPickerDialogPresenter* glyphPickerDialogPresenter() noexcept;
-  [[nodiscard]] FileDialogPresenter* fileDialogPresenter() noexcept;
+  ColorPickerDialogPresenter* colorPickerDialogPresenter() noexcept;
+  GlyphPickerDialogPresenter* glyphPickerDialogPresenter() noexcept;
+  FileDialogPresenter* fileDialogPresenter() noexcept;
 
   void onSecondTick();
   // True while the idle settings pane renders a live seconds counter.
-  [[nodiscard]] bool wantsSecondTicks() const noexcept;
+  bool wantsSecondTicks() const noexcept;
   void onIdleLiveStatusChanged();
   void markSettingsWriteSuccess(bool requestRebuild = true);
   void markSettingsWriteError(std::string message);
@@ -159,12 +157,12 @@ public:
 private:
   void destroyWindow();
   void openBrowserUrl(const std::string& url);
-  [[nodiscard]] bool shouldUseModalDialogs() const noexcept;
+  bool shouldUseModalDialogs() const noexcept;
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void buildScene(std::uint32_t width, std::uint32_t height);
   void rebuildSettingsContent();
-  [[nodiscard]] settings::RegistryEnvironment buildRegistryEnvironment() const;
-  [[nodiscard]] std::vector<settings::SelectOption> availableOutputs() const;
+  settings::RegistryEnvironment buildRegistryEnvironment() const;
+  std::vector<settings::SelectOption> availableOutputs() const;
   void refreshSettingsRegistry(const Config& cfg);
   void syncSelectedBarState(const Config& cfg, const std::vector<std::string>& availableBars);
   [[nodiscard]] std::unique_ptr<Flex> buildHeaderRow(float scale);
@@ -175,13 +173,13 @@ private:
       float scale, const Config& cfg, const std::vector<settings::SettingsSection>& sections,
       const std::vector<std::string>& availableBars
   );
-  [[nodiscard]] std::vector<settings::SelectOption> batteryDeviceOptions() const;
+  std::vector<settings::SelectOption> batteryDeviceOptions() const;
   // Bindable IPC commands, for the bar widget gesture action picker.
-  [[nodiscard]] std::vector<settings::GestureActionOption> gestureActionCatalog() const;
-  [[nodiscard]] settings::SettingsContentContext makeContentContext(
+  std::vector<settings::GestureActionOption> gestureActionCatalog() const;
+  settings::SettingsContentContext makeContentContext(
       const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride
   );
-  [[nodiscard]] std::vector<std::vector<std::string>> currentPageResetPaths() const;
+  std::vector<std::vector<std::string>> currentPageResetPaths() const;
   [[nodiscard]] bool
   tryPatchSettingsRegistryValue(const std::vector<std::string>& path, const ConfigOverrideValue& value);
   [[nodiscard]] bool tryPatchSettingsRegistryOverrides(
@@ -232,7 +230,7 @@ private:
   void refreshIdleLiveStatusText();
   void saveSupportReport();
   void saveConfigExport(settings::ConfigExportMode mode, noctalia::config::CredentialExportMode credentials);
-  [[nodiscard]] bool headerDragRegionContains(float sceneX, float sceneY) const;
+  bool headerDragRegionContains(float sceneX, float sceneY) const;
   void setSettingOverride(std::vector<std::string> path, ConfigOverrideValue value);
   void setSettingOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides);
   void clearSettingOverride(std::vector<std::string> path);
@@ -253,9 +251,9 @@ private:
   void createDockMonitorOverride(std::string match);
   void renameDockMonitorOverride(std::string oldTableName, std::string newMatch);
   void deleteDockMonitorOverride(std::string tableName);
-  [[nodiscard]] float uiScale() const;
+  float uiScale() const;
 
-  [[nodiscard]] std::optional<LayerPopupParentContext> topmostPopupParentContext() const;
+  std::optional<LayerPopupParentContext> topmostPopupParentContext() const;
   void dismissOpenSelectDropdown();
 
   WaylandConnection* m_wayland = nullptr;

@@ -72,7 +72,7 @@ namespace noctalia::config {
         }
 
         const std::string barPath = "bar." + std::string(barName.str());
-        (void)migrateNegativeRadii(*bar, barPath, onChanged);
+        migrateNegativeRadii(*bar, barPath, onChanged);
 
         auto* monitors = (*bar)["monitor"].as_table();
         if (monitors == nullptr) {
@@ -82,7 +82,7 @@ namespace noctalia::config {
           auto* monitor = monitorNode.as_table();
           if (monitor != nullptr) {
             const std::string monitorPath = barPath + ".monitor." + std::string(monitorName.str());
-            (void)migrateNegativeRadii(*monitor, monitorPath, onChanged);
+            migrateNegativeRadii(*monitor, monitorPath, onChanged);
           }
         }
       }

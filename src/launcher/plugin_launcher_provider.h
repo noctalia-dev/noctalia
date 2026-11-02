@@ -41,15 +41,15 @@ public:
   PluginLauncherProvider(scripting::PluginRuntimeContext context, PluginLauncherProviderOptions options);
   ~PluginLauncherProvider() override;
 
-  [[nodiscard]] std::string_view defaultPrefix() const override { return m_prefix; }
-  [[nodiscard]] std::string_view id() const override { return m_entryId; }
-  [[nodiscard]] std::string displayName() const override { return m_displayName.empty() ? m_entryId : m_displayName; }
-  [[nodiscard]] std::string_view defaultGlyphName() const override {
+  std::string_view defaultPrefix() const override { return m_prefix; }
+  std::string_view id() const override { return m_entryId; }
+  std::string displayName() const override { return m_displayName.empty() ? m_entryId : m_displayName; }
+  std::string_view defaultGlyphName() const override {
     return m_glyph.empty() ? std::string_view("search") : std::string_view(m_glyph);
   }
-  [[nodiscard]] bool defaultIncludeInGlobalSearch() const override { return m_globalSearch; }
-  [[nodiscard]] std::vector<LauncherCategory> categories() const override { return m_categories; }
-  [[nodiscard]] bool isDynamic() const override { return true; }
+  bool defaultIncludeInGlobalSearch() const override { return m_globalSearch; }
+  std::vector<LauncherCategory> categories() const override { return m_categories; }
+  bool isDynamic() const override { return true; }
   void setResultsChangedCallback(std::function<void()> callback) override { m_onResultsChanged = std::move(callback); }
   void setQueryRequestedCallback(std::function<void(std::string)> callback) override {
     m_onQueryRequested = std::move(callback);
@@ -60,7 +60,7 @@ public:
 
   void initialize() override;
   void reset() override;
-  [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;
+  std::vector<LauncherResult> query(std::string_view text) const override;
   bool activate(const LauncherResult& result) override;
 
 private:
@@ -71,7 +71,7 @@ private:
   // Prepend this provider's resolved prefix to a plugin-supplied sub-query, so a
   // rewritten launcher input keeps the provider active regardless of the configured
   // prefix. An empty prefix (global provider) yields the sub-query verbatim.
-  [[nodiscard]] std::string buildProviderInput(std::string_view sub) const;
+  std::string buildProviderInput(std::string_view sub) const;
   // Enqueue onQuery for `text` on the runtime (skips a duplicate of the last send).
   void dispatchQuery(const std::string& text) const;
   // Restart the debounce timer; it fires dispatchQuery(m_pendingQuery) when idle.

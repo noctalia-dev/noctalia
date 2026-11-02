@@ -104,7 +104,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::vector<std::uint8_t>
+  std::vector<std::uint8_t>
   pixmapToRgba(const std::uint8_t* data, std::size_t size, int width, int height, int stride, PixmapFormat format) {
     const std::size_t channels = (format == PixmapFormat::RGB || format == PixmapFormat::BGR) ? 3U : 4U;
     const auto widthSize = static_cast<std::size_t>(width);
@@ -864,9 +864,7 @@ void Image::reloadColorizedSource() {
     return;
   }
   if (!m_sourcePath.empty() && m_texture.id != 0) {
-    (void)reloadSourceFile(
-        *m_renderer, m_sourcePath, m_sourceRequestedTargetSize, m_sourceMipmap, m_sourceCenterSquareCrop
-    );
+    reloadSourceFile(*m_renderer, m_sourcePath, m_sourceRequestedTargetSize, m_sourceMipmap, m_sourceCenterSquareCrop);
   }
 }
 
@@ -876,7 +874,7 @@ void Image::reloadUncolorizedSource() {
   }
 
   if (!m_colorizationSource.empty() && m_colorizationSourceWidth > 0 && m_colorizationSourceHeight > 0) {
-    (void)commitColorizedRgba(
+    commitColorizedRgba(
         *m_renderer, m_colorizationSource.data(), m_colorizationSourceWidth, m_colorizationSourceHeight, m_sourceMipmap
     );
     updateLayout();
@@ -885,14 +883,12 @@ void Image::reloadUncolorizedSource() {
   }
 
   if (!m_sourcePath.empty()) {
-    (void)reloadSourceFile(
-        *m_renderer, m_sourcePath, m_sourceRequestedTargetSize, m_sourceMipmap, m_sourceCenterSquareCrop
-    );
+    reloadSourceFile(*m_renderer, m_sourcePath, m_sourceRequestedTargetSize, m_sourceMipmap, m_sourceCenterSquareCrop);
     return;
   }
 
   if (!m_ownedSourceRgba.empty() && m_ownedSourceRgbaWidth > 0 && m_ownedSourceRgbaHeight > 0) {
-    (void)commitColorizedRgba(
+    commitColorizedRgba(
         *m_renderer, m_ownedSourceRgba.data(), m_ownedSourceRgbaWidth, m_ownedSourceRgbaHeight, m_sourceMipmap
     );
     updateLayout();

@@ -45,8 +45,8 @@
 namespace settings {
 
   // Defined in settings_content_common.cpp (header not included here to avoid a makeLabel overload clash).
-  [[nodiscard]] std::string formatSliderValue(double value, bool integerValue);
-  [[nodiscard]] std::optional<double> parseDoubleInput(std::string_view text);
+  std::string formatSliderValue(double value, bool integerValue);
+  std::optional<double> parseDoubleInput(std::string_view text);
 
   namespace {
 
@@ -976,7 +976,7 @@ namespace settings {
       return spec.schema.defaultValue;
     }
 
-    [[nodiscard]] bool isBarHorizontal(const Config& cfg, std::string_view barName) {
+    bool isBarHorizontal(const Config& cfg, std::string_view barName) {
       const BarConfig* bar = findBar(cfg, barName);
       if (bar == nullptr) {
         return true;

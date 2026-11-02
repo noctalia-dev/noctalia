@@ -102,7 +102,7 @@ public:
 
   // PollSource integration — called by HttpClientPollSource.
   void addPollFds(std::vector<pollfd>& fds);
-  [[nodiscard]] int timeoutMs() const;
+  int timeoutMs() const;
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx);
 
 private:
@@ -167,7 +167,7 @@ private:
   void applyCommonOptions(CURL* easy) const;
   // Applies the client certificate and key of cert; no-op when cert is null.
   static void applyTlsClientCert(CURL* easy, const std::shared_ptr<const HttpTlsClientCert>& cert);
-  [[nodiscard]] bool hasActiveTransfers() const;
+  bool hasActiveTransfers() const;
 
   CURLM* m_multi = nullptr;
   std::filesystem::path m_caBundlePath;

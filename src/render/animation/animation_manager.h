@@ -36,7 +36,7 @@ public:
   // animations holding a raw pointer to a scene node can never outlive their target.
   void cancelForOwner(const void* owner);
   void tick(float deltaMs);
-  [[nodiscard]] bool hasActive() const;
+  bool hasActive() const;
 
 private:
   struct Entry {

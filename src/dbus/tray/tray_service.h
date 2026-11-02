@@ -70,11 +70,11 @@ public:
   void setChangeCallback(ChangeCallback callback);
   void setMenuToggleCallback(MenuToggleCallback callback);
   void requestMenuToggle(const std::string& itemId, float contentScale = 1.0F) const;
-  [[nodiscard]] std::size_t itemCount() const noexcept;
-  [[nodiscard]] std::vector<TrayItemInfo> items() const;
-  [[nodiscard]] bool itemUsesDBusMenu(const std::string& itemId) const;
-  [[nodiscard]] std::vector<TrayMenuEntry> menuEntries(const std::string& itemId);
-  [[nodiscard]] std::vector<TrayMenuEntry> menuEntriesForParent(const std::string& itemId, std::int32_t parentId);
+  std::size_t itemCount() const noexcept;
+  std::vector<TrayItemInfo> items() const;
+  bool itemUsesDBusMenu(const std::string& itemId) const;
+  std::vector<TrayMenuEntry> menuEntries(const std::string& itemId);
+  std::vector<TrayMenuEntry> menuEntriesForParent(const std::string& itemId, std::int32_t parentId);
   // Returns true if the click event was dispatched to DBus successfully.
   // This does not imply the remote menu action completed successfully.
   [[nodiscard]] bool activateMenuEntry(const std::string& itemId, std::int32_t entryId);
@@ -85,7 +85,7 @@ public:
   // open/close cycles.
   void notifyMenuOpened(const std::string& itemId, std::int32_t entryId = 0);
   void notifyMenuClosed(const std::string& itemId, std::int32_t entryId = 0);
-  [[nodiscard]] std::vector<std::string> registeredItems() const;
+  std::vector<std::string> registeredItems() const;
   [[nodiscard]] bool activateItem(const std::string& itemId, std::int32_t x = 0, std::int32_t y = 0);
   [[nodiscard]] bool openContextMenu(const std::string& itemId, std::int32_t x = 0, std::int32_t y = 0);
 
@@ -115,7 +115,7 @@ private:
   void disconnectExternalWatcher();
   void onExternalItemRegistered(const std::string& service);
   void onExternalItemUnregistered(const std::string& service);
-  [[nodiscard]] bool externalWatcherHasOwner() const;
+  bool externalWatcherHasOwner() const;
   void notifyWatcherItemRegistered(const std::string& itemId);
   void notifyWatcherItemUnregistered(const std::string& itemId);
   void removeItemById(const std::string& itemId);
@@ -123,14 +123,14 @@ private:
   void tryRegisterItemForBusName(const std::string& busName, std::function<void(bool)> callback = {});
   void scheduleBusOnlyRegistrationProbe(const std::string& busName, int retriesRemaining);
   void scheduleMetadataRefreshRetry(const std::string& itemId, int retriesRemaining);
-  [[nodiscard]] bool isMetadataReady(const TrayItemInfo& item) const;
+  bool isMetadataReady(const TrayItemInfo& item) const;
   void registerOrRefreshItem(const std::string& busName, const std::string& objectPath);
   void attachItemProxySignals(const std::string& itemId, sdbus::IProxy& proxy);
   void resolveItemOwner(const std::string& itemId, const std::string& busName);
-  [[nodiscard]] bool isSignalFromItemOwner(const std::string& itemId, sdbus::IProxy& proxy) const;
+  bool isSignalFromItemOwner(const std::string& itemId, sdbus::IProxy& proxy) const;
   void resolvePathOnlyItemProxy(const std::string& itemId);
   void requestProcessNameForItem(const std::string& itemId, const std::string& busName);
-  [[nodiscard]] std::uint32_t connectionPidForBusName(const std::string& busName) const;
+  std::uint32_t connectionPidForBusName(const std::string& busName) const;
   void refreshItemMetadata(const std::string& itemId);
   void ensureMenuCache(const std::string& itemId, const std::string& busName, const std::string& menuPath);
   void dropMenuCache(const std::string& itemId);
@@ -144,8 +144,8 @@ private:
   void removeItemsForBusName(const std::string& busName);
   void emitChanged();
 
-  [[nodiscard]] static std::string busNameFromItemId(const std::string& itemId);
-  [[nodiscard]] static std::string canonicalItemId(const std::string& busName, const std::string& objectPath);
+  static std::string busNameFromItemId(const std::string& itemId);
+  static std::string canonicalItemId(const std::string& busName, const std::string& objectPath);
 
   SessionBus& m_bus;
   enum class WatcherRole { Owner, Client };

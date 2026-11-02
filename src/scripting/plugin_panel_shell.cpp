@@ -44,7 +44,7 @@ namespace scripting {
       return field;
     }
 
-    [[nodiscard]] std::string settingString(
+    std::string settingString(
         const std::unordered_map<std::string, WidgetSettingValue>& settings, std::string_view key,
         std::string_view fallback
     ) {
@@ -58,7 +58,7 @@ namespace scripting {
       return std::string(fallback);
     }
 
-    [[nodiscard]] bool settingBool(
+    bool settingBool(
         const std::unordered_map<std::string, WidgetSettingValue>& settings, std::string_view key, bool fallback
     ) {
       const auto it = settings.find(std::string(key));

@@ -33,7 +33,7 @@ public:
   TextureManager& operator=(const TextureManager&) = delete;
 
   static void setGlobalMipmapsEnabled(bool enabled) { s_mipmapsEnabled = enabled; }
-  [[nodiscard]] static bool globalMipmapsEnabled() { return s_mipmapsEnabled; }
+  static bool globalMipmapsEnabled() { return s_mipmapsEnabled; }
 
   [[nodiscard]] virtual TextureHandle
   loadFromFile(const std::string& path, int targetSize = 0, bool mipmap = false) = 0;

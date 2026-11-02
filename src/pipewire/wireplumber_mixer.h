@@ -22,7 +22,7 @@ public:
 
   // True once connected and the mixer-api plugin is active. Writes made before this are queued
   // and flushed on activation, so callers need not gate on it.
-  [[nodiscard]] bool ready() const noexcept;
+  bool ready() const noexcept;
 
   // Perceptual volume in [0, 1.5] (cubic scale), applied to a node by global id.
   void setVolume(std::uint32_t id, float volume);
@@ -39,7 +39,7 @@ public:
   // applies it live and persists it across reboots.
   void setDefaultNode(std::uint32_t id);
 
-  [[nodiscard]] int pollTimeoutMs() const override;
+  int pollTimeoutMs() const override;
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
 
 protected:

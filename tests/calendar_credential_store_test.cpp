@@ -71,7 +71,7 @@ namespace {
     TempCredentialFile(const TempCredentialFile&) = delete;
     TempCredentialFile& operator=(const TempCredentialFile&) = delete;
 
-    [[nodiscard]] const std::filesystem::path& path() const { return m_path; }
+    const std::filesystem::path& path() const { return m_path; }
 
   private:
     std::filesystem::path m_path;
@@ -159,7 +159,7 @@ namespace {
       );
     }
 
-    [[nodiscard]] std::optional<std::string> value(std::string_view key) const {
+    std::optional<std::string> value(std::string_view key) const {
       std::scoped_lock lock(m_mutex);
       const auto it = m_values.find(std::string(key));
       if (it == m_values.end()) {
@@ -168,7 +168,7 @@ namespace {
       return std::string(reinterpret_cast<const char*>(it->second.data()), it->second.size());
     }
 
-    [[nodiscard]] std::size_t calls() const {
+    std::size_t calls() const {
       std::scoped_lock lock(m_mutex);
       return m_calls;
     }

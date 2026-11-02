@@ -34,16 +34,16 @@ public:
   void initialize();
   void addChangeCallback(ChangeCallback callback);
 
-  [[nodiscard]] int pollTimeoutMs() const;
+  int pollTimeoutMs() const;
   void tick();
 
   // auto_locate is on, or an address is set: a network resolution is requested.
-  [[nodiscard]] bool networkResolutionConfigured() const noexcept;
+  bool networkResolutionConfigured() const noexcept;
   // Network resolution is requested but coordinates are not yet available.
-  [[nodiscard]] bool resolving() const noexcept;
-  [[nodiscard]] bool hasResolvedLocation() const noexcept;
-  [[nodiscard]] std::optional<ResolvedLocation> resolvedLocation() const noexcept;
-  [[nodiscard]] const std::string& error() const noexcept { return m_error; }
+  bool resolving() const noexcept;
+  bool hasResolvedLocation() const noexcept;
+  std::optional<ResolvedLocation> resolvedLocation() const noexcept;
+  const std::string& error() const noexcept { return m_error; }
 
 private:
   enum class RequestKind : std::uint8_t {
@@ -62,13 +62,13 @@ private:
   void scheduleRetryAfterFailure();
   void loadCache();
   void saveCache() const;
-  [[nodiscard]] bool resolvedCoordinatesValid() const noexcept;
-  [[nodiscard]] bool manualCoordinatesValid() const noexcept;
-  [[nodiscard]] static bool coordinatesValid(double latitude, double longitude) noexcept;
+  bool resolvedCoordinatesValid() const noexcept;
+  bool manualCoordinatesValid() const noexcept;
+  static bool coordinatesValid(double latitude, double longitude) noexcept;
 
-  [[nodiscard]] static std::filesystem::path transportCacheDir();
-  [[nodiscard]] static std::filesystem::path stateCacheFilePath();
-  [[nodiscard]] static std::string compactLocationLabel(const std::string& name, const std::string& country);
+  static std::filesystem::path transportCacheDir();
+  static std::filesystem::path stateCacheFilePath();
+  static std::string compactLocationLabel(const std::string& name, const std::string& country);
 
   ConfigService& m_configService;
   HttpClient& m_httpClient;

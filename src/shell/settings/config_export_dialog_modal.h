@@ -39,13 +39,13 @@ namespace settings {
     void open(ConfigExportDialogRequest request);
     void close();
 
-    [[nodiscard]] bool isOpen() const noexcept { return m_open; }
+    bool isOpen() const noexcept { return m_open; }
     void requestLayout();
     void requestRedraw();
 
   private:
     [[nodiscard]] std::unique_ptr<Node> build();
-    [[nodiscard]] LayoutSize measure(Renderer& renderer, const SettingsModalLayoutSpace& space);
+    LayoutSize measure(Renderer& renderer, const SettingsModalLayoutSpace& space);
     void arrange(Renderer& renderer, float width, float height);
     void setMode(ConfigExportMode mode);
     void setCredentials(noctalia::config::CredentialExportMode credentials);

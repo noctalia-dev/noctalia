@@ -47,16 +47,16 @@ public:
   void markNextRequestInternal();
 
   void addPollFds(std::vector<pollfd>& fds) const;
-  [[nodiscard]] int pollTimeoutMs() const;
+  int pollTimeoutMs() const;
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx);
 
-  [[nodiscard]] bool hasPendingRequest() const noexcept;
-  [[nodiscard]] PolkitRequest pendingRequest() const;
-  [[nodiscard]] bool isResponseRequired() const noexcept;
-  [[nodiscard]] bool responseVisible() const noexcept;
-  [[nodiscard]] std::string inputPrompt() const;
-  [[nodiscard]] std::string supplementaryMessage() const;
-  [[nodiscard]] bool supplementaryIsError() const noexcept;
+  bool hasPendingRequest() const noexcept;
+  PolkitRequest pendingRequest() const;
+  bool isResponseRequired() const noexcept;
+  bool responseVisible() const noexcept;
+  std::string inputPrompt() const;
+  std::string supplementaryMessage() const;
+  bool supplementaryIsError() const noexcept;
 
 private:
   struct Impl;

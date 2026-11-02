@@ -32,7 +32,7 @@ protected:
   void doLayout(Renderer& renderer) override;
 
 private:
-  [[nodiscard]] bool ruleIsHorizontal() const;
+  bool ruleIsHorizontal() const;
   void applyPalette();
 
   RectNode* m_rectStart = nullptr;

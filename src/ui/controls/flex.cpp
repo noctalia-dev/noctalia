@@ -107,7 +107,7 @@ namespace {
     FlexScratchGuard(const FlexScratchGuard&) = delete;
     FlexScratchGuard& operator=(const FlexScratchGuard&) = delete;
 
-    [[nodiscard]] std::vector<Flex::ChildLayout>& items() noexcept { return *m_slot; }
+    std::vector<Flex::ChildLayout>& items() noexcept { return *m_slot; }
 
   private:
     std::vector<Flex::ChildLayout>* m_slot;

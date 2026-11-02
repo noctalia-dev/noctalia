@@ -9,10 +9,10 @@ class LockscreenTransitionNode final : public Node {
 public:
   LockscreenTransitionNode() : Node(NodeType::LockscreenTransition) { setHitTestVisible(false); }
 
-  [[nodiscard]] TextureId texture() const noexcept { return m_texture; }
-  [[nodiscard]] LockscreenTransitionKind transition() const noexcept { return m_transition; }
-  [[nodiscard]] float progress() const noexcept { return m_progress; }
-  [[nodiscard]] const LockscreenTransitionParams& transitionParams() const noexcept { return m_params; }
+  TextureId texture() const noexcept { return m_texture; }
+  LockscreenTransitionKind transition() const noexcept { return m_transition; }
+  float progress() const noexcept { return m_progress; }
+  const LockscreenTransitionParams& transitionParams() const noexcept { return m_params; }
 
   void setTexture(TextureId texture) {
     if (m_texture == texture) {

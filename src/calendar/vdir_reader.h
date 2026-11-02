@@ -23,16 +23,15 @@ namespace calendar {
   };
 
   // Resolves the default XDG calendar path: $XDG_DATA_HOME/calendars or ~/.local/share/calendars.
-  [[nodiscard]] std::filesystem::path defaultVdirPath();
+  std::filesystem::path defaultVdirPath();
 
   // Recursively discovers leaf directories containing *.ics files starting from rootPath up to maxDepth.
-  [[nodiscard]] std::vector<VdirCollection>
-  discoverVdirCollections(const std::filesystem::path& rootPath, int maxDepth = 5);
+  std::vector<VdirCollection> discoverVdirCollections(const std::filesystem::path& rootPath, int maxDepth = 5);
 
   // Reads all *.ics files in the collection and parses them within the given time window.
   // remainingEvents bounds how many events the caller is still willing to accept; it is decremented
   // as events are produced and reaching zero stops the read and logs the truncation.
-  [[nodiscard]] std::vector<CalendarEvent> loadVdirCollectionEvents(
+  std::vector<CalendarEvent> loadVdirCollectionEvents(
       const VdirCollection& collection, std::chrono::system_clock::time_point windowStart,
       std::chrono::system_clock::time_point windowEnd, std::size_t& remainingEvents,
       const std::stop_token& stopToken = {}

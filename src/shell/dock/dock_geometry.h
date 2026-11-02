@@ -36,41 +36,41 @@ namespace shell::dock {
     RectInsets logicalInset{};
   };
 
-  [[nodiscard]] DockConcaveShape dockConcaveShape(const DockConfig& cfg);
+  DockConcaveShape dockConcaveShape(const DockConfig& cfg);
 
-  [[nodiscard]] std::uint32_t positionToAnchor(DockEdge edge);
-  [[nodiscard]] bool isVerticalEdge(DockEdge edge);
+  std::uint32_t positionToAnchor(DockEdge edge);
+  bool isVerticalEdge(DockEdge edge);
   void shiftAlongEdge(DockEdge edge, float& x, float& y, float amount);
-  [[nodiscard]] std::int32_t dockContentSize(const DockConfig& cfg, std::size_t itemCount);
-  [[nodiscard]] std::int32_t dockThickness(const DockConfig& cfg);
+  std::int32_t dockContentSize(const DockConfig& cfg, std::size_t itemCount);
+  std::int32_t dockThickness(const DockConfig& cfg);
   // Extra cross-axis surface padding so magnified icons (and badges) are not clipped.
-  [[nodiscard]] std::int32_t dockHoverZoomCrossPad(const DockConfig& cfg);
+  std::int32_t dockHoverZoomCrossPad(const DockConfig& cfg);
   // Extra main-axis end padding for magnified icon/badge overhang past the pill ends.
-  [[nodiscard]] std::int32_t dockHoverZoomMainPad(const DockConfig& cfg);
-  [[nodiscard]] std::size_t dockLauncherButtonCount(DockLauncherPosition position);
-  [[nodiscard]] std::size_t dockLauncherButtonCount(const DockConfig& cfg);
+  std::int32_t dockHoverZoomMainPad(const DockConfig& cfg);
+  std::size_t dockLauncherButtonCount(DockLauncherPosition position);
+  std::size_t dockLauncherButtonCount(const DockConfig& cfg);
   // The surface spans the output's main axis minus `margin_ends` regardless of item count, so
   // window changes never resize the layer surface; computePanelGeometry centers the capsule in it.
   // `fractionalScale` marks an output whose scale is not an integer: a flush dock overlaps the
   // screen edge by a logical pixel there, because the compositor can otherwise round the edge a
   // device pixel short and leave a gap.
-  [[nodiscard]] DockSurfaceGeometry computeSurfaceGeometry(
+  DockSurfaceGeometry computeSurfaceGeometry(
       const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, bool fractionalScale,
       std::int32_t outputLogicalWidth, std::int32_t outputLogicalHeight
   );
-  [[nodiscard]] LayerSurfaceConfig makeLayerSurfaceConfig(
+  LayerSurfaceConfig makeLayerSurfaceConfig(
       const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, bool fractionalScale,
       std::int32_t outputLogicalWidth, std::int32_t outputLogicalHeight
   );
-  [[nodiscard]] DockPanelGeometry computePanelGeometry(
+  DockPanelGeometry computePanelGeometry(
       const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH,
       std::size_t itemCount
   );
-  [[nodiscard]] std::pair<float, float> computeHiddenSlideDelta(
+  std::pair<float, float> computeHiddenSlideDelta(
       const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH,
       const DockPanelGeometry& panel
   );
-  [[nodiscard]] std::vector<InputRect> computeInputRegion(
+  std::vector<InputRect> computeInputRegion(
       const DockConfig& cfg, const DockPanelGeometry& panel, int surfaceW, int surfaceH, bool hidden,
       bool fractionalScale
   );

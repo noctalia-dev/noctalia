@@ -23,7 +23,7 @@ public:
   void restoreAfterGraphicsReset();
   void finishGraphicsResetRecovery() noexcept;
 
-  [[nodiscard]] WallpaperRenderer* wallpaperRenderer() noexcept { return &m_wallpaperRenderer; }
+  WallpaperRenderer* wallpaperRenderer() noexcept { return &m_wallpaperRenderer; }
 
 protected:
   bool createWlSurface() override;

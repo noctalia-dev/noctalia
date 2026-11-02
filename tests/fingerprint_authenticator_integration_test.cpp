@@ -70,24 +70,24 @@ namespace {
     // fprintd exits or crashes: the name has no owner and nothing activates it on the test bus.
     void dropBusName() { connection->releaseName(kFprintBusName); }
 
-    [[nodiscard]] std::string owner() const {
+    std::string owner() const {
       std::scoped_lock lock(mutex);
       return claimOwner;
     }
 
-    [[nodiscard]] long calls(const std::string& method, const std::string& sender) const {
+    long calls(const std::string& method, const std::string& sender) const {
       std::scoped_lock lock(mutex);
       return std::ranges::count_if(log, [&](const Call& c) { return c.method == method && c.sender == sender; });
     }
 
-    [[nodiscard]] long accepted(const std::string& method, const std::string& sender) const {
+    long accepted(const std::string& method, const std::string& sender) const {
       std::scoped_lock lock(mutex);
       return std::ranges::count_if(log, [&](const Call& c) {
         return c.method == method && c.sender == sender && c.accepted;
       });
     }
 
-    [[nodiscard]] std::vector<std::string> acceptedMethods(const std::string& sender) const {
+    std::vector<std::string> acceptedMethods(const std::string& sender) const {
       std::scoped_lock lock(mutex);
       std::vector<std::string> out;
       for (const auto& c : log) {
@@ -99,7 +99,7 @@ namespace {
     }
 
   private:
-    [[nodiscard]] std::string currentSender() const { return device->getCurrentlyProcessedMessage().getSender(); }
+    std::string currentSender() const { return device->getCurrentlyProcessedMessage().getSender(); }
 
     void claim(const std::string& sender) {
       {

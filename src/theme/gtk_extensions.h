@@ -21,8 +21,8 @@ namespace noctalia::theme {
     bool gtk3 = false;
     bool gtk4 = false;
 
-    [[nodiscard]] bool enabled(GtkToolkit toolkit) const { return toolkit == GtkToolkit::Gtk3 ? gtk3 : gtk4; }
-    [[nodiscard]] bool any() const { return gtk3 || gtk4; }
+    bool enabled(GtkToolkit toolkit) const { return toolkit == GtkToolkit::Gtk3 ? gtk3 : gtk4; }
+    bool any() const { return gtk3 || gtk4; }
   };
 
   struct GtkExtensionFile {
@@ -34,7 +34,7 @@ namespace noctalia::theme {
   inline constexpr std::string_view kGtkExtensionDir = "noctalia-extensions";
 
   // $XDG_CONFIG_HOME/gtk-3.0 or $XDG_CONFIG_HOME/gtk-4.0.
-  [[nodiscard]] std::filesystem::path gtkConfigDir(GtkToolkit toolkit);
+  std::filesystem::path gtkConfigDir(GtkToolkit toolkit);
 
   // Rewrites the `gtk_extension` entries of one community template manifest in place: a valid
   // entry for an enabled toolkit gets its Noctalia-owned output_path; an invalid entry, or one

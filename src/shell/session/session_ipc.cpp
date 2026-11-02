@@ -13,11 +13,11 @@
 
 namespace {
 
-  [[nodiscard]] SessionPanelActionConfig builtinAction(std::string_view action) {
+  SessionPanelActionConfig builtinAction(std::string_view action) {
     return SessionPanelActionConfig{.action = std::string(action)};
   }
 
-  [[nodiscard]] std::string unknownSessionActionError(std::string_view action) {
+  std::string unknownSessionActionError(std::string_view action) {
     return "error: unknown session action \""
         + std::string(action)
         + "\" (try: lock, suspend, lock-and-suspend, logout, reboot, reboot-uefi, shutdown)\n";

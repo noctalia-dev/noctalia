@@ -37,7 +37,7 @@ public:
   bool makeCurrentNoSurface() override;
   bool beginFrame(RenderTarget& target) override;
   void endFrame(RenderTarget& target) override;
-  [[nodiscard]] RenderGraphicsResetStatus graphicsResetStatus() override;
+  RenderGraphicsResetStatus graphicsResetStatus() override;
   void invalidateGpuResources() override;
   void abandonAfterGraphicsReset() noexcept override;
 
@@ -49,7 +49,7 @@ public:
   void setViewport(std::uint32_t width, std::uint32_t height) override;
   void clear(Color color) override;
   void setBlendMode(RenderBlendMode mode) override;
-  [[nodiscard]] int maxTextureSize() override;
+  int maxTextureSize() override;
   void setScissor(RenderScissor scissor) override;
   void disableScissor() override;
   void drawRect(
@@ -96,7 +96,7 @@ public:
       float radius
   ) override;
 
-  [[nodiscard]] TextureManager& textureManager() override { return m_textureManager; }
+  TextureManager& textureManager() override { return m_textureManager; }
 
 private:
   void drawFullscreenQuad(const ShaderProgram& program);

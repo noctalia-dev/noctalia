@@ -6,8 +6,8 @@
 
 namespace i18n::detail {
 
-  [[nodiscard]] std::string normalizeLanguageTag(std::string_view raw);
-  [[nodiscard]] std::vector<std::string> catalogLanguageCandidates(std::string_view raw);
-  [[nodiscard]] bool isRtlLanguage(std::string_view tag);
+  std::string normalizeLanguageTag(std::string_view raw);
+  std::vector<std::string> catalogLanguageCandidates(std::string_view raw);
+  bool isRtlLanguage(std::string_view tag);
 
 } // namespace i18n::detail

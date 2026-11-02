@@ -21,10 +21,10 @@ public:
   void create() override;
   void onClose() override;
 
-  [[nodiscard]] float preferredWidth() const override { return scaled(620.0F); }
-  [[nodiscard]] float preferredHeight() const override { return scaled(580.0F); }
-  [[nodiscard]] bool hasDecoration() const override { return true; }
-  [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::OnDemand; }
+  float preferredWidth() const override { return scaled(620.0F); }
+  float preferredHeight() const override { return scaled(580.0F); }
+  bool hasDecoration() const override { return true; }
+  LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::OnDemand; }
 
   static bool isFirstRun(const ConfigService& config);
 

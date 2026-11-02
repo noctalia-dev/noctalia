@@ -292,7 +292,7 @@ DropZone* DragDropController::targetAt(float sceneX, float sceneY) const {
 
     float localX = 0.0F;
     float localY = 0.0F;
-    (void)Node::mapFromScene(zone, sceneX, sceneY, localX, localY);
+    Node::mapFromScene(zone, sceneX, sceneY, localX, localY);
     const float slop = zone->hitSlop();
     if (localX < -slop || localX >= zone->width() + slop || localY < -slop || localY >= zone->height() + slop) {
       continue;
@@ -371,7 +371,7 @@ void DragDropController::updatePreview(float sceneX, float sceneY) {
   float localY = 0.0F;
   // Pointer capture can deliver positions outside the overlay. mapFromScene still
   // provides the transformed coordinates when its containment result is false.
-  (void)Node::mapFromScene(m_overlayRoot, sceneX - m_pointerOffsetX, sceneY - m_pointerOffsetY, localX, localY);
+  Node::mapFromScene(m_overlayRoot, sceneX - m_pointerOffsetX, sceneY - m_pointerOffsetY, localX, localY);
   m_preview->setPosition(
       clampPreviewPosition({
           .position = localX,
@@ -401,7 +401,7 @@ void DragDropController::clearPreview() {
   }
   m_preview->setSource(nullptr);
   if (Node* parent = m_preview->parent(); parent != nullptr) {
-    (void)parent->removeChild(m_preview);
+    parent->removeChild(m_preview);
   }
   m_preview = nullptr;
   if (m_previewTarget != nullptr) {

@@ -146,11 +146,9 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     self->m_sceneRoot = std::make_unique<Node>();
     self->m_sceneRoot->setSize(fw, fh);
     if (Style::popupShadowsEnabled()) {
-      (void)popup_chrome::addShadow(
-          *self->m_sceneRoot, chrome, self->m_shadowConfig, Style::scaledRadiusLg(contentScale)
-      );
+      popup_chrome::addShadow(*self->m_sceneRoot, chrome, self->m_shadowConfig, Style::scaledRadiusLg(contentScale));
     }
-    (void)popup_chrome::addCardBackground(*self->m_sceneRoot, chrome, contentScale);
+    popup_chrome::addCardBackground(*self->m_sceneRoot, chrome, contentScale);
 
     auto scrollView = std::make_unique<ScrollView>();
     scrollView->setPosition(chrome.contentX(), chrome.contentY());
@@ -418,7 +416,7 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
       requestVisualUpdate();
     }
   } else if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
-    (void)m_menu->activateHighlighted();
+    m_menu->activateHighlighted();
   } else if (KeySymbol::isHome(sym)) {
     m_menu->setHighlightedIndex(0);
     m_highlightedIndex = m_menu->highlightedIndex();

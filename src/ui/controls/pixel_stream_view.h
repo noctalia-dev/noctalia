@@ -53,7 +53,7 @@ public:
 
 private:
   void onStreamChanged();
-  [[nodiscard]] std::optional<std::pair<float, float>> imagePosition(float localX, float localY) const;
+  std::optional<std::pair<float, float>> imagePosition(float localX, float localY) const;
   void emit(PointerKind kind, float x = 0.0F, float y = 0.0F, float dx = 0.0F, float dy = 0.0F);
   void updateAcceptedButtons();
   void doLayout(Renderer& renderer) override;

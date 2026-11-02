@@ -26,8 +26,8 @@ namespace settings {
   public:
     explicit SettingsControlFactory(SettingsContentContext ctx);
 
-    [[nodiscard]] const SettingsContentContext& context() const noexcept { return m_ctx; }
-    [[nodiscard]] float scale() const noexcept { return m_scale; }
+    const SettingsContentContext& context() const noexcept { return m_ctx; }
+    float scale() const noexcept { return m_scale; }
 
     [[nodiscard]] std::unique_ptr<Button> makeResetButton(const std::vector<std::string>& path);
     // Same button, but the confirmed click runs `onConfirmed` instead of clearing `path`.
@@ -105,7 +105,7 @@ namespace settings {
     // Resets several config paths as one setting (e.g. a range slider's low + high paths).
     [[nodiscard]] std::unique_ptr<Button>
     makeGroupedResetButton(std::vector<std::vector<std::string>> paths, std::function<void()> onConfirmed = nullptr);
-    [[nodiscard]] static bool isTemplateEnableTogglePath(const std::vector<std::string>& path);
+    static bool isTemplateEnableTogglePath(const std::vector<std::string>& path);
 
     SettingsContentContext m_ctx;
     float m_scale;

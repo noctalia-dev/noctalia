@@ -259,7 +259,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] float panelRevealContentOpacity(float reveal) {
+  float panelRevealContentOpacity(float reveal) {
     const float v = std::clamp(reveal, 0.0F, 1.0F);
     if (v <= 0.15F) {
       return 0.0F;
@@ -267,8 +267,7 @@ namespace {
     return std::clamp((v - 0.15F) / 0.85F, 0.0F, 1.0F);
   }
 
-  [[nodiscard]] AttachedRevealDirection
-  detachedRevealDirection(std::string_view panelPosition, std::string_view barPosition) {
+  AttachedRevealDirection detachedRevealDirection(std::string_view panelPosition, std::string_view barPosition) {
     if (panelPosition == "top_left" || panelPosition == "top_center" || panelPosition == "top_right") {
       return AttachedRevealDirection::Down;
     }
@@ -289,7 +288,7 @@ namespace {
 
   // Floating screen position for a built-in panel (one of kPanelPositions).
   // "auto" = bar-relative (and the default for any non-built-in panel).
-  [[nodiscard]] std::string resolvePanelPosition(const ConfigService* configService, std::string_view panelId) {
+  std::string resolvePanelPosition(const ConfigService* configService, std::string_view panelId) {
     if (configService == nullptr) {
       return "auto";
     }
@@ -315,7 +314,7 @@ namespace {
     return "auto";
   }
 
-  [[nodiscard]] bool usesConfiguredFloatingLayer(std::string_view panelId) {
+  bool usesConfiguredFloatingLayer(std::string_view panelId) {
     return panelId == "clipboard"
         || panelId == "control-center"
         || panelId == "launcher"
@@ -324,7 +323,7 @@ namespace {
         || panelId == "wallpaper";
   }
 
-  [[nodiscard]] LayerShellLayer
+  LayerShellLayer
   resolveFloatingPanelLayer(const ConfigService* configService, std::string_view panelId, const Panel& panel) {
     if (configService == nullptr) {
       return panel.layer();
@@ -335,7 +334,7 @@ namespace {
     return panel.layer();
   }
 
-  [[nodiscard]] bool openNearClickEnabledForPanel(const ConfigService* configService, std::string_view panelId) {
+  bool openNearClickEnabledForPanel(const ConfigService* configService, std::string_view panelId) {
     if (panelId == "tray-drawer") {
       return true;
     }
@@ -365,8 +364,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] bool
-  openNearClickEnabled(const Panel* panel, std::string_view panelId, const ConfigService* configService) {
+  bool openNearClickEnabled(const Panel* panel, std::string_view panelId, const ConfigService* configService) {
     if (panelId.contains(':')) {
       if (panel == nullptr) {
         return false;
@@ -2937,7 +2935,7 @@ void PanelManager::layoutActivePanel(Renderer& renderer) {
     }
     if (firstMeasure || m_panelVisualHeight == target) {
       // The open reveal already animates the first appearance.
-      (void)setCardHeight(target);
+      setCardHeight(target);
     } else {
       m_contentFit.animation = m_animations.animate(
           static_cast<float>(m_panelVisualHeight), static_cast<float>(target), Style::animNormal, Easing::EaseOutCubic,

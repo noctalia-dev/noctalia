@@ -43,7 +43,7 @@ private:
   void doUpdate(Renderer& renderer) override;
   void syncState(Renderer& renderer);
   void syncWidgetVisibility(bool showWidget);
-  [[nodiscard]] std::string glyphName(float volume, bool muted, const std::string& effectsProfile = {}) const;
+  std::string glyphName(float volume, bool muted, const std::string& effectsProfile = {}) const;
 
   PipeWireService* m_audio = nullptr;
   EasyEffectsService* m_easyEffects = nullptr;

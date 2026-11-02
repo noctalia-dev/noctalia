@@ -19,7 +19,7 @@ namespace {
   constexpr float kBaseSize = 300.0F;
   constexpr int kBandCount = FancyAudioVisualizerNode::kBandCount;
 
-  [[nodiscard]] float valueAsFloat(const WidgetSettingValue& value, float fallback) {
+  float valueAsFloat(const WidgetSettingValue& value, float fallback) {
     if (const auto* v = std::get_if<double>(&value)) {
       return static_cast<float>(*v);
     }

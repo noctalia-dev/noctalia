@@ -56,12 +56,10 @@ namespace settings {
         addChild(std::move(panel));
       }
 
-      [[nodiscard]] std::function<void()> closeCallback() const { return m_request.requestClose; }
-      [[nodiscard]] std::function<void()> closedCallback() const { return m_request.onClosed; }
-      [[nodiscard]] std::function<bool(const KeyboardEvent&)> preDispatchCallback() const {
-        return m_request.preDispatchKeyboard;
-      }
-      [[nodiscard]] std::function<InputArea*()> initialFocusCallback() const { return m_request.initialFocusArea; }
+      std::function<void()> closeCallback() const { return m_request.requestClose; }
+      std::function<void()> closedCallback() const { return m_request.onClosed; }
+      std::function<bool(const KeyboardEvent&)> preDispatchCallback() const { return m_request.preDispatchKeyboard; }
+      std::function<InputArea*()> initialFocusCallback() const { return m_request.initialFocusArea; }
 
       void rebuildContent() {
         if (!m_request.build || m_contentHost == nullptr) {
@@ -130,7 +128,7 @@ namespace settings {
       }
 
     private:
-      [[nodiscard]] float m_scale() const noexcept { return std::max(0.1F, m_request.contentPadding / 12.0F); }
+      float m_scale() const noexcept { return std::max(0.1F, m_request.contentPadding / 12.0F); }
 
       SettingsModalRequest m_request;
       InputArea* m_backdrop = nullptr;

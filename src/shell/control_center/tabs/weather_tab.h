@@ -44,10 +44,10 @@ private:
   void syncHourlyForecast(Renderer& renderer, const WeatherSnapshot& snapshot);
   void showLocationPrompt(bool show);
   void hideEffect();
-  [[nodiscard]] static std::string todayIso(std::int32_t utcOffsetSeconds);
-  [[nodiscard]] static std::string hourLabel(const std::string& isoTime, const std::string& timeFormat);
-  [[nodiscard]] static std::string weekdayLabel(const std::string& isoDate);
-  [[nodiscard]] static EffectType effectForWeatherCode(std::int32_t code, bool isDay);
+  static std::string todayIso(std::int32_t utcOffsetSeconds);
+  static std::string hourLabel(const std::string& isoTime, const std::string& timeFormat);
+  static std::string weekdayLabel(const std::string& isoDate);
+  static EffectType effectForWeatherCode(std::int32_t code, bool isDay);
 
   static constexpr std::size_t kForecastRowCount = 7;
 

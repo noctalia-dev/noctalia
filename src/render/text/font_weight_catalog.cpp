@@ -30,7 +30,7 @@ namespace text {
 
     std::unordered_map<std::string, CatalogEntry> g_cache;
 
-    [[nodiscard]] std::string normalizeFamilyKey(std::string_view fontFamily) {
+    std::string normalizeFamilyKey(std::string_view fontFamily) {
       std::string key = StringUtils::trim(fontFamily);
       if (key.empty()) {
         key = "sans-serif";
@@ -38,7 +38,7 @@ namespace text {
       return StringUtils::toLower(std::move(key));
     }
 
-    [[nodiscard]] std::vector<FontWeight> allPresetLabelFontWeights() {
+    std::vector<FontWeight> allPresetLabelFontWeights() {
       return {std::begin(kPresetLabelFontWeights), std::end(kPresetLabelFontWeights)};
     }
 
@@ -50,7 +50,7 @@ namespace text {
       return true;
     }
 
-    [[nodiscard]] std::optional<FontWeight> nearestPresetForOpenTypeWeight(int openTypeWeight) {
+    std::optional<FontWeight> nearestPresetForOpenTypeWeight(int openTypeWeight) {
       std::optional<FontWeight> best;
       int bestDistance = std::numeric_limits<int>::max();
       for (FontWeight candidateWeight : kPresetLabelFontWeights) {
@@ -118,7 +118,7 @@ namespace text {
       return fonts;
     }
 
-    [[nodiscard]] CatalogEntry discoverCatalogEntry(std::string_view fontFamily) {
+    CatalogEntry discoverCatalogEntry(std::string_view fontFamily) {
       CatalogEntry entry{};
       entry.weights = allPresetLabelFontWeights();
 
@@ -198,7 +198,7 @@ namespace text {
       return entry;
     }
 
-    [[nodiscard]] const CatalogEntry& catalogEntryForFamily(std::string_view fontFamily) {
+    const CatalogEntry& catalogEntryForFamily(std::string_view fontFamily) {
       const std::string cacheKey = normalizeFamilyKey(fontFamily);
       const auto cached = g_cache.find(cacheKey);
       if (cached != g_cache.end()) {

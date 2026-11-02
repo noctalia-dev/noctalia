@@ -54,8 +54,7 @@ struct OsdContent {
 
 // Custom OSD as requested by plugins and the osd-show IPC command. No progress hides the bar;
 // a given progress is clamped to [0, 1].
-[[nodiscard]] OsdContent
-customOsdContent(std::string icon, std::string value, std::optional<double> progress, bool inactive);
+OsdContent customOsdContent(std::string icon, std::string value, std::optional<double> progress, bool inactive);
 
 class OsdOverlay {
 public:
@@ -75,11 +74,11 @@ public:
   void requestRedraw();
 
   void show(const OsdContent& content);
-  [[nodiscard]] bool isEnabled() const noexcept;
+  bool isEnabled() const noexcept;
 
   // True while any instance is on screen or animating into view. Callers use this to correct
   // already-visible content in place without popping up a fresh OSD.
-  [[nodiscard]] bool isVisible() const;
+  bool isVisible() const;
 
 private:
   struct SurfaceMargins {
@@ -115,9 +114,9 @@ private:
     float appliedCornerRadiusScale = -1.0F;
   };
 
-  [[nodiscard]] SurfaceMargins surfaceMarginsForPosition(const std::string& position) const;
-  [[nodiscard]] std::vector<std::string> osdMonitors() const;
-  [[nodiscard]] bool shouldRenderOnOutput(const WaylandOutput& output) const;
+  SurfaceMargins surfaceMarginsForPosition(const std::string& position) const;
+  std::vector<std::string> osdMonitors() const;
+  bool shouldRenderOnOutput(const WaylandOutput& output) const;
   void ensureSurfaces();
   void destroySurfaces();
   void setEnabledOverride(bool enabled);

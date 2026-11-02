@@ -141,9 +141,9 @@ namespace settings {
 
     // Argument specs spell required arguments as <id> and optional ones as [context]. A <> nested
     // inside brackets is still optional, so only a top-level one makes the argument mandatory.
-    [[nodiscard]] bool specTakesArguments(std::string_view spec) { return !spec.empty(); }
+    bool specTakesArguments(std::string_view spec) { return !spec.empty(); }
 
-    [[nodiscard]] bool specRequiresArgument(std::string_view spec) {
+    bool specRequiresArgument(std::string_view spec) {
       int optionalDepth = 0;
       for (const char c : spec) {
         if (c == '[') {
@@ -687,17 +687,17 @@ namespace settings {
     const double maxValue = setting.maxValue;
     lowInput->setOnChange([lowInputPtr](const std::string& /*text*/) { lowInputPtr->setInvalid(false); });
     lowInput->setOnSubmit([commitInput, lowInputPtr, lowPath, minValue, maxValue](const std::string& /*text*/) {
-      (void)commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
+      commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
     });
     lowInput->setOnFocusLoss([commitInput, lowInputPtr, lowPath, minValue, maxValue] {
-      (void)commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
+      commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
     });
     highInput->setOnChange([highInputPtr](const std::string& /*text*/) { highInputPtr->setInvalid(false); });
     highInput->setOnSubmit([commitInput, highInputPtr, highPath, minValue, maxValue](const std::string& /*text*/) {
-      (void)commitInput(highInputPtr, highPath, minValue, maxValue, false);
+      commitInput(highInputPtr, highPath, minValue, maxValue, false);
     });
     highInput->setOnFocusLoss([commitInput, highInputPtr, highPath, minValue, maxValue] {
-      (void)commitInput(highInputPtr, highPath, minValue, maxValue, false);
+      commitInput(highInputPtr, highPath, minValue, maxValue, false);
     });
 
     wrap->addChild(std::move(slider));

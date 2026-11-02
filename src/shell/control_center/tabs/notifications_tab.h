@@ -46,14 +46,14 @@ private:
   void syncDndButton();
   void updateEmptyState(bool hasHistory, bool hasFiltered);
   std::optional<std::size_t> filteredIndexForId(uint32_t id) const;
-  [[nodiscard]] const NotificationHistoryEntry* filteredEntry(std::size_t index) const;
+  const NotificationHistoryEntry* filteredEntry(std::size_t index) const;
   // The filter slide keeps its snapshot; this only removes ids history no longer holds.
   void dropVanishedFiltered();
   void cancelFilterSlide();
   void beginFilterSlideOut(std::size_t nextIndex);
   void beginFilterSlideIn();
   void applyFilterSlide(float progress, bool slidingIn);
-  [[nodiscard]] bool filterSlideOutActive() const;
+  bool filterSlideOutActive() const;
 
   NotificationManager* m_notifications = nullptr;
   CompositorPlatform* m_platform = nullptr;

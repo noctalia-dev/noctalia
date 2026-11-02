@@ -298,7 +298,7 @@ void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
   }
   if (m_tree.has_value()) {
     m_reconciler.setScale(contentScale());
-    (void)m_reconciler.reconcile(*m_contentFlex, *m_tree, renderer);
+    m_reconciler.reconcile(*m_contentFlex, *m_tree, renderer);
     m_treeDirty = false;
   }
   m_flex->setSize(width, height);

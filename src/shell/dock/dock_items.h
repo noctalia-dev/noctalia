@@ -73,21 +73,20 @@ namespace shell::dock {
     std::function<void(DockInstance&, bool commit)> endDrag;
   };
 
-  [[nodiscard]] std::string_view dockLauncherIconGlyph(const DockConfig& cfg);
+  std::string_view dockLauncherIconGlyph(const DockConfig& cfg);
   [[nodiscard]] std::unique_ptr<Flex> makeDockItemRow(const DockConfig& cfg, bool vertical);
   void rebuildItems(
       DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot,
       const DockItemCallbacks& callbacks
   );
   void updateVisuals(DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot);
-  [[nodiscard]] bool updateHoverZoom(DockInstance& instance, const DockSnapshot& snapshot, float deltaMs);
-  [[nodiscard]] bool
-  syncHoverPointerFromScene(DockInstance& instance, const DockConfig& cfg, float sceneX, float sceneY);
+  bool updateHoverZoom(DockInstance& instance, const DockSnapshot& snapshot, float deltaMs);
+  bool syncHoverPointerFromScene(DockInstance& instance, const DockConfig& cfg, float sceneX, float sceneY);
   void clearHoverZoom(DockInstance& instance, const DockSnapshot& snapshot);
   void syncDockItemRestPositions(DockInstance& instance, const DockConfig& cfg);
   void applyDragVisuals(DockInstance& instance, const DockConfig& cfg);
   void clearDragVisuals(DockInstance& instance, const DockConfig& cfg);
   void dismissDockTooltip();
-  [[nodiscard]] std::size_t computeDragTargetIndex(const DockInstance& instance, const DockConfig& cfg, float mainPos);
+  std::size_t computeDragTargetIndex(const DockInstance& instance, const DockConfig& cfg, float mainPos);
 
 } // namespace shell::dock

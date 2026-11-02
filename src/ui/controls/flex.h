@@ -86,22 +86,22 @@ public:
   Node* insertChildAt(std::size_t index, std::unique_ptr<Node> child) override;
   std::unique_ptr<Node> removeChild(Node* child) override;
 
-  [[nodiscard]] FlexDirection direction() const noexcept { return m_direction; }
-  [[nodiscard]] bool wrap() const noexcept { return m_wrap; }
-  [[nodiscard]] float gap() const noexcept { return m_gap; }
-  [[nodiscard]] FlexAlign align() const noexcept { return m_align; }
-  [[nodiscard]] FlexJustify justify() const noexcept { return m_justify; }
-  [[nodiscard]] bool mirrorInRtl() const noexcept { return m_mirrorInRtl; }
-  [[nodiscard]] FlexSizePolicy widthPolicy() const noexcept { return m_widthPolicy; }
-  [[nodiscard]] FlexSizePolicy heightPolicy() const noexcept { return m_heightPolicy; }
-  [[nodiscard]] float minWidth() const noexcept { return m_minWidth; }
-  [[nodiscard]] float minHeight() const noexcept { return m_minHeight; }
-  [[nodiscard]] float maxWidth() const noexcept { return m_maxWidth; }
-  [[nodiscard]] float maxHeight() const noexcept { return m_maxHeight; }
-  [[nodiscard]] float paddingTop() const noexcept { return m_paddingTop; }
-  [[nodiscard]] float paddingRight() const noexcept { return m_paddingRight; }
-  [[nodiscard]] float paddingBottom() const noexcept { return m_paddingBottom; }
-  [[nodiscard]] float paddingLeft() const noexcept { return m_paddingLeft; }
+  FlexDirection direction() const noexcept { return m_direction; }
+  bool wrap() const noexcept { return m_wrap; }
+  float gap() const noexcept { return m_gap; }
+  FlexAlign align() const noexcept { return m_align; }
+  FlexJustify justify() const noexcept { return m_justify; }
+  bool mirrorInRtl() const noexcept { return m_mirrorInRtl; }
+  FlexSizePolicy widthPolicy() const noexcept { return m_widthPolicy; }
+  FlexSizePolicy heightPolicy() const noexcept { return m_heightPolicy; }
+  float minWidth() const noexcept { return m_minWidth; }
+  float minHeight() const noexcept { return m_minHeight; }
+  float maxWidth() const noexcept { return m_maxWidth; }
+  float maxHeight() const noexcept { return m_maxHeight; }
+  float paddingTop() const noexcept { return m_paddingTop; }
+  float paddingRight() const noexcept { return m_paddingRight; }
+  float paddingBottom() const noexcept { return m_paddingBottom; }
+  float paddingLeft() const noexcept { return m_paddingLeft; }
 
   void setSize(float width, float height) override;
   void setFrameSize(float width, float height);

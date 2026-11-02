@@ -25,7 +25,7 @@ namespace {
     rgba.resize(pixelCount);
   }
 
-  [[nodiscard]] bool allOpaque(const std::vector<std::uint8_t>& rgba) {
+  bool allOpaque(const std::vector<std::uint8_t>& rgba) {
     for (std::size_t index = 3; index < rgba.size(); index += 4) {
       if (rgba[index] != 0xFF) {
         return false;
@@ -35,7 +35,7 @@ namespace {
   }
 
   // Number of 2x halvings that keep the image at least `coverage` on both axes.
-  [[nodiscard]] int reductionLevel(int width, int height, TextureCoverage coverage) {
+  int reductionLevel(int width, int height, TextureCoverage coverage) {
     if (coverage.empty()) {
       return 0;
     }

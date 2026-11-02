@@ -366,7 +366,7 @@ namespace noctalia::config {
       case WidgetSettingType::Color:
         if (auto v = node.value<std::string>()) {
           try {
-            (void)colorSpecFromConfigString(*v); // empty context: diag already carries the path
+            colorSpecFromConfigString(*v); // empty context: diag already carries the path
           } catch (const std::exception& e) {
             reportError(path, e.what());
           }
@@ -552,7 +552,7 @@ namespace noctalia::config {
       check(section, prefix, kSection);
       if (const toml::node* order = section.get("widget_order"); order != nullptr) {
         if (const auto* arr = order->as_array()) {
-          (void)schema::readStringArray(*arr, schema::joinPath(prefix, "widget_order"), diag);
+          schema::readStringArray(*arr, schema::joinPath(prefix, "widget_order"), diag);
         } else {
           schema::warnWrongType(diag, schema::joinPath(prefix, "widget_order"), *order, "an array of strings");
         }
@@ -769,7 +769,7 @@ namespace noctalia::config {
       for (const auto& [name, node] : *bars) {
         if (name.str() == std::string_view("order")) {
           if (const auto* arr = node.as_array()) {
-            (void)schema::readStringArray(*arr, "bar.order", diag);
+            schema::readStringArray(*arr, "bar.order", diag);
           } else {
             schema::warnWrongType(diag, "bar.order", node, "an array of strings");
           }

@@ -91,12 +91,12 @@ public:
   void forgetSurface(wl_surface* surface) noexcept;
   void cleanup();
 
-  [[nodiscard]] std::uint32_t lastSerial() const noexcept { return m_lastSerial; }
-  [[nodiscard]] wl_seat* seat() const noexcept { return m_seat; }
-  [[nodiscard]] wl_pointer* pointer() const noexcept { return m_pointer; }
+  std::uint32_t lastSerial() const noexcept { return m_lastSerial; }
+  wl_seat* seat() const noexcept { return m_seat; }
+  wl_pointer* pointer() const noexcept { return m_pointer; }
 
   // Key repeat — driven by KeyRepeatPollSource
-  [[nodiscard]] int repeatPollTimeoutMs() const;
+  int repeatPollTimeoutMs() const;
   void repeatTick();
   void stopKeyRepeat();
 
@@ -149,20 +149,20 @@ public:
   );
   static void handleKeyboardRepeatInfo(void* data, wl_keyboard* keyboard, std::int32_t rate, std::int32_t delay);
 
-  [[nodiscard]] wl_surface* lastPointerSurface() const noexcept { return m_lastPointerSurface; }
-  [[nodiscard]] wl_surface* lastKeyboardSurface() const noexcept { return m_lastKeyboardSurface; }
-  [[nodiscard]] bool hasPointerPosition() const noexcept { return m_hasPointerPosition; }
-  [[nodiscard]] double lastPointerX() const noexcept { return m_lastPointerX; }
-  [[nodiscard]] double lastPointerY() const noexcept { return m_lastPointerY; }
-  [[nodiscard]] std::string currentLayoutName() const;
-  [[nodiscard]] std::vector<std::string> layoutNames() const;
-  [[nodiscard]] LockKeysState lockKeysState() const;
-  [[nodiscard]] InputSource lastInputSource() const noexcept { return m_lastInputSource; }
+  wl_surface* lastPointerSurface() const noexcept { return m_lastPointerSurface; }
+  wl_surface* lastKeyboardSurface() const noexcept { return m_lastKeyboardSurface; }
+  bool hasPointerPosition() const noexcept { return m_hasPointerPosition; }
+  double lastPointerX() const noexcept { return m_lastPointerX; }
+  double lastPointerY() const noexcept { return m_lastPointerY; }
+  std::string currentLayoutName() const;
+  std::vector<std::string> layoutNames() const;
+  LockKeysState lockKeysState() const;
+  InputSource lastInputSource() const noexcept { return m_lastInputSource; }
   // Live modifier mask from the xkb state. Unlike KeyboardEvent::modifiers this is readable
   // when no key event is in flight, which drag-time modifiers (Shift to constrain) need.
-  [[nodiscard]] std::uint32_t keyboardModifiers() const noexcept;
+  std::uint32_t keyboardModifiers() const noexcept;
 
-  [[nodiscard]] double userIdleSeconds() const noexcept;
+  double userIdleSeconds() const noexcept;
 
 private:
   void bumpUserActivity() noexcept;

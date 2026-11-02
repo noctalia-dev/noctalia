@@ -55,10 +55,10 @@ namespace capture {
     std::unordered_map<std::string, AnnotationPoint> toolbarPositions;
   };
 
-  [[nodiscard]] AnnotationToolState defaultAnnotationToolState();
+  AnnotationToolState defaultAnnotationToolState();
 
-  [[nodiscard]] std::string_view annotationFillModeName(AnnotationFillMode mode) noexcept;
-  [[nodiscard]] std::optional<AnnotationFillMode> annotationFillModeFromName(std::string_view name) noexcept;
+  std::string_view annotationFillModeName(AnnotationFillMode mode) noexcept;
+  std::optional<AnnotationFillMode> annotationFillModeFromName(std::string_view name) noexcept;
 
   class AnnotationOverlay {
   public:
@@ -90,15 +90,15 @@ namespace capture {
     // only source of the screenshot backdrop. Set it before beginImage(); the canvas reserves room for
     // the padding it starts with.
     void setScreenshotBackdrop(const BackdropConfig& backdrop);
-    [[nodiscard]] const BackdropConfig& screenshotBackdrop() const noexcept { return m_backdrop; }
+    const BackdropConfig& screenshotBackdrop() const noexcept { return m_backdrop; }
 
     void setToolState(const AnnotationToolState& state);
-    [[nodiscard]] const AnnotationToolState& toolState() const noexcept { return m_tools; }
+    const AnnotationToolState& toolState() const noexcept { return m_tools; }
 
     // Empty vector selects Live, a non-empty one Frozen.
     void setFrozenScreenshots(std::vector<FrozenScreenshot> frozen);
     void setCursorVisible(bool visible);
-    [[nodiscard]] bool cursorVisible() const noexcept;
+    bool cursorVisible() const noexcept;
     void setCopyOnClose(bool copy) noexcept { m_copyOnClose = copy; }
 
     void begin();
@@ -109,17 +109,17 @@ namespace capture {
     void cancel();
     void onOutputChange();
 
-    [[nodiscard]] bool isActive() const noexcept { return m_active; }
-    [[nodiscard]] AnnotationMode mode() const noexcept { return m_mode; }
-    [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
-    [[nodiscard]] bool onKeyboardEvent(const KeyboardEvent& event);
+    bool isActive() const noexcept { return m_active; }
+    AnnotationMode mode() const noexcept { return m_mode; }
+    bool onPointerEvent(const PointerEvent& event);
+    bool onKeyboardEvent(const KeyboardEvent& event);
 
   private:
     struct Instance;
 
     void ensureSurfaces();
     void destroySurfaces();
-    [[nodiscard]] bool surfacesMatchOutputs() const;
+    bool surfacesMatchOutputs() const;
     void prepareFrame(Instance& instance, bool needsUpdate, bool needsLayout);
     void buildScene(Instance& instance);
     [[nodiscard]] std::unique_ptr<Flex> buildToolbar(Instance& instance);
@@ -129,7 +129,7 @@ namespace capture {
     void updateBackdropPreview(Instance& instance, Renderer& renderer);
     void toggleBackdropPanel();
     void editBackdrop(const std::function<void(BackdropConfig&)>& edit);
-    [[nodiscard]] bool backdropPanelInputFocused(const Instance& instance) const;
+    bool backdropPanelInputFocused(const Instance& instance) const;
     [[nodiscard]] std::unique_ptr<Flex> buildStrokePanel(Instance& instance);
     void refreshStrokePanel(Instance& instance, Renderer* renderer);
     void positionStrokePanel(Instance& instance);
@@ -139,7 +139,7 @@ namespace capture {
     void syncToolbarPositionsForConnectedOutputs();
     void beginToolbarDrag(Instance& instance);
     void dragToolbarTo(double surfaceX, double surfaceY);
-    [[nodiscard]] std::size_t nearestSizePreset(AnnotationTool tool) const;
+    std::size_t nearestSizePreset(AnnotationTool tool) const;
     void applySizePreset(std::size_t index);
     void layoutCanvas(Instance& instance);
     void redrawCommitted(Instance& instance);
@@ -149,12 +149,12 @@ namespace capture {
     void foldIntoCommitted(Instance& instance, const Annotation& annotation);
     void abortWithError(const std::string& message);
 
-    [[nodiscard]] const ScreenshotImage* screenshot(const Instance& instance) const;
-    [[nodiscard]] const char* cursorTooltipKey(const Instance& instance) const;
-    [[nodiscard]] const ScreencopyImage* background(const Instance& instance) const;
-    [[nodiscard]] AnnotationDocument& documentFor(const Instance& instance);
-    [[nodiscard]] Instance* instanceForSurface(const void* surface);
-    [[nodiscard]] Instance* exportTarget();
+    const ScreenshotImage* screenshot(const Instance& instance) const;
+    const char* cursorTooltipKey(const Instance& instance) const;
+    const ScreencopyImage* background(const Instance& instance) const;
+    AnnotationDocument& documentFor(const Instance& instance);
+    Instance* instanceForSurface(const void* surface);
+    Instance* exportTarget();
     void requestRedrawAll();
     void requestFullRefresh();
     void markCommittedFullRedraw();
@@ -166,8 +166,8 @@ namespace capture {
     void cancelTextEdit();
     void commitPendingText();
     void restyleActiveText();
-    [[nodiscard]] bool handleTextKey(const KeyboardEvent& event);
-    [[nodiscard]] bool handleToolKey(std::uint32_t sym);
+    bool handleTextKey(const KeyboardEvent& event);
+    bool handleToolKey(std::uint32_t sym);
 
     void selectTool(AnnotationTool tool);
     void setToolColor(AnnotationColor color);

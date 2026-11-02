@@ -36,7 +36,7 @@ struct TextureCoverage {
   int width = 0;
   int height = 0;
 
-  [[nodiscard]] bool empty() const noexcept { return width <= 0 || height <= 0; }
+  bool empty() const noexcept { return width <= 0 || height <= 0; }
   bool operator==(const TextureCoverage&) const = default;
 };
 
@@ -68,9 +68,9 @@ public:
     Lease(Lease&& other) noexcept;
     Lease& operator=(Lease&& other) noexcept;
 
-    [[nodiscard]] bool empty() const noexcept { return m_cache == nullptr; }
-    [[nodiscard]] TextureHandle texture() const;
-    [[nodiscard]] bool failed() const;
+    bool empty() const noexcept { return m_cache == nullptr; }
+    TextureHandle texture() const;
+    bool failed() const;
     // Re-targets the lease at another coverage. The current texture stays valid until the new one is uploaded, then
     // onChange fires; like every texture() change this happens from dispatch(), never inside this call.
     void setCoverage(TextureCoverage coverage);
@@ -80,7 +80,7 @@ public:
     friend class SharedTextureCache;
 
     Lease(SharedTextureCache* cache, std::weak_ptr<void> lifetimeToken, std::uint64_t id);
-    [[nodiscard]] SharedTextureCache* liveCache() const;
+    SharedTextureCache* liveCache() const;
 
     SharedTextureCache* m_cache = nullptr;
     std::weak_ptr<void> m_lifetimeToken;
@@ -105,7 +105,7 @@ public:
   // Queues a fresh decode for every entry that lost its texture in a GPU reset.
   void reloadResidentTextures();
 
-  [[nodiscard]] int pollTimeoutMs() const override { return -1; }
+  int pollTimeoutMs() const override { return -1; }
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
 
 protected:
@@ -127,11 +127,11 @@ private:
   };
 
   struct RequestHash {
-    [[nodiscard]] std::size_t operator()(const SharedTextureRequest& request) const noexcept;
+    std::size_t operator()(const SharedTextureRequest& request) const noexcept;
   };
 
   struct EntryKeyHash {
-    [[nodiscard]] std::size_t operator()(const EntryKey& key) const noexcept;
+    std::size_t operator()(const EntryKey& key) const noexcept;
   };
 
   struct Entry {
@@ -161,18 +161,18 @@ private:
   void retainEntry(const EntryKey& key);
   void releaseEntry(const EntryKey& key);
   void releaseLease(std::uint64_t id);
-  [[nodiscard]] const Entry* findLeaseEntry(std::uint64_t id) const;
+  const Entry* findLeaseEntry(std::uint64_t id) const;
   void setLeaseCoverage(std::uint64_t id, TextureCoverage coverage);
   // Promotes a lease's pending entry once it is uploaded, or drops it if it failed. True if texture() changed.
   bool resolvePending(LeaseRecord& record);
-  [[nodiscard]] static TextureCoverage effectiveCoverage(TextureCoverage coverage);
+  static TextureCoverage effectiveCoverage(TextureCoverage coverage);
 
   void requestDecode(const SharedTextureRequest& request);
   void cancelDecodeIfUnused(const SharedTextureRequest& request);
-  [[nodiscard]] bool hasLoadingEntry(const SharedTextureRequest& request) const;
+  bool hasLoadingEntry(const SharedTextureRequest& request) const;
   void upload(const EntryKey& key, Entry& entry, const DecodedImage& image);
   void unloadEntry(const EntryKey& key, Entry& entry);
-  [[nodiscard]] TextureManager* textureManagerFor(const EntryKey& key) const;
+  TextureManager* textureManagerFor(const EntryKey& key) const;
   // Binds a context that can reach `key`'s textures. False while the context is lost; the next
   // reloadResidentTextures() requeues whatever could not be uploaded.
   [[nodiscard]] bool makeCurrentFor(const EntryKey& key);

@@ -53,13 +53,13 @@ public:
   void create() override;
   void onOpen(std::string_view context) override;
   void onClose() override;
-  [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
 
-  [[nodiscard]] float preferredWidth() const override { return scaled(980.0F); }
-  [[nodiscard]] float preferredHeight() const override { return scaled(700.0F); }
-  [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
-  [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
-  [[nodiscard]] InputArea* initialFocusArea() const override;
+  float preferredWidth() const override { return scaled(980.0F); }
+  float preferredHeight() const override { return scaled(700.0F); }
+  PanelPlacement panelPlacement() const noexcept override;
+  LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
+  InputArea* initialFocusArea() const override;
 
 private:
   void doLayout(Renderer& renderer, float width, float height) override;
@@ -83,18 +83,18 @@ private:
   void navigateUp();
   void applyWallpaperFromEntry(const WallpaperEntry& entry);
   void applyWallpaperPath(const std::string& path, const WallpaperFavorite* applyTheme);
-  [[nodiscard]] const WallpaperFavorite* favoriteThemeToApply(std::string_view path) const;
-  [[nodiscard]] WallpaperFavorite themeFromControls() const;
-  [[nodiscard]] WallpaperFavorite activeThemeSettings() const;
+  const WallpaperFavorite* favoriteThemeToApply(std::string_view path) const;
+  WallpaperFavorite themeFromControls() const;
+  WallpaperFavorite activeThemeSettings() const;
   void applyThemeFromControls();
   void toggleFavoriteForPath(const std::string& path);
   void syncThemeControls();
   void syncFillModeControl();
   void rebuildPalettePicker(const WallpaperFavorite* theme);
   void openPalettePicker();
-  [[nodiscard]] std::optional<PaletteSource> paletteSourceForSegment(std::size_t index) const;
-  [[nodiscard]] std::size_t segmentForPaletteSource(PaletteSource source) const;
-  [[nodiscard]] std::string selectedWallpaperPath() const;
+  std::optional<PaletteSource> paletteSourceForSegment(std::size_t index) const;
+  std::size_t segmentForPaletteSource(PaletteSource source) const;
+  std::string selectedWallpaperPath() const;
   void appendFilteredFavoriteEntries(
       std::vector<WallpaperEntry>& out, std::unordered_set<std::string>& favoritePaths,
       const std::filesystem::path& activeDir, const std::filesystem::path& rootDir
@@ -104,23 +104,23 @@ private:
   void syncSortButtonGlyph();
   void cycleSortMode();
   void setSortMode(SortMode mode);
-  [[nodiscard]] static SortMode sortModeFromState(std::string_view value);
-  [[nodiscard]] static std::string_view sortModeStateValue(SortMode mode);
-  [[nodiscard]] static std::string_view sortModeGlyph(SortMode mode);
-  [[nodiscard]] static const char* sortModeTooltipKey(SortMode mode);
+  static SortMode sortModeFromState(std::string_view value);
+  static std::string_view sortModeStateValue(SortMode mode);
+  static std::string_view sortModeGlyph(SortMode mode);
+  static const char* sortModeTooltipKey(SortMode mode);
   void applyColorWallpaper();
   void rebindGrid(bool resetScroll = false);
   void resetSelection();
-  [[nodiscard]] bool hasVisibleSelection() const;
+  bool hasVisibleSelection() const;
   void selectVisibleIndex(std::size_t index);
   void activateSelectedEntry();
-  [[nodiscard]] bool handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
-  [[nodiscard]] std::filesystem::path activeDirectoryForSelection() const;
-  [[nodiscard]] std::filesystem::path rootDirectoryForSelection() const;
-  [[nodiscard]] std::string currentWallpaperPathForSelection() const;
-  [[nodiscard]] std::vector<std::string> allMonitorConnectors() const;
-  [[nodiscard]] std::optional<Color> selectedFillColor() const;
-  [[nodiscard]] static std::string displayNameForWallpaperPath(std::string_view path);
+  bool handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
+  std::filesystem::path activeDirectoryForSelection() const;
+  std::filesystem::path rootDirectoryForSelection() const;
+  std::string currentWallpaperPathForSelection() const;
+  std::vector<std::string> allMonitorConnectors() const;
+  std::optional<Color> selectedFillColor() const;
+  static std::string displayNameForWallpaperPath(std::string_view path);
 
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;

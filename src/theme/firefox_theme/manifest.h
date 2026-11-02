@@ -22,7 +22,7 @@ namespace noctalia::theme::firefox_theme::manifest {
     std::filesystem::path hostPath;
   };
 
-  [[nodiscard]] Inspection inspect(const std::filesystem::path& manifestPath);
+  Inspection inspect(const std::filesystem::path& manifestPath);
   bool install(
       const std::filesystem::path& manifestPath, const std::filesystem::path& hostExecutable,
       std::string* error = nullptr

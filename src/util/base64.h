@@ -11,7 +11,7 @@ namespace Base64 {
 
   inline constexpr std::string_view kChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-  [[nodiscard]] inline std::string encode(const std::uint8_t* data, std::size_t size) {
+  inline std::string encode(const std::uint8_t* data, std::size_t size) {
     std::string out;
     out.reserve(((size + 2) / 3) * 4);
     for (std::size_t i = 0; i < size; i += 3) {
@@ -28,15 +28,13 @@ namespace Base64 {
     return out;
   }
 
-  [[nodiscard]] inline std::string encode(std::string_view data) {
+  inline std::string encode(std::string_view data) {
     return encode(reinterpret_cast<const std::uint8_t*>(data.data()), data.size());
   }
 
-  [[nodiscard]] inline std::string encode(const std::vector<std::uint8_t>& data) {
-    return encode(data.data(), data.size());
-  }
+  inline std::string encode(const std::vector<std::uint8_t>& data) { return encode(data.data(), data.size()); }
 
-  [[nodiscard]] inline std::vector<std::uint8_t> decode(std::string_view in) {
+  inline std::vector<std::uint8_t> decode(std::string_view in) {
     std::array<int, 256> decodeTable{};
     decodeTable.fill(-1);
     for (int b = 0; b < 64; ++b) {

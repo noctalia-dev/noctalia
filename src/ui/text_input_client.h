@@ -47,7 +47,7 @@ class TextInputClient {
 public:
   virtual ~TextInputClient() = default;
 
-  [[nodiscard]] virtual TextInputState textInputState() const = 0;
+  virtual TextInputState textInputState() const = 0;
   virtual void textInputApplyEdit(const TextInputEdit& edit) = 0;
   virtual void textInputResetPreedit() = 0;
   virtual void textInputActivated(TextInputService& service) = 0;

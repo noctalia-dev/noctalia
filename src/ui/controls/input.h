@@ -71,15 +71,15 @@ public:
   /// Surface.
   void setSurfaceRole(ColorRole role);
   void setFrameRadius(float radius);
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] bool passwordRevealed() const noexcept { return m_passwordRevealed; }
+  bool enabled() const noexcept { return m_enabled; }
+  bool passwordRevealed() const noexcept { return m_passwordRevealed; }
   void selectAll();
   void moveCaretLeft(bool shift = false);
   void moveCaretRight(bool shift = false);
 
   // Set once at application startup; all Input instances use this for Ctrl+C/X/V.
   static void setTextClipboard(TextClipboard* clipboard) noexcept;
-  [[nodiscard]] static TextClipboard* textClipboard() noexcept;
+  static TextClipboard* textClipboard() noexcept;
   /// Submit invokes onSubmit only when this matcher returns true (Application wires ConfigService validate keybinds).
   static void setValidateKeyMatcher(std::function<bool(std::uint32_t sym, std::uint32_t modifiers)> matcher) noexcept;
   static void setPasswordMaskStyle(PasswordMaskStyle style) noexcept;
@@ -87,11 +87,11 @@ public:
   static void setReadlineShortcutsEnabled(bool enabled) noexcept;
   void clearSelection();
 
-  [[nodiscard]] const std::string& value() const noexcept { return m_value; }
-  [[nodiscard]] InputArea* inputArea() const noexcept { return m_inputArea; }
-  [[nodiscard]] bool invalid() const noexcept { return m_invalid; }
+  const std::string& value() const noexcept { return m_value; }
+  InputArea* inputArea() const noexcept { return m_inputArea; }
+  bool invalid() const noexcept { return m_invalid; }
 
-  [[nodiscard]] TextInputState textInputState() const override;
+  TextInputState textInputState() const override;
   void textInputApplyEdit(const TextInputEdit& edit) override;
   void textInputResetPreedit() override;
   void textInputActivated(TextInputService& service) override;
@@ -133,21 +133,21 @@ private:
   void selectWordAtByteOffset(std::size_t offset);
   void selectLineAtByteOffset(std::size_t offset);
   void extendPointerSelectionToByteOffset(std::size_t offset);
-  [[nodiscard]] std::size_t wordStartForByteOffset(std::size_t offset) const;
-  [[nodiscard]] std::size_t wordEndForByteOffset(std::size_t offset) const;
-  [[nodiscard]] std::size_t previousWordStartForByteOffset(std::size_t offset) const;
-  [[nodiscard]] std::size_t nextWordStartForByteOffset(std::size_t offset) const;
-  [[nodiscard]] std::size_t nextWordEndForByteOffset(std::size_t offset) const;
-  [[nodiscard]] float textViewportWidth() const noexcept;
-  [[nodiscard]] bool clearButtonVisible() const noexcept;
-  [[nodiscard]] float clearButtonHitWidth() const noexcept;
-  [[nodiscard]] float clearButtonTextReserveWidth() const noexcept;
-  [[nodiscard]] bool hasSelection() const noexcept;
-  [[nodiscard]] std::size_t selectionStart() const noexcept;
-  [[nodiscard]] std::size_t selectionEnd() const noexcept;
-  [[nodiscard]] bool isReadOnlyVisual() const noexcept;
-  [[nodiscard]] bool passwordMasked() const noexcept { return m_passwordMode && !m_passwordRevealed; }
-  [[nodiscard]] EditSnapshot currentEditSnapshot() const;
+  std::size_t wordStartForByteOffset(std::size_t offset) const;
+  std::size_t wordEndForByteOffset(std::size_t offset) const;
+  std::size_t previousWordStartForByteOffset(std::size_t offset) const;
+  std::size_t nextWordStartForByteOffset(std::size_t offset) const;
+  std::size_t nextWordEndForByteOffset(std::size_t offset) const;
+  float textViewportWidth() const noexcept;
+  bool clearButtonVisible() const noexcept;
+  float clearButtonHitWidth() const noexcept;
+  float clearButtonTextReserveWidth() const noexcept;
+  bool hasSelection() const noexcept;
+  std::size_t selectionStart() const noexcept;
+  std::size_t selectionEnd() const noexcept;
+  bool isReadOnlyVisual() const noexcept;
+  bool passwordMasked() const noexcept { return m_passwordMode && !m_passwordRevealed; }
+  EditSnapshot currentEditSnapshot() const;
   void deleteSelection();
   void clearEditHistory();
   void resetUndoCoalescing();
@@ -157,26 +157,26 @@ private:
   bool redoEdit();
   bool restoreFromHistory(std::vector<EditSnapshot>& source, std::vector<EditSnapshot>& target);
   void restoreEditSnapshot(const EditSnapshot& snapshot);
-  [[nodiscard]] std::size_t xToByteOffset(float localX) const;
-  [[nodiscard]] float stopXForByte(std::size_t bytePos) const;
-  [[nodiscard]] std::size_t visuallyAdjacentByte(std::size_t bytePos, bool left, bool wordStart) const;
-  [[nodiscard]] bool valueLaidOutRtl() const noexcept;
-  [[nodiscard]] bool labelSlicingEnabled() const noexcept;
-  [[nodiscard]] float restingScrollOffset() const;
+  std::size_t xToByteOffset(float localX) const;
+  float stopXForByte(std::size_t bytePos) const;
+  std::size_t visuallyAdjacentByte(std::size_t bytePos, bool left, bool wordStart) const;
+  bool valueLaidOutRtl() const noexcept;
+  bool labelSlicingEnabled() const noexcept;
+  float restingScrollOffset() const;
   void syncPasswordGlyphNodes(std::size_t count);
   void animatePasswordGlyphIn(GlyphNode& glyph);
 
   // Multiline mode: geometry comes from the wrapped cursor-stop rects
   // (m_stopRect, parallel to m_stopByte) instead of the 1-D x array.
-  [[nodiscard]] bool multilineStopsValid() const noexcept;
-  [[nodiscard]] std::size_t stopIndexForByte(std::size_t bytePos) const;
-  [[nodiscard]] std::size_t pointToByteOffset(float localX, float localY) const;
-  [[nodiscard]] std::size_t lineStartForByte(std::size_t bytePos) const;
-  [[nodiscard]] std::size_t lineEndForByte(std::size_t bytePos) const;
-  [[nodiscard]] std::size_t byteForVerticalMove(std::size_t from, int lineDelta);
-  [[nodiscard]] float contentTextHeight() const noexcept;
-  [[nodiscard]] float textViewportHeight() const noexcept;
-  [[nodiscard]] float currentLineHeight() const noexcept;
+  bool multilineStopsValid() const noexcept;
+  std::size_t stopIndexForByte(std::size_t bytePos) const;
+  std::size_t pointToByteOffset(float localX, float localY) const;
+  std::size_t lineStartForByte(std::size_t bytePos) const;
+  std::size_t lineEndForByte(std::size_t bytePos) const;
+  std::size_t byteForVerticalMove(std::size_t from, int lineDelta);
+  float contentTextHeight() const noexcept;
+  float textViewportHeight() const noexcept;
+  float currentLineHeight() const noexcept;
   void ensureCursorVisibleY();
   void clampScrollOffsetY();
   void updateMultilineSelection();
@@ -188,8 +188,8 @@ private:
   void recomputeContentLeadSlack(Renderer& renderer, float width, bool showClearButton);
   void updateLabelVisibleSlice(Renderer& renderer);
   void syncLabelScrollPosition();
-  [[nodiscard]] std::size_t visibleLabelStartByte() const;
-  [[nodiscard]] std::size_t visibleLabelEndByte(float contentWidth, std::size_t startByte) const;
+  std::size_t visibleLabelStartByte() const;
+  std::size_t visibleLabelEndByte(float contentWidth, std::size_t startByte) const;
 
   static std::size_t nextCharPos(const std::string& s, std::size_t pos);
   static std::size_t prevCharPos(const std::string& s, std::size_t pos);

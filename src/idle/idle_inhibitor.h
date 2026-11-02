@@ -28,8 +28,8 @@ public:
   void setAnchorSurfacesProvider(AnchorSurfacesProvider provider);
   void toggle();
   void setEnabled(bool enabled);
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] bool available() const noexcept;
+  bool enabled() const noexcept { return m_enabled; }
+  bool available() const noexcept;
   void setChangeCallback(ChangeCallback callback);
 
   void registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback = {});

@@ -26,7 +26,7 @@ public:
   // otherwise leave the spinner static.
   void setAnimationManager(AnimationManager* mgr) override;
 
-  [[nodiscard]] bool spinning() const noexcept { return m_spinning; }
+  bool spinning() const noexcept { return m_spinning; }
 
 private:
   void applyPalette();

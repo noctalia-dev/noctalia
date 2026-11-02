@@ -30,7 +30,7 @@ namespace {
   constexpr Logger kLog("session");
   constexpr float kCountdownScrimAlpha = 0.58F;
 
-  [[nodiscard]] ButtonVariant buttonVariantFor(SessionActionButtonVariant variant) {
+  ButtonVariant buttonVariantFor(SessionActionButtonVariant variant) {
     switch (variant) {
     case SessionActionButtonVariant::Default:
       return ButtonVariant::Default;

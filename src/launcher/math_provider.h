@@ -17,24 +17,24 @@ public:
   MathProvider(ClipboardService* clipboard, ConfigService* config, HttpClient* httpClient);
   ~MathProvider() override;
 
-  [[nodiscard]] std::string_view defaultPrefix() const override { return "calc"; }
-  [[nodiscard]] bool defaultIncludeInGlobalSearch() const override { return true; }
-  [[nodiscard]] std::string_view id() const override { return "Calculator"; }
-  [[nodiscard]] std::string displayName() const override;
-  [[nodiscard]] std::string_view defaultGlyphName() const override { return "calculator"; }
-  [[nodiscard]] bool supportsGrid() const override { return false; }
-  [[nodiscard]] bool supportsAutoPaste() const override { return true; }
+  std::string_view defaultPrefix() const override { return "calc"; }
+  bool defaultIncludeInGlobalSearch() const override { return true; }
+  std::string_view id() const override { return "Calculator"; }
+  std::string displayName() const override;
+  std::string_view defaultGlyphName() const override { return "calculator"; }
+  bool supportsGrid() const override { return false; }
+  bool supportsAutoPaste() const override { return true; }
 
   void initialize() override;
   void onLauncherOpened() override;
 
-  [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;
-  [[nodiscard]] std::vector<LauncherResult> queryPrefixed(std::string_view text) const override;
+  std::vector<LauncherResult> query(std::string_view text) const override;
+  std::vector<LauncherResult> queryPrefixed(std::string_view text) const override;
 
   bool activate(const LauncherResult& result) override;
 
 private:
-  [[nodiscard]] std::vector<LauncherResult> evaluate(std::string_view text) const;
+  std::vector<LauncherResult> evaluate(std::string_view text) const;
 
   // Replace m_calc with a fresh Calculator loaded with exchange rates and global + user
   // definitions, with unsafe functions disabled.

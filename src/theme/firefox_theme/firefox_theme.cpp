@@ -52,14 +52,14 @@ namespace noctalia::theme {
     constexpr std::string_view kCmdLight = "theme:mode:light";
     constexpr std::string_view kCmdAuto = "theme:mode:auto";
 
-    [[nodiscard]] std::filesystem::path homeDir() {
+    std::filesystem::path homeDir() {
       if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
         return home;
       }
       return {};
     }
 
-    [[nodiscard]] std::filesystem::path xdgCacheHome() {
+    std::filesystem::path xdgCacheHome() {
       if (const char* cache = std::getenv("XDG_CACHE_HOME"); cache != nullptr && cache[0] != '\0') {
         return cache;
       }
@@ -67,7 +67,7 @@ namespace noctalia::theme {
       return home.empty() ? std::filesystem::path{} : home / ".cache";
     }
 
-    [[nodiscard]] std::string selfExePath() {
+    std::string selfExePath() {
       char buf[4096];
       const ssize_t n = ::readlink("/proc/self/exe", buf, sizeof(buf) - 1);
       if (n <= 0) {
@@ -93,26 +93,26 @@ namespace noctalia::theme {
       return ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
     }
 
-    [[nodiscard]] std::filesystem::path defaultColorsJsonPath() {
+    std::filesystem::path defaultColorsJsonPath() {
       const auto cache = xdgCacheHome();
       return cache.empty() ? std::filesystem::path{} : cache / "wal" / "colors.json";
     }
 
-    [[nodiscard]] std::filesystem::path unixSocketPath() {
+    std::filesystem::path unixSocketPath() {
       // Must match the historical Pywalfox host socket name.
       return std::filesystem::temp_directory_path() / ("pywalfox_socket_" + std::to_string(::getuid()));
     }
 
     // Per-uid fan-out channel: every running host watches this file so theme pushes
     // reach all Firefox profiles, not only the process that owns the Unix socket.
-    [[nodiscard]] std::filesystem::path commandNotifyDir() {
+    std::filesystem::path commandNotifyDir() {
       if (const char* runtime = std::getenv("XDG_RUNTIME_DIR"); runtime != nullptr && runtime[0] != '\0') {
         return std::filesystem::path(runtime) / "noctalia" / "firefox-theme";
       }
       return std::filesystem::temp_directory_path() / ("noctalia-firefox-theme-" + std::to_string(::getuid()));
     }
 
-    [[nodiscard]] std::filesystem::path commandNotifyPath() { return commandNotifyDir() / "command"; }
+    std::filesystem::path commandNotifyPath() { return commandNotifyDir() / "command"; }
 
     bool publishCommand(std::string_view command) {
       const auto dir = commandNotifyDir();
@@ -142,7 +142,7 @@ namespace noctalia::theme {
       return true;
     }
 
-    [[nodiscard]] std::optional<std::string> readPublishedCommand() {
+    std::optional<std::string> readPublishedCommand() {
       std::ifstream in(commandNotifyPath());
       if (!in) {
         return std::nullopt;
@@ -160,7 +160,7 @@ namespace noctalia::theme {
       return line;
     }
 
-    [[nodiscard]] bool isUnixDatagramInUse(const std::filesystem::path& path) {
+    bool isUnixDatagramInUse(const std::filesystem::path& path) {
       std::error_code ec;
       if (!std::filesystem::exists(path, ec) || ec) {
         return false;
@@ -182,7 +182,7 @@ namespace noctalia::theme {
       return inUse;
     }
 
-    [[nodiscard]] std::filesystem::path userManifestPath() {
+    std::filesystem::path userManifestPath() {
       const auto home = homeDir();
       if (home.empty()) {
         return {};
@@ -190,7 +190,7 @@ namespace noctalia::theme {
       return home / ".mozilla" / "native-messaging-hosts" / "pywalfox.json";
     }
 
-    [[nodiscard]] std::filesystem::path resolveNoctaliaExecutable() {
+    std::filesystem::path resolveNoctaliaExecutable() {
       std::string self = selfExePath();
       if (!self.empty()) {
         return self;
@@ -315,7 +315,7 @@ namespace noctalia::theme {
       bool ok = false;
     };
 
-    [[nodiscard]] ColorsPayload loadColors(const std::filesystem::path& path) {
+    ColorsPayload loadColors(const std::filesystem::path& path) {
       ColorsPayload out;
       std::ifstream in(path);
       if (!in) {
@@ -497,7 +497,7 @@ namespace noctalia::theme {
     // and republish so secondary profile hosts pick it up via the shared command file.
     void handleSocketCommandFromPrimary(std::string_view command) {
       handleSocketCommand(command);
-      (void)publishCommand(command);
+      publishCommand(command);
     }
 
     [[nodiscard]] int openUnixDatagramServer(const std::filesystem::path& path) {
@@ -524,7 +524,7 @@ namespace noctalia::theme {
         return -1;
       }
       ::chmod(path.c_str(), 0600);
-      (void)setNonBlocking(fd);
+      setNonBlocking(fd);
       return fd;
     }
 
@@ -583,9 +583,9 @@ namespace noctalia::theme {
     // publishCommand fans out to every profile host; the Unix socket nudges the primary.
     if (mode == "dark" || mode == "light") {
       firefox_theme::settings::set("theme_mode", mode);
-      (void)notifyRunningHosts(mode == "dark" ? kCmdDark : kCmdLight, &result.warning);
+      notifyRunningHosts(mode == "dark" ? kCmdDark : kCmdLight, &result.warning);
     }
-    (void)notifyRunningHosts(kCmdUpdate, &result.warning);
+    notifyRunningHosts(kCmdUpdate, &result.warning);
     result.success = true;
     return result;
   }
@@ -606,8 +606,8 @@ namespace noctalia::theme {
   }
 
   int runFirefoxNativeMessagingHost() {
-    (void)setNonBlocking(STDIN_FILENO);
-    (void)setCloexec(STDIN_FILENO);
+    setNonBlocking(STDIN_FILENO);
+    setCloexec(STDIN_FILENO);
 
     const auto socketPath = unixSocketPath();
     // Only one host per uid owns the legacy socket; additional profiles skip bind.

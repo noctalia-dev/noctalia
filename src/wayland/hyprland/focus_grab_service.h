@@ -59,7 +59,7 @@ public:
   // Pass nullptr when the protocol is not bound; available() will be false.
   void initialize(hyprland_focus_grab_manager_v1* manager);
 
-  [[nodiscard]] bool available() const noexcept { return m_manager != nullptr; }
+  bool available() const noexcept { return m_manager != nullptr; }
 
   // Returns nullptr when !available() or on protocol failure.
   [[nodiscard]] std::unique_ptr<FocusGrab> createGrab();
@@ -69,7 +69,7 @@ public:
   // conflicting xdg_popup_grab call). Owners install themselves while their
   // grab is up and clear the slot when it ends.
   void setPopupGrabHost(PopupGrabHost* host) noexcept { m_popupGrabHost = host; }
-  [[nodiscard]] PopupGrabHost* popupGrabHost() const noexcept { return m_popupGrabHost; }
+  PopupGrabHost* popupGrabHost() const noexcept { return m_popupGrabHost; }
 
 private:
   hyprland_focus_grab_manager_v1* m_manager = nullptr;

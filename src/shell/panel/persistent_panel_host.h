@@ -45,16 +45,16 @@ public:
 
   void registerPanel(const std::string& id, std::unique_ptr<Panel> content);
   void unregisterPanel(const std::string& id);
-  [[nodiscard]] bool hasPanel(std::string_view id) const noexcept;
+  bool hasPanel(std::string_view id) const noexcept;
   void appendPanelIds(std::vector<std::string>& out) const;
 
   void open(const std::string& id, wl_output* output, std::string_view context);
   void close(const std::string& id);
   void toggle(const std::string& id, wl_output* output, std::string_view context);
   void closeAll();
-  [[nodiscard]] bool isOpen(std::string_view id) const noexcept;
-  [[nodiscard]] bool anyOpen() const noexcept { return !m_instances.empty(); }
-  [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContext(std::string_view id) const noexcept;
+  bool isOpen(std::string_view id) const noexcept;
+  bool anyOpen() const noexcept { return !m_instances.empty(); }
+  std::optional<LayerPopupParentContext> popupParentContext(std::string_view id) const noexcept;
 
   bool onPointerEvent(const PointerEvent& event);
   bool onKeyboardEvent(const KeyboardEvent& event);
@@ -94,9 +94,9 @@ private:
   void buildScene(Instance& instance, std::uint32_t width, std::uint32_t height);
   void prepareFrame(Instance& instance, bool needsUpdate, bool needsLayout);
   void layoutScene(Instance& instance, std::uint32_t width, std::uint32_t height);
-  [[nodiscard]] LayerShellLayer resolveLayer(const Panel& panel) const;
-  [[nodiscard]] Instance* findInstance(std::string_view id) noexcept;
-  [[nodiscard]] Instance* findInstanceForSurface(wl_surface* surface) noexcept;
+  LayerShellLayer resolveLayer(const Panel& panel) const;
+  Instance* findInstance(std::string_view id) noexcept;
+  Instance* findInstanceForSurface(wl_surface* surface) noexcept;
   void destroyInstance(std::vector<std::unique_ptr<Instance>>::iterator it);
 
   CompositorPlatform* m_platform = nullptr;

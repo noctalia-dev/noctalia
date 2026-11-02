@@ -6,7 +6,7 @@ namespace {
 
   constexpr float kComparisonTolerance = 0.5F;
 
-  [[nodiscard]] bool closeEnough(float lhs, float rhs) noexcept { return std::abs(lhs - rhs) < kComparisonTolerance; }
+  bool closeEnough(float lhs, float rhs) noexcept { return std::abs(lhs - rhs) < kComparisonTolerance; }
 
 } // namespace
 

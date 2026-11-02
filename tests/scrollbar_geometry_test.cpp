@@ -48,7 +48,7 @@ namespace {
     TextMetrics measureGlyph(char32_t, float) override { return TextMetrics{}; }
 
     TextureManager& textureManager() override { std::abort(); }
-    [[nodiscard]] float renderScale() const noexcept override { return 1.0F; }
+    float renderScale() const noexcept override { return 1.0F; }
   };
 
   // Scrollbar composes its children in this order.

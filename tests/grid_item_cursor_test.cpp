@@ -33,12 +33,12 @@ namespace {
     TextMetrics measureGlyph(char32_t, float) override { return TextMetrics{.width = 18.0F}; }
 
     TextureManager& textureManager() override { std::abort(); }
-    [[nodiscard]] float renderScale() const noexcept override { return 1.0F; }
+    float renderScale() const noexcept override { return 1.0F; }
   };
 
   class StubAdapter final : public VirtualGridAdapter {
   public:
-    [[nodiscard]] std::size_t itemCount() const override { return 4; }
+    std::size_t itemCount() const override { return 4; }
     [[nodiscard]] std::unique_ptr<Node> createTile() override { return std::make_unique<Node>(); }
     void bindTile(Node&, std::size_t, bool, bool) override {}
   };

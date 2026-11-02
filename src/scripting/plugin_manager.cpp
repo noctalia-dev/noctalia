@@ -86,11 +86,11 @@ namespace scripting {
     void removeManagedGitSourceStorage(const PluginSourceConfig& source) {
       const std::string sourceBase = FileUtils::pluginSourcesDir();
       if (!sourceBase.empty()) {
-        (void)plugin_paths::removeTreeUnder(plugin_paths::sourceStorageRoot(source), sourceBase);
+        plugin_paths::removeTreeUnder(plugin_paths::sourceStorageRoot(source), sourceBase);
       }
       const std::string materializedBase = FileUtils::pluginMaterializedDir();
       if (!materializedBase.empty()) {
-        (void)plugin_paths::removeTreeUnder(plugin_paths::gitMaterializedRoot(source), materializedBase);
+        plugin_paths::removeTreeUnder(plugin_paths::gitMaterializedRoot(source), materializedBase);
       }
     }
 
@@ -166,7 +166,7 @@ namespace scripting {
       }
 
       if (backedUp) {
-        (void)plugin_paths::removeTreeUnder(backupDir, materializedRoot);
+        plugin_paths::removeTreeUnder(backupDir, materializedRoot);
       }
       return true;
     }
@@ -687,7 +687,7 @@ namespace scripting {
       const auto pluginDir = materializedRoot / *subdir;
       if (std::filesystem::exists(pluginDir)) {
         auto sourceLock = plugin_source_locks::acquire(source.name);
-        (void)plugin_paths::removeTreeUnder(pluginDir, materializedRoot);
+        plugin_paths::removeTreeUnder(pluginDir, materializedRoot);
       }
     }
     refresh();

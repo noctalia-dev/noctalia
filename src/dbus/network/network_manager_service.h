@@ -35,13 +35,11 @@ public:
 
   // Follows the org.freedesktop.NetworkManager bus name: NetworkManager may start after the shell or
   // restart mid-session. Nothing is sent to it while it is off the bus.
-  [[nodiscard]] bool available() const noexcept override { return m_nm != nullptr; }
-  [[nodiscard]] const NetworkState& state() const noexcept override { return m_state; }
-  [[nodiscard]] bool hasStateSnapshot() const noexcept override { return m_hasStateSnapshot; }
-  [[nodiscard]] const std::vector<AccessPointInfo>& accessPoints() const noexcept override { return m_accessPoints; }
-  [[nodiscard]] const std::vector<VpnConnectionInfo>& vpnConnections() const noexcept override {
-    return m_vpnConnections;
-  }
+  bool available() const noexcept override { return m_nm != nullptr; }
+  const NetworkState& state() const noexcept override { return m_state; }
+  bool hasStateSnapshot() const noexcept override { return m_hasStateSnapshot; }
+  const std::vector<AccessPointInfo>& accessPoints() const noexcept override { return m_accessPoints; }
+  const std::vector<VpnConnectionInfo>& vpnConnections() const noexcept override { return m_vpnConnections; }
 
   // Trigger a Wi-Fi scan on every wifi device. Results arrive via PropertiesChanged.
   void requestScan() override;
@@ -53,7 +51,7 @@ public:
   bool activateAccessPoint(const AccessPointInfo& ap) override;
   bool activateAccessPoint(const AccessPointInfo& ap, const std::string& psk) override;
 
-  [[nodiscard]] bool supportsEnterprise() const noexcept override { return true; }
+  bool supportsEnterprise() const noexcept override { return true; }
   bool activateEnterpriseAccessPoint(
       const AccessPointInfo& ap, const network_enterprise::EnterpriseCredentials& credentials
   ) override;
@@ -62,9 +60,9 @@ public:
   // aborts a connection that is stuck activating.
   bool activateVpnConnection(const VpnConnectionInfo& vpn) override;
   bool deactivateVpnConnection(const VpnConnectionInfo& vpn) override;
-  [[nodiscard]] bool canActivateWiredConnection() const noexcept override;
+  bool canActivateWiredConnection() const noexcept override;
   bool activateWiredConnection() override;
-  [[nodiscard]] bool canActivateCellularConnection() const noexcept override;
+  bool canActivateCellularConnection() const noexcept override;
   bool activateCellularConnection() override;
   bool deactivateCellularConnection() override;
 
@@ -78,7 +76,7 @@ public:
   void forgetSsid(const std::string& ssid) override;
 
   // Whether any saved connection matches the SSID (uses cached snapshot refreshed on every refresh()).
-  [[nodiscard]] bool hasSavedConnection(const std::string& ssid) const override;
+  bool hasSavedConnection(const std::string& ssid) const override;
 
 private:
   void refreshAccessPoints(const std::function<void()>& onComplete);

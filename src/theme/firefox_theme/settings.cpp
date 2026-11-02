@@ -8,7 +8,7 @@
 namespace noctalia::theme::firefox_theme::settings {
   namespace {
 
-    [[nodiscard]] std::filesystem::path configPath() {
+    std::filesystem::path configPath() {
       std::filesystem::path configHome;
       if (const char* env = std::getenv("XDG_CONFIG_HOME"); env != nullptr && env[0] != '\0') {
         configHome = env;
@@ -22,7 +22,7 @@ namespace noctalia::theme::firefox_theme::settings {
       return configHome / "pywalfox" / "config.json";
     }
 
-    [[nodiscard]] nlohmann::json load() {
+    nlohmann::json load() {
       const auto path = configPath();
       if (path.empty()) {
         return nlohmann::json::object();

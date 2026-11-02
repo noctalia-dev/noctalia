@@ -114,14 +114,12 @@ namespace capture {
         {AnnotationTool::Crop, "crop", "bar.annotate.tool-crop"},
     }};
 
-    [[nodiscard]] std::size_t toolIndex(AnnotationTool tool) { return static_cast<std::size_t>(tool); }
+    std::size_t toolIndex(AnnotationTool tool) { return static_cast<std::size_t>(tool); }
 
     // Move and Crop carry no stroke; Eraser and Blur take a size but no color.
-    [[nodiscard]] bool toolUsesSize(AnnotationTool tool) {
-      return tool != AnnotationTool::Move && tool != AnnotationTool::Crop;
-    }
+    bool toolUsesSize(AnnotationTool tool) { return tool != AnnotationTool::Move && tool != AnnotationTool::Crop; }
 
-    [[nodiscard]] bool toolUsesColor(AnnotationTool tool) {
+    bool toolUsesColor(AnnotationTool tool) {
       return toolUsesSize(tool) && tool != AnnotationTool::Eraser && tool != AnnotationTool::Blur;
     }
 
@@ -144,7 +142,7 @@ namespace capture {
 
     constexpr std::size_t kGradientPresetCount = 9;
 
-    [[nodiscard]] const std::array<GradientPreset, kGradientPresetCount>& gradientPresets() {
+    const std::array<GradientPreset, kGradientPresetCount>& gradientPresets() {
       static const std::array<GradientPreset, kGradientPresetCount> presets = {{
           {colorSpecFromRole(ColorRole::Primary), colorSpecFromRole(ColorRole::Tertiary),
            "bar.annotate.gradient-theme"},
@@ -184,13 +182,13 @@ namespace capture {
       void (*set)(BackdropConfig&, double);
     };
 
-    [[nodiscard]] std::int32_t toPixels(double v) { return static_cast<std::int32_t>(std::lround(v)); }
+    std::int32_t toPixels(double v) { return static_cast<std::int32_t>(std::lround(v)); }
     // Whole-step sliders show integers; fractional ones (opacity) two decimals, like settings sliders.
-    [[nodiscard]] std::string formatBackdropValue(const BackdropSliderSpec& spec, double v) {
+    std::string formatBackdropValue(const BackdropSliderSpec& spec, double v) {
       return spec.step >= 1.0 ? std::format("{}", std::lround(v)) : StringUtils::formatFixedDotDecimal(v, 2);
     }
 
-    [[nodiscard]] const std::array<BackdropSliderSpec, kBackdropSliderCount>& backdropSliders() {
+    const std::array<BackdropSliderSpec, kBackdropSliderCount>& backdropSliders() {
       static const std::array<BackdropSliderSpec, kBackdropSliderCount> specs = {{
           {"bar.annotate.backdrop-angle", 0.0, 360.0, 5.0,
            [](const BackdropConfig& s) { return static_cast<double>(s.gradientAngle); },
@@ -235,7 +233,7 @@ namespace capture {
       );
     }
 
-    [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
+    const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
       for (const auto& entry : wayland.outputs()) {
         if (entry.output == output) {
           return &entry;
@@ -246,12 +244,12 @@ namespace capture {
 
     // The check mark drawn on the selected swatch needs to read against the swatch itself,
     // not against the surface, so it flips with the swatch's own luminance.
-    [[nodiscard]] Color swatchContrast(const AnnotationColor& color) {
+    Color swatchContrast(const AnnotationColor& color) {
       const float luminance = (0.299F * color.r) + (0.587F * color.g) + (0.114F * color.b);
       return luminance > 0.5F ? rgba(0.0F, 0.0F, 0.0F, 1.0F) : rgba(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
-    [[nodiscard]] Button::ButtonPalette swatchPalette(const AnnotationColor& color) {
+    Button::ButtonPalette swatchPalette(const AnnotationColor& color) {
       const Color fill = rgba(color.r, color.g, color.b, 1.0F);
       Button::ButtonStateColors state{
           .bg = fixedColorSpec(fill),
@@ -279,11 +277,11 @@ namespace capture {
       cairo_restore(cr);
     }
 
-    [[nodiscard]] bool isFreehandTool(AnnotationTool tool) {
+    bool isFreehandTool(AnnotationTool tool) {
       return tool == AnnotationTool::Brush || tool == AnnotationTool::Highlighter;
     }
 
-    [[nodiscard]] AnnotationRect freehandTailBounds(const std::vector<AnnotationPoint>& points, double width) {
+    AnnotationRect freehandTailBounds(const std::vector<AnnotationPoint>& points, double width) {
       if (points.empty()) {
         return AnnotationRect{};
       }
@@ -330,8 +328,7 @@ namespace capture {
 
     // Grows a logical rect by the dirty padding and converts it to whole device pixels
     // clamped to the surface.
-    [[nodiscard]] AnnotationRect
-    toDeviceRect(const AnnotationRect& logical, double scale, int deviceWidth, int deviceHeight) {
+    AnnotationRect toDeviceRect(const AnnotationRect& logical, double scale, int deviceWidth, int deviceHeight) {
       if (logical.width <= 0.0 || logical.height <= 0.0) {
         return AnnotationRect{};
       }
@@ -406,7 +403,7 @@ namespace capture {
       return "bar.annotate.fill-off";
     }
 
-    [[nodiscard]] AnnotationFillMode nextFillMode(AnnotationFillMode mode, bool forward) {
+    AnnotationFillMode nextFillMode(AnnotationFillMode mode, bool forward) {
       if (forward) {
         switch (mode) {
         case AnnotationFillMode::Off:
@@ -3176,7 +3173,7 @@ namespace capture {
         if (current) {
           swatch->setGlyph("check");
         } else {
-          (void)swatch->glyph()->setCodepoint(0);
+          swatch->glyph()->setCodepoint(0);
         }
       }
       inst.markedSwatch = marked;

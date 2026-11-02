@@ -104,7 +104,7 @@ void FileEntryTile::bind(
     releaseThumbnail();
     m_thumbnailPath = nextThumbnailPath;
     if (!m_thumbnailPath.empty() && m_thumbnails != nullptr) {
-      (void)m_thumbnails->acquire(m_thumbnailPath);
+      m_thumbnails->acquire(m_thumbnailPath);
     }
   }
 

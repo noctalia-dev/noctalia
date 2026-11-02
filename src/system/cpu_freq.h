@@ -13,6 +13,6 @@ namespace noctalia::system::cpu_freq {
     std::optional<double> maxMhz;
   };
 
-  [[nodiscard]] CpuFreqs readFreqs(const std::filesystem::path& root = "/sys/devices/system/cpu");
+  CpuFreqs readFreqs(const std::filesystem::path& root = "/sys/devices/system/cpu");
 
 } // namespace noctalia::system::cpu_freq

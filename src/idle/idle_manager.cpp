@@ -397,7 +397,7 @@ void IdleManager::graceFadeComplete() {
     }
     behavior->phase = BehaviorPhase::Idled;
     kLog.info("idle behavior '{}' triggered after pre-action fade", behavior->config.name);
-    (void)runBehavior(*behavior);
+    runBehavior(*behavior);
   }
 }
 

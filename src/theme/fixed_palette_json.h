@@ -20,7 +20,7 @@ namespace noctalia::theme {
 
   // The document's format version, or an error when "version" is not a positive integer or is newer than
   // kPaletteFormatVersion.
-  [[nodiscard]] std::expected<int, std::string> paletteJsonVersion(const nlohmann::json& root);
+  std::expected<int, std::string> paletteJsonVersion(const nlohmann::json& root);
 
   // Rewrites one fixed-palette mode object (`dark`, `light`, or a root-level palette) from `fromVersion` to
   // kPaletteFormatVersion. Only call it on fixed-palette objects, never on token maps.
@@ -32,6 +32,6 @@ namespace noctalia::theme {
   };
 
   // Loads a community or custom palette file. Missing colors read as transparent black, as before.
-  [[nodiscard]] std::optional<ParsedPaletteFile> parsePaletteFile(const std::filesystem::path& path);
+  std::optional<ParsedPaletteFile> parsePaletteFile(const std::filesystem::path& path);
 
 } // namespace noctalia::theme

@@ -17,9 +17,9 @@ namespace capture {
     bool cursorVisible = false;
     CursorToggleStatus cursorStatus = CursorToggleStatus::NotCaptured;
 
-    [[nodiscard]] bool canToggleCursor() const noexcept { return cursorStatus == CursorToggleStatus::Available; }
+    bool canToggleCursor() const noexcept { return cursorStatus == CursorToggleStatus::Available; }
 
-    [[nodiscard]] const ScreencopyImage& imageForCursor(bool visible) const noexcept {
+    const ScreencopyImage& imageForCursor(bool visible) const noexcept {
       return canToggleCursor() && alternative && visible != cursorVisible ? *alternative : image;
     }
   };
@@ -31,9 +31,9 @@ namespace capture {
 
   struct CapturedCursor;
 
-  [[nodiscard]] std::optional<ScreenshotImage>
+  std::optional<ScreenshotImage>
   cropScreenshotImage(const ScreenshotImage& source, int logicalWidth, int logicalHeight, LogicalRect region);
 
-  [[nodiscard]] ScreenshotImage composeCapturedCursor(ScreencopyImage background, CapturedCursor cursor);
+  ScreenshotImage composeCapturedCursor(ScreencopyImage background, CapturedCursor cursor);
 
 } // namespace capture

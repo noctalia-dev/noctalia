@@ -51,9 +51,9 @@ private:
     std::function<void()> activate;
   };
 
-  [[nodiscard]] bool isNavigable(const Item& item) const;
-  [[nodiscard]] std::optional<std::size_t> firstNavigableIndex() const;
-  [[nodiscard]] std::optional<std::size_t> findNavigableIndex(std::size_t from, int direction) const;
+  bool isNavigable(const Item& item) const;
+  std::optional<std::size_t> firstNavigableIndex() const;
+  std::optional<std::size_t> findNavigableIndex(std::size_t from, int direction) const;
   void syncKeyboardIndexToSelection();
   void setKeyboardIndex(std::size_t index, bool scrollIntoView);
   void applyKeyboardHints();
@@ -77,8 +77,8 @@ public:
   void clearItems();
   void notifyExternalSelectionChanged();
 
-  [[nodiscard]] InputArea* focusArea() const noexcept { return m_focusArea; }
-  [[nodiscard]] RovingListNavController& controller() noexcept { return m_controller; }
+  InputArea* focusArea() const noexcept { return m_focusArea; }
+  RovingListNavController& controller() noexcept { return m_controller; }
 
   void doLayout(Renderer& renderer) override;
 

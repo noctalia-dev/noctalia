@@ -26,7 +26,7 @@ namespace scripting {
     void invalidateSource(const std::string& sourceName);
 
   private:
-    [[nodiscard]] static std::string
+    static std::string
     cacheFilePath(const std::string& sourceName, const std::string& pluginSubdir, const std::string& filename);
 
     ReadyCallback m_onReady;

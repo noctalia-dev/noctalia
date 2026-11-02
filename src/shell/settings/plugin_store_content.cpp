@@ -154,7 +154,7 @@ namespace settings {
       void setRenderer(Renderer* r) { m_renderer = r; }
       void setTextureCache(AsyncTextureCache* c) { m_textureCache = c; }
 
-      [[nodiscard]] std::size_t itemCount() const override { return m_indices != nullptr ? m_indices->size() : 0; }
+      std::size_t itemCount() const override { return m_indices != nullptr ? m_indices->size() : 0; }
 
       [[nodiscard]] std::unique_ptr<Node> createTile() override { return std::make_unique<PluginStoreTile>(m_scale); }
 
@@ -302,7 +302,7 @@ namespace settings {
     }
     m_sortMode = mode;
     if (m_config != nullptr) {
-      (void)m_config->setStateString("plugin_store", "sort", sortModeStateValue(mode));
+      m_config->setStateString("plugin_store", "sort", sortModeStateValue(mode));
     }
 
     syncSortButtonGlyph();

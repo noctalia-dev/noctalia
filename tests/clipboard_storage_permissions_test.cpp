@@ -137,17 +137,17 @@ namespace {
       m_lookupStatus = status;
     }
 
-    [[nodiscard]] std::size_t storeCount() const {
+    std::size_t storeCount() const {
       std::scoped_lock lock(m_mutex);
       return m_storeCount;
     }
 
-    [[nodiscard]] std::size_t lookupCount() const {
+    std::size_t lookupCount() const {
       std::scoped_lock lock(m_mutex);
       return m_lookupCount;
     }
 
-    [[nodiscard]] std::size_t eraseCount() const {
+    std::size_t eraseCount() const {
       std::scoped_lock lock(m_mutex);
       return m_eraseCount;
     }
@@ -171,8 +171,8 @@ namespace {
       m_keys.configure(source, std::move(keyFile), m_clipboard.hasEncryptedPersistence());
     }
 
-    [[nodiscard]] ClipboardService& clipboard() { return m_clipboard; }
-    [[nodiscard]] security::StorageKeyProvider& keys() { return m_keys; }
+    ClipboardService& clipboard() { return m_clipboard; }
+    security::StorageKeyProvider& keys() { return m_keys; }
 
   private:
     security::StorageKeyProvider m_keys;

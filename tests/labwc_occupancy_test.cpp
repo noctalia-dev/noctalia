@@ -15,7 +15,7 @@ namespace {
     return workspace;
   }
 
-  [[nodiscard]] bool isOccupied(const std::vector<Workspace>& workspaces, const std::string& id) {
+  bool isOccupied(const std::vector<Workspace>& workspaces, const std::string& id) {
     for (const auto& workspace : workspaces) {
       if (workspace.id == id) {
         return workspace.occupied;
@@ -87,7 +87,7 @@ int main() {
   // 2. Switch to ws2: A is hidden (output == nullptr) but ws1 stays occupied.
   currentWorkspaces = {makeWorkspace("1", false), makeWorkspace("2", true), makeWorkspace("3", false)};
   currentToplevels = {hidden(fakeA, "app-a", "A")};
-  (void)backend.sync();
+  backend.sync();
   {
     auto workspaces = currentWorkspaces;
     backend.apply(workspaces);
@@ -113,7 +113,7 @@ int main() {
   // 4. Switch to ws3: both hidden, both remembered.
   currentWorkspaces = {makeWorkspace("1", false), makeWorkspace("2", false), makeWorkspace("3", true)};
   currentToplevels = {hidden(fakeA, "app-a", "A"), hidden(fakeB, "app-b", "B")};
-  (void)backend.sync();
+  backend.sync();
   {
     auto workspaces = currentWorkspaces;
     backend.apply(workspaces);
@@ -145,7 +145,7 @@ int main() {
   // 7. Back on ws2 with B visible: no spurious change, occupancy intact.
   currentWorkspaces = {makeWorkspace("1", false), makeWorkspace("2", true), makeWorkspace("3", false)};
   currentToplevels = {visible(fakeB, "app-b", "B")};
-  (void)backend.sync();
+  backend.sync();
   {
     auto workspaces = currentWorkspaces;
     backend.apply(workspaces);
@@ -179,7 +179,7 @@ int main() {
   currentWorkspaces = {};
   TEST_CHECK(!backend.sync());
   currentWorkspaces = {makeWorkspace("1", false), makeWorkspace("2", true), makeWorkspace("3", false)};
-  (void)backend.sync();
+  backend.sync();
   {
     auto workspaces = currentWorkspaces;
     backend.apply(workspaces);

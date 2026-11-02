@@ -28,7 +28,7 @@
 #include <wayland-client-protocol.h>
 
 namespace {
-  [[nodiscard]] bool isEmptyWorkspace(const Workspace& workspace) {
+  bool isEmptyWorkspace(const Workspace& workspace) {
     return !workspace.occupied && !workspace.active && !workspace.urgent;
   }
 
@@ -36,17 +36,15 @@ namespace {
   constexpr float kWorkspacePillDefaultHeight = Style::baseGlyphSize;
   constexpr float kWorkspaceAnimDurationMs = static_cast<float>(Style::animNormal);
 
-  [[nodiscard]] constexpr float workspaceLabelFontSize(bool minimal) {
-    return minimal ? Style::fontSizeBody : Style::fontSizeMini;
-  }
+  constexpr float workspaceLabelFontSize(bool minimal) { return minimal ? Style::fontSizeBody : Style::fontSizeMini; }
 
   // Numeric workspace IDs ("10", "11") must not be truncated like word labels.
-  [[nodiscard]] bool isNumericLabel(std::string_view label) {
+  bool isNumericLabel(std::string_view label) {
     return !label.empty()
         && std::ranges::all_of(label, [](char c) { return std::isdigit(static_cast<unsigned char>(c)); });
   }
 
-  [[nodiscard]] std::string workspaceIdentityKey(const Workspace& workspace, wl_output* output = nullptr) {
+  std::string workspaceIdentityKey(const Workspace& workspace, wl_output* output = nullptr) {
     const std::string outputKey =
         output == nullptr ? "" : std::to_string(reinterpret_cast<std::uintptr_t>(output)) + ":";
     if (!workspace.id.empty()) {

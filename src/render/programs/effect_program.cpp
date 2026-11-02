@@ -489,7 +489,7 @@ void main() {
 )";
 
   // Slot in m_programs. Fog has no slot of its own; draw() renders it with the Cloud program.
-  [[nodiscard]] std::optional<std::size_t> programIndex(EffectType type) {
+  std::optional<std::size_t> programIndex(EffectType type) {
     switch (type) {
     case EffectType::Sun:
       return 0;

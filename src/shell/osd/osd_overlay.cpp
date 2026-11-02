@@ -28,7 +28,7 @@ namespace {
 
   enum class OsdRevealDir { FromLeft, FromRight, FromTop, FromBottom };
 
-  [[nodiscard]] float osdContentOpacity(float reveal) {
+  float osdContentOpacity(float reveal) {
     const float v = std::clamp(reveal, 0.0F, 1.0F);
     if (v <= 0.15F) {
       return 0.0F;
@@ -36,7 +36,7 @@ namespace {
     return std::clamp((v - 0.15F) / 0.85F, 0.0F, 1.0F);
   }
 
-  [[nodiscard]] float osdUiScale(const ConfigService* config) {
+  float osdUiScale(const ConfigService* config) {
     if (config == nullptr) {
       return 1.0F;
     }
@@ -45,7 +45,7 @@ namespace {
     return std::max(0.1F, accessibility.uiScale * osd.scale);
   }
 
-  [[nodiscard]] bool isOsdKindEnabled(const OsdKindsConfig& kinds, OsdKind kind) {
+  bool isOsdKindEnabled(const OsdKindsConfig& kinds, OsdKind kind) {
     switch (kind) {
     case OsdKind::Volume:
       return kinds.volume && kinds.volumeOutput;
@@ -83,21 +83,21 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] float osdBackgroundOpacity(const ConfigService* config) {
+  float osdBackgroundOpacity(const ConfigService* config) {
     if (config == nullptr) {
       return 0.97F;
     }
     return std::clamp(config->config().osd.backgroundOpacity, 0.0F, 1.0F);
   }
 
-  [[nodiscard]] ColorSpec osdBorderColor(const ConfigService* config) {
+  ColorSpec osdBorderColor(const ConfigService* config) {
     if (config == nullptr) {
       return colorSpecFromRole(ColorRole::OutlineVariant);
     }
     return config->config().osd.borderColor;
   }
 
-  [[nodiscard]] float osdBorderWidth(const ConfigService* config, float scale) {
+  float osdBorderWidth(const ConfigService* config, float scale) {
     if (config == nullptr) {
       return Style::borderWidth * scale;
     }
@@ -105,16 +105,16 @@ namespace {
     return osd.border ? std::max(0.0F, osd.borderWidth) * scale : 0.0F;
   }
 
-  [[nodiscard]] bool isVerticalOrientation(const std::string& orientation) { return orientation == "vertical"; }
+  bool isVerticalOrientation(const std::string& orientation) { return orientation == "vertical"; }
 
-  [[nodiscard]] std::string effectiveOsdOrientation(const OsdContent& content, const std::string& configOrientation) {
+  std::string effectiveOsdOrientation(const OsdContent& content, const std::string& configOrientation) {
     if (!content.showProgress) {
       return "horizontal";
     }
     return configOrientation.empty() ? "horizontal" : configOrientation;
   }
 
-  [[nodiscard]] std::string effectiveOsdPosition(
+  std::string effectiveOsdPosition(
       const std::string& effectiveOrientation, const std::string& horizontalPosition,
       const std::string& verticalPosition
   ) {
@@ -125,18 +125,18 @@ namespace {
   }
 
   // Base units at ui_scale=1; passive overlay (no hit targets), between bar and old OSD size.
-  [[nodiscard]] float horizontalCardLength(float s) {
+  float horizontalCardLength(float s) {
     return (Style::controlHeight * 6 + Style::spaceMd + Style::spaceSm + Style::spaceXs) * s;
   }
 
-  [[nodiscard]] float cardWidth(float s, const std::string& orientation) {
+  float cardWidth(float s, const std::string& orientation) {
     if (isVerticalOrientation(orientation)) {
       return (Style::controlHeight + Style::spaceLg + Style::spaceMd) * s;
     }
     return horizontalCardLength(s);
   }
 
-  [[nodiscard]] float cardHeight(float s, const std::string& orientation, bool showProgress) {
+  float cardHeight(float s, const std::string& orientation, bool showProgress) {
     if (isVerticalOrientation(orientation)) {
       if (!showProgress) {
         return (Style::controlHeight * 2 + Style::spaceLg + Style::spaceSm) * s;
@@ -146,45 +146,45 @@ namespace {
     return (Style::controlHeight + Style::spaceSm) * s;
   }
 
-  [[nodiscard]] std::uint32_t osdSurfaceWidth(float s, const std::string& orientation, float innerPadX) {
+  std::uint32_t osdSurfaceWidth(float s, const std::string& orientation, float innerPadX) {
     const float w = cardWidth(s, orientation) + innerPadX * 2.0F;
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(w))));
   }
 
-  [[nodiscard]] std::uint32_t osdSurfaceHeight(float s, const std::string& orientation, bool showProgress) {
+  std::uint32_t osdSurfaceHeight(float s, const std::string& orientation, bool showProgress) {
     const float h = cardHeight(s, orientation, showProgress) + Style::spaceLg * s;
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(h))));
   }
 
-  [[nodiscard]] float glyphSize(float s) { return (Style::fontSizeTitle + Style::borderWidth * 4) * s; }
+  float glyphSize(float s) { return (Style::fontSizeTitle + Style::borderWidth * 4) * s; }
 
-  [[nodiscard]] float valueFontSize(float s) { return Style::fontSizeBody * s; }
+  float valueFontSize(float s) { return Style::fontSizeBody * s; }
 
-  [[nodiscard]] float progressHeight(float s) { return (Style::spaceXs + Style::borderWidth * 2) * s; }
+  float progressHeight(float s) { return (Style::spaceXs + Style::borderWidth * 2) * s; }
 
-  [[nodiscard]] float verticalProgressWidth(float s) { return progressHeight(s) * 1.75F; }
+  float verticalProgressWidth(float s) { return progressHeight(s) * 1.75F; }
 
-  [[nodiscard]] float cardPadding(float s) { return Style::spaceMd * s; }
+  float cardPadding(float s) { return Style::spaceMd * s; }
 
-  [[nodiscard]] float innerGap(float s) { return (Style::spaceSm + Style::spaceXs * 0.5F) * s; }
+  float innerGap(float s) { return (Style::spaceSm + Style::spaceXs * 0.5F) * s; }
 
-  [[nodiscard]] float osdCardRadius(float cw, float ch, float layoutScale) {
+  float osdCardRadius(float cw, float ch, float layoutScale) {
     const float maxR = std::min(cw, ch) * 0.5F;
     return std::min(maxR, Style::scaledRadiusXl(layoutScale));
   }
 
-  [[nodiscard]] float osdProgressRadius(float layoutScale) {
+  float osdProgressRadius(float layoutScale) {
     const float ph = progressHeight(layoutScale);
     return std::min(ph * 0.5F, Style::scaledRadiusSm(layoutScale));
   }
 
-  [[nodiscard]] bool isBottomPosition(const std::string& position) { return position.starts_with("bottom_"); }
+  bool isBottomPosition(const std::string& position) { return position.starts_with("bottom_"); }
 
-  [[nodiscard]] bool isCenterPosition(const std::string& position) { return position.starts_with("center_"); }
+  bool isCenterPosition(const std::string& position) { return position.starts_with("center_"); }
 
-  [[nodiscard]] bool isLeftPosition(const std::string& position) { return position.ends_with("_left"); }
+  bool isLeftPosition(const std::string& position) { return position.ends_with("_left"); }
 
-  [[nodiscard]] bool isRightPosition(const std::string& position) { return position.ends_with("_right"); }
+  bool isRightPosition(const std::string& position) { return position.ends_with("_right"); }
 
   float cardBaseX(float surfaceWidth, float cardW) { return (surfaceWidth - cardW) * 0.5F; }
 

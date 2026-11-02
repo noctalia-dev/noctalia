@@ -1114,7 +1114,7 @@ void HomeTab::ensureWallpaperThumbnail(const std::string& path, int targetPx) {
     m_thumbnails->release(m_loadedWallpaperPath, m_loadedWallpaperSize);
   }
   if (!path.empty() && targetPx > 0) {
-    (void)m_thumbnails->acquire(path, targetPx);
+    m_thumbnails->acquire(path, targetPx);
   }
   m_loadedWallpaperPath = path;
   m_loadedWallpaperSize = targetPx;
@@ -1172,7 +1172,7 @@ void HomeTab::syncWallpaperBackground(Renderer& renderer) {
     return;
   }
 
-  (void)m_thumbnails->uploadPending(renderer.textureManager());
+  m_thumbnails->uploadPending(renderer.textureManager());
   const TextureHandle crisp = m_thumbnails->peek(path, targetPx);
   if (!crisp.valid()) {
     // Still decoding: keep the placeholder; fade the crisp layer in once it lands.
@@ -1459,7 +1459,7 @@ void HomeTab::sync(Renderer& renderer) {
       // image displayed near 1:1. Both made the avatar look blurry. The decode runs on
       // the async cache workers so a large source never stalls the panel open.
       const int avatarSize = static_cast<int>(std::round(m_userAvatar->width()));
-      (void)m_userAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, avatarSize, false);
+      m_userAvatar->setSourceFileAsync(renderer, *m_asyncTextures, displayPath, avatarSize, false);
     }
   }
 

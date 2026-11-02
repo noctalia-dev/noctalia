@@ -25,18 +25,18 @@ public:
   void setHooks(SessionActionHooks hooks);
   void setPowerConfig(const ShellSessionConfig::ShellSessionPowerConfig& power);
   void invoke(const SessionPanelActionConfig& cfg) const;
-  [[nodiscard]] bool lock() const;
-  [[nodiscard]] bool requestSuspendDetached() const;
-  [[nodiscard]] bool requestRebootDetached() const;
-  [[nodiscard]] bool requestRebootUefiDetached() const;
-  [[nodiscard]] bool requestShutdownDetached() const;
-  [[nodiscard]] bool lockThenSuspendDetached() const;
+  bool lock() const;
+  bool requestSuspendDetached() const;
+  bool requestRebootDetached() const;
+  bool requestRebootUefiDetached() const;
+  bool requestShutdownDetached() const;
+  bool lockThenSuspendDetached() const;
 
 private:
-  [[nodiscard]] std::function<bool()> hookFor(std::string_view action) const;
-  [[nodiscard]] bool suspendBlocking() const;
-  [[nodiscard]] bool rebootBlocking() const;
-  [[nodiscard]] bool shutdownBlocking() const;
+  std::function<bool()> hookFor(std::string_view action) const;
+  bool suspendBlocking() const;
+  bool rebootBlocking() const;
+  bool shutdownBlocking() const;
 
   CompositorPlatform& m_platform;
   LockScreen& m_lockScreen;

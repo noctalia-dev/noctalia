@@ -31,7 +31,7 @@ namespace {
   }
 
   // wl_shm names formats by little-endian word order, so ARGB8888 is B, G, R, A in memory.
-  [[nodiscard]] ResizeSourceLayout resizeLayoutFor(std::uint32_t format) noexcept {
+  ResizeSourceLayout resizeLayoutFor(std::uint32_t format) noexcept {
     switch (format) {
     case WL_SHM_FORMAT_ARGB8888:
       return ResizeSourceLayout::BgraPremultiplied;
@@ -44,7 +44,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] bool transformSwapsAxes(std::int32_t transform) noexcept {
+  bool transformSwapsAxes(std::int32_t transform) noexcept {
     return transform == WL_OUTPUT_TRANSFORM_90
         || transform == WL_OUTPUT_TRANSFORM_270
         || transform == WL_OUTPUT_TRANSFORM_FLIPPED_90
@@ -52,9 +52,7 @@ namespace {
   }
 
   // Zero bounds request native size.
-  [[nodiscard]] int effectiveCaptureBound(int bound) noexcept {
-    return bound > 0 ? bound : std::numeric_limits<int>::max();
-  }
+  int effectiveCaptureBound(int bound) noexcept { return bound > 0 ? bound : std::numeric_limits<int>::max(); }
 } // namespace
 
 std::optional<ScreencopyImage> capture::makeToplevelThumbnail(

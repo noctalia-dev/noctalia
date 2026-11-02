@@ -57,7 +57,7 @@ namespace {
   constexpr int kForecastDayCountAlone = 5;
   constexpr float kWeatherCurrentMinText = 56.0F;
 
-  [[nodiscard]] int fitForecastDays(
+  int fitForecastDays(
       Renderer& renderer, float weatherBudget, float weatherGlyphSize, float forecastGlyphSize, float captionSize,
       int maxDays
   ) {
@@ -77,7 +77,7 @@ namespace {
     return std::clamp(fit, 0, maxDays);
   }
 
-  [[nodiscard]] float forecastBlockWidth(Renderer& renderer, int dayCount, float forecastGlyphSize, float captionSize) {
+  float forecastBlockWidth(Renderer& renderer, int dayCount, float forecastGlyphSize, float captionSize) {
     if (dayCount <= 0) {
       return 0.0F;
     }
@@ -95,7 +95,7 @@ namespace {
     return tryParseHexColor(path.substr(kPrefix.size()), out);
   }
 
-  [[nodiscard]] ButtonVariant buttonVariantFor(SessionActionButtonVariant variant) {
+  ButtonVariant buttonVariantFor(SessionActionButtonVariant variant) {
     switch (variant) {
     case SessionActionButtonVariant::Default:
       return ButtonVariant::Default;
@@ -115,7 +115,7 @@ namespace {
 
   // Default/Ghost use SurfaceContainer or clear fills that disappear on the
   // SurfaceContainer login panel; Outline gives a readable Surface chip.
-  [[nodiscard]] ButtonVariant lockscreenSessionVariant(SessionActionButtonVariant variant) {
+  ButtonVariant lockscreenSessionVariant(SessionActionButtonVariant variant) {
     switch (variant) {
     case SessionActionButtonVariant::Default:
     case SessionActionButtonVariant::Ghost:
@@ -129,7 +129,7 @@ namespace {
     return ButtonVariant::Outline;
   }
 
-  [[nodiscard]] std::string weekdayAbbrev(const std::string& isoDate) {
+  std::string weekdayAbbrev(const std::string& isoDate) {
     if (isoDate.size() != 10) {
       return isoDate;
     }
@@ -144,7 +144,7 @@ namespace {
     return weekday.empty() ? isoDate : weekday;
   }
 
-  [[nodiscard]] std::string todayIso(std::int32_t utcOffsetSeconds) {
+  std::string todayIso(std::int32_t utcOffsetSeconds) {
     const auto now = std::chrono::system_clock::now() + std::chrono::seconds{utcOffsetSeconds};
     const std::time_t time = std::chrono::system_clock::to_time_t(now);
     std::tm tm{};

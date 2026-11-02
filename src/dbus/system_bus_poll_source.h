@@ -7,7 +7,7 @@ class SystemBusPollSource final : public PollSource {
 public:
   explicit SystemBusPollSource(SystemBus& bus) : m_bus(bus) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override {
+  int pollTimeoutMs() const override {
     if (m_bus.hasPendingEvents()) {
       return 0;
     }

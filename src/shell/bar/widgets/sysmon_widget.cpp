@@ -23,7 +23,7 @@
 
 namespace {
 
-  [[nodiscard]] std::string displaySysmonLabel(const std::string& raw, bool showUnits) {
+  std::string displaySysmonLabel(const std::string& raw, bool showUnits) {
     if (showUnits) {
       return raw;
     }
@@ -59,7 +59,7 @@ namespace {
 
   // The gauge track is a dimmed version of the gauge fill so it inherits the
   // fill's readability against whatever sits behind it (e.g. a custom capsule).
-  [[nodiscard]] ColorSpec gaugeTrackColor(const ColorSpec& fill) {
+  ColorSpec gaugeTrackColor(const ColorSpec& fill) {
     ColorSpec track = fill;
     track.alpha *= 0.3F;
     return track;
@@ -73,12 +73,12 @@ namespace {
   constexpr double kFreqFallbackCeilingMhz = 5000.0;
   constexpr float kCoreGaugeGap = 1.0F;
 
-  [[nodiscard]] std::chrono::steady_clock::duration historyInterval(const SystemMonitorService* monitor) {
+  std::chrono::steady_clock::duration historyInterval(const SystemMonitorService* monitor) {
     return monitor != nullptr ? monitor->historySampleInterval()
                               : std::chrono::steady_clock::duration{std::chrono::seconds(1)};
   }
 
-  [[nodiscard]] double gradientFactor(double value, double activityThreshold, double criticalThreshold) {
+  double gradientFactor(double value, double activityThreshold, double criticalThreshold) {
     // Tint the value sits at right when it first crosses the activity threshold, so "active" is
     // immediately visible rather than fading in from nothing.
     constexpr double kActivityOnset = 0.25;
@@ -121,7 +121,7 @@ namespace {
       SysmonStat::DiskFreePct, SysmonStat::DiskFree, SysmonStat::NetRx,       SysmonStat::NetTx,
   };
 
-  [[nodiscard]] double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
+  double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
     if (interfaceName.empty()) {
       return stats.netRxBytesPerSec;
     }
@@ -132,7 +132,7 @@ namespace {
     return 0.0;
   }
 
-  [[nodiscard]] double netTxFromStats(const SystemStats& stats, std::string_view interfaceName) {
+  double netTxFromStats(const SystemStats& stats, std::string_view interfaceName) {
     if (interfaceName.empty()) {
       return stats.netTxBytesPerSec;
     }
@@ -641,7 +641,7 @@ void SysmonWidget::syncCoreGauge() {
 void SysmonWidget::rebuildCoreGauge(std::size_t coreCount) {
   m_coreGauges.clear();
   while (!m_coreGaugeRow->children().empty()) {
-    (void)m_coreGaugeRow->removeChild(m_coreGaugeRow->children().front().get());
+    m_coreGaugeRow->removeChild(m_coreGaugeRow->children().front().get());
   }
 
   const ColorSpec track = gaugeTrackColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));

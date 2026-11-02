@@ -18,18 +18,18 @@ class ImageNode : public Node {
 public:
   ImageNode() : Node(NodeType::Image) {}
 
-  [[nodiscard]] TextureId textureId() const noexcept { return m_textureId; }
-  [[nodiscard]] const Color& tint() const noexcept { return m_tint; }
-  [[nodiscard]] float radius() const noexcept { return m_radius; }
-  [[nodiscard]] float saturation() const noexcept { return m_saturation; }
-  [[nodiscard]] const Color& borderColor() const noexcept { return m_borderColor; }
-  [[nodiscard]] float borderWidth() const noexcept { return m_borderWidth; }
-  [[nodiscard]] ImageFitMode fitMode() const noexcept { return m_fitMode; }
-  [[nodiscard]] const ImageScrim& scrim() const noexcept { return m_scrim; }
-  [[nodiscard]] bool monochromeTint() const noexcept { return m_monochromeTint; }
-  [[nodiscard]] bool alphaMaskTint() const noexcept { return m_alphaMaskTint; }
-  [[nodiscard]] int textureWidth() const noexcept { return m_textureWidth; }
-  [[nodiscard]] int textureHeight() const noexcept { return m_textureHeight; }
+  TextureId textureId() const noexcept { return m_textureId; }
+  const Color& tint() const noexcept { return m_tint; }
+  float radius() const noexcept { return m_radius; }
+  float saturation() const noexcept { return m_saturation; }
+  const Color& borderColor() const noexcept { return m_borderColor; }
+  float borderWidth() const noexcept { return m_borderWidth; }
+  ImageFitMode fitMode() const noexcept { return m_fitMode; }
+  const ImageScrim& scrim() const noexcept { return m_scrim; }
+  bool monochromeTint() const noexcept { return m_monochromeTint; }
+  bool alphaMaskTint() const noexcept { return m_alphaMaskTint; }
+  int textureWidth() const noexcept { return m_textureWidth; }
+  int textureHeight() const noexcept { return m_textureHeight; }
 
   void setTextureId(TextureId id) {
     if (m_textureId == id) {

@@ -490,10 +490,10 @@ namespace ui {
   std::unique_ptr<Glyph> glyph(GlyphProps props) {
     auto control = std::make_unique<Glyph>();
     if (props.glyph.has_value()) {
-      (void)control->setGlyph(*props.glyph);
+      control->setGlyph(*props.glyph);
     }
     if (props.codepoint.has_value()) {
-      (void)control->setCodepoint(*props.codepoint);
+      control->setCodepoint(*props.codepoint);
     }
     if (props.glyphSize.has_value()) {
       control->setGlyphSize(*props.glyphSize);

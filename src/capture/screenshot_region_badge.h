@@ -12,7 +12,7 @@ namespace capture {
   // below it, else to its right, else to its left. A selection that leaves no room on any side
   // fills almost the whole surface, and only then does the badge sit inside its top-left corner.
   // `sel*` is the outer edge of the selection outline, clipped to the surface.
-  [[nodiscard]] RegionBadgePosition placeRegionBadge(
+  RegionBadgePosition placeRegionBadge(
       float surfaceW, float surfaceH, float selX0, float selY0, float selX1, float selY1, float badgeW, float badgeH
   );
 

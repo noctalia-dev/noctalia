@@ -29,9 +29,9 @@ namespace {
   constexpr Logger kLog("screen-time");
   constexpr int kRetentionDays = 14;
 
-  [[nodiscard]] std::chrono::system_clock::time_point localNow() { return std::chrono::system_clock::now(); }
+  std::chrono::system_clock::time_point localNow() { return std::chrono::system_clock::now(); }
 
-  [[nodiscard]] std::tm localTm(std::chrono::system_clock::time_point tp) {
+  std::tm localTm(std::chrono::system_clock::time_point tp) {
     const std::time_t t = std::chrono::system_clock::to_time_t(tp);
     std::tm out{};
     localtime_r(&t, &out);
@@ -39,7 +39,7 @@ namespace {
   }
 
   // Match ScreenTimeService::localDayKey(localNow()) — not std::chrono::days on system_clock (UTC).
-  [[nodiscard]] std::string localDayKeyForCalendarOffset(int daysAgo) {
+  std::string localDayKeyForCalendarOffset(int daysAgo) {
     std::tm tm = localTm(localNow());
     tm.tm_hour = 12;
     tm.tm_min = 0;
@@ -56,14 +56,14 @@ namespace {
   constexpr std::size_t kMaxListedApps = 12;
   constexpr std::size_t kMaxChartSeries = 5;
 
-  [[nodiscard]] std::string canonicalAppKey(std::string_view appKey) {
+  std::string canonicalAppKey(std::string_view appKey) {
     if (const auto sep = appKey.find('\x1F'); sep != std::string::npos) {
       return std::string(appKey.substr(0, sep));
     }
     return std::string(appKey);
   }
 
-  [[nodiscard]] std::string normalizedAppToken(std::string_view value) {
+  std::string normalizedAppToken(std::string_view value) {
     std::string token;
     token.reserve(value.size());
     for (const unsigned char ch : value) {
@@ -75,7 +75,7 @@ namespace {
     return token;
   }
 
-  [[nodiscard]] bool normalizedContains(std::string_view haystack, std::string_view needle) {
+  bool normalizedContains(std::string_view haystack, std::string_view needle) {
     if (needle.empty()) {
       return false;
     }
@@ -85,7 +85,7 @@ namespace {
   }
 
   // Portals, polkit prompts, and other transient helpers should not receive focus credit.
-  [[nodiscard]] bool isScreenTimeExcludedAppKey(std::string_view appKey) {
+  bool isScreenTimeExcludedAppKey(std::string_view appKey) {
     if (appKey.empty() || appKey == "unknown") {
       return true;
     }
@@ -163,7 +163,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::string displayNameForAppKey(const std::string& appKey) {
+  std::string displayNameForAppKey(const std::string& appKey) {
     if (appKey.empty() || appKey == "unknown") {
       return {};
     }

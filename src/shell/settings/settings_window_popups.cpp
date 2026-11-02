@@ -1322,7 +1322,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
               markSettingsWriteError(message);
               return;
             }
-            (void)m_config->setStateString(kCalendarDiscoveryOwner, accountId + "_calendars", "");
+            m_config->setStateString(kCalendarDiscoveryOwner, accountId + "_calendars", "");
             markSettingsWriteSuccess(true);
             if (m_editorSheetModal != nullptr) {
               m_editorSheetModal->close();

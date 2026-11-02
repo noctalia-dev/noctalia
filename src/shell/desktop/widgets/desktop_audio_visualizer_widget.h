@@ -32,7 +32,7 @@ public:
       const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
   ) override;
   void setEditorPreview(bool enabled) noexcept override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
   void onFrameTick(float deltaMs, Renderer& renderer) override;
 
 private:
@@ -42,7 +42,7 @@ private:
   void pullSpectrumValues();
   void syncSpectrum(Renderer* renderer);
   void layoutContentSize(Renderer& renderer);
-  [[nodiscard]] bool shouldBeVisible() const;
+  bool shouldBeVisible() const;
   bool applyVisibility();
   void cancelVisibilityAnimation();
   void setVisibilityCollapsed(bool collapsed);

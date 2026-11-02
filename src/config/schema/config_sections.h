@@ -42,17 +42,17 @@ namespace noctalia::config::schema {
     std::unordered_set<std::string> allowUnknownPaths;
   };
 
-  [[nodiscard]] std::span<const SectionSpec> sections();
+  std::span<const SectionSpec> sections();
 
-  [[nodiscard]] const SectionSpec* findSection(std::string_view name);
+  const SectionSpec* findSection(std::string_view name);
 
   // Root keys whose shape is not a plain section schema: named tables (bar, widget),
   // placement structures (desktop_widgets, lockscreen_widgets), the open per-plugin
   // map (plugin_settings), and config meta keys. Their read/write/validate stay
   // hand-written in the owning file; the names live here so the known-root-key set
   // still has exactly one source.
-  [[nodiscard]] std::span<const std::string_view> customRootKeys();
+  std::span<const std::string_view> customRootKeys();
 
-  [[nodiscard]] bool isKnownRootKey(std::string_view name);
+  bool isKnownRootKey(std::string_view name);
 
 } // namespace noctalia::config::schema

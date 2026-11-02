@@ -23,11 +23,11 @@ public:
   void bind() const;
   static void bindDefault();
 
-  [[nodiscard]] bool valid() const noexcept override { return m_id != 0 && m_color.id != 0; }
-  [[nodiscard]] GLuint id() const noexcept { return m_id; }
-  [[nodiscard]] TextureId colorTexture() const noexcept override { return m_color.id; }
-  [[nodiscard]] std::uint32_t width() const noexcept override { return m_width; }
-  [[nodiscard]] std::uint32_t height() const noexcept override { return m_height; }
+  bool valid() const noexcept override { return m_id != 0 && m_color.id != 0; }
+  GLuint id() const noexcept { return m_id; }
+  TextureId colorTexture() const noexcept override { return m_color.id; }
+  std::uint32_t width() const noexcept override { return m_width; }
+  std::uint32_t height() const noexcept override { return m_height; }
   void abandon() noexcept override;
 
 private:

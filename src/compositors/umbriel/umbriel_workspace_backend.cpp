@@ -11,7 +11,7 @@ namespace {
 
   constexpr Logger kLog("umbriel_workspace_backend");
 
-  [[nodiscard]] std::string jsonString(const nlohmann::json& json, std::string_view key) {
+  std::string jsonString(const nlohmann::json& json, std::string_view key) {
     const auto it = json.find(key);
     if (it == json.end() || !it->is_string()) {
       return {};
@@ -19,7 +19,7 @@ namespace {
     return it->get<std::string>();
   }
 
-  [[nodiscard]] std::optional<WindowMinimizeState> parseMinimizeState(const nlohmann::json& entry) {
+  std::optional<WindowMinimizeState> parseMinimizeState(const nlohmann::json& entry) {
     const auto minimized = entry.find("minimized");
     const auto minimizable = entry.find("minimizable");
     if (minimized == entry.end()

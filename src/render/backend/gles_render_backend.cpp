@@ -240,8 +240,8 @@ void main() {
       m_wlSurface = nullptr;
     }
 
-    [[nodiscard]] bool isReady() const noexcept override { return m_surface != EGL_NO_SURFACE; }
-    [[nodiscard]] EGLSurface eglSurface() const noexcept { return m_surface; }
+    bool isReady() const noexcept override { return m_surface != EGL_NO_SURFACE; }
+    EGLSurface eglSurface() const noexcept { return m_surface; }
 
   private:
     EGLDisplay m_display = EGL_NO_DISPLAY;

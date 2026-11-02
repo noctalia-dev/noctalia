@@ -19,7 +19,7 @@ namespace {
 
   constexpr Logger kLog("fdlimit");
 
-  [[nodiscard]] bool isFdName(const char* name) {
+  bool isFdName(const char* name) {
     if (name == nullptr || name[0] == '\0') {
       return false;
     }
@@ -31,14 +31,14 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] std::string rlimitValue(rlim_t value) {
+  std::string rlimitValue(rlim_t value) {
     if (value == RLIM_INFINITY) {
       return "infinity";
     }
     return std::to_string(static_cast<unsigned long long>(value));
   }
 
-  [[nodiscard]] std::string rlimitSummary() {
+  std::string rlimitSummary() {
     rlimit limit{};
     if (getrlimit(RLIMIT_NOFILE, &limit) != 0) {
       return "rlimit_nofile=unavailable";
@@ -46,9 +46,9 @@ namespace {
     return std::format("rlimit_nofile={}/{}", rlimitValue(limit.rlim_cur), rlimitValue(limit.rlim_max));
   }
 
-  [[nodiscard]] bool startsWith(std::string_view value, std::string_view prefix) { return value.starts_with(prefix); }
+  bool startsWith(std::string_view value, std::string_view prefix) { return value.starts_with(prefix); }
 
-  [[nodiscard]] std::string bucketTarget(std::string target) {
+  std::string bucketTarget(std::string target) {
     if (startsWith(target, "socket:")) {
       return "socket";
     }
@@ -77,7 +77,7 @@ namespace {
     return target;
   }
 
-  [[nodiscard]] std::string readFdTarget(const char* fdName) {
+  std::string readFdTarget(const char* fdName) {
     const std::string path = std::string("/proc/self/fd/") + fdName;
     std::vector<char> buffer(512);
     while (true) {

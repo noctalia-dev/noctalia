@@ -30,22 +30,22 @@ namespace scripting {
     std::string layer = "follow";
   };
 
-  [[nodiscard]] std::string panelShellSettingKey(std::string_view entryId, std::string_view suffix);
+  std::string panelShellSettingKey(std::string_view entryId, std::string_view suffix);
 
   // Seeds standard placement, position, open-near-click, and layer settings on
   // a [[panel]] entry when the plugin manifest does not declare them explicitly.
   void injectStandardPanelShellSettings(PluginEntry& entry);
 
-  [[nodiscard]] PluginPanelShellConfig resolvePluginPanelShellConfig(
+  PluginPanelShellConfig resolvePluginPanelShellConfig(
       const PluginEntry& entry, const std::unordered_map<std::string, WidgetSettingValue>& settings
   );
 
-  [[nodiscard]] PanelPlacement panelPlacementFromString(std::string_view value, PanelPlacement fallback) noexcept;
-  [[nodiscard]] bool isValidPanelPosition(std::string_view value) noexcept;
-  [[nodiscard]] bool isValidPanelKeyboardFocus(std::string_view value) noexcept;
-  [[nodiscard]] bool isValidPanelLayer(std::string_view value) noexcept;
+  PanelPlacement panelPlacementFromString(std::string_view value, PanelPlacement fallback) noexcept;
+  bool isValidPanelPosition(std::string_view value) noexcept;
+  bool isValidPanelKeyboardFocus(std::string_view value) noexcept;
+  bool isValidPanelLayer(std::string_view value) noexcept;
   // True when the panel defers to [shell.panel] floating_layer instead of pinning a layer.
-  [[nodiscard]] bool panelLayerFollowsFloating(std::string_view value) noexcept;
-  [[nodiscard]] bool isPanelShellSettingKey(std::string_view entryId, std::string_view key) noexcept;
+  bool panelLayerFollowsFloating(std::string_view value) noexcept;
+  bool isPanelShellSettingKey(std::string_view entryId, std::string_view key) noexcept;
 
 } // namespace scripting

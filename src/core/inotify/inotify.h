@@ -26,7 +26,7 @@ public:
 
   std::optional<int> watch(const std::filesystem::path& path, WatchMask mask) noexcept;
 
-  [[nodiscard]] int fd() const noexcept { return m_inotifyFd; }
+  int fd() const noexcept { return m_inotifyFd; }
 
   void unwatch(int wd);
 

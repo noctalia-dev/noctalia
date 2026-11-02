@@ -62,7 +62,7 @@ namespace {
       return TextMetrics{.width = fontSize, .bottom = fontSize};
     }
     TextureManager& textureManager() override { std::abort(); }
-    [[nodiscard]] float renderScale() const noexcept override { return 1.0F; }
+    float renderScale() const noexcept override { return 1.0F; }
   };
 
   bool expect(bool condition, const char* message) {
@@ -123,7 +123,7 @@ namespace {
     float sceneX = 0.0F;
     float sceneY = 0.0F;
     Node::mapToScene(&target, targetX, targetY, sceneX, sceneY);
-    (void)Node::mapFromScene(source.inputArea(), sceneX, sceneY, localX, localY);
+    Node::mapFromScene(source.inputArea(), sceneX, sceneY, localX, localY);
   }
 
   void sourceLocalPointFor(const DragSource& source, const Node& target, float& localX, float& localY) {
@@ -210,7 +210,7 @@ int main() {
     ui::UiTreeNode glyphNode = makeNode("glyph");
     glyphNode.props.emplace("name", std::string("cpu"));
     tree.children.push_back(std::move(glyphNode));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     auto* label = row != nullptr ? dynamic_cast<Label*>(row->children()[0].get()) : nullptr;
@@ -223,7 +223,7 @@ int main() {
     const Color explicitGlyph = rgbHex(0xAABBCC);
     tree.children[0].props["color"] = std::string("#778899");
     tree.children[1].props["color"] = std::string("#aabbcc");
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     ok = expect(label != nullptr && label->color() == explicitLabel, "explicit label color overrides host color") && ok;
     ok = expect(
              renderedGlyph != nullptr && renderedGlyph->color() == explicitGlyph,
@@ -236,7 +236,7 @@ int main() {
     reconciler.setColorDefaults(fixedColorSpec(nextLabelDefault), fixedColorSpec(nextGlyphDefault));
     tree.children[0].props.erase("color");
     tree.children[1].props.erase("color");
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     ok = expect(label != nullptr && label->color() == nextLabelDefault, "label restores changed host color") && ok;
     ok = expect(
              renderedGlyph != nullptr && renderedGlyph->color() == nextGlyphDefault, "glyph restores changed host color"
@@ -252,7 +252,7 @@ int main() {
     ui::UiTreeNode tree = makeNode("row");
     tree.children.push_back(makeLabel("A", "a"));
     tree.children.push_back(makeLabel("B", "b"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     ok = expect(row != nullptr && row->children().size() == 2, "keyed row built") && ok;
@@ -277,7 +277,7 @@ int main() {
 
     ui::UiTreeNode tree = makeNode("column");
     tree.children.push_back(makeLabel("X"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     Node* labelNode = column != nullptr ? column->children()[0].get() : nullptr;
 
@@ -292,7 +292,7 @@ int main() {
     tree.children.clear();
     tree.children.push_back(makeNode("definitely-not-a-control"));
     tree.children.push_back(makeLabel("Y"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     if (column != nullptr) {
       ok = expect(column->children().size() == 1, "unknown type skipped") && ok;
       auto* label = dynamic_cast<Label*>(column->children()[0].get());
@@ -312,7 +312,7 @@ int main() {
     ui::UiTreeNode label = makeLabel("S");
     label.props.emplace("fontSize", 10.0);
     tree.children.push_back(label);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* scaled = column != nullptr ? dynamic_cast<Label*>(column->children()[0].get()) : nullptr;
@@ -332,7 +332,7 @@ int main() {
     button.props.emplace("text", std::string("Go"));
     button.props.emplace("onClick", std::string("openDetails"));
     tree.children.push_back(button);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
@@ -354,7 +354,7 @@ int main() {
     button.props.emplace("text", std::string("Menu"));
     button.props.emplace("onRightClick", std::string("openMenu"));
     tree.children.push_back(button);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
@@ -413,19 +413,19 @@ int main() {
 
     ui::UiTreeNode tree = makeNode("column");
     tree.children.push_back(makeNode("box"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     Node* bareBox = column != nullptr ? column->children()[0].get() : nullptr;
     ok = expect(dynamic_cast<Box*>(bareBox) != nullptr, "bare box is an unwrapped Box") && ok;
 
     tree.children[0].props.emplace("onClick", std::string("openDetails"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     Node* clickableBox = column != nullptr ? column->children()[0].get() : nullptr;
     ok = expect(clickableBox != bareBox, "adding onClick rebuilds the box") && ok;
     ok = expect(dynamic_cast<Box*>(clickableBox) == nullptr, "clickable box is wrapped, not a bare Box") && ok;
 
     tree.children[0].props.erase("onClick");
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     Node* unwrapped = column != nullptr ? column->children()[0].get() : nullptr;
     ok = expect(unwrapped != clickableBox, "removing onClick rebuilds the box") && ok;
     ok = expect(dynamic_cast<Box*>(unwrapped) != nullptr, "box unwrapped after onClick removed") && ok;
@@ -442,7 +442,7 @@ int main() {
       tree.props.emplace("onClick", std::string("activate"));
       tree.children.push_back(makeLabel("First"));
       tree.children.push_back(makeLabel("Second"));
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
 
       Node* root = host.children().empty() ? nullptr : host.children().front().get();
       auto* area = dynamic_cast<InputArea*>(root);
@@ -477,7 +477,7 @@ int main() {
       tree.props.emplace("width", 120.0);
       tree.props.emplace("height", 36.0);
       tree.children.push_back(makeLabel("Sized"));
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
 
       auto* area = dynamic_cast<InputArea*>(host.children().front().get());
       auto* inner =
@@ -505,7 +505,7 @@ int main() {
 
       ui::UiTreeNode tree = makeNode(type);
       tree.props.emplace("onClick", std::string("activate"));
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       auto* clickable = dynamic_cast<InputArea*>(host.children().front().get());
       ok = expect(
                clickable != nullptr
@@ -527,7 +527,7 @@ int main() {
 
       ui::UiTreeNode tree = makeNode(type);
       tree.props.emplace("onHover", std::string("hover"));
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       auto* hoverOnly = dynamic_cast<InputArea*>(host.children().front().get());
       ok = expect(
                hoverOnly != nullptr && hoverOnly->acceptedButtons() == 0 && !hoverOnly->focusable(),
@@ -548,17 +548,17 @@ int main() {
       tree.props.emplace("onClick", std::string("first"));
       tree.props.emplace("width", 40.0);
       tree.props.emplace("height", 20.0);
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       auto* area = dynamic_cast<InputArea*>(host.children().front().get());
       if (area != nullptr) {
-        (void)area->measure(renderer, LayoutConstraints::unconstrained());
+        area->measure(renderer, LayoutConstraints::unconstrained());
         area->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
         area->dispatchPress(5.0F, 5.0F, BTN_LEFT, false);
       }
       ok = expect(fired == "first", "click dispatch reaches the first container callback") && ok;
 
       tree.props["onClick"] = std::string("second");
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       fired.clear();
       if (area != nullptr) {
         area->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
@@ -572,7 +572,7 @@ int main() {
       // keyboard-activatable node. The wrapper drops mask, focus, and handler.
       tree.props["onClick"] = std::string();
       tree.props.emplace("onHover", std::string("h"));
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       fired.clear();
       if (area != nullptr) {
         area->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
@@ -599,7 +599,7 @@ int main() {
       ui::UiTreeNode tree = makeNode(type);
       tree.props.emplace("onClick", std::string());
       tree.props.emplace("onHover", std::string());
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       Node* node = host.children().empty() ? nullptr : host.children().front().get();
       ok = expect(dynamic_cast<Flex*>(node) != nullptr, "empty callback names leave the container unwrapped") && ok;
     }
@@ -620,7 +620,7 @@ int main() {
       ui::UiTreeNode tree = makeNode(type);
       tree.key = "chip-3";
       tree.props.emplace("onHover", std::string("hover"));
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       auto* area = dynamic_cast<InputArea*>(host.children().front().get());
       if (area != nullptr) {
         area->dispatchEnter(0.0F, 0.0F);
@@ -643,18 +643,18 @@ int main() {
       Flex host;
 
       ui::UiTreeNode tree = makeNode(type);
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       Node* bare = host.children().empty() ? nullptr : host.children().front().get();
       ok = expect(dynamic_cast<Flex*>(bare) != nullptr, "bare row/column remains a plain Flex") && ok;
 
       tree.props.emplace("onClick", std::string("activate"));
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       Node* wrapped = host.children().empty() ? nullptr : host.children().front().get();
       ok =
           expect(wrapped != bare && dynamic_cast<InputArea*>(wrapped) != nullptr, "adding onClick rebuilds flex") && ok;
 
       tree.props.erase("onClick");
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       Node* unwrapped = host.children().empty() ? nullptr : host.children().front().get();
       ok = expect(
                unwrapped != wrapped && dynamic_cast<Flex*>(unwrapped) != nullptr,
@@ -680,7 +680,7 @@ int main() {
     chip.key = "a";
     chip.props.emplace("onHover", std::string("chipHover"));
     tree.children.push_back(chip);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* chipArea = column != nullptr && !column->children().empty()
@@ -694,11 +694,11 @@ int main() {
 
     // A retained hovered node is not a drop, so nothing more fires.
     fired.clear();
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     ok = expect(fired.empty(), "retaining a hovered node emits no hover callback") && ok;
 
     tree.children.clear();
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     ok = expect(
              fired.size() == 1 && fired.front().first == "chipHover" && fired.front().second == "false",
              "dropping a hovered node emits the closing onHover false"
@@ -719,7 +719,7 @@ int main() {
 
     ui::UiTreeNode tree = makeNode("box");
     tree.props.emplace("onHover", std::string("first"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
     ok = expect(area != nullptr, "rewire fixture built a wrapped box") && ok;
     if (area != nullptr) {
@@ -730,7 +730,7 @@ int main() {
     // Rewiring while hovered closes the old callback; the new one opens on the
     // next enter, which the dispatcher will deliver against the retained node.
     tree.props["onHover"] = std::string("second");
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     ok = expect(
              fired.size() == 1 && fired.front().first == "first" && fired.front().second == "false",
              "rewiring onHover while hovered closes the old callback"
@@ -775,7 +775,7 @@ int main() {
       chip.props.emplace("onHover", std::string("chipHover"));
       tree.children.push_back(chip);
     }
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* first = column != nullptr && column->children().size() == 2
@@ -790,12 +790,12 @@ int main() {
     // Drop the sibling that is not hovered.
     fired.clear();
     tree.children.pop_back();
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     ok = expect(fired.empty(), "dropping an unhovered same-name sibling leaves the hover open") && ok;
 
     // Now drop the hovered one; it closes with its own key.
     tree.children.clear();
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     ok = expect(
              fired.size() == 1 && fired.front().first == "false" && fired.front().second == "a",
              "dropping the hovered node closes it with its own key"
@@ -818,7 +818,7 @@ int main() {
     button.props.emplace("text", std::string("Go"));
     button.props.emplace("onHover", std::string("hover"));
     tree.children.push_back(button);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
@@ -831,14 +831,14 @@ int main() {
       ok = expect(fired == "hover/false", "button onHover leave reaches the sink") && ok;
 
       tree.children[0].props.erase("onHover");
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       fired.clear();
       area->dispatchEnter(0.0F, 0.0F);
       area->dispatchLeave();
       ok = expect(fired.empty(), "dropped button onHover stops firing") && ok;
 
       tree.children[0].props.emplace("onHover", std::string());
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       area->dispatchEnter(0.0F, 0.0F);
       area->dispatchLeave();
       ok = expect(fired.empty(), "an empty button onHover name wires nothing") && ok;
@@ -867,7 +867,7 @@ int main() {
     select.props.emplace("selectedIndex", 2.0);
     tree.children.push_back(select);
 
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     ok = expect(column != nullptr && column->children().size() == 3, "interactive column built") && ok;
     if (column != nullptr) {
@@ -905,7 +905,7 @@ int main() {
     select.props.emplace("onChange", std::string("onOutputChange"));
     tree.children.push_back(select);
 
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* sel = column != nullptr ? dynamic_cast<Select*>(column->children()[0].get()) : nullptr;
     ok = expect(sel != nullptr, "select callback control built") && ok;
@@ -919,7 +919,7 @@ int main() {
       callbackIndex.clear();
       callbackText.clear();
       tree.children[0].props["selectedIndex"] = 0.0;
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       ok = expect(
                sel->selectedIndex() == 0 && sel->selectedText() == "All outputs", "select controlled index re-applied"
            )
@@ -942,7 +942,7 @@ int main() {
     input.key = "field";
     input.props.emplace("value", std::string("seed"));
     tree.children.push_back(input);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* in = column != nullptr ? dynamic_cast<Input*>(column->children()[0].get()) : nullptr;
@@ -951,7 +951,7 @@ int main() {
 
     // Re-render with a different declared value — the host-owned buffer is kept.
     tree.children[0].props["value"] = std::string("changed");
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     if (column != nullptr) {
       ok = expect(column->children()[0].get() == inputBefore, "keyed input instance reused") && ok;
       ok = expect(in != nullptr && in->value() == "seed", "uncontrolled input not overwritten on re-render") && ok;
@@ -972,7 +972,7 @@ int main() {
     input.props.emplace("multiline", true);
     input.props.emplace("frameVisible", false);
     tree.children.push_back(input);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* in = column != nullptr ? dynamic_cast<Input*>(column->children()[0].get()) : nullptr;
@@ -985,7 +985,7 @@ int main() {
     }
     Node* inputBefore = in;
 
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     if (column != nullptr) {
       ok = expect(column->children()[0].get() == inputBefore, "keyed multiline input instance reused") && ok;
     }
@@ -999,11 +999,11 @@ int main() {
     tree.children.push_back(makeLabel("A"));
     {
       Flex host1;
-      (void)reconciler.reconcile(host1, tree, renderer);
+      reconciler.reconcile(host1, tree, renderer);
     } // host1 (and the controls the reconciler created in it) destroyed here
     reconciler.reset();
     Flex host2;
-    (void)reconciler.reconcile(host2, tree, renderer);
+    reconciler.reconcile(host2, tree, renderer);
     ok = expect(host2.children().size() == 1, "reset() lets the reconciler rebuild into a fresh host") && ok;
     auto* column = dynamic_cast<Flex*>(host2.children().front().get());
     ok = expect(column != nullptr && column->children().size() == 1, "rebuilt tree has its child") && ok;
@@ -1019,7 +1019,7 @@ int main() {
     scroll.children.push_back(makeLabel("one"));
     scroll.children.push_back(makeLabel("two"));
     tree.children.push_back(scroll);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* sv = column != nullptr ? dynamic_cast<ScrollView*>(column->children()[0].get()) : nullptr;
@@ -1058,13 +1058,13 @@ int main() {
       return tree;
     };
 
-    (void)reconciler.reconcile(host, makeTree(10, "row-1"), renderer);
+    reconciler.reconcile(host, makeTree(10, "row-1"), renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* sv = column != nullptr ? dynamic_cast<ScrollView*>(column->children()[0].get()) : nullptr;
     ok = expect(sv != nullptr, "reveal scroll built") && ok;
     if (sv != nullptr) {
       const auto render = [&](int rowCount, const std::string& revealKey) {
-        (void)reconciler.reconcile(host, makeTree(rowCount, revealKey), renderer);
+        reconciler.reconcile(host, makeTree(rowCount, revealKey), renderer);
         sv->setSize(200.0F, 100.0F);
         sv->layout(renderer);
       };
@@ -1109,7 +1109,7 @@ int main() {
     button.props.emplace("text", std::string("Go"));
     button.props.emplace("tooltip", std::string("Run the thing"));
     tree.children.push_back(button);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
@@ -1118,7 +1118,7 @@ int main() {
       ok = expect(control->inputArea()->hasTooltip(), "button tooltip applied") && ok;
 
       tree.children[0].props.erase("tooltip");
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       ok = expect(!control->inputArea()->hasTooltip(), "dropped tooltip prop clears the tooltip") && ok;
     }
   }
@@ -1134,7 +1134,7 @@ int main() {
     ui::UiTreeNode box = makeNode("box");
     box.props.emplace("tooltip", std::string("More info"));
     tree.children.push_back(box);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* area = column != nullptr && !column->children().empty()
@@ -1151,20 +1151,20 @@ int main() {
     }
 
     tree.children[0].props.erase("tooltip");
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     Node* unwrapped = column != nullptr && !column->children().empty() ? column->children()[0].get() : nullptr;
     ok = expect(dynamic_cast<Box*>(unwrapped) != nullptr, "box unwrapped after tooltip removed") && ok;
 
     tree.children[0].props.emplace("onClick", std::string("activate"));
     tree.children[0].props.emplace("tooltip", std::string("More info"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* clickable = column != nullptr && !column->children().empty()
         ? dynamic_cast<InputArea*>(column->children()[0].get())
         : nullptr;
     ok = expect(clickable != nullptr && clickable->hasTooltip(), "clickable box carries a tooltip") && ok;
     if (clickable != nullptr) {
       tree.children[0].props.erase("tooltip");
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       ok = expect(
                dynamic_cast<InputArea*>(column->children()[0].get()) == clickable && !clickable->hasTooltip(),
                "dropping tooltip keeps the click wrapper but clears the tooltip"
@@ -1184,7 +1184,7 @@ int main() {
     button.props.emplace("text", std::string("Go"));
     button.props.emplace("controlSize", std::string("sm"));
     tree.children.push_back(button);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
@@ -1207,7 +1207,7 @@ int main() {
       control.props.emplace("controlSize", std::string("sm"));
       tree.children.push_back(control);
     }
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     ok = expect(column != nullptr && column->children().size() == 3, "sized controls built") && ok;
@@ -1252,7 +1252,7 @@ int main() {
     plain.key = "plain";
     plain.props.emplace("text", std::string("Go"));
     tree.children.push_back(plain);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     ok = expect(column != nullptr && column->children().size() == 4, "height-vs-controlSize buttons built") && ok;
@@ -1295,13 +1295,13 @@ int main() {
     tree.children.push_back(std::move(source));
     tree.children.push_back(std::move(zone));
 
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     ok = expect(column != nullptr, "DnD gating keeps the supported parent") && ok;
     ok = expect(column != nullptr && column->children().empty(), "DnD controls skipped outside plugin panels") && ok;
 
     reconciler.setDragDropEnabled(true);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     ok = expect(column != nullptr && column->children().size() == 2, "DnD controls build when panel capability is on")
         && ok;
     if (column != nullptr && column->children().size() == 2) {
@@ -1327,7 +1327,7 @@ int main() {
     ui::UiTreeNode tree = makeNode("row");
     tree.children.push_back(validSource);
     tree.children.push_back(validZone);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     auto* source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
@@ -1359,7 +1359,7 @@ int main() {
     if (zone != nullptr) {
       const float previousCornerScale = Style::cornerRadiusScale();
       Style::setCornerRadiusScale(1.5F);
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       zone->setDragOver(true);
       const auto background = std::ranges::find_if(zone->children(), [](const auto& child) {
         return dynamic_cast<const RectNode*>(child.get()) != nullptr;
@@ -1373,7 +1373,7 @@ int main() {
           && ok;
       zone->setDragOver(false);
       Style::setCornerRadiusScale(previousCornerScale);
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
     }
 
     Node* sourceBefore = source;
@@ -1381,7 +1381,7 @@ int main() {
 
     const auto assertInvalidSource = [&](ui::UiTreeNode invalid, const char* message) {
       tree.children[0] = std::move(invalid);
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       auto* current = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
       const bool invalidated = current == sourceBefore
           && current != nullptr
@@ -1390,7 +1390,7 @@ int main() {
           && current->payload().empty();
       ok = expect(invalidated, message) && ok;
       tree.children[0] = validSource;
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
     };
 
     ui::UiTreeNode invalid = validSource;
@@ -1423,7 +1423,7 @@ int main() {
 
     const auto assertInvalidZone = [&](ui::UiTreeNode invalidZone, const char* message) {
       tree.children[1] = std::move(invalidZone);
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       auto* current = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
       const bool invalidated = current == zoneBefore
           && current != nullptr
@@ -1433,7 +1433,7 @@ int main() {
           && current->onDrop().empty();
       ok = expect(invalidated, message) && ok;
       tree.children[1] = validZone;
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
     };
 
     invalid = validZone;
@@ -1482,7 +1482,7 @@ int main() {
     ui::UiTreeNode emptyAccepts = validZone;
     emptyAccepts.props["accepts"] = std::vector<std::string>{};
     tree.children[1] = std::move(emptyAccepts);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     zone = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
     ok = expect(zone == zoneBefore && zone != nullptr && zone->enabled(), "accepts={} is a valid retained DropZone")
         && ok;
@@ -1492,7 +1492,7 @@ int main() {
     tree.children[0].props["payload"] = std::string("bind:updated");
     tree.children[1] = validZone;
     tree.children[1].props["value"] = std::string("category:updated");
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
     zone = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
     ok = expect(source == sourceBefore && zone == zoneBefore, "keyed DnD controls reused after prop changes") && ok;
@@ -1539,7 +1539,7 @@ int main() {
     tree.children.back().props.emplace("tooltip", std::string("Move keybind"));
     tree.children.push_back(makeDropZone("accepted", {"keybind"}, "category:media", "onDropKeybind"));
     tree.children.push_back(makeDropZone("rejected", {"todo"}, "category:todo", "onDropTodo"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
@@ -1645,7 +1645,7 @@ int main() {
     tree.children.push_back(makeDragSource());
     tree.children.push_back(std::move(insertion));
     tree.children.push_back(std::move(followingRow));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     host.setSize(100.0F, 100.0F);
     host.layout(renderer);
 
@@ -1743,7 +1743,7 @@ int main() {
     tree.children.push_back(std::move(middleRow));
     tree.children.push_back(insertionNode("gap-after", "after:middle"));
     tree.children.push_back(std::move(lastRow));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     host.setSize(160.0F, 200.0F);
     host.layout(renderer);
 
@@ -1823,7 +1823,7 @@ int main() {
     previewZone.props["height"] = 3.0;
     previewZone.props.emplace("expandOnDrag", true);
     tree.children.push_back(std::move(previewZone));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     host.setSize(400.0F, 160.0F);
     host.layout(renderer);
 
@@ -1976,7 +1976,7 @@ int main() {
     sourceNode.props["previewAncestor"] = 8.0;
     ui::UiTreeNode tree = makeNode("row");
     tree.children.push_back(std::move(sourceNode));
-    (void)reconciler.reconcile(*contentHost, tree, renderer);
+    reconciler.reconcile(*contentHost, tree, renderer);
     contentHost->layout(renderer);
 
     auto* row = contentHost->children().empty() ? nullptr : dynamic_cast<Flex*>(contentHost->children().front().get());
@@ -2037,7 +2037,7 @@ int main() {
     tree.props.emplace("align", std::string("start"));
     tree.children.push_back(makeDragSource());
     tree.children.push_back(std::move(outer));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     auto* source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
@@ -2110,7 +2110,7 @@ int main() {
     tree.props.emplace("gap", 20.0);
     tree.children.push_back(makeDragSource());
     tree.children.push_back(std::move(disabled));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     auto* source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
@@ -2177,7 +2177,7 @@ int main() {
     tree.props.emplace("align", std::string("start"));
     tree.children.push_back(makeDragSource());
     tree.children.push_back(std::move(scroll));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     auto* source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
@@ -2211,7 +2211,7 @@ int main() {
       ok = expect(callbackCount == 1, "release outside scroll clip fires no callback") && ok;
 
       tree.children[1].children[0].props.emplace("visible", false);
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       layoutDragTree(host, source, renderer);
       scrollView->setSize(100.0F, 40.0F);
       scrollView->layout(renderer);
@@ -2243,7 +2243,7 @@ int main() {
     tree.props.emplace("gap", 20.0);
     tree.children.push_back(makeDragSource("source", "keybind", "sync:payload"));
     tree.children.push_back(makeDropZone("zone", {"keybind"}, "sync:target", "onSyncDrop"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     auto* source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
     auto* zone = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
@@ -2306,7 +2306,7 @@ int main() {
     tree.props.emplace("gap", 20.0);
     tree.children.push_back(makeDragSource());
     tree.children.push_back(makeDropZone());
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     auto* source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
     auto* zone = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
@@ -2325,7 +2325,7 @@ int main() {
       DropZone* zoneBefore = zone;
 
       tree.children[1].props["accepts"] = std::vector<double>{};
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       ok = expect(
                controller->state() == DragDropController::State::Idle
                    && !source->dragging()
@@ -2338,7 +2338,7 @@ int main() {
       ok = expect(callbackCount == 0, "release after target prop invalidation cannot drop") && ok;
 
       tree.children[1] = makeDropZone();
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       zone = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
       ok = expect(zone == zoneBefore && zone != nullptr && zone->enabled(), "valid target props restore keyed zone")
           && ok;
@@ -2348,7 +2348,7 @@ int main() {
       source->inputArea()->dispatchMotion(targetX, targetY);
 
       tree.children[0].props.erase("payload");
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       ok = expect(
                controller->state() == DragDropController::State::Idle
                    && !source->dragging()
@@ -2362,7 +2362,7 @@ int main() {
       ok = expect(callbackCount == 0, "release after source prop invalidation cannot drop") && ok;
 
       tree.children[0] = makeDragSource();
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
       ok = expect(
                source == sourceBefore && source != nullptr && source->enabled(),
@@ -2376,7 +2376,7 @@ int main() {
       ok = expect(controller->currentTarget() == zone && zone->dragOver(), "removal test restarts over target") && ok;
 
       tree.children.erase(tree.children.begin() + 1);
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
       ok = expect(source == sourceBefore, "source keyed instance survives target removal") && ok;
       ok = expect(
@@ -2405,7 +2405,7 @@ int main() {
     tree.props.emplace("gap", 20.0);
     tree.children.push_back(makeDragSource());
     tree.children.push_back(makeDropZone());
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* row = dynamic_cast<Flex*>(host.children().front().get());
     auto* source = row != nullptr ? dynamic_cast<DragSource*>(row->children()[0].get()) : nullptr;
     auto* zone = row != nullptr ? dynamic_cast<DropZone*>(row->children()[1].get()) : nullptr;
@@ -2500,7 +2500,7 @@ int main() {
     tree.props.emplace("values", std::vector<double>{0.0, 0.5, 1.0, 0.5});
     tree.props.emplace("width", 100.0);
     tree.props.emplace("height", 50.0);
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* graph = dynamic_cast<Graph*>(host.children().front().get());
     ok = expect(graph != nullptr, "callback-less graph is a bare Graph") && ok;
@@ -2523,7 +2523,7 @@ int main() {
     tree.props.emplace("width", 100.0);
     tree.props.emplace("height", 50.0);
     tree.props.emplace("onPointerMove", std::string("track"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
 
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
     ok = expect(
@@ -2554,7 +2554,7 @@ int main() {
     tree.props.emplace("width", 100.0);
     tree.props.emplace("height", 50.0);
     tree.props.emplace("onPointerMove", std::string("track"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
 
     if (area != nullptr) {
@@ -2607,7 +2607,7 @@ int main() {
     tree.props.emplace("height", 50.0);
     tree.props.emplace("onPointerMove", std::string("track"));
     tree.props.emplace("onPointerLeave", std::string("gone"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
 
     if (area != nullptr) {
@@ -2632,7 +2632,7 @@ int main() {
     tree.props.emplace("width", 100.0);
     tree.props.emplace("height", 50.0);
     tree.props.emplace("onPointerMove", std::string("track"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
     if (area != nullptr) {
       area->dispatchMotion(50.0F, 25.0F);
@@ -2641,7 +2641,7 @@ int main() {
 
     fired.clear();
     tree.props["width"] = 200.0;
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     if (area != nullptr) {
       area->dispatchMotion(50.0F, 25.0F);
     }
@@ -2663,11 +2663,11 @@ int main() {
     tree.props.emplace("width", 100.0);
     tree.props.emplace("height", 50.0);
     tree.props.emplace("onPointerMove", std::string("track"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     Node* wrapperBefore = host.children().front().get();
 
     tree.props.erase("onPointerMove");
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     ok = expect(
              dynamic_cast<InputArea*>(host.children().front().get()) == nullptr,
              "dropping the callback rebuilds the graph unwrapped"
@@ -2687,7 +2687,7 @@ int main() {
     tree.props.emplace("width", 100.0);
     tree.props.emplace("height", 50.0);
     tree.props.emplace("onPointerLeave", std::string("gone"));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
     ok = expect(area != nullptr, "a leave-only graph is still wrapped") && ok;
 
@@ -2721,13 +2721,13 @@ int main() {
       reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
       Flex host;
       ui::UiTreeNode tree = enteredGraphTree();
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
         area->dispatchEnter(10.0F, 10.0F);
       }
       fired.clear();
       ui::UiTreeNode replacement = makeNode("label");
-      (void)reconciler.reconcile(host, replacement, renderer);
+      reconciler.reconcile(host, replacement, renderer);
       ok = expect(fired.size() == 1 && fired[0].fn == "gone", "a hovered graph dropped from the tree reports its leave")
           && ok;
     }
@@ -2738,14 +2738,14 @@ int main() {
       reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
       Flex host;
       ui::UiTreeNode tree = enteredGraphTree();
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
         area->dispatchEnter(10.0F, 10.0F);
       }
       fired.clear();
       tree.props.erase("onPointerMove");
       tree.props.erase("onPointerLeave");
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       ok = expect(fired.size() == 1 && fired[0].fn == "gone", "a hovered graph rebuilt unwrapped reports its leave")
           && ok;
     }
@@ -2756,13 +2756,13 @@ int main() {
       reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
       Flex host;
       ui::UiTreeNode tree = enteredGraphTree();
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
         area->dispatchEnter(10.0F, 10.0F);
       }
       fired.clear();
       tree.props["onPointerLeave"] = std::string("goneRenamed");
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       ok = expect(fired.size() == 1 && fired[0].fn == "gone", "rewiring a hovered graph closes the old session first")
           && ok;
     }
@@ -2773,7 +2773,7 @@ int main() {
       reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
       Flex host;
       ui::UiTreeNode tree = enteredGraphTree();
-      (void)reconciler.reconcile(host, tree, renderer);
+      reconciler.reconcile(host, tree, renderer);
       if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
         area->dispatchEnter(10.0F, 10.0F);
       }
@@ -2803,7 +2803,7 @@ int main() {
     ui::UiTreeNode row = makeNode("row");
     row.children.push_back(first);
     row.children.push_back(second);
-    (void)reconciler.reconcile(host, row, renderer);
+    reconciler.reconcile(host, row, renderer);
 
     auto* rowNode = dynamic_cast<Flex*>(host.children().front().get());
     auto* areaA = rowNode != nullptr ? dynamic_cast<InputArea*>(rowNode->children()[0].get()) : nullptr;
@@ -2828,7 +2828,7 @@ int main() {
     // pending position is not stranded behind a fresh key every frame.
     const std::string streamBefore = fired.empty() ? std::string{} : fired[0].coalesceKey;
     fired.clear();
-    (void)reconciler.reconcile(host, row, renderer);
+    reconciler.reconcile(host, row, renderer);
     if (areaA != nullptr) {
       areaA->dispatchMotion(50.0F, 25.0F);
     }
@@ -2879,7 +2879,7 @@ int main() {
     tree.children.push_back(std::move(pillSource));
     tree.children.push_back(std::move(gap));
     tree.children.push_back(std::move(other));
-    (void)reconciler.reconcile(host, tree, renderer);
+    reconciler.reconcile(host, tree, renderer);
     host.setSize(400.0F, 40.0F);
     host.layout(renderer);
 

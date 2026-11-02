@@ -46,12 +46,12 @@ namespace noctalia::theme {
     void setAutoCoordinates(std::optional<double> latitude, std::optional<double> longitude);
     void toggleLightDark();
     void cycleMode();
-    [[nodiscard]] ThemeMode configuredMode() const noexcept;
+    ThemeMode configuredMode() const noexcept;
     // Noctalia's own resolved mode ([theme].shell_mode, or [theme].mode when it follows).
-    [[nodiscard]] bool isLightMode() const noexcept;
-    [[nodiscard]] std::string_view resolvedShellMode() const noexcept;
+    bool isLightMode() const noexcept;
+    std::string_view resolvedShellMode() const noexcept;
     // The resolved [theme].mode, which drives apps.
-    [[nodiscard]] std::string_view resolvedMode() const noexcept;
+    std::string_view resolvedMode() const noexcept;
 
     void setChangeCallback(ChangeCallback callback);
     void setResolvedCallback(ResolvedCallback callback);
@@ -81,9 +81,9 @@ namespace noctalia::theme {
     };
 
     void resolveAndSet(bool animate);
-    [[nodiscard]] std::optional<WallpaperPaletteKey>
+    std::optional<WallpaperPaletteKey>
     wallpaperPaletteKey(const ThemeConfig& cfg, const std::string& wallpaperPath) const;
-    [[nodiscard]] bool wallpaperCacheMatches(const WallpaperPaletteKey& key) const;
+    bool wallpaperCacheMatches(const WallpaperPaletteKey& key) const;
     void storeWallpaperCache(const WallpaperPaletteKey& key, const GeneratedPalette& generated);
     // Decodes on the calling thread; for startup and the explicit save action.
     std::optional<GeneratedPalette> resolveWallpaperGenerated(const ThemeConfig& cfg, const std::string& wallpaperPath);
@@ -99,7 +99,7 @@ namespace noctalia::theme {
     void tickTransition();
     void startCommunityDownload(const std::string& name);
     void rescheduleAutoTimer();
-    [[nodiscard]] bool hasAutoMode() const noexcept;
+    bool hasAutoMode() const noexcept;
 
     ConfigService& m_config;
     HttpClient& m_httpClient;

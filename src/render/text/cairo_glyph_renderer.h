@@ -48,7 +48,7 @@ public:
   void invalidateGlyphTextures();
   void abandonGlyphTextures() noexcept;
 
-  [[nodiscard]] TextMetrics measureGlyph(float contentScale, char32_t codepoint, float fontSize);
+  TextMetrics measureGlyph(float contentScale, char32_t codepoint, float fontSize);
 
   void drawGlyph(
       float contentScale, float surfaceWidth, float surfaceHeight, float x, float baselineY, char32_t codepoint,

@@ -513,14 +513,13 @@ namespace noctalia::bar {
     std::function<std::optional<std::string>(const Options&)> validateOptions;
     std::vector<WidgetCommonSettingOverride> commonOverrides;
 
-    [[nodiscard]] Options resolve(const WidgetConfig* config, std::string_view settingContext) const
+    Options resolve(const WidgetConfig* config, std::string_view settingContext) const
       requires std::is_same_v<Context, std::monostate>
     {
       return resolve(config, settingContext, std::monostate{});
     }
 
-    [[nodiscard]] Options
-    resolve(const WidgetConfig* config, std::string_view settingContext, const Context& context) const {
+    Options resolve(const WidgetConfig* config, std::string_view settingContext, const Context& context) const {
       validate();
       // WidgetConfig comes from ConfigService's schema-validated configuration.
       // Resolution still falls back to the semantic Options default if a value
@@ -535,14 +534,14 @@ namespace noctalia::bar {
       return options;
     }
 
-    [[nodiscard]] bool fieldValuesEqual(const Options& left, const Options& right) const {
+    bool fieldValuesEqual(const Options& left, const Options& right) const {
       validate();
       return std::ranges::all_of(fields, [&](const WidgetDefinitionField<Options>& field) {
         return field.valuesEqual(left, right);
       });
     }
 
-    [[nodiscard]] config::schema::WidgetSettingSchema schemaFields() const {
+    config::schema::WidgetSettingSchema schemaFields() const {
       validate();
       config::schema::WidgetSettingSchema schema;
       schema.reserve(fields.size());
@@ -553,7 +552,7 @@ namespace noctalia::bar {
       return schema;
     }
 
-    [[nodiscard]] std::vector<settings::WidgetSettingSpec> presentedSettingSpecs() const {
+    std::vector<settings::WidgetSettingSpec> presentedSettingSpecs() const {
       validate();
       return fields
           | std::views::filter([](const WidgetDefinitionField<Options>& definitionField) {

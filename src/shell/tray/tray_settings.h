@@ -18,8 +18,7 @@ namespace tray {
     std::optional<float> drawerItemSize;
   };
 
-  [[nodiscard]] ResolvedTrayOptions
-  resolvedTrayOptions(const ConfigService& config, const TrayWidgetDefinitionContext& context = {});
-  [[nodiscard]] WidgetBarCapsuleSpec resolvedTrayCapsuleSpec(const ConfigService& config, const BarConfig& bar);
+  ResolvedTrayOptions resolvedTrayOptions(const ConfigService& config, const TrayWidgetDefinitionContext& context = {});
+  WidgetBarCapsuleSpec resolvedTrayCapsuleSpec(const ConfigService& config, const BarConfig& bar);
 
 } // namespace tray

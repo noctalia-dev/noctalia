@@ -64,7 +64,7 @@ namespace {
       std::string_view{"x-kde-passwordManagerHint"},
   };
 
-  [[nodiscard]] bool selectionAdvertisesPasswordHint(const std::vector<std::string>& mimeTypes) {
+  bool selectionAdvertisesPasswordHint(const std::vector<std::string>& mimeTypes) {
     for (const std::string& advertised : mimeTypes) {
       for (const std::string_view hint : kPasswordHintMimeTypes) {
         if (advertised == hint) {

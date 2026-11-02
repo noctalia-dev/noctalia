@@ -53,7 +53,7 @@ namespace scripting {
 
   static_assert(kOldestSupportedPluginApiVersion <= kCurrentPluginApiVersion);
 
-  [[nodiscard]] constexpr bool supportsPluginApiVersion(std::uint32_t version) {
+  constexpr bool supportsPluginApiVersion(std::uint32_t version) {
     return version >= kOldestSupportedPluginApiVersion && version <= kCurrentPluginApiVersion;
   }
 

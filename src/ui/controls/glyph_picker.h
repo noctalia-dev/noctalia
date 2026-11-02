@@ -33,17 +33,17 @@ public:
   // Pre-select and scroll to a specific glyph name on first layout.
   void setInitialGlyph(std::optional<std::string> name);
 
-  [[nodiscard]] InputArea* initialFocusArea() const noexcept;
-  [[nodiscard]] std::optional<GlyphPickerResult> currentResult() const;
+  InputArea* initialFocusArea() const noexcept;
+  std::optional<GlyphPickerResult> currentResult() const;
 
   void setOnCancel(std::function<void()> callback) { m_onCancel = std::move(callback); }
   void setOnApply(std::function<void(const GlyphPickerResult&)> callback) { m_onApply = std::move(callback); }
 
   void setEnabled(bool enabled);
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
+  bool enabled() const noexcept { return m_enabled; }
 
-  [[nodiscard]] static float preferredDialogWidth(float scale);
-  [[nodiscard]] static float preferredDialogHeight(float scale);
+  static float preferredDialogWidth(float scale);
+  static float preferredDialogHeight(float scale);
 
 protected:
   void doLayout(Renderer& renderer) override;

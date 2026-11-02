@@ -28,6 +28,6 @@ public:
   static void complete(const GlyphPickerResult& result);
   static void cancelIfPending();
 
-  [[nodiscard]] static const GlyphPickerDialogOptions& currentOptions();
-  [[nodiscard]] static std::optional<GlyphPickerResult> lastResult() noexcept;
+  static const GlyphPickerDialogOptions& currentOptions();
+  static std::optional<GlyphPickerResult> lastResult() noexcept;
 };

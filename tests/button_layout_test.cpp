@@ -67,7 +67,7 @@ namespace {
     }
 
     TextureManager& textureManager() override { std::abort(); }
-    [[nodiscard]] float renderScale() const noexcept override { return 1.0F; }
+    float renderScale() const noexcept override { return 1.0F; }
   };
 
   bool near(float actual, float expected) { return std::abs(actual - expected) < 0.001F; }

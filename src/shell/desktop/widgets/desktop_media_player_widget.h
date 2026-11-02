@@ -34,8 +34,8 @@ public:
 
   void create() override;
   void layout(Renderer& renderer) override;
-  [[nodiscard]] bool wantsSecondTicks() const override { return true; }
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool wantsSecondTicks() const override { return true; }
+  bool needsFrameTick() const override;
   void onFrameTick(float deltaMs, Renderer& renderer) override;
   void setEditorPreview(bool enabled) noexcept override;
   bool applySetting(
@@ -58,8 +58,8 @@ private:
   void updateSpectrumSubscription();
   void updateVisualizerColor();
   void applyShadow();
-  [[nodiscard]] bool hasActiveMedia() const;
-  [[nodiscard]] bool shouldBeVisible() const;
+  bool hasActiveMedia() const;
+  bool shouldBeVisible() const;
   bool applyVisibility();
   void setVisibilityCollapsed(bool collapsed);
 

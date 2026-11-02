@@ -27,8 +27,8 @@ public:
   // allowed to proceed unguarded rather than bricking the shell — this is logged.
   bool tryAcquire();
 
-  [[nodiscard]] bool held() const noexcept { return m_fd >= 0; }
-  [[nodiscard]] const std::string& path() const noexcept { return m_path; }
+  bool held() const noexcept { return m_fd >= 0; }
+  const std::string& path() const noexcept { return m_path; }
 
 private:
   void release() noexcept;

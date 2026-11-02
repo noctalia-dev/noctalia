@@ -58,14 +58,14 @@ namespace settings {
         {.name = "windows", .prefixPlaceholder = "win"},
     });
 
-    [[nodiscard]] SliderSetting barCornerSlider(std::int32_t value) {
+    SliderSetting barCornerSlider(std::int32_t value) {
       SliderSetting s{value, 0.0F, kBarCornerRadiusMax, 1.0F, true};
       return s;
     }
 
     // What the dead zone does for a gesture nobody has bound, shown as the row's placeholder so an
     // empty field never reads as "does nothing".
-    [[nodiscard]] std::string deadZoneDefault(noctalia::bar::Gesture gesture) {
+    std::string deadZoneDefault(noctalia::bar::Gesture gesture) {
       for (const auto& binding : noctalia::bar::deadZoneGestureDefaults()) {
         if (binding.gesture == gesture) {
           return std::string(binding.action);
@@ -74,12 +74,11 @@ namespace settings {
       return {};
     }
 
-    [[nodiscard]] SliderSetting barReservedSlider(double value, double maxValue, double step, bool integer) {
+    SliderSetting barReservedSlider(double value, double maxValue, double step, bool integer) {
       return SliderSetting{value, 0.0F, maxValue, step, integer};
     }
 
-    [[nodiscard]] std::vector<KeyChord>
-    effectiveKeybindItems(const std::vector<KeyChord>& configured, KeybindAction action) {
+    std::vector<KeyChord> effectiveKeybindItems(const std::vector<KeyChord>& configured, KeybindAction action) {
       if (!configured.empty()) {
         return configured;
       }
@@ -203,7 +202,7 @@ namespace settings {
       return SelectSetting{std::move(opts), std::string(selected)};
     }
 
-    [[nodiscard]] std::string_view barAutoHideMode(bool autoHide, bool smartAutoHide) {
+    std::string_view barAutoHideMode(bool autoHide, bool smartAutoHide) {
       if (smartAutoHide) {
         return "smart";
       }
@@ -213,7 +212,7 @@ namespace settings {
       return "off";
     }
 
-    [[nodiscard]] SelectSetting autoHideModeSelect(std::string_view mode, std::vector<std::string> smartPath) {
+    SelectSetting autoHideModeSelect(std::string_view mode, std::vector<std::string> smartPath) {
       auto select = asSegmented(plainSelect(
           {{"off", "settings.options.bar.auto-hide.off"},
            {"on", "settings.options.bar.auto-hide.on"},

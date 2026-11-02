@@ -27,7 +27,7 @@ namespace noctalia::config {
     // Origin of `path`, or of its nearest recorded ancestor when the exact path
     // is not indexed (a value inside an array resolves to the array itself).
     // Null when no ancestor is known either.
-    [[nodiscard]] const schema::SourceOrigin* find(std::string_view path) const;
+    const schema::SourceOrigin* find(std::string_view path) const;
 
     // Fills in the origin of every entry that does not already carry one.
     void annotate(schema::Diagnostics& diag) const;
@@ -46,7 +46,6 @@ namespace noctalia::config {
   };
 
   // Position of a toml++ parse failure, attributed to `file`.
-  [[nodiscard]] schema::SourceOrigin
-  parseErrorOrigin(const toml::parse_error& error, const std::filesystem::path& file);
+  schema::SourceOrigin parseErrorOrigin(const toml::parse_error& error, const std::filesystem::path& file);
 
 } // namespace noctalia::config

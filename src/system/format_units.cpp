@@ -13,7 +13,7 @@ namespace FormatUnits {
     constexpr double kBytesPerGb = 1000.0 * 1000.0 * 1000.0;
     constexpr double kBytesPerTb = 1000.0 * 1000.0 * 1000.0 * 1000.0;
 
-    [[nodiscard]] std::string formatByteRateValue(
+    std::string formatByteRateValue(
         double value, std::string_view fullSuffix, std::string_view compactSuffix, ByteRateLabelStyle labelStyle,
         int compactDecimalPlaces
     ) {
@@ -23,7 +23,7 @@ namespace FormatUnits {
       return std::format("{:.1F} {}", value, fullSuffix);
     }
 
-    [[nodiscard]] std::string formatByteRateBytes(double bytesPerSec, ByteRateLabelStyle labelStyle) {
+    std::string formatByteRateBytes(double bytesPerSec, ByteRateLabelStyle labelStyle) {
       if (labelStyle == ByteRateLabelStyle::Compact) {
         return std::format("{:.0F}B", bytesPerSec);
       }

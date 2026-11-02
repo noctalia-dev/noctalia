@@ -9,8 +9,8 @@ namespace text {
 
   void invalidateFontWeightCatalogCache();
 
-  [[nodiscard]] bool fontFamilySupportsVariableWeight(std::string_view fontFamily);
+  bool fontFamilySupportsVariableWeight(std::string_view fontFamily);
 
-  [[nodiscard]] std::vector<FontWeight> availableLabelFontWeights(std::string_view fontFamily);
+  std::vector<FontWeight> availableLabelFontWeights(std::string_view fontFamily);
 
 } // namespace text

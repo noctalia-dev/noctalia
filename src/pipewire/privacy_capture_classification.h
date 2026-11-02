@@ -13,6 +13,6 @@ namespace noctalia::pipewire {
 
   // Privacy indicators represent application capture, not the internal streams used to connect
   // filters, loopbacks, or sink monitors into the PipeWire graph.
-  [[nodiscard]] bool isPrivacyAudioCaptureConsumer(const PrivacyAudioConsumerProperties& properties);
+  bool isPrivacyAudioCaptureConsumer(const PrivacyAudioConsumerProperties& properties);
 
 } // namespace noctalia::pipewire

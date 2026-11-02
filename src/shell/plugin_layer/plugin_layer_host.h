@@ -65,13 +65,13 @@ private:
     std::vector<std::unique_ptr<PluginLayer>> instances;
   };
 
-  [[nodiscard]] Entry* findEntry(const std::string& entryId);
+  Entry* findEntry(const std::string& entryId);
   void show(Entry& entry);
   void hide(Entry& entry);
   // Creates and destroys instances so the shown entry covers exactly its target outputs.
   void syncInstances(Entry& entry);
-  [[nodiscard]] bool targetsOutput(const Entry& entry, const WaylandOutput& output) const;
-  [[nodiscard]] PluginLayer* findInstance(wl_surface* surface);
+  bool targetsOutput(const Entry& entry, const WaylandOutput& output) const;
+  PluginLayer* findInstance(wl_surface* surface);
 
   PluginLayerServices m_services;
   scripting::ScriptApiContext& m_scriptApi;

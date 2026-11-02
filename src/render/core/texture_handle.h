@@ -7,9 +7,9 @@ public:
   constexpr TextureId() noexcept = default;
   explicit constexpr TextureId(std::uint32_t value) noexcept : m_value(value) {}
 
-  [[nodiscard]] constexpr std::uint32_t value() const noexcept { return m_value; }
-  [[nodiscard]] constexpr bool valid() const noexcept { return m_value != 0; }
-  [[nodiscard]] explicit constexpr operator bool() const noexcept { return valid(); }
+  constexpr std::uint32_t value() const noexcept { return m_value; }
+  constexpr bool valid() const noexcept { return m_value != 0; }
+  explicit constexpr operator bool() const noexcept { return valid(); }
 
   friend constexpr bool operator==(TextureId lhs, TextureId rhs) noexcept = default;
   friend constexpr bool operator==(TextureId lhs, std::uint32_t rhs) noexcept { return lhs.m_value == rhs; }
@@ -29,5 +29,5 @@ struct TextureHandle {
   // Every pixel has full alpha. Only image files decoded by loadFromFile report it; other sources leave it false.
   bool opaque = false;
 
-  [[nodiscard]] constexpr bool valid() const noexcept { return id.valid(); }
+  constexpr bool valid() const noexcept { return id.valid(); }
 };

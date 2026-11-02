@@ -322,7 +322,7 @@ UPowerService::UPowerService(SystemBus& bus) : m_bus(bus) {
                 const std::vector<std::string>& /*invalidated*/
             ) {
         if (interfaceName == kUpowerInterface) {
-          (void)refreshDefaultState();
+          refreshDefaultState();
         }
       });
 
@@ -411,7 +411,7 @@ void UPowerService::rescanDevices() {
     m_upowerProxy->callMethod("EnumerateDevices").onInterface(kUpowerInterface).storeResultsTo(paths);
   } catch (const sdbus::Error& e) {
     kLog.warn("EnumerateDevices failed: {}", e.what());
-    (void)refreshDefaultState();
+    refreshDefaultState();
     return;
   }
 
@@ -767,7 +767,7 @@ void UPowerService::refreshDisplayDeviceProxy() {
                   const std::vector<std::string>& /*invalidated*/
               ) {
           if (interfaceName == kDeviceInterface) {
-            (void)refreshDefaultState();
+            refreshDefaultState();
           }
         });
 

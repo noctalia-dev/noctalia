@@ -23,7 +23,7 @@ namespace calendar {
       FileDescriptor(const FileDescriptor&) = delete;
       FileDescriptor& operator=(const FileDescriptor&) = delete;
 
-      [[nodiscard]] int get() const noexcept { return m_fd; }
+      int get() const noexcept { return m_fd; }
 
     private:
       int m_fd = -1;

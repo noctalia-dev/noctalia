@@ -15,7 +15,7 @@ namespace {
 
   constexpr float kLoginGlyphSize = 16.0F;
 
-  [[nodiscard]] bool isStyleSetting(std::string_view key) {
+  bool isStyleSetting(std::string_view key) {
     return key == "background_color"
         || key == "background_opacity"
         || key == "background_radius"

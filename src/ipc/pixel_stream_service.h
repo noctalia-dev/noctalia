@@ -16,12 +16,12 @@ public:
   PixelStreamService& operator=(const PixelStreamService&) = delete;
 
   // Null before the application creates the service and after it is destroyed.
-  [[nodiscard]] static PixelStreamService* current() noexcept;
+  static PixelStreamService* current() noexcept;
 
   void add(PixelStreamClient& client);
   void remove(PixelStreamClient& client);
 
-  [[nodiscard]] int pollTimeoutMs() const override;
+  int pollTimeoutMs() const override;
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
 
 protected:

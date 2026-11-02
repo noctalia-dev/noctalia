@@ -43,8 +43,8 @@ public:
     }
   }
 
-  [[nodiscard]] Node* item() const noexcept { return m_item; }
-  [[nodiscard]] std::optional<std::size_t> boundIndex() const noexcept { return m_boundIndex; }
+  Node* item() const noexcept { return m_item; }
+  std::optional<std::size_t> boundIndex() const noexcept { return m_boundIndex; }
 
   void setBoundIndex(std::optional<std::size_t> index) { m_boundIndex = index; }
 

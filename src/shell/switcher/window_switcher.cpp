@@ -59,7 +59,7 @@ namespace {
   constexpr int kMinThumbnailWidth = 320;
   constexpr int kMaxThumbnailWidth = 2048;
 
-  [[nodiscard]] WindowSwitcherStyleLayout computeSwitcherLayout(
+  WindowSwitcherStyleLayout computeSwitcherLayout(
       float screenWidth, float screenHeight, float scale, std::size_t windowCount, std::size_t selectedIndex,
       const ShellConfig::WindowSwitcherConfig& config
   ) {
@@ -82,7 +82,7 @@ namespace {
   }
 
   // Physical-pixel size of the largest preview.
-  [[nodiscard]] ThumbnailTarget
+  ThumbnailTarget
   thumbnailTargetFor(const WaylandOutput& output, float uiScale, const ShellConfig::WindowSwitcherConfig& config) {
     const auto layout = computeSwitcherLayout(
         static_cast<float>(output.effectiveLogicalWidth()), static_cast<float>(output.effectiveLogicalHeight()),
@@ -100,7 +100,7 @@ namespace {
     return ThumbnailTarget{.width = width, .height = height};
   }
 
-  [[nodiscard]] std::string resolveWindowIconPath(const std::string& appId, IconResolver& iconResolver, int iconSize) {
+  std::string resolveWindowIconPath(const std::string& appId, IconResolver& iconResolver, int iconSize) {
     if (appId.empty()) {
       return {};
     }
@@ -124,7 +124,7 @@ namespace {
     return iconResolver.resolve("application-x-executable", iconSize);
   }
 
-  [[nodiscard]] std::string resolveWindowAppLabel(const std::string& appId) {
+  std::string resolveWindowAppLabel(const std::string& appId) {
     if (appId.empty()) {
       return {};
     }
@@ -135,11 +135,11 @@ namespace {
     return appId;
   }
 
-  [[nodiscard]] float shellUiScale(const ConfigService* config) noexcept {
+  float shellUiScale(const ConfigService* config) noexcept {
     return config != nullptr ? config->config().accessibility.uiScale : 1.0F;
   }
 
-  [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
+  const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
     for (const auto& entry : wayland.outputs()) {
       if (entry.output == output) {
         return &entry;
@@ -148,29 +148,28 @@ namespace {
     return nullptr;
   }
 
-  [[nodiscard]] std::uintptr_t wlrHandleForToplevel(const ToplevelInfo& info) noexcept {
+  std::uintptr_t wlrHandleForToplevel(const ToplevelInfo& info) noexcept {
     if (info.handle != nullptr) {
       return reinterpret_cast<std::uintptr_t>(info.handle);
     }
     return 0;
   }
 
-  [[nodiscard]] std::uintptr_t extHandleForToplevel(const ToplevelInfo& info) noexcept {
+  std::uintptr_t extHandleForToplevel(const ToplevelInfo& info) noexcept {
     if (info.extHandle != nullptr) {
       return reinterpret_cast<std::uintptr_t>(info.extHandle);
     }
     return 0;
   }
 
-  [[nodiscard]] std::optional<std::string>
-  windowIdForToplevelInfo(const CompositorPlatform& platform, const ToplevelInfo& info) {
+  std::optional<std::string> windowIdForToplevelInfo(const CompositorPlatform& platform, const ToplevelInfo& info) {
     if (info.exactIdentity && !info.identifier.empty()) {
       return info.identifier;
     }
     return platform.compositorWindowIdForToplevelInfo(info);
   }
 
-  [[nodiscard]] std::string canonicalWindowId(std::string_view windowId) {
+  std::string canonicalWindowId(std::string_view windowId) {
     if (windowId.empty()) {
       return {};
     }
@@ -182,14 +181,14 @@ namespace {
     return std::string(windowId);
   }
 
-  [[nodiscard]] std::string identityKeyForToplevelInfo(const CompositorPlatform& platform, const ToplevelInfo& info) {
+  std::string identityKeyForToplevelInfo(const CompositorPlatform& platform, const ToplevelInfo& info) {
     if (const auto windowId = windowIdForToplevelInfo(platform, info); windowId.has_value()) {
       return canonicalWindowId(*windowId);
     }
     return toplevel_identity::wlr(wlrHandleForToplevel(info));
   }
 
-  [[nodiscard]] bool identityKeysEqual(const std::string_view lhs, const std::string_view rhs) {
+  bool identityKeysEqual(const std::string_view lhs, const std::string_view rhs) {
     if (lhs == rhs) {
       return true;
     }
@@ -231,9 +230,9 @@ namespace {
     platform.focusCompositorWindow(entry.windowId, true);
   }
 
-  [[nodiscard]] std::string identityKeyForEntry(const WindowSwitcherEntry& entry) { return entry.identityKey; }
+  std::string identityKeyForEntry(const WindowSwitcherEntry& entry) { return entry.identityKey; }
 
-  [[nodiscard]] std::string currentFocusedWindowKey(const CompositorPlatform& platform) {
+  std::string currentFocusedWindowKey(const CompositorPlatform& platform) {
     const auto focusedId = platform.focusedCompositorWindowId();
     if (focusedId.has_value()) {
       return canonicalWindowId(*focusedId);
@@ -249,7 +248,7 @@ namespace {
     return toplevel_identity::wlr(reinterpret_cast<std::uintptr_t>(active->handle));
   }
 
-  [[nodiscard]] std::uintptr_t resolveCloseHandle(
+  std::uintptr_t resolveCloseHandle(
       const CompositorPlatform& platform, std::string_view windowId, std::string_view appId, std::string_view title
   ) {
     if (!windowId.empty()) {
@@ -275,7 +274,7 @@ namespace {
     return 0;
   }
 
-  [[nodiscard]] std::uintptr_t
+  std::uintptr_t
   resolveCaptureHandle(const WaylandConnection& wayland, std::string_view appId, std::string_view title) {
     const std::string idLower = StringUtils::toLower(appId);
     const auto windows = wayland.extWindowsForApp(idLower, idLower);
@@ -298,7 +297,7 @@ namespace {
     return 0;
   }
 
-  [[nodiscard]] WindowSwitcherEntry makeEntryFromToplevel(
+  WindowSwitcherEntry makeEntryFromToplevel(
       const CompositorPlatform& platform, IconResolver& iconResolver, int iconSize, const std::string& appId,
       const ToplevelInfo& info
   ) {
@@ -326,7 +325,7 @@ namespace {
     std::size_t mruIndex = std::numeric_limits<std::size_t>::max();
   };
 
-  [[nodiscard]] WindowSwitcherEntry makeEntryFromAssignment(
+  WindowSwitcherEntry makeEntryFromAssignment(
       const CompositorPlatform& platform, const WaylandConnection& wayland, IconResolver& iconResolver, int iconSize,
       const WorkspaceWindowAssignment& assignment
   ) {
@@ -387,7 +386,7 @@ namespace {
 
   // Identity keys of every window the switcher can list right now. Compositors reuse
   // window ids (Hyprland reuses addresses), so MRU ranks must expire with the window.
-  [[nodiscard]] std::unordered_set<std::string> liveWindowKeys(const CompositorPlatform& platform) {
+  std::unordered_set<std::string> liveWindowKeys(const CompositorPlatform& platform) {
     std::unordered_set<std::string> keys;
     keys.reserve(32);
     for (const auto& assignment : platform.workspaceWindowAssignments()) {
@@ -404,8 +403,7 @@ namespace {
     return keys;
   }
 
-  [[nodiscard]] std::optional<std::string>
-  focusedWindowAssignmentKey(const CompositorPlatform& platform, wl_output* output) {
+  std::optional<std::string> focusedWindowAssignmentKey(const CompositorPlatform& platform, wl_output* output) {
     const std::string focusedKey = currentFocusedWindowKey(platform);
     if (focusedKey.empty()) {
       return std::nullopt;
@@ -422,8 +420,7 @@ namespace {
     return std::nullopt;
   }
 
-  [[nodiscard]] switcher_membership::OutputMembership
-  buildOutputMembership(const CompositorPlatform& platform, wl_output* output) {
+  switcher_membership::OutputMembership buildOutputMembership(const CompositorPlatform& platform, wl_output* output) {
     switcher_membership::OutputMembership membership;
     membership.workspaces = platform.workspaces(output);
     membership.overlayKeys = platform.openOverlayWorkspaceKeys(output);
@@ -437,7 +434,7 @@ namespace {
     return membership;
   }
 
-  [[nodiscard]] std::vector<switcher_membership::OutputMembership> collectOutputMemberships(
+  std::vector<switcher_membership::OutputMembership> collectOutputMemberships(
       const CompositorPlatform& platform, const WaylandConnection& wayland, wl_output* outputFilter
   ) {
     std::vector<switcher_membership::OutputMembership> memberships;
@@ -458,7 +455,7 @@ namespace {
     return memberships;
   }
 
-  [[nodiscard]] std::vector<WorkspaceWindowAssignment> collectSwitcherAssignments(
+  std::vector<WorkspaceWindowAssignment> collectSwitcherAssignments(
       const CompositorPlatform& platform, const WaylandConnection& wayland, wl_output* outputFilter,
       bool currentWorkspaceOnly, bool& membershipFilterApplied
   ) {
@@ -607,7 +604,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::optional<WindowSwitcherScope> parseWindowSwitcherScope(std::string_view token) {
+  std::optional<WindowSwitcherScope> parseWindowSwitcherScope(std::string_view token) {
     if (token == "all") {
       return WindowSwitcherScope::All;
     }
@@ -1929,7 +1926,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
         .pressed = key.pressed,
         .preedit = key.preedit,
     };
-    (void)onKeyboardEvent(event);
+    onKeyboardEvent(event);
   });
 
   input->setOnAxisHandler([this](const InputArea::PointerData& data) -> bool {

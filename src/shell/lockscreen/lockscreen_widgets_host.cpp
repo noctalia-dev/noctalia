@@ -355,7 +355,7 @@ void LockscreenWidgetsHost::detachFromSurface(WidgetInstance& instance) {
 
   if (instance.transformNode != nullptr && surface != nullptr) {
     if (Node* layer = surface->widgetLayer(); layer != nullptr) {
-      (void)layer->removeChild(instance.transformNode);
+      layer->removeChild(instance.transformNode);
     }
     instance.transformNode = nullptr;
   }

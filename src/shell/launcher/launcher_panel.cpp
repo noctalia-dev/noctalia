@@ -83,7 +83,7 @@ namespace {
     return std::min(rawBoost, kTypedUsageScoreCap);
   }
 
-  [[nodiscard]] bool isDescendantOf(const Node* node, const Node* ancestor) {
+  bool isDescendantOf(const Node* node, const Node* ancestor) {
     if (node == nullptr || ancestor == nullptr) {
       return false;
     }
@@ -95,7 +95,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] std::string singleLinePreview(std::string_view text) {
+  std::string singleLinePreview(std::string_view text) {
     std::string preview;
     preview.reserve(text.size());
     bool lastWasSpace = false;
@@ -114,9 +114,9 @@ namespace {
     return preview;
   }
 
-  [[nodiscard]] bool isDetailPresentation(const LauncherResult& result) { return result.presentation == "detail"; }
+  bool isDetailPresentation(const LauncherResult& result) { return result.presentation == "detail"; }
 
-  [[nodiscard]] std::string providerOverviewId(std::string_view prefix) {
+  std::string providerOverviewId(std::string_view prefix) {
     std::string id(kProviderOverviewResultPrefix);
     id += prefix;
     return id;
@@ -135,13 +135,13 @@ namespace {
     std::optional<ColorSpec> listItemBackground;
   };
 
-  [[nodiscard]] float launcherIconSize(const LauncherListStyle& style) {
+  float launcherIconSize(const LauncherListStyle& style) {
     return (style.compact ? kIconSizeCompact : kIconSizeDefault) * style.scale;
   }
 
-  [[nodiscard]] float stableLabelHeight(const TextMetrics& metrics) { return std::round(metrics.bottom - metrics.top); }
+  float stableLabelHeight(const TextMetrics& metrics) { return std::round(metrics.bottom - metrics.top); }
 
-  [[nodiscard]] float launcherTextStackHeight(Renderer& renderer, const LauncherListStyle& style) {
+  float launcherTextStackHeight(Renderer& renderer, const LauncherListStyle& style) {
     const float bodySize = Style::fontSizeBody * style.scale;
     float textHeight = stableLabelHeight(renderer.measureFont(bodySize, {FontWeight::SemiBold}));
     if (!style.compact) {
@@ -151,7 +151,7 @@ namespace {
     return textHeight;
   }
 
-  [[nodiscard]] float launcherRowHeight(Renderer& renderer, const LauncherListStyle& style) {
+  float launcherRowHeight(Renderer& renderer, const LauncherListStyle& style) {
     const float paddingY = (style.compact ? Style::spaceXs * 0.5F : Style::spaceXs) * style.scale;
     const float textHeight = launcherTextStackHeight(renderer, style);
     if (!style.showIcons) {
@@ -160,7 +160,7 @@ namespace {
     return std::ceil(std::max(launcherIconSize(style), textHeight) + paddingY * 2.0F);
   }
 
-  [[nodiscard]] float launcherRowHeightEstimate(const LauncherListStyle& style) {
+  float launcherRowHeightEstimate(const LauncherListStyle& style) {
     const float paddingY = (style.compact ? Style::spaceXs * 0.5F : Style::spaceXs) * style.scale;
     const float bodySize = Style::fontSizeBody * style.scale;
     const float captionSize = Style::fontSizeCaption * style.scale;
@@ -171,7 +171,7 @@ namespace {
     return std::ceil(std::max(launcherIconSize(style), textHeight) + paddingY * 2.0F);
   }
 
-  [[nodiscard]] float launcherAppGridLabelHeight(Renderer& renderer, const LauncherListStyle& style, float wrapWidth) {
+  float launcherAppGridLabelHeight(Renderer& renderer, const LauncherListStyle& style, float wrapWidth) {
     const float fontSize = Style::fontSizeCaption * style.scale;
     const TextMetrics metrics =
         renderer.measureText("Ag\nyg", fontSize, {FontWeight::Normal}, wrapWidth, 2, TextAlign::Center);
@@ -181,7 +181,7 @@ namespace {
     return std::ceil(std::max({actualHeight, inkSpan, rowExtent * 2.0F}));
   }
 
-  [[nodiscard]] float launcherAppGridCellHeight(Renderer& renderer, const LauncherListStyle& style, float wrapWidth) {
+  float launcherAppGridCellHeight(Renderer& renderer, const LauncherListStyle& style, float wrapWidth) {
     const float paddingY = Style::spaceSm * style.scale;
     const float gap = Style::spaceXs * style.scale;
     const float iconSize = launcherIconSize(style);
@@ -189,7 +189,7 @@ namespace {
     return std::ceil(paddingY * 2.0F + iconSize + gap + labelHeight);
   }
 
-  [[nodiscard]] float launcherAppGridCellHeightEstimate(const LauncherListStyle& style) {
+  float launcherAppGridCellHeightEstimate(const LauncherListStyle& style) {
     const float paddingY = Style::spaceSm * style.scale;
     const float gap = Style::spaceXs * style.scale;
     const float iconSize = launcherIconSize(style);
@@ -197,7 +197,7 @@ namespace {
     return std::ceil(paddingY * 2.0F + iconSize + gap + labelHeight);
   }
 
-  [[nodiscard]] LauncherListStyle launcherListStyleFrom(const ConfigService* config, float scale, float cardOpacity) {
+  LauncherListStyle launcherListStyleFrom(const ConfigService* config, float scale, float cardOpacity) {
     LauncherListStyle style{.scale = scale, .appIconColorizeTint = std::nullopt, .listItemBackground = std::nullopt};
     if (config != nullptr) {
       const auto& launcher = config->config().shell.launcher;
@@ -438,7 +438,7 @@ namespace {
   protected:
     void doLayout(Renderer& renderer) override {
       if (m_style.showIcons && !m_badgeVisible && !m_iconPath.empty()) {
-        (void)refreshAsyncIcon(renderer);
+        refreshAsyncIcon(renderer);
       }
       Node::doLayout(renderer);
     }
@@ -696,7 +696,7 @@ namespace {
     void doLayout(Renderer& renderer) override {
       m_col->setSize(width(), height());
       if (m_style.showIcons && !m_badgeVisible && !m_iconPath.empty()) {
-        (void)refreshAsyncIcon(renderer);
+        refreshAsyncIcon(renderer);
       }
       Node::doLayout(renderer);
     }
@@ -957,7 +957,7 @@ public:
   void setListStyle(LauncherListStyle style) { m_style = style; }
   void setResults(const std::vector<LauncherResult>* results) { m_results = results; }
   void setRenderer(Renderer* renderer) { m_renderer = renderer; }
-  [[nodiscard]] bool setReorderEnabled(bool enabled) {
+  bool setReorderEnabled(bool enabled) {
     if (m_reorderEnabled == enabled) {
       return false;
     }
@@ -968,7 +968,7 @@ public:
   void setOnSecondaryActivate(SecondaryActivateCallback callback) { m_onSecondaryActivate = std::move(callback); }
   void setOnReorder(ReorderCallback callback) { m_onReorder = std::move(callback); }
 
-  [[nodiscard]] std::size_t itemCount() const override { return m_results == nullptr ? 0U : m_results->size(); }
+  std::size_t itemCount() const override { return m_results == nullptr ? 0U : m_results->size(); }
 
   [[nodiscard]] std::unique_ptr<Node> createTile() override {
     return std::make_unique<LauncherResultRow>(m_style, m_cache);
@@ -984,14 +984,14 @@ public:
     row->bind(*m_renderer, (*m_results)[index], tile.width(), tile.height(), selected, hovered);
   }
 
-  [[nodiscard]] std::string itemTooltip(std::size_t index) const override {
+  std::string itemTooltip(std::size_t index) const override {
     if (m_results == nullptr || index >= m_results->size() || (*m_results)[index].originGlyph.empty()) {
       return {};
     }
     return (*m_results)[index].origin;
   }
 
-  [[nodiscard]] std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+  std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
       std::size_t index, float cellWidth, float cellHeight, bool /*overlayHovered*/
   ) const override {
     if (m_results == nullptr || index >= m_results->size() || (*m_results)[index].originGlyph.empty()) {
@@ -1011,7 +1011,7 @@ public:
     };
   }
 
-  [[nodiscard]] bool overlayHitTest(
+  bool overlayHitTest(
       std::size_t index, float /*cellLocalX*/, float /*cellLocalY*/, float /*cellWidth*/, float /*cellHeight*/
   ) const override {
     return isReorderable(index);
@@ -1081,7 +1081,7 @@ public:
   }
 
 private:
-  [[nodiscard]] bool isReorderable(std::size_t index) const {
+  bool isReorderable(std::size_t index) const {
     return m_reorderEnabled && m_results != nullptr && index < m_results->size() && (*m_results)[index].pinned;
   }
 
@@ -1109,7 +1109,7 @@ public:
   void setListStyle(LauncherListStyle style) { m_style = style; }
   void setResults(const std::vector<LauncherResult>* results) { m_results = results; }
   void setRenderer(Renderer* renderer) { m_renderer = renderer; }
-  [[nodiscard]] bool setReorderEnabled(bool enabled) {
+  bool setReorderEnabled(bool enabled) {
     if (m_reorderEnabled == enabled) {
       return false;
     }
@@ -1120,7 +1120,7 @@ public:
   void setOnSecondaryActivate(SecondaryActivateCallback callback) { m_onSecondaryActivate = std::move(callback); }
   void setOnReorder(ReorderCallback callback) { m_onReorder = std::move(callback); }
 
-  [[nodiscard]] std::size_t itemCount() const override { return m_results == nullptr ? 0U : m_results->size(); }
+  std::size_t itemCount() const override { return m_results == nullptr ? 0U : m_results->size(); }
 
   [[nodiscard]] std::unique_ptr<Node> createTile() override {
     return std::make_unique<LauncherAppGridTile>(m_style, m_cache);
@@ -1136,14 +1136,14 @@ public:
     gridTile->bind(*m_renderer, (*m_results)[index], tile.width(), tile.height(), selected, hovered);
   }
 
-  [[nodiscard]] std::string itemTooltip(std::size_t index) const override {
+  std::string itemTooltip(std::size_t index) const override {
     if (m_results == nullptr || index >= m_results->size() || (*m_results)[index].originGlyph.empty()) {
       return {};
     }
     return (*m_results)[index].origin;
   }
 
-  [[nodiscard]] std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+  std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
       std::size_t index, float cellWidth, float cellHeight, bool /*overlayHovered*/
   ) const override {
     if (m_results == nullptr || index >= m_results->size() || (*m_results)[index].originGlyph.empty()) {
@@ -1161,7 +1161,7 @@ public:
     };
   }
 
-  [[nodiscard]] bool overlayHitTest(
+  bool overlayHitTest(
       std::size_t index, float /*cellLocalX*/, float /*cellLocalY*/, float /*cellWidth*/, float /*cellHeight*/
   ) const override {
     return isReorderable(index);
@@ -1230,7 +1230,7 @@ public:
   }
 
 private:
-  [[nodiscard]] bool isReorderable(std::size_t index) const {
+  bool isReorderable(std::size_t index) const {
     return m_reorderEnabled && m_results != nullptr && index < m_results->size() && (*m_results)[index].pinned;
   }
 
@@ -1263,7 +1263,7 @@ public:
   void setListStyle(LauncherListStyle style) { m_style = style; }
   void setResults(const std::vector<LauncherResult>* results) { m_results = results; }
   void setSelectedResultIndex(std::optional<std::size_t> index) { m_selectedResultIndex = index; }
-  [[nodiscard]] bool setGridView(bool gridView) {
+  bool setGridView(bool gridView) {
     if (m_gridView == gridView) {
       return false;
     }
@@ -1341,18 +1341,18 @@ public:
     appendSection(std::move(otherLabel), "apps", otherResults);
   }
 
-  [[nodiscard]] std::optional<std::size_t> firstResultIndex() const {
+  std::optional<std::size_t> firstResultIndex() const {
     return m_visualResultOrder.empty() ? std::nullopt : std::optional<std::size_t>(m_visualResultOrder.front());
   }
 
-  [[nodiscard]] std::optional<std::size_t> rowForResult(std::size_t resultIndex) const {
+  std::optional<std::size_t> rowForResult(std::size_t resultIndex) const {
     if (resultIndex >= m_resultPositions.size() || !m_resultPositions[resultIndex].has_value()) {
       return std::nullopt;
     }
     return m_resultPositions[resultIndex]->row;
   }
 
-  [[nodiscard]] std::optional<std::size_t> moveHorizontal(std::size_t resultIndex, int direction) const {
+  std::optional<std::size_t> moveHorizontal(std::size_t resultIndex, int direction) const {
     if (!m_gridView) {
       return resultIndex < m_resultPositions.size() && m_resultPositions[resultIndex].has_value()
           ? std::optional<std::size_t>(resultIndex)
@@ -1372,7 +1372,7 @@ public:
                                                    : std::optional<std::size_t>(m_visualResultOrder[order + 1]);
   }
 
-  [[nodiscard]] std::optional<std::size_t>
+  std::optional<std::size_t>
   moveVertical(std::size_t resultIndex, int direction, std::size_t applicationRows = 1) const {
     if (resultIndex >= m_resultPositions.size() || !m_resultPositions[resultIndex].has_value()) {
       return firstResultIndex();
@@ -1403,16 +1403,16 @@ public:
     }
   }
 
-  [[nodiscard]] std::size_t estimatedVisibleApplicationRows(float viewportHeight) const {
+  std::size_t estimatedVisibleApplicationRows(float viewportHeight) const {
     const float rowHeight = std::max(1.0F, m_applicationRowHeight);
     return std::max<std::size_t>(1, static_cast<std::size_t>(std::floor(viewportHeight / rowHeight)));
   }
 
-  [[nodiscard]] std::size_t itemCount() const override { return m_rows.size(); }
-  [[nodiscard]] std::uint64_t itemRevision(std::size_t /*index*/) const override { return m_revision; }
-  [[nodiscard]] bool itemInteractive(std::size_t /*index*/) const override { return false; }
+  std::size_t itemCount() const override { return m_rows.size(); }
+  std::uint64_t itemRevision(std::size_t /*index*/) const override { return m_revision; }
+  bool itemInteractive(std::size_t /*index*/) const override { return false; }
 
-  [[nodiscard]] float measureItem(Renderer& renderer, std::size_t index, float width) override {
+  float measureItem(Renderer& renderer, std::size_t index, float width) override {
     if (index >= m_rows.size()) {
       return 1.0F;
     }
@@ -1651,7 +1651,7 @@ void LauncherPanel::create() {
                     return;
                   }
                   const bool enabled = !m_config->config().shell.launcher.sortByUsage;
-                  (void)m_config->setOverride({"shell", "launcher", "sort_by_usage"}, enabled);
+                  m_config->setOverride({"shell", "launcher", "sort_by_usage"}, enabled);
                 },
             .configure =
                 [scale](Button& button) {
@@ -1677,7 +1677,7 @@ void LauncherPanel::create() {
                     return;
                   }
                   const bool enabled = !m_config->config().shell.launcher.appGrid;
-                  (void)m_config->setOverride({"shell", "launcher", "app_grid"}, enabled);
+                  m_config->setOverride({"shell", "launcher", "app_grid"}, enabled);
                 },
             .configure =
                 [scale](Button& button) {
@@ -2067,7 +2067,7 @@ void LauncherPanel::rebuildLauncherSections() {
     return;
   }
   if (shouldUseLauncherSections()) {
-    (void)m_launcherSectionsAdapter->setGridView(
+    m_launcherSectionsAdapter->setGridView(
         m_config != nullptr && m_config->config().shell.launcher.appGrid && m_launcherShowIcons
     );
     m_launcherSectionsAdapter->rebuild(m_currentCategories, i18n::tr("launcher.browser.sections.other-apps"));

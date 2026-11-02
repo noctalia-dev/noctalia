@@ -19,10 +19,10 @@ public:
 
   explicit UmbrielKeyboardBackend(compositors::umbriel::UmbrielRuntime& runtime);
 
-  [[nodiscard]] bool isAvailable() const noexcept;
-  [[nodiscard]] bool cycleLayout() const;
-  [[nodiscard]] std::optional<KeyboardLayoutState> layoutState() const;
-  [[nodiscard]] std::optional<std::string> currentLayoutName() const;
+  bool isAvailable() const noexcept;
+  bool cycleLayout() const;
+  std::optional<KeyboardLayoutState> layoutState() const;
+  std::optional<std::string> currentLayoutName() const;
 
   void setChangeCallback(ChangeCallback callback);
   void handleEvent(std::string_view event, const nlohmann::json& data) override;

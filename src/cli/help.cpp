@@ -11,7 +11,7 @@ namespace noctalia::cli {
 
     using HelpEntry = std::pair<std::string, std::string>;
 
-    [[nodiscard]] std::string positionalSpec(const Positional& positional) {
+    std::string positionalSpec(const Positional& positional) {
       if (positional.joinRemaining)
         return positional.required ? "<" + std::string(positional.name) + "...>"
                                    : "[" + std::string(positional.name) + "...]";
@@ -22,7 +22,7 @@ namespace noctalia::cli {
       return "[" + std::string(positional.name) + "]";
     }
 
-    [[nodiscard]] std::string joinChoices(std::span<const std::string_view> choices) {
+    std::string joinChoices(std::span<const std::string_view> choices) {
       std::string result;
       for (std::size_t i = 0; i < choices.size(); ++i) {
         if (i != 0)
@@ -55,7 +55,7 @@ namespace noctalia::cli {
       }
     }
 
-    [[nodiscard]] bool commandTakesArgs(const Command& command) {
+    bool commandTakesArgs(const Command& command) {
       if (!command.positionals.empty() || !command.flags.empty())
         return true;
       return std::ranges::any_of(command.subcommands, [](const Command& child) {

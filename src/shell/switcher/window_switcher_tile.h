@@ -27,7 +27,7 @@ struct ThumbnailTarget {
   int width = 0;
   int height = 0;
 
-  [[nodiscard]] bool operator==(const ThumbnailTarget&) const = default;
+  bool operator==(const ThumbnailTarget&) const = default;
 };
 
 struct WindowSwitcherEntry {

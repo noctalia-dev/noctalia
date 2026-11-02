@@ -129,17 +129,17 @@ namespace {
       return m_cv.wait_for(lock, std::chrono::seconds(2), [this, expected]() { return m_calls >= expected; });
     }
 
-    [[nodiscard]] std::size_t calls() const {
+    std::size_t calls() const {
       std::scoped_lock lock(m_mutex);
       return m_calls;
     }
 
-    [[nodiscard]] std::optional<security::SecretStoreAttributes> lastAttributes() const {
+    std::optional<security::SecretStoreAttributes> lastAttributes() const {
       std::scoped_lock lock(m_mutex);
       return m_lastAttributes;
     }
 
-    [[nodiscard]] std::thread::id workerThread() const {
+    std::thread::id workerThread() const {
       std::scoped_lock lock(m_mutex);
       return m_workerThread;
     }

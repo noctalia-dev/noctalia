@@ -13,10 +13,10 @@ class SwayKeyboardBackend {
 public:
   explicit SwayKeyboardBackend(compositors::sway::SwayRuntime& runtime);
 
-  [[nodiscard]] bool isAvailable() const noexcept;
-  [[nodiscard]] bool cycleLayout() const;
-  [[nodiscard]] std::optional<KeyboardLayoutState> layoutState() const;
-  [[nodiscard]] std::optional<std::string> currentLayoutName() const;
+  bool isAvailable() const noexcept;
+  bool cycleLayout() const;
+  std::optional<KeyboardLayoutState> layoutState() const;
+  std::optional<std::string> currentLayoutName() const;
 
 private:
   compositors::sway::SwayRuntime& m_runtime;

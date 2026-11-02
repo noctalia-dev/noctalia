@@ -22,12 +22,12 @@ public:
   ScreenSaverService(const ScreenSaverService&) = delete;
   ScreenSaverService& operator=(const ScreenSaverService&) = delete;
 
-  [[nodiscard]] bool active() const noexcept { return m_active || m_logindProxy != nullptr; }
-  [[nodiscard]] bool hasScreenSaverBus() const noexcept { return m_active; }
-  [[nodiscard]] std::int64_t inhibitLocks() const noexcept { return m_inhibitLocks; }
-  [[nodiscard]] bool hasPendingEvents() const noexcept { return m_hasPendingEvents; }
-  [[nodiscard]] sdbus::IConnection::PollData getPollData() const;
-  [[nodiscard]] std::vector<std::pair<std::string, std::string>> inhibitorList() const;
+  bool active() const noexcept { return m_active || m_logindProxy != nullptr; }
+  bool hasScreenSaverBus() const noexcept { return m_active; }
+  std::int64_t inhibitLocks() const noexcept { return m_inhibitLocks; }
+  bool hasPendingEvents() const noexcept { return m_hasPendingEvents; }
+  sdbus::IConnection::PollData getPollData() const;
+  std::vector<std::pair<std::string, std::string>> inhibitorList() const;
   void processPendingEvents();
   void setChangeCallback(ChangeCallback callback);
 
@@ -48,7 +48,7 @@ private:
   std::uint32_t onInhibit(std::string app, std::string reason, const char* sender);
   void onUninhibit(std::uint32_t cookie, const char* sender);
   void onInhibitDelta(std::int64_t delta);
-  [[nodiscard]] std::size_t unregisterOwnerCookies(const std::string& ownerId);
+  std::size_t unregisterOwnerCookies(const std::string& ownerId);
 
   ChangeCallback m_changeCallback;
   std::unique_ptr<sdbus::IConnection> m_connection;

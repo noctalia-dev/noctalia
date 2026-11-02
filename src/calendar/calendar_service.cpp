@@ -186,7 +186,7 @@ struct CalendarService::VdirWorker : std::enable_shared_from_this<CalendarServic
   }
 
 private:
-  [[nodiscard]] bool accepting() const {
+  bool accepting() const {
     std::scoped_lock lock(mutex);
     return !stopping;
   }
@@ -691,7 +691,7 @@ void CalendarService::recordSyncResult(const std::string& accountId, calendar::S
   m_lastFailures.erase(accountId);
   const auto now = std::chrono::system_clock::now();
   m_lastSynced[accountId] = now;
-  (void)m_configService.setStateString(kCalendarSyncOwner, accountId + "_last_synced", std::to_string(toUnix(now)));
+  m_configService.setStateString(kCalendarSyncOwner, accountId + "_last_synced", std::to_string(toUnix(now)));
 }
 
 CalendarService::AccountStatus CalendarService::accountStatus(const CalendarConfig::Account& account) const {
@@ -852,7 +852,7 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
               setSyncPhase(accountId, AccountStatus::Phase::Downloading);
 
               const std::vector<CalendarSource> discoveredSources = sourcesFromCollections(collections);
-              (void)m_configService.setStateString(
+              m_configService.setStateString(
                   kCalendarDiscoveryOwner, accountId + "_calendars",
                   calendar::serializeCalendarSources(discoveredSources)
               );
@@ -1119,7 +1119,7 @@ void CalendarService::fetchVdir(const CalendarConfig::Account& account) {
                       std::vector<std::filesystem::path> watchedPaths, std::vector<CalendarEvent> events
                   ) {
         if (failure == calendar::SyncFailure::None) {
-          (void)m_configService.setStateString(
+          m_configService.setStateString(
               kCalendarDiscoveryOwner, accountId + "_calendars", calendar::serializeCalendarSources(sources)
           );
         }

@@ -40,7 +40,7 @@ public:
   void onOutputChange();
   void onSecondTick();
   // True when a visible widget renders a value that changes every second.
-  [[nodiscard]] bool wantsSecondTicks() const;
+  bool wantsSecondTicks() const;
   void requestUpdate();
   void requestLayout();
   void requestRedraw();
@@ -67,11 +67,11 @@ public:
   enum class RuntimeVisibility : std::uint8_t { FollowConfig, ForceShown, ForceHidden };
   void setRuntimeVisibility(RuntimeVisibility visibility);
   void toggleRuntimeVisibility();
-  [[nodiscard]] bool isEffectivelyVisible() const noexcept;
+  bool isEffectivelyVisible() const noexcept;
 
-  [[nodiscard]] bool isEditing() const noexcept;
-  [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
-  [[nodiscard]] std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
+  bool isEditing() const noexcept;
+  std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
+  std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
   bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
 
@@ -83,7 +83,7 @@ private:
   void normalizeSnapshot();
   void syncWallpaperMasks();
   void pruneWallpaperMasks();
-  [[nodiscard]] bool runtimeWantsVisible() const noexcept;
+  bool runtimeWantsVisible() const noexcept;
 
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;

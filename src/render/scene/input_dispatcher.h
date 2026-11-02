@@ -55,20 +55,20 @@ public:
   void setFocus(InputArea* area);
   void stashTabFocus();
   void restoreStashedTabFocus();
-  [[nodiscard]] TabFocusSnapshot captureTabFocus() const;
+  TabFocusSnapshot captureTabFocus() const;
   void restoreTabFocus(TabFocusSnapshot snapshot);
-  [[nodiscard]] bool cycleTabFocus(bool reverse);
-  [[nodiscard]] bool cycleTabFocusInSubtree(Node* subtree, bool reverse);
-  [[nodiscard]] InputArea* inputAreaAt(float x, float y);
-  [[nodiscard]] InputArea* firstTabFocusUnder(Node* subtree) const;
-  [[nodiscard]] InputArea* lastTabFocusUnder(Node* subtree) const;
-  [[nodiscard]] InputArea* focusedArea() const noexcept { return m_focusedArea; }
-  [[nodiscard]] InputArea* hoveredArea() const noexcept { return m_hoveredArea; }
-  [[nodiscard]] bool pointerCaptured() const noexcept { return m_capturedArea != nullptr; }
+  bool cycleTabFocus(bool reverse);
+  bool cycleTabFocusInSubtree(Node* subtree, bool reverse);
+  InputArea* inputAreaAt(float x, float y);
+  InputArea* firstTabFocusUnder(Node* subtree) const;
+  InputArea* lastTabFocusUnder(Node* subtree) const;
+  InputArea* focusedArea() const noexcept { return m_focusedArea; }
+  InputArea* hoveredArea() const noexcept { return m_hoveredArea; }
+  bool pointerCaptured() const noexcept { return m_capturedArea != nullptr; }
 
 private:
   InputArea* findInputAreaAt(float x, float y);
-  [[nodiscard]] bool isAttachedToScene(const InputArea* area) const;
+  bool isAttachedToScene(const InputArea* area) const;
   void pruneDetachedAreas();
   void updateHover(float x, float y, std::uint32_t serial);
   void updateCursor(std::uint32_t serial);

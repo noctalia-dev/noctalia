@@ -8,7 +8,7 @@
 
 namespace {
 
-  [[nodiscard]] stbir_pixel_layout stbirSourceLayout(ResizeSourceLayout layout) noexcept {
+  stbir_pixel_layout stbirSourceLayout(ResizeSourceLayout layout) noexcept {
     switch (layout) {
     case ResizeSourceLayout::Rgba:
       return STBIR_RGBA;
@@ -22,11 +22,11 @@ namespace {
     return STBIR_RGBA;
   }
 
-  [[nodiscard]] std::uint8_t straightChannel(std::uint32_t value, std::uint32_t alpha) noexcept {
+  std::uint8_t straightChannel(std::uint32_t value, std::uint32_t alpha) noexcept {
     return alpha == 0 ? 0 : static_cast<std::uint8_t>(std::min(255U, (value * 255U + alpha / 2U) / alpha));
   }
 
-  [[nodiscard]] bool fitsInMemory(int width, int height) noexcept {
+  bool fitsInMemory(int width, int height) noexcept {
     const auto w = static_cast<std::size_t>(width);
     const auto h = static_cast<std::size_t>(height);
     return w <= std::numeric_limits<std::size_t>::max() / 4U / h;

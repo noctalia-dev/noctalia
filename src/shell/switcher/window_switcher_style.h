@@ -56,5 +56,5 @@ struct WindowSwitcherStyleLayout {
   float countHeight = 0.0F;
   bool boxed = false;
 
-  [[nodiscard]] bool sameGeometryAs(const WindowSwitcherStyleLayout& other) const noexcept;
+  bool sameGeometryAs(const WindowSwitcherStyleLayout& other) const noexcept;
 };

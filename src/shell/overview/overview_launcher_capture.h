@@ -30,7 +30,7 @@ public:
 
   void sync();
   void onOutputChange();
-  [[nodiscard]] bool handleKeyboardEvent(const KeyboardEvent& event);
+  bool handleKeyboardEvent(const KeyboardEvent& event);
 
 private:
   struct Instance {
@@ -38,13 +38,13 @@ private:
     std::unique_ptr<LayerSurface> surface;
   };
 
-  [[nodiscard]] bool shouldBeActive() const;
-  [[nodiscard]] bool surfacesMatchOutputs() const;
-  [[nodiscard]] bool handleOverviewKey(const KeyboardEvent& event) const;
-  [[nodiscard]] bool sendOverviewAction(const char* actionName) const;
+  bool shouldBeActive() const;
+  bool surfacesMatchOutputs() const;
+  bool handleOverviewKey(const KeyboardEvent& event) const;
+  bool sendOverviewAction(const char* actionName) const;
   void ensureSurfaces();
   void destroySurfaces();
-  [[nodiscard]] Instance* instanceForKeyboardSurface(wl_surface* surface) noexcept;
+  Instance* instanceForKeyboardSurface(wl_surface* surface) noexcept;
 
   WaylandConnection* m_wayland = nullptr;
   RenderContext* m_renderContext = nullptr;

@@ -13,15 +13,15 @@ namespace i18n::detail {
 
   namespace {
 
-    [[nodiscard]] bool isAlpha(std::string_view value) {
+    bool isAlpha(std::string_view value) {
       return std::ranges::all_of(value, [](unsigned char c) { return std::isalpha(c) != 0; });
     }
 
-    [[nodiscard]] bool isDigit(std::string_view value) {
+    bool isDigit(std::string_view value) {
       return std::ranges::all_of(value, [](unsigned char c) { return std::isdigit(c) != 0; });
     }
 
-    [[nodiscard]] std::string lower(std::string_view value) {
+    std::string lower(std::string_view value) {
       std::string out(value);
       for (char& c : out) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -29,7 +29,7 @@ namespace i18n::detail {
       return out;
     }
 
-    [[nodiscard]] std::string upper(std::string_view value) {
+    std::string upper(std::string_view value) {
       std::string out(value);
       for (char& c : out) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
@@ -37,7 +37,7 @@ namespace i18n::detail {
       return out;
     }
 
-    [[nodiscard]] std::string title(std::string_view value) {
+    std::string title(std::string_view value) {
       std::string out = lower(value);
       if (!out.empty()) {
         out[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(out[0])));
@@ -45,13 +45,13 @@ namespace i18n::detail {
       return out;
     }
 
-    [[nodiscard]] bool isScriptSubtag(std::string_view subtag) { return subtag.size() == 4 && isAlpha(subtag); }
+    bool isScriptSubtag(std::string_view subtag) { return subtag.size() == 4 && isAlpha(subtag); }
 
-    [[nodiscard]] bool isRegionSubtag(std::string_view subtag) {
+    bool isRegionSubtag(std::string_view subtag) {
       return (subtag.size() == 2 && isAlpha(subtag)) || (subtag.size() == 3 && isDigit(subtag));
     }
 
-    [[nodiscard]] std::vector<std::string_view> split(std::string_view tag) {
+    std::vector<std::string_view> split(std::string_view tag) {
       std::vector<std::string_view> parts;
       std::size_t start = 0;
       while (start <= tag.size()) {
@@ -66,7 +66,7 @@ namespace i18n::detail {
       return parts;
     }
 
-    [[nodiscard]] std::string join(const std::vector<std::string>& parts) {
+    std::string join(const std::vector<std::string>& parts) {
       std::string out;
       for (const std::string& part : parts) {
         if (!out.empty()) {
@@ -94,7 +94,7 @@ namespace i18n::detail {
       std::size_t scriptIndex = 0;
     };
 
-    [[nodiscard]] ParsedTag parseTag(std::string_view tag) {
+    ParsedTag parseTag(std::string_view tag) {
       ParsedTag parsed;
       for (std::string_view part : split(tag)) {
         parsed.parts.emplace_back(part);
@@ -116,7 +116,7 @@ namespace i18n::detail {
       return parsed;
     }
 
-    [[nodiscard]] std::string_view inferredChineseScript(std::string_view language, std::string_view region) {
+    std::string_view inferredChineseScript(std::string_view language, std::string_view region) {
       if (language != "zh") {
         return {};
       }
@@ -132,7 +132,7 @@ namespace i18n::detail {
       return {};
     }
 
-    [[nodiscard]] std::string withInsertedScript(const ParsedTag& parsed, std::string_view script) {
+    std::string withInsertedScript(const ParsedTag& parsed, std::string_view script) {
       if (script.empty()) {
         return {};
       }
@@ -141,7 +141,7 @@ namespace i18n::detail {
       return join(parts);
     }
 
-    [[nodiscard]] std::string withoutScript(const ParsedTag& parsed) {
+    std::string withoutScript(const ParsedTag& parsed) {
       if (parsed.scriptIndex == 0) {
         return {};
       }
@@ -150,7 +150,7 @@ namespace i18n::detail {
       return join(parts);
     }
 
-    [[nodiscard]] std::string scriptOnly(const ParsedTag& parsed, std::string_view script) {
+    std::string scriptOnly(const ParsedTag& parsed, std::string_view script) {
       if (script.empty()) {
         return {};
       }

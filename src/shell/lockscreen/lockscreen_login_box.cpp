@@ -16,7 +16,7 @@ namespace lockscreen_login_box {
 
     constexpr Logger kLog("lockscreen-widgets");
 
-    [[nodiscard]] float readFloat(
+    float readFloat(
         const std::unordered_map<std::string, WidgetSettingValue>& settings, std::string_view key, float fallback
     ) {
       const auto it = settings.find(std::string(key));
@@ -32,7 +32,7 @@ namespace lockscreen_login_box {
       return fallback;
     }
 
-    [[nodiscard]] bool
+    bool
     readBool(const std::unordered_map<std::string, WidgetSettingValue>& settings, std::string_view key, bool fallback) {
       const auto it = settings.find(std::string(key));
       if (it == settings.end()) {
@@ -44,7 +44,7 @@ namespace lockscreen_login_box {
       return fallback;
     }
 
-    [[nodiscard]] std::string readString(
+    std::string readString(
         const std::unordered_map<std::string, WidgetSettingValue>& settings, std::string_view key,
         std::string_view fallback
     ) {

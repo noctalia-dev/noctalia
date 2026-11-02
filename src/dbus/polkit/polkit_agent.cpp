@@ -111,7 +111,7 @@ namespace {
       return *this;
     }
 
-    [[nodiscard]] PolkitIdentity* get() const noexcept { return m_identity; }
+    PolkitIdentity* get() const noexcept { return m_identity; }
 
   private:
     PolkitIdentity* m_identity = nullptr;

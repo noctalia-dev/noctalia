@@ -24,20 +24,20 @@ public:
   // When true, the last child in an incomplete row stretches across remaining columns.
   void setSpanLastItem(bool span);
 
-  [[nodiscard]] std::size_t columns() const noexcept { return m_columns; }
-  [[nodiscard]] float columnGap() const noexcept { return m_columnGap; }
-  [[nodiscard]] float rowGap() const noexcept { return m_rowGap; }
-  [[nodiscard]] float paddingTop() const noexcept { return m_paddingTop; }
-  [[nodiscard]] float paddingRight() const noexcept { return m_paddingRight; }
-  [[nodiscard]] float paddingBottom() const noexcept { return m_paddingBottom; }
-  [[nodiscard]] float paddingLeft() const noexcept { return m_paddingLeft; }
-  [[nodiscard]] bool stretchItems() const noexcept { return m_stretchItems; }
-  [[nodiscard]] bool uniformCellSize() const noexcept { return m_uniformCellSize; }
-  [[nodiscard]] bool squareCells() const noexcept { return m_squareCells; }
-  [[nodiscard]] bool squareGridShrinkWrap() const noexcept { return m_squareGridShrinkWrap; }
-  [[nodiscard]] bool spanLastItem() const noexcept { return m_spanLastItem; }
-  [[nodiscard]] float minCellWidth() const noexcept { return m_minCellWidth; }
-  [[nodiscard]] float minCellHeight() const noexcept { return m_minCellHeight; }
+  std::size_t columns() const noexcept { return m_columns; }
+  float columnGap() const noexcept { return m_columnGap; }
+  float rowGap() const noexcept { return m_rowGap; }
+  float paddingTop() const noexcept { return m_paddingTop; }
+  float paddingRight() const noexcept { return m_paddingRight; }
+  float paddingBottom() const noexcept { return m_paddingBottom; }
+  float paddingLeft() const noexcept { return m_paddingLeft; }
+  bool stretchItems() const noexcept { return m_stretchItems; }
+  bool uniformCellSize() const noexcept { return m_uniformCellSize; }
+  bool squareCells() const noexcept { return m_squareCells; }
+  bool squareGridShrinkWrap() const noexcept { return m_squareGridShrinkWrap; }
+  bool spanLastItem() const noexcept { return m_spanLastItem; }
+  float minCellWidth() const noexcept { return m_minCellWidth; }
+  float minCellHeight() const noexcept { return m_minCellHeight; }
 
 private:
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;

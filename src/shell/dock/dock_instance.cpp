@@ -25,16 +25,16 @@ namespace shell::dock {
 
   namespace {
 
-    [[nodiscard]] bool dockUsesSlideAutoHide(const DockConfig& cfg, const DockInstance& instance) noexcept {
+    bool dockUsesSlideAutoHide(const DockConfig& cfg, const DockInstance& instance) noexcept {
       if (cfg.smartAutoHide) {
         return !instance.smartAutoHidePinnedVisible;
       }
       return cfg.autoHide;
     }
 
-    [[nodiscard]] bool dockUsesAnyAutoHide(const DockConfig& cfg) noexcept { return cfg.autoHide || cfg.smartAutoHide; }
+    bool dockUsesAnyAutoHide(const DockConfig& cfg) noexcept { return cfg.autoHide || cfg.smartAutoHide; }
 
-    [[nodiscard]] bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
+    bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
       if (assignmentKey.empty()) {
         return false;
       }
@@ -50,7 +50,7 @@ namespace shell::dock {
       return false;
     }
 
-    [[nodiscard]] bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
+    bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
       const auto workspaces = platform.workspaces(output);
       const Workspace* active = nullptr;
       for (const auto& workspace : workspaces) {
@@ -75,7 +75,7 @@ namespace shell::dock {
       return active->occupied;
     }
 
-    [[nodiscard]] bool smartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
+    bool smartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
       if (platform.hasOverviewState() && platform.isOverviewOpen()) {
         return true;
       }
@@ -275,9 +275,7 @@ namespace shell::dock {
         float viewportX = 0.0F;
         float viewportY = 0.0F;
         Node::absolutePosition(inst->viewport, viewportX, viewportY);
-        (void)shell::dock::syncHoverPointerFromScene(
-            *inst, dockConfig, viewportX + data.localX, viewportY + data.localY
-        );
+        shell::dock::syncHoverPointerFromScene(*inst, dockConfig, viewportX + data.localX, viewportY + data.localY);
         if (inst->surface != nullptr) {
           inst->surface->requestFrameTick();
           inst->surface->requestRedraw();

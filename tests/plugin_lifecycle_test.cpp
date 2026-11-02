@@ -878,7 +878,7 @@ int main() {
          )
         && ok;
   }
-  (void)drainUntil([&] { return unloadedSoundOwners.size() >= 2; });
+  drainUntil([&] { return unloadedSoundOwners.size() >= 2; });
   ok = expect(
            writeText(
                root / "path-plugins/plugin/plugin.toml",

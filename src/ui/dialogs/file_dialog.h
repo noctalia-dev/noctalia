@@ -51,5 +51,5 @@ public:
   static void cancelIfPending();
   static void setLastBrowsedDirectory(std::filesystem::path directory) noexcept;
 
-  [[nodiscard]] static const FileDialogOptions& currentOptions();
+  static const FileDialogOptions& currentOptions();
 };

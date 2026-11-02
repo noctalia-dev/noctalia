@@ -12,7 +12,7 @@ namespace noctalia::bar {
   // a common base struct would make `field<&Options::glyph>` deduce the base as the options type.
   // Any `extra` fields are appended after the shared ones.
   template <typename Options, typename... Extra>
-  [[nodiscard]] std::vector<WidgetDefinitionField<Options>> glyphButtonFields(Extra&&... extra) {
+  std::vector<WidgetDefinitionField<Options>> glyphButtonFields(Extra&&... extra) {
     std::vector<WidgetDefinitionField<Options>> fields;
     fields.reserve(3 + sizeof...(Extra));
     fields.push_back(

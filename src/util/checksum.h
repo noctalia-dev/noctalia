@@ -6,6 +6,6 @@
 namespace noctalia::util {
 
   // Lowercase hex MD5 of a file's contents. Empty string if the file cannot be read.
-  [[nodiscard]] std::string fileMd5Hex(const std::filesystem::path& path);
+  std::string fileMd5Hex(const std::filesystem::path& path);
 
 } // namespace noctalia::util

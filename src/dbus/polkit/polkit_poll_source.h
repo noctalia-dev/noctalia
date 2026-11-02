@@ -7,7 +7,7 @@ class PolkitPollSource final : public PollSource {
 public:
   explicit PolkitPollSource(PolkitAgent& agent) : m_agent(agent) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override { return m_agent.pollTimeoutMs(); }
+  int pollTimeoutMs() const override { return m_agent.pollTimeoutMs(); }
 
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override { m_agent.dispatch(fds, startIdx); }
 

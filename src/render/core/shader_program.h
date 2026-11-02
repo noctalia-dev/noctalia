@@ -19,8 +19,8 @@ public:
   // program is already invalid and no context is current to delete it from.
   void abandon() noexcept;
 
-  [[nodiscard]] bool isValid() const noexcept;
-  [[nodiscard]] GLuint id() const noexcept;
+  bool isValid() const noexcept;
+  GLuint id() const noexcept;
 
 private:
   GLuint m_program = 0;

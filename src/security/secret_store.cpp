@@ -717,7 +717,7 @@ namespace security {
       }
     }
 
-    [[nodiscard]] std::optional<SecretStoreStatus> availabilityStatus() const { return m_availabilityStatus; }
+    std::optional<SecretStoreStatus> availabilityStatus() const { return m_availabilityStatus; }
 
   private:
     void workerLoop() {

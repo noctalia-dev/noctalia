@@ -89,8 +89,7 @@ namespace desktop_widgets {
 
   class PlacementMapper {
   public:
-    [[nodiscard]] bool
-    remapForOutputChange(std::span<const WaylandOutput> outputs, std::vector<DesktopWidgetState>& widgets) const {
+    bool remapForOutputChange(std::span<const WaylandOutput> outputs, std::vector<DesktopWidgetState>& widgets) const {
       bool changed = false;
       for (auto& widget : widgets) {
         const WaylandOutput* output = selectOutput(outputs, widget.outputName).output;

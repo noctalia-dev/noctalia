@@ -7,8 +7,7 @@
 namespace input {
 
   // Latin letter for this key across layouts (e.g. Russian ф → a). nullopt if none.
-  [[nodiscard]] inline std::optional<std::uint32_t>
-  latinShortcutKeysym(xkb_keymap* keymap, xkb_keycode_t keycode) noexcept {
+  inline std::optional<std::uint32_t> latinShortcutKeysym(xkb_keymap* keymap, xkb_keycode_t keycode) noexcept {
     if (keymap == nullptr) {
       return std::nullopt;
     }

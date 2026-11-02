@@ -61,8 +61,8 @@ public:
   // Tear down all shields. Idempotent.
   void deactivate();
 
-  [[nodiscard]] bool isActive() const noexcept { return !m_shields.empty(); }
-  [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
+  bool isActive() const noexcept { return !m_shields.empty(); }
+  bool ownsSurface(wl_surface* surface) const noexcept;
 
   // Public so the C-callback bridge in panel_click_shield.cpp can dispatch.
   static void handleConfigure(

@@ -44,7 +44,7 @@ struct ClipboardEntry {
   std::chrono::steady_clock::time_point timestamp;
   bool pinned = false;
 
-  [[nodiscard]] bool isImage() const;
+  bool isImage() const;
 };
 
 struct DataControlOps {
@@ -69,8 +69,8 @@ struct DataControlOps {
   void (*offerReceive)(void* offer, const char* mimeType, int fd) = nullptr;
 };
 
-[[nodiscard]] const DataControlOps* extDataControlOps();
-[[nodiscard]] const DataControlOps* wlrDataControlOps();
+const DataControlOps* extDataControlOps();
+const DataControlOps* wlrDataControlOps();
 
 class ClipboardService : public TextClipboard {
 public:
@@ -85,30 +85,30 @@ public:
   bool bind(void* manager, const DataControlOps* ops, wl_seat* seat);
   void cleanup();
 
-  [[nodiscard]] bool isAvailable() const noexcept;
-  [[nodiscard]] const std::deque<ClipboardEntry>& history() const noexcept;
-  [[nodiscard]] std::uint64_t changeSerial() const noexcept;
-  [[nodiscard]] ClipboardPersistenceState persistenceState() const noexcept;
-  [[nodiscard]] bool persistenceMigrationPending() const noexcept;
-  [[nodiscard]] std::size_t addPollFds(std::vector<pollfd>& fds) const;
+  bool isAvailable() const noexcept;
+  const std::deque<ClipboardEntry>& history() const noexcept;
+  std::uint64_t changeSerial() const noexcept;
+  ClipboardPersistenceState persistenceState() const noexcept;
+  bool persistenceMigrationPending() const noexcept;
+  std::size_t addPollFds(std::vector<pollfd>& fds) const;
   // The poll source has to advertise an immediate timeout while this is set:
   // adoption is only flushed from dispatchPollEvents, and a NULL selection
   // leaves the service with no fd to wake on.
-  [[nodiscard]] bool hasPendingOrphanAdopt() const noexcept;
+  bool hasPendingOrphanAdopt() const noexcept;
 
   void syncPersistence();
   void retryPersistence();
   [[nodiscard]] bool clearEncryptedPersistenceForRecovery();
-  [[nodiscard]] bool hasEncryptedPersistence() const;
+  bool hasEncryptedPersistence() const;
   bool ensureEntryLoaded(std::size_t index);
-  [[nodiscard]] std::optional<std::string> imageDataUri(std::size_t index);
-  [[nodiscard]] std::optional<std::string> exportEntryForExternalTool(std::size_t index);
+  std::optional<std::string> imageDataUri(std::size_t index);
+  std::optional<std::string> exportEntryForExternalTool(std::size_t index);
   void evictEntryPayload(std::size_t index);
   void evictAllPayloads();
   // TextClipboard implementation (used by UI controls for copy/paste). Reflects
   // the live selection, not history: a copy history declines to keep (password
   // hint, duplicate of a pin, blank or oversized text) is still what pastes.
-  [[nodiscard]] std::optional<std::string> clipboardText() override;
+  std::optional<std::string> clipboardText() override;
   void setClipboardText(std::string text) override;
 
   // When disabled, the live clipboard transport stays active (so basic
@@ -189,7 +189,7 @@ private:
     std::size_t offset = 0;
   };
 
-  [[nodiscard]] const OfferState* findOffer(void* offer) const;
+  const OfferState* findOffer(void* offer) const;
   OfferState* findOffer(void* offer);
   void destroyOffer(void* offer);
   void clearOffers();
@@ -200,16 +200,15 @@ private:
   void setSelectionText(std::optional<std::string> text);
   void adoptOrphanedSelection();
   void flushPendingOrphanAdopt();
-  [[nodiscard]] static bool payloadLooksComplete(std::string_view mimeType, std::span<const std::uint8_t> data);
+  static bool payloadLooksComplete(std::string_view mimeType, std::span<const std::uint8_t> data);
   void addToHistory(ClipboardEntry entry);
-  [[nodiscard]] std::size_t pinnedCount() const noexcept;
+  std::size_t pinnedCount() const noexcept;
   void activatePersistenceKey(security::SecureKey key);
   void setPersistenceState(ClipboardPersistenceState state, bool migrationPending);
   [[nodiscard]] bool loadPersistedHistory();
   [[nodiscard]] bool loadEncryptedHistory();
   [[nodiscard]] bool migrateLegacyHistory();
-  [[nodiscard]] bool
-  parseManifest(std::span<const std::uint8_t> contents, bool legacy, std::deque<ClipboardEntry>& entries) const;
+  bool parseManifest(std::span<const std::uint8_t> contents, bool legacy, std::deque<ClipboardEntry>& entries) const;
   void mergePersistedHistory(std::deque<ClipboardEntry> entries);
   [[nodiscard]] bool removeLegacyStorage();
   bool persistHistory(bool force = false);
@@ -217,20 +216,20 @@ private:
   [[nodiscard]] bool loadEntryPayload(ClipboardEntry& entry);
   [[nodiscard]] static bool loadLegacyEntryPayload(ClipboardEntry& entry);
   static void evictPayloadData(ClipboardEntry& entry);
-  [[nodiscard]] static std::string stateDirectory();
-  [[nodiscard]] static std::string manifestPath();
-  [[nodiscard]] static std::string legacyManifestPath();
-  [[nodiscard]] static std::string entriesDirectory();
-  [[nodiscard]] static std::string payloadPathForId(std::string_view storageId);
-  [[nodiscard]] static std::string legacyPayloadPathForId(std::string_view storageId);
-  [[nodiscard]] static bool isValidStorageId(std::string_view storageId);
-  [[nodiscard]] static std::string generateStorageId();
-  [[nodiscard]] std::string chooseMimeType(const OfferState& offer) const;
-  [[nodiscard]] static bool isTextMimeType(std::string_view mimeType);
-  [[nodiscard]] static std::vector<std::string> mimeTypesForPayload(const std::string& dataMimeType);
-  [[nodiscard]] static std::size_t maxEntryBytesFor(std::string_view mimeType);
-  [[nodiscard]] static bool isEmptyTextPayload(const std::vector<std::uint8_t>& data);
-  [[nodiscard]] static std::string buildTextPreview(const std::vector<std::uint8_t>& data);
+  static std::string stateDirectory();
+  static std::string manifestPath();
+  static std::string legacyManifestPath();
+  static std::string entriesDirectory();
+  static std::string payloadPathForId(std::string_view storageId);
+  static std::string legacyPayloadPathForId(std::string_view storageId);
+  static bool isValidStorageId(std::string_view storageId);
+  static std::string generateStorageId();
+  std::string chooseMimeType(const OfferState& offer) const;
+  static bool isTextMimeType(std::string_view mimeType);
+  static std::vector<std::string> mimeTypesForPayload(const std::string& dataMimeType);
+  static std::size_t maxEntryBytesFor(std::string_view mimeType);
+  static bool isEmptyTextPayload(const std::vector<std::uint8_t>& data);
+  static std::string buildTextPreview(const std::vector<std::uint8_t>& data);
   bool copyData(std::vector<std::string> mimeTypes, std::vector<std::uint8_t> data);
   bool copyData(std::vector<std::string> mimeTypes, std::shared_ptr<const std::vector<std::uint8_t>> data);
   bool queueOutgoingWrite(void* source, int fd, std::shared_ptr<const std::vector<std::uint8_t>> data);

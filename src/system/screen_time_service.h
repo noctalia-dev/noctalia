@@ -50,12 +50,12 @@ public:
   void setEnabled(bool enabled);
   void setSessionLocked(bool locked);
   void setSuspendPaused(bool paused);
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
+  bool enabled() const noexcept { return m_enabled; }
 
-  [[nodiscard]] ScreenTimeSnapshot snapshot(int rangeDays = 1);
+  ScreenTimeSnapshot snapshot(int rangeDays = 1);
   // Hourly + apps view for a single stored day (`YYYY-MM-DD`). Empty if unknown.
-  [[nodiscard]] ScreenTimeSnapshot snapshotForDay(const std::string& dayKey);
-  [[nodiscard]] static std::string dayDisplayName(const std::string& dayKey);
+  ScreenTimeSnapshot snapshotForDay(const std::string& dayKey);
+  static std::string dayDisplayName(const std::string& dayKey);
 
   void clearAll();
 
@@ -74,17 +74,17 @@ private:
   void load();
   void save();
   void pruneOldDaysLocked();
-  [[nodiscard]] const DayRecord* dayRecordForKey(const std::string& dayKey) const;
-  [[nodiscard]] std::vector<std::string> dayKeysForRange(int rangeDays) const;
-  [[nodiscard]] std::string appKeyForActive() const;
-  [[nodiscard]] ScreenTimeSnapshot buildHourlySnapshot(const DayRecord& day) const;
-  [[nodiscard]] static std::string localDayKey(std::chrono::system_clock::time_point tp);
-  [[nodiscard]] static std::string shortDayLabel(const std::string& dayKey);
-  [[nodiscard]] static int localHour(std::chrono::system_clock::time_point tp);
-  [[nodiscard]] static DayRecord materializeDayForCharts(const DayRecord& source);
-  [[nodiscard]] static std::chrono::seconds sumApps(const DayRecord& day);
-  [[nodiscard]] static std::chrono::seconds sumHourly(const DayRecord& day);
-  [[nodiscard]] static std::chrono::seconds appSecondsForKey(const DayRecord& day, const std::string& appKey);
+  const DayRecord* dayRecordForKey(const std::string& dayKey) const;
+  std::vector<std::string> dayKeysForRange(int rangeDays) const;
+  std::string appKeyForActive() const;
+  ScreenTimeSnapshot buildHourlySnapshot(const DayRecord& day) const;
+  static std::string localDayKey(std::chrono::system_clock::time_point tp);
+  static std::string shortDayLabel(const std::string& dayKey);
+  static int localHour(std::chrono::system_clock::time_point tp);
+  static DayRecord materializeDayForCharts(const DayRecord& source);
+  static std::chrono::seconds sumApps(const DayRecord& day);
+  static std::chrono::seconds sumHourly(const DayRecord& day);
+  static std::chrono::seconds appSecondsForKey(const DayRecord& day, const std::string& appKey);
   static void distributeSecondsAcrossHourly(
       std::chrono::seconds amount, const DayRecord& profile, std::vector<std::chrono::seconds>& buckets
   );

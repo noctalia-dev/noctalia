@@ -44,7 +44,7 @@ namespace noctalia::theme {
     // Drops the queued backlog and releases waitIdle() callers. Running hooks keep
     // going; the destructor waits for them.
     void requestShutdown();
-    [[nodiscard]] std::size_t pendingCount() const;
+    std::size_t pendingCount() const;
 
   private:
     struct QueuedHook {

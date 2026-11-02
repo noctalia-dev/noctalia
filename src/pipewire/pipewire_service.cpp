@@ -68,15 +68,14 @@ namespace {
   constexpr auto kCameraHoldTime = std::chrono::seconds(3);
 
   // Milliseconds until deadline, rounded up and clamped to [0, INT_MAX].
-  [[nodiscard]] int
-  pollMsUntil(std::chrono::steady_clock::time_point deadline, std::chrono::steady_clock::time_point now) noexcept {
+  int pollMsUntil(std::chrono::steady_clock::time_point deadline, std::chrono::steady_clock::time_point now) noexcept {
     const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now);
     return static_cast<int>(
         std::clamp(remaining, std::chrono::milliseconds::zero(), std::chrono::milliseconds{INT_MAX}).count()
     );
   }
 
-  [[nodiscard]] bool pipeWireVersionSupportsPassiveFollow(std::string_view version) {
+  bool pipeWireVersionSupportsPassiveFollow(std::string_view version) {
     const auto majorEnd = version.find('.');
     if (majorEnd == std::string_view::npos) {
       return false;
@@ -288,7 +287,7 @@ namespace {
     return dict != nullptr && spa_dict_lookup(dict, key) != nullptr;
   }
 
-  [[nodiscard]] bool isTruthyPipeWireProp(std::string_view value) { return value == "true" || value == "1"; }
+  bool isTruthyPipeWireProp(std::string_view value) { return value == "true" || value == "1"; }
 
   bool applyStreamFilterPropsFromDict(PipeWireService::NodeData& nd, const spa_dict* props, bool mergeOnly) {
     if (props == nullptr) {
@@ -516,7 +515,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] float resolvedVolume(const ParsedPropsVolumes& p) {
+  float resolvedVolume(const ParsedPropsVolumes& p) {
     if (p.hasChannel) {
       return p.channelVol;
     }
@@ -529,7 +528,7 @@ namespace {
     return -1.0F;
   }
 
-  [[nodiscard]] bool shouldRejectVolumeWrite(const PipeWireService::NodeData& nd, float candidateVol) {
+  bool shouldRejectVolumeWrite(const PipeWireService::NodeData& nd, float candidateVol) {
     if (nd.lastWrittenVolume < 0.0F) {
       return false;
     }
@@ -563,7 +562,7 @@ namespace {
 
   // Device ParamRoute updates are per-direction; applying every route's volume to all nodes on the same
   // device.id merges playback and capture on combo hardware (see activeRouteForDirection).
-  [[nodiscard]] bool routeVolumeDirectionMatchesNode(std::string_view mediaClass, std::uint32_t routeDirection) {
+  bool routeVolumeDirectionMatchesNode(std::string_view mediaClass, std::uint32_t routeDirection) {
     if (mediaClass == "Audio/Sink") {
       return routeDirection == SPA_DIRECTION_OUTPUT;
     }
@@ -586,7 +585,7 @@ namespace {
     *existing = route;
   }
 
-  [[nodiscard]] std::uint32_t routeDirectionForMediaClass(std::string_view mediaClass) {
+  std::uint32_t routeDirectionForMediaClass(std::string_view mediaClass) {
     if (mediaClass == "Audio/Source") {
       return SPA_DIRECTION_INPUT;
     }
@@ -643,18 +642,18 @@ namespace {
 
   bool isProgramStreamClass(std::string_view mediaClass) { return mediaClass == "Stream/Output/Audio"; }
 
-  [[nodiscard]] bool isPrivacyCandidateClass(std::string_view mediaClass) {
+  bool isPrivacyCandidateClass(std::string_view mediaClass) {
     return std::ranges::contains(kPrivacyAudioNodeClasses, mediaClass)
         || (mediaClass.contains("Video") && !mediaClass.contains("Audio"));
   }
 
-  [[nodiscard]] std::string lowercaseAscii(std::string_view value) {
+  std::string lowercaseAscii(std::string_view value) {
     std::string out(value);
     std::ranges::transform(out, out.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     return out;
   }
 
-  [[nodiscard]] bool matchesScreenShareName(std::string_view mediaName, bool includeWeakPrefixes) {
+  bool matchesScreenShareName(std::string_view mediaName, bool includeWeakPrefixes) {
     if (mediaName.empty()) {
       return false;
     }
@@ -673,11 +672,11 @@ namespace {
            });
   }
 
-  [[nodiscard]] bool isMicrophoneSource(const PipeWireService::NodeData& nd) {
+  bool isMicrophoneSource(const PipeWireService::NodeData& nd) {
     return std::ranges::contains(kMicrophoneSourceClasses, nd.mediaClass);
   }
 
-  [[nodiscard]] bool isAudioCaptureConsumer(const PipeWireService::NodeData& nd) {
+  bool isAudioCaptureConsumer(const PipeWireService::NodeData& nd) {
     return noctalia::pipewire::isPrivacyAudioCaptureConsumer({
         .mediaClass = nd.mediaClass,
         .linkGroup = nd.linkGroup,
@@ -686,15 +685,15 @@ namespace {
     });
   }
 
-  [[nodiscard]] bool isCameraSource(const PipeWireService::NodeData& nd) {
+  bool isCameraSource(const PipeWireService::NodeData& nd) {
     return std::ranges::contains(kCameraSourceClasses, nd.mediaClass);
   }
 
-  [[nodiscard]] bool isVideoCaptureConsumer(const PipeWireService::NodeData& nd) {
+  bool isVideoCaptureConsumer(const PipeWireService::NodeData& nd) {
     return std::ranges::contains(kVideoCaptureConsumerClasses, nd.mediaClass);
   }
 
-  [[nodiscard]] bool isScreenSource(const PipeWireService::NodeData& nd) {
+  bool isScreenSource(const PipeWireService::NodeData& nd) {
     if (!nd.mediaClass.contains("Video") || nd.mediaClass.contains("Audio")) {
       return false;
     }
@@ -709,7 +708,7 @@ namespace {
     return matchesScreenShareName(nd.name, true);
   }
 
-  [[nodiscard]] std::string privacyAppName(const PipeWireService::NodeData& nd) {
+  std::string privacyAppName(const PipeWireService::NodeData& nd) {
     if (!nd.applicationName.empty()) {
       return nd.applicationName;
     }
@@ -722,7 +721,7 @@ namespace {
     return nd.name;
   }
 
-  [[nodiscard]] std::optional<PrivacyCaptureKind>
+  std::optional<PrivacyCaptureKind>
   classifyPrivacyCapture(const PipeWireService::NodeData& source, const PipeWireService::NodeData& consumer) {
     if (isMicrophoneSource(source) && isAudioCaptureConsumer(consumer)) {
       return PrivacyCaptureKind::Microphone;
@@ -741,18 +740,18 @@ namespace {
 
   // QEMU's libvirt PipeWire backend (node.name "qemu-system-<arch>") is a program stream that needs
   // special handling: it sets target.object and never sets application.name.
-  [[nodiscard]] bool isQemuStreamNode(const PipeWireService::NodeData& nd) {
+  bool isQemuStreamNode(const PipeWireService::NodeData& nd) {
     return isProgramStreamClass(nd.mediaClass) && nd.name.starts_with("qemu-system-");
   }
 
-  [[nodiscard]] bool hasProgramStreamIdentity(const PipeWireService::NodeData& nd) {
+  bool hasProgramStreamIdentity(const PipeWireService::NodeData& nd) {
     if (isQemuStreamNode(nd)) {
       return true;
     }
     return !nd.applicationName.empty() || !nd.applicationId.empty() || !nd.applicationBinary.empty();
   }
 
-  [[nodiscard]] bool isProgramOutputNode(const PipeWireService::NodeData& nd) {
+  bool isProgramOutputNode(const PipeWireService::NodeData& nd) {
     // Match the "Streams" pavucontrol shows: Stream/Output/Audio without node.link-group /
     // node.passive (loopback and filter endpoints). Streams that pin a sink via target.object
     // (Telegram/OpenAL, etc.) stay visible when they have client/app identity; anonymous

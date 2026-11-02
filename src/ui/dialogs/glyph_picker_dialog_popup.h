@@ -20,15 +20,15 @@ public:
 
   [[nodiscard]] bool openGlyphPicker() override;
   void closeGlyphPickerWithoutResult() override;
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
+  bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
-  [[nodiscard]] bool ownsSelectDropdownSurface(wl_surface* surface) const noexcept;
+  bool ownsSelectDropdownSurface(wl_surface* surface) const noexcept;
 
 protected:
   void populateContent(Node* contentParent, std::uint32_t width, std::uint32_t height) override;
   void layoutSheet(float contentWidth, float contentHeight) override;
   void cancelToFacade() override;
-  [[nodiscard]] InputArea* initialFocusArea() override;
+  InputArea* initialFocusArea() override;
   void onSheetClose() override;
 
 private:

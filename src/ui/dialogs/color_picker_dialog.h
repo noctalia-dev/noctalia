@@ -28,6 +28,6 @@ public:
   static void complete(const Color& result);
   static void cancelIfPending();
 
-  [[nodiscard]] static const ColorPickerDialogOptions& currentOptions();
-  [[nodiscard]] static std::optional<Color> lastResult() noexcept;
+  static const ColorPickerDialogOptions& currentOptions();
+  static std::optional<Color> lastResult() noexcept;
 };

@@ -68,7 +68,7 @@ namespace scripting {
     std::optional<ManifestVisibility> visibleWhen;
 
     // The declared default mapped to a settings value.
-    [[nodiscard]] WidgetSettingValue defaultValue() const;
+    WidgetSettingValue defaultValue() const;
   };
 
   // Entry types a plugin may declare. P0 routes only Widget to a surface; the rest
@@ -179,19 +179,19 @@ namespace scripting {
     // per-entry instance setting; seeded into all of the plugin's runtimes.
     std::vector<ManifestField> settings;
 
-    [[nodiscard]] const PluginEntry* findEntry(std::string_view entryId) const;
+    const PluginEntry* findEntry(std::string_view entryId) const;
   };
 
   // The TOML array-table name for each entry kind (e.g. "widget" -> [[widget]]).
-  [[nodiscard]] std::string_view pluginEntryTableName(PluginEntryKind kind);
+  std::string_view pluginEntryTableName(PluginEntryKind kind);
   // Canonical plugin version: three non-negative decimal components without leading zeros.
-  [[nodiscard]] bool isValidPluginVersion(std::string_view version);
+  bool isValidPluginVersion(std::string_view version);
 
   // Build the runtime settings for an instance: every declared field seeded with
   // its manifest default, then overlaid by the instance's configured values.
   // Only declared keys are emitted, so a `getConfig` of an undeclared key stays a
   // loud miss rather than silently resolving from a stray override.
-  [[nodiscard]] std::unordered_map<std::string, WidgetSettingValue>
+  std::unordered_map<std::string, WidgetSettingValue>
   seedEntrySettings(const PluginEntry& entry, const std::unordered_map<std::string, WidgetSettingValue>& overrides);
 
   // Overlay the plugin-level settings (manifest defaults, then `pluginOverrides`)
@@ -204,14 +204,13 @@ namespace scripting {
 
   // Settings-map equality with int/double coercion (matches config override
   // comparison), so reseeding a service from an unchanged config is a no-op.
-  [[nodiscard]] bool settingsEqual(
+  bool settingsEqual(
       const std::unordered_map<std::string, WidgetSettingValue>& a,
       const std::unordered_map<std::string, WidgetSettingValue>& b
   );
 
   // Parse a plugin.toml. Returns nullopt and sets `error` on a hard failure:
   // unreadable file, TOML parse error, invalid mandatory metadata, or invalid entries/settings.
-  [[nodiscard]] std::optional<PluginManifest>
-  parsePluginManifest(const std::filesystem::path& manifestPath, std::string* error);
+  std::optional<PluginManifest> parsePluginManifest(const std::filesystem::path& manifestPath, std::string* error);
 
 } // namespace scripting

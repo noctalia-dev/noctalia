@@ -58,18 +58,18 @@ public:
   [[nodiscard]] bool initialize(const scripting::PluginLayerConfig& config);
   void applyConfig(const scripting::PluginLayerConfig& config);
 
-  [[nodiscard]] wl_output* output() const noexcept { return m_output; }
-  [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
-  [[nodiscard]] bool pointerInside() const noexcept { return m_pointerInside; }
+  wl_output* output() const noexcept { return m_output; }
+  bool ownsSurface(wl_surface* surface) const noexcept;
+  bool pointerInside() const noexcept { return m_pointerInside; }
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   void requestLayout();
 
   // PluginIpcEndpoint
-  [[nodiscard]] std::string_view ipcEntryId() const override { return m_entryId; }
-  [[nodiscard]] std::string_view ipcOutputName() const override { return m_outputName; }
-  [[nodiscard]] std::string_view ipcBarName() const override { return {}; }
-  [[nodiscard]] DispatchResult
+  std::string_view ipcEntryId() const override { return m_entryId; }
+  std::string_view ipcOutputName() const override { return m_outputName; }
+  std::string_view ipcBarName() const override { return {}; }
+  DispatchResult
   dispatchIpc(std::string_view event, std::string_view payload, const scripting::ScriptSnapshot& snapshot) override;
 
 private:
@@ -81,12 +81,12 @@ private:
   void reloadScript();
   void startUpdateTimer();
   void handleScriptResult(const scripting::ScriptResult& result);
-  [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
-  [[nodiscard]] std::string resolvePluginPath(const std::string& path) const;
-  [[nodiscard]] float contentScale() const;
+  scripting::ScriptSnapshot makeScriptSnapshot() const;
+  std::string resolvePluginPath(const std::string& path) const;
+  float contentScale() const;
   // Requested surface extent on one axis: 0 when stretched between both anchored edges,
   // the configured size when set, otherwise the measured content size.
-  [[nodiscard]] std::uint32_t requestedExtent(std::uint32_t configured, bool stretched, float content) const;
+  std::uint32_t requestedExtent(std::uint32_t configured, bool stretched, float content) const;
 
   PluginLayerServices m_services;
   std::string m_entryId; // "author/plugin:entry"

@@ -29,7 +29,7 @@ namespace {
 
   // command() runs a program; it must stay disabled even after user definitions load.
   bool commandRuns(const MathProvider& provider, const fs::path& marker) {
-    (void)provider.queryPrefixed(R"(command("touch", ")" + marker.string() + R"("))");
+    provider.queryPrefixed(R"(command("touch", ")" + marker.string() + R"("))");
     return fs::exists(marker);
   }
 

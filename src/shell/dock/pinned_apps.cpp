@@ -10,7 +10,7 @@ namespace shell::dock::pinned_apps {
 
     constexpr Logger kLog("dock");
 
-    [[nodiscard]] DesktopEntry placeholderEntry(std::string_view pinnedId) {
+    DesktopEntry placeholderEntry(std::string_view pinnedId) {
       DesktopEntry placeholder;
       placeholder.id = std::string(pinnedId);
       placeholder.name = std::string(pinnedId);

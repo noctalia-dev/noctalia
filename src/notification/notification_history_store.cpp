@@ -374,7 +374,7 @@ namespace {
 
     const auto assetsDir = assetsDirectoryForJson(jsonFilePath);
     std::error_code ecMk;
-    (void)FileUtils::createPrivateDirectories(assetsDir, ecMk);
+    FileUtils::createPrivateDirectories(assetsDir, ecMk);
 
     const std::string webpBase = contentAddressedWebpName(rgba.data(), rgba.size());
     const auto webpPath = assetsDir / webpBase;
