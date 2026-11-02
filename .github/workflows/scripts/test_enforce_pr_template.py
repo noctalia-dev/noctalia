@@ -54,6 +54,32 @@ class TemplateValidationTests(unittest.TestCase):
             [],
         )
 
+    def test_accepts_equivalent_documentation_markup(self) -> None:
+        for markup in (
+            "[docs/user/](https://github.com/noctalia-dev/noctalia/docs/user/)",
+            "[`docs/user/`](https://github.com/noctalia-dev/noctalia/blob/main/docs/user/)",
+            "`docs/user/`",
+            "docs/user/",
+        ):
+            with self.subTest(markup=markup):
+                body = ready_template().replace("[`docs/user/`](../docs/user/)", markup)
+                self.assertEqual(
+                    enforce_pr_template.missing_requirements(body, require_completed=True),
+                    [],
+                )
+
+    def test_documentation_markup_does_not_bypass_completion(self) -> None:
+        body = ready_template().replace(
+            "- [x] I updated user-facing documentation in [`docs/user/`](../docs/user/)",
+            "- [ ] I updated user-facing documentation in [docs/user/](https://example.com/docs)",
+        )
+        self.assertTrue(
+            any(
+                item.startswith("the checked checklist entry: I updated user-facing documentation")
+                for item in enforce_pr_template.missing_requirements(body, require_completed=True)
+            )
+        )
+
     def test_accepts_ready_template_without_context_sections(self) -> None:
         """Sections that only offer context may be deleted."""
         body = ready_template()
