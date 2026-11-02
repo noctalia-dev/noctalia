@@ -7,6 +7,7 @@
 #include "tests/test_check.h"
 #include "wayland/surface.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 
@@ -238,6 +239,118 @@ int main() {
       TEST_CHECK(region[0].width >= static_cast<int>(panel.panelX + panel.panelW));
     } else if (edge == DockEdge::Right) {
       TEST_CHECK(region[0].x + region[0].width == static_cast<int>(geo.surfaceW));
+    }
+  }
+
+  for (const auto& direction : kShadowDirections) {
+    for (bool panelShadow : {false, true}) {
+      for (const DockEdge edge : kEdges) {
+        for (bool magnification : {false, true}) {
+          for (float base : {0.85F, 1.0F, 1.75F}) {
+            for (int padding : {0, 8}) {
+              for (int margin : {0, 40}) {
+                DockConfig cfg = flushDock(edge);
+                cfg.shadow = panelShadow;
+                cfg.iconSize = 54;
+                cfg.mainAxisPadding = cfg.crossAxisPadding = padding;
+                cfg.activeScale = base;
+                cfg.inactiveScale = std::min(base, 1.0F);
+                cfg.magnification = magnification;
+                cfg.magnificationScale = 2.0F;
+                cfg.marginEdge = margin;
+                cfg.reserveSpace = true;
+                cfg.showInstanceCount = false;
+                const ShellConfig::ShadowConfig shadow{.direction = direction.value};
+                const auto offset = shadowDirectionOffset(shadow.direction);
+                const auto before = shell::dock::computeSurfaceGeometry(cfg, shadow, false, 1920, 1080);
+                const auto beforePanel =
+                    shell::dock::computePanelGeometry(cfg, shadow, before.surfaceW, before.surfaceH, 1);
+                const auto beforeInput =
+                    shell::dock::computeInputRegion(cfg, beforePanel, before.surfaceW, before.surfaceH, false, false);
+                cfg.iconShadow = true;
+                const auto surface = shell::dock::computeSurfaceGeometry(cfg, shadow, false, 1920, 1080);
+                const auto panel =
+                    shell::dock::computePanelGeometry(cfg, shadow, surface.surfaceW, surface.surfaceH, 1);
+                TEST_CHECK(before.exclusiveZone == surface.exclusiveZone);
+                const bool vertical = shell::dock::isVerticalEdge(edge);
+                TEST_CHECK(
+                    panel.panelW == (vertical ? shell::dock::dockThickness(cfg) : shell::dock::dockContentSize(cfg, 1))
+                );
+                TEST_CHECK(
+                    panel.panelH == (vertical ? shell::dock::dockContentSize(cfg, 1) : shell::dock::dockThickness(cfg))
+                );
+                const float scale = base * (magnification ? 2.0F : 1.0F);
+                const float growth = cfg.iconSize * (scale - 1.0F) * 0.5F;
+                float x = panel.panelX + padding + 6;
+                float y = panel.panelY + padding + 6;
+                if (magnification && scale > 1) {
+                  shell::dock::shiftAlongEdge(edge, x, y, -growth);
+                }
+                const float left = x - growth + (offset.x - 6) * scale;
+                const float right = x - growth + (cfg.iconSize + offset.x + 6) * scale;
+                const float top = y - growth + (offset.y - 6) * scale;
+                const float bottom = y - growth + (cfg.iconSize + offset.y + 6) * scale;
+                if (margin > 0 || edge != DockEdge::Left)
+                  TEST_CHECK(left >= -0.01F);
+                if (margin > 0 || edge != DockEdge::Right)
+                  TEST_CHECK(right <= surface.surfaceW + 0.01F);
+                if (margin > 0 || edge != DockEdge::Top)
+                  TEST_CHECK(top >= -0.01F);
+                if (margin > 0 || edge != DockEdge::Bottom)
+                  TEST_CHECK(bottom <= surface.surfaceH + 0.01F);
+                const auto [dx, dy] =
+                    shell::dock::computeHiddenSlideDelta(cfg, shadow, surface.surfaceW, surface.surfaceH, panel);
+                if (edge == DockEdge::Left)
+                  TEST_CHECK(right + dx <= 0);
+                if (edge == DockEdge::Right)
+                  TEST_CHECK(left + dx >= surface.surfaceW);
+                if (edge == DockEdge::Top)
+                  TEST_CHECK(bottom + dy <= 0);
+                if (edge == DockEdge::Bottom)
+                  TEST_CHECK(top + dy >= surface.surfaceH);
+                // Icon shadow bleed never widens the input region along the dock or away from the screen edge.
+                const auto input =
+                    shell::dock::computeInputRegion(cfg, panel, surface.surfaceW, surface.surfaceH, false, false);
+                TEST_CHECK(input.size() == 1);
+                TEST_CHECK(beforeInput.size() == 1);
+                if (vertical) {
+                  TEST_CHECK(input[0].height == beforeInput[0].height);
+                  TEST_CHECK(
+                      std::abs(
+                          (static_cast<float>(input[0].y) - panel.panelY)
+                          - (static_cast<float>(beforeInput[0].y) - beforePanel.panelY)
+                      )
+                      <= 1.0F
+                  );
+                } else {
+                  TEST_CHECK(input[0].width == beforeInput[0].width);
+                  TEST_CHECK(
+                      std::abs(
+                          (static_cast<float>(input[0].x) - panel.panelX)
+                          - (static_cast<float>(beforeInput[0].x) - beforePanel.panelX)
+                      )
+                      <= 1.0F
+                  );
+                }
+                if (edge == DockEdge::Bottom)
+                  TEST_CHECK(static_cast<float>(input[0].y) - panel.panelY == beforeInput[0].y - beforePanel.panelY);
+                if (edge == DockEdge::Top)
+                  TEST_CHECK(
+                      static_cast<float>(input[0].y + input[0].height) - panel.panelY
+                      == beforeInput[0].y + beforeInput[0].height - beforePanel.panelY
+                  );
+                if (edge == DockEdge::Right)
+                  TEST_CHECK(static_cast<float>(input[0].x) - panel.panelX == beforeInput[0].x - beforePanel.panelX);
+                if (edge == DockEdge::Left)
+                  TEST_CHECK(
+                      static_cast<float>(input[0].x + input[0].width) - panel.panelX
+                      == beforeInput[0].x + beforeInput[0].width - beforePanel.panelX
+                  );
+              }
+            }
+          }
+        }
+      }
     }
   }
 

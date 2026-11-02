@@ -40,6 +40,10 @@ namespace shell::surface_shadow {
     };
   }
 
+  MaskStyle maskStyle(const ShellConfig::ShadowConfig& shadow) noexcept {
+    return {.tint = style(shadow, 1.0F, {}).fill, .offset = shadowDirectionOffset(shadow.direction)};
+  }
+
   bool sameSurfaceMetrics(const ShellConfig::ShadowConfig& previous, const ShellConfig::ShadowConfig& next) noexcept {
     return previous.direction == next.direction;
   }

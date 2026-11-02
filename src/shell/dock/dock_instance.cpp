@@ -120,6 +120,9 @@ namespace shell::dock {
       }
     }
 
+    needsModelRebuild |= deps.config.config().dock.iconShadow
+        && instance.iconRenderScale != instance.surface->renderTarget().renderer().renderScale();
+
     const bool needsSceneBuild = instance.sceneRoot == nullptr
         || static_cast<std::uint32_t>(std::round(instance.sceneRoot->width())) != width
         || static_cast<std::uint32_t>(std::round(instance.sceneRoot->height())) != height;
@@ -254,7 +257,8 @@ namespace shell::dock {
 
       // Clip overflow along the dock while retaining the cross-axis surface room used by magnification.
       auto viewport = ui::inputArea({});
-      viewport->setClipChildren(true);
+      // The surface clips shadow bleed; the viewport keeps panel-based scrolling and input.
+      viewport->setClipChildren(!cfg.iconShadow);
       viewport->setOnAxisHandler([inst = &instance](const InputArea::PointerData& data) {
         if (inst->row == nullptr || inst->maxScrollOffset <= 0.0F) {
           return false;
@@ -370,7 +374,7 @@ namespace shell::dock {
     );
 
     // The viewport follows the visible pill on its main axis and spans the surface on its cross axis,
-    // allowing magnified icons to grow away from the screen edge without escaping past the pill ends.
+    // allowing magnified icons to grow away from the screen edge.
     const auto contentLength = static_cast<float>(shell::dock::dockContentSize(cfg, totalItemCount));
     if (vert) {
       instance.viewport->setPosition(0.0F, panelGeometry.panelY);
