@@ -542,6 +542,14 @@ namespace scripting {
               error = "panel entry '" + entry.id + R"(': layer must be "follow", "top" or "overlay")";
               return false;
             }
+            if (panelLayerFollowsFloating(layer->get())
+                && manifest.pluginApiVersion < kPanelLayerFollowPluginApiVersion) {
+              error = "panel entry '"
+                  + entry.id
+                  + "': layer \"follow\" requires plugin_api >= "
+                  + std::to_string(kPanelLayerFollowPluginApiVersion);
+              return false;
+            }
             entry.panelLayerDefault = layer->get();
           }
           if ((*entryTable)["dismiss_on_outside_click"]) {

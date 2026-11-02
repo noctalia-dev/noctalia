@@ -1263,12 +1263,34 @@ int main() {
     ok = expect(!scripting::panelLayerFollowsFloating(shellConfig.layer), "a pinned layer should not follow") && ok;
   }
 
+  const auto oldApiFollowLayerPath = root / "old-api-follow-layer/plugin.toml";
+  ok = writeManifest(
+           oldApiFollowLayerPath,
+           "id = \"me/old-api-follow-layer\"\n"
+           "name = \"Old API Follow Layer\"\n"
+           "plugin_api = 48\n"
+           "[[panel]]\n"
+           "id = \"panel\"\n"
+           "entry = \"panel.luau\"\n"
+           "layer = \"follow\"\n"
+       )
+      && ok;
+  error.clear();
+  ok = expect(
+           !scripting::parsePluginManifest(oldApiFollowLayerPath, &error).has_value(),
+           "layer = \"follow\" should require plugin_api 49"
+       )
+      && ok;
+  ok =
+      expectEq(error, R"(panel entry 'panel': layer "follow" requires plugin_api >= 49)", "follow layer API gate error")
+      && ok;
+
   const auto followLayerPath = root / "follow-layer/plugin.toml";
   ok = writeManifest(
            followLayerPath,
            "id = \"me/follow-layer\"\n"
            "name = \"Follow Layer\"\n"
-           "plugin_api = 30\n"
+           "plugin_api = 49\n"
            "[[panel]]\n"
            "id = \"panel\"\n"
            "entry = \"panel.luau\"\n"
