@@ -4790,10 +4790,6 @@
           "description": "List of tray icons to exclude from icon overrides",
           "label": "Icon Override Blacklist"
         },
-        "icon-type": {
-          "description": "Select the type of icons to use in the tray",
-          "label": "Icon Type"
-        },
         "icon-scale": {
           "description": "Scale of taskbar application icons relative to their default size",
           "label": "Icon Scale"
@@ -4805,6 +4801,10 @@
         "icon-spacing": {
           "description": "Spacing between privacy indicator icons in pixels",
           "label": "Icon Spacing"
+        },
+        "icon-type": {
+          "description": "Select the type of icons to use in the tray",
+          "label": "Icon Type"
         },
         "inactive-color": {
           "description": "Color used for inactive privacy indicators; fixed hex colors are also supported",
