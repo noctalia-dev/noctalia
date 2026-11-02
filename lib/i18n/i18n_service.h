@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <cstddef>
 #include <functional>
 #include <string>
@@ -24,43 +23,6 @@ namespace i18n {
   };
 
   using Catalog = std::unordered_map<std::string, std::string, StringHash, StringEq>;
-
-  struct LanguageOption {
-    std::string_view code;
-    std::string_view displayName;
-  };
-
-  inline constexpr std::array<LanguageOption, 29> kSupportedLanguages = {{
-      {"ar", "العربية"},
-      {"be", "Беларуская"},
-      {"be-Latn", "Biełaruskaja (Łacinka)"},
-      {"ca", "Català"},
-      {"cs", "Čeština"},
-      {"de", "Deutsch"},
-      {"en", "English"},
-      {"en-GB", "English (United Kingdom)"},
-      {"es", "Español"},
-      {"fr", "Français"},
-      {"gl-ES", "Galego"},
-      {"he", "עברית"},
-      {"hu", "Magyar"},
-      {"it", "Italiano"},
-      {"ja", "日本語"},
-      {"ko", "한국어"},
-      {"ku", "Kurdî"},
-      {"nl", "Nederlands"},
-      {"nn", "Norsk nynorsk"},
-      {"pl", "Polski"},
-      {"pt-BR", "Português (Brasil)"},
-      {"ro", "Română"},
-      {"ru", "Русский"},
-      {"sv", "Svenska"},
-      {"tr", "Türkçe"},
-      {"uk-UA", "Українська"},
-      {"vi", "Tiếng Việt"},
-      {"zh-Hans", "简体中文"},
-      {"zh-Hant", "繁體中文"},
-  }};
 
   // Loads translation catalogs and resolves dotted keys against them.
   // English is always loaded as a fallback alongside the active language.

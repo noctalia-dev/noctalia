@@ -16,6 +16,7 @@
 #include "shell/palette_swatch_preview.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/font_weight_catalog.h"
+#include "shell/settings/supported_languages.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "system/sysmon_threshold_profile.h"
 #include "theme/builtin_palettes.h"
@@ -281,9 +282,9 @@ namespace settings {
 
     SelectSetting languageSelect(std::string_view selected) {
       std::vector<SelectOption> opts;
-      opts.reserve(i18n::kSupportedLanguages.size() + 1);
+      opts.reserve(kSupportedLanguages.size() + 1);
       opts.push_back(SelectOption{"", i18n::tr("common.states.auto")});
-      for (const auto& language : i18n::kSupportedLanguages) {
+      for (const auto& language : kSupportedLanguages) {
         opts.push_back(SelectOption{std::string(language.code), std::string(language.displayName)});
       }
       return SelectSetting{std::move(opts), std::string(selected)};
