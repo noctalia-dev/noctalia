@@ -2,10 +2,10 @@
 
 #include "compositors/compositor_platform.h"
 #include "core/log.h"
+#include "core/time_format.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/internal_app_metadata.h"
-#include "time/time_format.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_toplevels.h"

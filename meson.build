@@ -922,7 +922,7 @@ _noctalia_sources = files(
   'src/system/intel_gpu.cpp',
   'src/system/system_monitor_service.cpp',
   'src/system/weather_service.cpp',
-  'src/time/time_format.cpp',
+  'src/core/time_format.cpp',
   'src/time/time_service.cpp',
   'src/ui/visuals/audio_visualizer.cpp',
   'src/ui/visuals/fancy_audio_visualizer.cpp',

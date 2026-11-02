@@ -1,6 +1,7 @@
 #include "shell/lockscreen/lockscreen_widgets_host.h"
 
 #include "config/config_service.h"
+#include "core/time_format.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "scripting/plugin_id.h"
@@ -8,7 +9,6 @@
 #include "shell/lockscreen/lock_screen.h"
 #include "shell/lockscreen/lock_surface.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 #include "wayland/wayland_connection.h"
 

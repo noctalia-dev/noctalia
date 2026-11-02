@@ -2,6 +2,7 @@
 
 #include "calendar/calendar_service.h"
 #include "config/config_service.h"
+#include "core/time_format.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "render/animation/animation.h"
@@ -13,7 +14,6 @@
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "system/desktop_entry_launch.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
