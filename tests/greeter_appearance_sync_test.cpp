@@ -73,6 +73,28 @@ int main(const int argc, char* argv[]) {
   process::RunResult truncatedErr = legacy;
   truncatedErr.errTruncated = true;
   TEST_CHECK(classifyApplyHelperProtocol(truncatedErr) == ApplyHelperProtocol::Unknown);
+  using greeter::detail::formatOutputModesString;
+  using greeter::detail::OutputModeEntry;
+
+  std::vector<OutputModeEntry> modes{
+      {"HDMI-A-1", 1920, 1080, 59999},
+      {"DP-1", 2560, 1440, 60000},
+  };
+  TEST_CHECK(formatOutputModesString(modes) == "DP-1:2560x1440@60.000; HDMI-A-1:1920x1080@59.999");
+
+  std::vector<OutputModeEntry> partialRefresh{
+      {"DP-1", 2560, 1440, 0},
+      {"HDMI-A-1", 1920, 1080, 120000},
+  };
+  TEST_CHECK(formatOutputModesString(partialRefresh) == "DP-1:2560x1440; HDMI-A-1:1920x1080@120.000");
+
+  std::vector<OutputModeEntry> single{
+      {"DP-1", 3840, 2160, 29999},
+  };
+  TEST_CHECK(formatOutputModesString(single) == "DP-1:3840x2160@29.999");
+
+  std::vector<OutputModeEntry> none;
+  TEST_CHECK(formatOutputModesString(none).empty());
 
   if (argc != 1) {
     TEST_CHECK(argc == 3);
