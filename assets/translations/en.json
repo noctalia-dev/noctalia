@@ -1635,6 +1635,7 @@
       },
       "lockscreen": {
         "transition": {
+          "crt": "CRT",
           "diamond": "Diamond",
           "disc": "Disc",
           "fade": "Fade",
@@ -1771,6 +1772,7 @@
           "random": "Random"
         },
         "transition": {
+          "crt": "CRT",
           "diamond": "Diamond",
           "disc": "Disc",
           "fade": "Fade",
