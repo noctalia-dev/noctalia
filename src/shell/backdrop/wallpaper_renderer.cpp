@@ -1,10 +1,11 @@
-#include "render/wallpaper_renderer.h"
+#include "shell/backdrop/wallpaper_renderer.h"
 
 #include "core/log.h"
 #include "render/backend/render_backend.h"
 #include "render/core/texture_manager.h"
 #include "render/gl_shared_context.h"
 #include "render/render_target.h"
+#include "shell/render/programs/wallpaper_program.h"
 
 #include <chrono>
 #include <format>
@@ -104,7 +105,8 @@ void WallpaperRenderer::render() {
   TextureId tex2 = (m_tex2 != 0) ? m_tex2 : m_tex1;
   float progress = (m_tex2 != 0) ? m_progress : 0.0F;
 
-  m_backend->drawWallpaper(
+  drawWallpaper(
+      *m_backend,
       WallpaperDrawParams{
           .transition = m_transition,
           .from =
@@ -165,7 +167,8 @@ void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
   TextureId tex2 = (m_tex2 != 0) ? m_tex2 : m_tex1;
   float progress = (m_tex2 != 0) ? m_progress : 0.0F;
 
-  m_backend->drawWallpaper(
+  drawWallpaper(
+      *m_backend,
       WallpaperDrawParams{
           .transition = m_transition,
           .from =

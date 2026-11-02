@@ -16,7 +16,6 @@ class RenderBackend;
 class RenderTarget;
 enum class RenderGraphicsResetStatus;
 struct Mat3;
-struct WallpaperMaskDrawParams;
 
 class RenderContext {
 public:
@@ -32,7 +31,8 @@ public:
   void restoreAfterGraphicsReset(GlSharedContext& shared);
   void finishGraphicsResetRecovery() noexcept { m_graphicsResetPending = false; }
 
-  void renderScene(RenderTarget& target, Node* sceneRoot, const WallpaperMaskDrawParams* wallpaperMask = nullptr);
+  // overlay renders after sceneRoot in surface coordinates, for content that must cover the whole scene.
+  void renderScene(RenderTarget& target, Node* sceneRoot, Node* overlay = nullptr);
   // Returns false if the surface could not be made current (e.g. teardown);
   // best-effort callers may ignore it, render paths must skip the frame.
   bool makeCurrent(RenderTarget& target);

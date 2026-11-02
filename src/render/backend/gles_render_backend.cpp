@@ -587,16 +587,6 @@ void GlesRenderBackend::drawSpinner(
   m_spinnerProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
 }
 
-void GlesRenderBackend::drawWallpaper(const WallpaperDrawParams& params) {
-  m_wallpaperProgram.ensureInitialized();
-  m_wallpaperProgram.draw(params);
-}
-
-void GlesRenderBackend::drawWallpaperMask(const WallpaperMaskDrawParams& params) {
-  m_wallpaperMaskProgram.ensureInitialized();
-  m_wallpaperMaskProgram.draw(params);
-}
-
 void GlesRenderBackend::drawFullscreenTexture(TextureId texture, bool flipY) {
   if (texture == 0) {
     return;
@@ -650,8 +640,6 @@ void GlesRenderBackend::destroyGpuObjects() {
   m_imageProgram.destroy();
   m_glyphProgram.destroy();
   m_spinnerProgram.destroy();
-  m_wallpaperProgram.destroy();
-  m_wallpaperMaskProgram.destroy();
   m_blurProgram.destroy();
   m_fullscreenTextureProgram.destroy();
   m_fullscreenTintProgram.destroy();
@@ -664,8 +652,6 @@ void GlesRenderBackend::abandonGpuObjects() noexcept {
   m_imageProgram.abandon();
   m_glyphProgram.abandon();
   m_spinnerProgram.abandon();
-  m_wallpaperProgram.abandon();
-  m_wallpaperMaskProgram.abandon();
   m_blurProgram.abandon();
   m_fullscreenTextureProgram.abandon();
   m_fullscreenTintProgram.abandon();

@@ -3,31 +3,14 @@
 #include "config/config_types.h"
 #include "render/core/color.h"
 #include "render/core/texture_handle.h"
-#include "render/core/wallpaper_types.h"
-#include "render/scene/node.h"
+#include "render/scene/custom_draw_node.h"
+#include "shell/render/wallpaper_types.h"
 
 #include <cstdint>
 
-class WallpaperNode : public Node {
+class WallpaperNode : public CustomDrawNode {
 public:
-  WallpaperNode() : Node(NodeType::Wallpaper) {}
-
-  TextureId texture1() const noexcept { return m_texture1; }
-  TextureId texture2() const noexcept { return m_texture2; }
-  WallpaperSourceKind sourceKind1() const noexcept { return m_sourceKind1; }
-  WallpaperSourceKind sourceKind2() const noexcept { return m_sourceKind2; }
-  const Color& sourceColor1() const noexcept { return m_sourceColor1; }
-  const Color& sourceColor2() const noexcept { return m_sourceColor2; }
-  float imageWidth1() const noexcept { return m_imageWidth1; }
-  float imageHeight1() const noexcept { return m_imageHeight1; }
-  float imageWidth2() const noexcept { return m_imageWidth2; }
-  float imageHeight2() const noexcept { return m_imageHeight2; }
-  float progress() const noexcept { return m_progress; }
-  WallpaperTransition transition() const noexcept { return m_transition; }
   WallpaperFillMode fillMode() const noexcept { return m_fillMode; }
-  const Color& fillColor() const noexcept { return m_fillColor; }
-  const TransitionParams& transitionParams() const noexcept { return m_params; }
-  const WallpaperSpanParams& spanParams() const noexcept { return m_span; }
 
   void setTextures(
       TextureId texture1, TextureId texture2, float imageWidth1, float imageHeight1, float imageWidth2,
@@ -112,6 +95,8 @@ public:
     m_span = span;
     markPaintDirty();
   }
+
+  void draw(RenderBackend& backend, const CustomDrawContext& context) const override;
 
 private:
   WallpaperSourceKind m_sourceKind1 = WallpaperSourceKind::Image;

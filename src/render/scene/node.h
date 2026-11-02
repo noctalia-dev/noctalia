@@ -17,7 +17,6 @@ enum class NodeType : std::uint8_t {
   Image,
   Glyph,
   Spinner,
-  Wallpaper,
   RenderProxy,
   CustomDraw,
 };

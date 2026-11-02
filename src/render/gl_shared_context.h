@@ -14,7 +14,7 @@ RenderGraphicsResetStatus currentGlContextResetStatus();
 
 // Owns the EGLDisplay, the chosen EGLConfig, and a root surfaceless EGLContext
 // that is the share parent for every other EGLContext in the shell
-// (RenderContext, WallpaperRenderer instances, ...). By routing all contexts
+// (RenderContext, standalone backends, ...). By routing all contexts
 // through this share group, GL textures uploaded in any of them are usable
 // from every other context in the group — which lets LockSurface reuse
 // wallpaper textures resident in VRAM without re-decoding.
@@ -43,7 +43,7 @@ public:
   // Returns false if eglMakeCurrent failed (e.g. context lost on resume); callers skip GPU work.
   bool makeCurrentSurfaceless() const;
 
-  // Single sink for resets seen on any context of this display (root, RenderContext, WallpaperRenderer).
+  // Single sink for resets seen on any context of this display (root, RenderContext, standalone backends).
   // Drivers report resets per hardware context, so every owner polls its own context and reports here.
   void setGraphicsResetCallback(std::function<void(RenderGraphicsResetStatus)> callback) {
     m_graphicsResetCallback = std::move(callback);

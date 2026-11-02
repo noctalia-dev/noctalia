@@ -1,7 +1,6 @@
 #pragma once
 
 #include "render/core/render_styles.h"
-#include "render/core/wallpaper_types.h"
 #include "render/render_target.h"
 
 #include <chrono>
@@ -132,7 +131,8 @@ public:
   void setAnimationManager(AnimationManager* manager) noexcept { m_animationManager = manager; }
   void setSceneRoot(Node* root);
   void setRenderContext(RenderContext* ctx);
-  void setWallpaperMask(std::optional<WallpaperMaskDrawParams> mask);
+  // Not owned; rendered after the scene root in surface coordinates (see RenderContext::renderScene).
+  void setOverlayNode(Node* node);
   RenderContext* renderContext() const noexcept { return m_renderContext; }
   RenderTarget& renderTarget() noexcept { return m_renderTarget; }
   wl_surface* wlSurface() const noexcept { return m_surface; }
@@ -196,7 +196,7 @@ private:
   RenderTarget m_renderTarget;
   AnimationManager* m_animationManager = nullptr;
   Node* m_sceneRoot = nullptr;
-  std::optional<WallpaperMaskDrawParams> m_wallpaperMask;
+  Node* m_overlayNode = nullptr;
   std::string m_debugName;
   std::shared_ptr<InvalidationToken> m_invalidationToken = std::make_shared<InvalidationToken>();
   ConfigureCallback m_configureCallback;

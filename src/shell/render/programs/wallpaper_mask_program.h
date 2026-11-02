@@ -1,21 +1,16 @@
 #pragma once
 
+#include "render/backend/render_extension.h"
 #include "render/core/shader_program.h"
-#include "render/core/wallpaper_types.h"
+#include "shell/render/wallpaper_types.h"
 
 #include <GLES2/gl2.h>
 
-class WallpaperMaskProgram {
+class WallpaperMaskProgram final : public RenderExtension {
 public:
-  WallpaperMaskProgram() = default;
-  ~WallpaperMaskProgram() = default;
-
-  WallpaperMaskProgram(const WallpaperMaskProgram&) = delete;
-  WallpaperMaskProgram& operator=(const WallpaperMaskProgram&) = delete;
-
   void ensureInitialized();
-  void destroy();
-  void abandon() noexcept;
+  void destroy() override;
+  void abandon() noexcept override;
   void draw(const WallpaperMaskDrawParams& params) const;
 
 private:

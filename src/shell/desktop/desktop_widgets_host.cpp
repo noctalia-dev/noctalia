@@ -457,7 +457,7 @@ void DesktopWidgetsHost::updateWallpaperMask(DesktopWidgetInstance& instance) {
       || !maskIt->second.validated
       || output == nullptr
       || m_config->getWallpaperPath(instance.effectiveOutputName) != maskIt->second.descriptor.wallpaperPath) {
-    instance.surface->setWallpaperMask(std::nullopt);
+    applyWallpaperMask(instance, std::nullopt);
     return;
   }
 
@@ -465,14 +465,15 @@ void DesktopWidgetsHost::updateWallpaperMask(DesktopWidgetInstance& instance) {
   maskIt->second.mask.setCoverage(wallpaperTextureCoverage(m_wayland->outputs(), output->name, fillMode));
   const TextureHandle texture = maskIt->second.mask.texture();
   if (!texture.valid() || texture.width <= 0 || texture.height <= 0) {
-    instance.surface->setWallpaperMask(std::nullopt);
+    applyWallpaperMask(instance, std::nullopt);
     return;
   }
 
   const WallpaperSpanParams span = fillMode == WallpaperFillMode::Span
       ? computeWallpaperSpanParams(m_wayland->outputs(), output->name)
       : WallpaperSpanParams{};
-  instance.surface->setWallpaperMask(
+  applyWallpaperMask(
+      instance,
       WallpaperMaskDrawParams{
           .texture = texture.id,
           .surfaceWidth = static_cast<float>(instance.surface->width()),
@@ -487,6 +488,16 @@ void DesktopWidgetsHost::updateWallpaperMask(DesktopWidgetInstance& instance) {
           .span = span,
       }
   );
+}
+
+void DesktopWidgetsHost::applyWallpaperMask(
+    DesktopWidgetInstance& instance, const std::optional<WallpaperMaskDrawParams>& params
+) {
+  const bool changed = instance.wallpaperMask.setParams(params);
+  instance.surface->setOverlayNode(params.has_value() ? &instance.wallpaperMask : nullptr);
+  if (changed) {
+    instance.surface->requestRedraw();
+  }
 }
 
 void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool needsUpdate, bool needsLayout) {

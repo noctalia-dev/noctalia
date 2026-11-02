@@ -530,11 +530,11 @@ void Surface::setRenderContext(RenderContext* ctx) {
   }
 }
 
-void Surface::setWallpaperMask(std::optional<WallpaperMaskDrawParams> mask) {
-  if (m_wallpaperMask == mask) {
+void Surface::setOverlayNode(Node* node) {
+  if (m_overlayNode == node) {
     return;
   }
-  m_wallpaperMask = mask;
+  m_overlayNode = node;
   requestRedraw();
 }
 
@@ -1255,9 +1255,8 @@ void Surface::render() {
 
   requestFrame();
   traceSurfaceEvent(*this, "render-begin");
-  const float renderMs = elapsedMs([this] {
-    m_renderContext->renderScene(m_renderTarget, m_sceneRoot, m_wallpaperMask ? &*m_wallpaperMask : nullptr);
-  });
+  const float renderMs =
+      elapsedMs([this] { m_renderContext->renderScene(m_renderTarget, m_sceneRoot, m_overlayNode); });
   traceSurfaceEvent(*this, "render-end");
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::Render, renderMs);
   logSlowSurfaceOperation(

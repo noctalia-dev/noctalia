@@ -6,7 +6,6 @@
 #include "render/backend/render_backend.h"
 #include "render/core/texture_handle.h"
 #include "render/core/texture_manager.h"
-#include "render/core/wallpaper_types.h"
 #include "render/gl_shared_context.h"
 #include "render/render_target.h"
 #include "render/scene/custom_draw_node.h"
@@ -16,13 +15,13 @@
 #include "render/scene/rect_node.h"
 #include "render/scene/spinner_node.h"
 #include "render/scene/text_node.h"
-#include "render/scene/wallpaper_node.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <format>
+#include <initializer_list>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -168,7 +167,7 @@ void RenderContext::notifyFontConfigChanged() {
   ++m_textMetricsGeneration;
 }
 
-void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const WallpaperMaskDrawParams* wallpaperMask) {
+void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, Node* overlay) {
   if (m_backend == nullptr || m_graphicsResetPending) {
     return;
   }
@@ -178,10 +177,10 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const Wal
   }
   const float renderScale = target.contentScale();
 
-  if (sceneRoot != nullptr
-      && m_gpuResourceGeneration != 0
-      && sceneRoot->gpuResourceGeneration() != m_gpuResourceGeneration) {
-    sceneRoot->invalidateGpuResources(target.renderer(), m_gpuResourceGeneration);
+  for (Node* root : {sceneRoot, overlay}) {
+    if (root != nullptr && m_gpuResourceGeneration != 0 && root->gpuResourceGeneration() != m_gpuResourceGeneration) {
+      root->invalidateGpuResources(target.renderer(), m_gpuResourceGeneration);
+    }
   }
 
   if (m_glyphTexturesDirty) {
@@ -193,19 +192,14 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const Wal
   const auto drawStart = std::chrono::steady_clock::now();
   {
     UiPhaseScope renderPhase(UiPhase::Render);
-    if (sceneRoot != nullptr) {
-      const auto sw = static_cast<float>(target.logicalWidth());
-      const auto sh = static_cast<float>(target.logicalHeight());
-      const auto bw = static_cast<float>(target.bufferWidth());
-      const auto bh = static_cast<float>(target.bufferHeight());
-      renderNode(
-          renderScale, sceneRoot, Mat3::identity(), 1.0F, sw, sh, bw, bh, 0.0F, 0.0F, sw, sh, false, false, false
-      );
-    }
-    if (wallpaperMask != nullptr && wallpaperMask->texture != 0) {
-      m_backend->disableScissor();
-      m_backend->setBlendMode(RenderBlendMode::DestinationOut);
-      m_backend->drawWallpaperMask(*wallpaperMask);
+    const auto sw = static_cast<float>(target.logicalWidth());
+    const auto sh = static_cast<float>(target.logicalHeight());
+    const auto bw = static_cast<float>(target.bufferWidth());
+    const auto bh = static_cast<float>(target.bufferHeight());
+    for (const Node* root : {sceneRoot, overlay}) {
+      if (root != nullptr) {
+        renderNode(renderScale, root, Mat3::identity(), 1.0F, sw, sh, bw, bh, 0.0F, 0.0F, sw, sh, false, false, false);
+      }
     }
   }
   float ms = elapsedSince(drawStart);
@@ -435,47 +429,6 @@ void RenderContext::renderNode(
     auto style = spinner->style();
     style.color.a *= effectiveOpacity;
     m_backend->drawSpinner(sw, sh, node->width(), node->height(), style, worldTransform);
-    break;
-  }
-  case NodeType::Wallpaper: {
-    const auto* wallpaper = static_cast<const WallpaperNode*>(node);
-    const bool hasSource1 = wallpaper->sourceKind1() == WallpaperSourceKind::Color || wallpaper->texture1() != 0;
-    if (hasSource1) {
-      const bool hasSource2 = wallpaper->sourceKind2() == WallpaperSourceKind::Color || wallpaper->texture2() != 0;
-      const WallpaperSourceKind sourceKind2 = hasSource2 ? wallpaper->sourceKind2() : wallpaper->sourceKind1();
-      const TextureId texture2 = hasSource2 ? wallpaper->texture2() : wallpaper->texture1();
-      const Color& sourceColor2 = hasSource2 ? wallpaper->sourceColor2() : wallpaper->sourceColor1();
-      const float imageWidth2 = hasSource2 ? wallpaper->imageWidth2() : wallpaper->imageWidth1();
-      const float imageHeight2 = hasSource2 ? wallpaper->imageHeight2() : wallpaper->imageHeight1();
-      const float progress = hasSource2 ? wallpaper->progress() : 0.0F;
-      m_backend->drawWallpaper(
-          WallpaperDrawParams{
-              .transition = wallpaper->transition(),
-              .from =
-                  {.kind = wallpaper->sourceKind1(),
-                   .texture = wallpaper->texture1(),
-                   .color = wallpaper->sourceColor1(),
-                   .imageWidth = wallpaper->imageWidth1(),
-                   .imageHeight = wallpaper->imageHeight1()},
-              .to =
-                  {.kind = sourceKind2,
-                   .texture = texture2,
-                   .color = sourceColor2,
-                   .imageWidth = imageWidth2,
-                   .imageHeight = imageHeight2},
-              .surfaceWidth = sw,
-              .surfaceHeight = sh,
-              .quadWidth = node->width(),
-              .quadHeight = node->height(),
-              .progress = progress,
-              .fillMode = static_cast<float>(wallpaper->fillMode()),
-              .params = wallpaper->transitionParams(),
-              .fillColor = wallpaper->fillColor(),
-              .transform = worldTransform,
-              .span = wallpaper->spanParams(),
-          }
-      );
-    }
     break;
   }
   case NodeType::RenderProxy: {

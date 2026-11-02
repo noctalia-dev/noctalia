@@ -1,6 +1,7 @@
-#include "render/programs/wallpaper_program.h"
+#include "shell/render/programs/wallpaper_program.h"
 
-#include "render/programs/wallpaper_sampling_glsl.h"
+#include "render/backend/render_backend.h"
+#include "shell/render/programs/wallpaper_sampling_glsl.h"
 
 #include <stdexcept>
 #include <string>
@@ -631,4 +632,10 @@ void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   glDisableVertexAttribArray(posAttr);
 
   glActiveTexture(GL_TEXTURE0);
+}
+
+void drawWallpaper(RenderBackend& backend, const WallpaperDrawParams& params) {
+  auto& program = backend.extension<WallpaperProgram>();
+  program.ensureInitialized();
+  program.draw(params);
 }

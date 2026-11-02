@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-// Config-owned enum; forward-declared here so render/core stays independent of config_types.
+// Config-owned enum, forward-declared so this header does not pull in config_types.
 enum class WallpaperTransition : std::uint8_t;
 
 enum class WallpaperSourceKind : std::uint8_t {
@@ -72,8 +72,8 @@ struct WallpaperLayer {
 };
 
 // All inputs for a single wallpaper draw: the two cross-faded layers plus
-// geometry, transition state, and fill parameters. fillMode stays a float so
-// render/core does not depend on the config-owned WallpaperFillMode enum.
+// geometry, transition state, and fill parameters. fillMode carries the
+// WallpaperFillMode value as the float the shader takes.
 struct WallpaperDrawParams {
   WallpaperTransition transition{};
   WallpaperLayer from;

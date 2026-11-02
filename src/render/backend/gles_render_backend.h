@@ -8,8 +8,6 @@
 #include "render/programs/image_program.h"
 #include "render/programs/rect_program.h"
 #include "render/programs/spinner_program.h"
-#include "render/programs/wallpaper_mask_program.h"
-#include "render/programs/wallpaper_program.h"
 
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
@@ -55,8 +53,6 @@ public:
       float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
       const Mat3& transform
   ) override;
-  void drawWallpaper(const WallpaperDrawParams& params) override;
-  void drawWallpaperMask(const WallpaperMaskDrawParams& params) override;
   void drawFullscreenTexture(TextureId texture, bool flipY) override;
   void drawFullscreenTint(Color color) override;
   void drawFramebufferBlur(
@@ -89,8 +85,6 @@ private:
   ImageProgram m_imageProgram;
   GlyphProgram m_glyphProgram;
   SpinnerProgram m_spinnerProgram;
-  WallpaperProgram m_wallpaperProgram;
-  WallpaperMaskProgram m_wallpaperMaskProgram;
   BlurProgram m_blurProgram;
   ShaderProgram m_fullscreenTextureProgram;
   ShaderProgram m_fullscreenTintProgram;

@@ -1,6 +1,6 @@
-#include "render/programs/wallpaper_mask_program.h"
+#include "shell/render/programs/wallpaper_mask_program.h"
 
-#include "render/programs/wallpaper_sampling_glsl.h"
+#include "shell/render/programs/wallpaper_sampling_glsl.h"
 
 #include <array>
 #include <stdexcept>

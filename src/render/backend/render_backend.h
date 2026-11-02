@@ -8,7 +8,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <span>
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
@@ -19,8 +18,6 @@ class GlSharedContext;
 class RenderTarget;
 class TextureManager;
 struct wl_surface;
-struct WallpaperDrawParams;
-struct WallpaperMaskDrawParams;
 
 class RenderFramebuffer {
 public:
@@ -151,8 +148,6 @@ public:
       float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
       const Mat3& transform
   ) = 0;
-  virtual void drawWallpaper(const WallpaperDrawParams& params) = 0;
-  virtual void drawWallpaperMask(const WallpaperMaskDrawParams& params) = 0;
   virtual void drawFullscreenTexture(TextureId texture, bool flipY) = 0;
   virtual void drawFullscreenTint(Color color) = 0;
   virtual void drawFramebufferBlur(

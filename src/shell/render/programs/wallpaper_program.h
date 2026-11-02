@@ -1,27 +1,24 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "render/backend/render_extension.h"
 #include "render/core/color.h"
 #include "render/core/mat3.h"
 #include "render/core/shader_program.h"
 #include "render/core/texture_handle.h"
-#include "render/core/wallpaper_types.h"
+#include "shell/render/wallpaper_types.h"
 
 #include <GLES2/gl2.h>
 #include <array>
 #include <cstdint>
 
-class WallpaperProgram {
+class RenderBackend;
+
+class WallpaperProgram final : public RenderExtension {
 public:
-  WallpaperProgram() = default;
-  ~WallpaperProgram() = default;
-
-  WallpaperProgram(const WallpaperProgram&) = delete;
-  WallpaperProgram& operator=(const WallpaperProgram&) = delete;
-
   void ensureInitialized();
-  void destroy();
-  void abandon() noexcept;
+  void destroy() override;
+  void abandon() noexcept override;
 
   void draw(const WallpaperDrawParams& params) const;
 
@@ -70,3 +67,6 @@ private:
 
   std::array<ProgramData, kTransitionCount> m_programs;
 };
+
+// Draws through the backend's WallpaperProgram instance.
+void drawWallpaper(RenderBackend& backend, const WallpaperDrawParams& params);
