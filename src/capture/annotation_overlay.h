@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
+class Button;
 class Flex;
 class Renderer;
 class RenderContext;
@@ -132,8 +133,11 @@ namespace capture {
     bool backdropPanelInputFocused(const Instance& instance) const;
     [[nodiscard]] std::unique_ptr<Flex> buildStrokePanel(Instance& instance);
     void refreshStrokePanel(Instance& instance, Renderer* renderer);
-    void positionStrokePanel(Instance& instance);
     void toggleStrokePanel();
+    [[nodiscard]] std::unique_ptr<Flex> buildZoomPanel(Instance& instance);
+    void refreshZoomPanel(Instance& instance, Renderer* renderer);
+    void toggleZoomPanel();
+    void positionPopover(Instance& instance, Flex* panel, const Button* anchor);
     void refreshToolbar(Instance& instance, Renderer* renderer);
     void positionToolbar(Instance& instance);
     void syncToolbarPositionsForConnectedOutputs();
@@ -245,6 +249,7 @@ namespace capture {
     float m_toolbarGrabX = 0.0F;
     float m_toolbarGrabY = 0.0F;
     bool m_strokePanelOpen = false;
+    bool m_zoomPanelOpen = false;
     bool m_syncingSizePreset = false;
 
     BackdropConfig m_backdrop;

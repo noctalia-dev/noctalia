@@ -70,6 +70,7 @@ namespace capture {
     constexpr float kCaretWidth = 2.0F;
     constexpr float kSizeLabelWidth = 26.0F;
     constexpr float kToolbarEdgeMargin = 4.0F;
+    constexpr float kZoomLabelWidth = 40.0F;
     // Zoom multiplier applied per Ctrl+wheel notch.
     constexpr double kWheelZoomStep = 1.25;
     // Zoom multiplier per toolbar zoom-in / zoom-out click.
@@ -501,6 +502,7 @@ namespace capture {
     Separator* strokeSeparator = nullptr;
     Separator* exportSeparator = nullptr;
     Button* backdropButton = nullptr;
+    Button* zoomButton = nullptr;
 
     // Stroke popover: the color swatches and the size controls of the current tool.
     Flex* strokePanel = nullptr;
@@ -510,6 +512,10 @@ namespace capture {
     Button* sizeDownButton = nullptr;
     Button* sizeUpButton = nullptr;
     Label* sizeLabel = nullptr;
+
+    // Zoom popover: the stepper and fit button for the display-only view transform.
+    Flex* zoomPanel = nullptr;
+    Label* zoomLabel = nullptr;
 
     // Backdrop panel and the Image-mode preview frame drawn behind the canvas.
     Flex* backdropPanel = nullptr;
@@ -712,6 +718,7 @@ namespace capture {
     m_textInstance = nullptr;
     m_textIndex.reset();
     m_strokePanelOpen = false;
+    m_zoomPanelOpen = false;
     destroySurfaces();
     m_documents.clear();
     m_frozen.clear();
@@ -1131,12 +1138,14 @@ namespace capture {
     inst.cursorTooltip = nullptr;
     inst.undoButton = inst.redoButton = inst.copyButton = inst.saveButton = inst.doneButton = inst.dragHandle = nullptr;
     inst.strokeSeparator = inst.exportSeparator = nullptr;
-    inst.backdropButton = nullptr;
+    inst.backdropButton = inst.zoomButton = nullptr;
     inst.strokePanel = inst.strokeSwatchRow = nullptr;
     inst.swatchButtons.fill(nullptr);
     inst.sizePresets = nullptr;
     inst.sizeDownButton = inst.sizeUpButton = nullptr;
     inst.sizeLabel = nullptr;
+    inst.zoomPanel = nullptr;
+    inst.zoomLabel = nullptr;
     inst.markedSwatch = -2;
     inst.strokeFaceColor.reset();
     inst.strokeFacePreset.reset();
@@ -1170,6 +1179,8 @@ namespace capture {
     backdropPanel->layout(renderer);
     auto strokePanel = buildStrokePanel(inst);
     strokePanel->layout(renderer);
+    auto zoomPanel = buildZoomPanel(inst);
+    zoomPanel->layout(renderer);
     positionToolbar(inst);
     layoutCanvas(inst);
 
@@ -1323,6 +1334,7 @@ namespace capture {
     inst.sceneRoot->addChild(std::move(toolbar));
     inst.sceneRoot->addChild(std::move(backdropPanel));
     inst.sceneRoot->addChild(std::move(strokePanel));
+    inst.sceneRoot->addChild(std::move(zoomPanel));
 
     inst.surface->setSceneRoot(inst.sceneRoot.get());
     inst.inputDispatcher.setSceneRoot(inst.sceneRoot.get());
@@ -1504,16 +1516,6 @@ namespace capture {
     inst.redoButton = addGhostButton("arrow-forward-up", "bar.annotate.redo", [this] { redo(); });
     addSeparator();
 
-    // View controls: the button faces for Ctrl+wheel zoom and Ctrl+drag pan.
-    addGhostButton("zoom-out", "bar.annotate.zoom-out", [this, instPtr] {
-      zoomViewByButton(*instPtr, 1.0 / kToolbarZoomStep);
-    });
-    addGhostButton("zoom-reset", "bar.annotate.zoom-reset", [this, instPtr] { resetView(*instPtr); });
-    addGhostButton("zoom-in", "bar.annotate.zoom-in", [this, instPtr] {
-      zoomViewByButton(*instPtr, kToolbarZoomStep);
-    });
-    addSeparator();
-
     for (const auto& spec : kToolButtons) {
       inst.toolButtons[toolIndex(spec.tool)] = static_cast<Button*>(toolbar->addChild(
           ui::button({
@@ -1549,6 +1551,7 @@ namespace capture {
     inst.fillButton->setOnRightClick([this] { cycleFill(false); });
 
     addSeparator();
+    inst.zoomButton = addGhostButton("zoom", "bar.annotate.zoom", [this] { toggleZoomPanel(); });
     inst.cursorButton = addGhostButton("pointer", "bar.annotate.cursor", [this, instPtr] { toggleCursor(instPtr); });
     if (const ScreenshotImage* image = screenshot(inst);
         image != nullptr && !image->canToggleCursor() && image->cursorVisible) {
@@ -1673,6 +1676,9 @@ namespace capture {
     if (inst.backdropButton != nullptr) {
       inst.backdropButton->setSelected(m_backdropPanelOpen);
     }
+    if (inst.zoomButton != nullptr) {
+      inst.zoomButton->setSelected(m_zoomPanelOpen);
+    }
 
     show(inst.exportSeparator, frozenOrImage);
     show(inst.copyButton, frozenOrImage);
@@ -1692,6 +1698,7 @@ namespace capture {
     }
     refreshBackdropPanel(inst, renderer);
     refreshStrokePanel(inst, renderer);
+    refreshZoomPanel(inst, renderer);
     positionToolbar(inst);
   }
 
@@ -1763,7 +1770,8 @@ namespace capture {
       }
     }
     positionBackdropPanel(inst);
-    positionStrokePanel(inst);
+    positionPopover(inst, inst.strokePanel, inst.strokeButton);
+    positionPopover(inst, inst.zoomPanel, inst.zoomButton);
   }
 
   void AnnotationOverlay::syncToolbarPositionsForConnectedOutputs() {
@@ -2151,9 +2159,10 @@ namespace capture {
       return;
     }
 
-    // Drawing dismisses the stroke popover; the press still starts the mark.
-    if (m_strokePanelOpen) {
+    // Drawing dismisses the stroke and zoom popovers; the press still starts the mark.
+    if (m_strokePanelOpen || m_zoomPanelOpen) {
       m_strokePanelOpen = false;
+      m_zoomPanelOpen = false;
       requestRedrawAll();
     }
 
@@ -2624,8 +2633,9 @@ namespace capture {
     const bool shift = (event.modifiers & KeyMod::Shift) != 0;
 
     if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-      if (m_strokePanelOpen) {
+      if (m_strokePanelOpen || m_zoomPanelOpen) {
         m_strokePanelOpen = false;
+        m_zoomPanelOpen = false;
         requestRedrawAll();
         return true;
       }
@@ -2659,6 +2669,20 @@ namespace capture {
       return true;
     }
 
+    if (ctrl) {
+      if (event.sym == XKB_KEY_0 || event.sym == XKB_KEY_KP_0) {
+        resetView(*keyboardInst);
+        return true;
+      }
+      if (event.sym == XKB_KEY_minus || event.sym == XKB_KEY_KP_Subtract) {
+        zoomViewByButton(*keyboardInst, 1.0 / kToolbarZoomStep);
+        return true;
+      }
+      if (event.sym == XKB_KEY_plus || event.sym == XKB_KEY_equal || event.sym == XKB_KEY_KP_Add) {
+        zoomViewByButton(*keyboardInst, kToolbarZoomStep);
+        return true;
+      }
+    }
     if (ctrl && (event.sym == XKB_KEY_z || event.sym == XKB_KEY_Z)) {
       if (shift) {
         redo();
@@ -3197,6 +3221,7 @@ namespace capture {
     m_backdropPanelOpen = !m_backdropPanelOpen;
     if (m_backdropPanelOpen) {
       m_strokePanelOpen = false;
+      m_zoomPanelOpen = false;
     }
     requestRedrawAll();
   }
@@ -3364,32 +3389,107 @@ namespace capture {
     }
   }
 
-  // Drops from the stroke button, centered on it, toward whichever side of the toolbar has more room.
-  void AnnotationOverlay::positionStrokePanel(Instance& inst) {
-    if (inst.strokePanel == nullptr
-        || inst.strokeButton == nullptr
-        || inst.toolbar == nullptr
-        || inst.surface == nullptr) {
+  // Drops from its toolbar button, centered on it, toward whichever side of the toolbar has more room.
+  void AnnotationOverlay::positionPopover(Instance& inst, Flex* panel, const Button* anchor) {
+    if (panel == nullptr || anchor == nullptr || inst.toolbar == nullptr || inst.surface == nullptr) {
       return;
     }
     const auto surfaceW = static_cast<float>(inst.surface->width());
     const auto surfaceH = static_cast<float>(inst.surface->height());
-    const float width = inst.strokePanel->width();
-    const float height = inst.strokePanel->height();
+    const float width = panel->width();
+    const float height = panel->height();
     const float toolbarBottom = inst.toolbar->y() + inst.toolbar->height();
     const bool below = inst.toolbar->y() + (inst.toolbar->height() * 0.5F) <= surfaceH * 0.5F;
 
-    float x = inst.toolbar->x() + inst.strokeButton->x() + ((inst.strokeButton->width() - width) * 0.5F);
+    float x = inst.toolbar->x() + anchor->x() + ((anchor->width() - width) * 0.5F);
     float y = below ? toolbarBottom + Style::spaceSm : inst.toolbar->y() - Style::spaceSm - height;
     x = std::clamp(x, kToolbarEdgeMargin, std::max(kToolbarEdgeMargin, surfaceW - width - kToolbarEdgeMargin));
     y = std::clamp(y, kToolbarEdgeMargin, std::max(kToolbarEdgeMargin, surfaceH - height - kToolbarEdgeMargin));
-    inst.strokePanel->setPosition(x, y);
+    panel->setPosition(x, y);
   }
 
-  // Only one panel is open at a time, so opening this one closes the backdrop panel.
+  // Only one panel is open at a time, so opening this one closes the others.
   void AnnotationOverlay::toggleStrokePanel() {
     m_strokePanelOpen = !m_strokePanelOpen;
     if (m_strokePanelOpen) {
+      m_backdropPanelOpen = false;
+      m_zoomPanelOpen = false;
+    }
+    requestRedrawAll();
+  }
+
+  std::unique_ptr<Flex> AnnotationOverlay::buildZoomPanel(Instance& inst) {
+    Color panelFill = colorForRole(ColorRole::Surface);
+    panelFill.a = kToolbarFillAlpha;
+
+    auto panel = ui::row({
+        .align = FlexAlign::Center,
+        .gap = Style::spaceXs,
+        .paddingV = Style::spaceSm,
+        .paddingH = Style::spaceSm,
+        .fill = fixedColorSpec(panelFill),
+        .radius = Style::radiusXl,
+        .border = colorSpecFromRole(ColorRole::OutlineVariant),
+        .borderWidth = Style::borderWidth,
+        .visible = false,
+        .participatesInLayout = false,
+    });
+
+    auto* instPtr = &inst;
+    const auto addGhostButton = [&](const char* glyph, const char* tooltipKey, std::function<void()> onClick) {
+      panel->addChild(
+          ui::button({
+              .glyph = std::string(glyph),
+              .variant = ButtonVariant::Ghost,
+              .tooltip = i18n::tr(tooltipKey),
+              .onClick = std::move(onClick),
+          })
+      );
+    };
+    addGhostButton("zoom-out", "bar.annotate.zoom-out", [this, instPtr] {
+      zoomViewByButton(*instPtr, 1.0 / kToolbarZoomStep);
+    });
+    inst.zoomLabel = static_cast<Label*>(panel->addChild(
+        ui::label({
+            .fontSize = Style::fontSizeCaption,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .minWidth = kZoomLabelWidth,
+            .textAlign = TextAlign::Center,
+        })
+    ));
+    addGhostButton("zoom-in", "bar.annotate.zoom-in", [this, instPtr] {
+      zoomViewByButton(*instPtr, kToolbarZoomStep);
+    });
+    addGhostButton("zoom-reset", "bar.annotate.zoom-reset", [this, instPtr] { resetView(*instPtr); });
+
+    inst.zoomPanel = panel.get();
+    refreshZoomPanel(inst, nullptr);
+    return panel;
+  }
+
+  void AnnotationOverlay::refreshZoomPanel(Instance& inst, Renderer* renderer) {
+    if (inst.zoomPanel == nullptr) {
+      return;
+    }
+    bool needsLayout = false;
+    if (inst.zoomPanel->visible() != m_zoomPanelOpen) {
+      inst.zoomPanel->setVisible(m_zoomPanelOpen);
+      inst.zoomPanel->setParticipatesInLayout(m_zoomPanelOpen);
+      needsLayout = true;
+    }
+    if (inst.zoomLabel != nullptr) {
+      // Percent of the fitted view, the size the editor opens at.
+      inst.zoomLabel->setText(std::format("{}%", std::lround(inst.view.zoom * 100.0)));
+    }
+    if ((needsLayout || inst.zoomPanel->layoutDirty()) && renderer != nullptr) {
+      inst.zoomPanel->layout(*renderer);
+    }
+  }
+
+  void AnnotationOverlay::toggleZoomPanel() {
+    m_zoomPanelOpen = !m_zoomPanelOpen;
+    if (m_zoomPanelOpen) {
+      m_strokePanelOpen = false;
       m_backdropPanelOpen = false;
     }
     requestRedrawAll();
