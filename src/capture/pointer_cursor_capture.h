@@ -17,6 +17,7 @@ namespace capture {
   };
 } // namespace capture
 
+class ImageCaptureGlobals;
 struct PointerCursorCapturePending;
 
 class PointerCursorCapture {
@@ -37,6 +38,7 @@ private:
   void finish(capture::CapturedCursor cursor);
 
   WaylandConnection& m_wayland;
+  ImageCaptureGlobals& m_imageCapture;
   std::unique_ptr<PointerCursorCapturePending> m_pending;
   CompletionCallback m_onComplete;
   Timer m_timeout;

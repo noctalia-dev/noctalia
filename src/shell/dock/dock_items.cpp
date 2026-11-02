@@ -6,17 +6,18 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_instance.h"
 #include "shell/dock/dock_model.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/tooltip/tooltip_placement.h"
+#include "shell/wayland/layer_surface.h"
 #include "system/icon_resolver.h"
 #include "system/internal_app_metadata.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
 
 #include <algorithm>
 #include <chrono>

@@ -2,8 +2,8 @@
 
 #include "core/files/resource_paths.h"
 #include "i18n/i18n.h"
+#include "shell/wayland/clipboard_service.h"
 #include "util/string_utils.h"
-#include "wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <filesystem>

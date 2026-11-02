@@ -7,6 +7,7 @@
 #include "core/log.h"
 #include "ipc/ipc_service.h"
 #include "render/scene/node.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/dock/dock_context_menu.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_instance.h"
@@ -14,13 +15,12 @@
 #include "shell/dock/dock_model.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/wayland/layer_surface.h"
+#include "shell/wayland/wayland_toplevels.h"
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_launch.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
 #include "wayland/surface.h"
-#include "wayland/wayland_toplevels.h"
 
 #include <algorithm>
 #include <cassert>

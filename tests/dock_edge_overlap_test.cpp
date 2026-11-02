@@ -23,7 +23,7 @@ namespace {
   }
 
   shell::dock::DockSurfaceGeometry geometryFor(const DockConfig& cfg, bool fractionalScale) {
-    const ShellConfig::ShadowConfig shadow;
+    const ShadowStyle shadow;
     return shell::dock::computeSurfaceGeometry(cfg, shadow, fractionalScale, 1920, 1080);
   }
 
@@ -84,7 +84,7 @@ int main() {
     cfg.magnificationScale = 1.45F;
     cfg.showInstanceCount = true;
     const auto surface = geometryFor(cfg, /*fractionalScale=*/false);
-    const ShellConfig::ShadowConfig shadow;
+    const ShadowStyle shadow;
     const auto panel = shell::dock::computePanelGeometry(
         cfg, shadow, static_cast<float>(surface.surfaceW), static_cast<float>(surface.surfaceH), kItemCount
     );
@@ -129,7 +129,7 @@ int main() {
   for (const DockEdge edge : kEdges) {
     DockConfig cfg = flushDock(edge);
     cfg.marginEnds = 12;
-    const ShellConfig::ShadowConfig shadow;
+    const ShadowStyle shadow;
     const auto geometry = shell::dock::computeSurfaceGeometry(
         cfg, shadow, false, /*outputLogicalWidth=*/800, /*outputLogicalHeight=*/600
     );
@@ -142,7 +142,7 @@ int main() {
   {
     DockConfig cfg = flushDock(DockEdge::Bottom);
     cfg.marginEnds = 10;
-    const ShellConfig::ShadowConfig shadow;
+    const ShadowStyle shadow;
     const auto geo = shell::dock::computeSurfaceGeometry(cfg, shadow, false, 1920, 1080);
     const auto panel1 = shell::dock::computePanelGeometry(
         cfg, shadow, static_cast<float>(geo.surfaceW), static_cast<float>(geo.surfaceH), 1
@@ -177,7 +177,7 @@ int main() {
   {
     DockConfig cfg = flushDock(DockEdge::Bottom);
     cfg.marginEnds = 10;
-    const ShellConfig::ShadowConfig shadow;
+    const ShadowStyle shadow;
     const auto geo = shell::dock::computeSurfaceGeometry(cfg, shadow, false, 1920, 1080);
     const auto panel0 = shell::dock::computePanelGeometry(
         cfg, shadow, static_cast<float>(geo.surfaceW), static_cast<float>(geo.surfaceH), 0
@@ -192,7 +192,7 @@ int main() {
     DockConfig cfg = flushDock(DockEdge::Bottom);
     cfg.autoHide = true;
     cfg.marginEdge = 8;
-    const ShellConfig::ShadowConfig shadow;
+    const ShadowStyle shadow;
     const auto geo = shell::dock::computeSurfaceGeometry(cfg, shadow, false, 1920, 1080);
     const auto panel = shell::dock::computePanelGeometry(
         cfg, shadow, static_cast<float>(geo.surfaceW), static_cast<float>(geo.surfaceH), 5
@@ -207,7 +207,7 @@ int main() {
   {
     DockConfig cfg = flushDock(DockEdge::Left);
     cfg.marginEnds = 10;
-    const ShellConfig::ShadowConfig shadow;
+    const ShadowStyle shadow;
     const auto geo = shell::dock::computeSurfaceGeometry(cfg, shadow, false, 1920, 1080);
     const auto panel0 = shell::dock::computePanelGeometry(
         cfg, shadow, static_cast<float>(geo.surfaceW), static_cast<float>(geo.surfaceH), 0
@@ -222,7 +222,7 @@ int main() {
     DockConfig cfg = flushDock(edge);
     cfg.autoHide = true;
     cfg.marginEdge = 8;
-    const ShellConfig::ShadowConfig shadow;
+    const ShadowStyle shadow;
     const auto geo = shell::dock::computeSurfaceGeometry(cfg, shadow, false, 1920, 1080);
     const auto panel = shell::dock::computePanelGeometry(
         cfg, shadow, static_cast<float>(geo.surfaceW), static_cast<float>(geo.surfaceH), 5

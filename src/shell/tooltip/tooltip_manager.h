@@ -2,7 +2,7 @@
 
 #include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "render/scene/tooltip_content.h"
 #include "ui/signal.h"
 
 #include <memory>

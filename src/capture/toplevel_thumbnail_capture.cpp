@@ -4,6 +4,7 @@
 #include "ext-image-capture-source-v1-client-protocol.h"
 #include "ext-image-copy-capture-v1-client-protocol.h"
 #include "render/core/image_resize.h"
+#include "shell/wayland/capture_globals.h"
 #include "wayland/wayland_connection.h"
 
 #include <cerrno>
@@ -287,13 +288,14 @@ struct ToplevelThumbnailCapturePending {
   }
 };
 
-ToplevelThumbnailCapture::ToplevelThumbnailCapture(WaylandConnection& wayland) : m_wayland(wayland) {}
+ToplevelThumbnailCapture::ToplevelThumbnailCapture(WaylandConnection& wayland)
+    : m_wayland(wayland), m_imageCapture(wayland.extension<ImageCaptureGlobals>()) {}
 
 ToplevelThumbnailCapture::~ToplevelThumbnailCapture() { cancelInFlight(); }
 
 bool ToplevelThumbnailCapture::available() const noexcept {
-  return m_wayland.imageCopyCaptureManager() != nullptr
-      && m_wayland.foreignToplevelImageCaptureSourceManager() != nullptr
+  return m_imageCapture.copyCaptureManager() != nullptr
+      && m_imageCapture.foreignToplevelSourceManager() != nullptr
       && m_wayland.shm() != nullptr
       && m_wayland.display() != nullptr;
 }
@@ -322,14 +324,14 @@ void ToplevelThumbnailCapture::capture(
   m_pending->maxWidth = maxWidth;
   m_pending->maxHeight = maxHeight;
   m_pending->source = ext_foreign_toplevel_image_capture_source_manager_v1_create_source(
-      m_wayland.foreignToplevelImageCaptureSourceManager(), handle
+      m_imageCapture.foreignToplevelSourceManager(), handle
   );
   if (m_pending->source == nullptr) {
     fail("failed to create foreign-toplevel capture source");
     return;
   }
   m_pending->session =
-      ext_image_copy_capture_manager_v1_create_session(m_wayland.imageCopyCaptureManager(), m_pending->source, 0);
+      ext_image_copy_capture_manager_v1_create_session(m_imageCapture.copyCaptureManager(), m_pending->source, 0);
   if (m_pending->session == nullptr
       || ext_image_copy_capture_session_v1_add_listener(
              m_pending->session, &ToplevelThumbnailCapturePending::sessionListener, m_pending.get()

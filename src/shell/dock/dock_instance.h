@@ -108,7 +108,7 @@ namespace shell::dock {
       bool needsLayout
   );
   void buildScene(DockInstance& instance, DockInstanceDependencies deps, const DockInstanceCallbacks& callbacks);
-  void resizeSurface(DockInstance& instance, const DockConfig& cfg, const ShellConfig::ShadowConfig& shadowConfig);
+  void resizeSurface(DockInstance& instance, const DockConfig& cfg, const ShadowStyle& shadowConfig);
   void applyPanelPalette(DockInstance& instance, const DockConfig& cfg);
   void syncDockSlideLayerTransform(DockInstance& instance, const DockConfig& cfg);
   void applyDockCompositorBlur(DockInstance& instance, const DockConfig& cfg);

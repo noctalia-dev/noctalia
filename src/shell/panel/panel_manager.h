@@ -7,7 +7,7 @@
 #include "shell/panel/panel_click_shield.h"
 #include "shell/panel/persistent_panel_host.h"
 #include "ui/dialogs/layer_popup_host.h"
-#include "wayland/hyprland/popup_grab_host.h"
+#include "wayland/popup_grab_host.h"
 
 #include <cstdint>
 #include <functional>

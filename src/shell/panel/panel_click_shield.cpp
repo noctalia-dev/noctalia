@@ -2,8 +2,9 @@
 
 #include "compositors/compositor_detect.h"
 #include "core/log.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/layer_surface.h"
 #include "viewporter-client-protocol.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
@@ -105,7 +106,7 @@ void PanelClickShield::activate(
     kLog.warn("disabled: shared shm buffer unavailable");
     return;
   }
-  if (m_wayland->layerShell() == nullptr || m_wayland->compositor() == nullptr) {
+  if (m_wayland->extension<LayerShell>().manager() == nullptr || m_wayland->compositor() == nullptr) {
     return;
   }
   if (m_wayland->viewporter() == nullptr) {
@@ -160,7 +161,8 @@ PanelClickShield::createShield(wl_output* output, LayerShellLayer layer, std::ve
   shield->viewport = wp_viewporter_get_viewport(m_wayland->viewporter(), shield->surface);
 
   shield->layerSurface = zwlr_layer_shell_v1_get_layer_surface(
-      m_wayland->layerShell(), shield->surface, output, static_cast<std::uint32_t>(layer), "noctalia-panel-click-shield"
+      m_wayland->extension<LayerShell>().manager(), shield->surface, output, static_cast<std::uint32_t>(layer),
+      "noctalia-panel-click-shield"
   );
   if (shield->layerSurface == nullptr) {
     if (shield->viewport != nullptr) {

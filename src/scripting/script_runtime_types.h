@@ -4,7 +4,7 @@
 #include "core/process/process.h"
 #include "scripting/plugin_layer_config.h"
 #include "scripting/script_arg.h"
-#include "ui/ui_tree.h"
+#include "scripting/ui/ui_tree.h"
 
 #include <chrono>
 #include <cstdint>

@@ -11,12 +11,13 @@
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
 #include "shell/tray/tray_settings.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
@@ -193,8 +194,8 @@ namespace {
     return placement;
   }
 
-  ShellConfig::ShadowConfig popupShadowConfig(ConfigService* config) {
-    return config != nullptr ? config->config().shell.shadow : ShellConfig::ShadowConfig{};
+  ShadowStyle popupShadowConfig(ConfigService* config) {
+    return config != nullptr ? config->config().shell.shadow : ShadowStyle{};
   }
 
   bool hasToggleEntries(const std::vector<ContextMenuControlEntry>& entries) {
@@ -671,7 +672,7 @@ void TrayMenu::ensureSurface() {
   }
 
   wl_surface* parentWlSurface = m_wayland->lastPointerSurface();
-  auto* parentLayerSurface = m_wayland->layerSurfaceFor(parentWlSurface);
+  auto* parentLayerSurface = m_wayland->extension<LayerShell>().layerSurfaceFor(parentWlSurface);
   wl_output* output = m_wayland->lastPointerOutput();
   const std::uint32_t serial = m_wayland->lastInputSerial();
 
@@ -718,8 +719,7 @@ void TrayMenu::ensureSurface() {
   // tearing the popup down. Skip xdg_popup_grab when we'll be using
   // focus_grab; outside-click dismissal is handled by the focus grab's
   // `cleared` event instead.
-  auto* grabService = m_wayland->focusGrabService();
-  const bool useFocusGrab = grabService != nullptr && grabService->available();
+  const bool useFocusGrab = m_wayland->extension<FocusGrabService>().available();
   inst->submenuDirection = placement.submenuDirection;
   inst->chrome = chrome;
   auto popupConfig = PopupSurfaceConfig{
@@ -744,7 +744,7 @@ void TrayMenu::ensureSurface() {
   // could not reach it. Flip a None parent to OnDemand before the popup maps; a
   // parent that already takes keyboard (the tray drawer panel) is left alone. The
   // focus-grab path carries keyboard itself, so only the plain grab path needs it.
-  const LayerSurface* parentOwner = m_wayland->layerSurfaceOwnerFor(parentWlSurface);
+  const LayerSurface* parentOwner = m_wayland->extension<LayerShell>().layerSurfaceOwnerFor(parentWlSurface);
   if (!useFocusGrab && parentOwner != nullptr && parentOwner->keyboardInteractivity() == LayerShellKeyboard::None) {
     m_keyboardBarLayerSurface = parentLayerSurface;
     m_keyboardBarWlSurface = parentWlSurface;
@@ -754,7 +754,7 @@ void TrayMenu::ensureSurface() {
     wl_surface_commit(parentWlSurface);
   }
 
-  if (!inst->surface->initialize(parentLayerSurface, output, popupConfig)) {
+  if (!inst->surface->initialize(LayerShell::popupAttach(parentLayerSurface), output, popupConfig)) {
     kLog.debug("tray menu: failed to create popup surface");
     restoreBarKeyboardInteractivity();
     return;
@@ -777,8 +777,8 @@ void TrayMenu::ensureSurface() {
     if (!m_visible || m_instance == nullptr || m_wayland == nullptr) {
       return;
     }
-    auto* svc = m_wayland->focusGrabService();
-    if (svc == nullptr || !svc->available()) {
+    auto& grabService = m_wayland->extension<FocusGrabService>();
+    if (!grabService.available()) {
       return;
     }
 
@@ -786,11 +786,11 @@ void TrayMenu::ensureSurface() {
     // this popup is already enrolled into the panel's existing focus grab.
     // Creating another grab here would clear the panel grab, dismissing the
     // parent panel.
-    if (svc->popupGrabHost() != nullptr) {
+    if (m_wayland->popupGrabHost() != nullptr) {
       return;
     }
 
-    m_focusGrab = svc->createGrab();
+    m_focusGrab = grabService.createGrab();
     if (m_focusGrab == nullptr) {
       return;
     }
@@ -842,7 +842,9 @@ void TrayMenu::restoreBarKeyboardInteractivity() {
   m_keyboardBarWlSurface = nullptr;
   // The parent (a bar or the tray drawer panel) can be destroyed while the menu
   // is open. Its proxies are then freed, so only touch it while still registered.
-  if (layerSurface == nullptr || m_wayland == nullptr || m_wayland->layerSurfaceFor(wlSurface) != layerSurface) {
+  if (layerSurface == nullptr
+      || m_wayland == nullptr
+      || m_wayland->extension<LayerShell>().layerSurfaceFor(wlSurface) != layerSurface) {
     return;
   }
   zwlr_layer_surface_v1_set_keyboard_interactivity(layerSurface, static_cast<std::uint32_t>(LayerShellKeyboard::None));

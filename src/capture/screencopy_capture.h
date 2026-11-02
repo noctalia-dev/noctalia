@@ -8,6 +8,7 @@
 #include <vector>
 
 struct wl_output;
+class ScreencopyGlobals;
 class WaylandConnection;
 
 struct LogicalRect {
@@ -46,6 +47,7 @@ public:
 
 private:
   WaylandConnection& m_wayland;
+  ScreencopyGlobals& m_screencopy;
   bool m_busy = false;
   CompletionCallback m_onComplete;
   std::unique_ptr<ScreencopyCapturePending> m_pending;

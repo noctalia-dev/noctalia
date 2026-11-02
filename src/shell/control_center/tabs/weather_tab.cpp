@@ -1,15 +1,15 @@
 #include "shell/control_center/tabs/weather_tab.h"
 
 #include "config/config_service.h"
+#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
-#include "render/scene/effect_node.h"
 #include "render/scene/input_area.h"
+#include "render/scene/tooltip_content.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "shell/render/effect_node.h"
 #include "system/weather_service.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 
 #include <algorithm>

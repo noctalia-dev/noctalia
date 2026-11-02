@@ -2,9 +2,9 @@
 
 #include "core/frame_rate_limiter.h"
 #include "core/timer_manager.h"
+#include "render/scene/tooltip_content.h"
 #include "shell/bar/widget.h"
 #include "shell/bar/widget_custom_image.h"
-#include "shell/tooltip/tooltip_content.h"
 #include "system/format_units.h"
 #include "ui/controls/flex.h"
 #include "ui/palette.h"

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "compositors/workspace_backend.h"
-#include "wayland/wayland_toplevels.h"
+#include "shell/wayland/wayland_toplevels.h"
 
 #include <cstdint>
 #include <functional>

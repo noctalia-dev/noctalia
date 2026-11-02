@@ -4,10 +4,10 @@
 #include "dbus/tray/tray_service.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "shell/wayland/hyprland/focus_grab_service.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/popup_chrome.h"
-#include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/popup_surface.h"
 
 #include <chrono>
@@ -24,6 +24,7 @@ class WaylandConnection;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_surface;
+struct zwlr_layer_surface_v1;
 
 class TrayMenu {
 public:

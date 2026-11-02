@@ -1,4 +1,4 @@
-#include "i18n/i18n_service.h"
+#include "shell/settings/supported_languages.h"
 
 #include <cstdio>
 #include <filesystem>
@@ -24,12 +24,12 @@ int main(int argc, char* argv[]) {
   const std::filesystem::path translationsDir(argv[1]);
 
   std::set<std::string> supported;
-  for (const auto& language : i18n::kSupportedLanguages) {
+  for (const auto& language : settings::kSupportedLanguages) {
     supported.insert(std::string(language.code));
   }
 
   bool ok = true;
-  for (const auto& language : i18n::kSupportedLanguages) {
+  for (const auto& language : settings::kSupportedLanguages) {
     const std::filesystem::path path = translationsDir / (std::string(language.code) + ".json");
     if (!std::filesystem::is_regular_file(path)) {
       ok = fail("supported language has no catalog", std::string(language.code)) && ok;

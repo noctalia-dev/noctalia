@@ -1440,10 +1440,10 @@ namespace noctalia::config::schema {
       return s;
     }
 
-    const Schema<ShellConfig::ShadowConfig>& shellShadowSchema() {
-      static const Schema<ShellConfig::ShadowConfig> s = {
-          enumField(&ShellConfig::ShadowConfig::direction, "direction", kShadowDirections),
-          field(&ShellConfig::ShadowConfig::alpha, "alpha", kUnitRange),
+    const Schema<ShadowStyle>& shellShadowSchema() {
+      static const Schema<ShadowStyle> s = {
+          enumField(&ShadowStyle::direction, "direction", kShadowDirections),
+          field(&ShadowStyle::alpha, "alpha", kUnitRange),
       };
       return s;
     }

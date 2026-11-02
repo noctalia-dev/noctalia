@@ -4,10 +4,10 @@
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
 #include "render/text/glyph_registry.h"
+#include "shell/visuals/graph.h"
 #include "system/format_units.h"
 #include "system/system_monitor_service.h"
 #include "ui/builders.h"
-#include "ui/controls/graph.h"
 #include "ui/controls/progress_bar.h"
 #include "ui/style.h"
 

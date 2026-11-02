@@ -51,7 +51,7 @@ private:
   ConfigService& m_configService;
   CompositorPlatform& m_platform;
   RenderContext& m_renderContext;
-  ShellConfig::ShadowConfig m_shadowConfig;
+  ShadowStyle m_shadowConfig;
   std::string m_barPosition;
   WidgetCustomImage m_customImage;
   Glyph* m_glyph = nullptr;

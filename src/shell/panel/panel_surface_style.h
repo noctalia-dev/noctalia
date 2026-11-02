@@ -2,8 +2,8 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
-#include "shell/surface/shadow.h"
 #include "ui/palette.h"
+#include "ui/surface_shadow.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -16,9 +16,9 @@ namespace shell::panel_surface {
   // so a surface sized to the bleed alone clips its own outermost falloff row.
   inline constexpr std::int32_t kShadowSafetyPadding = 2;
 
-  inline shell::surface_shadow::Bleed bleed(bool hasDecoration, const ShellConfig::ShadowConfig& shadow) noexcept {
-    auto out = shell::surface_shadow::bleed(hasDecoration, shadow);
-    if (shell::surface_shadow::enabled(hasDecoration, shadow)) {
+  inline surface_shadow::Bleed bleed(bool hasDecoration, const ShadowStyle& shadow) noexcept {
+    auto out = surface_shadow::bleed(hasDecoration, shadow);
+    if (surface_shadow::enabled(hasDecoration, shadow)) {
       out.left += kShadowSafetyPadding;
       out.right += kShadowSafetyPadding;
       out.up += kShadowSafetyPadding;

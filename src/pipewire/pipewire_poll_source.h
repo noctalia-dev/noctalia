@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/poll_source.h"
+#include "core/poll_source.h"
 #include "pipewire/pipewire_service.h"
 
 class PipeWirePollSource final : public PollSource {

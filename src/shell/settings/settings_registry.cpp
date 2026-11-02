@@ -8,18 +8,19 @@
 #include "i18n/i18n.h"
 #include "launcher/panel_catalog.h"
 #include "pipewire/sound_player.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/bar/widget_gesture_defaults.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/control_center/shortcut_registry.h"
+#include "shell/palette_swatch_preview.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/font_weight_catalog.h"
+#include "shell/settings/supported_languages.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "system/sysmon_threshold_profile.h"
 #include "theme/builtin_palettes.h"
 #include "theme/builtin_templates.h"
-#include "ui/app_icon_colorization.h"
-#include "ui/palette_swatch_preview.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 
@@ -281,9 +282,9 @@ namespace settings {
 
     SelectSetting languageSelect(std::string_view selected) {
       std::vector<SelectOption> opts;
-      opts.reserve(i18n::kSupportedLanguages.size() + 1);
+      opts.reserve(kSupportedLanguages.size() + 1);
       opts.push_back(SelectOption{"", i18n::tr("common.states.auto")});
-      for (const auto& language : i18n::kSupportedLanguages) {
+      for (const auto& language : kSupportedLanguages) {
         opts.push_back(SelectOption{std::string(language.code), std::string(language.displayName)});
       }
       return SelectSetting{std::move(opts), std::string(selected)};
@@ -342,7 +343,7 @@ namespace settings {
           .path = std::move(path),
           .control = std::move(control),
           .advanced = advanced,
-          .searchText = StringUtils::toLower(searchText),
+          .searchText = StringUtils::normalizeForSearch(searchText),
       };
     }
 
@@ -380,7 +381,7 @@ namespace settings {
     return names;
   }
 
-  std::string normalizedSettingQuery(std::string_view query) { return StringUtils::toLower(query); }
+  std::string normalizedSettingQuery(std::string_view query) { return StringUtils::normalizeForSearch(query); }
 
   bool matchesNormalizedSettingQuery(const SettingEntry& entry, std::string_view normalizedQuery) {
     if (normalizedQuery.empty()) {

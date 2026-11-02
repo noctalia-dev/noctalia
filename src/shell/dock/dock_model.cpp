@@ -4,9 +4,9 @@
 #include "config/config_types.h"
 #include "core/log.h"
 #include "shell/dock/pinned_apps.h"
+#include "shell/wayland/wayland_toplevels.h"
 #include "system/app_identity.h"
 #include "util/string_utils.h"
-#include "wayland/wayland_toplevels.h"
 
 #include <algorithm>
 #include <unordered_map>

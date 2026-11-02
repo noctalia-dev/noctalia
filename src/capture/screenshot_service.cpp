@@ -15,6 +15,7 @@
 #include "core/input/key_modifiers.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
+#include "core/time_format.h"
 #include "ipc/ipc_service.h"
 #include "notification/notification.h"
 #include "notification/notification_manager.h"
@@ -24,10 +25,10 @@
 #include "render/core/image_resize.h"
 #include "render/render_context.h"
 #include "shell/panel/panel_manager.h"
-#include "time/time_format.h"
+#include "shell/wayland/clipboard_service.h"
+#include "shell/wayland/foreign_toplevels.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
-#include "wayland/clipboard_service.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -1052,15 +1053,16 @@ std::expected<ext_foreign_toplevel_handle_v1*, std::string> ScreenshotService::r
     return std::unexpected("no focused window identity reported by the compositor");
   }
 
-  const auto focused = m_wayland.activeToplevel();
+  auto& toplevels = m_wayland.extension<ForeignToplevels>();
+  const auto focused = toplevels.activeToplevel();
   if (!focused.has_value() || focused->handle == nullptr) {
     return std::unexpected("no focused window reported by the compositor");
   }
   const std::string appIdLower = StringUtils::toLower(focused->appId);
   const auto appBucketed =
-      appIdLower.empty() ? m_wayland.extWindowsWithoutAppId() : m_wayland.extWindowsForApp(appIdLower, appIdLower);
-  const auto siblings = appIdLower.empty() ? m_wayland.windowsWithoutAppId(nullptr)
-                                           : m_wayland.windowsForApp(appIdLower, appIdLower, nullptr);
+      appIdLower.empty() ? toplevels.extWindowsWithoutAppId() : toplevels.extWindowsForApp(appIdLower, appIdLower);
+  const auto siblings = appIdLower.empty() ? toplevels.windowsWithoutAppId(nullptr)
+                                           : toplevels.windowsForApp(appIdLower, appIdLower, nullptr);
   std::size_t wlrSameTitleCount = 0;
   for (const auto& sibling : siblings) {
     if (!focused->title.empty() && sibling.title != focused->title) {

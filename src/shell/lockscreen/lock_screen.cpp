@@ -19,6 +19,8 @@
 #include "shell/lockscreen/lockscreen_session_actions.h"
 #include "shell/session/session_action_runner.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
+#include "shell/wayland/capture_globals.h"
+#include "shell/wayland/shell_globals.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -181,7 +183,7 @@ bool LockScreen::lock() {
   m_lockedAtMillis = bootTimeMillis();
   m_graceAllowed = true;
   kLog.debug("lock requested, grace starts at {}", m_lockedAtMillis);
-  if (!m_wayland->hasSessionLockManager()) {
+  if (m_wayland->extension<ShellGlobals>().sessionLockManager() == nullptr) {
     invalidateDesktopCaptures();
     kLog.warn("session lock protocol unavailable");
     notifyLockAborted();
@@ -224,7 +226,7 @@ bool LockScreen::lock() {
   }
   chooseTransition();
 
-  m_lock = ext_session_lock_manager_v1_lock(m_wayland->sessionLockManager());
+  m_lock = ext_session_lock_manager_v1_lock(m_wayland->extension<ShellGlobals>().sessionLockManager());
   if (m_lock == nullptr) {
     kLog.warn("failed to create session lock object");
     resetLockState();
@@ -978,7 +980,9 @@ void LockScreen::syncInstances() {
 }
 
 bool LockScreen::shouldCaptureDesktop() const {
-  if (m_configService == nullptr || m_wayland == nullptr || !m_wayland->hasScreencopy()) {
+  if (m_configService == nullptr
+      || m_wayland == nullptr
+      || m_wayland->extension<ScreencopyGlobals>().manager() == nullptr) {
     return false;
   }
   const auto& lockscreen = m_configService->config().lockscreen;
@@ -1047,7 +1051,8 @@ bool LockScreen::captureDesktopSnapshots() {
   }
 
   const auto firstCaptureDeadline = std::chrono::steady_clock::now() + screencopy::kBlockingCaptureTimeout;
-  WaylandConnection captureWayland(WaylandConnection::Purpose::Screencopy);
+  WaylandConnection captureWayland(WaylandConnection::Purpose::Sibling);
+  captureWayland.extension<ScreencopyGlobals>();
   std::string setupError;
   if (!captureWayland.connectUntil(firstCaptureDeadline, m_wayland, setupError)) {
     kLog.warn("lockscreen desktop capture setup failed: {}", setupError);
@@ -1137,7 +1142,9 @@ void LockScreen::chooseTransition() {
   if (m_transitionSuppressed) {
     return;
   }
-  if (m_configService == nullptr || m_wayland == nullptr || !m_wayland->hasScreencopy()) {
+  if (m_configService == nullptr
+      || m_wayland == nullptr
+      || m_wayland->extension<ScreencopyGlobals>().manager() == nullptr) {
     return;
   }
 
