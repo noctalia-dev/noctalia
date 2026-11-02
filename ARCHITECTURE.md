@@ -120,7 +120,8 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 
 ## Compositor Integration
 
-- `WaylandConnection` is protocol transport only, with no compositor-specific branches. Compositor behavior goes through `CompositorPlatform`.
+- `WaylandConnection` is protocol transport only, with no compositor-specific branches, and `src/wayland` never includes shell code. It binds the globals any client needs (outputs, seat, shm, compositor, xdg-shell, layer shell, activation, cursor shape, viewporter, fractional scale, text input, background effect, output metadata).
+- Shell-only and compositor-specific globals (toplevels, workspaces, clipboard, capture, idle, session lock, gamma, Hyprland focus grab) live in `src/shell/wayland/` as `WaylandExtension`s fetched with `WaylandConnection::extension<T>()`. The connection replays already advertised globals to a new extension and releases every extension before it disconnects. Compositor behavior goes through `CompositorPlatform`.
 - Prefer passing `CompositorPlatform&` over passing both `WaylandConnection&` and `CompositorPlatform&`.
 - Detect compositors with `compositors::detect()`, `isHyprland()`, `isNiri()`, `isSway()`, and `isMango()` from `compositor_detect.h`; do not sniff environment variables again.
 - Logout goes through `uwsm stop` when UWSM manages the compositor, otherwise compositor-native logout commands. Niri goes through `NiriRuntime` IPC, not the CLI.

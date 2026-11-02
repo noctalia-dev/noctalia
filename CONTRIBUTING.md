@@ -251,6 +251,7 @@ src/
     tray/           Tray drawer and D-Bus menu UI
     visuals/        Audio visualizer and graph controls
     wallpaper/      Wallpaper surfaces, paths, picker panel
+    wayland/        Shell-only Wayland extensions: toplevels, workspaces, clipboard, capture, idle, gamma, focus grab
     widgets_editor/ Background widget editor
   system/           Desktop entries, brightness, weather, location, system monitor, hardware services
   theme/            Palette generation, templates, theme service, template application
@@ -259,8 +260,7 @@ src/
     controls/       Reusable controls (Button, Input, Label, Select, Slider, Box, ...)
     dialogs/        File, color, and glyph picker dialogs
   util/             Generic helpers
-  wayland/          Wayland connection, seats, surfaces, clipboard, toplevels, text input
-    hyprland/       Hyprland-specific Wayland protocol helpers
+  wayland/          Wayland connection, registry extensions, seats, surfaces, text input
 assets/
   fonts/            Bundled Noctalia Tabler and UI fonts
   sounds/           Notification and UI sounds
