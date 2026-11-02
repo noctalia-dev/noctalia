@@ -108,6 +108,9 @@ public:
   // The callback receives the probed output, or nullptr on timeout. Only one
   // probe runs at a time; a new call cancels any in-flight probe.
   void probeFocusedOutput(std::function<void(wl_output*)> callback, std::chrono::milliseconds timeout);
+  // True when the probe's output (labwc places unpinned layer surfaces on the pointer's output) is a
+  // better interactive target than focusedInteractiveOutput(), whose only source there is window focus.
+  bool prefersOutputProbe() const noexcept;
 
   std::optional<ActiveToplevel> activeToplevel() const;
   wl_output* activeToplevelOutput() const;

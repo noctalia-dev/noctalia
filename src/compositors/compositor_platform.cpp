@@ -824,6 +824,8 @@ wl_output* CompositorPlatform::preferredInteractiveOutput(std::chrono::milliseco
   return it != outputs.end() ? it->output : nullptr;
 }
 
+bool CompositorPlatform::prefersOutputProbe() const noexcept { return compositors::isLabwc(); }
+
 void CompositorPlatform::probeFocusedOutput(
     std::function<void(wl_output*)> callback, std::chrono::milliseconds timeout
 ) {

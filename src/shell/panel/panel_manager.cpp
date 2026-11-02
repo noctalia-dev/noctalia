@@ -569,7 +569,11 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   }
 
   if (request.output == nullptr && m_platform != nullptr) {
-    request.output = m_platform->focusedInteractiveOutput(std::chrono::milliseconds(1200));
+    // Some compositors place an unpinned surface more accurately than tracked focus; go straight
+    // to the probe below for them.
+    if (!m_platform->prefersOutputProbe()) {
+      request.output = m_platform->focusedInteractiveOutput(std::chrono::milliseconds(1200));
+    }
     if (request.output == nullptr) {
       // No focus source resolved an output (e.g. a compositor with no focus
       // IPC/backend). Ask the compositor which output an unpinned surface lands
