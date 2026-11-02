@@ -1,4 +1,4 @@
-#include "ui/ui_tree_reconciler.h"
+#include "scripting/ui/ui_tree_reconciler.h"
 
 #include "core/input/key_chord.h"
 #include "core/input/key_modifiers.h"
@@ -7,6 +7,8 @@
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "scripting/ui/pixel_stream_view.h"
+#include "scripting/ui/ui_tree.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/color_picker.h"
@@ -19,7 +21,6 @@
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/markdown_view.h"
-#include "ui/controls/pixel_stream_view.h"
 #include "ui/controls/progress_bar.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select.h"
@@ -30,7 +31,6 @@
 #include "ui/drag_drop_controller.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "ui/ui_tree.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

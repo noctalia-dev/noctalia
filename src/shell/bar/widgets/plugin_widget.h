@@ -6,10 +6,10 @@
 #include "scripting/plugin_runtime_context.h"
 #include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
+#include "scripting/ui/ui_tree.h"
+#include "scripting/ui/ui_tree_reconciler.h"
 #include "shell/bar/widget.h"
 #include "ui/palette.h"
-#include "ui/ui_tree.h"
-#include "ui/ui_tree_reconciler.h"
 
 #include <chrono>
 #include <cstdint>

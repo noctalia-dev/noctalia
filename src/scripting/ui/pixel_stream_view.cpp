@@ -1,4 +1,4 @@
-#include "ui/controls/pixel_stream_view.h"
+#include "scripting/ui/pixel_stream_view.h"
 
 #include "ipc/pixel_stream_service.h"
 #include "render/core/renderer.h"

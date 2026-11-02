@@ -2,8 +2,8 @@
 
 #include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
+#include "shell/calendar/calendar_view.h"
 #include "shell/control_center/tab.h"
-#include "ui/controls/calendar_view.h"
 
 #include <limits>
 

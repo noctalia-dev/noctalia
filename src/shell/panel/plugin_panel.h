@@ -6,9 +6,9 @@
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
+#include "scripting/ui/ui_tree.h"
+#include "scripting/ui/ui_tree_reconciler.h"
 #include "shell/panel/panel.h"
-#include "ui/ui_tree.h"
-#include "ui/ui_tree_reconciler.h"
 
 #include <filesystem>
 #include <memory>

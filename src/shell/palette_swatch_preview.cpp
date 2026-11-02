@@ -1,4 +1,4 @@
-#include "ui/palette_swatch_preview.h"
+#include "shell/palette_swatch_preview.h"
 
 #include "render/core/color.h"
 #include "theme/builtin_palettes.h"
