@@ -71,6 +71,7 @@
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "shell/wayland/clipboard_globals.h"
+#include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
@@ -800,9 +801,14 @@ void Application::initStyleThemeAndWayland() {
     throw std::runtime_error("failed to connect to Wayland display");
   }
   {
+    const auto& compositorGlobals = m_wayland.extension<CompositorGlobals>();
     const auto& shellGlobals = m_wayland.extension<ShellGlobals>();
     kLog.info(
-        "shell globals session-lock={} gamma-control={}", shellGlobals.sessionLockManager() != nullptr ? "yes" : "no",
+        "shell globals ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={}",
+        compositorGlobals.hasExtWorkspaceManager() ? "yes" : "no",
+        compositorGlobals.hasKdeVirtualDesktopManager() ? "yes" : "no",
+        compositorGlobals.hasDwlIpcManager() ? "yes" : "no",
+        shellGlobals.sessionLockManager() != nullptr ? "yes" : "no",
         shellGlobals.gammaControlManager() != nullptr ? "yes" : "no"
     );
   }

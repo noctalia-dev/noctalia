@@ -1,4 +1,4 @@
-#include "wayland/ext_foreign_toplevels.h"
+#include "shell/wayland/ext_foreign_toplevels.h"
 
 #include "ext-foreign-toplevel-list-v1-client-protocol.h"
 #include "system/app_identity.h"

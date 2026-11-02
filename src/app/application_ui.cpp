@@ -44,6 +44,7 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/wayland/foreign_toplevels.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/easyeffects_service.h"
@@ -303,7 +304,8 @@ void Application::initLockScreenAndSession() {
     if (m_lockScreen.isActive()) {
       return false;
     }
-    return !m_configService.config().wallpaper.automation.pauseOnFullscreen || !m_wayland.hasFullscreenToplevel();
+    return !m_configService.config().wallpaper.automation.pauseOnFullscreen
+        || !m_compositorPlatform.foreignToplevels().hasFullscreenToplevel();
   });
   m_configService.addReloadCallback([this] {
     if (m_logindService != nullptr) {

@@ -2,6 +2,7 @@
 
 #include "compositors/keyboard_backend.h"
 #include "compositors/workspace_backend.h"
+#include "shell/wayland/wayland_toplevels.h"
 #include "wayland/wayland_connection.h"
 
 #include <chrono>
@@ -23,7 +24,9 @@ struct zdwl_ipc_manager_v2;
 struct hyprland_toplevel_mapping_manager_v1;
 struct zwlr_foreign_toplevel_handle_v1;
 struct ext_foreign_toplevel_handle_v1;
+class CompositorGlobals;
 class FocusGrabService;
+class ForeignToplevels;
 class OutputProbe;
 class SessionBus;
 class ShellGlobals;
@@ -76,6 +79,7 @@ public:
   const WaylandOutput* findOutputByWl(wl_output* output) const;
   wl_output* outputForSurface(wl_surface* surface) const noexcept;
   FocusGrabService& focusGrabService() const noexcept { return m_focusGrab; }
+  ForeignToplevels& foreignToplevels() const noexcept { return m_toplevels; }
   bool hasPointerPosition() const noexcept;
   wl_surface* lastPointerSurface() const noexcept;
   wl_surface* lastKeyboardSurface() const noexcept;
@@ -237,6 +241,8 @@ private:
   WaylandConnection& m_wayland;
   ShellGlobals& m_shellGlobals;
   FocusGrabService& m_focusGrab;
+  ForeignToplevels& m_toplevels;
+  CompositorGlobals& m_compositorGlobals;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;
   std::unique_ptr<WaylandWorkspaces> m_workspaces;

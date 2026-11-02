@@ -13,6 +13,7 @@
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/wayland_toplevels.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_launch.h"
@@ -24,7 +25,6 @@
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_seat.h"
-#include "wayland/wayland_toplevels.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>

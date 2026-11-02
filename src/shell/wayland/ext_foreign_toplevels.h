@@ -1,6 +1,6 @@
 #pragma once
 
-#include "wayland/wayland_toplevels.h"
+#include "shell/wayland/wayland_toplevels.h"
 
 #include <cstddef>
 #include <cstdint>

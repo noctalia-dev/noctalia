@@ -1,10 +1,8 @@
 #pragma once
 
-#include "wayland/ext_foreign_toplevels.h"
 #include "wayland/output_scale.h"
 #include "wayland/wayland_extension.h"
 #include "wayland/wayland_seat.h"
-#include "wayland/wayland_toplevels.h"
 
 #include <chrono>
 #include <cstdint>
@@ -37,13 +35,7 @@ struct xdg_wm_base;
 struct wp_cursor_shape_manager_v1;
 struct ext_background_effect_manager_v1;
 struct xdg_activation_v1;
-struct zwlr_foreign_toplevel_manager_v1;
-struct zwlr_foreign_toplevel_handle_v1;
-struct ext_workspace_manager_v1;
-struct org_kde_plasma_virtual_desktop_management;
-struct zdwl_ipc_manager_v2;
 struct zwp_text_input_manager_v3;
-struct hyprland_toplevel_mapping_manager_v1;
 struct wp_fractional_scale_manager_v1;
 struct wp_viewporter;
 struct zwlr_output_manager_v1;
@@ -148,14 +140,6 @@ public:
   // Delegate setters
   void setOutputChangeCallback(ChangeCallback callback);
   void setOutputLifecycleCallbacks(std::function<void(wl_output*)> added, std::function<void(wl_output*)> removed);
-  void setWorkspaceManagerCallbacks(
-      std::function<void(ext_workspace_manager_v1*)> extWorkspace, std::function<void(zdwl_ipc_manager_v2*)> dwlIpc
-  );
-  void setKdeVirtualDesktopManagerCallback(std::function<void(org_kde_plasma_virtual_desktop_management*)> callback);
-  void setToplevelChangeCallback(ChangeCallback callback);
-  void setHyprlandToplevelMappingManagerCallback(
-      std::function<void(hyprland_toplevel_mapping_manager_v1* manager)> callback
-  );
   void setPointerEventCallback(WaylandSeat::PointerEventCallback callback);
   void setKeyboardEventCallback(WaylandSeat::KeyboardEventCallback callback);
   void setKeyboardModifiersCallback(WaylandSeat::KeyboardModifiersCallback callback);
@@ -192,11 +176,6 @@ public:
   bool hasSubcompositor() const noexcept;
   bool hasXdgOutputManager() const noexcept;
   bool hasXdgShell() const noexcept;
-  bool hasExtWorkspaceManager() const noexcept;
-  bool hasKdeVirtualDesktopManager() const noexcept;
-  bool hasDwlIpcManager() const noexcept;
-  bool hasForeignToplevelManager() const noexcept;
-  bool hasExtForeignToplevelList() const noexcept;
   bool hasFractionalScale() const noexcept;
   bool hasOutputManagement() const noexcept;
   bool hasBackgroundEffectBlur() const noexcept;
@@ -225,32 +204,6 @@ public:
   std::string requestActivationToken(wl_surface* surface) const;
   void activateSurface(wl_surface* surface);
 
-  std::optional<ActiveToplevel> activeToplevel() const;
-  std::optional<ActiveToplevel>
-  matchToplevelByTitleAndAppId(std::string_view title, std::string_view appId, wl_output* preferredOutput) const;
-  wl_output* activeToplevelOutput() const;
-  bool hasFullscreenToplevel() const;
-  std::vector<std::string> runningAppIds(wl_output* outputFilter = nullptr) const;
-  std::vector<ToplevelInfo>
-  windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;
-  std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
-  std::vector<ToplevelInfo> extWindowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
-  std::vector<ToplevelInfo> extWindowsWithoutAppId() const;
-  ext_foreign_toplevel_handle_v1* extHandleForIdentifier(std::string_view identifier) const;
-  bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
-  template <typename Fn> void visitExtToplevelHandles(Fn&& fn) const {
-    m_extForeignToplevels.visitExtHandles(std::forward<Fn>(fn));
-  }
-  void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
-  [[nodiscard]] bool minimizeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
-  std::optional<bool> toplevelMinimized(zwlr_foreign_toplevel_handle_v1* handle) const;
-  void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
-  template <typename Fn> void visitWlrToplevelHandles(Fn&& fn) const {
-    m_toplevelsHandler.visitWlrHandles(std::forward<Fn>(fn));
-  }
-  template <typename Fn> void visitWlrToplevels(Fn&& fn) const {
-    m_toplevelsHandler.visitWlrToplevels(std::forward<Fn>(fn));
-  }
   wl_output* lastPointerOutput() const noexcept;
   wl_surface* lastPointerSurface() const noexcept;
   wl_surface* lastKeyboardSurface() const noexcept;
@@ -339,19 +292,10 @@ private:
   zwp_text_input_manager_v3* m_textInputManager = nullptr;
   TextInputService* m_textInputService = nullptr;
   bool m_hasLayerShellGlobal = false;
-  bool m_hasExtWorkspaceGlobal = false;
-  bool m_hasKdeVirtualDesktopGlobal = false;
-  bool m_hasDwlIpcGlobal = false;
-  bool m_hasForeignToplevelManagerGlobal = false;
-  bool m_hasExtForeignToplevelListGlobal = false;
   std::vector<WaylandOutput> m_outputs;
   ChangeCallback m_outputChangeCallback;
   std::function<void(wl_output*)> m_outputAddedCallback;
   std::function<void(wl_output*)> m_outputRemovedCallback;
-  std::function<void(ext_workspace_manager_v1*)> m_extWorkspaceManagerCallback;
-  std::function<void(org_kde_plasma_virtual_desktop_management*)> m_kdeVirtualDesktopManagerCallback;
-  std::function<void(zdwl_ipc_manager_v2*)> m_dwlIpcManagerCallback;
-  std::function<void(hyprland_toplevel_mapping_manager_v1*)> m_hyprlandToplevelMappingManagerCallback;
   std::unordered_map<wl_surface*, wl_output*> m_surfaceOutputMap;
   std::unordered_map<wl_surface*, std::vector<wl_output*>> m_surfaceOutputs;
   std::unordered_map<wl_surface*, const LayerSurface*> m_layerSurfaceMap;
@@ -360,8 +304,6 @@ private:
   WaylandSeat::PointerEventCallback m_pointerEventCallback;
 
   WaylandSeat m_seatHandler;
-  WaylandToplevels m_toplevelsHandler;
-  WaylandExtForeignToplevels m_extForeignToplevels;
   std::vector<AdvertisedGlobal> m_advertisedGlobals;
   std::vector<std::pair<std::type_index, std::unique_ptr<WaylandExtension>>> m_extensions;
 };
