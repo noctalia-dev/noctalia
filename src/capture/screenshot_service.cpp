@@ -1550,6 +1550,7 @@ void ScreenshotService::ensureAnnotationOverlay() {
   m_annotationOverlay->setClosedCallback([this] {
     m_pendingDelivery.reset();
     m_annotationCaptureTarget = nullptr;
+  });
   m_annotationOverlay->setBackdropChangedCallback([this](const capture::ScreenshotBackdropSettings& backdrop) {
     persistScreenshotBackdrop(backdrop);
   });

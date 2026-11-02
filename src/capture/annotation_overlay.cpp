@@ -2578,6 +2578,7 @@ namespace capture {
     case XKB_KEY_w:
     case XKB_KEY_W:
       requestCaptureWindow();
+      return true;
     case XKB_KEY_1:
     case XKB_KEY_2:
     case XKB_KEY_3:
