@@ -231,6 +231,13 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .group = "workspaces.colors",
                       },
               }),
+              field<&Options::separatorColor>({
+                  .key = "separator_color",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .group = "workspaces.colors",
+                      },
+              }),
           },
       .commonOverrides =
           {

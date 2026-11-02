@@ -79,7 +79,7 @@ WorkspacesWidget::WorkspacesWidget(
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
       m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor),
-      m_urgentColor(options.urgentColor) {
+      m_urgentColor(options.urgentColor), m_separatorColor(options.separatorColor) {
   buildDesktopIconIndex();
 }
 
@@ -569,7 +569,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
               .fontSize = labelFontSize,
               .fontWeight = configuredFontWeight,
               .fontFamily = labelFontFamily(),
-              .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+              .color = m_separatorColor,
               .visible = false,
               .participatesInLayout = false,
           })

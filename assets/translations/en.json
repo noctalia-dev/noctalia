@@ -4958,6 +4958,10 @@
           "description": "Text between workspace indicators; leave empty for no separator or extra spacing",
           "label": "Separator"
         },
+        "separator-color": {
+          "description": "Color role used for workspace separators; fixed hex colors are also supported",
+          "label": "Separator Color"
+        },
         "show-active-indicator": {
           "description": "Show a small dot below the active window icon in the taskbar",
           "label": "Active Window Indicator"
