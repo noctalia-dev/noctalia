@@ -43,6 +43,7 @@ magnification       = true       # magnify icons near the pointer (macOS-style)
 magnification_scale = 1.45       # max scale multiplier at the pointer center (1.0–2.0; 1.0 = off)
 active_opacity      = 1.0
 inactive_opacity    = 0.85
+icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors
 show_instance_count = true       # badge with window count when an app has 2+ windows
 show_dots           = false      # running-window indicator dots below app icons
 
@@ -60,6 +61,8 @@ pinned = ["firefox", "code", "kitty"]
 `concave_edge_corners = true` inverts the two corners on the side that touches the screen edge, so the dock flares outward and blends into it. The corner radii still control the curve size. Only applies when the dock actually touches the edge (`margin_edge = 0`).
 
 `border_width` draws an inside outline using `border`.
+
+`icon_saturation` reduces application icon saturation without changing opacity. It is clamped to 0–1 and updates on config reload. It does not affect theme-colorized icons, placeholder glyphs or the launcher button.
 
 Shadow blur, offset, and alpha are global under `[shell.shadow]`. The dock only exposes `shadow = true|false`.
 

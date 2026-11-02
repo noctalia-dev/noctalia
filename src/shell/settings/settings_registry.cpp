@@ -1132,6 +1132,12 @@ namespace settings {
           tr("settings.schema.dock.shadow.description"), path("shadow"), ToggleSetting{dock.shadow}, "shadow"
       ));
       entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.dock.icon-saturation.label"),
+          tr("settings.schema.dock.icon-saturation.description"), path("icon_saturation"),
+          sliderFor(dock.iconSaturation, noctalia::config::schema::kUnitRange, false), "grayscale desaturate color",
+          true
+      ));
+      entries.push_back(makeEntry(
           SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.magnification.label"),
           tr("settings.schema.dock.magnification.description"), path("magnification"),
           ToggleSetting{dock.magnification}, "magnify zoom mac"
