@@ -1,9 +1,9 @@
 #include "application.h"
 
+#include "app/build_info.h"
 #include "app/main_loop.h"
 #include "compositors/umbriel/umbriel_audio_provider.h"
 #include "config/config_types.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "dbus/accounts/accounts_service.h"

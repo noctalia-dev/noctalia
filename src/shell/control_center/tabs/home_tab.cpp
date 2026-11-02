@@ -1,7 +1,7 @@
 #include "shell/control_center/tabs/home_tab.h"
 
+#include "app/build_info.h"
 #include "config/config_service.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/files/directory_scanner.h"
 #include "core/input/keybind_matcher.h"

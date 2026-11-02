@@ -1,4 +1,4 @@
-#include "core/build_info.h"
+#include "app/build_info.h"
 
 #include "noctalia_git_revision.h"
 

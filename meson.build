@@ -458,6 +458,7 @@ _noctalia_sources = files(
   'src/app/application_poll_sources.cpp',
   'src/app/application_services.cpp',
   'src/app/application_ui.cpp',
+  'src/app/build_info.cpp',
   'src/app/main_loop.cpp',
   'src/app/single_instance_lock.cpp',
   'src/auth/fingerprint_authenticator.cpp',
@@ -492,7 +493,6 @@ _noctalia_sources = files(
   'src/config/schema/config_sections.cpp',
   'src/config/state_store.cpp',
   'src/config/cli.cpp',
-  'src/core/build_info.cpp',
   'src/core/deferred_call.cpp',
   'src/core/process/process_fds.cpp',
   'src/core/files/file_watcher.cpp',
@@ -1090,7 +1090,7 @@ endif
 git_program = find_program('git', required: false)
 if git_program.found()
   _git_revision_h = vcs_tag(
-    input: 'src/core/git_revision.h.in',
+    input: 'src/app/git_revision.h.in',
     output: 'noctalia_git_revision.h',
     command: [git_program, 'describe', '--tags', '--always', '--dirty=-dirty', '--abbrev=12'],
     fallback: 'unknown',
@@ -1099,7 +1099,7 @@ else
   _git_revision_config = configuration_data()
   _git_revision_config.set('VCS_TAG', 'unknown')
   _git_revision_h = configure_file(
-    input: 'src/core/git_revision.h.in',
+    input: 'src/app/git_revision.h.in',
     output: 'noctalia_git_revision.h',
     configuration: _git_revision_config,
   )
