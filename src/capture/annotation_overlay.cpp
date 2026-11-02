@@ -74,12 +74,6 @@ namespace capture {
     constexpr double kWheelZoomStep = 1.25;
     // Zoom multiplier per toolbar zoom-in / zoom-out click.
     constexpr double kToolbarZoomStep = 1.5;
-    // Continuous-source axis units that trigger one zoom step; mirrors InputArea's
-    // kScrollUnitsPerStep (render/scene/input_area.cpp).
-    constexpr double kZoomScrollUnitsPerStep = 20.0;
-    // Detent-less streams emit frames as fast as the finger moves; zoom steps from them are
-    // rate-capped like InputArea's kContinuousStepInterval so a flick cannot race the zoom.
-    constexpr auto kZoomContinuousStepInterval = std::chrono::milliseconds(80);
 
     // S / M / L multiply the tool's own default width, so a preset means the same relative
     // weight for a 6 px brush and a 32 px blur.
@@ -500,9 +494,6 @@ namespace capture {
     Button* cursorButton = nullptr;
     Button* undoButton = nullptr;
     Button* redoButton = nullptr;
-    Button* zoomOutButton = nullptr;
-    Button* zoomResetButton = nullptr;
-    Button* zoomInButton = nullptr;
     Button* copyButton = nullptr;
     Button* saveButton = nullptr;
     Button* doneButton = nullptr;
@@ -1139,7 +1130,6 @@ namespace capture {
     inst.strokeButton = inst.fillButton = inst.freezeButton = inst.cursorButton = nullptr;
     inst.cursorTooltip = nullptr;
     inst.undoButton = inst.redoButton = inst.copyButton = inst.saveButton = inst.doneButton = inst.dragHandle = nullptr;
-    inst.zoomOutButton = inst.zoomResetButton = inst.zoomInButton = nullptr;
     inst.strokeSeparator = inst.exportSeparator = nullptr;
     inst.backdropButton = nullptr;
     inst.strokePanel = inst.strokeSwatchRow = nullptr;
@@ -1312,6 +1302,21 @@ namespace capture {
       onCanvasMotion(*instPtr, static_cast<double>(data.localX), static_cast<double>(data.localY));
     });
     canvas->setOnCancel([this] { m_panInstance = nullptr; });
+    // Ctrl+wheel zooms the capture around the pointer; InputArea quantizes the stream into steps.
+    canvas->setOnAxisHandler([this, instPtr](const InputArea::PointerData& data) {
+      const std::uint32_t modifiers = m_wayland != nullptr ? m_wayland->keyboardModifiers() : 0;
+      if ((modifiers & KeyMod::Ctrl) == 0 || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
+        return false;
+      }
+      if (const float steps = data.scrollSteps(); steps != 0.0F) {
+        // Scroll-up (negative steps) zooms in, matching image-editor convention.
+        zoomViewTo(
+            *instPtr, static_cast<double>(data.localX), static_cast<double>(data.localY),
+            std::pow(kWheelZoomStep, -static_cast<double>(steps))
+        );
+      }
+      return true;
+    });
 
     inst.canvas = canvas.get();
     inst.sceneRoot->addChild(std::move(canvas));
@@ -1500,12 +1505,11 @@ namespace capture {
     addSeparator();
 
     // View controls: the button faces for Ctrl+wheel zoom and Ctrl+drag pan.
-    inst.zoomOutButton = addGhostButton("zoom-out", "bar.annotate.zoom-out", [this, instPtr] {
+    addGhostButton("zoom-out", "bar.annotate.zoom-out", [this, instPtr] {
       zoomViewByButton(*instPtr, 1.0 / kToolbarZoomStep);
     });
-    inst.zoomResetButton =
-        addGhostButton("zoom-reset", "bar.annotate.zoom-reset", [this, instPtr] { resetView(*instPtr); });
-    inst.zoomInButton = addGhostButton("zoom-in", "bar.annotate.zoom-in", [this, instPtr] {
+    addGhostButton("zoom-reset", "bar.annotate.zoom-reset", [this, instPtr] { resetView(*instPtr); });
+    addGhostButton("zoom-in", "bar.annotate.zoom-in", [this, instPtr] {
       zoomViewByButton(*instPtr, kToolbarZoomStep);
     });
     addSeparator();
@@ -2108,38 +2112,6 @@ namespace capture {
     }
     case PointerEvent::Type::Axis:
       if (onTarget || target->pointerInside) {
-        // Ctrl+wheel zooms the capture, anchored at the pointer. The whole axis stream is
-        // consumed while Ctrl is held (including axis_stop frames), so panel scrolling never
-        // fights the zoom gesture. Plain wheel keeps its normal widget routing.
-        const std::uint32_t modifiers = m_wayland != nullptr ? m_wayland->keyboardModifiers() : 0;
-        if ((modifiers & KeyMod::Ctrl) != 0 && event.axis == 0U /* WL_POINTER_AXIS_VERTICAL_SCROLL */) {
-          double steps = 0.0;
-          if (event.axisValue120 != 0 || event.axisDiscrete != 0) {
-            // Detent events: the compositor counted the notches, every notch zooms one step.
-            steps = event.axisValue120 != 0 ? static_cast<double>(event.axisValue120) / 120.0
-                                            : static_cast<double>(event.axisDiscrete);
-          } else if (event.axisValue != 0.0 || event.axisLines != 0.0F) {
-            // Detent-less streams (touchpads) accumulate to whole steps at a capped rate,
-            // mirroring InputArea's scroll-step logic (render/scene/input_area.cpp).
-            const double delta = event.axisLines != 0.0F ? static_cast<double>(event.axisLines)
-                                                         : event.axisValue / kZoomScrollUnitsPerStep;
-            if (m_zoomScrollAccum != 0.0 && (delta > 0.0) != (m_zoomScrollAccum > 0.0)) {
-              m_zoomScrollAccum = 0.0;
-            }
-            m_zoomScrollAccum += delta;
-            const auto now = std::chrono::steady_clock::now();
-            if (std::trunc(m_zoomScrollAccum) != 0.0 && now - m_lastZoomStep >= kZoomContinuousStepInterval) {
-              steps = std::copysign(1.0, m_zoomScrollAccum);
-              m_zoomScrollAccum -= steps;
-              m_lastZoomStep = now;
-            }
-          }
-          if (steps != 0.0) {
-            // Scroll-up (negative axis values) zooms in, matching image-editor convention.
-            zoomViewTo(*target, event.sx, event.sy, std::pow(kWheelZoomStep, -steps));
-          }
-          return true;
-        }
         return target->inputDispatcher.pointerAxis(
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
             event.axisDiscrete, event.axisValue120, event.axisLines

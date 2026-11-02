@@ -5,7 +5,6 @@
 #include "capture/screenshot_image.h"
 
 #include <array>
-#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -232,9 +231,6 @@ namespace capture {
     double m_panAnchorY = 0.0;
     double m_panStartX = 0.0;
     double m_panStartY = 0.0;
-    // Ctrl+wheel zoom step accumulation for detent-less (touchpad) axis streams.
-    double m_zoomScrollAccum = 0.0;
-    std::chrono::steady_clock::time_point m_lastZoomStep{};
 
     Instance* m_textInstance = nullptr;
     std::optional<std::size_t> m_textIndex;
