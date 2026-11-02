@@ -155,8 +155,8 @@ void main() {
       );
     }
 
-    // Wallpapers upload with mipmaps, which ES 2.0 rejects on non-power-of-two textures without
-    // this extension: the texture is incomplete and renders black.
+    // ES 2.0 rejects mipmaps on non-power-of-two textures without this extension: a mipmapped
+    // upload is incomplete and renders black.
     if (TextureManager::globalMipmapsEnabled() && !hasGlExtension("GL_OES_texture_npot")) {
       kLog.warn(
           "GPU driver lacks GL_OES_texture_npot; mipmapped non-power-of-two textures will not render. "
