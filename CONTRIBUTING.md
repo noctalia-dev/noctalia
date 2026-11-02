@@ -53,7 +53,7 @@ Direct project dependencies are listed below; transitive dependencies are owned 
 
 Run `just format` before committing and `just format-check` to check. Both run a code half (`format-code`, `format-code-check`) and a docs half (`format-docs`, `format-docs-check`), which you can also run on their own.
 
-Code formatting accepts [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 22 or newer and covers `src/` and `tests/`. The code recipes reject formatter versions older than 22 and print the version in use.
+Code formatting accepts [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 22 or newer and covers `lib/`, `src/`, and `tests/`. The code recipes reject formatter versions older than 22 and print the version in use.
 
 CI runs `just format-code-check` on Arch with clang-format 22. Newer versions may produce different formatting, so a local check with a newer formatter does not guarantee CI will pass. Use version 22 to reproduce or resolve CI formatting failures.
 
