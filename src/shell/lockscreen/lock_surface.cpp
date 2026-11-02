@@ -1502,27 +1502,20 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   const float mediaGlyphSize = 14.0F * contentScale;
   const float mediaButtonPadding = 4.0F * contentScale;
   const float mediaButtonRadius = Style::scaledRadiusSm(contentScale);
+  const float mediaControlsGap = 2.0F * contentScale;
 
-  if (m_mediaPrevButton != nullptr) {
-    m_mediaPrevButton->setMinWidth(mediaButtonSize);
-    m_mediaPrevButton->setMinHeight(mediaButtonSize);
-    m_mediaPrevButton->setGlyphSize(mediaGlyphSize);
-    m_mediaPrevButton->setPadding(mediaButtonPadding);
-    m_mediaPrevButton->setRadius(mediaButtonRadius);
+  if (m_mediaControls != nullptr) {
+    m_mediaControls->setGap(mediaControlsGap);
   }
-  if (m_mediaPlayPauseButton != nullptr) {
-    m_mediaPlayPauseButton->setMinWidth(mediaButtonSize);
-    m_mediaPlayPauseButton->setMinHeight(mediaButtonSize);
-    m_mediaPlayPauseButton->setGlyphSize(mediaGlyphSize);
-    m_mediaPlayPauseButton->setPadding(mediaButtonPadding);
-    m_mediaPlayPauseButton->setRadius(mediaButtonRadius);
-  }
-  if (m_mediaNextButton != nullptr) {
-    m_mediaNextButton->setMinWidth(mediaButtonSize);
-    m_mediaNextButton->setMinHeight(mediaButtonSize);
-    m_mediaNextButton->setGlyphSize(mediaGlyphSize);
-    m_mediaNextButton->setPadding(mediaButtonPadding);
-    m_mediaNextButton->setRadius(mediaButtonRadius);
+  for (Button* button : {m_mediaPrevButton, m_mediaPlayPauseButton, m_mediaNextButton}) {
+    if (button == nullptr) {
+      continue;
+    }
+    button->setMinWidth(mediaButtonSize);
+    button->setMinHeight(mediaButtonSize);
+    button->setGlyphSize(mediaGlyphSize);
+    button->setPadding(mediaButtonPadding);
+    button->setRadius(mediaButtonRadius);
   }
 
   if (m_mediaBlock != nullptr) {
@@ -1576,11 +1569,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   }
 
   const bool showControls = m_mediaControls != nullptr && m_mediaControls->visible();
-  const float controlsGap = 2.0F * contentScale;
-  if (m_mediaControls != nullptr) {
-    m_mediaControls->setGap(controlsGap);
-  }
-  const float controlsWidth = showControls ? (3.0F * mediaButtonSize + 2.0F * controlsGap + Style::spaceSm) : 0.0F;
+  const float controlsWidth = showControls ? (3.0F * mediaButtonSize + 2.0F * mediaControlsGap + Style::spaceSm) : 0.0F;
   const float mediaTextMax = std::max(48.0F, mediaBudget - mediaArtSize - Style::spaceSm - controlsWidth);
   if (m_mediaTitle != nullptr) {
     m_mediaTitle->setMaxWidth(mediaTextMax);
