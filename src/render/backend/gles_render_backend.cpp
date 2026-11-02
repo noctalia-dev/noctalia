@@ -587,22 +587,6 @@ void GlesRenderBackend::drawSpinner(
   m_spinnerProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
 }
 
-void GlesRenderBackend::drawCountdownRing(
-    float surfaceWidth, float surfaceHeight, float width, float height, const CountdownRingStyle& style,
-    const Mat3& transform
-) {
-  m_countdownRingProgram.ensureInitialized();
-  m_countdownRingProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
-}
-
-void GlesRenderBackend::drawScreenCorner(
-    float surfaceWidth, float surfaceHeight, float width, float height, const ScreenCornerStyle& style,
-    const Mat3& transform
-) {
-  m_screenCornerProgram.ensureInitialized();
-  m_screenCornerProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
-}
-
 void GlesRenderBackend::drawAudioSpectrum(
     float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
     const AudioSpectrumStyle& style, std::span<const float> values, const Mat3& transform
@@ -705,8 +689,6 @@ void GlesRenderBackend::destroyGpuObjects() {
   m_imageProgram.destroy();
   m_glyphProgram.destroy();
   m_spinnerProgram.destroy();
-  m_countdownRingProgram.destroy();
-  m_screenCornerProgram.destroy();
   m_audioSpectrumProgram.destroy();
   m_fancyAudioVisualizerProgram.destroy();
   m_effectProgram.destroy();
@@ -717,6 +699,7 @@ void GlesRenderBackend::destroyGpuObjects() {
   m_blurProgram.destroy();
   m_fullscreenTextureProgram.destroy();
   m_fullscreenTintProgram.destroy();
+  destroyExtensions();
   m_textureManager.cleanup();
 }
 
@@ -725,8 +708,6 @@ void GlesRenderBackend::abandonGpuObjects() noexcept {
   m_imageProgram.abandon();
   m_glyphProgram.abandon();
   m_spinnerProgram.abandon();
-  m_countdownRingProgram.abandon();
-  m_screenCornerProgram.abandon();
   m_audioSpectrumProgram.abandon();
   m_fancyAudioVisualizerProgram.abandon();
   m_effectProgram.abandon();
@@ -737,6 +718,7 @@ void GlesRenderBackend::abandonGpuObjects() noexcept {
   m_blurProgram.abandon();
   m_fullscreenTextureProgram.abandon();
   m_fullscreenTintProgram.abandon();
+  abandonExtensions();
 }
 
 void GlesRenderBackend::cleanup() {

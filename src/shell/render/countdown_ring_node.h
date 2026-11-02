@@ -1,15 +1,13 @@
 #pragma once
 
 #include "render/core/color.h"
-#include "render/core/render_styles.h"
-#include "render/scene/node.h"
+#include "render/scene/custom_draw_node.h"
+#include "shell/render/shell_render_styles.h"
 
 #include <algorithm>
 
-class CountdownRingNode : public Node {
+class CountdownRingNode : public CustomDrawNode {
 public:
-  CountdownRingNode() : Node(NodeType::CountdownRing) {}
-
   void setColor(const Color& color) {
     if (m_style.color == color) {
       return;
@@ -34,6 +32,8 @@ public:
   }
 
   const CountdownRingStyle& style() const noexcept { return m_style; }
+
+  void draw(RenderBackend& backend, const CustomDrawContext& context) const override;
 
 private:
   CountdownRingStyle m_style;

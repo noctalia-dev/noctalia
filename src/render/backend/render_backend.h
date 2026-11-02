@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/backend/render_extension.h"
 #include "render/core/color.h"
 #include "render/core/mat3.h"
 #include "render/core/render_styles.h"
@@ -8,6 +9,11 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <type_traits>
+#include <typeindex>
+#include <typeinfo>
+#include <utility>
+#include <vector>
 
 class GlSharedContext;
 class RenderTarget;
@@ -146,14 +152,6 @@ public:
       float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
       const Mat3& transform
   ) = 0;
-  virtual void drawCountdownRing(
-      float surfaceWidth, float surfaceHeight, float width, float height, const CountdownRingStyle& style,
-      const Mat3& transform
-  ) = 0;
-  virtual void drawScreenCorner(
-      float surfaceWidth, float surfaceHeight, float width, float height, const ScreenCornerStyle& style,
-      const Mat3& transform
-  ) = 0;
   virtual void drawAudioSpectrum(
       float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
       const AudioSpectrumStyle& style, std::span<const float> values, const Mat3& transform
@@ -181,6 +179,26 @@ public:
   ) = 0;
 
   virtual TextureManager& textureManager() = 0;
+
+  // Returns this backend's instance of T, creating it on first use. The backend destroys or
+  // abandons every extension together with its own GPU objects.
+  template <typename T> T& extension() {
+    static_assert(std::is_base_of_v<RenderExtension, T>);
+    const std::type_index key(typeid(T));
+    for (auto& [type, instance] : m_extensions) {
+      if (type == key) {
+        return static_cast<T&>(*instance);
+      }
+    }
+    return static_cast<T&>(*m_extensions.emplace_back(key, std::make_unique<T>()).second);
+  }
+
+protected:
+  void destroyExtensions();
+  void abandonExtensions() noexcept;
+
+private:
+  std::vector<std::pair<std::type_index, std::unique_ptr<RenderExtension>>> m_extensions;
 };
 
 [[nodiscard]] std::unique_ptr<RenderBackend> createDefaultRenderBackend();

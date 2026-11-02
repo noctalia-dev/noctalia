@@ -5,7 +5,6 @@
 #include "render/core/shader_program.h"
 #include "render/programs/audio_spectrum_program.h"
 #include "render/programs/blur_program.h"
-#include "render/programs/countdown_ring_program.h"
 #include "render/programs/effect_program.h"
 #include "render/programs/fancy_audio_visualizer_program.h"
 #include "render/programs/glyph_program.h"
@@ -13,7 +12,6 @@
 #include "render/programs/image_program.h"
 #include "render/programs/lockscreen_transition_program.h"
 #include "render/programs/rect_program.h"
-#include "render/programs/screen_corner_program.h"
 #include "render/programs/spinner_program.h"
 #include "render/programs/wallpaper_mask_program.h"
 #include "render/programs/wallpaper_program.h"
@@ -60,14 +58,6 @@ public:
   void drawGlyph(const RenderGlyphDraw& draw) override;
   void drawSpinner(
       float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
-      const Mat3& transform
-  ) override;
-  void drawCountdownRing(
-      float surfaceWidth, float surfaceHeight, float width, float height, const CountdownRingStyle& style,
-      const Mat3& transform
-  ) override;
-  void drawScreenCorner(
-      float surfaceWidth, float surfaceHeight, float width, float height, const ScreenCornerStyle& style,
       const Mat3& transform
   ) override;
   void drawAudioSpectrum(
@@ -121,8 +111,6 @@ private:
   ImageProgram m_imageProgram;
   GlyphProgram m_glyphProgram;
   SpinnerProgram m_spinnerProgram;
-  CountdownRingProgram m_countdownRingProgram;
-  ScreenCornerProgram m_screenCornerProgram;
   AudioSpectrumProgram m_audioSpectrumProgram;
   FancyAudioVisualizerProgram m_fancyAudioVisualizerProgram;
   EffectProgram m_effectProgram;

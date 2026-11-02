@@ -11,7 +11,7 @@
 #include "render/gl_shared_context.h"
 #include "render/render_target.h"
 #include "render/scene/audio_spectrum_node.h"
-#include "render/scene/countdown_ring_node.h"
+#include "render/scene/custom_draw_node.h"
 #include "render/scene/effect_node.h"
 #include "render/scene/fancy_audio_visualizer_node.h"
 #include "render/scene/glyph_node.h"
@@ -20,7 +20,6 @@
 #include "render/scene/lockscreen_transition_node.h"
 #include "render/scene/node.h"
 #include "render/scene/rect_node.h"
-#include "render/scene/screen_corner_node.h"
 #include "render/scene/spinner_node.h"
 #include "render/scene/text_node.h"
 #include "render/scene/wallpaper_node.h"
@@ -444,20 +443,6 @@ void RenderContext::renderNode(
     m_backend->drawSpinner(sw, sh, node->width(), node->height(), style, worldTransform);
     break;
   }
-  case NodeType::CountdownRing: {
-    const auto* ring = static_cast<const CountdownRingNode*>(node);
-    auto style = ring->style();
-    style.color.a *= effectiveOpacity;
-    m_backend->drawCountdownRing(sw, sh, node->width(), node->height(), style, worldTransform);
-    break;
-  }
-  case NodeType::ScreenCorner: {
-    const auto* corner = static_cast<const ScreenCornerNode*>(node);
-    auto style = corner->style();
-    style.color.a *= effectiveOpacity;
-    m_backend->drawScreenCorner(sw, sh, node->width(), node->height(), style, worldTransform);
-    break;
-  }
   case NodeType::AudioSpectrum: {
     const auto* spectrum = static_cast<const AudioSpectrumNode*>(node);
     auto style = spectrum->style();
@@ -584,6 +569,21 @@ void RenderContext::renderNode(
     }
     return;
   }
+  case NodeType::CustomDraw:
+    static_cast<const CustomDrawNode*>(node)->draw(
+        *m_backend,
+        CustomDrawContext{
+            .surfaceWidth = sw,
+            .surfaceHeight = sh,
+            .pixelScaleX = sw > 0.0F ? bw / sw : 1.0F,
+            .pixelScaleY = sh > 0.0F ? bh / sh : 1.0F,
+            .transform = worldTransform,
+            .opacity = effectiveOpacity,
+            .width = node->width(),
+            .height = node->height(),
+        }
+    );
+    break;
   case NodeType::Base:
     break;
   }

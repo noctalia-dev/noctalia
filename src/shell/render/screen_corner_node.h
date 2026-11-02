@@ -1,12 +1,10 @@
 #pragma once
 
-#include "render/core/render_styles.h"
-#include "render/scene/node.h"
+#include "render/scene/custom_draw_node.h"
+#include "shell/render/shell_render_styles.h"
 
-class ScreenCornerNode : public Node {
+class ScreenCornerNode : public CustomDrawNode {
 public:
-  ScreenCornerNode() : Node(NodeType::ScreenCorner) {}
-
   const ScreenCornerStyle& style() const noexcept { return m_style; }
 
   void setStyle(const ScreenCornerStyle& style) {
@@ -40,6 +38,8 @@ public:
     m_style.exponent = exponent;
     markPaintDirty();
   }
+
+  void draw(RenderBackend& backend, const CustomDrawContext& context) const override;
 
 private:
   ScreenCornerStyle m_style;

@@ -17,8 +17,6 @@ enum class NodeType : std::uint8_t {
   Image,
   Glyph,
   Spinner,
-  CountdownRing,
-  ScreenCorner,
   AudioSpectrum,
   FancyAudioVisualizer,
   Effect,
@@ -26,6 +24,7 @@ enum class NodeType : std::uint8_t {
   Wallpaper,
   LockscreenTransition,
   RenderProxy,
+  CustomDraw,
 };
 
 enum class NodeInvalidation : std::uint8_t {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/backend/render_extension.h"
 #include "render/core/mat3.h"
 #include "render/core/shader_program.h"
 
@@ -7,17 +8,11 @@
 
 struct CountdownRingStyle;
 
-class CountdownRingProgram {
+class CountdownRingProgram final : public RenderExtension {
 public:
-  CountdownRingProgram() = default;
-  ~CountdownRingProgram() = default;
-
-  CountdownRingProgram(const CountdownRingProgram&) = delete;
-  CountdownRingProgram& operator=(const CountdownRingProgram&) = delete;
-
   void ensureInitialized();
-  void destroy();
-  void abandon() noexcept;
+  void destroy() override;
+  void abandon() noexcept override;
 
   void draw(
       float surfaceWidth, float surfaceHeight, float width, float height, const CountdownRingStyle& style,

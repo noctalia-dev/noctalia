@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/backend/render_extension.h"
 #include "render/core/mat3.h"
 #include "render/core/shader_program.h"
 
@@ -7,17 +8,11 @@
 
 struct ScreenCornerStyle;
 
-class ScreenCornerProgram {
+class ScreenCornerProgram final : public RenderExtension {
 public:
-  ScreenCornerProgram() = default;
-  ~ScreenCornerProgram() = default;
-
-  ScreenCornerProgram(const ScreenCornerProgram&) = delete;
-  ScreenCornerProgram& operator=(const ScreenCornerProgram&) = delete;
-
   void ensureInitialized();
-  void destroy();
-  void abandon() noexcept;
+  void destroy() override;
+  void abandon() noexcept override;
 
   void draw(
       float surfaceWidth, float surfaceHeight, float width, float height, const ScreenCornerStyle& style,

@@ -1,6 +1,6 @@
-#include "ui/controls/screen_corner.h"
+#include "shell/screen_corners/screen_corner.h"
 
-#include "render/scene/screen_corner_node.h"
+#include "shell/render/screen_corner_node.h"
 
 #include <memory>
 

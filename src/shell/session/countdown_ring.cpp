@@ -1,7 +1,7 @@
-#include "ui/controls/countdown_ring.h"
+#include "shell/session/countdown_ring.h"
 
 #include "render/core/renderer.h"
-#include "render/scene/countdown_ring_node.h"
+#include "shell/render/countdown_ring_node.h"
 #include "ui/controls/label.h"
 #include "ui/palette.h"
 
