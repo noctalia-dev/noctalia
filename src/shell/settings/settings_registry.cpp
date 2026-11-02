@@ -8,6 +8,7 @@
 #include "i18n/i18n.h"
 #include "launcher/panel_catalog.h"
 #include "pipewire/sound_player.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/bar/widget_gesture_defaults.h"
 #include "shell/control_center/control_center_panel.h"
@@ -19,7 +20,6 @@
 #include "system/sysmon_threshold_profile.h"
 #include "theme/builtin_palettes.h"
 #include "theme/builtin_templates.h"
-#include "ui/app_icon_colorization.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 

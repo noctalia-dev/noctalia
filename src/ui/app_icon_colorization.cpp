@@ -1,6 +1,5 @@
 #include "ui/app_icon_colorization.h"
 
-#include "config/config_types.h"
 #include "render/core/color.h"
 #include "ui/palette.h"
 
@@ -22,10 +21,6 @@ namespace {
     return AppIconBakeTuning{.minDisplayLevel = 0.28F, .minContrastSpan = 0.12F};
   }
 
-  ColorSpec defaultAppIconColorizationTint() noexcept {
-    return colorSpecFromRole(isResolvedLightTheme() ? ColorRole::OnSurface : ColorRole::OnSurfaceVariant);
-  }
-
   float pixelLuminance(float red, float green, float blue) noexcept {
     return 0.299F * red + 0.587F * green + 0.114F * blue;
   }
@@ -36,25 +31,8 @@ namespace {
 
 } // namespace
 
-ShellAppIconColorizationSettings shellAppIconColorizationSettings(const ShellConfig& shell) noexcept {
-  return ShellAppIconColorizationSettings{.launcherEnabled = shell.launcher.colorizeIcons, .color = shell.appIconColor};
-}
-
-Signal<>& shellAppIconColorizationChanged() noexcept {
-  static Signal<> signal;
-  return signal;
-}
-
-void notifyShellAppIconColorizationChanged() noexcept { shellAppIconColorizationChanged().emit(); }
-
-std::optional<ColorSpec> effectiveShellAppIconColorizationTint(const ShellConfig& shell, bool enabled) noexcept {
-  if (!enabled) {
-    return std::nullopt;
-  }
-  if (shell.appIconColor.has_value()) {
-    return shell.appIconColor;
-  }
-  return defaultAppIconColorizationTint();
+ColorSpec defaultAppIconColorizationTint() noexcept {
+  return colorSpecFromRole(isResolvedLightTheme() ? ColorRole::OnSurface : ColorRole::OnSurfaceVariant);
 }
 
 AppIconColorizationStyle resolveAppIconColorization(const ColorSpec& tint) noexcept {

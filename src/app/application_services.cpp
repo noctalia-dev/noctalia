@@ -55,6 +55,7 @@
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_runtime_context.h"
 #include "scripting/script_runtime.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/greeter/greeter_appearance_sync.h"
@@ -74,7 +75,6 @@
 #include "system/easyeffects_service.h"
 #include "system/keyboard_backlight_service.h"
 #include "system/system_monitor_service.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/controls/input.h"
 #include "ui/style.h"
 
