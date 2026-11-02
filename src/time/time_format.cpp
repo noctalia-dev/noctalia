@@ -117,6 +117,20 @@ namespace {
     return out;
   }
 
+  std::string strftimeToString(const std::string& spec, const std::tm& tm) {
+    std::size_t size = std::max<std::size_t>(64, spec.size() * 4 + 16);
+    for (int attempt = 0; attempt < 6; ++attempt) {
+      std::string buffer(size, '\0');
+      const std::size_t written = std::strftime(buffer.data(), buffer.size(), spec.c_str(), &tm);
+      if (written > 0 || spec.empty()) {
+        buffer.resize(written);
+        return buffer;
+      }
+      size *= 2;
+    }
+    return {};
+  }
+
   // Uppercases the first character using the active LC_CTYPE locale, so locale-specific casing
   // applies and uncased scripts pass through unchanged.
   std::string capitalizeFirst(std::string text) {
@@ -136,8 +150,6 @@ namespace {
     return text;
   }
 
-  std::string formatStrftimeRaw(std::string_view fmt, const std::tm& tm);
-
   // Noctalia extension: "%~a", "%~A", "%~b", "%~B" and "%~h" render the localized name with its
   // first letter capitalized. Like substituteTzAbbrev, the result is interpolated into the spec.
   std::string substituteCapitalizedNames(std::string_view fmt, const std::tm& tm) {
@@ -154,7 +166,7 @@ namespace {
         i += 2;
       } else if (i + 2 < fmt.size() && fmt[i + 1] == '~' && std::string_view{"aAbBh"}.contains(fmt[i + 2])) {
         const std::string token{'%', fmt[i + 2]};
-        for (const char c : capitalizeFirst(formatStrftimeRaw(token, tm))) {
+        for (const char c : capitalizeFirst(strftimeToString(token, tm))) {
           if (c == '%') {
             out.push_back('%');
           }
@@ -169,18 +181,7 @@ namespace {
   }
 
   std::string formatStrftimeRaw(std::string_view fmt, const std::tm& tm) {
-    const std::string spec = substituteCapitalizedNames(substituteTzAbbrev(fmt, tm.tm_zone), tm);
-    std::size_t size = std::max<std::size_t>(64, spec.size() * 4 + 16);
-    for (int attempt = 0; attempt < 6; ++attempt) {
-      std::string buffer(size, '\0');
-      const std::size_t written = std::strftime(buffer.data(), buffer.size(), spec.c_str(), &tm);
-      if (written > 0 || spec.empty()) {
-        buffer.resize(written);
-        return buffer;
-      }
-      size *= 2;
-    }
-    return {};
+    return strftimeToString(substituteCapitalizedNames(substituteTzAbbrev(fmt, tm.tm_zone), tm), tm);
   }
 
   std::string

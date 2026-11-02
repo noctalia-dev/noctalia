@@ -83,7 +83,7 @@ For example, if the current local time is Monday, May 4, 2026 at 09\:05\:07:
 
 ## Modifiers
 
-Modifiers go between `%` and the token letter. They are handled by the system `strftime(3)` implementation.
+Modifiers go between `%` and the token letter. They are handled by the system `strftime(3)` implementation, except `~`, which is a Noctalia extension: it capitalizes the first letter using the casing rules of `LC_CTYPE` and cannot be combined with other modifiers or a width.
 
 | Modifier | Example                                                                                   | Meaning                            |
 | -------- | ----------------------------------------------------------------------------------------- | ---------------------------------- |
