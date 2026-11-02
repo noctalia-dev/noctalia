@@ -271,7 +271,10 @@ int main() {
                 const auto surface = shell::dock::computeSurfaceGeometry(cfg, shadow, false, 1920, 1080);
                 const auto panel =
                     shell::dock::computePanelGeometry(cfg, shadow, surface.surfaceW, surface.surfaceH, 1);
-                TEST_CHECK(before.exclusiveZone == surface.exclusiveZone);
+                TEST_CHECK(
+                    before.exclusiveZone + edgeMargin(before, edge)
+                    == surface.exclusiveZone + edgeMargin(surface, edge)
+                );
                 const bool vertical = shell::dock::isVerticalEdge(edge);
                 TEST_CHECK(
                     panel.panelW == (vertical ? shell::dock::dockThickness(cfg) : shell::dock::dockContentSize(cfg, 1))
