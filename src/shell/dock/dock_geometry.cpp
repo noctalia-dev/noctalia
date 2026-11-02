@@ -244,7 +244,8 @@ namespace shell::dock {
           geometry.marginBottom = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.down);
           geometry.surfaceH = static_cast<std::uint32_t>(sb.up + panelH + std::min(mEdge, sb.down) + zoomPad);
         }
-        geometry.exclusiveZone = cfg.reserveSpace ? (panelH + std::min(mEdge, sb.down)) : 0;
+        geometry.exclusiveZone =
+            cfg.reserveSpace ? (panelH + (edgeGutter > 0 ? edgeGutter : std::min(mEdge, sb.down))) : 0;
       } else {
         if (edgeGutter > 0) {
           geometry.surfaceH = static_cast<std::uint32_t>(sb.down + panelH + edgeGutter + zoomPad);
@@ -252,7 +253,8 @@ namespace shell::dock {
           geometry.marginTop = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.up);
           geometry.surfaceH = static_cast<std::uint32_t>(std::min(mEdge, sb.up) + panelH + sb.down + zoomPad);
         }
-        geometry.exclusiveZone = cfg.reserveSpace ? (std::min(mEdge, sb.up) + panelH) : 0;
+        geometry.exclusiveZone =
+            cfg.reserveSpace ? (panelH + (edgeGutter > 0 ? edgeGutter : std::min(mEdge, sb.up))) : 0;
       }
       return geometry;
     }
@@ -267,7 +269,8 @@ namespace shell::dock {
         geometry.marginRight = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.right);
         geometry.surfaceW = static_cast<std::uint32_t>(sb.left + panelH + std::min(mEdge, sb.right) + zoomPad);
       }
-      geometry.exclusiveZone = cfg.reserveSpace ? (panelH + std::min(mEdge, sb.right)) : 0;
+      geometry.exclusiveZone =
+          cfg.reserveSpace ? (panelH + (edgeGutter > 0 ? edgeGutter : std::min(mEdge, sb.right))) : 0;
     } else {
       if (edgeGutter > 0) {
         geometry.surfaceW = static_cast<std::uint32_t>(sb.right + panelH + edgeGutter + zoomPad);
@@ -275,7 +278,8 @@ namespace shell::dock {
         geometry.marginLeft = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.left);
         geometry.surfaceW = static_cast<std::uint32_t>(std::min(mEdge, sb.left) + panelH + sb.right + zoomPad);
       }
-      geometry.exclusiveZone = cfg.reserveSpace ? (std::min(mEdge, sb.left) + panelH) : 0;
+      geometry.exclusiveZone =
+          cfg.reserveSpace ? (panelH + (edgeGutter > 0 ? edgeGutter : std::min(mEdge, sb.left))) : 0;
     }
     return geometry;
   }

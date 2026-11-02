@@ -242,6 +242,21 @@ int main() {
     }
   }
 
+  for (const DockEdge edge : kEdges) {
+    for (bool smartAutoHide : {false, true}) {
+      DockConfig cfg = flushDock(edge);
+      cfg.autoHide = !smartAutoHide;
+      cfg.smartAutoHide = smartAutoHide;
+      cfg.marginEdge = 40;
+      cfg.reserveSpace = true;
+      const auto before = geometryFor(cfg, false);
+      cfg.iconShadow = true;
+      const auto after = geometryFor(cfg, false);
+      TEST_CHECK(before.exclusiveZone == shell::dock::dockThickness(cfg) + cfg.marginEdge);
+      TEST_CHECK(after.exclusiveZone == before.exclusiveZone);
+    }
+  }
+
   for (const auto& direction : kShadowDirections) {
     for (bool panelShadow : {false, true}) {
       for (const DockEdge edge : kEdges) {
@@ -272,8 +287,7 @@ int main() {
                 const auto panel =
                     shell::dock::computePanelGeometry(cfg, shadow, surface.surfaceW, surface.surfaceH, 1);
                 TEST_CHECK(
-                    before.exclusiveZone + edgeMargin(before, edge)
-                    == surface.exclusiveZone + edgeMargin(surface, edge)
+                    before.exclusiveZone + edgeMargin(before, edge) == surface.exclusiveZone + edgeMargin(surface, edge)
                 );
                 const bool vertical = shell::dock::isVerticalEdge(edge);
                 TEST_CHECK(
