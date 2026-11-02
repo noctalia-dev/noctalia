@@ -183,7 +183,7 @@ private:
   bool entriesShareStack(const PopupEntry& lhs, const PopupEntry& rhs) const;
   bool isBottomStacking() const;
   RevealDirection revealDirection() const;
-  [[nodiscard]] bool isNewestOnEdge() const;
+  bool isNewestOnEdge() const;
   void refreshEntryGeometry(PopupEntry& entry) const;
   float layoutBottomForSurfaceHeight(float surfaceHeight) const;
   float maxPlacementBottom(wl_output* output) const;
