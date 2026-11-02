@@ -101,6 +101,10 @@ namespace StringUtils {
     return out;
   }
 
+  // Unicode case folding for case-insensitive search in translated text; toLower() only maps ASCII.
+  // Turkish İ/ı fold to "i". Invalid UTF-8 falls back to toLower().
+  std::string foldForSearch(std::string_view s);
+
   // Case-insensitive natural (alphanumeric) order: "image(2)" < "image(10)".
   // Returns <0, 0, or >0 like strcmp.
   inline int naturalCaseInsensitiveCompare(std::string_view a, std::string_view b) {

@@ -1238,6 +1238,7 @@ if build_tests
     'scrollbar_geometry',
     'secret_store',
     'security_primitives',
+    'settings_search',
     'state_store',
     'surface_blur_region',
     'sway_workspace_backend',
@@ -1286,6 +1287,8 @@ if build_tests
         test_args = [meson.project_source_root() / 'assets']
       elif test_name == 'i18n_supported_languages'
         test_args = [meson.project_source_root() / 'assets' / 'translations']
+      elif test_name == 'settings_search'
+        test_args = [meson.project_source_root() / 'assets']
       endif
       test(test_name, test_exe, args: test_args)
       if test_name == 'plugin_recommendations' and git_program.found()

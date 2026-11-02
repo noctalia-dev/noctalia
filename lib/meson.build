@@ -158,6 +158,7 @@ _noctalia_ui_sources = files(
   'util/checksum.cpp',
   'util/clamp.cpp',
   'util/fuzzy_match.cpp',
+  'util/string_utils.cpp',
   'wayland/popup_surface.cpp',
   'wayland/subsurface.cpp',
   'wayland/surface.cpp',
