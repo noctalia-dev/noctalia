@@ -240,6 +240,7 @@ src/
     overview/       Overview capture helpers
     panel/          Panel base, manager, attached-panel context
     polkit/         Polkit prompt panel
+    render/         Shell-only custom draw nodes, shader programs, and render styles
     screen_corners/ Screen corner overlays
     session/        Session panel and action runners
     settings/       Settings window, setting controls, registries, popups
@@ -248,6 +249,7 @@ src/
     switcher/       Window switcher UI
     tooltip/        Tooltip manager
     tray/           Tray drawer and D-Bus menu UI
+    visuals/        Audio visualizer and graph controls
     wallpaper/      Wallpaper surfaces, paths, picker panel
     widgets_editor/ Background widget editor
   system/           Desktop entries, brightness, weather, location, system monitor, hardware services
@@ -256,7 +258,6 @@ src/
   ui/
     controls/       Reusable controls (Button, Input, Label, Select, Slider, Box, ...)
     dialogs/        File, color, and glyph picker dialogs
-    visuals/        Shared visualizer controls
   util/             Generic helpers
   wayland/          Wayland connection, seats, surfaces, clipboard, toplevels, text input
     hyprland/       Hyprland-specific Wayland protocol helpers

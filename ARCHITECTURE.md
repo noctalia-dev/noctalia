@@ -61,12 +61,14 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 - `RenderContext` owns scene traversal and delegates drawing to a `RenderBackend`. Construct backends with `createDefaultRenderBackend()`.
 - Texture allocation goes through `TextureManager`, constructed with `createDefaultTextureManager()`.
 - Shell and widget code works with typed render concepts (`TextureId`, `TextureHandle`, `RenderFramebuffer`, `RenderSurfaceTarget`, nodes, draw primitives). Raw `GLuint` or EGL handles stay inside the render infrastructure.
-- `RenderContext` does not own shader programs or include `render/programs/*`. Style and data structs live in neutral headers under `render/core/`.
-- A new shader follows the same pattern: a GLES program in `src/render/programs/`, neutral data under `render/core/`, a typed `RenderBackend` draw method, and ownership by `GlesRenderBackend`.
+- `src/render` draws generic primitives only (rect, text, image, glyph, spinner, blur, fullscreen texture and tint) and never includes shell code. `RenderContext` does not own shader programs or include `render/programs/*`. Style and data structs live in neutral headers under `render/core/`.
+- A new generic primitive is a GLES program in `src/render/programs/`, a typed `RenderBackend` draw method, and ownership by `GlesRenderBackend`.
+- Shell-only drawing (wallpaper, visualizers, graphs, weather effects, transitions) lives in `src/shell/render/`: a `CustomDrawNode` subclass whose `draw()` fetches its GLES program with `RenderBackend::extension<T>()`. The program derives from `RenderExtension`; the backend creates it on first use and destroys or abandons it with its own GPU objects.
+- `Surface::setOverlayNode()` renders a node after the scene root in surface coordinates, for passes that must cover the whole surface (the desktop-widget wallpaper mask).
 - Text is rasterized with Pango and Cairo, uploaded through `TextureManager`, and drawn with `RenderBackend::drawGlyph()`.
 - Async images are consumer scoped through `Image::setSourceFileAsync()` and `AsyncTextureCache::subscribeReady()`; there is no fan-out from `Application`.
 
-**Rectangle shapes**: the rect shader is generic. Use per-corner `CornerShape::Convex` or `CornerShape::Concave` with `Radii` and `RectInsets logicalInset`. Panel and bar policy stays in shell code, not in shader enum names. Screen-corner overlays use the dedicated `ScreenCornerProgram` and `ScreenCornerNode` path.
+**Rectangle shapes**: the rect shader is generic. Use per-corner `CornerShape::Convex` or `CornerShape::Concave` with `Radii` and `RectInsets logicalInset`. Panel and bar policy stays in shell code, not in shader enum names. Screen-corner overlays use the shell's `ScreenCornerNode` custom draw node.
 
 ### Fractional Scaling
 
