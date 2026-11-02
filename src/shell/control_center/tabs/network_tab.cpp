@@ -12,6 +12,7 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <array>
@@ -600,9 +601,10 @@ private:
 };
 
 NetworkTab::NetworkTab(
-    INetworkService* network, NetworkSecretAgent* secrets, ExternalIpService* externalIp, ModemManagerService* modem
+    INetworkService* network, NetworkSecretAgent* secrets, ExternalIpService* externalIp, ModemManagerService* modem,
+    ClipboardService* clipboard
 )
-    : m_network(network), m_secrets(secrets), m_externalIpService(externalIp), m_modem(modem) {
+    : m_network(network), m_secrets(secrets), m_externalIpService(externalIp), m_modem(modem), m_clipboard(clipboard) {
   if (m_secrets != nullptr) {
     m_secrets->setRequestCallback([this](const NetworkSecretAgent::SecretRequest& request) {
       showPasswordPrompt(request);
@@ -646,6 +648,42 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .fontSize = Style::fontSizeCaption * scale,
           .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           .flexGrow = 1.0F,
+      }),
+      ui::button({
+          .out = &m_copyLanButton,
+          .text = i18n::tr("control-center.network.lan"),
+          .glyph = "copy",
+          .fontSize = Style::fontSizeCaption * scale,
+          .glyphSize = Style::fontSizeCaption * scale,
+          .variant = ButtonVariant::Ghost,
+          .tooltip = i18n::tr("control-center.network.copy-lan-ip"),
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusSm(scale),
+          .visible = false,
+          .onClick =
+              [this] {
+                if (m_network != nullptr) {
+                  copyAddress(CopiedAddress::Lan, m_network->state().ipv4);
+                }
+              },
+      }),
+      ui::button({
+          .out = &m_copyWanButton,
+          .text = i18n::tr("control-center.network.wan"),
+          .glyph = "copy",
+          .fontSize = Style::fontSizeCaption * scale,
+          .glyphSize = Style::fontSizeCaption * scale,
+          .variant = ButtonVariant::Ghost,
+          .tooltip = i18n::tr("control-center.network.copy-wan-ip"),
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusSm(scale),
+          .visible = false,
+          .onClick =
+              [this] {
+                if (m_externalIpService != nullptr) {
+                  copyAddress(CopiedAddress::Wan, m_externalIpService->externalIp());
+                }
+              },
       }),
       ui::button({
           .out = &m_disconnectButton,
@@ -935,6 +973,8 @@ void NetworkTab::onClose() {
   m_wifiToggle = nullptr;
   m_scanSpinner = nullptr;
   m_currentRow = nullptr;
+  m_copyLanButton = nullptr;
+  m_copyWanButton = nullptr;
   m_disconnectButton = nullptr;
   m_cellularToggle = nullptr;
   m_cellularRows.clear();
@@ -947,6 +987,8 @@ void NetworkTab::onClose() {
   m_active = false;
   m_actionPending = false;
   m_actionPendingTimer.stop();
+  m_copiedAddress = CopiedAddress::None;
+  m_copiedTimer.stop();
   m_wifiTogglePending = false;
   m_wifiToggleWriteComplete = false;
   m_wifiToggleTargetObserved = false;
@@ -1140,6 +1182,18 @@ void NetworkTab::clearPasswordPrompt() {
 
 bool NetworkTab::networkAvailable() const noexcept { return m_network != nullptr && m_network->available(); }
 
+void NetworkTab::copyAddress(CopiedAddress which, const std::string& value) {
+  if (m_clipboard == nullptr || value.empty() || !m_clipboard->copyText(value)) {
+    return;
+  }
+  m_copiedAddress = which;
+  m_copiedTimer.start(kCopiedFeedback, [this] {
+    m_copiedAddress = CopiedAddress::None;
+    PanelManager::instance().refresh();
+  });
+  PanelManager::instance().refresh();
+}
+
 void NetworkTab::syncCurrentCard() {
   if (m_currentTitle == nullptr || m_currentDetail == nullptr) {
     return;
@@ -1179,6 +1233,15 @@ void NetworkTab::syncCurrentCard() {
   const CellularModemInfo* modem = m_modem != nullptr ? m_modem->primaryModem() : nullptr;
   m_currentTitle->setText(currentTitle(s, modem));
   m_currentDetail->setText(currentDetail(s, externalIp, modem));
+  const bool canCopy = m_clipboard != nullptr && s.connected;
+  if (m_copyLanButton != nullptr) {
+    m_copyLanButton->setVisible(canCopy && !s.ipv4.empty());
+    m_copyLanButton->setGlyph(m_copiedAddress == CopiedAddress::Lan ? "check" : "copy");
+  }
+  if (m_copyWanButton != nullptr) {
+    m_copyWanButton->setVisible(canCopy && !externalIp.empty());
+    m_copyWanButton->setGlyph(m_copiedAddress == CopiedAddress::Wan ? "check" : "copy");
+  }
   if (m_disconnectButton != nullptr) {
     const bool canReconnectWired = !s.connected && m_network->canActivateWiredConnection();
     m_disconnectButton->setVisible(s.connected || canReconnectWired || m_actionPending);
