@@ -4985,11 +4985,6 @@
           "description": "Include windows from every monitor on this widget",
           "label": "Show All Monitors"
         },
-        "workspace-monitors": {
-          "all": "All Monitors",
-          "description": "Choose which monitors' workspaces appear in this widget, in order. Leave empty to show only the workspaces from the monitor hosting the bar",
-          "label": "Workspace Monitors"
-        },
         "show-caps-lock": {
           "description": "Show Caps Lock state",
           "label": "Show Caps Lock"
@@ -5162,6 +5157,11 @@
         "workspace-label-placement": {
           "description": "Corner, centered on the edge, or inside the pill",
           "label": "Workspace Label Placement"
+        },
+        "workspace-monitors": {
+          "all": "All Monitors",
+          "description": "Choose which monitors' workspaces appear in this widget, in order. Leave empty to show only the workspaces from the monitor hosting the bar",
+          "label": "Workspace Monitors"
         }
       },
       "types": {
