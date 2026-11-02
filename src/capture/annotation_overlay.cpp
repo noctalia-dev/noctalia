@@ -2247,6 +2247,14 @@ namespace capture {
     case XKB_KEY_P:
       toggleCursor();
       return true;
+    case XKB_KEY_r:
+    case XKB_KEY_R:
+      requestCaptureRegion();
+      return true;
+    case XKB_KEY_w:
+    case XKB_KEY_W:
+      requestCaptureWindow();
+      return true;
     case XKB_KEY_bracketleft:
       adjustToolWidth(-1.0);
       return true;

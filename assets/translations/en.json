@@ -28,8 +28,8 @@
   },
   "bar": {
     "annotate": {
-      "capture-new-region": "Capture new region (discards the current edit)",
-      "capture-window": "Capture the focused window (discards the current edit)",
+      "capture-new-region": "Capture new region (r), discards the current edit",
+      "capture-window": "Capture the focused window (w), discards the current edit",
       "close": "Close without delivering (Esc)",
       "color-black": "Black",
       "color-blue": "Blue",
