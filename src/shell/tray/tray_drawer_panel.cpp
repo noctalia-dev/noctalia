@@ -15,16 +15,22 @@ TrayDrawerPanel::TrayDrawerPanel(TrayService* tray, ConfigService* config) : m_t
 
 TrayDrawerPanel::~TrayDrawerPanel() = default;
 
+std::string_view TrayDrawerPanel::widgetName() const noexcept {
+  return pendingOpenContext().empty() ? tray::kCanonicalTrayWidgetName : pendingOpenContext();
+}
+
+bool TrayDrawerPanel::isContextActive(std::string_view context) const { return context == widgetName(); }
+
 PanelPlacement TrayDrawerPanel::panelPlacement() const noexcept {
   if (m_config == nullptr) {
     return PanelPlacement::Attached;
   }
-  return tray::resolvedTrayOptions(*m_config).options.detachedPanel ? PanelPlacement::Floating
-                                                                    : PanelPlacement::Attached;
+  return tray::resolvedTrayOptions(*m_config, {}, widgetName()).options.detachedPanel ? PanelPlacement::Floating
+                                                                                      : PanelPlacement::Attached;
 }
 
 std::optional<float> TrayDrawerPanel::currentDrawerItemSize() const {
-  return m_config != nullptr ? tray::resolvedTrayOptions(*m_config).drawerItemSize : std::nullopt;
+  return m_config != nullptr ? tray::resolvedTrayOptions(*m_config, {}, widgetName()).drawerItemSize : std::nullopt;
 }
 
 float TrayDrawerPanel::resolvedItemGap() const {
@@ -33,14 +39,14 @@ float TrayDrawerPanel::resolvedItemGap() const {
     return gap;
   }
 
-  const auto resolved = tray::resolvedTrayOptions(*m_config);
+  const auto resolved = tray::resolvedTrayOptions(*m_config, {}, widgetName());
   if (!m_config->config().bars.empty()) {
     gap = static_cast<float>(m_config->config().bars.front().widgetSpacing);
   }
   if (!resolved.options.matchAdjacentSpacing || m_config->config().bars.empty()) {
     return gap;
   }
-  const auto capsule = tray::resolvedTrayCapsuleSpec(*m_config, m_config->config().bars.front());
+  const auto capsule = tray::resolvedTrayCapsuleSpec(*m_config, m_config->config().bars.front(), widgetName());
   const float padding = capsule.enabled ? capsule.padding * contentScale() : 0.0F;
   return gap + 2.0F * padding;
 }
@@ -84,7 +90,8 @@ void TrayDrawerPanel::create() {
       TrayWidgetDefinitionContext{
           .barPosition = barPosition,
           .inlineEntryGap = widgetSpacing,
-      }
+      },
+      widgetName()
   );
   auto options = std::move(resolved.options);
   options.drawerMode = false;
@@ -95,7 +102,7 @@ void TrayDrawerPanel::create() {
   m_drawerWidget->setContentScale(contentScale());
   if (!m_config->config().bars.empty()) {
     const auto& barConfig = m_config->config().bars.front();
-    m_drawerWidget->setBarCapsuleSpec(tray::resolvedTrayCapsuleSpec(*m_config, barConfig));
+    m_drawerWidget->setBarCapsuleSpec(tray::resolvedTrayCapsuleSpec(*m_config, barConfig, widgetName()));
   }
   m_drawerWidget->setAnimationManager(m_animations);
   // Replacing the icon grid is structural. An update-only frame ignores the layout
@@ -147,11 +154,12 @@ void TrayDrawerPanel::doUpdate(Renderer& renderer) {
   if (m_drawerWidget == nullptr || m_drawerWidget->root() == nullptr) {
     return;
   }
+  m_drawerWidget->setColorizeIcons(tray::resolvedTrayOptions(*m_config, {}, widgetName()).options.colorizeIcons);
   m_drawerWidget->update(renderer);
 }
 
 std::size_t TrayDrawerPanel::currentDrawerColumns() const {
-  return m_config != nullptr ? tray::resolvedTrayOptions(*m_config).options.panelGridColumns
+  return m_config != nullptr ? tray::resolvedTrayOptions(*m_config, {}, widgetName()).options.panelGridColumns
                              : TrayWidget::Options{}.panelGridColumns;
 }
 
@@ -159,7 +167,8 @@ std::size_t TrayDrawerPanel::visibleItemCount() const {
   if (m_tray == nullptr) {
     return 0;
   }
-  const auto options = m_config != nullptr ? tray::resolvedTrayOptions(*m_config).options : TrayWidget::Options{};
+  const auto options =
+      m_config != nullptr ? tray::resolvedTrayOptions(*m_config, {}, widgetName()).options : TrayWidget::Options{};
   std::size_t visible = 0;
   for (const auto& item : m_tray->items()) {
     if (options.hidePassive && tray::isPassiveStatus(item)) {

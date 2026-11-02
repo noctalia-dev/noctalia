@@ -166,8 +166,9 @@ namespace {
 TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options)
     : m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
       m_pinnedItems(std::move(options.pinnedItems)), m_hidePassive(options.hidePassive),
-      m_drawerMode(options.drawerMode), m_itemActivated(std::move(options.itemActivated)),
-      m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
+      m_colorizeIcons(options.colorizeIcons), m_drawerMode(options.drawerMode),
+      m_itemActivated(std::move(options.itemActivated)), m_barPosition(std::move(options.barPosition)),
+      m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
       m_customItemSize(options.customItemSize), m_iconOverrideBlacklist(std::move(options.iconOverrideBlacklist)),
@@ -234,8 +235,17 @@ float TrayWidget::resolvedInlineEntryGap() const {
   return m_inlineEntryGap + 2.0F * pad;
 }
 
+void TrayWidget::setColorizeIcons(bool enabled) {
+  if (m_colorizeIcons == enabled) {
+    return;
+  }
+  m_colorizeIcons = enabled;
+  m_appIconColorizeDirty = true;
+  requestUpdate();
+}
+
 std::optional<ColorSpec> TrayWidget::currentAppIconColorizeTint() const {
-  return effectiveShellAppIconColorizationTint(m_config.config().shell);
+  return effectiveShellAppIconColorizationTint(m_config.config().shell, m_colorizeIcons);
 }
 
 void TrayWidget::refreshAppIconColorization(Renderer& renderer) {
@@ -572,7 +582,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
           } else if (m_barPosition == "right") {
             anchorX -= triggerPtr->width() * 0.5F + Style::spaceXs * m_contentScale;
           }
-          requestPanelToggle("tray-drawer", {}, anchorX, anchorY);
+          requestPanelToggle("tray-drawer", configName(), anchorX, anchorY);
         }
       });
       const bool panelOpen = PanelManager::instance().isOpenPanel("tray-drawer");

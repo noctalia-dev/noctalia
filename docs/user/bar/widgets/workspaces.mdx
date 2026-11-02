@@ -17,6 +17,7 @@ Workspace pills use the workspaces widget's resolved `capsule_radius`. Set `[wid
 
 | Setting                     | Type            | Default        | Description                                                                                                                                                                                                                                                                                      |
 | --------------------------- | --------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `colorize_icons`            | bool            | `false`        | Tint the focused app icon in Focus Hint style with the shared shell.app_icon_color.                                                                                                                                                                                                              |
 | `style`                     | string          | `"regular"`    | Pill style: `"regular"` (animated pills), `"minimal"` (labels drawn without pill backgrounds, colored with the focused, occupied, empty, and urgent colors), or `"focus_hint"` (inactive dots + expanded active pill with focused app icon).                                                     |
 | `show_labels`               | bool            | `true`         | Draw text labels on workspaces. Minimal renders labels and nothing else, so turning them off leaves its workspaces as empty slots.                                                                                                                                                               |
 | `show_icons`                | bool            | `true`         | Draw the focused app icon on the active pill. Focus Hint only; the other styles never draw app icons.                                                                                                                                                                                            |
@@ -43,6 +44,7 @@ On labwc, the compositor does not report which workspace a window is on, so occu
 
 ```toml
 [widget.workspaces]
+colorize_icons = false
 style = "regular"       # regular | minimal | focus_hint
 show_labels = true      # false = unlabeled pills (Focus Hint: app icon only)
 show_icons = true       # focus_hint only; false = active pill without the focused app icon

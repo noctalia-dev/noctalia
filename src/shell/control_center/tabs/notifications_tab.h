@@ -3,6 +3,8 @@
 #include "render/animation/animation_manager.h"
 #include "shell/control_center/tab.h"
 #include "system/icon_resolver.h"
+#include "ui/palette.h"
+#include "ui/signal.h"
 
 #include <cstdint>
 #include <limits>
@@ -13,6 +15,7 @@
 #include <vector>
 
 class NotificationManager;
+class ConfigService;
 class CompositorPlatform;
 struct NotificationHistoryEntry;
 class Button;
@@ -23,7 +26,7 @@ class NotificationHistoryAdapter;
 
 class NotificationsTab : public Tab {
 public:
-  NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform);
+  NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform, ConfigService* config);
   ~NotificationsTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -56,6 +59,9 @@ private:
   bool filterSlideOutActive() const;
 
   NotificationManager* m_notifications = nullptr;
+  ConfigService* m_config = nullptr;
+  Signal<>::ScopedConnection m_appIconColorizeConn;
+  std::optional<ColorSpec> m_lastIconTint;
   CompositorPlatform* m_platform = nullptr;
   IconResolver m_iconResolver;
   std::unique_ptr<NotificationHistoryAdapter> m_adapter;

@@ -238,6 +238,9 @@ void Image::setSaturation(float saturation) {
 }
 
 void Image::setAppIconColorization(std::optional<ColorSpec> tint) {
+  if (m_appIconColorizeTint == tint) {
+    return;
+  }
   m_appIconColorizeTint = tint;
   if (tint.has_value()) {
     m_foregroundTint = std::nullopt;

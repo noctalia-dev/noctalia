@@ -1976,7 +1976,9 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
   );
   std::optional<ColorSpec> iconTint;
   if (m_config != nullptr) {
-    iconTint = effectiveShellAppIconColorizationTint(m_config->config().shell);
+    iconTint = effectiveShellAppIconColorizationTint(
+        m_config->config().shell, m_config->config().shell.windowSwitcher.colorizeIcons
+    );
   }
   const ShellConfig::ShadowConfig shadowConfig =
       m_config != nullptr ? m_config->config().shell.shadow : ShellConfig::ShadowConfig{};

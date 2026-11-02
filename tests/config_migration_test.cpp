@@ -1043,6 +1043,140 @@ accent = "outline"
     expect(secondPassIssues.empty(), "palette role normalization was not idempotent");
   }
 
+  void checkAppIconColorizationMigration() {
+    for (const bool enabled : {false, true}) {
+      toml::table root = toml::parse(
+          std::format(
+              R"(
+[shell]
+app_icon_colorize = {}
+app_icon_color = "primary"
+[widget.tags]
+type = "workspaces"
+[widget.apps]
+type = "taskbar"
+[widget.status]
+type = "tray"
+[widget.title]
+type = "active_window"
+[widget.clock]
+format = "%H:%M"
+)",
+              enabled
+          )
+      );
+      noctalia::config::LegacyConfigIssues issues;
+      noctalia::config::normalizeLegacyConfig(root, issues);
+      expect(!root["shell"].as_table()->contains("app_icon_colorize"), "global icon toggle was not removed");
+      expect(root["shell"]["app_icon_color"].value<std::string>() == "primary", "shared icon tint was changed");
+      expect(root["dock"]["colorize_icons"].value<bool>() == enabled, "dock icon toggle was not migrated");
+      expect(
+          root["notification"]["colorize_icons"].value<bool>() == enabled, "notification icon toggle was not migrated"
+      );
+      expect(root["audio"]["colorize_icons"].value<bool>() == enabled, "audio icon toggle was not migrated");
+      expect(
+          root["shell"]["screen_time_colorize_icons"].value<bool>() == enabled,
+          "screen time icon toggle was not migrated"
+      );
+      expect(
+          root["shell"]["polkit_colorize_icons"].value<bool>() == enabled, "authentication icon toggle was not migrated"
+      );
+      expect(
+          root["shell"]["launcher"]["colorize_icons"].value<bool>() == enabled, "launcher icon toggle was not migrated"
+      );
+      expect(
+          root["shell"]["window_switcher"]["colorize_icons"].value<bool>() == enabled,
+          "switcher icon toggle was not migrated"
+      );
+      for (const auto* name : {"workspaces", "taskbar", "tray", "active_window", "tags", "apps", "status", "title"}) {
+        expect(
+            root["widget"][name]["colorize_icons"].value<bool>() == enabled,
+            "default or named widget icon toggle was not migrated"
+        );
+      }
+      expect(!root["widget"]["clock"]["colorize_icons"], "unrelated widget gained an icon toggle");
+      expect(
+          issues.size() == 1 && hasIssuePath(issues, "shell.app_icon_colorize"),
+          "global icon toggle migration was not reported"
+      );
+      const toml::table firstPass = root;
+      noctalia::config::LegacyConfigIssues secondPass;
+      noctalia::config::normalizeLegacyConfig(root, secondPass);
+      expect(root == firstPass && secondPass.empty(), "icon toggle migration was not idempotent");
+    }
+
+    const toml::table base = toml::parse(R"(
+[dock]
+colorize_icons = false
+[widget.workspaces]
+type = "clock"
+[widget.custom]
+type = "taskbar"
+[widget.tray]
+colorize_icons = false
+)");
+    toml::table sidecar = toml::parse(R"(
+config_version = 18
+[shell]
+app_icon_colorize = true
+[shell.launcher]
+colorize_icons = false
+[widget.custom]
+icon_scale = 0.8
+[widget.other]
+type = "active_window"
+)");
+    noctalia::config::schema::Diagnostics diagnostics;
+    const int version = noctalia::config::applyPendingConfigMigrations(sidecar, base, 18, diagnostics);
+    expect(
+        version == noctalia::config::currentConfigVersion(),
+        "icon toggle sidecar migration did not reach current version"
+    );
+    expect(!sidecar["shell"]["app_icon_colorize"], "sidecar retained the global icon toggle");
+    expect(!sidecar["dock"]["colorize_icons"], "migration overrode an explicit base dock toggle");
+    expect(
+        sidecar["shell"]["launcher"]["colorize_icons"].value<bool>() == false,
+        "migration overrode an explicit sidecar launcher toggle"
+    );
+    expect(!sidecar["widget"]["tray"]["colorize_icons"], "migration overrode an explicit base widget toggle");
+    expect(
+        !sidecar["widget"]["workspaces"]["colorize_icons"],
+        "widget named workspaces with a different type gained an icon toggle"
+    );
+    expect(
+        sidecar["widget"]["custom"]["colorize_icons"].value<bool>() == true,
+        "sidecar did not resolve a custom widget type from base config"
+    );
+    expect(
+        sidecar["widget"]["other"]["colorize_icons"].value<bool>() == true,
+        "sidecar did not migrate its own named widget"
+    );
+
+    toml::table disabled = toml::parse("[shell]\napp_icon_colorize = false\n");
+    const toml::table enabledBase = toml::parse("[shell]\napp_icon_colorize = true\n");
+    (void)noctalia::config::applyPendingConfigMigrations(disabled, enabledBase, 18, diagnostics);
+    expect(
+        disabled["dock"]["colorize_icons"].value<bool>() == false,
+        "disabled sidecar did not preserve its override of an enabled global base toggle"
+    );
+    expect(
+        disabled["widget"]["taskbar"]["colorize_icons"].value<bool>() == false,
+        "disabled sidecar did not preserve its widget override"
+    );
+
+    toml::table invalid = toml::parse("[shell]\napp_icon_colorize = \"yes\"\n");
+    noctalia::config::LegacyConfigIssues invalidIssues;
+    noctalia::config::normalizeLegacyConfig(invalid, invalidIssues);
+    expect(
+        invalid["shell"]["app_icon_colorize"].is_string(), "migration silently removed a malformed global icon toggle"
+    );
+
+    toml::table absent;
+    noctalia::config::LegacyConfigIssues absentIssues;
+    noctalia::config::normalizeLegacyConfig(absent, absentIssues);
+    expect(absent.empty() && absentIssues.empty(), "absent global toggle enabled component colorization");
+  }
+
   void checkVersionGating() {
     toml::table legacy = toml::parse(R"(
 [bar.main]
@@ -1197,6 +1331,7 @@ int main() {
   checkWorkspacesDisplayMigration();
   checkPaletteRoleNamesMigration();
   checkPluginAutoUpdateModeMigration();
+  checkAppIconColorizationMigration();
   checkVersionGating();
   checkReminderFingerprint();
   checkRegistryOrdering();

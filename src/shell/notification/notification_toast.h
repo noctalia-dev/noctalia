@@ -5,6 +5,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "system/icon_resolver.h"
+#include "ui/signal.h"
 
 #include <memory>
 #include <string_view>
@@ -64,6 +65,7 @@ private:
     std::string body;
     std::vector<std::string> actions;
     std::optional<std::string> icon;
+    bool iconIsAppIcon = false;
     std::optional<NotificationImageData> imageData;
     Urgency urgency = Urgency::Normal;
     NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect;
@@ -201,6 +203,7 @@ private:
   WaylandConnection* m_wayland = nullptr;
   CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
+  Signal<>::ScopedConnection m_appIconColorizeConn;
   NotificationManager* m_notifications = nullptr;
   RenderContext* m_renderContext = nullptr;
   HttpClient* m_httpClient = nullptr;

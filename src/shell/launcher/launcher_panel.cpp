@@ -204,7 +204,7 @@ namespace {
       style.showIcons = launcher.showIcons;
       style.showAppOriginIndicator = launcher.showAppOriginIndicator;
       style.compact = launcher.compact;
-      style.appIconColorizeTint = effectiveShellAppIconColorizationTint(config->config().shell);
+      style.appIconColorizeTint = effectiveShellAppIconColorizationTint(config->config().shell, launcher.colorizeIcons);
       if (config->config().shell.panel.listItemBackground) {
         style.listItemBackground = colorSpecFromRole(ColorRole::SurfaceContainer, cardOpacity);
       }
@@ -332,6 +332,7 @@ namespace {
       m_selected = selected;
       m_hovered = hovered;
       m_iconPath = result.iconPath;
+      m_isAppIcon = result.appIcon;
       m_fallbackGlyph = result.glyphName.empty() ? "app-window" : result.glyphName;
       const float iconSize = launcherIconSize(m_style);
       m_iconTargetSize = static_cast<int>(std::round(iconSize));
@@ -419,7 +420,7 @@ namespace {
         return false;
       }
 
-      m_image->setAppIconColorization(m_style.appIconColorizeTint);
+      m_image->setAppIconColorization(m_isAppIcon ? m_style.appIconColorizeTint : std::nullopt);
 
       bool ready = false;
       if (m_asyncTextures != nullptr) {
@@ -490,6 +491,7 @@ namespace {
     std::string m_fallbackGlyph;
     int m_iconTargetSize = 0;
     bool m_badgeVisible = false;
+    bool m_isAppIcon = false;
     bool m_reorderTarget = false;
   };
 
@@ -607,7 +609,7 @@ namespace {
 
       setSize(width, height);
       m_col->setSize(width, height);
-      m_isAppIcon = !result.desktopEntryPath.empty();
+      m_isAppIcon = result.appIcon;
 
       const float pinSize = Style::fontSizeBody * m_style.scale;
       const float padding = Style::spaceSm * m_style.scale;

@@ -7,6 +7,8 @@ sidebar:
 
 The Noctalia launcher is a centralized search interface that provides quick access to your applications, system actions, and utility providers.
 
+Set `shell.launcher.colorize_icons = true` to tint application result icons with the shared `[shell].app_icon_color`. The toggle defaults to `false` and is available under **Launcher → Display**. The same rule applies in rows and grids: application and window icons may be tinted, while wallpaper thumbnails and other provider images retain their original colors. Other components have their own toggles (see [App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+
 ## Layout
 
 The launcher has two layouts, selected with `shell.launcher.layout`.
@@ -18,6 +20,7 @@ Configure the layout under **Settings → Panels → Launcher**, or in your conf
 
 ```toml
 [shell.launcher]
+colorize_icons = false
 layout = "full"
 width = 760
 search_position = "bottom"

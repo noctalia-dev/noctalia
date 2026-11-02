@@ -714,6 +714,7 @@ struct DockMonitorOverride {
   std::optional<bool> activeMonitorOnly;
   std::optional<std::int32_t> iconSize;
   std::optional<float> iconSaturation;
+  std::optional<bool> colorizeIcons;
   std::optional<std::int32_t> mainAxisPadding;
   std::optional<std::int32_t> crossAxisPadding;
   std::optional<std::int32_t> itemSpacing;
@@ -788,8 +789,9 @@ struct DockConfig {
   float activeOpacity = 1.0F;       // focused app icon opacity
   float inactiveOpacity = 0.85F;    // non-focused app icon opacity
   float iconSaturation = 1.0F;      // app icon saturation (0 = grayscale)
-  bool showDots = false;            // show optional running window dots below app icons
-  bool showInstanceCount = true;    // show a badge with count when app has >1 window
+  bool colorizeIcons = false;
+  bool showDots = false;         // show optional running window dots below app icons
+  bool showInstanceCount = true; // show a badge with count when app has >1 window
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
   std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set
@@ -896,6 +898,7 @@ struct NotificationConfig {
 
   bool enableDaemon = true;
   bool showAppName = true;
+  bool colorizeIcons = false;
   bool showActions = true;
   std::string position = "top_right";
   std::string layer = "top"; // top | overlay
@@ -1254,6 +1257,7 @@ struct ShellConfig {
     bool showSettingsButton = true;
     bool showSessionButton = true;
     bool showIcons = true;
+    bool colorizeIcons = false;
     bool showAppOriginIndicator = true;
     bool compact = false;
     bool appGrid = false;
@@ -1360,6 +1364,7 @@ struct ShellConfig {
     bool showCaption = true;
     bool showCount = true;
     bool showAppIcon = true;
+    bool colorizeIcons = false;
     bool showAllOutputs = true;
     bool currentWorkspaceOnly = false;
 
@@ -1391,6 +1396,7 @@ struct ShellConfig {
   bool niriOverviewCloseOnLaunchEnabled = false;
   bool umbrielOverviewCloseOnLaunchEnabled = false;
   bool polkitAgent = false;
+  bool polkitColorizeIcons = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   /// Readline-style editing shortcuts in every text input (Ctrl+A moves to the start instead of selecting all).
   bool readlineShortcuts = false;
@@ -1400,7 +1406,6 @@ struct ShellConfig {
   bool settingsExpandAllGroups = false;
   bool settingsWindowTranslucent = false;
   bool showLocation = true;
-  bool appIconColorize = false;
   std::optional<ColorSpec> appIconColor;
   bool launchAppsAsSystemdServices = false;
   std::string launchAppsCustomCommand;
@@ -1415,6 +1420,7 @@ struct ShellConfig {
   bool clipboardConfirmClearHistory = true;
   /// Disables per-app tracking and Control Center usage UI.
   bool screenTimeEnabled = false;
+  bool screenTimeColorizeIcons = false;
   bool sharedGlContext = true;
   bool disableMipmaps = false;
   ClipboardAutoPasteMode clipboardAutoPaste = ClipboardAutoPasteMode::Auto;
@@ -1579,6 +1585,7 @@ struct SystemConfig {
 };
 
 struct AudioConfig {
+  bool colorizeIcons = false;
   bool enableOverdrive = false;
   bool enableSounds = true;
   bool enableVolumeSounds = true;

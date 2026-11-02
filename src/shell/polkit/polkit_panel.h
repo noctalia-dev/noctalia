@@ -2,6 +2,7 @@
 
 #include "shell/panel/panel.h"
 #include "system/icon_resolver.h"
+#include "ui/signal.h"
 
 #include <functional>
 #include <string_view>
@@ -49,6 +50,7 @@ private:
   void resolveIcon(Renderer& renderer, const PolkitRequest& request);
 
   ConfigService* m_config = nullptr;
+  Signal<>::ScopedConnection m_appIconColorizeConn;
   std::function<PolkitAgent*()> m_agentProvider;
   Flex* m_rootLayout = nullptr;
   InputArea* m_focusArea = nullptr;
@@ -65,6 +67,7 @@ private:
   IconResolver m_iconResolver;
   std::string m_lastIconName;
   bool m_iconResolved = false;
+  bool m_iconIsAppIcon = false;
   bool m_lastResponseRequired = false;
   std::string m_trackedRequestCookie;
   bool m_hasTrackedRequest = false;

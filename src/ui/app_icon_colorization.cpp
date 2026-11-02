@@ -37,7 +37,7 @@ namespace {
 } // namespace
 
 ShellAppIconColorizationSettings shellAppIconColorizationSettings(const ShellConfig& shell) noexcept {
-  return ShellAppIconColorizationSettings{.enabled = shell.appIconColorize, .color = shell.appIconColor};
+  return ShellAppIconColorizationSettings{.launcherEnabled = shell.launcher.colorizeIcons, .color = shell.appIconColor};
 }
 
 Signal<>& shellAppIconColorizationChanged() noexcept {
@@ -47,8 +47,8 @@ Signal<>& shellAppIconColorizationChanged() noexcept {
 
 void notifyShellAppIconColorizationChanged() noexcept { shellAppIconColorizationChanged().emit(); }
 
-std::optional<ColorSpec> effectiveShellAppIconColorizationTint(const ShellConfig& shell) noexcept {
-  if (!shell.appIconColorize) {
+std::optional<ColorSpec> effectiveShellAppIconColorizationTint(const ShellConfig& shell, bool enabled) noexcept {
+  if (!enabled) {
     return std::nullopt;
   }
   if (shell.appIconColor.has_value()) {

@@ -127,13 +127,13 @@ namespace {
     applyBadgeVisual(badge, edge, iconBaseX, iconBaseY, iconSize, badgeSize, scale);
   }
 
-  void applyShellAppIconColorization(Image* image, const ShellConfig& shell, float saturation) {
+  void applyShellAppIconColorization(Image* image, const ShellConfig& shell, const DockConfig& dock) {
     if (image == nullptr) {
       return;
     }
-    const auto tint = effectiveShellAppIconColorizationTint(shell);
+    const auto tint = effectiveShellAppIconColorizationTint(shell, dock.colorizeIcons);
     image->setAppIconColorization(tint);
-    image->setSaturation(tint.has_value() ? 1.0F : saturation);
+    image->setSaturation(tint.has_value() ? 1.0F : dock.iconSaturation);
   }
 
   float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
@@ -577,9 +577,9 @@ namespace shell::dock {
       auto iconImg = ui::image({
           .width = iSize,
           .height = iSize,
-          .configure = [&renderer, iconPath, iconDecodeTarget,
-                        &shell = deps.model.config.config().shell](Image& image) {
-            image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell));
+          .configure = [&renderer, iconPath, iconDecodeTarget, &shell = deps.model.config.config().shell,
+                        &cfg](Image& image) {
+            image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell, cfg.colorizeIcons));
             if (!iconPath.empty()) {
               image.setSourceFile(renderer, iconPath, iconDecodeTarget, true);
             }
@@ -815,7 +815,7 @@ namespace shell::dock {
       const bool isDraggedItem = dragActive && itemIndex == instance.drag.sourceIndex;
       const float iconScale = model.active ? cfg.activeScale : cfg.inactiveScale;
       const float iconOpacity = model.active ? cfg.activeOpacity : cfg.inactiveOpacity;
-      applyShellAppIconColorization(item.iconImage, shell, cfg.iconSaturation);
+      applyShellAppIconColorization(item.iconImage, shell, cfg);
       Node* iconNode =
           item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
 

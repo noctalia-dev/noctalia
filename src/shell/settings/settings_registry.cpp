@@ -599,24 +599,13 @@ namespace settings {
         sliderFor(cfg.shell.cornerRadiusScale, noctalia::config::schema::kCornerRadiusScaleRange, false),
         "rounded corners radius"
     ));
-    entries.push_back(makeEntry(
-        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-colorize.label"),
-        tr("settings.schema.appearance.app-icon-colorize.description"), {"shell", "app_icon_colorize"},
-        ToggleSetting{cfg.shell.appIconColorize}, "tint all application icons"
-    ));
     {
-      const SettingVisibility colorizeOn = [](const Config& c) { return c.shell.appIconColorize; };
-      ShellConfig colorizeShell = cfg.shell;
-      colorizeShell.appIconColorize = true;
-      const ColorSpec pickerColor =
-          cfg.shell.appIconColor.value_or(*effectiveShellAppIconColorizationTint(colorizeShell));
-      auto e = makeEntry(
+      const ColorSpec pickerColor = *effectiveShellAppIconColorizationTint(cfg.shell, true);
+      entries.push_back(makeEntry(
           SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-color.label"),
           tr("settings.schema.appearance.app-icon-color.description"), {"shell", "app_icon_color"},
           colorSpecPicker(pickerColor), "color role dock tray application icons"
-      );
-      e.visibleWhen = colorizeOn;
-      entries.push_back(std::move(e));
+      ));
     }
     entries.push_back(makeEntry(
         SettingsSection::Appearance, "interface", tr("settings.schema.appearance.show-close-buttons.label"),
@@ -1131,6 +1120,11 @@ namespace settings {
           tr("settings.schema.dock.shadow.description"), path("shadow"), ToggleSetting{dock.shadow}, "shadow"
       ));
       entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.shared.colorize-icons.label"),
+          tr("settings.schema.shared.colorize-icons.description"), path("colorize_icons"),
+          ToggleSetting{dock.colorizeIcons}, "colorize tint application icons"
+      ));
+      entries.push_back(makeEntry(
           SettingsSection::Dock, "effects", tr("settings.schema.dock.icon-saturation.label"),
           tr("settings.schema.dock.icon-saturation.description"), path("icon_saturation"),
           sliderFor(dock.iconSaturation, noctalia::config::schema::kUnitRange, false), "grayscale desaturate color",
@@ -1405,6 +1399,11 @@ namespace settings {
         SettingsSection::Launcher, "display", tr("settings.schema.panels.launcher-show-icons.label"),
         tr("settings.schema.panels.launcher-show-icons.description"), {"shell", "launcher", "show_icons"},
         ToggleSetting{cfg.shell.launcher.showIcons}, "launcher app icons hide"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Launcher, "display", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "launcher", "colorize_icons"},
+        ToggleSetting{cfg.shell.launcher.colorizeIcons}, "colorize tint application icons"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Launcher, "display", tr("settings.schema.panels.launcher-app-origin-indicator.label"),
@@ -1754,6 +1753,11 @@ namespace settings {
         SettingsSection::Security, "authentication", tr("settings.schema.shell.polkit-agent.label"),
         tr("settings.schema.shell.polkit-agent.description"), {"shell", "polkit_agent"},
         ToggleSetting{cfg.shell.polkitAgent}, "auth password"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Security, "authentication", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "polkit_colorize_icons"},
+        ToggleSetting{cfg.shell.polkitColorizeIcons}, "authentication application icons colorize tint"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Security, "authentication", tr("settings.schema.shell.password-style.label"),
@@ -2296,6 +2300,11 @@ namespace settings {
         "window switcher alt tab application app icon"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Shell, "window-switcher", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "window_switcher", "colorize_icons"},
+        ToggleSetting{cfg.shell.windowSwitcher.colorizeIcons}, "window switcher colorize tint application icons"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-show-all-outputs.label"),
         tr("settings.schema.shell.window-switcher-show-all-outputs.description"),
         {"shell", "window_switcher", "show_all_outputs"}, ToggleSetting{cfg.shell.windowSwitcher.showAllOutputs},
@@ -2694,6 +2703,11 @@ namespace settings {
         SettingsSection::System, "screen-time", tr("settings.schema.shell.screen-time-enabled.label"),
         tr("settings.schema.shell.screen-time-enabled.description"), {"shell", "screen_time_enabled"},
         ToggleSetting{cfg.shell.screenTimeEnabled}, "screen time usage tracking control center"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::System, "screen-time", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "screen_time_colorize_icons"},
+        ToggleSetting{cfg.shell.screenTimeColorizeIcons}, "screen time application icons colorize tint"
     ));
     const SettingVisibility monitorOn = [](const Config& c) { return c.system.monitor.enabled; };
     entries.push_back(makeEntry(
@@ -3205,6 +3219,11 @@ namespace settings {
         ToggleSetting{cfg.audio.enableOverdrive}, "volume"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"audio", "colorize_icons"},
+        ToggleSetting{cfg.audio.colorizeIcons}, "audio mixer application icons colorize tint"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.shell-sounds.label"),
         tr("settings.schema.services.shell-sounds.description"), {"audio", "enable_sounds"},
         ToggleSetting{cfg.audio.enableSounds}, "sound"
@@ -3464,6 +3483,11 @@ namespace settings {
         SettingsSection::Notifications, "general", tr("settings.schema.notifications.daemon.label"),
         tr("settings.schema.notifications.daemon.description"), {"notification", "enable_daemon"},
         ToggleSetting{cfg.notification.enableDaemon}, "dbus"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "general", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"notification", "colorize_icons"},
+        ToggleSetting{cfg.notification.colorizeIcons}, "notification application icons colorize tint"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "general", tr("settings.schema.notifications.show-app-name.label"),

@@ -30,6 +30,7 @@ public:
     std::vector<std::string> hiddenItems;
     std::vector<std::string> pinnedItems;
     bool hidePassive = true;
+    bool colorizeIcons = false;
     bool drawerMode = false;
     std::function<void()> itemActivated;
     std::string barPosition = "top";
@@ -50,6 +51,7 @@ public:
 
   void setHoverOverlayParent(Node* node) noexcept { m_hoverOverlayParent = node; }
   void setCapsuleCross(float cross) noexcept { m_capsuleCross = cross; }
+  void setColorizeIcons(bool enabled);
   void create() override;
   bool wantsBarHoverHighlight() const noexcept override { return false; }
 
@@ -93,6 +95,7 @@ private:
   std::vector<std::string> m_hiddenItems;
   std::vector<std::string> m_pinnedItems;
   bool m_hidePassive = true;
+  bool m_colorizeIcons = false;
   std::vector<Image*> m_loadedImages;
   std::vector<Image*> m_colorizedAppIcons;
   // Item InputAreas by tray item id, reused across rebuilds so icon updates keep hover and press capture.

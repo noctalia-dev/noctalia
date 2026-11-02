@@ -29,6 +29,7 @@ struct LauncherResult {
   std::string glyphName;
   std::string iconName;
   std::string iconPath;
+  bool appIcon = false;
   // A short string drawn in the leading icon slot in place of an icon (e.g. an
   // emoji or a single symbol). When set, it replaces glyphName/iconName/iconPath.
   std::string badge;

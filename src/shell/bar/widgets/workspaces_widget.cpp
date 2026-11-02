@@ -73,9 +73,9 @@ WorkspacesWidget::WorkspacesWidget(
     : m_platform(platform), m_configService(config), m_output(output), m_labelSource(options.labelSource),
       m_showLabels(options.showLabels), m_maxLabelChars(options.maxLabelChars),
       m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_showIcons(options.showIcons),
-      m_hideWhenEmpty(options.hideWhenEmpty), m_monitors(std::move(options.monitors)),
-      m_separator(std::move(options.separator)), m_pillScale(options.pillScale),
-      m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
+      m_colorizeIcons(options.colorizeIcons), m_hideWhenEmpty(options.hideWhenEmpty),
+      m_monitors(std::move(options.monitors)), m_separator(std::move(options.separator)),
+      m_pillScale(options.pillScale), m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
       m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor),
@@ -1448,7 +1448,9 @@ void WorkspacesWidget::syncActiveWindowIcon(Renderer& renderer, Item& item) {
   }
 
   item.showIcon = true;
-  item.icon->setAppIconColorization(effectiveShellAppIconColorizationTint(m_configService.config().shell));
+  item.icon->setAppIconColorization(
+      effectiveShellAppIconColorizationTint(m_configService.config().shell, m_colorizeIcons)
+  );
 
   const std::string appId = activeWindowAppId();
   const std::string iconPath = appId.empty() ? std::string{} : resolveIconPath(appId);

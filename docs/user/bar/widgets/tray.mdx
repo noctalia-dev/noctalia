@@ -5,7 +5,9 @@ sidebar:
   order: 28
 ---
 
-System tray (StatusNotifierItem). Tray icons use the global `[shell.app_icon_colorize]` / `[shell.app_icon_color]` settings when enabled (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)); `[shell.app_icon_colorize]` does not recolor symbolic tray icons. Symbolic/monochrome tray glyphs, the drawer chevron, and letter fallbacks follow the widget's `color` / `icon_color` (items needing attention stay in the error color).
+System tray (StatusNotifierItem). Set `colorize_icons = true` to tint tray application icons with `[shell].app_icon_color` (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)); `colorize_icons` does not recolor symbolic tray icons. Symbolic/monochrome tray glyphs, the drawer chevron, and letter fallbacks follow the widget's `color` / `icon_color` (items needing attention stay in the error color).
+
+The drawer inherits the settings of the tray widget that opened it, including `colorize_icons`, even when that widget has a custom config name. Opening the drawer through IPC without a widget context uses `[widget.tray]`. Status overlay badges retain their original colors.
 
 When Noctalia restarts, running applications can re-register their tray icons. Noctalia also discovers existing StatusNotifierItem services. Icons may take a few seconds to reappear while startup is busy.
 
@@ -17,6 +19,7 @@ For theme icons in `status` or `panel` directories, the tray selects SVG artwork
 
 | Setting                   | Type            | Default   | Description                                                                                                                                                                                                                           |
 | ------------------------- | --------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `colorize_icons`          | bool            | `false`   | Tint application icons in the bar and drawer with the shared shell.app_icon_color; symbolic icons retain their widget color.                                                                                                          |
 | `hidden`                  | array of string | `[]`      | Tray items to hide by id/name/bus/path token                                                                                                                                                                                          |
 | `pinned`                  | array of string | `[]`      | Tray items that always stay visible in the bar when `drawer = true`                                                                                                                                                                   |
 | `hide_passive`            | bool            | `true`    | Hide items whose StatusNotifierItem status is `Passive`; set to `false` for applications that always report Passive                                                                                                                   |
@@ -30,6 +33,7 @@ For theme icons in `status` or `panel` directories, the tray selects SVG artwork
 
 ```toml
 [widget.tray]
+colorize_icons = false
 hidden = ["nm-applet", "blueman", "org.kde.StatusNotifierItem-1-1"]
 pinned = ["nm-applet"]
 hide_passive = true

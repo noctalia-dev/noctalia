@@ -9,6 +9,7 @@ A standalone application dock that displays pinned and running apps. Disabled by
 
 ```toml
 [dock]
+colorize_icons      = false      # tint application icons with shell.app_icon_color
 enabled             = false      # set true to activate
 position            = "bottom"   # top | bottom | left | right
 active_monitor_only = false      # when true, only show apps/windows from the active monitor
@@ -114,7 +115,7 @@ If no match is found, a placeholder slot is reserved so the dock position is pre
 
 ## Icon colorization
 
-Dock application icons follow the global `[shell.app_icon_colorize]` / `[shell.app_icon_color]` settings (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+Set `[dock].colorize_icons = true` to tint dock application icons with `[shell].app_icon_color`. The toggle defaults to `false` and can be overridden per monitor (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
 
 Configure in **Settings → Appearance → Interface**, or under `[shell]` in the Noctalia TOML config stack.
 

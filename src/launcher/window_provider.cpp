@@ -33,6 +33,7 @@ namespace {
     if (appId.empty()) {
       return;
     }
+    result.appIcon = true;
     if (const auto internal = internal_apps::metadataForAppId(appId);
         internal.has_value() && !internal->iconPath.empty()) {
       result.iconPath = internal->iconPath;

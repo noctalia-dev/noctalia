@@ -17,6 +17,7 @@ public:
 
   void create() override;
   void onClose() override;
+  bool isContextActive(std::string_view context) const override;
 
   float preferredWidth() const override;
   float preferredHeight() const override;
@@ -31,6 +32,7 @@ private:
   std::optional<float> currentDrawerItemSize() const;
   float resolvedItemGap() const;
   std::size_t visibleItemCount() const;
+  std::string_view widgetName() const noexcept;
 
   TrayService* m_tray = nullptr;
   ConfigService* m_config = nullptr;

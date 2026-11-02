@@ -1194,7 +1194,9 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       if (task.icon.symbolic) {
         image->setForegroundTint(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
       } else {
-        image->setAppIconColorization(effectiveShellAppIconColorizationTint(m_configService.config().shell));
+        image->setAppIconColorization(
+            effectiveShellAppIconColorizationTint(m_configService.config().shell, m_configOptions.colorizeIcons)
+        );
       }
       image->setSourceFile(renderer, task.icon.path, static_cast<int>(std::round(iconSize)), true);
       if (image->hasImage()) {

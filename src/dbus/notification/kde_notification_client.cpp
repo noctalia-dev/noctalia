@@ -152,6 +152,7 @@ void KdeNotificationClient::onWatcherNotify(
           .transient = notification_dbus::notifyTransientFromHints(hints),
           .actions = notification_dbus::sanitizeNotifyActions(actions),
           .icon = notification_dbus::notifyIcon(appName, appIcon, hints),
+          .iconIsAppIcon = notification_dbus::notifyIconIsAppIcon(appIcon, hints),
           .imageData = notification_dbus::notifyImageDataFromHints(hints),
           .category = notification_dbus::notifyCategoryFromHints(hints),
           .desktopEntry = notification_dbus::notifyDesktopEntryFromHints(hints),

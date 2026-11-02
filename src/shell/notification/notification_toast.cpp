@@ -17,6 +17,7 @@
 #include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "shell/surface/edge_inset.h"
+#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -542,7 +543,9 @@ namespace {
 
 } // namespace
 
-NotificationToast::NotificationToast() = default;
+NotificationToast::NotificationToast() {
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] { requestLayout(); });
+}
 
 NotificationToast::~NotificationToast() {
   if (m_notifications != nullptr && m_callbackToken >= 0) {
@@ -700,6 +703,7 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
         m_entries[i].body = n.body;
         m_entries[i].actions = n.actions;
         m_entries[i].icon = n.icon;
+        m_entries[i].iconIsAppIcon = n.iconIsAppIcon;
         m_entries[i].imageData = n.imageData;
         m_entries[i].dndPolicy = n.dndPolicy;
         refreshEntryGeometry(m_entries[i]);
@@ -919,6 +923,7 @@ void NotificationToast::addPopup(const Notification& n) {
   entry.body = n.body;
   entry.actions = n.actions;
   entry.icon = n.icon;
+  entry.iconIsAppIcon = n.iconIsAppIcon;
   entry.imageData = n.imageData;
   entry.urgency = n.urgency;
   entry.dndPolicy = n.dndPolicy;
@@ -2570,6 +2575,11 @@ InputArea* NotificationToast::buildCard(
             .height = iconSize,
             .configure = [](Image& image) { image.setPosition(0.0F, 0.0F); },
         });
+        if (m_config != nullptr) {
+          appIcon->setAppIconColorization(effectiveShellAppIconColorizationTint(
+              m_config->config().shell, entry.iconIsAppIcon && m_config->config().notification.colorizeIcons
+          ));
+        }
         if (appIcon->setSourceFile(renderer, iconPath, static_cast<int>(std::round(iconSize)))) {
           iconSlot->addChild(std::move(appIcon));
           iconAssigned = true;

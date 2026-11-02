@@ -2,6 +2,7 @@
 
 #include "core/timer_manager.h"
 #include "shell/control_center/tab.h"
+#include "ui/signal.h"
 
 #include <chrono>
 #include <cstdint>
@@ -93,6 +94,7 @@ private:
   EasyEffectsService* m_easyEffects = nullptr;
   MprisService* m_mpris = nullptr;
   ConfigService* m_config = nullptr;
+  Signal<>::ScopedConnection m_appIconColorizeConn;
   WaylandConnection* m_wayland = nullptr;
   RenderContext* m_renderContext = nullptr;
 

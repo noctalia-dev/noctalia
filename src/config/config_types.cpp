@@ -696,6 +696,8 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.iconSize = *override.iconSize;
   if (override.iconSaturation)
     resolved.iconSaturation = *override.iconSaturation;
+  if (override.colorizeIcons)
+    resolved.colorizeIcons = *override.colorizeIcons;
   if (override.mainAxisPadding)
     resolved.mainAxisPadding = *override.mainAxisPadding;
   if (override.crossAxisPadding)

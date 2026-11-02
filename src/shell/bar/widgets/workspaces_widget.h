@@ -39,6 +39,7 @@ public:
     WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
     bool showLabels = true;
     bool showIcons = true;
+    bool colorizeIcons = false;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -174,6 +175,7 @@ private:
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
   bool m_showIcons = true;
+  bool m_colorizeIcons = false;
   bool m_hideWhenEmpty = false;
   std::vector<std::string> m_monitors;
   std::string m_separator;

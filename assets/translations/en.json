@@ -1934,12 +1934,8 @@
           "label": "Animations"
         },
         "app-icon-color": {
-          "description": "Palette color used when colorizing application icons",
+          "description": "Shared palette color for components with Colorize App Icons enabled",
           "label": "App Icon Color"
-        },
-        "app-icon-colorize": {
-          "description": "Recolor application icons across the shell to match the active palette",
-          "label": "Colorize App Icons"
         },
         "builtin-palette": {
           "description": "Choose a palette from the bundled catalog",
@@ -3305,6 +3301,10 @@
         }
       },
       "shared": {
+        "colorize-icons": {
+          "description": "Recolor application icons here using the shared App Icon Color from Appearance",
+          "label": "Colorize App Icons"
+        },
         "auto-hide": {
           "label": "Auto-Hide"
         },
@@ -4598,6 +4598,10 @@
         "color-2": {
           "description": "Second gradient color in the visualizer",
           "label": "Color 2"
+        },
+        "colorize-icons": {
+          "description": "Recolor this widget's application icons using the shared App Icon Color from Appearance",
+          "label": "Colorize App Icons"
         },
         "custom-image": {
           "description": "Path to a custom image; leave empty to use the icon glyph",

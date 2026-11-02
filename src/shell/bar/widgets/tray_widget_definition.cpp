@@ -60,6 +60,10 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                   .key = "icon_override_blacklist",
                   .presentation = settings::WidgetSettingPresentation{.group = "tray.icon-overrides"},
               }),
+              field<&Options::colorizeIcons>({
+                  .key = "colorize_icons",
+                  .presentation = settings::WidgetSettingPresentation{.group = "tray.icon-overrides"},
+              }),
               field<&Options::iconType>({
                   .key = "icon_type",
                   .choices =

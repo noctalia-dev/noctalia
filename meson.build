@@ -1330,6 +1330,7 @@ if build_tests
     'notification_history_image_bounds',
     'notification_history_utf8',
     'notification_inline_reply',
+    'notification_icon_source',
     'notification_internal_history',
     'path_browse',
     'pipewire_error',
