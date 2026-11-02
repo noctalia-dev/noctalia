@@ -15,7 +15,7 @@ ColorSwatchPreviewStrip::ColorSwatchPreviewStrip() {
   setClipChildren(true);
   setHitTestVisible(false);
   setFill(colorSpecFromRole(ColorRole::Surface));
-  setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+  setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
 
   for (auto& swatchPtr : m_swatches) {
     auto swatch = std::make_unique<Box>();

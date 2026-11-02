@@ -75,14 +75,44 @@ uninstall m:
     fi
     ninja -C build-{{m}} uninstall
 
-format:
+_check_formatter:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(clang-format --version)"
+    echo "$version"
+    if [[ ! "$version" =~ version\ ([0-9]+)\. ]] || [[ "${BASH_REMATCH[1]}" -lt 22 ]]; then
+        echo "error: formatting requires clang-format 22 or newer; put its bin directory on PATH" >&2
+        exit 1
+    fi
+
+format: format-code format-docs
+
+format-check: format-code-check format-docs-check
+
+format-code: _check_formatter
     find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
     find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
+
+format-code-check: _check_formatter
+    find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run -Werror
+
+_docs_formatter:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! tools/remark/node_modules/.package-lock.json -nt tools/remark/package-lock.json ]]; then
+        npm ci --prefix tools/remark --no-audit --no-fund --loglevel=error
+    fi
+
+format-docs: _docs_formatter
+    git ls-files -z '*.md' '*.mdx' ':!third_party' | xargs -0 -r node tools/remark/format.mjs
+
+format-docs-check: _docs_formatter
+    git ls-files -z '*.md' '*.mdx' ':!third_party' | xargs -0 -r node tools/remark/format.mjs --check
 
 _clang_tidy m=mode *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    meson compile -C "build-{{m}}" wayland-protocol-headers
+    meson compile -C "build-{{m}}" generated-headers
     src_root="$(realpath src)"
     # compile_commands.json stores build-relative paths, so clang-tidy emits header
     # diagnostics as ../src/...; the header-filter must match that form (an absolute
@@ -95,7 +125,13 @@ lint m=mode: (_ensure-configured m)
 
 fix m=mode: (_ensure-configured m)
     just _clang_tidy {{m}} -fix
-    just format
+    just format-code
+
+role-alpha-check:
+    python3 tools/role-alpha-check.py
+
+role-alpha-update:
+    python3 tools/role-alpha-check.py --update
 
 clean m=mode:
     #!/usr/bin/env bash

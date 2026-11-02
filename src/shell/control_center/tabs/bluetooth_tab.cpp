@@ -1,6 +1,7 @@
 #include "shell/control_center/tabs/bluetooth_tab.h"
 
 #include "core/ui_phase.h"
+#include "dbus/bluetooth/bluetooth_uuid_names.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "shell/panel/panel_manager.h"
@@ -14,6 +15,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -118,6 +120,13 @@ namespace {
     return devices;
   }
 
+  // Minimum spacing between rebuilds caused only by Available devices appearing or vanishing.
+  constexpr auto kAvailableRebuildInterval = std::chrono::milliseconds(2000);
+
+  // Splits the structure key before the Available section. D-Bus strings cannot hold NUL,
+  // so no device path or alias can contain it.
+  constexpr char kAvailableKeySeparator = '\0';
+
   std::unique_ptr<Flex> makeMetricPill(const char* glyphName, std::string text, float scale, Label** valueOut) {
     return ui::row(
         {.align = FlexAlign::Center, .gap = Style::spaceXs * 0.5F * scale},
@@ -216,7 +225,7 @@ public:
           .variant = primaryVariant,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusSm(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_service == nullptr) {
               return;
             }
@@ -245,7 +254,7 @@ public:
               .variant = ButtonVariant::Ghost,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 if (m_service != nullptr) {
                   m_service->forget(m_device.path);
                 }
@@ -422,7 +431,7 @@ std::unique_ptr<Flex> BluetoothTab::create() {
           .text = i18n::tr("control-center.bluetooth.accept"),
           .variant = ButtonVariant::Default,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_agent == nullptr) {
                   return;
                 }
@@ -460,10 +469,29 @@ std::unique_ptr<Flex> BluetoothTab::create() {
               },
       }),
       ui::button({
+          .out = &m_pairingTrustAndAllow,
+          .text = i18n::tr("control-center.bluetooth.trust-and-allow"),
+          .variant = ButtonVariant::Default,
+          .onClick =
+              [this] {
+                if (m_agent == nullptr) {
+                  return;
+                }
+                // Trusting the device is what stops BlueZ from asking again: it
+                // auto-authorizes services for trusted devices without calling the agent.
+                const auto req = m_agent->pendingRequest();
+                if (m_service != nullptr && !req.devicePath.empty()) {
+                  m_service->setTrusted(req.devicePath, true);
+                }
+                m_agent->acceptConfirm();
+                PanelManager::instance().refresh();
+              },
+      }),
+      ui::button({
           .out = &m_pairingReject,
           .text = i18n::tr("control-center.bluetooth.reject"),
           .variant = ButtonVariant::Ghost,
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_agent != nullptr) {
               m_agent->rejectConfirm();
             }
@@ -539,14 +567,19 @@ void BluetoothTab::onClose() {
   m_pairingInput = nullptr;
   m_pairingButtonRow = nullptr;
   m_pairingAccept = nullptr;
+  m_pairingTrustAndAllow = nullptr;
   m_pairingReject = nullptr;
   m_listScroll = nullptr;
   m_list = nullptr;
+  m_adapterCard = nullptr;
   m_powerToggle = nullptr;
   m_discoverableToggle = nullptr;
   m_rescanButton = nullptr;
   m_scanSpinner = nullptr;
   m_deviceRows.clear();
+  m_firstSeen.clear();
+  m_nextSeen = 0;
+  m_rebuildTimer.stop();
   m_lastStructureKey.clear();
   m_lastListWidth = -1.0F;
 }
@@ -655,7 +688,11 @@ void BluetoothTab::syncPairingCard() {
       m_pairingDetail->setText(i18n::tr("control-center.bluetooth.pairing-detail.authorize"));
       break;
     case BluetoothPairingKind::AuthorizeService:
-      m_pairingDetail->setText(i18n::tr("control-center.bluetooth.pairing-detail.authorize-service", "uuid", req.uuid));
+      // The {uuid} placeholder predates the lookup and is kept for the existing locale
+      // catalogs; it now carries the SIG service name, falling back to the raw UUID.
+      m_pairingDetail->setText(
+          i18n::tr("control-center.bluetooth.pairing-detail.authorize-service", "uuid", bluetoothServiceLabel(req.uuid))
+      );
       break;
     case BluetoothPairingKind::DisplayPinCode:
       m_pairingDetail->setText(i18n::tr("control-center.bluetooth.pairing-detail.display-pin"));
@@ -693,24 +730,36 @@ void BluetoothTab::syncPairingCard() {
     // is no Agent1 reply. Show only the Reject action so Accept cannot clear the card.
     m_pairingAccept->setVisible(req.kind != BluetoothPairingKind::DisplayPasskey);
   }
+  if (m_pairingTrustAndAllow != nullptr) {
+    // Only service authorization is suppressed by the Trusted flag, so trusting the device
+    // would not stop the other request kinds from prompting again.
+    m_pairingTrustAndAllow->setVisible(req.kind == BluetoothPairingKind::AuthorizeService);
+  }
 }
 
 // Identity of the built list: which rows exist, in which order, and which controls
 // each carries. Live metric values (battery percent, RSSI) are absent by design —
 // they refresh in place through syncDeviceRows(), so an advertisement no longer tears
 // down the list. Devices arrive sorted, so a change in row order changes the key.
+// Discovering is absent too: the scan spinner lives in the persistent adapter card.
+// Available devices come last, after kAvailableKeySeparator, so callers can tell scan churn apart.
 std::string BluetoothTab::structureKey(const std::vector<BluetoothDeviceInfo>& devices) const {
   if (m_service == nullptr) {
-    return "empty";
+    return std::string("empty") + kAvailableKeySeparator;
   }
   const auto& s = m_service->state();
   std::string key;
   key += s.adapterPresent ? '1' : '0';
   key += s.powered ? '1' : '0';
   key += s.rfkillSoftBlocked ? '1' : '0';
-  key += s.discovering ? '1' : '0';
   key.push_back('|');
+  bool inAvailable = false;
   for (const auto& d : devices) {
+    const bool available = bucketFor(d) == DeviceBucket::Available;
+    if (available && !inAvailable) {
+      key.push_back(kAvailableKeySeparator);
+      inAvailable = true;
+    }
     key += d.path;
     key.push_back(':');
     key += d.alias;
@@ -722,8 +771,12 @@ std::string BluetoothTab::structureKey(const std::vector<BluetoothDeviceInfo>& d
     key += d.connected ? '1' : '0';
     key += d.connecting ? '1' : '0';
     key += d.hasBattery ? '1' : '0';
-    key += d.hasRssi ? '1' : '0';
+    // Only Available rows carry the RSSI pill; paired devices gain RSSI as they advertise.
+    key += d.hasRssi && available ? '1' : '0';
     key.push_back('\n');
+  }
+  if (!inAvailable) {
+    key.push_back(kAvailableKeySeparator);
   }
   return key;
 }
@@ -754,12 +807,46 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
   std::vector<BluetoothDeviceInfo> devices;
   if (m_service != nullptr) {
     devices = sortedDevices(m_service->devices());
+    // Available devices keep the slot they were first listed in (signal order at that
+    // moment); later arrivals append, so a scan never reshuffles rows under the pointer.
+    for (const auto& d : devices) {
+      if (bucketFor(d) == DeviceBucket::Available && !m_firstSeen.contains(d.path)) {
+        m_firstSeen.emplace(d.path, m_nextSeen++);
+      }
+    }
+    std::ranges::stable_sort(devices, [this](const BluetoothDeviceInfo& a, const BluetoothDeviceInfo& b) {
+      const auto ba = bucketFor(a);
+      const auto bb = bucketFor(b);
+      if (ba != bb) {
+        return static_cast<int>(ba) < static_cast<int>(bb);
+      }
+      return ba == DeviceBucket::Available && m_firstSeen.at(a.path) < m_firstSeen.at(b.path);
+    });
   }
   const std::string nextKey = structureKey(devices);
   const bool structureChanged = nextKey != m_lastStructureKey;
   if (listWidth == m_lastListWidth && !structureChanged) {
     return;
   }
+
+  // Devices popping in and out during a scan only touch the Available section; batch those
+  // so the list settles instead of flashing on every advertisement.
+  const auto now = std::chrono::steady_clock::now();
+  if (structureChanged && listWidth == m_lastListWidth) {
+    const auto pinned = [](const std::string& key) {
+      return std::string_view(key).substr(0, key.find(kAvailableKeySeparator));
+    };
+    const auto sinceLast = now - m_lastRebuildAt;
+    if (pinned(nextKey) == pinned(m_lastStructureKey) && sinceLast < kAvailableRebuildInterval) {
+      if (!m_rebuildTimer.active()) {
+        m_rebuildTimer.start(std::chrono::ceil<std::chrono::milliseconds>(kAvailableRebuildInterval - sinceLast), [] {
+          PanelManager::instance().refresh();
+        });
+      }
+      return;
+    }
+  }
+
   m_lastListWidth = listWidth;
   m_lastStructureKey = nextKey;
 
@@ -768,6 +855,8 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
     return;
   }
 
+  m_rebuildTimer.stop();
+  m_lastRebuildAt = now;
   const float scale = contentScale();
 
   std::unordered_set<std::string> expandedPaths;
@@ -777,14 +866,12 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
     }
   }
 
-  m_powerToggle = nullptr;
-  m_discoverableToggle = nullptr;
-  m_scanSpinner = nullptr;
-  m_rescanButton = nullptr;
   m_deviceRows.clear();
 
-  while (!m_list->children().empty()) {
-    m_list->removeChild(m_list->children().front().get());
+  // Keep the adapter card: recreating it restarts the scan spinner and drops hover state.
+  const std::size_t keep = m_adapterCard != nullptr ? 1 : 0;
+  while (m_list->children().size() > keep) {
+    m_list->removeChild(m_list->children().back().get());
   }
 
   if (m_service == nullptr) {
@@ -801,8 +888,8 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
 
   const auto& s = m_service->state();
 
-  // Adapter card: power + discoverable toggles
-  {
+  // Adapter card: power + discoverable toggles. Built once; syncHeader() keeps it current.
+  if (m_adapterCard == nullptr) {
     auto adapterCard = ui::column({
         .configure = [scale, opacity = panelCardOpacity()](Flex& card) { applySectionCardStyle(card, scale, opacity); },
     });
@@ -839,7 +926,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
             .minHeight = Style::fontSizeBody * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [this]() {
+            .onClick = [this] {
               if (m_service == nullptr) {
                 return;
               }
@@ -848,7 +935,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
                 m_discoveryLease = DiscoveryLease::Pending;
                 m_service->startDiscovery();
               }
-              m_discoveryTimer.start(kDiscoveryTimeout, [this]() { stopRequestedDiscovery(); });
+              m_discoveryTimer.start(kDiscoveryTimeout, [this] { stopRequestedDiscovery(); });
             },
         })
     );
@@ -897,6 +984,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
 
     adapterCard->addChild(std::move(visibleRow));
 
+    m_adapterCard = adapterCard.get();
     m_list->addChild(std::move(adapterCard));
   }
 
@@ -965,5 +1053,9 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
 void BluetoothTab::onPanelCardOpacityChanged(float opacity) {
   if (m_pairingInput != nullptr) {
     m_pairingInput->setSurfaceOpacity(opacity);
+  }
+  // The adapter card outlives list rebuilds, so it does not pick up the new opacity on its own.
+  if (m_adapterCard != nullptr) {
+    applySectionCardStyle(*m_adapterCard, contentScale(), opacity);
   }
 }

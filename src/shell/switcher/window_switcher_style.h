@@ -10,7 +10,7 @@ enum class WindowSwitcherTileDepth : std::uint8_t {
   Far,
 };
 
-enum class WindowSwitcherIconPlacement : std::uint8_t {
+enum class WindowSwitcherHorizontalPlacement : std::uint8_t {
   Left,
   Right,
 };
@@ -29,7 +29,8 @@ struct WindowSwitcherCardTarget {
   bool visible = false;
   bool showCaption = false;
   bool wideCaption = false;
-  WindowSwitcherIconPlacement iconPlacement = WindowSwitcherIconPlacement::Left;
+  WindowSwitcherHorizontalPlacement iconPlacement = WindowSwitcherHorizontalPlacement::Left;
+  WindowSwitcherHorizontalPlacement closePlacement = WindowSwitcherHorizontalPlacement::Right;
   WindowSwitcherTileDepth depth = WindowSwitcherTileDepth::Far;
   float x = 0.0F;
   float y = 0.0F;

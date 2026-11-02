@@ -102,7 +102,7 @@ namespace ui {
     }
   } // namespace
 
-  std::unique_ptr<Flex> flex(FlexDirection direction, FlexProps props) {
+  std::unique_ptr<Flex> flex(FlexDirection direction, const FlexProps& props) {
     auto flex = std::make_unique<Flex>();
     applyFlexProps(*flex, direction, props);
     if (props.configure) {
@@ -243,9 +243,6 @@ namespace ui {
     if (props.passwordMode.has_value()) {
       control->setPasswordMode(*props.passwordMode);
     }
-    if (props.lineEditing.has_value()) {
-      control->setLineEditingEnabled(*props.lineEditing);
-    }
     if (props.invalid.has_value()) {
       control->setInvalid(*props.invalid);
     }
@@ -284,6 +281,9 @@ namespace ui {
     }
     if (props.surfaceOpacity.has_value()) {
       control->setSurfaceOpacity(*props.surfaceOpacity);
+    }
+    if (props.surfaceRole.has_value()) {
+      control->setSurfaceRole(*props.surfaceRole);
     }
     applyNodeProps(*control, props);
     if (props.configure) {
@@ -413,6 +413,9 @@ namespace ui {
     }
     if (props.fontFamily.has_value()) {
       control->setFontFamily(std::move(*props.fontFamily));
+    }
+    if (props.fontFeatures.has_value()) {
+      control->setFontFeatures(std::move(*props.fontFeatures));
     }
     if (props.color.has_value()) {
       control->setColor(*props.color);

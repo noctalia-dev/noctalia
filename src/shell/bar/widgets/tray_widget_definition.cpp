@@ -52,6 +52,9 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                           .visibleWhen = drawerOn,
                       },
               }),
+              field<&Options::forceAppIcons>({
+                  .key = "force_app_icons",
+              }),
           },
       .finalize = [](Options& options, const TrayWidgetDefinitionContext& context) {
         options.barPosition = context.barPosition;

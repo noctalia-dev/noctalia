@@ -54,19 +54,21 @@ void TestPanel::create() {
   headerRow->addChild(std::move(tabSwitch));
   headerRow->addChild(ui::row({.flexGrow = 1.0F}));
 
-  auto closeButton = ui::button({
-      .out = &m_closeButton,
-      .glyph = "close",
-      .glyphSize = Style::fontSizeBody * scale,
-      .variant = ButtonVariant::Default,
-      .surfaceOpacity = panelCardOpacity(),
-      .minWidth = Style::controlHeightSm * scale,
-      .minHeight = Style::controlHeightSm * scale,
-      .padding = Style::spaceXs * scale,
-      .radius = Style::scaledRadiusMd(scale),
-      .onClick = []() { PanelManager::instance().closePanel(); },
-  });
-  headerRow->addChild(std::move(closeButton));
+  if (Style::closeButtonsEnabled()) {
+    auto closeButton = ui::button({
+        .out = &m_closeButton,
+        .glyph = "close",
+        .glyphSize = Style::fontSizeBody * scale,
+        .variant = ButtonVariant::Default,
+        .surfaceOpacity = panelCardOpacity(),
+        .minWidth = Style::controlHeightSm * scale,
+        .minHeight = Style::controlHeightSm * scale,
+        .padding = Style::spaceXs * scale,
+        .radius = Style::scaledRadiusMd(scale),
+        .onClick = [] { PanelManager::instance().closePanel(); },
+    });
+    headerRow->addChild(std::move(closeButton));
+  }
   rootLayout->addChild(std::move(headerRow));
 
   auto content = ui::row({
@@ -93,14 +95,14 @@ void TestPanel::create() {
       .flexGrow = 1.0F,
   });
 
-  auto makeRow = [scale]() {
+  auto makeRow = [scale] {
     return ui::row({
         .align = FlexAlign::Center,
         .gap = Style::spaceMd * scale,
     });
   };
 
-  auto makeCol = [scale]() {
+  auto makeCol = [scale] {
     return ui::column({
         .align = FlexAlign::Start,
         .gap = Style::spaceXs * scale,
@@ -147,7 +149,7 @@ void TestPanel::create() {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = []() {},
+          .onClick = [] {},
       });
     };
 
@@ -181,7 +183,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = []() {},
+        .onClick = [] {},
     });
 
     auto glyphButton = ui::button({
@@ -194,7 +196,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = []() {},
+        .onClick = [] {},
     });
 
     auto section = makeSection("Icon buttons");
@@ -495,7 +497,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = [this]() {
+        .onClick = [this] {
           FileDialogOptions options;
           options.mode = FileDialogMode::Open;
           options.title = "Select Image";
@@ -531,7 +533,7 @@ void TestPanel::create() {
         .width = 28.0F * scale,
         .height = 28.0F * scale,
         .configure = [scale](Box& box) {
-          box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
+          box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * scale);
         },
     });
 
@@ -545,7 +547,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = [this]() {
+        .onClick = [this] {
           ColorPickerDialogOptions options;
           if (const auto last = ColorPickerDialog::lastResult()) {
             options.initialColor = *last;
@@ -593,7 +595,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = [this]() {
+        .onClick = [this] {
           GlyphPickerDialogOptions options;
           if (const auto last = GlyphPickerDialog::lastResult()) {
             options.initialGlyph = last->name;
@@ -658,7 +660,7 @@ void TestPanel::create() {
           .gap = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
           .onClick =
-              [this, tileIndex = i, label = std::string(tileData.label)]() {
+              [this, tileIndex = i, label = std::string(tileData.label)] {
                 if (m_gridSelectionLabel != nullptr) {
                   m_gridSelectionLabel->setText("Selected: " + label);
                   m_gridSelectionLabel->setColor(colorSpecFromRole(ColorRole::Primary));
@@ -707,13 +709,13 @@ void TestPanel::create() {
         .width = 280.0F * scale,
         .height = 220.0F * scale,
         .configure = [scale](Box& box) {
-          box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
+          box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * scale);
         },
     });
 
     auto demoBox = ui::box({
         .out = &m_transformDemoBox,
-        .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+        .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
         .radius = Style::scaledRadiusLg(scale),
         .width = 180.0F * scale,
         .height = 100.0F * scale,
@@ -734,7 +736,7 @@ void TestPanel::create() {
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceLg * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = [this]() {
+        .onClick = [this] {
           if (m_transformHelp != nullptr) {
             m_transformHelp->setText("Transform button clicked!");
             m_transformHelp->setColor(colorSpecFromRole(ColorRole::Secondary));
@@ -762,7 +764,7 @@ void TestPanel::create() {
         .width = 28.0F * scale,
         .height = 28.0F * scale,
         .configure = [scale](Box& box) {
-          box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
+          box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth * scale);
         },
     });
 
@@ -853,7 +855,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
       .gap = Style::spaceMd * scale,
   });
 
-  auto makeLabCard = [this, scale]() {
+  auto makeLabCard = [this, scale] {
     return ui::column({
         .align = FlexAlign::Start,
         .gap = Style::spaceSm * scale,
@@ -936,7 +938,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
             .paddingV = Style::spaceSm * scale,
             .paddingH = Style::spaceMd * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [this]() {
+            .onClick = [this] {
               if (m_fontFamilyInput != nullptr) {
                 applyTestFontFamily(m_fontFamilyInput->value());
               }
@@ -955,7 +957,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this, preset]() { applyTestFontFamily(preset); },
+              .onClick = [this, preset] { applyTestFontFamily(preset); },
           })
       );
     }
@@ -1229,7 +1231,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
               .width = w * scale,
               .height = 0.0F,
           },
@@ -1279,7 +1281,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
               .width = kBoxW * scale,
               .height = 0.0F,
           },
@@ -1360,7 +1362,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .paddingV = 0.0F,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .border = colorSpecFromRole(ColorRole::Outline),
+              .border = colorSpecFromRole(ColorRole::OutlineVariant),
           },
           ui::glyph({
               .glyph = c.glyph,

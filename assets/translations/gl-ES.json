@@ -238,7 +238,6 @@
       "uptime": "Activo - {uptime}",
       "weather": {
         "data-unavailable": "Os datos meteorolóxicos non están dispoñibles.",
-        "disabled": "O tempo está desactivado na configuración.",
         "fetching": "Obtendo a previsión..."
       }
     },
@@ -1263,10 +1262,6 @@
         "horizontal": "Horizontal",
         "vertical": "Vertical"
       },
-      "panel-bar-alignment": {
-        "centered": "Centrado",
-        "near-trigger": "Preto do disparador"
-      },
       "panel-position": {
         "auto": "Seguir a barra"
       },
@@ -1821,10 +1816,6 @@
         "main-axis-padding": {
           "description": "Recheo interior ao longo do eixo principal do Dock, entre as iconas e os extremos curtos da cápsula"
         },
-        "monitors": {
-          "description": "Escolle que monitores mostran o Dock; déixao baleiro para todos. O filtrado por monitor activo aplícase dentro destes monitores",
-          "label": "Monitores"
-        },
         "pinned-apps": {
           "description": "IDs das entradas de escritorio das aplicacións fixadas no Dock",
           "label": "Aplicacións fixadas"
@@ -2106,10 +2097,6 @@
           "description": "Escolle ata seis botóns de atallo para a pestana de inicio",
           "label": "Atallos de inicio"
         },
-        "launcher-app-grid": {
-          "description": "Mostra unha cadrícula de iconas de aplicacións con etiquetas debaixo cando os resultados son só aplicacións",
-          "label": "Vista en cadrícula de aplicacións"
-        },
         "launcher-categories": {
           "description": "Mostra filtros de categoría no Launcher; móstraos con F6 e logo percorre con F6 e Shift+F6",
           "label": "Mostrar categorías"
@@ -2117,6 +2104,10 @@
         "launcher-compact": {
           "description": "Usa iconas máis pequenas e filas de resultados máis compactas",
           "label": "Filas compactas"
+        },
+        "launcher-grid": {
+          "description": "Mostra unha cadrícula de iconas de aplicacións con etiquetas debaixo cando os resultados son só aplicacións",
+          "label": "Vista en cadrícula de aplicacións"
         },
         "launcher-reset-usage": {
           "button": "Restablecer",
@@ -2240,8 +2231,7 @@
           "label": "Contas de calendario"
         },
         "calendar-edit": {
-          "button": "Editar",
-          "description": "Actualiza esta conta de calendario"
+          "button": "Editar"
         },
         "calendar-refresh-interval": {
           "description": "Cada canto sincronizar os eventos do calendario (minutos)",

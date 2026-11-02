@@ -19,7 +19,7 @@ public:
     bool hideInactive = false;
     int iconSpacing = 4;
     ColorSpec activeColor = colorSpecFromRole(ColorRole::Primary);
-    ColorSpec inactiveColor = colorSpecFromRole(ColorRole::Outline);
+    ColorSpec inactiveColor = colorSpecFromRole(ColorRole::OutlineVariant);
   };
 
   PrivacyWidget(PipeWireService* pipewire, ConfigService* configService, Options options);

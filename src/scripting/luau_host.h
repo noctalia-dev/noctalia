@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scripting/plugin_i18n.h"
+#include "scripting/plugin_layer_config.h"
 #include "scripting/script_arg.h"
 
 #include <atomic>
@@ -50,6 +51,9 @@ public:
       void(std::uint64_t hostId, int callbackRef, bool ok, int status, std::string body, bool isDownload)>;
   using ColorPickerResultHandler =
       std::function<void(std::uint64_t hostId, int callbackRef, std::optional<std::string> color)>;
+  // `error` is nullopt when Umbriel accepted the action.
+  using UmbrielActionResultHandler =
+      std::function<void(std::uint64_t hostId, int callbackRef, std::optional<std::string> error)>;
   // Registers a `noctalia.state.watch` callback with the shared store (the runtime
   // owns the token + delivery, so registration is delegated back to it).
   using StateWatchHandler = std::function<void(std::string key, int callbackRef)>;
@@ -105,9 +109,18 @@ public:
   [[nodiscard]] const std::string& pluginId() const noexcept { return m_pluginId; }
   [[nodiscard]] const std::string& runtimeName() const noexcept { return m_runtimeName; }
   void setStateWatchHandler(StateWatchHandler handler) { m_stateWatchHandler = std::move(handler); }
+  // Called with every path noctalia.getSetting reads, so the owning runtime can react when
+  // that part of the shell config changes.
+  using SettingReadRecorder = std::function<void(std::string_view path)>;
+  void setSettingReadRecorder(SettingReadRecorder recorder) { m_settingReadRecorder = std::move(recorder); }
+  void recordSettingRead(std::string_view path) const {
+    if (m_settingReadRecorder) {
+      m_settingReadRecorder(path);
+    }
+  }
 
   // noctalia.state.* — host-mediated per-plugin shared data.
-  void stateSet(const std::string& key, std::string json);
+  void stateSet(const std::string& key, const std::string& json);
   [[nodiscard]] std::optional<std::string> stateGet(const std::string& key) const;
   void stateWatch(std::string key, int callbackRef);
   bool callStateWatchCallback(int callbackRef, const std::string& json, std::chrono::milliseconds budget);
@@ -138,8 +151,9 @@ public:
   [[nodiscard]] bool hasHttpStream(int streamKey) const;
 
   // System-monitor probes requested by this host are refcounted and released in ~LuauHost.
-  // Per-core and disk sampling remain opt-in through their dedicated calls.
+  // GPU, per-core and disk sampling are opt-in through their dedicated calls.
   void ensureSystemStatsRetained();
+  bool setGpuMonitoring(bool enabled);
   void ensureCpuCoresRetained();
   [[nodiscard]] bool ensureDiskPathRetained(const std::string& path);
 
@@ -163,6 +177,9 @@ public:
   void setColorPickerResultHandler(ColorPickerResultHandler handler) {
     m_colorPickerResultHandler = std::move(handler);
   }
+  void setUmbrielActionResultHandler(UmbrielActionResultHandler handler) {
+    m_umbrielActionResultHandler = std::move(handler);
+  }
   [[nodiscard]] bool
   startAsyncProcess(std::vector<std::string> args, int callbackRef, std::chrono::milliseconds timeout);
   [[nodiscard]] bool startAsyncProcessMatch(std::vector<std::string> needles, int callbackRef);
@@ -179,11 +196,17 @@ public:
   [[nodiscard]] bool startColorPicker(const Color& initialColor, int callbackRef);
   bool
   callColorPickerCallback(int callbackRef, const std::optional<std::string>& color, std::chrono::milliseconds budget);
+  // Sends one typed action request to the Umbriel socket on the script IO pool. `callbackRef` may be
+  // LUA_NOREF for fire-and-forget; otherwise the reply arrives as cb(ok, err).
+  [[nodiscard]] bool startUmbrielAction(std::string socketPath, std::string payload, int callbackRef);
+  bool
+  callUmbrielActionCallback(int callbackRef, const std::optional<std::string>& error, std::chrono::milliseconds budget);
   [[nodiscard]] bool hasAsyncCommandCallback(int callbackRef) const;
   [[nodiscard]] bool hasAsyncProcessMatchCallback(int callbackRef) const;
   [[nodiscard]] bool hasAsyncFileCallback(int callbackRef) const;
   [[nodiscard]] bool hasAsyncHttpCallback(int callbackRef) const;
   [[nodiscard]] bool hasColorPickerCallback(int callbackRef) const;
+  [[nodiscard]] bool hasUmbrielActionCallback(int callbackRef) const;
   [[nodiscard]] bool hasSoundLoadCallback(int callbackRef) const;
   bool callSoundLoadCallback(int callbackRef, bool ok, const std::string& error, std::chrono::milliseconds budget);
   void interruptIfBudgetExceeded(lua_State* L);
@@ -201,6 +224,7 @@ public:
   void scriptPlaySound(std::string name);
   void scriptNotifyInfo(std::string title, std::string body);
   void scriptNotifyError(std::string title, std::string body);
+  void scriptShowOsd(std::string icon, std::string value, std::optional<double> progress, bool inactive);
   // Toggle the host wallpaper surface on an output. Queued as a side effect and
   // applied on the main thread (Wallpaper is not worker-thread safe).
   void scriptSetWallpaperEnabled(std::string connector, bool enabled);
@@ -212,6 +236,18 @@ public:
   void scriptTogglePanel(std::string panelId);
   // Open the settings window at this plugin's own settings. Queued, applied on the main thread.
   void scriptOpenSettings();
+  // noctalia.idle.watch()/unwatch(): compositor idle notifications. The Wayland objects live on
+  // the main thread, so both are queued as side effects; watches are released with the host.
+  // The callback ref doubles as the watch id returned to the script.
+  [[nodiscard]] bool scriptIdleWatch(std::uint32_t timeoutMs, bool ignoreInhibitors, int callbackRef);
+  [[nodiscard]] bool scriptIdleUnwatch(int watchId);
+  bool callIdleWatchCallback(int callbackRef, bool idle, std::chrono::milliseconds budget);
+  [[nodiscard]] bool hasIdleWatchCallback(int callbackRef) const;
+  // noctalia.layer.show()/hide()/configure() for this plugin's [[layer]] entry `localEntryId`.
+  // Queued, applied on the main thread.
+  void scriptLayerCommand(
+      scripting::PluginLayerCommand command, const std::string& localEntryId, scripting::PluginLayerConfigPatch patch
+  );
   [[nodiscard]] bool scriptCopyToClipboard(std::string text, std::string mimeType);
   [[nodiscard]] std::optional<std::string> scriptFocusedOutputName() const;
 
@@ -260,6 +296,7 @@ private:
   CompositorPlatform* m_platform = nullptr;
   scripting::PluginBindingContext* m_scriptContext = nullptr;
   std::filesystem::path m_pluginDir;
+  SettingReadRecorder m_settingReadRecorder;
   std::string m_pluginId;
   std::string m_runtimeName;
   scripting::PluginTranslationCatalog m_translations;
@@ -289,13 +326,16 @@ private:
   std::unordered_set<int> m_asyncProcessMatchCallbackRefs;
   std::unordered_set<int> m_asyncHttpCallbackRefs;
   std::unordered_set<int> m_colorPickerCallbackRefs;
+  std::unordered_set<int> m_umbrielActionCallbackRefs;
   std::unordered_map<int, std::string> m_soundLoadCallbacks;
+  std::unordered_set<int> m_idleWatchCallbackRefs;
   HttpClient* m_httpClient = nullptr;
   AsyncCommandResultHandler m_asyncCommandResultHandler;
   AsyncFileResultHandler m_asyncFileResultHandler;
   AsyncProcessMatchResultHandler m_asyncProcessMatchResultHandler;
   AsyncHttpResultHandler m_asyncHttpResultHandler;
   ColorPickerResultHandler m_colorPickerResultHandler;
+  UmbrielActionResultHandler m_umbrielActionResultHandler;
   std::size_t m_memUsed = 0; // bytes tracked by allocate(); guarded by the worker-thread serialization
   std::chrono::nanoseconds m_callCpuDeadline{};
   std::string m_currentCallName;
@@ -309,6 +349,7 @@ private:
   std::size_t m_suppressedCallFailures = 0;
   bool m_cpuCoresRetained = false; // this host holds a SystemMonitorService per-core reference
   bool m_systemStatsRetained = false;
+  bool m_gpuStatsRetained = false;
   std::unordered_set<std::string> m_diskPathsRetained;
   bool m_budgetActive = false;
   bool m_lastCallTimedOut = false;

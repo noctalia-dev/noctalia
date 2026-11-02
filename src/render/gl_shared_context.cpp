@@ -1,10 +1,14 @@
 #include "render/gl_shared_context.h"
 
 #include "core/log.h"
+#include "render/backend/render_backend.h"
 
 #include <EGL/eglext.h>
+#include <GLES2/gl2.h>
+#include <dlfcn.h>
 #include <format>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -16,6 +20,18 @@
 #endif
 #ifndef EGL_GENERATE_RESET_ON_VIDEO_MEMORY_PURGE_NV
 #define EGL_GENERATE_RESET_ON_VIDEO_MEMORY_PURGE_NV 0x334C
+#endif
+#ifndef GL_GUILTY_CONTEXT_RESET
+#define GL_GUILTY_CONTEXT_RESET 0x8253
+#endif
+#ifndef GL_INNOCENT_CONTEXT_RESET
+#define GL_INNOCENT_CONTEXT_RESET 0x8254
+#endif
+#ifndef GL_UNKNOWN_CONTEXT_RESET
+#define GL_UNKNOWN_CONTEXT_RESET 0x8255
+#endif
+#ifndef GL_PURGED_CONTEXT_RESET_NV
+#define GL_PURGED_CONTEXT_RESET_NV 0x92BB
 #endif
 
 namespace {
@@ -43,6 +59,89 @@ namespace {
       2,
       EGL_NONE,
   };
+
+  using GraphicsResetStatusProc = GLenum(GL_APIENTRY*)();
+
+  GraphicsResetStatusProc resolveGraphicsResetStatusProc() {
+    for (const char* name :
+         {"glGetGraphicsResetStatus", "glGetGraphicsResetStatusKHR", "glGetGraphicsResetStatusEXT"}) {
+      if (auto* proc = reinterpret_cast<GraphicsResetStatusProc>(eglGetProcAddress(name)); proc != nullptr) {
+        return proc;
+      }
+    }
+    return nullptr;
+  }
+
+  std::string_view graphicsResetStatusName(RenderGraphicsResetStatus status) {
+    switch (status) {
+    case RenderGraphicsResetStatus::NoError:
+      return "no-error";
+    case RenderGraphicsResetStatus::Guilty:
+      return "guilty-context-reset";
+    case RenderGraphicsResetStatus::Innocent:
+      return "innocent-context-reset";
+    case RenderGraphicsResetStatus::Unknown:
+      return "unknown-context-reset";
+    case RenderGraphicsResetStatus::Purged:
+      return "purged-context-reset";
+    case RenderGraphicsResetStatus::Other:
+      return "other-context-reset";
+    }
+    return "other-context-reset";
+  }
+
+  std::string_view eglErrorName(EGLint error) {
+    switch (error) {
+    case EGL_SUCCESS:
+      return "EGL_SUCCESS";
+    case EGL_NOT_INITIALIZED:
+      return "EGL_NOT_INITIALIZED";
+    case EGL_BAD_ACCESS:
+      return "EGL_BAD_ACCESS";
+    case EGL_BAD_ALLOC:
+      return "EGL_BAD_ALLOC";
+    case EGL_BAD_ATTRIBUTE:
+      return "EGL_BAD_ATTRIBUTE";
+    case EGL_BAD_CONTEXT:
+      return "EGL_BAD_CONTEXT";
+    case EGL_BAD_CONFIG:
+      return "EGL_BAD_CONFIG";
+    case EGL_BAD_CURRENT_SURFACE:
+      return "EGL_BAD_CURRENT_SURFACE";
+    case EGL_BAD_DISPLAY:
+      return "EGL_BAD_DISPLAY";
+    case EGL_BAD_SURFACE:
+      return "EGL_BAD_SURFACE";
+    case EGL_BAD_MATCH:
+      return "EGL_BAD_MATCH";
+    case EGL_BAD_PARAMETER:
+      return "EGL_BAD_PARAMETER";
+    case EGL_BAD_NATIVE_PIXMAP:
+      return "EGL_BAD_NATIVE_PIXMAP";
+    case EGL_BAD_NATIVE_WINDOW:
+      return "EGL_BAD_NATIVE_WINDOW";
+    case EGL_CONTEXT_LOST:
+      return "EGL_CONTEXT_LOST";
+    default:
+      return "unknown EGL error";
+    }
+  }
+
+  std::string eglDisplayFailureDetail(EGLint eglError, std::string_view loaderError) {
+    std::string detail = eglError == EGL_SUCCESS
+        ? "eglGetDisplay failed (no EGL error reported)"
+        : std::format("eglGetDisplay failed ({} / 0x{:04x})", eglErrorName(eglError), static_cast<unsigned>(eglError));
+    if (loaderError.empty()) {
+      return detail;
+    }
+
+    detail += std::format(": EGL vendor library loading failed: {}", loaderError);
+    if (loaderError.contains("GLIBC_") && loaderError.contains("/nix/store/")) {
+      detail += ". This can indicate an incompatible NixOS graphics-driver/runtime closure; build Noctalia with the "
+                "system nixpkgs (set noctalia.inputs.nixpkgs.follows = \"nixpkgs\")";
+    }
+    return detail;
+  }
 
   bool hasExtension(const char* extensions, std::string_view name) {
     if (extensions == nullptr || name.empty()) {
@@ -77,9 +176,12 @@ void GlSharedContext::initialize(wl_display* display, bool createSharedContext) 
     throw std::runtime_error("GlSharedContext requires a valid Wayland display");
   }
 
+  (void)dlerror();
   m_display = eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(display));
   if (m_display == EGL_NO_DISPLAY) {
-    throw std::runtime_error("eglGetDisplay failed");
+    const char* loaderError = dlerror();
+    const std::string loaderDetail = loaderError != nullptr ? loaderError : "";
+    throw std::runtime_error(eglDisplayFailureDetail(eglGetError(), loaderDetail));
   }
 
   EGLint major = 0;
@@ -121,6 +223,7 @@ void GlSharedContext::recreateRootContext() {
   if (m_sharedContextEnabled) {
     m_rootContext = createContext(EGL_NO_CONTEXT, "root recovery");
   }
+  m_graphicsResetReported = false;
 }
 
 void GlSharedContext::buildContextAttributes() {
@@ -207,7 +310,47 @@ bool GlSharedContext::makeCurrentSurfaceless() const {
     );
     return false;
   }
+  // Texture uploads run on the root context, so a hang there is only visible through the root's own status.
+  const RenderGraphicsResetStatus status = currentGlContextResetStatus();
+  if (status != RenderGraphicsResetStatus::NoError) {
+    reportGraphicsReset(status, "root");
+    return false;
+  }
   return true;
+}
+
+void GlSharedContext::reportGraphicsReset(RenderGraphicsResetStatus status, std::string_view source) const {
+  if (m_graphicsResetReported) {
+    return;
+  }
+  m_graphicsResetReported = true;
+  kLog.warn(
+      "graphics reset detected on {} context: {}; scheduling context recovery", source, graphicsResetStatusName(status)
+  );
+  if (m_graphicsResetCallback) {
+    m_graphicsResetCallback(status);
+  }
+}
+
+RenderGraphicsResetStatus currentGlContextResetStatus() {
+  static const GraphicsResetStatusProc proc = resolveGraphicsResetStatusProc();
+  if (proc == nullptr) {
+    return RenderGraphicsResetStatus::NoError;
+  }
+  switch (proc()) {
+  case GL_NO_ERROR:
+    return RenderGraphicsResetStatus::NoError;
+  case GL_GUILTY_CONTEXT_RESET:
+    return RenderGraphicsResetStatus::Guilty;
+  case GL_INNOCENT_CONTEXT_RESET:
+    return RenderGraphicsResetStatus::Innocent;
+  case GL_UNKNOWN_CONTEXT_RESET:
+    return RenderGraphicsResetStatus::Unknown;
+  case GL_PURGED_CONTEXT_RESET_NV:
+    return RenderGraphicsResetStatus::Purged;
+  default:
+    return RenderGraphicsResetStatus::Other;
+  }
 }
 
 void GlSharedContext::cleanup() {

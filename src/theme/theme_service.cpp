@@ -11,6 +11,7 @@
 #include "theme/community_palettes.h"
 #include "theme/custom_palettes.h"
 #include "theme/fixed_palette.h"
+#include "theme/fixed_palette_json.h"
 #include "theme/image_loader.h"
 #include "theme/palette_generator.h"
 #include "theme/palette_transform.h"
@@ -19,17 +20,13 @@
 #include "util/checksum.h"
 #include "util/string_utils.h"
 
-#include <cctype>
 #include <chrono>
 #include <cmath>
-#include <exception>
 #include <filesystem>
-#include <fstream>
-#include <nlohmann/json.hpp>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 
 namespace noctalia::theme {
 
@@ -48,6 +45,29 @@ namespace noctalia::theme {
       std::string shellMode;
     };
 
+    // Pure and thread-safe: runs on the wallpaper palette worker as well as the main thread.
+    std::optional<GeneratedPalette> decodeWallpaperPalette(const std::string& path, Scheme scheme) {
+      profiling::StopWatch loadWatch;
+      auto image = loadAndResize(path, scheme);
+      if (profiling::enabled()) {
+        kLog.info("theme: wallpaper load+resize: {:.1F} ms", loadWatch.elapsedMs());
+      }
+      if (!image) {
+        kLog.warn("failed to load wallpaper '{}': {}", path, image.error());
+        return std::nullopt;
+      }
+      profiling::StopWatch genWatch;
+      auto generated = generate(image->rgb, scheme);
+      if (profiling::enabled()) {
+        kLog.info("theme: wallpaper palette generate: {:.1F} ms", genWatch.elapsedMs());
+      }
+      if (!generated) {
+        kLog.warn("failed to generate palette from wallpaper: {}", generated.error());
+        return std::nullopt;
+      }
+      return std::move(*generated);
+    }
+
     ResolvedTheme resolveBuiltin(const ThemeConfig& cfg, std::string_view mode, std::string_view shellMode) {
       const auto* palette = findBuiltinPalette(cfg.builtinPalette);
       if (palette == nullptr) {
@@ -63,134 +83,8 @@ namespace noctalia::theme {
       };
     }
 
-    // Reads a color key from a JSON object, looking first for the `m`-prefixed form
-    // (e.g. `mPrimary`) and falling back to the unprefixed name. Returns fallback
-    // (transparent black) if the key is missing or the value is not a hex string.
-    Color readColorField(const nlohmann::json& obj, std::string_view camelField) {
-      std::string prefixed = "m";
-      prefixed.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(camelField[0]))));
-      prefixed.append(camelField.substr(1));
-      auto tryRead = [&](const std::string& key) -> std::optional<Color> {
-        auto it = obj.find(key);
-        if (it == obj.end() || !it->is_string()) {
-          return std::nullopt;
-        }
-        try {
-          return hex(it->get<std::string>());
-        } catch (const std::exception&) {
-          return std::nullopt;
-        }
-      };
-      if (auto c = tryRead(prefixed))
-        return *c;
-      if (auto c = tryRead(std::string(camelField)))
-        return *c;
-      return Color{};
-    }
-
-    Palette readPaletteJson(const nlohmann::json& obj) {
-      return Palette{
-          .primary = readColorField(obj, "primary"),
-          .onPrimary = readColorField(obj, "onPrimary"),
-          .secondary = readColorField(obj, "secondary"),
-          .onSecondary = readColorField(obj, "onSecondary"),
-          .tertiary = readColorField(obj, "tertiary"),
-          .onTertiary = readColorField(obj, "onTertiary"),
-          .error = readColorField(obj, "error"),
-          .onError = readColorField(obj, "onError"),
-          .surface = readColorField(obj, "surface"),
-          .onSurface = readColorField(obj, "onSurface"),
-          .surfaceVariant = readColorField(obj, "surfaceVariant"),
-          .onSurfaceVariant = readColorField(obj, "onSurfaceVariant"),
-          .outline = readColorField(obj, "outline"),
-          .shadow = readColorField(obj, "shadow"),
-          .hover = readColorField(obj, "hover"),
-          .onHover = readColorField(obj, "onHover"),
-      };
-    }
-
-    TerminalAnsiColors readAnsiJson(const nlohmann::json& obj) {
-      return TerminalAnsiColors{
-          .black = readColorField(obj, kTerminalBlackJsonKey),
-          .red = readColorField(obj, kTerminalRedJsonKey),
-          .green = readColorField(obj, kTerminalGreenJsonKey),
-          .yellow = readColorField(obj, kTerminalYellowJsonKey),
-          .blue = readColorField(obj, kTerminalBlueJsonKey),
-          .magenta = readColorField(obj, kTerminalMagentaJsonKey),
-          .cyan = readColorField(obj, kTerminalCyanJsonKey),
-          .white = readColorField(obj, kTerminalWhiteJsonKey),
-      };
-    }
-
-    TerminalPalette readTerminalJson(const nlohmann::json& obj) {
-      TerminalPalette tp{};
-      if (auto it = obj.find(kTerminalNormalJsonKey); it != obj.end() && it->is_object()) {
-        tp.normal = readAnsiJson(*it);
-      }
-      if (auto it = obj.find(kTerminalBrightJsonKey); it != obj.end() && it->is_object()) {
-        tp.bright = readAnsiJson(*it);
-      }
-      tp.foreground = readColorField(obj, kTerminalForegroundJsonKey);
-      tp.background = readColorField(obj, kTerminalBackgroundJsonKey);
-      tp.selectionFg = readColorField(obj, kTerminalSelectionFgJsonKey);
-      tp.selectionBg = readColorField(obj, kTerminalSelectionBgJsonKey);
-      tp.cursorText = readColorField(obj, kTerminalCursorTextJsonKey);
-      tp.cursor = readColorField(obj, kTerminalCursorJsonKey);
-      return tp;
-    }
-
-    std::optional<TerminalPalette> readModeTerminalJson(const nlohmann::json& obj) {
-      auto it = obj.find(kTerminalJsonKey);
-      if (it == obj.end() || !it->is_object())
-        return std::nullopt;
-      return readTerminalJson(*it);
-    }
-
-    struct ParsedCommunityPalette {
-      FixedPaletteMode dark;
-      FixedPaletteMode light;
-    };
-
-    std::optional<ParsedCommunityPalette> parseCommunityPaletteJson(const std::filesystem::path& path) {
-      try {
-        std::ifstream in(path);
-        if (!in)
-          return std::nullopt;
-        std::stringstream buf;
-        buf << in.rdbuf();
-        auto root = nlohmann::json::parse(buf.str());
-        if (!root.is_object())
-          return std::nullopt;
-        ParsedCommunityPalette out{};
-        if (auto it = root.find("dark"); it != root.end() && it->is_object()) {
-          out.dark.palette = readPaletteJson(*it);
-          if (auto terminal = readModeTerminalJson(*it)) {
-            out.dark.terminal = *terminal;
-          } else {
-            return std::nullopt;
-          }
-        } else {
-          return std::nullopt;
-        }
-        if (auto it = root.find("light"); it != root.end() && it->is_object()) {
-          out.light.palette = readPaletteJson(*it);
-          if (auto terminal = readModeTerminalJson(*it)) {
-            out.light.terminal = *terminal;
-          } else {
-            return std::nullopt;
-          }
-        } else {
-          out.light = out.dark;
-        }
-        return out;
-      } catch (const std::exception& e) {
-        kLog.warn("failed to parse community palette '{}': {}", path.string(), e.what());
-        return std::nullopt;
-      }
-    }
-
     ResolvedTheme
-    makeResolvedFromParsed(const ParsedCommunityPalette& parsed, std::string_view mode, std::string_view shellMode) {
+    makeResolvedFromParsed(const ParsedPaletteFile& parsed, std::string_view mode, std::string_view shellMode) {
       BuiltinPalette bp{
           .name = "community",
           .dark = parsed.dark,
@@ -264,6 +158,19 @@ namespace noctalia::theme {
 
   ThemeService::ThemeService(ConfigService& config, HttpClient& httpClient)
       : m_config(config), m_httpClient(httpClient) {}
+
+  ThemeService::~ThemeService() {
+    m_alive.reset();
+    {
+      std::scoped_lock lock(m_wallpaperWorkerMutex);
+      m_wallpaperWorkerShutdown = true;
+      m_wallpaperQueued.reset();
+    }
+    m_wallpaperWorkerCv.notify_all();
+    if (m_wallpaperWorker.joinable()) {
+      m_wallpaperWorker.join();
+    }
+  }
 
   void ThemeService::apply() { resolveAndSet(/*animate=*/false); }
 
@@ -355,7 +262,7 @@ namespace noctalia::theme {
     m_pendingResolvedMode.clear();
 
     if (defer) {
-      DeferredCall::callLater([this, generation, generated = std::move(generated), mode = std::move(mode)]() mutable {
+      DeferredCall::callLater([this, generation, generated = std::move(generated), mode = std::move(mode)] mutable {
         if (generation == m_resolvedCallbackGeneration && m_resolvedCallback) {
           m_resolvedCallback(generated, mode);
         }
@@ -385,7 +292,7 @@ namespace noctalia::theme {
         return;
       }
       // Validate the just-downloaded file. If it parses, trigger a re-resolve.
-      if (!parseCommunityPaletteJson(cachePath).has_value()) {
+      if (!parsePaletteFile(cachePath).has_value()) {
         kLog.warn("community palette '{}' downloaded but failed to parse; removing cache", name);
         std::error_code rmEc;
         std::filesystem::remove(cachePath, rmEc);
@@ -395,8 +302,8 @@ namespace noctalia::theme {
     });
   }
 
-  std::optional<GeneratedPalette>
-  ThemeService::resolveWallpaperGenerated(const ThemeConfig& cfg, const std::string& wallpaperPath) {
+  std::optional<ThemeService::WallpaperPaletteKey>
+  ThemeService::wallpaperPaletteKey(const ThemeConfig& cfg, const std::string& wallpaperPath) const {
     if (wallpaperPath.empty()) {
       kLog.warn("wallpaper theme requested but no wallpaper path set");
       return std::nullopt;
@@ -406,48 +313,117 @@ namespace noctalia::theme {
       kLog.warn("unknown wallpaper scheme '{}', falling back to m3-content", cfg.wallpaperScheme);
       scheme = Scheme::Content;
     }
-
-    // mtime drives cache invalidation: an edited wallpaper at the same path
-    // re-decodes. A failed stat (mtime 0) disables the cache rather than risk a
-    // stale palette.
     std::error_code ec;
     const auto writeTime = std::filesystem::last_write_time(wallpaperPath, ec);
-    const std::int64_t mtimeNs = ec ? 0 : writeTime.time_since_epoch().count();
+    return WallpaperPaletteKey{
+        .path = wallpaperPath,
+        .schemeName = cfg.wallpaperScheme,
+        .scheme = *scheme,
+        .mtimeNs = ec ? 0 : static_cast<std::int64_t>(writeTime.time_since_epoch().count()),
+    };
+  }
 
-    if (mtimeNs != 0
-        && m_wallpaperCacheGenerated.has_value()
-        && m_wallpaperCachePath == wallpaperPath
-        && m_wallpaperCacheScheme == cfg.wallpaperScheme
-        && m_wallpaperCacheMtimeNs == mtimeNs) {
+  bool ThemeService::wallpaperCacheMatches(const WallpaperPaletteKey& key) const {
+    return key.mtimeNs != 0 && m_wallpaperCacheGenerated.has_value() && m_wallpaperCacheKey == key;
+  }
+
+  void ThemeService::storeWallpaperCache(const WallpaperPaletteKey& key, const GeneratedPalette& generated) {
+    if (key.mtimeNs == 0) {
+      return;
+    }
+    m_wallpaperCacheGenerated = generated;
+    m_wallpaperCacheKey = key;
+  }
+
+  std::optional<GeneratedPalette>
+  ThemeService::resolveWallpaperGenerated(const ThemeConfig& cfg, const std::string& wallpaperPath) {
+    const auto key = wallpaperPaletteKey(cfg, wallpaperPath);
+    if (!key) {
+      return std::nullopt;
+    }
+    if (wallpaperCacheMatches(*key)) {
       return m_wallpaperCacheGenerated;
     }
+    auto generated = decodeWallpaperPalette(key->path, key->scheme);
+    if (generated) {
+      storeWallpaperCache(*key, *generated);
+    }
+    return generated;
+  }
 
-    profiling::StopWatch loadWatch;
-    auto image = loadAndResize(wallpaperPath, *scheme);
-    if (profiling::enabled()) {
-      kLog.info("theme: wallpaper load+resize: {:.1F} ms", loadWatch.elapsedMs());
+  ThemeService::WallpaperLookup
+  ThemeService::lookupWallpaperGenerated(const ThemeConfig& cfg, const std::string& wallpaperPath) {
+    const auto key = wallpaperPaletteKey(cfg, wallpaperPath);
+    if (!key) {
+      return {};
     }
-    if (!image) {
-      kLog.warn("failed to load wallpaper '{}': {}", wallpaperPath, image.error());
-      return std::nullopt;
+    if (wallpaperCacheMatches(*key)) {
+      return {.generated = m_wallpaperCacheGenerated};
     }
-    profiling::StopWatch genWatch;
-    auto generated = generate(image->rgb, *scheme);
-    if (profiling::enabled()) {
-      kLog.info("theme: wallpaper palette generate: {:.1F} ms", genWatch.elapsedMs());
+    // An unstat-able file cannot be cached, so a background result could never be served;
+    // reading it fails fast anyway.
+    if (key->mtimeNs == 0) {
+      return {.generated = decodeWallpaperPalette(key->path, key->scheme)};
     }
-    if (!generated) {
-      kLog.warn("failed to generate palette from wallpaper: {}", generated.error());
-      return std::nullopt;
+    if (m_wallpaperFailed == key) {
+      return {};
     }
+    requestWallpaperPalette(*key);
+    return {.pending = true};
+  }
 
-    if (mtimeNs != 0) {
-      m_wallpaperCacheGenerated = *generated;
-      m_wallpaperCachePath = wallpaperPath;
-      m_wallpaperCacheScheme = cfg.wallpaperScheme;
-      m_wallpaperCacheMtimeNs = mtimeNs;
+  void ThemeService::requestWallpaperPalette(const WallpaperPaletteKey& key) {
+    if (m_wallpaperRequested == key) {
+      return;
     }
-    return *generated;
+    m_wallpaperRequested = key;
+    {
+      std::scoped_lock lock(m_wallpaperWorkerMutex);
+      m_wallpaperQueued = key;
+    }
+    if (!m_wallpaperWorker.joinable()) {
+      m_wallpaperWorker = std::thread([this] { wallpaperWorkerLoop(); });
+    }
+    m_wallpaperWorkerCv.notify_one();
+  }
+
+  void ThemeService::wallpaperWorkerLoop() {
+    const std::weak_ptr<bool> alive = m_alive;
+    while (true) {
+      WallpaperPaletteKey key;
+      {
+        std::unique_lock lock(m_wallpaperWorkerMutex);
+        m_wallpaperWorkerCv.wait(lock, [this] { return m_wallpaperWorkerShutdown || m_wallpaperQueued.has_value(); });
+        if (m_wallpaperWorkerShutdown) {
+          return;
+        }
+        key = std::move(*m_wallpaperQueued);
+        m_wallpaperQueued.reset();
+      }
+      auto generated = decodeWallpaperPalette(key.path, key.scheme);
+      DeferredCall::callLater([this, alive, key = std::move(key), generated = std::move(generated)] mutable {
+        if (alive.expired()) {
+          return;
+        }
+        onWallpaperPaletteDecoded(key, std::move(generated));
+      });
+    }
+  }
+
+  void
+  ThemeService::onWallpaperPaletteDecoded(const WallpaperPaletteKey& key, std::optional<GeneratedPalette> generated) {
+    if (m_wallpaperRequested != key) {
+      return; // superseded by a newer wallpaper or scheme
+    }
+    m_wallpaperRequested.reset();
+    if (generated) {
+      storeWallpaperCache(key, *generated);
+    } else {
+      m_wallpaperFailed = key;
+    }
+    if (m_config.config().theme.source == PaletteSource::Wallpaper) {
+      resolveAndSet(/*animate=*/true);
+    }
   }
 
   void ThemeService::resolveAndSet(bool animate) {
@@ -472,7 +448,7 @@ namespace noctalia::theme {
     if (cfg.source == PaletteSource::Custom && !cfg.customPalette.empty()) {
       const auto path = customPalettePath(cfg.customPalette);
       if (std::filesystem::exists(path)) {
-        if (auto parsed = parseCommunityPaletteJson(path)) {
+        if (auto parsed = parsePaletteFile(path)) {
           resolved = makeResolvedFromParsed(*parsed, mode, shellMode);
         }
       }
@@ -480,10 +456,20 @@ namespace noctalia::theme {
         kLog.warn("custom palette '{}' not found or invalid; falling back to builtin", cfg.customPalette);
       }
     } else if (cfg.source == PaletteSource::Wallpaper) {
-      if (auto generated = resolveWallpaperGenerated(cfg, m_config.getPaletteWallpaperPath())) {
+      // Startup snaps synchronously so the first frame never shows a different palette.
+      // Afterwards a multi-second decode of a huge image must not block the event loop.
+      const std::string wallpaperPath = m_config.getPaletteWallpaperPath();
+      WallpaperLookup lookup = animate ? lookupWallpaperGenerated(cfg, wallpaperPath)
+                                       : WallpaperLookup{.generated = resolveWallpaperGenerated(cfg, wallpaperPath)};
+      if (lookup.pending) {
+        rescheduleAutoTimer();
+        return;
+      }
+      if (lookup.generated) {
+        const GeneratedPalette& generated = *lookup.generated;
         resolved = ResolvedTheme{
-            .generated = *generated,
-            .palette = mapGeneratedPaletteMode(shellMode == "light" ? generated->light : generated->dark),
+            .generated = generated,
+            .palette = mapGeneratedPaletteMode(shellMode == "light" ? generated.light : generated.dark),
             .mode = mode,
             .shellMode = shellMode,
         };
@@ -492,7 +478,7 @@ namespace noctalia::theme {
       const auto cachePath = communityPaletteCachePath(cfg.communityPalette);
       bool stale = true;
       if (std::filesystem::exists(cachePath)) {
-        if (auto parsed = parseCommunityPaletteJson(cachePath)) {
+        if (auto parsed = parsePaletteFile(cachePath)) {
           resolved = makeResolvedFromParsed(*parsed, mode, shellMode);
           // Re-fetch when the catalog advertises a different checksum than the
           // cached copy. An empty catalog md5 means "freshness unknown": keep
@@ -572,7 +558,7 @@ namespace noctalia::theme {
         day_night_schedule::evaluate(m_config.config().location, m_autoLatitude, m_autoLongitude).untilBoundary;
     const auto delay =
         std::min(nextBoundary, std::chrono::duration_cast<std::chrono::milliseconds>(kAutoRecheckInterval));
-    m_autoTimer.start(delay, [this]() { onAutoSchemeChanged(); });
+    m_autoTimer.start(delay, [this] { onAutoSchemeChanged(); });
   }
 
   bool ThemeService::hasAutoMode() const noexcept {
@@ -610,7 +596,7 @@ namespace noctalia::theme {
             flushResolvedCallback(/*defer=*/true);
           }
         },
-        [this]() { finishTransition(/*deferResolvedCallback=*/false); }
+        [this] { finishTransition(/*deferResolvedCallback=*/false); }
     );
     if (m_transitionAnimId == 0) {
       m_transitionTimer.stop();

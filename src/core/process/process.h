@@ -62,6 +62,10 @@ namespace process {
   // that worker. Output chunk views are valid only for the callback call.
   [[nodiscard]] bool runAsync(const std::string& command, RunCallbacks callbacks, RunOptions options = {});
   [[nodiscard]] RunResult runSync(const std::string& command);
+  // Interruptible shell run: honors options.timeout and options.cancel, killing the
+  // child's process group when either fires (used for template hooks so a hung hook
+  // cannot block teardown).
+  [[nodiscard]] RunResult runSync(const std::string& command, const RunOptions& options);
 
   // Arg vector — direct execvp; same detach semantics as runAsync(string). When activationToken is
   // non-empty, the grandchild sets XDG_ACTIVATION_TOKEN and DESKTOP_STARTUP_ID (launcher).
@@ -74,7 +78,7 @@ namespace process {
   [[nodiscard]] bool runAsync(std::initializer_list<const char*> args);
   [[nodiscard]] bool runAsync(std::initializer_list<const char*> args, RunCallbacks callbacks, RunOptions options = {});
   [[nodiscard]] RunResult runSync(const std::vector<std::string>& args);
-  [[nodiscard]] RunResult runSync(const std::vector<std::string>& args, RunOptions options);
+  [[nodiscard]] RunResult runSync(const std::vector<std::string>& args, const RunOptions& options);
   [[nodiscard]] RunResult runSync(std::initializer_list<const char*> args);
   [[nodiscard]] RunResult runSyncWithTimeout(const std::vector<std::string>& args, std::chrono::milliseconds timeout);
   [[nodiscard]] RunResult

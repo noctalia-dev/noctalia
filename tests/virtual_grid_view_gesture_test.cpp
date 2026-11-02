@@ -32,19 +32,19 @@ namespace {
   class StubRenderer final : public Renderer {
   public:
     TextMetrics measureText(
-        std::string_view, float fontSize, FontWeight, float, int, TextAlign, std::string_view, TextEllipsize, bool
+        std::string_view, float fontSize, const TextFont&, float, int, TextAlign, TextEllipsize, bool
     ) override {
       return TextMetrics{.bottom = fontSize};
     }
 
-    TextMetrics measureFont(float fontSize, FontWeight) override { return TextMetrics{.bottom = fontSize}; }
+    TextMetrics measureFont(float fontSize, const TextFont&) override { return TextMetrics{.bottom = fontSize}; }
 
     void measureTextCursorStops(
-        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, FontWeight
+        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, const TextFont&
     ) override {}
 
     void measureTextCursorStopsWrapped(
-        std::string_view, float, const std::vector<std::size_t>&, float, std::vector<TextCursorStop>&, FontWeight
+        std::string_view, float, const std::vector<std::size_t>&, float, std::vector<TextCursorStop>&, const TextFont&
     ) override {}
 
     TextMetrics measureGlyph(char32_t, float) override { return TextMetrics{}; }
@@ -71,9 +71,9 @@ namespace {
       return false;
     }
 
-    bool onPointerRelease(std::optional<std::size_t> index) override {
+    PointerReleaseResult onPointerRelease(std::optional<std::size_t> index) override {
       releases.push_back(index);
-      return false;
+      return {};
     }
 
     void reset() {

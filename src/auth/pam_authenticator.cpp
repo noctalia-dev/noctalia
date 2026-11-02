@@ -5,17 +5,17 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <csignal>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <fcntl.h>
 #include <pthread.h>
 #include <pwd.h>
 #include <security/pam_appl.h>
-#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <time.h>
 #include <unistd.h>
 #include <vector>
 
@@ -36,6 +36,7 @@ namespace {
 
   struct PamConversationData {
     const char* password = nullptr;
+    bool passwordSent = false;
   };
 
   struct PamHandle {
@@ -72,7 +73,17 @@ namespace {
 
       switch (msg[i]->msg_style) {
       case PAM_PROMPT_ECHO_OFF:
+        if (data->passwordSent) {
+          for (int j = 0; j < i; ++j) {
+            if (replies[j].resp != nullptr) {
+              std::free(replies[j].resp);
+            }
+          }
+          std::free(replies);
+          return PAM_CONV_ERR;
+        }
         replies[i].resp = ::strdup(data->password != nullptr ? data->password : "");
+        data->passwordSent = true;
         break;
       case PAM_PROMPT_ECHO_ON:
         replies[i].resp = ::strdup("");
@@ -108,7 +119,7 @@ namespace {
   }
 
   [[nodiscard]] bool writeAll(int fd, const void* data, std::size_t len) {
-    auto* bytes = static_cast<const std::uint8_t*>(data);
+    const auto* bytes = static_cast<const std::uint8_t*>(data);
     std::size_t remaining = len;
     while (remaining > 0) {
       const ssize_t n = ::write(fd, bytes, remaining);
@@ -274,7 +285,8 @@ namespace {
     kLog.debug("authenticating user='{}' service='{}'", user, service);
 
     PamHandle pamh;
-    const int startRc = pam_start(service.data(), user.c_str(), &conv, &pamh.h);
+    const std::string serviceName(service);
+    const int startRc = pam_start(serviceName.c_str(), user.c_str(), &conv, &pamh.h);
     if (startRc != PAM_SUCCESS || pamh.h == nullptr) {
       kLog.error(
           "pam_start failed rc={} ({})", startRc, pamh.h != nullptr ? pam_strerror(pamh.h, startRc) : "no handle"
@@ -298,6 +310,16 @@ namespace {
     const std::string errStr = err != nullptr ? err : i18n::tr("auth.pam.authentication-failed");
     pamh.lastRc = rc;
 
+    if (rc == PAM_SUCCESS) {
+      // A credential-provider failure must not reject an otherwise valid unlock.
+      const int credRc = pam_setcred(pamh.h, PAM_REFRESH_CRED);
+      kLog.debug("pam_setcred PAM_REFRESH_CRED rc={} ({})", credRc, pam_strerror(pamh.h, credRc));
+      pamh.lastRc = credRc;
+      if (credRc != PAM_SUCCESS) {
+        kLog.warn("credential refresh failed for user='{}' rc={} ({})", user, credRc, pam_strerror(pamh.h, credRc));
+      }
+    }
+
     secureClear(passwordCopy);
 
     if (rc == PAM_SUCCESS) {
@@ -316,7 +338,7 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
 ) const {
   // Re-exec before invoking PAM so the helper cannot inherit locked library
   // state from the shell's other threads.
-  const auto fail = [startFailureMessage]() {
+  const auto fail = [startFailureMessage] {
     return Result{.success = false, .message = std::string(startFailureMessage)};
   };
 

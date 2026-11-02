@@ -21,11 +21,33 @@ namespace compositors::umbriel {
   namespace {
 
     constexpr Logger kLog("umbriel_runtime");
+    constexpr auto kRequestTimeout = std::chrono::milliseconds(500);
     constexpr auto kReconnectInitial = std::chrono::seconds(2);
     constexpr auto kReconnectMax = std::chrono::seconds(30);
     constexpr std::size_t kReadBufferMaxBytes = 1024U * 1024U;
     constexpr std::string_view kEventStreamRequest =
-        R"({"cmd":"subscribe","events":["windows","overview","keyboard_layout","workspaces"]})";
+        R"({"cmd":"subscribe","events":["windows","overview","keyboard_layout","workspaces","outputs"]})";
+
+    [[nodiscard]] bool waitForRequestSocket(int fd, short events, std::chrono::steady_clock::time_point deadline) {
+      while (true) {
+        const auto remaining =
+            std::chrono::ceil<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now());
+        if (remaining.count() <= 0) {
+          return false;
+        }
+        pollfd socket{.fd = fd, .events = events, .revents = 0};
+        const int result = ::poll(&socket, 1, static_cast<int>(remaining.count()));
+        if (result > 0) {
+          if ((socket.revents & (POLLERR | POLLNVAL)) != 0) {
+            return false;
+          }
+          return (socket.revents & events) != 0 || (events == POLLIN && (socket.revents & POLLHUP) != 0);
+        }
+        if (result == 0 || errno != EINTR) {
+          return false;
+        }
+      }
+    }
 
     [[nodiscard]] bool writeAll(int fd, std::string_view data) {
       std::size_t offset = 0;
@@ -49,36 +71,28 @@ namespace compositors::umbriel {
 
   } // namespace
 
-  struct UmbrielRuntime::IpcReply {
-    enum class Status {
-      Unavailable,
-      WriteFailed,
-      ReadFailed,
-      NoResponse,
-      InvalidJson,
-      Replied,
-    };
-
-    Status status = Status::Unavailable;
-    std::optional<nlohmann::json> json;
-  };
-
   bool UmbrielRuntime::available() const {
     ensureResolved();
     return !m_socketPath.empty();
   }
 
-  std::optional<nlohmann::json>
-  UmbrielRuntime::requestCommand(std::string_view cmd, std::optional<std::string_view> arg) const {
+  const std::string& UmbrielRuntime::socketPath() const {
+    ensureResolved();
+    return m_socketPath;
+  }
+
+  std::optional<nlohmann::json> UmbrielRuntime::requestCommand(std::string_view cmd) const {
     nlohmann::json request = nlohmann::json::object();
     request["cmd"] = cmd;
-    if (arg.has_value()) {
-      request["arg"] = *arg;
-    }
+    return send(request);
+  }
+
+  std::optional<nlohmann::json> UmbrielRuntime::send(const nlohmann::json& request) const {
+    ensureResolved();
     auto payload = request.dump();
     payload.push_back('\n');
 
-    const auto reply = this->request(payload);
+    const auto reply = exchange(m_socketPath, payload, kRequestTimeout);
     if (!reply.json.has_value() || !reply.json->is_object()) {
       return std::nullopt;
     }
@@ -88,39 +102,68 @@ namespace compositors::umbriel {
     return reply.json;
   }
 
-  bool UmbrielRuntime::requestAction(std::string_view action) const {
-    return requestCommand("msg", action).has_value();
+  bool UmbrielRuntime::requestAction(std::string_view action, nlohmann::json fields) const {
+    fields["cmd"] = "action";
+    fields["action"] = action;
+    return send(fields).has_value();
   }
 
-  UmbrielRuntime::IpcReply UmbrielRuntime::request(std::string_view payload) const {
-    ensureResolved();
-    if (m_socketPath.empty() || payload.empty()) {
+  std::string findSocketPath() {
+    if (const char* socketPath = std::getenv("UMBRIEL_SOCKET"); socketPath != nullptr && socketPath[0] != '\0') {
+      return socketPath;
+    }
+
+    const char* runtimeDir = std::getenv("XDG_RUNTIME_DIR");
+    const char* waylandDisplay = std::getenv("WAYLAND_DISPLAY");
+    if (runtimeDir == nullptr || runtimeDir[0] == '\0' || waylandDisplay == nullptr || waylandDisplay[0] == '\0') {
+      return {};
+    }
+
+    std::string fallback = std::string(runtimeDir) + "/umbriel-" + waylandDisplay + ".sock";
+    return isSocketPath(fallback) ? fallback : std::string();
+  }
+
+  IpcReply exchange(const std::string& socketPath, std::string_view payload, std::chrono::milliseconds timeout) {
+    if (socketPath.empty() || payload.empty()) {
       return {IpcReply::Status::Unavailable, std::nullopt};
     }
 
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (fd < 0) {
       return {IpcReply::Status::Unavailable, std::nullopt};
     }
 
     sockaddr_un addr{};
     addr.sun_family = AF_UNIX;
-    if (m_socketPath.size() >= sizeof(addr.sun_path)) {
+    if (socketPath.size() >= sizeof(addr.sun_path)) {
       ::close(fd);
       return {IpcReply::Status::Unavailable, std::nullopt};
     }
-    std::memcpy(addr.sun_path, m_socketPath.c_str(), m_socketPath.size() + 1);
+    std::memcpy(addr.sun_path, socketPath.c_str(), socketPath.size() + 1);
 
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
     if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) < 0) {
-      ::close(fd);
-      return {IpcReply::Status::Unavailable, std::nullopt};
+      if (errno != EINPROGRESS || !waitForRequestSocket(fd, POLLOUT, deadline)) {
+        ::close(fd);
+        return {IpcReply::Status::Unavailable, std::nullopt};
+      }
+      int socketError = 0;
+      socklen_t socketErrorSize = sizeof(socketError);
+      if (::getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &socketErrorSize) < 0 || socketError != 0) {
+        ::close(fd);
+        return {IpcReply::Status::Unavailable, std::nullopt};
+      }
     }
 
     std::size_t offset = 0;
     while (offset < payload.size()) {
-      const ssize_t written = ::write(fd, payload.data() + offset, payload.size() - offset);
+      if (!waitForRequestSocket(fd, POLLOUT, deadline)) {
+        ::close(fd);
+        return {IpcReply::Status::WriteFailed, std::nullopt};
+      }
+      const ssize_t written = ::send(fd, payload.data() + offset, payload.size() - offset, MSG_NOSIGNAL);
       if (written <= 0) {
-        if (written < 0 && errno == EINTR) {
+        if (written < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
           continue;
         }
         ::close(fd);
@@ -132,6 +175,10 @@ namespace compositors::umbriel {
     std::string response;
     char buffer[4096];
     while (true) {
+      if (!waitForRequestSocket(fd, POLLIN, deadline)) {
+        ::close(fd);
+        return {IpcReply::Status::ReadFailed, std::nullopt};
+      }
       const ssize_t count = ::read(fd, buffer, sizeof(buffer));
       if (count > 0) {
         response.append(buffer, static_cast<std::size_t>(count));
@@ -143,7 +190,7 @@ namespace compositors::umbriel {
       if (count == 0) {
         break;
       }
-      if (errno == EINTR) {
+      if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
         continue;
       }
       ::close(fd);
@@ -296,6 +343,7 @@ namespace compositors::umbriel {
     if (m_eventSocketFd >= 0) {
       ::close(m_eventSocketFd);
       m_eventSocketFd = -1;
+      notifyStreamReset();
     }
 
     if (scheduleReconnectFlag) {
@@ -407,22 +455,7 @@ namespace compositors::umbriel {
 
   void UmbrielRuntime::resolveSocketPath() const {
     m_resolved = true;
-
-    if (const char* socketPath = std::getenv("UMBRIEL_SOCKET"); socketPath != nullptr && socketPath[0] != '\0') {
-      m_socketPath = socketPath;
-      return;
-    }
-
-    const char* runtimeDir = std::getenv("XDG_RUNTIME_DIR");
-    const char* waylandDisplay = std::getenv("WAYLAND_DISPLAY");
-    if (runtimeDir == nullptr || runtimeDir[0] == '\0' || waylandDisplay == nullptr || waylandDisplay[0] == '\0') {
-      return;
-    }
-
-    const std::string fallback = std::string(runtimeDir) + "/umbriel-" + waylandDisplay + ".sock";
-    if (isSocketPath(fallback)) {
-      m_socketPath = fallback;
-    }
+    m_socketPath = findSocketPath();
   }
 
 } // namespace compositors::umbriel

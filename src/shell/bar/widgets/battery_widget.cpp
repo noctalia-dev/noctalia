@@ -19,11 +19,19 @@
 
 namespace {
 
+  // Upright body for vertical bars; horizontal bars use a slightly larger body so a Caption-size number stays legible.
   constexpr float kGraphicBodyWidth = 22.0F;
   constexpr float kGraphicBodyHeight = 14.0F;
+  constexpr float kGraphicHorizontalBodyWidth = 25.0F;
+  constexpr float kGraphicHorizontalBodyHeight = 15.0F;
   constexpr float kGraphicTerminalWidth = 2.5F;
   constexpr float kGraphicTerminalHeight = 7.0F;
-  constexpr float kGraphicCornerRadius = 3.0F;
+  constexpr float kGraphicCornerRadius = 4.0F;
+
+  // The bar updates once a minute unless a widget renders seconds, so a shorter
+  // interval would never be honoured. The second of slack keeps an update that
+  // lands just short of a full minute from pushing the refresh out to two.
+  constexpr auto kTooltipForceRefreshInterval = std::chrono::seconds(59);
 
   const char* batteryStateGlyph(BatteryState state) {
     if (state == BatteryState::Charging) {
@@ -38,8 +46,8 @@ namespace {
   std::string formatCompactDuration(std::int64_t seconds) {
     const auto hours = seconds / 3600;
     const auto minutes = (seconds % 3600) / 60;
-    const std::string hourText = i18n::tr("time.units.hour-compact", "count", hours);
-    const std::string minuteText = i18n::tr("time.units.minute-compact", "count", minutes);
+    std::string hourText = i18n::tr("time.units.hour-compact", "count", hours);
+    std::string minuteText = i18n::tr("time.units.minute-compact", "count", minutes);
     if (hours > 0 && minutes > 0) {
       return i18n::tr("time.duration.two-parts", "first", hourText, "second", minuteText);
     }
@@ -50,6 +58,15 @@ namespace {
       return minuteText;
     }
     return i18n::tr("time.duration.less-than-minute");
+  }
+
+  // The graphic body has room for about four narrow characters, so durations of an hour or more use a clock-style
+  // "2:54" instead of "2h 54m"; shorter ones keep the compact "53m" form.
+  std::string formatGraphicDuration(std::int64_t seconds) {
+    if (seconds < 3600) {
+      return formatCompactDuration(seconds);
+    }
+    return std::format("{}:{:02}", seconds / 3600, (seconds % 3600) / 60);
   }
 
 } // namespace
@@ -69,23 +86,28 @@ std::string BatteryWidget::buildLabelText(int pct, const UPowerState& state) con
   }
 
   switch (m_labelContent) {
-  case BatteryLabelContent::Time:
+  case BatteryLabelContent::Time: {
+    const bool graphic = m_displayMode == BatteryDisplayMode::Graphic;
     if (state.state == BatteryState::Discharging && state.timeToEmpty > 0) {
-      return formatCompactDuration(state.timeToEmpty);
+      return graphic ? formatGraphicDuration(state.timeToEmpty) : formatCompactDuration(state.timeToEmpty);
     }
     if (state.state == BatteryState::Charging && state.timeToFull > 0) {
-      return formatCompactDuration(state.timeToFull);
+      return graphic ? formatGraphicDuration(state.timeToFull) : formatCompactDuration(state.timeToFull);
     }
     break;
+  }
   case BatteryLabelContent::Rate:
     if (state.energyRate > 0.0) {
+      if (m_displayMode == BatteryDisplayMode::Graphic) {
+        return state.energyRate < 1.0 ? "<1W" : std::format("{:.0F}W", state.energyRate);
+      }
       return std::format("{:.1F} W", state.energyRate);
     }
     break;
   case BatteryLabelContent::Percent:
     break;
   }
-  return std::format("{}%", pct);
+  return m_displayMode == BatteryDisplayMode::Graphic ? std::to_string(pct) : std::format("{}%", pct);
 }
 
 void BatteryWidget::create() {
@@ -107,7 +129,6 @@ void BatteryWidget::createGraphicMode() {
   container->addChild(
       ui::box({
           .out = &m_bodyBg,
-          .fill = scaleAlpha(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)), 0.3F),
       })
   );
 
@@ -120,7 +141,6 @@ void BatteryWidget::createGraphicMode() {
   container->addChild(
       ui::box({
           .out = &m_terminalNub,
-          .fill = scaleAlpha(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)), 0.3F),
       })
   );
 
@@ -131,6 +151,7 @@ void BatteryWidget::createGraphicMode() {
             .fontWeight = labelFontWeight(),
             .fontFamily = labelFontFamily(),
             .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+            .textAlign = TextAlign::Center,
         })
     );
   }
@@ -142,6 +163,12 @@ void BatteryWidget::createGraphicMode() {
           .visible = false,
       })
   );
+
+  syncPalette();
+  m_paletteConn = paletteChanged().connect([this] {
+    syncPalette();
+    requestRedraw();
+  });
 }
 
 void BatteryWidget::createGlyphMode() {
@@ -205,91 +232,85 @@ void BatteryWidget::layoutGraphicMode(Renderer& renderer) {
   }
 
   const float scale = (Style::fontSizeBody / 14.0F) * m_contentScale;
-  const float bodyW = std::round(kGraphicBodyWidth * scale);
-  const float bodyH = std::round(kGraphicBodyHeight * scale);
+  const float bodyW = std::round((m_isVertical ? kGraphicBodyWidth : kGraphicHorizontalBodyWidth) * scale);
+  const float bodyH = std::round((m_isVertical ? kGraphicBodyHeight : kGraphicHorizontalBodyHeight) * scale);
   const float termW = std::round(kGraphicTerminalWidth * scale);
   const float termH = std::round(kGraphicTerminalHeight * scale);
   const float cornerR = std::round(kGraphicCornerRadius * scale);
-  const float labelGap = std::round(Style::spaceXs * m_contentScale);
+  const float labelPadding = std::round(Style::spaceXs * 0.5F * m_contentScale);
   const float stateGap = std::round(Style::spaceXs * 0.5F * m_contentScale);
-  const bool showLabel = m_overlayLabel != nullptr && m_showLabel;
+  const bool showLabel = m_overlayLabel != nullptr && m_overlayLabel->visible();
   const bool showStateGlyph = m_overlayGlyph != nullptr && m_overlayGlyph->visible();
-  const bool hasOverlay = showLabel || showStateGlyph;
 
+  // Labels use a small, heavy face. Horizontal bars keep the body at its unlabelled size, so the label shrinks to fit
+  // it instead; vertical bars are too narrow for that and size the body to a two-digit reference so it keeps one width
+  // between 5% and 99%.
+  float labelW = 0.0F;
   if (showLabel) {
-    m_overlayLabel->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
+    float fontSize = (m_isVertical ? Style::fontSizeMini : Style::fontSizeCaption) * fontScale();
+    const FontWeight fontWeight = std::max(labelFontWeight(), FontWeight::SemiBold);
+    m_overlayLabel->setFontWeight(fontWeight);
+    m_overlayLabel->setMinWidth(0.0F);
+    m_overlayLabel->setFontSize(fontSize);
     m_overlayLabel->measure(renderer);
+    const float available = bodyW - 2.0F * labelPadding;
+    if (!m_isVertical && m_overlayLabel->width() > available) {
+      fontSize *= available / m_overlayLabel->width();
+      m_overlayLabel->setFontSize(fontSize);
+      m_overlayLabel->measure(renderer);
+    }
+    labelW = m_overlayLabel->width();
+    if (m_isVertical) {
+      labelW = std::max(labelW, std::ceil(renderer.measureText("00", fontSize, m_overlayLabel->font()).width));
+    }
   }
   if (showStateGlyph) {
     m_overlayGlyph->setGlyphSize(Style::fontSizeCaption * m_contentScale);
     m_overlayGlyph->measure(renderer);
   }
 
+  const float actualLabelW = showLabel ? m_overlayLabel->width() : 0.0F;
+  const float labelH = showLabel ? m_overlayLabel->height() : 0.0F;
+  const float stateW = showStateGlyph ? m_overlayGlyph->width() : 0.0F;
+  const float stateH = showStateGlyph ? m_overlayGlyph->height() : 0.0F;
+  const float bandPadding = showLabel ? labelPadding : 0.0F;
+  const float batteryW = m_isVertical ? std::max(bodyH, labelW + 2.0F * bandPadding) : bodyW;
+  const float batteryH = m_isVertical ? std::max({bodyW, std::round(batteryW * 1.3F), labelH + bandPadding}) : bodyH;
+  const float rootW =
+      m_isVertical ? std::max(batteryW, stateW) : batteryW + termW + (showStateGlyph ? stateGap + stateW : 0.0F);
+  const float rootH =
+      m_isVertical ? batteryH + termW + (showStateGlyph ? stateGap + stateH : 0.0F) : std::max(batteryH, stateH);
+  const float bodyX = m_isVertical ? std::round((rootW - batteryW) * 0.5F) : 0.0F;
+  const float bodyY = m_isVertical ? termW : std::round((rootH - batteryH) * 0.5F);
+
+  m_bodyBg->setRadius(cornerR);
+  m_bodyBg->setPosition(bodyX, bodyY);
+  m_bodyBg->setSize(batteryW, batteryH);
+
+  m_terminalNub->setRadius(cornerR * 0.5F);
   if (m_isVertical) {
-    const float graphicW = bodyH;
-    const float graphicH = bodyW + termW;
-    const float labelW = showLabel ? m_overlayLabel->width() : 0.0F;
-    const float labelH = showLabel ? labelGap + m_overlayLabel->height() : 0.0F;
-    const float stateW = showStateGlyph ? m_overlayGlyph->width() : 0.0F;
-    const float stateH = showStateGlyph ? stateGap + m_overlayGlyph->height() : 0.0F;
-    const float overlayGroupH = stateH + labelH;
-    const float rootW = std::max({graphicW, labelW, stateW});
-    const float bodyX = std::round((rootW - graphicW) * 0.5F);
-    const float bodyY = termW;
-
-    m_bodyBg->setRadius(cornerR);
-    m_bodyBg->setPosition(bodyX, bodyY);
-    m_bodyBg->setSize(bodyH, bodyW);
-
-    m_terminalNub->setRadius(cornerR * 0.5F);
-    m_terminalNub->setPosition(bodyX + std::round((bodyH - termH) * 0.5F), 0.0F);
+    m_terminalNub->setPosition(bodyX + std::round((batteryW - termH) * 0.5F), 0.0F);
     m_terminalNub->setSize(termH, termW);
-
-    m_fillRect->setRadius(cornerR);
-    updateFillGeometry();
-
-    if (showStateGlyph) {
-      m_overlayGlyph->setPosition(std::round((rootW - stateW) * 0.5F), graphicH + stateGap);
-    }
-    if (showLabel) {
-      const float labelY = graphicH + labelGap + (showStateGlyph ? stateH : 0.0F);
-      m_overlayLabel->setPosition(std::round((rootW - labelW) * 0.5F), labelY);
-    }
-
-    rootNode->setSize(rootW, graphicH + (hasOverlay ? overlayGroupH : 0.0F));
   } else {
-    const float graphicW = bodyW + termW;
-    const float graphicH = bodyH;
-    const float labelW = showLabel ? labelGap + m_overlayLabel->width() : 0.0F;
-    const float labelH = showLabel ? m_overlayLabel->height() : 0.0F;
-    const float stateW = showStateGlyph ? stateGap + m_overlayGlyph->width() : 0.0F;
-    const float stateH = showStateGlyph ? m_overlayGlyph->height() : 0.0F;
-    const float overlayGroupW = stateW + labelW;
-    const float overlayGroupH = std::max(labelH, stateH);
-    const float rootH = std::max(graphicH, overlayGroupH);
-    const float bodyY = std::round((rootH - bodyH) * 0.5F);
-
-    m_bodyBg->setRadius(cornerR);
-    m_bodyBg->setPosition(0.0F, bodyY);
-    m_bodyBg->setSize(bodyW, bodyH);
-
-    m_terminalNub->setRadius(cornerR * 0.5F);
-    m_terminalNub->setPosition(bodyW, bodyY + std::round((bodyH - termH) * 0.5F));
+    m_terminalNub->setPosition(batteryW, bodyY + std::round((batteryH - termH) * 0.5F));
     m_terminalNub->setSize(termW, termH);
-
-    m_fillRect->setRadius(cornerR);
-    updateFillGeometry();
-
-    if (showStateGlyph) {
-      m_overlayGlyph->setPosition(graphicW + stateGap, std::round((rootH - stateH) * 0.5F));
-    }
-    if (showLabel) {
-      const float labelX = graphicW + labelGap + (showStateGlyph ? stateW : 0.0F);
-      m_overlayLabel->setPosition(labelX, std::round((rootH - labelH) * 0.5F));
-    }
-
-    rootNode->setSize(graphicW + (hasOverlay ? overlayGroupW : 0.0F), rootH);
   }
+
+  m_fillRect->setRadius(cornerR);
+  updateFillGeometry();
+
+  if (showLabel) {
+    m_overlayLabel->setPosition(bodyX + (batteryW - actualLabelW) * 0.5F, bodyY + (batteryH - labelH) * 0.5F);
+  }
+  if (showStateGlyph) {
+    if (m_isVertical) {
+      m_overlayGlyph->setPosition((rootW - stateW) * 0.5F, termW + batteryH + stateGap);
+    } else {
+      m_overlayGlyph->setPosition(batteryW + termW + stateGap, (rootH - stateH) * 0.5F);
+    }
+  }
+
+  rootNode->setSize(rootW, rootH);
 }
 
 void BatteryWidget::layoutGlyphMode(Renderer& renderer, float /*containerWidth*/, float /*containerHeight*/) {
@@ -352,6 +373,31 @@ void BatteryWidget::updateFillGeometry() {
   }
 }
 
+void BatteryWidget::syncPalette() {
+  const ColorSpec normalFg = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
+  const bool isWarning = m_warningThreshold > 0
+      && m_lastPct >= 0.0
+      && std::round(m_lastPct) <= m_warningThreshold
+      && !batteryStatePlugged(m_lastState).value_or(false);
+  const ColorSpec foreground = isWarning ? m_warningColor : normalFg;
+
+  if (m_showLabel) {
+    // Same light-on-dark body as the unlabelled battery, so it matches neighbouring glyphs. The track stays opaque and
+    // light enough that surface-colored text reads on both sides of the moving fill boundary.
+    const Color fg = resolveColorSpec(foreground);
+    const Color track = lerpColor(fg, colorForRole(ColorRole::Surface), 0.35F);
+    m_bodyBg->setFill(track);
+    m_fillRect->setFill(foreground);
+    m_terminalNub->setFill(foreground);
+    m_overlayLabel->setColor(colorSpecFromRole(ColorRole::Surface));
+  } else {
+    m_bodyBg->setFill(scaleAlpha(foreground, 0.3F));
+    m_fillRect->setFill(foreground);
+    m_terminalNub->setFill(scaleAlpha(foreground, 0.3F));
+  }
+  m_overlayGlyph->setColor(foreground);
+}
+
 void BatteryWidget::doUpdate(Renderer& renderer) { syncState(renderer); }
 
 void BatteryWidget::onFrameTick(float /*deltaMs*/) { requestRedraw(); }
@@ -367,7 +413,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
   const auto now = std::chrono::steady_clock::now();
   const bool forceTimeRefresh = (m_lastTooltipRefreshTime == std::chrono::steady_clock::time_point{})
-      || (now - m_lastTooltipRefreshTime >= std::chrono::seconds(15));
+      || (now - m_lastTooltipRefreshTime >= kTooltipForceRefreshInterval);
 
   if (s.percentage == m_lastPct
       && s.state == m_lastState
@@ -394,7 +440,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
   const bool showWidget = s.isPresent
       && hasVisibleContent
       && !(m_hideWhenPlugged && isPluggedIn)
-      && !(m_hideWhenFull && (s.state == BatteryState::FullyCharged || s.state == BatteryState::PendingCharge));
+      && (!m_hideWhenFull || (s.state != BatteryState::FullyCharged && s.state != BatteryState::PendingCharge));
 
   auto* rootNode = root();
   if (rootNode != nullptr) {
@@ -410,19 +456,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
   const bool isWarning = m_warningThreshold > 0 && pct <= m_warningThreshold && !isPluggedIn;
 
   if (m_displayMode == BatteryDisplayMode::Graphic) {
-    const ColorSpec normalFgColor = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
-    const ColorSpec fgColor = isWarning ? m_warningColor : normalFgColor;
-
-    if (m_fillRect != nullptr) {
-      m_fillRect->setFill(fgColor);
-    }
-    if (m_bodyBg != nullptr) {
-      m_bodyBg->setFill(scaleAlpha(fgColor, 0.3F));
-    }
-
-    if (m_terminalNub != nullptr) {
-      m_terminalNub->setFill(scaleAlpha(fgColor, 0.3F));
-    }
+    syncPalette();
 
     // Animate fill percentage
     const auto newPct = static_cast<float>(s.percentage);
@@ -435,7 +469,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
             updateFillGeometry();
             requestRedraw();
           },
-          [this]() { m_fillAnim = 0; }, this
+          [this] { m_fillAnim = 0; }, this
       );
       requestFrameTick();
     } else {
@@ -446,22 +480,19 @@ void BatteryWidget::syncState(Renderer& renderer) {
     // Graphic mode label
     if (m_overlayLabel != nullptr && m_showLabel) {
       m_overlayLabel->setText(buildLabelText(pct, s));
-      m_overlayLabel->setColor(fgColor);
       m_overlayLabel->measure(renderer);
     }
 
-    // Overlay glyph — state icon
+    // State icon
     const char* stateGlyph = batteryStateGlyph(s.state);
-    if (m_overlayGlyph != nullptr) {
-      if (stateGlyph != nullptr) {
-        m_overlayGlyph->setGlyph(stateGlyph);
-        m_overlayGlyph->setColor(fgColor);
-        m_overlayGlyph->measure(renderer);
-      }
+    if (m_overlayGlyph != nullptr && stateGlyph != nullptr) {
+      m_overlayGlyph->setGlyph(stateGlyph);
+      m_overlayGlyph->measure(renderer);
     }
 
+    // A full battery needs no number, and three digits would stretch the narrow vertical body.
     if (m_overlayLabel != nullptr) {
-      m_overlayLabel->setVisible(m_showLabel);
+      m_overlayLabel->setVisible(m_showLabel && (!m_isVertical || pct < 100));
     }
     if (m_overlayGlyph != nullptr) {
       m_overlayGlyph->setVisible(stateGlyph != nullptr);

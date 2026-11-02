@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-class WaylandConnection;
+class CompositorPlatform;
 
 struct ScreenTimeAppUsage {
   std::string appKey;
@@ -42,7 +42,7 @@ struct ScreenTimeSnapshot {
 
 class ScreenTimeService {
 public:
-  void initialize(WaylandConnection* wayland);
+  void initialize(CompositorPlatform* platform);
   void shutdown();
 
   void onFocusChange();
@@ -67,6 +67,7 @@ private:
   };
   void pauseTracking();
   void resumeTracking();
+  void scheduleNextTick();
   void tick();
   void flushActiveSession(std::chrono::steady_clock::time_point now);
   void ensureCurrentDayLocked(std::chrono::system_clock::time_point now);
@@ -88,7 +89,7 @@ private:
       std::chrono::seconds amount, const DayRecord& profile, std::vector<std::chrono::seconds>& buckets
   );
 
-  WaylandConnection* m_wayland = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   std::function<void()> m_changeCallback;
   Timer m_tickTimer;
   std::string m_storagePath;

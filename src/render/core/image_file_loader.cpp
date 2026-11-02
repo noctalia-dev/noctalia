@@ -1,6 +1,7 @@
 #include "render/core/image_file_loader.h"
 
 #include "render/core/image_decoder.h"
+#include "render/core/image_resize.h"
 #include "util/file_utils.h"
 
 #include <algorithm>
@@ -10,7 +11,6 @@
 #include <cstdint>
 #include <cstring>
 #include <expected>
-#include <stb/stb_image_resize2.h>
 #include <string_view>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wexpansion-to-defined"
@@ -159,7 +159,7 @@ namespace {
       return std::unexpected(message);
     };
 
-    auto emitQuad = [&]() -> bool {
+    auto emitQuad = [&] -> bool {
       if (quad[0] < 0 || quad[1] < 0) {
         return false;
       }
@@ -372,23 +372,17 @@ namespace {
       loaded = cropCenterSquare(std::move(loaded));
     }
 
-    const int maxDim = std::max(loaded.width, loaded.height);
-    if (targetSize > 0 && maxDim > targetSize && loaded.width > 0 && loaded.height > 0) {
-      const float scale = static_cast<float>(targetSize) / static_cast<float>(maxDim);
-      const int resizedW = std::max(1, static_cast<int>(std::lround(static_cast<float>(loaded.width) * scale)));
-      const int resizedH = std::max(1, static_cast<int>(std::lround(static_cast<float>(loaded.height) * scale)));
-
-      std::vector<std::uint8_t> resized(static_cast<std::size_t>(resizedW) * static_cast<std::size_t>(resizedH) * 4U);
-      // Use the sRGB resize: image bytes are sRGB-encoded, so averaging them
-      // directly (the _linear variant) darkens and muddies downscaled icons.
-      // STBIR_RGBA handles the non-premultiplied alpha correctly.
-      unsigned char* result = stbir_resize_uint8_srgb(
-          loaded.rgba.data(), loaded.width, loaded.height, 0, resized.data(), resizedW, resizedH, 0, STBIR_RGBA
-      );
-      if (result != nullptr) {
-        loaded.rgba = std::move(resized);
-        loaded.width = resizedW;
-        loaded.height = resizedH;
+    if (targetSize > 0) {
+      const ImageExtent fitted = fitImageWithin(loaded.width, loaded.height, targetSize, targetSize);
+      if (fitted.width != loaded.width || fitted.height != loaded.height) {
+        auto resized = resizeToRgba(
+            loaded.rgba.data(), loaded.width, loaded.height, ResizeSourceLayout::Rgba, fitted.width, fitted.height
+        );
+        if (!resized.empty()) {
+          loaded.rgba = std::move(resized);
+          loaded.width = fitted.width;
+          loaded.height = fitted.height;
+        }
       }
     }
 

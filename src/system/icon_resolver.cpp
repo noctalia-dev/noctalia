@@ -5,11 +5,11 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
-#include <chrono> // IWYU pragma: keep
 #include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <gio/gio.h>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -27,10 +27,12 @@ namespace {
 
   struct IconThemePlan {
     std::vector<std::string> baseDirs;
+    std::vector<std::string> themeRoots;
     std::vector<IconSearchDir> searchDirs;
     std::vector<std::string> pixmapDirs;
     std::string activeTheme;
-    std::string signature;
+    std::string planSignature;
+    std::string contentSignature;
   };
 
   void pushUniqueDir(std::vector<IconSearchDir>& dirs, IconSearchDir dir) {
@@ -86,6 +88,17 @@ namespace {
   bool pathExists(const fs::path& path) {
     std::error_code ec;
     return fs::exists(path, ec);
+  }
+
+  bool isSymbolicIconName(std::string_view name) {
+    if (const auto slash = name.find_last_of('/'); slash != std::string_view::npos) {
+      name.remove_prefix(slash + 1);
+    }
+    return name.ends_with("-symbolic")
+        || name.ends_with("-symbolic.svg")
+        || name.ends_with("-symbolic.SVG")
+        || name.ends_with("-symbolic.png")
+        || name.ends_with("-symbolic.PNG");
   }
 
   bool pathIsDirectory(const fs::path& path) {
@@ -166,26 +179,66 @@ namespace {
     return roots;
   }
 
-  std::string signatureFor(const IconThemePlan& plan) {
+  void appendPathIdentity(std::string& signature, std::string_view kind, const std::string& path) {
+    signature += kind;
+    signature += path;
+    signature += ':';
+    std::error_code ec;
+    const auto canonical = fs::weakly_canonical(path, ec);
+    signature += ec ? "missing" : canonical.string();
+    signature += '\n';
+  }
+
+  std::string planSignatureFor(const IconThemePlan& plan) {
     std::string signature = plan.activeTheme;
     signature += '\n';
-    auto appendPath = [&](std::string_view kind, const std::string& path) {
-      signature += kind;
+    for (const auto& root : plan.baseDirs) {
+      appendPathIdentity(signature, "base:", root);
+    }
+    for (const auto& root : plan.themeRoots) {
+      appendPathIdentity(signature, "theme:", root);
+    }
+    for (const auto& dir : plan.searchDirs) {
+      signature += "search:";
+      signature += dir.path;
+      signature += ':';
+      signature += std::to_string(dir.size);
+      signature += dir.scalable ? ":scalable:" : ":fixed:";
+      signature += dir.theme;
+      signature += ':';
+      signature += std::to_string(dir.minSize);
+      signature += ':';
+      signature += std::to_string(dir.maxSize);
+      signature += '\n';
+    }
+    for (const auto& dir : plan.pixmapDirs) {
+      appendPathIdentity(signature, "pixmap:", dir);
+    }
+    return signature;
+  }
+
+  std::string contentSignatureFor(const IconThemePlan& plan) {
+    std::string signature;
+    const auto appendDirectory = [&](const std::string& path) {
       signature += path;
       signature += ':';
       std::error_code ec;
       const auto modified = fs::last_write_time(path, ec);
-      signature += ec ? "missing" : std::format("{}", modified);
+      if (ec) {
+        signature += "missing";
+      } else {
+        signature += std::to_string(static_cast<std::int64_t>(modified.time_since_epoch().count()));
+      }
       signature += '\n';
     };
-    for (const auto& root : plan.baseDirs) {
-      appendPath("root:", root);
-    }
     for (const auto& dir : plan.searchDirs) {
-      appendPath("theme:", dir.path);
+      appendDirectory(dir.path);
+    }
+    for (const auto& dir : plan.baseDirs) {
+      appendDirectory(dir);
     }
     for (const auto& dir : plan.pixmapDirs) {
-      appendPath("pixmap:", dir);
+      appendDirectory(dir);
     }
     return signature;
   }
@@ -199,7 +252,7 @@ namespace {
   };
 
   GSettings* iconSettings() {
-    static std::unique_ptr<GSettings, GSettingsDeleter> settings = []() {
+    static std::unique_ptr<GSettings, GSettingsDeleter> settings = [] {
       GSettingsSchemaSource* source = g_settings_schema_source_get_default();
       if (source == nullptr) {
         return std::unique_ptr<GSettings, GSettingsDeleter>{nullptr};
@@ -301,6 +354,9 @@ namespace {
       std::string path;
       int size = 0;
       int maxSize = 0;
+      int minSize = 0;
+      int threshold = 2;
+      std::string type = "Threshold";
       bool scalable = false;
     };
 
@@ -333,12 +389,25 @@ namespace {
         }
       }
       if (const auto it = section->find("Type"); it != section->end()) {
-        entry.scalable = (it->second == "Scalable" || it->second == "Threshold");
+        entry.type = it->second;
+        entry.scalable = (entry.type == "Scalable" || entry.type == "Threshold");
       }
       if (const auto it = section->find("MaxSize"); it != section->end()) {
-        // For threshold/scalable dirs, MaxSize gives a better sense of actual size
         try {
           entry.maxSize = std::stoi(it->second);
+        } catch (...) {
+        }
+      }
+      entry.minSize = entry.size;
+      if (const auto it = section->find("MinSize"); it != section->end()) {
+        try {
+          entry.minSize = std::stoi(it->second);
+        } catch (...) {
+        }
+      }
+      if (const auto it = section->find("Threshold"); it != section->end()) {
+        try {
+          entry.threshold = std::max(0, std::stoi(it->second));
         } catch (...) {
         }
       }
@@ -359,7 +428,25 @@ namespace {
     sortedPaths.reserve(dirNames.size());
     for (const auto& name : dirNames) {
       const auto& entry = dirMap[name];
-      sortedPaths.push_back(IconSearchDir{.path = name, .size = entry.size, .scalable = entry.scalable});
+      int minSize = entry.size;
+      int maxSize = entry.size;
+      if (entry.type == "Threshold") {
+        minSize = std::max(1, entry.size - entry.threshold);
+        maxSize = entry.size + entry.threshold;
+      } else if (entry.type == "Scalable") {
+        minSize = entry.minSize;
+        maxSize = entry.maxSize > 0 ? entry.maxSize : entry.size;
+      }
+      sortedPaths.push_back(
+          IconSearchDir{
+              .path = name,
+              .size = entry.size,
+              .scalable = entry.scalable,
+              .theme = {},
+              .minSize = minSize,
+              .maxSize = std::max(minSize, maxSize)
+          }
+      );
     }
 
     return {sortedPaths, inherits};
@@ -367,21 +454,38 @@ namespace {
 
   void buildThemeSearchPaths(
       const std::string& themeName, const std::vector<std::string>& baseDirs, std::set<std::string>& visited,
-      std::vector<IconSearchDir>& searchDirs
+      std::vector<std::string>& themeRoots, std::vector<IconSearchDir>& searchDirs
   ) {
     if (visited.contains(themeName)) {
       return;
     }
     visited.insert(themeName);
 
+    std::vector<std::string> roots;
+    std::vector<IconSearchDir> dirs;
+    std::vector<std::string> parents;
     for (const auto& base : baseDirs) {
-      const std::string themeRoot = base + "/" + themeName;
+      const std::string themeRoot = std::format("{}/{}", base, themeName);
       if (!pathIsDirectory(themeRoot)) {
         continue;
       }
+      pushUnique(themeRoots, themeRoot);
+      roots.push_back(themeRoot);
+      if (dirs.empty()) {
+        auto [parsedDirs, inherits] = parseIndexTheme(themeRoot);
+        if (!parsedDirs.empty()) {
+          dirs = std::move(parsedDirs);
+          parents = std::move(inherits);
+        } else {
+          for (const auto& parent : inherits) {
+            pushUnique(parents, parent);
+          }
+        }
+      }
+    }
 
-      auto [dirs, inherits] = parseIndexTheme(themeRoot);
-
+    // The first index.theme describes every root of this logical theme.
+    for (const auto& themeRoot : roots) {
       if (dirs.empty()) {
         // No index.theme — fall back to common paths so the theme isn't silently skipped
         for (const char* path :
@@ -391,7 +495,12 @@ namespace {
           pushUniqueDir(
               searchDirs,
               IconSearchDir{
-                  .path = themeRoot + path, .size = sizeFromDirName(name), .scalable = name.contains("scalable")
+                  .path = themeRoot + path,
+                  .size = sizeFromDirName(name),
+                  .scalable = name.contains("scalable"),
+                  .theme = themeName,
+                  .minSize = sizeFromDirName(name),
+                  .maxSize = sizeFromDirName(name)
               }
           );
         }
@@ -399,14 +508,20 @@ namespace {
         for (const auto& dir : dirs) {
           pushUniqueDir(
               searchDirs,
-              IconSearchDir{.path = themeRoot + "/" + dir.path + "/", .size = dir.size, .scalable = dir.scalable}
+              IconSearchDir{
+                  .path = themeRoot + "/" + dir.path + "/",
+                  .size = dir.size,
+                  .scalable = dir.scalable,
+                  .theme = themeName,
+                  .minSize = dir.minSize,
+                  .maxSize = dir.maxSize
+              }
           );
         }
       }
-
-      for (const auto& parent : inherits) {
-        buildThemeSearchPaths(parent, baseDirs, visited, searchDirs);
-      }
+    }
+    for (const auto& parent : parents) {
+      buildThemeSearchPaths(parent, baseDirs, visited, themeRoots, searchDirs);
     }
   }
 
@@ -422,21 +537,22 @@ namespace {
     for (const auto& candidate : readGtkThemeCandidates()) {
       bool exists = false;
       for (const auto& base : plan.baseDirs) {
-        if (pathIsDirectory(base + "/" + candidate)) {
+        if (pathIsDirectory(std::format("{}/{}", base, candidate))) {
           exists = true;
           break;
         }
       }
       if (exists) {
         plan.activeTheme = candidate;
-        buildThemeSearchPaths(candidate, plan.baseDirs, visited, plan.searchDirs);
+        buildThemeSearchPaths(candidate, plan.baseDirs, visited, plan.themeRoots, plan.searchDirs);
         break;
       }
     }
 
     // hicolor is the mandatory base theme — always include it last
-    buildThemeSearchPaths("hicolor", plan.baseDirs, visited, plan.searchDirs);
-    plan.signature = signatureFor(plan);
+    buildThemeSearchPaths("hicolor", plan.baseDirs, visited, plan.themeRoots, plan.searchDirs);
+    plan.planSignature = planSignatureFor(plan);
+    plan.contentSignature = contentSignatureFor(plan);
     return plan;
   }
 
@@ -448,6 +564,22 @@ namespace {
     }
   }
 
+  bool updateThemeStateLocked(IconThemeState& state, bool includeContentChanges) {
+    IconThemePlan next = buildThemePlan();
+    if (!state.initialized) {
+      state.plan = std::move(next);
+      state.initialized = true;
+      return false;
+    }
+    const bool changed = next.planSignature != state.plan.planSignature
+        || (includeContentChanges && next.contentSignature != state.plan.contentSignature);
+    state.plan = std::move(next);
+    if (changed) {
+      ++state.generation;
+    }
+    return changed;
+  }
+
 } // namespace
 
 IconResolver::IconResolver(bool cacheMissing) : m_cacheMissing(cacheMissing) { rebuild(); }
@@ -457,19 +589,43 @@ IconResolver::IconResolver() : IconResolver(false) {}
 bool IconResolver::checkThemeChanged() {
   auto& state = iconThemeState();
   std::scoped_lock lock(state.mutex);
-  IconThemePlan next = buildThemePlan();
-  if (!state.initialized) {
-    state.plan = std::move(next);
-    state.initialized = true;
-    return false;
-  }
-  if (next.signature == state.plan.signature) {
-    return false;
-  }
+  return updateThemeStateLocked(state, true);
+}
 
+bool IconResolver::checkThemePlanChanged() {
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  return updateThemeStateLocked(state, false);
+}
+
+void IconResolver::invalidateThemeContent() {
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  IconThemePlan next = buildThemePlan();
   state.plan = std::move(next);
+  state.initialized = true;
   ++state.generation;
-  return true;
+}
+
+IconThemeWatchPaths IconResolver::themeWatchPaths() {
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  ensureThemeStateLocked(state);
+  IconThemeWatchPaths paths{
+      .baseDirs = state.plan.baseDirs,
+      .themeRoots = state.plan.themeRoots,
+      .iconDirs = state.plan.pixmapDirs,
+      .settingsFiles = {},
+  };
+  paths.iconDirs.reserve(paths.iconDirs.size() + state.plan.searchDirs.size());
+  for (const auto& dir : state.plan.searchDirs) {
+    pushUnique(paths.iconDirs, dir.path);
+  }
+  if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
+    paths.settingsFiles.emplace_back(std::string(home) + "/.config/gtk-3.0/settings.ini");
+    paths.settingsFiles.emplace_back(std::string(home) + "/.config/gtk-4.0/settings.ini");
+  }
+  return paths;
 }
 
 std::uint64_t IconResolver::themeGeneration() {
@@ -494,6 +650,7 @@ void IconResolver::rebuild() {
   m_searchDirs = state.plan.searchDirs;
   m_pixmapDirs = state.plan.pixmapDirs;
   m_cache.clear();
+  m_symbolicPreferredCache.clear();
   m_missingCache.clear();
   m_generation = state.generation;
 }
@@ -532,7 +689,100 @@ const std::string& IconResolver::resolve(const std::string& iconName, int target
   return ins->second;
 }
 
-void IconResolver::invalidateMissingCache() { m_missingCache.clear(); }
+ResolvedIcon IconResolver::resolveSymbolicPreferred(const std::string& iconName, int targetSize) {
+  if (iconName.empty()) {
+    return {};
+  }
+
+  ensureFresh();
+  const int normalizedSize = std::max(0, targetSize);
+  const bool cacheable = iconName.front() != '/';
+  const std::string key = iconName + '\x1F' + std::to_string(normalizedSize);
+  if (cacheable) {
+    if (const auto it = m_symbolicPreferredCache.find(key); it != m_symbolicPreferredCache.end()) {
+      return it->second;
+    }
+  }
+
+  ResolvedIcon result;
+  const bool explicitSymbolic = isSymbolicIconName(iconName);
+  if (!explicitSymbolic && cacheable) {
+    const std::string symbolicName = iconName + "-symbolic";
+    if (const std::string& symbolic = resolve(symbolicName, normalizedSize); !symbolic.empty()) {
+      result = ResolvedIcon{.path = symbolic, .symbolic = true};
+    }
+  }
+
+  if (result.path.empty()) {
+    if (const std::string& resolved = resolve(iconName, normalizedSize); !resolved.empty()) {
+      result = ResolvedIcon{.path = resolved, .symbolic = explicitSymbolic};
+    } else if (explicitSymbolic && cacheable && iconName.ends_with("-symbolic")) {
+      const std::string regularName = iconName.substr(0, iconName.size() - std::string_view("-symbolic").size());
+      if (const std::string& regular = resolve(regularName, normalizedSize); !regular.empty()) {
+        result = ResolvedIcon{.path = regular, .symbolic = false};
+      }
+    }
+  }
+
+  if (cacheable && !result.path.empty()) {
+    m_symbolicPreferredCache.insert_or_assign(key, result);
+  }
+  return result;
+}
+
+std::string IconResolver::resolveStatusVector(const std::string& iconName, int targetSize) {
+  if (iconName.empty()) {
+    return {};
+  }
+  std::string normal = resolve(iconName, std::max(1, targetSize));
+  const auto isStatusVector = [](std::string_view path) {
+    return path.ends_with(".svg") && (path.contains("/status/") || path.contains("/panel/"));
+  };
+  if (!isStatusVector(normal)) {
+    return {};
+  }
+  if (iconName.front() == '/') {
+    return normal;
+  }
+
+  const auto owner = std::ranges::find_if(m_searchDirs, [&](const IconSearchDir& dir) {
+    return dir.path + iconName + ".svg" == normal;
+  });
+  if (owner == m_searchDirs.end()) {
+    return normal;
+  }
+
+  targetSize = std::max(1, targetSize);
+  std::string best = normal;
+  int bestDistance = std::numeric_limits<int>::max();
+  int bestNominalDistance = std::numeric_limits<int>::max();
+  for (const auto& dir : m_searchDirs) {
+    if (dir.theme != owner->theme) {
+      continue;
+    }
+    const std::string path = dir.path + iconName + ".svg";
+    if (!isStatusVector(path) || !pathExists(path)) {
+      continue;
+    }
+
+    // Prefer the allowed range, then its nominal artwork size. Equal candidates
+    // retain the existing directory and base-root order.
+    const int distance = dir.size > 0 ? std::max({0, dir.minSize - targetSize, targetSize - dir.maxSize})
+                                      : std::numeric_limits<int>::max();
+    const int nominalDistance = dir.size > 0 ? std::abs(dir.size - targetSize) : std::numeric_limits<int>::max();
+    if (distance < bestDistance || (distance == bestDistance && nominalDistance < bestNominalDistance)) {
+      best = path;
+      bestDistance = distance;
+      bestNominalDistance = nominalDistance;
+    }
+  }
+  return best;
+}
+
+void IconResolver::invalidateMissingCache() {
+  m_missingCache.clear();
+  m_symbolicPreferredCache.clear();
+}
 
 std::string IconResolver::findIcon(const std::string& name, int targetSize) const {
   // Absolute path — use directly
@@ -552,22 +802,25 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
       }
     }
   } else {
-    // Size-aware: a vector icon is crisp at any size, so an SVG always wins
-    // (first match honours theme inheritance order).
+    // Search dirs are grouped by theme; stop at the end of the first theme with
+    // a match. Within it an SVG wins; among bitmaps, prefer the smallest theme
+    // size that is still >= the requested size (gentle downscale); otherwise the
+    // largest available (least upscaling). Unknown-size dirs are a last resort.
+    std::string best;
+    std::string_view theme;
+    int bestSize = 0;
+    bool bestIsUpscale = true;
     for (const auto& dir : m_searchDirs) {
+      if (dir.theme != theme) {
+        if (!best.empty()) {
+          return best;
+        }
+        theme = dir.theme;
+      }
       std::string svg = dir.path + name + ".svg";
       if (pathExists(svg)) {
         return svg;
       }
-    }
-
-    // Among bitmaps, prefer the smallest theme size that is still >= the
-    // requested size (gentle downscale); otherwise the largest available
-    // (least upscaling). Unknown-size dirs are a last resort.
-    std::string best;
-    int bestSize = 0;
-    bool bestIsUpscale = true;
-    for (const auto& dir : m_searchDirs) {
       std::string png = dir.path + name + ".png";
       if (!pathExists(png)) {
         continue;
@@ -595,10 +848,19 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
     }
   }
 
-  // Fallback: pixmaps
+  // Fallback: unthemed icons at the top of each base dir, then pixmaps (XDG
+  // LookupFallbackIcon order).
+  for (const auto& dir : m_baseDirs) {
+    for (const char* ext : {".svg", ".png"}) {
+      std::string path = std::format("{}/{}{}", dir, name, ext);
+      if (pathExists(path)) {
+        return path;
+      }
+    }
+  }
   for (const auto& dir : m_pixmapDirs) {
     for (const char* ext : {".svg", ".png"}) {
-      std::string path = dir + "/" + name + ext;
+      std::string path = std::format("{}/{}{}", dir, name, ext);
       if (pathExists(path)) {
         return path;
       }

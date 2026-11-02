@@ -1,5 +1,6 @@
 #include "config/atomic_file.h"
 #include "config/state_store.h"
+#include "test_check.h"
 
 #include <chrono>
 #include <filesystem>
@@ -82,6 +83,45 @@ namespace {
 
     std::filesystem::remove_all(dir);
     return ok;
+  }
+
+  void stringArraysRoundTripAndRejectInvalidState() {
+    const auto dir = uniqueTestDir();
+    const auto path = dir / "state.toml";
+    const std::vector<std::string> keys = {"official:CaseAuthor/Plugin", "community:CaseAuthor/Plugin"};
+    StateStore store(path);
+    TEST_CHECK(!store.stringArrayValue("plugin_store", "recommended_plugin_keys").has_value());
+    TEST_CHECK(store.setStringArray("plugin_store", "recommended_plugin_keys", keys));
+    TEST_CHECK(fileMode(path) == ownerOnlyMode());
+    StateStore loaded(path);
+    loaded.load();
+    TEST_CHECK(loaded.stringArrayValue("plugin_store", "recommended_plugin_keys") == keys);
+    TEST_CHECK(loaded.setStringArray("plugin_store", "recommended_plugin_keys", {}));
+    loaded.load();
+    TEST_CHECK(loaded.stringArrayValue("plugin_store", "recommended_plugin_keys") == std::vector<std::string>{});
+    {
+      std::ofstream out(path, std::ios::trunc);
+      out << "[plugin_store]\nrecommended_plugin_keys = [\"official:CaseAuthor/Plugin\", 1]\n";
+    }
+    loaded.load();
+    TEST_CHECK(loaded.contains("plugin_store", "recommended_plugin_keys"));
+    TEST_CHECK(!loaded.stringArrayValue("plugin_store", "recommended_plugin_keys").has_value());
+    {
+      std::ofstream out(path, std::ios::trunc);
+      out << "plugin_store = 7\n";
+    }
+    loaded.load();
+    TEST_CHECK(!loaded.ownerValid("plugin_store"));
+
+    TEST_CHECK(store.setString("plugin_store", "recommendation_secret", "persisted"));
+    // A directory at the atomic target forces an IO failure without changing permissions or user state.
+    std::filesystem::remove(path);
+    std::filesystem::create_directory(path);
+    TEST_CHECK(!store.setString("plugin_store", "recommendation_secret", "unsaved"));
+    TEST_CHECK(store.stringValue("plugin_store", "recommendation_secret") == "persisted");
+    TEST_CHECK(!store.setStringArray("plugin_store", "recommended_plugin_keys", {}));
+    TEST_CHECK(store.stringArrayValue("plugin_store", "recommended_plugin_keys") == keys);
+    std::filesystem::remove_all(dir);
   }
 
   bool stateFileIsOwnerOnlyOnCreate() {
@@ -205,6 +245,7 @@ namespace {
 } // namespace
 
 int main() {
+  stringArraysRoundTripAndRejectInvalidState();
   bool ok = true;
   ok = boolStateRoundTrips() && ok;
   ok = stateFileIsOwnerOnlyOnCreate() && ok;

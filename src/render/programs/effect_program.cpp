@@ -1,6 +1,7 @@
 #include "render/programs/effect_program.h"
 
 #include <array>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -55,6 +56,12 @@ float cornerMask() {
     vec2 halfSize = vec2(u_item_width, u_item_height) * 0.5;
     float dist = roundedBoxSDF(center, halfSize, u_radius);
     return 1.0 - smoothstep(-1.0, 0.0, dist);
+}
+
+// Blend toward dark tints on light backgrounds (u_bg_color luminance).
+vec3 particleColor(vec3 darkModeColor, vec3 lightModeColor) {
+    float luma = dot(u_bg_color.rgb, vec3(0.2126, 0.7152, 0.0722));
+    return mix(darkModeColor, lightModeColor, smoothstep(0.45, 0.75, luma));
 }
 )";
 
@@ -123,8 +130,8 @@ void main() {
     float shimmerEffect = atmosphericShimmer(uv, iTime);
     float flare = sunCore(uvAspect, sunPosAspect, iTime);
 
-    vec3 sunColor = vec3(1.0, 0.95, 0.7);
-    vec3 shimmerColor = vec3(1.0, 0.98, 0.85);
+    vec3 sunColor = particleColor(vec3(1.0, 0.95, 0.7), vec3(0.85, 0.55, 0.05));
+    vec3 shimmerColor = particleColor(vec3(1.0, 0.98, 0.85), vec3(0.78, 0.62, 0.3));
 
     vec3 resultRGB = col.rgb;
     float resultAlpha = col.a;
@@ -191,7 +198,7 @@ void main() {
     }
 
     float snowAlpha = clamp(snow * 2.0, 0.0, 1.0);
-    vec3 snowColor = vec3(1.0);
+    vec3 snowColor = particleColor(vec3(1.0), vec3(0.45, 0.55, 0.65));
     vec3 blended = mix(u_bg_color.rgb, snowColor, snowAlpha);
 
     float mask = cornerMask();
@@ -286,10 +293,10 @@ void main() {
     rain = clamp(rain, 0.0, 1.0);
 
     // Compose: background → haze → rain
-    vec3 hazeColor = vec3(0.82, 0.85, 0.9);
+    vec3 hazeColor = particleColor(vec3(0.82, 0.85, 0.9), vec3(0.55, 0.6, 0.68));
     vec3 col = mix(u_bg_color.rgb, hazeColor, haze);
 
-    vec3 rainTint = vec3(0.88, 0.91, 1.0);
+    vec3 rainTint = particleColor(vec3(0.88, 0.91, 1.0), vec3(0.35, 0.45, 0.6));
     vec3 resultRGB = mix(col, rainTint, rain * 0.45);
 
     float mask = cornerMask();
@@ -376,7 +383,7 @@ void main() {
     float pulse = sin(iTime * 0.4) * pulseAmount + (1.0 - pulseAmount);
     fogDensity *= pulse;
 
-    vec3 hazeColor = vec3(0.88, 0.90, 0.93);
+    vec3 hazeColor = particleColor(vec3(0.88, 0.90, 0.93), vec3(0.5, 0.55, 0.62));
     float hazeOpacity = fogDensity * baseOpacity;
     vec3 fogContribution = hazeColor * hazeOpacity;
     float fogAlpha = hazeOpacity;
@@ -452,7 +459,7 @@ float stars(vec2 uv, float density, float iTime) {
 
 void main() {
     vec2 uv = v_uv;
-    float iTime = u_time * 0.01;
+    float iTime = u_time * 0.12;
     vec4 col = vec4(u_bg_color.rgb, 1.0);
 
     float aspect = u_item_width / u_item_height;
@@ -462,9 +469,9 @@ void main() {
     float stars2 = stars(uvAspect + vec2(0.5, 0.3), 25.0, iTime * 1.3);
     float stars3 = stars(uvAspect + vec2(0.25, 0.7), 15.0, iTime * 0.9);
 
-    vec3 starColor1 = vec3(0.85, 0.9, 1.0);
-    vec3 starColor2 = vec3(0.95, 0.97, 1.0);
-    vec3 starColor3 = vec3(1.0, 0.98, 0.95);
+    vec3 starColor1 = particleColor(vec3(0.85, 0.9, 1.0), vec3(0.25, 0.3, 0.45));
+    vec3 starColor2 = particleColor(vec3(0.95, 0.97, 1.0), vec3(0.3, 0.35, 0.5));
+    vec3 starColor3 = particleColor(vec3(1.0, 0.98, 0.95), vec3(0.35, 0.35, 0.45));
 
     vec3 starsRGB = starColor1 * stars1 * 0.6 +
                     starColor2 * stars2 * 0.8 +
@@ -481,6 +488,26 @@ void main() {
 }
 )";
 
+  // Slot in m_programs. Fog has no slot of its own; draw() renders it with the Cloud program.
+  [[nodiscard]] std::optional<std::size_t> programIndex(EffectType type) {
+    switch (type) {
+    case EffectType::Sun:
+      return 0;
+    case EffectType::Snow:
+      return 1;
+    case EffectType::Rain:
+      return 2;
+    case EffectType::Cloud:
+      return 3;
+    case EffectType::Stars:
+      return 4;
+    case EffectType::None:
+    case EffectType::Fog:
+      return std::nullopt;
+    }
+    return std::nullopt;
+  }
+
 } // namespace
 
 void EffectProgram::ensureInitialized() {
@@ -488,11 +515,11 @@ void EffectProgram::ensureInitialized() {
     return;
   }
 
-  initProgram(0, kSunFragment);
-  initProgram(1, kSnowFragment);
-  initProgram(2, kRainFragment);
-  initProgram(3, kCloudFragment);
-  initProgram(4, kStarsFragment);
+  initProgram(EffectType::Sun, kSunFragment);
+  initProgram(EffectType::Snow, kSnowFragment);
+  initProgram(EffectType::Rain, kRainFragment);
+  initProgram(EffectType::Cloud, kCloudFragment);
+  initProgram(EffectType::Stars, kStarsFragment);
 }
 
 void EffectProgram::destroy() {
@@ -507,10 +534,10 @@ void EffectProgram::abandon() noexcept {
   }
 }
 
-void EffectProgram::initProgram(std::size_t index, const char* fragSource) {
+void EffectProgram::initProgram(EffectType type, const char* fragSource) {
   std::string fullFrag = std::string(kCommonFragment) + fragSource;
 
-  auto& pd = m_programs[index];
+  auto& pd = m_programs[programIndex(type).value()];
   pd.program.create(kVertexShader, fullFrag.c_str());
 
   auto id = pd.program.id();
@@ -542,12 +569,12 @@ void EffectProgram::draw(
   // Fog reuses the Cloud shader with alternative=1
   const bool isFog = style.type == EffectType::Fog;
   const auto effectType = isFog ? EffectType::Cloud : style.type;
-  auto idx = static_cast<std::size_t>(effectType) - 1;
-  if (idx >= kEffectCount || !m_programs[idx].program.isValid()) {
+  const auto idx = programIndex(effectType);
+  if (!idx.has_value() || !m_programs[*idx].program.isValid()) {
     return;
   }
 
-  const auto& pd = m_programs[idx];
+  const auto& pd = m_programs[*idx];
 
   static constexpr float kQuad[] = {
       0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,

@@ -45,12 +45,10 @@
       "cursor-not-captured": "Alternado del puntero no disponible: este compositor no admite la captura separada del cursor",
       "done": "Aplicar la configuración de captura de pantalla (Enter)",
       "fill-off": "Relleno forma: off",
-      "fill-on": "Relleno forma: on",
       "freeze": "Congelar la pantalla bajo la tinta (f)",
       "move-toolbar": "Arrastra para mover la barra de herramientas",
       "redo": "Rehacer (Ctrl+Shift+Z)",
       "save": "Guardar la imagen anotada (Ctrl+S)",
-      "size-advanced": "Ajuste fino de tamaño",
       "size-decrease": "Más fino ([)",
       "size-increase": "Más grueso (])",
       "size-large": "Grande",
@@ -87,7 +85,8 @@
       },
       "brightness": {
         "brightness": "Brillo",
-        "display": "Pantalla"
+        "display": "Pantalla",
+        "unavailable": "Control de brillo no disponible"
       },
       "lock-keys": {
         "caps": "Mayús",
@@ -225,7 +224,9 @@
       "auto": "Automático",
       "custom": "Personalizado",
       "inherit": "Heredar",
-      "off": "Apagado"
+      "inherit-value": "Heredar ({value})",
+      "off": "Apagado",
+      "on": "Encendido"
     }
   },
   "control-center": {
@@ -307,7 +308,6 @@
       "uptime": "Tiempo de actividad – {uptime}",
       "weather": {
         "data-unavailable": "Datos meteorológicos no disponibles.",
-        "disabled": "Clima deshabilitado en la configuración.",
         "fetching": "Cargando pronóstico…"
       }
     },
@@ -551,7 +551,10 @@
         "select-sticker-image": "Seleccionar imagen de la pegatina"
       },
       "settings": {
+        "album-art-background": "Fondo de la portada del álbum",
+        "album-art-blur": "Desenfoque de la portada del álbum",
         "aspect-ratio": "Relación de aspecto",
+        "audio-visualizer": "Visualizador de audio",
         "background": "Fondo",
         "background-color": "Color",
         "background-opacity": "Opacidad",
@@ -843,6 +846,8 @@
       "calendar": "Calendario",
       "calendar-credential-locked-body": "Desbloquea el keyring utilizado por el Servicio Secreto y, a continuación, vuelve a intentarlo en la configuración. En GNOME Keyring, establece como predeterminado un llavero que se desbloquee automáticamente, como el de «Inicio de sesión» (Login).",
       "calendar-credential-locked-title": "El keyring del calendario está bloqueado",
+      "calendar-digest-more": "+{count} más",
+      "calendar-digest-title": "Todo el día de hoy",
       "calendar-google-connect-browser-failed": "No se pudo iniciar ningún navegador para la autorización de Google. Compruebe su navegador predeterminado o la configuración de xdg-open.",
       "calendar-google-connect-credential-store-failed": "Autorización completada, pero el nuevo token no se puede guardar. Desbloquea o inicia el Almacén de Credenciales, y luego conecta de nuevo.",
       "calendar-google-connect-expired": "La autorización de Google caducó antes de que finalizara el inicio de sesión. Vuelva a iniciar la conexión.",
@@ -853,6 +858,13 @@
       "calendar-google-connect-start-failed": "No se pudo iniciar la autorización de Google. Comprueba tu conexión a internet e inténtalo de nuevo.",
       "calendar-google-connect-start-http": "No se pudo iniciar la autorización de Google. El intermediario de OAuth devolvió HTTP {status}.",
       "calendar-google-connect-timeout": "La autorización de Google expiró. Inicie la conexión nuevamente cuando esté listo para iniciar sesión.",
+      "calendar-reminder-catchup-body": "{count} Los eventos comenzaran pronto.",
+      "calendar-reminder-catchup-title": "Más eventos próximos",
+      "calendar-reminder-in": "Comienza en {minutes} min · {time}",
+      "calendar-reminder-now": "Comienza ahora · {time}",
+      "calendar-reminder-open": "Abrir",
+      "calendar-reminder-untitled": "Evento sin título",
+      "calendar-reminder-with-location": "{when}\n{location}",
       "config-migration-body": "Actualiza {path} en el archivo de origen. Noctalia está aplicando este reemplazo solo temporalmente. Ejecuta noctalia config validate para listar todos los cambios necesarios.",
       "config-migration-title": "Se necesita actualizar configuración",
       "dbus-disabled": "Notificaciones DBus deshabilitada",
@@ -1111,6 +1123,8 @@
           "action": "Grupo",
           "border": "Borde",
           "border-description": "Rol de color del contorno de la cápsula; deja en Predeterminado para no tener contorno",
+          "border-width": "Ancho del borde",
+          "border-width-description": "Grosor del contorno de la cápsula en píxeles; solo se dibuja cuando se establece un color de borde",
           "clear": "Eliminar",
           "deselect": "Deseleccionar",
           "drag": "Reordenar",
@@ -1295,6 +1309,8 @@
         "borders": "Bordes",
         "brightness": "Brillo",
         "built-in": "Integrado",
+        "calendar-accounts": "Cuentas",
+        "calendar-reminders": "Recordatorios",
         "capsules": "Cápsulas",
         "clipboard": "Portapapeles",
         "community": "Comunidad",
@@ -1365,6 +1381,7 @@
         "appearance": "Apariencia",
         "backdrop": "Fondo",
         "bar": "Barra",
+        "calendar": "Calendario",
         "control-center": "Centro de control",
         "desktop": "Escritorio",
         "dock": "Dock",
@@ -1500,10 +1517,6 @@
         "horizontal": "Horizontal",
         "vertical": "Vertical"
       },
-      "panel-bar-alignment": {
-        "centered": "Centrado",
-        "near-trigger": "Activador de proximidad"
-      },
       "panel-position": {
         "auto": "Seguir barra"
       },
@@ -1549,6 +1562,10 @@
           "up": "Arriba",
           "up-left": "Arriba izquierda",
           "up-right": "Arriba derecha"
+        },
+        "window-switcher-style": {
+          "carousel": "Carousel",
+          "compact": "Compacto "
         }
       },
       "theme": {
@@ -1835,6 +1852,10 @@
           "description": "Rol de color de contorno de cápsula predeterminado; también se admiten colores hexadecimales fijos",
           "label": "Borde de la cápsula"
         },
+        "capsule-border-width": {
+          "description": "Grosor del contorno de la cápsula en píxeles; solo se dibuja cuando se establece un color para el borde de la cápsula",
+          "label": "Ancho del borde de la cápsula"
+        },
         "capsule-fill": {
           "description": "Rol de color de fondo de cápsula predeterminado; también se admiten colores hexadecimales fijos",
           "label": "Relleno de la cápsula"
@@ -1862,6 +1883,10 @@
         "center-widgets": {
           "description": "Widgets en el centro de la barra",
           "label": "Centrar widgets"
+        },
+        "compositor-blur": {
+          "description": "Permitir que el compositor aplique un efecto de desenfoque detrás de esta barra cuando el protocolo de efectos de fondo esté disponible",
+          "label": "Desenfoque del compositor"
         },
         "concave-edge-corners": {
           "description": "Realice muescas cóncavas en dos de las esquinas de la barra (requiere que el margen del borde sea 0); si el margen de los extremos es 0, se recortan las esquinas del borde interior de la barra; de lo contrario, se recortan las esquinas que tocan el borde de la pantalla",
@@ -1948,6 +1973,10 @@
         "show-on-workspace-switch": {
           "description": "Mostrar brevemente la barra cuando cambia el espacio de trabajo activo",
           "label": "Mostrar al cambiar de espacio de trabajo"
+        },
+        "show-tooltip": {
+          "description": "Mostrar información emergente al pasar el cursor sobre los widgets en esta barra; la configuración Mostrar información sobre herramientas de un widget anula esta configuración",
+          "label": "Mostrar información sobre herramientas"
         },
         "start-widgets": {
           "description": "Widgets en el lado inicial (izquierda/arriba) de la barra",
@@ -2138,10 +2167,6 @@
         },
         "main-axis-padding": {
           "description": "Relleno interior en los extremos de la fila de iconos (antes del primer icono y después del último)"
-        },
-        "monitors": {
-          "description": "Elige qué monitores muestran el dock (deja vacío para todos); el filtrado de monitor activo se aplica dentro de estos monitores",
-          "label": "Monitores"
         },
         "pinned-apps": {
           "description": "IDs de entrada de escritorio de las aplicaciones fijadas al dock",
@@ -2378,6 +2403,14 @@
           "description": "Dibuja un contorno alrededor de las notificaciones tipo «toast»",
           "label": "Borde"
         },
+        "border-color": {
+          "description": "Rol de color para el contorno de la notificación emergente; también se admiten colores hexadecimales fijos",
+          "label": "Color del borde"
+        },
+        "border-width": {
+          "description": "Ancho del contorno de las notificaciones emergentes en píxeles; 0 oculta el contorno",
+          "label": "Ancho del borde"
+        },
         "collapse-on-dismiss": {
           "description": "Deslizar las notificaciones emergentes restantes para cerrar huecos cuando se descarta una",
           "label": "Contraer al descartar"
@@ -2389,6 +2422,10 @@
         "filters": {
           "description": "Reglas por remitente para notificaciones emergentes, historial y sonidos; gana el primer filtro activado que coincida",
           "label": "Filtros de notificaciones"
+        },
+        "follow-focused-output": {
+          "description": "Mostrar nuevas notificaciones emergentes en el monitor enfocado",
+          "label": "Seguir la salida enfocada"
         },
         "history-retention-hours": {
           "description": "Eliminar automáticamente las entradas del historial de notificaciones anteriores al número de horas especificado (0 para conservarlas indefinidamente)",
@@ -2437,6 +2474,10 @@
         "toast-opacity": {
           "description": "Opacidad de fondo de las notificaciones emergentes",
           "label": "Opacidad del fondo"
+        },
+        "width": {
+          "description": "Ancho de las notificaciones emergentes en píxeles antes de escalar",
+          "label": "Ancho"
         }
       },
       "panels": {
@@ -2484,10 +2525,6 @@
           "description": "Mostrar entradas de acciones de la aplicación junto a las aplicaciones en los resultados",
           "label": "Mostrar acciones de la aplicación"
         },
-        "launcher-app-grid": {
-          "description": "Mostrar una cuadrícula de iconos de aplicaciones con etiquetas debajo cuando los resultados sean solo aplicaciones",
-          "label": "Vista de cuadrícula de aplicaciones"
-        },
         "launcher-app-origin-indicator": {
           "description": "Mostrar indicadores de origen del paquete en los resultados de la aplicación",
           "label": "Mostrar indicadores de origen de la aplicación"
@@ -2531,6 +2568,10 @@
         "launcher-global-windows": {
           "description": "Mostrar también las ventanas abiertas en la búsqueda sin prefijo",
           "label": "Ventanas en la búsqueda global"
+        },
+        "launcher-grid": {
+          "description": "Mostrar una cuadrícula de iconos de aplicaciones con etiquetas debajo cuando los resultados sean solo aplicaciones",
+          "label": "Vista de cuadrícula de aplicaciones"
         },
         "launcher-ignored-panels": {
           "description": "Paneles que el proveedor del panel nunca incluye en la lista (por ejemplo, avisos de autenticación, el asistente de configuración)",
@@ -2667,6 +2708,10 @@
         "transparency-mode": {
           "description": "Estilo de cristal del panel, incluida la opacidad del panel flotante y la translucidez de las tarjetas",
           "label": "Transparencia"
+        },
+        "wallpaper-show-names": {
+          "description": "En el selector de fondos de pantalla, añade el nombre del archivo a cada miniatura.",
+          "label": "Mostrar nombres de archivo"
         }
       },
       "power": {
@@ -2711,13 +2756,22 @@
           "description-unavailable": "No hay ningún proveedor del Servicio Secreto disponible en esta sesión",
           "label": "Almacenamiento de las credenciales del Calendario"
         },
+        "calendar-dedupe-events": {
+          "description": "Combinar un evento que aparece en más de uno de tus calendarios en una sola entrada",
+          "label": "Combinar eventos duplicados"
+        },
+        "calendar-dedupe-ignore-patterns": {
+          "description": "Las expresiones regulares se eliminan del título de un evento antes de compararlo, por lo que los títulos que difieren solo en una parte coincidente aún se fusionan",
+          "label": "Ignorar en el título al fusionar"
+        },
+        "calendar-digest-time": {
+          "description": "Hora para mostrar una única notificación con todos los eventos de todo el día. Déjalo vacío para desactivar.",
+          "label": "Hora del resumen diario"
+        },
         "calendar-edit": {
           "button": "Editar",
           "button-reconnect": "Reconectar",
-          "button-retry": "Reintentar",
-          "description": "Actualizar esta cuenta de calendario",
-          "description-locked": "El token de actualización se encuentra en un keyring bloqueado; desbloquee el keyring y vuelva a intentarlo",
-          "description-reconnect": "Se ha perdido la autorización de Google; reconecta esta cuenta"
+          "button-retry": "Reintentar"
         },
         "calendar-event-date-format": {
           "description": "El formato de fecha que se muestra para los eventos del calendario en las vistas de calendario",
@@ -2730,6 +2784,18 @@
         "calendar-refresh-interval": {
           "description": "Con qué frecuencia sincronizar los eventos del calendario (minutos)",
           "label": "Intervalo de actualización"
+        },
+        "calendar-reminder-lead": {
+          "description": "Antelación de las notificaciones para eventos sin recordatorio propio.",
+          "label": "Recordatorio predeterminado"
+        },
+        "calendar-reminder-use-event": {
+          "description": "Respeta el recordatorio configurado en cada evento. Si está desactivado, todos los eventos usarán el tiempo de antelación predeterminado.",
+          "label": "Usar recordatorios del evento"
+        },
+        "calendar-reminders": {
+          "description": "Notificar antes de que comience un evento.",
+          "label": "Recordatorios del calendario"
         },
         "calendar-storage": {
           "button": "Reintentar",
@@ -2803,8 +2869,20 @@
           "label": "Sonido de notificación",
           "placeholder": "/ruta/al/sonido.wav"
         },
+        "notification-sounds": {
+          "description": "Reproducir un sonido cuando lleguen las notificaciones",
+          "label": "Sonidos de notificación"
+        },
+        "power-sounds": {
+          "description": "Reproducir un sonido cuando el cargador se conecte o se desconecte",
+          "label": "Sonidos de energía"
+        },
+        "screenshot-sounds": {
+          "description": "Reproducir un sonido al capturar la pantalla",
+          "label": "Screenshot Sounds"
+        },
         "shell-sounds": {
-          "description": "Reproducir efectos de sonido para eventos del shell",
+          "description": "Interruptor principal para efectos de sonido del shell",
           "label": "Sonidos del shell"
         },
         "sound-theme": {
@@ -2877,6 +2955,10 @@
           "description": "Archivo de sonido usado para la respuesta de volumen",
           "label": "Sonido de cambio de volumen",
           "placeholder": "/path/to/sound.wav"
+        },
+        "volume-sounds": {
+          "description": "Reproducir un sonido cuando cambie el volumen de entrada o salida",
+          "label": "Sonidos de volumen"
         },
         "weather": {
           "description": "Habilitar el servicio de clima via open-meteo.com",
@@ -3043,9 +3125,25 @@
           "description": "Dibuja un contorno alrededor de las ventanas emergentes OSD",
           "label": "Borde"
         },
+        "osd-border-color": {
+          "description": "Rol de color para el contorno de la ventana emergente OSD; también se admiten colores hexadecimales fijos",
+          "label": "Color del borde"
+        },
+        "osd-border-width": {
+          "description": "Ancho del contorno de las ventanas emergentes OSD en píxeles; 0 oculta el contorno",
+          "label": "Ancho del borde"
+        },
         "osd-enabled": {
           "description": "Interruptor general para todas las ventanas emergentes del OSD; cuando está desactivado, no se muestra ningún OSD",
           "label": "Habilitar OSD"
+        },
+        "osd-follow-focused-output": {
+          "description": "Mostrar las nuevas ventanas emergentes OSD en el monitor enfocado; las ventanas emergentes visibles permanecen donde aparecieron",
+          "label": "Seguir la salida enfocada"
+        },
+        "osd-hide-delay": {
+          "description": "Cuánto tiempo permanece visible una ventana emergente OSD antes de ocultarse",
+          "label": "Retraso de ocultación"
         },
         "osd-kinds-bluetooth": {
           "description": "Mostrar una ventana emergente OSD al alternar el Bluetooth",
@@ -3155,6 +3253,10 @@
           "description": "Patrón para ignorar apps al compartir pantalla en indicadores y OSDs",
           "label": "Patrón de filtro de pantalla compartida"
         },
+        "readline-shortcuts": {
+          "description": "Utilizar atajos de teclado al estilo readline en todos los campos de texto (Ctrl+A se desplaza al principio de la línea en lugar de seleccionar todo).",
+          "label": "Atajos de Readline"
+        },
         "screen-time-enabled": {
           "description": "Rastrear el uso por aplicación y mostrarlo en el Centro de control",
           "label": "Tiempo de pantalla"
@@ -3225,6 +3327,10 @@
           "description": "Copiar y guardar en la región superpuesta entrega inmediatamente; Enter y Espacio aún abren el editor",
           "label": "Omitir editor al copiar o guardar"
         },
+        "settings-expand-all-groups": {
+          "description": "Abrir todos los grupos de configuración expandidos en lugar de solo el primero de cada página.",
+          "label": "Expandir todos los grupos de configuración"
+        },
         "settings-window-translucent": {
           "description": "Hacer que el fondo de Configuración sea translúcido para los efectos del compositor",
           "label": "Configuración de fondo translúcido"
@@ -3250,9 +3356,33 @@
           "description": "Abre el lanzador al escribir en la vista general de Umbriel; utiliza una superficie diminuta para el foco del teclado mientras la vista general está abierta",
           "label": "Escribe para lanzar"
         },
+        "window-switcher-current-workspace-only": {
+          "description": "Mostrar solo las ventanas del espacio de trabajo activo. Desactiva esta opción para incluir las ventanas de todos los espacios de trabajo.",
+          "label": "Solo el espacio de trabajo actual"
+        },
         "window-switcher-mru": {
           "description": "Ordenar las ventanas en el selector según el uso más reciente, en lugar de por espacio de trabajo y disposición de la pantalla",
           "label": "Orden de uso más reciente"
+        },
+        "window-switcher-show-all-outputs": {
+          "description": "Mostrar ventanas de todos los monitores. Desactiva esta opción para mostrar solo las ventanas del monitor donde se encuentra el selector.",
+          "label": "Mostrar todos los monitores"
+        },
+        "window-switcher-show-app-icon": {
+          "description": "Mostrar el icono de cada aplicación sobre la vista previa de su ventana.",
+          "label": "Mostrar iconos de aplicaciones"
+        },
+        "window-switcher-show-caption": {
+          "description": "Mostrar el icono de cada aplicación sobre la vista previa de su ventana.",
+          "label": "Mostrar subtítulos"
+        },
+        "window-switcher-show-count": {
+          "description": "Mostrar la posición actual y el número total de ventanas sobre las vistas previas.",
+          "label": "Mostrar contador de ventanas"
+        },
+        "window-switcher-style": {
+          "description": "Elegir entre el carrusel flotante en profundidad o la tira compacta enmarcada.",
+          "label": "Estilo del selector de ventanas"
         }
       },
       "system": {
@@ -4026,6 +4156,10 @@
           "description": "Rol de color para el contorno de la cápsula; también se admiten colores hexadecimales fijos",
           "label": "Borde de la cápsula"
         },
+        "capsule-border-width": {
+          "description": "Grosor del contorno de la cápsula en píxeles; solo se dibuja cuando se establece un color para el borde de la cápsula",
+          "label": "Ancho del borde de la cápsula"
+        },
         "capsule-fill": {
           "description": "Rol de color para el fondo de la cápsula; también se admiten colores hexadecimales fijos",
           "label": "Relleno de la cápsula"
@@ -4129,7 +4263,7 @@
         "focused-output-only": {
           "description": "Resaltar solo el espacio de trabajo activo en el monitor enfocado",
           "label": "Resaltar solo el monitor enfocado",
-          "taskbar-description": "Usar el color enfocado solo para el espacio de trabajo activo en el monitor que tiene el foco del teclado o del puntero; los demás monitores usan el color ocupado",
+          "taskbar-description": "Resalte únicamente el espacio de trabajo activo en el monitor que tenga el foco del teclado o del puntero; los espacios de trabajo activos en otros monitores utilizan el color de ocupado y el estilo de cápsula inactivo.",
           "workspaces-description": "Resaltar solo el espacio de trabajo activo en el monitor que tiene el foco del teclado o del puntero; los demás monitores muestran su espacio de trabajo activo como ocupado"
         },
         "font-family": {
@@ -4206,6 +4340,10 @@
         "hide-when-full": {
           "description": "Ocultar el widget de batería cuando esté completamente cargada",
           "label": "Ocultar cuando esté completo"
+        },
+        "hide-when-idle": {
+          "description": "Ocultar el widget mientras el reproductor MPRIS activo está en pausa o detenido",
+          "label": "Ocultar cuando está inactivo"
         },
         "hide-when-inactive": {
           "description": "Ocultar el widget del micrófono cuando ninguna aplicación esté capturando audio",
@@ -4390,6 +4528,10 @@
           "description": "Invertir el orden de baja a alta frecuencia de las barras",
           "label": "Invertido"
         },
+        "rotate-album-art": {
+          "description": "Girar la portada circular del álbum mientras se reproduce el contenido multimedia",
+          "label": "Rotar la portada del álbum"
+        },
         "scale": {
           "description": "Escalar este widget en relación con la escala del contenido de la barra",
           "label": "Escala"
@@ -4462,6 +4604,10 @@
           "description": "Mostrar el texto de temperatura actual",
           "label": "Mostrar temperatura"
         },
+        "show-tooltip": {
+          "description": "Mostrar la información emergente de este widget al pasar el cursor sobre él",
+          "label": "Mostrar información sobre herramientas"
+        },
         "show-unlock-hint": {
           "description": "Mostra la tarjeta de estado encima del cuadro de inicio de sesión para obtener sugerencias de desbloqueo y avisos de autenticación; los errores y las advertencias de Bloq Mayús siguen apareciendo cuando esta opción está desactivada",
           "label": "Pista de desbloqueo"
@@ -4477,6 +4623,10 @@
         "show-when-idle": {
           "description": "Mantener el visualizador visible incluso cuando no se reproduzca ningún medio",
           "label": "Mostrar en inactividad"
+        },
+        "show-when-unavailable": {
+          "description": "Mantener visible el widget de brillo cuando este monitor no tiene controles de brillo.",
+          "label": "Mostrar cuando no está disponible"
         },
         "show-window-title": {
           "description": "Muestra el título de la ventana junto a su icono (solo en barras horizontales)",
@@ -4611,6 +4761,7 @@
       "no-results-hint": "Prueba con otro nombre o clave de configuración.",
       "offline-mode-notice": {
         "appearance": "Las descargas de paletas de la comunidad no funcionarán.",
+        "calendar": "La sincronización de la cuenta del calendario no funcionará.",
         "calendar-account": "La detección y sincronización del calendario no funcionará.",
         "disable-hint": "Desactive el modo sin conexión en la sección de Seguridad.",
         "launcher": "La obtención del tipo de cambio no funcionará.",
@@ -4761,7 +4912,9 @@
       "choose-color": "Elegir el color del fondo de pantalla",
       "close": "Cerrar panel de fondo de pantalla",
       "color-title": "Color del fondo de pantalla",
+      "favorite-add": "Añadir  a Favoritos",
       "favorite-current": "Agregar el fondo de pantalla actual a favoritos",
+      "favorite-remove": "Eliminar de Favoritos",
       "filter-placeholder": "Filtrar...",
       "flatten": "Subcarpetas",
       "loading": "Cargando fondos de pantalla...",
@@ -4811,6 +4964,8 @@
     }
   },
   "window-switcher": {
+    "count": "{count} ventana",
+    "count-plural": "{count} ventanas",
     "empty": "No hay ventanas abiertas",
     "hint": "Tab · Shift+Tab · Flechas de direcciones · Suelte Alt para cambiar · Esc para cancelar",
     "title": "Ventanas"

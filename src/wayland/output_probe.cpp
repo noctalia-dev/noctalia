@@ -90,7 +90,7 @@ OutputProbe::OutputProbe(WaylandConnection& wayland, std::chrono::milliseconds t
   // attached on the first configure, which maps the surface and triggers enter.
   wl_surface_commit(m_surface);
 
-  m_timeoutTimer.start(timeout, [this]() { finish(nullptr); });
+  m_timeoutTimer.start(timeout, [this] { finish(nullptr); });
 }
 
 OutputProbe::~OutputProbe() { teardown(); }

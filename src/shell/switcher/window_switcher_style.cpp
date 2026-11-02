@@ -33,6 +33,7 @@ bool WindowSwitcherStyleLayout::sameGeometryAs(const WindowSwitcherStyleLayout& 
         || card.showCaption != otherCard.showCaption
         || card.wideCaption != otherCard.wideCaption
         || card.iconPlacement != otherCard.iconPlacement
+        || card.closePlacement != otherCard.closePlacement
         || card.depth != otherCard.depth
         || !closeEnough(card.x, otherCard.x)
         || !closeEnough(card.y, otherCard.y)

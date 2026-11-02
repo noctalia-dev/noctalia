@@ -35,7 +35,7 @@ private:
   void publishBrightness(const Device& device);
   [[nodiscard]] bool setBrightness(Device& device, int value);
   [[nodiscard]] bool setPercent(int percent);
-  [[nodiscard]] bool adjustBrightness(int delta);
+  [[nodiscard]] bool adjustBrightness(int stepPercent);
   [[nodiscard]] bool toggleBrightness();
 
   SystemBus& m_bus;

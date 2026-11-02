@@ -27,6 +27,24 @@
     }
   },
   "bar": {
+    "annotate": {
+      "backdrop": "Tło",
+      "backdrop-angle": "Kąt",
+      "backdrop-enabled": "Tło",
+      "backdrop-gradient": "Gradient",
+      "backdrop-padding": "Wewnętrzny margines",
+      "close": "Zamknij edytor",
+      "color-black": "Czarny (8)",
+      "color-blue": "Niebieski (4)",
+      "color-green": "Zielony (3)",
+      "color-orange": "Pomarańczowy (5)",
+      "color-purple": "Fioletowy (6)",
+      "color-red": "Czerwony (1)",
+      "color-white": "Biały (7)",
+      "color-yellow": "Żółty (2)",
+      "copy": "Skopiuj zdjęcie z adnotacjami",
+      "cursor": "Pokaż wskaźnik przechwycony razem z ekranem (p) "
+    },
     "screenshot": {
       "choose-display": "Wybierz ekran",
       "confirm-region": "Enter lub Spacja aby wykonać zrzut · Esc aby anulować · Przeciągnij, aby wybrać ponownie",
@@ -122,6 +140,7 @@
         "off": "Pogoda wyłączona",
         "tooltip": {
           "condition": "Kondycja",
+          "feels-like": "Temperatura odczuwalna",
           "high": "Wysoka",
           "humidity": "Wilgotność",
           "low": "Niska",
@@ -177,7 +196,8 @@
       "auto": "Auto",
       "custom": "Niestandardowy",
       "inherit": "Dziedzicz",
-      "off": "Wyłączone"
+      "off": "Wyłączone",
+      "on": "Włączony"
     }
   },
   "control-center": {
@@ -224,6 +244,7 @@
         "connected": "Połączone",
         "paired": "Sparowane"
       },
+      "trust-and-allow": "Zaufaj i pozwól ",
       "unavailable": "Usługa Bluetooth niedostępna",
       "unknown-device": "Nieznane urządzenie",
       "visible": "Widoczne dla pobliskich urządzeń"
@@ -256,7 +277,6 @@
       "uptime": "Czas działania - {uptime}",
       "weather": {
         "data-unavailable": "Dane pogodowe niedostępne.",
-        "disabled": "Pogoda jest wyłączona w konfiguracji.",
         "fetching": "Pobieranie prognozy…"
       }
     },
@@ -386,14 +406,24 @@
       "weather": "Pogoda"
     },
     "weather": {
+      "daily": {
+        "tooltip": {
+          "high": "Max",
+          "low": "Min",
+          "sunrise": "Wschód",
+          "sunset": "Zachód"
+        }
+      },
       "data-unavailable": "Dane pogodowe niedostępne",
       "details": {
         "elevation": "Wysokość",
+        "feels-like": "Temperatura odczuwalna",
         "sunrise": "Wschód słońca",
         "sunset": "Zachód słońca",
         "temp-max": "Temperatura maksymalna",
         "temp-min": "Temperatura minimalna",
         "timezone": "Strefa czasowa",
+        "uv-index": "Indeks UV",
         "wind": "Wiatr"
       },
       "disabled": "Włącz [weather] w config.toml",
@@ -402,6 +432,10 @@
         "day": "Niedziela",
         "description": "Pogoda",
         "temperature": "10 / 4°C"
+      },
+      "forecast-view": {
+        "daily": "Dzienna",
+        "hourly": "Godzinna"
       },
       "hourly": {
         "tooltip": {
@@ -996,7 +1030,7 @@
         "layout": "układ",
         "lifecycle": "cykl życia",
         "location": "lokalizacja",
-        "lock-screen": "ekran blokady",
+        "lock-screen": "Ekran blokady",
         "media": "multimedia",
         "monitor": "monitor systemu",
         "monitor-polling": "interwały sondowania",
@@ -1011,9 +1045,9 @@
         "pinned-apps": "przypięte aplikacje",
         "power": "zasilanie",
         "profile": "profil",
-        "screen-corners": "narożniki ekranu",
-        "screen-time": "czas ekranu",
-        "screenshot": "zrzut ekranu",
+        "screen-corners": "Narożniki ekranu",
+        "screen-time": "Czas ekranu",
+        "screenshot": "Zrzut ekranu",
         "security": "bezpieczeństwo",
         "session-panel": "Panel Sesji",
         "shape": "kształt",
@@ -1277,7 +1311,7 @@
           "label": "Źródło palety"
         },
         "theme-mode": {
-          "description": "Wybierz ciemny, jasny lub automatyczny na podstawie pory dnia",
+          "description": "Wybierz ciemny, jasny lub automatyczny na podstawie pory dnia; stosowane także dla aplikacji za pomocą templatek",
           "label": "Tryb motywu"
         },
         "ui-scale": {
@@ -1459,7 +1493,7 @@
           "label": "Tylko aktywny monitor"
         },
         "auto-hide": {
-          "description": "automatycznie ukryj dock, gdy się go nie używa"
+          "description": "Automatycznie ukryj dock, gdy się go nie używa"
         },
         "background-opacity": {
           "description": "krycie tła docka"
@@ -1480,10 +1514,10 @@
           "description": "promień narożnika u góry po prawej stronie docka"
         },
         "cross-axis-padding": {
-          "description": "wewnętrzne wypełnienie wzdłuż osi poprzecznej docka (między ikonami a krawędzią ekranu)"
+          "description": "Wewnętrzne wypełnienie wzdłuż osi poprzecznej docka (między ikonami a krawędzią ekranu)"
         },
         "edge-margin": {
-          "description": "odległość od najbliższej krawędzi ekranu; wartości dodatnie przesuwają dock od niej"
+          "description": "Odległość od najbliższej krawędzi ekranu; wartości dodatnie przesuwają dock od niej"
         },
         "enabled": {
           "description": "pokaż lub ukryj dock"
@@ -1525,10 +1559,6 @@
         },
         "main-axis-padding": {
           "description": "wewnętrzne wypełnienie wzdłuż głównej osi docka (między ikonami a krótkimi końcami kapsuły)"
-        },
-        "monitors": {
-          "description": "wybierz, które monitory pokazują dock (pozostaw puste, aby pokazywać na wszystkich); filtrowanie aktywnego monitora dotyczy tych monitorów",
-          "label": "Monitory"
         },
         "pinned-apps": {
           "description": "identyfikatory wpisów na pulpicie aplikacji przypinanych do docka",
@@ -1789,7 +1819,7 @@
         },
         "open-near-click-clipboard": {
           "description": "Umieść panel schowka blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Wzdłuż Paska"
+          "label": "Otwórz w pobliżu klikniętego widżetu"
         },
         "open-near-click-control-center": {
           "description": "Umieść panel Centrum sterowania blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
@@ -1856,8 +1886,7 @@
           "label": "Konta kalendarza"
         },
         "calendar-edit": {
-          "button": "Edytuj",
-          "description": "Zaktualizuj to konto kalendarza"
+          "button": "Edytuj"
         },
         "calendar-refresh-interval": {
           "description": "Jak często synchronizować zdarzenia kalendarza (minuty)",

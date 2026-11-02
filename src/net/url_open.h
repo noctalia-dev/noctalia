@@ -4,7 +4,7 @@
 
 namespace net {
 
-  // Open a URL in the user's default browser through xdg-open. Returns true if xdg-open was launched.
+  // Queue a URL launch through the system default handler. Launch failures are logged asynchronously.
   bool openInBrowser(const std::string& url, const std::string& activationToken = {});
 
 } // namespace net

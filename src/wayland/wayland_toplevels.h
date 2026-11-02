@@ -1,5 +1,7 @@
 #pragma once
 
+#include "system/window_state.h"
+
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -14,6 +16,19 @@ struct ext_foreign_toplevel_handle_v1;
 struct wl_array;
 struct wl_output;
 struct wl_seat;
+
+namespace toplevel_identity {
+
+  // Canonical process-local identity for a live WLR foreign-toplevel handle.
+  inline constexpr std::string_view wlrPrefix = "wlr:";
+
+  [[nodiscard]] inline std::string wlr(const std::uintptr_t handle) {
+    return handle == 0 ? std::string{} : std::string(wlrPrefix) + std::to_string(handle);
+  }
+
+  [[nodiscard]] inline bool isWlr(const std::string_view identity) { return identity.starts_with(wlrPrefix); }
+
+} // namespace toplevel_identity
 
 struct ActiveToplevel {
   std::string title;
@@ -34,6 +49,7 @@ struct ToplevelInfo {
   // True when `identifier` is an exact compositor-assigned window ID suitable
   // for direct focus/close actions and stable taskbar identity.
   bool exactIdentity = false;
+  std::optional<WindowMinimizeState> minimizeState;
 };
 
 struct WlrToplevelSnapshot {
@@ -56,6 +72,7 @@ public:
 
   [[nodiscard]] std::optional<ActiveToplevel> current() const;
   [[nodiscard]] wl_output* currentOutput() const;
+  [[nodiscard]] bool anyFullscreen() const;
   [[nodiscard]] std::optional<ActiveToplevel>
   matchByTitleAndAppId(std::string_view title, std::string_view appId, wl_output* preferredOutput) const;
   [[nodiscard]] std::vector<std::string> allAppIds(wl_output* outputFilter = nullptr) const;
@@ -65,6 +82,8 @@ public:
   [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] bool containsWlrHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   void activateHandle(zwlr_foreign_toplevel_handle_v1* handle, wl_seat* seat);
+  [[nodiscard]] bool minimizeHandle(zwlr_foreign_toplevel_handle_v1* handle);
+  [[nodiscard]] std::optional<bool> minimized(zwlr_foreign_toplevel_handle_v1* handle) const;
   void closeHandle(zwlr_foreign_toplevel_handle_v1* handle);
 
   // Listener entrypoints called by C callbacks
@@ -111,6 +130,9 @@ private:
     std::vector<wl_output*> activeOutputs;
     bool activated = false;
     bool minimized = false;
+    bool pendingMinimized = false;
+    bool ready = false;
+    bool fullscreen = false;
     bool dirty = false;
     // Set on the first output_enter, never cleared: distinguishes "never announced an output"
     // from "left every output".

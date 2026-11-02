@@ -124,14 +124,14 @@ namespace {
     for (std::size_t i = 0; i < previewCount; ++i) {
       const auto& rect = rects[i];
       if (i > 0) {
-        out += " ";
+        out += ' ';
       }
       out += std::format("{}:{}+{}x{}", rect.x, rect.y, rect.width, rect.height);
     }
     if (rects.size() > previewCount) {
       out += std::format(" +{}", rects.size() - previewCount);
     }
-    out += "]";
+    out += ']';
     return out;
   }
 
@@ -654,6 +654,26 @@ void Surface::setInputRegion(const std::vector<InputRect>& rects) {
   wl_region_destroy(region);
 }
 
+void Surface::setOpaque(bool opaque) {
+  if (m_surface == nullptr || m_opaque == opaque) {
+    return;
+  }
+  if (!opaque) {
+    wl_surface_set_opaque_region(m_surface, nullptr);
+    m_opaque = false;
+    return;
+  }
+  wl_region* region = wl_compositor_create_region(m_connection.compositor());
+  if (region == nullptr) {
+    return;
+  }
+  // The compositor clips the region to the surface, so it stays valid across resizes.
+  wl_region_add(region, 0, 0, std::numeric_limits<std::int32_t>::max(), std::numeric_limits<std::int32_t>::max());
+  wl_surface_set_opaque_region(m_surface, region);
+  wl_region_destroy(region);
+  m_opaque = true;
+}
+
 bool Surface::prepareBlurEffect() {
   if (m_surface == nullptr) {
     traceSurfaceEvent(*this, "blur-effect-skip-no-surface");
@@ -685,19 +705,16 @@ bool Surface::regionIntersectsBounds(const std::vector<InputRect>& rects, std::u
   if (width == 0 || height == 0) {
     return false;
   }
-  for (const auto& r : rects) {
+  return std::ranges::any_of(rects, [&](const auto& r) {
     const std::int64_t right = static_cast<std::int64_t>(r.x) + r.width;
     const std::int64_t bottom = static_cast<std::int64_t>(r.y) + r.height;
-    if (r.width > 0
+    return r.width > 0
         && r.height > 0
         && right > 0
         && bottom > 0
         && static_cast<std::int64_t>(r.x) < width
-        && static_cast<std::int64_t>(r.y) < height) {
-      return true;
-    }
-  }
-  return false;
+        && static_cast<std::int64_t>(r.y) < height;
+  });
 }
 
 void Surface::setBlurRegion(const std::vector<InputRect>& rects) {
@@ -1300,6 +1317,7 @@ void Surface::destroySurface() {
   if (m_surface != nullptr) {
     wl_surface_destroy(m_surface);
     m_surface = nullptr;
+    m_opaque = false;
   }
 
   m_running = false;

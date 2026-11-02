@@ -35,6 +35,7 @@ namespace settings {
     // When set, replaces the default "empty clears, otherwise set" commit for settingPath.
     // Needed where the chosen option is not itself the stored value.
     std::function<void(const std::string&)> onSelect;
+    bool keepOpenOnSelect = false;
   };
 
   struct SettingsContentContext {
@@ -44,10 +45,11 @@ namespace settings {
     std::string_view searchQuery;
     std::string_view selectedSection;
     const BarConfig* selectedBar = nullptr;
-    const BarMonitorOverride* selectedMonitorOverride = nullptr;
+    std::string_view selectedMonitorOverride;
     bool showAdvanced = false;
     bool showOverriddenOnly = false;
     std::vector<SelectOption> batteryDeviceOptions;
+    std::vector<SelectOption> availableOutputs;
 
     std::string& editingWidgetName;
     std::string& editingCapsuleGroupId;
@@ -73,6 +75,7 @@ namespace settings {
     std::function<void(Node*)> setScrollTarget;
     std::function<void(const Node&)> scrollContentToTop;
     std::function<void(InputArea*)> focusArea;
+    std::function<void(const std::string&)> openBrowserUrl;
     std::function<void(const std::vector<std::string>&)> openBarWidgetAddPopup;
     std::function<void(SearchPickerOpenRequest request)> openSearchPickerPopup;
     std::function<void(std::vector<std::string>, ConfigOverrideValue)> setOverride;

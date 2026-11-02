@@ -1,5 +1,6 @@
 #include "shell/osd/osd_overlay.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -19,12 +20,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <nlohmann/json.hpp>
 
 namespace {
 
   constexpr Logger kLog("osd");
-
-  constexpr int kHideDelayMs = Style::animSlow * 3 + Style::animFast * 2;
 
   enum class OsdRevealDir { FromLeft, FromRight, FromTop, FromBottom };
 
@@ -71,10 +71,14 @@ namespace {
       return kinds.keyboardLayout;
     case OsdKind::Media:
       return kinds.media;
+    case OsdKind::MediaVolume:
+      return kinds.media && kinds.mediaVolume;
     case OsdKind::Privacy:
       return kinds.privacy;
     case OsdKind::KeyboardBacklight:
       return kinds.keyboardBacklight;
+    case OsdKind::Custom:
+      return kinds.custom;
     }
     return true;
   }
@@ -84,6 +88,21 @@ namespace {
       return 0.97F;
     }
     return std::clamp(config->config().osd.backgroundOpacity, 0.0F, 1.0F);
+  }
+
+  [[nodiscard]] ColorSpec osdBorderColor(const ConfigService* config) {
+    if (config == nullptr) {
+      return colorSpecFromRole(ColorRole::OutlineVariant);
+    }
+    return config->config().osd.borderColor;
+  }
+
+  [[nodiscard]] float osdBorderWidth(const ConfigService* config, float scale) {
+    if (config == nullptr) {
+      return Style::borderWidth * scale;
+    }
+    const auto& osd = config->config().osd;
+    return osd.border ? std::max(0.0F, osd.borderWidth) * scale : 0.0F;
   }
 
   [[nodiscard]] bool isVerticalOrientation(const std::string& orientation) { return orientation == "vertical"; }
@@ -194,12 +213,26 @@ namespace {
 
 } // namespace
 
+OsdContent customOsdContent(std::string icon, std::string value, std::optional<double> progress, bool inactive) {
+  return OsdContent{
+      .kind = OsdKind::Custom,
+      .icon = std::move(icon),
+      .value = std::move(value),
+      .progress = static_cast<float>(std::clamp(progress.value_or(0.0), 0.0, 1.0)),
+      .showProgress = progress.has_value(),
+      .inactive = inactive,
+  };
+}
+
 OsdOverlay::OsdOverlay() = default;
 
 OsdOverlay::~OsdOverlay() = default;
 
-void OsdOverlay::initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext) {
+void OsdOverlay::initialize(
+    WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config, RenderContext* renderContext
+) {
   m_wayland = &wayland;
+  m_platform = &platform;
   m_config = config;
   m_renderContext = renderContext;
   m_lastConfiguredEnabled = m_config == nullptr || m_config->config().osd.enabled;
@@ -226,6 +259,60 @@ void OsdOverlay::registerIpc(IpcService& ipc) {
     }
     setEnabledOverride(!isEnabled());
     return isEnabled() ? "on\n" : "off\n";
+  });
+  ipc.bind(noctalia::cli::msg::osdShow, [this](const std::string& args) -> std::string {
+    const std::string input = StringUtils::trim(args);
+    if (input.empty()) {
+      return "error: osd-show requires <icon> [value] or <json-payload>\n";
+    }
+
+    std::string icon;
+    std::string value;
+    std::optional<double> progress;
+    bool inactive = false;
+
+    if (input.front() == '{') {
+      const nlohmann::json payload = nlohmann::json::parse(input, nullptr, false);
+      if (payload.is_discarded() || !payload.is_object()) {
+        return "error: osd-show JSON payload must be an object\n";
+      }
+      if (const auto it = payload.find("icon"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: osd-show field 'icon' must be a string\n";
+        }
+        icon = it->get<std::string>();
+      }
+      if (const auto it = payload.find("value"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: osd-show field 'value' must be a string\n";
+        }
+        value = it->get<std::string>();
+      }
+      if (const auto it = payload.find("progress"); it != payload.end()) {
+        if (!it->is_number()) {
+          return "error: osd-show field 'progress' must be a number\n";
+        }
+        progress = it->get<double>();
+      }
+      if (const auto it = payload.find("inactive"); it != payload.end()) {
+        if (!it->is_boolean()) {
+          return "error: osd-show field 'inactive' must be a boolean\n";
+        }
+        inactive = it->get<bool>();
+      }
+    } else {
+      const std::size_t split = input.find_first_of(" \t");
+      icon = input.substr(0, split);
+      if (split != std::string::npos) {
+        value = StringUtils::trim(input.substr(split));
+      }
+    }
+
+    if (icon.empty()) {
+      return "error: osd-show requires a non-empty icon\n";
+    }
+    show(customOsdContent(std::move(icon), std::move(value), progress, inactive));
+    return "ok\n";
   });
 }
 
@@ -268,6 +355,10 @@ void OsdOverlay::show(const OsdContent& content) {
     return;
   }
 
+  const bool followFocusedOutput = m_config != nullptr && m_config->config().osd.followFocusedOutput;
+  if (followFocusedOutput && !isVisible() && m_platform != nullptr) {
+    m_targetOutput = m_platform->preferredInteractiveOutput();
+  }
   m_content = content;
   ensureSurfaces();
   for (auto& inst : m_instances) {
@@ -335,6 +426,9 @@ std::vector<std::string> OsdOverlay::osdMonitors() const {
 }
 
 bool OsdOverlay::shouldRenderOnOutput(const WaylandOutput& output) const {
+  if (m_followFocusedOutput) {
+    return output.output == m_targetOutput;
+  }
   const auto selectedMonitors = osdMonitors();
   if (selectedMonitors.empty()) {
     return true;
@@ -348,7 +442,16 @@ void OsdOverlay::onOutputChange() {
   if (m_instances.empty()) {
     return;
   }
+  const bool wasVisible = isVisible();
   ensureSurfaces();
+  if (wasVisible) {
+    for (auto& inst : m_instances) {
+      if (inst->surface != nullptr && !inst->visible && !inst->showPending && inst->showAnimId == 0) {
+        inst->showPending = true;
+        inst->surface->requestUpdate();
+      }
+    }
+  }
   requestLayout();
 }
 
@@ -383,7 +486,16 @@ void OsdOverlay::ensureSurfaces() {
   const std::string orientation = effectiveOsdOrientation(m_content, configOrientation);
   const std::string position = effectiveOsdPosition(orientation, horizontalPosition, verticalPosition);
   const float layoutScale = osdUiScale(m_config);
-  const auto selectedMonitors = osdMonitors();
+  m_followFocusedOutput = m_config != nullptr && m_config->config().osd.followFocusedOutput;
+  if (!m_followFocusedOutput) {
+    m_targetOutput = nullptr;
+  } else {
+    const WaylandOutput* targetOutput = m_targetOutput != nullptr ? m_wayland->findOutputByWl(m_targetOutput) : nullptr;
+    if (targetOutput == nullptr || !targetOutput->done || !targetOutput->hasUsableGeometry()) {
+      m_targetOutput = m_platform != nullptr ? m_platform->preferredInteractiveOutput() : nullptr;
+    }
+  }
+  const auto selectedMonitors = m_followFocusedOutput ? std::vector<std::string>{} : osdMonitors();
 
   if (!m_instances.empty()
       && (position != m_lastPosition
@@ -615,18 +727,17 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
   const float cardX = cardBaseX(w, cw);
   const float cardY = cardBaseYForPosition(m_lastPosition, h, ch);
   const float backgroundOpacity = osdBackgroundOpacity(m_config);
-  const bool drawBorder = m_config == nullptr || m_config->config().osd.border;
-  const float border = drawBorder ? Style::borderWidth * s : 0.0F;
+  const ColorSpec borderColor = osdBorderColor(m_config);
+  const float border = osdBorderWidth(m_config, s);
 
   inst.sceneRoot->addChild(
       ui::box({
           .out = &inst.background,
           .width = cw,
           .height = ch,
-          .configure = [cardX, cardY, cw, ch, s, border, backgroundOpacity](Box& box) {
-            box.setCardStyle();
+          .configure = [cardX, cardY, cw, ch, s, border, borderColor, backgroundOpacity](Box& box) {
             box.setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
-            box.setBorder(colorSpecFromRole(ColorRole::Outline), border);
+            box.setBorder(borderColor, border);
             box.setRadius(osdCardRadius(cw, ch, s));
             box.setPosition(cardX, cardY);
             box.setZIndex(0);
@@ -683,7 +794,7 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
   auto progress = ui::progressBar({
       .out = &inst.progress,
       .fill = colorSpecFromRole(ColorRole::Primary),
-      .track = colorSpecFromRole(ColorRole::SurfaceVariant),
+      .track = colorSpecFromRole(ColorRole::SurfaceContainer),
       .radius = osdProgressRadius(s),
       .orientation = vertical ? ProgressBarOrientation::Vertical : ProgressBarOrientation::Horizontal,
       .width = vertical ? verticalProgressWidth(s) : 0.0F,
@@ -723,6 +834,7 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
   const float cw = cardWidth(s, m_lastOrientation);
   const float ch = cardHeight(s, m_lastOrientation, m_lastShowProgress);
   inst.background->setFill(colorSpecFromRole(ColorRole::Surface, osdBackgroundOpacity(m_config)));
+  inst.background->setBorder(osdBorderColor(m_config), osdBorderWidth(m_config, s));
 
   const ColorRole accentRole = m_content.overLimit ? ColorRole::Error
       : m_content.inactive                         ? ColorRole::OnSurfaceVariant
@@ -743,10 +855,17 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
   // interior so they ellipsize within the padding instead of overflowing. Progress OSDs keep the
   // uncapped "100%" value so it can reserve minWidth beside the bar.
   const float horizontalValueMax = cw - cardPadding(s) * 2.0F - glyphSize(s) - innerGap(s);
+
+  // Progress OSDs: cap the label so a long custom label can't squeeze the bar to nothing.
+  // Built-in "100%" values are far below this cap, so they are unaffected.
+  const float fullBar = cw - cardPadding(s) * 2.0F - glyphSize(s) - innerGap(s) * 2.0F - inst.progressValueMinWidth;
+  const float minBar = fullBar / 3.0F;
+  const float progressValueMax = std::max(inst.progressValueMinWidth, horizontalValueMax - innerGap(s) - minBar);
+
   inst.value->setMaxWidth(
       vertical                      ? cw - cardPadding(s) * 2.0F
           : !m_content.showProgress ? std::max(0.0F, horizontalValueMax)
-                                    : 0.0F
+                                    : progressValueMax
   );
   inst.value->setMinWidth((!vertical && m_content.showProgress) ? inst.progressValueMinWidth : 0.0F);
   inst.value->setText(m_content.value);
@@ -857,7 +976,7 @@ void OsdOverlay::animateInstance(Instance& inst) {
       applyReveal(inst, 0.0F);
       inst.showAnimId = inst.animations.animate(
           0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic, [this, &inst](float v) { applyReveal(inst, v); },
-          [&inst]() {
+          [&inst] {
             inst.showAnimId = 0;
             inst.visible = true;
           }
@@ -867,20 +986,23 @@ void OsdOverlay::animateInstance(Instance& inst) {
     applyReveal(inst, 1.0F);
   }
 
+  const float hideDelayMs =
+      static_cast<float>(m_config != nullptr ? m_config->config().osd.hideDelayMs : OsdConfig{}.hideDelayMs);
   inst.hideAnimId = inst.animations.animateTimer(
-      1.0F, 0.0F, kHideDelayMs, Easing::Linear, [](float /*v*/) {},
-      [this, &inst]() {
+      1.0F, 0.0F, hideDelayMs, Easing::Linear, [](float /*v*/) {},
+      [this, &inst] {
         inst.hideAnimId = inst.animations.animate(
             1.0F, 0.0F, Style::animNormal, Easing::EaseInQuad, [this, &inst](float v) { applyReveal(inst, v); },
-            [this, &inst]() {
+            [this, &inst] {
               inst.hideAnimId = 0;
               inst.visible = false;
-              DeferredCall::callLater([this]() {
+              DeferredCall::callLater([this] {
                 const bool allIdle = std::ranges::all_of(m_instances, [](const auto& i) {
                   return !i->visible && !i->showPending && i->showAnimId == 0 && i->hideAnimId == 0;
                 });
                 if (allIdle) {
                   destroySurfaces();
+                  m_targetOutput = nullptr;
                 }
               });
             }

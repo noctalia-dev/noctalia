@@ -1,5 +1,6 @@
 #include "system/screen_time_service.h"
 
+#include "compositors/compositor_platform.h"
 #include "core/log.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
@@ -7,27 +8,26 @@
 #include "time/time_format.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
-#include "wayland/wayland_connection.h"
 #include "wayland/wayland_toplevels.h"
 
 #include <algorithm>
 #include <cctype>
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
 #include <ctime>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iomanip>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <sstream>
 #include <utility>
 
 namespace {
 
   constexpr Logger kLog("screen-time");
   constexpr int kRetentionDays = 14;
-  constexpr auto kTickInterval = std::chrono::seconds(5);
 
   [[nodiscard]] std::chrono::system_clock::time_point localNow() { return std::chrono::system_clock::now(); }
 
@@ -177,7 +177,7 @@ namespace {
       }
     }
 
-    const std::string baseKey = canonicalAppKey(appKey);
+    std::string baseKey = canonicalAppKey(appKey);
     if (const auto entry = app_identity::findDesktopEntry(baseKey, desktopEntries()); entry.has_value()) {
       if (!entry->name.empty()) {
         return entry->name;
@@ -281,8 +281,8 @@ ScreenTimeService::DayRecord ScreenTimeService::materializeDayForCharts(const Da
   return day;
 }
 
-void ScreenTimeService::initialize(WaylandConnection* wayland) {
-  m_wayland = wayland;
+void ScreenTimeService::initialize(CompositorPlatform* platform) {
+  m_platform = platform;
   const std::string dir = FileUtils::stateDir();
   m_storagePath = dir.empty() ? "screen_time.json" : dir + "/screen_time.json";
   load();
@@ -361,7 +361,6 @@ void ScreenTimeService::resumeTracking() {
     return;
   }
   onFocusChange();
-  m_tickTimer.startRepeating(kTickInterval, [this]() { tick(); });
 }
 
 void ScreenTimeService::onFocusChange() {
@@ -377,6 +376,7 @@ void ScreenTimeService::onFocusChange() {
     flushActiveSession(std::chrono::steady_clock::now());
     m_activeAppKey.clear();
     m_activeSince = {};
+    scheduleNextTick();
     return;
   }
   if (candidate == m_activeAppKey) {
@@ -385,17 +385,33 @@ void ScreenTimeService::onFocusChange() {
   flushActiveSession(std::chrono::steady_clock::now());
   m_activeAppKey = candidate;
   m_activeSince = std::chrono::steady_clock::now();
+  scheduleNextTick();
+}
+
+// Checkpoints once per wall-clock minute while an app is accruing time. Aligning
+// to the minute boundary lets the main loop serve this and the clock in a single
+// wake, and nothing is armed while no app is active.
+void ScreenTimeService::scheduleNextTick() {
+  m_tickTimer.stop();
+  if (!m_enabled || m_sessionLocked || m_suspendPaused || m_activeAppKey.empty()) {
+    return;
+  }
+  using namespace std::chrono;
+  const auto now = system_clock::now();
+  const auto nextCheckpoint = floor<minutes>(now) + minutes{1};
+  const auto delay = std::max(duration_cast<milliseconds>(nextCheckpoint - now), milliseconds{1});
+  m_tickTimer.start(delay, [this] { tick(); });
 }
 
 void ScreenTimeService::tick() {
   if (!m_enabled || m_sessionLocked || m_suspendPaused) {
     return;
   }
-  const bool wasDirty = m_dirty;
   flushActiveSession(std::chrono::steady_clock::now());
-  if (wasDirty || m_dirty) {
+  if (m_dirty) {
     save();
   }
+  scheduleNextTick();
 }
 
 const ScreenTimeService::DayRecord* ScreenTimeService::dayRecordForKey(const std::string& dayKey) const {
@@ -420,16 +436,11 @@ std::vector<std::string> ScreenTimeService::dayKeysForRange(int rangeDays) const
 }
 
 std::string ScreenTimeService::shortDayLabel(const std::string& dayKey) {
-  int year = 0;
-  int month = 0;
-  int day = 0;
-  if (std::sscanf(dayKey.c_str(), "%d-%d-%d", &year, &month, &day) != 3) {
+  std::tm tm{};
+  std::istringstream input(dayKey);
+  if (!(input >> std::get_time(&tm, "%Y-%m-%d"))) {
     return dayKey;
   }
-  std::tm tm{};
-  tm.tm_year = year - 1900;
-  tm.tm_mon = month - 1;
-  tm.tm_mday = day;
   tm.tm_isdst = -1;
   if (std::mktime(&tm) == -1) {
     return dayKey;
@@ -439,16 +450,11 @@ std::string ScreenTimeService::shortDayLabel(const std::string& dayKey) {
 }
 
 std::string ScreenTimeService::dayDisplayName(const std::string& dayKey) {
-  int year = 0;
-  int month = 0;
-  int day = 0;
-  if (std::sscanf(dayKey.c_str(), "%d-%d-%d", &year, &month, &day) != 3) {
+  std::tm tm{};
+  std::istringstream input(dayKey);
+  if (!(input >> std::get_time(&tm, "%Y-%m-%d"))) {
     return dayKey;
   }
-  std::tm tm{};
-  tm.tm_year = year - 1900;
-  tm.tm_mon = month - 1;
-  tm.tm_mday = day;
   tm.tm_hour = 12;
   tm.tm_isdst = -1;
   if (std::mktime(&tm) == -1) {
@@ -687,17 +693,28 @@ void ScreenTimeService::flushActiveSession(std::chrono::steady_clock::time_point
   if (elapsed.count() <= 0) {
     return;
   }
+  // Advance by whole seconds so the sub-second remainder carries into the next flush; minute-aligned
+  // checkpoints routinely land a few milliseconds short of a full minute.
+  m_activeSince += elapsed;
 
   ensureCurrentDayLocked(localNow());
 
-  m_currentDay.apps[m_activeAppKey] += elapsed;
-  const int hour = localHour(localNow());
-  if (hour >= 0 && hour < static_cast<int>(m_currentDay.hourly.size())) {
-    m_currentDay.hourly[static_cast<std::size_t>(hour)] += elapsed;
-    m_currentDay.appHourly[m_activeAppKey][static_cast<std::size_t>(hour)] += elapsed;
+  // Credit each local hour (and day) the interval actually covered, so a checkpoint firing just past a
+  // boundary does not move the preceding minute into the next hour or day.
+  const auto wallEnd = std::chrono::floor<std::chrono::seconds>(localNow() - (now - m_activeSince));
+  for (auto cursor = wallEnd - elapsed; cursor < wallEnd;) {
+    const std::tm tm = localTm(cursor);
+    const auto untilNextHour = std::chrono::seconds{std::max(1, 3600 - (tm.tm_min * 60) - tm.tm_sec)};
+    const auto chunk = std::min(untilNextHour, wallEnd - cursor);
+    const std::string dayKey = localDayKey(cursor);
+    DayRecord& day = dayKey == m_currentDayKey ? m_currentDay : m_days[dayKey];
+    const auto hour = static_cast<std::size_t>(tm.tm_hour);
+    day.apps[m_activeAppKey] += chunk;
+    day.hourly[hour] += chunk;
+    day.appHourly[m_activeAppKey][hour] += chunk;
+    cursor += chunk;
   }
 
-  m_activeSince = now;
   m_dirty = true;
 
   if (m_changeCallback) {
@@ -884,10 +901,10 @@ void ScreenTimeService::pruneOldDaysLocked() {
 }
 
 std::string ScreenTimeService::appKeyForActive() const {
-  if (m_wayland == nullptr) {
+  if (m_platform == nullptr) {
     return {};
   }
-  const auto active = m_wayland->activeToplevel();
+  const auto active = m_platform->activeToplevel();
   if (!active.has_value()) {
     return {};
   }

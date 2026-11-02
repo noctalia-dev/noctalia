@@ -145,11 +145,6 @@ namespace noctalia::theme {
 
     constexpr std::string_view kUnknownPrefix = "{{";
 
-    const std::unordered_map<std::string, std::string> kColorAliases = {
-        {"hover", "surface_container_high"},
-        {"on_hover", "on_surface"},
-    };
-
     const std::unordered_set<std::string> kKnownFormats = {
         "hex", "hex_stripped", "rgb",  "rgb_csv", "rgba", "hsl",        "hsla",
         "red", "green",        "blue", "alpha",   "hue",  "saturation", "lightness",
@@ -991,11 +986,9 @@ namespace noctalia::theme {
           logError();
           return "{{" + base + "}}";
         }
-        std::string colorName = match[1].str();
+        const std::string colorName = match[1].str();
         const std::string mode = match[2].str();
         const std::string formatType = match[3].str();
-        if (auto alias = kColorAliases.find(colorName); alias != kColorAliases.end())
-          colorName = alias->second;
 
         auto modeIt = m_themeData.find(mode == "default" ? m_options.defaultMode : mode);
         if (modeIt == m_themeData.end()) {
@@ -1025,7 +1018,9 @@ namespace noctalia::theme {
             return joinLower(formatColor(color, formatType), "-");
           if (name == "to_color") {
             continue;
-          } else if (kColorArgFilters.contains(name)) {
+          }
+
+          if (kColorArgFilters.contains(name)) {
             try {
               color = applyColorArgFilter(color, name, arg);
             } catch (...) {
@@ -1061,7 +1056,7 @@ namespace noctalia::theme {
         std::string toneStr = match[2].str();
         const std::string formatType = match[3].str();
 
-        if (toneStr.starts_with("_"))
+        if (toneStr.starts_with('_'))
           toneStr = toneStr.substr(1);
 
         const auto mapped = paletteColorMap.find(family);
@@ -1108,7 +1103,9 @@ namespace noctalia::theme {
             return joinLower(formatColor(color, formatType), "-");
           if (name == "to_color") {
             continue;
-          } else if (kColorArgFilters.contains(name)) {
+          }
+
+          if (kColorArgFilters.contains(name)) {
             try {
               color = applyColorArgFilter(color, name, arg);
             } catch (...) {
@@ -1311,8 +1308,8 @@ namespace noctalia::theme {
         const toml::table* tbl = item.as_table();
         if (tbl == nullptr)
           continue;
-        auto name = tbl->get_as<std::string>("name");
-        auto color = tbl->get_as<std::string>("color");
+        const auto* name = tbl->get_as<std::string>("name");
+        const auto* color = tbl->get_as<std::string>("color");
         if (name && color)
           out.push_back(CompareColorEntry{name->get(), color->get()});
       }
@@ -1323,8 +1320,8 @@ namespace noctalia::theme {
       const toml::table* tbl = tpl["input_path_modes"].as_table();
       if (tbl == nullptr)
         return std::nullopt;
-      auto dark = tbl->get_as<std::string>("dark");
-      auto light = tbl->get_as<std::string>("light");
+      const auto* dark = tbl->get_as<std::string>("dark");
+      const auto* light = tbl->get_as<std::string>("light");
       if (!dark || !light)
         return std::nullopt;
       return InputPathModes{.dark = dark->get(), .light = light->get()};
@@ -1387,7 +1384,7 @@ namespace noctalia::theme {
     }
 
     std::filesystem::path resolveConfigPath(const std::filesystem::path& configPath, const std::string& path) {
-      const std::filesystem::path expanded = FileUtils::expandUserPath(expandXdgBaseDir(path));
+      std::filesystem::path expanded = FileUtils::expandUserPath(expandXdgBaseDir(path));
       if (expanded.is_absolute())
         return expanded;
       const std::filesystem::path base =
@@ -1418,12 +1415,12 @@ namespace noctalia::theme {
       std::string inputPath;
       if (const auto modes = parseInputPathModes(tpl)) {
         inputPath = defaultMode == "light" ? modes->light : modes->dark;
-      } else if (const auto input = tpl.get_as<std::string>("input_path")) {
+      } else if (const auto* input = tpl.get_as<std::string>("input_path")) {
         inputPath = input->get();
       }
 
       std::string inputPathDynamic;
-      if (const auto ipd = tpl.get_as<std::string>("input_path_dynamic"))
+      if (const auto* ipd = tpl.get_as<std::string>("input_path_dynamic"))
         inputPathDynamic = ipd->get();
 
       if (inputPath.empty() && inputPathDynamic.empty())
@@ -1441,21 +1438,21 @@ namespace noctalia::theme {
         output = resolveConfigPath(configPath, output).string();
       entry.colorsToCompare = parseColorsToCompare(tpl.get("colors_to_compare"));
 
-      if (const auto compareTo = tpl.get_as<std::string>("compare_to"))
+      if (const auto* compareTo = tpl.get_as<std::string>("compare_to"))
         entry.compareTo = compareTo->get();
-      if (const auto preHook = tpl.get_as<std::string>("pre_hook"))
+      if (const auto* preHook = tpl.get_as<std::string>("pre_hook"))
         entry.preHook = preHook->get();
-      if (const auto postHook = tpl.get_as<std::string>("post_hook"))
+      if (const auto* postHook = tpl.get_as<std::string>("post_hook"))
         entry.postHook = postHook->get();
-      if (const auto postAction = tpl.get_as<std::string>("post_action"))
+      if (const auto* postAction = tpl.get_as<std::string>("post_action"))
         entry.postAction = postAction->get();
-      if (const auto opd = tpl.get_as<std::string>("output_path_dynamic"))
+      if (const auto* opd = tpl.get_as<std::string>("output_path_dynamic"))
         entry.outputPathDynamic = opd->get();
-      if (const auto requiresPath = tpl.get_as<std::string>("requires_path"))
+      if (const auto* requiresPath = tpl.get_as<std::string>("requires_path"))
         entry.requiresPath = resolveConfigPath(configPath, requiresPath->get()).string();
-      if (const auto index = tpl.get_as<int64_t>("index"))
+      if (const auto* index = tpl.get_as<int64_t>("index"))
         entry.index = static_cast<int>(index->get());
-      if (const auto hookAsync = tpl.get_as<bool>("hook_async"))
+      if (const auto* hookAsync = tpl.get_as<bool>("hook_async"))
         entry.hookAsync = hookAsync->get();
       return entry;
     }
@@ -1477,7 +1474,7 @@ namespace noctalia::theme {
   } // namespace
 
   bool TemplateEngine::processConfigFile(const std::filesystem::path& configPath) {
-    auto cancelRequested = [this]() { return m_options.cancelRequested && m_options.cancelRequested(); };
+    auto cancelRequested = [this] { return m_options.cancelRequested && m_options.cancelRequested(); };
     if (cancelRequested()) {
       return true;
     }
@@ -1537,7 +1534,7 @@ namespace noctalia::theme {
             };
             darkHex = pick({&darkOverride, &base, &lightOverride});
             lightHex = pick({&lightOverride, &base, &darkOverride});
-            if (auto blendValue = tbl->get_as<bool>("blend"))
+            if (const auto* blendValue = tbl->get_as<bool>("blend"))
               blend = blendValue->get();
           } else {
             continue;
@@ -1576,7 +1573,7 @@ namespace noctalia::theme {
   }
 
   bool TemplateEngine::processConfigTemplates(const toml::table& root, const std::filesystem::path& configPath) {
-    auto cancelRequested = [this]() { return m_options.cancelRequested && m_options.cancelRequested(); };
+    auto cancelRequested = [this] { return m_options.cancelRequested && m_options.cancelRequested(); };
     if (cancelRequested()) {
       return true;
     }
@@ -1623,11 +1620,15 @@ namespace noctalia::theme {
       renderOptions.configDir = configPath.has_parent_path() ? configPath.parent_path().string() : "";
       renderOptions.configFile = configPath.string();
 
+      // Dynamic path commands are user commands too, so the shutdown flag bounds them like hooks.
+      process::RunOptions pathCommandOptions;
+      pathCommandOptions.cancel = renderOptions.hookCancel;
+
       std::string effectiveInput = entry.inputPath;
       if (!entry.inputPathDynamic.empty()) {
         const auto cmdRendered = EngineImpl(m_themeData, renderOptions).render(entry.inputPathDynamic);
         if (cmdRendered.errorCount == 0 && !cmdRendered.text.empty()) {
-          const auto dynResult = process::runSync(cmdRendered.text);
+          const auto dynResult = process::runSync(cmdRendered.text, pathCommandOptions);
           if (dynResult.exitCode == 0) {
             std::vector<std::string> dynamicInputs;
             appendPathsFromDynamicStdout(configPath, dynamicInputs, dynResult.out);
@@ -1642,7 +1643,7 @@ namespace noctalia::theme {
       if (!entry.outputPathDynamic.empty()) {
         const auto cmdRendered = EngineImpl(m_themeData, renderOptions).render(entry.outputPathDynamic);
         if (cmdRendered.errorCount == 0 && !cmdRendered.text.empty()) {
-          const auto dynResult = process::runSync(cmdRendered.text);
+          const auto dynResult = process::runSync(cmdRendered.text, pathCommandOptions);
           if (dynResult.exitCode == 0) {
             appendPathsFromDynamicStdout(configPath, effectiveOutputs, dynResult.out);
           }
@@ -1659,14 +1660,37 @@ namespace noctalia::theme {
           return;
         }
 
+        HookRunner::FailureCallback onFailure;
+        if (renderOptions.hookWarningCallback) {
+          onFailure = [callback = renderOptions.hookWarningCallback, name = entry.name](const std::string& message) {
+            const std::string diagnostic = StringUtils::trim(message);
+            if (diagnostic.starts_with("Warning:")) {
+              callback(std::format("{}: {}", name, diagnostic));
+            }
+          };
+        }
         if (async && renderOptions.hookRunner != nullptr) {
-          renderOptions.hookRunner->enqueue(hookRendered.text, renderOptions.generation);
+          renderOptions.hookRunner->enqueue(hookRendered.text, renderOptions.generation, std::move(onFailure));
         } else {
-          [[maybe_unused]] const bool hookOk = process::runSync(hookRendered.text);
+          // A started hook is allowed to finish (a supersede waits it out; killing
+          // mid-write could corrupt an app's config). Only the shutdown flag, raised
+          // after the caller's grace period, terminates its process group.
+          process::RunOptions opts;
+          opts.cancel = renderOptions.hookCancel;
+          const process::RunResult result = process::runSync(hookRendered.text, opts);
+          if (!result && !(renderOptions.hookCancel && renderOptions.hookCancel->load())) {
+            const std::string message = result.err.empty()
+                ? std::format("hook failed with exit code {}", result.exitCode)
+                : StringUtils::trim(result.err);
+            kLog.warn("hook for template {} failed: {}", entry.name, message);
+            if (onFailure) {
+              onFailure(message);
+            }
+          }
         }
       };
 
-      auto runPostAction = [&]() {
+      auto runPostAction = [&] {
         if (entry.postAction.empty()) {
           return true;
         }

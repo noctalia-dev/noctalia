@@ -146,7 +146,6 @@ namespace ui {
     std::optional<float> horizontalPadding = std::nullopt;
     std::optional<bool> clearButtonEnabled = std::nullopt;
     std::optional<bool> passwordMode = std::nullopt;
-    std::optional<bool> lineEditing = std::nullopt;
     std::optional<bool> invalid = std::nullopt;
     std::optional<bool> frameVisible = std::nullopt;
     std::optional<bool> embeddedOnSolidPrimary = std::nullopt;
@@ -155,6 +154,7 @@ namespace ui {
     std::optional<TextAlign> textAlign = std::nullopt;
     std::optional<bool> enabled = std::nullopt;
     std::optional<float> surfaceOpacity = std::nullopt;
+    std::optional<ColorRole> surfaceRole = std::nullopt;
     std::optional<float> width = std::nullopt;
     std::optional<float> height = std::nullopt;
     std::optional<float> flexGrow = std::nullopt;
@@ -220,6 +220,7 @@ namespace ui {
     std::optional<float> fontSize = std::nullopt;
     std::optional<FontWeight> fontWeight = std::nullopt;
     std::optional<std::string> fontFamily = std::nullopt;
+    std::optional<std::string> fontFeatures = std::nullopt;
     std::optional<ColorSpec> color = std::nullopt;
     std::optional<float> width = std::nullopt;
     std::optional<float> height = std::nullopt;
@@ -604,7 +605,7 @@ namespace ui {
     std::function<void(ProgressBar&)> configure = nullptr;
   };
 
-  [[nodiscard]] std::unique_ptr<Flex> flex(FlexDirection direction, FlexProps props);
+  [[nodiscard]] std::unique_ptr<Flex> flex(FlexDirection direction, const FlexProps& props);
   [[nodiscard]] std::unique_ptr<Input> input(InputProps props);
   [[nodiscard]] std::unique_ptr<InputArea> inputArea(InputAreaProps props = {});
   [[nodiscard]] std::unique_ptr<Button> button(ButtonProps props);
@@ -631,14 +632,16 @@ namespace ui {
   [[nodiscard]] std::unique_ptr<ProgressBar> progressBar(ProgressBarProps props = {});
   [[nodiscard]] std::unique_ptr<Spacer> spacer();
 
-  template <typename... Children> [[nodiscard]] std::unique_ptr<Flex> row(FlexProps props, Children&&... children) {
-    auto container = flex(FlexDirection::Horizontal, std::move(props));
+  template <typename... Children>
+  [[nodiscard]] std::unique_ptr<Flex> row(const FlexProps& props, Children&&... children) {
+    auto container = flex(FlexDirection::Horizontal, props);
     (container->addChild(std::forward<Children>(children)), ...);
     return container;
   }
 
-  template <typename... Children> [[nodiscard]] std::unique_ptr<Flex> column(FlexProps props, Children&&... children) {
-    auto container = flex(FlexDirection::Vertical, std::move(props));
+  template <typename... Children>
+  [[nodiscard]] std::unique_ptr<Flex> column(const FlexProps& props, Children&&... children) {
+    auto container = flex(FlexDirection::Vertical, props);
     (container->addChild(std::forward<Children>(children)), ...);
     return container;
   }

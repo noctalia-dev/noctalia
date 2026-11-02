@@ -6,8 +6,10 @@
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
+#include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "shell/panel/panel_manager.h"
+#include "util/string_utils.h"
 #include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 
@@ -17,34 +19,6 @@
 namespace {
 
   constexpr Logger kLog("overview-launcher");
-
-  [[nodiscard]] std::string utf32ToUtf8(std::uint32_t codepoint) {
-    if (codepoint <= 0x7F) {
-      return std::string(1, static_cast<char>(codepoint));
-    }
-    if (codepoint <= 0x7FF) {
-      std::string out(2, '\0');
-      out[0] = static_cast<char>(0xC0 | ((codepoint >> 6) & 0x1F));
-      out[1] = static_cast<char>(0x80 | (codepoint & 0x3F));
-      return out;
-    }
-    if (codepoint <= 0xFFFF) {
-      std::string out(3, '\0');
-      out[0] = static_cast<char>(0xE0 | ((codepoint >> 12) & 0x0F));
-      out[1] = static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-      out[2] = static_cast<char>(0x80 | (codepoint & 0x3F));
-      return out;
-    }
-    if (codepoint <= 0x10FFFF) {
-      std::string out(4, '\0');
-      out[0] = static_cast<char>(0xF0 | ((codepoint >> 18) & 0x07));
-      out[1] = static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
-      out[2] = static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-      out[3] = static_cast<char>(0x80 | (codepoint & 0x3F));
-      return out;
-    }
-    return {};
-  }
 
   [[nodiscard]] bool isLauncherTypingKey(const KeyboardEvent& event) {
     if (!event.pressed || event.preedit) {
@@ -118,6 +92,18 @@ bool OverviewLauncherCapture::surfacesMatchOutputs() const {
 }
 
 void OverviewLauncherCapture::sync() {
+  const bool overviewOpen = m_platform != nullptr && m_platform->hasOverviewState() && m_platform->isOverviewOpen();
+  if (m_launcherOpenedFromOverview) {
+    if (m_panelManager == nullptr || !m_panelManager->isOpenPanel("launcher")) {
+      m_launcherOpenedFromOverview = false;
+    } else if (!overviewOpen) {
+      m_launcherOpenedFromOverview = false;
+      destroySurfaces();
+      m_panelManager->closePanelById("launcher");
+      return;
+    }
+  }
+
   if (!shouldBeActive()) {
     destroySurfaces();
     return;
@@ -202,7 +188,7 @@ bool OverviewLauncherCapture::handleOverviewKey(const KeyboardEvent& event) cons
   }
   const bool isUmbriel = compositors::isUmbriel();
 
-  if (KeySymbol::isEnter(event.sym) || KeySymbol::isEscape(event.sym)) {
+  if (KeySymbol::isEnter(event.sym) || KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
     const auto* action = isUmbriel ? "overview-toggle" : "ToggleOverview";
     (void)sendOverviewAction(action);
     return true;
@@ -256,7 +242,7 @@ bool OverviewLauncherCapture::handleKeyboardEvent(const KeyboardEvent& event) {
     return true;
   }
 
-  const std::string initialQuery = utf32ToUtf8(event.utf32);
+  const std::string initialQuery = StringUtils::utf32ToUtf8(event.utf32);
   if (initialQuery.empty()) {
     return true;
   }
@@ -272,6 +258,7 @@ bool OverviewLauncherCapture::handleKeyboardEvent(const KeyboardEvent& event) {
     }
   }
   m_openLauncher(initialQuery, target, {});
-  destroySurfaces();
+  m_launcherOpenedFromOverview = m_panelManager != nullptr && m_panelManager->isOpenPanel("launcher");
+  sync();
   return true;
 }

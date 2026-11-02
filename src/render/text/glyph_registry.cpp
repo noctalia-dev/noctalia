@@ -79,6 +79,7 @@ const std::unordered_map<std::string, std::string_view> kAliases = {
     {"powersaver", "leaf"},
     {"shutdown", "power"},
     {"reboot", "refresh"},
+    {"reboot-uefi", "device-desktop-cog"},
     {"suspend", "player-pause"},
     {"hibernate", "zzz"},
 
@@ -138,14 +139,12 @@ const std::unordered_map<std::string, std::string_view> kAliases = {
       return std::nullopt;
     }
 
-    std::string_view hex;
-    if ((value[0] == 'U' || value[0] == 'u') && value[1] == '+') {
-      hex = value.substr(2);
-    } else if (value.size() > 2 && value[0] == '0' && (value[1] == 'x' || value[1] == 'X')) {
-      hex = value.substr(2);
-    } else {
+    const bool unicodePrefix = (value[0] == 'U' || value[0] == 'u') && value[1] == '+';
+    const bool hexPrefix = value[0] == '0' && (value[1] == 'x' || value[1] == 'X');
+    if (!unicodePrefix && !hexPrefix) {
       return std::nullopt;
     }
+    const std::string_view hex = value.substr(2);
 
     if (hex.empty()) {
       return std::nullopt;

@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 namespace compositors::hyprland {
   class HyprlandRuntime;
@@ -12,6 +13,7 @@ class HyprlandOutputBackend {
 public:
   explicit HyprlandOutputBackend(compositors::hyprland::HyprlandRuntime& runtime);
   [[nodiscard]] std::optional<std::string> focusedOutputName() const;
+  [[nodiscard]] std::unordered_map<std::string, bool> outputPowerStates() const;
 
 private:
   compositors::hyprland::HyprlandRuntime& m_runtime;

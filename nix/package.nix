@@ -43,6 +43,7 @@
   git,
   gsettings-desktop-schemas,
   autoAddDriverRunpath,
+  rev ? "unknown",
   # DEPRECATED: no longer affects the build; kept for `.override` compat.
   cudaSupport ? config.cudaSupport,
 }:
@@ -65,6 +66,11 @@ lib.warnIf cudaSupport
   inherit version;
 
   src = lib.cleanSource ./..;
+
+  postPatch = ''
+    substituteInPlace meson.build \
+      --replace-fail "_git_revision_config.set('VCS_TAG', 'unknown')" "_git_revision_config.set('VCS_TAG', '${rev}')"
+  '';
 
   postFixup = ''
     wrapProgram $out/bin/noctalia \

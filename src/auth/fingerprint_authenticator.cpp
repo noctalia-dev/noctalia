@@ -116,11 +116,9 @@ void FingerprintAuthenticator::stop() {
   m_active = false;
   m_verifying = false;
   m_claiming = false;
-  if (!m_abort) {
-    releaseDevice();
-  } else {
-    m_device.reset();
-  }
+  // Release even after verify-disconnected: fprintd also reports libfprint's recoverable TOO_HOT
+  // cutoff that way and keeps our claim until Release or until this long-lived connection closes.
+  releaseDevice();
 }
 
 bool FingerprintAuthenticator::createDeviceProxy() {
@@ -143,6 +141,10 @@ bool FingerprintAuthenticator::createDeviceProxy() {
   }
 
   m_device->uponSignal("VerifyStatus").onInterface(kDeviceInterface).call([this](const std::string& result, bool done) {
+    if (!m_bus.isNameOwner(kFprintBusName, m_device->getCurrentlyProcessedMessage().getSender())) {
+      kLog.warn("ignoring VerifyStatus signal not sent by fprintd");
+      return;
+    }
     handleVerifyStatus(result, done);
   });
 
@@ -225,7 +227,7 @@ void FingerprintAuthenticator::startVerify(bool isRetry) {
           // the async reply handler, so defer the reset until after it returns.
           if (!m_reclaimAttempted && m_active && !m_sleeping && !m_abort && isRecoverableVerifyStartError(*e)) {
             m_reclaimAttempted = true;
-            m_retryTimer.start(kRetryDelay, [this]() {
+            m_retryTimer.start(kRetryDelay, [this] {
               m_device.reset();
               startVerify(false);
             });
@@ -304,7 +306,7 @@ void FingerprintAuthenticator::handleVerifyStatus(const std::string& result, boo
     } else {
       emitStatus(i18n::tr("auth.fingerprint.no-match"), true);
       // rearm after a short delay
-      m_retryTimer.start(kRetryDelay, [this]() { startVerify(true); });
+      m_retryTimer.start(kRetryDelay, [this] { startVerify(true); });
     }
     break;
   case MatchResult::Retry:
@@ -335,7 +337,7 @@ void FingerprintAuthenticator::handleVerifyStatus(const std::string& result, boo
       emitStatus(i18n::tr("auth.fingerprint.too-many-attempts"), true);
     } else {
       emitStatus(i18n::tr("auth.fingerprint.error"), true);
-      m_retryTimer.start(kRetryDelay, [this]() { startVerify(true); });
+      m_retryTimer.start(kRetryDelay, [this] { startVerify(true); });
     }
     break;
   }

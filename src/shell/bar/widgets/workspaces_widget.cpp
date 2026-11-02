@@ -2,6 +2,7 @@
 
 #include "compositors/workspace_backend.h"
 #include "config/config_service.h"
+#include "config/config_types.h"
 #include "core/ui_phase.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
@@ -74,7 +75,7 @@ WorkspacesWidget::WorkspacesWidget(
     : m_platform(platform), m_configService(config), m_output(output), m_labelSource(options.labelSource),
       m_showLabels(options.showLabels), m_maxLabelChars(options.maxLabelChars),
       m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_showIcons(options.showIcons),
-      m_hideWhenEmpty(options.hideWhenEmpty), m_showAllOutputs(options.showAllOutputs), m_pillScale(options.pillScale),
+      m_hideWhenEmpty(options.hideWhenEmpty), m_monitors(std::move(options.monitors)), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
@@ -113,7 +114,7 @@ void WorkspacesWidget::create() {
   setRoot(std::move(container));
 
   if (showsActiveIcon()) {
-    m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+    m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] {
       m_iconColorizeRefreshPending = true;
       requestUpdate();
     });
@@ -155,11 +156,11 @@ void WorkspacesWidget::setWorkspaceClickHandler(InputArea& area, wl_output* outp
 
 void WorkspacesWidget::applyItemVisualStyle(Item& item) {
   if (item.indicator != nullptr) {
-    item.indicator->setFill(workspaceFillColor(item.visualWorkspace));
+    item.indicator->setFill(workspaceFillColor(item.visualWorkspace, item.output));
     item.indicator->clearBorder();
   }
   if (item.text != nullptr && item.showLabel) {
-    item.text->setColor(workspaceTextColor(item.visualWorkspace));
+    item.text->setColor(workspaceTextColor(item.visualWorkspace, item.output));
   }
 }
 
@@ -195,28 +196,38 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   }
 
   std::vector<WorkspaceState> current;
-  if (m_showAllOutputs) {
-    const auto appendWorkspaces = [&](wl_output* output) {
-      if (output == nullptr) {
-        return;
-      }
-      for (auto& workspace : m_platform.workspaces(output)) {
-        current.push_back({.workspace = std::move(workspace), .output = output});
+  const auto appendWorkspaces = [&](wl_output* output) {
+    if (output == nullptr) {
+      return;
+    }
+    for (auto& workspace : m_platform.workspaces(output)) {
+      current.push_back({.workspace = std::move(workspace), .output = output});
+    }
+  };
+
+  if (m_monitors.empty()) {
+    appendWorkspaces(m_output);
+  } else {
+    std::vector<wl_output*> selected;
+    const auto addOutput = [&selected](wl_output* output) {
+      if (output != nullptr && !std::ranges::contains(selected, output)) {
+        selected.push_back(output);
       }
     };
-
-    appendWorkspaces(m_output);
-    for (const auto& output : m_platform.outputs()) {
-      if (output.output == nullptr) {
-        continue;
+    for (const auto& monitor : m_monitors) {
+      // "*" selects every monitor, starting with the one hosting this bar.
+      const bool all = monitor == "*";
+      if (all) {
+        addOutput(m_output);
       }
-      if (output.output != m_output) {
-        appendWorkspaces(output.output);
+      for (const auto& output : m_platform.outputs()) {
+        if (all || outputMatchesSelector(monitor, output)) {
+          addOutput(output.output);
+        }
       }
     }
-  } else {
-    for (auto& workspace : m_platform.workspaces(m_output)) {
-      current.push_back({.workspace = std::move(workspace), .output = m_output});
+    for (auto* output : selected) {
+      appendWorkspaces(output);
     }
   }
 
@@ -307,9 +318,10 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
 
   if (!structuralChange && !activeChange && !hideWhenEmptyTransition) {
     if (m_focusedOutputOnly) {
-      const bool isFocused = isFocusedOutput();
-      if (isFocused != m_wasFocusedOutput) {
-        m_wasFocusedOutput = isFocused;
+      // Focus moving between two other outputs changes which workspace is styled as focused.
+      wl_output* focusedOutput = m_platform.preferredInteractiveOutput();
+      if (focusedOutput != m_lastFocusedOutput) {
+        m_lastFocusedOutput = focusedOutput;
         retarget(renderer);
       }
     }
@@ -337,7 +349,6 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
 void WorkspacesWidget::rebuild(Renderer& renderer) {
   uiAssertNotRendering("WorkspacesWidget::rebuild");
   const bool animateFromSnapshot = !isMinimal() && !m_rebuildSnapshot.empty();
-  m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   cancelAnimation();
   if (m_animations != nullptr) {
     m_animations->cancelForOwner(&m_hoverProgress);
@@ -466,7 +477,9 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     const auto& entry = entries[i];
 
     if (entry.showLabel) {
-      const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, configuredFontWeight);
+      const TextMetrics tm = renderer.measureText(
+          entry.label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
+      );
       slot.textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
       slot.textHeight = tm.bottom - tm.top;
     }
@@ -497,7 +510,9 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         slot.activeWidth = slot.inactiveWidth;
       }
       if (entry.showLabel) {
-        const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, configuredFontWeight);
+        const TextMetrics tm = renderer.measureText(
+            entry.label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
+        );
         maxLabelHeight = std::max(maxLabelHeight, tm.bottom - tm.top);
       }
       continue;
@@ -571,7 +586,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       const float indicatorH = m_isVertical ? w : m_indicatorHeight;
       item.indicator = static_cast<Box*>(area->addChild(
           ui::box({
-              .fill = workspaceFillColor(ws),
+              .fill = workspaceFillColor(ws, entry.output),
               .radius = workspacePillRadius(indicatorW, indicatorH),
               .width = w,
               .height = m_indicatorHeight,
@@ -587,7 +602,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
               .fontSize = labelFontSize,
               .fontWeight = configuredFontWeight,
               .fontFamily = labelFontFamily(),
-              .color = workspaceTextColor(ws),
+              .color = workspaceTextColor(ws, entry.output),
               .baselineMode = LabelBaselineMode::Text,
           })
       ));
@@ -649,7 +664,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         requestFrameTick();
       });
 
-      area->setOnLeave([this, areaPtr]() {
+      area->setOnLeave([this, areaPtr] {
         if (m_hoveredArea != areaPtr) {
           return;
         }
@@ -682,6 +697,9 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       });
     }
     item.area = static_cast<InputArea*>(m_container->addChild(std::move(area)));
+    if (!entry.exiting) {
+      syncItemTooltip(item, ws);
+    }
     m_items.push_back(item);
   }
 
@@ -824,7 +842,7 @@ void WorkspacesWidget::ensureItemLabel(Renderer& renderer, Item& item, const Wor
           .fontSize = labelFontSize,
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
-          .color = workspaceTextColor(workspace),
+          .color = workspaceTextColor(workspace, item.output),
           .baselineMode = LabelBaselineMode::Text,
       })
   ));
@@ -843,6 +861,7 @@ void WorkspacesWidget::recalculateItemMetrics(
 
   item.label = label;
   item.showLabel = shouldShowWorkspaceLabel(workspace, label);
+  syncItemTooltip(item, workspace);
 
   if (isWorkspaceHidden(workspace)) {
     item.inactiveWidth = 0.0F;
@@ -856,7 +875,9 @@ void WorkspacesWidget::recalculateItemMetrics(
   float textWidth = 0.0F;
   float textHeight = 0.0F;
   if (item.showLabel) {
-    const TextMetrics tm = renderer.measureText(label, labelFontSize, configuredFontWeight);
+    const TextMetrics tm = renderer.measureText(
+        label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
+    );
     textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
     textHeight = tm.bottom - tm.top;
   }
@@ -913,7 +934,7 @@ void WorkspacesWidget::recalculateItemMetrics(
     if (item.showLabel) {
       item.text->setText(label);
       item.text->setFontWeight(configuredFontWeight);
-      item.text->setColor(workspaceTextColor(workspace));
+      item.text->setColor(workspaceTextColor(workspace, item.output));
       item.text->measure(renderer);
     }
   }
@@ -929,7 +950,6 @@ void WorkspacesWidget::retarget(Renderer& renderer) {
     return;
   }
 
-  m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   for (auto& item : m_items) {
     const auto workspaceIt = std::ranges::find(m_cachedState, item.key, [](const WorkspaceState& state) {
       return workspaceIdentityKey(state.workspace, state.output);
@@ -1013,7 +1033,7 @@ void WorkspacesWidget::startAnimation() {
           root()->markPaintDirty();
         }
       },
-      [this]() { finishAnimation(); }, this
+      [this] { finishAnimation(); }, this
   );
 
   // Reserve final bounds before the first animated frame to avoid one-frame overflow.
@@ -1202,20 +1222,17 @@ void WorkspacesWidget::updateHoverOverlay() {
 
   Item& hoveredItem = *hoveredIt;
 
-  if (!isMinimal()) {
-    for (auto& item : m_items) {
-      if (&item == &hoveredItem) {
-        if (item.indicator != nullptr) {
-          item.indicator->setFill(colorSpecFromRole(ColorRole::Hover));
-        }
-        if (item.text != nullptr) {
-          item.text->setColor(colorSpecFromRole(ColorRole::OnHover));
-        }
-      } else {
-        applyItemVisualStyle(item);
+  for (auto& item : m_items) {
+    if (&item == &hoveredItem) {
+      if (item.indicator != nullptr) {
+        item.indicator->setFill(colorSpecFromRole(ColorRole::Hover));
       }
+      if (item.text != nullptr) {
+        item.text->setColor(colorSpecFromRole(isMinimal() ? ColorRole::Hover : ColorRole::OnHover));
+      }
+    } else {
+      applyItemVisualStyle(item);
     }
-    return;
   }
 
   // Minimal mode uses the translucent overlay
@@ -1432,6 +1449,32 @@ std::string WorkspacesWidget::workspaceLabel(const Workspace& workspace, std::si
   return label;
 }
 
+std::string
+WorkspacesWidget::workspaceTooltipText(const Workspace& workspace, const std::string& label, bool showLabel) {
+  if (workspace.name.empty() || (showLabel && label == workspace.name)) {
+    return {};
+  }
+  return workspace.name;
+}
+
+void WorkspacesWidget::syncItemTooltip(Item& item, const Workspace& workspace) {
+  if (item.area == nullptr) {
+    return;
+  }
+
+  // retarget() runs on every workspace update; only touch the tooltip when its text changes.
+  std::string tooltip = workspaceTooltipText(workspace, item.label, item.showLabel);
+  if (tooltip == item.tooltip) {
+    return;
+  }
+  item.tooltip = tooltip;
+  if (tooltip.empty()) {
+    item.area->clearTooltip();
+  } else {
+    item.area->setTooltip(std::move(tooltip));
+  }
+}
+
 std::optional<std::size_t> WorkspacesWidget::numericWorkspaceId(const Workspace& workspace) {
   const auto parseLeadingNumber = [](const std::string& value) -> std::optional<std::size_t> {
     if (value.empty() || !std::isdigit(static_cast<unsigned char>(value.front()))) {
@@ -1456,14 +1499,13 @@ std::optional<std::size_t> WorkspacesWidget::numericWorkspaceId(const Workspace&
   return std::nullopt;
 }
 
-bool WorkspacesWidget::isFocusedOutput() const { return m_platform.preferredInteractiveOutput() == m_output; }
+bool WorkspacesWidget::workspaceUsesFocusedStyle(const Workspace& workspace, wl_output* output) const {
+  return workspace.active && (!m_focusedOutputOnly || m_platform.preferredInteractiveOutput() == output);
+}
 
-ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace) const {
+ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace, wl_output* output) const {
   if (workspace.active) {
-    if (m_activeUsesFocusedColor) {
-      return m_focusedColor;
-    }
-    return m_occupiedColor;
+    return workspaceUsesFocusedStyle(workspace, output) ? m_focusedColor : m_occupiedColor;
   }
   if (workspace.urgent) {
     return m_urgentColor;
@@ -1476,23 +1518,20 @@ ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace) const
   return color;
 }
 
-ColorSpec WorkspacesWidget::workspaceTextColor(const Workspace& workspace) const {
+ColorSpec WorkspacesWidget::workspaceTextColor(const Workspace& workspace, wl_output* output) const {
   if (workspace.urgent) {
     return isMinimal() ? m_urgentColor : readableColorForFill(m_urgentColor);
   }
   if (!isMinimal()) {
-    return readableColorForFill(workspaceFillColor(workspace));
+    return readableColorForFill(workspaceFillColor(workspace, output));
   }
   if (workspace.active) {
-    if (m_activeUsesFocusedColor) {
-      return m_focusedColor;
-    }
-    return m_occupiedColor;
+    return workspaceUsesFocusedStyle(workspace, output) ? m_focusedColor : m_occupiedColor;
   }
   if (workspace.occupied) {
     return m_occupiedColor;
   }
-  ColorSpec color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+  ColorSpec color = m_emptyColor;
   color.alpha *= 0.55F;
   return color;
 }
@@ -1507,15 +1546,31 @@ ColorRole WorkspacesWidget::onRoleForFill(ColorRole fill) {
     return ColorRole::OnTertiary;
   case ColorRole::Error:
     return ColorRole::OnError;
+  case ColorRole::PrimaryContainer:
+    return ColorRole::OnPrimaryContainer;
+  case ColorRole::SecondaryContainer:
+    return ColorRole::OnSecondaryContainer;
+  case ColorRole::TertiaryContainer:
+    return ColorRole::OnTertiaryContainer;
+  case ColorRole::ErrorContainer:
+    return ColorRole::OnErrorContainer;
   case ColorRole::Surface:
-  case ColorRole::SurfaceVariant:
-  case ColorRole::Outline:
+  case ColorRole::SurfaceContainerLow:
+  case ColorRole::SurfaceContainer:
+  case ColorRole::SurfaceContainerHigh:
+  case ColorRole::SurfaceContainerHighest:
+  case ColorRole::OutlineVariant:
   case ColorRole::Shadow:
+  case ColorRole::Scrim:
   case ColorRole::Hover:
   case ColorRole::OnPrimary:
+  case ColorRole::OnPrimaryContainer:
   case ColorRole::OnSecondary:
+  case ColorRole::OnSecondaryContainer:
   case ColorRole::OnTertiary:
+  case ColorRole::OnTertiaryContainer:
   case ColorRole::OnError:
+  case ColorRole::OnErrorContainer:
   case ColorRole::OnSurface:
   case ColorRole::OnSurfaceVariant:
   case ColorRole::OnHover:

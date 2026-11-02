@@ -258,7 +258,6 @@
       "uptime": "זמן פעולה – {uptime}",
       "weather": {
         "data-unavailable": "נתוני מזג אוויר לא זמינים.",
-        "disabled": "מזג אוויר מושבת בהגדרות.",
         "fetching": "מאחזר תחזית…"
       }
     },
@@ -1386,10 +1385,6 @@
         "horizontal": "אופקי",
         "vertical": "אנכי"
       },
-      "panel-bar-alignment": {
-        "centered": "ממורכז",
-        "near-trigger": "טריגר קרבה"
-      },
       "panel-position": {
         "auto": "עקוב אחר הסרגל"
       },
@@ -2011,10 +2006,6 @@
         "main-axis-padding": {
           "description": "ריפוד פנימי בקצוות של שורת הסמלים (לפני הסמל הראשון ואחרי הסמל האחרון)"
         },
-        "monitors": {
-          "description": "בחר באילו צגים יוצג ה-dock (השאר ריק עבור כולם); סינון לפי צג פעיל יחול רק על הצגים שנבחרו",
-          "label": "מסכים"
-        },
         "pinned-apps": {
           "description": "מזהי desktop entry של יישומים המוצמדים ל-dock",
           "label": "יישומים מוצמדים"
@@ -2340,10 +2331,6 @@
           "description": "הצג פעולות של יישומים לצד היישומים בתוצאות",
           "label": "הצג פעולות של אפליקציות"
         },
-        "launcher-app-grid": {
-          "description": "הצג סמלי יישומים ברשת עם תוויות מתחת, כאשר התוצאות הן יישומים בלבד",
-          "label": "תצוגת רשת אפליקציות"
-        },
         "launcher-app-origin-indicator": {
           "description": "הצג סמני מקור חבילה בתוצאות היישומים",
           "label": "הצג מחווני מקור של אפליקציות"
@@ -2383,6 +2370,10 @@
         "launcher-global-windows": {
           "description": "הצג גם חלונות פתוחים בחיפוש ללא קידומת",
           "label": "חלונות בחיפוש הגלובלי"
+        },
+        "launcher-grid": {
+          "description": "הצג סמלי יישומים ברשת עם תוויות מתחת, כאשר התוצאות הן יישומים בלבד",
+          "label": "תצוגת רשת אפליקציות"
         },
         "launcher-pinned-apps": {
           "description": "מזהי Desktop entry של יישומים שנעוצים למפעיל; הם מופיעים ראשונים עם פתיחת המפעיל.",
@@ -2558,10 +2549,7 @@
         "calendar-edit": {
           "button": "עריכה",
           "button-reconnect": "התחבר מחדש",
-          "button-retry": "נסה שוב",
-          "description": "עדכן את חשבון היומן הזה",
-          "description-locked": "אסימון הרענון נמצא בתוך מחזיק מפתחות נעול; בטל את נעילת מחזיק המפתחות ונסה שוב",
-          "description-reconnect": "אימות Google חסר; התחבר מחדש לחשבון זה"
+          "button-retry": "נסה שוב"
         },
         "calendar-event-date-format": {
           "description": "פורמט התאריך המוצג בכרטיס האירוע עבור התאריך הנבחר",

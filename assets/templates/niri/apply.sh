@@ -30,8 +30,8 @@ apply_include() {
     mkdir -p "$config_dir"
 
     if [ ! -f "$config_file" ]; then
-        printf '%s\n' "$include_line" >"$config_file"
-        return
+        printf 'Warning: %s is missing; add the Noctalia theme include to your active niri configuration manually:\ninclude "%s"\n' "$config_file" "$output_file" >&2
+        return 1
     fi
 
     if has_noctalia_include; then

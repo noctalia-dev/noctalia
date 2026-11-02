@@ -1,4 +1,8 @@
 pre-commit:
   jobs:
     - name: clang-format
-      run: cd "$(git rev-parse --show-toplevel)" && just format && git update-index --again
+      glob: "*.{cpp,h}"
+      run: cd "$(git rev-parse --show-toplevel)" && just format-code && git update-index --again
+    - name: docs-format
+      glob: "*.{md,mdx}"
+      run: cd "$(git rev-parse --show-toplevel)" && just format-docs && git update-index --again

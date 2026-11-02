@@ -82,7 +82,7 @@ bool FileDialogPopup::preDispatchKeyboard(const KeyboardEvent& event) {
   if (m_dialog == nullptr) {
     return false;
   }
-  return m_dialog->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit);
+  return m_dialog->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit, event.repeat);
 }
 
 void FileDialogPopup::onSheetClose() {
@@ -94,12 +94,7 @@ void FileDialogPopup::onSheetClose() {
 
 void FileDialogPopup::focusArea(InputArea* area) { inputDispatcher().setFocus(area); }
 
-InputArea* FileDialogPopup::focusedArea() const {
-  // const_cast is safe: focusedArea() is logically const (read-only) on the
-  // dispatcher; the dispatcher's accessor is non-const-correct but the
-  // returned pointer is what we want to expose.
-  return const_cast<FileDialogPopup*>(this)->inputDispatcher().focusedArea();
-}
+InputArea* FileDialogPopup::focusedArea() const { return inputDispatcher().focusedArea(); }
 
 void FileDialogPopup::accept(std::optional<std::filesystem::path> result) {
   closeAfterAccept();

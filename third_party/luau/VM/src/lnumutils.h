@@ -26,6 +26,15 @@ inline bool luai_veceq(const float* a, const float* b)
 #endif
 }
 
+inline bool luai_veceq(const double* a, const double* b)
+{
+#if LUA_VECTOR_SIZE == 4
+    return a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3];
+#else
+    return a[0] == b[0] && a[1] == b[1] && a[2] == b[2];
+#endif
+}
+
 inline bool luai_vecisnan(const float* a)
 {
 #if LUA_VECTOR_SIZE == 4
@@ -35,14 +44,34 @@ inline bool luai_vecisnan(const float* a)
 #endif
 }
 
-inline float luaui_signf(float v)
+inline bool luai_vecisnan(const double* a)
+{
+#if LUA_VECTOR_SIZE == 4
+    return a[0] != a[0] || a[1] != a[1] || a[2] != a[2] || a[3] != a[3];
+#else
+    return a[0] != a[0] || a[1] != a[1] || a[2] != a[2];
+#endif
+}
+
+inline float luai_signf(float v)
 {
     return v > 0.0f ? 1.0f : v < 0.0f ? -1.0f : 0.0f;
 }
 
-inline float luaui_clampf(float v, float min, float max)
+inline double luai_signd(double v)
+{
+    return v > 0.0 ? 1.0 : v < 0.0 ? -1.0 : 0.0;
+}
+
+inline float luai_clampf(float v, float min, float max)
 {
     float r = v < min ? min : v;
+    return r > max ? max : r;
+}
+
+inline double luai_clampd(double v, double min, double max)
+{
+    double r = v < min ? min : v;
     return r > max ? max : r;
 }
 
@@ -62,12 +91,25 @@ LUAU_FASTMATH_END
 
 inline float luai_lerpf(float a, float b, float t)
 {
+    return (t == 1.0f) ? b : a + (b - a) * t;
+}
+
+inline double luai_lerpd(double a, double b, double t)
+{
     return (t == 1.0) ? b : a + (b - a) * t;
 }
 
 #define luai_num2int(i, d) ((i) = (int)(d))
 
 #define luai_num2long(i, d) ((i) = (int64_t)(d))
+
+#define luai_fabs condvectordouble(fabs, fabsf)
+#define luai_sqrt condvectordouble(sqrt, sqrtf)
+#define luai_floor condvectordouble(floor, floorf)
+#define luai_ceil condvectordouble(ceil, ceilf)
+#define luai_sign condvectordouble(luai_signd, luai_signf)
+#define luai_clamp condvectordouble(luai_clampd, luai_clampf)
+#define luai_lerp condvectordouble(luai_lerpd, luai_lerpf)
 
 // On MSVC in 32-bit, double to unsigned cast compiles into a call to __dtoui3, so we invoke x87->int64 conversion path manually
 #if defined(_MSC_VER) && defined(_M_IX86)

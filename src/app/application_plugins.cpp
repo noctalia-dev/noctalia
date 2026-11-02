@@ -125,6 +125,8 @@ void Application::reloadPluginPanels() {
                 .height = resolved.entry->panelHeight,
                 .widthFill = resolved.entry->panelWidthFill,
                 .heightFill = resolved.entry->panelHeightFill,
+                .heightContent = resolved.entry->panelHeightContent,
+                .maxHeight = resolved.entry->panelMaxHeight,
                 .dismissOnOutsideClick = resolved.entry->panelDismissOnOutsideClick,
                 .keyboardFocus = resolved.entry->panelKeyboardFocus,
                 .persistent = resolved.entry->panelPersistent,
@@ -135,6 +137,34 @@ void Application::reloadPluginPanels() {
     );
     m_pluginPanelIds.push_back(std::move(fullId));
   }
+}
+
+void Application::reloadPluginLayers() {
+  auto& registry = scripting::PluginRegistry::instance();
+  const auto& pluginSettings = m_configService.config().plugins.pluginSettings;
+  static const std::unordered_map<std::string, WidgetSettingValue> kNoOverrides;
+
+  std::vector<PluginLayerHost::Definition> definitions;
+  for (const auto& resolved : registry.entriesOfKind(scripting::PluginEntryKind::Layer)) {
+    if (resolved.entry == nullptr || resolved.manifest == nullptr) {
+      continue;
+    }
+    const auto psIt = pluginSettings.find(resolved.manifest->id);
+    const auto& overrides = psIt != pluginSettings.end() ? psIt->second : kNoOverrides;
+    auto seeded = scripting::seedEntrySettings(*resolved.entry, overrides);
+    scripting::mergePluginSettings(*resolved.manifest, overrides, seeded);
+    definitions.push_back(
+        PluginLayerHost::Definition{
+            .entryId = resolved.fullId(),
+            .sourcePath = resolved.sourcePath,
+            .pluginDir = resolved.pluginDir,
+            .settings = std::move(seeded),
+            .config = resolved.entry->layerConfig,
+            .visible = resolved.entry->layerVisible,
+        }
+    );
+  }
+  m_pluginLayerHost.reload(std::move(definitions));
 }
 
 void Application::runPluginAutoUpdate() {

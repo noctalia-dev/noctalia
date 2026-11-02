@@ -20,6 +20,7 @@
 #include "ui/controls/scroll_view.h"
 #include "ui/scroll_into_view.h"
 #include "ui/split_pane_focus.h"
+#include "ui/style.h"
 
 #include <algorithm>
 #include <chrono>
@@ -125,7 +126,7 @@ void ControlCenterPanel::create() {
         .fillWidth = false,
         .fillHeight = true,
         .configure = [this, scale](Flex& column) {
-          column.setFill(colorSpecFromRole(ColorRole::SurfaceVariant, panelCardOpacity()));
+          column.setFill(colorSpecFromRole(ColorRole::SurfaceContainer, panelCardOpacity()));
           column.setRadius(Style::scaledRadiusXl(scale));
         },
     });
@@ -176,7 +177,7 @@ void ControlCenterPanel::create() {
 
     for (const auto& tab : kTabs) {
       const std::size_t idx = tabIndex(tab.id);
-      const auto onClick = [this, id = tab.id]() {
+      const auto onClick = [this, id = tab.id] {
         selectTab(id, true);
         PanelManager::instance().refresh();
       };
@@ -272,14 +273,16 @@ void ControlCenterPanel::create() {
     }
   }
 
-  m_contentHeaderActions->addChild(
-      ui::button({
-          .out = &m_closeButton,
-          .glyph = "close",
-          .onClick = []() { PanelManager::instance().close(); },
-          .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
-      })
-  );
+  if (Style::closeButtonsEnabled()) {
+    m_contentHeaderActions->addChild(
+        ui::button({
+            .out = &m_closeButton,
+            .glyph = "close",
+            .onClick = [] { PanelManager::instance().close(); },
+            .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
+        })
+    );
+  }
   header->addChild(std::move(headerActions));
 
   content->addChild(std::move(header));
@@ -321,7 +324,7 @@ void ControlCenterPanel::onPanelCardOpacityChanged(float opacity) {
     }
   }
   if (m_sidebar != nullptr) {
-    m_sidebar->setFill(colorSpecFromRole(ColorRole::SurfaceVariant, opacity));
+    m_sidebar->setFill(colorSpecFromRole(ColorRole::SurfaceContainer, opacity));
   }
 }
 
@@ -419,6 +422,9 @@ bool ControlCenterPanel::isContextActive(std::string_view context) const {
 }
 
 bool ControlCenterPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+  if (auto& tab = m_tabs[tabIndex(m_activeTab)]; tab != nullptr && tab->handleKey(sym, modifiers, pressed, preedit)) {
+    return true;
+  }
   if (!m_showSidebar || m_sidebarNav == nullptr || m_sidebarScrollView == nullptr || m_content == nullptr) {
     return false;
   }
@@ -723,7 +729,7 @@ void ControlCenterPanel::startTabTransition(TabId from, TabId to) {
         applyTabTransitionLayout();
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_tabTransitionAnimId = 0;
         finishTabTransition();
         PanelManager::instance().requestLayout();
@@ -824,7 +830,7 @@ void ControlCenterPanel::scheduleMprisRefreshFor(TabId tab) {
 
   m_lastMprisRefreshAt = now;
   m_mprisRefreshScheduled = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_mprisRefreshScheduled = false;
     if (m_mpris == nullptr || !PanelManager::instance().isOpenPanel("control-center")) {
       return;
@@ -839,12 +845,7 @@ bool ControlCenterPanel::isDirectSectionOpenContext(std::string_view context) co
   if (context.empty() || context == "home") {
     return false;
   }
-  for (const auto& tab : kTabs) {
-    if (tab.id != TabId::Home && context == tab.key) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(kTabs, [&](const auto& tab) { return tab.id != TabId::Home && context == tab.key; });
 }
 
 ControlCenterSidebarMode ControlCenterPanel::sidebarModeForOpen(std::string_view context) const {
@@ -882,7 +883,7 @@ void ControlCenterPanel::layoutFullSidebarWidth(Renderer& renderer) {
     if (!isTabVisible(meta.id)) {
       continue;
     }
-    const TextMetrics text = renderer.measureText(i18n::tr(meta.titleKey), fontSize, FontWeight::Bold);
+    const TextMetrics text = renderer.measureText(i18n::tr(meta.titleKey), fontSize, {FontWeight::Bold});
     maxTabWidth = std::max(maxTabWidth, paddingH + glyphW + gap + text.width);
   }
 
