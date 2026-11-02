@@ -315,7 +315,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .padding = 4.0F,
           .radius = Style::scaledRadiusSm(),
           .onClick =
-              [this]() {
+              [this] {
                 if (m_mpris != nullptr) {
                   (void)m_mpris->previousActive();
                   requestUpdate();
@@ -335,7 +335,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .padding = 4.0F,
           .radius = Style::scaledRadiusSm(),
           .onClick =
-              [this]() {
+              [this] {
                 if (m_mpris != nullptr) {
                   (void)m_mpris->playPauseActive();
                   requestUpdate();
@@ -355,7 +355,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .padding = 4.0F,
           .radius = Style::scaledRadiusSm(),
           .onClick =
-              [this]() {
+              [this] {
                 if (m_mpris != nullptr) {
                   (void)m_mpris->nextActive();
                   requestUpdate();
