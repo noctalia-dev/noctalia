@@ -1,6 +1,5 @@
 #include "shell/panel/panel_manager.h"
 
-#include "compositors/compositor_detect.h"
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "core/deferred_call.h"
@@ -569,9 +568,9 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   }
 
   if (request.output == nullptr && m_platform != nullptr) {
-    // labwc has no focus IPC and only tracks window focus, which ignores the pointer. Skip to the
-    // probe below: labwc puts an unpinned layer surface on the pointer's output.
-    if (!compositors::isLabwc()) {
+    // Some compositors place an unpinned surface more accurately than tracked focus; go straight
+    // to the probe below for them.
+    if (!m_platform->prefersOutputProbe()) {
       request.output = m_platform->focusedInteractiveOutput(std::chrono::milliseconds(1200));
     }
     if (request.output == nullptr) {
