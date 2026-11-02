@@ -1283,7 +1283,7 @@ if build_tests
         override_options: ['b_ndebug=false'],
       )
       test_args = []
-      if test_name == 'desktop_entry_localization'
+      if test_name in ['desktop_entry_localization', 'config_wallpaper_precedence']
         test_args = [meson.project_source_root() / 'assets']
       elif test_name == 'i18n_supported_languages'
         test_args = [meson.project_source_root() / 'assets' / 'translations']

@@ -1262,16 +1262,6 @@ bool ConfigService::markSetupWizardCompleted() {
     return true;
   }
 
-  // The bundled wallpaper is served via firstRunWallpaperPath() until setup
-  // completes. Persist it so finishing the wizard does not clear the desktop.
-  if (!hasConfiguredWallpaper()) {
-    const auto bundled = paths::assetPath("noctalia-wallpaper.png");
-    std::error_code ec;
-    if (std::filesystem::exists(bundled, ec)) {
-      setWallpaperPath(std::nullopt, bundled.string());
-    }
-  }
-
   std::ofstream out(m_setupMarkerPath, std::ios::trunc);
   if (!out.is_open()) {
     kLog.warn("failed to write {}", m_setupMarkerPath);
@@ -2227,10 +2217,7 @@ bool ConfigService::hasConfiguredWallpaper() const {
   return !m_monitorWallpaperPaths.empty();
 }
 
-std::string ConfigService::firstRunWallpaperPath() const {
-  if (m_setupMarkerPath.empty() || std::filesystem::exists(m_setupMarkerPath)) {
-    return {};
-  }
+std::string ConfigService::fallbackWallpaperPath() const {
   if (hasConfiguredWallpaper()) {
     return {};
   }
@@ -2243,7 +2230,7 @@ std::string ConfigService::firstRunWallpaperPath() const {
 }
 
 std::string ConfigService::getWallpaperPath(const std::string& connectorName) const {
-  if (const std::string bundled = firstRunWallpaperPath(); !bundled.empty()) {
+  if (const std::string bundled = fallbackWallpaperPath(); !bundled.empty()) {
     return bundled;
   }
   auto it = m_monitorWallpaperPaths.find(connectorName);
@@ -2254,14 +2241,14 @@ std::string ConfigService::getWallpaperPath(const std::string& connectorName) co
 }
 
 std::string ConfigService::getDefaultWallpaperPath() const {
-  if (const std::string bundled = firstRunWallpaperPath(); !bundled.empty()) {
+  if (const std::string bundled = fallbackWallpaperPath(); !bundled.empty()) {
     return bundled;
   }
   return m_defaultWallpaperPath;
 }
 
 std::string ConfigService::getPaletteWallpaperPath() const {
-  if (const std::string bundled = firstRunWallpaperPath(); !bundled.empty()) {
+  if (const std::string bundled = fallbackWallpaperPath(); !bundled.empty()) {
     return bundled;
   }
   if (!m_lastWallpaperPath.empty()) {
