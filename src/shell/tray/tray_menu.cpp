@@ -199,7 +199,7 @@ namespace {
 
   bool hasToggleEntries(const std::vector<ContextMenuControlEntry>& entries) {
     return std::ranges::any_of(entries, [](const ContextMenuControlEntry& entry) {
-      return !entry.separator && (entry.checkmark || entry.radio);
+      return !entry.separator && entry.hasToggle();
     });
   }
 
