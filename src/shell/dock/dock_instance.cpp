@@ -257,8 +257,6 @@ namespace shell::dock {
 
       // Clip overflow along the dock while retaining the cross-axis surface room used by magnification.
       auto viewport = ui::inputArea({});
-      // The surface clips shadow bleed; the viewport keeps panel-based scrolling and input.
-      viewport->setClipChildren(!cfg.iconShadow);
       viewport->setOnAxisHandler([inst = &instance](const InputArea::PointerData& data) {
         if (inst->row == nullptr || inst->maxScrollOffset <= 0.0F) {
           return false;
@@ -387,6 +385,7 @@ namespace shell::dock {
       instance.row->setSize(contentLength, panelGeometry.panelH);
       instance.maxScrollOffset = std::max(0.0F, contentLength - panelGeometry.panelW);
     }
+    instance.viewport->setClipChildren(!cfg.iconShadow || instance.maxScrollOffset > 0.0F);
     applyDockScrollOffset(instance, cfg);
     instance.row->layout(renderer);
     shell::dock::syncDockItemRestPositions(instance, cfg);
