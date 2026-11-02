@@ -1,7 +1,7 @@
-#include "render/programs/fancy_audio_visualizer_program.h"
+#include "shell/render/programs/fancy_audio_visualizer_program.h"
 
-#include "render/core/render_styles.h"
 #include "render/core/texture_handle.h"
+#include "shell/render/shell_render_styles.h"
 
 #include <array>
 #include <stdexcept>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/backend/render_extension.h"
 #include "render/core/mat3.h"
 #include "render/core/shader_program.h"
 
@@ -8,17 +9,11 @@
 class TextureId;
 struct FancyAudioVisualizerStyle;
 
-class FancyAudioVisualizerProgram {
+class FancyAudioVisualizerProgram final : public RenderExtension {
 public:
-  FancyAudioVisualizerProgram() = default;
-  ~FancyAudioVisualizerProgram() = default;
-
-  FancyAudioVisualizerProgram(const FancyAudioVisualizerProgram&) = delete;
-  FancyAudioVisualizerProgram& operator=(const FancyAudioVisualizerProgram&) = delete;
-
   void ensureInitialized();
-  void destroy();
-  void abandon() noexcept;
+  void destroy() override;
+  void abandon() noexcept override;
 
   void draw(
       TextureId audioTexture, float surfaceWidth, float surfaceHeight, float width, float height,

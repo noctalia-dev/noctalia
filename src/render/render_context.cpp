@@ -10,10 +10,8 @@
 #include "render/core/wallpaper_types.h"
 #include "render/gl_shared_context.h"
 #include "render/render_target.h"
-#include "render/scene/audio_spectrum_node.h"
 #include "render/scene/custom_draw_node.h"
 #include "render/scene/effect_node.h"
-#include "render/scene/fancy_audio_visualizer_node.h"
 #include "render/scene/glyph_node.h"
 #include "render/scene/graph_node.h"
 #include "render/scene/image_node.h"
@@ -441,31 +439,6 @@ void RenderContext::renderNode(
     auto style = spinner->style();
     style.color.a *= effectiveOpacity;
     m_backend->drawSpinner(sw, sh, node->width(), node->height(), style, worldTransform);
-    break;
-  }
-  case NodeType::AudioSpectrum: {
-    const auto* spectrum = static_cast<const AudioSpectrumNode*>(node);
-    auto style = spectrum->style();
-    style.color1.a *= effectiveOpacity;
-    style.color2.a *= effectiveOpacity;
-    const float pixelScaleX = sw > 0.0F ? bw / sw : 1.0F;
-    const float pixelScaleY = sh > 0.0F ? bh / sh : 1.0F;
-    m_backend->drawAudioSpectrum(
-        sw, sh, pixelScaleX, pixelScaleY, node->width(), node->height(), style, spectrum->values(), worldTransform
-    );
-    break;
-  }
-  case NodeType::FancyAudioVisualizer: {
-    const auto* visualizer = static_cast<const FancyAudioVisualizerNode*>(node);
-    if (visualizer->textureId() != 0) {
-      auto style = visualizer->style();
-      style.primaryColor.a *= effectiveOpacity;
-      style.secondaryColor.a *= effectiveOpacity;
-      m_backend->drawFancyAudioVisualizer(
-          visualizer->textureId(), visualizer->textureWidth(), sw, sh, node->width(), node->height(), style,
-          worldTransform
-      );
-    }
     break;
   }
   case NodeType::Effect: {

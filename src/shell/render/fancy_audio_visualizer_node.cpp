@@ -1,6 +1,8 @@
-#include "render/scene/fancy_audio_visualizer_node.h"
+#include "shell/render/fancy_audio_visualizer_node.h"
 
+#include "render/backend/render_backend.h"
 #include "render/core/texture_manager.h"
+#include "shell/render/programs/fancy_audio_visualizer_program.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -45,6 +47,20 @@ bool FancyAudioVisualizerNode::setSpectrumValues(TextureManager& textures, std::
   m_texWidth = kBandCount;
   markPaintDirty();
   return true;
+}
+
+void FancyAudioVisualizerNode::draw(RenderBackend& backend, const CustomDrawContext& context) const {
+  if (m_texture.id == 0) {
+    return;
+  }
+  auto style = m_style;
+  style.primaryColor.a *= context.opacity;
+  style.secondaryColor.a *= context.opacity;
+  auto& program = backend.extension<FancyAudioVisualizerProgram>();
+  program.ensureInitialized();
+  program.draw(
+      m_texture.id, context.surfaceWidth, context.surfaceHeight, context.width, context.height, style, context.transform
+  );
 }
 
 void FancyAudioVisualizerNode::doInvalidateGpuResources(Renderer& renderer) {

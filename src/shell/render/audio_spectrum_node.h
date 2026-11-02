@@ -1,15 +1,13 @@
 #pragma once
 
-#include "render/core/render_styles.h"
-#include "render/scene/node.h"
+#include "render/scene/custom_draw_node.h"
+#include "shell/render/shell_render_styles.h"
 
 #include <algorithm>
 #include <vector>
 
-class AudioSpectrumNode : public Node {
+class AudioSpectrumNode : public CustomDrawNode {
 public:
-  AudioSpectrumNode() : Node(NodeType::AudioSpectrum) {}
-
   const AudioSpectrumStyle& style() const noexcept { return m_style; }
   const std::vector<float>& values() const noexcept { return m_values; }
 
@@ -29,6 +27,8 @@ public:
     markPaintDirty();
     return true;
   }
+
+  void draw(RenderBackend& backend, const CustomDrawContext& context) const override;
 
 private:
   AudioSpectrumStyle m_style;

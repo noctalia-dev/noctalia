@@ -587,25 +587,6 @@ void GlesRenderBackend::drawSpinner(
   m_spinnerProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
 }
 
-void GlesRenderBackend::drawAudioSpectrum(
-    float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
-    const AudioSpectrumStyle& style, std::span<const float> values, const Mat3& transform
-) {
-  m_audioSpectrumProgram.ensureInitialized();
-  m_audioSpectrumProgram.draw(
-      surfaceWidth, surfaceHeight, pixelScaleX, pixelScaleY, width, height, style, values, transform
-  );
-}
-
-void GlesRenderBackend::drawFancyAudioVisualizer(
-    TextureId audioTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width, float height,
-    const FancyAudioVisualizerStyle& style, const Mat3& transform
-) {
-  (void)textureWidth;
-  m_fancyAudioVisualizerProgram.ensureInitialized();
-  m_fancyAudioVisualizerProgram.draw(audioTexture, surfaceWidth, surfaceHeight, width, height, style, transform);
-}
-
 void GlesRenderBackend::drawEffect(
     float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style, const Mat3& transform
 ) {
@@ -689,8 +670,6 @@ void GlesRenderBackend::destroyGpuObjects() {
   m_imageProgram.destroy();
   m_glyphProgram.destroy();
   m_spinnerProgram.destroy();
-  m_audioSpectrumProgram.destroy();
-  m_fancyAudioVisualizerProgram.destroy();
   m_effectProgram.destroy();
   m_graphProgram.destroy();
   m_wallpaperProgram.destroy();
@@ -708,8 +687,6 @@ void GlesRenderBackend::abandonGpuObjects() noexcept {
   m_imageProgram.abandon();
   m_glyphProgram.abandon();
   m_spinnerProgram.abandon();
-  m_audioSpectrumProgram.abandon();
-  m_fancyAudioVisualizerProgram.abandon();
   m_effectProgram.abandon();
   m_graphProgram.abandon();
   m_wallpaperProgram.abandon();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render/scene/fancy_audio_visualizer_node.h"
+#include "shell/render/fancy_audio_visualizer_node.h"
 #include "ui/palette.h"
 
 #include <span>

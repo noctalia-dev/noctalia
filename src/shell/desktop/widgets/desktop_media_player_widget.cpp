@@ -8,10 +8,10 @@
 #include "pipewire/pipewire_spectrum.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
+#include "shell/visuals/audio_visualizer.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "ui/visuals/audio_visualizer.h"
 
 #include <algorithm>
 #include <cmath>

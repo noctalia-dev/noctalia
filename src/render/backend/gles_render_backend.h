@@ -3,10 +3,8 @@
 #include "render/backend/gles_texture_manager.h"
 #include "render/backend/render_backend.h"
 #include "render/core/shader_program.h"
-#include "render/programs/audio_spectrum_program.h"
 #include "render/programs/blur_program.h"
 #include "render/programs/effect_program.h"
-#include "render/programs/fancy_audio_visualizer_program.h"
 #include "render/programs/glyph_program.h"
 #include "render/programs/graph_program.h"
 #include "render/programs/image_program.h"
@@ -60,14 +58,6 @@ public:
       float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
       const Mat3& transform
   ) override;
-  void drawAudioSpectrum(
-      float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
-      const AudioSpectrumStyle& style, std::span<const float> values, const Mat3& transform
-  ) override;
-  void drawFancyAudioVisualizer(
-      TextureId audioTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width, float height,
-      const FancyAudioVisualizerStyle& style, const Mat3& transform
-  ) override;
   void drawEffect(
       float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
       const Mat3& transform
@@ -111,8 +101,6 @@ private:
   ImageProgram m_imageProgram;
   GlyphProgram m_glyphProgram;
   SpinnerProgram m_spinnerProgram;
-  AudioSpectrumProgram m_audioSpectrumProgram;
-  FancyAudioVisualizerProgram m_fancyAudioVisualizerProgram;
   EffectProgram m_effectProgram;
   GraphProgram m_graphProgram;
   WallpaperProgram m_wallpaperProgram;

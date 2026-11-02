@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/backend/render_extension.h"
 #include "render/core/mat3.h"
 #include "render/core/shader_program.h"
 
@@ -9,17 +10,11 @@
 
 struct AudioSpectrumStyle;
 
-class AudioSpectrumProgram {
+class AudioSpectrumProgram final : public RenderExtension {
 public:
-  AudioSpectrumProgram() = default;
-  ~AudioSpectrumProgram() = default;
-
-  AudioSpectrumProgram(const AudioSpectrumProgram&) = delete;
-  AudioSpectrumProgram& operator=(const AudioSpectrumProgram&) = delete;
-
   void ensureInitialized();
-  void destroy();
-  void abandon() noexcept;
+  void destroy() override;
+  void abandon() noexcept override;
 
   void draw(
       float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,

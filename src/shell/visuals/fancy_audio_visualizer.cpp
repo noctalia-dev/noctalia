@@ -1,4 +1,4 @@
-#include "ui/visuals/fancy_audio_visualizer.h"
+#include "shell/visuals/fancy_audio_visualizer.h"
 
 #include "ui/palette.h"
 

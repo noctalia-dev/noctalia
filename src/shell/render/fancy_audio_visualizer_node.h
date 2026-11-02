@@ -1,8 +1,8 @@
 #pragma once
 
-#include "render/core/render_styles.h"
 #include "render/core/texture_handle.h"
-#include "render/scene/node.h"
+#include "render/scene/custom_draw_node.h"
+#include "shell/render/shell_render_styles.h"
 
 #include <cstdint>
 #include <span>
@@ -10,11 +10,11 @@
 
 class TextureManager;
 
-class FancyAudioVisualizerNode : public Node {
+class FancyAudioVisualizerNode : public CustomDrawNode {
 public:
   static constexpr int kBandCount = 32;
 
-  FancyAudioVisualizerNode() : Node(NodeType::FancyAudioVisualizer) {}
+  FancyAudioVisualizerNode() = default;
   ~FancyAudioVisualizerNode() override;
 
   FancyAudioVisualizerNode(const FancyAudioVisualizerNode&) = delete;
@@ -22,7 +22,6 @@ public:
 
   const FancyAudioVisualizerStyle& style() const noexcept { return m_style; }
   TextureId textureId() const noexcept { return m_texture.id; }
-  int textureWidth() const noexcept { return m_texWidth; }
 
   void setStyle(const FancyAudioVisualizerStyle& style) {
     if (m_style == style) {
@@ -33,6 +32,8 @@ public:
   }
 
   bool setSpectrumValues(TextureManager& textures, std::span<const float> values);
+
+  void draw(RenderBackend& backend, const CustomDrawContext& context) const override;
 
 private:
   void doInvalidateGpuResources(Renderer& renderer) override;

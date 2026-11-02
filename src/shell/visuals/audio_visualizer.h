@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render/scene/audio_spectrum_node.h"
+#include "shell/render/audio_spectrum_node.h"
 #include "ui/palette.h"
 
 #include <algorithm>
