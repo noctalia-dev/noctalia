@@ -22,6 +22,7 @@
 #include "shell/panel/panel_manager.h"
 #include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/tooltip/tooltip_placement.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"

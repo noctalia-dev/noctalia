@@ -1,6 +1,6 @@
 #include "shell/settings/template_store_tile.h"
 
-#include "shell/tooltip/tooltip_content.h"
+#include "render/scene/tooltip_content.h"
 #include "ui/builders.h"
 #include "ui/controls/checkbox.h"
 #include "ui/controls/label.h"

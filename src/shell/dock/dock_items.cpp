@@ -10,6 +10,7 @@
 #include "shell/dock/dock_instance.h"
 #include "shell/dock/dock_model.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/tooltip/tooltip_placement.h"
 #include "system/icon_resolver.h"
 #include "system/internal_app_metadata.h"
 #include "ui/app_icon_colorization.h"

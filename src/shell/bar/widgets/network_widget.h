@@ -1,8 +1,8 @@
 #pragma once
 
 #include "dbus/network/inetwork_service.h"
+#include "render/scene/tooltip_content.h"
 #include "shell/bar/widget.h"
-#include "shell/tooltip/tooltip_content.h"
 
 #include <string>
 #include <vector>
