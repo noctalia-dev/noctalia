@@ -157,7 +157,10 @@ namespace noctalia::theme {
   } // namespace
 
   ThemeService::ThemeService(ConfigService& config, HttpClient& httpClient)
-      : m_config(config), m_httpClient(httpClient) {}
+      : m_config(config), m_httpClient(httpClient) {
+    // Shown until the configured theme resolves.
+    setPalette(mapGeneratedPaletteMode(expandBuiltinPalette(*findBuiltinPalette("Noctalia")).dark));
+  }
 
   ThemeService::~ThemeService() {
     m_alive.reset();

@@ -2,15 +2,13 @@
 
 #include "core/log.h"
 #include "render/core/color.h"
-#include "theme/builtin_palettes.h"
 #include "util/string_utils.h"
 
 #include <mutex>
 #include <string>
 
-Palette palette = noctalia::theme::mapGeneratedPaletteMode(
-    noctalia::theme::expandBuiltinPalette(*noctalia::theme::findBuiltinPalette("Noctalia")).dark
-);
+// Apps install their palette with setPalette() before building UI.
+Palette palette{};
 bool g_resolvedThemeLight = false;
 
 namespace {
