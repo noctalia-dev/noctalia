@@ -11,7 +11,7 @@
 #include "scripting/script_api_context.h"
 #include "scripting/script_worker_pool.h"
 #include "scripting/ui_prelude.h"
-#include "wayland/clipboard_service.h"
+#include "shell/wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <atomic>

@@ -70,6 +70,7 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/wayland/clipboard_globals.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
@@ -462,7 +463,7 @@ void Application::syncClipboardService() {
   // stays active regardless of config so basic copy/paste keeps working in
   // every text field. The toggle only controls history retention/persistence
   // and the history UI.
-  m_wayland.setClipboardService(&m_clipboardService);
+  m_wayland.extension<ClipboardGlobals>().setClipboardService(&m_clipboardService);
   Input::setTextClipboard(&m_clipboardService);
   m_clipboardService.setHistoryRetentionEnabled(enabled);
   // Taking the selection over when its owner exits belongs to that same live
@@ -793,6 +794,8 @@ void Application::initStyleThemeAndWayland() {
     );
   }
 
+  // Bound during the initial registry roundtrip, before the clipboard and paste services attach.
+  m_wayland.extension<ClipboardGlobals>();
   if (!m_wayland.connect()) {
     throw std::runtime_error("failed to connect to Wayland display");
   }
@@ -819,7 +822,7 @@ void Application::initStyleThemeAndWayland() {
   m_sharedTextureCache.initialize(sharedGlPtr);
   m_asyncTextureCache.initialize(sharedGlPtr);
   m_wayland.setTextInputService(&m_textInputService);
-  m_wayland.setVirtualKeyboardService(&m_virtualKeyboardService);
+  m_wayland.extension<ClipboardGlobals>().setVirtualKeyboardService(&m_virtualKeyboardService);
 
   auto bindKeybind = [this](KeybindAction action) {
     return [this, action](std::uint32_t sym, std::uint32_t modifiers) {

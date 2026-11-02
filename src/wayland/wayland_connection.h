@@ -42,7 +42,6 @@ struct zwlr_foreign_toplevel_handle_v1;
 struct ext_workspace_manager_v1;
 struct org_kde_plasma_virtual_desktop_management;
 struct zdwl_ipc_manager_v2;
-struct zwp_virtual_keyboard_manager_v1;
 struct zwp_text_input_manager_v3;
 struct hyprland_focus_grab_manager_v1;
 struct hyprland_toplevel_mapping_manager_v1;
@@ -51,12 +50,9 @@ struct wp_viewporter;
 struct zwlr_output_manager_v1;
 struct zwlr_output_head_v1;
 struct zwlr_output_mode_v1;
-class ClipboardService;
 class LayerSurface;
 class FocusGrabService;
-struct DataControlOps;
 class TextInputService;
-class VirtualKeyboardService;
 
 struct WaylandOutput {
   std::uint32_t name = 0;
@@ -166,9 +162,7 @@ public:
   void setKeyboardModifiersCallback(WaylandSeat::KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCallback callback);
   void setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback);
-  void setClipboardService(ClipboardService* clipboardService);
   void setTextInputService(TextInputService* textInputService);
-  void setVirtualKeyboardService(VirtualKeyboardService* virtualKeyboardService);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
 
   // Returns this connection's instance of T, constructing it from the connection on first use. A new
@@ -317,9 +311,7 @@ private:
 
   void bindGlobal(wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t version);
   void replayGlobals(WaylandExtension& extension);
-  void bindClipboardService();
   void bindTextInputService();
-  void bindVirtualKeyboardService();
   void cleanup();
   [[nodiscard]] bool setupDisplay(wl_display* display, std::string& error);
   void logStartupSummary() const;
@@ -345,13 +337,8 @@ private:
   std::unique_ptr<FocusGrabService> m_focusGrabService;
   wp_viewporter* m_viewporter = nullptr;
   bool m_backgroundEffectBlurSupported = false;
-  void* m_dataControlManager = nullptr;
-  const DataControlOps* m_dataControlOps = nullptr;
   zwp_text_input_manager_v3* m_textInputManager = nullptr;
-  zwp_virtual_keyboard_manager_v1* m_virtualKeyboardManager = nullptr;
-  ClipboardService* m_clipboardService = nullptr;
   TextInputService* m_textInputService = nullptr;
-  VirtualKeyboardService* m_virtualKeyboardService = nullptr;
   bool m_hasLayerShellGlobal = false;
   bool m_hasExtWorkspaceGlobal = false;
   bool m_hasKdeVirtualDesktopGlobal = false;

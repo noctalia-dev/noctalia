@@ -6,7 +6,6 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "dwl-ipc-unstable-v2-client-protocol.h"
 #include "ext-background-effect-v1-client-protocol.h"
-#include "ext-data-control-v1-client-protocol.h"
 #include "ext-foreign-toplevel-list-v1-client-protocol.h"
 #include "ext-workspace-v1-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
@@ -15,14 +14,10 @@
 #include "org-kde-plasma-virtual-desktop-client-protocol.h"
 #include "text-input-unstable-v3-client-protocol.h"
 #include "viewporter-client-protocol.h"
-#include "virtual-keyboard-unstable-v1-client-protocol.h"
-#include "wayland/clipboard_service.h"
 #include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/layer_surface.h"
 #include "wayland/text_input_service.h"
-#include "wayland/virtual_keyboard_service.h"
 #include "wayland/wayland_protocol_policy.h"
-#include "wlr-data-control-unstable-v1-client-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-output-management-unstable-v1-client-protocol.h"
@@ -70,7 +65,6 @@ namespace {
   constexpr std::uint32_t kViewporterVersion = 1;
   constexpr std::uint32_t kOutputVersion = 4;
   constexpr std::uint32_t kTextInputManagerVersion = 2;
-  constexpr std::uint32_t kVirtualKeyboardManagerVersion = 1;
   constexpr std::uint32_t kOutputManagerVersion = 4;
   constexpr std::uint32_t kOutputManagerMinVersion = 3;
 
@@ -941,11 +935,6 @@ void WaylandConnection::setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLay
   m_seatHandler.setKeyboardLayoutChangeCallback(std::move(callback));
 }
 
-void WaylandConnection::setClipboardService(ClipboardService* clipboardService) {
-  m_clipboardService = clipboardService;
-  bindClipboardService();
-}
-
 void WaylandConnection::setTextInputService(TextInputService* textInputService) {
   m_textInputService = textInputService;
   if (textInputService != nullptr) {
@@ -956,11 +945,6 @@ void WaylandConnection::setTextInputService(TextInputService* textInputService) 
     m_seatHandler.setKeyboardFocusCallback({});
   }
   bindTextInputService();
-}
-
-void WaylandConnection::setVirtualKeyboardService(VirtualKeyboardService* virtualKeyboardService) {
-  m_virtualKeyboardService = virtualKeyboardService;
-  bindVirtualKeyboardService();
 }
 
 int WaylandConnection::repeatPollTimeoutMs() const { return m_seatHandler.repeatPollTimeoutMs(); }
@@ -1407,7 +1391,6 @@ void WaylandConnection::bindGlobal(
     const auto bindVersion = std::min(version, kSeatVersion);
     m_seat = static_cast<wl_seat*>(wl_registry_bind(registry, name, &wl_seat_interface, bindVersion));
     m_seatHandler.bind(m_seat);
-    bindClipboardService();
     bindTextInputService();
     return;
   }
@@ -1575,43 +1558,12 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
-  if (interfaceName == ext_data_control_manager_v1_interface.name) {
-    if (m_dataControlManager != nullptr && m_dataControlOps != extDataControlOps()) {
-      m_dataControlOps->destroyManager(m_dataControlManager);
-      m_dataControlManager = nullptr;
-    }
-    if (m_dataControlManager == nullptr) {
-      m_dataControlManager = extDataControlOps()->bindManager(registry, name, version);
-      m_dataControlOps = extDataControlOps();
-      bindClipboardService();
-    }
-    return;
-  }
-
-  if (interfaceName == zwlr_data_control_manager_v1_interface.name) {
-    if (m_dataControlManager == nullptr) {
-      m_dataControlManager = wlrDataControlOps()->bindManager(registry, name, version);
-      m_dataControlOps = wlrDataControlOps();
-      bindClipboardService();
-    }
-    return;
-  }
-
   if (interfaceName == zwp_text_input_manager_v3_interface.name) {
     const auto bindVersion = std::min(version, kTextInputManagerVersion);
     m_textInputManager = static_cast<zwp_text_input_manager_v3*>(
         wl_registry_bind(registry, name, &zwp_text_input_manager_v3_interface, bindVersion)
     );
     bindTextInputService();
-    return;
-  }
-
-  if (interfaceName == zwp_virtual_keyboard_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kVirtualKeyboardManagerVersion);
-    m_virtualKeyboardManager = static_cast<zwp_virtual_keyboard_manager_v1*>(
-        wl_registry_bind(registry, name, &zwp_virtual_keyboard_manager_v1_interface, bindVersion)
-    );
-    bindVirtualKeyboardService();
     return;
   }
 
@@ -1655,16 +1607,6 @@ void WaylandConnection::bindGlobal(
   }
 }
 
-void WaylandConnection::bindClipboardService() {
-  if (m_clipboardService == nullptr) {
-    return;
-  }
-  if (m_dataControlManager == nullptr || m_dataControlOps == nullptr || m_seat == nullptr) {
-    return;
-  }
-  m_clipboardService->bind(m_dataControlManager, m_dataControlOps, m_seat);
-}
-
 void WaylandConnection::bindTextInputService() {
   if (m_textInputService == nullptr) {
     return;
@@ -1675,30 +1617,14 @@ void WaylandConnection::bindTextInputService() {
   m_textInputService->bind(m_textInputManager, m_seat);
 }
 
-void WaylandConnection::bindVirtualKeyboardService() {
-  if (m_virtualKeyboardService == nullptr) {
-    return;
-  }
-  if (m_virtualKeyboardManager == nullptr || m_seat == nullptr) {
-    return;
-  }
-  m_virtualKeyboardService->bind(m_virtualKeyboardManager, m_seat);
-}
-
 void WaylandConnection::cleanup() {
   for (auto& [type, extension] : std::views::reverse(m_extensions)) {
     extension->releaseGlobals();
   }
   m_advertisedGlobals.clear();
 
-  if (m_clipboardService != nullptr) {
-    m_clipboardService->cleanup();
-  }
   if (m_textInputService != nullptr) {
     m_textInputService->cleanup();
-  }
-  if (m_virtualKeyboardService != nullptr) {
-    m_virtualKeyboardService->cleanup();
   }
   m_toplevelsHandler.cleanup();
   m_extForeignToplevels.cleanup();
@@ -1764,17 +1690,6 @@ void WaylandConnection::cleanup() {
   if (m_viewporter != nullptr) {
     wp_viewporter_destroy(m_viewporter);
     m_viewporter = nullptr;
-  }
-
-  if (m_dataControlManager != nullptr && m_dataControlOps != nullptr) {
-    m_dataControlOps->destroyManager(m_dataControlManager);
-    m_dataControlManager = nullptr;
-    m_dataControlOps = nullptr;
-  }
-
-  if (m_virtualKeyboardManager != nullptr) {
-    zwp_virtual_keyboard_manager_v1_destroy(m_virtualKeyboardManager);
-    m_virtualKeyboardManager = nullptr;
   }
 
   if (m_textInputManager != nullptr) {

@@ -16,11 +16,11 @@
 #include "render/scene/input_area.h"
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/wayland/clipboard_service.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
-#include "wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <cctype>

@@ -29,6 +29,7 @@
 #include "shell/settings/settings_window.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/wayland/capture_globals.h"
+#include "shell/wayland/clipboard_service.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
@@ -43,7 +44,6 @@
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "util/sys_utils.h"
-#include "wayland/clipboard_service.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
 

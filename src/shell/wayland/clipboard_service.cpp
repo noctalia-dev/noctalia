@@ -1,4 +1,4 @@
-#include "wayland/clipboard_service.h"
+#include "shell/wayland/clipboard_service.h"
 
 #include "config/atomic_file.h"
 #include "config/config_limits.h"

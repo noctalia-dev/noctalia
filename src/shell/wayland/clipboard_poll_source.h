@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/poll_source.h"
-#include "wayland/clipboard_service.h"
+#include "shell/wayland/clipboard_service.h"
 
 class ClipboardPollSource final : public PollSource {
 public:

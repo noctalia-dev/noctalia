@@ -25,9 +25,9 @@
 #include "render/core/image_resize.h"
 #include "render/render_context.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/wayland/clipboard_service.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
-#include "wayland/clipboard_service.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 

@@ -1,4 +1,4 @@
-#include "wayland/virtual_keyboard_service.h"
+#include "shell/wayland/virtual_keyboard_service.h"
 
 #include "core/log.h"
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
