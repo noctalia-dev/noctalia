@@ -30,7 +30,7 @@ Graph::Graph() {
   node->setLineWidth(m_lineWidth);
   node->setGraphFillOpacity(m_fillOpacity);
   m_node = static_cast<GraphNode*>(addChild(std::move(node)));
-  m_paletteConn = paletteChanged().connect([this]() { applyPalette(); });
+  m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
   applyPalette();
 }
 

@@ -526,8 +526,6 @@ namespace noctalia::theme {
         scored = scoreChroma(scoringInput);
         break;
       case Scheme::Faithful:
-        scored = scoreCount(scoringInput);
-        break;
       case Scheme::Soft:
         scored = scoreCount(scoringInput);
         break;
@@ -535,8 +533,6 @@ namespace noctalia::theme {
         scored = scoreDysfunctional(scoringInput);
         break;
       case Scheme::Muted:
-        scored = scoreMuted(scoringInput);
-        break;
       default:
         scored = scoreMuted(scoringInput);
         break;

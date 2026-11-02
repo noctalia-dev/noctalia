@@ -7,7 +7,7 @@
 
 namespace scripting {
 
-  [[nodiscard]] inline bool isValidPluginIdSegment(std::string_view segment) {
+  inline bool isValidPluginIdSegment(std::string_view segment) {
     if (segment.empty()) {
       return false;
     }
@@ -25,7 +25,7 @@ namespace scripting {
     return segment != "." && segment != "..";
   }
 
-  [[nodiscard]] inline bool isValidPluginId(std::string_view id) {
+  inline bool isValidPluginId(std::string_view id) {
     const std::size_t slash = id.find('/');
     if (slash == std::string_view::npos || id.find('/', slash + 1) != std::string_view::npos) {
       return false;
@@ -35,7 +35,7 @@ namespace scripting {
 
   // Canonical entry id: "author/plugin:entry", exactly one ':', with the entry segment
   // held to the same flat-identifier rules as the plugin segments.
-  [[nodiscard]] inline bool isValidPluginEntryId(std::string_view id) {
+  inline bool isValidPluginEntryId(std::string_view id) {
     const std::size_t colon = id.find(':');
     if (colon == std::string_view::npos || id.find(':', colon + 1) != std::string_view::npos) {
       return false;
@@ -44,7 +44,7 @@ namespace scripting {
   }
 
   // Repo subdir for a plugin id by convention: "author/foo" lives at "foo/".
-  [[nodiscard]] inline std::optional<std::string> pluginSubdirFromId(std::string_view id) {
+  inline std::optional<std::string> pluginSubdirFromId(std::string_view id) {
     if (!isValidPluginId(id)) {
       return std::nullopt;
     }
@@ -52,7 +52,7 @@ namespace scripting {
   }
 
   // Public plugin page on noctalia.dev for official/community catalog entries.
-  [[nodiscard]] inline std::optional<std::string> pluginWebsitePageUrl(std::string_view source, std::string_view id) {
+  inline std::optional<std::string> pluginWebsitePageUrl(std::string_view source, std::string_view id) {
     if (source != "official" && source != "community") {
       return std::nullopt;
     }

@@ -6,6 +6,7 @@
 #include "net/http_client.h"
 #include "wayland/clipboard_service.h"
 
+#include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <libqalculate/BuiltinFunctions.h>
@@ -27,12 +28,7 @@ namespace {
   // (e.g. "firefox"). Letters/spaces are kept so unit and currency conversions
   // like "10 cm to in" or "5 USD to EUR" still reach libqalculate.
   bool looksLikeMath(std::string_view text) {
-    for (char c : text) {
-      if (c >= '0' && c <= '9') {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(text, [&](char c) { return c >= '0' && c <= '9'; });
   }
 
   std::string trimmed(std::string_view text) {
@@ -111,9 +107,6 @@ void MathProvider::rebuildCalculator() {
       function->setActive(false);
     }
   }
-  // Pre-warm internal state (GMP randstate) so the destructor path is safe.
-  m_calc->calculate("0");
-  m_calc->clearMessages();
 }
 
 bool MathProvider::watchDefinitionsDir() {

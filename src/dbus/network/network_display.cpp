@@ -20,6 +20,9 @@ namespace network_display {
     if (!state.wirelessEnabled) {
       return "wifi-off";
     }
+    if (state.hotspotActive) {
+      return "access-point";
+    }
     if (state.kind == NetworkConnectivity::Unknown) {
       return "wifi-question";
     }

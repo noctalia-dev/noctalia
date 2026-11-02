@@ -358,7 +358,7 @@ void PointerCursorCapture::capture(wl_output* output, CompletionCallback onCompl
     fail("failed to create cursor image capture session");
     return;
   }
-  m_timeout.start(std::chrono::seconds(1), [this]() {
+  m_timeout.start(std::chrono::seconds(1), [this] {
     fail("cursor capture timed out: compositor did not provide a capturable cursor image");
   });
   if (wl_display_flush(m_wayland.display()) < 0 && errno != EAGAIN) {

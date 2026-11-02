@@ -23,7 +23,7 @@ public:
   std::size_t addOption(std::string_view label, std::string_view glyph);
 
   void setSelectedIndex(std::size_t index);
-  [[nodiscard]] std::size_t selectedIndex() const noexcept { return m_selected; }
+  std::size_t selectedIndex() const noexcept { return m_selected; }
 
   void setFontSize(float size);
   void setScale(float scale);
@@ -41,12 +41,12 @@ public:
   void setEnabled(bool enabled);
   void setSurfaceOpacity(float opacity);
   void setSurfaceRole(ColorRole role);
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
+  bool enabled() const noexcept { return m_enabled; }
 
   // When true, each segment gets flexGrow 1 so the group fills the available width (e.g. full bar).
   void setEqualSegmentWidths(bool equalWidths);
 
-  [[nodiscard]] InputArea* focusArea() const noexcept { return m_focusArea; }
+  InputArea* focusArea() const noexcept { return m_focusArea; }
 
   void doLayout(Renderer& renderer) override;
 
@@ -57,7 +57,7 @@ private:
   void applyButtonMetrics(Button& button) const;
   void refreshVariants();
   void applyOuterStyle();
-  [[nodiscard]] float effectiveFontSize() const noexcept;
+  float effectiveFontSize() const noexcept;
 
   RovingListNavController m_rovingNav;
   std::vector<Separator*> m_separators;
@@ -71,6 +71,6 @@ private:
   bool m_compact = false;
   float m_outerPadding = 0.0F;
   float m_surfaceOpacity = 1.0F;
-  ColorRole m_surfaceRole = ColorRole::SurfaceVariant;
+  ColorRole m_surfaceRole = ColorRole::SurfaceContainer;
   bool m_enabled = true;
 };

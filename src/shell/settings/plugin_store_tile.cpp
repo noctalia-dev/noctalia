@@ -24,8 +24,8 @@ namespace settings {
     setAlign(FlexAlign::Stretch);
     setGap(Style::spaceXs * scale);
     setPadding(Style::spaceSm * scale);
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
-    setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+    setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
     setRadius(Style::scaledRadiusMd(scale));
 
     addChild(
@@ -80,7 +80,7 @@ namespace settings {
             {.out = &m_badge,
              .align = FlexAlign::Center,
              .paddingH = Style::spaceXs * scale,
-             .fill = colorSpecFromRole(ColorRole::Primary, 0.15F),
+             .fill = colorSpecFromRole(ColorRole::PrimaryContainer),
              .radius = Style::scaledRadiusSm(scale),
              .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
@@ -101,7 +101,7 @@ namespace settings {
             {.out = &m_statusBadge,
              .align = FlexAlign::Center,
              .paddingH = Style::spaceXs * scale,
-             .fill = colorSpecFromRole(ColorRole::Error, 0.15F),
+             .fill = colorSpecFromRole(ColorRole::ErrorContainer),
              .radius = Style::scaledRadiusSm(scale),
              .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
@@ -202,21 +202,21 @@ namespace settings {
     if (source == "official") {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
-      m_badge->setFill(colorSpecFromRole(ColorRole::Primary, 0.15F));
+      m_badge->setFill(colorSpecFromRole(ColorRole::PrimaryContainer));
       m_badgeLabel->setText(i18n::tr("settings.badges.official"));
-      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Primary));
+      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::OnPrimaryContainer));
     } else if (source == "community") {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
-      m_badge->setFill(colorSpecFromRole(ColorRole::Secondary, 0.15F));
+      m_badge->setFill(colorSpecFromRole(ColorRole::SecondaryContainer));
       m_badgeLabel->setText(i18n::tr("settings.badges.community"));
-      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Secondary));
+      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::OnSecondaryContainer));
     } else {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
-      m_badge->setFill(colorSpecFromRole(ColorRole::Tertiary, 0.15F));
+      m_badge->setFill(colorSpecFromRole(ColorRole::TertiaryContainer));
       m_badgeLabel->setText(source);
-      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Tertiary));
+      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::OnTertiaryContainer));
     }
 
     // The grid is where a user first meets a plugin, so an unusable or older-than-latest
@@ -225,9 +225,12 @@ namespace settings {
     m_statusBadge->setVisible(hasStatus);
     m_statusBadge->setParticipatesInLayout(hasStatus);
     if (hasStatus) {
-      const ColorRole role = entry.compatible ? ColorRole::Tertiary : ColorRole::Error;
-      m_statusBadge->setFill(colorSpecFromRole(role, 0.15F));
-      m_statusLabel->setColor(colorSpecFromRole(role));
+      m_statusBadge->setFill(
+          colorSpecFromRole(entry.compatible ? ColorRole::TertiaryContainer : ColorRole::ErrorContainer)
+      );
+      m_statusLabel->setColor(
+          colorSpecFromRole(entry.compatible ? ColorRole::OnTertiaryContainer : ColorRole::OnErrorContainer)
+      );
       m_statusLabel->setText(
           i18n::tr(
               !listed ? "settings.plugins.store.not-listed"
@@ -251,7 +254,8 @@ namespace settings {
     m_addedGlyph->setVisible(onDisk);
     m_addedGlyph->setParticipatesInLayout(onDisk);
 
-    const ColorRole borderRole = selected ? ColorRole::Primary : (hovered ? ColorRole::Hover : ColorRole::Outline);
+    const ColorRole borderRole =
+        selected ? ColorRole::Primary : (hovered ? ColorRole::Hover : ColorRole::OutlineVariant);
     setBorder(colorSpecFromRole(borderRole), selected ? Style::borderWidth * 2.0F : Style::borderWidth);
   }
 

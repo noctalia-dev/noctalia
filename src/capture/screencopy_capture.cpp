@@ -1,6 +1,5 @@
 #include "capture/screencopy_capture.h"
 
-#include "core/log.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 
@@ -9,10 +8,6 @@
 #include <unistd.h>
 #include <utility>
 #include <vector>
-
-namespace {
-  constexpr Logger kLog("screencopy");
-}
 
 struct ScreencopyCapturePending {
   ScreencopyCapture* owner = nullptr;
@@ -68,7 +63,7 @@ namespace {
     return fd;
   }
 
-  [[nodiscard]] int bytesPerPixelFromStride(int width, int stride) {
+  int bytesPerPixelFromStride(int width, int stride) {
     if (width <= 0 || stride <= 0) {
       return 0;
     }
@@ -81,7 +76,7 @@ namespace {
     return 0;
   }
 
-  [[nodiscard]] bool isPacked2101010(std::uint32_t format) {
+  bool isPacked2101010(std::uint32_t format) {
     switch (format) {
     case WL_SHM_FORMAT_XRGB2101010:
     case WL_SHM_FORMAT_ARGB2101010:
@@ -264,10 +259,6 @@ namespace {
             pending->width = static_cast<int>(width);
             pending->height = static_cast<int>(height);
             pending->stride = static_cast<int>(stride);
-            // kLog.info(
-            //     "frame buffer format=0x{:08x} {}x{} stride={} bpp={}", format, width, height, stride,
-            //     bytesPerPixelFromStride(static_cast<int>(width), static_cast<int>(stride))
-            // );
           },
       .flags =
           [](void* data, zwlr_screencopy_frame_v1* /*frame*/, std::uint32_t flags) {

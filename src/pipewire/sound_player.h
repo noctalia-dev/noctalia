@@ -23,10 +23,10 @@ public:
   static constexpr std::string_view kEventPowerUnplug = "power-unplug";
   static constexpr std::string_view kEventScreenCapture = "screen-capture";
 
-  explicit SoundPlayer(pw_loop* loop);
+  SoundPlayer();
   ~SoundPlayer();
 
-  [[nodiscard]] static std::vector<std::pair<std::string, std::string>> availableThemes();
+  static std::vector<std::pair<std::string, std::string>> availableThemes();
 
   SoundPlayer(const SoundPlayer&) = delete;
   SoundPlayer& operator=(const SoundPlayer&) = delete;
@@ -68,6 +68,7 @@ private:
   };
 
   [[nodiscard]] static std::optional<std::string> decode(const std::filesystem::path& path, SoundBuffer& out);
+  void loadThemeSounds();
   void playBuffer(const std::string& name, const std::shared_ptr<const SoundBuffer>& buffer);
 
   void processStream(ActiveStream& streamState);
@@ -76,6 +77,7 @@ private:
   void expireUnstarted();
   void armStartTimeout();
 
+  pw_thread_loop* m_threadLoop = nullptr;
   pw_loop* m_loop = nullptr;
   spa_source* m_streamCloseTimer = nullptr;
   spa_source* m_startTimeoutTimer = nullptr;

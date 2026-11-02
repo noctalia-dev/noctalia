@@ -72,7 +72,7 @@ void DesktopWidgetsHost::setWallpaperMasks(const OutputWallpaperMaskMap& masks) 
       if (m_wallpaperMasks.contains(outputName)) {
         continue;
       }
-      const auto onChange = [this, name = outputName]() { onWallpaperMaskTextureChanged(name); };
+      const auto onChange = [this, name = outputName] { onWallpaperMaskTextureChanged(name); };
       const TextureCoverage coverage = wallpaperMaskCoverage(outputName);
       m_wallpaperMasks.emplace(
           outputName,
@@ -355,7 +355,7 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
   };
 
   auto instance = std::make_unique<DesktopWidgetInstance>();
-  instance->state = clampedState;
+  instance->state = std::move(clampedState);
   instance->effectiveOutputName = desktop_widgets::outputKey(output);
   instance->output = output.output;
   instance->widget = std::move(widget);
@@ -368,22 +368,22 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
 
   auto* rawInstance = instance.get();
   instance->widget->setAnimationManager(&instance->animations);
-  instance->widget->setUpdateCallback([rawInstance]() {
+  instance->widget->setUpdateCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestUpdateOnly();
     }
   });
-  instance->widget->setLayoutCallback([rawInstance]() {
+  instance->widget->setLayoutCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestUpdate();
     }
   });
-  instance->widget->setRedrawCallback([rawInstance]() {
+  instance->widget->setRedrawCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestRedraw();
     }
   });
-  instance->widget->setFrameTickRequestCallback([rawInstance]() {
+  instance->widget->setFrameTickRequestCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestFrameTick();
     }

@@ -78,9 +78,9 @@ namespace noctalia::theme {
       std::uint64_t generation = 0;
     };
 
-    [[nodiscard]] bool reapplyLast() const;
-    [[nodiscard]] ApplyRequest makeRequest(const GeneratedPalette& palette, std::string_view defaultMode) const;
-    [[nodiscard]] static bool sameInputs(const ApplyRequest& a, const ApplyRequest& b);
+    bool reapplyLast() const;
+    ApplyRequest makeRequest(const GeneratedPalette& palette, std::string_view defaultMode) const;
+    static bool sameInputs(const ApplyRequest& a, const ApplyRequest& b);
     // Diffs `enabled` against the ids Noctalia has applied and returns the ids that still
     // owe an undo.
     [[nodiscard]] std::vector<std::string>
@@ -90,8 +90,8 @@ namespace noctalia::theme {
     void persistAppliedIds(const AppliedTemplateIds& ids) const;
     // Run the undo hooks of request.undoBuiltinIds / request.undoCommunityIds and return
     // the ids they resolved.
-    [[nodiscard]] std::vector<std::string> undoBuiltinTemplates(const ApplyRequest& request) const;
-    [[nodiscard]] std::vector<std::string> undoCommunityTemplates(const ApplyRequest& request) const;
+    std::vector<std::string> undoBuiltinTemplates(const ApplyRequest& request) const;
+    std::vector<std::string> undoCommunityTemplates(const ApplyRequest& request) const;
     // Renders and runs one undo hook synchronously. False when it must be retried later.
     [[nodiscard]] bool runUndoHook(
         const ApplyRequest& request, const std::filesystem::path& configPath, std::string_view hook,
@@ -99,7 +99,7 @@ namespace noctalia::theme {
     ) const;
     void applyRequest(const ApplyRequest& request) const;
     void workerLoop();
-    [[nodiscard]] bool requestSuperseded(std::uint64_t generation) const;
+    bool requestSuperseded(std::uint64_t generation) const;
     void recordHookWarning(std::uint64_t generation, std::string warning) const;
 
     ConfigService& m_config;

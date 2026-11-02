@@ -36,11 +36,11 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void onFrameTick(float deltaMs) override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
   void syncState(Renderer& renderer);
   void updateFillGeometry();
   void syncPalette();
-  [[nodiscard]] std::string buildLabelText(int pct, const UPowerState& state) const;
+  std::string buildLabelText(int pct, const UPowerState& state) const;
 
   void createGraphicMode();
   void createGlyphMode();

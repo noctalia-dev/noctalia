@@ -77,7 +77,7 @@ namespace {
       } else if (hovered) {
         setFill(colorSpecFromRole(ColorRole::Hover));
       } else if (selected) {
-        setFill(colorSpecFromRole(ColorRole::Primary, 0.16F));
+        setFill(colorSpecFromRole(ColorRole::PrimaryContainer));
       } else {
         setFill(clearColorSpec());
       }
@@ -91,6 +91,9 @@ namespace {
       } else if (hovered) {
         foreground = colorSpecFromRole(ColorRole::OnHover);
         detailForeground = colorSpecFromRole(ColorRole::OnHover);
+      } else if (selected && option.enabled) {
+        foreground = colorSpecFromRole(ColorRole::OnPrimaryContainer);
+        detailForeground = colorSpecFromRole(ColorRole::OnPrimaryContainer);
       }
 
       if (m_preview != nullptr) {
@@ -138,7 +141,7 @@ SearchPicker::SearchPicker() {
   setGap(Style::spaceSm);
   setPadding(Style::spaceSm);
   setFill(colorSpecFromRole(ColorRole::Surface));
-  setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+  setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
   setRadius(Style::scaledRadiusMd());
   setSize(kDefaultWidth, kDefaultHeight);
 
@@ -153,7 +156,7 @@ SearchPicker::SearchPicker() {
                   return;
                 }
                 m_filter = value;
-                m_filterDebounceTimer.start(kFilterDebounceInterval, [this]() { applyFilter(); });
+                m_filterDebounceTimer.start(kFilterDebounceInterval, [this] { applyFilter(); });
               },
           .onKeyEvent =
               [this](std::uint32_t sym, std::uint32_t modifiers) {

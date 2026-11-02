@@ -15,29 +15,29 @@ namespace {
     float minContrastSpan = 0.12F;
   };
 
-  [[nodiscard]] AppIconBakeTuning bakeTuningForTheme() noexcept {
+  AppIconBakeTuning bakeTuningForTheme() noexcept {
     if (isResolvedLightTheme()) {
       return AppIconBakeTuning{.minDisplayLevel = 0.32F, .minContrastSpan = 0.12F};
     }
     return AppIconBakeTuning{.minDisplayLevel = 0.28F, .minContrastSpan = 0.12F};
   }
 
-  [[nodiscard]] ColorSpec defaultAppIconColorizationTint() noexcept {
+  ColorSpec defaultAppIconColorizationTint() noexcept {
     return colorSpecFromRole(isResolvedLightTheme() ? ColorRole::OnSurface : ColorRole::OnSurfaceVariant);
   }
 
-  [[nodiscard]] float pixelLuminance(float red, float green, float blue) noexcept {
+  float pixelLuminance(float red, float green, float blue) noexcept {
     return 0.299F * red + 0.587F * green + 0.114F * blue;
   }
 
-  [[nodiscard]] std::uint8_t toGrayByte(float level) noexcept {
+  std::uint8_t toGrayByte(float level) noexcept {
     return static_cast<std::uint8_t>(std::lround(std::clamp(level, 0.0F, 1.0F) * 255.0F));
   }
 
 } // namespace
 
 ShellAppIconColorizationSettings shellAppIconColorizationSettings(const ShellConfig& shell) noexcept {
-  return ShellAppIconColorizationSettings{.enabled = shell.appIconColorize, .color = shell.appIconColor};
+  return ShellAppIconColorizationSettings{.launcherEnabled = shell.launcher.colorizeIcons, .color = shell.appIconColor};
 }
 
 Signal<>& shellAppIconColorizationChanged() noexcept {
@@ -47,8 +47,8 @@ Signal<>& shellAppIconColorizationChanged() noexcept {
 
 void notifyShellAppIconColorizationChanged() noexcept { shellAppIconColorizationChanged().emit(); }
 
-std::optional<ColorSpec> effectiveShellAppIconColorizationTint(const ShellConfig& shell) noexcept {
-  if (!shell.appIconColorize) {
+std::optional<ColorSpec> effectiveShellAppIconColorizationTint(const ShellConfig& shell, bool enabled) noexcept {
+  if (!enabled) {
     return std::nullopt;
   }
   if (shell.appIconColor.has_value()) {

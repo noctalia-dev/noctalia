@@ -46,8 +46,7 @@ namespace capture {
     constexpr float kDimensionPaddingY = 4.0F;
     constexpr double kHandleMargin = 15.0; // Hitbox size in pixels
 
-    [[nodiscard]] capture::DragMode
-    hitTestSelection(double x, double y, double x0, double y0, double x1, double y1, double margin) {
+    capture::DragMode hitTestSelection(double x, double y, double x0, double y0, double x1, double y1, double margin) {
       const bool withinX = x >= x0 - margin && x <= x1 + margin;
       const bool withinY = y >= y0 - margin && y <= y1 + margin;
 
@@ -103,7 +102,7 @@ namespace capture {
     }
 
     // Right-button resize zones: outer thirds of each axis pick the matching edge or corner.
-    [[nodiscard]] capture::DragMode
+    capture::DragMode
     hitTestRegionThirds(double x, double y, double x0, double y0, double x1, double y1, double margin) {
       if (x < x0 - margin || x > x1 + margin || y < y0 - margin || y > y1 + margin) {
         return capture::DragMode::None;
@@ -135,7 +134,7 @@ namespace capture {
       return capture::DragMode::None;
     }
 
-    [[nodiscard]] std::uint32_t cursorShapeForDragMode(capture::DragMode mode) {
+    std::uint32_t cursorShapeForDragMode(capture::DragMode mode) {
       switch (mode) {
       case capture::DragMode::TopEdge:
       case capture::DragMode::BottomEdge:
@@ -156,7 +155,7 @@ namespace capture {
       }
     }
 
-    [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
+    const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
       for (const auto& entry : wayland.outputs()) {
         if (entry.output == output) {
           return &entry;
@@ -165,10 +164,9 @@ namespace capture {
       return nullptr;
     }
 
-    [[nodiscard]] LayerShellKeyboard overlayKeyboardMode() { return LayerShellKeyboard::Exclusive; }
+    LayerShellKeyboard overlayKeyboardMode() { return LayerShellKeyboard::Exclusive; }
 
-    [[nodiscard]] const ScreencopyImage*
-    frozenImageForOutput(const std::vector<FrozenScreenshot>& screenshots, wl_output* output) {
+    const ScreencopyImage* frozenImageForOutput(const std::vector<FrozenScreenshot>& screenshots, wl_output* output) {
       for (const auto& entry : screenshots) {
         if (entry.output == output) {
           return &entry.image.image;
@@ -177,7 +175,7 @@ namespace capture {
       return nullptr;
     }
 
-    [[nodiscard]] wl_output* outputAtGlobalPoint(const WaylandConnection& wayland, double globalX, double globalY) {
+    wl_output* outputAtGlobalPoint(const WaylandConnection& wayland, double globalX, double globalY) {
       for (const auto& out : wayland.outputs()) {
         if (out.output == nullptr || out.logicalWidth <= 0 || out.logicalHeight <= 0) {
           continue;
@@ -192,7 +190,7 @@ namespace capture {
       return nullptr;
     }
 
-    [[nodiscard]] std::string outputPickerLabel(const WaylandOutput& output) {
+    std::string outputPickerLabel(const WaylandOutput& output) {
       if (!output.connectorName.empty()) {
         return output.connectorName;
       }
@@ -203,7 +201,7 @@ namespace capture {
     }
 
     std::unique_ptr<Flex>
-    buildFullscreenPickerBar(const WaylandConnection& wayland, std::function<void(wl_output*)> onPick) {
+    buildFullscreenPickerBar(const WaylandConnection& wayland, const std::function<void(wl_output*)>& onPick) {
       auto bar = ui::row(
           {
               .align = FlexAlign::Center,
@@ -228,7 +226,7 @@ namespace capture {
             ui::button({
                 .text = outputPickerLabel(out),
                 .variant = ButtonVariant::Outline,
-                .onClick = [onPick, output = out.output]() { onPick(output); },
+                .onClick = [onPick, output = out.output] { onPick(output); },
             })
         );
       }
@@ -390,7 +388,7 @@ namespace capture {
     if (!m_active) {
       return;
     }
-    DeferredCall::callLater([this]() {
+    DeferredCall::callLater([this] {
       if (!m_active) {
         return;
       }
@@ -572,7 +570,7 @@ namespace capture {
         if (picked == nullptr) {
           picked = surfaceOutput;
         }
-        DeferredCall::callLater([this, picked]() { completeFullscreenPick(picked); });
+        DeferredCall::callLater([this, picked] { completeFullscreenPick(picked); });
       });
     } else {
       input->setOnPress([this, output = inst.output](const InputArea::PointerData& data) {
@@ -585,7 +583,7 @@ namespace capture {
           m_dragging = false;
           m_dragButton = 0;
           // completeSelection() tears down surfaces; defer past InputDispatcher::pointerButton.
-          DeferredCall::callLater([this]() { completeSelection(); });
+          DeferredCall::callLater([this] { completeSelection(); });
           return;
         }
 
@@ -781,15 +779,15 @@ namespace capture {
       }
       if (m_confirming) {
         if (KeybindMatcher::matches(KeybindAction::Copy, key.sym, key.modifiers)) {
-          DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceClipboard); });
+          DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::ForceClipboard); });
           return;
         }
         if (KeybindMatcher::matches(KeybindAction::Save, key.sym, key.modifiers)) {
-          DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceSave); });
+          DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::ForceSave); });
           return;
         }
         if (KeySymbol::isEnterOrSpace(key.sym)) {
-          DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::None); });
+          DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::None); });
           return;
         }
       }
@@ -818,7 +816,7 @@ namespace capture {
     // Dim the screen with four strips that frame the selected region. The
     // region itself stays fully transparent so it shows real colors and never
     // tints the captured pixels.
-    auto makeDimStrip = [&]() {
+    auto makeDimStrip = [&] {
       auto strip = ui::box({
           // Fixed black scrim so it darkens under every theme.
           .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
@@ -869,7 +867,7 @@ namespace capture {
 
     if (m_fullscreenPick) {
       auto pickerBar = buildFullscreenPickerBar(*m_wayland, [this](wl_output* output) {
-        DeferredCall::callLater([this, output]() { completeFullscreenPick(output); });
+        DeferredCall::callLater([this, output] { completeFullscreenPick(output); });
       });
       Flex* pickerBarPtr = pickerBar.get();
       inst.sceneRoot->addChild(std::move(pickerBar));
@@ -1021,7 +1019,7 @@ namespace capture {
     kLog.warn("aborting screenshot region overlay: {}", message);
     FailureCallback onFailure = m_onFailure;
     // Defer past the surface's prepareFrame callback before destroying its surfaces.
-    DeferredCall::callLater([this, onFailure, message]() {
+    DeferredCall::callLater([this, onFailure, message] {
       cancel();
       if (onFailure) {
         onFailure(message);

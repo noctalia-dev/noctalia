@@ -20,7 +20,7 @@ namespace calendar_view {
     int month = -1;
     int day = -1;
 
-    [[nodiscard]] bool valid() const noexcept { return year != 0 && month >= 0 && day > 0; }
+    bool valid() const noexcept { return year != 0 && month >= 0 && day > 0; }
     bool operator==(const Date&) const = default;
   };
 
@@ -66,6 +66,7 @@ namespace calendar_view {
 
   struct EventListState {
     std::vector<EventLinkOverlay> linkOverlays;
+    bool showHiddenPast = false; // user expanded today's hidden past events
   };
 
   struct EventListBuildOptions {
@@ -75,17 +76,33 @@ namespace calendar_view {
     const CalendarSnapshot* snapshot = nullptr;
     Date selected;
     float scale = 1.0F;
+    bool showEventsLocation = false;
     std::string_view dateFormat;
     std::string_view timeFormat;
     std::string fontFamily;
     EventListState* state = nullptr;
+    bool hidePastEvents = false;              // applies only when the selected day is today
+    int pastEventsThresholdMinutes = 0;       // with hidePastEvents: 0 = hide as soon as an event ends
+    std::function<void()> onToggleHiddenPast; // the host must rebuild the list after state->showHiddenPast flips
     std::function<void()> requestRedraw;
   };
 
-  [[nodiscard]] State stateForOffset(int monthOffset);
-  [[nodiscard]] int dateKey(Date date) noexcept;
+  State stateForOffset(int monthOffset);
+  int dateKey(Date date) noexcept;
 
-  [[nodiscard]] bool eventPassed(const CalendarEvent& event, std::chrono::system_clock::time_point now);
+  bool eventPassed(const CalendarEvent& event, std::chrono::system_clock::time_point now);
+
+  // True when a finished event should be left out of today's list: only when hidePast is set, and then
+  // only if it ended more than thresholdMinutes ago.
+  bool eventHiddenAsPast(
+      const CalendarEvent& event, std::chrono::system_clock::time_point now, bool hidePast, int thresholdMinutes
+  );
+
+  // Number of events hidden by the past-event filter on the selected day (0 unless it is today).
+  int countHiddenPastEvents(
+      const CalendarSnapshot& snapshot, Date selected, std::chrono::system_clock::time_point now, bool hidePast,
+      int thresholdMinutes
+  );
 
   void rebuildMonth(const MonthBuildOptions& options);
   void rebuildEventList(const EventListBuildOptions& options);

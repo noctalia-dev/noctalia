@@ -1,8 +1,8 @@
 #pragma once
 
 #include "dbus/network/inetwork_service.h"
+#include "render/scene/tooltip_content.h"
 #include "shell/bar/widget.h"
-#include "shell/tooltip/tooltip_content.h"
 
 #include <string>
 #include <vector>
@@ -40,7 +40,7 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void syncState(Renderer& renderer);
-  [[nodiscard]] std::vector<TooltipRow> buildTooltipRows() const;
+  std::vector<TooltipRow> buildTooltipRows() const;
 
   INetworkService* m_network = nullptr;
   ExternalIpService* m_externalIp = nullptr;

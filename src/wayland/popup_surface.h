@@ -46,9 +46,9 @@ public:
 
   void setDismissedCallback(std::function<void()> callback);
 
-  [[nodiscard]] xdg_surface* xdgSurface() const noexcept { return m_xdgSurface; }
-  [[nodiscard]] std::int32_t configuredX() const noexcept { return m_configuredX; }
-  [[nodiscard]] std::int32_t configuredY() const noexcept { return m_configuredY; }
+  xdg_surface* xdgSurface() const noexcept { return m_xdgSurface; }
+  std::int32_t configuredX() const noexcept { return m_configuredX; }
+  std::int32_t configuredY() const noexcept { return m_configuredY; }
 
   static void handleXdgSurfaceConfigure(void* data, xdg_surface* surface, std::uint32_t serial);
   static void handlePopupConfigure(

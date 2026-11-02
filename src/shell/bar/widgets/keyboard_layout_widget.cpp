@@ -116,8 +116,8 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
   if (m_showLabel) {
     const float stableLabelWidth = std::round(renderer
                                                   .measureText(
-                                                      kVerticalStableLabel, m_label->fontSize(), labelFontWeight(),
-                                                      0.0F, 0, TextAlign::Start, labelFontFamily()
+                                                      kVerticalStableLabel, m_label->fontSize(),
+                                                      {labelFontWeight(), labelFontFamily()}, 0.0F, 0, TextAlign::Start
                                                   )
                                                   .width);
     m_label->setMinWidth(m_isVertical ? std::min(containerWidth, stableLabelWidth) : 0.0F);
@@ -186,7 +186,7 @@ std::optional<FcitxInputMethodState> KeyboardLayoutWidget::inputMethodState() co
 std::string KeyboardLayoutWidget::resolvedLayoutName() const {
   const auto state = m_platform.keyboardLayoutState();
   if (state.has_value() && state->currentIndex >= 0 && state->currentIndex < static_cast<int>(state->names.size())) {
-    const std::string actual = state->names[static_cast<std::size_t>(state->currentIndex)];
+    std::string actual = state->names[static_cast<std::size_t>(state->currentIndex)];
     if (!m_pendingLayoutName.empty() && (actual.empty() || actual == m_lastLayoutName)) {
       return m_pendingLayoutName;
     }
@@ -312,7 +312,7 @@ void KeyboardLayoutWidget::scheduleRefreshBurst() {
 }
 
 void KeyboardLayoutWidget::armRefreshTick() {
-  m_refreshTimer.start(kRefreshTickInterval, [this]() {
+  m_refreshTimer.start(kRefreshTickInterval, [this] {
     if (m_refreshAttemptsRemaining <= 0) {
       m_pendingLayoutName.clear();
       m_refreshTimer.stop();

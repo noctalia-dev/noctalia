@@ -22,10 +22,10 @@ Checkbox::Checkbox() {
   auto area = std::make_unique<InputArea>();
   area->setFocusable(true);
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-  area->setOnLeave([this]() { applyState(); });
+  area->setOnLeave([this] { applyState(); });
   area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
-  area->setOnFocusGain([this]() { applyState(); });
-  area->setOnFocusLoss([this]() { applyState(); });
+  area->setOnFocusGain([this] { applyState(); });
+  area->setOnFocusLoss([this] { applyState(); });
   area->setOnKeyDown([this](const InputArea::KeyData& key) {
     if (!key.pressed || !m_enabled) {
       return;
@@ -130,7 +130,7 @@ void Checkbox::applyState() {
   }
 
   ColorSpec fill = colorSpecFromRole(ColorRole::Surface);
-  ColorSpec border = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   ColorSpec glyph = colorSpecFromRole(ColorRole::OnPrimary);
   float borderWidth = Style::borderWidth * m_scale;
   const bool focused = (m_inputArea != nullptr && m_inputArea->focused());
@@ -143,7 +143,7 @@ void Checkbox::applyState() {
       borderWidth = Style::emphasizedBorderWidth * m_scale;
     }
   } else if (focused) {
-    fill = colorSpecFromRole(ColorRole::Secondary, 0.18F);
+    fill = colorSpecFromRole(ColorRole::SecondaryContainer);
     border = colorSpecFromRole(ColorRole::Secondary);
     borderWidth = Style::emphasizedBorderWidth * m_scale;
   } else if (hovered()) {

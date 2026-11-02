@@ -21,7 +21,7 @@ struct LayerPopupParentContext {
   std::uint32_t height = 0;
   bool usedFallback = false;
 
-  [[nodiscard]] std::pair<std::int32_t, std::int32_t> centeringOffset(WaylandConnection& wayland) const;
+  std::pair<std::int32_t, std::int32_t> centeringOffset(WaylandConnection& wayland) const;
 };
 
 class LayerPopupHostRegistry {
@@ -35,9 +35,9 @@ public:
       FallbackResolver fallbackResolver = {}
   );
 
-  [[nodiscard]] std::optional<LayerPopupParentContext> contextForSurface(wl_surface* surface) const;
-  [[nodiscard]] std::optional<LayerPopupParentContext> fallbackContext() const;
-  [[nodiscard]] std::optional<LayerPopupParentContext> resolveForInput(WaylandConnection& wayland) const;
+  std::optional<LayerPopupParentContext> contextForSurface(wl_surface* surface) const;
+  std::optional<LayerPopupParentContext> fallbackContext() const;
+  std::optional<LayerPopupParentContext> resolveForInput(WaylandConnection& wayland) const;
 
   void beginAttachedPopup(wl_surface* surface) const;
   void endAttachedPopup(wl_surface* surface) const;

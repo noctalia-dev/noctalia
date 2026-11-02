@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/annotation_overlay.h"
+#include "capture/screenshot_backdrop.h"
 #include "capture/screenshot_capture.h"
 #include "capture/screenshot_region_overlay.h"
 #include "capture/toplevel_thumbnail_capture.h"
@@ -45,11 +46,14 @@ public:
     bool skipAnnotateOnCopySave = false;
     bool closeOnCopy = true;
     bool closeOnSave = true;
+    bool copyOnClose = false;
     std::string pipeCommand;
     std::string directory;
     std::string filenamePattern;
     ScreenshotFormat format = ScreenshotFormat::Png;
     std::int32_t quality = 90;
+    // Set from the annotation editor's backdrop panel; applied to the final image just before encoding.
+    std::optional<capture::ScreenshotBackdrop> backdrop;
 
     bool operator==(const OutputOptions&) const = default;
   };
@@ -60,7 +64,7 @@ public:
   );
   ~ScreenshotService();
 
-  [[nodiscard]] bool available() const noexcept;
+  bool available() const noexcept;
 
   void captureFullscreen(const OutputOptions& options, wl_output* output = nullptr);
   void captureFullscreenInteractive(RenderContext& renderContext, const OutputOptions& options);
@@ -73,16 +77,16 @@ public:
   // Returns the reason when the file cannot be decoded or no output can host the editor.
   [[nodiscard]] std::expected<void, std::string>
   beginImageFileAnnotation(RenderContext& renderContext, const std::string& path, const OutputOptions& options);
-  [[nodiscard]] bool overlayBusy() const noexcept;
+  bool overlayBusy() const noexcept;
 
   void onOutputChange();
 
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
-  [[nodiscard]] bool onKeyboardEvent(const KeyboardEvent& event);
+  bool onPointerEvent(const PointerEvent& event);
+  bool onKeyboardEvent(const KeyboardEvent& event);
   // Seat modifier change; refreshes the gesture cursor without pointer motion.
   void onModifiersChanged();
 
-  [[nodiscard]] static OutputOptions outputOptionsFromConfig(const Config& config);
+  static OutputOptions outputOptionsFromConfig(const Config& config);
 
   void registerIpc(IpcService& ipc, const ConfigService& configService);
 
@@ -157,7 +161,7 @@ private:
   void beginImageAnnotation(
       capture::ScreenshotImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath
   );
-  [[nodiscard]] capture::AnnotationToolState loadAnnotationToolState() const;
+  capture::AnnotationToolState loadAnnotationToolState() const;
   void persistAnnotationToolState(std::string_view key, std::string_view value);
   void deliverFrozenRegion(LogicalRect region, wl_output* output, const OutputOptions& options);
   void deliverFrozenGlobalRegion(LogicalRect globalRegion, const OutputOptions& options);
@@ -184,25 +188,28 @@ private:
   );
   bool
   finishDelivery(ScreencopyImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath);
+  void applyEditorBackdrop(OutputOptions& options) const;
+  void persistScreenshotBackdrop(const capture::ScreenshotBackdropSettings& backdrop);
+  capture::ScreenshotBackdropSettings loadScreenshotBackdrop() const;
   void onCaptureComplete(
-      std::optional<capture::ScreenshotImage> image, const std::string& error, OutputOptions options,
+      std::optional<capture::ScreenshotImage> image, const std::string& error, const OutputOptions& options,
       std::optional<std::filesystem::path> destPath
   );
-  [[nodiscard]] wl_output* preferredCaptureOutput() const;
+  wl_output* preferredCaptureOutput() const;
   // Focused window: compositor window id (Hyprland mapping or exact identity backend), else the
   // wlr activated toplevel matched by title and app id. Exact-identity backends fail explicitly
   // while the id join is pending instead of falling back to the title join.
-  [[nodiscard]] std::expected<ext_foreign_toplevel_handle_v1*, std::string> resolveFocusedCaptureTarget() const;
+  std::expected<ext_foreign_toplevel_handle_v1*, std::string> resolveFocusedCaptureTarget() const;
   // The annotator overlay takes compositor focus, so capture the target before it opens.
   void rememberAnnotationCaptureTarget();
-  [[nodiscard]] ext_foreign_toplevel_handle_v1* liveAnnotationCaptureTarget() const;
-  [[nodiscard]] std::filesystem::path outputDirectory(const OutputOptions& options) const;
-  [[nodiscard]] std::filesystem::path
+  ext_foreign_toplevel_handle_v1* liveAnnotationCaptureTarget() const;
+  std::filesystem::path outputDirectory(const OutputOptions& options) const;
+  std::filesystem::path
   makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix = 0) const;
   void notifySaved(const std::filesystem::path& path);
   void notifyError(const std::string& message);
   void rememberRegion(const LogicalRect& region);
-  [[nodiscard]] std::optional<LogicalRect> loadRememberedRegion() const;
+  std::optional<LogicalRect> loadRememberedRegion() const;
   void playCaptureSound();
 
   WaylandConnection& m_wayland;
@@ -236,7 +243,7 @@ struct ScreenshotIpcRequest {
 
 // Applies `noctalia msg <command>` flags on top of `base` (the [shell.screenshot] snapshot).
 // The error string is the complete IPC response: an "error: ...\n" line, or the help text.
-[[nodiscard]] std::expected<ScreenshotIpcRequest, std::string> parseScreenshotIpcRequest(
+std::expected<ScreenshotIpcRequest, std::string> parseScreenshotIpcRequest(
     const noctalia::cli::Command& command, std::string_view args, ScreenshotService::OutputOptions base,
     std::optional<std::string_view> callerCwd
 );

@@ -20,8 +20,7 @@ namespace util {
   // true invariant violation: keep std::clamp where hi >= lo is guaranteed, so a
   // genuine bug still surfaces loudly.
   template <typename T>
-  [[nodiscard]] T
-  clampOrdered(const T& value, const T& lo, const T& hi, std::source_location loc = std::source_location::current()) {
+  T clampOrdered(const T& value, const T& lo, const T& hi, std::source_location loc = std::source_location::current()) {
     if (lo <= hi) {
       return std::clamp(value, lo, hi);
     }

@@ -125,7 +125,7 @@ void GridView::doLayout(Renderer& renderer) {
 
   std::vector<Node*> visibleChildren;
   visibleChildren.reserve(children().size());
-  for (auto& child : children()) {
+  for (const auto& child : children()) {
     if (child->visible()) {
       visibleChildren.push_back(child.get());
     }

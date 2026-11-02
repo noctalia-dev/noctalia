@@ -11,7 +11,7 @@ public:
   virtual ~TextClipboard() = default;
 
   // Most recent plain-text clipboard selection currently known, if any.
-  [[nodiscard]] virtual std::optional<std::string> clipboardText() = 0;
+  virtual std::optional<std::string> clipboardText() = 0;
 
   // Replace the system clipboard selection with the given text.
   virtual void setClipboardText(std::string text) = 0;

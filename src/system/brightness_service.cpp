@@ -15,6 +15,7 @@
 #include <array>
 #include <atomic>
 #include <cctype>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
@@ -23,6 +24,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -310,7 +312,7 @@ namespace {
         continue;
       }
 
-      const auto drmConnectorPath = fs::canonical(drmClassPath + "/" + name, ec);
+      const auto drmConnectorPath = fs::canonical(fs::path(drmClassPath) / name, ec);
       if (ec) {
         continue;
       }
@@ -437,7 +439,12 @@ namespace {
       return std::nullopt;
     }
 
-    return std::atoi(std::string(input.substr(start, end - start)).c_str());
+    int value = 0;
+    const auto result = std::from_chars(input.data() + start, input.data() + end, value);
+    if (result.ec != std::errc{} || result.ptr != input.data() + end) {
+      return std::nullopt;
+    }
+    return value;
   }
 
   std::optional<int> parseI2cBus(std::string_view line) {
@@ -500,7 +507,7 @@ namespace {
     process::RunOptions options;
     options.timeout = timeout;
     options.cancel = cancel;
-    process::RunResult runResult = process::runSync(args, std::move(options));
+    process::RunResult runResult = process::runSync(args, options);
 
     std::string output = std::move(runResult.out);
     if (!runResult.err.empty()) {
@@ -583,7 +590,7 @@ namespace {
     DdcCandidate current;
     bool inDisplay = false;
 
-    auto flushCurrent = [&]() {
+    auto flushCurrent = [&] {
       if (cancel->load(std::memory_order_relaxed)) {
         current = DdcCandidate{};
         return;
@@ -749,7 +756,7 @@ struct BrightnessService::Impl {
       : bus(systemBus), wayland(compositorPlatform.wayland()), platform(compositorPlatform),
         activeConfig(std::move(config)) {
     setupPollFds();
-    workerThread = std::thread([this]() { workerLoop(); });
+    workerThread = std::thread([this] { workerLoop(); });
   }
 
   ~Impl() {
@@ -889,7 +896,7 @@ struct BrightnessService::Impl {
         continue;
       }
 
-      const std::string path = backlightDir + "/" + name;
+      const std::string path = std::format("{}/{}", backlightDir, name);
       const int maxBrightness = readSysfsInt(path + "/max_brightness");
       if (maxBrightness <= 0) {
         continue;
@@ -1715,7 +1722,7 @@ void BrightnessService::reload(const BrightnessConfig& config) { m_impl->reload(
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
-void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchChangePhase)> onBatchChange) {
+void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(BatchChangePhase)>& onBatchChange) {
   auto resolveTargets = [this,
                          &ipc](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
     if (!available()) {
@@ -1792,7 +1799,7 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchCha
     if (available()) {
       error += " (available: " + joinBrightnessDisplayIds(*this) + ")";
     }
-    error += "\n";
+    error += '\n';
     return false;
   };
 

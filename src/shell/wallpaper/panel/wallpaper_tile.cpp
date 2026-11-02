@@ -26,19 +26,17 @@ namespace {
     return tryParseHexColor(path.substr(kPrefix.size()), out);
   }
 
-  [[nodiscard]] float overlayControlSize(float contentScale) { return Style::controlHeightSm * contentScale; }
+  float overlayControlSize(float contentScale) { return Style::controlHeightSm * contentScale; }
 
   // Star hit box sits flush in the thumbnail's top-right corner, glyph centered inside it.
-  [[nodiscard]] float starButtonSize(float contentScale) { return overlayControlSize(contentScale); }
+  float starButtonSize(float contentScale) { return overlayControlSize(contentScale); }
 
-  [[nodiscard]] float starShadowOffset(float contentScale) { return std::max(0.5F, 1.0F * contentScale); }
+  float starShadowOffset(float contentScale) { return std::max(0.5F, 1.0F * contentScale); }
 
   // Theme-mode badge: a snug pill around its caption-sized glyph.
-  [[nodiscard]] float modeBadgeSize(float contentScale) {
-    return (Style::fontSizeCaption + Style::spaceXs * 2.0F) * contentScale;
-  }
+  float modeBadgeSize(float contentScale) { return (Style::fontSizeCaption + Style::spaceXs * 2.0F) * contentScale; }
 
-  [[nodiscard]] float activeThumbScale(bool selected, bool current, bool hovered) {
+  float activeThumbScale(bool selected, bool current, bool hovered) {
     if (selected || current) {
       return 1.04F;
     }
@@ -57,8 +55,7 @@ namespace {
     glyph->setShadow(colorSpecFromRole(ColorRole::Shadow, 0.58F), 0.0F, offset);
   }
 
-  [[nodiscard]] bool
-  starRegionContains(float cellWidth, float /*cellHeight*/, float contentScale, float localX, float localY) {
+  bool starRegionContains(float cellWidth, float /*cellHeight*/, float contentScale, float localX, float localY) {
     const float padding = Style::spaceXs * contentScale;
     const float frameWidth = std::max(0.0F, cellWidth - padding * 2.0F);
     const float btnSize = starButtonSize(contentScale);
@@ -106,7 +103,7 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
       m_onEnter();
     }
   });
-  setOnLeave([this]() {
+  setOnLeave([this] {
     if (m_hasEntry && m_onLeave) {
       m_onLeave();
     }
@@ -455,7 +452,7 @@ void WallpaperTile::refreshThumbnail(Renderer& renderer) {
     if (m_thumbTargetPx > 0) {
       m_thumbnails->release(m_thumbPath, m_thumbTargetPx);
     }
-    (void)m_thumbnails->acquire(m_thumbPath, targetPx);
+    m_thumbnails->acquire(m_thumbPath, targetPx);
     m_thumbTargetPx = targetPx;
   }
   if (m_thumbTargetPx <= 0) {
@@ -590,7 +587,7 @@ void WallpaperTile::animateThumbScale(float targetScale) {
 
   m_thumbScaleAnimId = animationManager()->animate(
       m_thumbScale, targetScale, Style::animFast, Easing::EaseOutCubic, [this](float value) { applyThumbScale(value); },
-      [this]() { m_thumbScaleAnimId = 0; }, this
+      [this] { m_thumbScaleAnimId = 0; }, this
   );
   markPaintDirty();
 }
@@ -638,16 +635,16 @@ void WallpaperTile::applyVisualState() {
   ColorSpec borderColor = m_selected ? colorSpecFromRole(ColorRole::Primary)
       : m_current                    ? colorSpecFromRole(ColorRole::Secondary)
       : m_hoveredVisual              ? colorSpecFromRole(ColorRole::Hover)
-                                     : colorSpecFromRole(ColorRole::Outline);
+                                     : colorSpecFromRole(ColorRole::OutlineVariant);
   ColorSpec labelColor =
       m_current ? colorSpecFromRole(ColorRole::Secondary) : colorSpecFromRole(ColorRole::OnSurfaceVariant);
-  ColorSpec frameBg = colorSpecFromRole(ColorRole::SurfaceVariant);
+  ColorSpec frameBg = colorSpecFromRole(ColorRole::SurfaceContainer);
   m_label->setColor(labelColor);
 
   m_thumbHost->setFill(frameBg);
   if (m_entry.isDir) {
     m_thumbHost->setBorder(borderColor, outlineWidth);
-    m_thumb->setBorder(colorSpecFromRole(ColorRole::Outline), outlineWidth);
+    m_thumb->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), outlineWidth);
   } else {
     m_thumbHost->clearBorder();
     m_thumb->setBorder(borderColor, outlineWidth);

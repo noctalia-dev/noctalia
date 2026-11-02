@@ -75,9 +75,9 @@ public:
   void onSystemResumed();
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
-  [[nodiscard]] bool isActive() const noexcept;
-  [[nodiscard]] bool isSessionLocked() const noexcept;
-  [[nodiscard]] bool isReadyForSleep() const;
+  bool isActive() const noexcept;
+  bool isSessionLocked() const noexcept;
+  bool isReadyForSleep() const;
   /// Revoke passwordless unlock and wait for an uncovered lock frame before sleep.
   void prepareForSleep();
   /// Finish entry and acknowledge the safe lock buffers before powering off.
@@ -85,6 +85,8 @@ public:
   void prepareForOutputPowerOff(std::function<void(bool)> done);
   void cancelOutputPowerOff();
   void onOutputPowerChanged();
+  /// Outputs were powered back on; keys right after this are wake keys.
+  void markOutputsWoke();
 
   template <typename Fn> void forEachSurface(Fn&& fn) {
     for (auto& instance : m_instances) {
@@ -116,8 +118,8 @@ private:
   void syncInstances();
   [[nodiscard]] bool captureDesktopSnapshots();
   void invalidateDesktopCaptures();
-  [[nodiscard]] bool shouldCaptureDesktop() const;
-  [[nodiscard]] bool allSurfacesReady() const;
+  bool shouldCaptureDesktop() const;
+  bool allSurfacesReady() const;
   bool tryFlushPendingAfterLocked();
   void dispatchPendingAfterLocked(bool timedOut = false);
   void cancelPendingAfterLocked();
@@ -129,8 +131,8 @@ private:
   void applyLockscreenStyle(LockSurface& surface) const;
   void applyOutputRestriction();
   void applyWallpaperStyleToSurfaces();
-  [[nodiscard]] bool isInteractiveOutput(const WaylandOutput& output) const;
-  [[nodiscard]] std::string wallpaperPathForOutput(const std::string& connectorName) const;
+  bool isInteractiveOutput(const WaylandOutput& output) const;
+  std::string wallpaperPathForOutput(const std::string& connectorName) const;
   void createInstance(const WaylandOutput& output);
   void chooseTransition();
   void handleTransitionStateChanged();
@@ -145,7 +147,7 @@ private:
   void cycleKeyboardLayout();
   void handlePasswordEdited(const std::string& value);
   void tryAuthenticate();
-  void handleAuthResult(std::uint64_t generation, PamAuthenticator::Result result);
+  void handleAuthResult(std::uint64_t generation, const PamAuthenticator::Result& result);
   void invalidatePendingAuthentication();
   void startFingerprint();
   void stopFingerprint();
@@ -153,8 +155,11 @@ private:
   static void clearSensitiveString(std::string& value);
   /// Passwordless grace window: any keypress or pointer movement beyond 5px unlocks
   /// without a password while the window is live (matches hyprlock).
-  [[nodiscard]] bool isInGracePeriod() const noexcept;
+  bool isInGracePeriod() const noexcept;
   void tryGraceUnlock();
+  /// Runs the lock-screen action bound to this chord. True when the chord is bound
+  /// (even if suppressed as a wake key), so the key is consumed.
+  bool tryActionShortcut(std::uint32_t sym, std::uint32_t modifiers);
 
   WaylandConnection* m_wayland = nullptr;
   RenderContext* m_renderContext = nullptr;
@@ -205,6 +210,8 @@ private:
   // CLOCK_BOOTTIME millis when the lock flow started; grace expires gracePeriodSeconds after it.
   std::int64_t m_lockedAtMillis = 0;
   bool m_graceAllowed = false;
+  // CLOCK_BOOTTIME millis of the last resume or output power-on; guards wake keys.
+  std::int64_t m_wokeAtMillis = 0;
   double m_pointerEnterX = 0.0;
   double m_pointerEnterY = 0.0;
   Timer m_unlockTransitionTimer;

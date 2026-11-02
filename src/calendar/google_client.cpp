@@ -95,7 +95,7 @@ namespace calendar {
       std::size_t pending = 0;
       bool unauthorized = false;
       std::vector<CalendarEvent> events;
-      std::function<void(bool, bool, std::vector<CalendarEvent>)> cb;
+      std::function<void(SyncFailure, std::vector<CalendarEvent>)> cb;
     };
 
     void parseEventsInto(const nlohmann::json& j, const CalendarMeta& meta, std::vector<CalendarEvent>& out) {
@@ -177,7 +177,7 @@ namespace calendar {
 
   void GoogleClient::fetchEvents(
       const std::string& accessToken, std::chrono::system_clock::time_point start,
-      std::chrono::system_clock::time_point end, std::function<void(bool, bool, std::vector<CalendarEvent>)> cb
+      std::chrono::system_clock::time_point end, std::function<void(SyncFailure, std::vector<CalendarEvent>)> cb
   ) {
     const std::string bearer = "Authorization: Bearer " + accessToken;
 
@@ -188,13 +188,12 @@ namespace calendar {
     listReq.headers = {bearer};
 
     m_http.request(std::move(listReq), [this, bearer, start, end, cb = std::move(cb)](HttpResponse resp) mutable {
-      if (resp.transportOk && resp.status == 401) {
-        cb(false, true, {});
-        return;
-      }
       if (!resp.transportOk || resp.status != 200) {
-        kLog.warn("calendarList failed http={}", resp.status);
-        cb(false, false, {});
+        if (resp.status != 401) {
+          // 401 is not logged, because that's the normal case of a cached token expiring
+          kLog.warn("calendarList failed http={}", resp.status);
+        }
+        cb(syncFailureFromResponse(resp), {});
         return;
       }
 
@@ -217,12 +216,12 @@ namespace calendar {
         }
       } catch (const std::exception& e) {
         kLog.warn("calendarList parse error: {}", e.what());
-        cb(false, false, {});
+        cb(SyncFailure::InvalidResponse, {});
         return;
       }
 
       if (calendars.empty()) {
-        cb(true, false, {});
+        cb(SyncFailure::None, {});
         return;
       }
 
@@ -258,8 +257,7 @@ namespace calendar {
           }
 
           if (--ctx->pending == 0) {
-            const bool ok = !ctx->unauthorized;
-            ctx->cb(ok, ctx->unauthorized, std::move(ctx->events));
+            ctx->cb(ctx->unauthorized ? SyncFailure::Authentication : SyncFailure::None, std::move(ctx->events));
           }
         });
       }

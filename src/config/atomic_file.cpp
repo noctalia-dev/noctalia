@@ -8,7 +8,7 @@
 #include <utility>
 
 namespace {
-  [[nodiscard]] mode_t toMode(std::filesystem::perms mode) {
+  mode_t toMode(std::filesystem::perms mode) {
     return static_cast<mode_t>(static_cast<unsigned>(mode & std::filesystem::perms::all));
   }
 
@@ -36,7 +36,7 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] std::filesystem::path
+  std::filesystem::path
   resolveRelativeSymlinkTarget(const std::filesystem::path& linkPath, std::filesystem::path target) {
     if (target.is_relative()) {
       target = linkPath.parent_path() / target;

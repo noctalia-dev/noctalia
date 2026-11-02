@@ -138,8 +138,7 @@ void DmenuProvider::ensureLoaded() const {
                 if (result.timedOut || (!result && lines.empty())) {
                   kLog.warn("[{}] command failed (exit {})", entryId, result.exitCode);
                 }
-                DeferredCall::callLater([this, alive = std::move(alive), generation,
-                                         lines = std::move(lines)]() mutable {
+                DeferredCall::callLater([this, alive = std::move(alive), generation, lines = std::move(lines)] mutable {
                   if (!alive || !alive->load(std::memory_order_relaxed) || generation != m_generation) {
                     return;
                   }

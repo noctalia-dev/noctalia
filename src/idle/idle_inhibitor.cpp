@@ -172,7 +172,7 @@ void IdleInhibitor::resyncAnchorSurfaces() {
   syncInhibitor(false);
 }
 
-void IdleInhibitor::registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback) {
+void IdleInhibitor::registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback) {
   ipc.bind(noctalia::cli::msg::caffeineEnable, [this, stateFeedback](const std::string&) -> std::string {
     if (!available())
       return "error: caffeine protocol unavailable\n";

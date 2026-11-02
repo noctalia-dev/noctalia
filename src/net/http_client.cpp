@@ -37,14 +37,14 @@ namespace {
     if (!cb) {
       return;
     }
-    DeferredCall::callLater([cb = std::move(cb)]() { cb(false); });
+    DeferredCall::callLater([cb = std::move(cb)] { cb(false); });
   }
 
   void deferFailures(std::vector<HttpClient::CompletionCallback> callbacks) {
     if (callbacks.empty()) {
       return;
     }
-    DeferredCall::callLater([callbacks = std::move(callbacks)]() mutable {
+    DeferredCall::callLater([callbacks = std::move(callbacks)] mutable {
       for (auto& callback : callbacks) {
         if (callback) {
           callback(false);
@@ -57,14 +57,14 @@ namespace {
     if (!cb) {
       return;
     }
-    DeferredCall::callLater([cb = std::move(cb)]() mutable { cb(HttpResponse{}); });
+    DeferredCall::callLater([cb = std::move(cb)] mutable { cb(HttpResponse{}); });
   }
 
   void deferStreamClose(HttpClient::StreamCloseCallback cb) {
     if (!cb) {
       return;
     }
-    DeferredCall::callLater([cb = std::move(cb)]() mutable { cb(HttpStreamResult{}); });
+    DeferredCall::callLater([cb = std::move(cb)] mutable { cb(HttpStreamResult{}); });
   }
 
   std::size_t captureResponse(char* ptr, std::size_t size, std::size_t nmemb, void* userdata) {
@@ -261,10 +261,10 @@ void HttpClient::download(std::vector<std::string> urls, const std::filesystem::
   state->urls = std::move(urls);
   state->destPath = destPath;
   state->callback = std::move(cb);
-  downloadSequential(std::move(state));
+  downloadSequential(state);
 }
 
-void HttpClient::downloadSequential(std::shared_ptr<SequentialDownload> state) {
+void HttpClient::downloadSequential(const std::shared_ptr<SequentialDownload>& state) {
   const std::size_t index = state->index;
   // The captured shared state keeps urls/dest/callback alive across async hops;
   // advance to the next candidate only when the current one fails.
@@ -737,6 +737,7 @@ void HttpClient::finishRequestTransfer(CURL* easy, CURLcode result) {
 
   HttpResponse response;
   response.transportOk = result == CURLE_OK;
+  response.timedOut = result == CURLE_OPERATION_TIMEDOUT;
   response.status = responseCode;
   response.body = std::move(transfer.response);
   response.headers = std::move(transfer.responseHeaders);

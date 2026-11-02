@@ -1,13 +1,13 @@
 #pragma once
 
-#include "app/poll_source.h"
 #include "compositors/compositor_platform.h"
+#include "core/poll_source.h"
 
 class WorkspacePollSource final : public PollSource {
 public:
   explicit WorkspacePollSource(CompositorPlatform& platform) : m_platform(platform) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override { return m_platform.workspacePollTimeoutMs(); }
+  int pollTimeoutMs() const override { return m_platform.workspacePollTimeoutMs(); }
 
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override {
     m_platform.dispatchWorkspacePoll(fds, startIdx);

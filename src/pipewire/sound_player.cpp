@@ -25,6 +25,17 @@ namespace {
   // A stream that WirePlumber never links to a sink gets no callbacks at all; give up on it after this long.
   constexpr auto kStreamStartTimeout = std::chrono::seconds(5);
 
+  class ThreadLoopLock {
+  public:
+    explicit ThreadLoopLock(pw_thread_loop* loop) : m_loop(loop) { pw_thread_loop_lock(m_loop); }
+    ~ThreadLoopLock() { pw_thread_loop_unlock(m_loop); }
+    ThreadLoopLock(const ThreadLoopLock&) = delete;
+    ThreadLoopLock& operator=(const ThreadLoopLock&) = delete;
+
+  private:
+    pw_thread_loop* m_loop;
+  };
+
   namespace fs = std::filesystem;
   constexpr std::array<std::string_view, 4> kExtensions = {".disabled", ".oga", ".ogg", ".wav"};
 
@@ -166,10 +177,22 @@ namespace {
 
 } // namespace
 
-SoundPlayer::SoundPlayer(pw_loop* loop) : m_loop(loop) {
-  if (m_loop != nullptr) {
-    m_streamCloseTimer = pw_loop_add_timer(m_loop, onStreamCloseTimer, this);
-    m_startTimeoutTimer = pw_loop_add_timer(m_loop, onStartTimeoutTimer, this);
+SoundPlayer::SoundPlayer() {
+  m_threadLoop = pw_thread_loop_new("noctalia-sound", nullptr);
+  if (m_threadLoop == nullptr) {
+    kLog.warn("failed to create sound playback loop");
+    return;
+  }
+  m_loop = pw_thread_loop_get_loop(m_threadLoop);
+  m_streamCloseTimer = pw_loop_add_timer(m_loop, onStreamCloseTimer, this);
+  m_startTimeoutTimer = pw_loop_add_timer(m_loop, onStartTimeoutTimer, this);
+  if (m_streamCloseTimer == nullptr || m_startTimeoutTimer == nullptr || pw_thread_loop_start(m_threadLoop) < 0) {
+    kLog.warn("failed to start sound playback loop");
+    pw_thread_loop_destroy(m_threadLoop);
+    m_threadLoop = nullptr;
+    m_loop = nullptr;
+    m_streamCloseTimer = nullptr;
+    m_startTimeoutTimer = nullptr;
   }
 }
 
@@ -202,16 +225,25 @@ void SoundPlayer::setTheme(std::string theme) {
     return;
   }
 
-  std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>> buffers;
+  m_theme = std::move(theme);
+  loadThemeSounds();
+}
+
+void SoundPlayer::loadThemeSounds() {
+  m_buffers.clear();
+  if (!m_shellSoundsEnabled || m_theme.empty()) {
+    return;
+  }
+
   for (const std::string_view event :
        {kEventNotification, kEventVolumeChange, kEventPowerPlug, kEventPowerUnplug, kEventScreenCapture}) {
-    const auto result = findThemeSound(event, theme);
+    const auto result = findThemeSound(event, m_theme);
     if (result.state == ThemeSoundLookupState::Disabled) {
-      kLog.info("sound theme '{}': event '{}' is disabled", theme, event);
+      kLog.info("sound theme '{}': event '{}' is disabled", m_theme, event);
       continue;
     }
     if (result.state == ThemeSoundLookupState::NotFound) {
-      kLog.error("sound theme '{}' is missing sound '{}'", theme, event);
+      kLog.error("sound theme '{}' is missing sound '{}'", m_theme, event);
       continue;
     }
 
@@ -220,15 +252,15 @@ void SoundPlayer::setTheme(std::string theme) {
       kLog.warn("failed to load sound \"{}\" from {}: {}", event, result.path.string(), *error);
       continue;
     }
-    buffers[std::string(event)] = std::make_shared<const SoundBuffer>(std::move(buffer));
-    kLog.info("sound theme '{}': loaded {} for event '{}'", theme, result.path.c_str(), event);
+    m_buffers[std::string(event)] = std::make_shared<const SoundBuffer>(std::move(buffer));
+    kLog.info("sound theme '{}': loaded {} for event '{}'", m_theme, result.path.c_str(), event);
   }
-
-  m_buffers = std::move(buffers);
-  m_theme = std::move(theme);
 }
 
 SoundPlayer::~SoundPlayer() {
+  if (m_threadLoop != nullptr) {
+    pw_thread_loop_stop(m_threadLoop);
+  }
   if (m_streamCloseTimer != nullptr) {
     pw_loop_destroy_source(m_loop, m_streamCloseTimer);
     m_streamCloseTimer = nullptr;
@@ -245,6 +277,9 @@ SoundPlayer::~SoundPlayer() {
     }
   }
   m_active.clear();
+  if (m_threadLoop != nullptr) {
+    pw_thread_loop_destroy(m_threadLoop);
+  }
 }
 
 std::optional<std::string> SoundPlayer::decode(const fs::path& path, SoundBuffer& out) {
@@ -319,6 +354,8 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
     return;
   }
 
+  // Audio callbacks and stream cleanup run independently of the shell's UI loop.
+  const ThreadLoopLock lock(m_threadLoop);
   removeFinished();
 
   for (const auto& active : m_active) {
@@ -368,7 +405,13 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
   armStartTimeout();
 }
 
-void SoundPlayer::setShellSoundsEnabled(bool enabled) { m_shellSoundsEnabled = enabled; }
+void SoundPlayer::setShellSoundsEnabled(bool enabled) {
+  if (m_shellSoundsEnabled == enabled) {
+    return;
+  }
+  m_shellSoundsEnabled = enabled;
+  loadThemeSounds();
+}
 
 void SoundPlayer::setEventEnabled(std::string_view event, bool enabled) {
   if (enabled) {
@@ -378,7 +421,15 @@ void SoundPlayer::setEventEnabled(std::string_view event, bool enabled) {
   }
 }
 
-void SoundPlayer::setVolume(float volume) { m_volume = std::clamp(volume, 0.0F, 1.0F); }
+void SoundPlayer::setVolume(float volume) {
+  const float clamped = std::clamp(volume, 0.0F, 1.0F);
+  if (m_threadLoop == nullptr) {
+    m_volume = clamped;
+    return;
+  }
+  const ThreadLoopLock lock(m_threadLoop);
+  m_volume = clamped;
+}
 
 void SoundPlayer::onProcess(void* userdata) {
   auto* streamState = static_cast<ActiveStream*>(userdata);
@@ -463,7 +514,7 @@ void SoundPlayer::processStream(ActiveStream& streamState) {
 
   if (streamState.cursor >= sampleCount && !streamState.draining) {
     streamState.draining = true;
-    (void)pw_stream_flush(streamState.stream, true);
+    pw_stream_flush(streamState.stream, true);
   }
 }
 

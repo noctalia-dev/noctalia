@@ -57,17 +57,6 @@ namespace {
               .vertical = popup_chrome::VerticalAttachment::Bottom,
           },
       };
-    } else if (barPosition == "top") {
-      anchor.placement = ContextMenuPopupPlacement{
-          .anchor = XDG_POSITIONER_ANCHOR_BOTTOM,
-          .gravity = XDG_POSITIONER_GRAVITY_BOTTOM,
-          .offsetX = 0,
-          .offsetY = gap,
-          .chromeAttachment = popup_chrome::Attachment{
-              .horizontal = popup_chrome::HorizontalAttachment::Center,
-              .vertical = popup_chrome::VerticalAttachment::Top,
-          },
-      };
     } else if (barPosition == "left") {
       anchor.placement = ContextMenuPopupPlacement{
           .anchor = XDG_POSITIONER_ANCHOR_RIGHT,

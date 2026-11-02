@@ -8,7 +8,7 @@ class EffectNode : public Node {
 public:
   EffectNode() : Node(NodeType::Effect) {}
 
-  [[nodiscard]] const EffectStyle& style() const noexcept { return m_style; }
+  const EffectStyle& style() const noexcept { return m_style; }
 
   void setEffectType(EffectType type) {
     if (m_style.type == type) {

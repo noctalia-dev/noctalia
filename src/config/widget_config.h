@@ -10,12 +10,12 @@ namespace noctalia::config {
 
   void seedBuiltinWidgets(Config& config);
 
-  [[nodiscard]] std::optional<WidgetSettingValue> readWidgetSettingValue(const toml::node& node);
+  std::optional<WidgetSettingValue> readWidgetSettingValue(const toml::node& node);
 
   // Resolves one `[widget.<name>]` table against the config parsed so far. This
   // is the canonical bar-widget instance resolution used by runtime loading and
   // `config validate`.
-  [[nodiscard]] WidgetConfig
+  WidgetConfig
   readBarWidgetConfig(std::string_view widgetName, const toml::table& entryTable, const Config& baseConfig);
 
 } // namespace noctalia::config

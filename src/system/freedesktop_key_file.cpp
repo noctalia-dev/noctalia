@@ -1,6 +1,7 @@
 #include "system/freedesktop_key_file.h"
 
 #include <cctype>
+#include <format>
 #include <fstream>
 #include <string_view>
 
@@ -164,7 +165,9 @@ namespace freedesktop {
       auto& values = result.file.m_sections.at(currentSection);
       const auto [it, inserted] = values.insert_or_assign(key, value);
       if (!inserted) {
-        result.diagnostics.push_back({lineNumber, "duplicate key '" + key + "' in section '" + currentSection + "'"});
+        result.diagnostics.push_back(
+            {lineNumber, std::format("duplicate key '{}' in section '{}'", key, currentSection)}
+        );
       }
       (void)it;
     }

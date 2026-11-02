@@ -98,7 +98,7 @@ namespace {
         dlclose(library);
         return;
       }
-      (void)loadDlsymFunction(library, "heif_image_is_premultiplied_alpha", api.imageIsPremultipliedAlpha);
+      loadDlsymFunction(library, "heif_image_is_premultiplied_alpha", api.imageIsPremultipliedAlpha);
 
       // heif_init() loads external codec plugins (distributions ship the AV1/HEVC decoders that
       // way). Libraries older than 1.13 lack it and only have built-in codecs.
@@ -109,7 +109,7 @@ namespace {
           kLog.debug("heif_init failed: {}", err.message != nullptr ? err.message : "unknown error");
         }
       }
-      (void)dlerror();
+      dlerror();
 
       available = true;
       kLog.debug("loaded libheif.so.1");
@@ -151,12 +151,7 @@ namespace {
         "heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs", "mif1", "msf1", "avif", "avis",
     };
     const std::string_view candidate(reinterpret_cast<const char*>(brand), 4);
-    for (const std::string_view known : kBrands) {
-      if (candidate == known) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::contains(kBrands, candidate);
   }
 
 } // namespace

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/annotation_document.h"
+#include "capture/screenshot_backdrop.h"
 #include "capture/screenshot_image.h"
 
 #include <array>
@@ -13,6 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
+class Button;
 class Flex;
 class Renderer;
 class RenderContext;
@@ -50,15 +52,14 @@ namespace capture {
     std::array<AnnotationColor, kAnnotationToolCount> color{};
     std::array<double, kAnnotationToolCount> width{};
     AnnotationFillMode fill = AnnotationFillMode::Off;
-    // Fine size stepper revealed, and each output's dragged toolbar spot; both survive across runs.
-    bool advancedSize = false;
+    // Each output's dragged toolbar spot survives across runs.
     std::unordered_map<std::string, AnnotationPoint> toolbarPositions;
   };
 
-  [[nodiscard]] AnnotationToolState defaultAnnotationToolState();
+  AnnotationToolState defaultAnnotationToolState();
 
-  [[nodiscard]] std::string_view annotationFillModeName(AnnotationFillMode mode) noexcept;
-  [[nodiscard]] std::optional<AnnotationFillMode> annotationFillModeFromName(std::string_view name) noexcept;
+  std::string_view annotationFillModeName(AnnotationFillMode mode) noexcept;
+  std::optional<AnnotationFillMode> annotationFillModeFromName(std::string_view name) noexcept;
 
   class AnnotationOverlay {
   public:
@@ -70,6 +71,9 @@ namespace capture {
     using FailureCallback = std::function<void(const std::string& message)>;
     using FeedbackCallback = std::function<void(const std::string& message)>;
     using StateSetter = std::function<void(std::string_view key, std::string_view value)>;
+    using BackdropConfig = ScreenshotBackdropSettings;
+    // Fired once when the editor closes, if the backdrop panel changed anything.
+    using BackdropChangedCallback = std::function<void(const BackdropConfig& backdrop)>;
 
     AnnotationOverlay();
     ~AnnotationOverlay();
@@ -83,14 +87,22 @@ namespace capture {
     void setFailureCallback(FailureCallback callback);
     void setFeedbackCallback(FeedbackCallback callback);
     void setStateSetter(StateSetter setter);
+    void setBackdropChangedCallback(BackdropChangedCallback callback);
 
-    void setToolState(AnnotationToolState state);
-    [[nodiscard]] const AnnotationToolState& toolState() const noexcept { return m_tools; }
+    // Image mode previews this backdrop around the capture and edits it from the backdrop panel; it is the
+    // only source of the screenshot backdrop. Set it before beginImage(); the canvas reserves room for
+    // the padding it starts with.
+    void setScreenshotBackdrop(const BackdropConfig& backdrop);
+    const BackdropConfig& screenshotBackdrop() const noexcept { return m_backdrop; }
+
+    void setToolState(const AnnotationToolState& state);
+    const AnnotationToolState& toolState() const noexcept { return m_tools; }
 
     // Empty vector selects Live, a non-empty one Frozen.
     void setFrozenScreenshots(std::vector<FrozenScreenshot> frozen);
     void setCursorVisible(bool visible);
-    [[nodiscard]] bool cursorVisible() const noexcept;
+    bool cursorVisible() const noexcept;
+    void setCopyOnClose(bool copy) noexcept { m_copyOnClose = copy; }
 
     void begin();
     void beginImage(ScreenshotImage image, wl_output* target);
@@ -100,28 +112,46 @@ namespace capture {
     void cancel();
     void onOutputChange();
 
-    [[nodiscard]] bool isActive() const noexcept { return m_active; }
-    [[nodiscard]] AnnotationMode mode() const noexcept { return m_mode; }
-    [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
-    [[nodiscard]] bool onKeyboardEvent(const KeyboardEvent& event);
+    bool isActive() const noexcept { return m_active; }
+    AnnotationMode mode() const noexcept { return m_mode; }
+    bool onPointerEvent(const PointerEvent& event);
+    bool onKeyboardEvent(const KeyboardEvent& event);
 
   private:
     struct Instance;
 
     void ensureSurfaces();
     void destroySurfaces();
-    [[nodiscard]] bool surfacesMatchOutputs() const;
+    bool surfacesMatchOutputs() const;
     void prepareFrame(Instance& instance, bool needsUpdate, bool needsLayout);
     void buildScene(Instance& instance);
     [[nodiscard]] std::unique_ptr<Flex> buildToolbar(Instance& instance);
+    [[nodiscard]] std::unique_ptr<Flex> buildBackdropPanel(Instance& instance);
+    void refreshBackdropPanel(Instance& instance, Renderer* renderer);
+    void positionBackdropPanel(Instance& instance);
+    void updateBackdropPreview(Instance& instance, Renderer& renderer);
+    void toggleBackdropPanel();
+    void editBackdrop(const std::function<void(BackdropConfig&)>& edit);
+    bool backdropPanelInputFocused(const Instance& instance) const;
+    [[nodiscard]] std::unique_ptr<Flex> buildStrokePanel(Instance& instance);
+    void refreshStrokePanel(Instance& instance, Renderer* renderer);
+    void toggleStrokePanel();
+    [[nodiscard]] std::unique_ptr<Flex> buildZoomPanel(Instance& instance);
+    void refreshZoomPanel(Instance& instance, Renderer* renderer);
+    void toggleZoomPanel();
+    void positionPopover(Instance& instance, Flex* panel, const Button* anchor);
     void refreshToolbar(Instance& instance, Renderer* renderer);
     void positionToolbar(Instance& instance);
     void syncToolbarPositionsForConnectedOutputs();
     void beginToolbarDrag(Instance& instance);
     void dragToolbarTo(double surfaceX, double surfaceY);
-    [[nodiscard]] std::size_t nearestSizePreset(AnnotationTool tool) const;
+    void applyCanvasView(Instance& instance);
+    void zoomViewTo(Instance& instance, double anchorX, double anchorY, double factor);
+    void zoomViewByButton(Instance& instance, double factor);
+    void resetView(Instance& instance);
+    void clampView(Instance& instance);
+    std::size_t nearestSizePreset(AnnotationTool tool) const;
     void applySizePreset(std::size_t index);
-    void toggleAdvancedSize();
     void layoutCanvas(Instance& instance);
     void redrawCommitted(Instance& instance);
     void redrawActive(Instance& instance, std::optional<AnnotationRect> changedBounds = std::nullopt);
@@ -130,12 +160,12 @@ namespace capture {
     void foldIntoCommitted(Instance& instance, const Annotation& annotation);
     void abortWithError(const std::string& message);
 
-    [[nodiscard]] const ScreenshotImage* screenshot(const Instance& instance) const;
-    [[nodiscard]] const char* cursorTooltipKey(const Instance& instance) const;
-    [[nodiscard]] const ScreencopyImage* background(const Instance& instance) const;
-    [[nodiscard]] AnnotationDocument& documentFor(const Instance& instance);
-    [[nodiscard]] Instance* instanceForSurface(const void* surface);
-    [[nodiscard]] Instance* exportTarget();
+    const ScreenshotImage* screenshot(const Instance& instance) const;
+    const char* cursorTooltipKey(const Instance& instance) const;
+    const ScreencopyImage* background(const Instance& instance) const;
+    AnnotationDocument& documentFor(const Instance& instance);
+    Instance* instanceForSurface(const void* surface);
+    Instance* exportTarget();
     void requestRedrawAll();
     void requestFullRefresh();
     void markCommittedFullRedraw();
@@ -147,8 +177,8 @@ namespace capture {
     void cancelTextEdit();
     void commitPendingText();
     void restyleActiveText();
-    [[nodiscard]] bool handleTextKey(const KeyboardEvent& event);
-    [[nodiscard]] bool handleToolKey(std::uint32_t sym);
+    bool handleTextKey(const KeyboardEvent& event);
+    bool handleToolKey(std::uint32_t sym);
 
     void selectTool(AnnotationTool tool);
     void setToolColor(AnnotationColor color);
@@ -161,6 +191,7 @@ namespace capture {
     void requestCaptureRegion();
     void requestCaptureWindow();
     void toggleCursor(Instance* instance = nullptr);
+    void requestClose();
     void closeOverlay();
     void persistToolState();
 
@@ -178,6 +209,7 @@ namespace capture {
     FailureCallback m_onFailure;
     FeedbackCallback m_onFeedback;
     StateSetter m_stateSetter;
+    BackdropChangedCallback m_onBackdropChanged;
 
     std::vector<std::unique_ptr<Instance>> m_instances;
     std::unordered_map<wl_output*, AnnotationDocument> m_documents;
@@ -189,6 +221,7 @@ namespace capture {
     AnnotationToolState m_tools = defaultAnnotationToolState();
     bool m_active = false;
     bool m_cursorVisible = false;
+    bool m_copyOnClose = false;
 
     // One gesture at a time, owned by the instance the press landed on.
     Instance* m_gestureInstance = nullptr;
@@ -199,6 +232,13 @@ namespace capture {
     bool m_moved = false;
     bool m_cropDragging = false;
     AnnotationPoint m_cropStart{};
+
+    // Ctrl+drag pans the view transform, anchored at the press in surface coordinates.
+    Instance* m_panInstance = nullptr;
+    double m_panAnchorX = 0.0;
+    double m_panAnchorY = 0.0;
+    double m_panStartX = 0.0;
+    double m_panStartY = 0.0;
 
     Instance* m_textInstance = nullptr;
     std::optional<std::size_t> m_textIndex;
@@ -212,8 +252,16 @@ namespace capture {
     Instance* m_toolbarDragInstance = nullptr;
     float m_toolbarGrabX = 0.0F;
     float m_toolbarGrabY = 0.0F;
-    bool m_advancedSize = false;
+    bool m_strokePanelOpen = false;
+    bool m_zoomPanelOpen = false;
     bool m_syncingSizePreset = false;
+
+    BackdropConfig m_backdrop;
+    bool m_backdropEdited = false;
+    bool m_backdropPanelOpen = false;
+    // Padding the Image-mode canvas was fitted around. Fixed for the session because the document
+    // stores annotations in canvas coordinates, so the canvas must not resize under them.
+    int m_backdropLayoutPadding = 0;
 
     std::vector<std::uint8_t> m_uploadScratch;
   };

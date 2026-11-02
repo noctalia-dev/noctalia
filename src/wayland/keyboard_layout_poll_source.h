@@ -1,7 +1,7 @@
 #pragma once
 
-#include "app/poll_source.h"
 #include "compositors/compositor_platform.h"
+#include "core/poll_source.h"
 
 class KeyboardLayoutPollSource final : public PollSource {
 public:

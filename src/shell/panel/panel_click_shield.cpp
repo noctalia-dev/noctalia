@@ -91,7 +91,7 @@ bool PanelClickShield::ensureSharedBuffer() {
 }
 
 void PanelClickShield::activate(
-    const std::vector<wl_output*>& outputs, LayerShellLayer layer, ExcludeProvider excludeProvider
+    const std::vector<wl_output*>& outputs, LayerShellLayer layer, const ExcludeProvider& excludeProvider
 ) {
   if (m_wayland == nullptr) {
     return;

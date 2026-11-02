@@ -45,7 +45,7 @@ namespace {
       }
     }
 
-    const std::string id = StringUtils::generateUuid();
+    std::string id = StringUtils::generateUuid();
     if (id.empty()) {
       return {};
     }

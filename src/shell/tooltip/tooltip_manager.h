@@ -2,7 +2,7 @@
 
 #include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "render/scene/tooltip_content.h"
 #include "ui/signal.h"
 
 #include <memory>
@@ -56,13 +56,13 @@ private:
   void dismissPopup();
   void scheduleDestroyPopup();
   void destroyPopup();
-  [[nodiscard]] bool canRetargetPopup() const;
+  bool canRetargetPopup() const;
   void refreshFromArea(InputArea* area);
   void refreshPopupContent();
   void scheduleProviderRefresh();
   Size measureContent(Renderer& renderer, const TooltipContent& content);
   // Configured render scale of m_pendingOutput, for pre-surface measurement.
-  [[nodiscard]] float pendingOutputScale() const;
+  float pendingOutputScale() const;
   void buildScene(const TooltipContent& content, float w, float h, float opacity = 0.0F);
   void prepareFrame(bool needsUpdate, bool needsLayout);
 

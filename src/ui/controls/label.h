@@ -33,7 +33,7 @@ enum class LabelBaselineMode : std::uint8_t {
 
 // Map a plugin-facing baseline token ("text", "textFixedHeight", "inkCentered",
 // "pictographic") to a mode. Returns nullopt for an unknown token.
-[[nodiscard]] std::optional<LabelBaselineMode> labelBaselineModeFromToken(std::string_view token);
+std::optional<LabelBaselineMode> labelBaselineModeFromToken(std::string_view token);
 
 class Label : public InputArea {
 public:
@@ -42,6 +42,7 @@ public:
   bool setText(std::string_view text);
   void setFontSize(float size);
   void setFontFamily(std::string family);
+  void setFontFeatures(std::string features);
   void setColor(const ColorSpec& color);
   // Explicit fixed color.
   void setColor(const Color& color);
@@ -65,19 +66,19 @@ public:
   void setAutoScrollSpeed(float pixelsPerSecond);
   // When true (with auto-scroll), marquee runs only while the pointer is over the label.
   void setAutoScrollOnlyWhenHovered(bool enabled);
-  [[nodiscard]] bool autoScroll() const noexcept { return m_autoScroll; }
-  [[nodiscard]] float autoScrollSpeed() const noexcept { return m_scrollSpeedPxPerSec; }
-  [[nodiscard]] bool autoScrollOnlyWhenHovered() const noexcept { return m_autoScrollHoverOnly; }
+  bool autoScroll() const noexcept { return m_autoScroll; }
+  float autoScrollSpeed() const noexcept { return m_scrollSpeedPxPerSec; }
+  bool autoScrollOnlyWhenHovered() const noexcept { return m_autoScrollHoverOnly; }
 
-  [[nodiscard]] const std::string& text() const noexcept;
-  [[nodiscard]] float fontSize() const noexcept;
-  [[nodiscard]] const Color& color() const noexcept;
-  [[nodiscard]] float maxWidth() const noexcept;
-  [[nodiscard]] FontWeight fontWeight() const noexcept;
-  [[nodiscard]] TextAlign textAlign() const noexcept;
-  [[nodiscard]] TextEllipsize ellipsize() const noexcept;
-  [[nodiscard]] LabelBaselineMode baselineMode() const noexcept { return m_baselineMode; }
-  [[nodiscard]] float baselineOffset() const noexcept { return m_baselineOffset; }
+  const std::string& text() const noexcept;
+  float fontSize() const noexcept;
+  const Color& color() const noexcept;
+  float maxWidth() const noexcept;
+  const TextFont& font() const noexcept;
+  TextAlign textAlign() const noexcept;
+  TextEllipsize ellipsize() const noexcept;
+  LabelBaselineMode baselineMode() const noexcept { return m_baselineMode; }
+  float baselineOffset() const noexcept { return m_baselineOffset; }
 
   void measure(Renderer& renderer);
 
@@ -129,7 +130,7 @@ private:
   int m_cachedMaxLines = 0;
   TextAlign m_cachedTextAlign = TextAlign::Start;
   LabelBaselineMode m_cachedBaselineMode = LabelBaselineMode::Text;
-  FontWeight m_cachedFontWeight = FontWeight::Normal;
+  TextFont m_cachedFont;
   bool m_cachedAutoScroll = false;
   bool m_cachedHasConstraintMaxWidth = false;
   bool m_measureCached = false;

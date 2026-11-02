@@ -107,7 +107,7 @@ namespace settings {
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     m_colorModal = m_host->push(
         SettingsModalRequest{
-            .build = [this, aliveGuard, dialogScale]() -> std::unique_ptr<Node> {
+            .build = [this, aliveGuard, dialogScale] -> std::unique_ptr<Node> {
               if (aliveGuard.expired()) {
                 return nullptr;
               }
@@ -118,15 +118,15 @@ namespace settings {
               } else {
                 sheet->colorPicker()->setColor(colorForRole(ColorRole::Primary));
               }
-              sheet->setOnCancel([this, aliveGuard]() {
-                DeferredCall::callLater([this, aliveGuard]() {
+              sheet->setOnCancel([this, aliveGuard] {
+                DeferredCall::callLater([this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     cancelColor();
                   }
                 });
               });
               sheet->setOnApply([this, aliveGuard](const Color& color) {
-                DeferredCall::callLater([this, aliveGuard, color]() {
+                DeferredCall::callLater([this, aliveGuard, color] {
                   if (!aliveGuard.expired()) {
                     acceptColor(color);
                   }
@@ -158,16 +158,15 @@ namespace settings {
                   m_colorSheet->setPickerColumnWidth(std::max(160.0F, width - 2.0F * sheetPadding));
                   m_colorSheet->arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = width, .height = height});
                 },
-            .initialFocusArea =
-                [this]() { return m_colorSheet != nullptr ? m_colorSheet->initialFocusArea() : nullptr; },
+            .initialFocusArea = [this] { return m_colorSheet != nullptr ? m_colorSheet->initialFocusArea() : nullptr; },
             .requestClose =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     cancelColor();
                   }
                 },
             .onClosed =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     m_colorSheet = nullptr;
                     m_colorModal.reset();
@@ -198,22 +197,22 @@ namespace settings {
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     m_glyphModal = m_host->push(
         SettingsModalRequest{
-            .build = [this, aliveGuard, dialogScale]() -> std::unique_ptr<Node> {
+            .build = [this, aliveGuard, dialogScale] -> std::unique_ptr<Node> {
               if (aliveGuard.expired()) {
                 return nullptr;
               }
               auto sheet = std::make_unique<GlyphPicker>(dialogScale);
               sheet->setTitle(GlyphPickerDialog::currentOptions().title);
               sheet->setInitialGlyph(GlyphPickerDialog::currentOptions().initialGlyph);
-              sheet->setOnCancel([this, aliveGuard]() {
-                DeferredCall::callLater([this, aliveGuard]() {
+              sheet->setOnCancel([this, aliveGuard] {
+                DeferredCall::callLater([this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     cancelGlyph();
                   }
                 });
               });
               sheet->setOnApply([this, aliveGuard](const GlyphPickerResult& result) {
-                DeferredCall::callLater([this, aliveGuard, result]() {
+                DeferredCall::callLater([this, aliveGuard, result] {
                   if (!aliveGuard.expired()) {
                     acceptGlyph(result);
                   }
@@ -240,16 +239,15 @@ namespace settings {
                     m_glyphSheet->arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = width, .height = height});
                   }
                 },
-            .initialFocusArea =
-                [this]() { return m_glyphSheet != nullptr ? m_glyphSheet->initialFocusArea() : nullptr; },
+            .initialFocusArea = [this] { return m_glyphSheet != nullptr ? m_glyphSheet->initialFocusArea() : nullptr; },
             .requestClose =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     cancelGlyph();
                   }
                 },
             .onClosed =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     if (m_dismissSelectDropdown) {
                       m_dismissSelectDropdown();
@@ -287,7 +285,7 @@ namespace settings {
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     m_fileModal = m_host->push(
         SettingsModalRequest{
-            .build = [this, aliveGuard]() -> std::unique_ptr<Node> {
+            .build = [this, aliveGuard] -> std::unique_ptr<Node> {
               if (aliveGuard.expired() || m_fileDialog == nullptr) {
                 return nullptr;
               }
@@ -318,8 +316,7 @@ namespace settings {
                     m_fileDialog->update(renderer);
                   }
                 },
-            .initialFocusArea =
-                [this]() { return m_fileDialog != nullptr ? m_fileDialog->initialFocusArea() : nullptr; },
+            .initialFocusArea = [this] { return m_fileDialog != nullptr ? m_fileDialog->initialFocusArea() : nullptr; },
             .preDispatchKeyboard =
                 [this](const KeyboardEvent& event) {
                   return m_fileDialog != nullptr
@@ -328,13 +325,13 @@ namespace settings {
                       );
                 },
             .requestClose =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     cancel();
                   }
                 },
             .onClosed =
-                [this, aliveGuard]() {
+                [this, aliveGuard] {
                   if (!aliveGuard.expired()) {
                     if (m_fileDialog != nullptr) {
                       m_fileDialog->onClose();

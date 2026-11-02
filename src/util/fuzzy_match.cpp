@@ -1,6 +1,6 @@
 #include "util/fuzzy_match.h"
 
-#include "match.h"
+#include "fzy/match.h"
 #include "util/string_utils.h"
 
 #include <cmath>

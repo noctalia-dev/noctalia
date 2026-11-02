@@ -38,13 +38,21 @@ namespace {
   }
 
   void checkBooleanOverrides() {
-    const auto request = parse(msg::screenshotRegion, "--annotate --no-copy-to-clipboard --no-close-on-copy");
+    const auto request =
+        parse(msg::screenshotRegion, "--annotate --no-copy-to-clipboard --no-close-on-copy --copy-on-close");
     TEST_CHECK(request.has_value());
     Options expected = baseOptions();
     expected.annotate = true;
     expected.copyToClipboard = false;
     expected.closeOnCopy = false;
+    expected.copyOnClose = true;
     TEST_CHECK(request->options == expected);
+
+    const auto disabled =
+        parseScreenshotIpcRequest(msg::screenshotRegion, "--no-copy-on-close", expected, std::nullopt);
+    TEST_CHECK(disabled.has_value());
+    expected.copyOnClose = false;
+    TEST_CHECK(disabled->options == expected);
   }
 
   void checkErrors() {

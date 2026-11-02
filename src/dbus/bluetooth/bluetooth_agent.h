@@ -53,8 +53,8 @@ public:
   void submitPasskey(std::uint32_t passkey); // Passkey kind
   void cancelPending();
 
-  [[nodiscard]] bool hasPendingRequest() const noexcept;
-  [[nodiscard]] BluetoothPairingRequest pendingRequest() const;
+  bool hasPendingRequest() const noexcept;
+  BluetoothPairingRequest pendingRequest() const;
 
 private:
   struct Impl;

@@ -219,7 +219,7 @@ namespace {
     return std::nullopt;
   }
 
-  std::string effectsProfileKindName(AudioEffectsProfileKind kind) {
+  std::string_view effectsProfileKindName(AudioEffectsProfileKind kind) {
     return kind == AudioEffectsProfileKind::Input ? "input" : "output";
   }
 
@@ -255,7 +255,7 @@ namespace {
       return profiles;
     }
 
-    const auto profileDir = kind == AudioEffectsProfileKind::Input ? "input" : "output";
+    const auto* profileDir = kind == AudioEffectsProfileKind::Input ? "input" : "output";
     for (const auto& root : easyeffectsDataRoots()) {
       appendPresetFilesFromDir(profiles, seen, root / profileDir);
     }
@@ -494,7 +494,7 @@ bool EasyEffectsService::loadEffectsProfile(AudioEffectsProfileKind kind, std::s
 }
 
 void EasyEffectsService::registerIpc(
-    IpcService& ipc, const ConfigService&, EffectsProfileFeedbackCallback effectsProfileFeedback
+    IpcService& ipc, const ConfigService&, const EffectsProfileFeedbackCallback& effectsProfileFeedback
 ) {
   ipc.bind(
       noctalia::cli::msg::effectsProfileSet, [this, effectsProfileFeedback](const std::string& args) -> std::string {

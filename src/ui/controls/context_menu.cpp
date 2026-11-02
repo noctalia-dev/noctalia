@@ -28,8 +28,6 @@ namespace {
 
   ColorSpec disabledItemColor() { return colorSpecFromRole(ColorRole::OnSurface, 0.55F); }
 
-  bool hasToggle(const ContextMenuControlEntry& entry) { return entry.checkmark || entry.radio; }
-
   bool isInteractive(const ContextMenuControlEntry& entry) {
     return entry.enabled && !entry.separator && !entry.header;
   }
@@ -52,7 +50,10 @@ namespace {
     return 0.0F;
   }
 
-  std::string toggleGlyphName(const ContextMenuControlEntry& entry) {
+  std::string_view toggleGlyphName(const ContextMenuControlEntry& entry) {
+    if (!entry.hasToggle()) {
+      return "";
+    }
     if (entry.toggleState == 2) {
       return "minus";
     }
@@ -227,9 +228,9 @@ float ContextMenuControl::preferredWidth(
     if (entry.separator || entry.label.empty()) {
       continue;
     }
-    const float toggleSlot = (reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
+    const float toggleSlot = (reserveToggleSpace || entry.hasToggle()) ? kToggleSlot * scale : 0.0F;
     const FontWeight weight = entry.header ? FontWeight::Bold : FontWeight::Normal;
-    const float textWidth = std::ceil(renderer.measureText(entry.label, kMenuFontSize * scale, weight).width);
+    const float textWidth = std::ceil(renderer.measureText(entry.label, kMenuFontSize * scale, {weight}).width);
     // Mirrors rebuildRows: 8px label inset each side, 30px right when a chevron is drawn.
     const float sidePadding = (entry.hasSubmenu ? 30.0F : 16.0F) * scale;
     maxRowWidth = std::max(
@@ -335,13 +336,13 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           })
       );
 
-      const float toggleSlot = (m_reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
+      const float toggleSlot = (m_reserveToggleSpace || entry.hasToggle()) ? kToggleSlot * scale : 0.0F;
       const float indent = entryIndent(entry, scale);
-      const std::string toggleGlyph = toggleGlyphName(entry);
+      const std::string_view toggleGlyph = toggleGlyphName(entry);
       if (!toggleGlyph.empty()) {
         auto glyph = ui::glyph({
             .out = &togglePtr,
-            .glyph = toggleGlyph,
+            .glyph = std::string(toggleGlyph),
             .glyphSize = kMenuGlyphSize * scale,
             .color = entry.enabled ? enabledItemColor() : disabledItemColor(),
         });
@@ -363,7 +364,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         const float dotSize = std::round(kMenuFontSize * scale);
         auto dot = std::make_unique<Box>();
         dot->setFill(*entry.indicatorColor);
-        dot->setBorder(colorSpecFromRole(ColorRole::Outline), 1.5F);
+        dot->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), 1.5F);
         dot->setFrameSize(dotSize, dotSize);
         dot->setRadius(dotSize * 0.5F);
         dot->setPosition(8.0F * scale + indent + toggleSlot, std::round((rowHeight - dotSize) * 0.5F));
@@ -465,7 +466,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
       };
 
       row->setOnEnter([this, i](const InputArea::PointerData& /*data*/) { setHighlightedIndex(i); });
-      row->setOnLeave([this]() {
+      row->setOnLeave([this] {
         applyHighlightVisuals();
         if (m_redrawCallback) {
           m_redrawCallback();

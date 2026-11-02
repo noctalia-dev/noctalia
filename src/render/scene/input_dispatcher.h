@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -54,20 +55,20 @@ public:
   void setFocus(InputArea* area);
   void stashTabFocus();
   void restoreStashedTabFocus();
-  [[nodiscard]] TabFocusSnapshot captureTabFocus() const;
+  TabFocusSnapshot captureTabFocus() const;
   void restoreTabFocus(TabFocusSnapshot snapshot);
-  [[nodiscard]] bool cycleTabFocus(bool reverse);
-  [[nodiscard]] bool cycleTabFocusInSubtree(Node* subtree, bool reverse);
-  [[nodiscard]] InputArea* inputAreaAt(float x, float y);
-  [[nodiscard]] InputArea* firstTabFocusUnder(Node* subtree) const;
-  [[nodiscard]] InputArea* lastTabFocusUnder(Node* subtree) const;
-  [[nodiscard]] InputArea* focusedArea() const noexcept { return m_focusedArea; }
-  [[nodiscard]] InputArea* hoveredArea() const noexcept { return m_hoveredArea; }
-  [[nodiscard]] bool pointerCaptured() const noexcept { return m_capturedArea != nullptr; }
+  bool cycleTabFocus(bool reverse);
+  bool cycleTabFocusInSubtree(Node* subtree, bool reverse);
+  InputArea* inputAreaAt(float x, float y);
+  InputArea* firstTabFocusUnder(Node* subtree) const;
+  InputArea* lastTabFocusUnder(Node* subtree) const;
+  InputArea* focusedArea() const noexcept { return m_focusedArea; }
+  InputArea* hoveredArea() const noexcept { return m_hoveredArea; }
+  bool pointerCaptured() const noexcept { return m_capturedArea != nullptr; }
 
 private:
   InputArea* findInputAreaAt(float x, float y);
-  [[nodiscard]] bool isAttachedToScene(const InputArea* area) const;
+  bool isAttachedToScene(const InputArea* area) const;
   void pruneDetachedAreas();
   void updateHover(float x, float y, std::uint32_t serial);
   void updateCursor(std::uint32_t serial);
@@ -98,6 +99,11 @@ private:
   InputArea* m_focusedArea = nullptr;
   InputArea* m_capturedArea = nullptr; // held while any button is pressed
   TouchScrollGesture m_touchGesture;
+  // Scroll-gesture owner: set on the first consumed axis frame of a gesture, held until the
+  // gesture ends (pointer moved, button pressed, or pause), so content moving under a
+  // stationary pointer cannot take over the rest of the gesture.
+  InputArea* m_axisGestureArea = nullptr;
+  std::chrono::steady_clock::time_point m_lastAxisTime;
   std::optional<std::size_t> m_stashedTabFocusIndex;
   std::optional<std::string> m_stashedTabFocusKey;
   std::uint32_t m_lastSerial = 0;

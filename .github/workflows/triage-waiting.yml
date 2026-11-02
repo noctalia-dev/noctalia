@@ -1,0 +1,118 @@
+name: Triage Waiting Status
+
+on:
+  issues:
+    types: [labeled, unlabeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: triage-waiting-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  waiting:
+    if: ${{ github.repository == 'noctalia-dev/noctalia' && !github.event.issue.pull_request }}
+    runs-on: ubuntu-latest
+    steps:
+      # A reply from the reporter clears the waiting labels, so the daily stale pass does not
+      # close an answered issue. Uses the built-in token, so no `unlabeled` event fires; the
+      # board update below handles that case itself.
+      - name: Remove waiting labels on reporter reply
+        if: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login == github.event.issue.user.login }}
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        with:
+          script: |
+            const { issue } = context.payload;
+            const { owner, repo } = context.repo;
+            const present = new Set(issue.labels.map(label => label.name));
+            for (const name of ['needs-info', 'needs-retest', 'stale']) {
+              if (!present.has(name)) continue;
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: issue.number, name });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+            }
+
+      # Same Noctalia Automation GitHub App as project-intake.yml.
+      - name: Create Noctalia Automation token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.AUTOMATION_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          permission-organization-projects: write
+          permission-issues: read
+
+      # needs-info / needs-retest added: card goes to Waiting.
+      # Last waiting label removed, or the reporter replied to a waiting issue: a card that is
+      # in Waiting goes to Reviewing. Closing is handled by the project's "Item closed" workflow.
+      - name: Sync board status with waiting labels
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const projectId = 'PVT_kwDODYBPq84BmIDl';
+            const waitingLabels = ['needs-info', 'needs-retest'];
+            const { issue } = context.payload;
+            if (issue.state !== 'open') return;
+            const labelNames = issue.labels.map(label => label.name);
+            const waiting = labelNames.filter(name => waitingLabels.includes(name));
+
+            let target;
+            if (context.eventName === 'issue_comment') {
+              if (context.payload.comment.user.login !== issue.user.login || waiting.length === 0) return;
+              target = 'Reviewing';
+            } else {
+              if (!waitingLabels.includes(context.payload.label.name)) return;
+              if (context.payload.action === 'labeled') target = 'Waiting';
+              else if (waiting.length === 0) target = 'Reviewing';
+              else return;
+            }
+
+            const projectData = await github.graphql(`query($id:ID!) {
+              node(id:$id) { ... on ProjectV2 { fields(first:100) { nodes {
+                ... on ProjectV2SingleSelectField { id name options { id name } }
+              } } } }
+            }`, { id: projectId });
+            const fields = new Map(projectData.node.fields.nodes.filter(field => field.name).map(field => [field.name, field]));
+            const option = (name, label) => {
+              const field = fields.get(name);
+              const match = field?.options?.find(candidate => candidate.name === label);
+              if (!match) throw new Error(`Missing project field/option: ${name}/${label}`);
+              return { fieldId: field.id, value: { singleSelectOptionId: match.id } };
+            };
+
+            const items = await github.graphql(`query($id:ID!) {
+              node(id:$id) { ... on Issue { projectItems(first:50, includeArchived:true) { nodes {
+                id isArchived project { id }
+                status: fieldValueByName(name:"Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+              } } } }
+            }`, { id: issue.node_id });
+            let item = items.node.projectItems.nodes.find(candidate => candidate.project.id === projectId);
+            if (item?.isArchived) return;
+
+            const updates = [];
+            if (!item) {
+              // Normally project-intake.yml adds new issues; older ones may be missing.
+              const added = await github.graphql(`mutation($project:ID!,$content:ID!) {
+                addProjectV2ItemById(input:{projectId:$project,contentId:$content}) { item { id } }
+              }`, { project: projectId, content: issue.node_id });
+              item = { id: added.addProjectV2ItemById.item.id, status: null };
+              updates.push(option('Component', 'Noctalia'), option('Kind', 'Issue'));
+            } else if (target === 'Reviewing' && item.status?.name !== 'Waiting') {
+              return;
+            }
+            if (item.status?.name === target) return;
+            updates.push(option('Status', target));
+
+            for (const update of updates) {
+              await github.graphql(`mutation($input:UpdateProjectV2ItemFieldValueInput!) {
+                updateProjectV2ItemFieldValue(input:$input) { projectV2Item { id } }
+              }`, { input: { projectId, itemId: item.id, ...update } });
+            }
+            core.info(`Issue #${issue.number}: board status set to ${target}`);

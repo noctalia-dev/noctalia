@@ -640,12 +640,17 @@ namespace {
   ) {
     lua_getfield(L, tableIndex, field);
     if (lua_type(L, -1) != LUA_TSTRING) {
-      luaL_error(L, "panel.openContextMenu: %s must be a string", description.data());
+      luaL_error(
+          L, "panel.openContextMenu: %.*s must be a string", static_cast<int>(description.size()), description.data()
+      );
     }
     std::size_t len = 0;
     const char* value = lua_tolstring(L, -1, &len);
     if (len == 0 || len > maxBytes) {
-      luaL_error(L, "panel.openContextMenu: %s must contain 1..%zu bytes", description.data(), maxBytes);
+      luaL_error(
+          L, "panel.openContextMenu: %.*s must contain 1..%zu bytes", static_cast<int>(description.size()),
+          description.data(), maxBytes
+      );
     }
     std::string out(value, len);
     lua_pop(L, 1);

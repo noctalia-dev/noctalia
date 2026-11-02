@@ -2129,8 +2129,7 @@
           "label": "Kalendářní účty"
         },
         "calendar-edit": {
-          "button": "Upravit",
-          "description": "Aktualizovat tento kalendářní účet"
+          "button": "Upravit"
         },
         "calendar-refresh-interval": {
           "description": "Jak často synchronizovat události kalendáře (minuty)",

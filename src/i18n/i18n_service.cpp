@@ -39,6 +39,10 @@ namespace i18n {
       return {};
     }
 
+    std::string resolveRequestedLanguage(std::string_view preferredLang) {
+      return preferredLang.empty() ? detectSystemLanguage() : detail::normalizeLanguageTag(preferredLang);
+    }
+
   } // namespace
 
   Service& Service::instance() {
@@ -69,12 +73,7 @@ namespace i18n {
   }
 
   void Service::init(std::string_view preferredLang) {
-    std::string candidate;
-    if (!preferredLang.empty()) {
-      candidate = detail::normalizeLanguageTag(preferredLang);
-    } else {
-      candidate = detectSystemLanguage();
-    }
+    const std::string candidate = resolveRequestedLanguage(preferredLang);
     m_requestedLanguage = candidate;
 
     // English fallback is always loaded first so lookup() can fall back to it
@@ -111,7 +110,9 @@ namespace i18n {
   }
 
   void Service::setLanguage(std::string_view lang) {
-    if (lang == m_language) {
+    // Compare the resolved request, not the loaded catalog: an empty (auto) or regional tag
+    // resolves to a different catalog name and would otherwise reload on every config reload.
+    if (resolveRequestedLanguage(lang) == m_requestedLanguage) {
       return;
     }
     init(lang);

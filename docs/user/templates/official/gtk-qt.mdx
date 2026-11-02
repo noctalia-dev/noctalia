@@ -19,43 +19,42 @@ GTK applications include most GNOME apps and many Linux applications. Noctalia c
    ```bash
    # Arch Linux / Manjaro
    paru -S adw-gtk-theme nwg-look
-   
+
    # Other distributions
    # Install adw-gtk-theme and nwg-look from your package manager
    ```
 
 2. **Apply the GTK theme:**
    - **Using nwg-look (recommended):**
-      :::tip[GTK4 Theming]
-      In nwg-look, make sure to **uncheck the GTK4 option**. Leaving GTK4 checked can prevent GTK4 applications from using Noctalia's color scheme.
 
-      If you previously applied a custom GTK4 theme, you may need to hit **"Clear"** (found in the **Preference** tab) in nwg-look before reapplying and regenerating the color scheme. This ensures the new colors are accepted by GTK4 apps.
-      :::
-      - Open `nwg-look`
-      - Select `adw-gtk3` from the theme list
-      - Click "Apply"
-      - ![nwg-look](../../../assets/app-theming/nwg-look.png)
-   
-  - **Using command line:**
-     ```bash
-     gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3'
-     ```
+     :::tip[GTK4 Theming]
+     In nwg-look, make sure to **uncheck the GTK4 option**. Leaving GTK4 checked can prevent GTK4 applications from using Noctalia's color scheme.
+
+     If you previously applied a custom GTK4 theme, you may need to hit **"Clear"** (found in the **Preference** tab) in nwg-look before reapplying and regenerating the color scheme. This ensures the new colors are accepted by GTK4 apps.
+     :::
+
+     - Open `nwg-look`
+     - Select `adw-gtk3` from the theme list
+     - Click "Apply"
+     - ![nwg-look](../../../assets/app-theming/nwg-look.png)
+
+- **Using command line:**
+  ```bash
+  gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3'
+  ```
 
 3. **Enable GTK theming in Noctalia:**
-  - Open **Settings → Templates**
-  - Toggle on **GTK 3** and/or **GTK 4**
 
-Enabling those built-in templates writes `noctalia.css` and runs the shipped
-[`apply.sh`](https://github.com/noctalia-dev/noctalia/blob/main/assets/templates/gtk/apply.sh)
-`post_hook` (`bash '…/gtk/apply.sh' dark|light`). That script imports
-`noctalia.css` into `gtk.css` and selects `adw-gtk3` / `adw-gtk3-dark`. A theme
-mode change re-applies the templates, so the same full hook runs again; you do
-not need a separate hook for that path.
+- Open **Settings → Templates**
+- Toggle on **GTK 3** and/or **GTK 4**
 
-The GNOME `org.gnome.desktop.interface.color-scheme` preference, which browsers
-and other apps read through the desktop portal, is not part of the GTK
-templates. Noctalia syncs it on its own, with or without these templates; see
-[`sync_color_scheme`](/noctalia/theming/#sync_color_scheme) to turn that off.
+Enabling those built-in templates writes `noctalia.css` and runs the shipped [`apply.sh`](https://github.com/noctalia-dev/noctalia/blob/main/assets/templates/gtk/apply.sh) `post_hook` (`bash '…/gtk/apply.sh' dark|light`). That script imports `noctalia.css` into `gtk.css` and selects `adw-gtk3` / `adw-gtk3-dark`. A theme mode change re-applies the templates, so the same full hook runs again; you do not need a separate hook for that path.
+
+The GNOME `org.gnome.desktop.interface.color-scheme` preference, which browsers and other apps read through the desktop portal, is not part of the GTK templates. Noctalia syncs it on its own, with or without these templates; see [`sync_color_scheme`](/noctalia/theming/#sync_color_scheme) to turn that off.
+
+### App extensions
+
+Some community templates (for example Thunar) are **GTK extensions**: app-scoped CSS layered on top of the GTK theme. They load through the built-in GTK template, so they only take effect while **GTK 3** (or **GTK 4**, depending on the extension) is enabled here. Noctalia keeps them in `noctalia-extensions/` next to `gtk.css` and never adds anything else to `gtk.css`. Restart the app after enabling or disabling one.
 
 ### Troubleshooting
 
@@ -79,64 +78,69 @@ Qt applications include KDE apps and many cross-platform applications. KDE apps 
 
 ### Setup
 
-1. **Install an application that allows you to apply QT/KColorScheme themes:**
-   While the setup steps will go through the process of using `qt6ct-kde`, there are multiple options available.
-   
+1. **Install an application that allows you to apply QT/KColorScheme themes:** While the setup steps will go through the process of using `qt6ct-kde`, there are multiple options available.
+
    - **qt6ct** (`qt6ct-kde` with the KDE patches)
      ```bash
      # Arch Linux / Manjaro / CachyOS
      paru -S qt6ct-kde
      ```
-   - **qtengine** (https://github.com/kossLAN/qtengine)
-   - **hyprqt6engine** (https://github.com/hyprwm/hyprqt6engine)
+   - **qtengine** ([https://github.com/kossLAN/qtengine](https://github.com/kossLAN/qtengine))
+   - **hyprqt6engine** ([https://github.com/hyprwm/hyprqt6engine](https://github.com/hyprwm/hyprqt6engine))
 
-2. **Set environment variable:**
-   Add this to your window manager configuration or shell profile:
-   
+2. **Set environment variable:** Add this to your window manager configuration or shell profile:
+
    **For Niri (`config.kdl`):**
+
    ```kdl
    environment {
      QT_QPA_PLATFORMTHEME "qt6ct"
    }
    ```
-   
+
    **For Hyprland:**
-  <Tabs>
-    <TabItem label="hyprland.conf ( 0.54.* and earlier)">
-     ```ini
-     env = QT_QPA_PLATFORMTHEME,qt6ct
-     ```
-   </TabItem>
-     <TabItem label="hyprland.lua ( 0.55.* and later)">
-     ```lua
-     hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
-     ```
-     </TabItem>
-  </Tabs>
-   
-   **For Sway (`config`):**
-   ```bash
-   setenv QT_QPA_PLATFORMTHEME qt6ct
-   ```
-   
-   **For shell profile (`~/.bashrc` or `~/.zshrc`):**
-   ```bash
-   export QT_QPA_PLATFORMTHEME=qt6ct
-   ```
+
+<Tabs>
+  <TabItem label="hyprland.conf ( 0.54.* and earlier)">
+    ```ini
+    env = QT_QPA_PLATFORMTHEME,qt6ct
+    ```
+  </TabItem>
+
+  <TabItem label="hyprland.lua ( 0.55.* and later)">
+    ```lua
+    hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
+    ```
+  </TabItem>
+</Tabs>
+
+**For Sway (`config`):**
+
+```bash
+setenv QT_QPA_PLATFORMTHEME qt6ct
+```
+
+**For shell profile (`~/.bashrc` or `~/.zshrc`):**
+
+```bash
+export QT_QPA_PLATFORMTHEME=qt6ct
+```
 
 3. **Enable the KColorScheme (or QT theme) in Noctalia:**
-  - Open **Settings → Templates**
-  - Toggle on **KColorScheme** (or **Qt**)
+
+- Open **Settings → Templates**
+- Toggle on **KColorScheme** (or **Qt**)
 
 4. **Configure qt6ct:**
-  - Run `qt6ct` from terminal
-  - In the **Appearance** tab, there will be a dropdown for **"Color scheme:"**
-  - In the dropdown select `noctalia (KColorScheme)` if using a KColorScheme for KDE app compatibility, or `noctalia` for a normal QT theme without the need for KDE app compatibility.
-  - Click **Apply** and **OK**
-   
-   :::tip[KDE File Picker]
-   If you use the KDE file picker, go to the **Settings** tab in `qt6ct` and set **Standard dialogs** to **KDE** (note that this needs plasma-workspace to be installed to appear as a dropdown option)..
-   :::
+
+- Run `qt6ct` from terminal
+- In the **Appearance** tab, there will be a dropdown for **"Color scheme:"**
+- In the dropdown select `noctalia (KColorScheme)` if using a KColorScheme for KDE app compatibility, or `noctalia` for a normal QT theme without the need for KDE app compatibility.
+- Click **Apply** and **OK**
+
+:::tip[KDE File Picker]
+If you use the KDE file picker, go to the **Settings** tab in `qt6ct` and set **Standard dialogs** to **KDE** (note that this needs plasma-workspace to be installed to appear as a dropdown option)..
+:::
 
 ### Troubleshooting
 
@@ -154,13 +158,15 @@ If you're using KDE Plasma, Noctalia can apply colors through the native KColorS
 ### Setup
 
 1. **Enable KColorScheme in Noctalia:**
-  - Open **Settings → Templates**
-  - Toggle on **KColorScheme**
+
+- Open **Settings → Templates**
+- Toggle on **KColorScheme**
 
 2. **Apply in KDE System Settings:**
-  - Open **System Settings → Appearance → Colors**
-  - Select the `noctalia` color scheme
-  - The scheme will update automatically when you change colors in Noctalia
+
+- Open **System Settings → Appearance → Colors**
+- Select the `noctalia` color scheme
+- The scheme will update automatically when you change colors in Noctalia
 
 ### Troubleshooting
 

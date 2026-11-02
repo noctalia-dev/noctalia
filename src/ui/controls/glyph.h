@@ -26,7 +26,7 @@ public:
 
   void measure(Renderer& renderer);
 
-  [[nodiscard]] float baselineOffset() const noexcept { return m_baselineOffset; }
+  float baselineOffset() const noexcept { return m_baselineOffset; }
 
 private:
   void doLayout(Renderer& renderer) override;

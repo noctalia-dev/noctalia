@@ -35,7 +35,7 @@ DragSource::DragSource(DragDropController* controller) : m_controller(controller
       m_controller->motion(*this, data.localX, data.localY);
     }
   });
-  area->setOnCancel([this]() {
+  area->setOnCancel([this] {
     if (m_controller != nullptr) {
       m_controller->cancel();
     }

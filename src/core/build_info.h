@@ -5,10 +5,10 @@
 
 namespace noctalia::build_info {
 
-  [[nodiscard]] std::string_view version() noexcept;
+  std::string_view version() noexcept;
 
-  [[nodiscard]] std::string_view revision() noexcept;
+  std::string_view revision() noexcept;
 
-  [[nodiscard]] std::string displayVersion();
+  std::string displayVersion();
 
 } // namespace noctalia::build_info

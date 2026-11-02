@@ -20,9 +20,9 @@ public:
   FancyAudioVisualizerNode(const FancyAudioVisualizerNode&) = delete;
   FancyAudioVisualizerNode& operator=(const FancyAudioVisualizerNode&) = delete;
 
-  [[nodiscard]] const FancyAudioVisualizerStyle& style() const noexcept { return m_style; }
-  [[nodiscard]] TextureId textureId() const noexcept { return m_texture.id; }
-  [[nodiscard]] int textureWidth() const noexcept { return m_texWidth; }
+  const FancyAudioVisualizerStyle& style() const noexcept { return m_style; }
+  TextureId textureId() const noexcept { return m_texture.id; }
+  int textureWidth() const noexcept { return m_texWidth; }
 
   void setStyle(const FancyAudioVisualizerStyle& style) {
     if (m_style == style) {

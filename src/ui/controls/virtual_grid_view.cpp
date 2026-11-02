@@ -66,7 +66,7 @@ VirtualGridView::VirtualGridView() {
   inputArea->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
   inputArea->setOnEnter([this](const InputArea::PointerData& data) { onPointerEnter(data.localX, data.localY); });
   inputArea->setOnMotion([this](const InputArea::PointerData& data) { onPointerMotion(data.localX, data.localY); });
-  inputArea->setOnLeave([this]() { onPointerLeave(); });
+  inputArea->setOnLeave([this] { onPointerLeave(); });
   inputArea->setOnPress([this](const InputArea::PointerData& data) {
     if (data.button == BTN_LEFT) {
       if (data.pressed) {
@@ -78,7 +78,7 @@ VirtualGridView::VirtualGridView() {
       onSecondaryPointerPress(data.localX, data.localY);
     }
   });
-  inputArea->setOnCancel([this]() {
+  inputArea->setOnCancel([this] {
     if (m_adapterPointerCapture && m_adapter != nullptr) {
       m_adapter->onPointerCancel();
     }
@@ -388,8 +388,8 @@ void VirtualGridView::doLayout(Renderer& renderer) {
     tooltipArea->setOnMotion([this, slot](const InputArea::PointerData& data) {
       onPoolTooltipMotion(slot, data.localX, data.localY);
     });
-    tooltipArea->setOnLeave([this, slot]() { onPoolTooltipLeave(slot); });
-    tooltipArea->setTooltipProvider([this, slot]() -> TooltipContent {
+    tooltipArea->setOnLeave([this, slot] { onPoolTooltipLeave(slot); });
+    tooltipArea->setTooltipProvider([this, slot] -> TooltipContent {
       if (m_tooltipSuppressed
           || m_adapter == nullptr
           || slot >= m_slotBoundIndex.size()

@@ -13,7 +13,7 @@ namespace noctalia::system::cpu_freq {
 
   namespace {
     // Parse a kHz/mHz integer file, or nullopt on absence/garbage.
-    [[nodiscard]] std::optional<std::uint64_t> readUintFile(const std::filesystem::path& path) {
+    std::optional<std::uint64_t> readUintFile(const std::filesystem::path& path) {
       const auto text = FileUtils::readSmallTextFile(path);
       if (!text.has_value())
         return std::nullopt;

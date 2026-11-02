@@ -100,12 +100,11 @@ void BrightnessWidget::doLayout(Renderer& renderer, float containerWidth, float 
 void BrightnessWidget::doUpdate(Renderer& renderer) { syncState(renderer); }
 
 void BrightnessWidget::syncWidgetVisibility(bool showWidget) {
-  if (Node* rootNode = root(); rootNode != nullptr) {
-    if (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget) {
-      rootNode->setVisible(showWidget);
-      rootNode->setParticipatesInLayout(showWidget);
-      requestUpdate();
-    }
+  if (Node* rootNode = root();
+      rootNode != nullptr && (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget)) {
+    rootNode->setVisible(showWidget);
+    rootNode->setParticipatesInLayout(showWidget);
+    requestUpdate();
   }
 }
 
@@ -118,10 +117,10 @@ void BrightnessWidget::syncState(Renderer& renderer) {
   const auto* display = m_brightness != nullptr ? m_brightness->findByOutput(m_output) : nullptr;
   const bool available = display != nullptr && display->controllable;
   const float brightness = available ? display->brightness : -1.0F;
-  if (m_haveLastState && available == m_lastAvailable) {
-    if (!available || (std::abs(brightness - m_lastBrightness) < 0.001F && m_isVertical == m_lastVertical)) {
-      return;
-    }
+  if (m_haveLastState
+      && available == m_lastAvailable
+      && (!available || (std::abs(brightness - m_lastBrightness) < 0.001F && m_isVertical == m_lastVertical))) {
+    return;
   }
 
   m_haveLastState = true;

@@ -4,7 +4,6 @@
 #include "ext-idle-notify-v1-client-protocol.h"
 #include "wayland/wayland_connection.h"
 
-#include <algorithm>
 #include <utility>
 
 namespace {
