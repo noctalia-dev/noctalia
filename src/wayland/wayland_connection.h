@@ -2,6 +2,7 @@
 
 #include "wayland/ext_foreign_toplevels.h"
 #include "wayland/output_scale.h"
+#include "wayland/wayland_extension.h"
 #include "wayland/wayland_seat.h"
 #include "wayland/wayland_toplevels.h"
 
@@ -14,8 +15,11 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <typeindex>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 struct wl_compositor;
@@ -136,12 +140,14 @@ struct WaylandOutputHeadInfo {
 
 class WaylandConnection {
 public:
+  // A sibling connection reaches the primary connection's compositor through connectUntil() and binds only
+  // wl_shm and wl_output itself; its extensions bind the rest.
   enum class Purpose : std::uint8_t {
-    Shell,
-    Screencopy,
+    Primary,
+    Sibling,
   };
 
-  explicit WaylandConnection(Purpose purpose = Purpose::Shell);
+  explicit WaylandConnection(Purpose purpose = Purpose::Primary);
   ~WaylandConnection();
 
   WaylandConnection(const WaylandConnection&) = delete;
@@ -175,6 +181,23 @@ public:
   void setTextInputService(TextInputService* textInputService);
   void setVirtualKeyboardService(VirtualKeyboardService* virtualKeyboardService);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
+
+  // Returns this connection's instance of T, constructing it from the connection on first use. A new
+  // extension first receives every global advertised so far, in advertisement order, then each later
+  // announcement. Before disconnecting the display the connection calls releaseGlobals() on every
+  // extension, newest first.
+  template <typename T> T& extension() {
+    static_assert(std::is_base_of_v<WaylandExtension, T>);
+    const std::type_index key(typeid(T));
+    for (auto& [type, instance] : m_extensions) {
+      if (type == key) {
+        return static_cast<T&>(*instance);
+      }
+    }
+    auto& created = static_cast<T&>(*m_extensions.emplace_back(key, std::make_unique<T>(*this)).second);
+    replayGlobals(created);
+    return created;
+  }
 
   int repeatPollTimeoutMs() const;
   void repeatTick();
@@ -316,7 +339,14 @@ public:
   bool recomputeConfiguredScale(WaylandOutput& out);
 
 private:
+  struct AdvertisedGlobal {
+    std::uint32_t name = 0;
+    std::string interface;
+    std::uint32_t version = 0;
+  };
+
   void bindGlobal(wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t version);
+  void replayGlobals(WaylandExtension& extension);
   void bindClipboardService();
   void bindTextInputService();
   void bindVirtualKeyboardService();
@@ -324,7 +354,7 @@ private:
   [[nodiscard]] bool setupDisplay(wl_display* display, std::string& error);
   void logStartupSummary() const;
 
-  Purpose m_purpose = Purpose::Shell;
+  Purpose m_purpose = Purpose::Primary;
   wl_display* m_display = nullptr;
   wl_registry* m_registry = nullptr;
   wl_compositor* m_compositor = nullptr;
@@ -385,6 +415,8 @@ private:
   WaylandSeat m_seatHandler;
   WaylandToplevels m_toplevelsHandler;
   WaylandExtForeignToplevels m_extForeignToplevels;
+  std::vector<AdvertisedGlobal> m_advertisedGlobals;
+  std::vector<std::pair<std::type_index, std::unique_ptr<WaylandExtension>>> m_extensions;
 };
 
 namespace wayland {

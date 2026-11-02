@@ -299,7 +299,7 @@ int main() {
       expect(primary.connect(), "primary Wayland connection should connect");
       expect(primary.compositor() != nullptr, "primary connection should bind wl_compositor");
 
-      WaylandConnection captureConnection(WaylandConnection::Purpose::Screencopy);
+      WaylandConnection captureConnection(WaylandConnection::Purpose::Sibling);
       std::string setupError;
       const bool captureConnected = captureConnection.connectUntil(
           std::chrono::steady_clock::now() + screencopy::kBlockingCaptureTimeout, &primary, setupError

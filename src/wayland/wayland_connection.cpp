@@ -45,6 +45,7 @@
 #include <cstring>
 #include <format>
 #include <poll.h>
+#include <ranges>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -718,8 +719,8 @@ bool WaylandConnection::connect() {
   if (m_display != nullptr) {
     return true;
   }
-  if (m_purpose != Purpose::Shell) {
-    throw std::runtime_error("screencopy Wayland connections require a bounded primary connection");
+  if (m_purpose != Purpose::Primary) {
+    throw std::runtime_error("sibling Wayland connections require a bounded primary connection");
   }
 
   std::string setupError;
@@ -741,12 +742,10 @@ bool WaylandConnection::connect() {
     throw std::runtime_error(std::format("failed during Wayland output discovery roundtrip: {}", detail));
   }
 
-  if (m_purpose == Purpose::Shell) {
-    m_focusGrabService = std::make_unique<FocusGrabService>();
-    m_focusGrabService->initialize(m_hyprlandFocusGrabManager);
+  m_focusGrabService = std::make_unique<FocusGrabService>();
+  m_focusGrabService->initialize(m_hyprlandFocusGrabManager);
 
-    logStartupSummary();
-  }
+  logStartupSummary();
   return true;
 }
 
@@ -757,8 +756,8 @@ bool WaylandConnection::connectUntil(
   if (m_display != nullptr) {
     return true;
   }
-  if (m_purpose != Purpose::Screencopy) {
-    error = "bounded sibling connection is only available for screencopy";
+  if (m_purpose != Purpose::Sibling) {
+    error = "bounded connection is only available for sibling connections";
     return false;
   }
   if (eventConnection == nullptr || eventConnection->display() == nullptr) {
@@ -1405,11 +1404,34 @@ void WaylandConnection::handleGlobal(
     void* data, wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t version
 ) {
   auto* self = static_cast<WaylandConnection*>(data);
+  self->m_advertisedGlobals.push_back({.name = name, .interface = interface, .version = version});
   self->bindGlobal(registry, name, interface, version);
+  // Extensions created from inside onGlobal already saw this global through their replay.
+  const std::size_t extensionCount = self->m_extensions.size();
+  for (std::size_t i = 0; i < extensionCount; ++i) {
+    self->m_extensions[i].second->onGlobal(registry, name, interface, version);
+  }
+}
+
+void WaylandConnection::replayGlobals(WaylandExtension& extension) {
+  if (m_registry == nullptr) {
+    return;
+  }
+  // A snapshot: onGlobal may dispatch, and globals announced meanwhile reach the extension directly.
+  const std::vector<AdvertisedGlobal> globals = m_advertisedGlobals;
+  for (const AdvertisedGlobal& global : globals) {
+    extension.onGlobal(m_registry, global.name, global.interface, global.version);
+  }
 }
 
 void WaylandConnection::handleGlobalRemove(void* data, wl_registry* /*registry*/, std::uint32_t name) {
   auto* self = static_cast<WaylandConnection*>(data);
+  std::erase_if(self->m_advertisedGlobals, [name](const AdvertisedGlobal& global) { return global.name == name; });
+  const std::size_t extensionCount = self->m_extensions.size();
+  for (std::size_t i = 0; i < extensionCount; ++i) {
+    self->m_extensions[i].second->onGlobalRemove(name);
+  }
+
   auto it = std::ranges::find_if(self->m_outputs, [name](const WaylandOutput& output) { return output.name == name; });
   if (it == self->m_outputs.end()) {
     return;
@@ -1444,7 +1466,7 @@ void WaylandConnection::bindGlobal(
 ) {
   const std::string interfaceName = interface;
 
-  if (m_purpose == Purpose::Screencopy
+  if (m_purpose == Purpose::Sibling
       && interfaceName != wl_shm_interface.name
       && interfaceName != wl_output_interface.name
       && interfaceName != zwlr_screencopy_manager_v1_interface.name) {
@@ -1806,6 +1828,11 @@ void WaylandConnection::bindVirtualKeyboardService() {
 }
 
 void WaylandConnection::cleanup() {
+  for (auto& [type, extension] : std::views::reverse(m_extensions)) {
+    extension->releaseGlobals();
+  }
+  m_advertisedGlobals.clear();
+
   if (m_clipboardService != nullptr) {
     m_clipboardService->cleanup();
   }

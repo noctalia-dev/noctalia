@@ -1047,7 +1047,7 @@ bool LockScreen::captureDesktopSnapshots() {
   }
 
   const auto firstCaptureDeadline = std::chrono::steady_clock::now() + screencopy::kBlockingCaptureTimeout;
-  WaylandConnection captureWayland(WaylandConnection::Purpose::Screencopy);
+  WaylandConnection captureWayland(WaylandConnection::Purpose::Sibling);
   std::string setupError;
   if (!captureWayland.connectUntil(firstCaptureDeadline, m_wayland, setupError)) {
     kLog.warn("lockscreen desktop capture setup failed: {}", setupError);
