@@ -1,4 +1,4 @@
-#include "render/programs/effect_program.h"
+#include "shell/render/programs/effect_program.h"
 
 #include <array>
 #include <optional>

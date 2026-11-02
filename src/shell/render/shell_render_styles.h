@@ -94,3 +94,30 @@ constexpr bool operator==(const FancyAudioVisualizerStyle& lhs, const FancyAudio
       && lhs.innerDiameter == rhs.innerDiameter
       && lhs.cornerRadius == rhs.cornerRadius;
 }
+
+enum class EffectType : std::uint8_t { None, Sun, Snow, Rain, Cloud, Fog, Stars };
+
+struct EffectStyle {
+  EffectType type = EffectType::None;
+  float time = 0.0F;
+  float radius = 0.0F;
+  Color bgColor{};
+};
+
+struct GraphStyle {
+  Color lineColor1{};
+  float count1 = 0.0F;
+  float scroll1 = 1.0F;
+
+  Color lineColor2{};
+  float count2 = 0.0F;
+  float scroll2 = 1.0F;
+
+  Color lineColor3{};
+  float count3 = 0.0F;
+  float scroll3 = 1.0F;
+
+  float lineWidth = 1.5F;
+  float graphFillOpacity = 0.15F;
+  float aaSize = 0.5F;
+};

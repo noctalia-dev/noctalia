@@ -1,24 +1,19 @@
 #pragma once
 
+#include "render/backend/render_extension.h"
 #include "render/core/mat3.h"
-#include "render/core/render_styles.h"
 #include "render/core/shader_program.h"
+#include "shell/render/shell_render_styles.h"
 
 #include <GLES2/gl2.h>
 #include <array>
 #include <cstdint>
 
-class EffectProgram {
+class EffectProgram final : public RenderExtension {
 public:
-  EffectProgram() = default;
-  ~EffectProgram() = default;
-
-  EffectProgram(const EffectProgram&) = delete;
-  EffectProgram& operator=(const EffectProgram&) = delete;
-
   void ensureInitialized();
-  void destroy();
-  void abandon() noexcept;
+  void destroy() override;
+  void abandon() noexcept override;
 
   void draw(
       float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,

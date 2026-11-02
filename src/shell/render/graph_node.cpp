@@ -1,6 +1,8 @@
-#include "render/scene/graph_node.h"
+#include "shell/render/graph_node.h"
 
+#include "render/backend/render_backend.h"
 #include "render/core/texture_manager.h"
+#include "shell/render/programs/graph_program.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -48,6 +50,23 @@ void GraphNode::setData(
 
   m_texWidth = newWidth;
   markPaintDirty();
+}
+
+void GraphNode::draw(RenderBackend& backend, const CustomDrawContext& context) const {
+  if (m_texture.id == 0) {
+    return;
+  }
+  auto style = m_style;
+  style.lineColor1.a *= context.opacity;
+  style.lineColor2.a *= context.opacity;
+  style.lineColor3.a *= context.opacity;
+  style.graphFillOpacity *= context.opacity;
+  auto& program = backend.extension<GraphProgram>();
+  program.ensureInitialized();
+  program.draw(
+      m_texture.id, m_texWidth, context.surfaceWidth, context.surfaceHeight, context.width, context.height, style,
+      context.transform
+  );
 }
 
 void GraphNode::doInvalidateGpuResources(Renderer& renderer) {

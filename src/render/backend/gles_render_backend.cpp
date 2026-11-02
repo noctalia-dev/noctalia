@@ -587,21 +587,6 @@ void GlesRenderBackend::drawSpinner(
   m_spinnerProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
 }
 
-void GlesRenderBackend::drawEffect(
-    float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style, const Mat3& transform
-) {
-  m_effectProgram.ensureInitialized();
-  m_effectProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
-}
-
-void GlesRenderBackend::drawGraph(
-    TextureId dataTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width, float height,
-    const GraphStyle& style, const Mat3& transform
-) {
-  m_graphProgram.ensureInitialized();
-  m_graphProgram.draw(dataTexture, textureWidth, surfaceWidth, surfaceHeight, width, height, style, transform);
-}
-
 void GlesRenderBackend::drawWallpaper(const WallpaperDrawParams& params) {
   m_wallpaperProgram.ensureInitialized();
   m_wallpaperProgram.draw(params);
@@ -670,8 +655,6 @@ void GlesRenderBackend::destroyGpuObjects() {
   m_imageProgram.destroy();
   m_glyphProgram.destroy();
   m_spinnerProgram.destroy();
-  m_effectProgram.destroy();
-  m_graphProgram.destroy();
   m_wallpaperProgram.destroy();
   m_wallpaperMaskProgram.destroy();
   m_lockscreenTransitionProgram.destroy();
@@ -687,8 +670,6 @@ void GlesRenderBackend::abandonGpuObjects() noexcept {
   m_imageProgram.abandon();
   m_glyphProgram.abandon();
   m_spinnerProgram.abandon();
-  m_effectProgram.abandon();
-  m_graphProgram.abandon();
   m_wallpaperProgram.abandon();
   m_wallpaperMaskProgram.abandon();
   m_lockscreenTransitionProgram.abandon();

@@ -11,9 +11,7 @@
 #include "render/gl_shared_context.h"
 #include "render/render_target.h"
 #include "render/scene/custom_draw_node.h"
-#include "render/scene/effect_node.h"
 #include "render/scene/glyph_node.h"
-#include "render/scene/graph_node.h"
 #include "render/scene/image_node.h"
 #include "render/scene/lockscreen_transition_node.h"
 #include "render/scene/node.h"
@@ -439,27 +437,6 @@ void RenderContext::renderNode(
     auto style = spinner->style();
     style.color.a *= effectiveOpacity;
     m_backend->drawSpinner(sw, sh, node->width(), node->height(), style, worldTransform);
-    break;
-  }
-  case NodeType::Effect: {
-    const auto* effect = static_cast<const EffectNode*>(node);
-    auto style = effect->style();
-    style.bgColor.a *= effectiveOpacity;
-    m_backend->drawEffect(sw, sh, node->width(), node->height(), style, worldTransform);
-    break;
-  }
-  case NodeType::Graph: {
-    const auto* graph = static_cast<const GraphNode*>(node);
-    if (graph->textureId() != 0) {
-      auto style = graph->style();
-      style.lineColor1.a *= effectiveOpacity;
-      style.lineColor2.a *= effectiveOpacity;
-      style.lineColor3.a *= effectiveOpacity;
-      style.graphFillOpacity *= effectiveOpacity;
-      m_backend->drawGraph(
-          graph->textureId(), graph->textureWidth(), sw, sh, node->width(), node->height(), style, worldTransform
-      );
-    }
     break;
   }
   case NodeType::Wallpaper: {

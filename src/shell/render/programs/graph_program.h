@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/backend/render_extension.h"
 #include "render/core/mat3.h"
 #include "render/core/shader_program.h"
 
@@ -8,17 +9,11 @@
 class TextureId;
 struct GraphStyle;
 
-class GraphProgram {
+class GraphProgram final : public RenderExtension {
 public:
-  GraphProgram() = default;
-  ~GraphProgram() = default;
-
-  GraphProgram(const GraphProgram&) = delete;
-  GraphProgram& operator=(const GraphProgram&) = delete;
-
   void ensureInitialized();
-  void destroy();
-  void abandon() noexcept;
+  void destroy() override;
+  void abandon() noexcept override;
 
   void draw(
       TextureId dataTexture, int texWidth, float surfaceWidth, float surfaceHeight, float width, float height,

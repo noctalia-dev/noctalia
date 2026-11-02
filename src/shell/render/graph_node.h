@@ -1,25 +1,23 @@
 #pragma once
 
-#include "render/core/render_styles.h"
 #include "render/core/texture_handle.h"
-#include "render/scene/node.h"
+#include "render/scene/custom_draw_node.h"
+#include "shell/render/shell_render_styles.h"
 
 #include <cstdint>
 #include <vector>
 
 class TextureManager;
 
-class GraphNode : public Node {
+class GraphNode : public CustomDrawNode {
 public:
-  GraphNode() : Node(NodeType::Graph) {}
+  GraphNode() = default;
   ~GraphNode() override;
 
   GraphNode(const GraphNode&) = delete;
   GraphNode& operator=(const GraphNode&) = delete;
 
   const GraphStyle& style() const noexcept { return m_style; }
-  TextureId textureId() const noexcept { return m_texture.id; }
-  int textureWidth() const noexcept { return m_texWidth; }
 
   void setLineColor1(const Color& color) {
     if (m_style.lineColor1 == color)
@@ -106,6 +104,8 @@ public:
       TextureManager& textures, const float* primary, int primaryCount, const float* secondary, int secondaryCount,
       const float* tertiary = nullptr, int tertiaryCount = 0
   );
+
+  void draw(RenderBackend& backend, const CustomDrawContext& context) const override;
 
 private:
   void doInvalidateGpuResources(Renderer& renderer) override;

@@ -4,9 +4,7 @@
 #include "render/backend/render_backend.h"
 #include "render/core/shader_program.h"
 #include "render/programs/blur_program.h"
-#include "render/programs/effect_program.h"
 #include "render/programs/glyph_program.h"
-#include "render/programs/graph_program.h"
 #include "render/programs/image_program.h"
 #include "render/programs/lockscreen_transition_program.h"
 #include "render/programs/rect_program.h"
@@ -58,14 +56,6 @@ public:
       float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
       const Mat3& transform
   ) override;
-  void drawEffect(
-      float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
-      const Mat3& transform
-  ) override;
-  void drawGraph(
-      TextureId dataTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width, float height,
-      const GraphStyle& style, const Mat3& transform
-  ) override;
   void drawWallpaper(const WallpaperDrawParams& params) override;
   void drawWallpaperMask(const WallpaperMaskDrawParams& params) override;
   void drawLockscreenTransition(const LockscreenTransitionDrawParams& params) override;
@@ -101,8 +91,6 @@ private:
   ImageProgram m_imageProgram;
   GlyphProgram m_glyphProgram;
   SpinnerProgram m_spinnerProgram;
-  EffectProgram m_effectProgram;
-  GraphProgram m_graphProgram;
   WallpaperProgram m_wallpaperProgram;
   WallpaperMaskProgram m_wallpaperMaskProgram;
   LockscreenTransitionProgram m_lockscreenTransitionProgram;

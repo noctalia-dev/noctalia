@@ -1,13 +1,11 @@
 #pragma once
 
 #include "render/core/color.h"
-#include "render/core/render_styles.h"
-#include "render/scene/node.h"
+#include "render/scene/custom_draw_node.h"
+#include "shell/render/shell_render_styles.h"
 
-class EffectNode : public Node {
+class EffectNode : public CustomDrawNode {
 public:
-  EffectNode() : Node(NodeType::Effect) {}
-
   const EffectStyle& style() const noexcept { return m_style; }
 
   void setEffectType(EffectType type) {
@@ -38,6 +36,8 @@ public:
     m_style.bgColor = color;
     markPaintDirty();
   }
+
+  void draw(RenderBackend& backend, const CustomDrawContext& context) const override;
 
 private:
   EffectStyle m_style;

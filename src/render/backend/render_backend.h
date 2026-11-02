@@ -152,14 +152,6 @@ public:
       float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
       const Mat3& transform
   ) = 0;
-  virtual void drawEffect(
-      float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
-      const Mat3& transform
-  ) = 0;
-  virtual void drawGraph(
-      TextureId dataTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width, float height,
-      const GraphStyle& style, const Mat3& transform
-  ) = 0;
   virtual void drawWallpaper(const WallpaperDrawParams& params) = 0;
   virtual void drawWallpaperMask(const WallpaperMaskDrawParams& params) = 0;
   virtual void drawLockscreenTransition(const LockscreenTransitionDrawParams& params) = 0;
