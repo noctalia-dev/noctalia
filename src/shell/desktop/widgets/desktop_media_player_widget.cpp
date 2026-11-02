@@ -101,7 +101,7 @@ void DesktopMediaPlayerWidget::create() {
           .glyph = "media-prev",
           .variant = ButtonVariant::Ghost,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_mpris != nullptr) {
                   m_mpris->previousActive();
                   requestRedraw();
@@ -113,7 +113,7 @@ void DesktopMediaPlayerWidget::create() {
           .glyph = "media-play",
           .variant = ButtonVariant::Primary,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_mpris != nullptr) {
                   m_mpris->playPauseActive();
                   requestRedraw();
@@ -124,7 +124,7 @@ void DesktopMediaPlayerWidget::create() {
           .out = &m_next,
           .glyph = "media-next",
           .variant = ButtonVariant::Ghost,
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_mpris != nullptr) {
               m_mpris->nextActive();
               requestRedraw();
@@ -533,8 +533,9 @@ void DesktopMediaPlayerWidget::onFrameTick(float deltaMs, Renderer& /*renderer*/
     return;
   }
   syncSpectrum();
-  m_audioVisualizer->tick(deltaMs);
-  requestRedraw();
+  if (m_audioVisualizer->advance(deltaMs, m_spectrum != nullptr && !m_spectrum->idle())) {
+    requestRedraw();
+  }
 }
 
 void DesktopMediaPlayerWidget::syncSpectrum() {
@@ -565,7 +566,7 @@ void DesktopMediaPlayerWidget::updateSpectrumSubscription() {
     return;
   }
   if (m_spectrumListenerId == 0) {
-    m_spectrumListenerId = m_spectrum->addChangeListener(kVisualizerBands, [this]() {
+    m_spectrumListenerId = m_spectrum->addChangeListener(kVisualizerBands, [this] {
       m_pendingSpectrumUpdate = true;
       requestFrameTick();
     });

@@ -31,7 +31,7 @@ namespace text {
     std::unordered_map<std::string, CatalogEntry> g_cache;
 
     [[nodiscard]] std::string normalizeFamilyKey(std::string_view fontFamily) {
-      std::string key = StringUtils::trim(std::string(fontFamily));
+      std::string key = StringUtils::trim(fontFamily);
       if (key.empty()) {
         key = "sans-serif";
       }
@@ -127,7 +127,7 @@ namespace text {
         return entry;
       }
 
-      const std::string family = StringUtils::trim(std::string(fontFamily));
+      const std::string family = StringUtils::trim(fontFamily);
       const std::string queryFamily = family.empty() ? "sans-serif" : family;
 
       FcObjectSet* objectSet = FcObjectSetBuild(FC_WEIGHT, FC_VARIABLE, nullptr);

@@ -27,7 +27,7 @@ public:
   void bindExtWorkspace(ext_workspace_manager_v1* manager);
   void bindKdeVirtualDesktop(org_kde_plasma_virtual_desktop_management* management);
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager);
-  void setOutputNameResolver(std::function<std::string(wl_output*)> resolver);
+  void setOutputNameResolver(const std::function<std::string(wl_output*)>& resolver);
   void initialize();
   void onOutputAdded(wl_output* output);
   void onOutputRemoved(wl_output* output);
@@ -58,6 +58,10 @@ public:
   [[nodiscard]] wl_output* dwlIpcSelectedOutput() const;
   [[nodiscard]] std::optional<std::pair<std::string, std::string>> dwlIpcFocusedClientOnOutput(wl_output* output) const;
   [[nodiscard]] std::optional<std::string> focusedWindowId() const;
+  // Sway's ext-foreign-toplevel identifier for the focused view; see WorkspaceBackend for why
+  // this is not the same namespace as focusedWindowId().
+  [[nodiscard]] std::optional<std::string> focusedExtToplevelIdentifier() const;
+  [[nodiscard]] bool publishesExtToplevelIdentity() const noexcept;
 
 private:
   void setActiveBackend(WorkspaceBackend* backend);

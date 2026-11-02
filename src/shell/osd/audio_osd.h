@@ -17,7 +17,7 @@ public:
   void showOutput(std::uint32_t sinkId, float volume, bool muted, bool playFeedback = true);
   void showOutputName(std::string name, bool muted);
 
-  void showInput(std::uint32_t sourceId, float volume, bool muted, bool playFeedback = true);
+  void showInput(std::uint32_t sourceId, float volume, bool muted);
   void showInputName(std::string name, bool muted);
 
   // Paint only: no sound, no suppression, no snapshot writes. Displaying a value on request must not

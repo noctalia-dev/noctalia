@@ -1,6 +1,7 @@
 #include "shell/control_center/tabs/notifications_tab.h"
 
 #include "compositors/compositor_platform.h"
+#include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "net/uri.h"
@@ -127,7 +128,7 @@ namespace {
       return {};
     }
 
-    const std::string localPath = normalizeLocalIconPath(iconValue);
+    std::string localPath = normalizeLocalIconPath(iconValue);
     if (!localPath.empty() && localPath.front() == '/') {
       if (access(localPath.c_str(), R_OK) == 0) {
         return localPath;
@@ -195,7 +196,7 @@ namespace {
     if (text.empty()) {
       return 0.0F;
     }
-    const auto bounds = renderer.measureText(text, fontSize, fontWeight, maxWidth, maxLines);
+    const auto bounds = renderer.measureText(text, fontSize, {fontWeight}, maxWidth, maxLines);
     return std::max(0.0F, bounds.bottom - bounds.top);
   }
 
@@ -330,7 +331,7 @@ namespace {
 
       m_iconSlot = static_cast<Box*>(m_leftCluster->addChild(
           ui::box({
-              .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+              .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
               .radius = notificationIconRadius(kHistoryIconSize, scale),
               .width = kHistoryIconSize * scale,
               .height = kHistoryIconSize * scale,
@@ -415,11 +416,11 @@ namespace {
       m_expand->setVisible(metrics.canExpand);
       m_expand->setEnabled(metrics.canExpand);
       m_expand->setGlyph(metrics.expanded ? "chevron-up" : "chevron-down");
-      m_expand->setOnClick([onToggleExpanded = std::move(onToggleExpanded), id = entry.notification.id]() {
+      m_expand->setOnClick([onToggleExpanded = std::move(onToggleExpanded), id = entry.notification.id] {
         onToggleExpanded(id);
       });
 
-      m_dismiss->setOnClick([onRemove = std::move(onRemove), id = entry.notification.id, active = entry.active]() {
+      m_dismiss->setOnClick([onRemove = std::move(onRemove), id = entry.notification.id, active = entry.active] {
         onRemove(id, active);
       });
 
@@ -456,7 +457,7 @@ namespace {
               .fontSize = Style::fontSizeCaption * m_scale,
               .variant = ButtonVariant::Default,
           });
-          button->setOnClick([onAction, id = entry.notification.id, key = std::string(actionKey)]() {
+          button->setOnClick([onAction, id = entry.notification.id, key = std::string(actionKey)] {
             onAction(id, key);
           });
           buttons.push_back(std::move(button));
@@ -584,17 +585,18 @@ public:
   [[nodiscard]] std::size_t itemCount() const override { return m_owner.m_filtered.size(); }
 
   [[nodiscard]] std::uint64_t itemKey(std::size_t index) const override {
-    if (index >= m_owner.m_filtered.size() || m_owner.m_filtered[index] == nullptr) {
+    if (index >= m_owner.m_filtered.size()) {
       return static_cast<std::uint64_t>(index);
     }
-    return m_owner.m_filtered[index]->notification.id;
+    return m_owner.m_filtered[index];
   }
 
   [[nodiscard]] std::uint64_t itemRevision(std::size_t index) const override {
-    if (index >= m_owner.m_filtered.size() || m_owner.m_filtered[index] == nullptr) {
+    const NotificationHistoryEntry* found = m_owner.filteredEntry(index);
+    if (found == nullptr) {
       return 0;
     }
-    const auto& entry = *m_owner.m_filtered[index];
+    const auto& entry = *found;
     const bool expanded = m_owner.m_expandedIds.contains(entry.notification.id);
     std::uint64_t revision = revisionForEntry(entry, expanded, m_owner.m_lastRelativeTimeSlot);
     revision ^= static_cast<std::uint64_t>(Style::cornerRadiusScale() * 10000.0F) * 0xC2B2AE3D27D4EB4FULL;
@@ -602,10 +604,11 @@ public:
   }
 
   [[nodiscard]] float measureItem(Renderer& renderer, std::size_t index, float width) override {
-    if (index >= m_owner.m_filtered.size() || m_owner.m_filtered[index] == nullptr) {
+    const NotificationHistoryEntry* found = m_owner.filteredEntry(index);
+    if (found == nullptr) {
       return 1.0F;
     }
-    const auto& entry = *m_owner.m_filtered[index];
+    const auto& entry = *found;
     const bool expanded = m_owner.m_expandedIds.contains(entry.notification.id);
     const bool showHistoryActions =
         m_owner.m_notifications != nullptr && m_owner.m_notifications->hasPendingDBusClose(entry.notification.id);
@@ -617,14 +620,15 @@ public:
   }
 
   void bindItem(Renderer& renderer, Node& item, std::size_t index, float width, bool /*hovered*/) override {
-    if (index >= m_owner.m_filtered.size() || m_owner.m_filtered[index] == nullptr) {
+    const NotificationHistoryEntry* found = m_owner.filteredEntry(index);
+    if (found == nullptr) {
       return;
     }
     auto* row = dynamic_cast<NotificationHistoryRow*>(&item);
     if (row == nullptr) {
       return;
     }
-    const auto& entry = *m_owner.m_filtered[index];
+    const auto& entry = *found;
     const bool showHistoryActions =
         m_owner.m_notifications != nullptr && m_owner.m_notifications->hasPendingDBusClose(entry.notification.id);
     row->bind(
@@ -750,7 +754,7 @@ std::unique_ptr<Flex> NotificationsTab::createHeaderActions() {
           .out = &m_clearAllButton,
           .glyph = "trash",
           .tooltip = i18n::tr("control-center.notifications.clear-all"),
-          .onClick = [this]() { clearAllNotifications(); },
+          .onClick = [this] { clearAllNotifications(); },
           .configure =
               [scale](Button& button) {
                 panel_button_style::configureHeaderIconButton(button, scale);
@@ -763,7 +767,7 @@ std::unique_ptr<Flex> NotificationsTab::createHeaderActions() {
           .selected = dndEnabled,
           .tooltip =
               i18n::tr(dndEnabled ? "control-center.notifications.dnd-off" : "control-center.notifications.dnd-on"),
-          .onClick = [this]() { toggleDoNotDisturb(); },
+          .onClick = [this] { toggleDoNotDisturb(); },
           .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
       })
   );
@@ -774,7 +778,9 @@ void NotificationsTab::doLayout(Renderer& renderer, float contentWidth, float bo
     return;
   }
 
-  if (!filterSlideOutActive()) {
+  if (filterSlideOutActive()) {
+    dropVanishedFiltered();
+  } else {
     refreshDataSnapshot();
   }
   m_root->setSize(contentWidth, bodyHeight);
@@ -793,6 +799,7 @@ void NotificationsTab::doLayout(Renderer& renderer, float contentWidth, float bo
 
 void NotificationsTab::doUpdate(Renderer& renderer) {
   if (filterSlideOutActive()) {
+    dropVanishedFiltered();
     return;
   }
   if (refreshDataSnapshot() && m_root != nullptr) {
@@ -888,7 +895,7 @@ void NotificationsTab::beginFilterSlideOut(std::size_t nextIndex) {
         applyFilterSlide(progress, false);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_filterSlideAnimId = 0;
         if (m_pendingFilterIndex != std::numeric_limits<std::size_t>::max()) {
           m_filterIndex = m_pendingFilterIndex;
@@ -922,7 +929,7 @@ void NotificationsTab::beginFilterSlideIn() {
         applyFilterSlide(progress, true);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_filterSlideAnimId = 0;
         if (m_list != nullptr) {
           m_list->setPosition(m_filterSlideBaseX, m_filterSlideBaseY);
@@ -968,6 +975,19 @@ void NotificationsTab::toggleDoNotDisturb() {
   (void)m_notifications->toggleDoNotDisturb();
   syncDndButton();
   PanelManager::instance().refresh();
+}
+
+bool NotificationsTab::handleKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+  if (!pressed || preedit || !KeybindMatcher::matches(KeybindAction::Delete, sym, modifiers)) {
+    return false;
+  }
+  dropVanishedFiltered();
+  const NotificationHistoryEntry* top = filteredEntry(0);
+  if (top == nullptr) {
+    return false;
+  }
+  removeNotificationEntry(top->notification.id, top->active);
+  return true;
 }
 
 void NotificationsTab::removeNotificationEntry(uint32_t id, bool wasActive) {
@@ -1047,7 +1067,7 @@ bool NotificationsTab::refreshDataSnapshot() {
     m_filtered.reserve(m_notifications->history().size());
     for (const auto& historyEntry : std::views::reverse(m_notifications->history())) {
       if (matchesHistoryFilter(historyEntry, m_filterIndex)) {
-        m_filtered.push_back(&historyEntry);
+        m_filtered.push_back(historyEntry.notification.id);
       }
     }
   }
@@ -1099,12 +1119,28 @@ void NotificationsTab::updateEmptyState(bool hasHistory, bool hasFiltered) {
 }
 
 std::optional<std::size_t> NotificationsTab::filteredIndexForId(uint32_t id) const {
-  for (std::size_t i = 0; i < m_filtered.size(); ++i) {
-    if (m_filtered[i] != nullptr && m_filtered[i]->notification.id == id) {
-      return i;
-    }
+  const auto it = std::ranges::find(m_filtered, id);
+  if (it == m_filtered.end()) {
+    return std::nullopt;
   }
-  return std::nullopt;
+  return static_cast<std::size_t>(it - m_filtered.begin());
+}
+
+void NotificationsTab::dropVanishedFiltered() {
+  if (m_notifications == nullptr) {
+    return;
+  }
+  const auto vanished = [this](uint32_t id) { return m_notifications->findHistoryEntry(id) == nullptr; };
+  if (std::erase_if(m_filtered, vanished) > 0 && m_list != nullptr) {
+    m_list->notifyDataChanged();
+  }
+}
+
+const NotificationHistoryEntry* NotificationsTab::filteredEntry(std::size_t index) const {
+  if (index >= m_filtered.size() || m_notifications == nullptr) {
+    return nullptr;
+  }
+  return m_notifications->findHistoryEntry(m_filtered[index]);
 }
 
 void NotificationsTab::onPanelCardOpacityChanged(float opacity) {

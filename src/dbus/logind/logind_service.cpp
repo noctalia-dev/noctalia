@@ -91,12 +91,16 @@ void LogindService::ensureSessionLockMonitor() {
   }
 
   m_sessionProxy = sdbus::createProxy(m_bus.connection(), kLogindBusName, *sessionPath);
-  m_sessionProxy->uponSignal("Lock").onInterface(kLogindSessionInterface).call([this]() {
+  m_sessionProxy->uponSignal("Lock").onInterface(kLogindSessionInterface).call([this] {
     if (m_lockCallback) {
       m_lockCallback();
     }
   });
-  m_sessionProxy->uponSignal("Unlock").onInterface(kLogindSessionInterface).call([this]() {
+  m_sessionProxy->uponSignal("Unlock").onInterface(kLogindSessionInterface).call([this] {
+    if (!m_bus.isNameOwner(kLogindBusName, m_sessionProxy->getCurrentlyProcessedMessage().getSender())) {
+      kLog.warn("ignoring Unlock signal not sent by logind");
+      return;
+    }
     if (m_unlockCallback) {
       m_unlockCallback();
     }

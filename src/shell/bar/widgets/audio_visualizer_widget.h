@@ -16,6 +16,7 @@ public:
     bool mirrored = true;
     bool reversed = false;
     bool centered = true;
+    bool wave = false;
     bool showWhenIdle = false;
     ColorSpec color1 = colorSpecFromRole(ColorRole::Primary);
     ColorSpec color2 = colorSpecFromRole(ColorRole::Primary);
@@ -44,6 +45,7 @@ private:
   bool m_mirrored = false;
   bool m_reversed = false;
   bool m_centered = true;
+  bool m_wave = false;
   bool m_showWhenIdle = false;
   ColorSpec m_color1 = colorSpecFromRole(ColorRole::Primary);
   ColorSpec m_color2 = colorSpecFromRole(ColorRole::Primary);

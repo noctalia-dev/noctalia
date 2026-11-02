@@ -1,5 +1,6 @@
 #include "notification/notification_history_store.h"
 #include "notification/notification_manager.h"
+#include "notification_history_test_utils.h"
 #include "util/string_utils.h"
 
 #include <deque>
@@ -39,22 +40,19 @@ namespace {
     };
   }
 
-  struct TempFile {
+  struct TempHistory {
+    std::filesystem::path dir;
     std::filesystem::path path;
 
-    explicit TempFile(const std::string& suffix)
-        : path(
-              std::filesystem::temp_directory_path()
-              / ("noctalia-test-" + std::to_string(static_cast<long long>(getpid())) + "-" + suffix)
-          ) {
-      std::filesystem::remove(path);
-      std::filesystem::remove(path.string() + ".tmp");
+    explicit TempHistory(const std::string& suffix)
+        : dir(std::filesystem::temp_directory_path()
+              / ("noctalia-test-" + std::to_string(static_cast<long long>(getpid())) + "-" + suffix)),
+          path(dir / "history.enc") {
+      std::filesystem::remove_all(dir);
+      std::filesystem::create_directories(dir);
     }
 
-    ~TempFile() {
-      std::filesystem::remove(path);
-      std::filesystem::remove(path.string() + ".tmp");
-    }
+    ~TempHistory() { std::filesystem::remove_all(dir); }
   };
 
   bool check(bool cond, const char* msg) {
@@ -127,7 +125,8 @@ int main() {
 
   // Persistence: malformed body serializes without throwing and produces valid JSON
   {
-    TempFile tmp("utf8-history.json");
+    TempHistory tmp("utf8-history");
+    const auto key = notificationHistoryTestKey();
 
     std::string body = "prefix ";
     body.push_back(static_cast<char>(0xD1));
@@ -143,7 +142,7 @@ int main() {
     );
 
     try {
-      if (!saveNotificationHistoryToFile(tmp.path, entries, 315, 2)) {
+      if (!saveNotificationHistoryToFile(tmp.path, entries, 315, 2, key)) {
         ok &= check(false, "saveNotificationHistoryToFile returned false");
       }
     } catch (const std::exception& e) {
@@ -151,15 +150,8 @@ int main() {
       ok &= check(false, "saveNotificationHistoryToFile threw");
     }
 
-    std::ifstream in(tmp.path, std::ios::binary);
-    ok &= check(in.good(), "history file was not written");
-
-    if (in.good()) {
-      std::ostringstream buf;
-      buf << in.rdbuf();
-      const auto parsed = nlohmann::json::parse(buf.str(), nullptr, false);
-      ok &= check(!parsed.is_discarded(), "history file is not valid JSON");
-    }
+    const auto parsed = readNotificationHistoryJson(tmp.path, key);
+    ok &= check(parsed.at("entries").size() == 1, "encrypted history lost the malformed UTF-8 entry");
   }
 
   return ok ? 0 : 1;

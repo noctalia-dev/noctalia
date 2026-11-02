@@ -54,17 +54,24 @@ public:
   }
   virtual void onFrameTick(float deltaMs) { (void)deltaMs; }
   [[nodiscard]] virtual bool needsFrameTick() const { return false; }
+  // True when the widget renders a value that changes every second. The bar uses
+  // this to decide whether it needs second-precision time ticks at all.
+  [[nodiscard]] virtual bool wantsSecondTicks() const { return false; }
   [[nodiscard]] virtual bool onPointerEvent(const PointerEvent& event) {
     (void)event;
     return false;
   }
 
   [[nodiscard]] virtual bool noGapAroundMe() const noexcept { return false; }
+  // Takes a share of its lane's free space (start and end lanes only; the center lane sizes to its content).
+  [[nodiscard]] virtual bool expandsInLane() const noexcept { return false; }
   // Layout-only or non-interactive bar widgets: clicks pass through to bar dead-zone handlers.
   [[nodiscard]] virtual bool isBarClickThrough() const noexcept { return m_nonInteractive; }
   // Widgets with interactive sub-items (workspaces, taskbar, tray) manage hover per item and
   // opt out of the bar's generic whole-widget hover highlight.
   [[nodiscard]] virtual bool wantsBarHoverHighlight() const noexcept { return !m_nonInteractive; }
+  // Whether the hover box tints while the widget is hovered. The box still sizes the hit target.
+  [[nodiscard]] virtual bool wantsBarHoverTint() const noexcept { return true; }
 
   // The node this widget built. Widgets size and position it in doLayout().
   [[nodiscard]] Node* root() const noexcept { return m_innerRoot; }

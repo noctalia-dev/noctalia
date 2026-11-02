@@ -13,7 +13,8 @@ namespace noctalia::cli {
 
     [[nodiscard]] std::string positionalSpec(const Positional& positional) {
       if (positional.joinRemaining)
-        return "<" + std::string(positional.name) + "...>";
+        return positional.required ? "<" + std::string(positional.name) + "...>"
+                                   : "[" + std::string(positional.name) + "...]";
       if (positional.variadic)
         return "[" + std::string(positional.name) + " ...]";
       if (positional.required)

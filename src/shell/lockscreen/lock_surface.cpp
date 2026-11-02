@@ -113,8 +113,8 @@ namespace {
     return ButtonVariant::Default;
   }
 
-  // Default/Ghost use SurfaceVariant or clear fills that disappear on the
-  // SurfaceVariant login panel — Outline gives a readable Surface chip.
+  // Default/Ghost use SurfaceContainer or clear fills that disappear on the
+  // SurfaceContainer login panel; Outline gives a readable Surface chip.
   [[nodiscard]] ButtonVariant lockscreenSessionVariant(SessionActionButtonVariant variant) {
     switch (variant) {
     case SessionActionButtonVariant::Default:
@@ -471,7 +471,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .variant = ButtonVariant::Secondary,
           .visible = false,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_onCycleLayout) {
                   m_onCycleLayout();
                 }
@@ -513,7 +513,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .glyphSize = 16.0F,
           .variant = ButtonVariant::Ghost,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_passwordField == nullptr) {
                   return;
                 }
@@ -535,7 +535,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .glyphSize = 16.0F,
           .variant = ButtonVariant::Primary,
           .onClick =
-              [this]() {
+              [this] {
                 if (m_onLogin) {
                   m_onLogin();
                 }
@@ -580,6 +580,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
 }
 
 LockSurface::~LockSurface() {
+  invalidateSleepFrame();
   m_aliveGuard.reset();
   releaseCaptureTextures();
   m_connection.unregisterSurface(m_surface);
@@ -800,6 +801,7 @@ bool LockSurface::usesDesktopCaptureBackground() const noexcept {
 void LockSurface::configureTransition(
     std::optional<LockscreenTransitionKind> transition, const LockscreenTransitionParams& params, float durationMs
 ) {
+  invalidateSleepFrame();
   cancelTransitionAnimation();
   m_transitionParams = params;
   m_transitionDurationMs = std::max(0.0F, durationMs);
@@ -827,6 +829,7 @@ void LockSurface::startEnterTransition() {
 }
 
 void LockSurface::startExitTransition() {
+  invalidateSleepFrame();
   m_enterTransitionRequested = false;
   if (m_transitionPhase == TransitionPhase::ExitComplete
       || m_transitionPhase == TransitionPhase::ExitEndpoint
@@ -862,7 +865,7 @@ void LockSurface::startExitTransition() {
         m_transitionProgress = progress;
         syncTransitionCover();
       },
-      [this]() {
+      [this] {
         m_transitionAnimation = 0;
         m_transitionProgress = 0.0F;
         m_transitionPhase = TransitionPhase::ExitEndpoint;
@@ -871,6 +874,34 @@ void LockSurface::startExitTransition() {
       },
       this
   );
+  requestRedraw();
+}
+
+void LockSurface::suppressEntryTransition() {
+  const bool entering = m_transitionPhase == TransitionPhase::Cover
+      || m_transitionPhase == TransitionPhase::FinalPrime
+      || m_transitionPhase == TransitionPhase::Ready
+      || m_transitionPhase == TransitionPhase::Entering
+      || m_transitionPhase == TransitionPhase::EnterEndpoint;
+  if (entering) {
+    invalidateSleepFrame();
+    discardPendingFrameCallback();
+  }
+  cancelTransitionAnimation();
+  m_enterTransitionRequested = false;
+  m_transitionPhase = TransitionPhase::Disabled;
+  m_transitionProgress = 1.0F;
+  auto captureTexture = std::exchange(m_transitionCaptureTexture, {});
+  syncTransitionCover();
+  if (captureTexture.id != 0 && renderContext() != nullptr) {
+    renderContext()->backend().makeCurrentNoSurface();
+    renderContext()->textureManager().unload(captureTexture);
+  }
+  if (!m_useDesktopCaptureBackground) {
+    m_desktopCapture.reset();
+  }
+  m_captureDirty = true;
+  requestLayout();
   requestRedraw();
 }
 
@@ -899,6 +930,7 @@ void LockSurface::setBlackout(bool blackout) {
   if (m_blackout == blackout) {
     return;
   }
+  invalidateSleepFrame();
   m_blackout = blackout;
   if (m_blackout) {
     m_inputDispatcher.setFocus(nullptr);
@@ -1014,7 +1046,7 @@ void LockSurface::handleConfigure(
   auto* self = static_cast<LockSurface*>(data);
   self->m_receivedConfigure = true;
   if (self->width() != width || self->height() != height) {
-    self->m_firstFrameRendered = false;
+    self->invalidateSleepFrame();
   }
   ext_session_lock_surface_v1_ack_configure(lockSurface, serial);
   self->Surface::onConfigure(width, height);
@@ -1073,6 +1105,7 @@ void LockSurface::syncTransitionCover() {
 
   const bool visible = m_transitionCaptureTexture.id != 0
       && m_transitionPhase != TransitionPhase::Disabled
+      && m_transitionPhase != TransitionPhase::EnterEndpoint
       && m_transitionPhase != TransitionPhase::Stable;
   m_transitionCover->setVisible(visible);
   m_transitionCover->setTexture(m_transitionCaptureTexture.id);
@@ -1103,10 +1136,10 @@ void LockSurface::beginEnterAnimation() {
         m_transitionProgress = progress;
         syncTransitionCover();
       },
-      [this]() {
+      [this] {
         m_transitionAnimation = 0;
         m_transitionProgress = 1.0F;
-        m_transitionPhase = TransitionPhase::Stable;
+        m_transitionPhase = TransitionPhase::EnterEndpoint;
         syncTransitionCover();
         requestRedraw();
         notifyTransitionStateChanged();
@@ -1218,7 +1251,12 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   m_loginContentRow->setVisible(loginVisible);
   m_passwordField->setVisible(loginVisible);
   if (m_passwordRevealButton != nullptr) {
-    m_passwordRevealButton->setVisible(loginVisible);
+    const bool showReveal = loginVisible && loginStyle.showPasswordReveal;
+    m_passwordRevealButton->setVisible(showReveal);
+    if (!showReveal) {
+      m_passwordField->setPasswordRevealed(false);
+      m_passwordRevealButton->setGlyph("eye");
+    }
   }
   m_loginButton->setVisible(loginVisible && loginStyle.showLoginButton);
 
@@ -1234,8 +1272,9 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   float panelX = std::round((sw - panelWidth) * 0.5F);
   float panelY = std::max(Style::spaceLg, sh - panelHeight - 84.0F);
   if (m_config != nullptr) {
-    if (const DesktopWidgetState* loginBox =
-            lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
+    if (const DesktopWidgetState* loginBox = lockscreen_login_box::findForOutput(
+            m_config->config().lockscreenWidgets.widgets, m_connection.outputs(), m_outputKey
+        );
         loginBox != nullptr) {
       float cx = loginBox->cx;
       float cy = loginBox->cy;
@@ -1287,7 +1326,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   }
 
   m_loginPanel->setFill(loginStyle.panelFill);
-  m_loginPanel->setBorder(colorForRole(ColorRole::Outline, loginStyle.panelOpacity), Style::borderWidth);
+  m_loginPanel->setBorder(colorForRole(ColorRole::OutlineVariant, loginStyle.panelOpacity), Style::borderWidth);
   m_loginPanel->setRadius(Style::scaledRadius(loginStyle.panelRadius));
   m_loginPanel->setSoftness(1.0F);
   m_loginPanel->setClipChildren(true);
@@ -1517,7 +1556,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
 
       m_authPanel->setPadding(authPadV, authPadH);
       m_authPanel->setFill(loginStyle.panelFill);
-      m_authPanel->setBorder(colorForRole(ColorRole::Outline, loginStyle.panelOpacity), Style::borderWidth);
+      m_authPanel->setBorder(colorForRole(ColorRole::OutlineVariant, loginStyle.panelOpacity), Style::borderWidth);
       m_authPanel->setRadius(Style::scaledRadius(loginStyle.panelRadius));
       m_authPanel->setSoftness(1.0F);
       m_authPanel->setMinWidth(authW);
@@ -1631,10 +1670,19 @@ void LockSurface::rebuildSessionButtons() {
   }
 
   const auto actions = resolveSessionActions();
+  const bool showShortcuts = m_config == nullptr || m_config->config().shell.session.showShortcuts;
+  std::vector<std::string> badges;
+  badges.reserve(actions.size());
   std::vector<std::string> keys;
   keys.reserve(actions.size());
   for (const auto& action : actions) {
-    keys.push_back(action.action + "|" + (action.label.value_or("")) + "|" + (action.glyph.value_or("")));
+    badges.push_back(
+        showShortcuts && action.lockscreenShortcut.has_value() ? keyChordDisplayLabel(*action.lockscreenShortcut)
+                                                               : std::string{}
+    );
+    keys.push_back(
+        action.action + "|" + (action.label.value_or("")) + "|" + (action.glyph.value_or("")) + "|" + badges.back()
+    );
   }
   if (keys == m_lastSessionActionKeys && !m_sessionButtons.empty()) {
     return;
@@ -1650,7 +1698,8 @@ void LockSurface::rebuildSessionButtons() {
     return;
   }
 
-  for (const auto& cfg : actions) {
+  for (std::size_t i = 0; i < actions.size(); ++i) {
+    const auto& cfg = actions[i];
     const std::string_view labelKey =
         cfg.action == "lock_and_suspend" ? session_action::labelKey("suspend") : session_action::labelKey(cfg.action);
     const std::string labelText = cfg.label.has_value() && !cfg.label->empty() ? *cfg.label : i18n::tr(labelKey);
@@ -1670,17 +1719,26 @@ void LockSurface::rebuildSessionButtons() {
         .radius = Style::scaledRadiusMd(),
         .flexGrow = 1.0F,
         .onClick =
-            [this, cfg]() {
+            [this, cfg] {
               if (m_sessionActions != nullptr) {
                 m_sessionActions->invoke(cfg);
               }
             },
         .configure =
-            [](Button& control) {
+            [hint = badges[i]](Button& control) {
               control.setDirection(FlexDirection::Horizontal);
               control.setAlign(FlexAlign::Center);
               control.setJustify(FlexJustify::Center);
               control.setFillHeight(true);
+              // An inline trailing hint, not the corner badge: these buttons are too
+              // compact for an overlay, which would cover the centered label.
+              if (!hint.empty()) {
+                auto hintLabel = std::make_unique<Label>();
+                hintLabel->setText(hint);
+                hintLabel->setFontSize(Style::fontSizeCaption * 0.85F);
+                hintLabel->setOpacity(0.6F);
+                control.addChild(std::move(hintLabel));
+              }
             },
     });
     m_sessionButtons.push_back(button.get());
@@ -1829,8 +1887,9 @@ lockscreen_login_box::LoginBoxStyle LockSurface::resolveLoginStyle() const {
   if (m_config == nullptr) {
     return lockscreen_login_box::LoginBoxStyle{};
   }
-  if (const DesktopWidgetState* loginBox =
-          lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
+  if (const DesktopWidgetState* loginBox = lockscreen_login_box::findForOutput(
+          m_config->config().lockscreenWidgets.widgets, m_connection.outputs(), m_outputKey
+      );
       loginBox != nullptr) {
     return lockscreen_login_box::resolveStyle(loginBox->settings);
   }
@@ -1841,8 +1900,9 @@ bool LockSurface::isLoginBoxEnabled() const {
   if (m_config == nullptr) {
     return true;
   }
-  if (const DesktopWidgetState* loginBox =
-          lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
+  if (const DesktopWidgetState* loginBox = lockscreen_login_box::findForOutput(
+          m_config->config().lockscreenWidgets.widgets, m_connection.outputs(), m_outputKey
+      );
       loginBox != nullptr) {
     return loginBox->enabled;
   }
@@ -1910,7 +1970,7 @@ void LockSurface::applyWallpaperTexture() {
     } else if (m_pendingWallpaperPath != m_wallpaperPath && renderContext() != nullptr) {
       m_pendingWallpaperLease = m_textureCache->acquire(
           SharedTextureRequest{.path = m_wallpaperPath, .coverage = m_wallpaperCoverage}, &renderContext()->backend(),
-          [this]() {
+          [this] {
             m_wallpaperDirty = true;
             requestLayout();
           }
@@ -2063,12 +2123,14 @@ void LockSurface::applyBlurredDesktopTexture() {
 }
 
 void LockSurface::onGpuResourcesInvalidated() {
+  invalidateSleepFrame();
   const bool exitWasActive =
       m_transitionPhase == TransitionPhase::Exiting || m_transitionPhase == TransitionPhase::ExitEndpoint;
   const bool entryWasActive = m_transitionPhase == TransitionPhase::Cover
       || m_transitionPhase == TransitionPhase::FinalPrime
       || m_transitionPhase == TransitionPhase::Ready
-      || m_transitionPhase == TransitionPhase::Entering;
+      || m_transitionPhase == TransitionPhase::Entering
+      || m_transitionPhase == TransitionPhase::EnterEndpoint;
   cancelTransitionAnimation();
   releaseCaptureTextures();
 
@@ -2098,6 +2160,7 @@ void LockSurface::prepareForGraphicsReset() noexcept {
 }
 
 void LockSurface::forceRepaintAfterResume() {
+  invalidateSleepFrame();
   discardPendingFrameCallback();
   const bool exiting =
       m_transitionPhase == TransitionPhase::Exiting || m_transitionPhase == TransitionPhase::ExitEndpoint;
@@ -2115,14 +2178,59 @@ void LockSurface::forceRepaintAfterResume() {
   requestRedraw();
 }
 
-void LockSurface::onFrameCallbackDone() {
-  if (!m_firstFrameRendered) {
-    m_firstFrameRendered = true;
-    if (m_renderCallback) {
-      m_renderCallback();
+void LockSurface::invalidateSleepFrame() {
+  m_sleepFrameReady = false;
+  if (m_sleepFrameCallback != nullptr) {
+    wl_callback_destroy(m_sleepFrameCallback);
+    m_sleepFrameCallback = nullptr;
+  }
+}
+
+void LockSurface::render() {
+  if (m_surface != nullptr
+      && renderContext() != nullptr
+      && renderTarget().isReady()
+      && m_locked
+      && !m_sleepFrameReady
+      && m_sleepFrameCallback == nullptr
+      && (m_transitionPhase == TransitionPhase::Disabled
+          || m_transitionPhase == TransitionPhase::EnterEndpoint
+          || m_transitionPhase == TransitionPhase::Stable)) {
+    // This callback belongs to the uncovered buffer committed by this render, not an earlier animation frame.
+    static const wl_callback_listener listener = {.done = &LockSurface::handleSleepFrameDone};
+    m_sleepFrameCallback = wl_surface_frame(m_surface);
+    if (m_sleepFrameCallback != nullptr) {
+      wl_callback_add_listener(m_sleepFrameCallback, &listener, this);
     }
   }
+  Surface::render();
+}
 
+void LockSurface::handleSleepFrameDone(void* data, wl_callback* callback, std::uint32_t /*callbackData*/) {
+  auto* self = static_cast<LockSurface*>(data);
+  if (callback != self->m_sleepFrameCallback) {
+    return;
+  }
+  wl_callback_destroy(callback);
+  self->m_sleepFrameCallback = nullptr;
+  if (!self->m_locked
+      || (self->m_transitionPhase != TransitionPhase::Disabled
+          && self->m_transitionPhase != TransitionPhase::EnterEndpoint
+          && self->m_transitionPhase != TransitionPhase::Stable)) {
+    return;
+  }
+  self->m_sleepFrameReady = true;
+  if (self->m_transitionPhase == TransitionPhase::EnterEndpoint) {
+    self->m_transitionPhase = TransitionPhase::Stable;
+    self->notifyTransitionStateChanged();
+  }
+  kLog.debug("lock surface ready for sleep output={}", self->m_outputKey);
+  if (self->m_sleepReadyCallback) {
+    self->m_sleepReadyCallback();
+  }
+}
+
+void LockSurface::onFrameCallbackDone() {
   if (m_transitionPhase == TransitionPhase::Cover) {
     m_transitionPhase = TransitionPhase::FinalPrime;
     requestUpdate();

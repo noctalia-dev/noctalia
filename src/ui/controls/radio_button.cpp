@@ -17,7 +17,7 @@ RadioButton::RadioButton() {
 
   auto area = std::make_unique<InputArea>();
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-  area->setOnLeave([this]() { applyState(); });
+  area->setOnLeave([this] { applyState(); });
   area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
   area->setOnClick([this](const InputArea::PointerData& /*data*/) {
     if (!m_enabled || m_checked) {
@@ -98,7 +98,7 @@ void RadioButton::applyState() {
   }
 
   ColorSpec fill = colorSpecFromRole(ColorRole::Surface);
-  ColorSpec border = colorSpecFromRole(ColorRole::Outline);
+  ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   if (m_checked) {
     fill = colorSpecFromRole(ColorRole::Primary);
     border = colorSpecFromRole(ColorRole::Primary);

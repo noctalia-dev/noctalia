@@ -133,7 +133,7 @@ void HotCorners::armCorner(Corner& corner, int position, wl_output* output) {
   }
 
   corner.triggerTimer.start(
-      std::chrono::milliseconds(delayMs), [this, action = std::move(action), command = std::move(command), output]() {
+      std::chrono::milliseconds(delayMs), [this, action = std::move(action), command = std::move(command), output] {
         triggerAction(action, command, output);
       }
   );
@@ -185,7 +185,7 @@ void HotCorners::buildCorner(Corner& corner, int position, wl_output* output) {
   inputArea->setOnEnter([this, &corner, position, output](const InputArea::PointerData&) {
     armCorner(corner, position, output);
   });
-  inputArea->setOnLeave([this, &corner]() { disarmCorner(corner); });
+  inputArea->setOnLeave([this, &corner] { disarmCorner(corner); });
 
   corner.sceneRoot = std::move(inputArea);
   corner.inputDispatcher.setSceneRoot(corner.sceneRoot.get());

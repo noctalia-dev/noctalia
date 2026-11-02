@@ -15,6 +15,7 @@ namespace noctalia::config::schema {
   inline constexpr Range<std::int64_t> kRefreshMinutesRange{5, 240, 5}; // calendar/weather refresh interval
   // Calendar reminder lead time; 0 = notify at event start, 1440 = a full day ahead.
   inline constexpr Range<std::int64_t> kReminderLeadMinutesRange{0, 1440, 5};
+  inline constexpr Range<std::int64_t> kPastEventsThresholdMinutesRange{0, 1440, 5};
 
   // Shell.
   inline constexpr Range<float> kAnimationSpeedRange{0.1F, 4.0F, 0.05F};
@@ -34,13 +35,24 @@ namespace noctalia::config::schema {
   inline constexpr Range<float> kLockscreenTransitionDurationRange{100.0F, 30000.0F, 100.0F};
 
   // Bar.
+  inline constexpr Range<std::int64_t> kBarAutoHideDelayMsRange{0, 600000, 1000};
   inline constexpr Range<float> kBarFontScaleRange{0.2F, 2.5F, 0.01F};
   inline constexpr Range<float> kBarCapsuleBorderWidthRange{0.0F, 8.0F, 0.5F};
+  inline constexpr Range<std::int64_t> kBarCapsuleAccordionMsRange{0, 2000, 25};
+  // margin_ends as a percentage of the output's main axis; 50% on both ends would leave no bar.
+  inline constexpr Range<std::int64_t> kBarMarginEndsPercentRange{0, 49, 1};
+
+  // Screenshot.
+  inline constexpr Range<float> kScreenshotRegionBorderWidthRange{0.0F, 20.0F, 0.5F};
+  inline constexpr Range<std::int64_t> kScreenshotQualityRange{1, 100, 1};
 
   // Battery / wallpaper.
   inline constexpr Range<std::int64_t> kBatteryWarningThresholdRange{0, 100, 1};
   inline constexpr Range<float> kWallpaperTransitionDurationRange{100.0F, 30000.0F, 100.0F};
   inline constexpr Range<std::int64_t> kWallpaperAutomationIntervalRange{1, 86400, 1};
+
+  // Audio.
+  inline constexpr Range<std::int64_t> kSpectrumFrameRateRange{30, 240, 1};
 
   // Dock.
   inline constexpr Range<std::int64_t> kDockIconSizeRange{16, 128, 1};

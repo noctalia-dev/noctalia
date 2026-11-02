@@ -6,7 +6,6 @@
 #include "ui/dialogs/color_picker_dialog.h"
 #include "ui/style.h"
 
-#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string_view>

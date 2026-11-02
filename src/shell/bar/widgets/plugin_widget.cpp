@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <linux/input-event-codes.h>
 #include <optional>
 #include <sstream>
@@ -177,7 +178,7 @@ void PluginWidget::create() {
     if (m_runtime)
       (void)m_runtime->enqueueCallBool("onHover", true, makeScriptSnapshot());
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     if (m_runtime)
       (void)m_runtime->enqueueCallBool("onHover", false, makeScriptSnapshot());
   });
@@ -243,6 +244,21 @@ void PluginWidget::create() {
       })
   );
 
+  // Drag-and-drop preview layer (as in PluginPanel): the ghost of a dragged
+  // ui.dragSource is drawn here, above the host tree, outside layout and
+  // hit-testing. doLayout sizes it to the widget, so a drag stays inside the
+  // widget's own extent.
+  area->addChild(
+      ui::node({
+          .out = &m_dragOverlay,
+          .participatesInLayout = false,
+          .configure = [](Node& overlay) {
+            overlay.setHitTestVisible(false);
+            overlay.setZIndex(std::numeric_limits<std::int32_t>::max());
+          },
+      })
+  );
+
   m_reconciler.setCallbackSink([this](const ui::UiTreeReconciler::ControlCallback& callback) {
     if (m_runtime != nullptr) {
       (void)m_runtime->enqueueCallStrings(
@@ -252,6 +268,11 @@ void PluginWidget::create() {
   });
   m_reconciler.setPathResolver([this](const std::string& path) { return resolvePluginPath(path).string(); });
   m_reconciler.setCompactControls(true);
+  // ui.dragSource / ui.dropZone: the controls ride the InputArea
+  // press/motion/release the widget already receives; the overlay above
+  // hosts the preview.
+  m_reconciler.setDragDropEnabled(true);
+  m_reconciler.setDragDropOverlayRoot(m_dragOverlay);
 
   m_area = area.get();
   setRoot(std::move(area));
@@ -286,7 +307,7 @@ void PluginWidget::create() {
     if (result.modulePathsKnown) {
       m_scriptWatcher.setModulePaths(result.modulePaths);
     }
-    handleScriptResult(std::move(result));
+    handleScriptResult(result);
   });
 
   m_runtime->start(m_sourcePath.string(), std::move(source), makeScriptSnapshot());
@@ -300,7 +321,7 @@ void PluginWidget::setupAudioSpectrum() {
     return;
   }
   m_audioSpectrumListenerId =
-      m_audioSpectrum->addChangeListener(m_audioSpectrumBands, [this]() { handleAudioSpectrumChanged(); });
+      m_audioSpectrum->addChangeListener(m_audioSpectrumBands, [this] { handleAudioSpectrumChanged(); });
 }
 
 void PluginWidget::teardownAudioSpectrum() {
@@ -345,6 +366,10 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     m_uiHost->layout(renderer);
     if (m_area)
       m_area->setSize(m_uiHost->width(), m_uiHost->height());
+    if (m_dragOverlay != nullptr) {
+      m_dragOverlay->setPosition(0.0F, 0.0F);
+      m_dragOverlay->setFrameSize(m_uiHost->width(), m_uiHost->height());
+    }
     return;
   }
 
@@ -558,7 +583,7 @@ PluginWidget::ScriptColorMode PluginWidget::scriptColorModeFromToken(std::string
 }
 
 std::optional<ColorSpec> PluginWidget::scriptColorFromToken(std::string_view token) noexcept {
-  if (auto role = colorRoleFromToken(token); role.has_value()) {
+  if (auto role = colorRoleFromPluginToken(token); role.has_value()) {
     return colorSpecFromRole(*role);
   }
   Color fixed;
@@ -646,7 +671,7 @@ void PluginWidget::runScriptUpdate() {
   }
 }
 
-void PluginWidget::handleScriptResult(scripting::ScriptResult result) {
+void PluginWidget::handleScriptResult(const scripting::ScriptResult& result) {
   if (result.hasOnIpcKnown) {
     m_hasOnIpc = result.hasOnIpc;
     m_hasOnIpcKnown = true;
@@ -878,6 +903,9 @@ void PluginWidget::reloadScript() {
     m_label->setText("");
     m_label->setVisible(false);
   }
+  // Hiding the host dispatches no input cancellation: a drag in flight would
+  // keep its preview and could complete against the replacement tree.
+  m_reconciler.cancelDragDrop();
   m_tree.reset();
   m_warnedImperativeWhileDeclarative = false;
   if (m_uiHost)

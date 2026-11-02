@@ -21,8 +21,10 @@
 #include "idle/idle_grace_overlay.h"
 #include "idle/idle_inhibitor.h"
 #include "idle/idle_manager.h"
+#include "idle/plugin_idle_watches.h"
 #include "ipc/ipc_poll_source.h"
 #include "ipc/ipc_service.h"
+#include "ipc/pixel_stream_service.h"
 #include "launcher/dmenu_ipc.h"
 #include "net/http_client.h"
 #include "net/http_client_poll_source.h"
@@ -56,6 +58,7 @@
 #include "shell/osd/privacy_osd.h"
 #include "shell/overview/overview_launcher_capture.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/plugin_layer/plugin_layer_host.h"
 #include "shell/screen_corners/screen_corners.h"
 #include "shell/session/session_action_runner.h"
 #include "shell/settings/settings_window.h"
@@ -86,6 +89,7 @@
 #include "ui/dialogs/file_dialog_popup.h"
 #include "ui/dialogs/glyph_picker_dialog_popup.h"
 #include "ui/dialogs/layer_popup_host.h"
+#include "ui/dialogs/search_picker_popup.h"
 #include "wayland/clipboard_poll_source.h"
 #include "wayland/clipboard_service.h"
 #include "wayland/key_repeat_poll_source.h"
@@ -126,6 +130,9 @@ class NotificationDBusHost;
 class PipeWirePollSource;
 class PipeWireService;
 class WirePlumberMixer;
+namespace compositors::umbriel {
+  class UmbrielAudioProvider;
+}
 class PipeWireSpectrum;
 class PipeWireSpectrumPollSource;
 class PolkitAgent;
@@ -153,7 +160,7 @@ public:
   Application();
   ~Application();
 
-  void run(std::function<void()> startupReadyCallback = {});
+  void run(const std::function<void()>& startupReadyCallback = {});
 
   // Public for signal handler
   static std::atomic<bool> s_shutdownRequested;
@@ -194,6 +201,8 @@ private:
   void reloadDmenuProviders();
   // (Re)register plugin-backed panels from the enabled plugin set.
   void reloadPluginPanels();
+  // Re-register plugin-backed [[layer]] entries from the enabled plugin set.
+  void reloadPluginLayers();
   // When [plugins].auto_update is on, pull git sources per the configured mode. Run once at
   // startup and on a 6h repeating timer so long-lived sessions pick up new plugin versions.
   void runPluginAutoUpdate();
@@ -221,7 +230,11 @@ private:
   void scheduleGreeterAutoSync();
   bool runShellCommandBlocking(const std::string& command);
   bool runIdleAction(const IdleActionRequest& action);
+  bool setOutputPower(bool on);
   void onIconThemeChanged();
+  // Finest time boundary the currently visible shell UI needs. Drives the time
+  // poll source so it can park between boundaries instead of waking every second.
+  [[nodiscard]] TimeService::Precision timePrecisionNeeded() const;
   void onGraphicsReset(RenderGraphicsResetStatus status);
   void recoverGraphicsAfterReset();
   void requestAllSurfacesRedraw();
@@ -268,6 +281,7 @@ private:
   bool m_releaseSleepDelayWhenLocked = false;
   // Set before Noctalia-initiated suspend so PrepareForSleep skips lock-before-sleep.
   bool m_skipLockOnNextSleep = false;
+  std::uint64_t m_outputPowerRequestGeneration = 0;
   std::unique_ptr<AccountsService> m_accountsService;
   std::unique_ptr<ScreenSaverService> m_screenSaverService;
   std::unique_ptr<ScreenSaverPollSource> m_screenSaverPollSource;
@@ -275,6 +289,7 @@ private:
   std::unique_ptr<DebugService> m_debugService;
   IdleInhibitor m_idleInhibitor;
   IdleManager m_idleManager;
+  PluginIdleWatches m_pluginIdleWatches;
   IdleGraceOverlay m_idleGraceOverlay;
   std::uint64_t m_idleGraceOverlayGeneration = 0;
   HookManager m_hookManager;
@@ -302,6 +317,7 @@ private:
   BatteryHookState m_batteryHookState;
   BatteryWarningMonitor m_batteryWarningMonitor;
   std::optional<bool> m_prevBatteryPluggedForEvents;
+  std::string m_prevBatteryPeripheralPathForEvents;
   std::optional<bool> m_prevWirelessEnabledForEvents;
   std::optional<bool> m_prevBluetoothPoweredForEvents;
   std::optional<std::string> m_prevPowerProfileActiveForEvents;
@@ -323,6 +339,8 @@ private:
   std::unique_ptr<WirePlumberMixer> m_wirePlumberMixer;
   std::unique_ptr<EasyEffectsService> m_easyEffectsService;
   std::unique_ptr<PipeWireSpectrum> m_pipewireSpectrum;
+  std::unique_ptr<compositors::umbriel::UmbrielAudioProvider> m_umbrielAudioProvider;
+  std::uint64_t m_umbrielAudioListener = 0;
   std::shared_ptr<SoundPlayer> m_soundPlayer;
 
   TelemetryService m_telemetryService;
@@ -333,6 +351,8 @@ private:
   RenderContext m_renderContext;
   // Image controls in panels retain cache-backed handles during teardown.
   AsyncTextureCache m_asyncTextureCache;
+  // Outlives the panels, widgets, and layers whose pixel stream views register with it.
+  PixelStreamService m_pixelStreamService;
   ThumbnailService m_thumbnailService;
   WallpaperScanner m_wallpaperScanner;
   Bar m_bar;
@@ -347,6 +367,12 @@ private:
   // Ids of plugin-backed panels currently registered with m_panelManager, so a
   // reload can retire the previous set before registering the new one.
   std::vector<std::string> m_pluginPanelIds;
+  PluginLayerHost m_pluginLayerHost{
+      PluginLayerServices{
+          .platform = m_compositorPlatform, .renderContext = &m_renderContext, .config = &m_configService
+      },
+      m_scriptApi, &m_fileWatcher, &m_httpClient, &m_clipboardService
+  };
   WindowSwitcher m_windowSwitcher;
   OverviewLauncherCapture m_overviewLauncherCapture;
   NotificationToast m_notificationToast;
@@ -368,6 +394,7 @@ private:
   ColorPickerDialogPopup m_colorPickerDialogPopup;
   GlyphPickerDialogPopup m_glyphPickerDialogPopup;
   FileDialogPopup m_fileDialogPopup;
+  SearchPickerPopup m_searchPickerDialogPopup;
 
   // Poll sources (must outlive MainLoop)
   std::unique_ptr<SessionBusPollSource> m_busPollSource;

@@ -67,7 +67,7 @@ struct UPowerChargeLimitState {
   // Values configured in UPower. They are presets, not necessarily what the kernel currently applies.
   std::optional<std::uint32_t> configuredStart;
   std::optional<std::uint32_t> configuredEnd;
-  // Read-only values currently exposed by the kernel.
+  // Read-only values the kernel currently applies; empty while charge_types selects a mode other than Custom.
   std::optional<std::uint32_t> effectiveStart;
   std::optional<std::uint32_t> effectiveEnd;
   std::optional<std::uint32_t> supportedSettings;
@@ -159,6 +159,13 @@ public:
   void refresh();
 
   [[nodiscard]] const UPowerState& state() const noexcept { return m_state; }
+  // Object path of the peripheral battery backing state() on machines without a system battery;
+  // empty when state() follows the system battery or no battery at all.
+  [[nodiscard]] const std::string& statePeripheralPath() const noexcept { return m_statePeripheralPath; }
+  // Whether state() is on external power: UPower's OnBattery for the system battery, the charge state for a
+  // peripheral. A full system battery can flip between fully-charged and discharging while AC stays connected, so
+  // its charge state is not a plug signal. Empty without a battery or when a peripheral's state does not say.
+  [[nodiscard]] std::optional<bool> externalPowerConnected() const;
   [[nodiscard]] UPowerState stateForDevice(std::string_view selector) const;
   [[nodiscard]] std::vector<UPowerDeviceInfo> batteryDevices() const;
   [[nodiscard]] const UPowerDeviceInfo* defaultSystemBattery() const noexcept;
@@ -184,7 +191,12 @@ private:
     bool deviceCatalogChanged = false;
   };
 
-  [[nodiscard]] UPowerState readDefaultState() const;
+  struct DefaultState {
+    UPowerState state;
+    std::string peripheralPath;
+  };
+
+  [[nodiscard]] DefaultState readDefaultState() const;
   [[nodiscard]] UPowerState readDeviceState(sdbus::IProxy& proxy) const;
   [[nodiscard]] UPowerDeviceInfo readDeviceInfoBase(std::string path, sdbus::IProxy& proxy) const;
   [[nodiscard]] UPowerChargeLimitState readChargeLimitState(
@@ -201,6 +213,7 @@ private:
   [[nodiscard]] RefreshChanges refreshDevice(std::string_view devicePath, bool refreshChargeLimit);
   [[nodiscard]] RefreshChanges refreshTrackedDevice(TrackedDevice& device, bool refreshChargeLimit);
   [[nodiscard]] RefreshChanges refreshDeviceStates();
+  [[nodiscard]] const UPowerDeviceInfo* lowestPeripheralBattery() const noexcept;
 
   SystemBus& m_bus;
   std::unique_ptr<sdbus::IProxy> m_upowerProxy;
@@ -209,6 +222,7 @@ private:
   std::vector<TrackedDevice> m_devices;
   std::optional<UPowerDeviceInfo> m_dummyDevice;
   UPowerState m_state;
+  std::string m_statePeripheralPath;
   ChangeCallback m_changeCallback;
   std::shared_ptr<int> m_lifetimeToken = std::make_shared<int>(0);
   std::uint64_t m_nextChargeThresholdRequestId = 1;

@@ -8,9 +8,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
+#include <initializer_list>
 #include <stdexcept>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -504,6 +506,12 @@ WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsule
   spec.opacity = group.opacity;
   spec.accordion = group.accordion;
   spec.accordionDirection = group.accordionDirection;
+  spec.accordionDurationMs = group.accordionDurationMs.has_value()
+      ? std::optional<float>{static_cast<float>(*group.accordionDurationMs)}
+      : std::nullopt;
+  spec.accordionDelayMs = group.accordionDelayMs.has_value()
+      ? std::optional<float>{static_cast<float>(*group.accordionDelayMs)}
+      : std::nullopt;
   spec.widgetSpacing =
       group.widgetSpacing.has_value() ? std::optional<float>{static_cast<float>(*group.widgetSpacing)} : std::nullopt;
   spec.hoverHighlight = bar.hoverHighlight;
@@ -521,6 +529,28 @@ std::string capsuleGroupTokenId(std::string_view laneEntry) {
 
 std::string makeCapsuleGroupToken(std::string_view groupId) {
   return std::string(kCapsuleGroupTokenPrefix) + std::string(groupId);
+}
+
+std::optional<LengthSpec> parsePercentLength(std::string_view text) {
+  const std::string trimmed = StringUtils::trim(text);
+  if (trimmed.size() < 2 || trimmed.back() != '%') {
+    return std::nullopt;
+  }
+  const std::string_view digits(trimmed.data(), trimmed.size() - 1);
+  std::int32_t value = 0;
+  const auto [ptr, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
+  if (ec != std::errc{} || ptr != digits.data() + digits.size()) {
+    return std::nullopt;
+  }
+  return LengthSpec::fromPercent(value);
+}
+
+std::string formatLength(const LengthSpec& length) {
+  std::string text = std::to_string(length.value);
+  if (length.unit == LengthSpec::Unit::Percent) {
+    text.push_back('%');
+  }
+  return text;
 }
 
 float resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context) {
@@ -646,12 +676,10 @@ bool outputMatchesSelector(const std::string& match, const WaylandOutput& output
 
   // Each identity field is searched independently so selector semantics don't depend on
   // whether the compositor advertised output management, nor on any join order.
-  for (const std::string* field : {&output.description, &output.make, &output.model, &output.serialNumber}) {
-    if (StringUtils::containsWholeToken(*field, match)) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(
+      std::initializer_list{&output.description, &output.make, &output.model, &output.serialNumber},
+      [&](const std::string* field) { return StringUtils::containsWholeToken(*field, match); }
+  );
 }
 
 DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorOverride& override) {
@@ -676,6 +704,8 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.itemSpacing = *override.itemSpacing;
   if (override.backgroundOpacity)
     resolved.backgroundOpacity = *override.backgroundOpacity;
+  if (override.compositorBlur)
+    resolved.compositorBlur = *override.compositorBlur;
   if (override.border)
     resolved.border = *override.border;
   if (override.borderWidth)

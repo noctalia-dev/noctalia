@@ -635,9 +635,11 @@ void PowerTab::syncBatteryStatus() {
     return;
   }
 
+  // A peripheral backing the default state is already listed under Connected Devices.
   const UPowerState& state = m_upower->state();
-  m_statusCard->setVisible(state.isPresent);
-  if (!state.isPresent) {
+  const bool visible = state.isPresent && m_upower->statePeripheralPath().empty();
+  m_statusCard->setVisible(visible);
+  if (!visible) {
     return;
   }
 

@@ -199,7 +199,7 @@ namespace {
         .align = FlexAlign::Center,
         .paddingV = Style::spaceXs * 0.5F * scale,
         .paddingH = Style::spaceSm * scale,
-        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.8F),
+        .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
         .radius = Style::scaledRadiusSm(scale),
     });
     pill->addChild(
@@ -302,7 +302,7 @@ public:
       action->setGlyph("check");
     } else if (saved) {
       action->setGlyph("trash");
-      action->setOnClick([this]() {
+      action->setOnClick([this] {
         if (m_onForget) {
           m_onForget(m_ap);
         }
@@ -313,7 +313,7 @@ public:
     auto area = ui::inputArea({});
     area->setPropagateEvents(true);
     area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-    area->setOnLeave([this]() { applyState(); });
+    area->setOnLeave([this] { applyState(); });
     area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
     area->setOnClick([this](const InputArea::PointerData& /*data*/) {
       if (m_onActivate) {
@@ -448,14 +448,14 @@ namespace {
               .variant = m_vpn.active ? ButtonVariant::Destructive : ButtonVariant::Default,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .onClick = [this]() { triggerAction(); },
+              .onClick = [this] { triggerAction(); },
           })
       );
 
       auto area = ui::inputArea({});
       area->setPropagateEvents(true);
       area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-      area->setOnLeave([this]() { applyState(); });
+      area->setOnLeave([this] { applyState(); });
       area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
       area->setOnClick([this](const InputArea::PointerData& /*data*/) { triggerAction(); });
       m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
@@ -654,7 +654,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .variant = ButtonVariant::Destructive,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusSm(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_network == nullptr || m_actionPending) {
               return;
             }
@@ -816,7 +816,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
           .onClick =
-              [this]() {
+              [this] {
                 if (m_passwordInput == nullptr) {
                   return;
                 }
@@ -831,12 +831,12 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .text = i18n::tr("control-center.network.connect"),
           .variant = ButtonVariant::Default,
           .onClick =
-              [this]() { submitPasswordPrompt(m_passwordInput != nullptr ? m_passwordInput->value() : std::string{}); },
+              [this] { submitPasswordPrompt(m_passwordInput != nullptr ? m_passwordInput->value() : std::string{}); },
       }),
       ui::button({
           .text = i18n::tr("common.actions.cancel"),
           .variant = ButtonVariant::Ghost,
-          .onClick = [this]() { cancelPasswordPrompt(); },
+          .onClick = [this] { cancelPasswordPrompt(); },
       })
   );
 
@@ -1204,7 +1204,7 @@ void NetworkTab::beginPendingAction(bool wasConnected) {
   m_actionPending = true;
   m_actionPendingConnected = wasConnected;
   m_actionPendingSince = std::chrono::steady_clock::now();
-  m_actionPendingTimer.start(kActionPendingTimeout + std::chrono::milliseconds(50), []() {
+  m_actionPendingTimer.start(kActionPendingTimeout + std::chrono::milliseconds(50), [] {
     PanelManager::instance().requestUpdateOnly();
     PanelManager::instance().requestRedraw();
   });
@@ -1282,6 +1282,8 @@ NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vec
   key += wirelessEnabled ? '1' : '0';
   key += "\nscan:";
   key += scanning ? '1' : '0';
+  key += "\nhotspot:";
+  key += (m_network != nullptr && m_network->state().hotspotActive) ? '1' : '0';
   // Cellular rows live-sync their state/signal, so only the structural
   // identity (which modems exist) belongs to the key.
   key += "\ncellular:\n";
@@ -1319,15 +1321,17 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
   m_lastStructureKey = nextStructure;
   const float scale = contentScale();
 
-  auto buildApRows = [&]() {
+  auto buildApRows = [&] {
     auto container = ui::column({
         .align = FlexAlign::Stretch,
         .gap = Style::spaceSm * scale,
     });
     if (aps.empty()) {
+      const bool hotspotActive = m_network != nullptr && m_network->state().hotspotActive;
       container->addChild(
           ui::label({
-              .text = i18n::tr("control-center.network.no-networks"),
+              .text = hotspotActive ? i18n::tr("control-center.network.hotspot-active")
+                                    : i18n::tr("control-center.network.no-networks"),
               .fontSize = Style::fontSizeBody * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           })
@@ -1525,7 +1529,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .variant = ButtonVariant::Ghost,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 if (m_network != nullptr) {
                   m_network->requestScan();
                 }
@@ -1639,7 +1643,7 @@ void NetworkTab::requestCellularEnabled(bool enabled) {
   m_cellularToggleTarget = enabled;
   m_cellularTogglePendingSince = std::chrono::steady_clock::now();
   // Nothing else wakes the panel if the request never changes any state.
-  m_cellularTogglePendingTimer.start(kCellularPendingTimeout + std::chrono::milliseconds(50), []() {
+  m_cellularTogglePendingTimer.start(kCellularPendingTimeout + std::chrono::milliseconds(50), [] {
     PanelManager::instance().requestUpdateOnly();
     PanelManager::instance().requestRedraw();
   });

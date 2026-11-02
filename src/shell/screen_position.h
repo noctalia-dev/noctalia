@@ -47,4 +47,28 @@ namespace shell {
     return out;
   }
 
+  // Resolves the start/end alignment along the bar for an *attached* panel from the
+  // same `<panel>_position` vocabulary, read literally: the position applies only
+  // when it lies on the bar's own edge (e.g. bottom_left/bottom_right for a bottom
+  // bar, top_right/bottom_right for a right bar). Every other token, including the
+  // edge-center tokens, "auto", and "center", keeps the bar-centered default.
+  struct AttachedPositionAlign {
+    bool start = false;
+    bool end = false;
+  };
+
+  [[nodiscard]] inline AttachedPositionAlign
+  attachedPositionAlign(std::string_view position, std::string_view barPosition) {
+    if (barPosition == "bottom") {
+      return {.start = position == "bottom_left", .end = position == "bottom_right"};
+    }
+    if (barPosition == "left") {
+      return {.start = position == "top_left", .end = position == "bottom_left"};
+    }
+    if (barPosition == "right") {
+      return {.start = position == "top_right", .end = position == "bottom_right"};
+    }
+    return {.start = position == "top_left", .end = position == "top_right"};
+  }
+
 } // namespace shell

@@ -6,6 +6,7 @@
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -162,6 +163,8 @@ function serializeWindow(window) {
     window.caption || "",
     desktopIdsFor(window),
     outputNameFor(window),
+    String(window.minimized),
+    String(window.minimizable),
   ].join(FIELD_SEP);
 }
 
@@ -202,6 +205,8 @@ function wireWindow(window) {
   if (typeof window.outputChanged !== "undefined") {
     window.outputChanged.connect(updateTracked);
   }
+  window.minimizedChanged.connect(updateTracked);
+  window.minimizeableChanged.connect(updateTracked);
 }
 
 workspace.windowActivated.connect(notify);
@@ -376,6 +381,7 @@ namespace compositors::kde {
               .order = order++,
               .handle = nullptr,
               .extHandle = nullptr,
+              .minimizeState = window.minimizeState,
           }
       );
     }
@@ -401,6 +407,7 @@ namespace compositors::kde {
                 .appId = appId,
                 .title = title,
                 .outputName = window.outputName,
+                .minimizeState = window.minimizeState,
             }
         );
         continue;
@@ -420,6 +427,7 @@ namespace compositors::kde {
                 .appId = appId,
                 .title = title,
                 .outputName = window.outputName,
+                .minimizeState = window.minimizeState,
             }
         );
         continue;
@@ -432,6 +440,7 @@ namespace compositors::kde {
                 .appId = window.appId,
                 .title = title,
                 .outputName = window.outputName,
+                .minimizeState = window.minimizeState,
             }
         );
       }
@@ -492,7 +501,7 @@ for (const window of workspace.windowList()) {{
     }}
     break;
   }}
-  if (window.resourceClass === targetClass && window.caption === targetCaption) {{
+  if (!targetUuid && window.resourceClass === targetClass && window.caption === targetCaption) {{
     workspace.activeWindow = window;
     if (warpPointer) {{
       movePointerToFocus();
@@ -526,7 +535,7 @@ for (const window of workspace.windowList()) {{
   }}
   const uuid = window.internalId === undefined ? "" : String(window.internalId);
   const byUuid = targetUuid && uuid === targetUuid;
-  const byClassAndCaption = window.resourceClass === targetClass && window.caption === targetCaption;
+  const byClassAndCaption = !targetUuid && window.resourceClass === targetClass && window.caption === targetCaption;
   if (!byUuid && !byClassAndCaption) {{
     continue;
   }}
@@ -547,6 +556,37 @@ for (const window of workspace.windowList()) {{
     }
   }
 
+  std::optional<WindowMinimizeState> KwinActiveWindow::windowMinimizeState(std::string_view uuid) const {
+    if (!m_scriptInstalled) {
+      return std::nullopt;
+    }
+    const auto it = std::ranges::find(m_trackedWindows, uuid, &TrackedWindow::uuid);
+    return it != m_trackedWindows.end() ? it->minimizeState : std::nullopt;
+  }
+
+  bool KwinActiveWindow::minimizeWindow(const std::string& uuid) {
+    const auto state = windowMinimizeState(uuid);
+    if (!state.has_value() || !state->minimizable || state->minimized) {
+      return false;
+    }
+    const std::string script = std::format(
+        R"js(
+const targetUuid = {};
+for (const window of workspace.windowList()) {{
+  if (window && String(window.internalId) === targetUuid) {{
+    if (window.minimizable) {{
+      window.minimized = true;
+    }}
+    break;
+  }}
+}}
+)js",
+        jsStringLiteral(uuid)
+    );
+    const std::string label = std::format("noctalia-minimize-{}", ++m_transientScriptSerial);
+    return runTransientScript(script, label);
+  }
+
   bool KwinActiveWindow::ensureScriptFile(std::string& scriptPath) const {
     const std::string stateDir = FileUtils::stateDir();
     if (stateDir.empty()) {
@@ -563,7 +603,7 @@ for (const window of workspace.windowList()) {{
   }
 
   bool KwinActiveWindow::installScript(const std::string& scriptPath) {
-    auto scriptingProxy = [&]() { return sdbus::createProxy(m_bus.connection(), kKwinBusName, kKwinScriptingPath); };
+    auto scriptingProxy = [&] { return sdbus::createProxy(m_bus.connection(), kKwinBusName, kKwinScriptingPath); };
 
     try {
       scriptingProxy()
@@ -729,20 +769,31 @@ for (const window of workspace.windowList()) {{
         continue;
       }
       const auto fields = splitString(record, kFieldSeparator);
-      if (fields.size() < 3) {
+      if (fields.size() != 7) {
+        kLog.warn("window-list snapshot requires exactly seven fields per window");
         continue;
       }
       TrackedWindow window{
           .uuid = fields[0],
           .appId = fields[1],
           .title = StringUtils::windowTitleSingleLine(fields[2]),
-          .outputName = fields.size() >= 5 ? fields[4] : std::string{},
+          .outputName = fields[4],
           .desktopIds = {},
+          .minimizeState = std::nullopt,
       };
-      if (fields.size() >= 4 && !fields[3].empty() && fields[3] != "*") {
+      if (!fields[3].empty() && fields[3] != "*") {
         window.desktopIds = splitString(fields[3], ',');
       }
-      if (window.uuid.empty() && window.appId.empty()) {
+      if ((fields[5] == "true" || fields[5] == "false") && (fields[6] == "true" || fields[6] == "false")) {
+        window.minimizeState = WindowMinimizeState{
+            .minimized = fields[5] == "true",
+            .minimizable = fields[6] == "true",
+        };
+      } else {
+        kLog.warn("window-list snapshot requires boolean minimized and minimizable fields");
+      }
+      if (window.uuid.empty()) {
+        kLog.warn("window-list snapshot requires a window UUID");
         continue;
       }
       if (isNoctaliaShellSurface(window.appId, window.title)) {
@@ -762,7 +813,8 @@ for (const window of workspace.windowList()) {{
             || lhs.appId != rhs.appId
             || lhs.title != rhs.title
             || lhs.outputName != rhs.outputName
-            || lhs.desktopIds != rhs.desktopIds) {
+            || lhs.desktopIds != rhs.desktopIds
+            || lhs.minimizeState != rhs.minimizeState) {
           return true;
         }
       }

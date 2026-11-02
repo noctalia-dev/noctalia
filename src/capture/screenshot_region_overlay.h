@@ -44,6 +44,10 @@ namespace capture {
     void setFrozenScreenshots(std::vector<FrozenScreenshot> screenshots);
     // KeyMod bitmask to hold to move/resize a selection; 0 = no modifier needed.
     void setRegionModifier(std::uint32_t mask);
+    void setSelectionBorderWidth(float width);
+    void setDimOpacity(float opacity);
+    void setShowRegionHint(bool show);
+    void setShowRegionDimensions(bool show);
     [[nodiscard]] std::vector<FrozenScreenshot> takeFrozenScreenshots();
     void begin(
         bool freezeScreen, bool fullscreenPick = false, bool confirmRegion = false,
@@ -99,6 +103,10 @@ namespace capture {
     std::string m_saveKeybindLabel;
     std::string m_cancelKeybindLabel;
     std::uint32_t m_regionModifierMask = 0;
+    float m_selectionBorderWidth = 2.0F;
+    float m_dimOpacity = 0.65F;
+    bool m_showRegionHint = true;
+    bool m_showRegionDimensions = true;
     bool m_active = false;
     bool m_freezeScreen = false;
     bool m_fullscreenPick = false;

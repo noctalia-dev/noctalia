@@ -45,7 +45,7 @@ namespace {
   }
 
   fs::path resolveExecutable(std::string_view executable) {
-    const fs::path path(executable);
+    fs::path path(executable);
     if (path.has_parent_path()) {
       return path;
     }
@@ -169,7 +169,9 @@ namespace {
       if (!token.empty()) {
         if (std::ranges::find(onlyShowIn, token) != onlyShowIn.end()) {
           return true;
-        } else if (std::ranges::find(notShowIn, token) != notShowIn.end()) {
+        }
+
+        if (std::ranges::find(notShowIn, token) != notShowIn.end()) {
           return false;
         }
       }
@@ -278,7 +280,7 @@ namespace {
     std::string currentActionId;
     ActionData currentActionData;
 
-    auto flushCurrentAction = [&]() {
+    auto flushCurrentAction = [&] {
       if (!currentActionId.empty()) {
         currentActionData.name = localizedValue(language, currentActionData.localizedNames, currentActionData.name);
         if (!currentActionData.name.empty() && !currentActionData.exec.empty()) {
@@ -687,27 +689,30 @@ namespace {
           m_inotify.unwatch(wd);
       }
       m_watches.clear();
-      m_watchedPaths.clear();
     }
 
+    // Re-adding a watched directory keeps its descriptor and queues nothing. Only directories the scan no longer
+    // visited are unwatched, so the IN_IGNORED events a refresh queues scale with what changed, not with the tree.
     void rebuildWatches(const std::vector<fs::path>& dirs) {
-      clearWatches();
-
       if (m_inotify.fd() < 0) {
         return;
       }
 
+      std::unordered_map<int, std::string> watches;
       for (const auto& dir : dirs) {
-        addWatch(dir);
+        if (const auto wd = addWatch(dir)) {
+          watches[*wd] = dir.string();
+        }
       }
+      for (const auto& [wd, _] : m_watches) {
+        if (!watches.contains(wd)) {
+          m_inotify.unwatch(wd);
+        }
+      }
+      m_watches = std::move(watches);
     }
 
-    void addWatch(const fs::path& path) {
-      const auto key = path.string();
-      if (!m_watchedPaths.insert(key).second) {
-        return;
-      }
-
+    std::optional<int> addWatch(const fs::path& path) {
       constexpr std::uint32_t kMask = IN_CREATE
           | IN_DELETE
           | IN_MOVED_FROM
@@ -716,12 +721,11 @@ namespace {
           | IN_DELETE_SELF
           | IN_MOVE_SELF
           | IN_ATTRIB;
-      const auto wd = m_inotify.watch(key.c_str(), kMask);
-      if (wd.has_value()) {
-        m_watches[wd.value()] = key;
-      } else {
-        kLog.warn("failed to watch desktop entry directory '{}'", key);
+      const auto wd = m_inotify.watch(path, kMask);
+      if (!wd.has_value()) {
+        kLog.warn("failed to watch desktop entry directory '{}'", path.string());
       }
+      return wd;
     }
 
     std::shared_ptr<const std::vector<DesktopEntry>> m_entries = std::make_shared<std::vector<DesktopEntry>>();
@@ -730,7 +734,6 @@ namespace {
     Inotify m_inotify;
     bool m_dirty = true;
     std::unordered_map<int, std::string> m_watches;
-    std::unordered_set<std::string> m_watchedPaths;
     std::string m_sourceSignature;
     std::string m_language;
   };

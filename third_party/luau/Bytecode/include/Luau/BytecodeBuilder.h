@@ -10,6 +10,18 @@
 namespace Luau
 {
 
+static const uint32_t kMaxRegisterCount = 255;
+static const uint32_t kMaxUpvalueCount = 200;
+static const uint32_t kMaxLocalCount = 200;
+static const uint32_t kMaxInstructionCount = 1'000'000'000;
+
+static const uint8_t kInvalidReg = 255;
+
+static const uint32_t kMaxConstantCount = 1 << 23;
+static const uint32_t kMaxClosureCount = 1 << 15;
+
+static const int kMaxJumpDistance = 1 << 23;
+
 class BytecodeEncoder
 {
 public:
@@ -56,9 +68,10 @@ public:
     };
 
     BytecodeBuilder(BytecodeEncoder* encoder = 0);
+    virtual ~BytecodeBuilder() = default;
 
     uint32_t beginFunction(uint8_t numparams, bool isvararg = false);
-    void endFunction(uint8_t maxstacksize, uint8_t numupvalues, uint8_t flags = 0);
+    void endFunction(uint8_t maxstacksize, uint8_t numupvalues, uint8_t flags = 0, uint64_t cost = 0);
 
     void setMainFunction(uint32_t fid);
 
@@ -66,13 +79,17 @@ public:
     int32_t addConstantBoolean(bool value);
     int32_t addConstantNumber(double value);
     int32_t addConstantInteger(int64_t value);
-    int32_t addConstantVector(float x, float y, float z, float w);
+    int32_t addConstantVectorf(float x, float y, float z, float w);
+    int32_t addConstantVectord(double x, double y, double z, double w);
     int32_t addConstantString(StringRef value);
     int32_t addImport(uint32_t iid);
     int32_t addConstantTable(const TableShape& shape);
     int32_t addConstantClosure(uint32_t fid);
 
-    uint32_t addFbSlot(LuauFeedbackType t);
+    uint32_t addFbSlot_DEPRECATED(LuauFeedbackType t);
+    uint32_t addFbSlot_DEPRECATED(LuauFeedbackType t, uint32_t pc);
+    uint32_t addCallTargetSlot(uint32_t pc);
+    uint32_t addConstructSlot(uint32_t shapecid);
 
     int16_t addChildFunction(uint32_t fid);
     int32_t addClassShape(ClassShape shape);
@@ -83,6 +100,7 @@ public:
     void emitAux(uint32_t aux);
 
     void undoEmit(LuauOpcode op);
+    unsigned lastInstruction();
 
     size_t emitLabel();
 
@@ -92,7 +110,7 @@ public:
     void patchAux(size_t targetAux, int32_t newValue);
 
     void foldJumps();
-    void expandJumps();
+    std::vector<uint32_t> expandJumps(bool& hasLongJumpError);
 
     void setFunctionTypeInfo(std::string value);
     void pushLocalTypeInfo(LuauBytecodeType type, uint8_t reg, uint32_t startpc, uint32_t endpc);
@@ -155,9 +173,20 @@ public:
         return functions[id].data;
     }
 
+    uint32_t getFunctionCount() const
+    {
+        return static_cast<uint32_t>(functions.size());
+    }
+
     std::vector<std::string_view> getStringTable();
 
     void annotateInstruction(std::string& result, uint32_t fid, uint32_t instpos) const;
+
+    void clearStrings()
+    {
+        debugStrings.clear();
+        stringTable.clear();
+    }
 
     static uint32_t getImportId(int32_t id0);
     static uint32_t getImportId(int32_t id0, int32_t id1);
@@ -172,7 +201,7 @@ public:
     static uint8_t getVersion();
     static uint8_t getTypeEncodingVersion();
 
-private:
+protected:
     struct Constant
     {
         enum Type
@@ -181,7 +210,8 @@ private:
             Type_Boolean,
             Type_Number,
             Type_Integer,
-            Type_Vector,
+            Type_Vectorf,
+            Type_Vectord,
             Type_String,
             Type_Import,
             Type_Table,
@@ -195,7 +225,8 @@ private:
             bool valueBoolean;
             double valueNumber;
             int64_t valueInteger64;
-            float valueVector[4];
+            float valueVectorf[4];
+            double valueVectord[4];
             unsigned int valueString; // index into string table
             uint32_t valueImport;     // 10-10-10-2 encoded import id
             uint32_t valueTable;      // index into tableShapes[]
@@ -208,13 +239,16 @@ private:
     {
         Constant::Type type;
         // Note: this stores value* from Constant; when type is Type_Number, this stores the same bits as double does but in uint64_t.
-        // For Type_Vector, x and y are stored in 'value' and z and w are stored in 'extra'.
+        // For Type_Vectorf, x and y are stored in 'value' and z and w are stored in 'extra1'.
+        // For Type_Vectord, x is stored in 'value', y, z and w are stored in 'extra1/2/3' accordingly.
         uint64_t value;
-        uint64_t extra = 0;
+        uint64_t extra1 = 0;
+        uint64_t extra2 = 0;
+        uint64_t extra3 = 0;
 
         bool operator==(const ConstantKey& key) const
         {
-            return type == key.type && value == key.value && extra == key.extra;
+            return type == key.type && value == key.value && extra1 == key.extra1 && extra2 == key.extra2 && extra3 == key.extra3;
         }
     };
 
@@ -305,7 +339,26 @@ private:
     std::vector<TableShape> tableShapes;
     std::vector<ClassShape> classShapes;
 
-    std::vector<uint32_t> fbSlots;
+    struct FeedbackSlot
+    {
+        LuauFeedbackType kind;
+
+        union
+        {
+            struct
+            {
+                uint32_t pc;
+            } callTarget;
+
+            struct
+            {
+                uint32_t shape;
+            } construct;
+        };
+    };
+
+    std::vector<FeedbackSlot> fbSlots;
+    std::vector<uint32_t> fbSlots_DEPRECATED;
 
     bool hasLongJumps = false;
 
@@ -343,12 +396,20 @@ private:
     void validate() const;
     void validateInstructions() const;
     void validateVariadic() const;
+    void validateCaptures() const;
+    virtual void validateConst(int32_t cid) const;
+    virtual void validateConst(int32_t cid, Constant::Type constType) const;
+    virtual uint8_t validateProto(int32_t pid) const;
+    virtual uint8_t validateClosure(int32_t cid) const;
 
     std::string dumpCurrentFunction(std::vector<int>& dumpinstoffs) const;
-    void dumpConstant(std::string& result, int k, bool detailed) const;
-    void dumpInstruction(const uint32_t* opcode, std::string& output, int targetLabel) const;
+    virtual void dumpConstant(std::string& result, int k, bool detailed) const;
+    void dumpInstruction(const uint32_t* opcode, std::string& result, int targetLabel) const;
 
-    void writeFunction(std::string& ss, uint32_t id, uint8_t flags);
+    int calcLinesSpan() const;
+    void fillBaselineInfo(int span, int* baseline, size_t baselineSize) const;
+
+    void writeFunction(std::string& ss, uint32_t id, uint8_t flags, uint64_t cost);
     void writeLineInfo(std::string& ss) const;
     void writeStringTable(std::string& ss) const;
     void writeClassShape(std::string& ss, const ClassShape& cs) const;
@@ -357,6 +418,7 @@ private:
     unsigned int addStringTableEntry(StringRef value);
 
     const char* tryGetUserdataTypeName(LuauBytecodeType type) const;
+    void clearState();
 };
 
 } // namespace Luau

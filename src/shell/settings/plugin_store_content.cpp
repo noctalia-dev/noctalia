@@ -29,8 +29,11 @@
 #include <cmath>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <set>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace settings {
 
@@ -69,6 +72,74 @@ namespace settings {
       return !std::ranges::search(haystack, needle, [](char a, char b) {
                 return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
               }).empty();
+    }
+
+    int hexDigitValue(char ch) {
+      if (ch >= '0' && ch <= '9') {
+        return ch - '0';
+      }
+      if (ch >= 'a' && ch <= 'f') {
+        return ch - 'a' + 10;
+      }
+      if (ch >= 'A' && ch <= 'F') {
+        return ch - 'A' + 10;
+      }
+      return -1;
+    }
+
+    // Maps a README image reference to a file in the plugin directory ("./assets/a%20b.png" ->
+    // "assets/a b.png"). URLs, root-absolute paths and paths leaving the plugin directory have no
+    // plugin file.
+    std::optional<std::string> readmeImageFile(std::string_view src) {
+      const std::size_t delimiter = src.find_first_of(":/?#");
+      if (src.empty() || src.front() == '/' || (delimiter != std::string_view::npos && src[delimiter] == ':')) {
+        return std::nullopt;
+      }
+      src = src.substr(0, src.find_first_of("?#"));
+
+      std::vector<std::string> parts;
+      std::string part;
+      const auto pushPart = [&] {
+        if (part == "..") {
+          if (parts.empty()) {
+            return false;
+          }
+          parts.pop_back();
+        } else if (!part.empty() && part != ".") {
+          parts.push_back(std::move(part));
+        }
+        part.clear();
+        return true;
+      };
+      for (std::size_t i = 0; i < src.size(); ++i) {
+        const char ch = src[i];
+        if (ch == '/') {
+          if (!pushPart()) {
+            return std::nullopt;
+          }
+          continue;
+        }
+        if (ch == '%' && i + 2 < src.size()) {
+          const int hi = hexDigitValue(src[i + 1]);
+          const int lo = hexDigitValue(src[i + 2]);
+          if (hi >= 0 && lo >= 0) {
+            part.push_back(static_cast<char>((hi << 4) | lo));
+            i += 2;
+            continue;
+          }
+        }
+        part.push_back(ch);
+      }
+      if (!pushPart() || parts.empty()) {
+        return std::nullopt;
+      }
+
+      std::string file = std::move(parts.front());
+      for (std::size_t i = 1; i < parts.size(); ++i) {
+        file += '/';
+        file += parts[i];
+      }
+      return file;
     }
 
     class PluginStoreAdapter final : public VirtualGridAdapter {
@@ -176,6 +247,7 @@ namespace settings {
     m_grid = nullptr;
     m_countLabel = nullptr;
     m_sortButton = nullptr;
+    m_detailMarkdown = nullptr;
   }
 
   void PluginStoreContent::requestRebuild() {
@@ -186,6 +258,8 @@ namespace settings {
   }
 
   void PluginStoreContent::setOnRebuildNeeded(std::function<void()> cb) { m_onRebuildNeeded = std::move(cb); }
+
+  void PluginStoreContent::setOnLayoutNeeded(std::function<void()> cb) { m_onLayoutNeeded = std::move(cb); }
 
   bool PluginStoreContent::isDetailView() const noexcept { return m_detailIndex.has_value(); }
 
@@ -228,7 +302,7 @@ namespace settings {
     }
     m_sortMode = mode;
     if (m_config != nullptr) {
-      (void)m_config->setStateString("plugin_store", "sort", std::string(sortModeStateValue(mode)));
+      (void)m_config->setStateString("plugin_store", "sort", sortModeStateValue(mode));
     }
 
     syncSortButtonGlyph();
@@ -520,6 +594,7 @@ namespace settings {
   }
 
   void PluginStoreContent::populateBody(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache) {
+    m_detailMarkdown = nullptr;
     const auto detailKey = isDetailView() && *m_detailIndex < m_filteredIndices.size()
         ? std::optional<std::string>(m_catalog[m_filteredIndices[*m_detailIndex]].key())
         : std::nullopt;
@@ -620,7 +695,7 @@ namespace settings {
               .glyphSize = Style::fontSizeCaption * scale,
               .contentAlign = ButtonContentAlign::Start,
               .variant = ButtonVariant::Ghost,
-              .onClick = [this]() {
+              .onClick = [this] {
                 m_tagFiltersCollapsed = !m_tagFiltersCollapsed;
                 requestRebuild();
               },
@@ -637,7 +712,7 @@ namespace settings {
               .fontSize = Style::fontSizeCaption * scale,
               .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this, tag = std::move(tag)]() {
+              .onClick = [this, tag = std::move(tag)] {
                 m_selectedTag = tag;
                 applyFilter();
                 requestRebuild();
@@ -672,7 +747,7 @@ namespace settings {
             .minHeight = Style::controlHeight * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [this]() { cycleSortMode(); },
+            .onClick = [this] { cycleSortMode(); },
         })
     );
 
@@ -858,7 +933,7 @@ namespace settings {
         })
     );
     for (const auto& tag : entry.tags) {
-      title->addChild(pill(tag, ColorRole::OnSurfaceVariant, ColorRole::SurfaceVariant, 1.0F, kTagBadgeMaxWidth));
+      title->addChild(pill(tag, ColorRole::OnSurfaceVariant, ColorRole::SurfaceContainer, 1.0F, kTagBadgeMaxWidth));
     }
     info->addChild(std::move(title));
     auto meta = ui::row({.align = FlexAlign::Center, .wrap = true, .gap = Style::spaceXs * scale, .fillWidth = true});
@@ -991,7 +1066,7 @@ namespace settings {
                     : std::string(),
                 .minWidth = Style::controlHeight * scale,
                 .minHeight = Style::controlHeight * scale,
-                .onClick = [this, source = storeEntry.sourceConfig, id = entry.id, desired]() {
+                .onClick = [this, source = storeEntry.sourceConfig, id = entry.id, desired] {
                   m_recommendations->setRecommended(source, id, desired);
                 },
             })
@@ -1034,7 +1109,7 @@ namespace settings {
               .text = i18n::tr("settings.plugins.store.add"),
               .fontSize = Style::fontSizeCaption * scale,
               .variant = ButtonVariant::Primary,
-              .onClick = [this, id = entry.id]() {
+              .onClick = [this, id = entry.id] {
                 if (m_callbacks.setEnabled) {
                   m_callbacks.setEnabled(id, true);
                 }
@@ -1107,7 +1182,28 @@ namespace settings {
       );
     } else if (!m_detailReadme.empty()) {
       auto md = std::make_unique<MarkdownView>();
+      if (m_fileCache != nullptr) {
+        md->setImageSource({
+            .renderer = &renderer,
+            .textureCache = textureCache,
+            .resolve = [this, id = entry.id,
+                        source = storeEntry.sourceConfig](const std::string& src) -> std::optional<std::string> {
+              const auto file = readmeImageFile(src);
+              if (!file.has_value()) {
+                return std::nullopt;
+              }
+              return m_fileCache->resolve(id, source, *file);
+            },
+            .onLayoutNeeded =
+                [this] {
+                  if (m_onLayoutNeeded) {
+                    m_onLayoutNeeded();
+                  }
+                },
+        });
+      }
       md->setMarkdown(m_detailReadme, scale);
+      m_detailMarkdown = md.get();
       dc->addChild(std::move(md));
     } else {
       dc->addChild(
@@ -1309,6 +1405,13 @@ namespace settings {
         m_detailReadmeLoading = false;
         requestRebuild();
       }
+    }
+
+    // Any other file of the open plugin may be a README image that was still being fetched.
+    if (m_detailMarkdown != nullptr
+        && isDetailView()
+        && m_catalog[m_filteredIndices[*m_detailIndex]].entry.id == pluginId) {
+      m_detailMarkdown->refreshPendingImages();
     }
   }
 

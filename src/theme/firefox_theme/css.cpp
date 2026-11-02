@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
-#include <vector>
 
 namespace noctalia::theme::firefox_theme::css {
   namespace {
@@ -38,7 +37,7 @@ namespace noctalia::theme::firefox_theme::css {
         return std::filesystem::path(*overridePath);
       }
 
-      const auto xdg = xdgConfigHome() / "firefox";
+      auto xdg = xdgConfigHome() / "firefox";
       if (std::filesystem::is_regular_file(xdg / "profiles.ini")) {
         return xdg;
       }
@@ -102,12 +101,12 @@ namespace noctalia::theme::firefox_theme::css {
       };
 
       if (!defaultRelative.empty()) {
-        const auto path = resolve(defaultRelative, true);
+        auto path = resolve(defaultRelative, true);
         if (std::filesystem::is_directory(path)) {
           return path;
         }
       }
-      const auto profile0 = resolve(profile0Path, profile0Relative);
+      auto profile0 = resolve(profile0Path, profile0Relative);
       if (std::filesystem::is_directory(profile0)) {
         return profile0;
       }
@@ -131,7 +130,7 @@ namespace noctalia::theme::firefox_theme::css {
       }
       return std::nullopt;
     }
-    const auto chrome = *profile / "chrome";
+    auto chrome = *profile / "chrome";
     std::error_code ec;
     std::filesystem::create_directories(chrome, ec);
     if (ec) {
@@ -173,14 +172,13 @@ namespace noctalia::theme::firefox_theme::css {
     const std::string filename = withCssExtension(name);
     const auto dst = chromePath / filename;
     std::error_code ec;
-    if (std::filesystem::is_regular_file(dst, ec)) {
-      if (!std::filesystem::remove(dst, ec)) {
-        if (message != nullptr) {
-          *message = "Could not remove custom CSS: " + ec.message();
-        }
-        return false;
+    if (std::filesystem::is_regular_file(dst, ec) && !std::filesystem::remove(dst, ec)) {
+      if (message != nullptr) {
+        *message = "Could not remove custom CSS: " + ec.message();
       }
+      return false;
     }
+
     if (message != nullptr) {
       *message = "Custom CSS: " + filename + " has been disabled";
     }

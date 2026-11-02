@@ -35,8 +35,8 @@ LUALIB_API int64_t luaL_optinteger64(lua_State* L, int nArg, int64_t def);
 LUALIB_API unsigned luaL_checkunsigned(lua_State* L, int numArg);
 LUALIB_API unsigned luaL_optunsigned(lua_State* L, int numArg, unsigned def);
 
-LUALIB_API const float* luaL_checkvector(lua_State* L, int narg);
-LUALIB_API const float* luaL_optvector(lua_State* L, int narg, const float* def);
+LUALIB_API const LUA_VECTOR_TYPE* luaL_checkvector(lua_State* L, int narg);
+LUALIB_API const LUA_VECTOR_TYPE* luaL_optvector(lua_State* L, int narg, const LUA_VECTOR_TYPE* def);
 
 LUALIB_API void luaL_checkstack(lua_State* L, int sz, const char* msg);
 LUALIB_API void luaL_checktype(lua_State* L, int narg, int t);
@@ -44,6 +44,7 @@ LUALIB_API void luaL_checkany(lua_State* L, int narg);
 
 LUALIB_API int luaL_newmetatable(lua_State* L, const char* tname);
 LUALIB_API void* luaL_checkudata(lua_State* L, int ud, const char* tname);
+LUALIB_API void* luaL_checkudatatagged(lua_State* L, int ud, int tag);
 
 LUALIB_API void* luaL_checkbuffer(lua_State* L, int narg, size_t* len);
 
@@ -59,9 +60,6 @@ LUALIB_API lua_State* luaL_newstate(void);
 LUALIB_API const char* luaL_findtable(lua_State* L, int idx, const char* fname, int szhint);
 
 LUALIB_API const char* luaL_typename(lua_State* L, int idx);
-
-// wrapper for making calls from yieldable C functions
-LUALIB_API int luaL_callyieldable(lua_State* L, int nargs, int nresults);
 
 LUALIB_API void luaL_traceback(lua_State* L, lua_State* L1, const char* msg, int level);
 
@@ -80,6 +78,10 @@ LUALIB_API void luaL_traceback(lua_State* L, lua_State* L1, const char* msg, int
 #define luaL_getmetatable(L, n) (lua_getfield(L, LUA_REGISTRYINDEX, (n)))
 
 #define luaL_opt(L, f, n, d) (lua_isnoneornil(L, (n)) ? (d) : f(L, (n)))
+
+// backwards compatibility
+#define luaL_callyieldable(L, nargs, nresults) lua_callyieldable(L, nargs, nresults)
+#define luaL_pcallyieldable(L, nargs, nresults, errfunc) lua_pcallyieldable(L, nargs, nresults, errfunc)
 
 // generic buffer manipulation
 

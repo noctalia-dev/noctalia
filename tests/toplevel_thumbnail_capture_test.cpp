@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
-#include <span>
 #include <wayland-client-protocol.h>
 
 namespace {
@@ -111,6 +110,35 @@ namespace {
         "short source buffer should be rejected"
     );
   }
+
+  bool keepsPixelsExactAtIdentityScale() {
+    bool ok = true;
+    std::array<std::uint8_t, 16> pixels{};
+    const std::array<std::uint32_t, 4> source{0xFF0000FFU, 0x80000080U, 0xFF00FF00U, 0x40201008U};
+    for (std::size_t i = 0; i < source.size(); ++i) {
+      std::memcpy(pixels.data() + i * 4U, &source[i], sizeof(std::uint32_t));
+    }
+    const auto native = capture::makeToplevelThumbnail(
+        pixels, 2, 2, WL_SHM_FORMAT_ARGB8888, 1 << 30, 1 << 30, WL_OUTPUT_TRANSFORM_NORMAL
+    );
+    ok = expect(native.has_value(), "identity-scale capture should decode") && ok;
+    if (native.has_value()) {
+      ok = expect(native->width == 2 && native->height == 2, "identity-scale should keep native dimensions") && ok;
+      // Un-premultiplied straight RGBA, byte order R,G,B,A per pixel.
+      const std::vector<std::uint8_t> expected{
+          0,   0,   255, 255, // 0xFF0000FF
+          0,   0,   255, 128, // 0x80000080
+          0,   255, 0,   255, // 0xFF00FF00
+          128, 64,  32,  64   // 0x40201008
+      };
+      ok = expect(native->rgba == expected, "identity-scale pixels should match the bounded conversion") && ok;
+    }
+    const auto bounded =
+        capture::makeToplevelThumbnail(pixels, 2, 2, WL_SHM_FORMAT_ARGB8888, 8, 8, WL_OUTPUT_TRANSFORM_NORMAL);
+    ok = expect(bounded.has_value() && bounded->rgba == native->rgba, "bounded and native must agree at scale 1.00")
+        && ok;
+    return ok;
+  }
 } // namespace
 
 int main() {
@@ -118,5 +146,6 @@ int main() {
   ok = decodesSharedMemoryFormats() && ok;
   ok = boundsAndOrientsThumbnail() && ok;
   ok = rejectsInvalidBuffers() && ok;
+  ok = keepsPixelsExactAtIdentityScale() && ok;
   return ok ? 0 : 1;
 }

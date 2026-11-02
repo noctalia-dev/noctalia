@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/toml.h"
+#include "scripting/plugin_layer_config.h"
 
 #include <atomic>
 #include <cstdint>
@@ -10,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 // Pointer-only use; keeps the scripting layer off the system layer's header.
@@ -29,6 +31,21 @@ namespace scripting {
     bool focused = false;
   };
 
+  // A calendar event as exposed to plugin scripts via noctalia.calendarEvents().
+  // Mirrors CalendarEvent, but with wall-clock milliseconds instead of a chrono time_point so the
+  // scripting layer stays off the calendar layer's headers.
+  struct ScriptCalendarEvent {
+    std::string id;
+    std::string title;
+    std::string calendarName;
+    std::string colorHex;
+    std::string location;
+    std::string url; // resolved http(s) meeting link, empty when the event has none
+    double startMs = 0.0;
+    double endMs = 0.0;
+    bool allDay = false;
+  };
+
   class ScriptApiContext {
   public:
     using LoadSoundHook =
@@ -38,6 +55,15 @@ namespace scripting {
     using SetWallpaperMaskHook =
         std::function<void(std::uint64_t, const std::string&, const std::string&, const std::string&)>;
     using ClearWallpaperMasksHook = std::function<void(std::uint64_t)>;
+    using IdleWatchDelivery = std::function<void(bool idle)>;
+    using IdleWatchHook = std::function<void(
+        std::uint64_t hostId, int watchId, std::uint32_t timeoutMs, bool ignoreInhibitors, IdleWatchDelivery delivery
+    )>;
+    using IdleUnwatchHook = std::function<void(std::uint64_t hostId, int watchId)>;
+    using ReleaseIdleWatchesHook = std::function<void(std::uint64_t hostId)>;
+    using LayerCommandHook = std::function<
+        void(PluginLayerCommand command, const std::string& entryId, const PluginLayerConfigPatch& patch)>;
+    using ShowOsdHook = std::function<void(const std::string&, const std::string&, std::optional<double>, bool)>;
 
     [[nodiscard]] bool isDarkMode() const noexcept { return m_darkMode.load(std::memory_order_relaxed); }
     void setDarkMode(bool dark) noexcept { m_darkMode.store(dark, std::memory_order_relaxed); }
@@ -75,12 +101,39 @@ namespace scripting {
       return m_outputs;
     }
 
+    using ConfigSnapshotListener = std::function<
+        void(const std::shared_ptr<const toml::table>& previous, const std::shared_ptr<const toml::table>& current)>;
+
     // Effective shell config, serialized via config_export::serialize — published on the
     // main thread on every config (re)load, read from script worker threads. The pointed-to
     // table is immutable; bindings hold the shared_ptr for the duration of one lookup.
-    void setConfigSnapshot(std::shared_ptr<const toml::table> snapshot) {
+    // Listeners run on the publishing thread after the swap, outside the lock.
+    void setConfigSnapshot(const std::shared_ptr<const toml::table>& snapshot) {
+      std::shared_ptr<const toml::table> previous;
+      std::vector<ConfigSnapshotListener> listeners;
+      {
+        std::scoped_lock lock(m_mutex);
+        previous = std::exchange(m_configSnapshot, snapshot);
+        listeners.reserve(m_configSnapshotListeners.size());
+        for (const auto& [id, listener] : m_configSnapshotListeners) {
+          listeners.push_back(listener);
+        }
+      }
+      for (const auto& listener : listeners) {
+        listener(previous, snapshot);
+      }
+    }
+
+    [[nodiscard]] std::uint64_t addConfigSnapshotListener(ConfigSnapshotListener listener) {
       std::scoped_lock lock(m_mutex);
-      m_configSnapshot = std::move(snapshot);
+      const std::uint64_t id = m_nextConfigSnapshotListenerId++;
+      m_configSnapshotListeners.emplace(id, std::move(listener));
+      return id;
+    }
+
+    void removeConfigSnapshotListener(std::uint64_t id) {
+      std::scoped_lock lock(m_mutex);
+      m_configSnapshotListeners.erase(id);
     }
 
     [[nodiscard]] std::shared_ptr<const toml::table> configSnapshot() const {
@@ -98,6 +151,20 @@ namespace scripting {
     [[nodiscard]] std::optional<std::string> clipboardText() const {
       std::scoped_lock lock(m_mutex);
       return m_clipboardText;
+    }
+
+    // Merged, already-expanded calendar events, mirrored from CalendarService on the main thread
+    // so script bindings read them synchronously and race-free, exactly like clipboard text above.
+    // Null until the first successful sync, which lets a plugin tell "no events" apart from "not
+    // synced yet". The pointed-to list is immutable; bindings hold the shared_ptr while converting.
+    void setCalendarEvents(std::shared_ptr<const std::vector<ScriptCalendarEvent>> events) {
+      std::scoped_lock lock(m_mutex);
+      m_calendarEvents = std::move(events);
+    }
+
+    [[nodiscard]] std::shared_ptr<const std::vector<ScriptCalendarEvent>> calendarEvents() const {
+      std::scoped_lock lock(m_mutex);
+      return m_calendarEvents;
     }
 
     // Shell [shell].time_format / date_format — mirrored for noctalia.timeFormat() / dateFormat().
@@ -214,17 +281,66 @@ namespace scripting {
 
     [[nodiscard]] UnloadPluginSoundsHook unloadPluginSoundsHook() const { return m_unloadPluginSoundsHook; }
 
+    // noctalia.idle.watch()/unwatch(). Wired to PluginIdleWatches in Application; invoked only on
+    // the main thread (from dispatchSideEffects). The release hook runs when a Luau host dies.
+    void setIdleWatchHook(IdleWatchHook hook) { m_idleWatchHook = std::move(hook); }
+
+    void invokeIdleWatch(
+        std::uint64_t hostId, int watchId, std::uint32_t timeoutMs, bool ignoreInhibitors, IdleWatchDelivery delivery
+    ) const {
+      if (m_idleWatchHook) {
+        m_idleWatchHook(hostId, watchId, timeoutMs, ignoreInhibitors, std::move(delivery));
+      }
+    }
+
+    void setIdleUnwatchHook(IdleUnwatchHook hook) { m_idleUnwatchHook = std::move(hook); }
+
+    void invokeIdleUnwatch(std::uint64_t hostId, int watchId) const {
+      if (m_idleUnwatchHook) {
+        m_idleUnwatchHook(hostId, watchId);
+      }
+    }
+
+    void setReleaseIdleWatchesHook(ReleaseIdleWatchesHook hook) { m_releaseIdleWatchesHook = std::move(hook); }
+
+    [[nodiscard]] ReleaseIdleWatchesHook releaseIdleWatchesHook() const { return m_releaseIdleWatchesHook; }
+
+    // noctalia.layer.show()/hide()/configure(). Wired to PluginLayerHost in Application; main thread
+    // only (from dispatchSideEffects).
+    void setLayerCommandHook(LayerCommandHook hook) { m_layerCommandHook = std::move(hook); }
+
+    void invokeLayerCommand(
+        PluginLayerCommand command, const std::string& entryId, const PluginLayerConfigPatch& patch
+    ) const {
+      if (m_layerCommandHook) {
+        m_layerCommandHook(command, entryId, patch);
+      }
+    }
+
+    void setShowOsdHook(ShowOsdHook hook) { m_showOsdHook = std::move(hook); }
+
+    void invokeShowOsd(
+        const std::string& icon, const std::string& value, std::optional<double> progress, bool inactive
+    ) const {
+      if (m_showOsdHook) {
+        m_showOsdHook(icon, value, progress, inactive);
+      }
+    }
+
   private:
     std::atomic<SystemMonitorService*> m_systemMonitor{nullptr};
     std::atomic<bool> m_darkMode{true};
     mutable std::mutex m_mutex;
     std::shared_ptr<const toml::table> m_configSnapshot;
+    std::unordered_map<std::uint64_t, ConfigSnapshotListener> m_configSnapshotListeners;
+    std::uint64_t m_nextConfigSnapshotListenerId = 1;
     std::string m_wallpaperDirectory;
     std::string m_timeFormat;
     std::string m_dateFormat;
     std::vector<ScriptOutputInfo> m_outputs;
     std::unordered_map<std::string, std::string> m_wallpaperPaths;
     std::optional<std::string> m_clipboardText;
+    std::shared_ptr<const std::vector<ScriptCalendarEvent>> m_calendarEvents;
     std::function<void(const std::string&, bool)> m_wallpaperEnabledHook;
     std::function<void(const std::string&, const std::string&)> m_wallpaperHook;
     SetWallpaperMaskHook m_wallpaperMaskHook;
@@ -234,6 +350,11 @@ namespace scripting {
     LoadSoundHook m_loadSoundHook;
     PlaySoundHook m_playSoundHook;
     UnloadPluginSoundsHook m_unloadPluginSoundsHook;
+    IdleWatchHook m_idleWatchHook;
+    IdleUnwatchHook m_idleUnwatchHook;
+    ReleaseIdleWatchesHook m_releaseIdleWatchesHook;
+    LayerCommandHook m_layerCommandHook;
+    ShowOsdHook m_showOsdHook;
   };
 
 } // namespace scripting
