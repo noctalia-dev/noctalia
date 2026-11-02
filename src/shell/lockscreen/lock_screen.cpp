@@ -19,6 +19,7 @@
 #include "shell/lockscreen/lockscreen_session_actions.h"
 #include "shell/session/session_action_runner.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
+#include "shell/wayland/capture_globals.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -978,7 +979,9 @@ void LockScreen::syncInstances() {
 }
 
 bool LockScreen::shouldCaptureDesktop() const {
-  if (m_configService == nullptr || m_wayland == nullptr || !m_wayland->hasScreencopy()) {
+  if (m_configService == nullptr
+      || m_wayland == nullptr
+      || m_wayland->extension<ScreencopyGlobals>().manager() == nullptr) {
     return false;
   }
   const auto& lockscreen = m_configService->config().lockscreen;
@@ -1048,6 +1051,7 @@ bool LockScreen::captureDesktopSnapshots() {
 
   const auto firstCaptureDeadline = std::chrono::steady_clock::now() + screencopy::kBlockingCaptureTimeout;
   WaylandConnection captureWayland(WaylandConnection::Purpose::Sibling);
+  captureWayland.extension<ScreencopyGlobals>();
   std::string setupError;
   if (!captureWayland.connectUntil(firstCaptureDeadline, m_wayland, setupError)) {
     kLog.warn("lockscreen desktop capture setup failed: {}", setupError);
@@ -1137,7 +1141,9 @@ void LockScreen::chooseTransition() {
   if (m_transitionSuppressed) {
     return;
   }
-  if (m_configService == nullptr || m_wayland == nullptr || !m_wayland->hasScreencopy()) {
+  if (m_configService == nullptr
+      || m_wayland == nullptr
+      || m_wayland->extension<ScreencopyGlobals>().manager() == nullptr) {
     return;
   }
 

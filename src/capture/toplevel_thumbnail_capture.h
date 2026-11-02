@@ -9,6 +9,7 @@
 #include <span>
 #include <string>
 
+class ImageCaptureGlobals;
 class WaylandConnection;
 struct ToplevelThumbnailCapturePending;
 struct ext_foreign_toplevel_handle_v1;
@@ -39,6 +40,7 @@ private:
   void finish(ScreencopyImage image);
 
   WaylandConnection& m_wayland;
+  ImageCaptureGlobals& m_imageCapture;
   std::unique_ptr<ToplevelThumbnailCapturePending> m_pending;
   CompletionCallback m_onComplete;
   Timer m_timeout;

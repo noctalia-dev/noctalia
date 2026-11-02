@@ -9,8 +9,6 @@
 #include "ext-data-control-v1-client-protocol.h"
 #include "ext-foreign-toplevel-list-v1-client-protocol.h"
 #include "ext-idle-notify-v1-client-protocol.h"
-#include "ext-image-capture-source-v1-client-protocol.h"
-#include "ext-image-copy-capture-v1-client-protocol.h"
 #include "ext-session-lock-v1-client-protocol.h"
 #include "ext-workspace-v1-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
@@ -32,7 +30,6 @@
 #include "wlr-gamma-control-unstable-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-output-management-unstable-v1-client-protocol.h"
-#include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-activation-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
@@ -82,10 +79,6 @@ namespace {
   constexpr std::uint32_t kTextInputManagerVersion = 2;
   constexpr std::uint32_t kVirtualKeyboardManagerVersion = 1;
   constexpr std::uint32_t kGammaControlManagerVersion = 1;
-  constexpr std::uint32_t kScreencopyManagerVersion = 3;
-  constexpr std::uint32_t kImageCopyCaptureManagerVersion = 1;
-  constexpr std::uint32_t kOutputImageCaptureSourceManagerVersion = 1;
-  constexpr std::uint32_t kForeignToplevelImageCaptureSourceManagerVersion = 1;
   constexpr std::uint32_t kOutputManagerVersion = 4;
   constexpr std::uint32_t kOutputManagerMinVersion = 3;
 
@@ -1102,24 +1095,7 @@ bool WaylandConnection::hasFractionalScale() const noexcept {
 bool WaylandConnection::hasGammaControl() const noexcept { return m_gammaControlManager != nullptr; }
 bool WaylandConnection::hasOutputManagement() const noexcept { return m_outputManager != nullptr; }
 
-bool WaylandConnection::hasScreencopy() const noexcept { return m_screencopyManager != nullptr; }
-
 zwlr_gamma_control_manager_v1* WaylandConnection::gammaControlManager() const noexcept { return m_gammaControlManager; }
-
-zwlr_screencopy_manager_v1* WaylandConnection::screencopyManager() const noexcept { return m_screencopyManager; }
-
-ext_image_copy_capture_manager_v1* WaylandConnection::imageCopyCaptureManager() const noexcept {
-  return m_imageCopyCaptureManager;
-}
-
-ext_output_image_capture_source_manager_v1* WaylandConnection::outputImageCaptureSourceManager() const noexcept {
-  return m_outputImageCaptureSourceManager;
-}
-
-ext_foreign_toplevel_image_capture_source_manager_v1*
-WaylandConnection::foreignToplevelImageCaptureSourceManager() const noexcept {
-  return m_foreignToplevelImageCaptureSourceManager;
-}
 
 std::string WaylandConnection::requestActivationToken(wl_surface* surface) const {
   if (m_xdgActivation == nullptr || m_display == nullptr) {
@@ -1468,8 +1444,7 @@ void WaylandConnection::bindGlobal(
 
   if (m_purpose == Purpose::Sibling
       && interfaceName != wl_shm_interface.name
-      && interfaceName != wl_output_interface.name
-      && interfaceName != zwlr_screencopy_manager_v1_interface.name) {
+      && interfaceName != wl_output_interface.name) {
     return;
   }
 
@@ -1725,38 +1700,6 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
-  if (interfaceName == zwlr_screencopy_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kScreencopyManagerVersion);
-    m_screencopyManager = static_cast<zwlr_screencopy_manager_v1*>(
-        wl_registry_bind(registry, name, &zwlr_screencopy_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
-  if (interfaceName == ext_image_copy_capture_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kImageCopyCaptureManagerVersion);
-    m_imageCopyCaptureManager = static_cast<ext_image_copy_capture_manager_v1*>(
-        wl_registry_bind(registry, name, &ext_image_copy_capture_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
-  if (interfaceName == ext_output_image_capture_source_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kOutputImageCaptureSourceManagerVersion);
-    m_outputImageCaptureSourceManager = static_cast<ext_output_image_capture_source_manager_v1*>(
-        wl_registry_bind(registry, name, &ext_output_image_capture_source_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
-  if (interfaceName == ext_foreign_toplevel_image_capture_source_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kForeignToplevelImageCaptureSourceManagerVersion);
-    m_foreignToplevelImageCaptureSourceManager = static_cast<ext_foreign_toplevel_image_capture_source_manager_v1*>(
-        wl_registry_bind(registry, name, &ext_foreign_toplevel_image_capture_source_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
   if (interfaceName == zwlr_output_manager_v1_interface.name) {
     // head/mode release requests need v3; nothing useful to bind below that anyway.
     if (version < kOutputManagerMinVersion) {
@@ -1905,22 +1848,6 @@ void WaylandConnection::cleanup() {
   if (m_gammaControlManager != nullptr) {
     zwlr_gamma_control_manager_v1_destroy(m_gammaControlManager);
     m_gammaControlManager = nullptr;
-  }
-  if (m_screencopyManager != nullptr) {
-    zwlr_screencopy_manager_v1_destroy(m_screencopyManager);
-    m_screencopyManager = nullptr;
-  }
-  if (m_imageCopyCaptureManager != nullptr) {
-    ext_image_copy_capture_manager_v1_destroy(m_imageCopyCaptureManager);
-    m_imageCopyCaptureManager = nullptr;
-  }
-  if (m_outputImageCaptureSourceManager != nullptr) {
-    ext_output_image_capture_source_manager_v1_destroy(m_outputImageCaptureSourceManager);
-    m_outputImageCaptureSourceManager = nullptr;
-  }
-  if (m_foreignToplevelImageCaptureSourceManager != nullptr) {
-    ext_foreign_toplevel_image_capture_source_manager_v1_destroy(m_foreignToplevelImageCaptureSourceManager);
-    m_foreignToplevelImageCaptureSourceManager = nullptr;
   }
 
   for (auto* mode : m_outputModes) {

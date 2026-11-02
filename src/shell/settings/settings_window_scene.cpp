@@ -28,6 +28,7 @@
 #include "shell/settings/settings_sidebar.h"
 #include "shell/settings/settings_window.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/capture_globals.h"
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
 #include "theme/builtin_templates.h"
@@ -747,7 +748,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
     env.shellAvatarPath = shell::resolvedAvatarPath(m_accounts, m_config->config());
   }
   env.niriBackdropSupported = (m_wayland != nullptr && compositors::isNiri());
-  env.screencopySupported = m_wayland != nullptr && m_wayland->hasScreencopy();
+  env.screencopySupported = m_wayland != nullptr && m_wayland->extension<ScreencopyGlobals>().manager() != nullptr;
   env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->hasBackgroundEffectBlur();
   env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
   env.umbrielOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isUmbriel());

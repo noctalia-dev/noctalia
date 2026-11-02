@@ -1,5 +1,6 @@
 #include "capture/screencopy_capture.h"
 
+#include "shell/wayland/capture_globals.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 
@@ -335,11 +336,14 @@ namespace {
 
 } // namespace
 
-ScreencopyCapture::ScreencopyCapture(WaylandConnection& wayland) : m_wayland(wayland) {}
+ScreencopyCapture::ScreencopyCapture(WaylandConnection& wayland)
+    : m_wayland(wayland), m_screencopy(wayland.extension<ScreencopyGlobals>()) {}
 
 ScreencopyCapture::~ScreencopyCapture() { destroyPending(); }
 
-bool ScreencopyCapture::available() const noexcept { return m_wayland.hasScreencopy() && m_wayland.shm() != nullptr; }
+bool ScreencopyCapture::available() const noexcept {
+  return m_screencopy.manager() != nullptr && m_wayland.shm() != nullptr;
+}
 
 void ScreencopyCapture::capture(
     wl_output* output, std::optional<LogicalRect> region, bool overlayCursor, CompletionCallback onComplete
@@ -359,7 +363,7 @@ void ScreencopyCapture::capture(
 
   destroyPending();
 
-  auto* manager = m_wayland.screencopyManager();
+  auto* manager = m_screencopy.manager();
   if (manager == nullptr) {
     if (onComplete) {
       onComplete(std::nullopt, "screencopy manager missing");
