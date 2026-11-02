@@ -8,7 +8,9 @@
 #include "calendar/calendar_service.h"
 #include "capture/screenshot_service.h"
 #include "compositors/compositor_platform.h"
+#include "compositors/keyboard_layout_poll_source.h"
 #include "compositors/workspace_alert_service.h"
+#include "compositors/workspace_poll_source.h"
 #include "config/config_poll_source.h"
 #include "config/config_service.h"
 #include "core/files/file_watcher.h"
@@ -94,10 +96,8 @@
 #include "ui/dialogs/layer_popup_host.h"
 #include "ui/dialogs/search_picker_popup.h"
 #include "wayland/key_repeat_poll_source.h"
-#include "wayland/keyboard_layout_poll_source.h"
 #include "wayland/text_input_service.h"
 #include "wayland/wayland_connection.h"
-#include "wayland/workspace_poll_source.h"
 
 #include <atomic>
 #include <cstdint>

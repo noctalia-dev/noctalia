@@ -1042,7 +1042,7 @@ _noctalia_sources = files(
   'src/wayland/wayland_seat.cpp',
   'src/shell/wayland/wayland_toplevels.cpp',
   'src/shell/wayland/ext_foreign_toplevels.cpp',
-  'src/wayland/wayland_workspaces.cpp',
+  'src/compositors/wayland_workspaces.cpp',
   'src/shell/wayland/capture_globals.cpp',
   'src/shell/wayland/clipboard_globals.cpp',
   'src/shell/wayland/shell_globals.cpp',

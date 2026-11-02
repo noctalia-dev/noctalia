@@ -1,4 +1,4 @@
-#include "wayland/wayland_workspaces.h"
+#include "compositors/wayland_workspaces.h"
 
 #include "compositors/compositor_detect.h"
 #include "compositors/compositor_runtime.h"

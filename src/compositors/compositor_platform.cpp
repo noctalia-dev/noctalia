@@ -23,6 +23,7 @@
 #include "compositors/umbriel/umbriel_output_backend.h"
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "compositors/umbriel/umbriel_workspace_backend.h"
+#include "compositors/wayland_workspaces.h"
 #include "compositors/workspace_alert_service.h"
 #include "core/log.h"
 #include "core/process/process.h"
@@ -33,7 +34,6 @@
 #include "util/string_utils.h"
 #include "wayland/output_probe.h"
 #include "wayland/wayland_connection.h"
-#include "wayland/wayland_workspaces.h"
 
 #include <algorithm>
 #include <cerrno>
