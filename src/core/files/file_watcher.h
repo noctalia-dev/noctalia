@@ -1,7 +1,7 @@
 #pragma once
 
-#include "app/poll_source.h"
 #include "core/inotify/inotify.h"
+#include "core/poll_source.h"
 
 #include <chrono>
 #include <cstdint>

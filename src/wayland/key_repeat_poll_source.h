@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/poll_source.h"
+#include "core/poll_source.h"
 #include "wayland/wayland_connection.h"
 
 class KeyRepeatPollSource final : public PollSource {
