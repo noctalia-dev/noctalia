@@ -373,6 +373,8 @@ _protocol_headers = []
 
 foreach _p : [
   # ── system wayland-protocols ──────────────────────────────────────────────
+  ['ext-background-effect-v1',
+    wayland_protos_dir / 'staging/ext-background-effect/ext-background-effect-v1.xml'],
   ['ext-workspace-v1',
     wayland_protos_dir / 'staging/ext-workspace/ext-workspace-v1.xml'],
   ['ext-foreign-toplevel-list-v1',
@@ -926,6 +928,7 @@ _noctalia_sources = files(
   'src/shell/wayland/compositor_globals.cpp',
   'src/shell/wayland/foreign_toplevels.cpp',
   'src/shell/wayland/output_management_globals.cpp',
+  'src/shell/wayland/background_effect_globals.cpp',
   'src/shell/wayland/layer_shell.cpp',
   'src/shell/wayland/layer_surface.cpp',
   'src/shell/wayland/output_probe.cpp',
@@ -1115,7 +1118,6 @@ if build_tests
     'log',
     'process',
     'string_utils',
-    'surface_blur_region',
     'time_format',
     'virtual_grid_view_gesture',
     'wayland_output_scale',
@@ -1237,6 +1239,7 @@ if build_tests
     'secret_store',
     'security_primitives',
     'state_store',
+    'surface_blur_region',
     'sway_workspace_backend',
     'system_monitor_service',
     'taskbar_widget',

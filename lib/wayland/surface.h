@@ -9,12 +9,12 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 struct wl_callback;
 struct wl_output;
 struct wl_surface;
-struct ext_background_effect_surface_v1;
 struct wp_fractional_scale_v1;
 struct wp_viewport;
 
@@ -85,10 +85,8 @@ public:
   void setScaleChangedCallback(ScaleChangedCallback callback);
   void setOutputChangedCallback(OutputChangedCallback callback);
   void setInputRegion(const std::vector<InputRect>& rects);
-  void setBlurRegion(const std::vector<InputRect>& rects);
   // Declares the whole surface opaque, or not, from its next commit, so the compositor can skip what lies beneath it.
   void setOpaque(bool opaque);
-  void clearBlurRegion();
   void setDebugName(std::string name);
 
   // Approximates a rounded rectangle as a stack of horizontal axis-aligned strips
@@ -116,9 +114,6 @@ public:
   static std::vector<InputRect> tessellateRotatedRoundedRect(
       float centerX, float centerY, float width, float height, float radius, float rotationRad, int stripPx = 1
   );
-  // True when any rect covers at least one pixel of a `width` x `height` surface.
-  // Rects are surface-local, so they may legitimately sit partly or fully outside.
-  static bool regionIntersectsBounds(const std::vector<InputRect>& rects, std::uint32_t width, std::uint32_t height);
   void requestUpdate();
   void requestUpdateOnly();
   void requestLayout();
@@ -160,7 +155,9 @@ protected:
   virtual void render();
   virtual void onFrameCallbackDone();
   virtual void onScaleChanged();
-  bool prepareBlurEffect();
+  // Debug traces enabled by NOCTALIA_BLUR_TRACE, for role-specific events of derived surfaces.
+  void traceEvent(std::string_view event) const;
+  void traceRegionEvent(std::string_view event, const std::vector<InputRect>& rects) const;
   void initializeSurfaceScaleProtocol();
   void applySurfaceScaleState();
   // Seed the surface-local configured scale (/120 numerator) from a known output
@@ -206,7 +203,6 @@ private:
   ScaleChangedCallback m_scaleChangedCallback;
   OutputChangedCallback m_outputChangedCallback;
   wl_callback* m_frameCallback = nullptr;
-  ext_background_effect_surface_v1* m_backgroundEffect = nullptr;
   wp_viewport* m_viewport = nullptr;
   wp_fractional_scale_v1* m_fractionalScale = nullptr;
   std::optional<std::chrono::steady_clock::time_point> m_lastFrameAt;

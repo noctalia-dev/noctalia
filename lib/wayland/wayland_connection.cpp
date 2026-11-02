@@ -3,7 +3,6 @@
 #include "core/log.h"
 #include "core/process/process_fds.h"
 #include "cursor-shape-v1-client-protocol.h"
-#include "ext-background-effect-v1-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
 #include "text-input-unstable-v3-client-protocol.h"
 #include "viewporter-client-protocol.h"
@@ -37,10 +36,6 @@ namespace {
   constexpr std::uint32_t kXdgWmBaseVersion = 6;
   constexpr std::uint32_t kCursorShapeManagerVersion = 1;
   constexpr std::uint32_t kXdgActivationVersion = 1;
-  constexpr std::uint32_t kExtBackgroundEffectManagerVersion = 1;
-  // REMOVEME(wayland-protocols-1.45): Use the generated mask after requiring wayland-protocols >= 1.46;
-  // version 1.45 generates zero for blur although the corrected v1 wire mask is 1.
-  constexpr std::uint32_t kExtBackgroundEffectBlurCapabilityMask = 1U;
   constexpr std::uint32_t kFractionalScaleManagerVersion = 1;
   constexpr std::uint32_t kViewporterVersion = 1;
   constexpr std::uint32_t kOutputVersion = 4;
@@ -77,16 +72,6 @@ namespace {
     }
     return std::format("#{}", output.name);
   }
-
-  void
-  backgroundEffectCapabilities(void* data, ext_background_effect_manager_v1* /*manager*/, std::uint32_t capabilities) {
-    auto* self = static_cast<WaylandConnection*>(data);
-    self->onBackgroundEffectCapabilities(capabilities);
-  }
-
-  const ext_background_effect_manager_v1_listener kBackgroundEffectListener = {
-      .capabilities = &backgroundEffectCapabilities,
-  };
 
   void outputGeometry(
       void* data, wl_output* wlOut, int32_t /*x*/, int32_t /*y*/, int32_t /*physW*/, int32_t /*physH*/,
@@ -902,10 +887,6 @@ wl_subcompositor* WaylandConnection::subcompositor() const noexcept { return m_s
 
 xdg_wm_base* WaylandConnection::xdgWmBase() const noexcept { return m_xdgWmBase; }
 
-bool WaylandConnection::hasBackgroundEffectBlur() const noexcept { return m_backgroundEffectBlurSupported; }
-ext_background_effect_manager_v1* WaylandConnection::backgroundEffectManager() const noexcept {
-  return m_backgroundEffectManager;
-}
 wp_fractional_scale_manager_v1* WaylandConnection::fractionalScaleManager() const noexcept {
   return m_fractionalScaleManager;
 }
@@ -913,10 +894,6 @@ wp_fractional_scale_manager_v1* WaylandConnection::fractionalScaleManager() cons
 void WaylandConnection::setPopupGrabHost(PopupGrabHost* host) noexcept { m_popupGrabHost = host; }
 PopupGrabHost* WaylandConnection::popupGrabHost() const noexcept { return m_popupGrabHost; }
 wp_viewporter* WaylandConnection::viewporter() const noexcept { return m_viewporter; }
-
-void WaylandConnection::onBackgroundEffectCapabilities(std::uint32_t capabilities) noexcept {
-  m_backgroundEffectBlurSupported = (capabilities & kExtBackgroundEffectBlurCapabilityMask) != 0U;
-}
 
 void WaylandConnection::setOutputMetadataSource(OutputMetadataSource source) {
   m_outputMetadataSource = std::move(source);
@@ -1128,15 +1105,6 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
-  if (interfaceName == ext_background_effect_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kExtBackgroundEffectManagerVersion);
-    m_backgroundEffectManager = static_cast<ext_background_effect_manager_v1*>(
-        wl_registry_bind(registry, name, &ext_background_effect_manager_v1_interface, bindVersion)
-    );
-    ext_background_effect_manager_v1_add_listener(m_backgroundEffectManager, &kBackgroundEffectListener, this);
-    return;
-  }
-
   if (interfaceName == wp_fractional_scale_manager_v1_interface.name) {
     const auto bindVersion = std::min(version, kFractionalScaleManagerVersion);
     m_fractionalScaleManager = static_cast<wp_fractional_scale_manager_v1*>(
@@ -1229,12 +1197,6 @@ void WaylandConnection::cleanup() {
   if (m_xdgActivation != nullptr) {
     xdg_activation_v1_destroy(m_xdgActivation);
     m_xdgActivation = nullptr;
-  }
-
-  if (m_backgroundEffectManager != nullptr) {
-    ext_background_effect_manager_v1_destroy(m_backgroundEffectManager);
-    m_backgroundEffectManager = nullptr;
-    m_backgroundEffectBlurSupported = false;
   }
 
   if (m_fractionalScaleManager != nullptr) {

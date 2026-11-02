@@ -30,7 +30,6 @@ struct zxdg_output_manager_v1;
 struct zxdg_output_v1;
 struct xdg_wm_base;
 struct wp_cursor_shape_manager_v1;
-struct ext_background_effect_manager_v1;
 struct xdg_activation_v1;
 struct zwp_text_input_manager_v3;
 struct wp_fractional_scale_manager_v1;
@@ -176,8 +175,6 @@ public:
   bool hasXdgOutputManager() const noexcept;
   bool hasXdgShell() const noexcept;
   bool hasFractionalScale() const noexcept;
-  bool hasBackgroundEffectBlur() const noexcept;
-  ext_background_effect_manager_v1* backgroundEffectManager() const noexcept;
   wp_fractional_scale_manager_v1* fractionalScaleManager() const noexcept;
   // The focus-grab owner that popups enroll with instead of taking xdg_popup_grab, or nullptr.
   void setPopupGrabHost(PopupGrabHost* host) noexcept;
@@ -228,8 +225,6 @@ public:
   handleGlobal(void* data, wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t version);
   static void handleGlobalRemove(void* data, wl_registry* registry, std::uint32_t name);
 
-  void onBackgroundEffectCapabilities(std::uint32_t capabilities) noexcept;
-
   // Recompute out.configuredScaleNumerator from current metadata/mode/logical/wl-scale
   // data. Returns true when the published numerator changed.
   bool recomputeConfiguredScale(WaylandOutput& out);
@@ -259,12 +254,10 @@ private:
   xdg_wm_base* m_xdgWmBase = nullptr;
   wp_cursor_shape_manager_v1* m_cursorShapeManager = nullptr;
   xdg_activation_v1* m_xdgActivation = nullptr;
-  ext_background_effect_manager_v1* m_backgroundEffectManager = nullptr;
   wp_fractional_scale_manager_v1* m_fractionalScaleManager = nullptr;
   OutputMetadataSource m_outputMetadataSource;
   PopupGrabHost* m_popupGrabHost = nullptr;
   wp_viewporter* m_viewporter = nullptr;
-  bool m_backgroundEffectBlurSupported = false;
   zwp_text_input_manager_v3* m_textInputManager = nullptr;
   TextInputService* m_textInputService = nullptr;
   std::vector<WaylandOutput> m_outputs;

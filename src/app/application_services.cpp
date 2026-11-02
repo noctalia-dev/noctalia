@@ -70,6 +70,7 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/wayland/background_effect_globals.h"
 #include "shell/wayland/clipboard_globals.h"
 #include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/layer_shell.h"
@@ -797,9 +798,11 @@ void Application::initStyleThemeAndWayland() {
     );
   }
 
-  // Bound during the initial registry roundtrip: layer surfaces and the clipboard and paste services attach after
-  // connect, and head metadata must reach the outputs before the first surfaces read their configured scale.
+  // Bound during the initial registry roundtrip: layer surfaces, their blur capability, and the clipboard and paste
+  // services attach after connect, and head metadata must reach the outputs before the first surfaces read their
+  // configured scale.
   m_wayland.extension<LayerShell>();
+  m_wayland.extension<BackgroundEffectGlobals>();
   m_wayland.extension<ClipboardGlobals>();
   m_wayland.extension<OutputManagementGlobals>();
   if (!m_wayland.connect()) {

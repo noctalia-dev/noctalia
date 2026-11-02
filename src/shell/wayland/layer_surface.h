@@ -6,8 +6,11 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <vector>
 
+class BackgroundEffectGlobals;
 class LayerShell;
+struct ext_background_effect_surface_v1;
 struct wl_output;
 struct zwlr_layer_surface_v1;
 
@@ -71,6 +74,12 @@ public:
   void setClickThrough(bool clickThrough);
   void setKeyboardInteractivity(LayerShellKeyboard mode);
   void setClosedCallback(std::function<void()> callback);
+  // Asks the compositor to blur what lies behind rects (surface-local) when it supports blur.
+  void setBlurRegion(const std::vector<InputRect>& rects);
+  void clearBlurRegion();
+  // True when any rect covers at least one pixel of a `width` x `height` surface.
+  // Rects are surface-local, so they may legitimately sit partly or fully outside.
+  static bool regionIntersectsBounds(const std::vector<InputRect>& rects, std::uint32_t width, std::uint32_t height);
   LayerShellKeyboard keyboardInteractivity() const noexcept { return m_config.keyboard; }
   std::uint32_t anchor() const noexcept { return m_config.anchor; }
   std::int32_t marginTop() const noexcept { return m_config.marginTop; }
@@ -85,10 +94,13 @@ public:
 
 private:
   void applyInputRegion();
+  bool prepareBlurEffect();
 
   LayerShell& m_layerShell;
+  BackgroundEffectGlobals& m_backgroundEffects;
   LayerSurfaceConfig m_config;
   zwlr_layer_surface_v1* m_layerSurface = nullptr;
+  ext_background_effect_surface_v1* m_backgroundEffect = nullptr;
   std::function<void()> m_closedCallback;
   bool m_clickThrough = false;
 };

@@ -28,6 +28,7 @@
 #include "shell/settings/settings_sidebar.h"
 #include "shell/settings/settings_window.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/background_effect_globals.h"
 #include "shell/wayland/capture_globals.h"
 #include "shell/wayland/clipboard_service.h"
 #include "shell/wayland/shell_globals.h"
@@ -750,7 +751,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   }
   env.niriBackdropSupported = (m_wayland != nullptr && compositors::isNiri());
   env.screencopySupported = m_wayland != nullptr && m_wayland->extension<ScreencopyGlobals>().manager() != nullptr;
-  env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->hasBackgroundEffectBlur();
+  env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->extension<BackgroundEffectGlobals>().hasBlur();
   env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
   env.umbrielOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isUmbriel());
   env.niriOverviewCloseOnLaunchSupported =

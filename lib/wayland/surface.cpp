@@ -2,7 +2,6 @@
 
 #include "core/log.h"
 #include "core/ui_phase.h"
-#include "ext-background-effect-v1-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
 #include "render/animation/animation_manager.h"
 #include "render/render_context.h"
@@ -674,76 +673,10 @@ void Surface::setOpaque(bool opaque) {
   m_opaque = true;
 }
 
-bool Surface::prepareBlurEffect() {
-  if (m_surface == nullptr) {
-    traceSurfaceEvent(*this, "blur-effect-skip-no-surface");
-    return false;
-  }
-  if (!m_connection.hasBackgroundEffectBlur()) {
-    traceSurfaceEvent(*this, "blur-effect-skip-no-protocol");
-    return false;
-  }
-  if (m_backgroundEffect != nullptr) {
-    return true;
-  }
+void Surface::traceEvent(std::string_view event) const { traceSurfaceEvent(*this, event); }
 
-  auto* manager = m_connection.backgroundEffectManager();
-  if (manager == nullptr) {
-    traceSurfaceEvent(*this, "blur-effect-skip-no-manager");
-    return false;
-  }
-  m_backgroundEffect = ext_background_effect_manager_v1_get_background_effect(manager, m_surface);
-  if (m_backgroundEffect == nullptr) {
-    traceSurfaceEvent(*this, "blur-effect-skip-create-failed");
-    return false;
-  }
-  traceSurfaceEvent(*this, "blur-effect-create");
-  return true;
-}
-
-bool Surface::regionIntersectsBounds(const std::vector<InputRect>& rects, std::uint32_t width, std::uint32_t height) {
-  if (width == 0 || height == 0) {
-    return false;
-  }
-  return std::ranges::any_of(rects, [&](const auto& r) {
-    const std::int64_t right = static_cast<std::int64_t>(r.x) + r.width;
-    const std::int64_t bottom = static_cast<std::int64_t>(r.y) + r.height;
-    return r.width > 0
-        && r.height > 0
-        && right > 0
-        && bottom > 0
-        && static_cast<std::int64_t>(r.x) < width
-        && static_cast<std::int64_t>(r.y) < height;
-  });
-}
-
-void Surface::setBlurRegion(const std::vector<InputRect>& rects) {
-  if (!prepareBlurEffect()) {
-    return;
-  }
-
-  // Hyprland renders a fully off-surface non-empty blur region as full-surface blur, so send null instead.
-  const bool hasVisibleRegion = regionIntersectsBounds(rects, m_width, m_height);
-  wl_region* region = nullptr;
-  if (hasVisibleRegion) {
-    region = wl_compositor_create_region(m_connection.compositor());
-    if (region == nullptr) {
-      traceSurfaceEvent(*this, "blur-set-skip-region-failed");
-      return;
-    }
-    for (const auto& r : rects) {
-      wl_region_add(region, r.x, r.y, r.width, r.height);
-    }
-  }
-  const char* traceLabel = "blur-set";
-  if (!hasVisibleRegion) {
-    traceLabel = rects.empty() ? "blur-set-empty" : "blur-set-offsurface";
-  }
-  traceBlurRegionEvent(*this, traceLabel, rects);
-  ext_background_effect_surface_v1_set_blur_region(m_backgroundEffect, region);
-  if (region != nullptr) {
-    wl_region_destroy(region);
-  }
+void Surface::traceRegionEvent(std::string_view event, const std::vector<InputRect>& rects) const {
+  traceBlurRegionEvent(*this, event, rects);
 }
 
 std::vector<InputRect> Surface::tessellateRoundedRect(
@@ -1165,16 +1098,6 @@ std::vector<InputRect> Surface::tessellateRotatedRoundedRect(
   return out;
 }
 
-void Surface::clearBlurRegion() {
-  if (m_backgroundEffect == nullptr) {
-    traceSurfaceEvent(*this, "blur-clear-no-effect");
-    return;
-  }
-  traceSurfaceEvent(*this, "blur-clear-destroy");
-  ext_background_effect_surface_v1_destroy(m_backgroundEffect);
-  m_backgroundEffect = nullptr;
-}
-
 void Surface::requestUpdate() {
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::RequestUpdate);
   m_updateRequested = true;
@@ -1297,11 +1220,6 @@ void Surface::destroySurface() {
   }
 
   m_renderTarget.destroy();
-
-  if (m_backgroundEffect != nullptr) {
-    ext_background_effect_surface_v1_destroy(m_backgroundEffect);
-    m_backgroundEffect = nullptr;
-  }
 
   if (m_fractionalScale != nullptr) {
     wp_fractional_scale_v1_destroy(m_fractionalScale);

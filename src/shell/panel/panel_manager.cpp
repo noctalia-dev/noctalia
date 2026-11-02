@@ -1249,7 +1249,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       m_surface->setInputRegion(
           {InputRect{m_panelInsetX, m_panelInsetY, static_cast<int>(panelWidth), static_cast<int>(panelHeight)}}
       );
-      m_surface->setBlurRegion({});
+      m_layerSurface->setBlurRegion({});
       publishAttachedPanelGeometry(m_attachedRevealProgress);
       m_surface->requestRedraw();
       if (hasFocusGrab && wantsOutsideDismiss) {
@@ -1345,7 +1345,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   m_surface->setInputRegion(
       {InputRect{m_panelInsetX, m_panelInsetY, static_cast<int>(panelWidth), static_cast<int>(panelHeight)}}
   );
-  m_surface->setBlurRegion({});
+  m_layerSurface->setBlurRegion({});
   // Activate outside-click dismissal (focus grab or click shield).
   if (hasFocusGrab && wantsOutsideDismiss) {
     activateFocusGrab();
@@ -1585,7 +1585,7 @@ void PanelManager::closePanelForCapture(std::function<void()> afterClose) {
   m_surface->setFrameTickCallback({});
   m_surface->setUpdateCallback({});
   m_surface->setSceneRoot(nullptr);
-  m_surface->clearBlurRegion();
+  m_layerSurface->clearBlurRegion();
   m_surface->setOpaque(false);
   m_surface->setInputRegion({});
   m_surface->discardPendingFrameCallback();
@@ -2213,7 +2213,7 @@ void PanelManager::applyAttachedReveal(float progress) {
   m_attachedRevealProgress = std::clamp(progress, 0.0F, 1.0F);
   if (!m_attachedToBar || m_attachedRevealClipNode == nullptr || m_sceneRoot == nullptr) {
     if (m_attachedToBar && m_surface != nullptr) {
-      m_surface->clearBlurRegion();
+      m_layerSurface->clearBlurRegion();
     }
     return;
   }
@@ -2275,7 +2275,7 @@ void PanelManager::applyDetachedReveal(float progress) {
   m_detachedRevealProgress = std::clamp(progress, 0.0F, 1.0F);
   if (m_attachedToBar || m_sceneRoot == nullptr) {
     if (!m_attachedToBar && m_surface != nullptr) {
-      m_surface->clearBlurRegion();
+      m_layerSurface->clearBlurRegion();
     }
     return;
   }
@@ -2444,7 +2444,7 @@ void PanelManager::applyPanelCompositorBlur(
     if (blurTraceEnabled()) {
       kLog.debug("blur-trace panel-blur-clear reason=empty-input");
     }
-    m_surface->clearBlurRegion();
+    m_layerSurface->clearBlurRegion();
     return;
   }
 
@@ -2458,7 +2458,7 @@ void PanelManager::applyPanelCompositorBlur(
     if (blurTraceEnabled()) {
       kLog.debug("blur-trace panel-blur-clear reason=empty-shape");
     }
-    m_surface->clearBlurRegion();
+    m_layerSurface->clearBlurRegion();
     return;
   }
 
@@ -2480,7 +2480,7 @@ void PanelManager::applyPanelCompositorBlur(
     if (blurTraceEnabled()) {
       kLog.debug("blur-trace panel-blur-clear reason=empty-clipped");
     }
-    m_surface->clearBlurRegion();
+    m_layerSurface->clearBlurRegion();
     return;
   }
 
@@ -2493,7 +2493,7 @@ void PanelManager::applyPanelCompositorBlur(
         bounds.width, bounds.height
     );
   }
-  m_surface->setBlurRegion(clipped);
+  m_layerSurface->setBlurRegion(clipped);
 }
 
 void PanelManager::applyAttachedDecorationStyle() {

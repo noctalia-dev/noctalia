@@ -13,8 +13,6 @@ foreach _p : [
     wayland_protos_dir / 'stable/xdg-shell/xdg-shell.xml'],
   ['xdg-activation-v1',
     wayland_protos_dir / 'staging/xdg-activation/xdg-activation-v1.xml'],
-  ['ext-background-effect-v1',
-    wayland_protos_dir / 'staging/ext-background-effect/ext-background-effect-v1.xml'],
   ['fractional-scale-v1',
     wayland_protos_dir / 'staging/fractional-scale/fractional-scale-v1.xml'],
   ['viewporter',

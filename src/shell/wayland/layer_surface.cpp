@@ -1,13 +1,18 @@
 #include "shell/wayland/layer_surface.h"
 
 #include "core/log.h"
+#include "ext-background-effect-v1-client-protocol.h"
+#include "shell/wayland/background_effect_globals.h"
 #include "shell/wayland/layer_shell.h"
 #include "util/sys_utils.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <stdexcept>
 #include <utility>
+#include <wayland-client-protocol.h>
 
 namespace {
 
@@ -52,7 +57,8 @@ LayerShellLayer layerShellLayerFromConfig(std::string_view layer) {
 }
 
 LayerSurface::LayerSurface(WaylandConnection& connection, LayerSurfaceConfig config)
-    : Surface(connection), m_layerShell(connection.extension<LayerShell>()), m_config(std::move(config)) {
+    : Surface(connection), m_layerShell(connection.extension<LayerShell>()),
+      m_backgroundEffects(connection.extension<BackgroundEffectGlobals>()), m_config(std::move(config)) {
   setDebugName("layer:" + m_config.nameSpace);
 }
 
@@ -62,6 +68,10 @@ LayerSurface::~LayerSurface() {
   if (m_layerSurface != nullptr) {
     zwlr_layer_surface_v1_destroy(m_layerSurface);
     m_layerSurface = nullptr;
+  }
+  if (m_backgroundEffect != nullptr) {
+    ext_background_effect_surface_v1_destroy(m_backgroundEffect);
+    m_backgroundEffect = nullptr;
   }
 }
 
@@ -143,6 +153,90 @@ void LayerSurface::handleClosed(void* data, zwlr_layer_surface_v1* /*layerSurfac
   if (self->m_closedCallback) {
     self->m_closedCallback();
   }
+}
+
+bool LayerSurface::prepareBlurEffect() {
+  if (m_surface == nullptr) {
+    traceEvent("blur-effect-skip-no-surface");
+    return false;
+  }
+  if (!m_backgroundEffects.hasBlur()) {
+    traceEvent("blur-effect-skip-no-protocol");
+    return false;
+  }
+  if (m_backgroundEffect != nullptr) {
+    return true;
+  }
+
+  auto* manager = m_backgroundEffects.manager();
+  if (manager == nullptr) {
+    traceEvent("blur-effect-skip-no-manager");
+    return false;
+  }
+  m_backgroundEffect = ext_background_effect_manager_v1_get_background_effect(manager, m_surface);
+  if (m_backgroundEffect == nullptr) {
+    traceEvent("blur-effect-skip-create-failed");
+    return false;
+  }
+  traceEvent("blur-effect-create");
+  return true;
+}
+
+bool LayerSurface::regionIntersectsBounds(
+    const std::vector<InputRect>& rects, std::uint32_t width, std::uint32_t height
+) {
+  if (width == 0 || height == 0) {
+    return false;
+  }
+  return std::ranges::any_of(rects, [&](const auto& r) {
+    const std::int64_t right = static_cast<std::int64_t>(r.x) + r.width;
+    const std::int64_t bottom = static_cast<std::int64_t>(r.y) + r.height;
+    return r.width > 0
+        && r.height > 0
+        && right > 0
+        && bottom > 0
+        && static_cast<std::int64_t>(r.x) < width
+        && static_cast<std::int64_t>(r.y) < height;
+  });
+}
+
+void LayerSurface::setBlurRegion(const std::vector<InputRect>& rects) {
+  if (!prepareBlurEffect()) {
+    return;
+  }
+
+  // Hyprland renders a fully off-surface non-empty blur region as full-surface blur, so send null instead.
+  const bool hasVisibleRegion = regionIntersectsBounds(rects, width(), height());
+  wl_region* region = nullptr;
+  if (hasVisibleRegion) {
+    region = wl_compositor_create_region(m_connection.compositor());
+    if (region == nullptr) {
+      traceEvent("blur-set-skip-region-failed");
+      return;
+    }
+    for (const auto& r : rects) {
+      wl_region_add(region, r.x, r.y, r.width, r.height);
+    }
+  }
+  const char* traceLabel = "blur-set";
+  if (!hasVisibleRegion) {
+    traceLabel = rects.empty() ? "blur-set-empty" : "blur-set-offsurface";
+  }
+  traceRegionEvent(traceLabel, rects);
+  ext_background_effect_surface_v1_set_blur_region(m_backgroundEffect, region);
+  if (region != nullptr) {
+    wl_region_destroy(region);
+  }
+}
+
+void LayerSurface::clearBlurRegion() {
+  if (m_backgroundEffect == nullptr) {
+    traceEvent("blur-clear-no-effect");
+    return;
+  }
+  traceEvent("blur-clear-destroy");
+  ext_background_effect_surface_v1_destroy(m_backgroundEffect);
+  m_backgroundEffect = nullptr;
 }
 
 void LayerSurface::requestSize(std::uint32_t width, std::uint32_t height) {
