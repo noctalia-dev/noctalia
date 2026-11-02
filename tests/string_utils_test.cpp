@@ -90,6 +90,49 @@ int main() {
       && ok;
   ok = expectEqual(StringUtils::sanitizeMarkup("&lt;literal&gt;"), "<literal>", "unescapes XML entities") && ok;
 
+  ok = expectEqual(StringUtils::foldForSearch("Bar Clock"), "bar clock", "foldForSearch: ASCII") && ok;
+  ok = expectEqual(StringUtils::foldForSearch("ШРИФТ Панели"), "шрифт панели", "foldForSearch: Cyrillic") && ok;
+  ok = expectEqual(StringUtils::foldForSearch("ÜBER Ära"), "über ära", "foldForSearch: Latin-1 capitals") && ok;
+  ok = expectEqual(
+           StringUtils::foldForSearch("ΕΙΚΟΝΊΔΙΟ"), StringUtils::foldForSearch("εικονίδιο"), "foldForSearch: Greek"
+       )
+      && ok;
+  ok = expectEqual(
+           StringUtils::foldForSearch("Straße"), StringUtils::foldForSearch("STRASSE"),
+           "foldForSearch: full folding of ß"
+       )
+      && ok;
+  ok = expectEqual(
+           StringUtils::foldForSearch(
+               "U\xCC\x88"
+               "ber"
+           ),
+           StringUtils::foldForSearch("Über"), "foldForSearch: decomposed and precomposed spellings match"
+       )
+      && ok;
+  ok = expectEqual(StringUtils::foldForSearch("Animasyon Hızı"), "animasyon hizi", "foldForSearch: Turkish dotless i")
+      && ok;
+  ok = expectEqual(StringUtils::foldForSearch("ANİMASYON HIZI"), "animasyon hizi", "foldForSearch: Turkish capitals")
+      && ok;
+  ok = expectEqual(
+           StringUtils::foldForSearch(
+               "i\xCC\x87"
+               "nternet"
+           ),
+           "internet", "foldForSearch: locale-unaware lowercase of İ drops the combining dot"
+       )
+      && ok;
+  ok = expectEqual(
+           StringUtils::foldForSearch(
+               "\xFF"
+               "ABC"
+           ),
+           "\xFF"
+           "abc",
+           "foldForSearch: invalid UTF-8 falls back to ASCII"
+       )
+      && ok;
+
   ok = expectWords("a  b\tc", {"a", "b", "c"}, "splits on runs of whitespace") && ok;
   ok = expectWords("'satty -f -'", {"satty -f -"}, "keeps single-quoted text literal") && ok;
   ok = expectWords(R"("x\"y")", {"x\"y"}, "honours escaped quote inside double quotes") && ok;
