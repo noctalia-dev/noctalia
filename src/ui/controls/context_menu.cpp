@@ -51,6 +51,9 @@ namespace {
   }
 
   std::string_view toggleGlyphName(const ContextMenuControlEntry& entry) {
+    if (!entry.hasToggle()) {
+      return "";
+    }
     if (entry.toggleState == 2) {
       return "minus";
     }
