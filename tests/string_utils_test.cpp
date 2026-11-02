@@ -90,46 +90,49 @@ int main() {
       && ok;
   ok = expectEqual(StringUtils::sanitizeMarkup("&lt;literal&gt;"), "<literal>", "unescapes XML entities") && ok;
 
-  ok = expectEqual(StringUtils::foldForSearch("Bar Clock"), "bar clock", "foldForSearch: ASCII") && ok;
-  ok = expectEqual(StringUtils::foldForSearch("ШРИФТ Панели"), "шрифт панели", "foldForSearch: Cyrillic") && ok;
-  ok = expectEqual(StringUtils::foldForSearch("ÜBER Ära"), "über ära", "foldForSearch: Latin-1 capitals") && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("Bar Clock"), "bar clock", "normalizeForSearch: ASCII") && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("ШРИФТ Панели"), "шрифт панели", "normalizeForSearch: Cyrillic")
+      && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("ÜBER Ära"), "uber ara", "normalizeForSearch: Latin-1 capitals")
+      && ok;
+  ok =
+      expectEqual(StringUtils::normalizeForSearch("Épaisseur"), "epaisseur", "normalizeForSearch: drops accents") && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("Tiếng Việt"), "tieng viet", "normalizeForSearch: stacked accents")
+      && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("ΕΙΚΟΝΊΔΙΟ"), "εικονιδιο", "normalizeForSearch: Greek tonos") && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("Ёлка"), "елка", "normalizeForSearch: Cyrillic diaeresis") && ok;
   ok = expectEqual(
-           StringUtils::foldForSearch("ΕΙΚΟΝΊΔΙΟ"), StringUtils::foldForSearch("εικονίδιο"), "foldForSearch: Greek"
+           StringUtils::normalizeForSearch("Straße"), StringUtils::normalizeForSearch("STRASSE"),
+           "normalizeForSearch: full folding of ß"
        )
       && ok;
   ok = expectEqual(
-           StringUtils::foldForSearch("Straße"), StringUtils::foldForSearch("STRASSE"),
-           "foldForSearch: full folding of ß"
-       )
-      && ok;
-  ok = expectEqual(
-           StringUtils::foldForSearch(
+           StringUtils::normalizeForSearch(
                "U\xCC\x88"
                "ber"
            ),
-           StringUtils::foldForSearch("Über"), "foldForSearch: decomposed and precomposed spellings match"
-       )
-      && ok;
-  ok = expectEqual(StringUtils::foldForSearch("Animasyon Hızı"), "animasyon hizi", "foldForSearch: Turkish dotless i")
-      && ok;
-  ok = expectEqual(StringUtils::foldForSearch("ANİMASYON HIZI"), "animasyon hizi", "foldForSearch: Turkish capitals")
-      && ok;
-  ok = expectEqual(
-           StringUtils::foldForSearch(
-               "i\xCC\x87"
-               "nternet"
-           ),
-           "internet", "foldForSearch: locale-unaware lowercase of İ drops the combining dot"
+           "uber", "normalizeForSearch: decomposed spelling"
        )
       && ok;
   ok = expectEqual(
-           StringUtils::foldForSearch(
+           StringUtils::normalizeForSearch("Animasyon Hızı"), "animasyon hizi", "normalizeForSearch: Turkish dotless i"
+       )
+      && ok;
+  ok = expectEqual(
+           StringUtils::normalizeForSearch("ANİMASYON HIZI"), "animasyon hizi", "normalizeForSearch: Turkish capitals"
+       )
+      && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("ガイド"), "ガイド", "normalizeForSearch: keeps Japanese dakuten")
+      && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("글꼴"), "글꼴", "normalizeForSearch: keeps Hangul syllables") && ok;
+  ok = expectEqual(
+           StringUtils::normalizeForSearch(
                "\xFF"
                "ABC"
            ),
            "\xFF"
            "abc",
-           "foldForSearch: invalid UTF-8 falls back to ASCII"
+           "normalizeForSearch: invalid UTF-8 falls back to ASCII"
        )
       && ok;
 
