@@ -570,6 +570,7 @@ namespace ui {
     std::optional<bool> visible = std::nullopt;
     std::optional<bool> participatesInLayout = std::nullopt;
     std::function<void(KeyChord)> onCommit = nullptr;
+    std::function<void(KeybindRejection)> onReject = nullptr;
     std::function<void(KeybindRecorder&)> configure = nullptr;
   };
 

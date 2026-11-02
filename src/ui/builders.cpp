@@ -1056,6 +1056,9 @@ namespace ui {
     if (props.onCommit) {
       control->setOnCommit(std::move(props.onCommit));
     }
+    if (props.onReject) {
+      control->setOnReject(std::move(props.onReject));
+    }
     applyNodeProps(*control, props);
     if (props.configure) {
       props.configure(*control);

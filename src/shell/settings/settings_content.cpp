@@ -687,6 +687,7 @@ namespace settings {
                     commitItems(std::move(items));
                   }
                 },
+            .onReject = notifyKeybindRejected,
             .configure = configureGridRecorder,
         });
         row->addChild(std::move(recorder));
@@ -733,6 +734,7 @@ namespace settings {
                   items.push_back(chord);
                   commitItems(std::move(items));
                 },
+            .onReject = notifyKeybindRejected,
             .configure =
                 [configureGridRecorder, focusKey = keybindTabFocusKey(".add")](KeybindRecorder& recorder) {
                   configureGridRecorder(recorder);

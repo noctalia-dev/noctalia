@@ -4,6 +4,7 @@
 #include "config/config_limits.h"
 #include "config/widget_setting_value.h"
 #include "core/input/key_chord.h"
+#include "core/input/keybind_action.h"
 #include "system/sysmon_threshold_profile.h"
 #include "ui/style.h"
 #include "ui/surface_shadow.h"
@@ -396,20 +397,6 @@ struct ResolvedIdleBehavior {
 
 void normalizeIdleBehaviorAction(IdleBehaviorConfig& behavior);
 ResolvedIdleBehavior resolveIdleBehaviorActions(const IdleBehaviorConfig& behavior);
-
-enum class KeybindAction : std::uint8_t {
-  Validate = 0,
-  Cancel = 1,
-  Left = 2,
-  Right = 3,
-  Up = 4,
-  Down = 5,
-  TabNext = 6,
-  TabPrevious = 7,
-  Delete = 8,
-  Copy = 9,
-  Save = 10,
-};
 
 std::vector<KeyChord> defaultKeybindSet(KeybindAction action);
 

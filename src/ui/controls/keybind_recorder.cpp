@@ -1,13 +1,10 @@
 #include "ui/controls/keybind_recorder.h"
 
-#include "config/config_types.h"
 #include "core/input/key_chord.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "cursor-shape-v1-client-protocol.h"
-#include "i18n/i18n.h"
-#include "notification/notifications.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/controls/glyph.h"
@@ -145,6 +142,15 @@ void KeybindRecorder::setRecordingPlaceholder(std::string_view text) {
 
 void KeybindRecorder::setOnCommit(std::function<void(KeyChord)> callback) { m_onCommit = std::move(callback); }
 
+void KeybindRecorder::setOnReject(std::function<void(KeybindRejection)> callback) { m_onReject = std::move(callback); }
+
+void KeybindRecorder::reject(KeybindRejection reason) {
+  exitRecording(false);
+  if (m_onReject) {
+    m_onReject(reason);
+  }
+}
+
 void KeybindRecorder::setModifierPolicy(ModifierPolicy policy) { m_modifierPolicy = policy; }
 
 void KeybindRecorder::setTabFocusKey(std::string key) {
@@ -180,20 +186,12 @@ void KeybindRecorder::handleKeyDown(std::uint32_t sym, std::uint32_t modifiers) 
 
   // Must run before the modifier-preview branch so a bare Super press is also caught.
   if ((modifiers & KeyMod::Super) != 0 || KeySymbol::isSuperModifier(sym)) {
-    notify::error(
-        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
-        i18n::tr("notifications.internal.keybind-invalid-super")
-    );
-    exitRecording(false);
+    reject(KeybindRejection::Super);
     return;
   }
 
   if (m_modifierPolicy == ModifierPolicy::Forbidden && KeySymbol::isModifier(sym)) {
-    notify::error(
-        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
-        i18n::tr("notifications.internal.keybind-invalid-modifier")
-    );
-    exitRecording(false);
+    reject(KeybindRejection::Modifier);
     return;
   }
 
@@ -204,31 +202,19 @@ void KeybindRecorder::handleKeyDown(std::uint32_t sym, std::uint32_t modifiers) 
   }
 
   if (m_modifierPolicy == ModifierPolicy::Required && modifiers == 0 && isPrintableKey(sym)) {
-    notify::error(
-        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
-        i18n::tr("notifications.internal.keybind-invalid-printable")
-    );
-    exitRecording(false);
+    reject(KeybindRejection::Printable);
     return;
   }
 
   if (m_modifierPolicy == ModifierPolicy::Forbidden && modifiers != 0) {
-    notify::error(
-        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
-        i18n::tr("notifications.internal.keybind-invalid-modifier")
-    );
-    exitRecording(false);
+    reject(KeybindRejection::Modifier);
     return;
   }
 
   // Shift-only + printable is just a character variant (e.g. Shift+l = L),
   // not a meaningful shortcut. Reject it in both Required and Optional modes.
   if (modifiers == KeyMod::Shift && isPrintableKey(sym)) {
-    notify::error(
-        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
-        i18n::tr("notifications.internal.keybind-invalid-printable")
-    );
-    exitRecording(false);
+    reject(KeybindRejection::Printable);
     return;
   }
 

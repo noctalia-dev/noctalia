@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "i18n/i18n.h"
+#include "notification/notifications.h"
 #include "shell/settings/settings_content.h"
 #include "ui/builders.h"
 #include "ui/controls/collapsible.h"
@@ -657,6 +658,25 @@ namespace settings {
     }
     return i18n::tr(
         "settings.notifications.filter.summary", "match", matchLabel, "flags", StringUtils::join(parts, ", ")
+    );
+  }
+
+  void notifyKeybindRejected(KeybindRejection reason) {
+    // Literal keys so tools/i18n-check.py can see them.
+    std::string detail;
+    switch (reason) {
+    case KeybindRejection::Super:
+      detail = i18n::tr("notifications.internal.keybind-invalid-super");
+      break;
+    case KeybindRejection::Modifier:
+      detail = i18n::tr("notifications.internal.keybind-invalid-modifier");
+      break;
+    case KeybindRejection::Printable:
+      detail = i18n::tr("notifications.internal.keybind-invalid-printable");
+      break;
+    }
+    notify::error(
+        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"), detail
     );
   }
 

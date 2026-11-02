@@ -303,6 +303,7 @@ namespace settings {
           .recordingPlaceholder = i18n::tr("settings.controls.keybind.recording-placeholder"),
           .modifierPolicy = policy,
           .flexGrow = 1.0F,
+          .onReject = notifyKeybindRejected,
           .configure = [controlHeight](KeybindRecorder& control) { control.setMinHeight(controlHeight); },
       });
       auto clearBtn = ui::button({
