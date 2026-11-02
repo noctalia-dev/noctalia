@@ -55,20 +55,18 @@ namespace shell::dock {
   // screen edge by a logical pixel there, because the compositor can otherwise round the edge a
   // device pixel short and leave a gap.
   DockSurfaceGeometry computeSurfaceGeometry(
-      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, bool fractionalScale,
-      std::int32_t outputLogicalWidth, std::int32_t outputLogicalHeight
+      const DockConfig& cfg, const ShadowStyle& shadow, bool fractionalScale, std::int32_t outputLogicalWidth,
+      std::int32_t outputLogicalHeight
   );
   LayerSurfaceConfig makeLayerSurfaceConfig(
-      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, bool fractionalScale,
-      std::int32_t outputLogicalWidth, std::int32_t outputLogicalHeight
+      const DockConfig& cfg, const ShadowStyle& shadow, bool fractionalScale, std::int32_t outputLogicalWidth,
+      std::int32_t outputLogicalHeight
   );
   DockPanelGeometry computePanelGeometry(
-      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH,
-      std::size_t itemCount
+      const DockConfig& cfg, const ShadowStyle& shadow, float surfaceW, float surfaceH, std::size_t itemCount
   );
   std::pair<float, float> computeHiddenSlideDelta(
-      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH,
-      const DockPanelGeometry& panel
+      const DockConfig& cfg, const ShadowStyle& shadow, float surfaceW, float surfaceH, const DockPanelGeometry& panel
   );
   std::vector<InputRect> computeInputRegion(
       const DockConfig& cfg, const DockPanelGeometry& panel, int surfaceW, int surfaceH, bool hidden,

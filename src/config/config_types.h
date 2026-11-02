@@ -6,6 +6,7 @@
 #include "core/input/key_chord.h"
 #include "system/sysmon_threshold_profile.h"
 #include "ui/style.h"
+#include "ui/surface_shadow.h"
 
 #include <array>
 #include <cstddef>
@@ -962,18 +963,6 @@ constexpr EnumOption<PasswordMaskStyle> kPasswordMaskStyles[] = {
     {PasswordMaskStyle::RandomIcons, "random", "settings.options.shell.password-style.random-icons"},
 };
 
-enum class ShadowDirection : std::uint8_t {
-  Center = 0,
-  Down = 1,
-  Up = 2,
-  Left = 3,
-  Right = 4,
-  DownLeft = 5,
-  DownRight = 6,
-  UpLeft = 7,
-  UpRight = 8,
-};
-
 constexpr EnumOption<ShadowDirection> kShadowDirections[] = {
     {ShadowDirection::Center, "center", "settings.options.shell.shadow-direction.center"},
     {ShadowDirection::Down, "down", "settings.options.shell.shadow-direction.down"},
@@ -985,35 +974,6 @@ constexpr EnumOption<ShadowDirection> kShadowDirections[] = {
     {ShadowDirection::UpLeft, "up_left", "settings.options.shell.shadow-direction.up-left"},
     {ShadowDirection::UpRight, "up_right", "settings.options.shell.shadow-direction.up-right"},
 };
-
-struct ShadowDirectionOffset {
-  std::int32_t x;
-  std::int32_t y;
-};
-
-constexpr ShadowDirectionOffset shadowDirectionOffset(ShadowDirection dir) noexcept {
-  switch (dir) {
-  case ShadowDirection::Center:
-    return {0, 0};
-  case ShadowDirection::Down:
-    return {0, 2};
-  case ShadowDirection::Up:
-    return {0, -2};
-  case ShadowDirection::Left:
-    return {-2, 0};
-  case ShadowDirection::Right:
-    return {2, 0};
-  case ShadowDirection::DownLeft:
-    return {-2, 2};
-  case ShadowDirection::DownRight:
-    return {2, 2};
-  case ShadowDirection::UpLeft:
-    return {-2, -2};
-  case ShadowDirection::UpRight:
-    return {2, -2};
-  }
-  return {0, 2};
-}
 
 enum class PanelTransparencyMode : std::uint8_t {
   Solid = 0,
@@ -1161,13 +1121,6 @@ struct ShellConfig {
     float speed = 1.0F;
 
     bool operator==(const AnimationConfig&) const = default;
-  };
-
-  struct ShadowConfig {
-    ShadowDirection direction = ShadowDirection::Down;
-    float alpha = 0.55F;
-
-    bool operator==(const ShadowConfig&) const = default;
   };
 
   struct PanelConfig {
@@ -1425,7 +1378,7 @@ struct ShellConfig {
   bool disableMipmaps = false;
   ClipboardAutoPasteMode clipboardAutoPaste = ClipboardAutoPasteMode::Auto;
   std::string clipboardImageActionCommand;
-  ShadowConfig shadow;
+  ShadowStyle shadow;
   PanelConfig panel;
   LauncherConfig launcher;
   WindowSwitcherConfig windowSwitcher;

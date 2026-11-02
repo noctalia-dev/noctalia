@@ -1,7 +1,6 @@
 #pragma once
 
-#include "config/config_types.h"
-#include "shell/surface/shadow.h"
+#include "ui/surface_shadow.h"
 
 #include <cstdint>
 
@@ -32,7 +31,7 @@ namespace popup_chrome {
   };
 
   struct Geometry {
-    shell::surface_shadow::Bleed bleed{};
+    surface_shadow::Bleed bleed{};
     float contentWidth = 1.0F;
     float contentHeight = 1.0F;
     std::uint32_t surfaceWidth = 1;
@@ -46,7 +45,7 @@ namespace popup_chrome {
   };
 
   Geometry computeGeometry(
-      float contentWidth, float contentHeight, const ShellConfig::ShadowConfig& shadow, bool componentShadow = true
+      float contentWidth, float contentHeight, const ShadowStyle& shadow, bool componentShadow = true
   ) noexcept;
   std::int32_t
   adjustedOffsetX(std::int32_t baseOffset, const Geometry& geometry, HorizontalAttachment attachment) noexcept;
@@ -56,8 +55,7 @@ namespace popup_chrome {
   void applyToConfig(PopupSurfaceConfig& config, const Geometry& geometry, Attachment attachment) noexcept;
   void setContentInputRegion(PopupSurface& surface, const Geometry& geometry);
   RectNode* addShadow(
-      Node& parent, const Geometry& geometry, const ShellConfig::ShadowConfig& shadow, float radius,
-      float backgroundOpacity = 1.0F
+      Node& parent, const Geometry& geometry, const ShadowStyle& shadow, float radius, float backgroundOpacity = 1.0F
   );
   // Rounded popup card background at the fixed content rect. Hosts that scroll a
   // ContextMenuControl draw the card here so its corners stay pinned to the viewport

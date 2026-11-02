@@ -20,12 +20,12 @@
 #include "shell/bar/widgets/taskbar_widget.h"
 #include "shell/bar/widgets/tray_widget.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/tooltip/tooltip_placement.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "ui/surface_shadow.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 
@@ -653,13 +653,13 @@ namespace {
     std::int32_t exclusiveZone = 0;
   };
 
-  BarSurfaceSpec computeBarSurfaceSpec(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
+  BarSurfaceSpec computeBarSurfaceSpec(const BarConfig& barConfig, const ShadowStyle& shadowConfig) {
     const bool vertical = (barConfig.position == "left" || barConfig.position == "right");
     const bool isBottom = barConfig.position == "bottom";
     const bool isRight = barConfig.position == "right";
     const std::int32_t mEnds = barConfig.marginEnds.px();
     const std::int32_t mEdge = barConfig.marginEdge;
-    const auto sb = shell::surface_shadow::bleed(barConfig.shadow, shadowConfig);
+    const auto sb = surface_shadow::bleed(barConfig.shadow, shadowConfig);
     const int edgeGutter = barAutoHideEdgeGutter(barConfig);
     const auto concave = barConcaveShape(barConfig);
     const int insetL = static_cast<int>(std::ceil(std::max(0.0F, concave.logicalInset.left)));
@@ -722,9 +722,8 @@ namespace {
     return spec;
   }
 
-  float barInnerSurfaceExtension(
-      const BarConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceWidth, float surfaceHeight
-  ) {
+  float
+  barInnerSurfaceExtension(const BarConfig& cfg, const ShadowStyle& shadow, float surfaceWidth, float surfaceHeight) {
     const auto base = computeBarSurfaceSpec(cfg, shadow);
     const bool isVertical = (cfg.position == "left" || cfg.position == "right");
     const float current = isVertical ? surfaceWidth : surfaceHeight;
@@ -738,11 +737,10 @@ namespace {
   // rebuilt — avoiding the screen-shift caused by destroying and recreating
   // the exclusive zone.
   bool barConfigSurfaceFieldsEqual(
-      const BarConfig& a, const BarConfig& b, const ShellConfig::ShadowConfig& previousShadow,
-      const ShellConfig::ShadowConfig& nextShadow
+      const BarConfig& a, const BarConfig& b, const ShadowStyle& previousShadow, const ShadowStyle& nextShadow
   ) {
     const bool sameShadowSurface =
-        (!a.shadow && !b.shadow) || shell::surface_shadow::sameSurfaceMetrics(previousShadow, nextShadow);
+        (!a.shadow && !b.shadow) || surface_shadow::sameSurfaceMetrics(previousShadow, nextShadow);
     return a.name == b.name
         && a.position == b.position
         && a.enabled == b.enabled
@@ -786,7 +784,7 @@ namespace {
   }
 
   BarVisualGeometry computeBarVisualGeometry(
-      const BarConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceWidth, float surfaceHeight,
+      const BarConfig& cfg, const ShadowStyle& shadow, float surfaceWidth, float surfaceHeight,
       float innerSurfaceExtension = 0.0F
   ) {
     const auto barThickness = static_cast<float>(cfg.thickness);
@@ -795,7 +793,7 @@ namespace {
     const bool isBottom = cfg.position == "bottom";
     const bool isRight = cfg.position == "right";
     const bool isVertical = (cfg.position == "left" || cfg.position == "right");
-    const auto sbi = shell::surface_shadow::bleed(cfg.shadow, shadow);
+    const auto sbi = surface_shadow::bleed(cfg.shadow, shadow);
     const auto concave = barConcaveShape(cfg);
     const float insetL = std::ceil(std::max(0.0F, concave.logicalInset.left));
     const float insetT = std::ceil(std::max(0.0F, concave.logicalInset.top));
@@ -855,7 +853,7 @@ namespace {
     };
   }
 
-  InputRect barContentInputRegion(const BarConfig& cfg, const ShellConfig::ShadowConfig& shadow, int surfW, int surfH) {
+  InputRect barContentInputRegion(const BarConfig& cfg, const ShadowStyle& shadow, int surfW, int surfH) {
     const float innerSurfaceExtension =
         barInnerSurfaceExtension(cfg, shadow, static_cast<float>(surfW), static_cast<float>(surfH));
     const auto barVisual = computeBarVisualGeometry(
@@ -922,9 +920,8 @@ namespace {
     return {-(contentRight + k), 0.0F};
   }
 
-  void applyBarShadowStyle(
-      BarInstance& instance, const ShellConfig::ShadowConfig& shadowConfig, float surfaceWidth, float surfaceHeight
-  ) {
+  void
+  applyBarShadowStyle(BarInstance& instance, const ShadowStyle& shadowConfig, float surfaceWidth, float surfaceHeight) {
     if (instance.shadow == nullptr) {
       return;
     }
@@ -942,11 +939,9 @@ namespace {
     const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
     const float shadowX = barVisual.x - concave.logicalInset.left + static_cast<float>(shadowOff.x);
     const float shadowY = barVisual.y - concave.logicalInset.top + static_cast<float>(shadowOff.y);
-    RoundedRectStyle shadowStyle = shell::surface_shadow::style(
+    RoundedRectStyle shadowStyle = surface_shadow::style(
         shadowConfig, bgOpacity,
-        shell::surface_shadow::Shape{
-            .corners = concave.corners, .logicalInset = concave.logicalInset, .radius = concave.radii
-        }
+        surface_shadow::Shape{.corners = concave.corners, .logicalInset = concave.logicalInset, .radius = concave.radii}
     );
 
     const bool panelShadowExclusion = instance.attachedPanelGeometry.has_value()
@@ -3429,8 +3424,8 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
   const auto widgetSpacing = static_cast<float>(instance.barConfig.widgetSpacing);
   const auto& shadowConfig = m_config->config().shell.shadow;
   const auto shadowOffset = shadowDirectionOffset(shadowConfig.direction);
-  const float shadowSize = shell::surface_shadow::enabled(instance.barConfig.shadow, shadowConfig)
-      ? static_cast<float>(shell::surface_shadow::kBlurRadius)
+  const float shadowSize = surface_shadow::enabled(instance.barConfig.shadow, shadowConfig)
+      ? static_cast<float>(surface_shadow::kBlurRadius)
       : 0.0F;
   const auto shadowOffsetX = static_cast<float>(shadowOffset.x);
   const auto shadowOffsetY = static_cast<float>(shadowOffset.y);

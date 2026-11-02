@@ -29,8 +29,8 @@ namespace {
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y;
 
-  ShellConfig::ShadowConfig popupShadowConfig(ConfigService* config) {
-    return config != nullptr ? config->config().shell.shadow : ShellConfig::ShadowConfig{};
+  ShadowStyle popupShadowConfig(ConfigService* config) {
+    return config != nullptr ? config->config().shell.shadow : ShadowStyle{};
   }
 
   // Every live DialogPopupHost, used to resolve parent/child popup relationships

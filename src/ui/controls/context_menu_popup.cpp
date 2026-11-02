@@ -282,7 +282,7 @@ void ContextMenuPopup::setOnActivate(std::function<void(const ContextMenuControl
 
 void ContextMenuPopup::setOnDismissed(std::function<void()> callback) { m_onDismissed = std::move(callback); }
 
-void ContextMenuPopup::setShadowConfig(const ShellConfig::ShadowConfig& shadow) {
+void ContextMenuPopup::setShadowConfig(const ShadowStyle& shadow) {
   if (m_shadowConfig == shadow) {
     return;
   }

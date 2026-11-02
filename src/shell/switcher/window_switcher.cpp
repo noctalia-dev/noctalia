@@ -20,7 +20,6 @@
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
-#include "shell/surface/shadow.h"
 #include "shell/switcher/window_switcher_carousel_style.h"
 #include "shell/switcher/window_switcher_compact_style.h"
 #include "shell/switcher/window_switcher_icons_style.h"
@@ -34,6 +33,7 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "ui/surface_shadow.h"
 #include "util/string_utils.h"
 #include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
@@ -1980,11 +1980,10 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
         m_config->config().shell, m_config->config().shell.windowSwitcher.colorizeIcons
     );
   }
-  const ShellConfig::ShadowConfig shadowConfig =
-      m_config != nullptr ? m_config->config().shell.shadow : ShellConfig::ShadowConfig{};
+  const ShadowStyle shadowConfig = m_config != nullptr ? m_config->config().shell.shadow : ShadowStyle{};
   const float cardRadius = Style::scaledRadiusXl(scale);
-  const RoundedRectStyle selectedShadowStyle = shell::surface_shadow::style(
-      shadowConfig, 1.0F, shell::surface_shadow::Shape{.radius = Radii{cardRadius, cardRadius, cardRadius, cardRadius}}
+  const RoundedRectStyle selectedShadowStyle = surface_shadow::style(
+      shadowConfig, 1.0F, surface_shadow::Shape{.radius = Radii{cardRadius, cardRadius, cardRadius, cardRadius}}
   );
   auto strip = ui::inputArea({
       .out = &instance.strip,

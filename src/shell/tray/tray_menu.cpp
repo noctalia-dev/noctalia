@@ -193,8 +193,8 @@ namespace {
     return placement;
   }
 
-  ShellConfig::ShadowConfig popupShadowConfig(ConfigService* config) {
-    return config != nullptr ? config->config().shell.shadow : ShellConfig::ShadowConfig{};
+  ShadowStyle popupShadowConfig(ConfigService* config) {
+    return config != nullptr ? config->config().shell.shadow : ShadowStyle{};
   }
 
   bool hasToggleEntries(const std::vector<ContextMenuControlEntry>& entries) {
