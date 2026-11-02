@@ -65,7 +65,7 @@ PopupParentAttach LayerShell::popupAttach(zwlr_layer_surface_v1* layerSurface) {
 }
 
 PopupKeyboardGrab LayerShell::popupKeyboardGrab(wl_surface* surface) {
-  return [this, surface]() -> std::function<void()> {
+  return [this, surface] -> std::function<void()> {
     zwlr_layer_surface_v1* layerSurface = layerSurfaceFor(surface);
     if (layerSurface == nullptr) {
       return {};
