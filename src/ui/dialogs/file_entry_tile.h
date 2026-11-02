@@ -21,8 +21,8 @@ public:
   FileEntryTile(float scale, ThumbnailService* thumbnails);
   ~FileEntryTile() override;
 
-  [[nodiscard]] std::size_t boundIndex() const noexcept { return m_boundIndex; }
-  [[nodiscard]] const std::string& thumbnailPath() const noexcept { return m_thumbnailPath; }
+  std::size_t boundIndex() const noexcept { return m_boundIndex; }
+  const std::string& thumbnailPath() const noexcept { return m_thumbnailPath; }
 
   void setCallbacks(IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter, IndexCallback onLeave);
   void bind(

@@ -79,6 +79,7 @@ const std::unordered_map<std::string, std::string_view> kAliases = {
     {"powersaver", "leaf"},
     {"shutdown", "power"},
     {"reboot", "refresh"},
+    {"reboot-uefi", "device-desktop-cog"},
     {"suspend", "player-pause"},
     {"hibernate", "zzz"},
 
@@ -133,19 +134,17 @@ const std::unordered_map<std::string, std::string_view> kAliases = {
 };
   // clang-format on
 
-  [[nodiscard]] std::optional<char32_t> parseCodepointLiteral(std::string_view value) {
+  std::optional<char32_t> parseCodepointLiteral(std::string_view value) {
     if (value.size() < 3) {
       return std::nullopt;
     }
 
-    std::string_view hex;
-    if ((value[0] == 'U' || value[0] == 'u') && value[1] == '+') {
-      hex = value.substr(2);
-    } else if (value.size() > 2 && value[0] == '0' && (value[1] == 'x' || value[1] == 'X')) {
-      hex = value.substr(2);
-    } else {
+    const bool unicodePrefix = (value[0] == 'U' || value[0] == 'u') && value[1] == '+';
+    const bool hexPrefix = value[0] == '0' && (value[1] == 'x' || value[1] == 'X');
+    if (!unicodePrefix && !hexPrefix) {
       return std::nullopt;
     }
+    const std::string_view hex = value.substr(2);
 
     if (hex.empty()) {
       return std::nullopt;
@@ -161,7 +160,7 @@ const std::unordered_map<std::string, std::string_view> kAliases = {
     return static_cast<char32_t>(codepoint);
   }
 
-  [[nodiscard]] std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> loadTablerMetadata() {
+  std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> loadTablerMetadata() {
     std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> icons;
     const std::filesystem::path path = paths::assetPath("fonts/tabler.json");
     std::ifstream file(path);
@@ -208,12 +207,12 @@ const std::unordered_map<std::string, std::string_view> kAliases = {
     return icons;
   }
 
-  [[nodiscard]] const std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata>& tablerMetadata() {
+  const std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata>& tablerMetadata() {
     static const std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> icons = loadTablerMetadata();
     return icons;
   }
 
-  [[nodiscard]] const std::unordered_map<std::string, char32_t>& tablerIcons() {
+  const std::unordered_map<std::string, char32_t>& tablerIcons() {
     static const std::unordered_map<std::string, char32_t> icons = [] {
       std::unordered_map<std::string, char32_t> flat;
       const auto& metadata = tablerMetadata();

@@ -27,12 +27,10 @@ public:
   void setChangeCallback(ChangeCallback callback) override;
   void refresh() override;
 
-  [[nodiscard]] const NetworkState& state() const noexcept override { return m_state; }
-  [[nodiscard]] bool hasStateSnapshot() const noexcept override { return m_hasStateSnapshot; }
-  [[nodiscard]] const std::vector<AccessPointInfo>& accessPoints() const noexcept override { return m_accessPoints; }
-  [[nodiscard]] const std::vector<VpnConnectionInfo>& vpnConnections() const noexcept override {
-    return m_vpnConnections;
-  }
+  const NetworkState& state() const noexcept override { return m_state; }
+  bool hasStateSnapshot() const noexcept override { return m_hasStateSnapshot; }
+  const std::vector<AccessPointInfo>& accessPoints() const noexcept override { return m_accessPoints; }
+  const std::vector<VpnConnectionInfo>& vpnConnections() const noexcept override { return m_vpnConnections; }
 
   void requestScan() override;
 
@@ -43,13 +41,13 @@ public:
   void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) override;
   void disconnect() override;
   void forgetSsid(const std::string& ssid) override;
-  [[nodiscard]] bool hasSavedConnection(const std::string& ssid) const override;
+  bool hasSavedConnection(const std::string& ssid) const override;
 
 private:
   void subscribeInterface(const std::string& ifacePath);
   void scheduleRebuild();
   void rebuildState();
-  void emitChangedIfNeeded(NetworkState next);
+  void emitChangedIfNeeded(NetworkState next, bool forceNotify = false);
   void loadSavedNetworks(const std::string& ifacePath, sdbus::IProxy& proxy);
   sdbus::IProxy* firstInterface() const;
 
@@ -60,6 +58,8 @@ private:
   std::unordered_map<std::string, std::unique_ptr<sdbus::IProxy>> m_bssProxies;
   // ssid -> network object path.
   std::unordered_map<std::string, std::string> m_savedNetworks;
+  std::unordered_map<std::string, std::string>
+      m_pendingNetworks; // netPath -> ssid, promoted to m_savedNetworks once auth completes
   NetworkState m_state;
   std::vector<AccessPointInfo> m_accessPoints;
   const std::vector<VpnConnectionInfo> m_vpnConnections; // always empty

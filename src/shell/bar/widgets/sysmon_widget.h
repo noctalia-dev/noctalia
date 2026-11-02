@@ -60,7 +60,9 @@ public:
     std::string networkInterface;
     FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
     bool networkSpeedCompact = false;
+    int networkSpeedDecimalPlaces = 1;
     SysmonVisualization visualization = SysmonVisualization::Gauge;
+    bool showCpuCores = false;
     ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
     bool showGlyph = true;
     bool showValue = true;
@@ -73,41 +75,45 @@ public:
   ~SysmonWidget() override;
 
   void create() override;
-  [[nodiscard]] static const char* glyphName(SysmonStat stat);
+  static const char* glyphName(SysmonStat stat);
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void onFrameTick(float deltaMs) override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
   bool syncLabelText(const std::string& raw);
   void syncGaugeProgress(double normalized);
-  [[nodiscard]] std::string formatValue() const;
-  [[nodiscard]] double currentNormalized();
+  bool splitCoresActive() const;
+  void syncCoreGauge();
+  void rebuildCoreGauge(std::size_t coreCount);
+  std::string formatValue() const;
+  double currentNormalized();
   void scheduleNextUpdate(std::chrono::steady_clock::time_point latestSampleAt);
   void clearGraph();
   void syncVisualPalette();
   void syncValueColor();
   void syncIdentity(Renderer& renderer);
-  [[nodiscard]] LayoutSize layoutIdentityGroup(float gap);
+  LayoutSize layoutIdentityGroup(float gap);
   void updateGraph(Renderer& renderer);
-  [[nodiscard]] float iconWidth() const;
-  [[nodiscard]] float iconHeight() const;
+  float iconWidth() const;
+  float iconHeight() const;
   void setIconPosition(float x, float y);
-  [[nodiscard]] float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
-  [[nodiscard]] Color currentValueColor(ColorSpec baseColor);
-  [[nodiscard]] double currentGradientValue();
-  [[nodiscard]] std::pair<double, double> currentThresholds() const;
-  [[nodiscard]] std::optional<std::string> formatValueFor(SysmonStat stat, const SystemStats& stats) const;
-  [[nodiscard]] bool statAvailableForTooltip(SysmonStat stat, const SystemStats& stats) const;
-  [[nodiscard]] std::vector<TooltipRow> buildTooltipRows(const std::string& currentValue) const;
-  [[nodiscard]] static double normalizedFromStats(
+  float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
+  Color currentValueColor(ColorSpec baseColor, std::optional<double> value = std::nullopt);
+  double currentGradientValue();
+  std::pair<double, double> currentThresholds() const;
+  std::optional<std::string> formatValueFor(SysmonStat stat, const SystemStats& stats) const;
+  bool statAvailableForTooltip(SysmonStat stat, const SystemStats& stats) const;
+  std::vector<TooltipRow> buildTooltipRows(const std::string& currentValue) const;
+  static double normalizedFromStats(
       SysmonStat stat, const SystemStats& stats, double& tempMin, double& tempMax, std::string_view networkInterface
   );
 
   SystemMonitorService* m_monitor;
   SysmonStat m_stat;
   SysmonVisualization m_visualization;
+  bool m_showCpuCores = false;
   ColorSpec m_highlightColor = colorSpecFromRole(ColorRole::Error);
   ConfigService& m_configService;
   bool m_showGlyph;
@@ -117,6 +123,7 @@ private:
   std::string m_networkInterface;
   FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
   FormatUnits::ByteRateLabelStyle m_networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
+  int m_networkSpeedDecimalPlaces = 1;
   std::string m_glyphOverride;
   std::string m_customLabelText;
   WidgetCustomImage m_customImage;
@@ -146,6 +153,12 @@ private:
 
   // Gauge mode
   ProgressBar* m_gauge = nullptr;
+
+  // Per-core split gauges (show_cpu_cores). The row repopulates whenever the sampler's core
+  // count changes, because an entry's position is not its core id.
+  Flex* m_coreGaugeRow = nullptr;
+  std::vector<ProgressBar*> m_coreGauges;
+  std::vector<double> m_lastCoreUsage;
 
   Signal<>::ScopedConnection m_paletteConn;
 };

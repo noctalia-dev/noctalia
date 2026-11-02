@@ -139,8 +139,12 @@ namespace config_export {
         resolved.enabled = *ovr.enabled;
       if (ovr.autoHide)
         resolved.autoHide = *ovr.autoHide;
+      if (ovr.autoHideDelayMs)
+        resolved.autoHideDelayMs = *ovr.autoHideDelayMs;
       if (ovr.smartAutoHide)
         resolved.smartAutoHide = *ovr.smartAutoHide;
+      if (ovr.autoHideReserveSpace)
+        resolved.autoHideReserveSpace = *ovr.autoHideReserveSpace;
       if (ovr.showOnWorkspaceSwitch)
         resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
       if (ovr.reserveSpace)
@@ -235,6 +239,8 @@ namespace config_export {
         resolved.showTooltip = *ovr.showTooltip;
       if (ovr.deadZone.actions)
         resolved.deadZone.actions = *ovr.deadZone.actions;
+      if (ovr.deadZone.clickThrough)
+        resolved.deadZone.clickThrough = *ovr.deadZone.clickThrough;
       return resolved;
     }
 

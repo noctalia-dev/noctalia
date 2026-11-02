@@ -31,7 +31,7 @@ namespace {
     values.erase(duplicates.begin(), duplicates.end());
   }
 
-  [[nodiscard]] std::string joinApps(const std::vector<std::string>& apps) {
+  std::string joinApps(const std::vector<std::string>& apps) {
     auto joined = apps | std::views::join_with(std::string_view{", "});
     return {joined.begin(), joined.end()};
   }
@@ -46,7 +46,7 @@ void PrivacyWidget::create() {
       ui::inputArea(
           {
               .out = &m_area,
-              .tooltipProvider = [this]() -> TooltipContent {
+              .tooltipProvider = [this] -> TooltipContent {
                 std::vector<TooltipRow> rows = buildTooltipRows();
                 if (rows.empty()) {
                   return std::monostate{};
@@ -202,10 +202,8 @@ PrivacyWidget::Snapshot PrivacyWidget::snapshot() const {
         if (!m_camFilter.matches(capture.appName)) {
           addNonEmpty(out.cameraApps, capture.appName);
         }
-      } else if (capture.kind == PrivacyCaptureKind::Screen) {
-        if (!m_screenFilter.matches(capture.appName)) {
-          addNonEmpty(out.screenApps, capture.appName);
-        }
+      } else if (capture.kind == PrivacyCaptureKind::Screen && !m_screenFilter.matches(capture.appName)) {
+        addNonEmpty(out.screenApps, capture.appName);
       }
     }
   }

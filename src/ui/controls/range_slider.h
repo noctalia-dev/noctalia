@@ -28,12 +28,12 @@ public:
   void setOnHighChanged(std::function<void(double)> callback);
   void setOnDragEnd(std::function<void()> callback);
 
-  [[nodiscard]] double lowValue() const noexcept { return m_low; }
-  [[nodiscard]] double highValue() const noexcept { return m_high; }
-  [[nodiscard]] double minValue() const noexcept { return m_min; }
-  [[nodiscard]] double maxValue() const noexcept { return m_max; }
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] bool dragging() const noexcept;
+  double lowValue() const noexcept { return m_low; }
+  double highValue() const noexcept { return m_high; }
+  double minValue() const noexcept { return m_min; }
+  double maxValue() const noexcept { return m_max; }
+  bool enabled() const noexcept { return m_enabled; }
+  bool dragging() const noexcept;
 
 private:
   enum class ActiveThumb : std::uint8_t { None, Low, High };
@@ -44,9 +44,9 @@ private:
   void updateFromLocalX(float x);
   void updateGeometry();
   void applyVisualState();
-  [[nodiscard]] float normalized(double value) const noexcept;
-  [[nodiscard]] double snapped(double value) const noexcept;
-  [[nodiscard]] float thumbCenterX(double value) const noexcept;
+  float normalized(double value) const noexcept;
+  double snapped(double value) const noexcept;
+  float thumbCenterX(double value) const noexcept;
 
   RectNode* m_track = nullptr;
   RectNode* m_fill = nullptr;

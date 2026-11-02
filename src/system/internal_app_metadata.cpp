@@ -49,7 +49,7 @@ namespace internal_apps {
     return appDefinitionForWindowTitle(entry.name);
   }
 
-  [[nodiscard]] AppMetadata metadataFromDefinition(const InternalAppDefinition& app) {
+  AppMetadata metadataFromDefinition(const InternalAppDefinition& app) {
     return AppMetadata{
         .displayName = std::string(app.displayName),
         .iconPath = paths::assetPath(app.iconAssetPath).string(),

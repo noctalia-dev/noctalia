@@ -19,7 +19,7 @@ namespace {
   constexpr float kBaseSize = 300.0F;
   constexpr int kBandCount = FancyAudioVisualizerNode::kBandCount;
 
-  [[nodiscard]] float valueAsFloat(const WidgetSettingValue& value, float fallback) {
+  float valueAsFloat(const WidgetSettingValue& value, float fallback) {
     if (const auto* v = std::get_if<double>(&value)) {
       return static_cast<float>(*v);
     }
@@ -55,7 +55,7 @@ void DesktopFancyAudioVisualizerWidget::create() {
   syncStyle();
 
   if (m_spectrum != nullptr) {
-    m_listenerId = m_spectrum->addChangeListener(kBandCount, [this]() {
+    m_listenerId = m_spectrum->addChangeListener(kBandCount, [this] {
       m_pendingSpectrumUpdate = true;
       // Spectrum animation is paint-only; the frame tick pulls new values and repaints. Only a
       // visibility change needs layout.
@@ -373,7 +373,7 @@ void DesktopFancyAudioVisualizerWidget::startOpacityAnimation(float targetOpacit
           root()->setOpacity(opacity);
         }
       },
-      [this, collapseOnComplete]() {
+      [this, collapseOnComplete] {
         m_visibilityAnimId = 0;
         if (!collapseOnComplete) {
           return;

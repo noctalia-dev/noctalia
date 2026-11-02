@@ -29,7 +29,7 @@ public:
   virtual void requestLayout() = 0;
   virtual void requestRedraw() = 0;
   virtual void focusArea(InputArea* area) = 0;
-  [[nodiscard]] virtual InputArea* focusedArea() const = 0;
+  virtual InputArea* focusedArea() const = 0;
   virtual void accept(std::optional<std::filesystem::path> result) = 0;
   virtual void cancel() = 0;
 };
@@ -43,9 +43,9 @@ public:
   void setAnimationManager(AnimationManager* animations) noexcept { m_animations = animations; }
   void setContentScale(float scale) noexcept { m_contentScale = scale; }
 
-  [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
-  [[nodiscard]] bool hasDecoration() const noexcept { return true; }
-  [[nodiscard]] Node* root() const noexcept { return m_root ? m_root.get() : m_rootPtr; }
+  float contentScale() const noexcept { return m_contentScale; }
+  bool hasDecoration() const noexcept { return true; }
+  Node* root() const noexcept { return m_root ? m_root.get() : m_rootPtr; }
 
   void create();
   void onOpen(std::string_view context);
@@ -56,12 +56,11 @@ public:
     m_rootPtr = m_root.get();
     return std::move(m_root);
   }
-  [[nodiscard]] bool
-  handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat);
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat);
 
-  [[nodiscard]] float preferredWidth() const { return scaled(800.0F); }
-  [[nodiscard]] float preferredHeight() const { return scaled(560.0F); }
-  [[nodiscard]] InputArea* initialFocusArea() const;
+  float preferredWidth() const { return scaled(800.0F); }
+  float preferredHeight() const { return scaled(560.0F); }
+  InputArea* initialFocusArea() const;
 
 private:
   enum class ViewMode : std::uint8_t {
@@ -69,7 +68,7 @@ private:
     Grid,
   };
 
-  [[nodiscard]] float scaled(float value) const noexcept { return value * m_contentScale; }
+  float scaled(float value) const noexcept { return value * m_contentScale; }
   void setRoot(std::unique_ptr<Node> root);
   void clearReleasedRoot() noexcept { m_rootPtr = nullptr; }
 
@@ -98,17 +97,17 @@ private:
   void cycleFocus(bool reverse);
   void ensureSelectionVisible();
   void syncGridSelection();
-  [[nodiscard]] std::size_t firstSelectableIndex() const;
-  [[nodiscard]] bool isSelectableIndex(std::size_t index) const;
-  [[nodiscard]] bool isTextInputFocused() const;
-  [[nodiscard]] std::filesystem::path selectedPath() const;
-  [[nodiscard]] std::filesystem::path homeDirectory() const;
-  [[nodiscard]] std::filesystem::path resolveStartDirectory(const std::filesystem::path& preferred) const;
+  std::size_t firstSelectableIndex() const;
+  bool isSelectableIndex(std::size_t index) const;
+  bool isTextInputFocused() const;
+  std::filesystem::path selectedPath() const;
+  std::filesystem::path homeDirectory() const;
+  std::filesystem::path resolveStartDirectory(const std::filesystem::path& preferred) const;
   void requestUpdateOnly();
   void requestLayout();
   void requestRedraw();
   void focusHostArea(InputArea* area);
-  [[nodiscard]] InputArea* hostFocusedArea() const;
+  InputArea* hostFocusedArea() const;
   void acceptDialog(std::optional<std::filesystem::path> result);
   void cancelDialog();
 

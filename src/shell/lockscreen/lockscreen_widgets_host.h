@@ -30,6 +30,8 @@ public:
   void reloadPluginWidgets(LockScreen& lockScreen);
   void onOutputChange(LockScreen& lockScreen);
   void onSecondTick();
+  // True when a live widget renders a value that changes every second.
+  bool wantsSecondTicks() const;
   void prepareFrame(LockSurface& surface, bool needsUpdate, bool needsLayout);
 
 private:
@@ -48,8 +50,8 @@ private:
   void attachToSurface(WidgetInstance& instance);
   void detachFromSurface(WidgetInstance& instance);
   void syncSurfaceFrameTick(LockSurface* surface);
-  [[nodiscard]] WidgetInstance* findInstance(const std::string& id);
-  [[nodiscard]] LockSurface* findSurfaceForOutput(LockScreen& lockScreen, const std::string& outputKey) const;
+  WidgetInstance* findInstance(const std::string& id);
+  LockSurface* findSurfaceForOutput(LockScreen& lockScreen, const std::string& outputKey) const;
 
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;

@@ -51,7 +51,7 @@ public:
     rebuildVisible({}, {});
   }
 
-  [[nodiscard]] std::size_t itemCount() const override { return m_visible.size(); }
+  std::size_t itemCount() const override { return m_visible.size(); }
 
   [[nodiscard]] std::unique_ptr<Node> createTile() override {
     Glyph* glyphRaw = nullptr;
@@ -120,9 +120,9 @@ public:
     }
   }
 
-  [[nodiscard]] const std::vector<std::string>& categories() const noexcept { return m_categories; }
+  const std::vector<std::string>& categories() const noexcept { return m_categories; }
 
-  [[nodiscard]] std::optional<std::size_t> indexOfName(std::string_view name) const {
+  std::optional<std::size_t> indexOfName(std::string_view name) const {
     for (std::size_t i = 0; i < m_visible.size(); ++i) {
       if (m_master[m_visible[i]].name == name) {
         return i;
@@ -131,7 +131,7 @@ public:
     return std::nullopt;
   }
 
-  [[nodiscard]] const Entry& entryAt(std::size_t visibleIndex) const { return m_master[m_visible[visibleIndex]]; }
+  const Entry& entryAt(std::size_t visibleIndex) const { return m_master[m_visible[visibleIndex]]; }
 
 private:
   float m_chromeScale = 1.0F;
@@ -170,7 +170,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
             .minHeight = Style::controlHeightSm * m_chromeScale,
             .padding = Style::spaceXs * m_chromeScale,
             .radius = Style::scaledRadiusMd(m_chromeScale),
-            .onClick = [this]() {
+            .onClick = [this] {
               if (m_onCancel) {
                 m_onCancel();
               }
@@ -252,7 +252,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
               .paddingH = Style::spaceMd * m_chromeScale,
               .radius = Style::scaledRadiusMd(m_chromeScale),
               .onClick =
-                  [this]() {
+                  [this] {
                     if (m_onCancel) {
                       m_onCancel();
                     }
@@ -267,7 +267,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
               .radius = Style::scaledRadiusMd(m_chromeScale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 if (!m_onApply) {
                   return;
                 }

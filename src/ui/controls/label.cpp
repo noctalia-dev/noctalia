@@ -76,6 +76,14 @@ void Label::setFontFamily(std::string family) {
   m_measureCached = false;
 }
 
+void Label::setFontFeatures(std::string features) {
+  if (m_textNode->fontFeatures() == features) {
+    return;
+  }
+  m_textNode->setFontFeatures(std::move(features));
+  m_measureCached = false;
+}
+
 void Label::setColor(const ColorSpec& color) {
   m_color = color;
   applyPalette();
@@ -136,7 +144,7 @@ const Color& Label::color() const noexcept { return m_textNode->color(); }
 
 float Label::maxWidth() const noexcept { return m_userMaxWidth; }
 
-FontWeight Label::fontWeight() const noexcept { return m_textNode->fontWeight(); }
+const TextFont& Label::font() const noexcept { return m_textNode->font(); }
 
 TextAlign Label::textAlign() const noexcept { return m_textNode->textAlign(); }
 
@@ -215,7 +223,7 @@ void Label::syncHoverInteraction() {
   if (m_autoScroll && m_autoScrollHoverOnly) {
     setHitTestVisible(true);
     setOnEnter([this](const PointerData&) { restartScrollIfNeeded(); });
-    setOnLeave([this]() { restartScrollIfNeeded(); });
+    setOnLeave([this] { restartScrollIfNeeded(); });
     m_ownsHoverHandlers = true;
     return;
   }
@@ -343,7 +351,7 @@ void Label::startSnapToZero() {
         m_scrollOffset = v;
         applyScrollPosition();
       },
-      [this]() {
+      [this] {
         m_snapAnimId = 0;
         m_scrollOffset = 0.0F;
         applyScrollPosition();
@@ -383,12 +391,12 @@ void Label::startMarqueeLoop() {
         m_scrollOffset = v;
         applyScrollPosition();
       },
-      [this]() {
+      [this] {
         m_marqueeAnimId = 0;
         m_scrollOffset = 0.0F;
         applyScrollPosition();
         const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-        DeferredCall::callLater([this, aliveGuard]() {
+        DeferredCall::callLater([this, aliveGuard] {
           if (aliveGuard.expired()) {
             return;
           }
@@ -503,14 +511,14 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
   }
   const int effectiveMaxLines = m_autoScroll ? 1 : m_userMaxLines;
   const TextAlign align = m_textNode->textAlign();
-  const FontWeight fontWeight = m_textNode->fontWeight();
+  const TextFont& font = m_textNode->font();
   const float renderScale = renderer.renderScale();
   m_marqueeRenderScale = renderScale;
   const std::uint64_t textMetricsGeneration = renderer.textMetricsGeneration();
   if (m_measureCached
       && m_cachedText == m_plainText
       && m_cachedFontSize == m_textNode->fontSize()
-      && m_cachedFontWeight == fontWeight
+      && m_cachedFont == font
       && m_cachedMaxWidth == m_userMaxWidth
       && m_cachedMaxLines == m_userMaxLines
       && m_cachedMinWidth == m_minWidth
@@ -543,8 +551,8 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
   }
 
   auto metrics = renderer.measureText(
-      m_plainText, m_textNode->fontSize(), fontWeight, measureMaxWidth, effectiveMaxLines, align,
-      m_textNode->fontFamily(), m_textNode->ellipsize(), m_textNode->useMarkup()
+      m_plainText, m_textNode->fontSize(), font, measureMaxWidth, effectiveMaxLines, align, m_textNode->ellipsize(),
+      m_textNode->useMarkup()
   );
   // Line breaking is decided once, on the measure pass. A divergent line count
   // on arrange means the wrap budget drifted between phases — the baseline mode
@@ -584,7 +592,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       height = std::round(std::max(actualHeight, inkHeight));
       m_baselineOffset = -metrics.inkTop + (height - inkHeight) * 0.5F;
     } else if (m_baselineMode == LabelBaselineMode::TextFixedHeight) {
-      const auto fontMetrics = renderer.measureFont(m_textNode->fontSize(), fontWeight, m_textNode->fontFamily());
+      const auto fontMetrics = renderer.measureFont(m_textNode->fontSize(), font);
       height = std::round(fontMetrics.bottom - fontMetrics.top);
       const float capHeight = fontMetrics.capHeight;
       m_baselineOffset = capHeight > 0.0F ? height * 0.5F + capHeight * 0.5F : -fontMetrics.top;
@@ -597,8 +605,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       // normal text, whose ink top coincides with the cap top. Unrounded baseline —
       // the renderer snaps the glyph quad to the pixel grid.
       height = std::round(actualHeight);
-      const float capHeight =
-          renderer.measureFont(m_textNode->fontSize(), fontWeight, m_textNode->fontFamily()).capHeight;
+      const float capHeight = renderer.measureFont(m_textNode->fontSize(), font).capHeight;
       m_baselineOffset = capHeight > 0.0F ? height * 0.5F - (metrics.inkTop + capHeight * 0.5F)
                                           : -metrics.inkTop + (height - inkHeight) * 0.5F;
     } else {
@@ -607,8 +614,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       // box-centers this label sits caps/digits dead-centre. capHeight is the
       // measured cap of 'H', a stable per-font property. Unrounded: the renderer
       // snaps the glyph quad to the pixel grid, so rounding here double-rounds.
-      const float capHeight =
-          renderer.measureFont(m_textNode->fontSize(), fontWeight, m_textNode->fontFamily()).capHeight;
+      const float capHeight = renderer.measureFont(m_textNode->fontSize(), font).capHeight;
       m_baselineOffset =
           capHeight > 0.0F ? height * 0.5F + capHeight * 0.5F : -metrics.top + (height - actualHeight) * 0.5F;
     }
@@ -685,15 +691,13 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
   }
 
   if (overflow && m_autoScroll) {
-    auto gapMetrics = renderer.measureText(
-        std::string(1, kMarqueeGapChar), m_textNode->fontSize(), fontWeight, 0.0F, 1, align, m_textNode->fontFamily()
-    );
+    auto gapMetrics =
+        renderer.measureText(std::string(1, kMarqueeGapChar), m_textNode->fontSize(), font, 0.0F, 1, align);
     const auto numChars = gapMetrics.width > 0.0F
         ? static_cast<int>(std::ceil(std::min(width(), kMarqueeGapMaxWidth) / gapMetrics.width))
         : 1;
     auto textWithGap = m_plainText + std::string(numChars, kMarqueeGapChar) + m_plainText;
-    auto textWithGapMetrics =
-        renderer.measureText(textWithGap, m_textNode->fontSize(), fontWeight, 0.0F, 1, align, m_textNode->fontFamily());
+    auto textWithGapMetrics = renderer.measureText(textWithGap, m_textNode->fontSize(), font, 0.0F, 1, align);
     m_marqueeLoopPeriod = textWithGapMetrics.width - m_fullTextWidth;
     m_textNode->setText(textWithGap);
   } else {
@@ -709,7 +713,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
 
   m_cachedText = m_plainText;
   m_cachedFontSize = m_textNode->fontSize();
-  m_cachedFontWeight = fontWeight;
+  m_cachedFont = font;
   m_cachedMaxWidth = m_userMaxWidth;
   m_cachedMaxLines = m_userMaxLines;
   m_cachedMinWidth = m_minWidth;

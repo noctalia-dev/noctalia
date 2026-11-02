@@ -32,7 +32,7 @@ namespace noctalia::theme {
         "terminal_cursor_text",
     }};
 
-    [[nodiscard]] std::uint32_t lowerTone(std::uint32_t argb, double shift) {
+    std::uint32_t lowerTone(std::uint32_t argb, double shift) {
       mcu::Hct hct(argb);
       hct.set_tone(std::max(0.0, hct.get_tone() - shift));
       return hct.ToInt();

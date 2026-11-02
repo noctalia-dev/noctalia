@@ -36,6 +36,7 @@ public:
   void setBorder(const ColorSpec& color, float width);
   void setBorder(const Color& color, float width);
   void setTint(const Color& tint);
+  void setSaturation(float saturation);
   void setAppIconColorization(std::optional<ColorSpec> tint);
   // Alpha-mask recolor for bar widget custom_image (widget Color, not app-icon bake).
   void setForegroundTint(std::optional<ColorSpec> tint);
@@ -67,12 +68,12 @@ public:
 
   void clear(Renderer& renderer);
 
-  [[nodiscard]] const std::string& sourcePath() const noexcept { return m_sourcePath; }
-  [[nodiscard]] bool hasImage() const noexcept { return m_texture.valid(); }
-  [[nodiscard]] TextureId textureId() const noexcept { return m_texture.id; }
-  [[nodiscard]] int sourceWidth() const noexcept { return m_texture.sourceWidth; }
-  [[nodiscard]] int sourceHeight() const noexcept { return m_texture.sourceHeight; }
-  [[nodiscard]] float aspectRatio() const noexcept {
+  const std::string& sourcePath() const noexcept { return m_sourcePath; }
+  bool hasImage() const noexcept { return m_texture.valid(); }
+  TextureId textureId() const noexcept { return m_texture.id; }
+  int sourceWidth() const noexcept { return m_texture.sourceWidth; }
+  int sourceHeight() const noexcept { return m_texture.sourceHeight; }
+  float aspectRatio() const noexcept {
     return m_texture.width > 0 && m_texture.height > 0
         ? static_cast<float>(m_texture.width) / static_cast<float>(m_texture.height)
         : 1.0F;

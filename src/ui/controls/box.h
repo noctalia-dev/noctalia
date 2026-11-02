@@ -16,7 +16,7 @@ class Box : public Node {
 public:
   Box();
 
-  [[nodiscard]] const RoundedRectStyle& style() const noexcept;
+  const RoundedRectStyle& style() const noexcept;
   void setStyle(const RoundedRectStyle& style);
 
   void setFill(const ColorSpec& color);

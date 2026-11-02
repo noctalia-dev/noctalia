@@ -23,11 +23,11 @@ namespace compositors::niri {
     NiriRuntime(const NiriRuntime&) = delete;
     NiriRuntime& operator=(const NiriRuntime&) = delete;
 
-    [[nodiscard]] bool available() const;
-    [[nodiscard]] const std::string& socketPath() const;
-    [[nodiscard]] std::optional<nlohmann::json> requestJson(std::string_view request) const;
-    [[nodiscard]] bool requestOk(std::string_view request, bool acceptNoResponse = false) const;
-    [[nodiscard]] bool requestAction(const nlohmann::json& action, bool acceptNoResponse = false) const;
+    bool available() const;
+    const std::string& socketPath() const;
+    std::optional<nlohmann::json> requestJson(std::string_view request) const;
+    bool requestOk(std::string_view request, bool acceptNoResponse = false) const;
+    bool requestAction(const nlohmann::json& action, bool acceptNoResponse = false) const;
     void refresh();
     void cleanup();
 
@@ -35,15 +35,15 @@ namespace compositors::niri {
     // the socket and delivers each parsed event to every registered handler.
     void registerEventHandler(NiriEventHandler* handler);
     void unregisterEventHandler(NiriEventHandler* handler);
-    [[nodiscard]] int pollFd() const noexcept { return m_eventSocketFd; }
-    [[nodiscard]] short pollEvents() const noexcept { return POLLIN | POLLHUP | POLLERR; }
-    [[nodiscard]] int pollTimeoutMs() const noexcept;
+    int pollFd() const noexcept { return m_eventSocketFd; }
+    short pollEvents() const noexcept { return POLLIN | POLLHUP | POLLERR; }
+    int pollTimeoutMs() const noexcept;
     void dispatchPoll(short revents);
 
   private:
     struct IpcReply;
 
-    [[nodiscard]] IpcReply request(std::string_view request) const;
+    IpcReply request(std::string_view request) const;
     void ensureResolved() const;
     void resolveSocketPath() const;
 

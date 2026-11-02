@@ -12,7 +12,7 @@
 namespace noctalia::config {
 
   // Result of merging all config-dir files, including any pulled in via [include].
-  struct MergeResult {
+  struct [[nodiscard]] MergeResult {
     // The merged TOML with every file's [include] table stripped out.
     toml::table merged;
     // Every file actually loaded (root + included), canonicalized, in load order.
@@ -39,6 +39,6 @@ namespace noctalia::config {
   //     the root file(s) that set it (plus their recursive includes).
   // Each file is loaded at most once; cycles are warned and skipped. The caller is
   // responsible for overlaying settings.toml afterwards (it is never include-expanded).
-  [[nodiscard]] MergeResult mergeConfigWithIncludes(std::string_view configDir);
+  MergeResult mergeConfigWithIncludes(std::string_view configDir);
 
 } // namespace noctalia::config

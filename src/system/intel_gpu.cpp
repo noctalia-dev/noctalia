@@ -74,25 +74,25 @@ namespace noctalia::system::intel_gpu {
         EngineKeys{"drm-engine-compute", "", "drm-engine-capacity-compute"},
     };
 
-    [[nodiscard]] const std::array<EngineKeys, 2>& engineKeysFor(Driver driver) {
+    const std::array<EngineKeys, 2>& engineKeysFor(Driver driver) {
       return driver == Driver::Xe ? kXeEngineKeys : kI915EngineKeys;
     }
 
-    [[nodiscard]] std::string_view driverName(Driver driver) { return driver == Driver::Xe ? "xe" : "i915"; }
+    std::string_view driverName(Driver driver) { return driver == Driver::Xe ? "xe" : "i915"; }
 
-    [[nodiscard]] bool isDrmCardName(std::string_view name) {
+    bool isDrmCardName(std::string_view name) {
       return name.starts_with("card")
           && name.size() > 4
           && std::ranges::all_of(name.substr(4), [](char ch) { return ch >= '0' && ch <= '9'; });
     }
 
-    [[nodiscard]] bool isPidName(std::string_view name) {
+    bool isPidName(std::string_view name) {
       return !name.empty() && std::ranges::all_of(name, [](char ch) { return ch >= '0' && ch <= '9'; });
     }
 
     // fdinfo values are "key:\tvalue"; i915 suffixes engine times with " ns", so only the leading
     // integer is parsed.
-    [[nodiscard]] std::optional<std::uint64_t> parseLeadingUint(std::string_view value) {
+    std::optional<std::uint64_t> parseLeadingUint(std::string_view value) {
       while (!value.empty() && (value.front() == ' ' || value.front() == '\t')) {
         value.remove_prefix(1);
       }
@@ -107,7 +107,7 @@ namespace noctalia::system::intel_gpu {
 
     // The render node is the unprivileged entry point for the device query; the card node would
     // need the seat ACL and DRM master.
-    [[nodiscard]] std::filesystem::path findRenderNode(const std::filesystem::path& devicePath) {
+    std::filesystem::path findRenderNode(const std::filesystem::path& devicePath) {
       namespace fs = std::filesystem;
 
       std::error_code ec;
@@ -132,7 +132,7 @@ namespace noctalia::system::intel_gpu {
       std::array<std::uint64_t, 2> capacity{1, 1};
     };
 
-    [[nodiscard]] std::optional<FdinfoClient>
+    std::optional<FdinfoClient>
     parseFdinfo(const std::filesystem::path& path, const Device& device, const std::array<EngineKeys, 2>& keys) {
       std::ifstream file{path};
       if (!file.is_open()) {
@@ -227,7 +227,7 @@ namespace noctalia::system::intel_gpu {
 
     // The DRM usage-stats contract allows a counter to regress; the larger previous value stands
     // until a monotonic update arrives.
-    [[nodiscard]] std::uint64_t monotonicDelta(std::uint64_t current, std::uint64_t previous) {
+    std::uint64_t monotonicDelta(std::uint64_t current, std::uint64_t previous) {
       return current > previous ? current - previous : 0;
     }
 

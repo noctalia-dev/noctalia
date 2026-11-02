@@ -12,6 +12,7 @@ namespace noctalia::theme {
     std::string id;
     std::string name;
     std::string category;
+    std::string documentationUrl;
     std::vector<std::string> outputPaths;
     bool outputDynamic = false;
     std::string outputPathDynamicCommand;
@@ -21,6 +22,7 @@ namespace noctalia::theme {
     std::string id;          // canonical TOML value (what gets written to config)
     std::string displayName; // friendly label for the GUI; falls back to id when not provided
     std::string category;
+    std::string documentationUrl;
     std::vector<std::string> outputPaths;
     bool outputDynamic = false;
   };
@@ -28,13 +30,13 @@ namespace noctalia::theme {
   // Loads the built-in template catalog from the shipped assets/templates/builtin.toml.
   // On parse failure, sets `err` (when non-null) and returns an empty list.
   // Entries are sorted by category, then id.
-  [[nodiscard]] std::vector<BuiltinTemplateInfo> loadBuiltinTemplateInfo(std::string* err = nullptr);
+  std::vector<BuiltinTemplateInfo> loadBuiltinTemplateInfo(std::string* err = nullptr);
 
   // Every built-in template the user can opt into.
-  [[nodiscard]] std::vector<AvailableTemplate> availableTemplates();
+  std::vector<AvailableTemplate> availableTemplates();
 
   // Build a user-facing tooltip string describing the files a template will overwrite.
-  [[nodiscard]] inline std::string formatTemplateTooltip(const AvailableTemplate& t) {
+  inline std::string formatTemplateTooltip(const AvailableTemplate& t) {
     if (t.outputPaths.empty() && !t.outputDynamic) {
       return {};
     }

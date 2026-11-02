@@ -47,7 +47,7 @@ public:
     std::size_t maxLabelChars = 1;
     bool labelsOnlyWhenOccupied = false;
     bool hideWhenEmpty = false;
-    bool showAllOutputs = false;
+    std::vector<std::string> monitors;
     float pillScale = 1.0F;
     float activePillSize = 2.2F;
     float inactivePillSize = 1.0F;
@@ -58,7 +58,7 @@ public:
   ~WorkspacesWidget() override;
 
   void create() override;
-  [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
+  bool wantsBarHoverHighlight() const noexcept override { return false; }
 
 private:
   friend class WorkspacesWidgetTestAccess;
@@ -79,29 +79,28 @@ private:
   void applyItemLayouts();
   void snapshotItemsForRebuild();
   void scheduleRebuildFromSnapshot();
-  [[nodiscard]] float workspacePillRadius(float width, float height) const noexcept;
-  [[nodiscard]] float workspaceMainAxisMinWidth(float baseSize, bool active) const noexcept;
+  float workspacePillRadius(float width, float height) const noexcept;
+  float workspaceMainAxisMinWidth(float baseSize, bool active) const noexcept;
 
-  [[nodiscard]] static std::optional<std::size_t> numericWorkspaceId(const Workspace& workspace);
-  [[nodiscard]] std::string workspaceLabel(const Workspace& workspace, std::size_t displayIndex) const;
+  static std::optional<std::size_t> numericWorkspaceId(const Workspace& workspace);
+  std::string workspaceLabel(const Workspace& workspace, std::size_t displayIndex) const;
   // The workspace name, unless the pill already shows it in full. Empty means no tooltip.
-  [[nodiscard]] static std::string
-  workspaceTooltipText(const Workspace& workspace, const std::string& label, bool showLabel);
-  [[nodiscard]] std::string activeWindowAppId() const;
-  [[nodiscard]] std::string resolveIconPath(const std::string& appId);
-  [[nodiscard]] float focusedPillIconSize() const noexcept;
-  [[nodiscard]] float focusedPillDotSize() const noexcept;
-  [[nodiscard]] float focusedPillActiveMainAxisSize(
+  static std::string workspaceTooltipText(const Workspace& workspace, const std::string& label, bool showLabel);
+  std::string activeWindowAppId() const;
+  std::string resolveIconPath(const std::string& appId);
+  float focusedPillIconSize() const noexcept;
+  float focusedPillDotSize() const noexcept;
+  float focusedPillActiveMainAxisSize(
       float textWidth, float textHeight, bool showLabel, bool hasIcon, float baseSize, float padding
   ) const noexcept;
   void buildDesktopIconIndex();
   void syncActiveWindowIcon(Renderer& renderer, Item& item);
-  [[nodiscard]] bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
-  [[nodiscard]] bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
-  [[nodiscard]] bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
+  bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
+  bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
+  bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
   // FocusHint is the only style that draws the focused app icon.
-  [[nodiscard]] bool showsActiveIcon() const noexcept { return isFocusHint() && m_showIcons; }
-  [[nodiscard]] bool isWorkspaceHidden(const Workspace& workspace) const noexcept;
+  bool showsActiveIcon() const noexcept { return isFocusHint() && m_showIcons; }
+  bool isWorkspaceHidden(const Workspace& workspace) const noexcept;
   void syncWidgetVisibility(bool showWidget);
   void recalculateItemMetrics(Renderer& renderer, Item& item, const Workspace& workspace, std::size_t displayIndex);
   void ensureItemLabel(Renderer& renderer, Item& item, const Workspace& workspace);
@@ -109,10 +108,10 @@ private:
   void setWorkspaceClickHandler(InputArea& area, wl_output* output, const Workspace& workspace);
   void applyItemVisualStyle(Item& item);
   void updateHoverOverlay();
-  [[nodiscard]] bool shouldHoldPreviousVisualWorkspace(
+  bool shouldHoldPreviousVisualWorkspace(
       const Workspace& previousVisualWorkspace, const Workspace& currentWorkspace
   ) const noexcept;
-  [[nodiscard]] bool releaseHeldVisualStyles();
+  bool releaseHeldVisualStyles();
 
   struct WorkspaceState {
     Workspace workspace;
@@ -158,11 +157,11 @@ private:
     float opacity = 1.0F;
   };
 
-  [[nodiscard]] bool workspaceUsesFocusedStyle(const Workspace& workspace, wl_output* output) const;
-  [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace, wl_output* output) const;
-  [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace, wl_output* output) const;
-  [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
-  [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
+  bool workspaceUsesFocusedStyle(const Workspace& workspace, wl_output* output) const;
+  ColorSpec workspaceFillColor(const Workspace& workspace, wl_output* output) const;
+  ColorSpec workspaceTextColor(const Workspace& workspace, wl_output* output) const;
+  static ColorRole onRoleForFill(ColorRole fill);
+  static ColorSpec readableColorForFill(const ColorSpec& fill);
 
   CompositorPlatform& m_platform;
   ConfigService& m_configService;
@@ -173,7 +172,7 @@ private:
   bool m_labelsOnlyWhenOccupied = false;
   bool m_showIcons = true;
   bool m_hideWhenEmpty = false;
-  bool m_showAllOutputs = false;
+  std::vector<std::string> m_monitors;
   float m_pillScale = 1.0F;
   float m_activePillSize = 2.2F;
   float m_inactivePillSize = 1.0F;

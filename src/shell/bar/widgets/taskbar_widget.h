@@ -5,12 +5,14 @@
 #include "shell/bar/widget.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
+#include "system/window_state.h"
 #include "ui/palette.h"
 #include "ui/signal.h"
 
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -44,6 +46,8 @@ struct TaskbarWidgetOptions {
   bool showWorkspaceLabel = true;
   WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   WorkspaceGroupContent workspaceGroupContent = WorkspaceGroupContent::Icons;
+  ColorSpec workspaceGroupActiveBorderColor = colorSpecFromRole(ColorRole::Primary);
+  ColorSpec workspaceGroupInactiveBorderColor = colorSpecFromRole(ColorRole::OutlineVariant);
   bool hideEmptyWorkspaces = false;
   std::vector<std::string> hiddenWorkspaces;
   bool workspaceGroupCapsule = true;
@@ -55,6 +59,7 @@ struct TaskbarWidgetOptions {
   float activeOpacity = 1.0F;
   float inactiveOpacity = 1.0F;
   float iconScale = 1.0F;
+  bool preferSymbolicIcons = false;
   int itemSpacing = 4;
   std::vector<std::string> pinned;
   float pinnedOpacity = 0.5F;
@@ -62,6 +67,7 @@ struct TaskbarWidgetOptions {
   ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec urgentColor = colorSpecFromRole(ColorRole::Error);
+  bool showRunning = true;
   bool showWindowTitle = false;
   int windowTitleMaxWidth = 100;
   int taskbarMaxWidth = 8192;
@@ -83,8 +89,8 @@ public:
   ~TaskbarWidget() override;
 
   void create() override;
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event) override;
-  [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
+  bool onPointerEvent(const PointerEvent& event) override;
+  bool wantsBarHoverHighlight() const noexcept override { return false; }
   // Steps through whatever this taskbar shows: workspace groups when grouping, else tasks.
   void cycleAdjacent(int direction);
 
@@ -103,7 +109,7 @@ private:
     // Desktop entry name, shown while the title is blank. Display only; window and workspace
     // matching stay on title.
     std::string displayName;
-    std::string iconPath;
+    ResolvedIcon icon;
     std::string workspaceKey;
     std::string workspaceWindowId;
     // Authoritative compositor window identity for focus/close actions.
@@ -119,6 +125,8 @@ private:
     bool pinned = false;
     bool running = true;
     zwlr_foreign_toplevel_handle_v1* firstHandle = nullptr;
+    std::optional<WindowMinimizeState> minimizeState;
+    std::size_t minimizedCount = 0;
   };
 
   struct WorkspaceModel {
@@ -138,6 +146,7 @@ private:
     // Meaningful only when layoutEqual is true and the existing task tiles will be retained.
     bool titlesChanged = false;
     bool activesChanged = false;
+    bool minimizeStatesChanged = false;
   };
 
   struct TaskRef {
@@ -152,6 +161,7 @@ private:
     Label* titleLabel = nullptr;
     // Present when m_showActiveIndicator; visibility tracks task.active.
     Box* activeIndicator = nullptr;
+    Box* minimizeIndicator = nullptr;
   };
 
   // Gesture state for drag-to-reorder of pinned tiles in the flat strip. Holds no obligation to
@@ -184,43 +194,47 @@ private:
   void buildTaskButtons(Renderer& renderer);
   void updateModels();
   void syncWorkspaceGroupingCapability();
-  [[nodiscard]] static std::string toLower(std::string value);
-  [[nodiscard]] static const std::string& displayTitle(const TaskModel& task) noexcept;
-  [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
-  [[nodiscard]] static ModelComparison compareModels(
+  static std::string toLower(const std::string& value);
+  static const std::string& displayTitle(const TaskModel& task) noexcept;
+  static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
+  static ModelComparison compareModels(
       bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
       const std::vector<WorkspaceModel>& previousWorkspaces, const std::vector<TaskModel>& nextTasks,
       const std::vector<WorkspaceModel>& nextWorkspaces
   );
   void buildDesktopIconIndex();
-  [[nodiscard]] std::string resolveIconPath(const std::string& appId, const std::string& iconNameOrPath);
-  void openTaskContextMenu(const TaskModel& task, InputArea& area);
+  ResolvedIcon resolveIcon(const std::string& appId, const std::string& iconNameOrPath);
+  void openTaskContextMenu(const TaskModel& task, InputArea& area, const std::vector<TaskRef>& members = {});
   void activateAdjacentWorkspace(int direction);
   void activateAdjacentTask(int direction);
-  [[nodiscard]] bool activeWorkspaceIndex(std::size_t& index) const;
-  [[nodiscard]] const std::vector<WorkspaceModel>& navigationWorkspaces() const noexcept;
-  [[nodiscard]] wl_output* toplevelOutputFilter() const noexcept;
-  [[nodiscard]] bool useMultiOutputWorkspaceKeys() const noexcept;
-  [[nodiscard]] std::string workspaceKeyPrefixForOutput(wl_output* out) const;
-  [[nodiscard]] wl_output* workspaceHostOutput(const WorkspaceModel& model) const noexcept;
-  [[nodiscard]] bool workspaceUsesFocusedStyle(const WorkspaceModel& model) const noexcept;
-  [[nodiscard]] ColorSpec workspaceFillColor(const WorkspaceModel& model) const;
-  [[nodiscard]] ColorSpec workspaceTextColor(const WorkspaceModel& model) const;
-  [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
-  [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
-  [[nodiscard]] static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
-  [[nodiscard]] static const TaskModel*
+  bool activeWorkspaceIndex(std::size_t& index) const;
+  const std::vector<WorkspaceModel>& navigationWorkspaces() const noexcept;
+  wl_output* toplevelOutputFilter() const noexcept;
+  bool useMultiOutputWorkspaceKeys() const noexcept;
+  std::string workspaceKeyPrefixForOutput(wl_output* out) const;
+  wl_output* workspaceHostOutput(const WorkspaceModel& model) const noexcept;
+  bool workspaceUsesFocusedStyle(const WorkspaceModel& model) const noexcept;
+  ColorSpec workspaceFillColor(const WorkspaceModel& model) const;
+  ColorSpec workspaceTextColor(const WorkspaceModel& model) const;
+  static ColorSpec readableColorForFill(const ColorSpec& fill);
+  static ColorRole onRoleForFill(ColorRole fill);
+  static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
+  static const TaskModel*
   resolveTask(const std::vector<TaskModel>& tasks, TaskRef ref, std::uint64_t currentGeneration);
-  [[nodiscard]] static std::string_view workspaceBindingWindowId(const TaskModel& task);
-  void activateTaskModel(const TaskModel& task);
+  static std::string_view workspaceBindingWindowId(const TaskModel& task);
+  static ToplevelInfo toplevelInfoForTask(const TaskModel& task);
+  static bool allWindowsMinimized(const TaskModel& task);
+  static std::string taskTooltip(const TaskModel& task, std::size_t minimizedCount, std::size_t windowCount);
+  void activateTaskModel(const TaskModel& task, bool primaryClick = false);
   void closeTaskModel(const TaskModel& task);
   void applyPinnedMerge(std::vector<TaskModel>& tasks);
-  void activateOrLaunchPinned(const TaskModel& task);
+  static void dropUnpinnedTasks(std::vector<TaskModel>& tasks, bool showRunning);
+  void activateOrLaunchPinned(const TaskModel& task, bool primaryClick = true);
   void launchDesktopEntry(const TaskModel& task);
-  [[nodiscard]] const std::vector<std::string>& pinnedConfigIds() const noexcept;
-  [[nodiscard]] bool reorderEnabled() const;
-  [[nodiscard]] float pointerMainOnStrip(const InputArea& area, float localX, float localY) const;
-  [[nodiscard]] std::size_t computeDragTargetIndex() const;
+  const std::vector<std::string>& pinnedConfigIds() const noexcept;
+  bool reorderEnabled() const;
+  float pointerMainOnStrip(const InputArea& area, float localX, float localY) const;
+  std::size_t computeDragTargetIndex() const;
   [[nodiscard]] bool commitDragReorder();
   void beginDrag();
   void updateDragTarget();
@@ -228,9 +242,9 @@ private:
   void endDrag(bool commit);
   void applyDragLayout();
   void requestDragLayout();
-  [[nodiscard]] static bool taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry);
+  static bool taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry);
   void setEntryPinned(const DesktopEntry& entry, bool pinned);
-  [[nodiscard]] std::optional<DesktopEntry> desktopEntryForTask(const TaskModel& task) const;
+  std::optional<DesktopEntry> desktopEntryForTask(const TaskModel& task) const;
 
   CompositorPlatform& m_platform;
   ConfigService& m_configService;
@@ -242,6 +256,8 @@ private:
   bool m_showWorkspaceLabel = true;
   WorkspaceLabelPlacement m_workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   WorkspaceGroupContent m_workspaceGroupContent = WorkspaceGroupContent::Icons;
+  ColorSpec m_workspaceGroupActiveBorder = colorSpecFromRole(ColorRole::Primary);
+  ColorSpec m_workspaceGroupInactiveBorder = colorSpecFromRole(ColorRole::OutlineVariant);
   bool m_hideEmptyWorkspaces = false;
   bool m_workspaceGroupCapsule = true;
   bool m_focusedOutputOnly = false;

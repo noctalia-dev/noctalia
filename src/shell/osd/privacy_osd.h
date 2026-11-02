@@ -23,7 +23,7 @@ private:
     bool operator==(const State&) const = default;
   };
 
-  [[nodiscard]] State fromPipewireState(const PrivacyState& privacyState) const;
+  State fromPipewireState(const PrivacyState& privacyState) const;
 
   OsdOverlay* m_overlay = nullptr;
   PrivacyFilter m_micFilter;

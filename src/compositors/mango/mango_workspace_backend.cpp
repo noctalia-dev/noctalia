@@ -21,12 +21,12 @@ namespace {
 
   constexpr Logger kLog("workspace_mango");
 
-  [[nodiscard]] std::string jsonString(const nlohmann::json& json, const char* key) {
+  std::string jsonString(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     return it != json.end() && it->is_string() ? it->get<std::string>() : std::string{};
   }
 
-  [[nodiscard]] std::int32_t jsonInt(const nlohmann::json& json, const char* key) {
+  std::int32_t jsonInt(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     if (it == json.end()) {
       return 0;
@@ -40,12 +40,12 @@ namespace {
     return 0;
   }
 
-  [[nodiscard]] bool jsonBool(const nlohmann::json& json, const char* key) {
+  bool jsonBool(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     return it != json.end() && it->is_boolean() && it->get<bool>();
   }
 
-  [[nodiscard]] std::string jsonIdString(const nlohmann::json& json, const char* key) {
+  std::string jsonIdString(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     if (it == json.end() || it->is_null()) {
       return {};
@@ -62,7 +62,7 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] std::vector<std::uint32_t> jsonTagArray(const nlohmann::json& json, const char* key) {
+  std::vector<std::uint32_t> jsonTagArray(const nlohmann::json& json, const char* key) {
     std::vector<std::uint32_t> result;
     const auto it = json.find(key);
     if (it == json.end() || !it->is_array()) {
@@ -123,16 +123,16 @@ bool MangoWorkspaceBackend::connectSocket() {
 
 void MangoWorkspaceBackend::activate(const std::string& id) {
   if (const auto* active = activeOutputState(); active != nullptr && !active->name.empty()) {
-    (void)m_runtime.dispatch("viewcrossmon," + id + "," + active->name);
+    m_runtime.dispatch("viewcrossmon," + id + "," + active->name);
     return;
   }
-  (void)m_runtime.dispatch("view," + id);
+  m_runtime.dispatch("view," + id);
 }
 
 void MangoWorkspaceBackend::activateForOutput(wl_output* output, const std::string& id) {
   const std::string name = outputName(output);
   if (!name.empty()) {
-    (void)m_runtime.dispatch("viewcrossmon," + id + "," + name);
+    m_runtime.dispatch("viewcrossmon," + id + "," + name);
     return;
   }
   activate(id);
@@ -220,7 +220,7 @@ std::vector<WorkspaceWindow> MangoWorkspaceBackend::workspaceWindows(wl_output* 
 
 void MangoWorkspaceBackend::focusWindow(const std::string& windowId) {
   if (!windowId.empty()) {
-    (void)m_runtime.dispatch("focusid client," + windowId);
+    m_runtime.dispatch("focusid client," + windowId);
   }
 }
 
@@ -246,7 +246,7 @@ int MangoWorkspaceBackend::pollTimeoutMs() const noexcept { return m_watchFd >= 
 
 void MangoWorkspaceBackend::dispatchPoll(short revents) {
   if (m_watchFd < 0) {
-    (void)connectSocket();
+    connectSocket();
     return;
   }
   if ((revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
@@ -592,7 +592,7 @@ std::optional<MangoWorkspaceBackend::OutputState> MangoWorkspaceBackend::parseMo
   }
 
   const auto activeTags = jsonTagArray(json, "active_tags");
-  if (!activeTags.empty() && !(activeTags.size() == 1 && activeTags.front() == 0)) {
+  if (!activeTags.empty() && (activeTags.size() != 1 || activeTags.front() != 0)) {
     for (auto& tag : state.tags) {
       tag.active = std::ranges::contains(activeTags, tag.index);
     }

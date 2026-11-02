@@ -4,12 +4,13 @@
 #include "ui/palette.h"
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
 
-class WaylandConnection;
+struct WaylandOutput;
 
 namespace desktop_settings {
   enum class DesktopWidgetSettingsScope;
@@ -34,6 +35,7 @@ namespace lockscreen_login_box {
   constexpr std::string_view kShowCapsLockKey = "show_caps_lock";
   constexpr std::string_view kShowKeyboardLayoutKey = "show_keyboard_layout";
   constexpr std::string_view kShowUnlockHintKey = "show_unlock_hint";
+  constexpr std::string_view kShowPasswordRevealKey = "show_password_reveal";
 
   enum class LayoutMode : std::uint8_t {
     Compact,
@@ -42,7 +44,7 @@ namespace lockscreen_login_box {
 
   struct LoginBoxStyle {
     LayoutMode layout = LayoutMode::Regular;
-    ColorSpec panelFill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.88F);
+    ColorSpec panelFill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.88F);
     float panelOpacity = 0.88F;
     float panelRadius = 12.0F;
     float inputOpacity = 1.0F;
@@ -50,6 +52,7 @@ namespace lockscreen_login_box {
     bool centerPasswordText = false;
     bool showLoginButton = true;
     bool showCapsLock = true;
+    bool showPasswordReveal = true;
     bool showKeyboardLayout = true;
     bool showSessionButtons = true;
     bool showMedia = true;
@@ -64,17 +67,17 @@ namespace lockscreen_login_box {
     bool showWeather = false;
   };
 
-  [[nodiscard]] InfoExtrasVisibility
+  InfoExtrasVisibility
   resolveInfoExtrasVisibility(bool regular, const LoginBoxStyle& style, bool mediaReady, bool weatherReady);
-  [[nodiscard]] float infoExtraBudget(float contentWidth, bool showSelf, bool showOther);
+  float infoExtraBudget(float contentWidth, bool showSelf, bool showOther);
 
-  [[nodiscard]] bool isLoginBoxWidget(const DesktopWidgetState& state);
-  [[nodiscard]] bool isLoginBoxWidgetType(std::string_view type);
-  [[nodiscard]] bool isLoginBoxWidgetId(std::string_view id);
-  [[nodiscard]] std::string widgetIdForOutput(std::string_view outputKey);
+  bool isLoginBoxWidget(const DesktopWidgetState& state);
+  bool isLoginBoxWidgetType(std::string_view type);
+  bool isLoginBoxWidgetId(std::string_view id);
+  std::string widgetIdForOutput(std::string_view outputKey);
 
-  [[nodiscard]] LayoutMode resolveLayout(const std::unordered_map<std::string, WidgetSettingValue>& settings);
-  [[nodiscard]] LayoutMode resolveLayout(std::string_view layout);
+  LayoutMode resolveLayout(const std::unordered_map<std::string, WidgetSettingValue>& settings);
+  LayoutMode resolveLayout(std::string_view layout);
 
   constexpr float kCompactDefaultWidthCap = 400.0F;
   constexpr float kRegularDefaultWidthCap = 810.0F;
@@ -89,9 +92,9 @@ namespace lockscreen_login_box {
   constexpr float kRegularForecastGlyphSize = 18.0F;
 
   // Content floors shared by min-size clamping and the editor ghost.
-  [[nodiscard]] float regularInfoContentHeight();
-  [[nodiscard]] float regularStatusContentHeight();
-  [[nodiscard]] float regularSessionContentHeight();
+  float regularInfoContentHeight();
+  float regularStatusContentHeight();
+  float regularSessionContentHeight();
 
   // Proportional row heights for Regular: each floor scales by the same factor.
   struct RegularRowHeights {
@@ -102,8 +105,7 @@ namespace lockscreen_login_box {
     float scale = 1.0F;
   };
 
-  [[nodiscard]] RegularRowHeights
-  regularRowHeights(float panelHeight, bool showSessionButtons, bool showInfoExtras = true);
+  RegularRowHeights regularRowHeights(float panelHeight, bool showSessionButtons, bool showInfoExtras = true);
 
   struct PanelContentLayout {
     float contentLeft = 0.0F;
@@ -113,13 +115,13 @@ namespace lockscreen_login_box {
     float controlHeight = 0.0F;
   };
 
-  [[nodiscard]] float defaultPanelWidth(float screenWidth, LayoutMode layout);
-  [[nodiscard]] float defaultPanelHeight(LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true);
-  [[nodiscard]] float minPanelWidth(LayoutMode layout);
-  [[nodiscard]] float minPanelHeight(LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true);
-  [[nodiscard]] float maxPanelHeight(LayoutMode layout);
-  [[nodiscard]] float resolvePanelWidth(float screenWidth, float boxWidth, LayoutMode layout);
-  [[nodiscard]] float
+  float defaultPanelWidth(float screenWidth, LayoutMode layout);
+  float defaultPanelHeight(LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true);
+  float minPanelWidth(LayoutMode layout);
+  float minPanelHeight(LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true);
+  float maxPanelHeight(LayoutMode layout);
+  float resolvePanelWidth(float screenWidth, float boxWidth, LayoutMode layout);
+  float
   resolvePanelHeight(float boxHeight, LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true);
   void defaultPanelSize(
       float screenWidth, float& boxWidth, float& boxHeight, LayoutMode layout, bool showSessionButtons = true,
@@ -129,7 +131,7 @@ namespace lockscreen_login_box {
       float screenWidth, float& boxWidth, float& boxHeight, LayoutMode layout, bool showSessionButtons = true,
       bool showInfoExtras = true
   );
-  [[nodiscard]] PanelContentLayout panelContentLayout(float panelWidth, float panelHeight, bool showLoginButton);
+  PanelContentLayout panelContentLayout(float panelWidth, float panelHeight, bool showLoginButton);
   void defaultPanelCenter(
       float screenWidth, float screenHeight, float& cx, float& cy, LayoutMode layout, bool showSessionButtons = true,
       bool showInfoExtras = true
@@ -141,18 +143,19 @@ namespace lockscreen_login_box {
   );
 
   // Height flags from settings.
-  [[nodiscard]] bool styleShowsInfoExtras(const LoginBoxStyle& style) noexcept;
+  bool styleShowsInfoExtras(const LoginBoxStyle& style) noexcept;
 
-  [[nodiscard]] const DesktopWidgetState*
-  findForOutput(const std::vector<DesktopWidgetState>& widgets, std::string_view outputKey);
+  const DesktopWidgetState* findForOutput(
+      const std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs, std::string_view outputKey
+  );
 
-  [[nodiscard]] LoginBoxStyle resolveStyle(const std::unordered_map<std::string, WidgetSettingValue>& settings);
+  LoginBoxStyle resolveStyle(const std::unordered_map<std::string, WidgetSettingValue>& settings);
   void applyDefaultSettings(
       std::unordered_map<std::string, WidgetSettingValue>& settings, desktop_settings::DesktopWidgetSettingsScope scope
   );
   void applyAllDefaultSettings(std::unordered_map<std::string, WidgetSettingValue>& settings);
   void normalizeSettings(std::unordered_map<std::string, WidgetSettingValue>& settings);
 
-  void ensureWidgets(std::vector<DesktopWidgetState>& widgets, const WaylandConnection& wayland);
+  void ensureWidgets(std::vector<DesktopWidgetState>& widgets, std::span<const WaylandOutput> outputs);
 
 } // namespace lockscreen_login_box

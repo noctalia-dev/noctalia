@@ -7,7 +7,7 @@ class ScreenSaverPollSource final : public PollSource {
 public:
   explicit ScreenSaverPollSource(ScreenSaverService& service) : m_service(service) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override {
+  int pollTimeoutMs() const override {
     if (m_service.hasPendingEvents()) {
       return 0;
     }

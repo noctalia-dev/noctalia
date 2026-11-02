@@ -6,6 +6,7 @@
 
 #define sizeCclosure(n) (offsetof(Closure, c.upvals) + sizeof(TValue) * (n))
 #define sizeLclosure(n) (offsetof(Closure, l.uprefs) + sizeof(TValue) * (n))
+#define getproto(cl) ((cl)->isC ? nullptr : (FFlag::LuauPromoteProto && cl->l.p->optimized ? luaF_promoteproto(cl) : (cl)->l.p))
 
 LUAI_FUNC Proto* luaF_newproto(lua_State* L);
 LUAI_FUNC Closure* luaF_newLclosure(lua_State* L, int nelems, LuaTable* e, Proto* p);
@@ -20,3 +21,14 @@ LUAI_FUNC const LocVar* luaF_getlocal(const Proto* func, int local_number, int p
 LUAI_FUNC const LocVar* luaF_findlocal(const Proto* func, int local_reg, int pc);
 // A feedback slot is sealed when luaF_recordhit returns false.
 LUAI_FUNC bool luaF_recordhit(lua_State* L, Closure* func, Closure* target, uint32_t slotid);
+// Define it in header to force inlining
+LUAI_FUNC inline Proto* luaF_promoteproto(Closure* cl)
+{
+    LUAU_ASSERT(!cl->isC);
+    while (cl->l.p->optimized != nullptr)
+    {
+        cl->l.p = cl->l.p->optimized;
+        cl->stacksize = cl->l.p->maxstacksize;
+    }
+    return cl->l.p;
+}

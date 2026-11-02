@@ -16,11 +16,11 @@
 
 namespace FileUtils {
 
-  [[nodiscard]] constexpr std::filesystem::perms privateFileMode() {
+  constexpr std::filesystem::perms privateFileMode() {
     return std::filesystem::perms::owner_read | std::filesystem::perms::owner_write;
   }
 
-  [[nodiscard]] constexpr std::filesystem::perms privateDirectoryMode() {
+  constexpr std::filesystem::perms privateDirectoryMode() {
     return privateFileMode() | std::filesystem::perms::owner_exec;
   }
 
@@ -42,7 +42,7 @@ namespace FileUtils {
     return setPrivateDirectoryPermissions(path, ec);
   }
 
-  [[nodiscard]] inline std::filesystem::path expandUserPath(const std::string& path) {
+  inline std::filesystem::path expandUserPath(const std::string& path) {
     if (path.empty() || path[0] != '~') {
       return std::filesystem::path(path);
     }
@@ -64,7 +64,7 @@ namespace FileUtils {
   // lone '$' or '$' followed by a non-name character is left verbatim. This is a
   // deliberate, minimal substitution — never wordexp()/shell expansion, which
   // would run command substitution on config input.
-  [[nodiscard]] inline std::string expandEnvVars(std::string_view in) {
+  inline std::string expandEnvVars(std::string_view in) {
     std::string out;
     out.reserve(in.size());
     const auto isNameStart = [](char c) { return (std::isalpha(static_cast<unsigned char>(c)) != 0) || c == '_'; };
@@ -114,7 +114,7 @@ namespace FileUtils {
   // Resolves the user's standard Pictures directory. The environment override is
   // useful for shells that export xdg-user-dirs values; the config-file lookup
   // covers the normal xdg-user-dirs setup.
-  [[nodiscard]] inline std::filesystem::path defaultPicturesDirectory() {
+  inline std::filesystem::path defaultPicturesDirectory() {
     const auto containsUndefinedVariable = [](std::string_view raw) {
       const auto isNameStart = [](char c) { return (std::isalpha(static_cast<unsigned char>(c)) != 0) || c == '_'; };
       const auto isNameChar = [](char c) { return (std::isalnum(static_cast<unsigned char>(c)) != 0) || c == '_'; };
@@ -232,7 +232,7 @@ namespace FileUtils {
 
   // Expand XDG base-directory tokens ($XDG_CONFIG_HOME, etc.) to absolute paths
   // using the same spec-aware resolution as the template engine.
-  [[nodiscard]] inline std::string expandXdgBaseDir(const std::string& path) {
+  inline std::string expandXdgBaseDir(const std::string& path) {
     struct XdgBase {
       std::string_view token;
       std::string_view envVar;
@@ -267,8 +267,7 @@ namespace FileUtils {
   // Returns nullopt when no recognisable client-root pattern is found.
   // This mirrors the logic in template_engine's shouldSkipTemplateOutput so
   // tooltips can filter to only paths that will actually be written.
-  [[nodiscard]] inline std::optional<std::filesystem::path>
-  inferClientConfigRoot(const std::filesystem::path& outputPath) {
+  inline std::optional<std::filesystem::path> inferClientConfigRoot(const std::filesystem::path& outputPath) {
     std::vector<std::filesystem::path> parts;
     parts.reserve(16);
     for (const auto& part : outputPath) {
@@ -305,7 +304,7 @@ namespace FileUtils {
   // Returns true when the output path would actually be written by the template
   // engine (the client appears installed). Paths without a recognisable
   // client-root pattern are always treated as applicable.
-  [[nodiscard]] inline bool isOutputPathApplicable(const std::string& outputPath) {
+  inline bool isOutputPathApplicable(const std::string& outputPath) {
     const std::filesystem::path resolved = FileUtils::expandUserPath(expandXdgBaseDir(outputPath));
     if (auto root = inferClientConfigRoot(resolved)) {
       std::error_code ec;
@@ -317,7 +316,7 @@ namespace FileUtils {
   // Expand XDG base-directory tokens ($XDG_CONFIG_HOME, etc.) to their known
   // defaults under ~ for user-friendly display. Paths that already start with
   // $HOME are abbreviated to ~. Dynamic (script-resolved) paths are left as-is.
-  [[nodiscard]] inline std::string xdgPathForDisplay(std::string_view raw) {
+  inline std::string xdgPathForDisplay(std::string_view raw) {
     struct Mapping {
       std::string_view token;
       std::string_view homeDefault;
@@ -349,12 +348,11 @@ namespace FileUtils {
     return expanded;
   }
 
-  [[nodiscard]] inline bool
-  containsPath(const std::vector<std::filesystem::path>& paths, const std::filesystem::path& path) {
+  inline bool containsPath(const std::vector<std::filesystem::path>& paths, const std::filesystem::path& path) {
     return std::ranges::contains(paths, path);
   }
 
-  [[nodiscard]] inline std::optional<std::string> readSmallTextFile(const std::filesystem::path& path) {
+  inline std::optional<std::string> readSmallTextFile(const std::filesystem::path& path) {
     std::ifstream file{path};
     if (!file.is_open()) {
       return std::nullopt;
@@ -372,7 +370,7 @@ namespace FileUtils {
     return text;
   }
 
-  [[nodiscard]] inline std::string configDir() {
+  inline std::string configDir() {
     const char* noctalia = std::getenv("NOCTALIA_CONFIG_HOME");
     if (noctalia != nullptr && noctalia[0] != '\0') {
       return std::string(noctalia) + "/noctalia";
@@ -388,7 +386,7 @@ namespace FileUtils {
     return {};
   }
 
-  [[nodiscard]] inline std::string stateDir() {
+  inline std::string stateDir() {
     const char* noctalia = std::getenv("NOCTALIA_STATE_HOME");
     if (noctalia != nullptr && noctalia[0] != '\0') {
       return std::string(noctalia) + "/noctalia";
@@ -404,7 +402,7 @@ namespace FileUtils {
     return {};
   }
 
-  [[nodiscard]] inline std::string dataDir() {
+  inline std::string dataDir() {
     const char* noctalia = std::getenv("NOCTALIA_DATA_HOME");
     if (noctalia != nullptr && noctalia[0] != '\0') {
       return std::string(noctalia) + "/noctalia";
@@ -422,7 +420,7 @@ namespace FileUtils {
 
   // Git-source repo caches. Host-managed, re-fetchable, so they live under the
   // state dir — never config.
-  [[nodiscard]] inline std::string pluginSourcesDir() {
+  inline std::string pluginSourcesDir() {
     const std::string base = stateDir();
     if (base.empty()) {
       return {};
@@ -432,7 +430,7 @@ namespace FileUtils {
 
   // Exported runtime files for enabled git-source plugins. Re-derivable from
   // source repos; path sources and local dev plugins do not use this directory.
-  [[nodiscard]] inline std::string pluginMaterializedDir() {
+  inline std::string pluginMaterializedDir() {
     const std::string base = stateDir();
     if (base.empty()) {
       return {};
@@ -443,7 +441,7 @@ namespace FileUtils {
   // Persistent per-plugin data directory. Survives plugin updates (unlike the
   // materialized runtime dir) and honors the NOCTALIA_STATE_HOME override.
   // Caller is responsible for creating it. Empty if no state home resolves.
-  [[nodiscard]] inline std::string pluginDataDir(const std::string& pluginId) {
+  inline std::string pluginDataDir(const std::string& pluginId) {
     const std::string base = stateDir();
     if (base.empty() || pluginId.empty()) {
       return {};
@@ -451,7 +449,7 @@ namespace FileUtils {
     return base + "/plugins/data/" + pluginId;
   }
 
-  [[nodiscard]] inline std::vector<std::uint8_t> readBinaryFile(const std::string& path) {
+  inline std::vector<std::uint8_t> readBinaryFile(const std::string& path) {
     if (path.empty()) {
       return {};
     }
@@ -487,7 +485,7 @@ namespace FileUtils {
 
   // Expands ~ and resolves relative paths against baseDir when provided; otherwise uses the
   // process working directory for relative paths.
-  [[nodiscard]] inline std::filesystem::path
+  inline std::filesystem::path
   resolvePath(std::string_view path, std::optional<std::string_view> baseDir = std::nullopt) {
     if (path.empty() || path.starts_with("color:")) {
       return std::filesystem::path(path);
@@ -510,7 +508,7 @@ namespace FileUtils {
     return resolved.lexically_normal();
   }
 
-  [[nodiscard]] inline std::string normalizeWallpaperPath(std::string_view path) {
+  inline std::string normalizeWallpaperPath(std::string_view path) {
     if (path.empty() || path.starts_with("color:")) {
       return std::string(path);
     }

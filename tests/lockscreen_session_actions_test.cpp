@@ -8,11 +8,9 @@
 
 namespace {
 
-  [[nodiscard]] SessionPanelActionConfig action(std::string name) {
-    return SessionPanelActionConfig{.action = std::move(name)};
-  }
+  SessionPanelActionConfig action(std::string name) { return SessionPanelActionConfig{.action = std::move(name)}; }
 
-  [[nodiscard]] std::vector<std::string> names(const std::vector<SessionPanelActionConfig>& actions) {
+  std::vector<std::string> names(const std::vector<SessionPanelActionConfig>& actions) {
     std::vector<std::string> out;
     out.reserve(actions.size());
     for (const auto& row : actions) {
@@ -56,10 +54,18 @@ int main() {
   );
 
   auto customLockAndSuspend = action("lock_and_suspend");
-  customLockAndSuspend.command = "custom-sleep";
+  customLockAndSuspend.command = "systemctl sleep";
+  customLockAndSuspend.label = "Sleep then hibernate";
+  customLockAndSuspend.glyph = "bed";
+  customLockAndSuspend.variant = SessionActionButtonVariant::Primary;
   const std::vector withCustomCommand = {customLockAndSuspend, action("shutdown")};
+  TEST_CHECK(lockscreen::resolveSessionActions(withCustomCommand, defaults) == withCustomCommand);
+
+  customLockAndSuspend.enabled = false;
+  const std::vector withDisabledCustomCommand = {customLockAndSuspend, action("shutdown")};
   TEST_CHECK(
-      names(lockscreen::resolveSessionActions(withCustomCommand, defaults)) == std::vector<std::string>({"shutdown"})
+      names(lockscreen::resolveSessionActions(withDisabledCustomCommand, defaults))
+      == std::vector<std::string>({"shutdown"})
   );
 
   auto emptyCommand = action("command");

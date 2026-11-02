@@ -35,7 +35,7 @@ public:
       const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
   ) override;
   void setEditorPreview(bool enabled) noexcept override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
   void onFrameTick(float deltaMs, Renderer& renderer) override;
 
 private:
@@ -46,8 +46,8 @@ private:
   void pullSpectrumValues(Renderer& renderer);
   void syncSpectrum(Renderer& renderer);
   void syncStyle();
-  [[nodiscard]] bool shouldBeVisible() const;
-  [[nodiscard]] bool shouldAnimateTime() const;
+  bool shouldBeVisible() const;
+  bool shouldAnimateTime() const;
   bool applyVisibility();
   void cancelVisibilityAnimation();
   void setVisibilityCollapsed(bool collapsed);

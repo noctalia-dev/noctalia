@@ -25,7 +25,7 @@ namespace noctalia::config {
 
   // Converts a raw widget setting to a typed value.
   template <typename T>
-  [[nodiscard]] std::optional<T> widgetSettingValueAs(const WidgetSettingValue& value, std::string_view context = {}) {
+  std::optional<T> widgetSettingValueAs(const WidgetSettingValue& value, std::string_view context = {}) {
     if constexpr (std::is_same_v<T, bool>) {
       if (const auto* concrete = std::get_if<bool>(&value)) {
         return *concrete;
@@ -84,7 +84,7 @@ namespace noctalia::config {
   }
 
   // Converts a typed setting to the storage representation used by WidgetConfig.
-  template <typename T> [[nodiscard]] WidgetSettingValue widgetSettingValueFrom(const T& value) {
+  template <typename T> WidgetSettingValue widgetSettingValueFrom(const T& value) {
     if constexpr (std::is_same_v<T, bool>) {
       return value;
     } else if constexpr (std::is_integral_v<T>) {

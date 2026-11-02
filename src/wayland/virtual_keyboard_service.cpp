@@ -94,7 +94,7 @@ bool VirtualKeyboardService::sendPasteShortcut(VirtualPasteShortcut shortcut) {
 
   auto* display = wl_proxy_get_display(reinterpret_cast<wl_proxy*>(m_keyboard));
   if (display != nullptr) {
-    (void)wl_display_flush(display);
+    wl_display_flush(display);
   }
   return true;
 }

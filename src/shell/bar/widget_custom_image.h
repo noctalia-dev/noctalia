@@ -15,19 +15,19 @@ struct WidgetCustomImage {
   std::string path;
   bool colorize = false;
 
-  [[nodiscard]] bool enabled() const noexcept { return !path.empty(); }
+  bool enabled() const noexcept { return !path.empty(); }
 };
 
 namespace widget_custom_image {
 
   // Builds the runtime value from the `custom_image` / `custom_image_colorize` widget settings,
   // expanding a leading `~` in the configured path.
-  [[nodiscard]] WidgetCustomImage fromConfig(const std::string& path, bool colorize);
+  WidgetCustomImage fromConfig(const std::string& path, bool colorize);
 
-  [[nodiscard]] inline float logicalSize(float contentScale) noexcept { return Style::baseGlyphSize * contentScale; }
+  inline float logicalSize(float contentScale) noexcept { return Style::baseGlyphSize * contentScale; }
 
-  [[nodiscard]] inline int targetSize(float contentScale) noexcept {
-    return std::max(1, static_cast<int>(std::round(48.0F * contentScale)));
+  inline int targetSize(float contentScale) noexcept {
+    return std::max(1, static_cast<int>(std::round(logicalSize(contentScale))));
   }
 
   inline void syncTint(Image& image, const WidgetCustomImage& customImage, ColorSpec tint) {
@@ -39,7 +39,7 @@ namespace widget_custom_image {
     syncTint(image, customImage, tint);
     const float size = logicalSize(contentScale);
     image.setSize(size, size);
-    image.setSourceFile(renderer, customImage.path, targetSize(contentScale), true);
+    image.setSourceFile(renderer, customImage.path, targetSize(contentScale), false);
   }
 
 } // namespace widget_custom_image

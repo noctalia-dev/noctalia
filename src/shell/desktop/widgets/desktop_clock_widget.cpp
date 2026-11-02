@@ -18,10 +18,6 @@
 
 namespace {
 
-  bool formatShowsSeconds(const std::string& format) {
-    return format.contains("%S") || format.contains("%T") || format.contains("%X");
-  }
-
   float clockFontSize(float contentScale) { return Style::fontSizeBody * 4.0F * contentScale; }
 
   float analogClockSize(float contentScale) { return Style::fontSizeBody * 5.25F * contentScale; }
@@ -39,7 +35,7 @@ namespace {
     float hourWidth = 0.0F;
   };
 
-  [[nodiscard]] AnalogDialMetrics analogDialMetrics(float size, float scale) {
+  AnalogDialMetrics analogDialMetrics(float size, float scale) {
     const float center = size * 0.5F;
     const float borderWidth = std::max(1.5F, 2.0F * scale);
     const float hourLength = std::max(4.0F, 5.5F * scale);
@@ -67,7 +63,7 @@ namespace {
   constexpr float kMinuteHandReach = 0.90F;
   constexpr float kSecondHandReach = 0.84F;
 
-  [[nodiscard]] float degreesToRadians(float degrees) { return degrees * (std::numbers::pi_v<float> / 180.0F); }
+  float degreesToRadians(float degrees) { return degrees * (std::numbers::pi_v<float> / 180.0F); }
 
   struct LocalTimeParts {
     int hour = 0;
@@ -75,13 +71,13 @@ namespace {
     int second = 0;
   };
 
-  [[nodiscard]] LocalTimeParts currentLocalTimeParts(const std::string& tzName) {
+  LocalTimeParts currentLocalTimeParts(const std::string& tzName) {
     using namespace std::chrono;
     const auto now = floor<seconds>(system_clock::now());
     if (tzName.empty()) {
       const std::time_t timestamp = system_clock::to_time_t(now);
       std::tm localTime{};
-#if defined(_WIN32)
+#ifdef _WIN32
       localtime_s(&localTime, &timestamp);
 #else
       localtime_r(&timestamp, &localTime);
@@ -113,7 +109,7 @@ namespace {
     };
   }
 
-  [[nodiscard]] Color resolvedColor(const ColorSpec& spec) { return resolveColorSpec(spec); }
+  Color resolvedColor(const ColorSpec& spec) { return resolveColorSpec(spec); }
 
   RectNode* addHand(Node& pivot, float width, float length, const Color& color) {
     auto hand = std::make_unique<RectNode>();
@@ -132,7 +128,7 @@ namespace {
     pivot->setSize(0.0F, 0.0F);
     pivot->setParticipatesInLayout(false);
     auto* pivotPtr = static_cast<Node*>(parent.addChild(std::move(pivot)));
-    (void)addHand(*pivotPtr, width, length, color);
+    addHand(*pivotPtr, width, length, color);
     return pivotPtr;
   }
 
@@ -221,6 +217,7 @@ void DesktopClockWidget::create() {
       .out = &m_label,
       .fontSize = clockFontSize(contentScale()),
       .fontWeight = FontWeight::Bold,
+      .fontFeatures = "tnum",
       .color = m_color,
   });
   m_digitalRoot->addChild(std::move(label));
@@ -595,8 +592,7 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
     float widest = -1.0F;
     for (char digit = '0'; digit <= '9'; ++digit) {
       const std::string glyph(1, digit);
-      const float advance =
-          renderer.measureText(glyph, fontSize, FontWeight::Bold, 0.0F, 0, TextAlign::Start, m_fontFamily).width;
+      const float advance = renderer.measureText(glyph, fontSize, {FontWeight::Bold, m_fontFamily, "tnum"}).width;
       if (advance > widest) {
         widest = advance;
         m_widestDigit = digit;
@@ -618,8 +614,7 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
   }
   m_stableSample = sample;
 
-  const float width =
-      renderer.measureText(sample, fontSize, FontWeight::Bold, 0.0F, 0, TextAlign::Start, m_fontFamily).width;
+  const float width = renderer.measureText(sample, fontSize, {FontWeight::Bold, m_fontFamily, "tnum"}).width;
   if (std::abs(width - m_stableWidth) > 0.5F) {
     m_stableWidth = width;
     m_label->setMinWidth(m_stableWidth);

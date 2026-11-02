@@ -93,6 +93,9 @@ namespace noctalia::bar {
         const std::vector<WidgetSettingChoice<T>>& choices,
         const std::optional<settings::WidgetSettingPresentation>& presentation
     ) {
+      if constexpr (std::is_same_v<T, std::vector<std::string>>) {
+        return settings::WidgetControlKind::StringList;
+      }
       if (!choices.empty()
           || std::is_enum_v<T>
           || (presentation.has_value()
@@ -106,8 +109,6 @@ namespace noctalia::bar {
         return settings::WidgetControlKind::Int;
       } else if constexpr (std::is_floating_point_v<T>) {
         return settings::WidgetControlKind::Double;
-      } else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
-        return settings::WidgetControlKind::StringList;
       } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
         return settings::WidgetControlKind::StringMap;
       } else if constexpr (std::is_same_v<T, ColorSpec>) {
@@ -398,8 +399,8 @@ namespace noctalia::bar {
   template <auto Member>
   auto field(WidgetFieldSpec<typename detail::MemberPointerTraits<decltype(Member)>::ValueType> spec) {
     using Traits = detail::MemberPointerTraits<decltype(Member)>;
-    using Options = typename Traits::OptionsType;
-    using T = typename Traits::ValueType;
+    using Options = Traits::OptionsType;
+    using T = Traits::ValueType;
 
     if (spec.key.empty()) {
       throw std::logic_error("widget field key cannot be empty");
@@ -459,8 +460,9 @@ namespace noctalia::bar {
     WidgetDefinitionField<Options> definitionField{
         .schema = std::move(schema),
         .presentation = std::move(spec.presentation),
-        .resolve = [key, defaultValue, choices = std::move(spec.choices),
-                    effectiveRange](Options& options, const WidgetConfig* config, std::string_view context) {
+        .resolve = [=, choices = std::move(spec.choices)](
+                       Options& options, const WidgetConfig* config, std::string_view context
+                   ) {
           T value = defaultValue;
           if (config != nullptr) {
             if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
@@ -511,14 +513,13 @@ namespace noctalia::bar {
     std::function<std::optional<std::string>(const Options&)> validateOptions;
     std::vector<WidgetCommonSettingOverride> commonOverrides;
 
-    [[nodiscard]] Options resolve(const WidgetConfig* config, std::string_view settingContext) const
+    Options resolve(const WidgetConfig* config, std::string_view settingContext) const
       requires std::is_same_v<Context, std::monostate>
     {
       return resolve(config, settingContext, std::monostate{});
     }
 
-    [[nodiscard]] Options
-    resolve(const WidgetConfig* config, std::string_view settingContext, const Context& context) const {
+    Options resolve(const WidgetConfig* config, std::string_view settingContext, const Context& context) const {
       validate();
       // WidgetConfig comes from ConfigService's schema-validated configuration.
       // Resolution still falls back to the semantic Options default if a value
@@ -533,14 +534,14 @@ namespace noctalia::bar {
       return options;
     }
 
-    [[nodiscard]] bool fieldValuesEqual(const Options& left, const Options& right) const {
+    bool fieldValuesEqual(const Options& left, const Options& right) const {
       validate();
       return std::ranges::all_of(fields, [&](const WidgetDefinitionField<Options>& field) {
         return field.valuesEqual(left, right);
       });
     }
 
-    [[nodiscard]] config::schema::WidgetSettingSchema schemaFields() const {
+    config::schema::WidgetSettingSchema schemaFields() const {
       validate();
       config::schema::WidgetSettingSchema schema;
       schema.reserve(fields.size());
@@ -551,7 +552,7 @@ namespace noctalia::bar {
       return schema;
     }
 
-    [[nodiscard]] std::vector<settings::WidgetSettingSpec> presentedSettingSpecs() const {
+    std::vector<settings::WidgetSettingSpec> presentedSettingSpecs() const {
       validate();
       return fields
           | std::views::filter([](const WidgetDefinitionField<Options>& definitionField) {

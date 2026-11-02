@@ -33,6 +33,7 @@ namespace settings {
   struct TemplateStoreCallbacks {
     // Called with catalog-ordered enabled ids whenever the selection changes.
     std::function<void(std::vector<std::string> ids)> setSelected;
+    std::function<void(const std::string&)> openBrowserUrl;
     float scale = 1.0F;
   };
 
@@ -51,11 +52,11 @@ namespace settings {
     // Arrow/page/validate navigation for the catalog grid.
     // Returns true when the event was consumed. Pass the sheet's focused InputArea so
     // chrome controls (search, category chips) keep their own Enter/arrow handling.
-    [[nodiscard]] bool
-    handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, InputArea* focused);
+    bool handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, InputArea* focused);
 
     void toggleAtFilteredIndex(std::size_t filteredIndex);
     void setEnabledAtFilteredIndex(std::size_t filteredIndex, bool enabled);
+    [[nodiscard]] bool openDocumentationAtFilteredIndex(std::size_t filteredIndex);
 
   private:
     void collectCategories();
@@ -64,13 +65,13 @@ namespace settings {
     void cycleSortMode();
     void setSortMode(TemplateSortMode mode);
     void syncSortButtonGlyph();
-    [[nodiscard]] static TemplateSortMode sortModeFromState(std::string_view value);
-    [[nodiscard]] static std::string_view sortModeStateValue(TemplateSortMode mode);
-    [[nodiscard]] static std::string_view sortModeGlyph(TemplateSortMode mode);
-    [[nodiscard]] static const char* sortModeTooltipKey(TemplateSortMode mode);
+    static TemplateSortMode sortModeFromState(std::string_view value);
+    static std::string_view sortModeStateValue(TemplateSortMode mode);
+    static std::string_view sortModeGlyph(TemplateSortMode mode);
+    static const char* sortModeTooltipKey(TemplateSortMode mode);
     void commitSelection();
     void selectIndex(std::size_t index);
-    [[nodiscard]] std::optional<std::size_t> indexOfTemplateId(std::string_view id) const;
+    std::optional<std::size_t> indexOfTemplateId(std::string_view id) const;
     void syncGridSelection();
     void moveSelection(int delta);
     [[nodiscard]] bool activateSelection();

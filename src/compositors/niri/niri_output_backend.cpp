@@ -12,7 +12,7 @@
 
 namespace {
 
-  [[nodiscard]] std::optional<std::string> trimOutputName(const nlohmann::json& value) {
+  std::optional<std::string> trimOutputName(const nlohmann::json& value) {
     if (value.is_string()) {
       const auto trimmed = StringUtils::trim(value.get<std::string>());
       return trimmed.empty() ? std::nullopt : std::optional<std::string>{trimmed};
@@ -25,7 +25,7 @@ namespace {
     return std::nullopt;
   }
 
-  [[nodiscard]] std::optional<std::uint64_t> parseWorkspaceId(const nlohmann::json& value) {
+  std::optional<std::uint64_t> parseWorkspaceId(const nlohmann::json& value) {
     if (value.is_number_unsigned()) {
       return value.get<std::uint64_t>();
     }

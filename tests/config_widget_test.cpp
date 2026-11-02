@@ -171,7 +171,7 @@ int main() {
   BarCapsuleGroupStyle group;
   group.id = "g1";
   group.borderSpecified = true;
-  group.border = colorSpecFromRole(ColorRole::Outline);
+  group.border = colorSpecFromRole(ColorRole::OutlineVariant);
   group.borderWidth = 2.5F;
   const WidgetBarCapsuleSpec groupSpec = capsuleSpecFromGroup(bar, group);
   ok = expect(groupSpec.borderWidth == 2.5F, "capsule group border width reaches the resolved spec") && ok;

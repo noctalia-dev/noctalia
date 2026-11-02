@@ -15,7 +15,7 @@ namespace {
 
   constexpr float kLoginGlyphSize = 16.0F;
 
-  [[nodiscard]] bool isStyleSetting(std::string_view key) {
+  bool isStyleSetting(std::string_view key) {
     return key == "background_color"
         || key == "background_opacity"
         || key == "background_radius"
@@ -27,6 +27,7 @@ namespace {
         || key == lockscreen_login_box::kShowLoginButtonKey
         || key == lockscreen_login_box::kShowCapsLockKey
         || key == lockscreen_login_box::kShowUnlockHintKey
+        || key == lockscreen_login_box::kShowPasswordRevealKey
         || key == lockscreen_login_box::kInputOpacityKey
         || key == lockscreen_login_box::kInputRadiusKey;
   }
@@ -128,7 +129,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
     m_panel->setStyle(
         RoundedRectStyle{
             .fill = resolveColorSpec(style.panelFill),
-            .border = colorForRole(ColorRole::Outline, style.panelOpacity),
+            .border = colorForRole(ColorRole::OutlineVariant, style.panelOpacity),
             .fillMode = FillMode::Solid,
             .radius = Style::scaledRadius(style.panelRadius),
             .softness = 1.0F,
@@ -241,7 +242,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
       m_statusGhost->setStyle(
           RoundedRectStyle{
               .fill = resolveColorSpec(style.panelFill),
-              .border = colorForRole(ColorRole::Outline, style.panelOpacity),
+              .border = colorForRole(ColorRole::OutlineVariant, style.panelOpacity),
               .fillMode = FillMode::Solid,
               .radius = Style::scaledRadius(style.panelRadius),
               .softness = 1.0F,
@@ -281,7 +282,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
     m_passwordGhost->setStyle(
         RoundedRectStyle{
             .fill = colorForRole(ColorRole::Surface, style.inputOpacity),
-            .border = colorForRole(ColorRole::Outline),
+            .border = colorForRole(ColorRole::OutlineVariant),
             .fillMode = FillMode::Solid,
             .radius = Style::scaledRadius(style.inputRadius),
             .borderWidth = Style::borderWidth,

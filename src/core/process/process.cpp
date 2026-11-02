@@ -18,14 +18,15 @@
 #include <limits>
 #include <mutex>
 #include <optional>
+#include <poll.h>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <sys/poll.h>
 #include <sys/wait.h>
 #include <system_error>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 namespace {
 
@@ -35,16 +36,14 @@ namespace {
   constexpr std::chrono::milliseconds kProcessCommandLineCacheTtl{250};
 
   void writePipeOrIgnore(int fd, const void* data, size_t len) {
-    auto p = reinterpret_cast<const char*>(data);
+    const auto* p = reinterpret_cast<const char*>(data);
     size_t remaining = len;
     while (remaining > 0) {
       const ssize_t n = ::write(fd, p, remaining);
       if (n > 0) {
         p += static_cast<size_t>(n);
         remaining -= static_cast<size_t>(n);
-      } else if (n == 0) {
-        return;
-      } else if (errno != EINTR) {
+      } else if (n == 0 || errno != EINTR) {
         return;
       }
     }
@@ -80,7 +79,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::optional<std::vector<std::string>> makeCommand(std::initializer_list<const char*> args) {
+  std::optional<std::vector<std::string>> makeCommand(std::initializer_list<const char*> args) {
     std::vector<std::string> command;
     command.reserve(args.size());
     for (const char* arg : args) {
@@ -92,7 +91,7 @@ namespace {
     return command;
   }
 
-  [[nodiscard]] std::vector<char*> makeArgv(const std::vector<std::string>& args) {
+  std::vector<char*> makeArgv(const std::vector<std::string>& args) {
     std::vector<char*> argv;
     argv.reserve(args.size() + 1);
     for (const auto& arg : args) {
@@ -102,7 +101,7 @@ namespace {
     return argv;
   }
 
-  [[nodiscard]] bool validEnvName(std::string_view name) { return !name.empty() && !name.contains('='); }
+  bool validEnvName(std::string_view name) { return !name.empty() && !name.contains('='); }
 
   void applyEnvOverrides(const std::vector<process::EnvOverride>& env) {
     for (const auto& item : env) {
@@ -117,7 +116,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] bool isSafeFlatpakAppId(std::string_view appId) {
+  bool isSafeFlatpakAppId(std::string_view appId) {
     if (appId.empty() || appId.contains('/') || appId.contains('\\')) {
       return false;
     }
@@ -146,14 +145,14 @@ namespace {
     roots.emplace_back("/var/lib");
   }
 
-  [[nodiscard]] bool isProcPidName(std::string_view name) {
+  bool isProcPidName(std::string_view name) {
     if (name.empty()) {
       return false;
     }
     return std::ranges::all_of(name, [](char ch) { return ch >= '0' && ch <= '9'; });
   }
 
-  [[nodiscard]] std::string readProcCmdline(const std::filesystem::path& path) {
+  std::string readProcCmdline(const std::filesystem::path& path) {
     std::ifstream file(path / "cmdline", std::ios::binary);
     if (!file) {
       return {};
@@ -179,7 +178,7 @@ namespace {
     return ' ' + cmdline + ' ';
   }
 
-  [[nodiscard]] std::vector<std::string> readProcessCommandLines() {
+  std::vector<std::string> readProcessCommandLines() {
     std::vector<std::string> commandLines;
     std::error_code ec;
     for (const auto& entry :
@@ -218,7 +217,7 @@ namespace {
     return mutex;
   }
 
-  [[nodiscard]] std::vector<std::string> cachedProcessCommandLines() {
+  std::vector<std::string> cachedProcessCommandLines() {
     std::scoped_lock lock(processCommandLineCacheMutex());
     auto& cache = processCommandLineCache();
     const auto now = std::chrono::steady_clock::now();
@@ -229,7 +228,7 @@ namespace {
     return cache.commandLines;
   }
 
-  [[nodiscard]] bool cachedProcessMatchesAny(std::initializer_list<std::string_view> needles) {
+  bool cachedProcessMatchesAny(std::initializer_list<std::string_view> needles) {
     const auto& commandLines = cachedProcessCommandLines();
     return std::ranges::any_of(commandLines, [needles](const auto& commandLine) {
       return std::ranges::any_of(needles, [&commandLine](std::string_view needle) {
@@ -294,7 +293,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] int exitCodeFromStatus(int status) {
+  int exitCodeFromStatus(int status) {
     if (WIFEXITED(status)) {
       return WEXITSTATUS(status);
     }
@@ -323,7 +322,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] int waitBlocking(pid_t pid) {
+  int waitBlocking(pid_t pid) {
     int status = 0;
     while (::waitpid(pid, &status, 0) < 0) {
       if (errno != EINTR) {
@@ -355,7 +354,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] int pollTimeoutMs(std::optional<std::chrono::steady_clock::time_point> deadline) {
+  int pollTimeoutMs(std::optional<std::chrono::steady_clock::time_point> deadline) {
     if (!deadline.has_value()) {
       return static_cast<int>(kProcessPollInterval.count());
     }
@@ -420,8 +419,8 @@ namespace {
 
     closeFd(outPipe[1]);
     closeFd(errPipe[1]);
-    (void)setNonBlocking(outPipe[0]);
-    (void)setNonBlocking(errPipe[0]);
+    setNonBlocking(outPipe[0]);
+    setNonBlocking(errPipe[0]);
 
     std::string out;
     std::string err;
@@ -506,7 +505,7 @@ namespace {
     return {exitCode, std::move(out), std::move(err), timedOut, outTruncated, errTruncated};
   }
 
-  [[nodiscard]] bool hasAnyCallback(const process::RunCallbacks& callbacks) {
+  bool hasAnyCallback(const process::RunCallbacks& callbacks) {
     return callbacks.stdOut || callbacks.stdErr || callbacks.onExit;
   }
 
@@ -562,7 +561,7 @@ namespace {
       int status = 0;
       while (::waitpid(intermediate, &status, 0) < 0 && errno == EINTR) {
       }
-      if (!(WIFEXITED(status) && WEXITSTATUS(status) == 0)) {
+      if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
         closeFd(execStatusPipe[0]);
         return false;
       }
@@ -713,7 +712,7 @@ namespace {
     char** s = ::environ;
     for (; *s; s++) {
       char c = **s;
-      if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
+      if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') {
         continue;
       }
       std::string name{*s, std::string_view(*s).find('=')};
@@ -805,7 +804,7 @@ namespace process {
     }
 
     try {
-      std::thread([args, callbacks = std::move(callbacks), options]() mutable {
+      std::thread([args, callbacks = std::move(callbacks), options] mutable {
         if (!callbacks.onExit) {
           options.maxOutputBytes = 0;
         }
@@ -831,7 +830,7 @@ namespace process {
 
   bool runAsync(std::initializer_list<const char*> args, RunCallbacks callbacks, RunOptions options) {
     const auto command = makeCommand(args);
-    return command.has_value() && runAsync(*command, std::move(callbacks), options);
+    return command.has_value() && runAsync(*command, std::move(callbacks), std::move(options));
   }
 
   bool runAsync(const std::string& command) {
@@ -845,7 +844,7 @@ namespace process {
     if (command.empty()) {
       return false;
     }
-    return runAsync(std::vector<std::string>{"/bin/sh", "-lc", command}, std::move(callbacks), options);
+    return runAsync(std::vector<std::string>{"/bin/sh", "-lc", command}, std::move(callbacks), std::move(options));
   }
 
   std::optional<int> launchDetachedTracked(const std::vector<std::string>& args) {
@@ -882,7 +881,9 @@ namespace process {
 
   RunResult runSync(const std::vector<std::string>& args) { return runSyncProcess(args, {}); }
 
-  RunResult runSync(const std::vector<std::string>& args, RunOptions options) { return runSyncProcess(args, options); }
+  RunResult runSync(const std::vector<std::string>& args, const RunOptions& options) {
+    return runSyncProcess(args, options);
+  }
 
   RunResult runSync(std::initializer_list<const char*> args) {
     const auto command = makeCommand(args);
@@ -957,26 +958,23 @@ namespace process {
 
   RunResult runSync(const std::string& command) { return runSync(command, RunOptions{}); }
 
-  RunResult runSync(const std::string& command, RunOptions options) {
+  RunResult runSync(const std::string& command, const RunOptions& options) {
     if (command.empty())
       return {-1, {}, {}};
     return runSyncProcess(std::vector<std::string>{"/bin/sh", "-lc", command}, options);
   }
 
   bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants) {
-    for (const auto& variant : commandVariants) {
+    return std::ranges::any_of(commandVariants, [&](const auto& variant) {
       const auto command = makeCommand(variant);
       if (!command.has_value() || command->empty()) {
-        continue;
+        return false;
       }
       if (!commandExists(command->front().c_str())) {
-        continue;
+        return false;
       }
-      if (runAsync(*command)) {
-        return true;
-      }
-    }
-    return false;
+      return runAsync(*command);
+    });
   }
 
   bool cgroupIndicatesSystemdUserManager(std::string_view cgroupFileContents, unsigned int uid) {

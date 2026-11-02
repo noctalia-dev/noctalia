@@ -107,7 +107,7 @@ namespace {
     FlexScratchGuard(const FlexScratchGuard&) = delete;
     FlexScratchGuard& operator=(const FlexScratchGuard&) = delete;
 
-    [[nodiscard]] std::vector<Flex::ChildLayout>& items() noexcept { return *m_slot; }
+    std::vector<Flex::ChildLayout>& items() noexcept { return *m_slot; }
 
   private:
     std::vector<Flex::ChildLayout>* m_slot;
@@ -272,9 +272,9 @@ void Flex::setSoftness(float softness) {
 }
 
 void Flex::setCardStyle(float scale, float fillOpacity, bool showBorder) {
-  setFill(colorSpecFromRole(ColorRole::SurfaceVariant, fillOpacity));
+  setFill(colorSpecFromRole(ColorRole::SurfaceContainer, fillOpacity));
   if (showBorder) {
-    setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
   } else {
     clearBorder();
   }
@@ -468,7 +468,7 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
   auto& items = scratch.items();
   items.reserve(children().size());
   float totalGrow = 0.0F;
-  for (auto& child : children()) {
+  for (const auto& child : children()) {
     if (!child->visible() || !child->participatesInLayout() || child.get() == m_background) {
       continue;
     }

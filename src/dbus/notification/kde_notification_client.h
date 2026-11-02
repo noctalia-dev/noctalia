@@ -15,7 +15,7 @@ public:
   ~KdeNotificationClient() override;
 
   void processExpired() override;
-  [[nodiscard]] bool isHealthy() const override;
+  bool isHealthy() const override;
 
 private:
   void onWatcherNotify(

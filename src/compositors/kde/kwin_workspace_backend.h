@@ -19,14 +19,14 @@ public:
   void bindKdeVirtualDesktop(org_kde_plasma_virtual_desktop_management* management) override;
   void setOutputNameResolver(OutputNameResolver resolver) override;
 
-  [[nodiscard]] const char* backendName() const override { return "kwin-plasma-vd"; }
-  [[nodiscard]] bool isAvailable() const noexcept override { return m_management != nullptr; }
+  const char* backendName() const override { return "kwin-plasma-vd"; }
+  bool isAvailable() const noexcept override { return m_management != nullptr; }
   void setChangeCallback(ChangeCallback callback) override;
   void activate(const std::string& id) override;
   void activateForOutput(wl_output* output, const std::string& id) override;
   void activateForOutput(wl_output* output, const Workspace& workspace) override;
-  [[nodiscard]] std::vector<Workspace> all() const override;
-  [[nodiscard]] std::vector<Workspace> forOutput(wl_output* output) const override;
+  std::vector<Workspace> all() const override;
+  std::vector<Workspace> forOutput(wl_output* output) const override;
   void cleanup() override;
 
   void onDesktopCreated(const char* desktopId, std::uint32_t position);
@@ -54,12 +54,12 @@ private:
 
   void requestDesktopHandle(const std::string& desktopId, std::uint32_t position);
   void removeDesktopById(const std::string& desktopId);
-  [[nodiscard]] DesktopState* findDesktop(org_kde_plasma_virtual_desktop* desktop);
-  [[nodiscard]] const DesktopState* findDesktop(org_kde_plasma_virtual_desktop* desktop) const;
-  [[nodiscard]] DesktopState* findDesktopById(const std::string& id);
-  [[nodiscard]] const DesktopState* findDesktopById(const std::string& id) const;
-  [[nodiscard]] Workspace toWorkspace(const DesktopState& desktop, const std::string& outputName) const;
-  [[nodiscard]] std::uint32_t gridColumns() const;
+  DesktopState* findDesktop(org_kde_plasma_virtual_desktop* desktop);
+  const DesktopState* findDesktop(org_kde_plasma_virtual_desktop* desktop) const;
+  DesktopState* findDesktopById(const std::string& id);
+  const DesktopState* findDesktopById(const std::string& id) const;
+  Workspace toWorkspace(const DesktopState& desktop, const std::string& outputName) const;
+  std::uint32_t gridColumns() const;
   void notifyChanged() const;
 
   org_kde_plasma_virtual_desktop_management* m_management = nullptr;

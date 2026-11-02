@@ -39,11 +39,11 @@ namespace security {
     AuthenticationFailed,
   };
 
-  struct EncryptedReadResult {
+  struct [[nodiscard]] EncryptedReadResult {
     EncryptedReadStatus status = EncryptedReadStatus::IoError;
     std::vector<std::uint8_t> plaintext;
 
-    [[nodiscard]] bool succeeded() const { return status == EncryptedReadStatus::Success; }
+    bool succeeded() const { return status == EncryptedReadStatus::Success; }
   };
 
   [[nodiscard]] bool writeEncryptedFile(
@@ -51,7 +51,7 @@ namespace security {
       const EncryptionContext& context
   );
 
-  [[nodiscard]] EncryptedReadResult readEncryptedFile(
+  EncryptedReadResult readEncryptedFile(
       const std::filesystem::path& path, const SecureKey& key, const EncryptionContext& context,
       std::size_t maxPlaintextBytes
   );

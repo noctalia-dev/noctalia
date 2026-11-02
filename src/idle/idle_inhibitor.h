@@ -28,11 +28,11 @@ public:
   void setAnchorSurfacesProvider(AnchorSurfacesProvider provider);
   void toggle();
   void setEnabled(bool enabled);
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] bool available() const noexcept;
+  bool enabled() const noexcept { return m_enabled; }
+  bool available() const noexcept;
   void setChangeCallback(ChangeCallback callback);
 
-  void registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback = {});
+  void registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback = {});
   /// Re-resolve Wayland inhibitor anchors when output topology changes.
   void onOutputChange();
   /// Re-sync inhibitors (Wayland fallback anchors only when logind is unavailable).

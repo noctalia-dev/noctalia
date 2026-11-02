@@ -27,21 +27,20 @@ struct FileEntry {
 
 class DirectoryScanner {
 public:
-  [[nodiscard]] std::vector<FileEntry> scan(
+  std::vector<FileEntry> scan(
       const std::filesystem::path& dir, const std::vector<std::string>& extensions, bool showHiddenFiles,
       FileDialogSortField sortField, FileDialogSortOrder sortOrder
   ) const;
 
-  [[nodiscard]] static bool isImagePath(const std::filesystem::path& path);
+  static bool isImagePath(const std::filesystem::path& path);
 
   // Extension filter for FileDialogOptions::extensions and
   // TextSetting::browseFileExtensions. `includeSvg` adds ".svg" for pickers
   // that also accept vector art.
-  [[nodiscard]] static std::vector<std::string> imageExtensionFilter(bool includeSvg);
+  static std::vector<std::string> imageExtensionFilter(bool includeSvg);
 
 private:
-  [[nodiscard]] static bool
-  matchesExtension(const std::filesystem::path& path, const std::vector<std::string>& extensions);
-  [[nodiscard]] static bool isHiddenName(std::string_view name);
-  [[nodiscard]] static std::string normalizeExtension(std::string_view extension);
+  static bool matchesExtension(const std::filesystem::path& path, const std::vector<std::string>& extensions);
+  static bool isHiddenName(std::string_view name);
+  static std::string normalizeExtension(std::string_view extension);
 };

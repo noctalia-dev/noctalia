@@ -34,7 +34,7 @@ namespace {
     std::string_view original;
     bool capped = false;
 
-    [[nodiscard]] std::string_view text() const noexcept { return capped ? std::string_view(storage) : original; }
+    std::string_view text() const noexcept { return capped ? std::string_view(storage) : original; }
   };
 
   const char* levelTagAnsi(LogLevel level) {
@@ -307,7 +307,7 @@ void initLogFile() {
   }
 
   if (gLogFile != nullptr && !gRegisteredExitFlush) {
-    (void)std::atexit(flushLogFileAtExit);
+    std::atexit(flushLogFileAtExit);
     gRegisteredExitFlush = true;
   }
 }
@@ -326,7 +326,7 @@ namespace detail {
     if (level >= gMinLevel) {
       const std::string prefix = consolePrefix(tm, ts, level, section);
       const CappedLogMessage capped = capMessageForLine(msg, prefix.size());
-      (void)writeLine(stderr, prefix, capped.text());
+      writeLine(stderr, prefix, capped.text());
     }
 
     // File: always unfiltered, no ANSI, full date for context

@@ -27,7 +27,7 @@ public:
   void bindExtWorkspace(ext_workspace_manager_v1* manager);
   void bindKdeVirtualDesktop(org_kde_plasma_virtual_desktop_management* management);
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager);
-  void setOutputNameResolver(std::function<std::string(wl_output*)> resolver);
+  void setOutputNameResolver(const std::function<std::string(wl_output*)>& resolver);
   void initialize();
   void onOutputAdded(wl_output* output);
   void onOutputRemoved(wl_output* output);
@@ -36,28 +36,31 @@ public:
   void activateForOutput(wl_output* output, const std::string& id);
   void activateForOutput(wl_output* output, const Workspace& workspace);
   void cleanup();
-  [[nodiscard]] int pollFd() const noexcept;
-  [[nodiscard]] short pollEvents() const noexcept;
-  [[nodiscard]] int pollTimeoutMs() const noexcept;
+  int pollFd() const noexcept;
+  short pollEvents() const noexcept;
+  int pollTimeoutMs() const noexcept;
   void dispatchPoll(short revents);
-  [[nodiscard]] const char* backendName() const noexcept;
-  [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>> appIdsByWorkspace(wl_output* output) const;
-  [[nodiscard]] TaskbarAssignmentMode taskbarAssignmentMode() const noexcept;
-  [[nodiscard]] std::unordered_map<std::uintptr_t, WorkspaceWindow>
+  const char* backendName() const noexcept;
+  std::unordered_map<std::string, std::vector<std::string>> appIdsByWorkspace(wl_output* output) const;
+  TaskbarAssignmentMode taskbarAssignmentMode() const noexcept;
+  std::unordered_map<std::uintptr_t, WorkspaceWindow>
   assignTaskbarWindows(const std::vector<TaskbarWindowCandidate>& windows, wl_output* output) const;
-  [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const;
-  [[nodiscard]] std::vector<std::string> openOverlayWorkspaceKeys(wl_output* output) const;
+  std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const;
+  std::vector<std::string> openOverlayWorkspaceKeys(wl_output* output) const;
   void focusWindow(const std::string& windowId) const;
 
-  [[nodiscard]] std::vector<Workspace> all() const;
-  [[nodiscard]] std::vector<Workspace> forOutput(wl_output* output) const;
+  std::vector<Workspace> all() const;
+  std::vector<Workspace> forOutput(wl_output* output) const;
 
-  [[nodiscard]] wl_output* mangoIpcSelectedOutput() const;
-  [[nodiscard]] std::optional<std::pair<std::string, std::string>>
-  mangoIpcFocusedClientOnOutput(wl_output* output) const;
-  [[nodiscard]] wl_output* dwlIpcSelectedOutput() const;
-  [[nodiscard]] std::optional<std::pair<std::string, std::string>> dwlIpcFocusedClientOnOutput(wl_output* output) const;
-  [[nodiscard]] std::optional<std::string> focusedWindowId() const;
+  wl_output* mangoIpcSelectedOutput() const;
+  std::optional<std::pair<std::string, std::string>> mangoIpcFocusedClientOnOutput(wl_output* output) const;
+  wl_output* dwlIpcSelectedOutput() const;
+  std::optional<std::pair<std::string, std::string>> dwlIpcFocusedClientOnOutput(wl_output* output) const;
+  std::optional<std::string> focusedWindowId() const;
+  // Sway's ext-foreign-toplevel identifier for the focused view; see WorkspaceBackend for why
+  // this is not the same namespace as focusedWindowId().
+  std::optional<std::string> focusedExtToplevelIdentifier() const;
+  bool publishesExtToplevelIdentity() const noexcept;
 
 private:
   void setActiveBackend(WorkspaceBackend* backend);

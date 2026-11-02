@@ -13,7 +13,7 @@ namespace settings {
     BarDefault,
   };
 
-  [[nodiscard]] std::vector<WidgetSettingSelectOption> buildLabelFontWeightSelectOptions(
+  std::vector<WidgetSettingSelectOption> buildLabelFontWeightSelectOptions(
       std::string_view fontFamily, FontWeightSelectKind kind, std::optional<int> preserveConfiguredWeight = std::nullopt
   );
 

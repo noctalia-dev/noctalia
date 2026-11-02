@@ -33,7 +33,7 @@ public:
     markPaintDirty();
   }
 
-  [[nodiscard]] const CountdownRingStyle& style() const noexcept { return m_style; }
+  const CountdownRingStyle& style() const noexcept { return m_style; }
 
 private:
   CountdownRingStyle m_style;

@@ -36,24 +36,24 @@ public:
 
   void create() override;
 
-  [[nodiscard]] bool wantsSecondTicks() const override { return m_wantsSecondTicks; }
-  [[nodiscard]] bool needsFrameTick() const override { return m_needsFrameTick; }
+  bool wantsSecondTicks() const override { return m_wantsSecondTicks; }
+  bool needsFrameTick() const override { return m_needsFrameTick; }
   void onFrameTick(float deltaMs, Renderer& renderer) override;
 
   // PluginIpcEndpoint
-  [[nodiscard]] std::string_view ipcEntryId() const override { return m_entryId; }
-  [[nodiscard]] std::string_view ipcOutputName() const override { return m_outputName; }
-  [[nodiscard]] std::string_view ipcBarName() const override { return {}; }
-  [[nodiscard]] DispatchResult
+  std::string_view ipcEntryId() const override { return m_entryId; }
+  std::string_view ipcOutputName() const override { return m_outputName; }
+  std::string_view ipcBarName() const override { return {}; }
+  DispatchResult
   dispatchIpc(std::string_view event, std::string_view payload, const scripting::ScriptSnapshot& snapshot) override;
 
 private:
   void doLayout(Renderer& renderer) override;
   void doUpdate(Renderer& renderer) override;
 
-  void handleScriptResult(scripting::ScriptResult result);
-  [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
-  [[nodiscard]] std::string resolvePluginPath(const std::string& path) const;
+  void handleScriptResult(const scripting::ScriptResult& result);
+  scripting::ScriptSnapshot makeScriptSnapshot() const;
+  std::string resolvePluginPath(const std::string& path) const;
   void startUpdateTimer();
   void setupScriptWatch();
   void teardownScriptWatch();

@@ -31,7 +31,7 @@ namespace {
     TempDir(const TempDir&) = delete;
     TempDir& operator=(const TempDir&) = delete;
 
-    [[nodiscard]] const std::filesystem::path& path() const { return m_path; }
+    const std::filesystem::path& path() const { return m_path; }
 
   private:
     std::filesystem::path m_path;

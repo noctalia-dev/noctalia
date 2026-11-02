@@ -13,7 +13,7 @@ namespace {
   constexpr auto kSuppressInputOsdAfterOutput = std::chrono::milliseconds(500);
   constexpr float kVolumeChangeEpsilon = 0.003F;
 
-  [[nodiscard]] bool volumeChanged(float a, float b) { return std::abs(a - b) > kVolumeChangeEpsilon; }
+  bool volumeChanged(float a, float b) { return std::abs(a - b) > kVolumeChangeEpsilon; }
 
   OsdContent makeOutputContent(float volume, bool muted) {
     const int percent = static_cast<int>(std::round(std::max(0.0F, volume) * 100.0F));
@@ -116,7 +116,7 @@ void AudioOsd::showOutputName(std::string name, bool muted) {
   }
 }
 
-void AudioOsd::showInput(std::uint32_t sourceId, float volume, bool muted, bool playFeedback) {
+void AudioOsd::showInput(std::uint32_t sourceId, float volume, bool muted) {
   const auto now = std::chrono::steady_clock::now();
   if (now < m_suppressUntil) {
     return;
@@ -124,10 +124,6 @@ void AudioOsd::showInput(std::uint32_t sourceId, float volume, bool muted, bool 
   if (m_overlay != nullptr) {
     m_overlay->show(makeInputContent(volume, muted));
     m_currentKind = OsdKind::Microphone;
-  }
-  if (playFeedback && m_soundPlayer != nullptr && now - m_lastSoundAt >= kVolumeSoundCooldown) {
-    m_soundPlayer->play(SoundPlayer::kEventVolumeChange);
-    m_lastSoundAt = now;
   }
   m_lastSourceId = sourceId;
   m_lastSourceVolume = volume;
@@ -226,7 +222,7 @@ void AudioOsd::onAudioStateChanged(const PipeWireService& service) {
     } else if (sourceRouteChanged && now >= m_suppressAutoInputOsdUntil) {
       showInputName(sourceName, sourceMuted);
     } else if ((sourceVolumeChanged || sourceMuteChanged) && now >= m_suppressAutoInputOsdUntil) {
-      showInput(source->id, source->volume, sourceMuted, sourceVolumeChanged && !sourceMuted);
+      showInput(source->id, source->volume, sourceMuted);
     }
   }
 

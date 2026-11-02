@@ -15,11 +15,11 @@ namespace {
   constexpr std::array<std::uint8_t, 6> kExifPrefix{'E', 'x', 'i', 'f', 0, 0};
   constexpr std::array<std::uint8_t, 8> kPngSignature{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
 
-  [[nodiscard]] std::uint16_t readU16(const std::uint8_t* p, bool bigEndian) {
+  std::uint16_t readU16(const std::uint8_t* p, bool bigEndian) {
     return bigEndian ? static_cast<std::uint16_t>((p[0] << 8) | p[1]) : static_cast<std::uint16_t>(p[0] | (p[1] << 8));
   }
 
-  [[nodiscard]] std::uint32_t readU32(const std::uint8_t* p, bool bigEndian) {
+  std::uint32_t readU32(const std::uint8_t* p, bool bigEndian) {
     const std::uint32_t b0 = p[0];
     const std::uint32_t b1 = p[1];
     const std::uint32_t b2 = p[2];
@@ -27,18 +27,18 @@ namespace {
     return bigEndian ? (b0 << 24U) | (b1 << 16U) | (b2 << 8U) | b3 : (b3 << 24U) | (b2 << 16U) | (b1 << 8U) | b0;
   }
 
-  [[nodiscard]] bool startsWith(std::span<const std::uint8_t> data, std::span<const std::uint8_t> prefix) {
+  bool startsWith(std::span<const std::uint8_t> data, std::span<const std::uint8_t> prefix) {
     return data.size() >= prefix.size() && std::memcmp(data.data(), prefix.data(), prefix.size()) == 0;
   }
 
-  [[nodiscard]] bool chunkIs(const std::uint8_t* type, const char* name) { return std::memcmp(type, name, 4) == 0; }
+  bool chunkIs(const std::uint8_t* type, const char* name) { return std::memcmp(type, name, 4) == 0; }
 
-  [[nodiscard]] ImageOrientation orientationFromValue(std::uint32_t value) {
+  ImageOrientation orientationFromValue(std::uint32_t value) {
     return value >= 1U && value <= 8U ? static_cast<ImageOrientation>(value) : ImageOrientation::Normal;
   }
 
   // TIFF header plus IFD0; only tag 0x0112 is read, sub-IFDs are irrelevant for it.
-  [[nodiscard]] ImageOrientation orientationFromTiff(std::span<const std::uint8_t> tiff) {
+  ImageOrientation orientationFromTiff(std::span<const std::uint8_t> tiff) {
     if (tiff.size() < kTiffHeaderSize) {
       return ImageOrientation::Normal;
     }
@@ -81,14 +81,14 @@ namespace {
   }
 
   // PNG and WebP carry the bare TIFF block; some writers prepend the JPEG "Exif\0\0" header.
-  [[nodiscard]] ImageOrientation orientationFromExifPayload(std::span<const std::uint8_t> payload) {
+  ImageOrientation orientationFromExifPayload(std::span<const std::uint8_t> payload) {
     if (startsWith(payload, kExifPrefix)) {
       return orientationFromTiff(payload.subspan(kExifPrefix.size()));
     }
     return orientationFromTiff(payload);
   }
 
-  [[nodiscard]] ImageOrientation jpegOrientation(std::span<const std::uint8_t> data) {
+  ImageOrientation jpegOrientation(std::span<const std::uint8_t> data) {
     std::size_t pos = 2;
     while (pos + 4 <= data.size()) {
       if (data[pos] != 0xFF) {
@@ -124,7 +124,7 @@ namespace {
     return ImageOrientation::Normal;
   }
 
-  [[nodiscard]] ImageOrientation pngOrientation(std::span<const std::uint8_t> data) {
+  ImageOrientation pngOrientation(std::span<const std::uint8_t> data) {
     std::size_t pos = kPngSignature.size();
     while (pos + 12 <= data.size()) {
       const std::size_t length = readU32(data.data() + pos, true);
@@ -144,7 +144,7 @@ namespace {
     return ImageOrientation::Normal;
   }
 
-  [[nodiscard]] ImageOrientation webpOrientation(std::span<const std::uint8_t> data) {
+  ImageOrientation webpOrientation(std::span<const std::uint8_t> data) {
     std::size_t pos = 12;
     while (pos + 8 <= data.size()) {
       const std::size_t length = readU32(data.data() + pos + 4, false);
@@ -159,11 +159,9 @@ namespace {
     return ImageOrientation::Normal;
   }
 
-  [[nodiscard]] bool isJpeg(std::span<const std::uint8_t> data) {
-    return data.size() >= 4 && data[0] == 0xFF && data[1] == 0xD8;
-  }
+  bool isJpeg(std::span<const std::uint8_t> data) { return data.size() >= 4 && data[0] == 0xFF && data[1] == 0xD8; }
 
-  [[nodiscard]] bool isWebPContainer(std::span<const std::uint8_t> data) {
+  bool isWebPContainer(std::span<const std::uint8_t> data) {
     return data.size() >= 12 && chunkIs(data.data(), "RIFF") && chunkIs(data.data() + 8, "WEBP");
   }
 
@@ -175,8 +173,7 @@ namespace {
     bool swapAxes = false;
   };
 
-  [[nodiscard]] OrientationMapping
-  mappingFor(ImageOrientation orientation, std::ptrdiff_t width, std::ptrdiff_t height) {
+  OrientationMapping mappingFor(ImageOrientation orientation, std::ptrdiff_t width, std::ptrdiff_t height) {
     switch (orientation) {
     case ImageOrientation::MirrorHorizontal:
       return {.base = width - 1, .stepX = -1, .stepY = width, .swapAxes = false};

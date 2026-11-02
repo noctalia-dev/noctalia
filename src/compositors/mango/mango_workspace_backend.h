@@ -22,30 +22,29 @@ class MangoWorkspaceBackend final : public WorkspaceBackend,
 public:
   explicit MangoWorkspaceBackend(compositors::mango::MangoRuntime& runtime);
 
-  [[nodiscard]] const char* backendName() const override { return "mango-ipc"; }
-  [[nodiscard]] bool isAvailable() const noexcept override;
+  const char* backendName() const override { return "mango-ipc"; }
+  bool isAvailable() const noexcept override;
   void setChangeCallback(ChangeCallback callback) override;
   void setOutputNameResolver(WorkspaceOutputNameResolver::Resolver resolver) override;
   bool connectSocket() override;
   void activate(const std::string& id) override;
   void activateForOutput(wl_output* output, const std::string& id) override;
   void activateForOutput(wl_output* output, const Workspace& workspace) override;
-  [[nodiscard]] std::vector<Workspace> all() const override;
-  [[nodiscard]] std::vector<Workspace> forOutput(wl_output* output) const override;
-  [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
-  appIdsByWorkspace(wl_output* output) const override;
-  [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const override;
+  std::vector<Workspace> all() const override;
+  std::vector<Workspace> forOutput(wl_output* output) const override;
+  std::unordered_map<std::string, std::vector<std::string>> appIdsByWorkspace(wl_output* output) const override;
+  std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const override;
   void focusWindow(const std::string& windowId) override;
   void cleanup() override;
   void onOutputAdded(wl_output* output) override;
   void onOutputRemoved(wl_output* output) override;
-  [[nodiscard]] int pollFd() const noexcept override;
-  [[nodiscard]] int pollTimeoutMs() const noexcept override;
+  int pollFd() const noexcept override;
+  int pollTimeoutMs() const noexcept override;
   void dispatchPoll(short revents) override;
 
-  [[nodiscard]] wl_output* ipcSelectedOutput() const;
+  wl_output* ipcSelectedOutput() const;
 
-  [[nodiscard]] std::optional<std::pair<std::string, std::string>> ipcFocusedClientForOutput(wl_output* output) const;
+  std::optional<std::pair<std::string, std::string>> ipcFocusedClientForOutput(wl_output* output) const;
 
 private:
   struct TagInfo {
@@ -87,15 +86,15 @@ private:
   void refreshClients();
   void syncFocusedClientTags();
   void notifyChanged();
-  [[nodiscard]] std::string outputName(wl_output* output) const;
-  [[nodiscard]] OutputState* activeOutputState();
-  [[nodiscard]] const OutputState* activeOutputState() const;
-  [[nodiscard]] const OutputState* outputStateFor(wl_output* output) const;
-  [[nodiscard]] static std::optional<std::size_t> parseTagIndex(const Workspace& workspace);
-  [[nodiscard]] static std::optional<std::size_t> parseTagIndex(const std::string& id);
-  [[nodiscard]] static Workspace makeWorkspace(const TagInfo& tag);
-  [[nodiscard]] static std::optional<OutputState> parseMonitor(const nlohmann::json& json);
-  [[nodiscard]] static std::optional<ClientState> parseClient(const nlohmann::json& json);
+  std::string outputName(wl_output* output) const;
+  OutputState* activeOutputState();
+  const OutputState* activeOutputState() const;
+  const OutputState* outputStateFor(wl_output* output) const;
+  static std::optional<std::size_t> parseTagIndex(const Workspace& workspace);
+  static std::optional<std::size_t> parseTagIndex(const std::string& id);
+  static Workspace makeWorkspace(const TagInfo& tag);
+  static std::optional<OutputState> parseMonitor(const nlohmann::json& json);
+  static std::optional<ClientState> parseClient(const nlohmann::json& json);
 
   compositors::mango::MangoRuntime& m_runtime;
   WorkspaceOutputNameResolver::Resolver m_outputNameResolver;

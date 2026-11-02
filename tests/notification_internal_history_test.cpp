@@ -48,17 +48,17 @@ int main() {
   };
 
   // An internal notification stays toast-only by default, the pre-existing behavior.
-  (void)addInternal("transient-alert", false);
+  addInternal("transient-alert", false);
   ok = check(!historyContains(manager, "transient-alert"), "an internal notification was persisted without opting in")
       && ok;
 
   // A one-shot internal alert (calendar reminder) opts in and survives being missed.
-  (void)addInternal("calendar-reminder", true);
+  addInternal("calendar-reminder", true);
   ok =
       check(historyContains(manager, "calendar-reminder"), "an opted-in internal notification was not persisted") && ok;
 
   // Low urgency is excluded from history unconditionally, opt-in or not.
-  (void)addInternal("low-urgency", true, Urgency::Low);
+  addInternal("low-urgency", true, Urgency::Low);
   ok = check(!historyContains(manager, "low-urgency"), "a low urgency notification was persisted") && ok;
 
   // Calendar reminders emit timeout 0, which must mean "never expires" so they survive the user
@@ -89,12 +89,12 @@ int main() {
   {
     std::string externalKey;
     std::string internalKey;
-    manager.setActionInvokeCallback([&externalKey](uint32_t, const std::string& key, const std::string&) {
-      externalKey = key;
-    });
-    manager.setInternalActionCallback([&internalKey](uint32_t, const std::string& key, const std::string&) {
-      internalKey = key;
-    });
+    manager.setActionInvokeCallback(
+        [&externalKey](uint32_t, const std::string& key, const std::string&, const std::string&) { externalKey = key; }
+    );
+    manager.setInternalActionCallback(
+        [&internalKey](uint32_t, const std::string& key, const std::string&, const std::string&) { internalKey = key; }
+    );
 
     const auto internalId = manager.addOrReplace(
         NotificationRequest{
@@ -160,7 +160,7 @@ int main() {
             .persistInHistory = true,
         }
     );
-    (void)manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "arrived-later"});
+    manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "arrived-later"});
     const auto* before = historyEntry(manager, id);
     ok = check(before != nullptr, "a persistent reminder never reached history") && ok;
     const auto receivedAt = before != nullptr ? before->notification.receivedTime : TimePoint{};
@@ -183,7 +183,7 @@ int main() {
   }
 
   // External notifications are unaffected.
-  (void)manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "external"});
+  manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "external"});
   ok = check(historyContains(manager, "external"), "an external notification stopped being persisted") && ok;
 
   return ok ? 0 : 1;

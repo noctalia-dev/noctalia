@@ -19,8 +19,8 @@ namespace settings {
     void open(SettingsSheetRequest request);
     void close();
 
-    [[nodiscard]] bool isOpen() const noexcept { return m_open; }
-    [[nodiscard]] InputArea* focusedArea() const noexcept;
+    bool isOpen() const noexcept { return m_open; }
+    InputArea* focusedArea() const noexcept;
 
     void setSheetTitle(std::string title);
     void setStatusMessage(std::string message, bool error);

@@ -115,7 +115,7 @@ WallpaperScanner::WallpaperScanner() {
   if (m_eventFd < 0) {
     kLog.warn("failed to create eventfd; wallpaper scans will not wake the loop");
   }
-  m_worker = std::thread([this]() { workerLoop(); });
+  m_worker = std::thread([this] { workerLoop(); });
 }
 
 WallpaperScanner::~WallpaperScanner() {
@@ -235,7 +235,7 @@ void WallpaperScanner::workerLoop() {
     Job job;
     {
       std::unique_lock<std::mutex> lock(m_queueMutex);
-      m_queueCv.wait(lock, [this]() { return m_shutdown.load() || !m_jobQueue.empty(); });
+      m_queueCv.wait(lock, [this] { return m_shutdown.load() || !m_jobQueue.empty(); });
       if (m_shutdown.load()) {
         return;
       }

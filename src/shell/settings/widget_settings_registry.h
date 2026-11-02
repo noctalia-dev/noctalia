@@ -92,6 +92,7 @@ namespace settings {
   enum class WidgetSettingOptionSource : std::uint8_t {
     Static,
     BatteryDevices,
+    Outputs,
   };
 
   enum class WidgetSettingCapability : std::uint8_t {
@@ -138,69 +139,67 @@ namespace settings {
   };
 
   // The schema (validation) value type behind a UI control kind.
-  [[nodiscard]] noctalia::config::schema::WidgetSettingType schemaTypeForControl(WidgetControlKind control);
+  noctalia::config::schema::WidgetSettingType schemaTypeForControl(WidgetControlKind control);
 
-  [[nodiscard]] const std::vector<WidgetTypeSpec>& widgetTypeSpecs();
-  [[nodiscard]] bool isBuiltInWidgetType(std::string_view type);
+  const std::vector<WidgetTypeSpec>& widgetTypeSpecs();
+  bool isBuiltInWidgetType(std::string_view type);
   // Whether `type` names a plugin [[widget]] entry ("author/plugin:entry").
-  [[nodiscard]] bool isPluginWidgetType(std::string_view type);
-  [[nodiscard]] bool widgetTypeRequiresNamedConfig(std::string_view type);
-  [[nodiscard]] std::string widgetTypeForReference(const Config& cfg, std::string_view name);
-  [[nodiscard]] std::string titleFromWidgetKey(std::string_view key);
-  [[nodiscard]] WidgetReferenceInfo
-  widgetReferenceInfo(const Config& cfg, std::string_view name, bool includeManifestVersion = true);
-  [[nodiscard]] std::vector<WidgetPickerEntry> widgetPickerEntries(const Config& cfg);
-  [[nodiscard]] std::vector<WidgetSettingSpec>
+  bool isPluginWidgetType(std::string_view type);
+  bool widgetTypeRequiresNamedConfig(std::string_view type);
+  std::string widgetTypeForReference(const Config& cfg, std::string_view name);
+  std::string titleFromWidgetKey(std::string_view key);
+  WidgetReferenceInfo widgetReferenceInfo(const Config& cfg, std::string_view name, bool includeManifestVersion = true);
+  std::vector<WidgetPickerEntry> widgetPickerEntries(const Config& cfg);
+  std::vector<WidgetSettingSpec>
   commonWidgetSettingSpecs(std::string_view shellFontFamily, bool populateFontCatalogs = true);
   // `config` resolves a plugin [[widget]] type to its manifest-driven settings, and supplies the
   // discriminator for types whose gesture defaults depend on a setting (a volume widget bound to
   // the microphone). May be null when neither applies.
-  [[nodiscard]] std::vector<WidgetSettingSpec> widgetSettingSpecs(
+  std::vector<WidgetSettingSpec> widgetSettingSpecs(
       std::string_view type, const WidgetConfig* config, std::string_view shellFontFamily,
       bool populateFontCatalogs = true
   );
-  [[nodiscard]] bool widgetSettingIsVisible(
+  bool widgetSettingIsVisible(
       const Config& config, std::string_view widgetName, const WidgetSettingSpec& spec,
       const std::vector<WidgetSettingSpec>& allSpecs, const WidgetSettingCapabilities& capabilities
   );
   // Build settings specs from a plugin entry's declared setting schema.
-  [[nodiscard]] std::vector<WidgetSettingSpec> manifestSettingSpecs(
+  std::vector<WidgetSettingSpec> manifestSettingSpecs(
       const std::vector<scripting::ManifestField>& fields,
       const scripting::PluginTranslationCatalog* translations = nullptr
   );
-  [[nodiscard]] std::vector<WidgetSettingSpec> pluginPanelShellSettingSpecs(const scripting::PluginEntry& entry);
+  std::vector<WidgetSettingSpec> pluginPanelShellSettingSpecs(const scripting::PluginEntry& entry);
 
   // Schema projection (the validity half of the specs), consumed by the config
   // layer (e.g. `config validate`). For plugin widgets the type alone resolves the
   // manifest, so the config arg is no longer required for them.
-  [[nodiscard]] noctalia::config::schema::WidgetSettingSchema widgetSettingSchema(std::string_view type);
-  [[nodiscard]] noctalia::config::schema::WidgetSettingSchema widgetSettingSchema(
+  noctalia::config::schema::WidgetSettingSchema widgetSettingSchema(std::string_view type);
+  noctalia::config::schema::WidgetSettingSchema widgetSettingSchema(
       std::string_view type, const WidgetConfig* config, scripting::PluginRegistry* pluginRegistry = nullptr
   );
   // Semantic cross-field validation for a widget config entry. Nullopt means the
   // resolved options are valid or the widget type declares no semantic rule.
-  [[nodiscard]] std::optional<std::string> validateWidgetSemantics(std::string_view type, const WidgetConfig* config);
-  [[nodiscard]] std::optional<noctalia::config::schema::WidgetSettingField>
+  std::optional<std::string> validateWidgetSemantics(std::string_view type, const WidgetConfig* config);
+  std::optional<noctalia::config::schema::WidgetSettingField>
   findWidgetSettingField(std::string_view widgetType, std::string_view settingKey);
 
-  [[nodiscard]] std::optional<WidgetSettingSpec>
-  findWidgetSettingSpec(std::string_view widgetType, std::string_view settingKey);
-  [[nodiscard]] std::optional<WidgetSettingSpec>
+  std::optional<WidgetSettingSpec> findWidgetSettingSpec(std::string_view widgetType, std::string_view settingKey);
+  std::optional<WidgetSettingSpec>
   findWidgetSettingSpec(std::string_view widgetType, std::string_view settingKey, const WidgetConfig* config);
-  [[nodiscard]] bool configOverrideValueMatchesWidgetSetting(
+  bool configOverrideValueMatchesWidgetSetting(
       const ConfigOverrideValue& overrideValue, const WidgetSettingValue& settingValue
   );
-  [[nodiscard]] bool widgetOverrideValueMatchesRegistryDefault(
+  bool widgetOverrideValueMatchesRegistryDefault(
       std::string_view widgetType, std::string_view settingKey, const ConfigOverrideValue& overrideValue
   );
-  [[nodiscard]] bool widgetSettingOverrideIsEffective(
+  bool widgetSettingOverrideIsEffective(
       std::string_view widgetName, std::string_view settingKey, const Config& withOverride,
       const Config& withoutOverride
   );
   // Effectiveness of a [plugin_settings."author/plugin"] override: absent values
   // resolve to the manifest-declared default, so an override equal to the plugin
   // default is not "effective".
-  [[nodiscard]] bool pluginSettingOverrideIsEffective(
+  bool pluginSettingOverrideIsEffective(
       std::string_view pluginId, std::string_view settingKey, const Config& withOverride, const Config& withoutOverride
   );
 

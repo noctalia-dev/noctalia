@@ -14,7 +14,7 @@ namespace scripting {
   // and registers with the router for its lifetime.
   class PluginIpcEndpoint {
   public:
-    enum class DispatchResult {
+    enum class [[nodiscard]] DispatchResult {
       Handled,
       MissingHost,
       MissingCallback,
@@ -23,10 +23,10 @@ namespace scripting {
 
     virtual ~PluginIpcEndpoint() = default;
 
-    [[nodiscard]] virtual std::string_view ipcEntryId() const = 0;    // "author/plugin:entry"
-    [[nodiscard]] virtual std::string_view ipcOutputName() const = 0; // connector, or empty
-    [[nodiscard]] virtual std::string_view ipcBarName() const = 0;    // bar name, or empty for non-bar surfaces
-    [[nodiscard]] virtual DispatchResult
+    virtual std::string_view ipcEntryId() const = 0;    // "author/plugin:entry"
+    virtual std::string_view ipcOutputName() const = 0; // connector, or empty
+    virtual std::string_view ipcBarName() const = 0;    // bar name, or empty for non-bar surfaces
+    virtual DispatchResult
     dispatchIpc(std::string_view event, std::string_view payload, const ScriptSnapshot& snapshot) = 0;
   };
 
@@ -42,7 +42,7 @@ namespace scripting {
     void unregisterEndpoint(PluginIpcEndpoint* endpoint);
 
     // Handle the `plugin` IPC command body; returns the socket reply line.
-    [[nodiscard]] std::string dispatch(std::string_view args) const;
+    std::string dispatch(std::string_view args) const;
 
   private:
     std::vector<PluginIpcEndpoint*> m_endpoints;

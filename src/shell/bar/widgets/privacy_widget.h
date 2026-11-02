@@ -19,7 +19,7 @@ public:
     bool hideInactive = false;
     int iconSpacing = 4;
     ColorSpec activeColor = colorSpecFromRole(ColorRole::Primary);
-    ColorSpec inactiveColor = colorSpecFromRole(ColorRole::Outline);
+    ColorSpec inactiveColor = colorSpecFromRole(ColorRole::OutlineVariant);
   };
 
   PrivacyWidget(PipeWireService* pipewire, ConfigService* configService, Options options);
@@ -33,11 +33,11 @@ private:
     std::vector<std::string> screenApps;
     bool vertical = false;
 
-    [[nodiscard]] bool micActive() const { return !micApps.empty(); }
-    [[nodiscard]] bool cameraActive() const { return !cameraApps.empty(); }
-    [[nodiscard]] bool screenActive() const { return !screenApps.empty(); }
-    [[nodiscard]] bool anyActive() const { return micActive() || cameraActive() || screenActive(); }
-    [[nodiscard]] bool visible(bool hideInactive) const { return !hideInactive || anyActive(); }
+    bool micActive() const { return !micApps.empty(); }
+    bool cameraActive() const { return !cameraApps.empty(); }
+    bool screenActive() const { return !screenApps.empty(); }
+    bool anyActive() const { return micActive() || cameraActive() || screenActive(); }
+    bool visible(bool hideInactive) const { return !hideInactive || anyActive(); }
 
     bool operator==(const Snapshot&) const = default;
   };
@@ -46,8 +46,8 @@ private:
   void doUpdate(Renderer& renderer) override;
   void syncState();
   void refreshFilters() const;
-  [[nodiscard]] Snapshot snapshot() const;
-  [[nodiscard]] std::vector<TooltipRow> buildTooltipRows() const;
+  Snapshot snapshot() const;
+  std::vector<TooltipRow> buildTooltipRows() const;
 
   PipeWireService* m_pipewire = nullptr;
   ConfigService* m_configService = nullptr;

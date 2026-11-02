@@ -13,26 +13,26 @@ struct DistroInfo {
 
 class DistroDetector {
 public:
-  [[nodiscard]] static std::optional<DistroInfo> detect();
+  static std::optional<DistroInfo> detect();
 };
 
 // Best-effort pretty label for the running distribution.
-[[nodiscard]] std::string distroLabel();
+std::string distroLabel();
 
 // Kernel label: sysname + release (e.g. "Linux 6.9.3-..."), or "unknown" on failure.
-[[nodiscard]] std::string kernelLabel();
+std::string kernelLabel();
 
 // Approximate OS install age, formatted as "{y}y {m}mo" / "{y}y" / "{d}d".
-[[nodiscard]] std::string osAgeLabel();
+std::string osAgeLabel();
 
 // Login name of the current session user, or its numeric UID if unavailable.
-[[nodiscard]] std::string sessionUserName();
+std::string sessionUserName();
 
 // Display name of the current session user (gecos or login), or its numeric UID if unavailable.
-[[nodiscard]] std::string sessionDisplayName();
+std::string sessionDisplayName();
 
 // Machine hostname (uname nodename), or "unknown" on failure.
-[[nodiscard]] std::string hostName();
+std::string hostName();
 
 // Returns system uptime (from /proc/uptime), or nullopt if unavailable.
-[[nodiscard]] std::optional<std::chrono::seconds> systemUptime();
+std::optional<std::chrono::seconds> systemUptime();

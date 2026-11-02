@@ -39,7 +39,7 @@ namespace security {
       return true;
     }
 
-    [[nodiscard]] std::optional<ByteVector> associatedData(const EncryptionContext& context) {
+    std::optional<ByteVector> associatedData(const EncryptionContext& context) {
       ByteVector output;
       output.reserve(EncryptedFileMagic.size() + 2 + 16 + context.purpose.size() + context.objectId.size());
       output.insert(output.end(), EncryptedFileMagic.begin(), EncryptedFileMagic.end());

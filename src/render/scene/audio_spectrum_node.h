@@ -10,8 +10,8 @@ class AudioSpectrumNode : public Node {
 public:
   AudioSpectrumNode() : Node(NodeType::AudioSpectrum) {}
 
-  [[nodiscard]] const AudioSpectrumStyle& style() const noexcept { return m_style; }
-  [[nodiscard]] const std::vector<float>& values() const noexcept { return m_values; }
+  const AudioSpectrumStyle& style() const noexcept { return m_style; }
+  const std::vector<float>& values() const noexcept { return m_values; }
 
   void setStyle(const AudioSpectrumStyle& style) {
     if (m_style == style) {

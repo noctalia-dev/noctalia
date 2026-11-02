@@ -146,11 +146,9 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     self->m_sceneRoot = std::make_unique<Node>();
     self->m_sceneRoot->setSize(fw, fh);
     if (Style::popupShadowsEnabled()) {
-      (void)popup_chrome::addShadow(
-          *self->m_sceneRoot, chrome, self->m_shadowConfig, Style::scaledRadiusLg(contentScale)
-      );
+      popup_chrome::addShadow(*self->m_sceneRoot, chrome, self->m_shadowConfig, Style::scaledRadiusLg(contentScale));
     }
-    (void)popup_chrome::addCardBackground(*self->m_sceneRoot, chrome, contentScale);
+    popup_chrome::addCardBackground(*self->m_sceneRoot, chrome, contentScale);
 
     auto scrollView = std::make_unique<ScrollView>();
     scrollView->setPosition(chrome.contentX(), chrome.contentY());
@@ -174,7 +172,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     ctrl->setEntries(entries);
     ctrl->setHighlightedIndex(self->m_highlightedIndex);
     self->m_highlightedIndex = ctrl->highlightedIndex();
-    ctrl->setRedrawCallback([self]() {
+    ctrl->setRedrawCallback([self] {
       if (self->m_surface)
         self->m_surface->requestRedraw();
     });
@@ -195,7 +193,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     self->m_surface->setSceneRoot(self->m_sceneRoot.get());
   });
 
-  m_surface->setDismissedCallback([self]() { self->deferClose(); });
+  m_surface->setDismissedCallback([self] { self->deferClose(); });
 
   // Layer-shell popups inherit their parent's keyboard interactivity. A bar is
   // None, so flip it to OnDemand before the popup maps or the grabbing popup
@@ -251,7 +249,7 @@ void ContextMenuPopup::deferActivation(ContextMenuControlEntry entry) {
   auto* self = this;
   const std::weak_ptr<bool> alive = m_alive;
   auto onActivate = m_onActivate;
-  DeferredCall::callLater([self, alive, onActivate = std::move(onActivate), entry = std::move(entry)]() {
+  DeferredCall::callLater([self, alive, onActivate = std::move(onActivate), entry = std::move(entry)] {
     const auto token = alive.lock();
     if (token == nullptr || !*token) {
       return;
@@ -270,7 +268,7 @@ void ContextMenuPopup::deferActivation(ContextMenuControlEntry entry) {
 void ContextMenuPopup::deferClose() {
   auto* self = this;
   const std::weak_ptr<bool> alive = m_alive;
-  DeferredCall::callLater([self, alive]() {
+  DeferredCall::callLater([self, alive] {
     const auto token = alive.lock();
     if (token != nullptr && *token) {
       self->close();
@@ -418,19 +416,17 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
       requestVisualUpdate();
     }
   } else if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
-    (void)m_menu->activateHighlighted();
+    m_menu->activateHighlighted();
   } else if (KeySymbol::isHome(sym)) {
     m_menu->setHighlightedIndex(0);
     m_highlightedIndex = m_menu->highlightedIndex();
     ensureHighlightedVisible();
     requestVisualUpdate();
-  } else if (KeySymbol::isEnd(sym)) {
-    if (m_menu->entryCount() > 0) {
-      m_menu->setHighlightedIndex(m_menu->entryCount() - 1);
-      m_highlightedIndex = m_menu->highlightedIndex();
-      ensureHighlightedVisible();
-      requestVisualUpdate();
-    }
+  } else if (KeySymbol::isEnd(sym) && m_menu->entryCount() > 0) {
+    m_menu->setHighlightedIndex(m_menu->entryCount() - 1);
+    m_highlightedIndex = m_menu->highlightedIndex();
+    ensureHighlightedVisible();
+    requestVisualUpdate();
   }
 }
 

@@ -83,7 +83,7 @@ void WaylandExtForeignToplevels::requestInitialSync() {
   if (m_display == nullptr || m_initialSyncDone) {
     return;
   }
-  (void)wl_display_roundtrip(m_display);
+  wl_display_roundtrip(m_display);
   m_initialSyncDone = true;
   notifyChanged();
 }
@@ -196,6 +196,36 @@ std::vector<ToplevelInfo> WaylandExtForeignToplevels::windowsWithoutAppId() cons
     out.push_back(std::move(window.info));
   }
   return out;
+}
+
+ext_foreign_toplevel_handle_v1* WaylandExtForeignToplevels::extHandleForIdentifier(std::string_view identifier) const {
+  if (identifier.empty()) {
+    return nullptr;
+  }
+  for (const auto& [handle, state] : m_handles) {
+    if (handle != nullptr && state.ready && state.committed.identifier == identifier) {
+      return handle;
+    }
+  }
+  return nullptr;
+}
+
+ExtToplevelTitleMatch
+uniqueExtHandleForTitle(const std::span<const ToplevelInfo> windows, const std::string_view title) {
+  ExtToplevelTitleMatch match;
+  for (const auto& window : windows) {
+    if (window.extHandle == nullptr || (!title.empty() && window.title != title)) {
+      continue;
+    }
+    if (match.matchCount == 0) {
+      match.handle = window.extHandle;
+    }
+    ++match.matchCount;
+  }
+  if (match.matchCount > 1) {
+    match.handle = nullptr;
+  }
+  return match;
 }
 
 void WaylandExtForeignToplevels::onToplevelCreated(ext_foreign_toplevel_handle_v1* handle) {

@@ -40,7 +40,7 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void syncState(Renderer& renderer);
-  [[nodiscard]] std::vector<TooltipRow> buildTooltipRows() const;
+  std::vector<TooltipRow> buildTooltipRows() const;
 
   INetworkService* m_network = nullptr;
   ExternalIpService* m_externalIp = nullptr;

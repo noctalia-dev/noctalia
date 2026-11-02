@@ -14,13 +14,14 @@ class PanelProvider : public LauncherProvider {
 public:
   PanelProvider(PanelManager* panelManager, ControlCenterPanel* controlCenterPanel, ConfigService* config);
 
-  [[nodiscard]] std::string_view defaultPrefix() const override { return "pan"; }
-  [[nodiscard]] std::string_view id() const override { return "Panels"; }
-  [[nodiscard]] std::string displayName() const override;
-  [[nodiscard]] std::string_view defaultGlyphName() const override { return "rectangle"; }
-  [[nodiscard]] bool trackUsage() const override { return true; }
+  std::string_view defaultPrefix() const override { return "pan"; }
+  std::string_view id() const override { return "Panels"; }
+  std::string displayName() const override;
+  std::string_view defaultGlyphName() const override { return "rectangle"; }
+  bool supportsGrid() const override { return false; }
+  bool trackUsage() const override { return true; }
 
-  [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;
+  std::vector<LauncherResult> query(std::string_view text) const override;
 
   bool activate(const LauncherResult& result) override;
 

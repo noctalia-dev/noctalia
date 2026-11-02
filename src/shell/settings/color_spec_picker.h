@@ -25,9 +25,9 @@ namespace settings {
     bool flexGrow = false;
   };
 
-  [[nodiscard]] std::vector<ColorRole> allColorSpecRoles();
-  [[nodiscard]] std::string colorSpecConfigValue(const ColorSpec& color);
-  [[nodiscard]] std::string optionalColorSpecConfigValue(const std::optional<ColorSpec>& color);
+  std::vector<ColorRole> allColorSpecRoles();
+  std::string colorSpecConfigValue(const ColorSpec& color);
+  std::string optionalColorSpecConfigValue(const std::optional<ColorSpec>& color);
 
   [[nodiscard]] std::unique_ptr<Select> makeColorSpecSelect(
       ColorSpecSelectOptions options, std::function<void(std::string)> setValue, std::function<void()> clearValue

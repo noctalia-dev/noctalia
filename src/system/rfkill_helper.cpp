@@ -8,6 +8,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
+#include <fstream>
 #include <linux/rfkill.h>
 #include <optional>
 #include <string>
@@ -18,7 +19,7 @@ namespace {
 
   constexpr Logger kLog("rfkill");
 
-  [[nodiscard]] std::optional<std::string_view> rfkillTypeStringFor(RfkillDeviceType type) {
+  std::optional<std::string_view> rfkillTypeStringFor(RfkillDeviceType type) {
     switch (type) {
     case RfkillDeviceType::Bluetooth:
       return "bluetooth";
@@ -28,7 +29,7 @@ namespace {
     return std::nullopt;
   }
 
-  [[nodiscard]] std::optional<std::uint8_t> rfkillTypeIdFor(RfkillDeviceType type) {
+  std::optional<std::uint8_t> rfkillTypeIdFor(RfkillDeviceType type) {
     switch (type) {
     case RfkillDeviceType::Bluetooth:
       return RFKILL_TYPE_BLUETOOTH;
@@ -45,22 +46,17 @@ namespace {
     bool hard = false;
   };
 
-  [[nodiscard]] bool readSysfsUnsigned(const std::string& path, unsigned& out) {
-    FILE* file = fopen(path.c_str(), "r");
-    if (file == nullptr) {
-      return false;
-    }
+  bool readSysfsUnsigned(const std::string& path, unsigned& out) {
+    std::ifstream file(path);
     unsigned value = 0;
-    const int scanned = fscanf(file, "%u", &value);
-    fclose(file);
-    if (scanned != 1) {
+    if (!(file >> value)) {
       return false;
     }
     out = value;
     return true;
   }
 
-  [[nodiscard]] std::optional<std::string> readSysfsString(const std::string& path) {
+  std::optional<std::string> readSysfsString(const std::string& path) {
     FILE* file = fopen(path.c_str(), "r");
     if (file == nullptr) {
       return std::nullopt;
@@ -74,7 +70,7 @@ namespace {
     return buf;
   }
 
-  [[nodiscard]] std::vector<RfkillEntry> listRfkillEntries() {
+  std::vector<RfkillEntry> listRfkillEntries() {
     std::vector<RfkillEntry> entries;
     DIR* dir = opendir("/sys/class/rfkill");
     if (dir == nullptr) {
@@ -112,7 +108,7 @@ namespace {
     return entries;
   }
 
-  [[nodiscard]] std::vector<RfkillEntry> findEntries(RfkillDeviceType type) {
+  std::vector<RfkillEntry> findEntries(RfkillDeviceType type) {
     const std::optional<std::string_view> wantedType = rfkillTypeStringFor(type);
     std::vector<RfkillEntry> matches;
     if (!wantedType.has_value()) {
@@ -126,7 +122,7 @@ namespace {
     return matches;
   }
 
-  [[nodiscard]] std::optional<std::uint32_t> rfkillIndexForNetInterface(std::string_view ifname) {
+  std::optional<std::uint32_t> rfkillIndexForNetInterface(std::string_view ifname) {
     if (ifname.empty()) {
       return std::nullopt;
     }
@@ -154,7 +150,7 @@ namespace {
     return index;
   }
 
-  [[nodiscard]] RfkillSwitchResult writeRfkillEvent(const rfkill_event& ev) {
+  RfkillSwitchResult writeRfkillEvent(const rfkill_event& ev) {
     const int fd = open("/dev/rfkill", O_WRONLY | O_CLOEXEC);
     if (fd < 0) {
       return {
@@ -181,7 +177,7 @@ namespace {
     return {.success = true, .detail = {}};
   }
 
-  [[nodiscard]] RfkillSwitchResult setRfkillSoftBlockedByIndex(std::uint32_t index, bool softBlocked) {
+  RfkillSwitchResult setRfkillSoftBlockedByIndex(std::uint32_t index, bool softBlocked) {
     rfkill_event ev{};
     ev.idx = index;
     ev.type = 0;
@@ -194,7 +190,7 @@ namespace {
   // RFKILL_OP_CHANGE_ALL applies the soft block to every switch of the type, and to switches of that
   // type that appear later. Radios commonly sit behind several switches (driver plus vendor platform
   // module), and all of them must be unblocked for the radio to come up.
-  [[nodiscard]] RfkillSwitchResult setRfkillSoftBlockedByType(std::uint8_t typeId, bool softBlocked) {
+  RfkillSwitchResult setRfkillSoftBlockedByType(std::uint8_t typeId, bool softBlocked) {
     rfkill_event ev{};
     ev.idx = 0;
     ev.type = typeId;
@@ -213,14 +209,15 @@ RfkillSwitchResult setRfkillSoftBlocked(RfkillDeviceType type, bool softBlocked)
     kLog.debug("setRfkillSoftBlocked: no rfkill entry for type {}", static_cast<unsigned>(type));
     return {.success = false, .detail = "no rfkill switch found"};
   }
-  if (std::ranges::any_of(entries, &RfkillEntry::hard)) {
-    return {.success = false, .hardBlocked = true, .detail = "rfkill hard block is active"};
-  }
+  // A hard block is reported, not obeyed: the kernel applies the soft-block change regardless and
+  // re-queries hardware state while doing so, which is what clears a stale vendor platform block.
+  const bool hardBlocked = std::ranges::any_of(entries, &RfkillEntry::hard);
   if (std::ranges::all_of(entries, [softBlocked](const RfkillEntry& entry) { return entry.soft == softBlocked; })) {
-    return {.success = true, .detail = {}};
+    return {.success = true, .hardBlocked = hardBlocked, .detail = {}};
   }
 
   RfkillSwitchResult result = setRfkillSoftBlockedByType(*typeId, softBlocked);
+  result.hardBlocked = hardBlocked;
   if (!result.success) {
     kLog.warn("setRfkillSoftBlocked: type {} failed: {}", static_cast<unsigned>(type), result.detail);
   }
@@ -239,13 +236,11 @@ RfkillSwitchResult setRfkillSoftBlockedForNetInterface(std::string_view ifname, 
       if (wantedType.has_value() && entry.type != *wantedType) {
         return {.success = false, .detail = "rfkill switch is not WLAN"};
       }
-      if (entry.hard) {
-        return {.success = false, .hardBlocked = true, .detail = "rfkill hard block is active"};
-      }
       if (entry.soft == softBlocked) {
-        return {.success = true, .detail = {}};
+        return {.success = true, .hardBlocked = entry.hard, .detail = {}};
       }
       RfkillSwitchResult result = setRfkillSoftBlockedByIndex(entry.index, softBlocked);
+      result.hardBlocked = entry.hard;
       if (!result.success) {
         kLog.warn("setRfkillSoftBlockedForNetInterface: index {} failed: {}", entry.index, result.detail);
       }
@@ -258,5 +253,3 @@ RfkillSwitchResult setRfkillSoftBlockedForNetInterface(std::string_view ifname, 
 
 // A radio is blocked when any of its switches blocks it.
 bool isRfkillSoftBlocked(RfkillDeviceType type) { return std::ranges::any_of(findEntries(type), &RfkillEntry::soft); }
-
-bool isRfkillHardBlocked(RfkillDeviceType type) { return std::ranges::any_of(findEntries(type), &RfkillEntry::hard); }

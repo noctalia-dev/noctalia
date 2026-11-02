@@ -26,14 +26,14 @@ public:
   void setLockBeforeSuspendEnabled(bool enabled);
   void setSessionLockedHint(bool locked);
 
-  [[nodiscard]] bool supportsIdleInhibit() const noexcept;
-  [[nodiscard]] bool hasIdleInhibit() const noexcept;
+  bool supportsIdleInhibit() const noexcept;
+  bool hasIdleInhibit() const noexcept;
   bool acquireIdleInhibit();
   void releaseIdleInhibit();
 
   // Delay-type sleep inhibit: holds off suspend/hibernate until released so the
   // session can lock first (same pattern as swayidle/hypridle).
-  [[nodiscard]] bool hasSleepDelayInhibit() const noexcept;
+  bool hasSleepDelayInhibit() const noexcept;
   bool acquireSleepDelayInhibit();
   void releaseSleepDelayInhibit();
 

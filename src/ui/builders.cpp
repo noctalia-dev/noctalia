@@ -102,7 +102,7 @@ namespace ui {
     }
   } // namespace
 
-  std::unique_ptr<Flex> flex(FlexDirection direction, FlexProps props) {
+  std::unique_ptr<Flex> flex(FlexDirection direction, const FlexProps& props) {
     auto flex = std::make_unique<Flex>();
     applyFlexProps(*flex, direction, props);
     if (props.configure) {
@@ -414,6 +414,9 @@ namespace ui {
     if (props.fontFamily.has_value()) {
       control->setFontFamily(std::move(*props.fontFamily));
     }
+    if (props.fontFeatures.has_value()) {
+      control->setFontFeatures(std::move(*props.fontFeatures));
+    }
     if (props.color.has_value()) {
       control->setColor(*props.color);
     }
@@ -487,10 +490,10 @@ namespace ui {
   std::unique_ptr<Glyph> glyph(GlyphProps props) {
     auto control = std::make_unique<Glyph>();
     if (props.glyph.has_value()) {
-      (void)control->setGlyph(*props.glyph);
+      control->setGlyph(*props.glyph);
     }
     if (props.codepoint.has_value()) {
-      (void)control->setCodepoint(*props.codepoint);
+      control->setCodepoint(*props.codepoint);
     }
     if (props.glyphSize.has_value()) {
       control->setGlyphSize(*props.glyphSize);

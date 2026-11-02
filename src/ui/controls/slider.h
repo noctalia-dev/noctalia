@@ -23,12 +23,11 @@ public:
   void setOnValueChanged(std::function<void(double)> callback);
   void setOnDragEnd(std::function<void()> callback);
 
-  [[nodiscard]] double value() const noexcept { return m_value; }
-  [[nodiscard]] double minValue() const noexcept { return m_min; }
-  [[nodiscard]] double maxValue() const noexcept { return m_max; }
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] bool wheelAdjustEnabled() const noexcept { return m_wheelAdjustEnabled; }
-  [[nodiscard]] bool dragging() const noexcept;
+  double value() const noexcept { return m_value; }
+  double minValue() const noexcept { return m_min; }
+  double maxValue() const noexcept { return m_max; }
+  bool enabled() const noexcept { return m_enabled; }
+  bool dragging() const noexcept;
 
 private:
   void doLayout(Renderer& renderer) override;
@@ -37,8 +36,8 @@ private:
   void updateFromLocalX(float x);
   void updateGeometry();
   void applyVisualState();
-  [[nodiscard]] float normalizedValue() const noexcept;
-  [[nodiscard]] double snapped(double value) const noexcept;
+  float normalizedValue() const noexcept;
+  double snapped(double value) const noexcept;
 
   RectNode* m_track = nullptr;
   RectNode* m_fill = nullptr;
@@ -53,7 +52,7 @@ private:
   double m_step = 1.0;
   double m_value = 50.0;
   bool m_enabled = true;
-  bool m_wheelAdjustEnabled = false;
+  bool m_wheelAdjustEnabled = true;
   float m_trackHeight = Style::sliderTrackHeight;
   float m_thumbSizePx = Style::sliderThumbSize;
   float m_controlHeightPx = Style::controlHeight;

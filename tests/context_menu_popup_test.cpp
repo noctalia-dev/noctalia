@@ -27,8 +27,8 @@ namespace {
     }
 
     void create() override {}
-    [[nodiscard]] float preferredWidth() const override { return 1.0F; }
-    [[nodiscard]] float preferredHeight() const override { return 1.0F; }
+    float preferredWidth() const override { return 1.0F; }
+    float preferredHeight() const override { return 1.0F; }
 
     void deferActivation() {
       ContextMenuPopupTestAccess::activate(m_popup, ContextMenuControlEntry{.id = 2, .label = "Delete"});

@@ -76,7 +76,7 @@ struct ControlCenterServices {
   ThumbnailService* thumbnails = nullptr;
   AsyncTextureCache* asyncTextures = nullptr;
 
-  [[nodiscard]] ShortcutServices shortcutServices() const {
+  ShortcutServices shortcutServices() const {
     return {
         .network = network,
         .bluetooth = bluetooth,

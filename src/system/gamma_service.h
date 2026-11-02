@@ -40,9 +40,9 @@ public:
   void onOutputsChanged();
   void reevaluateSchedule();
 
-  [[nodiscard]] bool enabled() const;
-  [[nodiscard]] bool forceEnabled() const;
-  [[nodiscard]] bool active() const;
+  bool enabled() const;
+  bool forceEnabled() const;
+  bool active() const;
 
   void registerIpc(IpcService& ipc);
 
@@ -50,10 +50,10 @@ public:
   static void onGammaFailed(void* data, zwlr_gamma_control_v1* ctrl);
 
 private:
-  [[nodiscard]] bool effectiveConfiguredEnabled() const;
-  [[nodiscard]] bool effectiveEnabled() const;
-  [[nodiscard]] bool effectiveForce() const;
-  [[nodiscard]] bool networkLocationConfigured() const;
+  bool effectiveConfiguredEnabled() const;
+  bool effectiveEnabled() const;
+  bool effectiveForce() const;
+  bool networkLocationConfigured() const;
 
   void scheduleManualTimer();
   void scheduleGeoTimer();
@@ -64,8 +64,8 @@ private:
     int kelvin = -1;            // instantaneous clock-anchored target, -1 when no schedule applies
     bool transitioning = false; // true while inside the fade ramp window (target still drifting)
   };
-  [[nodiscard]] GammaTarget computeTarget() const;
-  [[nodiscard]] bool isNightPhase() const;
+  GammaTarget computeTarget() const;
+  bool isNightPhase() const;
 
   struct OutputGamma {
     wl_output* wlOutput = nullptr;
@@ -82,7 +82,7 @@ private:
   void restoreAll();
 
   void applyTarget(int kelvin);
-  [[nodiscard]] std::chrono::milliseconds transitionTickInterval() const;
+  std::chrono::milliseconds transitionTickInterval() const;
   void ensureTick();
   void tickGamma();
 
@@ -93,7 +93,7 @@ private:
     double g = 1.0;
     double b = 1.0;
   };
-  [[nodiscard]] static RgbMultipliers kelvinToRgb(int kelvin);
+  static RgbMultipliers kelvinToRgb(int kelvin);
   static void fillGammaRamp(std::uint16_t* ramp, std::uint32_t size, const RgbMultipliers& mul);
 
   WaylandConnection& m_wayland;

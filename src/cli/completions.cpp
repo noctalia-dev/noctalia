@@ -27,13 +27,13 @@ namespace noctalia::cli {
       }
     }
 
-    [[nodiscard]] std::vector<CommandState> collectStates(const Command& root) {
+    std::vector<CommandState> collectStates(const Command& root) {
       std::vector<CommandState> states;
       collectStates(root, {}, states);
       return states;
     }
 
-    [[nodiscard]] std::string stateId(std::span<const std::string_view> path) {
+    std::string stateId(std::span<const std::string_view> path) {
       std::string id;
       for (const std::string_view segment : path) {
         if (!id.empty())
@@ -44,7 +44,7 @@ namespace noctalia::cli {
       return id;
     }
 
-    [[nodiscard]] std::string shellSingleQuote(std::string_view value) {
+    std::string shellSingleQuote(std::string_view value) {
       std::string quoted{"'"};
       for (const char c : value) {
         if (c == '\'')
@@ -56,7 +56,7 @@ namespace noctalia::cli {
       return quoted;
     }
 
-    [[nodiscard]] std::string bashAnsiQuote(std::string_view value) {
+    std::string bashAnsiQuote(std::string_view value) {
       std::string quoted{"$'"};
       for (const char c : value) {
         if (c == '\\' || c == '\'')
@@ -71,7 +71,7 @@ namespace noctalia::cli {
       return quoted;
     }
 
-    [[nodiscard]] std::string newlineChoices(std::span<const std::string_view> choices) {
+    std::string newlineChoices(std::span<const std::string_view> choices) {
       std::string words;
       for (const std::string_view choice : choices) {
         if (!words.empty())
@@ -81,7 +81,7 @@ namespace noctalia::cli {
       return words;
     }
 
-    [[nodiscard]] std::string spaceWords(const Command& command) {
+    std::string spaceWords(const Command& command) {
       std::string words;
       const auto append = [&words](std::string_view word) {
         if (!words.empty())
@@ -103,7 +103,7 @@ namespace noctalia::cli {
       return words;
     }
 
-    [[nodiscard]] std::string pathArgs(std::span<const std::string_view> path) {
+    std::string pathArgs(std::span<const std::string_view> path) {
       std::string result;
       for (std::size_t i = 1; i < path.size(); ++i) {
         if (!result.empty())
@@ -113,7 +113,7 @@ namespace noctalia::cli {
       return result;
     }
 
-    [[nodiscard]] std::string fishChoiceList(std::span<const std::string_view> choices) {
+    std::string fishChoiceList(std::span<const std::string_view> choices) {
       std::string result;
       for (const std::string_view choice : choices) {
         if (!result.empty())
@@ -133,7 +133,7 @@ namespace noctalia::cli {
       return result;
     }
 
-    [[nodiscard]] std::string zshChoiceList(std::span<const std::string_view> choices) {
+    std::string zshChoiceList(std::span<const std::string_view> choices) {
       std::string result{"("};
       for (const std::string_view choice : choices) {
         if (result.size() > 1)

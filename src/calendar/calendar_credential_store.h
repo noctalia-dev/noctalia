@@ -21,12 +21,12 @@ namespace calendar {
     IoError,
   };
 
-  struct CredentialFileResult {
+  struct [[nodiscard]] CredentialFileResult {
     CredentialFileStatus status = CredentialFileStatus::IoError;
     security::SecureBuffer value;
   };
 
-  [[nodiscard]] CredentialFileResult readCredentialFile(const std::filesystem::path& path);
+  CredentialFileResult readCredentialFile(const std::filesystem::path& path);
 
   enum class CredentialState {
     Opening,
@@ -76,18 +76,18 @@ namespace calendar {
     void retainAccounts(const std::unordered_set<std::string>& accountIds);
 
     void setChangeCallback(ChangeCallback callback);
-    [[nodiscard]] CredentialState state() const noexcept { return m_state; }
-    [[nodiscard]] bool migrationPending() const noexcept { return m_migrationPending; }
-    [[nodiscard]] bool refreshTokenMissing(const std::string& accountId) const;
-    [[nodiscard]] bool refreshTokenLocked(const std::string& accountId) const;
-    [[nodiscard]] bool anyRefreshTokenMissing() const;
-    [[nodiscard]] bool anyRefreshTokenLocked() const;
+    CredentialState state() const noexcept { return m_state; }
+    bool migrationPending() const noexcept { return m_migrationPending; }
+    bool refreshTokenMissing(const std::string& accountId) const;
+    bool refreshTokenLocked(const std::string& accountId) const;
+    bool anyRefreshTokenMissing() const;
+    bool anyRefreshTokenLocked() const;
 
   private:
     struct MigrationContext;
 
     static std::string_view secretName(CredentialKind kind);
-    static std::string label(CredentialKind kind);
+    static std::string_view label(CredentialKind kind);
     static CredentialState stateForStatus(security::SecretStoreStatus status);
 
     void setState(CredentialState state, bool migrationPending, bool forceNotify = false);
@@ -99,7 +99,7 @@ namespace calendar {
     void
     store(CredentialKind kind, const std::string& accountId, security::SecureBuffer value, StatusCallback callback);
     void erase(CredentialKind kind, const std::string& accountId, StatusCallback callback);
-    [[nodiscard]] security::SecretId secretId(CredentialKind kind, const std::string& accountId) const;
+    security::SecretId secretId(CredentialKind kind, const std::string& accountId) const;
 
     security::SecretStore& m_secretStore;
     CredentialState m_state = CredentialState::Opening;

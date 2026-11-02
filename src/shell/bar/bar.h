@@ -9,6 +9,7 @@
 #include "ui/dialogs/layer_popup_host.h"
 #include "wayland/surface.h"
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -67,11 +68,14 @@ public:
   /// Hides bars while a full-screen overlay editor (e.g. lockscreen widget layout) is active.
   void suppressDisplay();
   void unsuppressDisplay();
-  [[nodiscard]] bool isVisible() const noexcept;
+  bool isVisible() const noexcept;
   void onOutputChange();
   void onWorkspaceChanged();
   void scheduleSmartAutoHideReevaluation();
   void onSecondTick();
+  // True when any bar widget renders a value that changes every second, so the
+  // time source should wake on second boundaries.
+  bool wantsSecondTicks() const;
   void refresh();
   void requestLayout();
   void setAutoHideSuppressionCallback(std::function<bool(const BarInstance&)> callback);
@@ -89,28 +93,28 @@ public:
   // already been mutated in place and only a repaint is needed.
   void requestRedraw();
   bool onPointerEvent(const PointerEvent& event);
-  [[nodiscard]] bool isRunning() const noexcept;
-  [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const noexcept;
-  [[nodiscard]] std::optional<LayerPopupParentContext> preferredPopupParentContext(wl_output* output) const noexcept;
+  bool isRunning() const noexcept;
+  std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const noexcept;
+  std::optional<LayerPopupParentContext> preferredPopupParentContext(wl_output* output) const noexcept;
   // Returns the bar surface rects on the given output in output-local logical
   // coordinates. Used by the panel click shield to keep clicks on bar widgets
   // flowing to the bar instead of dismissing the active panel.
-  [[nodiscard]] std::vector<InputRect> surfaceRectsForOutput(wl_output* output) const;
+  std::vector<InputRect> surfaceRectsForOutput(wl_output* output) const;
   // Returns every bar wl_surface across all outputs. Used as the focus-grab
   // whitelist on Hyprland so bar widgets keep receiving clicks.
-  [[nodiscard]] std::vector<wl_surface*> allBarSurfaces() const;
+  std::vector<wl_surface*> allBarSurfaces() const;
   // Bar surfaces that are visually shown and can anchor a Wayland idle inhibitor.
-  [[nodiscard]] std::vector<wl_surface*> caffeineAnchorSurfaces() const;
+  std::vector<wl_surface*> caffeineAnchorSurfaces() const;
   void
   setAttachedPanelGeometry(wl_output* output, std::string_view barName, std::optional<AttachedPanelGeometry> geometry);
-  [[nodiscard]] bool canAttachPanelToBar(wl_output* output, std::string_view barName) const noexcept;
-  [[nodiscard]] std::optional<BarConfig> configForBar(wl_output* output, std::string_view barName) const;
+  bool canAttachPanelToBar(wl_output* output, std::string_view barName) const noexcept;
+  std::optional<BarConfig> configForBar(wl_output* output, std::string_view barName) const;
   // Highest layer-shell layer occupied by any enabled bar on the given output (defaults to Top when no bar is present).
   // Hot corners use this to sit on the highest bar's layer so they are always activable.
-  [[nodiscard]] LayerShellLayer highestLayerForOutput(wl_output* output) const noexcept;
+  LayerShellLayer highestLayerForOutput(wl_output* output) const noexcept;
   // True when an attached panel may start its reveal animation: non-autohide bars, or autohide
   // bars that have finished sliding into their resting position.
-  [[nodiscard]] bool isAttachedPanelBarSettled(wl_output* output, std::string_view barName) const noexcept;
+  bool isAttachedPanelBarSettled(wl_output* output, std::string_view barName) const noexcept;
   void revealAutoHideForAttachedPanel(wl_output* output, std::string_view barName);
   void beginAttachedPopup(wl_surface* surface);
   void endAttachedPopup(wl_surface* surface);
@@ -121,21 +125,24 @@ private:
   void applyIpcVisibility(bool visible);
   void syncIdleInhibitorAnchors();
   void setInstanceIpcVisible(BarInstance& instance, bool visible);
-  [[nodiscard]] bool instanceEffectivelyVisible(const BarInstance& instance) const noexcept;
+  bool instanceEffectivelyVisible(const BarInstance& instance) const noexcept;
   static void tickWidgets(std::vector<std::unique_ptr<Widget>>& widgets, float deltaMs);
-  [[nodiscard]] static bool widgetsNeedFrameTick(const std::vector<std::unique_ptr<Widget>>& widgets);
-  [[nodiscard]] static bool instanceNeedsFrameTick(const BarInstance& instance);
+  static bool widgetsNeedFrameTick(const std::vector<std::unique_ptr<Widget>>& widgets);
+  static bool instanceNeedsFrameTick(const BarInstance& instance);
+  static bool widgetsWantSecondTicks(const std::vector<std::unique_ptr<Widget>>& widgets);
+  static bool instanceWantsSecondTicks(const BarInstance& instance);
   void syncInstances();
   void createInstance(const WaylandOutput& output, std::size_t barIndex, const BarConfig& barConfig);
   void destroyInstance(std::uint32_t outputName);
-  [[nodiscard]] TaskbarWidget* findTaskbarWidget(const IpcInvocationContext& context) const;
+  TaskbarWidget* findTaskbarWidget(const IpcInvocationContext& context) const;
   void populateWidgets(BarInstance& instance);
   void attachWidgetsToSections(BarInstance& instance);
   void updateWidgetHoverHighlight(BarInstance& instance, InputArea* hoveredArea);
   void animateWidgetHoverHighlight(BarInstance& instance, Widget& widget, bool hovered);
   void updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea);
+  void beginAccordionAnimation(BarInstance& instance, BarCapsuleRun& run, bool expanded);
   void rebuildInstanceContents(BarInstance& instance, const BarConfig& newConfig);
-  [[nodiscard]] BarServices services() const;
+  BarServices services() const;
   void buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t height);
   void prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout);
   void updateWidgets(BarInstance& instance);
@@ -145,28 +152,28 @@ private:
   void syncBarExclusiveZone(BarInstance& instance);
   void syncBarSurfaceChrome(BarInstance& instance);
   void clearInstancePointerState(BarInstance& instance);
-  [[nodiscard]] bool instanceAcceptsPointerInput(const BarInstance& instance) const noexcept;
-  [[nodiscard]] bool shouldReserveExclusiveZone(const BarInstance& instance) const noexcept;
-  [[nodiscard]] bool barContentVisuallyShown(const BarInstance& instance) const noexcept;
+  bool instanceAcceptsPointerInput(const BarInstance& instance) const noexcept;
+  bool shouldReserveExclusiveZone(const BarInstance& instance) const noexcept;
+  bool barContentVisuallyShown(const BarInstance& instance) const noexcept;
   void revealAutoHideBar(BarInstance& instance);
-  [[nodiscard]] bool isWorkspacePeekActive() const noexcept;
+  bool isWorkspacePeekActive() const noexcept;
   void applyPendingWorkspaceReveal();
   void reevaluateSmartAutoHide();
-  void startHideFadeOut(BarInstance& instance);
+  void startHideFadeOut(BarInstance& instance, bool immediate = false);
   static void applyBackgroundPalette(BarInstance& instance);
-  [[nodiscard]] std::string showBarIpc(std::string_view args);
-  [[nodiscard]] std::string hideBarIpc(std::string_view args);
-  [[nodiscard]] std::string toggleBarIpc(std::string_view args);
-  [[nodiscard]] std::string toggleBarReserveSpaceIpc(std::string_view args);
-  [[nodiscard]] std::string setBarAutoHideIpc(std::string_view args);
-  [[nodiscard]] std::string setBarLayerIpc(std::string_view args);
+  std::string showBarIpc(std::string_view args);
+  std::string hideBarIpc(std::string_view args);
+  std::string toggleBarIpc(std::string_view args);
+  std::string toggleBarReserveSpaceIpc(std::string_view args);
+  std::string setBarAutoHideIpc(std::string_view args);
+  std::string setBarLayerIpc(std::string_view args);
   [[nodiscard]] std::optional<std::string> collectBarIpcInstances(
       std::optional<std::string> barName, std::optional<std::string> monitorSelector,
       std::vector<BarInstance*>& instancesOut
   );
-  [[nodiscard]] BarInstance* instanceForSurface(wl_surface* surface) const noexcept;
-  [[nodiscard]] BarInstance* instanceForOutput(wl_output* output) const noexcept;
-  [[nodiscard]] BarInstance* instanceForBar(wl_output* output, std::string_view barName) const noexcept;
+  BarInstance* instanceForSurface(wl_surface* surface) const noexcept;
+  BarInstance* instanceForOutput(wl_output* output) const noexcept;
+  BarInstance* instanceForBar(wl_output* output, std::string_view barName) const noexcept;
 
   CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
@@ -197,6 +204,10 @@ private:
   scripting::ScriptApiContext* m_scriptApi = nullptr;
   std::unique_ptr<WidgetFactory> m_widgetFactory;
   std::vector<std::unique_ptr<BarInstance>> m_instances;
+  // Wall-clock minute of the last full second-tick update, so minute-changing
+  // widgets refresh on the first tick of a new minute even when it lands off
+  // the :00 boundary (after suspend, a clock step, or the lock screen).
+  std::chrono::sys_time<std::chrono::minutes> m_lastTickMinute;
 
   // Snapshot of the config fields the bar depends on. Used to skip reloads
   // triggered by unrelated config changes (theme, weather, idle, etc.).

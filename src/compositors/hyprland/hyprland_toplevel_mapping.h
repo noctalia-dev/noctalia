@@ -26,13 +26,13 @@ namespace compositors::hyprland {
     void syncWlrHandles(const std::vector<zwlr_foreign_toplevel_handle_v1*>& handles);
     void syncExtHandles(const std::vector<ext_foreign_toplevel_handle_v1*>& handles);
 
-    [[nodiscard]] std::optional<std::string> windowIdForWlrHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
-    [[nodiscard]] std::optional<std::string> windowIdForExtHandle(ext_foreign_toplevel_handle_v1* handle) const;
-    [[nodiscard]] zwlr_foreign_toplevel_handle_v1* wlrHandleForWindowId(std::string_view windowId) const;
-    [[nodiscard]] ext_foreign_toplevel_handle_v1* extHandleForWindowId(std::string_view windowId) const;
-    [[nodiscard]] bool isWindowIdKnown(std::string_view windowId) const;
+    std::optional<std::string> windowIdForWlrHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
+    std::optional<std::string> windowIdForExtHandle(ext_foreign_toplevel_handle_v1* handle) const;
+    zwlr_foreign_toplevel_handle_v1* wlrHandleForWindowId(std::string_view windowId) const;
+    ext_foreign_toplevel_handle_v1* extHandleForWindowId(std::string_view windowId) const;
+    bool isWindowIdKnown(std::string_view windowId) const;
 
-    [[nodiscard]] bool available() const noexcept { return m_manager != nullptr; }
+    bool available() const noexcept { return m_manager != nullptr; }
 
     static void handleWindowAddress(
         void* data, hyprland_toplevel_window_mapping_handle_v1* request, std::uint32_t addressHi,

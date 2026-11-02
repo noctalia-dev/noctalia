@@ -248,6 +248,22 @@ namespace scripting {
     }
   }
 
+  void PluginServiceHost::onSleepChanged(bool sleeping) {
+    const char* callback = sleeping ? "onSuspend" : "onResume";
+    for (auto& service : m_services) {
+      if (service->runtime == nullptr) {
+        continue;
+      }
+      const auto entry = PluginRegistry::instance().resolve(service->entryId);
+      if (!entry.has_value()
+          || entry->manifest == nullptr
+          || entry->manifest->pluginApiVersion < kSleepCallbacksPluginApiVersion) {
+        continue;
+      }
+      (void)service->runtime->enqueueCall(callback, {});
+    }
+  }
+
   void PluginServiceHost::setupScriptWatch(Service& service) {
     Service* svc = &service;
     service.scriptWatcher.start(m_fileWatcher, service.sourcePath, [this, svc] { reloadService(*svc); });

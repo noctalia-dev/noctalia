@@ -23,7 +23,7 @@ namespace {
   constexpr int kRecvTimeoutMs = 100;
   constexpr char kCallerCwdSeparator = '\x1e';
 
-  [[nodiscard]] std::optional<std::string> parseCallerCwdPrefix(std::string& line) {
+  std::optional<std::string> parseCallerCwdPrefix(std::string& line) {
     const auto separator = line.find(kCallerCwdSeparator);
     if (separator == std::string::npos) {
       return std::nullopt;
@@ -171,12 +171,11 @@ void IpcService::dispatch() {
 }
 
 std::string IpcService::execute(const std::string& line) const {
-  auto* self = const_cast<IpcService*>(this);
-  self->m_callerCwd.reset();
+  m_callerCwd.reset();
 
   std::string commandLine = line;
   if (auto cwd = parseCallerCwdPrefix(commandLine); cwd.has_value()) {
-    self->m_callerCwd = std::move(*cwd);
+    m_callerCwd = std::move(*cwd);
   }
 
   std::string command;

@@ -14,9 +14,9 @@ public:
 
   void record(std::string_view providerId, std::string_view resultId);
   void clear();
-  [[nodiscard]] int getCount(std::string_view providerId, std::string_view resultId);
-  [[nodiscard]] int getRecentlyUsedIndex(std::string_view providerId, std::string_view resultId);
-  [[nodiscard]] std::size_t getRecentlyUsedCount(std::string_view providerId);
+  int getCount(std::string_view providerId, std::string_view resultId);
+  int getRecentlyUsedIndex(std::string_view providerId, std::string_view resultId);
+  std::size_t getRecentlyUsedCount(std::string_view providerId);
 
 private:
   void ensureLoaded();

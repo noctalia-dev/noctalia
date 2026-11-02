@@ -4,4 +4,4 @@
 
 #include <variant>
 
-[[nodiscard]] const noctalia::bar::WidgetDefinition<std::monostate>& caffeineWidgetDefinition();
+const noctalia::bar::WidgetDefinition<std::monostate>& caffeineWidgetDefinition();

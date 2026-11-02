@@ -31,18 +31,18 @@ public:
   explicit DesktopClockWidget(Options options);
 
   void create() override;
-  [[nodiscard]] bool wantsSecondTicks() const override;
+  bool wantsSecondTicks() const override;
   bool applySetting(
       const std::string& key, const WidgetSettingValue& value,
       const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
   ) override;
 
 private:
-  [[nodiscard]] std::string formatText() const;
+  std::string formatText() const;
   void doLayout(Renderer& renderer) override;
   void doUpdate(Renderer& renderer) override;
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
-  [[nodiscard]] bool contentAlignsToStart() const noexcept override { return !m_centerText; }
+  bool contentAlignsToStart() const noexcept override { return !m_centerText; }
   void applyShadow();
   void syncStyleVisibility();
   void syncCircleVisibility();
@@ -55,7 +55,7 @@ private:
   // stops reflowing every second as proportional digits change advance width.
   void updateStableDigitalWidth(Renderer& renderer, const std::string& text);
   void updateAnalogHands();
-  [[nodiscard]] static Style styleFromSetting(std::string_view value);
+  static Style styleFromSetting(std::string_view value);
 
   Style m_style;
   std::string m_format;

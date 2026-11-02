@@ -9,18 +9,18 @@ namespace noctalia::cli {
 
   namespace {
 
-    [[nodiscard]] const Flag* findFlag(const Command& command, std::string_view spelling) {
+    const Flag* findFlag(const Command& command, std::string_view spelling) {
       const auto it = std::ranges::find_if(command.flags, [spelling](const Flag& flag) {
         return spelling == flag.longName || spelling == flag.shortName;
       });
       return it == command.flags.end() ? nullptr : &*it;
     }
 
-    [[nodiscard]] bool isChoice(std::span<const std::string_view> choices, std::string_view value) {
+    bool isChoice(std::span<const std::string_view> choices, std::string_view value) {
       return choices.empty() || std::ranges::find(choices, value) != choices.end();
     }
 
-    [[nodiscard]] std::string
+    std::string
     choiceError(std::string_view value, std::string_view valueName, std::span<const std::string_view> choices) {
       std::string message = "error: invalid value '";
       message.append(value);
@@ -77,16 +77,6 @@ namespace noctalia::cli {
         return result;
       }
 
-      if (positionalIndex < command.positionals.size() && command.positionals[positionalIndex].joinRemaining) {
-        assigned[positionalIndex] = true;
-        for (std::size_t remaining = i; remaining < args.size(); ++remaining) {
-          if (!result.joinedRemaining.empty())
-            result.joinedRemaining.push_back(' ');
-          result.joinedRemaining.append(args[remaining]);
-        }
-        break;
-      }
-
       const Flag* flag = nullptr;
       std::string_view inlineValue;
       bool hasInlineValue = false;
@@ -126,6 +116,16 @@ namespace noctalia::cli {
         }
         result.flagValues.emplace_back(flag, flagValue);
         continue;
+      }
+
+      if (positionalIndex < command.positionals.size() && command.positionals[positionalIndex].joinRemaining) {
+        assigned[positionalIndex] = true;
+        for (std::size_t remaining = i; remaining < args.size(); ++remaining) {
+          if (!result.joinedRemaining.empty())
+            result.joinedRemaining.push_back(' ');
+          result.joinedRemaining.append(args[remaining]);
+        }
+        break;
       }
 
       if (positionalIndex >= command.positionals.size())

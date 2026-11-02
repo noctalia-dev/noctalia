@@ -71,11 +71,10 @@ void CalendarReminderMonitor::initialize() {
     return;
   }
   loadPersistedState();
-  m_notifications.setInternalActionCallback(
-      [this](std::uint32_t id, const std::string& actionKey, const std::string& activationToken) {
-        onNotificationAction(id, actionKey, activationToken);
-      }
-  );
+  m_notifications.setInternalActionCallback([this](
+                                                std::uint32_t id, const std::string& actionKey,
+                                                const std::string& activationToken, const std::string& /*sender*/
+                                            ) { onNotificationAction(id, actionKey, activationToken); });
   m_initialized = true;
 }
 
@@ -120,8 +119,8 @@ void CalendarReminderMonitor::persistState() {
     }
     encoded += *key;
   }
-  (void)m_configService.setStateString(kStateOwner, kFiredKey, encoded);
-  (void)m_configService.setStateString(kStateOwner, kDigestDateKey, m_lastDigestDate.value_or(std::string{}));
+  m_configService.setStateString(kStateOwner, kFiredKey, encoded);
+  m_configService.setStateString(kStateOwner, kDigestDateKey, m_lastDigestDate.value_or(std::string{}));
 }
 
 void CalendarReminderMonitor::schedulePersist() {
@@ -130,7 +129,7 @@ void CalendarReminderMonitor::schedulePersist() {
     return;
   }
   m_persistScheduled = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     if (m_persistScheduled) {
       persistState();
     }
@@ -144,7 +143,7 @@ void CalendarReminderMonitor::onSnapshotChanged(const CalendarSnapshot& snapshot
 
 void CalendarReminderMonitor::onConfigReload() {
   m_nextWake.reset();
-  DeferredCall::callLater([this]() { evaluate(std::chrono::system_clock::now()); });
+  DeferredCall::callLater([this] { evaluate(std::chrono::system_clock::now()); });
 }
 
 int CalendarReminderMonitor::pollTimeoutMs() const {
@@ -314,7 +313,7 @@ void CalendarReminderMonitor::fireCatchUpSummary(std::size_t remaining) {
   request.dndPolicy = NotificationDndPolicy::Respect;
   request.persistInHistory = true;
   request.icon = std::string("noctalia-glyph:calendar-clock");
-  (void)m_notifications.addOrReplace(std::move(request));
+  m_notifications.addOrReplace(std::move(request));
 }
 
 void CalendarReminderMonitor::fireDigest(std::span<const CalendarEvent* const> events) {
@@ -341,5 +340,5 @@ void CalendarReminderMonitor::fireDigest(std::span<const CalendarEvent* const> e
   request.dndPolicy = NotificationDndPolicy::Respect;
   request.persistInHistory = true;
   request.icon = std::string("noctalia-glyph:calendar-event");
-  (void)m_notifications.addOrReplace(std::move(request));
+  m_notifications.addOrReplace(std::move(request));
 }

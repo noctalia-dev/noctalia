@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Luau/Common.h"
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -16,7 +14,26 @@ struct DenseHashPointer
 {
     size_t operator()(const void* key) const
     {
-        return (uintptr_t(key) >> 4) ^ (uintptr_t(key) >> 9);
+        // The idea to use this hash function was suggested here originally: https://maskray.me/blog/2026-06-07-recent-llvm-hash-table-improvements
+        // Hash function implementation is detailed here: https://github.com/MaskRay/llvm-project/blob/main/llvm/include/llvm/ADT/DenseMapInfo.h
+        // This hash produces better scattering for arena allocated types, because the pointers usually share the higher order bits.
+        // When inserting lots of keys, quadratic probing is not enough to save DenseHash, although it usually takes many more elements,
+        // before it becomes a problem
+        uint64_t u = static_cast<uint64_t>(uintptr_t(key));
+        u *= 0xbf58476d1ce4e5b9u;
+        u ^= u >> 31;
+        // On 32-bit platforms uint64_t to size_t is a narrowing, so we need
+        // to static cast here.
+        return static_cast<size_t>(u);
+    }
+};
+
+// std::hash can't be specialized for void*, so void* keys are hashed by address; DenseHash's Fibonacci hashing mixes the bits.
+struct DenseHashAddress
+{
+    size_t operator()(const void* key) const noexcept
+    {
+        return uintptr_t(key);
     }
 };
 
@@ -24,7 +41,7 @@ namespace detail
 {
 
 template<typename T>
-using DenseHashDefault = std::conditional_t<std::is_pointer_v<T>, DenseHashPointer, std::hash<T>>;
+using DenseHashDefault = std::conditional_t<std::is_same_v<T, void*> || std::is_same_v<T, const void*>, DenseHashAddress, std::hash<T>>;
 
 } // namespace detail
 

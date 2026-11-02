@@ -25,11 +25,11 @@ public:
   void setScale(float scale);
   void setOnChange(std::function<void(bool)> callback);
   void setTabFocusKey(std::string key);
-  [[nodiscard]] bool hovered() const noexcept;
-  [[nodiscard]] bool pressed() const noexcept;
-  [[nodiscard]] bool checked() const noexcept { return m_checked; }
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] ToggleSize toggleSize() const noexcept { return m_size; }
+  bool hovered() const noexcept;
+  bool pressed() const noexcept;
+  bool checked() const noexcept { return m_checked; }
+  bool enabled() const noexcept { return m_enabled; }
+  ToggleSize toggleSize() const noexcept { return m_size; }
 
 private:
   void activateFromInput();

@@ -35,7 +35,7 @@ namespace {
     return ::fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == 0;
   }
 
-  [[nodiscard]] std::optional<sdbus::ObjectPath> resolveSessionPath(sdbus::IConnection& connection) {
+  std::optional<sdbus::ObjectPath> resolveSessionPath(sdbus::IConnection& connection) {
     try {
       auto managerProxy = sdbus::createProxy(connection, kLogindBusName, kLogindObjectPath);
 
@@ -91,12 +91,16 @@ void LogindService::ensureSessionLockMonitor() {
   }
 
   m_sessionProxy = sdbus::createProxy(m_bus.connection(), kLogindBusName, *sessionPath);
-  m_sessionProxy->uponSignal("Lock").onInterface(kLogindSessionInterface).call([this]() {
+  m_sessionProxy->uponSignal("Lock").onInterface(kLogindSessionInterface).call([this] {
     if (m_lockCallback) {
       m_lockCallback();
     }
   });
-  m_sessionProxy->uponSignal("Unlock").onInterface(kLogindSessionInterface).call([this]() {
+  m_sessionProxy->uponSignal("Unlock").onInterface(kLogindSessionInterface).call([this] {
+    if (!m_bus.isNameOwner(kLogindBusName, m_sessionProxy->getCurrentlyProcessedMessage().getSender())) {
+      kLog.warn("ignoring Unlock signal not sent by logind");
+      return;
+    }
     if (m_unlockCallback) {
       m_unlockCallback();
     }
@@ -123,7 +127,7 @@ void LogindService::setLockBeforeSuspendEnabled(bool enabled) {
     releaseSleepDelayInhibit();
     return;
   }
-  (void)acquireSleepDelayInhibit();
+  acquireSleepDelayInhibit();
 }
 
 void LogindService::setPrepareForSleepCallback(PrepareForSleepCallback callback) {

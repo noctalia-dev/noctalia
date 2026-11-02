@@ -14,7 +14,7 @@ struct ColorSwatchPreview {
   std::optional<ColorSpec> surface;
   std::vector<ColorSpec> swatches;
 
-  [[nodiscard]] bool empty() const noexcept { return swatches.empty(); }
+  bool empty() const noexcept { return swatches.empty(); }
 };
 
 class ColorSwatchPreviewStrip final : public Flex {
@@ -26,8 +26,8 @@ public:
   void setPreview(const ColorSwatchPreview& preview);
   void setMetricsFromFontSize(float fontSize);
 
-  [[nodiscard]] float preferredWidth() const noexcept;
-  [[nodiscard]] float preferredHeight() const noexcept { return m_height; }
+  float preferredWidth() const noexcept;
+  float preferredHeight() const noexcept { return m_height; }
 
 private:
   void syncGeometry();

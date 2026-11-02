@@ -20,9 +20,9 @@ namespace {
   constexpr GLenum GL_BGRA_EXT = 0x80E1;
 #endif
 
-  [[nodiscard]] GLuint toGlesTexture(TextureId id) noexcept { return static_cast<GLuint>(id.value()); }
+  GLuint toGlesTexture(TextureId id) noexcept { return static_cast<GLuint>(id.value()); }
 
-  [[nodiscard]] GLenum toGlesFormat(TextureDataFormat format) noexcept {
+  GLenum toGlesFormat(TextureDataFormat format) noexcept {
     switch (format) {
     case TextureDataFormat::Alpha:
       return GL_ALPHA;
@@ -34,11 +34,11 @@ namespace {
     return GL_RGBA;
   }
 
-  [[nodiscard]] GLint toGlesFilter(TextureFilter filter) noexcept {
+  GLint toGlesFilter(TextureFilter filter) noexcept {
     return filter == TextureFilter::Nearest ? GL_NEAREST : GL_LINEAR;
   }
 
-  [[nodiscard]] GLint toGlesMipmapFilter(TextureFilter filter) noexcept {
+  GLint toGlesMipmapFilter(TextureFilter filter) noexcept {
     return filter == TextureFilter::Nearest ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR;
   }
 
@@ -74,9 +74,12 @@ TextureHandle GlesTextureManager::decodeEncodedRaster(
     return {};
   }
 
-  if (auto decoded = decodeRasterImage(data, size)) {
+  auto decoded = decodeRasterImage(data, size);
+  if (decoded) {
     return uploadRgba(decoded->pixels.data(), decoded->width, decoded->height, mipmap);
-  } else if (debugPath != nullptr) {
+  }
+
+  if (debugPath != nullptr) {
     kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(*debugPath), decoded.error());
   }
 

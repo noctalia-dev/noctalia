@@ -8,12 +8,12 @@
 #include <unordered_map>
 
 // FreeType forwards
-typedef struct FT_LibraryRec_* FT_Library;
-typedef struct FT_FaceRec_* FT_Face;
+using FT_Library = struct FT_LibraryRec_*;
+using FT_Face = struct FT_FaceRec_*;
 
 // Cairo forwards
-typedef struct _cairo_font_face cairo_font_face_t;
-typedef struct _cairo_font_options cairo_font_options_t;
+using cairo_font_face_t = struct _cairo_font_face;
+using cairo_font_options_t = struct _cairo_font_options;
 
 class RenderBackend;
 class TextureManager;
@@ -48,7 +48,7 @@ public:
   void invalidateGlyphTextures();
   void abandonGlyphTextures() noexcept;
 
-  [[nodiscard]] TextMetrics measureGlyph(float contentScale, char32_t codepoint, float fontSize);
+  TextMetrics measureGlyph(float contentScale, char32_t codepoint, float fontSize);
 
   void drawGlyph(
       float contentScale, float surfaceWidth, float surfaceHeight, float x, float baselineY, char32_t codepoint,

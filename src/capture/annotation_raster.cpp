@@ -32,6 +32,8 @@ namespace capture {
       double top = 0.0;  // relative to the anchor y (baseline), negative above it
       double width = 0.0;
       double height = 0.0;
+      double caretX = 0.0; // strong cursor after the last character, relative to the anchor x
+      bool rtl = false;
     };
 
     [[nodiscard]] PangoFontDescription* makeTextFont(double sizePx) {
@@ -48,7 +50,7 @@ namespace capture {
       pango_layout_set_text(layout, annotation.text.c_str(), -1);
     }
 
-    [[nodiscard]] TextMetrics measureTextUncached(const Annotation& annotation) {
+    TextMetrics measureTextUncached(const Annotation& annotation) {
       cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_A8, 1, 1);
       cairo_t* cr = cairo_create(surface);
       PangoLayout* layout = pango_cairo_create_layout(cr);
@@ -58,20 +60,29 @@ namespace capture {
       int layoutHeight = 0;
       pango_layout_get_pixel_size(layout, &layoutWidth, &layoutHeight);
       const double baseline = static_cast<double>(pango_layout_get_baseline(layout)) / PANGO_SCALE;
+      PangoLayoutLine* line = pango_layout_get_line_readonly(layout, 0);
+      const bool rtl = line != nullptr && pango_layout_line_get_resolved_direction(line) == PANGO_DIRECTION_RTL;
+      PangoRectangle strong{};
+      pango_layout_get_cursor_pos(layout, static_cast<int>(annotation.text.size()), &strong, nullptr);
 
       g_object_unref(layout);
       cairo_destroy(cr);
       cairo_surface_destroy(surface);
 
+      // The anchor is the paragraph's start edge, so right-to-left text extends left of it.
+      const auto width = static_cast<double>(layoutWidth);
+      const double left = rtl ? -width : 0.0;
       return TextMetrics{
-          .left = 0.0,
+          .left = left,
           .top = -baseline,
-          .width = static_cast<double>(layoutWidth),
+          .width = width,
           .height = static_cast<double>(layoutHeight),
+          .caretX = left + (static_cast<double>(strong.x) / PANGO_SCALE),
+          .rtl = rtl,
       };
     }
 
-    [[nodiscard]] TextMetrics textMetrics(const Annotation& annotation) {
+    TextMetrics textMetrics(const Annotation& annotation) {
       // Pango measurement dominates hit testing and dirty-rect math during a text edit,
       // so results are memoized per (content, font size).
       static std::map<std::pair<std::string, double>, TextMetrics> cache;
@@ -123,9 +134,9 @@ namespace capture {
     // some twenty cycles, and six passes over a large region made those divisions the whole
     // cost of the blur, so the window size becomes a fixed-point reciprocal instead. Exact for
     // every window this code uses: sums stay under 255 * window.
-    [[nodiscard]] std::uint64_t averageReciprocal(std::uint32_t count) { return (0xFFFFFFFFULL / count) + 1ULL; }
+    std::uint64_t averageReciprocal(std::uint32_t count) { return (0xFFFFFFFFULL / count) + 1ULL; }
 
-    [[nodiscard]] std::uint32_t averagePixel(const std::array<std::uint32_t, 4>& sums, std::uint64_t reciprocal) {
+    std::uint32_t averagePixel(const std::array<std::uint32_t, 4>& sums, std::uint64_t reciprocal) {
       const auto mean = [reciprocal](std::uint32_t sum) {
         return static_cast<std::uint32_t>((static_cast<std::uint64_t>(sum) * reciprocal) >> 32U);
       };
@@ -202,7 +213,7 @@ namespace capture {
     // large region is pure waste: the result is band-limited to roughly sigma anyway. Averaging
     // step x step source blocks first and blurring that, then letting cairo scale the result
     // back, keeps the pass count off the region's real area and bounds it for a huge rect.
-    [[nodiscard]] int blurDownscaleStep(double sigma, int regionWidth, int regionHeight) {
+    int blurDownscaleStep(double sigma, int regionWidth, int regionHeight) {
       const int fromSigma = std::clamp(static_cast<int>(sigma / 2.0), 1, kMaxBlurStep);
       // Padding is expressed in downscaled pixels, so a step near the region size would spend
       // more time gathering the halo than the region.
@@ -298,7 +309,7 @@ namespace capture {
       return BlurResult{.surface = result, .step = step};
     }
 
-    [[nodiscard]] BlurResult cachedBlur(cairo_surface_t* source, int x, int y, int width, int height, double strength) {
+    BlurResult cachedBlur(cairo_surface_t* source, int x, int y, int width, int height, double strength) {
       static std::uint64_t clock = 0;
       ++clock;
 
@@ -507,6 +518,20 @@ namespace capture {
     };
   }
 
+  AnnotationRect measureTextCaret(const Annotation& annotation, double caretWidth) {
+    if (annotation.points.empty()) {
+      return AnnotationRect{};
+    }
+    const TextMetrics metrics = textMetrics(annotation);
+    const AnnotationPoint anchor = annotation.points.front();
+    return AnnotationRect{
+        .x = anchor.x + metrics.caretX - (metrics.rtl ? caretWidth : 0.0),
+        .y = anchor.y + metrics.top,
+        .width = caretWidth,
+        .height = metrics.height,
+    };
+  }
+
   void renderAnnotation(cairo_t* cr, const Annotation& annotation, cairo_surface_t* background, double scale) {
     if (annotation.points.empty()) {
       return;
@@ -560,8 +585,6 @@ namespace capture {
     case AnnotationTool::Circle:
     case AnnotationTool::Line:
     case AnnotationTool::Arrow:
-      break;
-
     case AnnotationTool::Brush:
       break;
     }

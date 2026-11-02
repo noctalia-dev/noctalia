@@ -38,7 +38,7 @@ namespace {
     TestRoot(const TestRoot&) = delete;
     TestRoot& operator=(const TestRoot&) = delete;
 
-    [[nodiscard]] const std::filesystem::path& path() const { return m_path; }
+    const std::filesystem::path& path() const { return m_path; }
 
   private:
     std::filesystem::path m_path;

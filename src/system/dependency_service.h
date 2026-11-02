@@ -8,8 +8,8 @@ class DependencyService {
 public:
   DependencyService();
 
-  [[nodiscard]] bool has(std::string_view name) const;
-  [[nodiscard]] bool hasDdcutil() const { return has("ddcutil"); }
+  bool has(std::string_view name) const;
+  bool hasDdcutil() const { return has("ddcutil"); }
 
   void rescan();
 

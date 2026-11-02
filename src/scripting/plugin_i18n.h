@@ -11,9 +11,8 @@ namespace scripting {
   public:
     void load(const std::filesystem::path& pluginDir);
 
-    [[nodiscard]] bool has(std::string_view key) const;
-    [[nodiscard]] std::string
-    translate(std::string_view key, const std::unordered_map<std::string, std::string>& subst = {}) const;
+    bool has(std::string_view key) const;
+    std::string translate(std::string_view key, const std::unordered_map<std::string, std::string>& subst = {}) const;
 
   private:
     std::unordered_map<std::string, std::string> m_values;

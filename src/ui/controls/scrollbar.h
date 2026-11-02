@@ -32,18 +32,18 @@ public:
 
   void update(float viewportExtent, float contentExtent, float scrollOffset);
 
-  [[nodiscard]] float thumbTravel() const noexcept { return m_thumbTravel; }
-  [[nodiscard]] bool visible() const noexcept { return m_shown; }
+  float thumbTravel() const noexcept { return m_thumbTravel; }
+  bool visible() const noexcept { return m_shown; }
 
-  [[nodiscard]] ScrollOrientation orientation() const noexcept { return m_orientation; }
+  ScrollOrientation orientation() const noexcept { return m_orientation; }
 
   // Thickness the host reserves for the bar. The hover expansion overlays the content instead
   // of widening this, so the reserved gutter never changes while the pointer moves.
-  [[nodiscard]] float reservedThickness() const noexcept { return Style::scrollbarWidth * m_contentScale; }
+  float reservedThickness() const noexcept { return Style::scrollbarWidth * m_contentScale; }
 
 private:
-  [[nodiscard]] float currentOffset() const noexcept;
-  [[nodiscard]] float thickness() const noexcept;
+  float currentOffset() const noexcept;
+  float thickness() const noexcept;
   void applyPalette();
   void applyThumbPosition(float scrollOffset, float maxScroll);
   void applyGeometry();

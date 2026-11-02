@@ -2,6 +2,7 @@
 
 #include "compositors/workspace_backend.h"
 #include "config/config_service.h"
+#include "config/config_types.h"
 #include "core/ui_phase.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
@@ -27,7 +28,7 @@
 #include <wayland-client-protocol.h>
 
 namespace {
-  [[nodiscard]] bool isEmptyWorkspace(const Workspace& workspace) {
+  bool isEmptyWorkspace(const Workspace& workspace) {
     return !workspace.occupied && !workspace.active && !workspace.urgent;
   }
 
@@ -35,17 +36,15 @@ namespace {
   constexpr float kWorkspacePillDefaultHeight = Style::baseGlyphSize;
   constexpr float kWorkspaceAnimDurationMs = static_cast<float>(Style::animNormal);
 
-  [[nodiscard]] constexpr float workspaceLabelFontSize(bool minimal) {
-    return minimal ? Style::fontSizeBody : Style::fontSizeMini;
-  }
+  constexpr float workspaceLabelFontSize(bool minimal) { return minimal ? Style::fontSizeBody : Style::fontSizeMini; }
 
   // Numeric workspace IDs ("10", "11") must not be truncated like word labels.
-  [[nodiscard]] bool isNumericLabel(std::string_view label) {
+  bool isNumericLabel(std::string_view label) {
     return !label.empty()
         && std::ranges::all_of(label, [](char c) { return std::isdigit(static_cast<unsigned char>(c)); });
   }
 
-  [[nodiscard]] std::string workspaceIdentityKey(const Workspace& workspace, wl_output* output = nullptr) {
+  std::string workspaceIdentityKey(const Workspace& workspace, wl_output* output = nullptr) {
     const std::string outputKey =
         output == nullptr ? "" : std::to_string(reinterpret_cast<std::uintptr_t>(output)) + ":";
     if (!workspace.id.empty()) {
@@ -74,7 +73,7 @@ WorkspacesWidget::WorkspacesWidget(
     : m_platform(platform), m_configService(config), m_output(output), m_labelSource(options.labelSource),
       m_showLabels(options.showLabels), m_maxLabelChars(options.maxLabelChars),
       m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_showIcons(options.showIcons),
-      m_hideWhenEmpty(options.hideWhenEmpty), m_showAllOutputs(options.showAllOutputs), m_pillScale(options.pillScale),
+      m_hideWhenEmpty(options.hideWhenEmpty), m_monitors(std::move(options.monitors)), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
@@ -113,7 +112,7 @@ void WorkspacesWidget::create() {
   setRoot(std::move(container));
 
   if (showsActiveIcon()) {
-    m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+    m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] {
       m_iconColorizeRefreshPending = true;
       requestUpdate();
     });
@@ -195,28 +194,38 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   }
 
   std::vector<WorkspaceState> current;
-  if (m_showAllOutputs) {
-    const auto appendWorkspaces = [&](wl_output* output) {
-      if (output == nullptr) {
-        return;
-      }
-      for (auto& workspace : m_platform.workspaces(output)) {
-        current.push_back({.workspace = std::move(workspace), .output = output});
+  const auto appendWorkspaces = [&](wl_output* output) {
+    if (output == nullptr) {
+      return;
+    }
+    for (auto& workspace : m_platform.workspaces(output)) {
+      current.push_back({.workspace = std::move(workspace), .output = output});
+    }
+  };
+
+  if (m_monitors.empty()) {
+    appendWorkspaces(m_output);
+  } else {
+    std::vector<wl_output*> selected;
+    const auto addOutput = [&selected](wl_output* output) {
+      if (output != nullptr && !std::ranges::contains(selected, output)) {
+        selected.push_back(output);
       }
     };
-
-    appendWorkspaces(m_output);
-    for (const auto& output : m_platform.outputs()) {
-      if (output.output == nullptr) {
-        continue;
+    for (const auto& monitor : m_monitors) {
+      // "*" selects every monitor, starting with the one hosting this bar.
+      const bool all = monitor == "*";
+      if (all) {
+        addOutput(m_output);
       }
-      if (output.output != m_output) {
-        appendWorkspaces(output.output);
+      for (const auto& output : m_platform.outputs()) {
+        if (all || outputMatchesSelector(monitor, output)) {
+          addOutput(output.output);
+        }
       }
     }
-  } else {
-    for (auto& workspace : m_platform.workspaces(m_output)) {
-      current.push_back({.workspace = std::move(workspace), .output = m_output});
+    for (auto* output : selected) {
+      appendWorkspaces(output);
     }
   }
 
@@ -467,7 +476,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
 
     if (entry.showLabel) {
       const TextMetrics tm = renderer.measureText(
-          entry.label, labelFontSize, configuredFontWeight, 0.0F, 0, TextAlign::Start, labelFontFamily()
+          entry.label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
       );
       slot.textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
       slot.textHeight = tm.bottom - tm.top;
@@ -500,7 +509,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       }
       if (entry.showLabel) {
         const TextMetrics tm = renderer.measureText(
-            entry.label, labelFontSize, configuredFontWeight, 0.0F, 0, TextAlign::Start, labelFontFamily()
+            entry.label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
         );
         maxLabelHeight = std::max(maxLabelHeight, tm.bottom - tm.top);
       }
@@ -653,7 +662,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         requestFrameTick();
       });
 
-      area->setOnLeave([this, areaPtr]() {
+      area->setOnLeave([this, areaPtr] {
         if (m_hoveredArea != areaPtr) {
           return;
         }
@@ -864,8 +873,9 @@ void WorkspacesWidget::recalculateItemMetrics(
   float textWidth = 0.0F;
   float textHeight = 0.0F;
   if (item.showLabel) {
-    const TextMetrics tm =
-        renderer.measureText(label, labelFontSize, configuredFontWeight, 0.0F, 0, TextAlign::Start, labelFontFamily());
+    const TextMetrics tm = renderer.measureText(
+        label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
+    );
     textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
     textHeight = tm.bottom - tm.top;
   }
@@ -1021,7 +1031,7 @@ void WorkspacesWidget::startAnimation() {
           root()->markPaintDirty();
         }
       },
-      [this]() { finishAnimation(); }, this
+      [this] { finishAnimation(); }, this
   );
 
   // Reserve final bounds before the first animated frame to avoid one-frame overflow.
@@ -1210,20 +1220,17 @@ void WorkspacesWidget::updateHoverOverlay() {
 
   Item& hoveredItem = *hoveredIt;
 
-  if (!isMinimal()) {
-    for (auto& item : m_items) {
-      if (&item == &hoveredItem) {
-        if (item.indicator != nullptr) {
-          item.indicator->setFill(colorSpecFromRole(ColorRole::Hover));
-        }
-        if (item.text != nullptr) {
-          item.text->setColor(colorSpecFromRole(ColorRole::OnHover));
-        }
-      } else {
-        applyItemVisualStyle(item);
+  for (auto& item : m_items) {
+    if (&item == &hoveredItem) {
+      if (item.indicator != nullptr) {
+        item.indicator->setFill(colorSpecFromRole(ColorRole::Hover));
       }
+      if (item.text != nullptr) {
+        item.text->setColor(colorSpecFromRole(isMinimal() ? ColorRole::Hover : ColorRole::OnHover));
+      }
+    } else {
+      applyItemVisualStyle(item);
     }
-    return;
   }
 
   // Minimal mode uses the translucent overlay
@@ -1537,15 +1544,31 @@ ColorRole WorkspacesWidget::onRoleForFill(ColorRole fill) {
     return ColorRole::OnTertiary;
   case ColorRole::Error:
     return ColorRole::OnError;
+  case ColorRole::PrimaryContainer:
+    return ColorRole::OnPrimaryContainer;
+  case ColorRole::SecondaryContainer:
+    return ColorRole::OnSecondaryContainer;
+  case ColorRole::TertiaryContainer:
+    return ColorRole::OnTertiaryContainer;
+  case ColorRole::ErrorContainer:
+    return ColorRole::OnErrorContainer;
   case ColorRole::Surface:
-  case ColorRole::SurfaceVariant:
-  case ColorRole::Outline:
+  case ColorRole::SurfaceContainerLow:
+  case ColorRole::SurfaceContainer:
+  case ColorRole::SurfaceContainerHigh:
+  case ColorRole::SurfaceContainerHighest:
+  case ColorRole::OutlineVariant:
   case ColorRole::Shadow:
+  case ColorRole::Scrim:
   case ColorRole::Hover:
   case ColorRole::OnPrimary:
+  case ColorRole::OnPrimaryContainer:
   case ColorRole::OnSecondary:
+  case ColorRole::OnSecondaryContainer:
   case ColorRole::OnTertiary:
+  case ColorRole::OnTertiaryContainer:
   case ColorRole::OnError:
+  case ColorRole::OnErrorContainer:
   case ColorRole::OnSurface:
   case ColorRole::OnSurfaceVariant:
   case ColorRole::OnHover:

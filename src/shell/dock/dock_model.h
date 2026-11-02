@@ -24,6 +24,8 @@ namespace shell::dock {
     bool running = false;
     bool active = false;
     std::size_t instanceCount = 0;
+    std::size_t minimizedCount = 0;
+    bool allMinimized = false;
   };
 
   struct DockSnapshot {
@@ -43,17 +45,17 @@ namespace shell::dock {
     std::uint64_t sourceSerial = 0;
   };
 
-  [[nodiscard]] wl_output* dockFilterOutput(const DockConfig& cfg, wl_output* instanceOutput);
-  [[nodiscard]] std::string currentActiveEntryIdLower(const CompositorPlatform& platform);
-  [[nodiscard]] bool refreshPinnedAppsIfNeeded(
+  wl_output* dockFilterOutput(const DockConfig& cfg, wl_output* instanceOutput);
+  std::string currentActiveEntryIdLower(const CompositorPlatform& platform);
+  bool refreshPinnedAppsIfNeeded(
       const DockConfig& cfg, std::vector<std::string>& lastPinnedConfig, std::vector<DesktopEntry>& pinnedEntries,
       std::uint64_t& modelSerial, std::uint64_t& entriesVersion
   );
-  [[nodiscard]] DockSnapshot buildDockSnapshot(DockModelDependencies deps);
-  [[nodiscard]] bool sameDockItemSet(const DockSnapshot& a, const DockSnapshot& b);
-  [[nodiscard]] std::vector<ToplevelInfo>
+  DockSnapshot buildDockSnapshot(DockModelDependencies deps);
+  bool sameDockItemSet(const DockSnapshot& a, const DockSnapshot& b);
+  std::vector<ToplevelInfo>
   windowsForDockItem(CompositorPlatform& platform, const DockItemModel& item, wl_output* outputFilter);
-  [[nodiscard]] std::vector<ToplevelInfo> windowsForDockItem(
+  std::vector<ToplevelInfo> windowsForDockItem(
       CompositorPlatform& platform, std::string_view idLower, std::string_view wmClassLower, wl_output* outputFilter
   );
 

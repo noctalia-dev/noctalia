@@ -37,9 +37,9 @@ namespace noctalia::bar {
     std::string verb; // Ipc only
     std::string args; // Ipc: the tail; Exec: the whole command line
 
-    [[nodiscard]] bool isBound() const noexcept { return kind != Kind::None; }
+    bool isBound() const noexcept { return kind != Kind::None; }
     // The line handed to IpcService::execute(). Ipc actions only.
-    [[nodiscard]] std::string commandLine() const;
+    std::string commandLine() const;
 
     bool operator==(const WidgetAction&) const = default;
   };
@@ -47,7 +47,7 @@ namespace noctalia::bar {
   // Grammar-level parse. Whether an Ipc verb is actually registered is settled at dispatch time
   // against the live registry: bars are built before any IPC handler exists, and `noctalia config
   // validate` has no running service either. Returns a human-readable reason on failure.
-  [[nodiscard]] std::expected<WidgetAction, std::string> parseWidgetAction(std::string_view value);
+  std::expected<WidgetAction, std::string> parseWidgetAction(std::string_view value);
 
   struct GestureBinding {
     Gesture gesture;
@@ -81,15 +81,15 @@ namespace noctalia::bar {
     void resolve(const Inputs& inputs);
 
     // nullptr when the gesture is unbound.
-    [[nodiscard]] const WidgetAction* find(Gesture gesture) const noexcept;
-    [[nodiscard]] bool empty() const noexcept;
-    [[nodiscard]] GestureMask boundGestures() const noexcept;
+    const WidgetAction* find(Gesture gesture) const noexcept;
+    bool empty() const noexcept;
+    GestureMask boundGestures() const noexcept;
 
   private:
     std::array<std::optional<WidgetAction>, kGestureCount> m_actions;
   };
 
   // Reads an `actions` sub-table off a widget config entry, or nullptr when absent.
-  [[nodiscard]] const WidgetActionBindings::ActionTable* findActionTable(const WidgetConfig* config);
+  const WidgetActionBindings::ActionTable* findActionTable(const WidgetConfig* config);
 
 } // namespace noctalia::bar

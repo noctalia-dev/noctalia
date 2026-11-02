@@ -31,7 +31,7 @@ Segmented::Segmented() {
           .axis = RovingListNavAxis::Horizontal,
           .mode = RovingListNavMode::FollowFocus,
           .scrollIntoView = {},
-          .syncIndexFromSelection = [this]() { return m_selected; },
+          .syncIndexFromSelection = [this] { return m_selected; },
       }
   );
   m_rovingNav.bindFocusArea(m_focusArea);
@@ -49,7 +49,7 @@ std::size_t Segmented::addOption(std::string_view label, std::string_view glyph)
   auto btn = makeSegmentButton(label, glyph, index);
   Button* raw = btn.get();
   m_buttons.push_back(raw);
-  m_rovingNav.registerItem(raw, [this, index]() { setSelectedIndex(index); });
+  m_rovingNav.registerItem(raw, [this, index] { setSelectedIndex(index); });
   addChild(std::move(btn));
   refreshVariants();
   return index;
@@ -136,12 +136,12 @@ void Segmented::setOptionTooltip(std::size_t index, std::string_view text) {
 void Segmented::clearOptions() {
   for (Button* btn : m_buttons) {
     if (btn != nullptr) {
-      (void)removeChild(btn);
+      removeChild(btn);
     }
   }
   for (Separator* sep : m_separators) {
     if (sep != nullptr) {
-      (void)removeChild(sep);
+      removeChild(sep);
     }
   }
   m_buttons.clear();
@@ -187,7 +187,7 @@ std::unique_ptr<Separator> Segmented::makeSegmentSeparator() {
   auto sep = std::make_unique<Separator>();
   sep->setOrientation(SeparatorOrientation::VerticalRule);
   sep->setThickness(std::max(1.0F, Style::borderWidth * m_scale));
-  sep->setColor(colorSpecFromRole(ColorRole::Outline));
+  sep->setColor(colorSpecFromRole(ColorRole::OutlineVariant));
   sep->setFlexGrow(0.0F);
   return sep;
 }
@@ -204,7 +204,7 @@ Segmented::makeSegmentButton(std::string_view label, std::string_view glyph, std
     btn->setFontSize(effectiveFontSize());
   }
   applyButtonMetrics(*btn);
-  btn->setOnClick([this, index]() { setSelectedIndex(index); });
+  btn->setOnClick([this, index] { setSelectedIndex(index); });
   btn->setTabStop(false);
   btn->setFlexGrow(m_equalSegmentWidths ? 1.0F : 0.0F);
   btn->setContentAlign(ButtonContentAlign::Center);

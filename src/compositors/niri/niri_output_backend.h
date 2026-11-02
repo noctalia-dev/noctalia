@@ -18,7 +18,7 @@ class NiriOutputBackend final : public compositors::niri::NiriEventHandler {
 public:
   explicit NiriOutputBackend(compositors::niri::NiriRuntime& runtime);
 
-  [[nodiscard]] std::optional<std::string> focusedOutputName() const;
+  std::optional<std::string> focusedOutputName() const;
 
   void handleEvent(std::string_view key, const nlohmann::json& value) override;
   void handleStreamReset() override;

@@ -7,14 +7,13 @@
 
 namespace {
 
-  [[nodiscard]] bool hasEnabledSuspend(const std::vector<SessionPanelActionConfig>& actions) {
+  bool hasEnabledSuspend(const std::vector<SessionPanelActionConfig>& actions) {
     return std::ranges::any_of(actions, [](const SessionPanelActionConfig& row) {
       return row.enabled && row.action == "suspend";
     });
   }
 
-  [[nodiscard]] std::vector<SessionPanelActionConfig>
-  filterActions(const std::vector<SessionPanelActionConfig>& actions) {
+  std::vector<SessionPanelActionConfig> filterActions(const std::vector<SessionPanelActionConfig>& actions) {
     const bool explicitSuspend = hasEnabledSuspend(actions);
     std::vector<SessionPanelActionConfig> out;
     out.reserve(actions.size());
@@ -26,8 +25,7 @@ namespace {
       if (row.action == "command" && (!row.command.has_value() || StringUtils::trim(*row.command).empty())) {
         continue;
       }
-      if (row.action == "lock_and_suspend"
-          && (explicitSuspend || (row.command.has_value() && !StringUtils::trim(*row.command).empty()))) {
+      if (row.action == "lock_and_suspend" && explicitSuspend) {
         continue;
       }
       out.push_back(row);

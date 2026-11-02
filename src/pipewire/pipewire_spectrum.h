@@ -27,30 +27,30 @@ public:
   void removeChangeListener(ListenerId id);
 
   void setTargetNodeId(std::uint32_t id);
-  [[nodiscard]] std::uint32_t targetNodeId() const noexcept { return m_targetNodeId; }
+  std::uint32_t targetNodeId() const noexcept { return m_targetNodeId; }
 
   void setLowerCutoff(int freq);
-  [[nodiscard]] int lowerCutoff() const noexcept { return m_lowerCutoff; }
+  int lowerCutoff() const noexcept { return m_lowerCutoff; }
 
   void setUpperCutoff(int freq);
-  [[nodiscard]] int upperCutoff() const noexcept { return m_upperCutoff; }
+  int upperCutoff() const noexcept { return m_upperCutoff; }
 
   void setNoiseReduction(float amount);
-  [[nodiscard]] float noiseReduction() const noexcept { return m_noiseReduction; }
+  float noiseReduction() const noexcept { return m_noiseReduction; }
 
   void setSmoothing(bool enabled);
-  [[nodiscard]] bool smoothing() const noexcept { return m_smoothing; }
+  bool smoothing() const noexcept { return m_smoothing; }
 
-  [[nodiscard]] const std::vector<float>& values(ListenerId id) const noexcept;
-  [[nodiscard]] bool idle() const noexcept { return m_idle; }
+  void setFrameRate(int framesPerSecond);
 
-  [[nodiscard]] int pollTimeoutMs() const;
+  const std::vector<float>& values(ListenerId id) const noexcept;
+  bool idle() const noexcept { return m_idle; }
+
+  int pollTimeoutMs() const;
   void tick();
   void handleAudioStateChanged();
 
 private:
-  static constexpr int kFrameRateHz = 60;
-
   struct ListenerState {
     int bandCount = 32;
     ChangeCallback callback;
@@ -67,19 +67,20 @@ private:
   class Stream;
   friend class Stream;
 
-  [[nodiscard]] bool hasListeners() const noexcept { return !m_listeners.empty(); }
+  bool hasListeners() const noexcept { return !m_listeners.empty(); }
   void rebuildStream();
-  [[nodiscard]] std::uint32_t resolvedTargetNodeId() const noexcept;
-  [[nodiscard]] const AudioNode* resolvedTargetNode() const noexcept;
+  std::uint32_t resolvedTargetNodeId() const noexcept;
+  const AudioNode* resolvedTargetNode() const noexcept;
   void clearValues(bool notify);
   void emitChanged(ListenerId id);
 
   void initProcessing();
-  void reconfigureAnalysisLayout();
+  // Returns true when every listener was notified because the analysis layout changed.
+  bool reconfigureAnalysisLayout();
   void configureListenerState(ListenerState& state, bool resetState);
   void resetListenerState(ListenerState& state, bool clearValues);
   bool processListenerView(ListenerState& state, float nrFactor, double gravityMod);
-  [[nodiscard]] std::chrono::nanoseconds frameInterval() const noexcept;
+  std::chrono::nanoseconds frameInterval() const noexcept;
   void computeAnalysisBandBins();
   void feedSamples(const float* monoSamples, int count);
   void processFrame();
@@ -96,6 +97,7 @@ private:
   int m_upperCutoff = 20000;
   float m_noiseReduction = 0.77F;
   bool m_smoothing = true;
+  int m_frameRateHz = 60;
   std::vector<float> m_analysisBands;
   bool m_idle = true;
 

@@ -21,9 +21,9 @@ public:
   KeyboardBacklightService(const KeyboardBacklightService&) = delete;
   KeyboardBacklightService& operator=(const KeyboardBacklightService&) = delete;
 
-  [[nodiscard]] int brightness() const noexcept { return m_brightness; }
-  [[nodiscard]] int maxBrightness() const noexcept { return m_maxBrightness; }
-  [[nodiscard]] bool available() const noexcept { return !m_devices.empty(); }
+  int brightness() const noexcept { return m_brightness; }
+  int maxBrightness() const noexcept { return m_maxBrightness; }
+  bool available() const noexcept { return !m_devices.empty(); }
 
   void registerIpc(IpcService& ipc);
   void setChangeCallback(ChangeCallback callback);
@@ -35,7 +35,7 @@ private:
   void publishBrightness(const Device& device);
   [[nodiscard]] bool setBrightness(Device& device, int value);
   [[nodiscard]] bool setPercent(int percent);
-  [[nodiscard]] bool adjustBrightness(int delta);
+  [[nodiscard]] bool adjustBrightness(int stepPercent);
   [[nodiscard]] bool toggleBrightness();
 
   SystemBus& m_bus;

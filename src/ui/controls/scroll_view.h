@@ -23,8 +23,8 @@ public:
   ScrollView();
   void setOrientation(ScrollOrientation orientation);
 
-  [[nodiscard]] Flex* content() noexcept { return m_content; }
-  [[nodiscard]] const Flex* content() const noexcept { return m_content; }
+  Flex* content() noexcept { return m_content; }
+  const Flex* content() const noexcept { return m_content; }
 
   void setScrollOffset(float offset);
   // Keep the view pinned to the bottom while content grows, as long as the user has not scrolled away from the bottom.
@@ -62,19 +62,19 @@ public:
   void bindState(ScrollViewState* state);
   void setOnScrollChanged(std::function<void(float)> callback);
 
-  [[nodiscard]] float scrollOffset() const noexcept { return m_scrollOffset; }
-  [[nodiscard]] float maxScrollOffset() const noexcept { return m_maxScrollOffset; }
-  [[nodiscard]] bool scrollable() const noexcept { return m_maxScrollOffset > 0.0F; }
-  [[nodiscard]] ScrollOrientation orientation() const noexcept { return m_orientation; }
+  float scrollOffset() const noexcept { return m_scrollOffset; }
+  float maxScrollOffset() const noexcept { return m_maxScrollOffset; }
+  bool scrollable() const noexcept { return m_maxScrollOffset > 0.0F; }
+  ScrollOrientation orientation() const noexcept { return m_orientation; }
 
-  [[nodiscard]] float contentViewportWidth(bool reserveScrollbarGutter = false) const noexcept;
-  [[nodiscard]] float contentViewportHeight() const noexcept;
-  [[nodiscard]] float viewportPaddingH() const noexcept { return m_viewportPaddingH; }
-  [[nodiscard]] float viewportPaddingV() const noexcept { return m_viewportPaddingV; }
-  [[nodiscard]] bool reservesScrollbarGutter() const noexcept { return m_reserveScrollbarGutter; }
+  float contentViewportWidth(bool reserveScrollbarGutter = false) const noexcept;
+  float contentViewportHeight() const noexcept;
+  float viewportPaddingH() const noexcept { return m_viewportPaddingH; }
+  float viewportPaddingV() const noexcept { return m_viewportPaddingV; }
+  bool reservesScrollbarGutter() const noexcept { return m_reserveScrollbarGutter; }
   // Width reserved for the vertical scrollbar plus its gap, at the current content scale.
-  [[nodiscard]] float scrollbarGutter() const noexcept;
-  [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
+  float scrollbarGutter() const noexcept;
+  float contentScale() const noexcept { return m_contentScale; }
 
 private:
   void doLayout(Renderer& renderer) override;
@@ -87,7 +87,7 @@ private:
   void animateScrollTo(float target, float durationMs = -1.0F);
   void startFling();
   void updateTouchScrollAxis();
-  [[nodiscard]] float clampOffset(float offset) const noexcept;
+  float clampOffset(float offset) const noexcept;
 
   RectNode* m_background = nullptr;
   InputArea* m_viewportArea = nullptr;

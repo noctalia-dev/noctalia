@@ -12,12 +12,12 @@ struct FcitxInputMethodState {
   bool operator==(const FcitxInputMethodState&) const = default;
 };
 
-[[nodiscard]] std::optional<FcitxInputMethodState> resolveFcitxInputMethodState(std::span<const TrayItemInfo> items);
+std::optional<FcitxInputMethodState> resolveFcitxInputMethodState(std::span<const TrayItemInfo> items);
 
 class FcitxInputMethodTracker {
 public:
-  [[nodiscard]] std::optional<FcitxInputMethodState> update(std::span<const TrayItemInfo> items);
-  [[nodiscard]] bool available() const noexcept;
+  std::optional<FcitxInputMethodState> update(std::span<const TrayItemInfo> items);
+  bool available() const noexcept;
 
 private:
   std::optional<FcitxInputMethodState> m_current;

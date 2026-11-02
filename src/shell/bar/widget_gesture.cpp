@@ -40,9 +40,7 @@ namespace noctalia::bar {
         Gesture::ScrollUp, Gesture::ScrollDown, Gesture::ScrollLeft, Gesture::ScrollRight,
     };
 
-    [[nodiscard]] const GestureEntry& entryFor(Gesture gesture) noexcept {
-      return kGestures[static_cast<std::size_t>(gesture)];
-    }
+    const GestureEntry& entryFor(Gesture gesture) noexcept { return kGestures[static_cast<std::size_t>(gesture)]; }
 
   } // namespace
 
@@ -53,7 +51,7 @@ namespace noctalia::bar {
   std::string_view gestureLabelKey(Gesture gesture) noexcept { return entryFor(gesture).labelKey; }
 
   std::optional<Gesture> parseGestureKey(std::string_view key) noexcept {
-    const auto it = std::ranges::find(kGestures, key, &GestureEntry::configKey);
+    const auto* it = std::ranges::find(kGestures, key, &GestureEntry::configKey);
     if (it == kGestures.end()) {
       return std::nullopt;
     }

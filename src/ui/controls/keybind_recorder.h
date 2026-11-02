@@ -26,7 +26,7 @@ public:
   ~KeybindRecorder() override;
 
   void setChord(std::optional<KeyChord> chord);
-  [[nodiscard]] std::optional<KeyChord> chord() const noexcept { return m_chord; }
+  std::optional<KeyChord> chord() const noexcept { return m_chord; }
   void setScale(float scale);
   void setEnabled(bool enabled);
   void setUnsetPlaceholder(std::string_view text);
@@ -35,7 +35,7 @@ public:
   void setModifierPolicy(ModifierPolicy policy);
   void setTabFocusKey(std::string key);
 
-  [[nodiscard]] bool isRecording() const noexcept { return m_recording; }
+  bool isRecording() const noexcept { return m_recording; }
 
 private:
   enum class VisualState : std::uint8_t {

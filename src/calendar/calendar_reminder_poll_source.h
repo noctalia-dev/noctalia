@@ -7,7 +7,7 @@ class CalendarReminderPollSource final : public PollSource {
 public:
   explicit CalendarReminderPollSource(CalendarReminderMonitor& monitor) : m_monitor(monitor) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override { return m_monitor.pollTimeoutMs(); }
+  int pollTimeoutMs() const override { return m_monitor.pollTimeoutMs(); }
   void dispatch(const std::vector<pollfd>& /*fds*/, std::size_t /*startIdx*/) override { m_monitor.tick(); }
 
 protected:

@@ -9,6 +9,7 @@
 #include "pipewire/pipewire_error.h"
 #include "pipewire/privacy_capture_classification.h"
 #include "pipewire/wireplumber_mixer.h"
+#include "system/v4l2_camera.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -58,8 +59,23 @@ namespace {
   constexpr auto kInitialSyncTimeout = std::chrono::seconds(1);
   constexpr auto kReconnectInitialDelay = std::chrono::milliseconds(250);
   constexpr auto kReconnectMaxDelay = std::chrono::seconds(5);
+  // Camera node opens and closes come in bursts (browsers probe every device), and procfs may not
+  // list the new descriptor yet when IN_OPEN arrives, so scans run once the burst has settled.
+  constexpr auto kCameraScanDelay = std::chrono::milliseconds(500);
+  constexpr auto kCameraScanCheckInterval = std::chrono::milliseconds(50);
+  // Applications such as Discord briefly open every camera to query its capabilities. A direct
+  // V4L2 user is reported only once it has held the device this long, so probes never show.
+  constexpr auto kCameraHoldTime = std::chrono::seconds(3);
 
-  [[nodiscard]] bool pipeWireVersionSupportsPassiveFollow(std::string_view version) {
+  // Milliseconds until deadline, rounded up and clamped to [0, INT_MAX].
+  int pollMsUntil(std::chrono::steady_clock::time_point deadline, std::chrono::steady_clock::time_point now) noexcept {
+    const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now);
+    return static_cast<int>(
+        std::clamp(remaining, std::chrono::milliseconds::zero(), std::chrono::milliseconds{INT_MAX}).count()
+    );
+  }
+
+  bool pipeWireVersionSupportsPassiveFollow(std::string_view version) {
     const auto majorEnd = version.find('.');
     if (majorEnd == std::string_view::npos) {
       return false;
@@ -238,9 +254,8 @@ namespace {
       }
       const std::string name = extractDefaultMetadataNodeName(std::string_view(value));
       if (!name.empty()) {
-        spa_dict_item items[1];
-        items[0] = SPA_DICT_ITEM_INIT(key, name.c_str());
-        spa_dict dict = SPA_DICT_INIT(items, 1);
+        spa_dict_item items[] = {{.key = key, .value = name.c_str()}};
+        spa_dict dict{.flags = 0, .n_items = 1, .items = items};
         md->service->parseDefaultNodes(&dict);
       }
       return 0;
@@ -272,7 +287,7 @@ namespace {
     return dict != nullptr && spa_dict_lookup(dict, key) != nullptr;
   }
 
-  [[nodiscard]] bool isTruthyPipeWireProp(std::string_view value) { return value == "true" || value == "1"; }
+  bool isTruthyPipeWireProp(std::string_view value) { return value == "true" || value == "1"; }
 
   bool applyStreamFilterPropsFromDict(PipeWireService::NodeData& nd, const spa_dict* props, bool mergeOnly) {
     if (props == nullptr) {
@@ -465,8 +480,8 @@ namespace {
     if (propsPod == nullptr) {
       return;
     }
-    auto* obj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(propsPod));
-    spa_pod_prop* prop = nullptr;
+    const auto* obj = reinterpret_cast<const spa_pod_object*>(propsPod);
+    const spa_pod_prop* prop = nullptr;
     SPA_POD_OBJECT_FOREACH(obj, prop) {
       if (prop->key == SPA_PROP_channelVolumes) {
         parseVolumeArrayProp(prop, out->channelVol, &out->channelCount);
@@ -500,7 +515,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] float resolvedVolume(const ParsedPropsVolumes& p) {
+  float resolvedVolume(const ParsedPropsVolumes& p) {
     if (p.hasChannel) {
       return p.channelVol;
     }
@@ -513,7 +528,7 @@ namespace {
     return -1.0F;
   }
 
-  [[nodiscard]] bool shouldRejectVolumeWrite(const PipeWireService::NodeData& nd, float candidateVol) {
+  bool shouldRejectVolumeWrite(const PipeWireService::NodeData& nd, float candidateVol) {
     if (nd.lastWrittenVolume < 0.0F) {
       return false;
     }
@@ -547,7 +562,7 @@ namespace {
 
   // Device ParamRoute updates are per-direction; applying every route's volume to all nodes on the same
   // device.id merges playback and capture on combo hardware (see activeRouteForDirection).
-  [[nodiscard]] bool routeVolumeDirectionMatchesNode(std::string_view mediaClass, std::uint32_t routeDirection) {
+  bool routeVolumeDirectionMatchesNode(std::string_view mediaClass, std::uint32_t routeDirection) {
     if (mediaClass == "Audio/Sink") {
       return routeDirection == SPA_DIRECTION_OUTPUT;
     }
@@ -570,7 +585,7 @@ namespace {
     *existing = route;
   }
 
-  [[nodiscard]] std::uint32_t routeDirectionForMediaClass(std::string_view mediaClass) {
+  std::uint32_t routeDirectionForMediaClass(std::string_view mediaClass) {
     if (mediaClass == "Audio/Source") {
       return SPA_DIRECTION_INPUT;
     }
@@ -627,18 +642,18 @@ namespace {
 
   bool isProgramStreamClass(std::string_view mediaClass) { return mediaClass == "Stream/Output/Audio"; }
 
-  [[nodiscard]] bool isPrivacyCandidateClass(std::string_view mediaClass) {
+  bool isPrivacyCandidateClass(std::string_view mediaClass) {
     return std::ranges::contains(kPrivacyAudioNodeClasses, mediaClass)
         || (mediaClass.contains("Video") && !mediaClass.contains("Audio"));
   }
 
-  [[nodiscard]] std::string lowercaseAscii(std::string_view value) {
+  std::string lowercaseAscii(std::string_view value) {
     std::string out(value);
     std::ranges::transform(out, out.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     return out;
   }
 
-  [[nodiscard]] bool matchesScreenShareName(std::string_view mediaName, bool includeWeakPrefixes) {
+  bool matchesScreenShareName(std::string_view mediaName, bool includeWeakPrefixes) {
     if (mediaName.empty()) {
       return false;
     }
@@ -657,11 +672,11 @@ namespace {
            });
   }
 
-  [[nodiscard]] bool isMicrophoneSource(const PipeWireService::NodeData& nd) {
+  bool isMicrophoneSource(const PipeWireService::NodeData& nd) {
     return std::ranges::contains(kMicrophoneSourceClasses, nd.mediaClass);
   }
 
-  [[nodiscard]] bool isAudioCaptureConsumer(const PipeWireService::NodeData& nd) {
+  bool isAudioCaptureConsumer(const PipeWireService::NodeData& nd) {
     return noctalia::pipewire::isPrivacyAudioCaptureConsumer({
         .mediaClass = nd.mediaClass,
         .linkGroup = nd.linkGroup,
@@ -670,15 +685,15 @@ namespace {
     });
   }
 
-  [[nodiscard]] bool isCameraSource(const PipeWireService::NodeData& nd) {
+  bool isCameraSource(const PipeWireService::NodeData& nd) {
     return std::ranges::contains(kCameraSourceClasses, nd.mediaClass);
   }
 
-  [[nodiscard]] bool isVideoCaptureConsumer(const PipeWireService::NodeData& nd) {
+  bool isVideoCaptureConsumer(const PipeWireService::NodeData& nd) {
     return std::ranges::contains(kVideoCaptureConsumerClasses, nd.mediaClass);
   }
 
-  [[nodiscard]] bool isScreenSource(const PipeWireService::NodeData& nd) {
+  bool isScreenSource(const PipeWireService::NodeData& nd) {
     if (!nd.mediaClass.contains("Video") || nd.mediaClass.contains("Audio")) {
       return false;
     }
@@ -693,7 +708,7 @@ namespace {
     return matchesScreenShareName(nd.name, true);
   }
 
-  [[nodiscard]] std::string privacyAppName(const PipeWireService::NodeData& nd) {
+  std::string privacyAppName(const PipeWireService::NodeData& nd) {
     if (!nd.applicationName.empty()) {
       return nd.applicationName;
     }
@@ -706,7 +721,7 @@ namespace {
     return nd.name;
   }
 
-  [[nodiscard]] std::optional<PrivacyCaptureKind>
+  std::optional<PrivacyCaptureKind>
   classifyPrivacyCapture(const PipeWireService::NodeData& source, const PipeWireService::NodeData& consumer) {
     if (isMicrophoneSource(source) && isAudioCaptureConsumer(consumer)) {
       return PrivacyCaptureKind::Microphone;
@@ -725,18 +740,18 @@ namespace {
 
   // QEMU's libvirt PipeWire backend (node.name "qemu-system-<arch>") is a program stream that needs
   // special handling: it sets target.object and never sets application.name.
-  [[nodiscard]] bool isQemuStreamNode(const PipeWireService::NodeData& nd) {
+  bool isQemuStreamNode(const PipeWireService::NodeData& nd) {
     return isProgramStreamClass(nd.mediaClass) && nd.name.starts_with("qemu-system-");
   }
 
-  [[nodiscard]] bool hasProgramStreamIdentity(const PipeWireService::NodeData& nd) {
+  bool hasProgramStreamIdentity(const PipeWireService::NodeData& nd) {
     if (isQemuStreamNode(nd)) {
       return true;
     }
     return !nd.applicationName.empty() || !nd.applicationId.empty() || !nd.applicationBinary.empty();
   }
 
-  [[nodiscard]] bool isProgramOutputNode(const PipeWireService::NodeData& nd) {
+  bool isProgramOutputNode(const PipeWireService::NodeData& nd) {
     // Match the "Streams" pavucontrol shows: Stream/Output/Audio without node.link-group /
     // node.passive (loopback and filter endpoints). Streams that pin a sink via target.object
     // (Telegram/OpenAL, etc.) stay visible when they have client/app identity; anonymous
@@ -770,6 +785,8 @@ PipeWireService::PipeWireService() {
   }
 
   pw_loop_enter(m_loop);
+  // Applications may already hold a camera open before the shell starts.
+  m_cameraScanAt = std::chrono::steady_clock::now();
   if (!connectRemote(true)) {
     kLog.warn("PipeWire daemon unavailable at startup; retrying in the background");
     scheduleReconnect();
@@ -777,6 +794,9 @@ PipeWireService::PipeWireService() {
 }
 
 PipeWireService::~PipeWireService() {
+  if (m_cameraScan.valid()) {
+    m_cameraScan.wait();
+  }
   disconnectRemote(false);
   if (m_context != nullptr) {
     pw_context_destroy(m_context);
@@ -1026,28 +1046,106 @@ int PipeWireService::fd() const noexcept {
 }
 
 int PipeWireService::pollTimeoutMs() const noexcept {
-  if (m_core != nullptr || m_reconnectAt.time_since_epoch().count() == 0) {
-    return -1;
+  const auto now = std::chrono::steady_clock::now();
+  int timeout = m_cameraScanAt.has_value() ? pollMsUntil(*m_cameraScanAt, now) : -1;
+  if (m_core == nullptr && m_reconnectAt.time_since_epoch().count() != 0) {
+    const int reconnect = pollMsUntil(m_reconnectAt, now);
+    timeout = timeout < 0 ? reconnect : std::min(timeout, reconnect);
+  }
+  return timeout;
+}
+
+void PipeWireService::dispatchCamera() {
+  if (m_cameraWatch.drain()) {
+    requestCameraScan(std::chrono::steady_clock::now());
+  }
+}
+
+void PipeWireService::requestCameraScan(std::chrono::steady_clock::time_point now) {
+  if (m_cameraScan.valid()) {
+    m_cameraRescan = true;
+    return;
+  }
+  // Never postpone an existing deadline, so a continuous event stream cannot delay the scan
+  // forever, but pull a later hold confirmation forward so a quick close is not missed.
+  const auto deadline = now + kCameraScanDelay;
+  if (!m_cameraScanAt.has_value() || deadline < *m_cameraScanAt) {
+    m_cameraScanAt = deadline;
+  }
+}
+
+void PipeWireService::pollCameraApps() {
+  const auto now = std::chrono::steady_clock::now();
+  if (!m_cameraScanAt.has_value() || now < *m_cameraScanAt) {
+    return;
   }
 
-  const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(m_reconnectAt - std::chrono::steady_clock::now());
-  if (remaining <= std::chrono::milliseconds::zero()) {
-    return 0;
+  if (!m_cameraScan.valid()) {
+    try {
+      m_cameraScan = std::async(std::launch::async, [] { return v4l2CameraApps(); });
+      m_cameraScanAt = now + kCameraScanCheckInterval;
+    } catch (const std::exception& e) {
+      kLog.warn("could not start camera scan: {}", e.what());
+      m_cameraScanAt.reset();
+    }
+    return;
   }
-  return static_cast<int>(std::min(remaining, std::chrono::milliseconds{INT_MAX}).count());
+  if (m_cameraScan.wait_for(std::chrono::milliseconds::zero()) != std::future_status::ready) {
+    m_cameraScanAt = now + kCameraScanCheckInterval;
+    return;
+  }
+
+  // Schedule the follow-up before rebuildState so a change callback sees consistent scan state.
+  m_cameraScanAt.reset();
+  if (m_cameraRescan) {
+    m_cameraRescan = false;
+    m_cameraScanAt = now + kCameraScanDelay;
+  }
+  try {
+    auto apps = m_cameraScan.get();
+    std::vector<std::string> confirmed;
+    std::vector<PendingCameraApp> pending;
+    for (auto& app : apps) {
+      if (std::ranges::binary_search(m_cameraApps, app)) {
+        confirmed.push_back(std::move(app));
+        continue;
+      }
+      // Pending users missing from this scan are dropped, so a reopen starts a new hold.
+      const auto it = std::ranges::find(m_cameraPending, app, &PendingCameraApp::app);
+      const auto firstSeen = it != m_cameraPending.end() ? it->firstSeen : now;
+      if (now - firstSeen >= kCameraHoldTime) {
+        confirmed.push_back(std::move(app));
+      } else {
+        const auto confirmAt = firstSeen + kCameraHoldTime;
+        if (!m_cameraScanAt.has_value() || confirmAt < *m_cameraScanAt) {
+          m_cameraScanAt = confirmAt;
+        }
+        pending.push_back({.app = std::move(app), .firstSeen = firstSeen});
+      }
+    }
+    m_cameraPending = std::move(pending);
+    if (confirmed != m_cameraApps) {
+      m_cameraApps = std::move(confirmed);
+      rebuildState();
+    }
+  } catch (const std::exception& e) {
+    kLog.warn("camera scan failed: {}", e.what());
+  }
 }
 
 void PipeWireService::dispatch() {
+  pollCameraApps();
   if (m_loop == nullptr) {
     return;
   }
 
   if (m_core == nullptr) {
-    if (m_reconnectAt.time_since_epoch().count() != 0 && std::chrono::steady_clock::now() >= m_reconnectAt) {
-      if (!connectRemote(false)) {
-        scheduleReconnect();
-      }
+    if (m_reconnectAt.time_since_epoch().count() != 0
+        && std::chrono::steady_clock::now() >= m_reconnectAt
+        && !connectRemote(false)) {
+      scheduleReconnect();
     }
+
     return;
   }
 
@@ -1294,7 +1392,7 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
         spa_zero(*md->listener);
         pw_metadata_add_listener(proxy, md->listener, &kMetadataEvents, md);
         pw_core_sync(md->service->coreHandle(), PW_ID_CORE, 0);
-        m_metadataCleanups.emplace_back([md]() {
+        m_metadataCleanups.emplace_back([md] {
           if (md->listener != nullptr) {
             spa_hook_remove(md->listener);
             delete md->listener;
@@ -1540,8 +1638,8 @@ void PipeWireService::onNodeParam(
       route.priority = routePriority;
       route.available = routeAvailable;
       if (routeProps != nullptr) {
-        spa_pod_prop* prop = nullptr;
-        auto* propsObj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(routeProps));
+        const spa_pod_prop* prop = nullptr;
+        const auto* propsObj = reinterpret_cast<const spa_pod_object*>(routeProps);
         SPA_POD_OBJECT_FOREACH(propsObj, prop) {
           if (prop->key == SPA_PROP_mute) {
             bool routeMuted = false;
@@ -1596,8 +1694,8 @@ void PipeWireService::onNodeParam(
   ParsedPropsVolumes parsed{};
   parsePropsObjectVolumeFields(param, basis, &parsed);
 
-  auto* obj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(param));
-  spa_pod_prop* prop = nullptr;
+  const auto* obj = reinterpret_cast<const spa_pod_object*>(param);
+  const spa_pod_prop* prop = nullptr;
   SPA_POD_OBJECT_FOREACH(obj, prop) {
     if (prop->key == SPA_PROP_mute) {
       bool swMuted = false;
@@ -1691,8 +1789,8 @@ void PipeWireService::onDeviceParam(
 
   bool muted = false;
   if (routeProps != nullptr) {
-    spa_pod_prop* prop = nullptr;
-    auto* propsObj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(routeProps));
+    const spa_pod_prop* prop = nullptr;
+    const auto* propsObj = reinterpret_cast<const spa_pod_object*>(routeProps);
     SPA_POD_OBJECT_FOREACH(propsObj, prop) {
       if (prop->key == SPA_PROP_mute) {
         bool routeMuted = false;
@@ -1953,6 +2051,24 @@ void PipeWireService::rebuildState() {
     }
 
     addCapture(*kind, consumer->id, privacyAppName(*consumer));
+  }
+
+  for (const auto& app : m_cameraApps) {
+    // Keep PipeWire's richer application label when it already reports this camera client.
+    const bool reported = std::ranges::any_of(nextPrivacy.captures, [&](const PrivacyCapture& capture) {
+      if (capture.kind != PrivacyCaptureKind::Camera) {
+        return false;
+      }
+      if (v4l2CameraSameApp(capture.appName, app)) {
+        return true;
+      }
+      const auto* node = findNode(capture.nodeId);
+      return node != nullptr
+          && (v4l2CameraSameApp(node->applicationBinary, app) || v4l2CameraSameApp(node->applicationName, app));
+    });
+    if (!reported) {
+      addCapture(PrivacyCaptureKind::Camera, 0, app);
+    }
   }
 
   // Sort by id for stable ordering
@@ -2419,9 +2535,9 @@ void PipeWireService::moveProgramOutput(std::uint32_t programStreamId, std::uint
 
 void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) {
   const auto maxVolume = [&config] { return maxAudioVolume(config.config().audio); };
-  const auto parseVolumeValueError =
+  const auto* parseVolumeValueError =
       "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
-  const auto parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
+  const auto* parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
 
   ipc.bind(
       noctalia::cli::msg::volumeSet, [this, maxVolume, parseVolumeValueError](const std::string& args) -> std::string {

@@ -26,18 +26,18 @@ public:
   DmenuProvider(DmenuEntryConfig entry, ClipboardService* clipboard);
   ~DmenuProvider() override;
 
-  [[nodiscard]] std::string_view defaultPrefix() const override { return m_prefix; }
-  [[nodiscard]] std::string_view id() const override { return m_id; }
-  [[nodiscard]] std::string displayName() const override;
-  [[nodiscard]] std::string_view defaultGlyphName() const override { return m_glyph; }
-  [[nodiscard]] bool trackUsage() const override { return true; }
-  [[nodiscard]] bool supportsAutoPaste() const override { return !m_entry.exec.has_value(); }
-  [[nodiscard]] bool defaultIncludeInGlobalSearch() const override { return m_entry.global; }
-  [[nodiscard]] bool isLoading() const override { return m_loading && !m_loaded; }
+  std::string_view defaultPrefix() const override { return m_prefix; }
+  std::string_view id() const override { return m_id; }
+  std::string displayName() const override;
+  std::string_view defaultGlyphName() const override { return m_glyph; }
+  bool trackUsage() const override { return true; }
+  bool supportsAutoPaste() const override { return !m_entry.exec.has_value(); }
+  bool defaultIncludeInGlobalSearch() const override { return m_entry.global; }
+  bool isLoading() const override { return m_loading && !m_loaded; }
 
   void setResultsChangedCallback(std::function<void()> callback) override { m_onResultsChanged = std::move(callback); }
 
-  [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;
+  std::vector<LauncherResult> query(std::string_view text) const override;
 
   bool activate(const LauncherResult& result) override;
 

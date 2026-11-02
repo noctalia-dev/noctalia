@@ -7,24 +7,23 @@ sidebar:
 
 Shows the current keyboard layout indicator from the active XKB state.
 
+While fcitx5 is running with its tray icon enabled, the widget shows the active fcitx5 input method instead. The name fcitx5 reports (for example `Mozc` or `Keyboard - English (US)`) goes through `custom_labels` and `display` like a layout name; a name with no compact form, such as `Mozc`, is shown as reported. `hide_when_single_layout` does not hide the widget while an input method is active.
+
 Left-click cycles layouts using the compositor backend when supported. Bind `left` to an `exec` action to run a custom command instead - see [Widget Actions](/noctalia/bar/actions/).
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `hide_when_single_layout` | bool | `false` | Hide the widget unless more than one keyboard layout is configured |
-| `show_glyph` | bool | `true` | Show the keyboard glyph or custom image |
-| `glyph` | string | `"keyboard"` | Bar glyph name: Noctalia alias, Tabler glyph name, or `U+` / `0x` codepoint. Shown only when `show_glyph = true` |
-| `custom_image` | string | `""` | Path to a custom image displayed instead of the glyph. Shown only when `show_glyph = true` |
-| `custom_image_colorize` | bool | `false` | When `true`, tint the custom image with the widget glyph color |
-| `show_label` | bool | `true` | Show the layout text label next to the keyboard glyph |
-| `display` | string | `"short"` | `"short"` = compact code; `"full"` = full layout name. Ignored when `show_label = false`. |
+| Setting                   | Type   | Default      | Description                                                                                                      |
+| ------------------------- | ------ | ------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `hide_when_single_layout` | bool   | `false`      | Hide the widget unless more than one keyboard layout is configured                                               |
+| `show_glyph`              | bool   | `true`       | Show the keyboard glyph or custom image                                                                          |
+| `glyph`                   | string | `"keyboard"` | Bar glyph name: Noctalia alias, Tabler glyph name, or `U+` / `0x` codepoint. Shown only when `show_glyph = true` |
+| `custom_image`            | string | `""`         | Path to a custom image displayed instead of the glyph. Shown only when `show_glyph = true`                       |
+| `custom_image_colorize`   | bool   | `false`      | When `true`, tint the custom image with the widget glyph color                                                   |
+| `show_label`              | bool   | `true`       | Show the layout text label next to the keyboard glyph                                                            |
+| `display`                 | string | `"short"`    | `"short"` = compact code; `"full"` = full layout name. Ignored when `show_label = false`.                        |
 
 At least one of `show_glyph` or `show_label` must be `true`.
 
-Configure exact layout-name aliases globally under
-[`[shell.keyboard_layout.custom_labels]`](/noctalia/configuration/shell/#shell-settings). An alias overrides
-`display` and is shared by every keyboard-layout widget, the keyboard-layout OSD, the lock screen,
-and the Control Center shortcut.
+Configure exact layout-name aliases globally under [`[shell.keyboard_layout.custom_labels]`](/noctalia/configuration/shell/#shell-settings). An alias overrides `display` and is shared by every keyboard-layout widget, the keyboard-layout OSD, the lock screen, and the Control Center shortcut.
 
 ```toml
 [widget.keyboard_layout]

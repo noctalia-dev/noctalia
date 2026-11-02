@@ -1,5 +1,6 @@
 #include "system/screen_time_service.h"
 
+#include "compositors/compositor_platform.h"
 #include "core/log.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
@@ -7,20 +8,20 @@
 #include "time/time_format.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
-#include "wayland/wayland_connection.h"
 #include "wayland/wayland_toplevels.h"
 
 #include <algorithm>
 #include <cctype>
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
 #include <ctime>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iomanip>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <sstream>
 #include <utility>
 
 namespace {
@@ -28,9 +29,9 @@ namespace {
   constexpr Logger kLog("screen-time");
   constexpr int kRetentionDays = 14;
 
-  [[nodiscard]] std::chrono::system_clock::time_point localNow() { return std::chrono::system_clock::now(); }
+  std::chrono::system_clock::time_point localNow() { return std::chrono::system_clock::now(); }
 
-  [[nodiscard]] std::tm localTm(std::chrono::system_clock::time_point tp) {
+  std::tm localTm(std::chrono::system_clock::time_point tp) {
     const std::time_t t = std::chrono::system_clock::to_time_t(tp);
     std::tm out{};
     localtime_r(&t, &out);
@@ -38,7 +39,7 @@ namespace {
   }
 
   // Match ScreenTimeService::localDayKey(localNow()) — not std::chrono::days on system_clock (UTC).
-  [[nodiscard]] std::string localDayKeyForCalendarOffset(int daysAgo) {
+  std::string localDayKeyForCalendarOffset(int daysAgo) {
     std::tm tm = localTm(localNow());
     tm.tm_hour = 12;
     tm.tm_min = 0;
@@ -55,14 +56,14 @@ namespace {
   constexpr std::size_t kMaxListedApps = 12;
   constexpr std::size_t kMaxChartSeries = 5;
 
-  [[nodiscard]] std::string canonicalAppKey(std::string_view appKey) {
+  std::string canonicalAppKey(std::string_view appKey) {
     if (const auto sep = appKey.find('\x1F'); sep != std::string::npos) {
       return std::string(appKey.substr(0, sep));
     }
     return std::string(appKey);
   }
 
-  [[nodiscard]] std::string normalizedAppToken(std::string_view value) {
+  std::string normalizedAppToken(std::string_view value) {
     std::string token;
     token.reserve(value.size());
     for (const unsigned char ch : value) {
@@ -74,7 +75,7 @@ namespace {
     return token;
   }
 
-  [[nodiscard]] bool normalizedContains(std::string_view haystack, std::string_view needle) {
+  bool normalizedContains(std::string_view haystack, std::string_view needle) {
     if (needle.empty()) {
       return false;
     }
@@ -84,7 +85,7 @@ namespace {
   }
 
   // Portals, polkit prompts, and other transient helpers should not receive focus credit.
-  [[nodiscard]] bool isScreenTimeExcludedAppKey(std::string_view appKey) {
+  bool isScreenTimeExcludedAppKey(std::string_view appKey) {
     if (appKey.empty() || appKey == "unknown") {
       return true;
     }
@@ -162,7 +163,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::string displayNameForAppKey(const std::string& appKey) {
+  std::string displayNameForAppKey(const std::string& appKey) {
     if (appKey.empty() || appKey == "unknown") {
       return {};
     }
@@ -176,7 +177,7 @@ namespace {
       }
     }
 
-    const std::string baseKey = canonicalAppKey(appKey);
+    std::string baseKey = canonicalAppKey(appKey);
     if (const auto entry = app_identity::findDesktopEntry(baseKey, desktopEntries()); entry.has_value()) {
       if (!entry->name.empty()) {
         return entry->name;
@@ -280,8 +281,8 @@ ScreenTimeService::DayRecord ScreenTimeService::materializeDayForCharts(const Da
   return day;
 }
 
-void ScreenTimeService::initialize(WaylandConnection* wayland) {
-  m_wayland = wayland;
+void ScreenTimeService::initialize(CompositorPlatform* platform) {
+  m_platform = platform;
   const std::string dir = FileUtils::stateDir();
   m_storagePath = dir.empty() ? "screen_time.json" : dir + "/screen_time.json";
   load();
@@ -399,7 +400,7 @@ void ScreenTimeService::scheduleNextTick() {
   const auto now = system_clock::now();
   const auto nextCheckpoint = floor<minutes>(now) + minutes{1};
   const auto delay = std::max(duration_cast<milliseconds>(nextCheckpoint - now), milliseconds{1});
-  m_tickTimer.start(delay, [this]() { tick(); });
+  m_tickTimer.start(delay, [this] { tick(); });
 }
 
 void ScreenTimeService::tick() {
@@ -435,16 +436,11 @@ std::vector<std::string> ScreenTimeService::dayKeysForRange(int rangeDays) const
 }
 
 std::string ScreenTimeService::shortDayLabel(const std::string& dayKey) {
-  int year = 0;
-  int month = 0;
-  int day = 0;
-  if (std::sscanf(dayKey.c_str(), "%d-%d-%d", &year, &month, &day) != 3) {
+  std::tm tm{};
+  std::istringstream input(dayKey);
+  if (!(input >> std::get_time(&tm, "%Y-%m-%d"))) {
     return dayKey;
   }
-  std::tm tm{};
-  tm.tm_year = year - 1900;
-  tm.tm_mon = month - 1;
-  tm.tm_mday = day;
   tm.tm_isdst = -1;
   if (std::mktime(&tm) == -1) {
     return dayKey;
@@ -454,16 +450,11 @@ std::string ScreenTimeService::shortDayLabel(const std::string& dayKey) {
 }
 
 std::string ScreenTimeService::dayDisplayName(const std::string& dayKey) {
-  int year = 0;
-  int month = 0;
-  int day = 0;
-  if (std::sscanf(dayKey.c_str(), "%d-%d-%d", &year, &month, &day) != 3) {
+  std::tm tm{};
+  std::istringstream input(dayKey);
+  if (!(input >> std::get_time(&tm, "%Y-%m-%d"))) {
     return dayKey;
   }
-  std::tm tm{};
-  tm.tm_year = year - 1900;
-  tm.tm_mon = month - 1;
-  tm.tm_mday = day;
   tm.tm_hour = 12;
   tm.tm_isdst = -1;
   if (std::mktime(&tm) == -1) {
@@ -910,10 +901,10 @@ void ScreenTimeService::pruneOldDaysLocked() {
 }
 
 std::string ScreenTimeService::appKeyForActive() const {
-  if (m_wayland == nullptr) {
+  if (m_platform == nullptr) {
     return {};
   }
-  const auto active = m_wayland->activeToplevel();
+  const auto active = m_platform->activeToplevel();
   if (!active.has_value()) {
     return {};
   }

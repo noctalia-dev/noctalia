@@ -15,24 +15,24 @@ public:
   using ChangeCallback = std::function<void()>;
 
   explicit HyprlandKeyboardBackend(compositors::hyprland::HyprlandRuntime& runtime);
-  ~HyprlandKeyboardBackend();
+  ~HyprlandKeyboardBackend() override;
 
   HyprlandKeyboardBackend(const HyprlandKeyboardBackend&) = delete;
   HyprlandKeyboardBackend& operator=(const HyprlandKeyboardBackend&) = delete;
 
-  [[nodiscard]] bool isAvailable() const noexcept;
-  [[nodiscard]] bool cycleLayout() const;
-  [[nodiscard]] std::optional<KeyboardLayoutState> layoutState() const;
-  [[nodiscard]] std::optional<std::string> currentLayoutName() const;
+  bool isAvailable() const noexcept;
+  bool cycleLayout() const;
+  std::optional<KeyboardLayoutState> layoutState() const;
+  std::optional<std::string> currentLayoutName() const;
 
   void setChangeCallback(ChangeCallback callback);
   void cleanup();
-  void notifyCleanup();
-  void notifyChanged();
+  void notifyCleanup() override;
+  void notifyChanged() override;
 
 private:
   void seedLayoutFromDevices();
-  void handleEvent(std::string_view event, std::string_view data);
+  void handleEvent(std::string_view event, std::string_view data) override;
 
   std::string m_currentLayoutName;
   std::string m_mainKeyboardName;

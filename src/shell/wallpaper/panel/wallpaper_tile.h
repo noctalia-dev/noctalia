@@ -63,15 +63,14 @@ public:
   void setOnTileEnter(HoverCallback callback);
   void setOnTileLeave(HoverCallback callback);
 
-  [[nodiscard]] static bool
+  static bool
   hitTestStarRegion(float cellWidth, float cellHeight, float contentScale, float localX, float localY) noexcept;
-  [[nodiscard]] static TooltipAnchorInsets
-  starTooltipAnchorInsets(float cellWidth, float cellHeight, float contentScale) noexcept;
+  static TooltipAnchorInsets starTooltipAnchorInsets(float cellWidth, float cellHeight, float contentScale) noexcept;
 
   // Space a filename caption reserves in a tile
-  [[nodiscard]] static float captionHeight(float contentScale) noexcept;
+  static float captionHeight(float contentScale) noexcept;
 
-  [[nodiscard]] const WallpaperEntry* entry() const noexcept { return m_hasEntry ? &m_entry : nullptr; }
+  const WallpaperEntry* entry() const noexcept { return m_hasEntry ? &m_entry : nullptr; }
 
 private:
   void applyVisualState();
@@ -83,7 +82,7 @@ private:
   void doLayout(Renderer& renderer) override;
   void releaseThumbnail();
   // Thumbnail long-edge in physical pixels for this tile's current display size.
-  [[nodiscard]] int thumbnailTargetPx(const Renderer& renderer) const;
+  int thumbnailTargetPx(const Renderer& renderer) const;
 
   float m_cellWidth;
   float m_cellHeight;

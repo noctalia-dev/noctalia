@@ -8,10 +8,13 @@ class SystemBus {
 public:
   SystemBus();
 
-  [[nodiscard]] sdbus::IConnection& connection() noexcept { return *m_connection; }
-  [[nodiscard]] sdbus::IConnection::PollData getPollData() const;
-  [[nodiscard]] bool hasPendingEvents() const noexcept { return m_hasPendingEvents; }
-  [[nodiscard]] bool nameHasOwner(std::string_view name) const;
+  sdbus::IConnection& connection() noexcept { return *m_connection; }
+  sdbus::IConnection::PollData getPollData() const;
+  bool hasPendingEvents() const noexcept { return m_hasPendingEvents; }
+  bool nameHasOwner(std::string_view name) const;
+  // Whether systemd starts the unit at boot. False when systemd or the unit is missing.
+  bool systemdUnitEnabled(std::string_view unit) const;
+  bool isNameOwner(std::string_view name, std::string_view sender) const;
   void processPendingEvents();
 
 private:

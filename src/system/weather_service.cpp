@@ -267,7 +267,7 @@ WeatherService::WeatherService(ConfigService& configService, HttpClient& httpCli
 
 void WeatherService::initialize() {
   m_activeConfig = m_configService.config().weather;
-  m_configService.addReloadCallback([this]() { onConfigReload(); });
+  m_configService.addReloadCallback([this] { onConfigReload(); });
   loadCache();
   requestRefresh();
 }
@@ -367,7 +367,7 @@ double WeatherService::displayTemperature(double celsius) const noexcept {
 
 const char* WeatherService::displayTemperatureUnit() const noexcept { return useImperial() ? "\u00b0F" : "\u00b0C"; }
 
-std::string WeatherService::glyphForCode(std::int32_t code, bool isDay) {
+std::string_view WeatherService::glyphForCode(std::int32_t code, bool isDay) {
   if (code == 0) {
     return isDay ? "weather-sun" : "weather-moon";
   }

@@ -16,14 +16,14 @@ namespace calendar::cache {
     Oversized,
   };
 
-  struct LegacyReadResult {
+  struct [[nodiscard]] LegacyReadResult {
     LegacyReadStatus status = LegacyReadStatus::IoError;
     std::vector<std::uint8_t> contents;
   };
 
   [[nodiscard]] bool secureExisting(const std::filesystem::path& path);
-  [[nodiscard]] LegacyReadResult readLegacy(const std::filesystem::path& path, std::size_t maxBytes);
-  [[nodiscard]] security::EncryptedReadResult
+  LegacyReadResult readLegacy(const std::filesystem::path& path, std::size_t maxBytes);
+  security::EncryptedReadResult
   readEncrypted(const std::filesystem::path& path, const security::SecureKey& key, std::size_t maxPlaintextBytes);
   [[nodiscard]] bool
   writeEncrypted(const std::filesystem::path& path, std::string_view content, const security::SecureKey& key);

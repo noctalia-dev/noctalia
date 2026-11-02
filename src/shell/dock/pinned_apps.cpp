@@ -10,7 +10,7 @@ namespace shell::dock::pinned_apps {
 
     constexpr Logger kLog("dock");
 
-    [[nodiscard]] DesktopEntry placeholderEntry(std::string_view pinnedId) {
+    DesktopEntry placeholderEntry(std::string_view pinnedId) {
       DesktopEntry placeholder;
       placeholder.id = std::string(pinnedId);
       placeholder.name = std::string(pinnedId);
@@ -46,7 +46,7 @@ namespace shell::dock::pinned_apps {
         return !entry.hidden && !entry.noDisplay && entry.id == pinnedId;
       });
 
-      DesktopEntry entry = match != entries.end() ? *match : [&]() {
+      DesktopEntry entry = match != entries.end() ? *match : [&] {
         kLog.debug("pinned app not found: {}", pinnedId);
         return placeholderEntry(pinnedId);
       }();

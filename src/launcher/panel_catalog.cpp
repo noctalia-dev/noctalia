@@ -37,7 +37,7 @@ namespace panel_catalog {
   } // namespace
 
   Description describe(std::string_view panelId) {
-    const auto builtin = std::ranges::find(kBuiltinPanels, panelId, &BuiltinPanelMeta::id);
+    const auto* builtin = std::ranges::find(kBuiltinPanels, panelId, &BuiltinPanelMeta::id);
     if (builtin != kBuiltinPanels.end()) {
       return Description{.title = i18n::tr(builtin->titleKey), .subtitle = {}, .glyph = std::string(builtin->glyph)};
     }

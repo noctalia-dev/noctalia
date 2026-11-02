@@ -18,8 +18,8 @@ public:
   void setEnabled(bool enabled);
   void setSpeed(float speed);
 
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] float speed() const noexcept { return m_speed; }
+  bool enabled() const noexcept { return m_enabled; }
+  float speed() const noexcept { return m_speed; }
 
 private:
   MotionService() = default;

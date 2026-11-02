@@ -27,8 +27,7 @@ type = "wallpaper"
 type = "session"
 ```
 
-When no `[[control_center.shortcuts]]` entries are defined, the default set is: `wifi`, `bluetooth`, `caffeine`, `nightlight`, `notification`, `power_profile`.
-Set `shortcuts = []` under `[control_center]` to hide all Home shortcut buttons.
+When no `[[control_center.shortcuts]]` entries are defined, the default set is: `wifi`, `bluetooth`, `caffeine`, `nightlight`, `notification`, `power_profile`. Set `shortcuts = []` under `[control_center]` to hide all Home shortcut buttons.
 
 Use `show_shortcut_labels` under `[control_center]` to show or hide the text under each shortcut icon (default `true`). When labels are off, the icons scale with the shortcut cell size, which is useful at narrower Control Center widths.
 
@@ -39,32 +38,32 @@ show_shortcut_labels = false
 
 ## Entry Fields
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| Field  | Type   | Default    | Description                       |
+| ------ | ------ | ---------- | --------------------------------- |
 | `type` | string | *required* | Shortcut type from the list below |
 
 ## Types
 
-| Type | Label | Behavior | Right-click |
-|------|-------|----------|-------------|
-| `wifi` | Wi-Fi | Toggle wireless on/off | Open network tab |
-| `bluetooth` | Bluetooth | Toggle adapter on/off | Open bluetooth tab |
-| `nightlight` | Night Light | Toggle blue-light filter (forced -> scheduled-on) | Toggle always-on (force) |
-| `notification` | DND | Toggle Do Not Disturb | Open notifications tab |
-| `dark_mode` | Dark Mode | Toggle light/dark theme | - |
-| `caffeine` | Caffeine | Toggle idle/sleep prevention | - |
-| `audio` | Audio | Toggle output mute | Open audio tab |
-| `mic_mute` | Microphone | Toggle mic mute | Open audio tab |
-| `power_profile` | Current profile | Cycle power profile | Open system tab |
-| `media` | Media | Play/Pause active player | Open media tab |
-| `weather` | Temperature | Open weather tab | Open weather tab |
-| `system` | System | Open system tab | Open system tab |
-| `screen_time` | Screen Time | Open screen time tab | Open screen time tab |
-| `keyboard_layout` | Current layout | Cycle keyboard layout | - |
-| `screen_recorder` | Recorder | Toggle recording | Toggle replay buffer |
-| `wallpaper` | Wallpaper | Open wallpaper panel | - |
-| `session` | Session | Open session panel | - |
-| `clipboard` | Clipboard | Open clipboard panel | - |
+| Type              | Label           | Behavior                                          | Right-click              |
+| ----------------- | --------------- | ------------------------------------------------- | ------------------------ |
+| `wifi`            | Wi-Fi           | Toggle wireless on/off                            | Open network tab         |
+| `bluetooth`       | Bluetooth       | Toggle adapter on/off                             | Open bluetooth tab       |
+| `nightlight`      | Night Light     | Toggle blue-light filter (forced -> scheduled-on) | Toggle always-on (force) |
+| `notification`    | DND             | Toggle Do Not Disturb                             | Open notifications tab   |
+| `dark_mode`       | Dark Mode       | Toggle light/dark theme                           | -                        |
+| `caffeine`        | Caffeine        | Toggle idle/sleep prevention                      | -                        |
+| `audio`           | Audio           | Toggle output mute                                | Open audio tab           |
+| `mic_mute`        | Microphone      | Toggle mic mute                                   | Open audio tab           |
+| `power_profile`   | Current profile | Cycle power profile                               | Open system tab          |
+| `media`           | Media           | Play/Pause active player                          | Open media tab           |
+| `weather`         | Temperature     | Open weather tab                                  | Open weather tab         |
+| `system`          | System          | Open system tab                                   | Open system tab          |
+| `screen_time`     | Screen Time     | Open screen time tab                              | Open screen time tab     |
+| `keyboard_layout` | Current layout  | Cycle keyboard layout                             | -                        |
+| `screen_recorder` | Recorder        | Toggle recording                                  | Toggle replay buffer     |
+| `wallpaper`       | Wallpaper       | Open wallpaper panel                              | -                        |
+| `session`         | Session         | Open session panel                                | -                        |
+| `clipboard`       | Clipboard       | Open clipboard panel                              | -                        |
 
 ## Dynamic Shortcuts
 

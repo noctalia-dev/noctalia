@@ -67,7 +67,7 @@ struct UPowerChargeLimitState {
   // Values configured in UPower. They are presets, not necessarily what the kernel currently applies.
   std::optional<std::uint32_t> configuredStart;
   std::optional<std::uint32_t> configuredEnd;
-  // Read-only values currently exposed by the kernel.
+  // Read-only values the kernel currently applies; empty while charge_types selects a mode other than Custom.
   std::optional<std::uint32_t> effectiveStart;
   std::optional<std::uint32_t> effectiveEnd;
   std::optional<std::uint32_t> supportedSettings;
@@ -84,20 +84,20 @@ struct UPowerChargeLimitState {
   // threshold that caps below full (end < 100). A start of 0 or 100 is not a
   // limit. Huawei-WMI EC "full charge" defaults (start=95, end=100) are also
   // treated as unrestricted.
-  [[nodiscard]] bool hasRestrictiveThreshold() const;
+  bool hasRestrictiveThreshold() const;
 
   bool operator==(const UPowerChargeLimitState&) const = default;
 };
 
-[[nodiscard]] std::string batteryStateLabel(BatteryState state);
+std::string batteryStateLabel(BatteryState state);
 // Whether the battery state implies external power; empty when the state does not say (Unknown, Empty).
-[[nodiscard]] std::optional<bool> batteryStatePlugged(BatteryState state);
+std::optional<bool> batteryStatePlugged(BatteryState state);
 
 // Level-aware battery icon (battery-0..4 / charging / plugged), shared by the bar widget and Power tab.
-[[nodiscard]] const char* batteryGlyphName(double percentage, BatteryState state);
+const char* batteryGlyphName(double percentage, BatteryState state);
 
 // Icon for a non-laptop battery device (peripherals) keyed on its UPower device type.
-[[nodiscard]] const char* batteryDeviceGlyphName(UPowerDeviceType type);
+const char* batteryDeviceGlyphName(UPowerDeviceType type);
 
 struct UPowerState {
   double percentage = 0.0;
@@ -128,11 +128,11 @@ struct UPowerDeviceInfo {
 
   bool operator==(const UPowerDeviceInfo&) const = default;
 
-  [[nodiscard]] bool isLaptopBattery() const { return type == UPowerDeviceType::Battery && powerSupply; }
+  bool isLaptopBattery() const { return type == UPowerDeviceType::Battery && powerSupply; }
   // Percent of design capacity, clamped to [0, 100]: a re-learned EnergyFull can exceed the
   // vendor design value. Empty when the device reports no usable capacity pair.
-  [[nodiscard]] std::optional<double> healthPercent() const;
-  [[nodiscard]] bool sameCatalogEntry(const UPowerDeviceInfo& other) const;
+  std::optional<double> healthPercent() const;
+  bool sameCatalogEntry(const UPowerDeviceInfo& other) const;
 };
 
 enum class UPowerChangeOrigin : std::uint8_t {
@@ -145,7 +145,7 @@ struct UPowerChange {
   bool deviceCatalogChanged = false;
 };
 
-[[nodiscard]] bool upowerDeviceMatchesSelector(const UPowerDeviceInfo& info, std::string_view selector);
+bool upowerDeviceMatchesSelector(const UPowerDeviceInfo& info, std::string_view selector);
 
 class UPowerService {
 public:
@@ -158,14 +158,21 @@ public:
   void setChangeCallback(ChangeCallback callback);
   void refresh();
 
-  [[nodiscard]] const UPowerState& state() const noexcept { return m_state; }
-  [[nodiscard]] UPowerState stateForDevice(std::string_view selector) const;
-  [[nodiscard]] std::vector<UPowerDeviceInfo> batteryDevices() const;
-  [[nodiscard]] const UPowerDeviceInfo* defaultSystemBattery() const noexcept;
-  [[nodiscard]] const UPowerDeviceInfo* deviceForSelector(std::string_view selector) const;
+  const UPowerState& state() const noexcept { return m_state; }
+  // Object path of the peripheral battery backing state() on machines without a system battery;
+  // empty when state() follows the system battery or no battery at all.
+  const std::string& statePeripheralPath() const noexcept { return m_statePeripheralPath; }
+  // Whether state() is on external power: UPower's OnBattery for the system battery, the charge state for a
+  // peripheral. A full system battery can flip between fully-charged and discharging while AC stays connected, so
+  // its charge state is not a plug signal. Empty without a battery or when a peripheral's state does not say.
+  std::optional<bool> externalPowerConnected() const;
+  UPowerState stateForDevice(std::string_view selector) const;
+  std::vector<UPowerDeviceInfo> batteryDevices() const;
+  const UPowerDeviceInfo* defaultSystemBattery() const noexcept;
+  const UPowerDeviceInfo* deviceForSelector(std::string_view selector) const;
   // Peripheral (non-system) battery whose serial matches, compared case-insensitively because
   // MAC-style serials differ in case between BlueZ-backed and kernel-backed UPower devices.
-  [[nodiscard]] const UPowerDeviceInfo* peripheralBatteryForSerial(std::string_view serial) const;
+  const UPowerDeviceInfo* peripheralBatteryForSerial(std::string_view serial) const;
   // Applies or removes UPower's configured preset. Completion is reflected in the device's
   // chargeLimit fields and delivered through the normal change callback.
   [[nodiscard]] bool enableChargeThreshold(std::string_view devicePath, bool enabled);
@@ -184,23 +191,29 @@ private:
     bool deviceCatalogChanged = false;
   };
 
-  [[nodiscard]] UPowerState readDefaultState() const;
-  [[nodiscard]] UPowerState readDeviceState(sdbus::IProxy& proxy) const;
-  [[nodiscard]] UPowerDeviceInfo readDeviceInfoBase(std::string path, sdbus::IProxy& proxy) const;
-  [[nodiscard]] UPowerChargeLimitState readChargeLimitState(
+  struct DefaultState {
+    UPowerState state;
+    std::string peripheralPath;
+  };
+
+  DefaultState readDefaultState() const;
+  UPowerState readDeviceState(sdbus::IProxy& proxy) const;
+  UPowerDeviceInfo readDeviceInfoBase(std::string path, sdbus::IProxy& proxy) const;
+  UPowerChargeLimitState readChargeLimitState(
       const UPowerDeviceInfo& info, sdbus::IProxy& proxy, std::optional<bool>& chargeThresholdMethodAvailable
   ) const;
-  [[nodiscard]] UPowerDeviceInfo
+  UPowerDeviceInfo
   readDeviceInfo(std::string path, sdbus::IProxy& proxy, std::optional<bool>& chargeThresholdMethodAvailable) const;
   void refreshDisplayDeviceProxy();
-  [[nodiscard]] bool refreshDefaultState();
+  bool refreshDefaultState();
   void emitChangedIfNeeded(bool devicesChanged, bool chargeLimitChanged = false, bool deviceCatalogChanged = false);
   void emitControlOperationChanged();
   void invalidateChargeThresholdRequest(std::string_view devicePath);
   void rescanDevices();
-  [[nodiscard]] RefreshChanges refreshDevice(std::string_view devicePath, bool refreshChargeLimit);
-  [[nodiscard]] RefreshChanges refreshTrackedDevice(TrackedDevice& device, bool refreshChargeLimit);
-  [[nodiscard]] RefreshChanges refreshDeviceStates();
+  RefreshChanges refreshDevice(std::string_view devicePath, bool refreshChargeLimit);
+  RefreshChanges refreshTrackedDevice(TrackedDevice& device, bool refreshChargeLimit);
+  RefreshChanges refreshDeviceStates();
+  const UPowerDeviceInfo* lowestPeripheralBattery() const noexcept;
 
   SystemBus& m_bus;
   std::unique_ptr<sdbus::IProxy> m_upowerProxy;
@@ -209,6 +222,7 @@ private:
   std::vector<TrackedDevice> m_devices;
   std::optional<UPowerDeviceInfo> m_dummyDevice;
   UPowerState m_state;
+  std::string m_statePeripheralPath;
   ChangeCallback m_changeCallback;
   std::shared_ptr<int> m_lifetimeToken = std::make_shared<int>(0);
   std::uint64_t m_nextChargeThresholdRequestId = 1;

@@ -26,15 +26,15 @@ namespace day_night_schedule {
   // config are used. Fixed sunrise/sunset times are used only when
   // LocationConfig::customSchedule is explicitly true. They are not an automatic
   // fallback when coordinates are unavailable.
-  [[nodiscard]] std::optional<std::string> normalizedClock(std::string_view value);
-  [[nodiscard]] GeoCoordinates resolveCoordinates(
+  std::optional<std::string> normalizedClock(std::string_view value);
+  GeoCoordinates resolveCoordinates(
       const LocationConfig& config, std::optional<double> resolvedLatitude, std::optional<double> resolvedLongitude
   );
   // Both sunset and sunrise parse as HH:MM. Custom scheduling needs this; without it the times
   // cannot drive a schedule and the request is a misconfiguration to surface, not to absorb.
-  [[nodiscard]] bool hasUsableCustomTimes(const LocationConfig& config);
-  [[nodiscard]] bool isManualMode(const LocationConfig& config);
-  [[nodiscard]] Evaluation evaluate(
+  bool hasUsableCustomTimes(const LocationConfig& config);
+  bool isManualMode(const LocationConfig& config);
+  Evaluation evaluate(
       const LocationConfig& config, std::optional<double> resolvedLatitude, std::optional<double> resolvedLongitude
   );
 

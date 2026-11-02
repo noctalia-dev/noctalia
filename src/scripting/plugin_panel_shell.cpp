@@ -44,7 +44,7 @@ namespace scripting {
       return field;
     }
 
-    [[nodiscard]] std::string settingString(
+    std::string settingString(
         const std::unordered_map<std::string, WidgetSettingValue>& settings, std::string_view key,
         std::string_view fallback
     ) {
@@ -58,7 +58,7 @@ namespace scripting {
       return std::string(fallback);
     }
 
-    [[nodiscard]] bool settingBool(
+    bool settingBool(
         const std::unordered_map<std::string, WidgetSettingValue>& settings, std::string_view key, bool fallback
     ) {
       const auto it = settings.find(std::string(key));
@@ -126,6 +126,8 @@ namespace scripting {
   }
 
   bool isValidPanelLayer(std::string_view value) noexcept { return std::ranges::contains(kPanelLayers, value); }
+
+  bool panelLayerFollowsFloating(std::string_view value) noexcept { return value == kPanelLayerFollow; }
 
   bool isPanelShellSettingKey(std::string_view entryId, std::string_view key) noexcept {
     return key == panelShellSettingKey(entryId, "placement")

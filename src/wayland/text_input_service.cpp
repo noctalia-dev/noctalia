@@ -64,7 +64,7 @@ namespace {
       .preedit_hint = &textInputPreeditHint,
   };
 
-  [[nodiscard]] std::uint32_t contentHintFor(const TextInputState& state, std::uint32_t version) {
+  std::uint32_t contentHintFor(const TextInputState& state, std::uint32_t version) {
     std::uint32_t hint = ZWP_TEXT_INPUT_V3_CONTENT_HINT_NONE;
     if (state.hiddenText) {
       hint |= ZWP_TEXT_INPUT_V3_CONTENT_HINT_HIDDEN_TEXT;
@@ -78,7 +78,7 @@ namespace {
     return hint;
   }
 
-  [[nodiscard]] std::uint32_t contentPurposeFor(TextInputPurpose purpose) {
+  std::uint32_t contentPurposeFor(TextInputPurpose purpose) {
     switch (purpose) {
     case TextInputPurpose::Normal:
       return ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NORMAL;
@@ -88,11 +88,11 @@ namespace {
     return ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NORMAL;
   }
 
-  [[nodiscard]] bool stateCanSendSurroundingText(const TextInputState& state) {
+  bool stateCanSendSurroundingText(const TextInputState& state) {
     return state.sendSurroundingText && state.surroundingText.size() <= kMaxSurroundingTextBytes;
   }
 
-  [[nodiscard]] std::int32_t clampProtocolInt(std::int32_t value) {
+  std::int32_t clampProtocolInt(std::int32_t value) {
     return std::clamp(value, std::numeric_limits<std::int32_t>::min(), std::numeric_limits<std::int32_t>::max());
   }
 
