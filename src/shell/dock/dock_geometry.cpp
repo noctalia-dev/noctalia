@@ -22,19 +22,19 @@ namespace shell::dock {
     // Badge hangs past its icon corner by this fraction of its diameter.
     constexpr float kBadgeCornerOverhang = 0.45F;
 
-    [[nodiscard]] int dockAutoHideEdgeGutter(const DockConfig& cfg) noexcept {
+    int dockAutoHideEdgeGutter(const DockConfig& cfg) noexcept {
       if ((!cfg.autoHide && !cfg.smartAutoHide) || cfg.marginEdge <= 0) {
         return 0;
       }
       return cfg.marginEdge;
     }
 
-    [[nodiscard]] std::int32_t dockScreenEdgeOverlap(const DockConfig& cfg, bool fractionalScale) noexcept {
+    std::int32_t dockScreenEdgeOverlap(const DockConfig& cfg, bool fractionalScale) noexcept {
       const bool flush = cfg.marginEdge <= 0 && dockAutoHideEdgeGutter(cfg) == 0;
       return flush && fractionalScale ? kScreenEdgeOverlapPx : 0;
     }
 
-    [[nodiscard]] float dockHoverZoomPeakScale(const DockConfig& cfg) noexcept {
+    float dockHoverZoomPeakScale(const DockConfig& cfg) noexcept {
       if (!cfg.magnification || cfg.magnificationScale <= 1.0F) {
         return 1.0F;
       }
@@ -42,7 +42,7 @@ namespace shell::dock {
       return std::max(1.0F, baseScale * std::max(1.0F, cfg.magnificationScale));
     }
 
-    [[nodiscard]] float dockHoverZoomBadgeOverhang(const DockConfig& cfg) noexcept {
+    float dockHoverZoomBadgeOverhang(const DockConfig& cfg) noexcept {
       if (!cfg.showInstanceCount) {
         return 0.0F;
       }

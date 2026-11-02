@@ -12,12 +12,12 @@ namespace calendar::detail {
 
   // Google reminder methods that map onto a local toast. "email" is server-side delivery, matching the
   // VALARM ACTION policy in ical_parser.
-  [[nodiscard]] inline bool googleReminderMethodIsNotifiable(const nlohmann::json& entry) {
+  inline bool googleReminderMethodIsNotifiable(const nlohmann::json& entry) {
     const std::string method = entry.value("method", std::string{"popup"});
     return method == "popup" || method == "display";
   }
 
-  [[nodiscard]] inline std::vector<std::int32_t> googleReminderMinutes(const nlohmann::json& array) {
+  inline std::vector<std::int32_t> googleReminderMinutes(const nlohmann::json& array) {
     std::vector<std::int32_t> leads;
     if (!array.is_array()) {
       return leads;
@@ -41,7 +41,7 @@ namespace calendar::detail {
   }
 
   // Top-level defaultReminders[] of an events.list response: the calendar's own default reminders.
-  [[nodiscard]] inline std::vector<std::int32_t> googleDefaultReminders(const nlohmann::json& listResponse) {
+  inline std::vector<std::int32_t> googleDefaultReminders(const nlohmann::json& listResponse) {
     const auto node = listResponse.find("defaultReminders");
     if (node == listResponse.end()) {
       return {};
@@ -52,7 +52,7 @@ namespace calendar::detail {
   // Per-event resolution: explicit overrides win; useDefault takes the calendar defaults, or nullopt
   // (the configured default lead) when the calendar has none. useDefault = false without usable
   // overrides means the user removed the event's notifications, which yields an empty list.
-  [[nodiscard]] inline std::optional<std::vector<std::int32_t>>
+  inline std::optional<std::vector<std::int32_t>>
   googleEventReminders(const nlohmann::json& item, const std::vector<std::int32_t>& calendarDefaults) {
     const auto reminders = item.find("reminders");
     if (reminders == item.end() || !reminders->is_object()) {

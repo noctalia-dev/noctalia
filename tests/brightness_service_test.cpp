@@ -181,11 +181,9 @@ namespace {
 
     void clear(std::string_view name) { fs::remove(m_directory / name); }
 
-    [[nodiscard]] bool exists(std::string_view name) const { return fs::exists(m_directory / name); }
+    bool exists(std::string_view name) const { return fs::exists(m_directory / name); }
 
-    [[nodiscard]] int count(std::string_view command) const {
-      return readCount(m_directory / ("count-" + std::string(command)));
-    }
+    int count(std::string_view command) const { return readCount(m_directory / ("count-" + std::string(command))); }
 
   private:
     fs::path m_directory;
@@ -243,12 +241,12 @@ namespace {
       ));
     }
 
-    [[nodiscard]] bool controllable(std::size_t index = 0) const {
+    bool controllable(std::size_t index = 0) const {
       const auto* display = service->findDisplay(kConnectors[index]);
       return display != nullptr && display->controllable;
     }
 
-    [[nodiscard]] bool brightnessIs(float expected, std::size_t index = 0) const {
+    bool brightnessIs(float expected, std::size_t index = 0) const {
       const auto* display = service->findDisplay(kConnectors[index]);
       return display != nullptr && display->controllable && std::abs(display->brightness - expected) < 0.001F;
     }

@@ -392,11 +392,11 @@ namespace shell::dock {
       menuPtr->sceneRoot = ui::node({});
       menuPtr->sceneRoot->setSize(fw, fh);
       if (Style::popupShadowsEnabled()) {
-        (void)popup_chrome::addShadow(
+        popup_chrome::addShadow(
             *menuPtr->sceneRoot, menuPtr->chrome, config.config().shell.shadow, Style::scaledRadiusLg()
         );
       }
-      (void)popup_chrome::addCardBackground(*menuPtr->sceneRoot, menuPtr->chrome, 1.0F);
+      popup_chrome::addCardBackground(*menuPtr->sceneRoot, menuPtr->chrome, 1.0F);
 
       auto ctrl = std::make_unique<ContextMenuControl>();
       ctrl->setMenuWidth(menuPtr->chrome.contentWidth);

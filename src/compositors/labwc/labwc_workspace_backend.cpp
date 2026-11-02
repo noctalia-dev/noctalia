@@ -10,7 +10,7 @@ namespace {
 
   constexpr Logger kLog("workspace_labwc");
 
-  [[nodiscard]] std::optional<std::size_t> parseLeadingNumber(const std::string& value) {
+  std::optional<std::size_t> parseLeadingNumber(const std::string& value) {
     if (value.empty() || !std::isdigit(static_cast<unsigned char>(value.front()))) {
       return std::nullopt;
     }

@@ -47,23 +47,23 @@ public:
   void invalidateGlyphTexturesNextFrame() noexcept { m_glyphTexturesDirty = true; }
   void invalidateGpuResourcesNextFrame() noexcept;
 
-  [[nodiscard]] RenderBackend& backend() noexcept { return *m_backend; }
-  [[nodiscard]] const RenderBackend& backend() const noexcept { return *m_backend; }
+  RenderBackend& backend() noexcept { return *m_backend; }
+  const RenderBackend& backend() const noexcept { return *m_backend; }
 
   // Texture/text-generation access for ScaledRenderer views and graphics-lifecycle owners.
-  [[nodiscard]] TextureManager& textureManager();
-  [[nodiscard]] std::uint64_t textMetricsGeneration() const noexcept { return m_textMetricsGeneration; }
+  TextureManager& textureManager();
+  std::uint64_t textMetricsGeneration() const noexcept { return m_textMetricsGeneration; }
 
 private:
   friend class ScaledRenderer;
 
   // Scale-parameterized measurement/text ops. ScaledRenderer forwards here with
   // an explicit scale; no call mutates any shared render scale.
-  [[nodiscard]] TextMetrics measureTextScaled(
+  TextMetrics measureTextScaled(
       float scale, std::string_view text, float fontSize, const TextFont& font, float maxWidth, int maxLines,
       TextAlign align, TextEllipsize ellipsize, bool useMarkup
   );
-  [[nodiscard]] TextMetrics measureFontScaled(float scale, float fontSize, const TextFont& font);
+  TextMetrics measureFontScaled(float scale, float fontSize, const TextFont& font);
   void measureTextCursorStopsScaled(
       float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
       std::vector<float>& outStops, const TextFont& font
@@ -76,7 +76,7 @@ private:
       float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
       std::vector<TextCharSpan>& outSpans, const TextFont& font
   );
-  [[nodiscard]] TextMetrics measureGlyphScaled(float scale, char32_t codepoint, float fontSize);
+  TextMetrics measureGlyphScaled(float scale, char32_t codepoint, float fontSize);
 
   bool makeCurrentNoSurface();
   void handleGraphicsReset(RenderGraphicsResetStatus status);

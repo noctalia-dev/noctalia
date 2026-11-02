@@ -62,13 +62,13 @@ public:
 
   void setOnAppLaunchCallback(std::function<void()> callback) { m_onAppLaunch = std::move(callback); }
 
-  [[nodiscard]] float preferredWidth() const override;
-  [[nodiscard]] float preferredHeight() const override;
-  [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
-  [[nodiscard]] InputArea* initialFocusArea() const override;
-  [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
-  [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
-  [[nodiscard]] bool ignorePointerEvent() const override;
+  float preferredWidth() const override;
+  float preferredHeight() const override;
+  LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
+  InputArea* initialFocusArea() const override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  PanelPlacement panelPlacement() const noexcept override;
+  bool ignorePointerEvent() const override;
 
 private:
   friend class LauncherPanelTestAccess;
@@ -104,30 +104,31 @@ private:
   bool handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
   void applyEmptyState();
   void bindDetailResult();
-  [[nodiscard]] bool shouldUseDetailPresentation() const;
-  [[nodiscard]] bool startsWithLauncherPrefix(std::string_view text) const;
+  bool shouldUseDetailPresentation() const;
+  bool startsWithLauncherPrefix(std::string_view text) const;
   void applyProviderConfig(LauncherProvider& provider) const;
   void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied, bool appLaunch = false);
-  [[nodiscard]] std::vector<LauncherResult> providerOverviewResults(std::string_view text) const;
+  std::vector<LauncherResult> providerOverviewResults(std::string_view text) const;
   [[nodiscard]] bool openAppActionsMenu(std::size_t index, float anchorX, float anchorY);
   void updateCategoryFilterModel(const std::vector<LauncherCategory>& categories);
   void rebuildCategoryFilter();
   void rebuildLauncherNavigation();
-  [[nodiscard]] ActiveCategoryType defaultCategoryType() const;
+  ActiveCategoryType defaultCategoryType() const;
   void applyDefaultView();
   void updateCategorySelectionChrome();
   void updateLauncherOptionButtons();
   void setCategoryFilterVisible(bool visible);
   void setActiveCategorySlot(std::size_t slotIndex);
   void setActiveBrowserCategory(std::size_t categoryIndex);
+  void setActiveProviderCategory(std::size_t index);
   void applyActiveCategory();
   void syncLauncherListStyle();
   void syncLauncherViewLayout(Renderer* renderer = nullptr);
   void queueResultsTransition(ResultsTransition transition);
   void animateResultsTransition();
-  [[nodiscard]] bool shouldUseAppGrid() const;
-  [[nodiscard]] bool supportsResultGrid() const;
-  [[nodiscard]] bool shouldUseLauncherSections() const;
+  bool shouldUseAppGrid() const;
+  bool supportsResultGrid() const;
+  bool shouldUseLauncherSections() const;
   void rebuildLauncherSections();
   void selectResult(std::size_t index, bool scrollToSelection);
   void refreshLauncherAppIconColorization();
@@ -138,7 +139,7 @@ private:
   void syncLauncherAvatar(Renderer& renderer);
   void showProviderOverview();
   void showSessionActions();
-  [[nodiscard]] bool usesBrowserLayout() const;
+  bool usesBrowserLayout() const;
 
   std::vector<std::unique_ptr<LauncherProvider>> m_providers;
   std::vector<LauncherResult> m_results;
@@ -177,6 +178,8 @@ private:
   ActiveCategoryType m_activeCategoryType = All;
   std::string m_activeCategory;
   std::vector<LauncherCategory> m_currentCategories;
+  std::vector<LauncherCategory> m_providerCategories;
+  std::string m_activeProviderCategory;
   std::vector<CategoryFilterSlot> m_categoryFilterSlots;
   bool m_hasRecentlyUsed = false;
   bool m_hasPinnedApplications = false;

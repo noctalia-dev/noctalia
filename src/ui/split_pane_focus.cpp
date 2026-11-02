@@ -7,14 +7,14 @@
 
 namespace {
 
-  [[nodiscard]] bool isArrowKey(std::uint32_t sym, std::uint32_t modifiers) {
+  bool isArrowKey(std::uint32_t sym, std::uint32_t modifiers) {
     return KeybindMatcher::matches(KeybindAction::Left, sym, modifiers)
         || KeybindMatcher::matches(KeybindAction::Right, sym, modifiers)
         || KeybindMatcher::matches(KeybindAction::Up, sym, modifiers)
         || KeybindMatcher::matches(KeybindAction::Down, sym, modifiers);
   }
 
-  [[nodiscard]] bool isInSidebar(const InputArea* focused, const SplitPaneFocusConfig& config) {
+  bool isInSidebar(const InputArea* focused, const SplitPaneFocusConfig& config) {
     if (focused == nullptr || config.sidebarRoot == nullptr) {
       return false;
     }
@@ -24,19 +24,18 @@ namespace {
     return isNodeInSubtree(focused, config.sidebarRoot);
   }
 
-  [[nodiscard]] bool isInContent(const InputArea* focused, const SplitPaneFocusConfig& config) {
+  bool isInContent(const InputArea* focused, const SplitPaneFocusConfig& config) {
     if (focused == nullptr || config.contentRoot == nullptr) {
       return false;
     }
     return isNodeInSubtree(focused, config.contentRoot);
   }
 
-  [[nodiscard]] bool isInHeader(const InputArea* focused, const SplitPaneFocusConfig& config) {
+  bool isInHeader(const InputArea* focused, const SplitPaneFocusConfig& config) {
     return config.headerFocus != nullptr && focused == config.headerFocus;
   }
 
-  [[nodiscard]] SplitPaneFocusResult
-  handleTab(InputDispatcher& dispatcher, const SplitPaneFocusConfig& config, bool reverse) {
+  SplitPaneFocusResult handleTab(InputDispatcher& dispatcher, const SplitPaneFocusConfig& config, bool reverse) {
     auto focusSidebar = [&] {
       dispatcher.setFocus(config.sidebarFocus);
       return SplitPaneFocusResult::Consumed;

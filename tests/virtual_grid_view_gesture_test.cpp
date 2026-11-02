@@ -50,14 +50,14 @@ namespace {
     TextMetrics measureGlyph(char32_t, float) override { return TextMetrics{}; }
 
     TextureManager& textureManager() override { std::abort(); }
-    [[nodiscard]] float renderScale() const noexcept override { return 1.0F; }
+    float renderScale() const noexcept override { return 1.0F; }
   };
 
   // Stands in for the launcher's pinned-entry adapters: consumes the press so it
   // can tell a reorder drag from an activation on release.
   class RecordingAdapter final : public VirtualGridAdapter {
   public:
-    [[nodiscard]] std::size_t itemCount() const override { return 4; }
+    std::size_t itemCount() const override { return 4; }
     [[nodiscard]] std::unique_ptr<Node> createTile() override { return std::make_unique<Node>(); }
     void bindTile(Node&, std::size_t, bool, bool) override {}
 

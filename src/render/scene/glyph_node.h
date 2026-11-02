@@ -7,9 +7,9 @@ class GlyphNode : public Node {
 public:
   GlyphNode() : Node(NodeType::Glyph) {}
 
-  [[nodiscard]] char32_t codepoint() const noexcept { return m_codepoint; }
-  [[nodiscard]] float fontSize() const noexcept { return m_fontSize; }
-  [[nodiscard]] const Color& color() const noexcept { return m_color; }
+  char32_t codepoint() const noexcept { return m_codepoint; }
+  float fontSize() const noexcept { return m_fontSize; }
+  const Color& color() const noexcept { return m_color; }
 
   void setCodepoint(char32_t codepoint) {
     if (m_codepoint == codepoint) {
@@ -35,10 +35,10 @@ public:
     markPaintDirty();
   }
 
-  [[nodiscard]] bool hasShadow() const noexcept { return m_hasShadow; }
-  [[nodiscard]] const Color& shadowColor() const noexcept { return m_shadowColor; }
-  [[nodiscard]] float shadowOffsetX() const noexcept { return m_shadowOffsetX; }
-  [[nodiscard]] float shadowOffsetY() const noexcept { return m_shadowOffsetY; }
+  bool hasShadow() const noexcept { return m_hasShadow; }
+  const Color& shadowColor() const noexcept { return m_shadowColor; }
+  float shadowOffsetX() const noexcept { return m_shadowOffsetX; }
+  float shadowOffsetY() const noexcept { return m_shadowOffsetY; }
 
   void setShadow(const Color& color, float offsetX, float offsetY) {
     m_hasShadow = true;

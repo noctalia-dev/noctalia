@@ -43,7 +43,7 @@ public:
   void onSnapshotChanged(const CalendarSnapshot& snapshot);
   void onConfigReload();
 
-  [[nodiscard]] int pollTimeoutMs() const;
+  int pollTimeoutMs() const;
   void tick();
 
 private:
@@ -54,14 +54,13 @@ private:
   void fireReminder(const calendar::DueReminder& due, std::chrono::system_clock::time_point now);
   // Rewrites the bodies of reminders still counting down, dropping the ones that have settled on
   // "starts now" or been dismissed. Returns the instant the next label changes, if any.
-  [[nodiscard]] std::optional<std::chrono::system_clock::time_point>
-  refreshCountdowns(std::chrono::system_clock::time_point now);
+  std::optional<std::chrono::system_clock::time_point> refreshCountdowns(std::chrono::system_clock::time_point now);
   void fireCatchUpSummary(std::size_t remaining);
   void fireDigest(std::span<const CalendarEvent* const> events);
   void loadPersistedState();
   void persistState();
   void schedulePersist();
-  [[nodiscard]] bool active() const noexcept;
+  bool active() const noexcept;
 
   ConfigService& m_configService;
   NotificationManager& m_notifications;

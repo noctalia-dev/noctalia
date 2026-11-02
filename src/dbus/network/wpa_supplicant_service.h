@@ -27,12 +27,10 @@ public:
   void setChangeCallback(ChangeCallback callback) override;
   void refresh() override;
 
-  [[nodiscard]] const NetworkState& state() const noexcept override { return m_state; }
-  [[nodiscard]] bool hasStateSnapshot() const noexcept override { return m_hasStateSnapshot; }
-  [[nodiscard]] const std::vector<AccessPointInfo>& accessPoints() const noexcept override { return m_accessPoints; }
-  [[nodiscard]] const std::vector<VpnConnectionInfo>& vpnConnections() const noexcept override {
-    return m_vpnConnections;
-  }
+  const NetworkState& state() const noexcept override { return m_state; }
+  bool hasStateSnapshot() const noexcept override { return m_hasStateSnapshot; }
+  const std::vector<AccessPointInfo>& accessPoints() const noexcept override { return m_accessPoints; }
+  const std::vector<VpnConnectionInfo>& vpnConnections() const noexcept override { return m_vpnConnections; }
 
   void requestScan() override;
 
@@ -43,7 +41,7 @@ public:
   void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) override;
   void disconnect() override;
   void forgetSsid(const std::string& ssid) override;
-  [[nodiscard]] bool hasSavedConnection(const std::string& ssid) const override;
+  bool hasSavedConnection(const std::string& ssid) const override;
 
 private:
   void subscribeInterface(const std::string& ifacePath);

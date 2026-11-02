@@ -51,7 +51,8 @@ vec4 sampleWithFillMode(sampler2D tex, vec2 uv, float imgWidth, float imgHeight)
     vec2 transformedUV = calculateWallpaperUV(uv, imgWidth, imgHeight);
 
     if (u_fillMode > 3.5 && u_fillMode < 4.5) {
-        return texture2D(tex, fract(transformedUV));
+        // Repeat binds the textures with GL_REPEAT; fract() here would break mip selection at tile edges.
+        return texture2D(tex, transformedUV);
     }
 
     if (wallpaperUVOutside(transformedUV)) {
@@ -540,13 +541,23 @@ void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   glUniform2f(pd.quadSizeLoc, p.quadWidth, p.quadHeight);
   glUniformMatrix3fv(pd.transformLoc, 1, GL_FALSE, p.transform.m.data());
 
-  // Textures
+  // Textures. Repeat wraps in the sampler so tile edges keep continuous UV derivatives (mip level) and filter across
+  // the seam. Textures are shared, so other fill modes keep the clamp set at upload.
+  const bool repeat = p.fillMode > 3.5F && p.fillMode < 4.5F;
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(p.from.texture.value()));
+  if (repeat) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  }
   glUniform1i(pd.source1Loc, 0);
 
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(p.to.texture.value()));
+  if (repeat) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  }
   if (pd.source2Loc >= 0) {
     glUniform1i(pd.source2Loc, 1);
   }
@@ -609,6 +620,14 @@ void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   glVertexAttribPointer(posAttr, 2, GL_FLOAT, GL_FALSE, 0, kQuad);
   glEnableVertexAttribArray(posAttr);
   glDrawArrays(GL_TRIANGLES, 0, 6);
+  if (repeat) {
+    glActiveTexture(GL_TEXTURE1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glActiveTexture(GL_TEXTURE0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  }
   glDisableVertexAttribArray(posAttr);
 
   glActiveTexture(GL_TEXTURE0);

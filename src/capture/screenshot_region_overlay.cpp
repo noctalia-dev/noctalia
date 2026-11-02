@@ -46,8 +46,7 @@ namespace capture {
     constexpr float kDimensionPaddingY = 4.0F;
     constexpr double kHandleMargin = 15.0; // Hitbox size in pixels
 
-    [[nodiscard]] capture::DragMode
-    hitTestSelection(double x, double y, double x0, double y0, double x1, double y1, double margin) {
+    capture::DragMode hitTestSelection(double x, double y, double x0, double y0, double x1, double y1, double margin) {
       const bool withinX = x >= x0 - margin && x <= x1 + margin;
       const bool withinY = y >= y0 - margin && y <= y1 + margin;
 
@@ -103,7 +102,7 @@ namespace capture {
     }
 
     // Right-button resize zones: outer thirds of each axis pick the matching edge or corner.
-    [[nodiscard]] capture::DragMode
+    capture::DragMode
     hitTestRegionThirds(double x, double y, double x0, double y0, double x1, double y1, double margin) {
       if (x < x0 - margin || x > x1 + margin || y < y0 - margin || y > y1 + margin) {
         return capture::DragMode::None;
@@ -135,7 +134,7 @@ namespace capture {
       return capture::DragMode::None;
     }
 
-    [[nodiscard]] std::uint32_t cursorShapeForDragMode(capture::DragMode mode) {
+    std::uint32_t cursorShapeForDragMode(capture::DragMode mode) {
       switch (mode) {
       case capture::DragMode::TopEdge:
       case capture::DragMode::BottomEdge:
@@ -156,7 +155,7 @@ namespace capture {
       }
     }
 
-    [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
+    const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
       for (const auto& entry : wayland.outputs()) {
         if (entry.output == output) {
           return &entry;
@@ -165,10 +164,9 @@ namespace capture {
       return nullptr;
     }
 
-    [[nodiscard]] LayerShellKeyboard overlayKeyboardMode() { return LayerShellKeyboard::Exclusive; }
+    LayerShellKeyboard overlayKeyboardMode() { return LayerShellKeyboard::Exclusive; }
 
-    [[nodiscard]] const ScreencopyImage*
-    frozenImageForOutput(const std::vector<FrozenScreenshot>& screenshots, wl_output* output) {
+    const ScreencopyImage* frozenImageForOutput(const std::vector<FrozenScreenshot>& screenshots, wl_output* output) {
       for (const auto& entry : screenshots) {
         if (entry.output == output) {
           return &entry.image.image;
@@ -177,7 +175,7 @@ namespace capture {
       return nullptr;
     }
 
-    [[nodiscard]] wl_output* outputAtGlobalPoint(const WaylandConnection& wayland, double globalX, double globalY) {
+    wl_output* outputAtGlobalPoint(const WaylandConnection& wayland, double globalX, double globalY) {
       for (const auto& out : wayland.outputs()) {
         if (out.output == nullptr || out.logicalWidth <= 0 || out.logicalHeight <= 0) {
           continue;
@@ -192,7 +190,7 @@ namespace capture {
       return nullptr;
     }
 
-    [[nodiscard]] std::string outputPickerLabel(const WaylandOutput& output) {
+    std::string outputPickerLabel(const WaylandOutput& output) {
       if (!output.connectorName.empty()) {
         return output.connectorName;
       }

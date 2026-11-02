@@ -22,7 +22,7 @@ ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform
     : m_config(config), m_platform(platform), m_maxWidth(static_cast<float>(options.maxWidth)),
       m_minWidth(static_cast<float>(options.minWidth)), m_iconSize(static_cast<float>(options.iconSize)),
       m_titleScrollMode(options.titleScrollMode), m_displayMode(options.displayMode),
-      m_showEmptyLabel(options.showEmptyLabel) {
+      m_showEmptyLabel(options.showEmptyLabel), m_colorizeIcons(options.colorizeIcons) {
   buildDesktopIconIndex();
 }
 
@@ -241,7 +241,7 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
   applyTitleScrollMode(m_title->visible());
   m_title->measure(renderer);
 
-  m_icon->setAppIconColorization(effectiveShellAppIconColorizationTint(m_config.config().shell));
+  m_icon->setAppIconColorization(effectiveShellAppIconColorizationTint(m_config.config().shell, m_colorizeIcons));
   if (iconPath != m_lastIconPath) {
     m_lastIconPath = iconPath;
     if (!m_lastIconPath.empty()) {

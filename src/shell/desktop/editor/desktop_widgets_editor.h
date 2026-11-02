@@ -39,14 +39,14 @@ public:
   void setExitRequestedCallback(std::function<void()> callback);
 
   void open(const DesktopWidgetsEditorSnapshot& snapshot);
-  [[nodiscard]] const DesktopWidgetsEditorSnapshot& snapshot() const noexcept { return m_snapshot; }
+  const DesktopWidgetsEditorSnapshot& snapshot() const noexcept { return m_snapshot; }
   [[nodiscard]] DesktopWidgetsEditorSnapshot close();
-  [[nodiscard]] bool isOpen() const noexcept;
+  bool isOpen() const noexcept;
 
   bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
-  [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
-  [[nodiscard]] std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
+  std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
+  std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
   void onOutputChange();
   void onSecondTick();
   void requestUpdate();
@@ -198,26 +198,26 @@ private:
   void updateDrag();
   void finishDrag();
   void updateLassoVisual(OverlaySurface& surface);
-  [[nodiscard]] OverlaySurface* findSurface(wl_surface* surface);
-  [[nodiscard]] const OverlaySurface* findSurface(wl_surface* surface) const;
-  [[nodiscard]] std::optional<LayerPopupParentContext> overlayPopupParentContext(const OverlaySurface& surface) const;
-  [[nodiscard]] OverlaySurface* findSurface(const std::string& outputName);
-  [[nodiscard]] OverlaySurface* findSurfaceForWidget(const std::string& widgetId);
-  [[nodiscard]] EditorWidgetView* findView(const std::string& id);
-  [[nodiscard]] DesktopWidgetState* findWidgetState(const std::string& id);
-  [[nodiscard]] const DesktopWidgetState* findWidgetState(const std::string& id) const;
-  [[nodiscard]] std::string effectiveOutputName(const DesktopWidgetState& state) const;
-  [[nodiscard]] bool shouldSnap() const;
-  [[nodiscard]] float widgetContentScale() const;
-  [[nodiscard]] std::string nextWidgetId() const;
-  [[nodiscard]] float duplicateOffset() const;
-  [[nodiscard]] std::vector<DesktopWidgetState> selectedWidgetTemplates() const;
+  OverlaySurface* findSurface(wl_surface* surface);
+  const OverlaySurface* findSurface(wl_surface* surface) const;
+  std::optional<LayerPopupParentContext> overlayPopupParentContext(const OverlaySurface& surface) const;
+  OverlaySurface* findSurface(const std::string& outputName);
+  OverlaySurface* findSurfaceForWidget(const std::string& widgetId);
+  EditorWidgetView* findView(const std::string& id);
+  DesktopWidgetState* findWidgetState(const std::string& id);
+  const DesktopWidgetState* findWidgetState(const std::string& id) const;
+  std::string effectiveOutputName(const DesktopWidgetState& state) const;
+  bool shouldSnap() const;
+  float widgetContentScale() const;
+  std::string nextWidgetId() const;
+  float duplicateOffset() const;
+  std::vector<DesktopWidgetState> selectedWidgetTemplates() const;
   std::vector<std::string> insertWidgetCopies(
       const std::vector<DesktopWidgetState>& templates, float offsetX, float offsetY, bool selectInserted,
       const std::string& targetOutputName = {}
   );
-  [[nodiscard]] std::string currentPointerOutputName() const;
-  [[nodiscard]] bool isWidgetSelected(const std::string& id) const;
+  std::string currentPointerOutputName() const;
+  bool isWidgetSelected(const std::string& id) const;
   void clearSelection();
   void setSingleSelection(const std::string& id);
   void handleWidgetPress(const std::string& id);

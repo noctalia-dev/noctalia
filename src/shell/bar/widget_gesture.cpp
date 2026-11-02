@@ -40,9 +40,7 @@ namespace noctalia::bar {
         Gesture::ScrollUp, Gesture::ScrollDown, Gesture::ScrollLeft, Gesture::ScrollRight,
     };
 
-    [[nodiscard]] const GestureEntry& entryFor(Gesture gesture) noexcept {
-      return kGestures[static_cast<std::size_t>(gesture)];
-    }
+    const GestureEntry& entryFor(Gesture gesture) noexcept { return kGestures[static_cast<std::size_t>(gesture)]; }
 
   } // namespace
 

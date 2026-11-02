@@ -68,13 +68,13 @@ public:
   void invalidateGlyphTextures();
   void abandonGlyphTextures() noexcept;
 
-  [[nodiscard]] TextMetrics measure(
+  TextMetrics measure(
       float contentScale, std::string_view text, float fontSize, const TextFont& font = {}, float maxWidth = 0.0F,
       int maxLines = 0, TextAlign align = TextAlign::Start, TextEllipsize ellipsize = TextEllipsize::End,
       bool useMarkup = false
   );
   // Metrics of `font` (an empty family = the active family set by setFontFamily()).
-  [[nodiscard]] TextMetrics measureFont(float contentScale, float fontSize, const TextFont& font = {}) const;
+  TextMetrics measureFont(float contentScale, float fontSize, const TextFont& font = {}) const;
   void measureCursorStops(
       float contentScale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
       std::vector<float>& outStops, const TextFont& font = {}

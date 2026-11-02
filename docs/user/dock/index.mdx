@@ -9,6 +9,7 @@ A standalone application dock that displays pinned and running apps. Disabled by
 
 ```toml
 [dock]
+colorize_icons      = false      # tint application icons with shell.app_icon_color
 enabled             = false      # set true to activate
 position            = "bottom"   # top | bottom | left | right
 active_monitor_only = false      # when true, only show apps/windows from the active monitor
@@ -43,6 +44,7 @@ magnification       = true       # magnify icons near the pointer (macOS-style)
 magnification_scale = 1.45       # max scale multiplier at the pointer center (1.0–2.0; 1.0 = off)
 active_opacity      = 1.0
 inactive_opacity    = 0.85
+icon_saturation     = 1.0        # 0 = grayscale, 1 = original app icon colors
 show_instance_count = true       # badge with window count when an app has 2+ windows
 show_dots           = false      # running-window indicator dots below app icons
 
@@ -60,6 +62,8 @@ pinned = ["firefox", "code", "kitty"]
 `concave_edge_corners = true` inverts the two corners on the side that touches the screen edge, so the dock flares outward and blends into it. The corner radii still control the curve size. Only applies when the dock actually touches the edge (`margin_edge = 0`).
 
 `border_width` draws an inside outline using `border`.
+
+`icon_saturation` reduces application icon saturation without changing opacity. It is clamped to 0–1 and updates on config reload. It does not affect theme-colorized icons, placeholder glyphs or the launcher button.
 
 Shadow blur, offset, and alpha are global under `[shell.shadow]`. The dock only exposes `shadow = true|false`.
 
@@ -111,7 +115,7 @@ If no match is found, a placeholder slot is reserved so the dock position is pre
 
 ## Icon colorization
 
-Dock application icons follow the global `[shell.app_icon_colorize]` / `[shell.app_icon_color]` settings (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+Set `[dock].colorize_icons = true` to tint dock application icons with `[shell].app_icon_color`. The toggle defaults to `false` and can be overridden per monitor (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
 
 Configure in **Settings → Appearance → Interface**, or under `[shell]` in the Noctalia TOML config stack.
 

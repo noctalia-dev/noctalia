@@ -6,7 +6,7 @@ namespace session_action {
 
   namespace {
 
-    [[nodiscard]] bool isBuiltinAction(std::string_view action) {
+    bool isBuiltinAction(std::string_view action) {
       return action == "lock"
           || action == "logout"
           || action == "suspend"

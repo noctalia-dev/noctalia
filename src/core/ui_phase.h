@@ -8,8 +8,8 @@ enum class UiPhase : unsigned char {
   Render,
 };
 
-[[nodiscard]] UiPhase currentUiPhase() noexcept;
-[[nodiscard]] const char* uiPhaseName(UiPhase phase) noexcept;
+UiPhase currentUiPhase() noexcept;
+const char* uiPhaseName(UiPhase phase) noexcept;
 
 class UiPhaseScope {
 public:

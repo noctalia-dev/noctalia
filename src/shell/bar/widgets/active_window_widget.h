@@ -38,6 +38,7 @@ public:
     ActiveWindowTitleScrollMode titleScrollMode = ActiveWindowTitleScrollMode::None;
     ActiveWindowDisplayMode displayMode = ActiveWindowDisplayMode::IconAndText;
     bool showEmptyLabel = false;
+    bool colorizeIcons = false;
   };
 
   ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options);
@@ -50,8 +51,8 @@ private:
   void applyTitleScrollMode(bool titleVisible);
   void syncWidgetVisibility(bool showWidget);
   void syncState(Renderer& renderer);
-  [[nodiscard]] int iconTargetSize() const noexcept;
-  [[nodiscard]] std::string resolveIconPath(const std::string& appId, float renderScale);
+  int iconTargetSize() const noexcept;
+  std::string resolveIconPath(const std::string& appId, float renderScale);
   void buildDesktopIconIndex();
 
   ConfigService& m_config;
@@ -62,6 +63,7 @@ private:
   ActiveWindowTitleScrollMode m_titleScrollMode = ActiveWindowTitleScrollMode::None;
   ActiveWindowDisplayMode m_displayMode = ActiveWindowDisplayMode::IconAndText;
   bool m_showEmptyLabel = false;
+  bool m_colorizeIcons = false;
   InputArea* m_area = nullptr;
   Image* m_icon = nullptr;
   Label* m_title = nullptr;

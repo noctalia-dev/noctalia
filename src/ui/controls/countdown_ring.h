@@ -19,7 +19,7 @@ public:
   void setColor(const ColorSpec& color);
   void setColor(const Color& color);
 
-  [[nodiscard]] float ringSize() const noexcept { return m_ringSize; }
+  float ringSize() const noexcept { return m_ringSize; }
 
 protected:
   void doLayout(Renderer& renderer) override;

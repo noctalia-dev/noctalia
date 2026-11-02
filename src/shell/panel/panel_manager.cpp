@@ -12,6 +12,7 @@
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
 #include "scripting/plugin_id.h"
+#include "scripting/plugin_panel_shell.h"
 #include "shell/bar/bar_corner_shape.h"
 #include "shell/bar/bar_reserved_zone.h"
 #include "shell/panel/panel.h"
@@ -98,7 +99,7 @@ namespace {
     const bool barIsRight = barConfig.position == "right";
     const bool barIsVertical = barIsLeft || barIsRight;
     const std::int32_t mEdge = std::max(0, barConfig.marginEdge);
-    const std::int32_t mEnds = std::max(0, barConfig.marginEnds);
+    const std::int32_t mEnds = std::max(0, barConfig.marginEnds.px());
     const std::int32_t thickness = std::max(0, barConfig.thickness);
 
     const std::int32_t left =
@@ -258,7 +259,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] float panelRevealContentOpacity(float reveal) {
+  float panelRevealContentOpacity(float reveal) {
     const float v = std::clamp(reveal, 0.0F, 1.0F);
     if (v <= 0.15F) {
       return 0.0F;
@@ -266,8 +267,7 @@ namespace {
     return std::clamp((v - 0.15F) / 0.85F, 0.0F, 1.0F);
   }
 
-  [[nodiscard]] AttachedRevealDirection
-  detachedRevealDirection(std::string_view panelPosition, std::string_view barPosition) {
+  AttachedRevealDirection detachedRevealDirection(std::string_view panelPosition, std::string_view barPosition) {
     if (panelPosition == "top_left" || panelPosition == "top_center" || panelPosition == "top_right") {
       return AttachedRevealDirection::Down;
     }
@@ -288,7 +288,7 @@ namespace {
 
   // Floating screen position for a built-in panel (one of kPanelPositions).
   // "auto" = bar-relative (and the default for any non-built-in panel).
-  [[nodiscard]] std::string resolvePanelPosition(const ConfigService* configService, std::string_view panelId) {
+  std::string resolvePanelPosition(const ConfigService* configService, std::string_view panelId) {
     if (configService == nullptr) {
       return "auto";
     }
@@ -314,7 +314,7 @@ namespace {
     return "auto";
   }
 
-  [[nodiscard]] bool usesConfiguredFloatingLayer(std::string_view panelId) {
+  bool usesConfiguredFloatingLayer(std::string_view panelId) {
     return panelId == "clipboard"
         || panelId == "control-center"
         || panelId == "launcher"
@@ -323,15 +323,18 @@ namespace {
         || panelId == "wallpaper";
   }
 
-  [[nodiscard]] LayerShellLayer
+  LayerShellLayer
   resolveFloatingPanelLayer(const ConfigService* configService, std::string_view panelId, const Panel& panel) {
-    if (configService != nullptr && usesConfiguredFloatingLayer(panelId)) {
+    if (configService == nullptr) {
+      return panel.layer();
+    }
+    if (usesConfiguredFloatingLayer(panelId) || scripting::panelLayerFollowsFloating(panel.panelLayerToken())) {
       return layerShellLayerFromConfig(configService->config().shell.panel.floatingLayer);
     }
     return panel.layer();
   }
 
-  [[nodiscard]] bool openNearClickEnabledForPanel(const ConfigService* configService, std::string_view panelId) {
+  bool openNearClickEnabledForPanel(const ConfigService* configService, std::string_view panelId) {
     if (panelId == "tray-drawer") {
       return true;
     }
@@ -361,8 +364,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] bool
-  openNearClickEnabled(const Panel* panel, std::string_view panelId, const ConfigService* configService) {
+  bool openNearClickEnabled(const Panel* panel, std::string_view panelId, const ConfigService* configService) {
     if (panelId.contains(':')) {
       if (panel == nullptr) {
         return false;
@@ -1035,11 +1037,11 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
     const auto crossPad = static_cast<std::uint32_t>(std::max(0, crossOutsetStart + crossOutsetEnd));
     const auto mainPad = static_cast<std::uint32_t>(std::max(0, mainBleedAway));
-    const std::uint32_t surfaceWidth = barIsVertical ? (panelWidth + mainPad) : (panelWidth + crossPad);
-    const std::uint32_t surfaceHeight = barIsVertical ? (panelHeight + crossPad) : (panelHeight + mainPad);
+    std::uint32_t surfaceWidth = barIsVertical ? (panelWidth + mainPad) : (panelWidth + crossPad);
+    std::uint32_t surfaceHeight = barIsVertical ? (panelHeight + crossPad) : (panelHeight + mainPad);
 
     // Bar visible rect in screen coords, derived from BarConfig + output dimensions.
-    const std::int32_t mEnds = std::max(0, barConfig.marginEnds);
+    const std::int32_t mEnds = std::max(0, barConfig.marginEnds.px());
     const std::int32_t barLeft = barRect.left;
     const std::int32_t barTop = barRect.top;
     const std::int32_t barRight = barRect.right;
@@ -1109,6 +1111,18 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     } else {
       surfaceX = visualX - crossOutsetStart;
       surfaceY = barIsBottom ? visualY - mainBleedAway : visualY;
+    }
+    // Keep the surface origin on the output by trimming overhang past the start edges;
+    // the trimmed bleed is off-screen anyway. Hyprland picks a layer popup's monitor
+    // from the parent surface's top-left corner, so an origin on a neighboring output
+    // places popups (context menus, dropdowns) where they are never drawn.
+    if (surfaceX < 0) {
+      surfaceWidth -= static_cast<std::uint32_t>(-surfaceX);
+      surfaceX = 0;
+    }
+    if (surfaceY < 0) {
+      surfaceHeight -= static_cast<std::uint32_t>(-surfaceY);
+      surfaceY = 0;
     }
 
     m_panelInsetX = visualX - surfaceX;
@@ -2921,7 +2935,7 @@ void PanelManager::layoutActivePanel(Renderer& renderer) {
     }
     if (firstMeasure || m_panelVisualHeight == target) {
       // The open reveal already animates the first appearance.
-      (void)setCardHeight(target);
+      setCardHeight(target);
     } else {
       m_contentFit.animation = m_animations.animate(
           static_cast<float>(m_panelVisualHeight), static_cast<float>(target), Style::animNormal, Easing::EaseOutCubic,

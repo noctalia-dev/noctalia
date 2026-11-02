@@ -79,7 +79,7 @@ namespace scripting {
     std::string text;
     std::vector<ScriptTooltipRowPatch> rows;
 
-    [[nodiscard]] bool hasRows() const noexcept { return !rows.empty(); }
+    bool hasRows() const noexcept { return !rows.empty(); }
 
     bool operator==(const ScriptTooltipPatch&) const = default;
   };
@@ -141,7 +141,7 @@ namespace scripting {
     // Panel field (the `panel.*` namespace): a close request.
     std::optional<bool> requestClose;
 
-    [[nodiscard]] bool empty() const {
+    bool empty() const {
       return !text.has_value()
           && !glyph.has_value()
           && !image.has_value()
@@ -308,8 +308,9 @@ namespace scripting {
     int exitSignal = 0;
     // Stop payload: identifies why the runtime is being destroyed.
     ScriptExitReason exitReason = ScriptExitReason::Reload;
-    // SettingsChanged payload: the new seeded settings snapshot to swap in.
-    ScriptSettings newSettings;
+    // SettingsChanged payload: the new seeded settings snapshot to swap in, or nullopt
+    // when only a shell config value read via getSetting changed.
+    std::optional<ScriptSettings> newSettings;
     ScriptSnapshot snapshot;
     std::chrono::milliseconds budget{12};
   };

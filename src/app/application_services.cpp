@@ -888,9 +888,9 @@ void Application::initWaylandCallbacks() {
     // focused output so activity on one monitor doesn't dismiss alerts on
     // another; fall back to all outputs when no focused output is known.
     if (wl_output* output = m_compositorPlatform.preferredInteractiveOutput(); output != nullptr) {
-      (void)m_compositorPlatform.clearActiveWorkspaceAlerts(output);
+      m_compositorPlatform.clearActiveWorkspaceAlerts(output);
     } else {
-      (void)m_compositorPlatform.clearActiveWorkspaceAlerts();
+      m_compositorPlatform.clearActiveWorkspaceAlerts();
     }
     m_bar.onWorkspaceChanged();
     m_dock.onWorkspaceChanged();
@@ -1114,6 +1114,7 @@ void Application::initSystemBusServices() {
             m_lockScreen.resetGracePeriod();
             // Screen time must not accumulate across suspend even when lock-before-suspend is off.
             m_screenTimeService.setSuspendPaused(true);
+            m_pluginServiceHost.onSleepChanged(true);
             // The readiness hook releases the delay inhibit after the revealed lock frames are acknowledged.
             if (m_skipLockOnNextSleep) {
               // Noctalia-initiated suspend: skip lock-before-sleep (plain Suspend or already locked).
@@ -1165,7 +1166,7 @@ void Application::initSystemBusServices() {
           m_releaseSleepDelayWhenLocked = false;
           m_screenTimeService.setSuspendPaused(false);
           if (m_configService.shouldLockBeforeSuspend() && m_logindService != nullptr) {
-            (void)m_logindService->acquireSleepDelayInhibit();
+            m_logindService->acquireSleepDelayInhibit();
           }
           kLog.info("system resumed; rechecking night light and auto theme schedules");
           // Drivers may discard glyph textures while suspended without reporting a
@@ -1181,6 +1182,7 @@ void Application::initSystemBusServices() {
             m_lockScreen.onSystemResumed();
           }
           m_weatherService.requestRefresh();
+          m_pluginServiceHost.onSleepChanged(false);
           m_gammaService.reevaluateSchedule();
           // Auto theme mode schedules with steady_clock timers, which do not advance while
           // suspended. Re-resolve so a day/night boundary crossed during sleep is applied.
@@ -1255,7 +1257,7 @@ void Application::initSystemBusServices() {
       m_upowerService = std::make_unique<UPowerService>(*m_systemBus);
       const auto& initialPower = m_upowerService->state();
       m_batteryHookState.reset(initialPower);
-      m_prevBatteryPluggedForEvents = initialPower.isPresent ? batteryStatePlugged(initialPower.state) : std::nullopt;
+      m_prevBatteryPluggedForEvents = m_upowerService->externalPowerConnected();
       m_prevBatteryPeripheralPathForEvents = m_upowerService->statePeripheralPath();
       m_batteryWarningMonitor.evaluate(m_configService.config().battery, *m_upowerService, m_notificationManager);
       m_upowerService->setChangeCallback([this, shouldRefreshControlCenter](const UPowerChange& change) {
@@ -1305,14 +1307,20 @@ void Application::initSystemBusServices() {
     }
 
     // NetworkManager is preferred, and its backend follows the bus name when NetworkManager starts later
-    // or restarts. When it is not running at startup, a standalone wpa_supplicant or iwd takes over if
-    // one is; otherwise the NetworkManager backend waits for it to appear.
+    // or restarts. When its unit is enabled but it is not running yet at startup, the backend waits for it:
+    // a wpa_supplicant on the bus then is NetworkManager's own. Otherwise a usable standalone wpa_supplicant
+    // or iwd takes over, and without one the NetworkManager backend still waits.
     try {
       m_networkService = std::make_unique<NetworkManagerService>(*m_systemBus);
     } catch (const std::exception& e) {
       kLog.warn("NetworkManager backend disabled: {}", e.what());
     }
-    if (m_networkService == nullptr || !m_networkService->available()) {
+    const bool nmWaiting = m_networkService != nullptr
+        && !m_networkService->available()
+        && m_systemBus->systemdUnitEnabled("NetworkManager.service");
+    if (nmWaiting) {
+      kLog.info("network service waiting for NetworkManager");
+    } else if (m_networkService == nullptr || !m_networkService->available()) {
       try {
         m_networkService = std::make_unique<WpaSupplicantService>(*m_systemBus);
         kLog.info("network service active (wpa_supplicant)");
@@ -1406,10 +1414,14 @@ void Application::initSystemBusServices() {
     if (m_bluetoothService != nullptr) {
       try {
         m_bluetoothAgent = std::make_unique<BluetoothAgent>(*m_systemBus);
-        m_bluetoothAgent->setRequestCallback([this,
-                                              shouldRefreshControlCenter](const BluetoothPairingRequest& /*request*/) {
-          if (shouldRefreshControlCenter()) {
+        m_bluetoothAgent->setRequestCallback([this](const BluetoothPairingRequest& /*request*/) {
+          // BlueZ cancels unanswered Agent1 requests after a few seconds, so the
+          // confirm/PIN UI must appear on its own instead of waiting for the user
+          // to already have the control center open on the bluetooth tab.
+          if (m_panelManager.isOpenPanel("control-center") && m_panelManager.isActivePanelContext("bluetooth")) {
             m_panelManager.refresh();
+          } else {
+            m_panelManager.togglePanel("control-center", PanelOpenRequest{.context = "bluetooth"});
           }
         });
       } catch (const std::exception& e) {
@@ -1539,6 +1551,22 @@ void Application::initBrightnessAndPipewire() {
           }
         },
         "sound"
+    );
+
+    auto applySpectrumConfig = [this] {
+      if (m_pipewireSpectrum == nullptr) {
+        return;
+      }
+      m_pipewireSpectrum->setFrameRate(m_configService.config().audio.spectrumFrameRate);
+    };
+    applySpectrumConfig();
+    m_configService.addReloadCallback(
+        [this, applySpectrumConfig] {
+          if (m_configService.lastChange().audio) {
+            applySpectrumConfig();
+          }
+        },
+        "spectrum"
     );
   } catch (const std::exception& e) {
     kLog.warn("pipewire disabled: {}", e.what());

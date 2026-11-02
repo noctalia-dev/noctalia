@@ -57,6 +57,9 @@ namespace settings {
     if (key == "smart_auto_hide") {
       return override->smartAutoHide.has_value();
     }
+    if (key == "auto_hide_reserve_space") {
+      return override->autoHideReserveSpace.has_value();
+    }
     if (key == "show_on_workspace_switch") {
       return override->showOnWorkspaceSwitch.has_value();
     }
@@ -356,6 +359,7 @@ namespace settings {
     case SettingsSection::Services:
     case SettingsSection::Wallpaper:
     case SettingsSection::Desktop:
+    case SettingsSection::LockScreen:
     case SettingsSection::Dock:
     case SettingsSection::Panels:
     case SettingsSection::ControlCenter:
@@ -393,6 +397,7 @@ namespace settings {
     case SettingsSection::Services:
     case SettingsSection::Wallpaper:
     case SettingsSection::Desktop:
+    case SettingsSection::LockScreen:
     case SettingsSection::Dock:
     case SettingsSection::Panels:
     case SettingsSection::ControlCenter:

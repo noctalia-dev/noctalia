@@ -57,9 +57,39 @@ struct BarCapsuleGroupStyle {
 // A lane entry referencing a capsule group is the literal "group:" prefix + the group id. The colon
 // cannot appear in a widget instance id, so group tokens never collide with widget references.
 inline constexpr std::string_view kCapsuleGroupTokenPrefix = "group:";
-[[nodiscard]] bool isCapsuleGroupToken(std::string_view laneEntry);
-[[nodiscard]] std::string capsuleGroupTokenId(std::string_view laneEntry);
-[[nodiscard]] std::string makeCapsuleGroupToken(std::string_view groupId);
+bool isCapsuleGroupToken(std::string_view laneEntry);
+std::string capsuleGroupTokenId(std::string_view laneEntry);
+std::string makeCapsuleGroupToken(std::string_view groupId);
+
+// A length along one axis: logical pixels, or a whole percentage of the axis length. TOML spells
+// pixels as an integer (`100`) and a percentage as a string (`"10%"`).
+struct LengthSpec {
+  enum class Unit : std::uint8_t { Pixels, Percent };
+
+  std::int32_t value = 0;
+  Unit unit = Unit::Pixels;
+
+  static constexpr LengthSpec fromPixels(std::int32_t px) noexcept { return {px, Unit::Pixels}; }
+  static constexpr LengthSpec fromPercent(std::int32_t pct) noexcept { return {pct, Unit::Percent}; }
+
+  // Logical pixels for an axis `axisLength` logical pixels long.
+  constexpr std::int32_t resolve(std::int32_t axisLength) const noexcept {
+    if (unit == Unit::Pixels) {
+      return value;
+    }
+    return static_cast<std::int32_t>(static_cast<std::int64_t>(axisLength) * value / 100);
+  }
+
+  // Pixel value of a length already resolved against its axis. An unresolved percentage reads as 0.
+  constexpr std::int32_t px() const noexcept { return unit == Unit::Pixels ? value : 0; }
+
+  bool operator==(const LengthSpec&) const = default;
+};
+
+// Parses the string spelling of a percentage ("10%"); nullopt for anything else.
+std::optional<LengthSpec> parsePercentLength(std::string_view text);
+// Pixels as the bare number ("100"), percentages with a trailing '%' ("10%").
+std::string formatLength(const LengthSpec& length);
 
 struct BarDeadZoneOverride {
   std::optional<std::unordered_map<std::string, std::string>> actions;
@@ -75,6 +105,7 @@ struct BarMonitorOverride {
   std::optional<bool> autoHide;
   std::optional<std::int32_t> autoHideDelayMs;
   std::optional<bool> smartAutoHide;
+  std::optional<bool> autoHideReserveSpace;
   std::optional<bool> showOnWorkspaceSwitch;
   std::optional<bool> reserveSpace;
   std::optional<std::string> layer; // top | overlay
@@ -89,7 +120,7 @@ struct BarMonitorOverride {
   std::optional<std::int32_t> radiusBottomLeft;
   std::optional<std::int32_t> radiusBottomRight;
   std::optional<bool> concaveEdgeCorners;
-  std::optional<std::int32_t> marginEnds;         // inset from each end of the bar along its main axis
+  std::optional<LengthSpec> marginEnds;           // inset from each end of the bar along its main axis
   std::optional<std::int32_t> marginEdge;         // distance from the nearest screen edge (floats the bar when > 0)
   std::optional<std::int32_t> marginOppositeEdge; // extra reserved space on the inward side of the bar
   std::optional<std::int32_t> padding;            // main-axis padding from bar edges to start/end sections
@@ -120,7 +151,7 @@ struct BarMonitorOverride {
   std::optional<bool> showTooltip;
   BarDeadZoneOverride deadZone;
 
-  [[nodiscard]] bool isAutoHideEnabled(bool baseAutoHide, bool baseSmartAutoHide) const noexcept {
+  bool isAutoHideEnabled(bool baseAutoHide, bool baseSmartAutoHide) const noexcept {
     return autoHide.value_or(baseAutoHide) || smartAutoHide.value_or(baseSmartAutoHide);
   }
 
@@ -148,9 +179,10 @@ struct BarConfig {
   bool autoHide = false;             // slide out when the pointer leaves; reveal on edge approach
   std::int32_t autoHideDelayMs = 0;  // wait after pointer leaves before hiding; 0 hides immediately
   bool smartAutoHide = false;        // hide while the active workspace has windows; show when it is empty
+  bool autoHideReserveSpace = false; // with auto_hide/smart_auto_hide: reserve layout only while the bar is visible
   bool showOnWorkspaceSwitch = true; // with auto_hide: briefly reveal when the active workspace changes
 
-  [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
+  constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;  // reserve compositor exclusive zone; applies with or without auto_hide
   std::string layer = "top"; // top | overlay; attached panels use the same layer
   std::int32_t thickness = Style::barThicknessDefault;
@@ -165,7 +197,9 @@ struct BarConfig {
   std::int32_t radiusBottomLeft = static_cast<std::int32_t>(Style::radiusXl);
   std::int32_t radiusBottomRight = static_cast<std::int32_t>(Style::radiusXl);
   bool concaveEdgeCorners = true;
-  std::int32_t marginEnds = 100;       // inset from each end of the bar along its main axis
+  // Inset from each end of the bar along its main axis. ConfigService::resolveForOutput turns a percentage
+  // into pixels of the output's main axis, so per-output configs always hold pixels.
+  LengthSpec marginEnds = LengthSpec::fromPixels(100);
   std::int32_t marginEdge = 0;         // distance from the nearest screen edge (floats the bar when > 0)
   std::int32_t marginOppositeEdge = 0; // extra reserved space on the inward side of the bar
   std::int32_t padding = 14;           // main-axis padding from bar edges to start/end sections
@@ -329,9 +363,9 @@ struct IdleConfig {
   bool operator==(const IdleConfig&) const = default;
 };
 
-[[nodiscard]] std::vector<ShortcutConfig> defaultControlCenterShortcuts();
-[[nodiscard]] std::vector<SessionPanelActionConfig> defaultSessionPanelActions();
-[[nodiscard]] std::vector<IdleBehaviorConfig> defaultIdleBehaviors();
+std::vector<ShortcutConfig> defaultControlCenterShortcuts();
+std::vector<SessionPanelActionConfig> defaultSessionPanelActions();
+std::vector<IdleBehaviorConfig> defaultIdleBehaviors();
 
 enum class IdleActionKind : std::uint8_t {
   None = 0,
@@ -360,7 +394,7 @@ struct ResolvedIdleBehavior {
 };
 
 void normalizeIdleBehaviorAction(IdleBehaviorConfig& behavior);
-[[nodiscard]] ResolvedIdleBehavior resolveIdleBehaviorActions(const IdleBehaviorConfig& behavior);
+ResolvedIdleBehavior resolveIdleBehaviorActions(const IdleBehaviorConfig& behavior);
 
 enum class KeybindAction : std::uint8_t {
   Validate = 0,
@@ -376,7 +410,7 @@ enum class KeybindAction : std::uint8_t {
   Save = 10,
 };
 
-[[nodiscard]] std::vector<KeyChord> defaultKeybindSet(KeybindAction action);
+std::vector<KeyChord> defaultKeybindSet(KeybindAction action);
 
 using ConfigOverrideValue = std::variant<
     bool, std::int64_t, double, std::string, std::vector<std::string>, std::vector<ShortcutConfig>,
@@ -438,58 +472,52 @@ struct WidgetConfig {
   std::unordered_map<std::string, WidgetSettingValue> settings;
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>> tables;
 
-  [[nodiscard]] const WidgetSettingValue* findSetting(const std::string& key) const;
-  [[nodiscard]] std::string getString(const std::string& key, const std::string& fallback = {}) const;
-  [[nodiscard]] std::vector<std::string>
-  getStringList(const std::string& key, const std::vector<std::string>& fallback = {}) const;
-  [[nodiscard]] std::int64_t getInt(const std::string& key, std::int64_t fallback = 0) const;
-  [[nodiscard]] double getDouble(const std::string& key, double fallback = 0.0) const;
-  [[nodiscard]] bool getBool(const std::string& key, bool fallback = false) const;
-  [[nodiscard]] ColorSpec
-  getColorSpec(const std::string& key, const ColorSpec& fallback, std::string_view context = {}) const;
-  [[nodiscard]] std::optional<ColorSpec>
-  getOptionalColorSpec(const std::string& key, std::string_view context = {}) const;
-  [[nodiscard]] std::unordered_map<std::string, std::string>
+  const WidgetSettingValue* findSetting(const std::string& key) const;
+  std::string getString(const std::string& key, const std::string& fallback = {}) const;
+  std::vector<std::string> getStringList(const std::string& key, const std::vector<std::string>& fallback = {}) const;
+  std::int64_t getInt(const std::string& key, std::int64_t fallback = 0) const;
+  double getDouble(const std::string& key, double fallback = 0.0) const;
+  bool getBool(const std::string& key, bool fallback = false) const;
+  ColorSpec getColorSpec(const std::string& key, const ColorSpec& fallback, std::string_view context = {}) const;
+  std::optional<ColorSpec> getOptionalColorSpec(const std::string& key, std::string_view context = {}) const;
+  std::unordered_map<std::string, std::string>
   getStringMap(const std::string& key, const std::unordered_map<std::string, std::string>& fallback = {}) const;
-  [[nodiscard]] bool hasSetting(const std::string& key) const;
+  bool hasSetting(const std::string& key) const;
 
   bool operator==(const WidgetConfig&) const = default;
 };
 
 // Merges `[bar.*]` capsule defaults with `[widget.*]` overrides (see CONFIG.md). Size/style fields such as
 // `radius` are populated even when `enabled` is false so widgets can reuse capsule styling internally.
-[[nodiscard]] WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const WidgetConfig* widget);
-[[nodiscard]] CommonWidgetOptions resolveCommonWidgetOptions(
+WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const WidgetConfig* widget);
+CommonWidgetOptions resolveCommonWidgetOptions(
     const BarConfig& bar, const WidgetConfig* widget, std::string_view widgetType, float barScale
 );
 
 // Returns the group for `id` on this bar, or nullptr if `id` is empty or unregistered.
-[[nodiscard]] const BarCapsuleGroupStyle* findBarCapsuleGroupStyle(const BarConfig& bar, const std::string& id);
+const BarCapsuleGroupStyle* findBarCapsuleGroupStyle(const BarConfig& bar, const std::string& id);
 
 // Builds the capsule spec a group's member widgets render with (style taken from the group).
-[[nodiscard]] WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsuleGroupStyle& group);
+WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsuleGroupStyle& group);
 
 // Group ids the scope's lanes reference. A monitor override with no capsule_group of its own reads
 // the bar's array, so its lanes belong to the bar scope's reference set.
-[[nodiscard]] std::set<std::string> capsuleGroupRefsForBarScope(const BarConfig& bar);
-[[nodiscard]] std::set<std::string>
-capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& monitorOverride);
+std::set<std::string> capsuleGroupRefsForBarScope(const BarConfig& bar);
+std::set<std::string> capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& monitorOverride);
 
 // Rebuilds an overriding capsule_group array against the config-file array, in file order: an
 // overridden group keeps its edited style, a file group the lanes reference again comes back, and a
 // GUI-created group survives only while a lane still references it (nothing can reach it otherwise).
-[[nodiscard]] std::vector<BarCapsuleGroupStyle> reconcileCapsuleGroups(
+std::vector<BarCapsuleGroupStyle> reconcileCapsuleGroups(
     const std::vector<BarCapsuleGroupStyle>& current, const std::vector<BarCapsuleGroupStyle>& base,
     const std::set<std::string>& referenced
 );
-[[nodiscard]] float
-resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget.scale");
-[[nodiscard]] float
-resolveWidgetFontScale(float barFontScale, const WidgetConfig* widget, std::string_view context = "widget");
+float resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget.scale");
+float resolveWidgetFontScale(float barFontScale, const WidgetConfig* widget, std::string_view context = "widget");
 
 // Shared output selector matching used by monitor-scoped config and IPC selectors.
 // Matches connector name exactly, or a word-boundary token within output description.
-[[nodiscard]] bool outputMatchesSelector(const std::string& match, const WaylandOutput& output);
+bool outputMatchesSelector(const std::string& match, const WaylandOutput& output);
 
 enum class WallpaperFillMode : std::uint8_t {
   Center = 0,
@@ -615,11 +643,9 @@ struct LockscreenConfig {
   bool operator==(const LockscreenConfig&) const = default;
 };
 
-[[nodiscard]] inline bool isLockScreenEnabled(const LockscreenConfig& lockscreen) noexcept {
-  return lockscreen.enabled;
-}
+inline bool isLockScreenEnabled(const LockscreenConfig& lockscreen) noexcept { return lockscreen.enabled; }
 
-[[nodiscard]] inline bool shouldLockBeforeSuspend(const LockscreenConfig& lockscreen) noexcept {
+inline bool shouldLockBeforeSuspend(const LockscreenConfig& lockscreen) noexcept {
   return lockscreen.enabled && lockscreen.lockBeforeSuspend;
 }
 
@@ -687,6 +713,8 @@ struct DockMonitorOverride {
   std::optional<DockEdge> position;
   std::optional<bool> activeMonitorOnly;
   std::optional<std::int32_t> iconSize;
+  std::optional<float> iconSaturation;
+  std::optional<bool> colorizeIcons;
   std::optional<std::int32_t> mainAxisPadding;
   std::optional<std::int32_t> crossAxisPadding;
   std::optional<std::int32_t> itemSpacing;
@@ -752,7 +780,7 @@ struct DockConfig {
   bool smartAutoHide = false;          // hide while the active workspace has windows; show when it is empty
   std::string layer = "top";           // top | overlay
 
-  [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
+  constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;         // reserve compositor exclusive zone; applies with or without auto_hide
   float activeScale = 1.0F;         // focused app icon scale
   float inactiveScale = 0.85F;      // non-focused app icon scale
@@ -760,8 +788,10 @@ struct DockConfig {
   float magnificationScale = 1.45F; // max icon scale multiplier at the pointer center
   float activeOpacity = 1.0F;       // focused app icon opacity
   float inactiveOpacity = 0.85F;    // non-focused app icon opacity
-  bool showDots = false;            // show optional running window dots below app icons
-  bool showInstanceCount = true;    // show a badge with count when app has >1 window
+  float iconSaturation = 1.0F;      // app icon saturation (0 = grayscale)
+  bool colorizeIcons = false;
+  bool showDots = false;         // show optional running window dots below app icons
+  bool showInstanceCount = true; // show a badge with count when app has >1 window
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
   std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set
@@ -771,7 +801,7 @@ struct DockConfig {
   bool operator==(const DockConfig&) const = default;
 };
 
-[[nodiscard]] DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorOverride& override);
+DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorOverride& override);
 
 struct DesktopWidgetsGridState {
   bool visible = true;
@@ -868,6 +898,7 @@ struct NotificationConfig {
 
   bool enableDaemon = true;
   bool showAppName = true;
+  bool colorizeIcons = false;
   bool showActions = true;
   std::string position = "top_right";
   std::string layer = "top"; // top | overlay
@@ -997,9 +1028,8 @@ constexpr EnumOption<PanelTransparencyMode> kPanelTransparencyModes[] = {
     {PanelTransparencyMode::Glass, "glass", "settings.options.shell.panel-transparency.glass"},
 };
 
-[[nodiscard]] float
-panelCardOpacityForTransparencyMode(PanelTransparencyMode mode, float panelBackgroundOpacity) noexcept;
-[[nodiscard]] float detachedPanelBackgroundOpacityForTransparencyMode(PanelTransparencyMode mode) noexcept;
+float panelCardOpacityForTransparencyMode(PanelTransparencyMode mode, float panelBackgroundOpacity) noexcept;
+float detachedPanelBackgroundOpacityForTransparencyMode(PanelTransparencyMode mode) noexcept;
 
 enum class PanelPlacement : std::uint8_t {
   Attached = 0,
@@ -1228,6 +1258,7 @@ struct ShellConfig {
     bool showSettingsButton = true;
     bool showSessionButton = true;
     bool showIcons = true;
+    bool colorizeIcons = false;
     bool showAppOriginIndicator = true;
     bool compact = false;
     bool appGrid = false;
@@ -1319,11 +1350,13 @@ struct ShellConfig {
   enum class WindowSwitcherStyle : std::uint8_t {
     Carousel = 0,
     Compact = 1,
+    Icons = 2,
   };
 
   static constexpr EnumOption<WindowSwitcherStyle> kWindowSwitcherStyles[] = {
       {WindowSwitcherStyle::Carousel, "carousel", "settings.options.shell.window-switcher-style.carousel"},
       {WindowSwitcherStyle::Compact, "compact", "settings.options.shell.window-switcher-style.compact"},
+      {WindowSwitcherStyle::Icons, "icons", "settings.options.shell.window-switcher-style.icons"},
   };
 
   struct WindowSwitcherConfig {
@@ -1332,6 +1365,7 @@ struct ShellConfig {
     bool showCaption = true;
     bool showCount = true;
     bool showAppIcon = true;
+    bool colorizeIcons = false;
     bool showAllOutputs = true;
     bool currentWorkspaceOnly = false;
 
@@ -1363,6 +1397,7 @@ struct ShellConfig {
   bool niriOverviewCloseOnLaunchEnabled = false;
   bool umbrielOverviewCloseOnLaunchEnabled = false;
   bool polkitAgent = false;
+  bool polkitColorizeIcons = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   /// Readline-style editing shortcuts in every text input (Ctrl+A moves to the start instead of selecting all).
   bool readlineShortcuts = false;
@@ -1372,7 +1407,6 @@ struct ShellConfig {
   bool settingsExpandAllGroups = false;
   bool settingsWindowTranslucent = false;
   bool showLocation = true;
-  bool appIconColorize = false;
   std::optional<ColorSpec> appIconColor;
   bool launchAppsAsSystemdServices = false;
   std::string launchAppsCustomCommand;
@@ -1387,6 +1421,7 @@ struct ShellConfig {
   bool clipboardConfirmClearHistory = true;
   /// Disables per-app tracking and Control Center usage UI.
   bool screenTimeEnabled = false;
+  bool screenTimeColorizeIcons = false;
   bool sharedGlContext = true;
   bool disableMipmaps = false;
   ClipboardAutoPasteMode clipboardAutoPaste = ClipboardAutoPasteMode::Auto;
@@ -1551,6 +1586,7 @@ struct SystemConfig {
 };
 
 struct AudioConfig {
+  bool colorizeIcons = false;
   bool enableOverdrive = false;
   bool enableSounds = true;
   bool enableVolumeSounds = true;
@@ -1559,14 +1595,13 @@ struct AudioConfig {
   bool enableScreenshotSounds = true;
   float soundVolume = 0.5F;
   std::string soundTheme = "freedesktop";
+  std::int32_t spectrumFrameRate = 60;
 
   bool operator==(const AudioConfig&) const = default;
 };
 
 // Normalized volume ceiling: overdrive raises it to 150%.
-[[nodiscard]] inline float maxAudioVolume(const AudioConfig& audio) noexcept {
-  return audio.enableOverdrive ? 1.5F : 1.0F;
-}
+inline float maxAudioVolume(const AudioConfig& audio) noexcept { return audio.enableOverdrive ? 1.5F : 1.0F; }
 
 enum class BrightnessBackendPreference : std::uint8_t {
   Auto = 0,
@@ -1863,7 +1898,7 @@ struct ThemeConfig {
 
 // The theme mode Noctalia's own surfaces run in, still expressed as a ThemeMode so `auto`
 // keeps resolving against the day/night schedule.
-[[nodiscard]] constexpr ThemeMode shellThemeMode(const ThemeConfig& theme) noexcept {
+constexpr ThemeMode shellThemeMode(const ThemeConfig& theme) noexcept {
   switch (theme.shellMode) {
   case ShellThemeMode::Dark:
     return ThemeMode::Dark;
@@ -1960,16 +1995,16 @@ struct PluginsConfig {
 
 // Default sources seeded when [plugins] declares no [[plugins.source]]: the
 // official + community plugin repos.
-[[nodiscard]] std::vector<PluginSourceConfig> defaultPluginSources();
-[[nodiscard]] bool isDefaultPluginSourceName(std::string_view name);
+std::vector<PluginSourceConfig> defaultPluginSources();
+bool isDefaultPluginSourceName(std::string_view name);
 // Whether the background auto-update mode covers `source` (kind, enabled state, and
 // official identity for PluginAutoUpdateMode::Official). The official source matches
 // by name AND location, so a user-added source that reuses the name is not the
 // official source. Pure, so the auto-update tick and its tests share one decision.
-[[nodiscard]] bool sourceInAutoUpdateScope(const PluginSourceConfig& source, PluginAutoUpdateMode mode);
+bool sourceInAutoUpdateScope(const PluginSourceConfig& source, PluginAutoUpdateMode mode);
 // Source names are stable user-facing handles and git source storage directory names.
 // Keep them flat so they can never escape the plugin source cache.
-[[nodiscard]] bool isValidPluginSourceName(std::string_view name);
+bool isValidPluginSourceName(std::string_view name);
 
 struct AccessibilityConfig {
   float uiScale = 1.0F;
@@ -2061,7 +2096,7 @@ struct ConfigChangeSet {
   bool storage = true;
   bool accessibility = true;
 
-  [[nodiscard]] bool any() const noexcept {
+  bool any() const noexcept {
     return bars
         || widgets
         || desktopWidgets
@@ -2097,4 +2132,4 @@ struct ConfigChangeSet {
 // Per-section diff using the same comparison semantics as configEqual()
 // (bars/widgets/desktop widgets get their specialized comparators). Implemented
 // in config_overrides.cpp alongside those comparators.
-[[nodiscard]] ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next);
+ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next);

@@ -63,7 +63,7 @@ namespace {
     return fd;
   }
 
-  [[nodiscard]] int bytesPerPixelFromStride(int width, int stride) {
+  int bytesPerPixelFromStride(int width, int stride) {
     if (width <= 0 || stride <= 0) {
       return 0;
     }
@@ -76,7 +76,7 @@ namespace {
     return 0;
   }
 
-  [[nodiscard]] bool isPacked2101010(std::uint32_t format) {
+  bool isPacked2101010(std::uint32_t format) {
     switch (format) {
     case WL_SHM_FORMAT_XRGB2101010:
     case WL_SHM_FORMAT_ARGB2101010:

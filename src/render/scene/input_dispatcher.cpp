@@ -173,12 +173,12 @@ void InputDispatcher::pointerMotion(float x, float y, std::uint32_t serial) {
       trackArea(area);
       float localX = 0.0F;
       float localY = 0.0F;
-      (void)Node::mapFromScene(area, gesture.pressX, gesture.pressY, localX, localY);
+      Node::mapFromScene(area, gesture.pressX, gesture.pressY, localX, localY);
       area->dispatchPress(
           localX, localY, gesture.button, true, gesture.pressX, gesture.pressY, gesture.serial, gesture.time
       );
     } else {
-      (void)pointerButton(gesture.pressX, gesture.pressY, gesture.button, true, gesture.serial, gesture.time, false);
+      pointerButton(gesture.pressX, gesture.pressY, gesture.button, true, gesture.serial, gesture.time, false);
     }
   }
 
@@ -192,7 +192,7 @@ bool InputDispatcher::pointerButton(
     m_touchGesture = {};
   } else if (m_touchGesture.pending && button == m_touchGesture.button) {
     auto gesture = std::exchange(m_touchGesture, {});
-    (void)pointerButton(gesture.pressX, gesture.pressY, gesture.button, true, gesture.serial, gesture.time, false);
+    pointerButton(gesture.pressX, gesture.pressY, gesture.button, true, gesture.serial, gesture.time, false);
   }
   if (serial != 0) {
     m_lastSerial = serial;
@@ -284,7 +284,7 @@ bool InputDispatcher::pointerButton(
 
     float localX = 0.0F;
     float localY = 0.0F;
-    (void)Node::mapFromScene(target, x, y, localX, localY);
+    Node::mapFromScene(target, x, y, localX, localY);
     // Register capture before dispatchPress.
     if (pressed) {
       m_capturedArea = target;
@@ -356,7 +356,7 @@ bool InputDispatcher::pointerAxis(
 
     float localX = 0.0F;
     float localY = 0.0F;
-    (void)Node::mapFromScene(area, x, y, localX, localY);
+    Node::mapFromScene(area, x, y, localX, localY);
     const bool consumed =
         area->dispatchAxis(localX, localY, axis, axisSource, value, discrete, value120, lines, axisGestureSerial);
 
@@ -611,7 +611,7 @@ void InputDispatcher::updateHover(float x, float y, std::uint32_t serial) {
   if (m_capturedArea != nullptr) {
     float localX = 0.0F;
     float localY = 0.0F;
-    (void)Node::mapFromScene(m_capturedArea, x, y, localX, localY);
+    Node::mapFromScene(m_capturedArea, x, y, localX, localY);
     m_capturedArea->dispatchMotion(localX, localY);
     updateCursor(serial);
     return;
@@ -632,13 +632,13 @@ void InputDispatcher::updateHover(float x, float y, std::uint32_t serial) {
       trackArea(m_hoveredArea);
       float localX = 0.0F;
       float localY = 0.0F;
-      (void)Node::mapFromScene(m_hoveredArea, x, y, localX, localY);
+      Node::mapFromScene(m_hoveredArea, x, y, localX, localY);
       m_hoveredArea->dispatchEnter(localX, localY);
     }
   } else if (m_hoveredArea != nullptr) {
     float localX = 0.0F;
     float localY = 0.0F;
-    (void)Node::mapFromScene(m_hoveredArea, x, y, localX, localY);
+    Node::mapFromScene(m_hoveredArea, x, y, localX, localY);
     m_hoveredArea->dispatchMotion(localX, localY);
   }
 

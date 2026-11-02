@@ -45,7 +45,7 @@ public:
   void setSelectableFn(std::function<bool(std::size_t)> fn) { m_isSelectable = std::move(fn); }
   void setOnActivate(std::function<void(std::size_t)> fn) { m_onActivate = std::move(fn); }
 
-  [[nodiscard]] std::size_t itemCount() const override { return m_entries == nullptr ? 0 : m_entries->size(); }
+  std::size_t itemCount() const override { return m_entries == nullptr ? 0 : m_entries->size(); }
 
   [[nodiscard]] std::unique_ptr<Node> createTile() override { return std::make_unique<FileEntryRow>(m_scale); }
 
@@ -81,7 +81,7 @@ public:
   void setSelectableFn(std::function<bool(std::size_t)> fn) { m_isSelectable = std::move(fn); }
   void setOnActivate(std::function<void(std::size_t)> fn) { m_onActivate = std::move(fn); }
 
-  [[nodiscard]] std::size_t itemCount() const override { return m_entries == nullptr ? 0 : m_entries->size(); }
+  std::size_t itemCount() const override { return m_entries == nullptr ? 0 : m_entries->size(); }
 
   [[nodiscard]] std::unique_ptr<Node> createTile() override {
     return std::make_unique<FileEntryTile>(m_scale, m_thumbnails);

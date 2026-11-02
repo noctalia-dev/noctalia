@@ -8,7 +8,7 @@
 /// Layer-shell exclusive zone the bar reserves on its anchored screen edge.
 /// Canonical definition shared by the bar surface and attached panels so a panel
 /// can anchor against the same reserved edge the compositor places the bar on.
-[[nodiscard]] inline std::int32_t
+inline std::int32_t
 reservedBarExclusiveZone(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
   const std::int32_t mEdge = barConfig.marginEdge;
   const std::int32_t mOpposite = std::max<std::int32_t>(0, barConfig.marginOppositeEdge);
@@ -39,8 +39,7 @@ reservedBarExclusiveZone(const BarConfig& barConfig, const ShellConfig::ShadowCo
 /// (marginEdge) is split: the part covered by the surface's own edge-side shadow
 /// bleed lives inside the surface, and the remainder becomes the layer margin.
 /// Auto-hide folds the whole gap into the surface as a gutter, so the margin is 0.
-[[nodiscard]] inline std::int32_t
-barEdgeLayerMargin(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
+inline std::int32_t barEdgeLayerMargin(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
   const std::int32_t mEdge = std::max<std::int32_t>(0, barConfig.marginEdge);
   if ((barConfig.autoHide || barConfig.smartAutoHide) && mEdge > 0) {
     return 0;
@@ -66,7 +65,19 @@ barEdgeLayerMargin(const BarConfig& barConfig, const ShellConfig::ShadowConfig& 
 /// bar's edge with exclusive_zone = 0 must subtract this (not just the exclusive
 /// zone) to track the bar's real inner edge — otherwise a floating bar whose
 /// shadow bleed is smaller than its edge margin leaves the margin uncounted.
-[[nodiscard]] inline std::int32_t
-reservedBarEdgeDistance(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
+inline std::int32_t reservedBarEdgeDistance(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
   return reservedBarExclusiveZone(barConfig, shadowConfig) + barEdgeLayerMargin(barConfig, shadowConfig);
+}
+
+/// Whether the bar should publish a non-zero layer-shell exclusive zone right now.
+/// With auto_hide_reserve_space enabled, reserve_space applies only while the bar is shown.
+inline bool
+barShouldReserveExclusiveZone(const BarConfig& barConfig, bool ipcLayoutReleased, bool contentVisuallyShown) noexcept {
+  if (ipcLayoutReleased || !barConfig.reserveSpace) {
+    return false;
+  }
+  if (barConfig.isAutoHideEnabled() && barConfig.autoHideReserveSpace) {
+    return contentVisuallyShown;
+  }
+  return true;
 }

@@ -130,6 +130,6 @@ void V4l2CameraWatch::watchDevice(std::string_view name) {
   // inotify needs read access; udev may not have applied the seat ACL yet, so retry on its IN_ATTRIB.
   const auto path = std::filesystem::path("/dev") / name;
   if (::access(path.c_str(), R_OK) == 0) {
-    (void)m_inotify.watch(path, IN_OPEN | IN_CLOSE);
+    m_inotify.watch(path, IN_OPEN | IN_CLOSE);
   }
 }

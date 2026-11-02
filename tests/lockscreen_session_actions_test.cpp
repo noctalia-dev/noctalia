@@ -8,11 +8,9 @@
 
 namespace {
 
-  [[nodiscard]] SessionPanelActionConfig action(std::string name) {
-    return SessionPanelActionConfig{.action = std::move(name)};
-  }
+  SessionPanelActionConfig action(std::string name) { return SessionPanelActionConfig{.action = std::move(name)}; }
 
-  [[nodiscard]] std::vector<std::string> names(const std::vector<SessionPanelActionConfig>& actions) {
+  std::vector<std::string> names(const std::vector<SessionPanelActionConfig>& actions) {
     std::vector<std::string> out;
     out.reserve(actions.size());
     for (const auto& row : actions) {

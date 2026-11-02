@@ -3748,10 +3748,6 @@
           "description": "כלול חלונות מכל המסכים בווידג'ט זה",
           "label": "הצג את כל המסכים"
         },
-        "show-all-workspaces": {
-          "description": "הצג סביבות עבודה מכל צג בווידג'ט זה",
-          "label": "הצג את כל הצגים"
-        },
         "show-caps-lock": {
           "description": "הצג את מצב ה-Caps Lock",
           "label": "הצג Caps Lock"

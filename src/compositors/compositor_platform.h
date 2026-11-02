@@ -63,24 +63,24 @@ public:
   void startKdeActiveWindow(SessionBus& bus);
   void cleanup();
 
-  [[nodiscard]] WaylandConnection& wayland() noexcept { return m_wayland; }
-  [[nodiscard]] const WaylandConnection& wayland() const noexcept { return m_wayland; }
-  [[nodiscard]] wl_display* display() const noexcept;
-  [[nodiscard]] bool hasXdgShell() const noexcept;
-  [[nodiscard]] bool hasXdgActivation() const noexcept;
-  [[nodiscard]] std::string requestActivationToken(wl_surface* surface) const;
-  [[nodiscard]] bool hasGammaControl() const noexcept;
-  [[nodiscard]] const std::vector<WaylandOutput>& outputs() const noexcept;
-  [[nodiscard]] const WaylandOutput* findOutputByWl(wl_output* output) const;
-  [[nodiscard]] wl_output* outputForSurface(wl_surface* surface) const noexcept;
-  [[nodiscard]] FocusGrabService* focusGrabService() const noexcept;
-  [[nodiscard]] bool hasPointerPosition() const noexcept;
-  [[nodiscard]] wl_surface* lastPointerSurface() const noexcept;
-  [[nodiscard]] wl_surface* lastKeyboardSurface() const noexcept;
-  [[nodiscard]] double lastPointerX() const noexcept;
-  [[nodiscard]] double lastPointerY() const noexcept;
-  [[nodiscard]] std::uint32_t lastInputSerial() const noexcept;
-  [[nodiscard]] zwlr_layer_surface_v1* layerSurfaceFor(wl_surface* surface) const noexcept;
+  WaylandConnection& wayland() noexcept { return m_wayland; }
+  const WaylandConnection& wayland() const noexcept { return m_wayland; }
+  wl_display* display() const noexcept;
+  bool hasXdgShell() const noexcept;
+  bool hasXdgActivation() const noexcept;
+  std::string requestActivationToken(wl_surface* surface) const;
+  bool hasGammaControl() const noexcept;
+  const std::vector<WaylandOutput>& outputs() const noexcept;
+  const WaylandOutput* findOutputByWl(wl_output* output) const;
+  wl_output* outputForSurface(wl_surface* surface) const noexcept;
+  FocusGrabService* focusGrabService() const noexcept;
+  bool hasPointerPosition() const noexcept;
+  wl_surface* lastPointerSurface() const noexcept;
+  wl_surface* lastKeyboardSurface() const noexcept;
+  double lastPointerX() const noexcept;
+  double lastPointerY() const noexcept;
+  std::uint32_t lastInputSerial() const noexcept;
+  zwlr_layer_surface_v1* layerSurfaceFor(wl_surface* surface) const noexcept;
   void stopKeyRepeat();
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
 
@@ -88,10 +88,9 @@ public:
   // backend, active toplevel, keyboard/fresh-pointer surface). Returns nullptr
   // when no such source is available — callers that need an output regardless
   // should use preferredInteractiveOutput() or probeFocusedOutput().
-  [[nodiscard]] wl_output*
-  focusedInteractiveOutput(std::chrono::milliseconds pointerMaxAge = std::chrono::milliseconds(1200)) const;
+  wl_output* focusedInteractiveOutput(std::chrono::milliseconds pointerMaxAge = std::chrono::milliseconds(1200)) const;
 
-  [[nodiscard]] wl_output*
+  wl_output*
   preferredInteractiveOutput(std::chrono::milliseconds pointerMaxAge = std::chrono::milliseconds(1200)) const;
 
   // Asks the compositor which output a NULL-output layer surface lands on (the
@@ -101,27 +100,27 @@ public:
   // probe runs at a time; a new call cancels any in-flight probe.
   void probeFocusedOutput(std::function<void(wl_output*)> callback, std::chrono::milliseconds timeout);
 
-  [[nodiscard]] std::optional<ActiveToplevel> activeToplevel() const;
-  [[nodiscard]] wl_output* activeToplevelOutput() const;
-  [[nodiscard]] std::vector<std::string> runningAppIds(wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<ToplevelInfo>
+  std::optional<ActiveToplevel> activeToplevel() const;
+  wl_output* activeToplevelOutput() const;
+  std::vector<std::string> runningAppIds(wl_output* outputFilter = nullptr) const;
+  std::vector<ToplevelInfo>
   windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<ToplevelInfo> enrichedWindowsForApp(
+  std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
+  std::vector<ToplevelInfo> enrichedWindowsForApp(
       const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr
   ) const;
-  [[nodiscard]] std::vector<ToplevelInfo> enrichedWindowsWithoutAppId(wl_output* outputFilter = nullptr) const;
+  std::vector<ToplevelInfo> enrichedWindowsWithoutAppId(wl_output* outputFilter = nullptr) const;
   // True when taskbar windows carry exact compositor-assigned identities.
-  [[nodiscard]] bool hasExactWindowIdentity() const noexcept;
-  [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
+  bool hasExactWindowIdentity() const noexcept;
+  bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void activateToplevelForAppId(std::string_view appId);
   void activateToplevelInfo(const ToplevelInfo& window);
   // Primary click on one window; multi-window cycling continues to use activation.
   void activateOrMinimizeToplevelInfo(const ToplevelInfo& window);
-  [[nodiscard]] std::optional<WindowMinimizeState> windowMinimizeState(const ToplevelInfo& window) const;
+  std::optional<WindowMinimizeState> windowMinimizeState(const ToplevelInfo& window) const;
   [[nodiscard]] bool minimizeToplevelInfo(const ToplevelInfo& window);
-  [[nodiscard]] std::optional<bool> hasUnminimizedToplevels(wl_output* outputFilter) const;
+  std::optional<bool> hasUnminimizedToplevels(wl_output* outputFilter) const;
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void closeToplevelInfo(const ToplevelInfo& window);
   void focusCompositorWindow(const std::string& windowId, bool warpPointer = false) const;
@@ -137,22 +136,21 @@ public:
   void setToplevelChangeCallback(ChangeCallback callback);
   void bindHyprlandToplevelMappingManager(hyprland_toplevel_mapping_manager_v1* manager);
   void syncHyprlandToplevelMappings();
-  [[nodiscard]] std::optional<std::string> compositorWindowIdForToplevel(zwlr_foreign_toplevel_handle_v1* handle) const;
-  [[nodiscard]] std::optional<std::string>
-  compositorWindowIdForExtToplevel(ext_foreign_toplevel_handle_v1* handle) const;
-  [[nodiscard]] std::optional<std::string> compositorWindowIdForToplevelInfo(const ToplevelInfo& info) const;
-  [[nodiscard]] zwlr_foreign_toplevel_handle_v1* toplevelHandleForCompositorWindowId(std::string_view windowId) const;
-  [[nodiscard]] bool isCompositorWindowIdKnown(std::string_view windowId) const;
-  [[nodiscard]] std::optional<std::string> focusedCompositorWindowId() const;
+  std::optional<std::string> compositorWindowIdForToplevel(zwlr_foreign_toplevel_handle_v1* handle) const;
+  std::optional<std::string> compositorWindowIdForExtToplevel(ext_foreign_toplevel_handle_v1* handle) const;
+  std::optional<std::string> compositorWindowIdForToplevelInfo(const ToplevelInfo& info) const;
+  zwlr_foreign_toplevel_handle_v1* toplevelHandleForCompositorWindowId(std::string_view windowId) const;
+  bool isCompositorWindowIdKnown(std::string_view windowId) const;
+  std::optional<std::string> focusedCompositorWindowId() const;
   // Live ext handle for a compositor window id (Hyprland mapping, or the committed ext identifier
   // on compositors that publish one), nullptr when unknown.
-  [[nodiscard]] ext_foreign_toplevel_handle_v1* extHandleForCompositorWindowId(std::string_view windowId) const;
+  ext_foreign_toplevel_handle_v1* extHandleForCompositorWindowId(std::string_view windowId) const;
   // Focused window's ext-foreign-toplevel identifier. Separate from focusedCompositorWindowId(),
   // whose values drive focus/close actions and the taskbar's active-window match.
-  [[nodiscard]] std::optional<std::string> focusedExtToplevelIdentifier() const;
+  std::optional<std::string> focusedExtToplevelIdentifier() const;
   // True when the focused window can be named exactly, so a failed lookup means the join is
   // still pending rather than that the title fallback should be tried.
-  [[nodiscard]] bool hasExactExtToplevelIdentity() const noexcept;
+  bool hasExactExtToplevelIdentity() const noexcept;
 
   void setWorkspaceChangeCallback(ChangeCallback callback);
   void setOverviewChangeCallback(ChangeCallback callback);
@@ -160,59 +158,57 @@ public:
   void activateWorkspace(wl_output* output, const std::string& id);
   void activateWorkspace(wl_output* output, const Workspace& workspace);
   std::size_t addWorkspacePollFds(std::vector<pollfd>& fds) const;
-  [[nodiscard]] int workspacePollTimeoutMs() const noexcept;
+  int workspacePollTimeoutMs() const noexcept;
   void dispatchWorkspacePoll(const std::vector<pollfd>& fds, std::size_t startIdx);
-  [[nodiscard]] std::vector<Workspace> workspaces() const;
-  [[nodiscard]] std::vector<Workspace> workspaces(wl_output* output) const;
-  [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
-  appIdsByWorkspace(wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<std::string> workspaceDisplayKeys(wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<WorkspaceWindowAssignment>
-  workspaceWindowAssignments(wl_output* outputFilter = nullptr) const;
+  std::vector<Workspace> workspaces() const;
+  std::vector<Workspace> workspaces(wl_output* output) const;
+  std::unordered_map<std::string, std::vector<std::string>> appIdsByWorkspace(wl_output* outputFilter = nullptr) const;
+  std::vector<std::string> workspaceDisplayKeys(wl_output* outputFilter = nullptr) const;
+  std::vector<WorkspaceWindowAssignment> workspaceWindowAssignments(wl_output* outputFilter = nullptr) const;
   // Workspace keys of the overlay workspaces currently open on `outputFilter`
   // (nullptr = every output). Empty unless the active workspace backend tracks them.
-  [[nodiscard]] std::vector<std::string> openOverlayWorkspaceKeys(wl_output* outputFilter = nullptr) const;
+  std::vector<std::string> openOverlayWorkspaceKeys(wl_output* outputFilter = nullptr) const;
 
   // Workspace alerts: user-requested "attention" markers overlaid onto the
   // workspace model by reusing Workspace::id (no new per-backend identifier).
   void setWorkspaceAlertService(WorkspaceAlertService* service) noexcept;
-  [[nodiscard]] bool isKnownWorkspaceAlertKey(std::string_view workspaceId) const;
-  [[nodiscard]] std::optional<std::string> workspaceAlertKeyForWindow(std::string_view windowId) const;
-  [[nodiscard]] std::size_t clearActiveWorkspaceAlerts(wl_output* output);
-  [[nodiscard]] std::size_t clearActiveWorkspaceAlerts();
-  [[nodiscard]] TaskbarAssignmentMode taskbarAssignmentMode() const noexcept;
-  [[nodiscard]] bool supportsTaskbarWorkspaceGrouping() const noexcept;
-  [[nodiscard]] std::unordered_map<std::uintptr_t, WorkspaceWindow>
+  bool isKnownWorkspaceAlertKey(std::string_view workspaceId) const;
+  std::optional<std::string> workspaceAlertKeyForWindow(std::string_view windowId) const;
+  std::size_t clearActiveWorkspaceAlerts(wl_output* output);
+  std::size_t clearActiveWorkspaceAlerts();
+  TaskbarAssignmentMode taskbarAssignmentMode() const noexcept;
+  bool supportsTaskbarWorkspaceGrouping() const noexcept;
+  std::unordered_map<std::uintptr_t, WorkspaceWindow>
   assignTaskbarWindows(const std::vector<TaskbarWindowCandidate>& windows, wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] const char* workspaceBackendName() const noexcept;
+  const char* workspaceBackendName() const noexcept;
 
-  [[nodiscard]] bool cycleKeyboardLayout() const;
-  [[nodiscard]] bool hasKeyboardLayoutBackend() const noexcept;
-  [[nodiscard]] std::optional<KeyboardLayoutState> keyboardLayoutState() const;
-  [[nodiscard]] std::string currentKeyboardLayoutName() const;
-  [[nodiscard]] std::vector<std::string> keyboardLayoutNames() const;
+  bool cycleKeyboardLayout() const;
+  bool hasKeyboardLayoutBackend() const noexcept;
+  std::optional<KeyboardLayoutState> keyboardLayoutState() const;
+  std::string currentKeyboardLayoutName() const;
+  std::vector<std::string> keyboardLayoutNames() const;
 
   void setKeyboardLayoutChangeCallback(ChangeCallback callback);
   void addKeyboardLayoutPollFds(std::vector<pollfd>& fds) const;
   void dispatchKeyboardLayoutPoll(const std::vector<pollfd>& fds, std::size_t startIdx);
 
-  [[nodiscard]] bool requestSessionExit() const;
-  [[nodiscard]] bool setOutputPower(bool on) const;
+  bool requestSessionExit() const;
+  bool setOutputPower(bool on) const;
   void setOutputPowerOffPending(bool pending) noexcept { m_outputPowerOffPending = pending; }
-  [[nodiscard]] bool shouldSuppressLockTransition() const;
+  bool shouldSuppressLockTransition() const;
   void setOutputPowerChangeCallback(const ChangeCallback& callback);
 
-  [[nodiscard]] bool tracksOverviewState() const noexcept;
-  [[nodiscard]] bool hasOverviewState() const noexcept;
-  [[nodiscard]] bool isOverviewOpen() const noexcept;
+  bool tracksOverviewState() const noexcept;
+  bool hasOverviewState() const noexcept;
+  bool isOverviewOpen() const noexcept;
 
-  [[nodiscard]] bool closeOverview() const;
+  bool closeOverview() const;
 
-  [[nodiscard]] compositors::niri::NiriRuntime& niriRuntime() noexcept;
-  [[nodiscard]] const compositors::niri::NiriRuntime& niriRuntime() const noexcept;
+  compositors::niri::NiriRuntime& niriRuntime() noexcept;
+  const compositors::niri::NiriRuntime& niriRuntime() const noexcept;
 
-  [[nodiscard]] compositors::umbriel::UmbrielRuntime& umbrielRuntime() noexcept;
-  [[nodiscard]] const compositors::umbriel::UmbrielRuntime& umbrielRuntime() const noexcept;
+  compositors::umbriel::UmbrielRuntime& umbrielRuntime() noexcept;
+  const compositors::umbriel::UmbrielRuntime& umbrielRuntime() const noexcept;
 
 private:
   struct WorkspaceModelSnapshot {
@@ -228,13 +224,13 @@ private:
   bool syncLabwcMetadata() const;
   void onOutputAdded(wl_output* output);
   void onOutputRemoved(wl_output* output);
-  [[nodiscard]] wl_output* resolveOutputName(const std::string& outputName) const;
-  [[nodiscard]] std::string connectorNameForOutput(wl_output* output) const;
-  [[nodiscard]] std::vector<WorkspaceModelSnapshot> workspaceModelSnapshot() const;
-  [[nodiscard]] static bool sameWorkspaceModelSnapshot(
+  wl_output* resolveOutputName(const std::string& outputName) const;
+  std::string connectorNameForOutput(wl_output* output) const;
+  std::vector<WorkspaceModelSnapshot> workspaceModelSnapshot() const;
+  static bool sameWorkspaceModelSnapshot(
       const std::vector<WorkspaceModelSnapshot>& lhs, const std::vector<WorkspaceModelSnapshot>& rhs
   );
-  [[nodiscard]] bool extToplevelIsLive(const ext_foreign_toplevel_handle_v1* handle) const;
+  bool extToplevelIsLive(const ext_foreign_toplevel_handle_v1* handle) const;
 
   WaylandConnection& m_wayland;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;

@@ -31,7 +31,7 @@ namespace desktop_entry_launch {
     std::vector<std::string> args;
   };
 
-  [[nodiscard]] std::optional<PreparedCommand>
+  std::optional<PreparedCommand>
   prepareCommand(std::string_view exec, bool terminal, const PrepareOptions& options = {});
 
   // Launches the configured MIME handler without passing a file or URI.

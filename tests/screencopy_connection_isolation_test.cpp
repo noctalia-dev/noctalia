@@ -90,7 +90,7 @@ namespace {
     MockWaylandServer(const MockWaylandServer&) = delete;
     MockWaylandServer& operator=(const MockWaylandServer&) = delete;
 
-    [[nodiscard]] int compositorBindCount() const noexcept { return m_compositorBindCount.load(); }
+    int compositorBindCount() const noexcept { return m_compositorBindCount.load(); }
 
   private:
     using BindCallback = void (*)(wl_client*, void*, std::uint32_t, std::uint32_t);

@@ -19,7 +19,7 @@ enum class ImageOrientation : std::uint8_t {
 
 // Orientation carried by a JPEG APP1 Exif segment, a PNG eXIf chunk, or a WebP EXIF
 // chunk. Missing, unreadable, or out-of-range metadata reads as Normal.
-[[nodiscard]] ImageOrientation exifOrientation(const std::uint8_t* data, std::size_t size);
+ImageOrientation exifOrientation(const std::uint8_t* data, std::size_t size);
 
 // Transforms an RGBA8 buffer into display order, swapping width and height for the
 // quarter-turn orientations. No-op for Normal or for a buffer that is not width*height*4.

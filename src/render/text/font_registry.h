@@ -15,6 +15,6 @@ namespace text {
   // Monotonically increasing counter bumped whenever a new font file is
   // registered. Text renderers compare against a cached value to know when to
   // re-read fontconfig, so a font loaded by any surface becomes visible to all.
-  [[nodiscard]] std::uint64_t fontConfigGeneration();
+  std::uint64_t fontConfigGeneration();
 
 } // namespace text

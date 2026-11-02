@@ -28,15 +28,15 @@ public:
   /// When non-empty, appended to the value field for display (e.g. "s" → "5s"). Stripped before parsing on commit.
   void setValueSuffix(std::string suffix);
 
-  [[nodiscard]] int value() const noexcept { return m_value; }
-  [[nodiscard]] int minValue() const noexcept { return m_min; }
-  [[nodiscard]] int maxValue() const noexcept { return m_max; }
-  [[nodiscard]] int step() const noexcept { return m_step; }
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
+  int value() const noexcept { return m_value; }
+  int minValue() const noexcept { return m_min; }
+  int maxValue() const noexcept { return m_max; }
+  int step() const noexcept { return m_step; }
+  bool enabled() const noexcept { return m_enabled; }
 
-  [[nodiscard]] Input* valueField() const noexcept { return m_valueInput; }
-  [[nodiscard]] Button* decrementButton() const noexcept { return m_decrement; }
-  [[nodiscard]] Button* incrementButton() const noexcept { return m_increment; }
+  Input* valueField() const noexcept { return m_valueInput; }
+  Button* decrementButton() const noexcept { return m_decrement; }
+  Button* incrementButton() const noexcept { return m_increment; }
 
 private:
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;

@@ -264,9 +264,11 @@ namespace noctalia::cli {
   inline constexpr std::array<std::string_view, 4> kMsgWindowSwitcherScopeChoices{
       "all", "output", "workspace", "current"
   };
+  inline constexpr std::array<std::string_view, 1> kMsgWindowSwitcherDirectionChoices{"reverse"};
   inline constexpr std::array kMsgWindowSwitcherPositionals{
       Positional{"action", {}, kMsgWindowSwitcherActionChoices, false, false, false},
       Positional{"scope", {}, kMsgWindowSwitcherScopeChoices, false, false, false},
+      Positional{"direction", {}, kMsgWindowSwitcherDirectionChoices, false, false, false},
   };
   inline constexpr std::array kMsgWorkspaceAlertAddPositionals{
       Positional{"workspace", {}, {}, true, false, false},
@@ -1053,7 +1055,7 @@ namespace noctalia::cli {
       "msg", "Send a command to the running instance", {}, {}, {}, {}, kMsgSubcommands, false,
   };
 
-  [[nodiscard]] constexpr const Command* findMsgCommand(std::string_view name) {
+  constexpr const Command* findMsgCommand(std::string_view name) {
     for (const Command& command : kMsgCmd.subcommands) {
       if (command.name == name)
         return &command;

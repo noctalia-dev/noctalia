@@ -25,7 +25,7 @@ public:
   // Fires when the header toggles the section, not when the state is set programmatically.
   void setOnToggle(std::function<void(bool expanded)> callback);
 
-  [[nodiscard]] bool expanded() const noexcept { return m_expanded; }
+  bool expanded() const noexcept { return m_expanded; }
 
 private:
   void applyExpandedProgress(float t);

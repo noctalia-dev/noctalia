@@ -322,7 +322,7 @@ UPowerService::UPowerService(SystemBus& bus) : m_bus(bus) {
                 const std::vector<std::string>& /*invalidated*/
             ) {
         if (interfaceName == kUpowerInterface) {
-          (void)refreshDefaultState();
+          refreshDefaultState();
         }
       });
 
@@ -393,6 +393,16 @@ UPowerState UPowerService::stateForDevice(std::string_view selector) const {
   return missing;
 }
 
+std::optional<bool> UPowerService::externalPowerConnected() const {
+  if (!m_state.isPresent) {
+    return std::nullopt;
+  }
+  if (!m_statePeripheralPath.empty()) {
+    return batteryStatePlugged(m_state.state);
+  }
+  return !m_state.onBattery;
+}
+
 void UPowerService::rescanDevices() {
   refreshDisplayDeviceProxy();
 
@@ -401,7 +411,7 @@ void UPowerService::rescanDevices() {
     m_upowerProxy->callMethod("EnumerateDevices").onInterface(kUpowerInterface).storeResultsTo(paths);
   } catch (const sdbus::Error& e) {
     kLog.warn("EnumerateDevices failed: {}", e.what());
-    (void)refreshDefaultState();
+    refreshDefaultState();
     return;
   }
 
@@ -757,7 +767,7 @@ void UPowerService::refreshDisplayDeviceProxy() {
                   const std::vector<std::string>& /*invalidated*/
               ) {
           if (interfaceName == kDeviceInterface) {
-            (void)refreshDefaultState();
+            refreshDefaultState();
           }
         });
 

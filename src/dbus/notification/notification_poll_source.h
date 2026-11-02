@@ -11,7 +11,7 @@ public:
 
   void setDbusService(NotificationDBusHost* dbus) { m_dbus = dbus; }
 
-  [[nodiscard]] int pollTimeoutMs() const override { return m_manager.nextExpiryTimeoutMs(); }
+  int pollTimeoutMs() const override { return m_manager.nextExpiryTimeoutMs(); }
 
   void dispatch(const std::vector<pollfd>& /*fds*/, std::size_t /*startIdx*/) override;
 

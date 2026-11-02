@@ -83,7 +83,7 @@ void WaylandExtForeignToplevels::requestInitialSync() {
   if (m_display == nullptr || m_initialSyncDone) {
     return;
   }
-  (void)wl_display_roundtrip(m_display);
+  wl_display_roundtrip(m_display);
   m_initialSyncDone = true;
   notifyChanged();
 }

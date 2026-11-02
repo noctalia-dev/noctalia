@@ -8,7 +8,7 @@ namespace noctalia::theme::firefox_theme::manifest {
 
     constexpr std::string_view kLegacyDescription = "Noctalia Pywalfox native messaging host";
 
-    [[nodiscard]] bool isNoctaliaDescription(std::string_view description) {
+    bool isNoctaliaDescription(std::string_view description) {
       return description == kDescription || description == kLegacyDescription;
     }
 

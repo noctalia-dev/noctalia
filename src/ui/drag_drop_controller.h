@@ -38,13 +38,13 @@ public:
   void unregisterDropZone(DropZone* zone);
   void cancelIfParticipantIn(const Node* subtree);
 
-  [[nodiscard]] State state() const noexcept { return m_state; }
-  [[nodiscard]] DragSource* activeSource() const noexcept { return m_source; }
-  [[nodiscard]] DropZone* currentTarget() const noexcept { return m_target; }
+  State state() const noexcept { return m_state; }
+  DragSource* activeSource() const noexcept { return m_source; }
+  DropZone* currentTarget() const noexcept { return m_target; }
 
 private:
   void scenePosition(const DragSource& source, float localX, float localY, float& sceneX, float& sceneY) const;
-  [[nodiscard]] DropZone* targetAt(float sceneX, float sceneY) const;
+  DropZone* targetAt(float sceneX, float sceneY) const;
   void updateTarget(float sceneX, float sceneY);
   void clearTarget();
   void createPreview(float sceneX, float sceneY);

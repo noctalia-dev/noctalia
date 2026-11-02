@@ -28,10 +28,10 @@ namespace calendar {
   };
 
   // The failure of an HTTP response that wasn't the expected success.
-  [[nodiscard]] SyncFailure syncFailureFromResponse(const HttpResponse& response);
+  SyncFailure syncFailureFromResponse(const HttpResponse& response);
 
   // The translation key of the failure's explanation. A Google account has no password: its rejected or missing
   // credentials are fixed by reconnecting it.
-  [[nodiscard]] std::string_view syncFailureMessageKey(SyncFailure failure, bool google = false);
+  std::string_view syncFailureMessageKey(SyncFailure failure, bool google = false);
 
 } // namespace calendar

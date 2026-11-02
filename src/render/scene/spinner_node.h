@@ -23,9 +23,9 @@ public:
     markPaintDirty();
   }
 
-  [[nodiscard]] const Color& color() const noexcept { return m_style.color; }
-  [[nodiscard]] float thickness() const noexcept { return m_style.thickness; }
-  [[nodiscard]] const SpinnerStyle& style() const noexcept { return m_style; }
+  const Color& color() const noexcept { return m_style.color; }
+  float thickness() const noexcept { return m_style.thickness; }
+  const SpinnerStyle& style() const noexcept { return m_style; }
 
 private:
   SpinnerStyle m_style;

@@ -14,5 +14,5 @@ struct LoadedImageFile {
   int sourceHeight = 0;
 };
 
-[[nodiscard]] std::expected<LoadedImageFile, std::string>
+std::expected<LoadedImageFile, std::string>
 loadImageFile(const std::string& path, int targetSize = 0, bool centerSquareCrop = false);

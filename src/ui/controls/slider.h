@@ -23,11 +23,11 @@ public:
   void setOnValueChanged(std::function<void(double)> callback);
   void setOnDragEnd(std::function<void()> callback);
 
-  [[nodiscard]] double value() const noexcept { return m_value; }
-  [[nodiscard]] double minValue() const noexcept { return m_min; }
-  [[nodiscard]] double maxValue() const noexcept { return m_max; }
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] bool dragging() const noexcept;
+  double value() const noexcept { return m_value; }
+  double minValue() const noexcept { return m_min; }
+  double maxValue() const noexcept { return m_max; }
+  bool enabled() const noexcept { return m_enabled; }
+  bool dragging() const noexcept;
 
 private:
   void doLayout(Renderer& renderer) override;
@@ -36,8 +36,8 @@ private:
   void updateFromLocalX(float x);
   void updateGeometry();
   void applyVisualState();
-  [[nodiscard]] float normalizedValue() const noexcept;
-  [[nodiscard]] double snapped(double value) const noexcept;
+  float normalizedValue() const noexcept;
+  double snapped(double value) const noexcept;
 
   RectNode* m_track = nullptr;
   RectNode* m_fill = nullptr;

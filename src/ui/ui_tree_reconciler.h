@@ -132,7 +132,7 @@ namespace ui {
     void openHover(const std::string& name, const std::string& key, const Node* owner);
     void closeHover();
     void releaseHover(const Node* owner);
-    [[nodiscard]] bool subtreeOwnsHover(const Slot& slot) const;
+    bool subtreeOwnsHover(const Slot& slot) const;
     // Graph pointer tracking (onPointerMove/onPointerLeave) wiring, wired as one
     // unit so both edges of a graph's pointer session share a coalescing stream.
     void syncGraphPointerCallbacks(Slot& slot, const UiTreeNode& desired, Node* node);
@@ -151,12 +151,12 @@ namespace ui {
     void syncPixelStreamCallbacks(Slot& slot, const UiTreeNode& desired, PixelStreamView& view);
     // ui.colorPicker props. `value` is applied only when it differs from the shown color.
     void applyColorPickerProps(Slot& slot, const UiTreeNode& desired, ColorPicker& picker);
-    [[nodiscard]] bool subtreeOwnsPointer(const Slot& slot) const;
+    bool subtreeOwnsPointer(const Slot& slot) const;
     [[nodiscard]] std::unique_ptr<Node> createControl(const UiTreeNode& desired);
     // Scroll revealKey. Runs after the scroll's children reconcile, since the key
     // names one of them.
     void syncScrollReveal(Slot& slot, const UiTreeNode& desired);
-    [[nodiscard]] static const Slot* findKeyedSlot(const std::vector<Slot>& slots, const std::string& key);
+    static const Slot* findKeyedSlot(const std::vector<Slot>& slots, const std::string& key);
 
     CallbackSink m_sink;
     PathResolver m_resolver;

@@ -40,10 +40,10 @@ public:
   void setNotifyOnReselect(bool enabled);
   void setOnSelectionChanged(std::function<void(std::size_t, std::string_view)> callback);
 
-  [[nodiscard]] std::size_t selectedIndex() const noexcept { return m_selectedIndex; }
-  [[nodiscard]] std::string_view selectedText() const noexcept;
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] bool open() const noexcept { return m_open; }
+  std::size_t selectedIndex() const noexcept { return m_selectedIndex; }
+  std::string_view selectedText() const noexcept;
+  bool enabled() const noexcept { return m_enabled; }
+  bool open() const noexcept { return m_open; }
 
 private:
   static constexpr std::size_t npos = static_cast<std::size_t>(-1);

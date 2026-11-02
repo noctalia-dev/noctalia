@@ -6,9 +6,9 @@
 
 namespace noctalia::cli {
 
-  [[nodiscard]] std::string generateBash(const Command& root);
-  [[nodiscard]] std::string generateZsh(const Command& root);
-  [[nodiscard]] std::string generateFish(const Command& root);
+  std::string generateBash(const Command& root);
+  std::string generateZsh(const Command& root);
+  std::string generateFish(const Command& root);
 
   int runCompletionsCli(int argc, char* argv[]);
 

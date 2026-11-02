@@ -36,18 +36,18 @@ public:
   void setZoneBorder(const ColorSpec& color, float width);
   void clearZoneBorder();
 
-  [[nodiscard]] bool accepts(std::string_view dragType) const;
-  [[nodiscard]] std::string_view value() const noexcept { return m_value; }
-  [[nodiscard]] std::string_view onDrop() const noexcept { return m_onDrop; }
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] bool dragOver() const noexcept { return m_dragOver; }
-  [[nodiscard]] float hitSlop() const noexcept { return m_hitSlop; }
-  [[nodiscard]] DragDropController* controller() const noexcept { return m_controller; }
+  bool accepts(std::string_view dragType) const;
+  std::string_view value() const noexcept { return m_value; }
+  std::string_view onDrop() const noexcept { return m_onDrop; }
+  bool enabled() const noexcept { return m_enabled; }
+  bool dragOver() const noexcept { return m_dragOver; }
+  float hitSlop() const noexcept { return m_hitSlop; }
+  DragDropController* controller() const noexcept { return m_controller; }
   void detachController(DragDropController* controller) noexcept;
 
 private:
   void applyVisualState();
-  [[nodiscard]] bool expandsAlongWidth() const;
+  bool expandsAlongWidth() const;
   void animateWidth(float target);
   void applyAnimatedWidth(float width);
   void animateHeight(float target);

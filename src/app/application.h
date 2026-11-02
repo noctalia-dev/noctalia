@@ -169,7 +169,7 @@ public:
   void triggerShellAction(const std::string& action, wl_output* output = nullptr);
   // Highest layer-shell layer occupied by any bar on the given output. Hot
   // corners place their trigger surfaces on this layer.
-  [[nodiscard]] LayerShellLayer hotCornerLayerForOutput(wl_output* output) const noexcept;
+  LayerShellLayer hotCornerLayerForOutput(wl_output* output) const noexcept;
 
 private:
   void initServices();
@@ -222,7 +222,7 @@ private:
   void retrySecretServiceConsumers(bool defaultCollectionUnlocked = false);
   void scheduleNotificationShellRefresh();
   void syncPolkitAgent();
-  [[nodiscard]] bool likelySupportsInSessionPolkit() const noexcept;
+  bool likelySupportsInSessionPolkit() const noexcept;
   void syncClipboardService();
   void syncStorageKeyProvider();
   void syncScreenTimeService();
@@ -234,7 +234,7 @@ private:
   void onIconThemeChanged();
   // Finest time boundary the currently visible shell UI needs. Drives the time
   // poll source so it can park between boundaries instead of waking every second.
-  [[nodiscard]] TimeService::Precision timePrecisionNeeded() const;
+  TimeService::Precision timePrecisionNeeded() const;
   void onGraphicsReset(RenderGraphicsResetStatus status);
   void recoverGraphicsAfterReset();
   void requestAllSurfacesRedraw();
@@ -243,8 +243,8 @@ private:
   void onNetworkStateChangedForEvents(const NetworkState& state, NetworkChangeOrigin origin);
   void onBluetoothStateChangedForEvents(const BluetoothState& state, BluetoothStateChangeOrigin origin);
   void onPowerProfileChangedForEvents(const PowerProfilesState& state, PowerProfilesChangeOrigin origin);
-  [[nodiscard]] std::vector<PollSource*> currentPollSources();
-  [[nodiscard]] std::vector<PollSource*> buildPollSources();
+  std::vector<PollSource*> currentPollSources();
+  std::vector<PollSource*> buildPollSources();
 
   WaylandConnection m_wayland;
   WorkspaceAlertService m_workspaceAlertService;

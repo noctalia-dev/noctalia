@@ -374,7 +374,7 @@ namespace {
 
     const auto assetsDir = assetsDirectoryForJson(jsonFilePath);
     std::error_code ecMk;
-    (void)FileUtils::createPrivateDirectories(assetsDir, ecMk);
+    FileUtils::createPrivateDirectories(assetsDir, ecMk);
 
     const std::string webpBase = contentAddressedWebpName(rgba.data(), rgba.size());
     const auto webpPath = assetsDir / webpBase;
@@ -448,6 +448,7 @@ namespace {
     j["timeout"] = n.timeout;
     j["urgency"] = std::string(urgencyStr(n.urgency));
     j["actions"] = n.actions;
+    j["icon_is_app_icon"] = n.iconIsAppIcon;
     if (n.icon.has_value()) {
       j["icon"] = *n.icon;
     } else {
@@ -495,6 +496,7 @@ namespace {
     if (j.contains("icon") && !j["icon"].is_null()) {
       n.icon = j["icon"].get<std::string>();
     }
+    n.iconIsAppIcon = j.value("icon_is_app_icon", false);
     if (j.contains("image_data") && j["image_data"].is_object()) {
       n.imageData = imageFromJson(j["image_data"], jsonFilePath, key, legacy);
     }

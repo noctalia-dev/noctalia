@@ -17,6 +17,7 @@
 #include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "shell/surface/edge_inset.h"
+#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -115,7 +116,7 @@ namespace {
   constexpr int kToastMaxBodyLines = 3;
   constexpr int kMaxToastCardHeight = 320;
 
-  [[nodiscard]] float notificationUiScale(const ConfigService* config) {
+  float notificationUiScale(const ConfigService* config) {
     if (config == nullptr) {
       return 1.0F;
     }
@@ -124,7 +125,7 @@ namespace {
     return std::max(0.1F, accessibility.uiScale * notification.scale);
   }
 
-  [[nodiscard]] ColorSpec toastBorderColor(const ConfigService* config, Urgency urgency) {
+  ColorSpec toastBorderColor(const ConfigService* config, Urgency urgency) {
     if (urgency == Urgency::Critical) {
       return colorSpecFromRole(ColorRole::Error);
     }
@@ -134,7 +135,7 @@ namespace {
     return config->config().notification.borderColor;
   }
 
-  [[nodiscard]] float toastBorderWidth(const ConfigService* config, Urgency urgency, float scale) {
+  float toastBorderWidth(const ConfigService* config, Urgency urgency, float scale) {
     if (config == nullptr) {
       return (urgency == Urgency::Critical ? Style::emphasizedBorderWidth : Style::borderWidth) * scale;
     }
@@ -149,58 +150,58 @@ namespace {
     return width * scale;
   }
 
-  [[nodiscard]] float notificationWidth(const ConfigService* config) {
+  float notificationWidth(const ConfigService* config) {
     if (config == nullptr) {
       return static_cast<float>(NotificationConfig::kDefaultWidth);
     }
     return static_cast<float>(config->config().notification.width);
   }
 
-  [[nodiscard]] float cardWidth(float scale, float width) { return width * scale; }
+  float cardWidth(float scale, float width) { return width * scale; }
 
-  [[nodiscard]] float paddingTop(float scale) { return kPaddingTop * scale; }
+  float paddingTop(float scale) { return kPaddingTop * scale; }
 
-  [[nodiscard]] float paddingX(float scale) { return kPaddingX * scale; }
+  float paddingX(float scale) { return kPaddingX * scale; }
 
-  [[nodiscard]] float paddingBottom(float scale) { return kPaddingBottom * scale; }
+  float paddingBottom(float scale) { return kPaddingBottom * scale; }
 
-  [[nodiscard]] float cardInnerPad(float scale) { return kCardInnerPad * scale; }
+  float cardInnerPad(float scale) { return kCardInnerPad * scale; }
 
-  [[nodiscard]] float closeButtonSize(float scale) { return kCloseButtonSize * scale; }
+  float closeButtonSize(float scale) { return kCloseButtonSize * scale; }
 
-  [[nodiscard]] float notificationIconSize(float scale, bool showActions) {
+  float notificationIconSize(float scale, bool showActions) {
     return (showActions ? kNotificationIconSize : kNotificationIconSizeCompact) * scale;
   }
 
-  [[nodiscard]] float notificationIconGlyphSize(float scale, bool showActions) {
+  float notificationIconGlyphSize(float scale, bool showActions) {
     return (showActions ? kNotificationIconGlyphSize : kNotificationIconGlyphSizeCompact) * scale;
   }
 
-  [[nodiscard]] float iconTextGap(float scale) { return kIconTextGap * scale; }
+  float iconTextGap(float scale) { return kIconTextGap * scale; }
 
-  [[nodiscard]] float actionGap(float scale) { return kActionGap * scale; }
+  float actionGap(float scale) { return kActionGap * scale; }
 
-  [[nodiscard]] float actionRowGap(float scale) { return kActionRowGap * scale; }
+  float actionRowGap(float scale) { return kActionRowGap * scale; }
 
-  [[nodiscard]] float progressHeight(float scale) { return static_cast<float>(kProgressHeight) * scale; }
+  float progressHeight(float scale) { return static_cast<float>(kProgressHeight) * scale; }
 
-  [[nodiscard]] float topProgressInset(float scale) { return kTopProgressInset * scale; }
+  float topProgressInset(float scale) { return kTopProgressInset * scale; }
 
-  [[nodiscard]] float metaFontSize(float scale) { return kMetaFontSize * scale; }
+  float metaFontSize(float scale) { return kMetaFontSize * scale; }
 
-  [[nodiscard]] float summaryFontSize(float scale) { return kSummaryFontSize * scale; }
+  float summaryFontSize(float scale) { return kSummaryFontSize * scale; }
 
-  [[nodiscard]] float bodyFontSize(float scale) { return kBodyFontSize * scale; }
+  float bodyFontSize(float scale) { return kBodyFontSize * scale; }
 
-  [[nodiscard]] float maxToastCardHeight(float scale) { return static_cast<float>(kMaxToastCardHeight) * scale; }
+  float maxToastCardHeight(float scale) { return static_cast<float>(kMaxToastCardHeight) * scale; }
 
-  [[nodiscard]] std::uint32_t surfaceWidth(float scale, float width, float innerPadX) {
+  std::uint32_t surfaceWidth(float scale, float width, float innerPadX) {
     return static_cast<std::uint32_t>(
         std::max(1, static_cast<int>(std::ceil(cardWidth(scale, width) + innerPadX * 2.0F)))
     );
   }
 
-  [[nodiscard]] std::uint32_t fallbackSurfaceHeight(float scale) {
+  std::uint32_t fallbackSurfaceHeight(float scale) {
     const float totalHeight = maxToastCardHeight(scale) * kFallbackVisibleCards
         + (kGap * scale) * (kFallbackVisibleCards - 1)
         + paddingBottom(scale);
@@ -542,7 +543,9 @@ namespace {
 
 } // namespace
 
-NotificationToast::NotificationToast() = default;
+NotificationToast::NotificationToast() {
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] { requestLayout(); });
+}
 
 NotificationToast::~NotificationToast() {
   if (m_notifications != nullptr && m_callbackToken >= 0) {
@@ -710,6 +713,7 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
         m_entries[i].body = n.body;
         m_entries[i].actions = n.actions;
         m_entries[i].icon = n.icon;
+        m_entries[i].iconIsAppIcon = n.iconIsAppIcon;
         m_entries[i].imageData = n.imageData;
         m_entries[i].dndPolicy = n.dndPolicy;
         refreshEntryGeometry(m_entries[i]);
@@ -930,6 +934,7 @@ void NotificationToast::addPopup(const Notification& n) {
   entry.body = n.body;
   entry.actions = n.actions;
   entry.icon = n.icon;
+  entry.iconIsAppIcon = n.iconIsAppIcon;
   entry.imageData = n.imageData;
   entry.urgency = n.urgency;
   entry.dndPolicy = n.dndPolicy;
@@ -977,7 +982,7 @@ void NotificationToast::requestClose(uint32_t notificationId, CloseReason reason
   if (m_notifications != nullptr) {
     for (const auto& notification : m_notifications->all()) {
       if (notification.id == notificationId) {
-        (void)m_notifications->close(notificationId, reason);
+        m_notifications->close(notificationId, reason);
         return;
       }
     }
@@ -1204,7 +1209,7 @@ void NotificationToast::removeCardFromInstance(Instance& inst, std::size_t entry
   }
 
   if (inst.sceneRoot != nullptr) {
-    (void)inst.sceneRoot->removeChild(cs.cardNode);
+    inst.sceneRoot->removeChild(cs.cardNode);
   }
   cs = {};
 
@@ -2670,6 +2675,11 @@ InputArea* NotificationToast::buildCard(
             .height = iconSize,
             .configure = [](Image& image) { image.setPosition(0.0F, 0.0F); },
         });
+        if (m_config != nullptr) {
+          appIcon->setAppIconColorization(effectiveShellAppIconColorizationTint(
+              m_config->config().shell, entry.iconIsAppIcon && m_config->config().notification.colorizeIcons
+          ));
+        }
         if (appIcon->setSourceFile(renderer, iconPath, static_cast<int>(std::round(iconSize)))) {
           iconSlot->addChild(std::move(appIcon));
           iconAssigned = true;

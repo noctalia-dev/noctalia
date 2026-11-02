@@ -149,7 +149,7 @@ namespace {
     bool active() const override { return m_svc != nullptr && m_svc->doNotDisturb(); }
     void onClick() override {
       if (m_svc != nullptr) {
-        (void)m_svc->toggleDoNotDisturb();
+        m_svc->toggleDoNotDisturb();
       }
     }
     void onRightClick() override { openTab("notifications"); }
@@ -350,13 +350,13 @@ namespace {
     std::string_view iconOff() const override { return "keyboard"; }
     void onClick() override {
       if (m_platform != nullptr) {
-        (void)m_platform->cycleKeyboardLayout();
+        m_platform->cycleKeyboardLayout();
       }
       PanelManager::instance().refresh();
     }
 
   private:
-    [[nodiscard]] std::string resolvedLayoutName() const {
+    std::string resolvedLayoutName() const {
       const auto state = m_platform != nullptr ? m_platform->keyboardLayoutState() : std::nullopt;
       if (state.has_value()
           && state->currentIndex >= 0
@@ -394,7 +394,7 @@ namespace {
     }
     void onClick() override {
       if (m_svc != nullptr) {
-        (void)m_svc->playPauseActive();
+        m_svc->playPauseActive();
       }
     }
     void onRightClick() override { openTab("media"); }

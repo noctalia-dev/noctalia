@@ -1,4 +1,6 @@
 #include "core/deferred_call.h"
+#include "launcher/app_provider.h"
+#include "launcher/emoji_provider.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/panel_manager.h"
 #include "tests/test_check.h"
@@ -33,6 +35,50 @@ namespace {
 
 class LauncherPanelTestAccess {
 public:
+  static void checkEmojiCategories() {
+    Segmented navigation;
+    Segmented categories;
+    LauncherPanel panel(nullptr, nullptr, nullptr);
+    panel.m_browserMode = true;
+    panel.m_launcherNavigation = &navigation;
+    panel.m_categoryFilter = &categories;
+    panel.addProvider(std::make_unique<AppProvider>(nullptr));
+    auto emoji = std::make_unique<EmojiProvider>(nullptr);
+    const auto emojiCategories = emoji->categories();
+    panel.addProvider(std::move(emoji));
+
+    panel.onInputChanged("/emo");
+    panel.rebuildCategoryFilter();
+    TEST_CHECK(categories.visible());
+    TEST_CHECK(!panel.m_results.empty());
+    const auto allCount = panel.m_results.size();
+
+    categories.setSelectedIndex(1);
+    TEST_CHECK(!panel.m_results.empty());
+    TEST_CHECK(panel.m_results.size() < allCount);
+    TEST_CHECK(std::ranges::all_of(panel.m_results, [&](const LauncherResult& result) {
+      return result.providerId == "Emoji" && result.category == emojiCategories[0].label;
+    }));
+    TEST_CHECK(panel.m_query == "/emo");
+
+    // Refining a provider query retains its selected category.
+    panel.onInputChanged("/emo face");
+    TEST_CHECK(!panel.m_results.empty());
+    TEST_CHECK(std::ranges::all_of(panel.m_results, [&](const LauncherResult& result) {
+      return result.category == emojiCategories[0].label;
+    }));
+
+    categories.setSelectedIndex(0);
+    TEST_CHECK(panel.m_results.size() == panel.m_allResults.size());
+    panel.onInputChanged("");
+    TEST_CHECK(!categories.visible());
+    panel.onInputChanged("/emo");
+    panel.rebuildCategoryFilter();
+    TEST_CHECK(categories.visible());
+    TEST_CHECK(categories.selectedIndex() == 0);
+    TEST_CHECK(panel.m_results.size() == allCount);
+  }
+
   static void checkGridPolicy() {
     LauncherPanel panel(nullptr, nullptr, nullptr);
     panel.addProvider(std::make_unique<LayoutProvider>(true));
@@ -120,6 +166,7 @@ namespace {
 
 int main() {
   PanelManager manager;
+  LauncherPanelTestAccess::checkEmojiCategories();
   LauncherPanelTestAccess::checkGridPolicy();
   Segmented navigation;
   Segmented categories;

@@ -10,11 +10,11 @@ namespace wayland {
   inline constexpr std::int32_t kScaleNumeratorBase = 120;
 
   // A /120 numerator is usable only when strictly positive.
-  [[nodiscard]] inline bool isValidScaleNumerator(std::int32_t numerator) noexcept { return numerator > 0; }
+  inline bool isValidScaleNumerator(std::int32_t numerator) noexcept { return numerator > 0; }
 
   // Convert a floating scale factor to a /120 numerator, or 0 when the input is
   // not a usable positive finite factor.
-  [[nodiscard]] inline std::int32_t scaleNumeratorFromFactor(double factor) noexcept {
+  inline std::int32_t scaleNumeratorFromFactor(double factor) noexcept {
     if (!std::isfinite(factor) || factor <= 0.0) {
       return 0;
     }
@@ -37,7 +37,7 @@ namespace wayland {
   // picking the transform (normal or 90deg-rotated) whose axes agree best.
   // Rejects non-positive dimensions and anisotropic ratios (per-axis scale
   // disagreement beyond kScaleAxisTolerance).
-  [[nodiscard]] inline DetectedScale detectScaleFromDimensions(
+  inline DetectedScale detectScaleFromDimensions(
       std::int32_t physW, std::int32_t physH, std::int32_t logicalW, std::int32_t logicalH
   ) noexcept {
     if (physW <= 0 || physH <= 0 || logicalW <= 0 || logicalH <= 0) {
@@ -73,7 +73,7 @@ namespace wayland {
   // Each candidate is used only if it validates as a positive numerator;
   // otherwise the next capability is consulted. There is always exactly one
   // published numerator per output.
-  [[nodiscard]] inline std::int32_t resolveConfiguredScaleNumerator(
+  inline std::int32_t resolveConfiguredScaleNumerator(
       double headScaleFactor, double detectedScaleFactor, std::int32_t wlOutputScale
   ) noexcept {
     if (const std::int32_t numerator = scaleNumeratorFromFactor(headScaleFactor); isValidScaleNumerator(numerator)) {

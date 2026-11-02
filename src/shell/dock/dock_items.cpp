@@ -52,7 +52,7 @@ namespace {
   constexpr std::int32_t kHoverZoomZScale = 100;
   constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
 
-  [[nodiscard]] float pointerMainOnRow(const DockConfig& cfg, const InputArea* area, float localX, float localY) {
+  float pointerMainOnRow(const DockConfig& cfg, const InputArea* area, float localX, float localY) {
     if (area == nullptr) {
       return 0.0F;
     }
@@ -70,14 +70,14 @@ namespace {
     TooltipManager::instance().onHoverChange(nullptr, static_cast<zwlr_layer_surface_v1*>(nullptr), nullptr);
   }
 
-  [[nodiscard]] int dockIconDecodeTargetSize(const DockConfig& cfg) {
+  int dockIconDecodeTargetSize(const DockConfig& cfg) {
     const float baseScale = std::max(cfg.activeScale, cfg.inactiveScale);
     const float hoverScale = cfg.magnification ? std::max(1.0F, cfg.magnificationScale) : 1.0F;
     const float peakScale = std::max(1.0F, baseScale * hoverScale);
     return std::max(1, static_cast<int>(std::round(static_cast<float>(cfg.iconSize) * peakScale)));
   }
 
-  [[nodiscard]] float launcherIconBaseY(const DockConfig& cfg, float iconSize) {
+  float launcherIconBaseY(const DockConfig& cfg, float iconSize) {
     return cfg.launcherCustomImage.empty() ? kCellPad + (iconSize - iconSize * kLauncherGlyphSizeRatio) * 0.5F
                                            : kCellPad;
   }
@@ -127,14 +127,16 @@ namespace {
     applyBadgeVisual(badge, edge, iconBaseX, iconBaseY, iconSize, badgeSize, scale);
   }
 
-  void applyShellAppIconColorization(Image* image, const ShellConfig& shell) {
+  void applyShellAppIconColorization(Image* image, const ShellConfig& shell, const DockConfig& dock) {
     if (image == nullptr) {
       return;
     }
-    image->setAppIconColorization(effectiveShellAppIconColorizationTint(shell));
+    const auto tint = effectiveShellAppIconColorizationTint(shell, dock.colorizeIcons);
+    image->setAppIconColorization(tint);
+    image->setSaturation(tint.has_value() ? 1.0F : dock.iconSaturation);
   }
 
-  [[nodiscard]] float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
+  float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
 
   void applyItemMainOffset(InputArea* area, bool vertical, float restMain, float restCross, float offset) {
     if (area == nullptr) {
@@ -147,12 +149,12 @@ namespace {
     }
   }
 
-  [[nodiscard]] float hoverZoomFrameLerp(float deltaMs) {
+  float hoverZoomFrameLerp(float deltaMs) {
     const float clampedMs = std::clamp(deltaMs, 1.0F, 50.0F);
     return 1.0F - std::pow(1.0F - kHoverZoomLerp, clampedMs / kHoverZoomReferenceFrameMs);
   }
 
-  [[nodiscard]] bool lerpHoverMainOffset(float& current, float target, float lerpFactor) {
+  bool lerpHoverMainOffset(float& current, float target, float lerpFactor) {
     if (std::abs(current - target) <= 0.25F) {
       if (current != target) {
         current = target;
@@ -235,7 +237,7 @@ namespace {
     area->setZIndex(static_cast<std::int32_t>(std::lround(scale * static_cast<float>(kHoverZoomZScale))));
   }
 
-  [[nodiscard]] TooltipAnchorInsets
+  TooltipAnchorInsets
   scaledIconTooltipAnchor(const InputArea* area, DockEdge edge, float iconBase, float iconSize, float scale) {
     const float centerAdjust = iconSize * (1.0F - scale) * 0.5F;
     float iconX = iconBase;
@@ -261,7 +263,7 @@ namespace {
     TooltipManager::instance().syncAnchor(area);
   }
 
-  [[nodiscard]] float computeHoverMultiplier(
+  float computeHoverMultiplier(
       float pointerMain, float itemCenterMain, float itemPitch, float maxMultiplier, float falloffInfluence
   ) {
     if (maxMultiplier <= 1.0F) {
@@ -279,7 +281,7 @@ namespace {
     return 1.0F + (maxMultiplier - 1.0F) * falloff;
   }
 
-  [[nodiscard]] std::string_view dockEdgeKey(DockEdge edge) {
+  std::string_view dockEdgeKey(DockEdge edge) {
     switch (edge) {
     case DockEdge::Top:
       return "top";
@@ -306,7 +308,7 @@ namespace {
     );
   }
 
-  [[nodiscard]] std::string dockItemTooltipText(const shell::dock::DockItemModel& model) {
+  std::string dockItemTooltipText(const shell::dock::DockItemModel& model) {
     const auto& entry = model.entry;
     std::string text = !entry.name.empty() ? entry.name : !entry.genericName.empty() ? entry.genericName : entry.id;
     if (model.minimizedCount != 0) {
@@ -345,7 +347,7 @@ namespace {
     );
   }
 
-  [[nodiscard]] bool applyHoverIconScale(
+  bool applyHoverIconScale(
       Node* iconNode, float& visualScale, AnimationManager::Id& animId, shell::dock::DockInstance& instance,
       float targetScale, float restScale, float lerpFactor, DockEdge edge, float baseX, float baseY, float iconSize,
       Box* badge, float badgeSize
@@ -575,9 +577,9 @@ namespace shell::dock {
       auto iconImg = ui::image({
           .width = iSize,
           .height = iSize,
-          .configure = [&renderer, iconPath, iconDecodeTarget,
-                        &shell = deps.model.config.config().shell](Image& image) {
-            image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell));
+          .configure = [&renderer, iconPath, iconDecodeTarget, &shell = deps.model.config.config().shell,
+                        &cfg](Image& image) {
+            image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell, cfg.colorizeIcons));
             if (!iconPath.empty()) {
               image.setSourceFile(renderer, iconPath, iconDecodeTarget, true);
             }
@@ -813,7 +815,7 @@ namespace shell::dock {
       const bool isDraggedItem = dragActive && itemIndex == instance.drag.sourceIndex;
       const float iconScale = model.active ? cfg.activeScale : cfg.inactiveScale;
       const float iconOpacity = model.active ? cfg.activeOpacity : cfg.inactiveOpacity;
-      applyShellAppIconColorization(item.iconImage, shell);
+      applyShellAppIconColorization(item.iconImage, shell, cfg);
       Node* iconNode =
           item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
 
@@ -964,7 +966,7 @@ namespace shell::dock {
     if (instance.surface == nullptr) {
       return;
     }
-    (void)updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs);
+    updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs);
     instance.surface->requestFrameTick();
     instance.surface->requestRedraw();
   }
