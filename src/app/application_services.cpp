@@ -1429,7 +1429,7 @@ void Application::initSystemBusServices() {
           // BlueZ cancels unanswered Agent1 requests after a few seconds, so the
           // confirm/PIN UI must appear on its own instead of waiting for the user
           // to already have the control center open on the bluetooth tab.
-          if (m_panelManager.isActivePanelContext("bluetooth")) {
+          if (m_panelManager.isOpenPanel("control-center") && m_panelManager.isActivePanelContext("bluetooth")) {
             m_panelManager.refresh();
           } else {
             m_panelManager.togglePanel("control-center", PanelOpenRequest{.context = "bluetooth"});
