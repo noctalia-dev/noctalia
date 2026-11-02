@@ -274,5 +274,11 @@
     "noctaliaVersion": null,
     "feature": "sleep-callbacks",
     "introduced": "`onSuspend()` and `onResume()` on `[[service]]` entries, called when the system goes to sleep and wakes up."
+  },
+  {
+    "level": 49,
+    "noctaliaVersion": null,
+    "feature": "panel-layer-follow",
+    "introduced": "`layer = \"follow\"` on a `[[panel]]` entry, which makes the floating panel use the shell's `shell.panel.floating_layer`."
   }
 ]
