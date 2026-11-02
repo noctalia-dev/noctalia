@@ -251,7 +251,7 @@ src/
     tray/           Tray drawer and D-Bus menu UI
     visuals/        Audio visualizer and graph controls
     wallpaper/      Wallpaper surfaces, paths, picker panel
-    wayland/        Shell-only Wayland extensions: toplevels, workspaces, clipboard, capture, idle, gamma, focus grab
+    wayland/        Shell-only Wayland extensions: toplevels, workspaces, clipboard, capture, idle, output heads, focus grab
     widgets_editor/ Background widget editor
   system/           Desktop entries, brightness, weather, location, system monitor, hardware services
   theme/            Palette generation, templates, theme service, template application

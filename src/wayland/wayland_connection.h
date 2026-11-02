@@ -16,7 +16,6 @@
 #include <type_traits>
 #include <typeindex>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -38,9 +37,6 @@ struct xdg_activation_v1;
 struct zwp_text_input_manager_v3;
 struct wp_fractional_scale_manager_v1;
 struct wp_viewporter;
-struct zwlr_output_manager_v1;
-struct zwlr_output_head_v1;
-struct zwlr_output_mode_v1;
 class LayerSurface;
 class PopupGrabHost;
 class TextInputService;
@@ -50,7 +46,7 @@ struct WaylandOutput {
   std::string interfaceName;
   std::string connectorName;
   std::string description;
-  // From wlr-output-management-unstable-v1; wl_output has no serial. May stay empty.
+  // Supplied by an output metadata extension (wl_output has no serial); empty otherwise.
   std::string make;
   std::string model;
   std::string serialNumber;
@@ -64,14 +60,14 @@ struct WaylandOutput {
   std::int32_t logicalX = 0;
   std::int32_t logicalY = 0;
   std::int32_t transform = 0;
-  // wlr-output-management transform, when published for this output.
+  // Transform from an output metadata extension, when it publishes one for this output.
   std::optional<std::int32_t> headTransform;
   zxdg_output_v1* xdgOutput = nullptr;
   bool done = false;
-  // wlr-output-management fixed scale factor for this output (0 == not reported).
+  // Fixed scale factor from an output metadata extension (0 == not reported).
   double headScaleFactor = 0.0;
   // Canonical published render scale as a /120 numerator (120 == 1.0). Resolved
-  // from head scale, then mode/logical ratio, then integer wl_output.scale.
+  // from metadata scale, then mode/logical ratio, then integer wl_output.scale.
   std::int32_t configuredScaleNumerator = wayland::kScaleNumeratorBase;
 
   float configuredScale() const noexcept {
@@ -105,13 +101,13 @@ struct WaylandOutput {
   bool hasUsableGeometry() const noexcept { return effectiveLogicalWidth() > 0 && effectiveLogicalHeight() > 0; }
 };
 
-// Accumulates head fields until matched to a WaylandOutput, keyed by head proxy.
-struct WaylandOutputHeadInfo {
-  std::string name;
+// Output metadata an extension publishes per connector name (e.g. from wlr-output-management heads).
+struct WaylandOutputMetadata {
+  std::string connectorName;
   std::string make;
   std::string model;
   std::string serialNumber;
-  // wlr-output-management fixed scale factor (0 == not reported by this head).
+  // Fixed scale factor (0 == not reported).
   double scaleFactor = 0.0;
   std::optional<std::int32_t> transform;
 };
@@ -132,6 +128,7 @@ public:
   WaylandConnection& operator=(const WaylandConnection&) = delete;
 
   using ChangeCallback = std::function<void()>;
+  using OutputMetadataSource = std::function<std::span<const WaylandOutputMetadata>()>;
 
   bool connect();
   bool
@@ -147,6 +144,13 @@ public:
   void setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback);
   void setTextInputService(TextInputService* textInputService);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
+
+  // Installs an extension's live output metadata; pass {} to remove it. Entries apply to the output with the same
+  // connector name when that output reports its name and on applyOutputMetadata().
+  void setOutputMetadataSource(OutputMetadataSource source);
+  // Applies the source's entries to matching outputs, recomputing their configured scale, and fires the output change
+  // callback once if anything changed.
+  void applyOutputMetadata();
 
   // Returns this connection's instance of T, constructing it from the connection on first use. A new
   // extension first receives every global advertised so far, in advertisement order, then each later
@@ -177,7 +181,6 @@ public:
   bool hasXdgOutputManager() const noexcept;
   bool hasXdgShell() const noexcept;
   bool hasFractionalScale() const noexcept;
-  bool hasOutputManagement() const noexcept;
   bool hasBackgroundEffectBlur() const noexcept;
   ext_background_effect_manager_v1* backgroundEffectManager() const noexcept;
   wp_fractional_scale_manager_v1* fractionalScaleManager() const noexcept;
@@ -236,22 +239,7 @@ public:
 
   void onBackgroundEffectCapabilities(std::uint32_t capabilities) noexcept;
 
-  // wlr-output-management-unstable-v1 entrypoints
-  void onOutputManagerHead(zwlr_output_head_v1* head);
-  void onOutputManagerDone();
-  void onOutputManagerFinished(zwlr_output_manager_v1* manager);
-  void onOutputHeadName(zwlr_output_head_v1* head, const char* name);
-  void onOutputHeadMake(zwlr_output_head_v1* head, const char* make);
-  void onOutputHeadModel(zwlr_output_head_v1* head, const char* model);
-  void onOutputHeadSerialNumber(zwlr_output_head_v1* head, const char* serialNumber);
-  void onOutputHeadMode(zwlr_output_head_v1* head, zwlr_output_mode_v1* mode);
-  void onOutputHeadScale(zwlr_output_head_v1* head, double scaleFactor);
-  void onOutputHeadTransform(zwlr_output_head_v1* head, std::int32_t transform);
-  void onOutputModeFinished(zwlr_output_mode_v1* mode);
-  void onOutputHeadFinished(zwlr_output_head_v1* head);
-  // wl_output.name and the done event race; call from both sides to match either order.
-  void matchPendingOutputHeads();
-  // Recompute out.configuredScaleNumerator from current head/mode/logical/wl-scale
+  // Recompute out.configuredScaleNumerator from current metadata/mode/logical/wl-scale
   // data. Returns true when the published numerator changed.
   bool recomputeConfiguredScale(WaylandOutput& out);
 
@@ -283,9 +271,7 @@ private:
   xdg_activation_v1* m_xdgActivation = nullptr;
   ext_background_effect_manager_v1* m_backgroundEffectManager = nullptr;
   wp_fractional_scale_manager_v1* m_fractionalScaleManager = nullptr;
-  zwlr_output_manager_v1* m_outputManager = nullptr;
-  std::unordered_map<zwlr_output_head_v1*, WaylandOutputHeadInfo> m_outputHeads;
-  std::unordered_set<zwlr_output_mode_v1*> m_outputModes;
+  OutputMetadataSource m_outputMetadataSource;
   PopupGrabHost* m_popupGrabHost = nullptr;
   wp_viewporter* m_viewporter = nullptr;
   bool m_backgroundEffectBlurSupported = false;

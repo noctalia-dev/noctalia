@@ -67,7 +67,7 @@ namespace wayland {
   }
 
   // Resolve the canonical /120 scale numerator for one output in capability order:
-  //  1. wlr-output-management fixed scale factor (headScaleFactor),
+  //  1. fixed scale factor from an output metadata extension (headScaleFactor),
   //  2. transform-aware current-mode/logical-size ratio (detectedScaleFactor),
   //  3. integer wl_output.scale.
   // Each candidate is used only if it validates as a positive numerator;

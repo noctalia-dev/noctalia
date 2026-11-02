@@ -10,7 +10,6 @@
 #include "wayland/layer_surface.h"
 #include "wayland/text_input_service.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
-#include "wlr-output-management-unstable-v1-client-protocol.h"
 #include "xdg-activation-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
@@ -49,8 +48,6 @@ namespace {
   constexpr std::uint32_t kViewporterVersion = 1;
   constexpr std::uint32_t kOutputVersion = 4;
   constexpr std::uint32_t kTextInputManagerVersion = 2;
-  constexpr std::uint32_t kOutputManagerVersion = 4;
-  constexpr std::uint32_t kOutputManagerMinVersion = 3;
 
   const wl_registry_listener kRegistryListener = {
       .global = &WaylandConnection::handleGlobal,
@@ -149,7 +146,7 @@ namespace {
         return;
       }
       out->connectorName = nextName;
-      self->matchPendingOutputHeads();
+      self->applyOutputMetadata();
 
       // The change callback can re-enter dispatch and reallocate m_outputs.
       out = self->findOutputByWl(wlOut);
@@ -212,87 +209,6 @@ namespace {
       .done = xdgOutputDone,
       .name = xdgOutputName,
       .description = xdgOutputDescription,
-  };
-
-  void outputHeadName(void* data, zwlr_output_head_v1* head, const char* name) {
-    static_cast<WaylandConnection*>(data)->onOutputHeadName(head, name);
-  }
-
-  void outputHeadMake(void* data, zwlr_output_head_v1* head, const char* make) {
-    static_cast<WaylandConnection*>(data)->onOutputHeadMake(head, make);
-  }
-
-  void outputHeadModel(void* data, zwlr_output_head_v1* head, const char* model) {
-    static_cast<WaylandConnection*>(data)->onOutputHeadModel(head, model);
-  }
-
-  void outputHeadSerialNumber(void* data, zwlr_output_head_v1* head, const char* serialNumber) {
-    static_cast<WaylandConnection*>(data)->onOutputHeadSerialNumber(head, serialNumber);
-  }
-
-  void outputModeFinished(void* data, zwlr_output_mode_v1* mode) {
-    static_cast<WaylandConnection*>(data)->onOutputModeFinished(mode);
-  }
-
-  const zwlr_output_mode_v1_listener kOutputModeListener = {
-      .size = [](void*, zwlr_output_mode_v1*, int32_t, int32_t) {},
-      .refresh = [](void*, zwlr_output_mode_v1*, int32_t) {},
-      .preferred = [](void*, zwlr_output_mode_v1*) {},
-      .finished = outputModeFinished,
-  };
-
-  void outputHeadMode(void* data, zwlr_output_head_v1* head, zwlr_output_mode_v1* mode) {
-    static_cast<WaylandConnection*>(data)->onOutputHeadMode(head, mode);
-  }
-
-  void outputHeadFinished(void* data, zwlr_output_head_v1* head) {
-    static_cast<WaylandConnection*>(data)->onOutputHeadFinished(head);
-  }
-
-  void outputHeadScale(void* data, zwlr_output_head_v1* head, wl_fixed_t scale) {
-    static_cast<WaylandConnection*>(data)->onOutputHeadScale(head, wl_fixed_to_double(scale));
-  }
-
-  void outputHeadTransform(void* data, zwlr_output_head_v1* head, int32_t transform) {
-    static_cast<WaylandConnection*>(data)->onOutputHeadTransform(head, transform);
-  }
-
-  // libwayland aborts on an event with a null listener slot, even one we don't need.
-  const zwlr_output_head_v1_listener kOutputHeadListener = {
-      .name = outputHeadName,
-      .description = [](void*, zwlr_output_head_v1*, const char*) {},
-      .physical_size = [](void*, zwlr_output_head_v1*, int32_t, int32_t) {},
-      .mode = outputHeadMode,
-      .enabled = [](void*, zwlr_output_head_v1*, int32_t) {},
-      .current_mode = [](void*, zwlr_output_head_v1*, zwlr_output_mode_v1*) {},
-      .position = [](void*, zwlr_output_head_v1*, int32_t, int32_t) {},
-      .transform = outputHeadTransform,
-      .scale = outputHeadScale,
-      .finished = outputHeadFinished,
-      .make = outputHeadMake,
-      .model = outputHeadModel,
-      .serial_number = outputHeadSerialNumber,
-      .adaptive_sync = [](void*, zwlr_output_head_v1*, uint32_t) {},
-  };
-
-  void outputManagerHead(void* data, zwlr_output_manager_v1* /*manager*/, zwlr_output_head_v1* head) {
-    auto* self = static_cast<WaylandConnection*>(data);
-    self->onOutputManagerHead(head);
-    zwlr_output_head_v1_add_listener(head, &kOutputHeadListener, data);
-  }
-
-  void outputManagerDone(void* data, zwlr_output_manager_v1* /*manager*/, std::uint32_t /*serial*/) {
-    static_cast<WaylandConnection*>(data)->onOutputManagerDone();
-  }
-
-  void outputManagerFinished(void* data, zwlr_output_manager_v1* manager) {
-    static_cast<WaylandConnection*>(data)->onOutputManagerFinished(manager);
-  }
-
-  const zwlr_output_manager_v1_listener kOutputManagerListener = {
-      .head = outputManagerHead,
-      .done = outputManagerDone,
-      .finished = outputManagerFinished,
   };
 
   constexpr Logger kLog("wayland");
@@ -930,7 +846,6 @@ bool WaylandConnection::hasXdgActivation() const noexcept { return m_xdgActivati
 bool WaylandConnection::hasFractionalScale() const noexcept {
   return m_fractionalScaleManager != nullptr && m_viewporter != nullptr;
 }
-bool WaylandConnection::hasOutputManagement() const noexcept { return m_outputManager != nullptr; }
 
 std::string WaylandConnection::requestActivationToken(wl_surface* surface) const {
   if (m_xdgActivation == nullptr || m_display == nullptr) {
@@ -1032,80 +947,21 @@ void WaylandConnection::onBackgroundEffectCapabilities(std::uint32_t capabilitie
   m_backgroundEffectBlurSupported = (capabilities & kExtBackgroundEffectBlurCapabilityMask) != 0U;
 }
 
-void WaylandConnection::onOutputManagerHead(zwlr_output_head_v1* head) { m_outputHeads.try_emplace(head); }
-
-void WaylandConnection::onOutputHeadName(zwlr_output_head_v1* head, const char* name) {
-  auto it = m_outputHeads.find(head);
-  if (it != m_outputHeads.end() && name != nullptr) {
-    it->second.name = name;
-  }
+void WaylandConnection::setOutputMetadataSource(OutputMetadataSource source) {
+  m_outputMetadataSource = std::move(source);
 }
 
-void WaylandConnection::onOutputHeadMake(zwlr_output_head_v1* head, const char* make) {
-  auto it = m_outputHeads.find(head);
-  if (it != m_outputHeads.end() && make != nullptr) {
-    it->second.make = make;
-  }
-}
-
-void WaylandConnection::onOutputHeadModel(zwlr_output_head_v1* head, const char* model) {
-  auto it = m_outputHeads.find(head);
-  if (it != m_outputHeads.end() && model != nullptr) {
-    it->second.model = model;
-  }
-}
-
-void WaylandConnection::onOutputHeadSerialNumber(zwlr_output_head_v1* head, const char* serialNumber) {
-  auto it = m_outputHeads.find(head);
-  if (it != m_outputHeads.end() && serialNumber != nullptr) {
-    it->second.serialNumber = serialNumber;
-  }
-}
-
-void WaylandConnection::onOutputHeadScale(zwlr_output_head_v1* head, double scaleFactor) {
-  auto it = m_outputHeads.find(head);
-  if (it != m_outputHeads.end()) {
-    it->second.scaleFactor = scaleFactor;
-  }
-}
-
-void WaylandConnection::onOutputHeadTransform(zwlr_output_head_v1* head, std::int32_t transform) {
-  auto it = m_outputHeads.find(head);
-  if (it != m_outputHeads.end()) {
-    it->second.transform = transform;
-  }
-}
-
-void WaylandConnection::onOutputHeadMode(zwlr_output_head_v1* /*head*/, zwlr_output_mode_v1* mode) {
-  if (mode == nullptr) {
+void WaylandConnection::applyOutputMetadata() {
+  if (!m_outputMetadataSource) {
     return;
   }
-  m_outputModes.insert(mode);
-  zwlr_output_mode_v1_add_listener(mode, &kOutputModeListener, this);
-}
-
-void WaylandConnection::onOutputModeFinished(zwlr_output_mode_v1* mode) {
-  if (m_outputModes.erase(mode) > 0) {
-    zwlr_output_mode_v1_release(mode);
-  }
-}
-
-void WaylandConnection::onOutputHeadFinished(zwlr_output_head_v1* head) {
-  m_outputHeads.erase(head);
-  zwlr_output_head_v1_release(head);
-}
-
-void WaylandConnection::onOutputManagerDone() { matchPendingOutputHeads(); }
-
-void WaylandConnection::matchPendingOutputHeads() {
   bool changed = false;
-  for (const auto& [head, info] : m_outputHeads) {
-    if (info.name.empty()) {
+  for (const WaylandOutputMetadata& info : m_outputMetadataSource()) {
+    if (info.connectorName.empty()) {
       continue;
     }
-    // A head's name equals its wl_output connector name per protocol.
     auto it = std::ranges::find_if(m_outputs, [&info](const WaylandOutput& output) {
-      return output.connectorName == info.name;
+      return output.connectorName == info.connectorName;
     });
     if (it == m_outputs.end()) {
       continue;
@@ -1140,19 +996,6 @@ bool WaylandConnection::recomputeConfiguredScale(WaylandOutput& out) {
   }
   out.configuredScaleNumerator = numerator;
   return true;
-}
-
-void WaylandConnection::onOutputManagerFinished(zwlr_output_manager_v1* manager) {
-  for (auto* mode : m_outputModes) {
-    zwlr_output_mode_v1_release(mode);
-  }
-  m_outputModes.clear();
-  for (const auto& entry : m_outputHeads) {
-    zwlr_output_head_v1_release(entry.first);
-  }
-  m_outputHeads.clear();
-  zwlr_output_manager_v1_destroy(manager);
-  m_outputManager = nullptr;
 }
 
 const std::vector<WaylandOutput>& WaylandConnection::outputs() const noexcept { return m_outputs; }
@@ -1355,19 +1198,6 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
-  if (interfaceName == zwlr_output_manager_v1_interface.name) {
-    // head/mode release requests need v3; nothing useful to bind below that anyway.
-    if (version < kOutputManagerMinVersion) {
-      return;
-    }
-    const auto bindVersion = std::min(version, kOutputManagerVersion);
-    m_outputManager = static_cast<zwlr_output_manager_v1*>(
-        wl_registry_bind(registry, name, &zwlr_output_manager_v1_interface, bindVersion)
-    );
-    zwlr_output_manager_v1_add_listener(m_outputManager, &kOutputManagerListener, this);
-    return;
-  }
-
   if (interfaceName == wl_output_interface.name) {
     const auto bindVersion = std::min(version, kOutputVersion);
     auto* output = static_cast<wl_output*>(wl_registry_bind(registry, name, &wl_output_interface, bindVersion));
@@ -1455,19 +1285,6 @@ void WaylandConnection::cleanup() {
     m_fractionalScaleManager = nullptr;
   }
 
-  for (auto* mode : m_outputModes) {
-    zwlr_output_mode_v1_release(mode);
-  }
-  m_outputModes.clear();
-  for (const auto& entry : m_outputHeads) {
-    zwlr_output_head_v1_release(entry.first);
-  }
-  m_outputHeads.clear();
-  if (m_outputManager != nullptr) {
-    zwlr_output_manager_v1_destroy(m_outputManager);
-    m_outputManager = nullptr;
-  }
-
   if (m_viewporter != nullptr) {
     wp_viewporter_destroy(m_viewporter);
     m_viewporter = nullptr;
@@ -1534,11 +1351,10 @@ void WaylandConnection::cleanup() {
 
 void WaylandConnection::logStartupSummary() const {
   kLog.info(
-      "connected compositor={} shm={} layer-shell={} xdg-shell={} xdg-output={} fractional-scale={} "
-      "output-management={} outputs={}",
+      "connected compositor={} shm={} layer-shell={} xdg-shell={} xdg-output={} fractional-scale={} outputs={}",
       m_compositor != nullptr ? "yes" : "no", m_shm != nullptr ? "yes" : "no", hasLayerShell() ? "yes" : "no",
       hasXdgShell() ? "yes" : "no", hasXdgOutputManager() ? "yes" : "no", hasFractionalScale() ? "yes" : "no",
-      hasOutputManagement() ? "yes" : "no", m_outputs.size()
+      m_outputs.size()
   );
 
   for (const auto& output : m_outputs) {

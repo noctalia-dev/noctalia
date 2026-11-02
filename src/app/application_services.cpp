@@ -72,6 +72,7 @@
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "shell/wayland/clipboard_globals.h"
 #include "shell/wayland/compositor_globals.h"
+#include "shell/wayland/output_management_globals.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
@@ -795,8 +796,10 @@ void Application::initStyleThemeAndWayland() {
     );
   }
 
-  // Bound during the initial registry roundtrip, before the clipboard and paste services attach.
+  // Bound during the initial registry roundtrip: the clipboard and paste services attach after connect, and head
+  // metadata must reach the outputs before the first surfaces read their configured scale.
   m_wayland.extension<ClipboardGlobals>();
+  m_wayland.extension<OutputManagementGlobals>();
   if (!m_wayland.connect()) {
     throw std::runtime_error("failed to connect to Wayland display");
   }
@@ -804,12 +807,13 @@ void Application::initStyleThemeAndWayland() {
     const auto& compositorGlobals = m_wayland.extension<CompositorGlobals>();
     const auto& shellGlobals = m_wayland.extension<ShellGlobals>();
     kLog.info(
-        "shell globals ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={}",
+        "shell globals ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={} output-management={}",
         compositorGlobals.hasExtWorkspaceManager() ? "yes" : "no",
         compositorGlobals.hasKdeVirtualDesktopManager() ? "yes" : "no",
         compositorGlobals.hasDwlIpcManager() ? "yes" : "no",
         shellGlobals.sessionLockManager() != nullptr ? "yes" : "no",
-        shellGlobals.gammaControlManager() != nullptr ? "yes" : "no"
+        shellGlobals.gammaControlManager() != nullptr ? "yes" : "no",
+        m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no"
     );
   }
   m_compositorPlatform.initialize();
