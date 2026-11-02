@@ -8,7 +8,7 @@
 #include "shell/desktop/desktop_widgets_controller.h"
 #include "shell/desktop/wallpaper_mask.h"
 #include "shell/render/wallpaper_mask_node.h"
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <memory>
 #include <optional>

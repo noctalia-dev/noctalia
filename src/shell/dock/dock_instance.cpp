@@ -10,11 +10,11 @@
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_items.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "ui/surface_shadow.h"
-#include "wayland/layer_surface.h"
 #include "wayland/surface.h"
 
 #include <algorithm>

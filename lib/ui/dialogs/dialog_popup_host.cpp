@@ -125,7 +125,7 @@ bool DialogPopupHost::openPopup(std::uint32_t width, std::uint32_t height) {
   m_openInProgress = true;
   const bool initialized = parentContext->xdgSurface != nullptr
       ? m_surface->initializeAsChild(parentContext->xdgSurface, parentContext->output, popupConfig)
-      : m_surface->initialize(parentContext->layerSurface, parentContext->output, popupConfig);
+      : m_surface->initialize(parentContext->attach, parentContext->output, popupConfig);
   m_openInProgress = false;
   if (!initialized) {
     destroyPopup();

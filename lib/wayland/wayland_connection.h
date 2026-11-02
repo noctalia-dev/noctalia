@@ -26,8 +26,6 @@ struct wl_registry;
 struct wl_seat;
 struct wl_shm;
 struct wl_subcompositor;
-struct zwlr_layer_shell_v1;
-struct zwlr_layer_surface_v1;
 struct zxdg_output_manager_v1;
 struct zxdg_output_v1;
 struct xdg_wm_base;
@@ -37,7 +35,6 @@ struct xdg_activation_v1;
 struct zwp_text_input_manager_v3;
 struct wp_fractional_scale_manager_v1;
 struct wp_viewporter;
-class LayerSurface;
 class PopupGrabHost;
 class TextInputService;
 
@@ -175,8 +172,6 @@ public:
 
   // Queries
   bool isConnected() const noexcept;
-  bool hasRequiredGlobals() const noexcept;
-  bool hasLayerShell() const noexcept;
   bool hasSubcompositor() const noexcept;
   bool hasXdgOutputManager() const noexcept;
   bool hasXdgShell() const noexcept;
@@ -196,7 +191,6 @@ public:
   wl_pointer* pointer() const noexcept;
   wl_shm* shm() const noexcept;
   wl_subcompositor* subcompositor() const noexcept;
-  zwlr_layer_shell_v1* layerShell() const noexcept;
   xdg_wm_base* xdgWmBase() const noexcept;
   const std::vector<WaylandOutput>& outputs() const noexcept;
   WaylandOutput* findOutputByWl(wl_output* wlOutput);
@@ -226,10 +220,7 @@ public:
   void registerSurfaceOutput(wl_surface* surface, wl_output* output);
   void notifySurfaceOutputEnter(wl_surface* surface, wl_output* output);
   void notifySurfaceOutputLeave(wl_surface* surface, wl_output* output);
-  void registerLayerSurface(const LayerSurface& layerSurface);
   void unregisterSurface(wl_surface* surface);
-  zwlr_layer_surface_v1* layerSurfaceFor(wl_surface* surface) const noexcept;
-  const LayerSurface* layerSurfaceOwnerFor(wl_surface* surface) const noexcept;
   void notifyOutputReady(wl_output* output);
 
   // Registry listener entrypoints
@@ -264,7 +255,6 @@ private:
   wl_seat* m_seat = nullptr;
   wl_shm* m_shm = nullptr;
   wl_subcompositor* m_subcompositor = nullptr;
-  zwlr_layer_shell_v1* m_layerShell = nullptr;
   zxdg_output_manager_v1* m_xdgOutputManager = nullptr;
   xdg_wm_base* m_xdgWmBase = nullptr;
   wp_cursor_shape_manager_v1* m_cursorShapeManager = nullptr;
@@ -277,14 +267,12 @@ private:
   bool m_backgroundEffectBlurSupported = false;
   zwp_text_input_manager_v3* m_textInputManager = nullptr;
   TextInputService* m_textInputService = nullptr;
-  bool m_hasLayerShellGlobal = false;
   std::vector<WaylandOutput> m_outputs;
   ChangeCallback m_outputChangeCallback;
   std::function<void(wl_output*)> m_outputAddedCallback;
   std::function<void(wl_output*)> m_outputRemovedCallback;
   std::unordered_map<wl_surface*, wl_output*> m_surfaceOutputMap;
   std::unordered_map<wl_surface*, std::vector<wl_output*>> m_surfaceOutputs;
-  std::unordered_map<wl_surface*, const LayerSurface*> m_layerSurfaceMap;
   wl_output* m_lastPointerOutput = nullptr;
   std::chrono::steady_clock::time_point m_lastPointerOutputAt;
   WaylandSeat::PointerEventCallback m_pointerEventCallback;

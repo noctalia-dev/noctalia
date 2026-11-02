@@ -18,7 +18,7 @@ struct PointerEvent;
 struct wl_surface;
 
 struct SearchPickerPopupRequest {
-  // Set to open over an xdg toplevel (the settings window). Unset opens over the layer surface
+  // Set to open over an xdg toplevel (the settings window). Unset opens over the popup host surface
   // that received the last input, resolved through LayerPopupHostRegistry.
   std::optional<XdgPopupParent> parent;
   std::string title;
@@ -79,12 +79,12 @@ private:
   std::function<void()> m_onDismissed;
 };
 
-// App-wide entry point for surfaces without their own SearchPickerPopup (layer-shell panels).
-// The application registers its layer-parented popup at startup.
+// App-wide entry point for surfaces without their own SearchPickerPopup (shell panels).
+// The application registers its host-parented popup at startup.
 class SearchPickerDialog {
 public:
   static void setPopup(SearchPickerPopup* popup) noexcept;
-  // Opens over the layer surface that received the last input; `request.parent` must be unset.
+  // Opens over the popup host surface that received the last input; `request.parent` must be unset.
   // Returns false when no popup is registered or the popup could not open.
   static bool open(SearchPickerPopupRequest request, SearchPickerPopup::SelectCallback onSelect);
 };

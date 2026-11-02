@@ -22,6 +22,7 @@
 #include "shell/panel/panel_manager.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/tooltip/tooltip_placement.h"
+#include "shell/wayland/layer_shell.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -2105,7 +2106,7 @@ std::optional<LayerPopupParentContext> Bar::popupParentContextForSurface(wl_surf
 
   return LayerPopupParentContext{
       .surface = instance->surface->wlSurface(),
-      .layerSurface = layerSurface,
+      .attach = LayerShell::popupAttach(layerSurface),
       .output = instance->output,
       .width = width,
       .height = height,

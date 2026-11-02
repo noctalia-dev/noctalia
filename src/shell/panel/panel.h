@@ -3,7 +3,7 @@
 #include "config/config_types.h"
 #include "core/ui_phase.h"
 #include "render/scene/node.h"
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <algorithm>
 #include <cstdint>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "wayland/popup_parent_attach.h"
 #include "wayland/surface.h"
 
 #include <cstdint>
@@ -9,7 +10,6 @@
 struct wl_output;
 struct xdg_popup;
 struct xdg_surface;
-struct zwlr_layer_surface_v1;
 
 struct PopupSurfaceConfig {
   std::int32_t anchorX = 0;
@@ -35,7 +35,8 @@ public:
 
   using Surface::initialize;
   bool initialize() override { return false; }
-  bool initialize(zwlr_layer_surface_v1* parentLayerSurface, wl_output* output, PopupSurfaceConfig config);
+  // Creates the popup without an xdg parent and lets attachToParent assign one.
+  bool initialize(const PopupParentAttach& attachToParent, wl_output* output, PopupSurfaceConfig config);
   bool initializeAsChild(xdg_surface* parentXdgSurface, wl_output* output, PopupSurfaceConfig config);
   // When commit is false, the geometry change (size, viewport destination, reposition) is left
   // pending on the wl_surface so the caller can publish it atomically with the next rendered

@@ -7,9 +7,7 @@
 #include "fractional-scale-v1-client-protocol.h"
 #include "text-input-unstable-v3-client-protocol.h"
 #include "viewporter-client-protocol.h"
-#include "wayland/layer_surface.h"
 #include "wayland/text_input_service.h"
-#include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "xdg-activation-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
@@ -35,7 +33,6 @@ namespace {
   constexpr std::uint32_t kSeatVersion = 8;
   constexpr std::uint32_t kShmVersion = 1;
   constexpr std::uint32_t kSubcompositorVersion = 1;
-  constexpr std::uint32_t kLayerShellVersion = 4;
   constexpr std::uint32_t kXdgOutputManagerVersion = 3;
   constexpr std::uint32_t kXdgWmBaseVersion = 6;
   constexpr std::uint32_t kCursorShapeManagerVersion = 1;
@@ -723,36 +720,16 @@ void WaylandConnection::notifySurfaceOutputLeave(wl_surface* surface, wl_output*
   }
 }
 
-void WaylandConnection::registerLayerSurface(const LayerSurface& layerSurface) {
-  if (layerSurface.wlSurface() != nullptr && layerSurface.layerSurface() != nullptr) {
-    m_layerSurfaceMap[layerSurface.wlSurface()] = &layerSurface;
-  }
-}
-
 void WaylandConnection::unregisterSurface(wl_surface* surface) {
   if (surface != nullptr) {
     m_seatHandler.forgetSurface(surface);
     m_surfaceOutputMap.erase(surface);
     m_surfaceOutputs.erase(surface);
-    m_layerSurfaceMap.erase(surface);
     if (m_lastPointerOutput != nullptr) {
       // Clear last pointer output only if it was from this surface
       // (we don't track which surface set it, so just leave it — it's a hint anyway)
     }
   }
-}
-
-zwlr_layer_surface_v1* WaylandConnection::layerSurfaceFor(wl_surface* surface) const noexcept {
-  const LayerSurface* owner = layerSurfaceOwnerFor(surface);
-  return owner != nullptr ? owner->layerSurface() : nullptr;
-}
-
-const LayerSurface* WaylandConnection::layerSurfaceOwnerFor(wl_surface* surface) const noexcept {
-  if (surface == nullptr) {
-    return nullptr;
-  }
-  const auto it = m_layerSurfaceMap.find(surface);
-  return it != m_layerSurfaceMap.end() ? it->second : nullptr;
 }
 
 void WaylandConnection::notifyOutputReady(wl_output* output) {
@@ -832,11 +809,6 @@ void WaylandConnection::setCursorShape(std::uint32_t serial, std::uint32_t shape
 
 bool WaylandConnection::isConnected() const noexcept { return m_display != nullptr; }
 
-bool WaylandConnection::hasRequiredGlobals() const noexcept {
-  return m_compositor != nullptr && m_shm != nullptr && m_layerShell != nullptr;
-}
-
-bool WaylandConnection::hasLayerShell() const noexcept { return m_hasLayerShellGlobal; }
 bool WaylandConnection::hasSubcompositor() const noexcept { return m_subcompositor != nullptr; }
 
 bool WaylandConnection::hasXdgOutputManager() const noexcept { return m_xdgOutputManager != nullptr; }
@@ -928,7 +900,6 @@ wl_shm* WaylandConnection::shm() const noexcept { return m_shm; }
 
 wl_subcompositor* WaylandConnection::subcompositor() const noexcept { return m_subcompositor; }
 
-zwlr_layer_shell_v1* WaylandConnection::layerShell() const noexcept { return m_layerShell; }
 xdg_wm_base* WaylandConnection::xdgWmBase() const noexcept { return m_xdgWmBase; }
 
 bool WaylandConnection::hasBackgroundEffectBlur() const noexcept { return m_backgroundEffectBlurSupported; }
@@ -1126,15 +1097,6 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
-  if (interfaceName == "zwlr_layer_shell_v1") {
-    m_hasLayerShellGlobal = true;
-    const auto bindVersion = std::min(version, kLayerShellVersion);
-    m_layerShell = static_cast<zwlr_layer_shell_v1*>(
-        wl_registry_bind(registry, name, &zwlr_layer_shell_v1_interface, bindVersion)
-    );
-    return;
-  }
-
   if (interfaceName == zxdg_output_manager_v1_interface.name) {
     const auto bindVersion = std::min(version, kXdgOutputManagerVersion);
     m_xdgOutputManager = static_cast<zxdg_output_manager_v1*>(
@@ -1262,11 +1224,6 @@ void WaylandConnection::cleanup() {
     m_xdgWmBase = nullptr;
   }
 
-  if (m_layerShell != nullptr) {
-    zwlr_layer_shell_v1_destroy(m_layerShell);
-    m_layerShell = nullptr;
-  }
-
   m_seatHandler.cleanup();
 
   if (m_xdgActivation != nullptr) {
@@ -1343,18 +1300,15 @@ void WaylandConnection::cleanup() {
   m_outputs.clear();
   m_surfaceOutputMap.clear();
   m_surfaceOutputs.clear();
-  m_layerSurfaceMap.clear();
-  m_hasLayerShellGlobal = false;
   m_outputAddedCallback = nullptr;
   m_outputRemovedCallback = nullptr;
 }
 
 void WaylandConnection::logStartupSummary() const {
   kLog.info(
-      "connected compositor={} shm={} layer-shell={} xdg-shell={} xdg-output={} fractional-scale={} outputs={}",
-      m_compositor != nullptr ? "yes" : "no", m_shm != nullptr ? "yes" : "no", hasLayerShell() ? "yes" : "no",
-      hasXdgShell() ? "yes" : "no", hasXdgOutputManager() ? "yes" : "no", hasFractionalScale() ? "yes" : "no",
-      m_outputs.size()
+      "connected compositor={} shm={} xdg-shell={} xdg-output={} fractional-scale={} outputs={}",
+      m_compositor != nullptr ? "yes" : "no", m_shm != nullptr ? "yes" : "no", hasXdgShell() ? "yes" : "no",
+      hasXdgOutputManager() ? "yes" : "no", hasFractionalScale() ? "yes" : "no", m_outputs.size()
   );
 
   for (const auto& output : m_outputs) {

@@ -161,7 +161,7 @@ void MediaTab::openPlayerMenu() {
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parentCtx->layerSurface,
+                  .attach = parentCtx->attach,
                   .output = parentCtx->output,
               },
           .pointerParentSurface = parentCtx->surface,

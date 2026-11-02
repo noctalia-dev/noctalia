@@ -24,12 +24,13 @@
 #include "shell/render/wallpaper_types.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -453,7 +454,7 @@ DesktopWidgetsEditor::overlayPopupParentContext(const OverlaySurface& surface) c
 
   return LayerPopupParentContext{
       .surface = surface.surface->wlSurface(),
-      .layerSurface = layerSurface,
+      .attach = LayerShell::popupAttach(layerSurface),
       .output = surface.output,
       .width = width,
       .height = height,
@@ -661,7 +662,9 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     if (m_config != nullptr) {
       surface.selectPopup->setShadowConfig(m_config->config().shell.shadow);
     }
-    surface.selectPopup->setParent(surface.surface->layerSurface(), surface.surface->wlSurface(), surface.output);
+    surface.selectPopup->setParent(
+        LayerShell::popupAttach(surface.surface->layerSurface()), surface.surface->wlSurface(), surface.output
+    );
     root->setPopupContext(surface.selectPopup.get());
   }
   root->setFrameSize(static_cast<float>(surface.surface->width()), static_cast<float>(surface.surface->height()));

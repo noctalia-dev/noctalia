@@ -11,6 +11,7 @@
 #include "render/render_target.h"
 #include "render/scene/node.h"
 #include "shell/dock/pinned_apps.h"
+#include "shell/wayland/layer_shell.h"
 #include "shell/wayland/wayland_toplevels.h"
 #include "system/desktop_entry.h"
 #include "ui/builders.h"
@@ -471,7 +472,8 @@ namespace shell::dock {
       });
     });
 
-    if (parentLayerSurface == nullptr || !menu->surface->initialize(parentLayerSurface, output, popupCfg)) {
+    if (parentLayerSurface == nullptr
+        || !menu->surface->initialize(LayerShell::popupAttach(parentLayerSurface), output, popupCfg)) {
       kLog.warn("dock: failed to create item-menu popup");
       return nullptr;
     }

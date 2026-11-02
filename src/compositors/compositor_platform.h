@@ -24,9 +24,11 @@ struct zdwl_ipc_manager_v2;
 struct hyprland_toplevel_mapping_manager_v1;
 struct zwlr_foreign_toplevel_handle_v1;
 struct ext_foreign_toplevel_handle_v1;
+struct zwlr_layer_surface_v1;
 class CompositorGlobals;
 class FocusGrabService;
 class ForeignToplevels;
+class LayerShell;
 class OutputProbe;
 class SessionBus;
 class ShellGlobals;
@@ -80,6 +82,7 @@ public:
   wl_output* outputForSurface(wl_surface* surface) const noexcept;
   FocusGrabService& focusGrabService() const noexcept { return m_focusGrab; }
   ForeignToplevels& foreignToplevels() const noexcept { return m_toplevels; }
+  LayerShell& layerShell() const noexcept { return m_layerShell; }
   bool hasPointerPosition() const noexcept;
   wl_surface* lastPointerSurface() const noexcept;
   wl_surface* lastKeyboardSurface() const noexcept;
@@ -243,6 +246,7 @@ private:
   FocusGrabService& m_focusGrab;
   ForeignToplevels& m_toplevels;
   CompositorGlobals& m_compositorGlobals;
+  LayerShell& m_layerShell;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;
   std::unique_ptr<WaylandWorkspaces> m_workspaces;

@@ -9,8 +9,8 @@
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/wayland/layer_surface.h"
 #include "util/string_utils.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 
 #include <nlohmann/json.hpp>

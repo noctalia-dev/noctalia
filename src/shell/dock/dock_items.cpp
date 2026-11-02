@@ -12,12 +12,12 @@
 #include "shell/dock/dock_model.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/tooltip/tooltip_placement.h"
+#include "shell/wayland/layer_surface.h"
 #include "system/icon_resolver.h"
 #include "system/internal_app_metadata.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
 
 #include <algorithm>
 #include <chrono>

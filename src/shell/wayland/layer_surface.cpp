@@ -1,6 +1,7 @@
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
 
 #include "core/log.h"
+#include "shell/wayland/layer_shell.h"
 #include "util/sys_utils.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
@@ -51,11 +52,12 @@ LayerShellLayer layerShellLayerFromConfig(std::string_view layer) {
 }
 
 LayerSurface::LayerSurface(WaylandConnection& connection, LayerSurfaceConfig config)
-    : Surface(connection), m_config(std::move(config)) {
+    : Surface(connection), m_layerShell(connection.extension<LayerShell>()), m_config(std::move(config)) {
   setDebugName("layer:" + m_config.nameSpace);
 }
 
 LayerSurface::~LayerSurface() {
+  m_layerShell.unregisterSurface(m_surface);
   m_connection.unregisterSurface(m_surface);
   if (m_layerSurface != nullptr) {
     zwlr_layer_surface_v1_destroy(m_layerSurface);
@@ -72,7 +74,7 @@ bool LayerSurface::initialize() {
 }
 
 bool LayerSurface::initialize(wl_output* output) {
-  if (!m_connection.hasRequiredGlobals()) {
+  if (m_connection.compositor() == nullptr || m_connection.shm() == nullptr || m_layerShell.manager() == nullptr) {
     kLog.warn("layer surface skipped: missing compositor/shm/layer-shell globals");
     return false;
   }
@@ -93,8 +95,7 @@ bool LayerSurface::initialize(wl_output* output) {
   m_connection.registerSurfaceOutput(m_surface, output);
 
   m_layerSurface = zwlr_layer_shell_v1_get_layer_surface(
-      m_connection.layerShell(), m_surface, output, static_cast<std::uint32_t>(m_config.layer),
-      m_config.nameSpace.c_str()
+      m_layerShell.manager(), m_surface, output, static_cast<std::uint32_t>(m_config.layer), m_config.nameSpace.c_str()
   );
   if (m_layerSurface == nullptr) {
     throw std::runtime_error("failed to create layer surface");
@@ -104,7 +105,7 @@ bool LayerSurface::initialize(wl_output* output) {
     throw std::runtime_error("failed to add layer surface listener");
   }
 
-  m_connection.registerLayerSurface(*this);
+  m_layerShell.registerSurface(*this);
 
   zwlr_layer_surface_v1_set_anchor(m_layerSurface, m_config.anchor);
   zwlr_layer_surface_v1_set_size(m_layerSurface, m_config.width, m_config.height);

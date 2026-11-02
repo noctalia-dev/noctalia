@@ -3,7 +3,6 @@
 #include "core/log.h"
 #include "wayland/popup_grab_host.h"
 #include "wayland/wayland_connection.h"
-#include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
@@ -84,9 +83,9 @@ void PopupSurface::unenrollFromGrabHost() {
   }
 }
 
-bool PopupSurface::initialize(zwlr_layer_surface_v1* parentLayerSurface, wl_output* output, PopupSurfaceConfig config) {
-  if (parentLayerSurface == nullptr || !m_connection.hasXdgShell()) {
-    kLog.warn("context menu skipped: missing layer parent or xdg-shell");
+bool PopupSurface::initialize(const PopupParentAttach& attachToParent, wl_output* output, PopupSurfaceConfig config) {
+  if (!attachToParent || !m_connection.hasXdgShell()) {
+    kLog.warn("context menu skipped: missing popup parent or xdg-shell");
     return false;
   }
 
@@ -137,7 +136,7 @@ bool PopupSurface::initialize(zwlr_layer_surface_v1* parentLayerSurface, wl_outp
   }
 
   xdg_popup_add_listener(m_popup, &kPopupListener, this);
-  zwlr_layer_surface_v1_get_popup(parentLayerSurface, m_popup);
+  attachToParent(m_popup);
 
   wireGrab();
 

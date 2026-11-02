@@ -330,7 +330,6 @@ std::optional<LayerPopupParentContext> SettingsWindow::topmostPopupParentContext
     }
     return LayerPopupParentContext{
         .surface = wlSurface,
-        .layerSurface = nullptr,
         .xdgSurface = xdgSurface,
         .output = output,
         .width = width,
@@ -391,7 +390,6 @@ std::optional<LayerPopupParentContext> SettingsWindow::popupParentContextForSurf
     }
     return LayerPopupParentContext{
         .surface = wlSurface,
-        .layerSurface = nullptr,
         .xdgSurface = xdgSurface,
         .output = output,
         .width = width,

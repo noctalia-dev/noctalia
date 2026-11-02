@@ -42,27 +42,6 @@ foreach _p : [
   noctalia_ui_protocol_headers += _h
 endforeach
 
-# wlr-layer-shell: 'namespace' is a C++ keyword; rename it in the generated
-# header only (private-code is compiled as C so it's fine as-is).
-_wlr_ls_xml = '../protocols/wlr-layer-shell-unstable-v1.xml'
-_wlr_ls_h = custom_target('wlr-layer-shell-unstable-v1-client-header',
-  input:   _wlr_ls_xml,
-  output:  'wlr-layer-shell-unstable-v1-client-protocol.h',
-  command: [
-    'sh', '-c',
-    '"$1" client-header "$2" "$3" && sed -i s/namespace/name_space/g "$3"',
-    '_', wayland_scanner.full_path(), '@INPUT@', '@OUTPUT@',
-  ],
-)
-_wlr_ls_c = custom_target('wlr-layer-shell-unstable-v1-client-source',
-  input:   _wlr_ls_xml,
-  output:  'wlr-layer-shell-unstable-v1-client-protocol.c',
-  command: [wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@'],
-  depends: _wlr_ls_h,
-)
-_noctalia_ui_protocol_sources += _wlr_ls_c
-noctalia_ui_protocol_headers += _wlr_ls_h
-
 # ── Sources ───────────────────────────────────────────────────────────────────
 _noctalia_ui_sources = files(
   'core/deferred_call.cpp',
@@ -181,8 +160,6 @@ _noctalia_ui_sources = files(
   'util/checksum.cpp',
   'util/clamp.cpp',
   'util/fuzzy_match.cpp',
-  'wayland/layer_surface.cpp',
-  'wayland/output_probe.cpp',
   'wayland/popup_surface.cpp',
   'wayland/subsurface.cpp',
   'wayland/surface.cpp',

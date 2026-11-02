@@ -48,7 +48,7 @@ struct ContextMenuPopupRequest {
   PopupAnchorRect anchor;
   PopupSurfaceParent parent;
   // Surface whose pointer events are translated into menu coordinates while a press holds the
-  // pointer capture (scrollbar thumb drags leaving the popup). Defaults to parent.wlSurface.
+  // pointer capture (scrollbar thumb drags leaving the popup).
   wl_surface* pointerParentSurface = nullptr;
   // Serial of the input event that requested this popup. When absent, legacy
   // callers retain the previous last-input-serial behavior.
@@ -109,11 +109,8 @@ private:
   // example, a plugin panel being unregistered) destroys the popup.
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 
-  // Parent layer surface (e.g. a bar) whose keyboard interactivity is flipped to
-  // OnDemand while the menu is open so the grabbing popup inherits keyboard
-  // focus, then restored to None on close.
-  zwlr_layer_surface_v1* m_keyboardParentLayerSurface = nullptr;
-  wl_surface* m_keyboardParentWlSurface = nullptr;
+  // Restores the parent's keyboard focus behaviour after parent.keyboardGrab; empty when unused.
+  std::function<void()> m_releaseParentKeyboard;
 
   static ContextMenuPopup* s_openMenu;
 };

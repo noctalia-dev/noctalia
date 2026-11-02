@@ -11,11 +11,9 @@
 #include "ui/controls/scroll_view.h"
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
 #include "wayland/popup_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
-#include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
@@ -195,22 +193,15 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
 
   m_surface->setDismissedCallback([self] { self->deferClose(); });
 
-  // Layer-shell popups inherit their parent's keyboard interactivity. A bar is
-  // None, so flip it to OnDemand before the popup maps or the grabbing popup
-  // gets no keyboard focus and ESC cannot reach it. Only bar-style callers pass
-  // a parent wlSurface; panels are already OnDemand and leave it null.
-  if (request.parent.layerSurface != nullptr && request.parent.wlSurface != nullptr) {
-    m_keyboardParentLayerSurface = request.parent.layerSurface;
-    m_keyboardParentWlSurface = request.parent.wlSurface;
-    zwlr_layer_surface_v1_set_keyboard_interactivity(
-        request.parent.layerSurface, static_cast<std::uint32_t>(LayerShellKeyboard::OnDemand)
-    );
-    wl_surface_commit(request.parent.wlSurface);
+  // A parent that refuses keyboard focus (a bar) must accept it before the grabbing popup maps,
+  // or the popup gets no keyboard focus and ESC cannot reach it.
+  if (request.parent.keyboardGrab) {
+    m_releaseParentKeyboard = request.parent.keyboardGrab();
   }
 
   const bool initialized = request.parent.xdgSurface != nullptr
       ? m_surface->initializeAsChild(request.parent.xdgSurface, request.parent.output, popupCfg)
-      : m_surface->initialize(request.parent.layerSurface, request.parent.output, popupCfg);
+      : m_surface->initialize(request.parent.attach, request.parent.output, popupCfg);
   if (!initialized) {
     kLog.warn("failed to create context menu popup");
     restoreParentKeyboardInteractivity();
@@ -220,8 +211,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
 
   popup_chrome::setContentInputRegion(*m_surface, chrome);
   m_wlSurface = m_surface->wlSurface();
-  m_pointerParentSurface =
-      request.pointerParentSurface != nullptr ? request.pointerParentSurface : request.parent.wlSurface;
+  m_pointerParentSurface = request.pointerParentSurface;
   s_openMenu = this;
 }
 
@@ -458,17 +448,9 @@ void ContextMenuPopup::requestVisualUpdate() {
 }
 
 void ContextMenuPopup::restoreParentKeyboardInteractivity() {
-  zwlr_layer_surface_v1* layerSurface = m_keyboardParentLayerSurface;
-  wl_surface* wlSurface = m_keyboardParentWlSurface;
-  m_keyboardParentLayerSurface = nullptr;
-  m_keyboardParentWlSurface = nullptr;
-  // The parent surface can be destroyed while the menu is open (bar rebuild,
-  // output removal). Its proxies are then freed, so only touch it while still registered.
-  if (layerSurface == nullptr || m_wayland.layerSurfaceFor(wlSurface) != layerSurface) {
-    return;
+  if (auto release = std::exchange(m_releaseParentKeyboard, {}); release) {
+    release();
   }
-  zwlr_layer_surface_v1_set_keyboard_interactivity(layerSurface, static_cast<std::uint32_t>(LayerShellKeyboard::None));
-  wl_surface_commit(wlSurface);
 }
 
 bool ContextMenuPopup::dispatchKeyboardEvent(const KeyboardEvent& event) {

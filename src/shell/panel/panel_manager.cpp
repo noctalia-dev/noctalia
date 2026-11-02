@@ -20,6 +20,8 @@
 #include "shell/screen_position.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/wayland/hyprland/focus_grab_service.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/context_menu_popup.h"
@@ -29,7 +31,6 @@
 #include "ui/surface_shadow.h"
 #include "util/string_utils.h"
 #include "util/sys_utils.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -2099,16 +2100,19 @@ std::optional<LayerPopupParentContext> PanelManager::fallbackPopupParentContext(
     return std::nullopt;
   }
 
-  LayerPopupParentContext context;
-  context.surface = m_wlSurface;
-  context.layerSurface = m_layerSurface->layerSurface();
-  context.output = m_output;
-  context.width = m_surface->width();
-  context.height = m_surface->height();
-  if (context.layerSurface == nullptr || context.width == 0 || context.height == 0) {
+  const std::uint32_t width = m_surface->width();
+  const std::uint32_t height = m_surface->height();
+  zwlr_layer_surface_v1* layerSurface = m_layerSurface->layerSurface();
+  if (layerSurface == nullptr || width == 0 || height == 0) {
     return std::nullopt;
   }
-  return context;
+  return LayerPopupParentContext{
+      .surface = m_wlSurface,
+      .attach = LayerShell::popupAttach(layerSurface),
+      .output = m_output,
+      .width = width,
+      .height = height,
+  };
 }
 
 std::optional<LayerPopupParentContext>
@@ -2650,7 +2654,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
       if (m_config != nullptr) {
         m_selectPopup->setShadowConfig(m_config->config().shell.shadow);
       }
-      m_selectPopup->setParent(m_layerSurface->layerSurface(), m_wlSurface, m_output);
+      m_selectPopup->setParent(LayerShell::popupAttach(m_layerSurface->layerSurface()), m_wlSurface, m_output);
       m_sceneRoot->setPopupContext(m_selectPopup.get());
     }
     m_sceneRoot->setSize(w, h);

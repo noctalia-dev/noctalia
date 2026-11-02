@@ -1545,7 +1545,7 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parentCtx->layerSurface,
+                  .attach = parentCtx->attach,
                   .output = parentCtx->output,
               },
           .pointerParentSurface = parentCtx->surface,
@@ -1633,7 +1633,7 @@ void AudioTab::openProgramRoutingMenu(Node* anchor, std::uint32_t programStreamI
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parentCtx->layerSurface,
+                  .attach = parentCtx->attach,
                   .output = parentCtx->output,
               },
           .pointerParentSurface = parentCtx->surface,

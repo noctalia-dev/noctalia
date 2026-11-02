@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 
+class LayerShell;
 struct wl_output;
 struct zwlr_layer_surface_v1;
 
@@ -85,6 +86,7 @@ public:
 private:
   void applyInputRegion();
 
+  LayerShell& m_layerShell;
   LayerSurfaceConfig m_config;
   zwlr_layer_surface_v1* m_layerSurface = nullptr;
   std::function<void()> m_closedCallback;

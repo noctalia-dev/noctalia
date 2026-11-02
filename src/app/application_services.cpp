@@ -72,6 +72,7 @@
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "shell/wayland/clipboard_globals.h"
 #include "shell/wayland/compositor_globals.h"
+#include "shell/wayland/layer_shell.h"
 #include "shell/wayland/output_management_globals.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
@@ -796,8 +797,9 @@ void Application::initStyleThemeAndWayland() {
     );
   }
 
-  // Bound during the initial registry roundtrip: the clipboard and paste services attach after connect, and head
-  // metadata must reach the outputs before the first surfaces read their configured scale.
+  // Bound during the initial registry roundtrip: layer surfaces and the clipboard and paste services attach after
+  // connect, and head metadata must reach the outputs before the first surfaces read their configured scale.
+  m_wayland.extension<LayerShell>();
   m_wayland.extension<ClipboardGlobals>();
   m_wayland.extension<OutputManagementGlobals>();
   if (!m_wayland.connect()) {
@@ -807,7 +809,9 @@ void Application::initStyleThemeAndWayland() {
     const auto& compositorGlobals = m_wayland.extension<CompositorGlobals>();
     const auto& shellGlobals = m_wayland.extension<ShellGlobals>();
     kLog.info(
-        "shell globals ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={} output-management={}",
+        "shell globals layer-shell={} ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={} "
+        "output-management={}",
+        m_wayland.extension<LayerShell>().manager() != nullptr ? "yes" : "no",
         compositorGlobals.hasExtWorkspaceManager() ? "yes" : "no",
         compositorGlobals.hasKdeVirtualDesktopManager() ? "yes" : "no",
         compositorGlobals.hasDwlIpcManager() ? "yes" : "no",

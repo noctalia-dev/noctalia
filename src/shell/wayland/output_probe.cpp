@@ -1,7 +1,8 @@
-#include "wayland/output_probe.h"
+#include "shell/wayland/output_probe.h"
 
 #include "core/log.h"
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
@@ -43,7 +44,8 @@ namespace {
 
 OutputProbe::OutputProbe(WaylandConnection& wayland, std::chrono::milliseconds timeout, Callback callback)
     : m_wayland(wayland), m_callback(std::move(callback)) {
-  if (m_wayland.compositor() == nullptr || m_wayland.layerShell() == nullptr || m_wayland.shm() == nullptr) {
+  zwlr_layer_shell_v1* layerShell = m_wayland.extension<LayerShell>().manager();
+  if (m_wayland.compositor() == nullptr || layerShell == nullptr || m_wayland.shm() == nullptr) {
     kLog.warn("required globals unavailable; reporting no output");
     finish(nullptr);
     return;
@@ -64,8 +66,7 @@ OutputProbe::OutputProbe(WaylandConnection& wayland, std::chrono::milliseconds t
   // No output argument: the compositor assigns the surface to the output it
   // would choose for any unpinned layer surface (the focused one).
   m_layerSurface = zwlr_layer_shell_v1_get_layer_surface(
-      m_wayland.layerShell(), m_surface, nullptr, static_cast<std::uint32_t>(LayerShellLayer::Background),
-      "noctalia-output-probe"
+      layerShell, m_surface, nullptr, static_cast<std::uint32_t>(LayerShellLayer::Background), "noctalia-output-probe"
   );
   if (m_layerSurface == nullptr) {
     finish(nullptr);

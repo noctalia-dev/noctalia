@@ -9,7 +9,7 @@
 #include "scripting/script_runtime.h"
 #include "scripting/ui/ui_tree.h"
 #include "scripting/ui/ui_tree_reconciler.h"
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <filesystem>
 #include <memory>

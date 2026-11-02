@@ -27,6 +27,7 @@
 #include "shell/switcher/window_switcher_membership.h"
 #include "shell/switcher/window_switcher_tile.h"
 #include "shell/wayland/foreign_toplevels.h"
+#include "shell/wayland/layer_surface.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
@@ -36,7 +37,6 @@
 #include "ui/style.h"
 #include "ui/surface_shadow.h"
 #include "util/string_utils.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>

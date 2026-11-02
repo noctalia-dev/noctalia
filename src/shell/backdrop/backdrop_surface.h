@@ -2,7 +2,7 @@
 
 #include "render/core/cached_layer.h"
 #include "shell/backdrop/wallpaper_renderer.h"
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <cstdint>
 

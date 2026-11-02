@@ -13,7 +13,6 @@ struct PointerEvent;
 struct wl_output;
 struct wl_surface;
 struct xdg_surface;
-struct zwlr_layer_surface_v1;
 
 // A Select's dropdown is a context menu: this adapter maps DropdownRequest onto the shared
 // ContextMenuPopup / ContextMenuControl stack so rows, scrolling, and keyboard navigation have a
@@ -23,7 +22,7 @@ public:
   SelectDropdownPopup(WaylandConnection& wayland, RenderContext& renderContext);
   ~SelectDropdownPopup() override;
 
-  void setParent(zwlr_layer_surface_v1* layerSurface, wl_surface* parentWlSurface, wl_output* output);
+  void setParent(PopupParentAttach attach, wl_surface* parentWlSurface, wl_output* output);
   void setParent(xdg_surface* xdgSurface, wl_surface* parentWlSurface, wl_output* output);
   void setShadowConfig(const ShadowStyle& shadow);
 
@@ -41,7 +40,7 @@ public:
 
 private:
   ContextMenuPopup m_popup;
-  zwlr_layer_surface_v1* m_parentLayerSurface = nullptr;
+  PopupParentAttach m_parentAttach;
   xdg_surface* m_parentXdgSurface = nullptr;
   wl_surface* m_parentWlSurface = nullptr;
   wl_output* m_parentOutput = nullptr;

@@ -430,6 +430,27 @@ foreach _p : [
   _protocol_headers += _h
 endforeach
 
+# wlr-layer-shell: 'namespace' is a C++ keyword; rename it in the generated
+# header only (private-code is compiled as C so it's fine as-is).
+_wlr_ls_xml = 'protocols/wlr-layer-shell-unstable-v1.xml'
+_wlr_ls_h = custom_target('wlr-layer-shell-unstable-v1-client-header',
+  input:   _wlr_ls_xml,
+  output:  'wlr-layer-shell-unstable-v1-client-protocol.h',
+  command: [
+    'sh', '-c',
+    '"$1" client-header "$2" "$3" && sed -i s/namespace/name_space/g "$3"',
+    '_', wayland_scanner.full_path(), '@INPUT@', '@OUTPUT@',
+  ],
+)
+_wlr_ls_c = custom_target('wlr-layer-shell-unstable-v1-client-source',
+  input:   _wlr_ls_xml,
+  output:  'wlr-layer-shell-unstable-v1-client-protocol.c',
+  command: [wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@'],
+  depends: _wlr_ls_h,
+)
+_protocol_sources += _wlr_ls_c
+_protocol_headers += _wlr_ls_h
+
 # ── Main sources ──────────────────────────────────────────────────────────────
 _noctalia_sources = files(
   'src/app/application.cpp',
@@ -905,6 +926,9 @@ _noctalia_sources = files(
   'src/shell/wayland/compositor_globals.cpp',
   'src/shell/wayland/foreign_toplevels.cpp',
   'src/shell/wayland/output_management_globals.cpp',
+  'src/shell/wayland/layer_shell.cpp',
+  'src/shell/wayland/layer_surface.cpp',
+  'src/shell/wayland/output_probe.cpp',
   'src/theme/scheme.cpp',
   'src/theme/color.cpp',
   'src/theme/contrast.cpp',

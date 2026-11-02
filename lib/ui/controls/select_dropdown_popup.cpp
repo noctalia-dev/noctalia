@@ -21,17 +21,15 @@ SelectDropdownPopup::SelectDropdownPopup(WaylandConnection& wayland, RenderConte
 
 SelectDropdownPopup::~SelectDropdownPopup() = default;
 
-void SelectDropdownPopup::setParent(
-    zwlr_layer_surface_v1* layerSurface, wl_surface* parentWlSurface, wl_output* output
-) {
-  m_parentLayerSurface = layerSurface;
+void SelectDropdownPopup::setParent(PopupParentAttach attach, wl_surface* parentWlSurface, wl_output* output) {
+  m_parentAttach = std::move(attach);
   m_parentXdgSurface = nullptr;
   m_parentWlSurface = parentWlSurface;
   m_parentOutput = output;
 }
 
 void SelectDropdownPopup::setParent(xdg_surface* xdgSurface, wl_surface* parentWlSurface, wl_output* output) {
-  m_parentLayerSurface = nullptr;
+  m_parentAttach = nullptr;
   m_parentXdgSurface = xdgSurface;
   m_parentWlSurface = parentWlSurface;
   m_parentOutput = output;
@@ -44,7 +42,7 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
   // callbacks are rebound to the new one.
   m_popup.close();
 
-  if (m_parentLayerSurface == nullptr && m_parentXdgSurface == nullptr) {
+  if (!m_parentAttach && m_parentXdgSurface == nullptr) {
     kLog.warn("no parent surface set");
     if (callbacks.onDismiss) {
       callbacks.onDismiss();
@@ -99,12 +97,11 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
                   .width = request.anchorWidth,
                   .height = request.anchorHeight,
               },
-          // parent.wlSurface stays null: select parents (panels, settings window) are already
-          // keyboard OnDemand; the bar-style interactivity flip must not touch them. The parent
-          // surface is passed only for pointer-capture mapping (scrollbar drags).
+          // No keyboardGrab: select parents (panels, settings window) already accept keyboard
+          // focus. The parent surface is passed only for pointer-capture mapping (scrollbar drags).
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = m_parentLayerSurface,
+                  .attach = m_parentAttach,
                   .xdgSurface = m_parentXdgSurface,
                   .output = m_parentOutput,
               },
