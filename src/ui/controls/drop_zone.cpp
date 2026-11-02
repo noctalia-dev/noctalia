@@ -69,14 +69,27 @@ void DropZone::setEnabled(bool enabled) {
   }
 }
 
-void DropZone::setDragOver(bool dragOver, float draggedHeight) {
+bool DropZone::expandsAlongWidth() const {
+  // An insertion marker is thin along the axis it marks: a 3px-high rule
+  // between rows opens vertically, a 4px-wide one between the members of a
+  // row opens horizontally.
+  if (m_collapsedWidth <= 0.0F) {
+    return false;
+  }
+  return m_collapsedHeight <= 0.0F || m_collapsedWidth < m_collapsedHeight;
+}
+
+void DropZone::setDragOver(bool dragOver, float draggedWidth, float draggedHeight) {
   if (m_dragOver == dragOver) {
     return;
   }
   m_dragOver = dragOver;
-  if (m_expandOnDrag && m_collapsedHeight > 0.0F) {
-    const float target = dragOver ? std::max(m_collapsedHeight, draggedHeight) : m_collapsedHeight;
-    animateHeight(target);
+  if (m_expandOnDrag) {
+    if (expandsAlongWidth()) {
+      animateWidth(dragOver ? std::max(m_collapsedWidth, draggedWidth) : m_collapsedWidth);
+    } else if (m_collapsedHeight > 0.0F) {
+      animateHeight(dragOver ? std::max(m_collapsedHeight, draggedHeight) : m_collapsedHeight);
+    }
   }
   applyVisualState();
 }
@@ -86,8 +99,24 @@ void DropZone::setExpandOnDrag(bool enabled) {
     return;
   }
   m_expandOnDrag = enabled;
-  if (!enabled && m_collapsedHeight > 0.0F) {
-    animateHeight(m_collapsedHeight);
+  if (!enabled) {
+    if (m_collapsedWidth > 0.0F) {
+      animateWidth(m_collapsedWidth);
+    }
+    if (m_collapsedHeight > 0.0F) {
+      animateHeight(m_collapsedHeight);
+    }
+  }
+}
+
+void DropZone::setCollapsedWidth(float width) {
+  const float clamped = std::max(0.0F, width);
+  if (m_collapsedWidth == clamped) {
+    return;
+  }
+  m_collapsedWidth = clamped;
+  if (!m_dragOver || !m_expandOnDrag) {
+    applyAnimatedWidth(clamped);
   }
 }
 
@@ -118,6 +147,28 @@ void DropZone::clearZoneRadius(float dragRadius) {
     m_radiusApplied = true;
     Flex::setRadius(m_dragOver ? m_zoneRadius : m_idleRadius);
   }
+}
+
+void DropZone::animateWidth(float target) {
+  target = std::max(0.0F, target);
+  AnimationManager* animations = animationManager();
+  if (animations == nullptr || m_animatedWidth <= 0.0F) {
+    applyAnimatedWidth(target);
+    return;
+  }
+  if (m_widthAnimation != 0) {
+    animations->cancel(m_widthAnimation);
+  }
+  m_widthAnimation = animations->animate(
+      m_animatedWidth, target, static_cast<float>(Style::animNormal), Easing::EaseOutCubic,
+      [this](float value) { applyAnimatedWidth(value); }, [this] { m_widthAnimation = 0; }, this
+  );
+}
+
+void DropZone::applyAnimatedWidth(float width) {
+  m_animatedWidth = width;
+  Flex::setMinWidth(width);
+  Flex::setMaxWidth(width);
 }
 
 void DropZone::animateHeight(float target) {

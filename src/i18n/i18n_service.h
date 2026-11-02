@@ -30,7 +30,7 @@ namespace i18n {
     std::string_view displayName;
   };
 
-  inline constexpr std::array<LanguageOption, 27> kSupportedLanguages = {{
+  inline constexpr std::array<LanguageOption, 29> kSupportedLanguages = {{
       {"ar", "العربية"},
       {"be", "Беларуская"},
       {"be-Latn", "Biełaruskaja (Łacinka)"},
@@ -38,6 +38,7 @@ namespace i18n {
       {"cs", "Čeština"},
       {"de", "Deutsch"},
       {"en", "English"},
+      {"en-GB", "English (United Kingdom)"},
       {"es", "Español"},
       {"fr", "Français"},
       {"gl-ES", "Galego"},
@@ -51,6 +52,7 @@ namespace i18n {
       {"nn", "Norsk nynorsk"},
       {"pl", "Polski"},
       {"pt-BR", "Português (Brasil)"},
+      {"ro", "Română"},
       {"ru", "Русский"},
       {"sv", "Svenska"},
       {"tr", "Türkçe"},
@@ -73,13 +75,13 @@ namespace i18n {
     void init(std::string_view preferredLang = {});
 
     void setLanguage(std::string_view lang);
-    [[nodiscard]] std::string_view language() const noexcept { return m_language; }
-    [[nodiscard]] std::string_view requestedLanguage() const noexcept { return m_requestedLanguage; }
-    [[nodiscard]] bool rtl() const noexcept { return m_rtl; }
+    std::string_view language() const noexcept { return m_language; }
+    std::string_view requestedLanguage() const noexcept { return m_requestedLanguage; }
+    bool rtl() const noexcept { return m_rtl; }
 
     // Returns a view into the active or fallback catalog, or {} if the key
     // exists in neither.
-    [[nodiscard]] std::string_view lookup(std::string_view dottedKey) const;
+    std::string_view lookup(std::string_view dottedKey) const;
 
   private:
     bool loadCatalog(std::string_view lang, Catalog& out) const;

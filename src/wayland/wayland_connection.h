@@ -1,9 +1,8 @@
 #pragma once
 
-#include "wayland/ext_foreign_toplevels.h"
 #include "wayland/output_scale.h"
+#include "wayland/wayland_extension.h"
 #include "wayland/wayland_seat.h"
-#include "wayland/wayland_toplevels.h"
 
 #include <chrono>
 #include <cstdint>
@@ -14,8 +13,11 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <typeindex>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 struct wl_compositor;
@@ -31,37 +33,17 @@ struct zxdg_output_manager_v1;
 struct zxdg_output_v1;
 struct xdg_wm_base;
 struct wp_cursor_shape_manager_v1;
-struct ext_idle_notifier_v1;
-struct ext_idle_notification_v1;
-struct zwp_idle_inhibit_manager_v1;
 struct ext_background_effect_manager_v1;
 struct xdg_activation_v1;
-struct ext_session_lock_manager_v1;
-struct zwlr_foreign_toplevel_manager_v1;
-struct zwlr_foreign_toplevel_handle_v1;
-struct ext_workspace_manager_v1;
-struct org_kde_plasma_virtual_desktop_management;
-struct zdwl_ipc_manager_v2;
-struct zwp_virtual_keyboard_manager_v1;
 struct zwp_text_input_manager_v3;
-struct hyprland_focus_grab_manager_v1;
-struct hyprland_toplevel_mapping_manager_v1;
-struct zwlr_gamma_control_manager_v1;
-struct zwlr_screencopy_manager_v1;
-struct ext_image_copy_capture_manager_v1;
-struct ext_output_image_capture_source_manager_v1;
-struct ext_foreign_toplevel_image_capture_source_manager_v1;
 struct wp_fractional_scale_manager_v1;
 struct wp_viewporter;
 struct zwlr_output_manager_v1;
 struct zwlr_output_head_v1;
 struct zwlr_output_mode_v1;
-class ClipboardService;
 class LayerSurface;
-class FocusGrabService;
-struct DataControlOps;
+class PopupGrabHost;
 class TextInputService;
-class VirtualKeyboardService;
 
 struct WaylandOutput {
   std::uint32_t name = 0;
@@ -92,13 +74,13 @@ struct WaylandOutput {
   // from head scale, then mode/logical ratio, then integer wl_output.scale.
   std::int32_t configuredScaleNumerator = wayland::kScaleNumeratorBase;
 
-  [[nodiscard]] float configuredScale() const noexcept {
+  float configuredScale() const noexcept {
     return static_cast<float>(configuredScaleNumerator) / static_cast<float>(wayland::kScaleNumeratorBase);
   }
 
-  [[nodiscard]] std::int32_t effectiveTransform() const noexcept { return headTransform.value_or(transform); }
+  std::int32_t effectiveTransform() const noexcept { return headTransform.value_or(transform); }
 
-  [[nodiscard]] std::int32_t effectiveLogicalWidth() const noexcept {
+  std::int32_t effectiveLogicalWidth() const noexcept {
     if (logicalWidth > 0) {
       return logicalWidth;
     }
@@ -109,7 +91,7 @@ struct WaylandOutput {
     return scaled > 0 ? scaled : 1;
   }
 
-  [[nodiscard]] std::int32_t effectiveLogicalHeight() const noexcept {
+  std::int32_t effectiveLogicalHeight() const noexcept {
     if (logicalHeight > 0) {
       return logicalHeight;
     }
@@ -120,9 +102,7 @@ struct WaylandOutput {
     return scaled > 0 ? scaled : 1;
   }
 
-  [[nodiscard]] bool hasUsableGeometry() const noexcept {
-    return effectiveLogicalWidth() > 0 && effectiveLogicalHeight() > 0;
-  }
+  bool hasUsableGeometry() const noexcept { return effectiveLogicalWidth() > 0 && effectiveLogicalHeight() > 0; }
 };
 
 // Accumulates head fields until matched to a WaylandOutput, keyed by head proxy.
@@ -138,12 +118,14 @@ struct WaylandOutputHeadInfo {
 
 class WaylandConnection {
 public:
+  // A sibling connection reaches the primary connection's compositor through connectUntil() and binds only
+  // wl_shm and wl_output itself; its extensions bind the rest.
   enum class Purpose : std::uint8_t {
-    Shell,
-    Screencopy,
+    Primary,
+    Sibling,
   };
 
-  explicit WaylandConnection(Purpose purpose = Purpose::Shell);
+  explicit WaylandConnection(Purpose purpose = Purpose::Primary);
   ~WaylandConnection();
 
   WaylandConnection(const WaylandConnection&) = delete;
@@ -158,130 +140,93 @@ public:
   // Delegate setters
   void setOutputChangeCallback(ChangeCallback callback);
   void setOutputLifecycleCallbacks(std::function<void(wl_output*)> added, std::function<void(wl_output*)> removed);
-  void setWorkspaceManagerCallbacks(
-      std::function<void(ext_workspace_manager_v1*)> extWorkspace, std::function<void(zdwl_ipc_manager_v2*)> dwlIpc
-  );
-  void setKdeVirtualDesktopManagerCallback(std::function<void(org_kde_plasma_virtual_desktop_management*)> callback);
-  void setToplevelChangeCallback(ChangeCallback callback);
-  void setHyprlandToplevelMappingManagerCallback(
-      std::function<void(hyprland_toplevel_mapping_manager_v1* manager)> callback
-  );
   void setPointerEventCallback(WaylandSeat::PointerEventCallback callback);
   void setKeyboardEventCallback(WaylandSeat::KeyboardEventCallback callback);
   void setKeyboardModifiersCallback(WaylandSeat::KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCallback callback);
-  /// Fired when both `ext_idle_notifier_v1` and `wl_seat` are bound (including late registry globals).
-  void setIdleCapabilitiesReadyCallback(ChangeCallback callback);
-  void setClipboardService(ClipboardService* clipboardService);
+  void setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback);
   void setTextInputService(TextInputService* textInputService);
-  void setVirtualKeyboardService(VirtualKeyboardService* virtualKeyboardService);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
 
-  [[nodiscard]] int repeatPollTimeoutMs() const;
+  // Returns this connection's instance of T, constructing it from the connection on first use. A new
+  // extension first receives every global advertised so far, in advertisement order, then each later
+  // announcement. Before disconnecting the display the connection calls releaseGlobals() on every
+  // extension, newest first.
+  template <typename T> T& extension() {
+    static_assert(std::is_base_of_v<WaylandExtension, T>);
+    const std::type_index key(typeid(T));
+    for (auto& [type, instance] : m_extensions) {
+      if (type == key) {
+        return static_cast<T&>(*instance);
+      }
+    }
+    auto& created = static_cast<T&>(*m_extensions.emplace_back(key, std::make_unique<T>(*this)).second);
+    replayGlobals(created);
+    return created;
+  }
+
+  int repeatPollTimeoutMs() const;
   void repeatTick();
   void stopKeyRepeat();
 
   // Queries
-  [[nodiscard]] bool isConnected() const noexcept;
-  [[nodiscard]] bool hasRequiredGlobals() const noexcept;
-  [[nodiscard]] bool hasLayerShell() const noexcept;
-  [[nodiscard]] bool hasSubcompositor() const noexcept;
-  [[nodiscard]] bool hasXdgOutputManager() const noexcept;
-  [[nodiscard]] bool hasXdgShell() const noexcept;
-  [[nodiscard]] bool hasExtWorkspaceManager() const noexcept;
-  [[nodiscard]] bool hasKdeVirtualDesktopManager() const noexcept;
-  [[nodiscard]] bool hasDwlIpcManager() const noexcept;
-  [[nodiscard]] bool hasForeignToplevelManager() const noexcept;
-  [[nodiscard]] bool hasExtForeignToplevelList() const noexcept;
-  [[nodiscard]] bool hasSessionLockManager() const noexcept;
-  [[nodiscard]] bool hasIdleNotifier() const noexcept;
-  [[nodiscard]] bool hasIdleInhibitManager() const noexcept;
-  [[nodiscard]] bool hasFractionalScale() const noexcept;
-  [[nodiscard]] bool hasGammaControl() const noexcept;
-  [[nodiscard]] bool hasOutputManagement() const noexcept;
-  [[nodiscard]] bool hasScreencopy() const noexcept;
-  [[nodiscard]] zwlr_screencopy_manager_v1* screencopyManager() const noexcept;
-  [[nodiscard]] ext_image_copy_capture_manager_v1* imageCopyCaptureManager() const noexcept;
-  [[nodiscard]] ext_output_image_capture_source_manager_v1* outputImageCaptureSourceManager() const noexcept;
-  [[nodiscard]] ext_foreign_toplevel_image_capture_source_manager_v1*
-  foreignToplevelImageCaptureSourceManager() const noexcept;
-  [[nodiscard]] bool hasBackgroundEffectBlur() const noexcept;
-  [[nodiscard]] zwlr_gamma_control_manager_v1* gammaControlManager() const noexcept;
-  [[nodiscard]] ext_background_effect_manager_v1* backgroundEffectManager() const noexcept;
-  [[nodiscard]] wp_fractional_scale_manager_v1* fractionalScaleManager() const noexcept;
-  [[nodiscard]] hyprland_focus_grab_manager_v1* hyprlandFocusGrabManager() const noexcept;
-  [[nodiscard]] FocusGrabService* focusGrabService() const noexcept;
-  [[nodiscard]] TextInputService* textInputService() const noexcept { return m_textInputService; }
-  [[nodiscard]] wp_viewporter* viewporter() const noexcept;
-  [[nodiscard]] wl_display* display() const noexcept;
-  [[nodiscard]] std::string describeDisplayError(int operationErrno = 0) const;
-  [[nodiscard]] wl_compositor* compositor() const noexcept;
-  [[nodiscard]] wl_seat* seat() const noexcept;
-  [[nodiscard]] wl_pointer* pointer() const noexcept;
-  [[nodiscard]] wl_shm* shm() const noexcept;
-  [[nodiscard]] wl_subcompositor* subcompositor() const noexcept;
-  [[nodiscard]] zwlr_layer_shell_v1* layerShell() const noexcept;
-  [[nodiscard]] xdg_wm_base* xdgWmBase() const noexcept;
-  [[nodiscard]] ext_session_lock_manager_v1* sessionLockManager() const noexcept;
-  [[nodiscard]] ext_idle_notifier_v1* idleNotifier() const noexcept;
-  /// Inhibitor-aware idle notification (`get_idle_notification`); honors `zwp_idle_inhibitor_v1`.
-  [[nodiscard]] ext_idle_notification_v1* createIdleNotification(std::uint32_t timeoutMs) const;
-  [[nodiscard]] zwp_idle_inhibit_manager_v1* idleInhibitManager() const noexcept;
-  [[nodiscard]] const std::vector<WaylandOutput>& outputs() const noexcept;
-  [[nodiscard]] WaylandOutput* findOutputByWl(wl_output* wlOutput);
-  [[nodiscard]] const WaylandOutput* findOutputByWl(wl_output* wlOutput) const;
-  [[nodiscard]] WaylandOutput* findOutputByXdg(zxdg_output_v1* xdgOutput);
+  bool isConnected() const noexcept;
+  bool hasRequiredGlobals() const noexcept;
+  bool hasLayerShell() const noexcept;
+  bool hasSubcompositor() const noexcept;
+  bool hasXdgOutputManager() const noexcept;
+  bool hasXdgShell() const noexcept;
+  bool hasFractionalScale() const noexcept;
+  bool hasOutputManagement() const noexcept;
+  bool hasBackgroundEffectBlur() const noexcept;
+  ext_background_effect_manager_v1* backgroundEffectManager() const noexcept;
+  wp_fractional_scale_manager_v1* fractionalScaleManager() const noexcept;
+  // The focus-grab owner that popups enroll with instead of taking xdg_popup_grab, or nullptr.
+  void setPopupGrabHost(PopupGrabHost* host) noexcept;
+  PopupGrabHost* popupGrabHost() const noexcept;
+  TextInputService* textInputService() const noexcept { return m_textInputService; }
+  wp_viewporter* viewporter() const noexcept;
+  wl_display* display() const noexcept;
+  std::string describeDisplayError(int operationErrno = 0) const;
+  wl_compositor* compositor() const noexcept;
+  wl_seat* seat() const noexcept;
+  wl_pointer* pointer() const noexcept;
+  wl_shm* shm() const noexcept;
+  wl_subcompositor* subcompositor() const noexcept;
+  zwlr_layer_shell_v1* layerShell() const noexcept;
+  xdg_wm_base* xdgWmBase() const noexcept;
+  const std::vector<WaylandOutput>& outputs() const noexcept;
+  WaylandOutput* findOutputByWl(wl_output* wlOutput);
+  const WaylandOutput* findOutputByWl(wl_output* wlOutput) const;
+  WaylandOutput* findOutputByXdg(zxdg_output_v1* xdgOutput);
 
-  [[nodiscard]] bool hasXdgActivation() const noexcept;
-  [[nodiscard]] std::string requestActivationToken(wl_surface* surface) const;
+  bool hasXdgActivation() const noexcept;
+  std::string requestActivationToken(wl_surface* surface) const;
   void activateSurface(wl_surface* surface);
 
-  [[nodiscard]] std::optional<ActiveToplevel> activeToplevel() const;
-  [[nodiscard]] std::optional<ActiveToplevel>
-  matchToplevelByTitleAndAppId(std::string_view title, std::string_view appId, wl_output* preferredOutput) const;
-  [[nodiscard]] wl_output* activeToplevelOutput() const;
-  [[nodiscard]] std::vector<std::string> runningAppIds(wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<ToplevelInfo>
-  windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<ToplevelInfo>
-  extWindowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
-  [[nodiscard]] std::vector<ToplevelInfo> extWindowsWithoutAppId() const;
-  [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
-  template <typename Fn> void visitExtToplevelHandles(Fn&& fn) const {
-    m_extForeignToplevels.visitExtHandles(std::forward<Fn>(fn));
-  }
-  void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
-  void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
-  template <typename Fn> void visitWlrToplevelHandles(Fn&& fn) const {
-    m_toplevelsHandler.visitWlrHandles(std::forward<Fn>(fn));
-  }
-  template <typename Fn> void visitWlrToplevels(Fn&& fn) const {
-    m_toplevelsHandler.visitWlrToplevels(std::forward<Fn>(fn));
-  }
-  [[nodiscard]] wl_output* lastPointerOutput() const noexcept;
-  [[nodiscard]] wl_surface* lastPointerSurface() const noexcept;
-  [[nodiscard]] wl_surface* lastKeyboardSurface() const noexcept;
-  [[nodiscard]] std::uint32_t keyboardModifiers() const noexcept;
-  [[nodiscard]] bool hasPointerPosition() const noexcept;
-  [[nodiscard]] double lastPointerX() const noexcept;
-  [[nodiscard]] double lastPointerY() const noexcept;
-  [[nodiscard]] WaylandSeat::InputSource lastInputSource() const noexcept;
-  [[nodiscard]] std::string currentKeyboardLayoutName() const;
-  [[nodiscard]] std::vector<std::string> keyboardLayoutNames() const;
-  [[nodiscard]] WaylandSeat::LockKeysState keyboardLockKeysState() const;
-  [[nodiscard]] std::uint32_t lastInputSerial() const noexcept;
-  [[nodiscard]] double userIdleSeconds() const noexcept;
-  [[nodiscard]] bool hasFreshPointerOutput(std::chrono::milliseconds maxAge) const noexcept;
-  [[nodiscard]] wl_output* outputForSurface(wl_surface* surface) const noexcept;
+  wl_output* lastPointerOutput() const noexcept;
+  wl_surface* lastPointerSurface() const noexcept;
+  wl_surface* lastKeyboardSurface() const noexcept;
+  std::uint32_t keyboardModifiers() const noexcept;
+  bool hasPointerPosition() const noexcept;
+  double lastPointerX() const noexcept;
+  double lastPointerY() const noexcept;
+  WaylandSeat::InputSource lastInputSource() const noexcept;
+  std::string currentKeyboardLayoutName() const;
+  std::vector<std::string> keyboardLayoutNames() const;
+  WaylandSeat::LockKeysState keyboardLockKeysState() const;
+  std::uint32_t lastInputSerial() const noexcept;
+  double userIdleSeconds() const noexcept;
+  bool hasFreshPointerOutput(std::chrono::milliseconds maxAge) const noexcept;
+  wl_output* outputForSurface(wl_surface* surface) const noexcept;
 
   void registerSurfaceOutput(wl_surface* surface, wl_output* output);
   void notifySurfaceOutputEnter(wl_surface* surface, wl_output* output);
   void notifySurfaceOutputLeave(wl_surface* surface, wl_output* output);
   void registerLayerSurface(const LayerSurface& layerSurface);
   void unregisterSurface(wl_surface* surface);
-  [[nodiscard]] zwlr_layer_surface_v1* layerSurfaceFor(wl_surface* surface) const noexcept;
-  [[nodiscard]] const LayerSurface* layerSurfaceOwnerFor(wl_surface* surface) const noexcept;
+  zwlr_layer_surface_v1* layerSurfaceFor(wl_surface* surface) const noexcept;
+  const LayerSurface* layerSurfaceOwnerFor(wl_surface* surface) const noexcept;
   void notifyOutputReady(wl_output* output);
 
   // Registry listener entrypoints
@@ -290,7 +235,6 @@ public:
   static void handleGlobalRemove(void* data, wl_registry* registry, std::uint32_t name);
 
   void onBackgroundEffectCapabilities(std::uint32_t capabilities) noexcept;
-  void notifyIdleCapabilitiesReady();
 
   // wlr-output-management-unstable-v1 entrypoints
   void onOutputManagerHead(zwlr_output_head_v1* head);
@@ -312,15 +256,20 @@ public:
   bool recomputeConfiguredScale(WaylandOutput& out);
 
 private:
+  struct AdvertisedGlobal {
+    std::uint32_t name = 0;
+    std::string interface;
+    std::uint32_t version = 0;
+  };
+
   void bindGlobal(wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t version);
-  void bindClipboardService();
+  void replayGlobals(WaylandExtension& extension);
   void bindTextInputService();
-  void bindVirtualKeyboardService();
   void cleanup();
   [[nodiscard]] bool setupDisplay(wl_display* display, std::string& error);
   void logStartupSummary() const;
 
-  Purpose m_purpose = Purpose::Shell;
+  Purpose m_purpose = Purpose::Primary;
   wl_display* m_display = nullptr;
   wl_registry* m_registry = nullptr;
   wl_compositor* m_compositor = nullptr;
@@ -332,45 +281,21 @@ private:
   xdg_wm_base* m_xdgWmBase = nullptr;
   wp_cursor_shape_manager_v1* m_cursorShapeManager = nullptr;
   xdg_activation_v1* m_xdgActivation = nullptr;
-  ext_session_lock_manager_v1* m_sessionLockManager = nullptr;
-  ext_idle_notifier_v1* m_idleNotifier = nullptr;
-  zwp_idle_inhibit_manager_v1* m_idleInhibitManager = nullptr;
   ext_background_effect_manager_v1* m_backgroundEffectManager = nullptr;
   wp_fractional_scale_manager_v1* m_fractionalScaleManager = nullptr;
-  hyprland_focus_grab_manager_v1* m_hyprlandFocusGrabManager = nullptr;
-  zwlr_gamma_control_manager_v1* m_gammaControlManager = nullptr;
-  zwlr_screencopy_manager_v1* m_screencopyManager = nullptr;
-  ext_image_copy_capture_manager_v1* m_imageCopyCaptureManager = nullptr;
-  ext_output_image_capture_source_manager_v1* m_outputImageCaptureSourceManager = nullptr;
-  ext_foreign_toplevel_image_capture_source_manager_v1* m_foreignToplevelImageCaptureSourceManager = nullptr;
   zwlr_output_manager_v1* m_outputManager = nullptr;
   std::unordered_map<zwlr_output_head_v1*, WaylandOutputHeadInfo> m_outputHeads;
   std::unordered_set<zwlr_output_mode_v1*> m_outputModes;
-  std::unique_ptr<FocusGrabService> m_focusGrabService;
+  PopupGrabHost* m_popupGrabHost = nullptr;
   wp_viewporter* m_viewporter = nullptr;
   bool m_backgroundEffectBlurSupported = false;
-  void* m_dataControlManager = nullptr;
-  const DataControlOps* m_dataControlOps = nullptr;
   zwp_text_input_manager_v3* m_textInputManager = nullptr;
-  zwp_virtual_keyboard_manager_v1* m_virtualKeyboardManager = nullptr;
-  ClipboardService* m_clipboardService = nullptr;
   TextInputService* m_textInputService = nullptr;
-  VirtualKeyboardService* m_virtualKeyboardService = nullptr;
   bool m_hasLayerShellGlobal = false;
-  bool m_hasExtWorkspaceGlobal = false;
-  bool m_hasKdeVirtualDesktopGlobal = false;
-  bool m_hasDwlIpcGlobal = false;
-  bool m_hasForeignToplevelManagerGlobal = false;
-  bool m_hasExtForeignToplevelListGlobal = false;
   std::vector<WaylandOutput> m_outputs;
   ChangeCallback m_outputChangeCallback;
-  ChangeCallback m_idleCapabilitiesReadyCallback;
   std::function<void(wl_output*)> m_outputAddedCallback;
   std::function<void(wl_output*)> m_outputRemovedCallback;
-  std::function<void(ext_workspace_manager_v1*)> m_extWorkspaceManagerCallback;
-  std::function<void(org_kde_plasma_virtual_desktop_management*)> m_kdeVirtualDesktopManagerCallback;
-  std::function<void(zdwl_ipc_manager_v2*)> m_dwlIpcManagerCallback;
-  std::function<void(hyprland_toplevel_mapping_manager_v1*)> m_hyprlandToplevelMappingManagerCallback;
   std::unordered_map<wl_surface*, wl_output*> m_surfaceOutputMap;
   std::unordered_map<wl_surface*, std::vector<wl_output*>> m_surfaceOutputs;
   std::unordered_map<wl_surface*, const LayerSurface*> m_layerSurfaceMap;
@@ -379,8 +304,8 @@ private:
   WaylandSeat::PointerEventCallback m_pointerEventCallback;
 
   WaylandSeat m_seatHandler;
-  WaylandToplevels m_toplevelsHandler;
-  WaylandExtForeignToplevels m_extForeignToplevels;
+  std::vector<AdvertisedGlobal> m_advertisedGlobals;
+  std::vector<std::pair<std::type_index, std::unique_ptr<WaylandExtension>>> m_extensions;
 };
 
 namespace wayland {
@@ -397,13 +322,13 @@ namespace wayland {
     ConnectionFailed,
   };
 
-  struct DispatchResult {
+  struct [[nodiscard]] DispatchResult {
     DispatchStatus status = DispatchStatus::Completed;
     WaylandConnection* failedConnection = nullptr;
     std::string error;
   };
 
-  [[nodiscard]] DispatchResult dispatchUntil(
+  DispatchResult dispatchUntil(
       std::span<const DispatchTarget> targets, std::chrono::steady_clock::time_point deadline,
       const std::function<bool()>& completed
   );

@@ -104,9 +104,9 @@ void DwlWorkspaceBackend::bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager) {
 void DwlWorkspaceBackend::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
 void DwlWorkspaceBackend::activate(const std::string& id) {
-  auto* state = activeOutputState();
+  const auto* state = activeOutputState();
   if (state == nullptr) {
-    state = const_cast<OutputState*>(preferredOutputState());
+    state = preferredOutputState();
   }
   if (state != nullptr) {
     activateForOutput(state->output, id);

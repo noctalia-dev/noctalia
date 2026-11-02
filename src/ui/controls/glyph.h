@@ -26,11 +26,7 @@ public:
 
   void measure(Renderer& renderer);
 
-  // Host-driven suppression (shared `show_glyph` option off): the glyph renders nothing and
-  // reports no size, so the widget's own layout collapses the space it used to occupy.
-  // One-way: bar widgets are rebuilt on config change, so there is no unsuppress path.
-  void suppress();
-  [[nodiscard]] float baselineOffset() const noexcept { return m_baselineOffset; }
+  float baselineOffset() const noexcept { return m_baselineOffset; }
 
 private:
   void doLayout(Renderer& renderer) override;

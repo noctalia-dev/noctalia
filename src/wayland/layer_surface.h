@@ -23,7 +23,7 @@ enum class LayerShellKeyboard : std::uint32_t {
   OnDemand = 2,
 };
 
-[[nodiscard]] LayerShellLayer layerShellLayerFromConfig(std::string_view layer);
+LayerShellLayer layerShellLayerFromConfig(std::string_view layer);
 
 namespace LayerShellAnchor {
   inline constexpr std::uint32_t Top = 1;
@@ -56,23 +56,26 @@ public:
 
   bool initialize() override;
   bool initialize(wl_output* output);
-  [[nodiscard]] zwlr_layer_surface_v1* layerSurface() const noexcept { return m_layerSurface; }
+  zwlr_layer_surface_v1* layerSurface() const noexcept { return m_layerSurface; }
 
   // Requests a new surface size from the compositor. The compositor will
   // respond with a configure event, which triggers the configure callback.
   void requestSize(std::uint32_t width, std::uint32_t height);
+  // Re-anchors the surface and sets its requested size in one commit. A 0 extent must be paired
+  // with anchors on both edges of that axis, as layer-shell requires.
+  void setAnchorAndSize(std::uint32_t anchor, std::uint32_t width, std::uint32_t height);
   void setLayer(LayerShellLayer layer);
   void setMargins(std::int32_t top, std::int32_t right, std::int32_t bottom, std::int32_t left);
   void setExclusiveZone(std::int32_t exclusiveZone);
   void setClickThrough(bool clickThrough);
   void setKeyboardInteractivity(LayerShellKeyboard mode);
   void setClosedCallback(std::function<void()> callback);
-  [[nodiscard]] LayerShellKeyboard keyboardInteractivity() const noexcept { return m_config.keyboard; }
-  [[nodiscard]] std::uint32_t anchor() const noexcept { return m_config.anchor; }
-  [[nodiscard]] std::int32_t marginTop() const noexcept { return m_config.marginTop; }
-  [[nodiscard]] std::int32_t marginRight() const noexcept { return m_config.marginRight; }
-  [[nodiscard]] std::int32_t marginBottom() const noexcept { return m_config.marginBottom; }
-  [[nodiscard]] std::int32_t marginLeft() const noexcept { return m_config.marginLeft; }
+  LayerShellKeyboard keyboardInteractivity() const noexcept { return m_config.keyboard; }
+  std::uint32_t anchor() const noexcept { return m_config.anchor; }
+  std::int32_t marginTop() const noexcept { return m_config.marginTop; }
+  std::int32_t marginRight() const noexcept { return m_config.marginRight; }
+  std::int32_t marginBottom() const noexcept { return m_config.marginBottom; }
+  std::int32_t marginLeft() const noexcept { return m_config.marginLeft; }
 
   static void handleConfigure(
       void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial, std::uint32_t width, std::uint32_t height

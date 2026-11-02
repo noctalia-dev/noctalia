@@ -36,20 +36,20 @@ public:
   void setOnCancel(std::function<void()> callback);
 
   void setEnabled(bool enabled);
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
+  bool enabled() const noexcept { return m_enabled; }
 
-  [[nodiscard]] const std::string& filter() const noexcept { return m_filter; }
-  [[nodiscard]] InputArea* filterInputArea() const noexcept;
+  const std::string& filter() const noexcept { return m_filter; }
+  InputArea* filterInputArea() const noexcept;
 
 private:
   void doLayout(Renderer& renderer) override;
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
   void doArrange(Renderer& renderer, const LayoutRect& rect) override;
-  [[nodiscard]] std::size_t itemCount() const override;
-  [[nodiscard]] std::uint64_t itemKey(std::size_t index) const override;
-  [[nodiscard]] std::uint64_t itemRevision(std::size_t index) const override;
-  [[nodiscard]] bool itemInteractive(std::size_t index) const override;
-  [[nodiscard]] float measureItem(Renderer& renderer, std::size_t index, float width) override;
+  std::size_t itemCount() const override;
+  std::uint64_t itemKey(std::size_t index) const override;
+  std::uint64_t itemRevision(std::size_t index) const override;
+  bool itemInteractive(std::size_t index) const override;
+  float measureItem(Renderer& renderer, std::size_t index, float width) override;
   [[nodiscard]] std::unique_ptr<Node> createItem() override;
   void bindItem(Renderer& renderer, Node& item, std::size_t index, float width, bool hovered) override;
   void onActivate(std::size_t index) override;
@@ -59,7 +59,7 @@ private:
   void activateHighlighted();
   void ensureHighlightedVisible();
   void notifyHighlightedChanged(std::size_t previous, std::size_t next);
-  [[nodiscard]] double matchScore(const SearchPickerOption& option, std::string_view query) const;
+  double matchScore(const SearchPickerOption& option, std::string_view query) const;
 
   Input* m_input = nullptr;
   Label* m_emptyLabel = nullptr;

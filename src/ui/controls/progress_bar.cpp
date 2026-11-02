@@ -22,7 +22,12 @@ ProgressBar::ProgressBar() {
   auto fill = std::make_unique<RectNode>();
   m_fill = static_cast<RectNode*>(m_fillClip->addChild(std::move(fill)));
 
-  setTrack(colorSpecFromRole(ColorRole::SurfaceVariant));
+  // Added last so it draws above the track and fill.
+  auto marker = std::make_unique<RectNode>();
+  marker->setVisible(false);
+  m_marker = static_cast<RectNode*>(addChild(std::move(marker)));
+
+  setTrack(colorSpecFromRole(ColorRole::SurfaceContainer));
   setFill(colorSpecFromRole(ColorRole::Primary));
   setRadius(Style::scaledRadiusSm());
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
@@ -83,6 +88,29 @@ void ProgressBar::setOrientation(ProgressBarOrientation orientation) {
   updateGeometry();
 }
 
+void ProgressBar::setMarker(float marker) {
+  // Negative or NaN positions hide the marker; valid positions clamp to 0-1.
+  m_markerPos = marker >= 0.0F ? std::optional<float>{std::clamp(marker, 0.0F, 1.0F)} : std::nullopt;
+  updateGeometry();
+}
+
+void ProgressBar::clearMarker() {
+  m_markerPos = std::nullopt;
+  updateGeometry();
+}
+
+void ProgressBar::setMarkerColor(const ColorSpec& color) {
+  m_markerColor = color;
+  applyPalette();
+}
+
+void ProgressBar::setMarkerColor(const Color& color) { setMarkerColor(fixedColorSpec(color)); }
+
+void ProgressBar::setMarkerWidth(float width) {
+  m_markerWidth = std::max(width, 1.0F);
+  updateGeometry();
+}
+
 void ProgressBar::applyPalette() {
   auto trackStyle = m_track->style();
   trackStyle.fill = resolveColorSpec(m_trackColor);
@@ -93,12 +121,32 @@ void ProgressBar::applyPalette() {
   fillStyle.fill = resolveColorSpec(m_fillColor);
   fillStyle.fillMode = FillMode::Solid;
   m_fill->setStyle(fillStyle);
+
+  auto markerStyle = m_marker->style();
+  markerStyle.fill = resolveColorSpec(m_markerColor);
+  markerStyle.fillMode = FillMode::Solid;
+  m_marker->setStyle(markerStyle);
 }
 
 void ProgressBar::updateGeometry() {
   const float w = width();
   const float h = height();
   m_track->setFrameSize(w, h);
+
+  // The marker crosses the track with a 3/4-thickness overhang on each side; 0 is the left (or bottom) edge.
+  if (m_markerPos.has_value()) {
+    const float overscan = m_markerWidth * 0.75F;
+    if (m_orientation == ProgressBarOrientation::Vertical) {
+      const float y = h * (1.0F - *m_markerPos) - m_markerWidth * 0.5F;
+      m_marker->setPosition(-overscan, y);
+      m_marker->setFrameSize(w + overscan * 2.0F, m_markerWidth);
+    } else {
+      const float x = w * *m_markerPos - m_markerWidth * 0.5F;
+      m_marker->setPosition(x, -overscan);
+      m_marker->setFrameSize(m_markerWidth, h + overscan * 2.0F);
+    }
+  }
+  m_marker->setVisible(m_markerPos.has_value());
 
   if (m_orientation == ProgressBarOrientation::HorizontalCentered) {
     // Both ends are leading edges, so keep the fill's own rounded shape (a

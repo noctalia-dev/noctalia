@@ -3,11 +3,11 @@
 #include <algorithm>
 
 namespace {
-  [[nodiscard]] bool routeMatchesDevice(const PipeWireService::DeviceRouteData& route, std::int32_t profileDevice) {
+  bool routeMatchesDevice(const PipeWireService::DeviceRouteData& route, std::int32_t profileDevice) {
     return profileDevice == kAnyProfileDevice || route.device == profileDevice;
   }
 
-  [[nodiscard]] bool routeIsSelectable(
+  bool routeIsSelectable(
       const PipeWireService::DeviceRouteData& route, std::uint32_t wantDirection, std::int32_t profileDevice
   ) {
     return route.index >= 0
@@ -16,7 +16,7 @@ namespace {
         && routeMatchesDevice(route, profileDevice);
   }
 
-  [[nodiscard]] bool routeIsBetterCandidate(
+  bool routeIsBetterCandidate(
       const PipeWireService::DeviceRouteData& candidate, const PipeWireService::DeviceRouteData& current
   ) {
     const bool candidateAvailable = candidate.available == SPA_PARAM_AVAILABILITY_yes;

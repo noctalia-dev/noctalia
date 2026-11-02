@@ -98,6 +98,21 @@ void WaylandSeat::setLockKeysChangeCallback(LockKeysChangeCallback callback) {
   m_lockKeysChangeCallback = std::move(callback);
 }
 
+void WaylandSeat::setKeyboardLayoutChangeCallback(KeyboardLayoutChangeCallback callback) {
+  m_keyboardLayoutChangeCallback = std::move(callback);
+}
+
+void WaylandSeat::notifyLayoutIfChanged() {
+  std::string current = currentLayoutName();
+  if (current == m_lastLayoutName) {
+    return;
+  }
+  m_lastLayoutName = std::move(current);
+  if (m_keyboardLayoutChangeCallback) {
+    m_keyboardLayoutChangeCallback();
+  }
+}
+
 void WaylandSeat::setCursorShape(std::uint32_t serial, std::uint32_t shape) {
   if (m_cursorShapeDevice == nullptr) {
     return;
@@ -660,6 +675,7 @@ void WaylandSeat::handleKeyboardKeymap(
   }
 
   kLog.debug("keyboard: keymap loaded");
+  self->notifyLayoutIfChanged();
 }
 
 void WaylandSeat::handleKeyboardEnter(
@@ -760,7 +776,8 @@ void WaylandSeat::handleKeyboardKey(
   // Set up repeat state BEFORE dispatching, so the callback can authoritatively
   // cancel it via stopKeyRepeat() if the key press causes a state transition
   // (e.g. lockscreen unlock) that makes the held key irrelevant.
-  if (pressed && self->m_repeatRate > 0) {
+  const bool keyRepeats = self->m_xkbKeymap == nullptr || xkb_keymap_key_repeats(self->m_xkbKeymap, xkbKeycode) != 0;
+  if (pressed && self->m_repeatRate > 0 && keyRepeats) {
     self->m_repeatKey =
         KeyboardEvent{.sym = sym, .utf32 = utf32, .key = key, .modifiers = mods, .pressed = true, .repeat = true};
     self->m_repeatActive = true;
@@ -800,6 +817,7 @@ void WaylandSeat::handleKeyboardModifiers(
       self->m_lockKeysChangeCallback();
     }
   }
+  self->notifyLayoutIfChanged();
 }
 
 void WaylandSeat::handleKeyboardRepeatInfo(

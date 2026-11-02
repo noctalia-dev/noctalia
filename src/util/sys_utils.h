@@ -6,7 +6,7 @@
 
 namespace SysUtils {
 
-  [[nodiscard]] inline bool isEnvFlagOn(const char* name) {
+  inline bool isEnvFlagOn(const char* name) {
     const char* s = std::getenv(name);
     if (s == nullptr) {
       return false;
@@ -16,7 +16,7 @@ namespace SysUtils {
   }
 
   // True for "cpuN" names (cpu0, cpu10, ...); rejects the aggregate "cpu" and anything else.
-  [[nodiscard]] inline bool isCpuN(std::string_view name) {
+  inline bool isCpuN(std::string_view name) {
     return name.size() > 3
         && name.starts_with("cpu")
         && std::ranges::all_of(name.substr(3), [](char c) { return c >= '0' && c <= '9'; });

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "app/poll_source.h"
 #include "core/inotify/inotify.h"
+#include "core/poll_source.h"
 
 #include <chrono>
 #include <cstdint>
@@ -30,7 +30,7 @@ public:
   watch(const std::filesystem::path& filePath, Callback callback, WatchTrigger trigger = WatchTrigger::Modified);
   void unwatch(WatchId id);
 
-  [[nodiscard]] int fd() const noexcept { return inotify.fd(); }
+  int fd() const noexcept { return inotify.fd(); }
   void dispatch();
 
 private:

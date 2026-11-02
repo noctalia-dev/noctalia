@@ -32,7 +32,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::optional<uid_t> readUserUid(sdbus::IProxy& userProxy) {
+  std::optional<uid_t> readUserUid(sdbus::IProxy& userProxy) {
     try {
       const sdbus::Variant value = userProxy.getProperty("Uid").onInterface(kUserInterface);
       const auto uid = value.get<std::uint64_t>();

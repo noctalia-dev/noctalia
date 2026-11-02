@@ -1,11 +1,11 @@
 #pragma once
 
-#include "config/config_types.h"
 #include "render/scene/input_dispatcher.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/popup_chrome.h"
 #include "ui/popup_parent.h"
+#include "ui/surface_shadow.h"
 
 #include <cstdint>
 #include <functional>
@@ -63,18 +63,18 @@ public:
 
   void open(ContextMenuPopupRequest request);
   void close();
-  [[nodiscard]] bool isOpen() const noexcept;
+  bool isOpen() const noexcept;
 
   void setOnActivate(std::function<void(const ContextMenuControlEntry&)> callback);
   void setOnDismissed(std::function<void()> callback);
-  void setShadowConfig(const ShellConfig::ShadowConfig& shadow);
+  void setShadowConfig(const ShadowStyle& shadow);
 
   bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
-  [[nodiscard]] wl_surface* wlSurface() const noexcept;
-  [[nodiscard]] xdg_surface* xdgSurface() const noexcept;
-  [[nodiscard]] std::uint32_t width() const noexcept;
-  [[nodiscard]] std::uint32_t height() const noexcept;
+  wl_surface* wlSurface() const noexcept;
+  xdg_surface* xdgSurface() const noexcept;
+  std::uint32_t width() const noexcept;
+  std::uint32_t height() const noexcept;
 
   // Route a keyboard event to the currently-open context menu, if any. A grab
   // popup is modal, so while one is open it swallows keys (returns true).
@@ -104,7 +104,7 @@ private:
 
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;
   std::function<void()> m_onDismissed;
-  ShellConfig::ShadowConfig m_shadowConfig;
+  ShadowStyle m_shadowConfig;
   // Deferred popup callbacks must not dereference this after an owner (for
   // example, a plugin panel being unregistered) destroys the popup.
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);

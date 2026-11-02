@@ -1,39 +1,16 @@
 #include "wayland/wayland_connection.h"
 
-#include "compositors/compositor_detect.h"
 #include "core/log.h"
 #include "core/process/process_fds.h"
 #include "cursor-shape-v1-client-protocol.h"
-#include "dwl-ipc-unstable-v2-client-protocol.h"
 #include "ext-background-effect-v1-client-protocol.h"
-#include "ext-data-control-v1-client-protocol.h"
-#include "ext-foreign-toplevel-list-v1-client-protocol.h"
-#include "ext-idle-notify-v1-client-protocol.h"
-#include "ext-image-capture-source-v1-client-protocol.h"
-#include "ext-image-copy-capture-v1-client-protocol.h"
-#include "ext-session-lock-v1-client-protocol.h"
-#include "ext-workspace-v1-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
-#include "hyprland-focus-grab-v1-client-protocol.h"
-#include "hyprland-toplevel-mapping-v1-client-protocol.h"
-#include "idle-inhibit-unstable-v1-client-protocol.h"
-#include "org-kde-plasma-virtual-desktop-client-protocol.h"
 #include "text-input-unstable-v3-client-protocol.h"
-#include "util/string_utils.h"
 #include "viewporter-client-protocol.h"
-#include "virtual-keyboard-unstable-v1-client-protocol.h"
-#include "wayland/clipboard_service.h"
-#include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/layer_surface.h"
 #include "wayland/text_input_service.h"
-#include "wayland/virtual_keyboard_service.h"
-#include "wayland/wayland_protocol_policy.h"
-#include "wlr-data-control-unstable-v1-client-protocol.h"
-#include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
-#include "wlr-gamma-control-unstable-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-output-management-unstable-v1-client-protocol.h"
-#include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-activation-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
@@ -42,11 +19,11 @@
 #include <array>
 #include <cerrno>
 #include <chrono>
-#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <format>
 #include <poll.h>
+#include <ranges>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -62,31 +39,16 @@ namespace {
   constexpr std::uint32_t kLayerShellVersion = 4;
   constexpr std::uint32_t kXdgOutputManagerVersion = 3;
   constexpr std::uint32_t kXdgWmBaseVersion = 6;
-  constexpr std::uint32_t kExtWorkspaceManagerVersion = 1;
-  constexpr std::uint32_t kKdeVirtualDesktopManagementVersion = 4;
-  constexpr std::uint32_t kWlrForeignToplevelManagerVersion = 3;
-  constexpr std::uint32_t kExtForeignToplevelListVersion = 1;
   constexpr std::uint32_t kCursorShapeManagerVersion = 1;
   constexpr std::uint32_t kXdgActivationVersion = 1;
-  constexpr std::uint32_t kExtSessionLockManagerVersion = 1;
-  constexpr std::uint32_t kExtIdleNotifierVersion = 2;
-  constexpr std::uint32_t kIdleInhibitManagerVersion = 1;
   constexpr std::uint32_t kExtBackgroundEffectManagerVersion = 1;
   // REMOVEME(wayland-protocols-1.45): Use the generated mask after requiring wayland-protocols >= 1.46;
   // version 1.45 generates zero for blur although the corrected v1 wire mask is 1.
   constexpr std::uint32_t kExtBackgroundEffectBlurCapabilityMask = 1U;
   constexpr std::uint32_t kFractionalScaleManagerVersion = 1;
-  constexpr std::uint32_t kHyprlandFocusGrabManagerVersion = 1;
-  constexpr std::uint32_t kHyprlandToplevelMappingManagerVersion = 1;
   constexpr std::uint32_t kViewporterVersion = 1;
   constexpr std::uint32_t kOutputVersion = 4;
   constexpr std::uint32_t kTextInputManagerVersion = 2;
-  constexpr std::uint32_t kVirtualKeyboardManagerVersion = 1;
-  constexpr std::uint32_t kGammaControlManagerVersion = 1;
-  constexpr std::uint32_t kScreencopyManagerVersion = 3;
-  constexpr std::uint32_t kImageCopyCaptureManagerVersion = 1;
-  constexpr std::uint32_t kOutputImageCaptureSourceManagerVersion = 1;
-  constexpr std::uint32_t kForeignToplevelImageCaptureSourceManagerVersion = 1;
   constexpr std::uint32_t kOutputManagerVersion = 4;
   constexpr std::uint32_t kOutputManagerMinVersion = 3;
 
@@ -369,7 +331,7 @@ namespace wayland {
 
     std::vector<bool> prepared(activeTargets.size(), false);
     std::vector<pollfd> pollFds(activeTargets.size());
-    auto cancelPreparedReads = [&]() {
+    auto cancelPreparedReads = [&] {
       for (std::size_t i = 0; i < activeTargets.size(); ++i) {
         if (prepared[i]) {
           wl_display_cancel_read(activeTargets[i].connection->display());
@@ -672,7 +634,7 @@ namespace {
             .role = "capture",
         },
     };
-    const wayland::DispatchResult result = wayland::dispatchUntil(targets, deadline, [&state]() { return state.done; });
+    const wayland::DispatchResult result = wayland::dispatchUntil(targets, deadline, [&state] { return state.done; });
     if (state.callback != nullptr) {
       wl_callback_destroy(state.callback);
       state.callback = nullptr;
@@ -720,8 +682,8 @@ bool WaylandConnection::connect() {
   if (m_display != nullptr) {
     return true;
   }
-  if (m_purpose != Purpose::Shell) {
-    throw std::runtime_error("screencopy Wayland connections require a bounded primary connection");
+  if (m_purpose != Purpose::Primary) {
+    throw std::runtime_error("sibling Wayland connections require a bounded primary connection");
   }
 
   std::string setupError;
@@ -743,12 +705,7 @@ bool WaylandConnection::connect() {
     throw std::runtime_error(std::format("failed during Wayland output discovery roundtrip: {}", detail));
   }
 
-  if (m_purpose == Purpose::Shell) {
-    m_focusGrabService = std::make_unique<FocusGrabService>();
-    m_focusGrabService->initialize(m_hyprlandFocusGrabManager);
-
-    logStartupSummary();
-  }
+  logStartupSummary();
   return true;
 }
 
@@ -759,8 +716,8 @@ bool WaylandConnection::connectUntil(
   if (m_display != nullptr) {
     return true;
   }
-  if (m_purpose != Purpose::Screencopy) {
-    error = "bounded sibling connection is only available for screencopy";
+  if (m_purpose != Purpose::Sibling) {
+    error = "bounded connection is only available for sibling connections";
     return false;
   }
   if (eventConnection == nullptr || eventConnection->display() == nullptr) {
@@ -791,42 +748,6 @@ void WaylandConnection::setOutputLifecycleCallbacks(
 ) {
   m_outputAddedCallback = std::move(added);
   m_outputRemovedCallback = std::move(removed);
-}
-
-void WaylandConnection::setWorkspaceManagerCallbacks(
-    std::function<void(ext_workspace_manager_v1*)> extWorkspace, std::function<void(zdwl_ipc_manager_v2*)> dwlIpc
-) {
-  m_extWorkspaceManagerCallback = std::move(extWorkspace);
-  m_dwlIpcManagerCallback = std::move(dwlIpc);
-}
-
-void WaylandConnection::setKdeVirtualDesktopManagerCallback(
-    std::function<void(org_kde_plasma_virtual_desktop_management*)> callback
-) {
-  m_kdeVirtualDesktopManagerCallback = std::move(callback);
-}
-
-void WaylandConnection::setToplevelChangeCallback(ChangeCallback callback) {
-  m_toplevelsHandler.setChangeCallback(callback);
-  m_extForeignToplevels.setChangeCallback(std::move(callback));
-}
-
-void WaylandConnection::setHyprlandToplevelMappingManagerCallback(
-    std::function<void(hyprland_toplevel_mapping_manager_v1* manager)> callback
-) {
-  m_hyprlandToplevelMappingManagerCallback = std::move(callback);
-}
-
-void WaylandConnection::setIdleCapabilitiesReadyCallback(ChangeCallback callback) {
-  m_idleCapabilitiesReadyCallback = std::move(callback);
-  notifyIdleCapabilitiesReady();
-}
-
-void WaylandConnection::notifyIdleCapabilitiesReady() {
-  if (m_idleNotifier == nullptr || m_seat == nullptr || !m_idleCapabilitiesReadyCallback) {
-    return;
-  }
-  m_idleCapabilitiesReadyCallback();
 }
 
 void WaylandConnection::setPointerEventCallback(WaylandSeat::PointerEventCallback callback) {
@@ -967,9 +888,8 @@ void WaylandConnection::setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCal
   m_seatHandler.setLockKeysChangeCallback(std::move(callback));
 }
 
-void WaylandConnection::setClipboardService(ClipboardService* clipboardService) {
-  m_clipboardService = clipboardService;
-  bindClipboardService();
+void WaylandConnection::setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback) {
+  m_seatHandler.setKeyboardLayoutChangeCallback(std::move(callback));
 }
 
 void WaylandConnection::setTextInputService(TextInputService* textInputService) {
@@ -984,11 +904,6 @@ void WaylandConnection::setTextInputService(TextInputService* textInputService) 
   bindTextInputService();
 }
 
-void WaylandConnection::setVirtualKeyboardService(VirtualKeyboardService* virtualKeyboardService) {
-  m_virtualKeyboardService = virtualKeyboardService;
-  bindVirtualKeyboardService();
-}
-
 int WaylandConnection::repeatPollTimeoutMs() const { return m_seatHandler.repeatPollTimeoutMs(); }
 
 void WaylandConnection::repeatTick() { m_seatHandler.repeatTick(); }
@@ -997,66 +912,6 @@ void WaylandConnection::stopKeyRepeat() { m_seatHandler.stopKeyRepeat(); }
 
 void WaylandConnection::setCursorShape(std::uint32_t serial, std::uint32_t shape) {
   m_seatHandler.setCursorShape(serial, shape);
-}
-
-std::optional<ActiveToplevel> WaylandConnection::activeToplevel() const { return m_toplevelsHandler.current(); }
-
-std::optional<ActiveToplevel> WaylandConnection::matchToplevelByTitleAndAppId(
-    std::string_view title, std::string_view appId, wl_output* preferredOutput
-) const {
-  return m_toplevelsHandler.matchByTitleAndAppId(title, appId, preferredOutput);
-}
-
-wl_output* WaylandConnection::activeToplevelOutput() const { return m_toplevelsHandler.currentOutput(); }
-
-std::vector<std::string> WaylandConnection::runningAppIds(wl_output* outputFilter) const {
-  if (compositors::isKde() && m_extForeignToplevels.isBound() && !m_hasForeignToplevelManagerGlobal) {
-    (void)outputFilter;
-    return m_extForeignToplevels.allAppIds();
-  }
-  return m_toplevelsHandler.allAppIds(outputFilter);
-}
-
-std::vector<ToplevelInfo> WaylandConnection::windowsForApp(
-    const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter
-) const {
-  if (compositors::isKde() && m_extForeignToplevels.isBound() && !m_hasForeignToplevelManagerGlobal) {
-    (void)outputFilter;
-    return m_extForeignToplevels.windowsForApp(idLower, wmClassLower);
-  }
-  return m_toplevelsHandler.windowsForApp(idLower, wmClassLower, outputFilter);
-}
-
-std::vector<ToplevelInfo> WaylandConnection::windowsWithoutAppId(wl_output* outputFilter) const {
-  if (compositors::isKde() && m_extForeignToplevels.isBound() && !m_hasForeignToplevelManagerGlobal) {
-    (void)outputFilter;
-    return m_extForeignToplevels.windowsWithoutAppId();
-  }
-  return m_toplevelsHandler.windowsWithoutAppId(outputFilter);
-}
-
-std::vector<ToplevelInfo>
-WaylandConnection::extWindowsForApp(const std::string& idLower, const std::string& wmClassLower) const {
-  if (!m_extForeignToplevels.isBound()) {
-    return {};
-  }
-  return m_extForeignToplevels.windowsForApp(idLower, wmClassLower);
-}
-
-std::vector<ToplevelInfo> WaylandConnection::extWindowsWithoutAppId() const {
-  return m_extForeignToplevels.isBound() ? m_extForeignToplevels.windowsWithoutAppId() : std::vector<ToplevelInfo>{};
-}
-
-bool WaylandConnection::containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const {
-  return m_toplevelsHandler.containsWlrHandle(handle);
-}
-
-void WaylandConnection::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
-  m_toplevelsHandler.activateHandle(handle, m_seat);
-}
-
-void WaylandConnection::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
-  m_toplevelsHandler.closeHandle(handle);
 }
 
 bool WaylandConnection::isConnected() const noexcept { return m_display != nullptr; }
@@ -1071,40 +926,11 @@ bool WaylandConnection::hasSubcompositor() const noexcept { return m_subcomposit
 bool WaylandConnection::hasXdgOutputManager() const noexcept { return m_xdgOutputManager != nullptr; }
 bool WaylandConnection::hasXdgShell() const noexcept { return m_xdgWmBase != nullptr; }
 
-bool WaylandConnection::hasExtWorkspaceManager() const noexcept { return m_hasExtWorkspaceGlobal; }
-bool WaylandConnection::hasKdeVirtualDesktopManager() const noexcept { return m_hasKdeVirtualDesktopGlobal; }
-bool WaylandConnection::hasDwlIpcManager() const noexcept { return m_hasDwlIpcGlobal; }
-bool WaylandConnection::hasForeignToplevelManager() const noexcept { return m_hasForeignToplevelManagerGlobal; }
-
-bool WaylandConnection::hasExtForeignToplevelList() const noexcept { return m_hasExtForeignToplevelListGlobal; }
-bool WaylandConnection::hasSessionLockManager() const noexcept { return m_sessionLockManager != nullptr; }
-bool WaylandConnection::hasIdleNotifier() const noexcept { return m_idleNotifier != nullptr; }
-bool WaylandConnection::hasIdleInhibitManager() const noexcept { return m_idleInhibitManager != nullptr; }
 bool WaylandConnection::hasXdgActivation() const noexcept { return m_xdgActivation != nullptr; }
 bool WaylandConnection::hasFractionalScale() const noexcept {
   return m_fractionalScaleManager != nullptr && m_viewporter != nullptr;
 }
-bool WaylandConnection::hasGammaControl() const noexcept { return m_gammaControlManager != nullptr; }
 bool WaylandConnection::hasOutputManagement() const noexcept { return m_outputManager != nullptr; }
-
-bool WaylandConnection::hasScreencopy() const noexcept { return m_screencopyManager != nullptr; }
-
-zwlr_gamma_control_manager_v1* WaylandConnection::gammaControlManager() const noexcept { return m_gammaControlManager; }
-
-zwlr_screencopy_manager_v1* WaylandConnection::screencopyManager() const noexcept { return m_screencopyManager; }
-
-ext_image_copy_capture_manager_v1* WaylandConnection::imageCopyCaptureManager() const noexcept {
-  return m_imageCopyCaptureManager;
-}
-
-ext_output_image_capture_source_manager_v1* WaylandConnection::outputImageCaptureSourceManager() const noexcept {
-  return m_outputImageCaptureSourceManager;
-}
-
-ext_foreign_toplevel_image_capture_source_manager_v1*
-WaylandConnection::foreignToplevelImageCaptureSourceManager() const noexcept {
-  return m_foreignToplevelImageCaptureSourceManager;
-}
 
 std::string WaylandConnection::requestActivationToken(wl_surface* surface) const {
   if (m_xdgActivation == nullptr || m_display == nullptr) {
@@ -1190,19 +1016,6 @@ wl_subcompositor* WaylandConnection::subcompositor() const noexcept { return m_s
 zwlr_layer_shell_v1* WaylandConnection::layerShell() const noexcept { return m_layerShell; }
 xdg_wm_base* WaylandConnection::xdgWmBase() const noexcept { return m_xdgWmBase; }
 
-ext_session_lock_manager_v1* WaylandConnection::sessionLockManager() const noexcept { return m_sessionLockManager; }
-ext_idle_notifier_v1* WaylandConnection::idleNotifier() const noexcept { return m_idleNotifier; }
-
-ext_idle_notification_v1* WaylandConnection::createIdleNotification(std::uint32_t timeoutMs) const {
-  wl_seat* const seat = this->seat();
-  if (m_idleNotifier == nullptr || seat == nullptr) {
-    return nullptr;
-  }
-
-  return ext_idle_notifier_v1_get_idle_notification(m_idleNotifier, timeoutMs, seat);
-}
-
-zwp_idle_inhibit_manager_v1* WaylandConnection::idleInhibitManager() const noexcept { return m_idleInhibitManager; }
 bool WaylandConnection::hasBackgroundEffectBlur() const noexcept { return m_backgroundEffectBlurSupported; }
 ext_background_effect_manager_v1* WaylandConnection::backgroundEffectManager() const noexcept {
   return m_backgroundEffectManager;
@@ -1211,10 +1024,8 @@ wp_fractional_scale_manager_v1* WaylandConnection::fractionalScaleManager() cons
   return m_fractionalScaleManager;
 }
 
-hyprland_focus_grab_manager_v1* WaylandConnection::hyprlandFocusGrabManager() const noexcept {
-  return m_hyprlandFocusGrabManager;
-}
-FocusGrabService* WaylandConnection::focusGrabService() const noexcept { return m_focusGrabService.get(); }
+void WaylandConnection::setPopupGrabHost(PopupGrabHost* host) noexcept { m_popupGrabHost = host; }
+PopupGrabHost* WaylandConnection::popupGrabHost() const noexcept { return m_popupGrabHost; }
 wp_viewporter* WaylandConnection::viewporter() const noexcept { return m_viewporter; }
 
 void WaylandConnection::onBackgroundEffectCapabilities(std::uint32_t capabilities) noexcept {
@@ -1377,11 +1188,34 @@ void WaylandConnection::handleGlobal(
     void* data, wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t version
 ) {
   auto* self = static_cast<WaylandConnection*>(data);
+  self->m_advertisedGlobals.push_back({.name = name, .interface = interface, .version = version});
   self->bindGlobal(registry, name, interface, version);
+  // Extensions created from inside onGlobal already saw this global through their replay.
+  const std::size_t extensionCount = self->m_extensions.size();
+  for (std::size_t i = 0; i < extensionCount; ++i) {
+    self->m_extensions[i].second->onGlobal(registry, name, interface, version);
+  }
+}
+
+void WaylandConnection::replayGlobals(WaylandExtension& extension) {
+  if (m_registry == nullptr) {
+    return;
+  }
+  // A snapshot: onGlobal may dispatch, and globals announced meanwhile reach the extension directly.
+  const std::vector<AdvertisedGlobal> globals = m_advertisedGlobals;
+  for (const AdvertisedGlobal& global : globals) {
+    extension.onGlobal(m_registry, global.name, global.interface, global.version);
+  }
 }
 
 void WaylandConnection::handleGlobalRemove(void* data, wl_registry* /*registry*/, std::uint32_t name) {
   auto* self = static_cast<WaylandConnection*>(data);
+  std::erase_if(self->m_advertisedGlobals, [name](const AdvertisedGlobal& global) { return global.name == name; });
+  const std::size_t extensionCount = self->m_extensions.size();
+  for (std::size_t i = 0; i < extensionCount; ++i) {
+    self->m_extensions[i].second->onGlobalRemove(name);
+  }
+
   auto it = std::ranges::find_if(self->m_outputs, [name](const WaylandOutput& output) { return output.name == name; });
   if (it == self->m_outputs.end()) {
     return;
@@ -1416,10 +1250,9 @@ void WaylandConnection::bindGlobal(
 ) {
   const std::string interfaceName = interface;
 
-  if (m_purpose == Purpose::Screencopy
+  if (m_purpose == Purpose::Sibling
       && interfaceName != wl_shm_interface.name
-      && interfaceName != wl_output_interface.name
-      && interfaceName != zwlr_screencopy_manager_v1_interface.name) {
+      && interfaceName != wl_output_interface.name) {
     return;
   }
 
@@ -1433,9 +1266,7 @@ void WaylandConnection::bindGlobal(
     const auto bindVersion = std::min(version, kSeatVersion);
     m_seat = static_cast<wl_seat*>(wl_registry_bind(registry, name, &wl_seat_interface, bindVersion));
     m_seatHandler.bind(m_seat);
-    bindClipboardService();
     bindTextInputService();
-    notifyIdleCapabilitiesReady();
     return;
   }
 
@@ -1476,72 +1307,6 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
-  if (interfaceName == ext_workspace_manager_v1_interface.name) {
-    m_hasExtWorkspaceGlobal = true;
-    const auto bindVersion = std::min(version, kExtWorkspaceManagerVersion);
-    auto* manager = static_cast<ext_workspace_manager_v1*>(
-        wl_registry_bind(registry, name, &ext_workspace_manager_v1_interface, bindVersion)
-    );
-    if (m_extWorkspaceManagerCallback) {
-      m_extWorkspaceManagerCallback(manager);
-    } else {
-      ext_workspace_manager_v1_destroy(manager);
-    }
-    return;
-  }
-
-  if (interfaceName == org_kde_plasma_virtual_desktop_management_interface.name) {
-    m_hasKdeVirtualDesktopGlobal = true;
-    const auto bindVersion = std::min(version, kKdeVirtualDesktopManagementVersion);
-    auto* manager = static_cast<org_kde_plasma_virtual_desktop_management*>(
-        wl_registry_bind(registry, name, &org_kde_plasma_virtual_desktop_management_interface, bindVersion)
-    );
-    if (m_kdeVirtualDesktopManagerCallback) {
-      m_kdeVirtualDesktopManagerCallback(manager);
-    } else {
-      org_kde_plasma_virtual_desktop_management_destroy(manager);
-    }
-    return;
-  }
-
-  if (interfaceName == zdwl_ipc_manager_v2_interface.name) {
-    m_hasDwlIpcGlobal = true;
-    auto* manager =
-        static_cast<zdwl_ipc_manager_v2*>(wl_registry_bind(registry, name, &zdwl_ipc_manager_v2_interface, 2));
-    if (m_dwlIpcManagerCallback) {
-      m_dwlIpcManagerCallback(manager);
-    } else {
-      zdwl_ipc_manager_v2_release(manager);
-    }
-    return;
-  }
-
-  if (interfaceName == zwlr_foreign_toplevel_manager_v1_interface.name) {
-    m_hasForeignToplevelManagerGlobal = true;
-    const auto bindVersion = std::min(version, kWlrForeignToplevelManagerVersion);
-    auto* manager = static_cast<zwlr_foreign_toplevel_manager_v1*>(
-        wl_registry_bind(registry, name, &zwlr_foreign_toplevel_manager_v1_interface, bindVersion)
-    );
-    m_toplevelsHandler.bind(manager);
-    return;
-  }
-
-  if (interfaceName == ext_foreign_toplevel_list_v1_interface.name) {
-    const auto compositor = compositors::detect();
-    // Niri needs the ext identifier for an exact join with its numeric IPC window id. Keep the
-    // wlr manager bound as well because other shell features still consume its richer state.
-    if (!wayland_protocol_policy::shouldBindExtForeignToplevelList(compositor)) {
-      return;
-    }
-    m_hasExtForeignToplevelListGlobal = true;
-    const auto bindVersion = std::min(version, kExtForeignToplevelListVersion);
-    auto* list = static_cast<ext_foreign_toplevel_list_v1*>(
-        wl_registry_bind(registry, name, &ext_foreign_toplevel_list_v1_interface, bindVersion)
-    );
-    m_extForeignToplevels.bind(list, m_display);
-    return;
-  }
-
   if (interfaceName == wp_cursor_shape_manager_v1_interface.name) {
     const auto bindVersion = std::min(version, kCursorShapeManagerVersion);
     m_cursorShapeManager = static_cast<wp_cursor_shape_manager_v1*>(
@@ -1555,31 +1320,6 @@ void WaylandConnection::bindGlobal(
     const auto bindVersion = std::min(version, kXdgActivationVersion);
     m_xdgActivation =
         static_cast<xdg_activation_v1*>(wl_registry_bind(registry, name, &xdg_activation_v1_interface, bindVersion));
-    return;
-  }
-
-  if (interfaceName == ext_session_lock_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kExtSessionLockManagerVersion);
-    m_sessionLockManager = static_cast<ext_session_lock_manager_v1*>(
-        wl_registry_bind(registry, name, &ext_session_lock_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
-  if (interfaceName == ext_idle_notifier_v1_interface.name) {
-    const auto bindVersion = std::min(version, kExtIdleNotifierVersion);
-    m_idleNotifier = static_cast<ext_idle_notifier_v1*>(
-        wl_registry_bind(registry, name, &ext_idle_notifier_v1_interface, bindVersion)
-    );
-    notifyIdleCapabilitiesReady();
-    return;
-  }
-
-  if (interfaceName == zwp_idle_inhibit_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kIdleInhibitManagerVersion);
-    m_idleInhibitManager = static_cast<zwp_idle_inhibit_manager_v1*>(
-        wl_registry_bind(registry, name, &zwp_idle_inhibit_manager_v1_interface, bindVersion)
-    );
     return;
   }
 
@@ -1606,104 +1346,12 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
-  if (interfaceName == hyprland_focus_grab_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kHyprlandFocusGrabManagerVersion);
-    m_hyprlandFocusGrabManager = static_cast<hyprland_focus_grab_manager_v1*>(
-        wl_registry_bind(registry, name, &hyprland_focus_grab_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
-  if (interfaceName == hyprland_toplevel_mapping_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kHyprlandToplevelMappingManagerVersion);
-    auto* manager = static_cast<hyprland_toplevel_mapping_manager_v1*>(
-        wl_registry_bind(registry, name, &hyprland_toplevel_mapping_manager_v1_interface, bindVersion)
-    );
-    if (m_hyprlandToplevelMappingManagerCallback) {
-      m_hyprlandToplevelMappingManagerCallback(manager);
-    } else {
-      hyprland_toplevel_mapping_manager_v1_destroy(manager);
-    }
-    return;
-  }
-
-  if (interfaceName == ext_data_control_manager_v1_interface.name) {
-    if (m_dataControlManager != nullptr && m_dataControlOps != extDataControlOps()) {
-      m_dataControlOps->destroyManager(m_dataControlManager);
-      m_dataControlManager = nullptr;
-    }
-    if (m_dataControlManager == nullptr) {
-      m_dataControlManager = extDataControlOps()->bindManager(registry, name, version);
-      m_dataControlOps = extDataControlOps();
-      bindClipboardService();
-    }
-    return;
-  }
-
-  if (interfaceName == zwlr_data_control_manager_v1_interface.name) {
-    if (m_dataControlManager == nullptr) {
-      m_dataControlManager = wlrDataControlOps()->bindManager(registry, name, version);
-      m_dataControlOps = wlrDataControlOps();
-      bindClipboardService();
-    }
-    return;
-  }
-
   if (interfaceName == zwp_text_input_manager_v3_interface.name) {
     const auto bindVersion = std::min(version, kTextInputManagerVersion);
     m_textInputManager = static_cast<zwp_text_input_manager_v3*>(
         wl_registry_bind(registry, name, &zwp_text_input_manager_v3_interface, bindVersion)
     );
     bindTextInputService();
-    return;
-  }
-
-  if (interfaceName == zwp_virtual_keyboard_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kVirtualKeyboardManagerVersion);
-    m_virtualKeyboardManager = static_cast<zwp_virtual_keyboard_manager_v1*>(
-        wl_registry_bind(registry, name, &zwp_virtual_keyboard_manager_v1_interface, bindVersion)
-    );
-    bindVirtualKeyboardService();
-    return;
-  }
-
-  if (interfaceName == zwlr_gamma_control_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kGammaControlManagerVersion);
-    m_gammaControlManager = static_cast<zwlr_gamma_control_manager_v1*>(
-        wl_registry_bind(registry, name, &zwlr_gamma_control_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
-  if (interfaceName == zwlr_screencopy_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kScreencopyManagerVersion);
-    m_screencopyManager = static_cast<zwlr_screencopy_manager_v1*>(
-        wl_registry_bind(registry, name, &zwlr_screencopy_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
-  if (interfaceName == ext_image_copy_capture_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kImageCopyCaptureManagerVersion);
-    m_imageCopyCaptureManager = static_cast<ext_image_copy_capture_manager_v1*>(
-        wl_registry_bind(registry, name, &ext_image_copy_capture_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
-  if (interfaceName == ext_output_image_capture_source_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kOutputImageCaptureSourceManagerVersion);
-    m_outputImageCaptureSourceManager = static_cast<ext_output_image_capture_source_manager_v1*>(
-        wl_registry_bind(registry, name, &ext_output_image_capture_source_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
-  if (interfaceName == ext_foreign_toplevel_image_capture_source_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kForeignToplevelImageCaptureSourceManagerVersion);
-    m_foreignToplevelImageCaptureSourceManager = static_cast<ext_foreign_toplevel_image_capture_source_manager_v1*>(
-        wl_registry_bind(registry, name, &ext_foreign_toplevel_image_capture_source_manager_v1_interface, bindVersion)
-    );
     return;
   }
 
@@ -1747,16 +1395,6 @@ void WaylandConnection::bindGlobal(
   }
 }
 
-void WaylandConnection::bindClipboardService() {
-  if (m_clipboardService == nullptr) {
-    return;
-  }
-  if (m_dataControlManager == nullptr || m_dataControlOps == nullptr || m_seat == nullptr) {
-    return;
-  }
-  m_clipboardService->bind(m_dataControlManager, m_dataControlOps, m_seat);
-}
-
 void WaylandConnection::bindTextInputService() {
   if (m_textInputService == nullptr) {
     return;
@@ -1767,28 +1405,15 @@ void WaylandConnection::bindTextInputService() {
   m_textInputService->bind(m_textInputManager, m_seat);
 }
 
-void WaylandConnection::bindVirtualKeyboardService() {
-  if (m_virtualKeyboardService == nullptr) {
-    return;
-  }
-  if (m_virtualKeyboardManager == nullptr || m_seat == nullptr) {
-    return;
-  }
-  m_virtualKeyboardService->bind(m_virtualKeyboardManager, m_seat);
-}
-
 void WaylandConnection::cleanup() {
-  if (m_clipboardService != nullptr) {
-    m_clipboardService->cleanup();
+  for (auto& [type, extension] : std::views::reverse(m_extensions)) {
+    extension->releaseGlobals();
   }
+  m_advertisedGlobals.clear();
+
   if (m_textInputService != nullptr) {
     m_textInputService->cleanup();
   }
-  if (m_virtualKeyboardService != nullptr) {
-    m_virtualKeyboardService->cleanup();
-  }
-  m_toplevelsHandler.cleanup();
-  m_extForeignToplevels.cleanup();
 
   for (auto& out : m_outputs) {
     if (out.xdgOutput != nullptr) {
@@ -1819,18 +1444,6 @@ void WaylandConnection::cleanup() {
     m_xdgActivation = nullptr;
   }
 
-  if (m_sessionLockManager != nullptr) {
-    ext_session_lock_manager_v1_destroy(m_sessionLockManager);
-    m_sessionLockManager = nullptr;
-  }
-  if (m_idleNotifier != nullptr) {
-    ext_idle_notifier_v1_destroy(m_idleNotifier);
-    m_idleNotifier = nullptr;
-  }
-  if (m_idleInhibitManager != nullptr) {
-    zwp_idle_inhibit_manager_v1_destroy(m_idleInhibitManager);
-    m_idleInhibitManager = nullptr;
-  }
   if (m_backgroundEffectManager != nullptr) {
     ext_background_effect_manager_v1_destroy(m_backgroundEffectManager);
     m_backgroundEffectManager = nullptr;
@@ -1840,32 +1453,6 @@ void WaylandConnection::cleanup() {
   if (m_fractionalScaleManager != nullptr) {
     wp_fractional_scale_manager_v1_destroy(m_fractionalScaleManager);
     m_fractionalScaleManager = nullptr;
-  }
-
-  if (m_hyprlandFocusGrabManager != nullptr) {
-    hyprland_focus_grab_manager_v1_destroy(m_hyprlandFocusGrabManager);
-    m_hyprlandFocusGrabManager = nullptr;
-  }
-
-  if (m_gammaControlManager != nullptr) {
-    zwlr_gamma_control_manager_v1_destroy(m_gammaControlManager);
-    m_gammaControlManager = nullptr;
-  }
-  if (m_screencopyManager != nullptr) {
-    zwlr_screencopy_manager_v1_destroy(m_screencopyManager);
-    m_screencopyManager = nullptr;
-  }
-  if (m_imageCopyCaptureManager != nullptr) {
-    ext_image_copy_capture_manager_v1_destroy(m_imageCopyCaptureManager);
-    m_imageCopyCaptureManager = nullptr;
-  }
-  if (m_outputImageCaptureSourceManager != nullptr) {
-    ext_output_image_capture_source_manager_v1_destroy(m_outputImageCaptureSourceManager);
-    m_outputImageCaptureSourceManager = nullptr;
-  }
-  if (m_foreignToplevelImageCaptureSourceManager != nullptr) {
-    ext_foreign_toplevel_image_capture_source_manager_v1_destroy(m_foreignToplevelImageCaptureSourceManager);
-    m_foreignToplevelImageCaptureSourceManager = nullptr;
   }
 
   for (auto* mode : m_outputModes) {
@@ -1884,17 +1471,6 @@ void WaylandConnection::cleanup() {
   if (m_viewporter != nullptr) {
     wp_viewporter_destroy(m_viewporter);
     m_viewporter = nullptr;
-  }
-
-  if (m_dataControlManager != nullptr && m_dataControlOps != nullptr) {
-    m_dataControlOps->destroyManager(m_dataControlManager);
-    m_dataControlManager = nullptr;
-    m_dataControlOps = nullptr;
-  }
-
-  if (m_virtualKeyboardManager != nullptr) {
-    zwp_virtual_keyboard_manager_v1_destroy(m_virtualKeyboardManager);
-    m_virtualKeyboardManager = nullptr;
   }
 
   if (m_textInputManager != nullptr) {
@@ -1952,24 +1528,16 @@ void WaylandConnection::cleanup() {
   m_surfaceOutputs.clear();
   m_layerSurfaceMap.clear();
   m_hasLayerShellGlobal = false;
-  m_hasExtWorkspaceGlobal = false;
-  m_hasDwlIpcGlobal = false;
-  m_hasForeignToplevelManagerGlobal = false;
   m_outputAddedCallback = nullptr;
   m_outputRemovedCallback = nullptr;
-  m_extWorkspaceManagerCallback = nullptr;
-  m_kdeVirtualDesktopManagerCallback = nullptr;
-  m_dwlIpcManagerCallback = nullptr;
 }
 
 void WaylandConnection::logStartupSummary() const {
   kLog.info(
-      "connected compositor={} shm={} layer-shell={} xdg-shell={} xdg-output={} ext-workspace={} kde-vd={} dwl-ipc={} "
-      "session-lock={} fractional-scale={} gamma-control={} output-management={} outputs={}",
+      "connected compositor={} shm={} layer-shell={} xdg-shell={} xdg-output={} fractional-scale={} "
+      "output-management={} outputs={}",
       m_compositor != nullptr ? "yes" : "no", m_shm != nullptr ? "yes" : "no", hasLayerShell() ? "yes" : "no",
-      hasXdgShell() ? "yes" : "no", hasXdgOutputManager() ? "yes" : "no", hasExtWorkspaceManager() ? "yes" : "no",
-      hasKdeVirtualDesktopManager() ? "yes" : "no", hasDwlIpcManager() ? "yes" : "no",
-      hasSessionLockManager() ? "yes" : "no", hasFractionalScale() ? "yes" : "no", hasGammaControl() ? "yes" : "no",
+      hasXdgShell() ? "yes" : "no", hasXdgOutputManager() ? "yes" : "no", hasFractionalScale() ? "yes" : "no",
       hasOutputManagement() ? "yes" : "no", m_outputs.size()
   );
 

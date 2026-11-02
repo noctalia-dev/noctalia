@@ -37,7 +37,7 @@ void SelectDropdownPopup::setParent(xdg_surface* xdgSurface, wl_surface* parentW
   m_parentOutput = output;
 }
 
-void SelectDropdownPopup::setShadowConfig(const ShellConfig::ShadowConfig& shadow) { m_popup.setShadowConfig(shadow); }
+void SelectDropdownPopup::setShadowConfig(const ShadowStyle& shadow) { m_popup.setShadowConfig(shadow); }
 
 void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, DropdownCallbacks callbacks) {
   // Close first so a previously open dropdown delivers its dismiss to its own owner before the
@@ -74,7 +74,7 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
       onSelect(static_cast<std::size_t>(std::max<std::int32_t>(0, entry.id)));
     }
   });
-  m_popup.setOnDismissed([onDismiss = std::move(callbacks.onDismiss)]() {
+  m_popup.setOnDismissed([onDismiss = std::move(callbacks.onDismiss)] {
     if (onDismiss) {
       onDismiss();
     }

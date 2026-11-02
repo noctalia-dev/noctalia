@@ -193,11 +193,18 @@ namespace {
     return placement;
   }
 
-  ShellConfig::ShadowConfig popupShadowConfig(ConfigService* config) {
-    return config != nullptr ? config->config().shell.shadow : ShellConfig::ShadowConfig{};
+  ShadowStyle popupShadowConfig(ConfigService* config) {
+    return config != nullptr ? config->config().shell.shadow : ShadowStyle{};
+  }
+
+  bool hasToggleEntries(const std::vector<ContextMenuControlEntry>& entries) {
+    return std::ranges::any_of(entries, [](const ContextMenuControlEntry& entry) {
+      return !entry.separator && entry.hasToggle();
+    });
   }
 
 } // namespace
+
 void TrayMenu::initialize(
     WaylandConnection& wayland, ConfigService* config, TrayService* tray, RenderContext* renderContext
 ) {
@@ -352,7 +359,7 @@ bool TrayMenu::onKeyboardEvent(const KeyboardEvent& event) {
     return false;
   }
   if (event.pressed && !event.preedit && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-    DeferredCall::callLater([this]() { close(); });
+    DeferredCall::callLater([this] { close(); });
   }
   // The menu holds a modal grab while open — swallow keys so they don't leak.
   return true;
@@ -569,7 +576,7 @@ void TrayMenu::scheduleEntryRetry(int attempt) {
   }
   const auto delay = std::chrono::milliseconds(kDelays[attempt]);
   const std::string capturedItemId = m_activeItemId;
-  m_retryTimer.start(delay, [this, attempt, capturedItemId]() {
+  m_retryTimer.start(delay, [this, attempt, capturedItemId] {
     // Abort if the menu closed or the user switched tray items — we only retry
     // while the placeholder menu is still visible to the user.
     if (!m_visible || m_tray == nullptr || m_activeItemId != capturedItemId) {
@@ -695,7 +702,7 @@ void TrayMenu::ensureSurface() {
   inst->surface->setPrepareFrameCallback([this, instPtr](bool needsUpdate, bool needsLayout) {
     prepareMainMenuFrame(*instPtr, needsUpdate, needsLayout);
   });
-  inst->surface->setDismissedCallback([this]() { close(); });
+  inst->surface->setDismissedCallback([this] { close(); });
 
   const auto chrome = popup_chrome::computeGeometry(
       menuWidth(), static_cast<float>(surfaceHeightPx()), popupShadowConfig(m_config), Style::popupShadowsEnabled()
@@ -711,8 +718,7 @@ void TrayMenu::ensureSurface() {
   // tearing the popup down. Skip xdg_popup_grab when we'll be using
   // focus_grab; outside-click dismissal is handled by the focus grab's
   // `cleared` event instead.
-  auto* grabService = m_wayland->focusGrabService();
-  const bool useFocusGrab = grabService != nullptr && grabService->available();
+  const bool useFocusGrab = m_wayland->extension<FocusGrabService>().available();
   inst->submenuDirection = placement.submenuDirection;
   inst->chrome = chrome;
   auto popupConfig = PopupSurfaceConfig{
@@ -766,12 +772,12 @@ void TrayMenu::ensureSurface() {
   // after the configure round-trip completes; committing the grab synchronously
   // here makes the compositor fire `cleared` immediately and the menu never
   // appears.
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     if (!m_visible || m_instance == nullptr || m_wayland == nullptr) {
       return;
     }
-    auto* svc = m_wayland->focusGrabService();
-    if (svc == nullptr || !svc->available()) {
+    auto& grabService = m_wayland->extension<FocusGrabService>();
+    if (!grabService.available()) {
       return;
     }
 
@@ -779,15 +785,15 @@ void TrayMenu::ensureSurface() {
     // this popup is already enrolled into the panel's existing focus grab.
     // Creating another grab here would clear the panel grab, dismissing the
     // parent panel.
-    if (svc->popupGrabHost() != nullptr) {
+    if (m_wayland->popupGrabHost() != nullptr) {
       return;
     }
 
-    m_focusGrab = svc->createGrab();
+    m_focusGrab = grabService.createGrab();
     if (m_focusGrab == nullptr) {
       return;
     }
-    m_focusGrab->setOnCleared([this]() {
+    m_focusGrab->setOnCleared([this] {
       if (m_visible) {
         close();
       }
@@ -887,11 +893,11 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
   inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
   if (Style::popupShadowsEnabled()) {
-    (void)popup_chrome::addShadow(
+    popup_chrome::addShadow(
         *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
     );
   }
-  (void)popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
+  popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
 
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(m_entries.size());
@@ -929,21 +935,21 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
       },
   });
   auto menu = std::make_unique<ContextMenuControl>();
-  menu->setReserveToggleSpace(true);
+  menu->setReserveToggleSpace(hasToggleEntries(entries));
   menu->setContentScale(contentScale());
   menu->setMenuWidth(menuWidth);
   menu->setMaxVisible(entries.size()); // Always lay out all entries for scrolling
   menu->setSubmenuDirection(inst.submenuDirection);
   menu->setEntries(std::move(entries));
-  menu->setRedrawCallback([&inst]() {
+  menu->setRedrawCallback([&inst] {
     if (inst.surface != nullptr) {
       inst.surface->requestRedraw();
     }
   });
   menu->setOnActivate([this](const ContextMenuControlEntry& entry) {
     if (entry.id == kPinToggleEntryId) {
-      DeferredCall::callLater([this]() {
-        (void)toggleActiveItemPinned();
+      DeferredCall::callLater([this] {
+        toggleActiveItemPinned();
         close();
         closeTrayDrawerPanelIfOpen();
       });
@@ -952,7 +958,7 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
     if (m_tray == nullptr || m_activeItemId.empty()) {
       return;
     }
-    DeferredCall::callLater([this, entry]() {
+    DeferredCall::callLater([this, entry] {
       if (m_tray != nullptr) {
         (void)m_tray->activateMenuEntry(m_activeItemId, entry.id);
       }
@@ -995,12 +1001,9 @@ bool TrayMenu::activeItemPinned() const {
     return false;
   }
   const auto resolved = tray::resolvedTrayOptions(*m_config);
-  for (const auto& token : resolved.options.pinnedItems) {
-    if (tray::tokenMatchesItem(token, *item)) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(resolved.options.pinnedItems, [&](const auto& token) {
+    return tray::pinnedTokenMatchesItem(token, *item);
+  });
 }
 
 bool TrayMenu::toggleActiveItemPinned() {
@@ -1017,10 +1020,10 @@ bool TrayMenu::toggleActiveItemPinned() {
     return tray::looksGenericStatusItemName(token) || tray::isTransientUniqueIdentifier(token);
   });
   const bool currentlyPinned =
-      std::ranges::any_of(pinned, [&](const std::string& token) { return tray::tokenMatchesItem(token, *item); });
+      std::ranges::any_of(pinned, [&](const std::string& token) { return tray::pinnedTokenMatchesItem(token, *item); });
 
   if (currentlyPinned) {
-    std::erase_if(pinned, [&](const std::string& token) { return tray::tokenMatchesItem(token, *item); });
+    std::erase_if(pinned, [&](const std::string& token) { return tray::pinnedTokenMatchesItem(token, *item); });
     kLog.info(
         "tray pin removed token for id={} itemName='{}' title='{}' sniTitle='{}' icon='{}' process='{}' "
         "bus='{}'",
@@ -1150,21 +1153,14 @@ void TrayMenu::openSubmenuAtLevel(std::size_t levelIndex, std::int32_t parentEnt
     }
   }
 
-  const std::int32_t anchorX = isRight ? parentContentX + parentWidth : parentContentX;
+  // applyToConfig would put the bleed in offsetX, which compositors may not mirror on flip_x.
+  // Put the gap and bleed in the anchor rect instead so either side keeps the same gap.
+  const std::int32_t anchorX = parentContentX - subGap + chrome.bleed.right;
+  const std::int32_t anchorWidth = parentWidth + (2 * subGap) - chrome.bleed.left - chrome.bleed.right;
   const std::int32_t anchorY = static_cast<std::int32_t>(std::lround(parentMenu->chrome.contentY())) + rowTop;
   const std::uint32_t anchor = isRight ? XDG_POSITIONER_ANCHOR_TOP_RIGHT : XDG_POSITIONER_ANCHOR_TOP_LEFT;
   const std::uint32_t gravity = isRight ? XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT : XDG_POSITIONER_GRAVITY_BOTTOM_LEFT;
-  const std::int32_t offsetX = isRight ? subGap : -subGap;
   const auto subDir = isRight ? ContextSubmenuDirection::Right : ContextSubmenuDirection::Left;
-  const auto chromeAttachment = isRight
-                                    ? popup_chrome::Attachment{
-                                          .horizontal = popup_chrome::HorizontalAttachment::Left,
-                                          .vertical = popup_chrome::VerticalAttachment::Top,
-                                      }
-                                    : popup_chrome::Attachment{
-                                          .horizontal = popup_chrome::HorizontalAttachment::Right,
-                                          .vertical = popup_chrome::VerticalAttachment::Top,
-                                      };
 
   auto inst = std::make_unique<MenuInstance>();
   inst->output = parentMenu->output;
@@ -1178,24 +1174,23 @@ void TrayMenu::openSubmenuAtLevel(std::size_t levelIndex, std::int32_t parentEnt
   inst->surface->setPrepareFrameCallback([this, levelIndex, instPtr](bool needsUpdate, bool needsLayout) {
     prepareSubmenuFrame(levelIndex, *instPtr, needsUpdate, needsLayout);
   });
-  inst->surface->setDismissedCallback([this, levelIndex]() { closeSubmenusFrom(levelIndex); });
+  inst->surface->setDismissedCallback([this, levelIndex] { closeSubmenusFrom(levelIndex); });
 
   auto popupConfig = PopupSurfaceConfig{
       .anchorX = anchorX,
       .anchorY = anchorY,
-      .anchorWidth = 1,
+      .anchorWidth = anchorWidth,
       .anchorHeight = rowH,
       .width = chrome.surfaceWidth,
       .height = chrome.surfaceHeight,
       .anchor = anchor,
       .gravity = gravity,
       .constraintAdjustment = kPopupConstraintAdjust,
-      .offsetX = offsetX,
-      .offsetY = 0,
+      .offsetX = 0,
+      .offsetY = popup_chrome::adjustedOffsetY(0, chrome, popup_chrome::VerticalAttachment::Top),
       .serial = m_wayland->lastInputSerial(),
       .grab = (m_focusGrab == nullptr),
   };
-  popup_chrome::applyToConfig(popupConfig, chrome, chromeAttachment);
 
   xdg_surface* parentXdg = parentMenu->surface->xdgSurface();
   if (!inst->surface->initializeAsChild(parentXdg, parentMenu->output, popupConfig)) {
@@ -1245,11 +1240,11 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
   inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
   if (Style::popupShadowsEnabled()) {
-    (void)popup_chrome::addShadow(
+    popup_chrome::addShadow(
         *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
     );
   }
-  (void)popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
+  popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
 
   if (levelIndex >= m_submenuLevels.size()) {
     return;
@@ -1292,13 +1287,13 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
   });
 
   auto menu = std::make_unique<ContextMenuControl>();
-  menu->setReserveToggleSpace(true);
+  menu->setReserveToggleSpace(hasToggleEntries(entries));
   menu->setContentScale(contentScale());
   menu->setMenuWidth(menuWidth);
   menu->setMaxVisible(entries.size()); // Always lay out all entries for scrolling
   menu->setSubmenuDirection(inst.submenuDirection);
   menu->setEntries(std::move(entries));
-  menu->setRedrawCallback([&inst]() {
+  menu->setRedrawCallback([&inst] {
     if (inst.surface != nullptr) {
       inst.surface->requestRedraw();
     }
@@ -1307,7 +1302,7 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
     if (m_tray == nullptr || m_activeItemId.empty()) {
       return;
     }
-    DeferredCall::callLater([this, entry]() {
+    DeferredCall::callLater([this, entry] {
       if (m_tray != nullptr) {
         (void)m_tray->activateMenuEntry(m_activeItemId, entry.id);
       }

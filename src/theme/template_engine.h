@@ -41,6 +41,7 @@ namespace noctalia::theme {
       std::string configFile;
       std::unordered_set<std::string> enabledTemplates;
       std::function<bool()> cancelRequested;
+      std::function<void(std::string)> hookWarningCallback;
       std::string schemeType = "content";
       bool verbose = true;
       std::shared_ptr<const toml::table> configTable;

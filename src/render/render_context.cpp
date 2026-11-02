@@ -2,35 +2,26 @@
 
 #include "core/files/resource_paths.h"
 #include "core/log.h"
-#include "core/scoped_timer.h"
 #include "core/ui_phase.h"
 #include "render/backend/render_backend.h"
-#include "render/core/lockscreen_transition_types.h"
 #include "render/core/texture_handle.h"
 #include "render/core/texture_manager.h"
-#include "render/core/wallpaper_types.h"
 #include "render/gl_shared_context.h"
 #include "render/render_target.h"
-#include "render/scene/audio_spectrum_node.h"
-#include "render/scene/countdown_ring_node.h"
-#include "render/scene/effect_node.h"
-#include "render/scene/fancy_audio_visualizer_node.h"
+#include "render/scene/custom_draw_node.h"
 #include "render/scene/glyph_node.h"
-#include "render/scene/graph_node.h"
 #include "render/scene/image_node.h"
-#include "render/scene/lockscreen_transition_node.h"
 #include "render/scene/node.h"
 #include "render/scene/rect_node.h"
-#include "render/scene/screen_corner_node.h"
 #include "render/scene/spinner_node.h"
 #include "render/scene/text_node.h"
-#include "render/scene/wallpaper_node.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <format>
+#include <initializer_list>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -145,10 +136,7 @@ bool RenderContext::makeCurrentNoSurface() {
 }
 
 bool RenderContext::makeCurrent(RenderTarget& target) {
-  if (m_backend == nullptr || m_graphicsResetPending || !m_backend->makeCurrent(target)) {
-    return false;
-  }
-  return true;
+  return m_backend != nullptr && !m_graphicsResetPending && m_backend->makeCurrent(target);
 }
 
 void RenderContext::setTextFontFamily(std::string family) {
@@ -179,7 +167,7 @@ void RenderContext::notifyFontConfigChanged() {
   ++m_textMetricsGeneration;
 }
 
-void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const WallpaperMaskDrawParams* wallpaperMask) {
+void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, Node* overlay) {
   if (m_backend == nullptr || m_graphicsResetPending) {
     return;
   }
@@ -189,10 +177,10 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const Wal
   }
   const float renderScale = target.contentScale();
 
-  if (sceneRoot != nullptr
-      && m_gpuResourceGeneration != 0
-      && sceneRoot->gpuResourceGeneration() != m_gpuResourceGeneration) {
-    sceneRoot->invalidateGpuResources(target.renderer(), m_gpuResourceGeneration);
+  for (Node* root : {sceneRoot, overlay}) {
+    if (root != nullptr && m_gpuResourceGeneration != 0 && root->gpuResourceGeneration() != m_gpuResourceGeneration) {
+      root->invalidateGpuResources(target.renderer(), m_gpuResourceGeneration);
+    }
   }
 
   if (m_glyphTexturesDirty) {
@@ -204,19 +192,14 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const Wal
   const auto drawStart = std::chrono::steady_clock::now();
   {
     UiPhaseScope renderPhase(UiPhase::Render);
-    if (sceneRoot != nullptr) {
-      const auto sw = static_cast<float>(target.logicalWidth());
-      const auto sh = static_cast<float>(target.logicalHeight());
-      const auto bw = static_cast<float>(target.bufferWidth());
-      const auto bh = static_cast<float>(target.bufferHeight());
-      renderNode(
-          renderScale, sceneRoot, Mat3::identity(), 1.0F, sw, sh, bw, bh, 0.0F, 0.0F, sw, sh, false, false, false
-      );
-    }
-    if (wallpaperMask != nullptr && wallpaperMask->texture != 0) {
-      m_backend->disableScissor();
-      m_backend->setBlendMode(RenderBlendMode::DestinationOut);
-      m_backend->drawWallpaperMask(*wallpaperMask);
+    const auto sw = static_cast<float>(target.logicalWidth());
+    const auto sh = static_cast<float>(target.logicalHeight());
+    const auto bw = static_cast<float>(target.bufferWidth());
+    const auto bh = static_cast<float>(target.bufferHeight());
+    for (const Node* root : {sceneRoot, overlay}) {
+      if (root != nullptr) {
+        renderNode(renderScale, root, Mat3::identity(), 1.0F, sw, sh, bw, bh, 0.0F, 0.0F, sw, sh, false, false, false);
+      }
     }
   }
   float ms = elapsedSince(drawStart);
@@ -235,12 +218,10 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const Wal
 }
 
 TextMetrics RenderContext::measureTextScaled(
-    float scale, std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines,
-    TextAlign align, std::string_view fontFamily, TextEllipsize ellipsize, bool useMarkup
+    float scale, std::string_view text, float fontSize, const TextFont& font, float maxWidth, int maxLines,
+    TextAlign align, TextEllipsize ellipsize, bool useMarkup
 ) {
-  auto m = m_textRenderer.measure(
-      scale, text, fontSize, fontWeight, maxWidth, maxLines, align, fontFamily, ellipsize, useMarkup
-  );
+  auto m = m_textRenderer.measure(scale, text, fontSize, font, maxWidth, maxLines, align, ellipsize, useMarkup);
   return TextMetrics{
       .width = m.width,
       .left = m.left,
@@ -251,13 +232,13 @@ TextMetrics RenderContext::measureTextScaled(
       .inkBottom = m.inkBottom,
       .inkLeft = m.inkLeft,
       .inkRight = m.inkRight,
-      .lineCount = m.lineCount
+      .lineCount = m.lineCount,
+      .alignOffsetX = m.alignOffsetX
   };
 }
 
-TextMetrics
-RenderContext::measureFontScaled(float scale, float fontSize, FontWeight fontWeight, std::string_view fontFamily) {
-  auto m = m_textRenderer.measureFont(scale, fontSize, fontWeight, fontFamily);
+TextMetrics RenderContext::measureFontScaled(float scale, float fontSize, const TextFont& font) {
+  auto m = m_textRenderer.measureFont(scale, fontSize, font);
   return TextMetrics{
       .width = m.width,
       .left = m.left,
@@ -274,16 +255,23 @@ RenderContext::measureFontScaled(float scale, float fontSize, FontWeight fontWei
 
 void RenderContext::measureTextCursorStopsScaled(
     float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
-    std::vector<float>& outStops, FontWeight fontWeight
+    std::vector<float>& outStops, const TextFont& font
 ) {
-  m_textRenderer.measureCursorStops(scale, text, fontSize, byteOffsets, outStops, fontWeight);
+  m_textRenderer.measureCursorStops(scale, text, fontSize, byteOffsets, outStops, font);
 }
 
 void RenderContext::measureTextCursorStopsWrappedScaled(
     float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
-    std::vector<TextCursorStop>& outStops, FontWeight fontWeight
+    std::vector<TextCursorStop>& outStops, const TextFont& font
 ) {
-  m_textRenderer.measureCursorStopsWrapped(scale, text, fontSize, byteOffsets, maxWidth, outStops, fontWeight);
+  m_textRenderer.measureCursorStopsWrapped(scale, text, fontSize, byteOffsets, maxWidth, outStops, font);
+}
+
+void RenderContext::measureTextCharSpansScaled(
+    float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+    std::vector<TextCharSpan>& outSpans, const TextFont& font
+) {
+  m_textRenderer.measureCharSpans(scale, text, fontSize, byteOffsets, outSpans, font);
 }
 
 TextMetrics RenderContext::measureGlyphScaled(float scale, char32_t codepoint, float fontSize) {
@@ -370,22 +358,21 @@ void RenderContext::renderNode(
   case NodeType::Text: {
     const auto* text = static_cast<const TextNode*>(node);
     if (!text->text().empty()) {
-      const auto& font = text->fontFamily();
+      const TextFont& font = text->font();
       if (text->hasShadow()) {
         auto shadowColor = text->shadowColor();
         shadowColor.a *= effectiveOpacity;
         const Mat3 shadowTransform = worldTransform * Mat3::translation(text->shadowOffsetX(), text->shadowOffsetY());
         m_textRenderer.draw(
-            renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), shadowColor, shadowTransform,
-            text->fontWeight(), text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize(),
-            text->useMarkup()
+            renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), shadowColor, shadowTransform, font,
+            text->maxWidth(), text->maxLines(), text->textAlign(), text->ellipsize(), text->useMarkup()
         );
       }
       auto color = text->color();
       color.a *= effectiveOpacity;
       m_textRenderer.draw(
-          renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), color, worldTransform, text->fontWeight(),
-          text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize(), text->useMarkup()
+          renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), color, worldTransform, font,
+          text->maxWidth(), text->maxLines(), text->textAlign(), text->ellipsize(), text->useMarkup()
       );
     }
     break;
@@ -401,6 +388,7 @@ void RenderContext::renderNode(
               .width = node->width(),
               .height = node->height(),
               .tint = img->tint(),
+              .saturation = img->saturation(),
               .monochromeTint = img->monochromeTint(),
               .alphaMaskTint = img->alphaMaskTint(),
               .opacity = effectiveOpacity,
@@ -443,127 +431,6 @@ void RenderContext::renderNode(
     m_backend->drawSpinner(sw, sh, node->width(), node->height(), style, worldTransform);
     break;
   }
-  case NodeType::CountdownRing: {
-    const auto* ring = static_cast<const CountdownRingNode*>(node);
-    auto style = ring->style();
-    style.color.a *= effectiveOpacity;
-    m_backend->drawCountdownRing(sw, sh, node->width(), node->height(), style, worldTransform);
-    break;
-  }
-  case NodeType::ScreenCorner: {
-    const auto* corner = static_cast<const ScreenCornerNode*>(node);
-    auto style = corner->style();
-    style.color.a *= effectiveOpacity;
-    m_backend->drawScreenCorner(sw, sh, node->width(), node->height(), style, worldTransform);
-    break;
-  }
-  case NodeType::AudioSpectrum: {
-    const auto* spectrum = static_cast<const AudioSpectrumNode*>(node);
-    auto style = spectrum->style();
-    style.color1.a *= effectiveOpacity;
-    style.color2.a *= effectiveOpacity;
-    const float pixelScaleX = sw > 0.0F ? bw / sw : 1.0F;
-    const float pixelScaleY = sh > 0.0F ? bh / sh : 1.0F;
-    m_backend->drawAudioSpectrum(
-        sw, sh, pixelScaleX, pixelScaleY, node->width(), node->height(), style, spectrum->values(), worldTransform
-    );
-    break;
-  }
-  case NodeType::FancyAudioVisualizer: {
-    const auto* visualizer = static_cast<const FancyAudioVisualizerNode*>(node);
-    if (visualizer->textureId() != 0) {
-      auto style = visualizer->style();
-      style.primaryColor.a *= effectiveOpacity;
-      style.secondaryColor.a *= effectiveOpacity;
-      m_backend->drawFancyAudioVisualizer(
-          visualizer->textureId(), visualizer->textureWidth(), sw, sh, node->width(), node->height(), style,
-          worldTransform
-      );
-    }
-    break;
-  }
-  case NodeType::Effect: {
-    const auto* effect = static_cast<const EffectNode*>(node);
-    auto style = effect->style();
-    style.bgColor.a *= effectiveOpacity;
-    m_backend->drawEffect(sw, sh, node->width(), node->height(), style, worldTransform);
-    break;
-  }
-  case NodeType::Graph: {
-    const auto* graph = static_cast<const GraphNode*>(node);
-    if (graph->textureId() != 0) {
-      auto style = graph->style();
-      style.lineColor1.a *= effectiveOpacity;
-      style.lineColor2.a *= effectiveOpacity;
-      style.lineColor3.a *= effectiveOpacity;
-      style.graphFillOpacity *= effectiveOpacity;
-      m_backend->drawGraph(
-          graph->textureId(), graph->textureWidth(), sw, sh, node->width(), node->height(), style, worldTransform
-      );
-    }
-    break;
-  }
-  case NodeType::Wallpaper: {
-    const auto* wallpaper = static_cast<const WallpaperNode*>(node);
-    const bool hasSource1 = wallpaper->sourceKind1() == WallpaperSourceKind::Color || wallpaper->texture1() != 0;
-    if (hasSource1) {
-      const bool hasSource2 = wallpaper->sourceKind2() == WallpaperSourceKind::Color || wallpaper->texture2() != 0;
-      const WallpaperSourceKind sourceKind2 = hasSource2 ? wallpaper->sourceKind2() : wallpaper->sourceKind1();
-      const TextureId texture2 = hasSource2 ? wallpaper->texture2() : wallpaper->texture1();
-      const Color& sourceColor2 = hasSource2 ? wallpaper->sourceColor2() : wallpaper->sourceColor1();
-      const float imageWidth2 = hasSource2 ? wallpaper->imageWidth2() : wallpaper->imageWidth1();
-      const float imageHeight2 = hasSource2 ? wallpaper->imageHeight2() : wallpaper->imageHeight1();
-      const float progress = hasSource2 ? wallpaper->progress() : 0.0F;
-      m_backend->drawWallpaper(
-          WallpaperDrawParams{
-              .transition = wallpaper->transition(),
-              .from =
-                  {.kind = wallpaper->sourceKind1(),
-                   .texture = wallpaper->texture1(),
-                   .color = wallpaper->sourceColor1(),
-                   .imageWidth = wallpaper->imageWidth1(),
-                   .imageHeight = wallpaper->imageHeight1()},
-              .to =
-                  {.kind = sourceKind2,
-                   .texture = texture2,
-                   .color = sourceColor2,
-                   .imageWidth = imageWidth2,
-                   .imageHeight = imageHeight2},
-              .surfaceWidth = sw,
-              .surfaceHeight = sh,
-              .quadWidth = node->width(),
-              .quadHeight = node->height(),
-              .progress = progress,
-              .fillMode = static_cast<float>(wallpaper->fillMode()),
-              .params = wallpaper->transitionParams(),
-              .fillColor = wallpaper->fillColor(),
-              .transform = worldTransform,
-              .span = wallpaper->spanParams(),
-          }
-      );
-    }
-    break;
-  }
-  case NodeType::LockscreenTransition: {
-    const auto* transition = static_cast<const LockscreenTransitionNode*>(node);
-    if (transition->texture() != 0) {
-      m_backend->drawLockscreenTransition(
-          LockscreenTransitionDrawParams{
-              .transition = transition->transition(),
-              .texture = transition->texture(),
-              .surfaceWidth = sw,
-              .surfaceHeight = sh,
-              .quadWidth = node->width(),
-              .quadHeight = node->height(),
-              .progress = transition->progress(),
-              .opacity = effectiveOpacity,
-              .params = transition->transitionParams(),
-              .transform = worldTransform,
-          }
-      );
-    }
-    break;
-  }
   case NodeType::RenderProxy: {
     const auto* proxy = static_cast<const RenderProxyNode*>(node);
     const Node* source = proxy->source();
@@ -583,6 +450,21 @@ void RenderContext::renderNode(
     }
     return;
   }
+  case NodeType::CustomDraw:
+    static_cast<const CustomDrawNode*>(node)->draw(
+        *m_backend,
+        CustomDrawContext{
+            .surfaceWidth = sw,
+            .surfaceHeight = sh,
+            .pixelScaleX = sw > 0.0F ? bw / sw : 1.0F,
+            .pixelScaleY = sh > 0.0F ? bh / sh : 1.0F,
+            .transform = worldTransform,
+            .opacity = effectiveOpacity,
+            .width = node->width(),
+            .height = node->height(),
+        }
+    );
+    break;
   case NodeType::Base:
     break;
   }

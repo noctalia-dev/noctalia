@@ -1,5 +1,6 @@
 #include "render/core/image_decoder.h"
 
+#include "render/core/heif_library.h"
 #include "render/core/image_orientation.h"
 
 #include <algorithm>
@@ -373,10 +374,13 @@ std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint
     return std::unexpected("empty image buffer");
   }
 
-  // libjxl resolves the codestream orientation itself; the other decoders never see the
-  // container's EXIF block, so it is applied to their pixels here.
+  // libjxl and libheif resolve the container orientation themselves; the other decoders never
+  // see the container's EXIF block, so it is applied to their pixels here.
   if (isJxl(data, size)) {
     return decodeJxl(data, size);
+  }
+  if (isHeifContainer(data, size)) {
+    return decodeHeif(data, size);
   }
 
   auto decoded = isWebP(data, size) ? decodeWebP(data, size)

@@ -1,13 +1,10 @@
 #include "ui/controls/keybind_recorder.h"
 
-#include "config/config_types.h"
 #include "core/input/key_chord.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "cursor-shape-v1-client-protocol.h"
-#include "i18n/i18n.h"
-#include "notification/notifications.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/controls/glyph.h"
@@ -49,13 +46,13 @@ KeybindRecorder::KeybindRecorder() {
 
   auto area = std::make_unique<InputArea>();
   area->setFocusable(true);
-  area->setOnFocusGain([this]() {
+  area->setOnFocusGain([this] {
     if (!m_recording) {
       applyVisualState(VisualState::Focused);
       markPaintDirty();
     }
   });
-  area->setOnFocusLoss([this]() {
+  area->setOnFocusLoss([this] {
     if (m_recording) {
       exitRecording(false);
     } else {
@@ -145,6 +142,15 @@ void KeybindRecorder::setRecordingPlaceholder(std::string_view text) {
 
 void KeybindRecorder::setOnCommit(std::function<void(KeyChord)> callback) { m_onCommit = std::move(callback); }
 
+void KeybindRecorder::setOnReject(std::function<void(KeybindRejection)> callback) { m_onReject = std::move(callback); }
+
+void KeybindRecorder::reject(KeybindRejection reason) {
+  exitRecording(false);
+  if (m_onReject) {
+    m_onReject(reason);
+  }
+}
+
 void KeybindRecorder::setModifierPolicy(ModifierPolicy policy) { m_modifierPolicy = policy; }
 
 void KeybindRecorder::setTabFocusKey(std::string key) {
@@ -180,20 +186,12 @@ void KeybindRecorder::handleKeyDown(std::uint32_t sym, std::uint32_t modifiers) 
 
   // Must run before the modifier-preview branch so a bare Super press is also caught.
   if ((modifiers & KeyMod::Super) != 0 || KeySymbol::isSuperModifier(sym)) {
-    notify::error(
-        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
-        i18n::tr("notifications.internal.keybind-invalid-super")
-    );
-    exitRecording(false);
+    reject(KeybindRejection::Super);
     return;
   }
 
   if (m_modifierPolicy == ModifierPolicy::Forbidden && KeySymbol::isModifier(sym)) {
-    notify::error(
-        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
-        i18n::tr("notifications.internal.keybind-invalid-modifier")
-    );
-    exitRecording(false);
+    reject(KeybindRejection::Modifier);
     return;
   }
 
@@ -204,31 +202,19 @@ void KeybindRecorder::handleKeyDown(std::uint32_t sym, std::uint32_t modifiers) 
   }
 
   if (m_modifierPolicy == ModifierPolicy::Required && modifiers == 0 && isPrintableKey(sym)) {
-    notify::error(
-        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
-        i18n::tr("notifications.internal.keybind-invalid-printable")
-    );
-    exitRecording(false);
+    reject(KeybindRejection::Printable);
     return;
   }
 
   if (m_modifierPolicy == ModifierPolicy::Forbidden && modifiers != 0) {
-    notify::error(
-        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
-        i18n::tr("notifications.internal.keybind-invalid-modifier")
-    );
-    exitRecording(false);
+    reject(KeybindRejection::Modifier);
     return;
   }
 
   // Shift-only + printable is just a character variant (e.g. Shift+l = L),
   // not a meaningful shortcut. Reject it in both Required and Optional modes.
   if (modifiers == KeyMod::Shift && isPrintableKey(sym)) {
-    notify::error(
-        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
-        i18n::tr("notifications.internal.keybind-invalid-printable")
-    );
-    exitRecording(false);
+    reject(KeybindRejection::Printable);
     return;
   }
 
@@ -256,6 +242,7 @@ void KeybindRecorder::enterRecording() {
     return;
   }
   m_recording = true;
+  m_inputArea->setCapturesAllKeys(true);
   m_pendingModifiers = 0;
   applyVisualState(VisualState::Recording);
   refreshLabel();
@@ -266,6 +253,7 @@ void KeybindRecorder::exitRecording(bool /*commit*/) {
     return;
   }
   m_recording = false;
+  m_inputArea->setCapturesAllKeys(false);
   m_pendingModifiers = 0;
   applyVisualState(VisualState::Idle);
   refreshLabel();
@@ -304,8 +292,8 @@ void KeybindRecorder::refreshLabel() {
 void KeybindRecorder::applyVisualState(VisualState state) {
   m_visualState = state;
   if (!m_enabled) {
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.4F));
-    setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), Style::borderWidth);
+    setFill(colorSpecFromRole(ColorRole::SurfaceContainer, 0.4F));
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha), Style::borderWidth);
     if (m_label != nullptr) {
       m_label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.55F));
     }
@@ -317,8 +305,8 @@ void KeybindRecorder::applyVisualState(VisualState state) {
 
   switch (state) {
   case VisualState::Idle:
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
-    setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+    setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
     if (m_label != nullptr) {
       const bool placeholder = !m_chord.has_value() || m_chord->sym == 0;
       m_label->setColor(
@@ -330,7 +318,7 @@ void KeybindRecorder::applyVisualState(VisualState state) {
     }
     break;
   case VisualState::Focused:
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
+    setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
     setBorder(focusRingColorSpec(), Style::focusRingWidth);
     if (m_label != nullptr) {
       const bool placeholder = !m_chord.has_value() || m_chord->sym == 0;
@@ -343,13 +331,13 @@ void KeybindRecorder::applyVisualState(VisualState state) {
     }
     break;
   case VisualState::Recording:
-    setFill(colorSpecFromRole(ColorRole::Primary, 0.12F));
+    setFill(colorSpecFromRole(ColorRole::PrimaryContainer));
     setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth);
     if (m_label != nullptr) {
-      m_label->setColor(colorSpecFromRole(ColorRole::Primary));
+      m_label->setColor(colorSpecFromRole(ColorRole::OnPrimaryContainer));
     }
     if (m_glyph != nullptr) {
-      m_glyph->setColor(colorSpecFromRole(ColorRole::Primary));
+      m_glyph->setColor(colorSpecFromRole(ColorRole::OnPrimaryContainer));
     }
     break;
   }

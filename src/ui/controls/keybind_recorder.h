@@ -19,6 +19,12 @@ enum class ModifierPolicy : std::uint8_t {
   Forbidden, // Modifiers are rejected; only bare keys are accepted.
 };
 
+enum class KeybindRejection : std::uint8_t {
+  Super,     // Super is reserved for the compositor.
+  Modifier,  // A modifier was pressed under ModifierPolicy::Forbidden.
+  Printable, // A printable key without a meaningful modifier.
+};
+
 // Records a KeyChord from live keyboard input. Rejects any chord involving Super.
 class KeybindRecorder : public Flex {
 public:
@@ -26,16 +32,18 @@ public:
   ~KeybindRecorder() override;
 
   void setChord(std::optional<KeyChord> chord);
-  [[nodiscard]] std::optional<KeyChord> chord() const noexcept { return m_chord; }
+  std::optional<KeyChord> chord() const noexcept { return m_chord; }
   void setScale(float scale);
   void setEnabled(bool enabled);
   void setUnsetPlaceholder(std::string_view text);
   void setRecordingPlaceholder(std::string_view text);
   void setOnCommit(std::function<void(KeyChord)> callback);
+  // Called when a recorded chord is refused; recording stops without committing.
+  void setOnReject(std::function<void(KeybindRejection)> callback);
   void setModifierPolicy(ModifierPolicy policy);
   void setTabFocusKey(std::string key);
 
-  [[nodiscard]] bool isRecording() const noexcept { return m_recording; }
+  bool isRecording() const noexcept { return m_recording; }
 
 private:
   enum class VisualState : std::uint8_t {
@@ -51,6 +59,7 @@ private:
   void handleKeyUp(std::uint32_t sym, std::uint32_t modifiers);
   void enterRecording();
   void exitRecording(bool commit);
+  void reject(KeybindRejection reason);
   void refreshLabel();
   void applyVisualState(VisualState state);
   Label* m_label = nullptr;
@@ -58,6 +67,7 @@ private:
   InputArea* m_inputArea = nullptr;
   std::optional<KeyChord> m_chord;
   std::function<void(KeyChord)> m_onCommit;
+  std::function<void(KeybindRejection)> m_onReject;
   std::string m_unsetPlaceholder;
   std::string m_recordingPlaceholder;
   std::uint32_t m_pendingModifiers = 0;

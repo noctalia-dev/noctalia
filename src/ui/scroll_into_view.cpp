@@ -31,9 +31,7 @@ void scrollNodeIntoScrollView(ScrollView& scrollView, ScrollViewState* state, co
   const float currentBottom = currentTop + viewportHeight;
 
   float desiredOffset = currentTop;
-  if (targetBottom - targetTop >= viewportHeight) {
-    desiredOffset = targetTop;
-  } else if (targetTop < currentTop) {
+  if (targetBottom - targetTop >= viewportHeight || targetTop < currentTop) {
     desiredOffset = targetTop;
   } else if (targetBottom > currentBottom) {
     desiredOffset = targetBottom - viewportHeight;

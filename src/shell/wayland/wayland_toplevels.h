@@ -1,0 +1,157 @@
+#pragma once
+
+#include "system/window_state.h"
+
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+
+struct zwlr_foreign_toplevel_handle_v1;
+struct zwlr_foreign_toplevel_manager_v1;
+struct ext_foreign_toplevel_handle_v1;
+struct wl_array;
+struct wl_output;
+struct wl_seat;
+
+namespace toplevel_identity {
+
+  // Canonical process-local identity for a live WLR foreign-toplevel handle.
+  inline constexpr std::string_view wlrPrefix = "wlr:";
+
+  inline std::string wlr(const std::uintptr_t handle) {
+    return handle == 0 ? std::string{} : std::string(wlrPrefix) + std::to_string(handle);
+  }
+
+  inline bool isWlr(const std::string_view identity) { return identity.starts_with(wlrPrefix); }
+
+} // namespace toplevel_identity
+
+struct ActiveToplevel {
+  std::string title;
+  std::string appId;
+  std::string identifier;
+  zwlr_foreign_toplevel_handle_v1* handle = nullptr;
+};
+
+struct ToplevelInfo {
+  std::string title;
+  std::string appId;
+  std::string identifier;
+  std::uint64_t order = 0;
+  zwlr_foreign_toplevel_handle_v1* handle = nullptr;
+  ext_foreign_toplevel_handle_v1* extHandle = nullptr;
+  // True when the compositor announced the output(s) this toplevel sits on.
+  bool outputAnnounced = false;
+  // True when `identifier` is an exact compositor-assigned window ID suitable
+  // for direct focus/close actions and stable taskbar identity.
+  bool exactIdentity = false;
+  std::optional<WindowMinimizeState> minimizeState;
+};
+
+struct WlrToplevelSnapshot {
+  zwlr_foreign_toplevel_handle_v1* handle = nullptr;
+  std::string title;
+  std::string appId;
+  wl_output* output = nullptr;
+  bool activated = false;
+  bool minimized = false;
+  std::uint64_t order = 0;
+};
+
+class WaylandToplevels {
+public:
+  using ChangeCallback = std::function<void()>;
+
+  void bind(zwlr_foreign_toplevel_manager_v1* manager);
+  void setChangeCallback(ChangeCallback callback);
+  void cleanup();
+
+  std::optional<ActiveToplevel> current() const;
+  wl_output* currentOutput() const;
+  bool anyFullscreen() const;
+  std::optional<ActiveToplevel>
+  matchByTitleAndAppId(std::string_view title, std::string_view appId, wl_output* preferredOutput) const;
+  std::vector<std::string> allAppIds(wl_output* outputFilter = nullptr) const;
+  std::vector<ToplevelInfo>
+  windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;
+  // Toplevels with no app id / class — still focusable via handle.
+  std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
+  bool containsWlrHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
+  void activateHandle(zwlr_foreign_toplevel_handle_v1* handle, wl_seat* seat);
+  [[nodiscard]] bool minimizeHandle(zwlr_foreign_toplevel_handle_v1* handle);
+  std::optional<bool> minimized(zwlr_foreign_toplevel_handle_v1* handle) const;
+  void closeHandle(zwlr_foreign_toplevel_handle_v1* handle);
+
+  // Listener entrypoints called by C callbacks
+  void onToplevelCreated(zwlr_foreign_toplevel_handle_v1* handle);
+  void onManagerFinished();
+  void onHandleClosed(zwlr_foreign_toplevel_handle_v1* handle);
+  void onHandleDone(zwlr_foreign_toplevel_handle_v1* handle);
+  void onHandleTitle(zwlr_foreign_toplevel_handle_v1* handle, const char* title);
+  void onHandleAppId(zwlr_foreign_toplevel_handle_v1* handle, const char* appId);
+  void onHandleState(zwlr_foreign_toplevel_handle_v1* handle, wl_array* state);
+  void onHandleOutputEnter(zwlr_foreign_toplevel_handle_v1* handle, wl_output* output);
+  void onHandleOutputLeave(zwlr_foreign_toplevel_handle_v1* handle, wl_output* output);
+
+  template <typename Fn> void visitWlrHandles(Fn&& fn) const {
+    for (const auto& [handle, _] : m_handles) {
+      if (handle != nullptr) {
+        fn(handle);
+      }
+    }
+  }
+
+  template <typename Fn> void visitWlrToplevels(Fn&& fn) const {
+    for (const auto& [handle, state] : m_handles) {
+      if (handle == nullptr) {
+        continue;
+      }
+      fn(WlrToplevelSnapshot{
+          .handle = handle,
+          .title = state.title,
+          .appId = state.appId,
+          .output = state.output,
+          .activated = state.activated,
+          .minimized = state.minimized,
+          .order = state.order,
+      });
+    }
+  }
+
+private:
+  struct ToplevelState {
+    std::string title;
+    std::string appId;
+    wl_output* output = nullptr;
+    std::vector<wl_output*> activeOutputs;
+    bool activated = false;
+    bool minimized = false;
+    bool pendingMinimized = false;
+    bool ready = false;
+    bool fullscreen = false;
+    bool dirty = false;
+    // Set on the first output_enter, never cleared: distinguishes "never announced an output"
+    // from "left every output".
+    bool sawOutputEnter = false;
+    std::uint64_t generation = 0;
+    std::uint64_t order = 0;
+  };
+
+  // A toplevel whose output the compositor never announced matches every filter; one that announced
+  // an output and later left all of them does not.
+  static bool matchesOutputFilter(const ToplevelState& state, wl_output* outputFilter);
+
+  bool notifyIfChanged(const std::optional<ActiveToplevel>& before);
+  zwlr_foreign_toplevel_handle_v1* latestActivatedHandle() const;
+
+  zwlr_foreign_toplevel_manager_v1* m_manager = nullptr;
+  std::unordered_map<zwlr_foreign_toplevel_handle_v1*, ToplevelState> m_handles;
+  zwlr_foreign_toplevel_handle_v1* m_currentHandle = nullptr;
+  std::uint64_t m_generation = 0;
+  std::uint64_t m_nextOrder = 0;
+  ChangeCallback m_changeCallback;
+};

@@ -26,7 +26,7 @@ public:
   // Invoked when the resolved value changes (cleared or newly resolved).
   void setChangeCallback(std::function<void()> callback) { m_changeCallback = std::move(callback); }
 
-  [[nodiscard]] const std::string& externalIp() const noexcept { return m_externalIp; }
+  const std::string& externalIp() const noexcept { return m_externalIp; }
 
   // Re-evaluate against the current network state; call on network/VPN changes.
   void onNetworkChanged();
@@ -34,7 +34,7 @@ public:
   void onConfigReload();
 
 private:
-  [[nodiscard]] bool enabled() const;
+  bool enabled() const;
   void sync();
   void maybeScheduleProbe();
   void probeNow();

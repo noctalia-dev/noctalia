@@ -1,10 +1,10 @@
 #include "ui/dialogs/file_entry_row.h"
 
 #include "core/files/directory_scanner.h"
+#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -62,7 +62,7 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
       m_onEnter(m_boundIndex);
     }
   });
-  setOnLeave([this]() {
+  setOnLeave([this] {
     if (m_boundIndex != static_cast<std::size_t>(-1) && m_onLeave) {
       m_onLeave(m_boundIndex);
     }

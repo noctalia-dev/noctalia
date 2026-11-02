@@ -51,6 +51,23 @@ case "$warn_output" in
   *) fail "warning-only config did not report the duplicate provider prefix" ;;
 esac
 
+# A value of the wrong type keeps the default but must be reported, not silently ignored.
+types_output=$("$noctalia_bin" config validate tests/config_validate/wrong-types.toml 2>&1) \
+  || fail "wrong-type config should validate with warnings"
+for expected in \
+  "wrong-types.toml:2:14: theme.shell_mode: expected one of follow, dark, light, auto, found an integer" \
+  "wrong-types.toml:5:11: osd.enabled: expected a boolean, found a string" \
+  "wrong-types.toml:6:17: osd.hide_delay_ms: expected an integer, found a string" \
+  "wrong-types.toml:7:22: osd.background_opacity: expected a number, found a string" \
+  "wrong-types.toml:8:12: osd.monitors[0]: expected a string, found an integer" \
+  "wrong-types.toml:9:9: osd.kinds: expected a table, found an integer" \
+  "wrong-types.toml:12:11: desktop_widgets.enabled: expected a boolean, found a string"; do
+  case "$types_output" in
+    *"WARN  tests/config_validate/$expected"*) ;;
+    *) fail "wrong-type config did not report: $expected" ;;
+  esac
+done
+
 syntax_output=$("$noctalia_bin" config validate tests/config_validate/syntax-error.toml 2>&1) \
   && fail "syntax-error config should fail"
 case "$syntax_output" in

@@ -124,14 +124,14 @@ namespace {
     for (std::size_t i = 0; i < previewCount; ++i) {
       const auto& rect = rects[i];
       if (i > 0) {
-        out += " ";
+        out += ' ';
       }
       out += std::format("{}:{}+{}x{}", rect.x, rect.y, rect.width, rect.height);
     }
     if (rects.size() > previewCount) {
       out += std::format(" +{}", rects.size() - previewCount);
     }
-    out += "]";
+    out += ']';
     return out;
   }
 
@@ -530,11 +530,11 @@ void Surface::setRenderContext(RenderContext* ctx) {
   }
 }
 
-void Surface::setWallpaperMask(std::optional<WallpaperMaskDrawParams> mask) {
-  if (m_wallpaperMask == mask) {
+void Surface::setOverlayNode(Node* node) {
+  if (m_overlayNode == node) {
     return;
   }
-  m_wallpaperMask = mask;
+  m_overlayNode = node;
   requestRedraw();
 }
 
@@ -705,19 +705,16 @@ bool Surface::regionIntersectsBounds(const std::vector<InputRect>& rects, std::u
   if (width == 0 || height == 0) {
     return false;
   }
-  for (const auto& r : rects) {
+  return std::ranges::any_of(rects, [&](const auto& r) {
     const std::int64_t right = static_cast<std::int64_t>(r.x) + r.width;
     const std::int64_t bottom = static_cast<std::int64_t>(r.y) + r.height;
-    if (r.width > 0
+    return r.width > 0
         && r.height > 0
         && right > 0
         && bottom > 0
         && static_cast<std::int64_t>(r.x) < width
-        && static_cast<std::int64_t>(r.y) < height) {
-      return true;
-    }
-  }
-  return false;
+        && static_cast<std::int64_t>(r.y) < height;
+  });
 }
 
 void Surface::setBlurRegion(const std::vector<InputRect>& rects) {
@@ -1258,9 +1255,8 @@ void Surface::render() {
 
   requestFrame();
   traceSurfaceEvent(*this, "render-begin");
-  const float renderMs = elapsedMs([this] {
-    m_renderContext->renderScene(m_renderTarget, m_sceneRoot, m_wallpaperMask ? &*m_wallpaperMask : nullptr);
-  });
+  const float renderMs =
+      elapsedMs([this] { m_renderContext->renderScene(m_renderTarget, m_sceneRoot, m_overlayNode); });
   traceSurfaceEvent(*this, "render-end");
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::Render, renderMs);
   logSlowSurfaceOperation(

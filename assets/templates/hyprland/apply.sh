@@ -49,8 +49,8 @@ require("noctalia").apply_theme()'
   mkdir -p "$config_dir"
 
   if [ ! -f "$lua_config_file" ]; then
-    printf '%s\n' "$include_line" >"$lua_config_file"
-    return
+    printf 'Warning: %s is missing; add the Noctalia theme setup to your active Hyprland Lua configuration manually:\ndofile("%s").apply_theme()\n' "$lua_config_file" "$lua_output_file" >&2
+    return 1
   fi
 
   # Append only if there is no Noctalia include at all
@@ -66,8 +66,8 @@ source = $conf_source_path"
   mkdir -p "$config_dir"
 
   if [ ! -f "$conf_config_file" ]; then
-    printf '%s\n' "$include_line" >"$conf_config_file"
-    return
+    printf 'Warning: %s is missing; add the Noctalia theme source to your active Hyprland configuration manually:\n%s\n' "$conf_config_file" "$include_line" >&2
+    return 1
   fi
 
   # Avoid appending duplicate Noctalia includes

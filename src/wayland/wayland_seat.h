@@ -76,6 +76,7 @@ public:
   using KeyboardFocusCallback = std::function<void(wl_surface* surface, bool entered)>;
   using KeyboardModifiersCallback = std::function<void(std::uint32_t modifiers)>;
   using LockKeysChangeCallback = std::function<void()>;
+  using KeyboardLayoutChangeCallback = std::function<void()>;
 
   void bind(wl_seat* seat);
   void setCursorShapeManager(wp_cursor_shape_manager_v1* manager);
@@ -84,16 +85,18 @@ public:
   void setKeyboardFocusCallback(KeyboardFocusCallback callback);
   void setKeyboardModifiersCallback(KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(LockKeysChangeCallback callback);
+  // Fired when the effective xkb layout name changes (group switch or new keymap).
+  void setKeyboardLayoutChangeCallback(KeyboardLayoutChangeCallback callback);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
   void forgetSurface(wl_surface* surface) noexcept;
   void cleanup();
 
-  [[nodiscard]] std::uint32_t lastSerial() const noexcept { return m_lastSerial; }
-  [[nodiscard]] wl_seat* seat() const noexcept { return m_seat; }
-  [[nodiscard]] wl_pointer* pointer() const noexcept { return m_pointer; }
+  std::uint32_t lastSerial() const noexcept { return m_lastSerial; }
+  wl_seat* seat() const noexcept { return m_seat; }
+  wl_pointer* pointer() const noexcept { return m_pointer; }
 
   // Key repeat — driven by KeyRepeatPollSource
-  [[nodiscard]] int repeatPollTimeoutMs() const;
+  int repeatPollTimeoutMs() const;
   void repeatTick();
   void stopKeyRepeat();
 
@@ -129,6 +132,8 @@ public:
   static void handleTouchFrame(void* data, wl_touch* touch);
   static void handleTouchCancel(void* data, wl_touch* touch);
 
+  void notifyLayoutIfChanged();
+
   // Keyboard listener entrypoints
   static void handleKeyboardKeymap(void* data, wl_keyboard* keyboard, std::uint32_t format, int fd, std::uint32_t size);
   static void
@@ -144,20 +149,20 @@ public:
   );
   static void handleKeyboardRepeatInfo(void* data, wl_keyboard* keyboard, std::int32_t rate, std::int32_t delay);
 
-  [[nodiscard]] wl_surface* lastPointerSurface() const noexcept { return m_lastPointerSurface; }
-  [[nodiscard]] wl_surface* lastKeyboardSurface() const noexcept { return m_lastKeyboardSurface; }
-  [[nodiscard]] bool hasPointerPosition() const noexcept { return m_hasPointerPosition; }
-  [[nodiscard]] double lastPointerX() const noexcept { return m_lastPointerX; }
-  [[nodiscard]] double lastPointerY() const noexcept { return m_lastPointerY; }
-  [[nodiscard]] std::string currentLayoutName() const;
-  [[nodiscard]] std::vector<std::string> layoutNames() const;
-  [[nodiscard]] LockKeysState lockKeysState() const;
-  [[nodiscard]] InputSource lastInputSource() const noexcept { return m_lastInputSource; }
+  wl_surface* lastPointerSurface() const noexcept { return m_lastPointerSurface; }
+  wl_surface* lastKeyboardSurface() const noexcept { return m_lastKeyboardSurface; }
+  bool hasPointerPosition() const noexcept { return m_hasPointerPosition; }
+  double lastPointerX() const noexcept { return m_lastPointerX; }
+  double lastPointerY() const noexcept { return m_lastPointerY; }
+  std::string currentLayoutName() const;
+  std::vector<std::string> layoutNames() const;
+  LockKeysState lockKeysState() const;
+  InputSource lastInputSource() const noexcept { return m_lastInputSource; }
   // Live modifier mask from the xkb state. Unlike KeyboardEvent::modifiers this is readable
   // when no key event is in flight, which drag-time modifiers (Shift to constrain) need.
-  [[nodiscard]] std::uint32_t keyboardModifiers() const noexcept;
+  std::uint32_t keyboardModifiers() const noexcept;
 
-  [[nodiscard]] double userIdleSeconds() const noexcept;
+  double userIdleSeconds() const noexcept;
 
 private:
   void bumpUserActivity() noexcept;
@@ -213,6 +218,8 @@ private:
   KeyboardModifiersCallback m_keyboardModifiersCallback;
   LockKeysChangeCallback m_lockKeysChangeCallback;
   LockKeysState m_lastLockKeysState;
+  KeyboardLayoutChangeCallback m_keyboardLayoutChangeCallback;
+  std::string m_lastLayoutName;
 
   // Key repeat
   SteadyClock::time_point m_lastUserActivitySteady;

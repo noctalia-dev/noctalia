@@ -18,8 +18,8 @@ public:
 
   explicit FileEntryRow(float scale);
 
-  [[nodiscard]] std::size_t boundIndex() const noexcept { return m_boundIndex; }
-  [[nodiscard]] float rowHeight() const noexcept { return m_rowHeight; }
+  std::size_t boundIndex() const noexcept { return m_boundIndex; }
+  float rowHeight() const noexcept { return m_rowHeight; }
 
   void setCallbacks(IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter, IndexCallback onLeave);
   void bind(

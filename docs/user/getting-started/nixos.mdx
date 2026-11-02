@@ -10,6 +10,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 :::caution
 To make Noctalia's wifi, bluetooth, power-profile, and battery feature available, please ensure the following NixOS options are enabled:
+
 - `networking.networkmanager.enable`
 - `hardware.bluetooth.enable`
 - `services.power-profiles-daemon.enable` or `services.tuned.enable`
@@ -17,7 +18,8 @@ To make Noctalia's wifi, bluetooth, power-profile, and battery feature available
 :::
 
 ## Installation
-A Noctalia package is available on [nixpkgs unstable](https://search.nixos.org/packages?channel=unstable&show=noctalia). 
+
+A Noctalia package is available on [nixpkgs unstable](https://search.nixos.org/packages?channel=unstable\&show=noctalia).
 
 If you'd prefer the latest git version or would like to use one of the modules, you can [add the input](#add-input) using your preferred input-pinning method and optionally use the [binary cache](#binary-cache) to avoid compiling locally.
 
@@ -40,11 +42,13 @@ If you'd prefer the latest git version or would like to use one of the modules, 
     ```
 
     :::note
-    For flakes/tack instructions, we assume you are passing in `inputs` through `specialArgs` or equivalent. 
+    For flakes/tack instructions, we assume you are passing in `inputs` through `specialArgs` or equivalent.
     :::
   </TabItem>
+
   <TabItem label="tack">
     Add Noctalia to your tack inputs:
+
     ```
     tack add noctalia github:noctalia-dev/noctalia
     ```
@@ -52,11 +56,13 @@ If you'd prefer the latest git version or would like to use one of the modules, 
     If you want to use the cache, make sure to disable any sort of following for Noctalia's nixpkgs input.
 
     :::note
-    For flakes/tack instructions, we assume you are passing in `inputs` through `specialArgs` or equivalent. 
+    For flakes/tack instructions, we assume you are passing in `inputs` through `specialArgs` or equivalent.
     :::
   </TabItem>
+
   <TabItem label="npins">
     Add Noctalia to your npins sources:
+
     ```
     npins add github noctalia-dev noctalia --branch main
     ```
@@ -72,9 +78,10 @@ If you'd prefer the latest git version or would like to use one of the modules, 
       # see installation below
     ```
   </TabItem>
+
   <TabItem label="tarball">
-    Add Noctalia directly using `builtins.fetchTarball`.
-    With pinning:
+    Add Noctalia directly using `builtins.fetchTarball`. With pinning:
+
     ```nix
     # configuration.nix
     { pkgs, ... }:
@@ -95,6 +102,7 @@ If you'd prefer the latest git version or would like to use one of the modules, 
     ```
 
     Without pinning (not recommended):
+
     ```nix
     # configuration.nix
     { pkgs, ... }:
@@ -116,6 +124,7 @@ Note that both the Home Manager and Hjem modules install the package for you, so
 
 <Tabs>
   Add the package to your system packages or equivalent:
+
   <TabItem label="flakes/tack">
     ```nix
     # configuration.nix
@@ -127,6 +136,7 @@ Note that both the Home Manager and Hjem modules install the package for you, so
     }
     ```
   </TabItem>
+
   <TabItem label="npins/tarball">
     ```nix
     # configuration.nix
@@ -175,6 +185,7 @@ The Home Manager module allows you to configure Noctalia's settings [(that you w
     }
     ```
   </TabItem>
+
   <TabItem label="npins/tarball">
     ```nix
     let
@@ -232,6 +243,7 @@ For those using Hjem instead of Home Manager, a Hjem module is also available.
     }
     ```
   </TabItem>
+
   <TabItem label="npins/tarball">
     ```nix
     let
@@ -255,7 +267,6 @@ For those using Hjem instead of Home Manager, a Hjem module is also available.
   </TabItem>
 </Tabs>
 
-
 ### NixOS Module {#nixos-module}
 
 The NixOS module installs the package system-wide and can enable some recommended services.
@@ -268,16 +279,17 @@ The NixOS module installs the package system-wide and can enable some recommende
       imports = [
         inputs.noctalia.nixosModules.default
       ];
-    
+
       programs.noctalia = {
         enable = true;
-    
+
         # Enables NetworkManager, Bluetooth, UPower, and a power profile service.
         recommendedServices.enable = true;
       };
     }
     ```
   </TabItem>
+
   <TabItem label="npins/tarball">
     ```nix
     let
@@ -327,6 +339,7 @@ You can add the cache either to your flake, nixos configuration, or `/etc/nix/ni
     };
     ```
   </TabItem>
+
   <TabItem label="flake.nix">
     ```nix
     nixConfig = {
@@ -335,6 +348,7 @@ You can add the cache either to your flake, nixos configuration, or `/etc/nix/ni
     };
     ```
   </TabItem>
+
   <TabItem label="nix.conf">
     ```properties
     extra-substituters = https://noctalia.cachix.org
@@ -355,16 +369,19 @@ To avoid this, the [`cachix`](https://github.com/noctalia-dev/noctalia/tree/cach
     noctalia.url = "github:noctalia-dev/noctalia/cachix";
     ```
   </TabItem>
+
   <TabItem label="tack">
     ```
     tack add noctalia github:noctalia-dev/noctalia/cachix
     ```
   </TabItem>
+
   <TabItem label="npins">
     ```
     npins add github noctalia-dev noctalia --branch cachix
     ```
   </TabItem>
+
   <TabItem label="tarball">
     Make sure not to update your tarball to a commit earlier than the latest commit on the cachix branch.
   </TabItem>

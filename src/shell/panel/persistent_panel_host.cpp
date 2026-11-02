@@ -6,15 +6,16 @@
 #include "core/ui_phase.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
+#include "scripting/plugin_panel_shell.h"
 #include "shell/panel/panel.h"
 #include "shell/panel/panel_surface_style.h"
 #include "shell/screen_position.h"
-#include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "ui/surface_shadow.h"
 
 #include <algorithm>
 #include <cmath>
@@ -25,7 +26,7 @@ namespace {
   constexpr Logger kLog("persistent-panel");
 
   // Gap between the panel and the screen edge it is pinned to.
-  [[nodiscard]] std::int32_t screenPadding() { return static_cast<std::int32_t>(Style::spaceSm); }
+  std::int32_t screenPadding() { return static_cast<std::int32_t>(Style::spaceSm); }
 
 } // namespace
 
@@ -90,6 +91,13 @@ std::optional<LayerPopupParentContext> PersistentPanelHost::popupParentContext(s
     return std::nullopt;
   }
   return context;
+}
+
+LayerShellLayer PersistentPanelHost::resolveLayer(const Panel& panel) const {
+  if (m_config != nullptr && scripting::panelLayerFollowsFloating(panel.panelLayerToken())) {
+    return layerShellLayerFromConfig(m_config->config().shell.panel.floatingLayer);
+  }
+  return panel.layer();
 }
 
 PersistentPanelHost::Instance* PersistentPanelHost::findInstance(std::string_view id) noexcept {
@@ -218,7 +226,7 @@ void PersistentPanelHost::open(const std::string& id, wl_output* output, std::st
 
   auto surfaceConfig = LayerSurfaceConfig{
       .nameSpace = "noctalia-panel",
-      .layer = panel->layer(),
+      .layer = resolveLayer(*panel),
       .anchor = anchor,
       .width = requestedWidth,
       .height = requestedHeight,
@@ -327,7 +335,7 @@ void PersistentPanelHost::buildScene(Instance& instance, std::uint32_t width, st
   instance.sceneRoot->setSize(static_cast<float>(width), static_cast<float>(height));
 
   const auto& shadowConfig = m_config->config().shell.shadow;
-  if (hasDecoration && shell::surface_shadow::enabled(true, shadowConfig)) {
+  if (hasDecoration && surface_shadow::enabled(true, shadowConfig)) {
     auto shadow = ui::box({});
     instance.shadowNode = static_cast<Box*>(instance.sceneRoot->addChild(std::move(shadow)));
     instance.shadowNode->setZIndex(-1);
@@ -413,8 +421,7 @@ void PersistentPanelHost::layoutScene(Instance& instance, std::uint32_t width, s
 
   if (instance.shadowNode != nullptr) {
     const auto& shadowConfig = m_config->config().shell.shadow;
-    const bool panelShadow =
-        m_config->config().shell.panel.shadow && shell::surface_shadow::enabled(true, shadowConfig);
+    const bool panelShadow = m_config->config().shell.panel.shadow && surface_shadow::enabled(true, shadowConfig);
     instance.shadowNode->setVisible(panelShadow);
     const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
     instance.shadowNode->setPosition(
@@ -424,9 +431,9 @@ void PersistentPanelHost::layoutScene(Instance& instance, std::uint32_t width, s
     if (panelShadow) {
       const float radius = Style::scaledRadiusXl(instance.panel->contentScale());
       instance.shadowNode->setStyle(
-          shell::surface_shadow::style(
+          surface_shadow::style(
               shadowConfig, shell::panel_surface::backgroundOpacity(m_config),
-              shell::surface_shadow::Shape{.radius = Radii{radius, radius, radius, radius}}
+              surface_shadow::Shape{.radius = Radii{radius, radius, radius, radius}}
           )
       );
     }
@@ -629,6 +636,7 @@ void PersistentPanelHost::onConfigReloaded() {
       }
     }
     if (instance->surface != nullptr) {
+      instance->surface->setLayer(resolveLayer(*instance->panel));
       instance->surface->requestLayout();
     }
   }

@@ -45,7 +45,7 @@ namespace {
   }
 
   fs::path resolveExecutable(std::string_view executable) {
-    const fs::path path(executable);
+    fs::path path(executable);
     if (path.has_parent_path()) {
       return path;
     }
@@ -169,7 +169,9 @@ namespace {
       if (!token.empty()) {
         if (std::ranges::find(onlyShowIn, token) != onlyShowIn.end()) {
           return true;
-        } else if (std::ranges::find(notShowIn, token) != notShowIn.end()) {
+        }
+
+        if (std::ranges::find(notShowIn, token) != notShowIn.end()) {
           return false;
         }
       }
@@ -278,7 +280,7 @@ namespace {
     std::string currentActionId;
     ActionData currentActionData;
 
-    auto flushCurrentAction = [&]() {
+    auto flushCurrentAction = [&] {
       if (!currentActionId.empty()) {
         currentActionData.name = localizedValue(language, currentActionData.localizedNames, currentActionData.name);
         if (!currentActionData.name.empty() && !currentActionData.exec.empty()) {

@@ -55,9 +55,9 @@ private:
   const char* m_section;
 };
 
-[[nodiscard]] std::string_view logLevelName(LogLevel level);
-[[nodiscard]] std::optional<LogLevel> parseLogLevel(std::string_view value);
-[[nodiscard]] LogLevel currentLogLevel();
+std::string_view logLevelName(LogLevel level);
+std::optional<LogLevel> parseLogLevel(std::string_view value);
+LogLevel currentLogLevel();
 void setLogLevel(LogLevel level);
 void initLogLevelFromEnvironment();
 void initLogFile();

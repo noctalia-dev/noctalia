@@ -2,7 +2,9 @@
 
 #include <cstdio>
 #include <print>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -22,6 +24,22 @@ namespace {
     if (sign != expectedSign) {
       std::println(
           stderr, "string_utils_test: {}: expected sign {}, got {} (raw {})", message, expectedSign, sign, actual
+      );
+      return false;
+    }
+    return true;
+  }
+
+  bool expectWords(std::string_view input, const std::vector<std::string>& expected, const char* message) {
+    const auto actual = StringUtils::splitShellWords(input);
+    if (!actual.has_value()) {
+      std::println(stderr, "string_utils_test: {}: unexpected error '{}'", message, actual.error());
+      return false;
+    }
+    if (*actual != expected) {
+      std::println(
+          stderr, "string_utils_test: {}: expected [{}], got [{}]", message, StringUtils::join(expected, ", "),
+          StringUtils::join(*actual, ", ")
       );
       return false;
     }
@@ -71,6 +89,20 @@ int main() {
        )
       && ok;
   ok = expectEqual(StringUtils::sanitizeMarkup("&lt;literal&gt;"), "<literal>", "unescapes XML entities") && ok;
+
+  ok = expectWords("a  b\tc", {"a", "b", "c"}, "splits on runs of whitespace") && ok;
+  ok = expectWords("'satty -f -'", {"satty -f -"}, "keeps single-quoted text literal") && ok;
+  ok = expectWords(R"("x\"y")", {"x\"y"}, "honours escaped quote inside double quotes") && ok;
+  ok = expectWords("a\\ b", {"a b"}, "backslash escapes a space outside quotes") && ok;
+  ok = expectWords("''", {""}, "empty quotes yield an empty word") && ok;
+  if (StringUtils::splitShellWords("'open").has_value()) {
+    std::println(stderr, "string_utils_test: unterminated quote was accepted");
+    ok = false;
+  }
+  ok = expectWords(
+           StringUtils::shellQuote("it's a \"t\""), {"it's a \"t\""}, "round-trips shellQuote with embedded quotes"
+       )
+      && ok;
 
   return ok ? 0 : 1;
 }

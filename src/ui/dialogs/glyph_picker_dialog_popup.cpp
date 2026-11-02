@@ -1,6 +1,5 @@
 #include "ui/dialogs/glyph_picker_dialog_popup.h"
 
-#include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
@@ -13,9 +12,10 @@
 GlyphPickerDialogPopup::~GlyphPickerDialogPopup() { destroyPopup(); }
 
 void GlyphPickerDialogPopup::initialize(
-    WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext, LayerPopupHostRegistry& popupHosts
+    WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext,
+    LayerPopupHostRegistry& popupHosts
 ) {
-  initializeBase(wayland, config, renderContext, popupHosts);
+  initializeBase(wayland, std::move(settings), renderContext, popupHosts);
 }
 
 bool GlyphPickerDialogPopup::openGlyphPicker() {
@@ -56,9 +56,9 @@ void GlyphPickerDialogPopup::populateContent(Node* contentParent, std::uint32_t 
   auto sheet = std::make_unique<GlyphPicker>(uiScale());
   sheet->setTitle(GlyphPickerDialog::currentOptions().title);
   sheet->setInitialGlyph(GlyphPickerDialog::currentOptions().initialGlyph);
-  sheet->setOnCancel([this]() { DeferredCall::callLater([this]() { cancel(); }); });
+  sheet->setOnCancel([this] { DeferredCall::callLater([this] { cancel(); }); });
   sheet->setOnApply([this](const GlyphPickerResult& result) {
-    DeferredCall::callLater([this, result]() { accept(result); });
+    DeferredCall::callLater([this, result] { accept(result); });
   });
   m_sheet = sheet.get();
   contentParent->addChild(std::move(sheet));
@@ -67,9 +67,7 @@ void GlyphPickerDialogPopup::populateContent(Node* contentParent, std::uint32_t 
     if (m_selectPopup == nullptr) {
       m_selectPopup = std::make_unique<SelectDropdownPopup>(*wayland(), *renderContext());
     }
-    if (config() != nullptr) {
-      m_selectPopup->setShadowConfig(config()->config().shell.shadow);
-    }
+    m_selectPopup->setShadowConfig(settings().shadow);
     m_selectPopup->setParent(xdgSurface(), wlSurface(), nullptr);
     contentParent->setPopupContext(m_selectPopup.get());
   }

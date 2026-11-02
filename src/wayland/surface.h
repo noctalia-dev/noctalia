@@ -1,7 +1,6 @@
 #pragma once
 
 #include "render/core/render_styles.h"
-#include "render/core/wallpaper_types.h"
 #include "render/render_target.h"
 
 #include <chrono>
@@ -29,6 +28,8 @@ struct InputRect {
   int y = 0;
   int width = 0;
   int height = 0;
+
+  bool operator==(const InputRect&) const = default;
 };
 
 struct SurfaceIdleProfileEntry {
@@ -75,7 +76,7 @@ public:
 
   virtual bool initialize() = 0;
 
-  [[nodiscard]] bool isRunning() const noexcept;
+  bool isRunning() const noexcept;
 
   void setConfigureCallback(ConfigureCallback callback);
   void setPrepareFrameCallback(PrepareFrameCallback callback);
@@ -130,24 +131,25 @@ public:
   void setAnimationManager(AnimationManager* manager) noexcept { m_animationManager = manager; }
   void setSceneRoot(Node* root);
   void setRenderContext(RenderContext* ctx);
-  void setWallpaperMask(std::optional<WallpaperMaskDrawParams> mask);
-  [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
-  [[nodiscard]] RenderTarget& renderTarget() noexcept { return m_renderTarget; }
-  [[nodiscard]] wl_surface* wlSurface() const noexcept { return m_surface; }
-  [[nodiscard]] const std::string& debugName() const noexcept { return m_debugName; }
-  [[nodiscard]] std::uint32_t width() const noexcept { return m_width; }
-  [[nodiscard]] std::uint32_t height() const noexcept { return m_height; }
-  [[nodiscard]] std::int32_t bufferScale() const noexcept { return m_bufferScale; }
-  [[nodiscard]] float effectiveBufferScale() const noexcept;
-  [[nodiscard]] std::uint32_t bufferWidthFor(std::uint32_t logicalWidth) const noexcept;
-  [[nodiscard]] std::uint32_t bufferHeightFor(std::uint32_t logicalHeight) const noexcept;
+  // Not owned; rendered after the scene root in surface coordinates (see RenderContext::renderScene).
+  void setOverlayNode(Node* node);
+  RenderContext* renderContext() const noexcept { return m_renderContext; }
+  RenderTarget& renderTarget() noexcept { return m_renderTarget; }
+  wl_surface* wlSurface() const noexcept { return m_surface; }
+  const std::string& debugName() const noexcept { return m_debugName; }
+  std::uint32_t width() const noexcept { return m_width; }
+  std::uint32_t height() const noexcept { return m_height; }
+  std::int32_t bufferScale() const noexcept { return m_bufferScale; }
+  float effectiveBufferScale() const noexcept;
+  std::uint32_t bufferWidthFor(std::uint32_t logicalWidth) const noexcept;
+  std::uint32_t bufferHeightFor(std::uint32_t logicalHeight) const noexcept;
 
   static void handleFrameDone(void* data, wl_callback* callback, std::uint32_t callbackData);
   void onSurfaceOutputEnter(wl_surface* surface, wl_output* output);
   void onSurfaceOutputLeave(wl_surface* surface, wl_output* output);
-  [[nodiscard]] static bool hasPendingFrameWork();
+  static bool hasPendingFrameWork();
   static void drainPendingFrameWork();
-  [[nodiscard]] static bool hasPendingRenders();
+  static bool hasPendingRenders();
   static void drainPendingRenders();
   [[nodiscard]] static SurfaceIdleProfileSnapshot takeIdleProfileSnapshot(bool reset);
   void onPreferredFractionalScale(std::uint32_t numerator);
@@ -194,7 +196,7 @@ private:
   RenderTarget m_renderTarget;
   AnimationManager* m_animationManager = nullptr;
   Node* m_sceneRoot = nullptr;
-  std::optional<WallpaperMaskDrawParams> m_wallpaperMask;
+  Node* m_overlayNode = nullptr;
   std::string m_debugName;
   std::shared_ptr<InvalidationToken> m_invalidationToken = std::make_shared<InvalidationToken>();
   ConfigureCallback m_configureCallback;

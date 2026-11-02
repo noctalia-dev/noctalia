@@ -32,18 +32,21 @@ void ScreenshotCapture::capture(
   m_cursorStatus = capture::CursorToggleStatus::NotCaptured;
   m_onComplete = std::move(onComplete);
   if (retainCursor && m_cursorCapture.available() && output != nullptr) {
-    m_cursorCapture.capture(output, [this](std::optional<capture::CapturedCursor> cursor, std::string /*error*/) {
-      m_cursor = std::move(cursor);
-      m_cursorStatus = m_cursor ? capture::CursorToggleStatus::Available : capture::CursorToggleStatus::CaptureFailed;
-      captureBackground();
-    });
+    m_cursorCapture.capture(
+        output, [this](std::optional<capture::CapturedCursor> cursor, const std::string& /*error*/) {
+          m_cursor = std::move(cursor);
+          m_cursorStatus =
+              m_cursor ? capture::CursorToggleStatus::Available : capture::CursorToggleStatus::CaptureFailed;
+          captureBackground();
+        }
+    );
     return;
   }
   captureBackground();
 }
 
 void ScreenshotCapture::captureBackground() {
-  m_timeout.start(std::chrono::seconds(1), [this]() {
+  m_timeout.start(std::chrono::seconds(1), [this] {
     m_backgroundCapture.cancelInFlight();
     finish(std::nullopt, "screencopy frame timed out");
   });

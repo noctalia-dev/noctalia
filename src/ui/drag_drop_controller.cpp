@@ -141,7 +141,14 @@ void DragDropController::release(DragSource& source, float localX, float localY)
     return;
   }
   if (m_state != State::Dragging) {
+    // Released before the drag threshold: a tap on the source, not a drag,
+    // provided the release is still inside it (the InputArea click contract);
+    // a press that slides off the edge is an abort, not an activation.
+    const bool inside = localX >= 0.0F && localY >= 0.0F && localX < source.width() && localY < source.height();
     cancel();
+    if (inside) {
+      source.fireClick();
+    }
     return;
   }
 
@@ -285,7 +292,7 @@ DropZone* DragDropController::targetAt(float sceneX, float sceneY) const {
 
     float localX = 0.0F;
     float localY = 0.0F;
-    (void)Node::mapFromScene(zone, sceneX, sceneY, localX, localY);
+    Node::mapFromScene(zone, sceneX, sceneY, localX, localY);
     const float slop = zone->hitSlop();
     if (localX < -slop || localX >= zone->width() + slop || localY < -slop || localY >= zone->height() + slop) {
       continue;
@@ -322,9 +329,10 @@ void DragDropController::updateTarget(float sceneX, float sceneY) {
   m_target = next;
   if (m_target != nullptr) {
     m_targetValue = m_target->value();
-    const float draggedHeight =
-        m_previewTarget != nullptr ? m_previewTarget->height() : (m_source != nullptr ? m_source->height() : 0.0F);
-    m_target->setDragOver(true, draggedHeight);
+    const Node* dragged = m_previewTarget != nullptr ? m_previewTarget : m_source;
+    const float draggedWidth = dragged != nullptr ? dragged->width() : 0.0F;
+    const float draggedHeight = dragged != nullptr ? dragged->height() : 0.0F;
+    m_target->setDragOver(true, draggedWidth, draggedHeight);
   }
 }
 
@@ -363,7 +371,7 @@ void DragDropController::updatePreview(float sceneX, float sceneY) {
   float localY = 0.0F;
   // Pointer capture can deliver positions outside the overlay. mapFromScene still
   // provides the transformed coordinates when its containment result is false.
-  (void)Node::mapFromScene(m_overlayRoot, sceneX - m_pointerOffsetX, sceneY - m_pointerOffsetY, localX, localY);
+  Node::mapFromScene(m_overlayRoot, sceneX - m_pointerOffsetX, sceneY - m_pointerOffsetY, localX, localY);
   m_preview->setPosition(
       clampPreviewPosition({
           .position = localX,
@@ -393,7 +401,7 @@ void DragDropController::clearPreview() {
   }
   m_preview->setSource(nullptr);
   if (Node* parent = m_preview->parent(); parent != nullptr) {
-    (void)parent->removeChild(m_preview);
+    parent->removeChild(m_preview);
   }
   m_preview = nullptr;
   if (m_previewTarget != nullptr) {

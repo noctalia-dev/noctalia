@@ -136,6 +136,28 @@ int main() {
     TEST_CHECK(!probe.start.has_value() && !probe.end.has_value());
   }
 
+  {
+    // dell-laptop keeps its custom thresholds stored in every mode, but the firmware only applies them while
+    // charge_types selects Custom.
+    TempTree dell;
+    dell.write("charge_control_start_threshold", "50\n");
+    dell.write("charge_control_end_threshold", "90\n");
+    dell.write("charge_types", "Trickle [Fast] Standard Adaptive Custom\n");
+    auto dellProbe = upower::detail::readChargeThresholdsFromSysfs("BAT0", dell.root);
+    TEST_CHECK(!dellProbe.start.has_value() && !dellProbe.end.has_value());
+
+    dell.write("charge_types", "Trickle Fast Standard Adaptive [Custom]\n");
+    dellProbe = upower::detail::readChargeThresholdsFromSysfs("BAT0", dell.root);
+    TEST_CHECK(dellProbe.start == 50U);
+    TEST_CHECK(dellProbe.end == 90U);
+
+    // Without a bracketed active mode the selection is unknown, so the thresholds still count.
+    dell.write("charge_types", "Standard\n");
+    dellProbe = upower::detail::readChargeThresholdsFromSysfs("BAT0", dell.root);
+    TEST_CHECK(dellProbe.start == 50U);
+    TEST_CHECK(dellProbe.end == 90U);
+  }
+
   UPowerChargeLimitState state;
   using Mode = PowerTabTestAccess::Mode;
   TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::Unsupported);

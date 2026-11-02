@@ -53,7 +53,7 @@ void ColorPickerDialog::complete(const Color& result) {
   s_hasPendingCallback = false;
   s_options = {};
   if (callback) {
-    DeferredCall::callLater([callback = std::move(callback), result]() { callback(result); });
+    DeferredCall::callLater([callback = std::move(callback), result] { callback(result); });
   }
 }
 
@@ -66,7 +66,7 @@ void ColorPickerDialog::cancelIfPending() {
   s_hasPendingCallback = false;
   s_options = {};
   if (callback) {
-    DeferredCall::callLater([callback = std::move(callback)]() { callback(std::nullopt); });
+    DeferredCall::callLater([callback = std::move(callback)] { callback(std::nullopt); });
   }
 }
 

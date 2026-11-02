@@ -7,11 +7,11 @@
 #include "wayland/popup_surface.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 
 class Box;
-class ConfigService;
 class InputArea;
 class Node;
 class RectNode;
@@ -23,6 +23,13 @@ struct KeyboardEvent;
 struct PointerEvent;
 struct wl_surface;
 struct xdg_surface;
+
+// Appearance inputs read on demand, so live config changes apply to the next layout.
+struct DialogPopupSettings {
+  ShadowStyle shadow;
+  float uiScale = 1.0F;
+};
+using DialogPopupSettingsProvider = std::function<DialogPopupSettings()>;
 
 // Shared base for the three xdg_popup-backed dialog popups (GlyphPicker,
 // ColorPicker, FileDialog). Owns the PopupSurface, the scene scaffolding
@@ -52,7 +59,7 @@ public:
   // Pointer/keyboard event dispatch for the popup. Returns true (pointer)
   // when the event was consumed. Subclass presenter overrides should
   // forward verbatim to these.
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
+  bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
 
   // Surface invalidation helpers. Forward to the underlying PopupSurface.
@@ -60,20 +67,20 @@ public:
   void requestRedraw();
   void requestUpdateOnly();
 
-  [[nodiscard]] bool isOpen() const noexcept { return m_surface != nullptr; }
-  [[nodiscard]] bool isInitializing() const noexcept { return m_openInProgress; }
-  [[nodiscard]] wl_surface* wlSurface() const noexcept;
-  [[nodiscard]] xdg_surface* xdgSurface() const noexcept;
-  [[nodiscard]] std::uint32_t width() const noexcept;
-  [[nodiscard]] std::uint32_t height() const noexcept;
+  bool isOpen() const noexcept { return m_surface != nullptr; }
+  bool isInitializing() const noexcept { return m_openInProgress; }
+  wl_surface* wlSurface() const noexcept;
+  xdg_surface* xdgSurface() const noexcept;
+  std::uint32_t width() const noexcept;
+  std::uint32_t height() const noexcept;
 
 protected:
   DialogPopupHost();
 
   // Called once during subclass `initialize` to capture the shared deps.
-  void initializeBase(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext);
+  void initializeBase(WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext);
   void initializeBase(
-      WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
+      WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext,
       LayerPopupHostRegistry& popupHosts
   );
 
@@ -104,23 +111,24 @@ protected:
   void cancel();
 
   // Effective UI scale (clamped to a safe minimum). Reads
-  // ConfigService::config().accessibility.uiScale.
-  [[nodiscard]] float uiScale() const;
+  // DialogPopupSettings::uiScale.
+  float uiScale() const;
 
-  [[nodiscard]] InputDispatcher& inputDispatcher() noexcept { return m_inputDispatcher; }
-  [[nodiscard]] AnimationManager& animations() noexcept { return m_animations; }
-  [[nodiscard]] WaylandConnection* wayland() const noexcept { return m_wayland; }
-  [[nodiscard]] ConfigService* config() const noexcept { return m_config; }
-  [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
+  InputDispatcher& inputDispatcher() noexcept { return m_inputDispatcher; }
+  const InputDispatcher& inputDispatcher() const noexcept { return m_inputDispatcher; }
+  AnimationManager& animations() noexcept { return m_animations; }
+  WaylandConnection* wayland() const noexcept { return m_wayland; }
+  DialogPopupSettings settings() const;
+  RenderContext* renderContext() const noexcept { return m_renderContext; }
   // Stable Renderer view for this popup's own surface. Valid only while open.
-  [[nodiscard]] Renderer& renderer() const noexcept;
+  Renderer& renderer() const noexcept;
 
   // Construct the standard PopupSurfaceConfig with the shared constraint
   // flags, anchor/gravity NONE, grab=false (dialogs dismiss via Escape /
   // close only — not outside click), and the parent context's centering
   // offset. Subclasses use this when wiring the surface in
   // `openPopup`-equivalent code if they need a custom config.
-  [[nodiscard]] PopupSurfaceConfig
+  PopupSurfaceConfig
   defaultPopupConfig(const LayerPopupParentContext& parent, std::uint32_t width, std::uint32_t height) const;
 
   /// Snap `m_sceneRoot` / `m_contentNode` to `m_surface` dimensions. `layoutScene` calls this before and after
@@ -165,17 +173,17 @@ protected:
   virtual void populateContent(Node* contentParent, std::uint32_t width, std::uint32_t height) = 0;
   virtual void layoutSheet(float contentWidth, float contentHeight) = 0;
   virtual void cancelToFacade() = 0;
-  [[nodiscard]] virtual InputArea* initialFocusArea() = 0;
+  virtual InputArea* initialFocusArea() = 0;
 
-  [[nodiscard]] virtual float computePadding(float scale) const { return scale * 12.0F; }
+  virtual float computePadding(float scale) const { return scale * 12.0F; }
   virtual void runUpdatePhase() {}
-  [[nodiscard]] virtual bool preDispatchKeyboard(const KeyboardEvent& /*event*/) { return false; }
+  virtual bool preDispatchKeyboard(const KeyboardEvent& /*event*/) { return false; }
   virtual void onSheetClose() {}
 
   // Owned shared state. Subclasses don't manipulate these directly outside
   // of the `populateContent` / `layoutSheet` hooks where appropriate.
   WaylandConnection* m_wayland = nullptr;
-  ConfigService* m_config = nullptr;
+  DialogPopupSettingsProvider m_settings;
   RenderContext* m_renderContext = nullptr;
   LayerPopupHostRegistry* m_popupHosts = nullptr;
 
@@ -204,10 +212,10 @@ private:
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void buildScene(std::uint32_t width, std::uint32_t height);
   void layoutScene(float width, float height);
-  [[nodiscard]] bool mapPointerEvent(const PointerEvent& event, float& localX, float& localY) const noexcept;
-  [[nodiscard]] wl_surface* resolveEventSurface(const PointerEvent& event) const noexcept;
-  [[nodiscard]] std::optional<LayerPopupParentContext> resolveParentContext() const;
+  bool mapPointerEvent(const PointerEvent& event, float& localX, float& localY) const noexcept;
+  wl_surface* resolveEventSurface(const PointerEvent& event) const noexcept;
+  std::optional<LayerPopupParentContext> resolveParentContext() const;
   void syncPointerStateFromCurrentPosition();
-  [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
+  bool ownsSurface(wl_surface* surface) const noexcept;
   void markDirtyTail();
 };

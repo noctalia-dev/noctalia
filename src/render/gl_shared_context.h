@@ -10,11 +10,11 @@ struct wl_display;
 enum class RenderGraphicsResetStatus;
 
 // Reset status of the GL context current on this thread. NoError when the driver exposes no reset query.
-[[nodiscard]] RenderGraphicsResetStatus currentGlContextResetStatus();
+RenderGraphicsResetStatus currentGlContextResetStatus();
 
 // Owns the EGLDisplay, the chosen EGLConfig, and a root surfaceless EGLContext
 // that is the share parent for every other EGLContext in the shell
-// (RenderContext, WallpaperRenderer instances, ...). By routing all contexts
+// (RenderContext, standalone backends, ...). By routing all contexts
 // through this share group, GL textures uploaded in any of them are usable
 // from every other context in the group — which lets LockSurface reuse
 // wallpaper textures resident in VRAM without re-decoding.
@@ -30,14 +30,12 @@ public:
   void cleanup();
   void recreateRootContext();
 
-  [[nodiscard]] EGLDisplay display() const noexcept { return m_display; }
-  [[nodiscard]] EGLConfig config() const noexcept { return m_config; }
-  [[nodiscard]] EGLContext rootContext() const noexcept { return m_rootContext; }
-  [[nodiscard]] bool hasSharedContext() const noexcept { return m_rootContext != EGL_NO_CONTEXT; }
-  [[nodiscard]] bool resetNotificationEnabled() const noexcept { return m_resetNotificationEnabled; }
-  [[nodiscard]] bool videoMemoryPurgeNotificationEnabled() const noexcept {
-    return m_videoMemoryPurgeNotificationEnabled;
-  }
+  EGLDisplay display() const noexcept { return m_display; }
+  EGLConfig config() const noexcept { return m_config; }
+  EGLContext rootContext() const noexcept { return m_rootContext; }
+  bool hasSharedContext() const noexcept { return m_rootContext != EGL_NO_CONTEXT; }
+  bool resetNotificationEnabled() const noexcept { return m_resetNotificationEnabled; }
+  bool videoMemoryPurgeNotificationEnabled() const noexcept { return m_videoMemoryPurgeNotificationEnabled; }
 
   [[nodiscard]] EGLContext createContext(EGLContext shareContext, std::string_view label);
 
@@ -45,7 +43,7 @@ public:
   // Returns false if eglMakeCurrent failed (e.g. context lost on resume); callers skip GPU work.
   bool makeCurrentSurfaceless() const;
 
-  // Single sink for resets seen on any context of this display (root, RenderContext, WallpaperRenderer).
+  // Single sink for resets seen on any context of this display (root, RenderContext, standalone backends).
   // Drivers report resets per hardware context, so every owner polls its own context and reports here.
   void setGraphicsResetCallback(std::function<void(RenderGraphicsResetStatus)> callback) {
     m_graphicsResetCallback = std::move(callback);
@@ -54,7 +52,7 @@ public:
 
 private:
   void buildContextAttributes();
-  [[nodiscard]] EGLContext createContextWithCurrentAttributes(EGLContext shareContext) const;
+  EGLContext createContextWithCurrentAttributes(EGLContext shareContext) const;
   void usePlainContextAttributes() noexcept;
 
   EGLDisplay m_display = EGL_NO_DISPLAY;

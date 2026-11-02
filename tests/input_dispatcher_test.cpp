@@ -61,8 +61,8 @@ int main() {
     area->setOnClick([&clicked](const InputArea::PointerData& data) { clicked = data; });
     dispatcher.setSceneRoot(root.get());
     dispatcher.pointerEnter(10.0F, 12.0F, 40);
-    (void)dispatcher.pointerButton(10.0F, 12.0F, BTN_LEFT, true, 41, 100, false);
-    (void)dispatcher.pointerButton(11.0F, 13.0F, BTN_LEFT, false, 42, 101, false);
+    dispatcher.pointerButton(10.0F, 12.0F, BTN_LEFT, true, 41, 100, false);
+    dispatcher.pointerButton(11.0F, 13.0F, BTN_LEFT, false, 42, 101, false);
     ok = expect(
              clicked.sceneX == 10.0F && clicked.sceneY == 12.0F && clicked.serial == 41 && clicked.time == 100,
              "click callbacks preserve the initiating press coordinates, serial, and time"
@@ -302,7 +302,7 @@ int main() {
     ok = expect(rowPresses == 0, "touch tap press is deferred until release") && ok;
     ok = expect(viewportPresses == 0, "touch tap does not press the scroll viewport") && ok;
 
-    (void)dispatcher.pointerButton(12.0F, 11.0F, BTN_LEFT, false, 2, 20, true);
+    dispatcher.pointerButton(12.0F, 11.0F, BTN_LEFT, false, 2, 20, true);
     ok = expect(rowPresses == 1, "touch tap delivers the deferred child press") && ok;
     ok = expect(rowClicks == 1, "touch tap clicks the child") && ok;
     ok = expect(viewportPresses == 0, "touch tap remains unclaimed by the scroll viewport") && ok;
@@ -333,14 +333,14 @@ int main() {
     dispatcher.setSceneRoot(scene.root.get());
     dispatcher.pointerEnter(10.0F, 10.0F, 1);
 
-    (void)dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
+    dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
     dispatcher.pointerMotion(10.0F, 30.0F, 2);
     ok = expect(viewportPresses == 1, "vertical touch drag presses the scroll viewport at claim") && ok;
     ok = expect(viewportMotions == 1, "vertical touch drag forwards current motion to the viewport") && ok;
     ok = expect(rowPresses == 0, "vertical touch drag never presses the child") && ok;
     ok = expect(dispatcher.pointerCaptured(), "vertical touch drag captures the viewport") && ok;
 
-    (void)dispatcher.pointerButton(10.0F, 30.0F, BTN_LEFT, false, 3, 20, true);
+    dispatcher.pointerButton(10.0F, 30.0F, BTN_LEFT, false, 3, 20, true);
     ok = expect(viewportReleases == 1, "vertical touch drag releases the scroll viewport") && ok;
     ok = expect(rowClicks == 0, "vertical touch drag does not click the child") && ok;
   }
@@ -361,12 +361,12 @@ int main() {
     dispatcher.setSceneRoot(scene.root.get());
     dispatcher.pointerEnter(10.0F, 10.0F, 1);
 
-    (void)dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
+    dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
     dispatcher.pointerMotion(30.0F, 12.0F, 2);
     ok = expect(rowPresses == 1, "horizontal touch drag delivers the deferred child press") && ok;
     ok = expect(rowMotions == 1, "horizontal touch drag forwards current motion to the child") && ok;
     ok = expect(viewportPresses == 0, "horizontal touch drag is not claimed by a vertical viewport") && ok;
-    (void)dispatcher.pointerButton(30.0F, 12.0F, BTN_LEFT, false, 3, 20, true);
+    dispatcher.pointerButton(30.0F, 12.0F, BTN_LEFT, false, 3, 20, true);
   }
 
   {
@@ -381,7 +381,7 @@ int main() {
     dispatcher.setSceneRoot(scene.root.get());
     dispatcher.pointerEnter(10.0F, 10.0F, 1);
 
-    (void)dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
+    dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
     dispatcher.pointerLeave();
     ok = expect(rowPresses == 0 && rowClicks == 0, "pointer leave drops a deferred touch press without a click") && ok;
     ok = expect(viewportPresses == 0, "pointer leave does not claim a deferred touch press") && ok;
@@ -414,7 +414,7 @@ int main() {
         && ok;
     ok = expect(rowPresses == 1, "mouse press reaches the child immediately") && ok;
     ok = expect(viewportPresses == 0, "mouse press is not handed to the touch-scroll viewport") && ok;
-    (void)dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, false, 2, 20, false);
+    dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, false, 2, 20, false);
   }
 
   return ok ? 0 : 1;

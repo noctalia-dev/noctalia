@@ -31,7 +31,7 @@ namespace capture {
         {AnnotationTool::Crop, "crop"},
     }};
 
-    [[nodiscard]] double distanceToSegment(double px, double py, double x0, double y0, double x1, double y1) {
+    double distanceToSegment(double px, double py, double x0, double y0, double x1, double y1) {
       const double dx = x1 - x0;
       const double dy = y1 - y0;
       const double lengthSquared = (dx * dx) + (dy * dy);
@@ -43,7 +43,7 @@ namespace capture {
     }
 
     // Liang-Barsky segment/rect overlap.
-    [[nodiscard]] bool segmentIntersectsRect(
+    bool segmentIntersectsRect(
         double x0, double y0, double x1, double y1, double left, double top, double right, double bottom
     ) {
       if ((x0 >= left && x0 <= right && y0 >= top && y0 <= bottom)
@@ -93,7 +93,7 @@ namespace capture {
       return true;
     }
 
-    [[nodiscard]] AnnotationRect shapeRect(const Annotation& annotation) {
+    AnnotationRect shapeRect(const Annotation& annotation) {
       const AnnotationPoint start = annotation.points.front();
       const AnnotationPoint end = annotation.points.back();
       return AnnotationRect{
@@ -383,15 +383,12 @@ namespace capture {
         return segmentIntersectsRect(a.x, a.y, b.x, b.y, left, top, right, bottom);
       case AnnotationTool::Rectangle: {
         const std::array<AnnotationPoint, 2> probes{a, b};
-        for (const auto& probe : probes) {
-          if (distanceToSegment(probe.x, probe.y, left, top, right, top) <= reach
+        return std::ranges::any_of(probes, [&](const auto& probe) {
+          return distanceToSegment(probe.x, probe.y, left, top, right, top) <= reach
               || distanceToSegment(probe.x, probe.y, right, top, right, bottom) <= reach
               || distanceToSegment(probe.x, probe.y, right, bottom, left, bottom) <= reach
-              || distanceToSegment(probe.x, probe.y, left, bottom, left, top) <= reach) {
-            return true;
-          }
-        }
-        return false;
+              || distanceToSegment(probe.x, probe.y, left, bottom, left, top) <= reach;
+        });
       }
       case AnnotationTool::Circle: {
         const double centerX = (start.x + end.x) / 2.0;
@@ -399,27 +396,21 @@ namespace capture {
         const double radiusX = std::max(std::abs(end.x - start.x) / 2.0, 0.0001);
         const double radiusY = std::max(std::abs(end.y - start.y) / 2.0, 0.0001);
         const std::array<AnnotationPoint, 2> probes{a, b};
-        for (const auto& probe : probes) {
+        return std::ranges::any_of(probes, [&](const auto& probe) {
           const double nx = (probe.x - centerX) / radiusX;
           const double ny = (probe.y - centerY) / radiusY;
           const double distance = std::abs(std::hypot(nx, ny) - 1.0) * std::min(radiusX, radiusY);
-          if (distance <= reach) {
-            return true;
-          }
-        }
-        return false;
+          return distance <= reach;
+        });
       }
       default:
         break;
       }
     }
 
-    for (const auto& point : annotation.points) {
-      if (distanceToSegment(point.x, point.y, a.x, a.y, b.x, b.y) <= reach) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(annotation.points, [&](const auto& point) {
+      return distanceToSegment(point.x, point.y, a.x, a.y, b.x, b.y) <= reach;
+    });
   }
 
   AnnotationPoint snapAngle45(AnnotationPoint start, AnnotationPoint end) {

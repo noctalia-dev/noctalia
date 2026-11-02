@@ -16,15 +16,15 @@ namespace GlyphRegistry {
     std::string category;
   };
 
-  [[nodiscard]] bool contains(std::string_view name);
-  [[nodiscard]] char32_t lookup(std::string_view name);
+  bool contains(std::string_view name);
+  char32_t lookup(std::string_view name);
 
   // Full Tabler icon catalog with structured metadata.
-  [[nodiscard]] const std::unordered_map<std::string, TablerGlyphMetadata>& tablerGlyphMetadata();
+  const std::unordered_map<std::string, TablerGlyphMetadata>& tablerGlyphMetadata();
   // Full Tabler icon catalog (loaded from assets/fonts/tabler.json on first registry use).
-  [[nodiscard]] const std::unordered_map<std::string, char32_t>& tablerIcons();
-  [[nodiscard]] std::optional<std::string_view> categoryFor(std::string_view name);
+  const std::unordered_map<std::string, char32_t>& tablerIcons();
+  std::optional<std::string_view> categoryFor(std::string_view name);
   // Hand-curated Noctalia alias -> native Tabler icon name map.
-  [[nodiscard]] const std::unordered_map<std::string, std::string_view>& aliases();
+  const std::unordered_map<std::string, std::string_view>& aliases();
 
 } // namespace GlyphRegistry

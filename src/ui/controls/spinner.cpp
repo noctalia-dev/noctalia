@@ -86,7 +86,7 @@ void Spinner::startLoop() {
         m_spinnerNode->setRotation(angle);
         markPaintDirty();
       },
-      [this]() {
+      [this] {
         m_animId = 0;
         if (m_spinning) {
           startLoop();

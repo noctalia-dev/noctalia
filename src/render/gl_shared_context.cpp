@@ -176,7 +176,7 @@ void GlSharedContext::initialize(wl_display* display, bool createSharedContext) 
     throw std::runtime_error("GlSharedContext requires a valid Wayland display");
   }
 
-  (void)dlerror();
+  dlerror();
   m_display = eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(display));
   if (m_display == EGL_NO_DISPLAY) {
     const char* loaderError = dlerror();

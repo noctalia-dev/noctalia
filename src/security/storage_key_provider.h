@@ -23,6 +23,7 @@ namespace security {
   enum class StorageKeyPurpose : std::uint8_t {
     ClipboardHistory,
     CalendarEvents,
+    NotificationHistory,
   };
 
   class StorageKeyProvider {
@@ -42,8 +43,8 @@ namespace security {
     void noteEncryptedDataExists() noexcept { m_encryptedDataExists = true; }
     void setChangeCallback(ChangeCallback callback);
 
-    [[nodiscard]] StorageKeyState state() const noexcept { return m_state; }
-    [[nodiscard]] std::optional<SecureKey> deriveKey(StorageKeyPurpose purpose) const;
+    StorageKeyState state() const noexcept { return m_state; }
+    std::optional<SecureKey> deriveKey(StorageKeyPurpose purpose) const;
 
   private:
     void loadKeyFile();
@@ -52,7 +53,7 @@ namespace security {
     void activateKey(SecureKey key);
     void setState(StorageKeyState state, bool forceNotify = false);
     void finishReset(bool success);
-    [[nodiscard]] static StorageKeyState stateForSecretStoreStatus(SecretStoreStatus status);
+    static StorageKeyState stateForSecretStoreStatus(SecretStoreStatus status);
 
     SecretStore& m_secretStore;
     SecretStoreOperation m_operation;

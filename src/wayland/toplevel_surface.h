@@ -27,13 +27,13 @@ public:
 
   using Surface::initialize;
   bool initialize() override { return false; }
-  bool initialize(wl_output* output, ToplevelSurfaceConfig config);
+  bool initialize(wl_output* output, const ToplevelSurfaceConfig& config);
 
   void setClosedCallback(std::function<void()> callback);
   void setMinSize(std::uint32_t minWidth, std::uint32_t minHeight);
   void beginMove(std::uint32_t serial);
 
-  [[nodiscard]] xdg_surface* xdgSurface() const noexcept { return m_xdgSurface; }
+  xdg_surface* xdgSurface() const noexcept { return m_xdgSurface; }
 
   static void handleXdgSurfaceConfigure(void* data, xdg_surface* surface, std::uint32_t serial);
   static void handleToplevelConfigure(
