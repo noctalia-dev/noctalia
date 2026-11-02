@@ -27,7 +27,7 @@ namespace scripting {
 // A desktop widget backed by a plugin's `[[desktop_widget]]` entry. The script
 // runs off-thread on its own Luau runtime and describes its UI declaratively:
 // `desktopWidget.render(ui.column{...})` produces a UiTreeNode tree that the
-// reconciler maps onto retained src/ui/controls. Positional fields (cx/cy, box,
+// reconciler maps onto retained lib/ui/controls. Positional fields (cx/cy, box,
 // rotation) stay host-owned; the script only reads its declared settings.
 class PluginDesktopWidget : public DesktopWidget, public scripting::PluginIpcEndpoint {
 public:

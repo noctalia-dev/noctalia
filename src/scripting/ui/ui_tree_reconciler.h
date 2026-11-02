@@ -23,7 +23,7 @@ namespace ui {
 
   struct UiTreeNode;
 
-  // Maps a declarative UiTreeNode tree onto a retained tree of src/ui/controls/.
+  // Maps a declarative UiTreeNode tree onto a retained tree of lib/ui/controls/.
   // The single place plugin UI intent becomes controls: plugin code never sees a
   // Node. Diffs against the previous tree — children matched by `key` when set,
   // else by position+type; a matched control is updated in place, a mismatch

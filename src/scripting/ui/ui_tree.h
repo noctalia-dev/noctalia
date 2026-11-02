@@ -14,7 +14,7 @@ namespace ui {
 
   // One node of a declarative control tree produced by plugin code. Pure data:
   // it crosses the script-worker → UI-thread boundary by value and is mapped to
-  // retained `src/ui/controls/` instances by `UiTreeReconciler`.
+  // retained `lib/ui/controls/` instances by `UiTreeReconciler`.
   struct UiTreeNode {
     std::string type; // "column", "row", "label", "glyph", ...
     std::string key;  // stable identity for keyed reconciliation ("" = positional)
