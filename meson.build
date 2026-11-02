@@ -1231,6 +1231,7 @@ if build_tests
   _cpp_test_names = [
     'annotation_document',
     'annotation_raster',
+    'annotation_view',
     'animation_manager',
     'app_identity',
     'audio_glyphs',
