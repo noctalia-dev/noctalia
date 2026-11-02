@@ -28,8 +28,6 @@ namespace {
 
   ColorSpec disabledItemColor() { return colorSpecFromRole(ColorRole::OnSurface, 0.55F); }
 
-  bool hasToggle(const ContextMenuControlEntry& entry) { return entry.checkmark || entry.radio; }
-
   bool isInteractive(const ContextMenuControlEntry& entry) {
     return entry.enabled && !entry.separator && !entry.header;
   }
@@ -227,7 +225,7 @@ float ContextMenuControl::preferredWidth(
     if (entry.separator || entry.label.empty()) {
       continue;
     }
-    const float toggleSlot = (reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
+    const float toggleSlot = (reserveToggleSpace || entry.hasToggle()) ? kToggleSlot * scale : 0.0F;
     const FontWeight weight = entry.header ? FontWeight::Bold : FontWeight::Normal;
     const float textWidth = std::ceil(renderer.measureText(entry.label, kMenuFontSize * scale, {weight}).width);
     // Mirrors rebuildRows: 8px label inset each side, 30px right when a chevron is drawn.
@@ -335,7 +333,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           })
       );
 
-      const float toggleSlot = (m_reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
+      const float toggleSlot = (m_reserveToggleSpace || entry.hasToggle()) ? kToggleSlot * scale : 0.0F;
       const float indent = entryIndent(entry, scale);
       const std::string_view toggleGlyph = toggleGlyphName(entry);
       if (!toggleGlyph.empty()) {

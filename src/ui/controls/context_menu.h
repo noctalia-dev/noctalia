@@ -34,6 +34,8 @@ struct ContextMenuControlEntry {
   std::optional<ColorSpec> indicatorColor;
   ColorSwatchPreview swatchPreview;
   TextEllipsize ellipsize = TextEllipsize::End;
+
+  [[nodiscard]] bool hasToggle() const noexcept { return checkmark || radio; }
 };
 
 class ContextMenuControl : public Node {
