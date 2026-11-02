@@ -107,4 +107,8 @@ namespace process {
       const std::vector<std::string>& args, const std::string& appName, const std::string& activationToken = {},
       const std::string& workingDir = {}
   );
+  // Send READY=1 from the compositor process. An empty socket path is a no-op.
+  [[nodiscard]] bool notifyServiceReady(std::string_view socketPath);
+  // True only for the process systemd started directly.
+  [[nodiscard]] bool isDirectSystemdService(pid_t currentPid, const char* systemdExecPid);
 } // namespace process
