@@ -8,13 +8,10 @@
 #include "ext-background-effect-v1-client-protocol.h"
 #include "ext-data-control-v1-client-protocol.h"
 #include "ext-foreign-toplevel-list-v1-client-protocol.h"
-#include "ext-idle-notify-v1-client-protocol.h"
-#include "ext-session-lock-v1-client-protocol.h"
 #include "ext-workspace-v1-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
 #include "hyprland-focus-grab-v1-client-protocol.h"
 #include "hyprland-toplevel-mapping-v1-client-protocol.h"
-#include "idle-inhibit-unstable-v1-client-protocol.h"
 #include "org-kde-plasma-virtual-desktop-client-protocol.h"
 #include "text-input-unstable-v3-client-protocol.h"
 #include "viewporter-client-protocol.h"
@@ -27,7 +24,6 @@
 #include "wayland/wayland_protocol_policy.h"
 #include "wlr-data-control-unstable-v1-client-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
-#include "wlr-gamma-control-unstable-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-output-management-unstable-v1-client-protocol.h"
 #include "xdg-activation-v1-client-protocol.h"
@@ -64,9 +60,6 @@ namespace {
   constexpr std::uint32_t kExtForeignToplevelListVersion = 1;
   constexpr std::uint32_t kCursorShapeManagerVersion = 1;
   constexpr std::uint32_t kXdgActivationVersion = 1;
-  constexpr std::uint32_t kExtSessionLockManagerVersion = 1;
-  constexpr std::uint32_t kExtIdleNotifierVersion = 2;
-  constexpr std::uint32_t kIdleInhibitManagerVersion = 1;
   constexpr std::uint32_t kExtBackgroundEffectManagerVersion = 1;
   // REMOVEME(wayland-protocols-1.45): Use the generated mask after requiring wayland-protocols >= 1.46;
   // version 1.45 generates zero for blur although the corrected v1 wire mask is 1.
@@ -78,7 +71,6 @@ namespace {
   constexpr std::uint32_t kOutputVersion = 4;
   constexpr std::uint32_t kTextInputManagerVersion = 2;
   constexpr std::uint32_t kVirtualKeyboardManagerVersion = 1;
-  constexpr std::uint32_t kGammaControlManagerVersion = 1;
   constexpr std::uint32_t kOutputManagerVersion = 4;
   constexpr std::uint32_t kOutputManagerMinVersion = 3;
 
@@ -807,18 +799,6 @@ void WaylandConnection::setHyprlandToplevelMappingManagerCallback(
   m_hyprlandToplevelMappingManagerCallback = std::move(callback);
 }
 
-void WaylandConnection::setIdleCapabilitiesReadyCallback(ChangeCallback callback) {
-  m_idleCapabilitiesReadyCallback = std::move(callback);
-  notifyIdleCapabilitiesReady();
-}
-
-void WaylandConnection::notifyIdleCapabilitiesReady() {
-  if (m_idleNotifier == nullptr || m_seat == nullptr || !m_idleCapabilitiesReadyCallback) {
-    return;
-  }
-  m_idleCapabilitiesReadyCallback();
-}
-
 void WaylandConnection::setPointerEventCallback(WaylandSeat::PointerEventCallback callback) {
   m_pointerEventCallback = std::move(callback);
   m_seatHandler.setPointerEventCallback([this](const PointerEvent& event) {
@@ -1085,17 +1065,11 @@ bool WaylandConnection::hasDwlIpcManager() const noexcept { return m_hasDwlIpcGl
 bool WaylandConnection::hasForeignToplevelManager() const noexcept { return m_hasForeignToplevelManagerGlobal; }
 
 bool WaylandConnection::hasExtForeignToplevelList() const noexcept { return m_hasExtForeignToplevelListGlobal; }
-bool WaylandConnection::hasSessionLockManager() const noexcept { return m_sessionLockManager != nullptr; }
-bool WaylandConnection::hasIdleNotifier() const noexcept { return m_idleNotifier != nullptr; }
-bool WaylandConnection::hasIdleInhibitManager() const noexcept { return m_idleInhibitManager != nullptr; }
 bool WaylandConnection::hasXdgActivation() const noexcept { return m_xdgActivation != nullptr; }
 bool WaylandConnection::hasFractionalScale() const noexcept {
   return m_fractionalScaleManager != nullptr && m_viewporter != nullptr;
 }
-bool WaylandConnection::hasGammaControl() const noexcept { return m_gammaControlManager != nullptr; }
 bool WaylandConnection::hasOutputManagement() const noexcept { return m_outputManager != nullptr; }
-
-zwlr_gamma_control_manager_v1* WaylandConnection::gammaControlManager() const noexcept { return m_gammaControlManager; }
 
 std::string WaylandConnection::requestActivationToken(wl_surface* surface) const {
   if (m_xdgActivation == nullptr || m_display == nullptr) {
@@ -1181,31 +1155,6 @@ wl_subcompositor* WaylandConnection::subcompositor() const noexcept { return m_s
 zwlr_layer_shell_v1* WaylandConnection::layerShell() const noexcept { return m_layerShell; }
 xdg_wm_base* WaylandConnection::xdgWmBase() const noexcept { return m_xdgWmBase; }
 
-ext_session_lock_manager_v1* WaylandConnection::sessionLockManager() const noexcept { return m_sessionLockManager; }
-ext_idle_notifier_v1* WaylandConnection::idleNotifier() const noexcept { return m_idleNotifier; }
-
-ext_idle_notification_v1* WaylandConnection::createIdleNotification(std::uint32_t timeoutMs) const {
-  wl_seat* const seat = this->seat();
-  if (m_idleNotifier == nullptr || seat == nullptr) {
-    return nullptr;
-  }
-
-  return ext_idle_notifier_v1_get_idle_notification(m_idleNotifier, timeoutMs, seat);
-}
-
-ext_idle_notification_v1* WaylandConnection::createInputIdleNotification(std::uint32_t timeoutMs) const {
-  wl_seat* const seat = this->seat();
-  if (m_idleNotifier == nullptr
-      || seat == nullptr
-      || ext_idle_notifier_v1_get_version(m_idleNotifier)
-          < EXT_IDLE_NOTIFIER_V1_GET_INPUT_IDLE_NOTIFICATION_SINCE_VERSION) {
-    return nullptr;
-  }
-
-  return ext_idle_notifier_v1_get_input_idle_notification(m_idleNotifier, timeoutMs, seat);
-}
-
-zwp_idle_inhibit_manager_v1* WaylandConnection::idleInhibitManager() const noexcept { return m_idleInhibitManager; }
 bool WaylandConnection::hasBackgroundEffectBlur() const noexcept { return m_backgroundEffectBlurSupported; }
 ext_background_effect_manager_v1* WaylandConnection::backgroundEffectManager() const noexcept {
   return m_backgroundEffectManager;
@@ -1460,7 +1409,6 @@ void WaylandConnection::bindGlobal(
     m_seatHandler.bind(m_seat);
     bindClipboardService();
     bindTextInputService();
-    notifyIdleCapabilitiesReady();
     return;
   }
 
@@ -1583,31 +1531,6 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
-  if (interfaceName == ext_session_lock_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kExtSessionLockManagerVersion);
-    m_sessionLockManager = static_cast<ext_session_lock_manager_v1*>(
-        wl_registry_bind(registry, name, &ext_session_lock_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
-  if (interfaceName == ext_idle_notifier_v1_interface.name) {
-    const auto bindVersion = std::min(version, kExtIdleNotifierVersion);
-    m_idleNotifier = static_cast<ext_idle_notifier_v1*>(
-        wl_registry_bind(registry, name, &ext_idle_notifier_v1_interface, bindVersion)
-    );
-    notifyIdleCapabilitiesReady();
-    return;
-  }
-
-  if (interfaceName == zwp_idle_inhibit_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kIdleInhibitManagerVersion);
-    m_idleInhibitManager = static_cast<zwp_idle_inhibit_manager_v1*>(
-        wl_registry_bind(registry, name, &zwp_idle_inhibit_manager_v1_interface, bindVersion)
-    );
-    return;
-  }
-
   if (interfaceName == ext_background_effect_manager_v1_interface.name) {
     const auto bindVersion = std::min(version, kExtBackgroundEffectManagerVersion);
     m_backgroundEffectManager = static_cast<ext_background_effect_manager_v1*>(
@@ -1689,14 +1612,6 @@ void WaylandConnection::bindGlobal(
         wl_registry_bind(registry, name, &zwp_virtual_keyboard_manager_v1_interface, bindVersion)
     );
     bindVirtualKeyboardService();
-    return;
-  }
-
-  if (interfaceName == zwlr_gamma_control_manager_v1_interface.name) {
-    const auto bindVersion = std::min(version, kGammaControlManagerVersion);
-    m_gammaControlManager = static_cast<zwlr_gamma_control_manager_v1*>(
-        wl_registry_bind(registry, name, &zwlr_gamma_control_manager_v1_interface, bindVersion)
-    );
     return;
   }
 
@@ -1817,18 +1732,6 @@ void WaylandConnection::cleanup() {
     m_xdgActivation = nullptr;
   }
 
-  if (m_sessionLockManager != nullptr) {
-    ext_session_lock_manager_v1_destroy(m_sessionLockManager);
-    m_sessionLockManager = nullptr;
-  }
-  if (m_idleNotifier != nullptr) {
-    ext_idle_notifier_v1_destroy(m_idleNotifier);
-    m_idleNotifier = nullptr;
-  }
-  if (m_idleInhibitManager != nullptr) {
-    zwp_idle_inhibit_manager_v1_destroy(m_idleInhibitManager);
-    m_idleInhibitManager = nullptr;
-  }
   if (m_backgroundEffectManager != nullptr) {
     ext_background_effect_manager_v1_destroy(m_backgroundEffectManager);
     m_backgroundEffectManager = nullptr;
@@ -1843,11 +1746,6 @@ void WaylandConnection::cleanup() {
   if (m_hyprlandFocusGrabManager != nullptr) {
     hyprland_focus_grab_manager_v1_destroy(m_hyprlandFocusGrabManager);
     m_hyprlandFocusGrabManager = nullptr;
-  }
-
-  if (m_gammaControlManager != nullptr) {
-    zwlr_gamma_control_manager_v1_destroy(m_gammaControlManager);
-    m_gammaControlManager = nullptr;
   }
 
   for (auto* mode : m_outputModes) {
@@ -1947,12 +1845,11 @@ void WaylandConnection::cleanup() {
 void WaylandConnection::logStartupSummary() const {
   kLog.info(
       "connected compositor={} shm={} layer-shell={} xdg-shell={} xdg-output={} ext-workspace={} kde-vd={} dwl-ipc={} "
-      "session-lock={} fractional-scale={} gamma-control={} output-management={} outputs={}",
+      "fractional-scale={} output-management={} outputs={}",
       m_compositor != nullptr ? "yes" : "no", m_shm != nullptr ? "yes" : "no", hasLayerShell() ? "yes" : "no",
       hasXdgShell() ? "yes" : "no", hasXdgOutputManager() ? "yes" : "no", hasExtWorkspaceManager() ? "yes" : "no",
       hasKdeVirtualDesktopManager() ? "yes" : "no", hasDwlIpcManager() ? "yes" : "no",
-      hasSessionLockManager() ? "yes" : "no", hasFractionalScale() ? "yes" : "no", hasGammaControl() ? "yes" : "no",
-      hasOutputManagement() ? "yes" : "no", m_outputs.size()
+      hasFractionalScale() ? "yes" : "no", hasOutputManagement() ? "yes" : "no", m_outputs.size()
   );
 
   for (const auto& output : m_outputs) {

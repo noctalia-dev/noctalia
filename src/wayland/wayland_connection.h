@@ -35,12 +35,8 @@ struct zxdg_output_manager_v1;
 struct zxdg_output_v1;
 struct xdg_wm_base;
 struct wp_cursor_shape_manager_v1;
-struct ext_idle_notifier_v1;
-struct ext_idle_notification_v1;
-struct zwp_idle_inhibit_manager_v1;
 struct ext_background_effect_manager_v1;
 struct xdg_activation_v1;
-struct ext_session_lock_manager_v1;
 struct zwlr_foreign_toplevel_manager_v1;
 struct zwlr_foreign_toplevel_handle_v1;
 struct ext_workspace_manager_v1;
@@ -50,7 +46,6 @@ struct zwp_virtual_keyboard_manager_v1;
 struct zwp_text_input_manager_v3;
 struct hyprland_focus_grab_manager_v1;
 struct hyprland_toplevel_mapping_manager_v1;
-struct zwlr_gamma_control_manager_v1;
 struct wp_fractional_scale_manager_v1;
 struct wp_viewporter;
 struct zwlr_output_manager_v1;
@@ -171,8 +166,6 @@ public:
   void setKeyboardModifiersCallback(WaylandSeat::KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCallback callback);
   void setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback);
-  /// Fired when both `ext_idle_notifier_v1` and `wl_seat` are bound (including late registry globals).
-  void setIdleCapabilitiesReadyCallback(ChangeCallback callback);
   void setClipboardService(ClipboardService* clipboardService);
   void setTextInputService(TextInputService* textInputService);
   void setVirtualKeyboardService(VirtualKeyboardService* virtualKeyboardService);
@@ -211,14 +204,9 @@ public:
   bool hasDwlIpcManager() const noexcept;
   bool hasForeignToplevelManager() const noexcept;
   bool hasExtForeignToplevelList() const noexcept;
-  bool hasSessionLockManager() const noexcept;
-  bool hasIdleNotifier() const noexcept;
-  bool hasIdleInhibitManager() const noexcept;
   bool hasFractionalScale() const noexcept;
-  bool hasGammaControl() const noexcept;
   bool hasOutputManagement() const noexcept;
   bool hasBackgroundEffectBlur() const noexcept;
-  zwlr_gamma_control_manager_v1* gammaControlManager() const noexcept;
   ext_background_effect_manager_v1* backgroundEffectManager() const noexcept;
   wp_fractional_scale_manager_v1* fractionalScaleManager() const noexcept;
   hyprland_focus_grab_manager_v1* hyprlandFocusGrabManager() const noexcept;
@@ -234,14 +222,6 @@ public:
   wl_subcompositor* subcompositor() const noexcept;
   zwlr_layer_shell_v1* layerShell() const noexcept;
   xdg_wm_base* xdgWmBase() const noexcept;
-  ext_session_lock_manager_v1* sessionLockManager() const noexcept;
-  ext_idle_notifier_v1* idleNotifier() const noexcept;
-  /// Inhibitor-aware idle notification (`get_idle_notification`); honors `zwp_idle_inhibitor_v1`.
-  ext_idle_notification_v1* createIdleNotification(std::uint32_t timeoutMs) const;
-  /// Input-only idle notification (`get_input_idle_notification`, notifier v2); ignores idle inhibitors.
-  /// Returns null when the compositor's notifier is older than v2.
-  ext_idle_notification_v1* createInputIdleNotification(std::uint32_t timeoutMs) const;
-  zwp_idle_inhibit_manager_v1* idleInhibitManager() const noexcept;
   const std::vector<WaylandOutput>& outputs() const noexcept;
   WaylandOutput* findOutputByWl(wl_output* wlOutput);
   const WaylandOutput* findOutputByWl(wl_output* wlOutput) const;
@@ -308,7 +288,6 @@ public:
   static void handleGlobalRemove(void* data, wl_registry* registry, std::uint32_t name);
 
   void onBackgroundEffectCapabilities(std::uint32_t capabilities) noexcept;
-  void notifyIdleCapabilitiesReady();
 
   // wlr-output-management-unstable-v1 entrypoints
   void onOutputManagerHead(zwlr_output_head_v1* head);
@@ -357,13 +336,9 @@ private:
   xdg_wm_base* m_xdgWmBase = nullptr;
   wp_cursor_shape_manager_v1* m_cursorShapeManager = nullptr;
   xdg_activation_v1* m_xdgActivation = nullptr;
-  ext_session_lock_manager_v1* m_sessionLockManager = nullptr;
-  ext_idle_notifier_v1* m_idleNotifier = nullptr;
-  zwp_idle_inhibit_manager_v1* m_idleInhibitManager = nullptr;
   ext_background_effect_manager_v1* m_backgroundEffectManager = nullptr;
   wp_fractional_scale_manager_v1* m_fractionalScaleManager = nullptr;
   hyprland_focus_grab_manager_v1* m_hyprlandFocusGrabManager = nullptr;
-  zwlr_gamma_control_manager_v1* m_gammaControlManager = nullptr;
   zwlr_output_manager_v1* m_outputManager = nullptr;
   std::unordered_map<zwlr_output_head_v1*, WaylandOutputHeadInfo> m_outputHeads;
   std::unordered_set<zwlr_output_mode_v1*> m_outputModes;
@@ -385,7 +360,6 @@ private:
   bool m_hasExtForeignToplevelListGlobal = false;
   std::vector<WaylandOutput> m_outputs;
   ChangeCallback m_outputChangeCallback;
-  ChangeCallback m_idleCapabilitiesReadyCallback;
   std::function<void(wl_output*)> m_outputAddedCallback;
   std::function<void(wl_output*)> m_outputRemovedCallback;
   std::function<void(ext_workspace_manager_v1*)> m_extWorkspaceManagerCallback;

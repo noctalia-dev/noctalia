@@ -26,6 +26,7 @@
 #include "compositors/workspace_alert_service.h"
 #include "core/log.h"
 #include "core/process/process.h"
+#include "shell/wayland/shell_globals.h"
 #include "util/string_utils.h"
 #include "wayland/output_probe.h"
 #include "wayland/wayland_connection.h"
@@ -590,7 +591,8 @@ namespace {
 } // namespace
 
 CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
-    : m_wayland(wayland), m_runtimeRegistry(std::make_unique<compositors::CompositorRuntimeRegistry>()),
+    : m_wayland(wayland), m_shellGlobals(wayland.extension<ShellGlobals>()),
+      m_runtimeRegistry(std::make_unique<compositors::CompositorRuntimeRegistry>()),
       m_workspaces(std::make_unique<WaylandWorkspaces>(*m_runtimeRegistry)) {
   m_workspaceMetadataBackend = createWorkspaceMetadataBackend(*m_runtimeRegistry);
   if (m_workspaceMetadataBackend != nullptr) {
@@ -715,7 +717,7 @@ std::string CompositorPlatform::requestActivationToken(wl_surface* surface) cons
   return m_wayland.requestActivationToken(surface);
 }
 
-bool CompositorPlatform::hasGammaControl() const noexcept { return m_wayland.hasGammaControl(); }
+bool CompositorPlatform::hasGammaControl() const noexcept { return m_shellGlobals.gammaControlManager() != nullptr; }
 
 const std::vector<WaylandOutput>& CompositorPlatform::outputs() const noexcept { return m_wayland.outputs(); }
 

@@ -44,6 +44,7 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/easyeffects_service.h"
 #include "ui/app_icon_colorization.h"
@@ -774,7 +775,7 @@ void Application::initNotificationAndOsd() {
   );
   m_idleGraceOverlay.initialize(m_wayland, &m_renderContext);
   m_pluginIdleWatches.initialize(m_wayland);
-  m_wayland.setIdleCapabilitiesReadyCallback([this] {
+  m_wayland.extension<ShellGlobals>().setIdleCapabilitiesReadyCallback([this] {
     m_idleManager.reload(m_configService.config().idle);
     m_pluginIdleWatches.onCapabilitiesReady();
   });

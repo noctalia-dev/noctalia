@@ -20,6 +20,7 @@
 #include "shell/session/session_action_runner.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "shell/wayland/capture_globals.h"
+#include "shell/wayland/shell_globals.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -182,7 +183,7 @@ bool LockScreen::lock() {
   m_lockedAtMillis = bootTimeMillis();
   m_graceAllowed = true;
   kLog.debug("lock requested, grace starts at {}", m_lockedAtMillis);
-  if (!m_wayland->hasSessionLockManager()) {
+  if (m_wayland->extension<ShellGlobals>().sessionLockManager() == nullptr) {
     invalidateDesktopCaptures();
     kLog.warn("session lock protocol unavailable");
     notifyLockAborted();
@@ -225,7 +226,7 @@ bool LockScreen::lock() {
   }
   chooseTransition();
 
-  m_lock = ext_session_lock_manager_v1_lock(m_wayland->sessionLockManager());
+  m_lock = ext_session_lock_manager_v1_lock(m_wayland->extension<ShellGlobals>().sessionLockManager());
   if (m_lock == nullptr) {
     kLog.warn("failed to create session lock object");
     resetLockState();

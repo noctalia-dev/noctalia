@@ -29,6 +29,7 @@
 #include "shell/settings/settings_window.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/wayland/capture_globals.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
 #include "theme/builtin_templates.h"
@@ -758,7 +759,8 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
       env.umbrielOverviewTypeToLaunchSupported && m_platform != nullptr && m_platform->tracksOverviewState();
   env.ddcutilAvailable = (m_dependencies != nullptr && m_dependencies->hasDdcutil());
   env.systemdUserManaged = process::runningUnderSystemdUserManager();
-  env.gammaControlAvailable = (m_wayland != nullptr && m_wayland->hasGammaControl());
+  env.gammaControlAvailable =
+      m_wayland != nullptr && m_wayland->extension<ShellGlobals>().gammaControlManager() != nullptr;
   env.greeterSyncAvailable =
       m_config != nullptr && greeter::appearanceSyncAvailable(m_config->config().shell.greeterSync);
   const ThemeMode previewMode = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;

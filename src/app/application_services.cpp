@@ -70,6 +70,7 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
 #include "system/easyeffects_service.h"
@@ -794,6 +795,13 @@ void Application::initStyleThemeAndWayland() {
 
   if (!m_wayland.connect()) {
     throw std::runtime_error("failed to connect to Wayland display");
+  }
+  {
+    const auto& shellGlobals = m_wayland.extension<ShellGlobals>();
+    kLog.info(
+        "shell globals session-lock={} gamma-control={}", shellGlobals.sessionLockManager() != nullptr ? "yes" : "no",
+        shellGlobals.gammaControlManager() != nullptr ? "yes" : "no"
+    );
   }
   m_compositorPlatform.initialize();
   m_screenTimeService.initialize(&m_compositorPlatform);

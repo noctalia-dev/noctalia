@@ -25,6 +25,7 @@ struct zwlr_foreign_toplevel_handle_v1;
 struct ext_foreign_toplevel_handle_v1;
 class OutputProbe;
 class SessionBus;
+class ShellGlobals;
 class WaylandWorkspaces;
 
 namespace compositors::kde {
@@ -233,6 +234,7 @@ private:
   bool extToplevelIsLive(const ext_foreign_toplevel_handle_v1* handle) const;
 
   WaylandConnection& m_wayland;
+  ShellGlobals& m_shellGlobals;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;
   std::unique_ptr<WaylandWorkspaces> m_workspaces;

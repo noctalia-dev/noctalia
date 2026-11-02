@@ -1044,6 +1044,7 @@ _noctalia_sources = files(
   'src/wayland/ext_foreign_toplevels.cpp',
   'src/wayland/wayland_workspaces.cpp',
   'src/shell/wayland/capture_globals.cpp',
+  'src/shell/wayland/shell_globals.cpp',
   'src/theme/scheme.cpp',
   'src/theme/color.cpp',
   'src/theme/contrast.cpp',
