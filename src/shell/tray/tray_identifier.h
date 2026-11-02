@@ -152,23 +152,54 @@ namespace tray {
     }
   }
 
-  inline std::vector<std::string> pinMatchCandidates(const TrayItemInfo& item) {
+  inline std::vector<std::string> itemIdentifierFields(const TrayItemInfo& item) {
+    return {
+        item.id,
+        item.busName,
+        item.itemName,
+        item.title,
+        item.statusNotifierTitle,
+        item.statusNotifierDescription,
+        item.objectPath,
+        item.iconName,
+        item.overlayIconName,
+        item.attentionIconName,
+        item.processName,
+    };
+  }
+
+  inline std::vector<std::string> hiddenMatchCandidates(const TrayItemInfo& item) {
     std::vector<std::string> candidates;
-    appendIdentifierVariants(candidates, item.id);
-    appendIdentifierVariants(candidates, item.busName);
-    appendIdentifierVariants(candidates, item.itemName);
-    appendIdentifierVariants(candidates, item.title);
-    appendIdentifierVariants(candidates, item.statusNotifierTitle);
-    appendIdentifierVariants(candidates, item.statusNotifierDescription);
-    appendIdentifierVariants(candidates, item.objectPath);
-    appendIdentifierVariants(candidates, item.iconName);
-    appendIdentifierVariants(candidates, item.overlayIconName);
-    appendIdentifierVariants(candidates, item.attentionIconName);
-    appendIdentifierVariants(candidates, item.processName);
+    for (const auto& field : itemIdentifierFields(item)) {
+      for (const auto& variant : identifierVariants(field)) {
+        if (!std::ranges::contains(candidates, variant)) {
+          candidates.push_back(variant);
+        }
+      }
+    }
     return candidates;
   }
 
-  inline bool tokenMatchesItem(std::string_view token, const TrayItemInfo& item) {
+  inline std::vector<std::string> pinMatchCandidates(const TrayItemInfo& item) {
+    std::vector<std::string> candidates;
+    for (const auto& field : itemIdentifierFields(item)) {
+      appendIdentifierVariants(candidates, field);
+    }
+    return candidates;
+  }
+
+  inline bool hiddenTokenMatchesItem(std::string_view token, const TrayItemInfo& item) {
+    if (token.empty()) {
+      return false;
+    }
+    const auto normalizedTokens = identifierVariants(token);
+    const auto candidates = hiddenMatchCandidates(item);
+    return std::ranges::any_of(normalizedTokens, [&](const std::string& variant) {
+      return std::ranges::contains(candidates, variant);
+    });
+  }
+
+  inline bool pinnedTokenMatchesItem(std::string_view token, const TrayItemInfo& item) {
     if (looksGenericStatusItemName(token) || isTransientUniqueIdentifier(token)) {
       return false;
     }

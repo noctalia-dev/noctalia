@@ -1332,6 +1332,10 @@
               "windows": "Windows",
               "workspace-labels": "Workspace Labels"
             },
+            "tray": {
+              "drawer": "Drawer",
+              "icon-overrides": "Icon Overrides"
+            },
             "widget": "Widget",
             "workspaces": {
               "colors": "Colors",
@@ -4443,6 +4447,8 @@
         "cpu-freq": "CPU Freq",
         "cpu-temp": "CPU Temperature",
         "cpu-usage": "CPU Usage",
+        "default": "Default",
+        "desktop": "Desktop",
         "disk-free": "Disk Free",
         "disk-free-percent": "Disk Free %",
         "disk-used": "Disk Used",
@@ -4485,6 +4491,7 @@
         "shared": "Shared",
         "short": "Short",
         "swap-percent": "Swap %",
+        "symbolic": "Symbolic",
         "text": "Text",
         "text-only": "Text Only",
         "time": "Time",
@@ -4672,10 +4679,6 @@
           "description": "Default inherits the bar font weight",
           "label": "Font Weight"
         },
-        "force-app-icons": {
-          "description": "Force tray icons to use desktop app icons",
-          "label": "Force App Icons"
-        },
         "format": {
           "description": "Time format string",
           "label": "Format"
@@ -4787,6 +4790,10 @@
           "description": "Overrides the widget color for icons only; fixed hex colors are also supported",
           "label": "Icon Color"
         },
+        "icon-override-blacklist": {
+          "description": "List of tray icons to exclude from icon overrides",
+          "label": "Icon Override Blacklist"
+        },
         "icon-scale": {
           "description": "Scale of taskbar application icons relative to their default size",
           "label": "Icon Scale"
@@ -4798,6 +4805,10 @@
         "icon-spacing": {
           "description": "Spacing between privacy indicator icons in pixels",
           "label": "Icon Spacing"
+        },
+        "icon-type": {
+          "description": "Select the type of icons to use in the tray",
+          "label": "Icon Type"
         },
         "inactive-color": {
           "description": "Color used for inactive privacy indicators; fixed hex colors are also supported",
