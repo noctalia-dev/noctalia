@@ -1497,10 +1497,8 @@ bool PanelManager::isFocusGrabWhitelistSurface(wl_surface* surface) const {
 
 void PanelManager::deactivateOutsideClickHandlers() {
   m_clickShield.deactivate();
-  if (m_platform != nullptr) {
-    if (m_platform->wayland().popupGrabHost() == this) {
-      m_platform->wayland().setPopupGrabHost(nullptr);
-    }
+  if (m_platform != nullptr && m_platform->wayland().popupGrabHost() == this) {
+    m_platform->wayland().setPopupGrabHost(nullptr);
   }
   m_focusGrab.reset();
   m_focusGrabPopupSurfaces.clear();
