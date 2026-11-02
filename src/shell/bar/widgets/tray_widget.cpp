@@ -467,6 +467,10 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
   }
   m_itemAreas.clear();
+  std::unique_ptr<Node> reusableTrigger;
+  if (m_drawerTrigger != nullptr && m_drawerTrigger->parent() != nullptr) {
+    reusableTrigger = m_drawerTrigger->parent()->removeChild(m_drawerTrigger);
+  }
 
   while (!m_container->children().empty()) {
     m_container->removeChild(m_container->children().back().get());
@@ -559,11 +563,23 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
     if (hasDrawerItems) {
       const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
-      auto triggerArea = ui::inputArea({});
-      auto* triggerPtr = triggerArea.get();
+      // Keep the trigger's InputArea across rebuilds so hover and press capture survive icon updates.
+      std::unique_ptr<Node> triggerArea;
+      InputArea* triggerPtr = nullptr;
+      if (reusableTrigger != nullptr) {
+        triggerArea = std::move(reusableTrigger);
+        triggerPtr = static_cast<InputArea*>(triggerArea.get());
+        while (!triggerPtr->children().empty()) {
+          triggerPtr->removeChild(triggerPtr->children().back().get());
+        }
+      } else {
+        auto fresh = ui::inputArea({});
+        triggerPtr = fresh.get();
+        triggerArea = std::move(fresh);
+      }
       m_drawerTrigger = triggerPtr;
-      triggerArea->setSize(itemSize, itemSize);
-      triggerArea->setOnClick([this, triggerPtr](const InputArea::PointerData& data) {
+      triggerPtr->setSize(itemSize, itemSize);
+      triggerPtr->setOnClick([this, triggerPtr](const InputArea::PointerData& data) {
         if (data.button == BTN_LEFT) {
           float ax = 0.0F;
           float ay = 0.0F;
@@ -598,7 +614,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       );
       m_drawerChevron = glyph.get();
       triggerArea->addChild(std::move(glyph));
-      attachHover(*triggerArea, itemSize);
+      attachHover(*triggerPtr, itemSize);
       m_container->addChild(std::move(triggerArea));
     }
   }
