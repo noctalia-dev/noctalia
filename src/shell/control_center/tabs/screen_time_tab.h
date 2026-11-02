@@ -44,7 +44,7 @@ private:
   void syncDayLabelHover();
   void openDayDetail(std::size_t bucketIndex);
   void clearDayDetail();
-  [[nodiscard]] std::string resolveIconPath(const std::string& appKey) const;
+  std::string resolveIconPath(const std::string& appKey) const;
 
   ScreenTimeService* m_screenTime = nullptr;
   bool m_active = false;

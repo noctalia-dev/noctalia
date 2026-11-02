@@ -14,7 +14,7 @@
 
 namespace process {
 
-  struct RunResult {
+  struct [[nodiscard]] RunResult {
     int exitCode = -1;
     std::string out;
     std::string err;
@@ -50,10 +50,10 @@ namespace process {
     std::vector<EnvOverride> env;
   };
 
-  [[nodiscard]] bool commandExists(const char* name);
+  bool commandExists(const char* name);
 
   // Prefer run0 over pkexec: pkexec often stays on PATH without the setuid wrapper (e.g. NixOS).
-  [[nodiscard]] std::optional<std::string> resolvePrivilegeEscalator();
+  std::optional<std::string> resolvePrivilegeEscalator();
 
   // Shell string — runs fully detached (double-fork + setsid) so the child is not a direct
   // subprocess of noctalia (hooks, idle commands, launcher parity).
@@ -61,11 +61,11 @@ namespace process {
   // Shell string — runs on a worker thread, captures stdout/stderr, and invokes callbacks from
   // that worker. Output chunk views are valid only for the callback call.
   [[nodiscard]] bool runAsync(const std::string& command, RunCallbacks callbacks, RunOptions options = {});
-  [[nodiscard]] RunResult runSync(const std::string& command);
+  RunResult runSync(const std::string& command);
   // Interruptible shell run: honors options.timeout and options.cancel, killing the
   // child's process group when either fires (used for template hooks so a hung hook
   // cannot block teardown).
-  [[nodiscard]] RunResult runSync(const std::string& command, const RunOptions& options);
+  RunResult runSync(const std::string& command, const RunOptions& options);
 
   // Arg vector — direct execvp; same detach semantics as runAsync(string). When activationToken is
   // non-empty, the grandchild sets XDG_ACTIVATION_TOKEN and DESKTOP_STARTUP_ID (launcher).
@@ -77,18 +77,17 @@ namespace process {
   [[nodiscard]] bool runAsync(const std::vector<std::string>& args, RunCallbacks callbacks, RunOptions options = {});
   [[nodiscard]] bool runAsync(std::initializer_list<const char*> args);
   [[nodiscard]] bool runAsync(std::initializer_list<const char*> args, RunCallbacks callbacks, RunOptions options = {});
-  [[nodiscard]] RunResult runSync(const std::vector<std::string>& args);
-  [[nodiscard]] RunResult runSync(const std::vector<std::string>& args, const RunOptions& options);
-  [[nodiscard]] RunResult runSync(std::initializer_list<const char*> args);
-  [[nodiscard]] RunResult runSyncWithTimeout(const std::vector<std::string>& args, std::chrono::milliseconds timeout);
-  [[nodiscard]] RunResult
-  runSyncWithTimeout(std::initializer_list<const char*> args, std::chrono::milliseconds timeout);
-  [[nodiscard]] RunResult runSyncWithTimeoutAndOutputLimit(
+  RunResult runSync(const std::vector<std::string>& args);
+  RunResult runSync(const std::vector<std::string>& args, const RunOptions& options);
+  RunResult runSync(std::initializer_list<const char*> args);
+  RunResult runSyncWithTimeout(const std::vector<std::string>& args, std::chrono::milliseconds timeout);
+  RunResult runSyncWithTimeout(std::initializer_list<const char*> args, std::chrono::milliseconds timeout);
+  RunResult runSyncWithTimeoutAndOutputLimit(
       const std::vector<std::string>& args, std::chrono::milliseconds timeout, std::size_t maxOutputBytes
   );
-  [[nodiscard]] bool commandLineMatchesAll(const std::vector<std::string>& needles);
-  [[nodiscard]] bool desktopPortalAvailable();
-  [[nodiscard]] bool flatpakAppInstalled(std::string_view appId);
+  bool commandLineMatchesAll(const std::vector<std::string>& needles);
+  bool desktopPortalAvailable();
+  bool flatpakAppInstalled(std::string_view appId);
 
   // Like runAsync(args), but returns the grandchild pid for terminateTracked (optional API).
   [[nodiscard]] std::optional<int> launchDetachedTracked(const std::vector<std::string>& args);
@@ -99,10 +98,10 @@ namespace process {
 
   // True when a /proc/<pid>/cgroup dump places the process inside the systemd user manager
   // (user@<uid>.service) rather than a login session scope. Exposed for testing.
-  [[nodiscard]] bool cgroupIndicatesSystemdUserManager(std::string_view cgroupFileContents, unsigned int uid);
+  bool cgroupIndicatesSystemdUserManager(std::string_view cgroupFileContents, unsigned int uid);
   // Whether this process itself is managed by the systemd user manager, i.e. started as a user
   // unit (uwsm, a home-manager/NixOS service) rather than as a child of a login session scope.
-  [[nodiscard]] bool runningUnderSystemdUserManager();
+  bool runningUnderSystemdUserManager();
   [[nodiscard]] bool runAsyncAsSystemdService(
       const std::vector<std::string>& args, const std::string& appName, const std::string& activationToken = {},
       const std::string& workingDir = {}

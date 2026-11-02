@@ -35,7 +35,7 @@ public:
 
   // Parser hooks: resolveImage asks the image source, addImage appends a block image for a reference
   // resolveImage accepted.
-  [[nodiscard]] std::optional<std::string> resolveImage(const std::string& src) const;
+  std::optional<std::string> resolveImage(const std::string& src) const;
   void addImage(std::string src, const std::string& path);
 
   // Re-resolves images whose files were still being fetched; call when the image source got a file.

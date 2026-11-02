@@ -22,7 +22,7 @@ public:
   bool bind(zwp_text_input_manager_v3* manager, wl_seat* seat);
   void cleanup();
 
-  [[nodiscard]] bool isAvailable() const noexcept;
+  bool isAvailable() const noexcept;
 
   void setFocusedClient(
       wl_surface* surface, TextInputClient* client, bool acceptKeyboardFocusActivation = false,
@@ -54,10 +54,10 @@ private:
     std::int32_t rectWidth = 1;
     std::int32_t rectHeight = 1;
 
-    [[nodiscard]] bool operator==(const StateSignature& other) const noexcept = default;
+    bool operator==(const StateSignature& other) const noexcept = default;
   };
 
-  [[nodiscard]] bool activeSurfaceAcceptsTextInput() const noexcept;
+  bool activeSurfaceAcceptsTextInput() const noexcept;
   void enableActive(TextInputChangeCause cause);
   void disableActive();
   void commitActiveState(TextInputChangeCause cause);

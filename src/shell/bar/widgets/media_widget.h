@@ -46,7 +46,7 @@ public:
   MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output* output, Options options);
 
   void create() override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
   void onFrameTick(float deltaMs) override;
 
 private:
@@ -58,9 +58,9 @@ private:
   // Applies playback position to the fill and arms the update timer. Update-phase only: it decides
   // eligibility itself instead of reading the visibility that doLayout() applies afterwards.
   void syncProgress(const std::optional<MprisPlayerInfo>& active);
-  [[nodiscard]] bool progressFillEligible(const std::optional<MprisPlayerInfo>& active) const noexcept;
-  [[nodiscard]] std::optional<MprisPlayerInfo> activePlayer() const;
-  [[nodiscard]] static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst);
+  bool progressFillEligible(const std::optional<MprisPlayerInfo>& active) const noexcept;
+  std::optional<MprisPlayerInfo> activePlayer() const;
+  static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst);
 
   MprisService* m_mpris = nullptr;
   HttpClient* m_httpClient = nullptr;

@@ -29,19 +29,18 @@ public:
   bool connectSocket() override;
   void setOutputNameResolver(OutputNameResolver outputNameResolver) override;
 
-  [[nodiscard]] const char* backendName() const override { return "hyprland-ipc"; }
-  [[nodiscard]] bool isAvailable() const noexcept override;
+  const char* backendName() const override { return "hyprland-ipc"; }
+  bool isAvailable() const noexcept override;
   void setChangeCallback(ChangeCallback callback) override;
   void activate(const std::string& id) override;
   void activateForOutput(wl_output* output, const std::string& id) override;
   void activateForOutput(wl_output* output, const Workspace& workspace) override;
-  [[nodiscard]] std::vector<Workspace> all() const override;
-  [[nodiscard]] std::vector<Workspace> forOutput(wl_output* output) const override;
-  [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
-  appIdsByWorkspace(wl_output* output) const override;
-  [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const override;
-  [[nodiscard]] std::vector<std::string> openOverlayWorkspaceKeys(wl_output* output) const override;
-  [[nodiscard]] std::optional<std::string> focusedWindowId() const;
+  std::vector<Workspace> all() const override;
+  std::vector<Workspace> forOutput(wl_output* output) const override;
+  std::unordered_map<std::string, std::vector<std::string>> appIdsByWorkspace(wl_output* output) const override;
+  std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const override;
+  std::vector<std::string> openOverlayWorkspaceKeys(wl_output* output) const override;
+  std::optional<std::string> focusedWindowId() const;
   void focusWindow(const std::string& windowId) override;
   void cleanup() override;
   void notifyCleanup() override;
@@ -51,7 +50,7 @@ public:
   // (https://github.com/hyprwm/Hyprland/discussions/15527).
   void reconcileFromCompositor();
 
-  [[nodiscard]] int pollFd() const noexcept override;
+  int pollFd() const noexcept override;
   void dispatchPoll(short revents) override;
 
 private:
@@ -69,7 +68,7 @@ private:
     Special,
   };
 
-  enum class WorkspaceRefreshResult {
+  enum class [[nodiscard]] WorkspaceRefreshResult {
     Invalid,
     Unchanged,
     Changed,
@@ -104,7 +103,7 @@ private:
   };
 
   void refreshSnapshot();
-  [[nodiscard]] WorkspaceRefreshResult refreshWorkspaces();
+  WorkspaceRefreshResult refreshWorkspaces();
   void refreshMonitors();
   void refreshClients();
   void recomputeWorkspaceFlags();
@@ -117,22 +116,21 @@ private:
   void clearUrgentForWorkspace(std::string_view workspaceKey);
   void moveToplevel(std::uint64_t address, std::string_view workspaceKey);
 
-  [[nodiscard]] WorkspaceState* findWorkspaceByKey(std::string_view key);
-  [[nodiscard]] WorkspaceState* findWorkspaceByName(std::string_view name);
-  [[nodiscard]] static std::optional<IpcSchema> detectIpcSchema(const nlohmann::json& workspaces);
-  [[nodiscard]] static std::optional<WorkspaceIdentity>
-  parseJsonWorkspaceIdentity(const nlohmann::json& json, IpcSchema schema);
-  [[nodiscard]] static bool isAddressIdentitySchema(IpcSchema schema) noexcept;
-  [[nodiscard]] std::optional<WorkspaceIdentity>
+  WorkspaceState* findWorkspaceByKey(std::string_view key);
+  WorkspaceState* findWorkspaceByName(std::string_view name);
+  static std::optional<IpcSchema> detectIpcSchema(const nlohmann::json& workspaces);
+  static std::optional<WorkspaceIdentity> parseJsonWorkspaceIdentity(const nlohmann::json& json, IpcSchema schema);
+  static bool isAddressIdentitySchema(IpcSchema schema) noexcept;
+  std::optional<WorkspaceIdentity>
   parseEventWorkspaceIdentity(std::string_view selector, std::string_view displayName = {}) const;
-  [[nodiscard]] static std::optional<std::uint64_t> parseHexAddress(std::string_view value);
-  [[nodiscard]] static std::optional<int> parseInt(std::string_view value);
-  [[nodiscard]] static std::optional<std::uint32_t> parseUnsigned(std::string_view value);
-  [[nodiscard]] static std::vector<std::string_view> parseEventArgs(std::string_view data, std::size_t count);
-  [[nodiscard]] static bool isSpecial(const WorkspaceState& state);
-  [[nodiscard]] static bool workspaceOrderLess(const WorkspaceState* a, const WorkspaceState* b);
-  [[nodiscard]] static Workspace toWorkspace(const WorkspaceState& state);
-  [[nodiscard]] std::string assignmentKeyFor(std::string_view workspaceKey) const;
+  static std::optional<std::uint64_t> parseHexAddress(std::string_view value);
+  static std::optional<int> parseInt(std::string_view value);
+  static std::optional<std::uint32_t> parseUnsigned(std::string_view value);
+  static std::vector<std::string_view> parseEventArgs(std::string_view data, std::size_t count);
+  static bool isSpecial(const WorkspaceState& state);
+  static bool workspaceOrderLess(const WorkspaceState* a, const WorkspaceState* b);
+  static Workspace toWorkspace(const WorkspaceState& state);
+  std::string assignmentKeyFor(std::string_view workspaceKey) const;
 
   OutputNameResolver m_outputNameResolver;
   std::vector<WorkspaceState> m_workspaces;

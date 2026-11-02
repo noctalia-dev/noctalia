@@ -7,7 +7,7 @@
 
 namespace {
 
-  [[nodiscard]] std::uint32_t proxyVersion(const void* proxy) {
+  std::uint32_t proxyVersion(const void* proxy) {
     return wl_proxy_get_version(static_cast<wl_proxy*>(const_cast<void*>(proxy)));
   }
 

@@ -40,7 +40,7 @@ public:
     float axisSteps = 0.0F;
     bool axisStepStartsGesture = false;
 
-    [[nodiscard]] float scrollDelta(float wheelStep) const noexcept;
+    float scrollDelta(float wheelStep) const noexcept;
 
     // Whole wheel-detent steps accumulated by the InputArea (positive = scroll
     // down), for discrete stepping (volume, workspace cycling, ...). An event
@@ -50,13 +50,13 @@ public:
     // accrue to a detent-equivalent and are rate-capped, so a flick steps at a
     // usable pace instead of racing the finger. Use scrollDelta() for
     // continuous content scrolling (lists, scrollbars).
-    [[nodiscard]] float scrollSteps() const noexcept { return axisSteps; }
+    float scrollSteps() const noexcept { return axisSteps; }
 
     // True on the first step of a scroll gesture in this direction: the axis stream had gone
     // quiet, or it just reversed. A consumer that wants a quick flick to count once however many
     // notches it emitted acts only on this one and ignores the rest of the burst; ramping
     // consumers (volume, brightness, sliders) take every step and never look at it.
-    [[nodiscard]] bool scrollStepStartsGesture() const noexcept { return axisStepStartsGesture; }
+    bool scrollStepStartsGesture() const noexcept { return axisStepStartsGesture; }
   };
 
   struct KeyData {
@@ -78,8 +78,8 @@ public:
   InputArea();
   ~InputArea() override;
 
-  [[nodiscard]] static std::uint32_t buttonMask(std::uint32_t button) noexcept;
-  [[nodiscard]] static std::uint32_t buttonMask(std::initializer_list<std::uint32_t> buttons) noexcept;
+  static std::uint32_t buttonMask(std::uint32_t button) noexcept;
+  static std::uint32_t buttonMask(std::initializer_list<std::uint32_t> buttons) noexcept;
 
   // InputArea is a transparent hit-test wrapper with no layout semantics of its
   // own; its internal layout hook forwards to visible children so callers can
@@ -97,63 +97,63 @@ public:
 
   // Keyboard / focus
   void setFocusable(bool focusable);
-  [[nodiscard]] bool focusable() const noexcept { return m_focusable; }
+  bool focusable() const noexcept { return m_focusable; }
   void setTabStop(bool tabStop);
-  [[nodiscard]] bool tabStop() const noexcept { return m_tabStop; }
+  bool tabStop() const noexcept { return m_tabStop; }
   void setTabFocusKey(std::string key);
-  [[nodiscard]] std::string_view tabFocusKey() const noexcept { return m_tabFocusKey; }
-  [[nodiscard]] bool focused() const noexcept { return m_focused; }
+  std::string_view tabFocusKey() const noexcept { return m_tabFocusKey; }
+  bool focused() const noexcept { return m_focused; }
   void setOnKeyDown(KeyCallback callback);
   void setOnKeyUp(KeyCallback callback);
   void setOnFocusGain(VoidCallback callback);
   void setOnFocusLoss(VoidCallback callback);
   void setTextInputClient(TextInputClient* client);
-  [[nodiscard]] TextInputClient* textInputClient() const noexcept { return m_textInputClient; }
+  TextInputClient* textInputClient() const noexcept { return m_textInputClient; }
   // Keyboard-capturing controls (e.g. keybind recorder) keep focus after a pointer release.
   void setRetainsFocusOnPointerRelease(bool retain);
-  [[nodiscard]] bool retainsFocusOnPointerRelease() const noexcept { return m_retainsFocusOnPointerRelease; }
+  bool retainsFocusOnPointerRelease() const noexcept { return m_retainsFocusOnPointerRelease; }
   // While set, the focused area receives every key first, including chords hosts
   // would otherwise intercept (Cancel, Tab): a recording keybind recorder must be
   // able to record Escape.
   void setCapturesAllKeys(bool capture) noexcept { m_capturesAllKeys = capture; }
-  [[nodiscard]] bool capturesAllKeys() const noexcept { return m_capturesAllKeys; }
+  bool capturesAllKeys() const noexcept { return m_capturesAllKeys; }
 
   // Configuration
   void setCursorShape(std::uint32_t shape);
-  [[nodiscard]] std::uint32_t cursorShape() const noexcept { return m_cursorShape; }
+  std::uint32_t cursorShape() const noexcept { return m_cursorShape; }
 
   void setAcceptedButtons(std::uint32_t mask);
-  [[nodiscard]] std::uint32_t acceptedButtons() const noexcept { return m_acceptedButtons; }
-  [[nodiscard]] bool acceptsButton(std::uint32_t button) const noexcept;
+  std::uint32_t acceptedButtons() const noexcept { return m_acceptedButtons; }
+  bool acceptsButton(std::uint32_t button) const noexcept;
 
   // The axis counterpart of the button mask. An area that does not accept a scroll direction
   // reports those events unconsumed, so the dispatcher's ancestor walk carries them past it.
   enum class ScrollDirection : std::uint8_t { Up, Down, Left, Right };
-  [[nodiscard]] static std::uint32_t scrollDirectionMask(ScrollDirection direction) noexcept {
+  static std::uint32_t scrollDirectionMask(ScrollDirection direction) noexcept {
     return 1U << static_cast<std::uint32_t>(direction);
   }
-  [[nodiscard]] static std::uint32_t allScrollDirections() noexcept {
+  static std::uint32_t allScrollDirections() noexcept {
     return scrollDirectionMask(ScrollDirection::Up)
         | scrollDirectionMask(ScrollDirection::Down)
         | scrollDirectionMask(ScrollDirection::Left)
         | scrollDirectionMask(ScrollDirection::Right);
   }
   void setAcceptedScrollDirections(std::uint32_t mask) noexcept { m_acceptedScrollDirections = mask; }
-  [[nodiscard]] std::uint32_t acceptedScrollDirections() const noexcept { return m_acceptedScrollDirections; }
+  std::uint32_t acceptedScrollDirections() const noexcept { return m_acceptedScrollDirections; }
 
   // Marks a scroll-view viewport as a touch drag-to-scroll target on one axis.
   // The dispatcher hands a touch drag past child areas to the nearest marked ancestor.
   enum class TouchScrollAxis : std::uint8_t { None, Vertical, Horizontal };
   void setTouchScrollAxis(TouchScrollAxis axis) noexcept { m_touchScrollAxis = axis; }
-  [[nodiscard]] TouchScrollAxis touchScrollAxis() const noexcept { return m_touchScrollAxis; }
+  TouchScrollAxis touchScrollAxis() const noexcept { return m_touchScrollAxis; }
 
   void setPropagateEvents(bool propagate);
-  [[nodiscard]] bool propagateEvents() const noexcept { return m_propagateEvents; }
+  bool propagateEvents() const noexcept { return m_propagateEvents; }
 
   void setEnabled(bool enabled);
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
+  bool enabled() const noexcept { return m_enabled; }
   void setHitShape(HitShape shape);
-  [[nodiscard]] HitShape hitShape() const noexcept { return m_hitShape; }
+  HitShape hitShape() const noexcept { return m_hitShape; }
 
   // Tooltip
   void setTooltip(std::string text);
@@ -166,17 +166,17 @@ public:
   void setTooltipAnchorInsets(TooltipAnchorInsets insets);
   void clearTooltipAnchorInsets();
   void setTooltipAnchorNode(Node* node) noexcept { m_tooltipAnchorNode = node; }
-  [[nodiscard]] Node* tooltipAnchorNode() const noexcept { return m_tooltipAnchorNode; }
-  [[nodiscard]] TooltipPlacement tooltipPlacement() const noexcept { return m_tooltipPlacement; }
-  [[nodiscard]] bool hasTooltipAnchorInsets() const noexcept { return m_hasTooltipAnchorInsets; }
-  [[nodiscard]] TooltipAnchorInsets tooltipAnchorInsets() const noexcept { return m_tooltipAnchorInsets; }
-  [[nodiscard]] bool hasTooltip() const noexcept;
-  [[nodiscard]] TooltipContent tooltipContent() const;
-  [[nodiscard]] std::chrono::milliseconds tooltipRefreshInterval() const noexcept { return m_tooltipRefreshInterval; }
+  Node* tooltipAnchorNode() const noexcept { return m_tooltipAnchorNode; }
+  TooltipPlacement tooltipPlacement() const noexcept { return m_tooltipPlacement; }
+  bool hasTooltipAnchorInsets() const noexcept { return m_hasTooltipAnchorInsets; }
+  TooltipAnchorInsets tooltipAnchorInsets() const noexcept { return m_tooltipAnchorInsets; }
+  bool hasTooltip() const noexcept;
+  TooltipContent tooltipContent() const;
+  std::chrono::milliseconds tooltipRefreshInterval() const noexcept { return m_tooltipRefreshInterval; }
 
   // Auto-tracked state (read-only)
-  [[nodiscard]] bool hovered() const noexcept { return m_hovered; }
-  [[nodiscard]] bool pressed() const noexcept { return m_pressed; }
+  bool hovered() const noexcept { return m_hovered; }
+  bool pressed() const noexcept { return m_pressed; }
 
   // Called by InputDispatcher to get notified when this area is destroyed
   void setDestroyCallback(DestroyCallback callback);
@@ -190,7 +190,7 @@ public:
       std::uint32_t serial = 0, std::uint32_t time = 0
   );
   void dispatchCancel();
-  [[nodiscard]] bool dispatchAxis(
+  bool dispatchAxis(
       float localX, float localY, std::uint32_t axis, std::uint32_t axisSource, double axisValue,
       std::int32_t axisDiscrete, std::int32_t axisValue120, float axisLines, std::uint32_t axisGestureSerial = 0
   );
@@ -199,7 +199,7 @@ public:
   void dispatchFocusLoss();
 
 protected:
-  [[nodiscard]] bool containsLocalPoint(float localX, float localY, bool includeHitOutset) const override;
+  bool containsLocalPoint(float localX, float localY, bool includeHitOutset) const override;
   // Invoked whenever tooltip content is set, cleared, or refreshed.
   virtual void onTooltipChanged() {}
 

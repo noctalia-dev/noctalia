@@ -14,7 +14,7 @@ namespace compositors::umbriel {
   class UmbrielEventHandler;
 
   // The reply to one request line, read from a fresh connection.
-  struct IpcReply {
+  struct [[nodiscard]] IpcReply {
     enum class Status : std::uint8_t {
       Unavailable,
       WriteFailed,
@@ -30,11 +30,10 @@ namespace compositors::umbriel {
 
   // UMBRIEL_SOCKET, otherwise $XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock when that socket exists; empty when
   // neither applies.
-  [[nodiscard]] std::string findSocketPath();
+  std::string findSocketPath();
   // Sends `payload` (one newline-terminated request) and reads one reply line. Blocking and stateless, so it may run
   // on any thread.
-  [[nodiscard]] IpcReply
-  exchange(const std::string& socketPath, std::string_view payload, std::chrono::milliseconds timeout);
+  IpcReply exchange(const std::string& socketPath, std::string_view payload, std::chrono::milliseconds timeout);
 
   // Owns the Umbriel IPC: stateless one-shot requests (fresh socket per call)
   // plus a single persistent event-stream socket whose messages are fanned out
@@ -48,11 +47,11 @@ namespace compositors::umbriel {
     UmbrielRuntime(const UmbrielRuntime&) = delete;
     UmbrielRuntime& operator=(const UmbrielRuntime&) = delete;
 
-    [[nodiscard]] bool available() const;
-    [[nodiscard]] const std::string& socketPath() const;
-    [[nodiscard]] std::optional<nlohmann::json> requestCommand(std::string_view cmd) const;
+    bool available() const;
+    const std::string& socketPath() const;
+    std::optional<nlohmann::json> requestCommand(std::string_view cmd) const;
     // Runs an umbriel action. `fields` holds its typed arguments, such as {"window": id}.
-    [[nodiscard]] bool requestAction(std::string_view action, nlohmann::json fields = nlohmann::json::object()) const;
+    bool requestAction(std::string_view action, nlohmann::json fields = nlohmann::json::object()) const;
     void refresh();
     void cleanup();
 
@@ -60,14 +59,14 @@ namespace compositors::umbriel {
     // the socket and delivers each parsed event to every registered handler.
     void registerEventHandler(UmbrielEventHandler* handler);
     void unregisterEventHandler(UmbrielEventHandler* handler);
-    [[nodiscard]] int pollFd() const noexcept { return m_eventSocketFd; }
-    [[nodiscard]] short pollEvents() const noexcept { return POLLIN | POLLHUP | POLLERR; }
-    [[nodiscard]] int pollTimeoutMs() const noexcept;
+    int pollFd() const noexcept { return m_eventSocketFd; }
+    short pollEvents() const noexcept { return POLLIN | POLLHUP | POLLERR; }
+    int pollTimeoutMs() const noexcept;
     void dispatchPoll(short revents);
 
   private:
     // Sends one JSON request; the reply when it is `ok`, otherwise nullopt.
-    [[nodiscard]] std::optional<nlohmann::json> send(const nlohmann::json& request) const;
+    std::optional<nlohmann::json> send(const nlohmann::json& request) const;
     void ensureResolved() const;
     void resolveSocketPath() const;
 

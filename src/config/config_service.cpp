@@ -132,8 +132,7 @@ namespace {
 
   // Returns true if `key` is a color-typed setting for `widget`, per the widget
   // setting schema (the single source — not a hand-maintained key list).
-  [[nodiscard]] const schema::WidgetSettingField*
-  findColorField(const schema::WidgetSettingSchema& fields, std::string_view key) {
+  const schema::WidgetSettingField* findColorField(const schema::WidgetSettingSchema& fields, std::string_view key) {
     const auto it = std::ranges::find(fields, key, &schema::WidgetSettingField::key);
     if (it == fields.end() || it->type != schema::WidgetSettingType::Color) {
       return nullptr;
@@ -154,7 +153,7 @@ namespace {
       }
       throw std::runtime_error(context + ": empty color value is not valid here");
     }
-    (void)colorSpecFromConfigString(*raw, context);
+    colorSpecFromConfigString(*raw, context);
   }
 
   void validateWidgetColorSettings(std::string_view widgetName, const WidgetConfig& widget) {
@@ -172,7 +171,7 @@ namespace {
     if (!widget.hasSetting("scale")) {
       return;
     }
-    (void)resolveWidgetContentScale(1.0F, &widget, "widget." + std::string(widgetName) + ".scale");
+    resolveWidgetContentScale(1.0F, &widget, "widget." + std::string(widgetName) + ".scale");
   }
 
   void validateWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
@@ -1360,7 +1359,7 @@ void ConfigService::updateLegacyConfigIssues(noctalia::config::LegacyConfigIssue
     m_legacyReminderPending = false;
     m_legacyReminderTimer.stop();
     if (m_stateStore.stringValue(kMigrationReminderOwner, kMigrationReminderKey).has_value()) {
-      (void)m_stateStore.clearOwner(kMigrationReminderOwner);
+      m_stateStore.clearOwner(kMigrationReminderOwner);
     }
     return;
   }
@@ -1396,12 +1395,12 @@ void ConfigService::notifyLegacyConfigIssues() {
   const std::int64_t now = currentEpochSeconds();
   std::string title = issue.origin.valid() ? issue.origin.shortFormat(m_configDir)
                                            : i18n::tr("notifications.internal.config-migration-title");
-  (void)m_notificationManager->addInternal(
+  m_notificationManager->addInternal(
       "Noctalia", std::move(title),
       i18n::tr("notifications.internal.config-migration-body", "path", issue.path + ": " + issue.message),
       Urgency::Normal
   );
-  (void)m_stateStore.setString(kMigrationReminderOwner, kMigrationReminderKey, std::format("{}\n{}", now, fingerprint));
+  m_stateStore.setString(kMigrationReminderOwner, kMigrationReminderKey, std::format("{}\n{}", now, fingerprint));
   m_legacyReminderPending = false;
   m_legacyReminderTimer.start(
       std::chrono::milliseconds(noctalia::config::kLegacyConfigReminderIntervalSeconds * 1000), [this] {

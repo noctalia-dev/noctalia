@@ -334,30 +334,29 @@ namespace settings {
     std::vector<std::string> keyboardLayoutNames;
   };
 
-  [[nodiscard]] const BarConfig* findBar(const Config& cfg, std::string_view name);
-  [[nodiscard]] const BarMonitorOverride* findMonitorOverride(const BarConfig& bar, std::string_view match);
-  [[nodiscard]] const DockMonitorOverride* findDockMonitorOverride(const DockConfig& dock, std::string_view tableName);
-  [[nodiscard]] std::vector<std::string> barNames(const Config& cfg);
-  [[nodiscard]] std::vector<SettingEntry> buildSettingsRegistry(
+  const BarConfig* findBar(const Config& cfg, std::string_view name);
+  const BarMonitorOverride* findMonitorOverride(const BarConfig& bar, std::string_view match);
+  const DockMonitorOverride* findDockMonitorOverride(const DockConfig& dock, std::string_view tableName);
+  std::vector<std::string> barNames(const Config& cfg);
+  std::vector<SettingEntry> buildSettingsRegistry(
       const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride = nullptr,
       const RegistryEnvironment& env = {}
   );
-  [[nodiscard]] std::string normalizedSettingQuery(std::string_view query);
-  [[nodiscard]] bool matchesNormalizedSettingQuery(const SettingEntry& entry, std::string_view normalizedQuery);
-  [[nodiscard]] bool matchesSettingQuery(const SettingEntry& entry, std::string_view query);
-  [[nodiscard]] bool isBarMonitorOverrideSettingPath(const std::vector<std::string>& path);
-  [[nodiscard]] bool isDockMonitorOverrideSettingPath(const std::vector<std::string>& path);
-  [[nodiscard]] bool settingEntryMatchesBarNavigation(
+  std::string normalizedSettingQuery(std::string_view query);
+  bool matchesNormalizedSettingQuery(const SettingEntry& entry, std::string_view normalizedQuery);
+  bool matchesSettingQuery(const SettingEntry& entry, std::string_view query);
+  bool isBarMonitorOverrideSettingPath(const std::vector<std::string>& path);
+  bool isDockMonitorOverrideSettingPath(const std::vector<std::string>& path);
+  bool settingEntryMatchesBarNavigation(
       const SettingEntry& entry, std::string_view selectedBarName, std::string_view selectedMonitorOverride
   );
-  [[nodiscard]] bool
-  settingEntryMatchesDockNavigation(const SettingEntry& entry, std::string_view selectedMonitorOverride);
-  [[nodiscard]] std::string barSettingContentSectionKey(const SettingEntry& entry);
-  [[nodiscard]] std::span<const SettingsSectionDescriptor> settingsSectionDescriptors();
-  [[nodiscard]] std::string_view settingsSectionId(SettingsSection section);
-  [[nodiscard]] std::string settingsSectionLabelKey(SettingsSection section);
-  [[nodiscard]] std::string_view sectionGlyph(SettingsSection section);
-  [[nodiscard]] std::optional<SettingsSection> settingsSectionFromId(std::string_view id);
+  bool settingEntryMatchesDockNavigation(const SettingEntry& entry, std::string_view selectedMonitorOverride);
+  std::string barSettingContentSectionKey(const SettingEntry& entry);
+  std::span<const SettingsSectionDescriptor> settingsSectionDescriptors();
+  std::string_view settingsSectionId(SettingsSection section);
+  std::string settingsSectionLabelKey(SettingsSection section);
+  std::string_view sectionGlyph(SettingsSection section);
+  std::optional<SettingsSection> settingsSectionFromId(std::string_view id);
 
   // Returns a permutation of [0, count) that coalesces items sharing a group key so a group renders
   // exactly once, regardless of the order items were declared in. The first-appearance order of group
@@ -366,8 +365,7 @@ namespace settings {
   // Both settings render passes emit a group header whenever an item's group differs from the previous
   // item's, so a stranded same-group item would otherwise produce a duplicate header. Route iteration
   // through this permutation to make group placement independent of declaration order.
-  template <typename KeyFn>
-  [[nodiscard]] std::vector<std::size_t> coalesceByGroupKey(std::size_t count, KeyFn&& keyFn) {
+  template <typename KeyFn> std::vector<std::size_t> coalesceByGroupKey(std::size_t count, KeyFn&& keyFn) {
     std::unordered_map<std::string, std::size_t> rankByKey;
     std::vector<std::size_t> rankOf(count);
     std::size_t nextRank = 0;

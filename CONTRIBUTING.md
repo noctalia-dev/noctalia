@@ -96,6 +96,7 @@ D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_ca
 - `src/` is the include root; project includes are relative to it (`#include "app/application.h"`).
 - A single `meson.build` lists every source directly; there are no per-directory build files.
 - Headers and sources are co-located; there is no separate `include/` tree.
+- Use `[[nodiscard]]` only where ignoring the result is likely a bug: a call with side effects that reports failure or hands back something the caller must own, consume or keep (a handle, token or id), and `&&` builders. Mark result and status types with `struct [[nodiscard]] Name` instead of each function that returns them. Getters and pure functions go without it.
 
 ### Comments
 

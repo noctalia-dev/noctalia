@@ -16,11 +16,11 @@ namespace sdbus {
   class IProxy;
 }
 
-[[nodiscard]] std::string profileLabel(std::string_view profile);
-[[nodiscard]] std::string_view profileGlyphName(std::string_view profile);
+std::string profileLabel(std::string_view profile);
+std::string_view profileGlyphName(std::string_view profile);
 
 /// Canonical low-power to high-power ordering of the well-known profiles.
-[[nodiscard]] std::span<const std::string_view> powerProfileOrder();
+std::span<const std::string_view> powerProfileOrder();
 
 struct PowerProfilesState {
   std::string activeProfile;
@@ -46,10 +46,10 @@ public:
   void setChangeCallback(ChangeCallback callback);
   void refresh();
 
-  [[nodiscard]] bool hasStateSnapshot() const noexcept { return m_hasStateSnapshot; }
-  [[nodiscard]] const PowerProfilesState& state() const noexcept { return m_state; }
-  [[nodiscard]] const std::string& activeProfile() const noexcept { return m_state.activeProfile; }
-  [[nodiscard]] const std::vector<std::string>& profiles() const noexcept { return m_state.profiles; }
+  bool hasStateSnapshot() const noexcept { return m_hasStateSnapshot; }
+  const PowerProfilesState& state() const noexcept { return m_state; }
+  const std::string& activeProfile() const noexcept { return m_state.activeProfile; }
+  const std::vector<std::string>& profiles() const noexcept { return m_state.profiles; }
 
   [[nodiscard]] bool setActiveProfile(std::string_view profile);
   /// Step through profiles in canonical power order, wrapping at the ends.

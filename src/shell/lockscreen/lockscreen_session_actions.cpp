@@ -7,14 +7,13 @@
 
 namespace {
 
-  [[nodiscard]] bool hasEnabledSuspend(const std::vector<SessionPanelActionConfig>& actions) {
+  bool hasEnabledSuspend(const std::vector<SessionPanelActionConfig>& actions) {
     return std::ranges::any_of(actions, [](const SessionPanelActionConfig& row) {
       return row.enabled && row.action == "suspend";
     });
   }
 
-  [[nodiscard]] std::vector<SessionPanelActionConfig>
-  filterActions(const std::vector<SessionPanelActionConfig>& actions) {
+  std::vector<SessionPanelActionConfig> filterActions(const std::vector<SessionPanelActionConfig>& actions) {
     const bool explicitSuspend = hasEnabledSuspend(actions);
     std::vector<SessionPanelActionConfig> out;
     out.reserve(actions.size());

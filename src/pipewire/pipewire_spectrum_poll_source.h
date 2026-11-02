@@ -7,7 +7,7 @@ class PipeWireSpectrumPollSource final : public PollSource {
 public:
   explicit PipeWireSpectrumPollSource(PipeWireSpectrum& spectrum) : m_spectrum(spectrum) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override { return m_spectrum.pollTimeoutMs(); }
+  int pollTimeoutMs() const override { return m_spectrum.pollTimeoutMs(); }
   void dispatch(const std::vector<pollfd>& /*fds*/, std::size_t /*startIdx*/) override { m_spectrum.tick(); }
 
 protected:

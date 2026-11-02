@@ -20,11 +20,11 @@ public:
   ClockWidget(wl_output* output, Options options);
 
   void create() override;
-  [[nodiscard]] bool wantsSecondTicks() const override;
+  bool wantsSecondTicks() const override;
 
 private:
-  [[nodiscard]] std::string formatTimeText() const;
-  [[nodiscard]] std::string formatTooltipText() const;
+  std::string formatTimeText() const;
+  std::string formatTooltipText() const;
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   std::string m_format;

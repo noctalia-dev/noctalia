@@ -135,7 +135,7 @@ namespace noctalia::theme {
   TokenMap expandFixedPaletteMode(const FixedPalette& palette, bool isDark);
   GeneratedPalette expandFixedPalettes(const FixedPalette& dark, const FixedPalette& light);
   // Inverse of expandFixedPaletteMode(): reads the source colors back out of a token set.
-  [[nodiscard]] FixedPalette fixedPaletteFromTokens(const TokenMap& tokens);
+  FixedPalette fixedPaletteFromTokens(const TokenMap& tokens);
   ::Palette mapGeneratedPaletteMode(const TokenMap& tokens);
 
   // Wallpaper schemes have no hover role of their own: hover mirrors the tertiary accent,
@@ -145,6 +145,6 @@ namespace noctalia::theme {
   void applyTerminalPalette(TokenMap& tokens, const TerminalPalette& terminal);
   void synthesizeTerminalPaletteTokens(TokenMap& tokens);
   void synthesizeTerminalPaletteTokens(GeneratedPalette& palette);
-  [[nodiscard]] TerminalPalette terminalPaletteFromTokens(const TokenMap& tokens);
+  TerminalPalette terminalPaletteFromTokens(const TokenMap& tokens);
 
 } // namespace noctalia::theme

@@ -376,7 +376,7 @@ void LockScreen::onOutputChange() {
   if (m_lockDeferred) {
     if (m_wayland != nullptr && !m_wayland->outputs().empty()) {
       m_lockDeferred = false;
-      (void)lock();
+      lock();
     }
     return;
   }
@@ -785,7 +785,7 @@ void LockScreen::handleSleepReady() {
   if (m_onReadyForSleep) {
     m_onReadyForSleep();
   }
-  (void)tryFlushPendingAfterLocked();
+  tryFlushPendingAfterLocked();
   flushPendingOutputPowerOff();
 }
 

@@ -53,7 +53,7 @@ public:
   void onSecondTick();
   // When automation next needs a tick to rotate, or nullopt while it cannot run.
   // Lets the time source wake for the rotation interval instead of polling.
-  [[nodiscard]] std::optional<std::chrono::system_clock::time_point> nextAutomationDeadline() const;
+  std::optional<std::chrono::system_clock::time_point> nextAutomationDeadline() const;
   void onGpuResourcesInvalidated();
   void registerIpc(IpcService& ipc);
   // Apply and persist a wallpaper image. nullopt connector targets all connected
@@ -61,19 +61,19 @@ public:
   // connector is unknown. Shared by the wallpaper-set IPC handler and plugin scripts.
   bool applyWallpaperImage(const std::optional<std::string>& connector, const std::string& path);
   void setAutomationGate(std::function<bool()> gate);
-  [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
+  bool ownsSurface(wl_surface* surface) const noexcept;
   bool onPointerEvent(const PointerEvent& event);
 
   // Prefer a landscape image; otherwise use the first available image.
-  [[nodiscard]] TextureHandle currentTexture() const;
+  TextureHandle currentTexture() const;
   // Path of currentTexture(); when no instance shows an image while wallpaper is enabled,
   // falls back to the palette wallpaper path so consumers still show what drives colors.
-  [[nodiscard]] std::string currentPath() const;
+  std::string currentPath() const;
 
   // Emits whenever the displayed wallpaper (path/texture) changes, including
   // automation rotation and transition completion. Lets consumers pre-warm
   // previews while their UI is closed.
-  [[nodiscard]] Signal<>& changed() noexcept { return m_changed; }
+  Signal<>& changed() noexcept { return m_changed; }
 
 private:
   enum class TransitionRedirect {
@@ -88,14 +88,14 @@ private:
     Next,
   };
 
-  enum class SwitchOutcome {
+  enum class [[nodiscard]] SwitchOutcome {
     Changed,     // at least one output was switched to a new wallpaper
     NoChange,    // wallpapers were found but there was nothing new to switch to
     Unavailable, // wallpaper disabled, target unknown, or no candidate images
   };
 
-  [[nodiscard]] const WallpaperInstance* currentInstance() const;
-  [[nodiscard]] bool isConnectorKnown(std::string_view connector) const;
+  const WallpaperInstance* currentInstance() const;
+  bool isConnectorKnown(std::string_view connector) const;
   // Persist a resolved image path to a single connector, or to every connected
   // output plus the default when no connector is given.
   void applyResolvedWallpaper(const std::optional<std::string>& connector, const std::string& resolvedPath);
@@ -104,15 +104,14 @@ private:
   void applyStartupAutomation(std::int64_t secondStamp);
   void resetAutomationState();
   void runAutomation(std::int64_t secondStamp);
-  [[nodiscard]] bool automationAllowed() const noexcept;
-  [[nodiscard]] SwitchOutcome
-  switchWallpaperTo(PickWallpaper action, std::optional<std::string_view> connector = std::nullopt);
-  [[nodiscard]] ThemeMode directoryThemeMode() const noexcept;
-  [[nodiscard]] std::string pickRandomWallpaperPath(
+  bool automationAllowed() const noexcept;
+  SwitchOutcome switchWallpaperTo(PickWallpaper action, std::optional<std::string_view> connector = std::nullopt);
+  ThemeMode directoryThemeMode() const noexcept;
+  std::string pickRandomWallpaperPath(
       const std::vector<std::string>& candidates, const std::string& currentPath, std::string_view scope,
       std::string_view source
   );
-  [[nodiscard]] std::string pickAutomationWallpaperPath(
+  std::string pickAutomationWallpaperPath(
       const WallpaperAutomationConfig& automation, std::vector<std::string> candidates, const std::string& currentPath,
       std::string_view scope, std::string_view source
   );
@@ -124,7 +123,7 @@ private:
   );
   void onImageChanged(WallpaperInstance& instance);
   static void cancelLoading(WallpaperInstance& instance);
-  [[nodiscard]] TextureCoverage textureCoverage(const WallpaperInstance& instance) const;
+  TextureCoverage textureCoverage(const WallpaperInstance& instance) const;
   // Re-targets every leased image of the instance after an output or fill mode change.
   void refreshTextureCoverage(WallpaperInstance& instance);
   TransitionRedirect redirectActiveTransition(WallpaperInstance& instance, const std::string& path);

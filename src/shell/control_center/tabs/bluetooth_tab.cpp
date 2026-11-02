@@ -326,7 +326,7 @@ public:
     }
   }
 
-  [[nodiscard]] const std::string& devicePath() const noexcept { return m_device.path; }
+  const std::string& devicePath() const noexcept { return m_device.path; }
 
   // Refresh the values that move while a scan runs. Which pills exist is fixed at
   // construction (it belongs to the list structure key); only their text is live.

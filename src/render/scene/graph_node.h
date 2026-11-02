@@ -17,9 +17,9 @@ public:
   GraphNode(const GraphNode&) = delete;
   GraphNode& operator=(const GraphNode&) = delete;
 
-  [[nodiscard]] const GraphStyle& style() const noexcept { return m_style; }
-  [[nodiscard]] TextureId textureId() const noexcept { return m_texture.id; }
-  [[nodiscard]] int textureWidth() const noexcept { return m_texWidth; }
+  const GraphStyle& style() const noexcept { return m_style; }
+  TextureId textureId() const noexcept { return m_texture.id; }
+  int textureWidth() const noexcept { return m_texWidth; }
 
   void setLineColor1(const Color& color) {
     if (m_style.lineColor1 == color)

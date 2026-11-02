@@ -65,7 +65,7 @@ namespace scripting {
     const std::string base = FileUtils::stateDir();
     if (!base.empty()) {
       const std::filesystem::path cacheRoot = std::filesystem::path(base) / "plugin-cache";
-      (void)plugin_paths::removeTreeUnder(cacheRoot / sourceName, cacheRoot);
+      plugin_paths::removeTreeUnder(cacheRoot / sourceName, cacheRoot);
     }
   }
 

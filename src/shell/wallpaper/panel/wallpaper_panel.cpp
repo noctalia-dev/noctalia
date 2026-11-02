@@ -40,7 +40,7 @@
 
 namespace {
 
-  [[nodiscard]] bool isDescendantOf(const Node* node, const Node* ancestor) {
+  bool isDescendantOf(const Node* node, const Node* ancestor) {
     if (node == nullptr || ancestor == nullptr)
       return false;
     for (const Node* p = node->parent(); p != nullptr; p = p->parent()) {
@@ -60,7 +60,7 @@ namespace {
   constexpr float kThemeRowGap = Style::spaceSm;
   constexpr float kTileAspect = 0.78F; // height / width, leaves room for label under widescreen thumb
 
-  [[nodiscard]] std::size_t themeModeSegmentIndex(ThemeMode mode) {
+  std::size_t themeModeSegmentIndex(ThemeMode mode) {
     switch (mode) {
     case ThemeMode::Dark:
       return 0;
@@ -72,7 +72,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] ThemeMode themeModeFromSegmentIndex(std::size_t index) {
+  ThemeMode themeModeFromSegmentIndex(std::size_t index) {
     switch (index) {
     case 0:
       return ThemeMode::Dark;
@@ -83,7 +83,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::vector<std::string> wallpaperSchemeOptions() {
+  std::vector<std::string> wallpaperSchemeOptions() {
     return {
         i18n::tr("theme.scheme.m3-content"),     i18n::tr("theme.scheme.m3-tonal-spot"),
         i18n::tr("theme.scheme.m3-fruit-salad"), i18n::tr("theme.scheme.m3-rainbow"),
@@ -93,14 +93,14 @@ namespace {
     };
   }
 
-  [[nodiscard]] std::vector<std::string> wallpaperSchemeValues() {
+  std::vector<std::string> wallpaperSchemeValues() {
     return {
         "m3-content", "m3-tonal-spot", "m3-fruit-salad", "m3-rainbow",    "m3-monochrome",
         "vibrant",    "faithful",      "soft",           "dysfunctional", "muted",
     };
   }
 
-  [[nodiscard]] std::optional<ThemeMode> favoriteThemeBadge(const WallpaperFavorite* favorite) {
+  std::optional<ThemeMode> favoriteThemeBadge(const WallpaperFavorite* favorite) {
     if (favorite == nullptr) {
       return std::nullopt;
     }
@@ -128,7 +128,7 @@ namespace {
         == FileUtils::normalizeWallpaperPath(currentWallpaperPath);
   }
 
-  [[nodiscard]] WallpaperFavorite wallpaperFavoriteFromTheme(const ThemeConfig& theme) {
+  WallpaperFavorite wallpaperFavoriteFromTheme(const ThemeConfig& theme) {
     WallpaperFavorite favorite;
     favorite.themeMode = theme.mode;
     favorite.paletteSource = theme.source;
@@ -139,7 +139,7 @@ namespace {
     return favorite;
   }
 
-  [[nodiscard]] std::string paletteSelectionValue(const WallpaperFavorite& theme) {
+  std::string paletteSelectionValue(const WallpaperFavorite& theme) {
     switch (theme.paletteSource.value_or(PaletteSource::Builtin)) {
     case PaletteSource::Builtin:
       return theme.builtinPalette;
@@ -153,7 +153,7 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] std::filesystem::path canonicalWallpaperDirectory(const std::filesystem::path& dir) {
+  std::filesystem::path canonicalWallpaperDirectory(const std::filesystem::path& dir) {
     if (dir.empty()) {
       return {};
     }
@@ -162,7 +162,7 @@ namespace {
     return ec ? dir.lexically_normal() : canonical;
   }
 
-  [[nodiscard]] bool wallpaperDirectoriesEquivalent(const std::filesystem::path& a, const std::filesystem::path& b) {
+  bool wallpaperDirectoriesEquivalent(const std::filesystem::path& a, const std::filesystem::path& b) {
     if (a.empty() || b.empty()) {
       return a.empty() && b.empty();
     }
@@ -173,8 +173,7 @@ namespace {
     return canonicalWallpaperDirectory(a) == canonicalWallpaperDirectory(b);
   }
 
-  [[nodiscard]] bool
-  wallpaperPathInsideDirectory(const std::filesystem::path& file, const std::filesystem::path& directory) {
+  bool wallpaperPathInsideDirectory(const std::filesystem::path& file, const std::filesystem::path& directory) {
     const std::filesystem::path dir = canonicalWallpaperDirectory(directory);
     if (dir.empty()) {
       return false;
@@ -192,11 +191,11 @@ namespace {
     return !relText.starts_with("..");
   }
 
-  [[nodiscard]] int caseInsensitiveNameOrder(std::string_view a, std::string_view b) {
+  int caseInsensitiveNameOrder(std::string_view a, std::string_view b) {
     return StringUtils::naturalCaseInsensitiveCompare(a, b);
   }
 
-  [[nodiscard]] std::optional<std::filesystem::file_time_type> entryModifiedTime(const WallpaperEntry& entry) {
+  std::optional<std::filesystem::file_time_type> entryModifiedTime(const WallpaperEntry& entry) {
     if (entry.isDir || entry.absPath.string().starts_with("color:")) {
       return std::nullopt;
     }
@@ -216,7 +215,7 @@ namespace {
   // Ordering key for SortMode::Random. Hashing the path against a seed keeps the
   // shuffled order fixed until the seed changes, so filtering or starring a tile
   // rebuilds the visible entries without reordering the grid.
-  [[nodiscard]] std::uint64_t randomOrderKey(const WallpaperEntry& entry, std::uint64_t seed) {
+  std::uint64_t randomOrderKey(const WallpaperEntry& entry, std::uint64_t seed) {
     std::uint64_t hash = std::filesystem::hash_value(entry.absPath) ^ seed;
     hash ^= hash >> 30U;
     hash *= 0xBF58476D1CE4E5B9ULL;
@@ -225,7 +224,7 @@ namespace {
     return hash ^ (hash >> 31U);
   }
 
-  [[nodiscard]] bool favoriteVisibleInBrowseContext(
+  bool favoriteVisibleInBrowseContext(
       std::string_view favoritePath, const std::filesystem::path& activeDir, const std::filesystem::path& rootDir,
       bool flatten
   ) {
@@ -286,7 +285,7 @@ public:
     }
   }
 
-  [[nodiscard]] std::size_t itemCount() const override { return m_entries == nullptr ? 0U : m_entries->size(); }
+  std::size_t itemCount() const override { return m_entries == nullptr ? 0U : m_entries->size(); }
 
   [[nodiscard]] std::unique_ptr<Node> createTile() override {
     auto tile = std::make_unique<WallpaperTile>(0.0F, 0.0F, m_scale);
@@ -345,7 +344,7 @@ public:
     return true;
   }
 
-  [[nodiscard]] bool overlayHitTest(
+  bool overlayHitTest(
       std::size_t index, float cellLocalX, float cellLocalY, float cellWidth, float cellHeight
   ) const override {
     if (m_entries == nullptr || index >= m_entries->size()) {
@@ -361,7 +360,7 @@ public:
     static_cast<WallpaperTile&>(tile).setStarHovered(hovered);
   }
 
-  [[nodiscard]] std::string overlayTooltip(std::size_t index) const override {
+  std::string overlayTooltip(std::size_t index) const override {
     if (m_config == nullptr || m_entries == nullptr || index >= m_entries->size() || (*m_entries)[index].isDir) {
       return {};
     }
@@ -371,7 +370,7 @@ public:
     );
   }
 
-  [[nodiscard]] std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+  std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
       std::size_t index, float cellWidth, float cellHeight, bool /*overlayHovered*/
   ) const override {
     if (m_entries == nullptr || index >= m_entries->size() || (*m_entries)[index].isDir) {
@@ -520,7 +519,7 @@ void WallpaperPanel::create() {
           .onChange = [this](bool checked) {
             m_flatten = checked;
             if (m_config != nullptr) {
-              (void)m_config->setStateBool("wallpaper_panel", "flatten", checked);
+              m_config->setStateBool("wallpaper_panel", "flatten", checked);
             }
             refreshVisibleEntries();
             resetSelection();
@@ -896,7 +895,7 @@ void WallpaperPanel::doLayout(Renderer& renderer, float width, float height) {
   m_lastHeight = height;
 
   if (m_thumbnails != nullptr) {
-    (void)m_thumbnails->uploadPending(renderer.textureManager());
+    m_thumbnails->uploadPending(renderer.textureManager());
     m_thumbnailRefreshPending = false;
   }
 
@@ -1366,7 +1365,7 @@ void WallpaperPanel::openPalettePicker() {
     );
   }
 
-  (void)SearchPickerDialog::open(
+  SearchPickerDialog::open(
       SearchPickerPopupRequest{
           .title = i18n::tr(titleKey),
           .options = std::move(options),
@@ -1900,7 +1899,7 @@ void WallpaperPanel::setSortMode(SortMode mode) {
     reseedRandomSort();
   }
   if (m_config != nullptr) {
-    (void)m_config->setStateString("wallpaper_panel", "sort", sortModeStateValue(mode));
+    m_config->setStateString("wallpaper_panel", "sort", sortModeStateValue(mode));
   }
   syncSortButtonGlyph();
   sortVisibleEntries();

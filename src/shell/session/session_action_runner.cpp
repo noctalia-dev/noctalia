@@ -31,9 +31,7 @@ namespace {
     Detached,
   };
 
-  [[nodiscard]] const char* valueOrUnset(const char* value) {
-    return value != nullptr && value[0] != '\0' ? value : "<unset>";
-  }
+  const char* valueOrUnset(const char* value) { return value != nullptr && value[0] != '\0' ? value : "<unset>"; }
 
   void logActionContext(std::string_view action) {
     const compositors::CompositorKind compositor = compositors::detect();
@@ -43,7 +41,7 @@ namespace {
     );
   }
 
-  [[nodiscard]] std::string commandLabel(const std::vector<std::string>& args) {
+  std::string commandLabel(const std::vector<std::string>& args) {
     std::string label;
     for (const std::string& arg : args) {
       if (arg.empty()) {
@@ -70,7 +68,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] const std::vector<std::vector<std::string>>& suspendCommandVariants() {
+  const std::vector<std::vector<std::string>>& suspendCommandVariants() {
     static const std::vector<std::vector<std::string>> variants = {
         {"systemctl", "suspend"},
         {"loginctl", "suspend"},
@@ -87,7 +85,7 @@ namespace {
     return variants;
   }
 
-  [[nodiscard]] const std::vector<std::vector<std::string>>& rebootCommandVariants() {
+  const std::vector<std::vector<std::string>>& rebootCommandVariants() {
     static const std::vector<std::vector<std::string>> variants = {
         {"systemctl", "reboot"}, {"loginctl", "reboot"}, {"reboot"},         {"/sbin/reboot"},
         {"/usr/sbin/reboot"},    {"pkexec", "reboot"},   {"run0", "reboot"}, {"sudo", "-n", "reboot"},
@@ -95,14 +93,14 @@ namespace {
     return variants;
   }
 
-  [[nodiscard]] const std::vector<std::vector<std::string>>& rebootUefiCommandVariants() {
+  const std::vector<std::vector<std::string>>& rebootUefiCommandVariants() {
     static const std::vector<std::vector<std::string>> variants = {
         {"systemctl", "reboot", "--firmware-setup"},
     };
     return variants;
   }
 
-  [[nodiscard]] const std::vector<std::vector<std::string>>& shutdownCommandVariants() {
+  const std::vector<std::vector<std::string>>& shutdownCommandVariants() {
     static const std::vector<std::vector<std::string>> variants = {
         {"systemctl", "poweroff"}, {"loginctl", "poweroff"}, {"poweroff"},         {"/sbin/poweroff"},
         {"/usr/sbin/poweroff"},    {"pkexec", "poweroff"},   {"run0", "poweroff"}, {"sudo", "-n", "poweroff"},
@@ -195,7 +193,7 @@ namespace {
   }
 
   // `systemctl reboot --firmware-setup` needs systemd and a UEFI boot.
-  [[nodiscard]] bool rebootUefiSupported() {
+  bool rebootUefiSupported() {
     std::error_code ec;
     return std::filesystem::is_directory("/sys/firmware/efi", ec) && process::commandExists("systemctl");
   }

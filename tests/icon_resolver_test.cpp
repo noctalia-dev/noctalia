@@ -474,7 +474,7 @@ int main() {
   }
 
   setenv("XDG_DATA_DIRS", (extraData.string() + ":" + root.string()).c_str(), 1);
-  (void)IconResolver::checkThemePlanChanged();
+  IconResolver::checkThemePlanChanged();
   ok = expect(
            resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string(),
            "an index-less first root should use metadata from the next theme root"
@@ -484,7 +484,7 @@ int main() {
   std::ofstream(extraThemeRoot / "index.theme")
       << "[Icon Theme]\nDirectories = 24x24/status\nInherits = conflicting-parent\n"
          "[24x24/status]\nSize = 24\nType = Fixed\n";
-  (void)IconResolver::checkThemePlanChanged();
+  IconResolver::checkThemePlanChanged();
   ok = expect(
            resolver.resolveStatusVector("split-root", 16) == (extraStatusDir / "split-root.svg").string(),
            "later-root metadata should not replace the first index.theme directory list"

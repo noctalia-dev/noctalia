@@ -38,12 +38,12 @@ public:
   ~ScreenshotWidget() override;
 
   void create() override;
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event) override;
+  bool onPointerEvent(const PointerEvent& event) override;
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void openCaptureMenu();
-  [[nodiscard]] ScreenshotService::OutputOptions outputOptions() const;
+  ScreenshotService::OutputOptions outputOptions() const;
 
   std::string m_barGlyphId;
   wl_output* m_output = nullptr;

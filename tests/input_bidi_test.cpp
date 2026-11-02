@@ -70,7 +70,7 @@ namespace {
 
     TextMetrics measureGlyph(char32_t, float fontSize) override { return TextMetrics{.width = fontSize}; }
     TextureManager& textureManager() override { std::abort(); }
-    [[nodiscard]] float renderScale() const noexcept override { return 1.0F; }
+    float renderScale() const noexcept override { return 1.0F; }
 
   private:
     CairoTextRenderer m_text;

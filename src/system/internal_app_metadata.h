@@ -20,11 +20,11 @@ namespace internal_apps {
     std::string_view iconAssetPath;
   };
 
-  [[nodiscard]] const InternalAppDefinition* appDefinitionForAppId(std::string_view appId);
-  [[nodiscard]] const InternalAppDefinition* appDefinitionForWindowTitle(std::string_view windowTitle);
-  [[nodiscard]] const InternalAppDefinition* definitionForDesktopEntry(const DesktopEntry& entry);
-  [[nodiscard]] std::optional<AppMetadata> metadataForAppId(std::string_view appId);
-  [[nodiscard]] std::optional<AppMetadata> metadataForDesktopEntry(const DesktopEntry& entry);
+  const InternalAppDefinition* appDefinitionForAppId(std::string_view appId);
+  const InternalAppDefinition* appDefinitionForWindowTitle(std::string_view windowTitle);
+  const InternalAppDefinition* definitionForDesktopEntry(const DesktopEntry& entry);
+  std::optional<AppMetadata> metadataForAppId(std::string_view appId);
+  std::optional<AppMetadata> metadataForDesktopEntry(const DesktopEntry& entry);
   void applyMetadataToDesktopEntry(DesktopEntry& entry);
 
 } // namespace internal_apps

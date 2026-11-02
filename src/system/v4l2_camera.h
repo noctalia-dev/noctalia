@@ -9,13 +9,13 @@
 
 // Process names holding non-metadata video devices open, as in the v4 privacy plugin.
 // Reads sysfs and procfs without opening the camera. Inaccessible processes are skipped.
-[[nodiscard]] std::vector<std::string> v4l2CameraApps(
+std::vector<std::string> v4l2CameraApps(
     const std::filesystem::path& videoClass = "/sys/class/video4linux", const std::filesystem::path& proc = "/proc"
 );
 
 // Best-effort match of a V4L2 /proc comm name to a PipeWire application label or binary
 // (basename, case-insensitive, including 15-character comm truncation).
-[[nodiscard]] bool v4l2CameraSameApp(std::string_view pipewireLabel, std::string_view comm);
+bool v4l2CameraSameApp(std::string_view pipewireLabel, std::string_view comm);
 
 // Wakes only when camera users may have changed, so idle cameras cost nothing: inotify reports
 // opens and closes of readable non-metadata /dev/video* nodes, and attribute changes in /dev
@@ -24,7 +24,7 @@ class V4l2CameraWatch {
 public:
   V4l2CameraWatch();
 
-  [[nodiscard]] int fd() const noexcept { return m_inotify.fd(); }
+  int fd() const noexcept { return m_inotify.fd(); }
 
   // Drains pending events. Returns true when v4l2CameraApps() should run again.
   [[nodiscard]] bool drain();

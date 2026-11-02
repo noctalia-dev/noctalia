@@ -35,14 +35,14 @@ public:
   void setDragging(bool dragging);
   void setSize(float width, float height) override;
 
-  [[nodiscard]] std::string_view dragType() const noexcept { return m_dragType; }
-  [[nodiscard]] std::string_view payload() const noexcept { return m_payload; }
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] bool dragging() const noexcept { return m_dragging; }
-  [[nodiscard]] bool liftFromLayout() const noexcept { return m_liftFromLayout; }
-  [[nodiscard]] InputArea* inputArea() const noexcept { return m_inputArea; }
-  [[nodiscard]] DragDropController* controller() const noexcept { return m_controller; }
-  [[nodiscard]] Node* previewTarget() noexcept;
+  std::string_view dragType() const noexcept { return m_dragType; }
+  std::string_view payload() const noexcept { return m_payload; }
+  bool enabled() const noexcept { return m_enabled; }
+  bool dragging() const noexcept { return m_dragging; }
+  bool liftFromLayout() const noexcept { return m_liftFromLayout; }
+  InputArea* inputArea() const noexcept { return m_inputArea; }
+  DragDropController* controller() const noexcept { return m_controller; }
+  Node* previewTarget() noexcept;
   void detachController(DragDropController* controller) noexcept;
 
 protected:

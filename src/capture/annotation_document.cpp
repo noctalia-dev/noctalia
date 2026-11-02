@@ -31,7 +31,7 @@ namespace capture {
         {AnnotationTool::Crop, "crop"},
     }};
 
-    [[nodiscard]] double distanceToSegment(double px, double py, double x0, double y0, double x1, double y1) {
+    double distanceToSegment(double px, double py, double x0, double y0, double x1, double y1) {
       const double dx = x1 - x0;
       const double dy = y1 - y0;
       const double lengthSquared = (dx * dx) + (dy * dy);
@@ -43,7 +43,7 @@ namespace capture {
     }
 
     // Liang-Barsky segment/rect overlap.
-    [[nodiscard]] bool segmentIntersectsRect(
+    bool segmentIntersectsRect(
         double x0, double y0, double x1, double y1, double left, double top, double right, double bottom
     ) {
       if ((x0 >= left && x0 <= right && y0 >= top && y0 <= bottom)
@@ -93,7 +93,7 @@ namespace capture {
       return true;
     }
 
-    [[nodiscard]] AnnotationRect shapeRect(const Annotation& annotation) {
+    AnnotationRect shapeRect(const Annotation& annotation) {
       const AnnotationPoint start = annotation.points.front();
       const AnnotationPoint end = annotation.points.back();
       return AnnotationRect{

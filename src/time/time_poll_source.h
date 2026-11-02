@@ -7,7 +7,7 @@ class TimePollSource final : public PollSource {
 public:
   explicit TimePollSource(TimeService& time) : m_time(time) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override { return m_time.pollTimeoutMs(); }
+  int pollTimeoutMs() const override { return m_time.pollTimeoutMs(); }
 
   void dispatch(const std::vector<pollfd>& /*fds*/, std::size_t /*startIdx*/) override { m_time.tick(); }
 

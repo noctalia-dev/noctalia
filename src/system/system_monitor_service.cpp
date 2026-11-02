@@ -25,14 +25,14 @@
 
 namespace {
 
-  [[nodiscard]] SystemStats makeInitialHistoryStats() {
+  SystemStats makeInitialHistoryStats() {
     SystemStats stats;
     stats.cpuTempC = 40.0;
     return stats;
   }
 
   template <typename T, std::size_t N>
-  [[nodiscard]] std::vector<T> historyWindowFromRing(const std::array<T, N>& ring, int head, int windowSize) {
+  std::vector<T> historyWindowFromRing(const std::array<T, N>& ring, int head, int windowSize) {
     if (windowSize <= 0) {
       return {};
     }
@@ -109,12 +109,12 @@ namespace {
     bool hasVram = false;
   };
 
-  [[nodiscard]] bool hasUsableVram(const GpuVramReading& reading) {
+  bool hasUsableVram(const GpuVramReading& reading) {
     return reading.totalBytes > 0 && reading.usedBytes <= reading.totalBytes;
   }
 
   // 0 disables a metric; any other value is clamped to the supported poll range.
-  [[nodiscard]] float clampPollSeconds(float seconds) noexcept {
+  float clampPollSeconds(float seconds) noexcept {
     if (seconds <= 0.0F) {
       return SystemConfig::MonitorConfig::kDisabledPollSeconds;
     }
@@ -126,7 +126,7 @@ namespace {
   // Graph history snapshots and scroll timing follow the fastest enabled metric poll so users
   // only configure how often each stat is read, not a separate graph-only cadence. Disabled
   // metrics (0) are ignored; if every metric is disabled the history is disabled too.
-  [[nodiscard]] float effectiveHistoryPollSeconds(const SystemConfig::MonitorConfig& config) noexcept {
+  float effectiveHistoryPollSeconds(const SystemConfig::MonitorConfig& config) noexcept {
     float fastest = SystemConfig::MonitorConfig::kDisabledPollSeconds;
     for (const float seconds :
          {config.cpuPollSeconds, config.gpuPollSeconds, config.memoryPollSeconds, config.networkPollSeconds,
@@ -141,7 +141,7 @@ namespace {
     return fastest;
   }
 
-  [[nodiscard]] double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
+  double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
     if (interfaceName.empty()) {
       return stats.netRxBytesPerSec;
     }
@@ -152,7 +152,7 @@ namespace {
     return 0.0;
   }
 
-  [[nodiscard]] double netTxFromStats(const SystemStats& stats, std::string_view interfaceName) {
+  double netTxFromStats(const SystemStats& stats, std::string_view interfaceName) {
     if (interfaceName.empty()) {
       return stats.netTxBytesPerSec;
     }
@@ -163,7 +163,7 @@ namespace {
     return 0.0;
   }
 
-  [[nodiscard]] SystemConfig::MonitorConfig sanitizeMonitorConfig(SystemConfig::MonitorConfig config) {
+  SystemConfig::MonitorConfig sanitizeMonitorConfig(SystemConfig::MonitorConfig config) {
     config.cpuPollSeconds = clampPollSeconds(config.cpuPollSeconds);
     config.gpuPollSeconds = clampPollSeconds(config.gpuPollSeconds);
     config.memoryPollSeconds = clampPollSeconds(config.memoryPollSeconds);
@@ -172,7 +172,7 @@ namespace {
     return config;
   }
 
-  [[nodiscard]] std::chrono::steady_clock::duration pollDuration(float seconds) {
+  std::chrono::steady_clock::duration pollDuration(float seconds) {
     return std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(seconds));
   }
 
@@ -598,7 +598,7 @@ struct SystemMonitorService::AmdRsmiReader {
 
   [[nodiscard]] bool ready() { return ensureReady(); }
 
-  [[nodiscard]] std::optional<TempSensorReading> readTempSensor() {
+  std::optional<TempSensorReading> readTempSensor() {
     if (!ensureReady()) {
       return std::nullopt;
     }
@@ -621,7 +621,7 @@ struct SystemMonitorService::AmdRsmiReader {
     return std::nullopt;
   }
 
-  [[nodiscard]] std::optional<SysfsGpuUsageReading> readUsage() {
+  std::optional<SysfsGpuUsageReading> readUsage() {
     if (!ensureReady()) {
       return std::nullopt;
     }
@@ -698,7 +698,7 @@ private:
     std::uint32_t effectiveMajor = version.major;
     if (version.major == 1) {
       const bool hasV6Symbol = dlsym(m_library, "rsmi_dev_activity_metric_get") != nullptr;
-      (void)dlerror();
+      dlerror();
       effectiveMajor = hasV6Symbol ? 6U : 5U;
     }
 
@@ -720,20 +720,20 @@ private:
 
     for (std::uint32_t i = 0; i < m_deviceCount; ++i) {
       char name[kRsmiDeviceNameBufferSize]{};
-      (void)m_nameGet(i, name, kRsmiDeviceNameBufferSize);
+      m_nameGet(i, name, kRsmiDeviceNameBufferSize);
 
       std::uint64_t maxPower = 0;
-      (void)m_powerCapGet(i, 0, &maxPower);
+      m_powerCapGet(i, 0, &maxPower);
 
       std::int64_t tempMax = 0;
-      (void)m_tempMetricGet(i, kRsmiTempTypeEdge, kRsmiTempMax, &tempMax);
+      m_tempMetricGet(i, kRsmiTempTypeEdge, kRsmiTempMax, &tempMax);
     }
 
     m_state = State::Ready;
     return true;
   }
 
-  [[nodiscard]] bool failInit() {
+  bool failInit() {
     close();
     m_state = State::Unavailable;
     return false;
@@ -741,13 +741,13 @@ private:
 
   void close() {
     if (m_rsmiInitialized && m_shutdown != nullptr) {
-      (void)m_shutdown();
+      m_shutdown();
     }
     m_rsmiInitialized = false;
     m_deviceCount = 0;
 
     if (m_library != nullptr) {
-      (void)dlclose(m_library);
+      dlclose(m_library);
       m_library = nullptr;
     }
   }
@@ -776,7 +776,7 @@ private:
 struct SystemMonitorService::NvidiaNvmlReader {
   ~NvidiaNvmlReader() { close(); }
 
-  [[nodiscard]] std::optional<TempSensorReading> readGpuTempSensor() {
+  std::optional<TempSensorReading> readGpuTempSensor() {
     if (!ensureReady() || m_devices.empty()) {
       return std::nullopt;
     }
@@ -802,7 +802,7 @@ struct SystemMonitorService::NvidiaNvmlReader {
     return TempSensorReading{.tempC = *bestTemp, .score = 0, .source = source, .isNvidia = true};
   }
 
-  [[nodiscard]] std::optional<double> readGpuUsagePercent() {
+  std::optional<double> readGpuUsagePercent() {
     if (!ensureReady() || m_devices.empty()) {
       return std::nullopt;
     }
@@ -825,7 +825,7 @@ struct SystemMonitorService::NvidiaNvmlReader {
     return totalUsage / static_cast<double>(sampledDevices);
   }
 
-  [[nodiscard]] std::optional<GpuVramReading> readGpuVram() {
+  std::optional<GpuVramReading> readGpuVram() {
     if (!ensureReady() || m_devices.empty()) {
       return std::nullopt;
     }
@@ -910,12 +910,12 @@ private:
     m_devices.clear();
 
     if (m_nvmlInitialized && m_shutdown != nullptr) {
-      (void)m_shutdown();
+      m_shutdown();
     }
     m_nvmlInitialized = false;
 
     if (m_library != nullptr) {
-      (void)dlclose(m_library);
+      dlclose(m_library);
       m_library = nullptr;
     }
   }
@@ -945,14 +945,14 @@ struct SystemMonitorService::IntelGpuReader {
     });
   }
 
-  [[nodiscard]] bool ready() const { return !m_devices.empty(); }
+  bool ready() const { return !m_devices.empty(); }
 
   // The first scan only baselines the counters, so name the source before it can report a value.
-  [[nodiscard]] std::string usageSource() const {
+  std::string usageSource() const {
     return m_devices.empty() ? std::string{} : noctalia::system::intel_gpu::usageSource(m_devices.front());
   }
 
-  [[nodiscard]] std::optional<noctalia::system::intel_gpu::UsageReading> readUsage() {
+  std::optional<noctalia::system::intel_gpu::UsageReading> readUsage() {
     for (const auto& device : m_devices) {
       if (const auto reading = m_samplers[device.pciSlot].sample(device); reading.has_value()) {
         return reading;
@@ -961,7 +961,7 @@ struct SystemMonitorService::IntelGpuReader {
     return std::nullopt;
   }
 
-  [[nodiscard]] std::optional<noctalia::system::intel_gpu::VramReading> readVram() const {
+  std::optional<noctalia::system::intel_gpu::VramReading> readVram() const {
     for (const auto& device : m_devices) {
       if (const auto reading = noctalia::system::intel_gpu::readVram(device); reading.has_value()) {
         return reading;
@@ -1103,7 +1103,7 @@ namespace {
     bool valid = false;
   };
 
-  [[nodiscard]] DiskStatvfsData readDiskStatvfs(const std::string& path) {
+  DiskStatvfsData readDiskStatvfs(const std::string& path) {
     struct statvfs sv{};
     if (::statvfs(path.c_str(), &sv) != 0 || sv.f_blocks == 0) {
       return {};

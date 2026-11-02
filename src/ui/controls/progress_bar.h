@@ -41,7 +41,7 @@ public:
   void setMarkerWidth(float width);
 
   void setProgress(float progress); // 0.0–1.0
-  [[nodiscard]] float progress() const noexcept { return m_progress; }
+  float progress() const noexcept { return m_progress; }
 
   void setSize(float width, float height) override;
 

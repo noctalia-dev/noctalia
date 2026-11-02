@@ -77,7 +77,7 @@ inline constexpr std::array<ColorRoleToken, 28> kColorRoleTokens = {{
     {ColorRole::OnHover, "on_hover"},
 }};
 
-[[nodiscard]] constexpr Color clearColor() noexcept { return rgba(0.0F, 0.0F, 0.0F, 0.0F); }
+constexpr Color clearColor() noexcept { return rgba(0.0F, 0.0F, 0.0F, 0.0F); }
 
 struct ColorSpec {
   std::optional<ColorRole> role;
@@ -89,14 +89,14 @@ constexpr bool operator==(const ColorSpec& a, const ColorSpec& b) noexcept {
   return a.role == b.role && a.fixed == b.fixed && a.alpha == b.alpha;
 }
 
-[[nodiscard]] constexpr ColorSpec clearColorSpec() noexcept {
+constexpr ColorSpec clearColorSpec() noexcept {
   return ColorSpec{.role = std::nullopt, .fixed = clearColor(), .alpha = 1.0F};
 }
 
 // Multiplies a spec's alpha, keeping any color role intact so theme switches still resolve.
 // Distinct from withAlpha(Color, float) in render/core/color.h, which replaces the alpha of an
 // already-resolved color and therefore cannot preserve the role.
-[[nodiscard]] constexpr ColorSpec scaleAlpha(const ColorSpec& color, float factor) noexcept {
+constexpr ColorSpec scaleAlpha(const ColorSpec& color, float factor) noexcept {
   ColorSpec out = color;
   out.alpha = std::clamp(out.alpha * std::clamp(factor, 0.0F, 1.0F), 0.0F, 1.0F);
   return out;
@@ -138,34 +138,32 @@ struct Palette {
 
 extern Palette palette;
 
-[[nodiscard]] const Color& colorForRole(ColorRole role) noexcept;
-[[nodiscard]] Color colorForRole(ColorRole role, float alpha) noexcept;
-[[nodiscard]] std::optional<ColorRole> colorRoleFromToken(std::string_view token);
+const Color& colorForRole(ColorRole role) noexcept;
+Color colorForRole(ColorRole role, float alpha) noexcept;
+std::optional<ColorRole> colorRoleFromToken(std::string_view token);
 // Plugin-facing lookup. Temporarily also accepts the retired `surface_variant` and `outline` roles (as
 // surface_container and outline_variant, warning once per name) so third-party plugins keep working while
 // they migrate. Remove in 5.5.0 and switch callers back to colorRoleFromToken().
-[[nodiscard]] std::optional<ColorRole> colorRoleFromPluginToken(std::string_view token);
-[[nodiscard]] std::string_view colorRoleToken(ColorRole role) noexcept;
-[[nodiscard]] ColorSpec colorSpecFromRole(ColorRole role, float alpha = 1.0F) noexcept;
-[[nodiscard]] ColorSpec fixedColorSpec(const Color& color) noexcept;
-[[nodiscard]] Color resolveColorSpec(const ColorSpec& color) noexcept;
-[[nodiscard]] bool isLightPalette() noexcept;
+std::optional<ColorRole> colorRoleFromPluginToken(std::string_view token);
+std::string_view colorRoleToken(ColorRole role) noexcept;
+ColorSpec colorSpecFromRole(ColorRole role, float alpha = 1.0F) noexcept;
+ColorSpec fixedColorSpec(const Color& color) noexcept;
+Color resolveColorSpec(const ColorSpec& color) noexcept;
+bool isLightPalette() noexcept;
 // Set by ThemeService from resolved light/dark mode (not inferred from palette colors).
-[[nodiscard]] bool isResolvedLightTheme() noexcept;
+bool isResolvedLightTheme() noexcept;
 void setResolvedThemeLight(bool light) noexcept;
 
 void setPalette(const Palette& p);
 
 // Snapshot accessor safe to call from non-main threads (e.g. plugin script workers).
-[[nodiscard]] Color colorForRoleSnapshot(ColorRole role);
+Color colorForRoleSnapshot(ColorRole role);
 
-[[nodiscard]] inline ColorSpec scrollbarTrackColor() noexcept {
+inline ColorSpec scrollbarTrackColor() noexcept {
   return colorSpecFromRole(ColorRole::OutlineVariant, Style::disabledOutlineAlpha);
 }
-[[nodiscard]] inline ColorSpec scrollbarThumbColor() noexcept {
-  return colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.5F);
-}
-[[nodiscard]] inline ColorSpec focusRingColorSpec() noexcept { return colorSpecFromRole(ColorRole::Secondary); }
+inline ColorSpec scrollbarThumbColor() noexcept { return colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.5F); }
+inline ColorSpec focusRingColorSpec() noexcept { return colorSpecFromRole(ColorRole::Secondary); }
 
 // Fired after setPalette() writes. Controls subscribe in their constructor
 // and re-apply palette-derived colors to their scene nodes on each emit.

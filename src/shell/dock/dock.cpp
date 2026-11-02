@@ -102,13 +102,13 @@ namespace {
     return signature;
   }
 
-  [[nodiscard]] bool canActivateWindow(const ToplevelInfo& window) {
+  bool canActivateWindow(const ToplevelInfo& window) {
     return window.handle != nullptr
         || !window.identifier.empty()
         || (compositors::isKde() && (!window.title.empty() || !window.appId.empty()));
   }
 
-  [[nodiscard]] const ToplevelInfo* newestActivatableWindow(const std::vector<ToplevelInfo>& windows) {
+  const ToplevelInfo* newestActivatableWindow(const std::vector<ToplevelInfo>& windows) {
     const ToplevelInfo* best = nullptr;
     for (const auto& window : windows) {
       if (!canActivateWindow(window)) {
@@ -119,7 +119,7 @@ namespace {
     return best;
   }
 
-  [[nodiscard]] bool matchesActiveWindow(
+  bool matchesActiveWindow(
       const ToplevelInfo& window, const ActiveToplevel& active, std::string_view focusedCompositorWindowId,
       const std::vector<ToplevelInfo>& windows
   ) {
@@ -218,35 +218,34 @@ namespace {
     return nullptr;
   }
 
-  [[nodiscard]] bool dockPointerHideAllowed(const DockConfig& cfg, const shell::dock::DockInstance& instance) noexcept {
+  bool dockPointerHideAllowed(const DockConfig& cfg, const shell::dock::DockInstance& instance) noexcept {
     if (cfg.smartAutoHide) {
       return !instance.smartAutoHidePinnedVisible;
     }
     return cfg.autoHide;
   }
 
-  [[nodiscard]] const DockMonitorOverride*
-  matchingDockMonitorOverride(const DockConfig& cfg, const WaylandOutput& output) {
+  const DockMonitorOverride* matchingDockMonitorOverride(const DockConfig& cfg, const WaylandOutput& output) {
     const auto it = std::ranges::find_if(cfg.monitorOverrides, [&output](const DockMonitorOverride& override) {
       return outputMatchesSelector(override.match, output);
     });
     return it != cfg.monitorOverrides.end() ? &*it : nullptr;
   }
 
-  [[nodiscard]] bool dockMayBeEnabled(const DockConfig& cfg) {
+  bool dockMayBeEnabled(const DockConfig& cfg) {
     return cfg.enabled || std::ranges::any_of(cfg.monitorOverrides, [](const DockMonitorOverride& override) {
              return override.enabled.value_or(false);
            });
   }
 
-  [[nodiscard]] std::vector<std::string> dockPinnedOverridePath(const shell::dock::DockInstance& instance) {
+  std::vector<std::string> dockPinnedOverridePath(const shell::dock::DockInstance& instance) {
     if (instance.pinnedOverridden && !instance.monitorOverrideTable.empty()) {
       return {"dock", "monitor", instance.monitorOverrideTable, "pinned"};
     }
     return {"dock", "pinned"};
   }
 
-  [[nodiscard]] bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
+  bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
     if (assignmentKey.empty()) {
       return false;
     }
@@ -262,7 +261,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
+  bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
     const auto workspaces = platform.workspaces(output);
     const Workspace* active = nullptr;
     for (const auto& workspace : workspaces) {
@@ -293,7 +292,7 @@ namespace {
     return active->occupied;
   }
 
-  [[nodiscard]] bool dockSmartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
+  bool dockSmartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
     if (platform.hasOverviewState() && platform.isOverviewOpen()) {
       return true;
     }
@@ -897,7 +896,7 @@ bool Dock::syncInstanceModel(shell::dock::DockInstance& instance) {
     }
   }
 
-  (void)shell::dock::refreshPinnedAppsIfNeeded(
+  shell::dock::refreshPinnedAppsIfNeeded(
       instance.config, instance.lastPinnedConfig, instance.pinnedEntries, instance.modelSerial, instance.entriesVersion
   );
 
@@ -1089,7 +1088,7 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
   auto path = dockPinnedOverridePath(instance);
   DeferredCall::callLater([config, path = std::move(path), pinnedList = std::move(pinnedList)] mutable {
     if (config != nullptr) {
-      (void)config->setOverride(path, std::move(pinnedList));
+      config->setOverride(path, std::move(pinnedList));
     }
   });
 }
@@ -1307,7 +1306,7 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
             } else {
               shell::dock::pinned_apps::removeEntry(pinnedList, entryForPin);
             }
-            (void)m_config->setOverride(pinnedPath, std::move(pinnedList));
+            m_config->setOverride(pinnedPath, std::move(pinnedList));
           },
       .closeMenu = [this] { closeItemMenu(); },
   };

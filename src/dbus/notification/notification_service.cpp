@@ -46,7 +46,7 @@ namespace {
     return sdbus::createProxy(connection, kDbusBusName, kDbusObjectPath);
   }
 
-  [[nodiscard]] uint32_t notificationNameRequestFlags() {
+  uint32_t notificationNameRequestFlags() {
     if (compositors::isKde()) {
       return kNameFlagAllowReplacement | kNameFlagReplaceExisting | kNameFlagDoNotQueue;
     }

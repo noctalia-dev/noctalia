@@ -19,24 +19,24 @@
 
 namespace StringUtils {
 
-  [[nodiscard]] inline std::string_view trimLeftView(std::string_view s) {
+  inline std::string_view trimLeftView(std::string_view s) {
     while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front())) != 0) {
       s.remove_prefix(1);
     }
     return s;
   }
 
-  [[nodiscard]] inline std::string_view trimRightView(std::string_view s) {
+  inline std::string_view trimRightView(std::string_view s) {
     while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back())) != 0) {
       s.remove_suffix(1);
     }
     return s;
   }
 
-  [[nodiscard]] inline std::string trim(std::string_view s) { return std::string(trimRightView(trimLeftView(s))); }
+  inline std::string trim(std::string_view s) { return std::string(trimRightView(trimLeftView(s))); }
 
   // Window titles may contain embedded newlines, collapse to a single display/match line.
-  [[nodiscard]] inline std::string windowTitleSingleLine(std::string_view text) {
+  inline std::string windowTitleSingleLine(std::string_view text) {
     if (text.empty()) {
       return {};
     }
@@ -58,7 +58,7 @@ namespace StringUtils {
     return out;
   }
 
-  template <typename T> [[nodiscard]] inline std::optional<T> parseDotDecimal(std::string_view text) {
+  template <typename T> inline std::optional<T> parseDotDecimal(std::string_view text) {
     static_assert(std::is_floating_point_v<T>);
 
     const std::string trimmed = trim(text);
@@ -76,7 +76,7 @@ namespace StringUtils {
     return value;
   }
 
-  [[nodiscard]] inline std::string formatDotDecimal(double value) {
+  inline std::string formatDotDecimal(double value) {
     std::array<char, 64> buffer{};
     const auto [ptr, ec] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
     if (ec != std::errc{}) {
@@ -85,7 +85,7 @@ namespace StringUtils {
     return std::string(buffer.data(), ptr);
   }
 
-  [[nodiscard]] inline std::string formatFixedDotDecimal(double value, int precision) {
+  inline std::string formatFixedDotDecimal(double value, int precision) {
     std::array<char, 64> buffer{};
     const auto [ptr, ec] =
         std::to_chars(buffer.data(), buffer.data() + buffer.size(), value, std::chars_format::fixed, precision);
@@ -95,7 +95,7 @@ namespace StringUtils {
     return std::string(buffer.data(), ptr);
   }
 
-  [[nodiscard]] inline std::string toLower(std::string_view s) {
+  inline std::string toLower(std::string_view s) {
     std::string out(s);
     std::ranges::transform(out, out.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return out;
@@ -103,7 +103,7 @@ namespace StringUtils {
 
   // Case-insensitive natural (alphanumeric) order: "image(2)" < "image(10)".
   // Returns <0, 0, or >0 like strcmp.
-  [[nodiscard]] inline int naturalCaseInsensitiveCompare(std::string_view a, std::string_view b) {
+  inline int naturalCaseInsensitiveCompare(std::string_view a, std::string_view b) {
     std::size_t i = 0;
     std::size_t j = 0;
     while (i < a.size() && j < b.size()) {
@@ -162,11 +162,11 @@ namespace StringUtils {
     return i == a.size() ? -1 : 1;
   }
 
-  [[nodiscard]] inline bool naturalCaseInsensitiveLess(std::string_view a, std::string_view b) {
+  inline bool naturalCaseInsensitiveLess(std::string_view a, std::string_view b) {
     return naturalCaseInsensitiveCompare(a, b) < 0;
   }
 
-  [[nodiscard]] inline std::string pathTail(std::string_view path) {
+  inline std::string pathTail(std::string_view path) {
     const auto slash = path.find_last_of('/');
     if (slash == std::string_view::npos || slash + 1 >= path.size()) {
       return std::string(path);
@@ -174,7 +174,7 @@ namespace StringUtils {
     return std::string(path.substr(slash + 1));
   }
 
-  [[nodiscard]] inline std::string urlEncode(std::string_view text) {
+  inline std::string urlEncode(std::string_view text) {
     constexpr char kHexDigits[] = "0123456789ABCDEF";
 
     std::string encoded;
@@ -198,7 +198,7 @@ namespace StringUtils {
     return encoded;
   }
 
-  [[nodiscard]] inline std::string urlDecode(std::string_view text) {
+  inline std::string urlDecode(std::string_view text) {
     auto hexValue = [](unsigned char ch) -> int {
       if (ch >= '0' && ch <= '9') {
         return ch - '0';
@@ -238,13 +238,13 @@ namespace StringUtils {
     std::ranges::transform(s, s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   }
 
-  [[nodiscard]] inline bool equalsInsensitive(std::string_view lhs, std::string_view rhs) {
+  inline bool equalsInsensitive(std::string_view lhs, std::string_view rhs) {
     return std::ranges::equal(lhs, rhs, [](unsigned char a, unsigned char b) {
       return std::tolower(a) == std::tolower(b);
     });
   }
 
-  [[nodiscard]] inline bool containsInsensitive(std::string_view haystack, std::string_view needle) {
+  inline bool containsInsensitive(std::string_view haystack, std::string_view needle) {
     if (haystack.empty() || needle.empty()) {
       return false;
     }
@@ -256,7 +256,7 @@ namespace StringUtils {
   }
 
   // Whitespace-bounded search, so "DP-1" does not match inside "eDP-1".
-  [[nodiscard]] inline bool containsWholeToken(std::string_view haystack, std::string_view needle) {
+  inline bool containsWholeToken(std::string_view haystack, std::string_view needle) {
     if (haystack.empty() || needle.empty()) {
       return false;
     }
@@ -271,7 +271,7 @@ namespace StringUtils {
     return false;
   }
 
-  [[nodiscard]] inline std::string trimLeadingBlankLines(std::string_view text) {
+  inline std::string trimLeadingBlankLines(std::string_view text) {
     if (text.empty()) {
       return {};
     }
@@ -298,7 +298,7 @@ namespace StringUtils {
     return std::string(text.substr(start));
   }
 
-  [[nodiscard]] inline std::string truncateByLines(std::string_view text, int maxLines, bool* didTruncate = nullptr) {
+  inline std::string truncateByLines(std::string_view text, int maxLines, bool* didTruncate = nullptr) {
     if (didTruncate != nullptr) {
       *didTruncate = false;
     }
@@ -324,7 +324,7 @@ namespace StringUtils {
   }
 
   // UTF-8 encoding of one Unicode codepoint; empty above U+10FFFF.
-  [[nodiscard]] inline std::string utf32ToUtf8(std::uint32_t codepoint) {
+  inline std::string utf32ToUtf8(std::uint32_t codepoint) {
     if (codepoint <= 0x7FU) {
       return std::string(1, static_cast<char>(codepoint));
     }
@@ -349,7 +349,7 @@ namespace StringUtils {
   // True when `text` is exactly one codepoint in a Unicode Private Use Area —
   // i.e. a Nerd Font / icon glyph rather than text. Such glyphs ignore cap/x
   // height, so callers center them by ink instead of the typographic cap band.
-  [[nodiscard]] inline bool isSinglePrivateUseGlyph(std::string_view text) {
+  inline bool isSinglePrivateUseGlyph(std::string_view text) {
     if (text.empty()) {
       return false;
     }
@@ -384,7 +384,7 @@ namespace StringUtils {
     return (cp >= 0xE000 && cp <= 0xF8FF) || (cp >= 0xF0000 && cp <= 0xFFFFD) || (cp >= 0x100000 && cp <= 0x10FFFD);
   }
 
-  [[nodiscard]] inline std::string truncateUtf8CodePoints(std::string_view text, std::size_t maxCodePoints) {
+  inline std::string truncateUtf8CodePoints(std::string_view text, std::size_t maxCodePoints) {
     std::size_t codePoints = 0;
     std::size_t bytePos = 0;
     while (bytePos < text.size() && codePoints < maxCodePoints) {
@@ -405,7 +405,7 @@ namespace StringUtils {
     return std::string(text.substr(0, bytePos));
   }
 
-  [[nodiscard]] inline std::string truncateUtf8(std::string_view text, std::size_t maxBytes) {
+  inline std::string truncateUtf8(std::string_view text, std::size_t maxBytes) {
     if (text.size() <= maxBytes) {
       return std::string(text);
     }
@@ -419,7 +419,7 @@ namespace StringUtils {
 
   // Strip only the Freedesktop notification markup tags that this renderer does
   // not support. Unknown or malformed angle-bracket text remains visible.
-  [[nodiscard]] inline std::string sanitizeMarkup(std::string_view s) {
+  inline std::string sanitizeMarkup(std::string_view s) {
     const auto tagEquals = [](std::string_view tag, std::string_view expected) {
       if (tag.size() != expected.size()) {
         return false;
@@ -502,7 +502,7 @@ namespace StringUtils {
     return out;
   }
 
-  [[nodiscard]] inline std::vector<std::string> splitWhitespace(std::string_view text) {
+  inline std::vector<std::string> splitWhitespace(std::string_view text) {
     std::vector<std::string> result;
     std::size_t i = 0;
     while (i < text.size()) {
@@ -521,7 +521,7 @@ namespace StringUtils {
     return result;
   }
 
-  [[nodiscard]] inline std::vector<std::string_view> split(std::string_view text, char delimiter) {
+  inline std::vector<std::string_view> split(std::string_view text, char delimiter) {
     std::vector<std::string_view> result;
     std::size_t start = 0;
     while (start <= text.size()) {
@@ -536,7 +536,7 @@ namespace StringUtils {
     return result;
   }
 
-  [[nodiscard]] inline std::string join(const std::vector<std::string>& parts, std::string_view separator) {
+  inline std::string join(const std::vector<std::string>& parts, std::string_view separator) {
     std::string result;
     for (std::size_t i = 0; i < parts.size(); ++i) {
       if (i > 0) {
@@ -547,7 +547,7 @@ namespace StringUtils {
     return result;
   }
 
-  [[nodiscard]] inline std::string replaceAll(std::string_view input, std::string_view from, std::string_view to) {
+  inline std::string replaceAll(std::string_view input, std::string_view from, std::string_view to) {
     if (from.empty()) {
       return std::string(input);
     }
@@ -567,11 +567,11 @@ namespace StringUtils {
     return result;
   }
 
-  [[nodiscard]] inline bool isBlank(std::string_view text) {
+  inline bool isBlank(std::string_view text) {
     return text.empty() || std::ranges::all_of(text, [](unsigned char ch) { return std::isspace(ch) != 0; });
   }
 
-  [[nodiscard]] inline std::string shellQuote(std::string_view text) {
+  inline std::string shellQuote(std::string_view text) {
     std::string result = "'";
     for (char ch : text) {
       if (ch == '\'') {
@@ -588,7 +588,7 @@ namespace StringUtils {
   // "..." honours \" \\ \$ \` escapes; a backslash outside quotes escapes the next character.
   // Adjacent quoted and unquoted parts join into one word, and '' yields an empty word.
   // Fails on an unterminated quote.
-  [[nodiscard]] inline std::expected<std::vector<std::string>, std::string> splitShellWords(std::string_view text) {
+  inline std::expected<std::vector<std::string>, std::string> splitShellWords(std::string_view text) {
     std::vector<std::string> words;
     std::string current;
     bool inWord = false;
@@ -655,7 +655,7 @@ namespace StringUtils {
     return words;
   }
 
-  [[nodiscard]] inline std::string quoteDouble(std::string_view text) {
+  inline std::string quoteDouble(std::string_view text) {
     std::string result = "\"";
     for (char ch : text) {
       if (ch == '\\' || ch == '"') {
@@ -667,7 +667,7 @@ namespace StringUtils {
     return result;
   }
 
-  [[nodiscard]] inline std::string unquote(std::string_view text) {
+  inline std::string unquote(std::string_view text) {
     if (text.size() < 2) {
       return std::string(text);
     }
@@ -688,7 +688,7 @@ namespace StringUtils {
     return std::string(text);
   }
 
-  [[nodiscard]] inline std::string snakeToKebab(std::string_view s) {
+  inline std::string snakeToKebab(std::string_view s) {
     std::string result;
     result.reserve(s.size());
     for (char c : s) {
@@ -697,7 +697,7 @@ namespace StringUtils {
     return result;
   }
 
-  [[nodiscard]] inline std::string generateUuid() {
+  inline std::string generateUuid() {
     std::uint8_t bytes[16]{};
     FILE* urandom = std::fopen("/dev/urandom", "rb");
     if (urandom == nullptr) {

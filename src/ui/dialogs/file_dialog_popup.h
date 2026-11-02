@@ -30,7 +30,7 @@ public:
   void requestLayout() override { DialogPopupHost::requestLayout(); }
   void requestRedraw() override { DialogPopupHost::requestRedraw(); }
   void focusArea(InputArea* area) override;
-  [[nodiscard]] InputArea* focusedArea() const override;
+  InputArea* focusedArea() const override;
   void accept(std::optional<std::filesystem::path> result) override;
   void cancel() override { DialogPopupHost::cancel(); }
 
@@ -38,11 +38,11 @@ protected:
   void populateContent(Node* contentParent, std::uint32_t width, std::uint32_t height) override;
   void layoutSheet(float contentWidth, float contentHeight) override;
   void cancelToFacade() override;
-  [[nodiscard]] InputArea* initialFocusArea() override;
+  InputArea* initialFocusArea() override;
 
-  [[nodiscard]] float computePadding(float scale) const override;
+  float computePadding(float scale) const override;
   void runUpdatePhase() override;
-  [[nodiscard]] bool preDispatchKeyboard(const KeyboardEvent& event) override;
+  bool preDispatchKeyboard(const KeyboardEvent& event) override;
   void onSheetClose() override;
 
 private:

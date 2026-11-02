@@ -48,7 +48,7 @@ namespace {
   std::expected<LoadedImageFile, std::string>
   rasterizeSvg(const std::vector<std::uint8_t>& fileData, int targetSize, bool centerSquareCrop);
 
-  [[nodiscard]] bool asciiStartsWithDataScheme(std::string_view source) {
+  bool asciiStartsWithDataScheme(std::string_view source) {
     if (source.size() < 5) {
       return false;
     }
@@ -59,9 +59,9 @@ namespace {
         && source[4] == ':';
   }
 
-  [[nodiscard]] char asciiLower(char ch) { return ch >= 'A' && ch <= 'Z' ? static_cast<char>(ch - 'A' + 'a') : ch; }
+  char asciiLower(char ch) { return ch >= 'A' && ch <= 'Z' ? static_cast<char>(ch - 'A' + 'a') : ch; }
 
-  [[nodiscard]] bool asciiEqualInsensitive(std::string_view lhs, std::string_view rhs) {
+  bool asciiEqualInsensitive(std::string_view lhs, std::string_view rhs) {
     if (lhs.size() != rhs.size()) {
       return false;
     }
@@ -73,11 +73,9 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] bool asciiWhitespace(char ch) {
-    return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == '\f';
-  }
+  bool asciiWhitespace(char ch) { return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == '\f'; }
 
-  [[nodiscard]] std::string_view trimAscii(std::string_view value) {
+  std::string_view trimAscii(std::string_view value) {
     while (!value.empty() && asciiWhitespace(value.front())) {
       value.remove_prefix(1);
     }
@@ -87,7 +85,7 @@ namespace {
     return value;
   }
 
-  [[nodiscard]] int hexValue(char ch) {
+  int hexValue(char ch) {
     if (ch >= '0' && ch <= '9') {
       return ch - '0';
     }
@@ -100,7 +98,7 @@ namespace {
     return -1;
   }
 
-  [[nodiscard]] std::expected<std::vector<std::uint8_t>, std::string> percentDecode(std::string_view value) {
+  std::expected<std::vector<std::uint8_t>, std::string> percentDecode(std::string_view value) {
     std::vector<std::uint8_t> out;
     out.reserve(value.size());
 
@@ -128,7 +126,7 @@ namespace {
     return out;
   }
 
-  [[nodiscard]] int base64Value(unsigned char ch) {
+  int base64Value(unsigned char ch) {
     if (ch >= 'A' && ch <= 'Z') {
       return ch - 'A';
     }
@@ -147,7 +145,7 @@ namespace {
     return -1;
   }
 
-  [[nodiscard]] std::expected<std::vector<std::uint8_t>, std::string> base64Decode(std::string_view value) {
+  std::expected<std::vector<std::uint8_t>, std::string> base64Decode(std::string_view value) {
     std::vector<std::uint8_t> out;
     out.reserve((value.size() * 3U) / 4U);
 
@@ -238,7 +236,7 @@ namespace {
     bool declaredSvg = false;
   };
 
-  [[nodiscard]] std::expected<DecodedDataUri, std::string> decodeDataUri(std::string_view source) {
+  std::expected<DecodedDataUri, std::string> decodeDataUri(std::string_view source) {
     const std::size_t comma = source.find(',');
     if (comma == std::string_view::npos) {
       return std::unexpected("data URI is missing payload separator");
@@ -291,11 +289,11 @@ namespace {
     return DecodedDataUri{.bytes = std::move(*decodedBytes), .declaredSvg = declaredSvg};
   }
 
-  [[nodiscard]] bool startsWithUtf8Bom(const std::vector<std::uint8_t>& data) {
+  bool startsWithUtf8Bom(const std::vector<std::uint8_t>& data) {
     return data.size() >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF;
   }
 
-  [[nodiscard]] bool looksLikeSvg(const std::vector<std::uint8_t>& data) {
+  bool looksLikeSvg(const std::vector<std::uint8_t>& data) {
     std::size_t pos = startsWithUtf8Bom(data) ? 3U : 0U;
     while (pos < data.size() && asciiWhitespace(static_cast<char>(data[pos]))) {
       ++pos;
@@ -314,7 +312,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] LoadedImageFile cropCenterSquare(LoadedImageFile image) {
+  LoadedImageFile cropCenterSquare(LoadedImageFile image) {
     const int side = std::min(image.width, image.height);
     if (side <= 0 || (image.width == side && image.height == side)) {
       return image;

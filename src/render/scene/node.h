@@ -69,11 +69,11 @@ struct LayoutConstraints {
   void setExactWidth(float width) noexcept;
   void setExactHeight(float height) noexcept;
 
-  [[nodiscard]] bool hasExactWidth() const noexcept;
-  [[nodiscard]] bool hasExactHeight() const noexcept;
-  [[nodiscard]] float constrainWidth(float width) const noexcept;
-  [[nodiscard]] float constrainHeight(float height) const noexcept;
-  [[nodiscard]] LayoutSize constrain(LayoutSize size) const noexcept;
+  bool hasExactWidth() const noexcept;
+  bool hasExactHeight() const noexcept;
+  float constrainWidth(float width) const noexcept;
+  float constrainHeight(float height) const noexcept;
+  LayoutSize constrain(LayoutSize size) const noexcept;
 };
 
 class Node {
@@ -84,37 +84,33 @@ public:
   Node(const Node&) = delete;
   Node& operator=(const Node&) = delete;
 
-  [[nodiscard]] NodeType type() const noexcept { return m_type; }
+  NodeType type() const noexcept { return m_type; }
 
-  [[nodiscard]] float x() const noexcept { return m_x; }
-  [[nodiscard]] float y() const noexcept { return m_y; }
-  [[nodiscard]] float width() const noexcept { return m_width; }
-  [[nodiscard]] float height() const noexcept { return m_height; }
-  [[nodiscard]] float rotation() const noexcept { return m_rotation; }
-  [[nodiscard]] float scale() const noexcept { return m_scaleX; }
-  [[nodiscard]] float scaleX() const noexcept { return m_scaleX; }
-  [[nodiscard]] float scaleY() const noexcept { return m_scaleY; }
-  [[nodiscard]] float opacity() const noexcept { return m_opacity; }
-  [[nodiscard]] float flexGrow() const noexcept { return m_flexGrow; }
-  [[nodiscard]] bool visible() const noexcept { return m_visible; }
-  [[nodiscard]] bool participatesInLayout() const noexcept { return m_participatesInLayout; }
-  [[nodiscard]] bool paintDirty() const noexcept { return m_paintDirty; }
-  [[nodiscard]] bool layoutDirty() const noexcept { return m_layoutDirty; }
-  [[nodiscard]] bool clipChildren() const noexcept { return m_clipChildren; }
-  [[nodiscard]] bool paintContained() const noexcept { return m_paintContained; }
-  [[nodiscard]] bool hitTestVisible() const noexcept { return m_hitTestVisible; }
-  [[nodiscard]] HitTestOutset hitTestOutset() const noexcept { return m_hitTestOutset; }
-  [[nodiscard]] bool sizeAssignedByLayout() const noexcept { return m_sizeAssignedByLayout; }
-  [[nodiscard]] bool arrangingByLayout() const noexcept { return m_arranging; }
-  [[nodiscard]] float transformOriginX() const noexcept {
-    return m_hasTransformOrigin ? m_transformOriginX : m_width * 0.5F;
-  }
-  [[nodiscard]] float transformOriginY() const noexcept {
-    return m_hasTransformOrigin ? m_transformOriginY : m_height * 0.5F;
-  }
-  [[nodiscard]] std::int32_t zIndex() const noexcept { return m_zIndex; }
-  [[nodiscard]] Node* parent() const noexcept { return m_parent; }
-  [[nodiscard]] const std::vector<std::unique_ptr<Node>>& children() const noexcept { return m_children; }
+  float x() const noexcept { return m_x; }
+  float y() const noexcept { return m_y; }
+  float width() const noexcept { return m_width; }
+  float height() const noexcept { return m_height; }
+  float rotation() const noexcept { return m_rotation; }
+  float scale() const noexcept { return m_scaleX; }
+  float scaleX() const noexcept { return m_scaleX; }
+  float scaleY() const noexcept { return m_scaleY; }
+  float opacity() const noexcept { return m_opacity; }
+  float flexGrow() const noexcept { return m_flexGrow; }
+  bool visible() const noexcept { return m_visible; }
+  bool participatesInLayout() const noexcept { return m_participatesInLayout; }
+  bool paintDirty() const noexcept { return m_paintDirty; }
+  bool layoutDirty() const noexcept { return m_layoutDirty; }
+  bool clipChildren() const noexcept { return m_clipChildren; }
+  bool paintContained() const noexcept { return m_paintContained; }
+  bool hitTestVisible() const noexcept { return m_hitTestVisible; }
+  HitTestOutset hitTestOutset() const noexcept { return m_hitTestOutset; }
+  bool sizeAssignedByLayout() const noexcept { return m_sizeAssignedByLayout; }
+  bool arrangingByLayout() const noexcept { return m_arranging; }
+  float transformOriginX() const noexcept { return m_hasTransformOrigin ? m_transformOriginX : m_width * 0.5F; }
+  float transformOriginY() const noexcept { return m_hasTransformOrigin ? m_transformOriginY : m_height * 0.5F; }
+  std::int32_t zIndex() const noexcept { return m_zIndex; }
+  Node* parent() const noexcept { return m_parent; }
+  const std::vector<std::unique_ptr<Node>>& children() const noexcept { return m_children; }
 
   void setPosition(float x, float y);
   virtual void setSize(float width, float height);
@@ -135,7 +131,7 @@ public:
   void setHitTestOutset(const HitTestOutset& outset);
   void setZIndex(std::int32_t zIndex);
   void setExcludeSubtreeFromTabOrder(bool exclude) noexcept;
-  [[nodiscard]] bool excludeSubtreeFromTabOrder() const noexcept { return m_excludeSubtreeFromTabOrder; }
+  bool excludeSubtreeFromTabOrder() const noexcept { return m_excludeSubtreeFromTabOrder; }
 
   virtual Node* addChild(std::unique_ptr<Node> child);
   // Insert at a specific vector position to control Flex layout order (not rendering order — use zIndex for that).
@@ -143,12 +139,12 @@ public:
   virtual std::unique_ptr<Node> removeChild(Node* child);
 
   virtual void setAnimationManager(AnimationManager* mgr);
-  [[nodiscard]] AnimationManager* animationManager() const noexcept { return m_animationManager; }
+  AnimationManager* animationManager() const noexcept { return m_animationManager; }
   void setPopupContext(SelectPopupContext* ctx);
-  [[nodiscard]] SelectPopupContext* popupContext() const noexcept { return m_popupContext; }
+  SelectPopupContext* popupContext() const noexcept { return m_popupContext; }
   void setInvalidationCallback(std::function<void(NodeInvalidation)> callback);
   void layout(Renderer& renderer);
-  [[nodiscard]] LayoutSize measure(Renderer& renderer, const LayoutConstraints& constraints);
+  LayoutSize measure(Renderer& renderer, const LayoutConstraints& constraints);
   void arrange(Renderer& renderer, const LayoutRect& rect);
   void invalidateGpuResources(Renderer& renderer, std::uint64_t generation);
   // Rebinds retained Renderer pointers across the whole subtree to a stable
@@ -156,11 +152,11 @@ public:
   // Hosts that measured a retained tree with a transient fixed-scale renderer
   // call this with the surface's stable renderer before the transient dies.
   void rebindRenderer(Renderer& renderer);
-  [[nodiscard]] std::uint64_t gpuResourceGeneration() const noexcept { return m_gpuResourceGeneration; }
-  [[nodiscard]] bool containsScenePoint(float sceneX, float sceneY) const;
+  std::uint64_t gpuResourceGeneration() const noexcept { return m_gpuResourceGeneration; }
+  bool containsScenePoint(float sceneX, float sceneY) const;
 
   void setUserData(void* data) noexcept { m_userData = data; }
-  [[nodiscard]] void* userData() const noexcept { return m_userData; }
+  void* userData() const noexcept { return m_userData; }
 
   static Node* hitTest(Node* root, float x, float y);
   // Hit-test layout content only. Unlike hitTest(), descendants cannot receive
@@ -186,7 +182,7 @@ protected:
   virtual void doInvalidateGpuResources(Renderer& renderer);
   // Refreshes any Renderer pointer this node retains; no layout side effects.
   virtual void doRebindRenderer(Renderer& renderer) { (void)renderer; }
-  [[nodiscard]] virtual bool containsLocalPoint(float localX, float localY, bool includeHitOutset) const;
+  virtual bool containsLocalPoint(float localX, float localY, bool includeHitOutset) const;
 
 private:
   static bool
@@ -241,7 +237,7 @@ public:
   }
 
   void setSource(const Node* source) noexcept { m_source = source; }
-  [[nodiscard]] const Node* source() const noexcept { return m_source; }
+  const Node* source() const noexcept { return m_source; }
 
 private:
   const Node* m_source = nullptr;

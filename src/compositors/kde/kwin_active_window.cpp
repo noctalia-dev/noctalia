@@ -245,9 +245,9 @@ syncWindows();
     return true;
   }
 
-  [[nodiscard]] std::string jsStringLiteral(const std::string& value) { return nlohmann::json(value).dump(); }
+  std::string jsStringLiteral(const std::string& value) { return nlohmann::json(value).dump(); }
 
-  [[nodiscard]] std::vector<std::string> splitString(std::string_view value, char separator) {
+  std::vector<std::string> splitString(std::string_view value, char separator) {
     std::vector<std::string> parts;
     std::size_t start = 0;
     while (start <= value.size()) {
@@ -262,7 +262,7 @@ syncWindows();
     return parts;
   }
 
-  [[nodiscard]] bool isNoctaliaShellSurface(const std::string& appId, const std::string& title) {
+  bool isNoctaliaShellSurface(const std::string& appId, const std::string& title) {
     const std::string appLower = StringUtils::toLower(appId);
     if (appLower == "noctalia") {
       return true;

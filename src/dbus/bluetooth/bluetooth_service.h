@@ -90,9 +90,9 @@ public:
   void refresh();
   void registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback = {});
 
-  [[nodiscard]] const BluetoothState& state() const noexcept { return m_state; }
-  [[nodiscard]] bool hasStateSnapshot() const noexcept { return m_hasStateSnapshot; }
-  [[nodiscard]] const std::vector<BluetoothDeviceInfo>& devices() const noexcept { return m_devices; }
+  const BluetoothState& state() const noexcept { return m_state; }
+  bool hasStateSnapshot() const noexcept { return m_hasStateSnapshot; }
+  const std::vector<BluetoothDeviceInfo>& devices() const noexcept { return m_devices; }
 
   void setPowered(bool enabled);
   void setDiscoverable(bool enabled);

@@ -29,15 +29,15 @@ public:
 
   void openSelectDropdown(const DropdownRequest& request, DropdownCallbacks callbacks) override;
   void closeSelectDropdown() override;
-  [[nodiscard]] bool isSelectDropdownOpen() const override;
+  bool isSelectDropdownOpen() const override;
 
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
+  bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
 
-  [[nodiscard]] wl_surface* wlSurface() const noexcept;
-  [[nodiscard]] xdg_surface* xdgSurface() const noexcept;
-  [[nodiscard]] std::uint32_t popupWidth() const noexcept;
-  [[nodiscard]] std::uint32_t popupHeight() const noexcept;
+  wl_surface* wlSurface() const noexcept;
+  xdg_surface* xdgSurface() const noexcept;
+  std::uint32_t popupWidth() const noexcept;
+  std::uint32_t popupHeight() const noexcept;
 
 private:
   ContextMenuPopup m_popup;

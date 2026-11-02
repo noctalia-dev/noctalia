@@ -46,7 +46,7 @@ namespace {
 
   // Application icons for AudioTab rows. Must stay function-local: at TU scope
   // its icon-theme walk runs before main(), on every CLI invocation.
-  [[nodiscard]] IconResolver& audioTabIconResolver() {
+  IconResolver& audioTabIconResolver() {
     static IconResolver resolver;
     return resolver;
   }
@@ -237,7 +237,7 @@ namespace {
     return value;
   }
 
-  [[nodiscard]] bool isBlankSearchKey(std::string_view s) { return StringUtils::isBlank(s); }
+  bool isBlankSearchKey(std::string_view s) { return StringUtils::isBlank(s); }
 
   bool isDesktopTokenDelimiter(unsigned char c) { return c == '-' || c == '_' || c == '.' || std::isspace(c) != 0; }
 
@@ -731,7 +731,7 @@ namespace {
 
   // Hide devices whose active route is unavailable (e.g. an HDMI port with nothing plugged in), but
   // always keep the current default so the active selection is never hidden.
-  [[nodiscard]] std::vector<AudioNode> availableDevices(std::span<const AudioNode> devices, std::uint32_t defaultId) {
+  std::vector<AudioNode> availableDevices(std::span<const AudioNode> devices, std::uint32_t defaultId) {
     std::vector<AudioNode> out;
     out.reserve(devices.size());
     for (const auto& device : devices) {
@@ -962,8 +962,8 @@ namespace {
       }
     }
 
-    [[nodiscard]] bool hovered() const noexcept { return m_inputArea != nullptr && m_inputArea->hovered(); }
-    [[nodiscard]] bool pressed() const noexcept { return m_inputArea != nullptr && m_inputArea->pressed(); }
+    bool hovered() const noexcept { return m_inputArea != nullptr && m_inputArea->hovered(); }
+    bool pressed() const noexcept { return m_inputArea != nullptr && m_inputArea->pressed(); }
 
     std::function<void()> m_onSelect;
     RadioButton* m_radio = nullptr;
@@ -1355,8 +1355,8 @@ namespace {
       }
     }
 
-    [[nodiscard]] std::uint32_t id() const noexcept { return m_id; }
-    [[nodiscard]] bool dragging() const noexcept { return m_slider != nullptr && m_slider->dragging(); }
+    std::uint32_t id() const noexcept { return m_id; }
+    bool dragging() const noexcept { return m_slider != nullptr && m_slider->dragging(); }
 
   private:
     PipeWireService* m_audio = nullptr;

@@ -28,7 +28,7 @@ struct AttachedPanelGeometry {
 
 namespace attached_panel {
 
-  [[nodiscard]] inline CornerShapes cornerShapes(std::string_view barPosition) {
+  inline CornerShapes cornerShapes(std::string_view barPosition) {
     if (barPosition == "bottom") {
       return CornerShapes{
           .tl = CornerShape::Convex,
@@ -62,7 +62,7 @@ namespace attached_panel {
     };
   }
 
-  [[nodiscard]] inline RectInsets logicalInset(std::string_view barPosition, float radius) {
+  inline RectInsets logicalInset(std::string_view barPosition, float radius) {
     const bool vertical = (barPosition == "left" || barPosition == "right");
     if (vertical) {
       return RectInsets{
@@ -80,7 +80,7 @@ namespace attached_panel {
     };
   }
 
-  [[nodiscard]] inline AttachedRevealDirection revealDirection(std::string_view barPosition) {
+  inline AttachedRevealDirection revealDirection(std::string_view barPosition) {
     if (barPosition == "bottom") {
       return AttachedRevealDirection::Up;
     }
@@ -93,7 +93,7 @@ namespace attached_panel {
     return AttachedRevealDirection::Down;
   }
 
-  [[nodiscard]] inline Radii cornerRadii(std::string_view barPosition, float radius) {
+  inline Radii cornerRadii(std::string_view barPosition, float radius) {
     if (barPosition == "bottom") {
       return Radii{0.0F, 0.0F, radius, radius};
     }

@@ -12,7 +12,7 @@ namespace {
 
   constexpr Logger kLog("hyprland_output");
 
-  [[nodiscard]] std::optional<std::string> parseFocusedOutputName(std::string_view payload) {
+  std::optional<std::string> parseFocusedOutputName(std::string_view payload) {
     if (payload.empty()) {
       return std::nullopt;
     }

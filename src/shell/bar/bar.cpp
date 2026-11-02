@@ -46,7 +46,7 @@ namespace {
   constexpr std::int32_t kAutoHideTriggerPx = 3;
   constexpr float kAutoHideSlideExtraPx = 4.0F;
 
-  [[nodiscard]] std::string activeWorkspaceId(const std::vector<Workspace>& workspaces) {
+  std::string activeWorkspaceId(const std::vector<Workspace>& workspaces) {
     for (const auto& workspace : workspaces) {
       if (workspace.active) {
         if (!workspace.id.empty()) {
@@ -61,18 +61,18 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] bool barConfigUsesSlideSurface(const BarConfig& cfg) noexcept { return cfg.isAutoHideEnabled(); }
+  bool barConfigUsesSlideSurface(const BarConfig& cfg) noexcept { return cfg.isAutoHideEnabled(); }
 
-  [[nodiscard]] bool barSupportsSlideBehavior(const BarConfig& cfg) noexcept { return cfg.isAutoHideEnabled(); }
+  bool barSupportsSlideBehavior(const BarConfig& cfg) noexcept { return cfg.isAutoHideEnabled(); }
 
-  [[nodiscard]] bool barPointerHideAllowed(const BarInstance& instance) noexcept {
+  bool barPointerHideAllowed(const BarInstance& instance) noexcept {
     if (instance.barConfig.smartAutoHide) {
       return !instance.smartAutoHidePinnedVisible;
     }
     return instance.barConfig.autoHide;
   }
 
-  [[nodiscard]] bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
+  bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
     if (assignmentKey.empty()) {
       return false;
     }
@@ -88,7 +88,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
+  bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
     const auto workspaces = platform.workspaces(output);
     const Workspace* active = nullptr;
     for (const auto& workspace : workspaces) {
@@ -119,22 +119,21 @@ namespace {
     return active->occupied;
   }
 
-  [[nodiscard]] bool smartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
+  bool smartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
     if (platform.hasOverviewState() && platform.isOverviewOpen()) {
       return true;
     }
     return !activeWorkspaceHasWindows(platform, output);
   }
 
-  [[nodiscard]] int barAutoHideEdgeGutter(const BarConfig& cfg) noexcept {
+  int barAutoHideEdgeGutter(const BarConfig& cfg) noexcept {
     if (!barConfigUsesSlideSurface(cfg) || cfg.marginEdge <= 0) {
       return 0;
     }
     return cfg.marginEdge;
   }
 
-  [[nodiscard]] std::vector<InputRect>
-  barAutoHideSurfaceInputRegion(const BarConfig& cfg, int surfW, int surfH, bool fullSurface) {
+  std::vector<InputRect> barAutoHideSurfaceInputRegion(const BarConfig& cfg, int surfW, int surfH, bool fullSurface) {
     if (surfW <= 0 || surfH <= 0) {
       return {};
     }
@@ -489,13 +488,11 @@ namespace {
     float sliceStart = 0.0F;
     float sliceEnd = 0.0F;
 
-    [[nodiscard]] float mainStart(bool isVertical) const noexcept { return isVertical ? y : x; }
-    [[nodiscard]] float mainEnd(bool isVertical) const noexcept {
-      return mainStart(isVertical) + (isVertical ? height : width);
-    }
+    float mainStart(bool isVertical) const noexcept { return isVertical ? y : x; }
+    float mainEnd(bool isVertical) const noexcept { return mainStart(isVertical) + (isVertical ? height : width); }
   };
 
-  [[nodiscard]] std::vector<CapsuleMemberGeometry>
+  std::vector<CapsuleMemberGeometry>
   capsuleMemberSlices(const BarCapsuleRun& run, bool isVertical, float widgetHoverPadding) {
     std::vector<CapsuleMemberGeometry> members;
     if (run.shell == nullptr) {
@@ -655,8 +652,7 @@ namespace {
     std::int32_t exclusiveZone = 0;
   };
 
-  [[nodiscard]] BarSurfaceSpec
-  computeBarSurfaceSpec(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
+  BarSurfaceSpec computeBarSurfaceSpec(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
     const bool vertical = (barConfig.position == "left" || barConfig.position == "right");
     const bool isBottom = barConfig.position == "bottom";
     const bool isRight = barConfig.position == "right";
@@ -725,7 +721,7 @@ namespace {
     return spec;
   }
 
-  [[nodiscard]] float barInnerSurfaceExtension(
+  float barInnerSurfaceExtension(
       const BarConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceWidth, float surfaceHeight
   ) {
     const auto base = computeBarSurfaceSpec(cfg, shadow);
@@ -858,8 +854,7 @@ namespace {
     };
   }
 
-  [[nodiscard]] InputRect
-  barContentInputRegion(const BarConfig& cfg, const ShellConfig::ShadowConfig& shadow, int surfW, int surfH) {
+  InputRect barContentInputRegion(const BarConfig& cfg, const ShellConfig::ShadowConfig& shadow, int surfW, int surfH) {
     const float innerSurfaceExtension =
         barInnerSurfaceExtension(cfg, shadow, static_cast<float>(surfW), static_cast<float>(surfH));
     const auto barVisual = computeBarVisualGeometry(
@@ -874,7 +869,7 @@ namespace {
   // Click-through dead zone: one rect per interactive widget, spanning the bar's thickness and padded
   // along the bar by the capsule padding that widens widget hit targets past their bounds. Spacers and
   // passive widgets are dead zone (see widgetAtPoint), so they pass through too.
-  [[nodiscard]] std::vector<InputRect> barWidgetsInputRegion(const BarInstance& instance, const InputRect& bar) {
+  std::vector<InputRect> barWidgetsInputRegion(const BarInstance& instance, const InputRect& bar) {
     const bool isVertical = (instance.barConfig.position == "left" || instance.barConfig.position == "right");
     const float pad = instance.barConfig.widgetCapsulePadding;
     std::vector<InputRect> rects;
@@ -4021,7 +4016,7 @@ std::optional<std::string> Bar::collectBarIpcInstances(
 
 namespace {
 
-  [[nodiscard]] std::optional<std::string> parseBarVisibilityIpcArgs(
+  std::optional<std::string> parseBarVisibilityIpcArgs(
       std::string_view command, std::string_view args, std::optional<std::string>& barName,
       std::optional<std::string>& monitorSelector
   ) {

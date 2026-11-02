@@ -20,7 +20,7 @@ namespace {
 
   constexpr Logger kLog("overview-launcher");
 
-  [[nodiscard]] bool isLauncherTypingKey(const KeyboardEvent& event) {
+  bool isLauncherTypingKey(const KeyboardEvent& event) {
     if (!event.pressed || event.preedit) {
       return false;
     }
@@ -190,27 +190,27 @@ bool OverviewLauncherCapture::handleOverviewKey(const KeyboardEvent& event) cons
 
   if (KeySymbol::isEnter(event.sym) || KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
     const auto* action = isUmbriel ? "overview-toggle" : "ToggleOverview";
-    (void)sendOverviewAction(action);
+    sendOverviewAction(action);
     return true;
   }
   if (KeySymbol::isLeft(event.sym)) {
     const auto* action = isUmbriel ? "window-focus-left" : "FocusColumnLeft";
-    (void)sendOverviewAction(action);
+    sendOverviewAction(action);
     return true;
   }
   if (KeySymbol::isRight(event.sym)) {
     const auto* action = isUmbriel ? "window-focus-right" : "FocusColumnRight";
-    (void)sendOverviewAction(action);
+    sendOverviewAction(action);
     return true;
   }
   if (KeySymbol::isUp(event.sym)) {
     const auto* action = isUmbriel ? "window-focus-or-workspace-up" : "FocusWorkspaceUp";
-    (void)sendOverviewAction(action);
+    sendOverviewAction(action);
     return true;
   }
   if (KeySymbol::isDown(event.sym)) {
     const auto* action = isUmbriel ? "window-focus-or-workspace-down" : "FocusWorkspaceDown";
-    (void)sendOverviewAction(action);
+    sendOverviewAction(action);
     return true;
   }
 

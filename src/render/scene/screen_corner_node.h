@@ -7,7 +7,7 @@ class ScreenCornerNode : public Node {
 public:
   ScreenCornerNode() : Node(NodeType::ScreenCorner) {}
 
-  [[nodiscard]] const ScreenCornerStyle& style() const noexcept { return m_style; }
+  const ScreenCornerStyle& style() const noexcept { return m_style; }
 
   void setStyle(const ScreenCornerStyle& style) {
     if (m_style == style) {

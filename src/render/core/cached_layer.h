@@ -25,12 +25,12 @@ public:
 
   TextureId ensure(const RenderCallback& renderFn);
 
-  [[nodiscard]] TextureId texture() const noexcept;
-  [[nodiscard]] RenderFramebuffer* scratch();
-  [[nodiscard]] std::uint32_t width() const noexcept { return m_width; }
-  [[nodiscard]] std::uint32_t height() const noexcept { return m_height; }
-  [[nodiscard]] bool dirty() const noexcept { return m_dirty; }
-  [[nodiscard]] bool valid() const noexcept { return m_framebuffer != nullptr && m_framebuffer->valid(); }
+  TextureId texture() const noexcept;
+  RenderFramebuffer* scratch();
+  std::uint32_t width() const noexcept { return m_width; }
+  std::uint32_t height() const noexcept { return m_height; }
+  bool dirty() const noexcept { return m_dirty; }
+  bool valid() const noexcept { return m_framebuffer != nullptr && m_framebuffer->valid(); }
 
   void destroy();
   void abandon() noexcept;

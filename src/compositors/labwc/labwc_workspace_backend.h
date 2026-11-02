@@ -15,14 +15,14 @@ public:
   using ToplevelsProvider = std::function<void(const std::function<void(const WlrToplevelSnapshot&)>&)>;
 
   void setProviders(WorkspacesProvider workspaces, ToplevelsProvider toplevels);
-  [[nodiscard]] bool sync() const;
+  bool sync() const;
 
   void setChangeCallback(ChangeCallback callback) override;
   void apply(std::vector<Workspace>& workspaces, const std::string& outputName = {}) const override;
-  [[nodiscard]] std::vector<std::string> workspaceKeys(const std::string& outputName = {}) const override;
-  [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
+  std::vector<std::string> workspaceKeys(const std::string& outputName = {}) const override;
+  std::unordered_map<std::string, std::vector<std::string>>
   appIdsByWorkspace(const std::string& outputName = {}) const override;
-  [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
+  std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
   void cleanup() override;
 
 private:
@@ -37,8 +37,8 @@ private:
     bool operator==(const TrackedWindow&) const = default;
   };
 
-  [[nodiscard]] static std::string workspaceKeyFor(const Workspace& workspace, std::size_t index);
-  [[nodiscard]] std::string activeWorkspaceKey(const std::vector<Workspace>& workspaces) const;
+  static std::string workspaceKeyFor(const Workspace& workspace, std::size_t index);
+  std::string activeWorkspaceKey(const std::vector<Workspace>& workspaces) const;
 
   WorkspacesProvider m_workspacesProvider;
   ToplevelsProvider m_toplevelsProvider;

@@ -79,7 +79,7 @@ namespace scripting {
     std::string text;
     std::vector<ScriptTooltipRowPatch> rows;
 
-    [[nodiscard]] bool hasRows() const noexcept { return !rows.empty(); }
+    bool hasRows() const noexcept { return !rows.empty(); }
 
     bool operator==(const ScriptTooltipPatch&) const = default;
   };
@@ -141,7 +141,7 @@ namespace scripting {
     // Panel field (the `panel.*` namespace): a close request.
     std::optional<bool> requestClose;
 
-    [[nodiscard]] bool empty() const {
+    bool empty() const {
       return !text.has_value()
           && !glyph.has_value()
           && !image.has_value()

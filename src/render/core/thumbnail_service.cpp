@@ -552,7 +552,7 @@ void ThumbnailService::workerLoop() {
       std::uint8_t* encoded = nullptr;
       const std::size_t encodedSize = WebPEncodeRGB(rgb.data(), w, h, w * 3, kThumbnailWebPQuality, &encoded);
       if (encoded != nullptr && encodedSize > 0) {
-        (void)writeFile(*cachePath, encoded, encodedSize);
+        writeFile(*cachePath, encoded, encodedSize);
         WebPFree(encoded);
       }
     }

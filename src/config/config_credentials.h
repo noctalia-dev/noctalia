@@ -15,7 +15,7 @@ namespace noctalia::config {
     Blank, // key kept with an empty value of the same TOML type
   };
 
-  [[nodiscard]] std::optional<CredentialExportMode> credentialExportModeFromString(std::string_view name);
+  std::optional<CredentialExportMode> credentialExportModeFromString(std::string_view name);
 
   // Applies `mode` to every credential in a merged or effective config root: calendar account
   // `server_url`, git plugin source `location`, and plugin settings an enabled plugin's manifest

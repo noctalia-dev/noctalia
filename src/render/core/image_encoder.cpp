@@ -29,7 +29,7 @@ namespace {
 
   // Same mapping as libjxl's JxlEncoderDistanceFromQuality, which only exists from libjxl 0.9;
   // the decoder side builds against 0.7, so keep the encoder on the 0.7 API too.
-  [[nodiscard]] float jxlDistanceFromQuality(int quality) {
+  float jxlDistanceFromQuality(int quality) {
     const float q = static_cast<float>(std::clamp(quality, 1, 100));
     if (q >= 30.0F) {
       return 0.1F + ((100.0F - q) * 0.09F);
@@ -37,7 +37,7 @@ namespace {
     return 6.4F + (std::pow(2.5F, (30.0F - q) / 5.0F) / 6.25F);
   }
 
-  [[nodiscard]] bool validInput(const std::uint8_t* rgba, int width, int height, std::string* errorOut) {
+  bool validInput(const std::uint8_t* rgba, int width, int height, std::string* errorOut) {
     if (rgba == nullptr || width <= 0 || height <= 0) {
       setError(errorOut, "invalid image");
       return false;

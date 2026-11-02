@@ -431,6 +431,7 @@ location = "https://example.invalid/bad"
     c.dock.position = DockEdge::Left;
     c.dock.iconSize = 40;
     c.dock.iconShadow = true;
+    c.dock.iconSaturation = 0.82F;
     c.dock.border = colorSpecFromRole(ColorRole::Primary);
     c.dock.borderWidth = 1.5F;
     c.dock.radius = 20;
@@ -447,6 +448,7 @@ location = "https://example.invalid/bad"
         .position = DockEdge::Left,
         .iconSize = 36,
         .iconShadow = false,
+        .iconSaturation = 0.25F,
         .autoHide = true,
         .launcherPosition = DockLauncherPosition::End,
         .pinned = std::vector<std::string>{"org.gnome.Nautilus.desktop"},
@@ -651,6 +653,16 @@ location = "https://example.invalid/bad"
   }
 
   void checkClamps() {
+    for (const auto& [text, expected] :
+         {std::pair{"", 1.0F}, std::pair{"icon_saturation = -1.0", 0.0F}, std::pair{"icon_saturation = 0.82", 0.82F},
+          std::pair{"icon_saturation = 2.0", 1.0F}}) {
+      DockConfig dock;
+      Diagnostics diagnostics;
+      readInto(toml::parse(text), dock, dockSchema(), "dock", diagnostics);
+      if (dock.iconSaturation != expected) {
+        fail("dock.icon_saturation: unexpected default, parsed value or clamp");
+      }
+    }
     // Calendar reminder lead is capped at a day ahead.
     {
       auto t = toml::parse("default_lead_minutes = 99999");

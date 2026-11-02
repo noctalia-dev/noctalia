@@ -10,21 +10,21 @@
 namespace noctalia::theme::firefox_theme::css {
   namespace {
 
-    [[nodiscard]] std::string withCssExtension(std::string_view name) {
+    std::string withCssExtension(std::string_view name) {
       if (name.ends_with(".css")) {
         return std::string(name);
       }
       return std::string(name) + ".css";
     }
 
-    [[nodiscard]] std::filesystem::path homeDir() {
+    std::filesystem::path homeDir() {
       if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
         return home;
       }
       return {};
     }
 
-    [[nodiscard]] std::filesystem::path xdgConfigHome() {
+    std::filesystem::path xdgConfigHome() {
       if (const char* config = std::getenv("XDG_CONFIG_HOME"); config != nullptr && config[0] != '\0') {
         return config;
       }
@@ -32,7 +32,7 @@ namespace noctalia::theme::firefox_theme::css {
       return home.empty() ? std::filesystem::path{} : home / ".config";
     }
 
-    [[nodiscard]] std::optional<std::filesystem::path> profilesRoot() {
+    std::optional<std::filesystem::path> profilesRoot() {
       if (const auto overridePath = settings::get("profile_path"); overridePath && !overridePath->empty()) {
         return std::filesystem::path(*overridePath);
       }
@@ -49,7 +49,7 @@ namespace noctalia::theme::firefox_theme::css {
     }
 
     // Minimal profiles.ini reader: prefer [Install*] Default=, else Profile0 Path=.
-    [[nodiscard]] std::optional<std::filesystem::path> defaultProfilePath(const std::filesystem::path& profilesDir) {
+    std::optional<std::filesystem::path> defaultProfilePath(const std::filesystem::path& profilesDir) {
       const auto iniPath = profilesDir / "profiles.ini";
       std::ifstream in(iniPath);
       if (!in) {

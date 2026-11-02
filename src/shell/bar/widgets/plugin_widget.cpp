@@ -362,7 +362,7 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     m_reconciler.setFontScale(fontScaleMultiplier());
     m_reconciler.setTextDefaults(labelFontFamily(), labelFontWeight());
     m_reconciler.setColorDefaults(widgetForegroundOr(fallback), widgetIconColorOr(fallback));
-    (void)m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
+    m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
     m_uiHost->layout(renderer);
     if (m_area)
       m_area->setSize(m_uiHost->width(), m_uiHost->height());
@@ -821,7 +821,7 @@ void PluginWidget::syncImage(Renderer& renderer) {
       m_imageReloadRetries = 0;
     }
   } else {
-    (void)m_image->setSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true);
+    m_image->setSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true);
   }
 
   m_image->setVisible(m_image->hasImage());

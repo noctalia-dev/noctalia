@@ -26,7 +26,7 @@ public:
   // rate; skipped frames add their time to the next tick. Once every target is at rest it eases
   // on every frame until settled, since no further values arrive. Returns whether it ticked.
   bool advance(float deltaMs, bool audioActive);
-  [[nodiscard]] bool converged() const noexcept { return m_converged; }
+  bool converged() const noexcept { return m_converged; }
 
 private:
   void syncPalette();

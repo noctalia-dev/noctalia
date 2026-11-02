@@ -41,7 +41,7 @@ public:
   std::unique_ptr<Flex> create() override;
   void onClose() override;
   bool dismissTransientUi() override;
-  [[nodiscard]] bool dragging() const noexcept;
+  bool dragging() const noexcept;
 
 private:
   struct DeviceVolumeCardState {
@@ -82,7 +82,7 @@ private:
   void syncProgramVolumeRows();
   void queueProgramSinkVolume(std::uint32_t id, float value);
   void flushPendingProgramVolumes(bool force = false);
-  [[nodiscard]] float sliderMaxPercent() const;
+  float sliderMaxPercent() const;
   void flushPendingVolumes(bool force = false);
 
   void openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel& menu);

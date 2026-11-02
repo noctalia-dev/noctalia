@@ -102,7 +102,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] std::string canonicalExecutablePath(const std::filesystem::path& candidate) {
+  std::string canonicalExecutablePath(const std::filesystem::path& candidate) {
     if (!process::commandExists(candidate.c_str())) {
       return {};
     }
@@ -111,7 +111,7 @@ namespace {
     return ec ? std::string{} : canonical.string();
   }
 
-  [[nodiscard]] bool isTrustedPrivilegeExecutable(const std::filesystem::path& executable) {
+  bool isTrustedPrivilegeExecutable(const std::filesystem::path& executable) {
     struct stat executableState{};
     if (::stat(executable.c_str(), &executableState) != 0
         || !S_ISREG(executableState.st_mode)
@@ -143,8 +143,7 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] std::string
-  resolveProgramPath(std::string_view name, std::initializer_list<const char*> fallbackPaths) {
+  std::string resolveProgramPath(std::string_view name, std::initializer_list<const char*> fallbackPaths) {
     if (name.find('/') != std::string_view::npos) { // NOLINT(readability-container-contains): C++20-compatible.
       return canonicalExecutablePath(std::filesystem::path(name));
     }
@@ -178,7 +177,7 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] bool programExists(std::string_view name, std::initializer_list<const char*> fallbackPaths) {
+  bool programExists(std::string_view name, std::initializer_list<const char*> fallbackPaths) {
     return !resolveProgramPath(name, fallbackPaths).empty();
   }
 
@@ -193,7 +192,7 @@ namespace {
     palette.insert_or_assign(std::string(key), formatRgbHex(color));
   }
 
-  [[nodiscard]] std::filesystem::path selectedGreeterStateDirectory() {
+  std::filesystem::path selectedGreeterStateDirectory() {
     const char* stateDir = std::getenv(kGreeterStateDirEnv.data());
     if (stateDir != nullptr && stateDir[0] != '\0') {
       return std::filesystem::path(stateDir).lexically_normal();
@@ -201,15 +200,13 @@ namespace {
     return std::filesystem::path(kDefaultGreeterStateDir);
   }
 
-  [[nodiscard]] bool isDefaultGreeterStateDirectory(const std::filesystem::path& stateDirectory) {
+  bool isDefaultGreeterStateDirectory(const std::filesystem::path& stateDirectory) {
     return stateDirectory == std::filesystem::path(kDefaultGreeterStateDir).lexically_normal();
   }
 
-  [[nodiscard]] std::filesystem::path greeterTomlPath() {
-    return selectedGreeterStateDirectory() / kGreeterTomlFileName;
-  }
+  std::filesystem::path greeterTomlPath() { return selectedGreeterStateDirectory() / kGreeterTomlFileName; }
 
-  [[nodiscard]] std::optional<std::string> readGreeterConfiguredOutput() {
+  std::optional<std::string> readGreeterConfiguredOutput() {
     const auto path = greeterTomlPath();
     std::error_code ec;
     if (!std::filesystem::is_regular_file(path, ec) || ec) {
@@ -231,7 +228,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::string sanitizeConnectorFileToken(std::string_view name) {
+  std::string sanitizeConnectorFileToken(std::string_view name) {
     std::string out;
     out.reserve(name.size());
     for (const unsigned char c : name) {
@@ -245,7 +242,7 @@ namespace {
   }
 
   // Fallback single wallpaper when no per-output map is usable.
-  [[nodiscard]] std::string resolveSyncWallpaperPath(const ConfigService& configService) {
+  std::string resolveSyncWallpaperPath(const ConfigService& configService) {
     if (const auto output = readGreeterConfiguredOutput(); output.has_value() && !output->empty()) {
       const std::string path = configService.getWallpaperPath(*output);
       if (!path.empty()) {
@@ -308,7 +305,7 @@ namespace {
     return staged;
   }
 
-  [[nodiscard]] std::string findApplyHelper() {
+  std::string findApplyHelper() {
     std::string helper = resolveProgramPath(
         kApplyHelperName,
         {"/usr/bin/noctalia-greeter-apply-appearance", "/usr/local/bin/noctalia-greeter-apply-appearance"}
@@ -320,7 +317,7 @@ namespace {
     return helper;
   }
 
-  [[nodiscard]] ApplyHelperProtocol probeApplyHelperProtocol(std::string_view helper) {
+  ApplyHelperProtocol probeApplyHelperProtocol(std::string_view helper) {
     process::RunOptions options;
     options.timeout = std::chrono::seconds(1);
     options.maxOutputBytes = 16U * 1024U;
@@ -333,11 +330,9 @@ namespace {
     return greeter::detail::classifyApplyHelperProtocol(result);
   }
 
-  [[nodiscard]] bool defaultStateDirectorySelected() {
-    return isDefaultGreeterStateDirectory(selectedGreeterStateDirectory());
-  }
+  bool defaultStateDirectorySelected() { return isDefaultGreeterStateDirectory(selectedGreeterStateDirectory()); }
 
-  [[nodiscard]] GreeterSyncMode chooseSyncMode(const ApplyHelperProtocol protocol) {
+  GreeterSyncMode chooseSyncMode(const ApplyHelperProtocol protocol) {
     if (protocol == ApplyHelperProtocol::Legacy || !defaultStateDirectorySelected()) {
       return GreeterSyncMode::LegacyAuthenticated;
     }
@@ -425,7 +420,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::string formatToml(const toml::table& table) {
+  std::string formatToml(const toml::table& table) {
     std::ostringstream out;
     out << toml::toml_formatter{
         table, toml::toml_formatter::default_flags & ~toml::format_flags::allow_literal_strings
@@ -534,7 +529,7 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] std::optional<std::string> buildGreeterOutputLayout(const CompositorPlatform& platform) {
+  std::optional<std::string> buildGreeterOutputLayout(const CompositorPlatform& platform) {
     if (!platform.wayland().hasXdgOutputManager()) {
       kLog.info("greeter sync: xdg-output unavailable; skipping output layout sync");
       return std::nullopt;
@@ -589,7 +584,7 @@ namespace {
     return layout;
   }
 
-  [[nodiscard]] std::optional<std::string> greeterTransformToken(std::int32_t transform) {
+  std::optional<std::string> greeterTransformToken(std::int32_t transform) {
     switch (transform) {
     case WL_OUTPUT_TRANSFORM_NORMAL:
       return std::string("normal");
@@ -612,7 +607,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::optional<std::string> buildGreeterOutputTransforms(const CompositorPlatform& platform) {
+  std::optional<std::string> buildGreeterOutputTransforms(const CompositorPlatform& platform) {
     const auto& outputs = platform.outputs();
     std::vector<const WaylandOutput*> ready;
     ready.reserve(outputs.size());
@@ -655,7 +650,7 @@ namespace {
     return transforms;
   }
 
-  [[nodiscard]] std::optional<float> detectedLayoutScale(const WaylandOutput& output) {
+  std::optional<float> detectedLayoutScale(const WaylandOutput& output) {
     if (output.width <= 0 || output.height <= 0 || output.logicalWidth <= 0 || output.logicalHeight <= 0) {
       return std::nullopt;
     }
@@ -677,7 +672,7 @@ namespace {
     return static_cast<float>(scale);
   }
 
-  [[nodiscard]] std::optional<std::string> buildGreeterOutputScales(const CompositorPlatform& platform) {
+  std::optional<std::string> buildGreeterOutputScales(const CompositorPlatform& platform) {
     if (!platform.wayland().hasXdgOutputManager()) {
       kLog.info("greeter sync: xdg-output unavailable; skipping output scales sync");
       return std::nullopt;
@@ -837,15 +832,15 @@ namespace {
     return installedName;
   }
 
-  [[nodiscard]] bool hasPrivilegeCommandOverride(const ShellGreeterSyncConfig& greeterSync) {
+  bool hasPrivilegeCommandOverride(const ShellGreeterSyncConfig& greeterSync) {
     return !StringUtils::trim(greeterSync.privilegeCommand).empty();
   }
 
-  [[nodiscard]] std::string privilegeCommandPrefix(const ShellGreeterSyncConfig& greeterSync) {
+  std::string privilegeCommandPrefix(const ShellGreeterSyncConfig& greeterSync) {
     return StringUtils::trim(greeterSync.privilegeCommand);
   }
 
-  [[nodiscard]] std::string trustedEnvironmentHelper() {
+  std::string trustedEnvironmentHelper() {
     for (const char* candidate : {"/usr/bin/env", "/bin/env", "/run/current-system/sw/bin/env"}) {
       if (auto resolved = canonicalExecutablePath(candidate);
           !resolved.empty() && isTrustedPrivilegeExecutable(resolved)) {
@@ -855,7 +850,7 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] std::optional<std::string>
+  std::optional<std::string>
   legacyStateEnvironment(const GreeterSyncMode mode, const std::filesystem::path& stateDirectory) {
     if (mode != GreeterSyncMode::LegacyAuthenticated || isDefaultGreeterStateDirectory(stateDirectory)) {
       return std::nullopt;
@@ -863,7 +858,7 @@ namespace {
     return std::string(kGreeterStateDirEnv) + '=' + stateDirectory.string();
   }
 
-  [[nodiscard]] std::string buildPrivilegedApplyCommand(
+  std::string buildPrivilegedApplyCommand(
       std::string_view privilegePrefix, std::string_view helper, std::string_view staging, const GreeterSyncMode mode,
       const std::optional<std::string>& stateEnvironment
   ) {

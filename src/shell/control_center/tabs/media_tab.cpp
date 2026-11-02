@@ -59,7 +59,7 @@ namespace {
     return playbackStatus == "Playing" ? "media-pause" : "media-play";
   }
 
-  [[nodiscard]] int mediaTabArtDecodeSize(float scale) {
+  int mediaTabArtDecodeSize(float scale) {
     // Match the widest artwork layout bound (see mediaWidth in doLayout).
     return static_cast<int>(std::round(kMediaUnit * 11.0F * scale));
   }
@@ -339,7 +339,7 @@ std::unique_ptr<Flex> MediaTab::create() {
               }
               const auto current = m_mpris->loopStatusActive().value_or("None");
               const std::string next = current == "None" ? "Playlist" : (current == "Playlist" ? "Track" : "None");
-              (void)m_mpris->setLoopStatusActive(next);
+              m_mpris->setLoopStatusActive(next);
               PanelManager::instance().refresh();
             });
           },
@@ -361,7 +361,7 @@ std::unique_ptr<Flex> MediaTab::create() {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
-              (void)m_mpris->previousActive();
+              m_mpris->previousActive();
               PanelManager::instance().refresh();
             });
           },
@@ -383,7 +383,7 @@ std::unique_ptr<Flex> MediaTab::create() {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
-              (void)m_mpris->playPauseActive();
+              m_mpris->playPauseActive();
               PanelManager::instance().refresh();
             });
           },
@@ -405,7 +405,7 @@ std::unique_ptr<Flex> MediaTab::create() {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
-              (void)m_mpris->nextActive();
+              m_mpris->nextActive();
               PanelManager::instance().refresh();
             });
           },
@@ -428,7 +428,7 @@ std::unique_ptr<Flex> MediaTab::create() {
                 return;
               }
               const bool enabled = m_mpris->shuffleActive().value_or(false);
-              (void)m_mpris->setShuffleActive(!enabled);
+              m_mpris->setShuffleActive(!enabled);
               PanelManager::instance().refresh();
             });
           },
@@ -768,9 +768,9 @@ void MediaTab::commitPendingSeek(double valueSeconds) {
       return;
     }
     if (!seekBusName.empty()) {
-      (void)m_mpris->setPosition(seekBusName, targetUs);
+      m_mpris->setPosition(seekBusName, targetUs);
     } else {
-      (void)m_mpris->setPositionActive(targetUs);
+      m_mpris->setPositionActive(targetUs);
     }
     PanelManager::instance().refresh();
   });

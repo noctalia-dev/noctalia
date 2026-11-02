@@ -62,7 +62,7 @@
 namespace {
   constexpr Logger kLog("app");
 
-  [[nodiscard]] bool overviewTypeToLaunchEnabled(const ConfigService& configService) {
+  bool overviewTypeToLaunchEnabled(const ConfigService& configService) {
     if (compositors::isUmbriel()) {
       return configService.config().shell.umbrielOverviewTypeToLaunchEnabled;
     }
@@ -73,7 +73,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
+  bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
     if (compositors::isUmbriel()) {
       return configService.config().shell.umbrielOverviewCloseOnLaunchEnabled;
     }
@@ -359,7 +359,7 @@ void Application::initLockScreenAndSession() {
         return;
       }
       if (!m_lockScreen.isActive()) {
-        (void)m_lockScreen.lock();
+        m_lockScreen.lock();
       }
     });
     m_logindService->setUnlockCallback([this] {
@@ -649,7 +649,7 @@ void Application::initPanelManagerAndPanels() {
       if (!overviewCloseOnLaunchEnabled(m_configService)) {
         return;
       }
-      (void)m_compositorPlatform.closeOverview();
+      m_compositorPlatform.closeOverview();
     });
     m_launcherPanel = launcherPanel.get();
     m_panelManager.registerPanel("launcher", std::move(launcherPanel));

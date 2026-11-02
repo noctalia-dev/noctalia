@@ -348,7 +348,7 @@ public:
 
   void doArrange(Renderer& renderer, const LayoutRect& rect) override { arrangeByLayout(renderer, rect); }
 
-  [[nodiscard]] const std::string& ssid() const noexcept { return m_ap.ssid; }
+  const std::string& ssid() const noexcept { return m_ap.ssid; }
 
   // Refresh the values that move while a scan runs — the signal glyph and percent.
   // Everything else about the row is structural and belongs to the list key.

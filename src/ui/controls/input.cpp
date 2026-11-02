@@ -2176,7 +2176,7 @@ void Input::syncPasswordGlyphNodes(std::size_t count) {
   }
   while (m_passwordGlyphs.size() > count) {
     auto* node = m_passwordGlyphs.back();
-    (void)m_textViewport->removeChild(node);
+    m_textViewport->removeChild(node);
     m_passwordGlyphs.pop_back();
   }
   while (m_passwordGlyphs.size() < count) {
@@ -2565,7 +2565,7 @@ void Input::syncSelectionLineRects(std::size_t count) {
   }
   while (m_selectionLineRects.size() > count) {
     auto* node = m_selectionLineRects.back();
-    (void)m_textViewport->removeChild(node);
+    m_textViewport->removeChild(node);
     m_selectionLineRects.pop_back();
   }
   while (m_selectionLineRects.size() < count) {

@@ -56,7 +56,7 @@ protected:
   void populateContent(Node* contentParent, std::uint32_t width, std::uint32_t height) override;
   void layoutSheet(float contentWidth, float contentHeight) override;
   void cancelToFacade() override;
-  [[nodiscard]] InputArea* initialFocusArea() override;
+  InputArea* initialFocusArea() override;
   void onSheetClose() override;
 
 private:
