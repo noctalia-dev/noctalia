@@ -4954,6 +4954,10 @@
           "description": "Choose whether scroll actions follow command semantics, run once per gesture, or repeat for every scroll step",
           "label": "Scroll Repeat"
         },
+        "separator": {
+          "description": "Text between workspace indicators; leave empty for no separator or extra spacing",
+          "label": "Separator"
+        },
         "show-active-indicator": {
           "description": "Show a small dot below the active window icon in the taskbar",
           "label": "Active Window Indicator"

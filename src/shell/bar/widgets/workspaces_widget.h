@@ -48,6 +48,7 @@ public:
     bool labelsOnlyWhenOccupied = false;
     bool hideWhenEmpty = false;
     std::vector<std::string> monitors;
+    std::string separator;
     float pillScale = 1.0F;
     float activePillSize = 2.2F;
     float inactivePillSize = 1.0F;
@@ -123,6 +124,7 @@ private:
     Box* indicator = nullptr;
     Label* text = nullptr;
     Image* icon = nullptr;
+    Label* separator = nullptr;
     Workspace workspace;
     Workspace visualWorkspace;
     wl_output* output = nullptr;
@@ -173,6 +175,7 @@ private:
   bool m_showIcons = true;
   bool m_hideWhenEmpty = false;
   std::vector<std::string> m_monitors;
+  std::string m_separator;
   float m_pillScale = 1.0F;
   float m_activePillSize = 2.2F;
   float m_inactivePillSize = 1.0F;
@@ -195,6 +198,7 @@ private:
 
   float m_gap = 0.0F;
   float m_indicatorHeight = 0.0F;
+  float m_crossSize = 0.0F;
   Box* m_hoverOverlay = nullptr;
   float m_hoverProgress = 0.0F;
   InputArea* m_hoveredArea = nullptr;

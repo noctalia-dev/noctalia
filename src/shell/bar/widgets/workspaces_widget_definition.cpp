@@ -66,6 +66,13 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .group = "workspaces.list",
                       },
               }),
+              field<&Options::separator>({
+                  .key = "separator",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .group = "workspaces.list",
+                      },
+              }),
               field<&Options::labelSource>({
                   .key = "label_source",
                   .choices =
