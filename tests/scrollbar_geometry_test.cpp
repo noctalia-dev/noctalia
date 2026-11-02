@@ -1,7 +1,6 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
-#include "tests/test_check.h"
 #include "ui/controls/box.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/scrollbar.h"
@@ -136,33 +135,33 @@ int main() {
     view.content()->addChild(std::move(content));
     LayoutConstraints constraints;
     constraints.setExactWidth(kViewWidth);
-    TEST_CHECK(std::abs(view.measure(renderer, constraints).height - 40.0F) < 0.01F);
+    expectNear(view.measure(renderer, constraints).height, 40.0F, "initial natural height");
 
     for (const float contentHeight : {80.0F, 1000.0F, 20.0F, 0.0F, 80.0F}) {
       view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
       item->setSize(10.0F, contentHeight);
-      TEST_CHECK(std::abs(view.measure(renderer, constraints).height - contentHeight) < 0.01F);
-      TEST_CHECK(std::abs(view.measure(renderer, constraints).height - contentHeight) < 0.01F);
+      expectNear(view.measure(renderer, constraints).height, contentHeight, "natural height after allocation");
+      expectNear(view.measure(renderer, constraints).height, contentHeight, "repeated natural height");
       view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
       if (orientation == ScrollOrientation::Vertical) {
         const float overflow = contentHeight > 30.0F ? contentHeight - 30.0F : 0.0F;
-        TEST_CHECK(std::abs(view.maxScrollOffset() - overflow) < 0.01F);
+        expectNear(view.maxScrollOffset(), overflow, "max scroll offset after arrange");
         if (contentHeight == 1000.0F) {
           view.setScrollOffset(100.0F);
           (void)view.measure(renderer, constraints);
-          TEST_CHECK(std::abs(view.scrollOffset() - 100.0F) < 0.01F);
+          expectNear(view.scrollOffset(), 100.0F, "scroll offset kept across measure");
           view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
           view.requestScrollToBottom();
           (void)view.measure(renderer, constraints);
           view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
-          TEST_CHECK(std::abs(view.scrollOffset() - overflow) < 0.01F);
+          expectNear(view.scrollOffset(), overflow, "pending scroll-to-bottom applied at arrange");
         }
       }
     }
 
     // Caller-pinned sizes still win over natural content height.
     view.setSize(kViewWidth, 30.0F);
-    TEST_CHECK(std::abs(view.measure(renderer, constraints).height - 30.0F) < 0.01F);
+    expectNear(view.measure(renderer, constraints).height, 30.0F, "explicit height wins over content");
   }
 
   // Base scale: the reserved gutter and bar thickness are the historical logical sizes.
