@@ -611,9 +611,7 @@ namespace shell::dock {
           const auto mask = makeIconShadow(*source, cfg.iconSize, density);
           const auto shadowStyle = shell::surface_shadow::maskStyle(deps.model.config.config().shell.shadow);
           constexpr auto padding = shell::surface_shadow::kMaskPadding;
-          auto group = std::make_unique<Node>();
-          group->setSize(iSize, iSize);
-          group->setPosition(kCellPad, kCellPad);
+          auto group = ui::node({.x = kCellPad, .y = kCellPad, .width = iSize, .height = iSize});
           group->addChild(
               ui::image({
                   .width = iSize + 2 * padding,

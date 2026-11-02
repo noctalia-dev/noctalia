@@ -17,14 +17,16 @@ int main() {
   for (float alpha : {-1.0F, 0.0F, 0.55F, 1.0F, 2.0F}) {
     const auto style = shell::surface_shadow::maskStyle({.direction = ShadowDirection::UpLeft, .alpha = alpha});
     TEST_CHECK(style.tint == rgba(0, 0, 0, std::clamp(alpha, 0.0F, 1.0F)));
-    TEST_CHECK(style.offset.x == -2 && style.offset.y == -2);
+    TEST_CHECK(style.offset.x == -2);
+    TEST_CHECK(style.offset.y == -2);
   }
   LoadedImageFile source{.rgba = std::vector<std::uint8_t>(21 * 21 * 4, 0), .width = 21, .height = 21};
   source.rgba[(10 * 21 + 10) * 4 + 3] = 255;
   const auto original = source.rgba;
   const auto mask = makeIconShadow(source, 21, 1);
   TEST_CHECK(source.rgba == original);
-  TEST_CHECK(mask.width == 33 && mask.height == 33);
+  TEST_CHECK(mask.width == 33);
+  TEST_CHECK(mask.height == 33);
   TEST_CHECK(alpha(mask, 16, 16) > alpha(mask, 18, 16));
   float mass = 0;
   float variance = 0;
