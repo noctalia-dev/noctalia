@@ -1071,6 +1071,24 @@ std::expected<ext_foreign_toplevel_handle_v1*, std::string> ScreenshotService::r
   return match.handle;
 }
 
+void ScreenshotService::rememberAnnotationCaptureTarget() {
+  m_annotationCaptureTarget = nullptr;
+  if (const auto target = resolveFocusedCaptureTarget(); target.has_value()) {
+    m_annotationCaptureTarget = *target;
+  }
+}
+
+ext_foreign_toplevel_handle_v1* ScreenshotService::liveAnnotationCaptureTarget() const {
+  if (m_annotationCaptureTarget == nullptr) {
+    return nullptr;
+  }
+  bool live = false;
+  m_wayland.visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* candidate) {
+    live = live || candidate == m_annotationCaptureTarget;
+  });
+  return live ? m_annotationCaptureTarget : nullptr;
+}
+
 void ScreenshotService::captureWindow(ext_foreign_toplevel_handle_v1* handle, const OutputOptions& options) {
   const std::optional<std::filesystem::path> destPath =
       needsScreenshotPath(options) ? std::optional(makeScreenshotPath(options, "window")) : std::nullopt;
@@ -1525,7 +1543,10 @@ void ScreenshotService::ensureAnnotationOverlay() {
     m_pendingDelivery.reset();
     notifyError(message);
   });
-  m_annotationOverlay->setClosedCallback([this]() { m_pendingDelivery.reset(); });
+  m_annotationOverlay->setClosedCallback([this]() {
+    m_pendingDelivery.reset();
+    m_annotationCaptureTarget = nullptr;
+  });
   m_annotationOverlay->setFeedbackCallback([this](const std::string& message) { notifyError(message); });
   m_annotationOverlay->setFreezeCallback([this]() {
     if (m_annotationOverlay == nullptr || !m_annotationOverlay->isActive()) {
@@ -1556,6 +1577,35 @@ void ScreenshotService::ensureAnnotationOverlay() {
     }
     m_annotationOverlay->cancel();
     beginRegionCapture(*m_regionRenderContext, options);
+  });
+  m_annotationOverlay->setCaptureWindowCallback([this]() {
+    if (m_annotationOverlay == nullptr || !m_annotationOverlay->isActive()) {
+      return;
+    }
+    if (!m_toplevelCapture.available()) {
+      notifyError("Window capture is not available on this compositor");
+      return;
+    }
+    if (m_toplevelCapture.busy()) {
+      notifyError("A window capture is already in progress");
+      return;
+    }
+    OutputOptions options = m_pendingDelivery.has_value() ? m_pendingDelivery->options : m_regionOutputOptions;
+    options.annotate = true;
+    ext_foreign_toplevel_handle_v1* target = liveAnnotationCaptureTarget();
+    if (target == nullptr) {
+      // Best-effort fallback; the overlay may still hold compositor focus.
+      m_annotationOverlay->hideForCapture();
+      const auto fallback = resolveFocusedCaptureTarget();
+      if (!fallback.has_value()) {
+        m_annotationOverlay->resumeAfterCapture();
+        notifyError(fallback.error());
+        return;
+      }
+      target = *fallback;
+    }
+    m_annotationOverlay->cancel();
+    captureWindow(target, options);
   });
   m_annotationOverlay->setExportCallback([this](ScreencopyImage image, capture::AnnotationExport action) {
     if (action == capture::AnnotationExport::Done) {
@@ -1597,6 +1647,7 @@ void ScreenshotService::beginAnnotation(RenderContext& renderContext, const Outp
     notifyError("Render context unavailable");
     return;
   }
+  rememberAnnotationCaptureTarget();
   m_annotationOverlay->setToolState(loadAnnotationToolState());
   m_annotationOverlay->setCursorVisible(options.showCursor);
 
@@ -1643,6 +1694,7 @@ void ScreenshotService::beginImageAnnotation(
     return;
   }
   m_pendingDelivery = PendingDelivery{.options = options, .destPath = std::move(destPath)};
+  rememberAnnotationCaptureTarget();
   m_annotationOverlay->setToolState(loadAnnotationToolState());
   m_annotationOverlay->setCursorVisible(options.showCursor);
   m_annotationOverlay->beginImage(std::move(image), preferredCaptureOutput());

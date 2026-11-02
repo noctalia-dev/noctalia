@@ -193,6 +193,9 @@ private:
   // wlr activated toplevel matched by title and app id. Exact-identity backends fail explicitly
   // while the id join is pending instead of falling back to the title join.
   [[nodiscard]] std::expected<ext_foreign_toplevel_handle_v1*, std::string> resolveFocusedCaptureTarget() const;
+  // The annotator overlay takes compositor focus, so capture the target before it opens.
+  void rememberAnnotationCaptureTarget();
+  [[nodiscard]] ext_foreign_toplevel_handle_v1* liveAnnotationCaptureTarget() const;
   [[nodiscard]] std::filesystem::path outputDirectory(const OutputOptions& options) const;
   [[nodiscard]] std::filesystem::path
   makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix = 0) const;
@@ -218,6 +221,7 @@ private:
   bool m_regionFullscreenPick = false;
   std::vector<capture::FrozenScreenshot> m_frozenScreenshots;
   std::unique_ptr<capture::AnnotationOverlay> m_annotationOverlay;
+  ext_foreign_toplevel_handle_v1* m_annotationCaptureTarget = nullptr;
   std::vector<FreezeRequest> m_pendingFreezeCaptures;
   std::optional<PendingDelivery> m_pendingDelivery;
   FreezeTarget m_freezeTarget = FreezeTarget::Region;

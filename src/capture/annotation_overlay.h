@@ -65,6 +65,7 @@ namespace capture {
     using ExportCallback = std::function<void(ScreencopyImage image, AnnotationExport action)>;
     using FreezeCallback = std::function<void()>;
     using CaptureRegionCallback = std::function<void()>;
+    using CaptureWindowCallback = std::function<void()>;
     using ClosedCallback = std::function<void()>;
     using FailureCallback = std::function<void(const std::string& message)>;
     using FeedbackCallback = std::function<void(const std::string& message)>;
@@ -77,6 +78,7 @@ namespace capture {
     void setExportCallback(ExportCallback callback);
     void setFreezeCallback(FreezeCallback callback);
     void setCaptureRegionCallback(CaptureRegionCallback callback);
+    void setCaptureWindowCallback(CaptureWindowCallback callback);
     void setClosedCallback(ClosedCallback callback);
     void setFailureCallback(FailureCallback callback);
     void setFeedbackCallback(FeedbackCallback callback);
@@ -157,6 +159,7 @@ namespace capture {
     void requestExport(AnnotationExport action);
     void requestFreeze();
     void requestCaptureRegion();
+    void requestCaptureWindow();
     void toggleCursor(Instance* instance = nullptr);
     void closeOverlay();
     void persistToolState();
@@ -170,6 +173,7 @@ namespace capture {
     ExportCallback m_onExport;
     FreezeCallback m_onFreeze;
     CaptureRegionCallback m_onCaptureRegion;
+    CaptureWindowCallback m_onCaptureWindow;
     ClosedCallback m_onClosed;
     FailureCallback m_onFailure;
     FeedbackCallback m_onFeedback;

@@ -422,6 +422,10 @@ namespace capture {
     m_onCaptureRegion = std::move(callback);
   }
 
+  void AnnotationOverlay::setCaptureWindowCallback(CaptureWindowCallback callback) {
+    m_onCaptureWindow = std::move(callback);
+  }
+
   void AnnotationOverlay::setClosedCallback(ClosedCallback callback) { m_onClosed = std::move(callback); }
 
   void AnnotationOverlay::setFailureCallback(FailureCallback callback) { m_onFailure = std::move(callback); }
@@ -1278,6 +1282,7 @@ namespace capture {
         })
     ));
     addGhostButton("screenshot", "bar.annotate.capture-new-region", [this]() { requestCaptureRegion(); });
+    addGhostButton("app-window", "bar.annotate.capture-window", [this]() { requestCaptureWindow(); });
     addGhostButton("x", "bar.annotate.close", [this]() { closeOverlay(); });
 
     inst.toolbar = toolbar.get();
@@ -2453,6 +2458,14 @@ namespace capture {
     }
     CaptureRegionCallback onCaptureRegion = m_onCaptureRegion;
     DeferredCall::callLater([onCaptureRegion]() { onCaptureRegion(); });
+  }
+
+  void AnnotationOverlay::requestCaptureWindow() {
+    if (!m_active || !m_onCaptureWindow) {
+      return;
+    }
+    CaptureWindowCallback onCaptureWindow = m_onCaptureWindow;
+    DeferredCall::callLater([onCaptureWindow]() { onCaptureWindow(); });
   }
 
   void AnnotationOverlay::toggleCursor(Instance* instance) {
