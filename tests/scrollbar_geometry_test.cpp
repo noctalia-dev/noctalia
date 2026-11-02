@@ -123,6 +123,47 @@ int main() {
   StubRenderer renderer;
   AnimationManager animations;
 
+  // Content measurement must stay independent of a previous viewport allocation.
+  for (const auto orientation : {ScrollOrientation::Vertical, ScrollOrientation::Horizontal}) {
+    ScrollView view;
+    view.setOrientation(orientation);
+    view.setViewportPaddingH(0.0F);
+    view.setViewportPaddingV(0.0F);
+    auto content = std::make_unique<Box>();
+    auto* item = content.get();
+    item->setSize(10.0F, 40.0F);
+    view.content()->addChild(std::move(content));
+    LayoutConstraints constraints;
+    constraints.setExactWidth(kViewWidth);
+    expectNear(view.measure(renderer, constraints).height, 40.0F, "initial natural height");
+
+    for (const float contentHeight : {80.0F, 1000.0F, 20.0F, 0.0F, 80.0F}) {
+      view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+      item->setSize(10.0F, contentHeight);
+      expectNear(view.measure(renderer, constraints).height, contentHeight, "natural height after allocation");
+      expectNear(view.measure(renderer, constraints).height, contentHeight, "repeated natural height");
+      view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+      if (orientation == ScrollOrientation::Vertical) {
+        const float overflow = contentHeight > 30.0F ? contentHeight - 30.0F : 0.0F;
+        expectNear(view.maxScrollOffset(), overflow, "max scroll offset after arrange");
+        if (contentHeight == 1000.0F) {
+          view.setScrollOffset(100.0F);
+          (void)view.measure(renderer, constraints);
+          expectNear(view.scrollOffset(), 100.0F, "scroll offset kept across measure");
+          view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+          view.requestScrollToBottom();
+          (void)view.measure(renderer, constraints);
+          view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+          expectNear(view.scrollOffset(), overflow, "pending scroll-to-bottom applied at arrange");
+        }
+      }
+    }
+
+    // Caller-pinned sizes still win over natural content height.
+    view.setSize(kViewWidth, 30.0F);
+    expectNear(view.measure(renderer, constraints).height, 30.0F, "explicit height wins over content");
+  }
+
   // Base scale: the reserved gutter and bar thickness are the historical logical sizes.
   {
     auto harness = layoutScrollView(renderer, animations, 1.0F, 100.0F, 400.0F);
