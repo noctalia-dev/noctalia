@@ -2205,6 +2205,10 @@
         "ends-margin": {
           "description": "Inset from each end of the dock along its main axis"
         },
+        "icon-saturation": {
+          "description": "Color saturation of application icons; 0 is grayscale",
+          "label": "Icon Saturation"
+        },
         "icon-size": {
           "description": "Size of dock icons in pixels",
           "label": "Icon Size"
