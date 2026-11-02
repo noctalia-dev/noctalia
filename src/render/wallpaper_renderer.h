@@ -53,7 +53,7 @@ public:
       WallpaperTransition transition, WallpaperFillMode fillMode, const TransitionParams& params
   );
 
-  [[nodiscard]] RenderBackend* backend() const noexcept { return m_graphicsResetPending ? nullptr : m_backend.get(); }
+  RenderBackend* backend() const noexcept { return m_graphicsResetPending ? nullptr : m_backend.get(); }
 
 private:
   void cleanup();

@@ -1,6 +1,7 @@
 #include "scripting/luau_host.h"
 
 #include "compositors/compositor_platform.h"
+#include "compositors/umbriel/umbriel_runtime.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/process/process.h"
@@ -77,6 +78,9 @@ namespace {
   constexpr std::size_t kMaxAsyncHttpPerHost = 8;
   constexpr std::size_t kMaxPendingSoundLoadsPerHost = 8;
   constexpr std::size_t kMaxIdleWatchesPerHost = 8;
+  constexpr std::size_t kMaxPendingUmbrielActionsPerHost = 16;
+  // Matches the reply timeout of `umbriel msg`.
+  constexpr auto kUmbrielActionTimeout = std::chrono::seconds(2);
   constexpr double kMaxIdleWatchSeconds = static_cast<double>(std::numeric_limits<std::uint32_t>::max()) / 1000.0;
   constexpr std::size_t kMaxStreamsPerHost = 4;
   constexpr std::size_t kMaxHttpStreamsPerHost = 4;
@@ -408,7 +412,7 @@ namespace {
   // The host's system monitor, or nullptr when it is unavailable: either it failed to construct or
   // [system.monitor] is disabled, in which case latest() would serve zeros that a plugin could not
   // tell apart from a real idle reading.
-  [[nodiscard]] SystemMonitorService* runningMonitorForState(lua_State* L) {
+  SystemMonitorService* runningMonitorForState(lua_State* L) {
     auto* host = hostForState(L);
     if (host == nullptr) {
       return nullptr;
@@ -430,8 +434,8 @@ namespace {
   //     loadAvg = { 1.2, 0.9, 0.7 } }
   //
   // Percentages are 0-100. Absent sensors are nil rather than 0. The first call opts the host
-  // into the optional CPU/GPU probes represented by this snapshot. Per-core and disk sampling
-  // remain opt-in through cpuCores() and diskStats().
+  // into CPU temperature sampling only. GPU sampling requires setGpuMonitoring(true): reading
+  // CPU, RAM or network stats must not keep a discrete GPU's monitoring session alive.
   int luau_systemStats(lua_State* L) {
     auto* monitor = runningMonitorForState(L);
     if (monitor == nullptr) {
@@ -501,6 +505,13 @@ namespace {
     lua_rawseti(L, -2, 3);
     lua_setfield(L, -2, "loadAvg");
 
+    return 1;
+  }
+
+  int luau_setGpuMonitoring(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    auto* host = hostForState(L);
+    lua_pushboolean(L, host != nullptr && host->setGpuMonitoring(lua_toboolean(L, 1) != 0));
     return 1;
   }
 
@@ -706,6 +717,9 @@ namespace {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
     auto* host = hostForState(L);
+    if (host != nullptr) {
+      host->recordSettingRead(std::string_view(path, len));
+    }
     const auto snapshot = host != nullptr ? host->api().configSnapshot() : nullptr;
     if (snapshot == nullptr) {
       lua_pushnil(L);
@@ -1822,6 +1836,50 @@ namespace {
       {nullptr, nullptr},
   };
 
+  // noctalia.umbriel.action(request, callback?) -> bool. `request` is the typed action request from Umbriel's IPC
+  // reference without `cmd`, for example { action = "workspace-set-layout", layout = "dwindle" }.
+  int luau_umbriel_action(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    if (!lua_isnoneornil(L, 2)) {
+      luaL_checktype(L, 2, LUA_TFUNCTION);
+    }
+
+    nlohmann::json request = luaToJson(L, 1);
+    if (!request.is_object()) {
+      luaL_argerror(L, 1, "expected an action request table");
+    }
+    const auto action = request.find("action");
+    if (action == request.end() || !action->is_string() || action->get_ref<const std::string&>().empty()) {
+      luaL_argerror(L, 1, "expected a non-empty `action` string");
+    }
+    if (request.contains("cmd")) {
+      luaL_argerror(L, 1, "`cmd` is set by the host");
+    }
+    request["cmd"] = "action";
+
+    auto* host = hostForState(L);
+    std::string socketPath = compositors::umbriel::findSocketPath();
+    if (host == nullptr || socketPath.empty()) {
+      lua_pushboolean(L, 0);
+      return 1;
+    }
+
+    std::string payload = request.dump();
+    payload.push_back('\n');
+    const int callbackRef = lua_isfunction(L, 2) ? lua_ref(L, 2) : LUA_NOREF;
+    const bool ok = host->startUmbrielAction(std::move(socketPath), std::move(payload), callbackRef);
+    if (!ok && callbackRef != LUA_NOREF) {
+      lua_unref(L, callbackRef);
+    }
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+  }
+
+  const luaL_Reg kNoctaliaUmbrielLib[] = {
+      {"action", luau_umbriel_action},
+      {nullptr, nullptr},
+  };
+
   // noctalia.layer.*: show, hide, and configure this plugin's [[layer]] entries.
 
   constexpr std::int64_t kMaxLayerExtent = 1 << 16;
@@ -2079,6 +2137,7 @@ namespace {
       {"focusedOutputName", luau_focusedOutputName},
       {"outputs", luau_outputs},
       {"systemStats", luau_systemStats},
+      {"setGpuMonitoring", luau_setGpuMonitoring},
       {"cpuCores", luau_cpuCores},
       {"diskMounts", luau_diskMounts},
       {"diskStats", luau_diskStats},
@@ -2159,6 +2218,10 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaLayerLib);
     lua_setfield(L, -2, "layer");
+    // noctalia.umbriel = { action }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaUmbrielLib);
+    lua_setfield(L, -2, "umbriel");
     lua_pop(L, 1);
   }
 } // namespace
@@ -2228,10 +2291,28 @@ void LuauHost::ensureSystemStatsRetained() {
     return;
   }
   monitor->retainCpuTemp();
-  monitor->retainGpuTemp();
-  monitor->retainGpuUsage();
-  monitor->retainGpuVram();
   m_systemStatsRetained = true;
+}
+
+bool LuauHost::setGpuMonitoring(bool enabled) {
+  if (enabled == m_gpuStatsRetained) {
+    return true;
+  }
+  auto* monitor = m_api.systemMonitor();
+  if (monitor == nullptr) {
+    return false;
+  }
+  if (enabled) {
+    monitor->retainGpuTemp();
+    monitor->retainGpuUsage();
+    monitor->retainGpuVram();
+  } else {
+    monitor->releaseGpuTemp();
+    monitor->releaseGpuUsage();
+    monitor->releaseGpuVram();
+  }
+  m_gpuStatsRetained = enabled;
+  return true;
 }
 
 void LuauHost::ensureCpuCoresRetained() {
@@ -2274,12 +2355,10 @@ LuauHost::~LuauHost() {
   if (m_systemStatsRetained) {
     if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
       monitor->releaseCpuTemp();
-      monitor->releaseGpuTemp();
-      monitor->releaseGpuUsage();
-      monitor->releaseGpuVram();
     }
     m_systemStatsRetained = false;
   }
+  setGpuMonitoring(false);
   if (!m_diskPathsRetained.empty()) {
     if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
       for (const auto& path : m_diskPathsRetained) {
@@ -2323,6 +2402,10 @@ LuauHost::~LuauHost() {
         lua_unref(m_T, callbackRef);
       }
       m_idleWatchCallbackRefs.clear();
+      for (int callbackRef : m_umbrielActionCallbackRefs) {
+        lua_unref(m_T, callbackRef);
+      }
+      m_umbrielActionCallbackRefs.clear();
     }
     if (m_threadRef != -1)
       lua_unref(m_L, m_threadRef);
@@ -2489,6 +2572,10 @@ bool LuauHost::hasAsyncHttpCallback(int callbackRef) const { return m_asyncHttpC
 
 bool LuauHost::hasColorPickerCallback(int callbackRef) const { return m_colorPickerCallbackRefs.contains(callbackRef); }
 
+bool LuauHost::hasUmbrielActionCallback(int callbackRef) const {
+  return m_umbrielActionCallbackRefs.contains(callbackRef);
+}
+
 bool LuauHost::hasSoundLoadCallback(int callbackRef) const { return m_soundLoadCallbacks.contains(callbackRef); }
 
 bool LuauHost::callSoundLoadCallback(
@@ -2570,6 +2657,84 @@ bool LuauHost::callColorPickerCallback(
     lua_pushnil(m_T);
   }
   return callWithBudget("color picker callback", 1, 0, budget);
+}
+
+bool LuauHost::startUmbrielAction(std::string socketPath, std::string payload, int callbackRef) {
+  const bool wantsReply = callbackRef > LUA_REFNIL;
+  if (wantsReply && m_umbrielActionCallbackRefs.size() >= kMaxPendingUmbrielActionsPerHost) {
+    return false;
+  }
+  auto handler = m_umbrielActionResultHandler;
+  if (wantsReply && !handler) {
+    return false;
+  }
+
+  if (wantsReply) {
+    m_umbrielActionCallbackRefs.insert(callbackRef);
+  }
+  const bool queued =
+      scripting::ScriptIoPool::instance().post([hostId = m_hostId, callbackRef, wantsReply,
+                                                socketPath = std::move(socketPath), payload = std::move(payload),
+                                                handler = std::move(handler)] {
+        std::optional<std::string> error;
+        const auto reply = compositors::umbriel::exchange(socketPath, payload, kUmbrielActionTimeout);
+        using Status = compositors::umbriel::IpcReply::Status;
+        switch (reply.status) {
+        case Status::Replied:
+          if (!reply.json->is_object()) {
+            error = "invalid reply from umbriel";
+          } else if (const auto err = reply.json->find("err"); err != reply.json->end()) {
+            error = err->is_string() ? err->get<std::string>() : err->dump();
+          } else if (!reply.json->contains("ok")) {
+            error = "invalid reply from umbriel";
+          }
+          break;
+        case Status::Unavailable:
+          error = "cannot connect to umbriel";
+          break;
+        case Status::WriteFailed:
+        case Status::ReadFailed:
+        case Status::NoResponse:
+          error = "no reply from umbriel";
+          break;
+        case Status::InvalidJson:
+          error = "invalid reply from umbriel";
+          break;
+        }
+        if (error.has_value()) {
+          kLog.debug("umbriel action failed: {}", *error);
+        }
+        if (wantsReply) {
+          handler(hostId, callbackRef, std::move(error));
+        }
+      });
+  if (!queued && wantsReply) {
+    m_umbrielActionCallbackRefs.erase(callbackRef);
+  }
+  return queued;
+}
+
+bool LuauHost::callUmbrielActionCallback(
+    int callbackRef, const std::optional<std::string>& error, std::chrono::milliseconds budget
+) {
+  if (m_T == nullptr || m_umbrielActionCallbackRefs.erase(callbackRef) == 0) {
+    return false;
+  }
+
+  lua_getref(m_T, callbackRef);
+  lua_unref(m_T, callbackRef);
+  if (!lua_isfunction(m_T, -1)) {
+    lua_pop(m_T, 1);
+    return false;
+  }
+
+  lua_pushboolean(m_T, error.has_value() ? 0 : 1);
+  if (error.has_value()) {
+    lua_pushlstring(m_T, error->data(), error->size());
+  } else {
+    lua_pushnil(m_T);
+  }
+  return callWithBudget("umbriel action callback", 2, 0, budget);
 }
 
 bool LuauHost::startAsyncHttp(HttpRequest request, int callbackRef) {

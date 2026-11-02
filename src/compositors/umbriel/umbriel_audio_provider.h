@@ -22,7 +22,7 @@ namespace compositors::umbriel {
 
     void setEnabled(bool enabled);
     void notifyChanged();
-    [[nodiscard]] int pollTimeoutMs() const override;
+    int pollTimeoutMs() const override;
     void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
 
   protected:

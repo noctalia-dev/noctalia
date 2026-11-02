@@ -25,13 +25,13 @@ namespace {
   constexpr double kBytesPerMb = 1000.0 * 1000.0;
   constexpr double kFreqFallbackCeilingMhz = 5000.0;
 
-  [[nodiscard]] ColorSpec gaugeTrackColor(const ColorSpec& fill) {
+  ColorSpec gaugeTrackColor(const ColorSpec& fill) {
     ColorSpec track = fill;
     track.alpha *= 0.3F;
     return track;
   }
 
-  [[nodiscard]] double gradientFactor(double value, double activityThreshold, double criticalThreshold) {
+  double gradientFactor(double value, double activityThreshold, double criticalThreshold) {
     constexpr double kActivityOnset = 0.25;
     const double clampedValue = std::max(value, 0.0);
     const double clampedCritical = std::max(criticalThreshold, 0.0);
@@ -60,10 +60,10 @@ namespace {
   struct GlyphInkBounds {
     float left = 0.0F;
     float right = 0.0F;
-    [[nodiscard]] float width() const noexcept { return right - left; }
+    float width() const noexcept { return right - left; }
   };
 
-  [[nodiscard]] GlyphInkBounds glyphHorizontalInkBounds(float boxWidth, const TextMetrics& metrics) {
+  GlyphInkBounds glyphHorizontalInkBounds(float boxWidth, const TextMetrics& metrics) {
     const float halfSpan = (metrics.right - metrics.left) * 0.5F;
     return {
         .left = boxWidth * 0.5F - halfSpan,
@@ -71,7 +71,7 @@ namespace {
     };
   }
 
-  [[nodiscard]] TextMetrics glyphMetricsFor(Renderer& renderer, const char* glyphName, float glyphSize) {
+  TextMetrics glyphMetricsFor(Renderer& renderer, const char* glyphName, float glyphSize) {
     const char32_t codepoint = GlyphRegistry::lookup(glyphName);
     if (codepoint == 0) {
       return {};

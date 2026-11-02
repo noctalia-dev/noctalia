@@ -525,7 +525,7 @@ const Notification* NotificationManager::findInvokable(uint32_t id) const {
 
 void NotificationManager::dismissAfterInvoke(uint32_t id) {
   if (m_idToIndex.contains(id)) {
-    (void)close(id, CloseReason::Dismissed);
+    close(id, CloseReason::Dismissed);
   } else if (const auto histIt = m_historyIndex.find(id); histIt != m_historyIndex.end()) {
     emitPendingDBusClose(id, CloseReason::Dismissed);
     m_history[histIt->second].notification.actions.clear();

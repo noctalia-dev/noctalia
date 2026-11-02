@@ -31,7 +31,7 @@ private:
   void updateGraphs(Renderer& renderer);
   void syncLabels();
   void updateGpuVisibility();
-  [[nodiscard]] float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
+  float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
 
   SystemMonitorService* m_monitor;
   bool m_active = false;

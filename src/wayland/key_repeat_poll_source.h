@@ -7,7 +7,7 @@ class KeyRepeatPollSource final : public PollSource {
 public:
   explicit KeyRepeatPollSource(WaylandConnection& wayland) : m_wayland(wayland) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override { return m_wayland.repeatPollTimeoutMs(); }
+  int pollTimeoutMs() const override { return m_wayland.repeatPollTimeoutMs(); }
 
   void dispatch(const std::vector<pollfd>& /*fds*/, std::size_t /*startIdx*/) override { m_wayland.repeatTick(); }
 

@@ -3,13 +3,13 @@
 #include "core/log.h"
 #include "notification/notification_manager.h"
 #include "render/core/image_decoder.h"
+#include "render/core/image_resize.h"
 #include "security/encrypted_file_store.h"
 #include "util/base64.h"
 #include "util/file_utils.h"
 
 #include <algorithm>
 #include <chrono>
-#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -255,29 +255,17 @@ namespace {
   }
 
   void downscaleRgbaIfNeeded(std::vector<std::uint8_t>& rgba, int& w, int& h, int maxSide) {
-    if (w <= maxSide && h <= maxSide) {
+    const ImageExtent fitted = fitImageWithin(w, h, maxSide, maxSide);
+    if (fitted.width == w && fitted.height == h) {
       return;
     }
-    const float scale = std::min(
-        static_cast<float>(maxSide) / static_cast<float>(w), static_cast<float>(maxSide) / static_cast<float>(h)
-    );
-    const int nw = std::max(1, static_cast<int>(std::lround(static_cast<float>(w) * scale)));
-    const int nh = std::max(1, static_cast<int>(std::lround(static_cast<float>(h) * scale)));
-    std::vector<std::uint8_t> dst(static_cast<std::size_t>(nw) * static_cast<std::size_t>(nh) * 4);
-    for (int y = 0; y < nh; ++y) {
-      const int sy = y * h / nh;
-      for (int x = 0; x < nw; ++x) {
-        const int sx = x * w / nw;
-        const std::uint8_t* srcPx = rgba.data()
-            + (static_cast<std::size_t>(sy) * static_cast<std::size_t>(w) + static_cast<std::size_t>(sx)) * 4;
-        std::uint8_t* dstPx =
-            dst.data() + (static_cast<std::size_t>(y) * static_cast<std::size_t>(nw) + static_cast<std::size_t>(x)) * 4;
-        std::memcpy(dstPx, srcPx, 4);
-      }
+    auto resized = resizeToRgba(rgba.data(), w, h, ResizeSourceLayout::Rgba, fitted.width, fitted.height);
+    if (resized.empty()) {
+      return;
     }
-    rgba = std::move(dst);
-    w = nw;
-    h = nh;
+    rgba = std::move(resized);
+    w = fitted.width;
+    h = fitted.height;
   }
 
   std::optional<NotificationImageData> imageFromJson(
@@ -386,7 +374,7 @@ namespace {
 
     const auto assetsDir = assetsDirectoryForJson(jsonFilePath);
     std::error_code ecMk;
-    (void)FileUtils::createPrivateDirectories(assetsDir, ecMk);
+    FileUtils::createPrivateDirectories(assetsDir, ecMk);
 
     const std::string webpBase = contentAddressedWebpName(rgba.data(), rgba.size());
     const auto webpPath = assetsDir / webpBase;

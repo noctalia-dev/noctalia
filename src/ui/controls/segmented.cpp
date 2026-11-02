@@ -136,12 +136,12 @@ void Segmented::setOptionTooltip(std::size_t index, std::string_view text) {
 void Segmented::clearOptions() {
   for (Button* btn : m_buttons) {
     if (btn != nullptr) {
-      (void)removeChild(btn);
+      removeChild(btn);
     }
   }
   for (Separator* sep : m_separators) {
     if (sep != nullptr) {
-      (void)removeChild(sep);
+      removeChild(sep);
     }
   }
   m_buttons.clear();

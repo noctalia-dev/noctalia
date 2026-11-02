@@ -70,10 +70,10 @@ public:
   // Returns the uploaded handle if already decoded, or {0} if a decode is
   // pending. Each acquire must be paired with a release() using the same
   // (path, targetPx).
-  [[nodiscard]] TextureHandle acquire(const std::string& path, int targetPx = kDefaultTargetPx);
+  TextureHandle acquire(const std::string& path, int targetPx = kDefaultTargetPx);
 
   // Non-owning lookup used while refreshing an already-acquired thumbnail.
-  [[nodiscard]] TextureHandle peek(const std::string& path, int targetPx = kDefaultTargetPx) const;
+  TextureHandle peek(const std::string& path, int targetPx = kDefaultTargetPx) const;
 
   // Releases one acquire() owner. The texture is unloaded only when the last
   // owner releases it.
@@ -81,11 +81,11 @@ public:
 
   // Uploads decoded pixmaps to textures. Must run on the main thread with the
   // owning render context current.
-  [[nodiscard]] bool uploadPending(TextureManager& textures);
+  bool uploadPending(TextureManager& textures);
   void abandonGpuResources() noexcept;
   void invalidateGpuResources(TextureManager& textures);
 
-  [[nodiscard]] int pollTimeoutMs() const override { return -1; }
+  int pollTimeoutMs() const override { return -1; }
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
 
 protected:

@@ -204,6 +204,30 @@
       }
     }
   },
+  "calendar": {
+    "sync": {
+      "connecting": "同期中：接続しています…",
+      "downloading": "同期中：予定をダウンロードしています…",
+      "failed": "同期に失敗しました：{reason}",
+      "failure": {
+        "access-denied": "サーバーがリソースへのアクセスを拒否しました。",
+        "authentication": "サーバーがユーザー名またはパスワードを拒否しました。",
+        "client-certificate": "クライアント証明書またはキーファイルを読み込めませんでした。",
+        "configuration": "アカウントの設定が不完全です。",
+        "credentials": "このアカウントのパスワードが保存されていないか、読み込めませんでした。",
+        "credentials-locked": "認証情報を保存しているキーリングがロックされています。ロックを解除してから、もう一度お試しください。",
+        "google-authorization": "Googleの認証情報がないか、アクセス権が取り消されています。アカウントを再接続してください。",
+        "invalid-response": "サーバーからの応答を読み取れませんでした。",
+        "network": "サーバーに接続できませんでした。",
+        "no-calendars": "予定のあるカレンダーが見つかりませんでした。",
+        "not-found": "設定されたアドレスにカレンダーが見つかりませんでした。",
+        "server": "サーバーからエラーが報告されました。",
+        "timeout": "サーバーからの応答がタイムアウトしました。"
+      },
+      "not-synced": "まだ同期されていません",
+      "synced": "同期済み：{when}"
+    }
+  },
   "clipboard": {
     "actions": {
       "clear-all": "すべて消去",
@@ -657,6 +681,7 @@
         "show-caps-lock": "Caps Lock警告",
         "show-device": "デバイスを表示",
         "show-events": "予定を表示",
+        "show-events-location": "予定の場所を表示",
         "show-forecast": "予報を表示",
         "show-keyboard-layout": "キーボード配列",
         "show-label": "ラベルを表示",
@@ -1380,7 +1405,10 @@
       "live-status": {
         "active": "動作中",
         "idle-for-one": "1秒間待機",
-        "idle-for-seconds": "{seconds}秒間待機"
+        "idle-for-seconds": "{seconds}秒間待機",
+        "inhibit-reason-caffeine": "カフェイン",
+        "inhibit-reason-external": "外部ソース",
+        "inhibited": "アイドル抑制中：{inhibitors}"
       }
     },
     "navigation": {
@@ -2265,6 +2293,10 @@
           "description": "ドック内側にあるアウトラインの太さ",
           "label": "枠線の太さ"
         },
+        "compositor-blur": {
+          "description": "背景効果プロトコルに対応している場合、コンポジターによるドック背後のぼかしを許可",
+          "label": "コンポジターによるぼかし"
+        },
         "concave-edge-corners": {
           "description": "画面端に接する側の角を内側に削ります。画面端からの余白を0にする必要があります",
           "label": "内向きの角"
@@ -2610,6 +2642,12 @@
         "history-retention-hours": {
           "description": "指定した時間より古い通知履歴を自動的に削除（0で永久に保持）",
           "label": "保持期間"
+        },
+        "history-storage": {
+          "button": "再試行",
+          "description-recovery": "保存済みの通知履歴を検証できないか、データが破損しています。正しい鍵を復元してから再試行するか、プライベートストレージをリセットしてください。",
+          "description-unavailable": "暗号化された通知履歴を開けないため、通知は現在のセッション中のみ保持されます。プライベートストレージのロックを解除するか、設定済みの鍵を復元してから再試行してください。",
+          "label": "通知履歴の保存領域"
         },
         "keep-dismissed-in-history": {
           "description": "ポップアップ通知を閉じた後も通知を履歴に保持",
@@ -3048,6 +3086,10 @@
         "calendar-reminders": {
           "description": "予定の開始前に通知",
           "label": "カレンダーのリマインダー"
+        },
+        "calendar-show-events-location": {
+          "description": "予定一覧で、各予定の時刻の下に場所を表示",
+          "label": "予定の場所を表示"
         },
         "calendar-storage": {
           "button": "再試行",
@@ -3832,7 +3874,7 @@
     "storage-recovery": {
       "button": "プライベートストレージをリセット",
       "button-confirm": "ストレージのリセットを確認",
-      "description": "保存済みのクリップボード履歴とカレンダー予定のキャッシュを完全に削除し、非公開保存領域を再度開きます（設定済みの鍵ファイルは変更されません）",
+      "description": "保存済みのクリップボード履歴、通知履歴、通知画像、カレンダーの予定キャッシュを完全に削除し、プライベートストレージを開き直します（設定済みのキーファイルは変更されません）",
       "error-delete": "一部の非公開保存領域のファイルを削除できませんでした。保存用の鍵は保持されています。",
       "error-key": "非公開保存領域のファイルは削除されましたが、安全な保存領域を再度開けませんでした。アクセス権を修正して、もう一度お試しください。",
       "label": "プライベートストレージを復旧",
@@ -4850,6 +4892,10 @@
         "pinned-opacity": {
           "description": "現在起動していないピン留めアプリの不透明度",
           "label": "ピン留めアプリの不透明度"
+        },
+        "prefer-symbolic-icons": {
+          "description": "現在のアイコンテーマにシンボリックアイコンがある場合は優先して使用し、ない場合は通常のアプリアイコンを使用",
+          "label": "シンボリックアイコンを優先"
         },
         "reversed": {
           "description": "バーの周波数順（低→高）を反転",

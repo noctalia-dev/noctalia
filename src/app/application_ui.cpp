@@ -62,7 +62,7 @@
 namespace {
   constexpr Logger kLog("app");
 
-  [[nodiscard]] bool overviewTypeToLaunchEnabled(const ConfigService& configService) {
+  bool overviewTypeToLaunchEnabled(const ConfigService& configService) {
     if (compositors::isUmbriel()) {
       return configService.config().shell.umbrielOverviewTypeToLaunchEnabled;
     }
@@ -73,7 +73,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
+  bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
     if (compositors::isUmbriel()) {
       return configService.config().shell.umbrielOverviewCloseOnLaunchEnabled;
     }
@@ -112,7 +112,7 @@ void Application::initUiRenderSurfacesAndSettings() {
   m_backdrop.initialize(m_wayland, &m_configService, &m_sharedTextureCache, &m_glShared);
   m_settingsWindow.initialize(
       m_wayland, &m_configService, &m_renderContext, &m_dependencyService, m_upowerService.get(), &m_idleManager,
-      &m_compositorPlatform, m_accountsService.get()
+      &m_idleInhibitor, &m_compositorPlatform, m_accountsService.get()
   );
   m_settingsWindow.setPluginManager(&m_pluginManager);
   m_settingsWindow.setPluginRecommendations(&m_pluginRecommendations);
@@ -359,7 +359,7 @@ void Application::initLockScreenAndSession() {
         return;
       }
       if (!m_lockScreen.isActive()) {
-        (void)m_lockScreen.lock();
+        m_lockScreen.lock();
       }
     });
     m_logindService->setUnlockCallback([this] {
@@ -649,7 +649,7 @@ void Application::initPanelManagerAndPanels() {
       if (!overviewCloseOnLaunchEnabled(m_configService)) {
         return;
       }
-      (void)m_compositorPlatform.closeOverview();
+      m_compositorPlatform.closeOverview();
     });
     m_launcherPanel = launcherPanel.get();
     m_panelManager.registerPanel("launcher", std::move(launcherPanel));
@@ -827,6 +827,7 @@ void Application::initNotificationAndOsd() {
       });
       m_idleManager.setScreenSaverInhibitLocks(m_screenSaverService->inhibitLocks());
       m_pluginIdleWatches.setScreenSaverInhibited(m_screenSaverService->inhibitLocks() > 0);
+      m_settingsWindow.setScreenSaverService(m_screenSaverService.get());
     } else {
       m_screenSaverService.reset();
     }

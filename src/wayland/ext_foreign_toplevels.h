@@ -23,13 +23,12 @@ public:
   void setChangeCallback(ChangeCallback callback);
   void cleanup();
 
-  [[nodiscard]] bool isBound() const noexcept { return m_list != nullptr; }
-  [[nodiscard]] std::vector<std::string> allAppIds() const;
-  [[nodiscard]] std::vector<ToplevelInfo>
-  windowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
-  [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId() const;
+  bool isBound() const noexcept { return m_list != nullptr; }
+  std::vector<std::string> allAppIds() const;
+  std::vector<ToplevelInfo> windowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
+  std::vector<ToplevelInfo> windowsWithoutAppId() const;
   // Ready handle whose committed identifier matches; exact-identity backends (Niri, Umbriel) use their IPC window id.
-  [[nodiscard]] ext_foreign_toplevel_handle_v1* extHandleForIdentifier(std::string_view identifier) const;
+  ext_foreign_toplevel_handle_v1* extHandleForIdentifier(std::string_view identifier) const;
 
   template <typename Fn> void visitExtHandles(Fn&& fn) const {
     for (const auto& [handle, state] : m_handles) {
@@ -80,5 +79,4 @@ struct ExtToplevelTitleMatch {
   std::size_t matchCount = 0;
 };
 
-[[nodiscard]] ExtToplevelTitleMatch
-uniqueExtHandleForTitle(std::span<const ToplevelInfo> windows, std::string_view title);
+ExtToplevelTitleMatch uniqueExtHandleForTitle(std::span<const ToplevelInfo> windows, std::string_view title);

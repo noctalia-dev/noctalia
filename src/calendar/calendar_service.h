@@ -74,14 +74,14 @@ public:
   void removeChangeCallback(ChangeCallbackId callbackId);
   void setCredentialChangeCallback(ChangeCallback callback) { m_credentialChangeCallback = std::move(callback); }
 
-  [[nodiscard]] int pollTimeoutMs() const;
+  int pollTimeoutMs() const;
   void tick();
   void addPollFds(std::vector<pollfd>& fds);
   void dispatchPoll(const std::vector<pollfd>& fds, std::size_t startIdx);
 
-  [[nodiscard]] bool enabled() const noexcept { return m_activeConfig.enabled; }
-  [[nodiscard]] bool hasData() const noexcept { return m_snapshot.valid; }
-  [[nodiscard]] const CalendarSnapshot& snapshot() const noexcept { return m_snapshot; }
+  bool enabled() const noexcept { return m_activeConfig.enabled; }
+  bool hasData() const noexcept { return m_snapshot.valid; }
+  const CalendarSnapshot& snapshot() const noexcept { return m_snapshot; }
 
   // Start the Google OAuth Connect flow for a configured google account (opens a browser).
   void connectGoogleAccount(const std::string& accountId, const std::string& activationToken = {});
@@ -96,11 +96,11 @@ public:
   [[nodiscard]] bool clearEncryptedCacheForRecovery();
   // Schedule an immediate sync (used after saving CalDAV credentials).
   void requestRefresh();
-  [[nodiscard]] ConnectState connectState() const noexcept { return m_connect.state; }
-  [[nodiscard]] const std::string& connectingAccountId() const noexcept { return m_connect.accountId; }
-  [[nodiscard]] calendar::CredentialState credentialState() const noexcept { return m_credentials.state(); }
-  [[nodiscard]] bool credentialMigrationPending() const noexcept { return m_credentials.migrationPending(); }
-  [[nodiscard]] bool hasMissingRefreshTokens() const { return m_credentials.anyRefreshTokenMissing(); }
+  ConnectState connectState() const noexcept { return m_connect.state; }
+  const std::string& connectingAccountId() const noexcept { return m_connect.accountId; }
+  calendar::CredentialState credentialState() const noexcept { return m_credentials.state(); }
+  bool credentialMigrationPending() const noexcept { return m_credentials.migrationPending(); }
+  bool hasMissingRefreshTokens() const { return m_credentials.anyRefreshTokenMissing(); }
   // What an account's Settings row shows, the same way for every account type: why its sync is failing and
   // what fixes it, or when it last synced.
   struct AccountStatus {
@@ -120,14 +120,14 @@ public:
     std::optional<std::chrono::system_clock::time_point> lastSynced;
     Action action = Action::Edit;
   };
-  [[nodiscard]] AccountStatus accountStatus(const CalendarConfig::Account& account) const;
+  AccountStatus accountStatus(const CalendarConfig::Account& account) const;
   // The status as one line, as the account's Settings row shows it.
-  [[nodiscard]] std::string accountStatusText(const CalendarConfig::Account& account) const;
+  std::string accountStatusText(const CalendarConfig::Account& account) const;
   // Changes whenever an account's status does, so a view can refresh only then.
-  [[nodiscard]] std::uint64_t syncStatusRevision() const noexcept { return m_syncStatusRevision; }
-  [[nodiscard]] CachePersistenceState cachePersistenceState() const noexcept { return m_cachePersistenceState; }
-  [[nodiscard]] bool cacheMigrationPending() const noexcept { return m_cacheMigrationPending; }
-  [[nodiscard]] bool hasEncryptedCache() const;
+  std::uint64_t syncStatusRevision() const noexcept { return m_syncStatusRevision; }
+  CachePersistenceState cachePersistenceState() const noexcept { return m_cachePersistenceState; }
+  bool cacheMigrationPending() const noexcept { return m_cacheMigrationPending; }
+  bool hasEncryptedCache() const;
 
 private:
   struct ConnectFlow {
@@ -171,19 +171,19 @@ private:
   void notifyGoogleConnectFailure(const std::string& body) const;
   void notifyGoogleCredentialLocked() const;
   void initializeCredentials();
-  [[nodiscard]] calendar::CredentialMigration credentialMigration();
+  calendar::CredentialMigration credentialMigration();
   void storeGoogleTokens(
       const std::string& accountId, calendar::OAuthTokens tokens,
       std::function<void(security::SecretStoreStatus)> callback
   );
   void clearGoogleSession(const std::string& accountId);
-  [[nodiscard]] static CredentialOperationResult operationResult(security::SecretStoreStatus status);
+  static CredentialOperationResult operationResult(security::SecretStoreStatus status);
 
   [[nodiscard]] bool loadCache();
   [[nodiscard]] bool parseCache(std::span<const std::uint8_t> contents);
   void saveCache();
-  [[nodiscard]] static std::filesystem::path cacheFilePath();
-  [[nodiscard]] static std::filesystem::path legacyCacheFilePath();
+  static std::filesystem::path cacheFilePath();
+  static std::filesystem::path legacyCacheFilePath();
   void setCachePersistenceState(CachePersistenceState state, bool migrationPending);
 
   ConfigService& m_configService;

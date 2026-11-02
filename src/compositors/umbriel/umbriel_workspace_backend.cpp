@@ -11,7 +11,7 @@ namespace {
 
   constexpr Logger kLog("umbriel_workspace_backend");
 
-  [[nodiscard]] std::string jsonString(const nlohmann::json& json, std::string_view key) {
+  std::string jsonString(const nlohmann::json& json, std::string_view key) {
     const auto it = json.find(key);
     if (it == json.end() || !it->is_string()) {
       return {};
@@ -19,7 +19,7 @@ namespace {
     return it->get<std::string>();
   }
 
-  [[nodiscard]] std::optional<WindowMinimizeState> parseMinimizeState(const nlohmann::json& entry) {
+  std::optional<WindowMinimizeState> parseMinimizeState(const nlohmann::json& entry) {
     const auto minimized = entry.find("minimized");
     const auto minimizable = entry.find("minimizable");
     if (minimized == entry.end()
@@ -180,13 +180,13 @@ std::vector<WorkspaceWindow> UmbrielWorkspaceBackend::workspaceWindows(const std
 }
 
 bool UmbrielWorkspaceBackend::focusWindowById(const std::string& windowId, bool warpPointer) {
-  return m_runtime.requestAction(std::string(warpPointer ? "window-focus-warp:" : "window-focus:") + windowId);
+  return m_runtime.requestAction(warpPointer ? "window-focus-warp" : "window-focus", {{"window", windowId}});
 }
 
 std::optional<std::string> UmbrielWorkspaceBackend::focusedWindowId() const { return m_focusedWindowId; }
 
 bool UmbrielWorkspaceBackend::closeWindowById(const std::string& windowId) {
-  return m_runtime.requestAction("window-close:" + windowId);
+  return m_runtime.requestAction("window-close", {{"window", windowId}});
 }
 
 std::optional<WindowMinimizeState> UmbrielWorkspaceBackend::windowMinimizeState(std::string_view windowId) const {
@@ -202,7 +202,7 @@ bool UmbrielWorkspaceBackend::minimizeWindowById(const std::string& windowId) {
   if (!state.has_value() || !state->minimizable || state->minimized) {
     return false;
   }
-  return m_runtime.requestAction("window-minimize:" + windowId);
+  return m_runtime.requestAction("window-minimize", {{"window", windowId}});
 }
 
 void UmbrielWorkspaceBackend::cleanup() { m_runtime.cleanup(); }

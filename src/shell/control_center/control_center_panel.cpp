@@ -128,6 +128,9 @@ void ControlCenterPanel::create() {
         .configure = [this, scale](Flex& column) {
           column.setFill(colorSpecFromRole(ColorRole::SurfaceContainer, panelCardOpacity()));
           column.setRadius(Style::scaledRadiusXl(scale));
+          if (Style::cardBordersEnabled()) {
+            column.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
+          }
         },
     });
 

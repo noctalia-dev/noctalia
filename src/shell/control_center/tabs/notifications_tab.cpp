@@ -582,16 +582,16 @@ public:
   NotificationHistoryAdapter(NotificationsTab& owner, float scale, float fillOpacity)
       : m_owner(owner), m_scale(scale), m_fillOpacity(fillOpacity) {}
 
-  [[nodiscard]] std::size_t itemCount() const override { return m_owner.m_filtered.size(); }
+  std::size_t itemCount() const override { return m_owner.m_filtered.size(); }
 
-  [[nodiscard]] std::uint64_t itemKey(std::size_t index) const override {
+  std::uint64_t itemKey(std::size_t index) const override {
     if (index >= m_owner.m_filtered.size()) {
       return static_cast<std::uint64_t>(index);
     }
     return m_owner.m_filtered[index];
   }
 
-  [[nodiscard]] std::uint64_t itemRevision(std::size_t index) const override {
+  std::uint64_t itemRevision(std::size_t index) const override {
     const NotificationHistoryEntry* found = m_owner.filteredEntry(index);
     if (found == nullptr) {
       return 0;
@@ -603,7 +603,7 @@ public:
     return revision;
   }
 
-  [[nodiscard]] float measureItem(Renderer& renderer, std::size_t index, float width) override {
+  float measureItem(Renderer& renderer, std::size_t index, float width) override {
     const NotificationHistoryEntry* found = m_owner.filteredEntry(index);
     if (found == nullptr) {
       return 1.0F;
@@ -951,7 +951,7 @@ void NotificationsTab::clearAllNotifications() {
     activeIds.push_back(notification.id);
   }
   for (const uint32_t id : activeIds) {
-    (void)m_notifications->close(id, CloseReason::Dismissed);
+    m_notifications->close(id, CloseReason::Dismissed);
   }
   m_notifications->clearHistory();
   m_expandedIds.clear();
@@ -972,7 +972,7 @@ void NotificationsTab::toggleDoNotDisturb() {
     return;
   }
 
-  (void)m_notifications->toggleDoNotDisturb();
+  m_notifications->toggleDoNotDisturb();
   syncDndButton();
   PanelManager::instance().refresh();
 }
@@ -996,7 +996,7 @@ void NotificationsTab::removeNotificationEntry(uint32_t id, bool wasActive) {
   }
 
   if (wasActive) {
-    (void)m_notifications->close(id, CloseReason::Dismissed);
+    m_notifications->close(id, CloseReason::Dismissed);
   }
   m_notifications->removeHistoryEntry(id);
   m_expandedIds.erase(id);

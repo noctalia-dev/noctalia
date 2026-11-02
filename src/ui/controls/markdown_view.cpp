@@ -1,6 +1,7 @@
 #include "ui/controls/markdown_view.h"
 
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/controls/label.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/separator.h"
@@ -8,11 +9,13 @@
 #include "ui/style.h"
 
 #include <algorithm>
+#include <cmath>
 #include <md4c.h>
 #include <memory>
 #include <numeric>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -36,6 +39,16 @@ namespace {
     std::size_t tableCellWidth = 0;
     std::vector<std::pair<std::vector<std::string>, bool>> tableRows;
     std::vector<std::size_t> tableColumnWidths;
+    bool inParagraph = false;
+    // Whether the paragraph segment in textBuf shows anything; block images split a paragraph into
+    // segments, and a segment of bare whitespace or empty markup is dropped.
+    bool paragraphHasText = false;
+    // Markup spans open at the current position, reopened after a block image splits the paragraph.
+    std::vector<MD_SPANTYPE> openSpans;
+    int imageDepth = 0;
+    std::string imageSrc;
+    std::string imageAlt; // Pango-escaped
+    std::size_t imageAltWidth = 0;
   };
 
   void escapeForPango(std::string& out, const char* text, unsigned size) {
@@ -54,6 +67,40 @@ namespace {
         out += text[i];
         break;
       }
+    }
+  }
+
+  const char* spanOpenTag(MD_SPANTYPE type) {
+    switch (type) {
+    case MD_SPAN_STRONG:
+      return "<b>";
+    case MD_SPAN_EM:
+      return "<i>";
+    case MD_SPAN_CODE:
+      return "<tt>";
+    case MD_SPAN_A:
+      return "<u>";
+    case MD_SPAN_DEL:
+      return "<s>";
+    default:
+      return nullptr;
+    }
+  }
+
+  const char* spanCloseTag(MD_SPANTYPE type) {
+    switch (type) {
+    case MD_SPAN_STRONG:
+      return "</b>";
+    case MD_SPAN_EM:
+      return "</i>";
+    case MD_SPAN_CODE:
+      return "</tt>";
+    case MD_SPAN_A:
+      return "</u>";
+    case MD_SPAN_DEL:
+      return "</s>";
+    default:
+      return nullptr;
     }
   }
 
@@ -107,6 +154,43 @@ namespace {
     );
     ctx.view->trackWrappableLabel(label.get());
     ctx.view->addChild(std::move(label));
+  }
+
+  // Emits the paragraph text before a block image and restarts the buffer with the markup spans
+  // still open, so both segments stay balanced Pango markup.
+  void flushParagraphSegment(MdContext& ctx) {
+    if (ctx.paragraphHasText) {
+      for (auto it = ctx.openSpans.rbegin(); it != ctx.openSpans.rend(); ++it) {
+        ctx.textBuf += spanCloseTag(*it);
+      }
+      emitParagraph(ctx);
+    }
+    ctx.textBuf.clear();
+    for (const MD_SPANTYPE type : ctx.openSpans) {
+      ctx.textBuf += spanOpenTag(type);
+    }
+    ctx.paragraphHasText = false;
+  }
+
+  // Images directly in a paragraph become blocks of their own; anywhere else (headings, list items,
+  // table cells) or when the view cannot load the reference, the alt text stands in inline.
+  void emitImage(MdContext& ctx) {
+    std::optional<std::string> path;
+    if (ctx.inParagraph && !ctx.inTable) {
+      path = ctx.view->resolveImage(ctx.imageSrc);
+    }
+    if (!path.has_value()) {
+      if (ctx.inTable) {
+        ctx.tableCellBuf += ctx.imageAlt;
+        ctx.tableCellWidth += ctx.imageAltWidth;
+      } else {
+        ctx.textBuf += ctx.imageAlt;
+        ctx.paragraphHasText = ctx.paragraphHasText || ctx.imageAltWidth > 0;
+      }
+      return;
+    }
+    flushParagraphSegment(ctx);
+    ctx.view->addImage(std::move(ctx.imageSrc), *path);
   }
 
   void emitCodeBlock(MdContext& ctx) {
@@ -292,6 +376,11 @@ namespace {
     auto* ctx = static_cast<MdContext*>(userdata);
     ctx->textBuf.clear();
     switch (type) {
+    case MD_BLOCK_P:
+      ctx->inParagraph = true;
+      ctx->paragraphHasText = false;
+      ctx->openSpans.clear();
+      break;
     case MD_BLOCK_H: {
       const auto* hd = static_cast<const MD_BLOCK_H_DETAIL*>(detail);
       ctx->headingLevel = static_cast<int>(hd->level);
@@ -345,7 +434,10 @@ namespace {
       ctx->headingLevel = 0;
       break;
     case MD_BLOCK_P:
-      emitParagraph(*ctx);
+      if (ctx->paragraphHasText) {
+        emitParagraph(*ctx);
+      }
+      ctx->inParagraph = false;
       break;
     case MD_BLOCK_CODE:
       emitCodeBlock(*ctx);
@@ -392,31 +484,30 @@ namespace {
     return 0;
   }
 
-  int onEnterSpan(MD_SPANTYPE type, void* /*detail*/, void* userdata) {
+  int onEnterSpan(MD_SPANTYPE type, void* detail, void* userdata) {
     auto* ctx = static_cast<MdContext*>(userdata);
     if (ctx->inCodeBlock) {
       return 0;
     }
-    auto& buf = ctx->inTable ? ctx->tableCellBuf : ctx->textBuf;
-    switch (type) {
-    case MD_SPAN_STRONG:
-      buf += "<b>";
-      break;
-    case MD_SPAN_EM:
-      buf += "<i>";
-      break;
-    case MD_SPAN_CODE:
-      buf += "<tt>";
-      break;
-    case MD_SPAN_A:
-      buf += "<u>";
-      break;
-    case MD_SPAN_DEL:
-      buf += "<s>";
-      break;
-    default:
-      break;
+    if (type == MD_SPAN_IMG) {
+      // Nested images only contribute to the outer image's alt text.
+      if (ctx->imageDepth++ == 0) {
+        const auto* img = static_cast<const MD_SPAN_IMG_DETAIL*>(detail);
+        ctx->imageSrc.assign(img->src.text, img->src.size);
+        ctx->imageAlt.clear();
+        ctx->imageAltWidth = 0;
+      }
+      return 0;
     }
+    if (ctx->imageDepth > 0) {
+      return 0;
+    }
+    const char* tag = spanOpenTag(type);
+    if (tag == nullptr) {
+      return 0;
+    }
+    (ctx->inTable ? ctx->tableCellBuf : ctx->textBuf) += tag;
+    ctx->openSpans.push_back(type);
     return 0;
   }
 
@@ -425,31 +516,60 @@ namespace {
     if (ctx->inCodeBlock) {
       return 0;
     }
-    auto& buf = ctx->inTable ? ctx->tableCellBuf : ctx->textBuf;
-    switch (type) {
-    case MD_SPAN_STRONG:
-      buf += "</b>";
-      break;
-    case MD_SPAN_EM:
-      buf += "</i>";
-      break;
-    case MD_SPAN_CODE:
-      buf += "</tt>";
-      break;
-    case MD_SPAN_A:
-      buf += "</u>";
-      break;
-    case MD_SPAN_DEL:
-      buf += "</s>";
-      break;
-    default:
-      break;
+    if (type == MD_SPAN_IMG) {
+      if (--ctx->imageDepth == 0) {
+        emitImage(*ctx);
+      }
+      return 0;
+    }
+    if (ctx->imageDepth > 0) {
+      return 0;
+    }
+    const char* tag = spanCloseTag(type);
+    if (tag == nullptr) {
+      return 0;
+    }
+    (ctx->inTable ? ctx->tableCellBuf : ctx->textBuf) += tag;
+    if (!ctx->openSpans.empty()) {
+      ctx->openSpans.pop_back();
     }
     return 0;
   }
 
   int onText(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userdata) {
     auto* ctx = static_cast<MdContext*>(userdata);
+    if (ctx->imageDepth > 0) {
+      switch (type) {
+      case MD_TEXT_SOFTBR:
+      case MD_TEXT_BR:
+        ctx->imageAlt += ' ';
+        ++ctx->imageAltWidth;
+        break;
+      case MD_TEXT_ENTITY:
+        ctx->imageAlt.append(text, size);
+        ++ctx->imageAltWidth;
+        break;
+      default:
+        escapeForPango(ctx->imageAlt, text, size);
+        ctx->imageAltWidth += codepointCount(text, size);
+        break;
+      }
+      return 0;
+    }
+    if (ctx->inParagraph && !ctx->paragraphHasText) {
+      // A segment following a block image starts at its first visible character.
+      if (type == MD_TEXT_SOFTBR || type == MD_TEXT_BR) {
+        return 0;
+      }
+      while (size > 0 && (*text == ' ' || *text == '\t')) {
+        ++text;
+        --size;
+      }
+      if (size == 0) {
+        return 0;
+      }
+      ctx->paragraphHasText = true;
+    }
     auto& buf = ctx->inTable ? ctx->tableCellBuf : ctx->textBuf;
     const auto appendEscaped = [&] {
       escapeForPango(buf, text, size);
@@ -498,7 +618,14 @@ namespace {
     return 0;
   }
 
+  // Images show at their pixel size times the UI scale, shrunk to the view width and this height.
+  constexpr float kMaxImageHeight = 480.0F;
+  // Decode bound for the longer image side, in logical pixels before the UI scale.
+  constexpr float kImageTargetSize = 1024.0F;
+
 } // namespace
+
+void MarkdownView::setImageSource(MarkdownImageSource source) { m_imageSource = std::move(source); }
 
 void MarkdownView::setMarkdown(const std::string& markdown, float scale, float fontScale) {
   clear();
@@ -527,8 +654,102 @@ void MarkdownView::setMarkdown(const std::string& markdown, float scale, float f
 
 void MarkdownView::clear() {
   m_wrappableLabels.clear();
+  m_images.clear();
   while (!children().empty()) {
     removeChild(children().back().get());
+  }
+}
+
+std::optional<std::string> MarkdownView::resolveImage(const std::string& src) const {
+  if (m_imageSource.renderer == nullptr || !m_imageSource.resolve || src.empty()) {
+    return std::nullopt;
+  }
+  return m_imageSource.resolve(src);
+}
+
+void MarkdownView::addImage(std::string src, const std::string& path) {
+  Flex* row = nullptr;
+  Image* image = nullptr;
+  addChild(
+      ui::row(
+          {.out = &row, .align = FlexAlign::Start, .fillWidth = true},
+          ui::image({.out = &image, .fit = ImageFit::Contain, .radius = Style::scaledRadiusMd(m_scale)})
+      )
+  );
+  // Hidden until the texture arrives, so a pending or undecodable image takes no gap in the column.
+  row->setVisible(false);
+  auto& entry = m_images.emplace_back(ImageEntry{.row = row, .image = image, .src = std::move(src)});
+  loadImage(entry, path);
+}
+
+void MarkdownView::refreshPendingImages() {
+  bool loaded = false;
+  for (auto& entry : m_images) {
+    if (!entry.pending) {
+      continue;
+    }
+    const auto path = resolveImage(entry.src);
+    if (!path.has_value() || path->empty()) {
+      continue;
+    }
+    loadImage(entry, *path);
+    loaded = loaded || entry.row->visible();
+  }
+  if (loaded) {
+    markLayoutDirty();
+    if (m_imageSource.onLayoutNeeded) {
+      m_imageSource.onLayoutNeeded();
+    }
+  }
+}
+
+void MarkdownView::loadImage(ImageEntry& entry, const std::string& path) {
+  entry.pending = path.empty();
+  if (entry.pending) {
+    return;
+  }
+  Renderer& renderer = *m_imageSource.renderer;
+  const int targetSize = static_cast<int>(std::ceil(kImageTargetSize * m_scale));
+  bool loaded = false;
+  if (m_imageSource.textureCache != nullptr) {
+    loaded = entry.image->setSourceFileAsync(renderer, *m_imageSource.textureCache, path, targetSize, true);
+    if (!loaded) {
+      // The image is a child of this view, so the callback cannot outlive it.
+      entry.image->setAsyncReadyCallback([this, row = entry.row] {
+        row->setVisible(true);
+        markLayoutDirty();
+        if (m_imageSource.onLayoutNeeded) {
+          m_imageSource.onLayoutNeeded();
+        }
+      });
+    }
+  } else {
+    loaded = entry.image->setSourceFile(renderer, path, targetSize, true);
+  }
+  entry.row->setVisible(loaded);
+}
+
+void MarkdownView::applyWidth(float width) {
+  for (Label* label : m_wrappableLabels) {
+    label->setMaxWidth(width);
+  }
+  const float maxHeight = kMaxImageHeight * m_scale;
+  for (const auto& entry : m_images) {
+    Image& image = *entry.image;
+    if (!image.hasImage()) {
+      continue;
+    }
+    const float aspect = image.aspectRatio();
+    float imageWidth = width;
+    if (image.sourceWidth() > 0) {
+      imageWidth = std::min(width, static_cast<float>(image.sourceWidth()) * m_scale);
+    }
+    float imageHeight = imageWidth / aspect;
+    if (imageHeight > maxHeight) {
+      imageHeight = maxHeight;
+      imageWidth = imageHeight * aspect;
+    }
+    image.setSize(imageWidth, imageHeight);
   }
 }
 
@@ -541,9 +762,7 @@ LayoutSize MarkdownView::doMeasure(Renderer& renderer, const LayoutConstraints& 
     w = constraints.maxWidth;
   }
   if (w > 0.0F) {
-    for (Label* label : m_wrappableLabels) {
-      label->setMaxWidth(w);
-    }
+    applyWidth(w);
   }
   return Flex::doMeasure(renderer, constraints);
 }
@@ -551,9 +770,7 @@ LayoutSize MarkdownView::doMeasure(Renderer& renderer, const LayoutConstraints& 
 void MarkdownView::doLayout(Renderer& renderer) {
   const float w = width();
   if (w > 0.0F) {
-    for (Label* label : m_wrappableLabels) {
-      label->setMaxWidth(w);
-    }
+    applyWidth(w);
   }
   Flex::doLayout(renderer);
 }

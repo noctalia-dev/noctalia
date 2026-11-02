@@ -21,7 +21,7 @@ namespace shell {
     std::int32_t marginLeft = 0;
   };
 
-  [[nodiscard]] inline ScreenPositionAnchor screenPositionAnchor(std::string_view position, std::int32_t edge) {
+  inline ScreenPositionAnchor screenPositionAnchor(std::string_view position, std::int32_t edge) {
     const bool top = position == "top_left" || position == "top_center" || position == "top_right";
     const bool bottom = position == "bottom_left" || position == "bottom_center" || position == "bottom_right";
     const bool left = position == "top_left" || position == "center_left" || position == "bottom_left";
@@ -57,8 +57,7 @@ namespace shell {
     bool end = false;
   };
 
-  [[nodiscard]] inline AttachedPositionAlign
-  attachedPositionAlign(std::string_view position, std::string_view barPosition) {
+  inline AttachedPositionAlign attachedPositionAlign(std::string_view position, std::string_view barPosition) {
     if (barPosition == "bottom") {
       return {.start = position == "bottom_left", .end = position == "bottom_right"};
     }

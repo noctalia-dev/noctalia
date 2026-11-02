@@ -79,7 +79,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::optional<std::vector<std::string>> makeCommand(std::initializer_list<const char*> args) {
+  std::optional<std::vector<std::string>> makeCommand(std::initializer_list<const char*> args) {
     std::vector<std::string> command;
     command.reserve(args.size());
     for (const char* arg : args) {
@@ -91,7 +91,7 @@ namespace {
     return command;
   }
 
-  [[nodiscard]] std::vector<char*> makeArgv(const std::vector<std::string>& args) {
+  std::vector<char*> makeArgv(const std::vector<std::string>& args) {
     std::vector<char*> argv;
     argv.reserve(args.size() + 1);
     for (const auto& arg : args) {
@@ -101,7 +101,7 @@ namespace {
     return argv;
   }
 
-  [[nodiscard]] bool validEnvName(std::string_view name) { return !name.empty() && !name.contains('='); }
+  bool validEnvName(std::string_view name) { return !name.empty() && !name.contains('='); }
 
   void applyEnvOverrides(const std::vector<process::EnvOverride>& env) {
     for (const auto& item : env) {
@@ -116,7 +116,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] bool isSafeFlatpakAppId(std::string_view appId) {
+  bool isSafeFlatpakAppId(std::string_view appId) {
     if (appId.empty() || appId.contains('/') || appId.contains('\\')) {
       return false;
     }
@@ -145,14 +145,14 @@ namespace {
     roots.emplace_back("/var/lib");
   }
 
-  [[nodiscard]] bool isProcPidName(std::string_view name) {
+  bool isProcPidName(std::string_view name) {
     if (name.empty()) {
       return false;
     }
     return std::ranges::all_of(name, [](char ch) { return ch >= '0' && ch <= '9'; });
   }
 
-  [[nodiscard]] std::string readProcCmdline(const std::filesystem::path& path) {
+  std::string readProcCmdline(const std::filesystem::path& path) {
     std::ifstream file(path / "cmdline", std::ios::binary);
     if (!file) {
       return {};
@@ -178,7 +178,7 @@ namespace {
     return ' ' + cmdline + ' ';
   }
 
-  [[nodiscard]] std::vector<std::string> readProcessCommandLines() {
+  std::vector<std::string> readProcessCommandLines() {
     std::vector<std::string> commandLines;
     std::error_code ec;
     for (const auto& entry :
@@ -217,7 +217,7 @@ namespace {
     return mutex;
   }
 
-  [[nodiscard]] std::vector<std::string> cachedProcessCommandLines() {
+  std::vector<std::string> cachedProcessCommandLines() {
     std::scoped_lock lock(processCommandLineCacheMutex());
     auto& cache = processCommandLineCache();
     const auto now = std::chrono::steady_clock::now();
@@ -228,7 +228,7 @@ namespace {
     return cache.commandLines;
   }
 
-  [[nodiscard]] bool cachedProcessMatchesAny(std::initializer_list<std::string_view> needles) {
+  bool cachedProcessMatchesAny(std::initializer_list<std::string_view> needles) {
     const auto& commandLines = cachedProcessCommandLines();
     return std::ranges::any_of(commandLines, [needles](const auto& commandLine) {
       return std::ranges::any_of(needles, [&commandLine](std::string_view needle) {
@@ -293,7 +293,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] int exitCodeFromStatus(int status) {
+  int exitCodeFromStatus(int status) {
     if (WIFEXITED(status)) {
       return WEXITSTATUS(status);
     }
@@ -322,7 +322,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] int waitBlocking(pid_t pid) {
+  int waitBlocking(pid_t pid) {
     int status = 0;
     while (::waitpid(pid, &status, 0) < 0) {
       if (errno != EINTR) {
@@ -354,7 +354,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] int pollTimeoutMs(std::optional<std::chrono::steady_clock::time_point> deadline) {
+  int pollTimeoutMs(std::optional<std::chrono::steady_clock::time_point> deadline) {
     if (!deadline.has_value()) {
       return static_cast<int>(kProcessPollInterval.count());
     }
@@ -419,8 +419,8 @@ namespace {
 
     closeFd(outPipe[1]);
     closeFd(errPipe[1]);
-    (void)setNonBlocking(outPipe[0]);
-    (void)setNonBlocking(errPipe[0]);
+    setNonBlocking(outPipe[0]);
+    setNonBlocking(errPipe[0]);
 
     std::string out;
     std::string err;
@@ -505,7 +505,7 @@ namespace {
     return {exitCode, std::move(out), std::move(err), timedOut, outTruncated, errTruncated};
   }
 
-  [[nodiscard]] bool hasAnyCallback(const process::RunCallbacks& callbacks) {
+  bool hasAnyCallback(const process::RunCallbacks& callbacks) {
     return callbacks.stdOut || callbacks.stdErr || callbacks.onExit;
   }
 

@@ -115,7 +115,7 @@ namespace {
   constexpr int kToastMaxBodyLines = 3;
   constexpr int kMaxToastCardHeight = 320;
 
-  [[nodiscard]] float notificationUiScale(const ConfigService* config) {
+  float notificationUiScale(const ConfigService* config) {
     if (config == nullptr) {
       return 1.0F;
     }
@@ -124,7 +124,7 @@ namespace {
     return std::max(0.1F, accessibility.uiScale * notification.scale);
   }
 
-  [[nodiscard]] ColorSpec toastBorderColor(const ConfigService* config, Urgency urgency) {
+  ColorSpec toastBorderColor(const ConfigService* config, Urgency urgency) {
     if (urgency == Urgency::Critical) {
       return colorSpecFromRole(ColorRole::Error);
     }
@@ -134,7 +134,7 @@ namespace {
     return config->config().notification.borderColor;
   }
 
-  [[nodiscard]] float toastBorderWidth(const ConfigService* config, Urgency urgency, float scale) {
+  float toastBorderWidth(const ConfigService* config, Urgency urgency, float scale) {
     if (config == nullptr) {
       return (urgency == Urgency::Critical ? Style::emphasizedBorderWidth : Style::borderWidth) * scale;
     }
@@ -149,58 +149,58 @@ namespace {
     return width * scale;
   }
 
-  [[nodiscard]] float notificationWidth(const ConfigService* config) {
+  float notificationWidth(const ConfigService* config) {
     if (config == nullptr) {
       return static_cast<float>(NotificationConfig::kDefaultWidth);
     }
     return static_cast<float>(config->config().notification.width);
   }
 
-  [[nodiscard]] float cardWidth(float scale, float width) { return width * scale; }
+  float cardWidth(float scale, float width) { return width * scale; }
 
-  [[nodiscard]] float paddingTop(float scale) { return kPaddingTop * scale; }
+  float paddingTop(float scale) { return kPaddingTop * scale; }
 
-  [[nodiscard]] float paddingX(float scale) { return kPaddingX * scale; }
+  float paddingX(float scale) { return kPaddingX * scale; }
 
-  [[nodiscard]] float paddingBottom(float scale) { return kPaddingBottom * scale; }
+  float paddingBottom(float scale) { return kPaddingBottom * scale; }
 
-  [[nodiscard]] float cardInnerPad(float scale) { return kCardInnerPad * scale; }
+  float cardInnerPad(float scale) { return kCardInnerPad * scale; }
 
-  [[nodiscard]] float closeButtonSize(float scale) { return kCloseButtonSize * scale; }
+  float closeButtonSize(float scale) { return kCloseButtonSize * scale; }
 
-  [[nodiscard]] float notificationIconSize(float scale, bool showActions) {
+  float notificationIconSize(float scale, bool showActions) {
     return (showActions ? kNotificationIconSize : kNotificationIconSizeCompact) * scale;
   }
 
-  [[nodiscard]] float notificationIconGlyphSize(float scale, bool showActions) {
+  float notificationIconGlyphSize(float scale, bool showActions) {
     return (showActions ? kNotificationIconGlyphSize : kNotificationIconGlyphSizeCompact) * scale;
   }
 
-  [[nodiscard]] float iconTextGap(float scale) { return kIconTextGap * scale; }
+  float iconTextGap(float scale) { return kIconTextGap * scale; }
 
-  [[nodiscard]] float actionGap(float scale) { return kActionGap * scale; }
+  float actionGap(float scale) { return kActionGap * scale; }
 
-  [[nodiscard]] float actionRowGap(float scale) { return kActionRowGap * scale; }
+  float actionRowGap(float scale) { return kActionRowGap * scale; }
 
-  [[nodiscard]] float progressHeight(float scale) { return static_cast<float>(kProgressHeight) * scale; }
+  float progressHeight(float scale) { return static_cast<float>(kProgressHeight) * scale; }
 
-  [[nodiscard]] float topProgressInset(float scale) { return kTopProgressInset * scale; }
+  float topProgressInset(float scale) { return kTopProgressInset * scale; }
 
-  [[nodiscard]] float metaFontSize(float scale) { return kMetaFontSize * scale; }
+  float metaFontSize(float scale) { return kMetaFontSize * scale; }
 
-  [[nodiscard]] float summaryFontSize(float scale) { return kSummaryFontSize * scale; }
+  float summaryFontSize(float scale) { return kSummaryFontSize * scale; }
 
-  [[nodiscard]] float bodyFontSize(float scale) { return kBodyFontSize * scale; }
+  float bodyFontSize(float scale) { return kBodyFontSize * scale; }
 
-  [[nodiscard]] float maxToastCardHeight(float scale) { return static_cast<float>(kMaxToastCardHeight) * scale; }
+  float maxToastCardHeight(float scale) { return static_cast<float>(kMaxToastCardHeight) * scale; }
 
-  [[nodiscard]] std::uint32_t surfaceWidth(float scale, float width, float innerPadX) {
+  std::uint32_t surfaceWidth(float scale, float width, float innerPadX) {
     return static_cast<std::uint32_t>(
         std::max(1, static_cast<int>(std::ceil(cardWidth(scale, width) + innerPadX * 2.0F)))
     );
   }
 
-  [[nodiscard]] std::uint32_t fallbackSurfaceHeight(float scale) {
+  std::uint32_t fallbackSurfaceHeight(float scale) {
     const float totalHeight = maxToastCardHeight(scale) * kFallbackVisibleCards
         + (kGap * scale) * (kFallbackVisibleCards - 1)
         + paddingBottom(scale);
@@ -954,7 +954,7 @@ void NotificationToast::requestClose(uint32_t notificationId, CloseReason reason
   if (m_notifications != nullptr) {
     for (const auto& notification : m_notifications->all()) {
       if (notification.id == notificationId) {
-        (void)m_notifications->close(notificationId, reason);
+        m_notifications->close(notificationId, reason);
         return;
       }
     }
@@ -1179,7 +1179,7 @@ void NotificationToast::removeCardFromInstance(Instance& inst, std::size_t entry
   }
 
   if (inst.sceneRoot != nullptr) {
-    (void)inst.sceneRoot->removeChild(cs.cardNode);
+    inst.sceneRoot->removeChild(cs.cardNode);
   }
   cs = {};
 
@@ -1501,12 +1501,24 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
 }
 
 void NotificationToast::revealQueuedEntries() {
+  // enforceMaxVisible() only runs on add, config reload and output change; other reveal paths must respect
+  // max_visible here.
+  const int max = m_config != nullptr ? m_config->config().notification.maxVisible : 0;
+  const auto stackIsFull = [this, max](const PopupEntry& entry) {
+    if (max <= 0) {
+      return false;
+    }
+    const auto placedInStack = std::ranges::count_if(m_entries, [this, &entry](const PopupEntry& other) {
+      return hasPlacement(other) && entriesShareStack(entry, other);
+    });
+    return placedInStack >= max;
+  };
   bool placed = false;
   do {
     placed = false;
     for (std::size_t i = 0; i < m_entries.size(); ++i) {
       auto& entry = m_entries[i];
-      if (entry.exiting || hasPlacement(entry)) {
+      if (entry.exiting || hasPlacement(entry) || stackIsFull(entry)) {
         continue;
       }
       const auto placement = findPlacementY(entry.height, entry.targetOutput);
@@ -1550,6 +1562,7 @@ void NotificationToast::enforceMaxVisible() {
     }
   }
 
+  bool evicted = false;
   for (const auto& placedIndices : placedGroups) {
     if (static_cast<int>(placedIndices.size()) <= max) {
       continue;
@@ -1561,6 +1574,16 @@ void NotificationToast::enforceMaxVisible() {
       if (m_entries[i].rawTimeoutMs > 0 && m_notifications != nullptr) {
         m_notifications->pauseExpiry(m_entries[i].notificationId);
       }
+      syncEntryVisibility(i);
+      evicted = true;
+    }
+  }
+
+  // Close the slots left by evicted toasts, as a dismissal would, so new toasts stack after the rest.
+  if (evicted && m_config->config().notification.collapseOnDismiss) {
+    collapseStack();
+    // The repacked stack may now fit on shorter monitors where some cards were skipped.
+    for (std::size_t i = 0; i < m_entries.size(); ++i) {
       syncEntryVisibility(i);
     }
   }

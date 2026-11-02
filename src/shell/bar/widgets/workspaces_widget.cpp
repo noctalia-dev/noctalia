@@ -2,6 +2,7 @@
 
 #include "compositors/workspace_backend.h"
 #include "config/config_service.h"
+#include "config/config_types.h"
 #include "core/ui_phase.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
@@ -27,7 +28,7 @@
 #include <wayland-client-protocol.h>
 
 namespace {
-  [[nodiscard]] bool isEmptyWorkspace(const Workspace& workspace) {
+  bool isEmptyWorkspace(const Workspace& workspace) {
     return !workspace.occupied && !workspace.active && !workspace.urgent;
   }
 
@@ -35,17 +36,15 @@ namespace {
   constexpr float kWorkspacePillDefaultHeight = Style::baseGlyphSize;
   constexpr float kWorkspaceAnimDurationMs = static_cast<float>(Style::animNormal);
 
-  [[nodiscard]] constexpr float workspaceLabelFontSize(bool minimal) {
-    return minimal ? Style::fontSizeBody : Style::fontSizeMini;
-  }
+  constexpr float workspaceLabelFontSize(bool minimal) { return minimal ? Style::fontSizeBody : Style::fontSizeMini; }
 
   // Numeric workspace IDs ("10", "11") must not be truncated like word labels.
-  [[nodiscard]] bool isNumericLabel(std::string_view label) {
+  bool isNumericLabel(std::string_view label) {
     return !label.empty()
         && std::ranges::all_of(label, [](char c) { return std::isdigit(static_cast<unsigned char>(c)); });
   }
 
-  [[nodiscard]] std::string workspaceIdentityKey(const Workspace& workspace, wl_output* output = nullptr) {
+  std::string workspaceIdentityKey(const Workspace& workspace, wl_output* output = nullptr) {
     const std::string outputKey =
         output == nullptr ? "" : std::to_string(reinterpret_cast<std::uintptr_t>(output)) + ":";
     if (!workspace.id.empty()) {
@@ -74,7 +73,7 @@ WorkspacesWidget::WorkspacesWidget(
     : m_platform(platform), m_configService(config), m_output(output), m_labelSource(options.labelSource),
       m_showLabels(options.showLabels), m_maxLabelChars(options.maxLabelChars),
       m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_showIcons(options.showIcons),
-      m_hideWhenEmpty(options.hideWhenEmpty), m_showAllOutputs(options.showAllOutputs), m_pillScale(options.pillScale),
+      m_hideWhenEmpty(options.hideWhenEmpty), m_monitors(std::move(options.monitors)), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
@@ -195,28 +194,38 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   }
 
   std::vector<WorkspaceState> current;
-  if (m_showAllOutputs) {
-    const auto appendWorkspaces = [&](wl_output* output) {
-      if (output == nullptr) {
-        return;
-      }
-      for (auto& workspace : m_platform.workspaces(output)) {
-        current.push_back({.workspace = std::move(workspace), .output = output});
+  const auto appendWorkspaces = [&](wl_output* output) {
+    if (output == nullptr) {
+      return;
+    }
+    for (auto& workspace : m_platform.workspaces(output)) {
+      current.push_back({.workspace = std::move(workspace), .output = output});
+    }
+  };
+
+  if (m_monitors.empty()) {
+    appendWorkspaces(m_output);
+  } else {
+    std::vector<wl_output*> selected;
+    const auto addOutput = [&selected](wl_output* output) {
+      if (output != nullptr && !std::ranges::contains(selected, output)) {
+        selected.push_back(output);
       }
     };
-
-    appendWorkspaces(m_output);
-    for (const auto& output : m_platform.outputs()) {
-      if (output.output == nullptr) {
-        continue;
+    for (const auto& monitor : m_monitors) {
+      // "*" selects every monitor, starting with the one hosting this bar.
+      const bool all = monitor == "*";
+      if (all) {
+        addOutput(m_output);
       }
-      if (output.output != m_output) {
-        appendWorkspaces(output.output);
+      for (const auto& output : m_platform.outputs()) {
+        if (all || outputMatchesSelector(monitor, output)) {
+          addOutput(output.output);
+        }
       }
     }
-  } else {
-    for (auto& workspace : m_platform.workspaces(m_output)) {
-      current.push_back({.workspace = std::move(workspace), .output = m_output});
+    for (auto* output : selected) {
+      appendWorkspaces(output);
     }
   }
 

@@ -39,6 +39,7 @@ public:
     // Read by TrayDrawerPanel, not by TrayWidget: they live here so the tray widget definition owns their defaults.
     double drawerItemSize = Style::baseGlyphSize;
     bool detachedPanel = false;
+    bool forceAppIcons = false;
   };
 
   TrayWidget(ConfigService& config, TrayService* tray, Options options);
@@ -47,7 +48,7 @@ public:
   void setHoverOverlayParent(Node* node) noexcept { m_hoverOverlayParent = node; }
   void setCapsuleCross(float cross) noexcept { m_capsuleCross = cross; }
   void create() override;
-  [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
+  bool wantsBarHoverHighlight() const noexcept override { return false; }
 
 private:
   struct HoverOverlayEntry {
@@ -59,20 +60,21 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void buildDesktopIconIndex();
-  [[nodiscard]] std::string resolveIconPath(const TrayItemInfo& item);
+  std::string resolveIconPath(const TrayItemInfo& item);
+  std::string resolveDesktopIconPath(const TrayItemInfo& item);
   void syncState(Renderer& renderer);
   void rebuild(Renderer& renderer);
-  [[nodiscard]] std::string iconForItem(const TrayItemInfo& item) const;
-  [[nodiscard]] bool isPinnedItem(const TrayItemInfo& item) const;
-  [[nodiscard]] bool isHiddenItem(const TrayItemInfo& item) const;
-  [[nodiscard]] std::string_view drawerChevronGlyph(bool panelOpen) const;
+  std::string iconForItem(const TrayItemInfo& item) const;
+  bool isPinnedItem(const TrayItemInfo& item) const;
+  bool isHiddenItem(const TrayItemInfo& item) const;
+  std::string_view drawerChevronGlyph(bool panelOpen) const;
   // Bar section gap is between capsule shells; inline tray icons share one shell, so add the
   // lateral inset that adjacent single-icon capsules would contribute between their icons.
-  [[nodiscard]] float resolvedInlineEntryGap() const;
+  float resolvedInlineEntryGap() const;
   void refreshAppIconColorization(Renderer& renderer);
   void layoutHoverOverlays();
   void clearHoverOverlays();
-  [[nodiscard]] std::optional<ColorSpec> currentAppIconColorizeTint() const;
+  std::optional<ColorSpec> currentAppIconColorizeTint() const;
 
   ConfigService& m_config;
   TrayService* m_tray = nullptr;
@@ -88,6 +90,8 @@ private:
   bool m_hidePassive = true;
   std::vector<Image*> m_loadedImages;
   std::vector<Image*> m_colorizedAppIcons;
+  // Item InputAreas by tray item id, reused across rebuilds so icon updates keep hover and press capture.
+  std::unordered_map<std::string, InputArea*> m_itemAreas;
   std::unordered_map<std::string, std::size_t> m_initialPixmaps;
   std::unordered_map<std::string, bool> m_preferPixmap;
   float m_contentHeight = 0.0F;
@@ -110,4 +114,5 @@ private:
   Node* m_hoverOverlayParent = nullptr;
   std::vector<HoverOverlayEntry> m_hoverOverlays;
   float m_capsuleCross = 0.0F;
+  bool m_forceAppIcons = false;
 };

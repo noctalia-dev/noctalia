@@ -31,7 +31,7 @@ namespace {
 
   // Empty if `key` is not present. Used so cover APIs that 500 on size=N (common
   // for Subsonic/Navidrome WebP) can fall back to the original bitstream.
-  [[nodiscard]] std::string withoutQueryParam(std::string_view url, std::string_view key) {
+  std::string withoutQueryParam(std::string_view url, std::string_view key) {
     const auto queryPos = url.find('?');
     if (queryPos == std::string_view::npos)
       return {};
@@ -88,7 +88,7 @@ namespace {
     return std::format("https://i.ytimg.com/vi/{}/{}.jpg", videoId, quality);
   }
 
-  [[nodiscard]] std::string upgradeGoogleArtUrl(std::string_view url) {
+  std::string upgradeGoogleArtUrl(std::string_view url) {
     if (!url.contains("googleusercontent.com") && !url.contains("ggpht.com")) {
       return std::string(url);
     }
@@ -103,9 +103,7 @@ namespace {
     return upgraded;
   }
 
-  [[nodiscard]] bool isYouTubeMusicSourceUrl(std::string_view sourceUrl) {
-    return sourceUrl.contains("music.youtube.com");
-  }
+  bool isYouTubeMusicSourceUrl(std::string_view sourceUrl) { return sourceUrl.contains("music.youtube.com"); }
 
 } // namespace
 

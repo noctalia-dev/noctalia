@@ -404,6 +404,7 @@
       "error-missing-password": "Enter your password.",
       "error-unsupported-phase2": "PEAP requires MSCHAPv2 inner authentication.",
       "external-ip": "WAN {ip}",
+      "hotspot-active": "Wi-Fi is running a hotspot; turning Wi-Fi off stops it",
       "identity": "Identity",
       "no-networks": "No networks in range",
       "not-connected": "Not connected",
@@ -690,6 +691,7 @@
         "show-label": "Show Label",
         "show-login-button": "Login Button",
         "show-media": "Media",
+        "show-media-controls": "Media Controls",
         "show-password-hint": "Password Hint",
         "show-password-reveal": "Password Reveal",
         "show-seconds": "Second Hand",
@@ -1371,6 +1373,13 @@
       "write": "Failed to save settings."
     },
     "export-config": {
+      "credentials-blank": "Blank",
+      "credentials-blank-description": "Keeps credential keys with empty values, so you can see what to fill in after importing.",
+      "credentials-keep": "Keep",
+      "credentials-keep-description": "Exports credentials as configured. Keep the file private.",
+      "credentials-omit": "Omit",
+      "credentials-omit-description": "Leaves credentials out of the file.",
+      "credentials-title": "Credentials",
       "export": "Export",
       "full-effective-description": "Exports every active setting, including built-in defaults. Useful for inspection or sharing a snapshot, but pins current defaults explicitly.",
       "full-effective-save-title": "Save Full Effective Config",
@@ -1378,7 +1387,7 @@
       "merged-user-description": "Combines config files and GUI overrides into one TOML file. Built-in defaults stay implicit.",
       "merged-user-save-title": "Save Merged User Config",
       "merged-user-title": "Merged User Config (Recommended)",
-      "privacy-warning-description": "Both export modes may include API keys, passwords, or other sensitive data stored in your config, including by plugins. Treat exported files as private. Review and remove sensitive data before sharing.",
+      "privacy-warning-description": "Credentials are calendar server URLs, git plugin source URLs, and plugin settings the plugin marks as secret. Anything else you typed into your config, such as a token in a command, is always exported. Review the file before sharing it.",
       "privacy-warning-title": "Exports may contain secrets",
       "title": "Export Config"
     },
@@ -1408,7 +1417,10 @@
       "live-status": {
         "active": "Active",
         "idle-for-one": "Idle for 1 second",
-        "idle-for-seconds": "Idle for {seconds} seconds"
+        "idle-for-seconds": "Idle for {seconds} seconds",
+        "inhibit-reason-caffeine": "Caffeine",
+        "inhibit-reason-external": "external source",
+        "inhibited": "Inhibited: {inhibitors}"
       }
     },
     "navigation": {
@@ -1505,6 +1517,7 @@
         "keybinds": "Keybinds",
         "launcher": "Launcher",
         "location": "Location",
+        "lock-screen": "Lock Screen",
         "niri": "Niri",
         "notifications": "Notifications",
         "osd": "OSD",
@@ -1513,7 +1526,7 @@
         "popups": "Popups",
         "power": "Power",
         "screenshot": "Screenshot",
-        "security": "Security",
+        "security": "Privacy & Security",
         "services": "Services",
         "shell": "Shell",
         "system": "System",
@@ -1611,6 +1624,7 @@
         "window-switcher": "Window Switcher"
       },
       "layer": {
+        "follow": "Follow",
         "overlay": "Overlay",
         "top": "Top"
       },
@@ -1715,7 +1729,8 @@
         },
         "window-switcher-style": {
           "carousel": "Carousel",
-          "compact": "Compact"
+          "compact": "Compact",
+          "icons": "Icons Only"
         }
       },
       "theme": {
@@ -1790,7 +1805,7 @@
       "browse-store": "Browse Plugins",
       "panels": {
         "layer": {
-          "description": "Layer-shell layer used when the panel is floating",
+          "description": "Layer-shell layer used when the panel is floating; Follow uses the shell's floating panel layer",
           "label": "Layer"
         },
         "open-near-click": {
@@ -2037,6 +2052,10 @@
           "description": "Wait this many milliseconds after the pointer leaves before hiding the bar; 0 hides immediately (On mode only)",
           "label": "Auto-Hide Delay"
         },
+        "auto-hide-reserve-space": {
+          "description": "With auto-hide or smart auto-hide, reserve layout only while the bar is visible so hidden windows use the full screen",
+          "label": "Reserve Space While Visible"
+        },
         "background-opacity": {
           "description": "Background opacity of the bar"
         },
@@ -2136,7 +2155,7 @@
           "label": "End Widgets"
         },
         "ends-margin": {
-          "description": "Shortens the bar from both ends along its length; set to 0 px for a full-width or full-height bar"
+          "description": "Shortens the bar from both ends along its length, in pixels or as a percentage of the screen; set to 0 for a full-width or full-height bar"
         },
         "font-family": {
           "description": "Typeface for this bar's widgets; leave empty to inherit the global font (per-widget Font Family overrides this)",
@@ -2327,6 +2346,10 @@
         },
         "ends-margin": {
           "description": "Inset from each end of the dock along its main axis"
+        },
+        "icon-saturation": {
+          "description": "Color saturation of application icons; 0 is grayscale",
+          "label": "Icon Saturation"
         },
         "icon-size": {
           "description": "Size of dock icons in pixels",
@@ -2772,7 +2795,7 @@
           "label": "Show Categories"
         },
         "launcher-category-icons-only": {
-          "description": "Show only icons for app categories, with full names in hover tooltips",
+          "description": "Show only icons for application and provider categories, with full names in hover tooltips",
           "label": "Category Icons Only"
         },
         "launcher-compact": {
@@ -3188,6 +3211,11 @@
           "description": "Volume for shell sound effects",
           "label": "Sound Volume"
         },
+        "spectrum-frame-rate": {
+          "description": "Higher rates are smoother but use more resources",
+          "label": "Visualizer Frame Rate",
+          "option": "{fps} FPS"
+        },
         "sunrise": {
           "description": "Manual sunrise time in HH:MM, used when no location is set",
           "label": "Sunrise"
@@ -3251,7 +3279,7 @@
           "placeholder": "/path/to/sound.wav"
         },
         "volume-sounds": {
-          "description": "Play a sound when output or input volume changes",
+          "description": "Play a sound when the output volume changes",
           "label": "Volume Sounds"
         },
         "weather": {
@@ -3715,19 +3743,19 @@
           "label": "Show All Monitors"
         },
         "window-switcher-show-app-icon": {
-          "description": "Show each application's icon over its window preview",
+          "description": "Show each application's icon over its window preview; icons are always shown in Icons Only",
           "label": "Show Application Icon"
         },
         "window-switcher-show-caption": {
-          "description": "Show window titles and application names below their previews",
+          "description": "Show captions below previews, or the selected window title below the icon grid",
           "label": "Show Caption"
         },
         "window-switcher-show-count": {
-          "description": "Show the current position and total window count above the previews",
+          "description": "Show the current position and total window count above the switcher",
           "label": "Show Window Count"
         },
         "window-switcher-style": {
-          "description": "Choose the freestanding depth carousel or the boxed compact strip",
+          "description": "Choose the preview carousel, compact preview strip, or icons-only grid",
           "label": "Switcher Style"
         }
       },
@@ -4061,7 +4089,7 @@
             "label": "Sync greeter appearance"
           },
           "keyboard-backlight-down": {
-            "description": "Decrease all keyboard backlights by one level",
+            "description": "Decrease all keyboard backlights by 5%",
             "label": "Decrease keyboard backlight"
           },
           "keyboard-backlight-osd": {
@@ -4077,7 +4105,7 @@
             "label": "Toggle keyboard backlight"
           },
           "keyboard-backlight-up": {
-            "description": "Increase all keyboard backlights by one level",
+            "description": "Increase all keyboard backlights by 5%",
             "label": "Increase keyboard backlight"
           },
           "keyboard-layout-cycle": {
@@ -4617,6 +4645,10 @@
           "description": "Allow mouse wheel and trackpad scroll actions on this widget",
           "label": "Enable Scroll"
         },
+        "expand": {
+          "description": "Grow into an equal share of the start or end lane's free space; elsewhere the spacer keeps its length",
+          "label": "Expand"
+        },
         "focused-color": {
           "description": "Color role used for the focused workspace; fixed hex colors are also supported",
           "label": "Focused Color"
@@ -4638,6 +4670,10 @@
         "font-weight": {
           "description": "Default inherits the bar font weight",
           "label": "Font Weight"
+        },
+        "force-app-icons": {
+          "description": "Force tray icons to use desktop app icons",
+          "label": "Force App Icons"
         },
         "format": {
           "description": "Time format string",
@@ -4929,9 +4965,10 @@
           "description": "Include windows from every monitor on this widget",
           "label": "Show All Monitors"
         },
-        "show-all-workspaces": {
-          "description": "Show workspaces from every monitor on this widget",
-          "label": "Show All Monitors"
+        "workspace-monitors": {
+          "all": "All Monitors",
+          "description": "Choose which monitors' workspaces appear in this widget, in order. Leave empty to show only the workspaces from the monitor hosting the bar",
+          "label": "Workspace Monitors"
         },
         "show-caps-lock": {
           "description": "Show Caps Lock state",
@@ -5254,6 +5291,24 @@
   },
   "ui": {
     "controls": {
+      "key-names": {
+        "backspace": "Backspace",
+        "delete": "Delete",
+        "down": "Down",
+        "end": "End",
+        "enter": "Enter",
+        "escape": "Escape",
+        "home": "Home",
+        "insert": "Insert",
+        "left": "Left",
+        "numpad-enter": "Numpad Enter",
+        "page-down": "Page Down",
+        "page-up": "Page Up",
+        "right": "Right",
+        "space": "Space",
+        "tab": "Tab",
+        "up": "Up"
+      },
       "search-picker": {
         "empty": "No results",
         "placeholder": "Search…"

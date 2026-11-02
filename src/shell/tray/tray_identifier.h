@@ -177,21 +177,21 @@ namespace tray {
     return std::ranges::contains(candidates, normalizedToken);
   }
 
-  [[nodiscard]] inline std::string capitalizeFirstLetter(std::string text) {
+  inline std::string capitalizeFirstLetter(std::string text) {
     if (!text.empty()) {
       text.front() = static_cast<char>(std::toupper(static_cast<unsigned char>(text.front())));
     }
     return text;
   }
 
-  [[nodiscard]] inline std::string normalizedTooltipMatchKey(std::string text) {
+  inline std::string normalizedTooltipMatchKey(std::string text) {
     text = StringUtils::toLower(std::move(text));
     std::erase(text, ' ');
     return text;
   }
 
   // Merge StatusNotifierItem Title with ToolTip title/description for hover text.
-  [[nodiscard]] inline std::string formatTrayItemTooltip(const TrayItemInfo& item) {
+  inline std::string formatTrayItemTooltip(const TrayItemInfo& item) {
     std::string tooltipTitle;
     if (!item.statusNotifierDescription.empty()) {
       tooltipTitle = item.statusNotifierDescription;

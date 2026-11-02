@@ -30,9 +30,9 @@ namespace tray {
   // <datadir>/icons/hicolor), and indexing one of those walks every icon and cursor
   // theme installed on the machine. IconResolver already covers those roots properly
   // via index.theme and Inherits, so skip anything at or below one of them.
-  [[nodiscard]] bool isSystemIconRoot(const std::filesystem::path& path);
+  bool isSystemIconRoot(const std::filesystem::path& path);
 
-  [[nodiscard]] ThemePathIndex buildThemePathIndex(const std::filesystem::path& root);
+  ThemePathIndex buildThemePathIndex(const std::filesystem::path& root);
 
   // Process-wide index cache: every bar's TrayWidget shares one scan per path,
   // and the walk runs on a worker instead of the render thread. Every member
@@ -46,7 +46,7 @@ namespace tray {
     ThemePathIconStore& operator=(const ThemePathIconStore&) = delete;
 
     // Empty while the path is still being indexed; listeners fire once it lands.
-    [[nodiscard]] std::string resolve(std::string_view themePath, std::string_view iconName);
+    std::string resolve(std::string_view themePath, std::string_view iconName);
 
     [[nodiscard]] std::uint64_t addListener(std::function<void()> callback);
     void removeListener(std::uint64_t id);

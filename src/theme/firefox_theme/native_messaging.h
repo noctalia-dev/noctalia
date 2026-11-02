@@ -12,7 +12,7 @@ namespace noctalia::theme::firefox_theme::native_messaging {
   class StdinReader {
   public:
     [[nodiscard]] std::optional<nlohmann::json> tryRead();
-    [[nodiscard]] bool eof() const noexcept { return m_eof; }
+    bool eof() const noexcept { return m_eof; }
 
   private:
     enum class State { Length, Body };

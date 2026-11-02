@@ -285,7 +285,7 @@ void PluginLayer::layoutScene(Renderer& renderer) {
   UiPhaseScope layoutPhase(UiPhase::Layout);
   if (m_tree.has_value() && m_treeDirty) {
     m_reconciler.setScale(contentScale());
-    (void)m_reconciler.reconcile(*m_flex, *m_tree, renderer);
+    m_reconciler.reconcile(*m_flex, *m_tree, renderer);
   }
   m_treeDirty = false;
 

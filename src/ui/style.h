@@ -66,6 +66,8 @@ namespace Style {
   inline constexpr float windowSwitcherNearCardWidth = 380.0F;
   inline constexpr float windowSwitcherFarCardWidth = 280.0F;
   inline constexpr float windowSwitcherCompactCardWidth = 220.0F;
+  inline constexpr float windowSwitcherIconCardSize = 72.0F;
+  inline constexpr float windowSwitcherIconScale = 0.75F;
   inline constexpr float windowSwitcherPreviewAspect = 1.6F;
   inline constexpr float windowSwitcherCardOverlap = controlHeightLg + spaceLg;
   inline constexpr float windowSwitcherNarrowLayoutThreshold = 0.72F;
@@ -95,36 +97,36 @@ namespace Style {
   inline constexpr float sliderThumbSize = 18.0F;
   inline constexpr float sliderHorizontalPadding = 2.0F;
 
-  [[nodiscard]] float cornerRadiusScale() noexcept;
+  float cornerRadiusScale() noexcept;
   void setCornerRadiusScale(float scale) noexcept;
 
-  [[nodiscard]] bool buttonBordersEnabled() noexcept;
+  bool buttonBordersEnabled() noexcept;
   void setButtonBordersEnabled(bool enabled);
   Signal<>& buttonBordersChanged();
 
-  [[nodiscard]] bool inputBordersEnabled() noexcept;
+  bool inputBordersEnabled() noexcept;
   void setInputBordersEnabled(bool enabled);
   Signal<>& inputBordersChanged();
 
-  [[nodiscard]] bool popupBordersEnabled() noexcept;
+  bool popupBordersEnabled() noexcept;
   void setPopupBordersEnabled(bool enabled);
 
-  [[nodiscard]] bool rtl() noexcept;
+  bool rtl() noexcept;
   void setRtl(bool rtl) noexcept;
 
-  [[nodiscard]] bool cardBordersEnabled() noexcept;
+  bool cardBordersEnabled() noexcept;
   void setCardBordersEnabled(bool enabled);
 
-  [[nodiscard]] bool popupShadowsEnabled() noexcept;
+  bool popupShadowsEnabled() noexcept;
   void setPopupShadowsEnabled(bool enabled);
 
-  [[nodiscard]] bool closeButtonsEnabled() noexcept;
+  bool closeButtonsEnabled() noexcept;
   void setCloseButtonsEnabled(bool enabled);
 
-  [[nodiscard]] float scaledRadius(float radius, float localScale = 1.0F) noexcept;
-  [[nodiscard]] float scaledRadiusSm(float localScale = 1.0F) noexcept;
-  [[nodiscard]] float scaledRadiusMd(float localScale = 1.0F) noexcept;
-  [[nodiscard]] float scaledRadiusLg(float localScale = 1.0F) noexcept;
-  [[nodiscard]] float scaledRadiusXl(float localScale = 1.0F) noexcept;
+  float scaledRadius(float radius, float localScale = 1.0F) noexcept;
+  float scaledRadiusSm(float localScale = 1.0F) noexcept;
+  float scaledRadiusMd(float localScale = 1.0F) noexcept;
+  float scaledRadiusLg(float localScale = 1.0F) noexcept;
+  float scaledRadiusXl(float localScale = 1.0F) noexcept;
 
 } // namespace Style

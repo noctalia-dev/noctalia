@@ -47,6 +47,13 @@ namespace {
     return LayerShellKeyboard::OnDemand;
   }
 
+  LayerShellLayer pinnedLayerFromManifest(std::string_view value) {
+    if (scripting::panelLayerFollowsFloating(value)) {
+      return LayerShellLayer::Top;
+    }
+    return layerShellLayerFromConfig(value);
+  }
+
   std::string readFile(const std::filesystem::path& path) {
     std::ifstream f(path);
     if (!f) {
@@ -69,7 +76,7 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, const PluginPa
       m_widthFill(options.widthFill), m_heightFill(options.heightFill), m_heightContent(options.heightContent),
       m_maxContentHeight(static_cast<float>(options.maxHeight)), m_dismissOnOutsideClick(options.dismissOnOutsideClick),
       m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)),
-      m_layer(layerShellLayerFromConfig(options.shellConfig.layer)), m_persistent(options.persistent),
+      m_layer(pinnedLayerFromManifest(options.shellConfig.layer)), m_persistent(options.persistent),
       m_shellConfig(options.shellConfig) {
   // The manifest parser already validated every spec, so a parse failure here means the two
   // drifted apart. Skip the entry rather than capture a chord nobody can describe.
@@ -291,7 +298,7 @@ void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
   }
   if (m_tree.has_value()) {
     m_reconciler.setScale(contentScale());
-    (void)m_reconciler.reconcile(*m_contentFlex, *m_tree, renderer);
+    m_reconciler.reconcile(*m_contentFlex, *m_tree, renderer);
     m_treeDirty = false;
   }
   m_flex->setSize(width, height);

@@ -10,15 +10,15 @@ class TextNode : public Node {
 public:
   TextNode() : Node(NodeType::Text) {}
 
-  [[nodiscard]] const std::string& text() const noexcept { return m_text; }
-  [[nodiscard]] float fontSize() const noexcept { return m_fontSize; }
-  [[nodiscard]] const Color& color() const noexcept { return m_color; }
-  [[nodiscard]] float maxWidth() const noexcept { return m_maxWidth; }
-  [[nodiscard]] int maxLines() const noexcept { return m_maxLines; }
-  [[nodiscard]] const TextFont& font() const noexcept { return m_font; }
-  [[nodiscard]] FontWeight fontWeight() const noexcept { return m_font.weight; }
-  [[nodiscard]] const std::string& fontFamily() const noexcept { return m_font.family; }
-  [[nodiscard]] const std::string& fontFeatures() const noexcept { return m_font.features; }
+  const std::string& text() const noexcept { return m_text; }
+  float fontSize() const noexcept { return m_fontSize; }
+  const Color& color() const noexcept { return m_color; }
+  float maxWidth() const noexcept { return m_maxWidth; }
+  int maxLines() const noexcept { return m_maxLines; }
+  const TextFont& font() const noexcept { return m_font; }
+  FontWeight fontWeight() const noexcept { return m_font.weight; }
+  const std::string& fontFamily() const noexcept { return m_font.family; }
+  const std::string& fontFeatures() const noexcept { return m_font.features; }
 
   void setText(std::string text) {
     if (m_text == text) {
@@ -84,7 +84,7 @@ public:
     markLayoutDirty();
   }
 
-  [[nodiscard]] TextAlign textAlign() const noexcept { return m_textAlign; }
+  TextAlign textAlign() const noexcept { return m_textAlign; }
 
   void setTextAlign(TextAlign align) {
     if (m_textAlign == align) {
@@ -94,7 +94,7 @@ public:
     markLayoutDirty();
   }
 
-  [[nodiscard]] TextEllipsize ellipsize() const noexcept { return m_ellipsize; }
+  TextEllipsize ellipsize() const noexcept { return m_ellipsize; }
 
   void setEllipsize(TextEllipsize ellipsize) {
     if (m_ellipsize == ellipsize) {
@@ -104,7 +104,7 @@ public:
     markLayoutDirty();
   }
 
-  [[nodiscard]] bool useMarkup() const noexcept { return m_useMarkup; }
+  bool useMarkup() const noexcept { return m_useMarkup; }
 
   void setUseMarkup(bool markup) {
     if (m_useMarkup == markup) {
@@ -114,10 +114,10 @@ public:
     markLayoutDirty();
   }
 
-  [[nodiscard]] bool hasShadow() const noexcept { return m_hasShadow; }
-  [[nodiscard]] const Color& shadowColor() const noexcept { return m_shadowColor; }
-  [[nodiscard]] float shadowOffsetX() const noexcept { return m_shadowOffsetX; }
-  [[nodiscard]] float shadowOffsetY() const noexcept { return m_shadowOffsetY; }
+  bool hasShadow() const noexcept { return m_hasShadow; }
+  const Color& shadowColor() const noexcept { return m_shadowColor; }
+  float shadowOffsetX() const noexcept { return m_shadowOffsetX; }
+  float shadowOffsetY() const noexcept { return m_shadowOffsetY; }
 
   void setShadow(const Color& color, float offsetX, float offsetY) {
     m_hasShadow = true;

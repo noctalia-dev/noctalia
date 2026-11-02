@@ -240,8 +240,8 @@ void main() {
       m_wlSurface = nullptr;
     }
 
-    [[nodiscard]] bool isReady() const noexcept override { return m_surface != EGL_NO_SURFACE; }
-    [[nodiscard]] EGLSurface eglSurface() const noexcept { return m_surface; }
+    bool isReady() const noexcept override { return m_surface != EGL_NO_SURFACE; }
+    EGLSurface eglSurface() const noexcept { return m_surface; }
 
   private:
     EGLDisplay m_display = EGL_NO_DISPLAY;
@@ -556,7 +556,7 @@ void GlesRenderBackend::drawImage(const RenderImageDraw& draw) {
   m_imageProgram.draw(
       draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.tint, draw.monochromeTint,
       draw.alphaMaskTint, draw.opacity, draw.radius, draw.borderColor, draw.borderWidth, static_cast<int>(draw.fitMode),
-      draw.textureWidth, draw.textureHeight, draw.transform, draw.scrim
+      draw.textureWidth, draw.textureHeight, draw.transform, draw.scrim, draw.saturation
   );
 }
 

@@ -22,14 +22,14 @@ public:
   [[nodiscard]] bool openColorPicker() override;
   void closeColorPickerWithoutResult() override;
   // The format dropdown opens as a child popup; it gets input first while open.
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
+  bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
 
 protected:
   void populateContent(Node* contentParent, std::uint32_t width, std::uint32_t height) override;
   void layoutSheet(float contentWidth, float contentHeight) override;
   void cancelToFacade() override;
-  [[nodiscard]] InputArea* initialFocusArea() override;
+  InputArea* initialFocusArea() override;
   void onSheetClose() override;
 
 private:

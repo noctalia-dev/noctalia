@@ -11,6 +11,7 @@
 #include "theme/community_palettes.h"
 #include "theme/custom_palettes.h"
 #include "theme/fixed_palette.h"
+#include "theme/fixed_palette_json.h"
 #include "theme/image_loader.h"
 #include "theme/palette_generator.h"
 #include "theme/palette_transform.h"
@@ -19,14 +20,9 @@
 #include "util/checksum.h"
 #include "util/string_utils.h"
 
-#include <cctype>
 #include <chrono>
 #include <cmath>
-#include <exception>
 #include <filesystem>
-#include <fstream>
-#include <nlohmann/json.hpp>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -87,134 +83,8 @@ namespace noctalia::theme {
       };
     }
 
-    // Reads a color key from a JSON object, looking first for the `m`-prefixed form
-    // (e.g. `mPrimary`) and falling back to the unprefixed name. Returns fallback
-    // (transparent black) if the key is missing or the value is not a hex string.
-    Color readColorField(const nlohmann::json& obj, std::string_view camelField) {
-      std::string prefixed = "m";
-      prefixed.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(camelField[0]))));
-      prefixed.append(camelField.substr(1));
-      auto tryRead = [&](const std::string& key) -> std::optional<Color> {
-        auto it = obj.find(key);
-        if (it == obj.end() || !it->is_string()) {
-          return std::nullopt;
-        }
-        try {
-          return hex(it->get<std::string>());
-        } catch (const std::exception&) {
-          return std::nullopt;
-        }
-      };
-      if (auto c = tryRead(prefixed))
-        return *c;
-      if (auto c = tryRead(std::string(camelField)))
-        return *c;
-      return Color{};
-    }
-
-    FixedPalette readPaletteJson(const nlohmann::json& obj) {
-      return FixedPalette{
-          .primary = readColorField(obj, "primary"),
-          .onPrimary = readColorField(obj, "onPrimary"),
-          .secondary = readColorField(obj, "secondary"),
-          .onSecondary = readColorField(obj, "onSecondary"),
-          .tertiary = readColorField(obj, "tertiary"),
-          .onTertiary = readColorField(obj, "onTertiary"),
-          .error = readColorField(obj, "error"),
-          .onError = readColorField(obj, "onError"),
-          .surface = readColorField(obj, "surface"),
-          .onSurface = readColorField(obj, "onSurface"),
-          .surfaceVariant = readColorField(obj, "surfaceVariant"),
-          .onSurfaceVariant = readColorField(obj, "onSurfaceVariant"),
-          .outline = readColorField(obj, "outline"),
-          .shadow = readColorField(obj, "shadow"),
-          .hover = readColorField(obj, "hover"),
-          .onHover = readColorField(obj, "onHover"),
-      };
-    }
-
-    TerminalAnsiColors readAnsiJson(const nlohmann::json& obj) {
-      return TerminalAnsiColors{
-          .black = readColorField(obj, kTerminalBlackJsonKey),
-          .red = readColorField(obj, kTerminalRedJsonKey),
-          .green = readColorField(obj, kTerminalGreenJsonKey),
-          .yellow = readColorField(obj, kTerminalYellowJsonKey),
-          .blue = readColorField(obj, kTerminalBlueJsonKey),
-          .magenta = readColorField(obj, kTerminalMagentaJsonKey),
-          .cyan = readColorField(obj, kTerminalCyanJsonKey),
-          .white = readColorField(obj, kTerminalWhiteJsonKey),
-      };
-    }
-
-    TerminalPalette readTerminalJson(const nlohmann::json& obj) {
-      TerminalPalette tp{};
-      if (auto it = obj.find(kTerminalNormalJsonKey); it != obj.end() && it->is_object()) {
-        tp.normal = readAnsiJson(*it);
-      }
-      if (auto it = obj.find(kTerminalBrightJsonKey); it != obj.end() && it->is_object()) {
-        tp.bright = readAnsiJson(*it);
-      }
-      tp.foreground = readColorField(obj, kTerminalForegroundJsonKey);
-      tp.background = readColorField(obj, kTerminalBackgroundJsonKey);
-      tp.selectionFg = readColorField(obj, kTerminalSelectionFgJsonKey);
-      tp.selectionBg = readColorField(obj, kTerminalSelectionBgJsonKey);
-      tp.cursorText = readColorField(obj, kTerminalCursorTextJsonKey);
-      tp.cursor = readColorField(obj, kTerminalCursorJsonKey);
-      return tp;
-    }
-
-    std::optional<TerminalPalette> readModeTerminalJson(const nlohmann::json& obj) {
-      auto it = obj.find(kTerminalJsonKey);
-      if (it == obj.end() || !it->is_object())
-        return std::nullopt;
-      return readTerminalJson(*it);
-    }
-
-    struct ParsedCommunityPalette {
-      FixedPaletteMode dark;
-      FixedPaletteMode light;
-    };
-
-    std::optional<ParsedCommunityPalette> parseCommunityPaletteJson(const std::filesystem::path& path) {
-      try {
-        std::ifstream in(path);
-        if (!in)
-          return std::nullopt;
-        std::stringstream buf;
-        buf << in.rdbuf();
-        auto root = nlohmann::json::parse(buf.str());
-        if (!root.is_object())
-          return std::nullopt;
-        ParsedCommunityPalette out{};
-        if (auto it = root.find("dark"); it != root.end() && it->is_object()) {
-          out.dark.palette = readPaletteJson(*it);
-          if (auto terminal = readModeTerminalJson(*it)) {
-            out.dark.terminal = *terminal;
-          } else {
-            return std::nullopt;
-          }
-        } else {
-          return std::nullopt;
-        }
-        if (auto it = root.find("light"); it != root.end() && it->is_object()) {
-          out.light.palette = readPaletteJson(*it);
-          if (auto terminal = readModeTerminalJson(*it)) {
-            out.light.terminal = *terminal;
-          } else {
-            return std::nullopt;
-          }
-        } else {
-          out.light = out.dark;
-        }
-        return out;
-      } catch (const std::exception& e) {
-        kLog.warn("failed to parse community palette '{}': {}", path.string(), e.what());
-        return std::nullopt;
-      }
-    }
-
     ResolvedTheme
-    makeResolvedFromParsed(const ParsedCommunityPalette& parsed, std::string_view mode, std::string_view shellMode) {
+    makeResolvedFromParsed(const ParsedPaletteFile& parsed, std::string_view mode, std::string_view shellMode) {
       BuiltinPalette bp{
           .name = "community",
           .dark = parsed.dark,
@@ -422,7 +292,7 @@ namespace noctalia::theme {
         return;
       }
       // Validate the just-downloaded file. If it parses, trigger a re-resolve.
-      if (!parseCommunityPaletteJson(cachePath).has_value()) {
+      if (!parsePaletteFile(cachePath).has_value()) {
         kLog.warn("community palette '{}' downloaded but failed to parse; removing cache", name);
         std::error_code rmEc;
         std::filesystem::remove(cachePath, rmEc);
@@ -578,7 +448,7 @@ namespace noctalia::theme {
     if (cfg.source == PaletteSource::Custom && !cfg.customPalette.empty()) {
       const auto path = customPalettePath(cfg.customPalette);
       if (std::filesystem::exists(path)) {
-        if (auto parsed = parseCommunityPaletteJson(path)) {
+        if (auto parsed = parsePaletteFile(path)) {
           resolved = makeResolvedFromParsed(*parsed, mode, shellMode);
         }
       }
@@ -608,7 +478,7 @@ namespace noctalia::theme {
       const auto cachePath = communityPaletteCachePath(cfg.communityPalette);
       bool stale = true;
       if (std::filesystem::exists(cachePath)) {
-        if (auto parsed = parseCommunityPaletteJson(cachePath)) {
+        if (auto parsed = parsePaletteFile(cachePath)) {
           resolved = makeResolvedFromParsed(*parsed, mode, shellMode);
           // Re-fetch when the catalog advertises a different checksum than the
           // cached copy. An empty catalog md5 means "freshness unknown": keep

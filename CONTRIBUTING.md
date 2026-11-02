@@ -96,6 +96,7 @@ D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_ca
 - `src/` is the include root; project includes are relative to it (`#include "app/application.h"`).
 - A single `meson.build` lists every source directly; there are no per-directory build files.
 - Headers and sources are co-located; there is no separate `include/` tree.
+- Use `[[nodiscard]]` only where ignoring the result is likely a bug: a call with side effects that reports failure or hands back something the caller must own, consume or keep (a handle, token or id), and `&&` builders. Mark result and status types with `struct [[nodiscard]] Name` instead of each function that returns them. Getters and pure functions go without it.
 
 ### Comments
 
@@ -118,6 +119,8 @@ This applies to identity and configuration, not runtime resilience. Graceful deg
 End-user documentation lives in [`docs/user/`](docs/user/) (MDX), with images under `docs/assets/`. Any change that adds, removes, or changes user-facing configuration, or behavior users need to know about to use or configure the shell, updates the relevant page in the same commit as the code. `docs/user/` is user documentation, not a feature changelog: don't document purely cosmetic or self-explanatory UI additions.
 
 The documentation site is generated from these files by `tools/sync-docs.sh`, which copies `docs/user/**/*.mdx` into the docs site checkout and deletes pages that no longer exist here. Never edit the generated copies; the next sync overwrites them.
+
+The same script archives each `vX.Y.Z` release tag once, from the tag's own `docs/user/`, `docs/assets/`, and `docs/plugin-api.json`, under `/noctalia/<tag>/`, and writes the version list the site's switcher reads. It needs `jq` and a checkout with the release tags fetched. Archives are never rewritten afterwards; run it with `FORCE_SYNC=1` to rebuild them after changing the archiving itself.
 
 ### Vendored code
 

@@ -30,7 +30,7 @@ public:
   virtual ~VirtualGridAdapter() = default;
 
   // Total number of logical items currently in the data source.
-  [[nodiscard]] virtual std::size_t itemCount() const = 0;
+  virtual std::size_t itemCount() const = 0;
 
   // Build one fresh tile node. Called lazily as the visible window grows.
   // Returned node becomes a child of the grid; do not retain ownership.
@@ -45,10 +45,10 @@ public:
   virtual void onActivate(std::size_t /*index*/) {}
 
   // Optional tooltip for the item under the pointer.
-  [[nodiscard]] virtual std::string itemTooltip(std::size_t /*index*/) const { return {}; }
+  virtual std::string itemTooltip(std::size_t /*index*/) const { return {}; }
 
   // Optional bounds, relative to a cell, for anchoring the item or hovered overlay tooltip.
-  [[nodiscard]] virtual std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+  virtual std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
       std::size_t /*index*/, float /*cellWidth*/, float /*cellHeight*/, bool /*overlayHovered*/
   ) const {
     return std::nullopt;
@@ -83,7 +83,7 @@ public:
   virtual PointerReleaseResult onPointerRelease(std::optional<std::size_t> /*index*/) { return {}; }
   virtual void onPointerCancel() {}
 
-  [[nodiscard]] virtual bool overlayHitTest(
+  virtual bool overlayHitTest(
       std::size_t /*index*/, float /*cellLocalX*/, float /*cellLocalY*/, float /*cellWidth*/, float /*cellHeight*/
   ) const {
     return false;
@@ -93,7 +93,7 @@ public:
 
   // Optional tooltip shown instead of itemTooltip() while the item's overlay is hovered.
   // Anchored by itemTooltipAnchorInsets().
-  [[nodiscard]] virtual std::string overlayTooltip(std::size_t /*index*/) const { return {}; }
+  virtual std::string overlayTooltip(std::size_t /*index*/) const { return {}; }
 
   // Optional: secondary button press (e.g. context menu). Anchor coordinates are in the panel scene graph
   // (surface-local).
@@ -104,7 +104,7 @@ class VirtualGridView : public Flex {
 public:
   VirtualGridView();
 
-  [[nodiscard]] InputArea* focusArea() const noexcept { return m_inputArea; }
+  InputArea* focusArea() const noexcept { return m_inputArea; }
 
   // Adapter is non-owning and must outlive the grid.
   void setAdapter(VirtualGridAdapter* adapter);
@@ -132,18 +132,18 @@ public:
   void scrollToIndex(std::size_t index);
   // Pointer selection can keep the viewport stable until release.
   void setSelectedIndex(std::optional<std::size_t> index, bool scrollToSelection = true);
-  [[nodiscard]] std::optional<std::size_t> selectedIndex() const noexcept { return m_selectedIndex; }
+  std::optional<std::size_t> selectedIndex() const noexcept { return m_selectedIndex; }
   // Surface-local anchor point for item `index` (cell center). False when layout
   // metrics are unavailable or the index is out of range.
-  [[nodiscard]] bool absoluteAnchorForIndex(std::size_t index, float& outX, float& outY) const noexcept;
+  bool absoluteAnchorForIndex(std::size_t index, float& outX, float& outY) const noexcept;
   // Items to move for a Page Up/Down step (one viewport of rows, at least one item).
-  [[nodiscard]] std::size_t pageItemStride() const noexcept;
+  std::size_t pageItemStride() const noexcept;
   // Column count from the most recent layout pass (for keyboard navigation).
-  [[nodiscard]] std::size_t layoutColumnCount() const noexcept { return m_layoutColumns; }
+  std::size_t layoutColumnCount() const noexcept { return m_layoutColumns; }
 
   void setOnSelectionChanged(std::function<void(std::optional<std::size_t>)> callback);
 
-  [[nodiscard]] ScrollView& scrollView() noexcept { return *m_scroll; }
+  ScrollView& scrollView() noexcept { return *m_scroll; }
 
 protected:
   void doLayout(Renderer& renderer) override;
@@ -162,11 +162,9 @@ private:
   void onPoolTooltipMotion(std::size_t slot, float localX, float localY);
   void onPoolTooltipLeave(std::size_t slot);
   void onSecondaryPointerPress(float localX, float localY);
-  [[nodiscard]] std::optional<std::size_t> indexAt(float localX, float localY) const noexcept;
+  std::optional<std::size_t> indexAt(float localX, float localY) const noexcept;
   void cellLocalAt(float localX, float localY, std::size_t index, float& cellLocalX, float& cellLocalY) const noexcept;
-  [[nodiscard]] std::size_t visualCol(std::size_t col) const noexcept {
-    return Style::rtl() ? m_layoutColumns - 1 - col : col;
-  }
+  std::size_t visualCol(std::size_t col) const noexcept { return Style::rtl() ? m_layoutColumns - 1 - col : col; }
   void setOverlayHoveredForIndex(std::size_t index, bool hovered);
   void updateTooltipAnchor(std::size_t slot, std::size_t index, bool overlayHovered);
 

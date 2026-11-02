@@ -26,12 +26,12 @@ public:
   void setOnRemoveRequested(std::function<void(std::size_t)> callback);
   void setOnMoveRequested(std::function<void(std::size_t, std::size_t)> callback);
 
-  [[nodiscard]] const std::vector<std::string>& items() const noexcept { return m_items; }
-  [[nodiscard]] const std::vector<ListEditorOption>& suggestedOptions() const noexcept { return m_suggestedOptions; }
+  const std::vector<std::string>& items() const noexcept { return m_items; }
+  const std::vector<ListEditorOption>& suggestedOptions() const noexcept { return m_suggestedOptions; }
 
 private:
-  [[nodiscard]] std::string labelForValue(std::string_view value) const;
-  [[nodiscard]] std::vector<ListEditorOption> remainingOptions() const;
+  std::string labelForValue(std::string_view value) const;
+  std::vector<ListEditorOption> remainingOptions() const;
   void rebuildRows();
   void addGhostIconButton(Flex& row, std::string_view glyph, float size, std::function<void()> callback);
 

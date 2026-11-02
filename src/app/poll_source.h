@@ -16,7 +16,7 @@ public:
 
   // Minimum timeout this source needs before its next dispatch, or -1 for none.
   // The loop treats it as an absolute deadline from when it is first advertised.
-  [[nodiscard]] virtual int pollTimeoutMs() const { return -1; }
+  virtual int pollTimeoutMs() const { return -1; }
 
   // Called after poll() returns. startIdx is what addPollFds returned.
   virtual void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) = 0;

@@ -33,9 +33,9 @@ public:
   explicit ScreencopyCapture(WaylandConnection& wayland);
   ~ScreencopyCapture();
 
-  [[nodiscard]] bool available() const noexcept;
-  [[nodiscard]] bool busy() const noexcept { return m_busy; }
-  [[nodiscard]] WaylandConnection& wayland() noexcept { return m_wayland; }
+  bool available() const noexcept;
+  bool busy() const noexcept { return m_busy; }
+  WaylandConnection& wayland() noexcept { return m_wayland; }
 
   void capture(wl_output* output, std::optional<LogicalRect> region, bool overlayCursor, CompletionCallback onComplete);
   void cancelInFlight();

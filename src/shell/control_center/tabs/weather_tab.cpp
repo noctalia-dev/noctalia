@@ -1204,11 +1204,16 @@ EffectType WeatherTab::effectForWeatherCode(std::int32_t code, bool isDay) {
   if (code >= 40 && code <= 49) {
     return EffectType::Fog;
   }
-  if (code == 0 && isDay) {
+  if (code <= 2 && isDay) {
     return EffectType::Sun;
   }
-  if (code == 0 && !isDay) {
+  if (code <= 2 && !isDay) {
     return EffectType::Stars;
+  }
+  // Interim stand-in: thunderstorms have no dedicated lightning effect yet, and
+  // a flat None card is strictly worse than the closest visual approximation.
+  if (code >= 95 && code <= 99) {
+    return EffectType::Rain;
   }
   return EffectType::None;
 }

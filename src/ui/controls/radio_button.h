@@ -16,10 +16,10 @@ public:
   void setOnChange(std::function<void(bool)> callback);
   void setScale(float scale);
 
-  [[nodiscard]] bool checked() const noexcept { return m_checked; }
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] bool hovered() const noexcept;
-  [[nodiscard]] bool pressed() const noexcept;
+  bool checked() const noexcept { return m_checked; }
+  bool enabled() const noexcept { return m_enabled; }
+  bool hovered() const noexcept;
+  bool pressed() const noexcept;
 
 private:
   void doLayout(Renderer& renderer) override;

@@ -88,15 +88,15 @@ public:
   // Call after layout() to sync InputArea bounds
   void updateInputArea();
 
-  [[nodiscard]] Label* label() const noexcept { return m_label; }
-  [[nodiscard]] Glyph* glyph() const noexcept { return m_glyph; }
-  [[nodiscard]] InputArea* inputArea() const noexcept { return m_inputArea; }
-  [[nodiscard]] bool hovered() const noexcept;
-  [[nodiscard]] bool pressed() const noexcept;
-  [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
-  [[nodiscard]] ButtonVariant variant() const noexcept { return m_variant; }
+  Label* label() const noexcept { return m_label; }
+  Glyph* glyph() const noexcept { return m_glyph; }
+  InputArea* inputArea() const noexcept { return m_inputArea; }
+  bool hovered() const noexcept;
+  bool pressed() const noexcept;
+  bool enabled() const noexcept { return m_enabled; }
+  ButtonVariant variant() const noexcept { return m_variant; }
 
-  [[nodiscard]] static ButtonPalette defaultPalette(ButtonVariant variant);
+  static ButtonPalette defaultPalette(ButtonVariant variant);
 
 private:
   void refreshInputAreaEnabled();
@@ -104,7 +104,7 @@ private:
   void ensureGlyph();
   void applyVariant();
   void applyVisualState();
-  [[nodiscard]] float effectiveBorderWidth() const noexcept;
+  float effectiveBorderWidth() const noexcept;
   void resolveVisualStateColors(Color& bg, Color& border, Color& label) const;
   void doLayout(Renderer& renderer) override;
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;

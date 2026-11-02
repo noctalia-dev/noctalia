@@ -37,5 +37,5 @@ public:
 
   virtual void openSelectDropdown(const DropdownRequest& request, DropdownCallbacks callbacks) = 0;
   virtual void closeSelectDropdown() = 0;
-  [[nodiscard]] virtual bool isSelectDropdownOpen() const = 0;
+  virtual bool isSelectDropdownOpen() const = 0;
 };

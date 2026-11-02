@@ -48,13 +48,15 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .group = "workspaces.list",
                       },
               }),
-              field<&Options::showAllOutputs>({
-                  .key = "show_all_outputs",
+              field<&Options::monitors>({
+                  .key = "monitors",
                   .presentation =
                       settings::WidgetSettingPresentation{
-                          .labelKey = "settings.widgets.settings.show-all-workspaces.label",
-                          .descriptionKey = "settings.widgets.settings.show-all-workspaces.description",
+                          .labelKey = "settings.widgets.settings.workspace-monitors.label",
+                          .descriptionKey = "settings.widgets.settings.workspace-monitors.description",
                           .group = "workspaces.list",
+                          .options = {{.value = "*", .labelKey = "settings.widgets.settings.workspace-monitors.all"}},
+                          .optionSource = settings::WidgetSettingOptionSource::Outputs,
                       },
               }),
               field<&Options::showLabels>({

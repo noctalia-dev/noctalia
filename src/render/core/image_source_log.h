@@ -13,7 +13,7 @@ namespace ImageSourceLog {
     constexpr std::size_t kMaxLoggedSourceBytes = 512;
     constexpr std::size_t kMaxLoggedDataHeaderBytes = 96;
 
-    [[nodiscard]] inline bool asciiStartsWithDataScheme(std::string_view source) {
+    inline bool asciiStartsWithDataScheme(std::string_view source) {
       if (source.size() < 5) {
         return false;
       }
@@ -25,7 +25,7 @@ namespace ImageSourceLog {
           && source[4] == ':';
     }
 
-    [[nodiscard]] inline std::string truncatedWithSize(std::string_view value, std::size_t maxBytes) {
+    inline std::string truncatedWithSize(std::string_view value, std::size_t maxBytes) {
       if (value.size() <= maxBytes) {
         return std::string(value);
       }
@@ -38,7 +38,7 @@ namespace ImageSourceLog {
 
   } // namespace detail
 
-  [[nodiscard]] inline std::string describe(std::string_view source) {
+  inline std::string describe(std::string_view source) {
     if (!detail::asciiStartsWithDataScheme(source)) {
       return detail::truncatedWithSize(source, detail::kMaxLoggedSourceBytes);
     }

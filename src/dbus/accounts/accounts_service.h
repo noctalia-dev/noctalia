@@ -20,8 +20,8 @@ public:
 
   void setChangeCallback(ChangeCallback callback);
 
-  [[nodiscard]] uid_t sessionUid() const noexcept { return m_sessionUid; }
-  [[nodiscard]] const std::string& iconFile() const noexcept { return m_iconFile; }
+  uid_t sessionUid() const noexcept { return m_sessionUid; }
+  const std::string& iconFile() const noexcept { return m_iconFile; }
 
   [[nodiscard]] bool setIconFile(std::string_view filename);
 

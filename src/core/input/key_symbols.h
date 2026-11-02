@@ -6,51 +6,41 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace KeySymbol {
-  [[nodiscard]] inline bool isEnter(std::uint32_t sym) noexcept {
-    return sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter;
-  }
+  inline bool isEnter(std::uint32_t sym) noexcept { return sym == XKB_KEY_Return || sym == XKB_KEY_KP_Enter; }
 
-  [[nodiscard]] inline bool isEscape(std::uint32_t sym) noexcept { return sym == XKB_KEY_Escape; }
+  inline bool isEscape(std::uint32_t sym) noexcept { return sym == XKB_KEY_Escape; }
 
-  [[nodiscard]] inline bool isSpace(std::uint32_t sym) noexcept { return sym == XKB_KEY_space; }
+  inline bool isSpace(std::uint32_t sym) noexcept { return sym == XKB_KEY_space; }
 
-  [[nodiscard]] inline bool isEnterOrSpace(std::uint32_t sym) noexcept { return isEnter(sym) || isSpace(sym); }
+  inline bool isEnterOrSpace(std::uint32_t sym) noexcept { return isEnter(sym) || isSpace(sym); }
 
-  [[nodiscard]] inline bool isBackspace(std::uint32_t sym) noexcept { return sym == XKB_KEY_BackSpace; }
+  inline bool isBackspace(std::uint32_t sym) noexcept { return sym == XKB_KEY_BackSpace; }
 
-  [[nodiscard]] inline bool isDelete(std::uint32_t sym) noexcept { return sym == XKB_KEY_Delete; }
+  inline bool isDelete(std::uint32_t sym) noexcept { return sym == XKB_KEY_Delete; }
 
-  [[nodiscard]] inline bool isBackspaceOrDelete(std::uint32_t sym) noexcept {
-    return isBackspace(sym) || isDelete(sym);
-  }
+  inline bool isBackspaceOrDelete(std::uint32_t sym) noexcept { return isBackspace(sym) || isDelete(sym); }
 
-  [[nodiscard]] inline bool isInsert(std::uint32_t sym) noexcept { return sym == XKB_KEY_Insert; }
+  inline bool isInsert(std::uint32_t sym) noexcept { return sym == XKB_KEY_Insert; }
 
-  [[nodiscard]] inline bool isLeft(std::uint32_t sym) noexcept { return sym == XKB_KEY_Left; }
+  inline bool isLeft(std::uint32_t sym) noexcept { return sym == XKB_KEY_Left; }
 
-  [[nodiscard]] inline bool isRight(std::uint32_t sym) noexcept { return sym == XKB_KEY_Right; }
+  inline bool isRight(std::uint32_t sym) noexcept { return sym == XKB_KEY_Right; }
 
-  [[nodiscard]] inline bool isUp(std::uint32_t sym) noexcept { return sym == XKB_KEY_Up; }
+  inline bool isUp(std::uint32_t sym) noexcept { return sym == XKB_KEY_Up; }
 
-  [[nodiscard]] inline bool isDown(std::uint32_t sym) noexcept { return sym == XKB_KEY_Down; }
+  inline bool isDown(std::uint32_t sym) noexcept { return sym == XKB_KEY_Down; }
 
-  [[nodiscard]] inline bool isPageUp(std::uint32_t sym) noexcept {
-    return sym == XKB_KEY_Page_Up || sym == XKB_KEY_KP_Page_Up;
-  }
+  inline bool isPageUp(std::uint32_t sym) noexcept { return sym == XKB_KEY_Page_Up || sym == XKB_KEY_KP_Page_Up; }
 
-  [[nodiscard]] inline bool isPageDown(std::uint32_t sym) noexcept {
-    return sym == XKB_KEY_Page_Down || sym == XKB_KEY_KP_Page_Down;
-  }
+  inline bool isPageDown(std::uint32_t sym) noexcept { return sym == XKB_KEY_Page_Down || sym == XKB_KEY_KP_Page_Down; }
 
-  [[nodiscard]] inline bool isHome(std::uint32_t sym) noexcept { return sym == XKB_KEY_Home; }
+  inline bool isHome(std::uint32_t sym) noexcept { return sym == XKB_KEY_Home; }
 
-  [[nodiscard]] inline bool isEnd(std::uint32_t sym) noexcept { return sym == XKB_KEY_End; }
+  inline bool isEnd(std::uint32_t sym) noexcept { return sym == XKB_KEY_End; }
 
-  [[nodiscard]] inline bool isTab(std::uint32_t sym) noexcept {
-    return sym == XKB_KEY_Tab || sym == XKB_KEY_ISO_Left_Tab;
-  }
+  inline bool isTab(std::uint32_t sym) noexcept { return sym == XKB_KEY_Tab || sym == XKB_KEY_ISO_Left_Tab; }
 
-  [[nodiscard]] inline bool isModifier(std::uint32_t sym) noexcept {
+  inline bool isModifier(std::uint32_t sym) noexcept {
     switch (sym) {
     case XKB_KEY_Shift_L:
     case XKB_KEY_Shift_R:
@@ -76,7 +66,7 @@ namespace KeySymbol {
     }
   }
 
-  [[nodiscard]] inline bool isSuperModifier(std::uint32_t sym) noexcept {
+  inline bool isSuperModifier(std::uint32_t sym) noexcept {
     return sym == XKB_KEY_Super_L
         || sym == XKB_KEY_Super_R
         || sym == XKB_KEY_Hyper_L
@@ -85,7 +75,7 @@ namespace KeySymbol {
         || sym == XKB_KEY_Meta_R;
   }
 
-  [[nodiscard]] inline std::uint32_t modifierMask(std::uint32_t sym) noexcept {
+  inline std::uint32_t modifierMask(std::uint32_t sym) noexcept {
     switch (sym) {
     case XKB_KEY_Shift_L:
     case XKB_KEY_Shift_R:

@@ -46,7 +46,7 @@ namespace {
   constexpr std::int32_t kAutoHideTriggerPx = 3;
   constexpr float kAutoHideSlideExtraPx = 4.0F;
 
-  [[nodiscard]] std::string activeWorkspaceId(const std::vector<Workspace>& workspaces) {
+  std::string activeWorkspaceId(const std::vector<Workspace>& workspaces) {
     for (const auto& workspace : workspaces) {
       if (workspace.active) {
         if (!workspace.id.empty()) {
@@ -61,18 +61,18 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] bool barConfigUsesSlideSurface(const BarConfig& cfg) noexcept { return cfg.isAutoHideEnabled(); }
+  bool barConfigUsesSlideSurface(const BarConfig& cfg) noexcept { return cfg.isAutoHideEnabled(); }
 
-  [[nodiscard]] bool barSupportsSlideBehavior(const BarConfig& cfg) noexcept { return cfg.isAutoHideEnabled(); }
+  bool barSupportsSlideBehavior(const BarConfig& cfg) noexcept { return cfg.isAutoHideEnabled(); }
 
-  [[nodiscard]] bool barPointerHideAllowed(const BarInstance& instance) noexcept {
+  bool barPointerHideAllowed(const BarInstance& instance) noexcept {
     if (instance.barConfig.smartAutoHide) {
       return !instance.smartAutoHidePinnedVisible;
     }
     return instance.barConfig.autoHide;
   }
 
-  [[nodiscard]] bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
+  bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
     if (assignmentKey.empty()) {
       return false;
     }
@@ -88,7 +88,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
+  bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
     const auto workspaces = platform.workspaces(output);
     const Workspace* active = nullptr;
     for (const auto& workspace : workspaces) {
@@ -119,22 +119,21 @@ namespace {
     return active->occupied;
   }
 
-  [[nodiscard]] bool smartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
+  bool smartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
     if (platform.hasOverviewState() && platform.isOverviewOpen()) {
       return true;
     }
     return !activeWorkspaceHasWindows(platform, output);
   }
 
-  [[nodiscard]] int barAutoHideEdgeGutter(const BarConfig& cfg) noexcept {
+  int barAutoHideEdgeGutter(const BarConfig& cfg) noexcept {
     if (!barConfigUsesSlideSurface(cfg) || cfg.marginEdge <= 0) {
       return 0;
     }
     return cfg.marginEdge;
   }
 
-  [[nodiscard]] std::vector<InputRect>
-  barAutoHideSurfaceInputRegion(const BarConfig& cfg, int surfW, int surfH, bool fullSurface) {
+  std::vector<InputRect> barAutoHideSurfaceInputRegion(const BarConfig& cfg, int surfW, int surfH, bool fullSurface) {
     if (surfW <= 0 || surfH <= 0) {
       return {};
     }
@@ -489,13 +488,11 @@ namespace {
     float sliceStart = 0.0F;
     float sliceEnd = 0.0F;
 
-    [[nodiscard]] float mainStart(bool isVertical) const noexcept { return isVertical ? y : x; }
-    [[nodiscard]] float mainEnd(bool isVertical) const noexcept {
-      return mainStart(isVertical) + (isVertical ? height : width);
-    }
+    float mainStart(bool isVertical) const noexcept { return isVertical ? y : x; }
+    float mainEnd(bool isVertical) const noexcept { return mainStart(isVertical) + (isVertical ? height : width); }
   };
 
-  [[nodiscard]] std::vector<CapsuleMemberGeometry>
+  std::vector<CapsuleMemberGeometry>
   capsuleMemberSlices(const BarCapsuleRun& run, bool isVertical, float widgetHoverPadding) {
     std::vector<CapsuleMemberGeometry> members;
     if (run.shell == nullptr) {
@@ -655,12 +652,11 @@ namespace {
     std::int32_t exclusiveZone = 0;
   };
 
-  [[nodiscard]] BarSurfaceSpec
-  computeBarSurfaceSpec(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
+  BarSurfaceSpec computeBarSurfaceSpec(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
     const bool vertical = (barConfig.position == "left" || barConfig.position == "right");
     const bool isBottom = barConfig.position == "bottom";
     const bool isRight = barConfig.position == "right";
-    const std::int32_t mEnds = barConfig.marginEnds;
+    const std::int32_t mEnds = barConfig.marginEnds.px();
     const std::int32_t mEdge = barConfig.marginEdge;
     const auto sb = shell::surface_shadow::bleed(barConfig.shadow, shadowConfig);
     const int edgeGutter = barAutoHideEdgeGutter(barConfig);
@@ -725,7 +721,7 @@ namespace {
     return spec;
   }
 
-  [[nodiscard]] float barInnerSurfaceExtension(
+  float barInnerSurfaceExtension(
       const BarConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceWidth, float surfaceHeight
   ) {
     const auto base = computeBarSurfaceSpec(cfg, shadow);
@@ -793,7 +789,7 @@ namespace {
       float innerSurfaceExtension = 0.0F
   ) {
     const auto barThickness = static_cast<float>(cfg.thickness);
-    const auto marginEnds = static_cast<float>(cfg.marginEnds);
+    const auto marginEnds = static_cast<float>(cfg.marginEnds.px());
     const auto marginEdge = static_cast<float>(cfg.marginEdge);
     const bool isBottom = cfg.position == "bottom";
     const bool isRight = cfg.position == "right";
@@ -858,8 +854,7 @@ namespace {
     };
   }
 
-  [[nodiscard]] InputRect
-  barContentInputRegion(const BarConfig& cfg, const ShellConfig::ShadowConfig& shadow, int surfW, int surfH) {
+  InputRect barContentInputRegion(const BarConfig& cfg, const ShellConfig::ShadowConfig& shadow, int surfW, int surfH) {
     const float innerSurfaceExtension =
         barInnerSurfaceExtension(cfg, shadow, static_cast<float>(surfW), static_cast<float>(surfH));
     const auto barVisual = computeBarVisualGeometry(
@@ -874,7 +869,7 @@ namespace {
   // Click-through dead zone: one rect per interactive widget, spanning the bar's thickness and padded
   // along the bar by the capsule padding that widens widget hit targets past their bounds. Spacers and
   // passive widgets are dead zone (see widgetAtPoint), so they pass through too.
-  [[nodiscard]] std::vector<InputRect> barWidgetsInputRegion(const BarInstance& instance, const InputRect& bar) {
+  std::vector<InputRect> barWidgetsInputRegion(const BarInstance& instance, const InputRect& bar) {
     const bool isVertical = (instance.barConfig.position == "left" || instance.barConfig.position == "right");
     const float pad = instance.barConfig.widgetCapsulePadding;
     std::vector<InputRect> rects;
@@ -1184,7 +1179,7 @@ namespace {
 
     // When bar touches screen edge, put the padding inside the sections, and extend the hit targets of
     // the first/last widgets to cover the area. So clicking on the screen edge still triggers the widget.
-    const bool screenEdgeClick = instance.barConfig.marginEnds == 0 && padding > 0;
+    const bool screenEdgeClick = instance.barConfig.marginEnds.px() == 0 && padding > 0;
     const float paddingInsideSection = screenEdgeClick ? padding : 0.0F;
     const float contentMainStart = screenEdgeClick ? 0.0F : padding;
     const float contentMainEnd =
@@ -1205,6 +1200,25 @@ namespace {
     auto configureSection = [&](Flex* section, FlexJustify justify) {
       section->setJustify(justify);
       section->layout(renderer);
+    };
+
+    auto laneExpands = [](const Flex* section) {
+      return std::ranges::any_of(section->children(), [](const auto& child) { return child->flexGrow() > 0.0F; });
+    };
+
+    // Flex only hands out free space once the lane's main size is known, so an expanding lane is laid out again
+    // at its slot size. Not when its content overflows the slot: the natural size keeps the overflow clipping
+    // from the far end, which is what keeps the end lane's last widgets reachable.
+    auto stretchLaneToSlot = [&](Flex* section, float slotMain) {
+      const float naturalMain = isVertical ? section->height() : section->width();
+      if (!laneExpands(section) || slotMain <= naturalMain) {
+        return;
+      }
+      section->arrange(
+          renderer,
+          isVertical ? LayoutRect{.width = section->width(), .height = slotMain}
+                     : LayoutRect{.width = slotMain, .height = section->height()}
+      );
     };
 
     if (screenEdgeClick) {
@@ -1275,10 +1289,22 @@ namespace {
       // want it to be clipped by a super long start section, so the user loses access to settings.
       endSlotMain = std::min(endNaturalMain, contentMainSpan);
       startSlotMain = std::min(startNaturalMain, contentMainSpan - endSlotMain);
+      // With no center lane, expanding lanes split what the two leave free.
+      const bool startExpands = laneExpands(instance.startSection);
+      const bool endExpands = laneExpands(instance.endSection);
+      if (startExpands || endExpands) {
+        const float spare = std::max(0.0F, contentMainSpan - startSlotMain - endSlotMain);
+        const float share = startExpands && endExpands ? spare * 0.5F : spare;
+        startSlotMain += startExpands ? share : 0.0F;
+        endSlotMain += endExpands ? share : 0.0F;
+      }
       configureSlot(instance.startSlot, contentMainStart, startSlotMain);
       configureSlot(instance.centerSlot, contentMainStart + startSlotMain, 0.0F);
       configureSlot(instance.endSlot, contentMainEnd - endSlotMain, endSlotMain);
     }
+
+    stretchLaneToSlot(instance.startSection, startSlotMain);
+    stretchLaneToSlot(instance.endSection, endSlotMain);
 
     if (isVertical) {
       instance.startSection->setPosition((slotCross - instance.startSection->width()) * 0.5F, 0.0F);
@@ -2048,10 +2074,9 @@ bool Bar::barContentVisuallyShown(const BarInstance& instance) const noexcept {
 }
 
 bool Bar::shouldReserveExclusiveZone(const BarInstance& instance) const noexcept {
-  if (instance.ipcLayoutReleased) {
-    return false;
-  }
-  return instance.barConfig.reserveSpace;
+  return barShouldReserveExclusiveZone(
+      instance.barConfig, instance.ipcLayoutReleased, barContentVisuallyShown(instance)
+  );
 }
 
 void Bar::syncBarExclusiveZone(BarInstance& instance) {
@@ -2781,6 +2806,9 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
       if (widget.noGapAroundMe()) {
         section->setChildGapExcluded(added, true);
       }
+      if (widget.expandsInLane()) {
+        added->setFlexGrow(1.0F);
+      }
     };
 
     auto addSingleCapsule = [&](Widget& widget) {
@@ -2824,6 +2852,10 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
       auto* added = section->addChild(std::move(shell));
       if (widget.noGapAroundMe()) {
         section->setChildGapExcluded(added, true);
+      }
+      // The shell, not the widget root, is the lane's flex child.
+      if (widget.expandsInLane()) {
+        added->setFlexGrow(1.0F);
       }
     };
 
@@ -3984,7 +4016,7 @@ std::optional<std::string> Bar::collectBarIpcInstances(
 
 namespace {
 
-  [[nodiscard]] std::optional<std::string> parseBarVisibilityIpcArgs(
+  std::optional<std::string> parseBarVisibilityIpcArgs(
       std::string_view command, std::string_view args, std::optional<std::string>& barName,
       std::optional<std::string>& monitorSelector
   ) {

@@ -51,18 +51,18 @@ public:
   void setRedrawCallback(std::function<void()> redrawCallback);
 
   void setHighlightedIndex(std::size_t index);
-  [[nodiscard]] bool moveHighlight(int delta);
-  [[nodiscard]] bool activateHighlighted();
-  [[nodiscard]] std::size_t highlightedIndex() const noexcept { return m_highlightedIndex; }
-  [[nodiscard]] std::size_t entryCount() const noexcept { return m_entries.size(); }
-  [[nodiscard]] float rowTop(std::size_t index) const noexcept;
-  [[nodiscard]] float rowBottom(std::size_t index) const noexcept;
+  bool moveHighlight(int delta);
+  bool activateHighlighted();
+  std::size_t highlightedIndex() const noexcept { return m_highlightedIndex; }
+  std::size_t entryCount() const noexcept { return m_entries.size(); }
+  float rowTop(std::size_t index) const noexcept;
+  float rowBottom(std::size_t index) const noexcept;
 
-  [[nodiscard]] float preferredHeight() const;
-  [[nodiscard]] static float
+  float preferredHeight() const;
+  static float
   preferredHeight(const std::vector<ContextMenuControlEntry>& entries, std::size_t maxVisible, float scale = 1.0F);
   // Width that fits the widest entry without elision (label + toggle/submenu slots + padding).
-  [[nodiscard]] static float preferredWidth(
+  static float preferredWidth(
       Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale = 1.0F,
       bool reserveToggleSpace = false
   );
@@ -79,7 +79,7 @@ private:
   void rebuild(Renderer& renderer);
   void rebuildRows(Renderer& renderer);
   void applyHighlightVisuals();
-  [[nodiscard]] std::size_t firstInteractiveIndex() const noexcept;
+  std::size_t firstInteractiveIndex() const noexcept;
 
   std::vector<ContextMenuControlEntry> m_entries;
   std::vector<RowVisual> m_rows;

@@ -20,7 +20,21 @@ bool AudioVisualizer::setValues(const std::vector<float>& values) {
     m_displayValues.resize(m_targetValues.size(), 0.0F);
   }
   m_converged = false;
+  m_newValues = true;
+  m_valuesAtRest = std::ranges::all_of(m_targetValues, [](float value) { return value <= 0.0F; });
   setSpectrumValues(m_displayValues);
+  return true;
+}
+
+bool AudioVisualizer::advance(float deltaMs, bool audioActive) {
+  m_msSinceTick += std::max(0.0F, deltaMs);
+  const bool settling = m_valuesAtRest && !m_converged;
+  if (audioActive && !m_newValues && !settling) {
+    return false;
+  }
+  m_newValues = false;
+  tick(m_msSinceTick);
+  m_msSinceTick = 0.0F;
   return true;
 }
 

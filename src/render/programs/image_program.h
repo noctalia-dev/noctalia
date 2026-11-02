@@ -26,7 +26,7 @@ public:
       bool monochromeTint, bool alphaMaskTint, float opacity, float radius = 0.0F,
       const Color& borderColor = {0.0F, 0.0F, 0.0F, 0.0F}, float borderWidth = 0.0F, int fitMode = 0,
       float textureWidth = 0.0F, float textureHeight = 0.0F, const Mat3& transform = Mat3::identity(),
-      const ImageScrim& scrim = {}
+      const ImageScrim& scrim = {}, float saturation = 1.0F
   ) const;
 
 private:
@@ -37,6 +37,7 @@ private:
   GLint m_rectLocation = -1;
   GLint m_tintLocation = -1;
   GLint m_opacityLocation = -1;
+  GLint m_saturationLocation = -1;
   GLint m_radiusLocation = -1;
   GLint m_borderColorLocation = -1;
   GLint m_borderWidthLocation = -1;

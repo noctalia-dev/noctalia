@@ -62,6 +62,15 @@ ScreenSaverService::~ScreenSaverService() {
   m_connection.reset();
 }
 
+std::vector<std::pair<std::string, std::string>> ScreenSaverService::inhibitorList() const {
+  std::vector<std::pair<std::string, std::string>> result;
+  result.reserve(m_cookies.size());
+  for (const auto& cookie : m_cookies) {
+    result.emplace_back(cookie.app, cookie.reason);
+  }
+  return result;
+}
+
 void ScreenSaverService::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
 void ScreenSaverService::emitActiveChanged(bool active) {

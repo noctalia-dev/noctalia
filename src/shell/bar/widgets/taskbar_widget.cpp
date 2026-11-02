@@ -47,7 +47,7 @@ namespace {
   constexpr std::int32_t kDragTileZIndex = 200;
 
   // Integer centering; optional odd spare pixel on the end side (right/bottom).
-  [[nodiscard]] float centeredOffset(float extent, float content, float inset = 0.0F, bool oddSpareOnEnd = true) {
+  float centeredOffset(float extent, float content, float inset = 0.0F, bool oddSpareOnEnd = true) {
     const float inner = std::max(0.0F, extent - inset * 2.0F);
     const int innerPx = static_cast<int>(std::lround(inner));
     const int contentPx = static_cast<int>(std::lround(content));
@@ -61,7 +61,7 @@ namespace {
     float top = 0.0F;
   };
 
-  [[nodiscard]] float externalBadgeMainStartInset(WorkspaceLabelPlacement placement, float badgeMain) {
+  float externalBadgeMainStartInset(WorkspaceLabelPlacement placement, float badgeMain) {
     if (placement == WorkspaceLabelPlacement::Corner) {
       return badgeMain * 0.2F;
     }
@@ -71,7 +71,7 @@ namespace {
     return 0.0F;
   }
 
-  [[nodiscard]] ExternalBadgePosition externalBadgePosition(
+  ExternalBadgePosition externalBadgePosition(
       WorkspaceLabelPlacement placement, bool vertical, float groupWidth, float groupHeight, float badgeWidth,
       float badgeHeight, float outlineInset
   ) {
@@ -87,7 +87,7 @@ namespace {
     return {std::round(-badgeWidth * 0.4F), centeredOffset(groupHeight, badgeHeight, outlineInset, false)};
   }
 
-  [[nodiscard]] float fitBadgeFontSize(
+  float fitBadgeFontSize(
       Renderer& renderer, std::string_view label, float maxWidth, float maxHeight, float scale, const TextFont& font
   ) {
     float fontSize = std::round(Style::fontSizeMini * scale);
@@ -111,7 +111,7 @@ namespace {
     float height = 0.0F;
   };
 
-  [[nodiscard]] WorkspaceDiscSize measureWorkspaceDiscSize(
+  WorkspaceDiscSize measureWorkspaceDiscSize(
       Renderer& renderer, std::string_view label, float fontSize, float minHeight, float scale, const TextFont& font
   ) {
     const auto metrics = renderer.measureText(label, fontSize, font);
@@ -123,7 +123,7 @@ namespace {
     return size;
   }
 
-  [[nodiscard]] WorkspaceDiscSize clampWorkspaceDiscToCrossLimit(WorkspaceDiscSize disc, float maxCross) {
+  WorkspaceDiscSize clampWorkspaceDiscToCrossLimit(WorkspaceDiscSize disc, float maxCross) {
     if (maxCross <= 0.0F) {
       return disc;
     }
@@ -133,7 +133,7 @@ namespace {
     return disc;
   }
 
-  [[nodiscard]] std::uintptr_t taskHandleKey(const ToplevelInfo& window) {
+  std::uintptr_t taskHandleKey(const ToplevelInfo& window) {
     if (window.handle != nullptr) {
       return reinterpret_cast<std::uintptr_t>(window.handle);
     }
@@ -152,15 +152,14 @@ namespace {
     return 0;
   }
 
-  [[nodiscard]] bool isOrphanAppIdentity(
+  bool isOrphanAppIdentity(
       const std::string& appId, const std::string& appIdLower, const std::string& idLower,
       const std::string& startupWmClassLower, const std::string& nameLower
   ) {
     return appId.empty() && appIdLower.empty() && idLower.empty() && startupWmClassLower.empty() && nameLower.empty();
   }
 
-  [[nodiscard]] std::uintptr_t
-  syntheticAssignmentHandleKey(const WorkspaceWindowAssignment& assignment, std::size_t index) {
+  std::uintptr_t syntheticAssignmentHandleKey(const WorkspaceWindowAssignment& assignment, std::size_t index) {
     const std::string seed = assignment.windowId.empty()
         ? assignment.workspaceKey + "\n" + assignment.appId + "\n" + assignment.title + "\n" + std::to_string(index)
         : assignment.windowId;
@@ -171,7 +170,7 @@ namespace {
     return value;
   }
 
-  [[nodiscard]] float barCapsuleThicknessFor(const ConfigService& config, std::string_view barName) {
+  float barCapsuleThicknessFor(const ConfigService& config, std::string_view barName) {
     for (const auto& bar : config.config().bars) {
       if (bar.name == barName) {
         return bar.capsuleThickness;
@@ -180,7 +179,7 @@ namespace {
     return 0.76F;
   }
 
-  [[nodiscard]] float taskbarShellCross(float barCross, bool barCapsuleEnabled, float capsuleThickness) {
+  float taskbarShellCross(float barCross, bool barCapsuleEnabled, float capsuleThickness) {
     if (!barCapsuleEnabled || barCross <= 0.0F) {
       return barCross;
     }
@@ -188,7 +187,7 @@ namespace {
   }
 
   // Inner cross budget for workspace group capsules nested inside a bar widget capsule.
-  [[nodiscard]] float taskbarGroupedCrossBudget(
+  float taskbarGroupedCrossBudget(
       float shellCross, bool barCapsuleEnabled, bool workspaceGroupCapsule, float barCapsuleBorderWidth, float scale
   ) {
     if (!barCapsuleEnabled || !workspaceGroupCapsule || shellCross <= 0.0F) {
@@ -403,7 +402,7 @@ bool TaskbarWidget::commitDragReorder() {
   // inside — defer so the write happens after this event finishes dispatching.
   ConfigService* config = &m_configService;
   DeferredCall::callLater([config, widgetName = m_widgetName, pinned = std::move(pinned)] mutable {
-    (void)config->setOverride({"widget", widgetName, "pinned"}, std::move(pinned));
+    config->setOverride({"widget", widgetName, "pinned"}, std::move(pinned));
   });
   return true;
 }
@@ -608,7 +607,7 @@ void TaskbarWidget::setEntryPinned(const DesktopEntry& entry, bool pinned) {
 
   ConfigService* config = &m_configService;
   DeferredCall::callLater([config, widgetName = m_widgetName, pinnedList = std::move(pinnedList)] mutable {
-    (void)config->setOverride({"widget", widgetName, "pinned"}, std::move(pinnedList));
+    config->setOverride({"widget", widgetName, "pinned"}, std::move(pinnedList));
   });
 }
 
@@ -2427,7 +2426,7 @@ void TaskbarWidget::updateModels() {
         if (previous == previousWorkspaceByHandle.end()) {
           continue;
         }
-        (void)assignMatch(task, true, [&](const WorkspaceWindowAssignment& assignment) {
+        assignMatch(task, true, [&](const WorkspaceWindowAssignment& assignment) {
           return assignment.workspaceKey == previous->second;
         });
       }
@@ -2440,7 +2439,7 @@ void TaskbarWidget::updateModels() {
         if (previous == previousWorkspaceByHandle.end()) {
           continue;
         }
-        (void)assignMatch(task, false, [&](const WorkspaceWindowAssignment& assignment) {
+        assignMatch(task, false, [&](const WorkspaceWindowAssignment& assignment) {
           return assignment.workspaceKey == previous->second;
         });
       }
@@ -2449,7 +2448,7 @@ void TaskbarWidget::updateModels() {
         if (!task.workspaceKey.empty()) {
           continue;
         }
-        (void)assignMatch(task, true, [](const WorkspaceWindowAssignment&) { return true; });
+        assignMatch(task, true, [](const WorkspaceWindowAssignment&) { return true; });
       }
 
       for (auto& task : nextTasks) {
@@ -2642,7 +2641,7 @@ void TaskbarWidget::updateModels() {
         if (tryClaim(false, true)) {
           continue;
         }
-        (void)tryClaim(false, false);
+        tryClaim(false, false);
       }
     }
 

@@ -11,8 +11,11 @@
 #include "core/log.h"
 #include "core/scoped_timer.h"
 #include "core/ui_phase.h"
+#include "dbus/idle/screensaver_service.h"
 #include "i18n/i18n.h"
+#include "idle/idle_inhibitor.h"
 #include "idle/idle_manager.h"
+#include "net/url_open.h"
 #include "render/core/async_texture_cache.h"
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
@@ -61,7 +64,7 @@ namespace {
 
   // min_size hints are orientation-aware: portrait outputs constrain width, so the hint
   // follows the same 66% short-edge budget as the default open size instead of 1020.
-  [[nodiscard]] std::pair<float, float> settingsWindowMinSize(float outputW, float outputH, float scale) {
+  std::pair<float, float> settingsWindowMinSize(float outputW, float outputH, float scale) {
     float minW = kWindowMinWidth * scale;
     float minH = kWindowMinHeight * scale;
     if (outputW <= 0.0F || outputH <= 0.0F) {
@@ -103,7 +106,7 @@ namespace {
     platform.activateToplevelForAppId(kSettingsAppId);
   }
 
-  [[nodiscard]] bool isSettingsSearchTypingKey(const KeyboardEvent& event) {
+  bool isSettingsSearchTypingKey(const KeyboardEvent& event) {
     if (!event.pressed || event.preedit) {
       return false;
     }
@@ -151,8 +154,8 @@ namespace {
       }
     }
 
-    [[nodiscard]] bool active() const noexcept { return m_watch.has_value(); }
-    [[nodiscard]] double elapsedMs() const { return m_watch.has_value() ? m_watch->elapsedMs() : 0.0; }
+    bool active() const noexcept { return m_watch.has_value(); }
+    double elapsedMs() const { return m_watch.has_value() ? m_watch->elapsedMs() : 0.0; }
 
   private:
     std::optional<noctalia::profiling::StopWatch> m_watch;
@@ -197,11 +200,13 @@ void SettingsWindow::setCalendarService(CalendarService* service) {
 
 void SettingsWindow::initialize(
     WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, DependencyService* dependencies,
-    UPowerService* upower, IdleManager* idleManager, CompositorPlatform* platform, AccountsService* accounts
+    UPowerService* upower, IdleManager* idleManager, IdleInhibitor* idleInhibitor, CompositorPlatform* platform,
+    AccountsService* accounts
 ) {
   m_wayland = &wayland;
   m_platform = platform;
   m_idleManager = idleManager;
+  m_idleInhibitor = idleInhibitor;
   m_config = config;
   m_renderContext = renderContext;
   m_dependencies = dependencies;
@@ -281,6 +286,15 @@ bool SettingsWindow::headerDragRegionContains(float sceneX, float sceneY) const 
   const float dragRight = std::max(sceneWidth, right);
   const float dragBottom = std::clamp(bottom, 0.0F, sceneHeight);
   return sceneX >= dragLeft && sceneX < dragRight && sceneY >= dragTop && sceneY < dragBottom;
+}
+
+void SettingsWindow::openBrowserUrl(const std::string& url) {
+  if (m_platform == nullptr || m_surface == nullptr) {
+    return;
+  }
+
+  const auto token = m_platform->requestActivationToken(m_surface->wlSurface());
+  net::openInBrowser(url, token);
 }
 
 bool SettingsWindow::ownsKeyboardSurface(wl_surface* surface) const noexcept {
@@ -1037,10 +1051,25 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
         consumed = true;
         break;
       }
+      // A click that neither confirms nor moves a pending reset (empty space, labels, header) cancels it. Buttons act
+      // on release, so compare the pending state across the release dispatch.
+      const bool releaseLeft = !pressed && event.button == BTN_LEFT;
+      const auto pendingPageScope = releaseLeft ? m_pendingResetPageScope : std::string{};
+      const auto pendingSettingPaths =
+          releaseLeft ? m_pendingResetSettingPaths : decltype(m_pendingResetSettingPaths){};
       m_inputDispatcher.pointerButton(
           static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
           event.touch
       );
+      if (releaseLeft
+          && (!pendingPageScope.empty() || !pendingSettingPaths.empty())
+          && m_pendingResetPageScope == pendingPageScope
+          && m_pendingResetSettingPaths == pendingSettingPaths) {
+        m_pendingResetPageScope.clear();
+        m_pendingResetSettingPaths.clear();
+        m_rebuildRequested = true;
+        m_surface->requestLayout();
+      }
       consumed = m_pointerInside;
     }
     break;
@@ -1126,7 +1155,9 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
         || !m_renamingBarName.empty()
         || !m_pendingDeleteBarName.empty()
         || !m_renamingMonitorOverrideBarName.empty()
-        || !m_pendingDeleteMonitorOverrideBarName.empty()) {
+        || !m_pendingDeleteMonitorOverrideBarName.empty()
+        || !m_pendingResetPageScope.empty()
+        || !m_pendingResetSettingPaths.empty()) {
       m_editingWidgetName.clear();
       m_editingCapsuleGroupId.clear();
       m_selectedLaneWidgets.clear();
@@ -1140,6 +1171,8 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
+      m_pendingResetPageScope.clear();
+      m_pendingResetSettingPaths.clear();
       requestRebuild();
       return;
     }
@@ -1257,6 +1290,37 @@ void SettingsWindow::invalidatePluginSourceCache(const std::string& sourceName) 
 
 void SettingsWindow::refreshIdleLiveStatusText() {
   if (m_idleLiveStatusLabel == nullptr) {
+    return;
+  }
+
+  if (m_screenSaverService != nullptr && m_screenSaverService->inhibitLocks() > 0) {
+    std::string inhibitors;
+    std::int64_t inhibitorCount = 0;
+    const auto append = [&inhibitors, &inhibitorCount](std::string_view entry) {
+      if (inhibitorCount > 0) {
+        inhibitors += ", ";
+      }
+      inhibitors += entry;
+      ++inhibitorCount;
+    };
+
+    if (m_idleInhibitor != nullptr && m_idleInhibitor->enabled()) {
+      append(i18n::tr("settings.idle.live-status.inhibit-reason-caffeine"));
+    }
+
+    for (const auto& [app, reason] : m_screenSaverService->inhibitorList()) {
+      append(app);
+      if (!reason.empty()) {
+        inhibitors.append(" (").append(reason).append(")");
+      }
+    }
+
+    if (inhibitorCount < m_screenSaverService->inhibitLocks()) {
+      append(i18n::tr("settings.idle.live-status.inhibit-reason-external"));
+    }
+
+    m_idleLiveStatusLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    m_idleLiveStatusLabel->setText(i18n::tr("settings.idle.live-status.inhibited", "inhibitors", inhibitors));
     return;
   }
 

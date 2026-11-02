@@ -20,7 +20,7 @@ namespace calendar_view {
     int month = -1;
     int day = -1;
 
-    [[nodiscard]] bool valid() const noexcept { return year != 0 && month >= 0 && day > 0; }
+    bool valid() const noexcept { return year != 0 && month >= 0 && day > 0; }
     bool operator==(const Date&) const = default;
   };
 
@@ -87,19 +87,19 @@ namespace calendar_view {
     std::function<void()> requestRedraw;
   };
 
-  [[nodiscard]] State stateForOffset(int monthOffset);
-  [[nodiscard]] int dateKey(Date date) noexcept;
+  State stateForOffset(int monthOffset);
+  int dateKey(Date date) noexcept;
 
-  [[nodiscard]] bool eventPassed(const CalendarEvent& event, std::chrono::system_clock::time_point now);
+  bool eventPassed(const CalendarEvent& event, std::chrono::system_clock::time_point now);
 
   // True when a finished event should be left out of today's list: only when hidePast is set, and then
   // only if it ended more than thresholdMinutes ago.
-  [[nodiscard]] bool eventHiddenAsPast(
+  bool eventHiddenAsPast(
       const CalendarEvent& event, std::chrono::system_clock::time_point now, bool hidePast, int thresholdMinutes
   );
 
   // Number of events hidden by the past-event filter on the selected day (0 unless it is today).
-  [[nodiscard]] int countHiddenPastEvents(
+  int countHiddenPastEvents(
       const CalendarSnapshot& snapshot, Date selected, std::chrono::system_clock::time_point now, bool hidePast,
       int thresholdMinutes
   );

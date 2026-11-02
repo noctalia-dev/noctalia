@@ -41,8 +41,8 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void sync(Renderer& renderer);
-  [[nodiscard]] std::optional<FcitxInputMethodState> inputMethodState() const;
-  [[nodiscard]] std::string resolvedLayoutName() const;
+  std::optional<FcitxInputMethodState> inputMethodState() const;
+  std::string resolvedLayoutName() const;
   void armRefreshTick();
   void scheduleRefreshBurst();
 

@@ -50,8 +50,8 @@ private:
   void applyTitleScrollMode(bool titleVisible);
   void syncWidgetVisibility(bool showWidget);
   void syncState(Renderer& renderer);
-  [[nodiscard]] int iconTargetSize() const noexcept;
-  [[nodiscard]] std::string resolveIconPath(const std::string& appId, float renderScale);
+  int iconTargetSize() const noexcept;
+  std::string resolveIconPath(const std::string& appId, float renderScale);
   void buildDesktopIconIndex();
 
   ConfigService& m_config;

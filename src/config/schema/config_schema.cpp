@@ -35,7 +35,8 @@ namespace noctalia::config::schema {
         field(&AudioConfig::enablePowerSounds, "enable_power_sounds"),
         field(&AudioConfig::enableScreenshotSounds, "enable_screenshot_sounds"),
         field(&AudioConfig::soundVolume, "sound_volume", kUnitRange),
-        field(&AudioConfig::soundTheme, "sound_theme")
+        field(&AudioConfig::soundTheme, "sound_theme"),
+        field(&AudioConfig::spectrumFrameRate, "spectrum_frame_rate", kSpectrumFrameRateRange)
     };
     return s;
   }
@@ -641,6 +642,20 @@ namespace noctalia::config::schema {
         }),
     };
     return s;
+  }
+
+  PluginsConfig readPluginsSection(const toml::table& root) {
+    PluginsConfig plugins;
+    const auto* pluginsTbl = root["plugins"].as_table();
+    if (pluginsTbl != nullptr) {
+      Diagnostics sink;
+      readInto(*pluginsTbl, plugins, pluginsSchema(), "plugins", sink);
+    }
+    const bool sourcesConfigured = pluginsTbl != nullptr && (*pluginsTbl)["source"].as_array() != nullptr;
+    if (!sourcesConfigured && plugins.sources.empty()) {
+      plugins.sources = defaultPluginSources();
+    }
+    return plugins;
   }
 
   namespace {
@@ -2393,6 +2408,7 @@ namespace noctalia::config::schema {
           optionalEnumField(&DockMonitorOverride::position, "position", kDockEdges),
           optionalBoolField(&DockMonitorOverride::activeMonitorOnly, "active_monitor_only"),
           optionalIntField(&DockMonitorOverride::iconSize, "icon_size", kDockIconSizeRange),
+          optionalFloatField(&DockMonitorOverride::iconSaturation, "icon_saturation", kUnitRange),
           optionalIntField(&DockMonitorOverride::mainAxisPadding, "main_axis_padding", kDockPaddingRange),
           optionalIntField(&DockMonitorOverride::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
           optionalIntField(&DockMonitorOverride::itemSpacing, "item_spacing", kDockItemSpacingRange),
@@ -2458,6 +2474,7 @@ namespace noctalia::config::schema {
         enumField(&DockConfig::position, "position", kDockEdges),
         field(&DockConfig::activeMonitorOnly, "active_monitor_only"),
         field(&DockConfig::iconSize, "icon_size", kDockIconSizeRange),
+        field(&DockConfig::iconSaturation, "icon_saturation", kUnitRange),
         field(&DockConfig::mainAxisPadding, "main_axis_padding", kDockPaddingRange),
         field(&DockConfig::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
         field(&DockConfig::itemSpacing, "item_spacing", kDockItemSpacingRange),
@@ -2559,6 +2576,7 @@ namespace noctalia::config::schema {
         field(&BarConfig::smartAutoHide, "smart_auto_hide"),
         field(&BarConfig::showOnWorkspaceSwitch, "show_on_workspace_switch"),
         field(&BarConfig::reserveSpace, "reserve_space"),
+        field(&BarConfig::autoHideReserveSpace, "auto_hide_reserve_space"),
         barLayerField(),
         field(&BarConfig::thickness, "thickness", kBarThicknessRange),
         field(&BarConfig::backgroundOpacity, "background_opacity", kBarOpacityRange),
@@ -2571,7 +2589,7 @@ namespace noctalia::config::schema {
         field(&BarConfig::radiusBottomLeft, "radius_bottom_left", kBarRadiusRange),
         field(&BarConfig::radiusBottomRight, "radius_bottom_right", kBarRadiusRange),
         field(&BarConfig::concaveEdgeCorners, "concave_edge_corners"),
-        field(&BarConfig::marginEnds, "margin_ends"),
+        field(&BarConfig::marginEnds, "margin_ends", kBarMarginEndsPercentRange),
         field(&BarConfig::marginEdge, "margin_edge"),
         field(&BarConfig::marginOppositeEdge, "margin_opposite_edge"),
         field(&BarConfig::padding, "padding"),
@@ -2619,6 +2637,7 @@ namespace noctalia::config::schema {
         optionalBoolField(&BarMonitorOverride::smartAutoHide, "smart_auto_hide"),
         optionalBoolField(&BarMonitorOverride::showOnWorkspaceSwitch, "show_on_workspace_switch"),
         optionalBoolField(&BarMonitorOverride::reserveSpace, "reserve_space"),
+        optionalBoolField(&BarMonitorOverride::autoHideReserveSpace, "auto_hide_reserve_space"),
         // layer accepts top|overlay; anything else warns and leaves it unset.
         custom<BarMonitorOverride>(
             "layer",
@@ -2650,7 +2669,7 @@ namespace noctalia::config::schema {
         optionalIntField(&BarMonitorOverride::radiusBottomLeft, "radius_bottom_left", kBarRadiusRange),
         optionalIntField(&BarMonitorOverride::radiusBottomRight, "radius_bottom_right", kBarRadiusRange),
         optionalBoolField(&BarMonitorOverride::concaveEdgeCorners, "concave_edge_corners"),
-        optionalIntField(&BarMonitorOverride::marginEnds, "margin_ends"),
+        field(&BarMonitorOverride::marginEnds, "margin_ends", kBarMarginEndsPercentRange),
         optionalIntField(&BarMonitorOverride::marginEdge, "margin_edge"),
         optionalIntField(&BarMonitorOverride::marginOppositeEdge, "margin_opposite_edge"),
         optionalIntField(&BarMonitorOverride::padding, "padding"),

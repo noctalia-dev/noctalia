@@ -30,7 +30,7 @@ public:
   watch(const std::filesystem::path& filePath, Callback callback, WatchTrigger trigger = WatchTrigger::Modified);
   void unwatch(WatchId id);
 
-  [[nodiscard]] int fd() const noexcept { return inotify.fd(); }
+  int fd() const noexcept { return inotify.fd(); }
   void dispatch();
 
 private:

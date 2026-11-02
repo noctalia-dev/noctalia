@@ -200,6 +200,7 @@ location = "https://example.invalid/bad"
     bar.autoHide = true;
     bar.autoHideDelayMs = 300000;
     bar.smartAutoHide = false;
+    bar.autoHideReserveSpace = false;
     bar.showOnWorkspaceSwitch = true;
     bar.reserveSpace = false;
     bar.layer = "overlay";
@@ -214,7 +215,7 @@ location = "https://example.invalid/bad"
     bar.radiusBottomLeft = 8;
     bar.radiusBottomRight = 10;
     bar.concaveEdgeCorners = true;
-    bar.marginEnds = 100;
+    bar.marginEnds = LengthSpec::fromPixels(100);
     bar.marginEdge = 5;
     bar.marginOppositeEdge = 12;
     bar.actions = {{"middle", "none"}, {"right", "media toggle"}};
@@ -277,6 +278,7 @@ location = "https://example.invalid/bad"
     ovr.autoHide = false;
     ovr.autoHideDelayMs = 5000;
     ovr.smartAutoHide = false;
+    ovr.autoHideReserveSpace = false;
     ovr.showOnWorkspaceSwitch = true;
     ovr.reserveSpace = true;
     ovr.layer = "top";
@@ -291,7 +293,7 @@ location = "https://example.invalid/bad"
     ovr.radiusBottomLeft = 3;
     ovr.radiusBottomRight = 4;
     ovr.concaveEdgeCorners = false;
-    ovr.marginEnds = 70;
+    ovr.marginEnds = LengthSpec::fromPercent(7);
     ovr.marginEdge = 9;
     ovr.marginOppositeEdge = 4;
     ovr.deadZone.actions = std::unordered_map<std::string, std::string>{
@@ -352,7 +354,8 @@ location = "https://example.invalid/bad"
         .enablePowerSounds = false,
         .enableScreenshotSounds = false,
         .soundVolume = 0.73F,
-        .soundTheme = "freedesktop"
+        .soundTheme = "freedesktop",
+        .spectrumFrameRate = 144
     };
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";
@@ -427,6 +430,7 @@ location = "https://example.invalid/bad"
     c.dock.enabled = true;
     c.dock.position = DockEdge::Left;
     c.dock.iconSize = 40;
+    c.dock.iconSaturation = 0.82F;
     c.dock.border = colorSpecFromRole(ColorRole::Primary);
     c.dock.borderWidth = 1.5F;
     c.dock.radius = 20;
@@ -442,6 +446,7 @@ location = "https://example.invalid/bad"
         .enabled = false,
         .position = DockEdge::Left,
         .iconSize = 36,
+        .iconSaturation = 0.25F,
         .autoHide = true,
         .launcherPosition = DockLauncherPosition::End,
         .pinned = std::vector<std::string>{"org.gnome.Nautilus.desktop"},
@@ -646,6 +651,16 @@ location = "https://example.invalid/bad"
   }
 
   void checkClamps() {
+    for (const auto& [text, expected] :
+         {std::pair{"", 1.0F}, std::pair{"icon_saturation = -1.0", 0.0F}, std::pair{"icon_saturation = 0.82", 0.82F},
+          std::pair{"icon_saturation = 2.0", 1.0F}}) {
+      DockConfig dock;
+      Diagnostics diagnostics;
+      readInto(toml::parse(text), dock, dockSchema(), "dock", diagnostics);
+      if (dock.iconSaturation != expected) {
+        fail("dock.icon_saturation: unexpected default, parsed value or clamp");
+      }
+    }
     // Calendar reminder lead is capped at a day ahead.
     {
       auto t = toml::parse("default_lead_minutes = 99999");
@@ -1150,6 +1165,7 @@ int main() {
 [default]
 auto_hide = true
 auto_hide_delay_ms = 300000
+auto_hide_reserve_space = false
 background_opacity = 0.85000002384185791
 border = "#123456"
 border_width = 2.0
@@ -1215,6 +1231,7 @@ widget_spacing = 8
     [default.monitor.DP-1]
     auto_hide = false
     auto_hide_delay_ms = 5000
+    auto_hide_reserve_space = false
     background_opacity = 0.69999998807907104
     border = "#A1A2A3"
     border_width = 3.0
@@ -1241,7 +1258,7 @@ widget_spacing = 8
     icon_color = "#E3E2E1"
     layer = "top"
     margin_edge = 9
-    margin_ends = 70
+    margin_ends = "7%"
     margin_opposite_edge = 4
     match = "DP-1"
     padding = 11

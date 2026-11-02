@@ -77,6 +77,7 @@ void SearchPickerPopup::open(SearchPickerPopupRequest request) {
   m_title = std::move(request.title);
   m_options = std::move(request.options);
   m_selectedValue = std::move(request.selectedValue);
+  m_keepOpenOnSelect = request.keepOpenOnSelect;
   m_placeholder = std::move(request.placeholder);
   m_emptyText = std::move(request.emptyText);
   m_root = nullptr;
@@ -162,6 +163,13 @@ void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*wid
                   [this](const SearchPickerOption& option) {
                     if (m_onSelect) {
                       m_onSelect(option.value);
+                    }
+                    if (m_keepOpenOnSelect) {
+                      m_selectedValue = option.value;
+                      if (m_searchPicker != nullptr) {
+                        m_searchPicker->setSelectedValue(option.value);
+                      }
+                      return;
                     }
                     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
                     DeferredCall::callLater([this, aliveGuard] {

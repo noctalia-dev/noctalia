@@ -115,24 +115,24 @@ public:
   // display name and source label. Passing std::nullopt means no location is available.
   void setLocation(std::optional<WeatherCoordinates> coordinates, std::string name, std::string sourceLabel);
 
-  [[nodiscard]] int pollTimeoutMs() const;
+  int pollTimeoutMs() const;
   void tick();
   void requestRefresh();
 
-  [[nodiscard]] bool enabled() const noexcept;
-  [[nodiscard]] bool effectsEnabled() const noexcept { return m_activeConfig.effects; }
-  [[nodiscard]] bool locationConfigured() const noexcept;
-  [[nodiscard]] bool loading() const noexcept { return m_loading; }
-  [[nodiscard]] bool hasData() const noexcept { return m_snapshot.valid; }
-  [[nodiscard]] const std::string& error() const noexcept { return m_error; }
-  [[nodiscard]] const WeatherSnapshot& snapshot() const noexcept { return m_snapshot; }
-  [[nodiscard]] bool useImperial() const noexcept;
-  [[nodiscard]] double displayTemperature(double celsius) const noexcept;
-  [[nodiscard]] const char* displayTemperatureUnit() const noexcept;
+  bool enabled() const noexcept;
+  bool effectsEnabled() const noexcept { return m_activeConfig.effects; }
+  bool locationConfigured() const noexcept;
+  bool loading() const noexcept { return m_loading; }
+  bool hasData() const noexcept { return m_snapshot.valid; }
+  const std::string& error() const noexcept { return m_error; }
+  const WeatherSnapshot& snapshot() const noexcept { return m_snapshot; }
+  bool useImperial() const noexcept;
+  double displayTemperature(double celsius) const noexcept;
+  const char* displayTemperatureUnit() const noexcept;
 
-  [[nodiscard]] static std::string_view glyphForCode(std::int32_t code, bool isDay);
-  [[nodiscard]] static std::string shortDescriptionForCode(std::int32_t code);
-  [[nodiscard]] static std::string descriptionForCode(std::int32_t code);
+  static std::string_view glyphForCode(std::int32_t code, bool isDay);
+  static std::string shortDescriptionForCode(std::int32_t code);
+  static std::string descriptionForCode(std::int32_t code);
 
 private:
   enum class RequestKind : std::uint8_t {
@@ -148,11 +148,11 @@ private:
   void scheduleRetryAfterFailure();
   void loadCache();
   void saveCache() const;
-  [[nodiscard]] bool coordinatesValid() const noexcept;
+  bool coordinatesValid() const noexcept;
 
-  [[nodiscard]] static std::filesystem::path transportCacheDir();
-  [[nodiscard]] static std::filesystem::path stateCacheFilePath();
-  [[nodiscard]] static std::string formatCoordinate(double value);
+  static std::filesystem::path transportCacheDir();
+  static std::filesystem::path stateCacheFilePath();
+  static std::string formatCoordinate(double value);
 
   ConfigService& m_configService;
   HttpClient& m_httpClient;

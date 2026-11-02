@@ -15,8 +15,7 @@ namespace {
 
   constexpr Logger kLog("dock");
 
-  [[nodiscard]] std::string
-  taskbarStyleWmClassLower(std::string_view startupWmClass, std::string_view fallbackIdLower) {
+  std::string taskbarStyleWmClassLower(std::string_view startupWmClass, std::string_view fallbackIdLower) {
     if (!startupWmClass.empty()) {
       return StringUtils::toLower(startupWmClass);
     }

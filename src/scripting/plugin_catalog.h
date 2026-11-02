@@ -49,7 +49,7 @@ namespace scripting {
     bool heldBack = false;
   };
 
-  struct CatalogResult {
+  struct [[nodiscard]] CatalogResult {
     bool ok = false;
     std::string error;
     std::vector<CatalogEntry> entries;
@@ -57,8 +57,7 @@ namespace scripting {
     std::string revision;
   };
 
-  [[nodiscard]] inline const CatalogEntry*
-  findCatalogEntry(const std::vector<CatalogEntry>& entries, std::string_view id) {
+  inline const CatalogEntry* findCatalogEntry(const std::vector<CatalogEntry>& entries, std::string_view id) {
     for (const auto& entry : entries) {
       if (entry.id == id) {
         return &entry;
@@ -83,12 +82,12 @@ namespace scripting {
   // it straight from disk, falling back to scanning `*/plugin.toml`. Compatibility is
   // computed against the supported plugin API range so the list can badge incompatible
   // plugins before any detail fetch.
-  [[nodiscard]] CatalogResult discoverCatalog(const PluginSourceConfig& source, CatalogAccess access);
+  CatalogResult discoverCatalog(const PluginSourceConfig& source, CatalogAccess access);
 
   // Parse a `catalog.toml` body and resolve every row against the supported plugin API
   // range. `headRevision` is the commit the body was read from; pass an empty string for
   // a path source, which disables `[[plugin.release]]` rows since it cannot export a
   // revision. Exposed for testing + the git-source path.
-  [[nodiscard]] std::vector<CatalogEntry> parseCatalogToml(const std::string& body, std::string_view headRevision);
+  std::vector<CatalogEntry> parseCatalogToml(const std::string& body, std::string_view headRevision);
 
 } // namespace scripting

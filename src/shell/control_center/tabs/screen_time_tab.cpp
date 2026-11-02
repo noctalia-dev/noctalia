@@ -39,12 +39,12 @@ namespace {
 
   // App icons for the usage list. Must stay function-local: at TU scope its
   // icon-theme walk runs before main(), on every CLI invocation.
-  [[nodiscard]] IconResolver& screenTimeIconResolver() {
+  IconResolver& screenTimeIconResolver() {
     static IconResolver resolver;
     return resolver;
   }
 
-  [[nodiscard]] std::string snapshotKey(int rangeDays, const ScreenTimeSnapshot& snapshot) {
+  std::string snapshotKey(int rangeDays, const ScreenTimeSnapshot& snapshot) {
     std::string key = std::to_string(rangeDays) + '|' + std::to_string(snapshot.total.count());
     key += snapshot.hourlyBuckets ? "|h" : "|d";
     for (const auto& bucket : snapshot.buckets) {
@@ -84,15 +84,13 @@ namespace {
     return ptr;
   }
 
-  [[nodiscard]] float usageDurationFontSize(float scale) {
-    return Style::fontSizeMini * scale * kUsageDurationFontScale;
-  }
+  float usageDurationFontSize(float scale) { return Style::fontSizeMini * scale * kUsageDurationFontScale; }
 
-  [[nodiscard]] std::vector<TooltipRow> appUsageTooltip(const std::string& displayName, std::chrono::seconds duration) {
+  std::vector<TooltipRow> appUsageTooltip(const std::string& displayName, std::chrono::seconds duration) {
     return {{displayName, formatDuration(duration)}};
   }
 
-  [[nodiscard]] std::uint32_t hashAppKey(std::string_view appKey) {
+  std::uint32_t hashAppKey(std::string_view appKey) {
     std::uint32_t hash = 2166136261U;
     for (const unsigned char byte : appKey) {
       hash ^= byte;
@@ -101,7 +99,7 @@ namespace {
     return hash;
   }
 
-  [[nodiscard]] Color appSeriesColor(std::string_view appKey) {
+  Color appSeriesColor(std::string_view appKey) {
     const Color primary = colorForRole(ColorRole::Primary);
     float baseH = 0.0F;
     float baseS = 0.0F;

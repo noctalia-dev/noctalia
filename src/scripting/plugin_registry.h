@@ -19,7 +19,7 @@ namespace scripting {
     std::filesystem::path sourcePath;
     std::filesystem::path pluginDir;
 
-    [[nodiscard]] std::string fullId() const; // "author/plugin:entry"
+    std::string fullId() const; // "author/plugin:entry"
   };
 
   // Scans the user plugin directory and exposes its entries by id. P0: every
@@ -50,17 +50,17 @@ namespace scripting {
     void setEnabledFilter(std::optional<std::unordered_set<std::string>> enabled);
 
     // Resolve "author/plugin:entry" to its manifest, entry, and source path.
-    [[nodiscard]] std::optional<ResolvedPluginEntry> resolve(std::string_view fullEntryId) const;
+    std::optional<ResolvedPluginEntry> resolve(std::string_view fullEntryId) const;
 
     // Whether `id` names a registered entry ("author/plugin:entry").
-    [[nodiscard]] bool hasEntry(std::string_view fullEntryId) const;
+    bool hasEntry(std::string_view fullEntryId) const;
 
     // All entries of one kind (e.g. every [[widget]]) across active plugins.
-    [[nodiscard]] std::vector<ResolvedPluginEntry> entriesOfKind(PluginEntryKind kind) const;
+    std::vector<ResolvedPluginEntry> entriesOfKind(PluginEntryKind kind) const;
 
     // The manifest of a loaded plugin by its id ("author/plugin"), or null.
-    [[nodiscard]] const PluginManifest* findManifest(std::string_view pluginId) const;
-    [[nodiscard]] std::optional<std::filesystem::path> findPluginDir(std::string_view pluginId) const;
+    const PluginManifest* findManifest(std::string_view pluginId) const;
+    std::optional<std::filesystem::path> findPluginDir(std::string_view pluginId) const;
 
   private:
     struct LoadedPlugin {
@@ -69,7 +69,7 @@ namespace scripting {
     };
 
     void scanDir(const std::filesystem::path& dir);
-    [[nodiscard]] const LoadedPlugin* findPlugin(std::string_view pluginId) const;
+    const LoadedPlugin* findPlugin(std::string_view pluginId) const;
 
     std::vector<LoadedPlugin> m_plugins;
     std::vector<std::filesystem::path> m_sourceRoots;

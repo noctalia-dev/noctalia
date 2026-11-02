@@ -2,18 +2,17 @@
 
 #include "core/log.h"
 #include "render/core/image_decoder.h"
+#include "render/core/image_resize.h"
 #include "render/core/texture_manager.h"
 #include "util/file_utils.h"
 
 #include <algorithm>
 #include <cerrno>
-#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <optional>
-#include <stb/stb_image_resize2.h>
 #include <sys/eventfd.h>
 #include <system_error>
 #include <unistd.h>
@@ -27,7 +26,7 @@ namespace {
   constexpr float kThumbnailWebPQuality = 82.0F;
   constexpr std::size_t kMinWorkers = 2;
   constexpr std::size_t kMaxWorkers = 4;
-  constexpr std::string_view kThumbnailCacheVersion = "thumbnail-service-v3";
+  constexpr std::string_view kThumbnailCacheVersion = "thumbnail-service-v4";
 
   std::filesystem::path thumbnailCacheDir() {
     if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0') {
@@ -110,38 +109,23 @@ namespace {
     return rgb;
   }
 
-  std::vector<std::uint8_t> rgbToRgba(const std::vector<std::uint8_t>& rgb) {
-    const std::size_t pixelCount = rgb.size() / 3;
-    std::vector<std::uint8_t> rgba(pixelCount * 4);
-    for (std::size_t i = 0; i < pixelCount; ++i) {
-      rgba[i * 4 + 0] = rgb[i * 3 + 0];
-      rgba[i * 4 + 1] = rgb[i * 3 + 1];
-      rgba[i * 4 + 2] = rgb[i * 3 + 2];
-      rgba[i * 4 + 3] = 255;
-    }
-    return rgba;
-  }
-
-  bool resizeThumbnail(std::vector<std::uint8_t>& pixels, int& width, int& height, int targetPx) {
-    const int maxDim = std::max(width, height);
-    if (maxDim <= targetPx || width <= 0 || height <= 0) {
+  // Thumbnails are opaque: alpha is dropped before filtering, matching the RGB WebP cache.
+  bool resizeThumbnail(std::vector<std::uint8_t>& rgba, int& width, int& height, int targetPx) {
+    const ImageExtent fitted = fitImageWithin(width, height, targetPx, targetPx);
+    if (fitted.width == width && fitted.height == height) {
+      for (std::size_t i = 3; i < rgba.size(); i += 4) {
+        rgba[i] = 255;
+      }
       return true;
     }
 
-    const float scale = static_cast<float>(targetPx) / static_cast<float>(maxDim);
-    const int resizedW = std::max(1, static_cast<int>(std::lround(static_cast<float>(width) * scale)));
-    const int resizedH = std::max(1, static_cast<int>(std::lround(static_cast<float>(height) * scale)));
-
-    std::vector<std::uint8_t> out(static_cast<std::size_t>(resizedW) * static_cast<std::size_t>(resizedH) * 3);
-    unsigned char* result =
-        stbir_resize_uint8_linear(pixels.data(), width, height, 0, out.data(), resizedW, resizedH, 0, STBIR_RGB);
-    if (result == nullptr) {
+    auto resized = resizeToRgba(rgba.data(), width, height, ResizeSourceLayout::Rgbx, fitted.width, fitted.height);
+    if (resized.empty()) {
       return false;
     }
-
-    pixels = std::move(out);
-    width = resizedW;
-    height = resizedH;
+    rgba = std::move(resized);
+    width = fitted.width;
+    height = fitted.height;
     return true;
   }
 
@@ -555,7 +539,7 @@ void ThumbnailService::workerLoop() {
 
     int w = decoded->width;
     int h = decoded->height;
-    auto pixels = rgbaToRgb(decoded->pixels);
+    auto pixels = std::move(decoded->pixels);
 
     if (!resizeThumbnail(pixels, w, h, key.targetPx)) {
       result.failed = true;
@@ -564,15 +548,16 @@ void ThumbnailService::workerLoop() {
     }
 
     if (const auto cachePath = cachePathForSource(path, key.targetPx); cachePath.has_value()) {
+      const auto rgb = rgbaToRgb(pixels);
       std::uint8_t* encoded = nullptr;
-      const std::size_t encodedSize = WebPEncodeRGB(pixels.data(), w, h, w * 3, kThumbnailWebPQuality, &encoded);
+      const std::size_t encodedSize = WebPEncodeRGB(rgb.data(), w, h, w * 3, kThumbnailWebPQuality, &encoded);
       if (encoded != nullptr && encodedSize > 0) {
-        (void)writeFile(*cachePath, encoded, encodedSize);
+        writeFile(*cachePath, encoded, encodedSize);
         WebPFree(encoded);
       }
     }
 
-    result.rgba = rgbToRgba(pixels);
+    result.rgba = std::move(pixels);
     result.width = w;
     result.height = h;
     pushResult(std::move(result));

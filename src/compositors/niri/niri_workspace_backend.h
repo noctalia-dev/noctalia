@@ -27,22 +27,22 @@ public:
 
   void setChangeCallback(ChangeCallback callback) override;
   void setOverviewChangeCallback(ChangeCallback callback) override;
-  [[nodiscard]] bool canTrackOverviewState() const noexcept override;
-  [[nodiscard]] bool hasOverviewState() const noexcept override { return m_overviewKnown; }
-  [[nodiscard]] bool isOverviewOpen() const noexcept override { return m_overviewOpen; }
-  [[nodiscard]] int pollFd() const noexcept override;
-  [[nodiscard]] short pollEvents() const noexcept override;
-  [[nodiscard]] int pollTimeoutMs() const noexcept override;
+  bool canTrackOverviewState() const noexcept override;
+  bool hasOverviewState() const noexcept override { return m_overviewKnown; }
+  bool isOverviewOpen() const noexcept override { return m_overviewOpen; }
+  int pollFd() const noexcept override;
+  short pollEvents() const noexcept override;
+  int pollTimeoutMs() const noexcept override;
   void dispatchPoll(short revents) override;
   void handleEvent(std::string_view key, const nlohmann::json& value) override;
   void handleStreamReset() override;
   void apply(std::vector<Workspace>& workspaces, const std::string& outputName = {}) const override;
-  [[nodiscard]] std::vector<std::string> workspaceKeys(const std::string& outputName = {}) const override;
-  [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
+  std::vector<std::string> workspaceKeys(const std::string& outputName = {}) const override;
+  std::unordered_map<std::string, std::vector<std::string>>
   appIdsByWorkspace(const std::string& outputName = {}) const override;
-  [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
-  [[nodiscard]] bool hasExactWindowIdentity() const noexcept override { return true; }
-  [[nodiscard]] std::optional<std::string> focusedWindowId() const override;
+  std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
+  bool hasExactWindowIdentity() const noexcept override { return true; }
+  std::optional<std::string> focusedWindowId() const override;
   bool focusWindowById(const std::string& windowId, bool warpPointer = false) override;
   bool closeWindowById(const std::string& windowId) override;
   void cleanup() override;
@@ -67,28 +67,27 @@ private:
     bool operator==(const WorkspaceState&) const = default;
   };
 
-  [[nodiscard]] bool handleWorkspacesChanged(const nlohmann::json& payload);
-  [[nodiscard]] bool handleWindowsChanged(const nlohmann::json& payload);
-  [[nodiscard]] bool handleOverviewChanged(const nlohmann::json& payload);
-  [[nodiscard]] bool handleWindowOpenedOrChanged(const nlohmann::json& payload);
-  [[nodiscard]] bool handleWindowLayoutsChanged(const nlohmann::json& payload);
-  [[nodiscard]] bool handleWindowClosed(const nlohmann::json& payload);
-  [[nodiscard]] bool handleWindowFocusChanged(const nlohmann::json& payload);
-  [[nodiscard]] bool updateFocusedWindowIdFromWindowsJson(const nlohmann::json& windows);
-  [[nodiscard]] static std::optional<WorkspaceState> parseWorkspace(const nlohmann::json& json);
-  [[nodiscard]] static std::optional<std::pair<std::uint64_t, WindowState>> parseWindow(const nlohmann::json& json);
-  [[nodiscard]] static bool applyWindowFields(const nlohmann::json& json, WindowState& state);
-  [[nodiscard]] static bool sameWindowMembership(const WindowState& lhs, const WindowState& rhs) noexcept;
-  [[nodiscard]] static bool sameWindowMembership(
+  bool handleWorkspacesChanged(const nlohmann::json& payload);
+  bool handleWindowsChanged(const nlohmann::json& payload);
+  bool handleOverviewChanged(const nlohmann::json& payload);
+  bool handleWindowOpenedOrChanged(const nlohmann::json& payload);
+  bool handleWindowLayoutsChanged(const nlohmann::json& payload);
+  bool handleWindowClosed(const nlohmann::json& payload);
+  bool handleWindowFocusChanged(const nlohmann::json& payload);
+  bool updateFocusedWindowIdFromWindowsJson(const nlohmann::json& windows);
+  static std::optional<WorkspaceState> parseWorkspace(const nlohmann::json& json);
+  static std::optional<std::pair<std::uint64_t, WindowState>> parseWindow(const nlohmann::json& json);
+  static bool applyWindowFields(const nlohmann::json& json, WindowState& state);
+  static bool sameWindowMembership(const WindowState& lhs, const WindowState& rhs) noexcept;
+  static bool sameWindowMembership(
       const std::unordered_map<std::uint64_t, WindowState>& lhs,
       const std::unordered_map<std::uint64_t, WindowState>& rhs
   ) noexcept;
-  [[nodiscard]] static bool sameWindowLayout(const WindowState& lhs, const WindowState& rhs) noexcept;
-  [[nodiscard]] static std::optional<std::uint64_t> parseUnsigned(const std::string& value);
-  [[nodiscard]] static std::optional<std::size_t> parseLeadingNumber(const std::string& value);
-  [[nodiscard]] static std::string workspaceKey(const WorkspaceState& workspace);
-  [[nodiscard]] std::vector<const WorkspaceState*>
-  sortedWorkspaceCandidatesForOutput(const std::string& outputName) const;
+  static bool sameWindowLayout(const WindowState& lhs, const WindowState& rhs) noexcept;
+  static std::optional<std::uint64_t> parseUnsigned(const std::string& value);
+  static std::optional<std::size_t> parseLeadingNumber(const std::string& value);
+  static std::string workspaceKey(const WorkspaceState& workspace);
+  std::vector<const WorkspaceState*> sortedWorkspaceCandidatesForOutput(const std::string& outputName) const;
   void recomputeOccupancy();
   void notifyChanged() const;
   void notifyOverviewChanged() const;
