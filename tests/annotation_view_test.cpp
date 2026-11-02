@@ -26,7 +26,6 @@ int main() {
   TEST_CHECK(rect.y == kFitted.y);
   TEST_CHECK(rect.width == kFitted.width);
   TEST_CHECK(rect.height == kFitted.height);
-  TEST_CHECK(view.isIdentity());
 
   const capture::AnnotationPoint surface{.x = 350.0, .y = 450.0};
   const capture::AnnotationPoint canvas = capture::surfaceToCanvas(view, kFitted, surface);
@@ -66,7 +65,10 @@ int main() {
   // Pan clamp keeps at least kViewPanMinVisible of the canvas inside the viewport.
   const double viewportW = 1920.0;
   const double viewportH = 1080.0;
-  TEST_CHECK(capture::clampViewPan(view, kFitted, viewportW, viewportH).isIdentity());
+  const capture::ViewTransform unclamped = capture::clampViewPan(view, kFitted, viewportW, viewportH);
+  TEST_CHECK(unclamped.zoom == 1.0);
+  TEST_CHECK(unclamped.panX == 0.0);
+  TEST_CHECK(unclamped.panY == 0.0);
 
   const capture::ViewTransform wild{.zoom = 1.0, .panX = 1e6, .panY = -1e6};
   const capture::ViewTransform clamped = capture::clampViewPan(wild, kFitted, viewportW, viewportH);

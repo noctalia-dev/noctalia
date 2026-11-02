@@ -3,7 +3,6 @@
 #include "capture/annotation_document.h"
 
 #include <algorithm>
-#include <utility>
 
 namespace capture {
 
@@ -23,16 +22,12 @@ namespace capture {
     // Surface-logical offset of the zoomed canvas origin from the fitted origin.
     double panX = 0.0;
     double panY = 0.0;
-
-    [[nodiscard]] constexpr bool isIdentity() const noexcept { return zoom == 1.0 && panX == 0.0 && panY == 0.0; }
   };
 
-  [[nodiscard]] constexpr double clampViewZoom(double zoom) noexcept {
-    return std::clamp(zoom, kMinViewZoom, kMaxViewZoom);
-  }
+  constexpr double clampViewZoom(double zoom) noexcept { return std::clamp(zoom, kMinViewZoom, kMaxViewZoom); }
 
   // Displayed rect of the canvas under the view transform (surface-logical coordinates).
-  [[nodiscard]] constexpr AnnotationRect viewRect(const ViewTransform& view, const AnnotationRect& fitted) noexcept {
+  constexpr AnnotationRect viewRect(const ViewTransform& view, const AnnotationRect& fitted) noexcept {
     return AnnotationRect{
         .x = fitted.x + view.panX,
         .y = fitted.y + view.panY,
@@ -41,7 +36,7 @@ namespace capture {
     };
   }
 
-  [[nodiscard]] constexpr AnnotationPoint
+  constexpr AnnotationPoint
   surfaceToCanvas(const ViewTransform& view, const AnnotationRect& fitted, AnnotationPoint surface) noexcept {
     return AnnotationPoint{
         .x = (surface.x - fitted.x - view.panX) / view.zoom,
@@ -49,7 +44,7 @@ namespace capture {
     };
   }
 
-  [[nodiscard]] constexpr AnnotationPoint
+  constexpr AnnotationPoint
   canvasToSurface(const ViewTransform& view, const AnnotationRect& fitted, AnnotationPoint canvas) noexcept {
     return AnnotationPoint{
         .x = fitted.x + view.panX + canvas.x * view.zoom,
@@ -58,7 +53,7 @@ namespace capture {
   }
 
   // Zoom by `factor`, keeping the canvas point under the surface anchor fixed.
-  [[nodiscard]] constexpr ViewTransform zoomViewAt(
+  constexpr ViewTransform zoomViewAt(
       const ViewTransform& view, const AnnotationRect& fitted, double anchorX, double anchorY, double factor
   ) noexcept {
     const AnnotationPoint anchor = surfaceToCanvas(view, fitted, {.x = anchorX, .y = anchorY});
@@ -72,7 +67,7 @@ namespace capture {
 
   // Clamp pan so at least kViewPanMinVisible of the zoomed canvas stays inside the
   // viewport. A canvas smaller than the viewport may still move, but never leave it.
-  [[nodiscard]] constexpr ViewTransform clampViewPan(
+  constexpr ViewTransform clampViewPan(
       const ViewTransform& view, const AnnotationRect& fitted, double viewportWidth, double viewportHeight
   ) noexcept {
     const double width = fitted.width * view.zoom;
