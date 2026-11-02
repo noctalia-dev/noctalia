@@ -1,7 +1,7 @@
 #pragma once
 
-#include "render/core/lockscreen_transition_types.h"
 #include "render/scene/node.h"
+#include "shell/render/lockscreen_transition_types.h"
 
 class LockscreenTransitionNode;
 

@@ -1,4 +1,4 @@
-#include "render/programs/lockscreen_transition_program.h"
+#include "shell/render/programs/lockscreen_transition_program.h"
 
 #include <algorithm>
 #include <array>

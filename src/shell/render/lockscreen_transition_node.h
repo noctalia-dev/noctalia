@@ -1,18 +1,13 @@
 #pragma once
 
-#include "render/core/lockscreen_transition_types.h"
-#include "render/scene/node.h"
+#include "render/scene/custom_draw_node.h"
+#include "shell/render/lockscreen_transition_types.h"
 
 #include <algorithm>
 
-class LockscreenTransitionNode final : public Node {
+class LockscreenTransitionNode final : public CustomDrawNode {
 public:
-  LockscreenTransitionNode() : Node(NodeType::LockscreenTransition) { setHitTestVisible(false); }
-
-  TextureId texture() const noexcept { return m_texture; }
-  LockscreenTransitionKind transition() const noexcept { return m_transition; }
-  float progress() const noexcept { return m_progress; }
-  const LockscreenTransitionParams& transitionParams() const noexcept { return m_params; }
+  LockscreenTransitionNode() { setHitTestVisible(false); }
 
   void setTexture(TextureId texture) {
     if (m_texture == texture) {
@@ -41,6 +36,8 @@ public:
     m_params = params;
     markPaintDirty();
   }
+
+  void draw(RenderBackend& backend, const CustomDrawContext& context) const override;
 
 private:
   TextureId m_texture;

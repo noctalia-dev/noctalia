@@ -5,12 +5,12 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/blur_cache.h"
 #include "render/core/color.h"
-#include "render/core/lockscreen_transition_types.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/core/texture_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
+#include "shell/render/lockscreen_transition_types.h"
 #include "wayland/surface.h"
 
 #include <array>

@@ -1,21 +1,16 @@
 #pragma once
 
-#include "render/core/lockscreen_transition_types.h"
+#include "render/backend/render_extension.h"
 #include "render/core/shader_program.h"
+#include "shell/render/lockscreen_transition_types.h"
 
 #include <GLES2/gl2.h>
 
-class LockscreenTransitionProgram {
+class LockscreenTransitionProgram final : public RenderExtension {
 public:
-  LockscreenTransitionProgram() = default;
-  ~LockscreenTransitionProgram() = default;
-
-  LockscreenTransitionProgram(const LockscreenTransitionProgram&) = delete;
-  LockscreenTransitionProgram& operator=(const LockscreenTransitionProgram&) = delete;
-
   void ensureInitialized();
-  void destroy();
-  void abandon() noexcept;
+  void destroy() override;
+  void abandon() noexcept override;
   void draw(const LockscreenTransitionDrawParams& params) const;
 
 private:

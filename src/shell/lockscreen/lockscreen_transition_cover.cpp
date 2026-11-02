@@ -1,6 +1,6 @@
-#include "ui/controls/lockscreen_transition_cover.h"
+#include "shell/lockscreen/lockscreen_transition_cover.h"
 
-#include "render/scene/lockscreen_transition_node.h"
+#include "shell/render/lockscreen_transition_node.h"
 
 #include <memory>
 
