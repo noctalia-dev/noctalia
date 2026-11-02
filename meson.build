@@ -601,7 +601,6 @@ _noctalia_sources = files(
   'src/render/programs/glyph_program.cpp',
   'src/render/programs/image_program.cpp',
   'src/render/programs/lockscreen_transition_program.cpp',
-  'src/render/programs/linear_gradient_program.cpp',
   'src/render/programs/rect_program.cpp',
   'src/render/programs/screen_corner_program.cpp',
   'src/render/programs/countdown_ring_program.cpp',
