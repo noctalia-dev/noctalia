@@ -19,6 +19,7 @@
 #include "shell/panel/panel_surface_style.h"
 #include "shell/screen_position.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/hyprland/focus_grab_service.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/context_menu_popup.h"
@@ -28,7 +29,6 @@
 #include "ui/surface_shadow.h"
 #include "util/string_utils.h"
 #include "util/sys_utils.h"
-#include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -917,8 +917,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       useAttachedPlacement ? layerShellLayerFromConfig(barConfig.layer) : floatingPanelLayer;
   m_panelLayer = panelLayer;
 
-  const bool hasFocusGrab =
-      m_platform != nullptr && m_platform->focusGrabService() != nullptr && m_platform->focusGrabService()->available();
+  const bool hasFocusGrab = m_platform != nullptr && m_platform->focusGrabService().available();
   // Neither outside-click mechanism works for a panel that must not take keyboard
   // focus: the click shield swallows the click meant for the app below, and the
   // compositor focus grab takes the keyboard.
@@ -1372,8 +1371,7 @@ void PanelManager::activateClickShield(LayerShellLayer layer) {
   }
   // Hyprland: prefer the native focus-grab path. Skip the shield and let
   // activateFocusGrab handle it later.
-  auto* grabService = m_platform->focusGrabService();
-  if (grabService != nullptr && grabService->available()) {
+  if (m_platform->focusGrabService().available()) {
     return;
   }
   std::vector<wl_output*> outputs;
@@ -1390,14 +1388,14 @@ void PanelManager::activateFocusGrab() {
   if (m_platform == nullptr || m_wlSurface == nullptr) {
     return;
   }
-  auto* grabService = m_platform->focusGrabService();
-  if (grabService == nullptr || !grabService->available()) {
+  auto& grabService = m_platform->focusGrabService();
+  if (!grabService.available()) {
     return;
   }
   // Whitelist the panel, bars, and panel-owned popups. Clicks on whitelisted
   // surfaces pass through normally. Clicks anywhere else clear the grab and
   // close the panel.
-  m_focusGrab = grabService->createGrab();
+  m_focusGrab = grabService.createGrab();
   if (m_focusGrab == nullptr) {
     return;
   }
@@ -1406,7 +1404,7 @@ void PanelManager::activateFocusGrab() {
       closePanel();
     }
   });
-  grabService->setPopupGrabHost(this);
+  m_platform->wayland().setPopupGrabHost(this);
 
   // Start with the panel as the sole surface so the compositor cannot choose a
   // bar as the initial keyboard target.
@@ -1428,12 +1426,12 @@ void PanelManager::applyKeyboardRelaxation(LayerShellKeyboard mode) {
     return;
   }
 
-  auto* grabService = m_platform->focusGrabService();
-  if (grabService == nullptr || !grabService->available()) {
+  auto& grabService = m_platform->focusGrabService();
+  if (!grabService.available()) {
     return;
   }
 
-  auto replacement = grabService->createGrab();
+  auto replacement = grabService.createGrab();
   if (replacement == nullptr) {
     return;
   }
@@ -1454,7 +1452,7 @@ void PanelManager::applyKeyboardRelaxation(LayerShellKeyboard mode) {
   m_focusGrab.reset();
   m_layerSurface->setKeyboardInteractivity(mode);
   m_focusGrab = std::move(replacement);
-  grabService->setPopupGrabHost(this);
+  m_platform->wayland().setPopupGrabHost(this);
 
   // Keep the first commit limited to the previous focus surface. The
   // compositor may choose any surface when a grab first becomes active.
@@ -1500,8 +1498,8 @@ bool PanelManager::isFocusGrabWhitelistSurface(wl_surface* surface) const {
 void PanelManager::deactivateOutsideClickHandlers() {
   m_clickShield.deactivate();
   if (m_platform != nullptr) {
-    if (auto* svc = m_platform->focusGrabService(); svc != nullptr && svc->popupGrabHost() == this) {
-      svc->setPopupGrabHost(nullptr);
+    if (m_platform->wayland().popupGrabHost() == this) {
+      m_platform->wayland().setPopupGrabHost(nullptr);
     }
   }
   m_focusGrab.reset();

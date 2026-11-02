@@ -718,8 +718,7 @@ void TrayMenu::ensureSurface() {
   // tearing the popup down. Skip xdg_popup_grab when we'll be using
   // focus_grab; outside-click dismissal is handled by the focus grab's
   // `cleared` event instead.
-  auto* grabService = m_wayland->focusGrabService();
-  const bool useFocusGrab = grabService != nullptr && grabService->available();
+  const bool useFocusGrab = m_wayland->extension<FocusGrabService>().available();
   inst->submenuDirection = placement.submenuDirection;
   inst->chrome = chrome;
   auto popupConfig = PopupSurfaceConfig{
@@ -777,8 +776,8 @@ void TrayMenu::ensureSurface() {
     if (!m_visible || m_instance == nullptr || m_wayland == nullptr) {
       return;
     }
-    auto* svc = m_wayland->focusGrabService();
-    if (svc == nullptr || !svc->available()) {
+    auto& grabService = m_wayland->extension<FocusGrabService>();
+    if (!grabService.available()) {
       return;
     }
 
@@ -786,11 +785,11 @@ void TrayMenu::ensureSurface() {
     // this popup is already enrolled into the panel's existing focus grab.
     // Creating another grab here would clear the panel grab, dismissing the
     // parent panel.
-    if (svc->popupGrabHost() != nullptr) {
+    if (m_wayland->popupGrabHost() != nullptr) {
       return;
     }
 
-    m_focusGrab = svc->createGrab();
+    m_focusGrab = grabService.createGrab();
     if (m_focusGrab == nullptr) {
       return;
     }

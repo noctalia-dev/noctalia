@@ -23,6 +23,7 @@ struct zdwl_ipc_manager_v2;
 struct hyprland_toplevel_mapping_manager_v1;
 struct zwlr_foreign_toplevel_handle_v1;
 struct ext_foreign_toplevel_handle_v1;
+class FocusGrabService;
 class OutputProbe;
 class SessionBus;
 class ShellGlobals;
@@ -74,7 +75,7 @@ public:
   const std::vector<WaylandOutput>& outputs() const noexcept;
   const WaylandOutput* findOutputByWl(wl_output* output) const;
   wl_output* outputForSurface(wl_surface* surface) const noexcept;
-  FocusGrabService* focusGrabService() const noexcept;
+  FocusGrabService& focusGrabService() const noexcept { return m_focusGrab; }
   bool hasPointerPosition() const noexcept;
   wl_surface* lastPointerSurface() const noexcept;
   wl_surface* lastKeyboardSurface() const noexcept;
@@ -235,6 +236,7 @@ private:
 
   WaylandConnection& m_wayland;
   ShellGlobals& m_shellGlobals;
+  FocusGrabService& m_focusGrab;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;
   std::unique_ptr<WaylandWorkspaces> m_workspaces;

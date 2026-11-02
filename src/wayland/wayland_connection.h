@@ -43,7 +43,6 @@ struct ext_workspace_manager_v1;
 struct org_kde_plasma_virtual_desktop_management;
 struct zdwl_ipc_manager_v2;
 struct zwp_text_input_manager_v3;
-struct hyprland_focus_grab_manager_v1;
 struct hyprland_toplevel_mapping_manager_v1;
 struct wp_fractional_scale_manager_v1;
 struct wp_viewporter;
@@ -51,7 +50,7 @@ struct zwlr_output_manager_v1;
 struct zwlr_output_head_v1;
 struct zwlr_output_mode_v1;
 class LayerSurface;
-class FocusGrabService;
+class PopupGrabHost;
 class TextInputService;
 
 struct WaylandOutput {
@@ -203,8 +202,9 @@ public:
   bool hasBackgroundEffectBlur() const noexcept;
   ext_background_effect_manager_v1* backgroundEffectManager() const noexcept;
   wp_fractional_scale_manager_v1* fractionalScaleManager() const noexcept;
-  hyprland_focus_grab_manager_v1* hyprlandFocusGrabManager() const noexcept;
-  FocusGrabService* focusGrabService() const noexcept;
+  // The focus-grab owner that popups enroll with instead of taking xdg_popup_grab, or nullptr.
+  void setPopupGrabHost(PopupGrabHost* host) noexcept;
+  PopupGrabHost* popupGrabHost() const noexcept;
   TextInputService* textInputService() const noexcept { return m_textInputService; }
   wp_viewporter* viewporter() const noexcept;
   wl_display* display() const noexcept;
@@ -330,11 +330,10 @@ private:
   xdg_activation_v1* m_xdgActivation = nullptr;
   ext_background_effect_manager_v1* m_backgroundEffectManager = nullptr;
   wp_fractional_scale_manager_v1* m_fractionalScaleManager = nullptr;
-  hyprland_focus_grab_manager_v1* m_hyprlandFocusGrabManager = nullptr;
   zwlr_output_manager_v1* m_outputManager = nullptr;
   std::unordered_map<zwlr_output_head_v1*, WaylandOutputHeadInfo> m_outputHeads;
   std::unordered_set<zwlr_output_mode_v1*> m_outputModes;
-  std::unique_ptr<FocusGrabService> m_focusGrabService;
+  PopupGrabHost* m_popupGrabHost = nullptr;
   wp_viewporter* m_viewporter = nullptr;
   bool m_backgroundEffectBlurSupported = false;
   zwp_text_input_manager_v3* m_textInputManager = nullptr;

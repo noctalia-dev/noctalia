@@ -1,12 +1,14 @@
 #pragma once
 
+#include "wayland/wayland_extension.h"
+
 #include <functional>
 #include <memory>
 
+class WaylandConnection;
 struct hyprland_focus_grab_manager_v1;
 struct hyprland_focus_grab_v1;
 struct wl_surface;
-class PopupGrabHost;
 
 // A single focus grab. While committed with at least one whitelisted surface,
 // Hyprland routes pointer/keyboard events landing on a whitelisted surface to
@@ -44,34 +46,22 @@ private:
 };
 
 // Wrapper around hyprland_focus_grab_manager_v1. Available only on compositors
-// that bind the protocol (Hyprland). Consumers should check available() before
+// that advertise the protocol (Hyprland). Consumers should check available() before
 // calling createGrab(); when unavailable, createGrab() returns nullptr and the
 // caller should fall back to whatever non-Hyprland behavior makes sense (e.g.
 // PanelClickShield).
-class FocusGrabService {
+class FocusGrabService final : public WaylandExtension {
 public:
-  FocusGrabService() = default;
-  ~FocusGrabService() = default;
+  explicit FocusGrabService(WaylandConnection& connection);
 
-  FocusGrabService(const FocusGrabService&) = delete;
-  FocusGrabService& operator=(const FocusGrabService&) = delete;
-
-  // Pass nullptr when the protocol is not bound; available() will be false.
-  void initialize(hyprland_focus_grab_manager_v1* manager);
+  void onGlobal(wl_registry* registry, std::uint32_t name, std::string_view interface, std::uint32_t version) override;
+  void releaseGlobals() override;
 
   bool available() const noexcept { return m_manager != nullptr; }
 
   // Returns nullptr when !available() or on protocol failure.
   [[nodiscard]] std::unique_ptr<FocusGrab> createGrab();
 
-  // Currently-active popup grab host, or nullptr. PopupSurface consults this
-  // on init to enroll itself in the host's whitelist (and to suppress the
-  // conflicting xdg_popup_grab call). Owners install themselves while their
-  // grab is up and clear the slot when it ends.
-  void setPopupGrabHost(PopupGrabHost* host) noexcept { m_popupGrabHost = host; }
-  PopupGrabHost* popupGrabHost() const noexcept { return m_popupGrabHost; }
-
 private:
   hyprland_focus_grab_manager_v1* m_manager = nullptr;
-  PopupGrabHost* m_popupGrabHost = nullptr;
 };

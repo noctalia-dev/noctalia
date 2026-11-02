@@ -1,8 +1,7 @@
 #include "wayland/popup_surface.h"
 
 #include "core/log.h"
-#include "wayland/hyprland/focus_grab_service.h"
-#include "wayland/hyprland/popup_grab_host.h"
+#include "wayland/popup_grab_host.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
@@ -64,10 +63,7 @@ void PopupSurface::wireGrab() {
   // Hyprland (the compositor sends popup_done shortly after the focus_grab
   // commit, tearing this popup down). Enroll with the host instead so its
   // whitelist covers this popup, and skip xdg_popup_grab.
-  PopupGrabHost* host = nullptr;
-  if (auto* svc = m_connection.focusGrabService(); svc != nullptr) {
-    host = svc->popupGrabHost();
-  }
+  PopupGrabHost* host = m_connection.popupGrabHost();
   if (host != nullptr && m_surface != nullptr) {
     host->registerPopupSurface(m_surface);
     m_enrolledInGrabHost = true;
@@ -83,10 +79,8 @@ void PopupSurface::unenrollFromGrabHost() {
     return;
   }
   m_enrolledInGrabHost = false;
-  if (auto* svc = m_connection.focusGrabService(); svc != nullptr) {
-    if (auto* host = svc->popupGrabHost(); host != nullptr && m_surface != nullptr) {
-      host->unregisterPopupSurface(m_surface);
-    }
+  if (auto* host = m_connection.popupGrabHost(); host != nullptr && m_surface != nullptr) {
+    host->unregisterPopupSurface(m_surface);
   }
 }
 

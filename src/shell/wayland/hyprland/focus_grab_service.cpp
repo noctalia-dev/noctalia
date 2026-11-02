@@ -1,11 +1,14 @@
-#include "wayland/hyprland/focus_grab_service.h"
+#include "shell/wayland/hyprland/focus_grab_service.h"
 
 #include "core/log.h"
 #include "hyprland-focus-grab-v1-client-protocol.h"
 
+#include <algorithm>
+
 namespace {
 
   constexpr Logger kLog("focus-grab");
+  constexpr std::uint32_t kHyprlandFocusGrabManagerVersion = 1;
 
   const hyprland_focus_grab_v1_listener kFocusGrabListener = {
       .cleared = &FocusGrab::handleCleared,
@@ -57,7 +60,25 @@ void FocusGrab::handleCleared(void* data, hyprland_focus_grab_v1* /*grab*/) {
   self->m_onCleared();
 }
 
-void FocusGrabService::initialize(hyprland_focus_grab_manager_v1* manager) { m_manager = manager; }
+FocusGrabService::FocusGrabService(WaylandConnection& /*connection*/) {}
+
+void FocusGrabService::onGlobal(
+    wl_registry* registry, std::uint32_t name, std::string_view interface, std::uint32_t version
+) {
+  if (interface == hyprland_focus_grab_manager_v1_interface.name) {
+    const auto bindVersion = std::min(version, kHyprlandFocusGrabManagerVersion);
+    m_manager = static_cast<hyprland_focus_grab_manager_v1*>(
+        wl_registry_bind(registry, name, &hyprland_focus_grab_manager_v1_interface, bindVersion)
+    );
+  }
+}
+
+void FocusGrabService::releaseGlobals() {
+  if (m_manager != nullptr) {
+    hyprland_focus_grab_manager_v1_destroy(m_manager);
+    m_manager = nullptr;
+  }
+}
 
 std::unique_ptr<FocusGrab> FocusGrabService::createGrab() {
   if (m_manager == nullptr) {

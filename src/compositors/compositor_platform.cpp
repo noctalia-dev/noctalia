@@ -26,6 +26,7 @@
 #include "compositors/workspace_alert_service.h"
 #include "core/log.h"
 #include "core/process/process.h"
+#include "shell/wayland/hyprland/focus_grab_service.h"
 #include "shell/wayland/shell_globals.h"
 #include "util/string_utils.h"
 #include "wayland/output_probe.h"
@@ -592,6 +593,7 @@ namespace {
 
 CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
     : m_wayland(wayland), m_shellGlobals(wayland.extension<ShellGlobals>()),
+      m_focusGrab(wayland.extension<FocusGrabService>()),
       m_runtimeRegistry(std::make_unique<compositors::CompositorRuntimeRegistry>()),
       m_workspaces(std::make_unique<WaylandWorkspaces>(*m_runtimeRegistry)) {
   m_workspaceMetadataBackend = createWorkspaceMetadataBackend(*m_runtimeRegistry);
@@ -728,8 +730,6 @@ const WaylandOutput* CompositorPlatform::findOutputByWl(wl_output* output) const
 wl_output* CompositorPlatform::outputForSurface(wl_surface* surface) const noexcept {
   return m_wayland.outputForSurface(surface);
 }
-
-FocusGrabService* CompositorPlatform::focusGrabService() const noexcept { return m_wayland.focusGrabService(); }
 
 bool CompositorPlatform::hasPointerPosition() const noexcept { return m_wayland.hasPointerPosition(); }
 
