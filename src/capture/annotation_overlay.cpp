@@ -2571,14 +2571,6 @@ namespace capture {
     case XKB_KEY_P:
       toggleCursor();
       return true;
-    case XKB_KEY_r:
-    case XKB_KEY_R:
-      requestCaptureRegion();
-      return true;
-    case XKB_KEY_w:
-    case XKB_KEY_W:
-      requestCaptureWindow();
-      return true;
     case XKB_KEY_1:
     case XKB_KEY_2:
     case XKB_KEY_3:
@@ -2693,6 +2685,14 @@ namespace capture {
       }
       if (event.sym == XKB_KEY_plus || event.sym == XKB_KEY_equal || event.sym == XKB_KEY_KP_Add) {
         zoomViewByButton(*keyboardInst, kToolbarZoomStep);
+        return true;
+      }
+      if (event.sym == XKB_KEY_r || event.sym == XKB_KEY_R) {
+        requestCaptureRegion();
+        return true;
+      }
+      if (event.sym == XKB_KEY_w || event.sym == XKB_KEY_W) {
+        requestCaptureWindow();
         return true;
       }
     }
