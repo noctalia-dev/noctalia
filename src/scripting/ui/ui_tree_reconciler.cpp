@@ -501,9 +501,9 @@ namespace ui {
                                                              "path",    "radius",  "fit",      "border",  "borderWidth",
                                                              "onClick", "onHover", "tooltip"};
       static const std::unordered_set<std::string> kPixelStream = {
-          "width",         "height",        "flexGrow",      "opacity",     "visible",         "path",
-          "radius",        "onPointerMove", "onPointerDown", "onPointerUp", "onPointerCancel", "onRightClick",
-          "onMiddleClick", "onScroll",      "onTextInput",   "onKeyEvent",
+          "width",        "height",        "flexGrow",      "opacity",       "visible",     "path",
+          "radius",       "fit",           "onPointerMove", "onPointerDown", "onPointerUp", "onPointerCancel",
+          "onRightClick", "onMiddleClick", "onScroll",      "onTextInput",   "onKeyEvent",
       };
       static const std::unordered_set<std::string> kColorPicker = {
           "width",  "flexGrow", "opacity", "visible",  "value",       "alpha",
@@ -1672,6 +1672,16 @@ namespace ui {
       view->setPath(path != nullptr && !path->empty() ? (m_resolver ? m_resolver(*path) : *path) : std::string{});
       const double* radius = numProp(desired, "radius");
       view->setRadius(radius != nullptr ? std::max(0.0F, scaled(*radius)) : 0.0F);
+      const std::string* fit = strProp(desired, "fit");
+      if (fit == nullptr || *fit == "contain") {
+        view->setFit(ImageFit::Contain);
+      } else if (*fit == "cover") {
+        view->setFit(ImageFit::Cover);
+      } else if (*fit == "stretch") {
+        view->setFit(ImageFit::Stretch);
+      } else {
+        kLog.warn("ui tree: pixelStream has unknown fit '{}'", *fit);
+      }
       syncPixelStreamCallbacks(slot, desired, *view);
       return;
     }
