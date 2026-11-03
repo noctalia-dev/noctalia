@@ -36,7 +36,7 @@ namespace {
 
 } // namespace
 
-LockscreenTransitionPreview::~LockscreenTransitionPreview() = default;
+LockscreenTransitionPreview::~LockscreenTransitionPreview() { hide(); }
 
 void LockscreenTransitionPreview::initialize(
     WaylandConnection& wayland, RenderContext* renderContext, ConfigService* configService
@@ -117,6 +117,14 @@ void LockscreenTransitionPreview::hide() {
     releaseTextures(*inst);
   }
   m_instances.clear();
+}
+
+void LockscreenTransitionPreview::prepareForGraphicsReset() noexcept {
+  for (auto& inst : m_instances) {
+    inst->blurCache.abandon();
+    inst->blurredTexture = {};
+    inst->captureTexture = {};
+  }
 }
 
 void LockscreenTransitionPreview::onOutputChange() {

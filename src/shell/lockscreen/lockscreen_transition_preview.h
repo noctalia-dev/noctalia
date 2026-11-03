@@ -36,6 +36,8 @@ public:
   void play(LockscreenTransition transition);
   void hide();
   void onOutputChange();
+  // Drops GPU handles without touching the lost context; call hide() once recovery finishes.
+  void prepareForGraphicsReset() noexcept;
 
   bool isActive() const noexcept { return !m_instances.empty(); }
   // Swallow all input while the preview is up; a press dismisses it.
