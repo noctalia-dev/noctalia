@@ -160,7 +160,7 @@ namespace {
     return {};
   }
 
-  std::string originGlyph(DesktopEntryOrigin origin) {
+  std::string_view originGlyph(DesktopEntryOrigin origin) {
     switch (origin) {
     case DesktopEntryOrigin::Flatpak:
     case DesktopEntryOrigin::Snap:
@@ -250,6 +250,7 @@ std::vector<LauncherResult> AppProvider::query(std::string_view text) const {
     LauncherResult result;
     result.id = entry.path;
     result.desktopEntryPath = entry.path;
+    result.appIcon = true;
     result.title = entry.name;
     result.subtitle = entry.genericName.empty() ? entry.comment : entry.genericName;
     result.origin = originLabel(entry.origin);

@@ -74,7 +74,7 @@ NetworkWidget::NetworkWidget(
 void NetworkWidget::create() {
   auto area = ui::inputArea({});
   area->setTooltipProvider(
-      [this]() -> TooltipContent {
+      [this] -> TooltipContent {
         std::vector<TooltipRow> rows = buildTooltipRows();
         if (rows.empty()) {
           return std::monostate{};
@@ -171,7 +171,7 @@ void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float con
   if (m_isVertical) {
     // Vertical: stack everything centered, top to bottom
     // VPN glyph → VPN label → network glyph → network label
-    const float w = [&]() {
+    const float w = [&] {
       float maxW = icon->width();
       if (vpnVisible) {
         maxW = std::max(maxW, m_vpnGlyph->width());
@@ -211,7 +211,7 @@ void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float con
     const float networkGroupWidth = icon->width() + (networkLabelVisible ? Style::spaceXs + m_label->width() : 0.0F);
     const float gap = vpnVisible ? Style::spaceXs : 0.0F;
     const float totalWidth = vpnGroupWidth + gap + networkGroupWidth;
-    const float h = [&]() {
+    const float h = [&] {
       float maxH = icon->height();
       if (vpnVisible) {
         maxH = std::max(maxH, m_vpnGlyph->height());

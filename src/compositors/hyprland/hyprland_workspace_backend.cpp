@@ -54,9 +54,9 @@ void HyprlandWorkspaceBackend::activate(const std::string& id) {
   }
 
   if (m_runtime.configIsLua()) {
-    (void)m_runtime.request(std::format("dispatch hl.dsp.focus({{workspace = \"{}\"}})", target));
+    m_runtime.request(std::format("dispatch hl.dsp.focus({{workspace = \"{}\"}})", target));
   } else {
-    (void)m_runtime.request(std::format("dispatch workspace {}", target));
+    m_runtime.request(std::format("dispatch workspace {}", target));
   }
 }
 
@@ -164,11 +164,10 @@ std::vector<WorkspaceWindow> HyprlandWorkspaceBackend::workspaceWindows(wl_outpu
     if (toplevel.workspaceKey.empty() || (m_ipcSchema == IpcSchema::LegacyId && toplevel.workspaceKey == "-1")) {
       continue;
     }
-    if (filterByOutput && !m_workspaces.empty()) {
-      if (!workspacesOnOutput.contains(toplevel.workspaceKey)) {
-        continue;
-      }
+    if (filterByOutput && !m_workspaces.empty() && !workspacesOnOutput.contains(toplevel.workspaceKey)) {
+      continue;
     }
+
     result.push_back(
         WorkspaceWindow{
             .windowId = compositors::hyprland::formatWindowAddress(address),
@@ -233,11 +232,12 @@ void HyprlandWorkspaceBackend::focusWindow(const std::string& windowId) {
   }
   const std::string target = "address:0x" + normalized;
   if (m_runtime.configIsLua()) {
-    (void)m_runtime.request(std::format("dispatch hl.dsp.focus({{window = \"{}\"}})", target));
+    m_runtime.request(std::format("dispatch hl.dsp.focus({{window = \"{}\"}})", target));
+    m_runtime.request(std::format(R"(dispatch hl.dsp.window.alter_zorder({{mode = "top", window = "{}"}}))", target));
   } else {
-    (void)m_runtime.request(std::format("dispatch focuswindow {}", target));
+    m_runtime.request(std::format("dispatch focuswindow {}", target));
+    m_runtime.request(std::format("dispatch alterzorder top,{}", target));
   }
-  (void)m_runtime.request(std::format("dispatch alterzorder top,{}", target));
 }
 
 void HyprlandWorkspaceBackend::notifyCleanup() {
@@ -280,10 +280,8 @@ void HyprlandWorkspaceBackend::reconcileFromCompositor() {
 
 void HyprlandWorkspaceBackend::ensureSnapshotFresh() const {
   auto* self = const_cast<HyprlandWorkspaceBackend*>(this);
-  if (!m_runtime.available()) {
-    if (!self->connectSocket()) {
-      return;
-    }
+  if (!m_runtime.available() && !self->connectSocket()) {
+    return;
   }
 
   bool changed = false;
@@ -291,12 +289,11 @@ void HyprlandWorkspaceBackend::ensureSnapshotFresh() const {
     self->refreshClients();
     changed = true;
   }
-  if (m_workspaces.empty()) {
-    if (self->refreshWorkspaces() != WorkspaceRefreshResult::Invalid) {
-      self->refreshMonitors();
-      changed = true;
-    }
+  if (m_workspaces.empty() && self->refreshWorkspaces() != WorkspaceRefreshResult::Invalid) {
+    self->refreshMonitors();
+    changed = true;
   }
+
   if (changed) {
     self->recomputeWorkspaceFlags();
   }
@@ -876,7 +873,7 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
       notifyChanged();
       return;
     }
-    const auto workspace = findWorkspaceByName(workspaceName);
+    auto* workspace = findWorkspaceByName(workspaceName);
     if (workspace == nullptr) {
       refreshClients();
       recomputeWorkspaceFlags();
@@ -1110,7 +1107,7 @@ HyprlandWorkspaceBackend::parseJsonWorkspaceIdentity(const nlohmann::json& json,
       identity.selector = identity.key;
       return identity;
     }
-    const auto id = [&]() -> std::optional<std::uint64_t> {
+    const auto id = [&] -> std::optional<std::uint64_t> {
       if (idIt->is_number_unsigned()) {
         return idIt->get<std::uint64_t>();
       }

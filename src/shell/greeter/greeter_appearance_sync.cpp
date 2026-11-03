@@ -102,7 +102,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] std::string canonicalExecutablePath(const std::filesystem::path& candidate) {
+  std::string canonicalExecutablePath(const std::filesystem::path& candidate) {
     if (!process::commandExists(candidate.c_str())) {
       return {};
     }
@@ -111,7 +111,7 @@ namespace {
     return ec ? std::string{} : canonical.string();
   }
 
-  [[nodiscard]] bool isTrustedPrivilegeExecutable(const std::filesystem::path& executable) {
+  bool isTrustedPrivilegeExecutable(const std::filesystem::path& executable) {
     struct stat executableState{};
     if (::stat(executable.c_str(), &executableState) != 0
         || !S_ISREG(executableState.st_mode)
@@ -143,8 +143,7 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] std::string
-  resolveProgramPath(std::string_view name, std::initializer_list<const char*> fallbackPaths) {
+  std::string resolveProgramPath(std::string_view name, std::initializer_list<const char*> fallbackPaths) {
     if (name.find('/') != std::string_view::npos) { // NOLINT(readability-container-contains): C++20-compatible.
       return canonicalExecutablePath(std::filesystem::path(name));
     }
@@ -178,7 +177,7 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] bool programExists(std::string_view name, std::initializer_list<const char*> fallbackPaths) {
+  bool programExists(std::string_view name, std::initializer_list<const char*> fallbackPaths) {
     return !resolveProgramPath(name, fallbackPaths).empty();
   }
 
@@ -193,7 +192,7 @@ namespace {
     palette.insert_or_assign(std::string(key), formatRgbHex(color));
   }
 
-  [[nodiscard]] std::filesystem::path selectedGreeterStateDirectory() {
+  std::filesystem::path selectedGreeterStateDirectory() {
     const char* stateDir = std::getenv(kGreeterStateDirEnv.data());
     if (stateDir != nullptr && stateDir[0] != '\0') {
       return std::filesystem::path(stateDir).lexically_normal();
@@ -201,15 +200,13 @@ namespace {
     return std::filesystem::path(kDefaultGreeterStateDir);
   }
 
-  [[nodiscard]] bool isDefaultGreeterStateDirectory(const std::filesystem::path& stateDirectory) {
+  bool isDefaultGreeterStateDirectory(const std::filesystem::path& stateDirectory) {
     return stateDirectory == std::filesystem::path(kDefaultGreeterStateDir).lexically_normal();
   }
 
-  [[nodiscard]] std::filesystem::path greeterTomlPath() {
-    return selectedGreeterStateDirectory() / kGreeterTomlFileName;
-  }
+  std::filesystem::path greeterTomlPath() { return selectedGreeterStateDirectory() / kGreeterTomlFileName; }
 
-  [[nodiscard]] std::optional<std::string> readGreeterConfiguredOutput() {
+  std::optional<std::string> readGreeterConfiguredOutput() {
     const auto path = greeterTomlPath();
     std::error_code ec;
     if (!std::filesystem::is_regular_file(path, ec) || ec) {
@@ -231,7 +228,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::string sanitizeConnectorFileToken(std::string_view name) {
+  std::string sanitizeConnectorFileToken(std::string_view name) {
     std::string out;
     out.reserve(name.size());
     for (const unsigned char c : name) {
@@ -245,14 +242,14 @@ namespace {
   }
 
   // Fallback single wallpaper when no per-output map is usable.
-  [[nodiscard]] std::string resolveSyncWallpaperPath(const ConfigService& configService) {
+  std::string resolveSyncWallpaperPath(const ConfigService& configService) {
     if (const auto output = readGreeterConfiguredOutput(); output.has_value() && !output->empty()) {
       const std::string path = configService.getWallpaperPath(*output);
       if (!path.empty()) {
         return path;
       }
     }
-    const std::string defaultPath = configService.getDefaultWallpaperPath();
+    std::string defaultPath = configService.getDefaultWallpaperPath();
     if (!defaultPath.empty()) {
       return defaultPath;
     }
@@ -308,7 +305,7 @@ namespace {
     return staged;
   }
 
-  [[nodiscard]] std::string findApplyHelper() {
+  std::string findApplyHelper() {
     std::string helper = resolveProgramPath(
         kApplyHelperName,
         {"/usr/bin/noctalia-greeter-apply-appearance", "/usr/local/bin/noctalia-greeter-apply-appearance"}
@@ -320,7 +317,7 @@ namespace {
     return helper;
   }
 
-  [[nodiscard]] ApplyHelperProtocol probeApplyHelperProtocol(std::string_view helper) {
+  ApplyHelperProtocol probeApplyHelperProtocol(std::string_view helper) {
     process::RunOptions options;
     options.timeout = std::chrono::seconds(1);
     options.maxOutputBytes = 16U * 1024U;
@@ -328,16 +325,14 @@ namespace {
         std::vector<std::string>{
             std::string(helper), std::string(kCapabilityArgument), std::string(kSecureSyncCapability)
         },
-        std::move(options)
+        options
     );
     return greeter::detail::classifyApplyHelperProtocol(result);
   }
 
-  [[nodiscard]] bool defaultStateDirectorySelected() {
-    return isDefaultGreeterStateDirectory(selectedGreeterStateDirectory());
-  }
+  bool defaultStateDirectorySelected() { return isDefaultGreeterStateDirectory(selectedGreeterStateDirectory()); }
 
-  [[nodiscard]] GreeterSyncMode chooseSyncMode(const ApplyHelperProtocol protocol) {
+  GreeterSyncMode chooseSyncMode(const ApplyHelperProtocol protocol) {
     if (protocol == ApplyHelperProtocol::Legacy || !defaultStateDirectorySelected()) {
       return GreeterSyncMode::LegacyAuthenticated;
     }
@@ -363,7 +358,7 @@ namespace {
       return {};
     }
 
-    const auto staging = runtimeDirectory / "noctalia-greeter-sync";
+    auto staging = runtimeDirectory / "noctalia-greeter-sync";
     std::filesystem::remove_all(staging, ec);
     if (ec) {
       kLog.warn("failed to clear greeter sync staging directory '{}': {}", staging.string(), ec.message());
@@ -399,7 +394,8 @@ namespace {
     toml::array actions;
     const auto& source = session.actions.empty() ? defaultSessionPanelActions() : session.actions;
     for (const SessionPanelActionConfig& row : source) {
-      if (!row.enabled || !session_action::isKnown(row.action)) {
+      // The greeter has its own firmware-setup button and no consumer for reboot_uefi rows.
+      if (!row.enabled || !session_action::isKnown(row.action) || row.action == "reboot_uefi") {
         continue;
       }
       if (row.action == "command" && (!row.command.has_value() || StringUtils::trim(*row.command).empty())) {
@@ -424,7 +420,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::string formatToml(const toml::table& table) {
+  std::string formatToml(const toml::table& table) {
     std::ostringstream out;
     out << toml::toml_formatter{
         table, toml::toml_formatter::default_flags & ~toml::format_flags::allow_literal_strings
@@ -449,6 +445,8 @@ namespace {
       appearance.insert_or_assign("font_family", config.shell.fontFamily);
     }
 
+    // Keys follow the greeter's own 16-color palette schema; its surface_variant and outline are the
+    // shell's surface_container and outline_variant.
     toml::table palette;
     putPaletteColor(palette, "primary", ::palette.primary);
     putPaletteColor(palette, "on_primary", ::palette.onPrimary);
@@ -460,49 +458,51 @@ namespace {
     putPaletteColor(palette, "on_error", ::palette.onError);
     putPaletteColor(palette, "surface", ::palette.surface);
     putPaletteColor(palette, "on_surface", ::palette.onSurface);
-    putPaletteColor(palette, "surface_variant", ::palette.surfaceVariant);
+    putPaletteColor(palette, "surface_variant", ::palette.surfaceContainer);
     putPaletteColor(palette, "on_surface_variant", ::palette.onSurfaceVariant);
-    putPaletteColor(palette, "outline", ::palette.outline);
+    putPaletteColor(palette, "outline", ::palette.outlineVariant);
     putPaletteColor(palette, "shadow", ::palette.shadow);
     putPaletteColor(palette, "hover", ::palette.hover);
     putPaletteColor(palette, "on_hover", ::palette.onHover);
     appearance.insert("palette", std::move(palette));
 
-    toml::table wallpaper;
-    if (!installedWallpaperName.empty()) {
-      wallpaper.insert_or_assign("path", (installedStateDirectory / installedWallpaperName).string());
-    } else if (!wallpaperPath.empty()) {
-      wallpaper.insert_or_assign("path", wallpaperPath);
-    }
-    const std::string fillMode = std::string(enumToKey(kWallpaperFillModes, config.wallpaper.fillMode));
-    wallpaper.insert_or_assign("fill_mode", fillMode);
-    const Color fillColor = resolveWallpaperFillColor(config.wallpaper);
-    if (fillColor.a > 0.0F) {
-      wallpaper.insert_or_assign("fill_color", formatRgbHex(fillColor));
-    }
-    if (!wallpaper.empty()) {
-      appearance.insert("wallpaper", std::move(wallpaper));
-    }
-
-    if (!outputWallpapers.empty()) {
-      toml::table byOutput;
-      for (const auto& entry : outputWallpapers) {
-        toml::table item;
-        if (!entry.installedName.empty()) {
-          item.insert_or_assign("path", (installedStateDirectory / entry.installedName).string());
-        } else if (!entry.sourcePath.empty()) {
-          item.insert_or_assign("path", entry.sourcePath);
-        } else {
-          continue;
-        }
-        item.insert_or_assign("fill_mode", fillMode);
-        if (fillColor.a > 0.0F) {
-          item.insert_or_assign("fill_color", formatRgbHex(fillColor));
-        }
-        byOutput.insert(entry.connector, std::move(item));
+    if (config.wallpaper.enabled) {
+      toml::table wallpaper;
+      if (!installedWallpaperName.empty()) {
+        wallpaper.insert_or_assign("path", (installedStateDirectory / installedWallpaperName).string());
+      } else if (!wallpaperPath.empty()) {
+        wallpaper.insert_or_assign("path", wallpaperPath);
       }
-      if (!byOutput.empty()) {
-        appearance.insert("wallpapers", std::move(byOutput));
+      const std::string fillMode = std::string(enumToKey(kWallpaperFillModes, config.wallpaper.fillMode));
+      wallpaper.insert_or_assign("fill_mode", fillMode);
+      const Color fillColor = resolveWallpaperFillColor(config.wallpaper);
+      if (fillColor.a > 0.0F) {
+        wallpaper.insert_or_assign("fill_color", formatRgbHex(fillColor));
+      }
+      if (!wallpaper.empty()) {
+        appearance.insert("wallpaper", std::move(wallpaper));
+      }
+
+      if (!outputWallpapers.empty()) {
+        toml::table byOutput;
+        for (const auto& entry : outputWallpapers) {
+          toml::table item;
+          if (!entry.installedName.empty()) {
+            item.insert_or_assign("path", (installedStateDirectory / entry.installedName).string());
+          } else if (!entry.sourcePath.empty()) {
+            item.insert_or_assign("path", entry.sourcePath);
+          } else {
+            continue;
+          }
+          item.insert_or_assign("fill_mode", fillMode);
+          if (fillColor.a > 0.0F) {
+            item.insert_or_assign("fill_color", formatRgbHex(fillColor));
+          }
+          byOutput.insert(entry.connector, std::move(item));
+        }
+        if (!byOutput.empty()) {
+          appearance.insert("wallpapers", std::move(byOutput));
+        }
       }
     }
 
@@ -529,7 +529,7 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] std::optional<std::string> buildGreeterOutputLayout(const CompositorPlatform& platform) {
+  std::optional<std::string> buildGreeterOutputLayout(const CompositorPlatform& platform) {
     if (!platform.wayland().hasXdgOutputManager()) {
       kLog.info("greeter sync: xdg-output unavailable; skipping output layout sync");
       return std::nullopt;
@@ -584,7 +584,7 @@ namespace {
     return layout;
   }
 
-  [[nodiscard]] std::optional<std::string> greeterTransformToken(std::int32_t transform) {
+  std::optional<std::string> greeterTransformToken(std::int32_t transform) {
     switch (transform) {
     case WL_OUTPUT_TRANSFORM_NORMAL:
       return std::string("normal");
@@ -607,7 +607,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::optional<std::string> buildGreeterOutputTransforms(const CompositorPlatform& platform) {
+  std::optional<std::string> buildGreeterOutputTransforms(const CompositorPlatform& platform) {
     const auto& outputs = platform.outputs();
     std::vector<const WaylandOutput*> ready;
     ready.reserve(outputs.size());
@@ -650,7 +650,7 @@ namespace {
     return transforms;
   }
 
-  [[nodiscard]] std::optional<float> detectedLayoutScale(const WaylandOutput& output) {
+  std::optional<float> detectedLayoutScale(const WaylandOutput& output) {
     if (output.width <= 0 || output.height <= 0 || output.logicalWidth <= 0 || output.logicalHeight <= 0) {
       return std::nullopt;
     }
@@ -672,7 +672,7 @@ namespace {
     return static_cast<float>(scale);
   }
 
-  [[nodiscard]] std::optional<std::string> buildGreeterOutputScales(const CompositorPlatform& platform) {
+  std::optional<std::string> buildGreeterOutputScales(const CompositorPlatform& platform) {
     if (!platform.wayland().hasXdgOutputManager()) {
       kLog.info("greeter sync: xdg-output unavailable; skipping output scales sync");
       return std::nullopt;
@@ -819,7 +819,7 @@ namespace {
     }
 
     const std::string extension = source.extension().string();
-    const std::string installedName = extension.empty() ? "wallpaper" : "wallpaper" + extension;
+    std::string installedName = extension.empty() ? "wallpaper" : "wallpaper" + extension;
     const auto destination = staging / installedName;
     std::filesystem::copy_file(source, destination, std::filesystem::copy_options::overwrite_existing, ec);
     if (ec) {
@@ -832,15 +832,15 @@ namespace {
     return installedName;
   }
 
-  [[nodiscard]] bool hasPrivilegeCommandOverride(const ShellGreeterSyncConfig& greeterSync) {
+  bool hasPrivilegeCommandOverride(const ShellGreeterSyncConfig& greeterSync) {
     return !StringUtils::trim(greeterSync.privilegeCommand).empty();
   }
 
-  [[nodiscard]] std::string privilegeCommandPrefix(const ShellGreeterSyncConfig& greeterSync) {
+  std::string privilegeCommandPrefix(const ShellGreeterSyncConfig& greeterSync) {
     return StringUtils::trim(greeterSync.privilegeCommand);
   }
 
-  [[nodiscard]] std::string trustedEnvironmentHelper() {
+  std::string trustedEnvironmentHelper() {
     for (const char* candidate : {"/usr/bin/env", "/bin/env", "/run/current-system/sw/bin/env"}) {
       if (auto resolved = canonicalExecutablePath(candidate);
           !resolved.empty() && isTrustedPrivilegeExecutable(resolved)) {
@@ -850,7 +850,7 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] std::optional<std::string>
+  std::optional<std::string>
   legacyStateEnvironment(const GreeterSyncMode mode, const std::filesystem::path& stateDirectory) {
     if (mode != GreeterSyncMode::LegacyAuthenticated || isDefaultGreeterStateDirectory(stateDirectory)) {
       return std::nullopt;
@@ -858,7 +858,7 @@ namespace {
     return std::string(kGreeterStateDirEnv) + '=' + stateDirectory.string();
   }
 
-  [[nodiscard]] std::string buildPrivilegedApplyCommand(
+  std::string buildPrivilegedApplyCommand(
       std::string_view privilegePrefix, std::string_view helper, std::string_view staging, const GreeterSyncMode mode,
       const std::optional<std::string>& stateEnvironment
   ) {
@@ -1042,51 +1042,59 @@ namespace greeter {
       kLog.info("greeter sync: no compositor platform provided; skipping output layout/transforms/scales sync");
     }
 
-    const auto outputWallpapers = stageAllOutputWallpapers(staging, configService);
-    if (!outputWallpapers.has_value()) {
-      return GreeterSyncLaunch::Failed;
-    }
-    std::string wallpaperPath = resolveSyncWallpaperPath(configService);
-    const auto stagedWallpaper = stageWallpaper(staging, wallpaperPath);
-    if (!stagedWallpaper.has_value()) {
-      return GreeterSyncLaunch::Failed;
-    }
-    std::string installedWallpaperName = *stagedWallpaper;
-    if (installedWallpaperName.empty() && !wallpaperPath.starts_with("color:")) {
-      wallpaperPath.clear();
-    }
-    // Prefer a staged per-output entry for the legacy single wallpaper when needed.
-    if (installedWallpaperName.empty() && !outputWallpapers->empty()) {
-      auto preferEntry = [&](const StagedOutputWallpaper& entry) {
-        wallpaperPath = entry.sourcePath;
-        installedWallpaperName = entry.installedName;
-      };
-      bool pinResolved = false;
-      if (const auto pin = readGreeterConfiguredOutput(); pin.has_value() && !pin->empty()) {
-        for (const auto& entry : *outputWallpapers) {
-          if (entry.connector == *pin) {
-            preferEntry(entry);
-            pinResolved = true;
-            break;
+    std::vector<StagedOutputWallpaper> outputWallpapers;
+    std::string wallpaperPath;
+    std::string installedWallpaperName;
+    if (config.wallpaper.enabled) {
+      auto stagedOutputs = stageAllOutputWallpapers(staging, configService);
+      if (!stagedOutputs.has_value()) {
+        return GreeterSyncLaunch::Failed;
+      }
+      outputWallpapers = std::move(*stagedOutputs);
+
+      wallpaperPath = resolveSyncWallpaperPath(configService);
+      const auto stagedWallpaper = stageWallpaper(staging, wallpaperPath);
+      if (!stagedWallpaper.has_value()) {
+        return GreeterSyncLaunch::Failed;
+      }
+      installedWallpaperName = *stagedWallpaper;
+      if (installedWallpaperName.empty() && !wallpaperPath.starts_with("color:")) {
+        wallpaperPath.clear();
+      }
+      // Prefer a staged per-output entry for the legacy single wallpaper when needed.
+      if (installedWallpaperName.empty() && !outputWallpapers.empty()) {
+        auto preferEntry = [&](const StagedOutputWallpaper& entry) {
+          wallpaperPath = entry.sourcePath;
+          installedWallpaperName = entry.installedName;
+        };
+        bool pinResolved = false;
+        if (const auto pin = readGreeterConfiguredOutput(); pin.has_value() && !pin->empty()) {
+          for (const auto& entry : outputWallpapers) {
+            if (entry.connector == *pin) {
+              preferEntry(entry);
+              pinResolved = true;
+              break;
+            }
+          }
+        }
+        if (!pinResolved) {
+          for (const auto& entry : outputWallpapers) {
+            if (!entry.installedName.empty()) {
+              preferEntry(entry);
+              break;
+            }
+          }
+          if (installedWallpaperName.empty() && wallpaperPath.empty()) {
+            preferEntry(outputWallpapers.front());
           }
         }
       }
-      // Pin hit (file or color:): keep it. Otherwise pick first staged file, else first entry.
-      if (!pinResolved) {
-        for (const auto& entry : *outputWallpapers) {
-          if (!entry.installedName.empty()) {
-            preferEntry(entry);
-            break;
-          }
-        }
-        if (installedWallpaperName.empty() && wallpaperPath.empty()) {
-          preferEntry(outputWallpapers->front());
-        }
-      }
+    } else {
+      kLog.info("greeter sync: wallpaper disabled; not syncing wallpaper");
     }
     if (!writeStagedSyncToml(
-            staging, config, resolvedThemeMode, wallpaperPath, installedWallpaperName, *outputWallpapers,
-            stateDirectory, mode
+            staging, config, resolvedThemeMode, wallpaperPath, installedWallpaperName, outputWallpapers, stateDirectory,
+            mode
         )) {
       return GreeterSyncLaunch::Failed;
     }

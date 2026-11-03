@@ -100,7 +100,7 @@ namespace noctalia::config {
     activeWindow.type = "active_window";
     activeWindow.settings["max_length"] = 260.0;
     activeWindow.settings["min_length"] = 80.0;
-    activeWindow.settings["icon_size"] = static_cast<double>(Style::fontSizeBody);
+    activeWindow.settings["icon_size"] = static_cast<double>(Style::baseGlyphSize);
     activeWindow.settings["title_scroll"] = std::string("none");
     seed("active_window", std::move(activeWindow));
 

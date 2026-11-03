@@ -8,7 +8,7 @@
 namespace noctalia::theme {
 
   struct FixedPaletteMode {
-    Palette palette;
+    FixedPalette palette;
     TerminalPalette terminal;
   };
 

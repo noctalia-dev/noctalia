@@ -17,13 +17,12 @@ resolve_config_home() {
 
 config_dir="$(resolve_config_home)/umbriel"
 config_file="$config_dir/config.toml"
-include_line='files = ["noctalia.toml"]'
 
 mkdir -p "$config_dir"
 
 if [ ! -f "$config_file" ]; then
-    printf '[include.optional]\n%s\n' "$include_line" >"$config_file"
-    exit 0
+    printf 'Warning: %s is missing; add the Noctalia theme include to your active Umbriel configuration manually:\n[include.optional]\nfiles = ["%s/noctalia.toml"]\n' "$config_file" "$config_dir" >&2
+    exit 1
 fi
 
 tmp_file="$(mktemp "$config_file.tmp.XXXXXX")"

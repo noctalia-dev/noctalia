@@ -15,8 +15,8 @@ public:
   explicit ScreenshotCapture(WaylandConnection& wayland);
   ~ScreenshotCapture();
 
-  [[nodiscard]] bool available() const noexcept;
-  [[nodiscard]] bool busy() const noexcept { return m_busy; }
+  bool available() const noexcept;
+  bool busy() const noexcept { return m_busy; }
 
   void capture(
       wl_output* output, std::optional<LogicalRect> region, bool showCursor, bool retainCursor,

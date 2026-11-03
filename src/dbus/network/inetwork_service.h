@@ -24,11 +24,11 @@ public:
 
   // False while the backend daemon is off the bus. State then reads as defaults and actions are no-ops;
   // the UI presents the network as unavailable.
-  [[nodiscard]] virtual bool available() const noexcept { return true; }
-  [[nodiscard]] virtual const NetworkState& state() const noexcept = 0;
-  [[nodiscard]] virtual bool hasStateSnapshot() const noexcept = 0;
-  [[nodiscard]] virtual const std::vector<AccessPointInfo>& accessPoints() const noexcept = 0;
-  [[nodiscard]] virtual const std::vector<VpnConnectionInfo>& vpnConnections() const noexcept = 0;
+  virtual bool available() const noexcept { return true; }
+  virtual const NetworkState& state() const noexcept = 0;
+  virtual bool hasStateSnapshot() const noexcept = 0;
+  virtual const std::vector<AccessPointInfo>& accessPoints() const noexcept = 0;
+  virtual const std::vector<VpnConnectionInfo>& vpnConnections() const noexcept = 0;
 
   virtual void requestScan() = 0;
   virtual bool activateAccessPoint(const AccessPointInfo& ap) = 0;
@@ -36,7 +36,7 @@ public:
 
   // 802.1X association. Backends that cannot build an EAP profile keep the
   // defaults, and the UI offers the enterprise form only where it is supported.
-  [[nodiscard]] virtual bool supportsEnterprise() const noexcept { return false; }
+  virtual bool supportsEnterprise() const noexcept { return false; }
   virtual bool activateEnterpriseAccessPoint(
       const AccessPointInfo& /*ap*/, const network_enterprise::EnterpriseCredentials& /*credentials*/
   ) {
@@ -44,18 +44,18 @@ public:
   }
   virtual bool activateVpnConnection(const VpnConnectionInfo& vpn) = 0;
   virtual bool deactivateVpnConnection(const VpnConnectionInfo& vpn) = 0;
-  [[nodiscard]] virtual bool canActivateWiredConnection() const noexcept { return false; }
+  virtual bool canActivateWiredConnection() const noexcept { return false; }
   virtual bool activateWiredConnection() { return false; }
   // GNOME-style mobile-data control over a saved cellular (gsm) connection.
   // Activation brings up the modem and the data connection; deactivation drops
   // the data connection but leaves the modem registered. Only backends that own
   // cellular profiles (NetworkManager) implement this.
-  [[nodiscard]] virtual bool canActivateCellularConnection() const noexcept { return false; }
+  virtual bool canActivateCellularConnection() const noexcept { return false; }
   virtual bool activateCellularConnection() { return false; }
   virtual bool deactivateCellularConnection() { return false; }
   virtual void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) = 0;
   virtual void disconnect() = 0;
   virtual void forgetSsid(const std::string& ssid) = 0;
-  [[nodiscard]] virtual bool hasSavedConnection(const std::string& ssid) const = 0;
-  void registerIpc(IpcService& ipc, WirelessFeedbackCallback wirelessFeedback = {});
+  virtual bool hasSavedConnection(const std::string& ssid) const = 0;
+  void registerIpc(IpcService& ipc, const WirelessFeedbackCallback& wirelessFeedback = {});
 };

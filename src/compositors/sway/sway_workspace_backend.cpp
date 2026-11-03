@@ -43,11 +43,10 @@ namespace {
     }
 
     std::string workspaceName = currentWorkspace;
-    if (const auto typeIt = node.find("type"); typeIt != node.end() && typeIt->is_string()) {
-      if (typeIt->get<std::string>() == "workspace") {
-        if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
-          workspaceName = name;
-        }
+    if (const auto typeIt = node.find("type");
+        typeIt != node.end() && typeIt->is_string() && typeIt->get<std::string>() == "workspace") {
+      if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
+        workspaceName = name;
       }
     }
 
@@ -91,11 +90,10 @@ namespace {
     }
 
     std::string workspaceName = currentWorkspace;
-    if (const auto typeIt = node.find("type"); typeIt != node.end() && typeIt->is_string()) {
-      if (typeIt->get<std::string>() == "workspace") {
-        if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
-          workspaceName = name;
-        }
+    if (const auto typeIt = node.find("type");
+        typeIt != node.end() && typeIt->is_string() && typeIt->get<std::string>() == "workspace") {
+      if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
+        workspaceName = name;
       }
     }
 
@@ -134,7 +132,8 @@ namespace {
 
   void collectWorkspaceWindows(
       const nlohmann::json& node, const std::string& currentWorkspace, const std::string& currentWorkspaceKey,
-      std::vector<WorkspaceWindow>& windows
+      std::vector<WorkspaceWindow>& windows, std::string& focusedExtToplevelIdentifier,
+      bool& publishesExtToplevelIdentity
   ) {
     if (!node.is_object()) {
       return;
@@ -142,17 +141,16 @@ namespace {
 
     std::string workspaceName = currentWorkspace;
     std::string workspaceKey = currentWorkspaceKey;
-    if (const auto typeIt = node.find("type"); typeIt != node.end() && typeIt->is_string()) {
-      if (typeIt->get<std::string>() == "workspace") {
-        if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
-          workspaceName = name;
-        }
-        if (const auto numIt = node.find("num"); numIt != node.end() && numIt->is_number_integer()) {
-          const int num = numIt->get<int>();
-          workspaceKey = num > 0 ? std::to_string(num) : workspaceName;
-        } else {
-          workspaceKey = workspaceName;
-        }
+    if (const auto typeIt = node.find("type");
+        typeIt != node.end() && typeIt->is_string() && typeIt->get<std::string>() == "workspace") {
+      if (const std::string name = jsonStringValue(node, "name"); !name.empty()) {
+        workspaceName = name;
+      }
+      if (const auto numIt = node.find("num"); numIt != node.end() && numIt->is_number_integer()) {
+        const int num = numIt->get<int>();
+        workspaceKey = num > 0 ? std::to_string(num) : workspaceName;
+      } else {
+        workspaceKey = workspaceName;
       }
     }
 
@@ -178,6 +176,15 @@ namespace {
     if (const auto idIt = node.find("id"); idIt != node.end() && idIt->is_number_integer()) {
       swayNodeId = std::to_string(idIt->get<std::int64_t>());
     }
+    // Present only on nodes holding a view, and independent of app_id, so XWayland views are
+    // covered even though sway reports no app_id for them.
+    const std::string extIdentifier = jsonStringValue(node, "foreign_toplevel_identifier");
+    if (!extIdentifier.empty()) {
+      publishesExtToplevelIdentity = true;
+      if (node.value("focused", false)) {
+        focusedExtToplevelIdentifier = extIdentifier;
+      }
+    }
     std::int32_t x = 0;
     std::int32_t y = 0;
     if (const auto rectIt = node.find("rect"); rectIt != node.end() && rectIt->is_object()) {
@@ -201,12 +208,16 @@ namespace {
 
     if (hasNodes) {
       for (const auto& child : *nodesIt) {
-        collectWorkspaceWindows(child, workspaceName, workspaceKey, windows);
+        collectWorkspaceWindows(
+            child, workspaceName, workspaceKey, windows, focusedExtToplevelIdentifier, publishesExtToplevelIdentity
+        );
       }
     }
     if (hasFloating) {
       for (const auto& child : *floatingIt) {
-        collectWorkspaceWindows(child, workspaceName, workspaceKey, windows);
+        collectWorkspaceWindows(
+            child, workspaceName, workspaceKey, windows, focusedExtToplevelIdentifier, publishesExtToplevelIdentity
+        );
       }
     }
   }
@@ -451,6 +462,7 @@ void SwayWorkspaceBackend::cleanup() {
   m_workspaces.clear();
   m_workspaceApps.clear();
   m_workspaceWindows.clear();
+  m_focusedExtToplevelIdentifier.clear();
 }
 
 void SwayWorkspaceBackend::dispatchPoll(short revents) {
@@ -651,8 +663,13 @@ void SwayWorkspaceBackend::parseTree(const std::string& payload) {
     collectWorkspaceApps(json, std::string{}, appIdsByWorkspace, seenPerWorkspace);
     m_workspaceApps = std::move(appIdsByWorkspace);
     std::vector<WorkspaceWindow> workspaceWindows;
-    collectWorkspaceWindows(json, std::string{}, std::string{}, workspaceWindows);
+    std::string focusedExtToplevelIdentifier;
+    collectWorkspaceWindows(
+        json, std::string{}, std::string{}, workspaceWindows, focusedExtToplevelIdentifier,
+        m_publishesExtToplevelIdentity
+    );
     m_workspaceWindows = std::move(workspaceWindows);
+    m_focusedExtToplevelIdentifier = std::move(focusedExtToplevelIdentifier);
 
     if (!m_workspaces.empty()) {
       for (auto& workspace : m_workspaces) {

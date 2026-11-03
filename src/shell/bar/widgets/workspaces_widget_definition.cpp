@@ -48,17 +48,26 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .group = "workspaces.list",
                       },
               }),
-              field<&Options::showAllOutputs>({
-                  .key = "show_all_outputs",
+              field<&Options::monitors>({
+                  .key = "monitors",
                   .presentation =
                       settings::WidgetSettingPresentation{
-                          .labelKey = "settings.widgets.settings.show-all-workspaces.label",
-                          .descriptionKey = "settings.widgets.settings.show-all-workspaces.description",
+                          .labelKey = "settings.widgets.settings.workspace-monitors.label",
+                          .descriptionKey = "settings.widgets.settings.workspace-monitors.description",
                           .group = "workspaces.list",
+                          .options = {{.value = "*", .labelKey = "settings.widgets.settings.workspace-monitors.all"}},
+                          .optionSource = settings::WidgetSettingOptionSource::Outputs,
                       },
               }),
               field<&Options::showLabels>({
                   .key = "show_labels",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .group = "workspaces.list",
+                      },
+              }),
+              field<&Options::separator>({
+                  .key = "separator",
                   .presentation =
                       settings::WidgetSettingPresentation{
                           .group = "workspaces.list",
@@ -201,6 +210,14 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .group = "workspaces.colors",
                       },
               }),
+              field<&Options::colorizeIcons>({
+                  .key = "colorize_icons",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .group = "workspaces.colors",
+                          .visibleWhen = focusHintStyleOnly(),
+                      },
+              }),
               field<&Options::occupiedColor>({
                   .key = "occupied_color",
                   .presentation =
@@ -217,6 +234,13 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
               }),
               field<&Options::urgentColor>({
                   .key = "urgent_color",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .group = "workspaces.colors",
+                      },
+              }),
+              field<&Options::separatorColor>({
+                  .key = "separator_color",
                   .presentation =
                       settings::WidgetSettingPresentation{
                           .group = "workspaces.colors",

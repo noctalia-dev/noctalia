@@ -1,0 +1,12 @@
+[theme]
+shell_mode = 42
+
+[osd]
+enabled = "yes"
+hide_delay_ms = "fast"
+background_opacity = "x"
+monitors = [1, "DP-1"]
+kinds = 3
+
+[desktop_widgets]
+enabled = "no"

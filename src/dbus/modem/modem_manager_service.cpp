@@ -273,7 +273,7 @@ void ModemManagerService::refresh() {
   }
   m_impl->root->callMethodAsync("GetManagedObjects")
       .onInterface(kObjectManagerInterface)
-      .uponReplyInvoke([this](std::optional<sdbus::Error> err, ManagedObjects objects) {
+      .uponReplyInvoke([this](std::optional<sdbus::Error> err, const ManagedObjects& objects) {
         if (err.has_value()) {
           kLog.debug("GetManagedObjects failed: {}", err->what());
           return;

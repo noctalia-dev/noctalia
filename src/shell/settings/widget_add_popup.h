@@ -43,7 +43,7 @@ namespace settings {
     )>;
 
     WidgetAddPopup() = default;
-    ~WidgetAddPopup();
+    ~WidgetAddPopup() override;
 
     void initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext);
 
@@ -53,18 +53,11 @@ namespace settings {
     void open(WidgetAddPopupRequest request);
     void close();
 
-    [[nodiscard]] bool isOpen() const noexcept;
-    [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
-    void onKeyboardEvent(const KeyboardEvent& event);
-    [[nodiscard]] wl_surface* wlSurface() const noexcept;
-    void requestLayout();
-    void requestRedraw();
-
   protected:
     void populateContent(Node* contentParent, std::uint32_t width, std::uint32_t height) override;
     void layoutSheet(float contentWidth, float contentHeight) override;
     void cancelToFacade() override;
-    [[nodiscard]] InputArea* initialFocusArea() override;
+    InputArea* initialFocusArea() override;
     void onSheetClose() override;
 
   private:
@@ -89,10 +82,10 @@ namespace settings {
     void beginCreateFlow(const SearchPickerOption& option);
     void finishCreateFlow();
     void reopenForCurrentMode();
-    [[nodiscard]] std::string instanceFormTitle() const;
-    [[nodiscard]] std::pair<float, float> popupSize() const;
-    [[nodiscard]] std::string suggestedInstanceId(std::string_view type) const;
-    [[nodiscard]] bool canCreateInstanceId(std::string_view id) const;
+    std::string instanceFormTitle() const;
+    std::pair<float, float> popupSize() const;
+    std::string suggestedInstanceId(std::string_view type) const;
+    bool canCreateInstanceId(std::string_view id) const;
 
     XdgPopupParent m_parent;
     bool m_internalReopen = false;

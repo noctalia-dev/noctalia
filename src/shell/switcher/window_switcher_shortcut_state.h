@@ -22,14 +22,14 @@ public:
     }
   }
 
-  [[nodiscard]] std::uint32_t modifiers() const noexcept { return m_shortcutModifiers; }
+  std::uint32_t modifiers() const noexcept { return m_shortcutModifiers; }
 
   // A keybind opened the switcher while holding a shortcut modifier that may already be
   // released by the time the overlay gains keyboard focus, so that release never arrives.
   // The first release check after focus resolves it from the modifiers held at that point.
   void expectHeldModifier() noexcept { m_focusCheckPending = true; }
 
-  [[nodiscard]] bool hasPendingFocusCheck() const noexcept { return m_focusCheckPending; }
+  bool hasPendingFocusCheck() const noexcept { return m_focusCheckPending; }
 
   [[nodiscard]] bool noteRelease(std::uint32_t releasedModifier, std::uint32_t currentModifiers) noexcept {
     capture(currentModifiers);
@@ -45,7 +45,7 @@ public:
 
   void updateModifiers(std::uint32_t modifiers) noexcept { m_currentModifiers = modifiers & kModifierMask; }
 
-  [[nodiscard]] bool hasPendingRelease() const noexcept { return m_pendingReleaseModifiers != 0; }
+  bool hasPendingRelease() const noexcept { return m_pendingReleaseModifiers != 0; }
 
   [[nodiscard]] bool beginReleaseCheck() noexcept {
     if (m_releaseCheckPending || (!hasPendingRelease() && !m_focusCheckPending)) {

@@ -57,7 +57,7 @@ LocationService::LocationService(ConfigService& configService, HttpClient& httpC
 
 void LocationService::initialize() {
   m_config = m_configService.config().location;
-  m_configService.addReloadCallback([this]() { onConfigReload(); });
+  m_configService.addReloadCallback([this] { onConfigReload(); });
   loadCache();
   if (networkResolutionConfigured() && !m_resolved) {
     requestRefresh();

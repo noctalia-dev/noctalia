@@ -12,6 +12,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -31,6 +32,10 @@ namespace noctalia::theme {
     constexpr std::string_view kCatalogUrl = "https://api.noctalia.dev/templates";
     constexpr std::string_view kCacheMetadataFilename = ".noctalia-cache.json";
 
+    std::string templateReadmeUrl(std::string_view id) {
+      return std::format("https://github.com/noctalia-dev/community-templates/blob/main/{}/README.md", id);
+    }
+
     struct CommunityTemplateFile {
       std::string name;
       std::string md5;
@@ -43,6 +48,7 @@ namespace noctalia::theme {
       std::vector<std::string> outputPaths;
       std::string preHook;
       std::string postHook;
+      std::string undoHook;
       std::string postAction;
       std::optional<int> index;
     };
@@ -168,6 +174,7 @@ namespace noctalia::theme {
         entry.outputPaths = readJsonStringArrayOrString(obj, "outputPath");
       entry.preHook = stringField(obj, "pre_hook", "preHook");
       entry.postHook = stringField(obj, "post_hook", "postHook");
+      entry.undoHook = stringField(obj, "undo_hook", "undoHook");
       entry.postAction = stringField(obj, "post_action", "postAction");
       if (auto index = obj.find("index"); index != obj.end() && index->is_number_integer())
         entry.index = index->get<int>();
@@ -298,12 +305,10 @@ namespace noctalia::theme {
       const std::filesystem::path path(raw);
       if (path.is_absolute())
         return false;
-      for (const auto& part : path) {
+      return std::ranges::all_of(path, [&](const auto& part) {
         const std::string token = part.string();
-        if (token == "." || token == ".." || token.empty())
-          return false;
-      }
-      return true;
+        return token != "." && token != ".." && !token.empty();
+      });
     }
 
     std::filesystem::path sidecarPath(const std::filesystem::path& path) {
@@ -540,6 +545,8 @@ namespace noctalia::theme {
           writeTomlString(out, "pre_hook", entry.preHook);
         if (!entry.postHook.empty())
           writeTomlString(out, "post_hook", entry.postHook);
+        if (!entry.undoHook.empty())
+          writeTomlString(out, "undo_hook", entry.undoHook);
         if (!entry.postAction.empty())
           writeTomlString(out, "post_action", entry.postAction);
         if (entry.index.has_value())
@@ -598,11 +605,11 @@ namespace noctalia::theme {
         const toml::node* op = tpl->get("output_path");
         if (op == nullptr)
           continue;
-        if (const auto str = op->as_string()) {
+        if (const auto* str = op->as_string()) {
           output.outputPaths.push_back(str->get());
-        } else if (const auto arr = op->as_array()) {
+        } else if (const auto* arr = op->as_array()) {
           for (const auto& item : *arr) {
-            if (const auto itemStr = item.as_string())
+            if (const auto* itemStr = item.as_string())
               output.outputPaths.push_back(itemStr->get());
           }
         }
@@ -634,9 +641,9 @@ namespace noctalia::theme {
         }
 
         {
-          if (const auto name = info->get_as<std::string>("name"))
+          if (const auto* name = info->get_as<std::string>("name"))
             out.displayName = name->get();
-          if (const auto category = info->get_as<std::string>("category"))
+          if (const auto* category = info->get_as<std::string>("category"))
             out.category = category->get();
         }
         appendTemplateOutputMetadata(out, root);
@@ -683,7 +690,7 @@ namespace noctalia::theme {
           if (!success) {
             kLog.warn("failed to refresh community template catalog; using cached metadata when available");
             if (m_readyCallback) {
-              DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
+              DeferredCall::callLater([callback = m_readyCallback] { callback(); });
             }
             return;
           }
@@ -701,12 +708,12 @@ namespace noctalia::theme {
     const auto catalog = parseCatalogFile(catalogCachePath());
     auto pending = std::make_shared<std::size_t>(0);
     auto completed = std::make_shared<std::size_t>(0);
-    auto notifyIfReady = [this, generation, pending, completed]() {
+    auto notifyIfReady = [this, generation, pending, completed] {
       if (generation != m_generation || *completed < *pending) {
         return;
       }
       if (m_readyCallback) {
-        DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
+        DeferredCall::callLater([callback = m_readyCallback] { callback(); });
       }
     };
 
@@ -777,11 +784,11 @@ namespace noctalia::theme {
     auto pending = std::make_shared<std::size_t>(0);
     auto completed = std::make_shared<std::size_t>(0);
 
-    auto notifyIfReady = [this, generation, notifyWhenReady, pending, completed]() {
+    auto notifyIfReady = [this, generation, notifyWhenReady, pending, completed] {
       if (!notifyWhenReady || generation != m_generation || *completed < *pending)
         return;
       if (m_readyCallback) {
-        DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
+        DeferredCall::callLater([callback = m_readyCallback] { callback(); });
       }
     };
 
@@ -851,7 +858,7 @@ namespace noctalia::theme {
     }
 
     if (*pending == 0 && notifyWhenReady && m_readyCallback) {
-      DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
+      DeferredCall::callLater([callback = m_readyCallback] { callback(); });
     }
   }
 
@@ -864,6 +871,9 @@ namespace noctalia::theme {
       t.id = info.id;
       t.displayName = info.displayName.empty() ? info.id : info.displayName;
       t.category = info.category;
+      if (std::ranges::contains(info.files, "README.md", &CommunityTemplateFile::name)) {
+        t.documentationUrl = templateReadmeUrl(info.id);
+      }
       appendOutputPathsFromCacheToml(t);
       out.push_back(std::move(t));
     }
@@ -884,6 +894,9 @@ namespace noctalia::theme {
       if (!std::filesystem::exists(toml))
         continue;
       if (auto info = readTemplateTomlInfo(toml, cacheId)) {
+        if (std::filesystem::is_regular_file(entry.path() / "README.md", ec)) {
+          info->documentationUrl = templateReadmeUrl(cacheId);
+        }
         out.push_back(std::move(*info));
       }
     }

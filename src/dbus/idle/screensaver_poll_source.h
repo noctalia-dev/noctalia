@@ -1,13 +1,13 @@
 #pragma once
 
-#include "app/poll_source.h"
+#include "core/poll_source.h"
 #include "dbus/idle/screensaver_service.h"
 
 class ScreenSaverPollSource final : public PollSource {
 public:
   explicit ScreenSaverPollSource(ScreenSaverService& service) : m_service(service) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override {
+  int pollTimeoutMs() const override {
     if (m_service.hasPendingEvents()) {
       return 0;
     }

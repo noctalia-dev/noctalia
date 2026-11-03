@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <nlohmann/json.hpp>
 
 namespace {
 
@@ -27,7 +28,7 @@ namespace {
 
   enum class OsdRevealDir { FromLeft, FromRight, FromTop, FromBottom };
 
-  [[nodiscard]] float osdContentOpacity(float reveal) {
+  float osdContentOpacity(float reveal) {
     const float v = std::clamp(reveal, 0.0F, 1.0F);
     if (v <= 0.15F) {
       return 0.0F;
@@ -35,7 +36,7 @@ namespace {
     return std::clamp((v - 0.15F) / 0.85F, 0.0F, 1.0F);
   }
 
-  [[nodiscard]] float osdUiScale(const ConfigService* config) {
+  float osdUiScale(const ConfigService* config) {
     if (config == nullptr) {
       return 1.0F;
     }
@@ -44,7 +45,7 @@ namespace {
     return std::max(0.1F, accessibility.uiScale * osd.scale);
   }
 
-  [[nodiscard]] bool isOsdKindEnabled(const OsdKindsConfig& kinds, OsdKind kind) {
+  bool isOsdKindEnabled(const OsdKindsConfig& kinds, OsdKind kind) {
     switch (kind) {
     case OsdKind::Volume:
       return kinds.volume && kinds.volumeOutput;
@@ -70,29 +71,33 @@ namespace {
       return kinds.keyboardLayout;
     case OsdKind::Media:
       return kinds.media;
+    case OsdKind::MediaVolume:
+      return kinds.media && kinds.mediaVolume;
     case OsdKind::Privacy:
       return kinds.privacy;
     case OsdKind::KeyboardBacklight:
       return kinds.keyboardBacklight;
+    case OsdKind::Custom:
+      return kinds.custom;
     }
     return true;
   }
 
-  [[nodiscard]] float osdBackgroundOpacity(const ConfigService* config) {
+  float osdBackgroundOpacity(const ConfigService* config) {
     if (config == nullptr) {
       return 0.97F;
     }
     return std::clamp(config->config().osd.backgroundOpacity, 0.0F, 1.0F);
   }
 
-  [[nodiscard]] ColorSpec osdBorderColor(const ConfigService* config) {
+  ColorSpec osdBorderColor(const ConfigService* config) {
     if (config == nullptr) {
-      return colorSpecFromRole(ColorRole::Outline);
+      return colorSpecFromRole(ColorRole::OutlineVariant);
     }
     return config->config().osd.borderColor;
   }
 
-  [[nodiscard]] float osdBorderWidth(const ConfigService* config, float scale) {
+  float osdBorderWidth(const ConfigService* config, float scale) {
     if (config == nullptr) {
       return Style::borderWidth * scale;
     }
@@ -100,16 +105,16 @@ namespace {
     return osd.border ? std::max(0.0F, osd.borderWidth) * scale : 0.0F;
   }
 
-  [[nodiscard]] bool isVerticalOrientation(const std::string& orientation) { return orientation == "vertical"; }
+  bool isVerticalOrientation(const std::string& orientation) { return orientation == "vertical"; }
 
-  [[nodiscard]] std::string effectiveOsdOrientation(const OsdContent& content, const std::string& configOrientation) {
+  std::string effectiveOsdOrientation(const OsdContent& content, const std::string& configOrientation) {
     if (!content.showProgress) {
       return "horizontal";
     }
     return configOrientation.empty() ? "horizontal" : configOrientation;
   }
 
-  [[nodiscard]] std::string effectiveOsdPosition(
+  std::string effectiveOsdPosition(
       const std::string& effectiveOrientation, const std::string& horizontalPosition,
       const std::string& verticalPosition
   ) {
@@ -120,18 +125,18 @@ namespace {
   }
 
   // Base units at ui_scale=1; passive overlay (no hit targets), between bar and old OSD size.
-  [[nodiscard]] float horizontalCardLength(float s) {
+  float horizontalCardLength(float s) {
     return (Style::controlHeight * 6 + Style::spaceMd + Style::spaceSm + Style::spaceXs) * s;
   }
 
-  [[nodiscard]] float cardWidth(float s, const std::string& orientation) {
+  float cardWidth(float s, const std::string& orientation) {
     if (isVerticalOrientation(orientation)) {
       return (Style::controlHeight + Style::spaceLg + Style::spaceMd) * s;
     }
     return horizontalCardLength(s);
   }
 
-  [[nodiscard]] float cardHeight(float s, const std::string& orientation, bool showProgress) {
+  float cardHeight(float s, const std::string& orientation, bool showProgress) {
     if (isVerticalOrientation(orientation)) {
       if (!showProgress) {
         return (Style::controlHeight * 2 + Style::spaceLg + Style::spaceSm) * s;
@@ -141,45 +146,45 @@ namespace {
     return (Style::controlHeight + Style::spaceSm) * s;
   }
 
-  [[nodiscard]] std::uint32_t osdSurfaceWidth(float s, const std::string& orientation, float innerPadX) {
+  std::uint32_t osdSurfaceWidth(float s, const std::string& orientation, float innerPadX) {
     const float w = cardWidth(s, orientation) + innerPadX * 2.0F;
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(w))));
   }
 
-  [[nodiscard]] std::uint32_t osdSurfaceHeight(float s, const std::string& orientation, bool showProgress) {
+  std::uint32_t osdSurfaceHeight(float s, const std::string& orientation, bool showProgress) {
     const float h = cardHeight(s, orientation, showProgress) + Style::spaceLg * s;
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(h))));
   }
 
-  [[nodiscard]] float glyphSize(float s) { return (Style::fontSizeTitle + Style::borderWidth * 4) * s; }
+  float glyphSize(float s) { return (Style::fontSizeTitle + Style::borderWidth * 4) * s; }
 
-  [[nodiscard]] float valueFontSize(float s) { return Style::fontSizeBody * s; }
+  float valueFontSize(float s) { return Style::fontSizeBody * s; }
 
-  [[nodiscard]] float progressHeight(float s) { return (Style::spaceXs + Style::borderWidth * 2) * s; }
+  float progressHeight(float s) { return (Style::spaceXs + Style::borderWidth * 2) * s; }
 
-  [[nodiscard]] float verticalProgressWidth(float s) { return progressHeight(s) * 1.75F; }
+  float verticalProgressWidth(float s) { return progressHeight(s) * 1.75F; }
 
-  [[nodiscard]] float cardPadding(float s) { return Style::spaceMd * s; }
+  float cardPadding(float s) { return Style::spaceMd * s; }
 
-  [[nodiscard]] float innerGap(float s) { return (Style::spaceSm + Style::spaceXs * 0.5F) * s; }
+  float innerGap(float s) { return (Style::spaceSm + Style::spaceXs * 0.5F) * s; }
 
-  [[nodiscard]] float osdCardRadius(float cw, float ch, float layoutScale) {
+  float osdCardRadius(float cw, float ch, float layoutScale) {
     const float maxR = std::min(cw, ch) * 0.5F;
     return std::min(maxR, Style::scaledRadiusXl(layoutScale));
   }
 
-  [[nodiscard]] float osdProgressRadius(float layoutScale) {
+  float osdProgressRadius(float layoutScale) {
     const float ph = progressHeight(layoutScale);
     return std::min(ph * 0.5F, Style::scaledRadiusSm(layoutScale));
   }
 
-  [[nodiscard]] bool isBottomPosition(const std::string& position) { return position.starts_with("bottom_"); }
+  bool isBottomPosition(const std::string& position) { return position.starts_with("bottom_"); }
 
-  [[nodiscard]] bool isCenterPosition(const std::string& position) { return position.starts_with("center_"); }
+  bool isCenterPosition(const std::string& position) { return position.starts_with("center_"); }
 
-  [[nodiscard]] bool isLeftPosition(const std::string& position) { return position.ends_with("_left"); }
+  bool isLeftPosition(const std::string& position) { return position.ends_with("_left"); }
 
-  [[nodiscard]] bool isRightPosition(const std::string& position) { return position.ends_with("_right"); }
+  bool isRightPosition(const std::string& position) { return position.ends_with("_right"); }
 
   float cardBaseX(float surfaceWidth, float cardW) { return (surfaceWidth - cardW) * 0.5F; }
 
@@ -207,6 +212,17 @@ namespace {
   }
 
 } // namespace
+
+OsdContent customOsdContent(std::string icon, std::string value, std::optional<double> progress, bool inactive) {
+  return OsdContent{
+      .kind = OsdKind::Custom,
+      .icon = std::move(icon),
+      .value = std::move(value),
+      .progress = static_cast<float>(std::clamp(progress.value_or(0.0), 0.0, 1.0)),
+      .showProgress = progress.has_value(),
+      .inactive = inactive,
+  };
+}
 
 OsdOverlay::OsdOverlay() = default;
 
@@ -243,6 +259,60 @@ void OsdOverlay::registerIpc(IpcService& ipc) {
     }
     setEnabledOverride(!isEnabled());
     return isEnabled() ? "on\n" : "off\n";
+  });
+  ipc.bind(noctalia::cli::msg::osdShow, [this](const std::string& args) -> std::string {
+    const std::string input = StringUtils::trim(args);
+    if (input.empty()) {
+      return "error: osd-show requires <icon> [value] or <json-payload>\n";
+    }
+
+    std::string icon;
+    std::string value;
+    std::optional<double> progress;
+    bool inactive = false;
+
+    if (input.front() == '{') {
+      const nlohmann::json payload = nlohmann::json::parse(input, nullptr, false);
+      if (payload.is_discarded() || !payload.is_object()) {
+        return "error: osd-show JSON payload must be an object\n";
+      }
+      if (const auto it = payload.find("icon"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: osd-show field 'icon' must be a string\n";
+        }
+        icon = it->get<std::string>();
+      }
+      if (const auto it = payload.find("value"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: osd-show field 'value' must be a string\n";
+        }
+        value = it->get<std::string>();
+      }
+      if (const auto it = payload.find("progress"); it != payload.end()) {
+        if (!it->is_number()) {
+          return "error: osd-show field 'progress' must be a number\n";
+        }
+        progress = it->get<double>();
+      }
+      if (const auto it = payload.find("inactive"); it != payload.end()) {
+        if (!it->is_boolean()) {
+          return "error: osd-show field 'inactive' must be a boolean\n";
+        }
+        inactive = it->get<bool>();
+      }
+    } else {
+      const std::size_t split = input.find_first_of(" \t");
+      icon = input.substr(0, split);
+      if (split != std::string::npos) {
+        value = StringUtils::trim(input.substr(split));
+      }
+    }
+
+    if (icon.empty()) {
+      return "error: osd-show requires a non-empty icon\n";
+    }
+    show(customOsdContent(std::move(icon), std::move(value), progress, inactive));
+    return "ok\n";
   });
 }
 
@@ -724,7 +794,7 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
   auto progress = ui::progressBar({
       .out = &inst.progress,
       .fill = colorSpecFromRole(ColorRole::Primary),
-      .track = colorSpecFromRole(ColorRole::SurfaceVariant),
+      .track = colorSpecFromRole(ColorRole::SurfaceContainer),
       .radius = osdProgressRadius(s),
       .orientation = vertical ? ProgressBarOrientation::Vertical : ProgressBarOrientation::Horizontal,
       .width = vertical ? verticalProgressWidth(s) : 0.0F,
@@ -785,10 +855,17 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
   // interior so they ellipsize within the padding instead of overflowing. Progress OSDs keep the
   // uncapped "100%" value so it can reserve minWidth beside the bar.
   const float horizontalValueMax = cw - cardPadding(s) * 2.0F - glyphSize(s) - innerGap(s);
+
+  // Progress OSDs: cap the label so a long custom label can't squeeze the bar to nothing.
+  // Built-in "100%" values are far below this cap, so they are unaffected.
+  const float fullBar = cw - cardPadding(s) * 2.0F - glyphSize(s) - innerGap(s) * 2.0F - inst.progressValueMinWidth;
+  const float minBar = fullBar / 3.0F;
+  const float progressValueMax = std::max(inst.progressValueMinWidth, horizontalValueMax - innerGap(s) - minBar);
+
   inst.value->setMaxWidth(
       vertical                      ? cw - cardPadding(s) * 2.0F
           : !m_content.showProgress ? std::max(0.0F, horizontalValueMax)
-                                    : 0.0F
+                                    : progressValueMax
   );
   inst.value->setMinWidth((!vertical && m_content.showProgress) ? inst.progressValueMinWidth : 0.0F);
   inst.value->setText(m_content.value);
@@ -899,7 +976,7 @@ void OsdOverlay::animateInstance(Instance& inst) {
       applyReveal(inst, 0.0F);
       inst.showAnimId = inst.animations.animate(
           0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic, [this, &inst](float v) { applyReveal(inst, v); },
-          [&inst]() {
+          [&inst] {
             inst.showAnimId = 0;
             inst.visible = true;
           }
@@ -913,13 +990,13 @@ void OsdOverlay::animateInstance(Instance& inst) {
       static_cast<float>(m_config != nullptr ? m_config->config().osd.hideDelayMs : OsdConfig{}.hideDelayMs);
   inst.hideAnimId = inst.animations.animateTimer(
       1.0F, 0.0F, hideDelayMs, Easing::Linear, [](float /*v*/) {},
-      [this, &inst]() {
+      [this, &inst] {
         inst.hideAnimId = inst.animations.animate(
             1.0F, 0.0F, Style::animNormal, Easing::EaseInQuad, [this, &inst](float v) { applyReveal(inst, v); },
-            [this, &inst]() {
+            [this, &inst] {
               inst.hideAnimId = 0;
               inst.visible = false;
-              DeferredCall::callLater([this]() {
+              DeferredCall::callLater([this] {
                 const bool allIdle = std::ranges::all_of(m_instances, [](const auto& i) {
                   return !i->visible && !i->showPending && i->showAnimId == 0 && i->hideAnimId == 0;
                 });

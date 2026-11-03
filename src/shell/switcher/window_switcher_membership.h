@@ -22,7 +22,7 @@ namespace switcher_membership {
     std::vector<WorkspaceWindowAssignment> assignments;
   };
 
-  [[nodiscard]] inline bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
+  inline bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
     if (assignmentKey.empty()) {
       return false;
     }
@@ -60,21 +60,16 @@ namespace switcher_membership {
     return false;
   }
 
-  [[nodiscard]] inline bool
-  assignmentOnActiveWorkspace(std::string_view workspaceKey, const std::vector<Workspace>& workspaces) {
+  inline bool assignmentOnActiveWorkspace(std::string_view workspaceKey, const std::vector<Workspace>& workspaces) {
     if (workspaceKey.empty()) {
       return false;
     }
-    for (const auto& workspace : workspaces) {
-      if (workspace.active && workspaceKeyMatchesAssignment(workspaceKey, workspace)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(workspaces, [&](const auto& workspace) {
+      return workspace.active && workspaceKeyMatchesAssignment(workspaceKey, workspace);
+    });
   }
 
-  [[nodiscard]] inline bool
-  assignmentOnVisibleWorkspace(const OutputMembership& membership, std::string_view assignmentKey) {
+  inline bool assignmentOnVisibleWorkspace(const OutputMembership& membership, std::string_view assignmentKey) {
     if (assignmentKey.empty()) {
       return false;
     }
@@ -97,14 +92,14 @@ namespace switcher_membership {
 
   // Without assignments from any output the switcher cannot tell which workspace a window
   // is on, so the filter must stay off.
-  [[nodiscard]] inline bool hasWorkspaceMembershipData(const std::vector<OutputMembership>& memberships) {
+  inline bool hasWorkspaceMembershipData(const std::vector<OutputMembership>& memberships) {
     return std::ranges::any_of(memberships, [](const OutputMembership& membership) {
       return !membership.assignments.empty();
     });
   }
 
   // Callers check hasWorkspaceMembershipData() first; order is preserved for their sorting.
-  [[nodiscard]] inline std::vector<WorkspaceWindowAssignment>
+  inline std::vector<WorkspaceWindowAssignment>
   assignmentsOnVisibleWorkspaces(const std::vector<OutputMembership>& memberships) {
     std::vector<WorkspaceWindowAssignment> matched;
     for (const auto& membership : memberships) {
