@@ -11,7 +11,7 @@
 
 namespace {
 
-  [[nodiscard]] std::unordered_map<std::string, bool> parseOutputPowerStates(const nlohmann::json& data) {
+  std::unordered_map<std::string, bool> parseOutputPowerStates(const nlohmann::json& data) {
     std::unordered_map<std::string, bool> states;
     if (!data.is_array()) {
       return states;

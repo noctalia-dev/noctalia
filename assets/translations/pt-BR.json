@@ -401,6 +401,7 @@
       "error-missing-password": "Entre sua senha.",
       "error-unsupported-phase2": "PEAP requer autenticação interna MSCHAPv2",
       "external-ip": "WAN {ip}",
+      "hotspot-active": "O Wi-Fi em modo Ponto de Acesso; desligar o Wi-Fi interrompe essa função",
       "identity": "Identidade",
       "no-networks": "Nenhuma conexão ao alcance",
       "not-connected": "Não conectado",
@@ -1368,6 +1369,13 @@
       "write": "Falha em salvar as configurações."
     },
     "export-config": {
+      "credentials-blank": "Branco",
+      "credentials-blank-description": "Mantém chaves de credenciais com valores vazios para que você possa ver o preencher depois de importar.",
+      "credentials-keep": "Manter",
+      "credentials-keep-description": "Exporta credenciais como configuradas. Manter o arquivo privado.",
+      "credentials-omit": "Omitir",
+      "credentials-omit-description": "Deixa as credenciais fora do arquivo.",
+      "credentials-title": "Credenciais",
       "export": "Exportar",
       "full-effective-description": "Exporta todas as configurações ativas, incluindo as configurações padrão integradas. Útil para inspeção ou compartilhamento de um snapshot, mas fixa explicitamente as configurações padrão atuais.",
       "full-effective-save-title": "Salvar Configuração Completa Efetiva",
@@ -1375,7 +1383,7 @@
       "merged-user-description": "Combina arquivos de configuração e alterações na interface gráfica em um único arquivo TOML. Os valores padrão predefinidos permanecem implícitos.",
       "merged-user-save-title": "Salvar Configuração de Usuário Mesclada",
       "merged-user-title": "Configuração de Usuário Mesclada (Recomendado)",
-      "privacy-warning-description": "Ambos modos de exportação podem incluir chaves de API, senhas ou outros dados sensíveis armazenados em seu arquivo de configuração, incluindo plugins. Trate arquivos exportados como privados. Revise e remova dados sensíveis antes de compartilhar.",
+      "privacy-warning-description": "As credenciais são URLs de servidores de calendário, URLs de origem de plug-ins do Git e configurações de plug-ins que o plug-in marca como segredos. Qualquer outra informação que você tenha digitado na sua configuração, como um token em um comando, é sempre exportada. Verifique o arquivo antes de compartilhá-lo.",
       "privacy-warning-title": "Exportações podem conter segredos",
       "title": "Exportar Configuração"
     },
@@ -1405,7 +1413,10 @@
       "live-status": {
         "active": "Ativo",
         "idle-for-one": "Idle for 1 second",
-        "idle-for-seconds": "Idle for {seconds} seconds"
+        "idle-for-seconds": "Idle for {seconds} seconds",
+        "inhibit-reason-caffeine": "Cafeína",
+        "inhibit-reason-external": "fonte externa",
+        "inhibited": "Inibido: {inhibitors}"
       }
     },
     "navigation": {
@@ -1502,6 +1513,7 @@
         "keybinds": "Atalhos do Teclado",
         "launcher": "Launcher",
         "location": "Localização",
+        "lock-screen": "Tela de Bloqueio",
         "niri": "Niri",
         "notifications": "Notificações",
         "osd": "OSD",
@@ -1510,7 +1522,7 @@
         "popups": "Popups",
         "power": "Energia",
         "screenshot": "Captura de tela",
-        "security": "Segurança",
+        "security": "Privacidade & Segurança",
         "services": "Serviços",
         "shell": "Shell",
         "system": "Sistema",
@@ -1712,7 +1724,8 @@
         },
         "window-switcher-style": {
           "carousel": "Carrossel ",
-          "compact": "Compacto"
+          "compact": "Compacto",
+          "icons": "Somente Ícones"
         }
       },
       "theme": {
@@ -2640,6 +2653,12 @@
           "description": "Automaticamente remover histórico de notificações se existir por mais que esta quantidade de horas (0 para manter para sempre)",
           "label": "Período de Retenção"
         },
+        "history-storage": {
+          "button": "Tentar novamente",
+          "description-recovery": "Histórico salvo de notificação não pôde ser autenticado ou está danificado; tente novamente após restaurar a chave correta ou redefina o armazenamento privado",
+          "description-unavailable": "Histórico salvo de notificação criptografado não está aberto, então notificações são mantidas somente para esta sessão; destranque o armazenamento privado ou restaure a chave configurada, então tente novamente",
+          "label": "Armazenamento de Histórico de Notificação"
+        },
         "keep-dismissed-in-history": {
           "description": "Manter notificações no histórico depois que suas lâminas foram dispensadas",
           "label": "Manter Notificações Dispensadas"
@@ -3179,6 +3198,11 @@
           "description": "Volume para efeitos de som do shell",
           "label": "Volume do Áudio"
         },
+        "spectrum-frame-rate": {
+          "description": "Taxas maiores são mais suaves mas usam mais recursos",
+          "label": "Taxa de Frames do Visualizador",
+          "option": "{fps} FPS"
+        },
         "sunrise": {
           "description": "Horário manual do nascer do sol em HH:MM, usado quando não há localização definida",
           "label": "Nascer do Sol"
@@ -3242,7 +3266,7 @@
           "placeholder": "/path/to/sound.wav"
         },
         "volume-sounds": {
-          "description": "Tocar um som quando o volume de entrada ou de saída muda",
+          "description": "Tocar um som quando o volume de saída muda",
           "label": "Volume dos Sons"
         },
         "weather": {
@@ -3706,19 +3730,19 @@
           "label": "Mostrar Todos Monitores"
         },
         "window-switcher-show-app-icon": {
-          "description": "Mostrar ícone de cada aplicação sobre sua janela de pré-visualização",
+          "description": "Mostrar ícone de cada aplicação sobre sua janela de pré-visualização; ícones são sempre mostrados em Apenas Ícones",
           "label": "Mostrar Ícone de Aplicação"
         },
         "window-switcher-show-caption": {
-          "description": "Mostrar títulos de janelas e nomes de aplicações abaixo de suas pré-visualização",
+          "description": "Mostrar títulos de pré-visualizações ou o título da janela selecionada abaixo do ícone da grade",
           "label": "Mostrar Legenda"
         },
         "window-switcher-show-count": {
-          "description": "Mostrar a posição atual e contagem total de janelas acima das pré-visualizações",
+          "description": "Mostrar a posição atual e contagem total de janelas acima do alternador",
           "label": "Mostrar Contagem de Janelas"
         },
         "window-switcher-style": {
-          "description": "Escolher o carrossel independente de profundidade ou a faixa compacta em caixa",
+          "description": "Escolher o carrossel de previsão: faixa de previsão compacta ou grade de somente ícones",
           "label": "Estilo do Alternador"
         }
       },
@@ -3865,7 +3889,7 @@
     "storage-recovery": {
       "button": "Redefinir Armazenamento Privado",
       "button-confirm": "Confirmar Redefinição de Armazenamento",
-      "description": "Permanentemente apaga histórico de área de transferência armazenado e o cache de evento de calendário, então reabra o armazenamento privado (um arquivo de chave configurado nunca é modificado)",
+      "description": "Apagar permanentemente área de transferência salva e histórico de notificação, imagens de notificação e cachê de eventos de calendário, então re-abra o armazenamento privado (um arquivo de chave configurada nunca é modificado)",
       "error-delete": "Alguns arquivos do armazenamento privado não puderam ser apagados. A chave de armazenamento foi preservada.",
       "error-key": "Arquivos do armazenamento privado foram apagados, mas o armazenamento seguro não pôde ser reaberto. Corrija o acesso e tente novamente.",
       "label": "Recuperar Armazenamento Privado",
@@ -4052,7 +4076,7 @@
             "label": "Sincronizar aparência do greeter"
           },
           "keyboard-backlight-down": {
-            "description": "Diminuir retroiluminação de todos teclados em um nível",
+            "description": "Diminuir retroiluminação de todos teclados em 5%",
             "label": "Diminuir retroiluminação de teclado"
           },
           "keyboard-backlight-osd": {
@@ -4068,7 +4092,7 @@
             "label": "Alternar retroiluminação de todos teclados"
           },
           "keyboard-backlight-up": {
-            "description": "Aumentar retroiluminação de todos teclados em um nível",
+            "description": "Aumentar retroiluminação de todos teclados em 5%",
             "label": "Aumentar retroiluminação de teclado"
           },
           "keyboard-layout-cycle": {
@@ -4920,10 +4944,6 @@
           "description": "Incluir janelas de todos os monitores neste widget",
           "label": "Exibir Todos Monitores"
         },
-        "show-all-workspaces": {
-          "description": "Mostrar espaços de trabalho de todos monitores neste widget",
-          "label": "Mostrar Todos Monitores"
-        },
         "show-caps-lock": {
           "description": "Mostra o estado do Caps Lock",
           "label": "Exibir Caps Lock"
@@ -5245,6 +5265,24 @@
   },
   "ui": {
     "controls": {
+      "key-names": {
+        "backspace": "Backspace",
+        "delete": "Delete",
+        "down": "Baixo",
+        "end": "End",
+        "enter": "Enter",
+        "escape": "Escape",
+        "home": "Home",
+        "insert": "Insert",
+        "left": "Esquerda",
+        "numpad-enter": "Enter do Numérico",
+        "page-down": "Page Down",
+        "page-up": "Page Up",
+        "right": "Direita",
+        "space": "Barra de Espaço",
+        "tab": "Tab",
+        "up": "Cima"
+      },
       "search-picker": {
         "empty": "Sem resultados",
         "placeholder": "Buscar..."

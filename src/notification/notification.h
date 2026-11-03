@@ -63,6 +63,7 @@ struct Notification {
   Urgency urgency;
   std::vector<std::string> actions; // pairs: [key, label, key, label, ...]
   std::optional<std::string> icon;
+  bool iconIsAppIcon = false;
   std::optional<NotificationImageData> imageData;
   std::optional<std::string> category;
   std::optional<std::string> desktopEntry;

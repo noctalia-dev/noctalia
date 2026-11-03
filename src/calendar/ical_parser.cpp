@@ -469,7 +469,7 @@ namespace calendar {
           continue;
         }
         if (unbounded) {
-          (void)icalrecur_iterator_set_start(iterator.get(), recurrenceBound(data.windowStart, componentStart));
+          icalrecur_iterator_set_start(iterator.get(), recurrenceBound(data.windowStart, componentStart));
         }
 
         while (!control.stopToken.stop_requested()) {

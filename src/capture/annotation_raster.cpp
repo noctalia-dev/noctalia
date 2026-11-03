@@ -50,7 +50,7 @@ namespace capture {
       pango_layout_set_text(layout, annotation.text.c_str(), -1);
     }
 
-    [[nodiscard]] TextMetrics measureTextUncached(const Annotation& annotation) {
+    TextMetrics measureTextUncached(const Annotation& annotation) {
       cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_A8, 1, 1);
       cairo_t* cr = cairo_create(surface);
       PangoLayout* layout = pango_cairo_create_layout(cr);
@@ -82,7 +82,7 @@ namespace capture {
       };
     }
 
-    [[nodiscard]] TextMetrics textMetrics(const Annotation& annotation) {
+    TextMetrics textMetrics(const Annotation& annotation) {
       // Pango measurement dominates hit testing and dirty-rect math during a text edit,
       // so results are memoized per (content, font size).
       static std::map<std::pair<std::string, double>, TextMetrics> cache;
@@ -134,9 +134,9 @@ namespace capture {
     // some twenty cycles, and six passes over a large region made those divisions the whole
     // cost of the blur, so the window size becomes a fixed-point reciprocal instead. Exact for
     // every window this code uses: sums stay under 255 * window.
-    [[nodiscard]] std::uint64_t averageReciprocal(std::uint32_t count) { return (0xFFFFFFFFULL / count) + 1ULL; }
+    std::uint64_t averageReciprocal(std::uint32_t count) { return (0xFFFFFFFFULL / count) + 1ULL; }
 
-    [[nodiscard]] std::uint32_t averagePixel(const std::array<std::uint32_t, 4>& sums, std::uint64_t reciprocal) {
+    std::uint32_t averagePixel(const std::array<std::uint32_t, 4>& sums, std::uint64_t reciprocal) {
       const auto mean = [reciprocal](std::uint32_t sum) {
         return static_cast<std::uint32_t>((static_cast<std::uint64_t>(sum) * reciprocal) >> 32U);
       };
@@ -213,7 +213,7 @@ namespace capture {
     // large region is pure waste: the result is band-limited to roughly sigma anyway. Averaging
     // step x step source blocks first and blurring that, then letting cairo scale the result
     // back, keeps the pass count off the region's real area and bounds it for a huge rect.
-    [[nodiscard]] int blurDownscaleStep(double sigma, int regionWidth, int regionHeight) {
+    int blurDownscaleStep(double sigma, int regionWidth, int regionHeight) {
       const int fromSigma = std::clamp(static_cast<int>(sigma / 2.0), 1, kMaxBlurStep);
       // Padding is expressed in downscaled pixels, so a step near the region size would spend
       // more time gathering the halo than the region.
@@ -309,7 +309,7 @@ namespace capture {
       return BlurResult{.surface = result, .step = step};
     }
 
-    [[nodiscard]] BlurResult cachedBlur(cairo_surface_t* source, int x, int y, int width, int height, double strength) {
+    BlurResult cachedBlur(cairo_surface_t* source, int x, int y, int width, int height, double strength) {
       static std::uint64_t clock = 0;
       ++clock;
 

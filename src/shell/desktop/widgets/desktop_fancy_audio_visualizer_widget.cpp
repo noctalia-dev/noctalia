@@ -4,9 +4,9 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
+#include "shell/visuals/fancy_audio_visualizer.h"
 #include "ui/builders.h"
 #include "ui/style.h"
-#include "ui/visuals/fancy_audio_visualizer.h"
 
 #include <algorithm>
 #include <array>
@@ -19,7 +19,7 @@ namespace {
   constexpr float kBaseSize = 300.0F;
   constexpr int kBandCount = FancyAudioVisualizerNode::kBandCount;
 
-  [[nodiscard]] float valueAsFloat(const WidgetSettingValue& value, float fallback) {
+  float valueAsFloat(const WidgetSettingValue& value, float fallback) {
     if (const auto* v = std::get_if<double>(&value)) {
       return static_cast<float>(*v);
     }

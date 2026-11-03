@@ -3,8 +3,8 @@
 #include "core/log.h"
 #include "lua.h"
 #include "lualib.h"
+#include "scripting/ui/ui_tree.h"
 #include "scripting/ui_handler_table.h"
-#include "ui/ui_tree.h"
 
 #include <algorithm>
 #include <cmath>

@@ -18,6 +18,7 @@
 #include "render/scene/node.h"
 #include "shell/bar/widget_action.h"
 #include "shell/greeter/greeter_appearance_sync.h"
+#include "shell/palette_swatch_preview.h"
 #include "shell/profile/avatar_path.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/settings_bar_management.h"
@@ -27,6 +28,10 @@
 #include "shell/settings/settings_sidebar.h"
 #include "shell/settings/settings_window.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/background_effect_globals.h"
+#include "shell/wayland/capture_globals.h"
+#include "shell/wayland/clipboard_service.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
 #include "theme/builtin_templates.h"
@@ -40,7 +45,6 @@
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "util/sys_utils.h"
-#include "wayland/clipboard_service.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
 
@@ -63,39 +67,10 @@ namespace {
 
   constexpr auto kSearchDebounceInterval = std::chrono::milliseconds(120);
 
-  bool useLightPalettePreview(ThemeMode mode) { return mode == ThemeMode::Light; }
-
   // The IPC command set is closed (IpcService::bind takes a static cli::Command), so a missing key
   // means en.json drifted from the schema; tr() surfaces that as !!key!! instead of hiding it.
   std::string translatedIpcActionField(std::string_view command, std::string_view field) {
     return i18n::tr(std::format("settings.widgets.actions.commands.{}.{}", command, field));
-  }
-
-  ColorSwatchPreview palettePreviewFromMetadata(const noctalia::theme::AvailablePalette::PreviewMode& metadata) {
-    ColorSwatchPreview preview;
-    Color surface;
-    if (tryParseHexColor(metadata.surface, surface)) {
-      preview.surface = fixedColorSpec(surface);
-    }
-    preview.swatches.reserve(metadata.accents.size());
-    for (const auto& hexColor : metadata.accents) {
-      Color color;
-      if (tryParseHexColor(hexColor, color)) {
-        preview.swatches.push_back(fixedColorSpec(color));
-      }
-    }
-    return preview;
-  }
-
-  ColorSwatchPreview availablePalettePreview(const noctalia::theme::AvailablePalette& palette, ThemeMode mode) {
-    if (useLightPalettePreview(mode)) {
-      ColorSwatchPreview preview = palettePreviewFromMetadata(palette.preview.light);
-      if (!preview.empty()) {
-        return preview;
-      }
-      return palettePreviewFromMetadata(palette.preview.dark);
-    }
-    return palettePreviewFromMetadata(palette.preview.dark);
   }
 
   std::unique_ptr<Label>
@@ -287,6 +262,22 @@ namespace {
         return false;
       }
       stepper->value = *number;
+      return true;
+    }
+    if (auto* length = std::get_if<settings::LengthSetting>(&entry.control)) {
+      if (const auto number = overrideInt(value); number.has_value()) {
+        length->value = LengthSpec::fromPixels(*number);
+        return true;
+      }
+      const auto* text = std::get_if<std::string>(&value);
+      if (text == nullptr) {
+        return false;
+      }
+      const auto percent = parsePercentLength(*text);
+      if (!percent.has_value()) {
+        return false;
+      }
+      length->value = *percent;
       return true;
     }
     if (auto* list = std::get_if<settings::ListSetting>(&entry.control)) {
@@ -580,8 +571,8 @@ namespace {
       }
     }
 
-    [[nodiscard]] bool active() const noexcept { return m_watch.has_value(); }
-    [[nodiscard]] double elapsedMs() const { return m_watch.has_value() ? m_watch->elapsedMs() : 0.0; }
+    bool active() const noexcept { return m_watch.has_value(); }
+    double elapsedMs() const { return m_watch.has_value() ? m_watch->elapsedMs() : 0.0; }
 
   private:
     std::optional<noctalia::profiling::StopWatch> m_watch;
@@ -759,8 +750,8 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
     env.shellAvatarPath = shell::resolvedAvatarPath(m_accounts, m_config->config());
   }
   env.niriBackdropSupported = (m_wayland != nullptr && compositors::isNiri());
-  env.screencopySupported = m_wayland != nullptr && m_wayland->hasScreencopy();
-  env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->hasBackgroundEffectBlur();
+  env.screencopySupported = m_wayland != nullptr && m_wayland->extension<ScreencopyGlobals>().manager() != nullptr;
+  env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->extension<BackgroundEffectGlobals>().hasBlur();
   env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
   env.umbrielOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isUmbriel());
   env.niriOverviewCloseOnLaunchSupported =
@@ -769,7 +760,8 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
       env.umbrielOverviewTypeToLaunchSupported && m_platform != nullptr && m_platform->tracksOverviewState();
   env.ddcutilAvailable = (m_dependencies != nullptr && m_dependencies->hasDdcutil());
   env.systemdUserManaged = process::runningUnderSystemdUserManager();
-  env.gammaControlAvailable = (m_wayland != nullptr && m_wayland->hasGammaControl());
+  env.gammaControlAvailable =
+      m_wayland != nullptr && m_wayland->extension<ShellGlobals>().gammaControlManager() != nullptr;
   env.greeterSyncAvailable =
       m_config != nullptr && greeter::appearanceSyncAvailable(m_config->config().shell.greeterSync);
   const ThemeMode previewMode = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
@@ -779,7 +771,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
             .value = paletteInfo.name,
             .label = paletteInfo.name,
             .description = {},
-            .preview = availablePalettePreview(paletteInfo, previewMode),
+            .preview = availablePaletteSwatchPreview(paletteInfo, previewMode),
         }
     );
   }
@@ -789,7 +781,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
             .value = p.name,
             .label = p.name,
             .description = {},
-            .preview = availablePalettePreview(p, previewMode),
+            .preview = availablePaletteSwatchPreview(p, previewMode),
         }
     );
   }
@@ -938,6 +930,7 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .showAdvanced = m_showAdvanced,
       .showOverriddenOnly = m_showOverriddenOnly,
       .batteryDeviceOptions = batteryDeviceOptions(),
+      .availableOutputs = availableOutputs(),
       .editingWidgetName = m_editingWidgetName,
       .editingCapsuleGroupId = m_editingCapsuleGroupId,
       .selectedLaneWidgets = m_selectedLaneWidgets,
@@ -1846,12 +1839,12 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
 
   if (m_syncGreeterAppearance && env.greeterSyncAvailable) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
-      return e.section == settings::SettingsSection::Security
+      return e.section == settings::SettingsSection::LockScreen
           && e.group == "greeter"
           && e.path == std::vector<std::string>{"shell", "greeter_sync", "privilege_command"};
     });
     settings::SettingEntry btn{
-        .section = settings::SettingsSection::Security,
+        .section = settings::SettingsSection::LockScreen,
         .group = "greeter",
         .title = i18n::tr("settings.schema.shell.sync-greeter.label"),
         .subtitle = i18n::tr("settings.schema.shell.sync-greeter.description"),
@@ -1867,7 +1860,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     auto insertedIt = m_settingsRegistry.insert(it, std::move(btn));
     ++insertedIt;
     settings::SettingEntry toggle{
-        .section = settings::SettingsSection::Security,
+        .section = settings::SettingsSection::LockScreen,
         .group = "greeter",
         .title = i18n::tr("settings.schema.shell.greeter-sync-auto.label"),
         .subtitle = i18n::tr("settings.schema.shell.greeter-sync-auto.description"),
@@ -2006,16 +1999,16 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
 
   if (m_openLockscreenWidgetEditor) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
-      return e.section == settings::SettingsSection::Security
-          && e.group == "lock-screen"
+      return e.section == settings::SettingsSection::LockScreen
+          && e.group == "widgets"
           && e.path == std::vector<std::string>{"lockscreen_widgets", "enabled"};
     });
     if (it != m_settingsRegistry.end()) {
       ++it;
     }
     settings::SettingEntry btn{
-        .section = settings::SettingsSection::Security,
-        .group = "lock-screen",
+        .section = settings::SettingsSection::LockScreen,
+        .group = "widgets",
         .title = i18n::tr("settings.schema.lockscreen.widgets-editor.label"),
         .subtitle = i18n::tr("settings.schema.lockscreen.widgets-editor.description"),
         .path = {},
@@ -2182,7 +2175,7 @@ void SettingsWindow::rebuildFilterRow(float scale) {
   }
 
   const auto index = static_cast<std::size_t>(std::distance(children.begin(), it));
-  (void)m_mainContainer->removeChild(m_filterRow);
+  m_mainContainer->removeChild(m_filterRow);
   const std::string resetPageScope = pageScopeKey(m_selectedSection, m_selectedBarName, m_selectedMonitorOverride);
   m_filterRow = m_mainContainer->insertChildAt(
       index, centeredRow(buildFilterRow(scale, resetPageScope, currentPageResetPaths()))

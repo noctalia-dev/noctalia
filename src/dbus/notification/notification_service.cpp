@@ -46,7 +46,7 @@ namespace {
     return sdbus::createProxy(connection, kDbusBusName, kDbusObjectPath);
   }
 
-  [[nodiscard]] uint32_t notificationNameRequestFlags() {
+  uint32_t notificationNameRequestFlags() {
     if (compositors::isKde()) {
       return kNameFlagAllowReplacement | kNameFlagReplaceExisting | kNameFlagDoNotQueue;
     }
@@ -281,6 +281,16 @@ namespace notification_dbus {
     return icon;
   }
 
+  bool notifyIconIsAppIcon(const std::string& appIcon, const std::map<std::string, sdbus::Variant>& hints) {
+    return !appIcon.empty()
+        && !uri::isRemoteUrl(appIcon)
+        && !hints.contains("image-path")
+        && !hints.contains("image_path")
+        && !hints.contains("image-data")
+        && !hints.contains("image_data")
+        && !hints.contains("icon_data");
+  }
+
   std::optional<std::string> notifyCategoryFromHints(const std::map<std::string, sdbus::Variant>& hints) {
     if (auto it = hints.find("category"); it != hints.end()) {
       try {
@@ -435,6 +445,7 @@ namespace notification_dbus {
             .transient = notifyTransientFromHints(hints),
             .actions = sanitizedActions,
             .icon = notifyIcon(app_name, app_icon, hints),
+            .iconIsAppIcon = notifyIconIsAppIcon(app_icon, hints),
             .imageData = notifyImageDataFromHints(hints),
             .category = notifyCategoryFromHints(hints),
             .desktopEntry = notifyDesktopEntryFromHints(hints),

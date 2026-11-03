@@ -75,4 +75,6 @@ Users add your repo with `noctalia msg plugins source add <name> git <url>`, the
 
 To get your plugin into the plugin store every Noctalia user already has, open a PR against [community-plugins](https://github.com/noctalia-dev/community-plugins) - its README has the submission rules. Your plugin ships a `plugin.toml`, its entry scripts, a `README.md`, a `thumbnail.webp`, and `translations/en.json`; CI validates all of it and regenerates the catalog on merge. Directory names are first-come in that repo, so a plugin named `weather` can only exist once there.
 
+The store's detail page renders that `README.md`. Images referenced by a path inside your plugin directory (`![Panel](screenshots/panel.webp)`) show as blocks between the surrounding text, in PNG, JPEG, WebP, or GIF (animations show their first frame). Each shows at its pixel size times the UI scale, shrunk to the page width and at most 480 pixels tall. Web URLs and paths outside the plugin directory show their alt text instead, so keep screenshots in the plugin directory.
+
 [official-plugins](https://github.com/noctalia-dev/official-plugins) is maintained by the core team and does not take third-party plugins.

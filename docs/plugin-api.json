@@ -250,5 +250,35 @@
     "noctaliaVersion": null,
     "feature": "palette-format-2",
     "introduced": "Palette JSON format 2: a top-level `\"version\": 2` and keys named after the color roles they set (`on_primary`, `surface_container`, terminal `selection_fg`). Plugins that write palette files in format 2 need this level; earlier shells only read format 1 (`mOnPrimary`, `mSurfaceVariant`, `selectionFg`)."
+  },
+  {
+    "level": 45,
+    "noctaliaVersion": null,
+    "feature": "umbriel-action",
+    "introduced": "`noctalia.umbriel.action` for sending typed actions straight to the Umbriel IPC socket, without spawning `umbriel msg`."
+  },
+  {
+    "level": 46,
+    "noctaliaVersion": null,
+    "feature": "gpu-monitoring",
+    "introduced": "`noctalia.setGpuMonitoring(bool)` explicitly acquires or releases GPU sampling. `systemStats()` no longer enables GPU probes implicitly."
+  },
+  {
+    "level": 47,
+    "noctaliaVersion": null,
+    "feature": "secret-setting",
+    "introduced": "`secret = true` on a string, `string_list`, or `string_map` setting marks it as a credential that `noctalia config export --credentials omit|blank` leaves out."
+  },
+  {
+    "level": 48,
+    "noctaliaVersion": null,
+    "feature": "sleep-callbacks",
+    "introduced": "`onSuspend()` and `onResume()` on `[[service]]` entries, called when the system goes to sleep and wakes up."
+  },
+  {
+    "level": 49,
+    "noctaliaVersion": null,
+    "feature": "panel-layer-follow",
+    "introduced": "`layer = \"follow\"` on a `[[panel]]` entry, which makes the floating panel use the shell's `shell.panel.floating_layer`."
   }
 ]

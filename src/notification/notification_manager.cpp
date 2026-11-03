@@ -340,6 +340,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
            || n.dndPolicy != dndPolicy
            || n.actions != actions
            || n.icon != icon
+           || n.iconIsAppIcon != request.iconIsAppIcon
            || n.imageData != imageData
            || n.category != category
            || n.desktopEntry != desktopEntry);
@@ -358,6 +359,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
       n.urgency = urgency;
       n.actions = std::move(actions);
       n.icon = std::move(icon);
+      n.iconIsAppIcon = request.iconIsAppIcon;
       n.imageData = std::move(imageData);
       n.category = std::move(category);
       n.desktopEntry = std::move(desktopEntry);
@@ -417,6 +419,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
           .urgency = urgency,
           .actions = std::move(actions),
           .icon = std::move(icon),
+          .iconIsAppIcon = request.iconIsAppIcon,
           .imageData = std::move(imageData),
           .category = std::move(category),
           .desktopEntry = std::move(desktopEntry),
@@ -525,7 +528,7 @@ const Notification* NotificationManager::findInvokable(uint32_t id) const {
 
 void NotificationManager::dismissAfterInvoke(uint32_t id) {
   if (m_idToIndex.contains(id)) {
-    (void)close(id, CloseReason::Dismissed);
+    close(id, CloseReason::Dismissed);
   } else if (const auto histIt = m_historyIndex.find(id); histIt != m_historyIndex.end()) {
     emitPendingDBusClose(id, CloseReason::Dismissed);
     m_history[histIt->second].notification.actions.clear();

@@ -32,6 +32,7 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
               }),
               field<&Options::drawerMode>({
                   .key = "drawer",
+                  .presentation = settings::WidgetSettingPresentation{.group = "tray.drawer"},
               }),
               field<&Options::panelGridColumns>({
                   .key = "drawer_columns",
@@ -40,6 +41,7 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                   .step = 1.0,
                   .presentation =
                       settings::WidgetSettingPresentation{
+                          .group = "tray.drawer",
                           .visibleWhen = drawerOn,
                       },
               }),
@@ -50,6 +52,7 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                   .step = 1.0,
                   .presentation =
                       settings::WidgetSettingPresentation{
+                          .group = "tray.drawer",
                           .visibleWhen = drawerOn,
                       },
               }),
@@ -57,6 +60,7 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                   .key = "detached_panel",
                   .presentation =
                       settings::WidgetSettingPresentation{
+                          .group = "tray.drawer",
                           .visibleWhen = drawerOn,
                       },
               }),
@@ -67,9 +71,41 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                   .step = 0.01,
                   .presentation =
                       settings::WidgetSettingPresentation{
+                          .group = "tray.drawer",
                           .visibleWhen = detachedDrawerOn,
                       },
                   .inheritsFromBar = true,
+              }),
+              field<&Options::iconOverrideBlacklist>({
+                  .key = "icon_override_blacklist",
+                  .presentation = settings::WidgetSettingPresentation{.group = "tray.icon-overrides"},
+              }),
+              field<&Options::colorizeIcons>({
+                  .key = "colorize_icons",
+                  .presentation = settings::WidgetSettingPresentation{.group = "tray.icon-overrides"},
+              }),
+              field<&Options::iconType>({
+                  .key = "icon_type",
+                  .choices =
+                      {
+                          {
+                              .value = TrayIconType::Default,
+                              .configValue = "default",
+                              .labelKey = "settings.widgets.options.default",
+                          },
+                          {
+                              .value = TrayIconType::Desktop,
+                              .configValue = "desktop",
+                              .labelKey = "settings.widgets.options.desktop",
+                          },
+                          {
+                              .value = TrayIconType::Symbolic,
+                              .configValue = "symbolic",
+                              .labelKey = "settings.widgets.options.symbolic",
+                          },
+                      },
+                  .presentation =
+                      settings::WidgetSettingPresentation{.group = "tray.icon-overrides", .segmented = true},
               }),
           },
       .finalize = [](Options& options, const TrayWidgetDefinitionContext& context) {

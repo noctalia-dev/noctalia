@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+class ShellGlobals;
 class WaylandConnection;
 struct ext_idle_notification_v1;
 
@@ -54,6 +55,7 @@ private:
   void report(Watch& watch, bool idle);
 
   WaylandConnection* m_wayland = nullptr;
+  ShellGlobals* m_shellGlobals = nullptr;
   std::vector<std::unique_ptr<Watch>> m_watches;
   bool m_screenSaverInhibited = false;
   bool m_warnedInputIdleUnsupported = false;

@@ -4,9 +4,9 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/visuals/audio_visualizer.h"
 #include "ui/builders.h"
 #include "ui/style.h"
-#include "ui/visuals/audio_visualizer.h"
 
 #include <algorithm>
 #include <memory>
@@ -96,9 +96,12 @@ void AudioVisualizerWidget::onFrameTick(float deltaMs) {
   if (!m_visible) {
     return;
   }
+  const bool audioActive = m_spectrum != nullptr && !m_spectrum->idle();
   syncSpectrum();
-  m_visualizer->tick(deltaMs);
-  if (m_visible && (!m_visualizer->converged() || (m_spectrum != nullptr && !m_spectrum->idle()))) {
+  if (!m_visualizer->advance(deltaMs, audioActive)) {
+    return;
+  }
+  if (!m_visualizer->converged() || audioActive) {
     requestRedraw();
   }
 }

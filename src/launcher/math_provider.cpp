@@ -4,7 +4,7 @@
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "net/http_client.h"
-#include "wayland/clipboard_service.h"
+#include "shell/wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <cctype>

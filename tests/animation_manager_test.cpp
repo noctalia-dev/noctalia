@@ -1,5 +1,6 @@
 #include "render/animation/animation_manager.h"
 #include "render/animation/motion_service.h"
+#include "tests/test_check.h"
 
 #include <cmath>
 #include <iostream>
@@ -12,8 +13,6 @@ namespace {
     }
     return cond;
   }
-
-  bool nearlyEqual(float a, float b) { return std::fabs(a - b) < 0.0001F; }
 
   void resetMotion() {
     auto& motion = MotionService::instance();
@@ -38,7 +37,7 @@ int main() {
     );
 
     ok &= check(id != 0, "reduced-motion animation with completion should remain cancellable");
-    ok &= check(nearlyEqual(value, 10.0F), "reduced-motion animation did not snap to target");
+    TEST_NEAR(value, 10.0F, 0.0001F);
     ok &= check(!completed, "reduced-motion completion ran synchronously");
 
     manager.tick(0.0F);
@@ -62,7 +61,7 @@ int main() {
 
     MotionService::instance().setEnabled(false);
 
-    ok &= check(nearlyEqual(value, 10.0F), "active animation did not snap when motion was disabled");
+    TEST_NEAR(value, 10.0F, 0.0001F);
     ok &= check(!completed, "active animation completion ran synchronously when motion was disabled");
     ok &= check(manager.hasActive(), "active animation did not remain pending for async completion");
 
@@ -84,7 +83,7 @@ int main() {
     );
 
     ok &= check(id != 0, "timer animation did not start while motion was disabled");
-    ok &= check(nearlyEqual(value, -1.0F), "timer animation snapped when motion was disabled");
+    TEST_NEAR(value, -1.0F, 0.0001F);
 
     manager.tick(0.0F);
 

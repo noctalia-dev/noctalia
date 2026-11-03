@@ -7,9 +7,11 @@
 #include "shell/desktop/desktop_widget_factory.h"
 #include "shell/desktop/desktop_widgets_controller.h"
 #include "shell/desktop/wallpaper_mask.h"
-#include "wayland/layer_surface.h"
+#include "shell/render/wallpaper_mask_node.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -37,7 +39,7 @@ public:
   void onOutputChange();
   void onSecondTick();
   // True when a live widget renders a value that changes every second.
-  [[nodiscard]] bool wantsSecondTicks() const;
+  bool wantsSecondTicks() const;
   void requestUpdate();
   void requestLayout();
   void requestRedraw();
@@ -49,6 +51,8 @@ private:
     DesktopWidgetState state;
     std::string effectiveOutputName;
     wl_output* output = nullptr;
+    // Declared before surface so the surface never outlives the overlay it points at.
+    WallpaperMaskNode wallpaperMask;
     std::unique_ptr<LayerSurface> surface;
     AnimationManager animations;
     InputDispatcher inputDispatcher;
@@ -71,15 +75,16 @@ private:
   void createInstance(const DesktopWidgetState& state, const WaylandOutput& output);
   void buildScene(DesktopWidgetInstance& instance);
   void prepareFrame(DesktopWidgetInstance& instance, bool needsUpdate, bool needsLayout);
-  [[nodiscard]] DesktopWidgetInstance* findInstance(const std::string& id);
+  DesktopWidgetInstance* findInstance(const std::string& id);
   // Coverage of the wallpaper as drawn on the output with this key; empty (full resolution) if the output is unknown.
-  [[nodiscard]] TextureCoverage wallpaperMaskCoverage(const std::string& outputName) const;
+  TextureCoverage wallpaperMaskCoverage(const std::string& outputName) const;
   // Re-targets every mask after output geometry or the wallpaper fill mode may have changed.
   void refreshWallpaperMasks();
   // Checks a pending mask against its wallpaper once both are decoded; erases the entry if they do not match.
   void validateWallpaperMask(const std::string& outputName);
   void onWallpaperMaskTextureChanged(const std::string& outputName);
   void updateWallpaperMask(DesktopWidgetInstance& instance);
+  static void applyWallpaperMask(DesktopWidgetInstance& instance, const std::optional<WallpaperMaskDrawParams>& params);
 
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;

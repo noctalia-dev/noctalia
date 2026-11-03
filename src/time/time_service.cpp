@@ -10,7 +10,7 @@ namespace {
 
   // Round up: a sub-millisecond remainder must still wake after the boundary,
   // never before it, or the tick would see the previous second and do nothing.
-  template <typename Unit> [[nodiscard]] int millisUntilNextBoundary(std::chrono::system_clock::time_point now) {
+  template <typename Unit> int millisUntilNextBoundary(std::chrono::system_clock::time_point now) {
     using namespace std::chrono;
     const auto next = floor<Unit>(now) + Unit{1};
     const auto remaining = ceil<milliseconds>(next - now).count();
@@ -20,8 +20,7 @@ namespace {
   // Ticks only fire on a new whole second, so a deadline wakes at the second
   // boundary it falls in, and never earlier than the next one: a past deadline
   // must not spin the loop until the second rolls over.
-  [[nodiscard]] int
-  millisUntilDeadline(std::chrono::system_clock::time_point now, std::chrono::system_clock::time_point deadline) {
+  int millisUntilDeadline(std::chrono::system_clock::time_point now, std::chrono::system_clock::time_point deadline) {
     using namespace std::chrono;
     const auto target = std::max(ceil<seconds>(deadline), floor<seconds>(now) + seconds{1});
     const auto remaining = ceil<milliseconds>(target - now).count();

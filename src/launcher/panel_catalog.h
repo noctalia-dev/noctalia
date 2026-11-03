@@ -18,10 +18,10 @@ namespace panel_catalog {
   // Resolves a raw panel id to a display title/subtitle/glyph: a small built-in
   // table (core panels ship no manifest to read one from), the owning plugin's
   // manifest name/icon (entry id as subtitle), or the raw id as a last resort.
-  [[nodiscard]] Description describe(std::string_view panelId);
+  Description describe(std::string_view panelId);
 
   // Every panel id that could be registered: the built-in table plus every
   // [[panel]] entry of a currently-active plugin (live via PluginRegistry).
-  [[nodiscard]] std::vector<std::string> allKnownIds();
+  std::vector<std::string> allKnownIds();
 
 } // namespace panel_catalog

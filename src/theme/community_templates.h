@@ -23,7 +23,7 @@ namespace noctalia::theme {
     void setReadyCallback(ReadyCallback callback);
     void sync(const ThemeConfig::TemplatesConfig& templates);
 
-    [[nodiscard]] static std::vector<AvailableTemplate> availableTemplates();
+    static std::vector<AvailableTemplate> availableTemplates();
 
   private:
     void syncSelectedFromCatalog(
@@ -36,9 +36,9 @@ namespace noctalia::theme {
     std::uint64_t m_generation = 0;
   };
 
-  [[nodiscard]] std::filesystem::path communityTemplatesCacheDir();
-  [[nodiscard]] std::filesystem::path communityTemplateDir(std::string_view id);
-  [[nodiscard]] std::filesystem::path communityTemplateConfigPath(std::string_view id);
-  [[nodiscard]] bool isSafeCommunityTemplateId(std::string_view id);
+  std::filesystem::path communityTemplatesCacheDir();
+  std::filesystem::path communityTemplateDir(std::string_view id);
+  std::filesystem::path communityTemplateConfigPath(std::string_view id);
+  bool isSafeCommunityTemplateId(std::string_view id);
 
 } // namespace noctalia::theme

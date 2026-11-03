@@ -9,7 +9,7 @@ namespace settings::popup_layout {
 
   float preferredContentWidth(
       std::uint32_t parentWidth, float scale, float minLogical, float maxLogical, float parentFraction,
-      float parentMarginLogical, const ShellConfig::ShadowConfig& shadow
+      float parentMarginLogical, const ShadowStyle& shadow
   ) {
     float panelW = minLogical * scale;
     if (parentWidth == 0) {
@@ -26,7 +26,7 @@ namespace settings::popup_layout {
   }
 
   std::pair<std::uint32_t, std::uint32_t>
-  surfaceSizeForContent(float contentWidth, float contentHeight, const ShellConfig::ShadowConfig& shadow) {
+  surfaceSizeForContent(float contentWidth, float contentHeight, const ShadowStyle& shadow) {
     const auto geo = popup_chrome::computeGeometry(
         std::max(1.0F, contentWidth), std::max(1.0F, contentHeight), shadow, Style::popupShadowsEnabled()
     );

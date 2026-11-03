@@ -42,9 +42,11 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 
 ## Layer Boundaries
 
-**Shell and widget code** (`src/shell/`) uses only controls from `src/ui/controls/` (`Label`, `Button`, `Glyph`, `Box`, `Separator`, ...). It never creates raw scene nodes such as `TextNode`, `RectNode`, or `IconNode`. `InputArea` is the only exception. Use `Box` for backgrounds, `Separator` for dividers, and `Label` for text.
+**Library** (`lib/`): `core`, `i18n`, `render`, `ui`, `util`, and `wayland` form the `noctalia-ui` static library. It builds without `src/` on its include path and generates only the Wayland protocols it binds, so it never includes shell code, shell-only protocol headers, or build metadata such as the git revision.
 
-**Controls** (`src/ui/controls/`) own the raw nodes.
+**Shell and widget code** (`src/shell/`) uses only controls from `lib/ui/controls/` (`Label`, `Button`, `Glyph`, `Box`, `Separator`, ...). It never creates raw scene nodes such as `TextNode`, `RectNode`, or `IconNode`. `InputArea` is the only exception. Use `Box` for backgrounds, `Separator` for dividers, and `Label` for text.
+
+**Controls** (`lib/ui/controls/`) own the raw nodes.
 
 - `Label::measure(Renderer&)` must be called after setting text and font, before positioning.
 - Use `VirtualGridView` for fixed-size cell grids and `VirtualListView` for variable-height lists.
@@ -61,12 +63,14 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 - `RenderContext` owns scene traversal and delegates drawing to a `RenderBackend`. Construct backends with `createDefaultRenderBackend()`.
 - Texture allocation goes through `TextureManager`, constructed with `createDefaultTextureManager()`.
 - Shell and widget code works with typed render concepts (`TextureId`, `TextureHandle`, `RenderFramebuffer`, `RenderSurfaceTarget`, nodes, draw primitives). Raw `GLuint` or EGL handles stay inside the render infrastructure.
-- `RenderContext` does not own shader programs or include `render/programs/*`. Style and data structs live in neutral headers under `render/core/`.
-- A new shader follows the same pattern: a GLES program in `src/render/programs/`, neutral data under `render/core/`, a typed `RenderBackend` draw method, and ownership by `GlesRenderBackend`.
+- `lib/render` draws generic primitives only (rect, text, image, glyph, spinner, blur, fullscreen texture and tint) and never includes shell code. `RenderContext` does not own shader programs or include `render/programs/*`. Style and data structs live in neutral headers under `render/core/`.
+- A new generic primitive is a GLES program in `lib/render/programs/`, a typed `RenderBackend` draw method, and ownership by `GlesRenderBackend`.
+- Shell-only drawing (wallpaper, visualizers, graphs, weather effects, transitions) lives in `src/shell/render/`: a `CustomDrawNode` subclass whose `draw()` fetches its GLES program with `RenderBackend::extension<T>()`. The program derives from `RenderExtension`; the backend creates it on first use and destroys or abandons it with its own GPU objects.
+- `Surface::setOverlayNode()` renders a node after the scene root in surface coordinates, for passes that must cover the whole surface (the desktop-widget wallpaper mask).
 - Text is rasterized with Pango and Cairo, uploaded through `TextureManager`, and drawn with `RenderBackend::drawGlyph()`.
 - Async images are consumer scoped through `Image::setSourceFileAsync()` and `AsyncTextureCache::subscribeReady()`; there is no fan-out from `Application`.
 
-**Rectangle shapes**: the rect shader is generic. Use per-corner `CornerShape::Convex` or `CornerShape::Concave` with `Radii` and `RectInsets logicalInset`. Panel and bar policy stays in shell code, not in shader enum names. Screen-corner overlays use the dedicated `ScreenCornerProgram` and `ScreenCornerNode` path.
+**Rectangle shapes**: the rect shader is generic. Use per-corner `CornerShape::Convex` or `CornerShape::Concave` with `Radii` and `RectInsets logicalInset`. Panel and bar policy stays in shell code, not in shader enum names. Screen-corner overlays use the shell's `ScreenCornerNode` custom draw node.
 
 ### Fractional Scaling
 
@@ -118,7 +122,10 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 
 ## Compositor Integration
 
-- `WaylandConnection` is protocol transport only, with no compositor-specific branches. Compositor behavior goes through `CompositorPlatform`.
+- `WaylandConnection` is protocol transport only, with no compositor-specific branches, and `lib/wayland` never includes shell code. It binds the globals a plain xdg-toplevel client needs (outputs and xdg-output, seat, shm, compositor, xdg-shell, activation, cursor shape, viewporter, fractional scale, text input).
+- Shell-only and compositor-specific globals (layer shell, background-effect blur, toplevels, workspaces, clipboard, capture, idle, session lock, gamma, output management, Hyprland focus grab) live in `src/shell/wayland/` as `WaylandExtension`s fetched with `WaylandConnection::extension<T>()`. The connection replays already advertised globals to a new extension and releases every extension before it disconnects. Extensions whose globals must be bound in the initial registry roundtrip are created before `connect()`. Compositor behavior goes through `CompositorPlatform`.
+- `LayerSurface`, its `wl_surface` registry, and blur regions belong to the shell (`LayerShell`, `BackgroundEffectGlobals`). Library popups never name a layer surface: a non-xdg parent supplies a `PopupParentAttach` hook that assigns the `xdg_popup` its parent (`LayerShell::popupAttach()`), and a parent that refuses keyboard focus supplies a `PopupKeyboardGrab` (`LayerShell::popupKeyboardGrab()`).
+- Output make, model, serial, fixed scale, and transform come from an extension through `setOutputMetadataSource()`; without one, the configured scale falls back to the mode/logical ratio and `wl_output.scale`.
 - Prefer passing `CompositorPlatform&` over passing both `WaylandConnection&` and `CompositorPlatform&`.
 - Detect compositors with `compositors::detect()`, `isHyprland()`, `isNiri()`, `isSway()`, and `isMango()` from `compositor_detect.h`; do not sniff environment variables again.
 - Logout goes through `uwsm stop` when UWSM manages the compositor, otherwise compositor-native logout commands. Niri goes through `NiriRuntime` IPC, not the CLI.
@@ -158,12 +165,12 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 
 ## Theming and Style
 
-- Style constants live in `src/ui/style.h`, colors in `src/ui/palette.h`. Controls aim for a rounded, comfortably spaced look tuned for a native 1080p desktop.
+- Style constants live in `lib/ui/style.h`, colors in `lib/ui/palette.h`. Controls aim for a rounded, comfortably spaced look tuned for a native 1080p desktop.
 - Terminology: `Palette` is a resolved RGB set, `ColorRole` a named slot, `ColorSpec` a role or fixed value. User-facing strings say "color role"; "theme" refers to the `[theme]` palette subsystem.
 - `FixedPaletteMode` carries `dark` and `light`, each with a UI `palette` and a nested `terminal` palette.
 - Palette JSON (community, custom, `noctalia theme --theme-json`) carries a top-level integer `version`; a file without one is format 1. Format 2 keys are the color role names (`on_primary`, `surface_container`, terminal `selection_fg`), listed once in `kFixedPaletteJsonKeys`. `src/theme/fixed_palette_json.cpp` upgrades older formats in memory on read and rejects newer ones. Community palette requests send `?version=<kPaletteFormatVersion>`, and the API answers with at most that format, converting newer palettes down so older shells keep working.
 - Built-in template hooks live beside their template (for example `assets/templates/fuzzel/apply.sh`). Community templates are fetched from `https://api.noctalia.dev/templates` and cached under `$XDG_STATE_HOME/noctalia/community-templates`. Template application runs on a background worker.
-- Glyph names resolve through `src/render/text/glyph_registry.cpp`: curated aliases, then `U+`/`0x` codepoints, then Tabler names from `tabler.json`. C++ glyph literals belong in the curated registry.
+- Glyph names resolve through `lib/render/text/glyph_registry.cpp`: curated aliases, then `U+`/`0x` codepoints, then Tabler names from `tabler.json`. C++ glyph literals belong in the curated registry.
 
 ## Launcher
 

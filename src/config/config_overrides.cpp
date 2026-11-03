@@ -175,6 +175,9 @@ namespace {
     if (ovr.smartAutoHide) {
       resolved.smartAutoHide = *ovr.smartAutoHide;
     }
+    if (ovr.autoHideReserveSpace) {
+      resolved.autoHideReserveSpace = *ovr.autoHideReserveSpace;
+    }
     if (ovr.showOnWorkspaceSwitch) {
       resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
     }
@@ -872,6 +875,15 @@ namespace {
     if (path.size() == 3 && path[0] == "widget" && path[2] == "type") {
       return true;
     }
+
+    // migrateCustomSchedule() turns custom_schedule on for a times-only location whenever the key is
+    // absent. The no-override comparison therefore resolves to true too, but writing an explicit
+    // true override is exactly what opts the user's config out of that legacy migration. Dropping it
+    // as a no-op would re-trigger the migration and its "set custom_schedule = true" warning.
+    if (path.size() == 2 && path[0] == "location" && path[1] == "custom_schedule") {
+      return true;
+    }
+
     if (path.size() != 5 || path[0] != "bar" || path[2] != "monitor") {
       return false;
     }
@@ -1250,16 +1262,6 @@ bool ConfigService::markSetupWizardCompleted() {
     return true;
   }
 
-  // The bundled wallpaper is served via firstRunWallpaperPath() until setup
-  // completes. Persist it so finishing the wizard does not clear the desktop.
-  if (!hasConfiguredWallpaper()) {
-    const auto bundled = paths::assetPath("noctalia-wallpaper.png");
-    std::error_code ec;
-    if (std::filesystem::exists(bundled, ec)) {
-      setWallpaperPath(std::nullopt, bundled.string());
-    }
-  }
-
   std::ofstream out(m_setupMarkerPath, std::ios::trunc);
   if (!out.is_open()) {
     kLog.warn("failed to write {}", m_setupMarkerPath);
@@ -1428,7 +1430,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   if (!effectiveOverrides.empty()) {
     const auto storedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, migrationDiag);
     if (storedVersion.has_value()) {
-      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, *storedVersion, migrationDiag);
+      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, merged, *storedVersion, migrationDiag);
     }
   }
   if (migrationDiag.hasErrors()) {
@@ -1438,7 +1440,7 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   deepMerge(merged, effectiveOverrides);
   merged.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
-  noctalia::config::normalizeLegacyConfig(merged, issues);
+  noctalia::config::normalizeLegacyConfig(merged, issues, &effectiveOverrides);
   if (mergeResult.loadedFiles.empty() && overrides.empty()) {
     parsed.idle.behaviors = defaultIdleBehaviors();
     parsed.bars.push_back(BarConfig{});
@@ -1472,13 +1474,13 @@ noctalia::config::schema::Diagnostics ConfigService::diagnosticsForOverrides(con
   if (!effectiveOverrides.empty()) {
     const auto storedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, diagnostics);
     if (storedVersion.has_value()) {
-      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, *storedVersion, diagnostics);
+      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, merged, *storedVersion, diagnostics);
     }
   }
   deepMerge(merged, effectiveOverrides);
   merged.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
-  noctalia::config::normalizeLegacyConfig(merged, issues);
+  noctalia::config::normalizeLegacyConfig(merged, issues, &effectiveOverrides);
   for (const auto& issue : issues) {
     diagnostics.warn(issue.path, issue.message, "config.legacy");
   }
@@ -2215,10 +2217,7 @@ bool ConfigService::hasConfiguredWallpaper() const {
   return !m_monitorWallpaperPaths.empty();
 }
 
-std::string ConfigService::firstRunWallpaperPath() const {
-  if (m_setupMarkerPath.empty() || std::filesystem::exists(m_setupMarkerPath)) {
-    return {};
-  }
+std::string ConfigService::fallbackWallpaperPath() const {
   if (hasConfiguredWallpaper()) {
     return {};
   }
@@ -2231,7 +2230,7 @@ std::string ConfigService::firstRunWallpaperPath() const {
 }
 
 std::string ConfigService::getWallpaperPath(const std::string& connectorName) const {
-  if (const std::string bundled = firstRunWallpaperPath(); !bundled.empty()) {
+  if (const std::string bundled = fallbackWallpaperPath(); !bundled.empty()) {
     return bundled;
   }
   auto it = m_monitorWallpaperPaths.find(connectorName);
@@ -2242,14 +2241,14 @@ std::string ConfigService::getWallpaperPath(const std::string& connectorName) co
 }
 
 std::string ConfigService::getDefaultWallpaperPath() const {
-  if (const std::string bundled = firstRunWallpaperPath(); !bundled.empty()) {
+  if (const std::string bundled = fallbackWallpaperPath(); !bundled.empty()) {
     return bundled;
   }
   return m_defaultWallpaperPath;
 }
 
 std::string ConfigService::getPaletteWallpaperPath() const {
-  if (const std::string bundled = firstRunWallpaperPath(); !bundled.empty()) {
+  if (const std::string bundled = fallbackWallpaperPath(); !bundled.empty()) {
     return bundled;
   }
   if (!m_lastWallpaperPath.empty()) {

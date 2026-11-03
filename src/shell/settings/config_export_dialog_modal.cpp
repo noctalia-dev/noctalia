@@ -8,12 +8,36 @@
 #include "ui/style.h"
 
 #include <algorithm>
+#include <array>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace settings {
   namespace {
 
     constexpr float kDialogWidth = 560.0F;
+
+    using noctalia::config::CredentialExportMode;
+
+    // Segment order in the credentials control.
+    constexpr std::array kCredentialModes{
+        CredentialExportMode::Keep,
+        CredentialExportMode::Omit,
+        CredentialExportMode::Blank,
+    };
+
+    std::string credentialsDescription(CredentialExportMode credentials) {
+      switch (credentials) {
+      case CredentialExportMode::Keep:
+        return i18n::tr("settings.export-config.credentials-keep-description");
+      case CredentialExportMode::Omit:
+        return i18n::tr("settings.export-config.credentials-omit-description");
+      case CredentialExportMode::Blank:
+        return i18n::tr("settings.export-config.credentials-blank-description");
+      }
+      return {};
+    }
 
   } // namespace
 
@@ -42,6 +66,7 @@ namespace settings {
 
     m_scale = std::max(0.1F, request.scale);
     m_mode = ConfigExportMode::MergedUser;
+    m_credentials = CredentialExportMode::Keep;
     m_callback = std::move(request.callback);
     clearNodePointers();
 
@@ -158,6 +183,49 @@ namespace settings {
             {
                 .align = FlexAlign::Stretch,
                 .gap = Style::spaceXs * m_scale,
+            },
+            ui::label({
+                .text = i18n::tr("settings.export-config.credentials-title"),
+                .fontSize = Style::fontSizeBody * m_scale,
+                .fontWeight = FontWeight::Bold,
+                .color = colorSpecFromRole(ColorRole::OnSurface),
+                .maxLines = 1,
+            }),
+            ui::segmented({
+                .options =
+                    std::vector<ui::SegmentedOption>{
+                        {.label = i18n::tr("settings.export-config.credentials-keep")},
+                        {.label = i18n::tr("settings.export-config.credentials-omit")},
+                        {.label = i18n::tr("settings.export-config.credentials-blank")},
+                    },
+                .selectedIndex = static_cast<std::size_t>(
+                    std::ranges::find(kCredentialModes, m_credentials) - kCredentialModes.begin()
+                ),
+                .fontSize = Style::fontSizeBody,
+                .scale = m_scale,
+                .equalSegmentWidths = true,
+                .onChange =
+                    [this](std::size_t index) {
+                      if (index < kCredentialModes.size()) {
+                        setCredentials(kCredentialModes[index]);
+                      }
+                    },
+            }),
+            ui::label({
+                .out = &m_credentialsDescription,
+                .text = credentialsDescription(m_credentials),
+                .fontSize = Style::fontSizeCaption * m_scale,
+                .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                .maxLines = 0,
+            })
+        )
+    );
+
+    root->addChild(
+        ui::column(
+            {
+                .align = FlexAlign::Stretch,
+                .gap = Style::spaceXs * m_scale,
                 .padding = Style::spaceSm * m_scale,
                 .configure =
                     [this](Flex& warning) {
@@ -259,18 +327,27 @@ namespace settings {
     requestRedraw();
   }
 
+  void ConfigExportDialogModal::setCredentials(CredentialExportMode credentials) {
+    m_credentials = credentials;
+    if (m_credentialsDescription != nullptr) {
+      m_credentialsDescription->setText(credentialsDescription(credentials));
+    }
+    requestLayout();
+  }
+
   void ConfigExportDialogModal::accept() {
     if (!m_open || m_host == nullptr || !m_modalId.has_value()) {
       return;
     }
     const ConfigExportMode mode = m_mode;
+    const CredentialExportMode credentials = m_credentials;
     ExportCallback callback = std::move(m_callback);
     if (!m_host->pop(*m_modalId)) {
       m_callback = std::move(callback);
       return;
     }
     if (callback) {
-      callback(mode);
+      callback(mode, credentials);
     }
   }
 
@@ -343,6 +420,7 @@ namespace settings {
     m_root = nullptr;
     m_mergedRadio = nullptr;
     m_fullRadio = nullptr;
+    m_credentialsDescription = nullptr;
     m_exportButton = nullptr;
   }
 

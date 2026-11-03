@@ -28,7 +28,7 @@ namespace capture {
     }};
 
     // Anti-aliased coverage of a rounded rectangle at the pixel centre (px + 0.5, py + 0.5).
-    [[nodiscard]] float roundedRectCoverage(int px, int py, float x0, float y0, float w, float h, float radius) {
+    float roundedRectCoverage(int px, int py, float x0, float y0, float w, float h, float radius) {
       const float halfW = w * 0.5F;
       const float halfH = h * 0.5F;
       const float qx = std::abs(static_cast<float>(px) + 0.5F - (x0 + halfW)) - (halfW - radius);
@@ -92,7 +92,7 @@ namespace capture {
     }
 
     // Straight-alpha source-over.
-    [[nodiscard]] Rgba over(const Rgba& dst, float r, float g, float b, float a) {
+    Rgba over(const Rgba& dst, float r, float g, float b, float a) {
       const float outA = a + (dst.a * (1.0F - a));
       if (outA <= 0.0F) {
         return {};
@@ -106,7 +106,7 @@ namespace capture {
       };
     }
 
-    [[nodiscard]] std::uint8_t toByte(float value) {
+    std::uint8_t toByte(float value) {
       return static_cast<std::uint8_t>(std::lround(std::clamp(value, 0.0F, 1.0F) * 255.0F));
     }
 

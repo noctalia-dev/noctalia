@@ -3748,10 +3748,6 @@
           "description": "Zeige Fenster von allen Monitoren in diesem Widget an",
           "label": "Alle Monitore anzeigen"
         },
-        "show-all-workspaces": {
-          "description": "Zeige Arbeitsbereiche von allen Monitoren auf diesem Widget an",
-          "label": "Alle Monitore anzeigen"
-        },
         "show-caps-lock": {
           "description": "Zeige den Caps-Lock-Status an",
           "label": "Caps Lock anzeigen"
