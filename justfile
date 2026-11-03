@@ -22,7 +22,7 @@ configure m=mode install_prefix=prefix:
     ln -sfn "build-{{m}}/compile_commands.json" compile_commands.json
 
 build m=mode: (_ensure-configured m)
-    meson compile -C build-{{m}} noctalia
+    meson compile -C build-{{m}} noctalia noctalia-pam-helper
 
 _ensure-configured m=mode:
     #!/usr/bin/env bash
