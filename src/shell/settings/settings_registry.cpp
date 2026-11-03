@@ -512,6 +512,12 @@ namespace settings {
           tr("settings.schema.appearance.wallpaper-generation-scheme.description"), {"theme", "wallpaper_scheme"},
           wallpaperSchemeSelect(cfg.theme.wallpaperScheme), "wallpaper palette generator scheme material you m3 colors"
       ));
+      entries.push_back(makeEntry(
+          SettingsSection::Appearance, "theme", tr("settings.schema.appearance.terminal-colors.label"),
+          tr("settings.schema.appearance.terminal-colors.description"), {"theme", "terminal_colors"},
+          asSegmented(enumSelect(kTerminalColorsOptions, cfg.theme.terminalColors)),
+          "terminal ansi colors red green semantic wallpaper"
+      ));
     } else if (cfg.theme.source == PaletteSource::Community) {
       SettingControl communityPaletteControl =
           TextSetting{.value = cfg.theme.communityPalette, .placeholder = "Oxocarbon", .browseFileExtensions = {}};

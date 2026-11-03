@@ -387,6 +387,7 @@ namespace noctalia::theme {
         variant = Variant::Both;
     }
     const bool pureBlack = parsed->has("--pure-black");
+    const bool standardTerminalColors = parsed->valueOr("--terminal-colors", "palette") == "standard";
     const char* outPath = parsed->has("-o") ? parsed->value("-o").data() : nullptr;
     const char* configPath = parsed->has("--config") ? parsed->value("--config").data() : nullptr;
     std::string builtinConfigPathStorage;
@@ -438,6 +439,10 @@ namespace noctalia::theme {
       palette = std::move(*generated);
     }
 
+    // A --theme-json palette carries its own terminal colors, as a custom palette would.
+    if (standardTerminalColors && !themeJsonPath) {
+      applyStandardTerminalColors(palette);
+    }
     if (pureBlack) {
       applyPureBlackDark(palette);
     }

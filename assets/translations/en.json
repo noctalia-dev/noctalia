@@ -1757,6 +1757,10 @@
           "community": "Community",
           "custom": "Custom",
           "wallpaper": "Wallpaper"
+        },
+        "terminal-colors": {
+          "palette": "Palette",
+          "standard": "Standard"
         }
       },
       "theme-role": {
@@ -2024,6 +2028,10 @@
         "sync-color-scheme": {
           "description": "Set the system dark/light preference read by browsers and other apps to follow Theme Mode",
           "label": "Sync App Color Scheme"
+        },
+        "terminal-colors": {
+          "description": "Palette matches terminal colors to the wallpaper; Standard keeps red, green and yellow recognizable",
+          "label": "Terminal Colors"
         },
         "theme-mode": {
           "description": "Choose Dark, Light, or Auto based on time of day; also applies to apps through templates",
