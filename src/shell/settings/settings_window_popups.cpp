@@ -58,6 +58,8 @@ namespace {
 
   constexpr std::int32_t kActionSupportReport = 1;
   constexpr std::int32_t kActionExportConfig = 2;
+  // Followed by one id per kLockscreenTransitions entry.
+  constexpr std::int32_t kActionPreviewTransitionBase = 100;
   constexpr std::string_view kCalendarDiscoveryOwner = "calendar_discovery";
 
   std::string calendarCredentialError(CalendarService::CredentialOperationResult result) {
@@ -308,6 +310,60 @@ namespace {
 
 } // namespace
 
+void SettingsWindow::ensureActionsMenuPopup() {
+  if (m_actionsMenuPopup != nullptr) {
+    return;
+  }
+  m_actionsMenuPopup = std::make_unique<ContextMenuPopup>(*m_wayland, *m_renderContext);
+  m_actionsMenuPopup->setOnActivate([this](const ContextMenuControlEntry& entry) {
+    if (m_actionsMenuPopup != nullptr) {
+      m_actionsMenuPopup->close();
+    }
+    switch (entry.id) {
+    case kActionSupportReport:
+      DeferredCall::callLater([this] { saveSupportReport(); });
+      break;
+    case kActionExportConfig:
+      DeferredCall::callLater([this] { openConfigExportDialog(); });
+      break;
+    default:
+      if (const auto index = static_cast<std::size_t>(entry.id - kActionPreviewTransitionBase);
+          entry.id >= kActionPreviewTransitionBase
+          && index < std::size(kLockscreenTransitions)
+          && m_previewLockscreenTransition) {
+        const LockscreenTransition transition = kLockscreenTransitions[index].value;
+        DeferredCall::callLater([this, transition] { m_previewLockscreenTransition(transition); });
+      }
+      break;
+    }
+  });
+}
+
+void SettingsWindow::openActionsMenuPopup(std::vector<ContextMenuControlEntry> entries, PopupAnchorRect anchor) {
+  const float scale = uiScale();
+  wl_output* output = m_wayland->lastPointerOutput();
+  if (output == nullptr) {
+    output = m_output;
+  }
+
+  if (m_config != nullptr) {
+    m_actionsMenuPopup->setShadowConfig(m_config->config().shell.shadow);
+  }
+  m_actionsMenuPopup->open(
+      ContextMenuPopupRequest{
+          .entries = std::move(entries),
+          .minMenuWidth = 220.0F * scale,
+          .maxMenuWidth = Style::menuAutoMaxWidth * scale,
+          .maxVisible = 12,
+          .anchor = anchor,
+          .parent = PopupSurfaceParent{
+              .xdgSurface = m_surface->xdgSurface(),
+              .output = output,
+          },
+      }
+  );
+}
+
 void SettingsWindow::openActionsMenu() {
   if (m_wayland == nullptr
       || m_renderContext == nullptr
@@ -317,27 +373,8 @@ void SettingsWindow::openActionsMenu() {
     return;
   }
 
-  if (m_actionsMenuPopup == nullptr) {
-    m_actionsMenuPopup = std::make_unique<ContextMenuPopup>(*m_wayland, *m_renderContext);
-    m_actionsMenuPopup->setOnActivate([this](const ContextMenuControlEntry& entry) {
-      switch (entry.id) {
-      case kActionSupportReport:
-        if (m_actionsMenuPopup != nullptr) {
-          m_actionsMenuPopup->close();
-        }
-        DeferredCall::callLater([this] { saveSupportReport(); });
-        break;
-      case kActionExportConfig:
-        if (m_actionsMenuPopup != nullptr) {
-          m_actionsMenuPopup->close();
-        }
-        DeferredCall::callLater([this] { openConfigExportDialog(); });
-        break;
-      default:
-        break;
-      }
-    });
-  } else if (m_actionsMenuPopup->isOpen()) {
+  ensureActionsMenuPopup();
+  if (m_actionsMenuPopup->isOpen()) {
     m_actionsMenuPopup->close();
     return;
   }
@@ -361,35 +398,66 @@ void SettingsWindow::openActionsMenu() {
   float anchorAbsX = 0.0F;
   float anchorAbsY = 0.0F;
   Node::absolutePosition(m_actionsMenuButton, anchorAbsX, anchorAbsY);
-
-  const float scale = uiScale();
-  wl_output* output = m_wayland->lastPointerOutput();
-  if (output == nullptr) {
-    output = m_output;
-  }
-
-  if (m_config != nullptr) {
-    m_actionsMenuPopup->setShadowConfig(m_config->config().shell.shadow);
-  }
-  m_actionsMenuPopup->open(
-      ContextMenuPopupRequest{
-          .entries = std::move(entries),
-          .minMenuWidth = 220.0F * scale,
-          .maxMenuWidth = Style::menuAutoMaxWidth * scale,
-          .maxVisible = 8,
-          .anchor =
-              PopupAnchorRect{
-                  .x = static_cast<std::int32_t>(anchorAbsX),
-                  .y = static_cast<std::int32_t>(anchorAbsY),
-                  .width = static_cast<std::int32_t>(m_actionsMenuButton->width()),
-                  .height = static_cast<std::int32_t>(m_actionsMenuButton->height()),
-              },
-          .parent = PopupSurfaceParent{
-              .xdgSurface = m_surface->xdgSurface(),
-              .output = output,
-          },
+  openActionsMenuPopup(
+      std::move(entries),
+      PopupAnchorRect{
+          .x = static_cast<std::int32_t>(anchorAbsX),
+          .y = static_cast<std::int32_t>(anchorAbsY),
+          .width = static_cast<std::int32_t>(m_actionsMenuButton->width()),
+          .height = static_cast<std::int32_t>(m_actionsMenuButton->height()),
       }
   );
+}
+
+void SettingsWindow::openLockscreenTransitionPreviewMenu() {
+  if (m_wayland == nullptr
+      || m_renderContext == nullptr
+      || m_surface == nullptr
+      || m_surface->xdgSurface() == nullptr
+      || !m_previewLockscreenTransition) {
+    return;
+  }
+
+  ensureActionsMenuPopup();
+  if (m_actionsMenuPopup->isOpen()) {
+    m_actionsMenuPopup->close();
+  }
+
+  std::vector<ContextMenuControlEntry> entries;
+  entries.reserve(std::size(kLockscreenTransitions));
+  for (std::size_t i = 0; i < std::size(kLockscreenTransitions); ++i) {
+    entries.push_back(
+        {.id = kActionPreviewTransitionBase + static_cast<std::int32_t>(i),
+         .label = i18n::tr(kLockscreenTransitions[i].labelKey),
+         .enabled = true,
+         .separator = false,
+         .hasSubmenu = false}
+    );
+  }
+
+  // Keyboard activation leaves the button focused; a click clears focus on release but leaves it hovered.
+  const InputArea* button = m_inputDispatcher.focusedArea();
+  if (button == nullptr) {
+    button = m_inputDispatcher.hoveredArea();
+  }
+  PopupAnchorRect anchor{
+      .x = static_cast<std::int32_t>(m_wayland->lastPointerX()),
+      .y = static_cast<std::int32_t>(m_wayland->lastPointerY()),
+      .width = 1,
+      .height = 1,
+  };
+  if (button != nullptr) {
+    float x = 0.0F;
+    float y = 0.0F;
+    Node::absolutePosition(button, x, y);
+    anchor = PopupAnchorRect{
+        .x = static_cast<std::int32_t>(x),
+        .y = static_cast<std::int32_t>(y),
+        .width = static_cast<std::int32_t>(button->width()),
+        .height = static_cast<std::int32_t>(button->height()),
+    };
+  }
+  openActionsMenuPopup(std::move(entries), anchor);
 }
 
 void SettingsWindow::openConfigExportDialog() {

@@ -48,6 +48,7 @@
 #include "shell/dock/dock.h"
 #include "shell/hot_corners/hot_corners.h"
 #include "shell/lockscreen/lock_screen.h"
+#include "shell/lockscreen/lockscreen_transition_preview.h"
 #include "shell/lockscreen/lockscreen_widgets_controller.h"
 #include "shell/notification/notification_toast.h"
 #include "shell/osd/audio_osd.h"
@@ -291,6 +292,7 @@ private:
   IdleManager m_idleManager;
   PluginIdleWatches m_pluginIdleWatches;
   IdleGraceOverlay m_idleGraceOverlay;
+  LockscreenTransitionPreview m_lockscreenTransitionPreview;
   std::uint64_t m_idleGraceOverlayGeneration = 0;
   HookManager m_hookManager;
   DependencyService m_dependencyService;

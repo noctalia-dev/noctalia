@@ -551,6 +551,8 @@ The power buttons on the lock screen come from the session actions; to trigger o
 
 Lock screen transitions have their own effect pool, duration, and edge smoothness. They do not read or modify the settings under **`[wallpaper]`**. Set `transition = []` to disable lock and unlock animations.
 
+**Settings → Lock Screen → Preview Effect** plays any effect on screen without locking, whether or not it is in the pool. It uses the configured duration and edge smoothness and reveals a blurred, tinted copy of the desktop in place of the full lock screen. A click or key press stops it.
+
 Normal manual and idle locks retain the configured transitions. If Noctalia has requested screen-off, or compositor feedback reports an output powered off, that lock skips desktop-based entry and exit animations. Its first frame contains the complete configured lock screen, so waking an output cannot replay a desktop transition. This decision remains in effect until unlock, including config reloads and newly connected outputs. The explicit **Desktop capture** background setting still applies.
 
 External power changes are checked when preparing a lock through the native Sway, Hyprland, and Umbriel integrations; Umbriel also reports changes during an active lock. On compositors without that feedback, including Niri and Mango, Noctalia tracks its own screen-off/on requests; power changes made directly through another application are not observed. Use Noctalia's screen-off idle action or `noctalia msg dpms-off` for coordinated locking and power-off during a transition.

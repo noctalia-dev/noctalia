@@ -1576,6 +1576,11 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
         button->action = [this] { DeferredCall::callLater([this] { openPaletteInspector(); }); };
       }
     }
+    if (entry.section == settings::SettingsSection::LockScreen && entry.group == "transition") {
+      if (auto* button = std::get_if<settings::ButtonSetting>(&entry.control)) {
+        button->action = [this] { DeferredCall::callLater([this] { openLockscreenTransitionPreviewMenu(); }); };
+      }
+    }
     if (entry.section != settings::SettingsSection::Templates || entry.group != "community") {
       continue;
     }

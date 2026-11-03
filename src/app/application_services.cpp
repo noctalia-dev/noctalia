@@ -880,6 +880,7 @@ void Application::reconcileOutputSurfaces() {
   m_hotCorners.onOutputChange();
   m_lockScreen.onOutputChange();
   m_idleGraceOverlay.onOutputChange();
+  m_lockscreenTransitionPreview.onOutputChange();
   m_idleInhibitor.onOutputChange();
   m_overviewLauncherCapture.onOutputChange();
   m_screenshotService.onOutputChange();
