@@ -54,7 +54,6 @@ namespace {
   constexpr float kHistoryIconReferenceSize = 36.0F;
   constexpr float kGroupChildIndent = Style::spaceLg;
   constexpr float kGroupBadgeFontSize = Style::fontSizeMini * 0.9F;
-  constexpr float kGroupBadgeGap = 2.0F;
   constexpr float kGroupBadgePaddingV = 1.0F;
 
   float notificationIconRadius(float iconSize, float localScale) {
@@ -284,10 +283,8 @@ namespace {
     if (isGroup) {
       const std::string badgeText = std::to_string(item.totalCount);
       const float labelW = renderer.measureText(badgeText, kGroupBadgeFontSize * scale, {FontWeight::Bold}).width;
-      const float iconW = kGroupBadgeFontSize * scale;
       const float paddingH = Style::spaceXs * scale * 2.0F;
-      const float innerGap = kGroupBadgeGap * scale;
-      badgeWidth = paddingH + iconW + innerGap + labelW + (Style::spaceSm * scale);
+      badgeWidth = paddingH + labelW + (Style::spaceSm * scale);
     }
 
     const float leftClusterWidth = metrics.cardTextWidth - headerActionsWidth;
@@ -426,7 +423,6 @@ namespace {
       m_meta = static_cast<Label*>(m_leftCluster->addChild(
           ui::label({
               .fontSize = Style::fontSizeMini * scale,
-              .flexGrow = 1.0F,
           })
       ));
 
@@ -467,20 +463,11 @@ namespace {
       m_badge = static_cast<Flex*>(m_leftCluster->addChild(
           ui::row({
               .align = FlexAlign::Center,
-              .gap = kGroupBadgeGap * scale,
               .paddingV = kGroupBadgePaddingV * scale,
               .paddingH = Style::spaceXs * scale,
               .fill = colorSpecFromRole(ColorRole::SecondaryContainer),
               .radius = Style::scaledRadiusSm(scale),
               .visible = false,
-          })
-      ));
-
-      m_badgeGlyph = static_cast<Glyph*>(m_badge->addChild(
-          ui::glyph({
-              .glyph = "box-multiple",
-              .glyphSize = kGroupBadgeFontSize * scale,
-              .color = colorSpecFromRole(ColorRole::OnSecondaryContainer),
           })
       ));
 
@@ -529,14 +516,12 @@ namespace {
       if (item.kind == NotificationDisplayItemKind::GroupHeader) {
         m_badge->setVisible(true);
         m_badge->setParticipatesInLayout(true);
-        m_badgeGlyph->setGlyph("box-multiple");
         m_badgeLabel->setText(std::to_string(item.totalCount));
         m_badgeLabel->measure(renderer);
         m_meta->setText(item.appName);
       } else if (item.kind == NotificationDisplayItemKind::CollapsedGroup) {
         m_badge->setVisible(true);
         m_badge->setParticipatesInLayout(true);
-        m_badgeGlyph->setGlyph("box-multiple");
         m_badgeLabel->setText(std::to_string(item.totalCount));
         m_badgeLabel->measure(renderer);
         m_meta->setText(item.appName + " • " + relativeMetaLine(entry.notification));
@@ -728,7 +713,6 @@ namespace {
     Label* m_body = nullptr;
     Flex* m_actionsRow = nullptr;
     Flex* m_badge = nullptr;
-    Glyph* m_badgeGlyph = nullptr;
     Label* m_badgeLabel = nullptr;
     ImageKind m_imageKind = ImageKind::None;
     std::uint64_t m_rawImageKey = 0;
