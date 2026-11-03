@@ -53,11 +53,11 @@ Direct project dependencies are listed below; transitive dependencies are owned 
 
 Run `just format` before committing and `just format-check` to check. Both run a code half (`format-code`, `format-code-check`) and a docs half (`format-docs`, `format-docs-check`), which you can also run on their own.
 
-Code formatting accepts [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 22 or newer and covers `lib/`, `src/`, and `tests/`. The code recipes reject formatter versions older than 22 and print the version in use.
+Code formatting accepts [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 23 or newer and covers `lib/`, `src/`, and `tests/`. The code recipes reject formatter versions older than 23 and print the version in use.
 
-CI runs `just format-code-check` on Arch with clang-format 22. Newer versions may produce different formatting, so a local check with a newer formatter does not guarantee CI will pass. Use version 22 to reproduce or resolve CI formatting failures.
+CI runs `just format-code-check` and `just lint` on Arch with clang-format and clang-tidy 23, and fails if the installed major differs. Newer versions may produce different formatting or diagnostics, so a local check with a newer toolchain does not guarantee CI will pass. Use version 23 to reproduce or resolve CI formatting and lint failures.
 
-For CI parity, install `clang22` on Arch or `clang-tools-extra` on Fedora 44. If your distribution installs Clang 22 outside the default PATH, prepend its binary directory when running either recipe, for example `PATH=/usr/lib/llvm22/bin:$PATH just format-code-check` on Arch. Keep editor formatting on the same version as your command-line formatter.
+For CI parity, install `clang` on Arch (currently 23). If your distribution installs Clang 23 outside the default PATH, prepend its binary directory when running either recipe, for example `PATH=/usr/lib/llvm23/bin:$PATH just format-code-check`. Keep editor formatting on the same version as your command-line formatter.
 
 Markdown and MDX files are formatted by `tools/remark/format.mjs`, which parses them with the same remark plugins as the docs site (MDX, GFM, directives, custom heading ids, frontmatter) plus math, so it reads every file as the site and GitHub render it. Its dependencies are pinned in `tools/remark/package-lock.json`; the docs recipes need Node.js and npm and install them into `tools/remark/node_modules` on first use. Do not hard-wrap prose: the formatter writes each paragraph, list item, and table cell on one line, keeping GitHub alert markers (`> [!NOTE]`) on their own line. It refuses to write a result whose parsed document differs from the input beyond whitespace. CI runs `just format-docs-check`.
 
