@@ -167,9 +167,10 @@ private:
   void resumeTimeout(uint32_t notificationId, int totalDuration);
   void pauseCountdowns(uint32_t notificationId);
   void resumeCountdowns(uint32_t notificationId);
-  void revealQueuedEntries();
+  bool revealQueuedEntries();
   void enforceMaxVisible();
   void collapseStack();
+  void reflowNewestOnEdge();
   void evictOverlappingEntries(std::size_t anchorIndex);
   bool hasPlacement(const PopupEntry& entry) const;
   bool canKeepPlacement(const PopupEntry& entry, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
@@ -182,6 +183,7 @@ private:
   bool entriesShareStack(const PopupEntry& lhs, const PopupEntry& rhs) const;
   bool isBottomStacking() const;
   RevealDirection revealDirection() const;
+  bool isNewestOnEdge() const;
   void refreshEntryGeometry(PopupEntry& entry) const;
   float layoutBottomForSurfaceHeight(float surfaceHeight) const;
   float maxPlacementBottom(wl_output* output) const;
