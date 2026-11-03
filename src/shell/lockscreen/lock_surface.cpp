@@ -992,12 +992,13 @@ bool LockSurface::exitTransitionComplete() const noexcept {
   return m_transitionPhase == TransitionPhase::Disabled || m_transitionPhase == TransitionPhase::ExitComplete;
 }
 
-void LockSurface::setBackgroundStyle(float blurIntensity, float tintIntensity) {
-  if (m_blurIntensity == blurIntensity && m_tintIntensity == tintIntensity) {
+void LockSurface::setBackgroundStyle(float blurIntensity, float tintIntensity, const ColorSpec& tintColor) {
+  if (m_blurIntensity == blurIntensity && m_tintIntensity == tintIntensity && m_tintColor == tintColor) {
     return;
   }
   m_blurIntensity = blurIntensity;
   m_tintIntensity = tintIntensity;
+  m_tintColor = tintColor;
   m_captureDirty = true;
   m_blurCache.invalidate();
   m_wallpaperDirty = true;
@@ -1432,7 +1433,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     if (showTint) {
       m_tintOverlay->setStyle(
           RoundedRectStyle{
-              .fill = colorForRole(ColorRole::Surface, tintIntensity),
+              .fill = resolveColorSpec(scaleAlpha(m_tintColor, tintIntensity)),
               .fillMode = FillMode::Solid,
           }
       );

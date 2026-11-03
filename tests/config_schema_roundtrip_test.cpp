@@ -383,6 +383,7 @@ location = "https://example.invalid/bad"
         .edgeSmoothness = 0.7F,
         .blurIntensity = 0.6F,
         .tintIntensity = 0.25F,
+        .tintColor = colorSpecFromRole(ColorRole::Primary),
         .monitors = {"DP-1"}
     };
     c.system.monitor.enabled = false;

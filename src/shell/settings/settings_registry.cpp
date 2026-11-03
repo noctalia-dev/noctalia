@@ -1901,6 +1901,15 @@ namespace settings {
       e.visibleWhen = lockscreenOn;
       entries.push_back(std::move(e));
     }
+    {
+      auto e = makeEntry(
+          SettingsSection::LockScreen, "background", tr("settings.schema.lockscreen.tint-color.label"),
+          tr("settings.schema.lockscreen.tint-color.description"), {"lockscreen", "tint_color"},
+          colorSpecPicker(cfg.lockscreen.tintColor), "lock screen tint color theme accent"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
     if (env.screencopySupported) {
       MultiSelectSetting transitions;
       transitions.options.reserve(std::size(kLockscreenTransitions));
