@@ -501,9 +501,9 @@ namespace ui {
                                                              "path",    "radius",  "fit",      "border",  "borderWidth",
                                                              "onClick", "onHover", "tooltip"};
       static const std::unordered_set<std::string> kPixelStream = {
-          "width",         "height",        "flexGrow",      "opacity",     "visible",         "path",
-          "radius",        "fit",           "onPointerMove", "onPointerDown", "onPointerUp", "onPointerCancel", "onRightClick",
-          "onMiddleClick", "onScroll",      "onTextInput",   "onKeyEvent",
+          "width",        "height",        "flexGrow",      "opacity",       "visible",     "path",
+          "radius",       "fit",           "onPointerMove", "onPointerDown", "onPointerUp", "onPointerCancel",
+          "onRightClick", "onMiddleClick", "onScroll",      "onTextInput",   "onKeyEvent",
       };
       static const std::unordered_set<std::string> kColorPicker = {
           "width",  "flexGrow", "opacity", "visible",  "value",       "alpha",

@@ -208,9 +208,8 @@ std::optional<std::pair<float, float>> PixelStreamView::imagePosition(float loca
     x = localX / width();
     y = localY / height();
   } else {
-    const float scale = m_fit == ImageFit::Cover
-        ? std::max(width() / sourceWidth, height() / sourceHeight)
-        : std::min(width() / sourceWidth, height() / sourceHeight);
+    const float scale = m_fit == ImageFit::Cover ? std::max(width() / sourceWidth, height() / sourceHeight)
+                                                 : std::min(width() / sourceWidth, height() / sourceHeight);
     const float imageWidth = sourceWidth * scale;
     const float imageHeight = sourceHeight * scale;
     x = (localX - (width() - imageWidth) * 0.5F) / imageWidth;
