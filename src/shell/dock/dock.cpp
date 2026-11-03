@@ -34,6 +34,9 @@ namespace {
 
   constexpr Logger kLog("dock");
 
+  // Auto-hide: how long the pointer must stay on the edge trigger strip before the dock reveals.
+  constexpr auto kAutoHideRevealDwell = std::chrono::milliseconds{250};
+
   void assertDockInitialized(
       [[maybe_unused]] const CompositorPlatform* platform, [[maybe_unused]] const ConfigService* config,
       [[maybe_unused]] const RenderContext* renderContext
@@ -543,13 +546,13 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       break;
     }
     updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
-    // Auto-hide: show the dock when the pointer enters.
+    // Auto-hide: reveal once the pointer has dwelled on the edge trigger strip.
     if (dockPointerHideAllowed(m_hoveredInstance->config, *m_hoveredInstance)
         && m_hoveredInstance->sceneRoot != nullptr) {
       if (entered->hideOpacity >= 0.999F && entered->hideAnimId == 0) {
         shell::dock::revealAutoHideDock(*entered);
       } else {
-        entered->revealTimer.start(std::chrono::milliseconds{250}, [entered]() {
+        entered->revealTimer.start(kAutoHideRevealDwell, [entered]() {
           if (entered->pointerInside && dockPointerHideAllowed(entered->config, *entered)) {
             shell::dock::revealAutoHideDock(*entered);
           }

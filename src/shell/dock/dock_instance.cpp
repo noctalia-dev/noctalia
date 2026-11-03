@@ -146,9 +146,9 @@ namespace shell::dock {
     }
   }
 
-  // While slid away use the edge strip; when pinned or hovered use the unslid capsule region. Never
-  // hit-test the slide-translated panel: it goes off-surface when smart_auto_hide flips to pinned
-  // before hideOpacity recovers (dock rebuild on a new window).
+  // While slid away or waiting for the reveal dwell use the edge strip; when pinned or hovered use the
+  // unslid capsule region. Never hit-test the slide-translated panel: it goes off-surface when
+  // smart_auto_hide flips to pinned before hideOpacity recovers (dock rebuild on a new window).
   void syncDockAutoHideInputRegion(DockInstance& instance, const DockConfig& cfg) {
     if (instance.surface == nullptr) {
       return;
