@@ -21,7 +21,7 @@ Read the project [ethos](https://noctalia.dev/ethos) for the values behind these
 - **Managing your compositor settings or dotfiles.** Core Noctalia is non-invasive. Compositor-specific controls are opt-in plugins, not core shell behavior.
 - **Replacing desktop applications and system services.** File management, removable-drive mounting, printer management, and screen mirroring or casting belong to dedicated tools. Login and display greeting live in [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter).
 - **Features that are useful to some users but not essential to the shell.** Extra bar widgets, launcher providers, panels, hardware-specific controls, and third-party service integrations belong in plugins.
-- **Toolkits and other rendering stacks.** No Qt, no GTK, no web views. UI is built from `src/ui/controls/`.
+- **Toolkits and other rendering stacks.** No Qt, no GTK, no web views. UI is built from `lib/ui/controls/`.
 - **Configuration languages other than TOML**, and compatibility aliases, migration readers, or silent fallbacks for renamed keys, IPC names, or paths.
 - **Patching vendored code** under `third_party/`.
 - **A plugin permission or sandbox model.** Plugins are trusted Luau code, equivalent to a user-owned script.

@@ -39,7 +39,7 @@ struct BluetoothAgent::Impl {
 
   explicit Impl(SystemBus& b) : bus(b) {}
 
-  [[nodiscard]] bool hasPending() const noexcept { return pending.kind != BluetoothPairingKind::None; }
+  bool hasPending() const noexcept { return pending.kind != BluetoothPairingKind::None; }
 
   void rejectIfBusy(auto& result, const char* what) {
     kLog.debug("{} while another request pending -> rejected", what);

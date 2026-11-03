@@ -38,12 +38,12 @@ public:
   ~ScreenshotWidget() override;
 
   void create() override;
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event) override;
+  bool onPointerEvent(const PointerEvent& event) override;
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void openCaptureMenu();
-  [[nodiscard]] ScreenshotService::OutputOptions outputOptions() const;
+  ScreenshotService::OutputOptions outputOptions() const;
 
   std::string m_barGlyphId;
   wl_output* m_output = nullptr;
@@ -51,7 +51,7 @@ private:
   ConfigService& m_configService;
   CompositorPlatform& m_platform;
   RenderContext& m_renderContext;
-  ShellConfig::ShadowConfig m_shadowConfig;
+  ShadowStyle m_shadowConfig;
   std::string m_barPosition;
   WidgetCustomImage m_customImage;
   Glyph* m_glyph = nullptr;

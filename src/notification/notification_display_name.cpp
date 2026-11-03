@@ -64,7 +64,7 @@ namespace {
     return value;
   }
 
-  [[nodiscard]] bool looksLikeTechnicalId(std::string_view name) {
+  bool looksLikeTechnicalId(std::string_view name) {
     if (name.empty() || name.contains(' ')) {
       return false;
     }

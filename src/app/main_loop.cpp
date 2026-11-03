@@ -1,9 +1,9 @@
 #include "app/main_loop.h"
 
 #include "app/application.h"
-#include "app/poll_source.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
+#include "core/poll_source.h"
 #include "shell/bar/bar.h"
 #include "wayland/surface.h"
 #include "wayland/wayland_connection.h"

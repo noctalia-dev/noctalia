@@ -167,7 +167,7 @@ int main() {
     failingClient.fetchEvents(account, utc(2024, 1, 1), utc(2024, 2, 1), false, [&](calendar::SyncFailure f, auto) {
       reported = f;
     });
-    (void)drainUntil([&]() { return reported.has_value(); });
+    drainUntil([&]() { return reported.has_value(); });
     return reported;
   };
   ok = expect(

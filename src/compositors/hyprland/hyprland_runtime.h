@@ -19,19 +19,19 @@ namespace compositors::hyprland {
   public:
     HyprlandRuntime();
 
-    [[nodiscard]] bool available() const;
+    bool available() const;
     [[nodiscard]] bool connectSocket();
-    [[nodiscard]] bool configIsLua() const;
-    [[nodiscard]] const std::string& requestSocketPath() const;
-    [[nodiscard]] const std::string& eventSocketPath() const;
-    [[nodiscard]] std::optional<std::string> request(std::string_view command) const;
-    [[nodiscard]] std::optional<nlohmann::json> requestJson(std::string_view command) const;
+    bool configIsLua() const;
+    const std::string& requestSocketPath() const;
+    const std::string& eventSocketPath() const;
+    std::optional<std::string> request(std::string_view command) const;
+    std::optional<nlohmann::json> requestJson(std::string_view command) const;
     void refresh();
     void cleanup();
 
     void registerEventHandler(HyprlandEventHandler* handler);
     void unregisterEventHandler(HyprlandEventHandler* handler);
-    [[nodiscard]] int pollFd() const noexcept { return m_eventSocketFd; }
+    int pollFd() const noexcept { return m_eventSocketFd; }
     void dispatchPoll(short revents);
 
   private:

@@ -1,0 +1,106 @@
+#pragma once
+
+#include "wayland/surface.h"
+
+#include <cstdint>
+#include <functional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+class BackgroundEffectGlobals;
+class LayerShell;
+struct ext_background_effect_surface_v1;
+struct wl_output;
+struct zwlr_layer_surface_v1;
+
+enum class LayerShellLayer : std::uint32_t {
+  Background = 0,
+  Bottom = 1,
+  Top = 2,
+  Overlay = 3,
+};
+
+enum class LayerShellKeyboard : std::uint32_t {
+  None = 0,
+  Exclusive = 1,
+  OnDemand = 2,
+};
+
+LayerShellLayer layerShellLayerFromConfig(std::string_view layer);
+
+namespace LayerShellAnchor {
+  inline constexpr std::uint32_t Top = 1;
+  inline constexpr std::uint32_t Bottom = 2;
+  inline constexpr std::uint32_t Left = 4;
+  inline constexpr std::uint32_t Right = 8;
+} // namespace LayerShellAnchor
+
+struct LayerSurfaceConfig {
+  std::string nameSpace = "noctalia";
+  LayerShellLayer layer = LayerShellLayer::Top;
+  std::uint32_t anchor = 0;
+  std::uint32_t width = 0;
+  std::uint32_t height = 0;
+  std::int32_t exclusiveZone = 0;
+  std::int32_t marginTop = 0;
+  std::int32_t marginRight = 0;
+  std::int32_t marginBottom = 0;
+  std::int32_t marginLeft = 0;
+  LayerShellKeyboard keyboard = LayerShellKeyboard::None;
+  std::uint32_t defaultWidth = 1920;
+  std::uint32_t defaultHeight = 0;
+  bool prewarmBlur = false;
+};
+
+class LayerSurface : public Surface {
+public:
+  LayerSurface(WaylandConnection& connection, LayerSurfaceConfig config);
+  ~LayerSurface() override;
+
+  bool initialize() override;
+  bool initialize(wl_output* output);
+  zwlr_layer_surface_v1* layerSurface() const noexcept { return m_layerSurface; }
+
+  // Requests a new surface size from the compositor. The compositor will
+  // respond with a configure event, which triggers the configure callback.
+  void requestSize(std::uint32_t width, std::uint32_t height);
+  // Re-anchors the surface and sets its requested size in one commit. A 0 extent must be paired
+  // with anchors on both edges of that axis, as layer-shell requires.
+  void setAnchorAndSize(std::uint32_t anchor, std::uint32_t width, std::uint32_t height);
+  void setLayer(LayerShellLayer layer);
+  void setMargins(std::int32_t top, std::int32_t right, std::int32_t bottom, std::int32_t left);
+  void setExclusiveZone(std::int32_t exclusiveZone);
+  void setClickThrough(bool clickThrough);
+  void setKeyboardInteractivity(LayerShellKeyboard mode);
+  void setClosedCallback(std::function<void()> callback);
+  // Asks the compositor to blur what lies behind rects (surface-local) when it supports blur.
+  void setBlurRegion(const std::vector<InputRect>& rects);
+  void clearBlurRegion();
+  // True when any rect covers at least one pixel of a `width` x `height` surface.
+  // Rects are surface-local, so they may legitimately sit partly or fully outside.
+  static bool regionIntersectsBounds(const std::vector<InputRect>& rects, std::uint32_t width, std::uint32_t height);
+  LayerShellKeyboard keyboardInteractivity() const noexcept { return m_config.keyboard; }
+  std::uint32_t anchor() const noexcept { return m_config.anchor; }
+  std::int32_t marginTop() const noexcept { return m_config.marginTop; }
+  std::int32_t marginRight() const noexcept { return m_config.marginRight; }
+  std::int32_t marginBottom() const noexcept { return m_config.marginBottom; }
+  std::int32_t marginLeft() const noexcept { return m_config.marginLeft; }
+
+  static void handleConfigure(
+      void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial, std::uint32_t width, std::uint32_t height
+  );
+  static void handleClosed(void* data, zwlr_layer_surface_v1* layerSurface);
+
+private:
+  void applyInputRegion();
+  bool prepareBlurEffect();
+
+  LayerShell& m_layerShell;
+  BackgroundEffectGlobals& m_backgroundEffects;
+  LayerSurfaceConfig m_config;
+  zwlr_layer_surface_v1* m_layerSurface = nullptr;
+  ext_background_effect_surface_v1* m_backgroundEffect = nullptr;
+  std::function<void()> m_closedCallback;
+  bool m_clickThrough = false;
+};

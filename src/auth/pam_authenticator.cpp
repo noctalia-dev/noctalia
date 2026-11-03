@@ -269,7 +269,7 @@ namespace {
     return true;
   }
 
-  [[nodiscard]] PamAuthenticator::Result authenticateDirect(std::string_view password, std::string_view service) {
+  PamAuthenticator::Result authenticateDirect(std::string_view password, std::string_view service) {
     std::string user = PamAuthenticator::currentUsername();
     if (user.empty()) {
       return PamAuthenticator::Result{.success = false, .message = i18n::tr("auth.pam.user-unavailable")};

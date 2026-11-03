@@ -3711,10 +3711,6 @@
           "description": "Tak med ruter frå alle skjermar på denne nøytelen.",
           "label": "Vis alle skjermar"
         },
-        "show-all-workspaces": {
-          "description": "Vis arbeidsrom frå alle skjermar på denne nøytelen",
-          "label": "Vis alle skjermar"
-        },
         "show-caps-lock": {
           "description": "Vis Storlåsstoda",
           "label": "Vis Storlås"

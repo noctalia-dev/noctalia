@@ -1,0 +1,59 @@
+#pragma once
+
+#include "render/scene/node.h"
+
+#include <cstddef>
+
+class GridView : public Node {
+public:
+  void setColumns(std::size_t columns);
+  void setColumnGap(float gap);
+  void setRowGap(float gap);
+  void setPadding(float top, float right, float bottom, float left);
+  void setPadding(float all);
+  void setPadding(float vertical, float horizontal);
+  void setStretchItems(bool stretch);
+  void setUniformCellSize(bool uniform);
+  // When true with uniform + stretch + fixed height, cells are square (min of slot W/H when width is fixed).
+  void setSquareCells(bool square);
+  // When true (default), square grids with no fixed width shrink-wrap to the tile block; when false, width fills the
+  // flex slot (wider tiles; leftover space stays on the right of left-aligned tiles).
+  void setSquareGridShrinkWrap(bool shrinkWrap);
+  void setMinCellWidth(float width);
+  void setMinCellHeight(float height);
+  // When true, the last child in an incomplete row stretches across remaining columns.
+  void setSpanLastItem(bool span);
+
+  std::size_t columns() const noexcept { return m_columns; }
+  float columnGap() const noexcept { return m_columnGap; }
+  float rowGap() const noexcept { return m_rowGap; }
+  float paddingTop() const noexcept { return m_paddingTop; }
+  float paddingRight() const noexcept { return m_paddingRight; }
+  float paddingBottom() const noexcept { return m_paddingBottom; }
+  float paddingLeft() const noexcept { return m_paddingLeft; }
+  bool stretchItems() const noexcept { return m_stretchItems; }
+  bool uniformCellSize() const noexcept { return m_uniformCellSize; }
+  bool squareCells() const noexcept { return m_squareCells; }
+  bool squareGridShrinkWrap() const noexcept { return m_squareGridShrinkWrap; }
+  bool spanLastItem() const noexcept { return m_spanLastItem; }
+  float minCellWidth() const noexcept { return m_minCellWidth; }
+  float minCellHeight() const noexcept { return m_minCellHeight; }
+
+private:
+  LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
+  void doLayout(Renderer& renderer) override;
+  std::size_t m_columns = 1;
+  float m_columnGap = 0.0F;
+  float m_rowGap = 0.0F;
+  float m_paddingTop = 0.0F;
+  float m_paddingRight = 0.0F;
+  float m_paddingBottom = 0.0F;
+  float m_paddingLeft = 0.0F;
+  bool m_stretchItems = false;
+  bool m_uniformCellSize = true;
+  bool m_squareCells = false;
+  bool m_squareGridShrinkWrap = true;
+  bool m_spanLastItem = false;
+  float m_minCellWidth = 0.0F;
+  float m_minCellHeight = 0.0F;
+};

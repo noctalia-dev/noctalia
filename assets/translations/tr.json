@@ -3753,10 +3753,6 @@
           "description": "Bu bileşendeki her ekrandan gelen pencereleri dahil et",
           "label": "Tüm Monitörleri Göster"
         },
-        "show-all-workspaces": {
-          "description": "Bu araçta tüm monitörlerdeki çalışma alanlarını göster",
-          "label": "Tüm Monitörleri Göster"
-        },
         "show-caps-lock": {
           "description": "Caps Lock durumunu göster",
           "label": "Caps Lock Göster"

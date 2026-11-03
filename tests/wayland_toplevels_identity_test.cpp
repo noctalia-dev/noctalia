@@ -1,6 +1,6 @@
+#include "shell/wayland/wayland_protocol_policy.h"
 #include "system/internal_app_metadata.h"
 #include "tests/test_check.h"
-#include "wayland/wayland_protocol_policy.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 
 #include <cstdint>
@@ -12,8 +12,8 @@
 #include <vector>
 
 #define private public
-#include "wayland/ext_foreign_toplevels.h"
-#include "wayland/wayland_toplevels.h"
+#include "shell/wayland/ext_foreign_toplevels.h"
+#include "shell/wayland/wayland_toplevels.h"
 #undef private
 
 namespace internal_apps {

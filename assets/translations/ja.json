@@ -4929,10 +4929,6 @@
           "description": "このウィジェットにすべての画面のウィンドウを表示",
           "label": "すべての画面のウィンドウを表示"
         },
-        "show-all-workspaces": {
-          "description": "このウィジェットにすべての画面のワークスペースを表示",
-          "label": "すべての画面のワークスペースを表示"
-        },
         "show-caps-lock": {
           "description": "Caps Lockの状態を表示",
           "label": "Caps Lockを表示"

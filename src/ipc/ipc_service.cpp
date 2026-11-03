@@ -23,7 +23,7 @@ namespace {
   constexpr int kRecvTimeoutMs = 100;
   constexpr char kCallerCwdSeparator = '\x1e';
 
-  [[nodiscard]] std::optional<std::string> parseCallerCwdPrefix(std::string& line) {
+  std::optional<std::string> parseCallerCwdPrefix(std::string& line) {
     const auto separator = line.find(kCallerCwdSeparator);
     if (separator == std::string::npos) {
       return std::nullopt;

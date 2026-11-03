@@ -3,10 +3,10 @@
 #include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
+#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "net/url_open.h"
 #include "notification/notification_manager.h"
-#include "time/time_format.h"
 
 #include <algorithm>
 #include <ctime>
@@ -119,8 +119,8 @@ void CalendarReminderMonitor::persistState() {
     }
     encoded += *key;
   }
-  (void)m_configService.setStateString(kStateOwner, kFiredKey, encoded);
-  (void)m_configService.setStateString(kStateOwner, kDigestDateKey, m_lastDigestDate.value_or(std::string{}));
+  m_configService.setStateString(kStateOwner, kFiredKey, encoded);
+  m_configService.setStateString(kStateOwner, kDigestDateKey, m_lastDigestDate.value_or(std::string{}));
 }
 
 void CalendarReminderMonitor::schedulePersist() {
@@ -313,7 +313,7 @@ void CalendarReminderMonitor::fireCatchUpSummary(std::size_t remaining) {
   request.dndPolicy = NotificationDndPolicy::Respect;
   request.persistInHistory = true;
   request.icon = std::string("noctalia-glyph:calendar-clock");
-  (void)m_notifications.addOrReplace(std::move(request));
+  m_notifications.addOrReplace(std::move(request));
 }
 
 void CalendarReminderMonitor::fireDigest(std::span<const CalendarEvent* const> events) {
@@ -340,5 +340,5 @@ void CalendarReminderMonitor::fireDigest(std::span<const CalendarEvent* const> e
   request.dndPolicy = NotificationDndPolicy::Respect;
   request.persistInHistory = true;
   request.icon = std::string("noctalia-glyph:calendar-event");
-  (void)m_notifications.addOrReplace(std::move(request));
+  m_notifications.addOrReplace(std::move(request));
 }

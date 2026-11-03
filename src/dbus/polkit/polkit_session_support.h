@@ -4,11 +4,11 @@
 
 namespace polkit_session {
 
-  [[nodiscard]] bool hasXdgSessionId() noexcept;
+  bool hasXdgSessionId() noexcept;
 
   // True when polkit can resolve a graphical session (logind/elogind) or XDG_SESSION_ID is set.
-  [[nodiscard]] bool likelySupportsInSessionPolkitAgent(bool logindOnSystemBus) noexcept;
+  bool likelySupportsInSessionPolkitAgent(bool logindOnSystemBus) noexcept;
 
-  [[nodiscard]] bool isNoSessionForPidError(std::string_view error) noexcept;
+  bool isNoSessionForPidError(std::string_view error) noexcept;
 
 } // namespace polkit_session

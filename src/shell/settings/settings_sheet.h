@@ -54,15 +54,15 @@ namespace settings {
     void setStatusMessage(std::string message, bool error);
     void clearStatusMessage();
 
-    [[nodiscard]] bool preDispatchKeyboard(const KeyboardEvent& event) const;
-    [[nodiscard]] float naturalHeight(Renderer& renderer, float width) const;
+    bool preDispatchKeyboard(const KeyboardEvent& event) const;
+    float naturalHeight(Renderer& renderer, float width) const;
     void arrange(Renderer& renderer, float width, float height);
 
-    [[nodiscard]] float scale() const noexcept { return m_scale; }
-    [[nodiscard]] float minWidth() const noexcept { return m_minWidth; }
-    [[nodiscard]] float maxWidth() const noexcept { return m_maxWidth; }
-    [[nodiscard]] float parentFraction() const noexcept { return m_parentFraction; }
-    [[nodiscard]] bool fillParentHeight() const noexcept { return m_fillParentHeight; }
+    float scale() const noexcept { return m_scale; }
+    float minWidth() const noexcept { return m_minWidth; }
+    float maxWidth() const noexcept { return m_maxWidth; }
+    float parentFraction() const noexcept { return m_parentFraction; }
+    bool fillParentHeight() const noexcept { return m_fillParentHeight; }
 
   private:
     void clearNodePointers();

@@ -1,5 +1,6 @@
 #include "config/config_service.h"
 
+#include "app/build_info.h"
 #include "compositors/compositor_detect.h"
 #include "config/atomic_file.h"
 #include "config/config_export.h"
@@ -11,7 +12,6 @@
 #include "config/schema/engine.h"
 #include "config/schema/ranges.h"
 #include "config/widget_config.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/scoped_timer.h"
@@ -132,8 +132,7 @@ namespace {
 
   // Returns true if `key` is a color-typed setting for `widget`, per the widget
   // setting schema (the single source — not a hand-maintained key list).
-  [[nodiscard]] const schema::WidgetSettingField*
-  findColorField(const schema::WidgetSettingSchema& fields, std::string_view key) {
+  const schema::WidgetSettingField* findColorField(const schema::WidgetSettingSchema& fields, std::string_view key) {
     const auto it = std::ranges::find(fields, key, &schema::WidgetSettingField::key);
     if (it == fields.end() || it->type != schema::WidgetSettingType::Color) {
       return nullptr;
@@ -154,7 +153,7 @@ namespace {
       }
       throw std::runtime_error(context + ": empty color value is not valid here");
     }
-    (void)colorSpecFromConfigString(*raw, context);
+    colorSpecFromConfigString(*raw, context);
   }
 
   void validateWidgetColorSettings(std::string_view widgetName, const WidgetConfig& widget) {
@@ -172,7 +171,7 @@ namespace {
     if (!widget.hasSetting("scale")) {
       return;
     }
-    (void)resolveWidgetContentScale(1.0F, &widget, "widget." + std::string(widgetName) + ".scale");
+    resolveWidgetContentScale(1.0F, &widget, "widget." + std::string(widgetName) + ".scale");
   }
 
   void validateWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
@@ -492,7 +491,12 @@ namespace {
     return compositor;
   }
 
-  std::optional<toml::table>
+  struct MergedUserConfigSources {
+    toml::table merged;
+    toml::table sidecar; // migrated settings.toml overlay already merged into `merged`
+  };
+
+  std::optional<MergedUserConfigSources>
   mergeUserConfigSources(std::string_view configDir, std::string_view settingsPath, std::string* error) {
     auto mergeResult = noctalia::config::mergeConfigWithIncludes(configDir);
     toml::table merged = std::move(mergeResult.merged);
@@ -505,17 +509,18 @@ namespace {
       kLog.warn("skipping config error in merged user config export: {}", located);
     }
 
+    toml::table sidecar;
     if (!settingsPath.empty() && std::filesystem::exists(std::filesystem::path(std::string(settingsPath)))) {
       const std::filesystem::path settingsFile{std::string(settingsPath)};
       try {
-        toml::table sidecar = toml::parse_file(settingsPath);
+        sidecar = toml::parse_file(settingsPath);
         seedLegacyDockAllowListEnabled(sidecar, merged);
         noctalia::config::ConfigOriginIndex origins;
         origins.record(settingsFile, sidecar);
         schema::Diagnostics migrationDiag;
         const auto storedVersion = noctalia::config::storedConfigVersion(sidecar, migrationDiag);
         if (storedVersion.has_value()) {
-          (void)noctalia::config::applyPendingConfigMigrations(sidecar, *storedVersion, migrationDiag);
+          (void)noctalia::config::applyPendingConfigMigrations(sidecar, merged, *storedVersion, migrationDiag);
         }
         origins.annotate(migrationDiag);
         for (const auto& entry : migrationDiag.entries) {
@@ -533,6 +538,7 @@ namespace {
           *error = noctalia::config::parseErrorOrigin(e, settingsFile).prefixed(e.description());
           return std::nullopt;
         }
+        sidecar.clear();
         kLog.warn("skipping parse error in merged user config export {}: {}", settingsPath, e.description());
       }
     }
@@ -540,7 +546,7 @@ namespace {
     if (error != nullptr) {
       error->clear();
     }
-    return merged;
+    return MergedUserConfigSources{.merged = std::move(merged), .sidecar = std::move(sidecar)};
   }
 
 } // namespace
@@ -807,38 +813,48 @@ std::string ConfigService::buildSupportReport() const {
   return formatToml(root) + "\n";
 }
 
-std::string ConfigService::buildMergedUserConfig() const {
-  return buildMergedUserConfigFromSources(m_configDir, m_overridesPath);
+std::string ConfigService::buildMergedUserConfig(noctalia::config::CredentialExportMode credentials) const {
+  return buildMergedUserConfigFromSources(m_configDir, m_overridesPath, nullptr, credentials);
 }
 
-std::string ConfigService::buildEffectiveConfig() const { return formatToml(*m_configTable) + "\n"; }
+std::string ConfigService::buildEffectiveConfig(noctalia::config::CredentialExportMode credentials) const {
+  if (credentials == noctalia::config::CredentialExportMode::Keep) {
+    return formatToml(*m_configTable) + "\n";
+  }
+  toml::table effective = *m_configTable;
+  noctalia::config::applyCredentialExportMode(effective, credentials);
+  return formatToml(effective) + "\n";
+}
 
 std::string ConfigService::buildMergedUserConfigFromSources(
-    std::string_view configDir, std::string_view settingsPath, std::string* error
+    std::string_view configDir, std::string_view settingsPath, std::string* error,
+    noctalia::config::CredentialExportMode credentials
 ) {
-  const auto merged = mergeUserConfigSources(configDir, settingsPath, error);
-  if (!merged.has_value()) {
+  const auto sources = mergeUserConfigSources(configDir, settingsPath, error);
+  if (!sources.has_value()) {
     return {};
   }
-  toml::table normalized = *merged;
+  toml::table normalized = sources->merged;
   normalized.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
-  noctalia::config::normalizeLegacyConfig(normalized, issues);
+  noctalia::config::normalizeLegacyConfig(normalized, issues, &sources->sidecar);
+  noctalia::config::applyCredentialExportMode(normalized, credentials);
   return formatToml(normalized) + "\n";
 }
 
 std::string ConfigService::buildEffectiveConfigFromSources(
-    std::string_view configDir, std::string_view settingsPath, std::string* error
+    std::string_view configDir, std::string_view settingsPath, std::string* error,
+    noctalia::config::CredentialExportMode credentials
 ) {
-  const auto merged = mergeUserConfigSources(configDir, settingsPath, error);
-  if (!merged.has_value()) {
+  const auto sources = mergeUserConfigSources(configDir, settingsPath, error);
+  if (!sources.has_value()) {
     return {};
   }
 
-  toml::table normalized = *merged;
+  toml::table normalized = sources->merged;
   normalized.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues issues;
-  noctalia::config::normalizeLegacyConfig(normalized, issues);
+  noctalia::config::normalizeLegacyConfig(normalized, issues, &sources->sidecar);
 
   Config config;
   noctalia::config::seedBuiltinWidgets(config);
@@ -858,7 +874,9 @@ std::string ConfigService::buildEffectiveConfigFromSources(
   if (error != nullptr) {
     error->clear();
   }
-  return formatToml(config_export::serialize(config)) + "\n";
+  toml::table effective = config_export::serialize(config);
+  noctalia::config::applyCredentialExportMode(effective, credentials);
+  return formatToml(effective) + "\n";
 }
 
 Config ConfigService::makeDefaultConfig() {
@@ -983,6 +1001,8 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.autoHideDelayMs = *ovr.autoHideDelayMs;
     if (ovr.smartAutoHide)
       resolved.smartAutoHide = *ovr.smartAutoHide;
+    if (ovr.autoHideReserveSpace)
+      resolved.autoHideReserveSpace = *ovr.autoHideReserveSpace;
     if (ovr.showOnWorkspaceSwitch)
       resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
     if (ovr.reserveSpace)
@@ -1095,6 +1115,9 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
     break; // first match wins
   }
 
+  const bool vertical = resolved.position == "left" || resolved.position == "right";
+  const std::int32_t mainAxis = vertical ? output.effectiveLogicalHeight() : output.effectiveLogicalWidth();
+  resolved.marginEnds = LengthSpec::fromPixels(resolved.marginEnds.resolve(mainAxis));
   return resolved;
 }
 
@@ -1336,7 +1359,7 @@ void ConfigService::updateLegacyConfigIssues(noctalia::config::LegacyConfigIssue
     m_legacyReminderPending = false;
     m_legacyReminderTimer.stop();
     if (m_stateStore.stringValue(kMigrationReminderOwner, kMigrationReminderKey).has_value()) {
-      (void)m_stateStore.clearOwner(kMigrationReminderOwner);
+      m_stateStore.clearOwner(kMigrationReminderOwner);
     }
     return;
   }
@@ -1372,12 +1395,12 @@ void ConfigService::notifyLegacyConfigIssues() {
   const std::int64_t now = currentEpochSeconds();
   std::string title = issue.origin.valid() ? issue.origin.shortFormat(m_configDir)
                                            : i18n::tr("notifications.internal.config-migration-title");
-  (void)m_notificationManager->addInternal(
+  m_notificationManager->addInternal(
       "Noctalia", std::move(title),
       i18n::tr("notifications.internal.config-migration-body", "path", issue.path + ": " + issue.message),
       Urgency::Normal
   );
-  (void)m_stateStore.setString(kMigrationReminderOwner, kMigrationReminderKey, std::format("{}\n{}", now, fingerprint));
+  m_stateStore.setString(kMigrationReminderOwner, kMigrationReminderKey, std::format("{}\n{}", now, fingerprint));
   m_legacyReminderPending = false;
   m_legacyReminderTimer.start(
       std::chrono::milliseconds(noctalia::config::kLegacyConfigReminderIntervalSeconds * 1000), [this] {
@@ -1531,7 +1554,8 @@ void ConfigService::loadAll() {
     const auto parsedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, migrationDiag);
     if (parsedVersion.has_value()) {
       storedVersion = *parsedVersion;
-      appliedVersion = noctalia::config::applyPendingConfigMigrations(effectiveOverrides, storedVersion, migrationDiag);
+      appliedVersion =
+          noctalia::config::applyPendingConfigMigrations(effectiveOverrides, merged, storedVersion, migrationDiag);
       sidecarNeedsPersist = appliedVersion != storedVersion;
       effectiveOverrides.insert_or_assign(
           noctalia::config::kConfigVersionKey, static_cast<std::int64_t>(appliedVersion)
@@ -1554,7 +1578,7 @@ void ConfigService::loadAll() {
   deepMerge(merged, effectiveOverrides);
   merged.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues legacyIssues;
-  noctalia::config::normalizeLegacyConfig(merged, legacyIssues);
+  noctalia::config::normalizeLegacyConfig(merged, legacyIssues, &effectiveOverrides);
   for (auto& issue : legacyIssues) {
     if (const auto* origin = origins.find(issue.path)) {
       issue.origin = *origin;

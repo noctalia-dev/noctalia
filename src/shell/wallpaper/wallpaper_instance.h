@@ -4,10 +4,10 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/color.h"
 #include "render/core/shared_texture_cache.h"
-#include "render/core/wallpaper_types.h"
 #include "render/scene/node.h"
-#include "render/scene/wallpaper_node.h"
-#include "wayland/layer_surface.h"
+#include "shell/render/wallpaper_node.h"
+#include "shell/render/wallpaper_types.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <cstdint>
 #include <memory>

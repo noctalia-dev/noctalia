@@ -7,6 +7,8 @@ sidebar:
 
 The Noctalia launcher is a centralized search interface that provides quick access to your applications, system actions, and utility providers.
 
+Set `shell.launcher.colorize_icons = true` to tint application result icons with the shared `[shell].app_icon_color`. The toggle defaults to `false` and is available under **Launcher → Display**. The same rule applies in rows and grids: application and window icons may be tinted, while wallpaper thumbnails and other provider images retain their original colors. Other components have their own toggles (see [App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+
 ## Layout
 
 The launcher has two layouts, selected with `shell.launcher.layout`.
@@ -18,6 +20,7 @@ Configure the layout under **Settings → Panels → Launcher**, or in your conf
 
 ```toml
 [shell.launcher]
+colorize_icons = false
 layout = "full"
 width = 760
 search_position = "bottom"
@@ -50,7 +53,7 @@ The launcher tracks how often you activate specific results (applications and wa
 
 ### Application categories
 
-The **Categories** view, marked with a tag icon, lets you switch between desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities. Category tabs show icons and text by default. Enable **Category Icons Only** in **Settings → Panels → Launcher** (`shell.launcher.category_icons_only = true`) to hide their text labels; hover tooltips still show the full names. This setting applies only to app category tabs (and to the category chips in the Simple layout). **All** remains an uninterrupted list or grid.
+The **Categories** view, marked with a tag icon, lets you switch between desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities. Category tabs show icons and text by default. Enable **Category Icons Only** in **Settings → Panels → Launcher** (`shell.launcher.category_icons_only = true`) to hide their text labels; hover tooltips still show the full names. This setting applies to application and provider category filters in both layouts; Emoji categories in Full always use icons only. **All** remains an uninterrupted list or grid.
 
 :::note[Application options]
 Right-click an application result to open its menu of additional per-app options. The same menu opens with **Shift + Validate** (default: `Shift+Return`).
@@ -90,6 +93,7 @@ A quick way to find and copy emojis.
 
 - **Prefix**: `/emo `
 - **Functionality**: Searches `emoji.json` by name, category, and keywords. Activating a result copies the emoji character directly to your clipboard.
+- **Categories**: Both Full and Simple layouts show category filters when the Emoji provider is open with `/emo`. Select a category to browse its emojis or narrow a search within it; select All to show results from every category. Full shows these filters as icons above the results, with full names in hover tooltips, independently of the application Categories view.
 - **Display**: Emoji fit within each result row, including compact mode and rows with application icons hidden.
 - **Usage**: With `shell.launcher.track_usage` enabled, the **Recently Used** filter lists recent picks newest first. When `shell.launcher.sort_by_usage` is also enabled, frequently copied emojis rise to the top of an empty `/emo` query.
 

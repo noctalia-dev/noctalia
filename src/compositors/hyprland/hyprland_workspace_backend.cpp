@@ -54,9 +54,9 @@ void HyprlandWorkspaceBackend::activate(const std::string& id) {
   }
 
   if (m_runtime.configIsLua()) {
-    (void)m_runtime.request(std::format("dispatch hl.dsp.focus({{workspace = \"{}\"}})", target));
+    m_runtime.request(std::format("dispatch hl.dsp.focus({{workspace = \"{}\"}})", target));
   } else {
-    (void)m_runtime.request(std::format("dispatch workspace {}", target));
+    m_runtime.request(std::format("dispatch workspace {}", target));
   }
 }
 
@@ -232,13 +232,11 @@ void HyprlandWorkspaceBackend::focusWindow(const std::string& windowId) {
   }
   const std::string target = "address:0x" + normalized;
   if (m_runtime.configIsLua()) {
-    (void)m_runtime.request(std::format("dispatch hl.dsp.focus({{window = \"{}\"}})", target));
-    (void)m_runtime.request(
-        std::format(R"(dispatch hl.dsp.window.alter_zorder({{mode = "top", window = "{}"}}))", target)
-    );
+    m_runtime.request(std::format("dispatch hl.dsp.focus({{window = \"{}\"}})", target));
+    m_runtime.request(std::format(R"(dispatch hl.dsp.window.alter_zorder({{mode = "top", window = "{}"}}))", target));
   } else {
-    (void)m_runtime.request(std::format("dispatch focuswindow {}", target));
-    (void)m_runtime.request(std::format("dispatch alterzorder top,{}", target));
+    m_runtime.request(std::format("dispatch focuswindow {}", target));
+    m_runtime.request(std::format("dispatch alterzorder top,{}", target));
   }
 }
 

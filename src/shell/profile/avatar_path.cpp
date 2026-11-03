@@ -23,7 +23,7 @@ namespace {
   // Sources this much larger than the accounts avatar decode noticeably slowly.
   constexpr int kAvatarSourceWarnSize = 4 * kAccountsAvatarMaxSize;
 
-  [[nodiscard]] std::filesystem::path avatarCacheDirectory() {
+  std::filesystem::path avatarCacheDirectory() {
     const char* cacheHome = std::getenv("XDG_CACHE_HOME");
     const char* home = std::getenv("HOME");
     if (cacheHome != nullptr && cacheHome[0] != '\0') {

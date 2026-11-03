@@ -137,14 +137,11 @@ WpaSupplicantService::WpaSupplicantService(SystemBus& bus) : m_bus(bus) {
     scheduleRebuild();
   });
 
-  try {
-    const auto ifaces =
-        m_wpa->getProperty("Interfaces").onInterface(kWpaInterface).get<std::vector<sdbus::ObjectPath>>();
-    for (const auto& p : ifaces) {
-      subscribeInterface(std::string(p));
-    }
-  } catch (const sdbus::Error& e) {
-    kLog.warn("failed to enumerate interfaces: {}", e.what());
+  // An instance this user cannot enumerate is another daemon's private backend (NetworkManager's,
+  // typically), so it cannot serve as the network service.
+  const auto ifaces = m_wpa->getProperty("Interfaces").onInterface(kWpaInterface).get<std::vector<sdbus::ObjectPath>>();
+  for (const auto& p : ifaces) {
+    subscribeInterface(std::string(p));
   }
 
   rebuildState();

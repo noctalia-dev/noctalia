@@ -9,6 +9,6 @@ namespace noctalia::launcher {
     std::string error;
   };
 
-  [[nodiscard]] DmenuSocketPathResult resolveDmenuSocketPath();
+  DmenuSocketPathResult resolveDmenuSocketPath();
 
 } // namespace noctalia::launcher

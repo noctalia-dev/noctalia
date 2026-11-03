@@ -514,7 +514,7 @@ void SoundPlayer::processStream(ActiveStream& streamState) {
 
   if (streamState.cursor >= sampleCount && !streamState.draining) {
     streamState.draining = true;
-    (void)pw_stream_flush(streamState.stream, true);
+    pw_stream_flush(streamState.stream, true);
   }
 }
 

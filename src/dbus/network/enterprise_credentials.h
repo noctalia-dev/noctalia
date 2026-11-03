@@ -32,7 +32,7 @@ namespace network_enterprise {
   // this key management. The WPA3-Enterprise 192-bit suite is certificate-only:
   // NM refuses to write a profile without "802-1x.client-cert", so it needs
   // EAP-TLS rather than any password the user could type.
-  [[nodiscard]] constexpr bool passwordAuthUsable(network_manager_security::KeyManagement kind) noexcept {
+  constexpr bool passwordAuthUsable(network_manager_security::KeyManagement kind) noexcept {
     return kind == network_manager_security::KeyManagement::Enterprise;
   }
 
@@ -56,7 +56,7 @@ namespace network_enterprise {
     CaCertNotAbsolute,
   };
 
-  [[nodiscard]] inline std::string_view eapName(EapMethod method) noexcept {
+  inline std::string_view eapName(EapMethod method) noexcept {
     switch (method) {
     case EapMethod::Ttls:
       return "ttls";
@@ -66,7 +66,7 @@ namespace network_enterprise {
     return "peap";
   }
 
-  [[nodiscard]] inline std::string_view phase2Name(Phase2Auth auth) noexcept {
+  inline std::string_view phase2Name(Phase2Auth auth) noexcept {
     switch (auth) {
     case Phase2Auth::Pap:
       return "pap";
@@ -83,14 +83,14 @@ namespace network_enterprise {
   // PEAP's tunnel carries MSCHAPv2 here; PAP/CHAP/MSCHAP are TTLS-only. Offering
   // an impossible pair produces a profile that fails at association time with an
   // error no user can act on, so it is rejected up front.
-  [[nodiscard]] inline bool phase2Supported(EapMethod eap, Phase2Auth phase2) noexcept {
+  inline bool phase2Supported(EapMethod eap, Phase2Auth phase2) noexcept {
     if (eap == EapMethod::Peap) {
       return phase2 == Phase2Auth::MsChapV2;
     }
     return true;
   }
 
-  [[nodiscard]] inline Validation validate(const EnterpriseCredentials& credentials) {
+  inline Validation validate(const EnterpriseCredentials& credentials) {
     if (credentials.identity.empty()) {
       return Validation::MissingIdentity;
     }
@@ -108,7 +108,7 @@ namespace network_enterprise {
 
   // NM stores certificate references as a byte array holding a "file://" URI
   // terminated by NUL; a blob without the scheme is read as inline DER/PEM data.
-  [[nodiscard]] inline std::vector<std::uint8_t> caCertUriBytes(std::string_view path) {
+  inline std::vector<std::uint8_t> caCertUriBytes(std::string_view path) {
     constexpr std::string_view kScheme = "file://";
     std::vector<std::uint8_t> bytes;
     bytes.reserve(kScheme.size() + path.size() + 1U);
@@ -137,7 +137,7 @@ namespace network_enterprise {
     bool operator==(const EapSetting&) const = default;
   };
 
-  [[nodiscard]] inline EapSetting buildEapSetting(const EnterpriseCredentials& credentials) {
+  inline EapSetting buildEapSetting(const EnterpriseCredentials& credentials) {
     EapSetting setting;
     setting.eap.emplace_back(eapName(credentials.eap));
     setting.identity = credentials.identity;

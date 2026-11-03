@@ -155,6 +155,7 @@ undo_hook = "bash '{{ config_dir }}/gtk/undo-gtk4.sh'"
 [templates.helix]
 input_path = "./helix/helix.toml"
 output_path = "$XDG_CONFIG_HOME/helix/themes/noctalia.toml"
+post_hook = "bash '{{ config_dir }}/helix/apply.sh'"
 undo_hook = "bash '{{ config_dir }}/helix/undo.sh'"
 
 [templates.kcolorscheme]

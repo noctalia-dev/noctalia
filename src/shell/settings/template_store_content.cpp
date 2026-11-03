@@ -26,7 +26,7 @@ namespace settings {
     // Sentinel for the Enabled chip — not a real catalog category value.
     constexpr std::string_view kEnabledFilter = "__enabled__";
 
-    [[nodiscard]] bool containsInsensitive(std::string_view haystack, std::string_view needle) {
+    bool containsInsensitive(std::string_view haystack, std::string_view needle) {
       if (needle.empty()) {
         return true;
       }
@@ -44,7 +44,7 @@ namespace settings {
       void setCatalog(const std::vector<noctalia::theme::AvailableTemplate>* catalog) { m_catalog = catalog; }
       void setSelectedIds(const std::unordered_set<std::string>* ids) { m_selectedIds = ids; }
 
-      [[nodiscard]] std::size_t itemCount() const override { return m_indices != nullptr ? m_indices->size() : 0; }
+      std::size_t itemCount() const override { return m_indices != nullptr ? m_indices->size() : 0; }
 
       [[nodiscard]] std::unique_ptr<Node> createTile() override { return std::make_unique<TemplateStoreTile>(m_scale); }
 
@@ -65,7 +65,7 @@ namespace settings {
         );
       }
 
-      [[nodiscard]] std::string itemTooltip(std::size_t index) const override {
+      std::string itemTooltip(std::size_t index) const override {
         if (m_indices == nullptr || m_catalog == nullptr || index >= m_indices->size()) {
           return {};
         }
@@ -85,7 +85,7 @@ namespace settings {
         return m_content->openDocumentationAtFilteredIndex(index);
       }
 
-      [[nodiscard]] bool
+      bool
       overlayHitTest(std::size_t index, float localX, float localY, float cellWidth, float cellHeight) const override {
         return m_indices != nullptr
             && m_catalog != nullptr
@@ -98,11 +98,9 @@ namespace settings {
         static_cast<TemplateStoreTile&>(tile).setReadmeHovered(hovered);
       }
 
-      [[nodiscard]] std::string overlayTooltip(std::size_t /*index*/) const override {
-        return i18n::tr("settings.templates.readme");
-      }
+      std::string overlayTooltip(std::size_t /*index*/) const override { return i18n::tr("settings.templates.readme"); }
 
-      [[nodiscard]] std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+      std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
           std::size_t /*index*/, float cellWidth, float cellHeight, bool overlayHovered
       ) const override {
         if (!overlayHovered) {
@@ -195,7 +193,7 @@ namespace settings {
     }
     m_sortMode = mode;
     if (m_config != nullptr) {
-      (void)m_config->setStateString("template_store", "sort", sortModeStateValue(mode));
+      m_config->setStateString("template_store", "sort", sortModeStateValue(mode));
     }
     syncSortButtonGlyph();
     sortFiltered();
