@@ -305,3 +305,11 @@ std::string resolveKeyboardLayoutLabel(
   }
   return formatKeyboardLayoutLabel(layoutName, displayMode);
 }
+
+std::string resolveInputMethodLabel(
+    const std::string& inputMethodName, KeyboardLayoutDisplayMode displayMode,
+    const std::unordered_map<std::string, std::string>& customLabels
+) {
+  std::string label = resolveKeyboardLayoutLabel(inputMethodName, displayMode, customLabels);
+  return label == kUnknownLabel ? inputMethodName : label;
+}

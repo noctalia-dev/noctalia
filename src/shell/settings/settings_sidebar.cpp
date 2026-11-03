@@ -29,7 +29,7 @@ namespace settings {
 
     void addNavButton(RovingListNavHost& nav, std::unique_ptr<Button> button, std::function<void()> onClick) {
       Button* raw = button.get();
-      nav.registerItem(raw, onClick);
+      nav.registerItem(raw, std::move(onClick));
       nav.addChild(std::move(button));
     }
 
@@ -191,7 +191,7 @@ namespace settings {
           && sectionId == *selectedSection
           && (section != SettingsSection::Dock || selectedMonitorOverride->empty());
       const auto onClick = [selectedSection, scroll, sectionId, searchActive, clearTransientState, clearSearchQuery,
-                            requestRebuild, selectedMonitorOverride]() {
+                            requestRebuild, selectedMonitorOverride] {
         if (searchActive || *selectedSection != sectionId) {
           scroll->offset = 0.0F;
         }
@@ -218,7 +218,7 @@ namespace settings {
         const std::string tableName = override.tableName;
         const std::string label = override.match;
         const auto onMonitorClick = [selectedSection, selectedMonitorOverride, scroll, tableName, searchActive,
-                                     clearTransientState, clearSearchQuery, requestRebuild]() {
+                                     clearTransientState, clearSearchQuery, requestRebuild] {
           if (searchActive || *selectedSection != "dock" || *selectedMonitorOverride != tableName) {
             scroll->offset = 0.0F;
           }
@@ -238,7 +238,7 @@ namespace settings {
         );
       }
       if (*selectedSection == "dock") {
-        const auto onNewDockMonitorClick = [openDockMonitorOverrideCreate, clearTransientState]() {
+        const auto onNewDockMonitorClick = [openDockMonitorOverrideCreate, clearTransientState] {
           clearTransientState();
           if (openDockMonitorOverrideCreate) {
             openDockMonitorOverrideCreate();
@@ -272,7 +272,7 @@ namespace settings {
       const bool barSelected =
           showActiveTab && *selectedSection == "bar" && *selectedBarName == barName && selectedMonitorOverride->empty();
       const auto onBarClick = [selectedSection, selectedBarName, selectedMonitorOverride, scroll, barName, searchActive,
-                               clearTransientState, clearSearchQuery, requestRebuild]() {
+                               clearTransientState, clearSearchQuery, requestRebuild] {
         if (searchActive
             || *selectedSection != "bar"
             || *selectedBarName != barName
@@ -307,7 +307,7 @@ namespace settings {
             && *selectedMonitorOverride == ovr.match;
         auto match = ovr.match;
         const auto onMonitorClick = [selectedSection, selectedBarName, selectedMonitorOverride, scroll, barName, match,
-                                     searchActive, clearTransientState, clearSearchQuery, requestRebuild]() {
+                                     searchActive, clearTransientState, clearSearchQuery, requestRebuild] {
           if (searchActive
               || *selectedSection != "bar"
               || *selectedBarName != barName
@@ -337,7 +337,7 @@ namespace settings {
 
       // Secondary sidebar action style: same compact indentation as monitor rows. Opens the create
       // flow in a modal (wide enough for the output picker) rather than expanding it inline here.
-      const auto onNewMonitorClick = [openMonitorOverrideCreate, barName, clearTransientState]() {
+      const auto onNewMonitorClick = [openMonitorOverrideCreate, barName, clearTransientState] {
         clearTransientState();
         if (openMonitorOverrideCreate) {
           openMonitorOverrideCreate(barName);
@@ -367,7 +367,7 @@ namespace settings {
     }
 
     // Primary sidebar action style: same scale as top-level section rows.
-    const auto onNewBarClick = [creatingBarName, nextBarName, clearTransientState, requestRebuild]() {
+    const auto onNewBarClick = [creatingBarName, nextBarName, clearTransientState, requestRebuild] {
       clearTransientState();
       *creatingBarName = nextBarName;
       requestRebuild();
@@ -415,7 +415,7 @@ namespace settings {
           .height = Style::controlHeightSm * scale,
       });
 
-      auto doCreate = [existingBarNames, createBar, inputPtr](std::string rawName) {
+      auto doCreate = [existingBarNames, createBar, inputPtr](const std::string& rawName) {
         const std::string name = normalizedConfigId(rawName);
         if (!isValidConfigId(name) || barNameExists(existingBarNames, name)) {
           inputPtr->setInvalid(true);
@@ -440,9 +440,9 @@ namespace settings {
               },
               makeCreateButton(
                   i18n::tr("settings.entities.bar.create"), scale,
-                  [doCreate, inputPtr]() mutable { doCreate(inputPtr->value()); }
+                  [doCreate, inputPtr] mutable { doCreate(inputPtr->value()); }
               ),
-              makeCreateCancelButton(scale, [creatingBarName, requestRebuild]() {
+              makeCreateCancelButton(scale, [creatingBarName, requestRebuild] {
                 creatingBarName->clear();
                 requestRebuild();
               })

@@ -119,7 +119,7 @@ void PluginLauncherProvider::dispatchQuery(const std::string& text) const {
 void PluginLauncherProvider::armQueryTimer() const {
   m_queryTimer.stop();
   auto alive = std::weak_ptr<bool>(m_alive);
-  m_queryTimer.start(std::chrono::milliseconds(m_debounceMs), [this, alive]() {
+  m_queryTimer.start(std::chrono::milliseconds(m_debounceMs), [this, alive] {
     auto token = alive.lock();
     if (token != nullptr && *token) {
       dispatchQuery(m_pendingQuery);

@@ -129,6 +129,21 @@ namespace {
     TEST_CHECK(parsed->joinedRemaining == "World !");
   }
 
+  void checkFlagsBeforeJoinedRemaining() {
+    static constexpr std::array flags{
+        noctalia::cli::Flag{"--flag", {}, {}, "Flag", {}, {}, false, false},
+    };
+    static constexpr std::array positionals{
+        noctalia::cli::Positional{"target", {}, {}, false, false, true},
+    };
+    static constexpr noctalia::cli::Command command{"capture", {}, {}, {}, flags, positionals, {}, false};
+    Args args{"--flag", "Dell", "U2720Q", "--flag"};
+    auto parsed = noctalia::cli::parseArgs(command, args.pointers);
+    TEST_CHECK(parsed.has_value());
+    TEST_CHECK(parsed->has("--flag"));
+    TEST_CHECK(parsed->joinedRemaining == "Dell U2720Q --flag");
+  }
+
   void checkHelpAnywhere() {
     Args args{"input.png", "--help", "--bogus"};
     auto parsed = noctalia::cli::parseArgs(kCommand, args.pointers);
@@ -146,6 +161,7 @@ int main() {
   checkRequiredFlag();
   checkVariadic();
   checkJoinedRemaining();
+  checkFlagsBeforeJoinedRemaining();
   checkHelpAnywhere();
   return EXIT_SUCCESS;
 }

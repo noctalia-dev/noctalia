@@ -110,6 +110,31 @@ int main() {
         client2TokenReceived = true;
       });
 
+  std::atomic<uint32_t> client1ActionId{0};
+  std::string client1ActionKey;
+  std::atomic<uint32_t> client1ClosedId{0};
+  std::atomic<uint32_t> client2ActionId{0};
+  std::atomic<uint32_t> client2ClosedId{0};
+
+  proxy1->uponSignal("ActionInvoked")
+      .onInterface(kNotificationsInterface)
+      .call([&](uint32_t id, const std::string& key) {
+        client1ActionKey = key;
+        client1ActionId = id;
+      });
+
+  proxy1->uponSignal("NotificationClosed").onInterface(kNotificationsInterface).call([&](uint32_t id, uint32_t) {
+    client1ClosedId = id;
+  });
+
+  proxy2->uponSignal("ActionInvoked").onInterface(kNotificationsInterface).call([&](uint32_t id, const std::string&) {
+    client2ActionId = id;
+  });
+
+  proxy2->uponSignal("NotificationClosed").onInterface(kNotificationsInterface).call([&](uint32_t id, uint32_t) {
+    client2ClosedId = id;
+  });
+
   // 2. Client 1 sends a notification with an inline-reply action
   std::atomic<bool> notifyDone{false};
   uint32_t notifId{0};
@@ -299,6 +324,55 @@ int main() {
   }
   TEST_CHECK(!client1Replied);
   TEST_CHECK(!client1TokenReceived);
+
+  // 6. Clicking a notification sends ActionInvoked, its ActivationToken and NotificationClosed only to
+  //    the owner; a client that doesn't check ids must not see clicks on other apps' notifications.
+  std::atomic<bool> actionNotifyDone{false};
+  uint32_t actionNotifId{0};
+
+  proxy1->callMethodAsync("Notify")
+      .onInterface(kNotificationsInterface)
+      .withArguments(
+          std::string{"originating-client"}, uint32_t{0}, std::string{""}, std::string{"Clickable"},
+          std::string{"Click me"}, std::vector<std::string>{"default", "Open"}, std::map<std::string, sdbus::Variant>{},
+          int32_t{0}
+      )
+      .uponReplyInvoke([&](std::optional<sdbus::Error> error, uint32_t id) {
+        TEST_CHECK(!error.has_value());
+        actionNotifId = id;
+        actionNotifyDone = true;
+      });
+
+  TEST_CHECK(drainUntil(bus, [&] { return actionNotifyDone.load(); }));
+  TEST_CHECK(actionNotifId != 0);
+
+  for (int i = 0; i < 50; ++i) {
+    bus.processPendingEvents();
+    std::this_thread::sleep_for(2ms);
+  }
+  client1TokenReceived = false;
+  client2TokenReceived = false;
+  client1ActionId = 0;
+  client1ClosedId = 0;
+  client2ActionId = 0;
+  client2ClosedId = 0;
+
+  TEST_CHECK(manager.invokeAction(actionNotifId, "default", "token-click", true));
+  TEST_CHECK(drainUntil(bus, [&] {
+    return client1ActionId.load() == actionNotifId
+        && client1ClosedId.load() == actionNotifId
+        && client1TokenReceived.load();
+  }));
+  TEST_CHECK(client1ActionKey == "default");
+  TEST_CHECK(client1Token == "token-click");
+
+  for (int i = 0; i < 50; ++i) {
+    bus.processPendingEvents();
+    std::this_thread::sleep_for(2ms);
+  }
+  TEST_CHECK(client2ActionId == 0);
+  TEST_CHECK(client2ClosedId == 0);
+  TEST_CHECK(!client2TokenReceived);
 
   client1->leaveEventLoop();
   client2->leaveEventLoop();

@@ -40,7 +40,7 @@ DebugService::DebugService(SessionBus& bus, NotificationManager& notifications) 
               .withOutputParamNames("success")
               .implementedAs([this](bool enabled) { return onSetVerboseLogs(enabled); }),
 
-          sdbus::registerMethod("GetVerboseLogs").withOutputParamNames("enabled").implementedAs([this]() {
+          sdbus::registerMethod("GetVerboseLogs").withOutputParamNames("enabled").implementedAs([this] {
             return onGetVerboseLogs();
           })
       )

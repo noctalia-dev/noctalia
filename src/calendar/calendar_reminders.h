@@ -41,21 +41,21 @@ namespace calendar {
   // Stable identity for one (event instance, lead) pair. Recurring instances share a UID and differ
   // by start, so start is part of the key. The account is deliberately NOT part of it: the same iCal
   // UID subscribed through two accounts collapses to one key and one notification, which is intended.
-  [[nodiscard]] std::string reminderKey(const CalendarEvent& event, std::int32_t leadKey);
+  std::string reminderKey(const CalendarEvent& event, std::int32_t leadKey);
 
   // Start instant embedded in a reminder key, or nullopt when the key is malformed.
-  [[nodiscard]] std::optional<std::chrono::system_clock::time_point> reminderKeyStart(std::string_view key);
+  std::optional<std::chrono::system_clock::time_point> reminderKeyStart(std::string_view key);
 
   // Local wall-clock instant of `hhmm` ("HH:MM") on the local date containing `now`. DST-safe: a time
   // inside a spring-forward gap resolves to the earliest valid instant rather than throwing.
-  [[nodiscard]] std::optional<std::chrono::system_clock::time_point>
+  std::optional<std::chrono::system_clock::time_point>
   digestInstantFor(std::chrono::system_clock::time_point now, std::string_view hhmm);
 
   // Local calendar date of `now` as "YYYY-MM-DD".
-  [[nodiscard]] std::string localDateKey(std::chrono::system_clock::time_point now);
+  std::string localDateKey(std::chrono::system_clock::time_point now);
 
   // True when the all-day `event` covers the local date of `now`.
-  [[nodiscard]] bool allDayEventCoversDate(const CalendarEvent& event, std::chrono::system_clock::time_point now);
+  bool allDayEventCoversDate(const CalendarEvent& event, std::chrono::system_clock::time_point now);
 
   // How far ahead a reminder body keeps counting down. A VALARM a day out would otherwise rewrite its
   // notification 1440 times over; outside this window the text stays as it read when the reminder fired.
@@ -67,13 +67,12 @@ namespace calendar {
   // to the half minute, so "3 min" would appear 3.5 minutes out and disagree with a glance at the
   // clock for half of each minute. Rounding up anchors every step to a whole minute before the event,
   // and reaches zero ("starting now") exactly at the start rather than 30 seconds early.
-  [[nodiscard]] std::int64_t
-  countdownMinutes(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point now);
+  std::int64_t countdownMinutes(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point now);
 
   // When the countdown label for `start` next changes, or nullopt once it has settled on "starting now"
   // and can never change again. Always strictly after `now`, so a caller polling on it makes progress
   // instead of spinning on the boundary instant.
-  [[nodiscard]] std::optional<std::chrono::system_clock::time_point>
+  std::optional<std::chrono::system_clock::time_point>
   countdownNextChange(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point now);
 
   struct DueReminder {
@@ -105,7 +104,7 @@ namespace calendar {
   //
   // All-day events never produce per-event reminders (explicit VALARMs on them are ignored); they
   // are surfaced solely through the morning-of digest.
-  [[nodiscard]] ReminderPlan planReminders(
+  ReminderPlan planReminders(
       const CalendarSnapshot& snapshot, const CalendarConfig::Reminders& config,
       const std::unordered_set<std::string>& fired, const std::optional<std::string>& lastDigestDate,
       std::chrono::system_clock::time_point now

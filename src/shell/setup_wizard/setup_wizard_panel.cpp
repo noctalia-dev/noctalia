@@ -249,7 +249,7 @@ void SetupWizardPanel::create() {
               .paddingV = Style::spaceSm * scale,
               .paddingH = Style::spaceMd * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 FileDialogOptions options;
                 options.mode = FileDialogMode::Open;
                 options.defaultViewMode = FileDialogViewMode::Grid;
@@ -421,7 +421,7 @@ void SetupWizardPanel::create() {
             .paddingV = Style::spaceSm * scale,
             .paddingH = Style::spaceLg * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [this]() { commit(); },
+            .onClick = [this] { commit(); },
         })
     );
     root->addChild(std::move(footer));
@@ -488,7 +488,7 @@ void SetupWizardPanel::commit() {
   // Theme/palette overrides are written live by the select callbacks only when
   // the user actually changes them, so commit must not force any defaults here.
   if (m_config != nullptr) {
-    (void)m_config->markSetupWizardCompleted();
+    m_config->markSetupWizardCompleted();
   }
   kLog.info("setup complete");
   PanelManager::instance().close();
@@ -496,6 +496,6 @@ void SetupWizardPanel::commit() {
 
 void SetupWizardPanel::onClose() {
   if (m_config != nullptr) {
-    (void)m_config->markSetupWizardCompleted();
+    m_config->markSetupWizardCompleted();
   }
 }

@@ -12,8 +12,7 @@ namespace terminal_launch {
     bool useSystemTerminalDiscovery = true;
   };
 
-  [[nodiscard]] std::optional<std::vector<std::string>>
-  prepareCommand(std::string_view command, const Options& options = {});
+  std::optional<std::vector<std::string>> prepareCommand(std::string_view command, const Options& options = {});
 
   [[nodiscard]] bool launch(std::string_view command, const Options& options = {});
 

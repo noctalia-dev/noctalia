@@ -111,6 +111,26 @@ public:
     };
     return TaskbarWidget::compareModels(groupByWorkspace, {previous}, {}, {next}, {}).layoutEqual;
   }
+
+  static std::pair<bool, bool> compareMinimizeStates(
+      bool groupByWorkspace, std::optional<WindowMinimizeState> previousState,
+      std::optional<WindowMinimizeState> nextState, std::size_t previousCount, std::size_t nextCount
+  ) {
+    const TaskbarWidget::TaskModel previous{
+        .handleKey = 11,
+        .instanceCount = 2,
+        .minimizeState = previousState,
+        .minimizedCount = previousCount,
+    };
+    const TaskbarWidget::TaskModel next{
+        .handleKey = 11,
+        .instanceCount = 2,
+        .minimizeState = nextState,
+        .minimizedCount = nextCount,
+    };
+    const auto comparison = TaskbarWidget::compareModels(groupByWorkspace, {previous}, {}, {next}, {});
+    return {comparison.layoutEqual, comparison.minimizeStatesChanged};
+  }
 };
 
 int main() {
@@ -122,6 +142,23 @@ int main() {
   // Flat tiles patch active visuals in place; grouped summaries still rebuild.
   TEST_CHECK(TaskbarWidgetTestAccess::activeFlip(false) == std::pair(true, true));
   TEST_CHECK(!TaskbarWidgetTestAccess::activeFlip(true).first);
+
+  const WindowMinimizeState restored{.minimized = false, .minimizable = true};
+  const WindowMinimizeState minimized{.minimized = true, .minimizable = true};
+  TEST_CHECK(TaskbarWidgetTestAccess::compareMinimizeStates(false, restored, minimized, 0, 1) == std::pair(true, true));
+  // A different member can change a pinned app's status without changing its representative.
+  TEST_CHECK(TaskbarWidgetTestAccess::compareMinimizeStates(false, restored, restored, 0, 1) == std::pair(true, true));
+  TEST_CHECK(TaskbarWidgetTestAccess::compareMinimizeStates(false, restored, restored, 1, 1) == std::pair(true, false));
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::compareMinimizeStates(false, std::nullopt, restored, 0, 0) == std::pair(true, true)
+  );
+  TEST_CHECK(!TaskbarWidgetTestAccess::compareMinimizeStates(true, restored, minimized, 0, 1).first);
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::compareMinimizeStates(
+          false, restored, WindowMinimizeState{.minimized = false, .minimizable = false}, 0, 0
+      )
+      == std::pair(true, true)
+  );
 
   auto tasks = std::vector{
       TaskbarWidgetTestAccess::task(11, "first"),

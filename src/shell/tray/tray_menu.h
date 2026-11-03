@@ -4,10 +4,10 @@
 #include "dbus/tray/tray_service.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "shell/wayland/hyprland/focus_grab_service.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/popup_chrome.h"
-#include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/popup_surface.h"
 
 #include <chrono>
@@ -24,6 +24,7 @@ class WaylandConnection;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_surface;
+struct zwlr_layer_surface_v1;
 
 class TrayMenu {
 public:
@@ -38,11 +39,11 @@ public:
   void onThemeChanged();
   void requestLayout();
   void setClosedCallback(std::function<void()> callback);
-  [[nodiscard]] bool isOpen() const noexcept { return m_visible; }
+  bool isOpen() const noexcept { return m_visible; }
 
-  [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
+  bool onPointerEvent(const PointerEvent& event);
   // Consumes keys while the menu is open (modal grab); Cancel closes it.
-  [[nodiscard]] bool onKeyboardEvent(const KeyboardEvent& event);
+  bool onKeyboardEvent(const KeyboardEvent& event);
 
 private:
   struct MenuInstance {
@@ -59,11 +60,11 @@ private:
 
   void refreshEntries();
   void scheduleEntryRetry(int attempt);
-  [[nodiscard]] uint32_t surfaceHeightPx() const;
-  [[nodiscard]] uint32_t submenuHeightPx(const std::vector<TrayMenuEntry>& submenuEntries) const;
-  [[nodiscard]] bool ownsSurface(wl_surface* surface) const;
-  [[nodiscard]] float contentScale() const noexcept;
-  [[nodiscard]] float menuWidth() const noexcept;
+  uint32_t surfaceHeightPx() const;
+  uint32_t submenuHeightPx(const std::vector<TrayMenuEntry>& submenuEntries) const;
+  bool ownsSurface(wl_surface* surface) const;
+  float contentScale() const noexcept;
+  float menuWidth() const noexcept;
   void ensureSurface();
   void resizeMainSurfaceToEntries();
   void destroySurface();
@@ -77,8 +78,8 @@ private:
   void closeSubmenusFrom(std::size_t levelIndex);
   void prepareSubmenuFrame(std::size_t levelIndex, MenuInstance& inst, bool needsUpdate, bool needsLayout);
   void buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uint32_t width, uint32_t height);
-  [[nodiscard]] std::optional<TrayItemInfo> activeTrayItem() const;
-  [[nodiscard]] bool activeItemPinned() const;
+  std::optional<TrayItemInfo> activeTrayItem() const;
+  bool activeItemPinned() const;
   bool toggleActiveItemPinned();
 
   WaylandConnection* m_wayland = nullptr;

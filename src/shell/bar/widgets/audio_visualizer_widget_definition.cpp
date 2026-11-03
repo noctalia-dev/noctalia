@@ -13,20 +13,31 @@ const noctalia::bar::WidgetDefinition<AudioVisualizerWidget::Options>& audioVisu
               .maxValue = 2048.0,
               .step = 1.0,
           }),
-          field<&Options::bands>({
-              .key = "bands",
-              .minValue = 2.0,
-              .maxValue = 128.0,
-              .step = 1.0,
-          }),
+          field<&Options::bands>(
+              {.key = "bands",
+               .minValue = 2.0,
+               .maxValue = 128.0,
+               .step = 1.0,
+               .presentation =
+                   settings::WidgetSettingPresentation{
+                       .visibleWhen = settings::WidgetSettingVisibility{"show_wave", {"false"}},
+                   }}
+          ),
           field<&Options::mirrored>({
               .key = "mirrored",
           }),
           field<&Options::reversed>({
               .key = "reversed",
           }),
-          field<&Options::centered>({
-              .key = "centered",
+          field<&Options::centered>(
+              {.key = "centered",
+               .presentation =
+                   settings::WidgetSettingPresentation{
+                       .visibleWhen = settings::WidgetSettingVisibility{"show_wave", {"false"}},
+                   }}
+          ),
+          field<&Options::wave>({
+              .key = "show_wave",
           }),
           field<&Options::showWhenIdle>({
               .key = "show_when_idle",

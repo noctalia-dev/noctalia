@@ -12,14 +12,14 @@ class ExtWorkspaceBackend final : public WorkspaceBackend, public ExtWorkspacePr
 public:
   void bindExtWorkspace(ext_workspace_manager_v1* manager) override;
 
-  [[nodiscard]] const char* backendName() const override { return "ext-workspace"; }
-  [[nodiscard]] bool isAvailable() const noexcept override { return m_manager != nullptr; }
+  const char* backendName() const override { return "ext-workspace"; }
+  bool isAvailable() const noexcept override { return m_manager != nullptr; }
   void setChangeCallback(ChangeCallback callback) override;
   void activate(const std::string& id) override;
   void activateForOutput(wl_output* output, const std::string& id) override;
   void activateForOutput(wl_output* output, const Workspace& workspace) override;
-  [[nodiscard]] std::vector<Workspace> all() const override;
-  [[nodiscard]] std::vector<Workspace> forOutput(wl_output* output) const override;
+  std::vector<Workspace> all() const override;
+  std::vector<Workspace> forOutput(wl_output* output) const override;
   void cleanup() override;
 
   void onGroupCreated(ext_workspace_group_handle_v1* group);

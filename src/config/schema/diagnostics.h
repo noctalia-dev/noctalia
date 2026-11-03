@@ -19,10 +19,10 @@ namespace noctalia::config::schema {
 
     bool operator==(const SourceOrigin&) const = default;
 
-    [[nodiscard]] bool valid() const { return !file.empty(); }
+    bool valid() const { return !file.empty(); }
 
     // "file:line:column", or empty when unknown.
-    [[nodiscard]] std::string format() const {
+    std::string format() const {
       if (file.empty()) {
         return {};
       }
@@ -30,7 +30,7 @@ namespace noctalia::config::schema {
     }
 
     // "file:line:column: text", or just `text` when unknown.
-    [[nodiscard]] std::string prefixed(std::string_view text) const {
+    std::string prefixed(std::string_view text) const {
       if (file.empty()) {
         return std::string(text);
       }
@@ -39,7 +39,7 @@ namespace noctalia::config::schema {
 
     // format(), shortened for narrow surfaces: the file path relative to
     // `baseDir` when it lives there, otherwise its file name.
-    [[nodiscard]] std::string shortFormat(std::string_view baseDir) const {
+    std::string shortFormat(std::string_view baseDir) const {
       if (file.empty()) {
         return {};
       }
@@ -56,7 +56,7 @@ namespace noctalia::config::schema {
     }
 
     // prefixed(), using the shortened location.
-    [[nodiscard]] std::string prefixedShort(std::string_view baseDir, std::string_view text) const {
+    std::string prefixedShort(std::string_view baseDir, std::string_view text) const {
       if (file.empty()) {
         return std::string(text);
       }
@@ -83,10 +83,10 @@ namespace noctalia::config::schema {
       SourceOrigin origin;
 
       // "file:line:column: path: message", dropping the position when unknown.
-      [[nodiscard]] std::string describe() const { return origin.prefixed(path + ": " + message); }
+      std::string describe() const { return origin.prefixed(path + ": " + message); }
 
       // describe(), shortened for the on-screen config-error notification.
-      [[nodiscard]] std::string describeShort(std::string_view baseDir) const {
+      std::string describeShort(std::string_view baseDir) const {
         return origin.prefixedShort(baseDir, path + ": " + message);
       }
     };
@@ -135,30 +135,27 @@ namespace noctalia::config::schema {
       );
     }
 
-    [[nodiscard]] bool hasErrors() const {
-      for (const auto& e : entries) {
-        if (e.severity == Severity::Error) {
-          return true;
-        }
-      }
-      return false;
+    bool hasErrors() const {
+      return std::ranges::any_of(entries, [&](const auto& e) { return e.severity == Severity::Error; });
     }
 
-    [[nodiscard]] bool hasFatalErrors() const {
-      for (const auto& e : entries) {
-        if (e.severity == Severity::Error && e.recoveryScope == RecoveryScope::Document) {
-          return true;
-        }
-      }
-      return false;
+    bool hasFatalErrors() const {
+      return std::ranges::any_of(entries, [&](const auto& e) {
+        return e.severity == Severity::Error && e.recoveryScope == RecoveryScope::Document;
+      });
+    }
+
+    Diagnostics introducedErrorsComparedTo(const Diagnostics& baseline) const {
+      return introducedDiagnosticsComparedTo(baseline, Severity::Error);
     }
 
     // Origin is deliberately not compared: the same error moving to another line
     // is not a new error.
-    [[nodiscard]] Diagnostics introducedErrorsComparedTo(const Diagnostics& baseline) const {
+    Diagnostics
+    introducedDiagnosticsComparedTo(const Diagnostics& baseline, Severity minSeverity = Severity::Warning) const {
       Diagnostics introduced;
       for (const auto& candidate : entries) {
-        if (candidate.severity != Severity::Error) {
+        if (static_cast<int>(candidate.severity) < static_cast<int>(minSeverity)) {
           continue;
         }
         const bool existed = std::ranges::any_of(baseline.entries, [&](const Entry& previous) {

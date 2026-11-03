@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <string_view>
 #include <thread>
 
 namespace scripting {
@@ -16,6 +17,26 @@ namespace scripting {
   namespace {
     std::string cacheKey(const std::string& sourceName, const std::string& pluginId, const std::string& filename) {
       return sourceName + "/" + pluginId + "/" + filename;
+    }
+
+    // A file inside the plugin directory, spelled as normalized '/'-separated components, so it can
+    // neither escape the plugin directory nor the on-disk cache.
+    bool isPluginRelativeFile(std::string_view filename) {
+      if (filename.empty()) {
+        return false;
+      }
+      std::size_t start = 0;
+      while (true) {
+        const std::size_t end = filename.find('/', start);
+        const std::string_view part = filename.substr(start, end == std::string_view::npos ? end : end - start);
+        if (part.empty() || part == "." || part == ".." || part.contains('\0')) {
+          return false;
+        }
+        if (end == std::string_view::npos) {
+          return true;
+        }
+        start = end + 1;
+      }
     }
   } // namespace
 
@@ -44,14 +65,14 @@ namespace scripting {
     const std::string base = FileUtils::stateDir();
     if (!base.empty()) {
       const std::filesystem::path cacheRoot = std::filesystem::path(base) / "plugin-cache";
-      (void)plugin_paths::removeTreeUnder(cacheRoot / sourceName, cacheRoot);
+      plugin_paths::removeTreeUnder(cacheRoot / sourceName, cacheRoot);
     }
   }
 
   std::string
   PluginFileCache::resolve(const std::string& pluginId, const PluginSourceConfig& source, const std::string& filename) {
     const auto subdir = pluginSubdirFromId(pluginId);
-    if (!subdir.has_value()) {
+    if (!subdir.has_value() || !isPluginRelativeFile(filename)) {
       return {};
     }
     const std::string key = cacheKey(source.name, pluginId, filename);
@@ -86,7 +107,7 @@ namespace scripting {
     }
 
     // Git sources: check cache, then background-fetch.
-    const std::string cached = cacheFilePath(source.name, *subdir, filename);
+    std::string cached = cacheFilePath(source.name, *subdir, filename);
     if (!cached.empty() && std::filesystem::exists(cached)) {
       return cached;
     }
@@ -100,7 +121,7 @@ namespace scripting {
     }
 
     const auto repoRoot = plugin_paths::gitRepoRoot(source);
-    std::thread([this, pluginId, key, repoPath = *subdir + "/" + filename, repoRoot, cached, filename]() {
+    std::thread([this, pluginId, key, repoPath = *subdir + "/" + filename, repoRoot, cached, filename] {
       const auto result = plugin_git::showFile(repoRoot, repoPath);
       if (!result.ok || result.out.empty()) {
         std::scoped_lock lock(m_mutex);
@@ -118,7 +139,7 @@ namespace scripting {
 
       const std::string resolvedPath = (!ec && std::filesystem::exists(cached)) ? cached : std::string{};
 
-      DeferredCall::callLater([this, pluginId, filename, resolvedPath, key]() {
+      DeferredCall::callLater([this, pluginId, filename, resolvedPath, key] {
         {
           std::scoped_lock lock(m_mutex);
           m_inFlight.erase(key);
