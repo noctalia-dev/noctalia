@@ -1947,6 +1947,10 @@
           "description": "Shared palette color for components with Colorize App Icons enabled",
           "label": "App Icon Color"
         },
+        "app-icon-colorize": {
+          "description": "Recolor application icons across the shell to match the active palette",
+          "label": "Colorize App Icons"
+        },
         "builtin-palette": {
           "description": "Choose a palette from the bundled catalog",
           "label": "Built-In Palette"
@@ -3327,15 +3331,15 @@
         }
       },
       "shared": {
-        "colorize-icons": {
-          "description": "Recolor application icons here using the shared App Icon Color from Appearance",
-          "label": "Colorize App Icons"
-        },
         "auto-hide": {
           "label": "Auto-Hide"
         },
         "background-opacity": {
           "label": "Background Opacity"
+        },
+        "colorize-icons": {
+          "description": "Recolor application icons here using the shared App Icon Color from Appearance",
+          "label": "Colorize App Icons"
         },
         "contact-shadow": {
           "label": "Contact Shadow"

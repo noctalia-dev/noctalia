@@ -89,7 +89,11 @@
       "tool-numbering": "番号付きマーカー（n）",
       "tool-rectangle": "長方形（s）・Shiftキーを押しながら正方形を描画",
       "tool-text": "テキスト（t）",
-      "undo": "元に戻す（Ctrl+Z）"
+      "undo": "元に戻す（Ctrl+Z）",
+      "zoom": "ズーム・Ctrl+マウスホイールで拡大・縮小、Ctrl+ドラッグで表示位置を移動",
+      "zoom-in": "拡大（Ctrl++）",
+      "zoom-out": "縮小（Ctrl+-）",
+      "zoom-reset": "表示領域に合わせる（Ctrl+0）"
     },
     "screenshot": {
       "annotate-export-failed": "注釈付き画像を生成できませんでした",
@@ -401,6 +405,7 @@
       "error-missing-password": "パスワードを入力してください。",
       "error-unsupported-phase2": "PEAPにはMSCHAPv2による内部認証が必要です。",
       "external-ip": "WAN {ip}",
+      "hotspot-active": "Wi-Fiでホットスポットを提供中です。Wi-Fiをオフにするとホットスポットも停止します",
       "identity": "ID",
       "no-networks": "利用可能なネットワークがありません",
       "not-connected": "接続されていません",
@@ -687,6 +692,7 @@
         "show-label": "ラベルを表示",
         "show-login-button": "ログインボタン",
         "show-media": "メディア",
+        "show-media-controls": "メディア操作",
         "show-password-hint": "パスワードのヒント",
         "show-password-reveal": "パスワードを表示",
         "show-seconds": "秒針",
@@ -1326,6 +1332,10 @@
               "windows": "ウィンドウ",
               "workspace-labels": "ワークスペースラベル"
             },
+            "tray": {
+              "drawer": "ドロワー",
+              "icon-overrides": "アイコンの上書き設定"
+            },
             "widget": "ウィジェット",
             "workspaces": {
               "colors": "色",
@@ -1368,6 +1378,13 @@
       "write": "設定を保存できませんでした。"
     },
     "export-config": {
+      "credentials-blank": "空欄",
+      "credentials-blank-description": "認証情報のキーを残し、値を空欄にします。インポート後に設定が必要な項目を確認できます",
+      "credentials-keep": "保持",
+      "credentials-keep-description": "報を設定どおりに書き出します。ファイルは非公開で保管してください",
+      "credentials-omit": "除外",
+      "credentials-omit-description": "認証情報を書き出しファイルに含めません",
+      "credentials-title": "認証情報",
       "export": "書き出し",
       "full-effective-description": "内蔵の既定値を含む、現在有効なすべての設定を書き出します。設定内容の確認やスナップショットの共有に便利ですが、現在の既定値も明示的に保存されます。",
       "full-effective-save-title": "現在有効なすべての設定を保存",
@@ -1375,7 +1392,7 @@
       "merged-user-description": "設定ファイルとGUIでの上書き設定を1つのTOMLファイルにまとめます。内蔵の既定値は明示せず、そのまま使用されます。",
       "merged-user-save-title": "統合したユーザー設定を保存",
       "merged-user-title": "統合ユーザー設定（推奨）",
-      "privacy-warning-description": "どちらの書き出し方法でも、APIキーやパスワードなど、設定ファイルに保存されている機密情報が含まれる場合があります。プラグインの設定も対象です。書き出したファイルは非公開として扱い、共有する前に機密情報を削除してください。",
+      "privacy-warning-description": "機密情報として扱われるのは、カレンダーサーバーのURL、Gitプラグイン配布元のURL、およびプラグインが機密情報として指定した設定項目です。コマンド内のトークンなど、それ以外に設定ファイルへ入力した内容は必ず書き出されます。共有する前にファイルの内容を確認してください。",
       "privacy-warning-title": "書き出したファイルに機密情報が含まれる可能性があります",
       "title": "設定を書き出す"
     },
@@ -1505,6 +1522,7 @@
         "keybinds": "キー割り当て",
         "launcher": "ランチャー",
         "location": "位置情報",
+        "lock-screen": "ロック画面",
         "niri": "Niri",
         "notifications": "通知",
         "osd": "OSD",
@@ -1513,7 +1531,7 @@
         "popups": "ポップアップ",
         "power": "電源",
         "screenshot": "スクリーンショット",
-        "security": "セキュリティ",
+        "security": "プライバシーとセキュリティ",
         "services": "サービス",
         "shell": "シェル",
         "system": "システム",
@@ -1611,6 +1629,7 @@
         "window-switcher": "ウィンドウスイッチャー"
       },
       "layer": {
+        "follow": "追従",
         "overlay": "オーバーレイ",
         "top": "トップ"
       },
@@ -1715,7 +1734,8 @@
         },
         "window-switcher-style": {
           "carousel": "カルーセル",
-          "compact": "コンパクト"
+          "compact": "コンパクト",
+          "icons": "アイコンのみ"
         }
       },
       "theme": {
@@ -1790,7 +1810,7 @@
       "browse-store": "プラグインを探す",
       "panels": {
         "layer": {
-          "description": "パネルをフローティング表示するときに使用するlayer-shellのレイヤー",
+          "description": "パネルをフローティング表示するときに使用するlayer-shellのレイヤー。「追従」ではシェルのフローティングパネル用レイヤーを使用layer-shellのレイヤー",
           "label": "レイヤー"
         },
         "open-near-click": {
@@ -2037,6 +2057,10 @@
           "description": "ポインターがバーから離れてから非表示にするまでの待機時間（ミリ秒）。0ですぐに非表示（オンの場合のみ）",
           "label": "自動非表示の待機時間"
         },
+        "auto-hide-reserve-space": {
+          "description": "自動非表示またはスマート自動非表示では、バーの表示中のみ領域を確保し、非表示の間はウィンドウが画面全体を使用できるようにする",
+          "label": "表示中のみ領域を確保"
+        },
         "background-opacity": {
           "description": "バーの背景不透明度"
         },
@@ -2136,7 +2160,7 @@
           "label": "終端ウィジェット"
         },
         "ends-margin": {
-          "description": "バーの長さ方向の両端を縮める幅。0pxにすると横幅または縦幅いっぱいに表示されます"
+          "description": "バーの長さ方向の両端を縮める幅。ピクセルまたは画面に対する割合（%）で指定でき、0にすると横幅または縦幅いっぱいに表示"
         },
         "font-family": {
           "description": "このバーのウィジェットに使用するフォント。空欄の場合は全体のフォントを継承します（各ウィジェットの「フォントファミリー」設定が優先されます）",
@@ -2327,6 +2351,10 @@
         },
         "ends-margin": {
           "description": "ドックの主軸方向における両端からの余白"
+        },
+        "icon-saturation": {
+          "description": "アプリアイコンの彩度。0にするとグレースケールで表示",
+          "label": "アイコンの彩度"
         },
         "icon-size": {
           "description": "ドックアイコンの大きさ（ピクセル）",
@@ -2772,7 +2800,7 @@
           "label": "カテゴリを表示"
         },
         "launcher-category-icons-only": {
-          "description": "アプリのカテゴリをアイコンのみで表示し、名前はツールチップに表示",
+          "description": "アプリと提供元のカテゴリをアイコンのみで表示し、ツールチップには省略していない名前を表示",
           "label": "カテゴリをアイコンのみで表示"
         },
         "launcher-compact": {
@@ -3188,6 +3216,11 @@
           "description": "シェル効果音の音量",
           "label": "効果音の音量"
         },
+        "spectrum-frame-rate": {
+          "description": "フレームレートを上げると動きが滑らかになりますが、リソースの使用量も増加します",
+          "label": "ビジュアライザーのフレームレート",
+          "option": "{fps} FPS"
+        },
         "sunrise": {
           "description": "位置情報未設定時に使用する日の出時刻（HH:MM形式）",
           "label": "日の出"
@@ -3251,7 +3284,7 @@
           "placeholder": "/path/to/sound.wav"
         },
         "volume-sounds": {
-          "description": "出力または入力音量が変わったときに効果音を再生",
+          "description": "出力音量が変わったときに効果音を再生",
           "label": "音量変更時に効果音を再生"
         },
         "weather": {
@@ -3277,6 +3310,10 @@
         },
         "background-opacity": {
           "label": "背景の不透明度"
+        },
+        "colorize-icons": {
+          "description": "「外観」で設定した共通のアプリアイコンの色を使って、アプリアイコンの色を変更",
+          "label": "アプリアイコンの色を変更"
         },
         "contact-shadow": {
           "label": "接合部の影"
@@ -3715,19 +3752,19 @@
           "label": "すべての画面のウィンドウを表示"
         },
         "window-switcher-show-app-icon": {
-          "description": "各アプリのアイコンをウィンドウのプレビュー上に表示",
+          "description": "各アプリのアイコンをウィンドウのプレビュー上に表示。「アイコンのみ」の表示形式では常にアイコンを表示",
           "label": "アプリアイコンを表示"
         },
         "window-switcher-show-caption": {
-          "description": "ウィンドウのタイトルとアプリ名をプレビューの下に表示",
+          "description": "プレビューの下にキャプションを表示。アイコンのグリッド表示では、選択中のウィンドウタイトルを下に表示",
           "label": "ウィンドウ情報を表示"
         },
         "window-switcher-show-count": {
-          "description": "現在の位置とウィンドウ総数をプレビューの上に表示",
+          "description": "ウィンドウスイッチャーの上部に、現在の位置とウィンドウの総数を表示",
           "label": "ウィンドウ数を表示"
         },
         "window-switcher-style": {
-          "description": "立体的なカルーセル表示または枠付きのコンパクト表示を選択",
+          "description": "プレビューのカルーセル表示、コンパクトなプレビュー列、またはアイコンのみのグリッド表示を選択",
           "label": "スイッチャーの表示形式"
         }
       },
@@ -4061,7 +4098,7 @@
             "label": "グリーターの外観を同期"
           },
           "keyboard-backlight-down": {
-            "description": "すべてのキーボードバックライトを1段階暗くする",
+            "description": "すべてのキーボードバックライトの明るさを5%下げる",
             "label": "キーボードバックライトを暗くする"
           },
           "keyboard-backlight-osd": {
@@ -4077,7 +4114,7 @@
             "label": "キーボードバックライトを切り替える"
           },
           "keyboard-backlight-up": {
-            "description": "すべてのキーボードバックライトの明るさを1段階上げる",
+            "description": "すべてのキーボードバックライトの明るさを5%上げる",
             "label": "キーボードバックライトを明るくする"
           },
           "keyboard-layout-cycle": {
@@ -4414,6 +4451,8 @@
         "cpu-freq": "CPU周波数",
         "cpu-temp": "CPU温度",
         "cpu-usage": "CPU使用率",
+        "default": "既定",
+        "desktop": "デスクトップ",
         "disk-free": "ディスク空き容量",
         "disk-free-percent": "ディスク空き率",
         "disk-used": "ディスク使用量",
@@ -4456,6 +4495,7 @@
         "shared": "共通",
         "short": "短縮",
         "swap-percent": "スワップ使用率",
+        "symbolic": "シンボリック",
         "text": "テキスト",
         "text-only": "テキストのみ",
         "time": "時刻",
@@ -4563,6 +4603,10 @@
           "description": "ビジュアライザーのグラデーションの2色目",
           "label": "色2"
         },
+        "colorize-icons": {
+          "description": "「外観」で設定した共通のアプリアイコンの色を使って、このウィジェットのアプリアイコンの色を変更",
+          "label": "アプリアイコンの色を変更"
+        },
         "custom-image": {
           "description": "カスタム画像のパス。空欄の場合はアイコングリフを使用",
           "dialog-title": "カスタム画像を選択",
@@ -4616,6 +4660,10 @@
         "enable-scroll": {
           "description": "このウィジェットでマウスホイールやトラックパッドによるスクロール操作を有効にする",
           "label": "スクロールを有効にする"
+        },
+        "expand": {
+          "description": "バーの先頭または末尾に配置した場合、空き領域を他のスペーサーと均等に分けて広がります。それ以外の位置では指定した長さを維持します",
+          "label": "拡張"
         },
         "focused-color": {
           "description": "フォーカス中のワークスペースに使用する色。固定の16進数カラーコードにも対応",
@@ -4750,6 +4798,10 @@
           "description": "アイコンにのみウィジェットとは別の色を使用。固定の16進数カラーコードにも対応",
           "label": "アイコンの色"
         },
+        "icon-override-blacklist": {
+          "description": "アイコンの上書き設定から除外するトレイアイコンの一覧",
+          "label": "アイコン上書きの除外リスト"
+        },
         "icon-scale": {
           "description": "タスクバーのアプリアイコンを既定の大きさに対して拡大・縮小する倍率",
           "label": "アイコンの拡大率"
@@ -4761,6 +4813,10 @@
         "icon-spacing": {
           "description": "プライバシーインジケーターのアイコン間隔（ピクセル）",
           "label": "アイコンの間隔"
+        },
+        "icon-type": {
+          "description": "トレイで使用するアイコンの種類を選択",
+          "label": "アイコンの種類"
         },
         "inactive-color": {
           "description": "非アクティブなプライバシー表示に使用する色。固定の16進数カラーコードにも対応",
@@ -4920,6 +4976,14 @@
         "scroll-repeat": {
           "description": "スクロール操作の実行方法を選択。コマンドの仕様に従うか、ジェスチャーごとに1回実行するか、スクロールの各ステップで繰り返し実行するかを指定",
           "label": "スクロールの繰り返し"
+        },
+        "separator": {
+          "description": "ワークスペースのインジケーター間に表示するテキスト。空欄の場合は区切り文字や余分な間隔を追加しません",
+          "label": "区切り文字"
+        },
+        "separator-color": {
+          "description": "ワークスペースの区切りに使用する色。テーマの色に加え、16進数カラーコードでの指定にも対応",
+          "label": "区切りの色"
         },
         "show-active-indicator": {
           "description": "タスクバーでアクティブなウィンドウのアイコン下に小さな点を表示",
@@ -5101,6 +5165,11 @@
         "workspace-label-placement": {
           "description": "角、端の中央、またはピルの内側に配置",
           "label": "ワークスペースラベルの配置"
+        },
+        "workspace-monitors": {
+          "all": "すべてのモニター",
+          "description": "このウィジェットに表示するワークスペースのモニターとその順序を指定。空欄の場合は、バーが表示されているモニターのワークスペースのみを表示",
+          "label": "ワークスペースの表示対象モニター"
         }
       },
       "types": {
@@ -5250,6 +5319,24 @@
   },
   "ui": {
     "controls": {
+      "key-names": {
+        "backspace": "Backspace",
+        "delete": "Delete",
+        "down": "↓",
+        "end": "End",
+        "enter": "Enter",
+        "escape": "Esc",
+        "home": "Home",
+        "insert": "Insert",
+        "left": "←",
+        "numpad-enter": "テンキーEnter",
+        "page-down": "Page Down",
+        "page-up": "Page Up",
+        "right": "→",
+        "space": "Space",
+        "tab": "Tab",
+        "up": "↑"
+      },
       "search-picker": {
         "empty": "検索結果がありません",
         "placeholder": "検索…"
