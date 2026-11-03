@@ -36,6 +36,7 @@ margin_edge         = 0          # distance from the nearest screen edge (positi
 show_running        = true       # also show running apps not in the pinned list
 auto_hide           = false      # slide out when pointer leaves; reveal from edge trigger strip
 smart_auto_hide     = false      # show when the active workspace is empty; hide when it has windows
+auto_hide_reveal_delay_ms = 250  # pointer dwell on the edge trigger strip before revealing, 0 to 2000 ms
 reserve_space       = true       # reserve compositor exclusive zone / push windows away
 layer               = "top"      # top | overlay (overlay keeps the dock above fullscreen apps)
 
@@ -170,7 +171,7 @@ Dock settings expose **Off**, **On**, and **Smart** as one control. In config th
 
 When `auto_hide = true`, the dock slides out after the pointer leaves and slides back in when the pointer reaches the matching screen edge trigger strip.
 
-In either auto-hide mode, pointer-triggered reveal requires keeping the pointer on the edge trigger strip for 250 ms. Briefly crossing the edge does not reveal it.
+In either auto-hide mode, pointer-triggered reveal requires keeping the pointer on the edge trigger strip for `auto_hide_reveal_delay_ms` (default 250 ms), so briefly crossing the edge does not reveal the dock. Set it to `0` to reveal as soon as the pointer reaches the edge.
 
 ### Smart auto-hide
 

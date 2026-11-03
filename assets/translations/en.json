@@ -2320,6 +2320,10 @@
         "auto-hide": {
           "description": "Off keeps the dock visible; On hides it until you move the pointer to the screen edge; Smart shows the dock on an empty workspace and hides it when windows are open"
         },
+        "auto-hide-reveal-delay": {
+          "description": "How long the pointer must stay at the screen edge before a hidden dock reveals; 0 reveals immediately",
+          "label": "Reveal Delay"
+        },
         "background-opacity": {
           "description": "Background opacity of the dock"
         },
@@ -3906,6 +3910,10 @@
         "per-monitor-directories": {
           "description": "Use separate wallpaper folders for each monitor",
           "label": "Per-Monitor Directories"
+        },
+        "sync-transitions": {
+          "description": "Use the same transition effect on all monitors when wallpapers change",
+          "label": "Sync Transitions Across Monitors"
         },
         "transition-duration": {
           "description": "Length of the wallpaper change animation in milliseconds",

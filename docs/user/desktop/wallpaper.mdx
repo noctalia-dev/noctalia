@@ -16,6 +16,7 @@ transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "
 transition_duration = 1500      # milliseconds
 edge_smoothness     = 0.3       # 0.0 – 1.0
 transition_on_startup = false   # animate the first wallpaper at shell startup (v4-style)
+sync_transitions      = true    # all monitors use the same transition effect per change
 
 # Directory browsed by the wallpaper picker panel. Leave empty to use the
 # standard XDG Pictures directory (from `XDG_PICTURES_DIR` or `user-dirs.dirs`).
@@ -85,7 +86,7 @@ Prefer a color role such as `surface` or `primary` for `fill_color` so wallpaper
 
 Monitor overrides may also set `fill_color`.
 
-By default, the first wallpaper on each output appears immediately with no transition. Set `transition_on_startup = true` to fade (or wipe, etc.) in from a black screen at shell startup, matching v4 behavior. Later wallpaper changes always use the configured transition pool.
+By default, the first wallpaper on each output appears immediately with no transition. Set `transition_on_startup = true` to fade (or wipe, etc.) in from a black screen at shell startup, matching v4 behavior. Later wallpaper changes always use the configured transition pool. By default all monitors use the same effect and parameters for each change; set `sync_transitions = false` to let each monitor pick its own random effect.
 
 When automation is enabled, Noctalia picks one image from the resolved browse folder at shell startup, then keeps picking on the configured interval and applies it to all connected outputs in sync. `order = "random"` chooses a random image each cycle. `order = "alphabetical"` sorts paths case-insensitively and advances to the next image each cycle (wrapping at the end).
 

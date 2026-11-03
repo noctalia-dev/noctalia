@@ -743,6 +743,8 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.autoHide = *override.autoHide;
   if (override.smartAutoHide)
     resolved.smartAutoHide = *override.smartAutoHide;
+  if (override.autoHideRevealDelayMs)
+    resolved.autoHideRevealDelayMs = *override.autoHideRevealDelayMs;
   if (override.layer)
     resolved.layer = *override.layer;
   if (override.reserveSpace)
