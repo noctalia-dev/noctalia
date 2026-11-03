@@ -2525,7 +2525,7 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
     tickWidgets(inst->endWidgets, deltaMs);
   });
   instance->firstFrame.emplace(m_firstFrame);
-  instance->surface->setRenderedCallback([inst]() { inst->firstFrame->shown(); });
+  instance->surface->setRenderedCallback([inst] { inst->firstFrame->shown(); });
 
   instance->surface->setAnimationManager(&instance->animations);
   populateWidgets(*instance);
