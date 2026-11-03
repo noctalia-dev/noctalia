@@ -17,6 +17,7 @@
 #include "shell/keyboard_layout_label.h"
 #include "shell/lockscreen/lock_surface.h"
 #include "shell/lockscreen/lockscreen_session_actions.h"
+#include "shell/lockscreen/lockscreen_transition_util.h"
 #include "shell/session/session_action_runner.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "shell/wayland/capture_globals.h"
@@ -58,36 +59,6 @@ namespace {
       return rgba(0.0F, 0.0F, 0.0F, 1.0F);
     }
     return resolveColorSpec(*config.fillColor);
-  }
-
-  LockscreenTransitionKind renderTransitionKind(LockscreenTransition transition) {
-    switch (transition) {
-    case LockscreenTransition::Fade:
-      return LockscreenTransitionKind::Fade;
-    case LockscreenTransition::Wipe:
-      return LockscreenTransitionKind::Wipe;
-    case LockscreenTransition::Disc:
-      return LockscreenTransitionKind::Disc;
-    case LockscreenTransition::Stripes:
-      return LockscreenTransitionKind::Stripes;
-    case LockscreenTransition::Zoom:
-      return LockscreenTransitionKind::Zoom;
-    case LockscreenTransition::Honeycomb:
-      return LockscreenTransitionKind::Honeycomb;
-    case LockscreenTransition::Vortex:
-      return LockscreenTransitionKind::Vortex;
-    case LockscreenTransition::Pixel:
-      return LockscreenTransitionKind::Pixel;
-    case LockscreenTransition::Diamond:
-      return LockscreenTransitionKind::Diamond;
-    case LockscreenTransition::Golden:
-      return LockscreenTransitionKind::Golden;
-    case LockscreenTransition::Melt:
-      return LockscreenTransitionKind::Melt;
-    case LockscreenTransition::Crt:
-      return LockscreenTransitionKind::Crt;
-    }
-    std::unreachable();
   }
 
   // An output can only carry a lock surface once it is complete and has real geometry.
@@ -1048,64 +1019,8 @@ bool LockScreen::captureDesktopSnapshots() {
     targets.push_back(output);
   }
 
-  if (targets.empty()) {
-    return true;
-  }
-
-  const auto firstCaptureDeadline = std::chrono::steady_clock::now() + screencopy::kBlockingCaptureTimeout;
-  WaylandConnection captureWayland(WaylandConnection::Purpose::Sibling);
-  captureWayland.extension<ScreencopyGlobals>();
-  std::string setupError;
-  if (!captureWayland.connectUntil(firstCaptureDeadline, m_wayland, setupError)) {
-    kLog.warn("lockscreen desktop capture setup failed: {}", setupError);
-    return true;
-  }
-
-  ScreencopyCapture capture(captureWayland);
-  if (!capture.available()) {
-    kLog.warn("lockscreen desktop capture requested but isolated screencopy is unavailable");
-    return true;
-  }
-
-  bool firstCapture = true;
-  for (const auto& target : targets) {
-    if (generation != m_desktopCaptureGeneration) {
-      return false;
-    }
-
-    const auto& captureOutputs = captureWayland.outputs();
-    const auto captureIt = std::ranges::find_if(captureOutputs, [&target](const WaylandOutput& candidate) {
-      return candidate.name == target.name
-          && (target.connectorName.empty() || candidate.connectorName == target.connectorName);
-    });
-    if (captureIt == captureOutputs.end() || captureIt->output == nullptr) {
-      kLog.debug("skipping lockscreen desktop capture for disappeared output {}", target.connectorName);
-      continue;
-    }
-
-    ScreencopyImage image;
-    std::string error;
-    const auto deadline =
-        firstCapture ? std::optional<std::chrono::steady_clock::time_point>(firstCaptureDeadline) : std::nullopt;
-    firstCapture = false;
-    const screencopy::CaptureOutputStatus captureStatus = screencopy::captureOutputBlocking(
-        capture, captureWayland, captureIt->output, image, error, false, m_wayland, deadline
-    );
-    if (captureStatus != screencopy::CaptureOutputStatus::Success) {
-      if (generation != m_desktopCaptureGeneration) {
-        return false;
-      }
-      kLog.warn("lockscreen desktop capture failed for {}: {}", target.connectorName, error);
-      if (captureStatus == screencopy::CaptureOutputStatus::EventLoopFailed) {
-        break;
-      }
-      continue;
-    }
-
-    if (generation != m_desktopCaptureGeneration) {
-      return false;
-    }
-
+  const auto cancelled = [this, generation] { return generation != m_desktopCaptureGeneration; };
+  const auto store = [this, &cancelled](const WaylandOutput& target, ScreencopyImage&& image) {
     const auto& outputs = m_wayland->outputs();
     const auto currentIt = std::ranges::find(outputs, target.name, &WaylandOutput::name);
     if (currentIt == outputs.end()
@@ -1122,19 +1037,19 @@ bool LockScreen::captureDesktopSnapshots() {
         || !currentIt->hasUsableGeometry()
         || !isInteractiveOutput(*currentIt)) {
       kLog.debug("discarding lockscreen desktop capture for changed output {}", target.connectorName);
-      continue;
+      return;
     }
 
     if (!screencopy::orientCaptureNative(image, *m_wayland, currentIt->output)) {
       kLog.warn("lockscreen desktop capture orientation failed for {}", target.connectorName);
-      continue;
+      return;
     }
-    if (generation != m_desktopCaptureGeneration) {
-      return false;
+    if (cancelled()) {
+      return;
     }
     m_desktopCaptures[currentIt->output] = std::move(image);
-  }
-  return generation == m_desktopCaptureGeneration;
+  };
+  return lockscreen::captureOutputs(*m_wayland, targets, cancelled, store);
 }
 
 void LockScreen::chooseTransition() {
@@ -1161,52 +1076,7 @@ void LockScreen::chooseTransition() {
       static_cast<std::size_t>(std::floor(Random::randomFloat(0.0F, static_cast<float>(config.transitions.size()))))
   );
   m_activeTransition = config.transitions[index];
-  m_transitionParams.smoothness = config.edgeSmoothness;
-
-  switch (*m_activeTransition) {
-  case LockscreenTransition::Wipe:
-    m_transitionParams.direction = std::floor(Random::randomFloat(0.0F, 4.0F));
-    break;
-  case LockscreenTransition::Disc:
-    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
-    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
-    break;
-  case LockscreenTransition::Stripes:
-    m_transitionParams.stripeCount = std::round(Random::randomFloat(4.0F, 24.0F));
-    m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
-    break;
-  case LockscreenTransition::Honeycomb:
-    m_transitionParams.cellSize = Random::randomFloat(0.02F, 0.06F);
-    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
-    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
-    break;
-  case LockscreenTransition::Vortex:
-    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
-    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
-    break;
-  case LockscreenTransition::Pixel:
-    m_transitionParams.cellSize = Random::randomFloat(0.02F, 0.05F);
-    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
-    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
-    break;
-  case LockscreenTransition::Diamond:
-    m_transitionParams.cellSize = Random::randomFloat(0.0345F, 0.069F);
-    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
-    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
-    break;
-  case LockscreenTransition::Golden:
-    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
-    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
-    m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
-    break;
-  case LockscreenTransition::Melt:
-    m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
-    break;
-  case LockscreenTransition::Fade:
-  case LockscreenTransition::Zoom:
-  case LockscreenTransition::Crt:
-    break;
-  }
+  m_transitionParams = lockscreen::randomTransitionParams(*m_activeTransition, config.edgeSmoothness);
 }
 
 void LockScreen::applyLockscreenStyle(LockSurface& surface) const {
@@ -1320,8 +1190,9 @@ void LockScreen::createInstance(const WaylandOutput& output) {
     surface->setDesktopCapture(std::move(captureIt->second), useAsBackground);
     m_desktopCaptures.erase(captureIt);
   }
-  const std::optional<LockscreenTransitionKind> transition =
-      m_activeTransition.has_value() ? std::optional{renderTransitionKind(*m_activeTransition)} : std::nullopt;
+  const std::optional<LockscreenTransitionKind> transition = m_activeTransition.has_value()
+      ? std::optional{lockscreen::renderTransitionKind(*m_activeTransition)}
+      : std::nullopt;
   surface->configureTransition(transition, m_transitionParams, m_transitionDurationMs);
   surface->setSleepReadyCallback([this] { handleSleepReady(); });
   surface->setTransitionCallback([this] { handleTransitionStateChanged(); });

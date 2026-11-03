@@ -2655,6 +2655,11 @@
           "description": "Length of the lock and unlock animations in milliseconds",
           "label": "Transition Duration"
         },
+        "transition-preview": {
+          "button": "Preview",
+          "description": "Play an effect on screen without locking; click or press any key to stop",
+          "label": "Preview Effect"
+        },
         "transitions": {
           "description": "Effects available when locking and unlocking (one is picked at random)",
           "label": "Transition Effects"

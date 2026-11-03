@@ -218,6 +218,19 @@ namespace settings::registry {
       transitionEffects.visibleWhen = lockscreenOn;
       entries.push_back(std::move(transitionEffects));
 
+      auto transitionPreview = makeEntry(
+          SettingsSection::LockScreen, "transition", tr("settings.schema.lockscreen.transition-preview.label"),
+          tr("settings.schema.lockscreen.transition-preview.description"), {},
+          ButtonSetting{
+              .label = tr("settings.schema.lockscreen.transition-preview.button"),
+              .action = {},
+              .glyph = "player-play",
+          },
+          "lock screen effects animation preview test"
+      );
+      transitionPreview.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(transitionPreview));
+
       auto transitionDuration = makeEntry(
           SettingsSection::LockScreen, "transition", tr("settings.schema.lockscreen.transition-duration.label"),
           tr("settings.schema.lockscreen.transition-duration.description"), {"lockscreen", "transition_duration"},
