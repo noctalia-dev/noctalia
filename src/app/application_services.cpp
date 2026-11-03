@@ -1783,18 +1783,21 @@ void Application::initSessionBusServices() {
       );
       m_gammaService.setResolvedCoordinates(location->latitude, location->longitude);
       m_themeService.setAutoCoordinates(location->latitude, location->longitude);
+      if (m_brightnessService != nullptr) {
+        m_brightnessService->setResolvedCoordinates(location->latitude, location->longitude);
+      }
     } else {
       m_weatherService.setLocation(std::nullopt, {}, {});
       m_gammaService.setResolvedCoordinates(std::nullopt, std::nullopt);
       m_themeService.setAutoCoordinates(std::nullopt, std::nullopt);
+      if (m_brightnessService != nullptr) {
+        m_brightnessService->setResolvedCoordinates(std::nullopt, std::nullopt);
+      }
     }
   };
   pushLocation();
   m_locationService.addChangeCallback([this, pushLocation, shouldRefreshControlCenter] {
     pushLocation();
-    if (m_brightnessService != nullptr && m_configService.config().brightness.enableScheduledBrightness) {
-      m_brightnessService->reevaluateSchedule();
-    }
     m_bar.refresh();
     m_desktopWidgetsController.requestLayout();
     if (shouldRefreshControlCenter()) {

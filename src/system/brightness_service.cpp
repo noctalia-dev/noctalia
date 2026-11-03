@@ -733,8 +733,9 @@ struct BrightnessService::Impl {
   std::vector<DisplayInternal> internals;
 
   int lastNightPhaseEval = -1; // -1=unknown, 0=day, 1=night
-  bool scheduledBrightnessApplied = false;
   std::unordered_map<std::string, float> baselineBrightness;
+  std::optional<double> resolvedLatitude;
+  std::optional<double> resolvedLongitude;
 
   Timer m_scheduleTimer;
 
@@ -836,7 +837,7 @@ struct BrightnessService::Impl {
     }
 
     const bool manualMode = day_night_schedule::isManualMode(locationConfig);
-    const auto eval = day_night_schedule::evaluate(locationConfig, std::nullopt, std::nullopt);
+    const auto eval = day_night_schedule::evaluate(locationConfig, resolvedLatitude, resolvedLongitude);
 
     if (manualMode) {
       const auto boundaryDelay = eval.untilBoundary;
@@ -850,7 +851,7 @@ struct BrightnessService::Impl {
         scheduleScheduleTimer();
       });
     } else {
-      const auto coords = day_night_schedule::resolveCoordinates(locationConfig, std::nullopt, std::nullopt);
+      const auto coords = day_night_schedule::resolveCoordinates(locationConfig, resolvedLatitude, resolvedLongitude);
       if (coords.latitude.has_value() && coords.longitude.has_value()) {
         const auto boundaryDelay = eval.untilBoundary;
         const auto delay =
@@ -869,11 +870,30 @@ struct BrightnessService::Impl {
   }
 
   void reload(const BrightnessConfig& config, const LocationConfig& location) {
+    const bool brightnessChanged = activeConfig != config;
     activeConfig = config;
     locationConfig = location;
-    scheduledBrightnessApplied = false;
     lastNightPhaseEval = -1;
     baselineBrightness.clear();
+    if (brightnessChanged) {
+      rebuildState(true);
+    }
+    applyScheduledBrightnessIfNeeded();
+    scheduleScheduleTimer();
+  }
+
+  void setResolvedCoordinates(std::optional<double> latitude, std::optional<double> longitude) {
+    if (latitude.has_value() && !std::isfinite(*latitude)) {
+      latitude.reset();
+    }
+    if (longitude.has_value() && !std::isfinite(*longitude)) {
+      longitude.reset();
+    }
+    if (resolvedLatitude == latitude && resolvedLongitude == longitude) {
+      return;
+    }
+    resolvedLatitude = latitude;
+    resolvedLongitude = longitude;
     applyScheduledBrightnessIfNeeded();
     scheduleScheduleTimer();
   }
@@ -1243,14 +1263,22 @@ struct BrightnessService::Impl {
 
   void applyScheduledBrightnessIfNeeded() {
     if (!activeConfig.enableScheduledBrightness) {
-      scheduledBrightnessApplied = false;
       lastNightPhaseEval = -1;
       baselineBrightness.clear();
       return;
     }
 
-    const auto eval = day_night_schedule::evaluate(locationConfig, std::nullopt, std::nullopt);
+    const auto eval = day_night_schedule::evaluate(locationConfig, resolvedLatitude, resolvedLongitude);
     const int nightPhase = eval.night ? 1 : 0;
+
+    if (!day_night_schedule::isManualMode(locationConfig)) {
+      const auto coords = day_night_schedule::resolveCoordinates(locationConfig, resolvedLatitude, resolvedLongitude);
+      if (!coords.latitude.has_value() || !coords.longitude.has_value()) {
+        lastNightPhaseEval = -1;
+        baselineBrightness.clear();
+        return;
+      }
+    }
 
     if (lastNightPhaseEval == -1) {
       lastNightPhaseEval = nightPhase;
@@ -1305,8 +1333,6 @@ struct BrightnessService::Impl {
       value = std::clamp(value, activeConfig.minimumBrightness, 1.0F);
       setBrightness(&display, value);
     }
-
-    scheduledBrightnessApplied = eval.night;
   }
 
   void setBacklightBrightness(DisplayInternal& display, float value) {
@@ -1694,6 +1720,7 @@ struct BrightnessService::Impl {
 
     rebuildPublic();
     retryDdcDiscovery();
+    applyScheduledBrightnessIfNeeded();
     return oldPublic != publicDisplays;
   }
 
@@ -1806,6 +1833,8 @@ BrightnessService::BrightnessService(
 )
     : m_impl(new Impl(bus, platform, config, location)) {
   m_impl->rebuildState(false);
+  m_impl->applyScheduledBrightnessIfNeeded();
+  m_impl->scheduleScheduleTimer();
 }
 
 BrightnessService::~BrightnessService() { delete m_impl; }
@@ -1847,10 +1876,9 @@ void BrightnessService::reload(const BrightnessConfig& config, const LocationCon
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
-void BrightnessService::reevaluateSchedule() {
+void BrightnessService::setResolvedCoordinates(std::optional<double> latitude, std::optional<double> longitude) {
   if (m_impl != nullptr) {
-    m_impl->applyScheduledBrightnessIfNeeded();
-    m_impl->scheduleScheduleTimer();
+    m_impl->setResolvedCoordinates(latitude, longitude);
   }
 }
 

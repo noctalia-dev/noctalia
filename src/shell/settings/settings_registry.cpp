@@ -3086,8 +3086,9 @@ namespace settings {
       {
         auto e = makeEntry(
             SettingsSection::Location, "night-light", tr("settings.schema.services.scheduled-brightness.label"),
-            tr("settings.schema.services.scheduled-brightness.description"), {"brightness", "enable_scheduled_brightness"},
-            ToggleSetting{cfg.brightness.enableScheduledBrightness}, "scheduled brightness schedule"
+            tr("settings.schema.services.scheduled-brightness.description"),
+            {"brightness", "enable_scheduled_brightness"}, ToggleSetting{cfg.brightness.enableScheduledBrightness},
+            "scheduled brightness schedule"
         );
         e.visibleWhen = nightLightOn;
         entries.push_back(std::move(e));

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -52,8 +53,8 @@ public:
   void requestDdcRefresh();
   void requestDdcRescan();
   void reload(const BrightnessConfig& config, const LocationConfig& location);
+  void setResolvedCoordinates(std::optional<double> latitude, std::optional<double> longitude);
   void onOutputsChanged();
-  void reevaluateSchedule();
   void registerIpc(IpcService& ipc, const std::function<void(BatchChangePhase)>& onBatchChange = {});
 
   void setChangeCallback(ChangeCallback callback);

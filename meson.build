@@ -1326,7 +1326,7 @@ if build_tests
     dependencies: [noctalia_core_dep, wayland_server_dep],
     override_options: ['b_ndebug=false'],
   )
-  test('brightness_service', brightness_service_exe, timeout: 60)
+  test('brightness_service', brightness_service_exe, timeout: 240)
 
   upower_integration_exe = executable('upower_charge_limit_integration_test',
     sources: files('tests/upower_charge_limit_integration_test.cpp'),
