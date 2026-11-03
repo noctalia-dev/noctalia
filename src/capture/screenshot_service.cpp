@@ -1585,7 +1585,7 @@ void ScreenshotService::ensureAnnotationOverlay() {
     m_annotationOverlay->cancel();
     beginRegionCapture(*m_regionRenderContext, options);
   });
-  m_annotationOverlay->setCaptureWindowCallback([this]() {
+  m_annotationOverlay->setCaptureWindowCallback([this] {
     if (m_annotationOverlay == nullptr || !m_annotationOverlay->isActive()) {
       return;
     }

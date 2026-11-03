@@ -1569,7 +1569,7 @@ namespace capture {
     }
     inst.freezeButton = addGhostButton("snowflake", "bar.annotate.freeze", [this] { requestFreeze(); });
     addGhostButton("screenshot", "bar.annotate.capture-new-region", [this] { requestCaptureRegion(); });
-    addGhostButton("app-window", "bar.annotate.capture-window", [this]() { requestCaptureWindow(); });
+    addGhostButton("app-window", "bar.annotate.capture-window", [this] { requestCaptureWindow(); });
 
     inst.exportSeparator = addSeparator();
     inst.backdropButton = addGhostButton("background", "bar.annotate.backdrop", [this] { toggleBackdropPanel(); });
