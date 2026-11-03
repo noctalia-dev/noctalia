@@ -6,7 +6,7 @@ sidebar:
   order: 4
 ---
 
-import PluginApiBadge from '../../../../../components/PluginApiBadge.astro';
+import PluginApiBadge from "../../../../../components/PluginApiBadge.astro";
 
 Desktop widgets, panels, and (optionally) bar widgets do not have to patch a fixed control. They can describe their UI as a retained `ui.*` tree; Noctalia diffs each render against the previous tree and updates native controls in place.
 
@@ -48,7 +48,7 @@ The available controls and their props (sizes are logical px, scaled with the su
 | `ui.markdown`          | `text` (markdown source - see below), `width`, `height`                                                                                                                                                                                                                |
 | `ui.glyph`             | `name` (Tabler/Nerd-Font glyph), `size`, `color`                                                                                                                                                                                                                       |
 | `ui.image`             | `path` (plugin-relative, `~`, or absolute), `width`, `height`, `radius`, `fit` (`contain`/`cover`/`stretch`), `border`, `borderWidth`, `onClick`, `onHover`, `tooltip`                                                                                                 |
-| `ui.pixelStream`       | `path` (companion socket), `width`, `height`, `radius`, and pointer and keyboard callbacks; see [Pixel streams](#pixel-streams)                                                                                                                                        |
+| `ui.pixelStream`       | `path` (companion socket), `width`, `height`, `radius`, `fit` (`contain`/`cover`/`stretch`), and pointer and keyboard callbacks; see [Pixel streams](#pixel-streams)                                                                                                   |
 | `ui.box`               | `fill`, `radius`, `border`, `borderWidth`, `softness`, `width`, `height`, `onClick`, `onHover`, `tooltip`                                                                                                                                                              |
 | `ui.separator`         | `thickness`, `color`, `spacing`, `orientation` (`auto`/`horizontal`/`vertical`)                                                                                                                                                                                        |
 | `ui.spacer`            | flexible filler (use `flexGrow`)                                                                                                                                                                                                                                       |
@@ -63,7 +63,7 @@ The available controls and their props (sizes are logical px, scaled with the su
 
 Every control also accepts `width`, `height`, `flexGrow`, `opacity`, and `visible`. Colors are a palette role token (`primary`, `on_surface`, …), a role token with an alpha suffix (`primary/0.6`, the role at 60% alpha, resolved live against the palette so it still tracks the theme), or a hex value (`#rrggbb` / `#rrggbbaa`). An unknown control type or prop is logged and skipped - typos surface in the log instead of failing silently.
 
-- **Translucent background, opaque content**: `opacity` is a *group* opacity, it fades a container **and all its children** (text included), like CSS `opacity` on a parent. To make only the background semi-transparent, leave `opacity` alone and give the container a translucent `fill` instead: `ui.column({ fill = "surface_container/0.6" }, …)` keeps the text fully opaque.
+- **Translucent background, opaque content**: `opacity` is a _group_ opacity, it fades a container **and all its children** (text included), like CSS `opacity` on a parent. To make only the background semi-transparent, leave `opacity` alone and give the container a translucent `fill` instead: `ui.column({ fill = "surface_container/0.6" }, …)` keeps the text fully opaque.
 
 - **Layout default**: `ui.column` / `ui.row` / `ui.scroll` **stretch** their children across the cross axis (a column fills its width, a row fills its height), like CSS flexbox. Override per node with `align` - e.g. a row of vertically-centered items uses `align = "center"`.
 
@@ -74,6 +74,7 @@ Every control also accepts `width`, `height`, `flexGrow`, `opacity`, and `visibl
 - **Callbacks**: a callback prop takes either a **function** (requires <PluginApiBadge feature="ui-callback-closures" />) or the **name of a global function in your script**. `onClick` fires on a button click; `onChange` fires when a toggle/slider/select/input value changes (the value is passed as a string - `"true"`/`"false"` for a toggle, a number for a slider, the text for an input, the index for a select); `onSubmit` fires when the user presses Enter in an input.
 
 - **Closures**: a function callback captures the surrounding scope, which is the simplest way to tell rows of a list apart - each row's handler already knows which row it belongs to:
+
   ```lua
   for index, task in ipairs(tasks) do
     table.insert(rows, ui.button({
@@ -83,18 +84,22 @@ Every control also accepts `width`, `height`, `flexGrow`, `opacity`, and `visibl
     }))
   end
   ```
+
   Handlers belong to the render that produced them: re-rendering replaces them, and a click on a node the current tree no longer contains does nothing. Give repeated nodes a `key` so their handlers survive a re-render unchanged, the same identity keys already give the reconciler. A function callback receives the same string arguments a named one does, so `onChange = function(value) ... end` still reads `"true"`/`"false"` for a toggle.
 
 - **Hover**: `onHover = "name"` fires on pointer enter and leave for `ui.row`, `ui.column`, `ui.box`, `ui.image`, and `ui.button`. The handler receives two strings: the state (`"true"` on enter, `"false"` on leave) and the node's `key` (empty when the node has none), so a single named handler can serve a whole keyed list (a closure captures the row it belongs to instead):
+
   ```lua
   -- track which chip is hovered, then re-render the tree
   function onChipHover(state, key)
     hovered = (state == "true") and key or nil
   end
   ```
-  Only the innermost hovered element reports: if a container with `onHover` contains a button or another interactive child, hovering that child makes *it* the hover target and the container reports `"false"`. Every `"true"` is matched by a `"false"`, including when the hovered node disappears in a later render, so a hover flag never gets stuck on.
+
+  Only the innermost hovered element reports: if a container with `onHover` contains a button or another interactive child, hovering that child makes _it_ the hover target and the container reports `"false"`. Every `"true"` is matched by a `"false"`, including when the hovered node disappears in a later render, so a hover flag never gets stuck on.
 
 - **Graph pointer tracking**: `onPointerMove` on `ui.graph` fires while the pointer is over the graph and receives the position normalized to the graph's own box as two strings, `"0.0000"` to `"1.0000"`, with `0,0` at the top-left, so `normY` grows downward. Map the x-position onto your own data: the graph does not know what its samples mean. `onPointerLeave` is independent and fires with no arguments.
+
   ```lua
   function onGraphMove(normX)
     hoveredIndex = math.floor(tonumber(normX) * #series) + 1
@@ -108,6 +113,7 @@ Every control also accepts `width`, `height`, `flexGrow`, `opacity`, and `visibl
 
   ui.graph({ values = series, onPointerMove = "onGraphMove", onPointerLeave = "onGraphLeave" })
   ```
+
   Positions are coalesced: a graph never has more than one pending pointer event, so a fast pointer cannot flood a slow script, and the newest event always wins. Both edges share that stream, so a leave can never arrive before a position it followed. Every entered graph reports its leave, including when the graph disappears from a later render or its callbacks are rewired, so a hover highlight never gets stuck on; that teardown leave needs a **named** handler, because a closure from the render that dropped the graph is already superseded. A graph with neither prop takes no pointer input at all; an empty callback name counts as unset. Requires <PluginApiBadge feature="graph-pointer-tracking" />.
 
 - **Clickable containers**: `onClick` on `ui.row` and `ui.column` makes the whole container a click target while keeping its layout and sizing, so an entire chip (glyph + label) activates as one unit rather than only a bare `ui.box`. The same applies to `ui.image` and `ui.box` (thumbnail grids, placeholder tiles). A clickable container joins the keyboard tab order and activates with Enter or Space. A container that declares only `onHover` and no `onClick` does not swallow clicks: they pass through to an enclosing click target, so a hover cue can wrap something that is already clickable. On these four, an empty `onClick`/`onHover` name counts as unset, so clearing the name drops the target instead of leaving a dead one behind.
@@ -121,10 +127,12 @@ Every control also accepts `width`, `height`, `flexGrow`, `opacity`, and `visibl
 - **Follow-scroll**: `ui.scroll` with `stickToBottom = true` stays pinned to the bottom while content grows, until the user scrolls away. `onScroll` receives `(offset, maxOffset)`, both delivered as strings. `scrollToBottomRev` jumps to the bottom on the first render that sees it and again whenever the number changes; the jump lands after the next layout pass, so it reaches content added in the same render. All three require <PluginApiBadge feature="plugin-ui-props" />.
 
 - **Reveal a child**: `ui.scroll` with `revealKey = "hit-12"` scrolls the descendant with that `key` into view by the smallest distance that shows it whole, and leaves the offset alone when it is already fully visible - what a keyboard selection in a long list needs. The reveal lands after the next layout pass, so it reaches a child added in the same render; a key no child carries yet waits for the render that adds one. It re-applies when the value changes or the child reappears, never on an unchanged re-render, so the user's own scrolling is not undone. Requires <PluginApiBadge feature="scroll-reveal-key" />.
+
   ```lua
   -- rows are keyed "hit-<index>"; onKey moves `selected` and re-renders
   ui.scroll({ flexGrow = 1, revealKey = "hit-" .. selected }, rows)
   ```
+
   A control inside a `ui.scroll` that gains keyboard focus (Tab, Shift+Tab) is scrolled into view by the host with no prop involved.
 
 - **Focus**: `ui.input` with `focus = true` grabs keyboard focus once, when the control is **created**, never on later re-renders, so it won't steal focus while the user interacts elsewhere. To focus again (e.g. a new document in the same editor slot), give the input a fresh `key`. The seeded `value` places the caret at the end.
@@ -242,7 +250,7 @@ The menu closes on activation, outside click, Escape, panel close/reload, or plu
 
 ### Keyboard focus
 
-By default a panel takes keyboard focus when the user clicks it (`keyboard_focus = "on_demand"`), and `"exclusive"` takes it as soon as the panel opens - what a search or password field needs. Both only decide the *initial* focus, and only on compositors without focus-grab support; on the others the panel settles on on-demand focus shortly after opening either way.
+By default a panel takes keyboard focus when the user clicks it (`keyboard_focus = "on_demand"`), and `"exclusive"` takes it as soon as the panel opens - what a search or password field needs. Both only decide the _initial_ focus, and only on compositors without focus-grab support; on the others the panel settles on on-demand focus shortly after opening either way.
 
 `keyboard_focus = "none"` is different in kind: the panel **never** takes keyboard focus, not even when clicked, so the window the user is typing into keeps it. That is what an on-screen keyboard, a macro pad, or any panel that drives another application needs. Because outside-click dismissal works by either covering the screen with a click catcher or grabbing focus, and neither is compatible with never touching focus, `keyboard_focus = "none"` requires `dismiss_on_outside_click = false`. Requires <PluginApiBadge feature="keyboard-focus" />.
 
@@ -264,10 +272,10 @@ Persistent panels trade away the features that only make sense for a transient p
 | `placement`                | `<entry>_placement`       | `attached` or `floating` (default `floating`)                                                                                                                                                                                              |
 | `position`                 | `<entry>_position`        | `auto`, `center`, or a screen anchor; pins a floating panel, and aligns an attached panel to the matching end of the bar when the anchor lies on the bar's edge                                                                            |
 | `open_near_click`          | `<entry>_open_near_click` | Open near the bar widget that toggled the panel instead of at `position` (default `false`)                                                                                                                                                 |
-| `dismiss_on_outside_click` | *(none, manifest only)*   | Close when clicking outside (default `true`; requires <PluginApiBadge feature="dismiss-on-outside-click" />)                                                                                                                               |
-| `keyboard_focus`           | *(none, manifest only)*   | `on_demand` (default), `exclusive`, or `none` (requires <PluginApiBadge feature="keyboard-focus" />)                                                                                                                                       |
-| `persistent`               | *(none, manifest only)*   | Keep open when another panel opens (requires <PluginApiBadge feature="persistent-panel" />)                                                                                                                                                |
-| `capture_keys`             | *(none, manifest only)*   | Key chords the panel handles itself while focused (requires <PluginApiBadge feature="panel-capture-keys" />)                                                                                                                               |
+| `dismiss_on_outside_click` | _(none, manifest only)_   | Close when clicking outside (default `true`; requires <PluginApiBadge feature="dismiss-on-outside-click" />)                                                                                                                               |
+| `keyboard_focus`           | _(none, manifest only)_   | `on_demand` (default), `exclusive`, or `none` (requires <PluginApiBadge feature="keyboard-focus" />)                                                                                                                                       |
+| `persistent`               | _(none, manifest only)_   | Keep open when another panel opens (requires <PluginApiBadge feature="persistent-panel" />)                                                                                                                                                |
+| `capture_keys`             | _(none, manifest only)_   | Key chords the panel handles itself while focused (requires <PluginApiBadge feature="panel-capture-keys" />)                                                                                                                               |
 | `layer`                    | `<entry>_layer`           | `follow` (default), `top`, or `overlay`; only applies when floating (optional manifest default requires <PluginApiBadge feature="panel-layer" />; `follow` as a manifest default requires <PluginApiBadge feature="panel-layer-follow" />) |
 
 Declare defaults on the `[[panel]]` table; users override through the plugin settings GUI or `[plugin_settings."author/plugin"]`. The host supplies every standard setting even when the manifest declares no default, so plugin maintainers do not need to add anything for users to choose a layer. Position and open-near-click follow the same rules as built-in panels (pinned screen positions disable open-near-click).
@@ -305,7 +313,7 @@ Constraints worth knowing before designing around it:
 - **A focused text input wins first.** If a `ui.input` has focus, plain printable keys type into it and never reach `onKey`, so a `capture_keys = ["space"]` panel with a text field still gets spaces typed normally.
 - **Escape always dismisses.** The panel-close action stays with the host and cannot be captured, so a panel can never make itself impossible to close from the keyboard. This tracks the user's own [Cancel keybind](/noctalia/configuration/shell/#keybinds), so rebinding it keeps working.
 - **A captured chord outranks the shell navigation keybinds, inside that panel only.** Capture is checked before the keybind actions in [`[keybinds]`](/noctalia/configuration/shell/#keybinds) are applied, so `capture_keys = ["space"]` means space no longer triggers Validate on a focused control while that panel is up. Cancel is the one exception. Nothing changes for other panels or the rest of the shell.
-- **Capturing is declared, not decided.** The script runs off the main thread, so it cannot answer "did you consume this?" in time. Listing a chord *is* the decision to consume it. A chord you list but do not handle in `onKey` is left to the host rather than swallowed.
+- **Capturing is declared, not decided.** The script runs off the main thread, so it cannot answer "did you consume this?" in time. Listing a chord _is_ the decision to consume it. A chord you list but do not handle in `onKey` is left to the host rather than swallowed.
 - **`keyboard_focus` must not be `none`.** A panel that never takes focus never receives a key, so the combination is rejected at parse time.
 - **Key repeat is filtered.** Holding a captured chord produces one `onKey(chord, true)` and one `onKey(chord, false)`, not a stream of presses, so hold-to-act works as written.
 - Super chords are rejected: those belong to the compositor.
@@ -418,7 +426,7 @@ ui.pixelStream({
 })
 ```
 
-The frame is fitted inside `width` × `height` with its aspect ratio kept; supply both. Until the first frame arrives, and after `path` changes, the control is empty. When the companion disconnects, the last frame stays on screen and Noctalia reconnects every second.
+The frame is fitted inside `width` × `height` with its aspect ratio kept; supply both. Set `fit` to change how it fills the box: `contain` (default) keeps the aspect ratio and letterboxes, `cover` keeps the aspect ratio and crops to fill, and `stretch` distorts to fill. Until the first frame arrives, and after `path` changes, the control is empty. When the companion disconnects, the last frame stays on screen and Noctalia reconnects every second.
 
 **Pointer.** Positions are strings from `"0.0000"` to `"1.0000"`, relative to the displayed frame (letterboxing excluded) with `0,0` at the top-left.
 

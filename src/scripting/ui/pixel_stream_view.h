@@ -3,6 +3,7 @@
 #include "ipc/pixel_stream_client.h"
 #include "render/core/texture_handle.h"
 #include "render/scene/input_area.h"
+#include "ui/controls/image.h"
 
 #include <cstdint>
 #include <functional>
@@ -10,7 +11,6 @@
 #include <string>
 #include <utility>
 
-class Image;
 class PixelStreamService;
 
 // Displays frames from a companion process (see PixelStreamClient) aspect-fit inside its box,
@@ -43,6 +43,7 @@ public:
 
   void setPath(const std::string& path);
   void setRadius(float radius);
+  void setFit(ImageFit fit);
   // `buttons` is an InputArea button mask: left enables drags (Down/Move/Up/Cancel), right and
   // middle enable their clicks. Hover Moves are reported whenever a handler is set.
   void setPointerHandler(PointerHandler handler, std::uint32_t buttons, bool scroll);
@@ -64,6 +65,7 @@ private:
   PixelStreamService* m_service = nullptr;
   Renderer* m_renderer = nullptr;
   Image* m_image = nullptr;
+  ImageFit m_fit = ImageFit::Contain;
   TextureHandle m_texture;
   bool m_clearPending = false;
   // Size of the frame on screen, which pointer positions map onto.
