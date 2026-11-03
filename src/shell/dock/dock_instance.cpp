@@ -146,9 +146,9 @@ namespace shell::dock {
     }
   }
 
-  // While slid away use the edge strip; when pinned or hovered use the unslid capsule region. Never
-  // hit-test the slide-translated panel: it goes off-surface when smart_auto_hide flips to pinned
-  // before hideOpacity recovers (dock rebuild on a new window).
+  // While slid away or waiting for the reveal dwell use the edge strip; when pinned or hovered use the
+  // unslid capsule region. Never hit-test the slide-translated panel: it goes off-surface when
+  // smart_auto_hide flips to pinned before hideOpacity recovers (dock rebuild on a new window).
   void syncDockAutoHideInputRegion(DockInstance& instance, const DockConfig& cfg) {
     if (instance.surface == nullptr) {
       return;
@@ -166,7 +166,8 @@ namespace shell::dock {
       return;
     }
 
-    const bool revealed = instance.pointerInside || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible);
+    const bool revealed = (instance.pointerInside || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible))
+        && !instance.revealTimer.active();
     instance.surface->setInputRegion(
         shell::dock::computeInputRegion(cfg, instance.panelGeometry, surfW, surfH, !revealed, instance.fractionalScale)
     );
@@ -436,6 +437,7 @@ namespace shell::dock {
   }
 
   void revealAutoHideDock(DockInstance& inst) {
+    inst.revealTimer.stop();
     const auto& cfg = inst.config;
     if (!dockUsesAnyAutoHide(cfg) || inst.surface == nullptr || inst.slideRoot == nullptr) {
       return;
@@ -468,6 +470,7 @@ namespace shell::dock {
   }
 
   void startHideFadeOut(DockInstance& inst) {
+    inst.revealTimer.stop();
     // xdg tooltips are not parent-transformed with the slide; destroy immediately
     // so they cannot remain pinned after auto-hide starts (#4177).
     TooltipManager::instance().forceDestroy();

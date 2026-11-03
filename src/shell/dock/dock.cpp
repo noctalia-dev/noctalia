@@ -34,6 +34,9 @@ namespace {
 
   constexpr Logger kLog("dock");
 
+  // Auto-hide: how long the pointer must stay on the edge trigger strip before the dock reveals.
+  constexpr auto kAutoHideRevealDwell = std::chrono::milliseconds{250};
+
   void assertDockInitialized(
       [[maybe_unused]] const CompositorPlatform* platform, [[maybe_unused]] const ConfigService* config,
       [[maybe_unused]] const RenderContext* renderContext
@@ -543,41 +546,24 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       break;
     }
     updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
-    // Auto-hide: show the dock when the pointer enters.
+    // Auto-hide: reveal once the pointer has dwelled on the edge trigger strip.
     if (dockPointerHideAllowed(m_hoveredInstance->config, *m_hoveredInstance)
         && m_hoveredInstance->sceneRoot != nullptr) {
-      if (m_hoveredInstance->hideAnimId != 0) {
-        m_hoveredInstance->animations.cancel(m_hoveredInstance->hideAnimId);
-        m_hoveredInstance->hideAnimId = 0;
+      if (entered->hideOpacity >= 0.999F && entered->hideAnimId == 0) {
+        shell::dock::revealAutoHideDock(*entered);
+      } else {
+        entered->revealTimer.start(kAutoHideRevealDwell, [entered]() {
+          if (entered->pointerInside && dockPointerHideAllowed(entered->config, *entered)) {
+            shell::dock::revealAutoHideDock(*entered);
+          }
+        });
       }
-      const float current = m_hoveredInstance->hideOpacity;
-      m_hoveredInstance->hideAnimId = m_hoveredInstance->animations.animate(
-          current, 1.0F, Style::animNormal, Easing::EaseOutCubic,
-          [inst = m_hoveredInstance](float v) {
-            inst->hideOpacity = v;
-            const auto& cfg = inst->config;
-            shell::dock::syncDockSlideLayerTransform(*inst, cfg);
-            shell::dock::applyDockCompositorBlur(*inst, cfg);
-          },
-          [inst = m_hoveredInstance] { inst->hideAnimId = 0; }
-      );
-      // Restore the revealed capsule region so magnified icons receive events,
-      // while clicks outside the capsule pass through to underlying windows.
-      if (m_hoveredInstance->surface != nullptr) {
-        m_hoveredInstance->surface->setInputRegion(
-            shell::dock::computeInputRegion(
-                m_hoveredInstance->config, m_hoveredInstance->panelGeometry,
-                static_cast<int>(m_hoveredInstance->surface->width()),
-                static_cast<int>(m_hoveredInstance->surface->height()), false, m_hoveredInstance->fractionalScale
-            )
-        );
-      }
-      m_hoveredInstance->surface->requestRedraw();
     }
     break;
   }
   case PointerEvent::Type::Leave: {
     if (m_hoveredInstance != nullptr) {
+      m_hoveredInstance->revealTimer.stop();
       if (m_hoveredInstance->drag.active || m_hoveredInstance->drag.armed) {
         endDrag(*m_hoveredInstance, false);
       }

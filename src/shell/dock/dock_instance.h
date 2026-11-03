@@ -73,6 +73,7 @@ namespace shell::dock {
     // first scene build cannot animate from a visible state; the scene build sets the configured value.
     float hideOpacity = 0.0F;
     AnimationManager::Id hideAnimId = 0;
+    Timer revealTimer;
     // smart_auto_hide: active workspace empty (or overview open) — keep the dock visible.
     bool smartAutoHidePinnedVisible = false;
     Signal<>::ScopedConnection paletteConn;
