@@ -13,7 +13,7 @@
 
 class PixelStreamService;
 
-// Displays frames from a companion process (see PixelStreamClient) aspect-fit inside its box,
+// Displays frames from a companion process (see PixelStreamClient) fitted inside its box,
 // and reports pointer and keyboard input in image coordinates. Socket I/O runs in
 // PixelStreamService; uploads happen only in layout, and each upload requests the next frame,
 // so the stream is paced by how often this control is actually laid out.
