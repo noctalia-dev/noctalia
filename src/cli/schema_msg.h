@@ -180,6 +180,11 @@ namespace noctalia::cli {
   inline constexpr std::array kMsgPanelClosePositionals{
       Positional{"id", {}, {}, false, false, false},
   };
+  inline constexpr std::array<std::string_view, 3> kMsgPanelReserveStateChoices{"on", "off", "toggle"};
+  inline constexpr std::array kMsgPanelReservePositionals{
+      Positional{"id", {}, {}, true, false, false},
+      Positional{"state", {}, kMsgPanelReserveStateChoices, false, false, false},
+  };
   inline constexpr std::array kMsgPanelOpenPositionals{
       Positional{"id", {}, {}, true, false, false},
       Positional{"context", {}, {}, false, false, false},
@@ -681,6 +686,16 @@ namespace noctalia::cli {
         {},           kMsgPanelOpenPositionals,
         {},           false
     };
+    inline constexpr Command panelReserve{
+        "panel-reserve",
+        "Dock an open pinned panel so windows keep out from under it, or undock it (on, off or toggle)",
+        {},
+        {},
+        {},
+        kMsgPanelReservePositionals,
+        {},
+        false
+    };
     inline constexpr Command panelToggle{
         "panel-toggle",
         "Toggle a panel by id, optionally with context (e.g. launcher /emo, control-center audio)",
@@ -1007,6 +1022,7 @@ namespace noctalia::cli {
       msg::osdToggle,
       msg::panelClose,
       msg::panelOpen,
+      msg::panelReserve,
       msg::panelToggle,
       msg::plugin,
       msg::plugins,

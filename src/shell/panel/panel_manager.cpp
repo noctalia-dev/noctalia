@@ -3186,6 +3186,35 @@ void PanelManager::registerIpc(IpcService& ipc) {
     return "ok\n";
   });
 
+  ipc.bind(noctalia::cli::msg::panelReserve, [this, unknownPanelError](const std::string& args) -> std::string {
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.empty() || parts.size() > 2) {
+      return "error: panel-reserve requires <id> [on|off|toggle]\n";
+    }
+    if (!m_panels.contains(parts[0]) && !m_persistentHost.hasPanel(parts[0])) {
+      return unknownPanelError(parts[0]);
+    }
+    std::optional<bool> reserve;
+    if (parts.size() == 2) {
+      if (parts[1] == "on") {
+        reserve = true;
+      } else if (parts[1] == "off") {
+        reserve = false;
+      } else if (parts[1] != "toggle") {
+        return "error: panel-reserve state must be on, off or toggle\n";
+      }
+    }
+    switch (m_persistentHost.setReserveSpace(parts[0], reserve)) {
+    case PersistentPanelHost::ReserveResult::Ok:
+      return "ok\n";
+    case PersistentPanelHost::ReserveResult::NotOpen:
+      return std::format("error: panel \"{}\" is not an open pinned panel\n", parts[0]);
+    case PersistentPanelHost::ReserveResult::NotOnEdge:
+      return std::format("error: panel \"{}\" is not on a screen edge with height or width = \"fill\"\n", parts[0]);
+    }
+    return "ok\n";
+  });
+
   const auto rejectSettingsArgs = [](const std::string& args, std::string_view command) -> std::optional<std::string> {
     if (StringUtils::trim(args).empty()) {
       return std::nullopt;

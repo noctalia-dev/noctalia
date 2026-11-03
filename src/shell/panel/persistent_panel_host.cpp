@@ -215,6 +215,21 @@ void PersistentPanelHost::open(const std::string& id, wl_output* output, std::st
     fallbackHeight = static_cast<std::uint32_t>(std::max(1, outputHeight - marginTop - marginBottom));
   }
 
+  // Docking needs a real edge position and a filled axis. The compositor adds the edge margin
+  // to the zone, so only the shadow bleed is added here to end at the panel's visible edge.
+  std::int32_t reserveZone = 0;
+  if (!centered) {
+    const bool left = (anchor & LayerShellAnchor::Left) != 0;
+    const bool right = (anchor & LayerShellAnchor::Right) != 0;
+    const bool top = (anchor & LayerShellAnchor::Top) != 0;
+    const bool bottom = (anchor & LayerShellAnchor::Bottom) != 0;
+    if (fillHeight && left != right) {
+      reserveZone = static_cast<std::int32_t>(panelWidth) + (left ? bleed.left : bleed.right);
+    } else if (fillWidth && top != bottom) {
+      reserveZone = static_cast<std::int32_t>(panelHeight) + (top ? bleed.up : bleed.down);
+    }
+  }
+
   auto instance = std::make_unique<Instance>();
   instance->id = id;
   instance->panel = panel;
@@ -227,6 +242,7 @@ void PersistentPanelHost::open(const std::string& id, wl_output* output, std::st
   instance->visualHeight = panelHeight;
   instance->fillWidth = fillWidth;
   instance->fillHeight = fillHeight;
+  instance->reserveZone = reserveZone;
 
   auto surfaceConfig = LayerSurfaceConfig{
       .nameSpace = "noctalia-panel",
@@ -287,6 +303,20 @@ void PersistentPanelHost::close(const std::string& id) {
     return;
   }
   destroyInstance(it);
+}
+
+PersistentPanelHost::ReserveResult
+PersistentPanelHost::setReserveSpace(std::string_view id, std::optional<bool> reserve) {
+  Instance* instance = findInstance(id);
+  if (instance == nullptr || instance->surface == nullptr) {
+    return ReserveResult::NotOpen;
+  }
+  if (instance->reserveZone <= 0) {
+    return ReserveResult::NotOnEdge;
+  }
+  instance->reserved = reserve.value_or(!instance->reserved);
+  instance->surface->setExclusiveZone(instance->reserved ? instance->reserveZone : 0);
+  return ReserveResult::Ok;
 }
 
 void PersistentPanelHost::closeAll() {

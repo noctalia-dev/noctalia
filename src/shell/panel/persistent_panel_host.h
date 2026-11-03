@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -52,6 +53,10 @@ public:
   void close(const std::string& id);
   void toggle(const std::string& id, wl_output* output, std::string_view context);
   void closeAll();
+  enum class ReserveResult { Ok, NotOpen, NotOnEdge };
+  // Make windows keep out from under an open panel that fills one axis along a screen edge
+  // (dock it), or let them run underneath again. nullopt toggles.
+  ReserveResult setReserveSpace(std::string_view id, std::optional<bool> reserve);
   bool isOpen(std::string_view id) const noexcept;
   bool anyOpen() const noexcept { return !m_instances.empty(); }
   std::optional<LayerPopupParentContext> popupParentContext(std::string_view id) const noexcept;
@@ -88,6 +93,9 @@ private:
     std::uint32_t visualHeight = 0;
     bool fillWidth = false;
     bool fillHeight = false;
+    // Exclusive zone that docks the panel; 0 when it is not an edge panel that fills an axis.
+    std::int32_t reserveZone = 0;
+    bool reserved = false;
     bool pointerInside = false;
   };
 
