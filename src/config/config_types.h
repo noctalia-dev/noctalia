@@ -583,9 +583,10 @@ struct WallpaperConfig {
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   bool transitionOnStartup = false;
-  std::string directory;      // empty = XDG_PICTURES_DIR
-  std::string directoryLight; // empty = directory
-  std::string directoryDark;  // empty = directory
+  bool syncTransitions = false; // all monitors share one random effect per change batch
+  std::string directory;        // empty = XDG_PICTURES_DIR
+  std::string directoryLight;   // empty = directory
+  std::string directoryDark;    // empty = directory
   bool perMonitorDirectories = false;
   WallpaperAutomationConfig automation;
   std::vector<WallpaperMonitorOverride> monitorOverrides;

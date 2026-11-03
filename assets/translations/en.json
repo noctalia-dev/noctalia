@@ -3899,6 +3899,10 @@
           "description": "Use separate wallpaper folders for each monitor",
           "label": "Per-Monitor Directories"
         },
+        "sync-transitions": {
+          "description": "Use the same transition effect on all monitors when wallpapers change",
+          "label": "Sync Transitions Across Monitors"
+        },
         "transition-duration": {
           "description": "Length of the wallpaper change animation in milliseconds",
           "label": "Transition Duration"
