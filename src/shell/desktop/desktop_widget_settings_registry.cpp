@@ -246,6 +246,7 @@ namespace desktop_settings {
     if (type == "calendar") {
       add(boolSpec("show_events", true));
       add(boolSpec("show_week_numbers", false));
+      add(boolSpec("show_events_location", false));
       add(fontFamilySpec());
     } else if (type == "clock") {
       const WidgetSettingVisibility digitalOnly{{"clock_style", {"digital"}}};
