@@ -218,6 +218,13 @@ namespace {
     return nullptr;
   }
 
+  bool isTemplateNameTaken(
+      const std::string& name, const std::string& activeName, const std::vector<DesktopWidgetsProfile>& profiles
+  ) {
+    return name != activeName
+        && std::ranges::any_of(profiles, [&](const auto& profile) { return profile.name == name; });
+  }
+
   std::string
   generateUniqueTemplateName(const std::string& activeName, const std::vector<DesktopWidgetsProfile>& profiles) {
     for (std::size_t num = 1; num <= kMaxDesktopWidgetProfiles; ++num) {
@@ -278,9 +285,6 @@ void DesktopWidgetsEditor::open(const DesktopWidgetsEditorSnapshot& snapshot) {
   m_snapshot = snapshot;
   if (m_profile.showLockscreenLoginPreview && m_wayland != nullptr) {
     lockscreen_login_box::ensureWidgets(m_snapshot.widgets, m_wayland->outputs());
-  }
-  if (!m_profile.showLockscreenLoginPreview && m_snapshot.activeProfile.empty()) {
-    m_snapshot.activeProfile = i18n::tr("desktop-widgets.editor.default-template-name", "index", "1");
   }
   m_open = true;
   clearSelection();
@@ -346,11 +350,7 @@ void DesktopWidgetsEditor::switchProfile(std::size_t newIndex) {
   requestLayout();
 }
 
-void DesktopWidgetsEditor::createProfile() {
-  if (m_profile.showLockscreenLoginPreview || (1 + m_snapshot.profiles.size()) >= kMaxDesktopWidgetProfiles) {
-    return;
-  }
-  std::string newName = generateUniqueTemplateName(m_snapshot.activeProfile, m_snapshot.profiles);
+void DesktopWidgetsEditor::archiveActiveProfile(std::string newName) {
   m_snapshot.profiles.push_back(
       DesktopWidgetsProfile{
           .name = std::move(m_snapshot.activeProfile),
@@ -359,12 +359,19 @@ void DesktopWidgetsEditor::createProfile() {
       }
   );
   m_snapshot.activeProfile = std::move(newName);
-  m_snapshot.grid = DesktopWidgetsGridState{};
-  m_snapshot.widgets.clear();
   clearSelection();
   m_inspectorOpen = false;
   m_deleteConfirmActive = false;
   m_renameActive = false;
+}
+
+void DesktopWidgetsEditor::createProfile() {
+  if (m_profile.showLockscreenLoginPreview || (1 + m_snapshot.profiles.size()) >= kMaxDesktopWidgetProfiles) {
+    return;
+  }
+  archiveActiveProfile(generateUniqueTemplateName(m_snapshot.activeProfile, m_snapshot.profiles));
+  m_snapshot.grid = DesktopWidgetsGridState{};
+  m_snapshot.widgets.clear();
   syncSurfaces();
   requestLayout();
 }
@@ -389,19 +396,8 @@ void DesktopWidgetsEditor::cloneCurrentProfile() {
   }
 
   std::string newName = generateUniqueTemplateName(m_snapshot.activeProfile, m_snapshot.profiles);
-  m_snapshot.profiles.push_back(
-      DesktopWidgetsProfile{
-          .name = std::move(m_snapshot.activeProfile),
-          .grid = m_snapshot.grid,
-          .widgets = std::move(m_snapshot.widgets),
-      }
-  );
-  m_snapshot.activeProfile = std::move(newName);
+  archiveActiveProfile(std::move(newName));
   m_snapshot.widgets = std::move(clonedWidgets);
-  clearSelection();
-  m_inspectorOpen = false;
-  m_deleteConfirmActive = false;
-  m_renameActive = false;
   syncSurfaces();
   requestLayout();
 }
@@ -426,21 +422,17 @@ void DesktopWidgetsEditor::deleteCurrentProfile() {
 }
 
 void DesktopWidgetsEditor::renameCurrentProfile(const std::string& newName) {
-  m_renameActive = false;
   std::string trimmed = StringUtils::trim(newName);
-  if (trimmed.empty()) {
+  if (trimmed.empty() || isTemplateNameTaken(trimmed, m_snapshot.activeProfile, m_snapshot.profiles)) {
     requestLayout();
     return;
   }
   m_snapshot.activeProfile = std::move(trimmed);
+  m_renameActive = false;
   requestLayout();
 }
 
 void DesktopWidgetsEditor::buildDeleteConfirmDialog(OverlaySurface& surface, Node& root) {
-  const std::string currentName = !m_snapshot.activeProfile.empty()
-      ? m_snapshot.activeProfile
-      : i18n::tr("desktop-widgets.editor.default-template-name", "index", "1");
-
   auto backdrop = ui::inputArea({
       .focusable = true,
       .tabStop = false,
@@ -482,7 +474,8 @@ void DesktopWidgetsEditor::buildDeleteConfirmDialog(OverlaySurface& surface, Nod
               .color = colorSpecFromRole(ColorRole::Error),
           }),
           ui::label({
-              .text = i18n::tr("desktop-widgets.editor.dialogs.delete-template-confirm", "name", currentName),
+              .text =
+                  i18n::tr("desktop-widgets.editor.dialogs.delete-template-confirm", "name", m_snapshot.activeProfile),
               .fontSize = Style::fontSizeBody,
               .fontWeight = FontWeight::SemiBold,
           })
@@ -527,6 +520,13 @@ void DesktopWidgetsEditor::buildDeleteConfirmDialog(OverlaySurface& surface, Nod
 }
 
 void DesktopWidgetsEditor::buildRenameDialog(OverlaySurface& surface, Node& root) {
+  const std::string trimmedName = StringUtils::trim(m_renameText);
+  const bool nameEmpty = trimmedName.empty();
+  const bool nameTaken = !nameEmpty && isTemplateNameTaken(trimmedName, m_snapshot.activeProfile, m_snapshot.profiles);
+  const bool nameInvalid = nameEmpty || nameTaken;
+  const std::string nameError = nameEmpty ? i18n::tr("desktop-widgets.editor.dialogs.template-name-required")
+                                          : i18n::tr("desktop-widgets.editor.dialogs.template-name-in-use");
+
   auto backdrop = ui::inputArea({
       .focusable = true,
       .tabStop = false,
@@ -577,6 +577,7 @@ void DesktopWidgetsEditor::buildRenameDialog(OverlaySurface& surface, Node& root
           .out = &inputPtr,
           .value = m_renameText,
           .controlHeight = Style::controlHeightSm,
+          .invalid = nameInvalid,
           .width = 240.0F,
           .onChange = [this](const std::string& val) { m_renameText = val; },
           .onSubmit =
@@ -584,6 +585,13 @@ void DesktopWidgetsEditor::buildRenameDialog(OverlaySurface& surface, Node& root
                 m_renameText = val;
                 deferEditorMutation([this] { renameCurrentProfile(m_renameText); });
               },
+      }),
+      ui::label({
+          .text = nameError,
+          .fontSize = Style::fontSizeCaption,
+          .color = colorSpecFromRole(ColorRole::Error),
+          .visible = nameInvalid,
+          .participatesInLayout = nameInvalid,
       }),
       ui::row(
           {
@@ -1487,11 +1495,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                 }
                 std::vector<std::string> profileOptions;
                 profileOptions.reserve(1 + m_snapshot.profiles.size() + 1);
-                profileOptions.push_back(
-                    m_snapshot.activeProfile.empty()
-                        ? i18n::tr("desktop-widgets.editor.default-template-name", "index", "1")
-                        : m_snapshot.activeProfile
-                );
+                profileOptions.push_back(m_snapshot.activeProfile);
                 for (const auto& profile : m_snapshot.profiles) {
                   profileOptions.push_back(profile.name);
                 }

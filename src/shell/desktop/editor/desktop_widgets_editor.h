@@ -227,6 +227,7 @@ private:
   void clearSelection();
   void setSingleSelection(const std::string& id);
   void handleWidgetPress(const std::string& id);
+  void archiveActiveProfile(std::string newName);
   void buildDeleteConfirmDialog(OverlaySurface& surface, Node& root);
   void buildRenameDialog(OverlaySurface& surface, Node& root);
 

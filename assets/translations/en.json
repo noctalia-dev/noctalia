@@ -625,7 +625,9 @@
       "default-template-name": "Template {index}",
       "dialogs": {
         "delete-template-confirm": "{name} will be deleted forever. Confirm?",
-        "select-sticker-image": "Select Sticker Image"
+        "select-sticker-image": "Select Sticker Image",
+        "template-name-in-use": "A template with this name already exists",
+        "template-name-required": "Template name is required"
       },
       "settings": {
         "album-art-background": "Album Art Background",
