@@ -2,11 +2,10 @@
 
 #include "core/deferred_call.h"
 #include "core/log.h"
+#include "notification/notification_display_name.h"
 #include "notification/notification_filter.h"
 #include "notification/notification_history_store.h"
 #include "pipewire/sound_player.h"
-#include "system/app_identity.h"
-#include "system/desktop_entry.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 
@@ -295,8 +294,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
       && !imageData.has_value()
       && desktopEntry.has_value()
       && !desktopEntry->empty()) {
-    if (const auto entry = app_identity::findDesktopEntry(*desktopEntry, desktopEntries());
-        entry.has_value() && !entry->icon.empty()) {
+    if (const auto entry = findNotificationDesktopEntry(*desktopEntry); entry.has_value() && !entry->icon.empty()) {
       icon = entry->icon;
       request.iconIsAppIcon = true;
     }
