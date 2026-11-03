@@ -154,7 +154,7 @@ The `clock`, `weather`, `media_player`, `label`, and `sysmon` widget types addit
 
 | Setting       | Type   | Default          | Description                                                             |
 | ------------- | ------ | ---------------- | ----------------------------------------------------------------------- |
-| `color`       | string | *(type default)* | Text/glyph color role; fixed hex colors are also supported              |
+| `color`       | string | _(type default)_ | Text/glyph color role; fixed hex colors are also supported              |
 | `font_family` | string | `""`             | Typeface for this widget; empty inherits the global shell font          |
 | `shadow`      | bool   | `true`           | Draw a drop shadow behind text and glyphs for readability on wallpapers |
 
@@ -215,14 +215,16 @@ cy     = 360.0
 [desktop_widgets.widget.calendar_main.settings]
 show_events       = true
 show_week_numbers = false
+show_events_location = false
 font_family       = ""
 ```
 
-| Setting             | Type   | Default | Description                                                      |
-| ------------------- | ------ | ------- | ---------------------------------------------------------------- |
-| `show_events`       | bool   | `true`  | Show the selected day's event list beside the month grid         |
-| `show_week_numbers` | bool   | `false` | Show ISO week numbers beside the month grid                      |
-| `font_family`       | string | `""`    | Typeface for calendar text; empty inherits the global shell font |
+| Setting                | Type   | Default | Description                                                      |
+| ---------------------- | ------ | ------- | ---------------------------------------------------------------- |
+| `show_events`          | bool   | `true`  | Show the selected day's event list beside the month grid         |
+| `show_week_numbers`    | bool   | `false` | Show ISO week numbers beside the month grid                      |
+| `show_events_location` | bool   | `false` | Show events location on the event list                           |
+| `font_family`          | string | `""`    | Typeface for calendar text; empty inherits the global shell font |
 
 The event list uses the shared `event_date_format` and `event_time_format` from [`[calendar]`](/noctalia/services/calendar/), so the desktop widget and control center use the same event formatting. It also follows [`hide_past_events` and `past_events_threshold_minutes`](/noctalia/control-center/#calendar) from `[control_center.calendar]` when deciding which of today's finished events to list.
 
@@ -402,7 +404,7 @@ background       = true
 | `command`          | string | `""`                | Shell command run on left click                                                         |
 | `background`       | bool   | `true`              | Show the button's own fill and border; when `false`, only the label and glyph are drawn |
 | `variant`          | string | `"default"`         | Button style: `default`, `primary`, `secondary`, `outline`, `ghost`, `destructive`      |
-| `color`            | string | *(variant default)* | Label and glyph color role or fixed hex; omit to use the variant's default foreground   |
+| `color`            | string | _(variant default)_ | Label and glyph color role or fixed hex; omit to use the variant's default foreground   |
 | `hover_background` | string | `"hover"`           | Background color role on hover; fixed hex colors are also supported                     |
 
 ---
