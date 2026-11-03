@@ -206,9 +206,9 @@ The pointer button and **P** work the same in region, fullscreen, and frozen-scr
 
 With `[shell.screenshot].copy_on_close = true`, closing the editor (**`[keybinds].cancel`** or the close button) first copies the annotated image to the clipboard.
 
-**Capture new region** in the toolbar discards the current edit, captures a fresh desktop region without the annotation overlay, and opens it in the editor with the same pointer control and remembered tool preferences. Starting from a captured image preserves the editor's current pointer choice. It is available in live, frozen, and image modes, regardless of `[shell.screenshot].annotate`. Cancelling region selection closes the capture.
+**Capture new region** (**Ctrl+R**) in the toolbar discards the current edit, captures a fresh desktop region without the annotation overlay, and opens it in the editor with the same pointer control and remembered tool preferences. Starting from a captured image preserves the editor's current pointer choice. It is available in live, frozen, and image modes, regardless of `[shell.screenshot].annotate`. Cancelling region selection closes the capture.
 
-**Capture window** does the same for the window that was focused when the editor opened: it discards the current edit, captures that window at native resolution, and opens the result in the editor. It needs the compositor's ext image-capture protocols instead of `wlr-screencopy`, and the pointer is never included. If that window is gone, the editor stays open and an error is reported.
+**Capture window** (**Ctrl+W**) does the same for the window that was focused when the editor opened: it discards the current edit, captures that window at native resolution, and opens the result in the editor. It needs the compositor's ext image-capture protocols instead of `wlr-screencopy`, and the pointer is never included. If that window is gone, the editor stays open and an error is reported.
 
 Captured images have an inset **Outline** color-role border to distinguish the canvas from its surroundings. The border does not change the image size or appear in copied or saved images.
 
