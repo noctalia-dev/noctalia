@@ -499,7 +499,7 @@ namespace ui {
                                                              "visible", "name",   "size",     "color"};
       static const std::unordered_set<std::string> kImage = {"width",   "height",  "flexGrow", "opacity", "visible",
                                                              "path",    "radius",  "fit",      "border",  "borderWidth",
-                                                             "onClick", "onHover", "tooltip"};
+                                                             "onClick", "onHover", "tooltip",  "rotation"};
       static const std::unordered_set<std::string> kPixelStream = {
           "width",         "height",        "flexGrow",      "opacity",     "visible",         "path",
           "radius",        "onPointerMove", "onPointerDown", "onPointerUp", "onPointerCancel", "onRightClick",
@@ -1680,6 +1680,9 @@ namespace ui {
       auto* image = controlFromSlot<Image>(node);
       if (image == nullptr) {
         return;
+      }
+      if (const double* rotation = numProp(desired, "rotation")) {
+        image->setRotation(static_cast<float>(*rotation));
       }
       if (const double* radius = numProp(desired, "radius")) {
         image->setRadius(scaled(*radius));

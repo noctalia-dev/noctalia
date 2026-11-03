@@ -3,6 +3,7 @@
 #include "compositors/compositor_platform.h"
 #include "core/log.h"
 #include "cursor-shape-v1-client-protocol.h"
+#include "dbus/mpris/mpris_art.h"
 #include "dbus/mpris/mpris_service.h"
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
@@ -395,6 +396,19 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
 void PluginWidget::doUpdate(Renderer&) {}
 
+void PluginWidget::onFrameTick(float deltaMs) {
+  if (m_runtime == nullptr || !m_needsFrameTick) {
+    return;
+  }
+
+  (void)m_runtime->enqueueCallStrings(
+      "onFrameTick", std::to_string(deltaMs), {}, makeScriptSnapshot(),
+      /*coalesce=*/true
+  );
+
+  requestRedraw();
+}
+
 void PluginWidget::luaSetText(std::string_view text) {
   if (!m_label)
     return;
@@ -680,6 +694,7 @@ void PluginWidget::handleScriptResult(const scripting::ScriptResult& result) {
   if (result.unhealthy) {
     m_updateTimer.stop();
     m_deferredUpdateTimer.stop();
+    m_needsFrameTick = false;
     kLog.warn("plugin widget '{}' disabled after repeated timeouts", m_entryId);
   }
 
@@ -691,6 +706,15 @@ void PluginWidget::handleScriptResult(const scripting::ScriptResult& result) {
 }
 
 void PluginWidget::applyScriptPatch(const scripting::ScriptPatch& patch) {
+  if (patch.needsFrameTick.has_value()) {
+    const bool was = m_needsFrameTick;
+    m_needsFrameTick = *patch.needsFrameTick;
+
+    if (m_needsFrameTick && !was) {
+      requestFrameTick();
+    }
+  }
+
   if (patch.uiTree.has_value()) {
     applyUiTreePatch(*patch.uiTree);
   }
@@ -765,11 +789,23 @@ void PluginWidget::applyUiTreePatch(const ui::UiTreeNode& patchTree) {
 }
 
 scripting::ScriptSnapshot PluginWidget::makeScriptSnapshot() const {
+  std::string mediaPlaybackStatus;
+  std::string mediaArtUrl;
+
+  if (m_mpris != nullptr) {
+    if (const auto active = m_mpris->activePlayer(); active.has_value()) {
+      mediaPlaybackStatus = active->playbackStatus;
+      mediaArtUrl = mpris::effectiveArtUrl(*active);
+    }
+  }
+
   return scripting::ScriptSnapshot{
       .isVertical = m_isVertical,
       .outputName = m_outputName,
       .barName = m_barName,
       .focusedOutputName = focusedOutputName(),
+      .mediaPlaybackStatus = std::move(mediaPlaybackStatus),
+      .mediaArtUrl = std::move(mediaArtUrl),
   };
 }
 
@@ -891,6 +927,7 @@ void PluginWidget::reloadScript() {
   m_textColor = {};
   m_glyphColor = {};
   m_updateIntervalMs = 250;
+  m_needsFrameTick = false;
   m_imageWatch = false;
   m_imageDirty = true;
   m_imageForceReload = false;

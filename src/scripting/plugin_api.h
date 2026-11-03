@@ -49,7 +49,8 @@ namespace scripting {
   inline constexpr std::uint32_t kSecretSettingPluginApiVersion = 47;
   inline constexpr std::uint32_t kSleepCallbacksPluginApiVersion = 48;
   inline constexpr std::uint32_t kPanelLayerFollowPluginApiVersion = 49;
-  inline constexpr std::uint32_t kCurrentPluginApiVersion = kPanelLayerFollowPluginApiVersion;
+  inline constexpr std::uint32_t kBarWidgetAnimationPluginApiVersion = 50;
+  inline constexpr std::uint32_t kCurrentPluginApiVersion = kBarWidgetAnimationPluginApiVersion;
 
   static_assert(kOldestSupportedPluginApiVersion <= kCurrentPluginApiVersion);
 

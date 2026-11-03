@@ -221,6 +221,32 @@ namespace {
     return 1;
   }
 
+  int luau_mediaStatus(lua_State* L) {
+    auto* context = getContext(L);
+
+    if (context == nullptr || context->snapshot.mediaPlaybackStatus.empty()) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    const auto& value = context->snapshot.mediaPlaybackStatus;
+    lua_pushlstring(L, value.data(), value.size());
+    return 1;
+  }
+
+  int luau_mediaArtUrl(lua_State* L) {
+    auto* context = getContext(L);
+
+    if (context == nullptr || context->snapshot.mediaArtUrl.empty()) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    const auto& value = context->snapshot.mediaArtUrl;
+    lua_pushlstring(L, value.data(), value.size());
+    return 1;
+  }
+
   int luau_setVisible(lua_State* L) {
     bool visible = lua_toboolean(L, 1) != 0;
     if (auto* context = getContext(L)) {
@@ -232,6 +258,7 @@ namespace {
   // Shared render(tree) binding for bar widgets, desktop widgets, and panels
   // (defined after readUiTreeNode below).
   int luau_ui_render(lua_State* L);
+  int luau_ui_setNeedsFrameTick(lua_State* L);
 
   const luaL_Reg kWidgetLib[] = {
       {"setText", luau_setText},
@@ -244,8 +271,11 @@ namespace {
       {"setGlyphColor", luau_setGlyphColor},
       {"isVertical", luau_isVertical},
       {"outputName", luau_outputName},
+      {"mediaStatus", luau_mediaStatus},
+      {"mediaArtUrl", luau_mediaArtUrl},
       {"setVisible", luau_setVisible},
       {"render", luau_ui_render},
+      {"setNeedsFrameTick", luau_ui_setNeedsFrameTick},
       {nullptr, nullptr},
   };
 
@@ -585,8 +615,8 @@ namespace {
     return 0;
   }
 
-  // setWantsSecondTicks(bool) / setNeedsFrameTick(bool) — shared by
-  // desktopWidget.* and panel.*.
+  // setWantsSecondTicks(bool) / setNeedsFrameTick(bool).
+  // Frame ticks are available to bar widgets, desktop widgets, and panels.
   int luau_ui_setWantsSecondTicks(lua_State* L) {
     const bool wants = lua_toboolean(L, 1) != 0;
     if (auto* context = getContext(L)) {
