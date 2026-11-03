@@ -1672,16 +1672,15 @@ namespace ui {
       view->setPath(path != nullptr && !path->empty() ? (m_resolver ? m_resolver(*path) : *path) : std::string{});
       const double* radius = numProp(desired, "radius");
       view->setRadius(radius != nullptr ? std::max(0.0F, scaled(*radius)) : 0.0F);
-      if (const std::string* fit = strProp(desired, "fit")) {
-        if (*fit == "contain") {
-          view->setFit(ImageFit::Contain);
-        } else if (*fit == "cover") {
-          view->setFit(ImageFit::Cover);
-        } else if (*fit == "stretch") {
-          view->setFit(ImageFit::Stretch);
-        } else {
-          kLog.warn("ui tree: pixelStream has unknown fit '{}'", *fit);
-        }
+      const std::string* fit = strProp(desired, "fit");
+      if (fit == nullptr || *fit == "contain") {
+        view->setFit(ImageFit::Contain);
+      } else if (*fit == "cover") {
+        view->setFit(ImageFit::Cover);
+      } else if (*fit == "stretch") {
+        view->setFit(ImageFit::Stretch);
+      } else {
+        kLog.warn("ui tree: pixelStream has unknown fit '{}'", *fit);
       }
       syncPixelStreamCallbacks(slot, desired, *view);
       return;
