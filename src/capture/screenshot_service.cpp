@@ -842,7 +842,7 @@ bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
     return false;
   }
   if (regionActive) {
-    std::ignore = m_regionOverlay->onKeyboardEvent(event);
+    m_regionOverlay->onKeyboardEvent(event);
     return true;
   }
   if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
