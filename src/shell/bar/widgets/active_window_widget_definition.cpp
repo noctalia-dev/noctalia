@@ -7,6 +7,9 @@ const noctalia::bar::WidgetDefinition<ActiveWindowWidget::Options>& activeWindow
   static const noctalia::bar::WidgetDefinition<Options> definition{
       .type = "active_window",
       .fields = {
+          field<&Options::colorizeIcons>({
+              .key = "colorize_icons",
+          }),
           field<&Options::minWidth>({
               .key = "min_length",
               .minValue = 0.0,

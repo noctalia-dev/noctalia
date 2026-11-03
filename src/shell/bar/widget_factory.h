@@ -43,7 +43,7 @@ namespace scripting {
 class WidgetFactory {
 public:
   explicit WidgetFactory(const BarServices& services);
-  ~WidgetFactory();
+  ~WidgetFactory() = default;
 
   [[nodiscard]] std::unique_ptr<Widget> create(
       const std::string& name, wl_output* output, float contentScale = 1.0F, const std::string& barPosition = "top",

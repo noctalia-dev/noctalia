@@ -1,11 +1,11 @@
 #include "shell/bar/widgets/weather_widget.h"
 
+#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "render/scene/tooltip_content.h"
 #include "system/weather_service.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"

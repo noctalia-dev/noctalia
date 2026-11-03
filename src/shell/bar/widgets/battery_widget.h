@@ -36,10 +36,11 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void onFrameTick(float deltaMs) override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
   void syncState(Renderer& renderer);
   void updateFillGeometry();
-  [[nodiscard]] std::string buildLabelText(int pct, const UPowerState& state) const;
+  void syncPalette();
+  std::string buildLabelText(int pct, const UPowerState& state) const;
 
   void createGraphicMode();
   void createGlyphMode();
@@ -82,4 +83,5 @@ private:
   double m_lastEnergyRate = -1.0;
   std::int64_t m_lastTimeToEmpty = -1;
   std::chrono::steady_clock::time_point m_lastTooltipRefreshTime;
+  Signal<>::ScopedConnection m_paletteConn;
 };

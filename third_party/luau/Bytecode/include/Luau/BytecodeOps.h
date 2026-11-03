@@ -61,6 +61,15 @@ struct BcInstHelper
         block->ops.insert(it, inst.op);
     }
 
+    void detach()
+    {
+        if (inst->block.kind != BcOpKind::Block)
+            return;
+        BcRef<BcBlock> block = graph.block(inst->block);
+        block->ops.remove(inst.op);
+        inst->block = BcOp{};
+    }
+
     void setOutReg(Reg out)
     {
         graph.regs[inst.op] = out;
@@ -102,6 +111,23 @@ protected:
         if (inputIdx >= inst->ops.size())
             inst->ops.resize(inputIdx + 1);
         inst->ops[inputIdx] = op;
+
+        if (op.kind == BcOpKind::Inst)
+        {
+            BcRef<BcInst> opInst = graph.inst(op);
+            if (std::find(opInst->uses.begin(), opInst->uses.end(), inst.op) == opInst->uses.end())
+            {
+                opInst->uses.push_back(inst.op);
+            }
+        }
+        else if (op.kind == BcOpKind::Phi)
+        {
+            BcRef<BcPhi> opPhi = graph.phi(op);
+            if (std::find(opPhi->uses.begin(), opPhi->uses.end(), inst.op) == opPhi->uses.end())
+            {
+                opPhi->uses.push_back(inst.op);
+            }
+        }
     }
 
     BcRef<VmConst> getVmConst(uint32_t inputIdx)
@@ -292,11 +318,33 @@ struct BcSetList : public BcInstHelper<VmConst, BcSetList<VmConst>>
     static const LuauOpcode opcode = LOP_SETLIST;
     INT_IMM(StartIndex, 0)
     INT_IMM(Count, 1)
-    static const uint32_t kParamStartInput = 2;
+    BC_OP(Target, 2)
+    static const uint32_t kParamStartInput = 3;
     std::vector<BcOp> params()
     {
         return this->sliceInputs(kParamStartInput);
     }
+};
+
+template<typename VmConst = BcVmConst>
+struct BcGetImport : public BcInstHelper<VmConst, BcGetImport<VmConst>>
+{
+    static const LuauOpcode opcode = LOP_GETIMPORT;
+    VM_CONST(Import, 0)
+    INT_IMM(PathLength, 1)
+    static const uint32_t kPathStartInput = 2;
+    std::vector<BcOp> importPath()
+    {
+        return this->sliceInputs(kPathStartInput);
+    }
+};
+
+template<typename VmConst = BcVmConst>
+struct BcConstruct : public BcInstHelper<VmConst, BcConstruct<VmConst>>
+{
+    static const LuauOpcode opcode = LOP_CONSTRUCT;
+    BC_OP(Class, 0)
+    INT_IMM(FbSlot, 1)
 };
 
 #undef INT_IMM

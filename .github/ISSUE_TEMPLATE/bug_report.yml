@@ -12,7 +12,7 @@ body:
       options:
         - label: I have searched existing issues and confirmed this is not a duplicate.
           required: true
-        - label: I am using the latest available version of Noctalia.
+        - label: I reproduced this on the latest release of Noctalia.
           required: true
 
   - type: textarea
@@ -123,10 +123,10 @@ body:
         Please provide relevant system information:
 
         If you selected `Other` for distribution and/or compositor, please specify the exact one(s) here.
-        - Installation method: e.g. AUR, source build, Nix
+        - Installation method: e.g. Arch package, source build, Nix
         - GPU: e.g. AMD RX 7800 XT (amdgpu)
       placeholder: |
-        Installation method: e.g. AUR, source build, Nix
+        Installation method: e.g. Arch package, source build, Nix
         GPU: e.g. AMD RX 7800 XT (amdgpu)
       render: text
     validations:

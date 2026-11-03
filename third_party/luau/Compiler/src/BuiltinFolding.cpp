@@ -42,13 +42,23 @@ static Constant cnum(double v)
     return res;
 }
 
-static Constant cvector(double x, double y, double z, double w)
+static Constant cvectorf(float x, float y, float z, float w)
 {
-    Constant res = {Constant::Type_Vector};
-    res.valueVector[0] = (float)x;
-    res.valueVector[1] = (float)y;
-    res.valueVector[2] = (float)z;
-    res.valueVector[3] = (float)w;
+    Constant res = {Constant::Type_Vectorf};
+    res.valueVectorf[0] = x;
+    res.valueVectorf[1] = y;
+    res.valueVectorf[2] = z;
+    res.valueVectorf[3] = w;
+    return res;
+}
+
+static Constant cvectord(double x, double y, double z, double w)
+{
+    Constant res = {Constant::Type_Vectord};
+    res.valueVectord[0] = x;
+    res.valueVectord[1] = y;
+    res.valueVectord[2] = z;
+    res.valueVectord[3] = w;
     return res;
 }
 
@@ -86,7 +96,8 @@ static Constant ctype(const Constant& c)
     case Constant::Type_Integer:
         return cstring("integer");
 
-    case Constant::Type_Vector:
+    case Constant::Type_Vectorf:
+    case Constant::Type_Vectord:
         return cstring("vector");
 
     case Constant::Type_String:
@@ -116,7 +127,8 @@ static Constant ctypeof(const Constant& c)
     case Constant::Type_Integer:
         return cstring("integer");
 
-    case Constant::Type_Vector:
+    case Constant::Type_Vectorf:
+    case Constant::Type_Vectord:
         return cvar(); // vector can have a custom typeof name at runtime
 
     case Constant::Type_String:
@@ -134,7 +146,7 @@ static uint32_t bit32(double v)
     return uint32_t(int64_t(v));
 }
 
-Constant foldBuiltin(AstNameTable& stringTable, int bfid, const Constant* args, size_t count)
+Constant foldBuiltin(AstNameTable& stringTable, int bfid, const Constant* args, size_t count, bool vectorDoublePrecision)
 {
     switch (bfid)
     {
@@ -586,12 +598,24 @@ Constant foldBuiltin(AstNameTable& stringTable, int bfid, const Constant* args, 
     case LBF_VECTOR:
         if (count >= 2 && args[0].type == Constant::Type_Number && args[1].type == Constant::Type_Number)
         {
-            if (count == 2)
-                return cvector(args[0].valueNumber, args[1].valueNumber, 0.0, 0.0);
-            else if (count == 3 && args[2].type == Constant::Type_Number)
-                return cvector(args[0].valueNumber, args[1].valueNumber, args[2].valueNumber, 0.0);
-            else if (count == 4 && args[2].type == Constant::Type_Number && args[3].type == Constant::Type_Number)
-                return cvector(args[0].valueNumber, args[1].valueNumber, args[2].valueNumber, args[3].valueNumber);
+            if (vectorDoublePrecision)
+            {
+                if (count == 2)
+                    return cvectord(args[0].valueNumber, args[1].valueNumber, 0.0, 0.0);
+                else if (count == 3 && args[2].type == Constant::Type_Number)
+                    return cvectord(args[0].valueNumber, args[1].valueNumber, args[2].valueNumber, 0.0);
+                else if (count == 4 && args[2].type == Constant::Type_Number && args[3].type == Constant::Type_Number)
+                    return cvectord(args[0].valueNumber, args[1].valueNumber, args[2].valueNumber, args[3].valueNumber);
+            }
+            else
+            {
+                if (count == 2)
+                    return cvectorf(float(args[0].valueNumber), float(args[1].valueNumber), 0.0f, 0.0f);
+                else if (count == 3 && args[2].type == Constant::Type_Number)
+                    return cvectorf(float(args[0].valueNumber), float(args[1].valueNumber), float(args[2].valueNumber), 0.0f);
+                else if (count == 4 && args[2].type == Constant::Type_Number && args[3].type == Constant::Type_Number)
+                    return cvectorf(float(args[0].valueNumber), float(args[1].valueNumber), float(args[2].valueNumber), float(args[3].valueNumber));
+            }
         }
         break;
 

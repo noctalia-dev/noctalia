@@ -11,7 +11,7 @@ class AstNameTable;
 namespace Compile
 {
 
-Constant foldBuiltin(AstNameTable& stringTable, int bfid, const Constant* args, size_t count);
+Constant foldBuiltin(AstNameTable& stringTable, int bfid, const Constant* args, size_t count, bool vectorDoublePrecision);
 Constant foldBuiltinMath(AstName index);
 
 } // namespace Compile

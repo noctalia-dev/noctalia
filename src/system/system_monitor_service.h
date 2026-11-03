@@ -67,15 +67,18 @@ public:
   SystemMonitorService& operator=(const SystemMonitorService&) = delete;
 
   static constexpr int kHistorySize = 120;
+  // Per-core CPU sampling cadence. Fixed rather than configurable: it is opt-in via
+  // retainCpuCores(), and its only consumers want per-second resolution.
+  static constexpr std::chrono::seconds kCpuCoreInterval{1};
 
-  [[nodiscard]] bool isRunning() const noexcept;
+  bool isRunning() const noexcept;
   void applyConfig(const SystemConfig::MonitorConfig& config);
   void setEnabled(bool enabled);
-  [[nodiscard]] SystemStats latest() const;
-  [[nodiscard]] std::vector<SystemStats> history(int windowSize = kHistorySize) const;
-  [[nodiscard]] std::chrono::steady_clock::duration historySampleInterval() const noexcept;
-  [[nodiscard]] double netRxBytesPerSec(std::string_view interfaceName = {}) const;
-  [[nodiscard]] double netTxBytesPerSec(std::string_view interfaceName = {}) const;
+  SystemStats latest() const;
+  std::vector<SystemStats> history(int windowSize = kHistorySize) const;
+  std::chrono::steady_clock::duration historySampleInterval() const noexcept;
+  double netRxBytesPerSec(std::string_view interfaceName = {}) const;
+  double netTxBytesPerSec(std::string_view interfaceName = {}) const;
 
   void retainCpuTemp();
   void releaseCpuTemp();
@@ -89,14 +92,17 @@ public:
   void releaseGpuVram();
   void retainDiskPath(const std::string& path);
   void releaseDiskPath(const std::string& path);
-  [[nodiscard]] float diskUsagePercent(const std::string& path) const;
-  [[nodiscard]] std::optional<DiskStats> diskStats(const std::string& path) const;
-  [[nodiscard]] std::vector<float> diskHistory(const std::string& path, int windowSize = kHistorySize) const;
-  [[nodiscard]] std::uint64_t diskTotalBytes(const std::string& path) const;
-  [[nodiscard]] std::uint64_t diskFreeBytes(const std::string& path) const;
-  [[nodiscard]] std::uint64_t diskAvailBytes(const std::string& path) const;
+  float diskUsagePercent(const std::string& path) const;
+  std::optional<DiskStats> diskStats(const std::string& path) const;
+  std::vector<float> diskHistory(const std::string& path, int windowSize = kHistorySize) const;
+  std::uint64_t diskTotalBytes(const std::string& path) const;
+  std::uint64_t diskFreeBytes(const std::string& path) const;
+  std::uint64_t diskAvailBytes(const std::string& path) const;
 
 private:
+  friend class SystemMonitorServiceTestAccess;
+  void releaseGpuRef(std::atomic<int>& refs);
+
   struct NvidiaNvmlReader;
   struct AmdRsmiReader;
   struct IntelGpuReader;
@@ -141,29 +147,29 @@ private:
     std::uint64_t swapTotalKb{0};
     std::uint64_t swapUsedKb{0};
   };
-  [[nodiscard]] static std::optional<MemData> readMemoryKb();
-  [[nodiscard]] static std::optional<double> readCpuTempCelsius(const SystemConfig::MonitorConfig& config);
-  [[nodiscard]] static NvidiaDisplayDeviceState detectNvidiaPciDisplayDeviceState();
-  [[nodiscard]] NvidiaNvmlReader& ensureNvmlReader();
-  [[nodiscard]] AmdRsmiReader& ensureAmdRsmiReader();
-  [[nodiscard]] IntelGpuReader& ensureIntelGpuReader();
-  [[nodiscard]] GpuTempData readGpuTempData(NvidiaDisplayDeviceState nvidiaDisplayState);
-  [[nodiscard]] GpuUsageData readGpuUsageData(NvidiaDisplayDeviceState nvidiaDisplayState);
-  [[nodiscard]] GpuUsageData readIntelGpuUsageData();
-  [[nodiscard]] std::optional<GpuVramData> readIntelGpuVram();
-  [[nodiscard]] std::optional<GpuVramData> readGpuVramData(NvidiaDisplayDeviceState nvidiaDisplayState);
-  [[nodiscard]] std::optional<double> readGpuTempCelsius();
-  [[nodiscard]] std::optional<double> readGpuUsagePercent();
-  [[nodiscard]] std::optional<GpuVramData> readGpuVram();
+  static std::optional<MemData> readMemoryKb();
+  static std::optional<double> readCpuTempCelsius(const SystemConfig::MonitorConfig& config);
+  static NvidiaDisplayDeviceState detectNvidiaPciDisplayDeviceState();
+  NvidiaNvmlReader& ensureNvmlReader();
+  AmdRsmiReader& ensureAmdRsmiReader();
+  IntelGpuReader& ensureIntelGpuReader();
+  GpuTempData readGpuTempData(NvidiaDisplayDeviceState nvidiaDisplayState);
+  GpuUsageData readGpuUsageData(NvidiaDisplayDeviceState nvidiaDisplayState);
+  GpuUsageData readIntelGpuUsageData();
+  std::optional<GpuVramData> readIntelGpuVram();
+  std::optional<GpuVramData> readGpuVramData(NvidiaDisplayDeviceState nvidiaDisplayState);
+  std::optional<double> readGpuTempCelsius();
+  std::optional<double> readGpuUsagePercent();
+  std::optional<GpuVramData> readGpuVram();
 
   struct NetIfaceBytes {
     std::uint64_t rx{0};
     std::uint64_t tx{0};
   };
-  [[nodiscard]] static std::optional<std::unordered_map<std::string, NetIfaceBytes>> readNetBytes();
-  [[nodiscard]] static std::optional<std::array<double, 3>> readLoadAvg();
+  static std::optional<std::unordered_map<std::string, NetIfaceBytes>> readNetBytes();
+  static std::optional<std::array<double, 3>> readLoadAvg();
 
-  [[nodiscard]] SystemConfig::MonitorConfig pollConfig() const;
+  SystemConfig::MonitorConfig pollConfig() const;
 
   std::atomic<bool> m_running{false};
   std::atomic<int> m_cpuTempRefs{0};

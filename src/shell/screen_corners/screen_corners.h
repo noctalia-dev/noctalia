@@ -1,6 +1,6 @@
 #pragma once
 
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <cstdint>
 #include <memory>

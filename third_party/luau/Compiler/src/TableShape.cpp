@@ -43,9 +43,6 @@ struct ShapeVisitor : AstVisitor
 
     ShapeVisitor(DenseHashMap<AstExprTable*, TableShape>& shapes)
         : shapes(shapes)
-        , tables(nullptr)
-        , fields(std::pair<AstExprTable*, AstName>())
-        , loops(nullptr)
     {
     }
 

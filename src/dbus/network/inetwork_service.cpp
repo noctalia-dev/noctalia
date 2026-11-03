@@ -18,7 +18,7 @@ namespace {
 
 } // namespace
 
-void INetworkService::registerIpc(IpcService& ipc, WirelessFeedbackCallback wirelessFeedback) {
+void INetworkService::registerIpc(IpcService& ipc, const WirelessFeedbackCallback& wirelessFeedback) {
   auto setWifi = [this, wirelessFeedback](bool enabled) -> std::string {
     if (!hasStateSnapshot()) {
       return "error: network state unavailable\n";

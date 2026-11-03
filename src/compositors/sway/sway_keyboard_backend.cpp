@@ -4,6 +4,7 @@
 #include "core/process/process.h"
 
 #include <chrono>
+#include <fcntl.h>
 #include <nlohmann/json.hpp>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -32,7 +33,7 @@ namespace {
     }
 
     int pipefd[2];
-    if (::pipe(pipefd) != 0) {
+    if (::pipe2(pipefd, O_CLOEXEC) != 0) {
       return std::nullopt;
     }
 

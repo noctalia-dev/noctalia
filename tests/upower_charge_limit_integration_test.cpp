@@ -2,10 +2,10 @@
 #include "dbus/upower/upower_service.h"
 #include "i18n/i18n_service.h"
 #include "shell/control_center/tabs/power_tab.h"
+#include "tests/test_check.h"
 #include "ui/controls/label.h"
 #include "ui/controls/toggle.h"
 
-#include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -113,7 +113,7 @@ namespace {
     }
 
     void exposeChargeMethod() {
-      assert(!chargeMethodRegistered);
+      TEST_CHECK(!chargeMethodRegistered);
       chargeMethodRegistered = true;
       registerChargeMethodVTable();
     }
@@ -128,7 +128,7 @@ namespace {
       std::optional<sdbus::Result<>> result;
       {
         std::scoped_lock lock(stateMutex);
-        assert(!pendingResults.empty());
+        TEST_CHECK(!pendingResults.empty());
         thresholdEnabled = enabled;
         result.emplace(std::move(pendingResults.front()));
         pendingResults.erase(pendingResults.begin());
@@ -140,7 +140,7 @@ namespace {
       std::optional<sdbus::Result<>> result;
       {
         std::scoped_lock lock(stateMutex);
-        assert(!pendingResults.empty());
+        TEST_CHECK(!pendingResults.empty());
         result.emplace(std::move(pendingResults.front()));
         pendingResults.erase(pendingResults.begin());
       }
@@ -269,7 +269,7 @@ namespace {
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    assert(false && "timed out waiting for D-Bus state");
+    noctalia::test::failCheck("timed out waiting for D-Bus state");
   }
 
   const UPowerDeviceInfo* findBattery(const UPowerService& service, const std::string& path) {
@@ -335,7 +335,7 @@ int main() {
     SystemBus capabilityBus;
     UPowerService capabilityService(capabilityBus);
     auto* retryInfo = findBattery(capabilityService, retryBattery.path);
-    assert(retryInfo != nullptr && !retryInfo->chargeLimit.methodAvailable);
+    TEST_CHECK(retryInfo != nullptr && !retryInfo->chargeLimit.methodAvailable);
     retryBattery.reappearWithChargeMethod();
     retryBattery.emitChanged();
     drainUntil(capabilityBus, [&]() {
@@ -343,14 +343,14 @@ int main() {
       return current != nullptr && current->chargeLimit.methodAvailable;
     });
     const auto* unsupportedInfo = findBattery(capabilityService, unsupportedMethod.path);
-    assert(unsupportedInfo != nullptr && !unsupportedInfo->chargeLimit.methodAvailable);
+    TEST_CHECK(unsupportedInfo != nullptr && !unsupportedInfo->chargeLimit.methodAvailable);
     unsupportedMethod.exposeChargeMethod();
     unsupportedMethod.emitChanged();
     for (int i = 0; i < 20; ++i) {
       capabilityBus.processPendingEvents();
     }
     unsupportedInfo = findBattery(capabilityService, unsupportedMethod.path);
-    assert(unsupportedInfo != nullptr && !unsupportedInfo->chargeLimit.methodAvailable);
+    TEST_CHECK(unsupportedInfo != nullptr && !unsupportedInfo->chargeLimit.methodAvailable);
   }
   fake.removeBattery(retryBattery);
   fake.removeBattery(unsupportedMethod);
@@ -373,19 +373,19 @@ int main() {
     PowerTab tab(&service, nullptr);
     auto root = tab.create();
     PowerTabTestAccess::rebuild(tab);
-    assert(PowerTabTestAccess::rowCount(tab) == 2);
-    assert(PowerTabTestAccess::nameVisible(tab, 0));
-    assert(PowerTabTestAccess::nameVisible(tab, 1));
-    assert(PowerTabTestAccess::name(tab, 0) == "Primary Battery");
-    assert(PowerTabTestAccess::name(tab, 1) == "Secondary Battery");
-    assert(findBattery(service, hiddenBattery.path) != nullptr);
-    assert(PowerTabTestAccess::behavior(tab, 0) == "Can charge to 100%");
-    assert(PowerTabTestAccess::behaviorOpacity(tab, 0) == 1.0F);
-    assert(!PowerTabTestAccess::configuredVisible(tab, 0));
-    assert(!PowerTabTestAccess::managementVisible(tab, 0));
-    assert(PowerTabTestAccess::controlVisible(tab, 0));
-    assert(mouse.supportedReadCount() == 0);
-    assert(mouse.enabledReadCount() == 0);
+    TEST_CHECK(PowerTabTestAccess::rowCount(tab) == 2);
+    TEST_CHECK(PowerTabTestAccess::nameVisible(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::nameVisible(tab, 1));
+    TEST_CHECK(PowerTabTestAccess::name(tab, 0) == "Primary Battery");
+    TEST_CHECK(PowerTabTestAccess::name(tab, 1) == "Secondary Battery");
+    TEST_CHECK(findBattery(service, hiddenBattery.path) != nullptr);
+    TEST_CHECK(PowerTabTestAccess::behavior(tab, 0) == "Can charge to 100%");
+    TEST_CHECK(PowerTabTestAccess::behaviorOpacity(tab, 0) == 1.0F);
+    TEST_CHECK(!PowerTabTestAccess::configuredVisible(tab, 0));
+    TEST_CHECK(!PowerTabTestAccess::managementVisible(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::controlVisible(tab, 0));
+    TEST_CHECK(mouse.supportedReadCount() == 0);
+    TEST_CHECK(mouse.enabledReadCount() == 0);
 
     const int bat0SupportedBeforePercentage = bat0.supportedReadCount();
     const int bat0PercentageBeforePercentage = bat0.percentageReadCount();
@@ -397,39 +397,39 @@ int main() {
       const auto* current = service.deviceForSelector(bat0.path);
       return current != nullptr && current->state.percentage == 57.0;
     });
-    assert(bat0.percentageReadCount() > bat0PercentageBeforePercentage);
-    assert(bat0.supportedReadCount() == bat0SupportedBeforePercentage);
-    assert(bat1.percentageReadCount() == bat1PercentageBeforePercentage);
-    assert(bat1.supportedReadCount() == bat1SupportedBeforePercentage);
+    TEST_CHECK(bat0.percentageReadCount() > bat0PercentageBeforePercentage);
+    TEST_CHECK(bat0.supportedReadCount() == bat0SupportedBeforePercentage);
+    TEST_CHECK(bat1.percentageReadCount() == bat1PercentageBeforePercentage);
+    TEST_CHECK(bat1.supportedReadCount() == bat1SupportedBeforePercentage);
 
     const int bat0SupportedBeforeThreshold = bat0.supportedReadCount();
     const int bat1SupportedBeforeThreshold = bat1.supportedReadCount();
     const int bat1PercentageBeforeThreshold = bat1.percentageReadCount();
     bat0.emitChanged("ChargeThresholdEnabled");
     drainUntil(bus, [&]() { return bat0.supportedReadCount() > bat0SupportedBeforeThreshold; });
-    assert(bat1.supportedReadCount() == bat1SupportedBeforeThreshold);
-    assert(bat1.percentageReadCount() == bat1PercentageBeforeThreshold);
+    TEST_CHECK(bat1.supportedReadCount() == bat1SupportedBeforeThreshold);
+    TEST_CHECK(bat1.percentageReadCount() == bat1PercentageBeforeThreshold);
     deviceChanges = 0;
     chargeLimitChanges = 0;
 
     const auto* initial = findBattery(service, bat0.path);
-    assert(initial != nullptr);
-    assert(initial->chargeLimit.supported);
-    assert(initial->chargeLimit.methodAvailable);
-    assert(initial->chargeLimit.enabledAvailable);
-    assert(service.enableChargeThreshold(bat0.path, true));
+    TEST_CHECK(initial != nullptr);
+    TEST_CHECK(initial->chargeLimit.supported);
+    TEST_CHECK(initial->chargeLimit.methodAvailable);
+    TEST_CHECK(initial->chargeLimit.enabledAvailable);
+    TEST_CHECK(service.enableChargeThreshold(bat0.path, true));
     drainUntil(bus, [&]() { return bat0.pendingCount() == 1; });
     const auto* info = findBattery(service, bat0.path);
-    assert(info != nullptr && info->chargeLimit.requestPending);
-    assert(info->chargeLimit.requestedEnabled == true);
-    assert(chargeLimitChanges >= 1 && deviceChanges == 0);
+    TEST_CHECK(info != nullptr && info->chargeLimit.requestPending);
+    TEST_CHECK(info->chargeLimit.requestedEnabled == true);
+    TEST_CHECK(chargeLimitChanges >= 1 && deviceChanges == 0);
     PowerTabTestAccess::rebuild(tab);
-    assert(PowerTabTestAccess::toggleChecked(tab, 0));
-    assert(!PowerTabTestAccess::toggleEnabled(tab, 0));
-    assert(PowerTabTestAccess::behavior(tab, 0) == "Starts below 75% · Stops at 80%");
-    assert(!PowerTabTestAccess::configuredVisible(tab, 0));
-    assert(!PowerTabTestAccess::managementVisible(tab, 0));
-    assert(PowerTabTestAccess::controlVisible(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::toggleChecked(tab, 0));
+    TEST_CHECK(!PowerTabTestAccess::toggleEnabled(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::behavior(tab, 0) == "Starts below 75% · Stops at 80%");
+    TEST_CHECK(!PowerTabTestAccess::configuredVisible(tab, 0));
+    TEST_CHECK(!PowerTabTestAccess::managementVisible(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::controlVisible(tab, 0));
 
     const int changesBeforeSuccess = chargeLimitChanges;
     bat0.completeSuccess(true);
@@ -438,22 +438,22 @@ int main() {
       return current != nullptr && !current->chargeLimit.requestPending && current->chargeLimit.enabled;
     });
     info = findBattery(service, bat0.path);
-    assert(info != nullptr && !info->chargeLimit.requestedEnabled.has_value());
-    assert(info->chargeLimit.operationError == ChargeLimitOperationError::None);
-    assert(deviceChanges == 0);
-    assert(chargeLimitChanges == changesBeforeSuccess + 1);
+    TEST_CHECK(info != nullptr && !info->chargeLimit.requestedEnabled.has_value());
+    TEST_CHECK(info->chargeLimit.operationError == ChargeLimitOperationError::None);
+    TEST_CHECK(deviceChanges == 0);
+    TEST_CHECK(chargeLimitChanges == changesBeforeSuccess + 1);
     PowerTabTestAccess::rebuild(tab);
-    assert(PowerTabTestAccess::toggleChecked(tab, 0));
-    assert(PowerTabTestAccess::toggleEnabled(tab, 0));
-    assert(PowerTabTestAccess::behavior(tab, 0) == "Starts below 75% · Stops at 80%");
-    assert(PowerTabTestAccess::behaviorOpacity(tab, 0) == 1.0F);
+    TEST_CHECK(PowerTabTestAccess::toggleChecked(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::toggleEnabled(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::behavior(tab, 0) == "Starts below 75% · Stops at 80%");
+    TEST_CHECK(PowerTabTestAccess::behaviorOpacity(tab, 0) == 1.0F);
 
-    assert(service.enableChargeThreshold(bat0.path, false));
+    TEST_CHECK(service.enableChargeThreshold(bat0.path, false));
     drainUntil(bus, [&]() { return bat0.pendingCount() == 1; });
     PowerTabTestAccess::rebuild(tab);
-    assert(PowerTabTestAccess::behavior(tab, 0) == "Can charge to 100%");
-    assert(PowerTabTestAccess::behaviorOpacity(tab, 0) == 1.0F);
-    assert(!PowerTabTestAccess::configuredVisible(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::behavior(tab, 0) == "Can charge to 100%");
+    TEST_CHECK(PowerTabTestAccess::behaviorOpacity(tab, 0) == 1.0F);
+    TEST_CHECK(!PowerTabTestAccess::configuredVisible(tab, 0));
     const int enabledReadsBeforeFailure = bat0.enabledReadCount();
     bat0.completeFailure("hardware rejected the write");
     drainUntil(bus, [&]() {
@@ -461,16 +461,16 @@ int main() {
       return current != nullptr && !current->chargeLimit.requestPending;
     });
     info = findBattery(service, bat0.path);
-    assert(info != nullptr && info->chargeLimit.enabled);
-    assert(info->chargeLimit.operationError == ChargeLimitOperationError::Failed);
-    assert(bat0.enabledReadCount() > enabledReadsBeforeFailure);
+    TEST_CHECK(info != nullptr && info->chargeLimit.enabled);
+    TEST_CHECK(info->chargeLimit.operationError == ChargeLimitOperationError::Failed);
+    TEST_CHECK(bat0.enabledReadCount() > enabledReadsBeforeFailure);
     PowerTabTestAccess::rebuild(tab);
-    assert(PowerTabTestAccess::toggleChecked(tab, 0));
-    assert(PowerTabTestAccess::toggleEnabled(tab, 0));
-    assert(PowerTabTestAccess::errorVisible(tab, 0));
-    assert(PowerTabTestAccess::error(tab, 0) == "Charge thresholds could not be changed.");
+    TEST_CHECK(PowerTabTestAccess::toggleChecked(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::toggleEnabled(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::errorVisible(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::error(tab, 0) == "Charge thresholds could not be changed.");
 
-    assert(service.enableChargeThreshold(bat0.path, false));
+    TEST_CHECK(service.enableChargeThreshold(bat0.path, false));
     drainUntil(bus, [&]() { return bat0.pendingCount() == 1; });
     bat0.completeFailure("Operation is not allowed.");
     drainUntil(bus, [&]() {
@@ -478,20 +478,20 @@ int main() {
       return current != nullptr && !current->chargeLimit.requestPending;
     });
     info = findBattery(service, bat0.path);
-    assert(info != nullptr && info->chargeLimit.operationError == ChargeLimitOperationError::PermissionDenied);
+    TEST_CHECK(info != nullptr && info->chargeLimit.operationError == ChargeLimitOperationError::PermissionDenied);
     PowerTabTestAccess::rebuild(tab);
-    assert(PowerTabTestAccess::error(tab, 0) == "Authorization was denied. Charge thresholds were not changed.");
+    TEST_CHECK(PowerTabTestAccess::error(tab, 0) == "Authorization was denied. Charge thresholds were not changed.");
 
-    assert(service.enableChargeThreshold(bat1.path, true));
+    TEST_CHECK(service.enableChargeThreshold(bat1.path, true));
     drainUntil(bus, [&]() { return bat1.pendingCount() == 1; });
     fake.removeBattery(bat1);
     drainUntil(bus, [&]() { return findBattery(service, bat1.path) == nullptr; });
     PowerTabTestAccess::rebuild(tab);
-    assert(PowerTabTestAccess::rowCount(tab) == 1);
-    assert(!PowerTabTestAccess::nameVisible(tab, 0));
+    TEST_CHECK(PowerTabTestAccess::rowCount(tab) == 1);
+    TEST_CHECK(!PowerTabTestAccess::nameVisible(tab, 0));
     fake.readdBattery(bat1);
     drainUntil(bus, [&]() { return findBattery(service, bat1.path) != nullptr; });
-    assert(service.enableChargeThreshold(bat1.path, true));
+    TEST_CHECK(service.enableChargeThreshold(bat1.path, true));
     drainUntil(bus, [&]() { return bat1.pendingCount() == 2; });
     const int changesBeforeStaleReply = chargeLimitChanges;
     bat1.completeFailure("stale request failed");
@@ -500,9 +500,9 @@ int main() {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     info = findBattery(service, bat1.path);
-    assert(info != nullptr && info->chargeLimit.requestPending);
-    assert(info->chargeLimit.operationError == ChargeLimitOperationError::None);
-    assert(chargeLimitChanges == changesBeforeStaleReply);
+    TEST_CHECK(info != nullptr && info->chargeLimit.requestPending);
+    TEST_CHECK(info->chargeLimit.operationError == ChargeLimitOperationError::None);
+    TEST_CHECK(chargeLimitChanges == changesBeforeStaleReply);
     bat1.completeSuccess(true);
     drainUntil(bus, [&]() {
       const auto* current = findBattery(service, bat1.path);
@@ -515,7 +515,7 @@ int main() {
   auto& bat2 = fake.addBattery("BAT2", "Lifetime Battery");
   {
     UPowerService service(bus);
-    assert(service.enableChargeThreshold(bat2.path, true));
+    TEST_CHECK(service.enableChargeThreshold(bat2.path, true));
     drainUntil(bus, [&]() { return bat2.pendingCount() == 1; });
   }
   bat2.emitChanged();

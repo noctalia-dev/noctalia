@@ -7,21 +7,25 @@ sidebar:
 
 Shows PipeWire output (speaker) or input (microphone) volume and mute state.
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `device` | string | `"output"` | Audio target: `"output"` (default sink) or `"input"` (default source / microphone) |
-| `glyph` | string | `""` | Custom icon glyph for the active state. Leave empty to use the built-in dynamic icons |
-| `mute_glyph` | string | `""` | Icon glyph used when muted or at 0% volume. Leave empty to use the built-in mute icon |
-| `effects_profile_glyphs` | table | `{}` | Map EasyEffects profile names to glyph names. |
-| `custom_image` | string | `""` | Path to a custom image displayed instead of the active/mute glyphs. Leave empty to use the glyph |
-| `custom_image_colorize` | bool | `false` | When `true`, tint the custom image with the same color the glyph would use, including `mute_color` while muted |
-| `show_label` | bool | `true` | Show the volume percentage next to the glyph (horizontal and vertical bars) |
-| `mute_color` | string | `"error"` | Color role or hex color for the icon and label when muted |
-| `hide_when_inactive` | bool | `false` | *(Input only)* Hide the microphone widget while no application is capturing audio |
+| Setting                  | Type   | Default    | Description                                                                                                    |
+| ------------------------ | ------ | ---------- | -------------------------------------------------------------------------------------------------------------- |
+| `device`                 | string | `"output"` | Audio target: `"output"` (default sink) or `"input"` (default source / microphone)                             |
+| `show_glyph`             | bool   | `true`     | Show the volume glyph or custom image                                                                          |
+| `glyph`                  | string | `""`       | Custom icon glyph for the active state. Leave empty to use the built-in dynamic icons                          |
+| `mute_glyph`             | string | `""`       | Icon glyph used when muted or at 0% volume. Leave empty to use the built-in mute icon                          |
+| `effects_profile_glyphs` | table  | `{}`       | Map EasyEffects profile names to glyph names.                                                                  |
+| `custom_image`           | string | `""`       | Path to a custom image displayed instead of the active/mute glyphs. Leave empty to use the glyph               |
+| `custom_image_colorize`  | bool   | `false`    | When `true`, tint the custom image with the same color the glyph would use, including `mute_color` while muted |
+| `show_label`             | bool   | `true`     | Show the volume percentage next to the glyph (horizontal and vertical bars)                                    |
+| `mute_color`             | string | `"error"`  | Color role or hex color for the icon and label when muted                                                      |
+| `hide_when_inactive`     | bool   | `false`    | *(Input only)* Hide the microphone widget while no application is capturing audio                              |
+
+At least one of `show_glyph` or `show_label` must be `true`. With `show_glyph = false`, only the volume percentage is displayed, without icon spacing.
 
 ```toml
 [widget.volume]
 device = "output"   # output | input
+show_glyph = true
 glyph = ""          # custom active glyph; empty = built-in dynamic icons
 mute_glyph = ""     # custom mute/0% glyph; empty = built-in mute icon
 effects_profile_glyphs = { Gaming = "device-gamepad", Music = "music" }

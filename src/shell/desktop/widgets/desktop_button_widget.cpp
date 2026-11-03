@@ -34,7 +34,7 @@ void DesktopButtonWidget::create() {
       .text = m_label,
       .glyph = m_glyph,
       .variant = m_variant,
-      .onClick = [this]() { executeCommand(); },
+      .onClick = [this] { executeCommand(); },
   });
   if (m_animations != nullptr) {
     m_button->setAnimationManager(m_animations);

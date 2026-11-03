@@ -3,12 +3,23 @@
 #include "system/internal_app_metadata.h"
 #include "util/string_utils.h"
 
+#include <array>
 #include <cctype>
+#include <cstdint>
 #include <unordered_set>
 
 namespace app_identity {
 
   namespace {
+
+    enum class MatchStrength : std::uint8_t {
+      None,
+      Name,
+      NormalizedStartupWmClass,
+      NormalizedId,
+      StartupWmClass,
+      Id,
+    };
 
     std::string identityKey(std::string_view value) {
       std::string key;
@@ -29,6 +40,144 @@ namespace app_identity {
       return valueKey == identityKey(candidate);
     }
 
+    MatchStrength matchStrength(
+        std::string_view valueLower, std::string_view idLower, std::string_view startupWmClassLower,
+        std::string_view nameLower
+    ) {
+      if (valueLower.empty()) {
+        return MatchStrength::None;
+      }
+      if (valueLower == idLower) {
+        return MatchStrength::Id;
+      }
+      if (valueLower == startupWmClassLower) {
+        return MatchStrength::StartupWmClass;
+      }
+
+      const std::string valueKey = identityKey(valueLower);
+      if (!valueKey.empty() && identityKeyMatches(valueKey, idLower)) {
+        return MatchStrength::NormalizedId;
+      }
+      if (!valueKey.empty() && identityKeyMatches(valueKey, startupWmClassLower)) {
+        return MatchStrength::NormalizedStartupWmClass;
+      }
+      if (valueLower == nameLower) {
+        return MatchStrength::Name;
+      }
+      return MatchStrength::None;
+    }
+
+    MatchStrength matchStrength(const DesktopEntry& entry, std::string_view valueLower) {
+      const std::string idLower = entry.idLower.empty() ? StringUtils::toLower(entry.id) : entry.idLower;
+      const std::string startupWmClassLower =
+          entry.startupWmClassLower.empty() ? StringUtils::toLower(entry.startupWmClass) : entry.startupWmClassLower;
+      const std::string nameLower = entry.nameLower.empty() ? StringUtils::toLower(entry.name) : entry.nameLower;
+      return matchStrength(valueLower, idLower, startupWmClassLower, nameLower);
+    }
+
+    std::optional<DesktopEntry> findBestRankedMatch(std::string_view appLower, std::span<const DesktopEntry> entries) {
+      const DesktopEntry* best = nullptr;
+      MatchStrength bestStrength = MatchStrength::None;
+      bool ambiguous = false;
+
+      for (const auto& entry : entries) {
+        const MatchStrength strength = matchStrength(entry, appLower);
+        if (strength > bestStrength) {
+          best = &entry;
+          bestStrength = strength;
+          ambiguous = false;
+        } else if (
+            strength != MatchStrength::None && strength == bestStrength && best != nullptr && entry.id != best->id
+        ) {
+          ambiguous = true;
+        }
+      }
+
+      if (best == nullptr || ambiguous) {
+        return std::nullopt;
+      }
+      return *best;
+    }
+
+    bool isGenericIdentityToken(std::string_view token) {
+      static constexpr auto kGenericTokens = std::to_array<std::string_view>({
+          "app",
+          "application",
+          "client",
+          "desktop",
+          "flatpak",
+          "gui",
+          "launcher",
+          "linux",
+          "wrapped",
+      });
+      return std::ranges::contains(kGenericTokens, token);
+    }
+
+    std::unordered_set<std::string> identityTokens(std::string_view value) {
+      std::unordered_set<std::string> tokens;
+      std::string token;
+      token.reserve(value.size());
+
+      auto flush = [&] {
+        if (token.size() >= 4U && !isGenericIdentityToken(token)) {
+          tokens.insert(std::move(token));
+        }
+        token.clear();
+      };
+
+      for (const unsigned char ch : value) {
+        if (std::isalnum(ch) != 0) {
+          token.push_back(static_cast<char>(std::tolower(ch)));
+        } else {
+          flush();
+        }
+      }
+      flush();
+      return tokens;
+    }
+
+    std::size_t sharedIdentityTokenScore(const std::unordered_set<std::string>& appTokens, const DesktopEntry& entry) {
+      auto entryTokens = identityTokens(entry.id);
+      const auto startupWmClassTokens = identityTokens(entry.startupWmClass);
+      entryTokens.insert(startupWmClassTokens.begin(), startupWmClassTokens.end());
+
+      std::size_t score = 0;
+      for (const auto& token : appTokens) {
+        if (entryTokens.contains(token)) {
+          score += token.size();
+        }
+      }
+      return score;
+    }
+
+    std::optional<DesktopEntry>
+    findDesktopEntryByUniqueTokens(std::string_view appKey, std::span<const DesktopEntry> allEntries) {
+      const auto appTokens = identityTokens(appKey);
+      if (appTokens.empty()) {
+        return std::nullopt;
+      }
+
+      const DesktopEntry* best = nullptr;
+      std::size_t bestScore = 0;
+      bool ambiguous = false;
+      for (const auto& entry : allEntries) {
+        const std::size_t score = sharedIdentityTokenScore(appTokens, entry);
+        if (score > bestScore) {
+          best = &entry;
+          bestScore = score;
+          ambiguous = false;
+        } else if (score != 0U && score == bestScore && best != nullptr && entry.id != best->id) {
+          ambiguous = true;
+        }
+      }
+
+      if (best == nullptr || ambiguous) {
+        return std::nullopt;
+      }
+      return *best;
+    }
+
     std::string_view appIdTail(std::string_view appKey) {
       std::string_view tail = appKey;
       if (const auto slash = tail.find_last_of('/'); slash != std::string_view::npos && slash + 1 < tail.size()) {
@@ -42,8 +191,8 @@ namespace app_identity {
 
     std::optional<DesktopEntry>
     findDesktopEntryByIdTail(std::string_view appKey, std::span<const DesktopEntry> allEntries) {
-      const std::string appLower = StringUtils::toLower(std::string(appKey));
-      const std::string tailLower = StringUtils::toLower(std::string(appIdTail(appKey)));
+      const std::string appLower = StringUtils::toLower(appKey);
+      const std::string tailLower = StringUtils::toLower(appIdTail(appKey));
       if (tailLower.empty() || tailLower == appLower) {
         return std::nullopt;
       }
@@ -51,7 +200,7 @@ namespace app_identity {
       std::vector<const DesktopEntry*> candidates;
       candidates.reserve(2);
       for (const auto& entry : allEntries) {
-        if (StringUtils::toLower(std::string(appIdTail(entry.id))) == tailLower) {
+        if (StringUtils::toLower(appIdTail(entry.id)) == tailLower) {
           candidates.push_back(&entry);
         }
       }
@@ -99,7 +248,7 @@ namespace app_identity {
       DesktopEntry fallback;
       fallback.id = std::string(runningAppId);
       fallback.name = std::string(runningAppId);
-      fallback.nameLower = StringUtils::toLower(std::string(runningAppId));
+      fallback.nameLower = StringUtils::toLower(runningAppId);
       internal_apps::applyMetadataToDesktopEntry(fallback);
 
       return DesktopEntryResolution{
@@ -114,15 +263,7 @@ namespace app_identity {
       std::string_view valueLower, std::string_view idLower, std::string_view startupWmClassLower,
       std::string_view nameLower
   ) {
-    if (valueLower.empty()) {
-      return false;
-    }
-    const auto valueKey = identityKey(valueLower);
-    return valueLower == idLower
-        || valueLower == startupWmClassLower
-        || valueLower == nameLower
-        || (!valueKey.empty()
-            && (identityKeyMatches(valueKey, idLower) || identityKeyMatches(valueKey, startupWmClassLower)));
+    return matchStrength(valueLower, idLower, startupWmClassLower, nameLower) != MatchStrength::None;
   }
 
   bool desktopEntryMatchesLower(const DesktopEntry& entry, std::string_view valueLower) {
@@ -138,16 +279,12 @@ namespace app_identity {
       return std::nullopt;
     }
 
-    const std::string appLower = StringUtils::toLower(std::string(appKey));
-    for (const auto& entry : priorityEntries) {
-      if (desktopEntryMatchesLower(entry, appLower)) {
-        return entry;
-      }
+    const std::string appLower = StringUtils::toLower(appKey);
+    if (auto matched = findBestRankedMatch(appLower, priorityEntries)) {
+      return matched;
     }
-    for (const auto& entry : allEntries) {
-      if (desktopEntryMatchesLower(entry, appLower)) {
-        return entry;
-      }
+    if (auto matched = findBestRankedMatch(appLower, allEntries)) {
+      return matched;
     }
 
     if (auto matched = findDesktopEntryByIdTail(appKey, allEntries)) {
@@ -155,7 +292,7 @@ namespace app_identity {
     }
 
     if (!appKey.starts_with("steam_app_")) {
-      return std::nullopt;
+      return findDesktopEntryByUniqueTokens(appKey, allEntries);
     }
 
     const std::string_view steamId = appKey.substr(std::string_view("steam_app_").size());

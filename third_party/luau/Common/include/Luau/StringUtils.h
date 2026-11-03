@@ -26,7 +26,7 @@ std::vector<std::string_view> split(std::string_view s, char delimiter);
 // https://en.wikipedia.org/wiki/Damerau-Levenshtein_distance#Distance_with_adjacent_transpositions
 size_t editDistance(std::string_view a, std::string_view b);
 
-bool startsWith(std::string_view lhs, std::string_view rhs);
+bool startsWith(std::string_view haystack, std::string_view needle);
 bool equalsLower(std::string_view lhs, std::string_view rhs);
 
 size_t hashRange(const char* data, size_t size);

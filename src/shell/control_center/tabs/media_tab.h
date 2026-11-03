@@ -34,6 +34,7 @@ public:
   ~MediaTab() override;
 
   std::unique_ptr<Flex> create() override;
+  std::unique_ptr<Flex> createHeaderActions() override;
   void onFrameTick(float deltaMs) override;
   void setActive(bool active) override;
   void onClose() override;
@@ -45,6 +46,8 @@ private:
   void refresh(Renderer& renderer);
   void clearArt(Renderer& renderer);
   void commitPendingSeek(double valueSeconds);
+  void toggleVisualizer();
+  void updateSpectrumSubscription();
 
   void openPlayerMenu();
 
@@ -67,6 +70,8 @@ private:
   Flex* m_visualizerColumn = nullptr;
   Flex* m_visualizerBody = nullptr;
   AudioVisualizer* m_visualizerSpectrum = nullptr;
+  Button* m_toggleVisualizerButton = nullptr;
+  bool m_showVisualizer = true;
   Image* m_artwork = nullptr;
   Flex* m_artworkRow = nullptr;
   Flex* m_nowCard = nullptr;

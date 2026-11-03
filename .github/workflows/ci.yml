@@ -19,14 +19,32 @@ jobs:
     steps:
       - name: Install tools
         run: |
-          pacman -Syu --noconfirm --needed git clang
+          pacman -Syu --noconfirm --needed git just clang22 python
 
       - uses: actions/checkout@v6
 
       - name: Check formatting
+        env:
+          PATH: /usr/lib/llvm22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        run: just format-code-check
+
+      - name: Check palette role alpha ratchet
+        run: just role-alpha-check
+
+  format-docs:
+    name: docs format
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install tools
         run: |
-          mapfile -d '' files < <(find src \( -name '*.cpp' -o -name '*.h' \) -print0)
-          clang-format --dry-run -Werror "${files[@]}"
+          pacman -Syu --noconfirm --needed git just nodejs npm
+
+      - uses: actions/checkout@v6
+
+      - name: Check formatting
+        run: just format-docs-check
 
   build:
     name: Build (debug)
@@ -34,10 +52,11 @@ jobs:
     container:
       image: archlinux:latest
     steps:
-      - name: Install dependencies
+      - &arch-deps
+        name: Install dependencies
         run: |
           pacman -Syu --noconfirm --needed \
-            base-devel git meson ninja pkgconf \
+            base-devel git meson ninja pkgconf ccache zstd \
             wayland wayland-protocols \
             libglvnd freetype2 fontconfig noto-fonts \
             cairo pango harfbuzz \
@@ -52,11 +71,89 @@ jobs:
 
       - uses: actions/checkout@v6
 
+      # Meson picks up ccache automatically. Only pushes to main save the cache, so
+      # PR runs reuse it without evicting each other from the repository quota.
+      - &ccache-env
+        name: Configure ccache
+        run: |
+          echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=1G" >> "$GITHUB_ENV"
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-arch-${{ github.sha }}
+          restore-keys: ccache-arch-
+
       - name: Build
         run: just build
 
       - name: Test
         run: just test debug --print-errorlogs
 
+      - name: Save ccache
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-arch-${{ github.sha }}
+
+  lint:
+    name: clang-tidy
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - *arch-deps
+
+      - uses: actions/checkout@v6
+
+      # Needs only a configured build dir and generated headers, not a build.
       - name: Lint
         run: just lint
+
+  build-fedora:
+    name: Build (Fedora 44)
+    runs-on: ubuntu-latest
+    # Pinned: Fedora 44 ships sdbus-c++ 2.2.1, which catches code that only compiles against newer releases.
+    container:
+      image: fedora:44
+    steps:
+      - name: Install dependencies
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            git meson gcc-c++ just ccache tar zstd \
+            wayland-devel wayland-protocols-devel \
+            libEGL-devel mesa-libGLES-devel \
+            freetype-devel fontconfig-devel \
+            cairo-devel pango-devel harfbuzz-devel \
+            libxkbcommon-devel glib2-devel \
+            libsecret-devel libsodium-devel \
+            sdbus-cpp-devel pipewire-devel wireplumber-devel \
+            pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg2-devel \
+            libqalculate-devel libxml2-devel \
+            md4c-devel tomlplusplus-devel libical-devel \
+            json-devel stb_image_resize2-devel stb_image_write-devel \
+            jemalloc-devel
+
+      - uses: actions/checkout@v6
+
+      - *ccache-env
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-fedora-${{ github.sha }}
+          restore-keys: ccache-fedora-
+
+      - name: Build
+        run: just build
+
+      - name: Save ccache
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-fedora-${{ github.sha }}

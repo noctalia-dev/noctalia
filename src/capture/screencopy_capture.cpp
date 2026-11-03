@@ -1,6 +1,6 @@
 #include "capture/screencopy_capture.h"
 
-#include "core/log.h"
+#include "shell/wayland/capture_globals.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 
@@ -9,10 +9,6 @@
 #include <unistd.h>
 #include <utility>
 #include <vector>
-
-namespace {
-  constexpr Logger kLog("screencopy");
-}
 
 struct ScreencopyCapturePending {
   ScreencopyCapture* owner = nullptr;
@@ -68,7 +64,7 @@ namespace {
     return fd;
   }
 
-  [[nodiscard]] int bytesPerPixelFromStride(int width, int stride) {
+  int bytesPerPixelFromStride(int width, int stride) {
     if (width <= 0 || stride <= 0) {
       return 0;
     }
@@ -81,7 +77,7 @@ namespace {
     return 0;
   }
 
-  [[nodiscard]] bool isPacked2101010(std::uint32_t format) {
+  bool isPacked2101010(std::uint32_t format) {
     switch (format) {
     case WL_SHM_FORMAT_XRGB2101010:
     case WL_SHM_FORMAT_ARGB2101010:
@@ -158,8 +154,7 @@ namespace {
   }
 
   [[nodiscard]] bool convertToRgba(
-      const std::uint8_t* src, int width, int height, int stride, std::uint32_t format, bool yInvert,
-      std::vector<std::uint8_t>& out
+      const std::uint8_t* src, int width, int height, int stride, std::uint32_t format, std::vector<std::uint8_t>& out
   ) {
     const int bytesPerPixel = bytesPerPixelFromStride(width, stride);
     if (bytesPerPixel == 0) {
@@ -169,8 +164,7 @@ namespace {
 
     out.resize(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U);
     for (int y = 0; y < height; ++y) {
-      const int srcY = yInvert ? (height - 1 - y) : y;
-      const auto* row = src + static_cast<std::size_t>(srcY) * static_cast<std::size_t>(stride);
+      const auto* row = src + static_cast<std::size_t>(y) * static_cast<std::size_t>(stride);
       auto* dst = out.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 4U;
       for (int x = 0; x < width; ++x) {
         if (bytesPerPixel == 3) {
@@ -266,10 +260,6 @@ namespace {
             pending->width = static_cast<int>(width);
             pending->height = static_cast<int>(height);
             pending->stride = static_cast<int>(stride);
-            // kLog.info(
-            //     "frame buffer format=0x{:08x} {}x{} stride={} bpp={}", format, width, height, stride,
-            //     bytesPerPixelFromStride(static_cast<int>(width), static_cast<int>(stride))
-            // );
           },
       .flags =
           [](void* data, zwlr_screencopy_frame_v1* /*frame*/, std::uint32_t flags) {
@@ -294,7 +284,7 @@ namespace {
             image.yInvert = pending->yInvert;
             if (!convertToRgba(
                     static_cast<const std::uint8_t*>(pending->mapped), pending->width, pending->height, pending->stride,
-                    pending->shmFormat, pending->yInvert, image.rgba
+                    pending->shmFormat, image.rgba
                 )) {
               zwlr_screencopy_frame_v1_destroy(frame);
               pending->frame = nullptr;
@@ -346,11 +336,14 @@ namespace {
 
 } // namespace
 
-ScreencopyCapture::ScreencopyCapture(WaylandConnection& wayland) : m_wayland(wayland) {}
+ScreencopyCapture::ScreencopyCapture(WaylandConnection& wayland)
+    : m_wayland(wayland), m_screencopy(wayland.extension<ScreencopyGlobals>()) {}
 
 ScreencopyCapture::~ScreencopyCapture() { destroyPending(); }
 
-bool ScreencopyCapture::available() const noexcept { return m_wayland.hasScreencopy() && m_wayland.shm() != nullptr; }
+bool ScreencopyCapture::available() const noexcept {
+  return m_screencopy.manager() != nullptr && m_wayland.shm() != nullptr;
+}
 
 void ScreencopyCapture::capture(
     wl_output* output, std::optional<LogicalRect> region, bool overlayCursor, CompletionCallback onComplete
@@ -370,7 +363,7 @@ void ScreencopyCapture::capture(
 
   destroyPending();
 
-  auto* manager = m_wayland.screencopyManager();
+  auto* manager = m_screencopy.manager();
   if (manager == nullptr) {
     if (onComplete) {
       onComplete(std::nullopt, "screencopy manager missing");

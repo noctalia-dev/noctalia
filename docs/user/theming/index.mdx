@@ -17,6 +17,7 @@ community_palette = "Oxocarbon"   # community palette name when source = "commun
 custom_palette    = "MyPalette"   # file name (without .json) when source = "custom"
 wallpaper_scheme  = "m3-content"  # generator used when source = "wallpaper"
 pure_black_dark   = false         # replace dark-mode backgrounds with pure black
+sync_color_scheme = true          # sync the GNOME color-scheme preference with mode
 ```
 
 Palette changes apply live when the resolved config changes, whether through Settings or edits to `~/.config/noctalia/*.toml`. Wallpaper-derived themes re-resolve automatically when the default wallpaper changes. See [Palette](/noctalia/theming/palette/) for color roles, custom palette files, and terminal colors.
@@ -25,52 +26,44 @@ Palette changes apply live when the resolved config changes, whether through Set
 
 ## `mode`
 
-`dark` or `light` selects the palette variant directly. `auto` switches between them using the shared sunrise/sunset
-schedule in [`[location]`](/noctalia/services/location/) (same rules as [Night Light](/noctalia/services/night-light/)): sunrise and
-sunset computed from your coordinates, or your own `sunset` / `sunrise` times when
-[`custom_schedule = true`](/noctalia/services/location/#custom-schedule). Night light does not need to be enabled for theme
-auto to follow the schedule. When the schedule cannot be resolved, `auto` uses the light (day) palette until a valid
-schedule is available.
+`dark` or `light` selects the palette variant directly. `auto` switches between them using the shared sunrise/sunset schedule in [`[location]`](/noctalia/services/location/) (same rules as [Night Light](/noctalia/services/night-light/)): sunrise and sunset computed from your coordinates, or your own `sunset` / `sunrise` times when [`custom_schedule = true`](/noctalia/services/location/#custom-schedule). Night light does not need to be enabled for theme auto to follow the schedule. When the schedule cannot be resolved, `auto` uses the light (day) palette until a valid schedule is available.
 
-This is the mode your apps run in: it selects the palette variant written by
-[templates](/noctalia/theming/templates/), the GNOME `color-scheme` preference, and the mode reported to
-[`theme_mode_changed`](/noctalia/automation/hooks/) hooks. `theme-mode-toggle`, `theme-mode-set`, the control center
-shortcut, and the theme mode bar widget all act on this key.
+This is the mode your apps run in: it selects the palette variant written by [templates](/noctalia/theming/templates/), the GNOME `color-scheme` preference (when [`sync_color_scheme`](#sync_color_scheme) is on), and the mode reported to [`theme_mode_changed`](/noctalia/automation/hooks/) hooks. `theme-mode-toggle`, `theme-mode-set`, the control center shortcut, and the theme mode bar widget all act on this key.
 
 ## `shell_mode`
 
 Noctalia's own mode: bars, panels, the launcher, wallpaper directory selection, and the greeter appearance.
 
-| Value | Description |
-|-------|-------------|
-| `follow` | Track `mode`, so Noctalia and your apps switch together (default). |
-| `dark` / `light` | Pin Noctalia to that variant while `mode` keeps driving apps. |
-| `auto` | Switch Noctalia on the `[location]` schedule, independently of `mode`. |
+| Value            | Description                                                            |
+| ---------------- | ---------------------------------------------------------------------- |
+| `follow`         | Track `mode`, so Noctalia and your apps switch together (default).     |
+| `dark` / `light` | Pin Noctalia to that variant while `mode` keeps driving apps.          |
+| `auto`           | Switch Noctalia on the `[location]` schedule, independently of `mode`. |
 
-Pinning it gives combinations such as a permanently dark bar with light apps, or a dark bar while apps follow the
-day/night schedule. Templates and the GNOME `color-scheme` preference never follow `shell_mode`; a `shell_mode`-only
-change repaints Noctalia without rewriting a single template.
+Pinning it gives combinations such as a permanently dark bar with light apps, or a dark bar while apps follow the day/night schedule. Templates and the GNOME `color-scheme` preference never follow `shell_mode`; a `shell_mode`-only change repaints Noctalia without rewriting a single template.
 
 ## `pure_black_dark`
 
-When `true`, replaces dark-mode background roles with pure black while preserving the palette's foreground and accent
-colors. It has no effect in light mode. Accessibility `high_contrast` also forces this behavior for dark themes.
+When `true`, replaces dark-mode background roles with pure black while preserving the palette's foreground and accent colors. It has no effect in light mode. Accessibility `high_contrast` also forces this behavior for dark themes.
+
+## `sync_color_scheme`
+
+When `true` (default), Noctalia writes `org.gnome.desktop.interface color-scheme` (`prefer-dark` or `prefer-light`, through `gsettings` or `dconf`) whenever templates are applied for `mode`. Browsers, Electron, Qt, and GTK apps read this preference through the desktop portal to pick their dark or light look, so it works without any template enabled. Set it to `false` to manage the preference yourself, for example to keep light apps under a dark `mode`.
 
 ### Related IPC
 
-For theme mode and palette commands, see
-[Media & UI → Theme](/noctalia/ipc/media-and-ui/#theme).
+For theme mode and palette commands, see [Media & UI → Theme](/noctalia/ipc/media-and-ui/#theme).
 
 ---
 
 ## `source`
 
-| Value | Description |
-|-------|-------------|
-| `builtin` | Use one of the palettes compiled into the binary. |
-| `wallpaper` | Generate a palette from the current default wallpaper each time it changes. |
-| `community` | Fetch a palette by name from `https://api.noctalia.dev/palette/<name>`. |
-| `custom` | Load a palette JSON file from the Noctalia config directory's `palettes/` folder. |
+| Value       | Description                                                                       |
+| ----------- | --------------------------------------------------------------------------------- |
+| `builtin`   | Use one of the palettes compiled into the binary.                                 |
+| `wallpaper` | Generate a palette from the current default wallpaper each time it changes.       |
+| `community` | Fetch a palette by name from `https://api.noctalia.dev/palette/<name>`.           |
+| `custom`    | Load a palette JSON file from the Noctalia config directory's `palettes/` folder. |
 
 ---
 
@@ -108,18 +101,18 @@ See [Palette](/noctalia/theming/palette/) for the custom palette JSON format.
 
 Picks the generator when `source = "wallpaper"`:
 
-| Value | Description |
-|-------|-------------|
-| `m3-tonal-spot` | M3 default - balanced tones anchored on the seed color |
-| `m3-content` | M3 for content-forward UIs - higher chroma |
-| `m3-fruit-salad` | M3 with playful cross-hue accents |
-| `m3-rainbow` | M3 spanning the full wheel for multi-accent layouts |
-| `m3-monochrome` | M3 collapsed to a single hue |
-| `vibrant` | Custom - saturated and high-contrast |
-| `faithful` | Custom - stays close to the source image |
-| `soft` | Custom - source-faithful with gentler saturation |
-| `dysfunctional` | Custom - deliberately off-kilter |
-| `muted` | Custom - low-saturation |
+| Value            | Description                                            |
+| ---------------- | ------------------------------------------------------ |
+| `m3-tonal-spot`  | M3 default - balanced tones anchored on the seed color |
+| `m3-content`     | M3 for content-forward UIs - higher chroma             |
+| `m3-fruit-salad` | M3 with playful cross-hue accents                      |
+| `m3-rainbow`     | M3 spanning the full wheel for multi-accent layouts    |
+| `m3-monochrome`  | M3 collapsed to a single hue                           |
+| `vibrant`        | Custom - saturated and high-contrast                   |
+| `faithful`       | Custom - stays close to the source image               |
+| `soft`           | Custom - source-faithful with gentler saturation       |
+| `dysfunctional`  | Custom - deliberately off-kilter                       |
+| `muted`          | Custom - low-saturation                                |
 
 ## Where next?
 

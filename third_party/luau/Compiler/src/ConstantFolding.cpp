@@ -10,9 +10,9 @@
 #include <math.h>
 
 LUAU_FASTFLAG(LuauIntegerType2)
-LUAU_FASTFLAGVARIABLE(LuauCompilePropagateTableProps2)
-LUAU_FASTFLAGVARIABLE(LuauCompileFoldOptimize)
-LUAU_FASTFLAGVARIABLE(LuauCompileNewTableMutationTracker)
+LUAU_FASTFLAG(LuauExperimentalIfLocalSyntax)
+LUAU_FASTFLAGVARIABLE(LuauCompileNoFoldVectorEqW)
+LUAU_FASTFLAGVARIABLE(LuauCompileTableFoldFix)
 
 namespace Luau
 {
@@ -36,21 +36,19 @@ static bool constantsEqual(const Constant& la, const Constant& ra)
     case Constant::Type_Number:
         return ra.type == Constant::Type_Number && la.valueNumber == ra.valueNumber;
 
-    case Constant::Type_Vector:
-        return ra.type == Constant::Type_Vector && la.valueVector[0] == ra.valueVector[0] && la.valueVector[1] == ra.valueVector[1] &&
-               la.valueVector[2] == ra.valueVector[2] && la.valueVector[3] == ra.valueVector[3];
+    case Constant::Type_Vectorf:
+        return ra.type == Constant::Type_Vectorf && la.valueVectorf[0] == ra.valueVectorf[0] && la.valueVectorf[1] == ra.valueVectorf[1] &&
+               la.valueVectorf[2] == ra.valueVectorf[2] && la.valueVectorf[3] == ra.valueVectorf[3];
+
+    case Constant::Type_Vectord:
+        return ra.type == Constant::Type_Vectord && la.valueVectord[0] == ra.valueVectord[0] && la.valueVectord[1] == ra.valueVectord[1] &&
+               la.valueVectord[2] == ra.valueVectord[2] && la.valueVectord[3] == ra.valueVectord[3];
 
     case Constant::Type_String:
         return ra.type == Constant::Type_String && la.stringLength == ra.stringLength && memcmp(la.valueString, ra.valueString, la.stringLength) == 0;
 
     case Constant::Type_Table:
-        if (FFlag::LuauCompilePropagateTableProps2)
-            return ra.type == Constant::Type_Table && la.valueTable == ra.valueTable;
-        else
-        {
-            LUAU_ASSERT(!"Unexpected constant type in comparison");
-            return false;
-        }
+        return ra.type == Constant::Type_Table && la.valueTable == ra.valueTable;
 
     case Constant::Type_Integer:
         if (FFlag::LuauIntegerType2)
@@ -63,11 +61,25 @@ static bool constantsEqual(const Constant& la, const Constant& ra)
     }
 }
 
+// vector component 'w' is not visible to VM runtime configured with LUA_VECTOR_SIZE == 3, so vectors that only differ in 'w' can't be compared
+static bool vectorsDifferOnlyInW(const Constant& la, const Constant& ra)
+{
+    if (la.type == Constant::Type_Vectorf && ra.type == Constant::Type_Vectorf)
+        return la.valueVectorf[0] == ra.valueVectorf[0] && la.valueVectorf[1] == ra.valueVectorf[1] && la.valueVectorf[2] == ra.valueVectorf[2] &&
+               la.valueVectorf[3] != ra.valueVectorf[3];
+
+    if (la.type == Constant::Type_Vectord && ra.type == Constant::Type_Vectord)
+        return la.valueVectord[0] == ra.valueVectord[0] && la.valueVectord[1] == ra.valueVectord[1] && la.valueVectord[2] == ra.valueVectord[2] &&
+               la.valueVectord[3] != ra.valueVectord[3];
+
+    return false;
+}
+
 static void foldUnary(Constant& result, AstExprUnary::Op op, const Constant& arg)
 {
     switch (op)
     {
-    case AstExprUnary::Not:
+    case AstExprUnary::Op::Not:
         if (arg.type != Constant::Type_Unknown)
         {
             result.type = Constant::Type_Boolean;
@@ -75,23 +87,31 @@ static void foldUnary(Constant& result, AstExprUnary::Op op, const Constant& arg
         }
         break;
 
-    case AstExprUnary::Minus:
+    case AstExprUnary::Op::Minus:
         if (arg.type == Constant::Type_Number)
         {
             result.type = Constant::Type_Number;
             result.valueNumber = -arg.valueNumber;
         }
-        else if (arg.type == Constant::Type_Vector)
+        else if (arg.type == Constant::Type_Vectorf)
         {
-            result.type = Constant::Type_Vector;
-            result.valueVector[0] = -arg.valueVector[0];
-            result.valueVector[1] = -arg.valueVector[1];
-            result.valueVector[2] = -arg.valueVector[2];
-            result.valueVector[3] = -arg.valueVector[3];
+            result.type = Constant::Type_Vectorf;
+            result.valueVectorf[0] = -arg.valueVectorf[0];
+            result.valueVectorf[1] = -arg.valueVectorf[1];
+            result.valueVectorf[2] = -arg.valueVectorf[2];
+            result.valueVectorf[3] = -arg.valueVectorf[3];
+        }
+        else if (arg.type == Constant::Type_Vectord)
+        {
+            result.type = Constant::Type_Vectord;
+            result.valueVectord[0] = -arg.valueVectord[0];
+            result.valueVectord[1] = -arg.valueVectord[1];
+            result.valueVectord[2] = -arg.valueVectord[2];
+            result.valueVectord[3] = -arg.valueVectord[3];
         }
         break;
 
-    case AstExprUnary::Len:
+    case AstExprUnary::Op::Len:
         if (arg.type == Constant::Type_String)
         {
             result.type = Constant::Type_Number;
@@ -114,13 +134,21 @@ static void foldBinary(Constant& result, AstExprBinary::Op op, const Constant& l
             result.type = Constant::Type_Number;
             result.valueNumber = la.valueNumber + ra.valueNumber;
         }
-        else if (la.type == Constant::Type_Vector && ra.type == Constant::Type_Vector)
+        else if (la.type == Constant::Type_Vectorf && ra.type == Constant::Type_Vectorf)
         {
-            result.type = Constant::Type_Vector;
-            result.valueVector[0] = la.valueVector[0] + ra.valueVector[0];
-            result.valueVector[1] = la.valueVector[1] + ra.valueVector[1];
-            result.valueVector[2] = la.valueVector[2] + ra.valueVector[2];
-            result.valueVector[3] = la.valueVector[3] + ra.valueVector[3];
+            result.type = Constant::Type_Vectorf;
+            result.valueVectorf[0] = la.valueVectorf[0] + ra.valueVectorf[0];
+            result.valueVectorf[1] = la.valueVectorf[1] + ra.valueVectorf[1];
+            result.valueVectorf[2] = la.valueVectorf[2] + ra.valueVectorf[2];
+            result.valueVectorf[3] = la.valueVectorf[3] + ra.valueVectorf[3];
+        }
+        else if (la.type == Constant::Type_Vectord && ra.type == Constant::Type_Vectord)
+        {
+            result.type = Constant::Type_Vectord;
+            result.valueVectord[0] = la.valueVectord[0] + ra.valueVectord[0];
+            result.valueVectord[1] = la.valueVectord[1] + ra.valueVectord[1];
+            result.valueVectord[2] = la.valueVectord[2] + ra.valueVectord[2];
+            result.valueVectord[3] = la.valueVectord[3] + ra.valueVectord[3];
         }
         break;
 
@@ -130,13 +158,21 @@ static void foldBinary(Constant& result, AstExprBinary::Op op, const Constant& l
             result.type = Constant::Type_Number;
             result.valueNumber = la.valueNumber - ra.valueNumber;
         }
-        else if (la.type == Constant::Type_Vector && ra.type == Constant::Type_Vector)
+        else if (la.type == Constant::Type_Vectorf && ra.type == Constant::Type_Vectorf)
         {
-            result.type = Constant::Type_Vector;
-            result.valueVector[0] = la.valueVector[0] - ra.valueVector[0];
-            result.valueVector[1] = la.valueVector[1] - ra.valueVector[1];
-            result.valueVector[2] = la.valueVector[2] - ra.valueVector[2];
-            result.valueVector[3] = la.valueVector[3] - ra.valueVector[3];
+            result.type = Constant::Type_Vectorf;
+            result.valueVectorf[0] = la.valueVectorf[0] - ra.valueVectorf[0];
+            result.valueVectorf[1] = la.valueVectorf[1] - ra.valueVectorf[1];
+            result.valueVectorf[2] = la.valueVectorf[2] - ra.valueVectorf[2];
+            result.valueVectorf[3] = la.valueVectorf[3] - ra.valueVectorf[3];
+        }
+        else if (la.type == Constant::Type_Vectord && ra.type == Constant::Type_Vectord)
+        {
+            result.type = Constant::Type_Vectord;
+            result.valueVectord[0] = la.valueVectord[0] - ra.valueVectord[0];
+            result.valueVectord[1] = la.valueVectord[1] - ra.valueVectord[1];
+            result.valueVectord[2] = la.valueVectord[2] - ra.valueVectord[2];
+            result.valueVectord[3] = la.valueVectord[3] - ra.valueVectord[3];
         }
         break;
 
@@ -146,46 +182,88 @@ static void foldBinary(Constant& result, AstExprBinary::Op op, const Constant& l
             result.type = Constant::Type_Number;
             result.valueNumber = la.valueNumber * ra.valueNumber;
         }
-        else if (la.type == Constant::Type_Vector && ra.type == Constant::Type_Vector)
+        else if (la.type == Constant::Type_Vectorf && ra.type == Constant::Type_Vectorf)
         {
-            bool hadW = la.valueVector[3] != 0.0f || ra.valueVector[3] != 0.0f;
-            float resultW = la.valueVector[3] * ra.valueVector[3];
+            bool hadW = la.valueVectorf[3] != 0.0f || ra.valueVectorf[3] != 0.0f;
+            float resultW = la.valueVectorf[3] * ra.valueVectorf[3];
 
             if (resultW == 0.0f || hadW)
             {
-                result.type = Constant::Type_Vector;
-                result.valueVector[0] = la.valueVector[0] * ra.valueVector[0];
-                result.valueVector[1] = la.valueVector[1] * ra.valueVector[1];
-                result.valueVector[2] = la.valueVector[2] * ra.valueVector[2];
-                result.valueVector[3] = resultW;
+                result.type = Constant::Type_Vectorf;
+                result.valueVectorf[0] = la.valueVectorf[0] * ra.valueVectorf[0];
+                result.valueVectorf[1] = la.valueVectorf[1] * ra.valueVectorf[1];
+                result.valueVectorf[2] = la.valueVectorf[2] * ra.valueVectorf[2];
+                result.valueVectorf[3] = resultW;
             }
         }
-        else if (la.type == Constant::Type_Number && ra.type == Constant::Type_Vector)
+        else if (la.type == Constant::Type_Number && ra.type == Constant::Type_Vectorf)
         {
-            bool hadW = ra.valueVector[3] != 0.0f;
-            float resultW = float(la.valueNumber) * ra.valueVector[3];
+            bool hadW = ra.valueVectorf[3] != 0.0f;
+            float resultW = float(la.valueNumber) * ra.valueVectorf[3];
 
             if (resultW == 0.0f || hadW)
             {
-                result.type = Constant::Type_Vector;
-                result.valueVector[0] = float(la.valueNumber) * ra.valueVector[0];
-                result.valueVector[1] = float(la.valueNumber) * ra.valueVector[1];
-                result.valueVector[2] = float(la.valueNumber) * ra.valueVector[2];
-                result.valueVector[3] = resultW;
+                result.type = Constant::Type_Vectorf;
+                result.valueVectorf[0] = float(la.valueNumber) * ra.valueVectorf[0];
+                result.valueVectorf[1] = float(la.valueNumber) * ra.valueVectorf[1];
+                result.valueVectorf[2] = float(la.valueNumber) * ra.valueVectorf[2];
+                result.valueVectorf[3] = resultW;
             }
         }
-        else if (la.type == Constant::Type_Vector && ra.type == Constant::Type_Number)
+        else if (la.type == Constant::Type_Vectorf && ra.type == Constant::Type_Number)
         {
-            bool hadW = la.valueVector[3] != 0.0f;
-            float resultW = la.valueVector[3] * float(ra.valueNumber);
+            bool hadW = la.valueVectorf[3] != 0.0f;
+            float resultW = la.valueVectorf[3] * float(ra.valueNumber);
 
             if (resultW == 0.0f || hadW)
             {
-                result.type = Constant::Type_Vector;
-                result.valueVector[0] = la.valueVector[0] * float(ra.valueNumber);
-                result.valueVector[1] = la.valueVector[1] * float(ra.valueNumber);
-                result.valueVector[2] = la.valueVector[2] * float(ra.valueNumber);
-                result.valueVector[3] = resultW;
+                result.type = Constant::Type_Vectorf;
+                result.valueVectorf[0] = la.valueVectorf[0] * float(ra.valueNumber);
+                result.valueVectorf[1] = la.valueVectorf[1] * float(ra.valueNumber);
+                result.valueVectorf[2] = la.valueVectorf[2] * float(ra.valueNumber);
+                result.valueVectorf[3] = resultW;
+            }
+        }
+        else if (la.type == Constant::Type_Vectord && ra.type == Constant::Type_Vectord)
+        {
+            bool hadW = la.valueVectord[3] != 0.0 || ra.valueVectord[3] != 0.0;
+            double resultW = la.valueVectord[3] * ra.valueVectord[3];
+
+            if (resultW == 0.0 || hadW)
+            {
+                result.type = Constant::Type_Vectord;
+                result.valueVectord[0] = la.valueVectord[0] * ra.valueVectord[0];
+                result.valueVectord[1] = la.valueVectord[1] * ra.valueVectord[1];
+                result.valueVectord[2] = la.valueVectord[2] * ra.valueVectord[2];
+                result.valueVectord[3] = resultW;
+            }
+        }
+        else if (la.type == Constant::Type_Number && ra.type == Constant::Type_Vectord)
+        {
+            bool hadW = ra.valueVectord[3] != 0.0;
+            double resultW = la.valueNumber * ra.valueVectord[3];
+
+            if (resultW == 0.0 || hadW)
+            {
+                result.type = Constant::Type_Vectord;
+                result.valueVectord[0] = la.valueNumber * ra.valueVectord[0];
+                result.valueVectord[1] = la.valueNumber * ra.valueVectord[1];
+                result.valueVectord[2] = la.valueNumber * ra.valueVectord[2];
+                result.valueVectord[3] = resultW;
+            }
+        }
+        else if (la.type == Constant::Type_Vectord && ra.type == Constant::Type_Number)
+        {
+            bool hadW = la.valueVectord[3] != 0.0;
+            double resultW = la.valueVectord[3] * ra.valueNumber;
+
+            if (resultW == 0.0 || hadW)
+            {
+                result.type = Constant::Type_Vectord;
+                result.valueVectord[0] = la.valueVectord[0] * ra.valueNumber;
+                result.valueVectord[1] = la.valueVectord[1] * ra.valueNumber;
+                result.valueVectord[2] = la.valueVectord[2] * ra.valueNumber;
+                result.valueVectord[3] = resultW;
             }
         }
         break;
@@ -196,46 +274,88 @@ static void foldBinary(Constant& result, AstExprBinary::Op op, const Constant& l
             result.type = Constant::Type_Number;
             result.valueNumber = la.valueNumber / ra.valueNumber;
         }
-        else if (la.type == Constant::Type_Vector && ra.type == Constant::Type_Vector)
+        else if (la.type == Constant::Type_Vectorf && ra.type == Constant::Type_Vectorf)
         {
-            bool hadW = la.valueVector[3] != 0.0f || ra.valueVector[3] != 0.0f;
-            float resultW = la.valueVector[3] / ra.valueVector[3];
+            bool hadW = la.valueVectorf[3] != 0.0f || ra.valueVectorf[3] != 0.0f;
+            float resultW = la.valueVectorf[3] / ra.valueVectorf[3];
 
             if (resultW == 0.0f || hadW)
             {
-                result.type = Constant::Type_Vector;
-                result.valueVector[0] = la.valueVector[0] / ra.valueVector[0];
-                result.valueVector[1] = la.valueVector[1] / ra.valueVector[1];
-                result.valueVector[2] = la.valueVector[2] / ra.valueVector[2];
-                result.valueVector[3] = resultW;
+                result.type = Constant::Type_Vectorf;
+                result.valueVectorf[0] = la.valueVectorf[0] / ra.valueVectorf[0];
+                result.valueVectorf[1] = la.valueVectorf[1] / ra.valueVectorf[1];
+                result.valueVectorf[2] = la.valueVectorf[2] / ra.valueVectorf[2];
+                result.valueVectorf[3] = resultW;
             }
         }
-        else if (la.type == Constant::Type_Number && ra.type == Constant::Type_Vector)
+        else if (la.type == Constant::Type_Number && ra.type == Constant::Type_Vectorf)
         {
-            bool hadW = ra.valueVector[3] != 0.0f;
-            float resultW = float(la.valueNumber) / ra.valueVector[3];
+            bool hadW = ra.valueVectorf[3] != 0.0f;
+            float resultW = float(la.valueNumber) / ra.valueVectorf[3];
 
             if (resultW == 0.0f || hadW)
             {
-                result.type = Constant::Type_Vector;
-                result.valueVector[0] = float(la.valueNumber) / ra.valueVector[0];
-                result.valueVector[1] = float(la.valueNumber) / ra.valueVector[1];
-                result.valueVector[2] = float(la.valueNumber) / ra.valueVector[2];
-                result.valueVector[3] = resultW;
+                result.type = Constant::Type_Vectorf;
+                result.valueVectorf[0] = float(la.valueNumber) / ra.valueVectorf[0];
+                result.valueVectorf[1] = float(la.valueNumber) / ra.valueVectorf[1];
+                result.valueVectorf[2] = float(la.valueNumber) / ra.valueVectorf[2];
+                result.valueVectorf[3] = resultW;
             }
         }
-        else if (la.type == Constant::Type_Vector && ra.type == Constant::Type_Number)
+        else if (la.type == Constant::Type_Vectorf && ra.type == Constant::Type_Number)
         {
-            bool hadW = la.valueVector[3] != 0.0f;
-            float resultW = la.valueVector[3] / float(ra.valueNumber);
+            bool hadW = la.valueVectorf[3] != 0.0f;
+            float resultW = la.valueVectorf[3] / float(ra.valueNumber);
 
             if (resultW == 0.0f || hadW)
             {
-                result.type = Constant::Type_Vector;
-                result.valueVector[0] = la.valueVector[0] / float(ra.valueNumber);
-                result.valueVector[1] = la.valueVector[1] / float(ra.valueNumber);
-                result.valueVector[2] = la.valueVector[2] / float(ra.valueNumber);
-                result.valueVector[3] = resultW;
+                result.type = Constant::Type_Vectorf;
+                result.valueVectorf[0] = la.valueVectorf[0] / float(ra.valueNumber);
+                result.valueVectorf[1] = la.valueVectorf[1] / float(ra.valueNumber);
+                result.valueVectorf[2] = la.valueVectorf[2] / float(ra.valueNumber);
+                result.valueVectorf[3] = resultW;
+            }
+        }
+        else if (la.type == Constant::Type_Vectord && ra.type == Constant::Type_Vectord)
+        {
+            bool hadW = la.valueVectord[3] != 0.0 || ra.valueVectord[3] != 0.0;
+            double resultW = la.valueVectord[3] / ra.valueVectord[3];
+
+            if (resultW == 0.0 || hadW)
+            {
+                result.type = Constant::Type_Vectord;
+                result.valueVectord[0] = la.valueVectord[0] / ra.valueVectord[0];
+                result.valueVectord[1] = la.valueVectord[1] / ra.valueVectord[1];
+                result.valueVectord[2] = la.valueVectord[2] / ra.valueVectord[2];
+                result.valueVectord[3] = resultW;
+            }
+        }
+        else if (la.type == Constant::Type_Number && ra.type == Constant::Type_Vectord)
+        {
+            bool hadW = ra.valueVectord[3] != 0.0;
+            double resultW = la.valueNumber / ra.valueVectord[3];
+
+            if (resultW == 0.0 || hadW)
+            {
+                result.type = Constant::Type_Vectord;
+                result.valueVectord[0] = la.valueNumber / ra.valueVectord[0];
+                result.valueVectord[1] = la.valueNumber / ra.valueVectord[1];
+                result.valueVectord[2] = la.valueNumber / ra.valueVectord[2];
+                result.valueVectord[3] = resultW;
+            }
+        }
+        else if (la.type == Constant::Type_Vectord && ra.type == Constant::Type_Number)
+        {
+            bool hadW = la.valueVectord[3] != 0.0;
+            double resultW = la.valueVectord[3] / ra.valueNumber;
+
+            if (resultW == 0.0 || hadW)
+            {
+                result.type = Constant::Type_Vectord;
+                result.valueVectord[0] = la.valueVectord[0] / ra.valueNumber;
+                result.valueVectord[1] = la.valueVectord[1] / ra.valueNumber;
+                result.valueVectord[2] = la.valueVectord[2] / ra.valueNumber;
+                result.valueVectord[3] = resultW;
             }
         }
         break;
@@ -246,46 +366,88 @@ static void foldBinary(Constant& result, AstExprBinary::Op op, const Constant& l
             result.type = Constant::Type_Number;
             result.valueNumber = floor(la.valueNumber / ra.valueNumber);
         }
-        else if (la.type == Constant::Type_Vector && ra.type == Constant::Type_Vector)
+        else if (la.type == Constant::Type_Vectorf && ra.type == Constant::Type_Vectorf)
         {
-            bool hadW = la.valueVector[3] != 0.0f || ra.valueVector[3] != 0.0f;
-            float resultW = floor(la.valueVector[3] / ra.valueVector[3]);
+            bool hadW = la.valueVectorf[3] != 0.0f || ra.valueVectorf[3] != 0.0f;
+            float resultW = floor(la.valueVectorf[3] / ra.valueVectorf[3]);
 
             if (resultW == 0.0f || hadW)
             {
-                result.type = Constant::Type_Vector;
-                result.valueVector[0] = floor(la.valueVector[0] / ra.valueVector[0]);
-                result.valueVector[1] = floor(la.valueVector[1] / ra.valueVector[1]);
-                result.valueVector[2] = floor(la.valueVector[2] / ra.valueVector[2]);
-                result.valueVector[3] = resultW;
+                result.type = Constant::Type_Vectorf;
+                result.valueVectorf[0] = floor(la.valueVectorf[0] / ra.valueVectorf[0]);
+                result.valueVectorf[1] = floor(la.valueVectorf[1] / ra.valueVectorf[1]);
+                result.valueVectorf[2] = floor(la.valueVectorf[2] / ra.valueVectorf[2]);
+                result.valueVectorf[3] = resultW;
             }
         }
-        else if (la.type == Constant::Type_Number && ra.type == Constant::Type_Vector)
+        else if (la.type == Constant::Type_Number && ra.type == Constant::Type_Vectorf)
         {
-            bool hadW = ra.valueVector[3] != 0.0f;
-            float resultW = floor(float(la.valueNumber) / ra.valueVector[3]);
+            bool hadW = ra.valueVectorf[3] != 0.0f;
+            float resultW = floor(float(la.valueNumber) / ra.valueVectorf[3]);
 
             if (resultW == 0.0f || hadW)
             {
-                result.type = Constant::Type_Vector;
-                result.valueVector[0] = floor(float(la.valueNumber) / ra.valueVector[0]);
-                result.valueVector[1] = floor(float(la.valueNumber) / ra.valueVector[1]);
-                result.valueVector[2] = floor(float(la.valueNumber) / ra.valueVector[2]);
-                result.valueVector[3] = resultW;
+                result.type = Constant::Type_Vectorf;
+                result.valueVectorf[0] = floor(float(la.valueNumber) / ra.valueVectorf[0]);
+                result.valueVectorf[1] = floor(float(la.valueNumber) / ra.valueVectorf[1]);
+                result.valueVectorf[2] = floor(float(la.valueNumber) / ra.valueVectorf[2]);
+                result.valueVectorf[3] = resultW;
             }
         }
-        else if (la.type == Constant::Type_Vector && ra.type == Constant::Type_Number)
+        else if (la.type == Constant::Type_Vectorf && ra.type == Constant::Type_Number)
         {
-            bool hadW = la.valueVector[3] != 0.0f;
-            float resultW = floor(la.valueVector[3] / float(ra.valueNumber));
+            bool hadW = la.valueVectorf[3] != 0.0f;
+            float resultW = floor(la.valueVectorf[3] / float(ra.valueNumber));
 
             if (resultW == 0.0f || hadW)
             {
-                result.type = Constant::Type_Vector;
-                result.valueVector[0] = floor(la.valueVector[0] / float(ra.valueNumber));
-                result.valueVector[1] = floor(la.valueVector[1] / float(ra.valueNumber));
-                result.valueVector[2] = floor(la.valueVector[2] / float(ra.valueNumber));
-                result.valueVector[3] = floor(la.valueVector[3] / float(ra.valueNumber));
+                result.type = Constant::Type_Vectorf;
+                result.valueVectorf[0] = floor(la.valueVectorf[0] / float(ra.valueNumber));
+                result.valueVectorf[1] = floor(la.valueVectorf[1] / float(ra.valueNumber));
+                result.valueVectorf[2] = floor(la.valueVectorf[2] / float(ra.valueNumber));
+                result.valueVectorf[3] = floor(la.valueVectorf[3] / float(ra.valueNumber));
+            }
+        }
+        else if (la.type == Constant::Type_Vectord && ra.type == Constant::Type_Vectord)
+        {
+            bool hadW = la.valueVectord[3] != 0.0 || ra.valueVectord[3] != 0.0;
+            double resultW = floor(la.valueVectord[3] / ra.valueVectord[3]);
+
+            if (resultW == 0.0 || hadW)
+            {
+                result.type = Constant::Type_Vectord;
+                result.valueVectord[0] = floor(la.valueVectord[0] / ra.valueVectord[0]);
+                result.valueVectord[1] = floor(la.valueVectord[1] / ra.valueVectord[1]);
+                result.valueVectord[2] = floor(la.valueVectord[2] / ra.valueVectord[2]);
+                result.valueVectord[3] = resultW;
+            }
+        }
+        else if (la.type == Constant::Type_Number && ra.type == Constant::Type_Vectord)
+        {
+            bool hadW = ra.valueVectord[3] != 0.0;
+            double resultW = floor(la.valueNumber / ra.valueVectord[3]);
+
+            if (resultW == 0.0 || hadW)
+            {
+                result.type = Constant::Type_Vectord;
+                result.valueVectord[0] = floor(la.valueNumber / ra.valueVectord[0]);
+                result.valueVectord[1] = floor(la.valueNumber / ra.valueVectord[1]);
+                result.valueVectord[2] = floor(la.valueNumber / ra.valueVectord[2]);
+                result.valueVectord[3] = resultW;
+            }
+        }
+        else if (la.type == Constant::Type_Vectord && ra.type == Constant::Type_Number)
+        {
+            bool hadW = la.valueVectord[3] != 0.0;
+            double resultW = floor(la.valueVectord[3] / ra.valueNumber);
+
+            if (resultW == 0.0 || hadW)
+            {
+                result.type = Constant::Type_Vectord;
+                result.valueVectord[0] = floor(la.valueVectord[0] / ra.valueNumber);
+                result.valueVectord[1] = floor(la.valueVectord[1] / ra.valueNumber);
+                result.valueVectord[2] = floor(la.valueVectord[2] / ra.valueNumber);
+                result.valueVectord[3] = floor(la.valueVectord[3] / ra.valueNumber);
             }
         }
         break;
@@ -328,7 +490,8 @@ static void foldBinary(Constant& result, AstExprBinary::Op op, const Constant& l
         break;
 
     case AstExprBinary::CompareNe:
-        if (la.type != Constant::Type_Unknown && ra.type != Constant::Type_Unknown)
+        if (la.type != Constant::Type_Unknown && ra.type != Constant::Type_Unknown &&
+            !(FFlag::LuauCompileNoFoldVectorEqW && vectorsDifferOnlyInW(la, ra)))
         {
             result.type = Constant::Type_Boolean;
             result.valueBoolean = !constantsEqual(la, ra);
@@ -336,7 +499,8 @@ static void foldBinary(Constant& result, AstExprBinary::Op op, const Constant& l
         break;
 
     case AstExprBinary::CompareEq:
-        if (la.type != Constant::Type_Unknown && ra.type != Constant::Type_Unknown)
+        if (la.type != Constant::Type_Unknown && ra.type != Constant::Type_Unknown &&
+            !(FFlag::LuauCompileNoFoldVectorEqW && vectorsDifferOnlyInW(la, ra)))
         {
             result.type = Constant::Type_Boolean;
             result.valueBoolean = constantsEqual(la, ra);
@@ -440,359 +604,12 @@ static void foldInterpString(Constant& result, AstExprInterpString* expr, DenseH
     result.valueString = name.value;
 }
 
-// Figures out which locals are initialized with constant tables, and never potentially mutated
-// The bulk of the work is done on two analyses on AstExpr nodes:
-// isConstantTableLiteral determines if an expression consists mainly of a table literal with constant keys and values, which we can fold into a
-// constant table. We don't yet support folding nested tables, so we require keys and values to be non table constants. If we see a local initialized
-// with a constant table literal, we start tracking it as a potentially foldable ConstantTable.
-// observeMutations is used to check for whether a local we have mapped to a ConstantTable is ever potentially mutated in order to ensure that any
-// folding we perform later on is sound.
-struct TableMutationTracker_DEPRECATED : AstVisitor
-{
-    DenseHashMap<AstLocal*, TableConstantKind>& constantTables;
-    const DenseHashMap<AstLocal*, Variable>& variables;
-
-    TableMutationTracker_DEPRECATED(DenseHashMap<AstLocal*, TableConstantKind>& constantTables, const DenseHashMap<AstLocal*, Variable>& variables)
-        : constantTables(constantTables)
-        , variables(variables)
-    {
-        LUAU_ASSERT(FFlag::LuauCompilePropagateTableProps2);
-    }
-
-    bool isNonTableConstant(const AstExpr* node)
-    {
-        if (const AstExprGroup* expr = node->as<AstExprGroup>())
-            return isNonTableConstant(expr->expr);
-        else if (node->is<AstExprConstantNil>())
-            return true;
-        else if (node->is<AstExprConstantBool>())
-            return true;
-        else if (node->is<AstExprConstantNumber>())
-            return true;
-        else if (node->is<AstExprConstantInteger>())
-            return true;
-        else if (node->is<AstExprConstantString>())
-            return true;
-        else if (const AstExprLocal* expr = node->as<AstExprLocal>())
-            if (const TableConstantKind* kind = constantTables.find(expr->local))
-                return *kind == ConstantOther; // We don't support folding nested tables yet
-            else
-                return false;
-        else if (node->is<AstExprGlobal>())
-            return false;
-        else if (node->is<AstExprVarargs>())
-            return false;
-        else if (const AstExprCall* expr = node->as<AstExprCall>())
-            return false;
-        else if (const AstExprIndexName* expr = node->as<AstExprIndexName>())
-        {
-            const AstExprLocal* local = expr->expr->as<AstExprLocal>();
-            if (!local)
-                return false;
-
-            // We don't currently constant fold nested tables, so property access on a constant table never returns a table
-            if (const TableConstantKind* kind = constantTables.find(local->local))
-                return *kind == ConstantTable;
-            else
-                return false;
-        }
-        else if (const AstExprIndexExpr* expr = node->as<AstExprIndexExpr>())
-        {
-            const AstExprLocal* local = expr->expr->as<AstExprLocal>();
-            if (!local)
-                return false;
-
-            // We don't currently constant fold nested tables, so property access on a constant table never returns a table
-            if (const TableConstantKind* kind = constantTables.find(local->local))
-                return *kind == ConstantTable && isNonTableConstant(expr->index);
-            else
-                return false;
-        }
-        else if (const AstExprFunction* expr = node->as<AstExprFunction>())
-            return false;
-        else if (const AstExprTable* expr = node->as<AstExprTable>())
-        {
-            // we only fold table literals directly assigned to locals, which we hit in isTableLiteral
-            // if we see a table literal here, we're not folding it, so we treat it as not constant
-            return false;
-        }
-        else if (const AstExprUnary* expr = node->as<AstExprUnary>())
-            return isNonTableConstant(expr->expr);
-        else if (const AstExprBinary* expr = node->as<AstExprBinary>())
-        {
-            return isNonTableConstant(expr->left) && isNonTableConstant(expr->right);
-        }
-        else if (const AstExprTypeAssertion* expr = node->as<AstExprTypeAssertion>())
-            return isNonTableConstant(expr->expr);
-        else if (const AstExprIfElse* expr = node->as<AstExprIfElse>())
-        {
-            return isNonTableConstant(expr->condition) && isNonTableConstant(expr->trueExpr) && isNonTableConstant(expr->falseExpr);
-        }
-        else if (const AstExprInterpString* expr = node->as<AstExprInterpString>())
-        {
-            for (AstExpr* expression : expr->expressions)
-            {
-                if (!isNonTableConstant(expression))
-                    return false;
-            }
-            return true;
-        }
-        else if (const AstExprInstantiate* expr = node->as<AstExprInstantiate>())
-            return isNonTableConstant(expr->expr);
-        else
-            LUAU_ASSERT(!"Unknown expression type");
-
-        return false;
-    }
-
-    bool isConstantTableLiteral(const AstExpr* node)
-    {
-        if (const AstExprTable* table = node->as<AstExprTable>())
-        {
-            for (const AstExprTable::Item& item : table->items)
-            {
-                if (item.key && !isNonTableConstant(item.key))
-                    return false;
-                if (!isNonTableConstant(item.value))
-                    return false;
-            }
-            return true;
-        }
-        else if (const AstExprGroup* group = node->as<AstExprGroup>())
-            return isConstantTableLiteral(group->expr);
-        else if (const AstExprTypeAssertion* assert = node->as<AstExprTypeAssertion>())
-            return isConstantTableLiteral(assert->expr);
-        else if (const AstExprInstantiate* instantiate = node->as<AstExprInstantiate>())
-            return isConstantTableLiteral(instantiate->expr);
-        else
-            return false;
-    }
-
-    // Could node evaluate to a reference to a constant table?
-    bool couldBeTableReference(const AstExpr* node)
-    {
-        if (const AstExprGroup* expr = node->as<AstExprGroup>())
-            return couldBeTableReference(expr->expr);
-        else if (const AstExprTypeAssertion* expr = node->as<AstExprTypeAssertion>())
-            return couldBeTableReference(expr->expr);
-        else if (const AstExprInstantiate* expr = node->as<AstExprInstantiate>())
-            return couldBeTableReference(expr->expr);
-        else if (const AstExprIfElse* expr = node->as<AstExprIfElse>())
-            return couldBeTableReference(expr->trueExpr) || couldBeTableReference(expr->falseExpr);
-        else if (const AstExprBinary* binExpr = node->as<AstExprBinary>();
-                 binExpr && (binExpr->op == AstExprBinary::And || binExpr->op == AstExprBinary::Or))
-            return couldBeTableReference(binExpr->left) || couldBeTableReference(binExpr->right);
-        else if (node->is<AstExprLocal>())
-            return true;
-        else
-        { // We ignore AstExprIndexName and AstExprIndexExpr here since tables referencing other tables should be caught in the AstExprTable case
-            // of observeMutations or the AstStatAssign visitor
-            return false;
-        }
-    }
-
-    // Updates constantTables if mutations are observed
-    void observeMutations(const AstExpr* node, bool couldMutateTable)
-    {
-        if (const AstExprGroup* expr = node->as<AstExprGroup>())
-            observeMutations(expr->expr, couldMutateTable);
-        else if (node->is<AstExprConstantNil>())
-            return;
-        else if (node->is<AstExprConstantBool>())
-            return;
-        else if (node->is<AstExprConstantNumber>())
-            return;
-        else if (node->is<AstExprConstantInteger>())
-            return;
-        else if (node->is<AstExprConstantString>())
-            return;
-        else if (const AstExprLocal* expr = node->as<AstExprLocal>())
-        {
-            AstLocal* local = expr->local;
-            if (couldMutateTable && constantTables.contains(local))
-                constantTables[local] = NotConstant;
-        }
-        else if (node->is<AstExprGlobal>())
-            return;
-        else if (node->is<AstExprVarargs>())
-            return;
-        else if (const AstExprCall* expr = node->as<AstExprCall>())
-        {
-            observeMutations(expr->func, /* couldMutateTable */ true); // t:method() could mutate t
-
-            for (size_t i = 0; i < expr->args.size; ++i)
-            {
-                AstExpr* arg = expr->args.data[i];
-                // func(t) could mutate t, but func(t.prop) can't
-                observeMutations(arg, /* couldMutateTable */ couldBeTableReference(arg));
-            }
-        }
-        else if (const AstExprIndexName* expr = node->as<AstExprIndexName>())
-            observeMutations(expr->expr, couldMutateTable);
-        else if (const AstExprIndexExpr* expr = node->as<AstExprIndexExpr>())
-        {
-            observeMutations(expr->index, /* couldMutateTable */ false);
-            observeMutations(expr->expr, couldMutateTable);
-        }
-        else if (const AstExprFunction* expr = node->as<AstExprFunction>())
-        {
-            // this is necessary to observe mutations in the function's body
-            expr->body->visit(this);
-        }
-        else if (const AstExprTable* expr = node->as<AstExprTable>())
-        {
-            for (const AstExprTable::Item& item : expr->items)
-            {
-                if (item.key)
-                    observeMutations(item.key, /* couldMutateTable */ false);
-                observeMutations(item.value, /* couldMutateTable */ couldBeTableReference(item.value));
-            }
-        }
-        else if (const AstExprUnary* expr = node->as<AstExprUnary>())
-        {
-            // We don't worry about metamethods because we observe mutations from setmetatable calls elsewhere
-            observeMutations(expr->expr, /* couldMutateTable */ false);
-        }
-        else if (const AstExprBinary* expr = node->as<AstExprBinary>())
-        {
-            // We don't worry about metamethods because we observe mutations from setmetatable calls elsewhere
-            bool shortCircuiting = expr->op == AstExprBinary::And || expr->op == AstExprBinary::Or;
-            observeMutations(expr->left, /* couldMutateTable */ shortCircuiting);
-            observeMutations(expr->right, /* couldMutateTable */ shortCircuiting);
-        }
-        else if (const AstExprTypeAssertion* expr = node->as<AstExprTypeAssertion>())
-            observeMutations(expr->expr, couldMutateTable);
-        else if (const AstExprIfElse* expr = node->as<AstExprIfElse>())
-        {
-            observeMutations(expr->condition, /* couldMutateTable */ false);
-            observeMutations(expr->trueExpr, couldMutateTable);
-            observeMutations(expr->falseExpr, couldMutateTable);
-        }
-        else if (const AstExprInterpString* expr = node->as<AstExprInterpString>())
-        {
-            for (AstExpr* expression : expr->expressions)
-                observeMutations(expression, /* couldMutateTable */ false);
-        }
-        else if (const AstExprInstantiate* expr = node->as<AstExprInstantiate>())
-            observeMutations(expr->expr, couldMutateTable);
-        else
-        {
-            LUAU_ASSERT(!"Unknown expression type");
-        }
-    }
-
-    bool visit(AstExpr* node) override
-    {
-        observeMutations(node, /* couldMutateTable */ false);
-        return false;
-    }
-
-    bool visit(AstStatLocal* node) override
-    {
-        // all values that align wrt indexing are simple - we just match them 1-1
-        for (size_t i = 0; i < node->vars.size && i < node->values.size; ++i)
-        {
-            AstLocal* local = node->vars.data[i];
-            const AstExpr* rhs = node->values.data[i];
-
-            // note: we rely on trackValues to have been run before us
-            // if the local isn't written to, see if we can mark it as a constant
-            const Variable* v = variables.find(local);
-            LUAU_ASSERT(v);
-
-            if (!v->written)
-            {
-                if (isConstantTableLiteral(rhs))
-                    constantTables[local] = ConstantTable;
-                else if (isNonTableConstant(rhs))
-                    constantTables[local] = ConstantOther;
-            }
-
-            // aliasing a table reference could lead to downstream mutations, so we conservatively treat a referenced table as mutated
-            if (!constantTables.contains(local))
-                observeMutations(rhs, /* couldMutateTable */ couldBeTableReference(rhs));
-        }
-
-        // check remaining values to observe mutations
-        if (node->vars.size < node->values.size)
-        {
-            for (size_t i = node->vars.size; i < node->values.size; ++i)
-                observeMutations(node->values.data[i], /* couldMutateTable */ false);
-        }
-
-        return false;
-    }
-
-    bool visit(AstStatAssign* node) override
-    {
-        for (size_t i = 0; i < node->vars.size && i < node->values.size; ++i)
-        {
-            AstExpr* rhs = node->values.data[i];
-
-            // aliasing a table reference could lead to downstream mutations, so we conservatively treat a referenced table as mutated
-            observeMutations(rhs, /* couldMutateTable */ couldBeTableReference(rhs));
-        }
-
-        // Any remaining values don't inherently mutate tables, but we still observe for things like function calls that could mutate tables
-        if (node->values.size > node->vars.size)
-        {
-            for (size_t i = node->vars.size; i < node->values.size; ++i)
-                observeMutations(node->values.data[i], /* couldMutateTable */ false);
-        }
-
-        // Tables referred to in lhs expressions could be mutated by the assignment
-        for (AstExpr* lhs : node->vars)
-            observeMutations(lhs, /* couldMutateTable */ true);
-
-        return false;
-    }
-
-    bool visit(AstStatCompoundAssign* node) override
-    {
-        AstExpr* rhs = node->value;
-        observeMutations(rhs, /* couldMutateTable */ couldBeTableReference(rhs));
-        // Tables referred to in the lhs could be mutated by the assignment
-        observeMutations(node->var, /* couldMutateTable */ true);
-
-        return false;
-    }
-
-    bool visit(AstStatFunction* node) override
-    {
-        // Mutations in the body of the function will get caught by other visitor cases
-        observeMutations(node->func, /* couldMutateTable */ false);
-        // If this stat adds a table method, the table is no longer constant
-        observeMutations(node->name, /* couldMutateTable */ true);
-
-        return false;
-    }
-
-    bool visit(AstStatReturn* node) override
-    {
-        for (AstExpr* expr : node->list)
-            observeMutations(expr, /* couldMutateTable */ couldBeTableReference(expr));
-
-        return false;
-    }
-
-    bool visit(AstStatForIn* node) override
-    {
-        // Table iterators could mutate their tables
-        for (AstExpr* expr : node->values)
-            observeMutations(expr, /* couldMutateTable */ true);
-
-        node->body->visit(this);
-
-        return false;
-    }
-};
-
 // Pass to detect which tables are mutated or 'escape'
 struct TableMutationTracker : AstVisitor
 {
     const DenseHashMap<AstLocal*, Variable>& variables;
 
-    DenseHashSet<AstLocal*> escaped{nullptr};
+    DenseHashSet<AstLocal*> escaped;
 
     TableMutationTracker(const DenseHashMap<AstLocal*, Variable>& variables)
         : variables(variables)
@@ -844,7 +661,7 @@ struct TableMutationTracker : AstVisitor
         }
     }
 
-    void markEscapedTableIndex(AstExpr* expr, bool isLvalue)
+    void markEscapedTableIndex(AstExpr* expr, bool isLvalue_DEPRECATED)
     {
         if (AstExprIndexName* idx = expr->as<AstExprIndexName>())
         {
@@ -854,9 +671,31 @@ struct TableMutationTracker : AstVisitor
         {
             markEscaped(idx->expr);
 
-            if (isLvalue)
+            if (!FFlag::LuauCompileTableFoldFix && isLvalue_DEPRECATED)
                 markEscaped(idx->index);
         }
+    }
+
+    void markEscapedBinaryOp(AstExpr* lhs, AstExpr* rhs, AstExprBinary::Op op)
+    {
+        // Comparisons do not support operands with different metamethods, and/or don't have a metamethod
+        switch (op)
+        {
+        case AstExprBinary::CompareLt:
+        case AstExprBinary::CompareLe:
+        case AstExprBinary::CompareGt:
+        case AstExprBinary::CompareGe:
+        case AstExprBinary::CompareEq:
+        case AstExprBinary::CompareNe:
+        case AstExprBinary::And:
+        case AstExprBinary::Or:
+            return;
+        default:
+            break;
+        }
+
+        markEscaped(lhs);
+        markEscaped(rhs);
     }
 
     bool visit(AstExprCall* node) override
@@ -882,6 +721,22 @@ struct TableMutationTracker : AstVisitor
 
             markEscaped(item.value);
         }
+
+        return true;
+    }
+
+    bool visit(AstExprBinary* node) override
+    {
+        if (FFlag::LuauCompileTableFoldFix)
+            markEscapedBinaryOp(node->left, node->right, node->op);
+
+        return true;
+    }
+
+    bool visit(AstExprIndexExpr* node) override
+    {
+        if (FFlag::LuauCompileTableFoldFix)
+            markEscaped(node->index);
 
         return true;
     }
@@ -912,6 +767,10 @@ struct TableMutationTracker : AstVisitor
     {
         // LHS index expressions mutate the table
         markEscapedTableIndex(node->var, true);
+
+        if (FFlag::LuauCompileTableFoldFix)
+            markEscapedBinaryOp(node->var, node->value, node->op);
+
         return true;
     }
 
@@ -949,6 +808,7 @@ struct ConstantVisitor : AstVisitor
 
     const DenseHashMap<AstExprCall*, int>* builtins;
     bool foldLibraryK = false;
+    bool vectorDoublePrecision;
     LibraryMemberConstantCallback libraryMemberConstantCb;
     AstNameTable& stringTable;
     std::vector<DenseHashMap<AstName, Constant>> constantTables;
@@ -958,7 +818,7 @@ struct ConstantVisitor : AstVisitor
     std::vector<Constant> builtinArgs;
 
     const DenseHashMap<AstLocal*, TableConstantKind>& constantTableLocals;
-    DenseHashMap<AstLocal*, Constant> tableLocals{nullptr};
+    DenseHashMap<AstLocal*, Constant> tableLocals;
 
     ExprConstantChangeLog* exprChangeLog = nullptr;
     LocalConstantChangeLog* localChangeLog = nullptr;
@@ -969,6 +829,7 @@ struct ConstantVisitor : AstVisitor
         DenseHashMap<AstLocal*, Constant>& locals,
         const DenseHashMap<AstExprCall*, int>* builtins,
         bool foldLibraryK,
+        bool vectorDoublePrecision,
         LibraryMemberConstantCallback libraryMemberConstantCb,
         AstNameTable& stringTable,
         const DenseHashMap<AstLocal*, TableConstantKind>& constantTableLocals,
@@ -980,6 +841,7 @@ struct ConstantVisitor : AstVisitor
         , locals(locals)
         , builtins(builtins)
         , foldLibraryK(foldLibraryK)
+        , vectorDoublePrecision(vectorDoublePrecision)
         , libraryMemberConstantCb(libraryMemberConstantCb)
         , stringTable(stringTable)
         , constantTableLocals(constantTableLocals)
@@ -1028,11 +890,8 @@ struct ConstantVisitor : AstVisitor
         {
             if (const Constant* l = locals.find(expr->local))
                 result = *l;
-            else if (FFlag::LuauCompileFoldOptimize)
-            {
-                if (const Constant* l = tableLocals.find(expr->local))
-                    result = *l;
-            }
+            else if (const Constant* l = tableLocals.find(expr->local))
+                result = *l;
         }
         else if (node->is<AstExprGlobal>())
         {
@@ -1060,8 +919,7 @@ struct ConstantVisitor : AstVisitor
                 {
                     Constant ac = analyze(expr->args.data[i]);
 
-                    if (FFlag::LuauCompilePropagateTableProps2 ? ac.type == Constant::Type_Unknown || ac.type == Constant::Type_Table
-                                                               : ac.type == Constant::Type_Unknown)
+                    if (ac.type == Constant::Type_Unknown || ac.type == Constant::Type_Table)
                         canFold = false;
                     else
                         builtinArgs.push_back(ac);
@@ -1070,7 +928,7 @@ struct ConstantVisitor : AstVisitor
                 if (canFold)
                 {
                     LUAU_ASSERT(builtinArgs.size() == offset + expr->args.size);
-                    result = foldBuiltin(stringTable, *bfid, builtinArgs.data() + offset, expr->args.size);
+                    result = foldBuiltin(stringTable, *bfid, builtinArgs.data() + offset, expr->args.size, vectorDoublePrecision);
                 }
 
                 builtinArgs.resize(offset);
@@ -1084,7 +942,7 @@ struct ConstantVisitor : AstVisitor
         else if (AstExprIndexName* expr = node->as<AstExprIndexName>())
         {
             Constant value = analyze(expr->expr);
-            if (FFlag::LuauCompilePropagateTableProps2 && value.type == Constant::Type_Table)
+            if (value.type == Constant::Type_Table)
             {
                 LUAU_ASSERT(value.valueTable < constantTables.size());
                 if (value.valueTable < constantTables.size())
@@ -1094,22 +952,43 @@ struct ConstantVisitor : AstVisitor
                         result = *prop;
                 }
             }
-            else if (value.type == Constant::Type_Vector)
+            else if (value.type == Constant::Type_Vectorf)
             {
                 if (expr->index == "x" || expr->index == "X")
                 {
                     result.type = Constant::Type_Number;
-                    result.valueNumber = value.valueVector[0];
+                    result.valueNumber = value.valueVectorf[0];
                 }
                 else if (expr->index == "y" || expr->index == "Y")
                 {
                     result.type = Constant::Type_Number;
-                    result.valueNumber = value.valueVector[1];
+                    result.valueNumber = value.valueVectorf[1];
                 }
                 else if (expr->index == "z" || expr->index == "Z")
                 {
                     result.type = Constant::Type_Number;
-                    result.valueNumber = value.valueVector[2];
+                    result.valueNumber = value.valueVectorf[2];
+                }
+
+                // Do not handle 'w' component because it isn't known if the runtime will be configured in 3-wide or 4-wide mode
+                // In 3-wide, access to 'w' will call unspecified metamethod or fail
+            }
+            else if (value.type == Constant::Type_Vectord)
+            {
+                if (expr->index == "x" || expr->index == "X")
+                {
+                    result.type = Constant::Type_Number;
+                    result.valueNumber = value.valueVectord[0];
+                }
+                else if (expr->index == "y" || expr->index == "Y")
+                {
+                    result.type = Constant::Type_Number;
+                    result.valueNumber = value.valueVectord[1];
+                }
+                else if (expr->index == "z" || expr->index == "Z")
+                {
+                    result.type = Constant::Type_Number;
+                    result.valueNumber = value.valueVectord[2];
                 }
 
                 // Do not handle 'w' component because it isn't known if the runtime will be configured in 3-wide or 4-wide mode
@@ -1124,7 +1003,28 @@ struct ConstantVisitor : AstVisitor
 
                     // if we have a custom handler and the constant hasn't been resolved
                     if (libraryMemberConstantCb && result.type == Constant::Type_Unknown)
+                    {
                         libraryMemberConstantCb(eg->name.value, expr->index.value, reinterpret_cast<Luau::CompileConstant*>(&result));
+
+                        if (vectorDoublePrecision && result.type == Constant::Type_Vectorf)
+                        {
+                            Constant copy = result;
+                            result.type = Constant::Type_Vectord;
+                            result.valueVectord[0] = double(copy.valueVectorf[0]);
+                            result.valueVectord[1] = double(copy.valueVectorf[1]);
+                            result.valueVectord[2] = double(copy.valueVectorf[2]);
+                            result.valueVectord[3] = double(copy.valueVectorf[3]);
+                        }
+                        else if (!vectorDoublePrecision && result.type == Constant::Type_Vectord)
+                        {
+                            Constant copy = result;
+                            result.type = Constant::Type_Vectorf;
+                            result.valueVectorf[0] = float(copy.valueVectord[0]);
+                            result.valueVectorf[1] = float(copy.valueVectord[1]);
+                            result.valueVectorf[2] = float(copy.valueVectord[2]);
+                            result.valueVectorf[3] = float(copy.valueVectord[3]);
+                        }
+                    }
                 }
             }
         }
@@ -1133,7 +1033,7 @@ struct ConstantVisitor : AstVisitor
             Constant indexVal = analyze(expr->index);
             Constant tableVal = analyze(expr->expr);
 
-            if (FFlag::LuauCompilePropagateTableProps2 && tableVal.type == Constant::Type_Table && indexVal.type == Constant::Type_String)
+            if (tableVal.type == Constant::Type_Table && indexVal.type == Constant::Type_String)
             {
                 LUAU_ASSERT(tableVal.valueTable < constantTables.size());
                 if (tableVal.valueTable < constantTables.size() && indexVal.stringLength != 0)
@@ -1152,49 +1052,34 @@ struct ConstantVisitor : AstVisitor
         }
         else if (AstExprTable* expr = node->as<AstExprTable>())
         {
-            if (FFlag::LuauCompilePropagateTableProps2)
+            // If expr is a constant table, update result to be a table constant, and insert it into constantTables
+            DenseHashMap<AstName, Constant> props;
+            for (size_t i = 0; i < expr->items.size; ++i)
             {
-                // If expr is a constant table, update result to be a table constant, and insert it into constantTables
-                DenseHashMap<AstName, Constant> props{AstName()};
-                for (size_t i = 0; i < expr->items.size; ++i)
+                const AstExprTable::Item& item = expr->items.data[i];
+
+                Constant valueVal = analyze(item.value);
+
+                if (item.key)
                 {
-                    const AstExprTable::Item& item = expr->items.data[i];
+                    Constant keyVal = analyze(item.key);
 
-                    Constant valueVal = analyze(item.value);
-
-                    if (item.key)
+                    if (keyVal.type == Constant::Type_String && valueVal.type != Constant::Type_Unknown && valueVal.type != Constant::Type_Table &&
+                        keyVal.stringLength != 0)
                     {
-                        Constant keyVal = analyze(item.key);
+                        AstName constKey = stringTable.getOrAdd(keyVal.valueString, keyVal.stringLength);
 
-                        if (keyVal.type == Constant::Type_String && valueVal.type != Constant::Type_Unknown &&
-                            valueVal.type != Constant::Type_Table && keyVal.stringLength != 0)
-                        {
-                            AstName constKey = stringTable.getOrAdd(keyVal.valueString, keyVal.stringLength);
-
-                            props[std::move(constKey)] = std::move(valueVal);
-                        }
-                        // TODO: Support other types of keys
+                        props[std::move(constKey)] = std::move(valueVal);
                     }
-                }
-
-                if (props.size() == expr->items.size)
-                {
-                    result.type = Constant::Type_Table;
-                    result.valueTable = constantTables.size();
-                    constantTables.push_back(std::move(props));
+                    // TODO: Support other types of keys
                 }
             }
-            else
+
+            if (props.size() == expr->items.size)
             {
-                for (size_t i = 0; i < expr->items.size; ++i)
-                {
-                    const AstExprTable::Item& item = expr->items.data[i];
-
-                    if (item.key)
-                        analyze(item.key);
-
-                    analyze(item.value);
-                }
+                result.type = Constant::Type_Table;
+                result.valueTable = constantTables.size();
+                constantTables.push_back(std::move(props));
             }
         }
         else if (AstExprUnary* expr = node->as<AstExprUnary>())
@@ -1255,35 +1140,23 @@ struct ConstantVisitor : AstVisitor
     template<typename T>
     void recordConstant(DenseHashMap<T, Constant>& map, T key, const Constant& value)
     {
-        if (FFlag::LuauCompileFoldOptimize && FFlag::LuauCompilePropagateTableProps2)
+        if (value.type == Constant::Type_Table)
         {
-            if (value.type == Constant::Type_Table)
-            {
-                // Table constants are recorded in a separate map
-            }
-            else if (value.type != Constant::Type_Unknown)
-            {
-                logChange(map, key);
-                map[key] = value;
-            }
-            else if (wasEmpty)
-            {
-                // No need to clear out entries if we started with empty maps
-            }
-            else if (Constant* old = map.find(key))
-            {
-                logChange(map, key, old);
-                old->type = Constant::Type_Unknown;
-            }
+            // Table constants are recorded in a separate map
         }
-        else
+        else if (value.type != Constant::Type_Unknown)
         {
-            if (value.type != Constant::Type_Unknown)
-                map[key] = value;
-            else if (wasEmpty && !FFlag::LuauCompilePropagateTableProps2)
-                ;
-            else if (Constant* old = map.find(key))
-                old->type = Constant::Type_Unknown;
+            logChange(map, key);
+            map[key] = value;
+        }
+        else if (wasEmpty)
+        {
+            // No need to clear out entries if we started with empty maps
+        }
+        else if (Constant* old = map.find(key))
+        {
+            logChange(map, key, old);
+            old->type = Constant::Type_Unknown;
         }
     }
 
@@ -1313,23 +1186,14 @@ struct ConstantVisitor : AstVisitor
 
         if (!v->written)
         {
-            if (FFlag::LuauCompileFoldOptimize && FFlag::LuauCompilePropagateTableProps2)
+            if (value.type == Constant::Type_Table)
             {
-                if (value.type == Constant::Type_Table)
-                {
-                    v->constant = false;
-                    tableLocals[local] = value;
-                }
-                else
-                {
-                    v->constant = (value.type != Constant::Type_Unknown);
-                    recordConstant(locals, local, value);
-                }
+                v->constant = false;
+                tableLocals[local] = value;
             }
             else
             {
-                v->constant = FFlag::LuauCompilePropagateTableProps2 ? value.type != Constant::Type_Unknown && value.type != Constant::Type_Table
-                                                                     : value.type != Constant::Type_Unknown;
+                v->constant = (value.type != Constant::Type_Unknown);
                 recordConstant(locals, local, value);
             }
         }
@@ -1344,27 +1208,53 @@ struct ConstantVisitor : AstVisitor
         return false;
     }
 
+    void recordLocal(AstLocal* local, AstExpr* value)
+    {
+        Constant arg = analyze(value);
+
+        if (arg.type == Constant::Type_Table)
+        {
+            // If this table could be mutated later, record Constant_Unknown instead of Constant_Table
+            const TableConstantKind* kind = constantTableLocals.find(local);
+            if (kind && *kind == ConstantTable)
+                recordValue(local, arg);
+            else
+                recordValue(local, {});
+        }
+        else
+        {
+            recordValue(local, arg);
+        }
+    }
+
     bool visit(AstStatLocal* node) override
     {
         // all values that align wrt indexing are simple - we just match them 1-1
         for (size_t i = 0; i < node->vars.size && i < node->values.size; ++i)
         {
-            AstExpr* rhs = node->values.data[i];
-            Constant arg = analyze(rhs);
-
-            if (FFlag::LuauCompilePropagateTableProps2 && arg.type == Constant::Type_Table)
+            if (FFlag::LuauExperimentalIfLocalSyntax)
             {
-                AstLocal* local = node->vars.data[i];
-
-                // If this table could be mutated later, record Constant_Unknown instead of Constant_Table
-                const TableConstantKind* kind = constantTableLocals.find(local);
-                if (kind && *kind == ConstantTable)
-                    recordValue(local, arg);
-                else
-                    recordValue(local, {});
+                recordLocal(node->vars.data[i], node->values.data[i]);
             }
             else
-                recordValue(node->vars.data[i], arg);
+            {
+                AstExpr* rhs = node->values.data[i];
+                Constant arg = analyze(rhs);
+
+                if (arg.type == Constant::Type_Table)
+                {
+                    AstLocal* local = node->vars.data[i];
+
+                    // If this table could be mutated later, record Constant_Unknown instead of Constant_Table
+                    const TableConstantKind* kind = constantTableLocals.find(local);
+                    if (kind && *kind == ConstantTable)
+                        recordValue(local, arg);
+                    else
+                        recordValue(local, {});
+                }
+                else
+                    recordValue(node->vars.data[i], arg);
+            }
         }
 
         if (node->vars.size > node->values.size)
@@ -1393,33 +1283,49 @@ struct ConstantVisitor : AstVisitor
 
         return false;
     }
+
+    bool visit(AstStatIf* node) override
+    {
+        if (AstLocal* local = node->conditionLocal)
+        {
+            recordLocal(local, node->condition);
+
+            node->thenbody->visit(this);
+
+            if (node->elsebody)
+                node->elsebody->visit(this);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    bool visit(AstExprIfElse* node) override
+    {
+        if (node->conditionLocal)
+            recordLocal(node->conditionLocal, node->condition);
+
+        analyze(node);
+        return false;
+    }
 };
 
 void buildTableConstantMap(DenseHashMap<AstLocal*, TableConstantKind>& result, const DenseHashMap<AstLocal*, Variable>& variables, AstNode* root)
 {
-    LUAU_ASSERT(FFlag::LuauCompileFoldOptimize && FFlag::LuauCompilePropagateTableProps2);
+    TableMutationTracker tracker{variables};
+    root->visit(&tracker);
 
-    if (FFlag::LuauCompileNewTableMutationTracker)
+    for (auto& [local, var] : variables)
     {
-        TableMutationTracker tracker{variables};
-        root->visit(&tracker);
+        if (var.written)
+            continue;
 
-        for (auto& [local, var] : variables)
-        {
-            if (var.written)
-                continue;
+        if (!var.init || !unwrapExprOfType<AstExprTable>(var.init))
+            continue;
 
-            if (!var.init || !unwrapExprOfType<AstExprTable>(var.init))
-                continue;
-
-            if (!tracker.escaped.contains(local))
-                result[local] = ConstantTable;
-        }
-    }
-    else
-    {
-        TableMutationTracker_DEPRECATED mutationTracker{result, variables};
-        root->visit(&mutationTracker);
+        if (!tracker.escaped.contains(local))
+            result[local] = ConstantTable;
     }
 }
 
@@ -1461,6 +1367,7 @@ void foldConstants(
     DenseHashMap<AstLocal*, Constant>& locals,
     const DenseHashMap<AstExprCall*, int>* builtins,
     bool foldLibraryK,
+    bool vectorDoublePrecision,
     LibraryMemberConstantCallback libraryMemberConstantCb,
     AstNode* root,
     AstNameTable& stringTable,
@@ -1469,43 +1376,20 @@ void foldConstants(
     LocalConstantChangeLog* localChangeLog
 )
 {
-    DenseHashMap<AstLocal*, TableConstantKind> constantTables_DEPRECATED{nullptr};
-
-    if (FFlag::LuauCompilePropagateTableProps2 && !FFlag::LuauCompileFoldOptimize)
-    {
-        TableMutationTracker_DEPRECATED mutationTracker{constantTables_DEPRECATED, variables};
-        root->visit(&mutationTracker);
-    }
-
     ConstantVisitor visitor{
         constants,
         variables,
         locals,
         builtins,
         foldLibraryK,
+        vectorDoublePrecision,
         libraryMemberConstantCb,
         stringTable,
-        FFlag::LuauCompileFoldOptimize ? tableConstants : constantTables_DEPRECATED,
+        tableConstants,
         exprChangeLog,
         localChangeLog
     };
     root->visit(&visitor);
-
-    if (FFlag::LuauCompilePropagateTableProps2 && !FFlag::LuauCompileFoldOptimize)
-    {
-        // Set any table constants to have constant type unknown, since we don't support emitting them as constants
-        for (auto& [_, constant] : constants)
-        {
-            if (constant.type == Constant::Type_Table)
-                constant.type = Constant::Type_Unknown;
-        }
-
-        for (auto& [_, constant] : locals)
-        {
-            if (constant.type == Constant::Type_Table)
-                constant.type = Constant::Type_Unknown;
-        }
-    }
 }
 
 } // namespace Compile

@@ -23,7 +23,11 @@ let
 in
 {
   # Disable the home-manager module to avoid conflicts
-  disabledModules = [ "programs/noctalia.nix" ];
+  # The module got turned into a folder on 2026-09-30. Disable both old and new.
+  disabledModules = [
+    "programs/noctalia.nix"
+    "programs/noctalia"
+  ];
 
   imports = [
     (lib.mkRenamedOptionModule

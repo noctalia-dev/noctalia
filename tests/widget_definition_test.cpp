@@ -34,10 +34,13 @@
 #include "shell/bar/widgets/volume_widget_definition.h"
 #include "shell/bar/widgets/wallpaper_widget_definition.h"
 #include "shell/bar/widgets/weather_widget_definition.h"
+#include "shell/desktop/desktop_widget_settings_registry.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "system/battery_warning_monitor.h"
+#include "system/format_units.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <exception>
 #include <format>
 #include <print>
@@ -180,6 +183,60 @@ int main() {
     fail("sysmon", "valid resolved options produced a semantic error");
   }
 
+  WidgetConfig networkPrecision;
+  networkPrecision.type = "sysmon";
+  networkPrecision.settings["stat"] = std::string("net_rx");
+  networkPrecision.settings["network_speed_decimal_places"] = std::int64_t{-1};
+  if (sysmonWidgetDefinition().resolve(&networkPrecision, "sysmon", {}).networkSpeedDecimalPlaces
+      != FormatUnits::kMinCompactByteRateDecimalPlaces) {
+    fail("sysmon", "network speed precision was not clamped to its lower bound");
+  }
+  networkPrecision.settings["network_speed_decimal_places"] = std::int64_t{4};
+  if (sysmonWidgetDefinition().resolve(&networkPrecision, "sysmon", {}).networkSpeedDecimalPlaces
+      != FormatUnits::kMaxCompactByteRateDecimalPlaces) {
+    fail("sysmon", "network speed precision was not clamped to its upper bound");
+  }
+
+  Config networkPrecisionConfig;
+  networkPrecision.settings["network_speed_compact"] = false;
+  networkPrecisionConfig.widgets.emplace("network-precision", networkPrecision);
+  const auto networkPrecisionVisible = [&](const std::vector<settings::WidgetSettingSpec>& specs) {
+    const auto precision =
+        std::ranges::find(specs, "network_speed_decimal_places", [](const settings::WidgetSettingSpec& candidate) {
+          return std::string_view(candidate.schema.key);
+        });
+    if (precision == specs.end()) {
+      fail("sysmon", "network_speed_decimal_places is missing from the settings specs");
+      return false;
+    }
+    return settings::widgetSettingIsVisible(
+        networkPrecisionConfig, "network-precision", *precision, specs, settings::WidgetSettingCapabilities{}
+    );
+  };
+  const auto barSysmonSpecs =
+      settings::widgetSettingSpecs("sysmon", &networkPrecisionConfig.widgets.at("network-precision"), "", false);
+  if (networkPrecisionVisible(barSysmonSpecs)) {
+    fail("sysmon", "network speed precision is visible when compact formatting is disabled");
+  }
+  networkPrecisionConfig.widgets.at("network-precision").settings["network_speed_compact"] = true;
+  if (!networkPrecisionVisible(barSysmonSpecs)) {
+    fail("sysmon", "network speed precision is hidden for a compact network stat");
+  }
+  networkPrecisionConfig.widgets.at("network-precision").settings["stat"] = std::string("cpu_usage");
+  if (networkPrecisionVisible(barSysmonSpecs)) {
+    fail("sysmon", "network speed precision is visible for a non-network stat");
+  }
+
+  const auto desktopSysmonSpecs = desktop_settings::desktopWidgetSettingSpecs("sysmon");
+  networkPrecisionConfig.widgets.at("network-precision").settings["stat2"] = std::string("net_tx");
+  if (!networkPrecisionVisible(desktopSysmonSpecs)) {
+    fail("desktop sysmon", "network speed precision is hidden for a compact secondary network stat");
+  }
+  networkPrecisionConfig.widgets.at("network-precision").settings["network_speed_compact"] = false;
+  if (networkPrecisionVisible(desktopSysmonSpecs)) {
+    fail("desktop sysmon", "network speed precision is visible when compact formatting is disabled");
+  }
+
   checkDefinition("taskbar", taskbarWidgetDefinition);
   WidgetConfig spacedTaskbar;
   spacedTaskbar.type = "taskbar";
@@ -191,6 +248,15 @@ int main() {
   }
   if (resolvedTaskbar.iconScale != 0.75F) {
     fail("taskbar", "icon scale override did not resolve");
+  }
+  if (!resolvedTaskbar.showRunning) {
+    fail("taskbar", "show_running default did not resolve");
+  }
+  WidgetConfig pinnedOnlyTaskbar;
+  pinnedOnlyTaskbar.type = "taskbar";
+  pinnedOnlyTaskbar.settings["show_running"] = false;
+  if (taskbarWidgetDefinition().resolve(&pinnedOnlyTaskbar, "taskbar").showRunning) {
+    fail("taskbar", "show_running override didn't resolve");
   }
 
   Config taskbarConfig;
@@ -219,6 +285,7 @@ int main() {
   };
   if (settingVisible("group_by_workspace", false)
       || !settingVisible("pinned", false)
+      || !settingVisible("show_running", false)
       || !settingVisible("show_window_title", false)
       || !settingVisible("window_title_max_width", false)
       || settingVisible("capsule_radius", false)) {
@@ -231,6 +298,7 @@ int main() {
   taskbarConfig.widgets.at("taskbar-test").settings["capsule"] = false;
   if (!settingVisible("group_by_workspace", true)
       || settingVisible("pinned", true)
+      || settingVisible("show_running", true)
       || !settingVisible("capsule_radius", true)) {
     fail("taskbar", "supported workspace grouping did not expose grouped settings");
   }

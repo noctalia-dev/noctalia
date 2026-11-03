@@ -1,11 +1,11 @@
 #include "app/application.h"
+#include "app/build_info.h"
 #include "app/single_instance_lock.h"
 #include "auth/pam_authenticator.h"
 #include "cli/completions.h"
 #include "cli/help.h"
 #include "cli/schema_root.h"
 #include "config/cli.h"
-#include "core/build_info.h"
 #include "core/log.h"
 #include "core/process/process_fds.h"
 #include "ipc/cli.h"
@@ -192,7 +192,7 @@ namespace {
     if (::setsid() == -1) {
       std::perror("setsid");
       const int daemonResult = 1;
-      (void)writeAll(pipeFds[1], &daemonResult, sizeof(daemonResult));
+      writeAll(pipeFds[1], &daemonResult, sizeof(daemonResult));
       closeFd(pipeFds[1]);
       _exit(1);
     }
@@ -201,7 +201,7 @@ namespace {
     if (::setenv(kDaemonPipeEnv, pipeFd.c_str(), 1) == -1) {
       std::perror("setenv");
       const int daemonResult = 1;
-      (void)writeAll(pipeFds[1], &daemonResult, sizeof(daemonResult));
+      writeAll(pipeFds[1], &daemonResult, sizeof(daemonResult));
       closeFd(pipeFds[1]);
       _exit(1);
     }
@@ -209,7 +209,7 @@ namespace {
     ::execvp(argv[0], argv);
     std::perror("execvp");
     const int daemonResult = 1;
-    (void)writeAll(pipeFds[1], &daemonResult, sizeof(daemonResult));
+    writeAll(pipeFds[1], &daemonResult, sizeof(daemonResult));
     closeFd(pipeFds[1]);
     _exit(1);
   }
@@ -231,7 +231,7 @@ namespace {
     }
     try {
       Application app;
-      app.run([]() { completeDaemonStartup(0); });
+      app.run([] { completeDaemonStartup(0); });
     } catch (const std::exception& e) {
       logError("fatal: {}", e.what());
       completeDaemonStartup(1);

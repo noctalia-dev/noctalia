@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render/core/texture_manager.h"
+#include "render/core/shared_texture_cache.h"
 
 #include <cstdint>
 #include <memory>
@@ -17,6 +17,10 @@ struct BackdropInstance {
 
   std::unique_ptr<BackdropSurface> surface;
 
+  // Declared after surface so the leases release before the upload backend they may reference goes away.
   std::string currentPath;
-  TextureHandle currentTexture;
+  SharedTextureCache::Lease currentLease;
+  // A newer wallpaper still decoding; currentLease stays visible until it is ready.
+  std::string pendingPath;
+  SharedTextureCache::Lease pendingLease;
 };

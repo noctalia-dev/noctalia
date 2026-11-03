@@ -11,12 +11,12 @@ namespace noctalia::theme {
 
   struct GeneratedPalette;
 
-  [[nodiscard]] std::filesystem::path customPaletteDir();
-  [[nodiscard]] std::filesystem::path customPalettePath(std::string_view name);
-  [[nodiscard]] std::vector<AvailablePalette> availableCustomPalettes();
+  std::filesystem::path customPaletteDir();
+  std::filesystem::path customPalettePath(std::string_view name);
+  std::vector<AvailablePalette> availableCustomPalettes();
 
-  [[nodiscard]] std::string suggestCustomPaletteName(std::string_view wallpaperPath, std::string_view scheme);
-  [[nodiscard]] std::string allocateCustomPaletteName(std::string_view wallpaperPath, std::string_view scheme);
+  std::string suggestCustomPaletteName(std::string_view wallpaperPath, std::string_view scheme);
+  std::string allocateCustomPaletteName(std::string_view wallpaperPath, std::string_view scheme);
   [[nodiscard]] bool saveCustomPaletteFromGenerated(
       std::string_view name, const GeneratedPalette& palette, std::string* errorOut = nullptr
   );

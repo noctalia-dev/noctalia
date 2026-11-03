@@ -54,9 +54,9 @@ void HyprlandWorkspaceBackend::activate(const std::string& id) {
   }
 
   if (m_runtime.configIsLua()) {
-    (void)m_runtime.request(std::format("dispatch hl.dsp.focus({{workspace = \"{}\"}})", target));
+    m_runtime.request(std::format("dispatch hl.dsp.focus({{workspace = \"{}\"}})", target));
   } else {
-    (void)m_runtime.request(std::format("dispatch workspace {}", target));
+    m_runtime.request(std::format("dispatch workspace {}", target));
   }
 }
 
@@ -164,11 +164,10 @@ std::vector<WorkspaceWindow> HyprlandWorkspaceBackend::workspaceWindows(wl_outpu
     if (toplevel.workspaceKey.empty() || (m_ipcSchema == IpcSchema::LegacyId && toplevel.workspaceKey == "-1")) {
       continue;
     }
-    if (filterByOutput && !m_workspaces.empty()) {
-      if (!workspacesOnOutput.contains(toplevel.workspaceKey)) {
-        continue;
-      }
+    if (filterByOutput && !m_workspaces.empty() && !workspacesOnOutput.contains(toplevel.workspaceKey)) {
+      continue;
     }
+
     result.push_back(
         WorkspaceWindow{
             .windowId = compositors::hyprland::formatWindowAddress(address),
@@ -196,6 +195,26 @@ std::vector<WorkspaceWindow> HyprlandWorkspaceBackend::workspaceWindows(wl_outpu
   return result;
 }
 
+// Hyprland keeps the regular workspace active while a special workspace covers the monitor.
+std::vector<std::string> HyprlandWorkspaceBackend::openOverlayWorkspaceKeys(wl_output* output) const {
+  ensureSnapshotFresh();
+
+  const std::string outputName = m_outputNameResolver != nullptr ? m_outputNameResolver(output) : std::string{};
+  std::vector<std::string> keys;
+  keys.reserve(m_openSpecialWorkspaceByMonitor.size());
+  for (const auto& [monitor, workspaceKey] : m_openSpecialWorkspaceByMonitor) {
+    if (workspaceKey.empty()) {
+      continue;
+    }
+    // An unresolvable output name must not hide an open special workspace.
+    if (output != nullptr && !outputName.empty() && monitor != outputName) {
+      continue;
+    }
+    keys.push_back(assignmentKeyFor(workspaceKey));
+  }
+  return keys;
+}
+
 std::optional<std::string> HyprlandWorkspaceBackend::focusedWindowId() const {
   if (m_focusedWindowId.empty()) {
     return std::nullopt;
@@ -213,17 +232,19 @@ void HyprlandWorkspaceBackend::focusWindow(const std::string& windowId) {
   }
   const std::string target = "address:0x" + normalized;
   if (m_runtime.configIsLua()) {
-    (void)m_runtime.request(std::format("dispatch hl.dsp.focus({{window = \"{}\"}})", target));
+    m_runtime.request(std::format("dispatch hl.dsp.focus({{window = \"{}\"}})", target));
+    m_runtime.request(std::format(R"(dispatch hl.dsp.window.alter_zorder({{mode = "top", window = "{}"}}))", target));
   } else {
-    (void)m_runtime.request(std::format("dispatch focuswindow {}", target));
+    m_runtime.request(std::format("dispatch focuswindow {}", target));
+    m_runtime.request(std::format("dispatch alterzorder top,{}", target));
   }
-  (void)m_runtime.request(std::format("dispatch alterzorder top,{}", target));
 }
 
 void HyprlandWorkspaceBackend::notifyCleanup() {
   m_workspaces.clear();
   m_toplevels.clear();
   m_activeWorkspaceByMonitor.clear();
+  m_openSpecialWorkspaceByMonitor.clear();
   m_focusedWindowId.clear();
   m_nextOrdinal = 0;
   m_ipcSchema = IpcSchema::Unknown;
@@ -259,10 +280,8 @@ void HyprlandWorkspaceBackend::reconcileFromCompositor() {
 
 void HyprlandWorkspaceBackend::ensureSnapshotFresh() const {
   auto* self = const_cast<HyprlandWorkspaceBackend*>(this);
-  if (!m_runtime.available()) {
-    if (!self->connectSocket()) {
-      return;
-    }
+  if (!m_runtime.available() && !self->connectSocket()) {
+    return;
   }
 
   bool changed = false;
@@ -270,12 +289,11 @@ void HyprlandWorkspaceBackend::ensureSnapshotFresh() const {
     self->refreshClients();
     changed = true;
   }
-  if (m_workspaces.empty()) {
-    if (self->refreshWorkspaces() != WorkspaceRefreshResult::Invalid) {
-      self->refreshMonitors();
-      changed = true;
-    }
+  if (m_workspaces.empty() && self->refreshWorkspaces() != WorkspaceRefreshResult::Invalid) {
+    self->refreshMonitors();
+    changed = true;
   }
+
   if (changed) {
     self->recomputeWorkspaceFlags();
   }
@@ -477,6 +495,7 @@ void HyprlandWorkspaceBackend::refreshMonitors() {
   }
 
   std::unordered_map<std::string, std::string> activeByMonitor;
+  std::unordered_map<std::string, std::string> specialByMonitor;
   for (const auto& item : *json) {
     if (!item.is_object()) {
       continue;
@@ -495,9 +514,19 @@ void HyprlandWorkspaceBackend::refreshMonitors() {
       }
       activeByMonitor[monitorName] = identity->key;
     }
+
+    // Hyprland only sends specialWorkspace while it is open, so a missing field clears it.
+    const auto specialIt = item.find("specialWorkspace");
+    if (specialIt != item.end() && specialIt->is_object()) {
+      const auto identity = parseJsonWorkspaceIdentity(*specialIt, m_ipcSchema);
+      if (identity.has_value() && identity->kind == WorkspaceKind::Special) {
+        specialByMonitor[monitorName] = identity->key;
+      }
+    }
   }
 
   m_activeWorkspaceByMonitor = std::move(activeByMonitor);
+  m_openSpecialWorkspaceByMonitor = std::move(specialByMonitor);
 }
 
 void HyprlandWorkspaceBackend::refreshClients() {
@@ -709,6 +738,16 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
     return;
   }
 
+  if (event == "activespecial" || event == "activespecialv2") {
+    // Toggling an already-populated special moves no window, so no other event tells us
+    // the monitor snapshot went stale. The payload is not parsed: j/monitors is the only
+    // source that tells whether the special is open, and it keys it per monitor.
+    refreshMonitors();
+    recomputeWorkspaceFlags();
+    notifyChanged();
+    return;
+  }
+
   if (event == "createworkspacev2") {
     const auto args = parseEventArgs(data, 2);
     const auto identity = parseEventWorkspaceIdentity(args[0], args[1]);
@@ -750,6 +789,7 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
       }
     }
 
+    refreshMonitors();
     recomputeWorkspaceFlags();
     notifyChanged();
     return;
@@ -816,6 +856,8 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
     return;
   }
 
+  // A special workspace can open or close on any of these without a workspacev2 event, so
+  // the monitor snapshot is refreshed before the branches below fan out.
   if (event == "openwindow") {
     const auto args = parseEventArgs(data, 4);
     const auto address = parseHexAddress(args[0]);
@@ -824,13 +866,14 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
     if (!address.has_value() || workspaceName.empty()) {
       return;
     }
+    refreshMonitors();
     if (isAddressIdentitySchema(m_ipcSchema)) {
       refreshClients();
       recomputeWorkspaceFlags();
       notifyChanged();
       return;
     }
-    const auto workspace = findWorkspaceByName(workspaceName);
+    auto* workspace = findWorkspaceByName(workspaceName);
     if (workspace == nullptr) {
       refreshClients();
       recomputeWorkspaceFlags();
@@ -855,6 +898,7 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
       return;
     }
     m_toplevels.erase(*address);
+    refreshMonitors();
     recomputeWorkspaceFlags();
     notifyChanged();
     return;
@@ -871,6 +915,7 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
       return;
     }
     moveToplevel(*address, identity->key);
+    refreshMonitors();
     refreshClients();
     recomputeWorkspaceFlags();
     notifyChanged();
@@ -1062,7 +1107,7 @@ HyprlandWorkspaceBackend::parseJsonWorkspaceIdentity(const nlohmann::json& json,
       identity.selector = identity.key;
       return identity;
     }
-    const auto id = [&]() -> std::optional<std::uint64_t> {
+    const auto id = [&] -> std::optional<std::uint64_t> {
       if (idIt->is_number_unsigned()) {
         return idIt->get<std::uint64_t>();
       }

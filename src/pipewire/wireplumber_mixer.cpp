@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 
+#include <algorithm>
 #include <functional>
 #include <glib.h>
 #include <optional>
@@ -12,6 +13,8 @@
 
 namespace {
   constexpr Logger kLog("wireplumber");
+  constexpr guint kReconnectInitialDelayMs = 250;
+  constexpr guint kReconnectMaxDelayMs = 5000;
 
   // wp_mixer_api_volume_scale_enum: SCALE_LINEAR = 0, SCALE_CUBIC = 1. Cubic makes the
   // "volume" value match what pavucontrol displays, so we pass our perceptual value directly.
@@ -27,6 +30,12 @@ struct WirePlumberMixer::Impl {
   WpPlugin* defaultNodes = nullptr;   // default-nodes-api: default sink/source selection
   bool ready = false;                 // mixer-api active (gates volume/mute)
   bool defaultNodesReady = false;     // default-nodes-api active (gates default-device changes)
+  bool disconnectPending = false;
+  GSource* reconnectSource = nullptr;
+  GSource* readyWatchdog = nullptr;
+  guint reconnectDelayMs = kReconnectInitialDelayMs;
+  gulong coreDisconnectedHandler = 0;
+  gulong mixerChangedHandler = 0;
 
   // Writes requested before the mixer-api finished activating (~1s at startup). Keyed by node id,
   // latest value wins; flushed once ready so early volume/mute changes are not lost.
@@ -54,20 +63,53 @@ struct WirePlumberMixer::Impl {
     (void)s_wpInit;
 
     context = g_main_context_new();
-    cancellable = g_cancellable_new();
 
     // Run all WirePlumber setup with our private context pushed as the thread-default. The GTasks that
     // wp_core_load_component / wp_object_activate create capture whatever context is thread-default at
     // call time; without this they capture the global default context, which the poll bridge never
     // pumps, so their completion callbacks never fire and the mixer silently never activates.
     g_main_context_push_thread_default(context);
+    if (!startSession()) {
+      kLog.warn("could not connect to PipeWire; retrying device volume control in the background");
+      resetSession(false);
+      scheduleReconnect();
+    }
 
-    core = wp_core_new(context, nullptr, nullptr);
+    g_main_context_pop_thread_default(context);
+  }
 
-    if (wp_core_connect(core) == FALSE) {
-      kLog.warn("could not connect to PipeWire; device volume control unavailable");
-      g_main_context_pop_thread_default(context);
+  ~Impl() {
+    clearSource(reconnectSource);
+    resetSession(false);
+    if (context != nullptr) {
+      g_main_context_unref(context);
+    }
+  }
+
+  static void clearSource(GSource*& source) {
+    if (source == nullptr) {
       return;
+    }
+    g_source_destroy(source);
+    g_source_unref(source);
+    source = nullptr;
+  }
+
+  bool startSession() {
+    if (core != nullptr) {
+      return wp_core_is_connected(core) != FALSE;
+    }
+
+    disconnectPending = false;
+    cancellable = g_cancellable_new();
+    core = wp_core_new(context, nullptr, nullptr);
+    if (core == nullptr) {
+      return false;
+    }
+
+    coreDisconnectedHandler = g_signal_connect(core, "disconnected", G_CALLBACK(&Impl::onCoreDisconnected), this);
+    if (wp_core_connect(core) == FALSE) {
+      return false;
     }
 
     // Track nodes so set-default can resolve an id to its media.class / node.name from the daemon's
@@ -78,7 +120,6 @@ struct WirePlumberMixer::Impl {
     wp_core_install_object_manager(core, nodesOm);
 
     kLog.info("connected; loading mixer-api / default-nodes-api modules");
-
     wp_core_load_component(
         core, "libwireplumber-module-mixer-api", "module", nullptr, nullptr, cancellable, &Impl::onMixerLoaded, this
     );
@@ -87,41 +128,106 @@ struct WirePlumberMixer::Impl {
         &Impl::onDefaultNodesLoaded, this
     );
 
-    // If neither module reports ready within a few seconds, device volume/mute is silently dead
-    // (every write no-ops until the mixer activates). Surface it so users have something to report.
-    GSource* watchdog = g_timeout_source_new_seconds(5);
-    g_source_set_callback(watchdog, &Impl::onReadyWatchdog, this, nullptr);
-    g_source_attach(watchdog, context);
-    g_source_unref(watchdog);
-
-    g_main_context_pop_thread_default(context);
+    readyWatchdog = g_timeout_source_new_seconds(5);
+    g_source_set_callback(readyWatchdog, &Impl::onReadyWatchdog, this, nullptr);
+    g_source_attach(readyWatchdog, context);
+    reconnectDelayMs = kReconnectInitialDelayMs;
+    return true;
   }
 
-  ~Impl() {
+  void resetSession(bool discardPendingWrites) {
+    clearSource(readyWatchdog);
+    ready = false;
+    defaultNodesReady = false;
+
     if (cancellable != nullptr) {
       g_cancellable_cancel(cancellable);
       g_object_unref(cancellable);
+      cancellable = nullptr;
     }
     if (defaultNodes != nullptr) {
       g_object_unref(defaultNodes);
+      defaultNodes = nullptr;
     }
     if (mixer != nullptr) {
+      if (mixerChangedHandler != 0) {
+        g_signal_handler_disconnect(mixer, mixerChangedHandler);
+        mixerChangedHandler = 0;
+      }
       g_object_unref(mixer);
+      mixer = nullptr;
     }
     if (nodesOm != nullptr) {
       g_object_unref(nodesOm);
+      nodesOm = nullptr;
     }
     if (core != nullptr) {
-      wp_core_disconnect(core);
+      if (coreDisconnectedHandler != 0) {
+        g_signal_handler_disconnect(core, coreDisconnectedHandler);
+        coreDisconnectedHandler = 0;
+      }
+      if (wp_core_is_connected(core) != FALSE) {
+        wp_core_disconnect(core);
+      }
       g_object_unref(core);
+      core = nullptr;
     }
-    if (context != nullptr) {
-      g_main_context_unref(context);
+
+    if (discardPendingWrites) {
+      pendingBeforeReady.clear();
+      pendingDefaultIds.clear();
     }
+    disconnectPending = false;
+  }
+
+  void scheduleReconnect() {
+    if (reconnectSource != nullptr) {
+      return;
+    }
+    kLog.info("retrying WirePlumber mixer connection in {}ms", reconnectDelayMs);
+    reconnectSource = g_timeout_source_new(reconnectDelayMs);
+    g_source_set_callback(reconnectSource, &Impl::onReconnectTimer, this, nullptr);
+    g_source_attach(reconnectSource, context);
+    reconnectDelayMs = std::min(reconnectDelayMs * 2, kReconnectMaxDelayMs);
+    g_main_context_wakeup(context);
+  }
+
+  static gboolean onReconnectTimer(gpointer data) noexcept {
+    auto* self = static_cast<Impl*>(data);
+    GSource* const source = self->reconnectSource;
+    self->reconnectSource = nullptr;
+    if (source != nullptr) {
+      g_source_unref(source);
+    }
+
+    if (!self->startSession()) {
+      self->resetSession(false);
+      self->scheduleReconnect();
+    }
+    return G_SOURCE_REMOVE;
+  }
+
+  static void onCoreDisconnected(WpCore* /*core*/, gpointer data) noexcept {
+    auto* self = static_cast<Impl*>(data);
+    self->ready = false;
+    self->defaultNodesReady = false;
+    self->disconnectPending = true;
+    g_main_context_wakeup(self->context);
+  }
+
+  void handleDisconnect() {
+    kLog.warn("PipeWire connection lost; device volume control will reconnect");
+    resetSession(true);
+    scheduleReconnect();
   }
 
   static gboolean onReadyWatchdog(gpointer data) noexcept {
     auto* self = static_cast<Impl*>(data);
+    GSource* const source = self->readyWatchdog;
+    self->readyWatchdog = nullptr;
+    if (source != nullptr) {
+      g_source_unref(source);
+    }
     if (!self->ready || !self->defaultNodesReady) {
       kLog.warn(
           "device volume control unavailable after 5s (mixer-api {}, default-nodes-api {}); volume/mute "
@@ -132,28 +238,41 @@ struct WirePlumberMixer::Impl {
     return G_SOURCE_REMOVE;
   }
 
-  static void onMixerLoaded(GObject* /*source*/, GAsyncResult* res, gpointer data) noexcept {
+  static void onMixerLoaded(GObject* source, GAsyncResult* res, gpointer data) noexcept {
     auto* self = static_cast<Impl*>(data);
+    auto* const callbackCore = WP_CORE(source);
     GError* err = nullptr;
-    if (wp_core_load_component_finish(self->core, res, &err) == FALSE) {
+    const gboolean loaded = wp_core_load_component_finish(callbackCore, res, &err);
+    if (callbackCore != self->core) {
+      g_clear_error(&err);
+      return;
+    }
+    if (loaded == FALSE) {
       kLog.warn("mixer-api load failed: {}", err != nullptr ? err->message : "unknown");
       g_clear_error(&err);
       return;
     }
 
-    self->mixer = wp_plugin_find(self->core, "mixer-api");
+    self->mixer = wp_plugin_find(callbackCore, "mixer-api");
     if (self->mixer == nullptr) {
       kLog.warn("mixer-api plugin not found after load");
       return;
     }
 
-    wp_object_activate(WP_OBJECT(self->mixer), WP_PLUGIN_FEATURE_ENABLED, nullptr, &Impl::onMixerActivated, self);
+    wp_object_activate(
+        WP_OBJECT(self->mixer), WP_PLUGIN_FEATURE_ENABLED, self->cancellable, &Impl::onMixerActivated, self
+    );
   }
 
-  static void onMixerActivated(GObject* /*source*/, GAsyncResult* res, gpointer data) noexcept {
+  static void onMixerActivated(GObject* source, GAsyncResult* res, gpointer data) noexcept {
     auto* self = static_cast<Impl*>(data);
     GError* err = nullptr;
-    if (wp_object_activate_finish(WP_OBJECT(self->mixer), res, &err) == FALSE) {
+    const gboolean activated = wp_object_activate_finish(WP_OBJECT(source), res, &err);
+    if (source != G_OBJECT(self->mixer)) {
+      g_clear_error(&err);
+      return;
+    }
+    if (activated == FALSE) {
       kLog.warn("mixer-api activation failed: {}", err != nullptr ? err->message : "unknown");
       g_clear_error(&err);
       return;
@@ -163,7 +282,7 @@ struct WirePlumberMixer::Impl {
     self->ready = true;
     kLog.info("mixer-api ready");
 
-    g_signal_connect(self->mixer, "changed", G_CALLBACK(&Impl::onMixerChanged), self);
+    self->mixerChangedHandler = g_signal_connect(self->mixer, "changed", G_CALLBACK(&Impl::onMixerChanged), self);
 
     for (const auto& [id, write] : self->pendingBeforeReady) {
       if (write.volume.has_value()) {
@@ -241,30 +360,42 @@ struct WirePlumberMixer::Impl {
     }
   }
 
-  static void onDefaultNodesLoaded(GObject* /*source*/, GAsyncResult* res, gpointer data) noexcept {
+  static void onDefaultNodesLoaded(GObject* source, GAsyncResult* res, gpointer data) noexcept {
     auto* self = static_cast<Impl*>(data);
+    auto* const callbackCore = WP_CORE(source);
     GError* err = nullptr;
-    if (wp_core_load_component_finish(self->core, res, &err) == FALSE) {
+    const gboolean loaded = wp_core_load_component_finish(callbackCore, res, &err);
+    if (callbackCore != self->core) {
+      g_clear_error(&err);
+      return;
+    }
+    if (loaded == FALSE) {
       kLog.warn("default-nodes-api load failed: {}", err != nullptr ? err->message : "unknown");
       g_clear_error(&err);
       return;
     }
 
-    self->defaultNodes = wp_plugin_find(self->core, "default-nodes-api");
+    self->defaultNodes = wp_plugin_find(callbackCore, "default-nodes-api");
     if (self->defaultNodes == nullptr) {
       kLog.warn("default-nodes-api plugin not found after load");
       return;
     }
 
     wp_object_activate(
-        WP_OBJECT(self->defaultNodes), WP_PLUGIN_FEATURE_ENABLED, nullptr, &Impl::onDefaultNodesActivated, self
+        WP_OBJECT(self->defaultNodes), WP_PLUGIN_FEATURE_ENABLED, self->cancellable, &Impl::onDefaultNodesActivated,
+        self
     );
   }
 
-  static void onDefaultNodesActivated(GObject* /*source*/, GAsyncResult* res, gpointer data) noexcept {
+  static void onDefaultNodesActivated(GObject* source, GAsyncResult* res, gpointer data) noexcept {
     auto* self = static_cast<Impl*>(data);
     GError* err = nullptr;
-    if (wp_object_activate_finish(WP_OBJECT(self->defaultNodes), res, &err) == FALSE) {
+    const gboolean activated = wp_object_activate_finish(WP_OBJECT(source), res, &err);
+    if (source != G_OBJECT(self->defaultNodes)) {
+      g_clear_error(&err);
+      return;
+    }
+    if (activated == FALSE) {
       kLog.warn("default-nodes-api activation failed: {}", err != nullptr ? err->message : "unknown");
       g_clear_error(&err);
       return;
@@ -409,6 +540,9 @@ struct WirePlumberMixer::Impl {
         g_main_context_check(context, glibMaxPriority, glibPollFds.data(), static_cast<gint>(glibPollFds.size()));
     if (ready_ != FALSE) {
       g_main_context_dispatch(context);
+    }
+    if (disconnectPending) {
+      handleDisconnect();
     }
     g_main_context_pop_thread_default(context);
     g_main_context_release(context);

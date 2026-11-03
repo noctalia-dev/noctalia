@@ -82,6 +82,7 @@ private:
   void syncScaledFonts();
   void syncShortcuts();
   void syncHeaderActions();
+  void syncAvatarChrome();
   bool resizeMediaArtToCard();
   void onPanelCardOpacityChanged(float opacity) override;
 
@@ -105,14 +106,17 @@ private:
   Flex* m_userMain = nullptr;
   InputArea* m_userAvatarArea = nullptr;
   Image* m_userAvatar = nullptr;
+  bool m_avatarBorderShown = true;
 
   Label* m_timeLabel = nullptr;
   Label* m_dateLabel = nullptr;
+  Flex* m_weatherRow = nullptr;
   Glyph* m_weatherGlyph = nullptr;
   Label* m_weatherLine = nullptr;
   Label* m_userHost = nullptr;
   Label* m_userUptime = nullptr;
   Label* m_userVersion = nullptr;
+  Label* m_userCompositor = nullptr;
   Button* m_settingsButton = nullptr;
   Button* m_sessionButton = nullptr;
   InputArea* m_userCardKeyboardArea = nullptr;

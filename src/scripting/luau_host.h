@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scripting/plugin_i18n.h"
+#include "scripting/plugin_layer_config.h"
 #include "scripting/script_arg.h"
 
 #include <atomic>
@@ -50,6 +51,9 @@ public:
       void(std::uint64_t hostId, int callbackRef, bool ok, int status, std::string body, bool isDownload)>;
   using ColorPickerResultHandler =
       std::function<void(std::uint64_t hostId, int callbackRef, std::optional<std::string> color)>;
+  // `error` is nullopt when Umbriel accepted the action.
+  using UmbrielActionResultHandler =
+      std::function<void(std::uint64_t hostId, int callbackRef, std::optional<std::string> error)>;
   // Registers a `noctalia.state.watch` callback with the shared store (the runtime
   // owns the token + delivery, so registration is delegated back to it).
   using StateWatchHandler = std::function<void(std::string key, int callbackRef)>;
@@ -67,10 +71,10 @@ public:
   // Absolute canonical paths of the modules require() has successfully loaded in
   // this VM, in sorted order. Grows as callbacks require lazily, so consumers that
   // watch these files must re-read after every call, not only after load.
-  [[nodiscard]] std::vector<std::filesystem::path> loadedModulePaths() const;
-  [[nodiscard]] std::size_t loadedModuleCount() const noexcept { return m_modulePaths.size(); }
+  std::vector<std::filesystem::path> loadedModulePaths() const;
+  std::size_t loadedModuleCount() const noexcept { return m_modulePaths.size(); }
   // Message of the most recent failed call/compile, cleared when a call succeeds.
-  [[nodiscard]] const std::string& lastError() const noexcept { return m_lastError; }
+  const std::string& lastError() const noexcept { return m_lastError; }
 
   // Callback lookup by name, shared by the call helpers below: a name generated
   // by a ui-tree render (see ui_handler_table.h) resolves in that render's
@@ -89,29 +93,38 @@ public:
   bool callAsyncFileCallback(
       int callbackRef, bool ok, const std::string& data, const std::string& error, std::chrono::milliseconds budget
   );
-  [[nodiscard]] bool lastCallTimedOut() const noexcept { return m_lastCallTimedOut; }
+  bool lastCallTimedOut() const noexcept { return m_lastCallTimedOut; }
 
   lua_State* state() { return m_T; }
-  [[nodiscard]] CompositorPlatform* platform() const noexcept { return m_platform; }
-  [[nodiscard]] scripting::ScriptApiContext& api() const noexcept { return m_api; }
-  [[nodiscard]] std::uint64_t hostId() const noexcept { return m_hostId; }
+  CompositorPlatform* platform() const noexcept { return m_platform; }
+  scripting::ScriptApiContext& api() const noexcept { return m_api; }
+  std::uint64_t hostId() const noexcept { return m_hostId; }
   void setScriptContext(scripting::PluginBindingContext* context) { m_scriptContext = context; }
   void setMuteErrors(bool mute) { m_muteErrors = mute; }
   // The plugin's own directory: relative filesystem/translation paths resolve against it.
   void setPluginDir(std::filesystem::path dir) { m_pluginDir = std::move(dir); }
-  [[nodiscard]] const std::filesystem::path& pluginDir() const noexcept { return m_pluginDir; }
+  const std::filesystem::path& pluginDir() const noexcept { return m_pluginDir; }
   // The owning plugin id ("author/plugin"), derived from the runtime name: scopes the
   // shared state store.
-  [[nodiscard]] const std::string& pluginId() const noexcept { return m_pluginId; }
-  [[nodiscard]] const std::string& runtimeName() const noexcept { return m_runtimeName; }
+  const std::string& pluginId() const noexcept { return m_pluginId; }
+  const std::string& runtimeName() const noexcept { return m_runtimeName; }
   void setStateWatchHandler(StateWatchHandler handler) { m_stateWatchHandler = std::move(handler); }
+  // Called with every path noctalia.getSetting reads, so the owning runtime can react when
+  // that part of the shell config changes.
+  using SettingReadRecorder = std::function<void(std::string_view path)>;
+  void setSettingReadRecorder(SettingReadRecorder recorder) { m_settingReadRecorder = std::move(recorder); }
+  void recordSettingRead(std::string_view path) const {
+    if (m_settingReadRecorder) {
+      m_settingReadRecorder(path);
+    }
+  }
 
   // noctalia.state.* — host-mediated per-plugin shared data.
-  void stateSet(const std::string& key, std::string json);
-  [[nodiscard]] std::optional<std::string> stateGet(const std::string& key) const;
+  void stateSet(const std::string& key, const std::string& json);
+  std::optional<std::string> stateGet(const std::string& key) const;
   void stateWatch(std::string key, int callbackRef);
   bool callStateWatchCallback(int callbackRef, const std::string& json, std::chrono::milliseconds budget);
-  [[nodiscard]] bool hasStateWatchCallback(int callbackRef) const;
+  bool hasStateWatchCallback(int callbackRef) const;
 
   // noctalia.runStream — run a long-lived process and deliver each stdout line to a
   // Lua callback. Cancellable: every active stream's process is terminated when the
@@ -121,7 +134,7 @@ public:
   void setStreamLineHandler(StreamLineHandler handler) { m_streamLineHandler = std::move(handler); }
   [[nodiscard]] bool startStream(std::string command, int callbackRef);
   bool callStreamCallback(int callbackRef, const std::string& line, std::chrono::milliseconds budget);
-  [[nodiscard]] bool hasStreamCallback(int callbackRef) const;
+  bool hasStreamCallback(int callbackRef) const;
 
   // noctalia.httpStream — long-lived streaming HTTP request through the main-thread
   // HttpClient. Each received line goes to the line callback; the close callback fires
@@ -135,11 +148,12 @@ public:
   void stopHttpStream(int streamKey);
   bool callHttpStreamLineCallback(int streamKey, const std::string& line, std::chrono::milliseconds budget);
   bool callHttpStreamCloseCallback(int streamKey, bool ok, int status, std::chrono::milliseconds budget);
-  [[nodiscard]] bool hasHttpStream(int streamKey) const;
+  bool hasHttpStream(int streamKey) const;
 
   // System-monitor probes requested by this host are refcounted and released in ~LuauHost.
-  // Per-core and disk sampling remain opt-in through their dedicated calls.
+  // GPU, per-core and disk sampling are opt-in through their dedicated calls.
   void ensureSystemStatsRetained();
+  bool setGpuMonitoring(bool enabled);
   void ensureCpuCoresRetained();
   [[nodiscard]] bool ensureDiskPathRetained(const std::string& path);
 
@@ -148,9 +162,8 @@ public:
   void loadTranslations();
   // Resolve `key` in the plugin catalog and interpolate {name} placeholders from `subst`.
   // A missing key is logged and returned verbatim (no silent fallback chain).
-  [[nodiscard]] std::string
-  translate(std::string_view key, const std::unordered_map<std::string, std::string>& subst) const;
-  [[nodiscard]] bool hasTranslation(std::string_view key) const { return m_translations.has(key); }
+  std::string translate(std::string_view key, const std::unordered_map<std::string, std::string>& subst) const;
+  bool hasTranslation(std::string_view key) const { return m_translations.has(key); }
   void setAsyncCommandResultHandler(AsyncCommandResultHandler handler) {
     m_asyncCommandResultHandler = std::move(handler);
   }
@@ -162,6 +175,9 @@ public:
   void setAsyncHttpResultHandler(AsyncHttpResultHandler handler) { m_asyncHttpResultHandler = std::move(handler); }
   void setColorPickerResultHandler(ColorPickerResultHandler handler) {
     m_colorPickerResultHandler = std::move(handler);
+  }
+  void setUmbrielActionResultHandler(UmbrielActionResultHandler handler) {
+    m_umbrielActionResultHandler = std::move(handler);
   }
   [[nodiscard]] bool
   startAsyncProcess(std::vector<std::string> args, int callbackRef, std::chrono::milliseconds timeout);
@@ -179,19 +195,25 @@ public:
   [[nodiscard]] bool startColorPicker(const Color& initialColor, int callbackRef);
   bool
   callColorPickerCallback(int callbackRef, const std::optional<std::string>& color, std::chrono::milliseconds budget);
-  [[nodiscard]] bool hasAsyncCommandCallback(int callbackRef) const;
-  [[nodiscard]] bool hasAsyncProcessMatchCallback(int callbackRef) const;
-  [[nodiscard]] bool hasAsyncFileCallback(int callbackRef) const;
-  [[nodiscard]] bool hasAsyncHttpCallback(int callbackRef) const;
-  [[nodiscard]] bool hasColorPickerCallback(int callbackRef) const;
-  [[nodiscard]] bool hasSoundLoadCallback(int callbackRef) const;
+  // Sends one typed action request to the Umbriel socket on the script IO pool. `callbackRef` may be
+  // LUA_NOREF for fire-and-forget; otherwise the reply arrives as cb(ok, err).
+  [[nodiscard]] bool startUmbrielAction(std::string socketPath, std::string payload, int callbackRef);
+  bool
+  callUmbrielActionCallback(int callbackRef, const std::optional<std::string>& error, std::chrono::milliseconds budget);
+  bool hasAsyncCommandCallback(int callbackRef) const;
+  bool hasAsyncProcessMatchCallback(int callbackRef) const;
+  bool hasAsyncFileCallback(int callbackRef) const;
+  bool hasAsyncHttpCallback(int callbackRef) const;
+  bool hasColorPickerCallback(int callbackRef) const;
+  bool hasUmbrielActionCallback(int callbackRef) const;
+  bool hasSoundLoadCallback(int callbackRef) const;
   bool callSoundLoadCallback(int callbackRef, bool ok, const std::string& error, std::chrono::milliseconds budget);
   void interruptIfBudgetExceeded(lua_State* L);
   // Diagnostics only: a binding that can block reports the window it ran in, so an
   // overrun names the binding the CPU deadline was crossed inside. Never extends the
   // deadline and never feeds health policy -- an overrun with no recorded crossing
   // means the Luau code itself ran long.
-  [[nodiscard]] bool budgetDeadlineCrossed() const noexcept;
+  bool budgetDeadlineCrossed() const noexcept;
   void recordBudgetCrossing(std::string_view binding, std::string_view detail);
   void scriptLog(std::string message);
   // Request the runtime tick rate (how often update() fires). A runtime concern, so
@@ -201,6 +223,7 @@ public:
   void scriptPlaySound(std::string name);
   void scriptNotifyInfo(std::string title, std::string body);
   void scriptNotifyError(std::string title, std::string body);
+  void scriptShowOsd(std::string icon, std::string value, std::optional<double> progress, bool inactive);
   // Toggle the host wallpaper surface on an output. Queued as a side effect and
   // applied on the main thread (Wallpaper is not worker-thread safe).
   void scriptSetWallpaperEnabled(std::string connector, bool enabled);
@@ -212,11 +235,23 @@ public:
   void scriptTogglePanel(std::string panelId);
   // Open the settings window at this plugin's own settings. Queued, applied on the main thread.
   void scriptOpenSettings();
+  // noctalia.idle.watch()/unwatch(): compositor idle notifications. The Wayland objects live on
+  // the main thread, so both are queued as side effects; watches are released with the host.
+  // The callback ref doubles as the watch id returned to the script.
+  [[nodiscard]] bool scriptIdleWatch(std::uint32_t timeoutMs, bool ignoreInhibitors, int callbackRef);
+  [[nodiscard]] bool scriptIdleUnwatch(int watchId);
+  bool callIdleWatchCallback(int callbackRef, bool idle, std::chrono::milliseconds budget);
+  bool hasIdleWatchCallback(int callbackRef) const;
+  // noctalia.layer.show()/hide()/configure() for this plugin's [[layer]] entry `localEntryId`.
+  // Queued, applied on the main thread.
+  void scriptLayerCommand(
+      scripting::PluginLayerCommand command, const std::string& localEntryId, scripting::PluginLayerConfigPatch patch
+  );
   [[nodiscard]] bool scriptCopyToClipboard(std::string text, std::string mimeType);
-  [[nodiscard]] std::optional<std::string> scriptFocusedOutputName() const;
+  std::optional<std::string> scriptFocusedOutputName() const;
 
   // Bytes currently allocated by this VM (tracked by the custom allocator).
-  [[nodiscard]] std::size_t memoryUsedBytes() const noexcept { return m_memUsed; }
+  std::size_t memoryUsedBytes() const noexcept { return m_memUsed; }
 
 private:
   // lua_Alloc for this VM: realloc-based, but tracks total bytes and refuses any
@@ -241,7 +276,7 @@ private:
   // Directory the calling chunk's require() paths resolve against: the module dir
   // recorded on the caller's environment metatable, or the plugin dir for the entry
   // chunk. Lexical, so a deferred call from a module keeps that module's directory.
-  [[nodiscard]] std::filesystem::path requireBaseDir(lua_State* L) const;
+  std::filesystem::path requireBaseDir(lua_State* L) const;
   bool pushRequiredModule(lua_State* L, std::string_view request, std::string& error);
   void stopAllStreams() noexcept;
   void stopAllHttpStreams() noexcept;
@@ -260,6 +295,7 @@ private:
   CompositorPlatform* m_platform = nullptr;
   scripting::PluginBindingContext* m_scriptContext = nullptr;
   std::filesystem::path m_pluginDir;
+  SettingReadRecorder m_settingReadRecorder;
   std::string m_pluginId;
   std::string m_runtimeName;
   scripting::PluginTranslationCatalog m_translations;
@@ -289,13 +325,16 @@ private:
   std::unordered_set<int> m_asyncProcessMatchCallbackRefs;
   std::unordered_set<int> m_asyncHttpCallbackRefs;
   std::unordered_set<int> m_colorPickerCallbackRefs;
+  std::unordered_set<int> m_umbrielActionCallbackRefs;
   std::unordered_map<int, std::string> m_soundLoadCallbacks;
+  std::unordered_set<int> m_idleWatchCallbackRefs;
   HttpClient* m_httpClient = nullptr;
   AsyncCommandResultHandler m_asyncCommandResultHandler;
   AsyncFileResultHandler m_asyncFileResultHandler;
   AsyncProcessMatchResultHandler m_asyncProcessMatchResultHandler;
   AsyncHttpResultHandler m_asyncHttpResultHandler;
   ColorPickerResultHandler m_colorPickerResultHandler;
+  UmbrielActionResultHandler m_umbrielActionResultHandler;
   std::size_t m_memUsed = 0; // bytes tracked by allocate(); guarded by the worker-thread serialization
   std::chrono::nanoseconds m_callCpuDeadline{};
   std::string m_currentCallName;
@@ -309,6 +348,7 @@ private:
   std::size_t m_suppressedCallFailures = 0;
   bool m_cpuCoresRetained = false; // this host holds a SystemMonitorService per-core reference
   bool m_systemStatsRetained = false;
+  bool m_gpuStatsRetained = false;
   std::unordered_set<std::string> m_diskPathsRetained;
   bool m_budgetActive = false;
   bool m_lastCallTimedOut = false;

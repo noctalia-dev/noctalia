@@ -1,6 +1,7 @@
 #include "capture/annotation_raster.h"
 
 #include <cairo.h>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <print>
@@ -168,6 +169,20 @@ int main() {
     };
     const capture::AnnotationRect emptyBox = capture::measureText(empty);
     ok = expect(emptyBox.height > 0.0, "empty text still reports a line height so the caret has a size") && ok;
+
+    const capture::AnnotationRect caret = capture::measureTextCaret(text, 2.0);
+    // The caret sits at Pango's fractional advance; the box width is whole pixels.
+    ok = expect(std::abs(caret.x - (box.x + box.width)) <= 1.0, "the caret follows left-to-right text on its right")
+        && ok;
+
+    // Right-to-left text starts at the anchor and runs left, so the caret ends on its left.
+    capture::Annotation arabic = text;
+    arabic.text = "مرحبا";
+    const capture::AnnotationRect arabicBox = capture::measureText(arabic);
+    ok = expect(arabicBox.width > 0.0, "measureText reports non-empty extents for Arabic") && ok;
+    ok = expect(arabicBox.x + arabicBox.width == 30.0, "the measured Arabic box ends at the anchor's x") && ok;
+    const capture::AnnotationRect arabicCaret = capture::measureTextCaret(arabic, 2.0);
+    ok = expect(arabicCaret.x + arabicCaret.width == arabicBox.x, "the caret follows Arabic text on its left") && ok;
   }
 
   {

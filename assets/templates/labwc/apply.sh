@@ -26,15 +26,8 @@ write_if_changed() {
 }
 
 if [ ! -f "$rc_file" ]; then
-    cat >"$rc_file" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<labwc_config>
-  <theme>
-    <name>noctalia</name>
-  </theme>
-</labwc_config>
-EOF
-    exit 0
+    printf 'Warning: %s is missing; select the installed Noctalia theme in your active Labwc configuration manually by setting this inside <labwc_config>:\n<theme>\n  <name>noctalia</name>\n</theme>\n' "$rc_file" >&2
+    exit 1
 fi
 
 tmp_file="$(mktemp "${rc_file}.tmp.XXXXXX")"

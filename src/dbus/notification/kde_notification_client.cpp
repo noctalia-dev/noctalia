@@ -6,6 +6,7 @@
 #include "dbus/session_bus.h"
 #include "notification/notification_manager.h"
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -78,16 +79,18 @@ KdeNotificationClient::KdeNotificationClient(SessionBus& bus, NotificationManage
     throw;
   }
 
-  m_manager.setActionInvokeCallback(
-      [this](uint32_t id, const std::string& actionKey, const std::string& /*activationToken*/) {
-        proxyInvokeAction(id, actionKey);
-      }
-  );
-  m_manager.setCloseCallback([this](uint32_t id, CloseReason /*reason*/) {
+  m_manager.setActionInvokeCallback([this](
+                                        uint32_t id, const std::string& actionKey,
+                                        const std::string& /*activationToken*/, const std::string& /*sender*/
+                                    ) { proxyInvokeAction(id, actionKey); });
+  m_manager.setCloseCallback([this](uint32_t id, CloseReason /*reason*/, const std::string& /*sender*/) {
     if (m_suppressPlasmaClose) {
       return;
     }
     proxyCloseNotification(id);
+  });
+  m_manager.setReplyCallback([this](uint32_t id, const std::string&, const std::string&, const std::string&) {
+    proxyInvokeAction(id, "inline-reply");
   });
 
   m_active = true;
@@ -96,6 +99,7 @@ KdeNotificationClient::KdeNotificationClient(SessionBus& bus, NotificationManage
 KdeNotificationClient::~KdeNotificationClient() {
   m_manager.setCloseCallback(nullptr);
   m_manager.setActionInvokeCallback(nullptr);
+  m_manager.setReplyCallback(nullptr);
   unregisterWatcher();
 
   if (m_inhibitCookie != 0 && m_plasmaProxy != nullptr) {
@@ -123,7 +127,7 @@ bool KdeNotificationClient::isHealthy() const { return m_active; }
 void KdeNotificationClient::processExpired() {
   const std::vector<uint32_t> ids = m_manager.expiredIds();
   for (const uint32_t id : ids) {
-    (void)m_manager.close(id, CloseReason::Expired);
+    m_manager.close(id, CloseReason::Expired);
   }
 }
 
@@ -133,13 +137,11 @@ void KdeNotificationClient::onWatcherNotify(
     const std::map<std::string, sdbus::Variant>& hints, int32_t timeout
 ) {
   if (replacesId != 0) {
-    (void)notification_dbus::ingestNotify(
-        m_manager, appName, replacesId, appIcon, summary, body, actions, hints, timeout
-    );
+    notification_dbus::ingestNotify(m_manager, appName, replacesId, appIcon, summary, body, actions, hints, timeout);
     return;
   }
 
-  (void)m_manager.adoptExternal(
+  m_manager.adoptExternal(
       id,
       NotificationRequest{
           .appName = appName,
@@ -150,6 +152,7 @@ void KdeNotificationClient::onWatcherNotify(
           .transient = notification_dbus::notifyTransientFromHints(hints),
           .actions = notification_dbus::sanitizeNotifyActions(actions),
           .icon = notification_dbus::notifyIcon(appName, appIcon, hints),
+          .iconIsAppIcon = notification_dbus::notifyIconIsAppIcon(appIcon, hints),
           .imageData = notification_dbus::notifyImageDataFromHints(hints),
           .category = notification_dbus::notifyCategoryFromHints(hints),
           .desktopEntry = notification_dbus::notifyDesktopEntryFromHints(hints),
@@ -159,7 +162,7 @@ void KdeNotificationClient::onWatcherNotify(
 
 void KdeNotificationClient::onWatcherCloseNotification(uint32_t id) {
   m_suppressPlasmaClose = true;
-  (void)m_manager.close(id, CloseReason::ClosedByCall);
+  m_manager.close(id, CloseReason::ClosedByCall);
   m_suppressPlasmaClose = false;
 }
 

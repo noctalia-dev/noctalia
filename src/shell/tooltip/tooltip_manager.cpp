@@ -8,6 +8,7 @@
 #include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/wayland/layer_shell.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -409,7 +410,7 @@ void TooltipManager::showPopup() {
 
   const bool initialized = m_pendingXdgParent != nullptr
       ? m_surface->initializeAsChild(m_pendingXdgParent, m_pendingOutput, config)
-      : m_surface->initialize(m_pendingLayerParent, m_pendingOutput, config);
+      : m_surface->initialize(LayerShell::popupAttach(m_pendingLayerParent), m_pendingOutput, config);
   if (!initialized) {
     kLog.warn("failed to create tooltip popup");
     m_surface.reset();
@@ -564,6 +565,12 @@ void TooltipManager::refreshFromArea(InputArea* area) {
     break;
   }
   case State::FadingOut:
+    if (m_fadeAnimId != 0) {
+      scheduleRetargetPopup();
+    } else {
+      // Fade finished and the surface teardown is queued; show again once it completes.
+      m_showAfterDestroy = true;
+    }
     break;
   }
 }
@@ -575,7 +582,11 @@ void TooltipManager::refreshPopupContent() {
 
   const auto [contentW, contentH] = measureContent(m_surface->renderTarget().renderer(), m_pendingContent);
   if (contentW == 0 || contentH == 0) {
+    // The area is still hovered but its provider has nothing to show right now; keep tracking
+    // it so a later refreshFromArea() can bring the tooltip back.
+    InputArea* area = m_pendingArea;
     dismissPopup();
+    m_pendingArea = area;
     return;
   }
 
@@ -610,7 +621,7 @@ void TooltipManager::scheduleProviderRefresh() {
   }
 
   InputArea* area = m_pendingArea;
-  m_refreshTimer.start(interval, [this, area]() { refreshFromArea(area); });
+  m_refreshTimer.start(interval, [this, area] { refreshFromArea(area); });
 }
 
 float TooltipManager::pendingOutputScale() const {
@@ -651,8 +662,7 @@ TooltipManager::Size TooltipManager::measureContent(Renderer& renderer, const To
     float rowH = 0.0F;
     for (const auto& row : *rows) {
       auto km = renderer.measureText(row.key, fontSize);
-      const auto vm =
-          renderer.measureText(row.value, fontSize, FontWeight::Normal, 0.0F, 0, TextAlign::Start, kValueFontFamily);
+      const auto vm = renderer.measureText(row.value, fontSize, {FontWeight::Normal, std::string(kValueFontFamily)});
       maxKeyW = std::max(maxKeyW, km.width);
       maxValW = std::max(maxValW, vm.width);
       rowH = std::max({rowH, km.bottom - km.top, vm.bottom - vm.top});
@@ -687,7 +697,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
           .radius = Style::scaledRadiusMd(),
           .width = w,
           .height = h,
-          .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Outline), kBorder); },
+          .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), kBorder); },
       })
   );
 
@@ -713,8 +723,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
     float maxValW = 0.0F;
     for (const auto& row : *rows) {
       auto km = renderer.measureText(row.key, fontSize);
-      const auto vm =
-          renderer.measureText(row.value, fontSize, FontWeight::Normal, 0.0F, 0, TextAlign::Start, kValueFontFamily);
+      const auto vm = renderer.measureText(row.value, fontSize, {FontWeight::Normal, std::string(kValueFontFamily)});
       maxKeyW = std::max(maxKeyW, km.width);
       maxValW = std::max(maxValW, vm.width);
     }
@@ -748,8 +757,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
           .textAlign = TextAlign::End,
           .ellipsize = row.valueEllipsize,
       });
-      const auto vm =
-          renderer.measureText(row.value, fontSize, FontWeight::Normal, 0.0F, 0, TextAlign::Start, kValueFontFamily);
+      const auto vm = renderer.measureText(row.value, fontSize, {FontWeight::Normal, std::string(kValueFontFamily)});
       if (vm.width > columns.value + 0.5F) {
         valLabel->setMaxWidth(columns.value);
       }

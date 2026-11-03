@@ -6,6 +6,24 @@ config_file="$kitty_config_dir/kitty.conf"
 theme_file="$kitty_config_dir/themes/noctalia.conf"
 include_line='include themes/noctalia.conf'
 
+# kitty loads only the first kitty.conf it finds, so a new user file would hide one in XDG_CONFIG_DIRS.
+find_system_config() {
+    local dir dirs
+    IFS=: read -ra dirs <<<"${XDG_CONFIG_DIRS:-/etc/xdg}"
+    for dir in "${dirs[@]}"; do
+        if [ -n "$dir" ] && [ -f "$dir/kitty/kitty.conf" ]; then
+            printf '%s\n' "$dir/kitty/kitty.conf"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if [ ! -f "$config_file" ] && system_config="$(find_system_config)"; then
+    echo "Warning: not creating $config_file because it would hide $system_config; add 'include $theme_file' to your kitty config to apply the Noctalia theme" >&2
+    exit 0
+fi
+
 mkdir -p "$kitty_config_dir"
 touch "$config_file"
 

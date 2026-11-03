@@ -1,3 +1,5 @@
+#include "capture/screencopy_capture.h"
+#include "capture/screencopy_util.h"
 #include "render/core/image_decoder.h"
 #include "render/core/image_encoder.h"
 #include "render/core/image_orientation.h"
@@ -9,6 +11,7 @@
 #include <print>
 #include <string>
 #include <vector>
+#include <wayland-client-protocol.h>
 
 namespace {
 
@@ -76,6 +79,26 @@ namespace {
           && ok;
       ok = check(redChannel(rgba) == testCase.reds, std::string(testCase.name) + ": wrong pixel order") && ok;
     }
+    return ok;
+  }
+
+  bool checkScreencopyOrientation() {
+    ScreencopyImage image{
+        .width = 3,
+        .height = 2,
+        .yInvert = true,
+        .rgba = sourceImage(),
+    };
+
+    screencopy::orientCaptureForTransform(image, WL_OUTPUT_TRANSFORM_90);
+
+    bool ok = check(image.width == 2 && image.height == 3, "screencopy orientation did not swap the axes");
+    ok = check(!image.yInvert, "screencopy orientation did not consume the y-invert flag") && ok;
+    ok = check(
+             redChannel(image.rgba) == std::vector<std::uint8_t>{0, 10, 1, 11, 2, 12},
+             "screencopy orientation applied y-invert after the output transform"
+         )
+        && ok;
     return ok;
   }
 
@@ -211,6 +234,7 @@ namespace {
 
 int main() {
   bool ok = checkTransforms();
+  ok = checkScreencopyOrientation() && ok;
   ok = checkPngDecode() && ok;
   ok = checkMalformed() && ok;
   return ok ? 0 : 1;

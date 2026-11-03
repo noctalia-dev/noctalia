@@ -20,7 +20,7 @@ public:
     std::string tooltip;
   };
 
-  explicit CustomButtonWidget(Options options);
+  explicit CustomButtonWidget(const Options& options);
 
   void create() override;
 

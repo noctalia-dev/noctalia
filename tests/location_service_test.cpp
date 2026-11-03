@@ -2,8 +2,8 @@
 #include "i18n/i18n_service.h"
 #include "net/http_client.h"
 #include "system/location_service.h"
+#include "tests/test_check.h"
 
-#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -22,8 +22,6 @@ namespace {
       ++g_failures;
     }
   }
-
-  bool near(double actual, double expected) { return std::abs(actual - expected) < 1e-9; }
 
   void writeConfig(const std::filesystem::path& path, std::string_view locationConfig) {
     std::ofstream file(path);
@@ -62,8 +60,8 @@ int main() {
     auto resolved = location.resolvedLocation();
     expect(resolved.has_value(), "manual coordinates should provide a location at startup");
     if (resolved.has_value()) {
-      expect(near(resolved->latitude, 52.52), "manual latitude was not published");
-      expect(near(resolved->longitude, 13.405), "manual longitude was not published");
+      TEST_NEAR(resolved->latitude, 52.52, 1e-9);
+      TEST_NEAR(resolved->longitude, 13.405, 1e-9);
       expect(resolved->sourceLabel == "Manual", "manual location source was not labelled");
     }
     expect(!location.resolving(), "manual coordinates should not start network resolution");
@@ -75,10 +73,9 @@ int main() {
     config.forceReload();
     resolved = location.resolvedLocation();
     expect(changes == 1, "changing manual coordinates should publish a location change");
-    expect(
-        resolved.has_value() && near(resolved->latitude, 40.7128) && near(resolved->longitude, -74.006),
-        "hot-reloaded manual coordinates were not published"
-    );
+    TEST_CHECK(resolved.has_value());
+    TEST_NEAR(resolved->latitude, 40.7128, 1e-9);
+    TEST_NEAR(resolved->longitude, -74.006, 1e-9);
 
     writeConfig(configPath, "auto_locate = false\naddress = \"\"\nlatitude = 40.7128\n");
     config.forceReload();
@@ -95,10 +92,9 @@ int main() {
     config.forceReload();
     resolved = location.resolvedLocation();
     expect(changes == 4, "switching back to manual coordinates should publish a location change");
-    expect(
-        resolved.has_value() && near(resolved->latitude, 51.5072) && near(resolved->longitude, -0.1276),
-        "manual coordinates were not restored after disabling automatic location"
-    );
+    TEST_CHECK(resolved.has_value());
+    TEST_NEAR(resolved->latitude, 51.5072, 1e-9);
+    TEST_NEAR(resolved->longitude, -0.1276, 1e-9);
   }
 
   std::filesystem::remove_all(root);

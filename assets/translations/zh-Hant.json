@@ -253,7 +253,6 @@
       "uptime": "運作時間 – {uptime}",
       "weather": {
         "data-unavailable": "無天氣資料。",
-        "disabled": "天氣資料已停用。",
         "fetching": "正在擷取天氣資料…"
       }
     },
@@ -1046,7 +1045,6 @@
         "borders": "邊框",
         "brightness": "亮度",
         "built-in": "內建",
-        "calendar": "行事曆",
         "capsules": "膠囊",
         "clipboard": "剪貼簿",
         "community": "社區",

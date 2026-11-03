@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "scripting/plugin_layer_config.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -61,10 +62,13 @@ namespace scripting {
     std::vector<ManifestSelectOption> options;
     std::vector<std::string> extensions;
     bool advanced = false;
+    // The value is a credential (API key, token, password): `noctalia config export --credentials`
+    // omits or blanks it. Only valid on string, string_list, and string_map settings.
+    bool secret = false;
     std::optional<ManifestVisibility> visibleWhen;
 
     // The declared default mapped to a settings value.
-    [[nodiscard]] WidgetSettingValue defaultValue() const;
+    WidgetSettingValue defaultValue() const;
   };
 
   // Entry types a plugin may declare. P0 routes only Widget to a surface; the rest
@@ -76,6 +80,7 @@ namespace scripting {
     DesktopWidget,
     LauncherProvider,
     Service,
+    Layer,
   };
 
   // A launcher result category, declared statically on a [[launcher_provider]]
@@ -97,6 +102,10 @@ namespace scripting {
     // gesture vocabulary and action grammar belong to the bar, not to the manifest parser.
     std::vector<std::pair<std::string, std::string>> widgetActions;
 
+    // Whether the bar draws its whole-widget hover highlight over this [[widget]] entry
+    // (`hover_highlight`, plugin_api >= 34). False when the widget draws its own per-item hover.
+    bool widgetHoverHighlight = true;
+
     // Launcher-provider routing metadata (parsed only for LauncherProvider entries);
     // static so the launcher routes/filters without invoking the plugin.
     std::string launcherPrefix;
@@ -117,15 +126,19 @@ namespace scripting {
     double panelHeight = 0.0;
     bool panelWidthFill = false;
     bool panelHeightFill = false;
+    // height = "content": the panel's height follows its rendered tree, capped at
+    // panelMaxHeight (required with it).
+    bool panelHeightContent = false;
+    double panelMaxHeight = 0.0;
     // Host-standard shell settings (see plugin_panel_shell.*). Optional
     // [[panel]] keys provide defaults; injected settings use "{id}_placement",
     // "{id}_layer", and the corresponding canonical suffixes.
     std::string panelPlacementDefault = "floating";
     std::string panelPositionDefault = "auto";
     bool panelOpenNearClickDefault = false;
-    // The floating layer setting defaults to Top to preserve existing plugin
-    // behavior. An attached panel always follows its host bar's layer.
-    std::string panelLayerDefault = "top";
+    // The floating layer setting defaults to Follow to use the configured
+    // floating panel layer. An attached panel always follows its host bar's layer.
+    std::string panelLayerDefault = "follow";
     // false: keep open on outside click (auth prompts)
     bool panelDismissOnOutsideClick = true;
     // Keyboard focus policy: "on_demand" (focus on click), "exclusive" (focus on
@@ -141,6 +154,11 @@ namespace scripting {
     // the host, so the panel can drive its own key interactions. Verbatim spec strings:
     // the script is called back with the same text declared here.
     std::vector<std::string> panelCaptureKeys;
+
+    // Surface defaults of a [[layer]] entry (plugin_api >= 36); noctalia.layer.configure() changes
+    // them at runtime. `layerVisible` shows the layer as soon as its plugin loads.
+    PluginLayerConfig layerConfig;
+    bool layerVisible = false;
   };
 
   struct PluginManifest {
@@ -161,19 +179,19 @@ namespace scripting {
     // per-entry instance setting; seeded into all of the plugin's runtimes.
     std::vector<ManifestField> settings;
 
-    [[nodiscard]] const PluginEntry* findEntry(std::string_view entryId) const;
+    const PluginEntry* findEntry(std::string_view entryId) const;
   };
 
   // The TOML array-table name for each entry kind (e.g. "widget" -> [[widget]]).
-  [[nodiscard]] std::string_view pluginEntryTableName(PluginEntryKind kind);
+  std::string_view pluginEntryTableName(PluginEntryKind kind);
   // Canonical plugin version: three non-negative decimal components without leading zeros.
-  [[nodiscard]] bool isValidPluginVersion(std::string_view version);
+  bool isValidPluginVersion(std::string_view version);
 
   // Build the runtime settings for an instance: every declared field seeded with
   // its manifest default, then overlaid by the instance's configured values.
   // Only declared keys are emitted, so a `getConfig` of an undeclared key stays a
   // loud miss rather than silently resolving from a stray override.
-  [[nodiscard]] std::unordered_map<std::string, WidgetSettingValue>
+  std::unordered_map<std::string, WidgetSettingValue>
   seedEntrySettings(const PluginEntry& entry, const std::unordered_map<std::string, WidgetSettingValue>& overrides);
 
   // Overlay the plugin-level settings (manifest defaults, then `pluginOverrides`)
@@ -186,14 +204,13 @@ namespace scripting {
 
   // Settings-map equality with int/double coercion (matches config override
   // comparison), so reseeding a service from an unchanged config is a no-op.
-  [[nodiscard]] bool settingsEqual(
+  bool settingsEqual(
       const std::unordered_map<std::string, WidgetSettingValue>& a,
       const std::unordered_map<std::string, WidgetSettingValue>& b
   );
 
   // Parse a plugin.toml. Returns nullopt and sets `error` on a hard failure:
   // unreadable file, TOML parse error, invalid mandatory metadata, or invalid entries/settings.
-  [[nodiscard]] std::optional<PluginManifest>
-  parsePluginManifest(const std::filesystem::path& manifestPath, std::string* error);
+  std::optional<PluginManifest> parsePluginManifest(const std::filesystem::path& manifestPath, std::string* error);
 
 } // namespace scripting

@@ -21,7 +21,7 @@ void luaV_doarithimpl(lua_State* L, StkId ra, const TValue* rb, const TValue* rc
 
 LUAI_FUNC void luaV_dolen(lua_State* L, StkId ra, const TValue* rb);
 LUAI_FUNC const TValue* luaV_tonumber(const TValue* obj, TValue* n);
-LUAI_FUNC const float* luaV_tovector(const TValue* obj);
+LUAI_FUNC const LUA_VECTOR_TYPE* luaV_tovector(const TValue* obj);
 LUAI_FUNC int luaV_tostring(lua_State* L, StkId obj);
 LUAI_FUNC void luaV_gettable(lua_State* L, const TValue* t, TValue* key, StkId val);
 LUAI_FUNC void luaV_settable(lua_State* L, const TValue* t, TValue* key, StkId val);
@@ -34,5 +34,7 @@ LUAI_FUNC void luaV_tryfuncTM(lua_State* L, StkId func);
 LUAI_FUNC void luau_execute(lua_State* L);
 LUAI_FUNC void luau_finishop(lua_State* L);
 LUAI_FUNC int luau_precall(lua_State* L, struct lua_TValue* func, int nresults);
+LUAI_FUNC void luau_pushhandlerci(lua_State* L, StkId funcslot, int errfunc, int nresults);
 LUAI_FUNC void luau_poscall(lua_State* L, StkId first);
+LUAI_FUNC void luau_pospcallsuccess(lua_State* L);
 LUAI_FUNC void luau_callhook(lua_State* L, lua_Hook hook, void* userdata);

@@ -37,6 +37,7 @@ namespace settings {
     Flex* groupJumpRow = nullptr;
     std::function<void(const Node&)> scrollContentToTop;
     std::unordered_map<std::string, std::unordered_set<std::string>>& expandedGroupsByPage;
+    bool expandAllGroups = false;
     bool pluginsLoading = false;
 
     std::function<void(std::string id, bool enable)> setEnabled;
@@ -72,7 +73,7 @@ namespace settings {
   void addSettingsPlugins(Flex& content, SettingsPluginsContext ctx);
 
   // True when the plugin exposes anything the settings editor can show.
-  [[nodiscard]] bool pluginHasSettings(const scripting::PluginManifest& manifest);
+  bool pluginHasSettings(const scripting::PluginManifest& manifest);
 
   void buildPluginSettingsEditor(
       Flex& body, const Config& cfg, SettingsControlFactory& factory, const std::string& pluginId,

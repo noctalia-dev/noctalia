@@ -202,7 +202,7 @@ size_t AstNameTable::EntryHash::operator()(const Entry& e) const
 }
 
 AstNameTable::AstNameTable(Allocator& allocator)
-    : data({AstName(""), 0, Lexeme::Eof}, 128)
+    : data(128)
     , allocator(allocator)
 {
     static_assert(sizeof(kReserved) / sizeof(kReserved[0]) == Lexeme::Reserved_END - Lexeme::Reserved_BEGIN);

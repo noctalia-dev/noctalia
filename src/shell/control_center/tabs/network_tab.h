@@ -45,6 +45,8 @@ private:
   void doUpdate(Renderer& renderer) override;
   void onPanelCardOpacityChanged(float opacity) override;
 
+  // A backend exists and its daemon is on the bus.
+  bool networkAvailable() const noexcept;
   void syncCurrentCard();
   void beginPendingAction(bool wasConnected);
   void requestWirelessEnabled(bool enabled);
@@ -56,25 +58,25 @@ private:
   bool syncCellularCard();
   // GNOME-style mobile-data semantics when the network backend owns a saved gsm
   // connection (toggle reflects cellularActive); otherwise raw modem power.
-  [[nodiscard]] bool cellularToggleChecked() const;
-  [[nodiscard]] bool cellularToggleDisplayChecked() const;
+  bool cellularToggleChecked() const;
+  bool cellularToggleDisplayChecked() const;
   void requestCellularEnabled(bool enabled);
   void syncPasswordCard();
+  // Moves keyboard focus into the prompt once after it appears on the active tab.
+  void focusPendingPasswordPrompt();
   void showPasswordPrompt(const NetworkSecretAgent::SecretRequest& request);
   void showPasswordPrompt(const AccessPointInfo& ap);
   void submitPasswordPrompt(const std::string& value);
   void cancelPasswordPrompt();
   void clearPasswordPrompt();
   // Reads the enterprise form back out. Password comes from the shared field.
-  [[nodiscard]] network_enterprise::EnterpriseCredentials
-  collectEnterpriseCredentials(const std::string& password) const;
+  network_enterprise::EnterpriseCredentials collectEnterpriseCredentials(const std::string& password) const;
   // Shows a message inside the credential card; empty hides the row. The prompt
   // stays open so the user can correct what is wrong.
   void setCredentialError(const std::string& message);
   // Reason this access point cannot be joined with a password, empty when it can.
-  [[nodiscard]] std::string enterpriseBlockReason(const AccessPointInfo& ap) const;
-  [[nodiscard]] std::string
-  structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const;
+  std::string enterpriseBlockReason(const AccessPointInfo& ap) const;
+  std::string structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const;
 
   INetworkService* m_network = nullptr;
   NetworkSecretAgent* m_secrets = nullptr;
@@ -89,7 +91,6 @@ private:
   Label* m_passwordTitle = nullptr;
   Input* m_passwordInput = nullptr;
   Button* m_passwordRevealButton = nullptr;
-  bool m_passwordRevealed = false;
   // 802.1X form. Hidden for pre-shared-key networks, which keep the single
   // password field below it.
   Flex* m_enterpriseFields = nullptr;
@@ -120,6 +121,7 @@ private:
 
   bool m_hasPendingSecret = false;
   bool m_pendingEnterprise = false;
+  bool m_focusPasswordPrompt = false;
   std::string m_pendingSsid;
   std::optional<AccessPointInfo> m_pendingAccessPoint;
   bool m_active = false;

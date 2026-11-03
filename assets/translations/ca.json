@@ -257,7 +257,6 @@
       "uptime": "Temps actiu – {uptime}",
       "weather": {
         "data-unavailable": "Dades meteorològiques no disponibles.",
-        "disabled": "El temps està desactivat a la configuració.",
         "fetching": "S'està obtenint la previsió…"
       }
     },
@@ -1180,7 +1179,6 @@
         "borders": "Vores",
         "brightness": "Brillantor",
         "built-in": "Integrat",
-        "calendar": "Calendari",
         "capsules": "Càpsules",
         "clipboard": "Porta-retalls",
         "community": "Comunitat",
@@ -1369,10 +1367,6 @@
       "orientation": {
         "horizontal": "Horitzontal",
         "vertical": "Vertical"
-      },
-      "panel-bar-alignment": {
-        "centered": "Centrat",
-        "near-trigger": "Prop del disparador"
       },
       "panel-position": {
         "auto": "Segueix la barra"
@@ -1984,10 +1978,6 @@
         "main-axis-padding": {
           "description": "Farcit interior als extrems de la fila d'icones (abans de la primera icona i després de l'última)"
         },
-        "monitors": {
-          "description": "Tria quins monitors mostren el dock (deixa buit per a tots); el filtratge de monitor actiu s'aplica dins d'aquests monitors",
-          "label": "Monitors"
-        },
         "pinned-apps": {
           "description": "IDs d'entrada d'escriptori de les aplicacions fixades al dock",
           "label": "Aplicacions fixades"
@@ -2313,10 +2303,6 @@
           "description": "Mostra entrades d'accions d'aplicació al costat de les aplicacions als resultats",
           "label": "Mostra les accions d'aplicació"
         },
-        "launcher-app-grid": {
-          "description": "Mostra una graella d'icones d'aplicació amb etiquetes a sota quan els resultats són només aplicacions",
-          "label": "Vista de graella d'aplicacions"
-        },
         "launcher-app-origin-indicator": {
           "description": "Mostra indicadors d'origen del paquet als resultats d'aplicacions",
           "label": "Mostra els indicadors d'origen de l'aplicació"
@@ -2356,6 +2342,10 @@
         "launcher-global-windows": {
           "description": "Mostra també les finestres obertes a la cerca sense prefix",
           "label": "Finestres a la cerca global"
+        },
+        "launcher-grid": {
+          "description": "Mostra una graella d'icones d'aplicació amb etiquetes a sota quan els resultats són només aplicacions",
+          "label": "Vista de graella d'aplicacions"
         },
         "launcher-pinned-apps": {
           "description": "Identificadors d'entrada d'escriptori de les aplicacions fixades al llançador; apareixen primer en obrir el llançador",
@@ -2531,10 +2521,7 @@
         "calendar-edit": {
           "button": "Edita",
           "button-reconnect": "Torna a connectar",
-          "button-retry": "Torna-ho a provar",
-          "description": "Actualitza aquest compte de calendari",
-          "description-locked": "El testimoni de renovació és en un anell de claus bloquejat; desbloca l'anell de claus i torna-ho a provar",
-          "description-reconnect": "Falta l'autorització de Google; torna a connectar aquest compte"
+          "button-retry": "Torna-ho a provar"
         },
         "calendar-event-date-format": {
           "description": "El format de data que es mostra per als esdeveniments del calendari a les vistes de calendari",
@@ -3474,7 +3461,7 @@
           "volume-description": "Glif d'icona personalitzat; deixa'l buit per utilitzar les icones dinàmiques integrades"
         },
         "glyph-position": {
-          "description": "En quin ordre mostrar el glif en relació amb el text/gràfic/indicador",
+          "description": "Col·loca el glif o la imatge personalitzada i l'etiqueta personalitzada respecte al valor o la visualització",
           "label": "Posició del glif"
         },
         "group-by-workspace": {
@@ -3729,10 +3716,6 @@
           "description": "Inclou finestres de tots els monitors en aquest giny",
           "label": "Mostra tots els monitors"
         },
-        "show-all-workspaces": {
-          "description": "Mostra els espais de treball de tots els monitors en aquest giny",
-          "label": "Mostra tots els monitors"
-        },
         "show-caps-lock": {
           "description": "Mostra l'estat de Bloq Majús",
           "label": "Mostra Bloq Majús"
@@ -3925,7 +3908,6 @@
         "plugin-store": "El catàleg remot de connectors i les sol·licituds de descàrrega no funcionaran.",
         "plugins": "Les sol·licituds HTTP dels connectors no funcionaran. Les fonts Git encara es podran actualitzar.",
         "security": "La consulta d'IP externa i la telemetria no funcionaran.",
-        "services": "La sincronització del compte de calendari no funcionarà.",
         "template-store": "Les descàrregues de plantilles de la comunitat no funcionaran.",
         "templates": "Les descàrregues i actualitzacions de plantilles de la comunitat no funcionaran.",
         "title": "Mode fora de línia"

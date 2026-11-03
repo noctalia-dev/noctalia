@@ -32,32 +32,32 @@ namespace {
   class StubRenderer final : public Renderer {
   public:
     TextMetrics measureText(
-        std::string_view, float fontSize, FontWeight, float, int, TextAlign, std::string_view, TextEllipsize, bool
+        std::string_view, float fontSize, const TextFont&, float, int, TextAlign, TextEllipsize, bool
     ) override {
       return TextMetrics{.bottom = fontSize};
     }
 
-    TextMetrics measureFont(float fontSize, FontWeight) override { return TextMetrics{.bottom = fontSize}; }
+    TextMetrics measureFont(float fontSize, const TextFont&) override { return TextMetrics{.bottom = fontSize}; }
 
     void measureTextCursorStops(
-        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, FontWeight
+        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, const TextFont&
     ) override {}
 
     void measureTextCursorStopsWrapped(
-        std::string_view, float, const std::vector<std::size_t>&, float, std::vector<TextCursorStop>&, FontWeight
+        std::string_view, float, const std::vector<std::size_t>&, float, std::vector<TextCursorStop>&, const TextFont&
     ) override {}
 
     TextMetrics measureGlyph(char32_t, float) override { return TextMetrics{}; }
 
     TextureManager& textureManager() override { std::abort(); }
-    [[nodiscard]] float renderScale() const noexcept override { return 1.0F; }
+    float renderScale() const noexcept override { return 1.0F; }
   };
 
   // Stands in for the launcher's pinned-entry adapters: consumes the press so it
   // can tell a reorder drag from an activation on release.
   class RecordingAdapter final : public VirtualGridAdapter {
   public:
-    [[nodiscard]] std::size_t itemCount() const override { return 4; }
+    std::size_t itemCount() const override { return 4; }
     [[nodiscard]] std::unique_ptr<Node> createTile() override { return std::make_unique<Node>(); }
     void bindTile(Node&, std::size_t, bool, bool) override {}
 
@@ -71,9 +71,9 @@ namespace {
       return false;
     }
 
-    bool onPointerRelease(std::optional<std::size_t> index) override {
+    PointerReleaseResult onPointerRelease(std::optional<std::size_t> index) override {
       releases.push_back(index);
-      return false;
+      return {};
     }
 
     void reset() {

@@ -16,6 +16,7 @@ public:
     bool mirrored = true;
     bool reversed = false;
     bool centered = true;
+    bool wave = false;
     bool showWhenIdle = false;
     ColorSpec color1 = colorSpecFromRole(ColorRole::Primary);
     ColorSpec color2 = colorSpecFromRole(ColorRole::Primary);
@@ -26,13 +27,13 @@ public:
 
   void create() override;
   void onFrameTick(float deltaMs) override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void syncSpectrum();
-  [[nodiscard]] bool shouldBeVisible() const;
+  bool shouldBeVisible() const;
   bool applyVisibility();
   void cancelVisibilityAnimation();
   void setVisibilityCollapsed(bool collapsed);
@@ -44,6 +45,7 @@ private:
   bool m_mirrored = false;
   bool m_reversed = false;
   bool m_centered = true;
+  bool m_wave = false;
   bool m_showWhenIdle = false;
   ColorSpec m_color1 = colorSpecFromRole(ColorRole::Primary);
   ColorSpec m_color2 = colorSpecFromRole(ColorRole::Primary);

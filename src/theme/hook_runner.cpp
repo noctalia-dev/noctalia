@@ -11,18 +11,35 @@ namespace noctalia::theme {
     constexpr Logger kLog("hook_runner");
     // Hook output is only read back for the failure warning.
     constexpr std::size_t kMaxHookOutputBytes = 8 * 1024;
+
+    void reportFailure(
+        const HookRunner::FailureCallback& onFailure, const std::shared_ptr<std::atomic<bool>>& cancel,
+        std::string diagnostic
+    ) {
+      if (!onFailure || (cancel && cancel->load())) {
+        return;
+      }
+      try {
+        onFailure(std::move(diagnostic));
+      } catch (...) {
+        kLog.warn("hook failure callback threw an exception");
+      }
+    }
   } // namespace
 
-  HookRunner::HookRunner(std::size_t maxConcurrent) : m_state(std::make_shared<State>()) {
+  HookRunner::HookRunner(std::size_t maxConcurrent, std::shared_ptr<std::atomic<bool>> cancel)
+      : m_state(std::make_shared<State>()) {
     m_state->maxConcurrent = maxConcurrent > 0 ? maxConcurrent : kDefaultMaxConcurrent;
+    m_state->cancel = std::move(cancel);
   }
 
   HookRunner::~HookRunner() {
     requestShutdown();
     std::unique_lock lock(m_state->mutex);
     // Hooks that already started own the shared state; wait them out instead of
-    // killing a command halfway through rewriting an application's config.
-    m_state->idleCv.wait(lock, [this]() { return m_state->running == 0; });
+    // killing a command halfway through rewriting an application's config. An owner
+    // that must bound this raises the cancel flag, which ends them.
+    m_state->idleCv.wait(lock, [this] { return m_state->running == 0; });
   }
 
   void HookRunner::requestShutdown() {
@@ -34,7 +51,7 @@ namespace noctalia::theme {
     m_state->idleCv.notify_all();
   }
 
-  void HookRunner::enqueue(std::string command, std::uint64_t generation) {
+  void HookRunner::enqueue(std::string command, std::uint64_t generation, FailureCallback onFailure) {
     if (command.empty()) {
       return;
     }
@@ -43,7 +60,7 @@ namespace noctalia::theme {
       if (m_state->shutdown || generation < m_state->currentGeneration) {
         return;
       }
-      m_state->queue.emplace_back(QueuedHook{std::move(command), generation});
+      m_state->queue.emplace_back(QueuedHook{std::move(command), generation, std::move(onFailure)});
     }
     pump(m_state);
   }
@@ -62,7 +79,7 @@ namespace noctalia::theme {
 
   void HookRunner::waitIdle() {
     std::unique_lock lock(m_state->mutex);
-    m_state->idleCv.wait(lock, [this]() {
+    m_state->idleCv.wait(lock, [this] {
       return m_state->shutdown || (m_state->queue.empty() && m_state->running == 0);
     });
   }
@@ -75,6 +92,7 @@ namespace noctalia::theme {
   void HookRunner::pump(const std::shared_ptr<State>& state) {
     for (;;) {
       std::string command;
+      FailureCallback onFailure;
       {
         std::scoped_lock lock(state->mutex);
         while (!state->shutdown && state->running < state->maxConcurrent && !state->queue.empty()) {
@@ -84,6 +102,7 @@ namespace noctalia::theme {
             continue;
           }
           command = std::move(hook.command);
+          onFailure = std::move(hook.onFailure);
           ++state->running;
           break;
         }
@@ -96,18 +115,24 @@ namespace noctalia::theme {
         }
       }
 
-      if (!launch(state, command)) {
+      if (!launch(state, command, onFailure)) {
         std::scoped_lock lock(state->mutex);
         --state->running;
       }
     }
   }
 
-  bool HookRunner::launch(const std::shared_ptr<State>& state, const std::string& command) {
+  bool HookRunner::launch(
+      const std::shared_ptr<State>& state, const std::string& command, const FailureCallback& onFailure
+  ) {
     process::RunCallbacks callbacks;
-    callbacks.onExit = [state, command](process::RunResult result) {
+    callbacks.onExit = [state, command, onFailure](process::RunResult result) {
       if (!result) {
         kLog.warn("hook failed with exit code {}: {} (command: {})", result.exitCode, result.err, command);
+        reportFailure(
+            onFailure, state->cancel,
+            result.err.empty() ? "Hook failed with exit code " + std::to_string(result.exitCode) : std::move(result.err)
+        );
       }
       {
         std::scoped_lock lock(state->mutex);
@@ -118,10 +143,13 @@ namespace noctalia::theme {
 
     process::RunOptions options;
     options.maxOutputBytes = kMaxHookOutputBytes;
+    // Let the owner's cancel flag reach an already-running hook.
+    options.cancel = state->cancel;
     if (process::runAsync(command, std::move(callbacks), options)) {
       return true;
     }
     kLog.warn("failed to start hook (command: {})", command);
+    reportFailure(onFailure, state->cancel, "Failed to start hook");
     return false;
   }
 
