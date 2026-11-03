@@ -297,6 +297,7 @@ namespace noctalia::config::schema {
         field(&NotificationConfig::showAppName, "show_app_name"),
         field(&NotificationConfig::colorizeIcons, "colorize_icons"),
         field(&NotificationConfig::showActions, "show_actions"),
+        field(&NotificationConfig::groupByApp, "group_by_app"),
         field(&NotificationConfig::position, "position"),
         field(&NotificationConfig::layer, "layer"),
         field(&NotificationConfig::scale, "scale", kScaleRange),

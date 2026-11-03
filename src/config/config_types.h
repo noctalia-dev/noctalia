@@ -890,6 +890,7 @@ struct NotificationConfig {
   bool showAppName = true;
   bool colorizeIcons = false;
   bool showActions = true;
+  bool groupByApp = true;
   std::string position = "top_right";
   std::string layer = "top"; // top | overlay
   float scale = 1.0F;
