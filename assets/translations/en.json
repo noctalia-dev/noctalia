@@ -695,6 +695,7 @@
         "show-wave": "Show Wave",
         "show-weather": "Weather",
         "show-week-numbers": "Show Week Numbers",
+        "show-events-location": "Show event location",
         "show-when-idle": "Show When Idle",
         "stat": "Stat",
         "stat-cpu-freq": "CPU Freq",
