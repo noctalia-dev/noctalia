@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <optional>
 #include <set>
 #include <string_view>
 #include <sys/inotify.h>
@@ -11,7 +12,10 @@
 #include <unistd.h>
 
 namespace {
+  namespace fs = std::filesystem;
+
   constexpr std::string_view kVideoClass = "/sys/class/video4linux";
+  constexpr std::string_view kUdevData = "/run/udev/data";
 
   bool isNumber(std::string_view value) {
     return !value.empty() && std::ranges::all_of(value, [](char ch) { return ch >= '0' && ch <= '9'; });
@@ -19,11 +23,32 @@ namespace {
 
   bool isVideoNodeName(std::string_view name) { return name.starts_with("video") && isNumber(name.substr(5)); }
 
-  // True for a video4linux class entry whose device name is readable and not a metadata node.
-  bool isCaptureNode(const std::filesystem::path& classEntry) {
+  // udev's v4l_id stores VIDIOC_QUERYCAP per node, so capabilities are known without opening it.
+  // Mem2mem codecs report no capture capability (older drivers: capture plus video_output).
+  std::optional<bool> udevIsCamera(const fs::path& classEntry, const fs::path& udevData) {
+    std::ifstream devFile(classEntry / "dev");
+    std::string dev;
+    if (!std::getline(devFile, dev)) {
+      return std::nullopt;
+    }
+    std::ifstream record(udevData / ("c" + dev));
+    for (std::string line; std::getline(record, line);) {
+      if (line.starts_with("E:ID_V4L_CAPABILITIES=")) {
+        return line.contains(":capture:") && !line.contains(":video_output:");
+      }
+    }
+    return std::nullopt;
+  }
+
+  // True for a video4linux class entry that is a camera: udev's capability record when present,
+  // otherwise any readable device name that is not a metadata node.
+  bool isCaptureNode(const fs::path& classEntry, const fs::path& udevData = kUdevData) {
     std::ifstream nameFile(classEntry / "name");
     std::string name;
-    return std::getline(nameFile, name) && !name.contains("Metadata");
+    if (!std::getline(nameFile, name) || name.contains("Metadata")) {
+      return false;
+    }
+    return udevIsCamera(classEntry, udevData).value_or(true);
   }
 } // namespace
 
@@ -48,13 +73,14 @@ bool v4l2CameraSameApp(std::string_view pipewireLabel, std::string_view comm) {
   return false;
 }
 
-std::vector<std::string> v4l2CameraApps(const std::filesystem::path& videoClass, const std::filesystem::path& proc) {
-  namespace fs = std::filesystem;
+std::vector<std::string> v4l2CameraApps(
+    const std::filesystem::path& videoClass, const std::filesystem::path& proc, const std::filesystem::path& udevData
+) {
   std::set<fs::path> devices;
   std::error_code ec;
   for (fs::directory_iterator it(videoClass, ec), end; !ec && it != end; it.increment(ec)) {
     const auto device = it->path().filename().string();
-    if (isVideoNodeName(device) && isCaptureNode(it->path())) {
+    if (isVideoNodeName(device) && isCaptureNode(it->path(), udevData)) {
       devices.insert(fs::path("/dev") / device);
     }
   }
