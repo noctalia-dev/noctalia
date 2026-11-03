@@ -6,6 +6,7 @@
 #include "core/log.h"
 #include "core/process/process.h"
 #include "dbus/bluetooth/bluetooth_service.h"
+#include "dbus/logind/logind_service.h"
 #include "dbus/mpris/mpris_service.h"
 #include "dbus/network/inetwork_service.h"
 #include "dbus/notification/kde_notification_client.h"
@@ -754,8 +755,11 @@ bool Application::setOutputPower(bool on) {
   m_compositorPlatform.setOutputPowerOffPending(!on);
   if (on) {
     m_lockScreen.markOutputsWoke();
-    return m_compositorPlatform.setOutputPower(true);
+    const bool success = m_compositorPlatform.setOutputPower(true);
+    releaseLidSwitchInhibit();
+    return success;
   }
+  inhibitLidSwitchIfDocked();
   const auto result = std::make_shared<std::optional<bool>>();
   m_lockScreen.prepareForOutputPowerOff([this, generation, result](bool ready) {
     if (generation != m_outputPowerRequestGeneration) {
@@ -765,10 +769,29 @@ bool Application::setOutputPower(bool on) {
     if (ready && !success) {
       kLog.warn("failed to turn outputs off after preparing the lock frame");
     }
+    if (!success) {
+      releaseLidSwitchInhibit();
+    }
     m_compositorPlatform.setOutputPowerOffPending(false);
     *result = success;
   });
   return result->has_value() ? **result : true;
+}
+
+void Application::inhibitLidSwitchIfDocked() {
+  if (m_logindService == nullptr || !m_logindService->isDocked()) {
+    return;
+  }
+  if (m_logindService->handleLidSwitchDocked() != "ignore") {
+    return;
+  }
+  m_logindService->acquireLidSwitchInhibit();
+}
+
+void Application::releaseLidSwitchInhibit() {
+  if (m_logindService != nullptr) {
+    m_logindService->releaseLidSwitchInhibit();
+  }
 }
 
 bool Application::runIdleAction(const IdleActionRequest& action) {
