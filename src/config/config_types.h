@@ -1750,6 +1750,18 @@ constexpr EnumOption<ShellThemeMode> kShellThemeModes[] = {
     {ShellThemeMode::Auto, "auto", "common.states.auto"},
 };
 
+// How wallpaper-generated themes pick their ANSI colors. `palette` takes them from the scheme
+// roles so they match the wallpaper; `standard` keeps canonical red, green, yellow hues.
+enum class TerminalColors : std::uint8_t {
+  Palette = 0,
+  Standard = 1,
+};
+
+constexpr EnumOption<TerminalColors> kTerminalColorsOptions[] = {
+    {TerminalColors::Palette, "palette", "settings.options.theme.terminal-colors.palette"},
+    {TerminalColors::Standard, "standard", "settings.options.theme.terminal-colors.standard"},
+};
+
 struct WallpaperFavorite {
   std::string path;
   std::optional<ThemeMode> themeMode;
@@ -1837,6 +1849,7 @@ struct ThemeConfig {
   ThemeMode mode = ThemeMode::Dark;
   ShellThemeMode shellMode = ShellThemeMode::Follow;
   bool pureBlackDark = false;
+  TerminalColors terminalColors = TerminalColors::Palette;
   bool syncColorScheme = true;
   TemplatesConfig templates;
 

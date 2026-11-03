@@ -27,7 +27,12 @@
     }
   },
   "bar": {
+    "annotate": {
+      "backdrop": "背景",
+      "done": "完成（Enter）"
+    },
     "screenshot": {
+      "annotate-export-failed": "標注後圖像生成失敗",
       "choose-display": "選擇顯示器",
       "confirm-region": "{copy} 複製 · {save} 儲存 · Enter 或 Space 預設值 · {cancel} 取消 · 拖曳重新選擇",
       "fullscreen": "全螢幕",
@@ -1091,6 +1096,9 @@
         "screen-corners": "螢幕圓角",
         "screen-time": "螢幕時間",
         "screenshot": "截圖",
+        "screenshot-annotation": "標注",
+        "screenshot-capture": "擷取",
+        "screenshot-output": "輸出",
         "security": "安全性",
         "session-panel": "會話面板",
         "shape": "形狀",
@@ -1124,6 +1132,7 @@
         "plugins": "擴充套件",
         "popups": "彈出式視窗",
         "power": "電源",
+        "screenshot": "截圖",
         "security": "安全",
         "services": "服務",
         "shell": "Shell",
@@ -1145,6 +1154,45 @@
           "toast": "Toast 通知"
         },
         "flags-label": "當配對時"
+      }
+    },
+    "options": {
+      "screenshot": {
+        "format": {
+          "jpeg": "JPEG",
+          "jxl": "JPEG XL",
+          "png": "PNG",
+          "webp": "WebP"
+        },
+        "region-modifier": {
+          "alt": "Alt",
+          "ctrl": "Ctrl",
+          "none": "無",
+          "shift": "Shift",
+          "super": "Super"
+        }
+      }
+    },
+    "schema": {
+      "services": {
+        "screenshot-sounds": {
+          "description": "擷取時播放提示音",
+          "label": "擷取提示音"
+        }
+      },
+      "shell": {
+        "screenshot-annotate": {
+          "description": "每次截圖後打開標注編輯器；點擊「完成」後按設定儲存，剪貼簿， 和管線設定",
+          "label": "輸出前標注"
+        },
+        "screenshot-close-on-copy": {
+          "description": "複製成功後自動關閉編輯器， 直接打開編輯器時同樣適用",
+          "label": "複製後自動關閉編輯器"
+        },
+        "screenshot-close-on-save": {
+          "description": "成功儲存後自動關閉， 直接打開時同樣適用",
+          "label": "儲存後自動關閉編輯器"
+        }
       }
     }
   }

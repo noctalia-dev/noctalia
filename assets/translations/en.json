@@ -1757,6 +1757,10 @@
           "community": "Community",
           "custom": "Custom",
           "wallpaper": "Wallpaper"
+        },
+        "terminal-colors": {
+          "palette": "Palette",
+          "standard": "Standard"
         }
       },
       "theme-role": {
@@ -1943,6 +1947,10 @@
           "description": "Shared palette color for components with Colorize App Icons enabled",
           "label": "App Icon Color"
         },
+        "app-icon-colorize": {
+          "description": "Recolor application icons across the shell to match the active palette",
+          "label": "Colorize App Icons"
+        },
         "builtin-palette": {
           "description": "Choose a palette from the bundled catalog",
           "label": "Built-In Palette"
@@ -2024,6 +2032,10 @@
         "sync-color-scheme": {
           "description": "Set the system dark/light preference read by browsers and other apps to follow Theme Mode",
           "label": "Sync App Color Scheme"
+        },
+        "terminal-colors": {
+          "description": "Palette matches terminal colors to the wallpaper; Standard keeps red, green and yellow recognizable",
+          "label": "Terminal Colors"
         },
         "theme-mode": {
           "description": "Choose Dark, Light, or Auto based on time of day; also applies to apps through templates",
@@ -3331,15 +3343,15 @@
         }
       },
       "shared": {
-        "colorize-icons": {
-          "description": "Recolor application icons here using the shared App Icon Color from Appearance",
-          "label": "Colorize App Icons"
-        },
         "auto-hide": {
           "label": "Auto-Hide"
         },
         "background-opacity": {
           "label": "Background Opacity"
+        },
+        "colorize-icons": {
+          "description": "Recolor application icons here using the shared App Icon Color from Appearance",
+          "label": "Colorize App Icons"
         },
         "contact-shadow": {
           "label": "Contact Shadow"
