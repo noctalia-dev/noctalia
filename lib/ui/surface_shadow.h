@@ -55,6 +55,15 @@ struct ShadowStyle {
 namespace surface_shadow {
 
   constexpr std::int32_t kBlurRadius = 12;
+  constexpr int kMaskPadding = 6;
+  constexpr float kMaskSigma = 2.0F;
+
+  struct MaskStyle {
+    Color tint;
+    ShadowDirectionOffset offset;
+  };
+
+  [[nodiscard]] MaskStyle maskStyle(const ShadowStyle& shadow) noexcept;
 
   struct Bleed {
     std::int32_t left = 0;

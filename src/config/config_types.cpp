@@ -694,6 +694,8 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.activeMonitorOnly = *override.activeMonitorOnly;
   if (override.iconSize)
     resolved.iconSize = *override.iconSize;
+  if (override.iconShadow)
+    resolved.iconShadow = *override.iconShadow;
   if (override.iconSaturation)
     resolved.iconSaturation = *override.iconSaturation;
   if (override.colorizeIcons)

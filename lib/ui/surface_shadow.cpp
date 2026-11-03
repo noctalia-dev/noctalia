@@ -39,6 +39,10 @@ namespace surface_shadow {
     };
   }
 
+  MaskStyle maskStyle(const ShadowStyle& shadow) noexcept {
+    return {.tint = style(shadow, 1.0F, {}).fill, .offset = shadowDirectionOffset(shadow.direction)};
+  }
+
   bool sameSurfaceMetrics(const ShadowStyle& previous, const ShadowStyle& next) noexcept {
     return previous.direction == next.direction;
   }

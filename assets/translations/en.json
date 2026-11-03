@@ -2352,6 +2352,10 @@
           "description": "Color saturation of application icons; 0 is grayscale",
           "label": "Icon Saturation"
         },
+        "icon-shadow": {
+          "description": "Cast a soft shadow following each application icon's shape",
+          "label": "Icon Shadow"
+        },
         "icon-size": {
           "description": "Size of dock icons in pixels",
           "label": "Icon Size"
