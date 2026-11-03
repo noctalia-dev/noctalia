@@ -842,6 +842,11 @@ namespace settings {
         ToggleSetting{cfg.wallpaper.transitionOnStartup}, "startup animation"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Wallpaper, "transition", tr("settings.schema.wallpaper.sync-transitions.label"),
+        tr("settings.schema.wallpaper.sync-transitions.description"), {"wallpaper", "sync_transitions"},
+        ToggleSetting{cfg.wallpaper.syncTransitions}, "all monitors same effect"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Wallpaper, "automation", tr("settings.schema.wallpaper.automation.label"),
         tr("settings.schema.wallpaper.automation.description"), {"wallpaper", "automation", "enabled"},
         ToggleSetting{cfg.wallpaper.automation.enabled}, "rotate slideshow"

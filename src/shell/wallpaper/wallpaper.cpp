@@ -521,6 +521,8 @@ void Wallpaper::onOutputChange() {
 std::vector<WallpaperChange> Wallpaper::onStateChange() {
   kLog.info("state file changed, checking for updates");
 
+  m_syncedPickValid = false;
+
   std::vector<WallpaperChange> changes = std::exchange(m_pendingStartupChanges, {});
   for (auto& inst : m_instances) {
     auto newPath = m_config->getWallpaperPath(inst->connectorName);
@@ -1491,11 +1493,24 @@ void Wallpaper::startTransition(WallpaperInstance& instance) {
     aspectRatio = static_cast<float>(instance.surface->width()) / static_cast<float>(instance.surface->height());
   }
 
-  const auto& transitions = wpConfig.transitions;
-  const auto picked =
-      transitions[static_cast<std::size_t>(std::floor(randomFloat(0.0F, static_cast<float>(transitions.size()))))];
+  WallpaperTransition picked;
+  TransitionParams params;
+  if (wpConfig.syncTransitions && m_syncedPickValid) {
+    picked = m_syncedTransition;
+    params = m_syncedParams;
+  } else {
+    const auto& transitions = wpConfig.transitions;
+    picked =
+        transitions[static_cast<std::size_t>(std::floor(randomFloat(0.0F, static_cast<float>(transitions.size()))))];
+    params = randomizeParams(picked, wpConfig.edgeSmoothness, aspectRatio);
+    if (wpConfig.syncTransitions) {
+      m_syncedTransition = picked;
+      m_syncedParams = params;
+      m_syncedPickValid = true;
+    }
+  }
   instance.activeTransition = picked;
-  instance.transitionParams = randomizeParams(picked, wpConfig.edgeSmoothness, aspectRatio);
+  instance.transitionParams = params;
   startTransitionAnimation(instance, 0.0F, WallpaperTransitionDirection::Forward);
 }
 
