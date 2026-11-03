@@ -485,7 +485,7 @@ namespace {
     if (value == nullptr) {
       return fallback;
     }
-    const auto decoded = iconPixmapsFromVariant(*value);
+    auto decoded = iconPixmapsFromVariant(*value);
     if (!decoded.empty()) {
       return decoded;
     }
@@ -575,11 +575,26 @@ void TrayService::startWithWatcherDetection() {
       .call([this](const std::string& name, const std::string& old_owner, const std::string& new_owner) {
         if (name == std::string{kWatcherBusName}) {
           if (m_watcherRole == WatcherRole::Client) {
-            if (old_owner.empty() && !new_owner.empty()) {
-              DeferredCall::callLater([this] { connectToExternalWatcher(); });
-            } else if (!old_owner.empty() && new_owner.empty()) {
+            if (!old_owner.empty()) {
               disconnectExternalWatcher();
             }
+            DeferredCall::callLater([this] {
+              if (m_watcherRole != WatcherRole::Client) {
+                return;
+              }
+              if (externalWatcherHasOwner()) {
+                connectToExternalWatcher();
+                return;
+              }
+              try {
+                startAsWatcherOwner();
+              } catch (const sdbus::Error& e) {
+                kLog.warn("tray failed to take over {}: {}", std::string{kWatcherBusName}, e.what());
+                m_watcherObject.reset();
+                m_watcherRole = WatcherRole::Client;
+                m_hostRegistered = false;
+              }
+            });
           }
           return;
         }
@@ -589,6 +604,13 @@ void TrayService::startWithWatcherDetection() {
         }
         if (!old_owner.empty() && new_owner.empty()) {
           removeItemsForBusName(name);
+        }
+        if (!old_owner.empty() && !new_owner.empty()) {
+          for (const auto& [id, item] : m_items) {
+            if (item.busName == name) {
+              m_itemOwners[id] = new_owner;
+            }
+          }
         }
       });
 
@@ -620,6 +642,7 @@ bool TrayService::externalWatcherHasOwner() const {
 
 void TrayService::startAsWatcherOwner() {
   m_watcherRole = WatcherRole::Owner;
+  m_hostRegistered = true;
 
   m_watcherObject = sdbus::createObject(m_bus.connection(), kWatcherObjectPath);
 
@@ -817,6 +840,7 @@ void TrayService::removeItemById(const std::string& itemId) {
 
   m_items.erase(itemId);
   m_itemProxies.erase(itemId);
+  m_itemOwners.erase(itemId);
   m_menuCache.erase(itemId);
   kLog.debug("item unregistered: {}", itemId);
   notifyWatcherItemUnregistered(itemId);
@@ -1192,7 +1216,7 @@ std::vector<TrayMenuEntry> TrayService::menuEntriesForParent(const std::string& 
   if (cacheIt == m_menuCache.end() || cacheIt->second.proxy == nullptr) {
     // Fall back to opening the root cache path — if a caller asks for a submenu
     // before the root was fetched we have no idea if the parent is valid.
-    (void)menuEntries(itemId);
+    menuEntries(itemId);
     cacheIt = m_menuCache.find(itemId);
     if (cacheIt == m_menuCache.end() || cacheIt->second.proxy == nullptr) {
       return {};
@@ -1615,13 +1639,17 @@ void TrayService::tryRegisterItemForBusName(const std::string& busName, std::fun
           .onInterface("org.freedesktop.DBus.Properties")
           .withTimeout(kItemPropertyTimeout)
           .withArguments(kItemInterface)
-          .uponReplyInvoke([this, busName, candidatePathString, pending, registeredAny, finish,
-                            probe](std::optional<sdbus::Error> error, const std::map<std::string, sdbus::Variant>&) {
-            if (!error.has_value()) {
+          .uponReplyInvoke([this, busName, candidatePathString, pending, registeredAny, finish, probe](
+                               std::optional<sdbus::Error> error,
+                               const std::map<std::string, sdbus::Variant>& properties
+                           ) {
+            if (error.has_value()) {
+              kLog.debug("tray probe failed bus='{}' path='{}' err={}", busName, candidatePathString, error->what());
+            } else if (properties.empty()) {
+              kLog.debug("tray probe ignored bus='{}' path='{}': no item properties", busName, candidatePathString);
+            } else {
               registerOrRefreshItem(busName, candidatePathString);
               *registeredAny = true;
-            } else {
-              kLog.debug("tray probe failed bus='{}' path='{}' err={}", busName, candidatePathString, error->what());
             }
             if (*pending > 0) {
               --(*pending);
@@ -1645,7 +1673,7 @@ void TrayService::scheduleBusOnlyRegistrationProbe(const std::string& busName, i
   // First attempt is immediate; later attempts back off so a slow SNI can answer.
   const int attemptIndex = kBusOnlyRegistrationProbeAttempts - retriesRemaining;
   const auto delay = kBusOnlyRegistrationProbeBackoff * std::max(0, attemptIndex);
-  (void)TimerManager::instance().start(0, delay, [this, busName, retriesRemaining] {
+  TimerManager::instance().start(0, delay, [this, busName, retriesRemaining] {
     tryRegisterItemForBusName(busName, [this, busName, retriesRemaining](bool registered) {
       if (!registered) {
         scheduleBusOnlyRegistrationProbe(busName, retriesRemaining - 1);
@@ -1661,7 +1689,7 @@ void TrayService::scheduleMetadataRefreshRetry(const std::string& itemId, int re
 
   // Let the in-flight GetAll finish (or time out) before judging readiness.
   const auto delay = kItemPropertyTimeout + std::chrono::milliseconds(100);
-  (void)TimerManager::instance().start(0, delay, [this, itemId, retriesRemaining] {
+  TimerManager::instance().start(0, delay, [this, itemId, retriesRemaining] {
     auto it = m_items.find(itemId);
     if (it == m_items.end()) {
       return;
@@ -1836,28 +1864,76 @@ void TrayService::registerOrRefreshItem(const std::string& busName, const std::s
 }
 
 void TrayService::attachItemProxySignals(const std::string& itemId, sdbus::IProxy& proxy) {
-  proxy.uponSignal("NewIcon").onInterface(kItemInterface).call([this, itemId] { refreshItemMetadata(itemId); });
-  proxy.uponSignal("NewAttentionIcon").onInterface(kItemInterface).call([this, itemId] {
-    refreshItemMetadata(itemId);
+  if (const auto itemIt = m_items.find(itemId); itemIt != m_items.end()) {
+    resolveItemOwner(itemId, itemIt->second.busName);
+  }
+
+  auto refreshFromOwner = [this, itemId, &proxy] {
+    if (isSignalFromItemOwner(itemId, proxy)) {
+      refreshItemMetadata(itemId);
+    }
+  };
+  proxy.uponSignal("NewIcon").onInterface(kItemInterface).call(refreshFromOwner);
+  proxy.uponSignal("NewAttentionIcon").onInterface(kItemInterface).call(refreshFromOwner);
+  proxy.uponSignal("NewOverlayIcon").onInterface(kItemInterface).call(refreshFromOwner);
+  proxy.uponSignal("NewToolTip").onInterface(kItemInterface).call(refreshFromOwner);
+  proxy.uponSignal("NewStatus").onInterface(kItemInterface).call([refreshFromOwner](const std::string& /*status*/) {
+    refreshFromOwner();
   });
-  proxy.uponSignal("NewOverlayIcon").onInterface(kItemInterface).call([this, itemId] { refreshItemMetadata(itemId); });
-  proxy.uponSignal("NewToolTip").onInterface(kItemInterface).call([this, itemId] { refreshItemMetadata(itemId); });
-  proxy.uponSignal("NewStatus").onInterface(kItemInterface).call([this, itemId](const std::string& /*status*/) {
-    refreshItemMetadata(itemId);
-  });
-  proxy.uponSignal("NewTitle").onInterface(kItemInterface).call([this, itemId](const std::string& /*title*/) {
-    refreshItemMetadata(itemId);
+  proxy.uponSignal("NewTitle").onInterface(kItemInterface).call([refreshFromOwner](const std::string& /*title*/) {
+    refreshFromOwner();
   });
   proxy.uponSignal("PropertiesChanged")
       .onInterface("org.freedesktop.DBus.Properties")
-      .call([this, itemId](
+      .call([refreshFromOwner](
                 const std::string& iface, const std::map<std::string, sdbus::Variant>& /*changed*/,
                 const std::vector<std::string>& /*invalidated*/
             ) {
         if (iface == kItemInterface) {
-          refreshItemMetadata(itemId);
+          refreshFromOwner();
         }
       });
+}
+
+void TrayService::resolveItemOwner(const std::string& itemId, const std::string& busName) {
+  m_itemOwners.erase(itemId);
+  if (busName.starts_with(':')) {
+    m_itemOwners[itemId] = busName;
+    return;
+  }
+  if (m_dbusProxy == nullptr) {
+    return;
+  }
+
+  try {
+    m_dbusProxy->callMethodAsync("GetNameOwner")
+        .onInterface(kDbusInterface)
+        .withTimeout(kItemPropertyTimeout)
+        .withArguments(busName)
+        .uponReplyInvoke([this, itemId, busName](std::optional<sdbus::Error> error, const std::string& owner) {
+          if (error.has_value()) {
+            kLog.debug("tray item owner lookup failed id={} err={}", itemId, error->what());
+            return;
+          }
+          const auto itemIt = m_items.find(itemId);
+          if (itemIt == m_items.end() || itemIt->second.busName != busName) {
+            return;
+          }
+          m_itemOwners[itemId] = owner;
+        });
+  } catch (const sdbus::Error& e) {
+    kLog.debug("tray item owner lookup dispatch failed id={} err={}", itemId, e.what());
+  }
+}
+
+bool TrayService::isSignalFromItemOwner(const std::string& itemId, sdbus::IProxy& proxy) const {
+  const auto ownerIt = m_itemOwners.find(itemId);
+  if (ownerIt == m_itemOwners.end()) {
+    // Owner unknown (lookup pending or failed): accept the signal; an extra refresh is harmless.
+    return true;
+  }
+  const char* sender = proxy.getCurrentlyProcessedMessage().getSender();
+  return sender != nullptr && ownerIt->second == sender;
 }
 
 void TrayService::resolvePathOnlyItemProxy(const std::string& itemId) {
@@ -2116,6 +2192,7 @@ void TrayService::removeItemsForBusName(const std::string& busName) {
   for (const auto& itemId : removedIds) {
     m_items.erase(itemId);
     m_itemProxies.erase(itemId);
+    m_itemOwners.erase(itemId);
     m_menuCache.erase(itemId);
     kLog.debug("item unregistered: {}", itemId);
     notifyWatcherItemUnregistered(itemId);

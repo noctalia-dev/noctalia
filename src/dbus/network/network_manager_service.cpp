@@ -49,6 +49,11 @@ namespace {
   constexpr std::string_view kNmCellularConnectionType = "gsm";
   constexpr std::string_view kNmVpnConnectionType = "vpn";
   constexpr std::string_view kNmWireguardConnectionType = "wireguard";
+  // 802-11-wireless.mode of a profile that runs the device as an access point.
+  constexpr std::string_view kNmWifiModeAp = "ap";
+
+  // NM80211Mode value of a Wi-Fi device running as an access point.
+  constexpr std::uint32_t kNm80211ModeAp = 3;
 
   // NMDeviceType values from NetworkManager D-Bus API.
   constexpr std::uint32_t kNmDeviceTypeEthernet = 1;
@@ -335,6 +340,7 @@ void NetworkManagerService::detach() {
   m_emitOnNextRefresh = false;
   m_anyVpnConnected = false;
   m_anyCellularActive = false;
+  m_hotspotActive = false;
   endScan();
   m_scanBaselineLastScan = 0;
   ++m_scanGeneration;
@@ -1280,10 +1286,20 @@ namespace {
     std::function<void()> onComplete;
   };
 
-  bool ssidFromSettings(const std::map<std::string, std::map<std::string, sdbus::Variant>>& cfg, std::string& out) {
+  // SSID of a client Wi-Fi profile. Access-point (hotspot) profiles return false: their SSID is
+  // not a network this device can join, so they are neither listed as saved nor forgotten.
+  bool
+  clientSsidFromSettings(const std::map<std::string, std::map<std::string, sdbus::Variant>>& cfg, std::string& out) {
     auto wifiIt = cfg.find("802-11-wireless");
     if (wifiIt == cfg.end())
       return false;
+    if (auto modeIt = wifiIt->second.find("mode"); modeIt != wifiIt->second.end()) {
+      try {
+        if (modeIt->second.get<std::string>() == kNmWifiModeAp)
+          return false;
+      } catch (const sdbus::Error&) {
+      }
+    }
     auto ssidIt = wifiIt->second.find("ssid");
     if (ssidIt == wifiIt->second.end())
       return false;
@@ -1376,7 +1392,7 @@ void NetworkManagerService::forgetSsid(const std::string& ssid) {
                   return;
                 }
                 std::string foundSsid;
-                if (!ssidFromSettings(cfg, foundSsid) || foundSsid != op->ssid) {
+                if (!clientSsidFromSettings(cfg, foundSsid) || foundSsid != op->ssid) {
                   maybeFinishForget(op);
                   return;
                 }
@@ -1525,19 +1541,8 @@ void NetworkManagerService::refreshSavedConnections(const std::function<void()>&
                                     }
                                   }
 
-                                  auto wifiIt = cfg.find("802-11-wireless");
-                                  if (wifiIt != cfg.end()) {
-                                    auto ssidIt = wifiIt->second.find("ssid");
-                                    if (ssidIt != wifiIt->second.end()) {
-                                      try {
-                                        const auto bytes = ssidIt->second.get<std::vector<std::uint8_t>>();
-                                        std::string ssid(bytes.begin(), bytes.end());
-                                        if (!ssid.empty()) {
-                                          savedState->ssids.push_back(std::move(ssid));
-                                        }
-                                      } catch (const sdbus::Error&) {
-                                      }
-                                    }
+                                  if (std::string ssid; clientSsidFromSettings(cfg, ssid) && !ssid.empty()) {
+                                    savedState->ssids.push_back(std::move(ssid));
                                   }
                                 }
                                 if (--savedState->pending == 0) {
@@ -1922,7 +1927,17 @@ void NetworkManagerService::collectWifiDevices(
                         if (lifetimeToken.expired()) {
                           return;
                         }
+                        std::uint32_t mode = 0U;
                         if (!wifiErr.has_value()) {
+                          if (auto it = properties.find("Mode"); it != properties.end()) {
+                            try {
+                              mode = it->second.get<std::uint32_t>();
+                            } catch (const sdbus::Error&) {
+                            }
+                          }
+                        }
+                        // A device running a hotspot cannot scan.
+                        if (!wifiErr.has_value() && mode != kNm80211ModeAp) {
                           scan->devicePaths.push_back(devicePathStr);
                           if (auto it = properties.find("LastScan"); it != properties.end()) {
                             try {
@@ -1965,6 +1980,7 @@ void NetworkManagerService::refreshAccessPoints(const std::function<void()>& onC
             return;
           }
 
+          m_hotspotActive = false;
           if (devices.empty()) {
             m_accessPoints.clear();
             onComplete();
@@ -2011,6 +2027,22 @@ void NetworkManagerService::refreshAccessPoints(const std::function<void()>& onC
                         activeApPath = it->second.get<sdbus::ObjectPath>();
                       } catch (const sdbus::Error&) {
                       }
+                    }
+
+                    std::uint32_t mode = 0U;
+                    if (auto it = wifiProps.find("Mode"); it != wifiProps.end()) {
+                      try {
+                        mode = it->second.get<std::uint32_t>();
+                      } catch (const sdbus::Error&) {
+                      }
+                    }
+                    if (mode == kNm80211ModeAp) {
+                      // A device running a hotspot lists only its own access point.
+                      m_hotspotActive = true;
+                      if (--deviceState->pendingDevices == 0) {
+                        finishRefreshAccessPoints(deviceState->aps, onComplete);
+                      }
+                      return;
                     }
 
                     device->callMethodAsync("GetAccessPoints")
@@ -2562,6 +2594,7 @@ void NetworkManagerService::readStateAsync(const std::function<void(NetworkState
   next->scanning = m_scanning;
   next->vpnConnected = m_anyVpnConnected;
   next->cellularActive = m_anyCellularActive;
+  next->hotspotActive = m_hotspotActive;
 
   bool vpnFromList = false;
   for (const auto& vpn : m_vpnConnections) {

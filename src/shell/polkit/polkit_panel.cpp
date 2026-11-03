@@ -9,7 +9,9 @@
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/panel/panel_manager.h"
+#include "system/desktop_entry.h"
 #include "ui/builders.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/image.h"
@@ -47,7 +49,10 @@ namespace {
 } // namespace
 
 PolkitPanel::PolkitPanel(ConfigService* config, std::function<PolkitAgent*()> agentProvider)
-    : m_config(config), m_agentProvider(std::move(agentProvider)) {}
+    : m_config(config), m_agentProvider(std::move(agentProvider)) {
+  m_appIconColorizeConn =
+      shellAppIconColorizationChanged().connect([] { PanelManager::instance().requestUpdateOnly(); });
+}
 
 PanelPlacement PolkitPanel::panelPlacement() const noexcept {
   return m_config != nullptr ? m_config->config().shell.panel.polkitPlacement : PanelPlacement::Floating;
@@ -287,12 +292,8 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
   const bool isInvalidPassword = supplementaryError && supplementaryRaw == i18n::tr("auth.polkit.invalid-password");
   std::string promptText = wrapLongRuns(agent->inputPrompt());
   std::string supplementaryText = wrapLongRuns(supplementaryRaw);
-  if (!needsInput && !supplementaryText.empty() && !supplementaryError) {
-    promptText = supplementaryText;
-    supplementaryText.clear();
-  } else if (
-      !supplementaryText.empty() && (supplementaryError || supplementaryText == i18n::tr("auth.polkit.authenticating"))
-  ) {
+  if (!supplementaryText.empty()
+      && (!needsInput || supplementaryError || supplementaryText == i18n::tr("auth.polkit.authenticating"))) {
     promptText = supplementaryText;
     supplementaryText.clear();
   }
@@ -320,9 +321,20 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
     m_iconResolved = true;
     resolveIcon(renderer, request);
   }
+  m_icon->setAppIconColorization(
+      m_config != nullptr
+          ? effectiveShellAppIconColorizationTint(
+                m_config->config().shell, m_iconIsAppIcon && m_config->config().shell.polkitColorizeIcons
+            )
+          : std::nullopt
+  );
 }
 
 void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) {
+  m_iconIsAppIcon = request.isInternal
+      || (!request.iconName.empty() && std::ranges::any_of(desktopEntries(), [&request](const DesktopEntry& entry) {
+                      return entry.icon == request.iconName;
+                    }));
   const float iconSize = scaled(48.0F);
   if (m_iconContainer != nullptr) {
     m_iconContainer->setSize(iconSize, iconSize);

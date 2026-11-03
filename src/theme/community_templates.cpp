@@ -605,11 +605,11 @@ namespace noctalia::theme {
         const toml::node* op = tpl->get("output_path");
         if (op == nullptr)
           continue;
-        if (const auto str = op->as_string()) {
+        if (const auto* str = op->as_string()) {
           output.outputPaths.push_back(str->get());
-        } else if (const auto arr = op->as_array()) {
+        } else if (const auto* arr = op->as_array()) {
           for (const auto& item : *arr) {
-            if (const auto itemStr = item.as_string())
+            if (const auto* itemStr = item.as_string())
               output.outputPaths.push_back(itemStr->get());
           }
         }
@@ -641,9 +641,9 @@ namespace noctalia::theme {
         }
 
         {
-          if (const auto name = info->get_as<std::string>("name"))
+          if (const auto* name = info->get_as<std::string>("name"))
             out.displayName = name->get();
-          if (const auto category = info->get_as<std::string>("category"))
+          if (const auto* category = info->get_as<std::string>("category"))
             out.category = category->get();
         }
         appendTemplateOutputMetadata(out, root);

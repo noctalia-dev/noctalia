@@ -1,6 +1,7 @@
 #include "theme/custom_palettes.h"
 
 #include "theme/fixed_palette.h"
+#include "theme/fixed_palette_json.h"
 #include "util/file_utils.h"
 
 #include <algorithm>
@@ -29,16 +30,6 @@ namespace noctalia::theme {
       return it->get<std::string>();
     }
 
-    std::string fixedPaletteModeColorField(const nlohmann::json& obj, std::string_view camelField) {
-      std::string prefixed = "m";
-      prefixed.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(camelField.front()))));
-      prefixed.append(camelField.substr(1));
-      if (std::string color = stringField(obj, prefixed); !color.empty()) {
-        return color;
-      }
-      return stringField(obj, camelField);
-    }
-
     AvailablePalette::PreviewMode palettePreviewFromModeJson(const nlohmann::json& modeJson) {
       if (!modeJson.is_object()) {
         return {};
@@ -53,9 +44,9 @@ namespace noctalia::theme {
 
       AvailablePalette::PreviewMode preview;
       preview.accents.reserve(kPreviewFields.size());
-      preview.surface = fixedPaletteModeColorField(modeJson, "surface");
+      preview.surface = stringField(modeJson, "surface");
       for (const auto field : kPreviewFields) {
-        std::string color = fixedPaletteModeColorField(modeJson, field);
+        std::string color = stringField(modeJson, field);
         if (!color.empty()) {
           preview.accents.push_back(std::move(color));
         }
@@ -72,19 +63,26 @@ namespace noctalia::theme {
       try {
         std::stringstream buf;
         buf << in.rdbuf();
-        const auto root = nlohmann::json::parse(buf.str());
+        auto root = nlohmann::json::parse(buf.str());
         if (!root.is_object()) {
+          return {};
+        }
+        const auto version = paletteJsonVersion(root);
+        if (!version) {
           return {};
         }
 
         AvailablePalette::Preview preview;
         if (auto it = root.find("dark"); it != root.end() && it->is_object()) {
+          upgradeFixedPaletteModeJson(*it, *version);
           preview.dark = palettePreviewFromModeJson(*it);
         }
         if (auto it = root.find("light"); it != root.end() && it->is_object()) {
+          upgradeFixedPaletteModeJson(*it, *version);
           preview.light = palettePreviewFromModeJson(*it);
         }
         if (preview.dark.accents.empty() && preview.light.accents.empty()) {
+          upgradeFixedPaletteModeJson(root, *version);
           preview.dark = palettePreviewFromModeJson(root);
           preview.light = preview.dark;
         } else if (preview.light.accents.empty()) {
@@ -101,13 +99,6 @@ namespace noctalia::theme {
       char buf[8];
       std::snprintf(buf, sizeof(buf), "#%02x%02x%02x", toByte(color.r), toByte(color.g), toByte(color.b));
       return std::string(buf);
-    }
-
-    void writeFixedColor(nlohmann::ordered_json& obj, std::string_view camelField, const ::Color& color) {
-      std::string key = "m";
-      key.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(camelField.front()))));
-      key.append(camelField.substr(1));
-      obj[key] = renderColorToHex(color);
     }
 
     nlohmann::ordered_json ansiColorsToJson(const TerminalAnsiColors& colors) {
@@ -141,22 +132,9 @@ namespace noctalia::theme {
       const TerminalPalette terminal = terminalPaletteFromTokens(tokens);
 
       nlohmann::ordered_json out = nlohmann::ordered_json::object();
-      writeFixedColor(out, "primary", palette.primary);
-      writeFixedColor(out, "onPrimary", palette.onPrimary);
-      writeFixedColor(out, "secondary", palette.secondary);
-      writeFixedColor(out, "onSecondary", palette.onSecondary);
-      writeFixedColor(out, "tertiary", palette.tertiary);
-      writeFixedColor(out, "onTertiary", palette.onTertiary);
-      writeFixedColor(out, "error", palette.error);
-      writeFixedColor(out, "onError", palette.onError);
-      writeFixedColor(out, "surface", palette.surface);
-      writeFixedColor(out, "onSurface", palette.onSurface);
-      writeFixedColor(out, "surfaceVariant", palette.surfaceVariant);
-      writeFixedColor(out, "onSurfaceVariant", palette.onSurfaceVariant);
-      writeFixedColor(out, "outline", palette.outline);
-      writeFixedColor(out, "shadow", palette.shadow);
-      writeFixedColor(out, "hover", palette.hover);
-      writeFixedColor(out, "onHover", palette.onHover);
+      for (const auto& [key, field] : kFixedPaletteJsonKeys) {
+        out[key] = renderColorToHex(palette.*field);
+      }
       out[std::string(kTerminalJsonKey)] = terminalPaletteToJson(terminal);
       return out;
     }
@@ -269,7 +247,7 @@ namespace noctalia::theme {
   }
 
   std::string allocateCustomPaletteName(std::string_view wallpaperPath, std::string_view scheme) {
-    const std::string base = suggestCustomPaletteName(wallpaperPath, scheme);
+    std::string base = suggestCustomPaletteName(wallpaperPath, scheme);
     if (base.empty()) {
       return {};
     }
@@ -310,14 +288,12 @@ namespace noctalia::theme {
     }
 
     nlohmann::ordered_json root = nlohmann::ordered_json::object();
+    root[std::string(kPaletteVersionJsonKey)] = kPaletteFormatVersion;
     if (!copy.dark.empty()) {
       root["dark"] = fixedPaletteModeToJson(copy.dark);
     }
     if (!copy.light.empty()) {
       root["light"] = fixedPaletteModeToJson(copy.light);
-    }
-    if (root.empty()) {
-      return fail("generated palette is empty");
     }
 
     std::error_code ec;

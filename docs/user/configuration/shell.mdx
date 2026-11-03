@@ -42,6 +42,7 @@ telemetry_enabled     = false           # anonymous startup ping
 setup_wizard_enabled = true              # open first-run wizard while the marker is missing
 niri_overview_type_to_launch_enabled = false # niri-only type-to-launch from overview
 umbriel_overview_type_to_launch_enabled = false # umbriel-only type-to-launch from overview
+polkit_colorize_icons = false           # tint application icons in authentication prompts
 polkit_agent          = false           # register Noctalia's native polkit authentication agent
 password_style        = "default"       # default | random
 readline_shortcuts    = false           # readline-style shortcuts in every text field
@@ -52,9 +53,9 @@ settings_window_translucent = false     # translucent Settings window background
 show_location         = true            # show weather location text in shell UI
 launch_apps_as_systemd_services = false # launch apps as transient systemd services (needs Noctalia to be a user unit)
 launch_apps_custom_command = ""         # wrap launched apps; $CMD is replaced with the app command
+screen_time_colorize_icons = false      # tint application icons in Screen Time
 screen_time_enabled   = false           # track per-app usage time for the Control Center screen-time view
-app_icon_colorize     = false           # recolor application icons across the shell
-app_icon_color        = "on_surface"    # ColorSpec when colorize is enabled; see App icon colorization below
+app_icon_color        = "on_surface"    # shared tint for components with colorize_icons enabled
 clipboard_enabled     = true            # false disables clipboard history/panel (basic copy & paste still work)
 clipboard_keep_from_closed_apps = true  # keep the live selection after its source application closes
 clipboard_history_max_entries = 100     # unpinned history cap (10–10000); pinned entries are exempt
@@ -103,12 +104,13 @@ open_near_click_wallpaper      = false  # attached/floating: open near the click
 open_near_click_session        = false  # attached/floating: open near the clicked bar widget instead of at *_position
 
 [shell.launcher]
+colorize_icons = false  # tint application result icons with shell.app_icon_color
 layout = "full"            # full | simple
 width = 760                # full layout: panel width in pixels (560–1100)
 search_position = "bottom" # full layout: top | bottom; whole launcher toolbar position
 default_view   = "recent" # full layout: recent | pinned | all | categories
 categories     = true     # simple layout: show the category chip row
-category_icons_only = false # show app category icons without text labels
+category_icons_only = false # show category icons without text labels
 show_navigation_labels = true # full layout: show text labels on the main view tabs
 show_settings_button = true # full layout: show the Settings shortcut
 show_session_button = true # full layout: show the session-actions shortcut
@@ -186,7 +188,8 @@ command = "swaylock -f"
 blacklist = []           # optional list of players to hide from media widgets/control-center
 
 [shell.window_switcher]
-style = "carousel"              # "carousel" (freestanding depth layout) or "compact" (boxed strip)
+colorize_icons = false  # tint application icons with shell.app_icon_color
+style = "carousel"              # "carousel" (depth layout), "compact" (preview strip), or "icons" (all icons)
 mru = false                     # order windows by most recently used (Alt+Tab) instead of workspace layout
 show_caption = true             # show window titles and application names below previews
 show_count = true               # show the current and total window count above the previews
@@ -262,13 +265,15 @@ Notes:
 
 - `show_location`: when `false`, weather location text/coordinates are hidden in shell surfaces.
 
-- `app_icon_colorize` and `app_icon_color`: global application icon tinting for the dock, system tray (bar and drawer), taskbar, active-window widget, and launcher panel results. See [App icon colorization](#app-icon-colorization). Bar `launcher` / `control-center` widgets can optionally tint `custom_image` via `custom_image_colorize` using the widget **Color** setting (Presentation group in the widget editor).
+- `app_icon_color`: shared application icon tint. Enable `colorize_icons` separately in the launcher, dock, window switcher, or each workspace, taskbar, tray, and active-window widget. See [App icon colorization](#app-icon-colorization). Bar `launcher` / `control-center` widgets can optionally tint `custom_image` via `custom_image_colorize` using the widget **Color** setting (Presentation group in the widget editor).
 
 - `lang`: empty follows `$LC_ALL`, `$LC_MESSAGES`, then `$LANG`. Values may be BCP-47 tags (`pt-BR`, `zh-Hans`) or POSIX locale names (`pt_BR.UTF-8`, `zh_CN.UTF-8`). Chinese region locales infer script before matching catalogs, so `zh_CN` and `zh_SG` match `zh-Hans`, while `zh_TW`, `zh_HK`, and `zh_MO` match `zh-Hant`. When a right-to-left catalog is loaded, Noctalia mirrors text, controls, grids, scrollbars, and directional icons automatically. Bar `start`/`center`/`end` lanes and dock item order remain on their configured physical sides. If no matching catalog loads and Noctalia falls back to English, the UI remains left-to-right.
 
 - `clipboard_enabled`: when `false`, disables clipboard **history** only - the history is no longer recorded or persisted, and the clipboard panel and bar/control-center shortcuts are unavailable. The live clipboard transport stays active, so basic copy/cut/paste in text fields and launcher math/emoji copy-to-clipboard actions keep working.
 
 - `clipboard_keep_from_closed_apps`: when `true` (default), Noctalia takes ownership of the live selection after the application that supplied it closes, keeping the last copied value pasteable. This is independent of clipboard history retention.
+
+- Copies that a password manager marks as sensitive with `x-kde-passwordManagerHint` (1Password does this) are never added to clipboard history and are not kept after the password manager closes. They still paste into Noctalia text fields like any other copy.
 
 - Clipboard history is encrypted at rest with a purpose-specific key derived from the Noctalia storage master key. The default `secret-service` source stores the master key through Secret Service. If the provider is unavailable or locked, history still works for the current session but is not read from or written to disk; unlock or start the provider and use **Settings → Shell → Clipboard → Retry**. Noctalia also reopens encrypted storage on its own once the provider appears or its keyring unlocks; see [Secret Service & keyrings](/noctalia/configuration/secret-service/) for the unlock requirements and the multiple-keyrings caveat. Existing plaintext history is migrated only after the encrypted replacement is complete, and encrypted files are preserved if their key is missing.
 
@@ -348,7 +353,7 @@ Notes:
 
 - `shell.launcher.categories` shows the All, Recently Used, and app category chips under the search field in the Simple layout (enabled by default). Launchers scoped to one provider, such as dmenu pickers, keep their chips regardless.
 
-- `shell.launcher.category_icons_only` hides text labels on app category tabs (Full) or chips (Simple) such as Internet and Games, keeping full names in hover tooltips. Disabled by default; category tabs show icons and text. It does not change the main view tabs.
+- `shell.launcher.category_icons_only` hides text labels on application and provider category filters in both layouts, keeping full names in hover tooltips. Disabled by default; category tabs show icons and text. Emoji categories in Full always use icons only. It does not change the main view tabs.
 
 - `shell.launcher.show_navigation_labels` shows text on the Full layout's main view tabs: Recent, Pinned, All, Categories, and Providers (default `true`). Turn off **Show navigation labels** in the launcher settings for icons with names in hover tooltips at any panel width. Narrow panels use icons automatically even when this option is enabled.
 
@@ -418,7 +423,7 @@ Notes:
 
 - `noctalia msg annotate <path>` opens an image from disk in the same editor, with no capture involved. `save_to_file`, `copy_to_clipboard`, and `pipe_to_command` apply to **Done** exactly as they do for a capture, and **Save** writes a new file in the configured `format` into `directory` using `filename_pattern`; the source file is never overwritten.
 
-- **Window switcher** is an Alt+Tab-style overlay configured under `[shell.window_switcher]`; `style = "carousel"` is the default freestanding depth layout, while `style = "compact"` restores a boxed strip of equal-sized cards. `mru = true` orders windows by most recent use instead of workspace layout. `show_caption`, `show_count`, and `show_app_icon` independently control captions below previews, the counter above them, and application icons over previews. `show_all_outputs = false` lists only windows on the monitor where the switcher opens. Bind your compositor shortcut to `noctalia msg window-switcher` (see [Shell → Window switcher](/noctalia/ipc/shell/#window-switcher)). Carousel cards keep stable proportions at each depth and fit each captured snapshot inside a small themed frame, so differing window aspect ratios do not distort the layout. The selected preview stays centered and largest, its immediate neighbors remain medium-sized, and darker outer cards step farther back. Application icons scale with their rendered preview; left-side cards place them bottom-left, right-side cards place them bottom-right, and the selected card keeps the conventional bottom-left position. Close controls mirror the side at the top of left and right cards, while the selected card keeps its close control at the top-right. Position, scale, opacity, and pointer-hover lift animate using the global animation settings; the selected-card shadow follows `[shell.shadow]`. Each close control appears only while its card is hovered. Both styles rotate through larger window sets while keeping up to five cards visible. Compositors without foreign-toplevel image capture use application icons in the cards when `show_app_icon = true`. Tab / Shift+Tab, the arrow keys, or the mouse wheel cycle selection (wheel down or right moves to the next window, wheel up or left to the previous one); releasing the shortcut's primary modifier or pressing Enter confirms; Escape cancels. The switcher updates live when windows open, close, retitle, or receive their snapshot while the overlay stays open.
+- **Window switcher** is an Alt+Tab-style overlay configured under `[shell.window_switcher]`; `style = "carousel"` is the default freestanding depth layout, while `style = "compact"` restores a boxed strip of equal-sized cards. `style = "icons"` shows all windows as stationary icon tiles, wrapping into additional rows to fit the output. It does not capture window previews; the selection frame moves between icons. In this style, `show_caption` controls a single caption for the selected window below the grid, and application icons are always shown (`show_app_icon` only applies to preview styles). `mru = true` orders windows by most recent use instead of workspace layout. `show_caption`, `show_count`, and `show_app_icon` independently control captions below previews, the counter above them, and application icons over previews. `show_all_outputs = false` lists only windows on the monitor where the switcher opens. Bind your compositor shortcut to `noctalia msg window-switcher` (see [Shell → Window switcher](/noctalia/ipc/shell/#window-switcher)). Carousel cards keep stable proportions at each depth and fit each captured snapshot inside a small themed frame, so differing window aspect ratios do not distort the layout. The selected preview stays centered and largest, its immediate neighbors remain medium-sized, and darker outer cards step farther back. Application icons scale with their rendered preview; left-side cards place them bottom-left, right-side cards place them bottom-right, and the selected card keeps the conventional bottom-left position. Close controls mirror the side at the top of left and right cards, while the selected card keeps its close control at the top-right. Position, scale, opacity, and pointer-hover lift animate using the global animation settings; the selected-card shadow follows `[shell.shadow]`. Each close control appears only while its card is hovered. The preview styles rotate through larger window sets while keeping up to five cards visible. The icons style keeps every window visible and scales the grid to fit the output. Compositors without foreign-toplevel image capture use application icons in the cards when `show_app_icon = true`. Tab / Shift+Tab, the arrow keys, or the mouse wheel cycle selection (wheel down or right moves to the next window, wheel up or left to the previous one); releasing the shortcut's primary modifier or pressing Enter confirms; Escape cancels. The switcher updates live when windows open, close, retitle, or receive their snapshot while the overlay stays open.
 
 - **Hot corners** let you trigger actions by pushing your mouse pointer into one of the four screen corners. When `[hot_corners].enabled = true`, the shell places invisible hit areas in each corner. `delay_ms` (default `0`) is how long the pointer must stay in the corner before the action runs; raise it to reduce accidental triggers. Each corner (`top_left`, `top_right`, `bottom_left`, `bottom_right`) takes an `action`. If `action` is `"command"`, provide a shell `command` to execute. Configure under **Settings → Desktop → Hot Corners**.
 
@@ -428,7 +433,7 @@ Notes:
 
 ### Encrypted storage master key
 
-The default `storage.key_source = "secret-service"` keeps the master key in the desktop Secret Service. Clipboard history and the calendar event cache reopen automatically after boot only when the collection holding it is unlocked at login. See [Secret Service & keyrings](/noctalia/configuration/secret-service/) for the `default`-collection requirement, the GNOME Keyring multiple-keyrings fix (a common cause of "locked after every reboot"), and automatic recovery.
+The default `storage.key_source = "secret-service"` keeps the master key in the desktop Secret Service. Clipboard history, notification history, and the calendar event cache reopen automatically after boot only when the collection holding it is unlocked at login. See [Secret Service & keyrings](/noctalia/configuration/secret-service/) for the `default`-collection requirement, the GNOME Keyring multiple-keyrings fix (a common cause of "locked after every reboot"), and automatic recovery.
 
 `storage.key_source = "file"` makes the configured `key_file` authoritative. Noctalia does not look up, create, edit, or delete a Secret Service storage key in this mode. The path must be absolute and resolve to a regular file containing exactly 64 lowercase hexadecimal characters (32 random bytes), with an optional final LF. This works with agenix, sops-nix, and systemd credentials as long as the decrypted file is readable by the user running Noctalia.
 
@@ -439,27 +444,33 @@ umask 077
 head -c 32 /dev/urandom | xxd -p -c 64 > noctalia-storage-key
 ```
 
-Noctalia derives independent clipboard-history and calendar-event keys from this master key. Keep it stable. Replacing it does not rotate existing data: authentication fails, Settings reports storage errors, and Noctalia preserves the encrypted files. Restore the original key to reopen them. If the configured file is missing or invalid, clipboard history and the calendar event cache remain session-only; after provisioning the correct file, use the relevant Retry action in Settings.
+Noctalia derives independent clipboard-history, notification-history, and calendar-event keys from this master key. Keep it stable. Replacing it does not rotate existing data: authentication fails, Settings reports storage errors, and Noctalia preserves the encrypted files. Restore the original key to reopen them. If the configured file is missing or invalid, clipboard history, notification history, and the calendar event cache remain session-only; after provisioning the correct file, use the relevant Retry action in Settings.
 
-When the original key cannot be restored, or saved data is damaged, Settings also offers **Recover Private Storage**. The first click arms a confirmation and the second permanently removes both saved clipboard history and the calendar event cache. With `key_source = "secret-service"`, Noctalia then replaces the shared master key. With `key_source = "file"`, the configured file remains authoritative and is never edited or deleted; recovery simply reopens storage using its current contents. Retry with the correct key before resetting if the saved data is still needed.
+When the original key cannot be restored, or saved data is damaged, Settings also offers **Recover Private Storage**. The first click arms a confirmation and the second permanently removes saved clipboard history, notification history and images, and the calendar event cache. With `key_source = "secret-service"`, Noctalia then replaces the shared master key. With `key_source = "file"`, the configured file remains authoritative and is never edited or deleted; recovery simply reopens storage using its current contents. Retry with the correct key before resetting if the saved data is still needed.
 
 ### App icon colorization
 
-When `app_icon_colorize = true`, Noctalia recolors **application bitmap icons** (desktop/tray pixmaps and file-backed icons) so they follow the active palette:
+Application icon colorization is opt-in for each component. Set `colorize_icons = true` in the component's config, or use its **Colorize App Icons** toggle in Settings:
 
-- **Dock** pinned and running app icons
-- **Tray** inline icons and the tray drawer panel
-- **Taskbar** window icons
-- **Active window** widget icon
-- **Launcher panel** search result app icons (same bake as taskbar)
+| Component                        | Config table                            | Settings location             |
+| -------------------------------- | --------------------------------------- | ----------------------------- |
+| Launcher results                 | `[shell.launcher]`                      | Launcher → Display            |
+| Dock apps                        | `[dock]` or `[dock.monitor.<name>]`     | Dock → Effects                |
+| Workspaces (Focus Hint app icon) | `[widget.<name>]`, type `workspaces`    | Workspace widget → Colors     |
+| Taskbar                          | `[widget.<name>]`, type `taskbar`       | Taskbar widget → Windows      |
+| Tray, including its drawer       | `[widget.<name>]`, type `tray`          | Tray widget → Icon Overrides  |
+| Active window                    | `[widget.<name>]`, type `active_window` | Active-window widget settings |
+| Window switcher                  | `[shell.window_switcher]`               | Shell → Window Switcher       |
+| Notification toasts and history  | `[notification]`                        | Notifications → General       |
+| Audio application rows           | `[audio]`                               | Services → Audio              |
+| Screen Time                      | `[shell]`, `screen_time_colorize_icons` | System → Screen Time          |
+| Authentication prompts           | `[shell]`, `polkit_colorize_icons`      | Security → Authentication     |
 
-Glyphs, symbolic tray icons, media album art, and other non-app-bitmap images are unchanged. Launcher panel result icons use the same app-icon bake as the taskbar.
+Every toggle defaults to `false`. The Screen Time and authentication toggles use `screen_time_colorize_icons` and `polkit_colorize_icons` under `[shell]`; the other components use `colorize_icons`. Separate named widgets can use different values. Only identified application icons are colorized. Wallpaper thumbnails, notification image-path/image-data content and avatars, remote images, album art, tray status overlays, and other content images retain their original colors. Notification history keeps icon-source metadata so this distinction survives a restart; older history without metadata stays untinted. Authentication prompts tint the Noctalia app icon and icons identified by installed applications, while security emblems retain their original appearance. Glyphs and the tray/taskbar symbolic-icon coloring rules remain unchanged. Launcher bar buttons and dock launcher buttons use their own `custom_image_colorize` / `launcher_custom_image_colorize` settings for custom images.
 
-`app_icon_color` is a [color role](/noctalia/theming/palette/#color-roles) or fixed hex color (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`), using the same picker as bar capsule colors. When omitted while colorize is enabled, Noctalia picks a theme-aware default: `on_surface` in light mode and `on_surface_variant` in dark mode.
+`[shell].app_icon_color` is the shared [color role](/noctalia/theming/palette/#color-roles) or fixed hex color (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`), selected under **Appearance → Interface → App Icon Color**. When omitted, Noctalia uses `on_surface` in light mode and `on_surface_variant` in dark mode. Icons are desaturated on the CPU, contrast-normalized, then tinted. Component toggles and tint changes apply on config reload, and palette and light/dark mode changes update the tint.
 
-Icons are desaturated on the CPU, contrast-normalized, then tinted. Changes apply immediately when you edit the setting in **Settings → Appearance → Interface**, switch light/dark mode, or change the palette.
-
-Per-widget `colorize_icons` / `icon_colorization` keys on the dock or tray are no longer used - configure this only under `[shell]`.
+The former `[shell].app_icon_colorize` setting is migrated to all component toggles, including custom named widgets and the window switcher. An enabled global toggle enables each component; an existing explicit `colorize_icons` value is preserved. Saved GUI settings migrate automatically. Legacy config files remain supported through migration and report the replacement keys.
 
 ## Privacy capture filters
 
@@ -530,11 +541,11 @@ Set **`[lockscreen].enabled = false`** to turn off session lock entirely: no `ex
 
 When the lock screen is enabled, **`lock_before_suspend`** (default `true`) locks the session on logind `PrepareForSleep` before suspend or hibernate (including lid-close sleep), so you do not need a separate idle daemon for lock-before-sleep. Set it `false` if you want external suspend without locking.
 
-**`grace_period_seconds`** (disabled by default, `0`–`60`) adds a short window right after locking during which the screen unlocks without a password: any pressed key or mouse movement of more than 5 px triggers an unlock, mirroring hyprlock's initial-input behavior. This is strictly opt-in so existing configurations keep requiring authentication; you can enable it under **Settings → Security → Lock Screen** or in TOML. Sleep always cancels the window: locks engaged by `PrepareForSleep` or **Lock and Suspend** never accept passwordless unlock, and whatever remains of a window is revoked on resume as an additional safeguard.
+**`grace_period_seconds`** (disabled by default, `0`–`60`) adds a short window right after locking during which the screen unlocks without a password: any pressed key or mouse movement of more than 5 px triggers an unlock, mirroring hyprlock's initial-input behavior. This is strictly opt-in so existing configurations keep requiring authentication; you can enable it under **Settings → Lock Screen** or in TOML. Sleep always cancels the window: locks engaged by `PrepareForSleep` or **Lock and Suspend** never accept passwordless unlock, and whatever remains of a window is revoked on resume as an additional safeguard.
 
 When enabled and `wlr-screencopy` is available, Noctalia can capture the desktop **before** the session lock engages and use that snapshot as the lock screen background instead of the wallpaper. Desktop capture is disabled by default. A lock transition also uses a frozen pre-lock capture, but only as a temporary layer drawn by the secure lock surface while the complete lock screen (including its blur and tint) is revealed or concealed.
 
-Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output). With **`[wallpaper].enabled = false`**, an empty **Wallpaper** shows a solid **`[wallpaper].fill_color`** background instead of an image, or opaque black when no fill color is set.
+Configure under **`[lockscreen]`** in TOML, or use **Settings → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output). With **`[wallpaper].enabled = false`**, an empty **Wallpaper** shows a solid **`[wallpaper].fill_color`** background instead of an image, or opaque black when no fill color is set.
 
 The power buttons on the lock screen come from the session actions; to trigger one from the keyboard (for example suspend on Escape), set its `lockscreen_shortcut` as described in [Lock screen shortcuts](#lock-screen-shortcuts).
 
@@ -728,7 +739,7 @@ When a shortcut uses the same key as **Cancel** (Escape by default), the first p
 
 ### Greeter sync
 
-Requires [Noctalia Greeter](/greeter/), `noctalia-greeter-apply-appearance`, and an administrator privilege tool. When those are missing, auto-sync stays off, Security settings for greeter sync are hidden, and the `greeter-sync` IPC command is not registered.
+Requires [Noctalia Greeter](/greeter/), `noctalia-greeter-apply-appearance`, and an administrator privilege tool. When those are missing, auto-sync stays off, the **Greeter** settings under **Settings → Lock Screen** are hidden, and the `greeter-sync` IPC command is not registered.
 
 :::caution[Passwordless version requirement]
 Passwordless sync requires **Noctalia Greeter 1.5.0 or newer** together with **the next Noctalia release after 5.0.1**. Current `-git` packages or current manual builds from `main` also work when both components are up to date.
@@ -771,7 +782,7 @@ When `[wallpaper].enabled = false`, greeter sync carries no wallpaper and remove
 
 `privilege_command` wraps or replaces the detected privilege tool. With constrained sync it must ultimately launch `pkexec`, such as `ghostty -e pkexec`, because the helper verifies `PKEXEC_UID`. In legacy mode, the path retains support for administrator-authenticated alternatives such as `run0` or a terminal-wrapped `sudo`.
 
-**Settings → Security → Auto-Sync Greeter** and **Settings → Security → Greeter Sync Privilege Command**, or in TOML:
+**Settings → Lock Screen → Auto-Sync Greeter** and **Settings → Lock Screen → Greeter Sync Privilege Command**, or in TOML:
 
 ```toml
 [shell.greeter_sync]

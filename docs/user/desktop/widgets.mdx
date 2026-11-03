@@ -213,16 +213,18 @@ cx     = 480.0
 cy     = 360.0
 
 [desktop_widgets.widget.calendar_main.settings]
-show_events       = true
-show_week_numbers = false
-font_family       = ""
+show_events          = true
+show_week_numbers    = false
+show_events_location = false
+font_family          = ""
 ```
 
-| Setting             | Type   | Default | Description                                                      |
-| ------------------- | ------ | ------- | ---------------------------------------------------------------- |
-| `show_events`       | bool   | `true`  | Show the selected day's event list beside the month grid         |
-| `show_week_numbers` | bool   | `false` | Show ISO week numbers beside the month grid                      |
-| `font_family`       | string | `""`    | Typeface for calendar text; empty inherits the global shell font |
+| Setting                | Type   | Default | Description                                                      |
+| ---------------------- | ------ | ------- | ---------------------------------------------------------------- |
+| `show_events`          | bool   | `true`  | Show the selected day's event list beside the month grid         |
+| `show_week_numbers`    | bool   | `false` | Show ISO week numbers beside the month grid                      |
+| `show_events_location` | bool   | `false` | Show each event's location below its time in the event list      |
+| `font_family`          | string | `""`    | Typeface for calendar text; empty inherits the global shell font |
 
 The event list uses the shared `event_date_format` and `event_time_format` from [`[calendar]`](/noctalia/services/calendar/), so the desktop widget and control center use the same event formatting. It also follows [`hide_past_events` and `past_events_threshold_minutes`](/noctalia/control-center/#calendar) from `[control_center.calendar]` when deciding which of today's finished events to list.
 

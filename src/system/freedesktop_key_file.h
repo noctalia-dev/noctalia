@@ -31,8 +31,8 @@ namespace freedesktop {
   public:
     using Section = std::map<std::string, std::string, std::less<>>;
 
-    [[nodiscard]] const Section* section(std::string_view name) const;
-    [[nodiscard]] std::optional<std::string_view> value(std::string_view section, std::string_view key) const;
+    const Section* section(std::string_view name) const;
+    std::optional<std::string_view> value(std::string_view section, std::string_view key) const;
 
   private:
     using Sections = std::map<std::string, Section, std::less<>>;
@@ -53,6 +53,6 @@ namespace freedesktop {
   };
 
   // Fails only when the file cannot be read or is not valid UTF-8.
-  [[nodiscard]] std::expected<ParseResult, ParseError> parseKeyFile(const std::filesystem::path& path);
+  std::expected<ParseResult, ParseError> parseKeyFile(const std::filesystem::path& path);
 
 } // namespace freedesktop

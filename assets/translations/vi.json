@@ -2680,8 +2680,7 @@
           "label": "Tài khoản lịch"
         },
         "calendar-edit": {
-          "button": "Sửa",
-          "description": "Cập nhật tài khoản lịch này"
+          "button": "Sửa"
         },
         "calendar-refresh-interval": {
           "description": "Tần suất đồng bộ hóa sự kiện lịch (phút)",

@@ -2,20 +2,20 @@
 
 #include "calendar/calendar_service.h"
 #include "config/config_service.h"
+#include "core/time_format.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/calendar/calendar_view.h"
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "system/desktop_entry_launch.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
-#include "ui/controls/calendar_view.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/scroll_view.h"
 
@@ -62,6 +62,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
   if (m_config != nullptr) {
     m_showEventsCard = m_config->config().controlCenter.calendarTab.showEventsCard;
     m_showWeekNumbers = m_config->config().controlCenter.calendarTab.showWeekNumbers;
+    m_showEventsLocation = m_config->config().controlCenter.calendarTab.showEventsLocation;
   }
 
   auto tab = ui::row({
@@ -608,6 +609,7 @@ void CalendarTab::rebuildEventList(float scale) {
       .snapshot = m_calendar != nullptr ? &m_calendar->snapshot() : nullptr,
       .selected = {.year = m_selectedYear, .month = m_selectedMonth, .day = m_selectedDay},
       .scale = scale,
+      .showEventsLocation = m_showEventsLocation,
       .dateFormat = calendarConfig.eventDateFormat,
       .timeFormat = calendarConfig.eventTimeFormat,
       .state = &m_eventListState,

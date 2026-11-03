@@ -181,7 +181,7 @@ namespace scripting::plugin_git {
     if (ec) {
       return failure(ec.message());
     }
-    const auto cloned = cloneBlobless(std::string(sourceLocation), dest);
+    auto cloned = cloneBlobless(std::string(sourceLocation), dest);
     if (!cloned) {
       return cloned;
     }

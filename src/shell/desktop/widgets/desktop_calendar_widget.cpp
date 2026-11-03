@@ -2,14 +2,14 @@
 
 #include "calendar/calendar_service.h"
 #include "config/config_service.h"
+#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/calendar/calendar_view.h"
 #include "system/desktop_entry_launch.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
-#include "ui/controls/calendar_view.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/label.h"
 #include "ui/controls/scroll_view.h"
@@ -39,7 +39,7 @@ namespace {
 
 DesktopCalendarWidget::DesktopCalendarWidget(ConfigService* config, CalendarService* calendar, Options options)
     : m_config(config), m_calendar(calendar), m_showEvents(options.showEvents),
-      m_showWeekNumbers(options.showWeekNumbers) {}
+      m_showWeekNumbers(options.showWeekNumbers), m_showEventsLocation(options.showEventsLocation) {}
 
 DesktopCalendarWidget::~DesktopCalendarWidget() {
   if (m_calendar != nullptr && m_calendarCallbackId != 0) {
@@ -187,6 +187,15 @@ bool DesktopCalendarWidget::applySetting(
   if (key == "show_week_numbers") {
     if (const auto* enabled = std::get_if<bool>(&value)) {
       m_showWeekNumbers = *enabled;
+      m_dirty = true;
+      layout(renderer);
+      return true;
+    }
+    return false;
+  }
+  if (key == "show_events_location") {
+    if (const auto* enabled = std::get_if<bool>(&value)) {
+      m_showEventsLocation = *enabled;
       m_dirty = true;
       layout(renderer);
       return true;
@@ -368,6 +377,7 @@ void DesktopCalendarWidget::rebuildEventList() {
       .snapshot = m_calendar != nullptr ? &m_calendar->snapshot() : nullptr,
       .selected = {.year = m_selectedYear, .month = m_selectedMonth, .day = m_selectedDay},
       .scale = contentScale(),
+      .showEventsLocation = m_showEventsLocation,
       .dateFormat = calendarConfig.eventDateFormat,
       .timeFormat = calendarConfig.eventTimeFormat,
       .fontFamily = m_fontFamily,

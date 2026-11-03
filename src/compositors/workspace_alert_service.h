@@ -23,23 +23,23 @@
 // so an alert there applies to the matching workspace on every output.
 class WorkspaceAlertService {
 public:
-  [[nodiscard]] bool add(std::string_view token);
-  [[nodiscard]] bool clear(std::string_view token);
+  bool add(std::string_view token);
+  bool clear(std::string_view token);
   void clearAll();
 
-  [[nodiscard]] bool contains(std::string_view token) const;
-  [[nodiscard]] bool empty() const noexcept;
-  [[nodiscard]] std::vector<std::string> tokens() const;
+  bool contains(std::string_view token) const;
+  bool empty() const noexcept;
+  std::vector<std::string> tokens() const;
 
   void applyOverlay(std::vector<Workspace>& workspaces) const;
-  [[nodiscard]] std::size_t clearActive(const std::vector<Workspace>& workspaces);
+  std::size_t clearActive(const std::vector<Workspace>& workspaces);
 
-  [[nodiscard]] static bool isKnownWorkspaceToken(std::string_view token, const std::vector<Workspace>& workspaces);
-  [[nodiscard]] static std::optional<std::string>
+  static bool isKnownWorkspaceToken(std::string_view token, const std::vector<Workspace>& workspaces);
+  static std::optional<std::string>
   workspaceTokenForWindow(std::string_view windowId, const std::vector<WorkspaceWindowAssignment>& assignments);
 
 private:
-  [[nodiscard]] bool isAlerted(const Workspace& workspace) const;
+  bool isAlerted(const Workspace& workspace) const;
 
   std::set<std::string, std::less<>> m_alerts;
 };

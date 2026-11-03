@@ -62,6 +62,15 @@ ScreenSaverService::~ScreenSaverService() {
   m_connection.reset();
 }
 
+std::vector<std::pair<std::string, std::string>> ScreenSaverService::inhibitorList() const {
+  std::vector<std::pair<std::string, std::string>> result;
+  result.reserve(m_cookies.size());
+  for (const auto& cookie : m_cookies) {
+    result.emplace_back(cookie.app, cookie.reason);
+  }
+  return result;
+}
+
 void ScreenSaverService::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
 void ScreenSaverService::emitActiveChanged(bool active) {
@@ -178,11 +187,13 @@ void ScreenSaverService::registerLogindIdleMonitor(SystemBus* systemBus) {
           if (interfaceName != kLogindManagerInterface) {
             return;
           }
-          const auto it = changedProperties.find("BlockInhibited");
-          if (it == changedProperties.end()) {
+          if (!changedProperties.contains("BlockInhibited")) {
             return;
           }
-          applyLogindBlockInhibited(it->second.get<std::string>());
+          // Any peer can send this signal directly to us, so read the value from logind instead.
+          applyLogindBlockInhibited(
+              m_logindProxy->getProperty("BlockInhibited").onInterface(kLogindManagerInterface).get<std::string>()
+          );
         });
 
     const auto blockInhibited =

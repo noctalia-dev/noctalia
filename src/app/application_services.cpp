@@ -4,7 +4,6 @@
 #include "compositors/compositor_detect.h"
 #include "compositors/umbriel/umbriel_audio_provider.h"
 #include "config/config_types.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
@@ -12,7 +11,6 @@
 #include "dbus/accounts/accounts_service.h"
 #include "dbus/bluetooth/bluetooth_agent.h"
 #include "dbus/bluetooth/bluetooth_service.h"
-#include "dbus/idle/screensaver_poll_source.h"
 #include "dbus/idle/screensaver_service.h"
 #include "dbus/logind/logind_service.h"
 #include "dbus/modem/modem_manager_service.h"
@@ -32,15 +30,12 @@
 #include "dbus/power/power_profiles_service.h"
 #include "dbus/secret/secret_collection_probe.h"
 #include "dbus/session_bus.h"
-#include "dbus/session_bus_poll_source.h"
 #include "dbus/system_bus.h"
-#include "dbus/system_bus_poll_source.h"
 #include "dbus/tray/tray_service.h"
 #include "dbus/upower/upower_service.h"
 #include "debug/debug_service.h"
 #include "i18n/i18n.h"
 #include "i18n/i18n_service.h"
-#include "ipc/ipc_arg_parse.h"
 #include "launcher/app_provider.h"
 #include "launcher/dmenu_provider.h"
 #include "launcher/emoji_provider.h"
@@ -50,24 +45,18 @@
 #include "launcher/wallpaper_provider.h"
 #include "launcher/window_provider.h"
 #include "notification/notifications.h"
-#include "pipewire/pipewire_poll_source.h"
 #include "pipewire/pipewire_service.h"
 #include "pipewire/pipewire_spectrum.h"
-#include "pipewire/pipewire_spectrum_poll_source.h"
 #include "pipewire/sound_player.h"
 #include "pipewire/wireplumber_mixer.h"
 #include "render/animation/motion_service.h"
 #include "render/backend/render_backend.h"
 #include "render/core/texture_manager.h"
-#include "render/text/font_weight_catalog.h"
 #include "scripting/plugin_ipc.h"
-#include "scripting/plugin_manifest.h"
-#include "scripting/plugin_panel_shell.h"
-#include "scripting/plugin_registry.h"
 #include "scripting/plugin_runtime_context.h"
 #include "scripting/script_runtime.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/clipboard/clipboard_panel.h"
-#include "shell/clipboard/clipboard_paste.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/launcher/launcher_panel.h"
@@ -81,20 +70,19 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
-#include "system/brightness_poll_source.h"
+#include "shell/wayland/background_effect_globals.h"
+#include "shell/wayland/clipboard_globals.h"
+#include "shell/wayland/compositor_globals.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/output_management_globals.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
 #include "system/easyeffects_service.h"
 #include "system/keyboard_backlight_service.h"
 #include "system/system_monitor_service.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/controls/input.h"
-#include "ui/dialogs/color_picker_dialog.h"
-#include "ui/dialogs/file_dialog.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/style.h"
-#include "util/file_utils.h"
-#include "util/string_utils.h"
 
 #include <algorithm>
 #include <chrono>
@@ -103,7 +91,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <limits>
-#include <malloc.h>
 #include <optional>
 #include <stdexcept>
 #include <string_view>
@@ -480,7 +467,7 @@ void Application::syncClipboardService() {
   // stays active regardless of config so basic copy/paste keeps working in
   // every text field. The toggle only controls history retention/persistence
   // and the history UI.
-  m_wayland.setClipboardService(&m_clipboardService);
+  m_wayland.extension<ClipboardGlobals>().setClipboardService(&m_clipboardService);
   Input::setTextClipboard(&m_clipboardService);
   m_clipboardService.setHistoryRetentionEnabled(enabled);
   // Taking the selection over when its owner exits belongs to that same live
@@ -505,8 +492,9 @@ void Application::syncClipboardService() {
 
 void Application::syncStorageKeyProvider() {
   const StorageConfig& storage = m_configService.config().storage;
-  const bool encryptedDataExists =
-      m_clipboardService.hasEncryptedPersistence() || m_calendarService.hasEncryptedCache();
+  const bool encryptedDataExists = m_clipboardService.hasEncryptedPersistence()
+      || m_calendarService.hasEncryptedCache()
+      || m_notificationManager.hasEncryptedHistory();
   m_storageKeyProvider.configure(storage.keySource, storage.keyFile, encryptedDataExists);
 }
 
@@ -517,6 +505,8 @@ void Application::initServices() {
   m_storageKeyProvider.setChangeCallback([this] {
     m_clipboardService.syncPersistence();
     m_calendarService.syncCachePersistence();
+    m_notificationManager.syncHistoryPersistence(m_storageKeyProvider);
+    m_settingsWindow.onExternalOptionsChanged();
     retrySecretServiceConsumers();
   });
   syncStorageKeyProvider();
@@ -808,8 +798,30 @@ void Application::initStyleThemeAndWayland() {
     );
   }
 
+  // Bound during the initial registry roundtrip: layer surfaces, their blur capability, and the clipboard and paste
+  // services attach after connect, and head metadata must reach the outputs before the first surfaces read their
+  // configured scale.
+  m_wayland.extension<LayerShell>();
+  m_wayland.extension<BackgroundEffectGlobals>();
+  m_wayland.extension<ClipboardGlobals>();
+  m_wayland.extension<OutputManagementGlobals>();
   if (!m_wayland.connect()) {
     throw std::runtime_error("failed to connect to Wayland display");
+  }
+  {
+    const auto& compositorGlobals = m_wayland.extension<CompositorGlobals>();
+    const auto& shellGlobals = m_wayland.extension<ShellGlobals>();
+    kLog.info(
+        "shell globals layer-shell={} ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={} "
+        "output-management={}",
+        m_wayland.extension<LayerShell>().manager() != nullptr ? "yes" : "no",
+        compositorGlobals.hasExtWorkspaceManager() ? "yes" : "no",
+        compositorGlobals.hasKdeVirtualDesktopManager() ? "yes" : "no",
+        compositorGlobals.hasDwlIpcManager() ? "yes" : "no",
+        shellGlobals.sessionLockManager() != nullptr ? "yes" : "no",
+        shellGlobals.gammaControlManager() != nullptr ? "yes" : "no",
+        m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no"
+    );
   }
   m_compositorPlatform.initialize();
   m_screenTimeService.initialize(&m_compositorPlatform);
@@ -827,7 +839,7 @@ void Application::initStyleThemeAndWayland() {
   m_sharedTextureCache.initialize(sharedGlPtr);
   m_asyncTextureCache.initialize(sharedGlPtr);
   m_wayland.setTextInputService(&m_textInputService);
-  m_wayland.setVirtualKeyboardService(&m_virtualKeyboardService);
+  m_wayland.extension<ClipboardGlobals>().setVirtualKeyboardService(&m_virtualKeyboardService);
 
   auto bindKeybind = [this](KeybindAction action) {
     return [this, action](std::uint32_t sym, std::uint32_t modifiers) {
@@ -904,9 +916,9 @@ void Application::initWaylandCallbacks() {
     // focused output so activity on one monitor doesn't dismiss alerts on
     // another; fall back to all outputs when no focused output is known.
     if (wl_output* output = m_compositorPlatform.preferredInteractiveOutput(); output != nullptr) {
-      (void)m_compositorPlatform.clearActiveWorkspaceAlerts(output);
+      m_compositorPlatform.clearActiveWorkspaceAlerts(output);
     } else {
-      (void)m_compositorPlatform.clearActiveWorkspaceAlerts();
+      m_compositorPlatform.clearActiveWorkspaceAlerts();
     }
     m_bar.onWorkspaceChanged();
     m_dock.onWorkspaceChanged();
@@ -1021,11 +1033,11 @@ void Application::initAuxServicesAndHooks() {
         if (path.empty()) {
           return;
         }
-        std::string cmd = "plasma-apply-wallpaperimage";
+        std::vector<std::string> cmd{"plasma-apply-wallpaperimage"};
         if (!connector.empty()) {
-          cmd += " --screen " + connector;
+          cmd.insert(cmd.end(), {"--screen", connector});
         }
-        cmd += " \"" + path + "\"";
+        cmd.push_back(path);
         (void)process::runAsync(cmd);
       };
       if (wallpaperChanges.empty()) {
@@ -1130,6 +1142,7 @@ void Application::initSystemBusServices() {
             m_lockScreen.resetGracePeriod();
             // Screen time must not accumulate across suspend even when lock-before-suspend is off.
             m_screenTimeService.setSuspendPaused(true);
+            m_pluginServiceHost.onSleepChanged(true);
             // The readiness hook releases the delay inhibit after the revealed lock frames are acknowledged.
             if (m_skipLockOnNextSleep) {
               // Noctalia-initiated suspend: skip lock-before-sleep (plain Suspend or already locked).
@@ -1181,7 +1194,7 @@ void Application::initSystemBusServices() {
           m_releaseSleepDelayWhenLocked = false;
           m_screenTimeService.setSuspendPaused(false);
           if (m_configService.shouldLockBeforeSuspend() && m_logindService != nullptr) {
-            (void)m_logindService->acquireSleepDelayInhibit();
+            m_logindService->acquireSleepDelayInhibit();
           }
           kLog.info("system resumed; rechecking night light and auto theme schedules");
           // Drivers may discard glyph textures while suspended without reporting a
@@ -1197,6 +1210,7 @@ void Application::initSystemBusServices() {
             m_lockScreen.onSystemResumed();
           }
           m_weatherService.requestRefresh();
+          m_pluginServiceHost.onSleepChanged(false);
           m_gammaService.reevaluateSchedule();
           // Auto theme mode schedules with steady_clock timers, which do not advance while
           // suspended. Re-resolve so a day/night boundary crossed during sleep is applied.
@@ -1271,7 +1285,8 @@ void Application::initSystemBusServices() {
       m_upowerService = std::make_unique<UPowerService>(*m_systemBus);
       const auto& initialPower = m_upowerService->state();
       m_batteryHookState.reset(initialPower);
-      m_prevBatteryPluggedForEvents = initialPower.isPresent ? batteryStatePlugged(initialPower.state) : std::nullopt;
+      m_prevBatteryPluggedForEvents = m_upowerService->externalPowerConnected();
+      m_prevBatteryPeripheralPathForEvents = m_upowerService->statePeripheralPath();
       m_batteryWarningMonitor.evaluate(m_configService.config().battery, *m_upowerService, m_notificationManager);
       m_upowerService->setChangeCallback([this, shouldRefreshControlCenter](const UPowerChange& change) {
         if (change.origin != UPowerService::ChangeOrigin::DeviceState) {
@@ -1320,14 +1335,20 @@ void Application::initSystemBusServices() {
     }
 
     // NetworkManager is preferred, and its backend follows the bus name when NetworkManager starts later
-    // or restarts. When it is not running at startup, a standalone wpa_supplicant or iwd takes over if
-    // one is; otherwise the NetworkManager backend waits for it to appear.
+    // or restarts. When its unit is enabled but it is not running yet at startup, the backend waits for it:
+    // a wpa_supplicant on the bus then is NetworkManager's own. Otherwise a usable standalone wpa_supplicant
+    // or iwd takes over, and without one the NetworkManager backend still waits.
     try {
       m_networkService = std::make_unique<NetworkManagerService>(*m_systemBus);
     } catch (const std::exception& e) {
       kLog.warn("NetworkManager backend disabled: {}", e.what());
     }
-    if (m_networkService == nullptr || !m_networkService->available()) {
+    const bool nmWaiting = m_networkService != nullptr
+        && !m_networkService->available()
+        && m_systemBus->systemdUnitEnabled("NetworkManager.service");
+    if (nmWaiting) {
+      kLog.info("network service waiting for NetworkManager");
+    } else if (m_networkService == nullptr || !m_networkService->available()) {
       try {
         m_networkService = std::make_unique<WpaSupplicantService>(*m_systemBus);
         kLog.info("network service active (wpa_supplicant)");
@@ -1421,10 +1442,14 @@ void Application::initSystemBusServices() {
     if (m_bluetoothService != nullptr) {
       try {
         m_bluetoothAgent = std::make_unique<BluetoothAgent>(*m_systemBus);
-        m_bluetoothAgent->setRequestCallback([this,
-                                              shouldRefreshControlCenter](const BluetoothPairingRequest& /*request*/) {
-          if (shouldRefreshControlCenter()) {
+        m_bluetoothAgent->setRequestCallback([this](const BluetoothPairingRequest& /*request*/) {
+          // BlueZ cancels unanswered Agent1 requests after a few seconds, so the
+          // confirm/PIN UI must appear on its own instead of waiting for the user
+          // to already have the control center open on the bluetooth tab.
+          if (m_panelManager.isOpenPanel("control-center") && m_panelManager.isActivePanelContext("bluetooth")) {
             m_panelManager.refresh();
+          } else {
+            m_panelManager.togglePanel("control-center", PanelOpenRequest{.context = "bluetooth"});
           }
         });
       } catch (const std::exception& e) {
@@ -1555,6 +1580,22 @@ void Application::initBrightnessAndPipewire() {
         },
         "sound"
     );
+
+    auto applySpectrumConfig = [this] {
+      if (m_pipewireSpectrum == nullptr) {
+        return;
+      }
+      m_pipewireSpectrum->setFrameRate(m_configService.config().audio.spectrumFrameRate);
+    };
+    applySpectrumConfig();
+    m_configService.addReloadCallback(
+        [this, applySpectrumConfig] {
+          if (m_configService.lastChange().audio) {
+            applySpectrumConfig();
+          }
+        },
+        "spectrum"
+    );
   } catch (const std::exception& e) {
     kLog.warn("pipewire disabled: {}", e.what());
     m_soundPlayer.reset();
@@ -1605,6 +1646,7 @@ void Application::initEarlySessionBusAndTray() {
   m_trayService = std::make_unique<TrayService>(*m_bus);
   m_trayService->setChangeCallback([this] {
     m_bar.refresh();
+    m_panelManager.refreshPanel("tray-drawer");
     m_trayMenu.onTrayChanged();
     m_keyboardLayoutOsd.onTrayChanged(
         *m_trayService, m_configService.config(), m_configService.config().osd.kinds.keyboardLayout

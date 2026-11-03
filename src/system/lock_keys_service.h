@@ -17,17 +17,17 @@ public:
 
   explicit LockKeysService(WaylandConnection& wayland);
 
-  [[nodiscard]] LockKeysState state() const noexcept;
+  LockKeysState state() const noexcept;
   void setChangeCallback(ChangeCallback callback);
-  [[nodiscard]] int pollTimeoutMs() const;
+  int pollTimeoutMs() const;
   void dispatchPoll();
   void refreshNow();
 
 private:
-  [[nodiscard]] LockKeysState readCurrentState();
-  [[nodiscard]] std::optional<LockKeysState> readCachedSysfsState();
+  LockKeysState readCurrentState();
+  std::optional<LockKeysState> readCachedSysfsState();
   void discoverSysfsLeds();
-  [[nodiscard]] bool hasCachedSysfsLeds() const noexcept;
+  bool hasCachedSysfsLeds() const noexcept;
 
   WaylandConnection& m_wayland;
   LockKeysState m_state;

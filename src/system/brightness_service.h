@@ -39,10 +39,10 @@ public:
   BrightnessService(const BrightnessService&) = delete;
   BrightnessService& operator=(const BrightnessService&) = delete;
 
-  [[nodiscard]] const std::vector<BrightnessDisplay>& displays() const noexcept;
-  [[nodiscard]] const BrightnessDisplay* findDisplay(const std::string& id) const;
-  [[nodiscard]] const BrightnessDisplay* findByOutput(wl_output* output) const;
-  [[nodiscard]] bool available() const noexcept;
+  const std::vector<BrightnessDisplay>& displays() const noexcept;
+  const BrightnessDisplay* findDisplay(const std::string& id) const;
+  const BrightnessDisplay* findByOutput(wl_output* output) const;
+  bool available() const noexcept;
 
   void setAllBrightness(float value);
   void setBrightness(const std::string& displayId, float value);
@@ -55,7 +55,7 @@ public:
   void setChangeCallback(ChangeCallback callback);
 
   // Poll integration — inotify fd for external brightness changes.
-  [[nodiscard]] int watchFd() const noexcept;
+  int watchFd() const noexcept;
   void dispatchWatch();
 
 private:

@@ -61,14 +61,14 @@ namespace settings {
     void closeAll();
     void requestCloseTop();
 
-    [[nodiscard]] bool isOpen() const noexcept;
-    [[nodiscard]] bool isTop(ModalId id) const noexcept;
-    [[nodiscard]] Node* topRoot() const noexcept;
-    [[nodiscard]] InputArea* focusedArea() const noexcept;
+    bool isOpen() const noexcept;
+    bool isTop(ModalId id) const noexcept;
+    Node* topRoot() const noexcept;
+    InputArea* focusedArea() const noexcept;
     void focusArea(InputArea* area);
     void requestLayout();
     void requestUpdateOnly();
-    [[nodiscard]] bool onKeyboardEvent(const KeyboardEvent& event);
+    bool onKeyboardEvent(const KeyboardEvent& event);
     void update(Renderer& renderer);
 
   private:

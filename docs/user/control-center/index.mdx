@@ -127,13 +127,15 @@ System monitor sampling is configured globally under `[system.monitor]`; see [Sy
 
 The Network tab uses the configured network backend to show wireless state and connection details. It is the destination for Wi-Fi shortcuts and network-related right-click actions.
 
-NetworkManager is preferred and followed on the system bus: when it starts after the shell or restarts, the tab picks it up, and while it is stopped the tab shows the network as unavailable. A standalone wpa_supplicant or iwd backend is used only when one of them is running at startup and NetworkManager is not.
+NetworkManager is preferred and followed on the system bus: when it starts after the shell or restarts, the tab picks it up, and while it is stopped the tab shows the network as unavailable. If NetworkManager's systemd unit is enabled, it stays the backend even when it is not running yet at startup. Otherwise a standalone wpa_supplicant or iwd backend is used when one of them is running at startup and lets you list its interfaces; with neither, the tab waits for NetworkManager.
 
 The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency. NetworkManager and wpa_supplicant report it; iwd reports it when Station diagnostics provide a positive frequency.
 
 Clicking a secured network you have not joined, or a password request from the backend while the tab is open, shows a password prompt above the network list and focuses its first text field, so you can type right away. The eye button shows the password as plain text; copy and cut stay blocked while it is visible.
 
 On the NetworkManager backend, a Wi-Fi connection that fails shows a notification naming the network and the reason when NetworkManager reports one: rejected or missing password, network out of range, no response, no IP address, or the request was not authorized. Cancelling a connection or switching to another network does not notify. An authorization failure usually means NetworkManager needed a polkit prompt and no agent answered it; see [the FAQ](/noctalia/getting-started/faq/#networkmanager-polkit).
+
+While NetworkManager runs a Wi-Fi device as a hotspot (an access-point-mode profile), the tab does not list the hotspot as a joined network or scan on that device, the Wi-Fi list says the device is running a hotspot, and the Wi-Fi shortcut shows a hotspot icon instead of the not-connected one. Turning Wi-Fi off stops the hotspot, since both use the same radio.
 
 ### Enterprise Wi-Fi (802.1X)
 
@@ -157,14 +159,7 @@ The Bluetooth tab shows adapter power state, paired devices, and connection cont
 
 When a device asks for access to a service, the prompt names the service (for example, Audio Sink or Hands-Free) instead of showing its raw UUID. **Accept** allows that one request. **Trust and allow** also marks the device as trusted, so BlueZ grants its future service requests without prompting and **Auto-reconnect** turns on; turn off **Auto-reconnect** to revoke that trust.
 
-By default Noctalia does not dial out to devices: BlueZ and the devices handle reconnection, and most trusted headsets, keyboards, and mice reconnect on their own. For devices that wait for the computer to connect, set `connect_when_enabled = true`. When Bluetooth turns on (toggled on, at startup, or after resume), Noctalia then connects each paired, trusted device that is not already connected, once and one device at a time. A device that is switched off holds the queue until its connection attempt times out (several seconds), so leave this off if several trusted devices are usually off:
-
-```toml
-[bluetooth]
-connect_when_enabled = true
-```
-
-Noctalia shows a notification when a Bluetooth device connects or disconnects without you acting on it in Noctalia, for example a headset you switch on, a device going out of range, or the auto-reconnect pass above. Connecting, disconnecting, pairing, or forgetting a device from the Bluetooth tab stays silent, except that a connect you start which fails shows an error. Turning Bluetooth off does not notify for each device it drops, and devices that were already connected when Noctalia started never trigger one. Set `[bluetooth] connection_notifications = false` to turn these notifications off.
+**Auto-reconnect** only marks a device as trusted in BlueZ. Whether Noctalia itself connects trusted devices at startup, and whether it notifies about connection changes, is set under [Bluetooth](/noctalia/services/bluetooth/).
 
 ## Weather
 
@@ -182,9 +177,10 @@ Right-click a day to launch the application registered for the `text/calendar` M
 
 ```toml
 [control_center.calendar]
-show_events_card  = true
-show_week_numbers = false       # ISO 8601 week numbers in the month grid
-hide_past_events  = false       # hide today's finished events from the event list
+show_events_card     = true
+show_week_numbers    = false    # ISO 8601 week numbers in the month grid
+show_events_location = false    # show each event's location below its time
+hide_past_events     = false    # hide today's finished events from the event list
 past_events_threshold_minutes = 30
 ```
 
@@ -192,6 +188,7 @@ past_events_threshold_minutes = 30
 | ------------------------------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `show_events_card`              | bool | `true`  | Show the event list beside the month grid. Also toggled from the calendar button in the tab header.                                                                                                                                                                                                                                                    |
 | `show_week_numbers`             | bool | `false` | Show a column of ISO 8601 week numbers to the left of the month grid, separated from it by a divider. Each row is numbered by the week its Thursday falls in.                                                                                                                                                                                          |
+| `show_events_location`          | bool | `false` | Show each event's location below its time in the event list. Locations that are web links (`http://` or `https://`) are not shown. The desktop calendar widget has its own `show_events_location` setting.                                                                                                                                             |
 | `hide_past_events`              | bool | `false` | Hide today's events that have already ended from the event list. When `false`, every event of the day is shown and finished ones are dimmed. Other days are not affected. The desktop calendar widget follows this option too. While events are hidden, a **Show N past events** row at the top of the list reveals them; click it again to hide them. |
 | `past_events_threshold_minutes` | int  | `30`    | With `hide_past_events` on, an event stays visible for this many minutes after it ends (0–1440). `0` hides it as soon as it ends.                                                                                                                                                                                                                      |
 

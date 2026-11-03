@@ -3,41 +3,15 @@
 #include "application_internal.h"
 #include "compositors/compositor_detect.h"
 #include "config/config_types.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
-#include "core/files/resource_paths.h"
-#include "core/input/keybind_matcher.h"
 #include "core/log.h"
-#include "core/process/process.h"
-#include "cursor-shape-v1-client-protocol.h"
-#include "dbus/accounts/accounts_service.h"
-#include "dbus/bluetooth/bluetooth_agent.h"
-#include "dbus/bluetooth/bluetooth_service.h"
-#include "dbus/idle/screensaver_poll_source.h"
 #include "dbus/idle/screensaver_service.h"
 #include "dbus/logind/logind_service.h"
-#include "dbus/mpris/mpris_service.h"
-#include "dbus/network/inetwork_service.h"
-#include "dbus/network/network_manager_service.h"
-#include "dbus/network/network_secret_agent.h"
-#include "dbus/network/wpa_supplicant_service.h"
 #include "dbus/notification/kde_notification_client.h"
-#include "dbus/notification/notification_dbus_host.h"
 #include "dbus/notification/notification_service.h"
-#include "dbus/polkit/polkit_agent.h"
-#include "dbus/polkit/polkit_poll_source.h"
-#include "dbus/polkit/polkit_session_support.h"
-#include "dbus/power/power_profiles_service.h"
-#include "dbus/session_bus.h"
-#include "dbus/session_bus_poll_source.h"
-#include "dbus/system_bus.h"
-#include "dbus/system_bus_poll_source.h"
-#include "dbus/tray/tray_service.h"
-#include "dbus/upower/upower_service.h"
 #include "debug/debug_service.h"
 #include "i18n/i18n.h"
 #include "i18n/i18n_service.h"
-#include "ipc/ipc_arg_parse.h"
 #include "launcher/app_provider.h"
 #include "launcher/dmenu_provider.h"
 #include "launcher/emoji_provider.h"
@@ -48,23 +22,16 @@
 #include "launcher/wallpaper_provider.h"
 #include "launcher/window_provider.h"
 #include "notification/notifications.h"
-#include "pipewire/pipewire_poll_source.h"
 #include "pipewire/pipewire_service.h"
 #include "pipewire/pipewire_spectrum.h"
-#include "pipewire/pipewire_spectrum_poll_source.h"
-#include "pipewire/sound_player.h"
-#include "render/animation/motion_service.h"
 #include "render/backend/render_backend.h"
-#include "render/core/texture_manager.h"
 #include "render/text/font_weight_catalog.h"
 #include "scripting/plugin_ipc.h"
-#include "scripting/plugin_manifest.h"
-#include "scripting/plugin_panel_shell.h"
-#include "scripting/plugin_registry.h"
 #include "scripting/plugin_runtime_context.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/clipboard/clipboard_paste.h"
 #include "shell/control_center/control_center_panel.h"
+#include "shell/dialog_popup_settings.h"
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
@@ -77,38 +44,28 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
-#include "system/brightness_poll_source.h"
+#include "shell/wayland/foreign_toplevels.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
-#include "system/distro_info.h"
 #include "system/easyeffects_service.h"
-#include "system/system_monitor_service.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/controls/context_menu_popup.h"
-#include "ui/controls/input.h"
 #include "ui/dialogs/color_picker_dialog.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/style.h"
-#include "util/file_utils.h"
 #include "util/string_utils.h"
 
-#include <algorithm>
 #include <chrono>
-#include <cmath>
-#include <csignal>
 #include <cstdint>
-#include <filesystem>
-#include <limits>
-#include <malloc.h>
 #include <optional>
-#include <stdexcept>
 #include <string_view>
 #include <utility>
 
 namespace {
   constexpr Logger kLog("app");
 
-  [[nodiscard]] bool overviewTypeToLaunchEnabled(const ConfigService& configService) {
+  bool overviewTypeToLaunchEnabled(const ConfigService& configService) {
     if (compositors::isUmbriel()) {
       return configService.config().shell.umbrielOverviewTypeToLaunchEnabled;
     }
@@ -119,7 +76,7 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
+  bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
     if (compositors::isUmbriel()) {
       return configService.config().shell.umbrielOverviewCloseOnLaunchEnabled;
     }
@@ -158,7 +115,7 @@ void Application::initUiRenderSurfacesAndSettings() {
   m_backdrop.initialize(m_wayland, &m_configService, &m_sharedTextureCache, &m_glShared);
   m_settingsWindow.initialize(
       m_wayland, &m_configService, &m_renderContext, &m_dependencyService, m_upowerService.get(), &m_idleManager,
-      &m_compositorPlatform, m_accountsService.get()
+      &m_idleInhibitor, &m_compositorPlatform, m_accountsService.get()
   );
   m_settingsWindow.setPluginManager(&m_pluginManager);
   m_settingsWindow.setPluginRecommendations(&m_pluginRecommendations);
@@ -347,7 +304,8 @@ void Application::initLockScreenAndSession() {
     if (m_lockScreen.isActive()) {
       return false;
     }
-    return !m_configService.config().wallpaper.automation.pauseOnFullscreen || !m_wayland.hasFullscreenToplevel();
+    return !m_configService.config().wallpaper.automation.pauseOnFullscreen
+        || !m_compositorPlatform.foreignToplevels().hasFullscreenToplevel();
   });
   m_configService.addReloadCallback([this] {
     if (m_logindService != nullptr) {
@@ -405,7 +363,7 @@ void Application::initLockScreenAndSession() {
         return;
       }
       if (!m_lockScreen.isActive()) {
-        (void)m_lockScreen.lock();
+        m_lockScreen.lock();
       }
     });
     m_logindService->setUnlockCallback([this] {
@@ -586,11 +544,13 @@ void Application::initPanelManagerAndPanels() {
     retrySecretServiceConsumers();
   });
   m_settingsWindow.setClipboardService(&m_clipboardService);
+  m_settingsWindow.setNotificationManager(&m_notificationManager);
   m_clipboardService.setPersistenceChangeCallback([this] { m_settingsWindow.onExternalOptionsChanged(); });
   m_settingsWindow.setResetEncryptedStorage([this] {
     const bool clipboardCleared = m_clipboardService.clearEncryptedPersistenceForRecovery();
     const bool calendarCleared = m_calendarService.clearEncryptedCacheForRecovery();
-    if (!clipboardCleared || !calendarCleared) {
+    const bool notificationsCleared = m_notificationManager.clearEncryptedHistoryForRecovery();
+    if (!clipboardCleared || !calendarCleared || !notificationsCleared) {
       m_settingsWindow.showTransientStatus(i18n::tr("settings.storage-recovery.error-delete"), true);
       m_settingsWindow.onExternalOptionsChanged();
       return;
@@ -693,7 +653,7 @@ void Application::initPanelManagerAndPanels() {
       if (!overviewCloseOnLaunchEnabled(m_configService)) {
         return;
       }
-      (void)m_compositorPlatform.closeOverview();
+      m_compositorPlatform.closeOverview();
     });
     m_launcherPanel = launcherPanel.get();
     m_panelManager.registerPanel("launcher", std::move(launcherPanel));
@@ -817,7 +777,7 @@ void Application::initNotificationAndOsd() {
   );
   m_idleGraceOverlay.initialize(m_wayland, &m_renderContext);
   m_pluginIdleWatches.initialize(m_wayland);
-  m_wayland.setIdleCapabilitiesReadyCallback([this] {
+  m_wayland.extension<ShellGlobals>().setIdleCapabilitiesReadyCallback([this] {
     m_idleManager.reload(m_configService.config().idle);
     m_pluginIdleWatches.onCapabilitiesReady();
   });
@@ -871,6 +831,7 @@ void Application::initNotificationAndOsd() {
       });
       m_idleManager.setScreenSaverInhibitLocks(m_screenSaverService->inhibitLocks());
       m_pluginIdleWatches.setScreenSaverInhibited(m_screenSaverService->inhibitLocks() > 0);
+      m_settingsWindow.setScreenSaverService(m_screenSaverService.get());
     } else {
       m_screenSaverService.reset();
     }
@@ -1028,12 +989,11 @@ void Application::initBarDockAndLayout() {
       [this] { return m_settingsWindow.fallbackPopupParentContext(); }
   );
 
-  m_colorPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-
-  m_glyphPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-
-  m_fileDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts, m_thumbnailService);
-  m_searchPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
+  const auto dialogSettings = dialogPopupSettings(m_configService);
+  m_colorPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
+  m_glyphPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
+  m_fileDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts, m_thumbnailService);
+  m_searchPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
   SearchPickerDialog::setPopup(&m_searchPickerDialogPopup);
   m_settingsWindow.initializeDialogPresenter(
       m_colorPickerDialogPopup, m_glyphPickerDialogPopup, m_fileDialogPopup, m_thumbnailService

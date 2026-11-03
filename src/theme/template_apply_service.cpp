@@ -15,7 +15,6 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
-#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <filesystem>
@@ -377,9 +376,9 @@ namespace noctalia::theme {
     const std::filesystem::path gtk4Dir = gtkConfigDir(GtkToolkit::Gtk4);
     // noctalia.css imports the extension index; it has to exist before that import is written.
     if (gtkToolkits.gtk3)
-      (void)ensureGtkExtensionIndex(gtk3Dir);
+      ensureGtkExtensionIndex(gtk3Dir);
     if (gtkToolkits.gtk4)
-      (void)ensureGtkExtensionIndex(gtk4Dir);
+      ensureGtkExtensionIndex(gtk4Dir);
 
     if (request.templates.enableBuiltinTemplates
         && !request.templates.builtinIds.empty()
@@ -431,9 +430,9 @@ namespace noctalia::theme {
     // Rewrite the index from what is enabled now, then drop extension files nothing imports.
     if (!requestSuperseded(request.generation)) {
       if (gtkToolkits.gtk3)
-        (void)syncGtkExtensions(gtk3Dir, std::move(gtk3Extensions));
+        syncGtkExtensions(gtk3Dir, std::move(gtk3Extensions));
       if (gtkToolkits.gtk4)
-        (void)syncGtkExtensions(gtk4Dir, std::move(gtk4Extensions));
+        syncGtkExtensions(gtk4Dir, std::move(gtk4Extensions));
     }
 
     if ((request.templates.userTemplates.empty() && request.templates.customColors.empty())
@@ -485,7 +484,7 @@ namespace noctalia::theme {
   }
 
   void TemplateApplyService::persistAppliedIds(const AppliedTemplateIds& ids) const {
-    (void)m_config.setStateString(
+    m_config.setStateString(
         kStateOwner, ids.stateKey, StringUtils::join({ids.applied.begin(), ids.applied.end()}, " ")
     );
   }
@@ -504,7 +503,7 @@ namespace noctalia::theme {
     hookOptions.configFile = configPath.string();
     TemplateEngine hookEngine(TemplateEngine::makeThemeData(request.palette), std::move(hookOptions));
 
-    const RenderResult rendered = hookEngine.render(std::string(hook));
+    const RenderResult rendered = hookEngine.render(hook);
     if (rendered.errorCount != 0 || rendered.text.empty()) {
       // Retrying cannot fix a hook that does not render.
       kLog.warn("failed to render undo hook for {}", label);
@@ -552,7 +551,7 @@ namespace noctalia::theme {
         resolved.push_back(id);
         continue;
       }
-      const auto hook = entry->get_as<std::string>("undo_hook");
+      const auto* hook = entry->get_as<std::string>("undo_hook");
       if (hook == nullptr || runUndoHook(request, configPath, hook->get(), std::format("built-in template '{}'", id))) {
         resolved.push_back(id);
       }

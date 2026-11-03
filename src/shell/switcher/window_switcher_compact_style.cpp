@@ -10,7 +10,7 @@ namespace {
   constexpr std::size_t kVisibleCards = 5;
   constexpr float kMinimumLayoutExtent = 1.0F;
 
-  [[nodiscard]] float previewFrameHeight(float cardWidth, float scale) noexcept {
+  float previewFrameHeight(float cardWidth, float scale) noexcept {
     const float frameInset = Style::spaceXs * scale;
     const float previewWidth = std::max(0.0F, cardWidth - frameInset * 2.0F);
     return previewWidth / Style::windowSwitcherPreviewAspect + frameInset * 2.0F;

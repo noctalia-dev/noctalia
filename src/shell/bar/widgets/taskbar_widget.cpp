@@ -9,14 +9,16 @@
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/wayland_toplevels.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_launch.h"
 #include "system/internal_app_metadata.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
@@ -24,7 +26,6 @@
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_seat.h"
-#include "wayland/wayland_toplevels.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
@@ -47,7 +48,7 @@ namespace {
   constexpr std::int32_t kDragTileZIndex = 200;
 
   // Integer centering; optional odd spare pixel on the end side (right/bottom).
-  [[nodiscard]] float centeredOffset(float extent, float content, float inset = 0.0F, bool oddSpareOnEnd = true) {
+  float centeredOffset(float extent, float content, float inset = 0.0F, bool oddSpareOnEnd = true) {
     const float inner = std::max(0.0F, extent - inset * 2.0F);
     const int innerPx = static_cast<int>(std::lround(inner));
     const int contentPx = static_cast<int>(std::lround(content));
@@ -61,7 +62,7 @@ namespace {
     float top = 0.0F;
   };
 
-  [[nodiscard]] float externalBadgeMainStartInset(WorkspaceLabelPlacement placement, float badgeMain) {
+  float externalBadgeMainStartInset(WorkspaceLabelPlacement placement, float badgeMain) {
     if (placement == WorkspaceLabelPlacement::Corner) {
       return badgeMain * 0.2F;
     }
@@ -71,7 +72,7 @@ namespace {
     return 0.0F;
   }
 
-  [[nodiscard]] ExternalBadgePosition externalBadgePosition(
+  ExternalBadgePosition externalBadgePosition(
       WorkspaceLabelPlacement placement, bool vertical, float groupWidth, float groupHeight, float badgeWidth,
       float badgeHeight, float outlineInset
   ) {
@@ -87,7 +88,7 @@ namespace {
     return {std::round(-badgeWidth * 0.4F), centeredOffset(groupHeight, badgeHeight, outlineInset, false)};
   }
 
-  [[nodiscard]] float fitBadgeFontSize(
+  float fitBadgeFontSize(
       Renderer& renderer, std::string_view label, float maxWidth, float maxHeight, float scale, const TextFont& font
   ) {
     float fontSize = std::round(Style::fontSizeMini * scale);
@@ -111,7 +112,7 @@ namespace {
     float height = 0.0F;
   };
 
-  [[nodiscard]] WorkspaceDiscSize measureWorkspaceDiscSize(
+  WorkspaceDiscSize measureWorkspaceDiscSize(
       Renderer& renderer, std::string_view label, float fontSize, float minHeight, float scale, const TextFont& font
   ) {
     const auto metrics = renderer.measureText(label, fontSize, font);
@@ -123,7 +124,7 @@ namespace {
     return size;
   }
 
-  [[nodiscard]] WorkspaceDiscSize clampWorkspaceDiscToCrossLimit(WorkspaceDiscSize disc, float maxCross) {
+  WorkspaceDiscSize clampWorkspaceDiscToCrossLimit(WorkspaceDiscSize disc, float maxCross) {
     if (maxCross <= 0.0F) {
       return disc;
     }
@@ -133,7 +134,7 @@ namespace {
     return disc;
   }
 
-  [[nodiscard]] std::uintptr_t taskHandleKey(const ToplevelInfo& window) {
+  std::uintptr_t taskHandleKey(const ToplevelInfo& window) {
     if (window.handle != nullptr) {
       return reinterpret_cast<std::uintptr_t>(window.handle);
     }
@@ -152,15 +153,14 @@ namespace {
     return 0;
   }
 
-  [[nodiscard]] bool isOrphanAppIdentity(
+  bool isOrphanAppIdentity(
       const std::string& appId, const std::string& appIdLower, const std::string& idLower,
       const std::string& startupWmClassLower, const std::string& nameLower
   ) {
     return appId.empty() && appIdLower.empty() && idLower.empty() && startupWmClassLower.empty() && nameLower.empty();
   }
 
-  [[nodiscard]] std::uintptr_t
-  syntheticAssignmentHandleKey(const WorkspaceWindowAssignment& assignment, std::size_t index) {
+  std::uintptr_t syntheticAssignmentHandleKey(const WorkspaceWindowAssignment& assignment, std::size_t index) {
     const std::string seed = assignment.windowId.empty()
         ? assignment.workspaceKey + "\n" + assignment.appId + "\n" + assignment.title + "\n" + std::to_string(index)
         : assignment.windowId;
@@ -171,7 +171,7 @@ namespace {
     return value;
   }
 
-  [[nodiscard]] float barCapsuleThicknessFor(const ConfigService& config, std::string_view barName) {
+  float barCapsuleThicknessFor(const ConfigService& config, std::string_view barName) {
     for (const auto& bar : config.config().bars) {
       if (bar.name == barName) {
         return bar.capsuleThickness;
@@ -180,7 +180,7 @@ namespace {
     return 0.76F;
   }
 
-  [[nodiscard]] float taskbarShellCross(float barCross, bool barCapsuleEnabled, float capsuleThickness) {
+  float taskbarShellCross(float barCross, bool barCapsuleEnabled, float capsuleThickness) {
     if (!barCapsuleEnabled || barCross <= 0.0F) {
       return barCross;
     }
@@ -188,7 +188,7 @@ namespace {
   }
 
   // Inner cross budget for workspace group capsules nested inside a bar widget capsule.
-  [[nodiscard]] float taskbarGroupedCrossBudget(
+  float taskbarGroupedCrossBudget(
       float shellCross, bool barCapsuleEnabled, bool workspaceGroupCapsule, float barCapsuleBorderWidth, float scale
   ) {
     if (!barCapsuleEnabled || !workspaceGroupCapsule || shellCross <= 0.0F) {
@@ -403,7 +403,7 @@ bool TaskbarWidget::commitDragReorder() {
   // inside — defer so the write happens after this event finishes dispatching.
   ConfigService* config = &m_configService;
   DeferredCall::callLater([config, widgetName = m_widgetName, pinned = std::move(pinned)] mutable {
-    (void)config->setOverride({"widget", widgetName, "pinned"}, std::move(pinned));
+    config->setOverride({"widget", widgetName, "pinned"}, std::move(pinned));
   });
   return true;
 }
@@ -608,7 +608,7 @@ void TaskbarWidget::setEntryPinned(const DesktopEntry& entry, bool pinned) {
 
   ConfigService* config = &m_configService;
   DeferredCall::callLater([config, widgetName = m_widgetName, pinnedList = std::move(pinnedList)] mutable {
-    (void)config->setOverride({"widget", widgetName, "pinned"}, std::move(pinnedList));
+    config->setOverride({"widget", widgetName, "pinned"}, std::move(pinnedList));
   });
 }
 
@@ -698,7 +698,7 @@ void TaskbarWidget::applyPinnedMerge(std::vector<TaskModel>& tasks) {
     tile.nameLower = entry.nameLower;
     tile.appId = entry.id;
     tile.appIdLower = tile.idLower;
-    tile.iconPath = resolveIconPath(entry.id, entry.icon);
+    tile.icon = resolveIcon(entry.id, entry.icon);
     tile.title = entry.name;
 
     if (matching.empty()) {
@@ -734,8 +734,8 @@ void TaskbarWidget::applyPinnedMerge(std::vector<TaskModel>& tasks) {
     if (tile.startupWmClassLower.empty()) {
       tile.startupWmClassLower = entry.startupWmClassLower;
     }
-    if (tile.iconPath.empty()) {
-      tile.iconPath = resolveIconPath(entry.id, entry.icon);
+    if (tile.icon.path.empty()) {
+      tile.icon = resolveIcon(entry.id, entry.icon);
     }
     merged.push_back(std::move(tile));
     for (const std::size_t index : matching) {
@@ -1186,14 +1186,20 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     );
 
     auto iconHost = ui::box({.fill = clearColorSpec(), .width = iconSize, .height = iconSize});
-    if (!task.iconPath.empty()) {
+    if (!task.icon.path.empty()) {
       auto image = ui::image({
           .fit = ImageFit::Contain,
           .width = iconSize,
           .height = iconSize,
       });
-      image->setAppIconColorization(effectiveShellAppIconColorizationTint(m_configService.config().shell));
-      image->setSourceFile(renderer, task.iconPath, static_cast<int>(std::round(iconSize)), true);
+      if (task.icon.symbolic) {
+        image->setForegroundTint(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+      } else {
+        image->setAppIconColorization(
+            effectiveShellAppIconColorizationTint(m_configService.config().shell, m_configOptions.colorizeIcons)
+        );
+      }
+      image->setSourceFile(renderer, task.icon.path, static_cast<int>(std::round(iconSize)), true);
       if (image->hasImage()) {
         iconHost->addChild(std::move(image));
       } else {
@@ -1964,7 +1970,7 @@ void TaskbarWidget::updateModels() {
       } else if (!window.exactIdentity && !window.identifier.empty()) {
         task.workspaceWindowId = window.identifier;
       }
-      task.iconPath = resolveIconPath(run.runningAppId, run.entry.icon);
+      task.icon = resolveIcon(run.runningAppId, run.entry.icon);
       task.workspaceKey = {};
       nextTasks.push_back(std::move(task));
     }
@@ -1991,7 +1997,7 @@ void TaskbarWidget::updateModels() {
       task.workspaceWindowId = window.identifier;
       task.exactWindowId = window.identifier;
     }
-    task.iconPath = resolveIconPath({}, {});
+    task.icon = resolveIcon({}, {});
     nextTasks.push_back(std::move(task));
   }
 
@@ -2030,7 +2036,7 @@ void TaskbarWidget::updateModels() {
       task.title = assignment.title;
       task.workspaceWindowId = assignment.windowId;
       task.workspaceKey = assignment.workspaceKey;
-      task.iconPath = resolveIconPath(assignment.appId, {});
+      task.icon = resolveIcon(assignment.appId, {});
       if (const auto entry = app_identity::findDesktopEntry(assignment.appId, desktopEntries()); entry.has_value()) {
         task.displayName = entry->name;
       }
@@ -2217,7 +2223,7 @@ void TaskbarWidget::updateModels() {
           task.nameLower = task.idLower;
           task.appIdLower = task.idLower;
           task.title = assignment.title;
-          task.iconPath = resolveIconPath(task.appId, {});
+          task.icon = resolveIcon(task.appId, {});
           task.workspaceKey = assignment.workspaceKey;
           task.workspaceWindowId = assignment.windowId;
           task.workspaceOrder = i;
@@ -2423,7 +2429,7 @@ void TaskbarWidget::updateModels() {
         if (previous == previousWorkspaceByHandle.end()) {
           continue;
         }
-        (void)assignMatch(task, true, [&](const WorkspaceWindowAssignment& assignment) {
+        assignMatch(task, true, [&](const WorkspaceWindowAssignment& assignment) {
           return assignment.workspaceKey == previous->second;
         });
       }
@@ -2436,7 +2442,7 @@ void TaskbarWidget::updateModels() {
         if (previous == previousWorkspaceByHandle.end()) {
           continue;
         }
-        (void)assignMatch(task, false, [&](const WorkspaceWindowAssignment& assignment) {
+        assignMatch(task, false, [&](const WorkspaceWindowAssignment& assignment) {
           return assignment.workspaceKey == previous->second;
         });
       }
@@ -2445,7 +2451,7 @@ void TaskbarWidget::updateModels() {
         if (!task.workspaceKey.empty()) {
           continue;
         }
-        (void)assignMatch(task, true, [](const WorkspaceWindowAssignment&) { return true; });
+        assignMatch(task, true, [](const WorkspaceWindowAssignment&) { return true; });
       }
 
       for (auto& task : nextTasks) {
@@ -2638,7 +2644,7 @@ void TaskbarWidget::updateModels() {
         if (tryClaim(false, true)) {
           continue;
         }
-        (void)tryClaim(false, false);
+        tryClaim(false, false);
       }
     }
 
@@ -2674,7 +2680,7 @@ void TaskbarWidget::updateModels() {
         task.nameLower = task.idLower;
         task.appIdLower = task.idLower;
         task.title = assignment.title;
-        task.iconPath = resolveIconPath(task.appId, {});
+        task.icon = resolveIcon(task.appId, {});
         task.workspaceKey = assignment.workspaceKey;
         task.workspaceWindowId = assignment.windowId;
         task.workspaceOrder = i;
@@ -2720,7 +2726,7 @@ void TaskbarWidget::updateModels() {
         task.handleKey = handleKey;
         task.order = static_cast<std::uint64_t>(std::numeric_limits<std::int32_t>::max()) + i;
         task.title = assignment.title;
-        task.iconPath = resolveIconPath({}, {});
+        task.icon = resolveIcon({}, {});
         task.workspaceKey = assignment.workspaceKey;
         task.workspaceWindowId = assignment.windowId;
         if (m_platform.hasExactWindowIdentity()) {
@@ -3302,10 +3308,11 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area, 
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = layerSurface,
+                  .attach = LayerShell::popupAttach(layerSurface),
                   .output = m_output,
-                  .wlSurface = pointerSurface,
+                  .keyboardGrab = m_platform.layerShell().popupKeyboardGrab(pointerSurface),
               },
+          .pointerParentSurface = pointerSurface,
           .placement = placement,
       }
   );
@@ -3376,7 +3383,7 @@ TaskbarWidget::ModelComparison TaskbarWidget::compareModels(
     activesChanged = activesChanged || activeChanged;
     minimizeStatesChanged = minimizeStatesChanged || minimizeStateChanged;
     if (nextTasks[i].appId != previousTasks[i].appId
-        || nextTasks[i].iconPath != previousTasks[i].iconPath
+        || nextTasks[i].icon != previousTasks[i].icon
         || nextTasks[i].firstHandle != previousTasks[i].firstHandle
         || (groupByWorkspace
             && (activeChanged
@@ -3436,19 +3443,22 @@ void TaskbarWidget::buildDesktopIconIndex() {
   m_desktopEntriesVersion = desktopEntriesVersion();
 }
 
-std::string TaskbarWidget::resolveIconPath(const std::string& appId, const std::string& iconNameOrPath) {
+ResolvedIcon TaskbarWidget::resolveIcon(const std::string& appId, const std::string& iconNameOrPath) {
   const int iconTargetSize =
       std::max(1, static_cast<int>(std::round(Style::baseGlyphSize * m_configOptions.iconScale * m_contentScale)));
 
-  auto resolveIconName = [this, iconTargetSize](const std::string& name) -> std::string {
+  auto resolveIconName = [this, iconTargetSize](const std::string& name) -> ResolvedIcon {
     if (name.empty()) {
       return {};
     }
-    return m_iconResolver.resolve(name, iconTargetSize);
+    if (m_configOptions.preferSymbolicIcons) {
+      return m_iconResolver.resolveSymbolicPreferred(name, iconTargetSize);
+    }
+    return ResolvedIcon{.path = m_iconResolver.resolve(name, iconTargetSize)};
   };
 
   if (!iconNameOrPath.empty()) {
-    if (const std::string primary = resolveIconName(iconNameOrPath); !primary.empty()) {
+    if (ResolvedIcon primary = resolveIconName(iconNameOrPath); !primary.path.empty()) {
       return primary;
     }
   }
@@ -3456,29 +3466,29 @@ std::string TaskbarWidget::resolveIconPath(const std::string& appId, const std::
   if (appId.starts_with("steam_app_")) {
     if (const auto entry = app_identity::findDesktopEntry(appId, desktopEntries());
         entry.has_value() && !entry->icon.empty()) {
-      if (const std::string steamIcon = resolveIconName(entry->icon); !steamIcon.empty()) {
+      if (ResolvedIcon steamIcon = resolveIconName(entry->icon); !steamIcon.path.empty()) {
         return steamIcon;
       }
     }
   }
 
   if (const auto internal = internal_apps::metadataForAppId(appId); internal.has_value()) {
-    return internal->iconPath;
+    return ResolvedIcon{.path = internal->iconPath};
   }
 
   const std::string appIdLower = toLower(appId);
   const auto it = m_appIconsByLower.find(appIdLower);
   if (it != m_appIconsByLower.end()) {
-    if (const std::string desktopIcon = resolveIconName(it->second); !desktopIcon.empty()) {
+    if (ResolvedIcon desktopIcon = resolveIconName(it->second); !desktopIcon.path.empty()) {
       return desktopIcon;
     }
   }
   if (!appId.empty()) {
-    if (const std::string appIcon = resolveIconName(appId); !appIcon.empty()) {
+    if (ResolvedIcon appIcon = resolveIconName(appId); !appIcon.path.empty()) {
       return appIcon;
     }
   }
-  return m_iconResolver.resolve("application-x-executable", iconTargetSize);
+  return resolveIconName("application-x-executable");
 }
 
 bool TaskbarWidget::activeWorkspaceIndex(std::size_t& index) const {

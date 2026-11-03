@@ -141,6 +141,10 @@ bool FingerprintAuthenticator::createDeviceProxy() {
   }
 
   m_device->uponSignal("VerifyStatus").onInterface(kDeviceInterface).call([this](const std::string& result, bool done) {
+    if (!m_bus.isNameOwner(kFprintBusName, m_device->getCurrentlyProcessedMessage().getSender())) {
+      kLog.warn("ignoring VerifyStatus signal not sent by fprintd");
+      return;
+    }
     handleVerifyStatus(result, done);
   });
 

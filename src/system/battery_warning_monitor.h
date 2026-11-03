@@ -10,11 +10,12 @@ class NotificationManager;
 class UPowerService;
 struct UPowerDeviceInfo;
 
-[[nodiscard]] int batteryWarningThresholdForDevice(
+int batteryWarningThresholdForDevice(
     const BatteryConfig& config, const UPowerDeviceInfo& device, const UPowerDeviceInfo* systemBattery = nullptr
 );
-[[nodiscard]] int
-batteryWarningThresholdForSelector(const BatteryConfig& config, const UPowerService* upower, std::string_view selector);
+int batteryWarningThresholdForSelector(
+    const BatteryConfig& config, const UPowerService* upower, std::string_view selector
+);
 
 class BatteryWarningMonitor {
 public:

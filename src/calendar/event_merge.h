@@ -22,7 +22,7 @@ namespace calendar {
   //
   // Among duplicates the entry kept is the one that shows the most: more filled-in fields (color,
   // link, location), then the longer title.
-  [[nodiscard]] std::vector<CalendarEvent> mergeCalendarEvents(
+  std::vector<CalendarEvent> mergeCalendarEvents(
       const std::map<std::string, std::vector<CalendarEvent>>& eventsByAccount, bool dedupe,
       const std::vector<std::string>& ignorePatterns = {}
   );

@@ -3,6 +3,8 @@
 #include "render/animation/animation_manager.h"
 #include "shell/control_center/tab.h"
 #include "system/icon_resolver.h"
+#include "ui/palette.h"
+#include "ui/signal.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -14,8 +16,8 @@
 #include <vector>
 
 class NotificationManager;
-class CompositorPlatform;
 class ConfigService;
+class CompositorPlatform;
 struct NotificationHistoryEntry;
 class Button;
 class Segmented;
@@ -35,13 +37,12 @@ struct NotificationDisplayItem {
   uint32_t notificationId = 0;
   std::string groupKey;
   std::string appName;
-  std::size_t total_count = 1;
-  std::size_t childIndex = 0;
+  std::size_t totalCount = 1;
 };
 
 class NotificationsTab : public Tab {
 public:
-  NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform, ConfigService* config = nullptr);
+  NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform, ConfigService* config);
   ~NotificationsTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -66,17 +67,20 @@ private:
   void syncDndButton();
   void updateEmptyState(bool hasHistory, bool hasFiltered);
   std::optional<std::size_t> filteredIndexForId(uint32_t id) const;
+
   // The filter slide keeps its snapshot; this only removes ids history no longer holds.
   void dropVanishedFiltered();
   void cancelFilterSlide();
   void beginFilterSlideOut(std::size_t nextIndex);
   void beginFilterSlideIn();
   void applyFilterSlide(float progress, bool slidingIn);
-  [[nodiscard]] bool filterSlideOutActive() const;
+  bool filterSlideOutActive() const;
 
   NotificationManager* m_notifications = nullptr;
-  CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
+  Signal<>::ScopedConnection m_appIconColorizeConn;
+  std::optional<ColorSpec> m_lastIconTint;
+  CompositorPlatform* m_platform = nullptr;
   bool m_lastGroupByApp = true;
   IconResolver m_iconResolver;
   std::unique_ptr<NotificationHistoryAdapter> m_adapter;

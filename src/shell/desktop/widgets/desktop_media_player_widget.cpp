@@ -8,10 +8,10 @@
 #include "pipewire/pipewire_spectrum.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
+#include "shell/visuals/audio_visualizer.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "ui/visuals/audio_visualizer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -533,8 +533,9 @@ void DesktopMediaPlayerWidget::onFrameTick(float deltaMs, Renderer& /*renderer*/
     return;
   }
   syncSpectrum();
-  m_audioVisualizer->tick(deltaMs);
-  requestRedraw();
+  if (m_audioVisualizer->advance(deltaMs, m_spectrum != nullptr && !m_spectrum->idle())) {
+    requestRedraw();
+  }
 }
 
 void DesktopMediaPlayerWidget::syncSpectrum() {

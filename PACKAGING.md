@@ -74,6 +74,7 @@ No special linker is required. The default linker from the compiler driver is fi
 - Do **not** enable `-Dnative_optimizations=true` for distro packages (CPU-local codegen; not portable).
 - Tests: `-Dtests=disabled` (or leave `auto`, which skips tests for release).
 - `jemalloc`: recommended on glibc; Meson feature option `-Djemalloc=auto|enabled|disabled`. Only used on glibc builds.
+- `system_libraries`: `-Dsystem_libraries=true` links system copies of the vendored libraries instead of building `third_party/`. See [Vendored](#vendored-no-system-package) for the expected layout.
 
 Prefix/datadir are baked into the binary via `NOCTALIA_INSTALL_PREFIX` / `NOCTALIA_INSTALL_DATADIR`. Install with the same prefix you configured.
 
@@ -146,6 +147,17 @@ Notes packagers hit often:
 ### Vendored (no system package)
 
 Shipped under `third_party/`: Wuffs, Luau, fzy, Material Color Utilities. Each carries its own license file beside the code.
+
+With `-Dsystem_libraries=true`, Meson uses system copies of all four instead; the option is all-or-nothing. None of them ship pkg-config files, so Meson finds them by library and header name on the compiler search paths:
+
+| Library                  | Libraries                                                                             | Headers                          |
+| ------------------------ | ------------------------------------------------------------------------------------- | -------------------------------- |
+| Wuffs                    | none (single-file release, compiled into Noctalia)                                    | `wuffs-v0.4.c`                   |
+| fzy                      | `libfzy` (built from `src/match.c`)                                                   | `fzy/match.h`                    |
+| Material Color Utilities | `libmaterial-color-utilities` (C++ implementation)                                    | `cpp/...` (upstream layout)      |
+| Luau                     | `libLuau.Compiler`, `libLuau.Bytecode`, `libLuau.Ast`, `libLuau.VM`, `libLuau.Common` | `lua.h`, `lualib.h`, `luacode.h` |
+
+Vendored versions: Wuffs 0.4.0-alpha.9, Luau 0.742 (0.724 also builds), fzy 1.1, Material Color Utilities C++ at upstream commit `1a34bd2` with abseil replaced by the standard library and missing standard includes added. The public headers do not use abseil, so a system copy built with or without abseil links the same way. Plugins only get the Luau language features of the linked release.
 
 ### Runtime
 

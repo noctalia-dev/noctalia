@@ -45,8 +45,8 @@
 namespace settings {
 
   // Defined in settings_content_common.cpp (header not included here to avoid a makeLabel overload clash).
-  [[nodiscard]] std::string formatSliderValue(double value, bool integerValue);
-  [[nodiscard]] std::optional<double> parseDoubleInput(std::string_view text);
+  std::string formatSliderValue(double value, bool integerValue);
+  std::optional<double> parseDoubleInput(std::string_view text);
 
   namespace {
 
@@ -135,7 +135,7 @@ namespace settings {
 
         SettingEntry rowEntry = entry;
         rowEntry.path = path;
-        rowEntry.title = i18n::tr(std::string(noctalia::bar::gestureLabelKey(gesture)));
+        rowEntry.title = i18n::tr(noctalia::bar::gestureLabelKey(gesture));
         rowEntry.subtitle.clear();
 
         GestureActionSetting setting{
@@ -976,7 +976,7 @@ namespace settings {
       return spec.schema.defaultValue;
     }
 
-    [[nodiscard]] bool isBarHorizontal(const Config& cfg, std::string_view barName) {
+    bool isBarHorizontal(const Config& cfg, std::string_view barName) {
       const BarConfig* bar = findBar(cfg, barName);
       if (bar == nullptr) {
         return true;
@@ -1250,8 +1250,8 @@ namespace settings {
       return selectSetting;
     }
 
-    SelectSetting
-    sourcedSelectSetting(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec, std::string selectedValue) {
+    // Static options from the spec followed by the options of its dynamic source.
+    std::vector<SelectOption> specOptions(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec) {
       std::vector<SelectOption> options;
       const auto appendUnique = [&](SelectOption option) {
         if (!std::ranges::contains(options, option.value, &SelectOption::value)) {
@@ -1273,6 +1273,9 @@ namespace settings {
       case WidgetSettingOptionSource::BatteryDevices:
         sourcedOptions = ctx.batteryDeviceOptions;
         break;
+      case WidgetSettingOptionSource::Outputs:
+        sourcedOptions = ctx.availableOutputs;
+        break;
       case WidgetSettingOptionSource::Static:
         break;
       }
@@ -1280,6 +1283,12 @@ namespace settings {
       for (auto& option : sourcedOptions) {
         appendUnique(std::move(option));
       }
+      return options;
+    }
+
+    SelectSetting
+    sourcedSelectSetting(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec, std::string selectedValue) {
+      std::vector<SelectOption> options = specOptions(ctx, spec);
 
       const auto hasEmptyOption = std::ranges::contains(options, std::string_view{}, &SelectOption::value);
       if (selectedValue.empty() && !hasEmptyOption) {
@@ -1667,7 +1676,10 @@ namespace settings {
           ctx.makeRow(*panel, entry, makeGlyphTextControl(settingValueAsString(value)));
           break;
         case WidgetControlKind::StringList:
-          ctx.makeListBlock(*panel, entry, ListSetting{.items = settingValueAsStringList(value)});
+          ctx.makeListBlock(
+              *panel, entry,
+              ListSetting{.items = settingValueAsStringList(value), .suggestedOptions = specOptions(ctx, spec)}
+          );
           break;
         case WidgetControlKind::StringMap: {
           // Gesture bindings have a closed key set, so they get one fixed row per gesture rather
@@ -2537,7 +2549,7 @@ namespace settings {
                 std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> batch;
                 // Replace the group token with its members in whichever lane holds it.
                 const std::string token = makeCapsuleGroupToken(groupId);
-                for (const auto laneKey : {"start", "center", "end"}) {
+                for (const auto* laneKey : {"start", "center", "end"}) {
                   std::vector<std::string> lanePath = pathWithLastSegment(laneListPath, laneKey);
                   std::vector<std::string> lane = barWidgetItemsForPath(*config, lanePath);
                   const auto it = std::ranges::find(lane, token);

@@ -4,6 +4,7 @@
 #include "config/config_service.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
+#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "net/uri.h"
 #include "notification/notification.h"
@@ -12,10 +13,10 @@
 #include "render/animation/animation.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
@@ -51,6 +52,10 @@ namespace {
   constexpr float kHistoryIconSize = 36.0F;
   constexpr float kHistoryIconGlyphSize = 22.0F;
   constexpr float kHistoryIconReferenceSize = 36.0F;
+  constexpr float kGroupChildIndent = Style::spaceLg;
+  constexpr float kGroupBadgeFontSize = Style::fontSizeMini * 0.9F;
+  constexpr float kGroupBadgeGap = 2.0F;
+  constexpr float kGroupBadgePaddingV = 1.0F;
 
   float notificationIconRadius(float iconSize, float localScale) {
     const float baseRadius = Style::radiusMd * (iconSize / kHistoryIconReferenceSize);
@@ -135,7 +140,7 @@ namespace {
       return {};
     }
 
-    const std::string localPath = normalizeLocalIconPath(iconValue);
+    std::string localPath = normalizeLocalIconPath(iconValue);
     if (!localPath.empty() && localPath.front() == '/') {
       if (access(localPath.c_str(), R_OK) == 0) {
         return localPath;
@@ -240,7 +245,8 @@ namespace {
     const bool isGroup = item.kind == NotificationDisplayItemKind::CollapsedGroup || isHeader;
     const float cardWidth = std::max(0.0F, width);
     const float cardHorizontalPadding = Style::spaceMd * scale * 2.0F;
-    const float childIndent = (item.kind == NotificationDisplayItemKind::GroupChild) ? (16.0F * scale) : 0.0F;
+    const float childIndent =
+        (item.kind == NotificationDisplayItemKind::GroupChild) ? (kGroupChildIndent * scale) : 0.0F;
     metrics.cardTextWidth = std::max(0.0F, cardWidth - cardHorizontalPadding - childIndent);
 
     if (!isHeader) {
@@ -276,12 +282,11 @@ namespace {
 
     float badgeWidth = 0.0F;
     if (isGroup) {
-      const std::string badgeText = std::to_string(item.total_count);
-      const float labelW =
-          renderer.measureText(badgeText, Style::fontSizeMini * scale * 0.9F, {FontWeight::Bold}).width;
-      const float iconW = Style::fontSizeMini * scale * 0.9F;
+      const std::string badgeText = std::to_string(item.totalCount);
+      const float labelW = renderer.measureText(badgeText, kGroupBadgeFontSize * scale, {FontWeight::Bold}).width;
+      const float iconW = kGroupBadgeFontSize * scale;
       const float paddingH = Style::spaceXs * scale * 2.0F;
-      const float innerGap = 2.0F * scale;
+      const float innerGap = kGroupBadgeGap * scale;
       badgeWidth = paddingH + iconW + innerGap + labelW + (Style::spaceSm * scale);
     }
 
@@ -299,7 +304,7 @@ namespace {
     const float metaHeight = measuredTextHeight(
         renderer, metrics.metaLine, Style::fontSizeMini * scale, FontWeight::Normal, metrics.metaTextWidth, 0
     );
-    const float badgeHeight = isGroup ? ((Style::fontSizeMini * scale * 0.9F) + (2.0F * scale)) : 0.0F;
+    const float badgeHeight = isGroup ? ((kGroupBadgeFontSize + (kGroupBadgePaddingV * 2.0F)) * scale) : 0.0F;
     const float headerHeight = std::max({iconPx, actionButtonSize, metaHeight, badgeHeight});
     const float paddingY = (Style::spaceSm + Style::spaceXs) * scale * 2.0F;
 
@@ -462,8 +467,8 @@ namespace {
       m_badge = static_cast<Flex*>(m_leftCluster->addChild(
           ui::row({
               .align = FlexAlign::Center,
-              .gap = 2.0F * scale,
-              .paddingV = 1.0F * scale,
+              .gap = kGroupBadgeGap * scale,
+              .paddingV = kGroupBadgePaddingV * scale,
               .paddingH = Style::spaceXs * scale,
               .fill = colorSpecFromRole(ColorRole::SecondaryContainer),
               .radius = Style::scaledRadiusSm(scale),
@@ -474,14 +479,14 @@ namespace {
       m_badgeGlyph = static_cast<Glyph*>(m_badge->addChild(
           ui::glyph({
               .glyph = "box-multiple",
-              .glyphSize = Style::fontSizeMini * scale * 0.9F,
+              .glyphSize = kGroupBadgeFontSize * scale,
               .color = colorSpecFromRole(ColorRole::OnSecondaryContainer),
           })
       ));
 
       m_badgeLabel = static_cast<Label*>(m_badge->addChild(
           ui::label({
-              .fontSize = Style::fontSizeMini * scale * 0.9F,
+              .fontSize = kGroupBadgeFontSize * scale,
               .fontWeight = FontWeight::Bold,
               .color = colorSpecFromRole(ColorRole::OnSecondaryContainer),
           })
@@ -492,15 +497,17 @@ namespace {
 
     void bind(
         Renderer& renderer, const NotificationDisplayItem& item, const NotificationHistoryEntry& entry, float width,
-        bool expanded, bool showHistoryActions, IconResolver& iconResolver, std::function<void()> onToggleExpanded,
-        std::function<void()> onRemove, const std::function<void(uint32_t, const std::string&)>& onAction
+        bool expanded, bool showHistoryActions, IconResolver& iconResolver, std::optional<ColorSpec> iconTint,
+        std::function<void()> onToggleExpanded, std::function<void()> onRemove,
+        const std::function<void(uint32_t, const std::string&)>& onAction
     ) {
       const NotificationCardMetrics metrics =
           measureNotificationCard(renderer, item, entry, m_scale, width, expanded, showHistoryActions);
       setMinWidth(width);
       setSize(width, metrics.height);
 
-      const float childIndent = (item.kind == NotificationDisplayItemKind::GroupChild) ? (16.0F * m_scale) : 0.0F;
+      const float childIndent =
+          (item.kind == NotificationDisplayItemKind::GroupChild) ? (kGroupChildIndent * m_scale) : 0.0F;
       setPadding(0.0F, 0.0F, 0.0F, childIndent);
 
       if (item.kind == NotificationDisplayItemKind::GroupHeader) {
@@ -514,20 +521,23 @@ namespace {
       const float iconPx = kHistoryIconSize * m_scale;
       m_iconSlot->setSize(iconPx, iconPx);
 
+      m_image->setAppIconColorization(
+          entry.notification.iconIsAppIcon && !entry.notification.imageData.has_value() ? iconTint : std::nullopt
+      );
       bindIcon(renderer, entry, iconResolver);
 
       if (item.kind == NotificationDisplayItemKind::GroupHeader) {
         m_badge->setVisible(true);
         m_badge->setParticipatesInLayout(true);
         m_badgeGlyph->setGlyph("box-multiple");
-        m_badgeLabel->setText(std::to_string(item.total_count));
+        m_badgeLabel->setText(std::to_string(item.totalCount));
         m_badgeLabel->measure(renderer);
         m_meta->setText(item.appName);
       } else if (item.kind == NotificationDisplayItemKind::CollapsedGroup) {
         m_badge->setVisible(true);
         m_badge->setParticipatesInLayout(true);
         m_badgeGlyph->setGlyph("box-multiple");
-        m_badgeLabel->setText(std::to_string(item.total_count));
+        m_badgeLabel->setText(std::to_string(item.totalCount));
         m_badgeLabel->measure(renderer);
         m_meta->setText(item.appName + " • " + relativeMetaLine(entry.notification));
       } else {
@@ -733,9 +743,9 @@ public:
 
   void setFillOpacity(float fillOpacity) { m_fillOpacity = fillOpacity; }
 
-  [[nodiscard]] std::size_t itemCount() const override { return m_owner.m_filtered.size(); }
+  std::size_t itemCount() const override { return m_owner.m_filtered.size(); }
 
-  [[nodiscard]] std::uint64_t itemKey(std::size_t index) const override {
+  std::uint64_t itemKey(std::size_t index) const override {
     if (index >= m_owner.m_filtered.size()) {
       return static_cast<std::uint64_t>(index);
     }
@@ -749,7 +759,7 @@ public:
     return item.notificationId;
   }
 
-  [[nodiscard]] std::uint64_t itemRevision(std::size_t index) const override {
+  std::uint64_t itemRevision(std::size_t index) const override {
     if (index >= m_owner.m_filtered.size() || m_owner.m_notifications == nullptr) {
       return 0;
     }
@@ -761,12 +771,12 @@ public:
     const bool expanded = m_owner.m_expandedIds.contains(entry->notification.id);
     std::uint64_t revision = revisionForEntry(*entry, expanded, m_owner.m_lastRelativeTimeSlot);
     revision ^= static_cast<std::uint64_t>(Style::cornerRadiusScale() * 10000.0F) * 0xC2B2AE3D27D4EB4FULL;
-    revision ^= (static_cast<std::uint64_t>(item.total_count) << 16U);
+    revision ^= (static_cast<std::uint64_t>(item.totalCount) << 16U);
     revision ^= (static_cast<std::uint64_t>(item.kind) << 48U);
     return revision;
   }
 
-  [[nodiscard]] float measureItem(Renderer& renderer, std::size_t index, float width) override {
+  float measureItem(Renderer& renderer, std::size_t index, float width) override {
     if (index >= m_owner.m_filtered.size() || m_owner.m_notifications == nullptr) {
       return 1.0F;
     }
@@ -815,7 +825,7 @@ public:
     const bool showHistoryActions = m_owner.m_notifications->hasPendingDBusClose(entry->notification.id);
     row->bind(
         renderer, displayItem, *entry, width, m_owner.m_expandedIds.contains(entry->notification.id),
-        showHistoryActions, m_owner.m_iconResolver, std::move(onToggle), std::move(onRemove),
+        showHistoryActions, m_owner.m_iconResolver, m_owner.m_lastIconTint, std::move(onToggle), std::move(onRemove),
         [this](uint32_t id, const std::string& key) { m_owner.invokeNotificationAction(id, key); }
     );
   }
@@ -829,10 +839,9 @@ private:
 NotificationsTab::NotificationsTab(
     NotificationManager* notifications, CompositorPlatform* platform, ConfigService* config
 )
-    : m_notifications(notifications), m_platform(platform), m_config(config) {
-  if (m_config != nullptr) {
-    m_lastGroupByApp = m_config->config().notification.groupByApp;
-  }
+    : m_notifications(notifications), m_config(config), m_platform(platform) {
+  m_appIconColorizeConn =
+      shellAppIconColorizationChanged().connect([] { PanelManager::instance().requestUpdateOnly(); });
 }
 
 NotificationsTab::~NotificationsTab() = default;
@@ -985,6 +994,15 @@ void NotificationsTab::doLayout(Renderer& renderer, float contentWidth, float bo
 }
 
 void NotificationsTab::doUpdate(Renderer& renderer) {
+  const auto tint = m_config != nullptr
+      ? effectiveShellAppIconColorizationTint(m_config->config().shell, m_config->config().notification.colorizeIcons)
+      : std::nullopt;
+  if (tint != m_lastIconTint) {
+    m_lastIconTint = tint;
+    if (m_list != nullptr) {
+      m_list->notifyDataChanged();
+    }
+  }
   if (filterSlideOutActive()) {
     dropVanishedFiltered();
     return;
@@ -1139,7 +1157,7 @@ void NotificationsTab::clearAllNotifications() {
     activeIds.push_back(notification.id);
   }
   for (const uint32_t id : activeIds) {
-    (void)m_notifications->close(id, CloseReason::Dismissed);
+    m_notifications->close(id, CloseReason::Dismissed);
   }
   m_notifications->clearHistory();
   m_expandedIds.clear();
@@ -1161,7 +1179,7 @@ void NotificationsTab::toggleDoNotDisturb() {
     return;
   }
 
-  (void)m_notifications->toggleDoNotDisturb();
+  m_notifications->toggleDoNotDisturb();
   syncDndButton();
   PanelManager::instance().refresh();
 }
@@ -1192,7 +1210,7 @@ void NotificationsTab::removeNotificationEntry(uint32_t id, bool wasActive) {
   }
 
   if (wasActive) {
-    (void)m_notifications->close(id, CloseReason::Dismissed);
+    m_notifications->close(id, CloseReason::Dismissed);
   }
   m_notifications->removeHistoryEntry(id);
   m_expandedIds.erase(id);
@@ -1323,7 +1341,7 @@ bool NotificationsTab::refreshDataSnapshot() {
                 .kind = NotificationDisplayItemKind::Single,
                 .notificationId = historyEntry.notification.id,
                 .appName = notificationDisplayAppName(historyEntry.notification),
-                .total_count = 1,
+                .totalCount = 1,
             }
         );
       }
@@ -1365,7 +1383,7 @@ bool NotificationsTab::refreshDataSnapshot() {
                   .notificationId = group.entryIds.front(),
                   .groupKey = group.groupKey,
                   .appName = group.appName,
-                  .total_count = 1,
+                  .totalCount = 1,
               }
           );
         } else {
@@ -1377,7 +1395,7 @@ bool NotificationsTab::refreshDataSnapshot() {
                     .notificationId = group.entryIds.front(),
                     .groupKey = group.groupKey,
                     .appName = group.appName,
-                    .total_count = group.entryIds.size(),
+                    .totalCount = group.entryIds.size(),
                 }
             );
           } else {
@@ -1387,7 +1405,7 @@ bool NotificationsTab::refreshDataSnapshot() {
                     .notificationId = group.entryIds.front(),
                     .groupKey = group.groupKey,
                     .appName = group.appName,
-                    .total_count = group.entryIds.size(),
+                    .totalCount = group.entryIds.size(),
                 }
             );
             for (std::size_t i = 0; i < group.entryIds.size(); ++i) {
@@ -1397,8 +1415,7 @@ bool NotificationsTab::refreshDataSnapshot() {
                       .notificationId = group.entryIds[i],
                       .groupKey = group.groupKey,
                       .appName = group.appName,
-                      .total_count = 1,
-                      .childIndex = i,
+                      .totalCount = 1,
                   }
               );
             }

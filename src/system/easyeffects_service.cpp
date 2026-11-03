@@ -255,7 +255,7 @@ namespace {
       return profiles;
     }
 
-    const auto profileDir = kind == AudioEffectsProfileKind::Input ? "input" : "output";
+    const auto* profileDir = kind == AudioEffectsProfileKind::Input ? "input" : "output";
     for (const auto& root : easyeffectsDataRoots()) {
       appendPresetFilesFromDir(profiles, seen, root / profileDir);
     }

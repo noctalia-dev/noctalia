@@ -69,7 +69,7 @@ ControlCenterPanel::ControlCenterPanel(const ControlCenterServices& services) {
   m_tabs[tabIndex(TabId::Bluetooth)] = std::make_unique<BluetoothTab>(services.bluetooth, services.bluetoothAgent);
   m_tabs[tabIndex(TabId::Monitor)] = std::make_unique<MonitorTab>(services.brightness, services.config);
   m_tabs[tabIndex(TabId::System)] = std::make_unique<SystemTab>(services.sysmon);
-  m_tabs[tabIndex(TabId::ScreenTime)] = std::make_unique<ScreenTimeTab>(services.screenTime);
+  m_tabs[tabIndex(TabId::ScreenTime)] = std::make_unique<ScreenTimeTab>(services.screenTime, services.config);
   m_tabs[tabIndex(TabId::Power)] = std::make_unique<PowerTab>(services.upower, services.powerProfiles);
   m_tabButtons.fill(nullptr);
   m_tabContainers.fill(nullptr);
@@ -128,6 +128,9 @@ void ControlCenterPanel::create() {
         .configure = [this, scale](Flex& column) {
           column.setFill(colorSpecFromRole(ColorRole::SurfaceContainer, panelCardOpacity()));
           column.setRadius(Style::scaledRadiusXl(scale));
+          if (Style::cardBordersEnabled()) {
+            column.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
+          }
         },
     });
 

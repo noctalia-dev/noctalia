@@ -1931,8 +1931,7 @@
           "label": "Agenda-accounts"
         },
         "calendar-edit": {
-          "button": "Bewerken",
-          "description": "Werk dit agenda-account bij"
+          "button": "Bewerken"
         },
         "calendar-refresh-interval": {
           "description": "Hoe vaak agenda-evenementen moeten worden gesynchroniseerd (minuten)",

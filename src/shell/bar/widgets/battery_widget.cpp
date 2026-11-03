@@ -1,9 +1,9 @@
 #include "shell/bar/widgets/battery_widget.h"
 
+#include "core/time_format.h"
 #include "dbus/upower/upower_service.h"
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -46,8 +46,8 @@ namespace {
   std::string formatCompactDuration(std::int64_t seconds) {
     const auto hours = seconds / 3600;
     const auto minutes = (seconds % 3600) / 60;
-    const std::string hourText = i18n::tr("time.units.hour-compact", "count", hours);
-    const std::string minuteText = i18n::tr("time.units.minute-compact", "count", minutes);
+    std::string hourText = i18n::tr("time.units.hour-compact", "count", hours);
+    std::string minuteText = i18n::tr("time.units.minute-compact", "count", minutes);
     if (hours > 0 && minutes > 0) {
       return i18n::tr("time.duration.two-parts", "first", hourText, "second", minuteText);
     }
@@ -440,7 +440,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
   const bool showWidget = s.isPresent
       && hasVisibleContent
       && !(m_hideWhenPlugged && isPluggedIn)
-      && !(m_hideWhenFull && (s.state == BatteryState::FullyCharged || s.state == BatteryState::PendingCharge));
+      && (!m_hideWhenFull || (s.state != BatteryState::FullyCharged && s.state != BatteryState::PendingCharge));
 
   auto* rootNode = root();
   if (rootNode != nullptr) {
@@ -492,7 +492,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
     // A full battery needs no number, and three digits would stretch the narrow vertical body.
     if (m_overlayLabel != nullptr) {
-      m_overlayLabel->setVisible(m_showLabel && !(m_isVertical && pct >= 100));
+      m_overlayLabel->setVisible(m_showLabel && (!m_isVertical || pct < 100));
     }
     if (m_overlayGlyph != nullptr) {
       m_overlayGlyph->setVisible(stateGlyph != nullptr);

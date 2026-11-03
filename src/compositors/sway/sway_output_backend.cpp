@@ -14,7 +14,7 @@ namespace {
 
   constexpr Logger kLog("sway_output");
 
-  [[nodiscard]] std::optional<std::string> parseFocusedOutputName(std::string_view payload) {
+  std::optional<std::string> parseFocusedOutputName(std::string_view payload) {
     if (payload.empty()) {
       return std::nullopt;
     }
@@ -30,7 +30,7 @@ namespace {
           continue;
         }
         if (auto it = item.find("name"); it != item.end() && it->is_string()) {
-          const auto value = StringUtils::trim(it->get<std::string>());
+          auto value = StringUtils::trim(it->get<std::string>());
           if (!value.empty()) {
             return value;
           }

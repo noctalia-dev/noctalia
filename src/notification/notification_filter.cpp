@@ -96,7 +96,7 @@ std::vector<std::string> normalizeNotificationMatchTokens(const std::vector<std:
   std::vector<std::string> normalized;
   normalized.reserve(tokens.size());
 
-  for (auto& raw : tokens) {
+  for (const auto& raw : tokens) {
     const std::string token = normalizeFilterToken(raw);
     if (token.empty()) {
       continue;
@@ -174,7 +174,7 @@ void normalizeNotificationFilterNames(std::vector<NotificationFilterConfig>& fil
 
 std::unordered_set<Urgency> normalizeAllowedUrgencies(const std::vector<std::string>& values) {
   std::unordered_set<Urgency> allowed;
-  for (auto& raw : values) {
+  for (const auto& raw : values) {
     const std::string token = normalizeFilterToken(raw);
     if (token == "low") {
       allowed.insert(Urgency::Low);

@@ -99,7 +99,7 @@ namespace noctalia::theme {
         continue;
 
       const std::string entryId(key.str());
-      const auto value = entry->get_as<std::string>("gtk_extension");
+      auto* value = entry->get_as<std::string>("gtk_extension");
       const auto toolkit = value != nullptr ? parseToolkit(value->get()) : std::nullopt;
       if (!toolkit) {
         kLog.warn(R"({}.{}: gtk_extension must be "gtk3" or "gtk4")", templateId, entryId);
@@ -111,7 +111,7 @@ namespace noctalia::theme {
         removed.push_back(entryId);
         continue;
       }
-      const auto forbidden =
+      const auto* forbidden =
           std::ranges::find_if(kForbiddenFields, [&](std::string_view field) { return entry->contains(field); });
       if (forbidden != kForbiddenFields.end()) {
         kLog.warn("{}.{}: a GTK extension must not set {}", templateId, entryId, *forbidden);

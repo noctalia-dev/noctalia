@@ -13,6 +13,7 @@ struct CalendarEvent {
   std::string title;        // SUMMARY
   std::string calendarName; // owning calendar's display name
   std::string colorHex;     // owning calendar's color (e.g. "#3367d6"), empty when unknown
+  std::string sourceId;     // owning calendar's id within its account (CalDAV collection), empty when unknown
   std::string location;     // LOCATION, optional
   std::string url;          // resolved http(s) link from LOCATION/URL, empty when the event has none
   std::string webUrl;       // http(s) page of the event in the provider's web UI (Google htmlLink), optional

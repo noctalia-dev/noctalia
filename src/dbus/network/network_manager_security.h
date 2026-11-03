@@ -22,22 +22,20 @@ namespace network_manager_security {
     EnterpriseSuiteB, // wpa-eap-suite-b-192: WPA3 Enterprise 192-bit (CNSA)
   };
 
-  [[nodiscard]] constexpr bool supportsSae(std::uint32_t rsnFlags) noexcept {
-    return (rsnFlags & kNm80211ApSecKeyMgmtSae) != 0U;
-  }
+  constexpr bool supportsSae(std::uint32_t rsnFlags) noexcept { return (rsnFlags & kNm80211ApSecKeyMgmtSae) != 0U; }
 
-  [[nodiscard]] constexpr bool supportsSuiteB192(std::uint32_t rsnFlags) noexcept {
+  constexpr bool supportsSuiteB192(std::uint32_t rsnFlags) noexcept {
     return (rsnFlags & kNm80211ApSecKeyMgmtEapSuiteB192) != 0U;
   }
 
   // True when the AP asks for 802.1X/EAP credentials rather than a pre-shared key.
-  [[nodiscard]] constexpr bool supportsEnterprise(std::uint32_t rsnFlags) noexcept {
+  constexpr bool supportsEnterprise(std::uint32_t rsnFlags) noexcept {
     return (rsnFlags & (kNm80211ApSecKeyMgmt8021X | kNm80211ApSecKeyMgmtEapSuiteB192)) != 0U;
   }
 
   // Pure OWE / OWE-TM only. Ignored when SAE, PSK, or 802.1X is also advertised so
   // transitional APs still prompt for a password / EAP credentials.
-  [[nodiscard]] constexpr bool supportsOwe(std::uint32_t rsnFlags) noexcept {
+  constexpr bool supportsOwe(std::uint32_t rsnFlags) noexcept {
     constexpr std::uint32_t kPassworded = kNm80211ApSecKeyMgmtPsk
         | kNm80211ApSecKeyMgmt8021X
         | kNm80211ApSecKeyMgmtSae
@@ -52,7 +50,7 @@ namespace network_manager_security {
   // no PSK the user could type would authenticate against it. Suite-B outranks
   // plain enterprise because its 192-bit suite is not negotiable down to wpa-eap.
   // OWE is last among secured modes: only pure Enhanced Open maps here.
-  [[nodiscard]] constexpr KeyManagement keyManagementFor(std::uint32_t rsnFlags) noexcept {
+  constexpr KeyManagement keyManagementFor(std::uint32_t rsnFlags) noexcept {
     if (supportsSuiteB192(rsnFlags)) {
       return KeyManagement::EnterpriseSuiteB;
     }
@@ -68,7 +66,7 @@ namespace network_manager_security {
     return KeyManagement::Psk;
   }
 
-  [[nodiscard]] constexpr std::string_view keyManagementName(KeyManagement kind) noexcept {
+  constexpr std::string_view keyManagementName(KeyManagement kind) noexcept {
     switch (kind) {
     case KeyManagement::Sae:
       return "sae";
@@ -84,13 +82,13 @@ namespace network_manager_security {
     return "wpa-psk";
   }
 
-  [[nodiscard]] constexpr bool isEnterprise(KeyManagement kind) noexcept {
+  constexpr bool isEnterprise(KeyManagement kind) noexcept {
     return kind == KeyManagement::Enterprise || kind == KeyManagement::EnterpriseSuiteB;
   }
 
   // Secured APs that still need a password / EAP prompt. OWE is encrypted but
   // passwordless, so it is excluded.
-  [[nodiscard]] constexpr bool requiresCredentials(bool secured, KeyManagement kind) noexcept {
+  constexpr bool requiresCredentials(bool secured, KeyManagement kind) noexcept {
     return secured && kind != KeyManagement::Owe;
   }
 

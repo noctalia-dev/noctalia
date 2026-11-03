@@ -246,6 +246,7 @@ namespace desktop_settings {
     if (type == "calendar") {
       add(boolSpec("show_events", true));
       add(boolSpec("show_week_numbers", false));
+      add(boolSpec("show_events_location", false));
       add(fontFamilySpec());
     } else if (type == "clock") {
       const WidgetSettingVisibility digitalOnly{{"clock_style", {"digital"}}};
@@ -471,6 +472,14 @@ namespace desktop_settings {
       auto showMedia = boolSpec("show_media", true);
       showMedia.visibleWhen = regularOnly;
       add(std::move(showMedia));
+      auto showMediaControls = boolSpec("show_media_controls", true);
+      WidgetSettingVisibility showMediaControlsVis;
+      showMediaControlsVis.all = {
+          WidgetSettingVisibilityCondition{"layout", {"regular"}},
+          WidgetSettingVisibilityCondition{"show_media", {"true"}},
+      };
+      showMediaControls.visibleWhen = showMediaControlsVis;
+      add(std::move(showMediaControls));
       auto showWeather = boolSpec("show_weather", true);
       showWeather.visibleWhen = regularOnly;
       add(std::move(showWeather));

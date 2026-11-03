@@ -7,6 +7,7 @@
 #include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/dialog_popup_settings.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "ui/builders.h"
 #include "ui/style.h"
@@ -149,7 +150,7 @@ namespace settings {
   WidgetAddPopup::~WidgetAddPopup() { destroyPopup(); }
 
   void WidgetAddPopup::initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext) {
-    initializeBase(wayland, config, renderContext);
+    initializeBase(wayland, dialogPopupSettings(config), renderContext);
   }
 
   void WidgetAddPopup::setOnSelect(SelectCallback callback) { m_onSelect = std::move(callback); }
@@ -236,18 +237,6 @@ namespace settings {
   }
 
   void WidgetAddPopup::close() { destroyPopup(); }
-
-  bool WidgetAddPopup::isOpen() const noexcept { return DialogPopupHost::isOpen(); }
-
-  bool WidgetAddPopup::onPointerEvent(const PointerEvent& event) { return DialogPopupHost::onPointerEvent(event); }
-
-  void WidgetAddPopup::onKeyboardEvent(const KeyboardEvent& event) { DialogPopupHost::onKeyboardEvent(event); }
-
-  wl_surface* WidgetAddPopup::wlSurface() const noexcept { return DialogPopupHost::wlSurface(); }
-
-  void WidgetAddPopup::requestLayout() { DialogPopupHost::requestLayout(); }
-
-  void WidgetAddPopup::requestRedraw() { DialogPopupHost::requestRedraw(); }
 
   void WidgetAddPopup::refreshPickerOptions() {
     if (m_searchPicker == nullptr) {

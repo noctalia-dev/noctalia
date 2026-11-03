@@ -290,10 +290,17 @@ void MediaWidget::syncProgress(const std::optional<MprisPlayerInfo>& active) {
     m_progressTimer.stop();
     return;
   }
+  constexpr float kRateEpsilon = 0.0001F;
+  const float absRate = std::abs(static_cast<float>(active->rate));
+  if (absRate <= kRateEpsilon) {
+    m_progressTimer.stop();
+    return;
+  }
   // One wakeup per pixel of travel: a 3-minute track in a 200 px widget moves a pixel every ~900 ms.
   const float fillWidth = std::max(1.0F, m_progressBar->width());
-  const auto intervalMs =
-      static_cast<std::int64_t>(std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.0F, 1000.0F));
+  const auto intervalMs = static_cast<std::int64_t>(
+      std::clamp(static_cast<float>(active->lengthUs / 1000) / (fillWidth * absRate), 250.0F, 1000.0F)
+  );
   m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this] { requestUpdate(); });
 }
 
@@ -397,7 +404,7 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
 }
 
 std::string MediaWidget::buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst) {
-  const std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
+  std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
   if (!player.title.empty() && !artists.empty()) {
     if (artistFirst) {
       return artists + " - " + player.title;

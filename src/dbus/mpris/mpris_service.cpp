@@ -255,7 +255,7 @@ namespace {
       return url;
     }
 
-    const std::string base = url.substr(0, queryPos);
+    std::string base = url.substr(0, queryPos);
     const std::string query = url.substr(queryPos + 1);
     std::vector<std::string> keptParams;
     std::size_t start = 0;
@@ -314,6 +314,21 @@ namespace {
     player["can_go_previous"] = sdbus::Variant(info.canGoPrevious);
     player["can_seek"] = sdbus::Variant(info.canSeek);
     return player;
+  }
+
+  constexpr double kMinPlaybackRate = -64.0;
+  constexpr double kMaxPlaybackRate = 64.0;
+  constexpr double kPlaybackRateEpsilon = 0.0001;
+
+  double sanitizeRate(double rawRate) {
+    if (!std::isfinite(rawRate)) {
+      return 1.0;
+    }
+    return std::clamp(rawRate, kMinPlaybackRate, kMaxPlaybackRate);
+  }
+
+  std::int64_t scaleDurationUs(std::int64_t durationUs, double factor) {
+    return static_cast<std::int64_t>(std::llround(static_cast<double>(durationUs) * factor));
   }
 
   // Some players report "infinite" stream duration as a sentinel near int64 max.
@@ -490,7 +505,10 @@ void MprisService::applyPositionSample(const std::string& busName, int64_t rawPo
   const std::int64_t elapsedSinceTrackChangeUs = trackChangeIt != m_lastLogicalTrackChangeAt.end()
       ? std::chrono::duration_cast<std::chrono::microseconds>(now - trackChangeIt->second).count()
       : 0;
-  const std::int64_t maxPlausibleTrackPositionUs = elapsedSinceTrackChangeUs
+  const double currentRate = playerIt->second.rate;
+  const double absRate = std::abs(currentRate);
+  const double expandedRate = std::max(1.0, absRate);
+  const auto maxPlausibleTrackPositionUs = scaleDurationUs(elapsedSinceTrackChangeUs, expandedRate)
       + std::chrono::duration_cast<std::chrono::microseconds>(kRecentTrackChangeSlack).count();
   const auto previousTrackRawIt = m_previousTrackRawPositionUs.find(busName);
   const bool hasPreviousTrackContext = previousTrackRawIt != m_previousTrackRawPositionUs.end();
@@ -582,17 +600,34 @@ void MprisService::applyPositionSample(const std::string& busName, int64_t rawPo
     const auto candidateAtIt = m_pendingPositionCandidateAt.find(busName);
     const bool candidateFresh = candidateAtIt != m_pendingPositionCandidateAt.end()
         && now - candidateAtIt->second <= kPositionCandidateMatchWindow;
+
+    const auto candidateToleranceUs = (playerIt->second.playbackStatus == "Playing")
+        ? scaleDurationUs(kPositionCandidateToleranceUs, expandedRate)
+        : kPositionCandidateToleranceUs;
+
     bool candidateMatches = candidateIt != m_pendingPositionCandidateUs.end()
         && candidateFresh
-        && std::llabs(candidateIt->second - normalizedUs) <= kPositionCandidateToleranceUs;
+        && std::llabs(candidateIt->second - normalizedUs) <= candidateToleranceUs;
 
     if (candidateMatches && playerIt->second.playbackStatus == "Playing") {
       const auto elapsedSinceCandidateUs =
           std::chrono::duration_cast<std::chrono::microseconds>(now - candidateAtIt->second).count();
-      const std::int64_t progressUs = normalizedUs - candidateIt->second;
-      const std::int64_t maxExpectedProgressUs = elapsedSinceCandidateUs
+      const std::int64_t directionalProgressUs =
+          (currentRate >= 0.0) ? (normalizedUs - candidateIt->second) : (candidateIt->second - normalizedUs);
+      const auto maxExpectedProgressUs = scaleDurationUs(elapsedSinceCandidateUs, expandedRate)
           + std::chrono::duration_cast<std::chrono::microseconds>(kRecentTrackChangeSlack).count();
-      candidateMatches = progressUs >= kPositionCandidateMinProgressUs && progressUs <= maxExpectedProgressUs;
+      const auto minExpectedProgressUs = scaleDurationUs(kPositionCandidateMinProgressUs, std::min(1.0, absRate));
+
+      if (directionalProgressUs >= 0 && directionalProgressUs < minExpectedProgressUs) {
+        // Media is progressing in the expected direction, but hasn't accumulated enough delta yet (e.g. slow playback).
+        if (shouldRetryPropertiesRefresh(busName)) {
+          schedulePositionRefreshRetry(busName, kPositionCandidateRetryInterval, false);
+        }
+        return;
+      }
+
+      candidateMatches =
+          directionalProgressUs >= minExpectedProgressUs && directionalProgressUs <= maxExpectedProgressUs;
     }
 
     if (!candidateMatches) {
@@ -682,13 +717,15 @@ std::int64_t MprisService::projectedPositionUs(const MprisPlayerInfo& player) co
       const auto elapsedUs =
           std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - it->second).count();
       if (elapsedUs > 0) {
-        projectedUs += elapsedUs;
+        projectedUs += scaleDurationUs(elapsedUs, player.rate);
       }
     }
   }
 
   if (player.lengthUs > 0) {
     projectedUs = std::clamp<std::int64_t>(projectedUs, 0, player.lengthUs);
+  } else {
+    projectedUs = std::max<std::int64_t>(0, projectedUs);
   }
   return projectedUs;
 }
@@ -2093,8 +2130,10 @@ void MprisService::applyPlayerSnapshot(
         const std::int64_t elapsedSinceSampleUs = sampleIt != m_lastPositionSampleAt.end()
             ? std::chrono::duration_cast<std::chrono::microseconds>(now - sampleIt->second).count()
             : 0;
+        const double expandedRate = std::max(1.0, std::abs(previous_info.rate));
+        const auto scaledElapsedUs = scaleDurationUs(elapsedSinceSampleUs, expandedRate);
         const std::int64_t rawDeltaUs = std::llabs(merged.positionUs - previous_info.positionUs);
-        const std::int64_t maxReasonableDeltaUs = std::max<std::int64_t>(5'000'000, elapsedSinceSampleUs + 2'000'000);
+        const std::int64_t maxReasonableDeltaUs = std::max<std::int64_t>(5'000'000, scaledElapsedUs + 2'000'000);
         preservePreviousPosition = rawDeltaUs > maxReasonableDeltaUs;
         if (!preservePreviousPosition
             && previous_info.playbackStatus == "Paused"
@@ -2116,6 +2155,15 @@ void MprisService::applyPlayerSnapshot(
         && previous_info.playbackStatus != "Stopped"
         && merged.playbackStatus != "Stopped") {
       merged.positionUs = previous_info.positionUs;
+      preservedNormalizedPosition = true;
+    }
+    const bool rateChanged = std::abs(previous_info.rate - merged.rate) > kPlaybackRateEpsilon;
+    if (rateChanged
+        && previousPositionAuthoritative
+        && previous_info.playbackStatus == "Playing"
+        && merged.playbackStatus == "Playing"
+        && !logicalTrackChanged) {
+      merged.positionUs = projectedPositionUs(previous_info);
       preservedNormalizedPosition = true;
     }
     if (logicalTrackChanged) {
@@ -2148,7 +2196,9 @@ void MprisService::applyPlayerSnapshot(
     if (hadPositionSignal) {
       m_hasAuthoritativePositionSample[busName] = true;
     }
-    if (previous_info.positionUs != merged.positionUs || previous_info.playbackStatus != merged.playbackStatus) {
+    if (previous_info.positionUs != merged.positionUs
+        || previous_info.playbackStatus != merged.playbackStatus
+        || rateChanged) {
       m_lastPositionSampleAt[busName] = now;
     }
 
@@ -2171,6 +2221,7 @@ void MprisService::applyPlayerSnapshot(
         || previous_info.trackId != merged.trackId
         || previous_info.lengthUs != merged.lengthUs;
     const bool significantChanged = trackChanged
+        || rateChanged
         || previous_info.identity != merged.identity
         || previous_info.playbackStatus != merged.playbackStatus
         || previous_info.volume != merged.volume
@@ -2182,7 +2233,7 @@ void MprisService::applyPlayerSnapshot(
         || previous_info.canPause != merged.canPause
         || previous_info.canSeek != merged.canSeek;
 
-    if (trackChanged || previous_info.playbackStatus != merged.playbackStatus) {
+    if (trackChanged || previous_info.playbackStatus != merged.playbackStatus || rateChanged) {
       const std::weak_ptr<void> aliveGuard = m_aliveGuard;
       DeferredCall::callLater([this, aliveGuard, busName] {
         if (aliveGuard.expired()) {
@@ -2852,6 +2903,7 @@ MprisPlayerInfo MprisService::readPlayerInfoFromProperties(
       .loopStatus = get_string_from_props_or(playerProps, "LoopStatus", "None"),
       .shuffle = get_bool_from_props(playerProps, "Shuffle"),
       .volume = get_double_from_props(playerProps, "Volume", 1.0),
+      .rate = sanitizeRate(get_double_from_props(playerProps, "Rate", 1.0)),
       .positionUs = 0,
       .lengthUs = sanitizeLengthUs(get_int64_from_variant(metadata, "mpris:length")),
       .canControl = get_bool_from_props(playerProps, "CanControl"),

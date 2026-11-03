@@ -14,4 +14,4 @@ struct DiskMount {
 
 // Physical block-device-backed filesystems, deduped by source and sorted by mount path.
 // Pseudo filesystems, loop/squashfs mounts, and boot mounts are excluded.
-[[nodiscard]] std::vector<DiskMount> physicalDiskMounts(const std::filesystem::path& mountsFile = "/proc/mounts");
+std::vector<DiskMount> physicalDiskMounts(const std::filesystem::path& mountsFile = "/proc/mounts");
