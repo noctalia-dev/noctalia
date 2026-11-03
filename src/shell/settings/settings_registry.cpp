@@ -1121,6 +1121,11 @@ namespace settings {
           tr("settings.schema.dock.shadow.description"), path("shadow"), ToggleSetting{dock.shadow}, "shadow"
       ));
       entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.dock.icon-shadow.label"),
+          tr("settings.schema.dock.icon-shadow.description"), path("icon_shadow"), ToggleSetting{dock.iconShadow},
+          "shadow icon"
+      ));
+      entries.push_back(makeEntry(
           SettingsSection::Dock, "effects", tr("settings.schema.shared.colorize-icons.label"),
           tr("settings.schema.shared.colorize-icons.description"), path("colorize_icons"),
           ToggleSetting{dock.colorizeIcons}, "colorize tint application icons"
