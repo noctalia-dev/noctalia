@@ -21,6 +21,7 @@ namespace calendar {
       items.push_back({
           {"id", source.id},
           {"name", source.name},
+          {"default_selected", source.defaultSelected},
       });
     }
     return nlohmann::json{{"calendars", std::move(items)}}.dump();
@@ -43,6 +44,7 @@ namespace calendar {
         CalendarSource source;
         source.id = item.value("id", std::string{});
         source.name = item.value("name", std::string{});
+        source.defaultSelected = item.value("default_selected", true);
         if (!source.id.empty()) {
           sources.push_back(std::move(source));
         }
@@ -59,7 +61,7 @@ namespace calendar {
       std::vector<std::string> ids;
       ids.reserve(sources.size());
       for (const CalendarSource& source : sources) {
-        if (!source.id.empty()) {
+        if (!source.id.empty() && source.defaultSelected) {
           ids.push_back(source.id);
         }
       }
@@ -101,10 +103,11 @@ namespace calendar {
       }
     }
 
-    const bool allDiscoveredSelected = std::ranges::all_of(sources, [&](const CalendarSource& source) {
-      return std::ranges::contains(next, source.id);
+    // A selection equal to the defaults is stored as [], so a Google account follows its sidebar ticks again.
+    const bool matchesDefault = std::ranges::all_of(sources, [&](const CalendarSource& source) {
+      return std::ranges::contains(next, source.id) == source.defaultSelected;
     });
-    if (allDiscoveredSelected) {
+    if (matchesDefault) {
       next.clear();
     }
     return next;
