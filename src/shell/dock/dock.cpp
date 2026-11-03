@@ -552,7 +552,7 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       if (entered->hideOpacity >= 0.999F && entered->hideAnimId == 0) {
         shell::dock::revealAutoHideDock(*entered);
       } else {
-        entered->revealTimer.start(kAutoHideRevealDwell, [entered]() {
+        entered->revealTimer.start(kAutoHideRevealDwell, [entered] {
           if (entered->pointerInside && dockPointerHideAllowed(entered->config, *entered)) {
             shell::dock::revealAutoHideDock(*entered);
           }
