@@ -1498,6 +1498,7 @@ void Wallpaper::startTransition(WallpaperInstance& instance) {
   if (wpConfig.syncTransitions && m_syncedPickValid) {
     picked = m_syncedTransition;
     params = m_syncedParams;
+    params.aspectRatio = aspectRatio;
   } else {
     const auto& transitions = wpConfig.transitions;
     picked =

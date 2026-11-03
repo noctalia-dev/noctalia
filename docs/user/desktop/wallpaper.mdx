@@ -86,7 +86,7 @@ Prefer a color role such as `surface` or `primary` for `fill_color` so wallpaper
 
 Monitor overrides may also set `fill_color`.
 
-By default, the first wallpaper on each output appears immediately with no transition. Set `transition_on_startup = true` to fade (or wipe, etc.) in from a black screen at shell startup, matching v4 behavior. Later wallpaper changes always use the configured transition pool. Each monitor normally picks its own random effect, set `sync_transitions = true` to sync all monitor transitions.
+By default, the first wallpaper on each output appears immediately with no transition. Set `transition_on_startup = true` to fade (or wipe, etc.) in from a black screen at shell startup, matching v4 behavior. Later wallpaper changes always use the configured transition pool. Each monitor normally picks its own random effect; set `sync_transitions = true` to make all monitors use the same effect and parameters for each change.
 
 When automation is enabled, Noctalia picks one image from the resolved browse folder at shell startup, then keeps picking on the configured interval and applies it to all connected outputs in sync. `order = "random"` chooses a random image each cycle. `order = "alphabetical"` sorts paths case-insensitively and advances to the next image each cycle (wrapping at the end).
 
