@@ -84,7 +84,7 @@ Primary-colored center guides are always shown in edit mode. Dragging a widget s
 
 ## Config Format
 
-Widget definitions are named tables under `[desktop_widgets.widget.<id>]`. This makes them friendly to split config files and deep-merge overrides. The top-level `grid`, `widget`, and `widget_order` tables define the active layout. Inactive templates can be declared under `[[desktop_widgets.profiles]]` with their own `name`, `grid`, and `widget.<id>` tables. `active_profile` selects the active template (by name or 0-based index). Edit mode writes the same schema into `settings.toml`; use Settings -> Export Config... -> Merged User Config to promote GUI-edited layouts back into declarative config. When `widget_order` is present, it is the authoritative widget list and order; unlisted widget tables are ignored.
+Widget definitions are named tables under `[desktop_widgets.widget.<id>]`. This makes them friendly to split config files and deep-merge overrides. The top-level `grid`, `widget`, and `widget_order` tables always define the active layout. Inactive templates can be declared under `[[desktop_widgets.profiles]]` with their own `name`, `grid`, and `widget.<id>` tables; `active_profile` is the optional name of the active template. Inactive templates never override the top-level layout. Edit mode writes the same schema into `settings.toml`; use Settings -> Export Config... -> Merged User Config to promote GUI-edited layouts back into declarative config. When `widget_order` is present, it is the authoritative widget list and order; unlisted widget tables are ignored.
 
 ```toml
 [desktop_widgets]

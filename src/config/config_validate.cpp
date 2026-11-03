@@ -8,6 +8,7 @@
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
 #include "config/widget_config.h"
+#include "i18n/i18n.h"
 #include "launcher/launcher_provider.h"
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_manager.h"
@@ -669,60 +670,83 @@ namespace noctalia::config {
           diag.warn("desktop_widgets." + std::string(key.str()), "unknown setting");
         }
       }
-      const auto* profiles = (*dw)["profiles"].as_array();
-      const std::size_t inactiveCount = profiles != nullptr ? profiles->size() : 0;
-      const std::size_t totalProfiles = 1 + inactiveCount;
+      // `active_profile` names the active (top-level) template. Numeric indexes are a
+      // legacy form and are rejected: the top-level layout is always the active one.
+      std::string activeProfileName = i18n::tr("desktop-widgets.editor.default-template-name", "index", "1");
       if (const auto* apNode = dw->get("active_profile")) {
         if (const auto* strNode = apNode->as_string()) {
           if (strNode->get().empty()) {
             diag.warn("desktop_widgets.active_profile", "profile name cannot be empty");
+          } else {
+            activeProfileName = strNode->get();
           }
-        } else if (const auto* intNode = apNode->as_integer()) {
-          const std::int64_t idx = intNode->get();
-          if (idx < 0 || static_cast<std::size_t>(idx) >= totalProfiles) {
-            diag.warn(
-                "desktop_widgets.active_profile",
-                "index " + std::to_string(idx) + " out of range (profile count: " + std::to_string(totalProfiles) + ")"
-            );
-          }
+        } else if (apNode->is_integer()) {
+          diag.warn(
+              "desktop_widgets.active_profile", "numeric profile indexes are not supported; use the profile name"
+          );
         } else {
-          diag.warn("desktop_widgets.active_profile", "expected string or integer");
+          diag.warn("desktop_widgets.active_profile", "expected a profile name string");
         }
       }
-      if (profiles != nullptr) {
+      // `profiles` holds inactive templates only; the canonical active layout always lives
+      // in the top-level grid/widget/widget_order tables.
+      if (const auto* profiles = (*dw)["profiles"].as_array()) {
         static const std::unordered_set<std::string> kProfileKeys = {"name", "grid", "widget", "widget_order"};
-        std::size_t profileEntries = 0;
+        std::vector<std::string> acceptedNames;
+        bool warnedCap = false;
         for (const auto& node : *profiles) {
-          if (profileEntries++ == kMaxDesktopWidgetProfiles - 1) {
-            diag.warn(
-                "desktop_widgets.profiles",
-                "only up to " + std::to_string(kMaxDesktopWidgetProfiles) + " profiles are supported"
-            );
+          if (acceptedNames.size() >= kMaxDesktopWidgetProfiles - 1) {
+            if (!warnedCap) {
+              diag.warn(
+                  "desktop_widgets.profiles",
+                  "only up to "
+                      + std::to_string(kMaxDesktopWidgetProfiles)
+                      + " templates are supported; ignoring remaining entries"
+              );
+              warnedCap = true;
+            }
             break;
           }
-          if (const auto* profTbl = node.as_table()) {
-            const auto profilePrefix = "desktop_widgets.profiles[" + std::to_string(profileEntries - 1) + "]";
-            const auto* nameNode = profTbl->get("name");
-            if (nameNode == nullptr || nameNode->as_string() == nullptr || nameNode->as_string()->get().empty()) {
-              diag.warn(profilePrefix + ".name", "profile name is required");
+          const auto* profTbl = node.as_table();
+          if (profTbl == nullptr) {
+            diag.warn("desktop_widgets.profiles", "profile entry must be a table; skipping");
+            continue;
+          }
+          std::string name;
+          const auto* nameNode = profTbl->get("name");
+          if (const auto* nameStr = nameNode != nullptr ? nameNode->as_string() : nullptr) {
+            name = nameStr->get();
+          }
+          if (name.empty()) {
+            diag.warn("desktop_widgets.profiles", "profile name is required; skipping unnamed profile");
+            continue;
+          }
+          const auto profilePrefix = "desktop_widgets.profiles[\"" + name + "\"]";
+          if (name == activeProfileName) {
+            diag.warn(profilePrefix + ".name", "profile name conflicts with the active template name; skipping");
+            continue;
+          }
+          if (std::ranges::find(acceptedNames, name) != acceptedNames.end()) {
+            diag.warn(profilePrefix + ".name", "duplicate profile name; skipping");
+            continue;
+          }
+          acceptedNames.push_back(name);
+          validateWidgetSectionTypes(*profTbl, profilePrefix, diag);
+          validateDesktopWidgetPlacementEntries(*profTbl, profilePrefix, diag, pluginRegistry);
+          for (const auto& [key, _] : *profTbl) {
+            if (!kProfileKeys.contains(std::string(key.str()))) {
+              diag.warn(profilePrefix + "." + std::string(key.str()), "unknown setting");
             }
-            validateWidgetSectionTypes(*profTbl, profilePrefix, diag);
-            validateDesktopWidgetPlacementEntries(*profTbl, profilePrefix, diag, pluginRegistry);
-            for (const auto& [key, _] : *profTbl) {
-              if (!kProfileKeys.contains(std::string(key.str()))) {
-                diag.warn(profilePrefix + "." + std::string(key.str()), "unknown setting");
-              }
-            }
-            if (const auto* grid = (*profTbl)["grid"].as_table()) {
-              static const std::unordered_set<std::string> kGrid = {
-                  "visible",
-                  "cell_size",
-                  "major_interval",
-              };
-              for (const auto& [key, _] : *grid) {
-                if (!kGrid.contains(std::string(key.str()))) {
-                  diag.warn(profilePrefix + ".grid." + std::string(key.str()), "unknown setting");
-                }
+          }
+          if (const auto* grid = (*profTbl)["grid"].as_table()) {
+            static const std::unordered_set<std::string> kGrid = {
+                "visible",
+                "cell_size",
+                "major_interval",
+            };
+            for (const auto& [key, _] : *grid) {
+              if (!kGrid.contains(std::string(key.str()))) {
+                diag.warn(profilePrefix + ".grid." + std::string(key.str()), "unknown setting");
               }
             }
           }
