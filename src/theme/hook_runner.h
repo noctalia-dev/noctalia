@@ -44,7 +44,7 @@ namespace noctalia::theme {
     // Drops the queued backlog and releases waitIdle() callers. Running hooks keep
     // going; the destructor waits for them.
     void requestShutdown();
-    [[nodiscard]] std::size_t pendingCount() const;
+    std::size_t pendingCount() const;
 
   private:
     struct QueuedHook {
@@ -67,7 +67,7 @@ namespace noctalia::theme {
 
     static void pump(const std::shared_ptr<State>& state);
     [[nodiscard]] static bool
-    launch(const std::shared_ptr<State>& state, const std::string& command, FailureCallback onFailure);
+    launch(const std::shared_ptr<State>& state, const std::string& command, const FailureCallback& onFailure);
 
     std::shared_ptr<State> m_state;
   };

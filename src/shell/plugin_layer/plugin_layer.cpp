@@ -285,7 +285,7 @@ void PluginLayer::layoutScene(Renderer& renderer) {
   UiPhaseScope layoutPhase(UiPhase::Layout);
   if (m_tree.has_value() && m_treeDirty) {
     m_reconciler.setScale(contentScale());
-    (void)m_reconciler.reconcile(*m_flex, *m_tree, renderer);
+    m_reconciler.reconcile(*m_flex, *m_tree, renderer);
   }
   m_treeDirty = false;
 
@@ -401,7 +401,7 @@ void PluginLayer::startScript() {
     if (result.modulePathsKnown) {
       m_scriptWatcher.setModulePaths(result.modulePaths);
     }
-    handleScriptResult(std::move(result));
+    handleScriptResult(result);
   });
   m_runtime->start(m_sourcePath.string(), std::move(source), makeScriptSnapshot());
   startUpdateTimer();
@@ -434,7 +434,7 @@ void PluginLayer::startUpdateTimer() {
   });
 }
 
-void PluginLayer::handleScriptResult(scripting::ScriptResult result) {
+void PluginLayer::handleScriptResult(const scripting::ScriptResult& result) {
   if (result.hasOnIpcKnown) {
     m_hasOnIpc = result.hasOnIpc;
     m_hasOnIpcKnown = true;

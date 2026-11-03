@@ -46,7 +46,7 @@ public:
   void onOutputChange();
   void onSecondTick();
   // True when a visible widget renders a value that changes every second.
-  [[nodiscard]] bool wantsSecondTicks() const;
+  bool wantsSecondTicks() const;
   void requestLayout();
   void requestRedraw();
 
@@ -56,9 +56,9 @@ public:
   void setOnEnterEditCallback(std::function<void()> callback);
   void setOnExitEditCallback(std::function<void()> callback);
 
-  [[nodiscard]] bool isEditing() const noexcept;
-  [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
-  [[nodiscard]] std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
+  bool isEditing() const noexcept;
+  std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const;
+  std::optional<LayerPopupParentContext> fallbackPopupParentContext() const;
   bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
 

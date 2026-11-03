@@ -99,7 +99,7 @@ void DesktopWidgetsController::initialize(const DesktopWidgetsControllerServices
   m_host->initialize(services.widgets);
   m_editor = std::make_unique<DesktopWidgetsEditor>(DesktopWidgetsEditorProfile::desktop());
   m_editor->initialize(services.widgets);
-  m_editor->setExitRequestedCallback([this]() { exitEdit(); });
+  m_editor->setExitRequestedCallback([this] { exitEdit(); });
   loadSnapshotFromConfig();
   const bool placementChanged = m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
   m_initialized = true;
@@ -112,7 +112,7 @@ void DesktopWidgetsController::initialize(const DesktopWidgetsControllerServices
   applyVisibility();
 
   if (m_config != nullptr) {
-    m_config->addReloadCallback([this]() { handleConfigReload(); }, "desktop-widgets");
+    m_config->addReloadCallback([this] { handleConfigReload(); }, "desktop-widgets");
   }
 }
 

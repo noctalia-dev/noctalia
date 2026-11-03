@@ -112,7 +112,7 @@ Use `~/.config/noctalia/` for curated config: the things you want to keep in dot
 
 Treat `~/.local/state/noctalia/settings.toml` as an app-managed override file. It is useful to inspect when debugging GUI changes, and safe to delete when you want to clear those overrides. Keeping it outside `~/.config` also lets the GUI save changes when your config directory is read-only, for example on NixOS. Support reports include config sources and `settings.toml`, but omit `state.toml` contents because they can contain private runtime data.
 
-Both layers are watched for changes and hot-reloaded. If neither layer exists, Noctalia uses its built-in defaults.
+Both layers are watched for changes and hot-reloaded. A save is applied about 150 ms after the file is written, so editors that save in several steps reload once; removing a config file also reloads. If neither layer exists, Noctalia uses its built-in defaults.
 
 ## Automatic configuration migrations
 
@@ -168,6 +168,14 @@ Export the full effective config, including built-in defaults:
 noctalia config export full > noctalia-full-config.toml
 ```
 
+To publish an export (for example in a public dotfiles repository), leave out values that can hold credentials:
+
+```sh
+noctalia config export --credentials omit > noctalia-config.toml
+```
+
+`--credentials` accepts `keep` (the default: print values as configured), `omit` (drop the keys), or `blank` (keep the keys with empty values, so you can see what to fill in). It covers calendar account `server_url` (ICS and CalDAV URLs often carry an access token), the `location` of git plugin sources (which may embed `user:token@`), and plugin settings whose manifest marks them `secret`. Noctalia cannot recognize a credential you type into anything else, such as a hook or command string, so review the export before sharing it.
+
 Export stops with an error (and writes nothing) if a config file fails to parse or an `[include]` points at a file that does not exist, so a broken config never produces a misleading partial export. (The running shell is more forgiving: it loads what it can and surfaces the problem as a notification.)
 
 Because export writes TOML to stdout, you can pipe it into TOML-aware query tools. For example, with [`yq`](https://github.com/mikefarah/yq):
@@ -189,7 +197,7 @@ The Settings actions menu includes **Export Config...**. It opens a chooser with
 - **Merged User Config** is recommended for dotfiles. It merges your explicit config files and GUI-managed overrides into one TOML file, while leaving built-in defaults implicit.
 - **Full Effective Config** exports the active config snapshot, including built-in defaults. Use it for inspection or sharing an exact state, but avoid treating it as your long-term curated config because it pins defaults that could otherwise evolve.
 
-The chooser warns that **both export modes may contain sensitive data**, such as API keys, passwords, or other secrets stored in your config, including by plugins. Treat exported files as private. Review their contents and remove sensitive data before sharing them or adding them to a public dotfiles repository.
+The chooser also has a **Credentials** choice with the same `keep`, `omit`, and `blank` behavior as `--credentials` above, and warns that **both export modes may contain sensitive data** that Noctalia cannot recognize, such as a token typed into a command. Treat exported files as private. Review their contents and remove sensitive data before sharing them or adding them to a public dotfiles repository.
 
 ## Validating your configuration
 
@@ -223,7 +231,7 @@ With several config files in play (or `settings.toml` overriding one of them), t
 It reports two severities:
 
 - **Errors** - problems that stop the configuration from loading correctly: TOML syntax errors, values that fail to parse such as an invalid color, invalid cross-field combinations such as a keyboard layout with both its glyph and label hidden, an `[include]` whose `files` entry points at a path that does not exist, or a malformed `[include]` table (`autoload` that is not a boolean, `files` that is not a list of strings). These exit with status `1`.
-- **Warnings** - things the shell loads fine but ignores, adjusts, or migrates in memory: unknown/obsolete sections and settings (misspelled or left over from an older version), values with a canonical replacement, values outside the allowed range (clamped), and invalid enum choices. Warnings are advisory and do **not** fail the check. Unknown widget and desktop-widget settings are checked against each widget type's known options.
+- **Warnings** - things the shell loads fine but ignores, adjusts, or migrates in memory: unknown/obsolete sections and settings (misspelled or left over from an older version), values with a canonical replacement, values outside the allowed range (clamped), invalid enum choices, and values of the wrong type (for example `shell_mode = 42` or `enabled = "yes"`), which are ignored in favor of the default. Warnings are advisory and do **not** fail the check. Unknown widget and desktop-widget settings are checked against each widget type's known options.
 
 A config with only warnings still prints `✓ Config is valid` and exits `0` (with the warnings listed), so unknown keys won't break a pre-commit hook or CI step - they're surfaced as cleanup hints. Only genuine errors exit `1`.
 
@@ -247,5 +255,5 @@ There the file is shown relative to your config directory (or as a bare file nam
 - [App Theming](/noctalia/theming/app-theming/) covers generated themes for other apps.
 - [Template Reference](/noctalia/theming/templates/) covers template syntax, tokens, filters, and hooks.
 - [Wallpaper & backdrop](/noctalia/desktop/wallpaper/) covers wallpapers, per-monitor folders, automation, and overview backdrop.
-- Service pages cover [audio](/noctalia/services/audio/), [brightness](/noctalia/services/brightness/), [calendar](/noctalia/services/calendar/), [idle](/noctalia/services/idle/), [night light](/noctalia/services/night-light/), [notifications](/noctalia/services/notifications/), and [weather](/noctalia/services/weather/).
+- Service pages cover [audio](/noctalia/services/audio/), [bluetooth](/noctalia/services/bluetooth/), [brightness](/noctalia/services/brightness/), [calendar](/noctalia/services/calendar/), [idle](/noctalia/services/idle/), [night light](/noctalia/services/night-light/), [notifications](/noctalia/services/notifications/), and [weather](/noctalia/services/weather/).
 - [IPC](/noctalia/ipc/) lists commands for keybinds, scripts, automation, and hooks.

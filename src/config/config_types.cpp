@@ -8,9 +8,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
+#include <initializer_list>
 #include <stdexcept>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -529,6 +531,28 @@ std::string makeCapsuleGroupToken(std::string_view groupId) {
   return std::string(kCapsuleGroupTokenPrefix) + std::string(groupId);
 }
 
+std::optional<LengthSpec> parsePercentLength(std::string_view text) {
+  const std::string trimmed = StringUtils::trim(text);
+  if (trimmed.size() < 2 || trimmed.back() != '%') {
+    return std::nullopt;
+  }
+  const std::string_view digits(trimmed.data(), trimmed.size() - 1);
+  std::int32_t value = 0;
+  const auto [ptr, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
+  if (ec != std::errc{} || ptr != digits.data() + digits.size()) {
+    return std::nullopt;
+  }
+  return LengthSpec::fromPercent(value);
+}
+
+std::string formatLength(const LengthSpec& length) {
+  std::string text = std::to_string(length.value);
+  if (length.unit == LengthSpec::Unit::Percent) {
+    text.push_back('%');
+  }
+  return text;
+}
+
 float resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context) {
   if (widget == nullptr) {
     return barScale;
@@ -652,12 +676,10 @@ bool outputMatchesSelector(const std::string& match, const WaylandOutput& output
 
   // Each identity field is searched independently so selector semantics don't depend on
   // whether the compositor advertised output management, nor on any join order.
-  for (const std::string* field : {&output.description, &output.make, &output.model, &output.serialNumber}) {
-    if (StringUtils::containsWholeToken(*field, match)) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(
+      std::initializer_list{&output.description, &output.make, &output.model, &output.serialNumber},
+      [&](const std::string* field) { return StringUtils::containsWholeToken(*field, match); }
+  );
 }
 
 DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorOverride& override) {
@@ -672,6 +694,12 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.activeMonitorOnly = *override.activeMonitorOnly;
   if (override.iconSize)
     resolved.iconSize = *override.iconSize;
+  if (override.iconShadow)
+    resolved.iconShadow = *override.iconShadow;
+  if (override.iconSaturation)
+    resolved.iconSaturation = *override.iconSaturation;
+  if (override.colorizeIcons)
+    resolved.colorizeIcons = *override.colorizeIcons;
   if (override.mainAxisPadding)
     resolved.mainAxisPadding = *override.mainAxisPadding;
   if (override.crossAxisPadding)
@@ -680,6 +708,8 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.itemSpacing = *override.itemSpacing;
   if (override.backgroundOpacity)
     resolved.backgroundOpacity = *override.backgroundOpacity;
+  if (override.compositorBlur)
+    resolved.compositorBlur = *override.compositorBlur;
   if (override.border)
     resolved.border = *override.border;
   if (override.borderWidth)
@@ -713,6 +743,8 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.autoHide = *override.autoHide;
   if (override.smartAutoHide)
     resolved.smartAutoHide = *override.smartAutoHide;
+  if (override.autoHideRevealDelayMs)
+    resolved.autoHideRevealDelayMs = *override.autoHideRevealDelayMs;
   if (override.layer)
     resolved.layer = *override.layer;
   if (override.reserveSpace)

@@ -36,6 +36,7 @@ struct HttpRequest {
 
 struct HttpResponse {
   bool transportOk = false; // true when the request completed without a transport error
+  bool timedOut = false;    // the transport error was the timeout
   long status = 0;          // HTTP status code (0 when transportOk is false)
   std::string effectiveUrl; // final URL after redirects (empty when unavailable)
   std::string body;
@@ -101,7 +102,7 @@ public:
 
   // PollSource integration — called by HttpClientPollSource.
   void addPollFds(std::vector<pollfd>& fds);
-  [[nodiscard]] int timeoutMs() const;
+  int timeoutMs() const;
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx);
 
 private:
@@ -155,7 +156,7 @@ private:
     std::size_t index = 0;
   };
 
-  void downloadSequential(std::shared_ptr<SequentialDownload> state);
+  void downloadSequential(const std::shared_ptr<SequentialDownload>& state);
   void finishTransfer(CURL* easy, CURLcode result);
   void finishPostTransfer(CURL* easy, CURLcode result);
   void finishRequestTransfer(CURL* easy, CURLcode result);
@@ -166,7 +167,7 @@ private:
   void applyCommonOptions(CURL* easy) const;
   // Applies the client certificate and key of cert; no-op when cert is null.
   static void applyTlsClientCert(CURL* easy, const std::shared_ptr<const HttpTlsClientCert>& cert);
-  [[nodiscard]] bool hasActiveTransfers() const;
+  bool hasActiveTransfers() const;
 
   CURLM* m_multi = nullptr;
   std::filesystem::path m_caBundlePath;

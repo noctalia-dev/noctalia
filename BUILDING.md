@@ -111,7 +111,7 @@ sudo moss pkg add meson gcc clang just \
   jemalloc-devel
 ```
 
-Vendored dependencies, with no system package needed: `Wuffs`, `Luau`, `fzy`, and Material Color Utilities.
+Vendored dependencies, with no system package needed: `Wuffs`, `Luau`, `fzy`, and Material Color Utilities. Packagers who ship these separately can link them with `-Dsystem_libraries=true`; see [PACKAGING.md](PACKAGING.md).
 
 System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and encoding (thumbnails, screenshots), `libjxl` handles JPEG XL decoding and screenshot encoding, `libsndfile` decodes shell sound effects (WAV, FLAC, Ogg/Vorbis, Opus, MP3, and AIFF), and Wuffs handles the other supported raster image formats. `libqalculate` powers the launcher calculator (arithmetic, unit and currency conversion).
 

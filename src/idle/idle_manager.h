@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 
+class ShellGlobals;
 class WaylandConnection;
 struct ext_idle_notification_v1;
 
@@ -40,13 +41,14 @@ public:
   void setActionRunner(ActionRunner runner);
   void setLiveIdleChangeCallback(std::function<void()> callback);
   void reload(const IdleConfig& config);
-  /// D-Bus screensaver inhibits (e.g. Chrome video playback). Suppresses idle actions while > 0.
+  /// D-Bus screensaver inhibits (e.g. Chrome video playback). Suppresses idle actions while > 0; a
+  /// release restarts waiting countdowns once it outlasts a short debounce that absorbs inhibit renewals.
   void setScreenSaverInhibitLocks(std::int64_t locks);
   /// Apply locked timeouts without resuming completed actions or resetting unchanged timers.
   void setSessionLocked(bool locked);
-  /// Seconds the compositor has reported session-idle (1s heartbeat notification); 0 when active.
+  /// Seconds the compositor has reported session-idle (1s heartbeat notification); 0 when active or inhibited.
   /// Derived from elapsed monotonic time, so it stays accurate however rarely it is read.
-  [[nodiscard]] std::int64_t liveIdleSeconds() const noexcept;
+  std::int64_t liveIdleSeconds() const noexcept;
   static void handleIdled(void* data, ext_idle_notification_v1* notification);
   static void handleResumed(void* data, ext_idle_notification_v1* notification);
   static void handleHeartbeatIdled(void* data, ext_idle_notification_v1* notification);
@@ -67,8 +69,11 @@ private:
     BehaviorPhase phase = BehaviorPhase::Waiting;
   };
 
-  [[nodiscard]] double effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const;
-  [[nodiscard]] std::uint32_t effectiveTimeoutMilliseconds(const IdleBehaviorConfig& config) const;
+  double effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const;
+  std::uint32_t effectiveTimeoutMilliseconds(const IdleBehaviorConfig& config) const;
+  /// True while media holds an inhibit, including the debounce that absorbs inhibit renewals.
+  bool screenSaverInhibited() const noexcept { return m_screenSaverInhibitLocks > 0 || m_inhibitReleasePending; }
+  void applyScreenSaverInhibitRelease();
   void clearBehaviors();
   void syncHeartbeat();
   void destroyHeartbeat();
@@ -83,15 +88,17 @@ private:
   void cancelActiveGrace(bool userCancelled);
   void graceFadeComplete();
   void joinActiveGrace(BehaviorState& behavior);
-  [[nodiscard]] bool hasActiveGrace() const noexcept { return !m_graceBehaviors.empty(); }
+  bool hasActiveGrace() const noexcept { return !m_graceBehaviors.empty(); }
 
   WaylandConnection* m_wayland = nullptr;
+  ShellGlobals* m_shellGlobals = nullptr;
   ActionRunner m_actionRunner;
   GraceBeginCallback m_onGraceBegin;
   GraceEndCallback m_onGraceEnd;
   std::function<void()> m_onLiveIdleChange;
   IdleConfig m_idleConfig;
   Timer m_graceFallbackTimer;
+  Timer m_inhibitReleaseTimer;
   std::vector<BehaviorState*> m_graceBehaviors;
   bool m_activeGraceWillLock = false;
   std::uint64_t m_graceGeneration = 0;
@@ -100,6 +107,6 @@ private:
   bool m_heartbeatCompositorIdle = false;
   std::chrono::steady_clock::time_point m_heartbeatIdleSince;
   std::int64_t m_screenSaverInhibitLocks = 0;
-  bool m_idledWhileScreenSaverInhibited = false;
+  bool m_inhibitReleasePending = false;
   bool m_sessionLocked = false;
 };

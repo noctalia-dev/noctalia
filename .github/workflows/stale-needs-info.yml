@@ -1,0 +1,57 @@
+name: Close Unanswered Issues
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      debug-only:
+        description: Log what would happen without changing any issue
+        type: boolean
+        default: true
+
+permissions:
+  issues: write
+
+jobs:
+  stale:
+    if: ${{ github.repository == 'noctalia-dev/noctalia' }}
+    runs-on: ubuntu-latest
+    steps:
+      # actions/stale only-labels is an AND list, so each label gets its own pass.
+      # Issues carrying neither label are never touched.
+      - name: Close unanswered needs-retest issues
+        uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          only-labels: needs-retest
+          days-before-stale: 7
+          days-before-close: 7
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          stale-issue-label: stale
+          close-issue-reason: not_planned
+          operations-per-run: 200
+          debug-only: ${{ github.event_name == 'workflow_dispatch' && inputs.debug-only }}
+          stale-issue-message: >
+            This issue is waiting on a reply and has had no activity for 7 days. It will be closed in 7 more days
+            unless there is new activity. You can reopen it or comment at any time.
+          close-issue-message: >
+            Closing because there was no reply. Comment here with the requested details and we will reopen it.
+
+      - name: Close unanswered needs-info issues
+        uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          only-labels: needs-info
+          days-before-stale: 7
+          days-before-close: 7
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          stale-issue-label: stale
+          close-issue-reason: not_planned
+          operations-per-run: 200
+          debug-only: ${{ github.event_name == 'workflow_dispatch' && inputs.debug-only }}
+          stale-issue-message: >
+            This issue is waiting on a reply and has had no activity for 7 days. It will be closed in 7 more days
+            unless there is new activity. You can reopen it or comment at any time.
+          close-issue-message: >
+            Closing because there was no reply. Comment here with the requested details and we will reopen it.

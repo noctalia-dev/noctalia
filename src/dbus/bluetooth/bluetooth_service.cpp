@@ -5,6 +5,7 @@
 #include "dbus/upower/upower_service.h"
 #include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
+#include "notification/notifications.h"
 #include "system/rfkill_helper.h"
 #include "util/string_utils.h"
 
@@ -298,12 +299,11 @@ struct BluetoothService::Impl {
   void onInterfacesAdded(const sdbus::ObjectPath& path, const ObjectInterfaces& interfaces) {
     bool stateDirty = false;
     bool devicesDirty = false;
-    if (auto it = interfaces.find(kAdapterInterface); it != interfaces.end()) {
-      if (adapterPath.empty()) {
-        adoptAdapter(path, it->second);
-        stateDirty = true;
-      }
+    if (auto it = interfaces.find(kAdapterInterface); it != interfaces.end() && adapterPath.empty()) {
+      adoptAdapter(path, it->second);
+      stateDirty = true;
     }
+
     if (auto it = interfaces.find(kDeviceInterface); it != interfaces.end()) {
       adoptDevice(path, it->second);
       ensureObjectProxy(path);
@@ -337,6 +337,7 @@ struct BluetoothService::Impl {
       } else if (iface == kDeviceInterface) {
         auto& vec = self.m_devices;
         std::erase_if(vec, [&](const BluetoothDeviceInfo& d) { return d.path == std::string(path); });
+        self.m_localDeviceRequests.erase(std::string(path));
         devicesDirty = true;
         dropObjectProxy(path);
       } else if (iface == kBatteryInterface) {
@@ -386,7 +387,13 @@ struct BluetoothService::Impl {
         BluetoothDeviceInfo updated = *dev;
         mergeDeviceProps(changed, updated);
         if (updated != *dev) {
+          // The flip is read before the move overwrites the previous value; a Connected entry in
+          // the changed dict that matches the cached value (redundant BlueZ signal) stays silent.
+          const bool connectedFlipped = updated.connected != dev->connected;
           *dev = std::move(updated);
+          if (connectedFlipped) {
+            self.notifyConnectionChange(*dev);
+          }
           self.emitDevices();
         }
       }
@@ -431,10 +438,8 @@ struct BluetoothService::Impl {
 
   void seedFromManagedObjects(const ManagedObjects& objects) {
     for (const auto& [path, interfaces] : objects) {
-      if (auto it = interfaces.find(kAdapterInterface); it != interfaces.end()) {
-        if (adapterPath.empty()) {
-          adoptAdapter(path, it->second);
-        }
+      if (auto it = interfaces.find(kAdapterInterface); it != interfaces.end() && adapterPath.empty()) {
+        adoptAdapter(path, it->second);
       }
     }
     for (const auto& [path, interfaces] : objects) {
@@ -482,7 +487,7 @@ BluetoothService::~BluetoothService() = default;
 void BluetoothService::setStateCallback(StateCallback callback) { m_stateCallback = std::move(callback); }
 void BluetoothService::setDevicesCallback(DevicesCallback callback) { m_devicesCallback = std::move(callback); }
 
-void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback) {
+void BluetoothService::registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback) {
   auto setBluetooth = [this, stateFeedback](bool enabled) -> std::string {
     if (!hasStateSnapshot()) {
       return "error: bluetooth state unavailable\n";
@@ -545,7 +550,7 @@ void BluetoothService::refresh() {
   }
   m_impl->root->callMethodAsync("GetManagedObjects")
       .onInterface(kObjectManagerInterface)
-      .uponReplyInvoke([this](std::optional<sdbus::Error> err, ManagedObjects objects) {
+      .uponReplyInvoke([this](std::optional<sdbus::Error> err, const ManagedObjects& objects) {
         if (err.has_value()) {
           kLog.debug("GetManagedObjects failed: {}", err->what());
           return;
@@ -612,7 +617,7 @@ void BluetoothService::setPowered(bool enabled) {
     if (!enabled && m_state.discovering) {
       m_impl->adapter->callMethodAsync("StopDiscovery")
           .onInterface(kAdapterInterface)
-          .uponReplyInvoke([](std::optional<sdbus::Error>) {});
+          .uponReplyInvoke([](std::optional<sdbus::Error>) {}); // NOLINT(performance-unnecessary-value-param)
     }
     m_impl->adapter->setPropertyAsync("Powered")
         .onInterface(kAdapterInterface)
@@ -704,7 +709,14 @@ void BluetoothService::stopDiscovery() {
   }
 }
 
-bool BluetoothService::connect(const std::string& devicePath) { return dispatchConnect(devicePath, {}); }
+bool BluetoothService::connect(const std::string& devicePath) {
+  m_localDeviceRequests[devicePath] = true;
+  if (!dispatchConnect(devicePath, {})) {
+    m_localDeviceRequests.erase(devicePath);
+    return false;
+  }
+  return true;
+}
 
 bool BluetoothService::dispatchConnect(const std::string& devicePath, std::function<void()> onReply) {
   auto* proxy = m_impl->deviceProxy(devicePath);
@@ -721,10 +733,21 @@ bool BluetoothService::dispatchConnect(const std::string& devicePath, std::funct
         .uponReplyInvoke([this, devicePath, onReply = std::move(onReply)](std::optional<sdbus::Error> err) {
           if (err.has_value()) {
             kLog.warn("Device.Connect failed {}: {}", devicePath, err->what());
+            // Only a connect the user asked for reports failure; connect-pass misses are routine.
+            const bool local = m_localDeviceRequests.erase(devicePath) > 0;
             if (auto* dev = findDevice(devicePath)) {
               dev->connecting = false;
+              if (local && m_connectionNotifications) {
+                notify::error(
+                    i18n::tr("notifications.internal.bluetooth"),
+                    i18n::tr("notifications.internal.bluetooth-connect-failed-title", "device", dev->alias),
+                    err->getMessage()
+                );
+              }
               emitDevices();
             }
+          } else {
+            settleLocalDeviceRequest(devicePath);
           }
           if (onReply) {
             onReply();
@@ -746,17 +769,22 @@ bool BluetoothService::disconnectDevice(const std::string& devicePath) {
   if (proxy == nullptr) {
     return false;
   }
+  m_localDeviceRequests[devicePath] = false;
   try {
     proxy->callMethodAsync("Disconnect")
         .onInterface(kDeviceInterface)
-        .uponReplyInvoke([devicePath](std::optional<sdbus::Error> err) {
+        .uponReplyInvoke([this, devicePath](std::optional<sdbus::Error> err) {
           if (err.has_value()) {
             kLog.warn("Device.Disconnect failed {}: {}", devicePath, err->what());
+            m_localDeviceRequests.erase(devicePath);
+            return;
           }
+          settleLocalDeviceRequest(devicePath);
         });
     return true;
   } catch (const sdbus::Error& e) {
     kLog.warn("Device.Disconnect dispatch failed {}: {}", devicePath, e.what());
+    m_localDeviceRequests.erase(devicePath);
     return false;
   }
 }
@@ -770,10 +798,14 @@ bool BluetoothService::pair(const std::string& devicePath) {
     dev->connecting = true;
     emitDevices();
   }
+  m_localDeviceRequests[devicePath] = true;
   try {
     proxy->callMethodAsync("Pair")
         .onInterface(kDeviceInterface)
         .uponReplyInvoke([this, devicePath](std::optional<sdbus::Error> err) {
+          // Pairing normally brings the link up before Pair() replies, so that flip has already
+          // consumed the entry; a device that pairs without connecting would otherwise leave it stale.
+          m_localDeviceRequests.erase(devicePath);
           if (!err.has_value()) {
             setTrusted(devicePath, true);
             return;
@@ -786,6 +818,7 @@ bool BluetoothService::pair(const std::string& devicePath) {
         });
     return true;
   } catch (const sdbus::Error& e) {
+    m_localDeviceRequests.erase(devicePath);
     kLog.warn("Device.Pair dispatch failed {}: {}", devicePath, e.what());
     if (auto* dev = findDevice(devicePath)) {
       dev->connecting = false;
@@ -838,23 +871,62 @@ void BluetoothService::forget(const std::string& devicePath) {
   if (m_impl->adapter == nullptr) {
     return;
   }
+  // Removing a connected device drops its link first; InterfacesRemoved clears the entry.
+  if (const auto* dev = findDevice(devicePath); dev != nullptr && dev->connected) {
+    m_localDeviceRequests[devicePath] = false;
+  }
   try {
     m_impl->adapter->callMethodAsync("RemoveDevice")
         .onInterface(kAdapterInterface)
         .withArguments(sdbus::ObjectPath{devicePath})
-        .uponReplyInvoke([devicePath](std::optional<sdbus::Error> err) {
+        .uponReplyInvoke([this, devicePath](std::optional<sdbus::Error> err) {
           if (err.has_value()) {
             kLog.warn("RemoveDevice failed {}: {}", devicePath, err->what());
+            m_localDeviceRequests.erase(devicePath);
           }
         });
   } catch (const sdbus::Error& e) {
     kLog.warn("RemoveDevice dispatch failed {}: {}", devicePath, e.what());
+    m_localDeviceRequests.erase(devicePath);
   }
 }
 
 BluetoothDeviceInfo* BluetoothService::findDevice(const std::string& path) {
   auto it = std::ranges::find(m_devices, path, &BluetoothDeviceInfo::path);
   return it == m_devices.end() ? nullptr : &*it;
+}
+
+void BluetoothService::notifyConnectionChange(const BluetoothDeviceInfo& dev) {
+  // Consumed even with notifications off so a later toggle does not inherit stale entries.
+  if (auto it = m_localDeviceRequests.find(dev.path);
+      it != m_localDeviceRequests.end() && it->second == dev.connected) {
+    m_localDeviceRequests.erase(it);
+    return;
+  }
+  if (!m_connectionNotifications) {
+    return;
+  }
+  // Powering the adapter off (here, rfkill, another tool) drops every link at once; BlueZ may report
+  // the drops before or after Powered=false, and the pending local request covers the former.
+  if (!dev.connected && (!m_state.powered || m_pendingLocalPowered == false)) {
+    return;
+  }
+  const char* titleKey = dev.connected ? "notifications.internal.bluetooth-connected-title"
+                                       : "notifications.internal.bluetooth-disconnected-title";
+  notify::info(i18n::tr("notifications.internal.bluetooth"), i18n::tr(titleKey, "device", dev.alias), "");
+}
+
+void BluetoothService::settleLocalDeviceRequest(const std::string& devicePath) {
+  auto it = m_localDeviceRequests.find(devicePath);
+  if (it == m_localDeviceRequests.end()) {
+    return;
+  }
+  // Already at the target on a successful reply: the flip either consumed the entry already or will
+  // never come (device was in that state before the request).
+  const auto* dev = findDevice(devicePath);
+  if (dev == nullptr || dev->connected == it->second) {
+    m_localDeviceRequests.erase(it);
+  }
 }
 
 BluetoothStateChangeOrigin BluetoothService::consumePoweredChangeOrigin(bool powered) {
@@ -873,13 +945,15 @@ void BluetoothService::setConnectWhenEnabled(bool enabled) {
   }
 }
 
+void BluetoothService::setConnectionNotifications(bool enabled) { m_connectionNotifications = enabled; }
+
 void BluetoothService::requestConnectPass() {
   if (!m_connectWhenEnabled || !m_state.powered || m_connectPassActive) {
     return;
   }
   m_connectPassActive = true;
   // The controller is not ready to connect the instant Powered flips.
-  m_connectPassTimer.start(std::chrono::seconds(2), [this]() { startConnectPass(); });
+  m_connectPassTimer.start(std::chrono::seconds(2), [this] { startConnectPass(); });
 }
 
 void BluetoothService::cancelConnectPass() {
@@ -913,7 +987,7 @@ void BluetoothService::connectNextQueued() {
       continue;
     }
     const std::uint64_t generation = m_connectPassGeneration;
-    if (dispatchConnect(path, [this, generation]() {
+    if (dispatchConnect(path, [this, generation] {
           if (generation == m_connectPassGeneration) {
             connectNextQueued();
           }

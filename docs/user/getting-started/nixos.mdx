@@ -218,6 +218,12 @@ The Home Manager module allows you to configure Noctalia's settings [(that you w
   </TabItem>
 </Tabs>
 
+:::note
+Home Manager settings provide Noctalia's declarative configuration. Wallpaper selections made through the UI or IPC are saved in `~/.local/state/noctalia/settings.toml` and take priority over `wallpaper.default.path`. Completing setup without choosing a wallpaper does not save one, so the declared wallpaper applies.
+
+To restore the declared wallpaper after a runtime selection, stop Noctalia and remove the saved `path` entries under `[wallpaper.default]`, `[wallpaper.last]`, and any relevant `[wallpaper.monitors."<connector>"]` tables from `settings.toml`, then restart Noctalia. `wallpaper.last.path` remembers the last selection for wallpaper-derived palettes and greeter sync, so clearing it also restores those to the configured wallpaper. Preserve unrelated settings. The same steps clear the bundled wallpaper path that older versions saved when setup completed.
+:::
+
 ### Hjem Module {#hjem}
 
 For those using Hjem instead of Home Manager, a Hjem module is also available.

@@ -196,6 +196,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         DesktopCalendarWidget::Options{
             .showEvents = getBoolSetting(settings, "show_events", true),
             .showWeekNumbers = getBoolSetting(settings, "show_week_numbers", false),
+            .showEventsLocation = getBoolSetting(settings, "show_events_location", false),
         }
     );
     applyCommonSettings(*widget, settings);
@@ -411,6 +412,10 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
             .networkSpeedLabelStyle = getBoolSetting(settings, "network_speed_compact", false)
                 ? FormatUnits::ByteRateLabelStyle::Compact
                 : FormatUnits::ByteRateLabelStyle::Full,
+            .networkSpeedDecimalPlaces = std::clamp(
+                getIntSetting(settings, "network_speed_decimal_places", 1),
+                FormatUnits::kMinCompactByteRateDecimalPlaces, FormatUnits::kMaxCompactByteRateDecimalPlaces
+            ),
             .showLabel = getBoolSetting(settings, "show_label", true),
             .labelMinWidth = getFloatSetting(settings, "label_min_width", 0.0F),
             .shadow = getBoolSetting(settings, "shadow", true),

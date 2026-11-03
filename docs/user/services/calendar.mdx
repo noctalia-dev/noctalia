@@ -2,7 +2,7 @@
 title: Calendar
 description: Calendar account setup for CalDAV, iCloud, Google Calendar, ICS, and local vdir directories, plus event reminders.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 The calendar service syncs events from your online accounts or local calendar directories (such as vdirsyncer) and shows them in the control center calendar. CalDAV providers (Nextcloud, iCloud, Fastmail, Radicale, mailbox.org, …) are talked to directly; Google Calendar is connected through a browser authorization flow; local vdir directories are watched with inotify. Events are read-only.
@@ -81,6 +81,10 @@ color = "#FF0000"
 ```
 
 **Credentials are never stored in your config.** The `password_file` setting contains only a path; the file contents hold the CalDAV password.
+
+## Sync status
+
+Each account's row in **Settings → Calendar → Accounts** shows its status: that it is syncing (connecting, or downloading events), when it last synced, or why its last sync failed and what fixes it. Most failures are fixed with **Edit**; a locked keyring with **Retry** once it is unlocked; a Google account whose authorization is missing or was revoked with **Reconnect**. Syncs keep being retried at the refresh interval, and the events last synced stay shown meanwhile.
 
 ## Merging duplicate events
 

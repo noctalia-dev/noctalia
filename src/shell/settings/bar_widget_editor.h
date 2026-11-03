@@ -27,6 +27,7 @@ namespace settings {
     bool showAdvanced = false;
     bool showOverriddenOnly = false;
     std::vector<SelectOption> batteryDeviceOptions;
+    std::vector<SelectOption> availableOutputs;
     std::string& editingWidgetName;
     std::string& editingCapsuleGroupId;
     std::vector<std::string>& selectedLaneWidgets;
@@ -76,8 +77,8 @@ namespace settings {
     bool supportsTaskbarWorkspaceGrouping = true;
   };
 
-  [[nodiscard]] bool isBarWidgetListPath(const std::vector<std::string>& path);
-  [[nodiscard]] bool isFirstBarWidgetListPath(const std::vector<std::string>& path);
+  bool isBarWidgetListPath(const std::vector<std::string>& path);
+  bool isFirstBarWidgetListPath(const std::vector<std::string>& path);
 
   // Lane selection tokens address a lane position as "<laneKey>#<index>".
   struct LaneSelectionToken {
@@ -85,9 +86,9 @@ namespace settings {
     std::size_t index = 0;
   };
 
-  [[nodiscard]] std::string makeLaneSelectionToken(std::string_view laneKey, std::size_t index);
+  std::string makeLaneSelectionToken(std::string_view laneKey, std::size_t index);
   // nullopt unless `token` is well-formed; `laneKey` views into `token`.
-  [[nodiscard]] std::optional<LaneSelectionToken> parseLaneSelectionToken(std::string_view token);
+  std::optional<LaneSelectionToken> parseLaneSelectionToken(std::string_view token);
   // Drops the token addressing `removedIndex` in `laneKey` and shifts that lane's higher indices
   // down one. Tokens for other lanes are left alone.
   void reindexLaneSelectionAfterRemoval(
@@ -98,7 +99,7 @@ namespace settings {
 
   // Builds a BarWidgetEditorContext whose control factories delegate to `factory`. The returned
   // context references `factory` and `factory.context()`, so `factory` must outlive it.
-  [[nodiscard]] BarWidgetEditorContext makeBarWidgetEditorContext(SettingsControlFactory& factory);
+  BarWidgetEditorContext makeBarWidgetEditorContext(SettingsControlFactory& factory);
 
   // Builds the bar-widget settings inspector for `ctx.editingWidgetName` into `body`. `laneListPath`
   // is the first-lane bar-widget list path (e.g. {"bar", name, "start"}) used to resolve lane moves.

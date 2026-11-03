@@ -13,7 +13,7 @@
 
 namespace {
 
-  [[nodiscard]] std::optional<std::uint64_t> jsonUnsigned(const nlohmann::json& json) {
+  std::optional<std::uint64_t> jsonUnsigned(const nlohmann::json& json) {
     if (json.is_number_unsigned()) {
       return json.get<std::uint64_t>();
     }
@@ -26,7 +26,7 @@ namespace {
     return std::nullopt;
   }
 
-  [[nodiscard]] std::optional<std::int32_t> jsonInt32(const nlohmann::json& json) {
+  std::optional<std::int32_t> jsonInt32(const nlohmann::json& json) {
     if (json.is_number_integer()) {
       const auto value = json.get<std::int64_t>();
       if (value < std::numeric_limits<std::int32_t>::min() || value > std::numeric_limits<std::int32_t>::max()) {
@@ -44,7 +44,7 @@ namespace {
     return std::nullopt;
   }
 
-  [[nodiscard]] std::optional<std::uint64_t> jsonOptionalUnsigned(const nlohmann::json& json, const char* key) {
+  std::optional<std::uint64_t> jsonOptionalUnsigned(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     if (it == json.end() || it->is_null()) {
       return std::nullopt;
@@ -52,7 +52,7 @@ namespace {
     return jsonUnsigned(*it);
   }
 
-  [[nodiscard]] std::string jsonOptionalString(const nlohmann::json& json, const char* key) {
+  std::string jsonOptionalString(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     if (it == json.end() || !it->is_string()) {
       return {};
@@ -60,7 +60,7 @@ namespace {
     return it->get<std::string>();
   }
 
-  [[nodiscard]] const nlohmann::json* arrayPayload(const nlohmann::json& payload, const char* key) {
+  const nlohmann::json* arrayPayload(const nlohmann::json& payload, const char* key) {
     if (payload.is_array()) {
       return &payload;
     }
@@ -71,7 +71,7 @@ namespace {
     return nullptr;
   }
 
-  [[nodiscard]] const nlohmann::json* objectPayload(const nlohmann::json& payload, const char* key) {
+  const nlohmann::json* objectPayload(const nlohmann::json& payload, const char* key) {
     if (payload.is_object()) {
       const auto it = payload.find(key);
       if (it != payload.end() && it->is_object()) {
@@ -84,7 +84,7 @@ namespace {
     return nullptr;
   }
 
-  [[nodiscard]] std::optional<bool> jsonOptionalBool(const nlohmann::json& payload, const char* key) {
+  std::optional<bool> jsonOptionalBool(const nlohmann::json& payload, const char* key) {
     if (!payload.is_object()) {
       return std::nullopt;
     }
@@ -640,7 +640,7 @@ NiriWorkspaceBackend::parseWindow(const nlohmann::json& json) {
   }
 
   WindowState state;
-  (void)applyWindowFields(json, state);
+  applyWindowFields(json, state);
   return std::pair<std::uint64_t, WindowState>{*id, state};
 }
 
@@ -698,13 +698,11 @@ bool NiriWorkspaceBackend::sameWindowMembership(
   if (lhs.size() != rhs.size()) {
     return false;
   }
-  for (const auto& [id, lhsWindow] : lhs) {
+  return std::ranges::all_of(lhs, [&](const auto& entry) {
+    const auto& [id, lhsWindow] = entry;
     const auto rhsIt = rhs.find(id);
-    if (rhsIt == rhs.end() || !sameWindowMembership(lhsWindow, rhsIt->second)) {
-      return false;
-    }
-  }
-  return true;
+    return rhsIt != rhs.end() && sameWindowMembership(lhsWindow, rhsIt->second);
+  });
 }
 
 bool NiriWorkspaceBackend::sameWindowLayout(const WindowState& lhs, const WindowState& rhs) noexcept {

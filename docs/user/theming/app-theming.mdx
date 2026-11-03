@@ -25,6 +25,8 @@ builtin_ids              = []        # opt-in; run: noctalia theme --list-templa
 
 In **Settings → Templates**, click a built-in template's external-link button (tooltip: **Documentation**) to open its setup guide in your default browser. Opening the guide does not enable or disable the template.
 
+Documentation and community README links open in the browser selected by your system's URL associations and request focus through Wayland activation, including when the browser is already running on another workspace. The browser and compositor must support activation requests.
+
 Hover highlights the external-link button separately from its template tile, including on enabled templates. The entry stays highlighted while the pointer is over its link button, with a continuous highlight when moving between them. The link glyph follows the tile's text color when hovering or pressing the surrounding entry. Link tooltips are positioned at the link button rather than the center of the tile.
 
 Disabling a built-in template removes its generated Noctalia theme file and undoes any Noctalia-owned include or theme selection that the template added to the application's config. Disabling `enable_builtin_templates` performs the same cleanup for every selected built-in template.

@@ -73,7 +73,7 @@ namespace {
     }
 
     const auto normalized = path.lexically_normal();
-    const std::string component = normalized.filename().string();
+    std::string component = normalized.filename().string();
     if (normalized.parent_path().filename() != "power_supply" || !isPlainPowerSupplyComponent(component)) {
       return std::nullopt;
     }

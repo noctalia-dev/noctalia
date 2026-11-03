@@ -1,10 +1,10 @@
 #include "shell/desktop/widgets/desktop_weather_widget.h"
 
+#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
 #include "system/weather_service.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -446,7 +446,7 @@ bool DesktopWeatherWidget::syncForecast(Renderer& renderer) {
 
     const auto& day = snapshot.forecastDays[dayIndex];
     const std::string dayText = weekdayAbbrev(day.dateIso);
-    const std::string glyphName = WeatherService::glyphForCode(day.weatherCode, true);
+    const std::string_view glyphName = WeatherService::glyphForCode(day.weatherCode, true);
     const std::string tempsText = std::format(
         "{} / {}{}", static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMinC))),
         static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMaxC))),

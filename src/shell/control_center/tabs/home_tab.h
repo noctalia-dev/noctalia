@@ -82,6 +82,7 @@ private:
   void syncScaledFonts();
   void syncShortcuts();
   void syncHeaderActions();
+  void syncAvatarChrome();
   bool resizeMediaArtToCard();
   void onPanelCardOpacityChanged(float opacity) override;
 
@@ -105,6 +106,7 @@ private:
   Flex* m_userMain = nullptr;
   InputArea* m_userAvatarArea = nullptr;
   Image* m_userAvatar = nullptr;
+  bool m_avatarBorderShown = true;
 
   Label* m_timeLabel = nullptr;
   Label* m_dateLabel = nullptr;

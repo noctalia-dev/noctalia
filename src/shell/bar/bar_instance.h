@@ -9,8 +9,8 @@
 #include "render/scene/node.h"
 #include "shell/bar/widget.h"
 #include "shell/panel/attached_panel_context.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/signal.h"
-#include "wayland/layer_surface.h"
 
 #include <cstdint>
 #include <memory>
@@ -86,6 +86,8 @@ struct BarInstance {
   float lastPointerSx = 0.0F;
   float lastPointerSy = 0.0F;
   std::size_t attachedPopupCount = 0;
+  // Last region sent for dead_zone.click_through; skips resending an unchanged region every layout pass.
+  std::optional<std::vector<InputRect>> clickThroughInputRegion;
 
   // Bar background, shadow, and layout sections (start/center/end along main axis)
   Box* bg = nullptr;

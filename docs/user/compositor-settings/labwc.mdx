@@ -59,6 +59,12 @@ Add these binds to your `rc.xml`
   </keyboard>
 ```
 
+## Window minimisation
+
+Noctalia tracks labwc's minimise state in the [taskbar](/noctalia/bar/widgets/taskbar/), [dock](/noctalia/dock/), window switcher, and launcher window results. Clicking a focused single-window taskbar or dock icon minimises it; clicking a minimised window restores and focuses it. Multi-window icons continue cycling. Right-click for per-window **Minimise** / **Restore** actions.
+
+Minimise support requires labwc's foreign-toplevel window tracking to be available. Per-window workspace membership remains unavailable, so the taskbar stays flat; use the [workspaces widget](/noctalia/bar/widgets/workspaces/) for workspace switching.
+
 ## DPMS mode
 
 Install wlopm from extra repository for Arch Linux

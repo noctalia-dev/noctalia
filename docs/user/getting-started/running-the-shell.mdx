@@ -13,6 +13,13 @@ Use compositor autostart as the primary method.
 
 This is the recommended method for launching noctalia, as it integrates with your window manager.
 
+For the *Umbriel* compositor, add `noctalia` to the existing `autostart` array under `[general]` in `~/.config/umbriel/config.toml`. Preserve any commands already in the array:
+
+```toml
+[general]
+autostart = ["noctalia"]
+```
+
 For the *Niri* compositor, add the following line to the end of your configuration file, typically located at `~/.config/niri/config.kdl`
 
 ```ini

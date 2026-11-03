@@ -28,16 +28,27 @@
   },
   "bar": {
     "annotate": {
+      "backdrop": "Backdrop",
+      "backdrop-angle": "Angle",
+      "backdrop-enabled": "Backdrop",
+      "backdrop-gradient": "Gradient",
+      "backdrop-padding": "Padding",
+      "backdrop-radius": "Corners",
+      "backdrop-shadow": "Shadow",
+      "backdrop-shadow-blur": "Blur",
+      "backdrop-shadow-offset-x": "Offset X",
+      "backdrop-shadow-offset-y": "Offset Y",
+      "backdrop-shadow-opacity": "Opacity",
       "capture-new-region": "Capture new region (discards the current edit)",
-      "close": "Close without delivering (Esc)",
-      "color-black": "Black",
-      "color-blue": "Blue",
-      "color-green": "Green",
-      "color-orange": "Orange",
-      "color-purple": "Purple",
-      "color-red": "Red",
-      "color-white": "White",
-      "color-yellow": "Yellow",
+      "close": "Close editor",
+      "color-black": "Black (8)",
+      "color-blue": "Blue (4)",
+      "color-green": "Green (3)",
+      "color-orange": "Orange (5)",
+      "color-purple": "Purple (6)",
+      "color-red": "Red (1)",
+      "color-white": "White (7)",
+      "color-yellow": "Yellow (2)",
       "copy": "Copy the annotated image (Ctrl+C)",
       "cursor": "Show the pointer captured with the screen (p)",
       "cursor-capture-failed": "Pointer toggle unavailable: the compositor could not provide a separate cursor image",
@@ -48,15 +59,24 @@
       "fill-opaque": "Shape fill: opaque (f)",
       "fill-semi": "Shape fill: semi-transparent (f)",
       "freeze": "Freeze the screen under the ink (z)",
+      "gradient-graphite": "Graphite",
+      "gradient-mint": "Mint",
+      "gradient-paper": "Paper",
+      "gradient-sky": "Sky",
+      "gradient-sunset": "Sunset",
+      "gradient-theme": "Theme",
+      "gradient-theme-accent": "Theme accent",
+      "gradient-theme-soft": "Theme soft",
+      "gradient-theme-subtle": "Theme subtle",
       "move-toolbar": "Drag to move the toolbar",
       "redo": "Redo (Ctrl+Shift+Z)",
       "save": "Save the annotated image (Ctrl+S)",
-      "size-advanced": "Fine size adjustment",
       "size-decrease": "Thinner ([)",
       "size-increase": "Thicker (])",
       "size-large": "Large",
       "size-medium": "Medium",
       "size-small": "Small",
+      "stroke": "Color and thickness",
       "tool-arrow": "Arrow (a) · hold Shift to snap the angle",
       "tool-blur": "Blur a region (u)",
       "tool-brush": "Brush (b)",
@@ -69,7 +89,11 @@
       "tool-numbering": "Numbered marker (n)",
       "tool-rectangle": "Rectangle (s) · hold Shift for a square",
       "tool-text": "Text (t)",
-      "undo": "Undo (Ctrl+Z)"
+      "undo": "Undo (Ctrl+Z)",
+      "zoom": "Zoom · Ctrl+wheel to zoom, Ctrl+drag to pan",
+      "zoom-in": "Zoom in (Ctrl++)",
+      "zoom-out": "Zoom out (Ctrl+-)",
+      "zoom-reset": "Fit to view (Ctrl+0)"
     },
     "screenshot": {
       "annotate-export-failed": "Failed to build the annotated image",
@@ -184,6 +208,30 @@
       }
     }
   },
+  "calendar": {
+    "sync": {
+      "connecting": "Syncing: connecting…",
+      "downloading": "Syncing: downloading events…",
+      "failed": "Sync failed: {reason}",
+      "failure": {
+        "access-denied": "The server denied access to the resource.",
+        "authentication": "The server rejected the username or password.",
+        "client-certificate": "The client certificate or key file could not be read.",
+        "configuration": "The account settings are incomplete.",
+        "credentials": "No password is stored for this account, or it could not be read.",
+        "credentials-locked": "The keyring holding its credentials is locked; unlock it, then retry.",
+        "google-authorization": "Google authorization is missing or was revoked; reconnect the account.",
+        "invalid-response": "The server's response could not be read.",
+        "network": "The server could not be reached.",
+        "no-calendars": "No calendars with events were found.",
+        "not-found": "No calendar was found at the configured address.",
+        "server": "The server reported an error.",
+        "timeout": "The server took too long to respond."
+      },
+      "not-synced": "Not synced yet",
+      "synced": "Synced {when}"
+    }
+  },
   "clipboard": {
     "actions": {
       "clear-all": "Clear everything",
@@ -223,6 +271,10 @@
       "apply": "Apply",
       "cancel": "Cancel"
     },
+    "minimize": "Minimise",
+    "minimized": "Minimised",
+    "minimized-count": "{count} minimised",
+    "restore": "Restore",
     "states": {
       "auto": "Auto",
       "custom": "Custom",
@@ -284,7 +336,11 @@
     "calendar": {
       "all-day": "All day",
       "events": "Events",
+      "hide-past-events": "Hide {count} past event",
+      "hide-past-events-plural": "Hide {count} past events",
       "no-events": "No events.",
+      "show-past-events": "Show {count} past event",
+      "show-past-events-plural": "Show {count} past events",
       "today": "Today",
       "toggle-events-card": "Toggle events card"
     },
@@ -349,6 +405,7 @@
       "error-missing-password": "Enter your password.",
       "error-unsupported-phase2": "PEAP requires MSCHAPv2 inner authentication.",
       "external-ip": "WAN {ip}",
+      "hotspot-active": "Wi-Fi is running a hotspot; turning Wi-Fi off stops it",
       "identity": "Identity",
       "no-networks": "No networks in range",
       "not-connected": "Not connected",
@@ -368,10 +425,16 @@
     },
     "notifications": {
       "clear-all": "Clear all notifications",
+      "collapse": "Collapse",
+      "collapse-group": "Collapse group",
+      "dismiss": "Dismiss",
+      "dismiss-group": "Dismiss group",
       "dnd-off": "Turn Do Not Disturb Off",
       "dnd-on": "Turn Do Not Disturb On",
       "empty-body": "Recent notifications will show here.",
       "empty-title": "No Notifications",
+      "expand": "Expand",
+      "expand-group": "Expand group",
       "filter": {
         "all": "All",
         "older": "Older",
@@ -611,6 +674,7 @@
         "layout": "Layout",
         "mirrored": "Mirrored",
         "network-speed-compact": "Compact Network Speed",
+        "network-speed-decimal-places": "Network Speed Decimal Places",
         "network-speed-unit": "Network Speed Unit",
         "network-speed-unit-auto": "Auto",
         "network-speed-unit-kilobytes": "kB/s",
@@ -628,11 +692,13 @@
         "show-caps-lock": "Caps Lock Warning",
         "show-device": "Show Device",
         "show-events": "Show Events",
+        "show-events-location": "Show Event Location",
         "show-forecast": "Show Forecast",
         "show-keyboard-layout": "Keyboard Layout",
         "show-label": "Show Label",
         "show-login-button": "Login Button",
         "show-media": "Media",
+        "show-media-controls": "Media Controls",
         "show-password-hint": "Password Hint",
         "show-password-reveal": "Password Reveal",
         "show-seconds": "Second Hand",
@@ -879,6 +945,10 @@
       "battery-device": "Battery device",
       "battery-low-body": "{device}: {percent}% remaining",
       "battery-low-title": "Battery low",
+      "bluetooth": "Bluetooth",
+      "bluetooth-connect-failed-title": "Could not connect to {device}",
+      "bluetooth-connected-title": "{device} connected",
+      "bluetooth-disconnected-title": "{device} disconnected",
       "calendar": "Calendar",
       "calendar-credential-locked-body": "Unlock the keyring used by Secret Service, then retry in Settings. With GNOME Keyring, make an automatically unlocked keyring such as Login the default.",
       "calendar-credential-locked-title": "Calendar keyring is locked",
@@ -1268,6 +1338,10 @@
               "windows": "Windows",
               "workspace-labels": "Workspace Labels"
             },
+            "tray": {
+              "drawer": "Drawer",
+              "icon-overrides": "Icon Overrides"
+            },
             "widget": "Widget",
             "workspaces": {
               "colors": "Colors",
@@ -1310,6 +1384,13 @@
       "write": "Failed to save settings."
     },
     "export-config": {
+      "credentials-blank": "Blank",
+      "credentials-blank-description": "Keeps credential keys with empty values, so you can see what to fill in after importing.",
+      "credentials-keep": "Keep",
+      "credentials-keep-description": "Exports credentials as configured. Keep the file private.",
+      "credentials-omit": "Omit",
+      "credentials-omit-description": "Leaves credentials out of the file.",
+      "credentials-title": "Credentials",
       "export": "Export",
       "full-effective-description": "Exports every active setting, including built-in defaults. Useful for inspection or sharing a snapshot, but pins current defaults explicitly.",
       "full-effective-save-title": "Save Full Effective Config",
@@ -1317,7 +1398,7 @@
       "merged-user-description": "Combines config files and GUI overrides into one TOML file. Built-in defaults stay implicit.",
       "merged-user-save-title": "Save Merged User Config",
       "merged-user-title": "Merged User Config (Recommended)",
-      "privacy-warning-description": "Both export modes may include API keys, passwords, or other sensitive data stored in your config, including by plugins. Treat exported files as private. Review and remove sensitive data before sharing.",
+      "privacy-warning-description": "Credentials are calendar server URLs, git plugin source URLs, and plugin settings the plugin marks as secret. Anything else you typed into your config, such as a token in a command, is always exported. Review the file before sharing it.",
       "privacy-warning-title": "Exports may contain secrets",
       "title": "Export Config"
     },
@@ -1347,7 +1428,10 @@
       "live-status": {
         "active": "Active",
         "idle-for-one": "Idle for 1 second",
-        "idle-for-seconds": "Idle for {seconds} seconds"
+        "idle-for-seconds": "Idle for {seconds} seconds",
+        "inhibit-reason-caffeine": "Caffeine",
+        "inhibit-reason-external": "external source",
+        "inhibited": "Inhibited: {inhibitors}"
       }
     },
     "navigation": {
@@ -1444,6 +1528,7 @@
         "keybinds": "Keybinds",
         "launcher": "Launcher",
         "location": "Location",
+        "lock-screen": "Lock Screen",
         "niri": "Niri",
         "notifications": "Notifications",
         "osd": "OSD",
@@ -1452,7 +1537,7 @@
         "popups": "Popups",
         "power": "Power",
         "screenshot": "Screenshot",
-        "security": "Security",
+        "security": "Privacy & Security",
         "services": "Services",
         "shell": "Shell",
         "system": "System",
@@ -1550,6 +1635,7 @@
         "window-switcher": "Window Switcher"
       },
       "layer": {
+        "follow": "Follow",
         "overlay": "Overlay",
         "top": "Top"
       },
@@ -1576,10 +1662,6 @@
       "orientation": {
         "horizontal": "Horizontal",
         "vertical": "Vertical"
-      },
-      "panel-bar-alignment": {
-        "centered": "Centered",
-        "near-trigger": "Near Trigger"
       },
       "panel-position": {
         "auto": "Follow Bar"
@@ -1658,7 +1740,8 @@
         },
         "window-switcher-style": {
           "carousel": "Carousel",
-          "compact": "Compact"
+          "compact": "Compact",
+          "icons": "Icons Only"
         }
       },
       "theme": {
@@ -1674,6 +1757,10 @@
           "community": "Community",
           "custom": "Custom",
           "wallpaper": "Wallpaper"
+        },
+        "terminal-colors": {
+          "palette": "Palette",
+          "standard": "Standard"
         }
       },
       "theme-role": {
@@ -1733,19 +1820,19 @@
       "browse-store": "Browse Plugins",
       "panels": {
         "layer": {
-          "description": "Layer-shell layer used when the panel is floating",
+          "description": "Layer-shell layer used when the panel is floating; Follow uses the shell's floating panel layer",
           "label": "Layer"
         },
         "open-near-click": {
-          "description": "Where the panel is positioned when opened by clicking on the bar widget",
-          "label": "Along Bar"
+          "description": "When opened by clicking its bar widget, open the panel next to the widget instead of at its Position",
+          "label": "Open Near Clicked Widget"
         },
         "placement": {
           "description": "Attach the panel to the bar or float it near the bar edge",
           "label": "Placement"
         },
         "position": {
-          "description": "Screen position when the panel is floating",
+          "description": "Floating: where the panel sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
           "label": "Position"
         }
       },
@@ -1857,7 +1944,7 @@
           "label": "Animations"
         },
         "app-icon-color": {
-          "description": "Palette color used when colorizing application icons",
+          "description": "Shared palette color for components with Colorize App Icons enabled",
           "label": "App Icon Color"
         },
         "app-icon-colorize": {
@@ -1946,6 +2033,10 @@
           "description": "Set the system dark/light preference read by browsers and other apps to follow Theme Mode",
           "label": "Sync App Color Scheme"
         },
+        "terminal-colors": {
+          "description": "Palette matches terminal colors to the wallpaper; Standard keeps red, green and yellow recognizable",
+          "label": "Terminal Colors"
+        },
         "theme-mode": {
           "description": "Choose Dark, Light, or Auto based on time of day; also applies to apps through templates",
           "label": "Theme Mode"
@@ -1979,6 +2070,10 @@
         "auto-hide-delay": {
           "description": "Wait this many milliseconds after the pointer leaves before hiding the bar; 0 hides immediately (On mode only)",
           "label": "Auto-Hide Delay"
+        },
+        "auto-hide-reserve-space": {
+          "description": "With auto-hide or smart auto-hide, reserve layout only while the bar is visible so hidden windows use the full screen",
+          "label": "Reserve Space While Visible"
         },
         "background-opacity": {
           "description": "Background opacity of the bar"
@@ -2064,6 +2159,10 @@
         "dead-zone-action": {
           "description": "Action run on the parts of the bar no widget covers"
         },
+        "dead-zone-click-through": {
+          "description": "Let clicks on the parts of the bar no widget covers reach the window below; dead zone actions stop firing",
+          "label": "Click Through"
+        },
         "edge-margin": {
           "description": "Gap between the bar and the screen edge it sits on; set to 0 px to sit flush against that edge"
         },
@@ -2075,7 +2174,7 @@
           "label": "End Widgets"
         },
         "ends-margin": {
-          "description": "Shortens the bar from both ends along its length; set to 0 px for a full-width or full-height bar"
+          "description": "Shortens the bar from both ends along its length, in pixels or as a percentage of the screen; set to 0 for a full-width or full-height bar"
         },
         "font-family": {
           "description": "Typeface for this bar's widgets; leave empty to inherit the global font (per-widget Font Family overrides this)",
@@ -2221,6 +2320,10 @@
         "auto-hide": {
           "description": "Off keeps the dock visible; On hides it until you move the pointer to the screen edge; Smart shows the dock on an empty workspace and hides it when windows are open"
         },
+        "auto-hide-reveal-delay": {
+          "description": "How long the pointer must stay at the screen edge before a hidden dock reveals; 0 reveals immediately",
+          "label": "Reveal Delay"
+        },
         "background-opacity": {
           "description": "Background opacity of the dock"
         },
@@ -2231,6 +2334,10 @@
         "border-width": {
           "description": "Inside outline width for the dock",
           "label": "Border Width"
+        },
+        "compositor-blur": {
+          "description": "Allow the compositor to blur behind the dock when the background effect protocol is available",
+          "label": "Compositor Blur"
         },
         "concave-edge-corners": {
           "description": "Carve inward corners on the side that touches the screen edge; requires the margin to the screen edge to be 0",
@@ -2262,6 +2369,14 @@
         },
         "ends-margin": {
           "description": "Inset from each end of the dock along its main axis"
+        },
+        "icon-saturation": {
+          "description": "Color saturation of application icons; 0 is grayscale",
+          "label": "Icon Saturation"
+        },
+        "icon-shadow": {
+          "description": "Cast a soft shadow following each application icon's shape",
+          "label": "Icon Shadow"
         },
         "icon-size": {
           "description": "Size of dock icons in pixels",
@@ -2574,9 +2689,19 @@
           "description": "Show new notification toasts on the focused monitor",
           "label": "Follow Focused Output"
         },
+        "group-by-app": {
+          "description": "Group notifications in the history tab by application",
+          "label": "Group by Application"
+        },
         "history-retention-hours": {
           "description": "Automatically remove notification history entries older than the specified number of hours (0 to keep forever)",
           "label": "Retention Period"
+        },
+        "history-storage": {
+          "button": "Retry",
+          "description-recovery": "Saved notification history could not be authenticated or is damaged; retry after restoring the correct key, or reset private storage",
+          "description-unavailable": "Encrypted notification history is not open, so notifications are kept for this session only; unlock private storage or restore the configured key, then retry",
+          "label": "Notification History Storage"
         },
         "keep-dismissed-in-history": {
           "description": "Keep notifications in history after their toasts are dismissed",
@@ -2593,6 +2718,10 @@
         "monitors": {
           "description": "Choose which monitors show notification toasts; leave empty to show on all monitors",
           "label": "Monitors"
+        },
+        "newest-on-edge": {
+          "description": "Place each new toast against the screen edge of its position and push older toasts away, instead of appending it at the far end of the stack",
+          "label": "Newest Toast on Edge"
         },
         "offset-x": {
           "description": "Absolute horizontal margin from the screen or bar edge",
@@ -2664,6 +2793,10 @@
           "description": "Gap in pixels between a floating or detached panel and the bar edge",
           "label": "Floating Offset"
         },
+        "home-avatar-border": {
+          "description": "Show the accent ring around the Home tab avatar",
+          "label": "Show Avatar Border"
+        },
         "home-circular-avatar": {
           "description": "Use a circular avatar; disable to follow the shell's corner roundness",
           "label": "Circular Avatar"
@@ -2697,7 +2830,7 @@
           "label": "Show Categories"
         },
         "launcher-category-icons-only": {
-          "description": "Show only icons for app categories, with full names in hover tooltips",
+          "description": "Show only icons for application and provider categories, with full names in hover tooltips",
           "label": "Category Icons Only"
         },
         "launcher-compact": {
@@ -2737,8 +2870,12 @@
           "label": "Windows in Global Search"
         },
         "launcher-grid": {
-          "description": "Show results and the provider overview as an icon grid instead of rows",
+          "description": "Show grid-capable provider results and the provider overview as an icon grid instead of rows",
           "label": "Grid View"
+        },
+        "launcher-ignore-mouse": {
+          "description": "Ignore mouse hover, motion, and clicks inside the launcher for keyboard-only navigation",
+          "label": "Ignore Mouse Input"
         },
         "launcher-ignored-panels": {
           "description": "Panels the panel provider never lists (e.g. authentication prompts, the setup wizard)",
@@ -2797,6 +2934,10 @@
           "description": "Show application icons in launcher results",
           "label": "Show App Icons"
         },
+        "launcher-show-navigation-labels": {
+          "description": "Show text beside the Recent, Pinned, All, Categories, and Providers icons when space allows",
+          "label": "Show Navigation Labels"
+        },
         "launcher-show-session-button": {
           "description": "Show a shortcut to the configured session actions",
           "label": "Show Session Button"
@@ -2822,24 +2963,24 @@
           "label": "List Item Background"
         },
         "open-near-click-clipboard": {
-          "description": "Where the clipboard is positioned when opened by clicking on the bar widget",
-          "label": "Along Bar"
+          "description": "When opened by clicking its bar widget, open the clipboard next to the widget instead of at its Position",
+          "label": "Open Near Clicked Widget"
         },
         "open-near-click-control-center": {
-          "description": "Where Control Center is positioned when opened by clicking on the bar widget",
-          "label": "Along Bar"
+          "description": "When opened by clicking its bar widget, open Control Center next to the widget instead of at its Position",
+          "label": "Open Near Clicked Widget"
         },
         "open-near-click-launcher": {
-          "description": "Where the launcher is positioned when opened by clicking on the bar widget",
-          "label": "Along Bar"
+          "description": "When opened by clicking its bar widget, open the launcher next to the widget instead of at its Position",
+          "label": "Open Near Clicked Widget"
         },
         "open-near-click-session": {
-          "description": "Where the session panel is positioned when opened by clicking on the bar widget",
-          "label": "Along Bar"
+          "description": "When opened by clicking its bar widget, open the session panel next to the widget instead of at its Position",
+          "label": "Open Near Clicked Widget"
         },
         "open-near-click-wallpaper": {
-          "description": "Where the wallpaper picker is positioned when opened by clicking on the bar widget",
-          "label": "Along Bar"
+          "description": "When opened by clicking its bar widget, open the wallpaper picker next to the widget instead of at its Position",
+          "label": "Open Near Clicked Widget"
         },
         "panel-anchor-bar": {
           "description": "Bar panels attach to when opened; leave empty to follow the widget, shortcut, or dock that opened them",
@@ -2870,27 +3011,27 @@
           "label": "Placement"
         },
         "position-clipboard": {
-          "description": "Where the clipboard floats on screen; Follow Bar keeps it near the bar",
+          "description": "Floating: where the clipboard sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
           "label": "Position"
         },
         "position-control-center": {
-          "description": "Where Control Center floats on screen; Follow Bar keeps it near the bar",
+          "description": "Floating: where Control Center sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
           "label": "Position"
         },
         "position-launcher": {
-          "description": "Where the launcher floats on screen; Follow Bar keeps it near the bar",
+          "description": "Floating: where the launcher sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
           "label": "Position"
         },
         "position-polkit": {
-          "description": "Where the polkit prompt floats on screen; Follow Bar keeps it near the bar",
+          "description": "Floating: where the polkit prompt sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
           "label": "Position"
         },
         "position-session": {
-          "description": "Where the session panel floats on screen; Follow Bar keeps it near the bar",
+          "description": "Floating: where the session panel sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
           "label": "Position"
         },
         "position-wallpaper": {
-          "description": "Where the wallpaper picker floats on screen; Follow Bar keeps it near the bar",
+          "description": "Floating: where the wallpaper picker sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
           "label": "Position"
         },
         "shadow": {
@@ -2932,6 +3073,10 @@
           "description": "Connect paired, trusted devices when Bluetooth turns on, at startup, and after resume",
           "label": "Connect Devices When Bluetooth Turns On"
         },
+        "bluetooth-connection-notifications": {
+          "description": "Show a notification when a Bluetooth device connects or disconnects on its own, or when a connection you start fails",
+          "label": "Device Connection Notifications"
+        },
         "calendar": {
           "description": "Show events from your online calendar accounts",
           "label": "Calendar"
@@ -2966,10 +3111,7 @@
         "calendar-edit": {
           "button": "Edit",
           "button-reconnect": "Reconnect",
-          "button-retry": "Retry",
-          "description": "Update this calendar account",
-          "description-locked": "The refresh token is in a locked keyring; unlock the keyring and retry",
-          "description-reconnect": "Google authorization is missing; reconnect this account"
+          "button-retry": "Retry"
         },
         "calendar-event-date-format": {
           "description": "The date format shown above the event list in calendar views",
@@ -2978,6 +3120,14 @@
         "calendar-event-time-format": {
           "description": "The time format shown for calendar events in calendar views",
           "label": "Event Time Format"
+        },
+        "calendar-hide-past-events": {
+          "description": "Hide today's finished events from the event list; when off, all past events are shown",
+          "label": "Hide Past Events"
+        },
+        "calendar-past-events-threshold": {
+          "description": "With Hide Past Events on, keep today's events visible for this many minutes after they end (0 hides them as soon as they end)",
+          "label": "Past Events Threshold"
         },
         "calendar-refresh-interval": {
           "description": "How often to sync calendar events (minutes)",
@@ -2994,6 +3144,10 @@
         "calendar-reminders": {
           "description": "Notify before an event starts.",
           "label": "Calendar Reminders"
+        },
+        "calendar-show-events-location": {
+          "description": "Show each event's location below its time in the event list",
+          "label": "Show Event Location"
         },
         "calendar-storage": {
           "button": "Retry",
@@ -3092,6 +3246,11 @@
           "description": "Volume for shell sound effects",
           "label": "Sound Volume"
         },
+        "spectrum-frame-rate": {
+          "description": "Higher rates are smoother but use more resources",
+          "label": "Visualizer Frame Rate",
+          "option": "{fps} FPS"
+        },
         "sunrise": {
           "description": "Manual sunrise time in HH:MM, used when no location is set",
           "label": "Sunrise"
@@ -3155,7 +3314,7 @@
           "placeholder": "/path/to/sound.wav"
         },
         "volume-sounds": {
-          "description": "Play a sound when output or input volume changes",
+          "description": "Play a sound when the output volume changes",
           "label": "Volume Sounds"
         },
         "weather": {
@@ -3181,6 +3340,10 @@
         },
         "background-opacity": {
           "label": "Background Opacity"
+        },
+        "colorize-icons": {
+          "description": "Recolor application icons here using the shared App Icon Color from Appearance",
+          "label": "Colorize App Icons"
         },
         "contact-shadow": {
           "label": "Contact Shadow"
@@ -3383,6 +3546,10 @@
           "description": "Show an OSD popup when a new track starts playing",
           "label": "Now Playing"
         },
+        "osd-kinds-media-volume": {
+          "description": "Show an OSD popup when a media player's volume changes",
+          "label": "Media Volume"
+        },
         "osd-kinds-nightlight": {
           "description": "Show an OSD popup when night light is toggled",
           "label": "Night Light"
@@ -3487,6 +3654,10 @@
         "screenshot-confirm-region": {
           "description": "After drawing a region, keep the overlay open until you confirm with Enter or Space",
           "label": "Confirm Region"
+        },
+        "screenshot-copy-on-close": {
+          "description": "Copy the annotated image to the clipboard when closing the editor with the cancel key or close button",
+          "label": "Copy on Close"
         },
         "screenshot-copy-to-clipboard": {
           "description": "Place the captured PNG on the clipboard selection",
@@ -3611,19 +3782,19 @@
           "label": "Show All Monitors"
         },
         "window-switcher-show-app-icon": {
-          "description": "Show each application's icon over its window preview",
+          "description": "Show each application's icon over its window preview; icons are always shown in Icons Only",
           "label": "Show Application Icon"
         },
         "window-switcher-show-caption": {
-          "description": "Show window titles and application names below their previews",
+          "description": "Show captions below previews, or the selected window title below the icon grid",
           "label": "Show Caption"
         },
         "window-switcher-show-count": {
-          "description": "Show the current position and total window count above the previews",
+          "description": "Show the current position and total window count above the switcher",
           "label": "Show Window Count"
         },
         "window-switcher-style": {
-          "description": "Choose the freestanding depth carousel or the boxed compact strip",
+          "description": "Choose the preview carousel, compact preview strip, or icons-only grid",
           "label": "Switcher Style"
         }
       },
@@ -3670,6 +3841,10 @@
         "automation-order": {
           "description": "Pick wallpapers randomly or alphabetically",
           "label": "Order"
+        },
+        "automation-pause-on-fullscreen": {
+          "description": "Hold rotation while a window is fullscreen",
+          "label": "Pause in Fullscreen"
         },
         "automation-recursive": {
           "description": "Search nested folders for wallpapers",
@@ -3724,6 +3899,10 @@
           "description": "Use separate wallpaper folders for each monitor",
           "label": "Per-Monitor Directories"
         },
+        "sync-transitions": {
+          "description": "Use the same transition effect on all monitors when wallpapers change",
+          "label": "Sync Transitions Across Monitors"
+        },
         "transition-duration": {
           "description": "Length of the wallpaper change animation in milliseconds",
           "label": "Transition Duration"
@@ -3751,6 +3930,7 @@
       "kind-section-label": "Behavior",
       "label-field": "Label",
       "label-placeholder": "Optional button text",
+      "lockscreen-shortcut-label": "Lock screen shortcut",
       "shortcut-label": "Shortcut",
       "variant": {
         "default": "Default",
@@ -3765,7 +3945,7 @@
     "storage-recovery": {
       "button": "Reset Private Storage",
       "button-confirm": "Confirm Storage Reset",
-      "description": "Permanently delete saved clipboard history and the calendar event cache, then reopen private storage (a configured key file is never modified)",
+      "description": "Permanently delete saved clipboard and notification history, notification images, and the calendar event cache, then reopen private storage (a configured key file is never modified)",
       "error-delete": "Some private storage files could not be deleted. The storage key was preserved.",
       "error-key": "Private storage files were deleted, but secure storage could not be reopened. Fix access and retry.",
       "label": "Recover Private Storage",
@@ -3952,7 +4132,7 @@
             "label": "Sync greeter appearance"
           },
           "keyboard-backlight-down": {
-            "description": "Decrease all keyboard backlights by one level",
+            "description": "Decrease all keyboard backlights by 5%",
             "label": "Decrease keyboard backlight"
           },
           "keyboard-backlight-osd": {
@@ -3968,7 +4148,7 @@
             "label": "Toggle keyboard backlight"
           },
           "keyboard-backlight-up": {
-            "description": "Increase all keyboard backlights by one level",
+            "description": "Increase all keyboard backlights by 5%",
             "label": "Increase keyboard backlight"
           },
           "keyboard-layout-cycle": {
@@ -4305,6 +4485,8 @@
         "cpu-freq": "CPU Freq",
         "cpu-temp": "CPU Temperature",
         "cpu-usage": "CPU Usage",
+        "default": "Default",
+        "desktop": "Desktop",
         "disk-free": "Disk Free",
         "disk-free-percent": "Disk Free %",
         "disk-used": "Disk Used",
@@ -4347,6 +4529,7 @@
         "shared": "Shared",
         "short": "Short",
         "swap-percent": "Swap %",
+        "symbolic": "Symbolic",
         "text": "Text",
         "text-only": "Text Only",
         "time": "Time",
@@ -4454,6 +4637,10 @@
           "description": "Second gradient color in the visualizer",
           "label": "Color 2"
         },
+        "colorize-icons": {
+          "description": "Recolor this widget's application icons using the shared App Icon Color from Appearance",
+          "label": "Colorize App Icons"
+        },
         "custom-image": {
           "description": "Path to a custom image; leave empty to use the icon glyph",
           "dialog-title": "Select Custom Image",
@@ -4507,6 +4694,10 @@
         "enable-scroll": {
           "description": "Allow mouse wheel and trackpad scroll actions on this widget",
           "label": "Enable Scroll"
+        },
+        "expand": {
+          "description": "Grow into an equal share of the start or end lane's free space; elsewhere the spacer keeps its length",
+          "label": "Expand"
         },
         "focused-color": {
           "description": "Color role used for the focused workspace; fixed hex colors are also supported",
@@ -4641,6 +4832,10 @@
           "description": "Overrides the widget color for icons only; fixed hex colors are also supported",
           "label": "Icon Color"
         },
+        "icon-override-blacklist": {
+          "description": "List of tray icons to exclude from icon overrides",
+          "label": "Icon Override Blacklist"
+        },
         "icon-scale": {
           "description": "Scale of taskbar application icons relative to their default size",
           "label": "Icon Scale"
@@ -4652,6 +4847,10 @@
         "icon-spacing": {
           "description": "Spacing between privacy indicator icons in pixels",
           "label": "Icon Spacing"
+        },
+        "icon-type": {
+          "description": "Select the type of icons to use in the tray",
+          "label": "Icon Type"
         },
         "inactive-color": {
           "description": "Color used for inactive privacy indicators; fixed hex colors are also supported",
@@ -4749,6 +4948,10 @@
           "description": "Use short unit suffixes such as 1.2M instead of 1.2 MB/s",
           "label": "Compact Network Speed"
         },
+        "network-speed-decimal-places": {
+          "description": "Number of decimal places shown for compact network speeds, from 0 to 3",
+          "label": "Network Speed Decimal Places"
+        },
         "network-speed-unit": {
           "description": "Unit used for network receive and transmit speeds; Auto switches between B/s, kB/s, MB/s, and GB/s",
           "label": "Network Speed Unit"
@@ -4780,6 +4983,10 @@
           "description": "Opacity of pinned apps that are not currently running",
           "label": "Pinned App Opacity"
         },
+        "prefer-symbolic-icons": {
+          "description": "Prefer -symbolic variants from the active icon theme when available, falling back to regular application icons",
+          "label": "Prefer Symbolic Icons"
+        },
         "reversed": {
           "description": "Reverse the low-to-high frequency order of the bars",
           "label": "Reversed"
@@ -4804,16 +5011,20 @@
           "description": "Choose whether scroll actions follow command semantics, run once per gesture, or repeat for every scroll step",
           "label": "Scroll Repeat"
         },
+        "separator": {
+          "description": "Text between workspace indicators; leave empty for no separator or extra spacing",
+          "label": "Separator"
+        },
+        "separator-color": {
+          "description": "Color role used for workspace separators; fixed hex colors are also supported",
+          "label": "Separator Color"
+        },
         "show-active-indicator": {
           "description": "Show a small dot below the active window icon in the taskbar",
           "label": "Active Window Indicator"
         },
         "show-all-outputs": {
           "description": "Include windows from every monitor on this widget",
-          "label": "Show All Monitors"
-        },
-        "show-all-workspaces": {
-          "description": "Show workspaces from every monitor on this widget",
           "label": "Show All Monitors"
         },
         "show-caps-lock": {
@@ -4823,6 +5034,10 @@
         "show-condition": {
           "description": "Show weather condition text",
           "label": "Show Condition"
+        },
+        "show-cpu-cores": {
+          "description": "Replace the single CPU gauge with one small gauge per logical core",
+          "label": "Show Per-Core Usage"
         },
         "show-empty-label": {
           "description": "Show placeholder text when no window is focused instead of hiding the widget",
@@ -4965,6 +5180,10 @@
           "description": "Maximum width in pixels for window titles",
           "label": "Window Title Max Width"
         },
+        "workspace-group-active-border-color": {
+          "description": "Border color for the active workspace",
+          "label": "Active Border Color"
+        },
         "workspace-group-capsule": {
           "description": "Draw the background and border around each grouped workspace. Turn off to keep icon grouping and workspace disc labels only.",
           "label": "Workspace Group Capsule"
@@ -4973,9 +5192,18 @@
           "description": "What each workspace group shows: app icons, a window count, or dots (up to five, then +N for the rest)",
           "label": "Group Content"
         },
+        "workspace-group-inactive-border-color": {
+          "description": "Border color for inactive workspaces",
+          "label": "Inactive Border Color"
+        },
         "workspace-label-placement": {
           "description": "Corner, centered on the edge, or inside the pill",
           "label": "Workspace Label Placement"
+        },
+        "workspace-monitors": {
+          "all": "All Monitors",
+          "description": "Choose which monitors' workspaces appear in this widget, in order. Leave empty to show only the workspaces from the monitor hosting the bar",
+          "label": "Workspace Monitors"
         }
       },
       "types": {
@@ -5125,6 +5353,24 @@
   },
   "ui": {
     "controls": {
+      "key-names": {
+        "backspace": "Backspace",
+        "delete": "Delete",
+        "down": "Down",
+        "end": "End",
+        "enter": "Enter",
+        "escape": "Escape",
+        "home": "Home",
+        "insert": "Insert",
+        "left": "Left",
+        "numpad-enter": "Numpad Enter",
+        "page-down": "Page Down",
+        "page-up": "Page Up",
+        "right": "Right",
+        "space": "Space",
+        "tab": "Tab",
+        "up": "Up"
+      },
       "search-picker": {
         "empty": "No results",
         "placeholder": "Search…"

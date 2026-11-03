@@ -25,7 +25,7 @@ namespace noctalia::system::cpu_temp {
       int sensorPriority = 100;
     };
 
-    [[nodiscard]] std::optional<double> readInputCelsius(const std::filesystem::path& path) {
+    std::optional<double> readInputCelsius(const std::filesystem::path& path) {
       std::ifstream file{path};
       if (!file.is_open()) {
         return std::nullopt;
@@ -43,7 +43,7 @@ namespace noctalia::system::cpu_temp {
       return static_cast<double>(raw);
     }
 
-    [[nodiscard]] bool isTempInputFileName(const std::string& fileName) {
+    bool isTempInputFileName(const std::string& fileName) {
       constexpr std::string_view prefix = "temp";
       constexpr std::string_view suffix = "_input";
       if (!fileName.starts_with(prefix) || !fileName.ends_with(suffix)) {
@@ -53,7 +53,7 @@ namespace noctalia::system::cpu_temp {
       return !number.empty() && std::ranges::all_of(number, [](char ch) { return ch >= '0' && ch <= '9'; });
     }
 
-    [[nodiscard]] int tempInputIndex(const std::string& fileName) {
+    int tempInputIndex(const std::string& fileName) {
       if (!isTempInputFileName(fileName)) {
         return 0;
       }
@@ -69,7 +69,7 @@ namespace noctalia::system::cpu_temp {
       return index;
     }
 
-    [[nodiscard]] std::string labelForInputPath(const std::filesystem::path& inputPath) {
+    std::string labelForInputPath(const std::filesystem::path& inputPath) {
       const std::string fileName = inputPath.filename().string();
       const int index = tempInputIndex(fileName);
       const std::string base = fileName.substr(0, fileName.size() - std::string{"_input"}.size());
@@ -77,7 +77,7 @@ namespace noctalia::system::cpu_temp {
           .value_or("temp" + std::to_string(index));
     }
 
-    [[nodiscard]] std::string
+    std::string
     formatHwmonSource(const std::string& hwmonName, const std::string& label, const std::filesystem::path& inputPath) {
       const std::string name = hwmonName.empty() ? "unknown" : hwmonName;
       if (label.empty()) {
@@ -86,16 +86,14 @@ namespace noctalia::system::cpu_temp {
       return std::format("hwmon:{} label=\"{}\" {}", name, label, inputPath.string());
     }
 
-    [[nodiscard]] std::string formatThermalSource(const std::string& zoneType, const std::filesystem::path& inputPath) {
+    std::string formatThermalSource(const std::string& zoneType, const std::filesystem::path& inputPath) {
       const std::string type = zoneType.empty() ? "unknown" : zoneType;
       return std::format("thermal_zone:{} {}", type, inputPath.string());
     }
 
-    [[nodiscard]] bool labelStartsWith(const std::string& label, std::string_view prefix) {
-      return label.starts_with(prefix);
-    }
+    bool labelStartsWith(const std::string& label, std::string_view prefix) { return label.starts_with(prefix); }
 
-    [[nodiscard]] int knownDriverPriority(const std::string& hwmonName) {
+    int knownDriverPriority(const std::string& hwmonName) {
       const std::string name = StringUtils::toLower(hwmonName);
       if (name == "k10temp") {
         return 0;
@@ -112,7 +110,7 @@ namespace noctalia::system::cpu_temp {
       return -1;
     }
 
-    [[nodiscard]] int sensorPriorityForDriver(const std::string& hwmonName, const std::string& label, int inputIndex) {
+    int sensorPriorityForDriver(const std::string& hwmonName, const std::string& label, int inputIndex) {
       const std::string name = StringUtils::toLower(hwmonName);
       const std::string lowerLabel = StringUtils::toLower(label);
 
@@ -164,7 +162,7 @@ namespace noctalia::system::cpu_temp {
       return 100;
     }
 
-    [[nodiscard]] std::vector<std::filesystem::path> sortedDirectories(const std::filesystem::path& root) {
+    std::vector<std::filesystem::path> sortedDirectories(const std::filesystem::path& root) {
       namespace fs = std::filesystem;
 
       std::vector<fs::path> paths;
@@ -182,7 +180,7 @@ namespace noctalia::system::cpu_temp {
       return paths;
     }
 
-    [[nodiscard]] std::vector<Sensor> readKnownHwmonSensors(const std::filesystem::path& hwmonRoot) {
+    std::vector<Sensor> readKnownHwmonSensors(const std::filesystem::path& hwmonRoot) {
       namespace fs = std::filesystem;
 
       std::vector<Sensor> sensors;
@@ -228,7 +226,7 @@ namespace noctalia::system::cpu_temp {
       return sensors;
     }
 
-    [[nodiscard]] std::optional<Reading> chooseKnownHwmonSensor(const std::filesystem::path& hwmonRoot) {
+    std::optional<Reading> chooseKnownHwmonSensor(const std::filesystem::path& hwmonRoot) {
       std::vector<Sensor> sensors = readKnownHwmonSensors(hwmonRoot);
       if (sensors.empty()) {
         return std::nullopt;
@@ -255,7 +253,7 @@ namespace noctalia::system::cpu_temp {
       return Reading{.tempC = best->tempC, .source = formatHwmonSource(best->hwmonName, best->label, best->inputPath)};
     }
 
-    [[nodiscard]] int knownThermalZonePriority(const std::string& zoneType) {
+    int knownThermalZonePriority(const std::string& zoneType) {
       if (zoneType == "cpu-thermal") {
         return 0;
       }
@@ -268,7 +266,7 @@ namespace noctalia::system::cpu_temp {
       return -1;
     }
 
-    [[nodiscard]] std::optional<Reading> chooseThermalZoneSensor(const std::filesystem::path& thermalRoot) {
+    std::optional<Reading> chooseThermalZoneSensor(const std::filesystem::path& thermalRoot) {
       struct ThermalSensor {
         std::string type;
         std::filesystem::path inputPath;
@@ -315,7 +313,7 @@ namespace noctalia::system::cpu_temp {
       return Reading{.tempC = best->tempC, .source = formatThermalSource(best->type, best->inputPath)};
     }
 
-    [[nodiscard]] ProbeResult readConfiguredSensor(const std::filesystem::path& configuredPath) {
+    ProbeResult readConfiguredSensor(const std::filesystem::path& configuredPath) {
       namespace fs = std::filesystem;
 
       const std::string fileName = configuredPath.filename().string();

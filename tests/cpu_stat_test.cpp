@@ -3,6 +3,7 @@
 // live /proc.
 
 #include "system/cpu_stat.h"
+#include "tests/test_check.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -24,21 +25,6 @@ namespace {
   bool expect(bool condition, const std::string& message) {
     if (!condition) {
       std::println(stderr, "cpu_stat_test: FAIL: {}", message);
-      ++g_failures;
-      return false;
-    }
-    return true;
-  }
-
-  bool expectNear(std::optional<double> actual, double expected, const std::string& message) {
-    if (!actual.has_value()) {
-      std::println(stderr, "cpu_stat_test: FAIL: {}: no value", message);
-      ++g_failures;
-      return false;
-    }
-    const double diff = *actual > expected ? *actual - expected : expected - *actual;
-    if (diff > 0.001) {
-      std::println(stderr, "cpu_stat_test: FAIL: {}: expected {:f}, got {:f}", message, expected, *actual);
       ++g_failures;
       return false;
     }
@@ -89,16 +75,14 @@ namespace {
 
   void testUsageBetween() {
     // 100 jiffies elapsed, 25 of them idle -> 75% busy.
-    expectNear(
-        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 825}), 75.0, "75% busy"
+    TEST_NEAR(
+        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 825}), 75.0, 0.001
     );
-    expectNear(
-        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 900}), 0.0,
-        "fully idle"
+    TEST_NEAR(
+        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 900}), 0.0, 0.001
     );
-    expectNear(
-        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 800}), 100.0,
-        "fully busy"
+    TEST_NEAR(
+        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 800}), 100.0, 0.001
     );
 
     // An empty window has no answer; reporting 0% would render as "idle", which is a lie.
@@ -113,9 +97,8 @@ namespace {
         !cpu_stat::usageBetween(Totals{.total = 2000, .idle = 900}, Totals{.total = 1000, .idle = 400}).has_value(),
         "total going backwards should yield nullopt"
     );
-    expectNear(
-        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 900}, Totals{.total = 1100, .idle = 500}), 100.0,
-        "idle going backwards should clamp to 100, not wrap"
+    TEST_NEAR(
+        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 900}, Totals{.total = 1100, .idle = 500}), 100.0, 0.001
     );
   }
 
@@ -190,8 +173,8 @@ namespace {
   void testPerCoreDeltas() {
     const std::vector<Totals> prev = {{.total = 100, .idle = 100}, {.total = 100, .idle = 100}};
     const std::vector<Totals> next = {{.total = 200, .idle = 100}, {.total = 200, .idle = 200}};
-    expectNear(cpu_stat::usageBetween(prev[0], next[0]), 100.0, "core 0 fully busy");
-    expectNear(cpu_stat::usageBetween(prev[1], next[1]), 0.0, "core 1 fully idle");
+    TEST_NEAR(cpu_stat::usageBetween(prev[0], next[0]), 100.0, 0.001);
+    TEST_NEAR(cpu_stat::usageBetween(prev[1], next[1]), 0.0, 0.001);
   }
 
 } // namespace

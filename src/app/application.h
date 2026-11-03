@@ -9,7 +9,9 @@
 #include "calendar/calendar_service.h"
 #include "capture/screenshot_service.h"
 #include "compositors/compositor_platform.h"
+#include "compositors/keyboard_layout_poll_source.h"
 #include "compositors/workspace_alert_service.h"
+#include "compositors/workspace_poll_source.h"
 #include "config/config_poll_source.h"
 #include "config/config_service.h"
 #include "core/files/file_watcher.h"
@@ -67,6 +69,9 @@
 #include "shell/tray/tray_menu.h"
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 #include "shell/wallpaper/wallpaper.h"
+#include "shell/wayland/clipboard_poll_source.h"
+#include "shell/wayland/clipboard_service.h"
+#include "shell/wayland/virtual_keyboard_service.h"
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
 #include "system/desktop_entry_poll_source.h"
@@ -90,14 +95,10 @@
 #include "ui/dialogs/file_dialog_popup.h"
 #include "ui/dialogs/glyph_picker_dialog_popup.h"
 #include "ui/dialogs/layer_popup_host.h"
-#include "wayland/clipboard_poll_source.h"
-#include "wayland/clipboard_service.h"
+#include "ui/dialogs/search_picker_popup.h"
 #include "wayland/key_repeat_poll_source.h"
-#include "wayland/keyboard_layout_poll_source.h"
 #include "wayland/text_input_service.h"
-#include "wayland/virtual_keyboard_service.h"
 #include "wayland/wayland_connection.h"
-#include "wayland/workspace_poll_source.h"
 
 #include <atomic>
 #include <cstdint>
@@ -160,7 +161,7 @@ public:
   Application();
   ~Application();
 
-  void run(std::function<void()> startupReadyCallback = {});
+  void run(const std::function<void()>& startupReadyCallback = {});
 
   // Public for signal handler
   static std::atomic<bool> s_shutdownRequested;
@@ -169,7 +170,7 @@ public:
   void triggerShellAction(const std::string& action, wl_output* output = nullptr);
   // Highest layer-shell layer occupied by any bar on the given output. Hot
   // corners place their trigger surfaces on this layer.
-  [[nodiscard]] LayerShellLayer hotCornerLayerForOutput(wl_output* output) const noexcept;
+  LayerShellLayer hotCornerLayerForOutput(wl_output* output) const noexcept;
 
 private:
   void initServices();
@@ -223,7 +224,7 @@ private:
   void retrySecretServiceConsumers(bool defaultCollectionUnlocked = false);
   void scheduleNotificationShellRefresh();
   void syncPolkitAgent();
-  [[nodiscard]] bool likelySupportsInSessionPolkit() const noexcept;
+  bool likelySupportsInSessionPolkit() const noexcept;
   void syncClipboardService();
   void syncStorageKeyProvider();
   void syncScreenTimeService();
@@ -235,7 +236,7 @@ private:
   void onIconThemeChanged();
   // Finest time boundary the currently visible shell UI needs. Drives the time
   // poll source so it can park between boundaries instead of waking every second.
-  [[nodiscard]] TimeService::Precision timePrecisionNeeded() const;
+  TimeService::Precision timePrecisionNeeded() const;
   void onGraphicsReset(RenderGraphicsResetStatus status);
   void recoverGraphicsAfterReset();
   void requestAllSurfacesRedraw();
@@ -244,8 +245,8 @@ private:
   void onNetworkStateChangedForEvents(const NetworkState& state, NetworkChangeOrigin origin);
   void onBluetoothStateChangedForEvents(const BluetoothState& state, BluetoothStateChangeOrigin origin);
   void onPowerProfileChangedForEvents(const PowerProfilesState& state, PowerProfilesChangeOrigin origin);
-  [[nodiscard]] std::vector<PollSource*> currentPollSources();
-  [[nodiscard]] std::vector<PollSource*> buildPollSources();
+  std::vector<PollSource*> currentPollSources();
+  std::vector<PollSource*> buildPollSources();
 
   WaylandConnection m_wayland;
   WorkspaceAlertService m_workspaceAlertService;
@@ -318,6 +319,7 @@ private:
   BatteryHookState m_batteryHookState;
   BatteryWarningMonitor m_batteryWarningMonitor;
   std::optional<bool> m_prevBatteryPluggedForEvents;
+  std::string m_prevBatteryPeripheralPathForEvents;
   std::optional<bool> m_prevWirelessEnabledForEvents;
   std::optional<bool> m_prevBluetoothPoweredForEvents;
   std::optional<std::string> m_prevPowerProfileActiveForEvents;
@@ -394,6 +396,7 @@ private:
   ColorPickerDialogPopup m_colorPickerDialogPopup;
   GlyphPickerDialogPopup m_glyphPickerDialogPopup;
   FileDialogPopup m_fileDialogPopup;
+  SearchPickerPopup m_searchPickerDialogPopup;
 
   // Poll sources (must outlive MainLoop)
   std::unique_ptr<SessionBusPollSource> m_busPollSource;

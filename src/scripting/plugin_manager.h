@@ -7,12 +7,14 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 class ConfigService;
@@ -27,7 +29,7 @@ namespace scripting {
   // widget types against the same active set.
   void applyPluginSourcesToRegistry(PluginRegistry& registry, const PluginsConfig& plugins);
 
-  struct EnableResult {
+  struct [[nodiscard]] EnableResult {
     bool ok = false;
     std::string error;
   };
@@ -67,10 +69,10 @@ namespace scripting {
   public:
     explicit PluginManager(ConfigService& config) : m_config(config) {}
 
-    // Called after an out-of-band registry change that isn't a config reload — i.e. a
-    // git `update()` that advanced a source. Lets Application rebuild the bar and
-    // reconcile services for the new revision. Enable/disable already propagate via the
-    // config-reload path, so they don't use this.
+    // Called after an out-of-band registry change: a git `update()`, or a manifest edit
+    // found during a config reload where the plugins config hasn't changed. Lets
+    // Application rebuild the bar and reconcile services. Enable/disable already
+    // propagate via the config-reload path, so they don't use this.
     void setOnChanged(std::function<void()> onChanged) { m_onChanged = std::move(onChanged); }
 
     // Called when a plugin starts or finishes its background git export (the in-flight
@@ -88,7 +90,8 @@ namespace scripting {
     void setOnEnabled(std::function<void(std::string_view pluginId)> cb) { m_onEnabled = std::move(cb); }
 
     // Resolve source roots + enabled filter from config and (re)scan the registry.
-    // No-op when the plugins config is unchanged since the last applied refresh.
+    // Reconcile local manifest edits even when config is unchanged. Unchanged
+    // config and manifests leave the registry and running entries alone.
     void refresh();
 
     // Enable a plugin by id ("author/plugin"). For a git source the runtime export
@@ -98,15 +101,15 @@ namespace scripting {
     // dev plugins are validated and persisted inline (no network). The synchronous
     // result reports only the inline-validation outcome; a git export reports ok and
     // surfaces later failures via the log.
-    [[nodiscard]] EnableResult enable(std::string_view pluginId);
+    EnableResult enable(std::string_view pluginId);
 
     // Whether a git-source plugin's background export is currently in flight.
-    [[nodiscard]] bool isEnabling(std::string_view pluginId) const;
+    bool isEnabling(std::string_view pluginId) const;
 
     // Whether the plugin's files are present on disk under one of the enabled sources
     // (a git source's export root or a path source's tree). Filesystem-only, no network,
     // so UI can query it per frame; false while a git export is still in flight.
-    [[nodiscard]] bool isMaterialized(std::string_view pluginId) const;
+    bool isMaterialized(std::string_view pluginId) const;
 
     // Disable a plugin by id and persist. Code stays on disk; settings are retained.
     void disable(std::string_view pluginId);
@@ -118,8 +121,8 @@ namespace scripting {
     // its compatibility and active state. For the management CLI / settings browser.
     // `access` gates git catalog reads: Network (clone / lazy-fetch, worker threads
     // only) or LocalOnly (safe on the main thread, e.g. the IPC handler).
-    [[nodiscard]] std::vector<PluginStatus> list(CatalogAccess access) const;
-    [[nodiscard]] std::vector<PluginStatus> list(const PluginsConfig& plugins, CatalogAccess access) const;
+    std::vector<PluginStatus> list(CatalogAccess access) const;
+    std::vector<PluginStatus> list(const PluginsConfig& plugins, CatalogAccess access) const;
 
     // Throttled `git fetch` of the enabled git sources in `plugins`, so the settings
     // browser / store show newly published plugins on open without waiting for the
@@ -147,7 +150,7 @@ namespace scripting {
     // previous copy without blocking the source revision or unrelated exports; later
     // updates reconcile copies that do not match the catalog. Re-scans on the main
     // thread. No-op for path / unknown sources.
-    void update(std::string sourceName);
+    void update(const std::string& sourceName);
 
     // Remove a source: delete its git repo cache and exported runtime files, disable
     // its plugins, drop it from config. Path sources keep their externally-owned
@@ -155,13 +158,13 @@ namespace scripting {
     void removeSource(std::string sourceName);
 
   private:
-    [[nodiscard]] std::optional<PluginSourceConfig> findSource(std::string_view name) const;
+    std::optional<PluginSourceConfig> findSource(std::string_view name) const;
     // The work behind update(name), on the exact configured source. Callers that
     // already hold the matched PluginSourceConfig must use this directly rather
     // than resolving by name again.
     void updateSource(const PluginSourceConfig& source);
     // Plugin ids offered by the implicit local dev source.
-    [[nodiscard]] std::unordered_set<std::string> localPluginIds() const;
+    std::unordered_set<std::string> localPluginIds() const;
     // Re-derive any enabled git-source plugin missing from disk, per source on a worker
     // thread (catalog reads and exports lazy-fetch blobs from the blobless clone, so
     // even a present repo can hit the network); startup never blocks on it.
@@ -187,6 +190,9 @@ namespace scripting {
     // only on the main thread (enable() inserts, the DeferredCall completion erases).
     std::unordered_set<std::string> m_enabling;
     PluginsConfig m_lastApplied;
+    // Applied runtime snapshot; only updated on the main thread, including
+    // deferred completions of const source-materialization operations.
+    mutable std::map<std::string, std::pair<std::filesystem::path, std::string>> m_lastManifests;
     bool m_applied = false;
 
     // Wall-clock of the last browse fetch per git source name; throttles store-open

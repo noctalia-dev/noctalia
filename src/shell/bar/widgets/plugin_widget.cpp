@@ -178,7 +178,7 @@ void PluginWidget::create() {
     if (m_runtime)
       (void)m_runtime->enqueueCallBool("onHover", true, makeScriptSnapshot());
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     if (m_runtime)
       (void)m_runtime->enqueueCallBool("onHover", false, makeScriptSnapshot());
   });
@@ -307,7 +307,7 @@ void PluginWidget::create() {
     if (result.modulePathsKnown) {
       m_scriptWatcher.setModulePaths(result.modulePaths);
     }
-    handleScriptResult(std::move(result));
+    handleScriptResult(result);
   });
 
   m_runtime->start(m_sourcePath.string(), std::move(source), makeScriptSnapshot());
@@ -321,7 +321,7 @@ void PluginWidget::setupAudioSpectrum() {
     return;
   }
   m_audioSpectrumListenerId =
-      m_audioSpectrum->addChangeListener(m_audioSpectrumBands, [this]() { handleAudioSpectrumChanged(); });
+      m_audioSpectrum->addChangeListener(m_audioSpectrumBands, [this] { handleAudioSpectrumChanged(); });
 }
 
 void PluginWidget::teardownAudioSpectrum() {
@@ -362,7 +362,7 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     m_reconciler.setFontScale(fontScaleMultiplier());
     m_reconciler.setTextDefaults(labelFontFamily(), labelFontWeight());
     m_reconciler.setColorDefaults(widgetForegroundOr(fallback), widgetIconColorOr(fallback));
-    (void)m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
+    m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
     m_uiHost->layout(renderer);
     if (m_area)
       m_area->setSize(m_uiHost->width(), m_uiHost->height());
@@ -583,7 +583,7 @@ PluginWidget::ScriptColorMode PluginWidget::scriptColorModeFromToken(std::string
 }
 
 std::optional<ColorSpec> PluginWidget::scriptColorFromToken(std::string_view token) noexcept {
-  if (auto role = colorRoleFromToken(token); role.has_value()) {
+  if (auto role = colorRoleFromPluginToken(token); role.has_value()) {
     return colorSpecFromRole(*role);
   }
   Color fixed;
@@ -671,7 +671,7 @@ void PluginWidget::runScriptUpdate() {
   }
 }
 
-void PluginWidget::handleScriptResult(scripting::ScriptResult result) {
+void PluginWidget::handleScriptResult(const scripting::ScriptResult& result) {
   if (result.hasOnIpcKnown) {
     m_hasOnIpc = result.hasOnIpc;
     m_hasOnIpcKnown = true;
@@ -821,7 +821,7 @@ void PluginWidget::syncImage(Renderer& renderer) {
       m_imageReloadRetries = 0;
     }
   } else {
-    (void)m_image->setSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true);
+    m_image->setSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true);
   }
 
   m_image->setVisible(m_image->hasImage());

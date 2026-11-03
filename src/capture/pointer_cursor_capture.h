@@ -17,6 +17,7 @@ namespace capture {
   };
 } // namespace capture
 
+class ImageCaptureGlobals;
 struct PointerCursorCapturePending;
 
 class PointerCursorCapture {
@@ -26,8 +27,8 @@ public:
   explicit PointerCursorCapture(WaylandConnection& wayland);
   ~PointerCursorCapture();
 
-  [[nodiscard]] bool available() const noexcept;
-  [[nodiscard]] bool busy() const noexcept { return m_pending != nullptr; }
+  bool available() const noexcept;
+  bool busy() const noexcept { return m_pending != nullptr; }
   void capture(wl_output* output, CompletionCallback onComplete);
   void cancelInFlight();
 
@@ -37,6 +38,7 @@ private:
   void finish(capture::CapturedCursor cursor);
 
   WaylandConnection& m_wayland;
+  ImageCaptureGlobals& m_imageCapture;
   std::unique_ptr<PointerCursorCapturePending> m_pending;
   CompletionCallback m_onComplete;
   Timer m_timeout;

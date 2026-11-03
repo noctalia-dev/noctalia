@@ -26,6 +26,8 @@ Most `noctalia.*` functions are synchronous. Methods that start subprocesses, HT
 
 `getConfig(key)` reads the calling plugin entry's declared settings. `getSetting(path)` instead reads the shell's effective configuration. For example, `noctalia.getSetting("shell.offline_mode")` returns a boolean, `noctalia.getSetting("bar.order[0]")` returns the first configured bar name, and `noctalia.getSetting("widget.clock")` returns the whole table when it exists.
 
+When a value an entry read through `getSetting` changes, the entry's `onConfigChanged()` runs, or its script reloads when it defines none. Changes to config the entry never read are ignored. See [Reacting to shell setting changes](/noctalia/plugins/development/entries/#reacting-to-shell-setting-changes).
+
 ## Outputs, wallpaper, and panels
 
 | Method                                                          | Returns         | Description                                                                                                                                            |
@@ -139,7 +141,7 @@ The view is read-only: an entry observes the shell's calendar but cannot add, ed
 | `noctalia.diskMounts()`    | array          | Physical block-device-backed filesystems available to `diskStats()`. Requires <PluginApiBadge feature="extended-system-stats" />.                                    |
 | `noctalia.diskStats(path)` | table or `nil` | Latest disk usage snapshot for an absolute or `~/` path. `nil` when the monitor or path is unavailable. Requires <PluginApiBadge feature="extended-system-stats" />. |
 
-`systemStats()` returns a copy of the host's most recent sample. Its first call opts the plugin into the optional CPU temperature and GPU probes represented in the snapshot; those probes are released when the plugin unloads.
+`systemStats()` returns a copy of the host's most recent sample. Its first call opts the plugin into CPU temperature sampling until the entry unloads. It does not enable GPU probes: reading CPU, RAM or network statistics must not keep a discrete GPU awake. The `gpu` fields still contain the last available sample, which may be absent or stale unless a consumer requests GPU monitoring.
 
 ```lua
 local stats = noctalia.systemStats()
@@ -165,6 +167,26 @@ end
 Absent sensors are `nil` rather than `0`, so a plugin can tell "no probe" from "idle". Test with `if stats.gpu.tempC ~= nil then` before using an optional field. A newly enabled probe may remain `nil` until its first configured poll.
 
 Values refresh on the poll intervals configured in [`[system.monitor]`](/noctalia/services/system-monitor/), CPU every 2 seconds by default, not on every call. Calling `systemStats()` more often than that returns the same sample again.
+
+### GPU monitoring
+
+`noctalia.setGpuMonitoring(enabled)` requests GPU temperature, usage and VRAM sampling for the current plugin entry. Requires <PluginApiBadge feature="gpu-monitoring" />. Pass a boolean: `true` acquires a request, `false` releases it. Repeated calls with the same value do not accumulate requests. It returns `true` when the request is accepted and `false` if the monitor service is unavailable; retry when the service becomes available. The global `gpu_poll_seconds = 0` setting still disables all GPU probing.
+
+Acquire only while displaying GPU statistics and release when that display closes or changes to another metric. Unloading or reloading the entry also releases its request. A panel's `onClose` callback should release explicitly because closing a panel keeps its runtime alive:
+
+```lua
+function onOpen()
+  noctalia.setGpuMonitoring(true)
+end
+
+function onClose()
+  noctalia.setGpuMonitoring(false)
+end
+```
+
+Read results from `noctalia.systemStats().gpu` after checking that `systemStats()` is not `nil`. Sampling remains asynchronous and follows the configured GPU poll interval; enabling monitoring does not immediately populate a reading. Releasing one entry's request does not stop other entries or native GPU widgets from sampling.
+
+**Migration:** GPU plugins that previously relied on `systemStats()` to enable sampling must add these calls and declare `plugin_api = 46`. CPU, RAM and network plugins need no changes. Older GPU plugins can still read the snapshot, but it is no longer refreshed on their behalf without an explicit request.
 
 ### Disk usage
 
@@ -246,7 +268,7 @@ Shell operators such as pipes, redirections, variable expansion, and command sub
 | ----------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `noctalia.readFile(path)`           | string, or `nil, err` | Reads a file as bytes.                                                                                                               |
 | `noctalia.readFileAsync(path, cb)`  | bool                  | Queues a read and calls `cb(contents, nil)` or `cb(nil, err)`. Returns `false` if the bounded queue is full. Requires plugin API 23. |
-| `noctalia.writeFile(path, content)` | bool, optional error  | Writes a file, replacing existing contents.                                                                                          |
+| `noctalia.writeFile(path, content)` | bool, optional error  | Writes a file, replacing existing contents. New files are created owner-only (`0600`); an existing file keeps its mode.              |
 | `noctalia.mkdirAll(path)`           | bool, optional error  | Creates a directory and any missing parents (an existing directory is success).                                                      |
 | `noctalia.removeFile(path)`         | bool, optional error  | Deletes a file. Refuses directories.                                                                                                 |
 | `noctalia.renameFile(from, to)`     | bool, optional error  | Renames or moves a file.                                                                                                             |
@@ -254,7 +276,7 @@ Shell operators such as pipes, redirections, variable expansion, and command sub
 | `noctalia.fileInfo(path)`           | table, or `nil, err`  | `{ size, mtime, isDir }`, size in bytes, mtime in unix seconds.                                                                      |
 | `noctalia.listDir(path)`            | array, or `nil, err`  | Lists filenames in a directory.                                                                                                      |
 | `noctalia.pluginDir()`              | string or `nil`       | Returns this plugin's runtime directory.                                                                                             |
-| `noctalia.pluginDataDir()`          | string, or `nil, err` | Returns this plugin's persistent data directory, creating it on demand.                                                              |
+| `noctalia.pluginDataDir()`          | string, or `nil, err` | Returns this plugin's persistent data directory, creating it on demand and restricting it to the owner (`0700`).                     |
 | `noctalia.loadFont(path)`           | string, or `nil, err` | Registers a font file and returns its family name.                                                                                   |
 
 Filesystem paths resolve as follows: `~` expands to `$HOME`, absolute paths are used as-is, and relative paths resolve against the plugin's own directory. Plugins are trusted code, so these helpers are not sandboxed.
@@ -319,6 +341,28 @@ Watches use the compositor's idle notification (`ext-idle-notify-v1`) and work f
 By default a watch honors idle inhibitors: apps holding a Wayland idle inhibitor, Noctalia's caffeine, and D-Bus `org.freedesktop.ScreenSaver` inhibits (for example browser video). If a D-Bus inhibit starts while the watch reports idle, it reports `false`; when the inhibit lifts, the timeout restarts. Pass `{ ignoreInhibitors = true }` to count only real user input (`ext-idle-notify` v2). On compositors with only v1 this falls back to honoring inhibitors and logs a warning once.
 
 Watching never changes the `[idle]` behaviors (lock, screen off, suspend).
+
+## Umbriel
+
+| Method                                                                                    | Returns | Description                                                                                                                   |
+| ----------------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `noctalia.umbriel.action(request: table, callback: ((ok: boolean, err: string?) -> ())?)` | boolean | Sends one action to the running Umbriel compositor over its IPC socket. Requires <PluginApiBadge feature="umbriel-action" />. |
+
+`request` is the typed action request from Umbriel's [IPC reference](/umbriel/ipc/) without `cmd`: an `action` name plus one field per argument. Noctalia adds `cmd = "action"`; a table that sets `cmd` itself, or has no non-empty `action` string, is a Lua error. Umbriel validates the fields and rejects unknown, missing, or mistyped ones.
+
+The call returns `false` without sending anything when no Umbriel socket is found: `UMBRIEL_SOCKET` is unset and `$XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock` does not exist. Otherwise it returns `true` and sends the request off the script thread. `callback(true, nil)` follows when Umbriel accepts the action, and `callback(false, err)` when it rejects it, the socket cannot be reached, or no reply arrives within two seconds. Without a callback the action is fire-and-forget. At most 16 callbacks may be pending in one runtime.
+
+Prefer it over `runAsync({ "umbriel", "msg", ... })`: it starts no process, does not need `umbriel` on `PATH`, and passes arguments as typed values instead of words.
+
+```lua
+noctalia.umbriel.action({ action = "workspace-set-layout", layout = "dwindle" }, function(ok, err)
+  if not ok then
+    noctalia.notifyError("Layout change failed", err)
+  end
+end)
+
+noctalia.umbriel.action({ action = "workspace-switch", workspace = "WEB", output = "DP-1" })
+```
 
 ## Layers
 
