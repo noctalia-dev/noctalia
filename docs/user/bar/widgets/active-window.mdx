@@ -5,10 +5,11 @@ sidebar:
   order: 1
 ---
 
-Shows the active window icon and title for the current output. The window icon uses global `[shell.app_icon_colorize]` when enabled (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+Shows the active window icon and title for the current output. Set `colorize_icons = true` to tint its icon with `[shell].app_icon_color` (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
 
 | Setting            | Type   | Default           | Description                                                                                                                                     |
 | ------------------ | ------ | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `colorize_icons`   | bool   | `false`           | Tint the application icon with the shared shell.app_icon_color.                                                                                 |
 | `min_length`       | number | `80`              | Minimum widget length in pixels                                                                                                                 |
 | `max_length`       | number | `260`             | Maximum widget length in pixels                                                                                                                 |
 | `icon_size`        | number | `16`              | Icon size in pixels                                                                                                                             |
@@ -18,6 +19,7 @@ Shows the active window icon and title for the current output. The window icon u
 
 ```toml
 [widget.active_window]
+colorize_icons = false
 min_length = 80
 max_length = 260
 icon_size = 16

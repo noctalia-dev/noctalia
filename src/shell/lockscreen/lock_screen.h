@@ -3,7 +3,7 @@
 #include "auth/pam_authenticator.h"
 #include "capture/screencopy_capture.h"
 #include "core/timer_manager.h"
-#include "render/core/lockscreen_transition_types.h"
+#include "shell/render/lockscreen_transition_types.h"
 
 #include <cstdint>
 #include <functional>

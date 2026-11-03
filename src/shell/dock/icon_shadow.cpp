@@ -1,6 +1,6 @@
 #include "shell/dock/icon_shadow.h"
 
-#include "shell/surface/shadow.h"
+#include "ui/surface_shadow.h"
 
 #include <algorithm>
 #include <cmath>
@@ -17,9 +17,9 @@ namespace shell::dock {
       return {};
     }
     const int size = iconSize * density;
-    const int pad = shell::surface_shadow::kMaskPadding * density;
+    const int pad = surface_shadow::kMaskPadding * density;
     const int width = size + pad * 2;
-    const float sigma = shell::surface_shadow::kMaskSigma * static_cast<float>(density);
+    const float sigma = surface_shadow::kMaskSigma * static_cast<float>(density);
     const auto sourceWidth = static_cast<float>(source.width);
     const auto sourceHeight = static_cast<float>(source.height);
     const float scale = static_cast<float>(size) / std::max(sourceWidth, sourceHeight);

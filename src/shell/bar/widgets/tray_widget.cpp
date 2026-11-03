@@ -10,11 +10,11 @@
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "render/text/glyph_registry.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
 #include "shell/tray/tray_theme_path_index.h"
 #include "system/desktop_entry.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -166,11 +166,13 @@ namespace {
 TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options)
     : m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
       m_pinnedItems(std::move(options.pinnedItems)), m_hidePassive(options.hidePassive),
-      m_drawerMode(options.drawerMode), m_itemActivated(std::move(options.itemActivated)),
-      m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
+      m_colorizeIcons(options.colorizeIcons), m_drawerMode(options.drawerMode),
+      m_itemActivated(std::move(options.itemActivated)), m_barPosition(std::move(options.barPosition)),
+      m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
-      m_customItemSize(options.customItemSize), m_forceAppIcons(options.forceAppIcons) {
+      m_customItemSize(options.customItemSize), m_iconOverrideBlacklist(std::move(options.iconOverrideBlacklist)),
+      m_iconType(options.iconType) {
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
     normalized.reserve(tokens.size());
@@ -196,22 +198,28 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
 }
 
 std::string TrayWidget::resolveDesktopIconPath(const TrayItemInfo& item) {
-  std::vector<std::string> candidates;
-  tray::appendIdentifierVariants(candidates, item.itemName);
-  tray::appendIdentifierVariants(candidates, item.processName);
-  tray::appendIdentifierVariants(candidates, item.title);
-  tray::appendIdentifierVariants(candidates, item.busName);
-  tray::appendIdentifierVariants(candidates, item.id);
-  tray::appendIdentifierVariants(candidates, item.objectPath);
-  tray::appendIdentifierVariants(candidates, item.iconName);
-
   const float logicalSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
   const int rasterSize = std::max(32, static_cast<int>(std::round(logicalSize * 2.0F)));
 
-  for (const auto& candidate : candidates) {
+  for (const auto& candidate : tray::pinMatchCandidates(item)) {
     if (const auto it = m_appIcons.find(candidate); it != m_appIcons.end()) {
       if (const auto path = m_iconResolver.resolve(it->second, rasterSize); !path.empty()) {
         return path;
+      }
+    }
+  }
+  return {};
+}
+
+std::string TrayWidget::resolveSymbolicIconPath(const TrayItemInfo& item) {
+  const float logicalSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
+  const int rasterSize = std::max(32, static_cast<int>(std::round(logicalSize * 2.0F)));
+
+  for (const auto& candidate : tray::pinMatchCandidates(item)) {
+    if (const auto it = m_appIcons.find(candidate); it != m_appIcons.end()) {
+      if (const auto icon = m_iconResolver.resolveSymbolicPreferred(it->second, rasterSize);
+          icon.symbolic && !icon.path.empty()) {
+        return icon.path;
       }
     }
   }
@@ -227,8 +235,17 @@ float TrayWidget::resolvedInlineEntryGap() const {
   return m_inlineEntryGap + 2.0F * pad;
 }
 
+void TrayWidget::setColorizeIcons(bool enabled) {
+  if (m_colorizeIcons == enabled) {
+    return;
+  }
+  m_colorizeIcons = enabled;
+  m_appIconColorizeDirty = true;
+  requestUpdate();
+}
+
 std::optional<ColorSpec> TrayWidget::currentAppIconColorizeTint() const {
-  return effectiveShellAppIconColorizationTint(m_config.config().shell);
+  return effectiveShellAppIconColorizationTint(m_config.config().shell, m_colorizeIcons);
 }
 
 void TrayWidget::refreshAppIconColorization(Renderer& renderer) {
@@ -450,6 +467,10 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
   }
   m_itemAreas.clear();
+  std::unique_ptr<Node> reusableTrigger;
+  if (m_drawerTrigger != nullptr && m_drawerTrigger->parent() != nullptr) {
+    reusableTrigger = m_drawerTrigger->parent()->removeChild(m_drawerTrigger);
+  }
 
   while (!m_container->children().empty()) {
     m_container->removeChild(m_container->children().back().get());
@@ -542,11 +563,23 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
     if (hasDrawerItems) {
       const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
-      auto triggerArea = ui::inputArea({});
-      auto* triggerPtr = triggerArea.get();
+      // Keep the trigger's InputArea across rebuilds so hover and press capture survive icon updates.
+      std::unique_ptr<Node> triggerArea;
+      InputArea* triggerPtr = nullptr;
+      if (reusableTrigger != nullptr) {
+        triggerArea = std::move(reusableTrigger);
+        triggerPtr = static_cast<InputArea*>(triggerArea.get());
+        while (!triggerPtr->children().empty()) {
+          triggerPtr->removeChild(triggerPtr->children().back().get());
+        }
+      } else {
+        auto fresh = ui::inputArea({});
+        triggerPtr = fresh.get();
+        triggerArea = std::move(fresh);
+      }
       m_drawerTrigger = triggerPtr;
-      triggerArea->setSize(itemSize, itemSize);
-      triggerArea->setOnClick([this, triggerPtr](const InputArea::PointerData& data) {
+      triggerPtr->setSize(itemSize, itemSize);
+      triggerPtr->setOnClick([this, triggerPtr](const InputArea::PointerData& data) {
         if (data.button == BTN_LEFT) {
           float ax = 0.0F;
           float ay = 0.0F;
@@ -565,7 +598,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
           } else if (m_barPosition == "right") {
             anchorX -= triggerPtr->width() * 0.5F + Style::spaceXs * m_contentScale;
           }
-          requestPanelToggle("tray-drawer", {}, anchorX, anchorY);
+          requestPanelToggle("tray-drawer", configName(), anchorX, anchorY);
         }
       });
       const bool panelOpen = PanelManager::instance().isOpenPanel("tray-drawer");
@@ -581,7 +614,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       );
       m_drawerChevron = glyph.get();
       triggerArea->addChild(std::move(glyph));
-      attachHover(*triggerArea, itemSize);
+      attachHover(*triggerPtr, itemSize);
       m_container->addChild(std::move(triggerArea));
     }
   }
@@ -858,40 +891,27 @@ bool TrayWidget::isHiddenItem(const TrayItemInfo& item) const {
   if (m_hiddenItems.empty()) {
     return false;
   }
-
-  std::vector<std::string> candidates;
-  auto appendVariants = [&candidates](std::string_view text) {
-    for (const auto& variant : identifierVariants(text)) {
-      if (!std::ranges::contains(candidates, variant)) {
-        candidates.push_back(variant);
-      }
-    }
-  };
-
-  appendVariants(item.id);
-  appendVariants(item.busName);
-  appendVariants(item.objectPath);
-  appendVariants(item.itemName);
-  appendVariants(item.processName);
-  appendVariants(item.title);
-  appendVariants(item.iconName);
-  appendVariants(item.attentionIconName);
-
-  for (const auto& needle : m_hiddenItems) {
-    if (std::ranges::contains(candidates, needle)) {
-      return true;
-    }
-  }
-
-  return false;
+  return std::ranges::any_of(m_hiddenItems, [&](const auto& needle) {
+    return tray::hiddenTokenMatchesItem(needle, item);
+  });
 }
 
 bool TrayWidget::isPinnedItem(const TrayItemInfo& item) const {
   if (m_pinnedItems.empty()) {
     return false;
   }
+  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) {
+    return tray::pinnedTokenMatchesItem(needle, item);
+  });
+}
 
-  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) { return tray::tokenMatchesItem(needle, item); });
+bool TrayWidget::isIconOverrideBlacklisted(const TrayItemInfo& item) const {
+  if (m_iconOverrideBlacklist.empty()) {
+    return false;
+  }
+  return std::ranges::any_of(m_iconOverrideBlacklist, [&](const auto& needle) {
+    return tray::hiddenTokenMatchesItem(needle, item);
+  });
 }
 
 void TrayWidget::buildDesktopIconIndex() {
@@ -915,9 +935,16 @@ void TrayWidget::buildDesktopIconIndex() {
 }
 
 std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
-  if (m_forceAppIcons) {
-    if (const auto desktopIcon = resolveDesktopIconPath(item); !desktopIcon.empty()) {
-      return desktopIcon;
+  if (!isIconOverrideBlacklisted(item)) {
+    if (m_iconType == TrayIconType::Desktop) {
+      if (const auto desktopIcon = resolveDesktopIconPath(item); !desktopIcon.empty()) {
+        return desktopIcon;
+      }
+    }
+    if (m_iconType == TrayIconType::Symbolic) {
+      if (const auto symbolicIcon = resolveSymbolicIconPath(item); !symbolicIcon.empty()) {
+        return symbolicIcon;
+      }
     }
   }
 

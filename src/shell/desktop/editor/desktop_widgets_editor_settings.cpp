@@ -11,6 +11,7 @@
 #include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/widget_settings_registry.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/controls/input.h"
 #include "ui/controls/list_editor.h"
@@ -19,7 +20,6 @@
 #include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
 
 #include <algorithm>
 #include <cmath>

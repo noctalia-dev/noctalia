@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/poll_source.h"
+#include "core/poll_source.h"
 #include "dbus/system_bus.h"
 
 class SystemBusPollSource final : public PollSource {

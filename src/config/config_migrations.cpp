@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <format>
+#include <initializer_list>
 #include <limits>
 #include <set>
 #include <string>
@@ -33,6 +34,7 @@ namespace noctalia::config {
     constexpr int kPaletteRoleNamesMigrationVersion = 16;
     constexpr int kSettingsCustomScheduleMigrationVersion = 17;
     constexpr int kWorkspacesMonitorsMigrationVersion = 18;
+    constexpr int kAppIconColorizationMigrationVersion = 19;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -626,6 +628,87 @@ namespace noctalia::config {
       });
     }
 
+    template <typename OnChanged>
+    void migrateAppIconColorization(toml::table& root, const toml::table& base, OnChanged&& onChanged) {
+      auto* shell = root["shell"].as_table();
+      if (shell == nullptr) {
+        return;
+      }
+      const auto enabled = (*shell)["app_icon_colorize"].value<bool>();
+      if (!enabled.has_value()) {
+        return;
+      }
+
+      const auto seed = [&](std::initializer_list<std::string_view> path, std::string_view key = "colorize_icons") {
+        const toml::table* baseTarget = &base;
+        for (const auto part : path) {
+          if (baseTarget != nullptr) {
+            baseTarget = (*baseTarget)[part].as_table();
+          }
+        }
+        if (baseTarget != nullptr && baseTarget->contains(key)) {
+          return;
+        }
+        toml::table* target = &root;
+        for (const auto part : path) {
+          if (!target->contains(part)) {
+            target->insert(part, toml::table{});
+          }
+          target = (*target)[part].as_table();
+          if (target == nullptr) {
+            return;
+          }
+        }
+        target->insert(key, *enabled);
+      };
+      seed({"dock"});
+      seed({"shell", "launcher"});
+      seed({"shell", "window_switcher"});
+      seed({"notification"});
+      seed({"audio"});
+      seed({"shell"}, "screen_time_colorize_icons");
+      seed({"shell"}, "polkit_colorize_icons");
+
+      constexpr std::array<std::string_view, 4> widgetTypes{"workspaces", "taskbar", "tray", "active_window"};
+      std::set<std::string> names;
+      for (const auto type : widgetTypes) {
+        names.emplace(type);
+      }
+      for (const toml::table* source : std::array<const toml::table*, 2>{&base, &root}) {
+        if (const auto* widgets = (*source)["widget"].as_table()) {
+          for (const auto& [name, node] : *widgets) {
+            names.emplace(name.str());
+          }
+        }
+      }
+      for (const auto& name : names) {
+        const auto widget = root["widget"][name];
+        const auto baseWidget = base["widget"][name];
+        std::string type = name;
+        if (const auto baseType = baseWidget["type"].value<std::string>()) {
+          type = *baseType;
+        }
+        if (widget["type"]) {
+          const auto configuredType = widget["type"].value<std::string>();
+          if (!configuredType.has_value()) {
+            continue;
+          }
+          type = *configuredType;
+        }
+        if (std::ranges::contains(widgetTypes, type)) {
+          seed({"widget", name});
+        }
+      }
+      shell->erase("app_icon_colorize");
+      onChanged("shell.app_icon_colorize");
+    }
+
+    void migrateAppIconColorizationSidecar(toml::table& root, const toml::table& base, schema::Diagnostics& diag) {
+      migrateAppIconColorization(root, base, [&diag](const std::string& path) {
+        diag.warn(path, "migrated global app icon colorization to component colorize_icons settings");
+      });
+    }
+
     template <typename OnChanged> void migrateKeyboardLayoutCustomLabels(toml::table& root, OnChanged&& onChanged) {
       auto* widgets = root["widget"].as_table();
       if (widgets == nullptr) {
@@ -1039,6 +1122,11 @@ namespace noctalia::config {
             .summary = "widget: replace workspaces show_all_outputs with monitors",
             .apply = migrateWorkspacesMonitorsSidecar,
         },
+        {
+            .toVersion = kAppIconColorizationMigrationVersion,
+            .summary = "icons: split global app icon colorization into component settings",
+            .apply = migrateAppIconColorizationSidecar,
+        },
     };
     return migrations;
   }
@@ -1221,6 +1309,13 @@ namespace noctalia::config {
           .migrationVersion = kWorkspacesMonitorsMigrationVersion,
           .path = path,
           .message = "workspaces show_all_outputs is now monitors; true becomes monitors = [\"*\"]",
+      });
+    });
+    migrateAppIconColorization(root, {}, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kAppIconColorizationMigrationVersion,
+          .path = path,
+          .message = "app_icon_colorize is now colorize_icons in each component's settings",
       });
     });
   }

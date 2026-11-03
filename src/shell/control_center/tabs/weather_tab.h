@@ -1,8 +1,8 @@
 #pragma once
 
 #include "render/animation/animation_manager.h"
-#include "render/core/render_styles.h"
 #include "shell/control_center/tab.h"
+#include "shell/render/shell_render_styles.h"
 
 #include <array>
 #include <cstdint>

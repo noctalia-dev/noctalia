@@ -1,5 +1,6 @@
 #include "capture/screencopy_capture.h"
 #include "capture/screencopy_util.h"
+#include "shell/wayland/capture_globals.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-screencopy-unstable-v1-test-server-protocol.h"
 
@@ -299,7 +300,8 @@ int main() {
       expect(primary.connect(), "primary Wayland connection should connect");
       expect(primary.compositor() != nullptr, "primary connection should bind wl_compositor");
 
-      WaylandConnection captureConnection(WaylandConnection::Purpose::Screencopy);
+      WaylandConnection captureConnection(WaylandConnection::Purpose::Sibling);
+      const auto& screencopyGlobals = captureConnection.extension<ScreencopyGlobals>();
       std::string setupError;
       const bool captureConnected = captureConnection.connectUntil(
           std::chrono::steady_clock::now() + screencopy::kBlockingCaptureTimeout, &primary, setupError
@@ -308,11 +310,11 @@ int main() {
       if (!captureConnected) {
         std::println(stderr, "screencopy_connection_isolation_test: capture setup error: {}", setupError);
       }
-      expect(captureConnection.compositor() == nullptr, "capture-purpose connection must not bind wl_compositor");
+      expect(captureConnection.compositor() == nullptr, "sibling connection must not bind wl_compositor");
       expect(server.compositorBindCount() == 1, "only the primary connection should bind wl_compositor");
-      expect(captureConnection.shm() != nullptr, "capture-purpose connection should bind wl_shm");
-      expect(captureConnection.hasScreencopy(), "capture-purpose connection should bind zwlr_screencopy_manager_v1");
-      expect(captureConnection.outputs().size() == 1, "capture-purpose connection should bind the advertised output");
+      expect(captureConnection.shm() != nullptr, "sibling connection should bind wl_shm");
+      expect(screencopyGlobals.manager() != nullptr, "sibling connection should bind zwlr_screencopy_manager_v1");
+      expect(captureConnection.outputs().size() == 1, "sibling connection should bind the advertised output");
 
       if (!captureConnection.outputs().empty()) {
         ScreencopyCapture capture(captureConnection);

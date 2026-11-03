@@ -1,8 +1,8 @@
 #pragma once
 
 #include "render/core/cached_layer.h"
-#include "render/wallpaper_renderer.h"
-#include "wayland/layer_surface.h"
+#include "shell/backdrop/wallpaper_renderer.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <cstdint>
 

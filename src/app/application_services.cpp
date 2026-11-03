@@ -55,6 +55,7 @@
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_runtime_context.h"
 #include "scripting/script_runtime.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/greeter/greeter_appearance_sync.h"
@@ -69,12 +70,17 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/wayland/background_effect_globals.h"
+#include "shell/wayland/clipboard_globals.h"
+#include "shell/wayland/compositor_globals.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/output_management_globals.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
 #include "system/easyeffects_service.h"
 #include "system/keyboard_backlight_service.h"
 #include "system/system_monitor_service.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/controls/input.h"
 #include "ui/style.h"
 
@@ -461,7 +467,7 @@ void Application::syncClipboardService() {
   // stays active regardless of config so basic copy/paste keeps working in
   // every text field. The toggle only controls history retention/persistence
   // and the history UI.
-  m_wayland.setClipboardService(&m_clipboardService);
+  m_wayland.extension<ClipboardGlobals>().setClipboardService(&m_clipboardService);
   Input::setTextClipboard(&m_clipboardService);
   m_clipboardService.setHistoryRetentionEnabled(enabled);
   // Taking the selection over when its owner exits belongs to that same live
@@ -792,8 +798,30 @@ void Application::initStyleThemeAndWayland() {
     );
   }
 
+  // Bound during the initial registry roundtrip: layer surfaces, their blur capability, and the clipboard and paste
+  // services attach after connect, and head metadata must reach the outputs before the first surfaces read their
+  // configured scale.
+  m_wayland.extension<LayerShell>();
+  m_wayland.extension<BackgroundEffectGlobals>();
+  m_wayland.extension<ClipboardGlobals>();
+  m_wayland.extension<OutputManagementGlobals>();
   if (!m_wayland.connect()) {
     throw std::runtime_error("failed to connect to Wayland display");
+  }
+  {
+    const auto& compositorGlobals = m_wayland.extension<CompositorGlobals>();
+    const auto& shellGlobals = m_wayland.extension<ShellGlobals>();
+    kLog.info(
+        "shell globals layer-shell={} ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={} "
+        "output-management={}",
+        m_wayland.extension<LayerShell>().manager() != nullptr ? "yes" : "no",
+        compositorGlobals.hasExtWorkspaceManager() ? "yes" : "no",
+        compositorGlobals.hasKdeVirtualDesktopManager() ? "yes" : "no",
+        compositorGlobals.hasDwlIpcManager() ? "yes" : "no",
+        shellGlobals.sessionLockManager() != nullptr ? "yes" : "no",
+        shellGlobals.gammaControlManager() != nullptr ? "yes" : "no",
+        m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no"
+    );
   }
   m_compositorPlatform.initialize();
   m_screenTimeService.initialize(&m_compositorPlatform);
@@ -811,7 +839,7 @@ void Application::initStyleThemeAndWayland() {
   m_sharedTextureCache.initialize(sharedGlPtr);
   m_asyncTextureCache.initialize(sharedGlPtr);
   m_wayland.setTextInputService(&m_textInputService);
-  m_wayland.setVirtualKeyboardService(&m_virtualKeyboardService);
+  m_wayland.extension<ClipboardGlobals>().setVirtualKeyboardService(&m_virtualKeyboardService);
 
   auto bindKeybind = [this](KeybindAction action) {
     return [this, action](std::uint32_t sym, std::uint32_t modifiers) {
@@ -1618,6 +1646,7 @@ void Application::initEarlySessionBusAndTray() {
   m_trayService = std::make_unique<TrayService>(*m_bus);
   m_trayService->setChangeCallback([this] {
     m_bar.refresh();
+    m_panelManager.refreshPanel("tray-drawer");
     m_trayMenu.onTrayChanged();
     m_keyboardLayoutOsd.onTrayChanged(
         *m_trayService, m_configService.config(), m_configService.config().osd.kinds.keyboardLayout

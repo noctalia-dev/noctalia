@@ -4834,10 +4834,6 @@
           "description": "显示所有屏幕上的窗口",
           "label": "包含所有屏幕"
         },
-        "show-all-workspaces": {
-          "description": "显示所有屏幕上的工作区",
-          "label": "包含所有屏幕"
-        },
         "show-caps-lock": {
           "description": "显示大写锁定状态",
           "label": "显示大写锁定"

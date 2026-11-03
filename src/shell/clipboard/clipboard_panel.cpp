@@ -6,6 +6,7 @@
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "core/process/process.h"
+#include "core/time_format.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
@@ -15,12 +16,11 @@
 #include "render/scene/input_area.h"
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_manager.h"
-#include "time/time_format.h"
+#include "shell/wayland/clipboard_service.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
-#include "wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <cctype>

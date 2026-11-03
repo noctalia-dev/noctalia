@@ -250,7 +250,7 @@ private:
   void extractWallpaperFromTable(const toml::table& table);
   void syncWallpaperFavoritesToOverridesTable();
   bool hasConfiguredWallpaper() const;
-  std::string firstRunWallpaperPath() const;
+  std::string fallbackWallpaperPath() const;
 
   Config m_config;
   ConfigChangeSet m_lastChange;

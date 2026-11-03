@@ -4,6 +4,7 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "ext-idle-notify-v1-client-protocol.h"
+#include "shell/wayland/shell_globals.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
@@ -52,9 +53,10 @@ IdleManager::~IdleManager() {
 
 bool IdleManager::initialize(WaylandConnection& wayland, GraceBeginCallback onBegin, GraceEndCallback onEnd) {
   m_wayland = &wayland;
+  m_shellGlobals = &wayland.extension<ShellGlobals>();
   m_onGraceBegin = std::move(onBegin);
   m_onGraceEnd = std::move(onEnd);
-  if (!m_wayland->hasIdleNotifier()) {
+  if (!m_shellGlobals->hasIdleNotifier()) {
     kLog.info("idle notify protocol unavailable");
   }
   return true;
@@ -170,7 +172,7 @@ void IdleManager::reload(const IdleConfig& config) {
     destroyHeartbeat();
     return;
   }
-  if (!m_wayland->hasIdleNotifier()) {
+  if (!m_shellGlobals->hasIdleNotifier()) {
     kLog.info("idle notify protocol unavailable; idle behaviors not registered");
     destroyHeartbeat();
     return;
@@ -197,12 +199,12 @@ std::int64_t IdleManager::liveIdleSeconds() const noexcept {
 
 void IdleManager::syncHeartbeat() {
   destroyHeartbeat();
-  if (m_wayland == nullptr || !m_wayland->hasIdleNotifier() || m_wayland->seat() == nullptr) {
+  if (m_wayland == nullptr || !m_shellGlobals->hasIdleNotifier() || m_wayland->seat() == nullptr) {
     m_heartbeatCompositorIdle = false;
     return;
   }
 
-  m_heartbeatNotification = m_wayland->createIdleNotification(kHeartbeatTimeoutMs);
+  m_heartbeatNotification = m_shellGlobals->createIdleNotification(kHeartbeatTimeoutMs);
   if (m_heartbeatNotification == nullptr) {
     kLog.warn("failed to register idle heartbeat for live status");
     return;
@@ -232,7 +234,7 @@ void IdleManager::clearBehaviors() {
 }
 
 void IdleManager::recreateBehaviorNotification(BehaviorState& behavior) {
-  if (m_wayland == nullptr || !m_wayland->hasIdleNotifier() || m_wayland->seat() == nullptr) {
+  if (m_wayland == nullptr || !m_shellGlobals->hasIdleNotifier() || m_wayland->seat() == nullptr) {
     return;
   }
 
@@ -254,7 +256,7 @@ void IdleManager::recreateBehaviorNotification(BehaviorState& behavior) {
     return;
   }
 
-  behavior.notification = m_wayland->createIdleNotification(timeoutMs);
+  behavior.notification = m_shellGlobals->createIdleNotification(timeoutMs);
   if (behavior.notification == nullptr) {
     kLog.warn("failed to re-register idle behavior '{}'", behavior.config.name);
     return;
@@ -271,7 +273,7 @@ void IdleManager::syncBehaviorNotification(BehaviorState& behavior) {
 }
 
 void IdleManager::recreateBehaviorNotifications() {
-  if (m_wayland == nullptr || !m_wayland->hasIdleNotifier() || m_wayland->seat() == nullptr) {
+  if (m_wayland == nullptr || !m_shellGlobals->hasIdleNotifier() || m_wayland->seat() == nullptr) {
     return;
   }
 

@@ -5,8 +5,8 @@
 
 #include "security/secret_store.h"
 #include "security/storage_key_provider.h"
-#include "wayland/clipboard_poll_source.h"
-#include "wayland/clipboard_service.h"
+#include "shell/wayland/clipboard_poll_source.h"
+#include "shell/wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <cerrno>

@@ -22,12 +22,15 @@ class InputArea;
 class Glyph;
 class Box;
 
+enum class TrayIconType : std::uint8_t { Default, Desktop, Symbolic };
+
 class TrayWidget : public Widget {
 public:
   struct Options {
     std::vector<std::string> hiddenItems;
     std::vector<std::string> pinnedItems;
     bool hidePassive = true;
+    bool colorizeIcons = false;
     bool drawerMode = false;
     std::function<void()> itemActivated;
     std::string barPosition = "top";
@@ -39,7 +42,8 @@ public:
     // Read by TrayDrawerPanel, not by TrayWidget: they live here so the tray widget definition owns their defaults.
     double drawerItemSize = Style::baseGlyphSize;
     bool detachedPanel = false;
-    bool forceAppIcons = false;
+    std::vector<std::string> iconOverrideBlacklist;
+    TrayIconType iconType = TrayIconType::Default;
   };
 
   TrayWidget(ConfigService& config, TrayService* tray, Options options);
@@ -47,6 +51,7 @@ public:
 
   void setHoverOverlayParent(Node* node) noexcept { m_hoverOverlayParent = node; }
   void setCapsuleCross(float cross) noexcept { m_capsuleCross = cross; }
+  void setColorizeIcons(bool enabled);
   void create() override;
   bool wantsBarHoverHighlight() const noexcept override { return false; }
 
@@ -62,11 +67,13 @@ private:
   void buildDesktopIconIndex();
   std::string resolveIconPath(const TrayItemInfo& item);
   std::string resolveDesktopIconPath(const TrayItemInfo& item);
+  std::string resolveSymbolicIconPath(const TrayItemInfo& item);
   void syncState(Renderer& renderer);
   void rebuild(Renderer& renderer);
   std::string iconForItem(const TrayItemInfo& item) const;
   bool isPinnedItem(const TrayItemInfo& item) const;
   bool isHiddenItem(const TrayItemInfo& item) const;
+  bool isIconOverrideBlacklisted(const TrayItemInfo& item) const;
   std::string_view drawerChevronGlyph(bool panelOpen) const;
   // Bar section gap is between capsule shells; inline tray icons share one shell, so add the
   // lateral inset that adjacent single-icon capsules would contribute between their icons.
@@ -88,6 +95,7 @@ private:
   std::vector<std::string> m_hiddenItems;
   std::vector<std::string> m_pinnedItems;
   bool m_hidePassive = true;
+  bool m_colorizeIcons = false;
   std::vector<Image*> m_loadedImages;
   std::vector<Image*> m_colorizedAppIcons;
   // Item InputAreas by tray item id, reused across rebuilds so icon updates keep hover and press capture.
@@ -114,5 +122,6 @@ private:
   Node* m_hoverOverlayParent = nullptr;
   std::vector<HoverOverlayEntry> m_hoverOverlays;
   float m_capsuleCross = 0.0F;
-  bool m_forceAppIcons = false;
+  std::vector<std::string> m_iconOverrideBlacklist;
+  TrayIconType m_iconType = TrayIconType::Default;
 };

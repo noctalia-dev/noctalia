@@ -1,8 +1,10 @@
 #include "shell/control_center/tabs/notifications_tab.h"
 
 #include "compositors/compositor_platform.h"
+#include "config/config_service.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
+#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "net/uri.h"
 #include "notification/notification.h"
@@ -11,10 +13,10 @@
 #include "render/animation/animation.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
-#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -395,7 +397,7 @@ namespace {
 
     void bind(
         Renderer& renderer, const NotificationHistoryEntry& entry, float width, bool expanded, bool showHistoryActions,
-        IconResolver& iconResolver, std::function<void(uint32_t)> onToggleExpanded,
+        IconResolver& iconResolver, std::optional<ColorSpec> iconTint, std::function<void(uint32_t)> onToggleExpanded,
         std::function<void(uint32_t, bool)> onRemove, const std::function<void(uint32_t, const std::string&)>& onAction
     ) {
       const NotificationCardMetrics metrics =
@@ -406,6 +408,9 @@ namespace {
       const float iconPx = kHistoryIconSize * m_scale;
       m_iconSlot->setSize(iconPx, iconPx);
 
+      m_image->setAppIconColorization(
+          entry.notification.iconIsAppIcon && !entry.notification.imageData.has_value() ? iconTint : std::nullopt
+      );
       bindIcon(renderer, entry, iconResolver);
 
       m_meta->setText(metrics.metaLine);
@@ -633,7 +638,7 @@ public:
         m_owner.m_notifications != nullptr && m_owner.m_notifications->hasPendingDBusClose(entry.notification.id);
     row->bind(
         renderer, entry, width, m_owner.m_expandedIds.contains(entry.notification.id), showHistoryActions,
-        m_owner.m_iconResolver, [this](uint32_t id) { m_owner.toggleNotificationExpanded(id); },
+        m_owner.m_iconResolver, m_owner.m_lastIconTint, [this](uint32_t id) { m_owner.toggleNotificationExpanded(id); },
         [this](uint32_t id, bool active) { m_owner.removeNotificationEntry(id, active); },
         [this](uint32_t id, const std::string& key) { m_owner.invokeNotificationAction(id, key); }
     );
@@ -645,8 +650,13 @@ private:
   float m_fillOpacity = 1.0F;
 };
 
-NotificationsTab::NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform)
-    : m_notifications(notifications), m_platform(platform) {}
+NotificationsTab::NotificationsTab(
+    NotificationManager* notifications, CompositorPlatform* platform, ConfigService* config
+)
+    : m_notifications(notifications), m_config(config), m_platform(platform) {
+  m_appIconColorizeConn =
+      shellAppIconColorizationChanged().connect([] { PanelManager::instance().requestUpdateOnly(); });
+}
 
 NotificationsTab::~NotificationsTab() = default;
 
@@ -798,6 +808,15 @@ void NotificationsTab::doLayout(Renderer& renderer, float contentWidth, float bo
 }
 
 void NotificationsTab::doUpdate(Renderer& renderer) {
+  const auto tint = m_config != nullptr
+      ? effectiveShellAppIconColorizationTint(m_config->config().shell, m_config->config().notification.colorizeIcons)
+      : std::nullopt;
+  if (tint != m_lastIconTint) {
+    m_lastIconTint = tint;
+    if (m_list != nullptr) {
+      m_list->notifyDataChanged();
+    }
+  }
   if (filterSlideOutActive()) {
     dropVanishedFiltered();
     return;

@@ -5,6 +5,8 @@ sidebar:
   order: 9
 ---
 
+Set `[notification].colorize_icons = true` (default: `false`) to tint identified application icons in both notification toasts and history with `[shell].app_icon_color`. The toggle is available under **Notifications → General → Colorize App Icons**. Image-path/image-data payloads, avatars, screenshots, remote images, and other content retain their original colors. Icon-source metadata is saved with history; older entries without metadata remain untinted.
+
 ## History privacy
 
 Notification history and its image previews are encrypted at rest using a purpose-specific key derived from the [storage master key](/noctalia/configuration/shell/#encrypted-storage-master-key). The encrypted history is stored in `notification_history.enc`; encrypted previews are stored in `notification_history_assets/`. Files are private to the owner (0600), and the image directory uses 0700 permissions.

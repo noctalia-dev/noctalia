@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 
+class ShellGlobals;
 class WaylandConnection;
 struct ext_idle_notification_v1;
 
@@ -90,6 +91,7 @@ private:
   bool hasActiveGrace() const noexcept { return !m_graceBehaviors.empty(); }
 
   WaylandConnection* m_wayland = nullptr;
+  ShellGlobals* m_shellGlobals = nullptr;
   ActionRunner m_actionRunner;
   GraceBeginCallback m_onGraceBegin;
   GraceEndCallback m_onGraceEnd;

@@ -7,19 +7,20 @@
 #include "render/core/texture_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_instance.h"
 #include "shell/dock/dock_model.h"
 #include "shell/dock/icon_shadow.h"
-#include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/tooltip/tooltip_placement.h"
+#include "shell/wayland/layer_surface.h"
 #include "system/icon_resolver.h"
 #include "system/internal_app_metadata.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
+#include "ui/surface_shadow.h"
 
 #include <algorithm>
 #include <chrono>
@@ -130,13 +131,13 @@ namespace {
     applyBadgeVisual(badge, edge, iconBaseX, iconBaseY, iconSize, badgeSize, scale);
   }
 
-  void applyShellAppIconColorization(Image* image, const ShellConfig& shell, float saturation) {
+  void applyShellAppIconColorization(Image* image, const ShellConfig& shell, const DockConfig& dock) {
     if (image == nullptr) {
       return;
     }
-    const auto tint = effectiveShellAppIconColorizationTint(shell);
+    const auto tint = effectiveShellAppIconColorizationTint(shell, dock.colorizeIcons);
     image->setAppIconColorization(tint);
-    image->setSaturation(tint.has_value() ? 1.0F : saturation);
+    image->setSaturation(tint.has_value() ? 1.0F : dock.iconSaturation);
   }
 
   float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
@@ -592,9 +593,9 @@ namespace shell::dock {
       auto iconImg = ui::image({
           .width = iSize,
           .height = iSize,
-          .configure = [&renderer, &source, iconPath, iconDecodeTarget,
-                        &shell = deps.model.config.config().shell](Image& image) {
-            image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell));
+          .configure = [&renderer, &source, iconPath, iconDecodeTarget, &shell = deps.model.config.config().shell,
+                        &cfg](Image& image) {
+            image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell, cfg.colorizeIcons));
             if (source) {
               image.setSourceRaw(
                   renderer, source->rgba.data(), source->rgba.size(), source->width, source->height, 0,
@@ -611,8 +612,8 @@ namespace shell::dock {
         item.iconImage = iconImg.get();
         if (source) {
           const auto mask = makeIconShadow(*source, cfg.iconSize, density);
-          const auto shadowStyle = shell::surface_shadow::maskStyle(deps.model.config.config().shell.shadow);
-          constexpr auto padding = shell::surface_shadow::kMaskPadding;
+          const auto shadowStyle = surface_shadow::maskStyle(deps.model.config.config().shell.shadow);
+          constexpr auto padding = surface_shadow::kMaskPadding;
           auto group = ui::node({.x = kCellPad, .y = kCellPad, .width = iSize, .height = iSize});
           group->addChild(
               ui::image({
@@ -862,7 +863,7 @@ namespace shell::dock {
       const bool isDraggedItem = dragActive && itemIndex == instance.drag.sourceIndex;
       const float iconScale = model.active ? cfg.activeScale : cfg.inactiveScale;
       const float iconOpacity = model.active ? cfg.activeOpacity : cfg.inactiveOpacity;
-      applyShellAppIconColorization(item.iconImage, shell, cfg.iconSaturation);
+      applyShellAppIconColorization(item.iconImage, shell, cfg);
       Node* iconNode = item.iconNode;
 
       if (iconNode != nullptr) {

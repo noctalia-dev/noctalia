@@ -5,13 +5,15 @@
 #include "render/scene/glyph_node.h"
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
+#include "scripting/ui/ui_tree.h"
+#include "scripting/ui/ui_tree_reconciler.h"
+#include "shell/visuals/graph.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/drag_source.h"
 #include "ui/controls/drop_zone.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
-#include "ui/controls/graph.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/scroll_view.h"
@@ -22,8 +24,6 @@
 #include "ui/drag_drop_controller.h"
 #include "ui/scroll_into_view.h"
 #include "ui/style.h"
-#include "ui/ui_tree.h"
-#include "ui/ui_tree_reconciler.h"
 
 #include <cstdlib>
 #include <optional>

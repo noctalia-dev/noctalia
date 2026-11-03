@@ -42,6 +42,7 @@ telemetry_enabled     = false           # anonymous startup ping
 setup_wizard_enabled = true              # open first-run wizard while the marker is missing
 niri_overview_type_to_launch_enabled = false # niri-only type-to-launch from overview
 umbriel_overview_type_to_launch_enabled = false # umbriel-only type-to-launch from overview
+polkit_colorize_icons = false           # tint application icons in authentication prompts
 polkit_agent          = false           # register Noctalia's native polkit authentication agent
 password_style        = "default"       # default | random
 readline_shortcuts    = false           # readline-style shortcuts in every text field
@@ -52,9 +53,9 @@ settings_window_translucent = false     # translucent Settings window background
 show_location         = true            # show weather location text in shell UI
 launch_apps_as_systemd_services = false # launch apps as transient systemd services (needs Noctalia to be a user unit)
 launch_apps_custom_command = ""         # wrap launched apps; $CMD is replaced with the app command
+screen_time_colorize_icons = false      # tint application icons in Screen Time
 screen_time_enabled   = false           # track per-app usage time for the Control Center screen-time view
-app_icon_colorize     = false           # recolor application icons across the shell
-app_icon_color        = "on_surface"    # ColorSpec when colorize is enabled; see App icon colorization below
+app_icon_color        = "on_surface"    # shared tint for components with colorize_icons enabled
 clipboard_enabled     = true            # false disables clipboard history/panel (basic copy & paste still work)
 clipboard_keep_from_closed_apps = true  # keep the live selection after its source application closes
 clipboard_history_max_entries = 100     # unpinned history cap (10–10000); pinned entries are exempt
@@ -103,6 +104,7 @@ open_near_click_wallpaper      = false  # attached/floating: open near the click
 open_near_click_session        = false  # attached/floating: open near the clicked bar widget instead of at *_position
 
 [shell.launcher]
+colorize_icons = false  # tint application result icons with shell.app_icon_color
 layout = "full"            # full | simple
 width = 760                # full layout: panel width in pixels (560–1100)
 search_position = "bottom" # full layout: top | bottom; whole launcher toolbar position
@@ -186,6 +188,7 @@ command = "swaylock -f"
 blacklist = []           # optional list of players to hide from media widgets/control-center
 
 [shell.window_switcher]
+colorize_icons = false  # tint application icons with shell.app_icon_color
 style = "carousel"              # "carousel" (depth layout), "compact" (preview strip), or "icons" (all icons)
 mru = false                     # order windows by most recently used (Alt+Tab) instead of workspace layout
 show_caption = true             # show window titles and application names below previews
@@ -262,7 +265,7 @@ Notes:
 
 - `show_location`: when `false`, weather location text/coordinates are hidden in shell surfaces.
 
-- `app_icon_colorize` and `app_icon_color`: global application icon tinting for the dock, system tray (bar and drawer), taskbar, active-window widget, and launcher panel results. See [App icon colorization](#app-icon-colorization). Bar `launcher` / `control-center` widgets can optionally tint `custom_image` via `custom_image_colorize` using the widget **Color** setting (Presentation group in the widget editor).
+- `app_icon_color`: shared application icon tint. Enable `colorize_icons` separately in the launcher, dock, window switcher, or each workspace, taskbar, tray, and active-window widget. See [App icon colorization](#app-icon-colorization). Bar `launcher` / `control-center` widgets can optionally tint `custom_image` via `custom_image_colorize` using the widget **Color** setting (Presentation group in the widget editor).
 
 - `lang`: empty follows `$LC_ALL`, `$LC_MESSAGES`, then `$LANG`. Values may be BCP-47 tags (`pt-BR`, `zh-Hans`) or POSIX locale names (`pt_BR.UTF-8`, `zh_CN.UTF-8`). Chinese region locales infer script before matching catalogs, so `zh_CN` and `zh_SG` match `zh-Hans`, while `zh_TW`, `zh_HK`, and `zh_MO` match `zh-Hant`. When a right-to-left catalog is loaded, Noctalia mirrors text, controls, grids, scrollbars, and directional icons automatically. Bar `start`/`center`/`end` lanes and dock item order remain on their configured physical sides. If no matching catalog loads and Noctalia falls back to English, the UI remains left-to-right.
 
@@ -447,21 +450,27 @@ When the original key cannot be restored, or saved data is damaged, Settings als
 
 ### App icon colorization
 
-When `app_icon_colorize = true`, Noctalia recolors **application bitmap icons** (desktop/tray pixmaps and file-backed icons) so they follow the active palette:
+Application icon colorization is opt-in for each component. Set `colorize_icons = true` in the component's config, or use its **Colorize App Icons** toggle in Settings:
 
-- **Dock** pinned and running app icons
-- **Tray** inline icons and the tray drawer panel
-- **Taskbar** window icons
-- **Active window** widget icon
-- **Launcher panel** search result app icons (same bake as taskbar)
+| Component                        | Config table                            | Settings location             |
+| -------------------------------- | --------------------------------------- | ----------------------------- |
+| Launcher results                 | `[shell.launcher]`                      | Launcher → Display            |
+| Dock apps                        | `[dock]` or `[dock.monitor.<name>]`     | Dock → Effects                |
+| Workspaces (Focus Hint app icon) | `[widget.<name>]`, type `workspaces`    | Workspace widget → Colors     |
+| Taskbar                          | `[widget.<name>]`, type `taskbar`       | Taskbar widget → Windows      |
+| Tray, including its drawer       | `[widget.<name>]`, type `tray`          | Tray widget → Icon Overrides  |
+| Active window                    | `[widget.<name>]`, type `active_window` | Active-window widget settings |
+| Window switcher                  | `[shell.window_switcher]`               | Shell → Window Switcher       |
+| Notification toasts and history  | `[notification]`                        | Notifications → General       |
+| Audio application rows           | `[audio]`                               | Services → Audio              |
+| Screen Time                      | `[shell]`, `screen_time_colorize_icons` | System → Screen Time          |
+| Authentication prompts           | `[shell]`, `polkit_colorize_icons`      | Security → Authentication     |
 
-Glyphs, symbolic tray icons, media album art, and other non-app-bitmap images are unchanged. Launcher panel result icons use the same app-icon bake as the taskbar.
+Every toggle defaults to `false`. The Screen Time and authentication toggles use `screen_time_colorize_icons` and `polkit_colorize_icons` under `[shell]`; the other components use `colorize_icons`. Separate named widgets can use different values. Only identified application icons are colorized. Wallpaper thumbnails, notification image-path/image-data content and avatars, remote images, album art, tray status overlays, and other content images retain their original colors. Notification history keeps icon-source metadata so this distinction survives a restart; older history without metadata stays untinted. Authentication prompts tint the Noctalia app icon and icons identified by installed applications, while security emblems retain their original appearance. Glyphs and the tray/taskbar symbolic-icon coloring rules remain unchanged. Launcher bar buttons and dock launcher buttons use their own `custom_image_colorize` / `launcher_custom_image_colorize` settings for custom images.
 
-`app_icon_color` is a [color role](/noctalia/theming/palette/#color-roles) or fixed hex color (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`), using the same picker as bar capsule colors. When omitted while colorize is enabled, Noctalia picks a theme-aware default: `on_surface` in light mode and `on_surface_variant` in dark mode.
+`[shell].app_icon_color` is the shared [color role](/noctalia/theming/palette/#color-roles) or fixed hex color (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`), selected under **Appearance → Interface → App Icon Color**. When omitted, Noctalia uses `on_surface` in light mode and `on_surface_variant` in dark mode. Icons are desaturated on the CPU, contrast-normalized, then tinted. Component toggles and tint changes apply on config reload, and palette and light/dark mode changes update the tint.
 
-Icons are desaturated on the CPU, contrast-normalized, then tinted. Changes apply immediately when you edit the setting in **Settings → Appearance → Interface**, switch light/dark mode, or change the palette.
-
-Per-widget `colorize_icons` / `icon_colorization` keys on the dock or tray are no longer used - configure this only under `[shell]`.
+The former `[shell].app_icon_colorize` setting is migrated to all component toggles, including custom named widgets and the window switcher. An enabled global toggle enables each component; an existing explicit `colorize_icons` value is preserved. Saved GUI settings migrate automatically. Legacy config files remain supported through migration and report the replacement keys.
 
 ## Privacy capture filters
 

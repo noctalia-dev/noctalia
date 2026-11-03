@@ -1,7 +1,7 @@
 #pragma once
 
-#include "render/core/render_styles.h"
 #include "shell/desktop/desktop_widget.h"
+#include "shell/render/shell_render_styles.h"
 #include "ui/palette.h"
 
 #include <cstdint>

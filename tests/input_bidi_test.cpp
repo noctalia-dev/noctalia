@@ -162,8 +162,6 @@ namespace {
     return input.textInputState().cursor;
   }
 
-  bool near(float a, float b) { return std::abs(a - b) < 2.0F; }
-
 } // namespace
 
 int main() {
@@ -238,48 +236,48 @@ int main() {
   {
     Input input;
     const MultilineView view = layOutMultiline(renderer, input, kArabic);
-    TEST_CHECK(near(view.labelRight, view.viewportRight));
+    TEST_NEAR(view.labelRight, view.viewportRight, 2.0F);
     TEST_CHECK(view.labelLeft > view.viewportLeft + 10.0F);
     pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.labelRight));
+    TEST_NEAR(caretX(input), view.labelRight, 2.0F);
     pressKey(input, XKB_KEY_End, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.labelLeft));
+    TEST_NEAR(caretX(input), view.labelLeft, 2.0F);
   }
 
   // Multiline LTR text stays at the viewport's left edge.
   {
     Input input;
     const MultilineView view = layOutMultiline(renderer, input, "Hello world");
-    TEST_CHECK(near(view.labelLeft, view.viewportLeft));
+    TEST_NEAR(view.labelLeft, view.viewportLeft, 2.0F);
     pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.labelLeft));
+    TEST_NEAR(caretX(input), view.labelLeft, 2.0F);
     pressKey(input, XKB_KEY_End, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.labelRight));
+    TEST_NEAR(caretX(input), view.labelRight, 2.0F);
   }
 
   // Several RTL paragraphs, the longer one second: both end at the right edge, not just the widest.
   {
     Input input;
     const MultilineView view = layOutMultiline(renderer, input, "مرحبا\nالسلام عليكم ورحمة الله");
-    TEST_CHECK(near(view.labelRight, view.viewportRight));
+    TEST_NEAR(view.labelRight, view.viewportRight, 2.0F);
     pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.viewportRight));
+    TEST_NEAR(caretX(input), view.viewportRight, 2.0F);
     pressKey(input, XKB_KEY_Down);
     pressKey(input, XKB_KEY_Home);
-    TEST_CHECK(near(caretX(input), view.viewportRight));
+    TEST_NEAR(caretX(input), view.viewportRight, 2.0F);
   }
 
   // An RTL paragraph above an LTR one: the block spans the viewport, each paragraph on its own side.
   {
     Input input;
     const MultilineView view = layOutMultiline(renderer, input, std::string(kArabic) + "\nHello world");
-    TEST_CHECK(near(view.labelLeft, view.viewportLeft));
-    TEST_CHECK(near(view.labelRight, view.viewportRight));
+    TEST_NEAR(view.labelLeft, view.viewportLeft, 2.0F);
+    TEST_NEAR(view.labelRight, view.viewportRight, 2.0F);
     pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.viewportRight));
+    TEST_NEAR(caretX(input), view.viewportRight, 2.0F);
     pressKey(input, XKB_KEY_End, KeyMod::Ctrl);
     pressKey(input, XKB_KEY_Home);
-    TEST_CHECK(near(caretX(input), view.viewportLeft));
+    TEST_NEAR(caretX(input), view.viewportLeft, 2.0F);
   }
 
   // The selection highlight covers the drawn RTL text.
@@ -290,8 +288,8 @@ int main() {
     float left = 0.0F;
     float right = 0.0F;
     TEST_CHECK(selectionSpan(input, left, right));
-    TEST_CHECK(near(left, view.labelLeft));
-    TEST_CHECK(near(right, view.labelRight));
+    TEST_NEAR(left, view.labelLeft, 2.0F);
+    TEST_NEAR(right, view.labelRight, 2.0F);
   }
 
   // A click lands on the character drawn under the pointer: the right end of RTL text is its start,
@@ -311,9 +309,9 @@ int main() {
     Input input;
     constexpr std::string_view kMixed = "اشتريت Yamaha MG10 بسعر 1200";
     const MultilineView view = layOutMultiline(renderer, input, kMixed);
-    TEST_CHECK(near(view.labelRight, view.viewportRight));
+    TEST_NEAR(view.labelRight, view.viewportRight, 2.0F);
     pressKey(input, XKB_KEY_Home, KeyMod::Ctrl);
-    TEST_CHECK(near(caretX(input), view.labelRight));
+    TEST_NEAR(caretX(input), view.labelRight, 2.0F);
     const std::int32_t middle = clickAt(input, (view.labelLeft + view.labelRight) * 0.5F, view.firstLineY);
     TEST_CHECK(middle > 0 && middle < static_cast<std::int32_t>(kMixed.size()));
   }

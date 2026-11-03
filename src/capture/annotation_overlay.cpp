@@ -1,6 +1,7 @@
 #include "capture/annotation_overlay.h"
 
 #include "capture/annotation_raster.h"
+#include "capture/annotation_view.h"
 #include "core/deferred_call.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
@@ -18,6 +19,7 @@
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
@@ -32,7 +34,6 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -69,6 +70,11 @@ namespace capture {
     constexpr float kCaretWidth = 2.0F;
     constexpr float kSizeLabelWidth = 26.0F;
     constexpr float kToolbarEdgeMargin = 4.0F;
+    constexpr float kZoomLabelWidth = 40.0F;
+    // Zoom multiplier applied per Ctrl+wheel notch.
+    constexpr double kWheelZoomStep = 1.25;
+    // Zoom multiplier per toolbar zoom-in / zoom-out click.
+    constexpr double kToolbarZoomStep = 1.5;
 
     // S / M / L multiply the tool's own default width, so a preset means the same relative
     // weight for a 6 px brush and a 32 px blur.
@@ -496,6 +502,7 @@ namespace capture {
     Separator* strokeSeparator = nullptr;
     Separator* exportSeparator = nullptr;
     Button* backdropButton = nullptr;
+    Button* zoomButton = nullptr;
 
     // Stroke popover: the color swatches and the size controls of the current tool.
     Flex* strokePanel = nullptr;
@@ -505,6 +512,10 @@ namespace capture {
     Button* sizeDownButton = nullptr;
     Button* sizeUpButton = nullptr;
     Label* sizeLabel = nullptr;
+
+    // Zoom popover: the stepper and fit button for the display-only view transform.
+    Flex* zoomPanel = nullptr;
+    Label* zoomLabel = nullptr;
 
     // Backdrop panel and the Image-mode preview frame drawn behind the canvas.
     Flex* backdropPanel = nullptr;
@@ -516,6 +527,11 @@ namespace capture {
     Image* backdropPreview = nullptr;
     Box* imageOutline = nullptr;
     std::optional<ScreenshotBackdrop> previewBackdrop;
+    // Raster dimensions of the cached preview frame; placement re-maps it under zoom/pan.
+    int previewFrameWidth = 0;
+    int previewFrameHeight = 0;
+    int previewStandInWidth = 0;
+    int previewStandInHeight = 0;
     AnnotationRect previewCanvas{};
     // -2 = chips not yet painted, -1 = no preset matches the current colors.
     int markedGradient = -2;
@@ -535,6 +551,9 @@ namespace capture {
     std::uint64_t renderedGeneration = 0;
 
     AnnotationRect canvasRect{};
+    // Display lens over the fitted canvas: zoom + pan affect only where the canvas is shown
+    // and how surface points map to canvas points (annotation_view.h).
+    ViewTransform view{};
     double canvasScale = 1.0;
     int deviceWidth = 0;
     int deviceHeight = 0;
@@ -608,6 +627,14 @@ namespace capture {
     if (m_mode == AnnotationMode::Live
         && (m_tools.tool == AnnotationTool::Blur || m_tools.tool == AnnotationTool::Crop)) {
       m_tools.tool = AnnotationTool::Brush;
+    }
+    // The canvas semantics change between Live (full-surface ink) and Frozen (fitted capture),
+    // so a view that made sense in one mode must not leak into the other.
+    for (auto& inst : m_instances) {
+      if (inst != nullptr) {
+        inst->view = ViewTransform{};
+        applyCanvasView(*inst);
+      }
     }
   }
 
@@ -691,6 +718,7 @@ namespace capture {
     m_textInstance = nullptr;
     m_textIndex.reset();
     m_strokePanelOpen = false;
+    m_zoomPanelOpen = false;
     destroySurfaces();
     m_documents.clear();
     m_frozen.clear();
@@ -843,6 +871,7 @@ namespace capture {
     m_instances.clear();
     m_gestureInstance = nullptr;
     m_gestureActive = false;
+    m_panInstance = nullptr;
     m_textInstance = nullptr;
     m_textIndex.reset();
     m_moveIndex.reset();
@@ -972,6 +1001,7 @@ namespace capture {
       inst.canvasScale = std::max(0.1, static_cast<double>(inst.scale));
       inst.deviceWidth = static_cast<int>(inst.surface->bufferWidthFor(inst.surface->width()));
       inst.deviceHeight = static_cast<int>(inst.surface->bufferHeightFor(inst.surface->height()));
+      clampView(inst);
       return;
     }
 
@@ -1002,6 +1032,81 @@ namespace capture {
     inst.canvasScale = fitScale;
     inst.deviceWidth = m_image.image.width;
     inst.deviceHeight = m_image.image.height;
+    // A relayout keeps the user's zoom, but the pan must stay reachable in the new viewport.
+    clampView(inst);
+  }
+
+  // Re-places the canvas nodes for the current view transform without rebuilding the scene:
+  // annotation textures stay in canvas space and are simply displayed scaled.
+  void AnnotationOverlay::applyCanvasView(Instance& inst) {
+    const AnnotationRect v = viewRect(inst.view, inst.canvasRect);
+    const auto x = static_cast<float>(v.x);
+    const auto y = static_cast<float>(v.y);
+    const auto width = static_cast<float>(v.width);
+    const auto height = static_cast<float>(v.height);
+    for (Image* layer : {inst.backdrop, inst.committedLayer, inst.activeLayer}) {
+      if (layer != nullptr) {
+        layer->setSize(width, height);
+        layer->setPosition(x, y);
+      }
+    }
+    if (inst.imageOutline != nullptr) {
+      inst.imageOutline->setSize(width, height);
+      inst.imageOutline->setPosition(x, y);
+    }
+    updateCropVisuals(inst);
+    if (inst.surface == nullptr || inst.sceneRoot == nullptr) {
+      return;
+    }
+    // Backdrop preview texture work stays in prepareFrame (updateBackdropPreview there),
+    // which runs under the RenderContext's makeCurrent; input paths must not upload textures.
+    if (inst.sceneRoot->layoutDirty()) {
+      inst.surface->requestLayout();
+    } else {
+      inst.surface->requestRedraw();
+    }
+  }
+
+  void AnnotationOverlay::clampView(Instance& inst) {
+    if (inst.surface == nullptr) {
+      return;
+    }
+    inst.view = clampViewPan(
+        inst.view, inst.canvasRect, static_cast<double>(inst.surface->width()),
+        static_cast<double>(inst.surface->height())
+    );
+  }
+
+  void AnnotationOverlay::zoomViewTo(Instance& inst, double anchorX, double anchorY, double factor) {
+    if (inst.surface == nullptr) {
+      return;
+    }
+    inst.view = zoomViewAt(inst.view, inst.canvasRect, anchorX, anchorY, factor);
+    clampView(inst);
+    applyCanvasView(inst);
+  }
+
+  void AnnotationOverlay::zoomViewByButton(Instance& inst, double factor) {
+    if (inst.surface == nullptr) {
+      return;
+    }
+    // Anchor at the on-screen center of the canvas so the visible area expands in place.
+    const AnnotationRect v = viewRect(inst.view, inst.canvasRect);
+    const auto surfaceW = static_cast<double>(inst.surface->width());
+    const auto surfaceH = static_cast<double>(inst.surface->height());
+    const double left = std::clamp(v.x, 0.0, surfaceW);
+    const double right = std::clamp(v.x + v.width, 0.0, surfaceW);
+    const double top = std::clamp(v.y, 0.0, surfaceH);
+    const double bottom = std::clamp(v.y + v.height, 0.0, surfaceH);
+    const double anchorX = right > left ? (left + right) * 0.5 : surfaceW * 0.5;
+    const double anchorY = bottom > top ? (top + bottom) * 0.5 : surfaceH * 0.5;
+    zoomViewTo(inst, anchorX, anchorY, factor);
+  }
+
+  void AnnotationOverlay::resetView(Instance& inst) {
+    inst.view = ViewTransform{};
+    clampView(inst);
+    applyCanvasView(inst);
   }
 
   void AnnotationOverlay::buildScene(Instance& inst) {
@@ -1033,12 +1138,14 @@ namespace capture {
     inst.cursorTooltip = nullptr;
     inst.undoButton = inst.redoButton = inst.copyButton = inst.saveButton = inst.doneButton = inst.dragHandle = nullptr;
     inst.strokeSeparator = inst.exportSeparator = nullptr;
-    inst.backdropButton = nullptr;
+    inst.backdropButton = inst.zoomButton = nullptr;
     inst.strokePanel = inst.strokeSwatchRow = nullptr;
     inst.swatchButtons.fill(nullptr);
     inst.sizePresets = nullptr;
     inst.sizeDownButton = inst.sizeUpButton = nullptr;
     inst.sizeLabel = nullptr;
+    inst.zoomPanel = nullptr;
+    inst.zoomLabel = nullptr;
     inst.markedSwatch = -2;
     inst.strokeFaceColor.reset();
     inst.strokeFacePreset.reset();
@@ -1051,6 +1158,10 @@ namespace capture {
     inst.backdropPreview = nullptr;
     inst.imageOutline = nullptr;
     inst.previewBackdrop.reset();
+    inst.previewFrameWidth = 0;
+    inst.previewFrameHeight = 0;
+    inst.previewStandInWidth = 0;
+    inst.previewStandInHeight = 0;
     inst.markedGradient = -2;
     inst.activePainted = AnnotationRect{};
     inst.committedDirty.reset();
@@ -1068,6 +1179,8 @@ namespace capture {
     backdropPanel->layout(renderer);
     auto strokePanel = buildStrokePanel(inst);
     strokePanel->layout(renderer);
+    auto zoomPanel = buildZoomPanel(inst);
+    zoomPanel->layout(renderer);
     positionToolbar(inst);
     layoutCanvas(inst);
 
@@ -1096,10 +1209,11 @@ namespace capture {
     }
     inst.backdropImage = bg;
 
-    const auto canvasX = static_cast<float>(inst.canvasRect.x);
-    const auto canvasY = static_cast<float>(inst.canvasRect.y);
-    const auto canvasW = static_cast<float>(inst.canvasRect.width);
-    const auto canvasH = static_cast<float>(inst.canvasRect.height);
+    const AnnotationRect canvasView = viewRect(inst.view, inst.canvasRect);
+    const auto canvasX = static_cast<float>(canvasView.x);
+    const auto canvasY = static_cast<float>(canvasView.y);
+    const auto canvasW = static_cast<float>(canvasView.width);
+    const auto canvasH = static_cast<float>(canvasView.height);
 
     auto canvas = ui::inputArea({
         .acceptedButtons = InputArea::buttonMask(BTN_LEFT),
@@ -1198,12 +1312,29 @@ namespace capture {
     canvas->setOnMotion([this, instPtr](const InputArea::PointerData& data) {
       onCanvasMotion(*instPtr, static_cast<double>(data.localX), static_cast<double>(data.localY));
     });
+    canvas->setOnCancel([this] { m_panInstance = nullptr; });
+    // Ctrl+wheel zooms the capture around the pointer; InputArea quantizes the stream into steps.
+    canvas->setOnAxisHandler([this, instPtr](const InputArea::PointerData& data) {
+      const std::uint32_t modifiers = m_wayland != nullptr ? m_wayland->keyboardModifiers() : 0;
+      if ((modifiers & KeyMod::Ctrl) == 0 || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
+        return false;
+      }
+      if (const float steps = data.scrollSteps(); steps != 0.0F) {
+        // Scroll-up (negative steps) zooms in, matching image-editor convention.
+        zoomViewTo(
+            *instPtr, static_cast<double>(data.localX), static_cast<double>(data.localY),
+            std::pow(kWheelZoomStep, -static_cast<double>(steps))
+        );
+      }
+      return true;
+    });
 
     inst.canvas = canvas.get();
     inst.sceneRoot->addChild(std::move(canvas));
     inst.sceneRoot->addChild(std::move(toolbar));
     inst.sceneRoot->addChild(std::move(backdropPanel));
     inst.sceneRoot->addChild(std::move(strokePanel));
+    inst.sceneRoot->addChild(std::move(zoomPanel));
 
     inst.surface->setSceneRoot(inst.sceneRoot.get());
     inst.inputDispatcher.setSceneRoot(inst.sceneRoot.get());
@@ -1291,8 +1422,9 @@ namespace capture {
           kLog.warn("failed to re-upload annotation backdrop");
         }
         inst.backdrop->setFit(ImageFit::Stretch);
-        inst.backdrop->setSize(static_cast<float>(inst.canvasRect.width), static_cast<float>(inst.canvasRect.height));
-        inst.backdrop->setPosition(static_cast<float>(inst.canvasRect.x), static_cast<float>(inst.canvasRect.y));
+        const AnnotationRect canvasView = viewRect(inst.view, inst.canvasRect);
+        inst.backdrop->setSize(static_cast<float>(canvasView.width), static_cast<float>(canvasView.height));
+        inst.backdrop->setPosition(static_cast<float>(canvasView.x), static_cast<float>(canvasView.y));
         if (inst.backgroundSurface != nullptr) {
           cairo_surface_destroy(inst.backgroundSurface);
         }
@@ -1419,6 +1551,7 @@ namespace capture {
     inst.fillButton->setOnRightClick([this] { cycleFill(false); });
 
     addSeparator();
+    inst.zoomButton = addGhostButton("zoom", "bar.annotate.zoom", [this] { toggleZoomPanel(); });
     inst.cursorButton = addGhostButton("pointer", "bar.annotate.cursor", [this, instPtr] { toggleCursor(instPtr); });
     if (const ScreenshotImage* image = screenshot(inst);
         image != nullptr && !image->canToggleCursor() && image->cursorVisible) {
@@ -1543,6 +1676,9 @@ namespace capture {
     if (inst.backdropButton != nullptr) {
       inst.backdropButton->setSelected(m_backdropPanelOpen);
     }
+    if (inst.zoomButton != nullptr) {
+      inst.zoomButton->setSelected(m_zoomPanelOpen);
+    }
 
     show(inst.exportSeparator, frozenOrImage);
     show(inst.copyButton, frozenOrImage);
@@ -1562,6 +1698,7 @@ namespace capture {
     }
     refreshBackdropPanel(inst, renderer);
     refreshStrokePanel(inst, renderer);
+    refreshZoomPanel(inst, renderer);
     positionToolbar(inst);
   }
 
@@ -1633,7 +1770,8 @@ namespace capture {
       }
     }
     positionBackdropPanel(inst);
-    positionStrokePanel(inst);
+    positionPopover(inst, inst.strokePanel, inst.strokeButton);
+    positionPopover(inst, inst.zoomPanel, inst.zoomButton);
   }
 
   void AnnotationOverlay::syncToolbarPositionsForConnectedOutputs() {
@@ -1874,14 +2012,18 @@ namespace capture {
       return;
     }
 
-    const auto left = static_cast<float>(inst.canvasRect.x);
-    const auto top = static_cast<float>(inst.canvasRect.y);
-    const auto right = static_cast<float>(inst.canvasRect.x + inst.canvasRect.width);
-    const auto bottom = static_cast<float>(inst.canvasRect.y + inst.canvasRect.height);
-    const float holeX0 = std::clamp(static_cast<float>(inst.canvasRect.x + crop->x), left, right);
-    const float holeY0 = std::clamp(static_cast<float>(inst.canvasRect.y + crop->y), top, bottom);
-    const float holeX1 = std::clamp(static_cast<float>(inst.canvasRect.x + crop->x + crop->width), left, right);
-    const float holeY1 = std::clamp(static_cast<float>(inst.canvasRect.y + crop->y + crop->height), top, bottom);
+    const AnnotationRect canvasView = viewRect(inst.view, inst.canvasRect);
+    const auto left = static_cast<float>(canvasView.x);
+    const auto top = static_cast<float>(canvasView.y);
+    const auto right = static_cast<float>(canvasView.x + canvasView.width);
+    const auto bottom = static_cast<float>(canvasView.y + canvasView.height);
+    const AnnotationPoint holeStart = canvasToSurface(inst.view, inst.canvasRect, {.x = crop->x, .y = crop->y});
+    const AnnotationPoint holeEnd =
+        canvasToSurface(inst.view, inst.canvasRect, {.x = crop->x + crop->width, .y = crop->y + crop->height});
+    const float holeX0 = std::clamp(static_cast<float>(holeStart.x), left, right);
+    const float holeY0 = std::clamp(static_cast<float>(holeStart.y), top, bottom);
+    const float holeX1 = std::clamp(static_cast<float>(holeEnd.x), left, right);
+    const float holeY1 = std::clamp(static_cast<float>(holeEnd.y), top, bottom);
     if (holeX1 <= holeX0 || holeY1 <= holeY0) {
       hide();
       return;
@@ -1991,13 +2133,36 @@ namespace capture {
 
   void AnnotationOverlay::onCanvasPress(Instance& inst, double localX, double localY, bool pressed) {
     if (!pressed) {
+      if (m_panInstance != nullptr) {
+        m_panInstance = nullptr;
+        return;
+      }
       finishGesture();
       return;
     }
 
-    // Drawing dismisses the stroke popover; the press still starts the mark.
-    if (m_strokePanelOpen) {
+    // Ctrl+drag pans the capture view instead of drawing.
+    const std::uint32_t pressModifiers = m_wayland != nullptr ? m_wayland->keyboardModifiers() : 0;
+    if ((pressModifiers & KeyMod::Ctrl) != 0) {
+      if (m_strokePanelOpen) {
+        m_strokePanelOpen = false;
+        requestRedrawAll();
+      }
+      if (m_textIndex.has_value()) {
+        commitTextEdit();
+      }
+      m_panInstance = &inst;
+      m_panAnchorX = localX;
+      m_panAnchorY = localY;
+      m_panStartX = inst.view.panX;
+      m_panStartY = inst.view.panY;
+      return;
+    }
+
+    // Drawing dismisses the stroke and zoom popovers; the press still starts the mark.
+    if (m_strokePanelOpen || m_zoomPanelOpen) {
       m_strokePanelOpen = false;
+      m_zoomPanelOpen = false;
       requestRedrawAll();
     }
 
@@ -2006,7 +2171,7 @@ namespace capture {
       commitTextEdit();
     }
 
-    const AnnotationPoint point{.x = localX - inst.canvasRect.x, .y = localY - inst.canvasRect.y};
+    const AnnotationPoint point = surfaceToCanvas(inst.view, inst.canvasRect, {.x = localX, .y = localY});
     if (point.x < 0.0 || point.y < 0.0 || point.x > inst.canvasRect.width || point.y > inst.canvasRect.height) {
       return;
     }
@@ -2026,7 +2191,8 @@ namespace capture {
 
     switch (tool) {
     case AnnotationTool::Move: {
-      const auto hit = doc.hitTest(point, kMoveHitTolerance);
+      // Screen-space hit tolerance stays constant regardless of zoom.
+      const auto hit = doc.hitTest(point, kMoveHitTolerance / inst.view.zoom);
       if (!hit.has_value()) {
         m_gestureInstance = nullptr;
         return;
@@ -2132,11 +2298,18 @@ namespace capture {
   }
 
   void AnnotationOverlay::onCanvasMotion(Instance& inst, double localX, double localY) {
+    if (m_panInstance == &inst && inst.surface != nullptr) {
+      inst.view.panX = m_panStartX + (localX - m_panAnchorX);
+      inst.view.panY = m_panStartY + (localY - m_panAnchorY);
+      clampView(inst);
+      applyCanvasView(inst);
+      return;
+    }
     if (!m_gestureActive || m_gestureInstance != &inst) {
       return;
     }
     AnnotationDocument& doc = documentFor(inst);
-    const AnnotationPoint point{.x = localX - inst.canvasRect.x, .y = localY - inst.canvasRect.y};
+    const AnnotationPoint point = surfaceToCanvas(inst.view, inst.canvasRect, {.x = localX, .y = localY});
 
     if (m_moveIndex.has_value()) {
       doc.offset(*m_moveIndex, point.x - m_gestureLast.x, point.y - m_gestureLast.y);
@@ -2460,8 +2633,9 @@ namespace capture {
     const bool shift = (event.modifiers & KeyMod::Shift) != 0;
 
     if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-      if (m_strokePanelOpen) {
+      if (m_strokePanelOpen || m_zoomPanelOpen) {
         m_strokePanelOpen = false;
+        m_zoomPanelOpen = false;
         requestRedrawAll();
         return true;
       }
@@ -2495,6 +2669,20 @@ namespace capture {
       return true;
     }
 
+    if (ctrl) {
+      if (event.sym == XKB_KEY_0 || event.sym == XKB_KEY_KP_0) {
+        resetView(*keyboardInst);
+        return true;
+      }
+      if (event.sym == XKB_KEY_minus || event.sym == XKB_KEY_KP_Subtract) {
+        zoomViewByButton(*keyboardInst, 1.0 / kToolbarZoomStep);
+        return true;
+      }
+      if (event.sym == XKB_KEY_plus || event.sym == XKB_KEY_equal || event.sym == XKB_KEY_KP_Add) {
+        zoomViewByButton(*keyboardInst, kToolbarZoomStep);
+        return true;
+      }
+    }
     if (ctrl && (event.sym == XKB_KEY_z || event.sym == XKB_KEY_Z)) {
       if (shift) {
         redo();
@@ -2948,9 +3136,10 @@ namespace capture {
     const std::optional<ScreenshotBackdrop> backdrop = resolveScreenshotBackdrop(m_backdrop);
 
     const float maxRadius = static_cast<float>(std::min(inst.deviceWidth, inst.deviceHeight)) * 0.5F;
-    const float radius = backdrop.has_value()
-        ? std::clamp(static_cast<float>(backdrop->cornerRadius), 0.0F, maxRadius) / static_cast<float>(inst.canvasScale)
-        : 0.0F;
+    const float radius = backdrop.has_value() ? std::clamp(static_cast<float>(backdrop->cornerRadius), 0.0F, maxRadius)
+            / static_cast<float>(inst.canvasScale)
+            * static_cast<float>(inst.view.zoom)
+                                              : 0.0F;
     for (Image* layer : {inst.backdrop, inst.committedLayer, inst.activeLayer}) {
       if (layer != nullptr) {
         layer->setRadius(radius);
@@ -2965,54 +3154,66 @@ namespace capture {
       inst.previewBackdrop.reset();
       return;
     }
-    const AnnotationRect& rect = inst.canvasRect;
-    if (inst.previewBackdrop == backdrop
-        && inst.previewCanvas.x == rect.x
-        && inst.previewCanvas.y == rect.y
-        && inst.previewCanvas.width == rect.width
-        && inst.previewCanvas.height == rect.height) {
-      return;
-    }
-
+    const AnnotationRect rect = viewRect(inst.view, inst.canvasRect);
     const double downscale =
         std::max(1.0, (inst.canvasScale / std::max(0.1, static_cast<double>(inst.scale))) * kBackdropPreviewDownscale);
     const auto scaled = [downscale](int pixels) { return static_cast<int>(std::lround(pixels / downscale)); };
     const int standInWidth = std::max(1, scaled(inst.deviceWidth));
     const int standInHeight = std::max(1, scaled(inst.deviceHeight));
-    const ScreencopyImage standIn{
-        .width = standInWidth,
-        .height = standInHeight,
-        .yInvert = false,
-        .rgba = std::vector<std::uint8_t>(static_cast<std::size_t>(standInWidth) * standInHeight * 4U, 0),
-    };
-    ScreenshotBackdrop previewBackdrop = *backdrop;
-    previewBackdrop.padding = scaled(backdrop->padding);
-    previewBackdrop.cornerRadius = scaled(backdrop->cornerRadius);
-    previewBackdrop.shadowBlur = scaled(backdrop->shadowBlur);
-    previewBackdrop.shadowOffsetX = scaled(backdrop->shadowOffsetX);
-    previewBackdrop.shadowOffsetY = scaled(backdrop->shadowOffsetY);
-    const ScreencopyImage frame = applyScreenshotBackdrop(standIn, previewBackdrop);
 
-    inst.backdropPreview->clear(renderer);
-    if (!inst.backdropPreview->setSourceRaw(
-            renderer, frame.rgba.data(), frame.rgba.size(), frame.width, frame.height, frame.width * 4,
-            PixmapFormat::RGBA, false
-        )) {
-      kLog.warn("failed to upload screenshot backdrop preview");
-      inst.backdropPreview->setVisible(false);
+    // The frame raster depends only on the capture size and the backdrop settings; zoom and
+    // pan only re-place it below, so a re-render is skipped while the view is moving.
+    const bool sameRect = inst.previewCanvas.x == rect.x
+        && inst.previewCanvas.y == rect.y
+        && inst.previewCanvas.width == rect.width
+        && inst.previewCanvas.height == rect.height;
+    if (inst.previewBackdrop != backdrop
+        || inst.previewStandInWidth != standInWidth
+        || inst.previewStandInHeight != standInHeight) {
+      const ScreencopyImage standIn{
+          .width = standInWidth,
+          .height = standInHeight,
+          .yInvert = false,
+          .rgba = std::vector<std::uint8_t>(static_cast<std::size_t>(standInWidth) * standInHeight * 4U, 0),
+      };
+      ScreenshotBackdrop previewBackdrop = *backdrop;
+      previewBackdrop.padding = scaled(backdrop->padding);
+      previewBackdrop.cornerRadius = scaled(backdrop->cornerRadius);
+      previewBackdrop.shadowBlur = scaled(backdrop->shadowBlur);
+      previewBackdrop.shadowOffsetX = scaled(backdrop->shadowOffsetX);
+      previewBackdrop.shadowOffsetY = scaled(backdrop->shadowOffsetY);
+      const ScreencopyImage frame = applyScreenshotBackdrop(standIn, previewBackdrop);
+
+      inst.backdropPreview->clear(renderer);
+      if (!inst.backdropPreview->setSourceRaw(
+              renderer, frame.rgba.data(), frame.rgba.size(), frame.width, frame.height, frame.width * 4,
+              PixmapFormat::RGBA, false
+          )) {
+        kLog.warn("failed to upload screenshot backdrop preview");
+        inst.backdropPreview->setVisible(false);
+        return;
+      }
+      inst.previewBackdrop = backdrop;
+      inst.previewFrameWidth = frame.width;
+      inst.previewFrameHeight = frame.height;
+      inst.previewStandInWidth = standInWidth;
+      inst.previewStandInHeight = standInHeight;
+    } else if (sameRect) {
       return;
     }
+
     // Map preview pixels onto the canvas so the stand-in lands exactly under it.
     const double unitX = rect.width / standInWidth;
     const double unitY = rect.height / standInHeight;
     inst.backdropPreview->setFit(ImageFit::Stretch);
-    inst.backdropPreview->setSize(static_cast<float>(frame.width * unitX), static_cast<float>(frame.height * unitY));
+    inst.backdropPreview->setSize(
+        static_cast<float>(inst.previewFrameWidth * unitX), static_cast<float>(inst.previewFrameHeight * unitY)
+    );
     inst.backdropPreview->setPosition(
-        static_cast<float>(rect.x - (previewBackdrop.padding * unitX)),
-        static_cast<float>(rect.y - (previewBackdrop.padding * unitY))
+        static_cast<float>(rect.x - (scaled(backdrop->padding) * unitX)),
+        static_cast<float>(rect.y - (scaled(backdrop->padding) * unitY))
     );
     inst.backdropPreview->setVisible(true);
-    inst.previewBackdrop = backdrop;
     inst.previewCanvas = rect;
   }
 
@@ -3020,6 +3221,7 @@ namespace capture {
     m_backdropPanelOpen = !m_backdropPanelOpen;
     if (m_backdropPanelOpen) {
       m_strokePanelOpen = false;
+      m_zoomPanelOpen = false;
     }
     requestRedrawAll();
   }
@@ -3187,32 +3389,107 @@ namespace capture {
     }
   }
 
-  // Drops from the stroke button, centered on it, toward whichever side of the toolbar has more room.
-  void AnnotationOverlay::positionStrokePanel(Instance& inst) {
-    if (inst.strokePanel == nullptr
-        || inst.strokeButton == nullptr
-        || inst.toolbar == nullptr
-        || inst.surface == nullptr) {
+  // Drops from its toolbar button, centered on it, toward whichever side of the toolbar has more room.
+  void AnnotationOverlay::positionPopover(Instance& inst, Flex* panel, const Button* anchor) {
+    if (panel == nullptr || anchor == nullptr || inst.toolbar == nullptr || inst.surface == nullptr) {
       return;
     }
     const auto surfaceW = static_cast<float>(inst.surface->width());
     const auto surfaceH = static_cast<float>(inst.surface->height());
-    const float width = inst.strokePanel->width();
-    const float height = inst.strokePanel->height();
+    const float width = panel->width();
+    const float height = panel->height();
     const float toolbarBottom = inst.toolbar->y() + inst.toolbar->height();
     const bool below = inst.toolbar->y() + (inst.toolbar->height() * 0.5F) <= surfaceH * 0.5F;
 
-    float x = inst.toolbar->x() + inst.strokeButton->x() + ((inst.strokeButton->width() - width) * 0.5F);
+    float x = inst.toolbar->x() + anchor->x() + ((anchor->width() - width) * 0.5F);
     float y = below ? toolbarBottom + Style::spaceSm : inst.toolbar->y() - Style::spaceSm - height;
     x = std::clamp(x, kToolbarEdgeMargin, std::max(kToolbarEdgeMargin, surfaceW - width - kToolbarEdgeMargin));
     y = std::clamp(y, kToolbarEdgeMargin, std::max(kToolbarEdgeMargin, surfaceH - height - kToolbarEdgeMargin));
-    inst.strokePanel->setPosition(x, y);
+    panel->setPosition(x, y);
   }
 
-  // Only one panel is open at a time, so opening this one closes the backdrop panel.
+  // Only one panel is open at a time, so opening this one closes the others.
   void AnnotationOverlay::toggleStrokePanel() {
     m_strokePanelOpen = !m_strokePanelOpen;
     if (m_strokePanelOpen) {
+      m_backdropPanelOpen = false;
+      m_zoomPanelOpen = false;
+    }
+    requestRedrawAll();
+  }
+
+  std::unique_ptr<Flex> AnnotationOverlay::buildZoomPanel(Instance& inst) {
+    Color panelFill = colorForRole(ColorRole::Surface);
+    panelFill.a = kToolbarFillAlpha;
+
+    auto panel = ui::row({
+        .align = FlexAlign::Center,
+        .gap = Style::spaceXs,
+        .paddingV = Style::spaceSm,
+        .paddingH = Style::spaceSm,
+        .fill = fixedColorSpec(panelFill),
+        .radius = Style::radiusXl,
+        .border = colorSpecFromRole(ColorRole::OutlineVariant),
+        .borderWidth = Style::borderWidth,
+        .visible = false,
+        .participatesInLayout = false,
+    });
+
+    auto* instPtr = &inst;
+    const auto addGhostButton = [&](const char* glyph, const char* tooltipKey, std::function<void()> onClick) {
+      panel->addChild(
+          ui::button({
+              .glyph = std::string(glyph),
+              .variant = ButtonVariant::Ghost,
+              .tooltip = i18n::tr(tooltipKey),
+              .onClick = std::move(onClick),
+          })
+      );
+    };
+    addGhostButton("zoom-out", "bar.annotate.zoom-out", [this, instPtr] {
+      zoomViewByButton(*instPtr, 1.0 / kToolbarZoomStep);
+    });
+    inst.zoomLabel = static_cast<Label*>(panel->addChild(
+        ui::label({
+            .fontSize = Style::fontSizeCaption,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .minWidth = kZoomLabelWidth,
+            .textAlign = TextAlign::Center,
+        })
+    ));
+    addGhostButton("zoom-in", "bar.annotate.zoom-in", [this, instPtr] {
+      zoomViewByButton(*instPtr, kToolbarZoomStep);
+    });
+    addGhostButton("zoom-reset", "bar.annotate.zoom-reset", [this, instPtr] { resetView(*instPtr); });
+
+    inst.zoomPanel = panel.get();
+    refreshZoomPanel(inst, nullptr);
+    return panel;
+  }
+
+  void AnnotationOverlay::refreshZoomPanel(Instance& inst, Renderer* renderer) {
+    if (inst.zoomPanel == nullptr) {
+      return;
+    }
+    bool needsLayout = false;
+    if (inst.zoomPanel->visible() != m_zoomPanelOpen) {
+      inst.zoomPanel->setVisible(m_zoomPanelOpen);
+      inst.zoomPanel->setParticipatesInLayout(m_zoomPanelOpen);
+      needsLayout = true;
+    }
+    if (inst.zoomLabel != nullptr) {
+      // Percent of the fitted view, the size the editor opens at.
+      inst.zoomLabel->setText(std::format("{}%", std::lround(inst.view.zoom * 100.0)));
+    }
+    if ((needsLayout || inst.zoomPanel->layoutDirty()) && renderer != nullptr) {
+      inst.zoomPanel->layout(*renderer);
+    }
+  }
+
+  void AnnotationOverlay::toggleZoomPanel() {
+    m_zoomPanelOpen = !m_zoomPanelOpen;
+    if (m_zoomPanelOpen) {
+      m_strokePanelOpen = false;
       m_backdropPanelOpen = false;
     }
     requestRedrawAll();

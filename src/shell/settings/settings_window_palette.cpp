@@ -1,6 +1,7 @@
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "shell/settings/settings_window.h"
+#include "shell/wayland/clipboard_service.h"
 #include "theme/fixed_palette.h"
 #include "theme/palette.h"
 #include "theme/tokens.h"
@@ -8,7 +9,6 @@
 #include "ui/controls/grid_tile.h"
 #include "ui/controls/virtual_grid_view.h"
 #include "util/string_utils.h"
-#include "wayland/clipboard_service.h"
 
 #include <cstddef>
 #include <cstdint>

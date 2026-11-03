@@ -18,6 +18,7 @@
 #include "render/scene/node.h"
 #include "shell/bar/widget_action.h"
 #include "shell/greeter/greeter_appearance_sync.h"
+#include "shell/palette_swatch_preview.h"
 #include "shell/profile/avatar_path.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/settings_bar_management.h"
@@ -27,6 +28,10 @@
 #include "shell/settings/settings_sidebar.h"
 #include "shell/settings/settings_window.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/background_effect_globals.h"
+#include "shell/wayland/capture_globals.h"
+#include "shell/wayland/clipboard_service.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
 #include "theme/builtin_templates.h"
@@ -36,12 +41,10 @@
 #include "ui/builders.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/palette.h"
-#include "ui/palette_swatch_preview.h"
 #include "ui/scroll_into_view.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "util/sys_utils.h"
-#include "wayland/clipboard_service.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
 
@@ -747,8 +750,8 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
     env.shellAvatarPath = shell::resolvedAvatarPath(m_accounts, m_config->config());
   }
   env.niriBackdropSupported = (m_wayland != nullptr && compositors::isNiri());
-  env.screencopySupported = m_wayland != nullptr && m_wayland->hasScreencopy();
-  env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->hasBackgroundEffectBlur();
+  env.screencopySupported = m_wayland != nullptr && m_wayland->extension<ScreencopyGlobals>().manager() != nullptr;
+  env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->extension<BackgroundEffectGlobals>().hasBlur();
   env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
   env.umbrielOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isUmbriel());
   env.niriOverviewCloseOnLaunchSupported =
@@ -757,7 +760,8 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
       env.umbrielOverviewTypeToLaunchSupported && m_platform != nullptr && m_platform->tracksOverviewState();
   env.ddcutilAvailable = (m_dependencies != nullptr && m_dependencies->hasDdcutil());
   env.systemdUserManaged = process::runningUnderSystemdUserManager();
-  env.gammaControlAvailable = (m_wayland != nullptr && m_wayland->hasGammaControl());
+  env.gammaControlAvailable =
+      m_wayland != nullptr && m_wayland->extension<ShellGlobals>().gammaControlManager() != nullptr;
   env.greeterSyncAvailable =
       m_config != nullptr && greeter::appearanceSyncAvailable(m_config->config().shell.greeterSync);
   const ThemeMode previewMode = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;

@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "ipc/ipc_service.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/day_night_schedule.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-gamma-control-unstable-v1-client-protocol.h"
@@ -46,7 +47,8 @@ namespace {
 
 } // namespace
 
-GammaService::GammaService(WaylandConnection& wayland) : m_wayland(wayland) {}
+GammaService::GammaService(WaylandConnection& wayland)
+    : m_wayland(wayland), m_shellGlobals(wayland.extension<ShellGlobals>()) {}
 
 GammaService::~GammaService() { restoreAll(); }
 
@@ -257,7 +259,7 @@ void GammaService::onGammaFailed(void* data, zwlr_gamma_control_v1* /*ctrl*/) {
 }
 
 void GammaService::syncOutputs() {
-  if (!m_wayland.hasGammaControl()) {
+  if (m_shellGlobals.gammaControlManager() == nullptr) {
     return;
   }
 
@@ -290,7 +292,7 @@ void GammaService::syncOutputs() {
       continue;
     }
 
-    auto* ctrl = zwlr_gamma_control_manager_v1_get_gamma_control(m_wayland.gammaControlManager(), wo.output);
+    auto* ctrl = zwlr_gamma_control_manager_v1_get_gamma_control(m_shellGlobals.gammaControlManager(), wo.output);
     auto& og = m_outputs.emplace_back(
         OutputGamma{
             .wlOutput = wo.output,
@@ -524,7 +526,7 @@ GammaService::GammaTarget GammaService::computeTarget() const {
 }
 
 void GammaService::apply() {
-  if (!m_wayland.hasGammaControl()) {
+  if (m_shellGlobals.gammaControlManager() == nullptr) {
     if (!m_gammaUnavailableLogged) {
       kLog.warn("compositor does not support gamma control");
       m_gammaUnavailableLogged = true;

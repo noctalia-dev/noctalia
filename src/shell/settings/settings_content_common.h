@@ -1,6 +1,7 @@
 #pragma once
 
 #include "shell/settings/settings_registry.h"
+#include "ui/controls/keybind_recorder.h"
 #include "ui/controls/label.h"
 
 #include <cstddef>
@@ -64,6 +65,9 @@ namespace settings {
   bool isMonitorOverrideSettingPath(const std::vector<std::string>& path);
   bool monitorOverrideHasExplicitValue(const Config& cfg, const std::vector<std::string>& path);
   bool settingEntryHasEffectiveOverride(const SettingEntry& entry, const ConfigService& configService);
+
+  // Explains a refused shortcut through an internal error notification.
+  void notifyKeybindRejected(KeybindRejection reason);
 
   bool isBlankInput(std::string_view text);
   std::string formatSliderValue(double value, bool integerValue);

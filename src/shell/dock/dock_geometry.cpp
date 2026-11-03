@@ -1,7 +1,7 @@
 #include "shell/dock/dock_geometry.h"
 
-#include "shell/surface/shadow.h"
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
+#include "ui/surface_shadow.h"
 
 #include <algorithm>
 #include <cmath>
@@ -22,9 +22,8 @@ namespace shell::dock {
     // Badge hangs past its icon corner by this fraction of its diameter.
     constexpr float kBadgeCornerOverhang = 0.45F;
 
-    [[nodiscard]] shell::surface_shadow::Bleed
-    dockVisualBleed(const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow) {
-      auto bleed = shell::surface_shadow::bleed(cfg.shadow, shadow);
+    [[nodiscard]] surface_shadow::Bleed dockVisualBleed(const DockConfig& cfg, const ShadowStyle& shadow) {
+      auto bleed = surface_shadow::bleed(cfg.shadow, shadow);
       if (!cfg.iconShadow) {
         return bleed;
       }
@@ -37,8 +36,8 @@ namespace shell::dock {
       const bool vertical = isVerticalEdge(cfg.position);
       const auto padX = static_cast<float>(kCellPad + (vertical ? cfg.crossAxisPadding : cfg.mainAxisPadding));
       const auto padY = static_cast<float>(kCellPad + (vertical ? cfg.mainAxisPadding : cfg.crossAxisPadding));
-      const auto offset = shell::surface_shadow::maskStyle(shadow).offset;
-      constexpr auto padding = shell::surface_shadow::kMaskPadding;
+      const auto offset = surface_shadow::maskStyle(shadow).offset;
+      constexpr auto padding = surface_shadow::kMaskPadding;
       float left = halfGrowth + static_cast<float>(padding - offset.x) * peak - padX;
       float right = halfGrowth + static_cast<float>(padding + offset.x) * peak - padX;
       float up = halfGrowth + static_cast<float>(padding - offset.y) * peak - padY;
@@ -218,8 +217,8 @@ namespace shell::dock {
   std::size_t dockLauncherButtonCount(const DockConfig& cfg) { return dockLauncherButtonCount(cfg.launcherPosition); }
 
   DockSurfaceGeometry computeSurfaceGeometry(
-      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, bool fractionalScale,
-      std::int32_t outputLogicalWidth, std::int32_t outputLogicalHeight
+      const DockConfig& cfg, const ShadowStyle& shadow, bool fractionalScale, std::int32_t outputLogicalWidth,
+      std::int32_t outputLogicalHeight
   ) {
     const DockEdge edge = cfg.position;
     const bool vertical = isVerticalEdge(edge);
@@ -285,8 +284,8 @@ namespace shell::dock {
   }
 
   LayerSurfaceConfig makeLayerSurfaceConfig(
-      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, bool fractionalScale,
-      std::int32_t outputLogicalWidth, std::int32_t outputLogicalHeight
+      const DockConfig& cfg, const ShadowStyle& shadow, bool fractionalScale, std::int32_t outputLogicalWidth,
+      std::int32_t outputLogicalHeight
   ) {
     const auto geometry = computeSurfaceGeometry(cfg, shadow, fractionalScale, outputLogicalWidth, outputLogicalHeight);
     return LayerSurfaceConfig{
@@ -306,8 +305,7 @@ namespace shell::dock {
   }
 
   DockPanelGeometry computePanelGeometry(
-      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH,
-      std::size_t itemCount
+      const DockConfig& cfg, const ShadowStyle& shadow, float surfaceW, float surfaceH, std::size_t itemCount
   ) {
     const DockEdge edge = cfg.position;
     const bool vertical = isVerticalEdge(edge);
@@ -369,14 +367,13 @@ namespace shell::dock {
   }
 
   std::pair<float, float> computeHiddenSlideDelta(
-      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH,
-      const DockPanelGeometry& panel
+      const DockConfig& cfg, const ShadowStyle& shadow, float surfaceW, float surfaceH, const DockPanelGeometry& panel
   ) {
     float contentLeft = cfg.iconShadow ? 0.0F : panel.panelX;
     float contentTop = cfg.iconShadow ? 0.0F : panel.panelY;
     float contentRight = cfg.iconShadow ? surfaceW : panel.panelX + panel.panelW;
     float contentBottom = cfg.iconShadow ? surfaceH : panel.panelY + panel.panelH;
-    if (shell::surface_shadow::enabled(cfg.shadow, shadow)) {
+    if (surface_shadow::enabled(cfg.shadow, shadow)) {
       const auto offset = shadowDirectionOffset(shadow.direction);
       const float sx = panel.panelX + static_cast<float>(offset.x);
       const float sy = panel.panelY + static_cast<float>(offset.y);

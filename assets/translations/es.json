@@ -4556,10 +4556,6 @@
           "description": "Incluir ventanas de cualquier monitor en este widget",
           "label": "Mostrar todos los monitores"
         },
-        "show-all-workspaces": {
-          "description": "Mostrar espacios de trabajo de todos los monitores en este widget",
-          "label": "Mostrar todos los monitores"
-        },
         "show-caps-lock": {
           "description": "Mostrar estado de Bloq Mayús",
           "label": "Mostrar Bloq Mayús"

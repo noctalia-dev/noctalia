@@ -89,7 +89,11 @@
       "tool-numbering": "Numbered marker (n)",
       "tool-rectangle": "Rectangle (s) · hold Shift for a square",
       "tool-text": "Text (t)",
-      "undo": "Undo (Ctrl+Z)"
+      "undo": "Undo (Ctrl+Z)",
+      "zoom": "Zoom · Ctrl+wheel to zoom, Ctrl+drag to pan",
+      "zoom-in": "Zoom in (Ctrl++)",
+      "zoom-out": "Zoom out (Ctrl+-)",
+      "zoom-reset": "Fit to view (Ctrl+0)"
     },
     "screenshot": {
       "annotate-export-failed": "Failed to build the annotated image",
@@ -1328,6 +1332,10 @@
               "windows": "Windows",
               "workspace-labels": "Workspace Labels"
             },
+            "tray": {
+              "drawer": "Drawer",
+              "icon-overrides": "Icon Overrides"
+            },
             "widget": "Widget",
             "workspaces": {
               "colors": "Colors",
@@ -1926,12 +1934,8 @@
           "label": "Animations"
         },
         "app-icon-color": {
-          "description": "Palette color used when colorizing application icons",
+          "description": "Shared palette color for components with Colorize App Icons enabled",
           "label": "App Icon Color"
-        },
-        "app-icon-colorize": {
-          "description": "Recolor application icons across the shell to match the active palette",
-          "label": "Colorize App Icons"
         },
         "builtin-palette": {
           "description": "Choose a palette from the bundled catalog",
@@ -3297,6 +3301,10 @@
         }
       },
       "shared": {
+        "colorize-icons": {
+          "description": "Recolor application icons here using the shared App Icon Color from Appearance",
+          "label": "Colorize App Icons"
+        },
         "auto-hide": {
           "label": "Auto-Hide"
         },
@@ -4439,6 +4447,8 @@
         "cpu-freq": "CPU Freq",
         "cpu-temp": "CPU Temperature",
         "cpu-usage": "CPU Usage",
+        "default": "Default",
+        "desktop": "Desktop",
         "disk-free": "Disk Free",
         "disk-free-percent": "Disk Free %",
         "disk-used": "Disk Used",
@@ -4481,6 +4491,7 @@
         "shared": "Shared",
         "short": "Short",
         "swap-percent": "Swap %",
+        "symbolic": "Symbolic",
         "text": "Text",
         "text-only": "Text Only",
         "time": "Time",
@@ -4588,6 +4599,10 @@
           "description": "Second gradient color in the visualizer",
           "label": "Color 2"
         },
+        "colorize-icons": {
+          "description": "Recolor this widget's application icons using the shared App Icon Color from Appearance",
+          "label": "Colorize App Icons"
+        },
         "custom-image": {
           "description": "Path to a custom image; leave empty to use the icon glyph",
           "dialog-title": "Select Custom Image",
@@ -4667,10 +4682,6 @@
         "font-weight": {
           "description": "Default inherits the bar font weight",
           "label": "Font Weight"
-        },
-        "force-app-icons": {
-          "description": "Force tray icons to use desktop app icons",
-          "label": "Force App Icons"
         },
         "format": {
           "description": "Time format string",
@@ -4783,6 +4794,10 @@
           "description": "Overrides the widget color for icons only; fixed hex colors are also supported",
           "label": "Icon Color"
         },
+        "icon-override-blacklist": {
+          "description": "List of tray icons to exclude from icon overrides",
+          "label": "Icon Override Blacklist"
+        },
         "icon-scale": {
           "description": "Scale of taskbar application icons relative to their default size",
           "label": "Icon Scale"
@@ -4794,6 +4809,10 @@
         "icon-spacing": {
           "description": "Spacing between privacy indicator icons in pixels",
           "label": "Icon Spacing"
+        },
+        "icon-type": {
+          "description": "Select the type of icons to use in the tray",
+          "label": "Icon Type"
         },
         "inactive-color": {
           "description": "Color used for inactive privacy indicators; fixed hex colors are also supported",
@@ -4954,6 +4973,14 @@
           "description": "Choose whether scroll actions follow command semantics, run once per gesture, or repeat for every scroll step",
           "label": "Scroll Repeat"
         },
+        "separator": {
+          "description": "Text between workspace indicators; leave empty for no separator or extra spacing",
+          "label": "Separator"
+        },
+        "separator-color": {
+          "description": "Color role used for workspace separators; fixed hex colors are also supported",
+          "label": "Separator Color"
+        },
         "show-active-indicator": {
           "description": "Show a small dot below the active window icon in the taskbar",
           "label": "Active Window Indicator"
@@ -4961,11 +4988,6 @@
         "show-all-outputs": {
           "description": "Include windows from every monitor on this widget",
           "label": "Show All Monitors"
-        },
-        "workspace-monitors": {
-          "all": "All Monitors",
-          "description": "Choose which monitors' workspaces appear in this widget, in order. Leave empty to show only the workspaces from the monitor hosting the bar",
-          "label": "Workspace Monitors"
         },
         "show-caps-lock": {
           "description": "Show Caps Lock state",
@@ -5139,6 +5161,11 @@
         "workspace-label-placement": {
           "description": "Corner, centered on the edge, or inside the pill",
           "label": "Workspace Label Placement"
+        },
+        "workspace-monitors": {
+          "all": "All Monitors",
+          "description": "Choose which monitors' workspaces appear in this widget, in order. Leave empty to show only the workspaces from the monitor hosting the bar",
+          "label": "Workspace Monitors"
         }
       },
       "types": {

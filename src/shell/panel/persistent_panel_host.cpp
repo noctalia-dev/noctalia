@@ -10,12 +10,13 @@
 #include "shell/panel/panel.h"
 #include "shell/panel/panel_surface_style.h"
 #include "shell/screen_position.h"
-#include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/layer_shell.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "ui/surface_shadow.h"
 
 #include <algorithm>
 #include <cmath>
@@ -80,17 +81,20 @@ std::optional<LayerPopupParentContext> PersistentPanelHost::popupParentContext(s
     return std::nullopt;
   }
   const auto& instance = **it;
-  LayerPopupParentContext context{
-      .surface = instance.surface->wlSurface(),
-      .layerSurface = instance.surface->layerSurface(),
-      .output = instance.output,
-      .width = instance.surface->width(),
-      .height = instance.surface->height(),
-  };
-  if (context.surface == nullptr || context.layerSurface == nullptr || context.width == 0 || context.height == 0) {
+  zwlr_layer_surface_v1* layerSurface = instance.surface->layerSurface();
+  wl_surface* surface = instance.surface->wlSurface();
+  const std::uint32_t width = instance.surface->width();
+  const std::uint32_t height = instance.surface->height();
+  if (surface == nullptr || layerSurface == nullptr || width == 0 || height == 0) {
     return std::nullopt;
   }
-  return context;
+  return LayerPopupParentContext{
+      .surface = surface,
+      .attach = LayerShell::popupAttach(layerSurface),
+      .output = instance.output,
+      .width = width,
+      .height = height,
+  };
 }
 
 LayerShellLayer PersistentPanelHost::resolveLayer(const Panel& panel) const {
@@ -335,7 +339,7 @@ void PersistentPanelHost::buildScene(Instance& instance, std::uint32_t width, st
   instance.sceneRoot->setSize(static_cast<float>(width), static_cast<float>(height));
 
   const auto& shadowConfig = m_config->config().shell.shadow;
-  if (hasDecoration && shell::surface_shadow::enabled(true, shadowConfig)) {
+  if (hasDecoration && surface_shadow::enabled(true, shadowConfig)) {
     auto shadow = ui::box({});
     instance.shadowNode = static_cast<Box*>(instance.sceneRoot->addChild(std::move(shadow)));
     instance.shadowNode->setZIndex(-1);
@@ -421,8 +425,7 @@ void PersistentPanelHost::layoutScene(Instance& instance, std::uint32_t width, s
 
   if (instance.shadowNode != nullptr) {
     const auto& shadowConfig = m_config->config().shell.shadow;
-    const bool panelShadow =
-        m_config->config().shell.panel.shadow && shell::surface_shadow::enabled(true, shadowConfig);
+    const bool panelShadow = m_config->config().shell.panel.shadow && surface_shadow::enabled(true, shadowConfig);
     instance.shadowNode->setVisible(panelShadow);
     const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
     instance.shadowNode->setPosition(
@@ -432,9 +435,9 @@ void PersistentPanelHost::layoutScene(Instance& instance, std::uint32_t width, s
     if (panelShadow) {
       const float radius = Style::scaledRadiusXl(instance.panel->contentScale());
       instance.shadowNode->setStyle(
-          shell::surface_shadow::style(
+          surface_shadow::style(
               shadowConfig, shell::panel_surface::backgroundOpacity(m_config),
-              shell::surface_shadow::Shape{.radius = Radii{radius, radius, radius, radius}}
+              surface_shadow::Shape{.radius = Radii{radius, radius, radius, radius}}
           )
       );
     }

@@ -7,9 +7,9 @@
 #include "scripting/plugin_layer_config.h"
 #include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
-#include "ui/ui_tree.h"
-#include "ui/ui_tree_reconciler.h"
-#include "wayland/layer_surface.h"
+#include "scripting/ui/ui_tree.h"
+#include "scripting/ui/ui_tree_reconciler.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <filesystem>
 #include <memory>

@@ -2,7 +2,7 @@
 
 #include "config/config_types.h"
 #include "render/core/shared_texture_cache.h"
-#include "render/core/wallpaper_types.h"
+#include "shell/render/wallpaper_types.h"
 
 #include <cstdint>
 #include <vector>

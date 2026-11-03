@@ -17,6 +17,8 @@ offline_mode          = false        # block all outgoing HTTP when true
 # panel_anchor_bar   = "main"        # bar panels attach to without a source bar; omit = first enabled bar
 telemetry_enabled     = false        # send an anonymous startup ping
 niri_overview_type_to_launch_enabled = false # opt in to type-to-launch from niri overview
+polkit_colorize_icons = false       # tint identified application icons in authentication prompts
+screen_time_colorize_icons = false  # tint application icons in Screen Time
 polkit_agent          = false
 password_style        = "default"    # default | random
 readline_shortcuts    = false        # readline-style shortcuts in every text field (Ctrl+A = line start)
@@ -24,8 +26,7 @@ settings_show_advanced = true        # show advanced settings by default in Sett
 settings_expand_all_groups = false   # expand every group on Settings pages by default
 # settings_window_translucent = false  # translucent settings window background
 show_location         = true         # hide weather location text in shell UI when false
-# app_icon_colorize   = false        # recolor application icons across the shell
-# app_icon_color      = "on_surface" # ColorSpec role or #hex when colorize is enabled
+# app_icon_color      = "on_surface" # shared ColorSpec tint; enable colorize_icons per component
 clipboard_enabled     = true         # false disables clipboard panel, history, and compositor clipboard hooks
 clipboard_history_max_entries = 100 # unpinned history cap (10–10000); pinned entries are extra
 # A Wayland selection is served by the app that owns it, so it dies when that app exits.
@@ -81,6 +82,7 @@ open_near_click_wallpaper      = false # for attached/floating placement, follow
 open_near_click_session        = false # for attached/floating placement, follow the bar click instead of bar-center
 
 [shell.launcher]
+colorize_icons = false              # tint application icons with shell.app_icon_color
 layout = "full"                          # full | simple; simple is search, optional category chips, and results at 560x500
 width = 760                              # full layout: panel width in pixels (560–1200)
 search_position = "top"                  # full layout: top | bottom; whole launcher toolbar position
@@ -125,6 +127,7 @@ prefix = "win"
 blacklist = []                      # ignore MPRIS players by bus/identity/desktop entry token
 
 [shell.window_switcher]
+colorize_icons = false              # tint application icons with shell.app_icon_color
 style = "carousel"                    # "carousel" (depth layout) or "compact" (boxed strip)
 mru = false                         # order windows by most recently used (Alt+Tab) instead of workspace layout
 show_caption = true                 # show window titles and application names below previews
@@ -190,6 +193,7 @@ tint_intensity         = 0.3        # 0.0 = no tint, 1.0 = opaque
 # ── Notifications ─────────────────────────────────────────────────────────────
 
 [notification]
+colorize_icons = false             # tint app icons only; notification content images keep their colors
 enable_daemon      = true
 show_app_name      = true
 show_actions       = true           # show action buttons; when false, clicking a toast triggers its default action
@@ -315,6 +319,7 @@ effects         = true              # visual weather effects
 # ── Audio ─────────────────────────────────────────────────────────────────────
 
 [audio]
+colorize_icons = false             # tint application icons in the Control Center audio mixer
 enable_overdrive = false            # allow volume above 100% (up to 150%)
 enable_sounds = false               # master toggle for shell sounds (plugins unaffected)
 enable_volume_sounds = true         # sound on output volume changes
@@ -452,6 +457,7 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 # ── Dock ──────────────────────────────────────────────────────────────────────
 
 [dock]
+colorize_icons = false              # tint application icons with shell.app_icon_color
 enabled             = false         # set true to activate
 position            = "bottom"      # top | bottom | left | right
 icon_size           = 48

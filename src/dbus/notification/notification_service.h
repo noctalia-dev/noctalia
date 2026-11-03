@@ -28,6 +28,7 @@ namespace notification_dbus {
       const std::string& appName, const std::string& appIcon, const std::map<std::string, sdbus::Variant>& hints
   );
   std::optional<NotificationImageData> notifyImageDataFromHints(const std::map<std::string, sdbus::Variant>& hints);
+  bool notifyIconIsAppIcon(const std::string& appIcon, const std::map<std::string, sdbus::Variant>& hints);
   std::optional<std::string> notifyCategoryFromHints(const std::map<std::string, sdbus::Variant>& hints);
   std::optional<std::string> notifyDesktopEntryFromHints(const std::map<std::string, sdbus::Variant>& hints);
 

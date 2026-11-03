@@ -2,6 +2,7 @@
 
 #include "compositors/keyboard_backend.h"
 #include "compositors/workspace_backend.h"
+#include "shell/wayland/wayland_toplevels.h"
 #include "wayland/wayland_connection.h"
 
 #include <chrono>
@@ -23,8 +24,14 @@ struct zdwl_ipc_manager_v2;
 struct hyprland_toplevel_mapping_manager_v1;
 struct zwlr_foreign_toplevel_handle_v1;
 struct ext_foreign_toplevel_handle_v1;
+struct zwlr_layer_surface_v1;
+class CompositorGlobals;
+class FocusGrabService;
+class ForeignToplevels;
+class LayerShell;
 class OutputProbe;
 class SessionBus;
+class ShellGlobals;
 class WaylandWorkspaces;
 
 namespace compositors::kde {
@@ -73,7 +80,9 @@ public:
   const std::vector<WaylandOutput>& outputs() const noexcept;
   const WaylandOutput* findOutputByWl(wl_output* output) const;
   wl_output* outputForSurface(wl_surface* surface) const noexcept;
-  FocusGrabService* focusGrabService() const noexcept;
+  FocusGrabService& focusGrabService() const noexcept { return m_focusGrab; }
+  ForeignToplevels& foreignToplevels() const noexcept { return m_toplevels; }
+  LayerShell& layerShell() const noexcept { return m_layerShell; }
   bool hasPointerPosition() const noexcept;
   wl_surface* lastPointerSurface() const noexcept;
   wl_surface* lastKeyboardSurface() const noexcept;
@@ -99,6 +108,9 @@ public:
   // The callback receives the probed output, or nullptr on timeout. Only one
   // probe runs at a time; a new call cancels any in-flight probe.
   void probeFocusedOutput(std::function<void(wl_output*)> callback, std::chrono::milliseconds timeout);
+  // True when the probe's output (labwc places unpinned layer surfaces on the pointer's output) is a
+  // better interactive target than focusedInteractiveOutput(), whose only source there is window focus.
+  bool prefersOutputProbe() const noexcept;
 
   std::optional<ActiveToplevel> activeToplevel() const;
   wl_output* activeToplevelOutput() const;
@@ -233,6 +245,11 @@ private:
   bool extToplevelIsLive(const ext_foreign_toplevel_handle_v1* handle) const;
 
   WaylandConnection& m_wayland;
+  ShellGlobals& m_shellGlobals;
+  FocusGrabService& m_focusGrab;
+  ForeignToplevels& m_toplevels;
+  CompositorGlobals& m_compositorGlobals;
+  LayerShell& m_layerShell;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;
   std::unique_ptr<WaylandWorkspaces> m_workspaces;

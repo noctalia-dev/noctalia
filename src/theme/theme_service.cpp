@@ -6,6 +6,7 @@
 #include "core/scoped_timer.h"
 #include "ipc/ipc_service.h"
 #include "net/http_client.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "system/day_night_schedule.h"
 #include "theme/builtin_palettes.h"
 #include "theme/community_palettes.h"
@@ -16,7 +17,6 @@
 #include "theme/palette_generator.h"
 #include "theme/palette_transform.h"
 #include "theme/scheme.h"
-#include "ui/app_icon_colorization.h"
 #include "util/checksum.h"
 #include "util/string_utils.h"
 
@@ -157,7 +157,10 @@ namespace noctalia::theme {
   } // namespace
 
   ThemeService::ThemeService(ConfigService& config, HttpClient& httpClient)
-      : m_config(config), m_httpClient(httpClient) {}
+      : m_config(config), m_httpClient(httpClient) {
+    // Shown until the configured theme resolves.
+    setPalette(mapGeneratedPaletteMode(expandBuiltinPalette(*findBuiltinPalette("Noctalia")).dark));
+  }
 
   ThemeService::~ThemeService() {
     m_alive.reset();
