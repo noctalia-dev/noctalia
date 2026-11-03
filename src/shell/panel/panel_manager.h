@@ -297,6 +297,7 @@ private:
   std::int32_t m_detachedBleedRight = 0;
   std::int32_t m_detachedBleedBottom = 0;
   float m_attachedBackgroundOpacity = 1.0F;
+  float m_detachedBackgroundOpacity = 1.0F;
   bool m_attachedContactShadow = false;
   float m_attachedRevealProgress = 1.0F;
   float m_detachedRevealProgress = 1.0F;

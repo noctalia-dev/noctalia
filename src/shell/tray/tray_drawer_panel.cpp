@@ -33,7 +33,7 @@ std::optional<float> TrayDrawerPanel::detachedBackgroundOpacityOverride() const 
   if (m_config == nullptr) {
     return std::nullopt;
   }
-  const auto resolved = tray::resolvedTrayOptions(*m_config);
+  const auto resolved = tray::resolvedTrayOptions(*m_config, {}, widgetName());
   if (!resolved.options.detachedPanel) {
     return std::nullopt;
   }

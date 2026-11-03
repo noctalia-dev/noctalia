@@ -1083,12 +1083,10 @@ namespace settings {
         std::vector<WidgetSettingSpec>& specs, const Config& cfg, const std::vector<std::string>& lanePath
     ) {
       for (auto& spec : specs) {
-        if (!spec.schema.inheritsFromBar) {
-          continue;
+        if (spec.defaultFromConfig) {
+          spec.schema.defaultValue = spec.defaultFromConfig(cfg);
         }
-        if (spec.schema.key == "drawer_background_opacity") {
-          spec.schema.defaultValue =
-              static_cast<double>(detachedPanelBackgroundOpacityForTransparencyMode(cfg.shell.panel.transparencyMode));
+        if (!spec.schema.inheritsFromBar) {
           continue;
         }
         if (const auto inherited = inheritedBarBoolForLane(cfg, lanePath, spec.schema.key)) {

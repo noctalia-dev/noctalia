@@ -74,7 +74,11 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                           .group = "tray.drawer",
                           .visibleWhen = detachedDrawerOn,
                       },
-                  .inheritsFromBar = true,
+                  .defaultFromConfig = [](const Config& cfg) -> WidgetSettingValue {
+                    return static_cast<double>(
+                        detachedPanelBackgroundOpacityForTransparencyMode(cfg.shell.panel.transparencyMode)
+                    );
+                  },
               }),
               field<&Options::iconOverrideBlacklist>({
                   .key = "icon_override_blacklist",

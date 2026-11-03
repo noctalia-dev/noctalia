@@ -997,6 +997,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_detachedBleedRight = 0;
     m_detachedBleedBottom = 0;
     m_attachedBackgroundOpacity = 1.0F;
+    m_detachedBackgroundOpacity = 1.0F;
     m_attachedContactShadow = false;
     m_attachedRevealProgress = 1.0F;
     m_detachedRevealProgress = 1.0F;
@@ -1287,6 +1288,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_panelVisualWidth = 0;
     m_panelVisualHeight = 0;
     m_attachedBackgroundOpacity = 1.0F;
+    m_detachedBackgroundOpacity = 1.0F;
     m_attachedContactShadow = false;
     m_attachedRevealProgress = 1.0F;
     m_detachedRevealProgress = 1.0F;
@@ -1318,6 +1320,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   m_detachedBleedRight = detachedShadowBleed.right;
   m_detachedBleedBottom = detachedShadowBleed.down;
   m_attachedBackgroundOpacity = 1.0F;
+  m_detachedBackgroundOpacity = 1.0F;
   m_attachedContactShadow = false;
   m_attachedRevealProgress = 1.0F;
   // This path publishes the compositor blur region before the first scene build.
@@ -1684,6 +1687,7 @@ void PanelManager::destroyPanel() {
   m_detachedBleedRight = 0;
   m_detachedBleedBottom = 0;
   m_attachedBackgroundOpacity = 1.0F;
+  m_detachedBackgroundOpacity = 1.0F;
   m_attachedContactShadow = false;
   m_attachedRevealProgress = 1.0F;
   m_detachedRevealProgress = 1.0F;
@@ -2586,9 +2590,9 @@ void PanelManager::onConfigReloaded() {
     applyAttachedReveal(m_attachedRevealProgress);
   } else {
     applyDetachedReveal(m_detachedRevealProgress);
+    m_detachedBackgroundOpacity = activeDetachedBackgroundOpacity();
   }
-  const float panelBackgroundOpacity =
-      m_attachedToBar ? m_attachedBackgroundOpacity : activeDetachedBackgroundOpacity();
+  const float panelBackgroundOpacity = m_attachedToBar ? m_attachedBackgroundOpacity : m_detachedBackgroundOpacity;
   m_activePanel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, panelBackgroundOpacity));
   if (!m_attachedToBar && m_bgNode != nullptr) {
     auto* bg = static_cast<Box*>(m_bgNode);
@@ -2631,13 +2635,13 @@ void PanelManager::onConfigReloaded() {
   }
   const auto& barConfig = *barConfigOpt;
   bool changed = false;
-  const float newOpacity = m_activePanel->inheritsBarBackgroundOpacity()
-      ? barConfig.backgroundOpacity
-      : m_activePanel->attachedBackgroundOpacityOverride();
-  if (std::abs(newOpacity - m_attachedBackgroundOpacity) >= 0.001F) {
-    m_attachedBackgroundOpacity = newOpacity;
-    m_activePanel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, m_attachedBackgroundOpacity));
-    changed = true;
+  if (m_activePanel->inheritsBarBackgroundOpacity()) {
+    const float newOpacity = barConfig.backgroundOpacity;
+    if (std::abs(newOpacity - m_attachedBackgroundOpacity) >= 0.001F) {
+      m_attachedBackgroundOpacity = newOpacity;
+      m_activePanel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, m_attachedBackgroundOpacity));
+      changed = true;
+    }
   }
   if (!changed) {
     return;
@@ -2683,6 +2687,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
       m_attachedRevealContentNode = m_attachedRevealClipNode->addChild(std::move(revealContent));
       sceneParent = m_attachedRevealContentNode;
     } else {
+      m_detachedBackgroundOpacity = activeDetachedBackgroundOpacity();
       auto revealClip = ui::node({});
       revealClip->setClipChildren(true);
       m_detachedRevealClipNode = m_sceneRoot->addChild(std::move(revealClip));
@@ -2711,11 +2716,10 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
         bg->setRadii(Radii{radius, radius, radius, radius});
         // Fill (opacity-dependent) is applied via applyAttachedDecorationStyle() below.
       } else {
-        const float backgroundOpacity = activeDetachedBackgroundOpacity();
-        bg->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
+        bg->setFill(colorSpecFromRole(ColorRole::Surface, m_detachedBackgroundOpacity));
         if (panelBorders) {
           bg->setBorder(
-              shell::panel_surface::borderColor(m_config, backgroundOpacity),
+              shell::panel_surface::borderColor(m_config, m_detachedBackgroundOpacity),
               shell::panel_surface::borderWidth(m_config)
           );
         }
@@ -2732,8 +2736,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
     auto contentWrapper = ui::node({});
     m_contentNode = contentWrapper.get();
     m_activePanel->setAnimationManager(&m_animations);
-    const float panelBackgroundOpacity =
-        m_attachedToBar ? m_attachedBackgroundOpacity : activeDetachedBackgroundOpacity();
+    const float panelBackgroundOpacity = m_attachedToBar ? m_attachedBackgroundOpacity : m_detachedBackgroundOpacity;
     m_activePanel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, panelBackgroundOpacity));
     m_activePanel->create();
     m_activePanel->onOpen(m_pendingOpenContext);
@@ -2866,10 +2869,9 @@ void PanelManager::placePanelChrome() {
     m_panelShadowNode->setSize(bgW, bgH);
     if (!m_attachedToBar && panelShadow) {
       const float shadowRadius = Style::scaledRadiusXl(m_activePanel->contentScale());
-      const float panelBackgroundOpacity = activeDetachedBackgroundOpacity();
       m_panelShadowNode->setStyle(
           surface_shadow::style(
-              shadowConfig, panelBackgroundOpacity,
+              shadowConfig, m_detachedBackgroundOpacity,
               surface_shadow::Shape{.radius = Radii{shadowRadius, shadowRadius, shadowRadius, shadowRadius}}
           )
       );
@@ -2911,15 +2913,6 @@ void PanelManager::placePanelChrome() {
   // Ensures these stay in sync if the bar config changed.
   if (m_attachedToBar) {
     applyAttachedDecorationStyle();
-  } else if (m_bgNode != nullptr && m_config != nullptr) {
-    auto* bg = static_cast<Box*>(m_bgNode);
-    const float backgroundOpacity = activeDetachedBackgroundOpacity();
-    bg->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
-    if (m_config->config().shell.panel.borders) {
-      bg->setBorder(
-          shell::panel_surface::borderColor(m_config, backgroundOpacity), shell::panel_surface::borderWidth(m_config)
-      );
-    }
   }
 
   const float kPadding = m_activePanel->hasDecoration() ? m_activePanel->contentScale() * Style::panelPadding : 0.0F;
