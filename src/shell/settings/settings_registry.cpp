@@ -956,6 +956,22 @@ namespace settings {
           autoHideModeSelect(barAutoHideMode(dock.autoHide, dock.smartAutoHide), path("smart_auto_hide")),
           "autohide smart workspace"
       ));
+      {
+        auto e = makeEntry(
+            SettingsSection::Dock, "behavior", tr("settings.schema.dock.auto-hide-reveal-delay.label"),
+            tr("settings.schema.dock.auto-hide-reveal-delay.description"), path("auto_hide_reveal_delay_ms"),
+            StepperSetting{
+                .value = dock.autoHideRevealDelayMs,
+                .minValue = static_cast<int>(noctalia::config::schema::kDockAutoHideRevealDelayMsRange.min.value()),
+                .maxValue = static_cast<int>(noctalia::config::schema::kDockAutoHideRevealDelayMsRange.max.value()),
+                .step = static_cast<int>(noctalia::config::schema::kDockAutoHideRevealDelayMsRange.step.value()),
+                .valueSuffix = "ms",
+            },
+            "autohide reveal delay dwell edge"
+        );
+        e.visibleWhen = [currentDock](const Config& c) { return currentDock(c).isAutoHideEnabled(); };
+        entries.push_back(std::move(e));
+      }
       entries.push_back(makeEntry(
           SettingsSection::Dock, "behavior", tr("settings.schema.shared.reserve-space.label"),
           tr("settings.schema.dock.reserve-space.description"), path("reserve_space"), ToggleSetting{dock.reserveSpace},

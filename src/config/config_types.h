@@ -723,6 +723,7 @@ struct DockMonitorOverride {
   std::optional<bool> showRunning;
   std::optional<bool> autoHide;
   std::optional<bool> smartAutoHide;
+  std::optional<std::int32_t> autoHideRevealDelayMs;
   std::optional<std::string> layer;
   std::optional<bool> reserveSpace;
   std::optional<float> activeScale;
@@ -756,19 +757,20 @@ struct DockConfig {
   // Inside outline for the dock background.
   ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = 0.0F;
-  std::int32_t radius = 16;            // dock background corner radius
-  std::int32_t radiusTopLeft = 16;     // dock background top-left corner radius
-  std::int32_t radiusTopRight = 16;    // dock background top-right corner radius
-  std::int32_t radiusBottomLeft = 16;  // dock background bottom-left corner radius
-  std::int32_t radiusBottomRight = 16; // dock background bottom-right corner radius
-  bool concaveEdgeCorners = true;      // carve concave corners on the side that touches the screen edge
-  std::int32_t marginEnds = 0;         // inset from each end of the dock along its main axis
-  std::int32_t marginEdge = 0;         // distance from the nearest screen edge (floats the dock when > 0)
-  bool shadow = true;                  // use the global shell shadow
-  bool showRunning = true;             // also show running apps not in pinned list
-  bool autoHide = false;               // slide out when not hovered (overlay mode)
-  bool smartAutoHide = false;          // hide while the active workspace has windows; show when it is empty
-  std::string layer = "top";           // top | overlay
+  std::int32_t radius = 16;                 // dock background corner radius
+  std::int32_t radiusTopLeft = 16;          // dock background top-left corner radius
+  std::int32_t radiusTopRight = 16;         // dock background top-right corner radius
+  std::int32_t radiusBottomLeft = 16;       // dock background bottom-left corner radius
+  std::int32_t radiusBottomRight = 16;      // dock background bottom-right corner radius
+  bool concaveEdgeCorners = true;           // carve concave corners on the side that touches the screen edge
+  std::int32_t marginEnds = 0;              // inset from each end of the dock along its main axis
+  std::int32_t marginEdge = 0;              // distance from the nearest screen edge (floats the dock when > 0)
+  bool shadow = true;                       // use the global shell shadow
+  bool showRunning = true;                  // also show running apps not in pinned list
+  bool autoHide = false;                    // slide out when not hovered (overlay mode)
+  bool smartAutoHide = false;               // hide while the active workspace has windows; show when it is empty
+  std::int32_t autoHideRevealDelayMs = 250; // pointer dwell on the edge strip before revealing; 0 reveals immediately
+  std::string layer = "top";                // top | overlay
 
   constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;         // reserve compositor exclusive zone; applies with or without auto_hide
