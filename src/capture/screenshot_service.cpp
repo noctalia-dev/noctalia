@@ -1611,9 +1611,8 @@ void ScreenshotService::ensureAnnotationOverlay() {
     ext_foreign_toplevel_handle_v1* target = liveAnnotationCaptureTarget();
     if (target == nullptr) {
       notifyError(
-          m_annotationCaptureError.empty()
-              ? "The window that was focused when the editor opened is no longer available"
-              : m_annotationCaptureError
+          m_annotationCaptureError.empty() ? "The window that was focused when the editor opened is no longer available"
+                                           : m_annotationCaptureError
       );
       return;
     }
