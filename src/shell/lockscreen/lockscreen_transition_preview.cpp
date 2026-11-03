@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
+#include <wayland-client-core.h>
 
 namespace {
 
@@ -112,11 +113,16 @@ void LockscreenTransitionPreview::play(LockscreenTransition transition) {
 }
 
 void LockscreenTransitionPreview::hide() {
+  if (m_instances.empty()) {
+    return;
+  }
   for (auto& inst : m_instances) {
     inst->animations.cancelAll();
     releaseTextures(*inst);
   }
   m_instances.clear();
+  // Send the unmaps now: a lock may screencopy the desktop right after this returns.
+  wl_display_flush(m_wayland->display());
 }
 
 void LockscreenTransitionPreview::prepareForGraphicsReset() noexcept {

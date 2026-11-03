@@ -1008,6 +1008,9 @@ bool LockScreen::captureDesktopSnapshots() {
   if (m_wayland == nullptr) {
     return false;
   }
+  if (m_beforeDesktopCapture) {
+    m_beforeDesktopCapture();
+  }
 
   const std::uint64_t generation = m_desktopCaptureGeneration;
 
