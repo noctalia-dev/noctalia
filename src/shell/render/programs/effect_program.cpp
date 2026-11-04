@@ -111,8 +111,9 @@ float sunRays(vec2 uv, vec2 sunPos, float iTime) {
     float angle = atan(toSun.y, toSun.x);
     float dist = length(toSun);
     float rayCount = 7.0;
-    float rays = sin(angle * rayCount + sin(iTime * 0.25)) * 0.5 + 0.5;
-    rays = pow(rays, 3.0);
+    // Rays sway slowly and each one breathes, so the sun never sits completely still.
+    float rays = sin(angle * rayCount + sin(iTime * 5.0) * 1.2) * 0.5 + 0.5;
+    rays = pow(rays, 3.0) * (0.6 + 0.4 * sin(iTime * 8.0 + angle * 3.0));
     float falloff = 1.0 - smoothstep(0.0, 1.2, dist);
     return rays * falloff * 0.15;
 }
@@ -124,7 +125,8 @@ float atmosphericShimmer(vec2 uv, float iTime) {
     return (n1 * 0.5 + n2 * 0.3 + n3 * 0.2) * 0.15;
 }
 
-// Drifting cloud backdrop, same technique as Rain's rainFogColor().
+// Sparse drifting wisps, same FBM as Rain's rainFogColor() but with high thresholds and low
+// weights so the sky stays mostly clear and the wisps only give the rays something to catch.
 float sunFogFbm(vec2 p, float iTime) {
     float v = 0.0;
     float amp = 0.5;
@@ -138,29 +140,24 @@ float sunFogFbm(vec2 p, float iTime) {
 }
 
 vec3 sunFogColor(vec2 uv, float iTime) {
-    vec3 base = mix(u_bg_color.rgb * 0.7, u_bg_color.rgb * 0.95, uv.y);
+    vec3 base = mix(u_bg_color.rgb * 0.9, u_bg_color.rgb, uv.y);
 
-    vec3 secondary = particleColor(vec3(0.314, 0.353, 0.416), vec3(0.2, 0.24, 0.3));
-    vec3 tertiary = particleColor(vec3(0.404, 0.553, 0.498), vec3(0.2, 0.32, 0.28));
-    vec3 primary = particleColor(vec3(0.561, 0.459, 0.259), vec3(0.42, 0.33, 0.16));
-    vec3 accent = particleColor(vec3(0.275, 0.314, 0.22), vec3(0.19, 0.22, 0.14));
+    vec3 wisp = particleColor(vec3(0.36, 0.38, 0.44), vec3(0.78, 0.78, 0.78));
+    vec3 sunlit = particleColor(vec3(0.56, 0.46, 0.26), vec3(0.93, 0.8, 0.55));
 
     float n1 = sunFogFbm(uv * 2.2, iTime);
     float n2 = sunFogFbm(uv * 3.5 + 10.0, iTime * 1.3);
-    float n3 = sunFogFbm(uv * 2.8 - 5.0, iTime * 0.8);
 
     vec3 col = base;
-    col = mix(col, secondary, smoothstep(0.35, 0.68, n1) * 0.48);
-    col = mix(col, tertiary, smoothstep(0.52, 0.84, n2) * 0.33);
-    col = mix(col, primary, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.45);
-    col = mix(col, accent, smoothstep(0.5, 0.8, n3) * 0.4);
+    col = mix(col, wisp, smoothstep(0.5, 0.75, n1) * 0.5);
+    col = mix(col, sunlit, pow(clamp(n1 * n2, 0.0, 1.0), 1.4) * 0.35);
     return col;
 }
 
 float sunCore(vec2 uv, vec2 sunPos, float iTime) {
     float dist = length(uv - sunPos);
     float mainFlare = exp(-dist * 15.0) * 2.0;
-    float pulse = sin(iTime) * 0.1 + 0.9;
+    float pulse = sin(iTime * 4.0) * 0.12 + 0.88;
     return mainFlare * pulse;
 }
 
@@ -200,7 +197,8 @@ void main() {
     float aspect = u_item_width / u_item_height;
     vec2 uvAspect = vec2(uv.x * aspect, uv.y);
     vec2 sunPosAspect = vec2(sunPos.x * aspect, sunPos.y);
-    vec4 col = vec4(sunFogColor(uvAspect, iTime), 1.0);
+    // Wisps drift about a card width per minute: slow, but visibly moving.
+    vec4 col = vec4(sunFogColor(uvAspect, iTime * 10.0), 1.0);
 
     float rays = sunRays(uvAspect, sunPosAspect, iTime);
     float shimmerEffect = atmosphericShimmer(uv, iTime);
