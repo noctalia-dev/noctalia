@@ -1,5 +1,7 @@
 #include "shell/render/programs/effect_program.h"
 
+#include "render/core/texture_handle.h"
+
 #include <array>
 #include <optional>
 #include <stdexcept>
@@ -46,6 +48,24 @@ uniform float u_radius;
 uniform float u_alternative;
 varying vec2 v_uv;
 varying vec2 v_pixel;
+
+// Rain and Snow particles: EffectNode packs two RGBA8 texels per particle, (x, y) then
+// (radius, weight), each value 16-bit as hi/lo bytes. Width and ranges match EffectNode's
+// kParticleTextureWidth, kParticleYMin/kParticleYMax, and kParticleRadiusMax.
+uniform sampler2D u_particles;
+uniform int u_particle_count;
+
+vec2 particleUnpack(vec4 texel) {
+    vec4 b = floor(texel * 255.0 + 0.5);
+    return vec2(b.x * 256.0 + b.y, b.z * 256.0 + b.w) / 65535.0;
+}
+
+vec4 particleAt(int i) {
+    float u = (float(i) * 2.0 + 0.5) / 120.0;
+    vec2 xy = particleUnpack(texture2D(u_particles, vec2(u, 0.5)));
+    vec2 rw = particleUnpack(texture2D(u_particles, vec2(u + 1.0 / 120.0, 0.5)));
+    return vec4(xy.x, mix(-0.25, 1.25, xy.y), rw.x * 0.0625, rw.y);
+}
 
 float roundedBoxSDF(vec2 center, vec2 size, float radius) {
     vec2 q = abs(center) - size + radius;
@@ -220,11 +240,8 @@ void main() {
 )";
 
   // --- Snow effect ---
-  // u_flakes[60] must match kMaxSnowFlakes; GLSL array sizes must be literals.
+  // The flake loop bound must match kMaxSnowFlakes.
   constexpr char kSnowFragment[] = R"(
-uniform vec3 u_flakes[60];
-uniform int u_flakeCount;
-
 float snow_hash(vec2 p) {
     p = fract(p * vec2(234.34, 435.345));
     p += dot(p, p + 34.23);
@@ -287,8 +304,8 @@ void main() {
 
     float snow = 0.0;
     for (int i = 0; i < 60; i++) {
-        if (i < u_flakeCount) {
-            vec3 flake = u_flakes[i];
+        if (i < u_particle_count) {
+            vec4 flake = particleAt(i);
             vec2 c = vec2(flake.x * aspect, flake.y);
             float r = max(flake.z, pixelUv * 1.5);
             float dist = length(uvA - c);
@@ -325,11 +342,8 @@ void main() {
 )";
 
   // --- Rain effect (glass droplets over tilted streaks and a drifting fog backdrop) ---
-  // u_drops[24] must match kMaxRainDrops; GLSL array sizes must be literals.
+  // The drop loop bound must match kMaxRainDrops.
   constexpr char kRainFragment[] = R"(
-uniform vec4 u_drops[24];
-uniform int u_dropCount;
-
 float rain_hash(vec2 p) {
     p = fract(p * vec2(443.897, 441.423));
     p += dot(p, p + 19.19);
@@ -488,14 +502,14 @@ void main() {
     vec2 uvA = vec2(uv.x * aspect, uv.y);
 
     // Glass droplets as a summed height field: the procedural static field plus the
-    // simulated drops from u_drops.
+    // simulated drops from u_particles.
     float heightSum = 0.0;
     vec2 gradSum = vec2(0.0);
     rain_staticField(uvA, iTime, heightSum, gradSum);
     // Each simulated drop is a trail of shrinking domes, lengthened by its momentum (w).
     for (int i = 0; i < 24; i++) {
-        if (i < u_dropCount) {
-            vec4 drop = u_drops[i];
+        if (i < u_particle_count) {
+            vec4 drop = particleAt(i);
             vec2 c = vec2(drop.x * aspect, drop.y);
             float rCur = drop.z;
             float tailStep = drop.z * (0.65 + drop.w * 0.6);
@@ -876,10 +890,8 @@ void EffectProgram::initProgram(EffectType type, const char* fragSource) {
   pd.accentColorLoc = glGetUniformLocation(id, "u_accent_color");
   pd.radiusLoc = glGetUniformLocation(id, "u_radius");
   pd.alternativeLoc = glGetUniformLocation(id, "u_alternative");
-  pd.dropsLoc = glGetUniformLocation(id, "u_drops");
-  pd.dropCountLoc = glGetUniformLocation(id, "u_dropCount");
-  pd.flakesLoc = glGetUniformLocation(id, "u_flakes");
-  pd.flakeCountLoc = glGetUniformLocation(id, "u_flakeCount");
+  pd.particlesLoc = glGetUniformLocation(id, "u_particles");
+  pd.particleCountLoc = glGetUniformLocation(id, "u_particle_count");
 
   if (pd.positionLoc < 0 || pd.surfaceSizeLoc < 0 || pd.transformLoc < 0) {
     throw std::runtime_error("failed to query effect shader locations");
@@ -887,7 +899,8 @@ void EffectProgram::initProgram(EffectType type, const char* fragSource) {
 }
 
 void EffectProgram::draw(
-    float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style, const Mat3& transform
+    TextureId particles, float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
+    const Mat3& transform
 ) const {
   if (style.type == EffectType::None || width <= 0.0F || height <= 0.0F) {
     return;
@@ -938,34 +951,13 @@ void EffectProgram::draw(
   if (pd.alternativeLoc >= 0) {
     glUniform1f(pd.alternativeLoc, isFog ? 1.0F : 0.0F);
   }
-  if (pd.dropsLoc >= 0) {
-    static_assert(kMaxRainDrops <= 24, "kRainFragment's u_drops array is sized for 24 drops");
-    std::array<float, kMaxRainDrops * 4> dropData{};
-    for (int i = 0; i < style.dropCount; ++i) {
-      const auto& drop = style.drops[static_cast<std::size_t>(i)];
-      dropData[static_cast<std::size_t>(i) * 4 + 0] = drop.x;
-      dropData[static_cast<std::size_t>(i) * 4 + 1] = drop.y;
-      dropData[static_cast<std::size_t>(i) * 4 + 2] = drop.radius;
-      dropData[static_cast<std::size_t>(i) * 4 + 3] = drop.depth;
-    }
-    glUniform4fv(pd.dropsLoc, kMaxRainDrops, dropData.data());
+  if (pd.particlesLoc >= 0) {
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(particles.value()));
+    glUniform1i(pd.particlesLoc, 0);
   }
-  if (pd.dropCountLoc >= 0) {
-    glUniform1i(pd.dropCountLoc, style.dropCount);
-  }
-  if (pd.flakesLoc >= 0) {
-    static_assert(kMaxSnowFlakes <= 60, "kSnowFragment's u_flakes array is sized for 60 flakes");
-    std::array<float, kMaxSnowFlakes * 3> flakeData{};
-    for (int i = 0; i < style.flakeCount; ++i) {
-      const auto& flake = style.flakes[static_cast<std::size_t>(i)];
-      flakeData[static_cast<std::size_t>(i) * 3 + 0] = flake.x;
-      flakeData[static_cast<std::size_t>(i) * 3 + 1] = flake.y;
-      flakeData[static_cast<std::size_t>(i) * 3 + 2] = flake.radius;
-    }
-    glUniform3fv(pd.flakesLoc, kMaxSnowFlakes, flakeData.data());
-  }
-  if (pd.flakeCountLoc >= 0) {
-    glUniform1i(pd.flakeCountLoc, style.flakeCount);
+  if (pd.particleCountLoc >= 0) {
+    glUniform1i(pd.particleCountLoc, particles.valid() ? style.particleCount : 0);
   }
 
   auto posAttr = static_cast<GLuint>(pd.positionLoc);

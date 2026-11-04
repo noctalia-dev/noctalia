@@ -1218,7 +1218,7 @@ void WeatherTab::hideEffect() {
   }
 }
 
-void WeatherTab::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
+void WeatherTab::onFrameTick(float deltaMs, Renderer& renderer) {
   if (m_effectNode == nullptr || !m_effectNode->visible() || m_activeEffect == EffectType::None) {
     return;
   }
@@ -1228,10 +1228,10 @@ void WeatherTab::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
 
   if (m_activeEffect == EffectType::Rain) {
     m_rainDrops.update(deltaSeconds);
-    m_effectNode->setDrops(m_rainDrops.drops(), m_rainDrops.dropCount());
+    m_effectNode->setParticles(renderer.textureManager(), m_rainDrops.particles());
   } else if (m_activeEffect == EffectType::Snow) {
     m_snowFlakes.update(deltaSeconds);
-    m_effectNode->setFlakes(m_snowFlakes.flakes(), m_snowFlakes.flakeCount());
+    m_effectNode->setParticles(renderer.textureManager(), m_snowFlakes.particles());
   }
 }
 

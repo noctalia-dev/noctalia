@@ -26,7 +26,7 @@ void RainDropletSimulation::reset() {
   m_sim = {};
   m_count = 0;
   m_spawnAccumulator = 0.0F;
-  m_drops = {};
+  m_particles = {};
 }
 
 void RainDropletSimulation::trySpawn(float deltaSeconds) {
@@ -108,12 +108,12 @@ void RainDropletSimulation::compactAndPublish() {
 
   for (int i = 0; i < m_count; ++i) {
     const SimDrop& drop = m_sim[static_cast<std::size_t>(i)];
-    RainDrop& out = m_drops[static_cast<std::size_t>(i)];
+    EffectParticle& out = m_particles[static_cast<std::size_t>(i)];
     out.x = drop.x;
     out.y = drop.y;
     out.radius = drop.r;
     // Normalized momentum; the shader uses it to length each drop's trail.
-    out.depth = std::min(1.0F, drop.momentum / kMaxMomentum);
+    out.weight = std::min(1.0F, drop.momentum / kMaxMomentum);
   }
 }
 

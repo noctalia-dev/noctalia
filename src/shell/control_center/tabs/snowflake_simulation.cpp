@@ -40,7 +40,7 @@ void SnowflakeSimulation::reset() {
   for (auto& flake : m_sim) {
     respawn(flake, /*initialScatter=*/true);
   }
-  m_flakes = {};
+  m_particles = {};
 }
 
 void SnowflakeSimulation::update(float deltaSeconds) {
@@ -70,7 +70,7 @@ void SnowflakeSimulation::update(float deltaSeconds) {
       respawn(flake, /*initialScatter=*/false);
     }
 
-    SnowFlake& out = m_flakes[static_cast<std::size_t>(i)];
+    EffectParticle& out = m_particles[static_cast<std::size_t>(i)];
     out.x = flake.x;
     out.y = flake.y;
     out.radius = flake.radius;

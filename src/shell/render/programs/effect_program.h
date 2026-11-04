@@ -9,14 +9,17 @@
 #include <array>
 #include <cstdint>
 
+class TextureId;
+
 class EffectProgram final : public RenderExtension {
 public:
   void ensureInitialized();
   void destroy() override;
   void abandon() noexcept override;
 
+  // `particles` is EffectNode's particle texture; only the Rain and Snow programs sample it.
   void draw(
-      float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
+      TextureId particles, float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
       const Mat3& transform = Mat3::identity()
   ) const;
 
@@ -39,12 +42,9 @@ private:
     GLint accentColorLoc = -1;
     GLint radiusLoc = -1;
     GLint alternativeLoc = -1;
-    // Rain only: glass-droplet layer (kMaxRainDrops).
-    GLint dropsLoc = -1;
-    GLint dropCountLoc = -1;
-    // Snow only: flake layer (kMaxSnowFlakes).
-    GLint flakesLoc = -1;
-    GLint flakeCountLoc = -1;
+    // Rain and Snow only: particle texture and live particle count.
+    GLint particlesLoc = -1;
+    GLint particleCountLoc = -1;
   };
 
   void initProgram(EffectType type, const char* fragSource);

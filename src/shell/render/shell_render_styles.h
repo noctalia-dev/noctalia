@@ -2,7 +2,6 @@
 
 #include "render/core/color.h"
 
-#include <array>
 #include <cstdint>
 
 struct CountdownRingStyle {
@@ -98,27 +97,19 @@ constexpr bool operator==(const FancyAudioVisualizerStyle& lhs, const FancyAudio
 
 enum class EffectType : std::uint8_t { None, Sun, Snow, Rain, Cloud, Fog, Stars };
 
-// Capacity of the Rain effect's glass-droplet layer. Each drop is a fragment-shader uniform,
-// so kRainFragment's u_drops array size must match.
+// Particle capacities of the Rain (glass droplets) and Snow (flakes) layers. The shaders loop
+// over these as literals, so kRainFragment and kSnowFragment must match.
 inline constexpr int kMaxRainDrops = 24;
-
-// Position and radius in the effect's local uv space [0,1]; depth in [0,1] is the drop's
-// normalized momentum and sets its trail length.
-struct RainDrop {
-  float x = 0.0F;
-  float y = 0.0F;
-  float radius = 0.0F;
-  float depth = 0.0F;
-};
-
-// Capacity of the Snow effect's flake layer. kSnowFragment's u_flakes array size must match.
 inline constexpr int kMaxSnowFlakes = 60;
+inline constexpr int kMaxEffectParticles = kMaxSnowFlakes;
 
-// Position and radius in the effect's local uv space [0,1]; bigger radius reads as closer.
-struct SnowFlake {
+// One Rain drop or Snow flake. Position and radius are in the effect's local uv space [0,1];
+// weight in [0,1] is a Rain drop's normalized momentum (trail length) and unused by Snow.
+struct EffectParticle {
   float x = 0.0F;
   float y = 0.0F;
   float radius = 0.0F;
+  float weight = 0.0F;
 };
 
 struct EffectStyle {
@@ -128,10 +119,8 @@ struct EffectStyle {
   Color bgColor{};
   // Theme accent (ColorRole::Primary) tinting the Fog and Cloud palettes.
   Color accentColor{};
-  std::array<RainDrop, kMaxRainDrops> drops{};
-  int dropCount = 0;
-  std::array<SnowFlake, kMaxSnowFlakes> flakes{};
-  int flakeCount = 0;
+  // Particles in EffectNode's particle texture; read by the Rain and Snow shaders.
+  int particleCount = 0;
 };
 
 struct GraphStyle {

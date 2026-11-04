@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 
 // Per-frame simulation for the Snow effect's flake layer: a fixed pool of kMaxSnowFlakes
 // flakes with position, radius, fall speed, and sway, in the effect's local uv space [0,1].
@@ -13,8 +14,7 @@ public:
   void update(float deltaSeconds);
   void reset();
 
-  [[nodiscard]] const std::array<SnowFlake, kMaxSnowFlakes>& flakes() const noexcept { return m_flakes; }
-  [[nodiscard]] int flakeCount() const noexcept { return kMaxSnowFlakes; }
+  [[nodiscard]] std::span<const EffectParticle> particles() const noexcept { return m_particles; }
 
 private:
   struct SimFlake {
@@ -34,5 +34,5 @@ private:
   float m_windPhase = 0.0F;
   std::uint32_t m_rngState = 0x1E3779B9U;
 
-  std::array<SnowFlake, kMaxSnowFlakes> m_flakes{};
+  std::array<EffectParticle, kMaxSnowFlakes> m_particles{};
 };
