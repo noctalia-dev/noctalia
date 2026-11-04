@@ -4738,8 +4738,9 @@
           "volume-description": "Custom icon glyph; leave empty to use the built-in dynamic icons"
         },
         "glyph-position": {
-          "description": "Place the glyph or custom image and custom label relative to the value or visualization",
-          "label": "Glyph Position"
+          "description": "Place the glyph before or after the value; with Peek on, the value reveals on the other side",
+          "label": "Glyph Position",
+          "sysmon-description": "Place the glyph or custom image and custom label relative to the value or visualization"
         },
         "group-by-workspace": {
           "description": "Group taskbar icons into workspace capsules when compositor data is available",
@@ -4973,6 +4974,14 @@
         "path": {
           "description": "Path used by disk statistics",
           "label": "Path"
+        },
+        "peek": {
+          "description": "Show only the glyph; the value slides out while the pointer hovers the widget",
+          "label": "Peek"
+        },
+        "peek-delay-ms": {
+          "description": "Hover time in milliseconds before the value starts sliding out; 0 reveals at once",
+          "label": "Peek Delay"
         },
         "pill-scale": {
           "description": "Adjust the scale of workspace pills",

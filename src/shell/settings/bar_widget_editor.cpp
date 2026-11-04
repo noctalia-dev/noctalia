@@ -2506,7 +2506,7 @@ namespace settings {
         ctx.makeRow(
             *panelPtr, groupEntry("accordion-duration"),
             makeGroupSliderControl(
-                ctx, static_cast<double>(style.accordionDurationMs.value_or(Style::animNormal)), accordionMsMin,
+                ctx, static_cast<double>(style.accordionDurationMs.value_or(kBarRevealDurationMs)), accordionMsMin,
                 accordionMsMax, accordionMsStep, true, [mutateGroup](double v) {
                   mutateGroup([&](BarCapsuleGroupStyle& g) { g.accordionDurationMs = static_cast<std::int32_t>(v); });
                 }
@@ -2515,8 +2515,8 @@ namespace settings {
         ctx.makeRow(
             *panelPtr, groupEntry("accordion-delay"),
             makeGroupSliderControl(
-                ctx, static_cast<double>(style.accordionDelayMs.value_or(0)), accordionMsMin, accordionMsMax,
-                accordionMsStep, true, [mutateGroup](double v) {
+                ctx, static_cast<double>(style.accordionDelayMs.value_or(kBarRevealDelayMs)), accordionMsMin,
+                accordionMsMax, accordionMsStep, true, [mutateGroup](double v) {
                   mutateGroup([&](BarCapsuleGroupStyle& g) { g.accordionDelayMs = static_cast<std::int32_t>(v); });
                 }
             )

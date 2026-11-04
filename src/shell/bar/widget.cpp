@@ -12,6 +12,7 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <cmath>
 #include <format>
 
 namespace {
@@ -24,6 +25,7 @@ namespace {
 Widget::~Widget() {
   if (m_animations != nullptr) {
     m_animations->cancelForOwner(this);
+    m_animations->cancelForOwner(peekAnimationOwner());
   }
 }
 
@@ -149,6 +151,73 @@ void Widget::syncOuterFromRoot() noexcept {
 }
 
 void Widget::setAnimationManager(AnimationManager* mgr) noexcept { m_animations = mgr; }
+
+void Widget::setPeek(bool enabled, int delayMs) noexcept {
+  m_peekEnabled = enabled;
+  m_peekDelayMs = static_cast<float>(std::max(0, delayMs));
+}
+
+float Widget::applyPeek(float contentMain, float glyphMain, GlyphPosition glyphPosition, bool vertical) {
+  Node* rootNode = root();
+  const bool active = m_peekEnabled && rootNode != nullptr && glyphMain > 0.0F && contentMain > glyphMain;
+  if (rootNode != nullptr) {
+    rootNode->setClipChildren(active);
+  }
+  if (!active) {
+    return 0.0F;
+  }
+  const float shown = std::min(contentMain, std::ceil(glyphMain + (contentMain - glyphMain) * m_peekProgress));
+  if (vertical) {
+    rootNode->setSize(rootNode->width(), shown);
+  } else {
+    rootNode->setSize(shown, rootNode->height());
+  }
+  // With the glyph after the value, pin the glyph to the trailing edge and clip the value off the leading one.
+  return glyphPosition == GlyphPosition::After ? shown - contentMain : 0.0F;
+}
+
+void Widget::layoutGlyphValue(const GlyphValueLayout& layout) {
+  Node* rootNode = root();
+  if (rootNode == nullptr) {
+    return;
+  }
+  Node* glyph = layout.glyph != nullptr && layout.glyph->visible() ? layout.glyph : nullptr;
+  Node* value = layout.value != nullptr && layout.value->visible() ? layout.value : nullptr;
+  const auto mainOf = [&](const Node* node) {
+    return node == nullptr ? 0.0F : (layout.vertical ? node->height() : node->width());
+  };
+  const auto crossOf = [&](const Node* node) {
+    return node == nullptr ? 0.0F : (layout.vertical ? node->width() : node->height());
+  };
+
+  const float gap =
+      glyph != nullptr && value != nullptr ? (layout.vertical ? layout.verticalGap : layout.horizontalGap) : 0.0F;
+  const float glyphMain = mainOf(glyph);
+  const float contentMain = glyphMain + gap + mainOf(value);
+  const float cross = std::max(crossOf(glyph), crossOf(value));
+  if (layout.vertical) {
+    rootNode->setSize(cross, contentMain);
+  } else {
+    rootNode->setSize(contentMain, cross);
+  }
+  const float offset = applyPeek(contentMain, glyphMain, layout.glyphPosition, layout.vertical);
+
+  Node* first = layout.glyphPosition == GlyphPosition::Before ? glyph : value;
+  Node* second = layout.glyphPosition == GlyphPosition::Before ? value : glyph;
+  const auto place = [&](Node* node, float mainPos) {
+    if (node == nullptr) {
+      return;
+    }
+    const float crossPos = std::round((cross - crossOf(node)) * 0.5F);
+    if (layout.vertical) {
+      node->setPosition(crossPos, mainPos);
+    } else {
+      node->setPosition(mainPos, crossPos);
+    }
+  };
+  place(first, offset);
+  place(second, offset + (first != nullptr ? mainOf(first) + gap : 0.0F));
+}
 
 void Widget::setUpdateCallback(UpdateCallback callback) { m_updateCallback = std::move(callback); }
 

@@ -26,6 +26,9 @@ namespace noctalia::bar {
   class WidgetActionDispatcher;
 }
 
+// Which side of the value the glyph sits on (`glyph_position`). With peek on, the value reveals on the other side.
+enum class GlyphPosition : std::uint8_t { Before, After };
+
 class Widget {
 public:
   // Whether a panel action opens the panel or toggles it.
@@ -132,6 +135,15 @@ public:
   Box* barHoverBox() const noexcept { return m_hoverBox; }
   void setBarHoverProgress(float progress) noexcept { m_hoverProgress = progress; }
   float barHoverProgress() const noexcept { return m_hoverProgress; }
+  bool peekEnabled() const noexcept { return m_peekEnabled; }
+  float peekDelayMs() const noexcept { return m_peekDelayMs; }
+  // Bar-owned peek state: whether the value is (being) revealed, and the eased 0..1 reveal progress.
+  bool peekExpanded() const noexcept { return m_peekExpanded; }
+  void setPeekExpanded(bool expanded) noexcept { m_peekExpanded = expanded; }
+  float peekProgress() const noexcept { return m_peekProgress; }
+  void setPeekProgress(float progress) noexcept { m_peekProgress = progress; }
+  // Owner token for the bar's peek animation; ~Widget cancels it.
+  const void* peekAnimationOwner() const noexcept { return &m_peekProgress; }
   // Outermost node for flex layout / anchor alignment (capsule shell when enabled).
   Node* layoutBoundsNode() const noexcept { return m_capsuleShell != nullptr ? m_capsuleShell : outerNode(); }
   float resolvedBarCapsuleRadius(float width, float height) const noexcept;
@@ -170,6 +182,22 @@ protected:
   }
   virtual void doLayout(Renderer& renderer, float containerWidth, float containerHeight) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
+  // Opts the widget into peek: only the glyph shows until the widget is hovered.
+  void setPeek(bool enabled, int delayMs) noexcept;
+
+  struct GlyphValueLayout {
+    Node* glyph = nullptr; // Glyph or Image, already measured; skipped when null or hidden
+    Node* value = nullptr; // already measured; skipped when null or hidden
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool vertical = false;
+    float horizontalGap = 0.0F; // applied only when both nodes are shown
+    float verticalGap = 0.0F;
+  };
+  // Places glyph and value (direct children of root()) along the bar's main axis, sizes root(), applies peek.
+  void layoutGlyphValue(const GlyphValueLayout& layout);
+  // root() must already be sized to the full content laid out from 0 along the main axis. Clips root() to the
+  // glyph plus the revealed share of the rest; returns the main-axis offset to add to every content position.
+  float applyPeek(float contentMain, float glyphMain, GlyphPosition glyphPosition, bool vertical);
 
   float m_contentScale = 1.0F;
   float m_fontScale = 1.0F;
@@ -217,4 +245,8 @@ private:
   noctalia::bar::ScrollRepeatMode m_scrollRepeatMode = noctalia::bar::ScrollRepeatMode::Auto;
   const noctalia::bar::WidgetActionDispatcher* m_actionDispatcher = nullptr;
   IpcInvocationContext m_actionContext;
+  bool m_peekEnabled = false;
+  float m_peekDelayMs = 0.0F;
+  bool m_peekExpanded = false;
+  float m_peekProgress = 0.0F;
 };

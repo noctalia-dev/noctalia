@@ -26,6 +26,10 @@ struct WaylandOutput;
 // bar lane's main axis.
 enum class BarAccordionDirection : std::uint8_t { End = 0, Start = 1 };
 
+// Shared defaults for hover reveals in the bar (capsule group accordion and widget peek).
+inline constexpr std::int32_t kBarRevealDelayMs = 100;
+inline constexpr std::int32_t kBarRevealDurationMs = static_cast<std::int32_t>(Style::animNormal);
+
 // A capsule group: an ordered set of member widgets sharing one capsule + style. `id` is opaque and
 // auto-generated. A group appears in a bar lane as a single token (see makeCapsuleGroupToken); its
 // members live inside the group, not loose in the lane.
@@ -46,9 +50,9 @@ struct BarCapsuleGroupStyle {
   // Collapse the group to its first member; hovering the capsule reveals the rest inline.
   bool accordion = false;
   BarAccordionDirection accordionDirection = BarAccordionDirection::End;
-  // Unfold animation time in milliseconds; unset means the default (Style::animNormal).
+  // Unfold animation time in milliseconds; unset means kBarRevealDurationMs.
   std::optional<std::int32_t> accordionDurationMs;
-  // Hover time in milliseconds before unfolding starts; unset/0 reacts at once.
+  // Hover time in milliseconds before unfolding starts; unset means kBarRevealDelayMs, 0 reacts at once.
   std::optional<std::int32_t> accordionDelayMs;
   // Gap between members inside the capsule, in logical pixels; unset inherits the bar's widget_spacing.
   std::optional<std::int32_t> widgetSpacing;
@@ -429,9 +433,9 @@ struct WidgetBarCapsuleSpec {
   // Accordion mode (capsule groups only): collapse to the first member; hover expands.
   bool accordion = false;
   BarAccordionDirection accordionDirection = BarAccordionDirection::End;
-  // Accordion unfold animation time in milliseconds; unset means the default (Style::animNormal).
+  // Accordion unfold animation time in milliseconds; unset means kBarRevealDurationMs.
   std::optional<float> accordionDurationMs;
-  // Accordion hover time in milliseconds before unfolding starts; unset/0 reacts at once.
+  // Accordion hover time in milliseconds before unfolding starts; unset means kBarRevealDelayMs, 0 reacts at once.
   std::optional<float> accordionDelayMs;
   // Gap between group members; unset inherits the bar's widget_spacing. Meaningless for single widgets.
   std::optional<float> widgetSpacing;

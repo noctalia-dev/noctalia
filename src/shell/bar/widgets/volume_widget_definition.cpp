@@ -1,7 +1,13 @@
 #include "shell/bar/widgets/volume_widget_definition.h"
 
+#include "shell/bar/glyph_value_definition.h"
+
 const noctalia::bar::WidgetDefinition<VolumeWidget::Options>& volumeWidgetDefinition() {
   using noctalia::bar::field;
+  using noctalia::bar::glyphPositionField;
+  using noctalia::bar::peekDelayField;
+  using noctalia::bar::peekField;
+  using noctalia::bar::whenAllTrue;
   using Options = VolumeWidget::Options;
 
   static const settings::WidgetSettingVisibility showGlyph{"show_glyph", {"true"}};
@@ -59,6 +65,9 @@ const noctalia::bar::WidgetDefinition<VolumeWidget::Options>& volumeWidgetDefini
               field<&Options::showLabel>({
                   .key = "show_label",
               }),
+              glyphPositionField<Options>(whenAllTrue({"show_glyph", "show_label"})),
+              peekField<Options>(whenAllTrue({"show_glyph", "show_label"})),
+              peekDelayField<Options>(whenAllTrue({"show_glyph", "show_label"})),
               field<&Options::muteColor>({
                   .key = "mute_color",
               }),
