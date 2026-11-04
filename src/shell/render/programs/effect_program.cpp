@@ -636,18 +636,23 @@ vec3 fogWashColor(vec2 uv, float iTime) {
 }
 
 // --- Cloud: textured grey sky wash tinted with the theme accent ---
-// Three drifting octaves plus a fourth static one: animating the finest octave aliases into
-// flicker at card resolution.
+// The whole field drifts as one, so octaves never slide against each other. Each octave is
+// rotated off the previous one's grid, which hides the value-noise lattice, and a cheap
+// two-lookup warp bends the shapes into billows instead of blobs.
 float cloudWashFbm(vec2 p, float iTime) {
+    // Steady sideways drift; the second field runs faster for parallax.
+    p += vec2(iTime * 1.0, -iTime * 0.3);
+    vec2 warp = vec2(fogNoise(p * 0.6), fogNoise(p * 0.6 + vec2(5.2, 1.3)));
+    p += (warp - 0.5) * 0.9;
+
+    const mat2 octave = mat2(1.6, 1.2, -1.2, 1.6);
     float v = 0.0;
     float amp = 0.5;
-    vec2 drift = vec2(iTime * 0.02, -iTime * 0.013);
-    for (int i = 0; i < 3; i++) {
-        v += amp * fogNoise(p + drift);
-        p *= 2.0;
+    for (int i = 0; i < 4; i++) {
+        v += amp * fogNoise(p);
+        p = octave * p;
         amp *= 0.55;
     }
-    v += amp * fogNoise(p);
     return v;
 }
 
@@ -656,17 +661,18 @@ vec3 cloudSkyColor(vec2 uv, float iTime) {
 
     vec3 accentTint = u_accent_color.rgb;
 
-    vec3 mist = mix(particleColor(vec3(0.94, 0.95, 0.97), vec3(0.85, 0.87, 0.91)), accentTint, 0.22);
-    vec3 deep = mix(particleColor(vec3(0.4, 0.43, 0.5), vec3(0.28, 0.31, 0.38)), accentTint, 0.3);
+    vec3 mist = mix(particleColor(vec3(0.84, 0.86, 0.9), vec3(0.88, 0.89, 0.92)), accentTint, 0.22);
+    vec3 deep = mix(particleColor(vec3(0.3, 0.32, 0.38), vec3(0.48, 0.51, 0.58)), accentTint, 0.3);
 
     float n1 = cloudWashFbm(uv * 1.9 + vec2(842.0, -266.0), iTime);
-    float n2 = cloudWashFbm(uv * 3.1 + vec2(-519.0, 333.0), iTime * 1.3);
+    float n2 = cloudWashFbm(uv * 3.1 + vec2(-519.0, 333.0), iTime * 1.6);
 
+    // Partial weights and wide transitions keep the sky soft rather than high-contrast.
     vec3 col = base;
-    col = mix(col, deep, smoothstep(0.35, 0.6, n2));
-    col = mix(col, mist, smoothstep(0.4, 0.65, n1));
+    col = mix(col, deep, smoothstep(0.3, 0.7, n2) * 0.8);
+    col = mix(col, mist, smoothstep(0.35, 0.75, n1) * 0.75);
     // Product of both fields carves out rounder, clumped highlights that read as cloud puffs.
-    col = mix(col, mist, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.5);
+    col = mix(col, mist, pow(clamp(n1 * n2, 0.0, 1.0), 1.3) * 0.45);
     return col;
 }
 
