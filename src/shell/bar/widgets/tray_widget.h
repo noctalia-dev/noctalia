@@ -32,6 +32,10 @@ public:
     bool hidePassive = true;
     bool colorizeIcons = false;
     bool drawerMode = false;
+    std::string glyph;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
     std::function<void()> itemActivated;
     std::string barPosition = "top";
     bool panelGridMode = false;
@@ -75,7 +79,7 @@ private:
   bool isPinnedItem(const TrayItemInfo& item) const;
   bool isHiddenItem(const TrayItemInfo& item) const;
   bool isIconOverrideBlacklisted(const TrayItemInfo& item) const;
-  std::string_view drawerChevronGlyph(bool panelOpen) const;
+  std::string_view resolvedGlyph() const;
   // Bar section gap is between capsule shells; inline tray icons share one shell, so add the
   // lateral inset that adjacent single-icon capsules would contribute between their icons.
   float resolvedInlineEntryGap() const;
@@ -87,6 +91,7 @@ private:
   ConfigService& m_config;
   TrayService* m_tray = nullptr;
   Flex* m_container = nullptr;
+  Glyph* m_peekGlyph = nullptr;
   IconResolver m_iconResolver;
   std::unordered_map<std::string, std::string> m_appIcons;
   std::unordered_map<std::string, std::string> m_preferredIconPaths;
@@ -107,6 +112,8 @@ private:
   bool m_isVertical = false;
   bool m_rebuildPending = true;
   bool m_drawerMode = false;
+  std::string m_glyph;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   std::function<void()> m_itemActivated;
   std::string m_barPosition;
   bool m_panelGridMode = false;
@@ -116,8 +123,6 @@ private:
   std::optional<float> m_customItemSize;
   bool m_appIconColorizeDirty = false;
   InputArea* m_drawerTrigger = nullptr;
-  Glyph* m_drawerChevron = nullptr;
-  std::string m_drawerChevronGlyph;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   Node* m_hoverOverlayParent = nullptr;

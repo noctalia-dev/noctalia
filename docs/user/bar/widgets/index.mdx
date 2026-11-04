@@ -40,7 +40,7 @@ Configure click, scroll, and thumb-button bindings under [Widget Actions](/nocta
 
 ### Peek {#peek}
 
-Widgets that show a glyph next to a value can hide the value until you hover them. With `peek = true` only the glyph is visible; hovering the widget slides the value out, and leaving collapses it again. Supported by `volume`, `brightness`, `keyboard_layout`, `bluetooth`, `weather`, `battery` (glyph `display_mode`), `custom_button`, and `sysmon` (the gauge or graph slides out with the value).
+Widgets that show a glyph next to a value can hide the value until you hover them. With `peek = true` only the glyph is visible; hovering the widget slides the value out, and leaving collapses it again. Supported by `volume`, `brightness`, `keyboard_layout`, `bluetooth`, `weather`, `battery` (glyph `display_mode`), `custom_button`, `sysmon` (the gauge or graph slides out with the value), `media` (artwork reveals track text on horizontal bars), and `tray` (a tray glyph reveals inline icons when drawer mode is off). Media hides peek settings when `album_art_only` or `hide_album_art` is enabled.
 
 ```toml
 [widget.volume]

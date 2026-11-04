@@ -4735,6 +4735,7 @@
           "description": "Icon glyph name",
           "label": "Glyph",
           "sysmon-description": "Custom icon glyph; leave empty to use the icon for the selected stat",
+          "tray-description": "Custom tray glyph; leave empty for a chevron pointing toward the drawer or peek reveal",
           "volume-description": "Custom icon glyph; leave empty to use the built-in dynamic icons"
         },
         "glyph-position": {

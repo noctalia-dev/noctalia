@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "core/ui_phase.h"
 #include "dbus/tray/tray_service.h"
+#include "render/animation/animation_manager.h"
 #include "render/core/image_file_loader.h"
 #include "render/core/image_source_log.h"
 #include "render/core/texture_manager.h"
@@ -11,7 +12,6 @@
 #include "render/scene/node.h"
 #include "render/text/glyph_registry.h"
 #include "shell/app_icon_colorization_settings.h"
-#include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
 #include "shell/tray/tray_theme_path_index.h"
 #include "system/desktop_entry.h"
@@ -166,13 +166,14 @@ namespace {
 TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options)
     : m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
       m_pinnedItems(std::move(options.pinnedItems)), m_hidePassive(options.hidePassive),
-      m_colorizeIcons(options.colorizeIcons), m_drawerMode(options.drawerMode),
-      m_itemActivated(std::move(options.itemActivated)), m_barPosition(std::move(options.barPosition)),
-      m_panelGridMode(options.panelGridMode),
+      m_colorizeIcons(options.colorizeIcons), m_drawerMode(options.drawerMode), m_glyph(std::move(options.glyph)),
+      m_glyphPosition(options.glyphPosition), m_itemActivated(std::move(options.itemActivated)),
+      m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
       m_customItemSize(options.customItemSize), m_iconOverrideBlacklist(std::move(options.iconOverrideBlacklist)),
       m_iconType(options.iconType) {
+  setPeek(options.peek && !m_drawerMode && !m_panelGridMode, options.peekDelayMs);
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
     normalized.reserve(tokens.size());
@@ -278,27 +279,27 @@ void TrayWidget::create() {
       }
   );
 
-  setRoot(std::move(container));
+  if (peekEnabled()) {
+    auto area = ui::inputArea({});
+    area->setAcceptedButtons(0);
+    area->addChild(
+        ui::glyph({
+            .out = &m_peekGlyph,
+            .glyph = std::string(resolvedGlyph()),
+            .glyphSize = Style::baseGlyphSize * m_contentScale,
+            .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
+        })
+    );
+    area->addChild(std::move(container));
+    setRoot(std::move(area));
+  } else {
+    setRoot(std::move(container));
+  }
 }
 
 void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   if (m_container == nullptr) {
     return;
-  }
-  if (m_drawerMode && m_drawerChevron != nullptr && m_drawerTrigger != nullptr) {
-    const bool panelOpen = PanelManager::instance().isOpenPanel("tray-drawer");
-    const std::string_view glyphName = drawerChevronGlyph(panelOpen);
-    if (m_drawerChevronGlyph != glyphName) {
-      m_drawerChevronGlyph = glyphName;
-      m_drawerChevron->setGlyph(glyphName);
-      m_drawerChevron->setGlyphSize(m_drawerTrigger->width());
-      m_drawerChevron->measure(renderer);
-      m_drawerChevron->setPosition(
-          std::round((m_drawerTrigger->width() - m_drawerChevron->width()) * 0.5F),
-          std::round((m_drawerTrigger->height() - m_drawerChevron->height()) * 0.5F)
-      );
-      requestRedraw();
-    }
   }
   if (m_panelGridMode) {
     syncState(renderer);
@@ -332,6 +333,22 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
 
   m_container->setGap(resolvedInlineEntryGap());
   m_container->layout(renderer);
+  if (m_peekGlyph != nullptr) {
+    m_peekGlyph->setGlyph(resolvedGlyph());
+    m_peekGlyph->setGlyphSize(m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale);
+    m_peekGlyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+    m_peekGlyph->measure(renderer);
+    m_peekGlyph->setVisible(m_container->visible());
+    root()->setVisible(m_container->visible());
+    layoutGlyphValue({
+        .glyph = m_peekGlyph,
+        .value = m_container,
+        .glyphPosition = m_glyphPosition,
+        .vertical = m_isVertical,
+        .horizontalGap = resolvedInlineEntryGap(),
+        .verticalGap = resolvedInlineEntryGap(),
+    });
+  }
   layoutHoverOverlays();
 }
 
@@ -499,7 +516,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
         },
     });
 
-    if (m_hoverOverlayParent != nullptr) {
+    // Peek clips item highlights together with the icons.
+    if (m_hoverOverlayParent != nullptr && !peekEnabled()) {
       m_hoverOverlayParent->addChild(std::move(hoverBox));
       m_hoverOverlays.push_back({.area = &area, .box = hoverBoxPtr, .padding = padding});
     } else {
@@ -551,8 +569,6 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
   if (m_drawerMode) {
     m_drawerTrigger = nullptr;
-    m_drawerChevron = nullptr;
-    m_drawerChevronGlyph.clear();
     bool hasDrawerItems = false;
     for (const auto& item : m_items) {
       if ((m_hidePassive && tray::isPassiveStatus(item)) || isHiddenItem(item) || isPinnedItem(item)) {
@@ -601,10 +617,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
           requestPanelToggle("tray-drawer", configName(), anchorX, anchorY);
         }
       });
-      const bool panelOpen = PanelManager::instance().isOpenPanel("tray-drawer");
-      m_drawerChevronGlyph = drawerChevronGlyph(panelOpen);
       auto glyph = ui::glyph({
-          .glyph = m_drawerChevronGlyph,
+          .glyph = std::string(resolvedGlyph()),
           .glyphSize = itemSize,
           .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
       });
@@ -612,7 +626,6 @@ void TrayWidget::rebuild(Renderer& renderer) {
       glyph->setPosition(
           std::round((itemSize - glyph->width()) * 0.5F), std::round((itemSize - glyph->height()) * 0.5F)
       );
-      m_drawerChevron = glyph.get();
       triggerArea->addChild(std::move(glyph));
       attachHover(*triggerPtr, itemSize);
       m_container->addChild(std::move(triggerArea));
@@ -874,17 +887,26 @@ void TrayWidget::rebuild(Renderer& renderer) {
   m_container->setVisible(!m_container->children().empty());
 }
 
-std::string_view TrayWidget::drawerChevronGlyph(bool panelOpen) const {
-  if (m_barPosition == "bottom") {
-    return panelOpen ? "chevron-down" : "chevron-up";
+std::string_view TrayWidget::resolvedGlyph() const {
+  if (!m_glyph.empty()) {
+    return m_glyph;
   }
-  if (m_barPosition == "left") {
-    return panelOpen ? "chevron-left" : "chevron-right";
+  if (m_drawerMode) {
+    if (m_barPosition == "bottom") {
+      return "chevron-up";
+    }
+    if (m_barPosition == "left") {
+      return "chevron-right";
+    }
+    if (m_barPosition == "right") {
+      return "chevron-left";
+    }
+    return "chevron-down";
   }
-  if (m_barPosition == "right") {
-    return panelOpen ? "chevron-right" : "chevron-left";
+  if (m_isVertical) {
+    return m_glyphPosition == GlyphPosition::After ? "chevron-up" : "chevron-down";
   }
-  return panelOpen ? "chevron-up" : "chevron-down";
+  return m_glyphPosition == GlyphPosition::After ? "chevron-left" : "chevron-right";
 }
 
 bool TrayWidget::isHiddenItem(const TrayItemInfo& item) const {

@@ -1,10 +1,30 @@
 #include "shell/bar/widgets/tray_widget_definition.h"
 
+#include "shell/bar/glyph_value_definition.h"
+
 const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionContext>& trayWidgetDefinition() {
   using noctalia::bar::field;
   using Options = TrayWidget::Options;
+  using Definition = noctalia::bar::WidgetDefinition<Options, TrayWidgetDefinitionContext>;
 
   static const settings::WidgetSettingVisibility drawerOn{"drawer", {"true"}};
+  static const settings::WidgetSettingVisibility drawerOff{"drawer", {"false"}};
+  static const settings::WidgetSettingVisibility inlinePeek = [] {
+    settings::WidgetSettingVisibility visibility;
+    visibility.all = {
+        {.key = "drawer", .values = {"false"}},
+        {.key = "peek", .values = {"true"}},
+    };
+    return visibility;
+  }();
+  static const settings::WidgetSettingVisibility glyphVisible = [] {
+    settings::WidgetSettingVisibility visibility;
+    visibility.any = {
+        {.key = "drawer", .values = {"true"}},
+        {.key = "peek", .values = {"true"}},
+    };
+    return visibility;
+  }();
   static const settings::WidgetSettingVisibility detachedDrawerOn = [] {
     settings::WidgetSettingVisibility visibility;
     visibility.all = {
@@ -14,7 +34,7 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
     return visibility;
   }();
 
-  static const noctalia::bar::WidgetDefinition<Options, TrayWidgetDefinitionContext> definition{
+  static const Definition definition{
       .type = "tray",
       .fields =
           {
@@ -34,6 +54,18 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                   .key = "drawer",
                   .presentation = settings::WidgetSettingPresentation{.group = "tray.drawer"},
               }),
+              noctalia::bar::peekField<Options>(drawerOff),
+              field<&Options::glyph>({
+                  .key = "glyph",
+                  .control = settings::WidgetControlKind::Glyph,
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .descriptionKey = "settings.widgets.settings.glyph.tray-description",
+                          .visibleWhen = glyphVisible,
+                      },
+              }),
+              noctalia::bar::glyphPositionField<Options>(inlinePeek),
+              noctalia::bar::peekDelayField<Options>(drawerOff),
               field<&Options::panelGridColumns>({
                   .key = "drawer_columns",
                   .minValue = 1.0,
