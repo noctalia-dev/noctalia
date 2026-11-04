@@ -421,7 +421,7 @@ OsdOverlay::SurfaceMargins OsdOverlay::surfaceMarginsForPosition(
         std::max(0, (output.effectiveLogicalWidth() - static_cast<std::int32_t>(surfaceWidth)) / 2 + marginH);
     const std::int32_t centeredTop =
         std::max(0, (output.effectiveLogicalHeight() - static_cast<std::int32_t>(surfaceHeight)) / 2 + marginV);
-    return SurfaceMargins{.top = centeredTop,.right = 0,.bottom = 0,.left = centeredLeft,};
+    return SurfaceMargins{.top = centeredTop, .right = 0, .bottom = 0, .left = centeredLeft};
   }
 
   return margins;
