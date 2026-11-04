@@ -4681,6 +4681,10 @@
           "description": "Background opacity of the detached drawer panel",
           "label": "Drawer Background Opacity"
         },
+        "drawer-button-position": {
+          "description": "Place the drawer toggle button before or after the tray icons",
+          "label": "Drawer Button Position"
+        },
         "drawer-columns": {
           "description": "Number of tray icons per row in the drawer panel",
           "label": "Drawer Columns"

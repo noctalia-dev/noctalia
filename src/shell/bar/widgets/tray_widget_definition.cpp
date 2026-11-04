@@ -66,6 +66,28 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
               }),
               noctalia::bar::glyphPositionField<Options>(inlinePeek),
               noctalia::bar::peekDelayField<Options>(drawerOff),
+              field<&Options::drawerButtonPosition>({
+                  .key = "drawer_button_position",
+                  .choices =
+                      {
+                          {
+                              .value = TrayDrawerButtonPosition::Before,
+                              .configValue = "before",
+                              .labelKey = "settings.widgets.options.before",
+                          },
+                          {
+                              .value = TrayDrawerButtonPosition::After,
+                              .configValue = "after",
+                              .labelKey = "settings.widgets.options.after",
+                          },
+                      },
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .group = "tray.drawer",
+                          .segmented = true,
+                          .visibleWhen = drawerOn,
+                      },
+              }),
               field<&Options::panelGridColumns>({
                   .key = "drawer_columns",
                   .minValue = 1.0,

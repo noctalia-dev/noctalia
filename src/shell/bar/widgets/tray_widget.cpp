@@ -166,7 +166,8 @@ namespace {
 TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options)
     : m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
       m_pinnedItems(std::move(options.pinnedItems)), m_hidePassive(options.hidePassive),
-      m_colorizeIcons(options.colorizeIcons), m_drawerMode(options.drawerMode), m_glyph(std::move(options.glyph)),
+      m_colorizeIcons(options.colorizeIcons), m_drawerMode(options.drawerMode),
+      m_drawerButtonPosition(options.drawerButtonPosition), m_glyph(std::move(options.glyph)),
       m_glyphPosition(options.glyphPosition), m_itemActivated(std::move(options.itemActivated)),
       m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
@@ -567,6 +568,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     });
   };
 
+  std::unique_ptr<Node> triggerArea;
   if (m_drawerMode) {
     m_drawerTrigger = nullptr;
     bool hasDrawerItems = false;
@@ -580,7 +582,6 @@ void TrayWidget::rebuild(Renderer& renderer) {
     if (hasDrawerItems) {
       const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
       // Keep the trigger's InputArea across rebuilds so hover and press capture survive icon updates.
-      std::unique_ptr<Node> triggerArea;
       InputArea* triggerPtr = nullptr;
       if (reusableTrigger != nullptr) {
         triggerArea = std::move(reusableTrigger);
@@ -628,7 +629,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
       );
       triggerArea->addChild(std::move(glyph));
       attachHover(*triggerPtr, itemSize);
-      m_container->addChild(std::move(triggerArea));
+      if (m_drawerButtonPosition == TrayDrawerButtonPosition::Before) {
+        m_container->addChild(std::move(triggerArea));
+      }
     }
   }
 
@@ -882,6 +885,10 @@ void TrayWidget::rebuild(Renderer& renderer) {
     } else if (currentText == nullptr || *currentText != tooltipText) {
       areaPtr->setTooltip(tooltipText);
     }
+  }
+
+  if (triggerArea != nullptr) {
+    m_container->addChild(std::move(triggerArea));
   }
 
   m_container->setVisible(!m_container->children().empty());

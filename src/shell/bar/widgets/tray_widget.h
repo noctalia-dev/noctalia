@@ -23,6 +23,7 @@ class Glyph;
 class Box;
 
 enum class TrayIconType : std::uint8_t { Default, Desktop, Symbolic };
+enum class TrayDrawerButtonPosition : std::uint8_t { Before, After };
 
 class TrayWidget : public Widget {
 public:
@@ -32,6 +33,7 @@ public:
     bool hidePassive = true;
     bool colorizeIcons = false;
     bool drawerMode = false;
+    TrayDrawerButtonPosition drawerButtonPosition = TrayDrawerButtonPosition::Before;
     std::string glyph;
     GlyphPosition glyphPosition = GlyphPosition::Before;
     bool peek = false;
@@ -112,6 +114,7 @@ private:
   bool m_isVertical = false;
   bool m_rebuildPending = true;
   bool m_drawerMode = false;
+  TrayDrawerButtonPosition m_drawerButtonPosition = TrayDrawerButtonPosition::Before;
   std::string m_glyph;
   GlyphPosition m_glyphPosition = GlyphPosition::Before;
   std::function<void()> m_itemActivated;

@@ -309,6 +309,25 @@ int main() {
   checkDefinition("text", textWidgetDefinition);
   checkDefinition<true>("theme_mode", themeModeWidgetDefinition);
   checkDefinition("tray", trayWidgetDefinition, TrayWidgetDefinitionContext{});
+
+  WidgetConfig trayConfig;
+  trayConfig.type = "tray";
+  trayConfig.settings["drawer"] = true;
+  trayConfig.settings["drawer_button_position"] = std::string("after");
+  const auto trayOptionsAfter = trayWidgetDefinition().resolve(&trayConfig, "tray", TrayWidgetDefinitionContext{});
+  if (trayOptionsAfter.drawerButtonPosition != TrayDrawerButtonPosition::After) {
+    fail("tray", "drawer_button_position = 'after' did not resolve");
+  }
+  trayConfig.settings["drawer_button_position"] = std::string("before");
+  const auto trayOptionsBefore = trayWidgetDefinition().resolve(&trayConfig, "tray", TrayWidgetDefinitionContext{});
+  if (trayOptionsBefore.drawerButtonPosition != TrayDrawerButtonPosition::Before) {
+    fail("tray", "drawer_button_position = 'before' did not resolve");
+  }
+  trayConfig.settings.erase("drawer_button_position");
+  const auto trayOptionsDefault = trayWidgetDefinition().resolve(&trayConfig, "tray", TrayWidgetDefinitionContext{});
+  if (trayOptionsDefault.drawerButtonPosition != TrayDrawerButtonPosition::Before) {
+    fail("tray", "drawer_button_position default was not 'before'");
+  }
   checkDefinition("volume", volumeWidgetDefinition);
 
   WidgetConfig inputVolume;
