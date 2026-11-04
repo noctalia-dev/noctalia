@@ -5,6 +5,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "system/icon_resolver.h"
+#include "ui/signal.h"
 
 #include <memory>
 #include <string_view>
@@ -64,6 +65,7 @@ private:
     std::string body;
     std::vector<std::string> actions;
     std::optional<std::string> icon;
+    bool iconIsAppIcon = false;
     std::optional<NotificationImageData> imageData;
     Urgency urgency = Urgency::Normal;
     NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect;
@@ -165,9 +167,10 @@ private:
   void resumeTimeout(uint32_t notificationId, int totalDuration);
   void pauseCountdowns(uint32_t notificationId);
   void resumeCountdowns(uint32_t notificationId);
-  void revealQueuedEntries();
+  bool revealQueuedEntries();
   void enforceMaxVisible();
   void collapseStack();
+  void reflowNewestOnEdge();
   void evictOverlappingEntries(std::size_t anchorIndex);
   bool hasPlacement(const PopupEntry& entry) const;
   bool canKeepPlacement(const PopupEntry& entry, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
@@ -180,6 +183,7 @@ private:
   bool entriesShareStack(const PopupEntry& lhs, const PopupEntry& rhs) const;
   bool isBottomStacking() const;
   RevealDirection revealDirection() const;
+  bool isNewestOnEdge() const;
   void refreshEntryGeometry(PopupEntry& entry) const;
   float layoutBottomForSurfaceHeight(float surfaceHeight) const;
   float maxPlacementBottom(wl_output* output) const;
@@ -201,6 +205,7 @@ private:
   WaylandConnection* m_wayland = nullptr;
   CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
+  Signal<>::ScopedConnection m_appIconColorizeConn;
   NotificationManager* m_notifications = nullptr;
   RenderContext* m_renderContext = nullptr;
   HttpClient* m_httpClient = nullptr;

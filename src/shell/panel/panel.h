@@ -3,7 +3,7 @@
 #include "config/config_types.h"
 #include "core/ui_phase.h"
 #include "render/scene/node.h"
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -102,6 +102,9 @@ public:
   // a fixed alpha for legibility (e.g. wallpaper thumbnails).
   virtual bool inheritsBarBackgroundOpacity() const noexcept { return true; }
   virtual float attachedBackgroundOpacityOverride() const noexcept { return 1.0F; }
+  // For floating/detached panels: when set, overrides the global shell.panel.transparency_mode
+  // background opacity with a custom alpha.
+  virtual std::optional<float> detachedBackgroundOpacityOverride() const noexcept { return std::nullopt; }
   virtual bool wantsCloseAnimation() const noexcept { return true; }
   virtual bool dismissOnOutsideClick() const { return true; }
   virtual bool ignorePointerEvent() const { return false; }

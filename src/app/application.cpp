@@ -1,9 +1,9 @@
 #include "application.h"
 
+#include "app/build_info.h"
 #include "app/main_loop.h"
 #include "compositors/umbriel/umbriel_audio_provider.h"
 #include "config/config_types.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "dbus/accounts/accounts_service.h"
@@ -49,6 +49,7 @@
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
+#include "shell/wayland/clipboard_globals.h"
 #include "system/brightness_poll_source.h"
 #include "system/brightness_service.h"
 #include "system/easyeffects_service.h"
@@ -151,9 +152,10 @@ Application::~Application() {
   m_scriptApi.setSystemMonitor(nullptr);
   TooltipManager::instance().shutdown();
   m_notificationManager.flushPersistedHistory();
-  m_wayland.setClipboardService(nullptr);
+  auto& clipboardGlobals = m_wayland.extension<ClipboardGlobals>();
+  clipboardGlobals.setClipboardService(nullptr);
   m_wayland.setTextInputService(nullptr);
-  m_wayland.setVirtualKeyboardService(nullptr);
+  clipboardGlobals.setVirtualKeyboardService(nullptr);
   notify::setInstance(nullptr);
 }
 

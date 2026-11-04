@@ -31,6 +31,7 @@
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/clipboard/clipboard_paste.h"
 #include "shell/control_center/control_center_panel.h"
+#include "shell/dialog_popup_settings.h"
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
@@ -43,6 +44,8 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/wayland/foreign_toplevels.h"
+#include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/easyeffects_service.h"
 #include "ui/app_icon_colorization.h"
@@ -301,7 +304,8 @@ void Application::initLockScreenAndSession() {
     if (m_lockScreen.isActive()) {
       return false;
     }
-    return !m_configService.config().wallpaper.automation.pauseOnFullscreen || !m_wayland.hasFullscreenToplevel();
+    return !m_configService.config().wallpaper.automation.pauseOnFullscreen
+        || !m_compositorPlatform.foreignToplevels().hasFullscreenToplevel();
   });
   m_configService.addReloadCallback([this] {
     if (m_logindService != nullptr) {
@@ -773,7 +777,7 @@ void Application::initNotificationAndOsd() {
   );
   m_idleGraceOverlay.initialize(m_wayland, &m_renderContext);
   m_pluginIdleWatches.initialize(m_wayland);
-  m_wayland.setIdleCapabilitiesReadyCallback([this] {
+  m_wayland.extension<ShellGlobals>().setIdleCapabilitiesReadyCallback([this] {
     m_idleManager.reload(m_configService.config().idle);
     m_pluginIdleWatches.onCapabilitiesReady();
   });
@@ -985,12 +989,11 @@ void Application::initBarDockAndLayout() {
       [this] { return m_settingsWindow.fallbackPopupParentContext(); }
   );
 
-  m_colorPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-
-  m_glyphPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-
-  m_fileDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts, m_thumbnailService);
-  m_searchPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
+  const auto dialogSettings = dialogPopupSettings(m_configService);
+  m_colorPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
+  m_glyphPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
+  m_fileDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts, m_thumbnailService);
+  m_searchPickerDialogPopup.initialize(m_wayland, dialogSettings, m_renderContext, m_layerPopupHosts);
   SearchPickerDialog::setPopup(&m_searchPickerDialogPopup);
   m_settingsWindow.initializeDialogPresenter(
       m_colorPickerDialogPopup, m_glyphPickerDialogPopup, m_fileDialogPopup, m_thumbnailService

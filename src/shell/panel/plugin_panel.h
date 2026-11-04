@@ -6,9 +6,9 @@
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
+#include "scripting/ui/ui_tree.h"
+#include "scripting/ui/ui_tree_reconciler.h"
 #include "shell/panel/panel.h"
-#include "ui/ui_tree.h"
-#include "ui/ui_tree_reconciler.h"
 
 #include <filesystem>
 #include <memory>
@@ -51,7 +51,7 @@ struct PluginPanelOptions {
 
 // A panel backed by a plugin's `[[panel]]` entry. Like PluginDesktopWidget it
 // runs the script off-thread on its own Luau runtime and reconciles the tree
-// from `panel.render(ui.column{...})` into retained src/ui/controls. The runtime
+// from `panel.render(ui.column{...})` into retained lib/ui/controls. The runtime
 // starts lazily on first open (PanelManager calls create() then), so registered
 // but never-opened plugin panels cost nothing.
 class PluginPanel : public Panel, public scripting::PluginIpcEndpoint {

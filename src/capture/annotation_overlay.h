@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
+class Button;
 class Flex;
 class Renderer;
 class RenderContext;
@@ -65,6 +66,7 @@ namespace capture {
     using ExportCallback = std::function<void(ScreencopyImage image, AnnotationExport action)>;
     using FreezeCallback = std::function<void()>;
     using CaptureRegionCallback = std::function<void()>;
+    using CaptureWindowCallback = std::function<void()>;
     using ClosedCallback = std::function<void()>;
     using FailureCallback = std::function<void(const std::string& message)>;
     using FeedbackCallback = std::function<void(const std::string& message)>;
@@ -80,6 +82,7 @@ namespace capture {
     void setExportCallback(ExportCallback callback);
     void setFreezeCallback(FreezeCallback callback);
     void setCaptureRegionCallback(CaptureRegionCallback callback);
+    void setCaptureWindowCallback(CaptureWindowCallback callback);
     void setClosedCallback(ClosedCallback callback);
     void setFailureCallback(FailureCallback callback);
     void setFeedbackCallback(FeedbackCallback callback);
@@ -132,13 +135,24 @@ namespace capture {
     bool backdropPanelInputFocused(const Instance& instance) const;
     [[nodiscard]] std::unique_ptr<Flex> buildStrokePanel(Instance& instance);
     void refreshStrokePanel(Instance& instance, Renderer* renderer);
-    void positionStrokePanel(Instance& instance);
     void toggleStrokePanel();
+    [[nodiscard]] std::unique_ptr<Flex> buildZoomPanel(Instance& instance);
+    void refreshZoomPanel(Instance& instance, Renderer* renderer);
+    void toggleZoomPanel();
+    [[nodiscard]] std::unique_ptr<Flex> buildCapturePanel(Instance& instance);
+    void refreshCapturePanel(Instance& instance, Renderer* renderer);
+    void toggleCapturePanel();
+    void positionPopover(Instance& instance, Flex* panel, const Button* anchor);
     void refreshToolbar(Instance& instance, Renderer* renderer);
     void positionToolbar(Instance& instance);
     void syncToolbarPositionsForConnectedOutputs();
     void beginToolbarDrag(Instance& instance);
     void dragToolbarTo(double surfaceX, double surfaceY);
+    void applyCanvasView(Instance& instance);
+    void zoomViewTo(Instance& instance, double anchorX, double anchorY, double factor);
+    void zoomViewByButton(Instance& instance, double factor);
+    void resetView(Instance& instance);
+    void clampView(Instance& instance);
     std::size_t nearestSizePreset(AnnotationTool tool) const;
     void applySizePreset(std::size_t index);
     void layoutCanvas(Instance& instance);
@@ -178,6 +192,7 @@ namespace capture {
     void requestExport(AnnotationExport action);
     void requestFreeze();
     void requestCaptureRegion();
+    void requestCaptureWindow();
     void toggleCursor(Instance* instance = nullptr);
     void requestClose();
     void closeOverlay();
@@ -192,6 +207,7 @@ namespace capture {
     ExportCallback m_onExport;
     FreezeCallback m_onFreeze;
     CaptureRegionCallback m_onCaptureRegion;
+    CaptureWindowCallback m_onCaptureWindow;
     ClosedCallback m_onClosed;
     FailureCallback m_onFailure;
     FeedbackCallback m_onFeedback;
@@ -220,6 +236,13 @@ namespace capture {
     bool m_cropDragging = false;
     AnnotationPoint m_cropStart{};
 
+    // Ctrl+drag pans the view transform, anchored at the press in surface coordinates.
+    Instance* m_panInstance = nullptr;
+    double m_panAnchorX = 0.0;
+    double m_panAnchorY = 0.0;
+    double m_panStartX = 0.0;
+    double m_panStartY = 0.0;
+
     Instance* m_textInstance = nullptr;
     std::optional<std::size_t> m_textIndex;
 
@@ -233,6 +256,8 @@ namespace capture {
     float m_toolbarGrabX = 0.0F;
     float m_toolbarGrabY = 0.0F;
     bool m_strokePanelOpen = false;
+    bool m_zoomPanelOpen = false;
+    bool m_capturePanelOpen = false;
     bool m_syncingSizePreset = false;
 
     BackdropConfig m_backdrop;

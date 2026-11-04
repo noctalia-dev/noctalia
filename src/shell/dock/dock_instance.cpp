@@ -9,12 +9,12 @@
 #include "render/scene/node.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_items.h"
-#include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
+#include "ui/surface_shadow.h"
 #include "wayland/surface.h"
 
 #include <algorithm>
@@ -120,6 +120,9 @@ namespace shell::dock {
       }
     }
 
+    needsModelRebuild |= deps.config.config().dock.iconShadow
+        && instance.iconRenderScale != instance.surface->renderTarget().renderer().renderScale();
+
     const bool needsSceneBuild = instance.sceneRoot == nullptr
         || static_cast<std::uint32_t>(std::round(instance.sceneRoot->width())) != width
         || static_cast<std::uint32_t>(std::round(instance.sceneRoot->height())) != height;
@@ -146,9 +149,9 @@ namespace shell::dock {
     }
   }
 
-  // While slid away use the edge strip; when pinned or hovered use the unslid capsule region. Never
-  // hit-test the slide-translated panel: it goes off-surface when smart_auto_hide flips to pinned
-  // before hideOpacity recovers (dock rebuild on a new window).
+  // While slid away or waiting for the reveal dwell use the edge strip; when pinned or hovered use the
+  // unslid capsule region. Never hit-test the slide-translated panel: it goes off-surface when
+  // smart_auto_hide flips to pinned before hideOpacity recovers (dock rebuild on a new window).
   void syncDockAutoHideInputRegion(DockInstance& instance, const DockConfig& cfg) {
     if (instance.surface == nullptr) {
       return;
@@ -166,7 +169,8 @@ namespace shell::dock {
       return;
     }
 
-    const bool revealed = instance.pointerInside || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible);
+    const bool revealed = (instance.pointerInside || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible))
+        && !instance.revealTimer.active();
     instance.surface->setInputRegion(
         shell::dock::computeInputRegion(cfg, instance.panelGeometry, surfW, surfH, !revealed, instance.fractionalScale)
     );
@@ -235,7 +239,7 @@ namespace shell::dock {
       instance.slideRoot = instance.sceneRoot->addChild(std::move(slide));
 
       // Shadow
-      if (shell::surface_shadow::enabled(cfg.shadow, shadowConfig)) {
+      if (surface_shadow::enabled(cfg.shadow, shadowConfig)) {
         instance.shadow = static_cast<Box*>(instance.slideRoot->addChild(ui::box()));
       }
 
@@ -254,7 +258,6 @@ namespace shell::dock {
 
       // Clip overflow along the dock while retaining the cross-axis surface room used by magnification.
       auto viewport = ui::inputArea({});
-      viewport->setClipChildren(true);
       viewport->setOnAxisHandler([inst = &instance](const InputArea::PointerData& data) {
         if (inst->row == nullptr || inst->maxScrollOffset <= 0.0F) {
           return false;
@@ -339,9 +342,9 @@ namespace shell::dock {
       const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
       const auto shadowOffsetX = static_cast<float>(shadowOff.x);
       const auto shadowOffsetY = static_cast<float>(shadowOff.y);
-      const RoundedRectStyle shadowStyle = shell::surface_shadow::style(
+      const RoundedRectStyle shadowStyle = surface_shadow::style(
           shadowConfig, cfg.backgroundOpacity,
-          shell::surface_shadow::Shape{
+          surface_shadow::Shape{
               .corners = concave.corners, .logicalInset = concave.logicalInset, .radius = concave.radii
           }
       );
@@ -368,7 +371,7 @@ namespace shell::dock {
     );
 
     // The viewport follows the visible pill on its main axis and spans the surface on its cross axis,
-    // allowing magnified icons to grow away from the screen edge without escaping past the pill ends.
+    // allowing magnified icons to grow away from the screen edge.
     const auto contentLength = static_cast<float>(shell::dock::dockContentSize(cfg, totalItemCount));
     if (vert) {
       instance.viewport->setPosition(0.0F, panelGeometry.panelY);
@@ -383,6 +386,7 @@ namespace shell::dock {
       instance.row->setSize(contentLength, panelGeometry.panelH);
       instance.maxScrollOffset = std::max(0.0F, contentLength - panelGeometry.panelW);
     }
+    instance.viewport->setClipChildren(!cfg.iconShadow || instance.maxScrollOffset > 0.0F);
     applyDockScrollOffset(instance, cfg);
     instance.row->layout(renderer);
     shell::dock::syncDockItemRestPositions(instance, cfg);
@@ -420,7 +424,7 @@ namespace shell::dock {
     instance.panel->setBorder(cfg.border, cfg.borderWidth);
   }
 
-  void resizeSurface(DockInstance& instance, const DockConfig& cfg, const ShellConfig::ShadowConfig& shadowConfig) {
+  void resizeSurface(DockInstance& instance, const DockConfig& cfg, const ShadowStyle& shadowConfig) {
     if (instance.surface == nullptr) {
       return;
     }
@@ -436,6 +440,7 @@ namespace shell::dock {
   }
 
   void revealAutoHideDock(DockInstance& inst) {
+    inst.revealTimer.stop();
     const auto& cfg = inst.config;
     if (!dockUsesAnyAutoHide(cfg) || inst.surface == nullptr || inst.slideRoot == nullptr) {
       return;
@@ -468,6 +473,7 @@ namespace shell::dock {
   }
 
   void startHideFadeOut(DockInstance& inst) {
+    inst.revealTimer.stop();
     // xdg tooltips are not parent-transformed with the slide; destroy immediately
     // so they cannot remain pinned after auto-hide starts (#4177).
     TooltipManager::instance().forceDestroy();

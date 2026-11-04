@@ -18,18 +18,19 @@
 #include "shell/panel/panel.h"
 #include "shell/panel/panel_surface_style.h"
 #include "shell/screen_position.h"
-#include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/hyprland/focus_grab_service.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "ui/surface_shadow.h"
 #include "util/string_utils.h"
 #include "util/sys_utils.h"
-#include "wayland/hyprland/focus_grab_service.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -568,7 +569,11 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   }
 
   if (request.output == nullptr && m_platform != nullptr) {
-    request.output = m_platform->focusedInteractiveOutput(std::chrono::milliseconds(1200));
+    // Some compositors place an unpinned surface more accurately than tracked focus; go straight
+    // to the probe below for them.
+    if (!m_platform->prefersOutputProbe()) {
+      request.output = m_platform->focusedInteractiveOutput(std::chrono::milliseconds(1200));
+    }
     if (request.output == nullptr) {
       // No focus source resolved an output (e.g. a compositor with no focus
       // IPC/backend). Ask the compositor which output an unpinned surface lands
@@ -917,8 +922,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       useAttachedPlacement ? layerShellLayerFromConfig(barConfig.layer) : floatingPanelLayer;
   m_panelLayer = panelLayer;
 
-  const bool hasFocusGrab =
-      m_platform != nullptr && m_platform->focusGrabService() != nullptr && m_platform->focusGrabService()->available();
+  const bool hasFocusGrab = m_platform != nullptr && m_platform->focusGrabService().available();
   // Neither outside-click mechanism works for a panel that must not take keyboard
   // focus: the click shield swallows the click meant for the app below, and the
   // compositor focus grab takes the keyboard.
@@ -993,6 +997,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_detachedBleedRight = 0;
     m_detachedBleedBottom = 0;
     m_attachedBackgroundOpacity = 1.0F;
+    m_detachedBackgroundOpacity = 1.0F;
     m_attachedContactShadow = false;
     m_attachedRevealProgress = 1.0F;
     m_detachedRevealProgress = 1.0F;
@@ -1017,7 +1022,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     const float scale = m_activePanel->contentScale();
     const float cornerRadius = Style::scaledRadiusXl(scale);
     const auto& shadowConfig = m_config->config().shell.shadow;
-    const auto shadowBleed = shell::surface_shadow::bleed(m_activePanel->hasDecoration(), shadowConfig);
+    const auto shadowBleed = surface_shadow::bleed(m_activePanel->hasDecoration(), shadowConfig);
     const auto cornerOutset = static_cast<std::int32_t>(std::ceil(cornerRadius));
 
     // Cross-axis outset wraps the concave-corner overhang and shadow bleed.
@@ -1144,7 +1149,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     // plus the screen-edge concave flare: those corners push the surface further into
     // the end margin, and computeBarSurfaceSpec folds the same inset into its start
     // margin. Omitting it here drifts the exclusion rect along the main axis.
-    const auto barShadowBleed = shell::surface_shadow::bleed(barConfig.shadow, shadowConfig);
+    const auto barShadowBleed = surface_shadow::bleed(barConfig.shadow, shadowConfig);
     const auto barConcave = barConcaveShape(barConfig);
     const auto concaveStartInset = static_cast<std::int32_t>(
         std::ceil(std::max(0.0F, barIsVertical ? barConcave.logicalInset.top : barConcave.logicalInset.left))
@@ -1249,7 +1254,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       m_surface->setInputRegion(
           {InputRect{m_panelInsetX, m_panelInsetY, static_cast<int>(panelWidth), static_cast<int>(panelHeight)}}
       );
-      m_surface->setBlurRegion({});
+      m_layerSurface->setBlurRegion({});
       publishAttachedPanelGeometry(m_attachedRevealProgress);
       m_surface->requestRedraw();
       if (hasFocusGrab && wantsOutsideDismiss) {
@@ -1283,6 +1288,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_panelVisualWidth = 0;
     m_panelVisualHeight = 0;
     m_attachedBackgroundOpacity = 1.0F;
+    m_detachedBackgroundOpacity = 1.0F;
     m_attachedContactShadow = false;
     m_attachedRevealProgress = 1.0F;
     m_detachedRevealProgress = 1.0F;
@@ -1314,6 +1320,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   m_detachedBleedRight = detachedShadowBleed.right;
   m_detachedBleedBottom = detachedShadowBleed.down;
   m_attachedBackgroundOpacity = 1.0F;
+  m_detachedBackgroundOpacity = 1.0F;
   m_attachedContactShadow = false;
   m_attachedRevealProgress = 1.0F;
   // This path publishes the compositor blur region before the first scene build.
@@ -1345,7 +1352,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   m_surface->setInputRegion(
       {InputRect{m_panelInsetX, m_panelInsetY, static_cast<int>(panelWidth), static_cast<int>(panelHeight)}}
   );
-  m_surface->setBlurRegion({});
+  m_layerSurface->setBlurRegion({});
   // Activate outside-click dismissal (focus grab or click shield).
   if (hasFocusGrab && wantsOutsideDismiss) {
     activateFocusGrab();
@@ -1372,8 +1379,7 @@ void PanelManager::activateClickShield(LayerShellLayer layer) {
   }
   // Hyprland: prefer the native focus-grab path. Skip the shield and let
   // activateFocusGrab handle it later.
-  auto* grabService = m_platform->focusGrabService();
-  if (grabService != nullptr && grabService->available()) {
+  if (m_platform->focusGrabService().available()) {
     return;
   }
   std::vector<wl_output*> outputs;
@@ -1390,14 +1396,14 @@ void PanelManager::activateFocusGrab() {
   if (m_platform == nullptr || m_wlSurface == nullptr) {
     return;
   }
-  auto* grabService = m_platform->focusGrabService();
-  if (grabService == nullptr || !grabService->available()) {
+  auto& grabService = m_platform->focusGrabService();
+  if (!grabService.available()) {
     return;
   }
   // Whitelist the panel, bars, and panel-owned popups. Clicks on whitelisted
   // surfaces pass through normally. Clicks anywhere else clear the grab and
   // close the panel.
-  m_focusGrab = grabService->createGrab();
+  m_focusGrab = grabService.createGrab();
   if (m_focusGrab == nullptr) {
     return;
   }
@@ -1406,7 +1412,7 @@ void PanelManager::activateFocusGrab() {
       closePanel();
     }
   });
-  grabService->setPopupGrabHost(this);
+  m_platform->wayland().setPopupGrabHost(this);
 
   // Start with the panel as the sole surface so the compositor cannot choose a
   // bar as the initial keyboard target.
@@ -1428,12 +1434,12 @@ void PanelManager::applyKeyboardRelaxation(LayerShellKeyboard mode) {
     return;
   }
 
-  auto* grabService = m_platform->focusGrabService();
-  if (grabService == nullptr || !grabService->available()) {
+  auto& grabService = m_platform->focusGrabService();
+  if (!grabService.available()) {
     return;
   }
 
-  auto replacement = grabService->createGrab();
+  auto replacement = grabService.createGrab();
   if (replacement == nullptr) {
     return;
   }
@@ -1454,7 +1460,7 @@ void PanelManager::applyKeyboardRelaxation(LayerShellKeyboard mode) {
   m_focusGrab.reset();
   m_layerSurface->setKeyboardInteractivity(mode);
   m_focusGrab = std::move(replacement);
-  grabService->setPopupGrabHost(this);
+  m_platform->wayland().setPopupGrabHost(this);
 
   // Keep the first commit limited to the previous focus surface. The
   // compositor may choose any surface when a grab first becomes active.
@@ -1499,10 +1505,8 @@ bool PanelManager::isFocusGrabWhitelistSurface(wl_surface* surface) const {
 
 void PanelManager::deactivateOutsideClickHandlers() {
   m_clickShield.deactivate();
-  if (m_platform != nullptr) {
-    if (auto* svc = m_platform->focusGrabService(); svc != nullptr && svc->popupGrabHost() == this) {
-      svc->setPopupGrabHost(nullptr);
-    }
+  if (m_platform != nullptr && m_platform->wayland().popupGrabHost() == this) {
+    m_platform->wayland().setPopupGrabHost(nullptr);
   }
   m_focusGrab.reset();
   m_focusGrabPopupSurfaces.clear();
@@ -1588,7 +1592,7 @@ void PanelManager::closePanelForCapture(std::function<void()> afterClose) {
   m_surface->setFrameTickCallback({});
   m_surface->setUpdateCallback({});
   m_surface->setSceneRoot(nullptr);
-  m_surface->clearBlurRegion();
+  m_layerSurface->clearBlurRegion();
   m_surface->setOpaque(false);
   m_surface->setInputRegion({});
   m_surface->discardPendingFrameCallback();
@@ -1683,6 +1687,7 @@ void PanelManager::destroyPanel() {
   m_detachedBleedRight = 0;
   m_detachedBleedBottom = 0;
   m_attachedBackgroundOpacity = 1.0F;
+  m_detachedBackgroundOpacity = 1.0F;
   m_attachedContactShadow = false;
   m_attachedRevealProgress = 1.0F;
   m_detachedRevealProgress = 1.0F;
@@ -2121,16 +2126,19 @@ std::optional<LayerPopupParentContext> PanelManager::fallbackPopupParentContext(
     return std::nullopt;
   }
 
-  LayerPopupParentContext context;
-  context.surface = m_wlSurface;
-  context.layerSurface = m_layerSurface->layerSurface();
-  context.output = m_output;
-  context.width = m_surface->width();
-  context.height = m_surface->height();
-  if (context.layerSurface == nullptr || context.width == 0 || context.height == 0) {
+  const std::uint32_t width = m_surface->width();
+  const std::uint32_t height = m_surface->height();
+  zwlr_layer_surface_v1* layerSurface = m_layerSurface->layerSurface();
+  if (layerSurface == nullptr || width == 0 || height == 0) {
     return std::nullopt;
   }
-  return context;
+  return LayerPopupParentContext{
+      .surface = m_wlSurface,
+      .attach = LayerShell::popupAttach(layerSurface),
+      .output = m_output,
+      .width = width,
+      .height = height,
+  };
 }
 
 std::optional<LayerPopupParentContext>
@@ -2231,7 +2239,7 @@ void PanelManager::applyAttachedReveal(float progress) {
   m_attachedRevealProgress = std::clamp(progress, 0.0F, 1.0F);
   if (!m_attachedToBar || m_attachedRevealClipNode == nullptr || m_sceneRoot == nullptr) {
     if (m_attachedToBar && m_surface != nullptr) {
-      m_surface->clearBlurRegion();
+      m_layerSurface->clearBlurRegion();
     }
     return;
   }
@@ -2293,7 +2301,7 @@ void PanelManager::applyDetachedReveal(float progress) {
   m_detachedRevealProgress = std::clamp(progress, 0.0F, 1.0F);
   if (m_attachedToBar || m_sceneRoot == nullptr) {
     if (!m_attachedToBar && m_surface != nullptr) {
-      m_surface->clearBlurRegion();
+      m_layerSurface->clearBlurRegion();
     }
     return;
   }
@@ -2462,7 +2470,7 @@ void PanelManager::applyPanelCompositorBlur(
     if (blurTraceEnabled()) {
       kLog.debug("blur-trace panel-blur-clear reason=empty-input");
     }
-    m_surface->clearBlurRegion();
+    m_layerSurface->clearBlurRegion();
     return;
   }
 
@@ -2476,7 +2484,7 @@ void PanelManager::applyPanelCompositorBlur(
     if (blurTraceEnabled()) {
       kLog.debug("blur-trace panel-blur-clear reason=empty-shape");
     }
-    m_surface->clearBlurRegion();
+    m_layerSurface->clearBlurRegion();
     return;
   }
 
@@ -2498,7 +2506,7 @@ void PanelManager::applyPanelCompositorBlur(
     if (blurTraceEnabled()) {
       kLog.debug("blur-trace panel-blur-clear reason=empty-clipped");
     }
-    m_surface->clearBlurRegion();
+    m_layerSurface->clearBlurRegion();
     return;
   }
 
@@ -2511,7 +2519,7 @@ void PanelManager::applyPanelCompositorBlur(
         bounds.width, bounds.height
     );
   }
-  m_surface->setBlurRegion(clipped);
+  m_layerSurface->setBlurRegion(clipped);
 }
 
 void PanelManager::applyAttachedDecorationStyle() {
@@ -2528,13 +2536,12 @@ void PanelManager::applyAttachedDecorationStyle() {
 
   if (m_panelShadowNode != nullptr && m_config != nullptr) {
     const auto& shadowConfig = m_config->config().shell.shadow;
-    const bool panelShadow =
-        m_config->config().shell.panel.shadow && shell::surface_shadow::enabled(true, shadowConfig);
+    const bool panelShadow = m_config->config().shell.panel.shadow && surface_shadow::enabled(true, shadowConfig);
     m_panelShadowNode->setVisible(panelShadow);
     if (panelShadow) {
-      const RoundedRectStyle shadowStyle = shell::surface_shadow::style(
+      const RoundedRectStyle shadowStyle = surface_shadow::style(
           shadowConfig, m_attachedBackgroundOpacity,
-          shell::surface_shadow::Shape{
+          surface_shadow::Shape{
               .corners = attached_panel::cornerShapes(m_attachedBarPosition),
               .logicalInset = attached_panel::logicalInset(m_attachedBarPosition, radius),
               .radius = Radii{radius, radius, radius, radius},
@@ -2574,6 +2581,15 @@ void PanelManager::applyAttachedDecorationStyle() {
   }
 }
 
+float PanelManager::activeDetachedBackgroundOpacity() const noexcept {
+  if (m_activePanel != nullptr) {
+    if (const auto overrideVal = m_activePanel->detachedBackgroundOpacityOverride(); overrideVal.has_value()) {
+      return *overrideVal;
+    }
+  }
+  return shell::panel_surface::backgroundOpacity(m_config);
+}
+
 void PanelManager::onConfigReloaded() {
   m_persistentHost.onConfigReloaded();
   if (!isOpen() || m_config == nullptr || m_activePanel == nullptr) {
@@ -2592,9 +2608,9 @@ void PanelManager::onConfigReloaded() {
     applyAttachedReveal(m_attachedRevealProgress);
   } else {
     applyDetachedReveal(m_detachedRevealProgress);
+    m_detachedBackgroundOpacity = activeDetachedBackgroundOpacity();
   }
-  const float panelBackgroundOpacity =
-      m_attachedToBar ? m_attachedBackgroundOpacity : shell::panel_surface::backgroundOpacity(m_config);
+  const float panelBackgroundOpacity = m_attachedToBar ? m_attachedBackgroundOpacity : m_detachedBackgroundOpacity;
   m_activePanel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, panelBackgroundOpacity));
   if (!m_attachedToBar && m_bgNode != nullptr) {
     auto* bg = static_cast<Box*>(m_bgNode);
@@ -2609,21 +2625,21 @@ void PanelManager::onConfigReloaded() {
   }
   if (m_panelShadowNode != nullptr) {
     const auto& shadowConfig = m_config->config().shell.shadow;
-    const bool panelShadow =
-        m_config->config().shell.panel.shadow && shell::surface_shadow::enabled(true, shadowConfig);
+    const bool panelShadow = m_config->config().shell.panel.shadow && surface_shadow::enabled(true, shadowConfig);
     m_panelShadowNode->setVisible(panelShadow);
     if (!m_attachedToBar && panelShadow) {
       const float shadowRadius = Style::scaledRadiusXl(m_activePanel->contentScale());
       m_panelShadowNode->setStyle(
-          shell::surface_shadow::style(
+          surface_shadow::style(
               shadowConfig, panelBackgroundOpacity,
-              shell::surface_shadow::Shape{.radius = Radii{shadowRadius, shadowRadius, shadowRadius, shadowRadius}}
+              surface_shadow::Shape{.radius = Radii{shadowRadius, shadowRadius, shadowRadius, shadowRadius}}
           )
       );
     }
   }
   if (m_surface != nullptr) {
     m_surface->requestUpdate();
+    m_surface->requestRedraw();
   }
 
   // The remaining work is bar-config-driven and only applies to attached panels.
@@ -2674,7 +2690,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
       if (m_config != nullptr) {
         m_selectPopup->setShadowConfig(m_config->config().shell.shadow);
       }
-      m_selectPopup->setParent(m_layerSurface->layerSurface(), m_wlSurface, m_output);
+      m_selectPopup->setParent(LayerShell::popupAttach(m_layerSurface->layerSurface()), m_wlSurface, m_output);
       m_sceneRoot->setPopupContext(m_selectPopup.get());
     }
     m_sceneRoot->setSize(w, h);
@@ -2689,6 +2705,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
       m_attachedRevealContentNode = m_attachedRevealClipNode->addChild(std::move(revealContent));
       sceneParent = m_attachedRevealContentNode;
     } else {
+      m_detachedBackgroundOpacity = activeDetachedBackgroundOpacity();
       auto revealClip = ui::node({});
       revealClip->setClipChildren(true);
       m_detachedRevealClipNode = m_sceneRoot->addChild(std::move(revealClip));
@@ -2698,7 +2715,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
       sceneParent = m_detachedRevealContentNode;
     }
 
-    if (hasDecoration && m_config != nullptr && shell::surface_shadow::enabled(true, m_config->config().shell.shadow)) {
+    if (hasDecoration && m_config != nullptr && surface_shadow::enabled(true, m_config->config().shell.shadow)) {
       auto shadow = ui::box({});
       m_panelShadowNode = static_cast<Box*>(sceneParent->addChild(std::move(shadow)));
       m_panelShadowNode->setZIndex(-1);
@@ -2717,11 +2734,10 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
         bg->setRadii(Radii{radius, radius, radius, radius});
         // Fill (opacity-dependent) is applied via applyAttachedDecorationStyle() below.
       } else {
-        const float backgroundOpacity = shell::panel_surface::backgroundOpacity(m_config);
-        bg->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
+        bg->setFill(colorSpecFromRole(ColorRole::Surface, m_detachedBackgroundOpacity));
         if (panelBorders) {
           bg->setBorder(
-              shell::panel_surface::borderColor(m_config, backgroundOpacity),
+              shell::panel_surface::borderColor(m_config, m_detachedBackgroundOpacity),
               shell::panel_surface::borderWidth(m_config)
           );
         }
@@ -2738,8 +2754,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
     auto contentWrapper = ui::node({});
     m_contentNode = contentWrapper.get();
     m_activePanel->setAnimationManager(&m_animations);
-    const float panelBackgroundOpacity =
-        m_attachedToBar ? m_attachedBackgroundOpacity : shell::panel_surface::backgroundOpacity(m_config);
+    const float panelBackgroundOpacity = m_attachedToBar ? m_attachedBackgroundOpacity : m_detachedBackgroundOpacity;
     m_activePanel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, panelBackgroundOpacity));
     m_activePanel->create();
     m_activePanel->onOpen(m_pendingOpenContext);
@@ -2863,8 +2878,7 @@ void PanelManager::placePanelChrome() {
 
   if (m_panelShadowNode != nullptr && m_config != nullptr) {
     const auto& shadowConfig = m_config->config().shell.shadow;
-    const bool panelShadow =
-        m_config->config().shell.panel.shadow && shell::surface_shadow::enabled(true, shadowConfig);
+    const bool panelShadow = m_config->config().shell.panel.shadow && surface_shadow::enabled(true, shadowConfig);
     m_panelShadowNode->setVisible(panelShadow);
     const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
     const auto shadowOffsetX = static_cast<float>(shadowOff.x);
@@ -2873,11 +2887,10 @@ void PanelManager::placePanelChrome() {
     m_panelShadowNode->setSize(bgW, bgH);
     if (!m_attachedToBar && panelShadow) {
       const float shadowRadius = Style::scaledRadiusXl(m_activePanel->contentScale());
-      const float panelBackgroundOpacity = shell::panel_surface::backgroundOpacity(m_config);
       m_panelShadowNode->setStyle(
-          shell::surface_shadow::style(
-              shadowConfig, panelBackgroundOpacity,
-              shell::surface_shadow::Shape{.radius = Radii{shadowRadius, shadowRadius, shadowRadius, shadowRadius}}
+          surface_shadow::style(
+              shadowConfig, m_detachedBackgroundOpacity,
+              surface_shadow::Shape{.radius = Radii{shadowRadius, shadowRadius, shadowRadius, shadowRadius}}
           )
       );
     }

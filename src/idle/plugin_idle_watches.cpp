@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "ext-idle-notify-v1-client-protocol.h"
+#include "shell/wayland/shell_globals.h"
 #include "wayland/wayland_connection.h"
 
 #include <utility>
@@ -23,7 +24,10 @@ PluginIdleWatches::~PluginIdleWatches() {
   }
 }
 
-void PluginIdleWatches::initialize(WaylandConnection& wayland) { m_wayland = &wayland; }
+void PluginIdleWatches::initialize(WaylandConnection& wayland) {
+  m_wayland = &wayland;
+  m_shellGlobals = &wayland.extension<ShellGlobals>();
+}
 
 void PluginIdleWatches::onCapabilitiesReady() {
   for (auto& watch : m_watches) {
@@ -88,19 +92,19 @@ void PluginIdleWatches::release(std::uint64_t hostId) {
 void PluginIdleWatches::arm(Watch& watch) {
   disarm(watch);
   watch.idledWhileInhibited = false;
-  if (m_wayland == nullptr || !m_wayland->hasIdleNotifier() || m_wayland->seat() == nullptr) {
+  if (m_wayland == nullptr || !m_shellGlobals->hasIdleNotifier() || m_wayland->seat() == nullptr) {
     return;
   }
 
   if (watch.ignoreInhibitors) {
-    watch.notification = m_wayland->createInputIdleNotification(watch.timeoutMs);
+    watch.notification = m_shellGlobals->createInputIdleNotification(watch.timeoutMs);
     if (watch.notification == nullptr && !m_warnedInputIdleUnsupported) {
       m_warnedInputIdleUnsupported = true;
       kLog.warn("compositor lacks ext-idle-notify v2; plugin idle watches will honor idle inhibitors");
     }
   }
   if (watch.notification == nullptr) {
-    watch.notification = m_wayland->createIdleNotification(watch.timeoutMs);
+    watch.notification = m_shellGlobals->createIdleNotification(watch.timeoutMs);
   }
   if (watch.notification == nullptr) {
     kLog.warn("failed to register plugin idle watch ({}ms)", watch.timeoutMs);

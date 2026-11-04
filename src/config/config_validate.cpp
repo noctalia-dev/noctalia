@@ -8,6 +8,7 @@
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
 #include "config/widget_config.h"
+#include "core/time_format.h"
 #include "launcher/launcher_provider.h"
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_manager.h"
@@ -19,7 +20,6 @@
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "system/day_night_schedule.h"
-#include "time/time_format.h"
 
 #include <algorithm>
 #include <array>

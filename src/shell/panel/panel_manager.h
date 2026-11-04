@@ -7,7 +7,7 @@
 #include "shell/panel/panel_click_shield.h"
 #include "shell/panel/persistent_panel_host.h"
 #include "ui/dialogs/layer_popup_host.h"
-#include "wayland/hyprland/popup_grab_host.h"
+#include "wayland/popup_grab_host.h"
 
 #include <cstdint>
 #include <functional>
@@ -205,6 +205,7 @@ private:
   // using the cached attached background opacity and bar position. Geometry/positions are not touched.
   // Safe to call any time after buildScene has run.
   void applyAttachedDecorationStyle();
+  [[nodiscard]] float activeDetachedBackgroundOpacity() const noexcept;
   // Submit a wl_region matching the panel body after applying the current reveal clip.
   void applyPanelCompositorBlur(int bodyX, int bodyY, int bodyW, int bodyH, int clipX, int clipY, int clipW, int clipH);
   // Positions the background, shadows, and content node around the current card and sets
@@ -299,6 +300,7 @@ private:
   std::int32_t m_detachedBleedRight = 0;
   std::int32_t m_detachedBleedBottom = 0;
   float m_attachedBackgroundOpacity = 1.0F;
+  float m_detachedBackgroundOpacity = 1.0F;
   bool m_attachedContactShadow = false;
   float m_attachedRevealProgress = 1.0F;
   float m_detachedRevealProgress = 1.0F;

@@ -1,5 +1,6 @@
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
+#include "tests/test_check.h"
 #include "ui/controls/button.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/label.h"
@@ -70,8 +71,6 @@ namespace {
     float renderScale() const noexcept override { return 1.0F; }
   };
 
-  bool near(float actual, float expected) { return std::abs(actual - expected) < 0.001F; }
-
 } // namespace
 
 int main() {
@@ -95,21 +94,11 @@ int main() {
   const float buttonCenterX = button.width() * 0.5F;
   const float buttonCenterY = button.height() * 0.5F;
 
-  if (!near(glyphCenterX, buttonCenterX) || !near(glyphCenterY, buttonCenterY)) {
-    std::println(
-        stderr, "button_layout_test: centered glyph mismatch: glyph center=({}, {}), button center=({}, {})",
-        glyphCenterX, glyphCenterY, buttonCenterX, buttonCenterY
-    );
-    return 1;
-  }
-
-  if (!near(glyph->x(), 5.5F) || !near(glyph->y(), 5.5F)) {
-    std::println(
-        stderr, "button_layout_test: expected a 21px glyph in a 32px button at (5.5, 5.5), got ({}, {})", glyph->x(),
-        glyph->y()
-    );
-    return 1;
-  }
+  TEST_NEAR(glyphCenterX, buttonCenterX, 0.001F);
+  TEST_NEAR(glyphCenterY, buttonCenterY, 0.001F);
+  // A 21px glyph in a 32px button.
+  TEST_NEAR(glyph->x(), 5.5F, 0.001F);
+  TEST_NEAR(glyph->y(), 5.5F, 0.001F);
 
   // A button stretched narrower than its text keeps the label on one line and hands it a
   // budget derived from the assigned box, rather than wrapping inside a fixed-height row.
@@ -123,12 +112,7 @@ int main() {
     std::println(stderr, "button_layout_test: stretched button has no label");
     return 1;
   }
-  if (!near(stretchedLabel->maxWidth(), 78.0F)) {
-    std::println(
-        stderr, "button_layout_test: expected a 78px label budget in a 90px button, got {}", stretchedLabel->maxWidth()
-    );
-    return 1;
-  }
+  TEST_NEAR(stretchedLabel->maxWidth(), 78.0F, 0.001F);
   if (stretchedLabel->ellipsize() != TextEllipsize::End) {
     std::println(stderr, "button_layout_test: stretched label does not ellipsize");
     return 1;
@@ -147,10 +131,8 @@ int main() {
   intrinsic.setPadding(6.0F);
   intrinsic.layout(renderer);
   const Label* intrinsicLabel = intrinsic.label();
-  if (intrinsicLabel == nullptr || !near(intrinsicLabel->maxWidth(), 0.0F)) {
-    std::println(stderr, "button_layout_test: unconstrained button capped its label");
-    return 1;
-  }
+  TEST_CHECK(intrinsicLabel != nullptr);
+  TEST_NEAR(intrinsicLabel->maxWidth(), 0.0F, 0.001F);
 
   // A glyph stacked above the label (control-center tiles) leaves the full inner width to the
   // label; only a glyph beside it takes a share.
@@ -161,13 +143,8 @@ int main() {
   stacked.setPadding(6.0F);
   stacked.setDirection(FlexDirection::Vertical);
   stacked.arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = 90.0F, .height = 60.0F});
-  if (stacked.label() == nullptr || !near(stacked.label()->maxWidth(), 78.0F)) {
-    std::println(
-        stderr, "button_layout_test: stacked glyph stole label width, budget {}",
-        stacked.label() == nullptr ? -1.0F : stacked.label()->maxWidth()
-    );
-    return 1;
-  }
+  TEST_CHECK(stacked.label() != nullptr);
+  TEST_NEAR(stacked.label()->maxWidth(), 78.0F, 0.001F);
 
   Button beside;
   beside.setGlyph("home");
@@ -180,13 +157,7 @@ int main() {
     return 1;
   }
   const float besideExpected = std::ceil(78.0F - (beside.glyph()->width() + beside.gap()));
-  if (!near(beside.label()->maxWidth(), besideExpected)) {
-    std::println(
-        stderr, "button_layout_test: expected a {}px budget beside a glyph, got {}", besideExpected,
-        beside.label()->maxWidth()
-    );
-    return 1;
-  }
+  TEST_NEAR(beside.label()->maxWidth(), besideExpected, 0.001F);
 
   return 0;
 }

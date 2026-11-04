@@ -3716,10 +3716,6 @@
           "description": "Inclou finestres de tots els monitors en aquest giny",
           "label": "Mostra tots els monitors"
         },
-        "show-all-workspaces": {
-          "description": "Mostra els espais de treball de tots els monitors en aquest giny",
-          "label": "Mostra tots els monitors"
-        },
         "show-caps-lock": {
           "description": "Mostra l'estat de Bloq Majús",
           "label": "Mostra Bloq Majús"

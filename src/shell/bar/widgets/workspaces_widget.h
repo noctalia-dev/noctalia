@@ -39,15 +39,18 @@ public:
     WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
     bool showLabels = true;
     bool showIcons = true;
+    bool colorizeIcons = false;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec urgentColor = colorSpecFromRole(ColorRole::Error);
+    ColorSpec separatorColor = colorSpecFromRole(ColorRole::OnSurface);
     bool changeColorOnHover = true;
     std::size_t maxLabelChars = 1;
     bool labelsOnlyWhenOccupied = false;
     bool hideWhenEmpty = false;
     std::vector<std::string> monitors;
+    std::string separator;
     float pillScale = 1.0F;
     float activePillSize = 2.2F;
     float inactivePillSize = 1.0F;
@@ -123,6 +126,7 @@ private:
     Box* indicator = nullptr;
     Label* text = nullptr;
     Image* icon = nullptr;
+    Label* separator = nullptr;
     Workspace workspace;
     Workspace visualWorkspace;
     wl_output* output = nullptr;
@@ -171,8 +175,10 @@ private:
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
   bool m_showIcons = true;
+  bool m_colorizeIcons = false;
   bool m_hideWhenEmpty = false;
   std::vector<std::string> m_monitors;
+  std::string m_separator;
   float m_pillScale = 1.0F;
   float m_activePillSize = 2.2F;
   float m_inactivePillSize = 1.0F;
@@ -195,6 +201,7 @@ private:
 
   float m_gap = 0.0F;
   float m_indicatorHeight = 0.0F;
+  float m_crossSize = 0.0F;
   Box* m_hoverOverlay = nullptr;
   float m_hoverProgress = 0.0F;
   InputArea* m_hoveredArea = nullptr;
@@ -205,4 +212,5 @@ private:
   ColorSpec m_occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec m_emptyColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec m_urgentColor = colorSpecFromRole(ColorRole::Error);
+  ColorSpec m_separatorColor = colorSpecFromRole(ColorRole::OnSurface);
 };

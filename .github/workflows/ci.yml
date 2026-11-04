@@ -17,15 +17,15 @@ jobs:
     container:
       image: archlinux:latest
     steps:
+      # Arch's rolling `clang` package is the pinned major; the guard fails loudly when Arch moves on.
       - name: Install tools
         run: |
-          pacman -Syu --noconfirm --needed git just clang22 python
+          pacman -Syu --noconfirm --needed git just clang python
+          clang-format --version | grep -q 'version 23\.' || { clang-format --version; echo "error: expected clang-format 23" >&2; exit 1; }
 
       - uses: actions/checkout@v6
 
       - name: Check formatting
-        env:
-          PATH: /usr/lib/llvm22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: just format-code-check
 
       - name: Check palette role alpha ratchet
@@ -108,6 +108,10 @@ jobs:
       - *arch-deps
 
       - uses: actions/checkout@v6
+
+      - name: Check clang-tidy version
+        run: |
+          clang-tidy --version | grep -q 'version 23\.' || { clang-tidy --version; echo "error: expected clang-tidy 23" >&2; exit 1; }
 
       # Needs only a configured build dir and generated headers, not a build.
       - name: Lint

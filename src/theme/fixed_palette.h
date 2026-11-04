@@ -143,8 +143,13 @@ namespace noctalia::theme {
   void setGeneratedHoverTokens(GeneratedPalette& palette);
 
   void applyTerminalPalette(TokenMap& tokens, const TerminalPalette& terminal);
+  // Fills missing terminal tokens from the scheme roles, so ANSI colors look like the palette.
   void synthesizeTerminalPaletteTokens(TokenMap& tokens);
   void synthesizeTerminalPaletteTokens(GeneratedPalette& palette);
+  // Replaces the six chromatic ANSI colors (normal and bright) with canonical hues nudged
+  // toward primary, so red, green and yellow keep their meaning.
+  void applyStandardTerminalColors(TokenMap& tokens);
+  void applyStandardTerminalColors(GeneratedPalette& palette);
   TerminalPalette terminalPaletteFromTokens(const TokenMap& tokens);
 
 } // namespace noctalia::theme

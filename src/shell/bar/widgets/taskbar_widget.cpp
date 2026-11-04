@@ -9,14 +9,16 @@
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/wayland_toplevels.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_launch.h"
 #include "system/internal_app_metadata.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
@@ -24,7 +26,6 @@
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_seat.h"
-#include "wayland/wayland_toplevels.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
@@ -1194,7 +1195,9 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       if (task.icon.symbolic) {
         image->setForegroundTint(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
       } else {
-        image->setAppIconColorization(effectiveShellAppIconColorizationTint(m_configService.config().shell));
+        image->setAppIconColorization(
+            effectiveShellAppIconColorizationTint(m_configService.config().shell, m_configOptions.colorizeIcons)
+        );
       }
       image->setSourceFile(renderer, task.icon.path, static_cast<int>(std::round(iconSize)), true);
       if (image->hasImage()) {
@@ -3305,10 +3308,11 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area, 
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = layerSurface,
+                  .attach = LayerShell::popupAttach(layerSurface),
                   .output = m_output,
-                  .wlSurface = pointerSurface,
+                  .keyboardGrab = m_platform.layerShell().popupKeyboardGrab(pointerSurface),
               },
+          .pointerParentSurface = pointerSurface,
           .placement = placement,
       }
   );

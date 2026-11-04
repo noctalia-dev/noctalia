@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/poll_source.h"
+#include "core/poll_source.h"
 #include "time/time_service.h"
 
 class TimePollSource final : public PollSource {

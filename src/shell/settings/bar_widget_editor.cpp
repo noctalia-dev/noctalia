@@ -1083,6 +1083,9 @@ namespace settings {
         std::vector<WidgetSettingSpec>& specs, const Config& cfg, const std::vector<std::string>& lanePath
     ) {
       for (auto& spec : specs) {
+        if (spec.defaultFromConfig) {
+          spec.schema.defaultValue = spec.defaultFromConfig(cfg);
+        }
         if (!spec.schema.inheritsFromBar) {
           continue;
         }

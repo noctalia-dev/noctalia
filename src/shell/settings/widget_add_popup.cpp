@@ -7,6 +7,7 @@
 #include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/dialog_popup_settings.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "ui/builders.h"
 #include "ui/style.h"
@@ -149,7 +150,7 @@ namespace settings {
   WidgetAddPopup::~WidgetAddPopup() { destroyPopup(); }
 
   void WidgetAddPopup::initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext) {
-    initializeBase(wayland, config, renderContext);
+    initializeBase(wayland, dialogPopupSettings(config), renderContext);
   }
 
   void WidgetAddPopup::setOnSelect(SelectCallback callback) { m_onSelect = std::move(callback); }

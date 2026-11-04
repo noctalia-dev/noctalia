@@ -39,6 +39,7 @@ namespace noctalia::bar {
     std::optional<double> step;
     std::vector<WidgetSettingChoice<T>> choices;
     std::optional<settings::WidgetSettingPresentation> presentation = settings::WidgetSettingPresentation{};
+    std::function<WidgetSettingValue(const Config&)> defaultFromConfig;
   };
 
   template <typename Options> struct WidgetDefinitionField {
@@ -425,6 +426,7 @@ namespace noctalia::bar {
         .minValue = effectiveRange.schemaMin,
         .maxValue = effectiveRange.schemaMax,
         .step = spec.step,
+        .defaultValueCountsAsOverride = static_cast<bool>(spec.defaultFromConfig),
     };
     schema.enumValues.reserve(spec.choices.size());
     std::ranges::transform(
@@ -433,6 +435,9 @@ namespace noctalia::bar {
     );
 
     if (spec.presentation.has_value()) {
+      if (spec.defaultFromConfig) {
+        spec.presentation->defaultFromConfig = std::move(spec.defaultFromConfig);
+      }
       spec.presentation->control = spec.control.value_or(detail::defaultControl(spec.choices, spec.presentation));
       if (!spec.choices.empty() && spec.choices.front().configValue.index() == 0) {
         spec.presentation->integerValue = true;

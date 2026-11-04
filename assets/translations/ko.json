@@ -3849,10 +3849,6 @@
           "description": "이 위젯에 모든 모니터의 창 포함",
           "label": "모든 모니터 표시"
         },
-        "show-all-workspaces": {
-          "description": "모든 모니터의 워크스페이스를 이 위젯에 표시",
-          "label": "모든 모니터 보기"
-        },
         "show-caps-lock": {
           "description": "Caps Lock 상태 표시",
           "label": "Caps Lock 표시"

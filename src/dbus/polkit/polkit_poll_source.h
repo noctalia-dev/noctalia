@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/poll_source.h"
+#include "core/poll_source.h"
 #include "dbus/polkit/polkit_agent.h"
 
 class PolkitPollSource final : public PollSource {

@@ -166,7 +166,10 @@ private:
   void refreshGoogleToken(
       const std::string& accountId, std::function<void(calendar::SyncFailure failure, std::string accessToken)> cb
   );
-  void googleFetchWithToken(const std::string& accountId, const std::string& accessToken, bool allowRefreshRetry);
+  void googleFetchWithToken(
+      const std::string& accountId, const std::vector<std::string>& selectedCalendars, const std::string& accessToken,
+      bool allowRefreshRetry
+  );
   void pollConnect();
   void notifyGoogleConnectFailure(const std::string& body) const;
   void notifyGoogleCredentialLocked() const;

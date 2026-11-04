@@ -10,10 +10,12 @@
 #include "render/core/renderer.h"
 #include "render/core/thumbnail_service.h"
 #include "render/scene/input_area.h"
+#include "shell/palette_swatch_preview.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "shell/wallpaper/panel/wallpaper_tile.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/wayland/layer_shell.h"
 #include "theme/builtin_palettes.h"
 #include "theme/community_palettes.h"
 #include "theme/custom_palettes.h"
@@ -22,7 +24,6 @@
 #include "ui/dialogs/color_picker_dialog.h"
 #include "ui/dialogs/search_picker_popup.h"
 #include "ui/palette.h"
-#include "ui/palette_swatch_preview.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
@@ -1862,10 +1863,14 @@ void WallpaperPanel::syncSortButtonGlyph() {
     return;
   }
   const auto parentCtx = PanelManager::instance().fallbackPopupParentContext();
-  if (!parentCtx.has_value() || parentCtx->layerSurface == nullptr || parentCtx->output == nullptr) {
+  if (!parentCtx.has_value() || parentCtx->output == nullptr || m_wayland == nullptr) {
     return;
   }
-  TooltipManager::instance().onHoverChange(area, parentCtx->layerSurface, parentCtx->output);
+  zwlr_layer_surface_v1* layerSurface = m_wayland->extension<LayerShell>().layerSurfaceFor(parentCtx->surface);
+  if (layerSurface == nullptr) {
+    return;
+  }
+  TooltipManager::instance().onHoverChange(area, layerSurface, parentCtx->output);
 }
 
 void WallpaperPanel::cycleSortMode() {

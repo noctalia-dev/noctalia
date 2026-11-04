@@ -8,18 +8,19 @@
 #include "i18n/i18n.h"
 #include "launcher/panel_catalog.h"
 #include "pipewire/sound_player.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/bar/widget_gesture_defaults.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/control_center/shortcut_registry.h"
+#include "shell/palette_swatch_preview.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/font_weight_catalog.h"
+#include "shell/settings/supported_languages.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "system/sysmon_threshold_profile.h"
 #include "theme/builtin_palettes.h"
 #include "theme/builtin_templates.h"
-#include "ui/app_icon_colorization.h"
-#include "ui/palette_swatch_preview.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 
@@ -281,9 +282,9 @@ namespace settings {
 
     SelectSetting languageSelect(std::string_view selected) {
       std::vector<SelectOption> opts;
-      opts.reserve(i18n::kSupportedLanguages.size() + 1);
+      opts.reserve(kSupportedLanguages.size() + 1);
       opts.push_back(SelectOption{"", i18n::tr("common.states.auto")});
-      for (const auto& language : i18n::kSupportedLanguages) {
+      for (const auto& language : kSupportedLanguages) {
         opts.push_back(SelectOption{std::string(language.code), std::string(language.displayName)});
       }
       return SelectSetting{std::move(opts), std::string(selected)};
@@ -342,7 +343,7 @@ namespace settings {
           .path = std::move(path),
           .control = std::move(control),
           .advanced = advanced,
-          .searchText = StringUtils::toLower(searchText),
+          .searchText = StringUtils::normalizeForSearch(searchText),
       };
     }
 
@@ -380,7 +381,7 @@ namespace settings {
     return names;
   }
 
-  std::string normalizedSettingQuery(std::string_view query) { return StringUtils::toLower(query); }
+  std::string normalizedSettingQuery(std::string_view query) { return StringUtils::normalizeForSearch(query); }
 
   bool matchesNormalizedSettingQuery(const SettingEntry& entry, std::string_view normalizedQuery) {
     if (normalizedQuery.empty()) {
@@ -511,6 +512,12 @@ namespace settings {
           tr("settings.schema.appearance.wallpaper-generation-scheme.description"), {"theme", "wallpaper_scheme"},
           wallpaperSchemeSelect(cfg.theme.wallpaperScheme), "wallpaper palette generator scheme material you m3 colors"
       ));
+      entries.push_back(makeEntry(
+          SettingsSection::Appearance, "theme", tr("settings.schema.appearance.terminal-colors.label"),
+          tr("settings.schema.appearance.terminal-colors.description"), {"theme", "terminal_colors"},
+          asSegmented(enumSelect(kTerminalColorsOptions, cfg.theme.terminalColors)),
+          "terminal ansi colors red green semantic wallpaper"
+      ));
     } else if (cfg.theme.source == PaletteSource::Community) {
       SettingControl communityPaletteControl =
           TextSetting{.value = cfg.theme.communityPalette, .placeholder = "Oxocarbon", .browseFileExtensions = {}};
@@ -599,24 +606,13 @@ namespace settings {
         sliderFor(cfg.shell.cornerRadiusScale, noctalia::config::schema::kCornerRadiusScaleRange, false),
         "rounded corners radius"
     ));
-    entries.push_back(makeEntry(
-        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-colorize.label"),
-        tr("settings.schema.appearance.app-icon-colorize.description"), {"shell", "app_icon_colorize"},
-        ToggleSetting{cfg.shell.appIconColorize}, "tint all application icons"
-    ));
     {
-      const SettingVisibility colorizeOn = [](const Config& c) { return c.shell.appIconColorize; };
-      ShellConfig colorizeShell = cfg.shell;
-      colorizeShell.appIconColorize = true;
-      const ColorSpec pickerColor =
-          cfg.shell.appIconColor.value_or(*effectiveShellAppIconColorizationTint(colorizeShell));
-      auto e = makeEntry(
+      const ColorSpec pickerColor = *effectiveShellAppIconColorizationTint(cfg.shell, true);
+      entries.push_back(makeEntry(
           SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-color.label"),
           tr("settings.schema.appearance.app-icon-color.description"), {"shell", "app_icon_color"},
           colorSpecPicker(pickerColor), "color role dock tray application icons"
-      );
-      e.visibleWhen = colorizeOn;
-      entries.push_back(std::move(e));
+      ));
     }
     entries.push_back(makeEntry(
         SettingsSection::Appearance, "interface", tr("settings.schema.appearance.show-close-buttons.label"),
@@ -846,6 +842,11 @@ namespace settings {
         ToggleSetting{cfg.wallpaper.transitionOnStartup}, "startup animation"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Wallpaper, "transition", tr("settings.schema.wallpaper.sync-transitions.label"),
+        tr("settings.schema.wallpaper.sync-transitions.description"), {"wallpaper", "sync_transitions"},
+        ToggleSetting{cfg.wallpaper.syncTransitions}, "all monitors same effect"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Wallpaper, "automation", tr("settings.schema.wallpaper.automation.label"),
         tr("settings.schema.wallpaper.automation.description"), {"wallpaper", "automation", "enabled"},
         ToggleSetting{cfg.wallpaper.automation.enabled}, "rotate slideshow"
@@ -960,6 +961,22 @@ namespace settings {
           autoHideModeSelect(barAutoHideMode(dock.autoHide, dock.smartAutoHide), path("smart_auto_hide")),
           "autohide smart workspace"
       ));
+      {
+        auto e = makeEntry(
+            SettingsSection::Dock, "behavior", tr("settings.schema.dock.auto-hide-reveal-delay.label"),
+            tr("settings.schema.dock.auto-hide-reveal-delay.description"), path("auto_hide_reveal_delay_ms"),
+            StepperSetting{
+                .value = dock.autoHideRevealDelayMs,
+                .minValue = static_cast<int>(noctalia::config::schema::kDockAutoHideRevealDelayMsRange.min.value()),
+                .maxValue = static_cast<int>(noctalia::config::schema::kDockAutoHideRevealDelayMsRange.max.value()),
+                .step = static_cast<int>(noctalia::config::schema::kDockAutoHideRevealDelayMsRange.step.value()),
+                .valueSuffix = "ms",
+            },
+            "autohide reveal delay dwell edge"
+        );
+        e.visibleWhen = [currentDock](const Config& c) { return currentDock(c).isAutoHideEnabled(); };
+        entries.push_back(std::move(e));
+      }
       entries.push_back(makeEntry(
           SettingsSection::Dock, "behavior", tr("settings.schema.shared.reserve-space.label"),
           tr("settings.schema.dock.reserve-space.description"), path("reserve_space"), ToggleSetting{dock.reserveSpace},
@@ -1129,6 +1146,16 @@ namespace settings {
       entries.push_back(makeEntry(
           SettingsSection::Dock, "effects", tr("settings.schema.shared.shadow.label"),
           tr("settings.schema.dock.shadow.description"), path("shadow"), ToggleSetting{dock.shadow}, "shadow"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.dock.icon-shadow.label"),
+          tr("settings.schema.dock.icon-shadow.description"), path("icon_shadow"), ToggleSetting{dock.iconShadow},
+          "shadow icon"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.shared.colorize-icons.label"),
+          tr("settings.schema.shared.colorize-icons.description"), path("colorize_icons"),
+          ToggleSetting{dock.colorizeIcons}, "colorize tint application icons"
       ));
       entries.push_back(makeEntry(
           SettingsSection::Dock, "effects", tr("settings.schema.dock.icon-saturation.label"),
@@ -1405,6 +1432,11 @@ namespace settings {
         SettingsSection::Launcher, "display", tr("settings.schema.panels.launcher-show-icons.label"),
         tr("settings.schema.panels.launcher-show-icons.description"), {"shell", "launcher", "show_icons"},
         ToggleSetting{cfg.shell.launcher.showIcons}, "launcher app icons hide"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Launcher, "display", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "launcher", "colorize_icons"},
+        ToggleSetting{cfg.shell.launcher.colorizeIcons}, "colorize tint application icons"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Launcher, "display", tr("settings.schema.panels.launcher-app-origin-indicator.label"),
@@ -1754,6 +1786,11 @@ namespace settings {
         SettingsSection::Security, "authentication", tr("settings.schema.shell.polkit-agent.label"),
         tr("settings.schema.shell.polkit-agent.description"), {"shell", "polkit_agent"},
         ToggleSetting{cfg.shell.polkitAgent}, "auth password"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Security, "authentication", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "polkit_colorize_icons"},
+        ToggleSetting{cfg.shell.polkitColorizeIcons}, "authentication application icons colorize tint"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Security, "authentication", tr("settings.schema.shell.password-style.label"),
@@ -2296,6 +2333,11 @@ namespace settings {
         "window switcher alt tab application app icon"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Shell, "window-switcher", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "window_switcher", "colorize_icons"},
+        ToggleSetting{cfg.shell.windowSwitcher.colorizeIcons}, "window switcher colorize tint application icons"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-show-all-outputs.label"),
         tr("settings.schema.shell.window-switcher-show-all-outputs.description"),
         {"shell", "window_switcher", "show_all_outputs"}, ToggleSetting{cfg.shell.windowSwitcher.showAllOutputs},
@@ -2498,15 +2540,11 @@ namespace settings {
         tr("settings.schema.shell.osd-kinds-media.description"), {"osd", "kinds", "media"},
         ToggleSetting{cfg.osd.kinds.media}, "hud overlay mpris audio music"
     ));
-    {
-      SettingEntry mediaVolumeEntry = makeEntry(
-          SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media-volume.label"),
-          tr("settings.schema.shell.osd-kinds-media-volume.description"), {"osd", "kinds", "media_volume"},
-          ToggleSetting{cfg.osd.kinds.mediaVolume}, "hud overlay mpris media player volume level"
-      );
-      mediaVolumeEntry.visibleWhen = [](const Config& c) { return c.osd.kinds.media; };
-      entries.push_back(std::move(mediaVolumeEntry));
-    }
+    entries.push_back(makeEntry(
+        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media-volume.label"),
+        tr("settings.schema.shell.osd-kinds-media-volume.description"), {"osd", "kinds", "media_volume"},
+        ToggleSetting{cfg.osd.kinds.mediaVolume}, "hud overlay mpris media player volume level"
+    ));
     entries.push_back(makeEntry(
         SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-privacy.label"),
         tr("settings.schema.shell.osd-kinds-privacy.description"), {"osd", "kinds", "privacy"},
@@ -2694,6 +2732,11 @@ namespace settings {
         SettingsSection::System, "screen-time", tr("settings.schema.shell.screen-time-enabled.label"),
         tr("settings.schema.shell.screen-time-enabled.description"), {"shell", "screen_time_enabled"},
         ToggleSetting{cfg.shell.screenTimeEnabled}, "screen time usage tracking control center"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::System, "screen-time", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "screen_time_colorize_icons"},
+        ToggleSetting{cfg.shell.screenTimeColorizeIcons}, "screen time application icons colorize tint"
     ));
     const SettingVisibility monitorOn = [](const Config& c) { return c.system.monitor.enabled; };
     entries.push_back(makeEntry(
@@ -3205,6 +3248,11 @@ namespace settings {
         ToggleSetting{cfg.audio.enableOverdrive}, "volume"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"audio", "colorize_icons"},
+        ToggleSetting{cfg.audio.colorizeIcons}, "audio mixer application icons colorize tint"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.shell-sounds.label"),
         tr("settings.schema.services.shell-sounds.description"), {"audio", "enable_sounds"},
         ToggleSetting{cfg.audio.enableSounds}, "sound"
@@ -3466,6 +3514,11 @@ namespace settings {
         ToggleSetting{cfg.notification.enableDaemon}, "dbus"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "general", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"notification", "colorize_icons"},
+        ToggleSetting{cfg.notification.colorizeIcons}, "notification application icons colorize tint"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "general", tr("settings.schema.notifications.show-app-name.label"),
         tr("settings.schema.notifications.show-app-name.description"), {"notification", "show_app_name"},
         ToggleSetting{cfg.notification.showAppName}, "application identity header"
@@ -3502,6 +3555,11 @@ namespace settings {
             cfg.notification.position
         ),
         "toast popup placement anchor"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.newest-on-edge.label"),
+        tr("settings.schema.notifications.newest-on-edge.description"), {"notification", "newest_on_edge"},
+        ToggleSetting{cfg.notification.newestOnEdge}, "toast stack order newest oldest push direction"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.scale.label"),
@@ -3579,6 +3637,11 @@ namespace settings {
       e.visibleWhen = [](const Config& c) { return !c.notification.followFocusedOutput; };
       entries.push_back(std::move(e));
     }
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "history", tr("settings.schema.notifications.group-by-app.label"),
+        tr("settings.schema.notifications.group-by-app.description"), {"notification", "group_by_app"},
+        ToggleSetting{cfg.notification.groupByApp}, "notification history group-by-app"
+    ));
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "history", tr("settings.schema.notifications.keep-dismissed-in-history.label"),
         tr("settings.schema.notifications.keep-dismissed-in-history.description"),

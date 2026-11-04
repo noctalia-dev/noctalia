@@ -4,9 +4,9 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
+#include "shell/visuals/fancy_audio_visualizer.h"
 #include "ui/builders.h"
 #include "ui/style.h"
-#include "ui/visuals/fancy_audio_visualizer.h"
 
 #include <algorithm>
 #include <array>

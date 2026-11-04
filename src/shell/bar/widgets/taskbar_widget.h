@@ -60,6 +60,7 @@ struct TaskbarWidgetOptions {
   float inactiveOpacity = 1.0F;
   float iconScale = 1.0F;
   bool preferSymbolicIcons = false;
+  bool colorizeIcons = false;
   int itemSpacing = 4;
   std::vector<std::string> pinned;
   float pinnedOpacity = 0.5F;

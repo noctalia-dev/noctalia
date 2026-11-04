@@ -4,6 +4,7 @@
 #include "config/schema/widget_schema.h"
 
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
 #include <optional>
 #include <string>
@@ -131,6 +132,7 @@ namespace settings {
     std::vector<std::string> extensions; // applies when control == File
     std::optional<WidgetSettingVisibility> visibleWhen;
     bool horizontalBarOnly = false; // hide on left/right bars (e.g. media album-art-only)
+    std::function<WidgetSettingValue(const Config&)> defaultFromConfig;
   };
 
   // Complete setting description.

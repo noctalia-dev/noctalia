@@ -1,8 +1,8 @@
 #pragma once
 
 #include "pipewire/privacy_filter.h"
+#include "render/scene/tooltip_content.h"
 #include "shell/bar/widget.h"
-#include "shell/tooltip/tooltip_content.h"
 #include "ui/palette.h"
 
 #include <string>

@@ -39,7 +39,9 @@
       "backdrop-shadow-offset-x": "Offset X",
       "backdrop-shadow-offset-y": "Offset Y",
       "backdrop-shadow-opacity": "Opacity",
-      "capture-new-region": "Capture new region (discards the current edit)",
+      "capture": "Capture again",
+      "capture-new-region": "Capture new region (Ctrl+R) · discards the current edit",
+      "capture-window": "Capture the window focused when the editor opened (Ctrl+W) · discards the current edit",
       "close": "Close editor",
       "color-black": "Black (8)",
       "color-blue": "Blue (4)",
@@ -89,7 +91,11 @@
       "tool-numbering": "Numbered marker (n)",
       "tool-rectangle": "Rectangle (s) · hold Shift for a square",
       "tool-text": "Text (t)",
-      "undo": "Undo (Ctrl+Z)"
+      "undo": "Undo (Ctrl+Z)",
+      "zoom": "Zoom · Ctrl+wheel to zoom, Ctrl+drag to pan",
+      "zoom-in": "Zoom in (Ctrl++)",
+      "zoom-out": "Zoom out (Ctrl+-)",
+      "zoom-reset": "Fit to view (Ctrl+0)"
     },
     "screenshot": {
       "annotate-export-failed": "Failed to build the annotated image",
@@ -421,10 +427,16 @@
     },
     "notifications": {
       "clear-all": "Clear all notifications",
+      "collapse": "Collapse",
+      "collapse-group": "Collapse group",
+      "dismiss": "Dismiss",
+      "dismiss-group": "Dismiss group",
       "dnd-off": "Turn Do Not Disturb Off",
       "dnd-on": "Turn Do Not Disturb On",
       "empty-body": "Recent notifications will show here.",
       "empty-title": "No Notifications",
+      "expand": "Expand",
+      "expand-group": "Expand group",
       "filter": {
         "all": "All",
         "older": "Older",
@@ -1328,6 +1340,10 @@
               "windows": "Windows",
               "workspace-labels": "Workspace Labels"
             },
+            "tray": {
+              "drawer": "Drawer",
+              "icon-overrides": "Icon Overrides"
+            },
             "widget": "Widget",
             "workspaces": {
               "colors": "Colors",
@@ -1743,6 +1759,10 @@
           "community": "Community",
           "custom": "Custom",
           "wallpaper": "Wallpaper"
+        },
+        "terminal-colors": {
+          "palette": "Palette",
+          "standard": "Standard"
         }
       },
       "theme-role": {
@@ -1926,7 +1946,7 @@
           "label": "Animations"
         },
         "app-icon-color": {
-          "description": "Palette color used when colorizing application icons",
+          "description": "Shared palette color for components with Colorize App Icons enabled",
           "label": "App Icon Color"
         },
         "app-icon-colorize": {
@@ -2014,6 +2034,10 @@
         "sync-color-scheme": {
           "description": "Set the system dark/light preference read by browsers and other apps to follow Theme Mode",
           "label": "Sync App Color Scheme"
+        },
+        "terminal-colors": {
+          "description": "Palette matches terminal colors to the wallpaper; Standard keeps red, green and yellow recognizable",
+          "label": "Terminal Colors"
         },
         "theme-mode": {
           "description": "Choose Dark, Light, or Auto based on time of day; also applies to apps through templates",
@@ -2298,6 +2322,10 @@
         "auto-hide": {
           "description": "Off keeps the dock visible; On hides it until you move the pointer to the screen edge; Smart shows the dock on an empty workspace and hides it when windows are open"
         },
+        "auto-hide-reveal-delay": {
+          "description": "How long the pointer must stay at the screen edge before a hidden dock reveals; 0 reveals immediately",
+          "label": "Reveal Delay"
+        },
         "background-opacity": {
           "description": "Background opacity of the dock"
         },
@@ -2347,6 +2375,10 @@
         "icon-saturation": {
           "description": "Color saturation of application icons; 0 is grayscale",
           "label": "Icon Saturation"
+        },
+        "icon-shadow": {
+          "description": "Cast a soft shadow following each application icon's shape",
+          "label": "Icon Shadow"
         },
         "icon-size": {
           "description": "Size of dock icons in pixels",
@@ -2659,6 +2691,10 @@
           "description": "Show new notification toasts on the focused monitor",
           "label": "Follow Focused Output"
         },
+        "group-by-app": {
+          "description": "Group notifications in the history tab by application",
+          "label": "Group by Application"
+        },
         "history-retention-hours": {
           "description": "Automatically remove notification history entries older than the specified number of hours (0 to keep forever)",
           "label": "Retention Period"
@@ -2684,6 +2720,10 @@
         "monitors": {
           "description": "Choose which monitors show notification toasts; leave empty to show on all monitors",
           "label": "Monitors"
+        },
+        "newest-on-edge": {
+          "description": "Place each new toast against the screen edge of its position and push older toasts away, instead of appending it at the far end of the stack",
+          "label": "Newest Toast on Edge"
         },
         "offset-x": {
           "description": "Absolute horizontal margin from the screen or bar edge",
@@ -3303,6 +3343,10 @@
         "background-opacity": {
           "label": "Background Opacity"
         },
+        "colorize-icons": {
+          "description": "Recolor application icons here using the shared App Icon Color from Appearance",
+          "label": "Colorize App Icons"
+        },
         "contact-shadow": {
           "label": "Contact Shadow"
         },
@@ -3856,6 +3900,10 @@
         "per-monitor-directories": {
           "description": "Use separate wallpaper folders for each monitor",
           "label": "Per-Monitor Directories"
+        },
+        "sync-transitions": {
+          "description": "Use the same transition effect on all monitors when wallpapers change",
+          "label": "Sync Transitions Across Monitors"
         },
         "transition-duration": {
           "description": "Length of the wallpaper change animation in milliseconds",
@@ -4439,6 +4487,8 @@
         "cpu-freq": "CPU Freq",
         "cpu-temp": "CPU Temperature",
         "cpu-usage": "CPU Usage",
+        "default": "Default",
+        "desktop": "Desktop",
         "disk-free": "Disk Free",
         "disk-free-percent": "Disk Free %",
         "disk-used": "Disk Used",
@@ -4481,6 +4531,7 @@
         "shared": "Shared",
         "short": "Short",
         "swap-percent": "Swap %",
+        "symbolic": "Symbolic",
         "text": "Text",
         "text-only": "Text Only",
         "time": "Time",
@@ -4588,6 +4639,10 @@
           "description": "Second gradient color in the visualizer",
           "label": "Color 2"
         },
+        "colorize-icons": {
+          "description": "Recolor this widget's application icons using the shared App Icon Color from Appearance",
+          "label": "Colorize App Icons"
+        },
         "custom-image": {
           "description": "Path to a custom image; leave empty to use the icon glyph",
           "dialog-title": "Select Custom Image",
@@ -4621,6 +4676,10 @@
         "drawer": {
           "description": "Show a tray button in the bar and open items in a panel",
           "label": "Use Drawer Panel"
+        },
+        "drawer-background-opacity": {
+          "description": "Background opacity of the detached drawer panel",
+          "label": "Drawer Background Opacity"
         },
         "drawer-columns": {
           "description": "Number of tray icons per row in the drawer panel",
@@ -4667,10 +4726,6 @@
         "font-weight": {
           "description": "Default inherits the bar font weight",
           "label": "Font Weight"
-        },
-        "force-app-icons": {
-          "description": "Force tray icons to use desktop app icons",
-          "label": "Force App Icons"
         },
         "format": {
           "description": "Time format string",
@@ -4783,6 +4838,10 @@
           "description": "Overrides the widget color for icons only; fixed hex colors are also supported",
           "label": "Icon Color"
         },
+        "icon-override-blacklist": {
+          "description": "List of tray icons to exclude from icon overrides",
+          "label": "Icon Override Blacklist"
+        },
         "icon-scale": {
           "description": "Scale of taskbar application icons relative to their default size",
           "label": "Icon Scale"
@@ -4794,6 +4853,10 @@
         "icon-spacing": {
           "description": "Spacing between privacy indicator icons in pixels",
           "label": "Icon Spacing"
+        },
+        "icon-type": {
+          "description": "Select the type of icons to use in the tray",
+          "label": "Icon Type"
         },
         "inactive-color": {
           "description": "Color used for inactive privacy indicators; fixed hex colors are also supported",
@@ -4954,6 +5017,14 @@
           "description": "Choose whether scroll actions follow command semantics, run once per gesture, or repeat for every scroll step",
           "label": "Scroll Repeat"
         },
+        "separator": {
+          "description": "Text between workspace indicators; leave empty for no separator or extra spacing",
+          "label": "Separator"
+        },
+        "separator-color": {
+          "description": "Color role used for workspace separators; fixed hex colors are also supported",
+          "label": "Separator Color"
+        },
         "show-active-indicator": {
           "description": "Show a small dot below the active window icon in the taskbar",
           "label": "Active Window Indicator"
@@ -4961,11 +5032,6 @@
         "show-all-outputs": {
           "description": "Include windows from every monitor on this widget",
           "label": "Show All Monitors"
-        },
-        "workspace-monitors": {
-          "all": "All Monitors",
-          "description": "Choose which monitors' workspaces appear in this widget, in order. Leave empty to show only the workspaces from the monitor hosting the bar",
-          "label": "Workspace Monitors"
         },
         "show-caps-lock": {
           "description": "Show Caps Lock state",
@@ -5139,6 +5205,11 @@
         "workspace-label-placement": {
           "description": "Corner, centered on the edge, or inside the pill",
           "label": "Workspace Label Placement"
+        },
+        "workspace-monitors": {
+          "all": "All Monitors",
+          "description": "Choose which monitors' workspaces appear in this widget, in order. Leave empty to show only the workspaces from the monitor hosting the bar",
+          "label": "Workspace Monitors"
         }
       },
       "types": {

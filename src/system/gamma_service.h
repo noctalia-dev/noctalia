@@ -12,6 +12,7 @@
 #include <string_view>
 
 class IpcService;
+class ShellGlobals;
 class WaylandConnection;
 struct wl_output;
 struct zwlr_gamma_control_v1;
@@ -97,6 +98,7 @@ private:
   static void fillGammaRamp(std::uint16_t* ramp, std::uint32_t size, const RgbMultipliers& mul);
 
   WaylandConnection& m_wayland;
+  ShellGlobals& m_shellGlobals;
   NightLightConfig m_config;
   LocationConfig m_location;
   std::optional<bool> m_enabledOverride;

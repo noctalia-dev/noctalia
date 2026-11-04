@@ -9,6 +9,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_manager.h"
 #include "system/desktop_entry.h"
@@ -975,6 +976,8 @@ namespace {
 
   class ProgramVolumeRow : public Flex {
   public:
+    void setIconColorization(std::optional<ColorSpec> tint) { m_icon->setAppIconColorization(tint); }
+
     ProgramVolumeRow(
         PipeWireService* audio, std::uint32_t id, float sliderMax, float scale,
         std::function<void(float)> onQueueVolume, std::function<void()> onCommitVolume
@@ -1462,7 +1465,10 @@ AudioTab::AudioTab(
     WaylandConnection* wayland, RenderContext* renderContext
 )
     : m_audio(audio), m_easyEffects(easyEffects), m_mpris(mpris), m_config(config), m_wayland(wayland),
-      m_renderContext(renderContext) {}
+      m_renderContext(renderContext) {
+  m_appIconColorizeConn =
+      shellAppIconColorizationChanged().connect([] { PanelManager::instance().requestUpdateOnly(); });
+}
 
 AudioTab::~AudioTab() = default;
 
@@ -1539,7 +1545,7 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parentCtx->layerSurface,
+                  .attach = parentCtx->attach,
                   .output = parentCtx->output,
               },
           .pointerParentSurface = parentCtx->surface,
@@ -1627,7 +1633,7 @@ void AudioTab::openProgramRoutingMenu(Node* anchor, std::uint32_t programStreamI
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parentCtx->layerSurface,
+                  .attach = parentCtx->attach,
                   .output = parentCtx->output,
               },
           .pointerParentSurface = parentCtx->surface,
@@ -2292,11 +2298,15 @@ void AudioTab::syncProgramVolumeRows() {
     outputsById.emplace(s.id, &s);
   }
 
+  const auto tint = m_config != nullptr
+      ? effectiveShellAppIconColorizationTint(m_config->config().shell, m_config->config().audio.colorizeIcons)
+      : std::nullopt;
   for (Flex* node : m_programRows) {
     auto* row = static_cast<ProgramVolumeRow*>(node);
     if (row == nullptr) {
       continue;
     }
+    row->setIconColorization(tint);
     const auto it = outputsById.find(row->id());
     if (it == outputsById.end()) {
       continue;

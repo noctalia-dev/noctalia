@@ -7,9 +7,11 @@
 #include "shell/desktop/desktop_widget_factory.h"
 #include "shell/desktop/desktop_widgets_controller.h"
 #include "shell/desktop/wallpaper_mask.h"
-#include "wayland/layer_surface.h"
+#include "shell/render/wallpaper_mask_node.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -49,6 +51,8 @@ private:
     DesktopWidgetState state;
     std::string effectiveOutputName;
     wl_output* output = nullptr;
+    // Declared before surface so the surface never outlives the overlay it points at.
+    WallpaperMaskNode wallpaperMask;
     std::unique_ptr<LayerSurface> surface;
     AnimationManager animations;
     InputDispatcher inputDispatcher;
@@ -80,6 +84,7 @@ private:
   void validateWallpaperMask(const std::string& outputName);
   void onWallpaperMaskTextureChanged(const std::string& outputName);
   void updateWallpaperMask(DesktopWidgetInstance& instance);
+  static void applyWallpaperMask(DesktopWidgetInstance& instance, const std::optional<WallpaperMaskDrawParams>& params);
 
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;
