@@ -17,8 +17,8 @@ pkgs.mkShell {
     wayland-scanner
 
     # Formatting (required by justfile)
-    llvmPackages_22.clang-tools
-    llvmPackages_22.libclang
+    llvmPackages_23.clang-tools
+    llvmPackages_23.libclang
     gnugrep
     gnused
     findutils
