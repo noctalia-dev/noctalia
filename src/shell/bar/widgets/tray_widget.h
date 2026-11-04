@@ -45,6 +45,9 @@ public:
     std::vector<std::string> iconOverrideBlacklist;
     TrayIconType iconType = TrayIconType::Default;
     double drawerBackgroundOpacity = 1.0;
+    // Read by TrayMenu from `[widget.tray]`, the same widget its Pin/Unpin entry writes.
+    double menuBackgroundOpacity = 1.0;
+    bool menuCompositorBlur = true;
   };
 
   TrayWidget(ConfigService& config, TrayService* tray, Options options);

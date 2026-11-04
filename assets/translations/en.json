@@ -1342,7 +1342,8 @@
             },
             "tray": {
               "drawer": "Drawer",
-              "icon-overrides": "Icon Overrides"
+              "icon-overrides": "Icon Overrides",
+              "menu": "Menu"
             },
             "widget": "Widget",
             "workspaces": {
@@ -4925,6 +4926,14 @@
         "max-length": {
           "description": "Maximum widget length in pixels",
           "label": "Max Length"
+        },
+        "menu-background-opacity": {
+          "description": "Background opacity of tray item menus",
+          "label": "Menu Background Opacity"
+        },
+        "menu-compositor-blur": {
+          "description": "Allow the compositor to blur behind tray item menus when their background is translucent and the background effect protocol is available",
+          "label": "Menu Compositor Blur"
         },
         "mic-filter-regex": {
           "description": "Regular expression for microphone app names to ignore",

@@ -992,6 +992,8 @@ namespace settings {
       switch (capability) {
       case WidgetSettingCapability::TaskbarWorkspaceGrouping:
         return capabilities.taskbarWorkspaceGrouping;
+      case WidgetSettingCapability::BackgroundEffectBlur:
+        return capabilities.backgroundEffectBlur;
       }
       return false;
     };
