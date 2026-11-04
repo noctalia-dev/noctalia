@@ -2855,7 +2855,7 @@ namespace capture {
       return;
     }
     CaptureWindowCallback onCaptureWindow = m_onCaptureWindow;
-    DeferredCall::callLater([onCaptureWindow]() { onCaptureWindow(); });
+    DeferredCall::callLater([onCaptureWindow] { onCaptureWindow(); });
   }
 
   void AnnotationOverlay::toggleCursor(Instance* instance) {
