@@ -170,6 +170,7 @@ namespace calendar {
           event.end = event.start;
         }
         event.allDay = startAllDay;
+        event.declined = detail::googleEventDeclinedBySelf(item);
         event.reminderLeadSeconds = detail::googleEventReminders(item, calendarDefaults);
         out.push_back(std::move(event));
       }

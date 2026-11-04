@@ -131,5 +131,22 @@ int main() {
     ok = expect(merged.size() == 1, "invalid pattern broke an otherwise exact match") && ok;
   }
 
+  // A merged occurrence is declined only when every copy was declined.
+  {
+    std::map<std::string, std::vector<CalendarEvent>> byAccount;
+    CalendarEvent declinedCopy = event("Work", "Review", 60, 90);
+    declinedCopy.declined = true;
+    declinedCopy.location = "Room 1"; // richer, so it is the representative
+    byAccount["work"] = {declinedCopy};
+    byAccount["personal"] = {event("Personal", "Review", 60, 90)};
+    const auto merged = calendar::mergeCalendarEvents(byAccount, true);
+    ok = expect(merged.size() == 1 && !merged.front().declined, "an accepted duplicate was marked declined") && ok;
+
+    byAccount["personal"].front().declined = true;
+    const auto allDeclined = calendar::mergeCalendarEvents(byAccount, true);
+    ok = expect(allDeclined.size() == 1 && allDeclined.front().declined, "an all-declined occurrence lost its flag")
+        && ok;
+  }
+
   return ok ? 0 : 1;
 }

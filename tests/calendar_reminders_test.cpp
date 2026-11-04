@@ -329,6 +329,21 @@ int main() {
     ok = expect(plan.due.empty() && !plan.nextWake.has_value(), "disabled reminders still planned work") && ok;
   }
 
+  // ---- a declined event never reminds, through its own leads or the default ----
+  {
+    const auto now = at(1'700'000'000);
+    auto withLeads = timedEvent("a", now + minutes{5}, {900});
+    withLeads.declined = true;
+    auto withDefault = timedEvent("b", now + minutes{5});
+    withDefault.declined = true;
+    auto config = defaultConfig();
+    const auto plan = calendar::planReminders(snapshotOf({withLeads, withDefault}), config, {}, std::nullopt, now);
+    ok = expect(plan.due.empty() && !plan.nextWake.has_value(), "a declined event produced a reminder") && ok;
+    config.useEventReminders = false;
+    const auto forced = calendar::planReminders(snapshotOf({withLeads, withDefault}), config, {}, std::nullopt, now);
+    ok = expect(forced.due.empty(), "a declined event reminded with use_event_reminders off") && ok;
+  }
+
   // ---- an invalid snapshot is ignored ----
   {
     const auto now = at(1'700'000'000);
@@ -361,6 +376,26 @@ int main() {
 
       const auto repeat = calendar::planReminders(snapshotOf({allDay}), config, {}, calendar::localDateKey(now), now);
       ok = expect(!repeat.digestDue, "the all-day digest fired twice on the same date") && ok;
+    }
+  }
+
+  // ---- digest: a declined all-day event is left out ----
+  {
+    const auto now = system_clock::now();
+    auto config = defaultConfig();
+    config.allDayDigestTime = "00:00";
+    const auto today = calendar::digestInstantFor(now, "00:00");
+    ok = expect(today.has_value(), "digestInstantFor returned no instant for 00:00") && ok;
+    if (today.has_value()) {
+      CalendarEvent offsite;
+      offsite.id = "offsite";
+      offsite.title = "Offsite";
+      offsite.allDay = true;
+      offsite.declined = true;
+      offsite.start = *today;
+      offsite.end = *today + hours{24};
+      const auto plan = calendar::planReminders(snapshotOf({offsite}), config, {}, std::nullopt, now);
+      ok = expect(!plan.digestDue && plan.digest.empty(), "a declined all-day event reached the digest") && ok;
     }
   }
 
