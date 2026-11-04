@@ -170,7 +170,7 @@ struct NetworkSecretAgent::Impl {
     // Secrets saved for this user come first, even when NM may not prompt.
     keyring.lookup(
         connectionUuid(), settingName,
-        [this, generation, hints, flags,
+        [this, generation, hints = hints, flags,
          path = std::string(std::move(connectionPath))](std::map<std::string, std::string> stored) mutable {
           onStoredSecrets(generation, std::move(stored), std::move(hints), flags, path);
         }
@@ -265,7 +265,7 @@ struct NetworkSecretAgent::Impl {
             .onExit =
                 [this, alive, generation, externalUi = plugin->externalUiMode,
                  name = request.connectionId](process::RunResult run) {
-                  DeferredCall::callLater([this, alive, generation, externalUi, name, run = std::move(run)]() mutable {
+                  DeferredCall::callLater([this, alive, generation, externalUi, name, run = std::move(run)] mutable {
                     if (!alive.expired()) {
                       onAuthDialogExit(generation, externalUi, name, std::move(run));
                     }

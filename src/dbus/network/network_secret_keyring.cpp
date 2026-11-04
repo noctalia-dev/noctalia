@@ -254,7 +254,7 @@ namespace nm_keyring {
         // Detached rather than joined: a job can sit on an unlock prompt, and
         // shutdown must not wait for the user to answer it.
         workerRunning = true;
-        std::thread([self]() { self->run(); }).detach();
+        std::thread([self] { self->run(); }).detach();
       }
       wake.notify_one();
     }
@@ -264,7 +264,7 @@ namespace nm_keyring {
         std::function<void()> job;
         {
           std::unique_lock lock(mutex);
-          wake.wait(lock, [this]() { return stopping || !jobs.empty(); });
+          wake.wait(lock, [this] { return stopping || !jobs.empty(); });
           if (jobs.empty()) {
             workerRunning = false;
             return;
@@ -290,10 +290,9 @@ namespace nm_keyring {
   void Keyring::lookup(std::string uuid, std::string setting, LookupCallback callback) {
     const std::weak_ptr<int> alive = m_state->alive;
     m_state->enqueue(
-        m_state,
-        [uuid = std::move(uuid), setting = std::move(setting), callback = std::move(callback), alive]() mutable {
+        m_state, [uuid = std::move(uuid), setting = std::move(setting), callback = std::move(callback), alive] mutable {
           auto values = uuid.empty() ? StringMap{} : lookupSync(uuid, setting);
-          DeferredCall::callLater([alive, callback = std::move(callback), values = std::move(values)]() mutable {
+          DeferredCall::callLater([alive, callback = std::move(callback), values = std::move(values)] mutable {
             if (!alive.expired()) {
               callback(std::move(values));
             }
@@ -307,7 +306,7 @@ namespace nm_keyring {
       return;
     }
     m_state->enqueue(
-        m_state, [uuid = std::move(uuid), connectionId = std::move(connectionId), changes = std::move(changes)]() {
+        m_state, [uuid = std::move(uuid), connectionId = std::move(connectionId), changes = std::move(changes)] {
           for (const auto& id : changes.forget) {
             forgetSync(uuid, id);
           }
@@ -323,7 +322,7 @@ namespace nm_keyring {
     if (uuid.empty()) {
       return;
     }
-    m_state->enqueue(m_state, [uuid = std::move(uuid)]() { eraseAllSync(uuid); });
+    m_state->enqueue(m_state, [uuid = std::move(uuid)] { eraseAllSync(uuid); });
   }
 
 } // namespace nm_keyring
