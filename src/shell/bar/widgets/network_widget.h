@@ -27,6 +27,9 @@ public:
     VpnStatusMode vpnStatusMode = VpnStatusMode::Replace;
     bool showLabel = true;
     bool showVpnLabel = false;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   NetworkWidget(
@@ -49,6 +52,7 @@ private:
   bool m_showLabel = true;
   bool m_showVpnLabel = false;
   VpnStatusMode m_vpnStatusMode = VpnStatusMode::Replace;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   Glyph* m_glyph = nullptr;
   Glyph* m_vpnGlyph = nullptr;
   Spinner* m_spinner = nullptr;
