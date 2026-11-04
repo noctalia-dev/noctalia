@@ -9,12 +9,12 @@
 #include <array>
 #include <cstdint>
 
+class Box;
 class EffectNode;
 class Flex;
 class Glyph;
 class InputArea;
 class Label;
-class RectNode;
 class Separator;
 class Segmented;
 class WeatherService;
@@ -93,12 +93,9 @@ private:
   std::array<Label*, kForecastRowCount> m_forecastTemps{};
   std::array<InputArea*, kForecastRowCount> m_forecastHitAreas{};
   EffectNode* m_effectNode = nullptr;
-  // Semi-transparent Surface-colored panel between the effect and the card's text -
-  // guarantees OnSurface/OnSurfaceVariant text contrast against any effect/theme/accent
-  // combination, since it darkens-or-lightens by always mixing toward the same Surface
-  // color the text colors were chosen to contrast against, rather than relying on each
-  // effect shader's own brightness staying in some safe range.
-  RectNode* m_scrimNode = nullptr;
+  // Surface-colored scrim between the effect and the card's text, keeping text contrast
+  // independent of each effect shader's brightness.
+  Box* m_scrimNode = nullptr;
   EffectType m_activeEffect = EffectType::None;
   ForecastView m_forecastView = ForecastView::Daily;
   int m_forecastSlideDirection = 0;

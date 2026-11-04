@@ -6,12 +6,12 @@
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_area.h"
-#include "render/scene/rect_node.h"
 #include "render/scene/tooltip_content.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/render/effect_node.h"
 #include "system/weather_service.h"
 #include "ui/builders.h"
+#include "ui/controls/box.h"
 
 #include <algorithm>
 #include <chrono>
@@ -93,16 +93,13 @@ std::unique_ptr<Flex> WeatherTab::create() {
 
   // Same zIndex as the effect (-1, behind the layout content at 0) but added after it, so
   // stable insertion order keeps it painted on top of the effect and below the text.
-  auto scrimNode = std::make_unique<RectNode>();
+  auto scrimNode = std::make_unique<Box>();
   scrimNode->setParticipatesInLayout(false);
   scrimNode->setZIndex(-1);
   scrimNode->setVisible(false);
-  RoundedRectStyle scrimStyle;
-  scrimStyle.fill = colorForRole(ColorRole::Surface);
-  scrimStyle.fill.a *= kWeatherScrimAlpha;
-  scrimStyle.radius = Style::scaledRadiusXl(scale);
-  scrimNode->setStyle(scrimStyle);
-  m_scrimNode = static_cast<RectNode*>(currentCard->addChild(std::move(scrimNode)));
+  scrimNode->setFill(colorSpecFromRole(ColorRole::Surface, kWeatherScrimAlpha));
+  scrimNode->setRadius(Style::scaledRadiusXl(scale));
+  m_scrimNode = static_cast<Box*>(currentCard->addChild(std::move(scrimNode)));
 
   auto glyphColumn = ui::row(
       {.out = &m_glyphColumn,
