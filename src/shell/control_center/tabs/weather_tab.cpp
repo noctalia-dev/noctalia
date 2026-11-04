@@ -24,10 +24,8 @@ using namespace control_center;
 
 namespace {
 
-#ifndef NDEBUG
   // Set to a specific effect to bypass weather-code detection. Reset to None when done testing.
   constexpr EffectType kTestEffect = EffectType::None;
-#endif
 
   constexpr float kCurrentGlyphSize = Style::controlHeightLg * 2.2F;
 
@@ -821,11 +819,7 @@ void WeatherTab::sync(Renderer& renderer) {
     return;
   }
 
-#ifndef NDEBUG
-  if (!m_weather->locationConfigured() && kTestEffect == EffectType::None) {
-#else
   if (!m_weather->locationConfigured()) {
-#endif
     showLocationPrompt(true);
     if (m_windLabel != nullptr) {
       m_windLabel->setText("--");
@@ -860,11 +854,7 @@ void WeatherTab::sync(Renderer& renderer) {
   }
 
   const auto& snapshot = m_weather->snapshot();
-#ifndef NDEBUG
-  if (!snapshot.valid && kTestEffect == EffectType::None) {
-#else
   if (!snapshot.valid) {
-#endif
     m_currentGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
     m_currentTempLabel->setText(std::format("--{}", m_weather->displayTemperatureUnit()));
     if (m_currentHiLoLabel != nullptr) {
@@ -1034,16 +1024,10 @@ void WeatherTab::sync(Renderer& renderer) {
   }
 
   if (m_effectNode != nullptr) {
-#ifndef NDEBUG
     const EffectType newEffect = kTestEffect != EffectType::None
         ? kTestEffect
         : (m_weather->effectsEnabled() ? effectForWeatherCode(snapshot.current.weatherCode, snapshot.current.isDay)
                                        : EffectType::None);
-#else
-    const EffectType newEffect = m_weather->effectsEnabled()
-        ? effectForWeatherCode(snapshot.current.weatherCode, snapshot.current.isDay)
-        : EffectType::None;
-#endif
     if (newEffect != m_activeEffect) {
       m_activeEffect = newEffect;
       m_shaderTime = 0.0F;
