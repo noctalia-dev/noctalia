@@ -602,36 +602,41 @@ float fogNoise(vec2 p) {
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
+// Same structure as cloudWashFbm: one shared drift, rotated octaves, light warp.
 float fogWashFbm(vec2 p, float iTime) {
+    // Slow sideways drift, gentler than Cloud's; the second bank layer runs faster.
+    p += vec2(iTime * 2.5, -iTime * 0.3);
+    vec2 warp = vec2(fogNoise(p * 0.6), fogNoise(p * 0.6 + vec2(5.2, 1.3)));
+    p += (warp - 0.5) * 0.9;
+
+    const mat2 octave = mat2(1.6, 1.2, -1.2, 1.6);
     float v = 0.0;
     float amp = 0.5;
     for (int i = 0; i < 5; i++) {
-        float fi = float(i + 1);
-        v += amp * fogNoise(p + vec2(iTime * 0.025 * fi, -iTime * 0.016 * fi));
-        p *= 2.0;
+        v += amp * fogNoise(p);
+        p = octave * p;
         amp *= 0.55;
     }
     return v;
 }
 
 vec3 fogWashColor(vec2 uv, float iTime) {
-    vec3 base = mix(u_bg_color.rgb * 0.72, u_bg_color.rgb * 1.0, uv.y);
+    vec3 base = mix(u_bg_color.rgb * 0.85, u_bg_color.rgb, uv.y);
 
     vec3 accentTint = u_accent_color.rgb;
 
     // Accent mixed into both tonal extremes so the theme color carries through the whole wash.
-    vec3 mist = mix(particleColor(vec3(0.97, 0.98, 1.0), vec3(0.82, 0.85, 0.9)), accentTint, 0.3);
-    vec3 deep = mix(particleColor(vec3(0.3, 0.34, 0.44), vec3(0.18, 0.22, 0.3)), accentTint, 0.35);
+    vec3 mist = mix(particleColor(vec3(0.78, 0.8, 0.84), vec3(0.9, 0.91, 0.93)), accentTint, 0.25);
+    vec3 deep = mix(particleColor(vec3(0.3, 0.34, 0.44), vec3(0.44, 0.48, 0.56)), accentTint, 0.3);
 
-    float n1 = fogWashFbm(uv * 2.6, iTime);
-    float n2 = fogWashFbm(uv * 3.8 + 10.0, iTime * 1.2);
-    float n3 = fogWashFbm(uv * 1.6 - 5.0, iTime * 0.6);
+    // Horizontally stretched noise reads as drifting banks of mist rather than cloud puffs.
+    float n1 = fogWashFbm(uv * vec2(1.5, 2.8), iTime);
+    float n2 = fogWashFbm(uv * vec2(2.0, 3.8) + 10.0, iTime * 1.2);
 
-    // Low thresholds push most of the card into deep or mist tones for a dense look.
-    vec3 col = base;
-    col = mix(col, deep, smoothstep(0.25, 0.5, n2));
-    col = mix(col, mist, smoothstep(0.3, 0.55, n1));
-    col = mix(col, mix(accentTint, vec3(1.0), 0.5), pow(clamp(n3, 0.0, 1.0), 2.2) * 0.25);
+    // A veil that thickens toward the bottom, then soft banks of mist on top of it.
+    vec3 col = mix(base, mist, mix(0.15, 0.45, uv.y));
+    col = mix(col, deep, smoothstep(0.3, 0.75, n2) * 0.6);
+    col = mix(col, mist, smoothstep(0.35, 0.75, n1) * 0.65);
     return col;
 }
 
