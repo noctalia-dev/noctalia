@@ -5,9 +5,7 @@
 namespace {
   constexpr float kMinRadius = 0.018F;
   constexpr float kMaxRadius = 0.038F;
-  // Raised from the first pass's 1.5/s, which left only ~3 drops alive at once (at
-  // kGravity=0.4 a drop clears the card in well under a second, so spawns have to
-  // outpace that to read as a populated pane rather than a handful of stragglers).
+  // A drop clears the card in under a second, so spawns must outpace that to keep the pane populated.
   constexpr float kSpawnRatePerSecond = 5.0F;
   constexpr float kBaseMomentum = 0.05F;
   constexpr float kGravity = 0.4F;
@@ -17,7 +15,7 @@ namespace {
 } // namespace
 
 float RainDropletSimulation::rand01() {
-  // xorshift32 - deterministic, no <random> allocation/state needed per tick.
+  // xorshift32: deterministic, no <random> state needed per tick.
   m_rngState ^= m_rngState << 13;
   m_rngState ^= m_rngState >> 17;
   m_rngState ^= m_rngState << 5;
@@ -52,8 +50,7 @@ void RainDropletSimulation::advance(float deltaSeconds) {
     if (drop.killed) {
       continue;
     }
-    // Momentum grows over time instead of falling at a constant speed - an eased,
-    // accelerating descent rather than linear motion.
+    // Momentum grows over time, so drops accelerate as they fall.
     drop.momentum = std::min(kMaxMomentum, drop.momentum + kGravity * deltaSeconds);
     drop.y += drop.momentum * deltaSeconds;
     if (drop.y - drop.r > 1.0F) {
@@ -81,9 +78,8 @@ void RainDropletSimulation::mergeCollisions() {
       if (dist >= (big.r + small.r) * kCollisionRadiusFactor) {
         continue;
       }
-      // Area conservation: the bigger drop absorbs the smaller one's area (with a loss
-      // factor), gains its momentum as an impact boost, and the smaller drop is removed -
-      // a real state merge, not a shader-side blend of two still-separate drops.
+      // The bigger drop absorbs the smaller one's area (with a loss factor) and gets an
+      // impact boost to its momentum; the smaller drop is removed.
       const float areaBig = big.r * big.r;
       const float areaSmall = small.r * small.r;
       float targetR = std::sqrt(areaBig + areaSmall * kMergeAreaLossFactor);
@@ -116,8 +112,7 @@ void RainDropletSimulation::compactAndPublish() {
     out.x = drop.x;
     out.y = drop.y;
     out.radius = drop.r;
-    // Momentum normalized to [0,1] - the shader uses this to length a trailing "comet
-    // tail" of shrinking domes behind each drop, matching the lab's runner-drop look.
+    // Normalized momentum; the shader uses it to length each drop's trail.
     out.depth = std::min(1.0F, drop.momentum / kMaxMomentum);
   }
 }

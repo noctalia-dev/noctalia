@@ -5,13 +5,9 @@
 #include <array>
 #include <cstdint>
 
-// Small per-frame physics simulation for the Rain effect's glass-droplet layer: drops
-// spawn near the top, fall with eased (increasing) momentum, and merge via area
-// conservation when they get close - ported from the prototyping lab's updateDrops/
-// updateRain logic (openspec/changes/weather-rain-effect-v2/lab/weather-shader-lab.html),
-// simplified to the ~kMaxRainDrops capacity the native uniform array can carry. Position
-// is in the effect's local uv space [0,1] (matching v_uv), independent of aspect ratio -
-// the Rain shader applies the aspect correction itself.
+// Per-frame simulation for the Rain effect's glass-droplet layer: drops spawn near the top,
+// fall with increasing momentum, and merge by area when they overlap. Positions are in the
+// effect's local uv space [0,1]; the shader applies the aspect correction.
 class RainDropletSimulation {
 public:
   void update(float deltaSeconds);

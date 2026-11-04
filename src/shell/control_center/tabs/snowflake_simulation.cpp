@@ -21,22 +21,16 @@ float SnowflakeSimulation::rand01() {
 }
 
 void SnowflakeSimulation::respawn(SimFlake& flake, bool initialScatter) {
-  // Squared instead of linear - biases toward more small/distant flakes and fewer
-  // big/close ones (most snow reads as a fine background dusting with only occasional
-  // large flakes up close), instead of an even spread that made every flake look like a
-  // similar mid-size dot with no real parallax read.
+  // Product of two uniforms biases toward small, distant flakes with occasional large ones.
   const float sizeT = rand01() * rand01();
-  // Bigger flakes fall faster - a cheap but effective depth cue (closer/larger things
-  // moving faster than distant/smaller ones), same idea as real parallax snowfall.
+  // Bigger flakes fall faster as a depth cue.
   flake.radius = kMinRadius + (kMaxRadius - kMinRadius) * sizeT;
   flake.fallSpeed = kMinFallSpeed + (kMaxFallSpeed - kMinFallSpeed) * sizeT;
   flake.swayPhase = rand01() * 6.2831853F;
   flake.swaySpeed = kSwaySpeedMin + rand01() * (kSwaySpeedMax - kSwaySpeedMin);
   flake.swayAmount = kSwayAmountMin + rand01() * (kSwayAmountMax - kSwayAmountMin);
   flake.x = rand01();
-  // On first fill, scatter flakes across the whole card height so it doesn't start empty
-  // and fill from the top over several seconds; on respawn (flake fell off the bottom),
-  // start just above the visible area like real snow entering frame.
+  // Initial fill scatters flakes over the whole card; respawns start just above the top edge.
   flake.y = initialScatter ? rand01() : -flake.radius * (0.5F + rand01());
 }
 
@@ -51,10 +45,7 @@ void SnowflakeSimulation::reset() {
 
 void SnowflakeSimulation::update(float deltaSeconds) {
   m_windPhase += deltaSeconds;
-  // Slow, low-frequency wind gust (two mismatched sines, so it never quite repeats) -
-  // without this the only sideways motion is each flake's own small wobble, and the
-  // whole snowfall never visibly leans one way for a while the way real snow does during
-  // a gust, then calms again.
+  // Slow wind gust from two mismatched sines, so the snowfall leans one way and calms again.
   const float windGust = std::sin(m_windPhase * 0.15F) * 0.035F + std::sin(m_windPhase * 0.067F + 1.7F) * 0.025F;
 
   for (int i = 0; i < kMaxSnowFlakes; ++i) {
@@ -64,8 +55,7 @@ void SnowflakeSimulation::update(float deltaSeconds) {
     }
 
     flake.swayPhase += flake.swaySpeed * deltaSeconds;
-    // Wind affects bigger/closer flakes more (more apparent surface, more parallax) -
-    // same per-depth weighting the rest of this effect uses elsewhere.
+    // Wind pushes bigger, closer flakes further.
     const float windWeight = flake.radius / kMaxRadius;
     flake.x += (std::sin(flake.swayPhase) * flake.swayAmount + windGust * windWeight) * deltaSeconds;
     flake.y += flake.fallSpeed * deltaSeconds;

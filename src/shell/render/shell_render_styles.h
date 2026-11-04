@@ -98,12 +98,12 @@ constexpr bool operator==(const FancyAudioVisualizerStyle& lhs, const FancyAudio
 
 enum class EffectType : std::uint8_t { None, Sun, Snow, Rain, Cloud, Fog, Stars };
 
-// Fixed capacity for the Rain effect's glass-droplet layer. Kept small since each drop is
-// uploaded as a uniform (no texture/FBO plumbing) and summed per-pixel in the fragment shader.
+// Capacity of the Rain effect's glass-droplet layer. Each drop is a fragment-shader uniform,
+// so kRainFragment's u_drops array size must match.
 inline constexpr int kMaxRainDrops = 24;
 
-// x/y in the effect's local uv space [0,1], radius in the same space, depth in [0,1] used to
-// vary refraction/shading strength per drop (bigger/older drops read as deeper).
+// Position and radius in the effect's local uv space [0,1]; depth in [0,1] is the drop's
+// normalized momentum and sets its trail length.
 struct RainDrop {
   float x = 0.0F;
   float y = 0.0F;
@@ -111,14 +111,10 @@ struct RainDrop {
   float depth = 0.0F;
 };
 
-// Fixed capacity for the Snow effect's flake layer - explicit per-flake state (not the
-// jittered-cell-noise field the first pass used), so each flake can be drawn as a properly
-// anti-aliased circle with a pixel-floor minimum radius instead of a per-pixel threshold
-// test that flickers on/off for sub-pixel-sized shapes.
+// Capacity of the Snow effect's flake layer. kSnowFragment's u_flakes array size must match.
 inline constexpr int kMaxSnowFlakes = 60;
 
-// x/y in the effect's local uv space [0,1] (x wraps, y resets to the top on exit), radius
-// in the same space - bigger radius reads as closer/nearer-camera.
+// Position and radius in the effect's local uv space [0,1]; bigger radius reads as closer.
 struct SnowFlake {
   float x = 0.0F;
   float y = 0.0F;

@@ -39,12 +39,10 @@ private:
     GLint accentColorLoc = -1;
     GLint radiusLoc = -1;
     GLint alternativeLoc = -1;
-    // Rain-only: glass-droplet layer (see render_styles.h's kMaxRainDrops). -1 on every
-    // other effect type's program, where the uniform doesn't exist in the shader source.
+    // Rain only: glass-droplet layer (kMaxRainDrops).
     GLint dropsLoc = -1;
     GLint dropCountLoc = -1;
-    // Snow-only: flake layer (see render_styles.h's kMaxSnowFlakes). -1 on every other
-    // effect type's program.
+    // Snow only: flake layer (kMaxSnowFlakes).
     GLint flakesLoc = -1;
     GLint flakeCountLoc = -1;
   };

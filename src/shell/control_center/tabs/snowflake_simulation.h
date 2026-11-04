@@ -5,13 +5,9 @@
 #include <array>
 #include <cstdint>
 
-// Per-frame simulation for the Snow effect's flake layer - a fixed pool of explicit
-// flakes with real position/radius/fall-speed state (not the jittered-cell-noise field
-// the first pass used, which flickered on/off for the smallest/most distant flakes: a
-// per-pixel threshold test on a sub-pixel-sized shape has no way to antialias without
-// supersampling). Each flake here is drawn by the shader as a proper anti-aliased circle
-// with a pixel-floor minimum radius, so flake count is capped (kMaxSnowFlakes) rather than
-// density scaling into sub-pixel territory.
+// Per-frame simulation for the Snow effect's flake layer: a fixed pool of kMaxSnowFlakes
+// flakes with position, radius, fall speed, and sway, in the effect's local uv space [0,1].
+// The shader draws each flake as an anti-aliased circle with a minimum on-screen radius.
 class SnowflakeSimulation {
 public:
   void update(float deltaSeconds);
