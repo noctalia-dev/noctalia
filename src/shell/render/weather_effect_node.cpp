@@ -1,8 +1,8 @@
-#include "shell/render/effect_node.h"
+#include "shell/render/weather_effect_node.h"
 
 #include "render/backend/render_backend.h"
 #include "render/core/texture_manager.h"
-#include "shell/render/programs/effect_program.h"
+#include "shell/render/programs/weather_effect_program.h"
 
 #include <algorithm>
 #include <cmath>
@@ -20,22 +20,22 @@ namespace {
 
 } // namespace
 
-EffectNode::~EffectNode() {
+WeatherEffectNode::~WeatherEffectNode() {
   if (m_textureManager != nullptr) {
     m_textureManager->unload(m_particleTexture);
   }
 }
 
-void EffectNode::setParticles(TextureManager& textures, std::span<const EffectParticle> particles) {
+void WeatherEffectNode::setParticles(TextureManager& textures, std::span<const WeatherEffectParticle> particles) {
   if (m_textureManager != nullptr && m_textureManager != &textures) {
     m_textureManager->unload(m_particleTexture);
   }
   m_textureManager = &textures;
 
-  const std::size_t count = std::min(particles.size(), static_cast<std::size_t>(kMaxEffectParticles));
+  const std::size_t count = std::min(particles.size(), static_cast<std::size_t>(kMaxWeatherEffectParticles));
   m_particlePixels.fill(0);
   for (std::size_t i = 0; i < count; ++i) {
-    const EffectParticle& particle = particles[i];
+    const WeatherEffectParticle& particle = particles[i];
     std::uint8_t* texel = &m_particlePixels[i * 8U];
     packUnorm16(texel, particle.x, 0.0F, 1.0F);
     packUnorm16(texel + 2, particle.y, kParticleYMin, kParticleYMax);
@@ -55,10 +55,10 @@ void EffectNode::setParticles(TextureManager& textures, std::span<const EffectPa
   markPaintDirty();
 }
 
-void EffectNode::draw(RenderBackend& backend, const CustomDrawContext& context) const {
+void WeatherEffectNode::draw(RenderBackend& backend, const CustomDrawContext& context) const {
   auto style = m_style;
   style.bgColor.a *= context.opacity;
-  auto& program = backend.extension<EffectProgram>();
+  auto& program = backend.extension<WeatherEffectProgram>();
   program.ensureInitialized();
   program.draw(
       m_particleTexture.id, context.surfaceWidth, context.surfaceHeight, context.width, context.height, style,
@@ -66,7 +66,7 @@ void EffectNode::draw(RenderBackend& backend, const CustomDrawContext& context) 
   );
 }
 
-void EffectNode::doInvalidateGpuResources(Renderer& renderer) {
+void WeatherEffectNode::doInvalidateGpuResources(Renderer& renderer) {
   (void)renderer;
   if (m_textureManager != nullptr && m_particleTexture.valid()) {
     m_textureManager->unload(m_particleTexture);

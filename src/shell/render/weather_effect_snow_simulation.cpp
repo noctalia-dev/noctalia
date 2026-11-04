@@ -1,4 +1,4 @@
-#include "shell/control_center/tabs/snowflake_simulation.h"
+#include "shell/render/weather_effect_snow_simulation.h"
 
 #include <cmath>
 
@@ -13,14 +13,14 @@ namespace {
   constexpr float kSwayAmountMax = 0.045F;
 } // namespace
 
-float SnowflakeSimulation::rand01() {
+float WeatherEffectSnowSimulation::rand01() {
   m_rngState ^= m_rngState << 13;
   m_rngState ^= m_rngState >> 17;
   m_rngState ^= m_rngState << 5;
   return static_cast<float>(m_rngState) / static_cast<float>(0xFFFFFFFFU);
 }
 
-void SnowflakeSimulation::respawn(SimFlake& flake, bool initialScatter) {
+void WeatherEffectSnowSimulation::respawn(SimFlake& flake, bool initialScatter) {
   // Product of two uniforms biases toward small, distant flakes with occasional large ones.
   const float sizeT = rand01() * rand01();
   // Bigger flakes fall faster as a depth cue.
@@ -34,7 +34,7 @@ void SnowflakeSimulation::respawn(SimFlake& flake, bool initialScatter) {
   flake.y = initialScatter ? rand01() : -flake.radius * (0.5F + rand01());
 }
 
-void SnowflakeSimulation::reset() {
+void WeatherEffectSnowSimulation::reset() {
   m_sim = {};
   m_windPhase = 0.0F;
   for (auto& flake : m_sim) {
@@ -43,7 +43,7 @@ void SnowflakeSimulation::reset() {
   m_particles = {};
 }
 
-void SnowflakeSimulation::update(float deltaSeconds) {
+void WeatherEffectSnowSimulation::update(float deltaSeconds) {
   m_windPhase += deltaSeconds;
   // Slow wind gust from two mismatched sines, so the snowfall leans one way and calms again.
   const float windGust = std::sin(m_windPhase * 0.15F) * 0.035F + std::sin(m_windPhase * 0.067F + 1.7F) * 0.025F;
@@ -70,7 +70,7 @@ void SnowflakeSimulation::update(float deltaSeconds) {
       respawn(flake, /*initialScatter=*/false);
     }
 
-    EffectParticle& out = m_particles[static_cast<std::size_t>(i)];
+    WeatherEffectParticle& out = m_particles[static_cast<std::size_t>(i)];
     out.x = flake.x;
     out.y = flake.y;
     out.radius = flake.radius;

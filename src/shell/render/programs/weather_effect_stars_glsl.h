@@ -1,6 +1,6 @@
 #pragma once
 
-namespace effect_shader {
+namespace weather_effect_shader {
 
   // Twinkling starfield over a drifting nebula.
   inline constexpr char kStarsFragment[] = R"(
@@ -114,4 +114,4 @@ void main() {
 }
 )";
 
-} // namespace effect_shader
+} // namespace weather_effect_shader

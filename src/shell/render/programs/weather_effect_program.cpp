@@ -1,12 +1,12 @@
-#include "shell/render/programs/effect_program.h"
+#include "shell/render/programs/weather_effect_program.h"
 
 #include "render/core/texture_handle.h"
-#include "shell/render/programs/effect_cloud_glsl.h"
-#include "shell/render/programs/effect_common_glsl.h"
-#include "shell/render/programs/effect_rain_glsl.h"
-#include "shell/render/programs/effect_snow_glsl.h"
-#include "shell/render/programs/effect_stars_glsl.h"
-#include "shell/render/programs/effect_sun_glsl.h"
+#include "shell/render/programs/weather_effect_cloud_glsl.h"
+#include "shell/render/programs/weather_effect_common_glsl.h"
+#include "shell/render/programs/weather_effect_rain_glsl.h"
+#include "shell/render/programs/weather_effect_snow_glsl.h"
+#include "shell/render/programs/weather_effect_stars_glsl.h"
+#include "shell/render/programs/weather_effect_sun_glsl.h"
 
 #include <array>
 #include <optional>
@@ -16,20 +16,20 @@
 namespace {
 
   // Slot in m_programs. Fog has no slot of its own; draw() renders it with the Cloud program.
-  std::optional<std::size_t> programIndex(EffectType type) {
+  std::optional<std::size_t> programIndex(WeatherEffectType type) {
     switch (type) {
-    case EffectType::Sun:
+    case WeatherEffectType::Sun:
       return 0;
-    case EffectType::Snow:
+    case WeatherEffectType::Snow:
       return 1;
-    case EffectType::Rain:
+    case WeatherEffectType::Rain:
       return 2;
-    case EffectType::Cloud:
+    case WeatherEffectType::Cloud:
       return 3;
-    case EffectType::Stars:
+    case WeatherEffectType::Stars:
       return 4;
-    case EffectType::None:
-    case EffectType::Fog:
+    case WeatherEffectType::None:
+    case WeatherEffectType::Fog:
       return std::nullopt;
     }
     return std::nullopt;
@@ -37,42 +37,40 @@ namespace {
 
 } // namespace
 
-void EffectProgram::ensureInitialized() {
+void WeatherEffectProgram::ensureInitialized() {
   if (m_programs[0].program.isValid()) {
     return;
   }
 
-  initProgram(EffectType::Sun, effect_shader::kSunFragment);
-  initProgram(EffectType::Snow, effect_shader::kSnowFragment);
-  initProgram(EffectType::Rain, effect_shader::kRainFragment);
-  initProgram(EffectType::Cloud, effect_shader::kCloudFragment);
-  initProgram(EffectType::Stars, effect_shader::kStarsFragment);
+  initProgram(WeatherEffectType::Sun, weather_effect_shader::kSunFragment);
+  initProgram(WeatherEffectType::Snow, weather_effect_shader::kSnowFragment);
+  initProgram(WeatherEffectType::Rain, weather_effect_shader::kRainFragment);
+  initProgram(WeatherEffectType::Cloud, weather_effect_shader::kCloudFragment);
+  initProgram(WeatherEffectType::Stars, weather_effect_shader::kStarsFragment);
 }
 
-void EffectProgram::destroy() {
+void WeatherEffectProgram::destroy() {
   for (auto& pd : m_programs) {
     pd.program.destroy();
   }
 }
 
-void EffectProgram::abandon() noexcept {
+void WeatherEffectProgram::abandon() noexcept {
   for (auto& pd : m_programs) {
     pd.program.abandon();
   }
 }
 
-void EffectProgram::initProgram(EffectType type, const char* fragSource) {
-  std::string fullFrag = std::string(effect_shader::kCommonFragment) + fragSource;
+void WeatherEffectProgram::initProgram(WeatherEffectType type, const char* fragSource) {
+  std::string fullFrag = std::string(weather_effect_shader::kCommonFragment) + fragSource;
 
   auto& pd = m_programs[programIndex(type).value()];
-  pd.program.create(effect_shader::kVertexShader, fullFrag.c_str());
+  pd.program.create(weather_effect_shader::kVertexShader, fullFrag.c_str());
 
   auto id = pd.program.id();
   pd.positionLoc = glGetAttribLocation(id, "a_position");
   pd.surfaceSizeLoc = glGetUniformLocation(id, "u_surface_size");
   pd.quadSizeLoc = glGetUniformLocation(id, "u_quad_size");
-  pd.rectOriginLoc = glGetUniformLocation(id, "u_rect_origin");
-  pd.rectSizeLoc = glGetUniformLocation(id, "u_rect_size");
   pd.transformLoc = glGetUniformLocation(id, "u_transform");
   pd.timeLoc = glGetUniformLocation(id, "u_time");
   pd.itemWidthLoc = glGetUniformLocation(id, "u_item_width");
@@ -89,17 +87,17 @@ void EffectProgram::initProgram(EffectType type, const char* fragSource) {
   }
 }
 
-void EffectProgram::draw(
-    TextureId particles, float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
-    const Mat3& transform
+void WeatherEffectProgram::draw(
+    TextureId particles, float surfaceWidth, float surfaceHeight, float width, float height,
+    const WeatherEffectStyle& style, const Mat3& transform
 ) const {
-  if (style.type == EffectType::None || width <= 0.0F || height <= 0.0F) {
+  if (style.type == WeatherEffectType::None || width <= 0.0F || height <= 0.0F) {
     return;
   }
 
   // Fog reuses the Cloud shader with alternative=1
-  const bool isFog = style.type == EffectType::Fog;
-  const auto effectType = isFog ? EffectType::Cloud : style.type;
+  const bool isFog = style.type == WeatherEffectType::Fog;
+  const auto effectType = isFog ? WeatherEffectType::Cloud : style.type;
   const auto idx = programIndex(effectType);
   if (!idx.has_value() || !m_programs[*idx].program.isValid()) {
     return;
@@ -115,10 +113,6 @@ void EffectProgram::draw(
 
   glUniform2f(pd.surfaceSizeLoc, surfaceWidth, surfaceHeight);
   glUniform2f(pd.quadSizeLoc, width, height);
-  glUniform2f(pd.rectOriginLoc, 0.0F, 0.0F);
-  if (pd.rectSizeLoc >= 0) {
-    glUniform2f(pd.rectSizeLoc, width, height);
-  }
   glUniformMatrix3fv(pd.transformLoc, 1, GL_FALSE, transform.m.data());
 
   if (pd.timeLoc >= 0) {

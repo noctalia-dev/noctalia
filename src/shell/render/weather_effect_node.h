@@ -11,24 +11,22 @@
 
 class TextureManager;
 
-class EffectNode : public CustomDrawNode {
+class WeatherEffectNode : public CustomDrawNode {
 public:
   // Two RGBA8 texels per particle: (x, y) then (radius, weight), each value 16-bit as hi/lo
-  // bytes over the ranges below. particleAt() in effect_common_glsl.h must match all four.
-  static constexpr int kParticleTextureWidth = kMaxEffectParticles * 2;
+  // bytes over the ranges below. particleAt() in weather_effect_common_glsl.h must match all four.
+  static constexpr int kParticleTextureWidth = kMaxWeatherEffectParticles * 2;
   static constexpr float kParticleYMin = -0.25F;
   static constexpr float kParticleYMax = 1.25F;
   static constexpr float kParticleRadiusMax = 0.0625F;
 
-  EffectNode() = default;
-  ~EffectNode() override;
+  WeatherEffectNode() = default;
+  ~WeatherEffectNode() override;
 
-  EffectNode(const EffectNode&) = delete;
-  EffectNode& operator=(const EffectNode&) = delete;
+  WeatherEffectNode(const WeatherEffectNode&) = delete;
+  WeatherEffectNode& operator=(const WeatherEffectNode&) = delete;
 
-  const EffectStyle& style() const noexcept { return m_style; }
-
-  void setEffectType(EffectType type) {
+  void setEffectType(WeatherEffectType type) {
     if (m_style.type == type) {
       return;
     }
@@ -66,15 +64,15 @@ public:
   }
 
   // Uploads the Rain or Snow particle layer; must run with the render target current.
-  // Particles past kMaxEffectParticles are dropped.
-  void setParticles(TextureManager& textures, std::span<const EffectParticle> particles);
+  // Particles past kMaxWeatherEffectParticles are dropped.
+  void setParticles(TextureManager& textures, std::span<const WeatherEffectParticle> particles);
 
   void draw(RenderBackend& backend, const CustomDrawContext& context) const override;
 
 private:
   void doInvalidateGpuResources(Renderer& renderer) override;
 
-  EffectStyle m_style;
+  WeatherEffectStyle m_style;
   TextureManager* m_textureManager = nullptr;
   TextureHandle m_particleTexture;
   std::array<std::uint8_t, static_cast<std::size_t>(kParticleTextureWidth) * 4U> m_particlePixels{};

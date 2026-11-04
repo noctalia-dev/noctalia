@@ -1,6 +1,6 @@
 #pragma once
 
-namespace effect_shader {
+namespace weather_effect_shader {
 
   // Glass droplets over tilted streaks and a drifting fog backdrop.
   // The drop loop bound must match kMaxRainDrops.
@@ -218,4 +218,4 @@ void main() {
 }
 )";
 
-} // namespace effect_shader
+} // namespace weather_effect_shader

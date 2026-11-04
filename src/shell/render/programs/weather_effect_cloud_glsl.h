@@ -1,6 +1,6 @@
 #pragma once
 
-namespace effect_shader {
+namespace weather_effect_shader {
 
   // Cloud, and Fog when u_alternative is 1.
   inline constexpr char kCloudFragment[] = R"(
@@ -68,4 +68,4 @@ void main() {
 }
 )";
 
-} // namespace effect_shader
+} // namespace weather_effect_shader

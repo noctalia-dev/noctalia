@@ -1,4 +1,4 @@
-#include "shell/control_center/tabs/rain_droplet_simulation.h"
+#include "shell/render/weather_effect_rain_simulation.h"
 
 #include <cmath>
 
@@ -14,7 +14,7 @@ namespace {
   constexpr float kMergeAreaLossFactor = 0.8F;
 } // namespace
 
-float RainDropletSimulation::rand01() {
+float WeatherEffectRainSimulation::rand01() {
   // xorshift32: deterministic, no <random> state needed per tick.
   m_rngState ^= m_rngState << 13;
   m_rngState ^= m_rngState >> 17;
@@ -22,14 +22,14 @@ float RainDropletSimulation::rand01() {
   return static_cast<float>(m_rngState) / static_cast<float>(0xFFFFFFFFU);
 }
 
-void RainDropletSimulation::reset() {
+void WeatherEffectRainSimulation::reset() {
   m_sim = {};
   m_count = 0;
   m_spawnAccumulator = 0.0F;
   m_particles = {};
 }
 
-void RainDropletSimulation::trySpawn(float deltaSeconds) {
+void WeatherEffectRainSimulation::trySpawn(float deltaSeconds) {
   m_spawnAccumulator += kSpawnRatePerSecond * deltaSeconds;
   while (m_spawnAccumulator >= 1.0F && m_count < kMaxRainDrops) {
     m_spawnAccumulator -= 1.0F;
@@ -44,7 +44,7 @@ void RainDropletSimulation::trySpawn(float deltaSeconds) {
   }
 }
 
-void RainDropletSimulation::advance(float deltaSeconds) {
+void WeatherEffectRainSimulation::advance(float deltaSeconds) {
   for (int i = 0; i < m_count; ++i) {
     SimDrop& drop = m_sim[static_cast<std::size_t>(i)];
     if (drop.killed) {
@@ -59,7 +59,7 @@ void RainDropletSimulation::advance(float deltaSeconds) {
   }
 }
 
-void RainDropletSimulation::mergeCollisions() {
+void WeatherEffectRainSimulation::mergeCollisions() {
   for (int i = 0; i < m_count; ++i) {
     SimDrop& a = m_sim[static_cast<std::size_t>(i)];
     if (a.killed) {
@@ -94,7 +94,7 @@ void RainDropletSimulation::mergeCollisions() {
   }
 }
 
-void RainDropletSimulation::compactAndPublish() {
+void WeatherEffectRainSimulation::compactAndPublish() {
   int writeIdx = 0;
   for (int i = 0; i < m_count; ++i) {
     const SimDrop& drop = m_sim[static_cast<std::size_t>(i)];
@@ -108,7 +108,7 @@ void RainDropletSimulation::compactAndPublish() {
 
   for (int i = 0; i < m_count; ++i) {
     const SimDrop& drop = m_sim[static_cast<std::size_t>(i)];
-    EffectParticle& out = m_particles[static_cast<std::size_t>(i)];
+    WeatherEffectParticle& out = m_particles[static_cast<std::size_t>(i)];
     out.x = drop.x;
     out.y = drop.y;
     out.radius = drop.r;
@@ -117,7 +117,7 @@ void RainDropletSimulation::compactAndPublish() {
   }
 }
 
-void RainDropletSimulation::update(float deltaSeconds) {
+void WeatherEffectRainSimulation::update(float deltaSeconds) {
   trySpawn(deltaSeconds);
   advance(deltaSeconds);
   mergeCollisions();

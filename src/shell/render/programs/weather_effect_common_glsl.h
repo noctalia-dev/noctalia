@@ -1,6 +1,6 @@
 #pragma once
 
-namespace effect_shader {
+namespace weather_effect_shader {
 
   // Shared by every weather effect program.
   inline constexpr char kVertexShader[] = R"(
@@ -9,10 +9,8 @@ precision highp float;
 attribute vec2 a_position;
 uniform vec2 u_surface_size;
 uniform vec2 u_quad_size;
-uniform vec2 u_rect_origin;
 uniform mat3 u_transform;
 varying vec2 v_uv;
-varying vec2 v_pixel;
 
 vec2 to_ndc(vec2 pixel_pos) {
     vec2 normalized = pixel_pos / u_surface_size;
@@ -22,7 +20,6 @@ vec2 to_ndc(vec2 pixel_pos) {
 void main() {
     vec2 local = a_position * u_quad_size;
     vec3 pixel = u_transform * vec3(local, 1.0);
-    v_pixel = local - u_rect_origin;
     v_uv = a_position;
     gl_Position = vec4(to_ndc(pixel.xy), 0.0, 1.0);
 }
@@ -33,7 +30,6 @@ void main() {
   inline constexpr char kCommonFragment[] = R"(
 precision highp float;
 
-uniform vec2 u_rect_size;
 uniform float u_time;
 uniform float u_item_width;
 uniform float u_item_height;
@@ -43,10 +39,9 @@ uniform vec4 u_accent_color;
 uniform float u_radius;
 uniform float u_alternative;
 varying vec2 v_uv;
-varying vec2 v_pixel;
 
-// Rain and Snow particles: EffectNode packs two RGBA8 texels per particle, (x, y) then
-// (radius, weight), each value 16-bit as hi/lo bytes. Width and ranges match EffectNode's
+// Rain and Snow particles: WeatherEffectNode packs two RGBA8 texels per particle, (x, y) then
+// (radius, weight), each value 16-bit as hi/lo bytes. Width and ranges match WeatherEffectNode's
 // kParticleTextureWidth, kParticleYMin/kParticleYMax, and kParticleRadiusMax.
 uniform sampler2D u_particles;
 uniform int u_particle_count;
@@ -136,4 +131,4 @@ float billowFbm(vec2 p, vec2 drift, int octaves) {
 }
 )";
 
-} // namespace effect_shader
+} // namespace weather_effect_shader

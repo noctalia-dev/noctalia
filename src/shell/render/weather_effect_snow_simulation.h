@@ -9,12 +9,12 @@
 // Per-frame simulation for the Snow effect's flake layer: a fixed pool of kMaxSnowFlakes
 // flakes with position, radius, fall speed, and sway, in the effect's local uv space [0,1].
 // The shader draws each flake as an anti-aliased circle with a minimum on-screen radius.
-class SnowflakeSimulation {
+class WeatherEffectSnowSimulation {
 public:
   void update(float deltaSeconds);
   void reset();
 
-  [[nodiscard]] std::span<const EffectParticle> particles() const noexcept { return m_particles; }
+  [[nodiscard]] std::span<const WeatherEffectParticle> particles() const noexcept { return m_particles; }
 
 private:
   struct SimFlake {
@@ -34,5 +34,5 @@ private:
   float m_windPhase = 0.0F;
   std::uint32_t m_rngState = 0x1E3779B9U;
 
-  std::array<EffectParticle, kMaxSnowFlakes> m_particles{};
+  std::array<WeatherEffectParticle, kMaxSnowFlakes> m_particles{};
 };

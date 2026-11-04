@@ -1,6 +1,6 @@
 #pragma once
 
-namespace effect_shader {
+namespace weather_effect_shader {
 
   // Simulated flakes under a drifting cloud bank, over a cold backdrop.
   // The flake loop bound must match kMaxSnowFlakes.
@@ -77,4 +77,4 @@ void main() {
 }
 )";
 
-} // namespace effect_shader
+} // namespace weather_effect_shader

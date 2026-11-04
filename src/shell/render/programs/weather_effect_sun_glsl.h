@@ -1,6 +1,6 @@
 #pragma once
 
-namespace effect_shader {
+namespace weather_effect_shader {
 
   // Sun disc, rays, and lens flares over sparse drifting wisps.
   inline constexpr char kSunFragment[] = R"(
@@ -123,4 +123,4 @@ void main() {
 }
 )";
 
-} // namespace effect_shader
+} // namespace weather_effect_shader
