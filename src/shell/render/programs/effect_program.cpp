@@ -40,10 +40,7 @@ uniform float u_time;
 uniform float u_item_width;
 uniform float u_item_height;
 uniform vec4 u_bg_color;
-// Theme accent (ColorRole::Primary) - only the Fog shader reads this, to mix a touch of
-// the user's actual theme color into its mist. Defaults to opaque black for callers (e.g.
-// the standalone lab demo) that never set it; the Fog shader treats near-black as "no
-// accent configured" and skips the tint rather than darkening the mist.
+// Theme accent (ColorRole::Primary), read by the Fog and Cloud shaders.
 uniform vec4 u_accent_color;
 uniform float u_radius;
 uniform float u_alternative;
@@ -708,10 +705,7 @@ vec3 fogWashColor(vec2 uv, float iTime) {
     // texture. The actual fix is higher-frequency noise (more, smaller patches = visible
     // structure across the whole card) plus full-strength (not partial) layer blending, not
     // a post-hoc stretch on top of coarse noise.
-    bool hasAccent = length(u_accent_color.rgb) > 0.05;
-    // Demo/no-theme fallback keeps the original neutral-grey mist; real app always has an
-    // accent (Material3 Primary is never unset), so this only matters for the lab tool.
-    vec3 accentTint = hasAccent ? u_accent_color.rgb : vec3(0.65, 0.68, 0.74);
+    vec3 accentTint = u_accent_color.rgb;
 
     // Accent baked directly into both tonal extremes (not a separate overlay layer riding
     // a noise mask) so the theme color reads consistently through the whole wash instead
@@ -779,8 +773,7 @@ float cloudWashFbm(vec2 p, float iTime) {
 vec3 cloudSkyColor(vec2 uv, float iTime) {
     vec3 base = mix(u_bg_color.rgb * 0.76, u_bg_color.rgb * 0.98, uv.y);
 
-    bool hasAccent = length(u_accent_color.rgb) > 0.05;
-    vec3 accentTint = hasAccent ? u_accent_color.rgb : vec3(0.6, 0.63, 0.68);
+    vec3 accentTint = u_accent_color.rgb;
 
     vec3 mist = mix(particleColor(vec3(0.94, 0.95, 0.97), vec3(0.85, 0.87, 0.91)), accentTint, 0.22);
     vec3 deep = mix(particleColor(vec3(0.4, 0.43, 0.5), vec3(0.28, 0.31, 0.38)), accentTint, 0.3);

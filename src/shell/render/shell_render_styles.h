@@ -130,9 +130,7 @@ struct EffectStyle {
   float time = 0.0F;
   float radius = 0.0F;
   Color bgColor{};
-  // Theme accent (ColorRole::Primary) - only consulted by the Fog effect, to mix a touch
-  // of the user's actual theme color into its otherwise neutral mist palette. Left at its
-  // default (black) by callers that don't set it, which the shader treats as "no accent".
+  // Theme accent (ColorRole::Primary) tinting the Fog and Cloud palettes.
   Color accentColor{};
   std::array<RainDrop, kMaxRainDrops> drops{};
   int dropCount = 0;

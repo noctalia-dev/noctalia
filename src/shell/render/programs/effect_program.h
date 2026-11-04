@@ -35,8 +35,7 @@ private:
     GLint itemWidthLoc = -1;
     GLint itemHeightLoc = -1;
     GLint bgColorLoc = -1;
-    // Fog-only: theme accent tint (see render_styles.h's EffectStyle::accentColor). -1 on
-    // every other effect type's program.
+    // Fog and Cloud only: theme accent tint (EffectStyle::accentColor).
     GLint accentColorLoc = -1;
     GLint radiusLoc = -1;
     GLint alternativeLoc = -1;
