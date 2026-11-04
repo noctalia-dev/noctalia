@@ -62,7 +62,7 @@ namespace capture {
 
     bool isActive() const noexcept { return m_active; }
     bool onPointerEvent(const PointerEvent& event);
-    bool onKeyboardEvent(const KeyboardEvent& event);
+    void onKeyboardEvent(const KeyboardEvent& event);
     // Seat modifier change; refreshes the gesture cursor without pointer motion.
     void onModifiersChanged();
 

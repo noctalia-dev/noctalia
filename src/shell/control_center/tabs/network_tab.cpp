@@ -17,6 +17,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -606,7 +607,12 @@ NetworkTab::NetworkTab(
   if (m_secrets != nullptr) {
     m_secrets->setRequestCallback([this](const NetworkSecretAgent::SecretRequest& request) {
       showPasswordPrompt(request);
-      PanelManager::instance().refresh();
+      // NM may ask with the panel closed (autoconnect, a VPN's second challenge
+      // after the user moved on), and the request waits until answered, so bring
+      // the prompt up rather than leave it hidden. Closing the panel again leaves
+      // the request pending: the panel closes on any outside click, e.g. to go and
+      // look up the code being asked for, and NM gives up on its own eventually.
+      PanelManager::instance().showPanel("control-center", PanelOpenRequest{.context = "network"});
     });
   }
 }
@@ -697,6 +703,16 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .fontSize = Style::fontSizeCaption * scale,
           .color = colorSpecFromRole(ColorRole::Error),
           .maxLines = 4,
+          .visible = false,
+      })
+  );
+
+  passwordCard->addChild(
+      ui::label({
+          .out = &m_passwordMessage,
+          .fontSize = Style::fontSizeCaption * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .maxLines = 6,
           .visible = false,
       })
   );
@@ -795,6 +811,17 @@ std::unique_ptr<Flex> NetworkTab::create() {
 
   passwordCard->addChild(std::move(enterpriseFields));
 
+  passwordCard->addChild(
+      ui::column({
+          .out = &m_vpnFields,
+          .align = FlexAlign::Stretch,
+          .visible = false,
+          .configure = [scale](Flex& column) { column.setGap(Style::spaceSm * scale); },
+      })
+  );
+  // A prompt pending from before the panel was (re)opened needs its inputs back.
+  m_vpnFieldsDirty = !m_pendingVpnFields.empty();
+
   auto inputRow = ui::row(
       {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
       ui::input({
@@ -883,6 +910,10 @@ void NetworkTab::setActive(bool active) {
   if (m_active && m_network != nullptr) {
     m_network->requestScan();
   }
+  // A prompt that arrived while the tab was hidden gets focus once it is shown.
+  if (m_active && m_hasPendingSecret) {
+    m_focusPasswordPrompt = true;
+  }
 }
 
 void NetworkTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight) {
@@ -929,6 +960,9 @@ void NetworkTab::onClose() {
   m_caCertInput = nullptr;
   m_domainMatchInput = nullptr;
   m_credentialError = nullptr;
+  m_passwordMessage = nullptr;
+  m_vpnFields = nullptr;
+  m_vpnInputs.clear();
   m_listScroll = nullptr;
   m_list = nullptr;
   m_rescanButton = nullptr;
@@ -963,14 +997,31 @@ void NetworkTab::syncPasswordCard() {
   if (m_passwordCard == nullptr) {
     return;
   }
+  if (m_vpnFieldsDirty) {
+    rebuildVpnFields();
+  }
   m_passwordCard->setVisible(m_hasPendingSecret);
   if (m_enterpriseFields != nullptr) {
     m_enterpriseFields->setVisible(m_hasPendingSecret && m_pendingEnterprise);
   }
+  if (m_vpnFields != nullptr) {
+    m_vpnFields->setVisible(m_hasPendingSecret && m_pendingVpn);
+  }
+  // A VPN's fields replace the shared password input; the buttons beside it stay.
+  if (m_passwordInput != nullptr) {
+    m_passwordInput->setVisible(!m_pendingVpn);
+  }
+  if (m_passwordRevealButton != nullptr) {
+    m_passwordRevealButton->setVisible(!m_pendingVpn);
+  }
+  if (m_passwordMessage != nullptr) {
+    m_passwordMessage->setText(m_pendingMessage);
+    m_passwordMessage->setVisible(m_hasPendingSecret && !m_pendingMessage.empty());
+  }
   if (m_hasPendingSecret && m_passwordTitle != nullptr) {
     if (m_pendingSsid.empty()) {
       m_passwordTitle->setText(i18n::tr("control-center.network.password-prompt"));
-    } else if (m_pendingEnterprise) {
+    } else if (m_pendingEnterprise || m_pendingVpn) {
       m_passwordTitle->setText(i18n::tr("control-center.network.enterprise-prompt-for", "ssid", m_pendingSsid));
     } else {
       m_passwordTitle->setText(i18n::tr("control-center.network.password-prompt-for", "ssid", m_pendingSsid));
@@ -978,12 +1029,42 @@ void NetworkTab::syncPasswordCard() {
   }
 }
 
+void NetworkTab::rebuildVpnFields() {
+  if (m_vpnFields == nullptr) {
+    return;
+  }
+  m_vpnFieldsDirty = false;
+  m_vpnInputs.clear();
+  while (!m_vpnFields->children().empty()) {
+    m_vpnFields->removeChild(m_vpnFields->children().front().get());
+  }
+  for (const auto& field : m_pendingVpnFields) {
+    Input* input = nullptr;
+    m_vpnFields->addChild(
+        ui::input({
+            .out = &input,
+            .value = field.value,
+            .placeholder = field.label,
+            .passwordMode = field.secret && !field.echo,
+            .surfaceOpacity = panelCardOpacity(),
+            .surfaceRole = ColorRole::Surface,
+            .onSubmit = [this](const std::string& /*value*/) { submitPasswordPrompt({}); },
+        })
+    );
+    m_vpnInputs.push_back(input);
+  }
+}
+
 void NetworkTab::focusPendingPasswordPrompt() {
   if (!std::exchange(m_focusPasswordPrompt, false) || !m_hasPendingSecret) {
     return;
   }
-  // The enterprise form starts with the identity; a plain prompt only has the password.
+  // The enterprise form starts with the identity; a VPN with its first field; a
+  // plain prompt only has the password.
   Input* target = m_pendingEnterprise ? m_identityInput : m_passwordInput;
+  if (m_pendingVpn) {
+    target = m_vpnInputs.empty() ? nullptr : m_vpnInputs.front();
+  }
   if (target != nullptr) {
     PanelManager::instance().focusArea(target->inputArea());
   }
@@ -1043,10 +1124,14 @@ void NetworkTab::showPasswordPrompt(const NetworkSecretAgent::SecretRequest& req
 
   clearPasswordPrompt();
   m_hasPendingSecret = true;
-  m_pendingSsid = request.ssid;
+  m_pendingSsid = request.isVpn() ? request.connectionName : request.ssid;
   // NM is asking for one secret against a profile it already holds, so only the
   // password is missing; the rest of the 802.1X form would have nothing to fill.
   m_pendingEnterprise = false;
+  m_pendingVpn = request.isVpn();
+  m_pendingMessage = request.message;
+  m_pendingVpnFields = request.fields;
+  m_vpnFieldsDirty = true;
   m_focusPasswordPrompt = m_active;
   PanelManager::instance().requestLayout();
 }
@@ -1096,6 +1181,14 @@ void NetworkTab::submitPasswordPrompt(const std::string& value) {
     if (m_network != nullptr) {
       m_network->activateAccessPoint(*m_pendingAccessPoint, value);
     }
+  } else if (m_pendingVpn) {
+    if (m_secrets != nullptr) {
+      std::map<std::string, std::string> values;
+      for (std::size_t i = 0; i < m_pendingVpnFields.size() && i < m_vpnInputs.size(); ++i) {
+        values.emplace(m_pendingVpnFields[i].key, m_vpnInputs[i]->value());
+      }
+      m_secrets->submitSecrets(values);
+    }
   } else if (m_secrets != nullptr) {
     m_secrets->submitSecret(value);
   }
@@ -1116,6 +1209,13 @@ void NetworkTab::clearPasswordPrompt() {
   m_pendingEnterprise = false;
   m_pendingSsid.clear();
   m_pendingAccessPoint.reset();
+  m_pendingVpn = false;
+  m_pendingMessage.clear();
+  m_pendingVpnFields.clear();
+  for (Input* input : m_vpnInputs) {
+    input->setValue("");
+  }
+  m_vpnFieldsDirty = !m_vpnInputs.empty();
   if (m_passwordInput != nullptr) {
     m_passwordInput->setValue("");
     m_passwordInput->setPasswordRevealed(false);
@@ -1652,5 +1752,8 @@ void NetworkTab::requestCellularEnabled(bool enabled) {
 void NetworkTab::onPanelCardOpacityChanged(float opacity) {
   if (m_passwordInput != nullptr) {
     m_passwordInput->setSurfaceOpacity(opacity);
+  }
+  for (Input* input : m_vpnInputs) {
+    input->setSurfaceOpacity(opacity);
   }
 }

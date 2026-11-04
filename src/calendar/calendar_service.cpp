@@ -1214,24 +1214,33 @@ void CalendarService::refreshGoogleToken(
 }
 
 void CalendarService::googleFetchWithToken(
-    const std::string& accountId, const std::string& accessToken, bool allowRefreshRetry
+    const std::string& accountId, const std::vector<std::string>& selectedCalendars, const std::string& accessToken,
+    bool allowRefreshRetry
 ) {
   setSyncPhase(accountId, AccountStatus::Phase::Downloading);
   const auto now = std::chrono::system_clock::now();
   m_google.fetchEvents(
-      accessToken, now - kWindowBefore, now + kWindowAfter,
-      [this, accountId, allowRefreshRetry](calendar::SyncFailure failure, std::vector<CalendarEvent> events) {
+      accessToken, selectedCalendars, now - kWindowBefore, now + kWindowAfter,
+      [this, accountId, selectedCalendars, allowRefreshRetry](
+          calendar::SyncFailure failure, const std::vector<CalendarSource>& sources, std::vector<CalendarEvent> events
+      ) {
         if (failure == calendar::SyncFailure::Authentication && allowRefreshRetry) {
           refreshGoogleToken(
-              accountId, [this, accountId](calendar::SyncFailure refreshFailure, const std::string& newToken) {
+              accountId,
+              [this, accountId, selectedCalendars](calendar::SyncFailure refreshFailure, const std::string& newToken) {
                 if (refreshFailure != calendar::SyncFailure::None) {
                   accountDone(accountId, refreshFailure, {});
                 } else {
-                  googleFetchWithToken(accountId, newToken, false);
+                  googleFetchWithToken(accountId, selectedCalendars, newToken, false);
                 }
               }
           );
           return;
+        }
+        if (failure == calendar::SyncFailure::None) {
+          (void)m_configService.setStateString(
+              kCalendarDiscoveryOwner, accountId + "_calendars", calendar::serializeCalendarSources(sources)
+          );
         }
         accountDone(accountId, failure, std::move(events));
       }
@@ -1240,18 +1249,19 @@ void CalendarService::googleFetchWithToken(
 
 void CalendarService::fetchGoogle(const CalendarConfig::Account& account) {
   const std::string id = account.id;
+  const std::vector<std::string> selectedCalendars = account.calendars;
   const auto session = m_googleSessions.find(id);
   const bool valid = session != m_googleSessions.end()
       && !session->second.accessToken.empty()
       && session->second.expiry > std::chrono::system_clock::now() + std::chrono::seconds{60};
   if (valid) {
-    googleFetchWithToken(id, session->second.accessToken, true);
+    googleFetchWithToken(id, selectedCalendars, session->second.accessToken, true);
   } else {
-    refreshGoogleToken(id, [this, id](calendar::SyncFailure failure, const std::string& token) {
+    refreshGoogleToken(id, [this, id, selectedCalendars](calendar::SyncFailure failure, const std::string& token) {
       if (failure != calendar::SyncFailure::None) {
         accountDone(id, failure, {});
       } else {
-        googleFetchWithToken(id, token, false);
+        googleFetchWithToken(id, selectedCalendars, token, false);
       }
     });
   }

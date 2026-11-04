@@ -7,6 +7,7 @@
 #include "cli/schema_root.h"
 #include "config/cli.h"
 #include "core/log.h"
+#include "core/process/process.h"
 #include "core/process/process_fds.h"
 #include "ipc/cli.h"
 #include "launcher/dmenu_cli.h"
@@ -22,7 +23,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
+#include <format>
 #include <print>
+#include <stdexcept>
 #include <string>
 #include <unistd.h>
 
@@ -214,7 +217,7 @@ namespace {
     _exit(1);
   }
 
-  int runShell() {
+  int runShell(bool isDaemonChild) {
     // Raise the soft fd limit before any Wayland/EGL init. The NVIDIA EGL/Wayland
     // driver leaks internal sync_file fences slowly across a session; the default
     // 1024 soft cap can be exhausted in a long-running session, after which the
@@ -229,9 +232,19 @@ namespace {
       completeDaemonStartup(1);
       _exit(1);
     }
+    const bool useNotifySocket =
+        !isDaemonChild && process::isDirectSystemdService(getpid(), std::getenv("SYSTEMD_EXEC_PID"));
+    const char* inheritedNotifySocket = std::getenv("NOTIFY_SOCKET");
+    const std::string notifySocket = useNotifySocket && inheritedNotifySocket != nullptr ? inheritedNotifySocket : "";
+    unsetenv("NOTIFY_SOCKET");
     try {
       Application app;
-      app.run([] { completeDaemonStartup(0); });
+      app.run([notifySocket] {
+        completeDaemonStartup(0);
+        if (!process::notifyServiceReady(notifySocket)) {
+          throw std::runtime_error(std::format("failed to report service readiness: {}", std::strerror(errno)));
+        }
+      });
     } catch (const std::exception& e) {
       logError("fatal: {}", e.what());
       completeDaemonStartup(1);
@@ -343,5 +356,5 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  return runShell();
+  return runShell(isDaemonChild);
 }

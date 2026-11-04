@@ -164,8 +164,9 @@ namespace {
     switch (origin) {
     case DesktopEntryOrigin::Flatpak:
     case DesktopEntryOrigin::Snap:
-    case DesktopEntryOrigin::AppImage:
       return "package";
+    case DesktopEntryOrigin::AppImage:
+      return "settings-automation";
     case DesktopEntryOrigin::Unknown:
     case DesktopEntryOrigin::User:
     case DesktopEntryOrigin::System:

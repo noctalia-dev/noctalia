@@ -27,7 +27,7 @@ public:
   void create() override;
   void onOpen(std::string_view context) override;
   void onClose() override;
-  void onFrameTick(float deltaMs) override;
+  void onFrameTick(float deltaMs, Renderer& renderer) override;
   bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
 
   float preferredWidth() const override;

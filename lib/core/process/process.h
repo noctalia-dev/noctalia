@@ -48,6 +48,10 @@ namespace process {
     std::shared_ptr<std::atomic<bool>> cancel;
     // Child-only environment changes. `nullopt` unsets the variable.
     std::vector<EnvOverride> env;
+    // When set, becomes the child's stdin, followed by EOF. It is written in full
+    // before the child starts, so it must fit in a pipe buffer (64 KiB on Linux);
+    // larger input fails the run. Otherwise the child inherits our stdin.
+    std::optional<std::string> stdinData;
   };
 
   bool commandExists(const char* name);
@@ -106,4 +110,8 @@ namespace process {
       const std::vector<std::string>& args, const std::string& appName, const std::string& activationToken = {},
       const std::string& workingDir = {}
   );
+  // Send READY=1 to the systemd notification socket. An empty socket path is a no-op.
+  [[nodiscard]] bool notifyServiceReady(std::string_view socketPath);
+  // True only for the process systemd started directly.
+  [[nodiscard]] bool isDirectSystemdService(pid_t currentPid, const char* systemdExecPid);
 } // namespace process

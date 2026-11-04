@@ -1218,7 +1218,7 @@ void WeatherTab::hideEffect() {
   }
 }
 
-void WeatherTab::onFrameTick(float deltaMs) {
+void WeatherTab::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   if (m_effectNode == nullptr || !m_effectNode->visible() || m_activeEffect == EffectType::None) {
     return;
   }

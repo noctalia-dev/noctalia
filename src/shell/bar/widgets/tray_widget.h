@@ -44,6 +44,7 @@ public:
     bool detachedPanel = false;
     std::vector<std::string> iconOverrideBlacklist;
     TrayIconType iconType = TrayIconType::Default;
+    double drawerBackgroundOpacity = 1.0;
   };
 
   TrayWidget(ConfigService& config, TrayService* tray, Options options);

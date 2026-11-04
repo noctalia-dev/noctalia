@@ -5,6 +5,14 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
   using Options = TrayWidget::Options;
 
   static const settings::WidgetSettingVisibility drawerOn{"drawer", {"true"}};
+  static const settings::WidgetSettingVisibility detachedDrawerOn = [] {
+    settings::WidgetSettingVisibility visibility;
+    visibility.all = {
+        settings::WidgetSettingVisibilityCondition{"drawer", {"true"}},
+        settings::WidgetSettingVisibilityCondition{"detached_panel", {"true"}},
+    };
+    return visibility;
+  }();
 
   static const noctalia::bar::WidgetDefinition<Options, TrayWidgetDefinitionContext> definition{
       .type = "tray",
@@ -55,6 +63,22 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                           .group = "tray.drawer",
                           .visibleWhen = drawerOn,
                       },
+              }),
+              field<&Options::drawerBackgroundOpacity>({
+                  .key = "drawer_background_opacity",
+                  .minValue = 0.0,
+                  .maxValue = 1.0,
+                  .step = 0.01,
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .group = "tray.drawer",
+                          .visibleWhen = detachedDrawerOn,
+                      },
+                  .defaultFromConfig = [](const Config& cfg) -> WidgetSettingValue {
+                    return static_cast<double>(
+                        detachedPanelBackgroundOpacityForTransparencyMode(cfg.shell.panel.transparencyMode)
+                    );
+                  },
               }),
               field<&Options::iconOverrideBlacklist>({
                   .key = "icon_override_blacklist",

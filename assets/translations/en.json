@@ -39,7 +39,9 @@
       "backdrop-shadow-offset-x": "Offset X",
       "backdrop-shadow-offset-y": "Offset Y",
       "backdrop-shadow-opacity": "Opacity",
-      "capture-new-region": "Capture new region (discards the current edit)",
+      "capture": "Capture again",
+      "capture-new-region": "Capture new region (Ctrl+R) · discards the current edit",
+      "capture-window": "Capture the window focused when the editor opened (Ctrl+W) · discards the current edit",
       "close": "Close editor",
       "color-black": "Black (8)",
       "color-blue": "Blue (4)",
@@ -3899,6 +3901,10 @@
           "description": "Use separate wallpaper folders for each monitor",
           "label": "Per-Monitor Directories"
         },
+        "sync-transitions": {
+          "description": "Use the same transition effect on all monitors when wallpapers change",
+          "label": "Sync Transitions Across Monitors"
+        },
         "transition-duration": {
           "description": "Length of the wallpaper change animation in milliseconds",
           "label": "Transition Duration"
@@ -4670,6 +4676,10 @@
         "drawer": {
           "description": "Show a tray button in the bar and open items in a panel",
           "label": "Use Drawer Panel"
+        },
+        "drawer-background-opacity": {
+          "description": "Background opacity of the detached drawer panel",
+          "label": "Drawer Background Opacity"
         },
         "drawer-columns": {
           "description": "Number of tray icons per row in the drawer panel",

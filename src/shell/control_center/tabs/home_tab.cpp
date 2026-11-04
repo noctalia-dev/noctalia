@@ -1273,8 +1273,6 @@ void HomeTab::doUpdate(Renderer& renderer) {
   sync(renderer);
 }
 
-void HomeTab::onFrameTick(float /*deltaMs*/) {}
-
 void HomeTab::setActive(bool active) {
   const bool becameActive = active && !m_active;
   m_active = active;

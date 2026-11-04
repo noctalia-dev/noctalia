@@ -6,8 +6,10 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <charconv>
 #include <chrono>
 #include <csignal>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
@@ -22,6 +24,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/wait.h>
 #include <system_error>
 #include <thread>
@@ -388,8 +392,36 @@ namespace {
       return {-1, {}, {}};
     }
 
+    // Stdin is filled before fork() and its write end closed, so the child sees the
+    // whole input then EOF, and the parent never blocks on (or takes SIGPIPE from)
+    // a child that stops reading.
+    int inPipe[2] = {-1, -1};
+    if (options.stdinData.has_value()) {
+      const std::string& input = *options.stdinData;
+      bool filled = ::pipe2(inPipe, O_CLOEXEC | O_NONBLOCK) == 0;
+      for (std::size_t written = 0; filled && written < input.size();) {
+        const ssize_t n = ::write(inPipe[1], input.data() + written, input.size() - written);
+        if (n > 0) {
+          written += static_cast<std::size_t>(n);
+        } else if (n < 0 && errno == EINTR) {
+          continue;
+        } else {
+          filled = false;
+        }
+      }
+      closeFd(inPipe[1]);
+      if (!filled) {
+        kLog.warn("process stdin ({} bytes) could not be buffered for {}", input.size(), args.front());
+        closePipe(inPipe);
+        closePipe(outPipe);
+        closePipe(errPipe);
+        return {-1, {}, {}};
+      }
+    }
+
     const pid_t pid = ::fork();
     if (pid < 0) {
+      closePipe(inPipe);
       closePipe(outPipe);
       closePipe(errPipe);
       return {-1, {}, {}};
@@ -401,6 +433,13 @@ namespace {
       ::setpgid(0, 0);
       closeFd(outPipe[0]);
       closeFd(errPipe[0]);
+      if (inPipe[0] >= 0) {
+        // The read end was opened O_NONBLOCK alongside the write end; the child
+        // expects ordinary blocking reads.
+        ::fcntl(inPipe[0], F_SETFL, ::fcntl(inPipe[0], F_GETFL) & ~O_NONBLOCK);
+        ::dup2(inPipe[0], STDIN_FILENO);
+        closeFd(inPipe[0]);
+      }
       ::dup2(outPipe[1], STDOUT_FILENO);
       ::dup2(errPipe[1], STDERR_FILENO);
       closeFd(outPipe[1]);
@@ -417,6 +456,7 @@ namespace {
     // wins the race; harmless if the child has already exec'd.
     ::setpgid(pid, pid);
 
+    closeFd(inPipe[0]);
     closeFd(outPipe[1]);
     closeFd(errPipe[1]);
     setNonBlocking(outPipe[0]);
@@ -1012,5 +1052,46 @@ namespace process {
     }
 #endif
     return runAsync(args, activationToken, workingDir);
+  }
+
+  bool notifyServiceReady(std::string_view socketPath) {
+    if (socketPath.empty()) {
+      return true;
+    }
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    if (socketPath.size() >= sizeof(address.sun_path) || (socketPath.front() != '/' && socketPath.front() != '@')) {
+      errno = EINVAL;
+      return false;
+    }
+    std::memcpy(address.sun_path, socketPath.data(), socketPath.size());
+    const bool abstract = socketPath.front() == '@';
+    if (abstract) {
+      address.sun_path[0] = '\0';
+    }
+    const auto length = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + socketPath.size() + !abstract);
+    const int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) {
+      return false;
+    }
+    constexpr std::string_view ready = "READY=1";
+    ssize_t sent;
+    do {
+      sent = sendto(fd, ready.data(), ready.size(), MSG_NOSIGNAL, reinterpret_cast<sockaddr*>(&address), length);
+    } while (sent < 0 && errno == EINTR);
+    const int sendError = errno;
+    close(fd);
+    errno = sendError;
+    return sent == static_cast<ssize_t>(ready.size());
+  }
+
+  bool isDirectSystemdService(pid_t currentPid, const char* systemdExecPid) {
+    if (currentPid <= 0 || systemdExecPid == nullptr || systemdExecPid[0] == '\0') {
+      return false;
+    }
+    pid_t parsed = 0;
+    const std::string_view value(systemdExecPid);
+    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
+    return error == std::errc{} && end == value.data() + value.size() && parsed == currentPid;
   }
 } // namespace process

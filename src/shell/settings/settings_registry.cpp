@@ -842,6 +842,11 @@ namespace settings {
         ToggleSetting{cfg.wallpaper.transitionOnStartup}, "startup animation"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Wallpaper, "transition", tr("settings.schema.wallpaper.sync-transitions.label"),
+        tr("settings.schema.wallpaper.sync-transitions.description"), {"wallpaper", "sync_transitions"},
+        ToggleSetting{cfg.wallpaper.syncTransitions}, "all monitors same effect"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Wallpaper, "automation", tr("settings.schema.wallpaper.automation.label"),
         tr("settings.schema.wallpaper.automation.description"), {"wallpaper", "automation", "enabled"},
         ToggleSetting{cfg.wallpaper.automation.enabled}, "rotate slideshow"
@@ -2535,15 +2540,11 @@ namespace settings {
         tr("settings.schema.shell.osd-kinds-media.description"), {"osd", "kinds", "media"},
         ToggleSetting{cfg.osd.kinds.media}, "hud overlay mpris audio music"
     ));
-    {
-      SettingEntry mediaVolumeEntry = makeEntry(
-          SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media-volume.label"),
-          tr("settings.schema.shell.osd-kinds-media-volume.description"), {"osd", "kinds", "media_volume"},
-          ToggleSetting{cfg.osd.kinds.mediaVolume}, "hud overlay mpris media player volume level"
-      );
-      mediaVolumeEntry.visibleWhen = [](const Config& c) { return c.osd.kinds.media; };
-      entries.push_back(std::move(mediaVolumeEntry));
-    }
+    entries.push_back(makeEntry(
+        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media-volume.label"),
+        tr("settings.schema.shell.osd-kinds-media-volume.description"), {"osd", "kinds", "media_volume"},
+        ToggleSetting{cfg.osd.kinds.mediaVolume}, "hud overlay mpris media player volume level"
+    ));
     entries.push_back(makeEntry(
         SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-privacy.label"),
         tr("settings.schema.shell.osd-kinds-privacy.description"), {"osd", "kinds", "privacy"},

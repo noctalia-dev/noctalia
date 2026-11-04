@@ -144,6 +144,7 @@ transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "
 transition_duration = 1500          # milliseconds
 edge_smoothness     = 0.3
 transition_on_startup = false       # animate the first wallpaper at shell startup (v4-style)
+sync_transitions      = true        # all monitors use the same transition effect per change
 directory           = ""              # empty = XDG Pictures directory
 directory_light     = ""            # optional day-mode directory
 directory_dark      = ""            # optional night-mode directory

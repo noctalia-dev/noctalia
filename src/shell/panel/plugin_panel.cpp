@@ -282,7 +282,7 @@ bool PluginPanel::dismissTransientUi() {
   return true;
 }
 
-void PluginPanel::onFrameTick(float deltaMs) {
+void PluginPanel::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   if (m_runtime == nullptr || !m_needsFrameTick || !m_open) {
     return;
   }

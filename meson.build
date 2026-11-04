@@ -514,6 +514,8 @@ _noctalia_sources = files(
   'src/dbus/network/network_display.cpp',
   'src/dbus/network/network_manager_service.cpp',
   'src/dbus/network/network_secret_agent.cpp',
+  'src/dbus/network/network_secret_keyring.cpp',
+  'src/dbus/network/vpn_auth_dialog.cpp',
   'src/dbus/network/wpa_supplicant_service.cpp',
   'src/dbus/polkit/polkit_agent.cpp',
   'src/dbus/polkit/polkit_session_support.cpp',
@@ -1072,9 +1074,21 @@ noctalia_exe = executable('noctalia',
   install: true,
 )
 
+noctalia_session_config = configuration_data()
+noctalia_session_config.set(
+  'NOCTALIA_EXECUTABLE',
+  get_option('prefix') / get_option('bindir') / 'noctalia',
+)
+configure_file(
+  input: 'assets/noctalia.service.in',
+  output: 'noctalia.service',
+  configuration: noctalia_session_config,
+  install_dir: get_option('datadir') / 'noctalia' / 'assets',
+)
+
 install_subdir('assets',
   install_dir: get_option('datadir') / 'noctalia',
-  exclude_files: ['dev.noctalia.Noctalia.desktop', 'dev.noctalia.Noctalia.Annotator.desktop'],
+  exclude_files: ['dev.noctalia.Noctalia.desktop', 'dev.noctalia.Noctalia.Annotator.desktop', 'noctalia.service.in'],
 )
 
 install_data(
@@ -1208,6 +1222,7 @@ if build_tests
     'monitor_selector',
     'network_display',
     'network_manager_security',
+    'network_secret_keyring',
     'niri_workspace_backend',
     'notification_dnd',
     'notification_filter',
@@ -1262,6 +1277,7 @@ if build_tests
     'uri',
     'v4l2_camera',
     'vdir_reader',
+    'vpn_auth_dialog',
     'wallpaper_scan_symlink',
     'wallpaper_shuffle_state',
     'wayland_toplevels_identity',
