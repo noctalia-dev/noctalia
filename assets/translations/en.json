@@ -39,6 +39,7 @@
       "backdrop-shadow-offset-x": "Offset X",
       "backdrop-shadow-offset-y": "Offset Y",
       "backdrop-shadow-opacity": "Opacity",
+      "capture": "Capture again",
       "capture-new-region": "Capture new region (Ctrl+R) · discards the current edit",
       "capture-window": "Capture the window focused when the editor opened (Ctrl+W) · discards the current edit",
       "close": "Close editor",

@@ -139,6 +139,9 @@ namespace capture {
     [[nodiscard]] std::unique_ptr<Flex> buildZoomPanel(Instance& instance);
     void refreshZoomPanel(Instance& instance, Renderer* renderer);
     void toggleZoomPanel();
+    [[nodiscard]] std::unique_ptr<Flex> buildCapturePanel(Instance& instance);
+    void refreshCapturePanel(Instance& instance, Renderer* renderer);
+    void toggleCapturePanel();
     void positionPopover(Instance& instance, Flex* panel, const Button* anchor);
     void refreshToolbar(Instance& instance, Renderer* renderer);
     void positionToolbar(Instance& instance);
@@ -254,6 +257,7 @@ namespace capture {
     float m_toolbarGrabY = 0.0F;
     bool m_strokePanelOpen = false;
     bool m_zoomPanelOpen = false;
+    bool m_capturePanelOpen = false;
     bool m_syncingSizePreset = false;
 
     BackdropConfig m_backdrop;
