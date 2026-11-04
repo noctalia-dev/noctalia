@@ -14,108 +14,126 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
     return visibility;
   }();
 
-  static const noctalia::bar::WidgetDefinition<Options, TrayWidgetDefinitionContext> definition{
-      .type = "tray",
-      .fields =
-          {
-              field<&Options::hiddenItems>({
-                  .key = "hidden",
-              }),
-              field<&Options::pinnedItems>({
-                  .key = "pinned",
-              }),
-              field<&Options::hidePassive>({
-                  .key = "hide_passive",
-              }),
-              field<&Options::matchAdjacentSpacing>({
-                  .key = "match_adjacent_spacing",
-              }),
-              field<&Options::drawerMode>({
-                  .key = "drawer",
-                  .presentation = settings::WidgetSettingPresentation{.group = "tray.drawer"},
-              }),
-              field<&Options::panelGridColumns>({
-                  .key = "drawer_columns",
-                  .minValue = 1.0,
-                  .maxValue = 5.0,
-                  .step = 1.0,
-                  .presentation =
-                      settings::WidgetSettingPresentation{
-                          .group = "tray.drawer",
-                          .visibleWhen = drawerOn,
+  static const noctalia::bar::WidgetDefinition<Options, TrayWidgetDefinitionContext>
+      definition{
+          .type = "tray",
+          .fields =
+              {
+                  field<&Options::hiddenItems>({
+                      .key = "hidden",
+                  }),
+                  field<&Options::pinnedItems>({
+                      .key = "pinned",
+                  }),
+                  field<&Options::hidePassive>({
+                      .key = "hide_passive",
+                  }),
+                  field<&Options::matchAdjacentSpacing>({
+                      .key = "match_adjacent_spacing",
+                  }),
+                  field<&Options::drawerMode>({
+                      .key = "drawer",
+                      .presentation = settings::WidgetSettingPresentation{.group = "tray.drawer"},
+                  }),
+                  field<&Options::panelGridColumns>({
+                      .key = "drawer_columns",
+                      .minValue = 1.0,
+                      .maxValue = 5.0,
+                      .step = 1.0,
+                      .presentation =
+                          settings::WidgetSettingPresentation{
+                              .group = "tray.drawer",
+                              .visibleWhen = drawerOn,
+                          },
+                  }),
+                  field<&Options::drawerItemSize>({
+                      .key = "drawer_item_size",
+                      .minValue = 8.0,
+                      .maxValue = 64.0,
+                      .step = 1.0,
+                      .presentation =
+                          settings::WidgetSettingPresentation{
+                              .group = "tray.drawer",
+                              .visibleWhen = drawerOn,
+                          },
+                  }),
+                  field<&Options::detachedPanel>({
+                      .key = "detached_panel",
+                      .presentation =
+                          settings::WidgetSettingPresentation{
+                              .group = "tray.drawer",
+                              .visibleWhen = drawerOn,
+                          },
+                  }),
+                  field<&Options::drawerBackgroundOpacity>({
+                      .key = "drawer_background_opacity",
+                      .minValue = 0.0,
+                      .maxValue = 1.0,
+                      .step = 0.01,
+                      .presentation =
+                          settings::WidgetSettingPresentation{
+                              .group = "tray.drawer",
+                              .visibleWhen = detachedDrawerOn,
+                          },
+                      .defaultFromConfig = [](const Config& cfg) -> WidgetSettingValue {
+                        return static_cast<double>(
+                            detachedPanelBackgroundOpacityForTransparencyMode(cfg.shell.panel.transparencyMode)
+                        );
                       },
-              }),
-              field<&Options::drawerItemSize>({
-                  .key = "drawer_item_size",
-                  .minValue = 8.0,
-                  .maxValue = 64.0,
-                  .step = 1.0,
-                  .presentation =
-                      settings::WidgetSettingPresentation{
-                          .group = "tray.drawer",
-                          .visibleWhen = drawerOn,
-                      },
-              }),
-              field<&Options::detachedPanel>({
-                  .key = "detached_panel",
-                  .presentation =
-                      settings::WidgetSettingPresentation{
-                          .group = "tray.drawer",
-                          .visibleWhen = drawerOn,
-                      },
-              }),
-              field<&Options::drawerBackgroundOpacity>({
-                  .key = "drawer_background_opacity",
-                  .minValue = 0.0,
-                  .maxValue = 1.0,
-                  .step = 0.01,
-                  .presentation =
-                      settings::WidgetSettingPresentation{
-                          .group = "tray.drawer",
-                          .visibleWhen = detachedDrawerOn,
-                      },
-                  .defaultFromConfig = [](const Config& cfg) -> WidgetSettingValue {
-                    return static_cast<double>(
-                        detachedPanelBackgroundOpacityForTransparencyMode(cfg.shell.panel.transparencyMode)
-                    );
-                  },
-              }),
-              field<&Options::iconOverrideBlacklist>({
-                  .key = "icon_override_blacklist",
-                  .presentation = settings::WidgetSettingPresentation{.group = "tray.icon-overrides"},
-              }),
-              field<&Options::colorizeIcons>({
-                  .key = "colorize_icons",
-                  .presentation = settings::WidgetSettingPresentation{.group = "tray.icon-overrides"},
-              }),
-              field<&Options::iconType>({
-                  .key = "icon_type",
-                  .choices =
+                  }),
+                  field<&Options::menuBackgroundOpacity>({
+                      .key = "menu_background_opacity",
+                      .minValue = 0.0,
+                      .maxValue = 1.0,
+                      .step = 0.01,
+                      .presentation = settings::WidgetSettingPresentation{.group = "tray.menu"},
+                  }),
+                  field<&Options::menuCompositorBlur>({
+                      .key = "menu_compositor_blur",
+                      .presentation =
+                          settings::WidgetSettingPresentation{
+                              .group = "tray.menu",
+                              .requiresCapability = settings::WidgetSettingCapability::BackgroundEffectBlur,
+                          },
+                  }),
+                  field<&Options::iconOverrideBlacklist>({
+                      .key = "icon_override_blacklist",
+                      .presentation = settings::WidgetSettingPresentation{.group = "tray.icon-overrides"},
+                  }),
+                  field<&Options::colorizeIcons>({
+                      .key = "colorize_icons",
+                      .presentation = settings::WidgetSettingPresentation{.group = "tray.icon-overrides"},
+                  }),
+                  field<&Options::iconType>(
                       {
-                          {
-                              .value = TrayIconType::Default,
-                              .configValue = "default",
-                              .labelKey = "settings.widgets.options.default",
-                          },
-                          {
-                              .value = TrayIconType::Desktop,
-                              .configValue = "desktop",
-                              .labelKey = "settings.widgets.options.desktop",
-                          },
-                          {
-                              .value = TrayIconType::Symbolic,
-                              .configValue = "symbolic",
-                              .labelKey = "settings.widgets.options.symbolic",
-                          },
-                      },
-                  .presentation =
-                      settings::WidgetSettingPresentation{.group = "tray.icon-overrides", .segmented = true},
-              }),
+                          .key = "icon_type",
+                          .choices =
+                              {
+                                  {
+                                      .value = TrayIconType::Default,
+                                      .configValue = "default",
+                                      .labelKey = "settings.widgets.options.default",
+                                  },
+                                  {
+                                      .value = TrayIconType::Desktop,
+                                      .configValue = "desktop",
+                                      .labelKey = "settings.widgets.options.desktop",
+                                  },
+                                  {
+                                      .value = TrayIconType::Symbolic,
+                                      .configValue = "symbolic",
+                                      .labelKey = "settings.widgets.options.symbolic",
+                                  },
+                              },
+                          .presentation =
+                              settings::WidgetSettingPresentation{.group = "tray.icon-overrides", .segmented = true},
+                      }
+                  ),
+              },
+          .finalize = [](Options& options, const TrayWidgetDefinitionContext& context) {
+            options.barPosition = context.barPosition;
+            options.inlineEntryGap = context.inlineEntryGap;
           },
-      .finalize = [](Options& options, const TrayWidgetDefinitionContext& context) {
-        options.barPosition = context.barPosition;
-        options.inlineEntryGap = context.inlineEntryGap;
-      },
   };
   return definition;
 }

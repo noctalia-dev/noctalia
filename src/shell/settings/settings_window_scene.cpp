@@ -1004,6 +1004,8 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .afterNotificationFilterApply = {},
       .closeHostedEditor = {},
       .supportsTaskbarWorkspaceGrouping = m_platform != nullptr && m_platform->supportsTaskbarWorkspaceGrouping(),
+      .backgroundEffectBlurSupported =
+          m_wayland != nullptr && m_wayland->extension<BackgroundEffectGlobals>().hasBlur(),
   };
 }
 

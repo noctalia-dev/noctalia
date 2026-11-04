@@ -31,6 +31,8 @@ For theme icons in `status` or `panel` directories, the tray selects SVG artwork
 | `detached_panel`            | bool            | `false`   | Open the drawer as a floating panel instead of anchoring it to the bar edge.                                                                                                                                                          |
 | `icon_override_blacklist`   | array of string | `[]`      | Tray items to exclude from `icon_type` replacement by id/name/bus/path token; matching items keep their normal icon and attention.                                                                                                    |
 | `icon_type`                 | string          | `default` | Show app-provided tray icons (`default`), desktop entry icons (`desktop`), or their symbolic variants (`symbolic`). Matched items no longer show attention or status variants; unmatched or blacklisted items keep their normal icon. |
+| `menu_background_opacity`   | number          | `1.0`     | Background opacity of tray item menus and their submenus (`0.0` to `1.0`)                                                                                                                                                             |
+| `menu_compositor_blur`      | bool            | `true`    | Ask the compositor to blur behind translucent item menus; has no effect while `menu_background_opacity` is `1.0`                                                                                                                      |
 
 ```toml
 [widget.tray]
@@ -45,6 +47,10 @@ drawer_background_opacity = 0.85
 detached_panel = false
 icon_override_blacklist = [ "blueman", "signal" ]
 icon_type = "symbolic"
+menu_background_opacity = 0.85
+menu_compositor_blur = true
 ```
 
 Tip: right-click a tray item and use `Pin` / `Unpin` in the item menu to update `pinned` without editing config manually.
+
+Item menus read `menu_background_opacity` and `menu_compositor_blur` from `[widget.tray]`, like the `Pin` / `Unpin` entry, even when a tray widget with a custom config name opened them. A menu with `menu_background_opacity` below `1.0` publishes its card shape as a blur region when the compositor supports `ext-background-effect-v1`; set `menu_compositor_blur = false` to keep the translucency without blur. An opaque menu never requests blur. In the Settings GUI, `menu_compositor_blur` only appears when the compositor supports `ext-background-effect-v1`.

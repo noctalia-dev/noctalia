@@ -1465,6 +1465,7 @@ namespace settings {
                 ctx.config, widgetName, spec, specs,
                 WidgetSettingCapabilities{
                     .taskbarWorkspaceGrouping = ctx.supportsTaskbarWorkspaceGrouping,
+                    .backgroundEffectBlur = ctx.backgroundEffectBlurSupported,
                 }
             )) {
           continue;
