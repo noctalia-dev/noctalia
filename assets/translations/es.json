@@ -3571,10 +3571,6 @@
             "description": "Alternar la reserva de espacio para una o todas las barras",
             "label": "Espacio reservado para la barra de alternancia"
           },
-          "bar-reserve-set": {
-            "description": "Establecer la reserva de espacio para una o todas las barras",
-            "label": "Establecer espacio reservado de barra"
-          },
           "bar-show": {
             "description": "Mostrar una o todas las barras",
             "label": "Mostrar barra"
