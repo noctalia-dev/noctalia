@@ -14,7 +14,7 @@ class TextureManager;
 class EffectNode : public CustomDrawNode {
 public:
   // Two RGBA8 texels per particle: (x, y) then (radius, weight), each value 16-bit as hi/lo
-  // bytes over the ranges below. particleAt() in effect_program.cpp must match all four.
+  // bytes over the ranges below. particleAt() in effect_common_glsl.h must match all four.
   static constexpr int kParticleTextureWidth = kMaxEffectParticles * 2;
   static constexpr float kParticleYMin = -0.25F;
   static constexpr float kParticleYMax = 1.25F;
