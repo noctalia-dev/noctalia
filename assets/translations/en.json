@@ -3997,6 +3997,10 @@
             "description": "Toggle reserve space for one or all bars",
             "label": "Toggle bar reserved space"
           },
+          "bar-reserve-set": {
+            "description": "Set reserve space for one or all bars",
+            "label": "Set bar reserved space"
+          },
           "bar-show": {
             "description": "Show one or all bars",
             "label": "Show bar"

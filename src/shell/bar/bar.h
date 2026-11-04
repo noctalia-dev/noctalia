@@ -167,6 +167,7 @@ private:
   std::string hideBarIpc(std::string_view args);
   std::string toggleBarIpc(std::string_view args);
   std::string toggleBarReserveSpaceIpc(std::string_view args);
+  std::string setBarReserveSpaceIpc(std::string_view args);
   std::string setBarAutoHideIpc(std::string_view args);
   std::string setBarLayerIpc(std::string_view args);
   [[nodiscard]] std::optional<std::string> collectBarIpcInstances(

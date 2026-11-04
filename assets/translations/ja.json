@@ -3961,6 +3961,10 @@
             "description": "1つまたはすべてのバーの予約領域を切替",
             "label": "バーの予約領域を切替"
           },
+          "bar-reserve-set": {
+            "description": "1つまたはすべてのバーの予約領域を設定",
+            "label": "バーの予約領域を設定"
+          },
           "bar-show": {
             "description": "1つまたはすべてのバーを表示",
             "label": "バーを表示"

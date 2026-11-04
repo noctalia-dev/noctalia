@@ -18,6 +18,20 @@ namespace {
 } // namespace
 
 int main() {
+  const noctalia::cli::Command* barReserveSet = noctalia::cli::findMsgCommand("bar-reserve-set");
+  TEST_CHECK(barReserveSet != nullptr);
+  TEST_CHECK(barReserveSet->positionals.size() == 3);
+  TEST_CHECK(barReserveSet->positionals[0].name == "state");
+  TEST_CHECK(barReserveSet->positionals[0].required);
+  const auto& reserveStates = barReserveSet->positionals[0].choices;
+  TEST_CHECK(reserveStates.size() == 6);
+  TEST_CHECK(reserveStates[0] == "on");
+  TEST_CHECK(reserveStates[1] == "off");
+  TEST_CHECK(reserveStates[2] == "true");
+  TEST_CHECK(reserveStates[3] == "false");
+  TEST_CHECK(reserveStates[4] == "1");
+  TEST_CHECK(reserveStates[5] == "0");
+
   const noctalia::cli::Command* colorSchemeSet = noctalia::cli::findMsgCommand("color-scheme-set");
   TEST_CHECK(colorSchemeSet != nullptr);
 

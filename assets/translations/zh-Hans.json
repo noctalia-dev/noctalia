@@ -3961,6 +3961,10 @@
             "description": "切换一个或所有状态栏的预留空间状态",
             "label": "切换状态栏预留空间"
           },
+          "bar-reserve-set": {
+            "description": "设置一个或所有状态栏的预留空间",
+            "label": "设置状态栏预留空间"
+          },
           "bar-show": {
             "description": "显示一个或所有状态栏",
             "label": "显示状态栏"

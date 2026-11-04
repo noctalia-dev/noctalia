@@ -3805,6 +3805,10 @@
             "description": "Attiva/disattiva la riserva di spazio per una o tutte le barre",
             "label": "Attiva/disattiva spazio riservato barra"
           },
+          "bar-reserve-set": {
+            "description": "Imposta la riserva di spazio per una o tutte le barre",
+            "label": "Imposta spazio riservato barra"
+          },
           "bar-show": {
             "description": "Mostra una o tutte le barre",
             "label": "Mostra barra"

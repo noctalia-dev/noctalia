@@ -3853,6 +3853,10 @@
             "description": "Comută rezervarea spațiului pentru una sau toate barele",
             "label": "Comută spațiul rezervat al barei"
           },
+          "bar-reserve-set": {
+            "description": "Setează rezervarea spațiului pentru una sau toate barele",
+            "label": "Setează spațiul rezervat al barei"
+          },
           "bar-show": {
             "description": "Arată una sau toate barele",
             "label": "Arată bara"
