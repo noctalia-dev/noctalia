@@ -1107,6 +1107,14 @@ struct BrightnessService::Impl {
     scheduleDdcDetect(delay, false);
   }
 
+  // A monitor that wakes without an output change sends no event, so a brightness request restarts discovery.
+  void rescanAfterExhaustedDiscovery() {
+    if (discoveryRetryCount == kDdcDiscoveryRetryDelays.size()) {
+      kLog.info("brightness requested with missing ddcutil controls; restarting discovery");
+      scheduleDdcDetect();
+    }
+  }
+
   void rebuildPublic() {
     publicDisplays.clear();
     publicDisplays.reserve(internals.size() + wayland.outputs().size());
@@ -1725,6 +1733,7 @@ void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(BatchChangePhase)>& onBatchChange) {
   auto resolveTargets = [this,
                          &ipc](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
+    m_impl->rescanAfterExhaustedDiscovery();
     if (!available()) {
       error = "error: brightness control unavailable\n";
       return false;
