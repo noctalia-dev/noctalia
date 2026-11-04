@@ -36,18 +36,18 @@ struct CellularModemInfo {
   bool operator==(const CellularModemInfo&) const = default;
 
   // Enabling counts as enabled so a toggle does not flicker off during the transition.
-  [[nodiscard]] bool enabled() const noexcept {
+  bool enabled() const noexcept {
     return static_cast<std::int8_t>(state) >= static_cast<std::int8_t>(CellularModemState::Enabling);
   }
-  [[nodiscard]] bool connected() const noexcept { return state == CellularModemState::Connected; }
+  bool connected() const noexcept { return state == CellularModemState::Connected; }
 };
 
 // Fastest generation present in an MMModemAccessTechnology bitmask ("5G", "LTE", ...).
 // Technical names, intentionally not translated. Empty when nothing useful is reported.
-[[nodiscard]] const char* cellularAccessTechnologyName(std::uint32_t accessTechnologies) noexcept;
+const char* cellularAccessTechnologyName(std::uint32_t accessTechnologies) noexcept;
 
 // Translated, human-readable form of a modem state ("Connected", "Searching…", ...).
-[[nodiscard]] std::string cellularStateText(CellularModemState state);
+std::string cellularStateText(CellularModemState state);
 
 class ModemManagerService {
 public:
@@ -61,11 +61,11 @@ public:
 
   void setChangeCallback(ChangeCallback callback);
 
-  [[nodiscard]] const std::vector<CellularModemInfo>& modems() const noexcept { return m_modems; }
+  const std::vector<CellularModemInfo>& modems() const noexcept { return m_modems; }
 
   // The modem that best represents the device right now: a connected one if any,
   // otherwise the first enabled one, otherwise the first modem at all.
-  [[nodiscard]] const CellularModemInfo* primaryModem() const noexcept;
+  const CellularModemInfo* primaryModem() const noexcept;
 
   // Enable / disable the modem radio (Modem.Enable). State arrives via PropertiesChanged.
   void setModemEnabled(const std::string& modemPath, bool enabled);

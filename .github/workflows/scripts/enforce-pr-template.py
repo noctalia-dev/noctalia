@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -35,7 +36,7 @@ CHANGE_TYPE_REQUIREMENT = "exactly one checked change type other than Breaking c
 MANDATORY_CHECKLIST_ITEMS = (
     "This PR is ready for review, or it is marked as Draft.",
     "I read and followed the relevant guidance in `CONTRIBUTING.md`.",
-    "I ran `just format` with clang-format v22+ installed, or this PR has no code changes.",
+    "I ran `just format` with clang-format v23+ installed, or this PR has no code changes.",
     "I ran the relevant build or test commands, or explained why they were not run.",
     "I self-reviewed the changes.",
     "I checked for new warnings or errors.",
@@ -57,8 +58,8 @@ This draft pull request is missing required parts of
 Missing:
 """
 OUTRO = """
-Add the items above to the description, keeping their exact wording, then mark the pull
-request ready for review. That re-runs this check. Draft pull requests may leave boxes
+Add the items above to the description, keeping their wording (link destinations and inline
+code formatting may differ), then mark the pull request ready for review. That re-runs this check. Draft pull requests may leave boxes
 unchecked. Before a pull request is ready for review, check exactly one change type (add
 Breaking change alongside it when it applies) and check every item under Checklist. A pull
 request should contain one feature, fix, or refactor; split unrelated changes.
@@ -77,7 +78,15 @@ def build_enforcement_comment(missing: list[str], *, converted: bool) -> str:
     return f"{intro}{bullets}{OUTRO}"
 
 
+def checklist_text(text: str) -> str:
+    """Compare checklist wording independently of inline links and code formatting."""
+    text = re.sub(r"\[([^\]\n]+)\]\([^)\n]*\)", r"\1", text)
+    return text.replace("`", "")
+
+
 def checklist_state(normalized_body: str, item: str) -> str | None:
+    normalized_body = checklist_text(normalized_body)
+    item = checklist_text(item)
     for bullet in ("-", "*"):
         for state in (" ", "x", "X"):
             if f"{bullet} [{state}] {item}" in normalized_body:

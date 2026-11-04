@@ -4854,10 +4854,6 @@
           "description": "Include ferestrele de pe toate monitoarele în acest widget",
           "label": "Arată toate monitoarele"
         },
-        "show-all-workspaces": {
-          "description": "Arată spațiile de lucru de pe toate monitoarele în acest widget",
-          "label": "Arată toate monitoarele"
-        },
         "show-caps-lock": {
           "description": "Arată starea Caps Lock",
           "label": "Arată Caps Lock"

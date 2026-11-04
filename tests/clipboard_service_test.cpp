@@ -5,8 +5,8 @@
 
 #include "security/secret_store.h"
 #include "security/storage_key_provider.h"
-#include "wayland/clipboard_poll_source.h"
-#include "wayland/clipboard_service.h"
+#include "shell/wayland/clipboard_poll_source.h"
+#include "shell/wayland/clipboard_service.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -478,6 +478,22 @@ int main() {
     simulateCopy(harness.clipboard, &offerIds[1], "text/plain;charset=utf-8", bytesOf("other"));
     simulateCopy(harness.clipboard, &offerIds[2], "text/plain;charset=utf-8", bytesOf("pinned"));
     expect(harness.clipboard.clipboardText() == "pinned", "copy matching a pin pasted an older entry");
+  }
+
+  {
+    // Scripts copy with an explicit type; text still gets the aliases GTK apps paste from.
+    Harness harness;
+    expect(harness.clipboard.copyText("100.64.0.1", "text/plain"), "copying text with a MIME type failed");
+    expect(
+        fake.offeredMimeTypes == std::vector<std::string>{"text/plain", "text/plain;charset=utf-8"},
+        "text copied with an explicit MIME type did not offer the UTF-8 alias"
+    );
+
+    expect(harness.clipboard.copyText("<b>hi</b>", "text/html"), "copying html with a MIME type failed");
+    expect(
+        fake.offeredMimeTypes == std::vector<std::string>{"text/html"},
+        "non-plain text copied with an explicit MIME type was widened"
+    );
   }
 
   gFake = nullptr;

@@ -76,7 +76,7 @@ public:
     std::string_view key;
     std::string_view titleKey;
   };
-  [[nodiscard]] static std::vector<TabCatalogEntry> hideableTabCatalog();
+  static std::vector<TabCatalogEntry> hideableTabCatalog();
 
   // Tabs a launcher row can jump straight to right now (feature-available and not
   // hidden via [control_center] hidden_tabs), excluding Home.
@@ -85,21 +85,21 @@ public:
     std::string_view titleKey;
     std::string_view glyph;
   };
-  [[nodiscard]] std::vector<LauncherTabEntry> visibleTabsForLauncher() const;
+  std::vector<LauncherTabEntry> visibleTabsForLauncher() const;
 
   void create() override;
   void onFrameTick(float deltaMs) override;
   void onOpen(std::string_view context) override;
   void onClose() override;
-  [[nodiscard]] bool dismissTransientUi() override;
-  [[nodiscard]] bool isContextActive(std::string_view context) const override;
-  [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
-  [[nodiscard]] bool deferExternalRefresh() const override;
-  [[nodiscard]] bool deferPointerRelayout() const override;
-  [[nodiscard]] float preferredWidth() const override;
-  [[nodiscard]] float preferredHeight() const override { return scaled(520.0F); }
-  [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
-  [[nodiscard]] bool showsSidebar() const noexcept { return m_showSidebar; }
+  bool dismissTransientUi() override;
+  bool isContextActive(std::string_view context) const override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  bool deferExternalRefresh() const override;
+  bool deferPointerRelayout() const override;
+  float preferredWidth() const override;
+  float preferredHeight() const override { return scaled(520.0F); }
+  PanelPlacement panelPlacement() const noexcept override;
+  bool showsSidebar() const noexcept { return m_showSidebar; }
 
 private:
   void onPanelCardOpacityChanged(float opacity) override;
@@ -159,17 +159,17 @@ private:
   void startTabTransition(TabId from, TabId to);
   void finishTabTransition();
   void applyTabTransitionLayout();
-  [[nodiscard]] int visibleTabOrdinal(TabId tab) const;
+  int visibleTabOrdinal(TabId tab) const;
   void syncTabVisibility();
-  [[nodiscard]] bool isTabFeatureAvailable(TabId tab) const;
-  [[nodiscard]] bool isTabVisible(TabId tab) const;
-  [[nodiscard]] bool isTabShown(TabId tab) const;
-  [[nodiscard]] static std::string_view tabKey(TabId tab);
-  [[nodiscard]] TabId firstVisibleTab() const;
-  [[nodiscard]] TabId tabFromContext(std::string_view context) const;
-  [[nodiscard]] bool isDirectSectionOpenContext(std::string_view context) const;
-  [[nodiscard]] ControlCenterSidebarMode sidebarModeForOpen(std::string_view context) const;
-  [[nodiscard]] static std::size_t tabIndex(TabId id);
+  bool isTabFeatureAvailable(TabId tab) const;
+  bool isTabVisible(TabId tab) const;
+  bool isTabShown(TabId tab) const;
+  static std::string_view tabKey(TabId tab);
+  TabId firstVisibleTab() const;
+  TabId tabFromContext(std::string_view context) const;
+  bool isDirectSectionOpenContext(std::string_view context) const;
+  ControlCenterSidebarMode sidebarModeForOpen(std::string_view context) const;
+  static std::size_t tabIndex(TabId id);
 
   // Tab instances (long-lived, survive panel open/close cycles)
   std::array<std::unique_ptr<Tab>, kTabCount> m_tabs;

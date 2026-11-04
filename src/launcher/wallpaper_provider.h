@@ -15,14 +15,14 @@ public:
       ConfigService* config, WaylandConnection* wayland, noctalia::theme::ThemeService* themeService = nullptr
   );
 
-  [[nodiscard]] std::string_view defaultPrefix() const override { return "wall"; }
-  [[nodiscard]] std::string_view id() const override { return "Wallpaper"; }
-  [[nodiscard]] std::string displayName() const override;
-  [[nodiscard]] std::string_view defaultGlyphName() const override { return "wallpaper-selector"; }
-  [[nodiscard]] bool supportsGrid() const override { return true; }
-  [[nodiscard]] bool trackUsage() const override { return true; }
+  std::string_view defaultPrefix() const override { return "wall"; }
+  std::string_view id() const override { return "Wallpaper"; }
+  std::string displayName() const override;
+  std::string_view defaultGlyphName() const override { return "wallpaper-selector"; }
+  bool supportsGrid() const override { return true; }
+  bool trackUsage() const override { return true; }
 
-  [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;
+  std::vector<LauncherResult> query(std::string_view text) const override;
 
   bool activate(const LauncherResult& result) override;
 

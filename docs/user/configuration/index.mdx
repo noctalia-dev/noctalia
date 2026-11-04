@@ -168,6 +168,14 @@ Export the full effective config, including built-in defaults:
 noctalia config export full > noctalia-full-config.toml
 ```
 
+To publish an export (for example in a public dotfiles repository), leave out values that can hold credentials:
+
+```sh
+noctalia config export --credentials omit > noctalia-config.toml
+```
+
+`--credentials` accepts `keep` (the default: print values as configured), `omit` (drop the keys), or `blank` (keep the keys with empty values, so you can see what to fill in). It covers calendar account `server_url` (ICS and CalDAV URLs often carry an access token), the `location` of git plugin sources (which may embed `user:token@`), and plugin settings whose manifest marks them `secret`. Noctalia cannot recognize a credential you type into anything else, such as a hook or command string, so review the export before sharing it.
+
 Export stops with an error (and writes nothing) if a config file fails to parse or an `[include]` points at a file that does not exist, so a broken config never produces a misleading partial export. (The running shell is more forgiving: it loads what it can and surfaces the problem as a notification.)
 
 Because export writes TOML to stdout, you can pipe it into TOML-aware query tools. For example, with [`yq`](https://github.com/mikefarah/yq):
@@ -189,7 +197,7 @@ The Settings actions menu includes **Export Config...**. It opens a chooser with
 - **Merged User Config** is recommended for dotfiles. It merges your explicit config files and GUI-managed overrides into one TOML file, while leaving built-in defaults implicit.
 - **Full Effective Config** exports the active config snapshot, including built-in defaults. Use it for inspection or sharing an exact state, but avoid treating it as your long-term curated config because it pins defaults that could otherwise evolve.
 
-The chooser warns that **both export modes may contain sensitive data**, such as API keys, passwords, or other secrets stored in your config, including by plugins. Treat exported files as private. Review their contents and remove sensitive data before sharing them or adding them to a public dotfiles repository.
+The chooser also has a **Credentials** choice with the same `keep`, `omit`, and `blank` behavior as `--credentials` above, and warns that **both export modes may contain sensitive data** that Noctalia cannot recognize, such as a token typed into a command. Treat exported files as private. Review their contents and remove sensitive data before sharing them or adding them to a public dotfiles repository.
 
 ## Validating your configuration
 

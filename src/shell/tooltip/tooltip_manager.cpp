@@ -8,6 +8,7 @@
 #include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/wayland/layer_shell.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -409,7 +410,7 @@ void TooltipManager::showPopup() {
 
   const bool initialized = m_pendingXdgParent != nullptr
       ? m_surface->initializeAsChild(m_pendingXdgParent, m_pendingOutput, config)
-      : m_surface->initialize(m_pendingLayerParent, m_pendingOutput, config);
+      : m_surface->initialize(LayerShell::popupAttach(m_pendingLayerParent), m_pendingOutput, config);
   if (!initialized) {
     kLog.warn("failed to create tooltip popup");
     m_surface.reset();

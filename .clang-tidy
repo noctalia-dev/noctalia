@@ -55,4 +55,4 @@ Checks: >-
   readability-use-anyofallof,
   readability-use-concise-preprocessor-directives,
   readability-use-std-min-max,
-HeaderFilterRegex: '(^|/)src/.*\.h$'
+HeaderFilterRegex: '(^|/)(src|lib)/.*\.h$'

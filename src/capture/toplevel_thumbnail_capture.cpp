@@ -4,6 +4,7 @@
 #include "ext-image-capture-source-v1-client-protocol.h"
 #include "ext-image-copy-capture-v1-client-protocol.h"
 #include "render/core/image_resize.h"
+#include "shell/wayland/capture_globals.h"
 #include "wayland/wayland_connection.h"
 
 #include <cerrno>
@@ -31,7 +32,7 @@ namespace {
   }
 
   // wl_shm names formats by little-endian word order, so ARGB8888 is B, G, R, A in memory.
-  [[nodiscard]] ResizeSourceLayout resizeLayoutFor(std::uint32_t format) noexcept {
+  ResizeSourceLayout resizeLayoutFor(std::uint32_t format) noexcept {
     switch (format) {
     case WL_SHM_FORMAT_ARGB8888:
       return ResizeSourceLayout::BgraPremultiplied;
@@ -44,7 +45,7 @@ namespace {
     }
   }
 
-  [[nodiscard]] bool transformSwapsAxes(std::int32_t transform) noexcept {
+  bool transformSwapsAxes(std::int32_t transform) noexcept {
     return transform == WL_OUTPUT_TRANSFORM_90
         || transform == WL_OUTPUT_TRANSFORM_270
         || transform == WL_OUTPUT_TRANSFORM_FLIPPED_90
@@ -52,9 +53,7 @@ namespace {
   }
 
   // Zero bounds request native size.
-  [[nodiscard]] int effectiveCaptureBound(int bound) noexcept {
-    return bound > 0 ? bound : std::numeric_limits<int>::max();
-  }
+  int effectiveCaptureBound(int bound) noexcept { return bound > 0 ? bound : std::numeric_limits<int>::max(); }
 } // namespace
 
 std::optional<ScreencopyImage> capture::makeToplevelThumbnail(
@@ -289,13 +288,14 @@ struct ToplevelThumbnailCapturePending {
   }
 };
 
-ToplevelThumbnailCapture::ToplevelThumbnailCapture(WaylandConnection& wayland) : m_wayland(wayland) {}
+ToplevelThumbnailCapture::ToplevelThumbnailCapture(WaylandConnection& wayland)
+    : m_wayland(wayland), m_imageCapture(wayland.extension<ImageCaptureGlobals>()) {}
 
 ToplevelThumbnailCapture::~ToplevelThumbnailCapture() { cancelInFlight(); }
 
 bool ToplevelThumbnailCapture::available() const noexcept {
-  return m_wayland.imageCopyCaptureManager() != nullptr
-      && m_wayland.foreignToplevelImageCaptureSourceManager() != nullptr
+  return m_imageCapture.copyCaptureManager() != nullptr
+      && m_imageCapture.foreignToplevelSourceManager() != nullptr
       && m_wayland.shm() != nullptr
       && m_wayland.display() != nullptr;
 }
@@ -324,14 +324,14 @@ void ToplevelThumbnailCapture::capture(
   m_pending->maxWidth = maxWidth;
   m_pending->maxHeight = maxHeight;
   m_pending->source = ext_foreign_toplevel_image_capture_source_manager_v1_create_source(
-      m_wayland.foreignToplevelImageCaptureSourceManager(), handle
+      m_imageCapture.foreignToplevelSourceManager(), handle
   );
   if (m_pending->source == nullptr) {
     fail("failed to create foreign-toplevel capture source");
     return;
   }
   m_pending->session =
-      ext_image_copy_capture_manager_v1_create_session(m_wayland.imageCopyCaptureManager(), m_pending->source, 0);
+      ext_image_copy_capture_manager_v1_create_session(m_imageCapture.copyCaptureManager(), m_pending->source, 0);
   if (m_pending->session == nullptr
       || ext_image_copy_capture_session_v1_add_listener(
              m_pending->session, &ToplevelThumbnailCapturePending::sessionListener, m_pending.get()

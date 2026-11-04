@@ -53,11 +53,11 @@ Direct project dependencies are listed below; transitive dependencies are owned 
 
 Run `just format` before committing and `just format-check` to check. Both run a code half (`format-code`, `format-code-check`) and a docs half (`format-docs`, `format-docs-check`), which you can also run on their own.
 
-Code formatting accepts [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 22 or newer and covers `src/` and `tests/`. The code recipes reject formatter versions older than 22 and print the version in use.
+Code formatting accepts [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 23 or newer and covers `lib/`, `src/`, and `tests/`. The code recipes reject formatter versions older than 23 and print the version in use.
 
-CI runs `just format-code-check` on Arch with clang-format 22. Newer versions may produce different formatting, so a local check with a newer formatter does not guarantee CI will pass. Use version 22 to reproduce or resolve CI formatting failures.
+CI runs `just format-code-check` and `just lint` on Arch with clang-format and clang-tidy 23, and fails if the installed major differs. Newer versions may produce different formatting or diagnostics, so a local check with a newer toolchain does not guarantee CI will pass. Use version 23 to reproduce or resolve CI formatting and lint failures.
 
-For CI parity, install `clang22` on Arch or `clang-tools-extra` on Fedora 44. If your distribution installs Clang 22 outside the default PATH, prepend its binary directory when running either recipe, for example `PATH=/usr/lib/llvm22/bin:$PATH just format-code-check` on Arch. Keep editor formatting on the same version as your command-line formatter.
+For CI parity, install `clang` on Arch (currently 23). If your distribution installs Clang 23 outside the default PATH, prepend its binary directory when running either recipe, for example `PATH=/usr/lib/llvm23/bin:$PATH just format-code-check`. Keep editor formatting on the same version as your command-line formatter.
 
 Markdown and MDX files are formatted by `tools/remark/format.mjs`, which parses them with the same remark plugins as the docs site (MDX, GFM, directives, custom heading ids, frontmatter) plus math, so it reads every file as the site and GitHub render it. Its dependencies are pinned in `tools/remark/package-lock.json`; the docs recipes need Node.js and npm and install them into `tools/remark/node_modules` on first use. Do not hard-wrap prose: the formatter writes each paragraph, list item, and table cell on one line, keeping GitHub alert markers (`> [!NOTE]`) on their own line. It refuses to write a result whose parsed document differs from the input beyond whitespace. CI runs `just format-docs-check`.
 
@@ -93,9 +93,11 @@ D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_ca
 
 ### Source Conventions
 
-- `src/` is the include root; project includes are relative to it (`#include "app/application.h"`).
-- A single `meson.build` lists every source directly; there are no per-directory build files.
+- `lib/` and `src/` are the include roots; project includes are relative to them (`#include "ui/controls/button.h"`, `#include "app/application.h"`).
+- `lib/` (`core`, `i18n`, `render`, `ui`, `util`, `wayland`) is the `noctalia-ui` static library. It compiles with only `lib/`, `third_party/`, and its own generated protocol headers on the include path, so it cannot include shell code from `src/`. Tests that exercise only library code link `noctalia_ui_dep`.
+- `lib/meson.build` lists every library source and generates the Wayland protocols the library binds; the root `meson.build` lists every shell source and generates the shell-only protocols. There are no other per-directory build files.
 - Headers and sources are co-located; there is no separate `include/` tree.
+- Use `[[nodiscard]]` only where ignoring the result is likely a bug: a call with side effects that reports failure or hands back something the caller must own, consume or keep (a handle, token or id), and `&&` builders. Mark result and status types with `struct [[nodiscard]] Name` instead of each function that returns them. Getters and pure functions go without it.
 
 ### Comments
 
@@ -123,7 +125,7 @@ The same script archives each `vX.Y.Z` release tag once, from the tag's own `doc
 
 ### Vendored code
 
-Do not patch vendored code under `third_party/` for Noctalia behavior; local edits are lost when the dependency is refreshed. Put compatibility code in Noctalia-owned sources under `src/`, or fix the issue upstream and update the vendored snapshot from upstream.
+Do not patch vendored code under `third_party/` for Noctalia behavior; local edits are lost when the dependency is refreshed. Put compatibility code in Noctalia-owned sources under `lib/` or `src/`, or fix the issue upstream and update the vendored snapshot from upstream.
 
 ### Palette colors
 
@@ -157,14 +159,6 @@ Follow the Conventional Commits style used in the history: `type(scope): summary
 
 Default to the summary line alone. Add a body only when it carries information a reader would otherwise miss: a non-obvious root cause, a constraint that forced the approach, a behavior change users will notice, or a `Fixes #N` reference. Do not restate the diff or list touched files.
 
-## Issue Triage
-
-Maintainers decide every item in the `Inbox` column of the Maintainer Triage board within 7 days: close it (`out-of-scope`, `duplicate`, or fixed), ask the reporter (`needs-info` or `needs-retest`), or accept it by moving it to `Analyzed`. `Analyzed` is the accepted backlog, so nothing that [SCOPE.md](SCOPE.md) excludes is moved there.
-
-After every minor release, run `python3 tools/issue-triage.py candidates --out /tmp/triage` and work through `stale-version-bugs.tsv`, `fixed-by-commit.tsv`, and `duplicates.tsv`. Write the decisions to a TSV (`number`, `action`, `arg`; see the script header for the actions), review the output of `python3 tools/issue-triage.py apply decisions.tsv`, then add `--execute`. The script closes with templated replies, so each reply links [SCOPE.md](SCOPE.md) or names the fixing commit.
-
-`needs-info` and `needs-retest` mark issues waiting on the reporter, and a workflow moves their board card to `Waiting`. A daily workflow marks them `stale` after 7 days without activity and closes them after 7 more. A reply from the reporter removes the labels and moves the card to `Reviewing`. Closed issues can be reopened. Issues with 3 or more reactions or the `PRs welcome` label are never closed by the script and are closed by hand only.
-
 ## Pull Request Template
 
 Pull request descriptions are checked automatically when they are opened, edited, reopened, or marked ready for review. Keep the `## Summary`, `## Motivation`, `## Type of Change`, `## Testing`, and `## Checklist` headings and the Checklist wording from [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). The remaining sections are context only: fill them in, leave them empty, or delete them. In Type of Change, keep only the lines that apply.
@@ -190,16 +184,31 @@ python3 tools/i18n-check.py
 ## Project Layout
 
 ```text
+lib/                Shared UI library (noctalia-ui); built without src/ on its include path
+  meson.build       Library target and the Wayland protocols it binds
+  core/             Logging, timers, process helpers, resource paths, shared utilities
+  i18n/             Translation catalog and language tag handling
+  render/
+    animation/      Animation manager, easing, motion settings
+    backend/        GLES render backend, framebuffers, texture manager
+    core/           Render data types, image decoders/encoders, texture caches
+    programs/       GLES shader programs
+    scene/          Scene graph nodes and pointer input dispatch
+    text/           Cairo/Pango text and glyph rendering
+  ui/
+    controls/       Reusable controls (Button, Input, Label, Select, Slider, Box, ...)
+    dialogs/        File, color, and glyph picker dialogs
+  util/             Generic helpers
+  wayland/          Wayland connection, registry extensions, seats, xdg toplevel/popup/sub surfaces, text input
 src/
   main.cpp          Entry point
-  app/              Application bootstrap, main loop, poll sources
+  app/              Application bootstrap, build info, main loop, poll sources
   auth/             PAM and fingerprint authentication
   calendar/         CalDAV, Google Calendar, iCalendar parsing, polling
   capture/          Screenshots, screencopy capture, region overlay
   compositors/      Compositor detection, runtime adapters, workspace/output/keyboard backends
   config/           Configuration schema, validation, hot reload, state store, overrides
     schema/         Typed config schema engine
-  core/             Logging, timers, process helpers, resource paths, shared utilities
   dbus/             Session/system bus wrappers and service integrations
     accounts/       AccountsService user metadata
     bluetooth/      BlueZ service and pairing agent
@@ -215,20 +224,12 @@ src/
     upower/         Battery and power device integration
   debug/            Debug D-Bus service
   hooks/            User hook state and hook manager
-  i18n/             Translation catalog and language tag handling
   idle/             Idle manager, inhibitor, grace overlay
   ipc/              IPC client/service, CLI command parsing, plugin pixel stream companion protocol
   launcher/         Launcher providers (apps, emoji, calculator, sessions, windows, plugins)
   net/              HTTP client, URI parsing, URL opening
   notification/     Notification model, manager, filtering, history
   pipewire/         PipeWire audio service, sound playback, spectrum analyzer
-  render/
-    animation/      Animation manager, easing, motion settings
-    backend/        GLES render backend, framebuffers, texture manager
-    core/           Render data types, image decoders/encoders, texture caches
-    programs/       GLES shader programs
-    scene/          Scene graph nodes and pointer input dispatch
-    text/           Cairo/Pango text and glyph rendering
   scripting/        Luau plugin runtime, manifests, registry, source management, bindings
   shell/
     backdrop/       Backdrop layer surfaces
@@ -247,6 +248,7 @@ src/
     overview/       Overview capture helpers
     panel/          Panel base, manager, attached-panel context
     polkit/         Polkit prompt panel
+    render/         Shell-only custom draw nodes, shader programs, and render styles
     screen_corners/ Screen corner overlays
     session/        Session panel and action runners
     settings/       Settings window, setting controls, registries, popups
@@ -255,18 +257,13 @@ src/
     switcher/       Window switcher UI
     tooltip/        Tooltip manager
     tray/           Tray drawer and D-Bus menu UI
+    visuals/        Audio visualizer and graph controls
     wallpaper/      Wallpaper surfaces, paths, picker panel
+    wayland/        Shell-only Wayland extensions: layer shell and layer surfaces, blur, toplevels, workspaces, clipboard, capture, idle, output heads, focus grab
     widgets_editor/ Background widget editor
   system/           Desktop entries, brightness, weather, location, system monitor, hardware services
   theme/            Palette generation, templates, theme service, template application
   time/             Time service and polling
-  ui/
-    controls/       Reusable controls (Button, Input, Label, Select, Slider, Box, ...)
-    dialogs/        File, color, and glyph picker dialogs
-    visuals/        Shared visualizer controls
-  util/             Generic helpers
-  wayland/          Wayland connection, seats, surfaces, clipboard, toplevels, text input
-    hyprland/       Hyprland-specific Wayland protocol helpers
 assets/
   fonts/            Bundled Noctalia Tabler and UI fonts
   sounds/           Notification and UI sounds

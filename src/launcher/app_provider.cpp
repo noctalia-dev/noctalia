@@ -164,8 +164,9 @@ namespace {
     switch (origin) {
     case DesktopEntryOrigin::Flatpak:
     case DesktopEntryOrigin::Snap:
-    case DesktopEntryOrigin::AppImage:
       return "package";
+    case DesktopEntryOrigin::AppImage:
+      return "settings-automation";
     case DesktopEntryOrigin::Unknown:
     case DesktopEntryOrigin::User:
     case DesktopEntryOrigin::System:
@@ -250,6 +251,7 @@ std::vector<LauncherResult> AppProvider::query(std::string_view text) const {
     LauncherResult result;
     result.id = entry.path;
     result.desktopEntryPath = entry.path;
+    result.appIcon = true;
     result.title = entry.name;
     result.subtitle = entry.genericName.empty() ? entry.comment : entry.genericName;
     result.origin = originLabel(entry.origin);

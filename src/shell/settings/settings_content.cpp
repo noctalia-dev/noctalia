@@ -68,6 +68,7 @@ namespace settings {
         .showAdvanced = ctx.showAdvanced,
         .showOverriddenOnly = ctx.showOverriddenOnly,
         .batteryDeviceOptions = ctx.batteryDeviceOptions,
+        .availableOutputs = ctx.availableOutputs,
         .editingWidgetName = ctx.editingWidgetName,
         .editingCapsuleGroupId = ctx.editingCapsuleGroupId,
         .selectedLaneWidgets = ctx.selectedLaneWidgets,
@@ -686,6 +687,7 @@ namespace settings {
                     commitItems(std::move(items));
                   }
                 },
+            .onReject = notifyKeybindRejected,
             .configure = configureGridRecorder,
         });
         row->addChild(std::move(recorder));
@@ -732,6 +734,7 @@ namespace settings {
                   items.push_back(chord);
                   commitItems(std::move(items));
                 },
+            .onReject = notifyKeybindRejected,
             .configure =
                 [configureGridRecorder, focusKey = keybindTabFocusKey(".add")](KeybindRecorder& recorder) {
                   configureGridRecorder(recorder);
@@ -1186,6 +1189,8 @@ namespace settings {
               return makeOptionalStepper(control, entry.path);
             } else if constexpr (std::is_same_v<T, StepperSetting>) {
               return makeStepper(control, entry.path);
+            } else if constexpr (std::is_same_v<T, LengthSetting>) {
+              return factory.makeLength(control, entry.path);
             } else if constexpr (std::is_same_v<T, SearchPickerSetting>) {
               return nullptr;
             } else if constexpr (std::is_same_v<T, MultiSelectSetting>) {

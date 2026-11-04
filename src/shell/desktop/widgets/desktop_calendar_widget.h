@@ -1,7 +1,7 @@
 #pragma once
 
+#include "shell/calendar/calendar_view.h"
 #include "shell/desktop/desktop_widget.h"
-#include "ui/controls/calendar_view.h"
 
 #include <cstdint>
 #include <limits>

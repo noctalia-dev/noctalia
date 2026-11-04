@@ -30,7 +30,7 @@ namespace {
     std::string searchable;
   };
 
-  [[nodiscard]] std::string_view aliasesForAction(std::string_view action) {
+  std::string_view aliasesForAction(std::string_view action) {
     if (action == "lock") {
       return "lock screen session";
     }
@@ -55,7 +55,7 @@ namespace {
     return "custom command action";
   }
 
-  [[nodiscard]] std::string resultId(std::size_t index, std::string_view action) {
+  std::string resultId(std::size_t index, std::string_view action) {
     std::string id(kResultPrefix);
     id += std::to_string(index);
     id += ':';
@@ -63,7 +63,7 @@ namespace {
     return id;
   }
 
-  [[nodiscard]] bool parseResultId(std::string_view id, std::size_t& index, std::string_view& action) {
+  bool parseResultId(std::string_view id, std::size_t& index, std::string_view& action) {
     if (!id.starts_with(kResultPrefix)) {
       return false;
     }
@@ -83,14 +83,14 @@ namespace {
     return session_action::isKnown(action);
   }
 
-  [[nodiscard]] std::string actionSubtitle(const SessionPanelActionConfig& config) {
+  std::string actionSubtitle(const SessionPanelActionConfig& config) {
     if (config.command.has_value() && !StringUtils::trim(*config.command).empty()) {
       return i18n::tr("launcher.providers.session.command-subtitle");
     }
     return i18n::tr("launcher.providers.session.action-subtitle");
   }
 
-  [[nodiscard]] std::vector<SessionActionEntry> collectActions(const ConfigService* config) {
+  std::vector<SessionActionEntry> collectActions(const ConfigService* config) {
     const std::vector<SessionPanelActionConfig> source =
         config != nullptr ? config->config().shell.session.actions : defaultSessionPanelActions();
 

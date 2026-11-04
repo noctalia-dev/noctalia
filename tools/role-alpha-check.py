@@ -22,7 +22,7 @@ PATTERN = re.compile(
 
 def count_uses() -> dict[str, int]:
     counts: dict[str, int] = {}
-    for path in sorted((ROOT / "src").rglob("*")):
+    for path in sorted(path for root in ("src", "lib") for path in (ROOT / root).rglob("*")):
         if path.suffix not in (".cpp", ".h"):
             continue
         found = len(PATTERN.findall(path.read_text(encoding="utf-8")))

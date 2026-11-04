@@ -4,9 +4,9 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/visuals/audio_visualizer.h"
 #include "ui/builders.h"
 #include "ui/style.h"
-#include "ui/visuals/audio_visualizer.h"
 
 #include <algorithm>
 #include <memory>

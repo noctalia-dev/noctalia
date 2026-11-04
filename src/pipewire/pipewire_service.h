@@ -51,7 +51,7 @@ struct AudioNode {
 
 // User-facing label for a sink/source: PipeWire's human-readable node description, falling back to
 // the node name.
-[[nodiscard]] std::string audioDeviceLabel(const AudioNode& node);
+std::string audioDeviceLabel(const AudioNode& node);
 
 struct AudioState {
   std::vector<AudioNode> sinks;
@@ -102,20 +102,20 @@ public:
   void setWirePlumberMixer(WirePlumberMixer* mixer) { m_wpMixer = mixer; }
 
   // Poll integration
-  [[nodiscard]] int fd() const noexcept;
-  [[nodiscard]] int cameraFd() const noexcept { return m_cameraWatch.fd(); }
-  [[nodiscard]] int pollTimeoutMs() const noexcept;
+  int fd() const noexcept;
+  int cameraFd() const noexcept { return m_cameraWatch.fd(); }
+  int pollTimeoutMs() const noexcept;
   void dispatch();
   void dispatchCamera();
-  [[nodiscard]] pw_core* coreHandle() const noexcept { return m_core; }
-  [[nodiscard]] pw_loop* loop() const noexcept { return m_loop; }
-  [[nodiscard]] bool serverSupportsPassiveFollow() const noexcept { return m_serverSupportsPassiveFollow; }
+  pw_core* coreHandle() const noexcept { return m_core; }
+  pw_loop* loop() const noexcept { return m_loop; }
+  bool serverSupportsPassiveFollow() const noexcept { return m_serverSupportsPassiveFollow; }
 
   // State
-  [[nodiscard]] const AudioState& state() const noexcept { return m_state; }
-  [[nodiscard]] const PrivacyState& privacyState() const noexcept { return m_privacyState; }
-  [[nodiscard]] const AudioNode* defaultSink() const noexcept;
-  [[nodiscard]] const AudioNode* defaultSource() const noexcept;
+  const AudioState& state() const noexcept { return m_state; }
+  const PrivacyState& privacyState() const noexcept { return m_privacyState; }
+  const AudioNode* defaultSink() const noexcept;
+  const AudioNode* defaultSource() const noexcept;
 
   // Control
   void setSinkVolume(std::uint32_t id, float volume);
@@ -140,7 +140,7 @@ public:
   // Registers audio-related IPC commands (set/raise/lower-volume, mute, set/raise/lower-mic-volume, mute-mic).
   void registerIpc(IpcService& ipc, const ConfigService& config);
 
-  [[nodiscard]] std::uint64_t changeSerial() const noexcept { return m_changeSerial; }
+  std::uint64_t changeSerial() const noexcept { return m_changeSerial; }
 
   // Called from C callbacks in the .cpp - must be public
   struct DeviceRouteData {
@@ -253,7 +253,7 @@ private:
   void requestCameraScan(std::chrono::steady_clock::time_point now);
   void pollCameraApps();
   // Resolves a metadata "target.object" value to a sink node id, or 0 when no sink matches.
-  [[nodiscard]] std::uint32_t resolveTargetObjectSink(const std::string& target) const;
+  std::uint32_t resolveTargetObjectSink(const std::string& target) const;
   void refreshNodeIdentity(NodeData& nd);
   void applyVolumePropsFromDict(NodeData& nd, const spa_dict* props, bool applyMixerFieldsFromDict = true);
   void recomputeEffectiveMute(NodeData& nd);
@@ -264,8 +264,7 @@ private:
   // repeat-rate-independent velocity ramp accumulated on a gesture-local target while held.
   // `gesture` identifies the control and direction (e.g. sink-up vs mic-down) so switching gesture
   // restarts the ramp from `current`.
-  [[nodiscard]] float
-  relativeAdjustTarget(int gesture, float baseStep, float direction, float current, float maxVolume);
+  float relativeAdjustTarget(int gesture, float baseStep, float direction, float current, float maxVolume);
   struct RelativeAdjust {
     std::chrono::steady_clock::time_point lastAt;
     float target = 0.0F;

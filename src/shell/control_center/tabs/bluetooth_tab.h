@@ -55,7 +55,7 @@ private:
   void rebuildDeviceList(Renderer& renderer);
   // Pushes live metric values into the existing rows. Returns true if any changed.
   bool syncDeviceRows();
-  [[nodiscard]] std::string structureKey(const std::vector<BluetoothDeviceInfo>& devices) const;
+  std::string structureKey(const std::vector<BluetoothDeviceInfo>& devices) const;
 
   BluetoothService* m_service = nullptr;
   BluetoothAgent* m_agent = nullptr;

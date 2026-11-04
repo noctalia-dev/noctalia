@@ -19,8 +19,8 @@ class UmbrielOutputBackend final : public compositors::umbriel::UmbrielEventHand
 public:
   explicit UmbrielOutputBackend(compositors::umbriel::UmbrielRuntime& runtime);
 
-  [[nodiscard]] std::optional<std::string> focusedOutputName() const;
-  [[nodiscard]] std::unordered_map<std::string, bool> outputPowerStates() const;
+  std::optional<std::string> focusedOutputName() const;
+  std::unordered_map<std::string, bool> outputPowerStates() const;
   void setOutputPowerChangeCallback(std::function<void()> callback);
 
   void handleEvent(std::string_view event, const nlohmann::json& data) override;

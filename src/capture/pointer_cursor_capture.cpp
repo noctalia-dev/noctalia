@@ -2,6 +2,7 @@
 
 #include "ext-image-capture-source-v1-client-protocol.h"
 #include "ext-image-copy-capture-v1-client-protocol.h"
+#include "shell/wayland/capture_globals.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
@@ -305,13 +306,14 @@ struct PointerCursorCapturePending {
   }
 };
 
-PointerCursorCapture::PointerCursorCapture(WaylandConnection& wayland) : m_wayland(wayland) {}
+PointerCursorCapture::PointerCursorCapture(WaylandConnection& wayland)
+    : m_wayland(wayland), m_imageCapture(wayland.extension<ImageCaptureGlobals>()) {}
 
 PointerCursorCapture::~PointerCursorCapture() { cancelInFlight(); }
 
 bool PointerCursorCapture::available() const noexcept {
-  return m_wayland.imageCopyCaptureManager() != nullptr
-      && m_wayland.outputImageCaptureSourceManager() != nullptr
+  return m_imageCapture.copyCaptureManager() != nullptr
+      && m_imageCapture.outputSourceManager() != nullptr
       && m_wayland.pointer() != nullptr
       && m_wayland.shm() != nullptr
       && m_wayland.display() != nullptr;
@@ -335,13 +337,13 @@ void PointerCursorCapture::capture(wl_output* output, CompletionCallback onCompl
   m_onComplete = std::move(onComplete);
   m_pending->owner = this;
   m_pending->source =
-      ext_output_image_capture_source_manager_v1_create_source(m_wayland.outputImageCaptureSourceManager(), output);
+      ext_output_image_capture_source_manager_v1_create_source(m_imageCapture.outputSourceManager(), output);
   if (m_pending->source == nullptr) {
     fail("failed to create cursor output source");
     return;
   }
   m_pending->cursorSession = ext_image_copy_capture_manager_v1_create_pointer_cursor_session(
-      m_wayland.imageCopyCaptureManager(), m_pending->source, m_wayland.pointer()
+      m_imageCapture.copyCaptureManager(), m_pending->source, m_wayland.pointer()
   );
   if (m_pending->cursorSession == nullptr
       || ext_image_copy_capture_cursor_session_v1_add_listener(

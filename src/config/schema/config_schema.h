@@ -25,6 +25,9 @@ namespace noctalia::config::schema {
   const Schema<BluetoothConfig>& bluetoothSchema();
   const Schema<ControlCenterConfig>& controlCenterSchema();
   const Schema<PluginsConfig>& pluginsSchema();
+  // The [plugins] section of a merged config root, with the default sources when none are
+  // configured, as the shell resolves it. Schema issues are dropped: validation reports them.
+  PluginsConfig readPluginsSection(const toml::table& root);
   const Schema<HotCornersConfig>& hotCornersSchema();
   const Schema<CalendarConfig::Reminders>& calendarRemindersSchema();
   const Schema<CalendarConfig>& calendarSchema();
@@ -69,6 +72,6 @@ namespace noctalia::config::schema {
   // schema. Lets the settings UI verify its hand-written override paths against the
   // single schema source instead of drifting silently. Pure schema resolution — no
   // ConfigService dependency.
-  [[nodiscard]] bool isKnownConfigPath(const std::vector<std::string>& path);
+  bool isKnownConfigPath(const std::vector<std::string>& path);
 
 } // namespace noctalia::config::schema

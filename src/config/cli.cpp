@@ -412,6 +412,12 @@ namespace noctalia::config {
         return 0;
       const std::string_view mode =
           parsed->positionals.empty() ? std::string_view{"merged"} : parsed->positionals.front();
+      const auto credentials =
+          noctalia::config::credentialExportModeFromString(parsed->valueOr("--credentials", "keep"));
+      if (!credentials) {
+        std::println(stderr, "error: expected --credentials keep, omit, or blank");
+        return 1;
+      }
 
       const std::string configDir = FileUtils::configDir();
       std::string settingsPath;
@@ -422,9 +428,9 @@ namespace noctalia::config {
       std::string error;
       std::string content;
       if (mode == "merged") {
-        content = ConfigService::buildMergedUserConfigFromSources(configDir, settingsPath, &error);
+        content = ConfigService::buildMergedUserConfigFromSources(configDir, settingsPath, &error, *credentials);
       } else if (mode == "full") {
-        content = ConfigService::buildEffectiveConfigFromSources(configDir, settingsPath, &error);
+        content = ConfigService::buildEffectiveConfigFromSources(configDir, settingsPath, &error, *credentials);
       } else {
         std::println(stderr, "error: expected merged or full");
         return 1;

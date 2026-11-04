@@ -9,6 +9,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_manager.h"
 #include "system/desktop_entry.h"
@@ -46,7 +47,7 @@ namespace {
 
   // Application icons for AudioTab rows. Must stay function-local: at TU scope
   // its icon-theme walk runs before main(), on every CLI invocation.
-  [[nodiscard]] IconResolver& audioTabIconResolver() {
+  IconResolver& audioTabIconResolver() {
     static IconResolver resolver;
     return resolver;
   }
@@ -237,7 +238,7 @@ namespace {
     return value;
   }
 
-  [[nodiscard]] bool isBlankSearchKey(std::string_view s) { return StringUtils::isBlank(s); }
+  bool isBlankSearchKey(std::string_view s) { return StringUtils::isBlank(s); }
 
   bool isDesktopTokenDelimiter(unsigned char c) { return c == '-' || c == '_' || c == '.' || std::isspace(c) != 0; }
 
@@ -731,7 +732,7 @@ namespace {
 
   // Hide devices whose active route is unavailable (e.g. an HDMI port with nothing plugged in), but
   // always keep the current default so the active selection is never hidden.
-  [[nodiscard]] std::vector<AudioNode> availableDevices(std::span<const AudioNode> devices, std::uint32_t defaultId) {
+  std::vector<AudioNode> availableDevices(std::span<const AudioNode> devices, std::uint32_t defaultId) {
     std::vector<AudioNode> out;
     out.reserve(devices.size());
     for (const auto& device : devices) {
@@ -962,8 +963,8 @@ namespace {
       }
     }
 
-    [[nodiscard]] bool hovered() const noexcept { return m_inputArea != nullptr && m_inputArea->hovered(); }
-    [[nodiscard]] bool pressed() const noexcept { return m_inputArea != nullptr && m_inputArea->pressed(); }
+    bool hovered() const noexcept { return m_inputArea != nullptr && m_inputArea->hovered(); }
+    bool pressed() const noexcept { return m_inputArea != nullptr && m_inputArea->pressed(); }
 
     std::function<void()> m_onSelect;
     RadioButton* m_radio = nullptr;
@@ -975,6 +976,8 @@ namespace {
 
   class ProgramVolumeRow : public Flex {
   public:
+    void setIconColorization(std::optional<ColorSpec> tint) { m_icon->setAppIconColorization(tint); }
+
     ProgramVolumeRow(
         PipeWireService* audio, std::uint32_t id, float sliderMax, float scale,
         std::function<void(float)> onQueueVolume, std::function<void()> onCommitVolume
@@ -1355,8 +1358,8 @@ namespace {
       }
     }
 
-    [[nodiscard]] std::uint32_t id() const noexcept { return m_id; }
-    [[nodiscard]] bool dragging() const noexcept { return m_slider != nullptr && m_slider->dragging(); }
+    std::uint32_t id() const noexcept { return m_id; }
+    bool dragging() const noexcept { return m_slider != nullptr && m_slider->dragging(); }
 
   private:
     PipeWireService* m_audio = nullptr;
@@ -1462,7 +1465,10 @@ AudioTab::AudioTab(
     WaylandConnection* wayland, RenderContext* renderContext
 )
     : m_audio(audio), m_easyEffects(easyEffects), m_mpris(mpris), m_config(config), m_wayland(wayland),
-      m_renderContext(renderContext) {}
+      m_renderContext(renderContext) {
+  m_appIconColorizeConn =
+      shellAppIconColorizationChanged().connect([] { PanelManager::instance().requestUpdateOnly(); });
+}
 
 AudioTab::~AudioTab() = default;
 
@@ -1539,7 +1545,7 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parentCtx->layerSurface,
+                  .attach = parentCtx->attach,
                   .output = parentCtx->output,
               },
           .pointerParentSurface = parentCtx->surface,
@@ -1627,7 +1633,7 @@ void AudioTab::openProgramRoutingMenu(Node* anchor, std::uint32_t programStreamI
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parentCtx->layerSurface,
+                  .attach = parentCtx->attach,
                   .output = parentCtx->output,
               },
           .pointerParentSurface = parentCtx->surface,
@@ -2292,11 +2298,15 @@ void AudioTab::syncProgramVolumeRows() {
     outputsById.emplace(s.id, &s);
   }
 
+  const auto tint = m_config != nullptr
+      ? effectiveShellAppIconColorizationTint(m_config->config().shell, m_config->config().audio.colorizeIcons)
+      : std::nullopt;
   for (Flex* node : m_programRows) {
     auto* row = static_cast<ProgramVolumeRow*>(node);
     if (row == nullptr) {
       continue;
     }
+    row->setIconColorization(tint);
     const auto it = outputsById.find(row->id());
     if (it == outputsById.end()) {
       continue;

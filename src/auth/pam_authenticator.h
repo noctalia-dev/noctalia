@@ -5,15 +5,15 @@
 
 class PamAuthenticator {
 public:
-  struct Result {
+  struct [[nodiscard]] Result {
     bool success = false;
     std::string message;
   };
 
-  [[nodiscard]] Result authenticateCurrentUser(
+  Result authenticateCurrentUser(
       std::string_view password, std::string_view service, std::string_view language,
       std::string_view startFailureMessage
   ) const;
-  [[nodiscard]] static std::string currentUsername();
+  static std::string currentUsername();
   [[nodiscard]] static int runHelperMode(int argc, char* argv[]);
 };

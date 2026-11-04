@@ -7,6 +7,8 @@ sidebar:
 
 The Noctalia launcher is a centralized search interface that provides quick access to your applications, system actions, and utility providers.
 
+Set `shell.launcher.colorize_icons = true` to tint application result icons with the shared `[shell].app_icon_color`. The toggle defaults to `false` and is available under **Launcher → Display**. The same rule applies in rows and grids: application and window icons may be tinted, while wallpaper thumbnails and other provider images retain their original colors. Other components have their own toggles (see [App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+
 ## Layout
 
 The launcher has two layouts, selected with `shell.launcher.layout`.
@@ -18,6 +20,7 @@ Configure the layout under **Settings → Panels → Launcher**, or in your conf
 
 ```toml
 [shell.launcher]
+colorize_icons = false
 layout = "full"
 width = 760
 search_position = "bottom"
@@ -50,7 +53,7 @@ The launcher tracks how often you activate specific results (applications and wa
 
 ### Application categories
 
-The **Categories** view, marked with a tag icon, lets you switch between desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities. Category tabs show icons and text by default. Enable **Category Icons Only** in **Settings → Panels → Launcher** (`shell.launcher.category_icons_only = true`) to hide their text labels; hover tooltips still show the full names. This setting applies only to app category tabs (and to the category chips in the Simple layout). **All** remains an uninterrupted list or grid.
+The **Categories** view, marked with a tag icon, lets you switch between desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities. Category tabs show icons and text by default. Enable **Category Icons Only** in **Settings → Panels → Launcher** (`shell.launcher.category_icons_only = true`) to hide their text labels; hover tooltips still show the full names. This setting applies to application and provider category filters in both layouts; Emoji categories in Full always use icons only. **All** remains an uninterrupted list or grid.
 
 :::note[Application options]
 Right-click an application result to open its menu of additional per-app options. The same menu opens with **Shift + Validate** (default: `Shift+Return`).
@@ -67,7 +70,7 @@ The primary provider for finding and launching your installed apps.
 Enabling `shell.launcher.app_grid` uses a multi-column icon grid with the item name underneath for grid-capable results, including `/emo`, `/wall`, and `/session`. Emoji tiles show the actual emoji, and wallpaper tiles show image previews. Session actions use the same layout whether opened by prefix or by the power button. Calculator, Windows, Panels, dmenu, and plugin providers use lists. Left/right keybinds move between columns in grid mode; up/down move by row.
 
 - **Source**: Reads `.desktop` entries from standard XDG directories (e.g., `/usr/share/applications`, `~/.local/share/applications`).
-- **Package origins**: Results identify Flatpak, Snap, Nix, and AppImage applications when their desktop entries or executable metadata provide that information. AppImages are recognized from the official `X-AppImage-Version` key or executable evidence, including extensionless files managed by AppImageLauncher. Other `X-AppImage-*` keys alone do not classify a native package as an AppImage. `X-AppImage-Integrate=false` explicitly opts a desktop entry out of AppImage classification.
+- **Package origins**: Results identify Flatpak, Snap, Nix, and AppImage applications when their desktop entries or executable metadata provide that information. AppImages are recognized from the official `X-AppImage-Version` key or executable evidence, including extensionless files managed by AppImageLauncher. The executable is taken from `TryExec`, or from `Exec` after any `env VAR=value` prefix, so entries written by integration tools such as Gear Lever are recognized wherever the AppImage is stored. Other `X-AppImage-*` keys alone do not classify a native package as an AppImage. `X-AppImage-Integrate=false` explicitly opts a desktop entry out of AppImage classification.
 - **Search**: Matches against the application name, generic name, keywords, and categories.
 - **Desktop actions**: Set `shell.launcher.show_app_actions = true` to search and launch `.desktop` actions directly alongside applications. This is disabled by default; actions remain available from an application's right-click menu.
 - **Scoring**: Uses fuzzy matching with weights. Activation count boosts the score.
@@ -90,6 +93,7 @@ A quick way to find and copy emojis.
 
 - **Prefix**: `/emo `
 - **Functionality**: Searches `emoji.json` by name, category, and keywords. Activating a result copies the emoji character directly to your clipboard.
+- **Categories**: Both Full and Simple layouts show category filters when the Emoji provider is open with `/emo`. Select a category to browse its emojis or narrow a search within it; select All to show results from every category. Full shows these filters as icons above the results, with full names in hover tooltips, independently of the application Categories view.
 - **Display**: Emoji fit within each result row, including compact mode and rows with application icons hidden.
 - **Usage**: With `shell.launcher.track_usage` enabled, the **Recently Used** filter lists recent picks newest first. When `shell.launcher.sort_by_usage` is also enabled, frequently copied emojis rise to the top of an empty `/emo` query.
 

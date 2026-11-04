@@ -42,14 +42,14 @@ namespace noctalia::theme {
     std::uint64_t m_generation = 0;
   };
 
-  [[nodiscard]] std::vector<AvailablePalette> availableCommunityPalettes();
+  std::vector<AvailablePalette> availableCommunityPalettes();
 
   // Catalog-declared MD5 of the named palette's downloaded JSON, or empty if the
   // palette is absent from the cached catalog or the catalog omits a checksum.
-  [[nodiscard]] std::string communityPaletteCatalogMd5(std::string_view name);
+  std::string communityPaletteCatalogMd5(std::string_view name);
 
-  [[nodiscard]] std::filesystem::path communityPaletteCacheDir();
-  [[nodiscard]] std::filesystem::path communityPaletteCachePath(std::string_view name);
-  [[nodiscard]] std::string communityPaletteDownloadUrl(std::string_view name);
+  std::filesystem::path communityPaletteCacheDir();
+  std::filesystem::path communityPaletteCachePath(std::string_view name);
+  std::string communityPaletteDownloadUrl(std::string_view name);
 
 } // namespace noctalia::theme

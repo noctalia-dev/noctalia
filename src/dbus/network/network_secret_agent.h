@@ -41,7 +41,7 @@ public:
   void submitSecret(const std::string& secret);
   void cancelSecret();
 
-  [[nodiscard]] bool hasPendingRequest() const noexcept;
+  bool hasPendingRequest() const noexcept;
 
 private:
   struct Impl;

@@ -5,6 +5,7 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/process/process.h"
+#include "core/time_format.h"
 #include "lua.h"
 #include "luacode.h"
 #include "lualib.h"
@@ -24,7 +25,6 @@
 #include "system/icon_resolver.h"
 #include "system/system_monitor_service.h"
 #include "system/terminal_launch.h"
-#include "time/time_format.h"
 #include "ui/dialogs/color_picker_dialog.h"
 #include "ui/palette.h"
 #include "util/file_utils.h"
@@ -412,7 +412,7 @@ namespace {
   // The host's system monitor, or nullptr when it is unavailable: either it failed to construct or
   // [system.monitor] is disabled, in which case latest() would serve zeros that a plugin could not
   // tell apart from a real idle reading.
-  [[nodiscard]] SystemMonitorService* runningMonitorForState(lua_State* L) {
+  SystemMonitorService* runningMonitorForState(lua_State* L) {
     auto* host = hostForState(L);
     if (host == nullptr) {
       return nullptr;
@@ -2358,7 +2358,7 @@ LuauHost::~LuauHost() {
     }
     m_systemStatsRetained = false;
   }
-  (void)setGpuMonitoring(false);
+  setGpuMonitoring(false);
   if (!m_diskPathsRetained.empty()) {
     if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
       for (const auto& path : m_diskPathsRetained) {

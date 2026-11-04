@@ -15,13 +15,14 @@ namespace {
 
   constexpr float kLoginGlyphSize = 16.0F;
 
-  [[nodiscard]] bool isStyleSetting(std::string_view key) {
+  bool isStyleSetting(std::string_view key) {
     return key == "background_color"
         || key == "background_opacity"
         || key == "background_radius"
         || key == lockscreen_login_box::kLayoutKey
         || key == lockscreen_login_box::kShowSessionButtonsKey
         || key == lockscreen_login_box::kShowMediaKey
+        || key == lockscreen_login_box::kShowMediaControlsKey
         || key == lockscreen_login_box::kShowWeatherKey
         || key == lockscreen_login_box::kShowLoginButtonKey
         || key == lockscreen_login_box::kShowCapsLockKey

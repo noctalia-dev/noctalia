@@ -39,6 +39,8 @@ namespace noctalia::config::schema {
   inline constexpr Range<float> kBarFontScaleRange{0.2F, 2.5F, 0.01F};
   inline constexpr Range<float> kBarCapsuleBorderWidthRange{0.0F, 8.0F, 0.5F};
   inline constexpr Range<std::int64_t> kBarCapsuleAccordionMsRange{0, 2000, 25};
+  // margin_ends as a percentage of the output's main axis; 50% on both ends would leave no bar.
+  inline constexpr Range<std::int64_t> kBarMarginEndsPercentRange{0, 49, 1};
 
   // Screenshot.
   inline constexpr Range<float> kScreenshotRegionBorderWidthRange{0.0F, 20.0F, 0.5F};
@@ -59,6 +61,7 @@ namespace noctalia::config::schema {
   inline constexpr Range<std::int64_t> kDockMarginEndsRange{0, 500, 1};
   inline constexpr Range<std::int64_t> kDockMarginEdgeRange{0, 100, 1};
   inline constexpr Range<std::int64_t> kDockRadiusRange{0, 80, 1}; // radius + each corner
+  inline constexpr Range<std::int64_t> kDockAutoHideRevealDelayMsRange{0, 2000, 50};
   inline constexpr Range<float> kDockBorderWidthRange{0.0F, 20.0F, 0.5F};
   inline constexpr Range<float> kPanelBorderWidthRange{0.0F, 20.0F, 0.5F};
   inline constexpr Range<float> kOsdBorderWidthRange{0.0F, 6.0F, 0.5F};

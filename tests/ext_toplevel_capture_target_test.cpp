@@ -1,4 +1,4 @@
-#include "wayland/ext_foreign_toplevels.h"
+#include "shell/wayland/ext_foreign_toplevels.h"
 
 #include <iostream>
 #include <span>
@@ -20,7 +20,7 @@ namespace {
   ext_foreign_toplevel_handle_v1* const handleA = reinterpret_cast<ext_foreign_toplevel_handle_v1*>(&handleTokenA);
   ext_foreign_toplevel_handle_v1* const handleB = reinterpret_cast<ext_foreign_toplevel_handle_v1*>(&handleTokenB);
 
-  [[nodiscard]] ToplevelInfo window(ext_foreign_toplevel_handle_v1* extHandle, std::string title) {
+  ToplevelInfo window(ext_foreign_toplevel_handle_v1* extHandle, std::string title) {
     return ToplevelInfo{
         .title = std::move(title),
         .appId = "app",

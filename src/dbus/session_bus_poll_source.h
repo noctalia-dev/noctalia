@@ -1,13 +1,13 @@
 #pragma once
 
-#include "app/poll_source.h"
+#include "core/poll_source.h"
 #include "dbus/session_bus.h"
 
 class SessionBusPollSource final : public PollSource {
 public:
   explicit SessionBusPollSource(SessionBus& bus) : m_bus(bus) {}
 
-  [[nodiscard]] int pollTimeoutMs() const override {
+  int pollTimeoutMs() const override {
     if (m_bus.hasPendingEvents()) {
       return 0;
     }

@@ -26,8 +26,8 @@ namespace {
       m_wasSet = true;
     }
 
-    [[nodiscard]] bool wasSet() const noexcept { return m_wasSet; }
-    [[nodiscard]] const std::optional<std::string>& text() const noexcept { return m_text; }
+    bool wasSet() const noexcept { return m_wasSet; }
+    const std::optional<std::string>& text() const noexcept { return m_text; }
 
   private:
     std::optional<std::string> m_text;
