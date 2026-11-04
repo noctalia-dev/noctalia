@@ -322,15 +322,18 @@ void main() {
     vec3 fogBackdrop = snowFogColor(uvA, iTime);
     vec3 blended = mix(fogBackdrop, snowColor, snow);
 
-    // Pale drifting cloud bank along the top of the card, from a horizontally stretched
-    // snowFogFbm with a higher threshold.
-    float cloudBand = 1.0 - smoothstep(0.1, 0.22, v_uv.y);
+    // Pale cloud bank along the top of the card, from a horizontally stretched snowFogFbm.
+    // Its lower edge wanders with a slow noise and fades over a wide band, so there is no
+    // straight seam; the bank drifts sideways and churns slowly.
+    float bandEdge = mix(0.22, 0.4, snow_noise(vec2(uvA.x * 1.5 + iTime * 0.05, iTime * 0.1)));
+    float cloudBand = 1.0 - smoothstep(0.0, bandEdge, v_uv.y);
+    cloudBand *= cloudBand;
     if (cloudBand > 0.0) {
-        float cloudNoise = snowFogFbm(uvA * vec2(2.6, 7.0) + vec2(iTime * 0.012, 0.0), iTime * 0.5);
-        float cloudShape = smoothstep(0.42, 0.72, cloudNoise) * cloudBand;
+        float cloudNoise = snowFogFbm(uvA * vec2(2.6, 6.0) + vec2(iTime * 0.08, 0.0), iTime);
+        float cloudShape = smoothstep(0.25, 0.85, cloudNoise) * cloudBand;
         vec3 cloudColor = particleColor(vec3(0.93, 0.94, 0.96), vec3(0.8, 0.82, 0.86));
-        // Dense regions go fully opaque so the bank occludes flakes behind it.
-        blended = mix(blended, cloudColor, clamp(cloudShape * 1.4, 0.0, 1.0));
+        // Dense regions near the top go nearly opaque so the bank occludes flakes behind it.
+        blended = mix(blended, cloudColor, clamp(cloudShape * 1.6, 0.0, 0.92));
     }
 
     float mask = cornerMask();
