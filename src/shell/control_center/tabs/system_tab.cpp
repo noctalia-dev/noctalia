@@ -480,7 +480,7 @@ void SystemTab::onClose() {
   m_netPeak = 0.0;
 }
 
-void SystemTab::onFrameTick(float deltaMs) {
+void SystemTab::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   (void)deltaMs;
 
   if (!m_active || m_monitor == nullptr || !m_monitor->isRunning()) {

@@ -404,10 +404,10 @@ void ControlCenterPanel::doUpdate(Renderer& renderer) {
   }
 }
 
-void ControlCenterPanel::onFrameTick(float deltaMs) {
+void ControlCenterPanel::onFrameTick(float deltaMs, Renderer& renderer) {
   const std::size_t activeIdx = tabIndex(m_activeTab);
   if (m_tabs[activeIdx] != nullptr) {
-    m_tabs[activeIdx]->onFrameTick(deltaMs);
+    m_tabs[activeIdx]->onFrameTick(deltaMs, renderer);
   }
 }
 

@@ -28,7 +28,11 @@ public:
     UiPhaseScope updatePhase(UiPhase::Update);
     doUpdate(renderer);
   }
-  virtual void onFrameTick(float deltaMs) { (void)deltaMs; }
+  // Runs with the panel surface's render target current, so GPU uploads are allowed.
+  virtual void onFrameTick(float deltaMs, Renderer& renderer) {
+    (void)deltaMs;
+    (void)renderer;
+  }
   virtual void onOpen(std::string_view context) { (void)context; }
   virtual void onClose() {}
   virtual void onIconThemeChanged() {}

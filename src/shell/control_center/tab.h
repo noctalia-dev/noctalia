@@ -50,7 +50,11 @@ public:
 
   // Called every Wayland frame callback with elapsed milliseconds. Default is a no-op.
   // Tabs override this to advance per-frame animations independently of data arrival.
-  virtual void onFrameTick(float deltaMs) { (void)deltaMs; }
+  // Runs with the panel's render target current, so GPU uploads are allowed.
+  virtual void onFrameTick(float deltaMs, Renderer& renderer) {
+    (void)deltaMs;
+    (void)renderer;
+  }
 
   // Called when the tab becomes visible or hidden.
   virtual void setActive(bool active) { (void)active; }

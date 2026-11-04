@@ -968,11 +968,13 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     surface.setPrepareFrameCallback([this](bool needsUpdate, bool needsLayout) {
       prepareFrame(needsUpdate, needsLayout);
     });
-    surface.setFrameTickCallback([this](float deltaMs) {
+    surface.setFrameTickCallback([this, &surface](float deltaMs) {
       startAttachedOpenAnimation();
-      if (m_activePanel != nullptr) {
-        m_activePanel->onFrameTick(deltaMs);
+      if (m_activePanel == nullptr || m_renderContext == nullptr) {
+        return;
       }
+      m_renderContext->makeCurrent(surface.renderTarget());
+      m_activePanel->onFrameTick(deltaMs, surface.renderTarget().renderer());
     });
     surface.setAnimationManager(&m_animations);
   };
