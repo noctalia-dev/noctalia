@@ -164,7 +164,7 @@ In picker mode, choose a connector from the top bar on any screen, or click the 
 - A relative `--directory` resolves against the directory the command ran in. An empty value selects the default folder, like an empty `directory` key.
 - `--format` and `--quality` change only the saved file; the clipboard and the pipe command still receive PNG.
 - An option for a key that does not affect the command is accepted and ignored, the same as that key in the config.
-- **Capture new region** in the editor keeps the options of the command that opened it.
+- **Capture new region** and **Capture window** in the editor keep the options of the command that opened it.
 
 ```sh
 # Annotate this region even though annotate = false in the config
@@ -194,7 +194,7 @@ left = "screenshot-region --annotate"
 
 Noctalia also installs a hidden desktop entry, `dev.noctalia.Noctalia.Annotator.desktop`, that runs `noctalia msg annotate` on the chosen file. It does not appear in launchers, but file managers list **Noctalia Image Annotator** under **Open With** for the supported image types. Noctalia must already be running.
 
-Annotation tool keys (no modifier): **`m`** move, **`b`** brush, **`h`** highlighter, **`l`** line, **`a`** arrow, **`s`** rectangle, **`o`** circle, **`t`** text, **`n`** numbering, **`u`** blur, **`e`** eraser, **`c`** crop, **`z`** freeze (live overlay), **`p`** toggle the captured pointer, **`f`** cycle the shape fill through off, semi-transparent, and opaque, **`1`** to **`8`** pick the current tool's color from the eight swatches, **`[`** and **`]`** change the current tool's size. **`Ctrl+Z`** undoes, **`Ctrl+Shift+Z`** and **`Ctrl+Y`** redo, **`[keybinds].copy`** copies, **`[keybinds].save`** saves.
+Annotation tool keys (no modifier): **`m`** move, **`b`** brush, **`h`** highlighter, **`l`** line, **`a`** arrow, **`s`** rectangle, **`o`** circle, **`t`** text, **`n`** numbering, **`u`** blur, **`e`** eraser, **`c`** crop, **`z`** freeze (live overlay), **`p`** toggle the captured pointer, **`f`** cycle the shape fill through off, semi-transparent, and opaque, **`1`** to **`8`** pick the current tool's color from the eight swatches, **`[`** and **`]`** change the current tool's size. **`Ctrl+R`** captures a new region and **`Ctrl+W`** captures the window that was focused when the editor opened; both discard the current edit. **`Ctrl+Z`** undoes, **`Ctrl+Shift+Z`** and **`Ctrl+Y`** redo, **`[keybinds].copy`** copies, **`[keybinds].save`** saves.
 
 The capture view zooms and pans without touching the recorded pixels. **`Ctrl`** and the mousewheel zoom around the pointer from half to sixteen times the fitted size, and **`Ctrl`** and a left-drag pan the capture. **`Ctrl+=`** (or **`Ctrl++`**) zooms in, **`Ctrl+-`** zooms out, and **`Ctrl+0`** fits the capture back to the view. The zoom button in the toolbar opens the same controls with the current zoom level. Panning is limited so part of the capture always stays on screen, and moving or resizing the toolbar never reflows the zoomed canvas. In live annotation the ink layers zoom while the live desktop behind them does not, so freeze with **`z`** first when the zoomed view must match the screen.
 
@@ -206,7 +206,9 @@ The pointer button and **P** work the same in region, fullscreen, and frozen-scr
 
 With `[shell.screenshot].copy_on_close = true`, closing the editor (**`[keybinds].cancel`** or the close button) first copies the annotated image to the clipboard.
 
-**Capture new region** in the toolbar discards the current edit, captures a fresh desktop region without the annotation overlay, and opens it in the editor with the same pointer control and remembered tool preferences. Starting from a captured image preserves the editor's current pointer choice. It is available in live, frozen, and image modes, regardless of `[shell.screenshot].annotate`. Cancelling region selection closes the capture.
+The **Capture again** button in the toolbar opens a popover with **Capture new region** and **Capture window**. **Capture new region** (**Ctrl+R**) discards the current edit, captures a fresh desktop region without the annotation overlay, and opens it in the editor with the same pointer control and remembered tool preferences. Starting from a captured image preserves the editor's current pointer choice. It is available in live, frozen, and image modes, regardless of `[shell.screenshot].annotate`. Cancelling region selection closes the capture.
+
+**Capture window** (**Ctrl+W**) does the same for the window that was focused when the editor opened: it discards the current edit, captures that window at native resolution, and opens the result in the editor. It needs the compositor's ext image-capture protocols instead of `wlr-screencopy`, and the pointer is never included. If that window is gone, the editor stays open and an error is reported.
 
 Captured images have an inset **Outline** color-role border to distinguish the canvas from its surroundings. The border does not change the image size or appear in copied or saved images.
 

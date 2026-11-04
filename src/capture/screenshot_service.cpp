@@ -1003,6 +1003,7 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     if (!target.has_value()) {
       return "error: " + target.error() + "\n";
     }
+    rememberAnnotationCaptureTarget();
     captureWindow(*target, options);
     return "ok\n";
   });
@@ -1080,6 +1081,27 @@ std::expected<ext_foreign_toplevel_handle_v1*, std::string> ScreenshotService::r
   return match.handle;
 }
 
+void ScreenshotService::rememberAnnotationCaptureTarget() {
+  m_annotationCaptureTarget = nullptr;
+  m_annotationCaptureError.clear();
+  if (const auto target = resolveFocusedCaptureTarget(); target.has_value()) {
+    m_annotationCaptureTarget = *target;
+  } else {
+    m_annotationCaptureError = target.error();
+  }
+}
+
+ext_foreign_toplevel_handle_v1* ScreenshotService::liveAnnotationCaptureTarget() const {
+  if (m_annotationCaptureTarget == nullptr) {
+    return nullptr;
+  }
+  bool live = false;
+  m_wayland.visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* candidate) {
+    live = live || candidate == m_annotationCaptureTarget;
+  });
+  return live ? m_annotationCaptureTarget : nullptr;
+}
+
 void ScreenshotService::captureWindow(ext_foreign_toplevel_handle_v1* handle, const OutputOptions& options) {
   const std::optional<std::filesystem::path> destPath =
       needsScreenshotPath(options) ? std::optional(makeScreenshotPath(options, "window")) : std::nullopt;
@@ -1131,6 +1153,7 @@ void ScreenshotService::captureFullscreen(const OutputOptions& options, wl_outpu
     notifyError("No outputs available");
     return;
   }
+  rememberAnnotationCaptureTarget();
   playCaptureSound();
   captureOutput(output, std::nullopt, "screenshot", options);
 }
@@ -1151,7 +1174,9 @@ void ScreenshotService::captureFullscreenInteractive(RenderContext& renderContex
   beginFullscreenCapture(renderContext, options);
 }
 
-void ScreenshotService::beginRegionCapture(RenderContext& renderContext, const OutputOptions& options) {
+void ScreenshotService::beginRegionCapture(
+    RenderContext& renderContext, const OutputOptions& options, bool rememberTarget
+) {
   if (!available()) {
     notifyError("Screen capture is not available on this compositor");
     return;
@@ -1174,6 +1199,9 @@ void ScreenshotService::beginRegionCapture(RenderContext& renderContext, const O
   m_regionOutputOptions = options;
   m_regionRenderContext = &renderContext;
   m_regionFullscreenPick = false;
+  if (rememberTarget) {
+    rememberAnnotationCaptureTarget();
+  }
 
   if (options.freezeScreen) {
     DeferredCall::callLater([this] { beginFreezeCapture(); });
@@ -1206,6 +1234,7 @@ void ScreenshotService::beginFullscreenCapture(RenderContext& renderContext, con
   m_regionOutputOptions = options;
   m_regionRenderContext = &renderContext;
   m_regionFullscreenPick = true;
+  rememberAnnotationCaptureTarget();
 
   if (options.freezeScreen) {
     DeferredCall::callLater([this] { beginFreezeCapture(); });
@@ -1564,7 +1593,33 @@ void ScreenshotService::ensureAnnotationOverlay() {
       options.showCursor = m_annotationOverlay->cursorVisible();
     }
     m_annotationOverlay->cancel();
-    beginRegionCapture(*m_regionRenderContext, options);
+    // The editor held focus, so keep the target recorded before it opened.
+    beginRegionCapture(*m_regionRenderContext, options, false);
+  });
+  m_annotationOverlay->setCaptureWindowCallback([this] {
+    if (m_annotationOverlay == nullptr || !m_annotationOverlay->isActive()) {
+      return;
+    }
+    if (!m_toplevelCapture.available()) {
+      notifyError("Window capture is not available on this compositor");
+      return;
+    }
+    if (m_toplevelCapture.busy()) {
+      notifyError("A window capture is already in progress");
+      return;
+    }
+    OutputOptions options = m_pendingDelivery.has_value() ? m_pendingDelivery->options : m_regionOutputOptions;
+    options.annotate = true;
+    ext_foreign_toplevel_handle_v1* target = liveAnnotationCaptureTarget();
+    if (target == nullptr) {
+      notifyError(
+          m_annotationCaptureError.empty() ? "The window that was focused when the editor opened is no longer available"
+                                           : m_annotationCaptureError
+      );
+      return;
+    }
+    m_annotationOverlay->cancel();
+    captureWindow(target, options);
   });
   m_annotationOverlay->setExportCallback([this](ScreencopyImage image, capture::AnnotationExport action) {
     if (action == capture::AnnotationExport::Done) {
@@ -1608,6 +1663,7 @@ void ScreenshotService::beginAnnotation(RenderContext& renderContext, const Outp
     notifyError("Render context unavailable");
     return;
   }
+  rememberAnnotationCaptureTarget();
   m_annotationOverlay->setToolState(loadAnnotationToolState());
   m_annotationOverlay->setCursorVisible(options.showCursor);
   m_annotationOverlay->setCopyOnClose(options.copyOnClose);
@@ -1641,6 +1697,7 @@ std::expected<void, std::string> ScreenshotService::beginImageFileAnnotation(
   // Done writes a new screenshot file rather than overwriting the source image.
   const std::optional<std::filesystem::path> destPath =
       needsScreenshotPath(options) ? std::optional(makeScreenshotPath(options, "annotated")) : std::nullopt;
+  rememberAnnotationCaptureTarget();
   beginImageAnnotation(std::move(*image), options, destPath);
   return {};
 }
@@ -1943,6 +2000,7 @@ void ScreenshotService::captureAllOutputs(const OutputOptions& options) {
     notifyError("An annotation overlay is already active");
     return;
   }
+  rememberAnnotationCaptureTarget();
   cancelAllOutputsBatch();
   cancelGlobalRegionBatch();
   m_captureQueue.clear();
