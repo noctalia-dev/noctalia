@@ -5,14 +5,14 @@ sidebar:
   order: 10
 ---
 
-We provide an experimental notification-based (`type=notify`) systemd user service for Noctalia. If your compositor is started as a systemd user service, then instead of launching Noctalia from your compositor configuration, you can enable this service so that systemd automatically starts Noctalia after the compositor.
+We provide an experimental notification-based (`Type=notify`) systemd user service for Noctalia. If your compositor is started as a systemd user service, then instead of launching Noctalia from your compositor configuration, you can enable this service so that systemd automatically starts Noctalia after the compositor.
 
 Benefits:
 
 1. The Noctalia service blocks subsequent services having `After=graphical-session.target` (e.g. XDG autostart apps) from starting, until Noctalia finishes starting up. This cleanly fixes the race condition, where an autostart app might try to register with the systray before Noctalia starts listening on the systray D-Bus interface, thus failing to show its systray icon.
 2. Noctalia runs in its own cgroup, isolating its resource usage from other processes. And you can set resource limits for it independently in the service file.
 
-(**Note:** Nix service files haven't been updated. So they don't make use of the `type=notify` mechanism yet, and will not have the strong ordering guarantee of the point 1 above.)
+(**Note:** Nix service files haven't been updated. So they don't make use of the `Type=notify` mechanism yet, and will not have the strong ordering guarantee of the point 1 above.)
 
 ## Supported Compositors
 
@@ -73,7 +73,7 @@ These compositors do not run as systemd user services, but they start a session 
 
 #### Compositors managed by `uwsm`: Hyprland, Sway / Scroll
 
-For these compositors, `uwsm` handles starting the compositor and marking it ready. `noctalia.service` has `WantedBy=` for `wayland-session@<compositor>.desktop.target`, and `After=` for `wayland-session-waitenv.service`, which waits for the necessary environment variables (`WAYLAND_DISPLAY` and others) are set (thus the compositor is ready) before Noctalia starts.
+For these compositors, `uwsm` handles starting the compositor and marking it ready. `noctalia.service` has `WantedBy=` for `wayland-session@<compositor>.desktop.target`, and `After=` for `wayland-session-waitenv.service`, which waits until the necessary environment variables (`WAYLAND_DISPLAY` and others) are set (thus the compositor is ready) before Noctalia starts.
 
 ### Ensure Noctalia is ready before XDG autostart apps are launched
 

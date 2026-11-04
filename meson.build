@@ -1073,7 +1073,7 @@ noctalia_exe = executable('noctalia',
 noctalia_session_config = configuration_data()
 noctalia_session_config.set(
   'NOCTALIA_EXECUTABLE',
-  get_option('prefix') / get_option('bindir') / 'noctalia', 
+  get_option('prefix') / get_option('bindir') / 'noctalia',
 )
 configure_file(
   input: 'assets/noctalia.service.in',

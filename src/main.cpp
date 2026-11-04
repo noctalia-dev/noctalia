@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <format>
 #include <print>
+#include <stdexcept>
 #include <string>
 #include <unistd.h>
 
@@ -231,7 +232,8 @@ namespace {
       completeDaemonStartup(1);
       _exit(1);
     }
-    bool useNotifySocket = !isDaemonChild && process::isDirectSystemdService(getpid(), std::getenv("SYSTEMD_EXEC_PID"));
+    const bool useNotifySocket =
+        !isDaemonChild && process::isDirectSystemdService(getpid(), std::getenv("SYSTEMD_EXEC_PID"));
     const char* inheritedNotifySocket = std::getenv("NOTIFY_SOCKET");
     const std::string notifySocket = useNotifySocket && inheritedNotifySocket != nullptr ? inheritedNotifySocket : "";
     unsetenv("NOTIFY_SOCKET");
@@ -354,5 +356,5 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  return runShell(shouldDaemonize);
+  return runShell(isDaemonChild);
 }
