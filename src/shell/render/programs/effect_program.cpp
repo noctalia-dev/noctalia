@@ -416,16 +416,20 @@ void rain_addDome(vec2 uv, vec2 c, float r, inout float heightSum, inout vec2 gr
     }
 }
 
-// Static droplets on a jittered grid, each fading in and out over time so the field renews.
+// Droplets stuck to the pane on a jittered grid. Each lives 30-60 s (iTime is u_time * 0.12),
+// fading in and out, and slides down 0.5-1.2 cells over its life; bigger ones slide further.
+// Droplets only move down, so the search reaches two cells up; slides stay under 1.4 cells
+// to remain inside it.
 void rain_staticField(vec2 uv, float iTime, inout float heightSum, inout vec2 gradSum) {
     float cellSize = 0.042;
     vec2 baseCell = floor(uv / cellSize);
-    float density = rain_noise(uv * 3.2 + 11.0);
 
     for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
+        for (int dy = -2; dy <= 1; dy++) {
             vec2 cId = baseCell + vec2(float(dx), float(dy));
             vec4 h = rain_hash42(cId);
+            // Per-cell density, so a sliding droplet is never culled partway across.
+            float density = rain_noise(cId * cellSize * 3.2 + 11.0);
             float threshold = mix(0.35, 0.7, density);
             if (h.x < threshold) continue;
 
@@ -434,9 +438,11 @@ void rain_staticField(vec2 uv, float iTime, inout float heightSum, inout vec2 gr
             float sizeT = pow(h.w, 2.2);
             float r = mix(0.006, 0.024, sizeT);
 
-            float phase = rain_hash42(cId * 1.7 + 9.3).x;
-            float life = fract(iTime * 0.045 + phase);
+            vec4 lifeHash = rain_hash42(cId * 1.7 + 9.3);
+            float lifeRate = mix(1.0 / (60.0 * 0.12), 1.0 / (30.0 * 0.12), lifeHash.y);
+            float life = fract(iTime * lifeRate + lifeHash.x);
             float fade = smoothstep(0.0, 0.15, life) * smoothstep(1.0, 0.82, life);
+            c.y += life * mix(0.5, 1.2, sizeT) * cellSize;
             r *= fade;
             if (r < 0.0015) continue;
 
