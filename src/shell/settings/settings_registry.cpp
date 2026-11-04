@@ -2378,7 +2378,8 @@ namespace settings {
              {"bottom_left", "settings.options.screen-position.bottom-left"},
              {"bottom_center", "settings.options.screen-position.bottom-center"},
              {"center_right", "settings.options.screen-position.center-right"},
-             {"center_left", "settings.options.screen-position.center-left"}},
+             {"center_left", "settings.options.screen-position.center-left"},
+             {"center", "settings.options.screen-position.center"}},
             cfg.osd.position
         ),
         "hud overlay volume brightness horizontal text"
@@ -2394,7 +2395,8 @@ namespace settings {
              {"bottom_left", "settings.options.screen-position.bottom-left"},
              {"bottom_center", "settings.options.screen-position.bottom-center"},
              {"center_right", "settings.options.screen-position.center-right"},
-             {"center_left", "settings.options.screen-position.center-left"}},
+             {"center_left", "settings.options.screen-position.center-left"},
+             {"center", "settings.options.screen-position.center"}},
             cfg.osd.positionVertical
         ),
         "hud overlay volume brightness vertical slider"

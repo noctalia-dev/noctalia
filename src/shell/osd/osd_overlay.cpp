@@ -180,7 +180,7 @@ namespace {
 
   bool isBottomPosition(const std::string& position) { return position.starts_with("bottom_"); }
 
-  bool isCenterPosition(const std::string& position) { return position.starts_with("center_"); }
+  bool isCenterPosition(const std::string& position) { return position.starts_with("center_") || position == "center"; }
 
   bool isLeftPosition(const std::string& position) { return position.ends_with("_left"); }
 
@@ -376,7 +376,9 @@ bool OsdOverlay::isVisible() const {
   });
 }
 
-OsdOverlay::SurfaceMargins OsdOverlay::surfaceMarginsForPosition(const std::string& position) const {
+OsdOverlay::SurfaceMargins OsdOverlay::surfaceMarginsForPosition(
+    const std::string& position, const WaylandOutput& output, std::uint32_t surfaceWidth, std::uint32_t surfaceHeight
+) const {
   const int marginH = (m_config != nullptr) ? std::max(0, m_config->config().osd.offsetX) : 0;
   const int marginV = (m_config != nullptr) ? std::max(0, m_config->config().osd.offsetY) : 0;
   const float layoutScale = osdUiScale(m_config);
@@ -413,6 +415,13 @@ OsdOverlay::SurfaceMargins OsdOverlay::surfaceMarginsForPosition(const std::stri
   } else if (position == "center_right") {
     margins.top = 0;
     margins.bottom = 0;
+  } else if (position == "center") {
+    // layer-shell ignores margins on unanchored axes; pin top-left, center via computed margins
+    const std::int32_t centeredLeft =
+        std::max(0, (output.effectiveLogicalWidth() - static_cast<std::int32_t>(surfaceWidth)) / 2 + marginH);
+    const std::int32_t centeredTop =
+        std::max(0, (output.effectiveLogicalHeight() - static_cast<std::int32_t>(surfaceHeight)) / 2 + marginV);
+    return SurfaceMargins{.top = centeredTop,.right = 0,.bottom = 0,.left = centeredLeft,};
   }
 
   return margins;
@@ -518,7 +527,6 @@ void OsdOverlay::ensureSurfaces() {
       shell::surface_edge_inset::resolve(marginH, Style::spaceMd * layoutScale).innerPadding;
   const auto surfaceWidth = osdSurfaceWidth(layoutScale, orientation, horizontalInnerPad);
   const auto surfaceHeight = osdSurfaceHeight(layoutScale, orientation, showProgress);
-  const SurfaceMargins margins = surfaceMarginsForPosition(position);
 
   m_lastPosition = position;
   m_lastOrientation = orientation;
@@ -551,11 +559,13 @@ void OsdOverlay::ensureSurfaces() {
     if (inst->surface == nullptr) {
       continue;
     }
-    if (inst->surface->marginTop() != margins.top
-        || inst->surface->marginRight() != margins.right
-        || inst->surface->marginBottom() != margins.bottom
-        || inst->surface->marginLeft() != margins.left) {
-      inst->surface->setMargins(margins.top, margins.right, margins.bottom, margins.left);
+    const WaylandOutput* wlOutput = m_wayland->findOutputByWl(inst->output);
+    const SurfaceMargins outputMargins = surfaceMarginsForPosition(position, *wlOutput, surfaceWidth, surfaceHeight);
+    if (inst->surface->marginTop() != outputMargins.top
+        || inst->surface->marginRight() != outputMargins.right
+        || inst->surface->marginBottom() != outputMargins.bottom
+        || inst->surface->marginLeft() != outputMargins.left) {
+      inst->surface->setMargins(outputMargins.top, outputMargins.right, outputMargins.bottom, outputMargins.left);
     }
     if (inst->surface->width() != surfaceWidth || inst->surface->height() != surfaceHeight) {
       inst->surface->requestSize(surfaceWidth, surfaceHeight);
@@ -600,7 +610,11 @@ void OsdOverlay::ensureSurfaces() {
       anchor = LayerShellAnchor::Left;
     } else if (position == "center_right") {
       anchor = LayerShellAnchor::Right;
+    } else if (position == "center") {
+      anchor = LayerShellAnchor::Top | LayerShellAnchor::Left;
     }
+
+    const SurfaceMargins outputMargins = surfaceMarginsForPosition(position, output, surfaceWidth, surfaceHeight);
 
     auto surfaceConfig = LayerSurfaceConfig{
         .nameSpace = "noctalia-osd",
@@ -609,10 +623,10 @@ void OsdOverlay::ensureSurfaces() {
         .width = surfaceWidth,
         .height = surfaceHeight,
         .exclusiveZone = 0,
-        .marginTop = margins.top,
-        .marginRight = margins.right,
-        .marginBottom = margins.bottom,
-        .marginLeft = margins.left,
+        .marginTop = outputMargins.top,
+        .marginRight = outputMargins.right,
+        .marginBottom = outputMargins.bottom,
+        .marginLeft = outputMargins.left,
         .keyboard = LayerShellKeyboard::None,
         .defaultWidth = surfaceWidth,
         .defaultHeight = surfaceHeight,
