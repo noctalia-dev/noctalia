@@ -2,11 +2,14 @@
 
 #include "render/animation/animation_manager.h"
 #include "shell/control_center/tab.h"
+#include "shell/control_center/tabs/rain_droplet_simulation.h"
+#include "shell/control_center/tabs/snowflake_simulation.h"
 #include "shell/render/shell_render_styles.h"
 
 #include <array>
 #include <cstdint>
 
+class Box;
 class EffectNode;
 class Flex;
 class Glyph;
@@ -90,6 +93,9 @@ private:
   std::array<Label*, kForecastRowCount> m_forecastTemps{};
   std::array<InputArea*, kForecastRowCount> m_forecastHitAreas{};
   EffectNode* m_effectNode = nullptr;
+  // Surface-colored scrim between the effect and the card's text, keeping text contrast
+  // independent of each effect shader's brightness.
+  Box* m_scrimNode = nullptr;
   EffectType m_activeEffect = EffectType::None;
   ForecastView m_forecastView = ForecastView::Daily;
   int m_forecastSlideDirection = 0;
@@ -99,4 +105,6 @@ private:
   float m_forecastRowsBaseX = 0.0F;
   float m_forecastRowsBaseY = 0.0F;
   float m_shaderTime = 0.0F;
+  RainDropletSimulation m_rainDrops;
+  SnowflakeSimulation m_snowFlakes;
 };

@@ -11,6 +11,7 @@
 #include "shell/render/effect_node.h"
 #include "system/weather_service.h"
 #include "ui/builders.h"
+#include "ui/controls/box.h"
 
 #include <algorithm>
 #include <chrono>
@@ -27,6 +28,9 @@ namespace {
   constexpr EffectType kTestEffect = EffectType::None;
 
   constexpr float kCurrentGlyphSize = Style::controlHeightLg * 2.2F;
+
+  // How much to dim the weather effect's background scrim for text contrast.
+  constexpr float kWeatherScrimAlpha = 0.45F;
 
   std::string windDirectionLabel(int degrees) {
     static constexpr std::array<const char*, 8> kDirs = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
@@ -84,6 +88,16 @@ std::unique_ptr<Flex> WeatherTab::create() {
   effectNode->setVisible(false);
   effectNode->setRadius(Style::scaledRadiusXl(scale));
   m_effectNode = static_cast<EffectNode*>(currentCard->addChild(std::move(effectNode)));
+
+  // Same zIndex as the effect (-1, behind the layout content at 0) but added after it, so
+  // stable insertion order keeps it painted on top of the effect and below the text.
+  auto scrimNode = std::make_unique<Box>();
+  scrimNode->setParticipatesInLayout(false);
+  scrimNode->setZIndex(-1);
+  scrimNode->setVisible(false);
+  scrimNode->setFill(colorSpecFromRole(ColorRole::Surface, kWeatherScrimAlpha));
+  scrimNode->setRadius(Style::scaledRadiusXl(scale));
+  m_scrimNode = static_cast<Box*>(currentCard->addChild(std::move(scrimNode)));
 
   auto glyphColumn = ui::row(
       {.out = &m_glyphColumn,
@@ -628,6 +642,10 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     m_effectNode->setPosition(0.0F, 0.0F);
     m_effectNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
   }
+  if (m_scrimNode != nullptr && m_currentCard != nullptr) {
+    m_scrimNode->setPosition(0.0F, 0.0F);
+    m_scrimNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
+  }
 
   // The weather tab derives several width constraints from the first measurement
   // pass. Run layout again so the final geometry reflects those constraints
@@ -636,6 +654,9 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
 
   if (m_effectNode != nullptr && m_currentCard != nullptr) {
     m_effectNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
+  }
+  if (m_scrimNode != nullptr && m_currentCard != nullptr) {
+    m_scrimNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
   }
 
   for (std::size_t i = 0; i < kForecastRowCount; ++i) {
@@ -729,8 +750,11 @@ void WeatherTab::onClose() {
   m_forecastTemps.fill(nullptr);
   m_forecastHitAreas.fill(nullptr);
   m_effectNode = nullptr;
+  m_scrimNode = nullptr;
   m_activeEffect = EffectType::None;
   m_shaderTime = 0.0F;
+  m_rainDrops.reset();
+  m_snowFlakes.reset();
 }
 
 void WeatherTab::sync(Renderer& renderer) {
@@ -1007,11 +1031,17 @@ void WeatherTab::sync(Renderer& renderer) {
     if (newEffect != m_activeEffect) {
       m_activeEffect = newEffect;
       m_shaderTime = 0.0F;
+      m_rainDrops.reset();
+      m_snowFlakes.reset();
     }
     m_effectNode->setEffectType(m_activeEffect);
     m_effectNode->setBgColor(colorForRole(ColorRole::Surface));
+    m_effectNode->setAccentColor(colorForRole(ColorRole::Primary));
     m_effectNode->setRadius(Style::scaledRadiusXl(contentScale()));
     m_effectNode->setVisible(m_activeEffect != EffectType::None);
+    if (m_scrimNode != nullptr) {
+      m_scrimNode->setVisible(m_activeEffect != EffectType::None);
+    }
   }
 }
 
@@ -1177,18 +1207,32 @@ std::string WeatherTab::weekdayLabel(const std::string& isoDate) {
 void WeatherTab::hideEffect() {
   m_activeEffect = EffectType::None;
   m_shaderTime = 0.0F;
+  m_rainDrops.reset();
+  m_snowFlakes.reset();
   if (m_effectNode != nullptr) {
     m_effectNode->setEffectType(EffectType::None);
     m_effectNode->setVisible(false);
   }
+  if (m_scrimNode != nullptr) {
+    m_scrimNode->setVisible(false);
+  }
 }
 
-void WeatherTab::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
+void WeatherTab::onFrameTick(float deltaMs, Renderer& renderer) {
   if (m_effectNode == nullptr || !m_effectNode->visible() || m_activeEffect == EffectType::None) {
     return;
   }
-  m_shaderTime += deltaMs * 0.001F;
+  const float deltaSeconds = deltaMs * 0.001F;
+  m_shaderTime += deltaSeconds;
   m_effectNode->setTime(m_shaderTime);
+
+  if (m_activeEffect == EffectType::Rain) {
+    m_rainDrops.update(deltaSeconds);
+    m_effectNode->setParticles(renderer.textureManager(), m_rainDrops.particles());
+  } else if (m_activeEffect == EffectType::Snow) {
+    m_snowFlakes.update(deltaSeconds);
+    m_effectNode->setParticles(renderer.textureManager(), m_snowFlakes.particles());
+  }
 }
 
 EffectType WeatherTab::effectForWeatherCode(std::int32_t code, bool isDay) {
