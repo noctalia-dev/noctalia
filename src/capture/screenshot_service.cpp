@@ -1096,7 +1096,7 @@ ext_foreign_toplevel_handle_v1* ScreenshotService::liveAnnotationCaptureTarget()
     return nullptr;
   }
   bool live = false;
-  m_wayland.visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* candidate) {
+  m_platform.foreignToplevels().visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* candidate) {
     live = live || candidate == m_annotationCaptureTarget;
   });
   return live ? m_annotationCaptureTarget : nullptr;
