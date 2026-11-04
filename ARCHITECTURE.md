@@ -44,7 +44,7 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 
 **Library** (`lib/`): `core`, `i18n`, `render`, `ui`, `util`, and `wayland` form the `noctalia-ui` static library. It builds without `src/` on its include path and generates only the Wayland protocols it binds, so it never includes shell code, shell-only protocol headers, or build metadata such as the git revision.
 
-**Shell and widget code** (`src/shell/`) uses only controls from `lib/ui/controls/` (`Label`, `Button`, `Glyph`, `Box`, `Separator`, ...). It never creates raw scene nodes such as `TextNode`, `RectNode`, or `IconNode`. `InputArea` is the only exception. Use `Box` for backgrounds, `Separator` for dividers, and `Label` for text.
+**Shell and widget code** (`src/shell/`) uses only controls from `lib/ui/controls/` (`Label`, `Button`, `Glyph`, `Box`, `Separator`, ...) and the shell-owned controls in `src/shell/controls/` (`MarkdownView`, `SearchPicker`, `ColorPicker`, `GlyphPicker`). It never creates raw scene nodes such as `TextNode`, `RectNode`, or `IconNode`. `InputArea` is the only exception. Use `Box` for backgrounds, `Separator` for dividers, and `Label` for text.
 
 **Controls** (`lib/ui/controls/`) own the raw nodes.
 

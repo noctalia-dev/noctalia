@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ui/controls/glyph_picker.h"
+#include "shell/controls/glyph_picker.h"
 
 #include <functional>
 #include <optional>

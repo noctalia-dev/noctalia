@@ -15,7 +15,6 @@
 #include "ui/controls/radio_button.h"
 #include "ui/controls/range_slider.h"
 #include "ui/controls/scroll_view.h"
-#include "ui/controls/search_picker.h"
 #include "ui/controls/segmented.h"
 #include "ui/controls/select.h"
 #include "ui/controls/separator.h"
@@ -466,24 +465,6 @@ namespace ui {
     std::function<void(VirtualListView&)> configure = nullptr;
   };
 
-  struct SearchPickerProps {
-    SearchPicker** out = nullptr;
-    std::optional<std::string> placeholder = std::nullopt;
-    std::optional<std::string> emptyText = std::nullopt;
-    std::optional<std::string> selectedValue = std::nullopt;
-    std::optional<std::vector<SearchPickerOption>> options = std::nullopt;
-    std::optional<bool> enabled = std::nullopt;
-    std::optional<float> width = std::nullopt;
-    std::optional<float> height = std::nullopt;
-    std::optional<float> flexGrow = std::nullopt;
-    std::optional<float> opacity = std::nullopt;
-    std::optional<bool> visible = std::nullopt;
-    std::optional<bool> participatesInLayout = std::nullopt;
-    std::function<void(const SearchPickerOption&)> onActivated = nullptr;
-    std::function<void()> onCancel = nullptr;
-    std::function<void(SearchPicker&)> configure = nullptr;
-  };
-
   struct ToggleProps {
     Toggle** out = nullptr;
     std::optional<bool> checked = std::nullopt;
@@ -623,7 +604,6 @@ namespace ui {
   [[nodiscard]] std::unique_ptr<ScrollView> scrollView(ScrollViewProps props = {});
   [[nodiscard]] std::unique_ptr<VirtualGridView> virtualGridView(VirtualGridViewProps props);
   [[nodiscard]] std::unique_ptr<VirtualListView> virtualListView(VirtualListViewProps props);
-  [[nodiscard]] std::unique_ptr<SearchPicker> searchPicker(SearchPickerProps props);
   [[nodiscard]] std::unique_ptr<Toggle> toggle(ToggleProps props);
   [[nodiscard]] std::unique_ptr<Checkbox> checkbox(CheckboxProps props);
   [[nodiscard]] std::unique_ptr<RadioButton> radioButton(RadioButtonProps props);

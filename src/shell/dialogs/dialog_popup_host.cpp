@@ -1,4 +1,4 @@
-#include "ui/dialogs/dialog_popup_host.h"
+#include "shell/dialogs/dialog_popup_host.h"
 
 #include "core/deferred_call.h"
 #include "core/input/keybind_matcher.h"

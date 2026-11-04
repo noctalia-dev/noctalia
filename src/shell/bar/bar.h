@@ -6,7 +6,7 @@
 #include "shell/bar/bar_services.h"
 #include "shell/bar/widget_action_dispatcher.h"
 #include "shell/bar/widget_factory.h"
-#include "ui/dialogs/layer_popup_host.h"
+#include "shell/dialogs/layer_popup_host.h"
 #include "wayland/surface.h"
 
 #include <chrono>

@@ -1,4 +1,4 @@
-#include "core/files/directory_scanner.h"
+#include "system/directory_scanner.h"
 
 #include "util/string_utils.h"
 

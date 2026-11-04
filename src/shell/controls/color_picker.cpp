@@ -1,4 +1,4 @@
-#include "ui/controls/color_picker.h"
+#include "shell/controls/color_picker.h"
 
 #include "core/text_clipboard.h"
 #include "cursor-shape-v1-client-protocol.h"

@@ -881,39 +881,6 @@ namespace ui {
     return control;
   }
 
-  std::unique_ptr<SearchPicker> searchPicker(SearchPickerProps props) {
-    auto control = std::make_unique<SearchPicker>();
-    if (props.placeholder.has_value()) {
-      control->setPlaceholder(*props.placeholder);
-    }
-    if (props.emptyText.has_value()) {
-      control->setEmptyText(*props.emptyText);
-    }
-    if (props.selectedValue.has_value()) {
-      control->setSelectedValue(*props.selectedValue);
-    }
-    if (props.options.has_value()) {
-      control->setOptions(std::move(*props.options));
-    }
-    if (props.onActivated) {
-      control->setOnActivated(std::move(props.onActivated));
-    }
-    if (props.onCancel) {
-      control->setOnCancel(std::move(props.onCancel));
-    }
-    if (props.enabled.has_value()) {
-      control->setEnabled(*props.enabled);
-    }
-    applyNodeProps(*control, props);
-    if (props.configure) {
-      props.configure(*control);
-    }
-    if (props.out != nullptr) {
-      *props.out = control.get();
-    }
-    return control;
-  }
-
   std::unique_ptr<Toggle> toggle(ToggleProps props) {
     auto control = std::make_unique<Toggle>();
     if (props.scale.has_value()) {

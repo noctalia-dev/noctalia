@@ -1,6 +1,6 @@
 #include "launcher/dmenu_stdin_provider.h"
 
-#include "util/fuzzy_match.h"
+#include "launcher/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

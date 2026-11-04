@@ -1,4 +1,4 @@
-#include "ui/dialogs/file_dialog_popup.h"
+#include "shell/dialogs/file_dialog_popup.h"
 
 #include "render/render_context.h"
 #include "render/scene/input_dispatcher.h"

@@ -1,4 +1,4 @@
-#include "ui/dialogs/file_dialog.h"
+#include "shell/dialogs/file_dialog.h"
 
 #include "i18n/i18n.h"
 

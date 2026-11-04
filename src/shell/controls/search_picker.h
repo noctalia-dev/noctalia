@@ -7,6 +7,8 @@
 
 #include <cstddef>
 #include <functional>
+#include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -76,3 +78,27 @@ private:
   std::function<void()> m_onCancel;
   bool m_enabled = true;
 };
+
+namespace ui {
+
+  struct SearchPickerProps {
+    SearchPicker** out = nullptr;
+    std::optional<std::string> placeholder = std::nullopt;
+    std::optional<std::string> emptyText = std::nullopt;
+    std::optional<std::string> selectedValue = std::nullopt;
+    std::optional<std::vector<SearchPickerOption>> options = std::nullopt;
+    std::optional<bool> enabled = std::nullopt;
+    std::optional<float> width = std::nullopt;
+    std::optional<float> height = std::nullopt;
+    std::optional<float> flexGrow = std::nullopt;
+    std::optional<float> opacity = std::nullopt;
+    std::optional<bool> visible = std::nullopt;
+    std::optional<bool> participatesInLayout = std::nullopt;
+    std::function<void(const SearchPickerOption&)> onActivated = nullptr;
+    std::function<void()> onCancel = nullptr;
+    std::function<void(SearchPicker&)> configure = nullptr;
+  };
+
+  [[nodiscard]] std::unique_ptr<SearchPicker> searchPicker(SearchPickerProps props);
+
+} // namespace ui

@@ -356,8 +356,7 @@ _noctalia_cpp_args = [
 ] + _noctalia_compile_definitions
 
 # ── UI library ────────────────────────────────────────────────────────────────
-# Provides noctalia_ui_lib, noctalia_ui_dep, noctalia_ui_protocol_headers and
-# noctalia_ui_link_whole_dependencies.
+# Provides noctalia_ui_lib, noctalia_ui_dep and noctalia_ui_protocol_headers.
 subdir('lib')
 
 # ── Shell Wayland protocols ───────────────────────────────────────────────────
@@ -548,6 +547,7 @@ _noctalia_sources = files(
   'src/launcher/dmenu_socket_path.cpp',
   'src/launcher/dmenu_stdin_provider.cpp',
   'src/launcher/emoji_provider.cpp',
+  'src/launcher/fuzzy_match.cpp',
   'src/launcher/math_provider.cpp',
   'src/launcher/panel_catalog.cpp',
   'src/launcher/panel_provider.cpp',
@@ -765,6 +765,22 @@ _noctalia_sources = files(
   'src/shell/wallpaper/panel/wallpaper_tile.cpp',
   'src/shell/keyboard_layout_label.cpp',
   'src/shell/app_icon_colorization_settings.cpp',
+  'src/shell/controls/color_picker.cpp',
+  'src/shell/controls/glyph_picker.cpp',
+  'src/shell/controls/markdown_view.cpp',
+  'src/shell/controls/search_picker.cpp',
+  'src/shell/dialogs/color_picker_dialog.cpp',
+  'src/shell/dialogs/color_picker_dialog_popup.cpp',
+  'src/shell/dialogs/dialog_popup_host.cpp',
+  'src/shell/dialogs/file_dialog.cpp',
+  'src/shell/dialogs/file_dialog_popup.cpp',
+  'src/shell/dialogs/file_dialog_view.cpp',
+  'src/shell/dialogs/file_entry_row.cpp',
+  'src/shell/dialogs/file_entry_tile.cpp',
+  'src/shell/dialogs/glyph_picker_dialog.cpp',
+  'src/shell/dialogs/glyph_picker_dialog_popup.cpp',
+  'src/shell/dialogs/layer_popup_host.cpp',
+  'src/shell/dialogs/search_picker_popup.cpp',
   'src/shell/bar/widget.cpp',
   'src/shell/bar/widget_action.cpp',
   'src/shell/bar/widget_action_dispatcher.cpp',
@@ -841,6 +857,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/workspaces_widget_definition.cpp',
   'src/system/dependency_service.cpp',
   'src/system/v4l2_camera.cpp',
+  'src/system/directory_scanner.cpp',
   'src/system/desktop_entry.cpp',
   'src/system/freedesktop_key_file.cpp',
   'src/system/desktop_entry_launch.cpp',
@@ -882,6 +899,7 @@ _noctalia_sources = files(
   'src/system/system_monitor_service.cpp',
   'src/system/weather_service.cpp',
   'src/time/time_service.cpp',
+  'src/time/time_format.cpp',
   'src/shell/calendar/calendar_view.cpp',
   'src/scripting/ui/pixel_stream_view.cpp',
   'src/scripting/ui/ui_tree_reconciler.cpp',
@@ -1028,17 +1046,20 @@ _noctalia_system_dependencies = [
   nlohmann_dep,
   libxml2_dep,
   libical_dep,
+  md4c_dep,
   tomlplusplus_dep,
   libwebp_dep,
   sndfile_dep,
 ] + jemalloc_deps + (dl_dep.found() ? [dl_dep] : [])
 
 _noctalia_dependencies = _noctalia_system_dependencies + [
+  fzy_dep,
   mcu_dep,
   luau_dep,
 ]
 
 _noctalia_test_dependencies = _noctalia_system_dependencies + [
+  _fzy_selective_dep,
   _mcu_selective_dep,
   _luau_selective_dep,
   noctalia_ui_dep,
@@ -1064,7 +1085,7 @@ noctalia_core_dep = declare_dependency(
 
 noctalia_exe = executable('noctalia',
   sources: files('src/main.cpp') + _protocol_headers,
-  dependencies: _noctalia_dependencies + noctalia_ui_link_whole_dependencies + [noctalia_ui_dep],
+  dependencies: _noctalia_dependencies + [noctalia_ui_dep],
   include_directories: _noctalia_inc,
   cpp_args: _noctalia_cpp_args,
   objects: [
@@ -1135,7 +1156,6 @@ if build_tests
     'log',
     'process',
     'string_utils',
-    'time_format',
     'virtual_grid_view_gesture',
     'wayland_output_scale',
     'webp_decoder',
@@ -1268,6 +1288,7 @@ if build_tests
     'template_hook_async',
     'template_hook_runner',
     'theme_shell_mode',
+    'time_format',
     'toplevel_thumbnail_capture',
     'tray_identifier',
     'tray_theme_path_index',

@@ -1,5 +1,5 @@
+#include "shell/dialogs/file_dialog.h"
 #include "shell/settings/path_browse.h"
-#include "ui/dialogs/file_dialog.h"
 
 #include <filesystem>
 #include <fstream>

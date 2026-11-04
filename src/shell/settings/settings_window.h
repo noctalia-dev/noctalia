@@ -6,6 +6,8 @@
 #include "render/scene/node.h"
 #include "scripting/plugin_file_cache.h"
 #include "scripting/plugin_manager.h"
+#include "shell/dialogs/layer_popup_host.h"
+#include "shell/dialogs/search_picker_popup.h"
 #include "shell/settings/config_export_dialog_modal.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_modal_host.h"
@@ -16,8 +18,6 @@
 #include "ui/controls/roving_list_nav.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select_dropdown_popup.h"
-#include "ui/dialogs/layer_popup_host.h"
-#include "ui/dialogs/search_picker_popup.h"
 #include "wayland/toplevel_surface.h"
 
 #include <cstdint>

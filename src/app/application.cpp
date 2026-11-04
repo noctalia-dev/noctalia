@@ -39,6 +39,10 @@
 #include "scripting/plugin_runtime_context.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/control_center/control_center_panel.h"
+#include "shell/dialogs/color_picker_dialog.h"
+#include "shell/dialogs/file_dialog.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
+#include "shell/dialogs/search_picker_popup.h"
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
@@ -55,10 +59,6 @@
 #include "system/easyeffects_service.h"
 #include "system/keyboard_backlight_service.h"
 #include "system/system_monitor_service.h"
-#include "ui/dialogs/color_picker_dialog.h"
-#include "ui/dialogs/file_dialog.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
-#include "ui/dialogs/search_picker_popup.h"
 
 #include <chrono>
 #include <cstring>

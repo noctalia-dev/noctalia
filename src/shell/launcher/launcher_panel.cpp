@@ -9,6 +9,7 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "launcher/app_provider.h"
+#include "launcher/fuzzy_match.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/renderer.h"
@@ -27,7 +28,6 @@
 #include "ui/palette.h"
 #include "ui/signal.h"
 #include "ui/style.h"
-#include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

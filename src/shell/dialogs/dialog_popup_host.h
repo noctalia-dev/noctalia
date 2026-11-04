@@ -2,7 +2,7 @@
 
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
-#include "ui/dialogs/layer_popup_host.h"
+#include "shell/dialogs/layer_popup_host.h"
 #include "ui/popup_chrome.h"
 #include "wayland/popup_surface.h"
 

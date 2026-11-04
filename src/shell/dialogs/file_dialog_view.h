@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core/files/directory_scanner.h"
 #include "render/core/thumbnail_service.h"
-#include "ui/dialogs/file_dialog.h"
+#include "shell/dialogs/file_dialog.h"
+#include "system/directory_scanner.h"
 
 #include <cstddef>
 #include <filesystem>

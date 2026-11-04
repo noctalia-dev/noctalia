@@ -1,4 +1,4 @@
-#include "ui/dialogs/glyph_picker_dialog.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 
 #include "i18n/i18n.h"
 

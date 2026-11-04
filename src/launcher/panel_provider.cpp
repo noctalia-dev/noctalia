@@ -3,10 +3,10 @@
 #include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
+#include "launcher/fuzzy_match.h"
 #include "launcher/panel_catalog.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/panel/panel_manager.h"
-#include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

@@ -1,4 +1,4 @@
-#include "util/fuzzy_match.h"
+#include "launcher/fuzzy_match.h"
 
 #include "fzy/match.h"
 #include "util/string_utils.h"

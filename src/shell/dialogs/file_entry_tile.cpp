@@ -1,9 +1,9 @@
-#include "ui/dialogs/file_entry_tile.h"
+#include "shell/dialogs/file_entry_tile.h"
 
-#include "core/files/directory_scanner.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/core/thumbnail_service.h"
+#include "system/directory_scanner.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"

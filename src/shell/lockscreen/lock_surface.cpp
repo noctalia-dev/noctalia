@@ -2,7 +2,6 @@
 
 #include "capture/screencopy_capture.h"
 #include "core/log.h"
-#include "core/time_format.h"
 #include "core/ui_phase.h"
 #include "dbus/mpris/mpris_art.h"
 #include "dbus/mpris/mpris_service.h"
@@ -20,6 +19,7 @@
 #include "shell/session/session_action_meta.h"
 #include "shell/session/session_action_runner.h"
 #include "system/weather_service.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/image.h"

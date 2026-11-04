@@ -1,4 +1,4 @@
-#include "ui/dialogs/color_picker_dialog.h"
+#include "shell/dialogs/color_picker_dialog.h"
 
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"

@@ -1,10 +1,10 @@
 #include "shell/desktop/widgets/desktop_clock_widget.h"
 
-#include "core/time_format.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
 #include "render/scene/rect_node.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"

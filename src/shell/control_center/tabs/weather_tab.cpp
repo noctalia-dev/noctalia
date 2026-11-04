@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "core/log.h"
-#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
@@ -11,6 +10,7 @@
 #include "shell/panel/panel_manager.h"
 #include "shell/render/weather_effect_node.h"
 #include "system/weather_service.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 

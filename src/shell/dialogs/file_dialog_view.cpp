@@ -1,4 +1,4 @@
-#include "ui/dialogs/file_dialog_view.h"
+#include "shell/dialogs/file_dialog_view.h"
 
 #include "core/deferred_call.h"
 #include "core/input/key_modifiers.h"
@@ -9,6 +9,8 @@
 #include "render/core/renderer.h"
 #include "render/core/thumbnail_service.h"
 #include "render/scene/input_area.h"
+#include "shell/dialogs/file_entry_row.h"
+#include "shell/dialogs/file_entry_tile.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
@@ -16,8 +18,6 @@
 #include "ui/controls/label.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/virtual_grid_view.h"
-#include "ui/dialogs/file_entry_row.h"
-#include "ui/dialogs/file_entry_tile.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
 

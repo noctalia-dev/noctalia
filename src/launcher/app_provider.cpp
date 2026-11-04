@@ -4,10 +4,10 @@
 #include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
+#include "launcher/fuzzy_match.h"
 #include "launcher/launcher_provider.h"
 #include "shell/panel/panel_manager.h"
 #include "system/desktop_entry_launch.h"
-#include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

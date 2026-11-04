@@ -1,28 +1,29 @@
 #pragma once
 
-#include "ui/dialogs/dialog_popup_host.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
+#include "shell/dialogs/color_picker_dialog.h"
+#include "shell/dialogs/dialog_popup_host.h"
 
-class GlyphPicker;
+#include <memory>
+
+class ColorPickerSheet;
 class SelectDropdownPopup;
 struct KeyboardEvent;
 struct PointerEvent;
-struct wl_surface;
 
-class GlyphPickerDialogPopup final : public DialogPopupHost, public GlyphPickerDialogPresenter {
+class ColorPickerDialogPopup final : public DialogPopupHost, public ColorPickerDialogPresenter {
 public:
-  ~GlyphPickerDialogPopup() override;
+  ~ColorPickerDialogPopup() override;
 
   void initialize(
       WaylandConnection& wayland, DialogPopupSettingsProvider settings, RenderContext& renderContext,
       LayerPopupHostRegistry& popupHosts
   );
 
-  [[nodiscard]] bool openGlyphPicker() override;
-  void closeGlyphPickerWithoutResult() override;
+  [[nodiscard]] bool openColorPicker() override;
+  void closeColorPickerWithoutResult() override;
+  // The format dropdown opens as a child popup; it gets input first while open.
   bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
-  bool ownsSelectDropdownSurface(wl_surface* surface) const noexcept;
 
 protected:
   void populateContent(Node* contentParent, std::uint32_t width, std::uint32_t height) override;
@@ -32,8 +33,8 @@ protected:
   void onSheetClose() override;
 
 private:
-  void accept(const GlyphPickerResult& result);
+  void accept(const Color& result);
 
-  GlyphPicker* m_sheet = nullptr;
+  ColorPickerSheet* m_sheet = nullptr;
   std::unique_ptr<SelectDropdownPopup> m_selectPopup;
 };

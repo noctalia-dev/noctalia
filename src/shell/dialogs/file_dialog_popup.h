@@ -1,8 +1,8 @@
 #pragma once
 
-#include "ui/dialogs/dialog_popup_host.h"
-#include "ui/dialogs/file_dialog.h"
-#include "ui/dialogs/file_dialog_view.h"
+#include "shell/dialogs/dialog_popup_host.h"
+#include "shell/dialogs/file_dialog.h"
+#include "shell/dialogs/file_dialog_view.h"
 
 #include <filesystem>
 #include <memory>

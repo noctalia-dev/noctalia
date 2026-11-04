@@ -197,7 +197,6 @@ lib/                Shared UI library (noctalia-ui); built without src/ on its i
     text/           Cairo/Pango text and glyph rendering
   ui/
     controls/       Reusable controls (Button, Input, Label, Select, Slider, Box, ...)
-    dialogs/        File, color, and glyph picker dialogs
   util/             Generic helpers
   wayland/          Wayland connection, registry extensions, seats, xdg toplevel/popup/sub surfaces, text input
 src/
@@ -226,7 +225,7 @@ src/
   hooks/            User hook state and hook manager
   idle/             Idle manager, inhibitor, grace overlay
   ipc/              IPC client/service, CLI command parsing, plugin pixel stream companion protocol
-  launcher/         Launcher providers (apps, emoji, calculator, sessions, windows, plugins)
+  launcher/         Launcher providers (apps, emoji, calculator, sessions, windows, plugins), fuzzy matching
   net/              HTTP client, URI parsing, URL opening
   notification/     Notification model, manager, filtering, history
   pipewire/         PipeWire audio service, sound playback, spectrum analyzer
@@ -237,8 +236,10 @@ src/
       widgets/      Bar widget implementations
     clipboard/      Clipboard history panel and paste helpers
     control_center/ Control center panel, tabs, shortcut registry
+    controls/       Shell-owned controls: markdown view, search picker, color and glyph pickers
     desktop/        Desktop widget host, factory, layout, editor support
       widgets/      Desktop widget implementations
+    dialogs/        Dialog popup hosts; file, color, glyph, and search picker dialogs
     dock/           Dock surface, model, pinned apps, context menu
     greeter/        Greeter appearance sync
     launcher/       Launcher panel
@@ -261,9 +262,9 @@ src/
     wallpaper/      Wallpaper surfaces, paths, picker panel
     wayland/        Shell-only Wayland extensions: layer shell and layer surfaces, blur, toplevels, workspaces, clipboard, capture, idle, output heads, focus grab
     widgets_editor/ Background widget editor
-  system/           Desktop entries, brightness, weather, location, system monitor, hardware services
+  system/           Desktop entries, directory scanning, brightness, weather, location, system monitor, hardware services
   theme/            Palette generation, templates, theme service, template application
-  time/             Time service and polling
+  time/             Time service, polling, and time formatting
 assets/
   fonts/            Bundled Noctalia Tabler and UI fonts
   sounds/           Notification and UI sounds

@@ -1,4 +1,4 @@
-#include "ui/controls/glyph_picker.h"
+#include "shell/controls/glyph_picker.h"
 
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
