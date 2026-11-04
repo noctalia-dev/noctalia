@@ -3,6 +3,7 @@
 #include "ui/surface_shadow.h"
 
 #include <cstdint>
+#include <vector>
 
 class Box;
 class Node;
@@ -60,6 +61,8 @@ namespace popup_chrome {
   // Rounded popup card background at the fixed content rect. Hosts that scroll a
   // ContextMenuControl draw the card here so its corners stay pinned to the viewport
   // instead of scrolling away with the rows.
-  Box* addCardBackground(Node& parent, const Geometry& geometry, float contentScale);
+  Box* addCardBackground(Node& parent, const Geometry& geometry, float contentScale, float fillOpacity = 1.0F);
+  // Surface-local strips covering the card addCardBackground draws, for a compositor blur region.
+  std::vector<InputRect> cardRegion(const Geometry& geometry, float contentScale);
 
 } // namespace popup_chrome

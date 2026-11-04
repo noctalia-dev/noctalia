@@ -106,6 +106,7 @@ namespace settings {
     std::function<void()> afterNotificationFilterApply;
     std::function<void()> closeHostedEditor;
     bool supportsTaskbarWorkspaceGrouping = true;
+    bool backgroundEffectBlurSupported = false;
   };
 
   std::size_t

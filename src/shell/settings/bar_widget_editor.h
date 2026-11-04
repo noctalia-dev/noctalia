@@ -78,6 +78,7 @@ namespace settings {
     std::function<void(Flex&, const SettingEntry&, const ListSetting&)> makeListBlock;
     std::function<void(Flex&, const SettingEntry&, const StringMapSetting&)> makeStringMapBlock;
     bool supportsTaskbarWorkspaceGrouping = true;
+    bool backgroundEffectBlurSupported = false;
   };
 
   bool isBarWidgetListPath(const std::vector<std::string>& path);
