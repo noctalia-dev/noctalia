@@ -87,7 +87,12 @@ sdbus-c++ async reply handlers take the error as `std::optional<sdbus::Error>` b
 | Functions / Methods    | camelCase            | `createWidget()`     |
 | Variables / Parameters | camelCase            | `busName`            |
 | Private members        | m_camelCase          | `m_changeCallback`   |
-| Macros / Enum values   | SCREAMING_SNAKE_CASE | `MAX_SIZE`           |
+| Enumerators            | PascalCase           | `TextAlign::Center`  |
+| Macros                 | SCREAMING_SNAKE_CASE | `MAX_SIZE`           |
+
+Scoped enums (`enum class`) use an explicit `std::uint8_t` underlying type where it makes sense.
+
+Getters are the noun, without a `get` prefix: `width()`, `selected()`, `textureManager()`.
 
 D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_case because they are wire names, not C++ identifiers.
 
