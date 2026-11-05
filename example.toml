@@ -17,6 +17,7 @@ offline_mode          = false        # block all outgoing HTTP when true
 # panel_anchor_bar   = "main"        # bar panels attach to without a source bar; omit = first enabled bar
 telemetry_enabled     = false        # send an anonymous startup ping
 niri_overview_type_to_launch_enabled = false # opt in to type-to-launch from niri overview
+umbriel_logout_wait_for_clients_enabled = true # wait for apps on Umbriel logout; false kills this session's app scopes
 polkit_colorize_icons = false       # tint identified application icons in authentication prompts
 screen_time_colorize_icons = false  # tint application icons in Screen Time
 polkit_agent          = false

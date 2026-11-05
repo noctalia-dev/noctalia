@@ -111,6 +111,17 @@ Noctalia tracks Umbriel's minimise state in the [taskbar](/noctalia/bar/widgets/
 
 Use an Umbriel build that includes both boolean fields `minimized` and `minimizable` in its window IPC snapshots. If those fields are missing or invalid, or the IPC connection is unavailable, minimise state and controls remain unavailable. Missing or invalid fields are reported in Noctalia's logs; update Umbriel when using an older build.
 
+## Logout behavior
+
+**Settings, Umbriel, Session** contains **Wait for Apps on Logout**, enabled by default. Disabling it force-kills only application scopes created by this Umbriel compositor, then quits within a few seconds. Save your work first. System processes and user services are not force-killed. Reboot and shutdown are unaffected.
+
+```toml
+[shell]
+umbriel_logout_wait_for_clients_enabled = true
+```
+
+Older Umbriel builds fall back to their normal graceful logout when they reject the new request field.
+
 ## Optional Type to Launch
 
 Noctalia can open its launcher when you start typing in umbriel's overview.
