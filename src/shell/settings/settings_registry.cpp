@@ -1835,6 +1835,16 @@ namespace settings {
     }
     {
       auto e = makeEntry(
+          SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.keyboard.label"),
+          tr("settings.schema.lockscreen.keyboard.description"), {"lockscreen", "keyboard"},
+          asSegmented(enumSelect(kOnScreenKeyboardModes, cfg.lockscreen.keyboard)),
+          "on-screen virtual keyboard osk touch tablet phone"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
           SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.grace-period.label"),
           tr("settings.schema.lockscreen.grace-period.description"), {"lockscreen", "grace_period_seconds"},
           StepperSetting{
