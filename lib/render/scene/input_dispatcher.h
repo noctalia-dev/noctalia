@@ -56,7 +56,8 @@ public:
   void keyEvent(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool preedit = false);
 
   // Focus management
-  void setFocus(InputArea* area);
+  // Preserve the IME conversation only while forwarding its in-flight edit on the same surface.
+  void setFocus(InputArea* area, bool preserveTextInput = false);
   void stashTabFocus();
   void restoreStashedTabFocus();
   TabFocusSnapshot captureTabFocus() const;

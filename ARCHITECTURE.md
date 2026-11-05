@@ -71,6 +71,10 @@ Code that only the shell uses belongs in `src/`, even when it looks generic.
 
 Text paste uses `TextClipboard::requestClipboardText()`. Providers complete once on the UI thread, either inline or asynchronously; the default implementation uses the provider's cached text, while transports that need a read override it without blocking. The application owns transport, selection revisions, cancellation and limits. `Input` accepts a reply only while its lifetime, edit revision, focus, enabled state and composition state still permit it. Edits, caret/selection changes, focus loss, text-input deactivation and newer paste requests invalidate older requests. Accepted paste is one undoable edit, with the usual password restrictions. Change callbacks may destroy the input; the callback's value remains valid during the call.
 
+`Input::composing()` exposes active preedit state; `setOnCompositionChange()` reports start/end transitions before value/submission callbacks, without restarting on each preedit update. Reset, replacement, blur and keyboard cancellation report the end too. Callbacks can destroy the input, so later callbacks stop when its lifetime expires. `selectRange()` takes UTF-8 byte offsets, advancing offsets inside a character to its next boundary and preserving anchor/caret direction. `setClearButtonWidth()` accepts a positive logical width; zero restores the existing height-based target.
+
+`InputDispatcher::setFocus(area, true)` can preserve an in-flight IME edit through `TextInputService::transferFocusedClient()`. The transfer is accepted only inside an edit callback, for the active source and a different target client on the same active surface. The application forwards the current edit to that target. The service changes the client without resetting preedit or sending protocol disable/enable; subsequent edits and state commits use the new client. Other focus changes retain the normal lifecycle. The edit-transfer scope closes on both normal return and exceptions.
+
 ## Rendering
 
 - `RenderContext` owns scene traversal and delegates drawing to a `RenderBackend`. Construct backends with `createDefaultRenderBackend()`.

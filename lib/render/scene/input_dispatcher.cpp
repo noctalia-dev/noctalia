@@ -564,20 +564,29 @@ void InputDispatcher::restoreTabFocus(TabFocusSnapshot snapshot) {
   setFocus(order[index]);
 }
 
-void InputDispatcher::setFocus(InputArea* area) {
+void InputDispatcher::setFocus(InputArea* area, bool preserveTextInput) {
   if (area == m_focusedArea) {
     return;
   }
   InputArea* const old = m_focusedArea;
+  const bool transferred = preserveTextInput
+      && m_textInputService != nullptr
+      && old != nullptr
+      && area != nullptr
+      && m_textInputService->transferFocusedClient(m_textInputSurface, old->textInputClient(), area->textInputClient());
   if (m_focusedArea != nullptr) {
-    clearTextInputFocus(m_focusedArea);
+    if (!transferred) {
+      clearTextInputFocus(m_focusedArea);
+    }
     m_focusedArea->dispatchFocusLoss();
   }
   m_focusedArea = area;
   if (m_focusedArea != nullptr) {
     trackArea(m_focusedArea);
     m_focusedArea->dispatchFocusGain();
-    syncTextInputFocus();
+    if (!transferred) {
+      syncTextInputFocus();
+    }
   }
   if (m_focusChangeCallback) {
     m_focusChangeCallback(old, m_focusedArea);

@@ -1127,6 +1127,12 @@ if build_tests
     command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
   )
 
+  _text_input_test_server_h = custom_target('text-input-test-server-header',
+    input: 'lib/protocols/text-input-unstable-v3.xml',
+    output: 'text-input-test-server-protocol.h',
+    command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
+  )
+
   # Tests of lib/ code link only the UI library (and its codec pack).
   _ui_test_names = [
     'cairo_text_renderer',
@@ -1136,6 +1142,7 @@ if build_tests
     'inotify',
     'input_area',
     'input_bidi',
+    'input_composition',
     'input_dispatcher',
     'input_password_mode',
     'input_paste',
@@ -1342,6 +1349,13 @@ if build_tests
       endif
     endforeach
   endforeach
+
+  text_input_service_exe = executable('text_input_service_test',
+    sources: files('tests/text_input_service_test.cpp') + [_text_input_test_server_h],
+    dependencies: [_ui_test_dep, wayland_server_dep],
+    override_options: ['b_ndebug=false'],
+  )
+  test('text_input_service', text_input_service_exe)
 
   screencopy_connection_isolation_exe = executable('screencopy_connection_isolation_test',
     sources: files('tests/screencopy_connection_isolation_test.cpp') + [_wlr_screencopy_test_server_h],
