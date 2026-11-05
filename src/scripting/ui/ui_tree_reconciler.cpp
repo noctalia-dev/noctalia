@@ -16,6 +16,7 @@
 #include "ui/controls/button.h"
 #include "ui/controls/drag_source.h"
 #include "ui/controls/drop_zone.h"
+#include "ui/controls/fill_label.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/image.h"
@@ -39,6 +40,7 @@
 #include <cmath>
 #include <format>
 #include <functional>
+#include <limits>
 #include <linux/input-event-codes.h>
 #include <optional>
 #include <unordered_set>
@@ -363,6 +365,30 @@ namespace ui {
       return out;
     }
 
+    // ui.fillLabel `fillRanges`: a flat {first1, last1, first2, last2, ...} array of 1-based inclusive
+    // byte indices (string.find results) mapped to 0-based [start, end) ranges. A malformed pair
+    // becomes an empty range that FillLabel skips, so later pairs keep their segment index.
+    std::vector<FillRange> parseFillRanges(const std::vector<double>& values) {
+      constexpr auto kMaxByteIndex = static_cast<double>(std::numeric_limits<std::uint32_t>::max());
+      std::vector<FillRange> out;
+      out.reserve(values.size() / 2);
+      for (std::size_t i = 0; i + 1 < values.size(); i += 2) {
+        const double first = values[i];
+        const double last = values[i + 1];
+        const bool valid = first >= 1.0
+            && last >= first
+            && last <= kMaxByteIndex
+            && std::floor(first) == first
+            && std::floor(last) == last;
+        out.push_back(
+            valid
+                ? FillRange{.startByte = static_cast<std::size_t>(first) - 1, .endByte = static_cast<std::size_t>(last)}
+                : FillRange{}
+        );
+      }
+      return out;
+    }
+
     template <typename Control> Control* controlFromSlot(Node* node) {
       if (node == nullptr) {
         return nullptr;
@@ -494,7 +520,12 @@ namespace ui {
       static const std::unordered_set<std::string> kLabel = {"width",      "height",   "flexGrow", "opacity",
                                                              "visible",    "text",     "fontSize", "color",
                                                              "fontWeight", "maxWidth", "maxLines", "textAlign",
-                                                             "fontFamily", "baseline"};
+                                                             "fontFamily", "baseline", "shadow"};
+      static const std::unordered_set<std::string> kFillLabel = {"width",       "height",   "flexGrow",  "opacity",
+                                                                 "visible",     "text",     "fontSize",  "color",
+                                                                 "fontWeight",  "maxWidth", "textAlign", "fontFamily",
+                                                                 "baseline",    "shadow",   "fillColor", "fillRanges",
+                                                                 "fillProgress"};
       static const std::unordered_set<std::string> kGlyph = {"width",   "height", "flexGrow", "opacity",
                                                              "visible", "name",   "size",     "color"};
       static const std::unordered_set<std::string> kImage = {"width",   "height",  "flexGrow", "opacity", "visible",
@@ -565,6 +596,9 @@ namespace ui {
       }
       if (type == "label") {
         return kLabel;
+      }
+      if (type == "fill_label") {
+        return kFillLabel;
       }
       if (type == "glyph") {
         return kGlyph;
@@ -743,6 +777,9 @@ namespace ui {
     }
     if (desired.type == "label") {
       return std::make_unique<Label>();
+    }
+    if (desired.type == "fill_label") {
+      return std::make_unique<FillLabel>();
     }
     if (desired.type == "glyph") {
       return std::make_unique<Glyph>();
@@ -1348,6 +1385,61 @@ namespace ui {
     return std::ranges::any_of(slot.children, [&](const Slot& child) { return subtreeOwnsPointer(child); });
   }
 
+  void UiTreeReconciler::applyLabelProps(Label& label, const UiTreeNode& desired) {
+    if (const std::string* fontFamily = strProp(desired, "fontFamily")) {
+      label.setFontFamily(*fontFamily);
+    } else {
+      label.setFontFamily(m_defaultFontFamily);
+    }
+    LabelBaselineMode baselineMode = LabelBaselineMode::Text;
+    if (const std::string* baseline = strProp(desired, "baseline")) {
+      if (auto mode = labelBaselineModeFromToken(*baseline)) {
+        baselineMode = *mode;
+      } else {
+        kLog.warn("ui node '{}': unknown baseline '{}'", desired.type, *baseline);
+      }
+    }
+    label.setBaselineMode(baselineMode);
+    if (const std::string* text = strProp(desired, "text")) {
+      label.setText(*text);
+    }
+    if (const double* fontSize = numProp(desired, "fontSize")) {
+      label.setFontSize(static_cast<float>(*fontSize) * m_scale * m_fontScale);
+    } else {
+      label.setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
+    }
+    if (auto color = parseColor(desired, "color")) {
+      label.setColor(*color);
+    } else {
+      label.setColor(m_defaultLabelColor);
+    }
+    if (auto weight = parseFontWeight(desired)) {
+      label.setFontWeight(*weight);
+    } else {
+      label.setFontWeight(m_defaultFontWeight);
+    }
+    if (const double* maxWidth = numProp(desired, "maxWidth")) {
+      label.setMaxWidth(static_cast<float>(*maxWidth) * m_scale);
+    }
+    if (auto align = parseTextAlign(desired)) {
+      label.setTextAlign(*align);
+    }
+    const bool* shadow = boolProp(desired, "shadow");
+    if (shadow == nullptr) {
+      warnMistypedOptionalProp(desired, "shadow", "a boolean");
+    }
+    if (shadow != nullptr && *shadow) {
+      // Same text shadow as the built-in desktop widgets.
+      constexpr float kShadowAlpha = 0.6F;
+      constexpr float kShadowOffset = 1.5F;
+      label.setShadow(
+          colorSpecFromRole(ColorRole::Shadow, kShadowAlpha), kShadowOffset * m_scale, kShadowOffset * m_scale
+      );
+    } else {
+      label.clearShadow();
+    }
+  }
+
   void UiTreeReconciler::applyProps(Slot& slot, const UiTreeNode& desired, Renderer& renderer) {
     Node* node = slot.node;
     if (node == nullptr) {
@@ -1596,47 +1688,37 @@ namespace ui {
 
     if (desired.type == "label") {
       auto* label = static_cast<Label*>(node);
-      if (const std::string* fontFamily = strProp(desired, "fontFamily")) {
-        label->setFontFamily(*fontFamily);
-      } else {
-        label->setFontFamily(m_defaultFontFamily);
-      }
-      LabelBaselineMode baselineMode = LabelBaselineMode::Text;
-      if (const std::string* baseline = strProp(desired, "baseline")) {
-        if (auto mode = labelBaselineModeFromToken(*baseline)) {
-          baselineMode = *mode;
-        } else {
-          kLog.warn("ui node 'label': unknown baseline '{}'", *baseline);
-        }
-      }
-      label->setBaselineMode(baselineMode);
-      if (const std::string* text = strProp(desired, "text")) {
-        label->setText(*text);
-      }
-      if (const double* fontSize = numProp(desired, "fontSize")) {
-        label->setFontSize(scaledFont(*fontSize));
-      } else {
-        label->setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
-      }
-      if (auto color = parseColor(desired, "color")) {
-        label->setColor(*color);
-      } else {
-        label->setColor(m_defaultLabelColor);
-      }
-      if (auto weight = parseFontWeight(desired)) {
-        label->setFontWeight(*weight);
-      } else {
-        label->setFontWeight(m_defaultFontWeight);
-      }
-      if (const double* maxWidth = numProp(desired, "maxWidth")) {
-        label->setMaxWidth(scaled(*maxWidth));
-      }
+      applyLabelProps(*label, desired);
       if (const double* maxLines = numProp(desired, "maxLines")) {
         label->setMaxLines(static_cast<int>(*maxLines));
       }
-      if (auto align = parseTextAlign(desired)) {
-        label->setTextAlign(*align);
+      return;
+    }
+
+    if (desired.type == "fill_label") {
+      auto* fill = static_cast<FillLabel*>(node);
+      applyLabelProps(fill->label(), desired);
+      if (auto color = parseColor(desired, "fillColor")) {
+        fill->setFillColor(*color);
+      } else {
+        fill->setFillColor(colorSpecFromRole(ColorRole::Primary));
       }
+      const std::vector<double>* ranges = arrayProp(desired, "fillRanges");
+      if (ranges != nullptr) {
+        fill->setFillRanges(parseFillRanges(*ranges));
+      } else {
+        warnMistypedOptionalProp(desired, "fillRanges", "a flat number array");
+        fill->setFillRanges({FillRange{.startByte = 0, .endByte = fill->label().text().size()}});
+      }
+      const double* progress = numProp(desired, "fillProgress");
+      if (progress == nullptr) {
+        warnMistypedOptionalProp(desired, "fillProgress", "a number");
+      }
+      const double value = progress != nullptr && std::isfinite(*progress) ? std::max(0.0, *progress) : 0.0;
+      // Clamp before the integer cast: segments past the last range are all already filled.
+      const double completed =
+          std::min(std::floor(value), static_cast<double>(std::numeric_limits<std::uint32_t>::max()));
+      fill->setFillProgress(static_cast<std::size_t>(completed), static_cast<float>(value - std::floor(value)));
       return;
     }
 
