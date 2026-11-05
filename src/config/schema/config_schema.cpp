@@ -1841,6 +1841,7 @@ namespace noctalia::config::schema {
         field(&ShellConfig::niriOverviewTypeToLaunchEnabled, "niri_overview_type_to_launch_enabled"),
         field(&ShellConfig::umbrielOverviewTypeToLaunchEnabled, "umbriel_overview_type_to_launch_enabled"),
         field(&ShellConfig::umbrielAudioProviderEnabled, "umbriel_audio_provider_enabled"),
+        field(&ShellConfig::umbrielLogoutWaitForClientsEnabled, "umbriel_logout_wait_for_clients_enabled"),
         field(&ShellConfig::niriOverviewCloseOnLaunchEnabled, "niri_overview_close_on_launch_enabled"),
         field(&ShellConfig::umbrielOverviewCloseOnLaunchEnabled, "umbriel_overview_close_on_launch_enabled"),
         field(&ShellConfig::polkitAgent, "polkit_agent"),

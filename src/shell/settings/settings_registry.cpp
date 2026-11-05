@@ -2682,6 +2682,12 @@ namespace settings {
     // Umbriel-specific integrations
     if (env.umbrielOverviewTypeToLaunchSupported) {
       entries.push_back(makeEntry(
+          SettingsSection::Umbriel, "session", tr("settings.schema.shell.umbriel-logout-wait-for-clients.label"),
+          tr("settings.schema.shell.umbriel-logout-wait-for-clients.description"),
+          {"shell", "umbriel_logout_wait_for_clients_enabled"},
+          ToggleSetting{cfg.shell.umbrielLogoutWaitForClientsEnabled}, "umbriel logout wait apps clients session"
+      ));
+      entries.push_back(makeEntry(
           SettingsSection::Umbriel, "audio", tr("settings.schema.shell.umbriel-audio-provider.label"),
           tr("settings.schema.shell.umbriel-audio-provider.description"), {"shell", "umbriel_audio_provider_enabled"},
           ToggleSetting{cfg.shell.umbrielAudioProviderEnabled}, "umbriel audio spectrum shader effects provider"

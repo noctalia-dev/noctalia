@@ -1504,6 +1504,7 @@
         "screenshot-capture": "Capture",
         "screenshot-output": "Output",
         "security": "Security",
+        "session": "Session",
         "session-panel": "Session Panel",
         "shape": "Shape",
         "system": "System",
@@ -3762,6 +3763,10 @@
         "umbriel-audio-provider": {
           "description": "Share the audio spectrum with Umbriel effects, even without a visualizer widget",
           "label": "Provide Audio to Umbriel"
+        },
+        "umbriel-logout-wait-for-clients": {
+          "description": "Wait for running apps to close before logging out of Umbriel. When off, apps are force-killed and logout is immediate",
+          "label": "Wait for Apps on Logout"
         },
         "umbriel-overview-close-on-launch": {
           "description": "Close the overview when an app launches from the launcher while the umbriel overview is open",

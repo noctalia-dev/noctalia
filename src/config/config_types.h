@@ -1344,6 +1344,7 @@ struct ShellConfig {
   bool niriOverviewTypeToLaunchEnabled = false;
   bool umbrielOverviewTypeToLaunchEnabled = false;
   bool umbrielAudioProviderEnabled = false;
+  bool umbrielLogoutWaitForClientsEnabled = true;
   bool niriOverviewCloseOnLaunchEnabled = false;
   bool umbrielOverviewCloseOnLaunchEnabled = false;
   bool polkitAgent = false;

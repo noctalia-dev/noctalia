@@ -823,6 +823,17 @@ void Application::initStyleThemeAndWayland() {
         m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no"
     );
   }
+  m_compositorPlatform.setUmbrielLogoutWaitForClients(
+      m_configService.config().shell.umbrielLogoutWaitForClientsEnabled
+  );
+  m_configService.addReloadCallback(
+      [this] {
+        m_compositorPlatform.setUmbrielLogoutWaitForClients(
+            m_configService.config().shell.umbrielLogoutWaitForClientsEnabled
+        );
+      },
+      "umbriel-logout"
+  );
   m_compositorPlatform.initialize();
   m_screenTimeService.initialize(&m_compositorPlatform);
   syncScreenTimeService();

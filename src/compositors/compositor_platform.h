@@ -5,6 +5,7 @@
 #include "shell/wayland/wayland_toplevels.h"
 #include "wayland/wayland_connection.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -205,6 +206,7 @@ public:
   void dispatchKeyboardLayoutPoll(const std::vector<pollfd>& fds, std::size_t startIdx);
 
   bool requestSessionExit() const;
+  void setUmbrielLogoutWaitForClients(bool enabled) noexcept { m_umbrielLogoutWaitForClients = enabled; }
   bool setOutputPower(bool on) const;
   void setOutputPowerOffPending(bool pending) noexcept { m_outputPowerOffPending = pending; }
   bool shouldSuppressLockTransition() const;
@@ -251,6 +253,7 @@ private:
   CompositorGlobals& m_compositorGlobals;
   LayerShell& m_layerShell;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;
+  std::atomic_bool m_umbrielLogoutWaitForClients = true;
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;
   std::unique_ptr<WaylandWorkspaces> m_workspaces;
   std::unique_ptr<compositors::WorkspaceMetadataBackend> m_workspaceMetadataBackend;

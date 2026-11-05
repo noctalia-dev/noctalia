@@ -768,6 +768,18 @@ location = "https://example.invalid/bad"
         fail("lockscreen.grace_period_seconds: explicit 0 must stay disabled");
       }
     }
+    {
+      ShellConfig shell;
+      if (!shell.umbrielLogoutWaitForClientsEnabled) {
+        fail("shell.umbriel_logout_wait_for_clients_enabled: default must be true");
+      }
+      auto disabled = toml::parse("umbriel_logout_wait_for_clients_enabled = false");
+      Diagnostics diagnostics;
+      readInto(disabled, shell, shellSchema(), "shell", diagnostics);
+      if (shell.umbrielLogoutWaitForClientsEnabled) {
+        fail("shell.umbriel_logout_wait_for_clients_enabled: false must parse");
+      }
+    }
     // Clipboard history count accepts large text-heavy histories but still has
     // an explicit config ceiling.
     {
