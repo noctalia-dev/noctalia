@@ -1165,9 +1165,8 @@ namespace settings {
       auto fields = projection->schemaFields();
       auto common = commonWidgetSettingSpecs("sans-serif", false);
       applyCommonOverrides(common, projection->commonOverrides(), type);
-      const auto typedFields = projection->schemaFields();
       std::erase_if(common, [&](const WidgetSettingSpec& spec) {
-        return std::ranges::contains(typedFields, spec.schema.key, &schema::WidgetSettingField::key);
+        return std::ranges::contains(fields, spec.schema.key, &schema::WidgetSettingField::key);
       });
       std::ranges::transform(common, std::back_inserter(fields), [](const WidgetSettingSpec& spec) {
         return spec.schema;
