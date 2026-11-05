@@ -73,9 +73,11 @@ namespace {
   bool pidAlive(pid_t pid) {
     if (pid == 0) {
       return true;
-    } else if (pid < 0) {
+    }
+    if (pid < 0) {
       return false;
-    } else if (::kill(pid, 0) == 0) {
+    }
+    if (::kill(pid, 0) == 0) {
       return true;
     }
     // EPERM means the process exists but we may not signal it; only ESRCH is dead.
@@ -89,20 +91,18 @@ namespace {
     return pidAlive(query.pid);
   }
 
-} // namespace
+  bool parseBool(std::string_view value) { return value == "1"; }
 
-bool parseBool(std::string_view value) { return value == "1"; }
-
-std::optional<uint64_t> parseUInt64(std::string_view value) {
-  uint64_t res;
-  auto [_, ec] = std::from_chars(value.data(), value.data() + value.size(), res);
-  if (ec == std::errc()) {
-    // Parsing successful
+  std::optional<std::uint64_t> parseUInt64(std::string_view value) {
+    std::uint64_t res = 0;
+    const auto [_, ec] = std::from_chars(value.data(), value.data() + value.size(), res);
+    if (ec != std::errc()) {
+      return std::nullopt;
+    }
     return res;
-  } else {
-    return std::nullopt;
   }
-}
+
+} // namespace
 
 SystemdPasswordAgent::~SystemdPasswordAgent() = default;
 
@@ -204,11 +204,7 @@ std::optional<SystemdPasswordQuery> SystemdPasswordAgent::parsePasswordQuery(con
     }
 
     if (line[0] == '[') {
-      if (line == "[Ask]") {
-        inAsk = true;
-      } else {
-        inAsk = false;
-      }
+      inAsk = line == "[Ask]";
       continue;
     }
 

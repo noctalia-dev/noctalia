@@ -67,23 +67,23 @@ const AuthSource* AuthPanel::activeOrNull() const { return m_activeProvider != n
 AuthSource* AuthPanel::activeOrNull() { return m_activeProvider != nullptr ? m_activeProvider() : nullptr; }
 
 const std::string AuthPanel::freshSessionId() const {
-  auto source = activeOrNull();
-  if (source == nullptr)
+  const auto* source = activeOrNull();
+  if (source == nullptr) {
     return "";
+  }
   return source->sessionId();
 }
 
 bool AuthPanel::refreshAuthView() const {
-  auto source = activeOrNull();
+  const auto* source = activeOrNull();
   if (source == nullptr) {
     kLog.warn("failed to refresh AuthView: AuthSource is null");
     return false;
-  } else {
-    kLog.debug("creating AuthView");
-    m_cachedView = source->view();
-    m_isCachedViewValid = true;
-    return true;
   }
+  kLog.debug("creating AuthView");
+  m_cachedView = source->view();
+  m_isCachedViewValid = true;
+  return true;
 }
 
 const AuthView& AuthPanel::currentView() const {
@@ -112,7 +112,7 @@ std::string AuthPanel::authIconKey(AuthIconKind iconKind, const std::string& ico
 }
 
 void AuthPanel::onAuthSubmit(std::string_view response) {
-  auto source = activeOrNull();
+  auto* source = activeOrNull();
   if (source == nullptr || response.empty()) {
     return;
   }
@@ -120,7 +120,7 @@ void AuthPanel::onAuthSubmit(std::string_view response) {
 }
 
 void AuthPanel::onAuthCancel() {
-  auto source = activeOrNull();
+  auto* source = activeOrNull();
   if (source != nullptr) {
     source->cancel();
   }

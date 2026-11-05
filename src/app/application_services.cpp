@@ -374,10 +374,10 @@ bool Application::likelySupportsInSessionPolkit() const noexcept {
 
 void Application::ensureAuthSources() {
   if (m_polkitAuthSource == nullptr) {
-    m_polkitAuthSource = std::make_unique<PolkitAuthSource>([this]() { return m_polkitAgent.get(); });
+    m_polkitAuthSource = std::make_unique<PolkitAuthSource>([this] { return m_polkitAgent.get(); });
   }
   if (m_systemdAuthSource == nullptr) {
-    m_systemdAuthSource = std::make_unique<SystemdAuthSource>([this]() { return m_systemdPasswordAgent.get(); });
+    m_systemdAuthSource = std::make_unique<SystemdAuthSource>([this] { return m_systemdPasswordAgent.get(); });
   }
 }
 
@@ -392,7 +392,7 @@ void Application::updateAuthPanel() {
     // Defer close so a follow-up request in the same burst (pkexec → systemd-enable,
     // ask-password rotation, etc.) can reuse the panel instead of racing teardown.
     if (m_panelManager.isOpenPanel("auth")) {
-      m_authIdleCloseTimer.start(std::chrono::milliseconds(150), [this]() {
+      m_authIdleCloseTimer.start(std::chrono::milliseconds(150), [this] {
         if (activeAuthSource() == nullptr && m_panelManager.isOpenPanel("auth")) {
           m_panelManager.close();
         }
@@ -495,7 +495,7 @@ void Application::syncSystemdPasswordAgent() {
   }
   m_systemdPasswordAgent = std::make_unique<SystemdPasswordAgent>(std::move(askPasswordDirs));
   ensureAuthSources();
-  m_systemdPasswordAgent->setStateCallback([this]() { updateAuthPanel(); });
+  m_systemdPasswordAgent->setStateCallback([this] { updateAuthPanel(); });
   m_systemdPasswordPollSource = std::make_unique<SystemdPasswordAgentPollSource>(*m_systemdPasswordAgent);
   m_systemdPasswordAgent->start();
   kLog.info("systemd password agent active");
