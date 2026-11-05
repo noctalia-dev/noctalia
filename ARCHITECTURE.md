@@ -42,9 +42,17 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 
 ## Layer Boundaries
 
-**Library** (`lib/`): `core`, `i18n`, `render`, `ui`, `util`, and `wayland` form the `noctalia-ui` static library. It builds without `src/` on its include path and generates only the Wayland protocols it binds, so it never includes shell code, shell-only protocol headers, or build metadata such as the git revision.
+**Library** (`lib/`): `core`, `i18n`, `render`, `ui`, `util`, and `wayland` form the `noctalia-ui` static library (`noctalia_ui_dep`). `lib/` is self-contained so other Noctalia applications can carry a verbatim copy: `lib/meson.build` finds its own dependencies, flags, and `wayland-scanner`, and `lib/` holds the protocol XMLs it generates (`lib/protocols/`), the assets it loads (`lib/assets/`: the glyph font and its metadata), and its vendored code (`lib/third_party/wuffs`). A consumer only runs `subdir('lib')`. The library builds without `src/` on its include path, so it never includes shell code, shell-only protocol headers, or build metadata such as the git revision.
 
-**Shell and widget code** (`src/shell/`) uses only controls from `lib/ui/controls/` (`Label`, `Button`, `Glyph`, `Box`, `Separator`, ...). It never creates raw scene nodes such as `TextNode`, `RectNode`, or `IconNode`. `InputArea` is the only exception. Use `Box` for backgrounds, `Separator` for dividers, and `Label` for text.
+The library holds no application policy; the application supplies it at startup (the shell does this in `configureSharedLibrary()`, `src/app/shell_library.cpp`):
+
+- **Identity**: `setApplicationIdentity()` (`core/application_identity.h`) names the XDG directories, the log file, the installed asset directory, and the `<PREFIX>_*` environment variables the library reads.
+- **Text**: the library owns no translations. `setUiStrings()` (`core/ui_strings.h`) provides the few strings it shows on its own (key names, the `Select` placeholder).
+- **Image decoding**: the core has the `Image` control, the texture caches, and the `ImageDecoder` interface (`render/core/image_decoder.h`) but no codecs. `codecs::installImageDecoder()` installs the opt-in codec pack (`noctalia_ui_codecs_dep`, `render/codecs/`: Wuffs, ICO, WebP, JPEG XL, librsvg, runtime-loaded libheif, encoders, thumbnails); another application can install its own decoder instead.
+
+Code that only the shell uses belongs in `src/`, even when it looks generic.
+
+**Shell and widget code** (`src/shell/`) uses only controls from `lib/ui/controls/` (`Label`, `Button`, `Glyph`, `Box`, `Separator`, ...) and the shell-owned controls in `src/shell/controls/` (`MarkdownView`, `SearchPicker`, `ColorPicker`, `GlyphPicker`). It never creates raw scene nodes such as `TextNode`, `RectNode`, or `IconNode`. `InputArea` is the only exception. Use `Box` for backgrounds, `Separator` for dividers, and `Label` for text.
 
 **Controls** (`lib/ui/controls/`) own the raw nodes.
 
@@ -170,7 +178,7 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 - `FixedPaletteMode` carries `dark` and `light`, each with a UI `palette` and a nested `terminal` palette.
 - Palette JSON (community, custom, `noctalia theme --theme-json`) carries a top-level integer `version`; a file without one is format 1. Format 2 keys are the color role names (`on_primary`, `surface_container`, terminal `selection_fg`), listed once in `kFixedPaletteJsonKeys`. `src/theme/fixed_palette_json.cpp` upgrades older formats in memory on read and rejects newer ones. Community palette requests send `?version=<kPaletteFormatVersion>`, and the API answers with at most that format, converting newer palettes down so older shells keep working.
 - Built-in template hooks live beside their template (for example `assets/templates/fuzzel/apply.sh`). Community templates are fetched from `https://api.noctalia.dev/templates` and cached under `$XDG_STATE_HOME/noctalia/community-templates`. Template application runs on a background worker.
-- Glyph names resolve through `lib/render/text/glyph_registry.cpp`: curated aliases, then `U+`/`0x` codepoints, then Tabler names from `tabler.json`. C++ glyph literals belong in the curated registry.
+- Glyph names resolve through `lib/render/text/glyph_registry.cpp`: curated aliases, then `U+`/`0x` codepoints, then Tabler names from `lib/assets/fonts/tabler.json`. C++ glyph literals belong in the curated registry.
 
 ## Launcher
 

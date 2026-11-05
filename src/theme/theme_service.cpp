@@ -9,6 +9,7 @@
 #include "shell/app_icon_colorization_settings.h"
 #include "system/day_night_schedule.h"
 #include "theme/builtin_palettes.h"
+#include "theme/checksum.h"
 #include "theme/community_palettes.h"
 #include "theme/custom_palettes.h"
 #include "theme/fixed_palette.h"
@@ -17,7 +18,6 @@
 #include "theme/palette_generator.h"
 #include "theme/palette_transform.h"
 #include "theme/scheme.h"
-#include "util/checksum.h"
 #include "util/string_utils.h"
 
 #include <chrono>

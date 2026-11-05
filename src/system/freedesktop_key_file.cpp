@@ -3,6 +3,7 @@
 #include <cctype>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <string_view>
 
 namespace {
@@ -106,11 +107,21 @@ namespace freedesktop {
       return std::unexpected(makeError(ParseFailure::READ_ERROR, "cannot open file"));
     }
 
+    const std::string contents{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+    if (file.bad()) {
+      return std::unexpected(makeError(ParseFailure::READ_ERROR, "I/O error"));
+    }
+    return parseKeyFileContents(contents);
+  }
+
+  std::expected<ParseResult, ParseError> parseKeyFileContents(std::string_view contents) {
     ParseResult result;
     std::string currentSection;
-    std::string line;
     std::size_t lineNumber = 0;
-    while (std::getline(file, line)) {
+    while (!contents.empty()) {
+      const std::size_t newline = contents.find('\n');
+      std::string line(contents.substr(0, newline));
+      contents.remove_prefix(newline == std::string_view::npos ? contents.size() : newline + 1);
       ++lineNumber;
       if (lineNumber == 1 && line.starts_with("\xEF\xBB\xBF")) {
         line.erase(0, 3);
@@ -139,7 +150,9 @@ namespace freedesktop {
           continue;
         }
         const auto [it, inserted] = result.file.m_sections.emplace(std::string(sectionName), KeyFile::Section{});
-        if (!inserted) {
+        if (inserted) {
+          result.file.m_sectionOrder.push_back(it->first);
+        } else {
           result.diagnostics.push_back({lineNumber, "duplicate section '" + std::string(sectionName) + "'"});
         }
         currentSection = it->first;
@@ -172,10 +185,41 @@ namespace freedesktop {
       (void)it;
     }
 
-    if (file.bad()) {
-      return std::unexpected(makeError(ParseFailure::READ_ERROR, "I/O error"));
-    }
     return result;
+  }
+
+  std::string unescapeValue(std::string_view value) {
+    std::string out;
+    out.reserve(value.size());
+    for (std::size_t i = 0; i < value.size(); ++i) {
+      if (value[i] != '\\' || i + 1 == value.size()) {
+        out.push_back(value[i]);
+        continue;
+      }
+      switch (value[++i]) {
+      case 's':
+        out.push_back(' ');
+        break;
+      case 'n':
+        out.push_back('\n');
+        break;
+      case 't':
+        out.push_back('\t');
+        break;
+      case 'r':
+        out.push_back('\r');
+        break;
+      case '\\':
+        out.push_back('\\');
+        break;
+      default:
+        // Unknown escapes are kept verbatim, as GLib does.
+        out.push_back('\\');
+        out.push_back(value[i]);
+        break;
+      }
+    }
+    return out;
   }
 
 } // namespace freedesktop

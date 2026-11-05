@@ -4,7 +4,6 @@
 #include "cli/schema_msg.h"
 #include "config/config_types.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "dbus/bluetooth/bluetooth_service.h"
 #include "dbus/mpris/mpris_service.h"
 #include "dbus/network/inetwork_service.h"
@@ -40,6 +39,7 @@
 #include "system/brightness_service.h"
 #include "system/easyeffects_service.h"
 #include "system/keyboard_backlight_service.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

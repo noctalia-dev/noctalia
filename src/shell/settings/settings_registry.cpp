@@ -3,7 +3,6 @@
 #include "config/config_types.h"
 #include "config/schema/config_schema.h"
 #include "config/schema/ranges.h"
-#include "core/files/directory_scanner.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "launcher/panel_catalog.h"
@@ -18,6 +17,7 @@
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/supported_languages.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "system/directory_scanner.h"
 #include "system/sysmon_threshold_profile.h"
 #include "theme/builtin_palettes.h"
 #include "theme/builtin_templates.h"
@@ -1928,6 +1928,15 @@ namespace settings {
       e.visibleWhen = lockscreenOn;
       entries.push_back(std::move(e));
     }
+    {
+      auto e = makeEntry(
+          SettingsSection::LockScreen, "background", tr("settings.schema.lockscreen.tint-color.label"),
+          tr("settings.schema.lockscreen.tint-color.description"), {"lockscreen", "tint_color"},
+          colorSpecPicker(cfg.lockscreen.tintColor), "lock screen tint color theme accent"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
     if (env.screencopySupported) {
       MultiSelectSetting transitions;
       transitions.options.reserve(std::size(kLockscreenTransitions));
@@ -2378,7 +2387,8 @@ namespace settings {
              {"bottom_left", "settings.options.screen-position.bottom-left"},
              {"bottom_center", "settings.options.screen-position.bottom-center"},
              {"center_right", "settings.options.screen-position.center-right"},
-             {"center_left", "settings.options.screen-position.center-left"}},
+             {"center_left", "settings.options.screen-position.center-left"},
+             {"center", "settings.options.screen-position.center"}},
             cfg.osd.position
         ),
         "hud overlay volume brightness horizontal text"
@@ -2394,7 +2404,8 @@ namespace settings {
              {"bottom_left", "settings.options.screen-position.bottom-left"},
              {"bottom_center", "settings.options.screen-position.bottom-center"},
              {"center_right", "settings.options.screen-position.center-right"},
-             {"center_left", "settings.options.screen-position.center-left"}},
+             {"center_left", "settings.options.screen-position.center-left"},
+             {"center", "settings.options.screen-position.center"}},
             cfg.osd.positionVertical
         ),
         "hud overlay volume brightness vertical slider"
@@ -2540,15 +2551,11 @@ namespace settings {
         tr("settings.schema.shell.osd-kinds-media.description"), {"osd", "kinds", "media"},
         ToggleSetting{cfg.osd.kinds.media}, "hud overlay mpris audio music"
     ));
-    {
-      SettingEntry mediaVolumeEntry = makeEntry(
-          SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media-volume.label"),
-          tr("settings.schema.shell.osd-kinds-media-volume.description"), {"osd", "kinds", "media_volume"},
-          ToggleSetting{cfg.osd.kinds.mediaVolume}, "hud overlay mpris media player volume level"
-      );
-      mediaVolumeEntry.visibleWhen = [](const Config& c) { return c.osd.kinds.media; };
-      entries.push_back(std::move(mediaVolumeEntry));
-    }
+    entries.push_back(makeEntry(
+        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media-volume.label"),
+        tr("settings.schema.shell.osd-kinds-media-volume.description"), {"osd", "kinds", "media_volume"},
+        ToggleSetting{cfg.osd.kinds.mediaVolume}, "hud overlay mpris media player volume level"
+    ));
     entries.push_back(makeEntry(
         SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-privacy.label"),
         tr("settings.schema.shell.osd-kinds-privacy.description"), {"osd", "kinds", "privacy"},

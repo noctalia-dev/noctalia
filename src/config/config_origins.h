@@ -1,7 +1,7 @@
 #pragma once
 
 #include "config/schema/diagnostics.h"
-#include "core/toml.h"
+#include "config/toml.h"
 
 #include <filesystem>
 #include <functional>

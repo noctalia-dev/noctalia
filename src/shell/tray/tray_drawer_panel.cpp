@@ -29,6 +29,17 @@ PanelPlacement TrayDrawerPanel::panelPlacement() const noexcept {
                                                                                       : PanelPlacement::Attached;
 }
 
+std::optional<float> TrayDrawerPanel::detachedBackgroundOpacityOverride() const noexcept {
+  if (m_config == nullptr) {
+    return std::nullopt;
+  }
+  const auto resolved = tray::resolvedTrayOptions(*m_config, {}, widgetName());
+  if (!resolved.options.detachedPanel) {
+    return std::nullopt;
+  }
+  return resolved.drawerBackgroundOpacity;
+}
+
 std::optional<float> TrayDrawerPanel::currentDrawerItemSize() const {
   return m_config != nullptr ? tray::resolvedTrayOptions(*m_config, {}, widgetName()).drawerItemSize : std::nullopt;
 }

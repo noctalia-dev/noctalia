@@ -2,9 +2,7 @@
 
 #include "compositors/compositor_detect.h"
 #include "config/config_service.h"
-#include "core/files/directory_scanner.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "core/random.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "ipc/ipc_service.h"
@@ -17,6 +15,8 @@
 #include "shell/wallpaper/wallpaper_instance.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "shell/wallpaper/wallpaper_shuffle_state.h"
+#include "system/directory_scanner.h"
+#include "system/process.h"
 #include "theme/theme_service.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"

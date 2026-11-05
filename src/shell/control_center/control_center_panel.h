@@ -88,7 +88,7 @@ public:
   std::vector<LauncherTabEntry> visibleTabsForLauncher() const;
 
   void create() override;
-  void onFrameTick(float deltaMs) override;
+  void onFrameTick(float deltaMs, Renderer& renderer) override;
   void onOpen(std::string_view context) override;
   void onClose() override;
   bool dismissTransientUi() override;

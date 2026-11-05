@@ -5,21 +5,21 @@
 #include "config/schema/config_schema.h"
 #include "config/schema/engine.h"
 #include "config/schema/ranges.h"
-#include "core/files/directory_scanner.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/scene/node.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/bar/widget_gesture_defaults.h"
+#include "shell/dialogs/file_dialog.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content.h"
 #include "shell/settings/widget_settings_registry.h"
+#include "system/directory_scanner.h"
 #include "ui/builders.h"
 #include "ui/controls/collapsible.h"
-#include "ui/dialogs/file_dialog.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -1083,6 +1083,9 @@ namespace settings {
         std::vector<WidgetSettingSpec>& specs, const Config& cfg, const std::vector<std::string>& lanePath
     ) {
       for (auto& spec : specs) {
+        if (spec.defaultFromConfig) {
+          spec.schema.defaultValue = spec.defaultFromConfig(cfg);
+        }
         if (!spec.schema.inheritsFromBar) {
           continue;
         }
@@ -2503,7 +2506,7 @@ namespace settings {
         ctx.makeRow(
             *panelPtr, groupEntry("accordion-duration"),
             makeGroupSliderControl(
-                ctx, static_cast<double>(style.accordionDurationMs.value_or(Style::animNormal)), accordionMsMin,
+                ctx, static_cast<double>(style.accordionDurationMs.value_or(kBarRevealDurationMs)), accordionMsMin,
                 accordionMsMax, accordionMsStep, true, [mutateGroup](double v) {
                   mutateGroup([&](BarCapsuleGroupStyle& g) { g.accordionDurationMs = static_cast<std::int32_t>(v); });
                 }
@@ -2512,8 +2515,8 @@ namespace settings {
         ctx.makeRow(
             *panelPtr, groupEntry("accordion-delay"),
             makeGroupSliderControl(
-                ctx, static_cast<double>(style.accordionDelayMs.value_or(0)), accordionMsMin, accordionMsMax,
-                accordionMsStep, true, [mutateGroup](double v) {
+                ctx, static_cast<double>(style.accordionDelayMs.value_or(kBarRevealDelayMs)), accordionMsMin,
+                accordionMsMax, accordionMsStep, true, [mutateGroup](double v) {
                   mutateGroup([&](BarCapsuleGroupStyle& g) { g.accordionDelayMs = static_cast<std::int32_t>(v); });
                 }
             )

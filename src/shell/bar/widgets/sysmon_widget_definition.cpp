@@ -1,5 +1,7 @@
 #include "shell/bar/widgets/sysmon_widget_definition.h"
 
+#include "shell/bar/glyph_value_definition.h"
+
 const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinitionContext>& sysmonWidgetDefinition() {
   using noctalia::bar::field;
   using Options = SysmonWidget::Options;
@@ -269,28 +271,11 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                       .group = "presentation",
                   },
           }),
-          field<&Options::glyphPosition>({
-              .key = "glyph_position",
-              .choices =
-                  {
-                      {
-                          .value = SysmonGlyphPosition::Before,
-                          .configValue = "before",
-                          .labelKey = "settings.widgets.options.before",
-                      },
-                      {
-                          .value = SysmonGlyphPosition::After,
-                          .configValue = "after",
-                          .labelKey = "settings.widgets.options.after",
-                      },
-                  },
-              .presentation =
-                  settings::WidgetSettingPresentation{
-                      .group = "presentation",
-                      .segmented = true,
-                      .visibleWhen = glyphPosition,
-                  },
-          }),
+          noctalia::bar::glyphPositionField<Options>(
+              glyphPosition, "presentation", "settings.widgets.settings.glyph-position.sysmon-description"
+          ),
+          noctalia::bar::peekField<Options>(glyphPosition, "presentation"),
+          noctalia::bar::peekDelayField<Options>(glyphPosition, "presentation"),
           field<&Options::highlightColor>({
               .key = "highlight_color",
               .presentation =

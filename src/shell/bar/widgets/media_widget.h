@@ -41,6 +41,9 @@ public:
     bool hideArtist = false;
     bool artistFirst = false;
     bool showProgress = false;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output* output, Options options);
@@ -76,6 +79,7 @@ private:
   bool m_hideArtist = false;
   bool m_artistFirst = false;
   bool m_showProgress = false;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   // Cached from the last doLayout(); the update phase has no container extents of its own.
   bool m_isVertical = false;
   bool m_progressFillVisible = false;

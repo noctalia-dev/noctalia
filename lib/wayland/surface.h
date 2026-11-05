@@ -155,7 +155,7 @@ protected:
   virtual void render();
   virtual void onFrameCallbackDone();
   virtual void onScaleChanged();
-  // Debug traces enabled by NOCTALIA_BLUR_TRACE, for role-specific events of derived surfaces.
+  // Debug traces enabled by <envPrefix>_BLUR_TRACE, for role-specific events of derived surfaces.
   void traceEvent(std::string_view event) const;
   void traceRegionEvent(std::string_view event, const std::vector<InputRect>& rects) const;
   void initializeSurfaceScaleProtocol();

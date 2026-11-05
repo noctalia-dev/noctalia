@@ -2,9 +2,9 @@
 
 #include "config/config_service.h"
 #include "i18n/i18n.h"
+#include "launcher/fuzzy_match.h"
 #include "shell/session/session_action_meta.h"
 #include "shell/session/session_action_runner.h"
-#include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

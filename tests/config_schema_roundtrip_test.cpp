@@ -16,8 +16,8 @@
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
 #include "config/schema/ranges.h"
+#include "config/toml.h"
 #include "core/input/key_chord.h"
-#include "core/toml.h"
 #include "scripting/plugin_id.h"
 
 #include <algorithm>
@@ -383,6 +383,7 @@ location = "https://example.invalid/bad"
         .edgeSmoothness = 0.7F,
         .blurIntensity = 0.6F,
         .tintIntensity = 0.25F,
+        .tintColor = colorSpecFromRole(ColorRole::Primary),
         .monitors = {"DP-1"}
     };
     c.system.monitor.enabled = false;

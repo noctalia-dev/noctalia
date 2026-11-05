@@ -1,5 +1,7 @@
 #include "core/log.h"
 
+#include "core/application_identity.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
@@ -27,7 +29,6 @@ namespace {
   constexpr std::size_t kMaxLogLineBytes = 8 * 1024;    // 8 KiB
   constexpr std::size_t kBufferedFileLogFlushLines = 64;
   constexpr auto kBufferedFileLogFlushInterval = std::chrono::milliseconds(500);
-  constexpr const char* kLogLevelEnv = "NOCTALIA_LOG_LEVEL";
 
   struct CappedLogMessage {
     std::string storage;
@@ -275,12 +276,13 @@ std::optional<LogLevel> parseLogLevel(std::string_view value) {
 void initLogFile() {
   const char* cacheHome = std::getenv("XDG_CACHE_HOME");
   const char* home = std::getenv("HOME");
+  const std::string& name = applicationIdentity().name;
 
   std::string dir;
   if (cacheHome != nullptr && cacheHome[0] != '\0') {
-    dir = std::string(cacheHome) + "/noctalia";
+    dir = std::string(cacheHome) + "/" + name;
   } else if (home != nullptr && home[0] != '\0') {
-    dir = std::string(home) + "/.cache/noctalia";
+    dir = std::string(home) + "/.cache/" + name;
   } else {
     return; // no writable location available
   }
@@ -291,8 +293,8 @@ void initLogFile() {
     return;
   }
 
-  const std::string logPath = dir + "/noctalia.log";
-  const std::string backupPath = dir + "/noctalia.log.1";
+  const std::string logPath = dir + "/" + name + ".log";
+  const std::string backupPath = logPath + ".1";
 
   std::scoped_lock lock(gLogMutex);
   closeLogFileUnlocked();
@@ -358,14 +360,15 @@ void setLogLevel(LogLevel level) {
 }
 
 void initLogLevelFromEnvironment() {
-  const char* value = std::getenv(kLogLevelEnv);
+  const std::string envName = applicationEnvVar("LOG_LEVEL");
+  const char* value = std::getenv(envName.c_str());
   if (value == nullptr) {
     return;
   }
 
   const auto level = parseLogLevel(value);
   if (!level.has_value()) {
-    logWarn("invalid {} '{}'; expected debug, info, warn, or error", kLogLevelEnv, value);
+    logWarn("invalid {} '{}'; expected debug, info, warn, or error", envName, value);
     return;
   }
 

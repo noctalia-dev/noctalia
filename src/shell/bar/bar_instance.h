@@ -34,11 +34,11 @@ struct BarCapsuleRun {
   // Hover highlight overlays, parallel to `widgets` for group runs; one shared box for single runs.
   std::vector<Box*> hoverBoxes;
   bool accordion = false;
-  // Unfold animation time in milliseconds. Matches Style::animNormal; always overwritten from the
-  // group's accordion_duration setting when the run is built.
-  float accordionDurationMs = 200.0F;
+  // Unfold animation time in milliseconds. Always overwritten from the group's accordion_duration
+  // setting (default kBarRevealDurationMs) when the run is built.
+  float accordionDurationMs = static_cast<float>(kBarRevealDurationMs);
   // Hover time in milliseconds before unfolding starts (expand only; collapse is immediate).
-  float accordionDelayMs = 0.0F;
+  float accordionDelayMs = static_cast<float>(kBarRevealDelayMs);
   // Pending delayed expand; cancelled when the pointer leaves, the state resolves, or the run dies.
   Timer accordionDelayTimer;
   // Clips accordion members to the reveal window (inside the capsule padding).
@@ -115,6 +115,9 @@ struct BarInstance {
   // Maps each widget's root node to its Widget so hover-change events resolve to the owning widget.
   std::unordered_map<const Node*, Widget*> widgetByRoot;
   Widget* hoverHighlightWidget = nullptr;
+  // Peek-enabled widget that is revealed or waiting out its peek_delay_ms; null when none.
+  Widget* peekWidget = nullptr;
+  Timer widgetPeekDelayTimer;
 
   Signal<>::ScopedConnection paletteConn;
   std::optional<AttachedPanelGeometry> attachedPanelGeometry;

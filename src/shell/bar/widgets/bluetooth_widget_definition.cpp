@@ -1,5 +1,7 @@
 #include "shell/bar/widgets/bluetooth_widget_definition.h"
 
+#include "shell/bar/glyph_value_definition.h"
+
 namespace {
 
   // A powered-off adapter has no connected device, so hiding on "no connected device"
@@ -14,6 +16,10 @@ namespace {
 
 const noctalia::bar::WidgetDefinition<BluetoothWidget::Options>& bluetoothWidgetDefinition() {
   using noctalia::bar::field;
+  using noctalia::bar::glyphPositionField;
+  using noctalia::bar::peekDelayField;
+  using noctalia::bar::peekField;
+  using noctalia::bar::whenAllTrue;
   using Options = BluetoothWidget::Options;
 
   static const noctalia::bar::WidgetDefinition<Options> definition{
@@ -22,6 +28,9 @@ const noctalia::bar::WidgetDefinition<BluetoothWidget::Options>& bluetoothWidget
           field<&Options::showLabel>({
               .key = "show_label",
           }),
+          glyphPositionField<Options>(whenAllTrue({"show_label"})),
+          peekField<Options>(whenAllTrue({"show_label"})),
+          peekDelayField<Options>(whenAllTrue({"show_label"})),
           field<&Options::hideWhenAdapterOff>({
               .key = "hide_when_adapter_off",
               .presentation =

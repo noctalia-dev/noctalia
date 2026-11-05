@@ -1,7 +1,6 @@
 #include "shell/calendar/calendar_view.h"
 
 #include "calendar/calendar_types.h"
-#include "core/time_format.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
@@ -9,6 +8,7 @@
 #include "render/core/color.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"

@@ -6,6 +6,7 @@
 #include <print>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -78,7 +79,31 @@ int main() {
     ok = expect(hasDiagnostic(*parsed, "duplicate section"), "duplicate section was not diagnosed") && ok;
     ok = expect(hasDiagnostic(*parsed, "duplicate key"), "duplicate key was not diagnosed") && ok;
     ok = expect(hasDiagnostic(*parsed, "malformed assignment"), "malformed assignment was not diagnosed") && ok;
+    ok = expect(
+             parsed->file.sectionNames() == std::vector<std::string>{"Icon Theme", "scalable", "48x48"},
+             "section names were not kept in file order"
+         )
+        && ok;
   }
+
+  const auto inMemory = freedesktop::parseKeyFileContents("[b]\nk=v\n[a]\nk=w");
+  ok = expect(inMemory.has_value(), "in-memory key file did not parse") && ok;
+  if (inMemory.has_value()) {
+    ok = expect(inMemory->file.value("a", "k") == "w", "final line without a newline was dropped") && ok;
+    ok = expect(
+             inMemory->file.sectionNames() == std::vector<std::string>{"b", "a"},
+             "in-memory section names were not kept in file order"
+         )
+        && ok;
+  }
+  ok = expect(!freedesktop::parseKeyFileContents("[a]\nk=\xFF").has_value(), "in-memory invalid UTF-8 was accepted")
+      && ok;
+
+  ok = expect(
+           freedesktop::unescapeValue(R"(a\sb\nc\td\re\\f\qg\)") == "a b\nc\td\re\\f\\qg\\",
+           "string escapes were not decoded"
+       )
+      && ok;
 
   const auto invalidUtf8Path = dir / "invalid-utf8.theme";
   {

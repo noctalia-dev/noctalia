@@ -1,7 +1,7 @@
 #include "capture/screencopy_capture.h"
 #include "capture/screencopy_util.h"
-#include "render/core/image_decoder.h"
-#include "render/core/image_encoder.h"
+#include "render/codecs/codecs.h"
+#include "render/codecs/image_encoder.h"
 #include "render/core/image_orientation.h"
 
 #include <array>
@@ -172,7 +172,7 @@ namespace {
          )
         && ok;
 
-    const auto decodedUpright = decodeRasterImage(upright.data(), upright.size());
+    const auto decodedUpright = codecs::decodeRasterImage(upright.data(), upright.size());
     ok = check(decodedUpright.has_value(), "upright PNG failed to decode") && ok;
     if (decodedUpright) {
       ok = check(decodedUpright->width == 3 && decodedUpright->height == 2, "orientation 1 changed the image size")
@@ -184,7 +184,7 @@ namespace {
           && ok;
     }
 
-    const auto decodedRotated = decodeRasterImage(rotated.data(), rotated.size());
+    const auto decodedRotated = codecs::decodeRasterImage(rotated.data(), rotated.size());
     ok = check(decodedRotated.has_value(), "rotated PNG failed to decode") && ok;
     if (decodedRotated) {
       ok =

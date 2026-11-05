@@ -26,6 +26,8 @@ System resource monitor. Shows a configurable combination of a glyph, visualizat
 | `custom_image_colorize`        | bool   | `false`       | When `true`, tint the custom image with the same dynamic color the glyph would use                                                                                  |
 | `custom_label`                 | string | `""`          | Custom text displayed beside the stat glyph or custom image. It remains visible when `show_glyph` is `false` and can be the widget's only visible content           |
 | `glyph_position`               | string | `"before"`    | Place the glyph or custom image and custom label group before or after the value or visualization                                                                   |
+| `peek`                         | bool   | `false`       | Show only the glyph group and reveal the visualization and value on hover, on the side set by `glyph_position`. See [Peek](/noctalia/bar/widgets/#peek)             |
+| `peek_delay_ms`                | int    | `100`         | Hover time before the visualization and value reveal, from `0` to `2000` ms                                                                                         |
 | `highlight_color`              | string | `"error"`     | Color role (or fixed hex) the value tints toward as the stat rises past its activity/critical thresholds. See [System Monitor](/noctalia/services/system-monitor/). |
 
 `custom_label` is independent of the glyph slot. Keep `show_glyph` enabled to display the glyph or custom image beside the label, or disable it for a text-only identity.

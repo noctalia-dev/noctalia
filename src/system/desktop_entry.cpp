@@ -74,20 +74,41 @@ namespace {
     return {};
   }
 
-  bool executableIsAppImage(std::string_view exec, bool resolveFromPath) {
-    const auto start = exec.find_first_not_of(' ');
+  // Returns the next whitespace-separated Exec token, honoring double-quoted arguments.
+  std::string_view nextExecToken(std::string_view exec, std::size_t& cursor) {
+    const auto start = exec.find_first_not_of(" \t", cursor);
     if (start == std::string_view::npos) {
+      cursor = exec.size();
+      return {};
+    }
+    if (exec[start] == '"') {
+      const auto end = exec.find('"', start + 1);
+      cursor = end == std::string_view::npos ? exec.size() : end + 1;
+      return exec.substr(start + 1, (end == std::string_view::npos ? exec.size() : end) - start - 1);
+    }
+    const auto end = exec.find_first_of(" \t", start);
+    cursor = end == std::string_view::npos ? exec.size() : end;
+    return exec.substr(start, cursor - start);
+  }
+
+  // Returns the program an Exec line runs, looking through an `env VAR=value ...` prefix.
+  std::string_view execProgram(std::string_view exec) {
+    std::size_t cursor = 0;
+    std::string_view token = nextExecToken(exec, cursor);
+    if (fs::path(token).filename() != "env") {
+      return token;
+    }
+    do {
+      token = nextExecToken(exec, cursor);
+    } while (token.contains('='));
+    return token;
+  }
+
+  bool programIsAppImage(std::string_view program, bool resolveFromPath) {
+    if (program.empty()) {
       return false;
     }
-
-    const char quote = exec[start] == '"' ? '"' : '\0';
-    const std::size_t executableStart = start + (quote == '\0' ? 0 : 1);
-    const std::size_t executableEnd =
-        quote == '\0' ? exec.find(' ', executableStart) : exec.find(quote, executableStart);
-    const fs::path executable(exec.substr(
-        executableStart,
-        executableEnd == std::string_view::npos ? std::string_view::npos : executableEnd - executableStart
-    ));
+    const fs::path executable(program);
     if (StringUtils::toLower(executable.extension().string()) == ".appimage") {
       return true;
     }
@@ -264,6 +285,7 @@ namespace {
     std::string type;
     bool hasAppImageVersion = false;
     bool appImageIntegrationDisabled = false;
+    std::string tryExec;
 
     // Desktop-environment visibility lists (OnlyShowIn/NotShowIn)
     std::vector<std::string> onlyShowIn;
@@ -375,6 +397,8 @@ namespace {
         entry.comment = std::string(value);
       } else if (key == "Exec") {
         entry.exec = std::string(value);
+      } else if (key == "TryExec") {
+        tryExec = std::string(value);
       } else if (key == "Icon") {
         entry.icon = std::string(value);
       } else if (key == "Categories") {
@@ -445,8 +469,11 @@ namespace {
     entry.startupWmClassLower = StringUtils::toLower(entry.startupWmClass);
     entry.idLower = StringUtils::toLower(entry.id);
     entry.execLower = StringUtils::toLower(entry.exec);
+    const bool resolveFromPath = isUserDesktopEntry(filepath);
     const bool appImage = !appImageIntegrationDisabled
-        && (hasAppImageVersion || executableIsAppImage(entry.exec, isUserDesktopEntry(filepath)));
+        && (hasAppImageVersion
+            || programIsAppImage(tryExec, resolveFromPath)
+            || programIsAppImage(execProgram(entry.exec), resolveFromPath));
     entry.origin = detectOrigin(filepath, appImage);
 
     // Build actions in the declared order.

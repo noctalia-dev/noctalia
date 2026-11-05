@@ -3,8 +3,8 @@
 #include "cli/parse.h"
 #include "cli/schema_theme.h"
 #include "config/config_service.h"
+#include "config/toml.h" // IWYU pragma: keep
 #include "core/files/resource_paths.h"
-#include "core/toml.h" // IWYU pragma: keep
 #include "theme/builtin_templates.h"
 #include "theme/color.h"
 #include "theme/community_templates.h"

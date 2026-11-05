@@ -46,7 +46,9 @@ namespace {
 
 BluetoothWidget::BluetoothWidget(BluetoothService* bluetooth, wl_output* /*output*/, Options options)
     : m_bluetooth(bluetooth), m_showLabel(options.showLabel), m_hideWhenAdapterOff(options.hideWhenAdapterOff),
-      m_hideWhenNoConnectedDevice(options.hideWhenNoConnectedDevice) {}
+      m_hideWhenNoConnectedDevice(options.hideWhenNoConnectedDevice), m_glyphPosition(options.glyphPosition) {
+  setPeek(options.peek, options.peekDelayMs);
+}
 
 void BluetoothWidget::create() {
   auto area = ui::inputArea({});
@@ -67,6 +69,7 @@ void BluetoothWidget::create() {
             .fontSize = Style::fontSizeBody * fontScale(),
             .fontWeight = labelFontWeight(),
             .fontFamily = labelFontFamily(),
+            .maxLines = 1,
         })
     );
   }
@@ -74,27 +77,28 @@ void BluetoothWidget::create() {
   setRoot(std::move(area));
 }
 
-void BluetoothWidget::doLayout(Renderer& renderer, float /*containerWidth*/, float /*containerHeight*/) {
+void BluetoothWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
   if (m_glyph == nullptr || rootNode == nullptr) {
     return;
   }
+  const bool isVertical = containerHeight > containerWidth;
   syncState(renderer);
 
   m_glyph->measure(renderer);
-
-  float totalWidth = m_glyph->width();
-  float contentHeight = m_glyph->height();
   if (m_label != nullptr) {
+    m_label->setMaxWidth(isVertical ? containerWidth : 0.0F);
+    m_label->setTextAlign(isVertical ? TextAlign::Center : TextAlign::Start);
     m_label->measure(renderer);
-    if (m_label->width() > 0.0F) {
-      contentHeight = std::max(contentHeight, m_label->height());
-      m_label->setPosition(m_glyph->width() + Style::spaceXs, std::round((contentHeight - m_label->height()) * 0.5F));
-      totalWidth = m_label->x() + m_label->width();
-    }
   }
-  m_glyph->setPosition(0.0F, std::round((contentHeight - m_glyph->height()) * 0.5F));
-  rootNode->setSize(totalWidth, contentHeight);
+
+  layoutGlyphValue({
+      .glyph = m_glyph,
+      .value = m_label != nullptr && m_label->width() > 0.0F ? m_label : nullptr,
+      .glyphPosition = m_glyphPosition,
+      .vertical = isVertical,
+      .horizontalGap = Style::spaceXs,
+  });
 }
 
 void BluetoothWidget::doUpdate(Renderer& renderer) { syncState(renderer); }

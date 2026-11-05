@@ -1,7 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
-#include "core/toml.h" // IWYU pragma: keep
+#include "config/toml.h" // IWYU pragma: keep
 #include "theme/palette.h"
 
 #include <atomic>

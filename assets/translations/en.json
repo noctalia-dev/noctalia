@@ -39,7 +39,9 @@
       "backdrop-shadow-offset-x": "Offset X",
       "backdrop-shadow-offset-y": "Offset Y",
       "backdrop-shadow-opacity": "Opacity",
-      "capture-new-region": "Capture new region (discards the current edit)",
+      "capture": "Capture again",
+      "capture-new-region": "Capture new region (Ctrl+R) · discards the current edit",
+      "capture-window": "Capture the window focused when the editor opened (Ctrl+W) · discards the current edit",
       "close": "Close editor",
       "color-black": "Black (8)",
       "color-blue": "Blue (4)",
@@ -2622,8 +2624,12 @@
           "description": "Choose which monitors show the lock screen; leave empty to show on all monitors",
           "label": "Monitors"
         },
+        "tint-color": {
+          "description": "Color of the tint over the lock screen background",
+          "label": "Tint Color"
+        },
         "tint-intensity": {
-          "description": "Surface-color tint over the lock screen background",
+          "description": "Strength of the tint over the lock screen background",
           "label": "Tint Intensity"
         },
         "transition-duration": {
@@ -4687,6 +4693,10 @@
           "description": "Show a tray button in the bar and open items in a panel",
           "label": "Use Drawer Panel"
         },
+        "drawer-background-opacity": {
+          "description": "Background opacity of the detached drawer panel",
+          "label": "Drawer Background Opacity"
+        },
         "drawer-columns": {
           "description": "Number of tray icons per row in the drawer panel",
           "label": "Drawer Columns"
@@ -4741,11 +4751,13 @@
           "description": "Icon glyph name",
           "label": "Glyph",
           "sysmon-description": "Custom icon glyph; leave empty to use the icon for the selected stat",
+          "tray-description": "Custom tray glyph; leave empty for a chevron pointing toward the drawer or peek reveal",
           "volume-description": "Custom icon glyph; leave empty to use the built-in dynamic icons"
         },
         "glyph-position": {
-          "description": "Place the glyph or custom image and custom label relative to the value or visualization",
-          "label": "Glyph Position"
+          "description": "Place the glyph before or after the value; with Peek on, the value reveals on the other side",
+          "label": "Glyph Position",
+          "sysmon-description": "Place the glyph or custom image and custom label relative to the value or visualization"
         },
         "group-by-workspace": {
           "description": "Group taskbar icons into workspace capsules when compositor data is available",
@@ -4979,6 +4991,14 @@
         "path": {
           "description": "Path used by disk statistics",
           "label": "Path"
+        },
+        "peek": {
+          "description": "Show only the glyph; the value slides out while the pointer hovers the widget",
+          "label": "Peek"
+        },
+        "peek-delay-ms": {
+          "description": "Hover time in milliseconds before the value starts sliding out; 0 reveals at once",
+          "label": "Peek Delay"
         },
         "pill-scale": {
           "description": "Adjust the scale of workspace pills",

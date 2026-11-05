@@ -12,7 +12,10 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
+#include <algorithm>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <memory>
 #include <string>
 #include <vector>
@@ -69,7 +72,10 @@ NetworkWidget::NetworkWidget(
     wl_output* /*output*/, Options options
 )
     : m_network(network), m_externalIp(externalIp), m_monitor(monitor), m_modem(modem), m_showLabel(options.showLabel),
-      m_showVpnLabel(options.showVpnLabel), m_vpnStatusMode(options.vpnStatusMode) {}
+      m_showVpnLabel(options.showVpnLabel), m_vpnStatusMode(options.vpnStatusMode),
+      m_glyphPosition(options.glyphPosition) {
+  setPeek(options.peek && options.showLabel, options.peekDelayMs);
+}
 
 void NetworkWidget::create() {
   auto area = ui::inputArea({});
@@ -164,83 +170,71 @@ void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float con
   Node* icon =
       (m_spinner != nullptr && m_spinner->visible()) ? static_cast<Node*>(m_spinner) : static_cast<Node*>(m_glyph);
 
-  const bool vpnVisible = m_vpnGlyph != nullptr && m_vpnGlyph->visible();
-  const bool vpnLabelVisible = m_vpnLabel != nullptr && m_vpnLabel->visible();
-  const bool networkLabelVisible = m_label != nullptr && m_label->width() > 0.0F && m_label->visible();
+  Node* vpnIcon = m_vpnGlyph != nullptr && m_vpnGlyph->visible() ? m_vpnGlyph : nullptr;
+  Node* vpnLabel = m_vpnLabel != nullptr && m_vpnLabel->visible() && m_vpnLabel->width() > 0.0F ? m_vpnLabel : nullptr;
+  Node* networkLabel = m_label != nullptr && m_label->visible() && m_label->width() > 0.0F ? m_label : nullptr;
+  if (vpnIcon == nullptr) {
+    layoutGlyphValue({
+        .glyph = icon,
+        .value = networkLabel,
+        .glyphPosition = m_glyphPosition,
+        .vertical = m_isVertical,
+        .horizontalGap = Style::spaceXs,
+    });
+    return;
+  }
+  const bool glyphAfter = m_glyphPosition == GlyphPosition::After;
+  // Peek keeps both status glyphs visible and reveals their labels together.
+  const std::array<Node*, 4> items = peekEnabled() ? (glyphAfter ? std::array{vpnLabel, networkLabel, vpnIcon, icon}
+                                                                 : std::array{vpnIcon, icon, vpnLabel, networkLabel})
+                                                   : (glyphAfter ? std::array{vpnLabel, vpnIcon, networkLabel, icon}
+                                                                 : std::array{vpnIcon, vpnLabel, icon, networkLabel});
+  const auto mainOf = [this](const Node* node) { return m_isVertical ? node->height() : node->width(); };
+  const auto crossOf = [this](const Node* node) { return m_isVertical ? node->width() : node->height(); };
+  const auto gapBetween = [&](const Node* first, const Node* second) {
+    if (first == nullptr || second == nullptr) {
+      return 0.0F;
+    }
+    if (!m_isVertical) {
+      return Style::spaceXs;
+    }
+    if (peekEnabled()) {
+      const bool firstIsIcon = first == icon || first == vpnIcon;
+      const bool secondIsIcon = second == icon || second == vpnIcon;
+      return firstIsIcon == secondIsIcon ? Style::spaceXs : 0.0F;
+    }
+    const bool firstIsVpn = first == vpnIcon || first == vpnLabel;
+    const bool secondIsVpn = second == vpnIcon || second == vpnLabel;
+    return firstIsVpn == secondIsVpn ? 0.0F : Style::spaceXs;
+  };
 
-  if (m_isVertical) {
-    // Vertical: stack everything centered, top to bottom
-    // VPN glyph → VPN label → network glyph → network label
-    const float w = [&] {
-      float maxW = icon->width();
-      if (vpnVisible) {
-        maxW = std::max(maxW, m_vpnGlyph->width());
-      }
-      if (vpnLabelVisible) {
-        maxW = std::max(maxW, m_vpnLabel->width());
-      }
-      if (networkLabelVisible) {
-        maxW = std::max(maxW, m_label->width());
-      }
-      return maxW;
-    }();
-
-    float y = 0.0F;
-    if (vpnVisible) {
-      m_vpnGlyph->setPosition(std::round((w - m_vpnGlyph->width()) * 0.5F), y);
-      y += m_vpnGlyph->height();
+  float contentMain = 0.0F;
+  float cross = 0.0F;
+  const Node* previous = nullptr;
+  for (const Node* item : items) {
+    if (item == nullptr) {
+      continue;
     }
-    if (vpnLabelVisible) {
-      m_vpnLabel->setPosition(std::round((w - m_vpnLabel->width()) * 0.5F), y);
-      y += m_vpnLabel->height();
+    contentMain += gapBetween(previous, item) + mainOf(item);
+    cross = std::max(cross, crossOf(item));
+    previous = item;
+  }
+  rootNode->setSize(m_isVertical ? cross : contentMain, m_isVertical ? contentMain : cross);
+  const float glyphMain = mainOf(icon) + (vpnIcon != nullptr ? gapBetween(vpnIcon, icon) + mainOf(vpnIcon) : 0.0F);
+  float cursor = applyPeek(contentMain, glyphMain, m_glyphPosition, m_isVertical);
+  previous = nullptr;
+  for (Node* item : items) {
+    if (item == nullptr) {
+      continue;
     }
-    if (vpnVisible) {
-      y += Style::spaceXs;
+    cursor += gapBetween(previous, item);
+    float crossPos = (cross - crossOf(item)) * 0.5F;
+    if (item == icon || item == vpnIcon) {
+      crossPos = std::round(crossPos);
     }
-    icon->setPosition(std::round((w - icon->width()) * 0.5F), y);
-    y += icon->height();
-    if (networkLabelVisible) {
-      m_label->setPosition(std::round((w - m_label->width()) * 0.5F), y);
-      y += m_label->height();
-    }
-    rootNode->setSize(w, y);
-  } else {
-    // Horizontal: vpnGlyph + vpnLabel | space | networkGlyph + networkLabel
-    const float vpnGroupWidth =
-        vpnVisible ? m_vpnGlyph->width() + (vpnLabelVisible ? Style::spaceXs + m_vpnLabel->width() : 0.0F) : 0.0F;
-    const float networkGroupWidth = icon->width() + (networkLabelVisible ? Style::spaceXs + m_label->width() : 0.0F);
-    const float gap = vpnVisible ? Style::spaceXs : 0.0F;
-    const float totalWidth = vpnGroupWidth + gap + networkGroupWidth;
-    const float h = [&] {
-      float maxH = icon->height();
-      if (vpnVisible) {
-        maxH = std::max(maxH, m_vpnGlyph->height());
-      }
-      if (vpnLabelVisible) {
-        maxH = std::max(maxH, m_vpnLabel->height());
-      }
-      if (networkLabelVisible) {
-        maxH = std::max(maxH, m_label->height());
-      }
-      return maxH;
-    }();
-
-    float x = 0.0F;
-    if (vpnVisible) {
-      m_vpnGlyph->setPosition(x, std::round((h - m_vpnGlyph->height()) * 0.5F));
-      x += m_vpnGlyph->width();
-      if (vpnLabelVisible) {
-        m_vpnLabel->setPosition(x + Style::spaceXs, std::round((h - m_vpnLabel->height()) * 0.5F));
-        x += Style::spaceXs + m_vpnLabel->width();
-      }
-    }
-    x += gap;
-    icon->setPosition(x, std::round((h - icon->height()) * 0.5F));
-    x += icon->width();
-    if (networkLabelVisible) {
-      m_label->setPosition(x + Style::spaceXs, std::round((h - m_label->height()) * 0.5F));
-    }
-    rootNode->setSize(totalWidth, h);
+    item->setPosition(m_isVertical ? crossPos : cursor, m_isVertical ? cursor : crossPos);
+    cursor += mainOf(item);
+    previous = item;
   }
 }
 

@@ -1211,7 +1211,7 @@ void LockScreen::applyLockscreenStyle(LockSurface& surface) const {
     return;
   }
   const auto& lockscreen = m_configService->config().lockscreen;
-  surface.setBackgroundStyle(lockscreen.blurIntensity, lockscreen.tintIntensity);
+  surface.setBackgroundStyle(lockscreen.blurIntensity, lockscreen.tintIntensity, lockscreen.tintColor);
 }
 
 bool LockScreen::isInteractiveOutput(const WaylandOutput& output) const {

@@ -62,7 +62,7 @@ public:
   void create() override;
   void onOpen(std::string_view context) override;
   void onClose() override;
-  void onFrameTick(float deltaMs) override;
+  void onFrameTick(float deltaMs, Renderer& renderer) override;
   void scrollFocusedInputIntoView(InputArea* area) override;
   bool isContextActive(std::string_view context) const override;
 

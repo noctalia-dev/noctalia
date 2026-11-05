@@ -511,27 +511,6 @@ namespace ui {
     return control;
   }
 
-  std::unique_ptr<Image> image(ImageProps props) {
-    auto control = std::make_unique<Image>();
-    if (props.fit.has_value()) {
-      control->setFit(*props.fit);
-    }
-    if (props.radius.has_value()) {
-      control->setRadius(*props.radius);
-    }
-    if (props.padding.has_value()) {
-      control->setPadding(*props.padding);
-    }
-    applyNodeProps(*control, props);
-    if (props.configure) {
-      props.configure(*control);
-    }
-    if (props.out != nullptr) {
-      *props.out = control.get();
-    }
-    return control;
-  }
-
   std::unique_ptr<Separator> separator(SeparatorProps props) {
     auto control = std::make_unique<Separator>();
     if (props.color.has_value()) {
@@ -870,39 +849,6 @@ namespace ui {
     }
     if (props.adapter != nullptr) {
       control->setAdapter(props.adapter);
-    }
-    applyNodeProps(*control, props);
-    if (props.configure) {
-      props.configure(*control);
-    }
-    if (props.out != nullptr) {
-      *props.out = control.get();
-    }
-    return control;
-  }
-
-  std::unique_ptr<SearchPicker> searchPicker(SearchPickerProps props) {
-    auto control = std::make_unique<SearchPicker>();
-    if (props.placeholder.has_value()) {
-      control->setPlaceholder(*props.placeholder);
-    }
-    if (props.emptyText.has_value()) {
-      control->setEmptyText(*props.emptyText);
-    }
-    if (props.selectedValue.has_value()) {
-      control->setSelectedValue(*props.selectedValue);
-    }
-    if (props.options.has_value()) {
-      control->setOptions(std::move(*props.options));
-    }
-    if (props.onActivated) {
-      control->setOnActivated(std::move(props.onActivated));
-    }
-    if (props.onCancel) {
-      control->setOnCancel(std::move(props.onCancel));
-    }
-    if (props.enabled.has_value()) {
-      control->setEnabled(*props.enabled);
     }
     applyNodeProps(*control, props);
     if (props.configure) {

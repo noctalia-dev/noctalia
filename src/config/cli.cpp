@@ -5,8 +5,8 @@
 #include "cli/schema_config.h"
 #include "config/config_service.h"
 #include "config/config_validate.h"
+#include "config/toml.h" // IWYU pragma: keep
 #include "core/log.h"
-#include "core/toml.h" // IWYU pragma: keep
 #include "shell/settings/settings_registry.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
