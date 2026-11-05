@@ -205,6 +205,7 @@ private:
 
   std::string m_value;
   std::string m_placeholder;
+  std::uint64_t m_editRevision = 0;
   std::size_t m_cursorPos = 0;
   std::size_t m_selectionAnchor = 0;
   std::size_t m_preeditStart = 0;

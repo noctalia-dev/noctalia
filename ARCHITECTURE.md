@@ -69,6 +69,8 @@ Code that only the shell uses belongs in `src/`, even when it looks generic.
 
 `InputArea::observeDestruction()` registers one notification per owner-lifetime token. A shared or reparented area notifies every surviving dispatcher when destroyed; expired owners are skipped and pruned on registration. Dispatchers invalidate their tokens at the start of destruction and cannot be copied or moved. This keeps focus, hover, pointer capture and gesture targets from retaining deleted areas without calling into destroyed dispatchers. Scene mutation, observer registration and destruction stay on the scene thread.
 
+Text paste uses `TextClipboard::requestClipboardText()`. Providers complete once on the UI thread, either inline or asynchronously; the default implementation uses the provider's cached text, while transports that need a read override it without blocking. The application owns transport, selection revisions, cancellation and limits. `Input` accepts a reply only while its lifetime, edit revision, focus, enabled state and composition state still permit it. Edits, caret/selection changes, focus loss, text-input deactivation and newer paste requests invalidate older requests. Accepted paste is one undoable edit, with the usual password restrictions. Change callbacks may destroy the input; the callback's value remains valid during the call.
+
 ## Rendering
 
 - `RenderContext` owns scene traversal and delegates drawing to a `RenderBackend`. Construct backends with `createDefaultRenderBackend()`.

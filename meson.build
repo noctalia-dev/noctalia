@@ -1138,6 +1138,7 @@ if build_tests
     'input_bidi',
     'input_dispatcher',
     'input_password_mode',
+    'input_paste',
     'input_readline_shortcuts',
     'log',
     'string_utils',

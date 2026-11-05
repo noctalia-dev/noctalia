@@ -44,7 +44,8 @@ namespace StringUtils {
     std::string out;
     out.reserve(text.size());
     bool pendingSpace = false;
-    for (unsigned char ch : text) {
+    for (char value : text) {
+      const auto ch = static_cast<unsigned char>(value);
       if (ch == '\n' || ch == '\r' || ch == '\t' || ch == '\v' || ch == '\f' || ch == ' ' || std::isspace(ch) != 0) {
         pendingSpace = !out.empty();
         continue;
@@ -351,7 +352,7 @@ namespace StringUtils {
     return {};
   }
 
-  // True when `text` is exactly one codepoint in a Unicode Private Use Area —
+  // True when `text` is exactly one codepoint in a Unicode Private Use Area,
   // i.e. a Nerd Font / icon glyph rather than text. Such glyphs ignore cap/x
   // height, so callers center them by ink instead of the typographic cap band.
   inline bool isSinglePrivateUseGlyph(std::string_view text) {
