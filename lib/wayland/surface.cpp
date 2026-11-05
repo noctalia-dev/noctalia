@@ -1118,6 +1118,18 @@ void Surface::discardPendingFrameCallback() {
   m_frameCallback = nullptr;
 }
 
+void Surface::recoverStalledFrameLoop(std::chrono::milliseconds stallAfter) {
+  if (m_frameCallback == nullptr || !m_running || !m_configured) {
+    return;
+  }
+  const bool workPending = m_updateRequested || m_layoutRequested || m_redrawRequested || m_frameTickPending;
+  if (!workPending || std::chrono::steady_clock::now() - m_frameCallbackRequestedAt < stallAfter) {
+    return;
+  }
+  discardPendingFrameCallback();
+  kickFrameLoop();
+}
+
 void Surface::requestUpdateOnly() {
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::RequestUpdateOnly);
   m_updateRequested = true;
@@ -1205,6 +1217,7 @@ void Surface::requestFrame() {
   m_nextFrameCallbackShouldTick = false;
 
   m_frameCallback = wl_surface_frame(m_surface);
+  m_frameCallbackRequestedAt = std::chrono::steady_clock::now();
   if (m_frameCallback != nullptr) {
     wl_callback_add_listener(m_frameCallback, &kFrameListener, this);
   }

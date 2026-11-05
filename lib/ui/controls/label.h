@@ -79,6 +79,8 @@ public:
   TextEllipsize ellipsize() const noexcept;
   LabelBaselineMode baselineMode() const noexcept { return m_baselineMode; }
   float baselineOffset() const noexcept { return m_baselineOffset; }
+  float textOriginX() const noexcept { return m_textNode->x(); }
+  float textWrapWidth() const noexcept { return m_textNode->maxWidth(); }
 
   void measure(Renderer& renderer);
 

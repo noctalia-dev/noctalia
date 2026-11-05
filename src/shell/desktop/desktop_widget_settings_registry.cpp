@@ -27,6 +27,7 @@ namespace desktop_settings {
         {.type = "clock", .labelKey = "desktop-widgets.editor.types.clock"},
         {.type = "fancy_audio_visualizer", .labelKey = "desktop-widgets.editor.types.fancy-audio-visualizer"},
         {.type = "label", .labelKey = "desktop-widgets.editor.types.label"},
+        {.type = "lyrics", .labelKey = "desktop-widgets.editor.types.lyrics"},
         {.type = "media_player", .labelKey = "desktop-widgets.editor.types.media-player"},
         {.type = "sticker", .labelKey = "desktop-widgets.editor.types.sticker"},
         {.type = "sysmon", .labelKey = "desktop-widgets.editor.types.system-monitor"},
@@ -347,6 +348,21 @@ namespace desktop_settings {
       add(std::move(albumArtBlur));
       add(boolSpec("audio_visualizer", false));
       add(boolSpec("hide_when_no_media", false));
+    } else if (type == "lyrics") {
+      auto lineCount = stepperIntSpec("line_count", 3, 1.0, 15.0);
+      lineCount.labelKey = "settings.widgets.settings.line-count.label";
+      lineCount.descriptionKey = "settings.widgets.settings.line-count.description";
+      add(std::move(lineCount));
+      auto syncOffset = stepperIntSpec("sync_offset_ms", 0, -10000.0, 10000.0, 100.0);
+      syncOffset.labelKey = "settings.widgets.settings.sync-offset-ms.label";
+      syncOffset.descriptionKey = "settings.widgets.settings.sync-offset-ms.description";
+      add(std::move(syncOffset));
+      add(colorSpec("color", "on_surface_variant"));
+      auto activeColor = colorSpec("active_color", "primary");
+      activeColor.labelKey = "settings.widgets.settings.active-color.label";
+      add(std::move(activeColor));
+      add(fontFamilySpec());
+      add(boolSpec("shadow", true));
     } else if (type == "label") {
       add(stringSpec("title", "Title"));
       add(stringSpec("description"));

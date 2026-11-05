@@ -5,6 +5,7 @@ class CalendarService;
 class ConfigService;
 class FileWatcher;
 class HttpClient;
+class LyricsService;
 class MprisService;
 class PipeWireService;
 class PipeWireSpectrum;
@@ -33,6 +34,7 @@ struct DesktopWidgetRuntimeServices {
   PipeWireSpectrum* pipewireSpectrum = nullptr;
   const WeatherService* weather = nullptr;
   MprisService* mpris = nullptr;
+  LyricsService* lyrics = nullptr;
   HttpClient* httpClient = nullptr;
   SystemMonitorService* sysmon = nullptr;
   DesktopWidgetScriptDeps scriptDeps;

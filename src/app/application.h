@@ -80,6 +80,7 @@
 #include "system/location_service.h"
 #include "system/lock_keys_poll_source.h"
 #include "system/lock_keys_service.h"
+#include "system/lyrics_service.h"
 #include "system/screen_time_service.h"
 #include "system/telemetry_service.h"
 #include "system/weather_poll_source.h"
@@ -256,6 +257,7 @@ private:
   VirtualKeyboardService m_virtualKeyboardService;
   ConfigService m_configService;
   HttpClient m_httpClient;
+  LyricsService m_lyricsService{m_httpClient, m_configService};
   FileWatcher m_fileWatcher;
   noctalia::theme::CommunityPaletteService m_communityPaletteService{m_httpClient};
   noctalia::theme::CommunityTemplateService m_communityTemplateService{m_httpClient};

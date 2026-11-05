@@ -31,7 +31,7 @@ flip_y   = false
 format = "{:%H:%M}"
 ```
 
-When enabled, Noctalia renders each desktop widget as its own tightly-sized layer-shell surface on the `Bottom` layer. The current implementation ships `button`, `calendar`, `clock`, `label`, `audio_visualizer`, `fancy_audio_visualizer`, `sticker`, `weather`, `media_player`, `volume`, and `sysmon` widget types plus an interactive edit mode.
+When enabled, Noctalia renders each desktop widget as its own tightly-sized layer-shell surface on the `Bottom` layer. The current implementation ships `button`, `calendar`, `clock`, `label`, `audio_visualizer`, `fancy_audio_visualizer`, `sticker`, `weather`, `media_player`, `lyrics`, `volume`, and `sysmon` widget types plus an interactive edit mode.
 
 ---
 
@@ -150,7 +150,7 @@ background       = true
 background_color = "surface"
 ```
 
-The `clock`, `weather`, `media_player`, `label`, and `sysmon` widget types additionally support text styling:
+The `clock`, `weather`, `media_player`, `lyrics`, `label`, and `sysmon` widget types additionally support text styling:
 
 | Setting       | Type   | Default          | Description                                                             |
 | ------------- | ------ | ---------------- | ----------------------------------------------------------------------- |
@@ -371,6 +371,47 @@ audio_visualizer = false
 | `album_art_blur`       | int    | `24`           | Album-art background blur radius from `0` (sharp) to `96` pixels                                                                                                          |
 | `audio_visualizer`     | bool   | `false`        | Show a subtle PipeWire spectrum behind the metadata and playback controls                                                                                                 |
 | `hide_when_no_media`   | bool   | `false`        | Hide the widget when no MPRIS player is active                                                                                                                            |
+
+---
+
+### lyrics
+
+Displays lyrics for the active MPRIS player. Add **Lyrics** in the desktop widget editor, then adjust **Visible Lines** in its settings. No API key is required. When a local audio file has a sibling `.lrc` file with the same name (for example `song.flac` and `song.lrc`), those lyrics are used without any network request. Otherwise the shared lookup service cleans up video-style metadata (such as `Artist x Guest - Song (Official Video)` titles and uploader channel names), identifies the recording through Deezer and MusicBrainz, then asks [lrcmux](https://lrcmux.dev/), [LyricsPlus](https://github.com/ibratabian17/lyricsplus) and [LRCLIB](https://lrclib.net/) in that order. [KuGou](https://www.kugou.com/) and [NetEase Cloud Music](https://music.163.com/) are a last resort, only asked when none of those has synced lyrics. Lyrics timed for a recording whose length matches the playing track are preferred; otherwise the first synced lyrics in that order are used, and plain text only when nothing is synced. LyricsPlus, KuGou and NetEase are skipped for 10 minutes when they cannot be reached. Recordings up to 30 seconds longer or shorter than the playing track (e.g. music-video intros) are still matched, with closer timing preferred. Lyric timestamps follow the studio recording, so music videos with a different intro can be offset; use `sync_offset_ms` to compensate. Some players (such as Chromium on YouTube) keep reporting the first video's length after navigating to another one; a length repeated unchanged from the previous track is ignored for matching. These requests send track metadata (title, artist, and sometimes album and length) to the providers; `[shell].offline_mode = true` prevents network requests.
+
+```toml
+[desktop_widgets.widget.lyrics_main]
+type = "lyrics"
+output = "DP-1"
+cx = 700.0
+cy = 700.0
+box_width = 0.0
+box_height = 0.0
+
+[desktop_widgets.widget.lyrics_main.settings]
+line_count = 3
+sync_offset_ms = 0
+color = "on_surface_variant"
+active_color = "primary"
+shadow = true
+```
+
+| Setting          | Type   | Default                | Description                                                                                                 |
+| ---------------- | ------ | ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `line_count`     | int    | `3`                    | Number of lyric rows, from 1 to 15.                                                                         |
+| `sync_offset_ms` | int    | `0`                    | Timing adjustment from -10000 to 10000 ms, in 100 ms steps. Positive advances lyrics; negative delays them. |
+| `color`          | string | `"on_surface_variant"` | Color role or fixed color for surrounding lines and status messages.                                        |
+| `active_color`   | string | `"primary"`            | Color role or fixed color for the current lyric line.                                                       |
+| `shadow`         | bool   | `true`                 | Draw a text shadow.                                                                                         |
+
+The player’s title and artist fields are preserved. Catalog candidates are compared against that metadata and the reported duration, then a matched recording identifier is used for the lyrics request. Video labels and guest credits are handled through catalog matching, without maintaining lists of words to remove from song titles. Ambiguous or unrelated recordings are rejected rather than displaying another song’s lyrics.
+
+Timed lyrics follow playback, pause, and seeking, including playback already in progress when Noctalia starts. Use **Lyrics Sync Adjustment (ms)** if a recording’s lyric timestamps lead or lag the audio; the player clock itself is left unchanged. The current line stays near the middle of the configured rows; empty rows at the beginning and end keep the widget’s size stable. Every lyric line stays on one line without ellipsis. The font fits the longest line in the entire song and stays the same size as playback moves between lines. Resize the widget to adjust the available width and height; more width can increase the font size until the configured rows fill the height. With automatic sizing, the widget grows wide enough for the full song at its natural font size. Set `line_count = 1` for only the current line.
+
+The highlight sweeps through each word when the provider has word timestamps. For recordings with line timestamps only, the highlight sweeps across the whole line over its time interval; this is an approximate visual guide, not word-accurate timing. Plain lyrics show the first `line_count` lines without a timed highlight. Coverage and timing quality vary by recording and provider.
+
+Instrumental tracks, missing lyrics, loading, offline mode, and request failures have distinct status messages. Lookups and cached results are shared across widgets. Small duration or album updates do not invalidate successful lyrics, and temporary refresh failures keep the last successful lyrics for the unchanged track visible. Transient errors retry after five seconds; missing lyrics retry after five minutes. Provider throttling and `Retry-After` can delay retries further.
+
+Include `"lyrics_main"` in `[desktop_widgets].widget_order` when configuring it manually. Change `output` to your monitor's connector name. Common background, font, sizing, and placement settings apply.
 
 ---
 

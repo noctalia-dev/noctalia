@@ -758,12 +758,21 @@
         "fancy-audio-visualizer": "Fancy Audio Visualizer",
         "label": "Label",
         "login-box": "Login Box",
+        "lyrics": "Lyrics",
         "media-player": "Media Player",
         "sticker": "Sticker",
         "system-monitor": "System Monitor",
         "volume": "Volume",
         "weather": "Weather"
       }
+    },
+    "lyrics": {
+      "error": "Could not load lyrics",
+      "instrumental": "Instrumental",
+      "loading": "Loading lyrics…",
+      "not-found": "No lyrics found",
+      "nothing-playing": "Nothing playing",
+      "offline": "Lyrics unavailable in offline mode"
     },
     "media": {
       "nothing-playing": "Nothing Playing"
@@ -4914,6 +4923,10 @@
           "description": "Spacer length in pixels",
           "label": "Length"
         },
+        "line-count": {
+          "description": "Number of lyric rows to display",
+          "label": "Visible Lines"
+        },
         "match-adjacent-spacing": {
           "description": "Widen gaps between inline tray icons to match the visual spacing of neighboring bar widgets (includes capsule padding)",
           "label": "Match Adjacent Widget Spacing"
@@ -5147,6 +5160,10 @@
         "text": {
           "description": "Text shown on the bar",
           "label": "Text"
+        },
+        "sync-offset-ms": {
+          "description": "Positive values show lyrics earlier; negative values delay them. Milliseconds.",
+          "label": "Lyrics Sync Adjustment (ms)"
         },
         "timezone": {
           "description": "Timezone identifier (e.g. Europe/Berlin) to use for this clock; leave empty to use system local time",

@@ -1019,6 +1019,7 @@ void Application::initWidgetControllersAndCallbacks() {
       .pipewireSpectrum = m_pipewireSpectrum.get(),
       .weather = &m_weatherService,
       .mpris = m_mprisService.get(),
+      .lyrics = &m_lyricsService,
       .httpClient = &m_httpClient,
       .sysmon = m_systemMonitor.get(),
       .scriptDeps = desktopWidgetScriptDeps,
