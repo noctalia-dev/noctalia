@@ -25,6 +25,8 @@ public:
   void clearShadow();
 
   void measure(Renderer& renderer);
+  // Permanently hides the glyph and collapses it to zero size, including in later measures.
+  void suppress();
 
   float baselineOffset() const noexcept { return m_baselineOffset; }
 
