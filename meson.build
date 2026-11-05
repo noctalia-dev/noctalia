@@ -1153,6 +1153,7 @@ if build_tests
     'log',
     'string_utils',
     'virtual_grid_view_gesture',
+    'virtual_grid_view_contract',
     'wayland_output_scale',
   ]
 
