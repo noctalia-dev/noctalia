@@ -1152,6 +1152,7 @@ if build_tests
     'input_readline_shortcuts',
     'log',
     'string_utils',
+    'shared_texture_cache',
     'virtual_grid_view_gesture',
     'virtual_grid_view_contract',
     'wayland_output_scale',

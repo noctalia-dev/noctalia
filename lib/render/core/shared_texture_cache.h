@@ -21,6 +21,7 @@
 class GlSharedContext;
 class RenderBackend;
 class TextureManager;
+struct LoadedImageFile;
 
 enum class SharedTextureKind : std::uint8_t {
   Color,
@@ -48,11 +49,21 @@ struct SharedTextureRequest {
   bool operator==(const SharedTextureRequest&) const = default;
 };
 
-// Path-keyed, refcounted cache for large image textures (wallpapers and their masks). Images are decoded on a
-// background thread and uploaded from dispatch() on the main thread, so a huge file never blocks the event loop.
+// Opaque application identities, compared exactly. Change revision whenever the pixels, metadata or
+// generation policy changes. Actual pixel dimensions and mipmap mode also distinguish entries.
+struct PreparedTextureRequest {
+  std::string source;
+  std::string revision;
+  bool mipmap = false;
+
+  bool operator==(const PreparedTextureRequest&) const = default;
+};
+
+// Refcounted image residency for decoded paths or application-prepared immutable pixels. Path requests
+// decode on a background thread; prepared requests reuse their provider's result. Uploads run from dispatch().
 //
-// With a shared EGL context every consumer (wallpaper, backdrop, lockscreen, editors) shares one upload. Without
-// one, each entry is uploaded into the RenderBackend its consumer draws with; the decode is still shared.
+// With a shared EGL context every consumer shares one upload. Without one, each entry is uploaded into
+// its consumer's RenderBackend; decoded/prepared CPU data can still be shared.
 class SharedTextureCache : public PollSource {
 public:
   // A consumer's hold on one texture. Releases its reference when destroyed or reset. texture() stays invalid while
@@ -73,7 +84,11 @@ public:
     bool failed() const;
     // Re-targets the lease at another coverage. The current texture stays valid until the new one is uploaded, then
     // onChange fires; like every texture() change this happens from dispatch(), never inside this call.
+    // Path leases only; prepared images have already been resized by their provider.
     void setCoverage(TextureCoverage coverage);
+    // Retarget a prepared-image lease, keeping its ready texture until the replacement uploads.
+    // Returns false for a path lease, invalid pixels/identity or an invalidated target.
+    [[nodiscard]] bool setPreparedImage(PreparedTextureRequest request, std::shared_ptr<const LoadedImageFile> image);
     void reset();
 
   private:
@@ -101,6 +116,21 @@ public:
   // already resident right away. Returns an empty lease for an empty path or a missing non-shared backend.
   [[nodiscard]] Lease acquire(SharedTextureRequest request, RenderBackend* backend, std::function<void()> onChange);
 
+  // Main thread only, outside Render. The provider has already decoded/resized these immutable
+  // RGBA pixels. No decode, pixel copy, file I/O or upload runs here; dispatch() uploads once per key
+  // and share group. The cache retains the shared pixels for GPU recovery until the last release.
+  // Empty source/revision, malformed pixel buffers or a missing upload backend return an empty lease.
+  [[nodiscard]] Lease acquirePrepared(
+      PreparedTextureRequest request, std::shared_ptr<const LoadedImageFile> image, RenderBackend* backend,
+      std::function<void()> onChange
+  );
+  // Retire every resident revision of this prepared source from dispatch(), notifying its leases.
+  // Invalidated entries cannot be reacquired while held; use a new revision for replacement pixels.
+  void invalidatePrepared(const std::string& source);
+  // Prepared CPU payload bytes (deduplicated by payload address), and estimated GPU bytes including mip levels.
+  std::size_t preparedBytes() const;
+  std::size_t residentBytes() const;
+
   void abandonGpuResources() noexcept;
   // Queues a fresh decode for every entry that lost its texture in a GPU reset.
   void reloadResidentTextures();
@@ -122,6 +152,8 @@ private:
     SharedTextureRequest request;
     // Upload target without a shared context; null when the shared context owns the texture.
     RenderBackend* backend = nullptr;
+    std::optional<PreparedTextureRequest> prepared;
+    int preparedWidth = 0, preparedHeight = 0;
 
     bool operator==(const EntryKey&) const = default;
   };
@@ -138,6 +170,11 @@ private:
     TextureHandle handle;
     int refCount = 0;
     EntryState state = EntryState::Loading;
+    std::shared_ptr<const LoadedImageFile> preparedPixels;
+    std::uint64_t serial = 0;
+    std::size_t residentBytes = 0;
+    bool invalidated = false;
+    bool queued = false;
   };
 
   struct LeaseRecord {
@@ -158,11 +195,24 @@ private:
     bool failed = false;
   };
 
-  void retainEntry(const EntryKey& key);
+  struct PreparedWork {
+    EntryKey key;
+    std::uint64_t serial = 0;
+  };
+
+  void retainEntry(const EntryKey& key, std::shared_ptr<const LoadedImageFile> image = {});
   void releaseEntry(const EntryKey& key);
   void releaseLease(std::uint64_t id);
   const Entry* findLeaseEntry(std::uint64_t id) const;
   void setLeaseCoverage(std::uint64_t id, TextureCoverage coverage);
+  bool
+  setLeasePreparedImage(std::uint64_t id, PreparedTextureRequest request, std::shared_ptr<const LoadedImageFile> image);
+  void retargetLease(
+      std::uint64_t id, LeaseRecord& record, EntryKey target, std::shared_ptr<const LoadedImageFile> image = {}
+  );
+  static bool
+  validPreparedImage(const PreparedTextureRequest& request, const std::shared_ptr<const LoadedImageFile>& image);
+  void queuePrepared(const EntryKey& key, Entry& entry);
   // Promotes a lease's pending entry once it is uploaded, or drops it if it failed. True if texture() changed.
   bool resolvePending(LeaseRecord& record);
   static TextureCoverage effectiveCoverage(TextureCoverage coverage);
@@ -171,6 +221,10 @@ private:
   void cancelDecodeIfUnused(const SharedTextureRequest& request);
   bool hasLoadingEntry(const SharedTextureRequest& request) const;
   void upload(const EntryKey& key, Entry& entry, const DecodedImage& image);
+  void uploadPixels(
+      const EntryKey& key, Entry& entry, const std::uint8_t* pixels, int width, int height, int sourceWidth,
+      int sourceHeight, bool opaque, bool mipmap
+  );
   void unloadEntry(const EntryKey& key, Entry& entry);
   TextureManager* textureManagerFor(const EntryKey& key) const;
   // Binds a context that can reach `key`'s textures. False while the context is lost; the next
@@ -201,6 +255,8 @@ private:
   std::unordered_map<std::uint64_t, LeaseRecord> m_leases;
   // Leases whose pending coverage was already resident when set; dispatch() switches them.
   std::vector<std::uint64_t> m_deferredSwitches;
+  std::vector<PreparedWork> m_preparedWork;
+  std::uint64_t m_nextPreparedSerial = 0;
   std::uint64_t m_nextLeaseId = 0;
   std::shared_ptr<int> m_lifetimeToken = std::make_shared<int>(0);
 };
