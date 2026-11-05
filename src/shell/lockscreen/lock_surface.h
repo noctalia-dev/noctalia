@@ -11,6 +11,7 @@
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/render/blur_cache.h"
 #include "shell/render/lockscreen_transition_types.h"
+#include "ui/palette.h"
 #include "wayland/surface.h"
 
 #include <array>
@@ -72,7 +73,7 @@ public:
   bool transitionInputReady() const noexcept;
   bool exitTransitionComplete() const noexcept;
   void setTransitionCallback(std::function<void()> callback) { m_transitionCallback = std::move(callback); }
-  void setBackgroundStyle(float blurIntensity, float tintIntensity);
+  void setBackgroundStyle(float blurIntensity, float tintIntensity, const ColorSpec& tintColor);
   void setBlackout(bool blackout);
   bool isBlackout() const noexcept { return m_blackout; }
   void setOnLogin(std::function<void()> onLogin);
@@ -214,6 +215,7 @@ private:
   float m_transitionDurationMs = 1500.0F;
   float m_blurIntensity = 0.5F;
   float m_tintIntensity = 0.3F;
+  ColorSpec m_tintColor = colorSpecFromRole(ColorRole::Surface);
   float m_regularContentScale = 1.0F;
   bool m_blackout = false;
   bool m_useDesktopCaptureBackground = false;
