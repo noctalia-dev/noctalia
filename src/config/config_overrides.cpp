@@ -199,6 +199,9 @@ namespace {
     if (ovr.borderWidth) {
       resolved.borderWidth = *ovr.borderWidth;
     }
+    if (ovr.borderSkipScreenEdges) {
+      resolved.borderSkipScreenEdges = *ovr.borderSkipScreenEdges;
+    }
     if (ovr.radius) {
       resolved.radius = *ovr.radius;
       resolved.radiusTopLeft = *ovr.radius;

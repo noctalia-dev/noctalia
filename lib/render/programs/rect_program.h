@@ -47,6 +47,7 @@ private:
   GLint m_noAaLocation = -1;
   GLint m_invertFillLocation = -1;
   GLint m_borderWidthLocation = -1;
+  GLint m_borderSkipLocation = -1;
   GLint m_outerShadowLocation = -1;
   GLint m_shadowCutoutOffsetLocation = -1;
   GLint m_shadowExclusionLocation = -1;

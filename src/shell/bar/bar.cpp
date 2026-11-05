@@ -784,6 +784,24 @@ namespace {
     return false;
   }
 
+  BorderSkip barBorderSkip(const BarConfig& cfg) {
+    if (!cfg.borderSkipScreenEdges) {
+      return {};
+    }
+    const bool edgeTouches = cfg.marginEdge <= 0;
+    const bool endsTouch = cfg.marginEnds.value <= 0;
+    if (cfg.position == "left") {
+      return {.left = edgeTouches, .top = endsTouch, .bottom = endsTouch};
+    }
+    if (cfg.position == "right") {
+      return {.top = endsTouch, .right = edgeTouches, .bottom = endsTouch};
+    }
+    if (cfg.position == "bottom") {
+      return {.left = endsTouch, .right = endsTouch, .bottom = edgeTouches};
+    }
+    return {.left = endsTouch, .top = edgeTouches, .right = endsTouch};
+  }
+
   BarVisualGeometry computeBarVisualGeometry(
       const BarConfig& cfg, const ShadowStyle& shadow, float surfaceWidth, float surfaceHeight,
       float innerSurfaceExtension = 0.0F
@@ -3284,6 +3302,7 @@ void Bar::applyBackgroundPalette(BarInstance& instance) {
   style.fill = colorForRole(ColorRole::Surface, instance.barConfig.backgroundOpacity);
   style.border = resolveColorSpec(instance.barConfig.border);
   style.borderWidth = instance.barConfig.borderWidth;
+  style.borderSkip = barBorderSkip(instance.barConfig);
   instance.bg->setStyle(style);
 }
 
@@ -3621,6 +3640,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
         .radius = concave.radii,
         .softness = 0.0F,
         .borderWidth = instance.barConfig.borderWidth,
+        .borderSkip = barBorderSkip(instance.barConfig),
     };
     instance.bg->setStyle(bgStyle);
     // (barAreaX/Y/W/H) is the body; the shader expands outward by logicalInset into

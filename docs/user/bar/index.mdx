@@ -29,6 +29,7 @@ background_opacity = 1.0         # 0.0 (transparent) to 1.0 (opaque)
 compositor_blur    = true        # publish a compositor blur region for this bar
 border             = "outline_variant"   # color role or #RRGGBB for the bar outline
 border_width       = 0.0         # inside outline width in pixels; 0 disables it
+border_skip_screen_edges = false  # no outline on sides that touch a screen edge
 shadow             = true        # cast the global [shell.shadow]
 contact_shadow     = false       # dark gradient between an attached panel and the bar (depth at the seam)
 panel_overlap      = 1           # logical px an attached panel overlaps the bar edge to hide the seam
@@ -168,7 +169,7 @@ Shadow blur, offset, and alpha are global under `[shell.shadow]`. Bars only expo
 
 `font_family` sets the typeface for this bar's widget labels. Leave it empty (the default) to inherit the global `[shell] font_family`. A single widget can override it with `[widget.<name>] font_family`, and it can be set per monitor with a `[bar.<name>.monitor.*]` override. The Settings GUI exposes a searchable font picker under **Bar → Widgets**, with a per-widget picker in each widget's settings.
 
-`border_width` draws an inside outline using `border`. Attached panels stay borderless so they remain visually clean against the bar.
+`border_width` draws an inside outline using `border`. Attached panels stay borderless so they remain visually clean against the bar. With `border_skip_screen_edges = true`, sides that touch a screen edge are left without an outline. A side touches the screen when `margin_edge = 0` (the side facing the docked screen edge) or `margin_ends = 0` (the two end sides), so a floating bar keeps all four sides, a top bar inset from its ends keeps three, and a full-length top bar keeps only the bottom.
 
 ---
 

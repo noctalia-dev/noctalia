@@ -52,6 +52,7 @@ uniform float u_softness;
 uniform int u_no_aa;
 uniform int u_invert_fill;
 uniform float u_border_width;
+uniform vec4 u_border_skip; // left, top, right, bottom: 1 = leave this side's border undrawn
 uniform int u_outer_shadow;
 uniform vec2 u_shadow_cutout_offset;
 uniform int u_shadow_exclusion;
@@ -231,6 +232,59 @@ float shape_distance(vec2 point, vec2 size, vec4 radii, vec4 corner_shapes, vec4
     return max(boundary_distance, visual_clip);
 }
 
+// One corner of border_inner_distance. u and v are measured inward from the corner along its two
+// edges, and edge_u / edge_v are those edges' distance terms (positive outside). Every arc is a
+// circle, so its border has the same width all the way around: a convex corner is one circle, a
+// concave corner flares into a circle on each side, and each arc uses the reach of the edge it
+// continues (a convex arc, which continues both, uses the larger).
+void border_corner(
+    float u, float v, float radius, bool concave, float reach_u, float reach_v, inout float edge_u, inout float edge_v
+) {
+    if (radius <= 0.0) {
+        return;
+    }
+    if (concave) {
+        if (v < radius) {
+            edge_u = radius - length(vec2(u + radius, v - radius)) + reach_u;
+        }
+        if (u < radius) {
+            edge_v = radius - length(vec2(u - radius, v + radius)) + reach_v;
+        }
+    } else if (u < radius && v < radius) {
+        float arc = length(vec2(u, v) - vec2(radius)) - radius + max(reach_u, reach_v);
+        edge_u = arc;
+        edge_v = arc;
+    }
+}
+
+// Inner edge of a border whose width differs per side. reach is (left, top, right, bottom): how far
+// the border extends in from that side, 0 for a side without border. With all four equal this is
+// the shape eroded by that width. A side with reach 0 keeps its edge, so the fill runs up to it
+// and the border of the neighbouring sides ends square against it.
+float border_inner_distance(vec2 point, vec2 size, vec4 radii, vec4 corner_shapes, vec4 logical_inset, vec4 reach) {
+    vec4 safe_inset = max(logical_inset, vec4(0.0));
+    vec2 body_min = min(safe_inset.xy, size);
+    vec2 body_max = max(body_min, size - safe_inset.zw);
+    vec2 body_size = max(body_max - body_min, vec2(0.0));
+    float max_radius = max(min(body_size.x, body_size.y) * 0.5, 0.0);
+    vec4 r = clamp(radii, vec4(0.0), vec4(max_radius));
+
+    float edge_left = body_min.x - point.x + reach.x;
+    float edge_top = body_min.y - point.y + reach.y;
+    float edge_right = point.x - body_max.x + reach.z;
+    float edge_bottom = point.y - body_max.y + reach.w;
+
+    border_corner(point.x - body_min.x, point.y - body_min.y, r.x, corner_shapes.x > 0.5, reach.x, reach.y, edge_left, edge_top);
+    border_corner(body_max.x - point.x, point.y - body_min.y, r.y, corner_shapes.y > 0.5, reach.z, reach.y, edge_right, edge_top);
+    border_corner(body_max.x - point.x, body_max.y - point.y, r.z, corner_shapes.z > 0.5, reach.z, reach.w, edge_right, edge_bottom);
+    border_corner(point.x - body_min.x, body_max.y - point.y, r.w, corner_shapes.w > 0.5, reach.x, reach.w, edge_left, edge_bottom);
+
+    float visual_clip = max(
+        max(reach.x - point.x, point.x - size.x + reach.z), max(reach.y - point.y, point.y - size.y + reach.w)
+    );
+    return max(max(max(edge_left, edge_right), max(edge_top, edge_bottom)), visual_clip);
+}
+
 // Analytic edge coverage: the signed distance is normalized by its screen-space
 // rate of change, so the transition is one device pixel wide whatever the
 // surface scale, node scale, or how fast the field varies along a curve. The
@@ -329,8 +383,20 @@ void main() {
         vec4 inner_inset = max(u_logical_inset - vec4(u_border_width), vec4(0.0));
         inner_distance = shape_distance(inner_point, inner_size, inner_radii, u_corner_shapes, inner_inset);
     }
-    float inner_coverage = coverage_for(inner_distance);
 
+    // Skipped sides get no border: the inner shape is rebuilt with a per-side reach, zero for a
+    // skipped side and u_border_width for the others.
+    if (u_border_skip.x + u_border_skip.y + u_border_skip.z + u_border_skip.w > 0.5) {
+        vec4 reach = vec4(
+            u_border_skip.x > 0.5 ? 0.0 : u_border_width,
+            u_border_skip.y > 0.5 ? 0.0 : u_border_width,
+            u_border_skip.z > 0.5 ? 0.0 : u_border_width,
+            u_border_skip.w > 0.5 ? 0.0 : u_border_width
+        );
+        inner_distance = border_inner_distance(local_point, u_rect_size, u_radii, u_corner_shapes, u_logical_inset, reach);
+    }
+
+    float inner_coverage = coverage_for(inner_distance);
     if (fill_base.a <= 0.0) {
         float ring_coverage = outer_coverage * (1.0 - inner_coverage);
         float out_alpha = u_border_color.a * ring_coverage;
@@ -391,6 +457,7 @@ void RectProgram::ensureInitialized() {
   m_noAaLocation = glGetUniformLocation(m_program.id(), "u_no_aa");
   m_invertFillLocation = glGetUniformLocation(m_program.id(), "u_invert_fill");
   m_borderWidthLocation = glGetUniformLocation(m_program.id(), "u_border_width");
+  m_borderSkipLocation = glGetUniformLocation(m_program.id(), "u_border_skip");
   m_outerShadowLocation = glGetUniformLocation(m_program.id(), "u_outer_shadow");
   m_shadowCutoutOffsetLocation = glGetUniformLocation(m_program.id(), "u_shadow_cutout_offset");
   m_shadowExclusionLocation = glGetUniformLocation(m_program.id(), "u_shadow_exclusion");
@@ -422,6 +489,7 @@ void RectProgram::ensureInitialized() {
       || m_cornerShapesLocation < 0
       || m_logicalInsetLocation < 0
       || m_borderWidthLocation < 0
+      || m_borderSkipLocation < 0
       || m_outerShadowLocation < 0
       || m_shadowCutoutOffsetLocation < 0
       || m_shadowExclusionLocation < 0
@@ -458,6 +526,7 @@ void RectProgram::destroy() {
   m_noAaLocation = -1;
   m_invertFillLocation = -1;
   m_borderWidthLocation = -1;
+  m_borderSkipLocation = -1;
   m_outerShadowLocation = -1;
   m_shadowCutoutOffsetLocation = -1;
   m_shadowExclusionLocation = -1;
@@ -530,6 +599,10 @@ void RectProgram::draw(
   glUniform1i(m_noAaLocation, style.noAa ? 1 : 0);
   glUniform1i(m_invertFillLocation, style.invertFill ? 1 : 0);
   glUniform1f(m_borderWidthLocation, style.borderWidth);
+  glUniform4f(
+      m_borderSkipLocation, style.borderSkip.left ? 1.0F : 0.0F, style.borderSkip.top ? 1.0F : 0.0F,
+      style.borderSkip.right ? 1.0F : 0.0F, style.borderSkip.bottom ? 1.0F : 0.0F
+  );
   glUniform1i(m_outerShadowLocation, style.outerShadow ? 1 : 0);
   glUniform2f(m_shadowCutoutOffsetLocation, style.shadowCutoutOffsetX, style.shadowCutoutOffsetY);
   glUniform1i(m_shadowExclusionLocation, style.shadowExclusion ? 1 : 0);

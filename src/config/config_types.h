@@ -120,6 +120,7 @@ struct BarMonitorOverride {
   std::optional<bool> compositorBlur;
   std::optional<ColorSpec> border;
   std::optional<float> borderWidth;
+  std::optional<bool> borderSkipScreenEdges;
   std::optional<std::int32_t> radius;
   std::optional<std::int32_t> radiusTopLeft;
   std::optional<std::int32_t> radiusTopRight;
@@ -197,6 +198,7 @@ struct BarConfig {
   // Inside outline for the bar background; attached panels inherit the resolved values.
   ColorSpec border = colorSpecFromRole(ColorRole::OutlineVariant);
   float borderWidth = 0.0F;
+  bool borderSkipScreenEdges = false; // no border on sides that touch a screen edge
   std::int32_t radius = static_cast<std::int32_t>(Style::radiusXl);
   std::int32_t radiusTopLeft = static_cast<std::int32_t>(Style::radiusXl);
   std::int32_t radiusTopRight = static_cast<std::int32_t>(Style::radiusXl);

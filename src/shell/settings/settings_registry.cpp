@@ -3842,6 +3842,11 @@ namespace settings {
           barReservedSlider(bar.borderWidth, 20.0F, 0.5F, false), "outline stroke", true
       ));
       entries.push_back(makeEntry(
+          section, "shape", tr("settings.schema.bar.border-skip-screen-edges.label"),
+          tr("settings.schema.bar.border-skip-screen-edges.description"), path("border_skip_screen_edges"),
+          ToggleSetting{bar.borderSkipScreenEdges}, "outline stroke edge side"
+      ));
+      entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.background-opacity.label"),
           tr("settings.schema.bar.background-opacity.description"), path("background_opacity"),
           SliderSetting{bar.backgroundOpacity, 0.0F, 1.0F, 0.01F, false}, "alpha transparency translucent opacity"
@@ -4248,6 +4253,11 @@ namespace settings {
             section, "shape", tr("settings.schema.bar.border-width.label"),
             tr("settings.schema.bar.border-width.description"), monitorPath("border_width"),
             barReservedSlider(ovr.borderWidth.value_or(bar.borderWidth), 20.0F, 0.5F, false), "outline stroke", true
+        ));
+        entries.push_back(makeEntry(
+            section, "shape", tr("settings.schema.bar.border-skip-screen-edges.label"),
+            tr("settings.schema.bar.border-skip-screen-edges.description"), monitorPath("border_skip_screen_edges"),
+            ToggleSetting{ovr.borderSkipScreenEdges.value_or(bar.borderSkipScreenEdges)}, "outline stroke edge side"
         ));
         entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.shared.background-opacity.label"),
