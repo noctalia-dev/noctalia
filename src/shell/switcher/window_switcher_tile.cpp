@@ -6,6 +6,7 @@
 #include "render/core/texture_manager.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 

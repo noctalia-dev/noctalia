@@ -1,4 +1,4 @@
-#include "render/core/image_file_loader.h"
+#include "render/codecs/codecs.h"
 
 #include <cstdio>
 #include <print>
@@ -24,7 +24,7 @@ int main() {
       "data:image/jpeg;base64,"
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
-  auto image = loadImageFile(mismatchedDataUri);
+  auto image = codecs::loadImageFile(mismatchedDataUri);
   ok = check(image.has_value(), image ? "failed to decode mismatched data URI" : image.error().c_str()) && ok;
   if (image) {
     ok = check(image->width == 1, "decoded data URI width should be 1") && ok;
@@ -38,7 +38,7 @@ int main() {
       "EBEQCgwSExIQEw8QEBD/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQ"
       "EAAD8AVN//2Q==";
 
-  image = loadImageFile(pngDeclaredJpegDataUri);
+  image = codecs::loadImageFile(pngDeclaredJpegDataUri);
   ok = check(image.has_value(), image ? "failed to decode PNG-declared JPEG data URI" : image.error().c_str()) && ok;
   if (image) {
     ok = check(image->width == 1, "decoded JPEG data URI width should be 1") && ok;
@@ -46,14 +46,14 @@ int main() {
     ok = check(image->rgba.size() == 4, "decoded JPEG data URI should contain one RGBA pixel") && ok;
   }
 
-  image = loadImageFile("data:image/png;base64,not_base64!");
+  image = codecs::loadImageFile("data:image/png;base64,not_base64!");
   ok = check(!image, "invalid base64 data URI should fail") && ok;
   if (!image) {
     const bool mentionsBase64 = image.error().contains("base64");
     ok = check(mentionsBase64, "invalid base64 failure should explain the data issue") && ok;
   }
 
-  image = loadImageFile("data:image/png;base64");
+  image = codecs::loadImageFile("data:image/png;base64");
   ok = check(!image, "data URI without comma should fail") && ok;
   if (!image) {
     const bool mentionsSeparator = image.error().contains("separator");

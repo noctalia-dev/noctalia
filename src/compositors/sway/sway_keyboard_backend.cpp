@@ -1,7 +1,7 @@
 #include "compositors/sway/sway_keyboard_backend.h"
 
 #include "compositors/sway/sway_runtime.h"
-#include "core/process/process.h"
+#include "system/process.h"
 
 #include <chrono>
 #include <fcntl.h>

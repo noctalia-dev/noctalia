@@ -1,5 +1,6 @@
 #include "app/application.h"
 #include "app/build_info.h"
+#include "app/shell_library.h"
 #include "app/single_instance_lock.h"
 #include "auth/pam_authenticator.h"
 #include "cli/completions.h"
@@ -7,11 +8,11 @@
 #include "cli/schema_root.h"
 #include "config/cli.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "core/process/process_fds.h"
 #include "ipc/cli.h"
 #include "launcher/dmenu_cli.h"
 #include "scripting/plugin_lint.h"
+#include "system/process.h"
 #include "theme/cli.h"
 #include "theme/firefox_theme/firefox_theme.h"
 
@@ -262,6 +263,7 @@ const char* malloc_conf = "background_thread:true,narenas:2,dirty_decay_ms:1000,
 #endif
 
 int main(int argc, char* argv[]) {
+  configureSharedLibrary();
 
 #if defined(__GLIBC__) && !defined(NOCTALIA_USE_JEMALLOC)
   mallopt(M_ARENA_MAX, 2);

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "config/config_service.h"
-#include "ui/dialogs/dialog_popup_host.h"
+#include "shell/dialogs/dialog_popup_host.h"
 
 inline DialogPopupSettingsProvider dialogPopupSettings(const ConfigService& config) {
   return [&config] {

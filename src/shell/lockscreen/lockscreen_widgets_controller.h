@@ -3,7 +3,7 @@
 #include "config/config_types.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widget_services.h"
-#include "ui/dialogs/layer_popup_host.h"
+#include "shell/dialogs/layer_popup_host.h"
 
 #include <functional>
 #include <memory>

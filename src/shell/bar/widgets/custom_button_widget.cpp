@@ -3,6 +3,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"

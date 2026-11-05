@@ -1,5 +1,5 @@
-#include "core/process/process.h"
 #include "shell/greeter/greeter_appearance_sync.h"
+#include "system/process.h"
 #include "tests/test_check.h"
 
 #include <cstdio>

@@ -10,6 +10,7 @@
 #include "system/desktop_entry.h"
 #include "system/internal_app_metadata.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"

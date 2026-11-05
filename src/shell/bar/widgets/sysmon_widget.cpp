@@ -9,6 +9,7 @@
 #include "system/system_monitor_service.h"
 #include "ui/builders.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/file_utils.h"

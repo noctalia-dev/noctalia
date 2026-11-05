@@ -10,6 +10,7 @@
 #include "render/scene/node.h"
 #include "shell/visuals/audio_visualizer.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 

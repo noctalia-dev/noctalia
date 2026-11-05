@@ -3,32 +3,46 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <memory>
 #include <string>
 #include <vector>
 
 struct DecodedRasterImage {
-  std::vector<std::uint8_t> pixels;
+  std::vector<std::uint8_t> pixels; // RGBA8, straight alpha
   int width = 0;
   int height = 0;
 };
 
+struct LoadedImageFile {
+  std::vector<std::uint8_t> rgba;
+  int width = 0;
+  int height = 0;
+  // Decoded dimensions before any crop/resize (SVG: rasterized size).
+  int sourceWidth = 0;
+  int sourceHeight = 0;
+};
+
+// Turns encoded images into RGBA pixels. The library ships no codecs in its core: the application
+// installs a decoder at startup, either the opt-in codec pack (render/codecs/codecs.h) or its own.
+// Both methods are called from worker threads and must be thread safe.
+class ImageDecoder {
+public:
+  virtual ~ImageDecoder() = default;
+
+  // Decodes an encoded image held in memory, applying the container's orientation.
+  [[nodiscard]] virtual std::expected<DecodedRasterImage, std::string>
+  decode(const std::uint8_t* data, std::size_t size) = 0;
+
+  // Loads an image file or `data:` URI. targetSize > 0 bounds the longer edge; centerSquareCrop crops
+  // the result to a centered square.
+  [[nodiscard]] virtual std::expected<LoadedImageFile, std::string>
+  loadFile(const std::string& path, int targetSize, bool centerSquareCrop) = 0;
+};
+
+// Install before any image is loaded; not synchronized with concurrent decodes.
+void setImageDecoder(std::unique_ptr<ImageDecoder> decoder);
+
+// Dispatch to the installed decoder. Without one they fail with "no image decoder installed".
 std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size);
-
-struct DecodedRasterFrame {
-  std::vector<std::uint8_t> rgba; // canvas-size, RGBA8 non-premul
-  std::uint32_t durationMs = 0;
-};
-
-struct DecodedRasterAnimation {
-  int width = 0;
-  int height = 0;
-  std::vector<DecodedRasterFrame> frames;
-  bool truncated = false; // hit cap; later frames omitted
-};
-
-// Decode an animated GIF into RGBA frames with composited disposal/blend.
-// `maxFrames` and `maxRgbaBytes` cap the resident decoded size; on overrun the
-// returned `truncated` flag is set and the partial frames are returned (caller
-// may fall back to first-frame-only display).
-std::expected<DecodedRasterAnimation, std::string>
-decodeAnimatedGif(const std::uint8_t* data, std::size_t size, int maxFrames, std::size_t maxRgbaBytes);
+std::expected<LoadedImageFile, std::string>
+loadImageFile(const std::string& path, int targetSize = 0, bool centerSquareCrop = false);

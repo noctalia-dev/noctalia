@@ -630,6 +630,7 @@ struct LockscreenConfig {
   float edgeSmoothness = 0.3F;
   float blurIntensity = 0.5F;
   float tintIntensity = 0.3F;
+  ColorSpec tintColor = colorSpecFromRole(ColorRole::Surface);
   std::string wallpaper;
   std::vector<std::string> monitors;
 

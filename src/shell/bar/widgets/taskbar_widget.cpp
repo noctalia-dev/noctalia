@@ -22,6 +22,7 @@
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"

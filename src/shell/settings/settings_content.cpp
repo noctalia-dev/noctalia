@@ -4,6 +4,7 @@
 #include "config/config_types.h"
 #include "i18n/i18n.h"
 #include "notification/notification_filter.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_control_factory.h"
@@ -17,7 +18,6 @@
 #include "ui/controls/segmented.h"
 #include "ui/controls/select.h"
 #include "ui/controls/toggle.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 

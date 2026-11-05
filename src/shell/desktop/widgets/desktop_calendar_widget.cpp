@@ -2,12 +2,12 @@
 
 #include "calendar/calendar_service.h"
 #include "config/config_service.h"
-#include "core/time_format.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "shell/calendar/calendar_view.h"
 #include "system/desktop_entry_launch.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"

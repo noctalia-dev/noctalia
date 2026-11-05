@@ -162,7 +162,7 @@ const std::unordered_map<std::string, std::string_view> kAliases = {
 
   std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> loadTablerMetadata() {
     std::unordered_map<std::string, GlyphRegistry::TablerGlyphMetadata> icons;
-    const std::filesystem::path path = paths::assetPath("fonts/tabler.json");
+    const std::filesystem::path path = paths::libraryAssetPath("fonts/tabler.json");
     std::ifstream file(path);
     if (!file.is_open()) {
       kLog.warn("failed to open Tabler glyph metadata: {}", path.string());

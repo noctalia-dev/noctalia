@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/toml.h"
+#include "config/toml.h"
 #include "scripting/plugin_layer_config.h"
 
 #include <atomic>

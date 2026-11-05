@@ -1,8 +1,8 @@
 #include "scripting/plugin_manifest.h"
 
+#include "config/toml.h" // IWYU pragma: keep
 #include "core/input/key_chord.h"
 #include "core/log.h"
-#include "core/toml.h" // IWYU pragma: keep
 #include "scripting/plugin_api.h"
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_panel_shell.h"

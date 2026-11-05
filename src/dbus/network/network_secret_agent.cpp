@@ -2,10 +2,10 @@
 
 #include "core/deferred_call.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "dbus/network/network_secret_keyring.h"
 #include "dbus/network/vpn_auth_dialog.h"
 #include "dbus/system_bus.h"
+#include "system/process.h"
 
 #include <atomic>
 #include <cstdint>

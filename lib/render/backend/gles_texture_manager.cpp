@@ -1,9 +1,6 @@
 #include "render/backend/gles_texture_manager.h"
 
 #include "core/log.h"
-#include "render/core/image_decoder.h"
-#include "render/core/image_file_loader.h"
-#include "render/core/image_source_log.h"
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
@@ -67,49 +64,7 @@ namespace {
 
 GlesTextureManager::GlesTextureManager() : m_generation(g_nextTextureGeneration.fetch_add(1)) {}
 
-TextureHandle GlesTextureManager::decodeEncodedRaster(
-    const std::uint8_t* data, std::size_t size, const std::string* debugPath, bool mipmap
-) {
-  if (data == nullptr || size == 0) {
-    return {};
-  }
-
-  auto decoded = decodeRasterImage(data, size);
-  if (decoded) {
-    return uploadRgba(decoded->pixels.data(), decoded->width, decoded->height, mipmap);
-  }
-
-  if (debugPath != nullptr) {
-    kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(*debugPath), decoded.error());
-  }
-
-  return {};
-}
-
 GlesTextureManager::~GlesTextureManager() { cleanup(); }
-
-TextureHandle GlesTextureManager::loadFromFile(const std::string& path, int targetSize, bool mipmap) {
-  auto loaded = loadImageFile(path, targetSize);
-  if (!loaded) {
-    kLog.warn("failed to load image: {} ({})", ImageSourceLog::describe(path), loaded.error());
-    return {};
-  }
-
-  auto handle = loadFromRgba(loaded->rgba.data(), loaded->width, loaded->height, mipmap);
-  bool opaque = true;
-  for (std::size_t index = 3; index < loaded->rgba.size(); index += 4) {
-    if (loaded->rgba[index] != 0xFF) {
-      opaque = false;
-      break;
-    }
-  }
-  handle.opaque = handle.valid() && opaque;
-  return handle;
-}
-
-TextureHandle GlesTextureManager::loadFromEncodedBytes(const std::uint8_t* data, std::size_t size, bool mipmap) {
-  return decodeEncodedRaster(data, size, nullptr, mipmap);
-}
 
 TextureHandle GlesTextureManager::loadFromRgba(const std::uint8_t* data, int width, int height, bool mipmap) {
   if (data == nullptr || width <= 0 || height <= 0) {

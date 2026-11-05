@@ -3,10 +3,10 @@
 #include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
+#include "shell/dialogs/layer_popup_host.h"
 #include "shell/panel/attached_panel_context.h"
 #include "shell/panel/panel_click_shield.h"
 #include "shell/panel/persistent_panel_host.h"
-#include "ui/dialogs/layer_popup_host.h"
 #include "wayland/popup_grab_host.h"
 
 #include <cstdint>
