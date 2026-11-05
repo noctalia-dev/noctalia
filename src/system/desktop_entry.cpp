@@ -346,8 +346,9 @@ namespace {
           continue;
         }
         auto eq = line.find('=');
-        if (eq == std::string::npos)
+        if (eq == std::string::npos) {
           continue;
+        }
         std::string_view key(line.data(), eq);
         std::string_view value(line.data() + eq + 1, line.size() - eq - 1);
         if (key == "Name") {
@@ -712,8 +713,9 @@ namespace {
 
     void clearWatches() {
       if (m_inotify.fd() >= 0) {
-        for (const auto& [wd, _] : m_watches)
+        for (const auto& [wd, _] : m_watches) {
           m_inotify.unwatch(wd);
+        }
       }
       m_watches.clear();
     }

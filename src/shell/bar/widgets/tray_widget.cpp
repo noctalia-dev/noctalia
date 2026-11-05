@@ -528,8 +528,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
     auto progress = std::make_shared<float>(area.hovered() ? 1.0F : 0.0F);
     area.setOnEnter([this, hoverBoxPtr, progress](const InputArea::PointerData&) {
-      if (m_animations == nullptr)
+      if (m_animations == nullptr) {
         return;
+      }
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
@@ -548,8 +549,9 @@ void TrayWidget::rebuild(Renderer& renderer) {
     });
 
     area.setOnLeave([this, hoverBoxPtr, progress] {
-      if (m_animations == nullptr)
+      if (m_animations == nullptr) {
         return;
+      }
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(

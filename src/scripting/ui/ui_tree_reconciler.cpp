@@ -219,20 +219,27 @@ namespace ui {
       if (token == nullptr) {
         return std::nullopt;
       }
-      if (*token == "thin")
+      if (*token == "thin") {
         return FontWeight::Thin;
-      if (*token == "light")
+      }
+      if (*token == "light") {
         return FontWeight::Light;
-      if (*token == "normal")
+      }
+      if (*token == "normal") {
         return FontWeight::Normal;
-      if (*token == "medium")
+      }
+      if (*token == "medium") {
         return FontWeight::Medium;
-      if (*token == "semibold")
+      }
+      if (*token == "semibold") {
         return FontWeight::SemiBold;
-      if (*token == "bold")
+      }
+      if (*token == "bold") {
         return FontWeight::Bold;
-      if (*token == "heavy")
+      }
+      if (*token == "heavy") {
         return FontWeight::Heavy;
+      }
       kLog.warn("ui node '{}': unknown fontWeight '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -242,14 +249,18 @@ namespace ui {
       if (token == nullptr) {
         return std::nullopt;
       }
-      if (*token == "start")
+      if (*token == "start") {
         return FlexAlign::Start;
-      if (*token == "center")
+      }
+      if (*token == "center") {
         return FlexAlign::Center;
-      if (*token == "end")
+      }
+      if (*token == "end") {
         return FlexAlign::End;
-      if (*token == "stretch")
+      }
+      if (*token == "stretch") {
         return FlexAlign::Stretch;
+      }
       kLog.warn("ui node '{}': unknown align '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -259,14 +270,18 @@ namespace ui {
       if (token == nullptr) {
         return std::nullopt;
       }
-      if (*token == "start")
+      if (*token == "start") {
         return FlexJustify::Start;
-      if (*token == "center")
+      }
+      if (*token == "center") {
         return FlexJustify::Center;
-      if (*token == "end")
+      }
+      if (*token == "end") {
         return FlexJustify::End;
-      if (*token == "space_between")
+      }
+      if (*token == "space_between") {
         return FlexJustify::SpaceBetween;
+      }
       kLog.warn("ui node '{}': unknown justify '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -276,12 +291,15 @@ namespace ui {
       if (token == nullptr) {
         return std::nullopt;
       }
-      if (*token == "start")
+      if (*token == "start") {
         return TextAlign::Start;
-      if (*token == "center")
+      }
+      if (*token == "center") {
         return TextAlign::Center;
-      if (*token == "end")
+      }
+      if (*token == "end") {
         return TextAlign::End;
+      }
       kLog.warn("ui node '{}': unknown textAlign '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -291,18 +309,24 @@ namespace ui {
       if (token == nullptr) {
         return std::nullopt;
       }
-      if (*token == "default")
+      if (*token == "default") {
         return ButtonVariant::Default;
-      if (*token == "primary")
+      }
+      if (*token == "primary") {
         return ButtonVariant::Primary;
-      if (*token == "secondary")
+      }
+      if (*token == "secondary") {
         return ButtonVariant::Secondary;
-      if (*token == "destructive")
+      }
+      if (*token == "destructive") {
         return ButtonVariant::Destructive;
-      if (*token == "outline")
+      }
+      if (*token == "outline") {
         return ButtonVariant::Outline;
-      if (*token == "ghost")
+      }
+      if (*token == "ghost") {
         return ButtonVariant::Ghost;
+      }
       kLog.warn("ui node '{}': unknown button variant '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -320,12 +344,15 @@ namespace ui {
         }
         return std::nullopt;
       }
-      if (*token == "sm")
+      if (*token == "sm") {
         return Style::controlHeightSm;
-      if (*token == "md")
+      }
+      if (*token == "md") {
         return Style::controlHeight;
-      if (*token == "lg")
+      }
+      if (*token == "lg") {
         return Style::controlHeightLg;
+      }
       kLog.warn("ui node '{}': unknown controlSize '{}'", node.type, *token);
       return std::nullopt;
     }

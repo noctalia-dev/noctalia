@@ -964,10 +964,11 @@ namespace {
   int luau_getenv(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
     const char* val = std::getenv(name);
-    if (val)
+    if (val) {
       lua_pushstring(L, val);
-    else
+    } else {
       lua_pushnil(L);
+    }
     return 1;
   }
 
@@ -2462,8 +2463,9 @@ LuauHost::~LuauHost() {
       }
       m_umbrielActionCallbackRefs.clear();
     }
-    if (m_threadRef != -1)
+    if (m_threadRef != -1) {
       lua_unref(m_L, m_threadRef);
+    }
     lua_close(m_L);
   }
   if (unloadPluginSounds) {

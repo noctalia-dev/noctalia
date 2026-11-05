@@ -20,16 +20,18 @@ Glyph::Glyph() {
 
 bool Glyph::setGlyph(std::string_view name) {
   char32_t cp = GlyphRegistry::lookup(name);
-  if (cp == 0 || cp == m_glyphNode->codepoint())
+  if (cp == 0 || cp == m_glyphNode->codepoint()) {
     return false;
+  }
   m_glyphNode->setCodepoint(cp);
   m_measureCached = false;
   return true;
 }
 
 bool Glyph::setCodepoint(char32_t codepoint) {
-  if (codepoint == m_glyphNode->codepoint())
+  if (codepoint == m_glyphNode->codepoint()) {
     return false;
+  }
   m_glyphNode->setCodepoint(codepoint);
   m_measureCached = false;
   return true;

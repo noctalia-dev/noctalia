@@ -168,8 +168,9 @@ void VirtualGridView::notifyItemChanged(std::size_t index) {
 void VirtualGridView::setHorizontalOverflow(float width, float offset) {
   width = std::max(0.0F, width);
   offset = std::max(0.0F, offset);
-  if (m_horizontalWidth == width && m_horizontalOffset == offset)
+  if (m_horizontalWidth == width && m_horizontalOffset == offset) {
     return;
+  }
   m_horizontalWidth = std::max(0.0F, width);
   m_horizontalOffset = offset;
   cancelPointerGesture();

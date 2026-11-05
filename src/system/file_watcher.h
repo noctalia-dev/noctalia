@@ -54,14 +54,16 @@ public:
   explicit FileWatchPollSource(FileWatcher& watcher) : m_watcher(watcher) {}
 
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override {
-    if (m_watcher.fd() >= 0 && (fds[startIdx].revents & POLLIN) != 0)
+    if (m_watcher.fd() >= 0 && (fds[startIdx].revents & POLLIN) != 0) {
       m_watcher.dispatch();
+    }
   }
 
 protected:
   void doAddPollFds(std::vector<pollfd>& fds) override {
-    if (m_watcher.fd() >= 0)
+    if (m_watcher.fd() >= 0) {
       fds.push_back({.fd = m_watcher.fd(), .events = POLLIN, .revents = 0});
+    }
   }
 
 private:

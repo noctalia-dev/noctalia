@@ -417,10 +417,12 @@ namespace {
     std::ranges::stable_sort(dirNames, [&](const std::string& a, const std::string& b) {
       const auto& da = dirMap[a];
       const auto& db = dirMap[b];
-      if (da.scalable != db.scalable)
+      if (da.scalable != db.scalable) {
         return da.scalable > db.scalable;
-      if (da.maxSize != db.maxSize)
+      }
+      if (da.maxSize != db.maxSize) {
         return da.maxSize > db.maxSize;
+      }
       return da.size > db.size;
     });
 

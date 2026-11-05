@@ -2551,8 +2551,9 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return "error: volume-set requires <value>\n";
         }
         const auto* sink = defaultSink();
-        if (!sink)
+        if (!sink) {
           return "error: no default output\n";
+        }
 
         const auto amount = noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
         if (!amount.has_value()) {
@@ -2571,8 +2572,9 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return "error: volume-up accepts at most one optional [step]\n";
         }
         const auto* sink = defaultSink();
-        if (!sink)
+        if (!sink) {
           return "error: no default output\n";
+        }
 
         const auto step = parts.empty() ? std::optional<float>(kVolumeStepDefault)
                                         : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
@@ -2592,8 +2594,9 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return "error: volume-down accepts at most one optional [step]\n";
         }
         const auto* sink = defaultSink();
-        if (!sink)
+        if (!sink) {
           return "error: no default output\n";
+        }
 
         const auto step = parts.empty() ? std::optional<float>(kVolumeStepDefault)
                                         : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
@@ -2608,8 +2611,9 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
 
   ipc.bind(noctalia::cli::msg::volumeMute, [this](const std::string&) -> std::string {
     const auto* sink = defaultSink();
-    if (!sink)
+    if (!sink) {
       return "error: no default output\n";
+    }
     setMuted(!sink->muted);
     return "ok\n";
   });
@@ -2622,8 +2626,9 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return "error: mic-volume-set requires <value>\n";
         }
         const auto* source = defaultSource();
-        if (!source)
+        if (!source) {
           return "error: no default input\n";
+        }
 
         const auto amount = noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
         if (!amount.has_value()) {
@@ -2642,8 +2647,9 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return "error: mic-volume-up accepts at most one optional [step]\n";
         }
         const auto* source = defaultSource();
-        if (!source)
+        if (!source) {
           return "error: no default input\n";
+        }
 
         const auto step = parts.empty() ? std::optional<float>(kVolumeStepDefault)
                                         : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
@@ -2664,8 +2670,9 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return "error: mic-volume-down accepts at most one optional [step]\n";
         }
         const auto* source = defaultSource();
-        if (!source)
+        if (!source) {
           return "error: no default input\n";
+        }
 
         const auto step = parts.empty() ? std::optional<float>(kVolumeStepDefault)
                                         : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
@@ -2680,8 +2687,9 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
 
   ipc.bind(noctalia::cli::msg::micMute, [this](const std::string&) -> std::string {
     const auto* source = defaultSource();
-    if (!source)
+    if (!source) {
       return "error: no default input\n";
+    }
     setMicMuted(!source->muted);
     return "ok\n";
   });

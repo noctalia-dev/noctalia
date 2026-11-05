@@ -39,10 +39,12 @@ namespace text {
     FcFontSet* fontSet = FcFontSetCreate();
     FcStrSet* dirs = FcStrSetCreate();
     if (!fontSet || !dirs) {
-      if (dirs)
+      if (dirs) {
         FcStrSetDestroy(dirs);
-      if (fontSet)
+      }
+      if (fontSet) {
         FcFontSetDestroy(fontSet);
+      }
       kLog.warn("failed to allocate font scan state for: {}", pathStr);
       return {};
     }

@@ -20,8 +20,9 @@
 
 namespace {
   void require(bool condition, const char* message) {
-    if (!condition)
+    if (!condition) {
       throw std::runtime_error(message);
+    }
   }
 
   class Decoder final : public ImageDecoder {
@@ -43,8 +44,9 @@ namespace {
     result->sourceWidth = width * 10;
     result->sourceHeight = height * 10;
     result->rgba.resize(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4);
-    for (std::size_t i = 0; i < result->rgba.size(); ++i)
+    for (std::size_t i = 0; i < result->rgba.size(); ++i) {
       result->rgba[i] = pixel[i % 4];
+    }
     return result;
   }
 
@@ -253,16 +255,19 @@ namespace {
 
 int main(int argc, char** argv) {
   // Normal headless suites skip. A deliberate absolute private socket is required; never connect to the active desktop.
-  if (argc == 1)
+  if (argc == 1) {
     return 77;
-  if (argc != 2 || argv[1][0] != '/')
+  }
+  if (argc != 2 || argv[1][0] != '/') {
     return 1;
+  }
   setApplicationIdentity({.name = "texture-cache-test", .envPrefix = "TEXTURE_CACHE_TEST"});
   const std::unique_ptr<wl_display, decltype(&wl_display_disconnect)> display(
       wl_display_connect(argv[1]), &wl_display_disconnect
   );
-  if (!display)
+  if (!display) {
     return 1;
+  }
   try {
     auto decoder = std::make_unique<Decoder>();
     auto* provider = decoder.get();

@@ -433,16 +433,21 @@ void Application::initInputDispatch() {
     if (m_trayMenu.onPointerEvent(event)) {
       return;
     }
-    if (m_settingsWindow.onPointerEvent(event))
+    if (m_settingsWindow.onPointerEvent(event)) {
       return;
-    if (m_bar.onPointerEvent(event))
+    }
+    if (m_bar.onPointerEvent(event)) {
       return;
-    if (m_dock.onPointerEvent(event))
+    }
+    if (m_dock.onPointerEvent(event)) {
       return;
-    if (m_panelManager.onPointerEvent(event))
+    }
+    if (m_panelManager.onPointerEvent(event)) {
       return;
-    if (m_hotCorners.onPointerEvent(event))
+    }
+    if (m_hotCorners.onPointerEvent(event)) {
       return;
+    }
     m_notificationToast.onPointerEvent(event);
   });
 

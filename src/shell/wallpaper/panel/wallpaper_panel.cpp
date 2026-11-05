@@ -42,11 +42,13 @@
 namespace {
 
   bool isDescendantOf(const Node* node, const Node* ancestor) {
-    if (node == nullptr || ancestor == nullptr)
+    if (node == nullptr || ancestor == nullptr) {
       return false;
+    }
     for (const Node* p = node->parent(); p != nullptr; p = p->parent()) {
-      if (p == ancestor)
+      if (p == ancestor) {
         return true;
+      }
     }
     return false;
   }

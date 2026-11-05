@@ -395,14 +395,15 @@ namespace StringUtils {
     std::size_t bytePos = 0;
     while (bytePos < text.size() && codePoints < maxCodePoints) {
       auto lead = static_cast<unsigned char>(text[bytePos]);
-      if (lead < 0x80)
+      if (lead < 0x80) {
         bytePos += 1;
-      else if ((lead & 0xE0) == 0xC0)
+      } else if ((lead & 0xE0) == 0xC0) {
         bytePos += 2;
-      else if ((lead & 0xF0) == 0xE0)
+      } else if ((lead & 0xF0) == 0xE0) {
         bytePos += 3;
-      else
+      } else {
         bytePos += 4;
+      }
       ++codePoints;
     }
     if (bytePos >= text.size()) {

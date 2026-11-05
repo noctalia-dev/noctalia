@@ -75,24 +75,28 @@ namespace {
 
   bool testBareCodestream() {
     auto result = codecs::decodeRasterImage(kJxl4x4Bare.data(), kJxl4x4Bare.size());
-    if (!checkDecoded(result, "bare codestream decode failed"))
+    if (!checkDecoded(result, "bare codestream decode failed")) {
       return false;
+    }
     return checkPixels(*result, "bare codestream");
   }
 
   bool testContainer() {
     auto result = codecs::decodeRasterImage(kJxl4x4Container.data(), kJxl4x4Container.size());
-    if (!checkDecoded(result, "container decode failed"))
+    if (!checkDecoded(result, "container decode failed")) {
       return false;
+    }
     return checkPixels(*result, "container");
   }
 
   bool testStraightAlphaPreserved() {
     auto result = codecs::decodeRasterImage(kJxl4x4Bare.data(), kJxl4x4Bare.size());
-    if (!checkDecoded(result, "straight alpha decode failed"))
+    if (!checkDecoded(result, "straight alpha decode failed")) {
       return false;
-    if (!check(result->pixels.size() == 64, "straight alpha: decoded buffer should hold 4x4 RGBA"))
+    }
+    if (!check(result->pixels.size() == 64, "straight alpha: decoded buffer should hold 4x4 RGBA")) {
       return false;
+    }
 
     // Fully transparent row: a decoder that zeroed unused color would drop these.
     constexpr std::array<std::uint8_t, 16> kTransparentRow = {
@@ -120,10 +124,12 @@ namespace {
   // makes the two translucent rows decode as 128/64 instead of 255.
   bool testPremultipliedAlphaIsUnpremultiplied() {
     auto result = codecs::decodeRasterImage(kJxl4x4Premultiplied.data(), kJxl4x4Premultiplied.size());
-    if (!checkDecoded(result, "premultiplied codestream decode failed"))
+    if (!checkDecoded(result, "premultiplied codestream decode failed")) {
       return false;
-    if (!check(result->pixels.size() == 64, "premultiplied: decoded buffer should hold 4x4 RGBA"))
+    }
+    if (!check(result->pixels.size() == 64, "premultiplied: decoded buffer should hold 4x4 RGBA")) {
       return false;
+    }
 
     constexpr std::array<std::uint8_t, 64> kExpectedStraight = {
         255, 0,   0,   255, 0,   255, 0,   255, 0, 0,   255, 255, 255, 255, 0,   255, 255, 0,   255, 255, 0,   255,

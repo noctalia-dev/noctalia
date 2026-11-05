@@ -173,8 +173,9 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     ctrl->setHighlightedIndex(self->m_highlightedIndex);
     self->m_highlightedIndex = ctrl->highlightedIndex();
     ctrl->setRedrawCallback([self] {
-      if (self->m_surface)
+      if (self->m_surface) {
         self->m_surface->requestRedraw();
+      }
     });
     ctrl->setOnActivate([self](const ContextMenuControlEntry& e) { self->deferActivation(e); });
     scrollView->content()->addChild(std::move(ctrl));

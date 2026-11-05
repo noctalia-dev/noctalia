@@ -50,8 +50,9 @@ namespace capture {
       const bool withinX = x >= x0 - margin && x <= x1 + margin;
       const bool withinY = y >= y0 - margin && y <= y1 + margin;
 
-      if (!withinX || !withinY)
+      if (!withinX || !withinY) {
         return capture::DragMode::None;
+      }
 
       const double distLeft = std::abs(x - x0);
       const double distRight = std::abs(x - x1);
@@ -65,38 +66,49 @@ namespace capture {
 
       // Narrow selections can overlap opposing hit zones; bind the pointer to the nearer edge.
       if (nearLeft && nearRight) {
-        if (distLeft < distRight)
+        if (distLeft < distRight) {
           nearRight = false;
-        else
+        } else {
           nearLeft = false;
+        }
       }
       if (nearTop && nearBottom) {
-        if (distTop < distBottom)
+        if (distTop < distBottom) {
           nearBottom = false;
-        else
+        } else {
           nearTop = false;
+        }
       }
 
-      if (nearTop && nearLeft)
+      if (nearTop && nearLeft) {
         return capture::DragMode::TopLeftCorner;
-      if (nearTop && nearRight)
+      }
+      if (nearTop && nearRight) {
         return capture::DragMode::TopRightCorner;
-      if (nearBottom && nearLeft)
+      }
+      if (nearBottom && nearLeft) {
         return capture::DragMode::BottomLeftCorner;
-      if (nearBottom && nearRight)
+      }
+      if (nearBottom && nearRight) {
         return capture::DragMode::BottomRightCorner;
+      }
 
-      if (nearTop && x >= x0 && x <= x1)
+      if (nearTop && x >= x0 && x <= x1) {
         return capture::DragMode::TopEdge;
-      if (nearBottom && x >= x0 && x <= x1)
+      }
+      if (nearBottom && x >= x0 && x <= x1) {
         return capture::DragMode::BottomEdge;
-      if (nearLeft && y >= y0 && y <= y1)
+      }
+      if (nearLeft && y >= y0 && y <= y1) {
         return capture::DragMode::LeftEdge;
-      if (nearRight && y >= y0 && y <= y1)
+      }
+      if (nearRight && y >= y0 && y <= y1) {
         return capture::DragMode::RightEdge;
+      }
 
-      if (x > x0 && x < x1 && y > y0 && y < y1)
+      if (x > x0 && x < x1 && y > y0 && y < y1) {
         return capture::DragMode::Move;
+      }
 
       return capture::DragMode::None;
     }
@@ -115,22 +127,30 @@ namespace capture {
       const bool top = y < y0 + thirdH;
       const bool bottom = y >= y1 - thirdH;
 
-      if (left && top)
+      if (left && top) {
         return capture::DragMode::TopLeftCorner;
-      if (right && top)
+      }
+      if (right && top) {
         return capture::DragMode::TopRightCorner;
-      if (left && bottom)
+      }
+      if (left && bottom) {
         return capture::DragMode::BottomLeftCorner;
-      if (right && bottom)
+      }
+      if (right && bottom) {
         return capture::DragMode::BottomRightCorner;
-      if (top)
+      }
+      if (top) {
         return capture::DragMode::TopEdge;
-      if (bottom)
+      }
+      if (bottom) {
         return capture::DragMode::BottomEdge;
-      if (left)
+      }
+      if (left) {
         return capture::DragMode::LeftEdge;
-      if (right)
+      }
+      if (right) {
         return capture::DragMode::RightEdge;
+      }
       return capture::DragMode::None;
     }
 
@@ -574,12 +594,14 @@ namespace capture {
       });
     } else {
       input->setOnPress([this, output = inst.output](const InputArea::PointerData& data) {
-        if (data.button != BTN_LEFT && data.button != BTN_RIGHT)
+        if (data.button != BTN_LEFT && data.button != BTN_RIGHT) {
           return;
+        }
 
         if (!data.pressed) {
-          if (!m_dragging || data.button != m_dragButton)
+          if (!m_dragging || data.button != m_dragButton) {
             return;
+          }
           m_dragging = false;
           m_dragButton = 0;
           // completeSelection() tears down surfaces; defer past InputDispatcher::pointerButton.
@@ -587,12 +609,14 @@ namespace capture {
           return;
         }
 
-        if (m_dragging)
+        if (m_dragging) {
           return;
+        }
 
         const auto* out = findOutput(*m_wayland, output);
-        if (out == nullptr)
+        if (out == nullptr) {
           return;
+        }
 
         const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
         const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
@@ -700,15 +724,17 @@ namespace capture {
         applyCursorShape(cursorShapeForDragMode(m_dragMode));
         updateSelectionVisuals();
         for (auto& instance : m_instances) {
-          if (instance->surface != nullptr)
+          if (instance->surface != nullptr) {
             instance->surface->requestRedraw();
+          }
         }
       });
 
       input->setOnMotion([this, output = inst.output, inputPtr = input.get()](const InputArea::PointerData& data) {
         const auto* out = findOutput(*m_wayland, output);
-        if (out == nullptr)
+        if (out == nullptr) {
           return;
+        }
 
         const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
         const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
@@ -767,8 +793,9 @@ namespace capture {
 
         updateSelectionVisuals();
         for (auto& instance : m_instances) {
-          if (instance->surface != nullptr)
+          if (instance->surface != nullptr) {
             instance->surface->requestRedraw();
+          }
         }
       });
     }

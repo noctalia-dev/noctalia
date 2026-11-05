@@ -606,8 +606,9 @@ void ScrollView::doArrange(Renderer& renderer, const LayoutRect& rect) { arrange
 void ScrollView::setHorizontalOverflow(float width, float offset) {
   width = std::max(0.0F, width);
   offset = std::max(0.0F, offset);
-  if (width == m_horizontalWidth && offset == m_horizontalOffset)
+  if (width == m_horizontalWidth && offset == m_horizontalOffset) {
     return;
+  }
   m_horizontalWidth = width;
   m_horizontalOffset = offset;
   markLayoutDirty();

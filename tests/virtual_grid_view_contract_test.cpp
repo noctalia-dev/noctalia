@@ -137,8 +137,9 @@ namespace {
     bool onPointerPress(std::size_t, float, float, float, float) override { return true; }
     void onPointerCancel() override {
       ++cancelled;
-      if (onCancel)
+      if (onCancel) {
         onCancel();
+      }
     }
     void onActivate(std::size_t) override { ++activations; }
   };
