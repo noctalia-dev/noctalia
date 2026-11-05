@@ -75,6 +75,8 @@ Text paste uses `TextClipboard::requestClipboardText()`. Providers complete once
 
 `InputDispatcher::setFocus(area, true)` can preserve an in-flight IME edit through `TextInputService::transferFocusedClient()`. The transfer is accepted only inside an edit callback, for the active source and a different target client on the same active surface. The application forwards the current edit to that target. The service changes the client without resetting preedit or sending protocol disable/enable; subsequent edits and state commits use the new client. Other focus changes retain the normal lifecycle. The edit-transfer scope closes on both normal return and exceptions.
 
+Shared context menus accept optional literal trailing shortcut hints and an opt-in destructive Error tone; key binding and action policy stay with the application. Preserve the existing row metrics and neutral palette defaults. `setHighlightedIndex(entryCount())` means no highlight; Down/Up then starts at the first/last interactive entry, skipping headings, separators and disabled rows. Pointer-leave clearing is opt-in through `setClearHighlightOnLeave(true)`. `ContextMenuPopupRequest` exposes `clearHighlightOnLeave` and accepts `initialHighlight == entries.size()` for no initial selection; its default still highlights the first action. Home/End skip inactive boundary rows. `tests/context_menu_control_test.cpp` exercises real text measurement, constrained/scaled columns, navigation and dispatcher pointer transitions.
+
 ## Rendering
 
 - `RenderContext` owns scene traversal and delegates drawing to a `RenderBackend`. Construct backends with `createDefaultRenderBackend()`.

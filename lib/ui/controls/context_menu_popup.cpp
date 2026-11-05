@@ -69,7 +69,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
   m_scrollState = {};
   m_scrollView = nullptr;
   m_menu = nullptr;
-  m_highlightedIndex = request.initialHighlight < request.entries.size() ? request.initialHighlight : 0;
+  m_highlightedIndex = request.initialHighlight <= request.entries.size() ? request.initialHighlight : 0;
 
   const ContextMenuPopupPlacement defaultPlacement{
       .anchor = XDG_POSITIONER_ANCHOR_BOTTOM,
@@ -111,8 +111,9 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     self->m_surface->requestLayout();
   });
 
-  m_surface->setPrepareFrameCallback([self, entries = std::move(request.entries), chrome,
-                                      contentScale](bool /*needsUpdate*/, bool needsLayout) {
+  m_surface->setPrepareFrameCallback([self, entries = std::move(request.entries), chrome, contentScale,
+                                      clearHighlightOnLeave =
+                                          request.clearHighlightOnLeave](bool /*needsUpdate*/, bool needsLayout) {
     if (self->m_surface == nullptr) {
       return;
     }
@@ -164,6 +165,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     auto ctrl = std::make_unique<ContextMenuControl>();
     ContextMenuControl* menuPtr = ctrl.get();
     ctrl->setContentScale(contentScale);
+    ctrl->setClearHighlightOnLeave(clearHighlightOnLeave);
     ctrl->setMenuWidth(chrome.contentWidth);
     // Lay out every entry; ScrollView clips to maxVisible viewport height.
     ctrl->setMaxVisible(entries.size());
@@ -413,7 +415,8 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
     ensureHighlightedVisible();
     requestVisualUpdate();
   } else if (KeySymbol::isEnd(sym) && m_menu->entryCount() > 0) {
-    m_menu->setHighlightedIndex(m_menu->entryCount() - 1);
+    m_menu->setHighlightedIndex(m_menu->entryCount());
+    m_menu->moveHighlight(-1);
     m_highlightedIndex = m_menu->highlightedIndex();
     ensureHighlightedVisible();
     requestVisualUpdate();
@@ -425,6 +428,9 @@ void ContextMenuPopup::ensureHighlightedVisible() {
     return;
   }
   const std::size_t index = m_menu->highlightedIndex();
+  if (index >= m_menu->entryCount()) {
+    return;
+  }
   const float rowTop = m_menu->rowTop(index);
   const float rowBottom = m_menu->rowBottom(index);
   const float viewportH = m_scrollView->contentViewportHeight();

@@ -1136,6 +1136,7 @@ if build_tests
   # Tests of lib/ code link only the UI library (and its codec pack).
   _ui_test_names = [
     'cairo_text_renderer',
+    'context_menu_control',
     'grid_item_cursor',
     'i18n_language_tag',
     'image_source_log',
