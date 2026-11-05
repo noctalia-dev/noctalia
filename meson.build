@@ -313,6 +313,7 @@ _noctalia_cpp_args = [
 
 # ── UI library ────────────────────────────────────────────────────────────────
 # Self-contained; see lib/meson.build for its outputs.
+noctalia_ui_build_codecs = true
 noctalia_ui_system_wuffs = get_option('system_libraries')
 subdir('lib')
 

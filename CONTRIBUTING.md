@@ -100,6 +100,12 @@ D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_ca
 - Headers and sources are co-located; there is no separate `include/` tree.
 - Use `[[nodiscard]]` only where ignoring the result is likely a bug: a call with side effects that reports failure or hands back something the caller must own, consume or keep (a handle, token or id), and `&&` builders. Mark result and status types with `struct [[nodiscard]] Name` instead of each function that returns them. Getters and pure functions go without it.
 
+### Standalone UI library consumers
+
+A consumer copies `lib/` and runs `subdir('lib')` to obtain `noctalia_ui_dep`. The core does not configure or build the codec pack, probe its dependencies, or require `lib/render/codecs/` or `lib/third_party/`. Install an application-owned `ImageDecoder` when supplying your own image formats.
+
+To enable the bundled codec pack, set `noctalia_ui_build_codecs = true` before `subdir('lib')` and link `noctalia_ui_codecs_dep`. This also defines `noctalia_ui_codecs_lib`. `noctalia_ui_system_wuffs = true` selects system Wuffs headers when the codec pack is enabled. The Noctalia shell explicitly enables the pack; its existing image support and dependencies are unchanged.
+
 ### Comments
 
 Comments explain what the current code does and any non-obvious constraint a reader needs. Do not narrate history, rejected alternatives, or "why we don't do X"; git holds that. If a comment is longer than the code it describes, cut it down.
