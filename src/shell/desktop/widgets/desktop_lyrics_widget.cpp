@@ -176,7 +176,9 @@ void DesktopLyricsWidget::doUpdate(Renderer& /*renderer*/) {
     auto window = document.windowAround(active, rows.size());
     rows = std::move(window.lines);
     if (document.lines.empty()) {
-      std::ranges::shift_right(rows, 1);
+      // GCC 15's libstdc++ does not provide the ranges overload.
+      // NOLINTNEXTLINE(modernize-use-ranges)
+      std::shift_right(rows.begin(), rows.end(), 1);
       rows.front().clear();
     }
     activeRow = window.activeRow;
