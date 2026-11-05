@@ -49,7 +49,6 @@ private:
   [[nodiscard]] const AuthView& currentView() const;
   [[nodiscard]] const std::string freshSessionId() const;
   [[nodiscard]] bool refreshAuthView() const;
-  [[nodiscard]] std::string authFallbackGlyph() const;
   [[nodiscard]] std::string authCancelLabel() const;
   [[nodiscard]] std::string authIconKey(AuthIconKind iconKind, const std::string& iconValue) const;
   void onAuthSubmit(std::string_view response);
