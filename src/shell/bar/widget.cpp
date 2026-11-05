@@ -57,7 +57,9 @@ bool Widget::shouldShowBarCapsule() const {
   if (!m_barCapsuleSpec.enabled) {
     return false;
   }
-  const Node* r = root();
+  // The custom-label wrapper, when active, is the widget's visible footprint: with `show_glyph`
+  // off an icon-only widget's root collapses to zero while its label still needs the capsule.
+  const Node* r = m_customLabelWrapper != nullptr ? m_customLabelWrapper : root();
   if (r == nullptr || !r->visible()) {
     return false;
   }
