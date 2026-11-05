@@ -1,5 +1,6 @@
 #include "config/config_service.h"
 
+#include "app/build_info.h"
 #include "compositors/compositor_detect.h"
 #include "config/atomic_file.h"
 #include "config/config_export.h"
@@ -11,7 +12,6 @@
 #include "config/schema/engine.h"
 #include "config/schema/ranges.h"
 #include "config/widget_config.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/scoped_timer.h"

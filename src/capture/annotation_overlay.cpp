@@ -19,6 +19,7 @@
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
@@ -33,7 +34,6 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -503,6 +503,7 @@ namespace capture {
     Separator* exportSeparator = nullptr;
     Button* backdropButton = nullptr;
     Button* zoomButton = nullptr;
+    Button* captureButton = nullptr;
 
     // Stroke popover: the color swatches and the size controls of the current tool.
     Flex* strokePanel = nullptr;
@@ -516,6 +517,9 @@ namespace capture {
     // Zoom popover: the stepper and fit button for the display-only view transform.
     Flex* zoomPanel = nullptr;
     Label* zoomLabel = nullptr;
+
+    // Capture popover: the actions that discard the edit and capture something new.
+    Flex* capturePanel = nullptr;
 
     // Backdrop panel and the Image-mode preview frame drawn behind the canvas.
     Flex* backdropPanel = nullptr;
@@ -585,6 +589,10 @@ namespace capture {
 
   void AnnotationOverlay::setCaptureRegionCallback(CaptureRegionCallback callback) {
     m_onCaptureRegion = std::move(callback);
+  }
+
+  void AnnotationOverlay::setCaptureWindowCallback(CaptureWindowCallback callback) {
+    m_onCaptureWindow = std::move(callback);
   }
 
   void AnnotationOverlay::setClosedCallback(ClosedCallback callback) { m_onClosed = std::move(callback); }
@@ -719,6 +727,7 @@ namespace capture {
     m_textIndex.reset();
     m_strokePanelOpen = false;
     m_zoomPanelOpen = false;
+    m_capturePanelOpen = false;
     destroySurfaces();
     m_documents.clear();
     m_frozen.clear();
@@ -1138,13 +1147,13 @@ namespace capture {
     inst.cursorTooltip = nullptr;
     inst.undoButton = inst.redoButton = inst.copyButton = inst.saveButton = inst.doneButton = inst.dragHandle = nullptr;
     inst.strokeSeparator = inst.exportSeparator = nullptr;
-    inst.backdropButton = inst.zoomButton = nullptr;
+    inst.backdropButton = inst.zoomButton = inst.captureButton = nullptr;
     inst.strokePanel = inst.strokeSwatchRow = nullptr;
     inst.swatchButtons.fill(nullptr);
     inst.sizePresets = nullptr;
     inst.sizeDownButton = inst.sizeUpButton = nullptr;
     inst.sizeLabel = nullptr;
-    inst.zoomPanel = nullptr;
+    inst.zoomPanel = inst.capturePanel = nullptr;
     inst.zoomLabel = nullptr;
     inst.markedSwatch = -2;
     inst.strokeFaceColor.reset();
@@ -1181,6 +1190,8 @@ namespace capture {
     strokePanel->layout(renderer);
     auto zoomPanel = buildZoomPanel(inst);
     zoomPanel->layout(renderer);
+    auto capturePanel = buildCapturePanel(inst);
+    capturePanel->layout(renderer);
     positionToolbar(inst);
     layoutCanvas(inst);
 
@@ -1335,6 +1346,7 @@ namespace capture {
     inst.sceneRoot->addChild(std::move(backdropPanel));
     inst.sceneRoot->addChild(std::move(strokePanel));
     inst.sceneRoot->addChild(std::move(zoomPanel));
+    inst.sceneRoot->addChild(std::move(capturePanel));
 
     inst.surface->setSceneRoot(inst.sceneRoot.get());
     inst.inputDispatcher.setSceneRoot(inst.sceneRoot.get());
@@ -1564,7 +1576,7 @@ namespace capture {
       inst.cursorButton->setCustomPalette(palette);
     }
     inst.freezeButton = addGhostButton("snowflake", "bar.annotate.freeze", [this] { requestFreeze(); });
-    addGhostButton("screenshot", "bar.annotate.capture-new-region", [this] { requestCaptureRegion(); });
+    inst.captureButton = addGhostButton("camera", "bar.annotate.capture", [this] { toggleCapturePanel(); });
 
     inst.exportSeparator = addSeparator();
     inst.backdropButton = addGhostButton("background", "bar.annotate.backdrop", [this] { toggleBackdropPanel(); });
@@ -1679,6 +1691,9 @@ namespace capture {
     if (inst.zoomButton != nullptr) {
       inst.zoomButton->setSelected(m_zoomPanelOpen);
     }
+    if (inst.captureButton != nullptr) {
+      inst.captureButton->setSelected(m_capturePanelOpen);
+    }
 
     show(inst.exportSeparator, frozenOrImage);
     show(inst.copyButton, frozenOrImage);
@@ -1699,6 +1714,7 @@ namespace capture {
     refreshBackdropPanel(inst, renderer);
     refreshStrokePanel(inst, renderer);
     refreshZoomPanel(inst, renderer);
+    refreshCapturePanel(inst, renderer);
     positionToolbar(inst);
   }
 
@@ -1772,6 +1788,7 @@ namespace capture {
     positionBackdropPanel(inst);
     positionPopover(inst, inst.strokePanel, inst.strokeButton);
     positionPopover(inst, inst.zoomPanel, inst.zoomButton);
+    positionPopover(inst, inst.capturePanel, inst.captureButton);
   }
 
   void AnnotationOverlay::syncToolbarPositionsForConnectedOutputs() {
@@ -2159,10 +2176,11 @@ namespace capture {
       return;
     }
 
-    // Drawing dismisses the stroke and zoom popovers; the press still starts the mark.
-    if (m_strokePanelOpen || m_zoomPanelOpen) {
+    // Drawing dismisses the stroke, zoom, and capture popovers; the press still starts the mark.
+    if (m_strokePanelOpen || m_zoomPanelOpen || m_capturePanelOpen) {
       m_strokePanelOpen = false;
       m_zoomPanelOpen = false;
+      m_capturePanelOpen = false;
       requestRedrawAll();
     }
 
@@ -2595,7 +2613,12 @@ namespace capture {
     if (!m_active || m_wayland == nullptr) {
       return false;
     }
+    // On niri an older exclusive panel such as the launcher keeps the keyboard under the editor;
+    // the keys still belong to the editor, on the instance the export would use (#4641).
     Instance* keyboardInst = instanceForSurface(m_wayland->lastKeyboardSurface());
+    if (keyboardInst == nullptr) {
+      keyboardInst = exportTarget();
+    }
     if (keyboardInst == nullptr) {
       return false;
     }
@@ -2633,9 +2656,10 @@ namespace capture {
     const bool shift = (event.modifiers & KeyMod::Shift) != 0;
 
     if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-      if (m_strokePanelOpen || m_zoomPanelOpen) {
+      if (m_strokePanelOpen || m_zoomPanelOpen || m_capturePanelOpen) {
         m_strokePanelOpen = false;
         m_zoomPanelOpen = false;
+        m_capturePanelOpen = false;
         requestRedrawAll();
         return true;
       }
@@ -2680,6 +2704,14 @@ namespace capture {
       }
       if (event.sym == XKB_KEY_plus || event.sym == XKB_KEY_equal || event.sym == XKB_KEY_KP_Add) {
         zoomViewByButton(*keyboardInst, kToolbarZoomStep);
+        return true;
+      }
+      if (event.sym == XKB_KEY_r || event.sym == XKB_KEY_R) {
+        requestCaptureRegion();
+        return true;
+      }
+      if (event.sym == XKB_KEY_w || event.sym == XKB_KEY_W) {
+        requestCaptureWindow();
         return true;
       }
     }
@@ -2835,6 +2867,19 @@ namespace capture {
     }
     CaptureRegionCallback onCaptureRegion = m_onCaptureRegion;
     DeferredCall::callLater([onCaptureRegion] { onCaptureRegion(); });
+  }
+
+  void AnnotationOverlay::requestCaptureWindow() {
+    if (!m_active || !m_onCaptureWindow) {
+      return;
+    }
+    // A failed window capture keeps the editor open, so do not leave the popover behind.
+    if (m_capturePanelOpen) {
+      m_capturePanelOpen = false;
+      requestRedrawAll();
+    }
+    CaptureWindowCallback onCaptureWindow = m_onCaptureWindow;
+    DeferredCall::callLater([onCaptureWindow] { onCaptureWindow(); });
   }
 
   void AnnotationOverlay::toggleCursor(Instance* instance) {
@@ -3222,6 +3267,7 @@ namespace capture {
     if (m_backdropPanelOpen) {
       m_strokePanelOpen = false;
       m_zoomPanelOpen = false;
+      m_capturePanelOpen = false;
     }
     requestRedrawAll();
   }
@@ -3414,6 +3460,7 @@ namespace capture {
     if (m_strokePanelOpen) {
       m_backdropPanelOpen = false;
       m_zoomPanelOpen = false;
+      m_capturePanelOpen = false;
     }
     requestRedrawAll();
   }
@@ -3491,6 +3538,67 @@ namespace capture {
     if (m_zoomPanelOpen) {
       m_strokePanelOpen = false;
       m_backdropPanelOpen = false;
+      m_capturePanelOpen = false;
+    }
+    requestRedrawAll();
+  }
+
+  std::unique_ptr<Flex> AnnotationOverlay::buildCapturePanel(Instance& inst) {
+    Color panelFill = colorForRole(ColorRole::Surface);
+    panelFill.a = kToolbarFillAlpha;
+
+    auto panel = ui::row({
+        .align = FlexAlign::Center,
+        .gap = Style::spaceXs,
+        .paddingV = Style::spaceSm,
+        .paddingH = Style::spaceSm,
+        .fill = fixedColorSpec(panelFill),
+        .radius = Style::radiusXl,
+        .border = colorSpecFromRole(ColorRole::OutlineVariant),
+        .borderWidth = Style::borderWidth,
+        .visible = false,
+        .participatesInLayout = false,
+    });
+
+    const auto addGhostButton = [&](const char* glyph, const char* tooltipKey, std::function<void()> onClick) {
+      panel->addChild(
+          ui::button({
+              .glyph = std::string(glyph),
+              .variant = ButtonVariant::Ghost,
+              .tooltip = i18n::tr(tooltipKey),
+              .onClick = std::move(onClick),
+          })
+      );
+    };
+    addGhostButton("screenshot", "bar.annotate.capture-new-region", [this] { requestCaptureRegion(); });
+    addGhostButton("app-window", "bar.annotate.capture-window", [this] { requestCaptureWindow(); });
+
+    inst.capturePanel = panel.get();
+    refreshCapturePanel(inst, nullptr);
+    return panel;
+  }
+
+  void AnnotationOverlay::refreshCapturePanel(Instance& inst, Renderer* renderer) {
+    if (inst.capturePanel == nullptr) {
+      return;
+    }
+    bool needsLayout = false;
+    if (inst.capturePanel->visible() != m_capturePanelOpen) {
+      inst.capturePanel->setVisible(m_capturePanelOpen);
+      inst.capturePanel->setParticipatesInLayout(m_capturePanelOpen);
+      needsLayout = true;
+    }
+    if ((needsLayout || inst.capturePanel->layoutDirty()) && renderer != nullptr) {
+      inst.capturePanel->layout(*renderer);
+    }
+  }
+
+  void AnnotationOverlay::toggleCapturePanel() {
+    m_capturePanelOpen = !m_capturePanelOpen;
+    if (m_capturePanelOpen) {
+      m_strokePanelOpen = false;
+      m_backdropPanelOpen = false;
+      m_zoomPanelOpen = false;
     }
     requestRedrawAll();
   }

@@ -11,6 +11,7 @@
 #include "shell/panel/panel_surface_style.h"
 #include "shell/screen_position.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/layer_shell.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/palette.h"
@@ -80,17 +81,20 @@ std::optional<LayerPopupParentContext> PersistentPanelHost::popupParentContext(s
     return std::nullopt;
   }
   const auto& instance = **it;
-  LayerPopupParentContext context{
-      .surface = instance.surface->wlSurface(),
-      .layerSurface = instance.surface->layerSurface(),
-      .output = instance.output,
-      .width = instance.surface->width(),
-      .height = instance.surface->height(),
-  };
-  if (context.surface == nullptr || context.layerSurface == nullptr || context.width == 0 || context.height == 0) {
+  zwlr_layer_surface_v1* layerSurface = instance.surface->layerSurface();
+  wl_surface* surface = instance.surface->wlSurface();
+  const std::uint32_t width = instance.surface->width();
+  const std::uint32_t height = instance.surface->height();
+  if (surface == nullptr || layerSurface == nullptr || width == 0 || height == 0) {
     return std::nullopt;
   }
-  return context;
+  return LayerPopupParentContext{
+      .surface = surface,
+      .attach = LayerShell::popupAttach(layerSurface),
+      .output = instance.output,
+      .width = width,
+      .height = height,
+  };
 }
 
 LayerShellLayer PersistentPanelHost::resolveLayer(const Panel& panel) const {
@@ -254,10 +258,12 @@ void PersistentPanelHost::open(const std::string& id, wl_output* output, std::st
   instance->surface->setPrepareFrameCallback([this, raw](bool needsUpdate, bool needsLayout) {
     prepareFrame(*raw, needsUpdate, needsLayout);
   });
-  instance->surface->setFrameTickCallback([raw](float deltaMs) {
-    if (raw->panel != nullptr) {
-      raw->panel->onFrameTick(deltaMs);
+  instance->surface->setFrameTickCallback([this, raw](float deltaMs) {
+    if (raw->panel == nullptr || raw->surface == nullptr || m_renderContext == nullptr) {
+      return;
     }
+    m_renderContext->makeCurrent(raw->surface->renderTarget());
+    raw->panel->onFrameTick(deltaMs, raw->surface->renderTarget().renderer());
   });
 
   if (!instance->surface->initialize(output)) {

@@ -1,6 +1,7 @@
 #include "pipewire/sound_player.h"
 
 #include "core/log.h"
+#include "pipewire/pipewire_context.h"
 #include "system/freedesktop_key_file.h"
 
 #include <algorithm>
@@ -370,9 +371,10 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
   active->buffer = buffer;
   active->createdAt = std::chrono::steady_clock::now();
 
+  // pw_stream_new_simple() creates a private context from a copy of these properties.
   pw_properties* props = pw_properties_new(
       PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Playback", PW_KEY_MEDIA_ROLE, "Notification", PW_KEY_APP_NAME,
-      "Noctalia", nullptr
+      "Noctalia", noctalia::pipewire::kContextRtModuleKey, noctalia::pipewire::kContextRtModuleDisabled, nullptr
   );
   active->stream = pw_stream_new_simple(m_loop, "noctalia-sound", props, &kStreamEvents, active.get());
   if (active->stream == nullptr) {

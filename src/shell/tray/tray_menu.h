@@ -24,6 +24,7 @@ class WaylandConnection;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_surface;
+struct zwlr_layer_surface_v1;
 
 class TrayMenu {
 public:

@@ -18,6 +18,7 @@
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "util/string_utils.h"
 
@@ -1545,7 +1546,7 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parentCtx->layerSurface,
+                  .attach = parentCtx->attach,
                   .output = parentCtx->output,
               },
           .pointerParentSurface = parentCtx->surface,
@@ -1633,7 +1634,7 @@ void AudioTab::openProgramRoutingMenu(Node* anchor, std::uint32_t programStreamI
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parentCtx->layerSurface,
+                  .attach = parentCtx->attach,
                   .output = parentCtx->output,
               },
           .pointerParentSurface = parentCtx->surface,

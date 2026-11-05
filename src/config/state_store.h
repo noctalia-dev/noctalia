@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/toml.h"
+#include "config/toml.h"
 
 #include <filesystem>
 #include <optional>

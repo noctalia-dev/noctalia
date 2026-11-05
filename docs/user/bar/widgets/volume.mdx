@@ -17,6 +17,9 @@ Shows PipeWire output (speaker) or input (microphone) volume and mute state.
 | `custom_image`           | string | `""`       | Path to a custom image displayed instead of the active/mute glyphs. Leave empty to use the glyph               |
 | `custom_image_colorize`  | bool   | `false`    | When `true`, tint the custom image with the same color the glyph would use, including `mute_color` while muted |
 | `show_label`             | bool   | `true`     | Show the volume percentage next to the glyph (horizontal and vertical bars)                                    |
+| `glyph_position`         | string | `"before"` | Place the glyph `"before"` or `"after"` the percentage. See [Peek](/noctalia/bar/widgets/#peek)                |
+| `peek`                   | bool   | `false`    | Show only the glyph and reveal the percentage on hover. See [Peek](/noctalia/bar/widgets/#peek)                |
+| `peek_delay_ms`          | int    | `100`      | Hover time before the percentage reveals, from `0` to `2000` ms                                                |
 | `mute_color`             | string | `"error"`  | Color role or hex color for the icon and label when muted                                                      |
 | `hide_when_inactive`     | bool   | `false`    | *(Input only)* Hide the microphone widget while no application is capturing audio                              |
 

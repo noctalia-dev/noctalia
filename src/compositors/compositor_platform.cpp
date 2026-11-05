@@ -26,13 +26,14 @@
 #include "compositors/wayland_workspaces.h"
 #include "compositors/workspace_alert_service.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "shell/wayland/compositor_globals.h"
 #include "shell/wayland/foreign_toplevels.h"
 #include "shell/wayland/hyprland/focus_grab_service.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/output_probe.h"
 #include "shell/wayland/shell_globals.h"
+#include "system/process.h"
 #include "util/string_utils.h"
-#include "wayland/output_probe.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
@@ -596,7 +597,7 @@ namespace {
 CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
     : m_wayland(wayland), m_shellGlobals(wayland.extension<ShellGlobals>()),
       m_focusGrab(wayland.extension<FocusGrabService>()), m_toplevels(wayland.extension<ForeignToplevels>()),
-      m_compositorGlobals(wayland.extension<CompositorGlobals>()),
+      m_compositorGlobals(wayland.extension<CompositorGlobals>()), m_layerShell(wayland.extension<LayerShell>()),
       m_runtimeRegistry(std::make_unique<compositors::CompositorRuntimeRegistry>()),
       m_workspaces(std::make_unique<WaylandWorkspaces>(*m_runtimeRegistry)) {
   m_workspaceMetadataBackend = createWorkspaceMetadataBackend(*m_runtimeRegistry);
@@ -747,7 +748,7 @@ double CompositorPlatform::lastPointerY() const noexcept { return m_wayland.last
 std::uint32_t CompositorPlatform::lastInputSerial() const noexcept { return m_wayland.lastInputSerial(); }
 
 zwlr_layer_surface_v1* CompositorPlatform::layerSurfaceFor(wl_surface* surface) const noexcept {
-  return m_wayland.layerSurfaceFor(surface);
+  return m_layerShell.layerSurfaceFor(surface);
 }
 
 void CompositorPlatform::stopKeyRepeat() { m_wayland.stopKeyRepeat(); }
@@ -822,6 +823,8 @@ wl_output* CompositorPlatform::preferredInteractiveOutput(std::chrono::milliseco
   });
   return it != outputs.end() ? it->output : nullptr;
 }
+
+bool CompositorPlatform::prefersOutputProbe() const noexcept { return compositors::isLabwc(); }
 
 void CompositorPlatform::probeFocusedOutput(
     std::function<void(wl_output*)> callback, std::chrono::milliseconds timeout

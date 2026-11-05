@@ -144,6 +144,7 @@ transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "
 transition_duration = 1500          # milliseconds
 edge_smoothness     = 0.3
 transition_on_startup = false       # animate the first wallpaper at shell startup (v4-style)
+sync_transitions      = true        # all monitors use the same transition effect per change
 directory           = ""              # empty = XDG Pictures directory
 directory_light     = ""            # optional day-mode directory
 directory_dark      = ""            # optional night-mode directory
@@ -198,6 +199,7 @@ enable_daemon      = true
 show_app_name      = true
 show_actions       = true           # show action buttons; when false, clicking a toast triggers its default action
 keep_dismissed_in_history = true    # set false to remove history entries when their toasts are dismissed
+group_by_app       = true           # group notifications by application in the history tab
 layer              = "top"          # top | overlay
 scale              = 1.0            # notification size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97
@@ -224,7 +226,7 @@ offset_y           = 8              # absolute vertical margin from the screen e
 # ── OSD ───────────────────────────────────────────────────────────────────────
 
 [osd]
-position = "top_right"              # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left
+position = "top_right"              # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left | center
 position_vertical = "top_center"    # same options; used when orientation = "vertical"
 orientation = "horizontal"          # horizontal | vertical (volume/brightness sliders only; text popups stay horizontal)
 hide_delay_ms = 1400                # time before a popup starts hiding; range 250 to 10000 ms
@@ -263,7 +265,8 @@ transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb
 transition_duration     = 1500        # lock/unlock animation length in milliseconds
 edge_smoothness         = 0.3         # transition edge feathering (0.0 = sharp, 1.0 = soft)
 blur_intensity          = 0.5         # lock screen background blur (0.0 = none, 1.0 = maximum)
-tint_intensity          = 0.3         # surface-color tint over the lock screen background
+tint_intensity          = 0.3         # strength of the tint over the lock screen background (0.0 = none, 1.0 = opaque)
+tint_color              = "surface"   # tint color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
 # wallpaper             = ""          # optional image path for the lock screen; empty uses the desktop wallpaper
 # monitors              = ["DP-1"]    # connectors that show the lock screen; empty shows all monitors, others stay black
 
@@ -461,6 +464,7 @@ colorize_icons = false              # tint application icons with shell.app_icon
 enabled             = false         # set true to activate
 position            = "bottom"      # top | bottom | left | right
 icon_size           = 48
+icon_shadow         = false
 main_axis_padding   = 16
 cross_axis_padding  = 8
 item_spacing        = 6

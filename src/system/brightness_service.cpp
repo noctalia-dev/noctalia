@@ -4,10 +4,10 @@
 #include "config/config_types.h"
 #include "core/inotify/inotify.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "dbus/system_bus.h"
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
+#include "system/process.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 

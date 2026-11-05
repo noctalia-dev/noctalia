@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "core/log.h"
-#include "core/time_format.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/render_context.h"
 #include "render/render_target.h"
@@ -11,8 +10,9 @@
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/widget_transform.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
+#include "shell/wayland/layer_surface.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 

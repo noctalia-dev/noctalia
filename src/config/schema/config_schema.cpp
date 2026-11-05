@@ -144,6 +144,7 @@ namespace noctalia::config::schema {
         field(&LockscreenConfig::edgeSmoothness, "edge_smoothness", kUnitRange),
         field(&LockscreenConfig::blurIntensity, "blur_intensity", kUnitRange),
         field(&LockscreenConfig::tintIntensity, "tint_intensity", kUnitRange),
+        colorField(&LockscreenConfig::tintColor, "tint_color"),
         pathStringField(&LockscreenConfig::wallpaper, "wallpaper"),
         field(&LockscreenConfig::monitors, "monitors"),
     };
@@ -297,6 +298,7 @@ namespace noctalia::config::schema {
         field(&NotificationConfig::showAppName, "show_app_name"),
         field(&NotificationConfig::colorizeIcons, "colorize_icons"),
         field(&NotificationConfig::showActions, "show_actions"),
+        field(&NotificationConfig::groupByApp, "group_by_app"),
         field(&NotificationConfig::position, "position"),
         field(&NotificationConfig::layer, "layer"),
         field(&NotificationConfig::scale, "scale", kScaleRange),
@@ -309,6 +311,7 @@ namespace noctalia::config::schema {
         field(&NotificationConfig::offsetX, "offset_x"),
         field(&NotificationConfig::offsetY, "offset_y"),
         field(&NotificationConfig::monitors, "monitors"),
+        field(&NotificationConfig::newestOnEdge, "newest_on_edge"),
         field(&NotificationConfig::collapseOnDismiss, "collapse_on_dismiss"),
         field(&NotificationConfig::keepDismissedInHistory, "keep_dismissed_in_history"),
         field(&NotificationConfig::historyRetentionHours, "history_retention_hours", Range<std::int64_t>{0, 8760}),
@@ -1406,6 +1409,7 @@ namespace noctalia::config::schema {
         enumField(&ThemeConfig::mode, "mode", kThemeModes),
         enumField(&ThemeConfig::shellMode, "shell_mode", kShellThemeModes),
         field(&ThemeConfig::pureBlackDark, "pure_black_dark"),
+        enumField(&ThemeConfig::terminalColors, "terminal_colors", kTerminalColorsOptions),
         field(&ThemeConfig::syncColorScheme, "sync_color_scheme"),
         subTable(&ThemeConfig::templates, "templates", templatesSchema()),
     };
@@ -1891,6 +1895,7 @@ namespace noctalia::config::schema {
         field(&WallpaperConfig::transitionDurationMs, "transition_duration", kWallpaperTransitionDurationRange),
         field(&WallpaperConfig::edgeSmoothness, "edge_smoothness", kUnitRange),
         field(&WallpaperConfig::transitionOnStartup, "transition_on_startup"),
+        field(&WallpaperConfig::syncTransitions, "sync_transitions"),
         pathStringField(&WallpaperConfig::directory, "directory"),
         pathStringField(&WallpaperConfig::directoryLight, "directory_light"),
         pathStringField(&WallpaperConfig::directoryDark, "directory_dark"),
@@ -2413,6 +2418,7 @@ namespace noctalia::config::schema {
           optionalEnumField(&DockMonitorOverride::position, "position", kDockEdges),
           optionalBoolField(&DockMonitorOverride::activeMonitorOnly, "active_monitor_only"),
           optionalIntField(&DockMonitorOverride::iconSize, "icon_size", kDockIconSizeRange),
+          optionalBoolField(&DockMonitorOverride::iconShadow, "icon_shadow"),
           optionalFloatField(&DockMonitorOverride::iconSaturation, "icon_saturation", kUnitRange),
           optionalBoolField(&DockMonitorOverride::colorizeIcons, "colorize_icons"),
           optionalIntField(&DockMonitorOverride::mainAxisPadding, "main_axis_padding", kDockPaddingRange),
@@ -2434,6 +2440,9 @@ namespace noctalia::config::schema {
           optionalBoolField(&DockMonitorOverride::showRunning, "show_running"),
           optionalBoolField(&DockMonitorOverride::autoHide, "auto_hide"),
           optionalBoolField(&DockMonitorOverride::smartAutoHide, "smart_auto_hide"),
+          optionalIntField(
+              &DockMonitorOverride::autoHideRevealDelayMs, "auto_hide_reveal_delay_ms", kDockAutoHideRevealDelayMsRange
+          ),
           custom<DockMonitorOverride>(
               "layer",
               [](const toml::table& tbl, DockMonitorOverride& out, std::string_view parentPath, Diagnostics& diag) {
@@ -2480,6 +2489,7 @@ namespace noctalia::config::schema {
         enumField(&DockConfig::position, "position", kDockEdges),
         field(&DockConfig::activeMonitorOnly, "active_monitor_only"),
         field(&DockConfig::iconSize, "icon_size", kDockIconSizeRange),
+        field(&DockConfig::iconShadow, "icon_shadow"),
         field(&DockConfig::iconSaturation, "icon_saturation", kUnitRange),
         field(&DockConfig::colorizeIcons, "colorize_icons"),
         field(&DockConfig::mainAxisPadding, "main_axis_padding", kDockPaddingRange),
@@ -2518,6 +2528,7 @@ namespace noctalia::config::schema {
         field(&DockConfig::showRunning, "show_running"),
         field(&DockConfig::autoHide, "auto_hide"),
         field(&DockConfig::smartAutoHide, "smart_auto_hide"),
+        field(&DockConfig::autoHideRevealDelayMs, "auto_hide_reveal_delay_ms", kDockAutoHideRevealDelayMsRange),
         custom<DockConfig>(
             "layer",
             [](const toml::table& tbl, DockConfig& out, std::string_view parentPath, Diagnostics& diag) {

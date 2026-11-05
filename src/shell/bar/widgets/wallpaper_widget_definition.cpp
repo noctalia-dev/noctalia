@@ -1,6 +1,6 @@
 #include "shell/bar/widgets/wallpaper_widget_definition.h"
 
-#include "shell/bar/widgets/glyph_button_definition.h"
+#include "shell/bar/glyph_button_definition.h"
 
 const noctalia::bar::WidgetDefinition<WallpaperWidget::Options>& wallpaperWidgetDefinition() {
   using Options = WallpaperWidget::Options;

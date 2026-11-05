@@ -16,8 +16,8 @@
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
 #include "config/schema/ranges.h"
+#include "config/toml.h"
 #include "core/input/key_chord.h"
-#include "core/toml.h"
 #include "scripting/plugin_id.h"
 
 #include <algorithm>
@@ -383,6 +383,7 @@ location = "https://example.invalid/bad"
         .edgeSmoothness = 0.7F,
         .blurIntensity = 0.6F,
         .tintIntensity = 0.25F,
+        .tintColor = colorSpecFromRole(ColorRole::Primary),
         .monitors = {"DP-1"}
     };
     c.system.monitor.enabled = false;
@@ -430,6 +431,7 @@ location = "https://example.invalid/bad"
     c.dock.enabled = true;
     c.dock.position = DockEdge::Left;
     c.dock.iconSize = 40;
+    c.dock.iconShadow = true;
     c.dock.iconSaturation = 0.82F;
     c.dock.border = colorSpecFromRole(ColorRole::Primary);
     c.dock.borderWidth = 1.5F;
@@ -440,14 +442,17 @@ location = "https://example.invalid/bad"
     c.dock.radiusBottomRight = 16;
     c.dock.launcherPosition = DockLauncherPosition::Start;
     c.dock.pinned = {"firefox.desktop"};
+    c.dock.autoHideRevealDelayMs = 400;
     c.dock.monitorOverrides = {DockMonitorOverride{
         .tableName = "laptop",
         .match = "eDP-1",
         .enabled = false,
         .position = DockEdge::Left,
         .iconSize = 36,
+        .iconShadow = false,
         .iconSaturation = 0.25F,
         .autoHide = true,
+        .autoHideRevealDelayMs = 0,
         .launcherPosition = DockLauncherPosition::End,
         .pinned = std::vector<std::string>{"org.gnome.Nautilus.desktop"},
     }};

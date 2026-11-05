@@ -13,6 +13,7 @@
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/layer_shell.h"
 #include "shell/wayland/wayland_toplevels.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
@@ -21,6 +22,7 @@
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -3307,10 +3309,11 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area, 
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = layerSurface,
+                  .attach = LayerShell::popupAttach(layerSurface),
                   .output = m_output,
-                  .wlSurface = pointerSurface,
+                  .keyboardGrab = m_platform.layerShell().popupKeyboardGrab(pointerSurface),
               },
+          .pointerParentSurface = pointerSurface,
           .placement = placement,
       }
   );

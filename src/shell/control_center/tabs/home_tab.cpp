@@ -1,12 +1,10 @@
 #include "shell/control_center/tabs/home_tab.h"
 
+#include "app/build_info.h"
 #include "config/config_service.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
-#include "core/files/directory_scanner.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
-#include "core/time_format.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "dbus/accounts/accounts_service.h"
 #include "dbus/mpris/mpris_art.h"
@@ -17,16 +15,19 @@
 #include "render/scene/input_area.h"
 #include "scripting/plugin_id.h"
 #include "shell/control_center/shortcut_registry.h"
+#include "shell/dialogs/file_dialog.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/profile/avatar_path.h"
 #include "shell/wallpaper/wallpaper.h"
+#include "system/directory_scanner.h"
 #include "system/distro_info.h"
 #include "system/hardware_info.h"
 #include "system/weather_service.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/grid_view.h"
-#include "ui/dialogs/file_dialog.h"
+#include "ui/controls/image.h"
 
 #include <algorithm>
 #include <cmath>
@@ -1272,8 +1273,6 @@ void HomeTab::doUpdate(Renderer& renderer) {
   }
   sync(renderer);
 }
-
-void HomeTab::onFrameTick(float /*deltaMs*/) {}
 
 void HomeTab::setActive(bool active) {
   const bool becameActive = active && !m_active;

@@ -26,6 +26,9 @@ public:
     bool showLabel = true;
     bool hideWhenPlugged = false;
     bool hideWhenFull = false;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   BatteryWidget(UPowerService* upower, Options options);
@@ -58,6 +61,7 @@ private:
   bool m_showLabel = true;
   bool m_hideWhenPlugged = false;
   bool m_hideWhenFull = false;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
 
   // Glyph mode nodes
   Glyph* m_glyph = nullptr;

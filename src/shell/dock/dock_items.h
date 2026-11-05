@@ -12,11 +12,11 @@
 class Box;
 class ConfigService;
 class Flex;
-class Glyph;
 class IconResolver;
 class Image;
 class InputArea;
 class Label;
+class Node;
 class RenderContext;
 struct DockConfig;
 
@@ -33,7 +33,7 @@ namespace shell::dock {
     Label* badgeLabel = nullptr;
     std::string tooltipText;
     Image* iconImage = nullptr;
-    Glyph* iconGlyph = nullptr;
+    Node* iconNode = nullptr;
     float restMainPos = 0.0F;
     float restCrossPos = 0.0F;
     float hoverMainOffset = 0.0F;

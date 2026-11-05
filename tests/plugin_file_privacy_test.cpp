@@ -1,4 +1,4 @@
-#include "core/toml.h"
+#include "config/toml.h"
 #include "scripting/luau_host.h"
 #include "scripting/script_api_context.h"
 

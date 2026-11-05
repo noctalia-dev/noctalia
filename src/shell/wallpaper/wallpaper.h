@@ -143,6 +143,9 @@ private:
   noctalia::theme::ThemeService* m_themeService = nullptr;
   bool m_wallpaperEnabled = false;
   WallpaperConfig m_lastWallpaperConfig{};
+  bool m_syncedPickValid = false;
+  WallpaperTransition m_syncedTransition = WallpaperTransition::Fade;
+  TransitionParams m_syncedParams{};
   std::int64_t m_lastAutomationSecondStamp = -1;
   std::int64_t m_lastAutomationSwitchSecond = -1;
   // Startup automation runs before instances exist, so onStateChange() cannot derive

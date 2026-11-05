@@ -7,7 +7,6 @@
 #include "core/deferred_call.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "dbus/accounts/accounts_service.h"
 #include "dbus/bluetooth/bluetooth_agent.h"
 #include "dbus/bluetooth/bluetooth_service.h"
@@ -70,13 +69,17 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/wayland/background_effect_globals.h"
 #include "shell/wayland/clipboard_globals.h"
 #include "shell/wayland/compositor_globals.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/output_management_globals.h"
 #include "shell/wayland/shell_globals.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
 #include "system/easyeffects_service.h"
 #include "system/keyboard_backlight_service.h"
+#include "system/process.h"
 #include "system/system_monitor_service.h"
 #include "ui/controls/input.h"
 #include "ui/style.h"
@@ -795,8 +798,13 @@ void Application::initStyleThemeAndWayland() {
     );
   }
 
-  // Bound during the initial registry roundtrip, before the clipboard and paste services attach.
+  // Bound during the initial registry roundtrip: layer surfaces, their blur capability, and the clipboard and paste
+  // services attach after connect, and head metadata must reach the outputs before the first surfaces read their
+  // configured scale.
+  m_wayland.extension<LayerShell>();
+  m_wayland.extension<BackgroundEffectGlobals>();
   m_wayland.extension<ClipboardGlobals>();
+  m_wayland.extension<OutputManagementGlobals>();
   if (!m_wayland.connect()) {
     throw std::runtime_error("failed to connect to Wayland display");
   }
@@ -804,12 +812,15 @@ void Application::initStyleThemeAndWayland() {
     const auto& compositorGlobals = m_wayland.extension<CompositorGlobals>();
     const auto& shellGlobals = m_wayland.extension<ShellGlobals>();
     kLog.info(
-        "shell globals ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={}",
+        "shell globals layer-shell={} ext-workspace={} kde-vd={} dwl-ipc={} session-lock={} gamma-control={} "
+        "output-management={}",
+        m_wayland.extension<LayerShell>().manager() != nullptr ? "yes" : "no",
         compositorGlobals.hasExtWorkspaceManager() ? "yes" : "no",
         compositorGlobals.hasKdeVirtualDesktopManager() ? "yes" : "no",
         compositorGlobals.hasDwlIpcManager() ? "yes" : "no",
         shellGlobals.sessionLockManager() != nullptr ? "yes" : "no",
-        shellGlobals.gammaControlManager() != nullptr ? "yes" : "no"
+        shellGlobals.gammaControlManager() != nullptr ? "yes" : "no",
+        m_wayland.extension<OutputManagementGlobals>().available() ? "yes" : "no"
     );
   }
   m_compositorPlatform.initialize();
@@ -1635,6 +1646,7 @@ void Application::initEarlySessionBusAndTray() {
   m_trayService = std::make_unique<TrayService>(*m_bus);
   m_trayService->setChangeCallback([this] {
     m_bar.refresh();
+    m_panelManager.refreshPanel("tray-drawer");
     m_trayMenu.onTrayChanged();
     m_keyboardLayoutOsd.onTrayChanged(
         *m_trayService, m_configService.config(), m_configService.config().osd.kinds.keyboardLayout

@@ -6,6 +6,7 @@
 #include "ipc/ipc_service.h"
 #include "pipewire/audio_media_class.h"
 #include "pipewire/audio_route_selection.h"
+#include "pipewire/pipewire_context.h"
 #include "pipewire/pipewire_error.h"
 #include "pipewire/privacy_capture_classification.h"
 #include "pipewire/wireplumber_mixer.h"
@@ -778,7 +779,11 @@ PipeWireService::PipeWireService() {
     throw std::runtime_error("pipewire: failed to create loop");
   }
 
-  m_context = pw_context_new(m_loop, nullptr, 0);
+  m_context = pw_context_new(
+      m_loop,
+      pw_properties_new(noctalia::pipewire::kContextRtModuleKey, noctalia::pipewire::kContextRtModuleDisabled, nullptr),
+      0
+  );
   if (m_context == nullptr) {
     pw_loop_destroy(m_loop);
     throw std::runtime_error("pipewire: failed to create context");

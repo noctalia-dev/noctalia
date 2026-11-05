@@ -66,18 +66,9 @@ endif
 sdbus_cpp_dep       = dependency('sdbus-c++')
 wayland_client_dep  = dependency('wayland-client')
 wayland_protos_dep  = dependency('wayland-protocols')
-#egl_dep             = dependency('egl')
-#glesv2_dep          = dependency('glesv2')
-wayland_egl_dep     = dependency('wayland-egl')
-freetype2_dep       = dependency('freetype2')
-fontconfig_dep      = dependency('fontconfig')
 cairo_dep           = dependency('cairo')
-cairo_ft_dep        = dependency('cairo-ft')
 pango_dep           = dependency('pango', version: '>=1.50')
 pangocairo_dep      = dependency('pangocairo')
-pangoft2_dep        = dependency('pangoft2')
-harfbuzz_dep        = dependency('harfbuzz')
-librsvg_dep         = dependency('librsvg-2.0')
 xkbcommon_dep       = dependency('xkbcommon')
 glib_dep            = dependency('glib-2.0')
 gobject_dep         = dependency('gobject-2.0')
@@ -117,51 +108,18 @@ if is_glibc
   endif
 endif
 
-egl_dep = dependency('egl', required: false)
-gles2_dep = dependency('glesv2', required: false)
-
-
-if not egl_dep.found()
-  egl_dep = dependency('wayland-egl', required: false)
-endif
-
-if not egl_dep.found()
-  egl_dep = dependency('epoxy')
-endif
-
-if not gles2_dep.found()
-  gles2_dep = dependency('epoxy')
-endif
-
-# ── System: stb_image_resize2 and stb_image_write (header-only) ─────────────────────────────────
-if not cc.has_header('stb/stb_image_resize2.h')
-  error('stb/stb_image_resize2.h not found')
-endif
-if not cc.has_header('stb/stb_image_write.h')
-  error('stb/stb_image_write.h not found')
-endif
-
-# ── System: libwebp (WebP decode; thumbnail and screenshot encode; demux for animations) ─
+# ── System: libwebp (screenshot WebP output) ──────────────────────────────────
 libwebp_dep       = dependency('libwebp', required: true)
-libwebpdemux_dep  = dependency('libwebpdemux', required: true)
-
-# ── System: libjxl (JPEG XL decode and screenshot encode) ─────────────────────
-libjxl_dep          = dependency('libjxl', required: true)
-libjxl_threads_dep  = dependency('libjxl_threads', required: true)
 
 # ── System: libsndfile (sound effect decoding) ───────────────────────────────
 sndfile_dep = dependency('sndfile', required: true)
 
-# ── Wuffs, fzy, Material Color Utilities, Luau ──────────────────────────────
-# Vendored under third_party/ by default. -Dsystem_libraries=true links system
-# copies instead. None of them ship pkg-config files, so they are found by
-# library and header name using the vendored include layout.
+# ── fzy, Material Color Utilities, Luau ──────────────────────────────────────
+# Vendored under third_party/ by default (Wuffs under lib/third_party/).
+# -Dsystem_libraries=true links system copies of all four instead. None of them
+# ship pkg-config files, so they are found by library and header name using the
+# vendored include layout.
 if get_option('system_libraries')
-  if not cc.has_header('wuffs-v0.4.c')
-    error('system_libraries: wuffs-v0.4.c not found')
-  endif
-  _wuffs_inc = []
-
   fzy_dep = cc.find_library('fzy', has_headers: ['fzy/match.h'])
   mcu_dep = cpp.find_library('material-color-utilities', has_headers: ['cpp/cam/hct.h'])
   # Static archive order: dependents before their dependencies.
@@ -177,8 +135,6 @@ if get_option('system_libraries')
   _mcu_selective_dep = mcu_dep
   _luau_selective_dep = luau_dep
 else
-  _wuffs_inc = [include_directories('third_party/wuffs', is_system: true)]
-
   # ── Vendored: fzy matcher (C fuzzy scoring) ──────────────────────────────────
   # match.h sits under include/fzy/ to match the system install layout.
   _fzy_inc = include_directories('third_party/fzy/include', is_system: true)
@@ -340,6 +296,27 @@ endif
 wayland_scanner    = find_program('wayland-scanner')
 wayland_protos_dir = wayland_protos_dep.get_variable('pkgdatadir')
 
+# ── Compile arguments ─────────────────────────────────────────────────────────
+_noctalia_compile_definitions = [
+  '-DNOCTALIA_INSTALL_PREFIX="' + get_option('prefix') + '"',
+  '-DNOCTALIA_INSTALL_DATADIR="' + get_option('datadir') + '"',
+  '-DNOCTALIA_VERSION="' + meson.project_version() + '"',
+] + jemalloc_cpp_args
+
+# PipeWire's pkg-config adds -fno-strict-aliasing and -fno-strict-overflow to
+# every target that uses it. lib/ does not depend on PipeWire, so both trees set
+# them here and compile under the same rules.
+_noctalia_cpp_args = [
+  '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wshadow',
+  '-fno-strict-aliasing', '-fno-strict-overflow',
+] + _noctalia_compile_definitions
+
+# ── UI library ────────────────────────────────────────────────────────────────
+# Self-contained; see lib/meson.build for its outputs.
+noctalia_ui_system_wuffs = get_option('system_libraries')
+subdir('lib')
+
+# ── Shell Wayland protocols ───────────────────────────────────────────────────
 # Generates a (header, source) pair from a protocol XML path/target.
 # Returns [h_target, c_target]: add c_target to sources.
 # The c_target has an order-only dep on h_target so the header exists when
@@ -351,50 +328,33 @@ _protocol_headers = []
 # xml_input can be a string (path) or a custom_target.
 
 foreach _p : [
-  # ── wlr-layer-shell needs namespace→name_space substitution first ──────────
-  # Handled separately below.
-
   # ── system wayland-protocols ──────────────────────────────────────────────
-  ['xdg-output-unstable-v1',
-    wayland_protos_dir / 'unstable/xdg-output/xdg-output-unstable-v1.xml'],
-  ['xdg-shell',
-    wayland_protos_dir / 'stable/xdg-shell/xdg-shell.xml'],
+  ['ext-background-effect-v1',
+    wayland_protos_dir / 'staging/ext-background-effect/ext-background-effect-v1.xml'],
   ['ext-workspace-v1',
     wayland_protos_dir / 'staging/ext-workspace/ext-workspace-v1.xml'],
   ['ext-foreign-toplevel-list-v1',
     wayland_protos_dir / 'staging/ext-foreign-toplevel-list/ext-foreign-toplevel-list-v1.xml'],
   ['ext-data-control-v1',
     wayland_protos_dir / 'staging/ext-data-control/ext-data-control-v1.xml'],
-  ['xdg-activation-v1',
-    wayland_protos_dir / 'staging/xdg-activation/xdg-activation-v1.xml'],
   ['ext-session-lock-v1',
     wayland_protos_dir / 'staging/ext-session-lock/ext-session-lock-v1.xml'],
   ['ext-idle-notify-v1',
     wayland_protos_dir / 'staging/ext-idle-notify/ext-idle-notify-v1.xml'],
-  ['ext-background-effect-v1',
-    wayland_protos_dir / 'staging/ext-background-effect/ext-background-effect-v1.xml'],
   ['ext-image-capture-source-v1',
     wayland_protos_dir / 'staging/ext-image-capture-source/ext-image-capture-source-v1.xml'],
   ['ext-image-copy-capture-v1',
     wayland_protos_dir / 'staging/ext-image-copy-capture/ext-image-copy-capture-v1.xml'],
-  ['fractional-scale-v1',
-    wayland_protos_dir / 'staging/fractional-scale/fractional-scale-v1.xml'],
-  ['viewporter',
-    wayland_protos_dir / 'stable/viewporter/viewporter.xml'],
   ['idle-inhibit-unstable-v1',
     wayland_protos_dir / 'unstable/idle-inhibit/idle-inhibit-unstable-v1.xml'],
 
   # ── vendored / project-local protocols (loaded from protocols/) ───────────
-  ['text-input-unstable-v3',
-    'protocols/text-input-unstable-v3.xml'],
   ['virtual-keyboard-unstable-v1',
     'protocols/virtual-keyboard-unstable-v1.xml'],
   ['dwl-ipc-unstable-v2',
     'protocols/dwl-ipc-unstable-v2.xml'],
   ['org-kde-plasma-virtual-desktop',
     'protocols/org-kde-plasma-virtual-desktop.xml'],
-  ['cursor-shape-v1',
-    'protocols/cursor-shape-v1.xml'],
   ['wlr-foreign-toplevel-management-unstable-v1',
     'protocols/wlr-foreign-toplevel-management-unstable-v1.xml'],
   ['wlr-data-control-unstable-v1',
@@ -458,6 +418,8 @@ _noctalia_sources = files(
   'src/app/application_poll_sources.cpp',
   'src/app/application_services.cpp',
   'src/app/application_ui.cpp',
+  'src/app/build_info.cpp',
+  'src/app/shell_library.cpp',
   'src/app/main_loop.cpp',
   'src/app/single_instance_lock.cpp',
   'src/auth/fingerprint_authenticator.cpp',
@@ -492,17 +454,6 @@ _noctalia_sources = files(
   'src/config/schema/config_sections.cpp',
   'src/config/state_store.cpp',
   'src/config/cli.cpp',
-  'src/core/build_info.cpp',
-  'src/core/deferred_call.cpp',
-  'src/core/process/process_fds.cpp',
-  'src/core/files/file_watcher.cpp',
-  'src/core/input/key_chord.cpp',
-  'src/core/log.cpp',
-  'src/core/process/process.cpp',
-  'src/core/files/resource_paths.cpp',
-  'src/core/inotify/inotify.cpp',
-  'src/core/timer_manager.cpp',
-  'src/core/ui_phase.cpp',
   'src/dbus/accounts/accounts_service.cpp',
   'src/dbus/bluetooth/bluetooth_agent.cpp',
   'src/dbus/bluetooth/bluetooth_service.cpp',
@@ -520,6 +471,8 @@ _noctalia_sources = files(
   'src/dbus/network/network_display.cpp',
   'src/dbus/network/network_manager_service.cpp',
   'src/dbus/network/network_secret_agent.cpp',
+  'src/dbus/network/network_secret_keyring.cpp',
+  'src/dbus/network/vpn_auth_dialog.cpp',
   'src/dbus/network/wpa_supplicant_service.cpp',
   'src/dbus/polkit/polkit_agent.cpp',
   'src/dbus/polkit/polkit_session_support.cpp',
@@ -535,9 +488,6 @@ _noctalia_sources = files(
   'src/dbus/upower/upower_charge_limit_support.cpp',
   'src/dbus/upower/upower_service.cpp',
   'src/debug/debug_service.cpp',
-  'src/i18n/i18n.cpp',
-  'src/i18n/language_tag.cpp',
-  'src/i18n/i18n_service.cpp',
   'src/hooks/battery_hook_state.cpp',
   'src/hooks/hook_manager.cpp',
   'src/idle/idle_inhibitor.cpp',
@@ -555,6 +505,7 @@ _noctalia_sources = files(
   'src/launcher/dmenu_socket_path.cpp',
   'src/launcher/dmenu_stdin_provider.cpp',
   'src/launcher/emoji_provider.cpp',
+  'src/launcher/fuzzy_match.cpp',
   'src/launcher/math_provider.cpp',
   'src/launcher/panel_catalog.cpp',
   'src/launcher/panel_provider.cpp',
@@ -580,42 +531,6 @@ _noctalia_sources = files(
   'src/pipewire/privacy_filter.cpp',
   'src/pipewire/pipewire_spectrum.cpp',
   'src/pipewire/sound_player.cpp',
-  'src/render/animation/animation.cpp',
-  'src/render/animation/animation_manager.cpp',
-  'src/render/animation/motion_service.cpp',
-  'src/render/backend/gles_framebuffer.cpp',
-  'src/render/backend/gles_render_backend.cpp',
-  'src/render/backend/gles_texture_manager.cpp',
-  'src/render/backend/render_backend.cpp',
-  'src/render/core/async_texture_cache.cpp',
-  'src/render/core/color.cpp',
-  'src/render/core/image_file_loader.cpp',
-  'src/render/core/shader_program.cpp',
-  'src/render/core/stb_image_resize_impl.cpp',
-  'src/render/core/thumbnail_service.cpp',
-  'src/render/core/image_decoder.cpp',
-  'src/render/core/heif_library.cpp',
-  'src/render/core/image_encoder.cpp',
-  'src/render/core/image_orientation.cpp',
-  'src/render/core/image_resize.cpp',
-  'src/render/programs/glyph_program.cpp',
-  'src/render/programs/image_program.cpp',
-  'src/render/programs/rect_program.cpp',
-  'src/render/programs/spinner_program.cpp',
-  'src/render/programs/blur_program.cpp',
-  'src/render/core/blur_cache.cpp',
-  'src/render/core/cached_layer.cpp',
-  'src/render/core/shared_texture_cache.cpp',
-  'src/render/gl_shared_context.cpp',
-  'src/render/render_context.cpp',
-  'src/render/render_target.cpp',
-  'src/render/scene/input_area.cpp',
-  'src/render/scene/input_dispatcher.cpp',
-  'src/render/scene/node.cpp',
-  'src/render/text/cairo_text_renderer.cpp',
-  'src/render/text/font_registry.cpp',
-  'src/render/text/font_weight_catalog.cpp',
-  'src/render/text/cairo_glyph_renderer.cpp',
   'src/scripting/luau_host.cpp',
   'src/scripting/plugin_catalog.cpp',
   'src/scripting/plugin_file_cache.cpp',
@@ -650,6 +565,7 @@ _noctalia_sources = files(
   'src/shell/dock/dock_geometry.cpp',
   'src/shell/dock/dock_instance.cpp',
   'src/shell/dock/dock_items.cpp',
+  'src/shell/dock/icon_shadow.cpp',
   'src/shell/dock/dock_model.cpp',
   'src/shell/dock/pinned_apps.cpp',
   'src/shell/desktop/desktop_widget.cpp',
@@ -693,19 +609,6 @@ _noctalia_sources = files(
   'src/shell/control_center/tabs/system_tab.cpp',
   'src/shell/control_center/tab.cpp',
   'src/shell/control_center/tabs/weather_tab.cpp',
-  'src/core/files/directory_scanner.cpp',
-  'src/ui/dialogs/color_picker_dialog.cpp',
-  'src/ui/dialogs/color_picker_dialog_popup.cpp',
-  'src/ui/dialogs/dialog_popup_host.cpp',
-  'src/ui/dialogs/file_dialog.cpp',
-  'src/ui/dialogs/file_dialog_popup.cpp',
-  'src/ui/dialogs/file_dialog_view.cpp',
-  'src/ui/dialogs/file_entry_row.cpp',
-  'src/ui/dialogs/file_entry_tile.cpp',
-  'src/ui/dialogs/glyph_picker_dialog.cpp',
-  'src/ui/dialogs/glyph_picker_dialog_popup.cpp',
-  'src/ui/dialogs/layer_popup_host.cpp',
-  'src/ui/dialogs/search_picker_popup.cpp',
   'src/shell/launcher/launcher_panel.cpp',
   'src/shell/switcher/window_switcher.cpp',
   'src/shell/switcher/window_switcher_style.cpp',
@@ -740,24 +643,28 @@ _noctalia_sources = files(
   'src/shell/plugin_layer/plugin_layer.cpp',
   'src/shell/plugin_layer/plugin_layer_host.cpp',
   'src/shell/polkit/polkit_panel.cpp',
+  'src/shell/render/blur_cache.cpp',
+  'src/shell/render/cached_layer.cpp',
   'src/shell/render/audio_spectrum_node.cpp',
   'src/shell/render/countdown_ring_node.cpp',
-  'src/shell/render/effect_node.cpp',
   'src/shell/render/fancy_audio_visualizer_node.cpp',
   'src/shell/render/graph_node.cpp',
   'src/shell/render/lockscreen_transition_node.cpp',
   'src/shell/render/programs/audio_spectrum_program.cpp',
   'src/shell/render/programs/countdown_ring_program.cpp',
-  'src/shell/render/programs/effect_program.cpp',
   'src/shell/render/programs/fancy_audio_visualizer_program.cpp',
   'src/shell/render/programs/graph_program.cpp',
   'src/shell/render/programs/lockscreen_transition_program.cpp',
   'src/shell/render/programs/screen_corner_program.cpp',
   'src/shell/render/programs/wallpaper_mask_program.cpp',
   'src/shell/render/programs/wallpaper_program.cpp',
+  'src/shell/render/programs/weather_effect_program.cpp',
   'src/shell/render/screen_corner_node.cpp',
   'src/shell/render/wallpaper_mask_node.cpp',
   'src/shell/render/wallpaper_node.cpp',
+  'src/shell/render/weather_effect_node.cpp',
+  'src/shell/render/weather_effect_rain_simulation.cpp',
+  'src/shell/render/weather_effect_snow_simulation.cpp',
   'src/shell/visuals/audio_visualizer.cpp',
   'src/shell/visuals/fancy_audio_visualizer.cpp',
   'src/shell/visuals/graph.cpp',
@@ -767,7 +674,6 @@ _noctalia_sources = files(
   'src/shell/session/session_ipc.cpp',
   'src/shell/session/session_panel.cpp',
   'src/shell/setup_wizard/setup_wizard_panel.cpp',
-  'src/ui/surface_shadow.cpp',
   'src/system/telemetry_service.cpp',
   'src/shell/settings/bar_widget_editor.cpp',
   'src/shell/settings/color_spec_picker.cpp',
@@ -819,6 +725,22 @@ _noctalia_sources = files(
   'src/shell/wallpaper/panel/wallpaper_tile.cpp',
   'src/shell/keyboard_layout_label.cpp',
   'src/shell/app_icon_colorization_settings.cpp',
+  'src/shell/controls/color_picker.cpp',
+  'src/shell/controls/glyph_picker.cpp',
+  'src/shell/controls/markdown_view.cpp',
+  'src/shell/controls/search_picker.cpp',
+  'src/shell/dialogs/color_picker_dialog.cpp',
+  'src/shell/dialogs/color_picker_dialog_popup.cpp',
+  'src/shell/dialogs/dialog_popup_host.cpp',
+  'src/shell/dialogs/file_dialog.cpp',
+  'src/shell/dialogs/file_dialog_popup.cpp',
+  'src/shell/dialogs/file_dialog_view.cpp',
+  'src/shell/dialogs/file_entry_row.cpp',
+  'src/shell/dialogs/file_entry_tile.cpp',
+  'src/shell/dialogs/glyph_picker_dialog.cpp',
+  'src/shell/dialogs/glyph_picker_dialog_popup.cpp',
+  'src/shell/dialogs/layer_popup_host.cpp',
+  'src/shell/dialogs/search_picker_popup.cpp',
   'src/shell/bar/widget.cpp',
   'src/shell/bar/widget_action.cpp',
   'src/shell/bar/widget_action_dispatcher.cpp',
@@ -895,6 +817,9 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/workspaces_widget_definition.cpp',
   'src/system/dependency_service.cpp',
   'src/system/v4l2_camera.cpp',
+  'src/system/directory_scanner.cpp',
+  'src/system/file_watcher.cpp',
+  'src/system/process.cpp',
   'src/system/desktop_entry.cpp',
   'src/system/freedesktop_key_file.cpp',
   'src/system/desktop_entry_launch.cpp',
@@ -935,66 +860,13 @@ _noctalia_sources = files(
   'src/system/intel_gpu.cpp',
   'src/system/system_monitor_service.cpp',
   'src/system/weather_service.cpp',
-  'src/core/time_format.cpp',
   'src/time/time_service.cpp',
-  'src/ui/controls/box.cpp',
-  'src/ui/controls/button.cpp',
+  'src/time/time_format.cpp',
   'src/shell/calendar/calendar_view.cpp',
-  'src/ui/controls/drag_source.cpp',
-  'src/ui/controls/drop_zone.cpp',
-  'src/ui/controls/checkbox.cpp',
-  'src/ui/controls/color_picker.cpp',
-  'src/ui/controls/collapsible.cpp',
-  'src/ui/controls/context_menu.cpp',
-  'src/ui/controls/context_menu_popup.cpp',
-  'src/ui/controls/flex.cpp',
-  'src/ui/controls/glyph.cpp',
-  'src/ui/controls/glyph_picker.cpp',
-  'src/render/text/glyph_registry.cpp',
-  'src/ui/controls/grid_view.cpp',
-  'src/ui/controls/grid_tile.cpp',
-  'src/ui/controls/image.cpp',
   'src/scripting/ui/pixel_stream_view.cpp',
-  'src/ui/controls/input.cpp',
-  'src/core/input/keybind_matcher.cpp',
-  'src/ui/controls/keybind_recorder.cpp',
-  'src/ui/controls/label.cpp',
-  'src/ui/controls/markdown_view.cpp',
-  'src/ui/controls/list_editor.cpp',
-  'src/ui/controls/color_swatch_preview.cpp',
-  'src/ui/controls/progress_bar.cpp',
-  'src/ui/controls/radio_button.cpp',
-  'src/ui/controls/scrollbar.cpp',
-  'src/ui/controls/scroll_view.cpp',
-  'src/ui/controls/roving_list_nav.cpp',
-  'src/ui/controls/search_picker.cpp',
-  'src/ui/controls/range_slider.cpp',
-  'src/ui/controls/segmented.cpp',
-  'src/ui/controls/select.cpp',
-  'src/ui/controls/select_dropdown_popup.cpp',
-  'src/ui/controls/separator.cpp',
-  'src/ui/controls/slider.cpp',
-  'src/ui/controls/spacer.cpp',
-  'src/ui/controls/spinner.cpp',
-  'src/ui/controls/stepper.cpp',
-  'src/ui/controls/toggle.cpp',
-  'src/ui/controls/virtual_grid_view.cpp',
-  'src/ui/controls/virtual_list_view.cpp',
-  'src/ui/builders.cpp',
   'src/scripting/ui/ui_tree_reconciler.cpp',
-  'src/ui/app_icon_colorization.cpp',
-  'src/ui/palette.cpp',
   'src/shell/palette_swatch_preview.cpp',
-  'src/ui/popup_chrome.cpp',
-  'src/ui/scroll_into_view.cpp',
-  'src/ui/split_pane_focus.cpp',
-  'src/ui/style.cpp',
-  'src/ui/drag_drop_controller.cpp',
-  'src/util/checksum.cpp',
-  'src/util/clamp.cpp',
-  'src/util/fuzzy_match.cpp',
   'src/shell/wayland/clipboard_service.cpp',
-  'src/wayland/text_input_service.cpp',
   'src/shell/wayland/virtual_keyboard_service.cpp',
   'src/compositors/compositor_platform.cpp',
   'src/compositors/workspace_alert_service.cpp',
@@ -1032,14 +904,6 @@ _noctalia_sources = files(
   'src/compositors/kde/kwin_active_window.cpp',
   'src/compositors/kde/kwin_workspace_backend.cpp',
   'src/compositors/labwc/labwc_workspace_backend.cpp',
-  'src/wayland/layer_surface.cpp',
-  'src/wayland/output_probe.cpp',
-  'src/wayland/popup_surface.cpp',
-  'src/wayland/subsurface.cpp',
-  'src/wayland/surface.cpp',
-  'src/wayland/toplevel_surface.cpp',
-  'src/wayland/wayland_connection.cpp',
-  'src/wayland/wayland_seat.cpp',
   'src/shell/wayland/wayland_toplevels.cpp',
   'src/shell/wayland/ext_foreign_toplevels.cpp',
   'src/compositors/wayland_workspaces.cpp',
@@ -1048,6 +912,12 @@ _noctalia_sources = files(
   'src/shell/wayland/shell_globals.cpp',
   'src/shell/wayland/compositor_globals.cpp',
   'src/shell/wayland/foreign_toplevels.cpp',
+  'src/shell/wayland/output_management_globals.cpp',
+  'src/shell/wayland/background_effect_globals.cpp',
+  'src/shell/wayland/layer_shell.cpp',
+  'src/shell/wayland/layer_surface.cpp',
+  'src/shell/wayland/output_probe.cpp',
+  'src/theme/checksum.cpp',
   'src/theme/scheme.cpp',
   'src/theme/color.cpp',
   'src/theme/contrast.cpp',
@@ -1082,14 +952,10 @@ _noctalia_sources = files(
   'src/ipc/cli.cpp',
 )
 
-if sanitize
-  _noctalia_sources += files('src/core/lsan_suppressions.cpp')
-endif
-
 git_program = find_program('git', required: false)
 if git_program.found()
   _git_revision_h = vcs_tag(
-    input: 'src/core/git_revision.h.in',
+    input: 'src/app/git_revision.h.in',
     output: 'noctalia_git_revision.h',
     command: [git_program, 'describe', '--tags', '--always', '--dirty=-dirty', '--abbrev=12'],
     fallback: 'unknown',
@@ -1098,14 +964,14 @@ else
   _git_revision_config = configuration_data()
   _git_revision_config.set('VCS_TAG', 'unknown')
   _git_revision_h = configure_file(
-    input: 'src/core/git_revision.h.in',
+    input: 'src/app/git_revision.h.in',
     output: 'noctalia_git_revision.h',
     configuration: _git_revision_config,
   )
 endif
 
 # Headers clang-tidy needs before any compile has run (see `just lint`).
-_generated_headers = _protocol_headers
+_generated_headers = noctalia_ui_protocol_headers + _protocol_headers
 if git_program.found()
   _generated_headers += _git_revision_h
 endif
@@ -1117,24 +983,15 @@ _noctalia_inc = [
   # '.' adds both the source root and the corresponding build-dir root, so
   # generated protocol headers (written to the build root) are found by #include.
   include_directories('.'),
-] + _wuffs_inc
+]
 
 # ── Application library and executable ────────────────────────────────────────
 _noctalia_system_dependencies = [
   sdbus_cpp_dep,
   wayland_client_dep,
-  egl_dep,
-  gles2_dep,
-  wayland_egl_dep,
-  freetype2_dep,
-  fontconfig_dep,
   cairo_dep,
-  cairo_ft_dep,
   pango_dep,
   pangocairo_dep,
-  pangoft2_dep,
-  harfbuzz_dep,
-  librsvg_dep,
   xkbcommon_dep,
   glib_dep,
   gobject_dep,
@@ -1151,12 +1008,9 @@ _noctalia_system_dependencies = [
   nlohmann_dep,
   libxml2_dep,
   libical_dep,
-  tomlplusplus_dep,
   md4c_dep,
+  tomlplusplus_dep,
   libwebp_dep,
-  libwebpdemux_dep,
-  libjxl_dep,
-  libjxl_threads_dep,
   sndfile_dep,
 ] + jemalloc_deps + (dl_dep.found() ? [dl_dep] : [])
 
@@ -1170,24 +1024,15 @@ _noctalia_test_dependencies = _noctalia_system_dependencies + [
   _fzy_selective_dep,
   _mcu_selective_dep,
   _luau_selective_dep,
+  noctalia_ui_codecs_dep,
 ]
 
-_noctalia_compile_definitions = [
-  '-DNOCTALIA_INSTALL_PREFIX="' + get_option('prefix') + '"',
-  '-DNOCTALIA_INSTALL_DATADIR="' + get_option('datadir') + '"',
-  '-DNOCTALIA_VERSION="' + meson.project_version() + '"',
-] + jemalloc_cpp_args
-
-_noctalia_cpp_args = [
-  '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wshadow',
-] + _noctalia_compile_definitions
-
-# Production sources and generated protocols compile once. The shell links the
-# archive whole; tests link it normally so only the objects they exercise enter
-# each test executable.
+# Production sources and generated protocols compile once. The shell links both
+# archives whole; tests link them normally so only the objects they exercise
+# enter each test executable.
 noctalia_core_lib = static_library('noctalia_core',
   sources: _noctalia_sources + _protocol_sources + _protocol_headers + [_git_revision_h],
-  dependencies: _noctalia_dependencies,
+  dependencies: _noctalia_dependencies + [noctalia_ui_codecs_dep],
   include_directories: _noctalia_inc,
   cpp_args: _noctalia_cpp_args,
 )
@@ -1202,16 +1047,37 @@ noctalia_core_dep = declare_dependency(
 
 noctalia_exe = executable('noctalia',
   sources: files('src/main.cpp') + _protocol_headers,
-  dependencies: _noctalia_dependencies,
+  dependencies: _noctalia_dependencies + [noctalia_ui_codecs_dep],
   include_directories: _noctalia_inc,
   cpp_args: _noctalia_cpp_args,
-  objects: noctalia_core_lib.extract_all_objects(recursive: false),
+  objects: [
+    noctalia_core_lib.extract_all_objects(recursive: false),
+    noctalia_ui_lib.extract_all_objects(recursive: false),
+    noctalia_ui_codecs_lib.extract_all_objects(recursive: false),
+  ],
   install: true,
+)
+
+noctalia_session_config = configuration_data()
+noctalia_session_config.set(
+  'NOCTALIA_EXECUTABLE',
+  get_option('prefix') / get_option('bindir') / 'noctalia',
+)
+configure_file(
+  input: 'assets/noctalia.service.in',
+  output: 'noctalia.service',
+  configuration: noctalia_session_config,
+  install_dir: get_option('datadir') / 'noctalia' / 'assets',
+)
+
+# The library's own assets (glyph font) install beside the shell's.
+install_subdir('lib/assets',
+  install_dir: get_option('datadir') / 'noctalia',
 )
 
 install_subdir('assets',
   install_dir: get_option('datadir') / 'noctalia',
-  exclude_files: ['dev.noctalia.Noctalia.desktop', 'dev.noctalia.Noctalia.Annotator.desktop'],
+  exclude_files: ['dev.noctalia.Noctalia.desktop', 'dev.noctalia.Noctalia.Annotator.desktop', 'noctalia.service.in'],
 )
 
 install_data(
@@ -1228,6 +1094,26 @@ install_data(
 if build_tests
   wayland_server_dep = dependency('wayland-server')
 
+  # Library code reads the application identity the shell sets in main(). Library tests link
+  # test_identity.cpp whole to set the shell's identity before main(); tests of shell code link
+  # test_shell_library.cpp, which configures the library exactly as main() does.
+  _test_identity_dep = declare_dependency(
+    link_whole: static_library('test_identity',
+      'tests/test_identity.cpp',
+      include_directories: include_directories('src'),
+      dependencies: noctalia_ui_dep,
+    ),
+  )
+  _ui_test_dep = declare_dependency(dependencies: [noctalia_ui_dep, _test_identity_dep])
+  _ui_codecs_test_dep = declare_dependency(dependencies: [noctalia_ui_codecs_dep, _test_identity_dep])
+  noctalia_core_dep = declare_dependency(
+    dependencies: noctalia_core_dep,
+    link_whole: static_library('test_shell_library',
+      'tests/test_shell_library.cpp',
+      dependencies: noctalia_core_dep,
+    ),
+  )
+
   _wlr_screencopy_test_server_h = custom_target('wlr-screencopy-unstable-v1-test-server-header',
     input: 'protocols/wlr-screencopy-unstable-v1.xml',
     output: 'wlr-screencopy-unstable-v1-test-server-protocol.h',
@@ -1239,6 +1125,31 @@ if build_tests
     output: 'ext-idle-notify-v1-test-server-protocol.h',
     command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
   )
+
+  # Tests of lib/ code link only the UI library (and its codec pack).
+  _ui_test_names = [
+    'cairo_text_renderer',
+    'grid_item_cursor',
+    'i18n_language_tag',
+    'image_source_log',
+    'inotify',
+    'input_area',
+    'input_bidi',
+    'input_dispatcher',
+    'input_password_mode',
+    'input_readline_shortcuts',
+    'log',
+    'string_utils',
+    'virtual_grid_view_gesture',
+    'wayland_output_scale',
+  ]
+
+  _ui_codecs_test_names = [
+    'ico_decoder',
+    'image_file_loader_data_uri',
+    'jxl_decoder',
+    'webp_decoder',
+  ]
 
   _cpp_test_names = [
     'annotation_document',
@@ -1254,7 +1165,6 @@ if build_tests
     'battery_warning_threshold',
     'bluetooth_uuid_names',
     'button_layout',
-    'cairo_text_renderer',
     'caldav_client',
     'calendar_cache_permissions',
     'calendar_credential_store',
@@ -1287,6 +1197,7 @@ if build_tests
     'desktop_widget_output',
     'disk_mounts',
     'dock_edge_overlap',
+    'dock_icon_shadow',
     'dock_pinned_apps',
     'enterprise_credentials',
     'event_link',
@@ -1301,27 +1212,15 @@ if build_tests
     'google_client_calendar_list',
     'google_client_reminders',
     'greeter_appearance_sync',
-    'grid_item_cursor',
     'gtk_extensions',
     'hook_manager',
     'hyprland_workspace_backend',
-    'i18n_language_tag',
     'i18n_supported_languages',
     'ical_parser',
-    'ico_decoder',
     'icon_resolver',
-    'image_file_loader_data_uri',
     'image_orientation',
-    'image_source_log',
-    'inotify',
-    'input_area',
-    'input_bidi',
-    'input_dispatcher',
-    'input_password_mode',
-    'input_readline_shortcuts',
     'ipc_service',
     'iwd_diagnostics',
-    'jxl_decoder',
     'kde_color_scheme',
     'keyboard_layout_label',
     'labwc_occupancy',
@@ -1329,11 +1228,11 @@ if build_tests
     'launcher_category_state',
     'location_service',
     'lockscreen_session_actions',
-    'log',
     'math_provider',
     'monitor_selector',
     'network_display',
     'network_manager_security',
+    'network_secret_keyring',
     'niri_workspace_backend',
     'notification_dnd',
     'notification_filter',
@@ -1357,11 +1256,11 @@ if build_tests
     'plugin_lifecycle',
     'plugin_manifest',
     'plugin_process',
+    'process',
     'plugin_recommendations',
     'plugin_source_locks',
     'plugin_source_paths',
     'pixel_stream_client',
-    'process',
     'scheme',
     'screenshot_region_badge',
     'screenshot_ipc_request',
@@ -1369,8 +1268,8 @@ if build_tests
     'scrollbar_geometry',
     'secret_store',
     'security_primitives',
+    'settings_search',
     'state_store',
-    'string_utils',
     'surface_blur_region',
     'sway_workspace_backend',
     'system_monitor_service',
@@ -1390,12 +1289,10 @@ if build_tests
     'uri',
     'v4l2_camera',
     'vdir_reader',
-    'virtual_grid_view_gesture',
+    'vpn_auth_dialog',
     'wallpaper_scan_symlink',
     'wallpaper_shuffle_state',
-    'wayland_output_scale',
     'wayland_toplevels_identity',
-    'webp_decoder',
     'widget_action',
     'widget_definition',
     'widget_settings_schema',
@@ -1406,33 +1303,42 @@ if build_tests
     'workspaces_widget',
   ]
 
-  foreach test_name : _cpp_test_names
-    if test_name == 'plugin_git_export' and not git_program.found()
-      continue
-    endif
-    test_exe = executable(test_name + '_test',
-      sources: files('tests' / (test_name + '_test.cpp')),
-      dependencies: noctalia_core_dep,
-      override_options: ['b_ndebug=false'],
-    )
-    test_args = []
-    if test_name == 'desktop_entry_localization'
-      test_args = [meson.project_source_root() / 'assets']
-    elif test_name == 'i18n_supported_languages'
-      test_args = [meson.project_source_root() / 'assets' / 'translations']
-    endif
-    test(test_name, test_exe, args: test_args)
-    if test_name == 'plugin_recommendations' and git_program.found()
-      recommendations_python = find_program('python3', required: false)
-      recommendations_openssl = find_program('openssl', required: false)
-      if recommendations_python.found() and recommendations_openssl.found()
-        test('plugin_recommendations_http', recommendations_python,
-          args: [files('tests/plugin_recommendations_http_test.py'), test_exe],
-          workdir: meson.project_source_root(),
-          timeout: 90,
-        )
+  foreach _test_group : [
+    [_ui_test_names, _ui_test_dep],
+    [_ui_codecs_test_names, _ui_codecs_test_dep],
+    [_cpp_test_names, noctalia_core_dep],
+  ]
+    _test_dep = _test_group[1]
+    foreach test_name : _test_group[0]
+      if test_name == 'plugin_git_export' and not git_program.found()
+        continue
       endif
-    endif
+      test_exe = executable(test_name + '_test',
+        sources: files('tests' / (test_name + '_test.cpp')),
+        dependencies: _test_dep,
+        override_options: ['b_ndebug=false'],
+      )
+      test_args = []
+      if test_name in ['desktop_entry_localization', 'config_wallpaper_precedence']
+        test_args = [meson.project_source_root() / 'assets']
+      elif test_name == 'i18n_supported_languages'
+        test_args = [meson.project_source_root() / 'assets' / 'translations']
+      elif test_name == 'settings_search'
+        test_args = [meson.project_source_root() / 'assets']
+      endif
+      test(test_name, test_exe, args: test_args)
+      if test_name == 'plugin_recommendations' and git_program.found()
+        recommendations_python = find_program('python3', required: false)
+        recommendations_openssl = find_program('openssl', required: false)
+        if recommendations_python.found() and recommendations_openssl.found()
+          test('plugin_recommendations_http', recommendations_python,
+            args: [files('tests/plugin_recommendations_http_test.py'), test_exe],
+            workdir: meson.project_source_root(),
+            timeout: 90,
+          )
+        endif
+      endif
+    endforeach
   endforeach
 
   screencopy_connection_isolation_exe = executable('screencopy_connection_isolation_test',

@@ -1,8 +1,8 @@
-#include "core/process/process.h"
-#include "core/toml.h"
+#include "config/toml.h"
 #include "render/core/color.h"
 #include "scripting/luau_host.h"
 #include "scripting/script_api_context.h"
+#include "system/process.h"
 #include "ui/palette.h"
 
 #include <chrono>

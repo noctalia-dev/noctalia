@@ -141,6 +141,21 @@ namespace {
       entry << "[Desktop Entry]\nType=Application\nName=Suffixed AppImage\nExec=/opt/Suffixed.AppImage\n";
     }
     {
+      std::ofstream entry(applications / "env-wrapped.desktop");
+      entry
+          << "[Desktop Entry]\nType=Application\nName=Env Wrapped AppImage\n"
+          << "Exec=env DESKTOPINTEGRATION=1 \"FOO=a b\" "
+          << executable.string()
+          << " %U\n";
+    }
+    {
+      std::ofstream entry(applications / "try-exec.desktop");
+      entry
+          << "[Desktop Entry]\nType=Application\nName=TryExec AppImage\nTryExec="
+          << executable.string()
+          << "\nExec=sh -c launch\n";
+    }
+    {
       std::ofstream binary(bin / "native-app");
       binary << "#!/bin/sh\nexit 0\n";
       chmod((bin / "native-app").c_str(), 0700);
@@ -205,6 +220,8 @@ namespace {
     TEST_CHECK(findOrigin("metadata") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("portable") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("suffix") == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(findOrigin("env-wrapped") == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(findOrigin("try-exec") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("native") == DesktopEntryOrigin::System);
     TEST_CHECK(findOrigin("appimage-opt-out") == DesktopEntryOrigin::System);
     TEST_CHECK(findOrigin("path") == DesktopEntryOrigin::AppImage);

@@ -1,10 +1,10 @@
 #include "theme/community_templates.h"
 
+#include "config/toml.h" // IWYU pragma: keep
 #include "core/deferred_call.h"
 #include "core/log.h"
-#include "core/toml.h" // IWYU pragma: keep
 #include "net/http_client.h"
-#include "util/checksum.h"
+#include "theme/checksum.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 

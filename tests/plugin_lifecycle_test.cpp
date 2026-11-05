@@ -1,6 +1,6 @@
 #include "config/config_service.h"
+#include "config/toml.h"
 #include "core/deferred_call.h"
-#include "core/toml.h"
 #include "scripting/plugin_manager.h"
 #include "scripting/plugin_registry.h"
 #include "scripting/plugin_script_watcher.h"

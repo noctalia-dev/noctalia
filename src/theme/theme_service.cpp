@@ -9,6 +9,7 @@
 #include "shell/app_icon_colorization_settings.h"
 #include "system/day_night_schedule.h"
 #include "theme/builtin_palettes.h"
+#include "theme/checksum.h"
 #include "theme/community_palettes.h"
 #include "theme/custom_palettes.h"
 #include "theme/fixed_palette.h"
@@ -17,7 +18,6 @@
 #include "theme/palette_generator.h"
 #include "theme/palette_transform.h"
 #include "theme/scheme.h"
-#include "util/checksum.h"
 #include "util/string_utils.h"
 
 #include <chrono>
@@ -469,6 +469,11 @@ namespace noctalia::theme {
         return;
       }
       if (lookup.generated) {
+        // Applied after the wallpaper cache, which stores the palette-style colors, so toggling
+        // terminal_colors never needs a regeneration.
+        if (cfg.terminalColors == TerminalColors::Standard) {
+          applyStandardTerminalColors(*lookup.generated);
+        }
         const GeneratedPalette& generated = *lookup.generated;
         resolved = ResolvedTheme{
             .generated = generated,
@@ -640,9 +645,12 @@ namespace noctalia::theme {
     }
 
     const std::string wallpaperPath = m_config.getPaletteWallpaperPath();
-    const auto generated = resolveWallpaperGenerated(cfg, wallpaperPath);
+    auto generated = resolveWallpaperGenerated(cfg, wallpaperPath);
     if (!generated) {
       return fail("failed to generate palette from wallpaper");
+    }
+    if (cfg.terminalColors == TerminalColors::Standard) {
+      applyStandardTerminalColors(*generated);
     }
 
     const std::string name = allocateCustomPaletteName(wallpaperPath, cfg.wallpaperScheme);

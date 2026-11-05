@@ -1,10 +1,10 @@
 #pragma once
 
 #include "config/config_types.h"
-#include "core/process/process.h"
 #include "scripting/plugin_layer_config.h"
 #include "scripting/script_arg.h"
 #include "scripting/ui/ui_tree.h"
+#include "system/process.h"
 
 #include <chrono>
 #include <cstdint>

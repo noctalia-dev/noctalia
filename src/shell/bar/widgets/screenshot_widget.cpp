@@ -6,9 +6,11 @@
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/wayland/layer_shell.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "wayland/wayland_seat.h"
@@ -240,10 +242,11 @@ void ScreenshotWidget::openCaptureMenu() {
               },
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = layerSurface,
+                  .attach = LayerShell::popupAttach(layerSurface),
                   .output = m_output,
-                  .wlSurface = pointerSurface,
+                  .keyboardGrab = m_platform.layerShell().popupKeyboardGrab(pointerSurface),
               },
+          .pointerParentSurface = pointerSurface,
           .placement = menuAnchor.placement,
       }
   );

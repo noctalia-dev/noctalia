@@ -89,7 +89,11 @@
       "tool-numbering": "Marcador numerado (n)",
       "tool-rectangle": "Retângulo (s) · segure Shift para um quadrado",
       "tool-text": "Texto (t)",
-      "undo": "Desfazer (Ctrl+Z)"
+      "undo": "Desfazer (Ctrl+Z)",
+      "zoom": "Zoom · Ctrl+roda do mouse para aproximar, Ctrl+arrastar para mover a visão",
+      "zoom-in": "Aproximar (Ctrl++)",
+      "zoom-out": "Afastar (Ctrl+-)",
+      "zoom-reset": "Enquadrar na visão (Ctrl+0)"
     },
     "screenshot": {
       "annotate-export-failed": "Falha ao construir a imagem anotada",
@@ -688,6 +692,7 @@
         "show-label": "Exibir Rótulo",
         "show-login-button": "Botão de Login",
         "show-media": "Mídia",
+        "show-media-controls": "Controles de Mídia",
         "show-password-hint": "Dica de Senha",
         "show-password-reveal": "Revelar Senha",
         "show-seconds": "Ponteiro dos Segundos",
@@ -1327,6 +1332,10 @@
               "windows": "Janelas",
               "workspace-labels": "Rótulos de Espaços de Trabalho"
             },
+            "tray": {
+              "drawer": "Gaveta",
+              "icon-overrides": "Substituições de ícones"
+            },
             "widget": "Widget",
             "workspaces": {
               "colors": "Cores",
@@ -1620,6 +1629,7 @@
         "window-switcher": "Alternador de Janela"
       },
       "layer": {
+        "follow": "Seguir",
         "overlay": "Overlay",
         "top": "Topo"
       },
@@ -1800,7 +1810,7 @@
       "browse-store": "Navegar Plugins",
       "panels": {
         "layer": {
-          "description": "Camada layer-shell usada quando o painel está flutuando",
+          "description": "Camada layer-shell usada quando o painel está flutuando; Seguir usa a camada do Shell do painel flutuante",
           "label": "Camada"
         },
         "open-near-click": {
@@ -2047,6 +2057,10 @@
           "description": "Aguardar esta quantidade de milissegundos depois que o ponteiro sair antes de ocultar a barra; 0 oculta imediatamente (somente no modo Ligado)",
           "label": "Atraso de Auto-Ocultação"
         },
+        "auto-hide-reserve-space": {
+          "description": "Com auto-ocultação ou auto-ocultação inteligente, reserve o layout somente enquanto a barra estiver visível, assim janelas ocultas usarão toda a tela",
+          "label": "Reservar Espaço Enquanto Visível"
+        },
         "background-opacity": {
           "description": "Opacidade do plano de fundo da barra"
         },
@@ -2146,7 +2160,7 @@
           "label": "Widgets Finais"
         },
         "ends-margin": {
-          "description": "Encurta a barra nas duas extremidades ao longo do comprimento; defina como 0 px para uma barra com largura ou altura total"
+          "description": "Encurta a barra nas duas extremidades ao longo de seu comprimento, em pixels ou como uma porcentagem da tela; definir para 0 para uma uma barra de largura ou altura total"
         },
         "font-family": {
           "description": "Fonte a ser usada nos widgets desta barra; deixe em branco para herdar a fonte global (Família de fontes definida para cada widget tem prioridade sobre esta)",
@@ -2337,6 +2351,10 @@
         },
         "ends-margin": {
           "description": "Espaço nas extremidades do Dock ao longo do eixo principal"
+        },
+        "icon-saturation": {
+          "description": "Saturação de cor dos ícones de aplicações; 0 é ton de cinza",
+          "label": "Saturação de Ícone"
         },
         "icon-size": {
           "description": "Tamanho dos ícones do Dock em pixels",
@@ -2782,7 +2800,7 @@
           "label": "Exibir Categorias"
         },
         "launcher-category-icons-only": {
-          "description": "Mostrar somente ícones para categorias de apps, com nomes completos nas dicas ao passar o mouse",
+          "description": "Mostrar somente ícones para categorias de aplicações e provedores com nomes completos nas dicas ao passar o mouse",
           "label": "Apenas Ícones de Categorias"
         },
         "launcher-compact": {
@@ -3292,6 +3310,10 @@
         },
         "background-opacity": {
           "label": "Opacidade do Plano de Fundo"
+        },
+        "colorize-icons": {
+          "description": "Colorir ícones de aplicações aqui utilizando a Cor do Ícone de Aplicativo em Aparência",
+          "label": "Colorir Ícones de Aplicativos"
         },
         "contact-shadow": {
           "label": "Sombra de Contato"
@@ -4429,6 +4451,8 @@
         "cpu-freq": "Frequência da CPU",
         "cpu-temp": "Temperatura da CPU",
         "cpu-usage": "Uso da CPU",
+        "default": "Padrão",
+        "desktop": "Área de Trabalho",
         "disk-free": "Disco Livre",
         "disk-free-percent": "Disco Livre %",
         "disk-used": "Disco Usado",
@@ -4471,6 +4495,7 @@
         "shared": "Compartilhado",
         "short": "Curto",
         "swap-percent": "Swap %",
+        "symbolic": "Simbólico",
         "text": "Texto",
         "text-only": "Apenas Texto",
         "time": "Tempo",
@@ -4578,6 +4603,10 @@
           "description": "Segunda cor de gradiente no visualizador",
           "label": "Cor 2"
         },
+        "colorize-icons": {
+          "description": "Colorir os ícones de aplicações deste widget utilizando a Cor do Ícone de Aplicativo em Aparência",
+          "label": "Colorir Ícones de Aplicativos"
+        },
         "custom-image": {
           "description": "Caminho para uma imagem personalizada; deixe em branco para usar o símbolo padrão",
           "dialog-title": "Selecionar Imagem Personalizada",
@@ -4631,6 +4660,10 @@
         "enable-scroll": {
           "description": "Permitir ações de roda do mouse e rolagem de trackpad neste widget",
           "label": "Ativar Rolagem"
+        },
+        "expand": {
+          "description": "Expandir até ocupar uma parte igual do espaço livre da faixa inicial ou final; noutros pontos, o espaçador mantém seu comprimento",
+          "label": "Expandir"
         },
         "focused-color": {
           "description": "Função de cor usada para a área de trabalho em foco; cores hexadecimais fixas também são suportadas",
@@ -4765,6 +4798,10 @@
           "description": "Substitui a cor do widget apenas para ícones; cores hexadecimais fixas também são suportadas",
           "label": "Cor do Ícone"
         },
+        "icon-override-blacklist": {
+          "description": "Lista de ícones da bandeja para serem excluídos da substituição de ícones",
+          "label": "Lista de Exceções da Substituição de Ícones"
+        },
         "icon-scale": {
           "description": "Escala dos ícones dos aplicativos na barra de tarefas em relação ao seu tamanho padrão",
           "label": "Escala de Ícone"
@@ -4776,6 +4813,10 @@
         "icon-spacing": {
           "description": "Espaçamento entre indicador ícones do indicador de privacidade",
           "label": "Espaçamento do Ícone"
+        },
+        "icon-type": {
+          "description": "Selecionar o tipo de ícones para usar na bandeja",
+          "label": "Tipo de ícone"
         },
         "inactive-color": {
           "description": "Cor usada indicadores de privacidades não usados; cores hex fixas também são suportadas",
@@ -4935,6 +4976,14 @@
         "scroll-repeat": {
           "description": "Escolha se ações de rolagem seguem semânticas de comando, executa uma vez por gesto ou repete para cada etapa de rolagem",
           "label": "Repetição de Rolagem"
+        },
+        "separator": {
+          "description": "Texto entre os indicadores de espaço de trabalho; deixe vazio para não usar um separador ou espaço extra",
+          "label": "Separador"
+        },
+        "separator-color": {
+          "description": "Cores utilizadas para separadores de espaços de trabalho; cores hexadecimais fixas também são suportadas",
+          "label": "Cor do Separador"
         },
         "show-active-indicator": {
           "description": "Exibir um pequeno ponto abaixo do ícone da janela ativa na barra de tarefas",
@@ -5116,6 +5165,11 @@
         "workspace-label-placement": {
           "description": "No canto, centralizado na extremidade ou dentro de uma pílula",
           "label": "Posicionamento do rótulo do espaço de trabalho"
+        },
+        "workspace-monitors": {
+          "all": "Todos Monitores",
+          "description": "Escolher espaços de trabalho de quais monitores aparecem neste widget, em ordem. Deixe vazio para mostrar somente os espaços de trabalho do monitor que hospeda a barra",
+          "label": "Espaços de Trabalho dos Monitores"
         }
       },
       "types": {

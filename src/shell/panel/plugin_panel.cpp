@@ -7,13 +7,15 @@
 #include "render/scene/node.h"
 #include "scripting/plugin_runtime_context.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/scroll_into_view.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
+#include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <cmath>
@@ -280,7 +282,7 @@ bool PluginPanel::dismissTransientUi() {
   return true;
 }
 
-void PluginPanel::onFrameTick(float deltaMs) {
+void PluginPanel::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   if (m_runtime == nullptr || !m_needsFrameTick || !m_open) {
     return;
   }
@@ -474,14 +476,14 @@ void PluginPanel::openContextMenu(scripting::ScriptContextMenuRequest request) {
           .anchor = PopupAnchorRect{.x = anchorX, .y = anchorY, .width = 1, .height = 1},
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parent->layerSurface,
+                  .attach = parent->attach,
                   .xdgSurface = parent->xdgSurface,
                   .output = parent->output,
-                  // ContextMenuPopup uses a non-null wlSurface to temporarily
-                  // promote a keyboard-inert layer parent and restores None on
-                  // dismissal. Panels already using OnDemand/Exclusive must
-                  // keep their current mode untouched.
-                  .wlSurface = m_keyboardMode == LayerShellKeyboard::None ? parent->surface : nullptr,
+                  // Promote a keyboard-inert parent while the menu is open. Panels already using
+                  // OnDemand/Exclusive must keep their current mode untouched.
+                  .keyboardGrab = m_keyboardMode == LayerShellKeyboard::None
+                      ? wayland->extension<LayerShell>().popupKeyboardGrab(parent->surface)
+                      : PopupKeyboardGrab{},
               },
           .pointerParentSurface = parent->surface,
           .inputSerial = request.pointer.serial,

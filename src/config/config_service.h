@@ -5,9 +5,9 @@
 #include "config/config_types.h"
 #include "config/schema/diagnostics.h"
 #include "config/state_store.h"
+#include "config/toml.h"
 #include "core/inotify/inotify.h"
 #include "core/timer_manager.h"
-#include "core/toml.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -250,7 +250,7 @@ private:
   void extractWallpaperFromTable(const toml::table& table);
   void syncWallpaperFavoritesToOverridesTable();
   bool hasConfiguredWallpaper() const;
-  std::string firstRunWallpaperPath() const;
+  std::string fallbackWallpaperPath() const;
 
   Config m_config;
   ConfigChangeSet m_lastChange;

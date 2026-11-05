@@ -3,7 +3,7 @@
 #include "core/timer_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
 #include "wayland/wayland_seat.h"
 
 #include <memory>
