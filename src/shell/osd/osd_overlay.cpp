@@ -416,11 +416,12 @@ OsdOverlay::SurfaceMargins OsdOverlay::surfaceMarginsForPosition(
     margins.top = 0;
     margins.bottom = 0;
   } else if (position == "center") {
-    // layer-shell ignores margins on unanchored axes; pin top-left, center via computed margins
+    // layer-shell ignores margins on unanchored axes; pin top-left and center via computed margins.
+    // Edge offsets do not apply: the popup sits at the exact screen center.
     const std::int32_t centeredLeft =
-        std::max(0, (output.effectiveLogicalWidth() - static_cast<std::int32_t>(surfaceWidth)) / 2 + marginH);
+        std::max(0, (output.effectiveLogicalWidth() - static_cast<std::int32_t>(surfaceWidth)) / 2);
     const std::int32_t centeredTop =
-        std::max(0, (output.effectiveLogicalHeight() - static_cast<std::int32_t>(surfaceHeight)) / 2 + marginV);
+        std::max(0, (output.effectiveLogicalHeight() - static_cast<std::int32_t>(surfaceHeight)) / 2);
     return SurfaceMargins{.top = centeredTop, .right = 0, .bottom = 0, .left = centeredLeft};
   }
 
@@ -622,7 +623,8 @@ void OsdOverlay::ensureSurfaces() {
         .anchor = anchor,
         .width = surfaceWidth,
         .height = surfaceHeight,
-        .exclusiveZone = 0,
+        // Center margins are measured from the output origin, so bars' exclusive zones must not shift it.
+        .exclusiveZone = position == "center" ? -1 : 0,
         .marginTop = outputMargins.top,
         .marginRight = outputMargins.right,
         .marginBottom = outputMargins.bottom,
