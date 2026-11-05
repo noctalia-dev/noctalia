@@ -532,6 +532,11 @@ namespace ui {
       inputArea->setOnLeave(nullptr);
     }
 
+    // Compositing props accepted by every control. They affect painting, hit-testing, and bounds only:
+    // layout never reflows, so scripts can drive them per frame for slides, marquees, and reveals.
+    const std::unordered_set<std::string> kCompositingProps = {"translateX", "translateY", "scale", "scaleX",
+                                                               "scaleY",     "rotation",   "clip"};
+
     // Known prop keys per control type — an unknown prop is a loud skip, not a
     // silent no-op, so typos in plugin code surface immediately.
     const std::unordered_set<std::string>& knownProps(const std::string& type) {
@@ -1476,7 +1481,7 @@ namespace ui {
     const auto& known = knownProps(desired.type);
     for (const auto& [key, value] : desired.props) {
       (void)value;
-      if (!known.contains(key)) {
+      if (!known.contains(key) && !kCompositingProps.contains(key)) {
         kLog.warn("ui tree: '{}' has no prop '{}', ignored", desired.type, key);
       }
     }
@@ -1501,6 +1506,74 @@ namespace ui {
     }
     if (const double* grow = numProp(desired, "flexGrow")) {
       node->setFlexGrow(static_cast<float>(*grow));
+    }
+    const double* translateX = numProp(desired, "translateX");
+    const double* translateY = numProp(desired, "translateY");
+    if (translateX == nullptr) {
+      warnMistypedOptionalProp(desired, "translateX", "a number");
+    }
+    if (translateY == nullptr) {
+      warnMistypedOptionalProp(desired, "translateY", "a number");
+    }
+    if (translateX != nullptr || translateY != nullptr) {
+      const float x = translateX != nullptr ? scaled(*translateX) : node->translateX();
+      const float y = translateY != nullptr ? scaled(*translateY) : node->translateY();
+      node->setTranslate(x, y);
+    }
+    if (const double* scale = numProp(desired, "scale")) {
+      if (std::isfinite(*scale) && *scale > 0.0) {
+        node->setScale(static_cast<float>(*scale));
+      } else {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop 'scale' expects a positive number; ignored", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key
+        );
+      }
+    } else {
+      warnMistypedOptionalProp(desired, "scale", "a positive number");
+    }
+    if (const double* scaleX = numProp(desired, "scaleX")) {
+      if (std::isfinite(*scaleX) && *scaleX > 0.0) {
+        node->setScale(static_cast<float>(*scaleX), node->scaleY());
+      } else {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop 'scaleX' expects a positive number; ignored", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key
+        );
+      }
+    } else {
+      warnMistypedOptionalProp(desired, "scaleX", "a positive number");
+    }
+    if (const double* scaleY = numProp(desired, "scaleY")) {
+      if (std::isfinite(*scaleY) && *scaleY > 0.0) {
+        node->setScale(node->scaleX(), static_cast<float>(*scaleY));
+      } else {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop 'scaleY' expects a positive number; ignored", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key
+        );
+      }
+    } else {
+      warnMistypedOptionalProp(desired, "scaleY", "a positive number");
+    }
+    if (const double* rotation = numProp(desired, "rotation")) {
+      if (std::isfinite(*rotation)) {
+        constexpr float kDegreesToRadians = 0.017453292519943295F;
+        node->setRotation(static_cast<float>(*rotation) * kDegreesToRadians);
+      } else {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop 'rotation' expects a number of degrees; ignored", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key
+        );
+      }
+    } else {
+      warnMistypedOptionalProp(desired, "rotation", "a number of degrees");
+    }
+    const bool* clip = boolProp(desired, "clip");
+    if (clip != nullptr) {
+      node->setClipChildren(*clip);
+    } else {
+      warnMistypedOptionalProp(desired, "clip", "a boolean");
     }
 
     const double* width = numProp(desired, "width");
