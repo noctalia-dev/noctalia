@@ -102,7 +102,8 @@ private:
   bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
   bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
   bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
-  static FontWeight workspaceLabelFontWeight(FontWeight configuredWeight, bool boldActiveLabel, bool minimal, bool active) noexcept;
+  static FontWeight 
+  workspaceLabelFontWeight(FontWeight configuredWeight, bool boldActiveLabel, bool minimal, bool active) noexcept;
   FontWeight workspaceLabelFontWeight(const Workspace& workspace) const noexcept;
   // FocusHint is the only style that draws the focused app icon.
   bool showsActiveIcon() const noexcept { return isFocusHint() && m_showIcons; }
