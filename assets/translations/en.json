@@ -1661,6 +1661,11 @@
         "low": "Low",
         "normal": "Normal"
       },
+      "on-screen-keyboard": {
+        "always": "Always",
+        "auto": "Auto (on touch)",
+        "never": "Never"
+      },
       "orientation": {
         "horizontal": "Horizontal",
         "vertical": "Vertical"
@@ -2615,6 +2620,10 @@
         "grace-period": {
           "description": "Allow passwordless unlock for this many seconds after locking; any keypress or mouse movement unlocks. Set to 0 to always require the password",
           "label": "Grace Period"
+        },
+        "keyboard": {
+          "description": "Show an on-screen keyboard on the lock screen. Auto opens it when you touch the screen",
+          "label": "On-Screen Keyboard"
         },
         "lock-before-suspend": {
           "description": "Lock the session before sleep (lid close, systemctl suspend, hibernate); Lock & Suspend actions still lock first",

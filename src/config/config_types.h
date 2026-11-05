@@ -313,6 +313,13 @@ struct ShellSessionConfig {
   bool operator==(const ShellSessionConfig&) const = default;
 };
 
+// Lock screen on-screen keyboard: Auto shows it when the lock screen is touched.
+enum class OnScreenKeyboardMode : std::uint8_t {
+  Auto = 0,
+  Always = 1,
+  Never = 2,
+};
+
 struct ShellGreeterSyncConfig {
   // Optional shell prefix before the apply helper and staging directory. Legacy
   // sync accepts the configured escalator directly. Secure sync also appends
@@ -608,6 +615,7 @@ struct BackdropConfig {
 
 struct LockscreenConfig {
   bool enabled = true;
+  OnScreenKeyboardMode keyboard = OnScreenKeyboardMode::Auto;
   // Lock on PrepareForSleep (lid close / systemctl suspend) via logind sleep-delay inhibit.
   // Distinct from idle/session lock_and_suspend actions.
   bool lockBeforeSuspend = true;
@@ -667,6 +675,12 @@ template <typename T, std::size_t N> constexpr std::string_view enumToKey(const 
   }
   return {};
 }
+
+constexpr EnumOption<OnScreenKeyboardMode> kOnScreenKeyboardModes[] = {
+    {OnScreenKeyboardMode::Auto, "auto", "settings.options.on-screen-keyboard.auto"},
+    {OnScreenKeyboardMode::Always, "always", "settings.options.on-screen-keyboard.always"},
+    {OnScreenKeyboardMode::Never, "never", "settings.options.on-screen-keyboard.never"},
+};
 
 constexpr EnumOption<BarAccordionDirection> kBarAccordionDirections[] = {
     {BarAccordionDirection::End, "end", "settings.options.accordion-direction.end"},
