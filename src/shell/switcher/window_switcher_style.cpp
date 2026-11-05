@@ -13,6 +13,12 @@ namespace {
 bool WindowSwitcherStyleLayout::sameGeometryAs(const WindowSwitcherStyleLayout& other) const noexcept {
   if (visibleCards != other.visibleCards
       || boxed != other.boxed
+      || vertical != other.vertical
+      || std::abs(contentScale - other.contentScale) > 0.0001F
+      || gridColumns != other.gridColumns
+      || gridRows != other.gridRows
+      || gridFirstRow != other.gridFirstRow
+      || !closeEnough(gridContentY, other.gridContentY)
       || !closeEnough(panelWidth, other.panelWidth)
       || !closeEnough(panelHeight, other.panelHeight)
       || !closeEnough(stripX, other.stripX)

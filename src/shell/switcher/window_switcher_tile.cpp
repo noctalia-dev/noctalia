@@ -218,6 +218,17 @@ void WindowSwitcherTile::setShowAppIcon(bool show) {
   markLayoutDirty();
 }
 
+void WindowSwitcherTile::setIntegratedCaption(bool integrated) {
+  m_integratedCaption = integrated;
+  m_captionBadge->setFill(integrated ? clearColorSpec() : colorSpecFromRole(ColorRole::Surface));
+  m_captionBadge->setBorder(
+      integrated ? clearColorSpec()
+                 : scaleAlpha(colorSpecFromRole(ColorRole::OutlineVariant), Style::disabledOutlineAlpha),
+      integrated ? 0.0F : Style::borderWidth
+  );
+  markLayoutDirty();
+}
+
 void WindowSwitcherTile::setShowPreview(bool show) {
   m_showPreview = show;
   if (!show) {
@@ -345,9 +356,10 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
   const float captionH = m_captionVisible && m_showCaption
       ? std::min(Style::windowSwitcherCaptionHeight * contentScale, m_cardHeight)
       : 0.0F;
-  const float captionGap = captionH > 0.0F ? Style::spaceMd * contentScale : 0.0F;
-  const float frameH = std::max(0.0F, m_cardHeight - captionGap - captionH);
-  const float previewH = std::max(0.0F, frameH - outerPad * 2.0F);
+  const float captionGap = captionH > 0.0F && !m_integratedCaption ? Style::spaceMd * contentScale : 0.0F;
+  const float previewFrameH = std::max(0.0F, m_cardHeight - captionGap - captionH);
+  const float frameH = m_integratedCaption ? m_cardHeight : previewFrameH;
+  const float previewH = std::max(0.0F, previewFrameH - outerPad * 2.0F);
 
   if (m_shadow != nullptr) {
     m_shadow->setPosition(m_shadowStyle.shadowCutoutOffsetX, m_shadowStyle.shadowCutoutOffsetY);
@@ -421,7 +433,7 @@ void WindowSwitcherTile::layoutContent(Renderer& renderer) {
     const float contentCaptionW = std::max(m_title->width(), m_subtitle->width()) + captionPad * 2.0F;
     const float captionW = m_wideCaption ? maxCaptionW : std::min(maxCaptionW, contentCaptionW);
     const float captionX = (m_cardWidth - captionW) * 0.5F;
-    const float captionY = frameH + captionGap;
+    const float captionY = previewFrameH + captionGap;
     m_captionBadge->setPosition(captionX, captionY);
     m_captionBadge->setFrameSize(captionW, captionH);
     m_caption->setPosition(captionPad, 0.0F);
