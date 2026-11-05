@@ -27,6 +27,7 @@
 #include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/grid_view.h"
+#include "ui/controls/image.h"
 
 #include <algorithm>
 #include <cmath>

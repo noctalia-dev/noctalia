@@ -4,8 +4,8 @@
 #include "notification/notification_history_store.h"
 #include "notification/notification_manager.h"
 #include "notification_history_test_utils.h"
-#include "render/core/image_encoder.h"
-#include "render/core/image_file_loader.h"
+#include "render/codecs/codecs.h"
+#include "render/codecs/image_encoder.h"
 #include "tests/test_check.h"
 
 #include <cstdint>
@@ -101,7 +101,7 @@ int main() {
     // different existing filename cannot silently satisfy the test.
     std::unordered_set<std::string> pending;
     const auto artPath = mpris::resolveArtworkSource(nullptr, pending, test.input, []() {}, {});
-    const auto image = loadImageFile(artPath);
+    const auto image = codecs::loadImageFile(artPath);
     ok = check(
              image && image->width == 1 && image->height == 1 && image->rgba == test.expected,
              "wrong MPRIS artwork pixels for " + test.input

@@ -1,4 +1,4 @@
-#include "core/toml.h"
+#include "config/toml.h"
 #include "lua.h"
 #include "luacode.h"
 #include "lualib.h"

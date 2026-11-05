@@ -4,8 +4,8 @@
 #include "config/config_types.h"
 #include "core/log.h"
 #include "dbus/accounts/accounts_service.h"
-#include "render/core/image_encoder.h"
-#include "render/core/image_file_loader.h"
+#include "render/codecs/image_encoder.h"
+#include "render/core/image_decoder.h"
 #include "util/file_utils.h"
 
 #include <algorithm>

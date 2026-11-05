@@ -21,6 +21,24 @@ namespace scripting::plugin_paths {
     }
   } // namespace
 
+  std::string pluginSourcesDir() {
+    const std::string base = FileUtils::stateDir();
+    return base.empty() ? std::string{} : base + "/plugins/sources";
+  }
+
+  std::string pluginMaterializedDir() {
+    const std::string base = FileUtils::stateDir();
+    return base.empty() ? std::string{} : base + "/plugins/materialized";
+  }
+
+  std::string pluginDataDir(const std::string& pluginId) {
+    const std::string base = FileUtils::stateDir();
+    if (base.empty() || pluginId.empty()) {
+      return {};
+    }
+    return base + "/plugins/data/" + pluginId;
+  }
+
   std::filesystem::path localSourceRoot() {
     const std::string data = FileUtils::dataDir();
     if (data.empty()) {
@@ -33,7 +51,7 @@ namespace scripting::plugin_paths {
     if (!isValidPluginSourceName(source.name)) {
       return {};
     }
-    const std::string base = FileUtils::pluginSourcesDir();
+    const std::string base = pluginSourcesDir();
     if (base.empty()) {
       return {};
     }
@@ -49,7 +67,7 @@ namespace scripting::plugin_paths {
     if (!isValidPluginSourceName(source.name)) {
       return {};
     }
-    const std::string base = FileUtils::pluginMaterializedDir();
+    const std::string base = pluginMaterializedDir();
     if (base.empty()) {
       return {};
     }

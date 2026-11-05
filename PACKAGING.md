@@ -115,7 +115,9 @@ Noctalia resolves the asset root in this order:
 5. `../share/noctalia/assets` relative to the executable
 6. the compiled install path from Meson (`<prefix>/<datadir>/noctalia/assets`)
 
-A candidate is only accepted if it contains `emoji.json`, `fonts/noctalia-tabler.ttf`, `templates/builtin.toml`, and `translations/en.json`. If none qualifies, Noctalia logs a warning and uses the compiled install path.
+A candidate is only accepted if it contains `translations/en.json`. If none qualifies, Noctalia logs a warning and uses the compiled install path.
+
+The shared UI library's own assets (the glyph font and its metadata, `lib/assets/` in the source tree) are installed into the same `share/noctalia/assets/` directory, so a bundle that copies the installed asset directory carries them. A binary run from a build directory finds them in the source tree's `lib/assets/`.
 
 Not shipped (don’t look for them in the install): AppStream / metainfo XML, man pages, systemd units.
 
@@ -137,7 +139,7 @@ No Qt or GTK. UI is Wayland + OpenGL ES (EGL/GLES, or `libepoxy` as a fallback w
 
 ### Build-time (required)
 
-Canonical list is the `dependency(...)` / header checks in [`meson.build`](meson.build). Distro package names differ; [BUILDING.md](BUILDING.md) has copy-paste install lines for common distros.
+Canonical list is the `dependency(...)` / header checks in [`meson.build`](meson.build) and [`lib/meson.build`](lib/meson.build) (the shared UI library). Distro package names differ; [BUILDING.md](BUILDING.md) has copy-paste install lines for common distros.
 
 Notes packagers hit often:
 
@@ -146,7 +148,7 @@ Notes packagers hit often:
 
 ### Vendored (no system package)
 
-Shipped under `third_party/`: Wuffs, Luau, fzy, Material Color Utilities. Each carries its own license file beside the code.
+Shipped under `third_party/`: Luau, fzy, Material Color Utilities; Wuffs ships under `lib/third_party/`, beside the shared UI library that uses it. Each carries its own license file beside the code.
 
 With `-Dsystem_libraries=true`, Meson uses system copies of all four instead; the option is all-or-nothing. None of them ship pkg-config files, so Meson finds them by library and header name on the compiler search paths:
 

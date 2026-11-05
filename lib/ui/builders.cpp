@@ -511,27 +511,6 @@ namespace ui {
     return control;
   }
 
-  std::unique_ptr<Image> image(ImageProps props) {
-    auto control = std::make_unique<Image>();
-    if (props.fit.has_value()) {
-      control->setFit(*props.fit);
-    }
-    if (props.radius.has_value()) {
-      control->setRadius(*props.radius);
-    }
-    if (props.padding.has_value()) {
-      control->setPadding(*props.padding);
-    }
-    applyNodeProps(*control, props);
-    if (props.configure) {
-      props.configure(*control);
-    }
-    if (props.out != nullptr) {
-      *props.out = control.get();
-    }
-    return control;
-  }
-
   std::unique_ptr<Separator> separator(SeparatorProps props) {
     auto control = std::make_unique<Separator>();
     if (props.color.has_value()) {

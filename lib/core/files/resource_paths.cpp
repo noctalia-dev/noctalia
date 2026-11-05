@@ -1,5 +1,6 @@
 #include "core/files/resource_paths.h"
 
+#include "core/application_identity.h"
 #include "core/log.h"
 
 #include <algorithm>
@@ -18,11 +19,12 @@ namespace paths {
     constexpr Logger kLog("paths");
 
     std::filesystem::path installedAssetsRoot() {
-      const std::filesystem::path datadir(NOCTALIA_INSTALL_DATADIR);
+      const std::filesystem::path datadir(NOCTALIA_UI_INSTALL_DATADIR);
+      const std::string& name = applicationIdentity().name;
       if (datadir.is_absolute()) {
-        return datadir / "noctalia" / "assets";
+        return datadir / name / "assets";
       }
-      return std::filesystem::path(NOCTALIA_INSTALL_PREFIX) / datadir / "noctalia" / "assets";
+      return std::filesystem::path(NOCTALIA_UI_INSTALL_PREFIX) / datadir / name / "assets";
     }
 
     bool isAssetRoot(const std::filesystem::path& root) {
@@ -30,11 +32,9 @@ namespace paths {
         return false;
       }
 
+      // The i18n service always loads the English catalog, so every application asset bundle has it.
       std::error_code ec;
-      return std::filesystem::exists(root / "emoji.json", ec)
-          && std::filesystem::exists(root / "fonts" / "noctalia-tabler.ttf", ec)
-          && std::filesystem::exists(root / "templates" / "builtin.toml", ec)
-          && std::filesystem::exists(root / "translations" / "en.json", ec);
+      return std::filesystem::exists(root / "translations" / "en.json", ec);
     }
 
     std::optional<std::filesystem::path> executablePath() {
@@ -60,13 +60,14 @@ namespace paths {
     std::vector<std::filesystem::path> assetCandidates() {
       std::vector<std::filesystem::path> candidates;
 
-      if (const char* env = std::getenv("NOCTALIA_ASSETS_DIR"); env != nullptr && env[0] != '\0') {
+      const std::string envName = applicationEnvVar("ASSETS_DIR");
+      if (const char* env = std::getenv(envName.c_str()); env != nullptr && env[0] != '\0') {
         const std::filesystem::path overridePath(env);
         if (isAssetRoot(overridePath)) {
           candidates.push_back(overridePath);
           return candidates;
         }
-        kLog.warn("NOCTALIA_ASSETS_DIR is not a valid asset bundle: {}", overridePath.string());
+        kLog.warn("{} is not a valid asset bundle: {}", envName, overridePath.string());
       }
 
       if (auto exe = executablePath()) {
@@ -74,11 +75,12 @@ namespace paths {
         appendUnique(candidates, exeDir / "assets");
         appendUnique(candidates, exeDir.parent_path() / "assets");
 
-        const std::filesystem::path datadir(NOCTALIA_INSTALL_DATADIR);
+        const std::filesystem::path datadir(NOCTALIA_UI_INSTALL_DATADIR);
+        const std::string& name = applicationIdentity().name;
         if (!datadir.empty() && !datadir.is_absolute()) {
-          appendUnique(candidates, exeDir.parent_path() / datadir / "noctalia" / "assets");
+          appendUnique(candidates, exeDir.parent_path() / datadir / name / "assets");
         }
-        appendUnique(candidates, exeDir.parent_path() / "share" / "noctalia" / "assets");
+        appendUnique(candidates, exeDir.parent_path() / "share" / name / "assets");
       }
 
       appendUnique(candidates, installedAssetsRoot());
@@ -98,7 +100,38 @@ namespace paths {
       return fallback;
     }
 
+    bool isLibraryAssetRoot(const std::filesystem::path& root) {
+      std::error_code ec;
+      return std::filesystem::exists(root / "fonts" / "noctalia-tabler.ttf", ec);
+    }
+
+    std::filesystem::path resolveLibraryAssetsRoot() {
+      // Installed: the application installs lib/assets into its own asset directory.
+      std::vector<std::filesystem::path> candidates{assetsRoot()};
+      // Build tree: lib/assets beside the build directory, as the application's assets/ is.
+      if (auto exe = executablePath()) {
+        appendUnique(candidates, exe->parent_path().parent_path() / "lib" / "assets");
+      }
+      for (const auto& candidate : candidates) {
+        if (isLibraryAssetRoot(candidate)) {
+          kLog.debug("using library assets from {}", candidate.string());
+          return candidate;
+        }
+      }
+      kLog.warn("could not locate the library assets; defaulting to {}", assetsRoot().string());
+      return assetsRoot();
+    }
+
   } // namespace
+
+  const std::filesystem::path& libraryAssetsRoot() {
+    static const std::filesystem::path s_root = resolveLibraryAssetsRoot();
+    return s_root;
+  }
+
+  std::filesystem::path libraryAssetPath(std::string_view relativePath) {
+    return libraryAssetsRoot() / std::filesystem::path(std::string(relativePath));
+  }
 
   const std::filesystem::path& assetsRoot() {
     static const std::filesystem::path s_root = resolveAssetsRoot();

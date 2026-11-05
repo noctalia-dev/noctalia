@@ -7,7 +7,6 @@
 #include "ui/controls/checkbox.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
-#include "ui/controls/image.h"
 #include "ui/controls/input.h"
 #include "ui/controls/keybind_recorder.h"
 #include "ui/controls/label.h"
@@ -270,20 +269,6 @@ namespace ui {
     std::optional<bool> visible = std::nullopt;
     std::optional<bool> participatesInLayout = std::nullopt;
     std::function<void(Glyph&)> configure = nullptr;
-  };
-
-  struct ImageProps {
-    Image** out = nullptr;
-    std::optional<ImageFit> fit = std::nullopt;
-    std::optional<float> radius = std::nullopt;
-    std::optional<float> padding = std::nullopt;
-    std::optional<float> width = std::nullopt;
-    std::optional<float> height = std::nullopt;
-    std::optional<float> flexGrow = std::nullopt;
-    std::optional<float> opacity = std::nullopt;
-    std::optional<bool> visible = std::nullopt;
-    std::optional<bool> participatesInLayout = std::nullopt;
-    std::function<void(Image&)> configure = nullptr;
   };
 
   struct SeparatorProps {
@@ -595,7 +580,6 @@ namespace ui {
   [[nodiscard]] std::unique_ptr<Node> node(NodeProps props = {});
   [[nodiscard]] std::unique_ptr<Box> box(BoxProps props = {});
   [[nodiscard]] std::unique_ptr<Glyph> glyph(GlyphProps props = {});
-  [[nodiscard]] std::unique_ptr<Image> image(ImageProps props = {});
   [[nodiscard]] std::unique_ptr<Separator> separator(SeparatorProps props = {});
   [[nodiscard]] std::unique_ptr<Select> select(SelectProps props);
   [[nodiscard]] std::unique_ptr<Slider> slider(SliderProps props);

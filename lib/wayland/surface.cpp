@@ -1,5 +1,6 @@
 #include "wayland/surface.h"
 
+#include "core/application_identity.h"
 #include "core/log.h"
 #include "core/ui_phase.h"
 #include "fractional-scale-v1-client-protocol.h"
@@ -76,12 +77,12 @@ namespace {
   }
 
   bool idleProfileEnabled() {
-    static const bool enabled = SysUtils::isEnvFlagOn("NOCTALIA_IDLE_PROFILE");
+    static const bool enabled = SysUtils::isEnvFlagOn(applicationEnvVar("IDLE_PROFILE").c_str());
     return enabled;
   }
 
   bool blurTraceEnabled() {
-    static const bool enabled = SysUtils::isEnvFlagOn("NOCTALIA_BLUR_TRACE");
+    static const bool enabled = SysUtils::isEnvFlagOn(applicationEnvVar("BLUR_TRACE").c_str());
     return enabled;
   }
 

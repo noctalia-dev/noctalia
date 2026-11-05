@@ -10,6 +10,7 @@
 #include "system/directory_scanner.h"
 #include "theme/builtin_palettes.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 

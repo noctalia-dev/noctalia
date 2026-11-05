@@ -1,8 +1,7 @@
 #include "theme/template_engine.h"
 
+#include "config/toml.h" // IWYU pragma: keep
 #include "core/log.h"
-#include "core/process/process.h"
-#include "core/toml.h" // IWYU pragma: keep
 #include "cpp/cam/hct.h"
 #include "cpp/palettes/tones.h"
 #include "cpp/scheme/scheme_content.h"
@@ -11,6 +10,7 @@
 #include "cpp/scheme/scheme_rainbow.h"
 #include "cpp/scheme/scheme_tonal_spot.h"
 #include "system/icon_resolver.h"
+#include "system/process.h"
 #include "theme/color.h"
 #include "theme/firefox_theme/firefox_theme.h"
 #include "theme/hook_runner.h"

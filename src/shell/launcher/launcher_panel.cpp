@@ -23,6 +23,7 @@
 #include "system/distro_info.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu_popup.h"
+#include "ui/controls/image.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/virtual_list_view.h"
 #include "ui/palette.h"

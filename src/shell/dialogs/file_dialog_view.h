@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render/core/thumbnail_service.h"
+#include "render/codecs/thumbnail_service.h"
 #include "shell/dialogs/file_dialog.h"
 #include "system/directory_scanner.h"
 

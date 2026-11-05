@@ -1,10 +1,11 @@
 #include "shell/dialogs/file_entry_tile.h"
 
+#include "render/codecs/thumbnail_service.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
-#include "render/core/thumbnail_service.h"
 #include "system/directory_scanner.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 

@@ -16,8 +16,8 @@
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
 #include "config/schema/ranges.h"
+#include "config/toml.h"
 #include "core/input/key_chord.h"
-#include "core/toml.h"
 #include "scripting/plugin_id.h"
 
 #include <algorithm>

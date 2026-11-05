@@ -1,7 +1,7 @@
 #include "theme/hook_runner.h"
 
 #include "core/log.h"
-#include "core/process/process.h"
+#include "system/process.h"
 
 #include <utility>
 

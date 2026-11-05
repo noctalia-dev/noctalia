@@ -8,6 +8,7 @@
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
+#include "ui/controls/image.h"
 #include "ui/controls/input.h"
 #include "ui/controls/select.h"
 #include "ui/palette.h"

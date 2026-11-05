@@ -4,7 +4,6 @@
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "launcher/fuzzy_match.h"
 #include "lua.h"
 #include "luacode.h"
@@ -15,6 +14,7 @@
 #include "render/text/font_registry.h"
 #include "scripting/plugin_bindings.h"
 #include "scripting/plugin_id.h"
+#include "scripting/plugin_source_paths.h"
 #include "scripting/plugin_state_store.h"
 #include "scripting/script_api_context.h"
 #include "scripting/script_io_pool.h"
@@ -24,6 +24,7 @@
 #include "system/desktop_entry.h"
 #include "system/disk_mounts.h"
 #include "system/icon_resolver.h"
+#include "system/process.h"
 #include "system/system_monitor_service.h"
 #include "system/terminal_launch.h"
 #include "time/time_format.h"
@@ -1404,7 +1405,7 @@ namespace {
       lua_pushstring(L, "no host");
       return 2;
     }
-    const std::string dir = FileUtils::pluginDataDir(host->pluginId());
+    const std::string dir = scripting::plugin_paths::pluginDataDir(host->pluginId());
     if (dir.empty()) {
       lua_pushnil(L);
       lua_pushstring(L, "no state directory");

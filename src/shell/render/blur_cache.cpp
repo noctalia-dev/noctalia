@@ -1,4 +1,4 @@
-#include "render/core/blur_cache.h"
+#include "shell/render/blur_cache.h"
 
 #include "render/backend/render_backend.h"
 

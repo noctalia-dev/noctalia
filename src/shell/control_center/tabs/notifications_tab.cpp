@@ -20,6 +20,7 @@
 #include "ui/builders.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
+#include "ui/controls/image.h"
 #include "ui/controls/label.h"
 #include "ui/palette.h"
 #include "ui/style.h"

@@ -1,4 +1,4 @@
-#include "util/checksum.h"
+#include "theme/checksum.h"
 
 #include <array>
 #include <fstream>

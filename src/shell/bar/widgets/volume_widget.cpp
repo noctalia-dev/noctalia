@@ -6,6 +6,7 @@
 #include "render/scene/node.h"
 #include "system/easyeffects_service.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 

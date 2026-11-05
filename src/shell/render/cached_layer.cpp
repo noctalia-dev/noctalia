@@ -1,4 +1,4 @@
-#include "render/core/cached_layer.h"
+#include "shell/render/cached_layer.h"
 
 void CachedLayer::resize(RenderBackend& backend, std::uint32_t width, std::uint32_t height) {
   if (width == 0 || height == 0) {

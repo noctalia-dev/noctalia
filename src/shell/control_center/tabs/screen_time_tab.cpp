@@ -17,6 +17,7 @@
 #include "system/screen_time_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/palette.h"
 #include "ui/style.h"

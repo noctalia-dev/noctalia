@@ -17,6 +17,7 @@
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
+#include "ui/controls/image.h"
 
 #include <algorithm>
 #include <chrono>

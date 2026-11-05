@@ -20,6 +20,7 @@
 #include "shell/surface/edge_inset.h"
 #include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"

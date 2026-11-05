@@ -1,7 +1,8 @@
-#include "render/core/thumbnail_service.h"
+#include "render/codecs/thumbnail_service.h"
 
+#include "core/application_identity.h"
 #include "core/log.h"
-#include "render/core/image_decoder.h"
+#include "render/codecs/codecs.h"
 #include "render/core/image_resize.h"
 #include "render/core/texture_manager.h"
 #include "util/file_utils.h"
@@ -29,13 +30,14 @@ namespace {
   constexpr std::string_view kThumbnailCacheVersion = "thumbnail-service-v4";
 
   std::filesystem::path thumbnailCacheDir() {
+    const std::string& name = applicationIdentity().name;
     if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0') {
-      return std::filesystem::path(xdg) / "noctalia" / "thumbnails";
+      return std::filesystem::path(xdg) / name / "thumbnails";
     }
     if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
-      return std::filesystem::path(home) / ".cache" / "noctalia" / "thumbnails";
+      return std::filesystem::path(home) / ".cache" / name / "thumbnails";
     }
-    return std::filesystem::path("/tmp") / "noctalia" / "thumbnails";
+    return std::filesystem::path("/tmp") / name / "thumbnails";
   }
 
   std::uint64_t fnv1a64(std::string_view text) {
@@ -510,7 +512,7 @@ void ThumbnailService::workerLoop() {
     if (const auto cachePath = cachePathForSource(path, key.targetPx); cachePath.has_value()) {
       auto cachedBytes = FileUtils::readBinaryFile(cachePath->string());
       if (!cachedBytes.empty()) {
-        if (auto cached = decodeRasterImage(cachedBytes.data(), cachedBytes.size())) {
+        if (auto cached = codecs::decodeRasterImage(cachedBytes.data(), cachedBytes.size())) {
           result.rgba = std::move(cached->pixels);
           result.width = cached->width;
           result.height = cached->height;
@@ -530,7 +532,7 @@ void ThumbnailService::workerLoop() {
       continue;
     }
 
-    auto decoded = decodeRasterImage(bytes.data(), bytes.size());
+    auto decoded = codecs::decodeRasterImage(bytes.data(), bytes.size());
     if (!decoded) {
       result.failed = true;
       pushResult(std::move(result));

@@ -70,8 +70,12 @@ bool ToplevelSurface::initialize(wl_output* output, const ToplevelSurfaceConfig&
   }
 
   xdg_toplevel_add_listener(m_toplevel, &kToplevelListener, this);
-  xdg_toplevel_set_title(m_toplevel, config.title.empty() ? "Noctalia" : config.title.c_str());
-  xdg_toplevel_set_app_id(m_toplevel, config.appId != nullptr ? config.appId : "dev.noctalia.Noctalia");
+  if (!config.title.empty()) {
+    xdg_toplevel_set_title(m_toplevel, config.title.c_str());
+  }
+  if (!config.appId.empty()) {
+    xdg_toplevel_set_app_id(m_toplevel, config.appId.c_str());
+  }
   if (config.minWidth > 0 || config.minHeight > 0) {
     xdg_toplevel_set_min_size(
         m_toplevel, static_cast<std::int32_t>(config.minWidth), static_cast<std::int32_t>(config.minHeight)
