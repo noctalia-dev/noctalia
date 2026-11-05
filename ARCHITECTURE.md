@@ -77,6 +77,8 @@ Text paste uses `TextClipboard::requestClipboardText()`. Providers complete once
 
 Shared context menus accept optional literal trailing shortcut hints and an opt-in destructive Error tone; key binding and action policy stay with the application. Preserve the existing row metrics and neutral palette defaults. `setHighlightedIndex(entryCount())` means no highlight; Down/Up then starts at the first/last interactive entry, skipping headings, separators and disabled rows. Pointer-leave clearing is opt-in through `setClearHighlightOnLeave(true)`. `ContextMenuPopupRequest` exposes `clearHighlightOnLeave` and accepts `initialHighlight == entries.size()` for no initial selection; its default still highlights the first action. Home/End skip inactive boundary rows. `tests/context_menu_control_test.cpp` exercises real text measurement, constrained/scaled columns, navigation and dispatcher pointer transitions.
 
+Button label budgets measure custom visible layout artwork alongside the built-in glyph. Hidden and non-layout children consume no space; stacked artwork does not reduce horizontal label width. Keep application tab/focus palettes outside this sizing behavior. Stepper clamps parsed long values before narrowing; invalid or long-overflow edits restore the current value. Modified editing keys reach Input, retaining clipboard and undo/redo behavior. Applications can set step-button tooltips through the existing `incrementButton()`/`decrementButton()` accessors. `tests/stepper_input_test.cpp` covers numeric boundaries, validation and actual Input editing/commit behavior.
+
 ## Rendering
 
 - `RenderContext` owns scene traversal and delegates drawing to a `RenderBackend`. Construct backends with `createDefaultRenderBackend()`.

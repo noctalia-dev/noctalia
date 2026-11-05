@@ -1137,6 +1137,7 @@ if build_tests
   _ui_test_names = [
     'cairo_text_renderer',
     'context_menu_control',
+    'stepper_input',
     'grid_item_cursor',
     'i18n_language_tag',
     'image_source_log',
