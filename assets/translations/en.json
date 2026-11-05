@@ -2094,6 +2094,10 @@
           "description": "Color role for the bar outline; fixed hex colors are also supported",
           "label": "Border"
         },
+        "border-skip-screen-edges": {
+          "description": "Skip the outline on sides that touch a screen edge, so only the sides facing open space keep it",
+          "label": "Skip Border at Screen Edges"
+        },
         "border-width": {
           "description": "Inside outline width for the bar",
           "label": "Border Width"

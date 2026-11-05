@@ -85,6 +85,9 @@ namespace settings {
     if (key == "padding") {
       return override->padding.has_value();
     }
+    if (key == "border_skip_screen_edges") {
+      return override->borderSkipScreenEdges.has_value();
+    }
     if (key == "radius") {
       return override->radius.has_value();
     }

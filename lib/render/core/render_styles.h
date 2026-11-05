@@ -43,6 +43,17 @@ constexpr bool operator==(const RectInsets& lhs, const RectInsets& rhs) noexcept
   return lhs.left == rhs.left && lhs.top == rhs.top && lhs.right == rhs.right && lhs.bottom == rhs.bottom;
 }
 
+struct BorderSkip {
+  bool left = false;
+  bool top = false;
+  bool right = false;
+  bool bottom = false;
+};
+
+constexpr bool operator==(const BorderSkip& lhs, const BorderSkip& rhs) noexcept {
+  return lhs.left == rhs.left && lhs.top == rhs.top && lhs.right == rhs.right && lhs.bottom == rhs.bottom;
+}
+
 // Per-corner radii: top-left, top-right, bottom-right, bottom-left.
 // Implicit construction from a single float sets all four corners uniformly,
 // so existing `.radius = value` assignments continue to compile unchanged.
@@ -96,6 +107,7 @@ struct RoundedRectStyle {
   bool noAa = false;
   bool invertFill = false;
   float borderWidth = 0.0F;
+  BorderSkip borderSkip{};
   bool outerShadow = false;
   float shadowCutoutOffsetX = 0.0F;
   float shadowCutoutOffsetY = 0.0F;
@@ -122,6 +134,7 @@ constexpr bool operator==(const RoundedRectStyle& lhs, const RoundedRectStyle& r
       && lhs.noAa == rhs.noAa
       && lhs.invertFill == rhs.invertFill
       && lhs.borderWidth == rhs.borderWidth
+      && lhs.borderSkip == rhs.borderSkip
       && lhs.outerShadow == rhs.outerShadow
       && lhs.shadowCutoutOffsetX == rhs.shadowCutoutOffsetX
       && lhs.shadowCutoutOffsetY == rhs.shadowCutoutOffsetY
