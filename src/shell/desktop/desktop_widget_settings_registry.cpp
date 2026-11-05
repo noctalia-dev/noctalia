@@ -363,6 +363,8 @@ namespace desktop_settings {
       add(std::move(activeColor));
       add(fontFamilySpec());
       add(boolSpec("shadow", true));
+      add(boolSpec("hide_when_no_media", false));
+      add(boolSpec("hide_when_idle", false));
     } else if (type == "label") {
       add(stringSpec("title", "Title"));
       add(stringSpec("description"));

@@ -350,6 +350,8 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
             .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurfaceVariant)),
             .activeColor = getColorSpecSetting(settings, "active_color", colorSpecFromRole(ColorRole::Primary)),
             .shadow = getBoolSetting(settings, "shadow", true),
+            .hideWhenNoMedia = getBoolSetting(settings, "hide_when_no_media", false),
+            .hideWhenIdle = getBoolSetting(settings, "hide_when_idle", false),
         }
     );
     applyCommonSettings(*widget, settings);

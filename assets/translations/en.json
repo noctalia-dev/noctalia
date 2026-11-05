@@ -661,6 +661,7 @@
         "format": "Format",
         "gauge-layout": "Gauge Layout",
         "glyph": "Glyph",
+        "hide-when-idle": "Hide When Idle",
         "hide-when-no-media": "Hide When No Media",
         "highlight-color": "Highlight Color",
         "horizontal": "Horizontal",

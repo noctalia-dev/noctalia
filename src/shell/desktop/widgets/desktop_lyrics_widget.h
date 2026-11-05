@@ -24,13 +24,16 @@ public:
     ColorSpec color = colorSpecFromRole(ColorRole::OnSurfaceVariant);
     ColorSpec activeColor = colorSpecFromRole(ColorRole::Primary);
     bool shadow = true;
+    bool hideWhenNoMedia = false;
+    bool hideWhenIdle = false;
   };
 
   DesktopLyricsWidget(MprisService& mpris, LyricsService& lyrics, Options options);
   void create() override;
   bool wantsSecondTicks() const override { return true; }
   bool recoversStalledFrames() const override { return true; }
-  bool needsFrameTick() const override { return m_animateHighlight || m_scrollAnimId != 0; }
+  bool needsFrameTick() const override { return m_visible && (m_animateHighlight || m_scrollAnimId != 0); }
+  void setEditorPreview(bool enabled) noexcept override;
   void onFrameTick(float deltaMs, Renderer& renderer) override;
   bool applySetting(
       const std::string& key, const WidgetSettingValue& value,
@@ -43,6 +46,8 @@ private:
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
   void rebuildLabels();
   void syncHighlight();
+  bool shouldBeVisible() const;
+  bool applyVisibility();
   void startScroll(std::chrono::milliseconds duration);
   void applyScroll();
   void stopScroll();
@@ -88,6 +93,9 @@ private:
   std::optional<std::size_t> m_laidOutRow;
   std::uint64_t m_laidOutGeneration = 0;
   bool m_animateHighlight = false;
+  bool m_editorPreview = false;
+  bool m_visible = true;
+  bool m_visibilityInitialized = false;
   std::uint32_t m_scrollAnimId = 0;
   // Rows the labels still sit below their resting place while scrolling to a new line.
   float m_scrollRows = 0.0F;

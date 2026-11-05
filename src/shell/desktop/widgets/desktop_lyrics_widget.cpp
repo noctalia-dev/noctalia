@@ -59,6 +59,9 @@ void DesktopLyricsWidget::rebuildLabels() {
 }
 
 void DesktopLyricsWidget::doUpdate(Renderer& /*renderer*/) {
+  if (applyVisibility()) {
+    requestLayout();
+  }
   const auto player = m_mpris.activePlayer();
   const auto now = std::chrono::steady_clock::now();
   const bool offline = m_lyrics.offline();
@@ -173,7 +176,7 @@ void DesktopLyricsWidget::doUpdate(Renderer& /*renderer*/) {
     auto window = document.windowAround(active, rows.size());
     rows = std::move(window.lines);
     if (document.lines.empty()) {
-      std::shift_right(rows.begin(), rows.end(), 1);
+      std::ranges::shift_right(rows, 1);
       rows.front().clear();
     }
     activeRow = window.activeRow;
@@ -248,6 +251,7 @@ void DesktopLyricsWidget::doLayout(Renderer& renderer) {
   if (root() == nullptr) {
     return;
   }
+  applyVisibility();
   if (m_labels.size() != labelCount()) {
     rebuildLabels();
   }
@@ -560,5 +564,58 @@ bool DesktopLyricsWidget::applySetting(
     }
     return false;
   }
+  if (key == "hide_when_no_media" || key == "hide_when_idle") {
+    if (const auto* hide = std::get_if<bool>(&value)) {
+      (key == "hide_when_no_media" ? m_options.hideWhenNoMedia : m_options.hideWhenIdle) = *hide;
+      if (applyVisibility()) {
+        requestLayout();
+      }
+      return true;
+    }
+    return false;
+  }
   return DesktopWidget::applySetting(key, value, allSettings, renderer);
+}
+
+void DesktopLyricsWidget::setEditorPreview(bool enabled) noexcept {
+  if (m_editorPreview == enabled) {
+    return;
+  }
+  m_editorPreview = enabled;
+  if (root() == nullptr) {
+    return;
+  }
+  if (applyVisibility()) {
+    requestLayout();
+  } else if (enabled && m_visible) {
+    requestRedraw();
+  }
+}
+
+bool DesktopLyricsWidget::shouldBeVisible() const {
+  if (m_editorPreview) {
+    return true;
+  }
+  const auto player = m_mpris.activePlayer();
+  if (!player) {
+    return !m_options.hideWhenNoMedia;
+  }
+  return !m_options.hideWhenIdle || player->playbackStatus == "Playing";
+}
+
+bool DesktopLyricsWidget::applyVisibility() {
+  Node* node = presentationRoot();
+  if (node == nullptr) {
+    return false;
+  }
+  const bool nextVisible = shouldBeVisible();
+  if (m_visibilityInitialized && m_visible == nextVisible) {
+    return false;
+  }
+  const bool initial = !m_visibilityInitialized;
+  m_visibilityInitialized = true;
+  m_visible = nextVisible;
+  node->setOpacity(m_visible ? 1.0F : 0.0F);
+  node->setVisible(m_visible);
+  return !initial || !m_visible;
 }

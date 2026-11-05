@@ -393,15 +393,19 @@ sync_offset_ms = 0
 color = "on_surface_variant"
 active_color = "primary"
 shadow = true
+hide_when_no_media = false
+hide_when_idle = false
 ```
 
-| Setting          | Type   | Default                | Description                                                                                                 |
-| ---------------- | ------ | ---------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `line_count`     | int    | `3`                    | Number of lyric rows, from 1 to 15.                                                                         |
-| `sync_offset_ms` | int    | `0`                    | Timing adjustment from -10000 to 10000 ms, in 100 ms steps. Positive advances lyrics; negative delays them. |
-| `color`          | string | `"on_surface_variant"` | Color role or fixed color for surrounding lines and status messages.                                        |
-| `active_color`   | string | `"primary"`            | Color role or fixed color for the current lyric line.                                                       |
-| `shadow`         | bool   | `true`                 | Draw a text shadow.                                                                                         |
+| Setting              | Type   | Default                | Description                                                                                                 |
+| -------------------- | ------ | ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `line_count`         | int    | `3`                    | Number of lyric rows, from 1 to 15.                                                                         |
+| `sync_offset_ms`     | int    | `0`                    | Timing adjustment from -10000 to 10000 ms, in 100 ms steps. Positive advances lyrics; negative delays them. |
+| `color`              | string | `"on_surface_variant"` | Color role or fixed color for surrounding lines and status messages.                                        |
+| `active_color`       | string | `"primary"`            | Color role or fixed color for the current lyric line.                                                       |
+| `shadow`             | bool   | `true`                 | Draw a text shadow.                                                                                         |
+| `hide_when_no_media` | bool   | `false`                | Hide the widget when no MPRIS player is active.                                                             |
+| `hide_when_idle`     | bool   | `false`                | Hide the widget while the active MPRIS player is paused or stopped.                                         |
 
 The player’s title and artist fields are preserved. Catalog candidates are compared against that metadata and the reported duration, then a matched recording identifier is used for the lyrics request. Video labels and guest credits are handled through catalog matching, without maintaining lists of words to remove from song titles. Ambiguous or unrelated recordings are rejected rather than displaying another song’s lyrics.
 
