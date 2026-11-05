@@ -114,7 +114,7 @@ public:
   void togglePanel(const std::string& panelId);
 
   bool onPointerEvent(const PointerEvent& event);
-  void onKeyboardEvent(const KeyboardEvent& event);
+  bool onKeyboardEvent(const KeyboardEvent& event);
 
   bool isOpen() const noexcept;
   bool isOpenPanel(std::string_view panelId) const noexcept;

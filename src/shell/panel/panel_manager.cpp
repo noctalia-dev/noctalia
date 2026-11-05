@@ -2154,14 +2154,12 @@ PanelManager::popupParentContextForPanel(std::string_view panelId) const noexcep
   return fallbackPopupParentContext();
 }
 
-void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
+bool PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
   if (m_persistentHost.onKeyboardEvent(event)) {
-    return;
+    return true;
   }
-  // m_inTransition means the surface is still initializing.
-  // Keyboard events during this window must be ignored.
-  if (!isOpen() || m_inTransition) {
-    return;
+  if (!isOpen()) {
+    return false;
   }
 
   // Gate on compositor focus: route keys only when the surface owning this panel
@@ -2172,13 +2170,18 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
     const bool onSelectPopup =
         (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen() && kbSurface == m_selectPopup->wlSurface());
     if (!onPanel && !onSelectPopup) {
-      return;
+      return false;
     }
+  }
+
+  // The surface is still initializing: claim the keys so nothing behind can react.
+  if (m_inTransition) {
+    return true;
   }
 
   if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
     m_selectPopup->onKeyboardEvent(event);
-    return;
+    return true;
   }
 
   if (event.pressed && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
@@ -2191,7 +2194,7 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
           m_surface->requestRedraw();
         }
       }
-      return;
+      return true;
     }
     if (m_activePanel != nullptr && m_activePanel->dismissTransientUi()) {
       if (m_surface != nullptr && m_sceneRoot != nullptr && (m_sceneRoot->paintDirty() || m_sceneRoot->layoutDirty())) {
@@ -2201,10 +2204,10 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
           m_surface->requestRedraw();
         }
       }
-      return;
+      return true;
     }
     closePanel();
-    return;
+    return true;
   }
 
   // A focused text input owns plain printable keys; the panel's global key
@@ -2224,7 +2227,7 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
         m_surface->requestRedraw();
       }
     }
-    return;
+    return true;
   }
 
   m_inputDispatcher.keyEvent(event.sym, event.utf32, event.modifiers, event.pressed, event.preedit);
@@ -2235,6 +2238,7 @@ void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
       m_surface->requestRedraw();
     }
   }
+  return true;
 }
 
 void PanelManager::applyAttachedReveal(float progress) {

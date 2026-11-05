@@ -508,10 +508,12 @@ void Application::initInputDispatch() {
     if (m_notificationToast.onKeyboardEvent(event)) {
       return;
     }
+    if (m_panelManager.onKeyboardEvent(event)) {
+      return;
+    }
     if (m_windowSwitcher.onKeyboardEvent(event)) {
       return;
     }
-    m_panelManager.onKeyboardEvent(event);
   });
 }
 
