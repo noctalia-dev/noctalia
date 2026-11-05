@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -23,6 +24,9 @@ public:
   };
 
   InputDispatcher() = default;
+  ~InputDispatcher();
+  InputDispatcher(const InputDispatcher&) = delete;
+  InputDispatcher& operator=(const InputDispatcher&) = delete;
 
   void setSceneRoot(Node* root);
   void setCursorShapeCallback(CursorShapeCallback callback);
@@ -111,4 +115,5 @@ private:
   float m_lastPointerY = 0.0F;
   bool m_hasPointerPosition = false;
   bool m_cancelingPointerCapture = false;
+  std::shared_ptr<void> m_lifetime = std::make_shared<int>(0);
 };

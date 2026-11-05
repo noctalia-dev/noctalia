@@ -67,6 +67,8 @@ Code that only the shell uses belongs in `src/`, even when it looks generic.
 
 `Node` is the scene graph base class. `InputArea` is a `Node` subclass for pointer hit testing, and `InputDispatcher` routes pointer events through the tree. `InputArea::setAcceptedButtons()` takes masks built with `InputArea::buttonMask(...)`, not raw `BTN_*` codes.
 
+`InputArea::observeDestruction()` registers one notification per owner-lifetime token. A shared or reparented area notifies every surviving dispatcher when destroyed; expired owners are skipped and pruned on registration. Dispatchers invalidate their tokens at the start of destruction and cannot be copied or moved. This keeps focus, hover, pointer capture and gesture targets from retaining deleted areas without calling into destroyed dispatchers. Scene mutation, observer registration and destruction stay on the scene thread.
+
 ## Rendering
 
 - `RenderContext` owns scene traversal and delegates drawing to a `RenderBackend`. Construct backends with `createDefaultRenderBackend()`.
