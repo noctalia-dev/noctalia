@@ -659,6 +659,7 @@
         "font-family-default": "System default",
         "forecast-days": "Forecast Days",
         "format": "Format",
+        "greeting-text": "Greeting Text",
         "gauge-layout": "Gauge Layout",
         "glyph": "Glyph",
         "hide-when-no-media": "Hide When No Media",

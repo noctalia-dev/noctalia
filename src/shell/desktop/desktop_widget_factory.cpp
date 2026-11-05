@@ -457,6 +457,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         DesktopWelcomeWidget::Options{
             .showAvatar = getBoolSetting(settings, "show_avatar", true),
             .showName = getBoolSetting(settings, "show_name", true),
+            .greetingText = getStringSetting(settings, "greeting_text"),
             .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
             .shadow = getBoolSetting(settings, "shadow", true),
         }

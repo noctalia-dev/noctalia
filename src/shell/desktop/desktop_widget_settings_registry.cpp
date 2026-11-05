@@ -493,6 +493,7 @@ namespace desktop_settings {
       add(intSpec("input_radius", 6.0, 0.0, 32.0, 1.0));
       add(boolSpec("center_password_text", false));
     } else if (type == "welcome") {
+      add(stringSpec("greeting_text"));
       add(boolSpec("show_avatar", true));
       add(boolSpec("show_name", true));
       add(colorSpec("color", "on_surface"));

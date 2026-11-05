@@ -1,4 +1,4 @@
-#include "shell//desktop//widgets//desktop_welcome_widget.h"
+#include "shell/desktop/widgets/desktop_welcome_widget.h"
 
 #include "config/config_service.h"
 #include "i18n/i18n.h"
@@ -31,7 +31,7 @@ namespace {
 
 DesktopWelcomeWidget::DesktopWelcomeWidget(AccountsService* accounts, ConfigService* config, Options options)
     : m_accounts(accounts), m_config(config), m_showAvatar(options.showAvatar), m_showName(options.showName),
-      m_color(options.color), m_shadow(options.shadow) {}
+      m_greetingText(std::move(options.greetingText)), m_color(options.color), m_shadow(options.shadow) {}
 
 void DesktopWelcomeWidget::create() {
   auto rootNode = ui::node({});
@@ -45,7 +45,7 @@ void DesktopWelcomeWidget::create() {
 
   auto greetingLabel = ui::label({
       .out = &m_greetingLabel,
-      .text = i18n::tr("desktop-widgets.welcome.greeting"),
+      .text = m_greetingText.empty() ? i18n::tr("desktop-widgets.welcome.greeting") : m_greetingText,
       .fontSize = greetingFontSize(contentScale()),
       .color = m_color,
       .maxLines = 1,
@@ -90,6 +90,18 @@ bool DesktopWelcomeWidget::applySetting(
     if (const auto* v = std::get_if<bool>(&value)) {
       m_showName = *v;
       syncName();
+      return true;
+    }
+    return false;
+  }
+  if (key == "greeting_text") {
+    if (const auto* v = std::get_if<std::string>(&value)) {
+      m_greetingText = *v;
+      if (m_greetingLabel != nullptr) {
+        const std::string text = m_greetingText.empty() ? i18n::tr("desktop-widgets.welcome.greeting") : m_greetingText;
+        m_greetingLabel->setText(text);
+      }
+      requestLayout();
       return true;
     }
     return false;

@@ -15,6 +15,7 @@ public:
   struct Options {
     bool showAvatar = true;
     bool showName = true;
+    std::string greetingText;
     ColorSpec color = colorSpecFromRole(ColorRole::OnSurface);
     bool shadow = true;
   };
@@ -41,6 +42,7 @@ private:
   ConfigService* m_config;
   bool m_showAvatar;
   bool m_showName;
+  std::string m_greetingText;
   ColorSpec m_color;
   bool m_shadow;
   bool m_avatarVisible = false;

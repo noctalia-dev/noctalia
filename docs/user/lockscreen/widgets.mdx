@@ -31,7 +31,9 @@ format = "{:%H:%M}"
 
 When enabled, widgets render on each lock surface, over the same blurred and tinted wallpaper as the rest of the lock screen. To show a clock on the lock screen, add a **clock** widget.
 
-Text widgets (clock, weather, media player, label, sysmon) support a per-widget `font_family` setting just like desktop widgets - empty inherits the shell font. See [Desktop widgets - Common settings](/noctalia/desktop/widgets/#common-settings).
+To greet the logged-in user, add a **welcome** widget. It shows a circular avatar (from `shell.avatar_path`, falling back to AccountsService, hidden when no avatar is set) beside a greeting and the session username. The greeting defaults to "Welcome Back"; set `greeting_text` to customize it (empty restores the default). `show_avatar` and `show_name` toggle each part; text color, text shadow, and the common background settings behave like other text widgets.
+
+Text widgets (clock, weather, media player, label, sysmon, welcome) support a per-widget `font_family` setting just like desktop widgets - empty inherits the shell font. See [Desktop widgets - Common settings](/noctalia/desktop/widgets/#common-settings).
 
 ---
 
