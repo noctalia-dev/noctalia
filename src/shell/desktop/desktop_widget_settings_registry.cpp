@@ -495,6 +495,9 @@ namespace desktop_settings {
     } else if (type == "welcome") {
       add(stringSpec("greeting_text"));
       add(boolSpec("show_avatar", true));
+      auto avatarSize = stepperIntSpec("avatar_size", 96, 48.0, 192.0, 8.0);
+      avatarSize.visibleWhen = WidgetSettingVisibility{"show_avatar", {"true"}};
+      add(std::move(avatarSize));
       auto avatarShape = segmentedSpec(
           "avatar_shape", "circular",
           {{"circular", "desktop-widgets.editor.settings.avatar-shape-circular"},
@@ -506,6 +509,9 @@ namespace desktop_settings {
       showAvatarBorder.visibleWhen = WidgetSettingVisibility{"show_avatar", {"true"}};
       add(std::move(showAvatarBorder));
       add(boolSpec("show_name", true));
+      auto nameText = stringSpec("name_text");
+      nameText.visibleWhen = WidgetSettingVisibility{"show_name", {"true"}};
+      add(std::move(nameText));
       add(colorSpec("color", "on_surface"));
       add(fontFamilySpec());
       add(boolSpec("shadow", true));

@@ -20,7 +20,9 @@ public:
   struct Options {
     bool showAvatar = true;
     bool showName = true;
+    std::string nameText;
     std::string greetingText;
+    int avatarSize = 96;
     AvatarShape avatarShape = AvatarShape::Circular;
     bool showAvatarBorder = false;
     ColorSpec color = colorSpecFromRole(ColorRole::OnSurface);
@@ -50,7 +52,9 @@ private:
   ConfigService* m_config;
   bool m_showAvatar;
   bool m_showName;
+  std::string m_nameText;
   std::string m_greetingText;
+  int m_avatarSize;
   AvatarShape m_avatarShape;
   bool m_showAvatarBorder;
   ColorSpec m_color;

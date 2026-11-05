@@ -10,6 +10,7 @@
 #include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/clamp.h"
 
 #include <algorithm>
 #include <cmath>
@@ -17,7 +18,8 @@
 
 namespace {
 
-  constexpr float kAvatarSize = 96.0F;
+  constexpr int kMinAvatarSize = 48;
+  constexpr int kMaxAvatarSize = 192;
   constexpr float kSpacing = 20.0F;
   constexpr float kTextGap = 4.0F;
   constexpr float kMaxTextWidth = 320.0F;
@@ -31,8 +33,10 @@ namespace {
 
 DesktopWelcomeWidget::DesktopWelcomeWidget(AccountsService* accounts, ConfigService* config, Options options)
     : m_accounts(accounts), m_config(config), m_showAvatar(options.showAvatar), m_showName(options.showName),
-      m_greetingText(std::move(options.greetingText)), m_avatarShape(options.avatarShape),
-      m_showAvatarBorder(options.showAvatarBorder), m_color(options.color), m_shadow(options.shadow) {}
+      m_nameText(std::move(options.nameText)), m_greetingText(std::move(options.greetingText)),
+      m_avatarSize(util::clampOrdered(options.avatarSize, kMinAvatarSize, kMaxAvatarSize)),
+      m_avatarShape(options.avatarShape), m_showAvatarBorder(options.showAvatarBorder), m_color(options.color),
+      m_shadow(options.shadow) {}
 
 void DesktopWelcomeWidget::create() {
   auto rootNode = ui::node({});
@@ -54,10 +58,9 @@ void DesktopWelcomeWidget::create() {
   });
   rootNode->addChild(std::move(greetingLabel));
 
-  const std::string initialName = m_showName ? sessionUserName() : std::string{};
   auto nameLabel = ui::label(
       {.out = &m_nameLabel,
-       .text = initialName,
+       .text = std::string{},
        .fontSize = nameFontSize(contentScale()),
        .fontWeight = FontWeight::Bold,
        .color = m_color,
@@ -67,10 +70,9 @@ void DesktopWelcomeWidget::create() {
   rootNode->addChild(std::move(nameLabel));
 
   m_avatar->setVisible(false);
-  m_nameLabel->setVisible(!initialName.empty());
-  m_lastName = initialName;
 
   setRoot(std::move(rootNode));
+  syncName();
   applyTextColors();
   applyShadow();
 }
@@ -90,6 +92,15 @@ bool DesktopWelcomeWidget::applySetting(
   if (key == "show_name") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_showName = *v;
+      resetNaturalSizeMarks();
+      syncName();
+      return true;
+    }
+    return false;
+  }
+  if (key == "name_text") {
+    if (const auto* v = std::get_if<std::string>(&value)) {
+      m_nameText = *v;
       syncName();
       return true;
     }
@@ -98,10 +109,20 @@ bool DesktopWelcomeWidget::applySetting(
   if (key == "greeting_text") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_greetingText = *v;
+      resetNaturalSizeMarks();
       if (m_greetingLabel != nullptr) {
         const std::string text = m_greetingText.empty() ? i18n::tr("desktop-widgets.welcome.greeting") : m_greetingText;
         m_greetingLabel->setText(text);
       }
+      requestLayout();
+      return true;
+    }
+    return false;
+  }
+  if (key == "avatar_size") {
+    if (const auto* v = std::get_if<std::int64_t>(&value)) {
+      m_avatarSize = static_cast<int>(*v);
+      resetNaturalSizeMarks();
       requestLayout();
       return true;
     }
@@ -182,9 +203,8 @@ void DesktopWelcomeWidget::refreshAvatar(Renderer& renderer) {
   }
 
   m_lastAvatarPath = displayPath;
-  // The control early-returns when path, decode size, and flags are unchanged, so calling this
-  // on every update is cheap and retries a previously failed decode for free.
-  const int avatarPx = static_cast<int>(std::round(kAvatarSize * contentScale()));
+  // The control early-returns on unchanged sources, so this is cheap per update.
+  const int avatarPx = static_cast<int>(std::round(static_cast<float>(m_avatarSize) * contentScale()));
   if (!m_avatar->setSourceFile(renderer, displayPath, avatarPx, false, true)) {
     m_avatar->clear(renderer);
   }
@@ -194,7 +214,7 @@ void DesktopWelcomeWidget::syncName() {
   if (m_nameLabel == nullptr) {
     return;
   }
-  const std::string name = m_showName ? sessionUserName() : std::string{};
+  const std::string name = m_showName ? (m_nameText.empty() ? sessionUserName() : m_nameText) : std::string{};
   if (name == m_lastName) {
     return;
   }
@@ -213,7 +233,7 @@ void DesktopWelcomeWidget::doLayout(Renderer& renderer) {
   }
 
   const float scale = contentScale();
-  const float avatarSize = kAvatarSize * scale;
+  const float avatarSize = static_cast<float>(m_avatarSize) * scale;
   const float spacing = kSpacing * scale;
   const float textGap = kTextGap * scale;
   const float maxWidth = std::max(1.0F, kMaxTextWidth * scale);
