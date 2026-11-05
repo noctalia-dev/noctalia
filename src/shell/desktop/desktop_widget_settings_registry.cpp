@@ -32,6 +32,7 @@ namespace desktop_settings {
         {.type = "sysmon", .labelKey = "desktop-widgets.editor.types.system-monitor"},
         {.type = "volume", .labelKey = "desktop-widgets.editor.types.volume"},
         {.type = "weather", .labelKey = "desktop-widgets.editor.types.weather"},
+        {.type = "welcome", .labelKey = "desktop-widgets.editor.types.welcome"},
     };
 
     WidgetSettingSpec baseSpec(std::string_view key, WidgetControlKind control, WidgetSettingValue defaultValue) {
@@ -491,6 +492,12 @@ namespace desktop_settings {
       add(doubleSpec("input_opacity", 1.0, 0.0, 1.0, 0.01));
       add(intSpec("input_radius", 6.0, 0.0, 32.0, 1.0));
       add(boolSpec("center_password_text", false));
+    } else if (type == "welcome") {
+      add(boolSpec("show_avatar", true));
+      add(boolSpec("show_name", true));
+      add(colorSpec("color", "on_surface"));
+      add(fontFamilySpec());
+      add(boolSpec("shadow", true));
     }
 
     return specs;

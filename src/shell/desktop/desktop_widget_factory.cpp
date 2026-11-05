@@ -16,6 +16,7 @@
 #include "shell/desktop/widgets/desktop_sysmon_widget.h"
 #include "shell/desktop/widgets/desktop_volume_widget.h"
 #include "shell/desktop/widgets/desktop_weather_widget.h"
+#include "shell/desktop/widgets/desktop_welcome_widget.h"
 #include "shell/desktop/widgets/plugin_desktop_widget.h"
 #include "system/format_units.h"
 #include "ui/controls/button.h"
@@ -185,7 +186,7 @@ namespace {
 DesktopWidgetFactory::DesktopWidgetFactory(DesktopWidgetRuntimeServices services)
     : m_calendar(services.calendar), m_pipewire(services.pipewire), m_pipewireSpectrum(services.pipewireSpectrum),
       m_weather(services.weather), m_mpris(services.mpris), m_httpClient(services.httpClient),
-      m_sysmon(services.sysmon), m_scriptDeps(services.scriptDeps) {}
+      m_sysmon(services.sysmon), m_accounts(services.accounts), m_scriptDeps(services.scriptDeps) {}
 
 std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     const std::string& type, const std::unordered_map<std::string, WidgetSettingValue>& settings, float contentScale
@@ -443,6 +444,21 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
             .shadow = getBoolSetting(settings, "shadow", true),
             .scrollStepPercent = getIntSetting(settings, "scroll_step", 5),
             .config = m_scriptDeps.configService,
+        }
+    );
+    applyCommonSettings(*widget, settings);
+    widget->setContentScale(contentScale);
+    return widget;
+  }
+
+  if (type == "welcome") {
+    auto widget = std::make_unique<DesktopWelcomeWidget>(
+        m_accounts, m_scriptDeps.configService,
+        DesktopWelcomeWidget::Options{
+            .showAvater = getBoolSetting(settings, "show_avatar", true),
+            .showName = getBoolSetting(settings, "show_name", true),
+            .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
+            .shadow = getBoolSetting(settings, "shadow", true),
         }
     );
     applyCommonSettings(*widget, settings);

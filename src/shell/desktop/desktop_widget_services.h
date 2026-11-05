@@ -1,5 +1,6 @@
 #pragma once
 
+class AccountsService;
 class ClipboardService;
 class CalendarService;
 class ConfigService;
@@ -35,6 +36,7 @@ struct DesktopWidgetRuntimeServices {
   MprisService* mpris = nullptr;
   HttpClient* httpClient = nullptr;
   SystemMonitorService* sysmon = nullptr;
+  AccountsService* accounts = nullptr;
   DesktopWidgetScriptDeps scriptDeps;
 };
 

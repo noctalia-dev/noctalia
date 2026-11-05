@@ -691,6 +691,7 @@
         "secondary-color": "Secondary Color",
         "sensitivity": "Sensitivity",
         "shadow": "Shadow",
+        "show-avatar": "Show Avatar",
         "show-caps-lock": "Caps Lock Warning",
         "show-device": "Show Device",
         "show-events": "Show Events",
@@ -701,6 +702,7 @@
         "show-login-button": "Login Button",
         "show-media": "Media",
         "show-media-controls": "Media Controls",
+        "show-name": "Show Name",
         "show-password-hint": "Password Hint",
         "show-password-reveal": "Password Reveal",
         "show-seconds": "Second Hand",
@@ -762,7 +764,8 @@
         "sticker": "Sticker",
         "system-monitor": "System Monitor",
         "volume": "Volume",
-        "weather": "Weather"
+        "weather": "Weather",
+        "welcome": "Welcome"
       }
     },
     "media": {
@@ -778,6 +781,9 @@
       "loading": "Loading…",
       "no-location": "No location",
       "off": "Weather off"
+    },
+    "welcome": {
+      "greeting": "Welcome Back"
     }
   },
   "dock": {
