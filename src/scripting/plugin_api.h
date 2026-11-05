@@ -30,11 +30,31 @@ namespace scripting {
   inline constexpr std::uint32_t kPanelContextMenuPluginApiVersion = 28;
   inline constexpr std::uint32_t kGraphPointerTrackingPluginApiVersion = 29;
   inline constexpr std::uint32_t kPanelLayerPluginApiVersion = 30;
-  inline constexpr std::uint32_t kCurrentPluginApiVersion = kPanelLayerPluginApiVersion;
+  inline constexpr std::uint32_t kGetColorPluginApiVersion = 31;
+  inline constexpr std::uint32_t kContainerTooltipPluginApiVersion = 32;
+  inline constexpr std::uint32_t kScrollRevealKeyPluginApiVersion = 33;
+  inline constexpr std::uint32_t kWidgetHoverHighlightPluginApiVersion = 34;
+  inline constexpr std::uint32_t kIdleWatchPluginApiVersion = 35;
+  inline constexpr std::uint32_t kLayerEntryPluginApiVersion = 36;
+  inline constexpr std::uint32_t kCalendarEventsPluginApiVersion = 37;
+  inline constexpr std::uint32_t kBarDragAndDropPluginApiVersion = 38;
+  inline constexpr std::uint32_t kOsdPluginApiVersion = 39;
+  inline constexpr std::uint32_t kPixelStreamPluginApiVersion = 40;
+  inline constexpr std::uint32_t kColorPickerPluginApiVersion = 41;
+  inline constexpr std::uint32_t kPanelContentHeightPluginApiVersion = 42;
+  inline constexpr std::uint32_t kContainerColorRolesPluginApiVersion = 43;
+  inline constexpr std::uint32_t kPaletteFormat2PluginApiVersion = 44;
+  inline constexpr std::uint32_t kUmbrielActionPluginApiVersion = 45;
+  inline constexpr std::uint32_t kGpuMonitoringPluginApiVersion = 46;
+  inline constexpr std::uint32_t kSecretSettingPluginApiVersion = 47;
+  inline constexpr std::uint32_t kSleepCallbacksPluginApiVersion = 48;
+  inline constexpr std::uint32_t kPanelLayerFollowPluginApiVersion = 49;
+  inline constexpr std::uint32_t kPixelStreamFitPluginApiVersion = 50;
+  inline constexpr std::uint32_t kCurrentPluginApiVersion = kPixelStreamFitPluginApiVersion;
 
   static_assert(kOldestSupportedPluginApiVersion <= kCurrentPluginApiVersion);
 
-  [[nodiscard]] constexpr bool supportsPluginApiVersion(std::uint32_t version) {
+  constexpr bool supportsPluginApiVersion(std::uint32_t version) {
     return version >= kOldestSupportedPluginApiVersion && version <= kCurrentPluginApiVersion;
   }
 

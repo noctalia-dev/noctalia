@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render/animation/animation_manager.h"
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <chrono>
 #include <cstdint>
@@ -48,7 +48,7 @@ private:
   };
 
   void ensureSurfaces();
-  [[nodiscard]] bool surfacesMatchOutputs() const;
+  bool surfacesMatchOutputs() const;
   void destroySurfaces();
   void prepareFrame(Instance& inst, bool needsUpdate, bool needsLayout);
   void buildScene(Instance& inst, std::uint32_t width, std::uint32_t height);

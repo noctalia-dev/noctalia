@@ -12,7 +12,7 @@ namespace compositors::mango {
 
   namespace {
 
-    [[nodiscard]] bool isSocketPath(const std::string& path) {
+    bool isSocketPath(const std::string& path) {
       struct stat st{};
       return !path.empty() && ::stat(path.c_str(), &st) == 0 && S_ISSOCK(st.st_mode);
     }

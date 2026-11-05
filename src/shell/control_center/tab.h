@@ -3,6 +3,7 @@
 #include "core/ui_phase.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -49,7 +50,11 @@ public:
 
   // Called every Wayland frame callback with elapsed milliseconds. Default is a no-op.
   // Tabs override this to advance per-frame animations independently of data arrival.
-  virtual void onFrameTick(float deltaMs) { (void)deltaMs; }
+  // Runs with the panel's render target current, so GPU uploads are allowed.
+  virtual void onFrameTick(float deltaMs, Renderer& renderer) {
+    (void)deltaMs;
+    (void)renderer;
+  }
 
   // Called when the tab becomes visible or hidden.
   virtual void setActive(bool active) { (void)active; }
@@ -60,6 +65,15 @@ public:
   // Allows a tab to close transient UI (menus/popovers) when external empty
   // chrome areas are clicked.
   virtual bool dismissTransientUi() { return false; }
+
+  // Key presses offered to the active tab before panel-level navigation; return true to consume.
+  virtual bool handleKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+    (void)sym;
+    (void)modifiers;
+    (void)pressed;
+    (void)preedit;
+    return false;
+  }
 
   void setContentScale(float scale) noexcept { m_contentScale = scale; }
   void setPanelCardOpacity(float opacity) noexcept {
@@ -72,9 +86,9 @@ public:
   }
 
 protected:
-  [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
-  [[nodiscard]] float panelCardOpacity() const noexcept { return m_panelCardOpacity; }
-  [[nodiscard]] float scaled(float value) const noexcept { return value * m_contentScale; }
+  float contentScale() const noexcept { return m_contentScale; }
+  float panelCardOpacity() const noexcept { return m_panelCardOpacity; }
+  float scaled(float value) const noexcept { return value * m_contentScale; }
   virtual void onPanelCardOpacityChanged(float opacity) { (void)opacity; }
   virtual void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) {
     (void)renderer;

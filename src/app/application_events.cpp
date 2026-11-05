@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "dbus/bluetooth/bluetooth_service.h"
 #include "dbus/network/inetwork_service.h"
+#include "pipewire/sound_player.h"
 #include "render/backend/render_backend.h"
 
 #include <algorithm>
@@ -31,9 +32,9 @@ namespace {
 } // namespace
 
 void Application::onIconThemeChanged() {
-  kLog.info("system icon theme changed; refreshing icon consumers");
+  kLog.info("system icons changed; refreshing icon consumers");
   m_bar.reload();
-  m_dock.reload();
+  m_dock.onIconThemeChanged();
   m_panelManager.onIconThemeChanged();
   m_notificationToast.requestLayout();
 }
@@ -44,7 +45,7 @@ void Application::onGraphicsReset(RenderGraphicsResetStatus status) {
     return;
   }
   m_graphicsRecoveryScheduled = true;
-  DeferredCall::callLater([this]() { recoverGraphicsAfterReset(); });
+  DeferredCall::callLater([this] { recoverGraphicsAfterReset(); });
 }
 
 void Application::recoverGraphicsAfterReset() {
@@ -94,12 +95,12 @@ void Application::recoverGraphicsAfterReset() {
         delay.count(), e.what()
     );
     m_graphicsRecoveryScheduled = true;
-    m_graphicsRecoveryTimer.start(delay, [this]() { recoverGraphicsAfterReset(); });
+    m_graphicsRecoveryTimer.start(delay, [this] { recoverGraphicsAfterReset(); });
   }
 }
 
 void Application::requestAllSurfacesRedraw() {
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_bar.requestRedraw();
     m_dock.requestRedraw();
     m_desktopWidgetsController.requestRedraw();
@@ -110,6 +111,7 @@ void Application::requestAllSurfacesRedraw() {
     m_colorPickerDialogPopup.requestRedraw();
     m_glyphPickerDialogPopup.requestRedraw();
     m_fileDialogPopup.requestRedraw();
+    m_searchPickerDialogPopup.requestRedraw();
   });
 }
 
@@ -117,7 +119,29 @@ void Application::onUpowerStateChangedForHooks() {
   if (m_upowerService == nullptr) {
     return;
   }
-  for (const auto& event : m_batteryHookState.update(m_upowerService->state())) {
+  const auto& state = m_upowerService->state();
+  // Without a system battery the default state follows the lowest-charged peripheral. When that
+  // selection moves to another device, rebaseline instead of reporting the new device's charge
+  // state as a plug/unplug or a battery hook transition.
+  if (const auto& peripheralPath = m_upowerService->statePeripheralPath();
+      peripheralPath != m_prevBatteryPeripheralPathForEvents) {
+    m_prevBatteryPeripheralPathForEvents = peripheralPath;
+    m_prevBatteryPluggedForEvents = m_upowerService->externalPowerConnected();
+    m_batteryHookState.reset(state);
+    return;
+  }
+  const auto plugged = m_upowerService->externalPowerConnected();
+  if (plugged.has_value()) {
+    if (m_prevBatteryPluggedForEvents.has_value()
+        && *m_prevBatteryPluggedForEvents != *plugged
+        && m_soundPlayer != nullptr) {
+      m_soundPlayer->play(*plugged ? SoundPlayer::kEventPowerPlug : SoundPlayer::kEventPowerUnplug);
+    }
+    m_prevBatteryPluggedForEvents = plugged;
+  } else if (!state.isPresent) {
+    m_prevBatteryPluggedForEvents.reset();
+  }
+  for (const auto& event : m_batteryHookState.update(state)) {
     if (event.env.empty()) {
       m_hookManager.fire(event.kind);
     } else {

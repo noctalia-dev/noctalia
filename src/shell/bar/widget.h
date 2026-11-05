@@ -26,6 +26,9 @@ namespace noctalia::bar {
   class WidgetActionDispatcher;
 }
 
+// Which side of the value the glyph sits on (`glyph_position`). With peek on, the value reveals on the other side.
+enum class GlyphPosition : std::uint8_t { Before, After };
+
 class Widget {
 public:
   // Whether a panel action opens the panel or toggles it.
@@ -53,25 +56,32 @@ public:
     syncOuterFromRoot();
   }
   virtual void onFrameTick(float deltaMs) { (void)deltaMs; }
-  [[nodiscard]] virtual bool needsFrameTick() const { return false; }
-  [[nodiscard]] virtual bool onPointerEvent(const PointerEvent& event) {
+  virtual bool needsFrameTick() const { return false; }
+  // True when the widget renders a value that changes every second. The bar uses
+  // this to decide whether it needs second-precision time ticks at all.
+  virtual bool wantsSecondTicks() const { return false; }
+  virtual bool onPointerEvent(const PointerEvent& event) {
     (void)event;
     return false;
   }
 
-  [[nodiscard]] virtual bool noGapAroundMe() const noexcept { return false; }
+  virtual bool noGapAroundMe() const noexcept { return false; }
+  // Takes a share of its lane's free space (start and end lanes only; the center lane sizes to its content).
+  virtual bool expandsInLane() const noexcept { return false; }
   // Layout-only or non-interactive bar widgets: clicks pass through to bar dead-zone handlers.
-  [[nodiscard]] virtual bool isBarClickThrough() const noexcept { return m_nonInteractive; }
+  virtual bool isBarClickThrough() const noexcept { return m_nonInteractive; }
   // Widgets with interactive sub-items (workspaces, taskbar, tray) manage hover per item and
   // opt out of the bar's generic whole-widget hover highlight.
-  [[nodiscard]] virtual bool wantsBarHoverHighlight() const noexcept { return !m_nonInteractive; }
+  virtual bool wantsBarHoverHighlight() const noexcept { return !m_nonInteractive; }
+  // Whether the hover box tints while the widget is hovered. The box still sizes the hit target.
+  virtual bool wantsBarHoverTint() const noexcept { return true; }
 
   // The node this widget built. Widgets size and position it in doLayout().
-  [[nodiscard]] Node* root() const noexcept { return m_innerRoot; }
+  Node* root() const noexcept { return m_innerRoot; }
   // The node the bar mounts: a transparent InputArea wrapping root(), carrying gesture actions.
-  [[nodiscard]] Node* outerNode() const noexcept { return m_outer ? m_outer.get() : m_outerPtr; }
-  [[nodiscard]] float width() const noexcept;
-  [[nodiscard]] float height() const noexcept;
+  Node* outerNode() const noexcept { return m_outer ? m_outer.get() : m_outerPtr; }
+  float width() const noexcept;
+  float height() const noexcept;
 
   std::unique_ptr<Node> releaseRoot();
 
@@ -86,9 +96,7 @@ public:
       std::string_view logContext
   );
   void setActionContext(IpcInvocationContext context) { m_actionContext = std::move(context); }
-  [[nodiscard]] const noctalia::bar::WidgetActionBindings& gestureBindings() const noexcept {
-    return m_gestureBindings;
-  }
+  const noctalia::bar::WidgetActionBindings& gestureBindings() const noexcept { return m_gestureBindings; }
 
   void setAnimationManager(AnimationManager* mgr) noexcept;
   void setUpdateCallback(UpdateCallback callback);
@@ -96,50 +104,59 @@ public:
   void setFrameTickRequestCallback(FrameTickRequestCallback callback);
   void setPanelToggleCallback(PanelToggleCallback callback);
   void setContentScale(float scale) noexcept { m_contentScale = scale; }
-  [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
+  float contentScale() const noexcept { return m_contentScale; }
   void setFontScale(float scale) noexcept { m_fontScale = scale; }
-  [[nodiscard]] float fontScale() const noexcept { return m_contentScale * m_fontScale; }
-  [[nodiscard]] float fontScaleMultiplier() const noexcept { return m_fontScale; }
+  float fontScale() const noexcept { return m_contentScale * m_fontScale; }
+  float fontScaleMultiplier() const noexcept { return m_fontScale; }
   void setLabelFontWeight(FontWeight fontWeight) noexcept { m_labelFontWeight = fontWeight; }
-  [[nodiscard]] FontWeight labelFontWeight() const noexcept { return m_labelFontWeight; }
+  FontWeight labelFontWeight() const noexcept { return m_labelFontWeight; }
   void setLabelFontFamily(std::string family) noexcept { m_labelFontFamily = std::move(family); }
-  [[nodiscard]] const std::string& labelFontFamily() const noexcept { return m_labelFontFamily; }
+  const std::string& labelFontFamily() const noexcept { return m_labelFontFamily; }
   void setConfigName(std::string name) { m_configName = std::move(name); }
-  [[nodiscard]] std::string_view configName() const noexcept { return m_configName; }
+  std::string_view configName() const noexcept { return m_configName; }
   void setAnchor(bool anchor) noexcept { m_anchor = anchor; }
-  [[nodiscard]] bool isAnchor() const noexcept { return m_anchor; }
+  bool isAnchor() const noexcept { return m_anchor; }
+  // Bar-owned gate: when false the bar never shows this widget's tooltips; widgets keep setting their content.
+  bool showsTooltip() const noexcept { return m_showTooltip; }
 
   void setBarCapsuleSpec(WidgetBarCapsuleSpec spec) noexcept { m_barCapsuleSpec = std::move(spec); }
   void setWidgetForeground(std::optional<ColorSpec> color) noexcept { m_widgetForeground = color; }
   void setWidgetIconColor(std::optional<ColorSpec> color) noexcept { m_widgetIconColor = color; }
   void setNonInteractive(bool nonInteractive) noexcept;
-  [[nodiscard]] bool nonInteractive() const noexcept { return m_nonInteractive; }
+  bool nonInteractive() const noexcept { return m_nonInteractive; }
   // Bar-owned: blocks all pointer input while the member is clipped out of a collapsed accordion.
   void setBarPointerSuppressed(bool suppressed) noexcept;
-  [[nodiscard]] bool barPointerSuppressed() const noexcept { return m_barPointerSuppressed; }
-  [[nodiscard]] const WidgetBarCapsuleSpec& barCapsuleSpec() const noexcept { return m_barCapsuleSpec; }
+  bool barPointerSuppressed() const noexcept { return m_barPointerSuppressed; }
+  const WidgetBarCapsuleSpec& barCapsuleSpec() const noexcept { return m_barCapsuleSpec; }
   void setBarCapsuleScene(Node* shell, Box* box) noexcept;
-  [[nodiscard]] Node* barCapsuleShell() const noexcept { return m_capsuleShell; }
-  [[nodiscard]] Box* barCapsuleBox() const noexcept { return m_capsuleBox; }
+  Node* barCapsuleShell() const noexcept { return m_capsuleShell; }
+  Box* barCapsuleBox() const noexcept { return m_capsuleBox; }
   void setBarHoverBox(Box* box) noexcept { m_hoverBox = box; }
-  [[nodiscard]] Box* barHoverBox() const noexcept { return m_hoverBox; }
+  Box* barHoverBox() const noexcept { return m_hoverBox; }
   void setBarHoverProgress(float progress) noexcept { m_hoverProgress = progress; }
-  [[nodiscard]] float barHoverProgress() const noexcept { return m_hoverProgress; }
+  float barHoverProgress() const noexcept { return m_hoverProgress; }
+  bool peekEnabled() const noexcept { return m_peekEnabled; }
+  float peekDelayMs() const noexcept { return m_peekDelayMs; }
+  // Bar-owned peek state: whether the value is (being) revealed, and the eased 0..1 reveal progress.
+  bool peekExpanded() const noexcept { return m_peekExpanded; }
+  void setPeekExpanded(bool expanded) noexcept { m_peekExpanded = expanded; }
+  float peekProgress() const noexcept { return m_peekProgress; }
+  void setPeekProgress(float progress) noexcept { m_peekProgress = progress; }
+  // Owner token for the bar's peek animation; ~Widget cancels it.
+  const void* peekAnimationOwner() const noexcept { return &m_peekProgress; }
   // Outermost node for flex layout / anchor alignment (capsule shell when enabled).
-  [[nodiscard]] Node* layoutBoundsNode() const noexcept {
-    return m_capsuleShell != nullptr ? m_capsuleShell : outerNode();
-  }
-  [[nodiscard]] float resolvedBarCapsuleRadius(float width, float height) const noexcept;
+  Node* layoutBoundsNode() const noexcept { return m_capsuleShell != nullptr ? m_capsuleShell : outerNode(); }
+  float resolvedBarCapsuleRadius(float width, float height) const noexcept;
 
   // Whether the bar should paint the decorative capsule for this frame (spec enabled + visible ink).
-  [[nodiscard]] virtual bool shouldShowBarCapsule() const;
+  virtual bool shouldShowBarCapsule() const;
 
   // Resolved primary label color: `[widget.*] color` when set, else `capsule_foreground` when capsule styling is
   // enabled, else `fallback` (e.g. colorSpecFromRole(OnSurface)).
-  [[nodiscard]] ColorSpec widgetForegroundOr(const ColorSpec& fallback) const noexcept;
+  ColorSpec widgetForegroundOr(const ColorSpec& fallback) const noexcept;
   // Resolved icon color: `[widget.*] icon_color` when set, else the foreground chain
   // (`color` → `capsule_foreground` → `fallback`), so a bare `color` still tints icons.
-  [[nodiscard]] ColorSpec widgetIconColorOr(const ColorSpec& fallback) const noexcept;
+  ColorSpec widgetIconColorOr(const ColorSpec& fallback) const noexcept;
 
 protected:
   void requestUpdate();
@@ -165,6 +182,22 @@ protected:
   }
   virtual void doLayout(Renderer& renderer, float containerWidth, float containerHeight) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
+  // Opts the widget into peek: only the glyph shows until the widget is hovered.
+  void setPeek(bool enabled, int delayMs) noexcept;
+
+  struct GlyphValueLayout {
+    Node* glyph = nullptr; // Glyph or Image, already measured; skipped when null or hidden
+    Node* value = nullptr; // already measured; skipped when null or hidden
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool vertical = false;
+    float horizontalGap = 0.0F; // applied only when both nodes are shown
+    float verticalGap = 0.0F;
+  };
+  // Places glyph and value (direct children of root()) along the bar's main axis, sizes root(), applies peek.
+  void layoutGlyphValue(const GlyphValueLayout& layout);
+  // root() must already be sized to the full content laid out from 0 along the main axis. Clips root() to the
+  // glyph plus the revealed share of the rest; returns the main-axis offset to add to every content position.
+  float applyPeek(float contentMain, float glyphMain, GlyphPosition glyphPosition, bool vertical);
 
   float m_contentScale = 1.0F;
   float m_fontScale = 1.0F;
@@ -172,6 +205,7 @@ protected:
   std::string m_labelFontFamily; // empty = inherit renderer-global family
   std::string m_configName;
   bool m_anchor = false;
+  bool m_showTooltip = true;
   AnimationManager* m_animations = nullptr;
   UpdateCallback m_updateCallback;
   RedrawCallback m_redrawCallback;
@@ -189,7 +223,7 @@ protected:
 
 private:
   void installGestureHandlers();
-  [[nodiscard]] bool bindingRepeatsEveryScrollStep(noctalia::bar::Gesture gesture) const;
+  bool bindingRepeatsEveryScrollStep(noctalia::bar::Gesture gesture) const;
   // An enabled InputArea captures hover (and the highlight) even with no accepted buttons, so the
   // wrapper stays inert until something is actually bound to it.
   void updateGestureAreaEnabled() noexcept;
@@ -211,4 +245,8 @@ private:
   noctalia::bar::ScrollRepeatMode m_scrollRepeatMode = noctalia::bar::ScrollRepeatMode::Auto;
   const noctalia::bar::WidgetActionDispatcher* m_actionDispatcher = nullptr;
   IpcInvocationContext m_actionContext;
+  bool m_peekEnabled = false;
+  float m_peekDelayMs = 0.0F;
+  bool m_peekExpanded = false;
+  float m_peekProgress = 0.0F;
 };

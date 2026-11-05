@@ -1,11 +1,12 @@
 #pragma once
 
-#include "core/toml.h"
+#include "config/toml.h"
 
 #include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 class StateStore {
 public:
@@ -15,10 +16,15 @@ public:
   void setPath(std::filesystem::path path);
   void load();
 
-  [[nodiscard]] const std::filesystem::path& path() const noexcept { return m_path; }
-  [[nodiscard]] const std::string& parseError() const noexcept { return m_parseError; }
-  [[nodiscard]] std::optional<bool> boolValue(std::string_view owner, std::string_view key) const;
-  [[nodiscard]] std::optional<std::string> stringValue(std::string_view owner, std::string_view key) const;
+  const std::filesystem::path& path() const noexcept { return m_path; }
+  const std::string& parseError() const noexcept { return m_parseError; }
+  std::optional<bool> boolValue(std::string_view owner, std::string_view key) const;
+  std::optional<std::string> stringValue(std::string_view owner, std::string_view key) const;
+
+  bool ownerValid(std::string_view owner) const;
+  bool contains(std::string_view owner, std::string_view key) const;
+  std::optional<std::vector<std::string>> stringArrayValue(std::string_view owner, std::string_view key) const;
+  bool setStringArray(std::string_view owner, std::string_view key, const std::vector<std::string>& value);
 
   bool setBool(std::string_view owner, std::string_view key, bool value);
   bool setString(std::string_view owner, std::string_view key, std::string_view value);

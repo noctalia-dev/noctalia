@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/poll_source.h"
+#include "core/poll_source.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -56,15 +56,15 @@ public:
   bool requestScan(const std::filesystem::path& dir, bool flatten);
 
   // Cached result for (dir, flatten), or nullptr. Pure main-thread lookup.
-  [[nodiscard]] const WallpaperScanResult* cached(const std::filesystem::path& dir, bool flatten) const;
+  const WallpaperScanResult* cached(const std::filesystem::path& dir, bool flatten) const;
 
   // True if a scan for (dir, flatten) is queued or in flight.
-  [[nodiscard]] bool scanning(const std::filesystem::path& dir, bool flatten) const;
+  bool scanning(const std::filesystem::path& dir, bool flatten) const;
 
   // Drops all cached results so the next requestScan() re-walks.
   void invalidate();
 
-  [[nodiscard]] int pollTimeoutMs() const override { return -1; }
+  int pollTimeoutMs() const override { return -1; }
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) override;
 
 protected:

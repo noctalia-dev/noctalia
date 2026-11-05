@@ -9,10 +9,6 @@ Noctalia is made possible by the incredible work of many open-source projects an
 - **[Tabler Icons](https://tabler.io/icons)** — Icon set used throughout the shell
 - **[Riyan Resdian on Noun Project](https://thenounproject.com/creator/yaicon/)** — Plug icon
 
-## Audio Assets
-
-- **[Universfield on Pixabay](https://pixabay.com/users/universfield-28281460/)** — Notification & Volume change sound effects
-
 ## System Libraries
 
 Provided by system packages at build time and linked dynamically where applicable:

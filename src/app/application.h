@@ -3,33 +3,40 @@
 #include "app/deferred_call_poll_source.h"
 #include "app/timer_poll_source.h"
 #include "calendar/calendar_poll_source.h"
+#include "calendar/calendar_reminder_monitor.h"
+#include "calendar/calendar_reminder_poll_source.h"
 #include "calendar/calendar_service.h"
 #include "capture/screenshot_service.h"
 #include "compositors/compositor_platform.h"
+#include "compositors/keyboard_layout_poll_source.h"
 #include "compositors/workspace_alert_service.h"
+#include "compositors/workspace_poll_source.h"
 #include "config/config_poll_source.h"
 #include "config/config_service.h"
-#include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
 #include "dbus/network/external_ip_service.h"
 #include "dbus/notification/notification_poll_source.h"
+#include "dbus/secret/secret_collection_probe.h"
 #include "hooks/battery_hook_state.h"
 #include "hooks/hook_manager.h"
 #include "idle/idle_grace_overlay.h"
 #include "idle/idle_inhibitor.h"
 #include "idle/idle_manager.h"
+#include "idle/plugin_idle_watches.h"
 #include "ipc/ipc_poll_source.h"
 #include "ipc/ipc_service.h"
+#include "ipc/pixel_stream_service.h"
 #include "launcher/dmenu_ipc.h"
 #include "net/http_client.h"
 #include "net/http_client_poll_source.h"
 #include "notification/notification_manager.h"
+#include "render/codecs/thumbnail_service.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/shared_texture_cache.h"
-#include "render/core/thumbnail_service.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
 #include "scripting/plugin_manager.h"
+#include "scripting/plugin_recommendations.h"
 #include "scripting/plugin_service_host.h"
 #include "scripting/script_api_context.h"
 #include "security/secret_store.h"
@@ -38,6 +45,11 @@
 #include "shell/backdrop/backdrop.h"
 #include "shell/bar/bar.h"
 #include "shell/desktop/desktop_widgets_controller.h"
+#include "shell/dialogs/color_picker_dialog_popup.h"
+#include "shell/dialogs/file_dialog_popup.h"
+#include "shell/dialogs/glyph_picker_dialog_popup.h"
+#include "shell/dialogs/layer_popup_host.h"
+#include "shell/dialogs/search_picker_popup.h"
 #include "shell/dock/dock.h"
 #include "shell/hot_corners/hot_corners.h"
 #include "shell/lockscreen/lock_screen.h"
@@ -53,6 +65,7 @@
 #include "shell/osd/privacy_osd.h"
 #include "shell/overview/overview_launcher_capture.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/plugin_layer/plugin_layer_host.h"
 #include "shell/screen_corners/screen_corners.h"
 #include "shell/session/session_action_runner.h"
 #include "shell/settings/settings_window.h"
@@ -60,9 +73,13 @@
 #include "shell/tray/tray_menu.h"
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 #include "shell/wallpaper/wallpaper.h"
+#include "shell/wayland/clipboard_poll_source.h"
+#include "shell/wayland/clipboard_service.h"
+#include "shell/wayland/virtual_keyboard_service.h"
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
 #include "system/desktop_entry_poll_source.h"
+#include "system/file_watcher.h"
 #include "system/gamma_service.h"
 #include "system/icon_theme_poll_source.h"
 #include "system/location_poll_source.h"
@@ -79,18 +96,9 @@
 #include "theme/theme_service.h"
 #include "time/time_poll_source.h"
 #include "time/time_service.h"
-#include "ui/dialogs/color_picker_dialog_popup.h"
-#include "ui/dialogs/file_dialog_popup.h"
-#include "ui/dialogs/glyph_picker_dialog_popup.h"
-#include "ui/dialogs/layer_popup_host.h"
-#include "wayland/clipboard_poll_source.h"
-#include "wayland/clipboard_service.h"
 #include "wayland/key_repeat_poll_source.h"
-#include "wayland/keyboard_layout_poll_source.h"
 #include "wayland/text_input_service.h"
-#include "wayland/virtual_keyboard_service.h"
 #include "wayland/wayland_connection.h"
-#include "wayland/workspace_poll_source.h"
 
 #include <atomic>
 #include <cstdint>
@@ -116,12 +124,16 @@ class INetworkService;
 class IwdSecretAgent;
 class LogindService;
 class MainLoop;
+class ModemManagerService;
 class MprisService;
 class NetworkSecretAgent;
 class NotificationDBusHost;
 class PipeWirePollSource;
 class PipeWireService;
 class WirePlumberMixer;
+namespace compositors::umbriel {
+  class UmbrielAudioProvider;
+}
 class PipeWireSpectrum;
 class PipeWireSpectrumPollSource;
 class PolkitAgent;
@@ -154,7 +166,7 @@ public:
   Application();
   ~Application();
 
-  void run(std::function<void()> startupReadyCallback = {});
+  void run(const std::function<void()>& startupReadyCallback = {});
 
   // Public for signal handler
   static std::atomic<bool> s_shutdownRequested;
@@ -163,7 +175,7 @@ public:
   void triggerShellAction(const std::string& action, wl_output* output = nullptr);
   // Highest layer-shell layer occupied by any bar on the given output. Hot
   // corners place their trigger surfaces on this layer.
-  [[nodiscard]] LayerShellLayer hotCornerLayerForOutput(wl_output* output) const noexcept;
+  LayerShellLayer hotCornerLayerForOutput(wl_output* output) const noexcept;
 
 private:
   void initServices();
@@ -173,6 +185,7 @@ private:
   void initAuxServicesAndHooks();
   void initSystemBusServices();
   void initBrightnessAndPipewire();
+  void initEarlySessionBusAndTray();
   void initSessionBusServices();
   void initUi();
   // Sub-phases of initUi(), called in order.
@@ -194,6 +207,8 @@ private:
   void reloadDmenuProviders();
   // (Re)register plugin-backed panels from the enabled plugin set.
   void reloadPluginPanels();
+  // Re-register plugin-backed [[layer]] entries from the enabled plugin set.
+  void reloadPluginLayers();
   // When [plugins].auto_update is on, pull git sources per the configured mode. Run once at
   // startup and on a 6h repeating timer so long-lived sessions pick up new plugin versions.
   void runPluginAutoUpdate();
@@ -204,14 +219,20 @@ private:
   // so the first credential lookups report "no provider". Watch the bus name and re-drive the
   // consumers that gave up once an owner appears.
   void installSecretServiceNameWatch();
-  void retrySecretServiceConsumers();
+  // The provider may be present but its collection still locked at startup (PAM holds the password
+  // but only opens the store on first request; or a fingerprint/autologin session unlocks it a few
+  // seconds later). Watch the collection set and re-drive consumers once the default collection is
+  // actually unlocked, so a lookup that lost the startup race recovers without restarting Noctalia.
+  void installSecretServiceCollectionWatch();
+  void onSecretServiceCollectionChanged();
+  void retrySecretServiceConsumers(bool defaultCollectionUnlocked = false);
   void scheduleNotificationShellRefresh();
   void syncPolkitAgent();
   void syncSystemdPasswordAgent();
   void ensureAuthSources();
-  [[nodiscard]] AuthSource* activeAuthSource() const noexcept;
+  AuthSource* activeAuthSource() const noexcept;
   void updateAuthPanel();
-  [[nodiscard]] bool likelySupportsInSessionPolkit() const noexcept;
+  bool likelySupportsInSessionPolkit() const noexcept;
   void syncClipboardService();
   void syncStorageKeyProvider();
   void syncScreenTimeService();
@@ -219,7 +240,11 @@ private:
   void scheduleGreeterAutoSync();
   bool runShellCommandBlocking(const std::string& command);
   bool runIdleAction(const IdleActionRequest& action);
+  bool setOutputPower(bool on);
   void onIconThemeChanged();
+  // Finest time boundary the currently visible shell UI needs. Drives the time
+  // poll source so it can park between boundaries instead of waking every second.
+  TimeService::Precision timePrecisionNeeded() const;
   void onGraphicsReset(RenderGraphicsResetStatus status);
   void recoverGraphicsAfterReset();
   void requestAllSurfacesRedraw();
@@ -228,8 +253,8 @@ private:
   void onNetworkStateChangedForEvents(const NetworkState& state, NetworkChangeOrigin origin);
   void onBluetoothStateChangedForEvents(const BluetoothState& state, BluetoothStateChangeOrigin origin);
   void onPowerProfileChangedForEvents(const PowerProfilesState& state, PowerProfilesChangeOrigin origin);
-  [[nodiscard]] std::vector<PollSource*> currentPollSources();
-  [[nodiscard]] std::vector<PollSource*> buildPollSources();
+  std::vector<PollSource*> currentPollSources();
+  std::vector<PollSource*> buildPollSources();
 
   WaylandConnection m_wayland;
   WorkspaceAlertService m_workspaceAlertService;
@@ -249,18 +274,24 @@ private:
   scripting::ScriptApiContext m_scriptApi;
   std::function<void()> m_syncScriptApiOutputs;
   scripting::PluginManager m_pluginManager{m_configService};
+  scripting::PluginRecommendations m_pluginRecommendations{m_configService, m_httpClient, m_pluginManager};
   scripting::PluginServiceHost m_pluginServiceHost{m_scriptApi, &m_httpClient, &m_clipboardService, &m_fileWatcher};
   TimeService m_timeService;
   LockKeysService m_lockKeysService;
   NotificationManager m_notificationManager;
   CalendarService m_calendarService;
+  CalendarReminderMonitor m_calendarReminderMonitor{m_configService, m_notificationManager};
   std::unique_ptr<SessionBus> m_bus;
+  // Set when the early session bus connection fails. Reported once i18n has been
+  // initialized in initStyleThemeAndWayland().
+  std::optional<std::string> m_earlySessionBusError;
   std::unique_ptr<SystemBus> m_systemBus;
   std::unique_ptr<LogindService> m_logindService;
   // Set on PrepareForSleep(true); cleared when the session lock engages (or the lock aborts).
   bool m_releaseSleepDelayWhenLocked = false;
   // Set before Noctalia-initiated suspend so PrepareForSleep skips lock-before-sleep.
   bool m_skipLockOnNextSleep = false;
+  std::uint64_t m_outputPowerRequestGeneration = 0;
   std::unique_ptr<AccountsService> m_accountsService;
   std::unique_ptr<ScreenSaverService> m_screenSaverService;
   std::unique_ptr<ScreenSaverPollSource> m_screenSaverPollSource;
@@ -268,7 +299,9 @@ private:
   std::unique_ptr<DebugService> m_debugService;
   IdleInhibitor m_idleInhibitor;
   IdleManager m_idleManager;
+  PluginIdleWatches m_pluginIdleWatches;
   IdleGraceOverlay m_idleGraceOverlay;
+  std::uint64_t m_idleGraceOverlayGeneration = 0;
   HookManager m_hookManager;
   DependencyService m_dependencyService;
   GammaService m_gammaService;
@@ -285,6 +318,7 @@ private:
   std::unique_ptr<UPowerService> m_upowerService;
   std::unique_ptr<BluetoothService> m_bluetoothService;
   std::unique_ptr<BluetoothAgent> m_bluetoothAgent;
+  std::unique_ptr<ModemManagerService> m_modemManagerService;
   Timer m_bluetoothResumeTimer;
   std::unique_ptr<PolkitAgent> m_polkitAgent;
   std::unique_ptr<SystemdPasswordAgent> m_systemdPasswordAgent;
@@ -295,6 +329,8 @@ private:
   bool m_notificationShellRefreshScheduled = false;
   BatteryHookState m_batteryHookState;
   BatteryWarningMonitor m_batteryWarningMonitor;
+  std::optional<bool> m_prevBatteryPluggedForEvents;
+  std::string m_prevBatteryPeripheralPathForEvents;
   std::optional<bool> m_prevWirelessEnabledForEvents;
   std::optional<bool> m_prevBluetoothPoweredForEvents;
   std::optional<std::string> m_prevPowerProfileActiveForEvents;
@@ -306,6 +342,9 @@ private:
   bool m_notificationBusNameWatchInstalled = false;
   std::unique_ptr<sdbus::IProxy> m_secretServiceNameWatchProxy;
   bool m_secretServiceNameWatchInstalled = false;
+  std::unique_ptr<sdbus::IProxy> m_secretServiceCollectionWatchProxy;
+  std::unique_ptr<SecretCollectionProbe> m_secretServiceCollectionProbe;
+  bool m_secretServiceCollectionWatchInstalled = false;
   bool m_secretServiceOwned = false;
   bool m_storageKeyAutoRetried = false;
   bool m_calendarCredentialAutoRetried = false;
@@ -313,6 +352,8 @@ private:
   std::unique_ptr<WirePlumberMixer> m_wirePlumberMixer;
   std::unique_ptr<EasyEffectsService> m_easyEffectsService;
   std::unique_ptr<PipeWireSpectrum> m_pipewireSpectrum;
+  std::unique_ptr<compositors::umbriel::UmbrielAudioProvider> m_umbrielAudioProvider;
+  std::uint64_t m_umbrielAudioListener = 0;
   std::shared_ptr<SoundPlayer> m_soundPlayer;
 
   TelemetryService m_telemetryService;
@@ -321,6 +362,10 @@ private:
   GlSharedContext m_glShared;
   SharedTextureCache m_sharedTextureCache;
   RenderContext m_renderContext;
+  // Image controls in panels retain cache-backed handles during teardown.
+  AsyncTextureCache m_asyncTextureCache;
+  // Outlives the panels, widgets, and layers whose pixel stream views register with it.
+  PixelStreamService m_pixelStreamService;
   ThumbnailService m_thumbnailService;
   WallpaperScanner m_wallpaperScanner;
   Bar m_bar;
@@ -335,6 +380,12 @@ private:
   // Ids of plugin-backed panels currently registered with m_panelManager, so a
   // reload can retire the previous set before registering the new one.
   std::vector<std::string> m_pluginPanelIds;
+  PluginLayerHost m_pluginLayerHost{
+      PluginLayerServices{
+          .platform = m_compositorPlatform, .renderContext = &m_renderContext, .config = &m_configService
+      },
+      m_scriptApi, &m_fileWatcher, &m_httpClient, &m_clipboardService
+  };
   WindowSwitcher m_windowSwitcher;
   OverviewLauncherCapture m_overviewLauncherCapture;
   NotificationToast m_notificationToast;
@@ -356,7 +407,7 @@ private:
   ColorPickerDialogPopup m_colorPickerDialogPopup;
   GlyphPickerDialogPopup m_glyphPickerDialogPopup;
   FileDialogPopup m_fileDialogPopup;
-  AsyncTextureCache m_asyncTextureCache;
+  SearchPickerPopup m_searchPickerDialogPopup;
 
   // Poll sources (must outlive MainLoop)
   std::unique_ptr<SessionBusPollSource> m_busPollSource;
@@ -388,7 +439,7 @@ private:
   LocationPollSource m_locationPollSource{m_locationService};
   WeatherPollSource m_weatherPollSource{m_weatherService};
   CalendarPollSource m_calendarPollSource{m_calendarService};
-  Timer m_trayInitTimer;
+  CalendarReminderPollSource m_calendarReminderPollSource{m_calendarReminderMonitor};
   Timer m_polkitInitTimer;
   Timer m_systemdPasswordInitTimer;
   Timer m_authIdleCloseTimer;

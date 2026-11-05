@@ -24,7 +24,6 @@
 
 #include <array>
 #include <cmath>
-#include <deque>
 #include <format>
 #include <optional>
 #include <ranges>
@@ -54,7 +53,7 @@ namespace {
     std::string_view iconOn() const override { return "wifi"; }
     std::string_view iconOff() const override { return "wifi-off"; }
     std::string displayIcon() const override {
-      if (m_svc == nullptr) {
+      if (m_svc == nullptr || !m_svc->available()) {
         return "wifi-question";
       }
       return network_display::wifiGlyphForState(m_svc->state());
@@ -150,7 +149,7 @@ namespace {
     bool active() const override { return m_svc != nullptr && m_svc->doNotDisturb(); }
     void onClick() override {
       if (m_svc != nullptr) {
-        (void)m_svc->toggleDoNotDisturb();
+        m_svc->toggleDoNotDisturb();
       }
     }
     void onRightClick() override { openTab("notifications"); }
@@ -319,7 +318,7 @@ namespace {
       }
       if (m_svc->hasData()) {
         const auto& snapshot = m_svc->snapshot();
-        return WeatherService::glyphForCode(snapshot.current.weatherCode, snapshot.current.isDay);
+        return std::string(WeatherService::glyphForCode(snapshot.current.weatherCode, snapshot.current.isDay));
       }
       return "weather-cloud";
     }
@@ -351,13 +350,13 @@ namespace {
     std::string_view iconOff() const override { return "keyboard"; }
     void onClick() override {
       if (m_platform != nullptr) {
-        (void)m_platform->cycleKeyboardLayout();
+        m_platform->cycleKeyboardLayout();
       }
       PanelManager::instance().refresh();
     }
 
   private:
-    [[nodiscard]] std::string resolvedLayoutName() const {
+    std::string resolvedLayoutName() const {
       const auto state = m_platform != nullptr ? m_platform->keyboardLayoutState() : std::nullopt;
       if (state.has_value()
           && state->currentIndex >= 0
@@ -395,7 +394,7 @@ namespace {
     }
     void onClick() override {
       if (m_svc != nullptr) {
-        (void)m_svc->playPauseActive();
+        m_svc->playPauseActive();
       }
     }
     void onRightClick() override { openTab("media"); }
@@ -555,28 +554,20 @@ namespace {
 
 } // namespace
 
-std::span<const ShortcutRegistry::CatalogEntry> ShortcutRegistry::catalog() {
-  // Built-in shortcuts plus every plugin [[shortcut]] entry. Plugin id/label
-  // strings are held in a stable static deque so the CatalogEntry views stay valid.
-  static std::deque<std::string> storage;
-  static const std::vector<CatalogEntry> combined = [] {
-    auto result = kBuiltinShortcuts
-        | std::views::transform([](const BuiltinShortcutDescriptor& shortcut) {
-                    return CatalogEntry{.type = shortcut.type, .labelKey = shortcut.labelKey};
-                  })
-        | std::ranges::to<std::vector>();
-    scripting::PluginRegistry::instance().ensureScanned();
-    for (const auto& entry :
-         scripting::PluginRegistry::instance().entriesOfKind(scripting::PluginEntryKind::Shortcut)) {
-      storage.push_back(entry.fullId());
-      const std::string_view typeView = storage.back();
-      storage.push_back(entry.manifest->name.empty() ? entry.fullId() : entry.manifest->name);
-      const std::string_view labelView = storage.back();
-      result.push_back(CatalogEntry{.type = typeView, .labelKey = labelView, .literalLabel = true});
-    }
-    return result;
-  }();
-  return combined;
+std::vector<ShortcutRegistry::CatalogEntry> ShortcutRegistry::catalog() {
+  // Built-in shortcuts plus every currently active plugin [[shortcut]] entry.
+  auto result = kBuiltinShortcuts
+      | std::views::transform([](const BuiltinShortcutDescriptor& shortcut) {
+                  return CatalogEntry{.type = std::string(shortcut.type), .labelKey = std::string(shortcut.labelKey)};
+                })
+      | std::ranges::to<std::vector>();
+  scripting::PluginRegistry::instance().ensureScanned();
+  for (const auto& entry : scripting::PluginRegistry::instance().entriesOfKind(scripting::PluginEntryKind::Shortcut)) {
+    std::string id = entry.fullId();
+    std::string label = entry.manifest->name.empty() ? id : entry.manifest->name;
+    result.push_back(CatalogEntry{.type = std::move(id), .labelKey = std::move(label), .literalLabel = true});
+  }
+  return result;
 }
 
 bool ShortcutRegistry::isAvailable(std::string_view type, const Config& config) {

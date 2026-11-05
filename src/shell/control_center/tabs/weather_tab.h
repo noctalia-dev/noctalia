@@ -1,13 +1,16 @@
 #pragma once
 
 #include "render/animation/animation_manager.h"
-#include "render/core/render_styles.h"
 #include "shell/control_center/tab.h"
+#include "shell/render/shell_render_styles.h"
+#include "shell/render/weather_effect_rain_simulation.h"
+#include "shell/render/weather_effect_snow_simulation.h"
 
 #include <array>
 #include <cstdint>
 
-class EffectNode;
+class Box;
+class WeatherEffectNode;
 class Flex;
 class Glyph;
 class InputArea;
@@ -24,7 +27,7 @@ public:
 
   std::unique_ptr<Flex> create() override;
   void onClose() override;
-  void onFrameTick(float deltaMs) override;
+  void onFrameTick(float deltaMs, Renderer& renderer) override;
 
 private:
   enum class ForecastView : std::uint8_t {
@@ -44,10 +47,10 @@ private:
   void syncHourlyForecast(Renderer& renderer, const WeatherSnapshot& snapshot);
   void showLocationPrompt(bool show);
   void hideEffect();
-  [[nodiscard]] static std::string todayIso(std::int32_t utcOffsetSeconds);
-  [[nodiscard]] static std::string hourLabel(const std::string& isoTime, const std::string& timeFormat);
-  [[nodiscard]] static std::string weekdayLabel(const std::string& isoDate);
-  [[nodiscard]] static EffectType effectForWeatherCode(std::int32_t code, bool isDay);
+  static std::string todayIso(std::int32_t utcOffsetSeconds);
+  static std::string hourLabel(const std::string& isoTime, const std::string& timeFormat);
+  static std::string weekdayLabel(const std::string& isoDate);
+  static WeatherEffectType effectForWeatherCode(std::int32_t code, bool isDay);
 
   static constexpr std::size_t kForecastRowCount = 7;
 
@@ -89,8 +92,11 @@ private:
   std::array<Label*, kForecastRowCount> m_forecastDescs{};
   std::array<Label*, kForecastRowCount> m_forecastTemps{};
   std::array<InputArea*, kForecastRowCount> m_forecastHitAreas{};
-  EffectNode* m_effectNode = nullptr;
-  EffectType m_activeEffect = EffectType::None;
+  WeatherEffectNode* m_effectNode = nullptr;
+  // Surface-colored scrim between the effect and the card's text, keeping text contrast
+  // independent of each effect shader's brightness.
+  Box* m_scrimNode = nullptr;
+  WeatherEffectType m_activeEffect = WeatherEffectType::None;
   ForecastView m_forecastView = ForecastView::Daily;
   int m_forecastSlideDirection = 0;
   ForecastView m_pendingForecastView = ForecastView::Daily;
@@ -99,4 +105,6 @@ private:
   float m_forecastRowsBaseX = 0.0F;
   float m_forecastRowsBaseY = 0.0F;
   float m_shaderTime = 0.0F;
+  WeatherEffectRainSimulation m_rainDrops;
+  WeatherEffectSnowSimulation m_snowFlakes;
 };

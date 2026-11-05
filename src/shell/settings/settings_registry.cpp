@@ -3,21 +3,24 @@
 #include "config/config_types.h"
 #include "config/schema/config_schema.h"
 #include "config/schema/ranges.h"
-#include "core/files/directory_scanner.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "i18n/i18n.h"
+#include "launcher/panel_catalog.h"
+#include "pipewire/sound_player.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/bar/widget_gesture_defaults.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/control_center/shortcut_registry.h"
+#include "shell/palette_swatch_preview.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/font_weight_catalog.h"
+#include "shell/settings/supported_languages.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "system/directory_scanner.h"
 #include "system/sysmon_threshold_profile.h"
 #include "theme/builtin_palettes.h"
 #include "theme/builtin_templates.h"
-#include "ui/app_icon_colorization.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 
@@ -50,19 +53,20 @@ namespace settings {
     constexpr auto kLauncherProviderSettings = std::to_array<LauncherProviderSettingSpec>({
         {.name = "calculator", .prefixPlaceholder = "calc", .globalByDefault = true},
         {.name = "emoji", .prefixPlaceholder = "emo"},
+        {.name = "panels", .prefixPlaceholder = "pan"},
         {.name = "session", .prefixPlaceholder = "session"},
         {.name = "wallpaper", .prefixPlaceholder = "wall"},
         {.name = "windows", .prefixPlaceholder = "win"},
     });
 
-    [[nodiscard]] SliderSetting barCornerSlider(std::int32_t value) {
+    SliderSetting barCornerSlider(std::int32_t value) {
       SliderSetting s{value, 0.0F, kBarCornerRadiusMax, 1.0F, true};
       return s;
     }
 
     // What the dead zone does for a gesture nobody has bound, shown as the row's placeholder so an
     // empty field never reads as "does nothing".
-    [[nodiscard]] std::string deadZoneDefault(noctalia::bar::Gesture gesture) {
+    std::string deadZoneDefault(noctalia::bar::Gesture gesture) {
       for (const auto& binding : noctalia::bar::deadZoneGestureDefaults()) {
         if (binding.gesture == gesture) {
           return std::string(binding.action);
@@ -71,44 +75,47 @@ namespace settings {
       return {};
     }
 
-    [[nodiscard]] SliderSetting barReservedSlider(double value, double maxValue, double step, bool integer) {
+    SliderSetting barReservedSlider(double value, double maxValue, double step, bool integer) {
       return SliderSetting{value, 0.0F, maxValue, step, integer};
     }
 
-    [[nodiscard]] std::vector<KeyChord>
-    effectiveKeybindItems(const std::vector<KeyChord>& configured, KeybindAction action) {
+    std::vector<KeyChord> effectiveKeybindItems(const std::vector<KeyChord>& configured, KeybindAction action) {
       if (!configured.empty()) {
         return configured;
       }
       return defaultKeybindSet(action);
     }
 
-    constexpr std::array<SettingsSectionDescriptor, 21> kSettingsSections{{
+    constexpr std::array<SettingsSectionDescriptor, 25> kSettingsSections{{
         {SettingsSection::Appearance, "appearance", "adjustments-horizontal"},
         {SettingsSection::Wallpaper, "wallpaper", "paint"},
         {SettingsSection::Templates, "templates", "color-swatch"},
         {SettingsSection::Desktop, "desktop", "layout-board"},
+        {SettingsSection::LockScreen, "lock-screen", "lock"},
         {SettingsSection::Dock, "dock", "layout-bottombar-inactive"},
         {SettingsSection::Panels, "panels", "layout-bottombar"},
         {SettingsSection::Launcher, "launcher", "rocket"},
         {SettingsSection::ControlCenter, "control-center", "adjustments"},
         {SettingsSection::Notifications, "notifications", "bell"},
         {SettingsSection::Osd, "osd", "message-circle"},
+        {SettingsSection::Screenshot, "screenshot", "screenshot"},
         {SettingsSection::Shell, "shell", "app-window"},
         {SettingsSection::Keybinds, "keybinds", "keyboard"},
         {SettingsSection::Security, "security", "shield-lock"},
         {SettingsSection::System, "system", "activity-heartbeat"},
         {SettingsSection::Services, "services", "stack-2"},
         {SettingsSection::Location, "location", "map-pin"},
+        {SettingsSection::Calendar, "calendar", "calendar"},
         {SettingsSection::Power, "power", "bolt"},
         {SettingsSection::Hooks, "hooks", "link"},
         {SettingsSection::Niri, "niri", "niri"},
+        {SettingsSection::Umbriel, "umbriel", "umbriel"},
         {SettingsSection::Bar, "bar", "crop-3-2", false},
         {SettingsSection::Plugins, "plugins", "puzzle", true, true},
     }};
 
     const SettingsSectionDescriptor& descriptorFor(SettingsSection section) {
-      const auto it = std::ranges::find(kSettingsSections, section, &SettingsSectionDescriptor::section);
+      const auto* it = std::ranges::find(kSettingsSections, section, &SettingsSectionDescriptor::section);
       if (it == kSettingsSections.end()) {
         std::abort();
       }
@@ -139,6 +146,14 @@ namespace settings {
           .maxValue = kBarMarginMax,
           .step = 1,
           .valueSuffix = "px",
+      };
+    }
+
+    LengthSetting barMarginEndsSetting(const LengthSpec& value) {
+      return LengthSetting{
+          .value = value,
+          .maxPixels = kBarMarginMax,
+          .maxPercent = static_cast<int>(noctalia::config::schema::kBarMarginEndsPercentRange.max.value()),
       };
     }
 
@@ -188,7 +203,7 @@ namespace settings {
       return SelectSetting{std::move(opts), std::string(selected)};
     }
 
-    [[nodiscard]] std::string barAutoHideMode(bool autoHide, bool smartAutoHide) {
+    std::string_view barAutoHideMode(bool autoHide, bool smartAutoHide) {
       if (smartAutoHide) {
         return "smart";
       }
@@ -198,7 +213,7 @@ namespace settings {
       return "off";
     }
 
-    [[nodiscard]] SelectSetting autoHideModeSelect(std::string_view mode, std::vector<std::string> smartPath) {
+    SelectSetting autoHideModeSelect(std::string_view mode, std::vector<std::string> smartPath) {
       auto select = asSegmented(plainSelect(
           {{"off", "settings.options.bar.auto-hide.off"},
            {"on", "settings.options.bar.auto-hide.on"},
@@ -217,22 +232,6 @@ namespace settings {
       return select;
     }
 
-    ColorSwatchPreview palettePreviewFromPalette(const ::Palette& palette) {
-      return ColorSwatchPreview{
-          .surface = fixedColorSpec(palette.surface),
-          .swatches = {
-              fixedColorSpec(palette.primary),
-              fixedColorSpec(palette.secondary),
-              fixedColorSpec(palette.tertiary),
-              fixedColorSpec(palette.error),
-          },
-      };
-    }
-
-    ColorSwatchPreview builtinPalettePreview(const noctalia::theme::BuiltinPalette& palette, ThemeMode mode) {
-      return palettePreviewFromPalette(mode == ThemeMode::Light ? palette.light.palette : palette.dark.palette);
-    }
-
     SelectSetting builtinPaletteSelect(std::string_view selected, ThemeMode mode) {
       std::vector<SelectOption> opts;
       opts.reserve(noctalia::theme::builtinPalettes().size());
@@ -242,7 +241,7 @@ namespace settings {
                 .value = std::string(palette.name),
                 .label = std::string(palette.name),
                 .description = {},
-                .preview = builtinPalettePreview(palette, mode),
+                .preview = builtinPaletteSwatchPreview(palette, mode),
             }
         );
       }
@@ -268,27 +267,24 @@ namespace settings {
     }
 
     std::vector<SelectOption> controlCenterShortcutOptions(const Config& cfg) {
+      auto catalog = ShortcutRegistry::catalog();
       std::vector<SelectOption> opts;
-      opts.reserve(ShortcutRegistry::catalog().size());
-      for (const auto& shortcut : ShortcutRegistry::catalog()) {
+      opts.reserve(catalog.size());
+      for (auto& shortcut : catalog) {
         if (!ShortcutRegistry::isAvailable(shortcut.type, cfg)) {
           continue;
         }
-        opts.push_back(
-            SelectOption{
-                std::string(shortcut.type),
-                shortcut.literalLabel ? std::string(shortcut.labelKey) : i18n::tr(shortcut.labelKey)
-            }
-        );
+        std::string label = shortcut.literalLabel ? std::move(shortcut.labelKey) : i18n::tr(shortcut.labelKey);
+        opts.push_back(SelectOption{std::move(shortcut.type), std::move(label)});
       }
       return opts;
     }
 
     SelectSetting languageSelect(std::string_view selected) {
       std::vector<SelectOption> opts;
-      opts.reserve(i18n::kSupportedLanguages.size() + 1);
+      opts.reserve(kSupportedLanguages.size() + 1);
       opts.push_back(SelectOption{"", i18n::tr("common.states.auto")});
-      for (const auto& language : i18n::kSupportedLanguages) {
+      for (const auto& language : kSupportedLanguages) {
         opts.push_back(SelectOption{std::string(language.code), std::string(language.displayName)});
       }
       return SelectSetting{std::move(opts), std::string(selected)};
@@ -323,7 +319,7 @@ namespace settings {
 
     SettingEntry makeEntry(
         SettingsSection section, std::string group, std::string title, std::string subtitle,
-        std::vector<std::string> path, SettingControl control, std::string tags = {}, bool advanced = false
+        std::vector<std::string> path, SettingControl control, const std::string& tags = {}, bool advanced = false
     ) {
       std::string searchText = std::string(settingsSectionId(section))
           + " "
@@ -347,7 +343,7 @@ namespace settings {
           .path = std::move(path),
           .control = std::move(control),
           .advanced = advanced,
-          .searchText = StringUtils::toLower(searchText),
+          .searchText = StringUtils::normalizeForSearch(searchText),
       };
     }
 
@@ -371,6 +367,11 @@ namespace settings {
     return nullptr;
   }
 
+  const DockMonitorOverride* findDockMonitorOverride(const DockConfig& dock, std::string_view tableName) {
+    const auto it = std::ranges::find(dock.monitorOverrides, tableName, &DockMonitorOverride::tableName);
+    return it != dock.monitorOverrides.end() ? &*it : nullptr;
+  }
+
   std::vector<std::string> barNames(const Config& cfg) {
     std::vector<std::string> names;
     names.reserve(cfg.bars.size());
@@ -380,7 +381,7 @@ namespace settings {
     return names;
   }
 
-  std::string normalizedSettingQuery(std::string_view query) { return StringUtils::toLower(query); }
+  std::string normalizedSettingQuery(std::string_view query) { return StringUtils::normalizeForSearch(query); }
 
   bool matchesNormalizedSettingQuery(const SettingEntry& entry, std::string_view normalizedQuery) {
     if (normalizedQuery.empty()) {
@@ -395,6 +396,10 @@ namespace settings {
 
   bool isBarMonitorOverrideSettingPath(const std::vector<std::string>& path) {
     return path.size() >= 5 && path[0] == "bar" && path[2] == "monitor";
+  }
+
+  bool isDockMonitorOverrideSettingPath(const std::vector<std::string>& path) {
+    return path.size() >= 4 && path[0] == "dock" && path[1] == "monitor";
   }
 
   bool settingEntryMatchesBarNavigation(
@@ -413,7 +418,25 @@ namespace settings {
     return monitorEntry && entry.path[3] == selectedMonitorOverride;
   }
 
+  bool settingEntryMatchesDockNavigation(const SettingEntry& entry, std::string_view selectedMonitorOverride) {
+    if (entry.section != SettingsSection::Dock || entry.path.empty() || entry.path[0] != "dock") {
+      return false;
+    }
+    const bool monitorEntry = isDockMonitorOverrideSettingPath(entry.path);
+    if (selectedMonitorOverride.empty()) {
+      return !monitorEntry;
+    }
+    return monitorEntry && entry.path[2] == selectedMonitorOverride;
+  }
+
   std::string barSettingContentSectionKey(const SettingEntry& entry) {
+    if (entry.section == SettingsSection::Dock) {
+      std::string key = "dock";
+      if (isDockMonitorOverrideSettingPath(entry.path)) {
+        key += ":monitor:" + entry.path[2];
+      }
+      return key;
+    }
     if (entry.section != SettingsSection::Bar || entry.path.size() < 2) {
       return std::string(settingsSectionId(entry.section));
     }
@@ -435,7 +458,7 @@ namespace settings {
   std::string_view sectionGlyph(SettingsSection section) { return descriptorFor(section).glyph; }
 
   std::optional<SettingsSection> settingsSectionFromId(std::string_view id) {
-    const auto it = std::ranges::find(kSettingsSections, id, &SettingsSectionDescriptor::id);
+    const auto* it = std::ranges::find(kSettingsSections, id, &SettingsSectionDescriptor::id);
     if (it == kSettingsSections.end()) {
       return std::nullopt;
     }
@@ -489,6 +512,12 @@ namespace settings {
           tr("settings.schema.appearance.wallpaper-generation-scheme.description"), {"theme", "wallpaper_scheme"},
           wallpaperSchemeSelect(cfg.theme.wallpaperScheme), "wallpaper palette generator scheme material you m3 colors"
       ));
+      entries.push_back(makeEntry(
+          SettingsSection::Appearance, "theme", tr("settings.schema.appearance.terminal-colors.label"),
+          tr("settings.schema.appearance.terminal-colors.description"), {"theme", "terminal_colors"},
+          asSegmented(enumSelect(kTerminalColorsOptions, cfg.theme.terminalColors)),
+          "terminal ansi colors red green semantic wallpaper"
+      ));
     } else if (cfg.theme.source == PaletteSource::Community) {
       SettingControl communityPaletteControl =
           TextSetting{.value = cfg.theme.communityPalette, .placeholder = "Oxocarbon", .browseFileExtensions = {}};
@@ -499,6 +528,8 @@ namespace settings {
             .placeholder = tr("settings.schema.appearance.community-palette.search-placeholder"),
             .emptyText = tr("ui.controls.search-picker.empty"),
             .preferredHeight = 240.0F,
+            .onSelect = {},
+            .keepOpenOnSelect = true,
         };
       }
       entries.push_back(makeEntry(
@@ -516,6 +547,8 @@ namespace settings {
             .placeholder = tr("settings.schema.appearance.custom-palette.search-placeholder"),
             .emptyText = tr("ui.controls.search-picker.empty"),
             .preferredHeight = 240.0F,
+            .onSelect = {},
+            .keepOpenOnSelect = true,
         };
       }
       entries.push_back(makeEntry(
@@ -525,9 +558,24 @@ namespace settings {
       ));
     }
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "theme", tr("settings.schema.appearance.palette-inspector.label"),
+        tr("settings.schema.appearance.palette-inspector.description"), {},
+        ButtonSetting{
+            .label = tr("settings.schema.appearance.palette-inspector.button"),
+            .action = {},
+            .glyph = "color-swatch",
+        },
+        "palette inspector template tokens colors swatches hex terminal ansi"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "theme", tr("settings.schema.appearance.pure-black-dark.label"),
         tr("settings.schema.appearance.pure-black-dark.description"), {"theme", "pure_black_dark"},
         ToggleSetting{cfg.theme.pureBlackDark}, "oled amoled true black background contrast"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "theme", tr("settings.schema.appearance.sync-color-scheme.label"),
+        tr("settings.schema.appearance.sync-color-scheme.description"), {"theme", "sync_color_scheme"},
+        ToggleSetting{cfg.theme.syncColorScheme}, "gnome gtk portal dark light prefer color scheme apps"
     ));
     {
       SettingControl fontFamilyControl =
@@ -558,25 +606,20 @@ namespace settings {
         sliderFor(cfg.shell.cornerRadiusScale, noctalia::config::schema::kCornerRadiusScaleRange, false),
         "rounded corners radius"
     ));
-    entries.push_back(makeEntry(
-        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-colorize.label"),
-        tr("settings.schema.appearance.app-icon-colorize.description"), {"shell", "app_icon_colorize"},
-        ToggleSetting{cfg.shell.appIconColorize}, "tint all application icons"
-    ));
     {
-      const SettingVisibility colorizeOn = [](const Config& c) { return c.shell.appIconColorize; };
-      ShellConfig colorizeShell = cfg.shell;
-      colorizeShell.appIconColorize = true;
-      const ColorSpec pickerColor =
-          cfg.shell.appIconColor.value_or(*effectiveShellAppIconColorizationTint(colorizeShell));
-      auto e = makeEntry(
+      const ColorSpec pickerColor = *effectiveShellAppIconColorizationTint(cfg.shell, true);
+      entries.push_back(makeEntry(
           SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-color.label"),
           tr("settings.schema.appearance.app-icon-color.description"), {"shell", "app_icon_color"},
           colorSpecPicker(pickerColor), "color role dock tray application icons"
-      );
-      e.visibleWhen = colorizeOn;
-      entries.push_back(std::move(e));
+      ));
     }
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.show-close-buttons.label"),
+        tr("settings.schema.appearance.show-close-buttons.description"), {"shell", "show_close_buttons"},
+        ToggleSetting{cfg.shell.showCloseButtons},
+        "close button cross dismiss hide panel notification toast popup dialog sheet settings window"
+    ));
     entries.push_back(makeEntry(
         SettingsSection::Appearance, "accessibility", tr("settings.schema.appearance.ui-scale.label"),
         tr("settings.schema.appearance.ui-scale.description"), {"accessibility", "ui_scale"},
@@ -799,6 +842,11 @@ namespace settings {
         ToggleSetting{cfg.wallpaper.transitionOnStartup}, "startup animation"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Wallpaper, "transition", tr("settings.schema.wallpaper.sync-transitions.label"),
+        tr("settings.schema.wallpaper.sync-transitions.description"), {"wallpaper", "sync_transitions"},
+        ToggleSetting{cfg.wallpaper.syncTransitions}, "all monitors same effect"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Wallpaper, "automation", tr("settings.schema.wallpaper.automation.label"),
         tr("settings.schema.wallpaper.automation.description"), {"wallpaper", "automation", "enabled"},
         ToggleSetting{cfg.wallpaper.automation.enabled}, "rotate slideshow"
@@ -824,7 +872,13 @@ namespace settings {
     entries.push_back(makeEntry(
         SettingsSection::Wallpaper, "automation", tr("settings.schema.wallpaper.automation-recursive.label"),
         tr("settings.schema.wallpaper.automation-recursive.description"), {"wallpaper", "automation", "recursive"},
-        ToggleSetting{cfg.wallpaper.automation.recursive}, "subdirectories", true
+        ToggleSetting{cfg.wallpaper.automation.recursive}, "subdirectories"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Wallpaper, "automation", tr("settings.schema.wallpaper.automation-pause-on-fullscreen.label"),
+        tr("settings.schema.wallpaper.automation-pause-on-fullscreen.description"),
+        {"wallpaper", "automation", "pause_on_fullscreen"}, ToggleSetting{cfg.wallpaper.automation.pauseOnFullscreen},
+        "rotate slideshow game video"
     ));
 
     // Templates
@@ -838,24 +892,11 @@ namespace settings {
         ToggleSetting{cfg.theme.templates.enableBuiltinTemplates}, "theme templates"
     ));
     {
-      const auto availableTemplates = noctalia::theme::availableTemplates();
-      std::vector<SelectOption> templateOptions;
-      templateOptions.reserve(availableTemplates.size());
-      for (const auto& t : availableTemplates) {
-        templateOptions.push_back(
-            SelectOption{
-                .value = t.id,
-                .label = t.displayName,
-                .description = t.category,
-                .tooltip = noctalia::theme::formatTemplateTooltip(t)
-            }
-        );
-      }
       auto e = makeEntry(
           SettingsSection::Templates, "built-in", tr("settings.schema.templates.builtin-ids.label"),
           tr("settings.schema.templates.builtin-ids.description"), {"theme", "templates", "builtin_ids"},
           TemplateGridSetting{
-              .options = std::move(templateOptions),
+              .options = noctalia::theme::availableTemplates(),
               .selectedValues = cfg.theme.templates.builtinIds,
               .emptyText = tr("settings.schema.templates.builtin-ids.empty"),
           },
@@ -887,229 +928,285 @@ namespace settings {
       entries.push_back(std::move(e));
     }
 
-    // Dock
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "general", tr("settings.schema.shared.enabled.label"),
-        tr("settings.schema.dock.enabled.description"), {"dock", "enabled"}, ToggleSetting{cfg.dock.enabled},
-        "launcher apps"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "general", tr("settings.schema.dock.active-monitor-only.label"),
-        tr("settings.schema.dock.active-monitor-only.description"), {"dock", "active_monitor_only"},
-        ToggleSetting{cfg.dock.activeMonitorOnly}, "monitor"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "general", tr("settings.schema.dock.monitors.label"),
-        tr("settings.schema.dock.monitors.description"), {"dock", "monitors"},
-        ListSetting{.items = cfg.dock.monitors, .suggestedOptions = env.availableOutputs},
-        "monitor output display screen"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "behavior", tr("settings.schema.shared.auto-hide.label"),
-        tr("settings.schema.dock.auto-hide.description"), {"dock", "auto_hide"},
-        autoHideModeSelect(
-            barAutoHideMode(cfg.dock.autoHide, cfg.dock.smartAutoHide),
-            std::vector<std::string>{"dock", "smart_auto_hide"}
-        ),
-        "autohide smart workspace"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "behavior", tr("settings.schema.shared.reserve-space.label"),
-        tr("settings.schema.dock.reserve-space.description"), {"dock", "reserve_space"},
-        ToggleSetting{cfg.dock.reserveSpace}, "exclusive zone"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "behavior", tr("settings.schema.dock.layer.label"),
-        tr("settings.schema.dock.layer.description"), {"dock", "layer"},
-        asSegmented(plainSelect(
-            {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}}, cfg.dock.layer
-        )),
-        "layer shell z-order"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-running.label"),
-        tr("settings.schema.dock.show-running.description"), {"dock", "show_running"},
-        ToggleSetting{cfg.dock.showRunning}, "windows"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-dots.label"),
-        tr("settings.schema.dock.show-dots.description"), {"dock", "show_dots"}, ToggleSetting{cfg.dock.showDots},
-        "running dots"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-instance-count.label"),
-        tr("settings.schema.dock.show-instance-count.description"), {"dock", "show_instance_count"},
-        ToggleSetting{cfg.dock.showInstanceCount}, "badge windows"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "behavior", tr("settings.schema.dock.launcher-position.label"),
-        tr("settings.schema.dock.launcher-position.description"), {"dock", "launcher_position"},
-        asSegmented(enumSelect(kDockLauncherPositions, cfg.dock.launcherPosition)), "launcher apps grid"
-    ));
-    const SettingVisibility dockLauncherEnabled = [](const Config& c) {
-      return c.dock.launcherPosition == DockLauncherPosition::Start
-          || c.dock.launcherPosition == DockLauncherPosition::End;
+    // Dock and per-monitor dock pages share the same controls. Override pages display effective values while
+    // writing to their own table, so untouched fields continue to inherit from the global dock.
+    const auto addDockSettings = [&](const DockConfig& dock, std::vector<std::string> root,
+                                     const std::optional<std::string>& monitorTable) {
+      const auto path = [&root](std::string key) {
+        auto result = root;
+        result.push_back(std::move(key));
+        return result;
+      };
+      const auto currentDock = [monitorTable](const Config& current) {
+        if (monitorTable) {
+          if (const auto* override = findDockMonitorOverride(current.dock, *monitorTable)) {
+            return resolveDockMonitorOverride(current.dock, *override);
+          }
+        }
+        return current.dock;
+      };
+
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "general", tr("settings.schema.shared.enabled.label"),
+          tr("settings.schema.dock.enabled.description"), path("enabled"), ToggleSetting{dock.enabled}, "launcher apps"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "general", tr("settings.schema.dock.active-monitor-only.label"),
+          tr("settings.schema.dock.active-monitor-only.description"), path("active_monitor_only"),
+          ToggleSetting{dock.activeMonitorOnly}, "monitor"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "behavior", tr("settings.schema.shared.auto-hide.label"),
+          tr("settings.schema.dock.auto-hide.description"), path("auto_hide"),
+          autoHideModeSelect(barAutoHideMode(dock.autoHide, dock.smartAutoHide), path("smart_auto_hide")),
+          "autohide smart workspace"
+      ));
+      {
+        auto e = makeEntry(
+            SettingsSection::Dock, "behavior", tr("settings.schema.dock.auto-hide-reveal-delay.label"),
+            tr("settings.schema.dock.auto-hide-reveal-delay.description"), path("auto_hide_reveal_delay_ms"),
+            StepperSetting{
+                .value = dock.autoHideRevealDelayMs,
+                .minValue = static_cast<int>(noctalia::config::schema::kDockAutoHideRevealDelayMsRange.min.value()),
+                .maxValue = static_cast<int>(noctalia::config::schema::kDockAutoHideRevealDelayMsRange.max.value()),
+                .step = static_cast<int>(noctalia::config::schema::kDockAutoHideRevealDelayMsRange.step.value()),
+                .valueSuffix = "ms",
+            },
+            "autohide reveal delay dwell edge"
+        );
+        e.visibleWhen = [currentDock](const Config& c) { return currentDock(c).isAutoHideEnabled(); };
+        entries.push_back(std::move(e));
+      }
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "behavior", tr("settings.schema.shared.reserve-space.label"),
+          tr("settings.schema.dock.reserve-space.description"), path("reserve_space"), ToggleSetting{dock.reserveSpace},
+          "exclusive zone"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "behavior", tr("settings.schema.dock.layer.label"),
+          tr("settings.schema.dock.layer.description"), path("layer"),
+          asSegmented(plainSelect(
+              {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}}, dock.layer
+          )),
+          "layer shell z-order"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-running.label"),
+          tr("settings.schema.dock.show-running.description"), path("show_running"), ToggleSetting{dock.showRunning},
+          "windows"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-dots.label"),
+          tr("settings.schema.dock.show-dots.description"), path("show_dots"), ToggleSetting{dock.showDots},
+          "running dots"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-instance-count.label"),
+          tr("settings.schema.dock.show-instance-count.description"), path("show_instance_count"),
+          ToggleSetting{dock.showInstanceCount}, "badge windows"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "layout", tr("settings.schema.dock.launcher-position.label"),
+          tr("settings.schema.dock.launcher-position.description"), path("launcher_position"),
+          asSegmented(enumSelect(kDockLauncherPositions, dock.launcherPosition)), "launcher apps grid"
+      ));
+      const SettingVisibility dockLauncherEnabled = [currentDock](const Config& current) {
+        const auto effective = currentDock(current);
+        return effective.launcherPosition == DockLauncherPosition::Start
+            || effective.launcherPosition == DockLauncherPosition::End;
+      };
+      {
+        auto entry = makeEntry(
+            SettingsSection::Dock, "layout", tr("settings.schema.dock.launcher-icon.label"),
+            tr("settings.schema.dock.launcher-icon.description"), path("launcher_icon"),
+            TextSetting{.value = dock.launcherIcon, .placeholder = "grid-dots", .browseFileExtensions = {}},
+            "launcher apps icon glyph"
+        );
+        entry.visibleWhen = dockLauncherEnabled;
+        entries.push_back(std::move(entry));
+      }
+      {
+        auto entry = makeEntry(
+            SettingsSection::Dock, "layout", tr("settings.schema.dock.launcher-custom-image.label"),
+            tr("settings.schema.dock.launcher-custom-image.description"), path("launcher_custom_image"),
+            TextSetting{
+                .value = dock.launcherCustomImage,
+                .placeholder = tr("settings.schema.dock.launcher-custom-image.placeholder"),
+                .browseMode = TextSettingBrowseMode::OpenFile,
+                .browseFileExtensions = DirectoryScanner::imageExtensionFilter(true),
+                .browseFallbackDirectory = "/usr/share/icons",
+            },
+            "launcher apps image picture logo"
+        );
+        entry.visibleWhen = dockLauncherEnabled;
+        entries.push_back(std::move(entry));
+      }
+      {
+        auto entry = makeEntry(
+            SettingsSection::Dock, "layout", tr("settings.schema.dock.launcher-custom-image-colorize.label"),
+            tr("settings.schema.dock.launcher-custom-image-colorize.description"),
+            path("launcher_custom_image_colorize"), ToggleSetting{dock.launcherCustomImageColorize},
+            "launcher apps image tint color"
+        );
+        entry.visibleWhen = dockLauncherEnabled;
+        entries.push_back(std::move(entry));
+      }
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "layout", tr("settings.schema.shared.position.label"),
+          tr("settings.schema.dock.position.description"), path("position"),
+          asSegmented(enumSelect(kDockEdges, dock.position)), "edge"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "layout", tr("settings.schema.dock.icon-size.label"),
+          tr("settings.schema.dock.icon-size.description"), path("icon_size"),
+          sliderFor(dock.iconSize, noctalia::config::schema::kDockIconSizeRange, true), "apps"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "layout", tr("settings.schema.shared.main-axis-padding.label"),
+          tr("settings.schema.dock.main-axis-padding.description"), path("main_axis_padding"),
+          sliderFor(dock.mainAxisPadding, noctalia::config::schema::kDockPaddingRange, true), "inset"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "layout", tr("settings.schema.shared.cross-axis-padding.label"),
+          tr("settings.schema.dock.cross-axis-padding.description"), path("cross_axis_padding"),
+          sliderFor(dock.crossAxisPadding, noctalia::config::schema::kDockPaddingRange, true), "inset"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "layout", tr("settings.schema.dock.item-spacing.label"),
+          tr("settings.schema.dock.item-spacing.description"), path("item_spacing"),
+          sliderFor(dock.itemSpacing, noctalia::config::schema::kDockItemSpacingRange, true), "gap"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "layout", tr("settings.schema.shared.ends-margin.label"),
+          tr("settings.schema.dock.ends-margin.description"), path("margin_ends"),
+          sliderFor(dock.marginEnds, noctalia::config::schema::kDockMarginEndsRange, true), "gap inset"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "layout", tr("settings.schema.shared.edge-margin.label"),
+          tr("settings.schema.dock.edge-margin.description"), path("margin_edge"),
+          sliderFor(dock.marginEdge, noctalia::config::schema::kDockMarginEdgeRange, true), "gap inset"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "shape", tr("settings.schema.shared.corner-radius.label"),
+          tr("settings.schema.dock.corner-radius.description"), path("radius"),
+          sliderFor(dock.radius, noctalia::config::schema::kDockRadiusRange, true), "rounded"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "shape", tr("settings.schema.shared.corner-top-left.label"),
+          tr("settings.schema.dock.corner-top-left.description"), path("radius_top_left"),
+          sliderFor(dock.radiusTopLeft, noctalia::config::schema::kDockRadiusRange, true), "rounded corner", true
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "shape", tr("settings.schema.shared.corner-top-right.label"),
+          tr("settings.schema.dock.corner-top-right.description"), path("radius_top_right"),
+          sliderFor(dock.radiusTopRight, noctalia::config::schema::kDockRadiusRange, true), "rounded corner", true
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "shape", tr("settings.schema.shared.corner-bottom-left.label"),
+          tr("settings.schema.dock.corner-bottom-left.description"), path("radius_bottom_left"),
+          sliderFor(dock.radiusBottomLeft, noctalia::config::schema::kDockRadiusRange, true), "rounded corner", true
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "shape", tr("settings.schema.shared.corner-bottom-right.label"),
+          tr("settings.schema.dock.corner-bottom-right.description"), path("radius_bottom_right"),
+          sliderFor(dock.radiusBottomRight, noctalia::config::schema::kDockRadiusRange, true), "rounded corner", true
+      ));
+      {
+        auto entry = makeEntry(
+            SettingsSection::Dock, "shape", tr("settings.schema.dock.concave-edge-corners.label"),
+            tr("settings.schema.dock.concave-edge-corners.description"), path("concave_edge_corners"),
+            ToggleSetting{dock.concaveEdgeCorners}, "rounded corner carve"
+        );
+        entry.visibleWhen = [currentDock](const Config& current) { return currentDock(current).marginEdge == 0; };
+        entries.push_back(std::move(entry));
+      }
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "shape", tr("settings.schema.dock.border.label"),
+          tr("settings.schema.dock.border.description"), path("border"), colorSpecPicker(dock.border), "outline color",
+          true
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "shape", tr("settings.schema.dock.border-width.label"),
+          tr("settings.schema.dock.border-width.description"), path("border_width"),
+          sliderFor(dock.borderWidth, noctalia::config::schema::kDockBorderWidthRange, false), "outline stroke", true
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.shared.background-opacity.label"),
+          tr("settings.schema.dock.background-opacity.description"), path("background_opacity"),
+          sliderFor(dock.backgroundOpacity, noctalia::config::schema::kUnitRange, false),
+          "alpha transparency translucent opacity"
+      ));
+      if (env.backgroundEffectBlurSupported) {
+        entries.push_back(makeEntry(
+            SettingsSection::Dock, "effects", tr("settings.schema.dock.compositor-blur.label"),
+            tr("settings.schema.dock.compositor-blur.description"), path("compositor_blur"),
+            ToggleSetting{dock.compositorBlur}, "blur background effect"
+        ));
+      }
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.shared.shadow.label"),
+          tr("settings.schema.dock.shadow.description"), path("shadow"), ToggleSetting{dock.shadow}, "shadow"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.dock.icon-shadow.label"),
+          tr("settings.schema.dock.icon-shadow.description"), path("icon_shadow"), ToggleSetting{dock.iconShadow},
+          "shadow icon"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.shared.colorize-icons.label"),
+          tr("settings.schema.shared.colorize-icons.description"), path("colorize_icons"),
+          ToggleSetting{dock.colorizeIcons}, "colorize tint application icons"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.dock.icon-saturation.label"),
+          tr("settings.schema.dock.icon-saturation.description"), path("icon_saturation"),
+          sliderFor(dock.iconSaturation, noctalia::config::schema::kUnitRange, false), "grayscale desaturate color",
+          true
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.magnification.label"),
+          tr("settings.schema.dock.magnification.description"), path("magnification"),
+          ToggleSetting{dock.magnification}, "magnify zoom mac"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.magnification-scale.label"),
+          tr("settings.schema.dock.magnification-scale.description"), path("magnification_scale"),
+          sliderFor(dock.magnificationScale, noctalia::config::schema::kDockMagnificationScaleRange, false),
+          "magnify zoom"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.active-icon-scale.label"),
+          tr("settings.schema.dock.active-icon-scale.description"), path("active_scale"),
+          sliderFor(dock.activeScale, noctalia::config::schema::kDockActiveScaleRange, false), "focused", true
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.inactive-icon-scale.label"),
+          tr("settings.schema.dock.inactive-icon-scale.description"), path("inactive_scale"),
+          sliderFor(dock.inactiveScale, noctalia::config::schema::kDockInactiveScaleRange, false), "unfocused", true
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.active-icon-opacity.label"),
+          tr("settings.schema.dock.active-icon-opacity.description"), path("active_opacity"),
+          sliderFor(dock.activeOpacity, noctalia::config::schema::kUnitRange, false), "focused alpha", true
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.inactive-icon-opacity.label"),
+          tr("settings.schema.dock.inactive-icon-opacity.description"), path("inactive_opacity"),
+          sliderFor(dock.inactiveOpacity, noctalia::config::schema::kUnitRange, false), "unfocused alpha", true
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "pinned-apps", tr("settings.schema.dock.pinned-apps.label"),
+          tr("settings.schema.dock.pinned-apps.description"), path("pinned"), ListSetting{.items = dock.pinned},
+          "pinned apps dock"
+      ));
     };
-    {
-      auto e = makeEntry(
-          SettingsSection::Dock, "behavior", tr("settings.schema.dock.launcher-icon.label"),
-          tr("settings.schema.dock.launcher-icon.description"), {"dock", "launcher_icon"},
-          TextSetting{.value = cfg.dock.launcherIcon, .placeholder = "grid-dots", .browseFileExtensions = {}},
-          "launcher apps icon glyph"
+
+    addDockSettings(cfg.dock, {"dock"}, std::nullopt);
+    for (const auto& override : cfg.dock.monitorOverrides) {
+      addDockSettings(
+          resolveDockMonitorOverride(cfg.dock, override), {"dock", "monitor", override.tableName}, override.tableName
       );
-      e.visibleWhen = dockLauncherEnabled;
-      entries.push_back(std::move(e));
     }
-    {
-      auto e = makeEntry(
-          SettingsSection::Dock, "behavior", tr("settings.schema.dock.launcher-custom-image.label"),
-          tr("settings.schema.dock.launcher-custom-image.description"), {"dock", "launcher_custom_image"},
-          TextSetting{
-              .value = cfg.dock.launcherCustomImage,
-              .placeholder = tr("settings.schema.dock.launcher-custom-image.placeholder"),
-              .browseMode = TextSettingBrowseMode::OpenFile,
-              .browseFileExtensions = DirectoryScanner::imageExtensionFilter(true),
-              .browseFallbackDirectory = "/usr/share/icons",
-          },
-          "launcher apps image picture logo"
-      );
-      e.visibleWhen = dockLauncherEnabled;
-      entries.push_back(std::move(e));
-    }
-    {
-      auto e = makeEntry(
-          SettingsSection::Dock, "behavior", tr("settings.schema.dock.launcher-custom-image-colorize.label"),
-          tr("settings.schema.dock.launcher-custom-image-colorize.description"),
-          {"dock", "launcher_custom_image_colorize"}, ToggleSetting{cfg.dock.launcherCustomImageColorize},
-          "launcher apps image tint color"
-      );
-      e.visibleWhen = dockLauncherEnabled;
-      entries.push_back(std::move(e));
-    }
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "layout", tr("settings.schema.shared.position.label"),
-        tr("settings.schema.dock.position.description"), {"dock", "position"},
-        asSegmented(enumSelect(kDockEdges, cfg.dock.position)), "edge"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "layout", tr("settings.schema.dock.icon-size.label"),
-        tr("settings.schema.dock.icon-size.description"), {"dock", "icon_size"},
-        sliderFor(cfg.dock.iconSize, noctalia::config::schema::kDockIconSizeRange, true), "apps"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "layout", tr("settings.schema.shared.main-axis-padding.label"),
-        tr("settings.schema.dock.main-axis-padding.description"), {"dock", "main_axis_padding"},
-        sliderFor(cfg.dock.mainAxisPadding, noctalia::config::schema::kDockPaddingRange, true), "inset"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "layout", tr("settings.schema.shared.cross-axis-padding.label"),
-        tr("settings.schema.dock.cross-axis-padding.description"), {"dock", "cross_axis_padding"},
-        sliderFor(cfg.dock.crossAxisPadding, noctalia::config::schema::kDockPaddingRange, true), "inset"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "layout", tr("settings.schema.dock.item-spacing.label"),
-        tr("settings.schema.dock.item-spacing.description"), {"dock", "item_spacing"},
-        sliderFor(cfg.dock.itemSpacing, noctalia::config::schema::kDockItemSpacingRange, true), "gap"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "layout", tr("settings.schema.shared.ends-margin.label"),
-        tr("settings.schema.dock.ends-margin.description"), {"dock", "margin_ends"},
-        sliderFor(cfg.dock.marginEnds, noctalia::config::schema::kDockMarginEndsRange, true), "gap inset"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "layout", tr("settings.schema.shared.edge-margin.label"),
-        tr("settings.schema.dock.edge-margin.description"), {"dock", "margin_edge"},
-        sliderFor(cfg.dock.marginEdge, noctalia::config::schema::kDockMarginEdgeRange, true), "gap inset"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "shape", tr("settings.schema.shared.corner-radius.label"),
-        tr("settings.schema.dock.corner-radius.description"), {"dock", "radius"},
-        sliderFor(cfg.dock.radius, noctalia::config::schema::kDockRadiusRange, true), "rounded"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "shape", tr("settings.schema.shared.corner-top-left.label"),
-        tr("settings.schema.dock.corner-top-left.description"), {"dock", "radius_top_left"},
-        sliderFor(cfg.dock.radiusTopLeft, noctalia::config::schema::kDockRadiusRange, true), "rounded corner", true
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "shape", tr("settings.schema.shared.corner-top-right.label"),
-        tr("settings.schema.dock.corner-top-right.description"), {"dock", "radius_top_right"},
-        sliderFor(cfg.dock.radiusTopRight, noctalia::config::schema::kDockRadiusRange, true), "rounded corner", true
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "shape", tr("settings.schema.shared.corner-bottom-left.label"),
-        tr("settings.schema.dock.corner-bottom-left.description"), {"dock", "radius_bottom_left"},
-        sliderFor(cfg.dock.radiusBottomLeft, noctalia::config::schema::kDockRadiusRange, true), "rounded corner", true
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "shape", tr("settings.schema.shared.corner-bottom-right.label"),
-        tr("settings.schema.dock.corner-bottom-right.description"), {"dock", "radius_bottom_right"},
-        sliderFor(cfg.dock.radiusBottomRight, noctalia::config::schema::kDockRadiusRange, true), "rounded corner", true
-    ));
-    {
-      auto e = makeEntry(
-          SettingsSection::Dock, "shape", tr("settings.schema.dock.concave-edge-corners.label"),
-          tr("settings.schema.dock.concave-edge-corners.description"), {"dock", "concave_edge_corners"},
-          ToggleSetting{cfg.dock.concaveEdgeCorners}, "rounded corner carve"
-      );
-      e.visibleWhen = [](const Config& c) { return c.dock.marginEdge == 0; };
-      entries.push_back(std::move(e));
-    }
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "shape", tr("settings.schema.dock.border.label"),
-        tr("settings.schema.dock.border.description"), {"dock", "border"}, colorSpecPicker(cfg.dock.border),
-        "outline color", true
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "shape", tr("settings.schema.dock.border-width.label"),
-        tr("settings.schema.dock.border-width.description"), {"dock", "border_width"},
-        sliderFor(cfg.dock.borderWidth, noctalia::config::schema::kDockBorderWidthRange, false), "outline stroke", true
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "effects", tr("settings.schema.shared.background-opacity.label"),
-        tr("settings.schema.dock.background-opacity.description"), {"dock", "background_opacity"},
-        sliderFor(cfg.dock.backgroundOpacity, noctalia::config::schema::kUnitRange, false), "alpha"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "effects", tr("settings.schema.shared.shadow.label"),
-        tr("settings.schema.dock.shadow.description"), {"dock", "shadow"}, ToggleSetting{cfg.dock.shadow}, "shadow"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.magnification.label"),
-        tr("settings.schema.dock.magnification.description"), {"dock", "magnification"},
-        ToggleSetting{cfg.dock.magnification}, "magnify zoom mac"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.magnification-scale.label"),
-        tr("settings.schema.dock.magnification-scale.description"), {"dock", "magnification_scale"},
-        sliderFor(cfg.dock.magnificationScale, noctalia::config::schema::kDockMagnificationScaleRange, false),
-        "magnify zoom"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.active-icon-scale.label"),
-        tr("settings.schema.dock.active-icon-scale.description"), {"dock", "active_scale"},
-        sliderFor(cfg.dock.activeScale, noctalia::config::schema::kDockActiveScaleRange, false), "focused", true
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.inactive-icon-scale.label"),
-        tr("settings.schema.dock.inactive-icon-scale.description"), {"dock", "inactive_scale"},
-        sliderFor(cfg.dock.inactiveScale, noctalia::config::schema::kDockInactiveScaleRange, false), "unfocused", true
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.active-icon-opacity.label"),
-        tr("settings.schema.dock.active-icon-opacity.description"), {"dock", "active_opacity"},
-        sliderFor(cfg.dock.activeOpacity, noctalia::config::schema::kUnitRange, false), "focused alpha", true
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "focus-styling", tr("settings.schema.dock.inactive-icon-opacity.label"),
-        tr("settings.schema.dock.inactive-icon-opacity.description"), {"dock", "inactive_opacity"},
-        sliderFor(cfg.dock.inactiveOpacity, noctalia::config::schema::kUnitRange, false), "unfocused alpha", true
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Dock, "pinned-apps", tr("settings.schema.dock.pinned-apps.label"),
-        tr("settings.schema.dock.pinned-apps.description"), {"dock", "pinned"}, ListSetting{.items = cfg.dock.pinned},
-        "pinned apps dock"
-    ));
 
     // Panels
     {
@@ -1138,12 +1235,23 @@ namespace settings {
         SettingsSection::Panels, "effects", tr("settings.schema.panels.transparency-mode.label"),
         tr("settings.schema.panels.transparency-mode.description"), {"shell", "panel", "transparency_mode"},
         asSegmented(enumSelect(kPanelTransparencyModes, cfg.shell.panel.transparencyMode)),
-        "glass opacity alpha translucent cards blur"
+        "glass alpha transparency translucent opacity cards blur"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Panels, "effects", tr("settings.schema.panels.borders.label"),
         tr("settings.schema.panels.borders.description"), {"shell", "panel", "borders"},
         ToggleSetting{cfg.shell.panel.borders}, "outline border shell edge"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Panels, "effects", tr("settings.schema.panels.border-color.label"),
+        tr("settings.schema.panels.border-color.description"), {"shell", "panel", "border_color"},
+        colorSpecPicker(cfg.shell.panel.borderColor), "outline border color theme accent"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Panels, "effects", tr("settings.schema.panels.border-width.label"),
+        tr("settings.schema.panels.border-width.description"), {"shell", "panel", "border_width"},
+        sliderFor(cfg.shell.panel.borderWidth, noctalia::config::schema::kPanelBorderWidthRange, false),
+        "outline border width thickness"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Panels, "effects", tr("settings.schema.shared.shadow.label"),
@@ -1167,12 +1275,13 @@ namespace settings {
         },
         "floating detached panel gap offset distance bar"
     ));
-    // Floating-position select for a panel, shown only when its placement is Floating.
+    // Position select for a panel. Floating pins it on screen; attached honors only
+    // positions on the bar's edge (see shell::attachedPositionAlign).
     const auto panelPositionEntry = [&](SettingsSection section, std::string group, std::string_view panelKey,
-                                        std::string_view labelKey, std::string_view descKey, const std::string& current,
-                                        PanelPlacement ShellConfig::PanelConfig::* placement) {
-      auto e = makeEntry(
-          section, group, tr(labelKey), tr(descKey),
+                                        std::string_view labelKey, std::string_view descKey,
+                                        const std::string& current) {
+      return makeEntry(
+          section, std::move(group), tr(labelKey), tr(descKey),
           {std::string("shell"), std::string("panel"), std::string(panelKey) + "_position"},
           plainSelect(
               {{"auto", "settings.options.panel-position.auto"},
@@ -1187,27 +1296,20 @@ namespace settings {
                {"bottom_right", "settings.options.screen-position.bottom-right"}},
               current
           ),
-          "panel position screen anchor corner edge floating bottom right"
+          "panel position screen anchor corner edge floating attached align bottom right"
       );
-      e.visibleWhen = [placement](const Config& c) { return c.shell.panel.*placement == PanelPlacement::Floating; };
-      return e;
     };
 
-    const auto panelBarAlignmentEntry = [](SettingsSection section, std::string group, std::string_view panelKey,
-                                           std::string_view labelKey, std::string_view descKey, bool nearTrigger,
-                                           PanelPlacement ShellConfig::PanelConfig::* placement,
-                                           std::string ShellConfig::PanelConfig::* position) {
-      auto alignment = plainSelect(
-          {{"false", "settings.options.panel-bar-alignment.centered"},
-           {"true", "settings.options.panel-bar-alignment.near-trigger"}},
-          nearTrigger ? "true" : "false"
-      );
-      alignment.segmented = true;
-      alignment.valueType = SelectValueType::Boolean;
+    // Click override: when on, a click on the panel's bar widget opens it near the widget
+    // instead of at its Position.
+    const auto panelOpenNearClickEntry = [](SettingsSection section, std::string group, std::string_view panelKey,
+                                            std::string_view labelKey, std::string_view descKey, bool nearClick,
+                                            PanelPlacement ShellConfig::PanelConfig::* placement,
+                                            std::string ShellConfig::PanelConfig::* position) {
       auto e = makeEntry(
           section, std::move(group), tr(labelKey), tr(descKey),
-          {"shell", "panel", std::string("open_near_click_") + std::string(panelKey)}, std::move(alignment),
-          "along bar centered near trigger widget click position anchor"
+          {"shell", "panel", std::string("open_near_click_") + std::string(panelKey)}, ToggleSetting{nearClick},
+          "open near click trigger widget along bar position anchor"
       );
       e.visibleWhen = [placement, position](const Config& c) {
         const auto& panel = c.shell.panel;
@@ -1225,65 +1327,169 @@ namespace settings {
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Launcher, "launcher", "launcher", "settings.schema.panels.position-launcher.label",
-        "settings.schema.panels.position-launcher.description", cfg.shell.panel.launcherPosition,
-        &ShellConfig::PanelConfig::launcherPlacement
+        "settings.schema.panels.position-launcher.description", cfg.shell.panel.launcherPosition
     ));
-    entries.push_back(panelBarAlignmentEntry(
+    entries.push_back(panelOpenNearClickEntry(
         SettingsSection::Launcher, "launcher", "launcher", "settings.schema.panels.open-near-click-launcher.label",
         "settings.schema.panels.open-near-click-launcher.description", cfg.shell.panel.openNearClickLauncher,
         &ShellConfig::PanelConfig::launcherPlacement, &ShellConfig::PanelConfig::launcherPosition
     ));
+    const SettingVisibility launcherFull = [](const Config& c) {
+      return c.shell.launcher.layout == ShellConfig::LauncherLayout::Full;
+    };
+    const SettingVisibility launcherSimple = [](const Config& c) {
+      return c.shell.launcher.layout == ShellConfig::LauncherLayout::Simple;
+    };
     entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-categories.label"),
-        tr("settings.schema.panels.launcher-categories.description"), {"shell", "launcher", "categories"},
-        ToggleSetting{cfg.shell.launcher.categories}, "launcher categories filter"
+        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-layout.label"),
+        tr("settings.schema.panels.launcher-layout.description"), {"shell", "launcher", "layout"},
+        asSegmented(enumSelect(ShellConfig::kLauncherLayouts, cfg.shell.launcher.layout)),
+        "launcher layout simple full classic minimal compact toolbar tabs"
     ));
+    {
+      auto width = sliderFor(cfg.shell.launcher.width, noctalia::config::schema::kLauncherWidthRange, true);
+      width.valueSuffix = "px";
+      auto e = makeEntry(
+          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-width.label"),
+          tr("settings.schema.panels.launcher-width.description"), {"shell", "launcher", "width"}, std::move(width),
+          "launcher panel width size"
+      );
+      e.visibleWhen = launcherFull;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-search-position.label"),
+          tr("settings.schema.panels.launcher-search-position.description"), {"shell", "launcher", "search_position"},
+          asSegmented(enumSelect(ShellConfig::kLauncherSearchPositions, cfg.shell.launcher.searchPosition)),
+          "launcher search toolbar position top bottom"
+      );
+      e.visibleWhen = launcherFull;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-default-view.label"),
+          tr("settings.schema.panels.launcher-default-view.description"), {"shell", "launcher", "default_view"},
+          enumSelect(ShellConfig::kLauncherDefaultViews, cfg.shell.launcher.defaultView),
+          "launcher default view recent pinned all apps categories"
+      );
+      e.visibleWhen = launcherFull;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-categories.label"),
+          tr("settings.schema.panels.launcher-categories.description"), {"shell", "launcher", "categories"},
+          ToggleSetting{cfg.shell.launcher.categories}, "launcher categories chips filter recent all"
+      );
+      e.visibleWhen = launcherSimple;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-category-icons-only.label"),
+          tr("settings.schema.panels.launcher-category-icons-only.description"),
+          {"shell", "launcher", "category_icons_only"}, ToggleSetting{cfg.shell.launcher.categoryIconsOnly},
+          "launcher app category icons labels text"
+      );
+      e.visibleWhen = [](const Config& c) {
+        return c.shell.launcher.layout == ShellConfig::LauncherLayout::Full || c.shell.launcher.categories;
+      };
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-navigation-labels.label"),
+          tr("settings.schema.panels.launcher-show-navigation-labels.description"),
+          {"shell", "launcher", "show_navigation_labels"}, ToggleSetting{cfg.shell.launcher.showNavigationLabels},
+          "launcher navigation tabs labels text recent pinned all categories providers icons"
+      );
+      e.visibleWhen = launcherFull;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-settings-button.label"),
+          tr("settings.schema.panels.launcher-show-settings-button.description"),
+          {"shell", "launcher", "show_settings_button"}, ToggleSetting{cfg.shell.launcher.showSettingsButton},
+          "launcher settings shortcut button"
+      );
+      e.visibleWhen = launcherFull;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-session-button.label"),
+          tr("settings.schema.panels.launcher-show-session-button.description"),
+          {"shell", "launcher", "show_session_button"}, ToggleSetting{cfg.shell.launcher.showSessionButton},
+          "launcher session power shortcut button"
+      );
+      e.visibleWhen = launcherFull;
+      entries.push_back(std::move(e));
+    }
     entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-icons.label"),
+        SettingsSection::Launcher, "display", tr("settings.schema.panels.launcher-show-icons.label"),
         tr("settings.schema.panels.launcher-show-icons.description"), {"shell", "launcher", "show_icons"},
         ToggleSetting{cfg.shell.launcher.showIcons}, "launcher app icons hide"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-app-origin-indicator.label"),
+        SettingsSection::Launcher, "display", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "launcher", "colorize_icons"},
+        ToggleSetting{cfg.shell.launcher.colorizeIcons}, "colorize tint application icons"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Launcher, "display", tr("settings.schema.panels.launcher-app-origin-indicator.label"),
         tr("settings.schema.panels.launcher-app-origin-indicator.description"),
         {"shell", "launcher", "show_app_origin_indicator"}, ToggleSetting{cfg.shell.launcher.showAppOriginIndicator},
         "launcher app origin indicator"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-app-grid.label"),
-        tr("settings.schema.panels.launcher-app-grid.description"), {"shell", "launcher", "app_grid"},
-        ToggleSetting{cfg.shell.launcher.appGrid}, "launcher app grid icons view"
+        SettingsSection::Launcher, "display", tr("settings.schema.panels.launcher-grid.label"),
+        tr("settings.schema.panels.launcher-grid.description"), {"shell", "launcher", "app_grid"},
+        ToggleSetting{cfg.shell.launcher.appGrid}, "launcher grid icons view layout"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-app-actions.label"),
-        tr("settings.schema.panels.launcher-app-actions.description"), {"shell", "launcher", "show_app_actions"},
-        ToggleSetting{cfg.shell.launcher.showAppActions}, "launcher app actions show"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-compact.label"),
+        SettingsSection::Launcher, "display", tr("settings.schema.panels.launcher-compact.label"),
         tr("settings.schema.panels.launcher-compact.description"), {"shell", "launcher", "compact"},
         ToggleSetting{cfg.shell.launcher.compact}, "launcher compact rows dense"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-sort-by-usage.label"),
-        tr("settings.schema.panels.launcher-sort-by-usage.description"), {"shell", "launcher", "sort_by_usage"},
-        ToggleSetting{cfg.shell.launcher.sortByUsage}, "launcher sort usage recently used frequency"
+        SettingsSection::Launcher, "behavior", tr("settings.schema.panels.launcher-app-actions.label"),
+        tr("settings.schema.panels.launcher-app-actions.description"), {"shell", "launcher", "show_app_actions"},
+        ToggleSetting{cfg.shell.launcher.showAppActions}, "launcher app actions show"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-pinned-apps.label"),
-        tr("settings.schema.panels.launcher-pinned-apps.description"), {"shell", "launcher", "pinned"},
-        ListSetting{.items = cfg.shell.launcher.pinned}, "launcher pinned apps"
+        SettingsSection::Launcher, "behavior", tr("settings.schema.panels.launcher-ignore-mouse.label"),
+        tr("settings.schema.panels.launcher-ignore-mouse.description"), {"shell", "launcher", "ignore_mouse"},
+        ToggleSetting{cfg.shell.launcher.ignoreMouse}, "launcher ignore disable mouse input pointer keyboard only"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-currency-exchange.label"),
+        SettingsSection::Launcher, "behavior", tr("settings.schema.panels.launcher-currency-exchange.label"),
         tr("settings.schema.panels.launcher-currency-exchange.description"),
         {"shell", "launcher", "fetch_exchange_rates"}, ToggleSetting{cfg.shell.launcher.fetchExchangeRates},
         "launcher currency exchange rates fetch online conversion"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-auto-paste.label"),
+        SettingsSection::Launcher, "behavior", tr("settings.schema.panels.launcher-auto-paste.label"),
         tr("settings.schema.panels.launcher-auto-paste.description"), {"shell", "launcher", "auto_paste"},
         enumSelect(kClipboardAutoPasteModes, cfg.shell.launcher.autoPaste), "launcher auto paste"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Launcher, "history", tr("settings.schema.panels.launcher-track-usage.label"),
+        tr("settings.schema.panels.launcher-track-usage.description"), {"shell", "launcher", "track_usage"},
+        ToggleSetting{cfg.shell.launcher.trackUsage}, "launcher track usage recent history frequency privacy"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Launcher, "history", tr("settings.schema.panels.launcher-sort-by-usage.label"),
+        tr("settings.schema.panels.launcher-sort-by-usage.description"), {"shell", "launcher", "sort_by_usage"},
+        ToggleSetting{cfg.shell.launcher.sortByUsage, cfg.shell.launcher.trackUsage},
+        "launcher sort usage recently used frequency"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Launcher, "pinned-apps", tr("settings.schema.panels.launcher-pinned-apps.label"),
+        tr("settings.schema.panels.launcher-pinned-apps.description"), {"shell", "launcher", "pinned"},
+        ListSetting{.items = cfg.shell.launcher.pinned}, "launcher pinned apps"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-prefix-character.label"),
@@ -1312,6 +1518,21 @@ namespace settings {
           {"shell", "launcher", "providers", std::string(provider.name), "global"}, ToggleSetting{global},
           std::format("launcher {} global search unprefixed", provider.name)
       ));
+      if (provider.name == "panels") {
+        ListSetting ignoredPanels;
+        ignoredPanels.items = cfg.shell.launcher.panels.ignored;
+        const auto knownPanelIds = panel_catalog::allKnownIds();
+        ignoredPanels.suggestedOptions.reserve(knownPanelIds.size());
+        for (const auto& panelId : knownPanelIds) {
+          ignoredPanels.suggestedOptions.push_back(SelectOption{panelId, panel_catalog::describe(panelId).title});
+        }
+        entries.push_back(makeEntry(
+            SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-ignored-panels.label"),
+            tr("settings.schema.panels.launcher-ignored-panels.description"),
+            {"shell", "launcher", "panels", "ignored"}, std::move(ignoredPanels),
+            "launcher panels ignore hide exclude noise polkit setup wizard test"
+        ));
+      }
     }
     entries.push_back(makeEntry(
         SettingsSection::Panels, "clipboard", tr("settings.schema.panels.placement-clipboard.label"),
@@ -1321,10 +1542,9 @@ namespace settings {
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Panels, "clipboard", "clipboard", "settings.schema.panels.position-clipboard.label",
-        "settings.schema.panels.position-clipboard.description", cfg.shell.panel.clipboardPosition,
-        &ShellConfig::PanelConfig::clipboardPlacement
+        "settings.schema.panels.position-clipboard.description", cfg.shell.panel.clipboardPosition
     ));
-    entries.push_back(panelBarAlignmentEntry(
+    entries.push_back(panelOpenNearClickEntry(
         SettingsSection::Panels, "clipboard", "clipboard", "settings.schema.panels.open-near-click-clipboard.label",
         "settings.schema.panels.open-near-click-clipboard.description", cfg.shell.panel.openNearClickClipboard,
         &ShellConfig::PanelConfig::clipboardPlacement, &ShellConfig::PanelConfig::clipboardPosition
@@ -1337,8 +1557,12 @@ namespace settings {
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Panels, "auth", "auth", "settings.schema.panels.position-auth.label",
-        "settings.schema.panels.position-auth.description", cfg.shell.panel.authPosition,
-        &ShellConfig::PanelConfig::authPlacement
+        "settings.schema.panels.position-auth.description", cfg.shell.panel.authPosition
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Panels, "wallpaper", tr("settings.schema.panels.wallpaper-show-names.label"),
+        tr("settings.schema.panels.wallpaper-show-names.description"), {"shell", "panel", "wallpaper_show_names"},
+        ToggleSetting{cfg.shell.panel.wallpaperShowNames}, "picker grid caption file name label thumbnail"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Panels, "wallpaper", tr("settings.schema.panels.placement-wallpaper.label"),
@@ -1348,10 +1572,9 @@ namespace settings {
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Panels, "wallpaper", "wallpaper", "settings.schema.panels.position-wallpaper.label",
-        "settings.schema.panels.position-wallpaper.description", cfg.shell.panel.wallpaperPosition,
-        &ShellConfig::PanelConfig::wallpaperPlacement
+        "settings.schema.panels.position-wallpaper.description", cfg.shell.panel.wallpaperPosition
     ));
-    entries.push_back(panelBarAlignmentEntry(
+    entries.push_back(panelOpenNearClickEntry(
         SettingsSection::Panels, "wallpaper", "wallpaper", "settings.schema.panels.open-near-click-wallpaper.label",
         "settings.schema.panels.open-near-click-wallpaper.description", cfg.shell.panel.openNearClickWallpaper,
         &ShellConfig::PanelConfig::wallpaperPlacement, &ShellConfig::PanelConfig::wallpaperPosition
@@ -1368,10 +1591,9 @@ namespace settings {
     entries.push_back(panelPositionEntry(
         SettingsSection::ControlCenter, "layout", "control_center",
         "settings.schema.panels.position-control-center.label",
-        "settings.schema.panels.position-control-center.description", cfg.shell.panel.controlCenterPosition,
-        &ShellConfig::PanelConfig::controlCenterPlacement
+        "settings.schema.panels.position-control-center.description", cfg.shell.panel.controlCenterPosition
     ));
-    entries.push_back(panelBarAlignmentEntry(
+    entries.push_back(panelOpenNearClickEntry(
         SettingsSection::ControlCenter, "layout", "control_center",
         "settings.schema.panels.open-near-click-control-center.label",
         "settings.schema.panels.open-near-click-control-center.description", cfg.shell.panel.openNearClickControlCenter,
@@ -1434,6 +1656,16 @@ namespace settings {
         SettingsSection::ControlCenter, "home", tr("settings.schema.panels.home-session-button.label"),
         tr("settings.schema.panels.home-session-button.description"), {"control_center", "show_session_button"},
         ToggleSetting{cfg.controlCenter.showSessionButton}, "session button show hide"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::ControlCenter, "home", tr("settings.schema.panels.home-circular-avatar.label"),
+        tr("settings.schema.panels.home-circular-avatar.description"), {"control_center", "circular_avatar"},
+        ToggleSetting{cfg.controlCenter.circularAvatar}, "avatar profile picture circle radius roundness"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::ControlCenter, "home", tr("settings.schema.panels.home-avatar-border.label"),
+        tr("settings.schema.panels.home-avatar-border.description"), {"control_center", "show_avatar_border"},
+        ToggleSetting{cfg.controlCenter.showAvatarBorder}, "avatar border ring accent hide show"
     ));
 
     // Desktop
@@ -1561,22 +1793,45 @@ namespace settings {
         ToggleSetting{cfg.shell.systemdPasswordAgent}, "auth password"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Security, "authentication", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "polkit_colorize_icons"},
+        ToggleSetting{cfg.shell.polkitColorizeIcons}, "authentication application icons colorize tint"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Security, "authentication", tr("settings.schema.shell.password-style.label"),
         tr("settings.schema.shell.password-style.description"), {"shell", "password_style"},
         asSegmented(enumSelect(kPasswordMaskStyles, cfg.shell.passwordMaskStyle)), "polkit lock mask"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Security, "privacy", tr("settings.schema.shell.privacy-mic-filter-regex.label"),
+        tr("settings.schema.shell.privacy-mic-filter-regex.description"), {"shell", "privacy", "mic_filter_regex"},
+        TextSetting{.value = cfg.shell.privacy.micFilterRegex, .placeholder = "", .browseFileExtensions = {}},
+        "privacy microphone mic app process regex filter ignore"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Security, "privacy", tr("settings.schema.shell.privacy-cam-filter-regex.label"),
+        tr("settings.schema.shell.privacy-cam-filter-regex.description"), {"shell", "privacy", "cam_filter_regex"},
+        TextSetting{.value = cfg.shell.privacy.camFilterRegex, .placeholder = "", .browseFileExtensions = {}},
+        "privacy camera webcam app process regex filter ignore"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Security, "privacy", tr("settings.schema.shell.privacy-screen-filter-regex.label"),
+        tr("settings.schema.shell.privacy-screen-filter-regex.description"),
+        {"shell", "privacy", "screen_filter_regex"},
+        TextSetting{.value = cfg.shell.privacy.screenFilterRegex, .placeholder = "", .browseFileExtensions = {}},
+        "privacy screen share screenshare app process regex filter ignore"
+    ));
+
+    // Lock screen
     const SettingVisibility lockscreenOn = [](const Config& c) { return c.lockscreen.enabled; };
+    entries.push_back(makeEntry(
+        SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.enabled.label"),
+        tr("settings.schema.lockscreen.enabled.description"), {"lockscreen", "enabled"},
+        ToggleSetting{cfg.lockscreen.enabled}, "lock screen session"
+    ));
     {
       auto e = makeEntry(
-          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.enabled.label"),
-          tr("settings.schema.lockscreen.enabled.description"), {"lockscreen", "enabled"},
-          ToggleSetting{cfg.lockscreen.enabled}, "lock screen session"
-      );
-      entries.push_back(std::move(e));
-    }
-    {
-      auto e = makeEntry(
-          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.lock-before-suspend.label"),
+          SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.lock-before-suspend.label"),
           tr("settings.schema.lockscreen.lock-before-suspend.description"), {"lockscreen", "lock_before_suspend"},
           ToggleSetting{cfg.lockscreen.lockBeforeSuspend}, "lock screen before suspend sleep lid close prepareforsleep"
       );
@@ -1585,7 +1840,33 @@ namespace settings {
     }
     {
       auto e = makeEntry(
-          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.fingerprint.label"),
+          SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.grace-period.label"),
+          tr("settings.schema.lockscreen.grace-period.description"), {"lockscreen", "grace_period_seconds"},
+          StepperSetting{
+              .value = std::clamp(cfg.lockscreen.gracePeriodSeconds, 0, 60),
+              .minValue = 0,
+              .maxValue = 60,
+              .step = 1,
+              .valueSuffix = "s"
+          },
+          "lock screen grace period passwordless unlock keypress mouse movement"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.monitors.label"),
+          tr("settings.schema.lockscreen.monitors.description"), {"lockscreen", "monitors"},
+          ListSetting{.items = cfg.lockscreen.monitors, .suggestedOptions = env.availableOutputs},
+          "lock screen monitor output connector"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::LockScreen, "authentication", tr("settings.schema.lockscreen.fingerprint.label"),
           tr("settings.schema.lockscreen.fingerprint.description"), {"lockscreen", "fingerprint"},
           ToggleSetting{cfg.lockscreen.fingerprint}, "lock screen fingerprint fprintd biometric"
       );
@@ -1594,7 +1875,7 @@ namespace settings {
     }
     {
       auto e = makeEntry(
-          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.allow-empty-password.label"),
+          SettingsSection::LockScreen, "authentication", tr("settings.schema.lockscreen.allow-empty-password.label"),
           tr("settings.schema.lockscreen.allow-empty-password.description"), {"lockscreen", "allow_empty_password"},
           ToggleSetting{cfg.lockscreen.allowEmptyPassword}, "lock screen empty password security key pam"
       );
@@ -1603,7 +1884,7 @@ namespace settings {
     }
     if (env.screencopySupported) {
       auto e = makeEntry(
-          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.blurred-desktop.label"),
+          SettingsSection::LockScreen, "background", tr("settings.schema.lockscreen.blurred-desktop.label"),
           tr("settings.schema.lockscreen.blurred-desktop.description"), {"lockscreen", "blurred_desktop"},
           ToggleSetting{cfg.lockscreen.blurredDesktop}, "lock screen desktop capture screencopy background"
       );
@@ -1615,7 +1896,7 @@ namespace settings {
         return c.lockscreen.enabled && !c.lockscreen.blurredDesktop;
       };
       auto e = makeEntry(
-          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.wallpaper.label"),
+          SettingsSection::LockScreen, "background", tr("settings.schema.lockscreen.wallpaper.label"),
           tr("settings.schema.lockscreen.wallpaper.description"), {"lockscreen", "wallpaper"},
           TextSetting{
               .value = cfg.lockscreen.wallpaper,
@@ -1636,7 +1917,7 @@ namespace settings {
     }
     {
       auto e = makeEntry(
-          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.blur-intensity.label"),
+          SettingsSection::LockScreen, "background", tr("settings.schema.lockscreen.blur-intensity.label"),
           tr("settings.schema.lockscreen.blur-intensity.description"), {"lockscreen", "blur_intensity"},
           sliderFor(cfg.lockscreen.blurIntensity, noctalia::config::schema::kUnitRange, false), "lock screen blur"
       );
@@ -1645,7 +1926,7 @@ namespace settings {
     }
     {
       auto e = makeEntry(
-          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.tint-intensity.label"),
+          SettingsSection::LockScreen, "background", tr("settings.schema.lockscreen.tint-intensity.label"),
           tr("settings.schema.lockscreen.tint-intensity.description"), {"lockscreen", "tint_intensity"},
           sliderFor(cfg.lockscreen.tintIntensity, noctalia::config::schema::kUnitRange, false), "lock screen tint"
       );
@@ -1654,45 +1935,63 @@ namespace settings {
     }
     {
       auto e = makeEntry(
-          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.monitors.label"),
-          tr("settings.schema.lockscreen.monitors.description"), {"lockscreen", "monitors"},
-          ListSetting{.items = cfg.lockscreen.monitors, .suggestedOptions = env.availableOutputs},
-          "lock screen monitor output connector"
+          SettingsSection::LockScreen, "background", tr("settings.schema.lockscreen.tint-color.label"),
+          tr("settings.schema.lockscreen.tint-color.description"), {"lockscreen", "tint_color"},
+          colorSpecPicker(cfg.lockscreen.tintColor), "lock screen tint color theme accent"
       );
       e.visibleWhen = lockscreenOn;
       entries.push_back(std::move(e));
     }
+    if (env.screencopySupported) {
+      MultiSelectSetting transitions;
+      transitions.options.reserve(std::size(kLockscreenTransitions));
+      for (const auto& opt : kLockscreenTransitions) {
+        transitions.options.push_back(SelectOption{std::string(opt.key), tr(opt.labelKey)});
+      }
+      transitions.selectedValues.reserve(cfg.lockscreen.transitions.size());
+      for (const auto& transition : cfg.lockscreen.transitions) {
+        transitions.selectedValues.emplace_back(enumToKey(kLockscreenTransitions, transition));
+      }
+      auto transitionEffects = makeEntry(
+          SettingsSection::LockScreen, "transition", tr("settings.schema.lockscreen.transitions.label"),
+          tr("settings.schema.lockscreen.transitions.description"), {"lockscreen", "transition"},
+          std::move(transitions), "lock screen effects animation pool"
+      );
+      transitionEffects.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(transitionEffects));
+
+      auto transitionDuration = makeEntry(
+          SettingsSection::LockScreen, "transition", tr("settings.schema.lockscreen.transition-duration.label"),
+          tr("settings.schema.lockscreen.transition-duration.description"), {"lockscreen", "transition_duration"},
+          sliderFor(
+              cfg.lockscreen.transitionDurationMs, noctalia::config::schema::kLockscreenTransitionDurationRange, true
+          ),
+          "lock screen transition animation duration"
+      );
+      transitionDuration.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(transitionDuration));
+
+      auto edgeSmoothness = makeEntry(
+          SettingsSection::LockScreen, "transition", tr("settings.schema.lockscreen.edge-smoothness.label"),
+          tr("settings.schema.lockscreen.edge-smoothness.description"), {"lockscreen", "edge_smoothness"},
+          sliderFor(cfg.lockscreen.edgeSmoothness, noctalia::config::schema::kUnitRange, false),
+          "lock screen transition feathering", true
+      );
+      edgeSmoothness.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(edgeSmoothness));
+    }
     {
       auto e = makeEntry(
-          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.widgets.label"),
+          SettingsSection::LockScreen, "widgets", tr("settings.schema.lockscreen.widgets.label"),
           tr("settings.schema.lockscreen.widgets.description"), {"lockscreen_widgets", "enabled"},
           ToggleSetting{cfg.lockscreenWidgets.enabled}, "lock screen widgets layout"
       );
       e.visibleWhen = lockscreenOn;
       entries.push_back(std::move(e));
     }
-    entries.push_back(makeEntry(
-        SettingsSection::Security, "privacy", tr("settings.schema.shell.privacy-mic-filter-regex.label"),
-        tr("settings.schema.shell.privacy-mic-filter-regex.description"), {"shell", "privacy", "mic_filter_regex"},
-        TextSetting{.value = cfg.shell.privacy.micFilterRegex, .placeholder = "", .browseFileExtensions = {}},
-        "privacy microphone mic app process regex filter ignore"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Security, "privacy", tr("settings.schema.shell.privacy-cam-filter-regex.label"),
-        tr("settings.schema.shell.privacy-cam-filter-regex.description"), {"shell", "privacy", "cam_filter_regex"},
-        TextSetting{.value = cfg.shell.privacy.camFilterRegex, .placeholder = "", .browseFileExtensions = {}},
-        "privacy camera webcam app process regex filter ignore"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Security, "privacy", tr("settings.schema.shell.privacy-screen-filter-regex.label"),
-        tr("settings.schema.shell.privacy-screen-filter-regex.description"),
-        {"shell", "privacy", "screen_filter_regex"},
-        TextSetting{.value = cfg.shell.privacy.screenFilterRegex, .placeholder = "", .browseFileExtensions = {}},
-        "privacy screen share screenshare app process regex filter ignore"
-    ));
     if (env.greeterSyncAvailable) {
       entries.push_back(makeEntry(
-          SettingsSection::Security, "greeter", tr("settings.schema.shell.greeter-sync-privilege-command.label"),
+          SettingsSection::LockScreen, "greeter", tr("settings.schema.shell.greeter-sync-privilege-command.label"),
           tr("settings.schema.shell.greeter-sync-privilege-command.description"),
           {"shell", "greeter_sync", "privilege_command"},
           TextSetting{
@@ -1700,9 +1999,10 @@ namespace settings {
               .placeholder = "pkexec",
               .browseFileExtensions = {},
           },
-          "greeter sync pkexec run0 ghostty terminal sudo"
+          "greeter sync pkexec run0 ghostty terminal sudo polkit wrapper"
       ));
     }
+
     // Shell
     entries.push_back(makeEntry(
         SettingsSection::Shell, "general", tr("settings.schema.shell.avatar-path.label"),
@@ -1718,7 +2018,13 @@ namespace settings {
     entries.push_back(makeEntry(
         SettingsSection::Shell, "general", tr("settings.schema.shell.settings-window-translucent.label"),
         tr("settings.schema.shell.settings-window-translucent.description"), {"shell", "settings_window_translucent"},
-        ToggleSetting{cfg.shell.settingsWindowTranslucent}, "settings window background transparency translucent"
+        ToggleSetting{cfg.shell.settingsWindowTranslucent},
+        "settings window background alpha transparency translucent opacity"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "general", tr("settings.schema.shell.settings-expand-all-groups.label"),
+        tr("settings.schema.shell.settings-expand-all-groups.description"), {"shell", "settings_expand_all_groups"},
+        ToggleSetting{cfg.shell.settingsExpandAllGroups}, "settings window groups expand collapse expanded"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Shell, "general", tr("settings.schema.shell.time-format.label"),
@@ -1731,6 +2037,11 @@ namespace settings {
         tr("settings.schema.shell.date-format.description"), {"shell", "date_format"},
         TextSetting{.value = cfg.shell.dateFormat, .placeholder = "%A, %x", .browseFileExtensions = {}},
         "calendar date format strftime chrono"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "general", tr("settings.schema.shell.readline-shortcuts.label"),
+        tr("settings.schema.shell.readline-shortcuts.description"), {"shell", "readline_shortcuts"},
+        ToggleSetting{cfg.shell.readlineShortcuts}, "readline emacs keyboard shortcuts text input line editing"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Shell, "keyboard-layout", tr("settings.schema.shell.keyboard-layout-custom-labels.label"),
@@ -1838,13 +2149,113 @@ namespace settings {
       entries.push_back(std::move(e));
     }
     entries.push_back(makeEntry(
-        SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-save-to-file.label"),
+        SettingsSection::Screenshot, "screenshot-capture", tr("settings.schema.shell.screenshot-freeze-screen.label"),
+        tr("settings.schema.shell.screenshot-freeze-screen.description"), {"shell", "screenshot", "freeze_screen"},
+        ToggleSetting{cfg.shell.screenshot.freezeScreen}, "screenshot capture freeze region selection"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture", tr("settings.schema.shell.screenshot-confirm-region.label"),
+        tr("settings.schema.shell.screenshot-confirm-region.description"), {"shell", "screenshot", "confirm_region"},
+        ToggleSetting{cfg.shell.screenshot.confirmRegion}, "screenshot capture confirm region selection"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture",
+        tr("settings.schema.shell.screenshot-remember-last-region.label"),
+        tr("settings.schema.shell.screenshot-remember-last-region.description"),
+        {"shell", "screenshot", "remember_last_region"}, ToggleSetting{cfg.shell.screenshot.rememberLastRegion},
+        "screenshot capture remember last region selection"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture", tr("settings.schema.shell.screenshot-region-modifier.label"),
+        tr("settings.schema.shell.screenshot-region-modifier.description"), {"shell", "screenshot", "region_modifier"},
+        enumSelect(kScreenshotRegionModifiers, cfg.shell.screenshot.regionModifier),
+        "screenshot region modifier move resize drag selection captures"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture", tr("settings.schema.shell.screenshot-show-cursor.label"),
+        tr("settings.schema.shell.screenshot-show-cursor.description"), {"shell", "screenshot", "show_cursor"},
+        ToggleSetting{cfg.shell.screenshot.showCursor}, "screenshot capture show cursor pointer mouse"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture",
+        tr("settings.schema.shell.screenshot-region-border-width.label"),
+        tr("settings.schema.shell.screenshot-region-border-width.description"),
+        {"shell", "screenshot", "region_border_width"},
+        sliderFor(
+            cfg.shell.screenshot.regionBorderWidth, noctalia::config::schema::kScreenshotRegionBorderWidthRange, false
+        ),
+        "screenshot region border outline width stroke"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture",
+        tr("settings.schema.shell.screenshot-region-dim-opacity.label"),
+        tr("settings.schema.shell.screenshot-region-dim-opacity.description"),
+        {"shell", "screenshot", "region_dim_opacity"},
+        sliderFor(cfg.shell.screenshot.regionDimOpacity, noctalia::config::schema::kUnitRange, false),
+        "screenshot region dim opacity darkness overlay"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture",
+        tr("settings.schema.shell.screenshot-show-region-hint.label"),
+        tr("settings.schema.shell.screenshot-show-region-hint.description"),
+        {"shell", "screenshot", "show_region_hint"}, ToggleSetting{cfg.shell.screenshot.showRegionHint},
+        "screenshot region confirm hint keybind copy save cancel"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture",
+        tr("settings.schema.shell.screenshot-show-region-dimensions.label"),
+        tr("settings.schema.shell.screenshot-show-region-dimensions.description"),
+        {"shell", "screenshot", "show_region_dimensions"}, ToggleSetting{cfg.shell.screenshot.showRegionDimensions},
+        "screenshot region dimensions size tooltip badge"
+    ));
+
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-annotation", tr("settings.schema.shell.screenshot-annotate.label"),
+        tr("settings.schema.shell.screenshot-annotate.description"), {"shell", "screenshot", "annotate"},
+        ToggleSetting{cfg.shell.screenshot.annotate}, "screenshot annotate annotation draw edit markup"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-annotation",
+        tr("settings.schema.shell.screenshot-skip-annotate-on-copy-save.label"),
+        tr("settings.schema.shell.screenshot-skip-annotate-on-copy-save.description"),
+        {"shell", "screenshot", "skip_annotate_on_copy_save"},
+        ToggleSetting{cfg.shell.screenshot.skipAnnotateOnCopySave},
+        "screenshot annotate annotation skip copy save region quick"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-annotation",
+        tr("settings.schema.shell.screenshot-close-on-copy.label"),
+        tr("settings.schema.shell.screenshot-close-on-copy.description"), {"shell", "screenshot", "close_on_copy"},
+        ToggleSetting{cfg.shell.screenshot.closeOnCopy}, "screenshot annotation close copy clipboard exit"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-annotation",
+        tr("settings.schema.shell.screenshot-close-on-save.label"),
+        tr("settings.schema.shell.screenshot-close-on-save.description"), {"shell", "screenshot", "close_on_save"},
+        ToggleSetting{cfg.shell.screenshot.closeOnSave}, "screenshot annotation close save exit"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-annotation",
+        tr("settings.schema.shell.screenshot-copy-on-close.label"),
+        tr("settings.schema.shell.screenshot-copy-on-close.description"), {"shell", "screenshot", "copy_on_close"},
+        ToggleSetting{cfg.shell.screenshot.copyOnClose}, "screenshot annotation cancel copy clipboard close exit"
+    ));
+
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-output",
+        tr("settings.schema.shell.screenshot-copy-to-clipboard.label"),
+        tr("settings.schema.shell.screenshot-copy-to-clipboard.description"),
+        {"shell", "screenshot", "copy_to_clipboard"}, ToggleSetting{cfg.shell.screenshot.copyToClipboard},
+        "screenshot capture clipboard copy"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-output", tr("settings.schema.shell.screenshot-save-to-file.label"),
         tr("settings.schema.shell.screenshot-save-to-file.description"), {"shell", "screenshot", "save_to_file"},
-        ToggleSetting{cfg.shell.screenshot.saveToFile}, "screenshot capture save png file"
+        ToggleSetting{cfg.shell.screenshot.saveToFile}, "screenshot capture save file"
     ));
     {
       auto e = makeEntry(
-          SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-directory.label"),
+          SettingsSection::Screenshot, "screenshot-output", tr("settings.schema.shell.screenshot-directory.label"),
           tr("settings.schema.shell.screenshot-directory.description"), {"shell", "screenshot", "directory"},
           TextSetting{
               .value = cfg.shell.screenshot.directory,
@@ -1858,7 +2269,8 @@ namespace settings {
     }
     {
       auto e = makeEntry(
-          SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-filename-pattern.label"),
+          SettingsSection::Screenshot, "screenshot-output",
+          tr("settings.schema.shell.screenshot-filename-pattern.label"),
           tr("settings.schema.shell.screenshot-filename-pattern.description"),
           {"shell", "screenshot", "filename_pattern"},
           TextSetting{
@@ -1866,45 +2278,34 @@ namespace settings {
               .placeholder = "screenshot_%Y%m%d_%H%M%S",
               .browseFileExtensions = {}
           },
-          "screenshot capture filename pattern strftime"
+          "screenshot capture filename pattern strftime", true
       );
       entries.push_back(std::move(e));
     }
     entries.push_back(makeEntry(
-        SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-copy-to-clipboard.label"),
-        tr("settings.schema.shell.screenshot-copy-to-clipboard.description"),
-        {"shell", "screenshot", "copy_to_clipboard"}, ToggleSetting{cfg.shell.screenshot.copyToClipboard},
-        "screenshot capture clipboard copy"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-freeze-screen.label"),
-        tr("settings.schema.shell.screenshot-freeze-screen.description"), {"shell", "screenshot", "freeze_screen"},
-        ToggleSetting{cfg.shell.screenshot.freezeScreen}, "screenshot capture freeze region region"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-confirm-region.label"),
-        tr("settings.schema.shell.screenshot-confirm-region.description"), {"shell", "screenshot", "confirm_region"},
-        ToggleSetting{cfg.shell.screenshot.confirmRegion}, "screenshot capture confirm region selection"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-remember-last-region.label"),
-        tr("settings.schema.shell.screenshot-remember-last-region.description"),
-        {"shell", "screenshot", "remember_last_region"}, ToggleSetting{cfg.shell.screenshot.rememberLastRegion},
-        "screenshot capture remember last region selection"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-show-cursor.label"),
-        tr("settings.schema.shell.screenshot-show-cursor.description"), {"shell", "screenshot", "show_cursor"},
-        ToggleSetting{cfg.shell.screenshot.showCursor}, "screenshot capture show cursor pointer mouse"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-pipe-to-command.label"),
-        tr("settings.schema.shell.screenshot-pipe-to-command.description"), {"shell", "screenshot", "pipe_to_command"},
-        ToggleSetting{cfg.shell.screenshot.pipeToCommand}, "screenshot capture pipe command stdin"
+        SettingsSection::Screenshot, "screenshot-output", tr("settings.schema.shell.screenshot-format.label"),
+        tr("settings.schema.shell.screenshot-format.description"), {"shell", "screenshot", "format"},
+        enumSelect(kScreenshotFormats, cfg.shell.screenshot.format),
+        "screenshot capture save file format png jpeg jpg webp jxl jpeg-xl"
     ));
     {
       auto e = makeEntry(
-          SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-pipe-command.label"),
+          SettingsSection::Screenshot, "screenshot-output", tr("settings.schema.shell.screenshot-quality.label"),
+          tr("settings.schema.shell.screenshot-quality.description"), {"shell", "screenshot", "quality"},
+          sliderFor(cfg.shell.screenshot.quality, noctalia::config::schema::kScreenshotQualityRange, true),
+          "screenshot capture save file quality compression lossless jpeg webp jxl"
+      );
+      e.visibleWhen = [](const Config& c) { return c.shell.screenshot.format != ScreenshotFormat::Png; };
+      entries.push_back(std::move(e));
+    }
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-output", tr("settings.schema.shell.screenshot-pipe-to-command.label"),
+        tr("settings.schema.shell.screenshot-pipe-to-command.description"), {"shell", "screenshot", "pipe_to_command"},
+        ToggleSetting{cfg.shell.screenshot.pipeToCommand}, "screenshot capture run pipe command stdin"
+    ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Screenshot, "screenshot-output", tr("settings.schema.shell.screenshot-pipe-command.label"),
           tr("settings.schema.shell.screenshot-pipe-command.description"), {"shell", "screenshot", "pipe_command"},
           TextSetting{
               .value = cfg.shell.screenshot.pipeCommand,
@@ -1912,15 +2313,57 @@ namespace settings {
               .width = 320.0F,
               .browseFileExtensions = {}
           },
-          "screenshot capture pipe command stdin png"
+          "screenshot capture run pipe command stdin png"
       );
       e.visibleWhen = [](const Config& c) { return c.shell.screenshot.pipeToCommand; };
       entries.push_back(std::move(e));
     }
     entries.push_back(makeEntry(
+        SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-style.label"),
+        tr("settings.schema.shell.window-switcher-style.description"), {"shell", "window_switcher", "style"},
+        enumSelect(ShellConfig::kWindowSwitcherStyles, cfg.shell.windowSwitcher.style),
+        "window switcher alt tab style carousel compact icons"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-mru.label"),
         tr("settings.schema.shell.window-switcher-mru.description"), {"shell", "window_switcher", "mru"},
         ToggleSetting{cfg.shell.windowSwitcher.mru}, "window switcher alt tab mru most recently used"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-show-caption.label"),
+        tr("settings.schema.shell.window-switcher-show-caption.description"),
+        {"shell", "window_switcher", "show_caption"}, ToggleSetting{cfg.shell.windowSwitcher.showCaption},
+        "window switcher alt tab caption title application name"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-show-count.label"),
+        tr("settings.schema.shell.window-switcher-show-count.description"), {"shell", "window_switcher", "show_count"},
+        ToggleSetting{cfg.shell.windowSwitcher.showCount}, "window switcher alt tab count position total"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-show-app-icon.label"),
+        tr("settings.schema.shell.window-switcher-show-app-icon.description"),
+        {"shell", "window_switcher", "show_app_icon"}, ToggleSetting{cfg.shell.windowSwitcher.showAppIcon},
+        "window switcher alt tab application app icon"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "window-switcher", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "window_switcher", "colorize_icons"},
+        ToggleSetting{cfg.shell.windowSwitcher.colorizeIcons}, "window switcher colorize tint application icons"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-show-all-outputs.label"),
+        tr("settings.schema.shell.window-switcher-show-all-outputs.description"),
+        {"shell", "window_switcher", "show_all_outputs"}, ToggleSetting{cfg.shell.windowSwitcher.showAllOutputs},
+        "window switcher alt tab monitor display output screen all current"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "window-switcher",
+        tr("settings.schema.shell.window-switcher-current-workspace-only.label"),
+        tr("settings.schema.shell.window-switcher-current-workspace-only.description"),
+        {"shell", "window_switcher", "current_workspace_only"},
+        ToggleSetting{cfg.shell.windowSwitcher.currentWorkspaceOnly},
+        "window switcher alt tab workspace current only filter"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-enabled.label"),
@@ -1949,7 +2392,8 @@ namespace settings {
              {"bottom_left", "settings.options.screen-position.bottom-left"},
              {"bottom_center", "settings.options.screen-position.bottom-center"},
              {"center_right", "settings.options.screen-position.center-right"},
-             {"center_left", "settings.options.screen-position.center-left"}},
+             {"center_left", "settings.options.screen-position.center-left"},
+             {"center", "settings.options.screen-position.center"}},
             cfg.osd.position
         ),
         "hud overlay volume brightness horizontal text"
@@ -1965,10 +2409,23 @@ namespace settings {
              {"bottom_left", "settings.options.screen-position.bottom-left"},
              {"bottom_center", "settings.options.screen-position.bottom-center"},
              {"center_right", "settings.options.screen-position.center-right"},
-             {"center_left", "settings.options.screen-position.center-left"}},
+             {"center_left", "settings.options.screen-position.center-left"},
+             {"center", "settings.options.screen-position.center"}},
             cfg.osd.positionVertical
         ),
         "hud overlay volume brightness vertical slider"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-hide-delay.label"),
+        tr("settings.schema.shell.osd-hide-delay.description"), {"osd", "hide_delay_ms"},
+        StepperSetting{
+            .value = static_cast<int>(cfg.osd.hideDelayMs),
+            .minValue = static_cast<int>(noctalia::config::schema::kOsdHideDelayMsRange.min.value()),
+            .maxValue = static_cast<int>(noctalia::config::schema::kOsdHideDelayMsRange.max.value()),
+            .step = static_cast<int>(noctalia::config::schema::kOsdHideDelayMsRange.step.value()),
+            .valueSuffix = "ms",
+        },
+        "hud overlay popup timeout duration visible"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-scale.label"),
@@ -1991,7 +2448,8 @@ namespace settings {
     entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-background-opacity.label"),
         tr("settings.schema.shell.osd-background-opacity.description"), {"osd", "background_opacity"},
-        sliderFor(cfg.osd.backgroundOpacity, noctalia::config::schema::kUnitRange, false), "hud overlay popup opacity"
+        sliderFor(cfg.osd.backgroundOpacity, noctalia::config::schema::kUnitRange, false),
+        "hud overlay popup alpha transparency translucent opacity"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-border.label"),
@@ -1999,11 +2457,31 @@ namespace settings {
         "outline border"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-monitors.label"),
-        tr("settings.schema.shell.osd-monitors.description"), {"osd", "monitors"},
-        ListSetting{.items = cfg.osd.monitors, .suggestedOptions = env.availableOutputs},
-        "monitor output display screen hud overlay"
+        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-border-color.label"),
+        tr("settings.schema.shell.osd-border-color.description"), {"osd", "border_color"},
+        colorSpecPicker(cfg.osd.borderColor), "outline border color theme accent"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-border-width.label"),
+        tr("settings.schema.shell.osd-border-width.description"), {"osd", "border_width"},
+        sliderFor(cfg.osd.borderWidth, noctalia::config::schema::kOsdBorderWidthRange, false),
+        "outline border width thickness"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-follow-focused-output.label"),
+        tr("settings.schema.shell.osd-follow-focused-output.description"), {"osd", "follow_focused_output"},
+        ToggleSetting{cfg.osd.followFocusedOutput}, "monitor output display focused active hud overlay"
+    ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-monitors.label"),
+          tr("settings.schema.shell.osd-monitors.description"), {"osd", "monitors"},
+          ListSetting{.items = cfg.osd.monitors, .suggestedOptions = env.availableOutputs},
+          "monitor output display screen hud overlay"
+      );
+      e.visibleWhen = [](const Config& c) { return !c.osd.followFocusedOutput; };
+      entries.push_back(std::move(e));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-volume.label"),
         tr("settings.schema.shell.osd-kinds-volume.description"), {"osd", "kinds", "volume"},
@@ -2079,6 +2557,11 @@ namespace settings {
         ToggleSetting{cfg.osd.kinds.media}, "hud overlay mpris audio music"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media-volume.label"),
+        tr("settings.schema.shell.osd-kinds-media-volume.description"), {"osd", "kinds", "media_volume"},
+        ToggleSetting{cfg.osd.kinds.mediaVolume}, "hud overlay mpris media player volume level"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-privacy.label"),
         tr("settings.schema.shell.osd-kinds-privacy.description"), {"osd", "kinds", "privacy"},
         ToggleSetting{cfg.osd.kinds.privacy}, "hud overlay microphone camera screen share recording"
@@ -2087,6 +2570,11 @@ namespace settings {
         SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-keyboard-backlight.label"),
         tr("settings.schema.shell.osd-kinds-keyboard-backlight.description"), {"osd", "kinds", "keyboard_backlight"},
         ToggleSetting{cfg.osd.kinds.keyboardBacklight}, "hud overlay keyboard backlight kbd"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-custom.label"),
+        tr("settings.schema.shell.osd-kinds-custom.description"), {"osd", "kinds", "custom"},
+        ToggleSetting{cfg.osd.kinds.custom}, "hud overlay plugin custom script"
     ));
     // Gate every OSD entry after the master toggle on osd.enabled, preserving any per-entry visibility.
     for (std::size_t i = osdGatedStart; i < entries.size(); ++i) {
@@ -2180,6 +2668,14 @@ namespace settings {
             "niri overview type launch launcher search keyboard focus"
         ));
       }
+      if (env.niriOverviewCloseOnLaunchSupported) {
+        entries.push_back(makeEntry(
+            SettingsSection::Niri, "overview", tr("settings.schema.shell.niri-overview-close-on-launch.label"),
+            tr("settings.schema.shell.niri-overview-close-on-launch.description"),
+            {"shell", "niri_overview_close_on_launch_enabled"},
+            ToggleSetting{cfg.shell.niriOverviewCloseOnLaunchEnabled}, "niri overview close app launch launcher"
+        ));
+      }
       if (env.niriBackdropSupported) {
         entries.push_back(makeEntry(
             SettingsSection::Niri, "backdrop", tr("settings.schema.shared.enabled.label"),
@@ -2197,6 +2693,30 @@ namespace settings {
             sliderFor(cfg.backdrop.tintIntensity, noctalia::config::schema::kUnitRange, false), "wallpaper"
         ));
       }
+    }
+
+    // Umbriel-specific integrations
+    if (env.umbrielOverviewTypeToLaunchSupported) {
+      entries.push_back(makeEntry(
+          SettingsSection::Umbriel, "audio", tr("settings.schema.shell.umbriel-audio-provider.label"),
+          tr("settings.schema.shell.umbriel-audio-provider.description"), {"shell", "umbriel_audio_provider_enabled"},
+          ToggleSetting{cfg.shell.umbrielAudioProviderEnabled}, "umbriel audio spectrum shader effects provider"
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Umbriel, "overview", tr("settings.schema.shell.umbriel-overview-type-to-launch.label"),
+          tr("settings.schema.shell.umbriel-overview-type-to-launch.description"),
+          {"shell", "umbriel_overview_type_to_launch_enabled"},
+          ToggleSetting{cfg.shell.umbrielOverviewTypeToLaunchEnabled},
+          "umbriel overview type launch launcher search keyboard focus"
+      ));
+    }
+    if (env.umbrielOverviewCloseOnLaunchSupported) {
+      entries.push_back(makeEntry(
+          SettingsSection::Umbriel, "overview", tr("settings.schema.shell.umbriel-overview-close-on-launch.label"),
+          tr("settings.schema.shell.umbriel-overview-close-on-launch.description"),
+          {"shell", "umbriel_overview_close_on_launch_enabled"},
+          ToggleSetting{cfg.shell.umbrielOverviewCloseOnLaunchEnabled}, "umbriel overview close app launch launcher"
+      ));
     }
 
     // System
@@ -2228,6 +2748,11 @@ namespace settings {
         SettingsSection::System, "screen-time", tr("settings.schema.shell.screen-time-enabled.label"),
         tr("settings.schema.shell.screen-time-enabled.description"), {"shell", "screen_time_enabled"},
         ToggleSetting{cfg.shell.screenTimeEnabled}, "screen time usage tracking control center"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::System, "screen-time", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"shell", "screen_time_colorize_icons"},
+        ToggleSetting{cfg.shell.screenTimeColorizeIcons}, "screen time application icons colorize tint"
     ));
     const SettingVisibility monitorOn = [](const Config& c) { return c.system.monitor.enabled; };
     entries.push_back(makeEntry(
@@ -2596,13 +3121,13 @@ namespace settings {
 
     const SettingVisibility calendarOn = [](const Config& c) { return c.calendar.enabled; };
     entries.push_back(makeEntry(
-        SettingsSection::Services, "calendar", tr("settings.schema.services.calendar.label"),
+        SettingsSection::Calendar, "general", tr("settings.schema.services.calendar.label"),
         tr("settings.schema.services.calendar.description"), {"calendar", "enabled"},
         ToggleSetting{cfg.calendar.enabled}, "calendar events caldav google"
     ));
     {
       auto e = makeEntry(
-          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-event-date-format.label"),
+          SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-event-date-format.label"),
           tr("settings.schema.services.calendar-event-date-format.description"), {"calendar", "event_date_format"},
           TextSetting{.value = cfg.calendar.eventDateFormat, .placeholder = "%A %e %B", .browseFileExtensions = {}},
           "calendar date format strftime chrono"
@@ -2612,7 +3137,7 @@ namespace settings {
     }
     {
       auto e = makeEntry(
-          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-event-time-format.label"),
+          SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-event-time-format.label"),
           tr("settings.schema.services.calendar-event-time-format.description"), {"calendar", "event_time_format"},
           TextSetting{.value = cfg.calendar.eventTimeFormat, .placeholder = "%H:%M", .browseFileExtensions = {}},
           "calendar time format strftime chrono"
@@ -2620,17 +3145,112 @@ namespace settings {
       e.visibleWhen = calendarOn;
       entries.push_back(std::move(e));
     }
+    {
+      auto e = makeEntry(
+          SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-dedupe-events.label"),
+          tr("settings.schema.services.calendar-dedupe-events.description"), {"calendar", "dedupe_events"},
+          ToggleSetting{cfg.calendar.dedupeEvents}, "calendar events duplicate merge"
+      );
+      e.visibleWhen = calendarOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-dedupe-ignore-patterns.label"),
+          tr("settings.schema.services.calendar-dedupe-ignore-patterns.description"),
+          {"calendar", "dedupe_ignore_patterns"}, ListSetting{.items = cfg.calendar.dedupeIgnorePatterns},
+          "calendar events duplicate merge regex title"
+      );
+      e.visibleWhen = [](const Config& c) { return c.calendar.enabled && c.calendar.dedupeEvents; };
+      entries.push_back(std::move(e));
+    }
     // Week numbers are a grid decoration, so they stay available when event syncing is off.
     entries.push_back(makeEntry(
-        SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-week-numbers.label"),
+        SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-week-numbers.label"),
         tr("settings.schema.services.calendar-week-numbers.description"),
         {"control_center", "calendar", "show_week_numbers"},
         ToggleSetting{cfg.controlCenter.calendarTab.showWeekNumbers}, "calendar week numbers iso"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-show-events-location.label"),
+        tr("settings.schema.services.calendar-show-events-location.description"),
+        {"control_center", "calendar", "show_events_location"},
+        ToggleSetting{cfg.controlCenter.calendarTab.showEventsLocation}, "calendar events location display"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-hide-past-events.label"),
+        tr("settings.schema.services.calendar-hide-past-events.description"),
+        {"control_center", "calendar", "hide_past_events"}, ToggleSetting{cfg.controlCenter.calendarTab.hidePastEvents},
+        "calendar past events today finished hide"
+    ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-past-events-threshold.label"),
+          tr("settings.schema.services.calendar-past-events-threshold.description"),
+          {"control_center", "calendar", "past_events_threshold_minutes"},
+          sliderFor(
+              cfg.controlCenter.calendarTab.pastEventsThresholdMinutes,
+              noctalia::config::schema::kPastEventsThresholdMinutesRange, true
+          ),
+          "calendar past events threshold minutes hide old finished"
+      );
+      e.visibleWhen = [](const Config& c) { return c.controlCenter.calendarTab.hidePastEvents; };
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Calendar, "calendar-reminders", tr("settings.schema.services.calendar-reminders.label"),
+          tr("settings.schema.services.calendar-reminders.description"), {"calendar", "reminders", "enabled"},
+          ToggleSetting{cfg.calendar.reminders.enabled}, "calendar reminder notification alarm upcoming"
+      );
+      e.visibleWhen = calendarOn;
+      entries.push_back(std::move(e));
+    }
+    const SettingVisibility remindersOn = [](const Config& c) {
+      return c.calendar.enabled && c.calendar.reminders.enabled;
+    };
+    {
+      auto e = makeEntry(
+          SettingsSection::Calendar, "calendar-reminders",
+          tr("settings.schema.services.calendar-reminder-use-event.label"),
+          tr("settings.schema.services.calendar-reminder-use-event.description"),
+          {"calendar", "reminders", "use_event_reminders"}, ToggleSetting{cfg.calendar.reminders.useEventReminders},
+          "calendar reminder valarm override event"
+      );
+      e.visibleWhen = remindersOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Calendar, "calendar-reminders", tr("settings.schema.services.calendar-reminder-lead.label"),
+          tr("settings.schema.services.calendar-reminder-lead.description"),
+          {"calendar", "reminders", "default_lead_minutes"},
+          sliderFor(
+              cfg.calendar.reminders.defaultLeadMinutes, noctalia::config::schema::kReminderLeadMinutesRange, true
+          ),
+          "calendar reminder lead minutes before default"
+      );
+      e.visibleWhen = remindersOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Calendar, "calendar-reminders", tr("settings.schema.services.calendar-digest-time.label"),
+          tr("settings.schema.services.calendar-digest-time.description"),
+          {"calendar", "reminders", "all_day_digest_time"},
+          TextSetting{
+              .value = cfg.calendar.reminders.allDayDigestTime, .placeholder = "09:00", .browseFileExtensions = {}
+          },
+          "calendar all day digest time morning"
+      );
+      e.visibleWhen = remindersOn;
+      entries.push_back(std::move(e));
+    }
     // Sync cadence belongs with the accounts it drives; the account rows are injected right after it.
     {
       auto e = makeEntry(
-          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-refresh-interval.label"),
+          SettingsSection::Calendar, "calendar-accounts",
+          tr("settings.schema.services.calendar-refresh-interval.label"),
           tr("settings.schema.services.calendar-refresh-interval.description"), {"calendar", "refresh_minutes"},
           sliderFor(cfg.calendar.refreshMinutes, noctalia::config::schema::kRefreshMinutesRange, true), "calendar sync"
       );
@@ -2644,37 +3264,82 @@ namespace settings {
         ToggleSetting{cfg.audio.enableOverdrive}, "volume"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"audio", "colorize_icons"},
+        ToggleSetting{cfg.audio.colorizeIcons}, "audio mixer application icons colorize tint"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.shell-sounds.label"),
         tr("settings.schema.services.shell-sounds.description"), {"audio", "enable_sounds"},
         ToggleSetting{cfg.audio.enableSounds}, "sound"
+    ));
+    const std::size_t soundsGatedStart = entries.size();
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.services.volume-sounds.label"),
+        tr("settings.schema.services.volume-sounds.description"), {"audio", "enable_volume_sounds"},
+        ToggleSetting{cfg.audio.enableVolumeSounds}, "sound"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.services.notification-sounds.label"),
+        tr("settings.schema.services.notification-sounds.description"), {"audio", "enable_notification_sounds"},
+        ToggleSetting{cfg.audio.enableNotificationSounds}, "sound"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.services.power-sounds.label"),
+        tr("settings.schema.services.power-sounds.description"), {"audio", "enable_power_sounds"},
+        ToggleSetting{cfg.audio.enablePowerSounds}, "sound"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.services.screenshot-sounds.label"),
+        tr("settings.schema.services.screenshot-sounds.description"), {"audio", "enable_screenshot_sounds"},
+        ToggleSetting{cfg.audio.enableScreenshotSounds}, "sound"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.sound-volume.label"),
         tr("settings.schema.services.sound-volume.description"), {"audio", "sound_volume"},
         sliderFor(cfg.audio.soundVolume, noctalia::config::schema::kUnitRange, false), "sound"
     ));
+    std::vector<SelectOption> soundThemeOptions;
+    for (const auto& [value, label] : SoundPlayer::availableThemes()) {
+      soundThemeOptions.push_back(SelectOption{value, label});
+    }
+    if (soundThemeOptions.empty()) {
+      soundThemeOptions.push_back(SelectOption{"freedesktop", tr("settings.schema.services.sound-theme.default")});
+    }
     entries.push_back(makeEntry(
-        SettingsSection::Services, "audio", tr("settings.schema.services.volume-change-sound.label"),
-        tr("settings.schema.services.volume-change-sound.description"), {"audio", "volume_change_sound"},
-        TextSetting{
-            .value = cfg.audio.volumeChangeSound,
-            .placeholder = tr("settings.schema.services.volume-change-sound.placeholder"),
-            .browseMode = TextSettingBrowseMode::OpenFile,
-            .browseFileExtensions = {".wav", ".flac", ".ogg", ".oga", ".opus", ".mp3", ".aiff", ".aif"}
-        },
-        "sound path file", true
+        SettingsSection::Services, "audio", tr("settings.schema.services.sound-theme.label"),
+        tr("settings.schema.services.sound-theme.description"), {"audio", "sound_theme"},
+        SelectSetting{std::move(soundThemeOptions), cfg.audio.soundTheme}, "sound theme"
     ));
-    entries.push_back(makeEntry(
-        SettingsSection::Services, "audio", tr("settings.schema.services.notification-sound.label"),
-        tr("settings.schema.services.notification-sound.description"), {"audio", "notification_sound"},
-        TextSetting{
-            .value = cfg.audio.notificationSound,
-            .placeholder = tr("settings.schema.services.notification-sound.placeholder"),
-            .browseMode = TextSettingBrowseMode::OpenFile,
-            .browseFileExtensions = {".wav", ".flac", ".ogg", ".oga", ".opus", ".mp3", ".aiff", ".aif"}
-        },
-        "sound path file", true
-    ));
+    for (std::size_t i = soundsGatedStart; i < entries.size(); ++i) {
+      SettingVisibility prev = std::move(entries[i].visibleWhen);
+      entries[i].visibleWhen = prev
+          ? SettingVisibility{[prev = std::move(prev)](const Config& c) { return c.audio.enableSounds && prev(c); }}
+          : SettingVisibility{[](const Config& c) { return c.audio.enableSounds; }};
+    }
+    {
+      // A rate set in TOML that is not a preset gets its own option instead of showing as unknown.
+      std::vector<int> frameRates{30, 60, 100, 120, 144, 165, 240};
+      if (!std::ranges::contains(frameRates, cfg.audio.spectrumFrameRate)) {
+        frameRates.insert(
+            std::ranges::upper_bound(frameRates, cfg.audio.spectrumFrameRate), cfg.audio.spectrumFrameRate
+        );
+      }
+      std::vector<SelectOption> frameRateOptions;
+      for (const int fps : frameRates) {
+        const std::string value = std::to_string(fps);
+        frameRateOptions.push_back(
+            SelectOption{value, tr("settings.schema.services.spectrum-frame-rate.option", "fps", value)}
+        );
+      }
+      SelectSetting frameRateSelect{std::move(frameRateOptions), std::to_string(cfg.audio.spectrumFrameRate)};
+      frameRateSelect.valueType = SelectValueType::Integer;
+      entries.push_back(makeEntry(
+          SettingsSection::Services, "audio", tr("settings.schema.services.spectrum-frame-rate.label"),
+          tr("settings.schema.services.spectrum-frame-rate.description"), {"audio", "spectrum_frame_rate"},
+          std::move(frameRateSelect), "visualizer spectrum fps"
+      ));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Services, "brightness", tr("settings.schema.services.ddcutil.label"),
         env.ddcutilAvailable ? tr("settings.schema.services.ddcutil.description")
@@ -2693,6 +3358,18 @@ namespace settings {
         ToggleSetting{.checked = cfg.brightness.syncBrightnessOfAllMonitors}, "monitor brightness"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Services, "bluetooth", tr("settings.schema.services.bluetooth-connect-when-enabled.label"),
+        tr("settings.schema.services.bluetooth-connect-when-enabled.description"),
+        {"bluetooth", "connect_when_enabled"}, ToggleSetting{cfg.bluetooth.connectWhenEnabled},
+        "bluetooth reconnect connect trusted paired devices startup resume"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "bluetooth", tr("settings.schema.services.bluetooth-connection-notifications.label"),
+        tr("settings.schema.services.bluetooth-connection-notifications.description"),
+        {"bluetooth", "connection_notifications"}, ToggleSetting{cfg.bluetooth.connectionNotifications},
+        "bluetooth device connect disconnect notification"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Services, "media", tr("settings.schema.services.mpris-blacklist.label"),
         tr("settings.schema.services.mpris-blacklist.description"), {"shell", "mpris", "blacklist"},
         ListSetting{.items = cfg.shell.mpris.blacklist}, "mpris media player dbus session blacklist"
@@ -2707,10 +3384,9 @@ namespace settings {
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Power, "session-panel", "session", "settings.schema.panels.position-session.label",
-        "settings.schema.panels.position-session.description", cfg.shell.panel.sessionPosition,
-        &ShellConfig::PanelConfig::sessionPlacement
+        "settings.schema.panels.position-session.description", cfg.shell.panel.sessionPosition
     ));
-    entries.push_back(panelBarAlignmentEntry(
+    entries.push_back(panelOpenNearClickEntry(
         SettingsSection::Power, "session-panel", "session", "settings.schema.panels.open-near-click-session.label",
         "settings.schema.panels.open-near-click-session.description", cfg.shell.panel.openNearClickSession,
         &ShellConfig::PanelConfig::sessionPlacement, &ShellConfig::PanelConfig::sessionPosition
@@ -2854,6 +3530,11 @@ namespace settings {
         ToggleSetting{cfg.notification.enableDaemon}, "dbus"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "general", tr("settings.schema.shared.colorize-icons.label"),
+        tr("settings.schema.shared.colorize-icons.description"), {"notification", "colorize_icons"},
+        ToggleSetting{cfg.notification.colorizeIcons}, "notification application icons colorize tint"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "general", tr("settings.schema.notifications.show-app-name.label"),
         tr("settings.schema.notifications.show-app-name.description"), {"notification", "show_app_name"},
         ToggleSetting{cfg.notification.showAppName}, "application identity header"
@@ -2892,10 +3573,24 @@ namespace settings {
         "toast popup placement anchor"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.newest-on-edge.label"),
+        tr("settings.schema.notifications.newest-on-edge.description"), {"notification", "newest_on_edge"},
+        ToggleSetting{cfg.notification.newestOnEdge}, "toast stack order newest oldest push direction"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.scale.label"),
         tr("settings.schema.notifications.scale.description"), {"notification", "scale"},
         sliderFor(cfg.notification.scale, noctalia::config::schema::kScaleRange, false), "toast size scale"
     ));
+    {
+      SliderSetting width = sliderFor(cfg.notification.width, noctalia::config::schema::kNotificationWidthRange, true);
+      width.valueSuffix = "px";
+      entries.push_back(makeEntry(
+          SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.width.label"),
+          tr("settings.schema.notifications.width.description"), {"notification", "width"}, std::move(width),
+          "toast size dimension wide narrow"
+      ));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.offset-x.label"),
         tr("settings.schema.notifications.offset-x.description"), {"notification", "offset_x"},
@@ -2923,7 +3618,8 @@ namespace settings {
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.toast-opacity.label"),
         tr("settings.schema.notifications.toast-opacity.description"), {"notification", "background_opacity"},
-        sliderFor(cfg.notification.backgroundOpacity, noctalia::config::schema::kUnitRange, false), "popup"
+        sliderFor(cfg.notification.backgroundOpacity, noctalia::config::schema::kUnitRange, false),
+        "popup alpha transparency translucent opacity"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.border.label"),
@@ -2931,10 +3627,42 @@ namespace settings {
         ToggleSetting{cfg.notification.border}, "outline border"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.monitors.label"),
-        tr("settings.schema.notifications.monitors.description"), {"notification", "monitors"},
-        ListSetting{.items = cfg.notification.monitors, .suggestedOptions = env.availableOutputs},
-        "monitor output display screen"
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.border-color.label"),
+        tr("settings.schema.notifications.border-color.description"), {"notification", "border_color"},
+        colorSpecPicker(cfg.notification.borderColor), "outline border color theme accent"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.border-width.label"),
+        tr("settings.schema.notifications.border-width.description"), {"notification", "border_width"},
+        sliderFor(cfg.notification.borderWidth, noctalia::config::schema::kNotificationToastBorderWidthRange, false),
+        "outline border width thickness"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.follow-focused-output.label"),
+        tr("settings.schema.notifications.follow-focused-output.description"),
+        {"notification", "follow_focused_output"}, ToggleSetting{cfg.notification.followFocusedOutput},
+        "monitor output display focused active"
+    ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.monitors.label"),
+          tr("settings.schema.notifications.monitors.description"), {"notification", "monitors"},
+          ListSetting{.items = cfg.notification.monitors, .suggestedOptions = env.availableOutputs},
+          "monitor output display screen"
+      );
+      e.visibleWhen = [](const Config& c) { return !c.notification.followFocusedOutput; };
+      entries.push_back(std::move(e));
+    }
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "history", tr("settings.schema.notifications.group-by-app.label"),
+        tr("settings.schema.notifications.group-by-app.description"), {"notification", "group_by_app"},
+        ToggleSetting{cfg.notification.groupByApp}, "notification history group-by-app"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "history", tr("settings.schema.notifications.keep-dismissed-in-history.label"),
+        tr("settings.schema.notifications.keep-dismissed-in-history.description"),
+        {"notification", "keep_dismissed_in_history"}, ToggleSetting{cfg.notification.keepDismissedInHistory},
+        "history dismissed toast remove keep"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "history", tr("settings.schema.notifications.history-retention-hours.label"),
@@ -2980,6 +3708,25 @@ namespace settings {
           autoHideModeSelect(barAutoHideMode(bar.autoHide, bar.smartAutoHide), path("smart_auto_hide")),
           "autohide smart workspace"
       ));
+      {
+        auto e = makeEntry(
+            section, "general", tr("settings.schema.bar.auto-hide-delay.label"),
+            tr("settings.schema.bar.auto-hide-delay.description"), path("auto_hide_delay_ms"),
+            StepperSetting{
+                .value = bar.autoHideDelayMs,
+                .minValue = static_cast<int>(noctalia::config::schema::kBarAutoHideDelayMsRange.min.value()),
+                .maxValue = static_cast<int>(noctalia::config::schema::kBarAutoHideDelayMsRange.max.value()),
+                .step = static_cast<int>(noctalia::config::schema::kBarAutoHideDelayMsRange.step.value()),
+                .valueSuffix = "ms",
+            },
+            "autohide delay wait"
+        );
+        e.visibleWhen = [barName = bar.name](const Config& c) {
+          const BarConfig* b = findBar(c, barName);
+          return b != nullptr && b->autoHide && !b->smartAutoHide;
+        };
+        entries.push_back(std::move(e));
+      }
       const SettingVisibility autoHideOn = [barName = bar.name](const Config& c) {
         const BarConfig* b = findBar(c, barName);
         return b != nullptr && b->isAutoHideEnabled();
@@ -2998,6 +3745,19 @@ namespace settings {
           tr("settings.schema.bar.reserve-space.description"), path("reserve_space"), ToggleSetting{bar.reserveSpace},
           "exclusive zone"
       ));
+      const SettingVisibility reserveSpaceOn = [barName = bar.name](const Config& c) {
+        const BarConfig* b = findBar(c, barName);
+        return b != nullptr && b->reserveSpace;
+      };
+      {
+        auto e = makeEntry(
+            section, "general", tr("settings.schema.bar.auto-hide-reserve-space.label"),
+            tr("settings.schema.bar.auto-hide-reserve-space.description"), path("auto_hide_reserve_space"),
+            ToggleSetting{bar.autoHideReserveSpace}, "autohide immersive exclusive zone"
+        );
+        e.visibleWhen = [autoHideOn, reserveSpaceOn](const Config& c) { return autoHideOn(c) && reserveSpaceOn(c); };
+        entries.push_back(std::move(e));
+      }
       entries.push_back(makeEntry(
           section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
           path("layer"),
@@ -3022,7 +3782,7 @@ namespace settings {
       ));
       entries.push_back(makeEntry(
           section, "layout", tr("settings.schema.shared.ends-margin.label"),
-          tr("settings.schema.bar.ends-margin.description"), path("margin_ends"), barMarginStepper(bar.marginEnds),
+          tr("settings.schema.bar.ends-margin.description"), path("margin_ends"), barMarginEndsSetting(bar.marginEnds),
           "gap inset"
       ));
       entries.push_back(makeEntry(
@@ -3089,8 +3849,15 @@ namespace settings {
       entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.background-opacity.label"),
           tr("settings.schema.bar.background-opacity.description"), path("background_opacity"),
-          SliderSetting{bar.backgroundOpacity, 0.0F, 1.0F, 0.01F, false}, "alpha"
+          SliderSetting{bar.backgroundOpacity, 0.0F, 1.0F, 0.01F, false}, "alpha transparency translucent opacity"
       ));
+      if (env.backgroundEffectBlurSupported) {
+        entries.push_back(makeEntry(
+            section, "effects", tr("settings.schema.bar.compositor-blur.label"),
+            tr("settings.schema.bar.compositor-blur.description"), path("compositor_blur"),
+            ToggleSetting{bar.compositorBlur}, "blur frosted background effect wayland"
+        ));
+      }
       entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.shadow.label"), tr("settings.schema.bar.shadow.description"),
           path("shadow"), ToggleSetting{bar.shadow}, "shadow"
@@ -3163,6 +3930,11 @@ namespace settings {
           ToggleSetting{bar.hoverHighlight}, "hover highlight mouse pointer"
       ));
       entries.push_back(makeEntry(
+          section, "widgets", tr("settings.schema.bar.show-tooltip.label"),
+          tr("settings.schema.bar.show-tooltip.description"), path("show_tooltip"), ToggleSetting{bar.showTooltip},
+          "tooltip hover"
+      ));
+      entries.push_back(makeEntry(
           section, "capsules", tr("settings.schema.bar.widget-capsules.label"),
           tr("settings.schema.bar.widget-capsules.description"), path("capsule"),
           ToggleSetting{bar.widgetCapsuleDefault}, "pill"
@@ -3219,6 +3991,16 @@ namespace settings {
       }
       {
         auto e = makeEntry(
+            section, "capsules", tr("settings.schema.bar.capsule-border-width.label"),
+            tr("settings.schema.bar.capsule-border-width.description"), path("capsule_border_width"),
+            sliderFor(bar.widgetCapsuleBorderWidth, noctalia::config::schema::kBarCapsuleBorderWidthRange, false),
+            "pill outline width", true
+        );
+        e.visibleWhen = capsuleOn;
+        entries.push_back(std::move(e));
+      }
+      {
+        auto e = makeEntry(
             section, "capsules", tr("settings.schema.bar.capsule-padding.label"),
             tr("settings.schema.bar.capsule-padding.description"), path("capsule_padding"),
             SliderSetting{bar.widgetCapsulePadding, 0.0F, 48.0F, 1.0F, false}, "pill inset", true
@@ -3249,13 +4031,23 @@ namespace settings {
           section, "widget-list", tr("settings.schema.bar.end-widgets.label"),
           tr("settings.schema.bar.end-widgets.description"), path("end"), ListSetting{.items = bar.endWidgets}, "right"
       ));
+      {
+        auto e = makeEntry(
+            section, "dead-zone", tr("settings.schema.bar.dead-zone-click-through.label"),
+            tr("settings.schema.bar.dead-zone-click-through.description"),
+            std::vector<std::string>{"bar", bar.name, "dead_zone", "click_through"},
+            ToggleSetting{bar.deadZone.clickThrough}, "bar empty margin dead zone click through pass input region"
+        );
+        e.visibleWhen = [autoHideOn](const Config& c) { return !autoHideOn(c); };
+        entries.push_back(std::move(e));
+      }
       // One row per gesture, from the same closed set widget actions use. An unset row shows the
       // built-in default as its placeholder, so "empty" never reads as "does nothing".
       for (const auto gesture : noctalia::bar::allGestures()) {
         const std::string key(noctalia::bar::gestureConfigKey(gesture));
         const auto configured = bar.deadZone.actions.find(key);
         entries.push_back(makeEntry(
-            section, "dead-zone", tr(std::string(noctalia::bar::gestureLabelKey(gesture))),
+            section, "dead-zone", tr(noctalia::bar::gestureLabelKey(gesture)),
             tr("settings.schema.bar.dead-zone-action.description"),
             std::vector<std::string>{"bar", bar.name, "dead_zone", "actions", key},
             GestureActionSetting{
@@ -3298,6 +4090,31 @@ namespace settings {
             ),
             "autohide smart workspace"
         ));
+        {
+          auto e = makeEntry(
+              section, "general", tr("settings.schema.bar.auto-hide-delay.label"),
+              tr("settings.schema.bar.auto-hide-delay.description"), monitorPath("auto_hide_delay_ms"),
+              StepperSetting{
+                  .value = ovr.autoHideDelayMs.value_or(bar.autoHideDelayMs),
+                  .minValue = static_cast<int>(noctalia::config::schema::kBarAutoHideDelayMsRange.min.value()),
+                  .maxValue = static_cast<int>(noctalia::config::schema::kBarAutoHideDelayMsRange.max.value()),
+                  .step = static_cast<int>(noctalia::config::schema::kBarAutoHideDelayMsRange.step.value()),
+                  .valueSuffix = "ms",
+              },
+              "autohide delay wait"
+          );
+          e.visibleWhen = [barName = bar.name, match = ovr.match](const Config& c) {
+            const BarConfig* b = findBar(c, barName);
+            if (b == nullptr) {
+              return false;
+            }
+            const BarMonitorOverride* o = findMonitorOverride(*b, match);
+            const bool autoHide = o != nullptr ? o->autoHide.value_or(b->autoHide) : b->autoHide;
+            const bool smartAutoHide = o != nullptr ? o->smartAutoHide.value_or(b->smartAutoHide) : b->smartAutoHide;
+            return autoHide && !smartAutoHide;
+          };
+          entries.push_back(std::move(e));
+        }
         const SettingVisibility monitorAutoHideOn = [barName = bar.name, match = ovr.match](const Config& c) {
           const BarConfig* b = findBar(c, barName);
           if (b == nullptr) {
@@ -3321,6 +4138,26 @@ namespace settings {
             tr("settings.schema.bar.reserve-space.description"), monitorPath("reserve_space"),
             ToggleSetting{ovr.reserveSpace.value_or(bar.reserveSpace)}, "exclusive zone"
         ));
+        const SettingVisibility monitorReserveSpaceOn = [barName = bar.name, match = ovr.match](const Config& c) {
+          const BarConfig* b = findBar(c, barName);
+          if (b == nullptr) {
+            return false;
+          }
+          const BarMonitorOverride* o = findMonitorOverride(*b, match);
+          return o != nullptr ? o->reserveSpace.value_or(b->reserveSpace) : b->reserveSpace;
+        };
+        {
+          auto e = makeEntry(
+              section, "general", tr("settings.schema.bar.auto-hide-reserve-space.label"),
+              tr("settings.schema.bar.auto-hide-reserve-space.description"), monitorPath("auto_hide_reserve_space"),
+              ToggleSetting{ovr.autoHideReserveSpace.value_or(bar.autoHideReserveSpace)},
+              "autohide immersive exclusive zone"
+          );
+          e.visibleWhen = [monitorAutoHideOn, monitorReserveSpaceOn](const Config& c) {
+            return monitorAutoHideOn(c) && monitorReserveSpaceOn(c);
+          };
+          entries.push_back(std::move(e));
+        }
         entries.push_back(makeEntry(
             section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
             monitorPath("layer"),
@@ -3349,7 +4186,7 @@ namespace settings {
         entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.shared.ends-margin.label"),
             tr("settings.schema.bar.ends-margin.description"), monitorPath("margin_ends"),
-            barMarginStepper(ovr.marginEnds.value_or(bar.marginEnds)), "gap inset"
+            barMarginEndsSetting(ovr.marginEnds.value_or(bar.marginEnds)), "gap inset"
         ));
         entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.shared.edge-margin.label"),
@@ -3420,8 +4257,16 @@ namespace settings {
         entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.shared.background-opacity.label"),
             tr("settings.schema.bar.background-opacity.description"), monitorPath("background_opacity"),
-            SliderSetting{ovr.backgroundOpacity.value_or(bar.backgroundOpacity), 0.0F, 1.0F, 0.01F, false}, "alpha"
+            SliderSetting{ovr.backgroundOpacity.value_or(bar.backgroundOpacity), 0.0F, 1.0F, 0.01F, false},
+            "alpha transparency translucent opacity"
         ));
+        if (env.backgroundEffectBlurSupported) {
+          entries.push_back(makeEntry(
+              section, "effects", tr("settings.schema.bar.compositor-blur.label"),
+              tr("settings.schema.bar.compositor-blur.description"), monitorPath("compositor_blur"),
+              ToggleSetting{ovr.compositorBlur.value_or(bar.compositorBlur)}, "blur frosted background effect wayland"
+          ));
+        }
         entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.shared.shadow.label"), tr("settings.schema.bar.shadow.description"),
             monitorPath("shadow"), ToggleSetting{ovr.shadow.value_or(bar.shadow)}, "shadow"
@@ -3538,6 +4383,19 @@ namespace settings {
         }
         {
           auto e = makeEntry(
+              section, "capsules", tr("settings.schema.bar.capsule-border-width.label"),
+              tr("settings.schema.bar.capsule-border-width.description"), monitorPath("capsule_border_width"),
+              sliderFor(
+                  ovr.widgetCapsuleBorderWidth.value_or(bar.widgetCapsuleBorderWidth),
+                  noctalia::config::schema::kBarCapsuleBorderWidthRange, false
+              ),
+              "pill outline width", true
+          );
+          e.visibleWhen = monitorCapsuleOn;
+          entries.push_back(std::move(e));
+        }
+        {
+          auto e = makeEntry(
               section, "capsules", tr("settings.schema.bar.capsule-padding.label"),
               tr("settings.schema.bar.capsule-padding.description"), monitorPath("capsule_padding"),
               SliderSetting{ovr.widgetCapsulePadding.value_or(bar.widgetCapsulePadding), 0.0F, 48.0F, 1.0F, false},
@@ -3571,6 +4429,19 @@ namespace settings {
             tr("settings.schema.bar.end-widgets.description"), monitorPath("end"),
             ListSetting{.items = ovr.endWidgets.value_or(bar.endWidgets)}, "right"
         ));
+        {
+          std::vector<std::string> clickThroughPath = root;
+          clickThroughPath.emplace_back("dead_zone");
+          clickThroughPath.emplace_back("click_through");
+          auto e = makeEntry(
+              section, "dead-zone", tr("settings.schema.bar.dead-zone-click-through.label"),
+              tr("settings.schema.bar.dead-zone-click-through.description"), std::move(clickThroughPath),
+              ToggleSetting{ovr.deadZone.clickThrough.value_or(bar.deadZone.clickThrough)},
+              "bar empty margin dead zone click through pass input region"
+          );
+          e.visibleWhen = [monitorAutoHideOn](const Config& c) { return !monitorAutoHideOn(c); };
+          entries.push_back(std::move(e));
+        }
         for (const auto gesture : noctalia::bar::allGestures()) {
           const std::string key(noctalia::bar::gestureConfigKey(gesture));
           std::vector<std::string> gesturePath = root;
@@ -3588,7 +4459,7 @@ namespace settings {
           }
           const auto inherited = bar.deadZone.actions.find(key);
           entries.push_back(makeEntry(
-              section, "dead-zone", tr(std::string(noctalia::bar::gestureLabelKey(gesture))),
+              section, "dead-zone", tr(noctalia::bar::gestureLabelKey(gesture)),
               tr("settings.schema.bar.dead-zone-action.description"), std::move(gesturePath),
               GestureActionSetting{
                   .gestureKey = key,

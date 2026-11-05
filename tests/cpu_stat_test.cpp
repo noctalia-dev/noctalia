@@ -3,12 +3,14 @@
 // live /proc.
 
 #include "system/cpu_stat.h"
+#include "tests/test_check.h"
 
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <print>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,22 +24,7 @@ namespace {
 
   bool expect(bool condition, const std::string& message) {
     if (!condition) {
-      std::fprintf(stderr, "cpu_stat_test: FAIL: %s\n", message.c_str());
-      ++g_failures;
-      return false;
-    }
-    return true;
-  }
-
-  bool expectNear(std::optional<double> actual, double expected, const std::string& message) {
-    if (!actual.has_value()) {
-      std::fprintf(stderr, "cpu_stat_test: FAIL: %s: no value\n", message.c_str());
-      ++g_failures;
-      return false;
-    }
-    const double diff = *actual > expected ? *actual - expected : expected - *actual;
-    if (diff > 0.001) {
-      std::fprintf(stderr, "cpu_stat_test: FAIL: %s: expected %f, got %f\n", message.c_str(), expected, *actual);
+      std::println(stderr, "cpu_stat_test: FAIL: {}", message);
       ++g_failures;
       return false;
     }
@@ -88,16 +75,14 @@ namespace {
 
   void testUsageBetween() {
     // 100 jiffies elapsed, 25 of them idle -> 75% busy.
-    expectNear(
-        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 825}), 75.0, "75% busy"
+    TEST_NEAR(
+        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 825}), 75.0, 0.001
     );
-    expectNear(
-        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 900}), 0.0,
-        "fully idle"
+    TEST_NEAR(
+        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 900}), 0.0, 0.001
     );
-    expectNear(
-        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 800}), 100.0,
-        "fully busy"
+    TEST_NEAR(
+        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 800}, Totals{.total = 1100, .idle = 800}), 100.0, 0.001
     );
 
     // An empty window has no answer; reporting 0% would render as "idle", which is a lie.
@@ -112,9 +97,8 @@ namespace {
         !cpu_stat::usageBetween(Totals{.total = 2000, .idle = 900}, Totals{.total = 1000, .idle = 400}).has_value(),
         "total going backwards should yield nullopt"
     );
-    expectNear(
-        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 900}, Totals{.total = 1100, .idle = 500}), 100.0,
-        "idle going backwards should clamp to 100, not wrap"
+    TEST_NEAR(
+        cpu_stat::usageBetween(Totals{.total = 1000, .idle = 900}, Totals{.total = 1100, .idle = 500}), 100.0, 0.001
     );
   }
 
@@ -189,8 +173,8 @@ namespace {
   void testPerCoreDeltas() {
     const std::vector<Totals> prev = {{.total = 100, .idle = 100}, {.total = 100, .idle = 100}};
     const std::vector<Totals> next = {{.total = 200, .idle = 100}, {.total = 200, .idle = 200}};
-    expectNear(cpu_stat::usageBetween(prev[0], next[0]), 100.0, "core 0 fully busy");
-    expectNear(cpu_stat::usageBetween(prev[1], next[1]), 0.0, "core 1 fully idle");
+    TEST_NEAR(cpu_stat::usageBetween(prev[0], next[0]), 100.0, 0.001);
+    TEST_NEAR(cpu_stat::usageBetween(prev[1], next[1]), 0.0, 0.001);
   }
 
 } // namespace
@@ -198,7 +182,7 @@ namespace {
 int main() {
   const auto dir = makeTempDir();
   if (dir.empty()) {
-    std::fprintf(stderr, "cpu_stat_test: FAIL: could not create temp dir\n");
+    std::println(stderr, "cpu_stat_test: FAIL: could not create temp dir");
     return 1;
   }
 
@@ -211,7 +195,7 @@ int main() {
   std::filesystem::remove_all(dir, ec);
 
   if (g_failures > 0) {
-    std::fprintf(stderr, "cpu_stat_test: %d failure(s)\n", g_failures);
+    std::println(stderr, "cpu_stat_test: {} failure(s)", g_failures);
     return 1;
   }
   return 0;

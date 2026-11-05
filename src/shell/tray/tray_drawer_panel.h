@@ -17,20 +17,23 @@ public:
 
   void create() override;
   void onClose() override;
+  bool isContextActive(std::string_view context) const override;
 
-  [[nodiscard]] float preferredWidth() const override;
-  [[nodiscard]] float preferredHeight() const override;
-  [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
-  [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::OnDemand; }
+  float preferredWidth() const override;
+  float preferredHeight() const override;
+  PanelPlacement panelPlacement() const noexcept override;
+  std::optional<float> detachedBackgroundOpacityOverride() const noexcept override;
+  LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::OnDemand; }
   void setAnimationManager(AnimationManager* mgr) noexcept override;
 
 private:
   void doLayout(Renderer& renderer, float width, float height) override;
   void doUpdate(Renderer& renderer) override;
-  [[nodiscard]] std::size_t currentDrawerColumns() const;
-  [[nodiscard]] std::optional<float> currentDrawerItemSize() const;
-  [[nodiscard]] float resolvedItemGap() const;
-  [[nodiscard]] std::size_t visibleItemCount() const;
+  std::size_t currentDrawerColumns() const;
+  std::optional<float> currentDrawerItemSize() const;
+  float resolvedItemGap() const;
+  std::size_t visibleItemCount() const;
+  std::string_view widgetName() const noexcept;
 
   TrayService* m_tray = nullptr;
   ConfigService* m_config = nullptr;

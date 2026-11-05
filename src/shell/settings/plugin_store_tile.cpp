@@ -24,8 +24,8 @@ namespace settings {
     setAlign(FlexAlign::Stretch);
     setGap(Style::spaceXs * scale);
     setPadding(Style::spaceSm * scale);
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
-    setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+    setFill(colorSpecFromRole(ColorRole::SurfaceContainer));
+    setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
     setRadius(Style::scaledRadiusMd(scale));
 
     addChild(
@@ -80,7 +80,7 @@ namespace settings {
             {.out = &m_badge,
              .align = FlexAlign::Center,
              .paddingH = Style::spaceXs * scale,
-             .fill = colorSpecFromRole(ColorRole::Primary, 0.15F),
+             .fill = colorSpecFromRole(ColorRole::PrimaryContainer),
              .radius = Style::scaledRadiusSm(scale),
              .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
@@ -101,7 +101,7 @@ namespace settings {
             {.out = &m_statusBadge,
              .align = FlexAlign::Center,
              .paddingH = Style::spaceXs * scale,
-             .fill = colorSpecFromRole(ColorRole::Error, 0.15F),
+             .fill = colorSpecFromRole(ColorRole::ErrorContainer),
              .radius = Style::scaledRadiusSm(scale),
              .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
@@ -142,6 +142,23 @@ namespace settings {
         })
     );
     bottomRow->addChild(
+        ui::label({
+            .out = &m_recommendationsLabel,
+            .fontSize = Style::fontSizeMini * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .visible = false,
+        })
+    );
+    bottomRow->addChild(
+        ui::glyph({
+            .out = &m_recommendationsGlyph,
+            .glyph = "thumb-up",
+            .glyphSize = Style::fontSizeMini * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .visible = false,
+        })
+    );
+    bottomRow->addChild(
         ui::glyph({
             .out = &m_addedGlyph,
             .glyph = "check",
@@ -155,7 +172,8 @@ namespace settings {
 
   void PluginStoreTile::bind(
       const scripting::CatalogEntry& entry, std::string_view source, bool onDisk, bool selected, bool hovered,
-      const std::string& thumbnailPath, Renderer* renderer, AsyncTextureCache* textureCache
+      const std::string& thumbnailPath, Renderer* renderer, AsyncTextureCache* textureCache,
+      std::optional<std::uint64_t> recommendations, bool recommended, bool listed
   ) {
     // Thumbnail vs icon fallback.
     const bool hasThumbnail = !thumbnailPath.empty() && renderer != nullptr;
@@ -184,44 +202,60 @@ namespace settings {
     if (source == "official") {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
-      m_badge->setFill(colorSpecFromRole(ColorRole::Primary, 0.15F));
+      m_badge->setFill(colorSpecFromRole(ColorRole::PrimaryContainer));
       m_badgeLabel->setText(i18n::tr("settings.badges.official"));
-      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Primary));
+      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::OnPrimaryContainer));
     } else if (source == "community") {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
-      m_badge->setFill(colorSpecFromRole(ColorRole::Secondary, 0.15F));
+      m_badge->setFill(colorSpecFromRole(ColorRole::SecondaryContainer));
       m_badgeLabel->setText(i18n::tr("settings.badges.community"));
-      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Secondary));
+      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::OnSecondaryContainer));
     } else {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
-      m_badge->setFill(colorSpecFromRole(ColorRole::Tertiary, 0.15F));
+      m_badge->setFill(colorSpecFromRole(ColorRole::TertiaryContainer));
       m_badgeLabel->setText(source);
-      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Tertiary));
+      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::OnTertiaryContainer));
     }
 
     // The grid is where a user first meets a plugin, so an unusable or older-than-latest
     // entry has to say so here rather than only in the detail sheet.
-    const bool hasStatus = !entry.compatible || entry.heldBack;
+    const bool hasStatus = !listed || !entry.compatible || entry.heldBack;
     m_statusBadge->setVisible(hasStatus);
     m_statusBadge->setParticipatesInLayout(hasStatus);
     if (hasStatus) {
-      const ColorRole role = entry.compatible ? ColorRole::Tertiary : ColorRole::Error;
-      m_statusBadge->setFill(colorSpecFromRole(role, 0.15F));
-      m_statusLabel->setColor(colorSpecFromRole(role));
+      m_statusBadge->setFill(
+          colorSpecFromRole(entry.compatible ? ColorRole::TertiaryContainer : ColorRole::ErrorContainer)
+      );
+      m_statusLabel->setColor(
+          colorSpecFromRole(entry.compatible ? ColorRole::OnTertiaryContainer : ColorRole::OnErrorContainer)
+      );
       m_statusLabel->setText(
-          i18n::tr(entry.compatible ? "settings.plugins.store.held-back" : "settings.plugins.store.incompatible")
+          i18n::tr(
+              !listed ? "settings.plugins.store.not-listed"
+                      : (entry.compatible ? "settings.plugins.store.held-back" : "settings.plugins.store.incompatible")
+          )
       );
     }
 
     m_descLabel->setText(entry.description);
     m_authorLabel->setText(entry.author.empty() ? std::string() : entry.author);
 
+    const auto recommendationColor = colorSpecFromRole(recommended ? ColorRole::Primary : ColorRole::OnSurfaceVariant);
+    m_recommendationsLabel->setColor(recommendationColor);
+    m_recommendationsGlyph->setColor(recommendationColor);
+    m_recommendationsGlyph->setGlyph(recommended ? "thumb-up-filled" : "thumb-up");
+    m_recommendationsLabel->setVisible(recommendations.has_value());
+    m_recommendationsLabel->setParticipatesInLayout(recommendations.has_value());
+    m_recommendationsLabel->setText(recommendations.has_value() ? std::to_string(*recommendations) : std::string());
+    m_recommendationsGlyph->setVisible(recommendations.has_value() || recommended);
+    m_recommendationsGlyph->setParticipatesInLayout(recommendations.has_value() || recommended);
     m_addedGlyph->setVisible(onDisk);
     m_addedGlyph->setParticipatesInLayout(onDisk);
 
-    const ColorRole borderRole = selected ? ColorRole::Primary : (hovered ? ColorRole::Hover : ColorRole::Outline);
+    const ColorRole borderRole =
+        selected ? ColorRole::Primary : (hovered ? ColorRole::Hover : ColorRole::OutlineVariant);
     setBorder(colorSpecFromRole(borderRole), selected ? Style::borderWidth * 2.0F : Style::borderWidth);
   }
 

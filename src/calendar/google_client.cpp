@@ -1,16 +1,21 @@
 #include "calendar/google_client.h"
 
+#include "calendar/calendar_discovery_state.h"
 #include "calendar/event_link.h"
 #include "calendar/google_calendar_list.h"
+#include "calendar/google_reminders.h"
 #include "core/log.h"
 #include "net/http_client.h"
 #include "net/uri.h"
 #include "time/time_format.h"
 
+#include <algorithm>
 #include <charconv>
+#include <cstdint>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <vector>
 
 namespace calendar {
 
@@ -91,8 +96,9 @@ namespace calendar {
     struct FetchContext {
       std::size_t pending = 0;
       bool unauthorized = false;
+      std::vector<CalendarSource> sources;
       std::vector<CalendarEvent> events;
-      std::function<void(bool, bool, std::vector<CalendarEvent>)> cb;
+      std::function<void(SyncFailure, std::vector<CalendarSource>, std::vector<CalendarEvent>)> cb;
     };
 
     void parseEventsInto(const nlohmann::json& j, const CalendarMeta& meta, std::vector<CalendarEvent>& out) {
@@ -100,6 +106,9 @@ namespace calendar {
       if (items == j.end() || !items->is_array()) {
         return;
       }
+      // The events.list response carries this calendar's own defaults, so resolving reminders.useDefault
+      // needs no separate calendarList lookup and cannot go stale against one.
+      const std::vector<std::int32_t> calendarDefaults = detail::googleDefaultReminders(j);
       for (const auto& item : *items) {
         if (item.value("status", std::string{}) == "cancelled") {
           continue;
@@ -108,7 +117,11 @@ namespace calendar {
         event.id = item.value("id", std::string{});
         event.title = item.value("summary", std::string{});
         event.location = item.value("location", std::string{});
-        event.url = resolveEventLink(event.location, item.value("hangoutLink", std::string{}));
+        event.url = resolveEventLink(event.location, item.value("hangoutLink", std::string{}), {});
+        if (event.url.empty()) {
+          event.url = resolveEventLink({}, item.value("description", std::string{}), {});
+        }
+        event.webUrl = resolveEventLink({}, {}, item.value("htmlLink", std::string{}));
         event.calendarName = meta.name;
         const std::string colorId = item.value("colorId", std::string{});
         if (!colorId.empty()) {
@@ -157,6 +170,7 @@ namespace calendar {
           event.end = event.start;
         }
         event.allDay = startAllDay;
+        event.reminderLeadSeconds = detail::googleEventReminders(item, calendarDefaults);
         out.push_back(std::move(event));
       }
     }
@@ -165,8 +179,9 @@ namespace calendar {
   GoogleClient::GoogleClient(HttpClient& http) : m_http(http) {}
 
   void GoogleClient::fetchEvents(
-      const std::string& accessToken, std::chrono::system_clock::time_point start,
-      std::chrono::system_clock::time_point end, std::function<void(bool, bool, std::vector<CalendarEvent>)> cb
+      const std::string& accessToken, const std::vector<std::string>& selectedCalendars,
+      std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point end,
+      std::function<void(SyncFailure, std::vector<CalendarSource>, std::vector<CalendarEvent>)> cb
   ) {
     const std::string bearer = "Authorization: Bearer " + accessToken;
 
@@ -176,47 +191,53 @@ namespace calendar {
     listReq.followRedirects = true;
     listReq.headers = {bearer};
 
-    m_http.request(std::move(listReq), [this, bearer, start, end, cb = std::move(cb)](HttpResponse resp) mutable {
-      if (resp.transportOk && resp.status == 401) {
-        cb(false, true, {});
-        return;
-      }
+    auto onList = [this, bearer, selectedCalendars, start, end, cb = std::move(cb)](HttpResponse resp) mutable {
       if (!resp.transportOk || resp.status != 200) {
-        kLog.warn("calendarList failed http={}", resp.status);
-        cb(false, false, {});
+        if (resp.status != 401) {
+          // 401 is not logged, because that's the normal case of a cached token expiring
+          kLog.warn("calendarList failed http={}", resp.status);
+        }
+        cb(syncFailureFromResponse(resp), {}, {});
         return;
       }
 
+      std::vector<CalendarSource> sources;
       std::vector<CalendarMeta> calendars;
       try {
         const auto j = nlohmann::json::parse(resp.body);
         if (auto items = j.find("items"); items != j.end() && items->is_array()) {
           for (const auto& item : *items) {
-            if (!detail::googleCalendarListItemSelected(item)) {
-              continue;
-            }
             CalendarMeta meta;
             meta.id = item.value("id", std::string{});
             meta.name = item.value("summaryOverride", item.value("summary", std::string{}));
             meta.color = item.value("backgroundColor", std::string{});
             if (!meta.id.empty()) {
+              sources.push_back({
+                  .id = meta.id,
+                  .name = meta.name,
+                  .defaultSelected = detail::googleCalendarListItemSelected(item),
+              });
               calendars.push_back(std::move(meta));
             }
           }
         }
       } catch (const std::exception& e) {
         kLog.warn("calendarList parse error: {}", e.what());
-        cb(false, false, {});
+        cb(SyncFailure::InvalidResponse, {}, {});
         return;
       }
 
+      const std::vector<std::string> selectedIds = selectedCalendarSourceIds(sources, selectedCalendars);
+      std::erase_if(calendars, [&](const CalendarMeta& meta) { return !std::ranges::contains(selectedIds, meta.id); });
+
       if (calendars.empty()) {
-        cb(true, false, {});
+        cb(SyncFailure::None, std::move(sources), {});
         return;
       }
 
       auto ctx = std::make_shared<FetchContext>();
       ctx->pending = calendars.size();
+      ctx->sources = std::move(sources);
       ctx->cb = std::move(cb);
 
       const std::string timeMin = formatUtcTime(start, "%Y-%m-%dT%H:%M:%SZ");
@@ -247,12 +268,15 @@ namespace calendar {
           }
 
           if (--ctx->pending == 0) {
-            const bool ok = !ctx->unauthorized;
-            ctx->cb(ok, ctx->unauthorized, std::move(ctx->events));
+            ctx->cb(
+                ctx->unauthorized ? SyncFailure::Authentication : SyncFailure::None, std::move(ctx->sources),
+                std::move(ctx->events)
+            );
           }
         });
       }
-    });
+    };
+    m_http.request(std::move(listReq), std::move(onList));
   }
 
 } // namespace calendar

@@ -30,10 +30,8 @@ namespace {
   void altD(Input& input) { sendKey(input, 'd', 0, KeyMod::Alt); }
   void type(Input& input, char c) { sendKey(input, c, c, 0); }
 
-  void setup(Input& input, std::string_view value, bool lineEditing) {
-    if (lineEditing) {
-      input.setLineEditingEnabled(true);
-    }
+  void setup(Input& input, std::string_view value, bool readlineShortcuts) {
+    Input::setReadlineShortcutsEnabled(readlineShortcuts);
     input.setValue(value);
   }
 } // namespace
@@ -142,21 +140,21 @@ int main() {
     ok = expect(input.value() == " bar baz", "Alt+D deletes the next word") && ok;
   }
 
-  // With line editing off, Ctrl+A selects all.
+  // With readline shortcuts off, Ctrl+A selects all.
   {
     Input input;
     setup(input, "foo bar", false);
     ctrlA(input);
     type(input, 'x');
-    ok = expect(input.value() == "x", "without line editing Ctrl+A stays \"select all\"") && ok;
+    ok = expect(input.value() == "x", "without readline shortcuts Ctrl+A stays \"select all\"") && ok;
   }
 
-  // With line editing off, Ctrl+W does not delete words.
+  // With readline shortcuts off, Ctrl+W does not delete words.
   {
     Input input;
     setup(input, "foo bar", false);
     ctrlW(input);
-    ok = expect(input.value() == "foo bar", "without line editing Ctrl+W does nothing") && ok;
+    ok = expect(input.value() == "foo bar", "without readline shortcuts Ctrl+W does nothing") && ok;
   }
 
   return ok ? 0 : 1;

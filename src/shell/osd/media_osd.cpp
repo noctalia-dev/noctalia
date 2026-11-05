@@ -23,8 +23,8 @@ namespace {
     const std::string artist = joinedArtists(player.artists);
     return OsdContent{
         .kind = OsdKind::Media,
-        .icon = "disc-filled",
-        .value = artist.empty() ? player.title : player.title + " — " + artist,
+        .icon = "disc",
+        .value = artist.empty() ? player.title : player.title + " - " + artist,
         .showProgress = false,
     };
   }
@@ -35,9 +35,9 @@ namespace {
     const int percent = static_cast<int>(std::round(std::max(0.0, volume) * 100.0));
     const std::string level = std::to_string(percent) + "%";
     return OsdContent{
-        .kind = OsdKind::Media,
-        .icon = "disc-filled",
-        .value = playerName.empty() ? level : playerName + " — " + level,
+        .kind = OsdKind::MediaVolume,
+        .icon = "disc",
+        .value = playerName.empty() ? level : playerName + " - " + level,
         .showProgress = false,
         .overLimit = percent > 100,
     };
@@ -115,7 +115,7 @@ void MediaOsd::scheduleTrackOsd(PendingTrack pending) {
     return;
   }
   m_pendingTrack = std::move(pending);
-  m_trackSettleTimer.start(kTrackSettleDelay, [this]() { showPendingTrackOsd(); });
+  m_trackSettleTimer.start(kTrackSettleDelay, [this] { showPendingTrackOsd(); });
 }
 
 void MediaOsd::cancelTrackOsd(const std::string& busName) {

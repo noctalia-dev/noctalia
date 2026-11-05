@@ -2,13 +2,13 @@
 
 #include "i18n/i18n.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/visuals/graph.h"
 #include "system/distro_info.h"
 #include "system/format_units.h"
 #include "system/hardware_info.h"
 #include "system/system_monitor_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
-#include "ui/controls/graph.h"
 
 #include <algorithm>
 #include <format>
@@ -480,7 +480,7 @@ void SystemTab::onClose() {
   m_netPeak = 0.0;
 }
 
-void SystemTab::onFrameTick(float deltaMs) {
+void SystemTab::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   (void)deltaMs;
 
   if (!m_active || m_monitor == nullptr || !m_monitor->isRunning()) {
@@ -488,7 +488,7 @@ void SystemTab::onFrameTick(float deltaMs) {
     return;
   }
 
-  if (!m_redrawLimiter.shouldStep([]() { PanelManager::instance().requestRedraw(); })) {
+  if (!m_redrawLimiter.shouldStep([] { PanelManager::instance().requestRedraw(); })) {
     return;
   }
 

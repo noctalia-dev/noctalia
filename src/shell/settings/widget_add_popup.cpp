@@ -7,6 +7,7 @@
 #include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/dialog_popup_settings.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "ui/builders.h"
 #include "ui/style.h"
@@ -16,6 +17,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -39,12 +41,11 @@ namespace settings {
 
     void sortSearchOptions(std::vector<SearchPickerOption>& options) {
       std::ranges::sort(options, [](const SearchPickerOption& a, const SearchPickerOption& b) {
-        const std::string aLabel = StringUtils::toLower(a.label);
-        const std::string bLabel = StringUtils::toLower(b.label);
-        if (aLabel == bLabel) {
+        const int result = std::strcoll(StringUtils::toLower(a.label).c_str(), StringUtils::toLower(b.label).c_str());
+        if (result == 0) {
           return a.value < b.value;
         }
-        return aLabel < bLabel;
+        return result < 0;
       });
     }
 
@@ -84,13 +85,10 @@ namespace settings {
       if (id.empty()) {
         return false;
       }
-      for (char c : id) {
+      return std::ranges::all_of(id, [&](char c) {
         const auto uc = static_cast<unsigned char>(c);
-        if (!std::isalnum(uc) && c != '_' && c != '-') {
-          return false;
-        }
-      }
-      return true;
+        return std::isalnum(uc) != 0 || c == '_' || c == '-';
+      });
     }
 
     std::string normalizedWidgetInstanceBase(std::string_view type) {
@@ -152,7 +150,7 @@ namespace settings {
   WidgetAddPopup::~WidgetAddPopup() { destroyPopup(); }
 
   void WidgetAddPopup::initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext) {
-    initializeBase(wayland, config, renderContext);
+    initializeBase(wayland, dialogPopupSettings(config), renderContext);
   }
 
   void WidgetAddPopup::setOnSelect(SelectCallback callback) { m_onSelect = std::move(callback); }
@@ -240,18 +238,6 @@ namespace settings {
 
   void WidgetAddPopup::close() { destroyPopup(); }
 
-  bool WidgetAddPopup::isOpen() const noexcept { return DialogPopupHost::isOpen(); }
-
-  bool WidgetAddPopup::onPointerEvent(const PointerEvent& event) { return DialogPopupHost::onPointerEvent(event); }
-
-  void WidgetAddPopup::onKeyboardEvent(const KeyboardEvent& event) { DialogPopupHost::onKeyboardEvent(event); }
-
-  wl_surface* WidgetAddPopup::wlSurface() const noexcept { return DialogPopupHost::wlSurface(); }
-
-  void WidgetAddPopup::requestLayout() { DialogPopupHost::requestLayout(); }
-
-  void WidgetAddPopup::requestRedraw() { DialogPopupHost::requestRedraw(); }
-
   void WidgetAddPopup::refreshPickerOptions() {
     if (m_searchPicker == nullptr) {
       return;
@@ -329,7 +315,7 @@ namespace settings {
       m_onSelect(m_lanePath, id, m_createType, id, {});
     }
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-    DeferredCall::callLater([this, aliveGuard]() {
+    DeferredCall::callLater([this, aliveGuard] {
       if (aliveGuard.expired()) {
         return;
       }
@@ -397,26 +383,28 @@ namespace settings {
       );
     }
 
-    header->addChild(
-        ui::button({
-            .glyph = "close",
-            .glyphSize = Style::fontSizeBody * m_scale,
-            .variant = ButtonVariant::Default,
-            .minWidth = Style::controlHeightSm * m_scale,
-            .minHeight = Style::controlHeightSm * m_scale,
-            .padding = Style::spaceXs * m_scale,
-            .radius = Style::scaledRadiusMd(m_scale),
-            .onClick = [this]() {
-              const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-              DeferredCall::callLater([this, aliveGuard]() {
-                if (aliveGuard.expired()) {
-                  return;
-                }
-                close();
-              });
-            },
-        })
-    );
+    if (Style::closeButtonsEnabled()) {
+      header->addChild(
+          ui::button({
+              .glyph = "close",
+              .glyphSize = Style::fontSizeBody * m_scale,
+              .variant = ButtonVariant::Default,
+              .minWidth = Style::controlHeightSm * m_scale,
+              .minHeight = Style::controlHeightSm * m_scale,
+              .padding = Style::spaceXs * m_scale,
+              .radius = Style::scaledRadiusMd(m_scale),
+              .onClick = [this] {
+                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                DeferredCall::callLater([this, aliveGuard] {
+                  if (aliveGuard.expired()) {
+                    return;
+                  }
+                  close();
+                });
+              },
+          })
+      );
+    }
     root->addChild(std::move(header));
 
     root->addChild(
@@ -446,7 +434,7 @@ namespace settings {
                       m_onSelect(m_lanePath, option.value, option.value, instanceId, {});
                     }
                     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                    DeferredCall::callLater([this, aliveGuard]() {
+                    DeferredCall::callLater([this, aliveGuard] {
                       if (aliveGuard.expired()) {
                         return;
                       }
@@ -462,7 +450,7 @@ namespace settings {
                     m_onSelect(m_lanePath, option.value, {}, {}, {});
                   }
                   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                  DeferredCall::callLater([this, aliveGuard]() {
+                  DeferredCall::callLater([this, aliveGuard] {
                     if (aliveGuard.expired()) {
                       return;
                     }
@@ -470,9 +458,9 @@ namespace settings {
                   });
                 },
             .onCancel =
-                [this]() {
+                [this] {
                   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                  DeferredCall::callLater([this, aliveGuard]() {
+                  DeferredCall::callLater([this, aliveGuard] {
                     if (aliveGuard.expired()) {
                       return;
                     }
@@ -541,7 +529,7 @@ namespace settings {
                 .paddingH = Style::spaceSm * m_scale,
                 .radius = Style::scaledRadiusSm(m_scale),
                 .onClick =
-                    [this]() {
+                    [this] {
                       m_createFormVisible = false;
                       m_createType.clear();
                       m_createLabel.clear();
@@ -559,7 +547,7 @@ namespace settings {
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceSm * m_scale,
                 .radius = Style::scaledRadiusSm(m_scale),
-                .onClick = [this]() { finishCreateFlow(); },
+                .onClick = [this] { finishCreateFlow(); },
             })
         )
     );
@@ -606,7 +594,7 @@ namespace settings {
         }
       }
       ScaledRenderer measureRenderer(*m_renderContext, measureScale);
-      const TextMetrics titleMetrics = measureRenderer.measureText(instanceFormTitle(), fontSize, FontWeight::Bold);
+      const TextMetrics titleMetrics = measureRenderer.measureText(instanceFormTitle(), fontSize, {FontWeight::Bold});
       const float closeBtn = Style::controlHeightSm * m_scale;
       const float headerGap = Style::spaceSm * m_scale;
       const float rootPadding = Style::spaceSm * m_scale * 2.0F;

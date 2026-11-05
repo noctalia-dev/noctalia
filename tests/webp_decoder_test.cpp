@@ -1,4 +1,4 @@
-#include "render/core/image_decoder.h"
+#include "render/codecs/codecs.h"
 
 #include <array>
 #include <cstdint>
@@ -61,14 +61,14 @@ namespace {
 int main() {
   bool ok = true;
 
-  const auto still = decodeRasterImage(kStillRed.data(), kStillRed.size());
+  const auto still = codecs::decodeRasterImage(kStillRed.data(), kStillRed.size());
   ok = checkDecoded(still, "still WebP failed to decode") && ok;
   if (still) {
     ok = check(still->width == 16 && still->height == 16, "still WebP decoded to the wrong size") && ok;
     ok = checkSolid(*still, 0xFF, 0x00, 0x00, "still WebP did not decode to opaque red") && ok;
   }
 
-  const auto animated = decodeRasterImage(kAnimatedRedThenBlue.data(), kAnimatedRedThenBlue.size());
+  const auto animated = codecs::decodeRasterImage(kAnimatedRedThenBlue.data(), kAnimatedRedThenBlue.size());
   ok = checkDecoded(animated, "animated WebP failed to decode") && ok;
   if (animated) {
     ok = check(animated->width == 16 && animated->height == 16, "animated WebP decoded to the wrong size") && ok;
@@ -76,7 +76,7 @@ int main() {
   }
 
   // A truncated animation must fail rather than hand back a half-built canvas.
-  const auto truncated = decodeRasterImage(kAnimatedRedThenBlue.data(), 48);
+  const auto truncated = codecs::decodeRasterImage(kAnimatedRedThenBlue.data(), 48);
   ok = check(!truncated.has_value(), "truncated animated WebP decoded instead of failing") && ok;
 
   return ok ? 0 : 1;

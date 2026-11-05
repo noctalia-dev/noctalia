@@ -1,9 +1,10 @@
-#include "render/core/image_decoder.h"
+#include "render/codecs/codecs.h"
 
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <expected>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -11,7 +12,7 @@ namespace {
 
   bool check(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "ico_decoder_test: FAIL: %s\n", message);
+      std::println(stderr, "ico_decoder_test: FAIL: {}", message);
     }
     return condition;
   }
@@ -192,7 +193,7 @@ namespace {
 
   bool testPngSubImage() {
     auto ico = buildIcoWithPng(1, 1);
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     if (!checkDecoded(result, "PNG sub-image decode failed"))
       return false;
     bool ok = true;
@@ -204,7 +205,7 @@ namespace {
 
   bool testBmpSubImage() {
     auto ico = buildIcoWithBmp(2, 2, 32);
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     if (!checkDecoded(result, "BMP sub-image decode failed"))
       return false;
     bool ok = true;
@@ -231,7 +232,7 @@ namespace {
     // Patch the second pixel to fully transparent.
     ico[firstPixel + 4 + 3] = 0x00; // A
 
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     if (!checkDecoded(result, "alpha-preserved decode failed"))
       return false;
     bool ok = true;
@@ -254,7 +255,7 @@ namespace {
     // Bit 7 = pixel 0 (opaque), bit 6 = pixel 1 (transparent)
     ico[andMaskOffset] = 0x40;
 
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     if (!checkDecoded(result, "AND mask decode failed"))
       return false;
     bool ok = true;
@@ -268,7 +269,7 @@ namespace {
 
   bool testMultiEntryPicksBest() {
     auto ico = buildIcoMultiEntry();
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     if (!checkDecoded(result, "multi-entry decode failed"))
       return false;
     bool ok = true;
@@ -280,11 +281,11 @@ namespace {
   bool testEmptyIco() {
     // Valid header but count = 0
     std::vector<std::uint8_t> ico = {0x00, 0x00, 0x01, 0x00, 0x00, 0x00};
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     bool ok = true;
     ok = check(!result, "empty ICO should fail") && ok;
     if (!result) {
-      const bool mentionsNoImages = result.error().find("no images") != std::string::npos;
+      const bool mentionsNoImages = result.error().contains("no images");
       ok = check(mentionsNoImages, "empty ICO error should mention 'no images'") && ok;
     }
     return ok;
@@ -293,11 +294,11 @@ namespace {
   bool testTruncatedDirectory() {
     // Claims 1 entry but file is too short to contain it
     std::vector<std::uint8_t> ico = {0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00};
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     bool ok = true;
     ok = check(!result, "truncated directory should fail") && ok;
     if (!result) {
-      const bool mentionsPastEnd = result.error().find("past end") != std::string::npos;
+      const bool mentionsPastEnd = result.error().contains("past end");
       ok = check(mentionsPastEnd, "truncated error should mention 'past end'") && ok;
     }
     return ok;
@@ -310,11 +311,11 @@ namespace {
     ico[19] = 0xFF;
     ico[20] = 0x00;
     ico[21] = 0x00;
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     bool ok = true;
     ok = check(!result, "out-of-bounds entry should fail") && ok;
     if (!result) {
-      const bool mentionsOutside = result.error().find("outside") != std::string::npos;
+      const bool mentionsOutside = result.error().contains("outside");
       ok = check(mentionsOutside, "out-of-bounds error should mention 'outside'") && ok;
     }
     return ok;
@@ -323,7 +324,7 @@ namespace {
   bool test256x256Entry() {
     // Width/height 0 in the directory means 256
     auto ico = buildIcoWithPng(256, 256);
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     if (!checkDecoded(result, "256x256 entry decode failed"))
       return false;
     // The actual decoded size comes from the embedded PNG (1x1), not the directory

@@ -2,14 +2,14 @@
 
 #include "util/string_utils.h"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <cstddef>
-
 namespace calendar {
   namespace {
     constexpr std::size_t kMaxLinkLength = 2048;
-    constexpr std::string_view kWhitespace = " \t\r\n\v\f";
+    constexpr std::string_view kLinkTerminators = " \t\r\n\v\f<>\"'";
 
     bool equalsIgnoreCase(std::string_view a, std::string_view b) {
       if (a.size() != b.size()) {
@@ -46,13 +46,10 @@ namespace calendar {
       if (schemeLength == 0 || !hasHost(link, schemeLength)) {
         return false;
       }
-      for (const char c : link) {
+      return std::ranges::all_of(link, [&](const char c) {
         const auto byte = static_cast<unsigned char>(c);
-        if (byte <= 0x20 || byte == 0x7f) {
-          return false;
-        }
-      }
-      return true;
+        return byte > 0x20 && byte != 0x7f;
+      });
     }
 
     // Drop sentence punctuation and unbalanced closing wrappers a link picks up when it is embedded
@@ -86,7 +83,7 @@ namespace calendar {
           continue;
         }
         std::string_view candidate = text.substr(i);
-        if (const std::size_t end = candidate.find_first_of(kWhitespace); end != std::string_view::npos) {
+        if (const std::size_t end = candidate.find_first_of(kLinkTerminators); end != std::string_view::npos) {
           candidate = candidate.substr(0, end);
         }
         candidate = trimTrailingPunctuation(candidate);
@@ -98,9 +95,12 @@ namespace calendar {
     }
   } // namespace
 
-  std::string resolveEventLink(std::string_view location, std::string_view urlProperty) {
-    if (std::string link = extractEmbeddedLink(location); !link.empty()) {
-      return link;
+  std::string
+  resolveEventLink(std::string_view location, std::string_view preferredLink, std::string_view urlProperty) {
+    for (const std::string_view candidate : std::array{location, preferredLink}) {
+      if (std::string link = extractEmbeddedLink(candidate); !link.empty()) {
+        return link;
+      }
     }
     const std::string_view trimmed = StringUtils::trimRightView(StringUtils::trimLeftView(urlProperty));
     return isValidLink(trimmed) ? std::string(trimmed) : std::string{};

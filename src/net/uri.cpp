@@ -74,8 +74,9 @@ namespace uri {
         const auto firstSlash = path.find('/');
         path = firstSlash == std::string::npos ? std::string{} : path.substr(firstSlash);
       }
+      return decodeComponent(path);
     }
-    return decodeComponent(path);
+    return path;
   }
 
 } // namespace uri

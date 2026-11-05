@@ -5,33 +5,36 @@
 #include "core/ui_phase.h"
 #include "render/core/render_styles.h"
 #include "render/render_context.h"
+#include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_items.h"
-#include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
+#include "ui/surface_shadow.h"
 #include "wayland/surface.h"
 
+#include <algorithm>
 #include <cmath>
+#include <wayland-client-protocol.h>
 
 namespace shell::dock {
 
   namespace {
 
-    [[nodiscard]] bool dockUsesSlideAutoHide(const DockConfig& cfg, const DockInstance& instance) noexcept {
+    bool dockUsesSlideAutoHide(const DockConfig& cfg, const DockInstance& instance) noexcept {
       if (cfg.smartAutoHide) {
         return !instance.smartAutoHidePinnedVisible;
       }
       return cfg.autoHide;
     }
 
-    [[nodiscard]] bool dockUsesAnyAutoHide(const DockConfig& cfg) noexcept { return cfg.autoHide || cfg.smartAutoHide; }
+    bool dockUsesAnyAutoHide(const DockConfig& cfg) noexcept { return cfg.autoHide || cfg.smartAutoHide; }
 
-    [[nodiscard]] bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
+    bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
       if (assignmentKey.empty()) {
         return false;
       }
@@ -47,7 +50,7 @@ namespace shell::dock {
       return false;
     }
 
-    [[nodiscard]] bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
+    bool activeWorkspaceHasWindows(const CompositorPlatform& platform, wl_output* output) {
       const auto workspaces = platform.workspaces(output);
       const Workspace* active = nullptr;
       for (const auto& workspace : workspaces) {
@@ -72,11 +75,23 @@ namespace shell::dock {
       return active->occupied;
     }
 
-    [[nodiscard]] bool smartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
+    bool smartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
       if (platform.hasOverviewState() && platform.isOverviewOpen()) {
         return true;
       }
       return !activeWorkspaceHasWindows(platform, output);
+    }
+
+    void applyDockScrollOffset(DockInstance& instance, const DockConfig& cfg) {
+      if (instance.row == nullptr) {
+        return;
+      }
+      instance.scrollOffset = std::clamp(instance.scrollOffset, 0.0F, instance.maxScrollOffset);
+      if (shell::dock::isVerticalEdge(cfg.position)) {
+        instance.row->setPosition(instance.row->x(), -instance.scrollOffset);
+      } else {
+        instance.row->setPosition(-instance.scrollOffset, instance.row->y());
+      }
     }
 
   } // namespace
@@ -105,6 +120,9 @@ namespace shell::dock {
       }
     }
 
+    needsModelRebuild |= deps.config.config().dock.iconShadow
+        && instance.iconRenderScale != instance.surface->renderTarget().renderer().renderScale();
+
     const bool needsSceneBuild = instance.sceneRoot == nullptr
         || static_cast<std::uint32_t>(std::round(instance.sceneRoot->width())) != width
         || static_cast<std::uint32_t>(std::round(instance.sceneRoot->height())) != height;
@@ -131,11 +149,10 @@ namespace shell::dock {
     }
   }
 
-  // Match the bar: while slid away use the edge strip (or full surface when pinned/hovered).
-  // Never hit-test the slide-translated panel — that goes off-surface when smart_auto_hide
-  // flips to pinned before hideOpacity recovers (dock rebuild on a new window).
-  void
-  syncDockAutoHideInputRegion(DockInstance& instance, const DockConfig& cfg, const DockPanelGeometry& panelGeometry) {
+  // While slid away or waiting for the reveal dwell use the edge strip; when pinned or hovered use the
+  // unslid capsule region. Never hit-test the slide-translated panel: it goes off-surface when
+  // smart_auto_hide flips to pinned before hideOpacity recovers (dock rebuild on a new window).
+  void syncDockAutoHideInputRegion(DockInstance& instance, const DockConfig& cfg) {
     if (instance.surface == nullptr) {
       return;
     }
@@ -147,25 +164,24 @@ namespace shell::dock {
 
     if (!dockUsesAnyAutoHide(cfg)) {
       instance.surface->setInputRegion(
-          shell::dock::computeInputRegion(cfg, panelGeometry, surfW, surfH, false, instance.fractionalScale)
+          shell::dock::computeInputRegion(cfg, instance.panelGeometry, surfW, surfH, false, instance.fractionalScale)
       );
       return;
     }
 
-    const bool fullSurface = instance.pointerInside
-        || instance.hideOpacity > 0.5F
-        || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible);
-    if (fullSurface) {
-      instance.surface->setInputRegion({InputRect{0, 0, surfW, surfH}});
-      return;
-    }
+    const bool revealed = (instance.pointerInside || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible))
+        && !instance.revealTimer.active();
     instance.surface->setInputRegion(
-        shell::dock::computeInputRegion(cfg, DockPanelGeometry{}, surfW, surfH, true, instance.fractionalScale)
+        shell::dock::computeInputRegion(cfg, instance.panelGeometry, surfW, surfH, !revealed, instance.fractionalScale)
     );
   }
 
   void applyDockCompositorBlur(DockInstance& instance, const DockConfig& cfg) {
     if (instance.surface == nullptr) {
+      return;
+    }
+    if (!cfg.compositorBlur) {
+      instance.surface->clearBlurRegion();
       return;
     }
     // Compositor blur is independent of scene opacity — clear it while auto-hide
@@ -203,14 +219,13 @@ namespace shell::dock {
 
     Renderer& renderer = instance.surface->renderTarget().renderer();
 
-    const auto& cfg = deps.config.config().dock;
+    const auto& cfg = instance.config;
     const bool vert = shell::dock::isVerticalEdge(cfg.position);
 
     const auto w = static_cast<float>(instance.surface->width());
     const auto h = static_cast<float>(instance.surface->height());
 
     const auto& shadowConfig = deps.config.config().shell.shadow;
-    const auto panelGeometry = shell::dock::computePanelGeometry(cfg, shadowConfig, w, h);
     const auto concave = shell::dock::dockConcaveShape(cfg);
 
     if (instance.sceneRoot == nullptr) {
@@ -224,7 +239,7 @@ namespace shell::dock {
       instance.slideRoot = instance.sceneRoot->addChild(std::move(slide));
 
       // Shadow
-      if (shell::surface_shadow::enabled(cfg.shadow, shadowConfig)) {
+      if (surface_shadow::enabled(cfg.shadow, shadowConfig)) {
         instance.shadow = static_cast<Box*>(instance.slideRoot->addChild(ui::box()));
       }
 
@@ -241,8 +256,37 @@ namespace shell::dock {
       ));
       instance.panel->setZIndex(0);
 
-      // Item row sits above the panel background without being clipped by it.
-      instance.row = static_cast<Flex*>(instance.slideRoot->addChild(makeDockItemRow(cfg, vert)));
+      // Clip overflow along the dock while retaining the cross-axis surface room used by magnification.
+      auto viewport = ui::inputArea({});
+      viewport->setOnAxisHandler([inst = &instance](const InputArea::PointerData& data) {
+        if (inst->row == nullptr || inst->maxScrollOffset <= 0.0F) {
+          return false;
+        }
+        const auto& dockConfig = inst->config;
+        const bool vertical = shell::dock::isVerticalEdge(dockConfig.position);
+        const bool mainAxis =
+            data.axis == (vertical ? WL_POINTER_AXIS_VERTICAL_SCROLL : WL_POINTER_AXIS_HORIZONTAL_SCROLL);
+        const bool verticalWheelOnHorizontalDock = !vertical && data.axis == WL_POINTER_AXIS_VERTICAL_SCROLL;
+        if (!mainAxis && !verticalWheelOnHorizontalDock) {
+          return false;
+        }
+
+        inst->scrollOffset += data.scrollDelta(Style::scrollWheelStep);
+        applyDockScrollOffset(*inst, dockConfig);
+        inst->inputDispatcher.syncPointerHover();
+
+        float viewportX = 0.0F;
+        float viewportY = 0.0F;
+        Node::absolutePosition(inst->viewport, viewportX, viewportY);
+        shell::dock::syncHoverPointerFromScene(*inst, dockConfig, viewportX + data.localX, viewportY + data.localY);
+        if (inst->surface != nullptr) {
+          inst->surface->requestFrameTick();
+          inst->surface->requestRedraw();
+        }
+        return true;
+      });
+      instance.viewport = static_cast<InputArea*>(instance.slideRoot->addChild(std::move(viewport)));
+      instance.row = static_cast<Flex*>(instance.viewport->addChild(makeDockItemRow(cfg, vert)));
       instance.row->setZIndex(1);
 
       // Wire up InputDispatcher.
@@ -283,6 +327,10 @@ namespace shell::dock {
       instance.panel->setRadii(concave.radii);
     }
 
+    const auto totalItemCount = instance.items.size() + shell::dock::dockLauncherButtonCount(cfg);
+    instance.panelGeometry = shell::dock::computePanelGeometry(cfg, shadowConfig, w, h, totalItemCount);
+    const auto& panelGeometry = instance.panelGeometry;
+
     // Update root size on reconfigure.
     instance.sceneRoot->setSize(w, h);
     if (instance.slideRoot != nullptr) {
@@ -294,9 +342,9 @@ namespace shell::dock {
       const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
       const auto shadowOffsetX = static_cast<float>(shadowOff.x);
       const auto shadowOffsetY = static_cast<float>(shadowOff.y);
-      const RoundedRectStyle shadowStyle = shell::surface_shadow::style(
+      const RoundedRectStyle shadowStyle = surface_shadow::style(
           shadowConfig, cfg.backgroundOpacity,
-          shell::surface_shadow::Shape{
+          surface_shadow::Shape{
               .corners = concave.corners, .logicalInset = concave.logicalInset, .radius = concave.radii
           }
       );
@@ -322,9 +370,24 @@ namespace shell::dock {
         panelGeometry.panelH + concave.logicalInset.top + concave.logicalInset.bottom
     );
 
-    // Row matches the pill; hover spread is clamped to stay inside the background.
-    instance.row->setPosition(panelGeometry.panelX, panelGeometry.panelY);
-    instance.row->setSize(panelGeometry.panelW, panelGeometry.panelH);
+    // The viewport follows the visible pill on its main axis and spans the surface on its cross axis,
+    // allowing magnified icons to grow away from the screen edge.
+    const auto contentLength = static_cast<float>(shell::dock::dockContentSize(cfg, totalItemCount));
+    if (vert) {
+      instance.viewport->setPosition(0.0F, panelGeometry.panelY);
+      instance.viewport->setSize(w, panelGeometry.panelH);
+      instance.row->setPosition(panelGeometry.panelX, 0.0F);
+      instance.row->setSize(panelGeometry.panelW, contentLength);
+      instance.maxScrollOffset = std::max(0.0F, contentLength - panelGeometry.panelH);
+    } else {
+      instance.viewport->setPosition(panelGeometry.panelX, 0.0F);
+      instance.viewport->setSize(panelGeometry.panelW, h);
+      instance.row->setPosition(0.0F, panelGeometry.panelY);
+      instance.row->setSize(contentLength, panelGeometry.panelH);
+      instance.maxScrollOffset = std::max(0.0F, contentLength - panelGeometry.panelW);
+    }
+    instance.viewport->setClipChildren(!cfg.iconShadow || instance.maxScrollOffset > 0.0F);
+    applyDockScrollOffset(instance, cfg);
     instance.row->layout(renderer);
     shell::dock::syncDockItemRestPositions(instance, cfg);
 
@@ -337,13 +400,13 @@ namespace shell::dock {
       instance.slideHiddenDy = 0.0F;
     }
     syncDockSlideLayerTransform(instance, cfg);
-    syncDockAutoHideInputRegion(instance, cfg, panelGeometry);
+    syncDockAutoHideInputRegion(instance, cfg);
 
     applyDockCompositorBlur(instance, cfg);
 
     // Palette reactivity.
-    instance.paletteConn = paletteChanged().connect([inst = &instance, &config = deps.config] {
-      applyPanelPalette(*inst, config.config().dock);
+    instance.paletteConn = paletteChanged().connect([inst = &instance] {
+      applyPanelPalette(*inst, inst->config);
       if (inst->surface)
         inst->surface->requestRedraw();
     });
@@ -361,13 +424,13 @@ namespace shell::dock {
     instance.panel->setBorder(cfg.border, cfg.borderWidth);
   }
 
-  void resizeSurface(DockInstance& instance, const DockConfig& cfg, const ShellConfig::ShadowConfig& shadowConfig) {
+  void resizeSurface(DockInstance& instance, const DockConfig& cfg, const ShadowStyle& shadowConfig) {
     if (instance.surface == nullptr) {
       return;
     }
 
     const auto surfaceGeometry = shell::dock::computeSurfaceGeometry(
-        cfg, shadowConfig, instance.items.size() + shell::dock::dockLauncherButtonCount(cfg), instance.fractionalScale
+        cfg, shadowConfig, instance.fractionalScale, instance.outputLogicalWidth, instance.outputLogicalHeight
     );
 
     if (instance.surface->width() != surfaceGeometry.surfaceW
@@ -376,8 +439,9 @@ namespace shell::dock {
     }
   }
 
-  void revealAutoHideDock(DockInstance& inst, ConfigService& config) {
-    const auto& cfg = config.config().dock;
+  void revealAutoHideDock(DockInstance& inst) {
+    inst.revealTimer.stop();
+    const auto& cfg = inst.config;
     if (!dockUsesAnyAutoHide(cfg) || inst.surface == nullptr || inst.slideRoot == nullptr) {
       return;
     }
@@ -390,26 +454,26 @@ namespace shell::dock {
     constexpr float kSettledThreshold = 0.999F;
     const float current = inst.hideOpacity;
     if (current >= kSettledThreshold) {
-      syncDockAutoHideInputRegion(inst, cfg, DockPanelGeometry{});
+      syncDockAutoHideInputRegion(inst, cfg);
       inst.surface->requestRedraw();
       return;
     }
 
     inst.hideAnimId = inst.animations.animate(
         current, 1.0F, Style::animNormal, Easing::EaseOutCubic,
-        [&inst, &config](float v) {
+        [&inst](float v) {
           inst.hideOpacity = v;
-          const auto& dockCfg = config.config().dock;
-          syncDockSlideLayerTransform(inst, dockCfg);
-          applyDockCompositorBlur(inst, dockCfg);
+          syncDockSlideLayerTransform(inst, inst.config);
+          applyDockCompositorBlur(inst, inst.config);
         },
-        [&inst]() { inst.hideAnimId = 0; }
+        [&inst] { inst.hideAnimId = 0; }
     );
-    syncDockAutoHideInputRegion(inst, cfg, DockPanelGeometry{});
+    syncDockAutoHideInputRegion(inst, cfg);
     inst.surface->requestRedraw();
   }
 
-  void startHideFadeOut(DockInstance& inst, ConfigService& config) {
+  void startHideFadeOut(DockInstance& inst) {
+    inst.revealTimer.stop();
     // xdg tooltips are not parent-transformed with the slide; destroy immediately
     // so they cannot remain pinned after auto-hide starts (#4177).
     TooltipManager::instance().forceDestroy();
@@ -420,20 +484,14 @@ namespace shell::dock {
     const float current = inst.hideOpacity;
     inst.hideAnimId = inst.animations.animate(
         current, 0.0F, Style::animNormal, Easing::EaseInQuad,
-        [&inst, &config](float v) {
+        [&inst](float v) {
           inst.hideOpacity = v;
-          const auto& cfg = config.config().dock;
-          syncDockSlideLayerTransform(inst, cfg);
-          applyDockCompositorBlur(inst, cfg);
+          syncDockSlideLayerTransform(inst, inst.config);
+          applyDockCompositorBlur(inst, inst.config);
         },
-        [&inst, &config]() {
-          inst.hideAnimId = 0;
-          if (inst.surface == nullptr) {
-            return;
-          }
-          syncDockAutoHideInputRegion(inst, config.config().dock, DockPanelGeometry{});
-        }
+        [&inst] { inst.hideAnimId = 0; }
     );
+    syncDockAutoHideInputRegion(inst, inst.config);
     if (inst.surface) {
       inst.surface->requestRedraw();
     }

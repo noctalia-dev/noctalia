@@ -1,10 +1,12 @@
 #pragma once
 
 #include "core/timer_manager.h"
+#include "dbus/tray/fcitx_status.h"
 #include "shell/bar/widget.h"
 #include "shell/bar/widget_custom_image.h"
 #include "shell/keyboard_layout_label.h"
 
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -13,6 +15,7 @@ class Image;
 class Label;
 class Renderer;
 class CompositorPlatform;
+class TrayService;
 
 class KeyboardLayoutWidget : public Widget {
 public:
@@ -24,10 +27,14 @@ public:
     bool customImageColorize = false;
     bool showLabel = true;
     KeyboardLayoutDisplayMode display = KeyboardLayoutDisplayMode::Short;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   KeyboardLayoutWidget(
-      CompositorPlatform& platform, Options options, std::unordered_map<std::string, std::string> customLabels
+      CompositorPlatform& platform, const TrayService* tray, Options options,
+      std::unordered_map<std::string, std::string> customLabels
   );
 
   void create() override;
@@ -37,11 +44,13 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void sync(Renderer& renderer);
-  [[nodiscard]] std::string resolvedLayoutName() const;
+  std::optional<FcitxInputMethodState> inputMethodState() const;
+  std::string resolvedLayoutName() const;
   void armRefreshTick();
   void scheduleRefreshBurst();
 
   CompositorPlatform& m_platform;
+  const TrayService* m_tray = nullptr;
   KeyboardLayoutDisplayMode m_displayMode = KeyboardLayoutDisplayMode::Short;
   bool m_showGlyph = true;
   bool m_showLabel = true;
@@ -49,6 +58,7 @@ private:
   std::unordered_map<std::string, std::string> m_customLabels;
   std::string m_glyphName = "keyboard";
   WidgetCustomImage m_customImage;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
 
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;

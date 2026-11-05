@@ -54,6 +54,9 @@ namespace scripting {
     // list is read via noctalia.outputs() inside the callback.
     void onOutputChange();
 
+    // Calls onSuspend() (sleeping) or onResume() on services declaring kSleepCallbacksPluginApiVersion.
+    void onSleepChanged(bool sleeping);
+
   private:
     // A service is reachable by IPC via the `all` target (it is a singleton with no
     // output): `noctalia msg plugin <author/plugin:entry> all <event> [payload]`.
@@ -69,10 +72,10 @@ namespace scripting {
       ScriptSettings lastSeededSettings;
       std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
-      [[nodiscard]] std::string_view ipcEntryId() const override { return entryId; }
-      [[nodiscard]] std::string_view ipcOutputName() const override { return {}; }
-      [[nodiscard]] std::string_view ipcBarName() const override { return {}; }
-      [[nodiscard]] DispatchResult
+      std::string_view ipcEntryId() const override { return entryId; }
+      std::string_view ipcOutputName() const override { return {}; }
+      std::string_view ipcBarName() const override { return {}; }
+      DispatchResult
       dispatchIpc(std::string_view event, std::string_view payload, const ScriptSnapshot& snapshot) override;
     };
 
@@ -94,8 +97,7 @@ namespace scripting {
     void stopService(Service& service, ScriptExitReason exitReason = ScriptExitReason::Reload);
     // Build the effective seeded settings for an entry (manifest defaults + plugin
     // overrides). Returns nullopt if the entry no longer resolves.
-    [[nodiscard]] std::optional<ScriptSettings>
-    seedFor(const std::string& entryId, const PluginSettingsMap& pluginSettings) const;
+    std::optional<ScriptSettings> seedFor(const std::string& entryId, const PluginSettingsMap& pluginSettings) const;
 
     ScriptApiContext& m_scriptApi;
     HttpClient* m_httpClient = nullptr;

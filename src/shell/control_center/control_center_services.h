@@ -19,6 +19,7 @@ class HttpClient;
 class IdleInhibitor;
 class INetworkService;
 class IpcService;
+class ModemManagerService;
 class MprisService;
 class NetworkSecretAgent;
 class NotificationManager;
@@ -52,6 +53,7 @@ struct ControlCenterServices {
   UPowerService* upower = nullptr;
   PowerProfilesService* powerProfiles = nullptr;
   INetworkService* network = nullptr;
+  ModemManagerService* modem = nullptr;
   NetworkSecretAgent* networkSecrets = nullptr;
   ExternalIpService* externalIp = nullptr;
   BluetoothService* bluetooth = nullptr;
@@ -74,7 +76,7 @@ struct ControlCenterServices {
   ThumbnailService* thumbnails = nullptr;
   AsyncTextureCache* asyncTextures = nullptr;
 
-  [[nodiscard]] ShortcutServices shortcutServices() const {
+  ShortcutServices shortcutServices() const {
     return {
         .network = network,
         .bluetooth = bluetooth,

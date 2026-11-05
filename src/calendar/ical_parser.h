@@ -26,7 +26,10 @@ namespace calendar {
   // recurrence expansion (CalDAV <C:expand>), so a compliant server already returns one VEVENT per
   // occurrence. As a fallback for servers that ignore <C:expand> and return the master VEVENT with an
   // RRULE, that RRULE is expanded client-side, bounded to [windowStart, windowEnd].
-  // UID/SUMMARY/DTSTART/DTEND/LOCATION/RRULE/EXDATE are read; VTODO/VALARM and others are ignored.
+  // UID/SUMMARY/DTSTART/DTEND/LOCATION/RRULE/EXDATE are read; VTODO and other components are ignored.
+  // VALARM TRIGGERs with ACTION DISPLAY/AUDIO (or no ACTION) become CalendarEvent::reminderLeadSeconds,
+  // normalized to seconds before DTSTART. A VALARM's REPEAT/DURATION snooze ladder is ignored, as are
+  // absolute triggers on recurring events (they fire once for the series, not per occurrence).
 
   ICalParseResult parseICalEvents(
       std::string_view ics, std::chrono::system_clock::time_point windowStart,

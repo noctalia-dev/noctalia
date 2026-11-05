@@ -9,7 +9,7 @@
 namespace security {
 
   [[nodiscard]] bool initializeSecurityPrimitives();
-  [[nodiscard]] bool securityPrimitivesReady();
+  bool securityPrimitivesReady();
 
   class SecureBuffer {
   public:
@@ -24,10 +24,10 @@ namespace security {
     SecureBuffer(SecureBuffer&& other) noexcept;
     SecureBuffer& operator=(SecureBuffer&& other) noexcept;
 
-    [[nodiscard]] std::span<std::uint8_t> bytes();
-    [[nodiscard]] std::span<const std::uint8_t> bytes() const;
-    [[nodiscard]] std::size_t size() const;
-    [[nodiscard]] bool empty() const;
+    std::span<std::uint8_t> bytes();
+    std::span<const std::uint8_t> bytes() const;
+    std::size_t size() const;
+    bool empty() const;
 
     void clear();
 
@@ -46,10 +46,10 @@ namespace security {
     SecureKey& operator=(SecureKey&&) noexcept = default;
 
     [[nodiscard]] static std::optional<SecureKey> fromBuffer(SecureBuffer buffer);
-    [[nodiscard]] static std::optional<SecureKey> fromBytes(std::span<const std::uint8_t> bytes);
-    [[nodiscard]] static std::optional<SecureKey> generate();
+    static std::optional<SecureKey> fromBytes(std::span<const std::uint8_t> bytes);
+    static std::optional<SecureKey> generate();
 
-    [[nodiscard]] std::span<const std::uint8_t, Size> bytes() const;
+    std::span<const std::uint8_t, Size> bytes() const;
 
   private:
     explicit SecureKey(SecureBuffer buffer);

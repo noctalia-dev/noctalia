@@ -37,11 +37,11 @@ namespace noctalia::cli {
     bool hidden = false;
   };
 
-  [[nodiscard]] constexpr std::string_view canonicalName(const Flag& flag) {
+  constexpr std::string_view canonicalName(const Flag& flag) {
     return flag.longName.empty() ? flag.shortName : flag.longName;
   }
 
-  [[nodiscard]] constexpr bool validateCommand(const Command& command) {
+  constexpr bool validateCommand(const Command& command) {
     for (std::size_t i = 0; i < command.flags.size(); ++i) {
       const Flag& flag = command.flags[i];
       if (flag.longName.empty() && flag.shortName.empty())

@@ -9,7 +9,7 @@ namespace compositors {
 
   namespace {
 
-    [[nodiscard]] std::string buildEnvHint() {
+    std::string buildEnvHint() {
       constexpr const char* vars[] = {"XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP", "DESKTOP_SESSION"};
       std::string hint;
       for (const char* var : vars) {
@@ -25,19 +25,13 @@ namespace compositors {
       return hint;
     }
 
-    [[nodiscard]] CompositorKind detectImpl() {
+    CompositorKind detectImpl() {
       // Compositor-set env vars are the most reliable signal.
       if (const char* v = std::getenv("UMBRIEL_SOCKET"); v != nullptr && v[0] != '\0') {
         return CompositorKind::Umbriel;
       }
       if (const char* v = std::getenv("LABWC_PID"); v != nullptr && v[0] != '\0') {
         return CompositorKind::Labwc;
-      }
-      if (const char* v = std::getenv("TRIAD_SOCKET"); v != nullptr && v[0] != '\0') {
-        return CompositorKind::Triad;
-      }
-      if (const char* v = std::getenv("RIVER_WM"); v != nullptr && StringUtils::containsInsensitive(v, "triad")) {
-        return CompositorKind::Triad;
       }
       if (const char* v = std::getenv("NIRI_SOCKET"); v != nullptr && v[0] != '\0') {
         return CompositorKind::Niri;
@@ -56,9 +50,6 @@ namespace compositors {
       const std::string hint = buildEnvHint();
       if (StringUtils::containsInsensitive(hint, "umbriel")) {
         return CompositorKind::Umbriel;
-      }
-      if (StringUtils::containsInsensitive(hint, "triad")) {
-        return CompositorKind::Triad;
       }
       if (StringUtils::containsInsensitive(hint, "niri")) {
         return CompositorKind::Niri;
@@ -93,8 +84,6 @@ namespace compositors {
 
   std::string_view name(CompositorKind kind) {
     switch (kind) {
-    case CompositorKind::Triad:
-      return "Triad";
     case CompositorKind::Niri:
       return "Niri";
     case CompositorKind::Hyprland:

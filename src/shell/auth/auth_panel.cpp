@@ -9,8 +9,10 @@
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/app_icon_colorization_settings.h"
 #include "shell/auth/auth_source.h"
 #include "shell/panel/panel_manager.h"
+#include "system/desktop_entry.h"
 #include "ui/builders.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/image.h"
@@ -29,37 +31,7 @@ namespace {
 
   constexpr Logger kLog("auth_panel");
 
-  int wrappedLineCount(std::string_view text, int charsPerLine, int maxLines) {
-    if (text.empty()) {
-      return 0;
-    }
-    int lines = 0;
-    int col = 0;
-    for (char ch : text) {
-      if (ch == '\n') {
-        ++lines;
-        col = 0;
-        if (lines >= maxLines) {
-          return maxLines;
-        }
-        continue;
-      }
-      ++col;
-      if (charsPerLine > 0 && col > charsPerLine) {
-        ++lines;
-        col = 1;
-        if (lines >= maxLines) {
-          return maxLines;
-        }
-      }
-    }
-    if (col > 0 || lines == 0) {
-      ++lines;
-    }
-    return std::min(lines, maxLines);
-  }
-
-  std::string wrapLongRuns(std::string text, std::size_t maxRun = 48) {
+  std::string wrapLongRuns(const std::string& text, std::size_t maxRun = 48) {
     std::string out;
     out.reserve(text.size() + text.size() / maxRun);
     std::size_t run = 0;
@@ -82,7 +54,10 @@ namespace {
 } // namespace
 
 AuthPanel::AuthPanel(ConfigService* config, ActiveSourceProvider activeProvider)
-    : m_config(config), m_activeProvider(std::move(activeProvider)) {}
+    : m_config(config), m_activeProvider(std::move(activeProvider)) {
+  m_appIconColorizeConn =
+      shellAppIconColorizationChanged().connect([] { PanelManager::instance().requestUpdateOnly(); });
+}
 
 PanelPlacement AuthPanel::panelPlacement() const noexcept {
   return m_config != nullptr ? m_config->config().shell.panel.authPlacement : PanelPlacement::Floating;
@@ -183,6 +158,12 @@ void AuthPanel::showImageIcon(Renderer& renderer, const std::string& path, float
 void AuthPanel::refreshAuthIcon(Renderer& renderer) {
   const float iconSize = authIconSize();
   const AuthView view = currentView();
+  m_iconIsAppIcon = view.iconKind == AuthIconKind::InternalLogo
+      || (view.iconKind != AuthIconKind::GlyphIcon
+          && !view.iconValue.empty()
+          && std::ranges::any_of(desktopEntries(), [&view](const DesktopEntry& entry) {
+               return entry.icon == view.iconValue;
+             }));
   if (view.iconKind == AuthIconKind::InternalLogo) {
     const auto logoPath = paths::assetPath("noctalia.svg");
     showImageIcon(renderer, logoPath.string(), iconSize);
@@ -211,44 +192,15 @@ void AuthPanel::refreshAuthIcon(Renderer& renderer) {
   }
 }
 
-float AuthPanel::preferredWidth() const { return scaled(480.0F); }
-
-float AuthPanel::preferredHeight() const {
-  const float scale = contentScale();
-  const float bodyLine = Style::fontSizeBody * scale * 1.35F;
-  const float titleLine = Style::fontSizeTitle * scale * 1.35F;
-  const float captionLine = Style::fontSizeCaption * scale * 1.35F;
-  const float iconSize = scaled(48.0F);
-  const float pad = Style::spaceLg * scale;
-  const float gapMd = Style::spaceMd * scale;
-  const float gapSm = Style::spaceSm * scale;
-
-  const float contentW = preferredWidth() - scaled(Style::panelPadding) * 2.0F;
-  const float innerW = std::max(1.0F, contentW - pad * 2.0F);
-  const float messageW = std::max(1.0F, innerW - iconSize - gapMd);
-  const float avgChar = Style::fontSizeBody * scale * 0.55F;
-  const int messageChars = std::max(1, static_cast<int>(messageW / avgChar));
-  const int promptChars = std::max(1, static_cast<int>(innerW / avgChar));
-
-  const auto view = currentView();
-  const std::string message = wrapLongRuns(view.message);
-  const int messageLines = message.empty() ? 0 : std::max(1, wrappedLineCount(message, messageChars, 6));
-  const std::string promptText = wrapLongRuns(view.prompt);
-  const int promptLines = std::max(1, wrappedLineCount(promptText, promptChars, 3));
-  const std::string supplementaryText = wrapLongRuns(view.supplementary);
-  const int supplementaryLines = wrappedLineCount(supplementaryText, promptChars, 4);
-
-  const float top = std::max(iconSize, titleLine + static_cast<float>(messageLines) * bodyLine);
-  float bottom = static_cast<float>(promptLines) * bodyLine + gapSm;
-  if (view.needsInput) {
-    bottom += Style::controlHeight * scale + gapSm;
+float AuthPanel::measureContentHeight(Renderer& renderer, float contentWidth) {
+  if (m_rootLayout == nullptr) {
+    return 0.0F;
   }
-  if (supplementaryLines > 0) {
-    bottom += static_cast<float>(supplementaryLines) * captionLine + gapSm;
-  }
-  bottom += Style::controlHeight * scale;
-
-  return std::ceil(pad * 2.0F + top + gapMd + bottom + scaled(Style::panelPadding) * 2.0F + gapSm);
+  // Drop the height doLayout gave the root so it reports its natural one.
+  m_rootLayout->setSize(contentWidth, 0.0F);
+  LayoutConstraints constraints;
+  constraints.setExactWidth(contentWidth);
+  return m_rootLayout->measure(renderer, constraints).height;
 }
 
 void AuthPanel::create() {
@@ -349,7 +301,7 @@ void AuthPanel::create() {
               .text = authCancelLabel(),
               .variant = ButtonVariant::Outline,
               .onClick =
-                  [this]() {
+                  [this] {
                     onAuthCancel();
                     PanelManager::instance().close();
                   },
@@ -358,7 +310,7 @@ void AuthPanel::create() {
               .out = &m_submitButton,
               .text = view.submitLabel,
               .variant = ButtonVariant::Primary,
-              .onClick = [this]() { submit(); },
+              .onClick = [this] { submit(); },
           })
       )
   );
@@ -501,12 +453,9 @@ void AuthPanel::doUpdate(Renderer& renderer) {
     m_input->setPasswordMode(view.passwordMode);
     m_lastPasswordMode = view.passwordMode;
   }
-  if (view.needsInput != m_lastResponseRequired) {
-    if (auto* manager = PanelManager::current(); manager != nullptr && manager->activePanel() == this) {
-      manager->relayoutActivePanelPreferredSize();
-      if (view.needsInput) {
-        manager->focusArea(m_input->inputArea());
-      }
+  if (view.needsInput && !m_lastResponseRequired) {
+    if (auto* manager = PanelManager::current(); manager != nullptr && manager->isOpenPanel("auth")) {
+      manager->focusArea(m_input->inputArea());
     }
   }
   m_lastResponseRequired = view.needsInput;
@@ -517,6 +466,13 @@ void AuthPanel::doUpdate(Renderer& renderer) {
     m_iconResolved = true;
     refreshAuthIcon(renderer);
   }
+  m_icon->setAppIconColorization(
+      m_config != nullptr
+          ? effectiveShellAppIconColorizationTint(
+                m_config->config().shell, m_iconIsAppIcon && m_config->config().shell.polkitColorizeIcons
+            )
+          : std::nullopt
+  );
 }
 
 void AuthPanel::submit(std::string_view response) {

@@ -1,16 +1,17 @@
-#include "render/core/image_decoder.h"
+#include "render/codecs/codecs.h"
 
 #include <array>
 #include <cstdint>
 #include <cstdio>
 #include <expected>
+#include <print>
 #include <string>
 
 namespace {
 
   bool check(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "jxl_decoder_test: FAIL: %s\n", message);
+      std::println(stderr, "jxl_decoder_test: FAIL: {}", message);
     }
     return condition;
   }
@@ -62,8 +63,8 @@ namespace {
     }
     for (std::size_t i = 0; i < kExpectedRgba.size(); ++i) {
       if (decoded.pixels[i] != kExpectedRgba[i]) {
-        std::fprintf(
-            stderr, "jxl_decoder_test: FAIL: %s: byte %zu is %u, expected %u\n", label, i,
+        std::println(
+            stderr, "jxl_decoder_test: FAIL: {}: byte {} is {}, expected {}", label, i,
             static_cast<unsigned>(decoded.pixels[i]), static_cast<unsigned>(kExpectedRgba[i])
         );
         ok = false;
@@ -73,21 +74,21 @@ namespace {
   }
 
   bool testBareCodestream() {
-    auto result = decodeRasterImage(kJxl4x4Bare.data(), kJxl4x4Bare.size());
+    auto result = codecs::decodeRasterImage(kJxl4x4Bare.data(), kJxl4x4Bare.size());
     if (!checkDecoded(result, "bare codestream decode failed"))
       return false;
     return checkPixels(*result, "bare codestream");
   }
 
   bool testContainer() {
-    auto result = decodeRasterImage(kJxl4x4Container.data(), kJxl4x4Container.size());
+    auto result = codecs::decodeRasterImage(kJxl4x4Container.data(), kJxl4x4Container.size());
     if (!checkDecoded(result, "container decode failed"))
       return false;
     return checkPixels(*result, "container");
   }
 
   bool testStraightAlphaPreserved() {
-    auto result = decodeRasterImage(kJxl4x4Bare.data(), kJxl4x4Bare.size());
+    auto result = codecs::decodeRasterImage(kJxl4x4Bare.data(), kJxl4x4Bare.size());
     if (!checkDecoded(result, "straight alpha decode failed"))
       return false;
     if (!check(result->pixels.size() == 64, "straight alpha: decoded buffer should hold 4x4 RGBA"))
@@ -118,7 +119,7 @@ namespace {
   // The pipeline needs straight alpha. Dropping JxlDecoderSetUnpremultiplyAlpha
   // makes the two translucent rows decode as 128/64 instead of 255.
   bool testPremultipliedAlphaIsUnpremultiplied() {
-    auto result = decodeRasterImage(kJxl4x4Premultiplied.data(), kJxl4x4Premultiplied.size());
+    auto result = codecs::decodeRasterImage(kJxl4x4Premultiplied.data(), kJxl4x4Premultiplied.size());
     if (!checkDecoded(result, "premultiplied codestream decode failed"))
       return false;
     if (!check(result->pixels.size() == 64, "premultiplied: decoded buffer should hold 4x4 RGBA"))
@@ -132,8 +133,8 @@ namespace {
     bool ok = true;
     for (std::size_t i = 0; i < kExpectedStraight.size(); ++i) {
       if (result->pixels[i] != kExpectedStraight[i]) {
-        std::fprintf(
-            stderr, "jxl_decoder_test: FAIL: premultiplied: byte %zu is %u, expected %u\n", i,
+        std::println(
+            stderr, "jxl_decoder_test: FAIL: premultiplied: byte {} is {}, expected {}", i,
             static_cast<unsigned>(result->pixels[i]), static_cast<unsigned>(kExpectedStraight[i])
         );
         ok = false;
@@ -143,13 +144,13 @@ namespace {
   }
 
   bool testTruncated() {
-    auto result = decodeRasterImage(kJxl4x4Bare.data(), 40);
+    auto result = codecs::decodeRasterImage(kJxl4x4Bare.data(), 40);
     return check(!result.has_value(), "truncated codestream should fail to decode");
   }
 
   bool testTooShortForSignature() {
     constexpr std::array<std::uint8_t, 3> kTooShort = {0x00, 0x00, 0x00};
-    auto result = decodeRasterImage(kTooShort.data(), kTooShort.size());
+    auto result = codecs::decodeRasterImage(kTooShort.data(), kTooShort.size());
     return check(!result.has_value(), "3-byte buffer should not decode");
   }
 

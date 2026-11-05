@@ -3,6 +3,7 @@
 #include "shell/auth/auth_source.h"
 #include "shell/panel/panel.h"
 #include "system/icon_resolver.h"
+#include "ui/signal.h"
 
 #include <cstdint>
 #include <functional>
@@ -30,14 +31,17 @@ public:
   void onOpen(std::string_view context) override;
   void onClose() override;
 
-  [[nodiscard]] float preferredWidth() const override;
-  [[nodiscard]] float preferredHeight() const override;
-  [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
-  [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
-  [[nodiscard]] bool dismissOnOutsideClick() const override { return false; }
-  [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
-  [[nodiscard]] InputArea* initialFocusArea() const override;
-  [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  float preferredWidth() const override { return scaled(480.0F); }
+  // Fits its content (the prompt grows when a password is needed); this is the maximum.
+  float preferredHeight() const override { return scaled(640.0F); }
+  bool fitsContentHeight() const noexcept override { return true; }
+  float measureContentHeight(Renderer& renderer, float contentWidth) override;
+  PanelPlacement panelPlacement() const noexcept override;
+  LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
+  LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
+  bool dismissOnOutsideClick() const override { return false; }
+  InputArea* initialFocusArea() const override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
 
 private:
   [[nodiscard]] AuthSource* activeOrNull();
@@ -45,8 +49,8 @@ private:
   [[nodiscard]] const AuthView& currentView() const;
   [[nodiscard]] const std::string freshSessionId() const;
   [[nodiscard]] bool refreshAuthView() const;
-  [[nodiscard]] std::string authCancelLabel() const;
   [[nodiscard]] std::string authFallbackGlyph() const;
+  [[nodiscard]] std::string authCancelLabel() const;
   [[nodiscard]] std::string authIconKey(AuthIconKind iconKind, const std::string& iconValue) const;
   void onAuthSubmit(std::string_view response);
   void onAuthCancel();
@@ -62,6 +66,7 @@ private:
   bool handleInputKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
 
   ConfigService* m_config = nullptr;
+  Signal<>::ScopedConnection m_appIconColorizeConn;
   ActiveSourceProvider m_activeProvider;
   Flex* m_rootLayout = nullptr;
   InputArea* m_focusArea = nullptr;
@@ -78,6 +83,7 @@ private:
   IconResolver m_iconResolver;
   std::string m_lastIconKey;
   bool m_iconResolved = false;
+  bool m_iconIsAppIcon = false;
   bool m_lastResponseRequired = false;
   bool m_lastPasswordMode = true;
   std::string m_trackedSessionId;

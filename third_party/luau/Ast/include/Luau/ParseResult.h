@@ -6,6 +6,8 @@
 #include "Luau/Lexer.h"
 #include "Luau/StringUtils.h"
 
+#include <exception>
+
 namespace Luau
 {
 
@@ -68,7 +70,7 @@ struct ParseResult
 
     std::vector<Comment> commentLocations;
 
-    CstNodeMap cstNodeMap{nullptr};
+    CstNodeMap cstNodeMap;
 };
 
 template<typename Node>
@@ -82,7 +84,7 @@ struct ParseNodeResult
 
     std::vector<Comment> commentLocations;
 
-    CstNodeMap cstNodeMap{nullptr};
+    CstNodeMap cstNodeMap;
 };
 
 inline constexpr const char* kParseNameError = "%error-id%";

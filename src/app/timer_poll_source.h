@@ -1,11 +1,11 @@
 #pragma once
 
-#include "app/poll_source.h"
+#include "core/poll_source.h"
 #include "core/timer_manager.h"
 
 class TimerPollSource final : public PollSource {
 public:
-  [[nodiscard]] int pollTimeoutMs() const override { return TimerManager::instance().pollTimeoutMs(); }
+  int pollTimeoutMs() const override { return TimerManager::instance().pollTimeoutMs(); }
 
   void dispatch(const std::vector<pollfd>& /*fds*/, std::size_t /*startIdx*/) override {
     TimerManager::instance().tick();

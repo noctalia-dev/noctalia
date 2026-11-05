@@ -15,8 +15,8 @@ include_line="source=$include_dir/mango/noctalia.conf"
 mkdir -p "$(dirname "$config_file")"
 
 if [ ! -f "$config_file" ]; then
-    printf '%s\n' "$include_line" >"$config_file"
-    exit 0
+    printf 'Warning: %s is missing; add the Noctalia theme source to your active Mango configuration manually:\n%s\n' "$config_file" "$include_line" >&2
+    exit 1
 fi
 
 if ! grep -Eq '^[[:space:]]*source(-optional)?[[:space:]]*=[[:space:]]*.*noctalia\.conf' "$config_file"; then

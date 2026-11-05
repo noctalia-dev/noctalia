@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <string_view>
 
@@ -8,24 +9,44 @@ class ConfigService;
 class IpcService;
 struct ShellGreeterSyncConfig;
 
+namespace process {
+  struct RunResult;
+}
+
 namespace greeter {
 
-  enum class GreeterSyncLaunch {
+  namespace detail {
+
+    enum class ApplyHelperProtocol : std::uint8_t {
+      Unknown,
+      Legacy,
+      SecureSyncV1,
+    };
+
+    ApplyHelperProtocol classifyApplyHelperProtocol(const process::RunResult& result);
+
+  } // namespace detail
+
+  enum class [[nodiscard]] GreeterSyncLaunch {
     Failed,
-    Launched,
+    Busy,
+    LaunchedConstrained,
+    LaunchedLegacy,
     StagedOnly,
   };
 
   using SyncCompletion = std::function<void(bool success)>;
 
   // True when noctalia-greeter and the privileged apply helper are installed.
-  [[nodiscard]] bool appearanceSyncAvailable(const ShellGreeterSyncConfig& greeterSync) noexcept;
+  bool appearanceSyncAvailable(const ShellGreeterSyncConfig& greeterSync) noexcept;
 
-  // Stages sync.toml + wallpapers (+ optional layout/transforms), then runs the
-  // configured privilege prefix (or pkexec|run0) plus noctalia-greeter-apply-appearance
-  // and the staging path. When session polkit is unavailable and no privilege_command
-  // override is set, returns StagedOnly after writing the staging directory.
-  [[nodiscard]] GreeterSyncLaunch syncAppearanceToGreeterAsync(
+  // Negotiates the installed helper protocol before staging. Current helpers receive
+  // an appearance-only payload through pkexec and --sync; older helpers retain the
+  // administrator-authenticated positional mode and its session payload. Returns Busy
+  // without touching staging while another sync runs. Legacy mode may return StagedOnly
+  // when no login session can host a Polkit prompt. onComplete runs on the worker thread
+  // only after a successfully launched helper exits.
+  GreeterSyncLaunch syncAppearanceToGreeterAsync(
       const ConfigService& config, std::string_view resolvedThemeMode, SyncCompletion onComplete = {},
       const CompositorPlatform* platform = nullptr, bool logindOnSystemBus = false
   );

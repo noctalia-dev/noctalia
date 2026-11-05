@@ -2,13 +2,17 @@
 
 #include "compositors/compositor_platform.h"
 #include "i18n/i18n.h"
-#include "util/fuzzy_match.h"
+#include "launcher/fuzzy_match.h"
+#include "system/app_identity.h"
+#include "system/desktop_entry.h"
+#include "system/internal_app_metadata.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -22,7 +26,28 @@ namespace {
     std::string searchable;
   };
 
-  [[nodiscard]] std::vector<WindowCandidate> collectWindows(const CompositorPlatform* platform) {
+  // A Wayland app id (e.g. "dev.zed.Zed") is rarely a valid icon theme name;
+  // resolve it to a desktop entry's Icon key like the other window surfaces do,
+  // then fall back to the raw app id.
+  void assignWindowIcon(LauncherResult& result, const std::string& appId) {
+    if (appId.empty()) {
+      return;
+    }
+    result.appIcon = true;
+    if (const auto internal = internal_apps::metadataForAppId(appId);
+        internal.has_value() && !internal->iconPath.empty()) {
+      result.iconPath = internal->iconPath;
+      return;
+    }
+    if (const auto entry = app_identity::findDesktopEntry(appId, desktopEntries());
+        entry.has_value() && !entry->icon.empty()) {
+      result.iconName = entry->icon;
+      return;
+    }
+    result.iconName = appId;
+  }
+
+  std::vector<WindowCandidate> collectWindows(const CompositorPlatform* platform) {
     std::vector<WindowCandidate> candidates;
     if (platform == nullptr) {
       return candidates;
@@ -30,6 +55,36 @@ namespace {
 
     // No output filter: surface windows from every monitor/workspace.
     auto assignments = platform->workspaceWindowAssignments();
+    std::unordered_set<std::string> windowIds;
+    for (const auto& assignment : assignments) {
+      windowIds.insert(assignment.windowId);
+    }
+    const auto addToplevels = [&](const std::vector<ToplevelInfo>& windows) {
+      for (const auto& window : windows) {
+        if (!window.minimizeState.has_value()) {
+          continue;
+        }
+        const auto id = window.handle != nullptr
+            ? toplevel_identity::wlr(reinterpret_cast<std::uintptr_t>(window.handle))
+            : window.identifier;
+        if (id.empty() || !windowIds.insert(id).second) {
+          continue;
+        }
+        assignments.push_back(
+            WorkspaceWindowAssignment{
+                .windowId = id,
+                .appId = window.appId,
+                .title = window.title,
+                .minimizeState = window.minimizeState,
+            }
+        );
+      }
+    };
+    for (const auto& appId : platform->runningAppIds()) {
+      const auto lower = StringUtils::toLower(appId);
+      addToplevels(platform->enrichedWindowsForApp(lower, lower));
+    }
+    addToplevels(platform->enrichedWindowsWithoutAppId());
     candidates.reserve(assignments.size());
     for (auto& assignment : assignments) {
       if (assignment.windowId.empty()) {
@@ -65,7 +120,13 @@ std::vector<LauncherResult> WindowProvider::query(std::string_view text) const {
     result.id = candidate.window.windowId;
     result.title = candidate.title;
     result.subtitle = candidate.window.appId;
-    result.iconName = candidate.window.appId;
+    if (candidate.window.minimizeState.has_value() && candidate.window.minimizeState->minimized) {
+      if (!result.subtitle.empty()) {
+        result.subtitle += " · ";
+      }
+      result.subtitle += i18n::tr("common.minimized");
+    }
+    assignWindowIcon(result, candidate.window.appId);
     result.glyphName = "app-window";
     result.score = score;
     return result;

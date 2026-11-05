@@ -11,6 +11,8 @@
 #include "ldebug.h"
 #include "lvm.h"
 
+LUAU_DYNAMIC_FASTFLAGVARIABLE(LuauTableMoveTimeoutFix, false)
+
 static int foreachi(lua_State* L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
@@ -85,7 +87,33 @@ static int getn(lua_State* L)
     return 1;
 }
 
-static void moveelements(lua_State* L, int srct, int dstt, int f, int e, int t)
+static bool shouldsparsemove(LuaTable* src, LuaTable* dst, int n)
+{
+    int srcelems = src->sizearray + sizenode(src);
+    int dstelems = dst->sizearray + sizenode(dst);
+    int maxelems = srcelems > dstelems ? srcelems : dstelems;
+    const int minsparsemoveelems = 32;
+
+    return n > minsparsemoveelems && n / 2 > maxelems;
+}
+
+static bool tovalidintkey(lua_State* L, int idx, int f, int e, int* result)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER)
+    {
+        double nkey = lua_tonumber(L, idx);
+
+        if (nkey >= f && nkey <= e)
+        {
+            luai_num2int(*result, nkey);
+            return luai_numeq(cast_num(*result), nkey);
+        }
+    }
+
+    return false;
+}
+
+static void moveelements(lua_State* L, int srct, int dstt, int f, int e, int t, bool sparsemove)
 {
     LuaTable* src = hvalue(L->base + (srct - 1));
     LuaTable* dst = hvalue(L->base + (dstt - 1));
@@ -121,6 +149,51 @@ static void moveelements(lua_State* L, int srct, int dstt, int f, int e, int t)
         }
 
         luaC_barrierfast(L, dst);
+    }
+    else if (DFFlag::LuauTableMoveTimeoutFix && sparsemove)
+    {
+        int srcta = lua_absindex(L, srct);
+        int dstta = lua_absindex(L, dstt);
+
+        int te = t + (n - 1);
+
+        // temporary table to hold elements from source that are being moved
+        lua_newtable(L);
+
+        // collect integer key elements that are being moved
+        for (int iter = 0; (iter = lua_rawiter(L, srcta, iter)) != -1;)
+        {
+            int ikey = 0;
+            if (tovalidintkey(L, -2, f, e, &ikey))
+                lua_rawseti(L, -3, ikey); // pops value
+            else
+                lua_pop(L, 1); // pop value
+
+            lua_pop(L, 1); // pop key
+        }
+
+        // clear the destination range
+        for (int iter = 0; (iter = lua_rawiter(L, dstta, iter)) != -1;)
+        {
+            int ikey = 0;
+            if (tovalidintkey(L, -2, t, te, &ikey))
+            {
+                lua_pushnil(L);
+                lua_rawseti(L, dstta, ikey);
+            }
+
+            lua_pop(L, 2);
+        }
+
+        // copy the elements from the temporary table to the destination table
+        for (int iter = 0; (iter = lua_rawiter(L, -1, iter)) != -1;)
+        {
+            int ikey = lua_tointeger(L, -2);
+            lua_rawseti(L, dstta, ikey - f + t);
+            lua_pop(L, 1);
+        }
+
+        lua_pop(L, 1);
     }
     else
     {
@@ -161,7 +234,7 @@ static int tinsert(lua_State* L)
 
         // move up elements if necessary
         if (1 <= pos && pos <= n)
-            moveelements(L, 1, 1, pos, n, pos + 1);
+            moveelements(L, 1, 1, pos, n, pos + 1, /* sparsemove */ false);
         break;
     }
     default:
@@ -183,7 +256,7 @@ static int tremove(lua_State* L)
         return 0;                // nothing to remove
     lua_rawgeti(L, 1, pos);      // result = t[pos]
 
-    moveelements(L, 1, 1, pos + 1, n, pos);
+    moveelements(L, 1, 1, pos + 1, n, pos, /* sparsemove */ false);
 
     lua_pushnil(L);
     lua_rawseti(L, 1, n); // t[n] = nil
@@ -216,12 +289,14 @@ static int tmove(lua_State* L)
         if (dst->readonly) // also checked in moveelements, but this blocks resizes of r/o tables
             luaG_readonlyerror(L);
 
+        bool sparsemove = DFFlag::LuauTableMoveTimeoutFix && shouldsparsemove(hvalue(L->base), dst, n);
+
         if (t > 0 && (t - 1) <= dst->sizearray && (t - 1 + n) > dst->sizearray)
         { // grow the destination table array
             luaH_resizearray(L, dst, t - 1 + n);
         }
 
-        moveelements(L, 1, tt, f, e, t);
+        moveelements(L, 1, tt, f, e, t, sparsemove);
     }
     lua_pushvalue(L, tt); // return destination table
     return 1;

@@ -8,13 +8,13 @@
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_registry.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "ui/builders.h"
 #include "ui/controls/flex.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -70,24 +70,24 @@ namespace settings {
           .padding = Style::spaceSm * scale,
           .configure = [scale](Flex& p) {
             p.setRadius(Style::scaledRadiusSm(scale));
-            p.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
-            p.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
+            p.setFill(colorSpecFromRole(ColorRole::ErrorContainer));
+            p.setBorder(colorSpecFromRole(ColorRole::Error), Style::borderWidth);
           },
       });
       panel->addChild(makeLabel(
           i18n::tr("settings.plugins.plugins.delete-confirm-title", "name", plugin.name), Style::fontSizeBody * scale,
-          ColorRole::Error, FontWeight::Bold
+          ColorRole::OnErrorContainer, FontWeight::Bold
       ));
       panel->addChild(makeLabel(
           i18n::tr("settings.plugins.plugins.delete-confirm-desc"), Style::fontSizeCaption * scale,
-          ColorRole::OnSurfaceVariant
+          ColorRole::OnErrorContainer
       ));
       panel->addChild(
           ui::row(
               {.align = FlexAlign::Center, .gap = Style::spaceSm * scale}, ui::spacer(),
               makeConfirmButton(
                   i18n::tr("common.actions.cancel"), ButtonVariant::Ghost, scale,
-                  [cb = ctx.cancelDelete]() {
+                  [cb = ctx.cancelDelete] {
                     if (cb) {
                       cb();
                     }
@@ -95,7 +95,7 @@ namespace settings {
               ),
               makeConfirmButton(
                   i18n::tr("settings.plugins.plugins.delete"), ButtonVariant::Destructive, scale,
-                  [cb = ctx.onRemove, id = plugin.id]() {
+                  [cb = ctx.onRemove, id = plugin.id] {
                     if (cb) {
                       cb(id);
                     }
@@ -168,7 +168,7 @@ namespace settings {
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .tooltip = i18n::tr("settings.plugins.sources.update"),
-                .onClick = [cb = ctx.updateSource, name = source.name]() {
+                .onClick = [cb = ctx.updateSource, name = source.name] {
                   if (cb) {
                     cb(name);
                   }
@@ -182,7 +182,7 @@ namespace settings {
               .glyphSize = Style::fontSizeBody * scale,
               .variant = ButtonVariant::Ghost,
               .tooltip = i18n::tr("settings.plugins.sources.edit"),
-              .onClick = [cb = ctx.editSource, source]() {
+              .onClick = [cb = ctx.editSource, source] {
                 if (cb) {
                   cb(source);
                 }
@@ -297,7 +297,7 @@ namespace settings {
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .tooltip = i18n::tr("settings.plugins.store.open-page"),
-                .onClick = [url = *pageUrl]() { (void)net::openInBrowser(url); },
+                .onClick = [url = *pageUrl] { (void)net::openInBrowser(url); },
             })
         );
       }
@@ -310,7 +310,7 @@ namespace settings {
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .tooltip = i18n::tr("settings.plugins.plugins.configure"),
-                .onClick = [cb = ctx.onConfigure, id = plugin.id]() {
+                .onClick = [cb = ctx.onConfigure, id = plugin.id] {
                   if (cb) {
                     cb(id);
                   }
@@ -331,7 +331,7 @@ namespace settings {
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .tooltip = i18n::tr("settings.plugins.plugins.remove"),
-                .onClick = [cb = ctx.requestDeleteConfirm, id = plugin.id]() {
+                .onClick = [cb = ctx.requestDeleteConfirm, id = plugin.id] {
                   if (cb) {
                     cb(id);
                   }
@@ -568,7 +568,7 @@ namespace settings {
                 .paddingV = Style::spaceXs * factory.scale(),
                 .paddingH = Style::spaceSm * factory.scale(),
                 .radius = Style::scaledRadiusMd(factory.scale()),
-                .onClick = [setOverride = factory.context().setOverride, path, currentValue]() {
+                .onClick = [setOverride = factory.context().setOverride, path, currentValue] {
                   GlyphPickerDialogOptions options;
                   if (!currentValue.empty()) {
                     options.initialGlyph = currentValue;
@@ -716,6 +716,9 @@ namespace settings {
     auto [pageIt, fresh] = ctx.expandedGroupsByPage.try_emplace("plugins");
     if (fresh) {
       pageIt->second.insert("plugins");
+      if (ctx.expandAllGroups) {
+        pageIt->second.insert("sources");
+      }
     }
     auto& expandedGroups = pageIt->second;
 
@@ -773,7 +776,7 @@ namespace settings {
             .fontSize = Style::fontSizeCaption * scale,
             .glyphSize = Style::fontSizeBody * scale,
             .variant = ButtonVariant::Default,
-            .onClick = [cb = ctx.addSource]() {
+            .onClick = [cb = ctx.addSource] {
               if (cb) {
                 cb();
               }
@@ -849,7 +852,28 @@ namespace settings {
             .scrollToTop = ctx.scrollContentToTop,
         }
     );
-
+    std::vector<scripting::PluginStatus> plugins;
+    plugins.reserve(ctx.plugins.size());
+    for (const auto& plugin : ctx.plugins) {
+      if (plugin.materialized || plugin.enabled) {
+        plugins.push_back(plugin);
+      }
+    }
+    // The update action covers every installed plugin, so count the badge before filtering.
+    const int updatesAvailable =
+        static_cast<int>(std::ranges::count_if(plugins, &scripting::PluginStatus::updateAvailable));
+    const bool hasInstalledPlugins = !plugins.empty();
+    // In page search narrows the list and empty query keeps every plugin.
+    if (!ctx.searchQuery.empty()) {
+      std::erase_if(plugins, [&](const scripting::PluginStatus& plugin) {
+        return !(
+            StringUtils::containsInsensitive(pluginDisplayName(plugin), ctx.searchQuery)
+            || StringUtils::containsInsensitive(plugin.id, ctx.searchQuery)
+            || StringUtils::containsInsensitive(plugin.description, ctx.searchQuery)
+            || StringUtils::containsInsensitive(plugin.source, ctx.searchQuery)
+        );
+      });
+    }
     Flex* pluginsHeader = nullptr;
     auto pluginsHeaderNode = ui::row({
         .out = &pluginsHeader,
@@ -865,10 +889,29 @@ namespace settings {
           })
       );
     }
-    pluginsHeader->addChild(ui::spacer());
-    const int updatesAvailable = static_cast<int>(
-        std::ranges::count_if(ctx.plugins, [](const scripting::PluginStatus& p) { return p.updateAvailable; })
+    // Only shows the installed plugins.
+    Input* pluginSearchInput = nullptr;
+    pluginsHeader->addChild(
+        ui::input({
+            .out = &pluginSearchInput,
+            .value = ctx.searchQuery,
+            .placeholder = i18n::tr("settings.plugins.plugins.search-placeholder"),
+            .fontSize = Style::fontSizeBody * scale,
+            .controlHeight = Style::controlHeight * scale,
+            .horizontalPadding = Style::spaceSm * scale,
+            .clearButtonEnabled = true,
+            .width = 300.0F * scale,
+            .onChange = [cb = ctx.setSearchQuery](const std::string& text) {
+              if (cb) {
+                cb(text);
+              }
+            },
+        })
     );
+    if (pluginSearchInput != nullptr && pluginSearchInput->inputArea() != nullptr) {
+      pluginSearchInput->inputArea()->setTabFocusKey("settings.plugins.search");
+    }
+    pluginsHeader->addChild(ui::spacer());
     if (updatesAvailable > 0 && ctx.updateAll) {
       pluginsHeader->addChild(
           ui::button({
@@ -877,7 +920,7 @@ namespace settings {
               .fontSize = Style::fontSizeCaption * scale,
               .glyphSize = Style::fontSizeBody * scale,
               .variant = ButtonVariant::Primary,
-              .onClick = [cb = ctx.updateAll]() {
+              .onClick = [cb = ctx.updateAll] {
                 if (cb) {
                   cb();
                 }
@@ -893,7 +936,7 @@ namespace settings {
               .fontSize = Style::fontSizeCaption * scale,
               .glyphSize = Style::fontSizeBody * scale,
               .variant = ButtonVariant::Primary,
-              .onClick = [cb = ctx.openStore]() {
+              .onClick = [cb = ctx.openStore] {
                 if (cb) {
                   cb();
                 }
@@ -907,18 +950,13 @@ namespace settings {
           i18n::tr("settings.plugins.plugins.empty"), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
       ));
     }
-    std::vector<scripting::PluginStatus> plugins;
-    plugins.reserve(ctx.plugins.size());
-    for (const auto& plugin : ctx.plugins) {
-      if (plugin.materialized || plugin.enabled) {
-        plugins.push_back(plugin);
-      }
-    }
     std::ranges::sort(plugins, [&](const auto& a, const auto& b) {
       const std::string_view aName = pluginDisplayName(a);
       const std::string_view bName = pluginDisplayName(b);
-      if (aName != bName) {
-        return aName < bName;
+      if (!StringUtils::equalsInsensitive(aName, bName)) {
+        return std::ranges::lexicographical_compare(aName, bName, [](char x, char y) {
+          return std::tolower(static_cast<unsigned char>(x)) < std::tolower(static_cast<unsigned char>(y));
+        });
       }
       if (a.source != b.source) {
         return pluginSourceLess(a.source, b.source);
@@ -930,6 +968,12 @@ namespace settings {
       if (!ctx.pendingDeletePluginId.empty() && ctx.pendingDeletePluginId == plugin.id) {
         pluginsBody->addChild(pluginDeleteConfirmPanel(plugin, ctx, scale));
       }
+    }
+    if (!ctx.pluginsLoading && hasInstalledPlugins && plugins.empty() && !ctx.searchQuery.empty()) {
+      section->addChild(makeLabel(
+          i18n::tr("settings.plugins.plugins.search-empty", "query", ctx.searchQuery), Style::fontSizeCaption * scale,
+          ColorRole::OnSurfaceVariant
+      ));
     }
   }
 

@@ -1,11 +1,14 @@
 #pragma once
 
 #include "pipewire/audio_glyphs.h"
+#include "system/v4l2_camera.h"
 
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <memory>
+#include <optional>
 #include <spa/param/param.h>
 #include <string>
 #include <unordered_map>
@@ -13,6 +16,7 @@
 
 struct pw_context;
 struct pw_core;
+struct pw_core_info;
 struct pw_loop;
 struct pw_registry;
 struct spa_hook;
@@ -47,7 +51,7 @@ struct AudioNode {
 
 // User-facing label for a sink/source: PipeWire's human-readable node description, falling back to
 // the node name.
-[[nodiscard]] std::string audioDeviceLabel(const AudioNode& node);
+std::string audioDeviceLabel(const AudioNode& node);
 
 struct AudioState {
   std::vector<AudioNode> sinks;
@@ -98,16 +102,20 @@ public:
   void setWirePlumberMixer(WirePlumberMixer* mixer) { m_wpMixer = mixer; }
 
   // Poll integration
-  [[nodiscard]] int fd() const noexcept;
+  int fd() const noexcept;
+  int cameraFd() const noexcept { return m_cameraWatch.fd(); }
+  int pollTimeoutMs() const noexcept;
   void dispatch();
-  [[nodiscard]] pw_core* coreHandle() const noexcept { return m_core; }
-  [[nodiscard]] pw_loop* loop() const noexcept { return m_loop; }
+  void dispatchCamera();
+  pw_core* coreHandle() const noexcept { return m_core; }
+  pw_loop* loop() const noexcept { return m_loop; }
+  bool serverSupportsPassiveFollow() const noexcept { return m_serverSupportsPassiveFollow; }
 
   // State
-  [[nodiscard]] const AudioState& state() const noexcept { return m_state; }
-  [[nodiscard]] const PrivacyState& privacyState() const noexcept { return m_privacyState; }
-  [[nodiscard]] const AudioNode* defaultSink() const noexcept;
-  [[nodiscard]] const AudioNode* defaultSource() const noexcept;
+  const AudioState& state() const noexcept { return m_state; }
+  const PrivacyState& privacyState() const noexcept { return m_privacyState; }
+  const AudioNode* defaultSink() const noexcept;
+  const AudioNode* defaultSource() const noexcept;
 
   // Control
   void setSinkVolume(std::uint32_t id, float volume);
@@ -132,7 +140,7 @@ public:
   // Registers audio-related IPC commands (set/raise/lower-volume, mute, set/raise/lower-mic-volume, mute-mic).
   void registerIpc(IpcService& ipc, const ConfigService& config);
 
-  [[nodiscard]] std::uint64_t changeSerial() const noexcept { return m_changeSerial; }
+  std::uint64_t changeSerial() const noexcept { return m_changeSerial; }
 
   // Called from C callbacks in the .cpp - must be public
   struct DeviceRouteData {
@@ -162,11 +170,17 @@ public:
     bool nodePassive = false;
     bool streamCaptureSink = false;
     bool streamClassificationReady = false;
+    bool hasReadablePropsParam = false;
+    bool hasReadableRouteParam = false;
     float volume = 1.0F;
     // Software / node-route mute from PipeWire props (SPA_PARAM_Props, node routes). For device nodes
     // swMute mirrors the authoritative mixer-api mute.
     bool swMute = false;
     bool nodeRouteMute = false;
+    // Monitor-port mute (SPA_PROP_monitorMute). Route-less virtual sources such as EasyEffects'
+    // null-audio-sink capture from monitor ports, which ignore SPA_PROP_mute unless the node sets
+    // monitor.channel-volumes.
+    bool monitorMute = false;
     // Effective mute for UI (includes device-route mute).
     bool muted = false;
     std::uint32_t channelCount = 0;
@@ -205,6 +219,9 @@ public:
     std::uint32_t outputNodeId = 0;
     std::uint32_t inputNodeId = 0;
   };
+  void onCoreInfo(const struct pw_core_info* info);
+  void onCoreDone(std::uint32_t id, int sequence);
+  void onCoreError(std::uint32_t id, int sequence, int result, const char* message);
   void onRegistryGlobal(std::uint32_t id, const char* type, std::uint32_t version, const struct spa_dict* props);
   void onRegistryGlobalRemove(std::uint32_t id);
   void onClientInfo(std::uint32_t id, const struct pw_client_info* info);
@@ -223,12 +240,20 @@ public:
   void onTargetObjectMetadata(std::uint32_t subject, const std::string& target);
 
 private:
+  [[nodiscard]] bool connectRemote(bool waitForSync);
+  void disconnectRemote(bool notifyState);
+  void scheduleReconnect();
+  void handleConnectionLoss();
+  void announceConnection();
+
   bool m_pendingDefaultAudioDevicePropsEnum = false;
   void enumDefaultAudioDeviceParams();
 
   void rebuildState();
+  void requestCameraScan(std::chrono::steady_clock::time_point now);
+  void pollCameraApps();
   // Resolves a metadata "target.object" value to a sink node id, or 0 when no sink matches.
-  [[nodiscard]] std::uint32_t resolveTargetObjectSink(const std::string& target) const;
+  std::uint32_t resolveTargetObjectSink(const std::string& target) const;
   void refreshNodeIdentity(NodeData& nd);
   void applyVolumePropsFromDict(NodeData& nd, const spa_dict* props, bool applyMixerFieldsFromDict = true);
   void recomputeEffectiveMute(NodeData& nd);
@@ -239,8 +264,7 @@ private:
   // repeat-rate-independent velocity ramp accumulated on a gesture-local target while held.
   // `gesture` identifies the control and direction (e.g. sink-up vs mic-down) so switching gesture
   // restarts the ramp from `current`.
-  [[nodiscard]] float
-  relativeAdjustTarget(int gesture, float baseStep, float direction, float current, float maxVolume);
+  float relativeAdjustTarget(int gesture, float baseStep, float direction, float current, float maxVolume);
   struct RelativeAdjust {
     std::chrono::steady_clock::time_point lastAt;
     float target = 0.0F;
@@ -268,6 +292,17 @@ private:
   spa_hook* m_coreListener = nullptr;
   spa_hook* m_registryListener = nullptr;
 
+  std::string m_serverVersion;
+  bool m_serverSupportsPassiveFollow = false;
+  int m_initialSyncSequence = -1;
+  bool m_initialSyncPending = false;
+  bool m_connectionLossPending = false;
+  bool m_connectionAnnouncementPending = false;
+  bool m_reconnecting = false;
+  bool m_hasConnected = false;
+  std::chrono::steady_clock::time_point m_reconnectAt;
+  std::chrono::milliseconds m_reconnectDelay{250};
+
   std::unordered_map<std::uint32_t, std::unique_ptr<NodeData>> m_nodes;
   std::unordered_map<std::uint32_t, ClientData> m_clients;
   std::unordered_map<std::uint32_t, DeviceData> m_devices;
@@ -281,6 +316,20 @@ private:
   std::string m_defaultSourceName;
   AudioState m_state;
   PrivacyState m_privacyState;
+  // Direct V4L2 camera users, sorted. Only users that held a device for the hold time are listed.
+  std::vector<std::string> m_cameraApps;
+  struct PendingCameraApp {
+    std::string app;
+    std::chrono::steady_clock::time_point firstSeen;
+  };
+  // Users seen by a scan but not yet held long enough to be reported.
+  std::vector<PendingCameraApp> m_cameraPending;
+  V4l2CameraWatch m_cameraWatch;
+  std::future<std::vector<std::string>> m_cameraScan;
+  // Next scan start or completion check; empty while idle so the camera never wakes the loop.
+  std::optional<std::chrono::steady_clock::time_point> m_cameraScanAt;
+  // Set when the camera nodes changed during an in-flight scan, whose result may be stale.
+  bool m_cameraRescan = false;
   ChangeCallback m_changeCallback;
   VolumePreviewCallback m_volumePreviewCallback;
   WirePlumberMixer* m_wpMixer = nullptr;
