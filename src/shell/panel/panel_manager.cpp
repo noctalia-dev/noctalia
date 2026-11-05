@@ -2174,11 +2174,6 @@ bool PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
     }
   }
 
-  // The surface is still initializing: claim the keys so nothing behind can react.
-  if (m_inTransition) {
-    return true;
-  }
-
   if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
     m_selectPopup->onKeyboardEvent(event);
     return true;
