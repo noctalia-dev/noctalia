@@ -8,6 +8,7 @@
 #include "render/core/texture_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "shell/lockscreen/lockscreen_keyboard.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/render/blur_cache.h"
 #include "shell/render/lockscreen_transition_types.h"
@@ -154,6 +155,11 @@ private:
   std::string resolveStatusText(const lockscreen_login_box::LoginBoxStyle& style, bool& isError) const;
   bool passwordFieldContainsPoint(float sceneX, float sceneY) const;
   void focusPasswordField();
+  void dispatchKeyboardEvent(const KeyboardEvent& event);
+  void injectOskKey(const lockscreen_keyboard::KeyOutput& key);
+  OnScreenKeyboardMode oskMode() const;
+  void setOskVisible(bool visible);
+  void maybeShowOskForTouch(float sceneX, float sceneY);
 
   ext_session_lock_surface_v1* m_lockSurface = nullptr;
   wl_output* m_output = nullptr;
@@ -195,6 +201,10 @@ private:
   Button* m_passwordRevealButton = nullptr;
   Button* m_loginButton = nullptr;
   Button* m_layoutChip = nullptr;
+  Button* m_oskToggleButton = nullptr;
+  Flex* m_oskPanel = nullptr;
+  LockscreenKeyboard m_osk;
+  bool m_oskVisible = false;
   Flex* m_sessionRow = nullptr;
   std::vector<Button*> m_sessionButtons;
   SharedTextureCache* m_textureCache = nullptr;
