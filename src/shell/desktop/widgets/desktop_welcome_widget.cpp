@@ -92,7 +92,6 @@ bool DesktopWelcomeWidget::applySetting(
   if (key == "show_name") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_showName = *v;
-      resetNaturalSizeMarks();
       syncName();
       return true;
     }
@@ -109,7 +108,6 @@ bool DesktopWelcomeWidget::applySetting(
   if (key == "greeting_text") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_greetingText = *v;
-      resetNaturalSizeMarks();
       if (m_greetingLabel != nullptr) {
         const std::string text = m_greetingText.empty() ? i18n::tr("desktop-widgets.welcome.greeting") : m_greetingText;
         m_greetingLabel->setText(text);
@@ -122,7 +120,6 @@ bool DesktopWelcomeWidget::applySetting(
   if (key == "avatar_size") {
     if (const auto* v = std::get_if<std::int64_t>(&value)) {
       m_avatarSize = static_cast<int>(*v);
-      resetNaturalSizeMarks();
       requestLayout();
       return true;
     }

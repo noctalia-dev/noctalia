@@ -122,12 +122,6 @@ protected:
   // their own Update phase scope). Subclasses use this to avoid re-arming a layout from within one.
   bool isLayingOut() const noexcept { return m_inLayout; }
 
-  // Re-measure natural content size on the next layout().
-  void resetNaturalSizeMarks() {
-    m_maxNaturalWidth = 0.0F;
-    m_maxNaturalHeight = 0.0F;
-  }
-
   virtual void doLayout(Renderer& renderer) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
   // Refreshes any Renderer pointer the widget itself retains.
