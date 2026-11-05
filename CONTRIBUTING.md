@@ -90,6 +90,8 @@ sdbus-c++ async reply handlers take the error as `std::optional<sdbus::Error>` b
 | Enumerators            | PascalCase           | `TextAlign::Center`  |
 | Macros                 | SCREAMING_SNAKE_CASE | `MAX_SIZE`           |
 
+clang-format inserts braces around every control statement body and clang-tidy enforces the naming table for enumerators and private members.
+
 Scoped enums (`enum class`) use an explicit `std::uint8_t` underlying type where it makes sense.
 
 Getters are the noun, without a `get` prefix: `width()`, `selected()`, `textureManager()`.
