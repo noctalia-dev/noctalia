@@ -47,6 +47,7 @@ Inside a hook, call the parent hook (for example `Flex::doLayout()`), not the pu
 The library holds no application policy; the application supplies it at startup (the shell does this in `configureSharedLibrary()`, `src/app/shell_library.cpp`):
 
 - **Identity**: `setApplicationIdentity()` (`core/application_identity.h`) names the XDG directories, the log file, the installed asset directory, and the `<PREFIX>_*` environment variables the library reads.
+- **Assets**: `paths::setAssetRoots()` (`core/files/resource_paths.h`) accepts application-selected application/library directories before the first asset lookup. Explicit roots bypass shell discovery and require no translation catalog. The library checks its own font and metadata; applications validate their additional required files. The shell retains its existing discovery when roots are not supplied.
 - **Text**: the library owns no translations. `setUiStrings()` (`core/ui_strings.h`) provides the few strings it shows on its own (key names, the `Select` placeholder).
 - **Image decoding**: the core has the `Image` control, the texture caches, and the `ImageDecoder` interface (`render/core/image_decoder.h`) but no codecs. `codecs::installImageDecoder()` installs the opt-in codec pack (`noctalia_ui_codecs_dep`, `render/codecs/`: Wuffs, ICO, WebP, JPEG XL, librsvg, runtime-loaded libheif, encoders, thumbnails); another application can install its own decoder instead.
 

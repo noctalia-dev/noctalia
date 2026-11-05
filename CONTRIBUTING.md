@@ -106,6 +106,10 @@ A consumer copies `lib/` and runs `subdir('lib')` to obtain `noctalia_ui_dep`. T
 
 To enable the bundled codec pack, set `noctalia_ui_build_codecs = true` before `subdir('lib')` and link `noctalia_ui_codecs_dep`. This also defines `noctalia_ui_codecs_lib`. `noctalia_ui_system_wuffs = true` selects system Wuffs headers when the codec pack is enabled. The Noctalia shell explicitly enables the pack; its existing image support and dependencies are unchanged.
 
+Applications with their own asset layout call `paths::setAssetRoots({.application = applicationAssets, .library = libraryAssets})` from `core/files/resource_paths.h` once at startup, before any asset lookup or workers. The application chooses its canonical environment/install paths and validates its own required files. The library validates both directories and requires regular `fonts/noctalia-tabler.ttf` and `fonts/tabler.json` files in the library root. The roots may be the same installed bundle or separate application and `lib/assets` directories. Relative roots are anchored to the working directory at configuration time. Invalid roots throw; explicit roots never enter discovery or require a translation catalog. Reconfiguration and configuration after the first lookup throw to preserve borrowed path references.
+
+Without explicit roots, the shell keeps its existing application-bundle discovery through its environment override, executable location and install directory, identified by `translations/en.json`. Library discovery checks the application bundle and build-tree `lib/assets` for both the font and metadata; missing library assets are an error.
+
 ### Comments
 
 Comments explain what the current code does and any non-obvious constraint a reader needs. Do not narrate history, rejected alternatives, or "why we don't do X"; git holds that. If a comment is longer than the code it describes, cut it down.

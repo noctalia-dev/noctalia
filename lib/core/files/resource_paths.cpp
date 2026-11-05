@@ -5,11 +5,14 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdlib>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <system_error>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace paths {
@@ -17,6 +20,8 @@ namespace paths {
   namespace {
 
     constexpr Logger kLog("paths");
+    std::optional<AssetRoots> gAssetRoots;
+    std::atomic_bool gAssetLookupStarted = false;
 
     std::filesystem::path installedAssetsRoot() {
       const std::filesystem::path datadir(NOCTALIA_UI_INSTALL_DATADIR);
@@ -32,7 +37,6 @@ namespace paths {
         return false;
       }
 
-      // The i18n service always loads the English catalog, so every application asset bundle has it.
       std::error_code ec;
       return std::filesystem::exists(root / "translations" / "en.json", ec);
     }
@@ -102,7 +106,9 @@ namespace paths {
 
     bool isLibraryAssetRoot(const std::filesystem::path& root) {
       std::error_code ec;
-      return std::filesystem::exists(root / "fonts" / "noctalia-tabler.ttf", ec);
+      return !root.empty()
+          && std::filesystem::is_regular_file(root / "fonts" / "noctalia-tabler.ttf", ec)
+          && std::filesystem::is_regular_file(root / "fonts" / "tabler.json", ec);
     }
 
     std::filesystem::path resolveLibraryAssetsRoot() {
@@ -118,13 +124,37 @@ namespace paths {
           return candidate;
         }
       }
-      kLog.warn("could not locate the library assets; defaulting to {}", assetsRoot().string());
-      return assetsRoot();
+      throw std::runtime_error(
+          "could not locate library assets: fonts/noctalia-tabler.ttf and fonts/tabler.json are required"
+      );
     }
 
   } // namespace
 
+  void setAssetRoots(AssetRoots roots) {
+    if (gAssetRoots || gAssetLookupStarted.load()) {
+      throw std::logic_error("asset roots must be configured once before any asset lookup");
+    }
+
+    std::error_code ec;
+    if (roots.application.empty() || !std::filesystem::is_directory(roots.application, ec)) {
+      throw std::runtime_error("invalid application asset directory: " + roots.application.string());
+    }
+    if (!isLibraryAssetRoot(roots.library)) {
+      throw std::runtime_error(
+          "invalid library asset directory (glyph font and metadata required): " + roots.library.string()
+      );
+    }
+    roots.application = std::filesystem::absolute(roots.application);
+    roots.library = std::filesystem::absolute(roots.library);
+    gAssetRoots = std::move(roots);
+  }
+
   const std::filesystem::path& libraryAssetsRoot() {
+    gAssetLookupStarted = true;
+    if (gAssetRoots) {
+      return gAssetRoots->library;
+    }
     static const std::filesystem::path s_root = resolveLibraryAssetsRoot();
     return s_root;
   }
@@ -134,6 +164,10 @@ namespace paths {
   }
 
   const std::filesystem::path& assetsRoot() {
+    gAssetLookupStarted = true;
+    if (gAssetRoots) {
+      return gAssetRoots->application;
+    }
     static const std::filesystem::path s_root = resolveAssetsRoot();
     return s_root;
   }
