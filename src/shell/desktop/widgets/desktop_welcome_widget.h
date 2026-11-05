@@ -13,7 +13,7 @@ class Label;
 class DesktopWelcomeWidget : public DesktopWidget {
 public:
   struct Options {
-    bool showAvater = true;
+    bool showAvatar = true;
     bool showName = true;
     ColorSpec color = colorSpecFromRole(ColorRole::OnSurface);
     bool shadow = true;
@@ -39,7 +39,7 @@ private:
 
   AccountsService* m_accounts;
   ConfigService* m_config;
-  bool m_showAvater;
+  bool m_showAvatar;
   bool m_showName;
   ColorSpec m_color;
   bool m_shadow;

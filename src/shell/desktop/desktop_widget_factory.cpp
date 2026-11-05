@@ -455,7 +455,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     auto widget = std::make_unique<DesktopWelcomeWidget>(
         m_accounts, m_scriptDeps.configService,
         DesktopWelcomeWidget::Options{
-            .showAvater = getBoolSetting(settings, "show_avatar", true),
+            .showAvatar = getBoolSetting(settings, "show_avatar", true),
             .showName = getBoolSetting(settings, "show_name", true),
             .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
             .shadow = getBoolSetting(settings, "shadow", true),

@@ -24,13 +24,13 @@ namespace {
   constexpr float kShadowAlpha = 0.6F;
   constexpr float kShadowOffset = 1.5F;
 
-  float greeterFontSize(float contentScale) { return Style::fontSizeBody * contentScale; };
-  float nameFontSize(float contentScale) { return Style::fontSizeBody * 1.5F * contentScale; };
+  float greetingFontSize(float contentScale) { return Style::fontSizeBody * contentScale; }
+  float nameFontSize(float contentScale) { return Style::fontSizeBody * 1.5F * contentScale; }
 
 } // namespace
 
 DesktopWelcomeWidget::DesktopWelcomeWidget(AccountsService* accounts, ConfigService* config, Options options)
-    : m_accounts(accounts), m_config(config), m_showAvater(options.showAvater), m_showName(options.showName),
+    : m_accounts(accounts), m_config(config), m_showAvatar(options.showAvatar), m_showName(options.showName),
       m_color(options.color), m_shadow(options.shadow) {}
 
 void DesktopWelcomeWidget::create() {
@@ -46,7 +46,7 @@ void DesktopWelcomeWidget::create() {
   auto greetingLabel = ui::label({
       .out = &m_greetingLabel,
       .text = i18n::tr("desktop-widgets.welcome.greeting"),
-      .fontSize = greeterFontSize(contentScale()),
+      .fontSize = greetingFontSize(contentScale()),
       .color = m_color,
       .maxLines = 1,
       .textAlign = TextAlign::Start,
@@ -80,7 +80,7 @@ bool DesktopWelcomeWidget::applySetting(
 ) {
   if (key == "show_avatar") {
     if (const auto* v = std::get_if<bool>(&value)) {
-      m_showAvater = *v;
+      m_showAvatar = *v;
       requestUpdate();
       return true;
     }
@@ -91,7 +91,6 @@ bool DesktopWelcomeWidget::applySetting(
       m_showName = *v;
       syncName();
       return true;
-      ;
     }
     return false;
   }
@@ -135,7 +134,7 @@ void DesktopWelcomeWidget::refreshAvatar(Renderer& renderer) {
   }
 
   std::string displayPath;
-  if (m_showAvater && m_config != nullptr) {
+  if (m_showAvatar && m_config != nullptr) {
     displayPath = shell::avatarDisplayPath(m_accounts, m_config->config());
   }
   const bool hasAvatar = !displayPath.empty();
@@ -199,12 +198,12 @@ void DesktopWelcomeWidget::doLayout(Renderer& renderer) {
     textX = avatarSize + spacing;
   }
 
-  m_greetingLabel->setFontSize(greeterFontSize(scale));
+  m_greetingLabel->setFontSize(greetingFontSize(scale));
   m_greetingLabel->setMaxWidth(maxWidth);
   m_greetingLabel->measure(renderer);
-  const float greeterHeight = m_greetingLabel->height();
+  const float greetingHeight = m_greetingLabel->height();
   float textWidth = m_greetingLabel->width();
-  float textBlockHeight = greeterHeight;
+  float textBlockHeight = greetingHeight;
 
   float nameGap = 0.0F;
   float nameHeight = 0.0F;
@@ -223,7 +222,7 @@ void DesktopWelcomeWidget::doLayout(Renderer& renderer) {
 
   m_greetingLabel->setPosition(textX, textY);
   if (m_nameLabel->visible()) {
-    m_nameLabel->setPosition(textX, textY + greeterHeight + nameGap);
+    m_nameLabel->setPosition(textX, textY + greetingHeight + nameGap);
   }
 
   root()->setSize(textX + textWidth, blockHeight);
