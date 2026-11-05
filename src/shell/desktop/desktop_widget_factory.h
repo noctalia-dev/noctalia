@@ -30,7 +30,6 @@ private:
   PipeWireSpectrum* m_pipewireSpectrum = nullptr;
   const WeatherService* m_weather = nullptr;
   MprisService* m_mpris = nullptr;
-  LyricsService* m_lyrics = nullptr;
   HttpClient* m_httpClient = nullptr;
   SystemMonitorService* m_sysmon = nullptr;
   DesktopWidgetScriptDeps m_scriptDeps;

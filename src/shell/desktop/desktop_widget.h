@@ -32,8 +32,6 @@ public:
   void rebindRenderer(Renderer& renderer);
 
   virtual bool wantsSecondTicks() const { return false; }
-  // Widgets whose updates arrive from background work opt in to restarting a frame loop the compositor stopped answering.
-  virtual bool recoversStalledFrames() const { return false; }
   virtual bool needsFrameTick() const { return false; }
   virtual void onFrameTick(float deltaMs, Renderer& renderer) {
     (void)deltaMs;

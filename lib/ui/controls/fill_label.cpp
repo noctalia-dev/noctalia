@@ -1,4 +1,4 @@
-#include "shell/desktop/widgets/karaoke_label.h"
+#include "ui/controls/fill_label.h"
 
 #include "core/ui_phase.h"
 #include "render/core/renderer.h"
@@ -10,30 +10,31 @@
 #include <memory>
 #include <utility>
 
-KaraokeLabel::KaraokeLabel() {
+FillLabel::FillLabel() {
   setHitTestVisible(false);
   auto label = std::make_unique<Label>();
   label->setMaxLines(1);
   m_label = static_cast<Label*>(addChild(std::move(label)));
 }
 
-void KaraokeLabel::setRanges(std::vector<KaraokeRange> ranges) {
+void FillLabel::setFillRanges(std::vector<FillRange> ranges) {
   if (m_ranges == ranges) {
     return;
   }
   m_ranges = std::move(ranges);
+  m_completedSegments = std::min(m_completedSegments, m_ranges.size());
   m_shapeKey.reset();
   markLayoutDirty();
 }
 
-void KaraokeLabel::setHighlightColor(const ColorSpec& color) {
-  m_highlightColor = color;
+void FillLabel::setFillColor(const ColorSpec& color) {
+  m_fillColor = color;
   for (auto& clip : m_clips) {
     clip.label->setColor(color);
   }
 }
 
-void KaraokeLabel::setProgress(std::size_t completedSegments, float fraction) {
+void FillLabel::setFillProgress(std::size_t completedSegments, float fraction) {
   const auto completed = std::min(completedSegments, m_ranges.size());
   const float next = std::isfinite(fraction) ? std::clamp(fraction, 0.0F, 1.0F) : 0.0F;
   if (m_completedSegments == completed && m_fraction == next) {
@@ -44,27 +45,27 @@ void KaraokeLabel::setProgress(std::size_t completedSegments, float fraction) {
   applyProgress();
 }
 
-void KaraokeLabel::measure(Renderer& renderer) {
+void FillLabel::measure(Renderer& renderer) {
   m_label->measure(renderer);
   syncGeometry(renderer);
 }
 
-void KaraokeLabel::doLayout(Renderer& renderer) { measure(renderer); }
+void FillLabel::doLayout(Renderer& renderer) { measure(renderer); }
 
-LayoutSize KaraokeLabel::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
+LayoutSize FillLabel::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
   const auto size = static_cast<Node&>(*m_label).measure(renderer, constraints);
   syncGeometry(renderer);
   return size;
 }
 
-void KaraokeLabel::doArrange(Renderer& renderer, const LayoutRect& rect) {
+void FillLabel::doArrange(Renderer& renderer, const LayoutRect& rect) {
   setPosition(rect.x, rect.y);
   static_cast<Node&>(*m_label).arrange(renderer, {.width = rect.width, .height = rect.height});
   syncGeometry(renderer);
 }
 
-void KaraokeLabel::syncGeometry(Renderer& renderer) {
-  uiAssertNotRendering("KaraokeLabel::syncGeometry");
+void FillLabel::syncGeometry(Renderer& renderer) {
+  uiAssertNotRendering("FillLabel::syncGeometry");
   setSize(m_label->width(), m_label->height());
   const ShapeKey key{
       .text = m_label->text(),
@@ -82,14 +83,14 @@ void KaraokeLabel::syncGeometry(Renderer& renderer) {
       .baselineMode = m_label->baselineMode(),
   };
   if (m_shapeKey != key) {
-    rebuildHighlights(renderer);
+    rebuildFills(renderer);
     m_shapeKey = key;
   }
   applyProgress();
 }
 
-void KaraokeLabel::rebuildHighlights(Renderer& renderer) {
-  uiAssertNotRendering("KaraokeLabel::rebuildHighlights");
+void FillLabel::rebuildFills(Renderer& renderer) {
+  uiAssertNotRendering("FillLabel::rebuildFills");
   for (auto& clip : m_clips) {
     removeChild(clip.clip);
   }
@@ -149,20 +150,20 @@ void KaraokeLabel::rebuildHighlights(Renderer& renderer) {
     auto clip = std::make_unique<Node>();
     clip->setClipChildren(true);
     clip->setHitTestVisible(false);
-    auto highlight = std::make_unique<Label>();
-    highlight->setText(text);
-    highlight->setFontSize(m_label->fontSize());
-    highlight->setFontFamily(m_label->font().family);
-    highlight->setFontFeatures(m_label->font().features);
-    highlight->setFontWeight(m_label->font().weight);
-    highlight->setColor(m_highlightColor);
-    highlight->setMaxWidth(m_label->textWrapWidth());
-    highlight->setMaxLines(1);
-    highlight->setTextAlign(m_label->textAlign());
-    highlight->setEllipsize(m_label->ellipsize());
-    highlight->setBaselineMode(m_label->baselineMode());
-    static_cast<Node&>(*highlight).arrange(renderer, {.width = width(), .height = height()});
-    auto* labelPtr = static_cast<Label*>(clip->addChild(std::move(highlight)));
+    auto fill = std::make_unique<Label>();
+    fill->setText(text);
+    fill->setFontSize(m_label->fontSize());
+    fill->setFontFamily(m_label->font().family);
+    fill->setFontFeatures(m_label->font().features);
+    fill->setFontWeight(m_label->font().weight);
+    fill->setColor(m_fillColor);
+    fill->setMaxWidth(m_label->textWrapWidth());
+    fill->setMaxLines(1);
+    fill->setTextAlign(m_label->textAlign());
+    fill->setEllipsize(m_label->ellipsize());
+    fill->setBaselineMode(m_label->baselineMode());
+    static_cast<Node&>(*fill).arrange(renderer, {.width = width(), .height = height()});
+    auto* labelPtr = static_cast<Label*>(clip->addChild(std::move(fill)));
     auto* clipPtr = addChild(std::move(clip));
     const bool rtl = last > first + 1 ? spans[first].left > spans[last - 1].left : carets[first] > carets[last];
     m_clips.push_back(
@@ -171,7 +172,7 @@ void KaraokeLabel::rebuildHighlights(Renderer& renderer) {
   }
 }
 
-void KaraokeLabel::applyProgress() {
+void FillLabel::applyProgress() {
   for (auto& clip : m_clips) {
     const float progress = clip.segment < m_completedSegments ? 1.0F
         : clip.segment == m_completedSegments                 ? m_fraction

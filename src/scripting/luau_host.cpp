@@ -894,6 +894,59 @@ namespace {
     return 1;
   }
 
+  // mediaPlayer() -> the shell's active MPRIS player (same choice as the bar media widget), or nil
+  // when there is none.
+  //
+  //   { busName, identity, desktopEntry, status, trackId, title, artists, album, url, artUrl,
+  //     positionMs, lengthMs, rate }
+  //
+  // positionMs is projected from the mirrored sample to the moment of the call while playing
+  // (rate-scaled, clamped to lengthMs when known), so polling it every frame yields a smooth clock.
+  int luau_mediaPlayer(lua_State* L) {
+    auto* host = hostForState(L);
+    const auto player = host == nullptr ? nullptr : host->api().mediaPlayer();
+    if (player == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    double positionMs = player->positionMs;
+    if (player->status == "Playing") {
+      const double elapsedMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - player->sampledAt).count();
+      if (elapsedMs > 0.0) {
+        positionMs += elapsedMs * player->rate;
+      }
+    }
+    positionMs = std::max(0.0, positionMs);
+    if (player->lengthMs > 0.0) {
+      positionMs = std::min(positionMs, player->lengthMs);
+    }
+
+    lua_createtable(L, 0, 13);
+    setTableString(L, "busName", player->busName);
+    setTableString(L, "identity", player->identity);
+    setTableString(L, "desktopEntry", player->desktopEntry);
+    setTableString(L, "status", player->status);
+    setTableString(L, "trackId", player->trackId);
+    setTableString(L, "title", player->title);
+    lua_createtable(L, static_cast<int>(player->artists.size()), 0);
+    int index = 1;
+    for (const auto& artist : player->artists) {
+      lua_pushlstring(L, artist.data(), artist.size());
+      lua_rawseti(L, -2, index);
+      ++index;
+    }
+    lua_setfield(L, -2, "artists");
+    setTableString(L, "album", player->album);
+    setTableString(L, "url", player->url);
+    setTableString(L, "artUrl", player->artUrl);
+    setTableNumber(L, "positionMs", positionMs);
+    setTableNumber(L, "lengthMs", player->lengthMs);
+    setTableNumber(L, "rate", player->rate);
+    return 1;
+  }
+
   int luau_clipboardText(lua_State* L) {
     auto* host = hostForState(L);
     if (host == nullptr) {
@@ -2158,6 +2211,7 @@ namespace {
       {"copyToClipboard", luau_copyToClipboard},
       {"clipboardText", luau_clipboardText},
       {"calendarEvents", luau_calendarEvents},
+      {"mediaPlayer", luau_mediaPlayer},
       {"getenv", luau_getenv},
       {"expandPath", luau_expandPath},
       {"formatTime", luau_formatTime},

@@ -607,6 +607,7 @@ namespace {
       {"render", luau_ui_render},
       {"setWantsSecondTicks", luau_ui_setWantsSecondTicks},
       {"setNeedsFrameTick", luau_ui_setNeedsFrameTick},
+      {"setVisible", luau_setVisible},
       {nullptr, nullptr},
   };
 

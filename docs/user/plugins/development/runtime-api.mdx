@@ -93,6 +93,7 @@ The returned path plugs straight into a `ui.image` `path` prop. Resolution scans
 | `noctalia.copyToClipboard(text, mime)`                | bool            | Copies text to the clipboard with an explicit MIME type, for example `"text/plain"` or `"text/uri-list"`.                                                                                                                         |
 | `noctalia.clipboardText()`                            | string or `nil` | Latest text clipboard content (`nil` when empty or non-text).                                                                                                                                                                     |
 | `noctalia.calendarEvents()`                           | table or `nil`  | Synced calendar events, or `nil` before the first successful sync. Requires <PluginApiBadge feature="calendar-events" />.                                                                                                         |
+| `noctalia.mediaPlayer()`                              | table or `nil`  | Active media player with its projected position, or `nil` when no player is active. See [Media player](#media-player). Requires <PluginApiBadge feature="media-player" />.                                                        |
 
 `%s` in `formatTime()` expands to Unix epoch seconds.
 
@@ -131,6 +132,35 @@ end
 ```
 
 The view is read-only: an entry observes the shell's calendar but cannot add, edit, or remove events, and cannot reach account credentials.
+
+## Media player
+
+`noctalia.mediaPlayer()` returns a read-only snapshot of the shell's active MPRIS player, the same one the bar media widget shows (it honours the pinned player, player preferences and `[shell.mpris] blacklist`). It returns `nil` when no player is active. Requires <PluginApiBadge feature="media-player" />.
+
+| Field          | Type   | Description                                                                                              |
+| -------------- | ------ | -------------------------------------------------------------------------------------------------------- |
+| `busName`      | string | D-Bus name of the player, for example `"org.mpris.MediaPlayer2.spotify"`.                                |
+| `identity`     | string | Player display name.                                                                                     |
+| `desktopEntry` | string | Desktop entry id of the player, may be empty.                                                            |
+| `status`       | string | `"Playing"`, `"Paused"` or `"Stopped"`.                                                                  |
+| `trackId`      | string | `mpris:trackid`, may be empty.                                                                           |
+| `title`        | string | Track title.                                                                                             |
+| `artists`      | table  | List of artist names.                                                                                    |
+| `album`        | string | Album name.                                                                                              |
+| `url`          | string | `xesam:url` of the track (for example `"file:///music/song.flac"`), empty when absent.                   |
+| `artUrl`       | string | Cover art URL, may be empty.                                                                             |
+| `positionMs`   | number | Playback position in milliseconds, projected to the moment of the call while playing (scaled by `rate`). |
+| `lengthMs`     | number | Track length in milliseconds, `0` when unknown.                                                          |
+| `rate`         | number | Playback rate, `1` at normal speed.                                                                      |
+
+The call is cheap and `positionMs` advances smoothly between player updates, so an entry can poll it from `onFrameTick` to follow playback.
+
+```lua
+local player = noctalia.mediaPlayer()
+if player ~= nil and player.status == "Playing" then
+  noctalia.log(`{player.title} at {math.floor(player.positionMs / 1000)}s`)
+end
+```
 
 ## System stats
 

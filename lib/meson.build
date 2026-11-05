@@ -161,6 +161,7 @@ _noctalia_ui_sources = files(
   'ui/controls/context_menu_popup.cpp',
   'ui/controls/drag_source.cpp',
   'ui/controls/drop_zone.cpp',
+  'ui/controls/fill_label.cpp',
   'ui/controls/flex.cpp',
   'ui/controls/glyph.cpp',
   'ui/controls/grid_tile.cpp',

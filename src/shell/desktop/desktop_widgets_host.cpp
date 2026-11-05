@@ -23,7 +23,6 @@
 namespace {
 
   constexpr Logger kLog("desktop");
-  constexpr auto kStalledFrameAfter = std::chrono::seconds{1};
 
   DesktopWidgetState* findStateById(DesktopWidgetsSnapshot& snapshot, const std::string& id) {
     for (auto& widget : snapshot.widgets) {
@@ -208,9 +207,6 @@ void DesktopWidgetsHost::onSecondTick() {
   for (auto& instance : m_instances) {
     if (instance->surface == nullptr || instance->widget == nullptr) {
       continue;
-    }
-    if (instance->widget->recoversStalledFrames()) {
-      instance->surface->recoverStalledFrameLoop(kStalledFrameAfter);
     }
     if (instance->widget->wantsSecondTicks()) {
       instance->surface->requestUpdateOnly();
