@@ -1504,6 +1504,16 @@ if build_tests
     args: ['tests/template_undo_signal_test.sh', meson.current_source_dir() / 'assets/templates'],
     workdir: meson.current_source_dir(),
   )
+  test('gtk3_theme_apply',
+    bash_program,
+    args: ['tests/gtk3_theme_apply_test.sh', meson.current_source_dir() / 'assets/templates'],
+    workdir: meson.current_source_dir(),
+  )
+  test('gtk4_template',
+    bash_program,
+    args: ['tests/gtk4_template_test.sh', meson.current_source_dir() / 'assets/templates'],
+    workdir: meson.current_source_dir(),
+  )
   test('umbriel_apply_include_comment',
     bash_program,
     args: ['tests/umbriel_apply_include_comment_test.sh', meson.current_source_dir() / 'assets/templates/umbriel/apply.sh'],
