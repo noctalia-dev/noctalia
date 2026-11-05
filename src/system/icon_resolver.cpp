@@ -311,7 +311,7 @@ namespace {
         const fs::path path = std::string(home) + cfg;
         const auto parsed = freedesktop::parseKeyFile(path);
         if (!parsed) {
-          if (parsed.error().reason != freedesktop::ParseFailure::NOT_FOUND) {
+          if (parsed.error().reason != freedesktop::ParseFailure::NotFound) {
             kLog.warn("failed to parse GTK settings '{}': {}", path.string(), parsed.error().message);
           }
           continue;
@@ -339,7 +339,7 @@ namespace {
     const fs::path indexPath = fs::path(themeRoot) / "index.theme";
     const auto parsed = freedesktop::parseKeyFile(indexPath);
     if (!parsed) {
-      if (parsed.error().reason != freedesktop::ParseFailure::NOT_FOUND) {
+      if (parsed.error().reason != freedesktop::ParseFailure::NotFound) {
         kLog.warn("failed to parse icon theme metadata '{}': {}", indexPath.string(), parsed.error().message);
       }
       return {};

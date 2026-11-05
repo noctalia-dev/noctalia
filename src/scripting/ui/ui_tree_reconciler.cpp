@@ -82,18 +82,18 @@ namespace ui {
 
     // ui.pixelStream callback props, indexed by PixelStreamCallback.
     enum PixelStreamCallback : std::uint8_t {
-      kStreamMove,
-      kStreamDown,
-      kStreamUp,
-      kStreamCancel,
-      kStreamRightClick,
-      kStreamMiddleClick,
-      kStreamScroll,
-      kStreamTextInput,
-      kStreamKeyEvent,
-      kStreamCallbackCount,
+      StreamMove,
+      StreamDown,
+      StreamUp,
+      StreamCancel,
+      StreamRightClick,
+      StreamMiddleClick,
+      StreamScroll,
+      StreamTextInput,
+      StreamKeyEvent,
+      StreamCallbackCount,
     };
-    constexpr std::array<const char*, kStreamCallbackCount> kPixelStreamCallbackProps = {
+    constexpr std::array<const char*, StreamCallbackCount> kPixelStreamCallbackProps = {
         "onPointerMove", "onPointerDown", "onPointerUp", "onPointerCancel", "onRightClick",
         "onMiddleClick", "onScroll",      "onTextInput", "onKeyEvent",
     };
@@ -693,7 +693,7 @@ namespace ui {
     std::string pointerLeaveCallbackName; // last-wired graph onPointerLeave target
     std::string pointerStreamKey; // coalescing stream shared by this graph's or pixel stream's pointer callbacks
     // Last-wired ui.pixelStream callback targets, indexed by PixelStreamCallback.
-    std::array<std::string, kStreamCallbackCount> pixelStreamCallbackNames;
+    std::array<std::string, StreamCallbackCount> pixelStreamCallbackNames;
     std::string imagePath;              // last-applied resolved image source
     std::string colorValue;             // last-applied colorPicker value prop
     std::string lastText;               // markdown source cache - setMarkdown re-parses, only call on change
@@ -1293,7 +1293,7 @@ namespace ui {
   }
 
   void UiTreeReconciler::syncPixelStreamCallbacks(Slot& slot, const UiTreeNode& desired, PixelStreamView& view) {
-    std::array<std::string, kStreamCallbackCount> names;
+    std::array<std::string, StreamCallbackCount> names;
     for (std::size_t i = 0; i < names.size(); ++i) {
       if (const std::string* name = callbackProp(desired, kPixelStreamCallbackProps[i])) {
         names[i] = *name;
@@ -1309,16 +1309,16 @@ namespace ui {
 
     const auto wants = [&names](PixelStreamCallback callback) { return !names[callback].empty(); };
     std::uint32_t buttons = 0;
-    if (wants(kStreamDown) || wants(kStreamUp) || wants(kStreamCancel)) {
+    if (wants(StreamDown) || wants(StreamUp) || wants(StreamCancel)) {
       buttons |= InputArea::buttonMask(BTN_LEFT);
     }
-    if (wants(kStreamRightClick)) {
+    if (wants(StreamRightClick)) {
       buttons |= InputArea::buttonMask(BTN_RIGHT);
     }
-    if (wants(kStreamMiddleClick)) {
+    if (wants(StreamMiddleClick)) {
       buttons |= InputArea::buttonMask(BTN_MIDDLE);
     }
-    if (buttons != 0 || wants(kStreamMove) || wants(kStreamScroll)) {
+    if (buttons != 0 || wants(StreamMove) || wants(StreamScroll)) {
       view.setPointerHandler(
           [this, owner = static_cast<const Node*>(&view), stream = slot.pointerStreamKey,
            names](const PixelStreamView::PointerEvent& event) {
@@ -1336,47 +1336,47 @@ namespace ui {
             };
             switch (event.kind) {
             case PixelStreamView::PointerKind::Move:
-              if (!names[kStreamMove].empty()) {
-                m_sink(ControlCallback{names[kStreamMove], coordinate(event.x), coordinate(event.y), true, segment});
+              if (!names[StreamMove].empty()) {
+                m_sink(ControlCallback{names[StreamMove], coordinate(event.x), coordinate(event.y), true, segment});
               }
               break;
             case PixelStreamView::PointerKind::Down:
               // The drag is a pointer session: if the view is dropped, rewired, or reset away
               // mid-drag, closing the session still delivers onPointerCancel.
-              if (!names[kStreamCancel].empty()) {
-                openPointer(owner, names[kStreamCancel], segment);
+              if (!names[StreamCancel].empty()) {
+                openPointer(owner, names[StreamCancel], segment);
               }
-              call(kStreamDown);
+              call(StreamDown);
               break;
             case PixelStreamView::PointerKind::Up:
               endPointer(owner);
-              call(kStreamUp);
+              call(StreamUp);
               break;
             case PixelStreamView::PointerKind::Cancel:
               releasePointer(owner);
               break;
             case PixelStreamView::PointerKind::RightClick:
-              call(kStreamRightClick);
+              call(StreamRightClick);
               break;
             case PixelStreamView::PointerKind::MiddleClick:
-              call(kStreamMiddleClick);
+              call(StreamMiddleClick);
               break;
             case PixelStreamView::PointerKind::Scroll:
-              if (!names[kStreamScroll].empty()) {
-                m_sink(ControlCallback{names[kStreamScroll], std::format("{}", event.dx), std::format("{}", event.dy)});
+              if (!names[StreamScroll].empty()) {
+                m_sink(ControlCallback{names[StreamScroll], std::format("{}", event.dx), std::format("{}", event.dy)});
               }
               break;
             }
           },
-          buttons, wants(kStreamScroll)
+          buttons, wants(StreamScroll)
       );
     } else {
       view.setPointerHandler({}, 0, false);
     }
 
-    if (wants(kStreamTextInput) || wants(kStreamKeyEvent)) {
-      view.setKeyHandler([this, text = names[kStreamTextInput],
-                          keyEvent = names[kStreamKeyEvent]](const InputArea::KeyData& key) {
+    if (wants(StreamTextInput) || wants(StreamKeyEvent)) {
+      view.setKeyHandler([this, text = names[StreamTextInput],
+                          keyEvent = names[StreamKeyEvent]](const InputArea::KeyData& key) {
         // Composition previews are not input yet; Super chords belong to the compositor.
         if (!m_sink || key.preedit || (key.modifiers & KeyMod::Super) != 0) {
           return;

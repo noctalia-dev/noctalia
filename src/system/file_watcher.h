@@ -30,7 +30,7 @@ public:
   watch(const std::filesystem::path& filePath, Callback callback, WatchTrigger trigger = WatchTrigger::Modified);
   void unwatch(WatchId id);
 
-  int fd() const noexcept { return inotify.fd(); }
+  int fd() const noexcept { return m_inotify.fd(); }
   void dispatch();
 
 private:
@@ -42,7 +42,7 @@ private:
     std::chrono::steady_clock::time_point lastFired;
   };
 
-  Inotify inotify;
+  Inotify m_inotify;
   WatchId m_nextId = 1;
   std::unordered_map<WatchId, WatchEntry> m_watches;
   std::unordered_map<int, int> m_dirWdRefCount;
