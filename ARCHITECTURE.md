@@ -93,6 +93,8 @@ Button label budgets measure custom visible layout artwork alongside the built-i
 
 **Rectangle shapes**: the rect shader is generic. Use per-corner `CornerShape::Convex` or `CornerShape::Concave` with `Radii` and `RectInsets logicalInset`. Panel and bar policy stays in shell code, not in shader enum names. Screen-corner overlays use the shell's `ScreenCornerNode` custom draw node.
 
+CPU image resizing uses `resizeToRgba()` in `lib/render/core/image_resize.*`. `ResizeSourceLayout::Rgb` accepts tightly packed three-channel sRGB input and returns opaque RGBA, alongside the existing four-channel layouts. stb requires matching channel counts, so RGB is filtered into the final output allocation and expanded backwards in place; do not add a full-size RGBA source conversion. Keep decoding, source limits and worker scheduling in their owning providers. `tests/image_resize_test.cpp` exercises channel order, sRGB/alpha filtering, packed buffers and invalid inputs.
+
 ### Fractional Scaling
 
 - With `wp_fractional_scale_v1` and `wp_viewporter`, keep `set_buffer_scale(1)`, render at the preferred fractional scale, and set `wp_viewport.set_destination()` to the logical size.

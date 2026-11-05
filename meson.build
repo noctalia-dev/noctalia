@@ -1141,6 +1141,7 @@ if build_tests
     'grid_item_cursor',
     'i18n_language_tag',
     'image_source_log',
+    'image_resize',
     'inotify',
     'input_area',
     'input_bidi',
