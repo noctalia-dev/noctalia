@@ -495,6 +495,16 @@ namespace desktop_settings {
     } else if (type == "welcome") {
       add(stringSpec("greeting_text"));
       add(boolSpec("show_avatar", true));
+      auto avatarShape = segmentedSpec(
+          "avatar_shape", "circular",
+          {{"circular", "desktop-widgets.editor.settings.avatar-shape-circular"},
+           {"square", "desktop-widgets.editor.settings.avatar-shape-square"}}
+      );
+      avatarShape.visibleWhen = WidgetSettingVisibility{"show_avatar", {"true"}};
+      add(std::move(avatarShape));
+      auto showAvatarBorder = boolSpec("show_avatar_border", false);
+      showAvatarBorder.visibleWhen = WidgetSettingVisibility{"show_avatar", {"true"}};
+      add(std::move(showAvatarBorder));
       add(boolSpec("show_name", true));
       add(colorSpec("color", "on_surface"));
       add(fontFamilySpec());

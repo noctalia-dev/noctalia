@@ -452,12 +452,18 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
   }
 
   if (type == "welcome") {
+    const std::string avatarShapeSetting = getStringSetting(settings, "avatar_shape");
+    const DesktopWelcomeWidget::AvatarShape avatarShape = avatarShapeSetting == "square"
+        ? DesktopWelcomeWidget::AvatarShape::Square
+        : DesktopWelcomeWidget::AvatarShape::Circular;
     auto widget = std::make_unique<DesktopWelcomeWidget>(
         m_accounts, m_scriptDeps.configService,
         DesktopWelcomeWidget::Options{
             .showAvatar = getBoolSetting(settings, "show_avatar", true),
             .showName = getBoolSetting(settings, "show_name", true),
             .greetingText = getStringSetting(settings, "greeting_text"),
+            .avatarShape = avatarShape,
+            .showAvatarBorder = getBoolSetting(settings, "show_avatar_border", false),
             .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
             .shadow = getBoolSetting(settings, "shadow", true),
         }

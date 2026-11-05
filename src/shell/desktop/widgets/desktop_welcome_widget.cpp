@@ -31,7 +31,8 @@ namespace {
 
 DesktopWelcomeWidget::DesktopWelcomeWidget(AccountsService* accounts, ConfigService* config, Options options)
     : m_accounts(accounts), m_config(config), m_showAvatar(options.showAvatar), m_showName(options.showName),
-      m_greetingText(std::move(options.greetingText)), m_color(options.color), m_shadow(options.shadow) {}
+      m_greetingText(std::move(options.greetingText)), m_avatarShape(options.avatarShape),
+      m_showAvatarBorder(options.showAvatarBorder), m_color(options.color), m_shadow(options.shadow) {}
 
 void DesktopWelcomeWidget::create() {
   auto rootNode = ui::node({});
@@ -102,6 +103,22 @@ bool DesktopWelcomeWidget::applySetting(
         m_greetingLabel->setText(text);
       }
       requestLayout();
+      return true;
+    }
+    return false;
+  }
+  if (key == "avatar_shape") {
+    if (const auto* v = std::get_if<std::string>(&value)) {
+      m_avatarShape = *v == "square" ? AvatarShape::Square : AvatarShape::Circular;
+      requestLayout();
+      return true;
+    }
+    return false;
+  }
+  if (key == "show_avatar_border") {
+    if (const auto* v = std::get_if<bool>(&value)) {
+      m_showAvatarBorder = *v;
+      applyAvatarChrome();
       return true;
     }
     return false;
@@ -205,7 +222,8 @@ void DesktopWelcomeWidget::doLayout(Renderer& renderer) {
   float textX = 0.0F;
   if (showAvatar) {
     m_avatar->setSize(avatarSize, avatarSize);
-    m_avatar->setRadius(avatarSize * 0.5F);
+    m_avatar->setRadius(m_avatarShape == AvatarShape::Circular ? avatarSize * 0.5F : Style::scaledRadiusLg(scale));
+    applyAvatarChrome();
     m_avatar->setPosition(0.0F, 0.0F);
     textX = avatarSize + spacing;
   }
@@ -268,4 +286,15 @@ void DesktopWelcomeWidget::applyShadow() {
 
   applyTo(m_greetingLabel);
   applyTo(m_nameLabel);
+}
+
+void DesktopWelcomeWidget::applyAvatarChrome() {
+  if (m_avatar == nullptr) {
+    return;
+  }
+  if (m_showAvatarBorder) {
+    m_avatar->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * 3.0F);
+    return;
+  }
+  m_avatar->setBorder(colorSpecFromRole(ColorRole::Primary), 0.0F);
 }

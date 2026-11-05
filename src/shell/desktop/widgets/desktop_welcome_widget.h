@@ -12,10 +12,17 @@ class Label;
 
 class DesktopWelcomeWidget : public DesktopWidget {
 public:
+  enum class AvatarShape : std::uint8_t {
+    Circular,
+    Square,
+  };
+
   struct Options {
     bool showAvatar = true;
     bool showName = true;
     std::string greetingText;
+    AvatarShape avatarShape = AvatarShape::Circular;
+    bool showAvatarBorder = false;
     ColorSpec color = colorSpecFromRole(ColorRole::OnSurface);
     bool shadow = true;
   };
@@ -35,6 +42,7 @@ private:
 
   void refreshAvatar(Renderer& renderer);
   void syncName();
+  void applyAvatarChrome();
   void applyTextColors();
   void applyShadow();
 
@@ -43,6 +51,8 @@ private:
   bool m_showAvatar;
   bool m_showName;
   std::string m_greetingText;
+  AvatarShape m_avatarShape;
+  bool m_showAvatarBorder;
   ColorSpec m_color;
   bool m_shadow;
   bool m_avatarVisible = false;
