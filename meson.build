@@ -1261,6 +1261,7 @@ if build_tests
     'pipewire_error',
     'umbriel_audio_provider',
     'privacy_capture_classification',
+    'plugin_app_icon_path',
     'plugin_bindings',
     'plugin_catalog',
     'plugin_file_privacy',

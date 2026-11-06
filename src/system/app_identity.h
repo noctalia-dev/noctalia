@@ -30,6 +30,10 @@ namespace app_identity {
       std::span<const DesktopEntry> priorityEntries = {}
   );
 
+  // Exact lookup only: desktop-entry id or StartupWMClass (verbatim, or ignoring case and . - _),
+  // then display name. Skips the id-tail and shared-token heuristics of findDesktopEntry.
+  std::optional<DesktopEntry> findDesktopEntryExact(std::string_view appKey, std::span<const DesktopEntry> allEntries);
+
   DesktopEntry resolveRunningDesktopEntry(std::string_view runningAppId, std::span<const DesktopEntry> allEntries);
 
   std::vector<ResolvedRunningApp> resolveRunningApps(
