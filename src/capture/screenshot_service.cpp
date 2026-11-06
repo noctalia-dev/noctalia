@@ -191,7 +191,8 @@ namespace {
     return defaults.empty() ? std::string{} : keyChordDisplayLabel(defaults.front());
   }
 
-  std::string formatFilenameStem(std::string_view pattern, const std::string& labelBase, int suffix) {
+  std::string
+  formatFilenameStem(std::string_view pattern, const std::string& labelBase, int suffix, bool appendModeSuffix) {
     const auto now = std::chrono::system_clock::now();
     const auto unixSeconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
     const std::string_view resolvedPattern = pattern.empty() ? defaultFilenamePattern() : pattern;
@@ -204,7 +205,7 @@ namespace {
       stem += '-';
       stem += std::to_string(suffix);
     }
-    if (labelBase != "screenshot") {
+    if (appendModeSuffix && labelBase != "screenshot") {
       stem += '-';
       stem += labelBase;
     }
@@ -708,6 +709,9 @@ namespace {
       ScreenshotBoolFlag{"--close-on-copy", "--no-close-on-copy", &ScreenshotService::OutputOptions::closeOnCopy},
       ScreenshotBoolFlag{"--close-on-save", "--no-close-on-save", &ScreenshotService::OutputOptions::closeOnSave},
       ScreenshotBoolFlag{"--copy-on-close", "--no-copy-on-close", &ScreenshotService::OutputOptions::copyOnClose},
+      ScreenshotBoolFlag{
+          "--append-mode-suffix", "--no-append-mode-suffix", &ScreenshotService::OutputOptions::appendModeSuffix
+      },
   };
 
 } // namespace
@@ -881,6 +885,7 @@ ScreenshotService::OutputOptions ScreenshotService::outputOptionsFromConfig(cons
   options.pipeCommand = screenshot.pipeCommand;
   options.directory = screenshot.directory;
   options.filenamePattern = screenshot.filenamePattern;
+  options.appendModeSuffix = screenshot.appendModeSuffix;
   options.format = screenshot.format;
   options.quality = screenshot.quality;
   return options;
@@ -2313,7 +2318,7 @@ std::filesystem::path ScreenshotService::outputDirectory(const OutputOptions& op
 std::filesystem::path
 ScreenshotService::makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix) const {
   const auto dir = outputDirectory(options);
-  std::string filename = formatFilenameStem(options.filenamePattern, labelBase, suffix);
+  std::string filename = formatFilenameStem(options.filenamePattern, labelBase, suffix, options.appendModeSuffix);
   filename.append(screenshotExtension(options.format));
   return dir / filename;
 }
