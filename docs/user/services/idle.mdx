@@ -59,6 +59,8 @@ resume_command = "notify-send 'Idle' 'Back from idle'"
 
 `action = "screen_off"` turns the monitors off on idle and **back on automatically** when you return. If `resume_command` is set, Noctalia restores monitor power first and then runs the command. The command still runs if monitor power restoration reports a failure.
 
+On a laptop with an external display connected, systemd-logind only treats the machine as docked while that display is powered on. If logind reports the laptop as docked when Noctalia turns the monitors off, Noctalia holds a logind `handle-lid-switch` inhibitor until they are turned back on, so a closed lid does not suspend it. This applies only when logind's `HandleLidSwitchDocked` is `ignore`, the default. If every external display is unplugged while the monitors are off, the inhibitor is released and logind handles the lid normally.
+
 Locking the session does not count as resumed activity. If monitors are already off when a later lock behavior runs, they stay off until activity resumes or the session unlocks. Behaviors whose timeout does not change keep their existing timers. A waiting behavior switches to `locked_timeout` when locking; a fade already underway finishes on its current schedule. A behavior that has already fired keeps its effect and switches timeout after activity resumes. Unlocking restores normal timeouts.
 
 For a fully custom power action, use the canonical IPC CLI as part of a shell command:

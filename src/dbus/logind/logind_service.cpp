@@ -75,6 +75,7 @@ LogindService::LogindService(SystemBus& bus) : m_bus(bus) {
 }
 
 LogindService::~LogindService() {
+  releaseLidSwitchInhibit();
   releaseSleepDelayInhibit();
   releaseIdleInhibit();
 }
@@ -240,4 +241,75 @@ void LogindService::releaseSleepDelayInhibit() {
   ::close(m_sleepDelayInhibitFd);
   m_sleepDelayInhibitFd = -1;
   kLog.info("logind sleep delay inhibit released");
+}
+
+bool LogindService::isDocked() const {
+  if (m_managerProxy == nullptr) {
+    return false;
+  }
+  try {
+    return m_managerProxy->getProperty("Docked").onInterface(kLogindManagerInterface).get<bool>();
+  } catch (const sdbus::Error& e) {
+    kLog.warn("failed to read logind Docked: {}", e.what());
+    return false;
+  }
+}
+
+std::optional<std::string> LogindService::handleLidSwitchDocked() const {
+  if (m_managerProxy == nullptr) {
+    return std::nullopt;
+  }
+  try {
+    return m_managerProxy->getProperty("HandleLidSwitchDocked").onInterface(kLogindManagerInterface).get<std::string>();
+  } catch (const sdbus::Error& e) {
+    kLog.warn("failed to read logind HandleLidSwitchDocked: {}", e.what());
+    return std::nullopt;
+  }
+}
+
+bool LogindService::hasLidSwitchInhibit() const noexcept { return m_lidSwitchInhibitFd >= 0; }
+
+bool LogindService::acquireLidSwitchInhibit() {
+  if (m_lidSwitchInhibitFd >= 0) {
+    return true;
+  }
+  if (m_managerProxy == nullptr) {
+    return false;
+  }
+
+  try {
+    sdbus::UnixFd fd;
+    m_managerProxy->callMethod("Inhibit")
+        .onInterface(kLogindManagerInterface)
+        .withArguments(
+            std::string("handle-lid-switch"), std::string("noctalia"), std::string("Outputs powered off while docked"),
+            std::string("block")
+        )
+        .storeResultsTo(fd);
+    m_lidSwitchInhibitFd = fd.release();
+    if (m_lidSwitchInhibitFd < 0) {
+      kLog.warn("logind lid switch inhibit returned invalid fd");
+      return false;
+    }
+    if (!setCloexec(m_lidSwitchInhibitFd)) {
+      kLog.warn("failed to set CLOEXEC on logind lid switch inhibit fd");
+      ::close(m_lidSwitchInhibitFd);
+      m_lidSwitchInhibitFd = -1;
+      return false;
+    }
+    kLog.info("logind lid switch inhibit acquired");
+    return true;
+  } catch (const sdbus::Error& e) {
+    kLog.warn("failed to acquire logind lid switch inhibit: {}", e.what());
+    return false;
+  }
+}
+
+void LogindService::releaseLidSwitchInhibit() {
+  if (m_lidSwitchInhibitFd < 0) {
+    return;
+  }
+  ::close(m_lidSwitchInhibitFd);
+  m_lidSwitchInhibitFd = -1;
+  kLog.info("logind lid switch inhibit released");
 }

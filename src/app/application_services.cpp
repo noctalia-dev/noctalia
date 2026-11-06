@@ -128,6 +128,11 @@ namespace {
       (void)process::runAsync(cmd);
     }
   }
+
+  // Built-in panels use the kernel DRM connector types eDP, LVDS and DSI; output names start with the type.
+  bool isLaptopPanel(std::string_view connectorName) {
+    return connectorName.starts_with("eDP-") || connectorName.starts_with("LVDS-") || connectorName.starts_with("DSI-");
+  }
 } // namespace
 
 void Application::scheduleNotificationShellRefresh() {
@@ -904,6 +909,13 @@ void Application::reconcileOutputSurfaces() {
   m_pluginLayerHost.onOutputChange();
 }
 
+// logind's Docked turns false once outputs are powered off, so look at the outputs instead.
+bool Application::hasExternalOutput() const {
+  return std::ranges::any_of(m_wayland.outputs(), [](const WaylandOutput& output) {
+    return !output.connectorName.empty() && !isLaptopPanel(output.connectorName);
+  });
+}
+
 void Application::initWaylandCallbacks() {
   auto shouldRefreshControlCenter = [this] { return m_panelManager.isOpenPanel("control-center"); };
 
@@ -917,6 +929,9 @@ void Application::initWaylandCallbacks() {
     m_gammaService.onOutputsChanged();
     m_pluginServiceHost.onOutputChange();
     reconcileOutputSurfaces();
+    if (m_logindService != nullptr && m_logindService->hasLidSwitchInhibit() && !hasExternalOutput()) {
+      m_logindService->releaseLidSwitchInhibit();
+    }
   });
   m_clipboardService.setChangeCallback([this] {
     m_scriptApi.setClipboardText(m_clipboardService.clipboardText());
