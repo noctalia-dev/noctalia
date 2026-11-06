@@ -606,6 +606,10 @@ show_visualizer = true              # PipeWire audio visualizer beside the playb
 # [widget.notifications]
 # hide_when_no_unread = true
 
+# [widget.tray]
+# drawer = true
+# glyph_position = "before"           # before | after
+
 # [widget.network_rx]
 # network_speed_unit           = "mb" # auto | kb | mb
 # network_speed_compact        = true # show "1.2M" instead of "1.2 MB/s"
