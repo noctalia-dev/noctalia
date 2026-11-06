@@ -12,12 +12,12 @@ namespace noctalia::system::cpu_stat {
 
     // The label is everything before the first space: "cpu" for the aggregate row, "cpuN" for a
     // core. Returns an empty view for a row with no space at all.
-    [[nodiscard]] std::string_view labelOf(const std::string& line) {
+    std::string_view labelOf(const std::string& line) {
       const auto space = line.find(' ');
       return space == std::string::npos ? std::string_view{} : std::string_view{line}.substr(0, space);
     }
 
-    [[nodiscard]] bool isCoreLabel(std::string_view label) { return SysUtils::isCpuN(label); }
+    bool isCoreLabel(std::string_view label) { return SysUtils::isCpuN(label); }
 
   } // namespace
 

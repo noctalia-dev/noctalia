@@ -68,29 +68,32 @@ namespace scripting {
     [[nodiscard]] bool
     enqueueCallArgs(std::string functionName, ScriptArgs args, ScriptSnapshot snapshot, ScriptCallOptions options = {});
     [[nodiscard]] bool enqueueCallBool(std::string functionName, bool value, ScriptSnapshot snapshot);
+    // `coalesceKey` names the coalescing stream when several callbacks must
+    // supersede one another in order; empty means the callback's own name.
     [[nodiscard]] bool enqueueCallStrings(
-        std::string functionName, std::string first, std::string second, ScriptSnapshot snapshot, bool coalesce = false
+        std::string functionName, std::string first, std::string second, ScriptSnapshot snapshot, bool coalesce = false,
+        std::string coalesceKey = {}
     );
     [[nodiscard]] bool enqueueAsyncCommandResult(std::uint64_t hostId, int callbackRef, process::RunResult result);
     // Swap the live settings snapshot and, if the script defines a global
     // onConfigChanged, invoke it — without tearing down the runtime.
     [[nodiscard]] bool enqueueSettingsChanged(ScriptSettings newSettings, ScriptSnapshot snapshot = {});
-    [[nodiscard]] bool hasOnIpc() const;
+    bool hasOnIpc() const;
     // True once the script has loaded and defines a global onConfigChanged handler.
-    [[nodiscard]] bool hasOnConfigChanged() const;
+    bool hasOnConfigChanged() const;
     // True once the script has loaded and defines a global onActivate handler. The
     // launcher uses this to decide whether activating a result must wait for the
     // handler (which may rewrite the query) before closing the panel.
-    [[nodiscard]] bool hasOnActivate() const;
+    bool hasOnActivate() const;
     // True once the script has loaded and defines a global onScroll handler. Bar
     // widgets use this to leave scroll events unconsumed when the plugin has no
     // handler, so they still reach the bar underneath.
-    [[nodiscard]] bool hasOnScroll() const;
+    bool hasOnScroll() const;
     // True once the script has loaded and defines a global onKey. A plugin panel checks this
     // before consuming a capture_keys chord, so declaring one without a handler does not
     // silently swallow the key.
-    [[nodiscard]] bool hasOnKey() const;
-    [[nodiscard]] bool unhealthy() const;
+    bool hasOnKey() const;
+    bool unhealthy() const;
 
   private:
     struct State;

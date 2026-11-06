@@ -7,10 +7,15 @@
 #include "render/scene/node.h"
 #include "scripting/plugin_runtime_context.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/wayland/layer_shell.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/scroll_view.h"
+#include "ui/scroll_into_view.h"
 #include "ui/style.h"
+#include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <cmath>
@@ -44,6 +49,13 @@ namespace {
     return LayerShellKeyboard::OnDemand;
   }
 
+  LayerShellLayer pinnedLayerFromManifest(std::string_view value) {
+    if (scripting::panelLayerFollowsFloating(value)) {
+      return LayerShellLayer::Top;
+    }
+    return layerShellLayerFromConfig(value);
+  }
+
   std::string readFile(const std::filesystem::path& path) {
     std::ifstream f(path);
     if (!f) {
@@ -56,16 +68,17 @@ namespace {
 
 } // namespace
 
-PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOptions options)
+PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, const PluginPanelOptions& options)
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
       m_pluginDir(std::move(context.pluginDir)), m_scriptApi(context.scriptApi),
       m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient),
       m_clipboard(context.clipboard),
       m_preferredWidth(options.width > 0.0 ? static_cast<float>(options.width) : kDefaultPanelWidth),
       m_preferredHeight(options.height > 0.0 ? static_cast<float>(options.height) : kDefaultPanelHeight),
-      m_widthFill(options.widthFill), m_heightFill(options.heightFill),
-      m_dismissOnOutsideClick(options.dismissOnOutsideClick),
-      m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)), m_persistent(options.persistent),
+      m_widthFill(options.widthFill), m_heightFill(options.heightFill), m_heightContent(options.heightContent),
+      m_maxContentHeight(static_cast<float>(options.maxHeight)), m_dismissOnOutsideClick(options.dismissOnOutsideClick),
+      m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)),
+      m_layer(pinnedLayerFromManifest(options.shellConfig.layer)), m_persistent(options.persistent),
       m_shellConfig(options.shellConfig) {
   // The manifest parser already validated every spec, so a parse failure here means the two
   // drifted apart. Skip the entry rather than capture a chord nobody can describe.
@@ -181,7 +194,7 @@ void PluginPanel::create() {
         };
       }
       (void)m_runtime->enqueueCallStrings(
-          callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce
+          callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce, callback.coalesceKey
       );
     }
   });
@@ -233,6 +246,7 @@ void PluginPanel::onOpen(std::string_view context) {
   closeContextMenu();
   ++m_openGeneration;
   m_open = true;
+  m_openContext = std::string(context);
   if (m_runtime != nullptr) {
     (void)m_runtime->enqueueCallStrings("onOpen", std::string(context), {}, makeScriptSnapshot());
   }
@@ -242,9 +256,12 @@ void PluginPanel::onOpen(std::string_view context) {
   }
 }
 
+bool PluginPanel::isContextActive(std::string_view context) const { return m_open && m_openContext == context; }
+
 void PluginPanel::onClose() {
   ++m_openGeneration;
   m_open = false;
+  m_openContext.clear();
   closeContextMenu();
   m_tickTimer.stop();
   releaseCapturedKeys();
@@ -265,7 +282,7 @@ bool PluginPanel::dismissTransientUi() {
   return true;
 }
 
-void PluginPanel::onFrameTick(float deltaMs) {
+void PluginPanel::onFrameTick(float deltaMs, Renderer& /*renderer*/) {
   if (m_runtime == nullptr || !m_needsFrameTick || !m_open) {
     return;
   }
@@ -283,7 +300,7 @@ void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
   }
   if (m_tree.has_value()) {
     m_reconciler.setScale(contentScale());
-    (void)m_reconciler.reconcile(*m_contentFlex, *m_tree, renderer);
+    m_reconciler.reconcile(*m_contentFlex, *m_tree, renderer);
     m_treeDirty = false;
   }
   m_flex->setSize(width, height);
@@ -294,7 +311,24 @@ void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
   }
 }
 
+float PluginPanel::measureContentHeight(Renderer& renderer, float contentWidth) {
+  // The rendered tree is the content column's only child; measure it at the panel's width
+  // with no height limit. Before the first panel.render() there is nothing to measure.
+  if (m_contentFlex == nullptr || m_contentFlex->children().empty()) {
+    return 0.0F;
+  }
+  LayoutConstraints constraints;
+  constraints.setExactWidth(contentWidth);
+  return m_contentFlex->children().front()->measure(renderer, constraints).height;
+}
+
 void PluginPanel::doUpdate(Renderer& renderer) { (void)renderer; }
+
+void PluginPanel::scrollFocusedInputIntoView(InputArea* area) {
+  if (ScrollView* scrollView = findEnclosingScrollView(area)) {
+    scrollNodeIntoScrollView(*scrollView, nullptr, *area, 0.0F);
+  }
+}
 
 void PluginPanel::startTickTimer() {
   if (!m_wantsSecondTicks || !m_open) {
@@ -442,14 +476,14 @@ void PluginPanel::openContextMenu(scripting::ScriptContextMenuRequest request) {
           .anchor = PopupAnchorRect{.x = anchorX, .y = anchorY, .width = 1, .height = 1},
           .parent =
               PopupSurfaceParent{
-                  .layerSurface = parent->layerSurface,
+                  .attach = parent->attach,
                   .xdgSurface = parent->xdgSurface,
                   .output = parent->output,
-                  // ContextMenuPopup uses a non-null wlSurface to temporarily
-                  // promote a keyboard-inert layer parent and restores None on
-                  // dismissal. Panels already using OnDemand/Exclusive must
-                  // keep their current mode untouched.
-                  .wlSurface = m_keyboardMode == LayerShellKeyboard::None ? parent->surface : nullptr,
+                  // Promote a keyboard-inert parent while the menu is open. Panels already using
+                  // OnDemand/Exclusive must keep their current mode untouched.
+                  .keyboardGrab = m_keyboardMode == LayerShellKeyboard::None
+                      ? wayland->extension<LayerShell>().popupKeyboardGrab(parent->surface)
+                      : PopupKeyboardGrab{},
               },
           .pointerParentSurface = parent->surface,
           .inputSerial = request.pointer.serial,

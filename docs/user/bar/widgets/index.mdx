@@ -1,0 +1,155 @@
+---
+title: Widgets
+description: Configure shared bar widget behavior and find settings for every built-in widget.
+sidebar:
+  label: Overview
+  order: 0
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Configure widgets {#widget-definitions}
+
+Widget definitions are optional. When a name in a widget list matches a `[widget.<name>]` entry, that entry's `type` and settings are used. When there is no match, the name itself is treated as the widget type with default settings.
+
+Middle-click a bar widget to open Settings directly to that widget's configuration.
+
+```toml
+[widget.<name>]
+type = "<widget-type>"   # defaults to <name> when omitted
+scale = 1.0              # multiplies all content by the owning bar's scale
+font_scale = 1.0         # additional text-only multiplier
+enabled = true           # show or hide this widget on the bar
+custom_label = ""        # optional text shown with the widget; leave empty to hide it
+show_glyph = true        # false hides the widget's icon glyphs
+# ...widget-specific settings
+```
+
+This allows multiple named widgets with the same widget type:
+
+```toml
+[widget.clock-seconds]
+type   = "clock"
+format = "{:%H:%M:%S}"
+
+[bar.default]
+end = ["clock", "clock-seconds"]   # two clock widgets, different formats
+```
+
+## Shared behavior and appearance
+
+Configure click, scroll, and thumb-button bindings under [Widget Actions](/noctalia/bar/actions/). Configure shared capsule styling under [Bar → Widget Capsule](/noctalia/bar/#widget-capsule). Every bar widget, including plugin widgets, accepts `custom_label`, which renders as text next to the widget content (above it on vertical bars); widgets that manage their own identity, such as sysmon, render it inside their identity group. Set `show_glyph = false` on any widget, plugin widgets included, to hide its icon glyphs and reclaim the space they occupied; image content such as tray and taskbar icons is not affected. Widgets with no text of their own need `custom_label` to stay visible; battery instead hides its icon with `display_mode = "none"` (see [Battery](/noctalia/bar/widgets/battery/)).
+
+### Peek {#peek}
+
+Widgets that show a glyph next to a value can hide the value until you hover them. With `peek = true` only the glyph is visible; hovering the widget slides the value out, and leaving collapses it again. Supported by `volume`, `brightness`, `keyboard_layout`, `bluetooth`, `network`, `weather`, `battery` (glyph `display_mode`), `custom_button`, `sysmon` (the gauge or graph slides out with the value), `media` (artwork reveals track text on horizontal bars), and `tray` (a tray glyph reveals inline icons when drawer mode is off). Media hides peek settings when `album_art_only` or `hide_album_art` is enabled.
+
+```toml
+[widget.volume]
+peek           = true
+glyph_position = "after"   # value sits before the glyph, so it opens toward the start
+peek_delay_ms  = 250       # hover this long before revealing (default 100)
+```
+
+| Setting          | Type   | Default    | Description                                                                                                                                                                                                           |
+| ---------------- | ------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `glyph_position` | string | `"before"` | `"before"` places the glyph before the value (left on top/bottom bars, above on left/right bars); `"after"` swaps them. Peek opens toward the value's side                                                            |
+| `peek`           | bool   | `false`    | Show only the glyph; reveal the value while the widget is hovered. Ignored when the widget has no glyph or no value to show                                                                                           |
+| `peek_delay_ms`  | int    | `100`      | Hover time in milliseconds before the value starts to reveal, from `0` to `2000`. Same default as `accordion_delay_ms`; the reveal animates over 200 ms like `accordion_duration`, and collapsing is always immediate |
+
+Peek is independent of the [capsule group](/noctalia/bar/#capsule-groups) accordion, which folds whole widgets instead of a single widget's value.
+
+## Built-in widgets
+
+### Layout & windows
+
+<CardGrid>
+  <LinkCard id="active_window" title="<code>active_window</code>" description="Shows the active window icon and title for the current output." href="/noctalia/bar/widgets/active-window/" />
+
+  <LinkCard id="clock" title="<code>clock</code>" description="Displays the current time with configurable formats and timezone." href="/noctalia/bar/widgets/clock/" />
+
+  <LinkCard id="spacer" title="<code>spacer</code>" description="Adds empty space or an optional interactive hot zone." href="/noctalia/bar/widgets/spacer/" />
+
+  <LinkCard id="taskbar" title="<code>taskbar</code>" description="Shows running and pinned applications, optionally grouped by workspace." href="/noctalia/bar/widgets/taskbar/" />
+
+  <LinkCard id="text" title="<code>text</code>" description="Shows fixed custom text on the bar." href="/noctalia/bar/widgets/text/" />
+
+  <LinkCard id="workspaces" title="<code>workspaces</code>" description="Switches workspaces with regular, minimal, or Focus Hint styles." href="/noctalia/bar/widgets/workspaces/" />
+</CardGrid>
+
+### Audio, media & information
+
+<CardGrid>
+  <LinkCard id="audio_visualizer" title="<code>audio_visualizer</code>" description="Displays a horizontal audio spectrum from the current PipeWire monitor stream." href="/noctalia/bar/widgets/audio-visualizer/" />
+
+  <LinkCard id="media" title="<code>media</code>" description="Shows artwork and track details from the active MPRIS player." href="/noctalia/bar/widgets/media/" />
+
+  <LinkCard id="volume" title="<code>volume</code>" description="Shows and controls PipeWire output or input volume." href="/noctalia/bar/widgets/volume/" />
+
+  <LinkCard id="weather" title="<code>weather</code>" description="Shows the current configured weather in the bar." href="/noctalia/bar/widgets/weather/" />
+</CardGrid>
+
+### System & hardware
+
+<CardGrid>
+  <LinkCard id="battery" title="<code>battery</code>" description="Shows battery charge level and state through UPower." href="/noctalia/bar/widgets/battery/" />
+
+  <LinkCard id="bluetooth" title="<code>bluetooth</code>" description="Shows Bluetooth adapter state and the connected device." href="/noctalia/bar/widgets/bluetooth/" />
+
+  <LinkCard id="brightness" title="<code>brightness</code>" description="Shows and adjusts the current monitor brightness." href="/noctalia/bar/widgets/brightness/" />
+
+  <LinkCard id="keyboard_layout" title="<code>keyboard_layout</code>" description="Shows the current keyboard layout and cycles layouts when supported." href="/noctalia/bar/widgets/keyboard-layout/" />
+
+  <LinkCard id="lock_keys" title="<code>lock_keys</code>" description="Shows Caps Lock, Num Lock, and Scroll Lock state." href="/noctalia/bar/widgets/lock-keys/" />
+
+  <LinkCard id="network" title="<code>network</code>" description="Shows Wi-Fi, wired, and VPN status through NetworkManager." href="/noctalia/bar/widgets/network/" />
+
+  <LinkCard id="power_profile" title="<code>power_profile</code>" description="Shows and changes the current system power profile." href="/noctalia/bar/widgets/power-profile/" />
+
+  <LinkCard id="privacy" title="<code>privacy</code>" description="Shows microphone, camera, and screen capture activity." href="/noctalia/bar/widgets/privacy/" />
+
+  <LinkCard id="sysmon" title="<code>sysmon</code>" description="Shows one configurable system resource statistic." href="/noctalia/bar/widgets/sysmon/" />
+
+  <LinkCard id="tray" title="<code>tray</code>" description="Shows StatusNotifierItem system tray icons." href="/noctalia/bar/widgets/tray/" />
+</CardGrid>
+
+### Quick toggles
+
+<CardGrid>
+  <LinkCard id="caffeine" title="<code>caffeine</code>" description="Shows and controls the compositor idle inhibitor." href="/noctalia/bar/widgets/caffeine/" />
+
+  <LinkCard id="nightlight" title="<code>nightlight</code>" description="Shows and controls scheduled or forced night light state." href="/noctalia/bar/widgets/nightlight/" />
+
+  <LinkCard id="theme_mode" title="<code>theme_mode</code>" description="Toggles between dark and light theme mode." href="/noctalia/bar/widgets/theme-mode/" />
+</CardGrid>
+
+### Buttons & panels
+
+<CardGrid>
+  <LinkCard id="clipboard" title="<code>clipboard</code>" description="Opens the clipboard history panel from the bar." href="/noctalia/bar/widgets/clipboard/" />
+
+  <LinkCard id="control-center" title="<code>control-center</code>" description="Opens the control center panel from the bar." href="/noctalia/bar/widgets/control-center/" />
+
+  <LinkCard id="custom_button" title="<code>custom_button</code>" description="Shows a custom glyph, image, or label with bindable actions." href="/noctalia/bar/widgets/custom-button/" />
+
+  <LinkCard id="launcher" title="<code>launcher</code>" description="Opens the launcher panel from the bar." href="/noctalia/bar/widgets/launcher/" />
+
+  <LinkCard id="notifications" title="<code>notifications</code>" description="Shows unread notifications and controls Do Not Disturb mode." href="/noctalia/bar/widgets/notifications/" />
+
+  <LinkCard id="screenshot" title="<code>screenshot</code>" description="Captures screen regions or displays through the bar." href="/noctalia/bar/widgets/screenshot/" />
+
+  <LinkCard id="session" title="<code>session</code>" description="Opens the session menu panel from the bar." href="/noctalia/bar/widgets/session/" />
+
+  <LinkCard id="settings" title="<code>settings</code>" description="Opens the Noctalia Settings window from the bar." href="/noctalia/bar/widgets/settings/" />
+
+  <LinkCard id="wallpaper" title="<code>wallpaper</code>" description="Opens the wallpaper picker panel from the bar." href="/noctalia/bar/widgets/wallpaper/" />
+</CardGrid>
+
+## Plugin widgets
+
+Custom bar widgets are provided by **plugins**. A plugin's bar-widget entry is referenced by its fully-qualified id; the plugin's manifest declares any settings it exposes. See [Plugins](/noctalia/plugins/) for installing, enabling, and authoring.
+
+```toml
+[widget.my_widget]
+type = "<author>/<plugin>:<entry>"   # e.g. "noctalia/screen_recorder:recorder"
+```

@@ -12,7 +12,7 @@ namespace shell::surface_edge_inset {
     float innerPadding = 0.0F;
   };
 
-  [[nodiscard]] inline Horizontal resolve(int offsetX, float maxInnerPaddingLogical) {
+  inline Horizontal resolve(int offsetX, float maxInnerPaddingLogical) {
     const int screenMargin = std::max(0, offsetX);
     const int maxInner = std::max(0, static_cast<int>(std::lround(maxInnerPaddingLogical)));
     if (screenMargin >= maxInner) {

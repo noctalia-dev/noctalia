@@ -21,14 +21,16 @@ namespace noctalia::theme {
 
     double linearizeChannel(int channel) {
       const double normalized = channel / 255.0;
-      if (normalized <= 0.04045)
+      if (normalized <= 0.04045) {
         return normalized / 12.92;
+      }
       return std::pow((normalized + 0.055) / 1.055, 2.4);
     }
 
     double delinearizeChannel(double channel) {
-      if (channel <= 0.0031308)
+      if (channel <= 0.0031308) {
         return channel * 12.92;
+      }
       return 1.055 * std::pow(channel, 1.0 / 2.4) - 0.055;
     }
 
@@ -87,8 +89,9 @@ namespace noctalia::theme {
 
     Color gamutMapToSrgb(Oklch color) {
       LinearRgb linear = fromOklch(color);
-      if (isInSrgbGamut(linear))
+      if (isInSrgbGamut(linear)) {
         return toSrgbColor(linear);
+      }
 
       double low = 0.0;
       double high = color.chroma;
@@ -125,17 +128,19 @@ namespace noctalia::theme {
   bool isDark(const Color& c) { return relativeLuminance(c.r, c.g, c.b) < 0.179; }
 
   Color ensureContrast(const Color& foreground, const Color& background, double minRatio, int preferLight) {
-    if (contrastRatio(foreground, background) >= minRatio)
+    if (contrastRatio(foreground, background) >= minRatio) {
       return foreground;
+    }
 
     const Oklch source = toOklch(foreground);
     bool lighten;
-    if (preferLight > 0)
+    if (preferLight > 0) {
       lighten = true;
-    else if (preferLight < 0)
+    } else if (preferLight < 0) {
       lighten = false;
-    else
+    } else {
       lighten = isDark(background);
+    }
 
     const auto endpointAt = [&](double lightness) {
       return gamutMapToSrgb(
@@ -169,15 +174,17 @@ namespace noctalia::theme {
       );
       if (contrastRatio(test, background) >= minRatio) {
         best = test;
-        if (lighten)
+        if (lighten) {
           high = lightness;
-        else
+        } else {
           low = lightness;
+        }
       } else {
-        if (lighten)
+        if (lighten) {
           low = lightness;
-        else
+        } else {
           high = lightness;
+        }
       }
     }
     return best;

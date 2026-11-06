@@ -41,13 +41,14 @@
   jemalloc,
   makeWrapper,
   git,
+  gsettings-desktop-schemas,
   autoAddDriverRunpath,
+  rev ? "unknown",
   # DEPRECATED: no longer affects the build; kept for `.override` compat.
   cudaSupport ? config.cudaSupport,
 }:
 let
-  inherit (builtins) head match readFile;
-  version = head (match ".*version: '([0-9][^']+)'.*" (readFile ../meson.build));
+  version = lib.fileContents ../VERSION;
   stb' = stb.overrideAttrs (_: {
     version = "unstable-2025-10-26";
     src = fetchFromGitHub {
@@ -66,9 +67,15 @@ lib.warnIf cudaSupport
 
   src = lib.cleanSource ./..;
 
+  postPatch = ''
+    substituteInPlace meson.build \
+      --replace-fail "_git_revision_config.set('VCS_TAG', 'unknown')" "_git_revision_config.set('VCS_TAG', '${rev}')"
+  '';
+
   postFixup = ''
     wrapProgram $out/bin/noctalia \
-      --prefix PATH : ${lib.makeBinPath [ git ]}
+      --prefix PATH : ${lib.makeBinPath [ git ]} \
+      --prefix XDG_DATA_DIRS : "${glib.getSchemaDataDirPath gsettings-desktop-schemas}"
 
     $out/bin/noctalia completions bash | install -D /dev/stdin $out/share/bash-completion/completions/noctalia
     $out/bin/noctalia completions zsh  | install -D /dev/stdin $out/share/zsh/site-functions/_noctalia
@@ -120,6 +127,8 @@ lib.warnIf cudaSupport
   ];
 
   mesonBuildType = "release";
+
+  mesonFlags = [ "-Dtests=disabled" ];
 
   ninjaFlags = [ "-v" ];
 

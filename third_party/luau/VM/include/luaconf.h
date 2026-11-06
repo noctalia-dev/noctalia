@@ -71,7 +71,7 @@
 #define LUA_IDSIZE 256
 #endif
 
-// LUA_MINSTACK is the guaranteed number of Lua stack slots available to a C function
+// LUA_MINSTACK is the initial number of reserved stack slots for a C function
 #ifndef LUA_MINSTACK
 #define LUA_MINSTACK 20
 #endif
@@ -135,6 +135,16 @@
 
 #ifndef LUA_VECTOR_SIZE
 #define LUA_VECTOR_SIZE 3 // must be 3 or 4
+#endif
+
+#ifndef LUA_VECTOR_DOUBLE
+#define LUA_VECTOR_DOUBLE 0
+#endif
+
+#if LUA_VECTOR_DOUBLE == 1
+#define LUA_VECTOR_TYPE double
+#else
+#define LUA_VECTOR_TYPE float
 #endif
 
 #define LUA_EXTRA_SIZE (LUA_VECTOR_SIZE - 2)

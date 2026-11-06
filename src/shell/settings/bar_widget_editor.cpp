@@ -2,26 +2,31 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
-#include "core/files/directory_scanner.h"
+#include "config/schema/config_schema.h"
+#include "config/schema/engine.h"
+#include "config/schema/ranges.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/scene/node.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/bar/widget_gesture_defaults.h"
+#include "shell/dialogs/file_dialog.h"
+#include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content.h"
+#include "shell/settings/settings_content_common.h"
 #include "shell/settings/widget_settings_registry.h"
+#include "system/directory_scanner.h"
 #include "ui/builders.h"
 #include "ui/controls/collapsible.h"
-#include "ui/dialogs/file_dialog.h"
-#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -41,8 +46,8 @@
 namespace settings {
 
   // Defined in settings_content_common.cpp (header not included here to avoid a makeLabel overload clash).
-  [[nodiscard]] std::string formatSliderValue(double value, bool integerValue);
-  [[nodiscard]] std::optional<double> parseDoubleInput(std::string_view text);
+  std::string formatSliderValue(double value, bool integerValue);
+  std::optional<double> parseDoubleInput(std::string_view text);
 
   namespace {
 
@@ -74,17 +79,6 @@ namespace settings {
       Box* indicator = nullptr;
       std::shared_ptr<std::vector<Flex*>> itemNodes;
     };
-
-    std::unique_ptr<Label> makeLabel(
-        std::string_view text, float fontSize, const ColorSpec& color, FontWeight fontWeight = FontWeight::Normal
-    ) {
-      return ui::label({
-          .text = std::string(text),
-          .fontSize = fontSize,
-          .fontWeight = fontWeight,
-          .color = color,
-      });
-    }
 
     std::unique_ptr<Glyph> makeGlyph(std::string_view name, float glyphSize, const ColorSpec& color) {
       return ui::glyph({
@@ -131,7 +125,7 @@ namespace settings {
 
         SettingEntry rowEntry = entry;
         rowEntry.path = path;
-        rowEntry.title = i18n::tr(std::string(noctalia::bar::gestureLabelKey(gesture)));
+        rowEntry.title = i18n::tr(noctalia::bar::gestureLabelKey(gesture));
         rowEntry.subtitle.clear();
 
         GestureActionSetting setting{
@@ -147,44 +141,9 @@ namespace settings {
       return i18n::tr("settings.entities.widget.settings.groups." + std::string(groupKey));
     }
 
-    constexpr std::string_view kGestureActionsGroup = "actions";
-
-    // The actions group is long (one row per bindable gesture) and most widgets never need it, so it
-    // starts folded. The open state lives on the settings window keyed by widget name: editing a
-    // binding rebuilds the scene, and a local flag would fold the group back up on every edit.
-    std::unique_ptr<Node> makeGestureActionsSection(
-        const BarWidgetEditorContext& ctx, const std::string& widgetName, std::unique_ptr<Node> body, bool withSeparator
-    ) {
-      // Same padding and gap as makeMiniSectionHeader, so this section sits like every other one.
-      auto section = ui::column({
-          .align = FlexAlign::Stretch,
-          .gap = Style::spaceXs * ctx.scale,
-          .configure = [scale = ctx.scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0F, 0.0F, 0.0F); },
-      });
-      if (withSeparator) {
-        section->addChild(ui::separator());
-      }
-
-      auto collapsible = std::make_unique<Collapsible>();
-      collapsible->setScale(ctx.scale);
-      // Flush left, matching the plain group headers above it.
-      collapsible->setHeaderPadding(0.0F, 0.0F);
-      collapsible->setHeader(makeLabel(
-          widgetSettingGroupTitle(kGestureActionsGroup), Style::fontSizeCaption * ctx.scale,
-          colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold
-      ));
-      collapsible->setBody(std::move(body));
-      collapsible->setExpandedImmediate(ctx.actionsExpandedFor == widgetName);
-      collapsible->setOnToggle([expandedFor = &ctx.actionsExpandedFor, widgetName](bool value) {
-        *expandedFor = value ? widgetName : std::string{};
-      });
-      section->addChild(std::move(collapsible));
-      return section;
-    }
-
     std::unique_ptr<Node> makePathBrowseControl(
-        const BarWidgetEditorContext& ctx, std::vector<std::string> path, std::string currentValue, std::string glyph,
-        FileDialogOptions options, PathBrowseKind kind, std::string dialogStartValue = {}
+        const BarWidgetEditorContext& ctx, std::vector<std::string> path, const std::string& currentValue,
+        std::string glyph, FileDialogOptions options, PathBrowseKind kind, std::string dialogStartValue = {}
     ) {
       if (dialogStartValue.empty()) {
         dialogStartValue = currentValue;
@@ -207,7 +166,7 @@ namespace settings {
               .paddingH = Style::spaceSm * ctx.scale,
               .radius = Style::scaledRadiusMd(ctx.scale),
               .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path = std::move(path),
-                          options = std::move(options), kind, dialogStartValue = std::move(dialogStartValue)]() {
+                          options = std::move(options), kind, dialogStartValue = std::move(dialogStartValue)] {
                 FileDialogOptions dialogOptions = options;
                 applyPathDialogStartValue(dialogOptions, dialogStartValue, kind);
                 (void)FileDialog::open(
@@ -496,18 +455,15 @@ namespace settings {
             || std::ranges::contains(end, widgetName)) {
           return true;
         }
-        for (const auto& group : groups) {
+        return std::ranges::any_of(groups, [&](const auto& group) {
           if (!std::ranges::contains(group.members, widgetName)) {
-            continue;
+            return false;
           }
           const std::string token = makeCapsuleGroupToken(group.id);
-          if (std::ranges::contains(start, token)
+          return std::ranges::contains(start, token)
               || std::ranges::contains(center, token)
-              || std::ranges::contains(end, token)) {
-            return true;
-          }
-        }
-        return false;
+              || std::ranges::contains(end, token);
+        });
       };
 
       for (const auto& bar : cfg.bars) {
@@ -541,13 +497,10 @@ namespace settings {
       if (id.empty()) {
         return false;
       }
-      for (char c : id) {
+      return std::ranges::all_of(id, [&](char c) {
         const auto uc = static_cast<unsigned char>(c);
-        if (!std::isalnum(uc) && c != '_' && c != '-') {
-          return false;
-        }
-      }
-      return true;
+        return std::isalnum(uc) != 0 || c == '_' || c == '-';
+      });
     }
 
     bool canRenameWidgetInstance(const Config& cfg, std::string_view oldName, std::string_view newName) {
@@ -621,6 +574,7 @@ namespace settings {
       group.borderSpecified = bar->widgetCapsuleBorderSpecified;
       group.border = bar->widgetCapsuleBorder;
       group.foreground = bar->widgetCapsuleForeground;
+      group.borderWidth = bar->widgetCapsuleBorderWidth;
       group.padding = bar->widgetCapsulePadding;
       if (bar->widgetCapsuleRadius.has_value()) {
         group.radius = static_cast<float>(*bar->widgetCapsuleRadius);
@@ -640,6 +594,11 @@ namespace settings {
       }
       if (ovr->widgetCapsuleForeground.has_value()) {
         group.foreground = *ovr->widgetCapsuleForeground;
+      }
+      if (ovr->widgetCapsuleBorderWidth.has_value()) {
+        group.borderWidth = noctalia::config::schema::applyRange(
+            *ovr->widgetCapsuleBorderWidth, noctalia::config::schema::kBarCapsuleBorderWidthRange
+        );
       }
       if (ovr->widgetCapsulePadding.has_value()) {
         group.padding = std::clamp(static_cast<float>(*ovr->widgetCapsulePadding), 0.0F, 48.0F);
@@ -866,7 +825,7 @@ namespace settings {
       if (on) {
         card->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * 2.0F);
       } else {
-        card->setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+        card->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
       }
     }
 
@@ -972,7 +931,7 @@ namespace settings {
       return spec.schema.defaultValue;
     }
 
-    [[nodiscard]] bool isBarHorizontal(const Config& cfg, std::string_view barName) {
+    bool isBarHorizontal(const Config& cfg, std::string_view barName) {
       const BarConfig* bar = findBar(cfg, barName);
       if (bar == nullptr) {
         return true;
@@ -1051,6 +1010,85 @@ namespace settings {
       return 8;
     }
 
+    // The value an unset bar-inherited widget setting resolves to on this lane: the lane's monitor
+    // override, then the bar itself. Nullopt off a bar lane or when the bar has no such key.
+    std::optional<bool>
+    inheritedBarBoolForLane(const Config& cfg, const std::vector<std::string>& lanePath, std::string_view key) {
+      namespace schema = noctalia::config::schema;
+      if (lanePath.size() < 2 || lanePath[0] != "bar") {
+        return std::nullopt;
+      }
+      const BarConfig* bar = findBar(cfg, lanePath[1]);
+      if (bar == nullptr) {
+        return std::nullopt;
+      }
+      if (isMonitorWidgetListPath(lanePath) && lanePath.size() >= 4) {
+        if (const auto* ovr = findMonitorOverride(*bar, lanePath[3]); ovr != nullptr) {
+          if (const auto value = schema::writeField(*ovr, schema::barMonitorOverrideSchema(), key)[key].value<bool>()) {
+            return value;
+          }
+        }
+      }
+      return schema::writeField(*bar, schema::barFieldsSchema(), key)[key].value<bool>();
+    }
+
+    // Bar-inherited settings default to the lane's bar value, so visibility conditions and the
+    // Inherit choice reflect what the widget resolves to on this bar.
+    void applyLaneBarInheritance(
+        std::vector<WidgetSettingSpec>& specs, const Config& cfg, const std::vector<std::string>& lanePath
+    ) {
+      for (auto& spec : specs) {
+        if (spec.defaultFromConfig) {
+          spec.schema.defaultValue = spec.defaultFromConfig(cfg);
+        }
+        if (!spec.schema.inheritsFromBar) {
+          continue;
+        }
+        if (const auto inherited = inheritedBarBoolForLane(cfg, lanePath, spec.schema.key)) {
+          spec.schema.defaultValue = *inherited;
+        }
+      }
+    }
+
+    // Inherit (resolved value) | On | Off. Inherit drops the settings override; a value written in the
+    // config file stays authoritative, as with every other settings reset.
+    std::unique_ptr<Node> makeInheritedBoolControl(
+        const BarWidgetEditorContext& ctx, std::vector<std::string> path, std::optional<bool> explicitValue,
+        bool inherited
+    ) {
+      std::size_t selectedIndex = 0;
+      if (explicitValue.has_value()) {
+        selectedIndex = *explicitValue ? 1 : 2;
+      }
+      return ui::segmented({
+          .options =
+              std::vector<ui::SegmentedOption>{
+                  {.label = i18n::tr(
+                       "common.states.inherit-value", "value",
+                       i18n::tr(inherited ? "common.states.on" : "common.states.off")
+                   )},
+                  {.label = i18n::tr("common.states.on")},
+                  {.label = i18n::tr("common.states.off")},
+              },
+          .selectedIndex = selectedIndex,
+          .scale = ctx.scale,
+          .onChange = [configService = ctx.configService, setOverride = ctx.setOverride,
+                       clearOverride = ctx.clearOverride, requestRebuild = ctx.requestRebuild,
+                       path = std::move(path)](std::size_t index) {
+            if (index == 0) {
+              if (configService != nullptr && configService->hasOverride(path)) {
+                clearOverride(path);
+              }
+            } else {
+              setOverride(path, index == 1);
+            }
+            if (requestRebuild) {
+              requestRebuild();
+            }
+          },
+      });
+    }
+
     std::string settingValueAsString(const WidgetSettingValue& value) {
       if (const auto* v = std::get_if<std::string>(&value)) {
         return *v;
@@ -1124,7 +1162,7 @@ namespace settings {
                 }
                 out += "\"" + concrete[i] + "\"";
               }
-              out += "]";
+              out += ']';
               return out;
             } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
               std::vector<std::string> keys;
@@ -1141,7 +1179,7 @@ namespace settings {
                 }
                 out += "\"" + keys[i] + "\" = \"" + concrete.at(keys[i]) + "\"";
               }
-              out += "}";
+              out += '}';
               return out;
             }
           },
@@ -1170,8 +1208,8 @@ namespace settings {
       return selectSetting;
     }
 
-    SelectSetting
-    sourcedSelectSetting(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec, std::string selectedValue) {
+    // Static options from the spec followed by the options of its dynamic source.
+    std::vector<SelectOption> specOptions(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec) {
       std::vector<SelectOption> options;
       const auto appendUnique = [&](SelectOption option) {
         if (!std::ranges::contains(options, option.value, &SelectOption::value)) {
@@ -1193,6 +1231,9 @@ namespace settings {
       case WidgetSettingOptionSource::BatteryDevices:
         sourcedOptions = ctx.batteryDeviceOptions;
         break;
+      case WidgetSettingOptionSource::Outputs:
+        sourcedOptions = ctx.availableOutputs;
+        break;
       case WidgetSettingOptionSource::Static:
         break;
       }
@@ -1200,6 +1241,12 @@ namespace settings {
       for (auto& option : sourcedOptions) {
         appendUnique(std::move(option));
       }
+      return options;
+    }
+
+    SelectSetting
+    sourcedSelectSetting(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec, std::string selectedValue) {
+      std::vector<SelectOption> options = specOptions(ctx, spec);
 
       const auto hasEmptyOption = std::ranges::contains(options, std::string_view{}, &SelectOption::value);
       if (selectedValue.empty() && !hasEmptyOption) {
@@ -1220,7 +1267,7 @@ namespace settings {
     }
 
     void addRawWidgetSettings(
-        Flex& panel, std::string_view widgetName, const std::vector<WidgetSettingSpec>& specs,
+        Flex& parent, std::string_view widgetName, const std::vector<WidgetSettingSpec>& specs,
         std::size_t& visibleSpecs, const BarWidgetEditorContext& ctx
     ) {
       if (!ctx.showAdvanced) {
@@ -1256,21 +1303,8 @@ namespace settings {
       }
       std::ranges::sort(rawKeys);
 
-      panel.addChild(
-          ui::column(
-              {
-                  .align = FlexAlign::Stretch,
-                  .gap = 1.0F * ctx.scale,
-                  .paddingV = Style::spaceXs * ctx.scale,
-                  .paddingH = 0,
-              },
-              makeLabel(
-                  i18n::tr("settings.entities.widget.raw.title"), Style::fontSizeCaption * ctx.scale,
-                  colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold
-              ),
-              makeSettingSubtitleLabel(i18n::tr("settings.entities.widget.raw.description"), ctx.scale)
-          )
-      );
+      Flex& panel = *addSettingsCard(parent, i18n::tr("settings.entities.widget.raw.title"), ctx.scale);
+      panel.addChild(makeSettingSubtitleLabel(i18n::tr("settings.entities.widget.raw.description"), ctx.scale));
 
       for (const auto& key : rawKeys) {
         const auto valueIt = widgetIt->second.settings.find(key);
@@ -1314,7 +1348,7 @@ namespace settings {
                   .padding = Style::spaceXs * ctx.scale,
                   .radius = Style::scaledRadiusSm(ctx.scale),
                   .onClick = [&pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath, deleteKey, path,
-                              clearOverride = ctx.clearOverride, requestRebuild = ctx.requestRebuild]() {
+                              clearOverride = ctx.clearOverride, requestRebuild = ctx.requestRebuild] {
                     if (pendingDeleteWidgetSettingPath != deleteKey) {
                       pendingDeleteWidgetSettingPath = deleteKey;
                       requestRebuild();
@@ -1334,7 +1368,8 @@ namespace settings {
     }
 
     void addWidgetSettingsPanel(
-        Flex& item, std::string widgetName, const std::vector<std::string>& lanePath, const BarWidgetEditorContext& ctx
+        Flex& item, const std::string& widgetName, const std::vector<std::string>& lanePath,
+        const BarWidgetEditorContext& ctx
     ) {
       const auto widgetType = widgetTypeForReference(ctx.config, widgetName);
       if (widgetType.empty()) {
@@ -1344,17 +1379,24 @@ namespace settings {
       const auto widgetIt = ctx.config.widgets.find(widgetName);
       const WidgetConfig* widgetConfig = widgetIt != ctx.config.widgets.end() ? &widgetIt->second : nullptr;
       auto specs = widgetSettingSpecs(widgetType, widgetConfig, ctx.config.shell.fontFamily);
+      applyLaneBarInheritance(specs, ctx.config, lanePath);
       if (specs.empty()) {
         return;
       }
 
-      auto panel = ui::column({
+      // Same collapsible group cards as the settings pages. A widget opened for the first time
+      // starts with its first group expanded, or all of them with settings_expand_all_groups.
+      auto sections = ui::column({
           .align = FlexAlign::Stretch,
-          .gap = Style::spaceXs * ctx.scale,
+          .gap = Style::spaceSm * ctx.scale,
       });
+      auto [expandedIt, freshWidget] = ctx.expandedWidgetGroups.try_emplace(widgetName);
+      auto& expandedGroups = expandedIt->second;
 
       std::size_t visibleSpecs = 0;
       std::string activeGroupKey;
+      // Body of the group card being filled; every control below appends to it.
+      Flex* panel = nullptr;
       // Coalesce specs by group so each group header renders once regardless of spec declaration order.
       const auto specOrder = coalesceByGroupKey(specs.size(), [&](std::size_t i) { return specs[i].group; });
       const bool barHorizontal =
@@ -1384,12 +1426,20 @@ namespace settings {
           continue;
         }
 
-        if (spec.group != activeGroupKey) {
-          // The actions group folds, and carries its title in the collapsible's own header.
-          if (spec.group != kGestureActionsGroup) {
-            panel->addChild(makeMiniSectionHeader(widgetSettingGroupTitle(spec.group), ctx.scale, visibleSpecs > 0));
+        if (panel == nullptr || spec.group != activeGroupKey) {
+          if (freshWidget && (panel == nullptr || ctx.config.shell.settingsExpandAllGroups)) {
+            expandedGroups.insert(spec.group);
           }
           activeGroupKey = spec.group;
+          panel = addSettingsGroupCard(
+              SettingsGroupCardProps{
+                  .parent = *sections,
+                  .group = spec.group,
+                  .title = widgetSettingGroupTitle(spec.group),
+                  .scale = ctx.scale,
+                  .expandedGroups = expandedGroups,
+              }
+          );
         }
 
         const auto value = widgetSettingValue(ctx.config, widgetName, spec);
@@ -1426,7 +1476,7 @@ namespace settings {
                   .paddingH = Style::spaceSm * ctx.scale,
                   .radius = Style::scaledRadiusMd(ctx.scale),
                   .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path,
-                              currentValue = std::move(currentValue)]() {
+                              currentValue = std::move(currentValue)] {
                     GlyphPickerDialogOptions options;
                     if (!currentValue.empty()) {
                       options.initialGlyph = currentValue;
@@ -1450,11 +1500,22 @@ namespace settings {
 
         switch (spec.control) {
         case WidgetControlKind::Bool: {
-          std::optional<bool> clearWhenValue;
-          if (const auto* defaultBool = std::get_if<bool>(&spec.schema.defaultValue)) {
-            clearWhenValue = *defaultBool;
+          const bool resolved = settingValueAsBool(value);
+          std::unique_ptr<Node> control;
+          if (spec.schema.inheritsFromBar) {
+            std::optional<bool> explicitValue;
+            if (widgetConfig != nullptr && widgetConfig->settings.contains(spec.schema.key)) {
+              explicitValue = resolved;
+            }
+            control = makeInheritedBoolControl(ctx, path, explicitValue, settingValueAsBool(spec.schema.defaultValue));
+          } else {
+            std::optional<bool> clearWhenValue;
+            if (const auto* defaultBool = std::get_if<bool>(&spec.schema.defaultValue)) {
+              clearWhenValue = *defaultBool;
+            }
+            control = ctx.makeToggle(resolved, path, clearWhenValue);
           }
-          ctx.makeRow(*panel, entry, ctx.makeToggle(settingValueAsBool(value), path, clearWhenValue));
+          ctx.makeRow(*panel, entry, std::move(control));
           break;
         }
         case WidgetControlKind::Int: {
@@ -1573,7 +1634,10 @@ namespace settings {
           ctx.makeRow(*panel, entry, makeGlyphTextControl(settingValueAsString(value)));
           break;
         case WidgetControlKind::StringList:
-          ctx.makeListBlock(*panel, entry, ListSetting{.items = settingValueAsStringList(value)});
+          ctx.makeListBlock(
+              *panel, entry,
+              ListSetting{.items = settingValueAsStringList(value), .suggestedOptions = specOptions(ctx, spec)}
+          );
           break;
         case WidgetControlKind::StringMap: {
           // Gesture bindings have a closed key set, so they get one fixed row per gesture rather
@@ -1590,11 +1654,9 @@ namespace settings {
                 configured = tableIt->second;
               }
             }
-            auto body = ui::column({.align = FlexAlign::Stretch});
             addGestureActionRows(
-                *body, ctx, entry, defaults, configured, noctalia::bar::reservedGesturesForType(widgetType)
+                *panel, ctx, entry, defaults, configured, noctalia::bar::reservedGesturesForType(widgetType)
             );
-            panel->addChild(makeGestureActionsSection(ctx, widgetName, std::move(body), visibleSpecs > 0));
             break;
           }
           const bool effectsProfileGlyphs = spec.schema.key == "effects_profile_glyphs";
@@ -1684,16 +1746,16 @@ namespace settings {
         ++visibleSpecs;
       }
 
-      addRawWidgetSettings(*panel, widgetName, specs, visibleSpecs, ctx);
+      addRawWidgetSettings(*sections, widgetName, specs, visibleSpecs, ctx);
 
       if (visibleSpecs == 0) {
-        panel->addChild(makeLabel(
+        sections->addChild(makeLabel(
             i18n::tr("settings.entities.widget.settings.empty"), Style::fontSizeCaption * ctx.scale,
             colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
         ));
       }
 
-      item.addChild(std::move(panel));
+      item.addChild(std::move(sections));
     }
 
     void addInspectorPane(Flex& body, const std::vector<std::string>& laneListPath, const BarWidgetEditorContext& ctx) {
@@ -1753,7 +1815,7 @@ namespace settings {
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = Style::spaceSm * ctx.scale,
                   .radius = Style::scaledRadiusSm(ctx.scale),
-                  .onClick = [openCapsuleGroupInspector = ctx.openCapsuleGroupInspector, laneListPath, editGroupId]() {
+                  .onClick = [openCapsuleGroupInspector = ctx.openCapsuleGroupInspector, laneListPath, editGroupId] {
                     if (openCapsuleGroupInspector) {
                       openCapsuleGroupInspector(laneListPath, editGroupId);
                     }
@@ -1791,14 +1853,15 @@ namespace settings {
                     .paddingV = Style::spaceXs * ctx.scale,
                     .paddingH = Style::spaceSm * ctx.scale,
                     .radius = Style::scaledRadiusSm(ctx.scale),
-                    .onClick = [setOverrides = ctx.setOverrides, sourceItems, sourcePath, targetItems, targetPath,
-                                widgetName]() mutable {
+                    .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverrides = ctx.setOverrides,
+                                sourceItems, sourcePath, targetItems, targetPath, widgetName] mutable {
                       auto it = std::ranges::find(sourceItems, widgetName);
                       if (it == sourceItems.end()) {
                         return;
                       }
                       sourceItems.erase(it);
                       targetItems.push_back(widgetName);
+                      selectedLaneWidgets.clear();
                       setOverrides({{sourcePath, sourceItems}, {targetPath, targetItems}});
                     },
                 })
@@ -1817,7 +1880,7 @@ namespace settings {
                     .radius = Style::scaledRadiusSm(ctx.scale),
                     .onClick = [&renamingWidgetName = ctx.renamingWidgetName,
                                 &pendingDeleteWidgetName = ctx.pendingDeleteWidgetName, widgetName,
-                                requestRebuild = ctx.requestRebuild]() {
+                                requestRebuild = ctx.requestRebuild] {
                       renamingWidgetName = widgetName;
                       pendingDeleteWidgetName.clear();
                       requestRebuild();
@@ -1838,7 +1901,7 @@ namespace settings {
                     .radius = Style::scaledRadiusSm(ctx.scale),
                     .onClick = [&pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
                                 &renamingWidgetName = ctx.renamingWidgetName, widgetName,
-                                requestRebuild = ctx.requestRebuild]() {
+                                requestRebuild = ctx.requestRebuild] {
                       pendingDeleteWidgetName = widgetName;
                       renamingWidgetName.clear();
                       requestRebuild();
@@ -1898,7 +1961,7 @@ namespace settings {
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = Style::spaceSm * ctx.scale,
                   .radius = Style::scaledRadiusSm(ctx.scale),
-                  .onClick = [doRename, inputPtr]() mutable { doRename(inputPtr->value()); },
+                  .onClick = [doRename, inputPtr] mutable { doRename(inputPtr->value()); },
               })
           );
           renameRow->addChild(
@@ -1910,7 +1973,7 @@ namespace settings {
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = Style::spaceSm * ctx.scale,
                   .radius = Style::scaledRadiusSm(ctx.scale),
-                  .onClick = [&renamingWidgetName = ctx.renamingWidgetName, requestRebuild = ctx.requestRebuild]() {
+                  .onClick = [&renamingWidgetName = ctx.renamingWidgetName, requestRebuild = ctx.requestRebuild] {
                     renamingWidgetName.clear();
                     requestRebuild();
                   },
@@ -1925,17 +1988,17 @@ namespace settings {
                   .align = FlexAlign::Stretch,
                   .gap = Style::spaceXs * ctx.scale,
                   .padding = Style::spaceSm * ctx.scale,
-                  .fill = colorSpecFromRole(ColorRole::Error, 0.10F),
+                  .fill = colorSpecFromRole(ColorRole::ErrorContainer),
                   .radius = Style::scaledRadiusSm(ctx.scale),
-                  .border = colorSpecFromRole(ColorRole::Error, 0.5F),
+                  .border = colorSpecFromRole(ColorRole::Error),
               },
               makeLabel(
                   i18n::tr("settings.entities.widget.instance.delete-confirm-title", "name", widgetName),
-                  Style::fontSizeBody * ctx.scale, colorSpecFromRole(ColorRole::Error), FontWeight::Bold
+                  Style::fontSizeBody * ctx.scale, colorSpecFromRole(ColorRole::OnErrorContainer), FontWeight::Bold
               ),
               makeLabel(
                   i18n::tr("settings.entities.widget.instance.delete-confirm-desc"), Style::fontSizeCaption * ctx.scale,
-                  colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+                  colorSpecFromRole(ColorRole::OnErrorContainer), FontWeight::Normal
               ),
               ui::row(
                   {
@@ -1953,7 +2016,7 @@ namespace settings {
                       .radius = Style::scaledRadiusSm(ctx.scale),
                       .onClick =
                           [&pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
-                           requestRebuild = ctx.requestRebuild]() {
+                           requestRebuild = ctx.requestRebuild] {
                             pendingDeleteWidgetName.clear();
                             requestRebuild();
                           },
@@ -1968,12 +2031,14 @@ namespace settings {
                       .paddingV = Style::spaceXs * ctx.scale,
                       .paddingH = Style::spaceSm * ctx.scale,
                       .radius = Style::scaledRadiusSm(ctx.scale),
-                      .onClick = [&pendingDeleteWidgetName = ctx.pendingDeleteWidgetName, config = ctx.config,
-                                  widgetName, clearOverride = ctx.clearOverride, setOverrides = ctx.setOverrides,
-                                  closeHostedEditor = ctx.closeHostedEditor]() {
+                      .onClick = [&pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
+                                  &selectedLaneWidgets = ctx.selectedLaneWidgets, config = ctx.config, widgetName,
+                                  clearOverride = ctx.clearOverride, setOverrides = ctx.setOverrides,
+                                  closeHostedEditor = ctx.closeHostedEditor] {
                         pendingDeleteWidgetName.clear();
                         auto referenceRemovals = widgetReferenceRemovalOverrides(config, widgetName);
                         if (!referenceRemovals.empty()) {
+                          selectedLaneWidgets.clear();
                           setOverrides(std::move(referenceRemovals));
                         }
                         clearOverride({"widget", widgetName});
@@ -1987,7 +2052,9 @@ namespace settings {
           body.addChild(std::move(confirmPanel));
         }
 
-        addWidgetSettingsPanel(body, widgetName, currentLanePath, ctx);
+        // The panel only needs the bar and monitor the lane belongs to; currentLanePath is empty for widgets
+        // that sit inside a capsule group.
+        addWidgetSettingsPanel(body, widgetName, laneListPath, ctx);
 
         // Reset to Defaults button — collects all currently overridden setting paths for this widget.
         if (ctx.clearOverrides && ctx.configService != nullptr) {
@@ -2044,7 +2111,7 @@ namespace settings {
                       ui::button({
                           .text = i18n::tr("settings.entities.widget.inspector.reset-defaults"),
                           .variant = ButtonVariant::Ghost,
-                          .onClick = [clearOverrides = ctx.clearOverrides, paths = std::move(resetPaths)]() mutable {
+                          .onClick = [clearOverrides = ctx.clearOverrides, paths = std::move(resetPaths)] mutable {
                             clearOverrides(std::move(paths));
                           },
                       })
@@ -2059,7 +2126,7 @@ namespace settings {
     // Color picker control (no label) — placed into a standard settings row via ctx.makeRow.
     std::unique_ptr<Node> makeGroupColorControl(
         const BarWidgetEditorContext& ctx, std::string selectedValue, bool allowNone,
-        std::function<void(std::optional<ColorSpec>)> onChange
+        const std::function<void(std::optional<ColorSpec>)>& onChange
     ) {
       ColorSpecSelectOptions opts;
       opts.selectedValue = std::move(selectedValue);
@@ -2071,15 +2138,17 @@ namespace settings {
       opts.width = 190.0F * ctx.scale;
       return makeColorSpecSelect(
           std::move(opts),
-          [onChange](std::string value) { onChange(colorSpecFromConfigString(value, "bar.capsule_group.color")); },
-          [onChange]() { onChange(std::nullopt); }
+          [onChange](const std::string& value) {
+            onChange(colorSpecFromConfigString(value, "bar.capsule_group.color"));
+          },
+          [onChange] { onChange(std::nullopt); }
       );
     }
 
     // Slider + editable numeric value field (no label), matching the shell's standard slider control.
     std::unique_ptr<Node> makeGroupSliderControl(
         const BarWidgetEditorContext& ctx, double value, double minV, double maxV, double step, bool integerValue,
-        std::function<void(double)> onCommit
+        const std::function<void(double)>& onCommit
     ) {
       Input* valueInputPtr = nullptr;
       auto valueInput = ui::input({
@@ -2110,7 +2179,7 @@ namespace settings {
           },
       });
       valueInputPtr->setValue(formatSliderValue(sliderPtr->value(), integerValue));
-      slider->setOnDragEnd([sliderPtr, onCommit]() { onCommit(sliderPtr->value()); });
+      slider->setOnDragEnd([sliderPtr, onCommit] { onCommit(sliderPtr->value()); });
 
       const auto commitInputText = [sliderPtr, valueInputPtr, minV, maxV, integerValue,
                                     onCommit](const std::string& text) {
@@ -2127,7 +2196,7 @@ namespace settings {
       };
       valueInput->setOnChange([valueInputPtr](const std::string& /*text*/) { valueInputPtr->setInvalid(false); });
       valueInput->setOnSubmit([commitInputText](const std::string& text) { (void)commitInputText(text); });
-      valueInput->setOnFocusLoss([commitInputText, valueInputPtr]() { (void)commitInputText(valueInputPtr->value()); });
+      valueInput->setOnFocusLoss([commitInputText, valueInputPtr] { (void)commitInputText(valueInputPtr->value()); });
 
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * ctx.scale});
       wrap->addChild(std::move(slider));
@@ -2138,7 +2207,7 @@ namespace settings {
     // Radius Auto | Custom segmented control + stepper (no label).
     std::unique_ptr<Node> makeGroupRadiusControl(
         const BarWidgetEditorContext& ctx, std::optional<float> radius, float inheritedRadius,
-        std::function<void(std::optional<float>)> onChange
+        const std::function<void(std::optional<float>)>& onChange
     ) {
       const int radiusValue = static_cast<int>(std::lround(std::clamp(radius.value_or(inheritedRadius), 0.0F, 80.0F)));
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * ctx.scale});
@@ -2173,7 +2242,7 @@ namespace settings {
     // Spacing Auto | Custom segmented control + stepper (no label). "Auto" inherits the bar's widget spacing.
     std::unique_ptr<Node> makeGroupSpacingControl(
         const BarWidgetEditorContext& ctx, std::optional<std::int32_t> spacing, std::int32_t inherited,
-        std::function<void(std::optional<std::int32_t>)> onChange
+        const std::function<void(std::optional<std::int32_t>)>& onChange
     ) {
       const int spacingValue = std::clamp(static_cast<int>(spacing.value_or(inherited)), 0, 32);
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * ctx.scale});
@@ -2303,6 +2372,17 @@ namespace settings {
               }
           )
       );
+      const auto& borderWidthRange = noctalia::config::schema::kBarCapsuleBorderWidthRange;
+      ctx.makeRow(
+          *panelPtr, groupEntry("border-width"),
+          makeGroupSliderControl(
+              ctx, static_cast<double>(style.borderWidth), static_cast<double>(*borderWidthRange.min),
+              static_cast<double>(*borderWidthRange.max), static_cast<double>(*borderWidthRange.step), false,
+              [mutateGroup](double v) {
+                mutateGroup([&](BarCapsuleGroupStyle& g) { g.borderWidth = static_cast<float>(v); });
+              }
+          )
+      );
       ctx.makeRow(
           *panelPtr, groupEntry("padding"),
           makeGroupSliderControl(
@@ -2372,6 +2452,28 @@ namespace settings {
                 },
             })
         );
+        const auto& accordionMsRange = noctalia::config::schema::kBarCapsuleAccordionMsRange;
+        const auto accordionMsMin = static_cast<double>(*accordionMsRange.min);
+        const auto accordionMsMax = static_cast<double>(*accordionMsRange.max);
+        const auto accordionMsStep = static_cast<double>(*accordionMsRange.step);
+        ctx.makeRow(
+            *panelPtr, groupEntry("accordion-duration"),
+            makeGroupSliderControl(
+                ctx, static_cast<double>(style.accordionDurationMs.value_or(kBarRevealDurationMs)), accordionMsMin,
+                accordionMsMax, accordionMsStep, true, [mutateGroup](double v) {
+                  mutateGroup([&](BarCapsuleGroupStyle& g) { g.accordionDurationMs = static_cast<std::int32_t>(v); });
+                }
+            )
+        );
+        ctx.makeRow(
+            *panelPtr, groupEntry("accordion-delay"),
+            makeGroupSliderControl(
+                ctx, static_cast<double>(style.accordionDelayMs.value_or(kBarRevealDelayMs)), accordionMsMin,
+                accordionMsMax, accordionMsStep, true, [mutateGroup](double v) {
+                  mutateGroup([&](BarCapsuleGroupStyle& g) { g.accordionDelayMs = static_cast<std::int32_t>(v); });
+                }
+            )
+        );
       }
 
       body.addChild(std::move(panel));
@@ -2386,8 +2488,8 @@ namespace settings {
               .paddingV = Style::spaceXs * ctx.scale,
               .paddingH = Style::spaceSm * ctx.scale,
               .radius = Style::scaledRadiusSm(ctx.scale),
-              .onClick = [setOverrides = ctx.setOverrides, groupId, groupPath, laneListPath, config = &ctx.config,
-                          closeHostedEditor = ctx.closeHostedEditor]() {
+              .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverrides = ctx.setOverrides, groupId,
+                          groupPath, laneListPath, config = &ctx.config, closeHostedEditor = ctx.closeHostedEditor] {
                 std::vector<BarCapsuleGroupStyle> currentGroups = capsuleGroupsForLanePath(*config, laneListPath);
                 const BarCapsuleGroupStyle* g = findCapsuleGroupStyle(currentGroups, groupId);
                 if (g == nullptr) {
@@ -2403,7 +2505,7 @@ namespace settings {
                 std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> batch;
                 // Replace the group token with its members in whichever lane holds it.
                 const std::string token = makeCapsuleGroupToken(groupId);
-                for (const auto laneKey : {"start", "center", "end"}) {
+                for (const auto* laneKey : {"start", "center", "end"}) {
                   std::vector<std::string> lanePath = pathWithLastSegment(laneListPath, laneKey);
                   std::vector<std::string> lane = barWidgetItemsForPath(*config, lanePath);
                   const auto it = std::ranges::find(lane, token);
@@ -2422,6 +2524,7 @@ namespace settings {
                   }
                 }
                 batch.emplace_back(groupPath, remaining);
+                selectedLaneWidgets.clear();
                 setOverrides(std::move(batch));
                 if (closeHostedEditor) {
                   closeHostedEditor();
@@ -2449,17 +2552,16 @@ namespace settings {
       std::string laneKey;
       std::vector<std::size_t> indices;
       for (const auto& token : selection) {
-        const auto hash = token.find('#');
-        if (hash == std::string::npos) {
+        const auto parsed = parseLaneSelectionToken(token);
+        if (!parsed.has_value()) {
           return plan;
         }
-        const std::string key = token.substr(0, hash);
         if (laneKey.empty()) {
-          laneKey = key;
-        } else if (laneKey != key) {
+          laneKey = parsed->laneKey;
+        } else if (laneKey != parsed->laneKey) {
           return plan; // selection spans multiple lanes
         }
-        indices.push_back(static_cast<std::size_t>(std::strtoul(token.c_str() + hash + 1, nullptr, 10)));
+        indices.push_back(parsed->index);
       }
       std::ranges::sort(indices);
 
@@ -2485,13 +2587,13 @@ namespace settings {
           .gap = Style::spaceSm * ctx.scale,
           .paddingV = Style::spaceXs * ctx.scale,
           .paddingH = Style::spaceSm * ctx.scale,
-          .fill = colorSpecFromRole(ColorRole::Primary, 0.12F),
+          .fill = colorSpecFromRole(ColorRole::PrimaryContainer),
           .radius = Style::scaledRadiusSm(ctx.scale),
           .fillWidth = true,
       });
       auto label = makeLabel(
           i18n::tr("settings.entities.widget.group.selected", "count", std::to_string(ctx.selectedLaneWidgets.size())),
-          Style::fontSizeCaption * ctx.scale, colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold
+          Style::fontSizeCaption * ctx.scale, colorSpecFromRole(ColorRole::OnPrimaryContainer), FontWeight::Bold
       );
       label->setFlexGrow(1.0F);
       toolbar->addChild(std::move(label));
@@ -2511,7 +2613,7 @@ namespace settings {
                 .onClick = [setOverrides = ctx.setOverrides, config = &ctx.config, laneKey = plan.laneKey,
                             indices = plan.indices, members = plan.members, laneListPath = entry.path,
                             &selectedLaneWidgets = ctx.selectedLaneWidgets,
-                            openCapsuleGroupInspector = ctx.openCapsuleGroupInspector]() {
+                            openCapsuleGroupInspector = ctx.openCapsuleGroupInspector] {
                   const std::vector<std::string> groupPath = capsuleGroupPathForLanePath(laneListPath);
                   if (groupPath.empty() || indices.empty()) {
                     return;
@@ -2558,7 +2660,7 @@ namespace settings {
               .paddingV = Style::spaceXs * ctx.scale,
               .paddingH = Style::spaceSm * ctx.scale,
               .radius = Style::scaledRadiusSm(ctx.scale),
-              .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, requestRebuild = ctx.requestRebuild]() {
+              .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, requestRebuild = ctx.requestRebuild] {
                 selectedLaneWidgets.clear();
                 requestRebuild();
               },
@@ -2579,6 +2681,47 @@ namespace settings {
 
   bool isFirstBarWidgetListPath(const std::vector<std::string>& path) {
     return isBarWidgetListPath(path) && path.back() == "start";
+  }
+
+  std::string makeLaneSelectionToken(std::string_view laneKey, std::size_t index) {
+    return std::string(laneKey) + "#" + std::to_string(index);
+  }
+
+  std::optional<LaneSelectionToken> parseLaneSelectionToken(std::string_view token) {
+    const auto hash = token.find('#');
+    if (hash == std::string_view::npos || hash == 0 || hash + 1 == token.size()) {
+      return std::nullopt;
+    }
+    const std::string_view digits = token.substr(hash + 1);
+    std::size_t index = 0;
+    const auto parsed = std::from_chars(digits.data(), digits.data() + digits.size(), index);
+    if (parsed.ec != std::errc{} || parsed.ptr != digits.data() + digits.size()) {
+      return std::nullopt;
+    }
+    return LaneSelectionToken{.laneKey = token.substr(0, hash), .index = index};
+  }
+
+  void reindexLaneSelectionAfterRemoval(
+      std::vector<std::string>& selection, std::string_view laneKey, std::size_t removedIndex
+  ) {
+    std::vector<std::string> kept;
+    kept.reserve(selection.size());
+    for (auto& token : selection) {
+      const auto parsed = parseLaneSelectionToken(token);
+      if (!parsed.has_value() || parsed->laneKey != laneKey) {
+        kept.push_back(std::move(token));
+        continue;
+      }
+      if (parsed->index == removedIndex) {
+        continue;
+      }
+      if (parsed->index > removedIndex) {
+        kept.push_back(makeLaneSelectionToken(laneKey, parsed->index - 1));
+      } else {
+        kept.push_back(std::move(token));
+      }
+    }
+    selection.swap(kept);
   }
 
   void buildWidgetInspectorBody(
@@ -2644,10 +2787,11 @@ namespace settings {
                         std::size_t itemIndex
                     ) {
       auto dragState = std::make_shared<LaneWidgetDragState>();
-      handle.setOnPress([dragState, cardPtr, zones, config = &ctx.config, laneListPath, setOverride = ctx.setOverride,
+      handle.setOnPress([dragState, cardPtr, zones, config = &ctx.config, laneListPath,
+                         &selectedLaneWidgets = ctx.selectedLaneWidgets, setOverride = ctx.setOverride,
                          setOverrides = ctx.setOverrides, homeZoneIndex,
                          itemIndex](float localX, float localY, bool pressed) {
-        const auto clearHighlight = [&]() {
+        const auto clearHighlight = [&] {
           if (dragState->highlightZoneIndex.has_value() && dragState->highlightItemIndex.has_value()) {
             setCardCombineHighlight(*zones, *dragState->highlightZoneIndex, *dragState->highlightItemIndex, false);
           }
@@ -2680,7 +2824,10 @@ namespace settings {
         if (!dragState->moved) {
           return;
         }
+        // A move or combine renumbers lane positions, so index-keyed selection tokens no longer
+        // address the widgets the user picked.
         if (dragState->combineZoneIndex.has_value() && dragState->combineItemIndex.has_value()) {
+          selectedLaneWidgets.clear();
           createGroupByCombine(
               *config, *zones, homeZoneIndex, itemIndex, *dragState->combineZoneIndex, *dragState->combineItemIndex,
               setOverrides
@@ -2690,6 +2837,7 @@ namespace settings {
         if (!dragState->targetZoneIndex.has_value() || !dragState->targetInsertionIndex.has_value()) {
           return;
         }
+        selectedLaneWidgets.clear();
         performZoneMove(
             *config, laneListPath, *zones, homeZoneIndex, itemIndex, *dragState->targetZoneIndex,
             *dragState->targetInsertionIndex, setOverride, setOverrides
@@ -2709,14 +2857,14 @@ namespace settings {
         if (!dragState->moved) {
           return;
         }
-        const auto clearHighlight = [&]() {
+        const auto clearHighlight = [&] {
           if (dragState->highlightZoneIndex.has_value() && dragState->highlightItemIndex.has_value()) {
             setCardCombineHighlight(*zones, *dragState->highlightZoneIndex, *dragState->highlightItemIndex, false);
           }
           dragState->highlightZoneIndex = std::nullopt;
           dragState->highlightItemIndex = std::nullopt;
         };
-        const auto clear = [&]() {
+        const auto clear = [&] {
           dragState->targetZoneIndex = std::nullopt;
           dragState->targetInsertionIndex = std::nullopt;
           dragState->combineZoneIndex = std::nullopt;
@@ -2797,7 +2945,7 @@ namespace settings {
           .align = FlexAlign::Stretch,
           .paddingV = 3.0F * ctx.scale,
           .paddingH = Style::spaceXs * ctx.scale,
-          .fill = colorSpecFromRole(ColorRole::Surface, 0.72F),
+          .fill = colorSpecFromRole(ColorRole::Surface),
           .radius = Style::scaledRadiusSm(ctx.scale),
           .border = isSelected ? colorSpecFromRole(ColorRole::Primary) : clearColorSpec(),
           .borderWidth = Style::borderWidth,
@@ -2862,7 +3010,7 @@ namespace settings {
                 .minHeight = iconSize,
                 .padding = iconPad,
                 .radius = Style::scaledRadiusSm(ctx.scale),
-                .onClick = [openWidgetInspector = ctx.openWidgetInspector, laneListPath = entry.path, name]() {
+                .onClick = [openWidgetInspector = ctx.openWidgetInspector, laneListPath = entry.path, name] {
                   if (openWidgetInspector) {
                     openWidgetInspector(laneListPath, name);
                   }
@@ -2887,7 +3035,7 @@ namespace settings {
                 .padding = iconPad,
                 .radius = Style::scaledRadiusSm(ctx.scale),
                 .opacity = widgetEnabled ? 1.0F : 0.38F,
-                .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, name, widgetEnabled]() {
+                .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, name, widgetEnabled] {
                   setOverride({"widget", name, "enabled"}, !widgetEnabled);
                   if (requestRebuild) {
                     requestRebuild();
@@ -2932,9 +3080,9 @@ namespace settings {
           .align = FlexAlign::Stretch,
           .gap = Style::spaceXs * ctx.scale,
           .padding = Style::spaceSm * ctx.scale,
-          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F),
+          .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
           .radius = Style::scaledRadiusMd(ctx.scale),
-          .border = colorSpecFromRole(ColorRole::Outline),
+          .border = colorSpecFromRole(ColorRole::OutlineVariant),
           .minWidth = 160.0F * ctx.scale,
           .flexGrow = 1.0F,
       });
@@ -2984,12 +3132,12 @@ namespace settings {
                     .align = FlexAlign::Center,
                     .paddingV = 0,
                     .paddingH = Style::spaceXs * ctx.scale,
-                    .fill = colorSpecFromRole(ColorRole::Primary, 0.15F),
+                    .fill = colorSpecFromRole(ColorRole::PrimaryContainer),
                     .radius = Style::scaledRadiusSm(ctx.scale),
                 },
                 makeLabel(
                     i18n::tr("settings.badges.override"), Style::fontSizeCaption * ctx.scale,
-                    colorSpecFromRole(ColorRole::Primary), FontWeight::Bold
+                    colorSpecFromRole(ColorRole::OnPrimaryContainer), FontWeight::Bold
                 )
             )
         );
@@ -3001,7 +3149,7 @@ namespace settings {
                     .align = FlexAlign::Center,
                     .paddingV = 0,
                     .paddingH = Style::spaceXs * ctx.scale,
-                    .fill = colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.14F),
+                    .fill = colorSpecFromRole(ColorRole::SurfaceContainer),
                     .radius = Style::scaledRadiusSm(ctx.scale),
                 },
                 makeLabel(
@@ -3024,15 +3172,19 @@ namespace settings {
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
                 .radius = Style::scaledRadiusSm(ctx.scale),
-                .onClick = [setOverride = ctx.setOverride, items, path]() { setOverride(path, items); },
+                .onClick = [setOverride = ctx.setOverride, items, path] { setOverride(path, items); },
             })
         );
       }
       // Reset reverts the whole lane: its widget list and the capsule groups it holds.
       if (overridden || (monitorLaneExplicit && hasGuiOverride)) {
-        laneHeader->addChild(ctx.makeResetActionButton(lanePath, [resetBarLane = ctx.resetBarLane, lanePath]() {
-          resetBarLane(lanePath);
-        }));
+        laneHeader->addChild(ctx.makeResetActionButton(
+            lanePath, [&selectedLaneWidgets = ctx.selectedLaneWidgets, resetBarLane = ctx.resetBarLane, lanePath] {
+              // Lane contents are replaced wholesale; every index-keyed token in it is stale.
+              selectedLaneWidgets.clear();
+              resetBarLane(lanePath);
+            }
+        ));
       }
       lane->addChild(std::move(laneHeader));
 
@@ -3051,7 +3203,7 @@ namespace settings {
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
                 .radius = Style::scaledRadiusSm(ctx.scale),
-                .border = colorSpecFromRole(ColorRole::Error, 0.5F),
+                .border = colorSpecFromRole(ColorRole::Error),
             });
             orphan->addChild(makeLabel(
                 i18n::tr("settings.entities.widget.group.orphan"), Style::fontSizeCaption * ctx.scale,
@@ -3067,8 +3219,10 @@ namespace settings {
                       .minHeight = Style::controlHeightSm * ctx.scale,
                       .padding = Style::spaceXs * ctx.scale,
                       .radius = Style::scaledRadiusSm(ctx.scale),
-                      .onClick = [setOverride = ctx.setOverride, items = laneItems, lanePath, i]() mutable {
+                      .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverride = ctx.setOverride,
+                                  items = laneItems, lanePath, laneKey, i] mutable {
                         items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
+                        reindexLaneSelectionAfterRemoval(selectedLaneWidgets, laneKey, i);
                         setOverride(lanePath, items);
                       },
                   })
@@ -3080,10 +3234,10 @@ namespace settings {
           }
 
           // Tint the container by the group's own fill so groups with different colors are distinguishable.
-          // A color meant to blend into surfaces (e.g. surface_variant) can't separate the box from the lane,
+          // A color meant to blend into surfaces (e.g. surface_container) can't separate the box from the lane,
           // so fall back to a neutral border + slight surface lift when the fill is too close to the lane.
           const Color groupFillColor = resolveColorSpec(group->fill);
-          const Color laneBgColor = colorForRole(ColorRole::SurfaceVariant);
+          const Color laneBgColor = colorForRole(ColorRole::SurfaceContainer);
           const float dr = groupFillColor.r - laneBgColor.r;
           const float dg = groupFillColor.g - laneBgColor.g;
           const float db = groupFillColor.b - laneBgColor.b;
@@ -3095,8 +3249,8 @@ namespace settings {
             groupFillTint.alpha *= 0.15F;
             groupBorder = group->fill; // full opacity
           } else {
-            groupFillTint = colorSpecFromRole(ColorRole::OnSurface, 0.06F); // slight neutral lift
-            groupBorder = colorSpecFromRole(ColorRole::Outline);            // full opacity
+            groupFillTint = colorSpecFromRole(ColorRole::SurfaceContainer); // slight neutral lift
+            groupBorder = colorSpecFromRole(ColorRole::OutlineVariant);     // full opacity
           }
           auto container = ui::column({
               .align = FlexAlign::Stretch,
@@ -3127,7 +3281,7 @@ namespace settings {
                   .width = Style::fontSizeCaption * ctx.scale,
                   .height = Style::fontSizeCaption * ctx.scale,
                   .configure = [](Box& box) {
-                    box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+                    box.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
                   },
               })
           );
@@ -3152,7 +3306,7 @@ namespace settings {
                   .radius = Style::scaledRadiusSm(ctx.scale),
                   .opacity = group->enabled ? 1.0F : 0.38F,
                   .onClick = [setOverrides = ctx.setOverrides, groups = laneGroups, lanePathCopy = lanePath, gid,
-                              requestRebuild = ctx.requestRebuild]() {
+                              requestRebuild = ctx.requestRebuild] {
                     std::vector<BarCapsuleGroupStyle> updated = groups;
                     for (auto& g : updated) {
                       if (g.id == gid) {
@@ -3181,7 +3335,7 @@ namespace settings {
                   .padding = iconPad,
                   .radius = Style::scaledRadiusSm(ctx.scale),
                   .onClick = [openCapsuleGroupInspector = ctx.openCapsuleGroupInspector, laneListPath = entry.path,
-                              gid]() {
+                              gid] {
                     if (openCapsuleGroupInspector) {
                       openCapsuleGroupInspector(laneListPath, gid);
                     }
@@ -3199,7 +3353,8 @@ namespace settings {
                     .minHeight = iconSize,
                     .padding = iconPad,
                     .radius = Style::scaledRadiusSm(ctx.scale),
-                    .onClick = [config = &ctx.config, lanePath, gid, setOverrides = ctx.setOverrides]() {
+                    .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, config = &ctx.config, lanePath, gid,
+                                setOverrides = ctx.setOverrides] {
                       std::vector<BarCapsuleGroupStyle> groups = capsuleGroupsForLanePath(*config, lanePath);
                       const BarCapsuleGroupStyle* g = findCapsuleGroupStyle(groups, gid);
                       if (g == nullptr) {
@@ -3226,6 +3381,7 @@ namespace settings {
                           remaining.push_back(x);
                         }
                       }
+                      selectedLaneWidgets.clear();
                       setOverrides({{lanePath, laneEntries}, {groupPath, remaining}});
                     },
                 })
@@ -3265,7 +3421,8 @@ namespace settings {
           for (std::size_t m = 0; m < group->members.size(); ++m) {
             std::function<void()> eject;
             if (!inherited) {
-              eject = [config = &ctx.config, lanePath, gid, m, setOverrides = ctx.setOverrides]() {
+              eject = [&selectedLaneWidgets = ctx.selectedLaneWidgets, config = &ctx.config, lanePath, gid, m,
+                       setOverrides = ctx.setOverrides] {
                 const std::vector<std::string> groupPath = capsuleGroupPathForLanePath(lanePath);
                 if (groupPath.empty()) {
                   return;
@@ -3305,6 +3462,7 @@ namespace settings {
                 }
                 insertAt = std::min(insertAt, laneEntries.size());
                 laneEntries.insert(laneEntries.begin() + static_cast<std::ptrdiff_t>(insertAt), ejected);
+                selectedLaneWidgets.clear();
                 setOverrides({{lanePath, laneEntries}, {groupPath, groups}});
               };
             }
@@ -3322,7 +3480,7 @@ namespace settings {
         }
 
         // Loose widget card.
-        const std::string selectionToken = std::string(laneKey) + "#" + std::to_string(i);
+        const std::string selectionToken = makeLaneSelectionToken(laneKey, i);
         const bool isSelected = std::ranges::contains(ctx.selectedLaneWidgets, selectionToken);
         std::function<void()> removeClose;
         if (!inherited) {
@@ -3330,8 +3488,10 @@ namespace settings {
           items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
           const bool removeInstance = isGuiManagedNamedWidgetInstance(ctx, entryName)
               && !widgetHasPlacementAfterLaneEdit(ctx.config, lanePath, items, entryName);
-          removeClose = [setOverride = ctx.setOverride, clearOverride = ctx.clearOverride, items = std::move(items),
-                         lanePath, entryName, removeInstance]() {
+          removeClose = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverride = ctx.setOverride,
+                         clearOverride = ctx.clearOverride, items = std::move(items), lanePath, entryName,
+                         removeInstance, laneKey, i] {
+            reindexLaneSelectionAfterRemoval(selectedLaneWidgets, laneKey, i);
             setOverride(lanePath, items);
             if (removeInstance) {
               clearOverride({"widget", entryName});
@@ -3341,7 +3501,7 @@ namespace settings {
         std::function<void()> toggleSelect;
         if (!inherited) {
           toggleSelect = [&selectedLaneWidgets = ctx.selectedLaneWidgets, selectionToken,
-                          requestRebuild = ctx.requestRebuild]() {
+                          requestRebuild = ctx.requestRebuild] {
             const auto it = std::ranges::find(selectedLaneWidgets, selectionToken);
             if (it != selectedLaneWidgets.end()) {
               selectedLaneWidgets.erase(it);
@@ -3367,9 +3527,9 @@ namespace settings {
                     .gap = 2.0F * ctx.scale,
                     .paddingV = Style::spaceMd * ctx.scale,
                     .paddingH = Style::spaceSm * ctx.scale,
-                    .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.25F),
+                    .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
                     .radius = Style::scaledRadiusSm(ctx.scale),
-                    .border = colorSpecFromRole(ColorRole::Outline),
+                    .border = colorSpecFromRole(ColorRole::OutlineVariant),
                 },
                 makeLabel(
                     i18n::tr("settings.entities.widget.lanes.empty"), Style::fontSizeCaption * ctx.scale,
@@ -3398,7 +3558,7 @@ namespace settings {
                 .onClick = [&editingWidgetName = ctx.editingWidgetName, &renamingWidgetName = ctx.renamingWidgetName,
                             &pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
                             &pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath,
-                            openWidgetAddPopup = ctx.openWidgetAddPopup, lanePath]() {
+                            openWidgetAddPopup = ctx.openWidgetAddPopup, lanePath] {
                   editingWidgetName.clear();
                   renamingWidgetName.clear();
                   pendingDeleteWidgetName.clear();

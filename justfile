@@ -53,6 +53,10 @@ test m=mode *args: (_ensure-configured m)
     fi
     meson test -C build-{{m}} {{args}}
 
+# Regressions for the GitHub workflow scripts. Pure Python, builds nothing.
+test-workflows:
+    python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py'
+
 install m:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -71,26 +75,63 @@ uninstall m:
     fi
     ninja -C build-{{m}} uninstall
 
-format:
-    find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
-    find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
+_check_formatter:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(clang-format --version)"
+    echo "$version"
+    if [[ ! "$version" =~ version\ ([0-9]+)\. ]] || [[ "${BASH_REMATCH[1]}" -lt 23 ]]; then
+        echo "error: formatting requires clang-format 23 or newer; put its bin directory on PATH" >&2
+        exit 1
+    fi
+
+format: format-code format-docs
+
+format-check: format-code-check format-docs-check
+
+format-code: _check_formatter
+    find src lib tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
+    find src lib tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
+
+format-code-check: _check_formatter
+    find src lib tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run -Werror
+
+_docs_formatter:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! tools/remark/node_modules/.package-lock.json -nt tools/remark/package-lock.json ]]; then
+        npm ci --prefix tools/remark --no-audit --no-fund --loglevel=error
+    fi
+
+format-docs: _docs_formatter
+    git ls-files -z '*.md' '*.mdx' ':!third_party' | xargs -0 -r node tools/remark/format.mjs
+
+format-docs-check: _docs_formatter
+    git ls-files -z '*.md' '*.mdx' ':!third_party' | xargs -0 -r node tools/remark/format.mjs --check
 
 _clang_tidy m=mode *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    src_root="$(realpath src)"
+    meson compile -C "build-{{m}}" generated-headers
+    repo_root="$(realpath .)"
     # compile_commands.json stores build-relative paths, so clang-tidy emits header
-    # diagnostics as ../src/...; the header-filter must match that form (an absolute
-    # ^${src_root} anchor never matches, silently dropping every header diagnostic).
-    # ../src/ also excludes vendored third_party/*/src/* headers.
-    run-clang-tidy -quiet -use-color -p "build-{{m}}" -j "$(nproc)" -header-filter='\.\./src/.*' {{args}} "^${src_root}/.*"
+    # diagnostics as ../src/... and ../lib/...; the header-filter must match that form
+    # (an absolute ^${repo_root} anchor never matches, silently dropping every header
+    # diagnostic). ../src/ and ../lib/ also exclude vendored third_party/*/src/* headers.
+    run-clang-tidy -quiet -use-color -p "build-{{m}}" -j "$(nproc)" -header-filter='\.\./(src|lib)/.*' {{args}} "^${repo_root}/(src|lib)/.*"
 
 lint m=mode: (_ensure-configured m)
     just _clang_tidy {{m}} '-warnings-as-errors=*'
 
 fix m=mode: (_ensure-configured m)
     just _clang_tidy {{m}} -fix
-    just format
+    just format-code
+
+role-alpha-check:
+    python3 tools/role-alpha-check.py
+
+role-alpha-update:
+    python3 tools/role-alpha-check.py --update
 
 clean m=mode:
     #!/usr/bin/env bash

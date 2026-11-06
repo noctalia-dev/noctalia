@@ -15,8 +15,8 @@ include_line="include $include_dir/sway/noctalia"
 mkdir -p "$(dirname "$config_file")"
 
 if [ ! -f "$config_file" ]; then
-    printf '%s\n' "$include_line" >"$config_file"
-    exit 0
+    printf 'Warning: %s is missing; add the Noctalia theme include to your active Sway configuration manually:\ninclude "%s/sway/noctalia"\n' "$config_file" "$config_dir" >&2
+    exit 1
 fi
 
 if ! grep -q '^include .*noctalia' "$config_file"; then

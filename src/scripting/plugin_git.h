@@ -8,7 +8,7 @@ namespace scripting {
 
   // Outcome of a single git invocation. `out` is the captured stdout (file
   // contents for showFile, the revision for headRevision); `err` is stderr.
-  struct GitResult {
+  struct [[nodiscard]] GitResult {
     bool ok = false;
     int exitCode = -1;
     std::string out;
@@ -27,52 +27,55 @@ namespace scripting {
   // fall back to a normal shallow clone on its own — no explicit degrade path here.
   namespace plugin_git {
 
-    [[nodiscard]] bool available();
+    bool available();
 
     // Blobless, no-checkout clone of `url` into `dest` (full history, no file blobs).
-    [[nodiscard]] GitResult cloneBlobless(const std::string& url, const std::filesystem::path& dest);
+    // The remote is always named `origin`, whatever the user's git config says.
+    GitResult cloneBlobless(const std::string& url, const std::filesystem::path& dest);
 
     // `git -C dest show <rev>:<repoPath>` — lazily fetches one blob. out = file body.
     // `rev` defaults to HEAD; pass FETCH_HEAD to inspect a fetched-but-unapplied revision.
     // `localOnly` fails immediately on a blob missing from the local object store
     // instead of lazy-fetching it, making the call safe on the main thread.
-    [[nodiscard]] GitResult showFile(
+    GitResult showFile(
         const std::filesystem::path& dest, std::string_view repoPath, std::string_view rev = "HEAD",
         bool localOnly = false
     );
 
     // Export `subdir` at `rev` into `workTree/subdir` without checking files out
     // inside the source repo. The caller owns temp/final directory replacement.
-    [[nodiscard]] GitResult exportSubdir(
+    GitResult exportSubdir(
         const std::filesystem::path& dest, std::string_view rev, std::string_view subdir,
         const std::filesystem::path& workTree
     );
 
-    // Bind the checkout's canonical `origin` URL to the configured source location.
-    // This is local-only and must precede operations that may lazy-fetch blobs.
-    [[nodiscard]] GitResult setOrigin(const std::filesystem::path& dest, std::string_view sourceLocation);
+    // Bring the cache at `dest` into the shape every other op here expects: a checkout
+    // whose canonical `origin` remote points at `sourceLocation`. Clones when the cache
+    // is absent, re-clones a checkout that has no `origin` (a cache cloned before the
+    // remote name was pinned, or an interrupted clone), and otherwise rebinds `origin`
+    // so a cache retained from an older source configuration cannot fetch a stale
+    // remote. Must precede fetches and any op that may lazy-fetch blobs.
+    GitResult ensureRepo(const std::filesystem::path& dest, std::string_view sourceLocation);
 
-    // Bind `origin` to `sourceLocation`, then fetch it. This prevents a checkout
-    // retained from an older source configuration from fetching its stale remote.
-    // Updates remote-tracking refs + FETCH_HEAD without touching the working tree.
-    [[nodiscard]] GitResult fetch(const std::filesystem::path& dest, std::string_view sourceLocation);
+    // `git -C dest fetch origin` — updates remote-tracking refs + FETCH_HEAD without
+    // touching the working tree. Requires a prior `ensureRepo`.
+    GitResult fetch(const std::filesystem::path& dest);
 
     // `git -C dest rev-parse FETCH_HEAD` — out = the just-fetched revision (trimmed).
-    [[nodiscard]] GitResult remoteHead(const std::filesystem::path& dest);
+    GitResult remoteHead(const std::filesystem::path& dest);
 
     // `git -C dest update-ref HEAD <rev>` — advance HEAD (and its branch) to a fetched
     // revision after materializing it, so HEAD-relative reads (catalog, hasPath) reflect
     // the applied revision. Does not touch the working tree.
-    [[nodiscard]] GitResult setHead(const std::filesystem::path& dest, std::string_view rev);
+    GitResult setHead(const std::filesystem::path& dest, std::string_view rev);
 
     // `git -C dest rev-parse HEAD` — out = commit sha (trimmed).
-    [[nodiscard]] GitResult headRevision(const std::filesystem::path& dest);
+    GitResult headRevision(const std::filesystem::path& dest);
 
     // `git -C dest cat-file -e <rev>:<repoPath>` — true if the path exists at `rev`
     // (tree metadata only, no blob fetch). Used to confirm a source actually ships a
     // plugin before materializing it. `rev` defaults to HEAD.
-    [[nodiscard]] bool
-    hasPath(const std::filesystem::path& dest, std::string_view repoPath, std::string_view rev = "HEAD");
+    bool hasPath(const std::filesystem::path& dest, std::string_view repoPath, std::string_view rev = "HEAD");
 
   } // namespace plugin_git
 

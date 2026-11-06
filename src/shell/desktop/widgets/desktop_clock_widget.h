@@ -23,6 +23,7 @@ public:
     ColorSpec color = colorSpecFromRole(ColorRole::OnSurface);
     bool shadow = true;
     bool showCircle = true;
+    bool showSeconds = true;
     bool centerText = true;
     std::string timezone;
   };
@@ -30,21 +31,22 @@ public:
   explicit DesktopClockWidget(Options options);
 
   void create() override;
-  [[nodiscard]] bool wantsSecondTicks() const override;
+  bool wantsSecondTicks() const override;
   bool applySetting(
       const std::string& key, const WidgetSettingValue& value,
       const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
   ) override;
 
 private:
-  [[nodiscard]] std::string formatText() const;
+  std::string formatText() const;
   void doLayout(Renderer& renderer) override;
   void doUpdate(Renderer& renderer) override;
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
-  [[nodiscard]] bool contentAlignsToStart() const noexcept override { return !m_centerText; }
+  bool contentAlignsToStart() const noexcept override { return !m_centerText; }
   void applyShadow();
   void syncStyleVisibility();
   void syncCircleVisibility();
+  void syncSecondHandVisibility();
   void syncDigitalTextAlign();
   void syncAnalogColors();
   void layoutAnalog(Renderer& renderer, float size);
@@ -53,13 +55,14 @@ private:
   // stops reflowing every second as proportional digits change advance width.
   void updateStableDigitalWidth(Renderer& renderer, const std::string& text);
   void updateAnalogHands();
-  [[nodiscard]] static Style styleFromSetting(std::string_view value);
+  static Style styleFromSetting(std::string_view value);
 
   Style m_style;
   std::string m_format;
   ColorSpec m_color;
   bool m_shadow;
   bool m_showCircle;
+  bool m_showSeconds;
   std::string m_timezone;
   bool m_centerText = true;
   bool m_showsSeconds = false;

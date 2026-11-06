@@ -11,12 +11,15 @@ namespace noctalia::theme {
 
     int parseHexByte(std::string_view s, size_t offset) {
       auto digit = [](char c) -> int {
-        if (c >= '0' && c <= '9')
+        if (c >= '0' && c <= '9') {
           return c - '0';
-        if (c >= 'a' && c <= 'f')
+        }
+        if (c >= 'a' && c <= 'f') {
           return c - 'a' + 10;
-        if (c >= 'A' && c <= 'F')
+        }
+        if (c >= 'A' && c <= 'F') {
           return c - 'A' + 10;
+        }
         throw std::invalid_argument("invalid hex digit");
       };
       return digit(s[offset]) * 16 + digit(s[offset + 1]);
@@ -32,10 +35,12 @@ namespace noctalia::theme {
   } // namespace
 
   Color Color::fromHex(std::string_view hex) {
-    if (!hex.empty() && hex.front() == '#')
+    if (!hex.empty() && hex.front() == '#') {
       hex.remove_prefix(1);
-    if (hex.size() != 6)
+    }
+    if (hex.size() != 6) {
       throw std::invalid_argument("hex must be 6 chars");
+    }
     return Color(parseHexByte(hex, 0), parseHexByte(hex, 2), parseHexByte(hex, 4));
   }
 
@@ -69,8 +74,9 @@ namespace noctalia::theme {
       if (maxC == rn) {
         // Positive-result fmod so negative ratios wrap cleanly onto [0, 6).
         double t = std::fmod((gn - bn) / delta, 6.0);
-        if (t < 0.0)
+        if (t < 0.0) {
           t += 6.0;
+        }
         h = 60.0 * t;
       } else if (maxC == gn) {
         h = 60.0 * ((bn - rn) / delta + 2.0);
@@ -91,16 +97,21 @@ namespace noctalia::theme {
     const double hn = h / 360.0;
 
     auto hueToRgb = [&](double t) -> double {
-      if (t < 0.0)
+      if (t < 0.0) {
         t += 1.0;
-      if (t > 1.0)
+      }
+      if (t > 1.0) {
         t -= 1.0;
-      if (t < 1.0 / 6.0)
+      }
+      if (t < 1.0 / 6.0) {
         return p + (q - p) * 6.0 * t;
-      if (t < 1.0 / 2.0)
+      }
+      if (t < 1.0 / 2.0) {
         return q;
-      if (t < 2.0 / 3.0)
+      }
+      if (t < 2.0 / 3.0) {
         return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+      }
       return p;
     };
 
@@ -117,8 +128,9 @@ namespace noctalia::theme {
   Color shiftHue(const Color& c, double degrees) {
     auto [h, s, l] = c.toHsl();
     double newH = std::fmod(h + degrees, 360.0);
-    if (newH < 0.0)
+    if (newH < 0.0) {
       newH += 360.0;
+    }
     return Color::fromHsl(newH, s, l);
   }
 

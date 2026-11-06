@@ -6,16 +6,22 @@
 
 namespace {
 
-  bool expectLink(std::string_view location, std::string_view urlProperty, std::string_view expected) {
-    const std::string actual = calendar::resolveEventLink(location, urlProperty);
+  bool expectLink(
+      std::string_view location, std::string_view preferredLink, std::string_view urlProperty, std::string_view expected
+  ) {
+    const std::string actual = calendar::resolveEventLink(location, preferredLink, urlProperty);
     if (actual == expected) {
       return true;
     }
     std::println(
-        stderr, R"(event_link_test: location="{}" url="{}" -> "{}", expected "{}")", location, urlProperty, actual,
-        expected
+        stderr, R"(event_link_test: location="{}" preferred="{}" url="{}" -> "{}", expected "{}")", location,
+        preferredLink, urlProperty, actual, expected
     );
     return false;
+  }
+
+  bool expectLink(std::string_view location, std::string_view urlProperty, std::string_view expected) {
+    return expectLink(location, {}, urlProperty, expected);
   }
 
 } // namespace
@@ -50,6 +56,16 @@ int main() {
       && ok;
   ok = expectLink("Room 3", "https://calendar.google.com/event?eid=1", "https://calendar.google.com/event?eid=1") && ok;
   ok = expectLink("Room 3", "  https://example.com/event  ", "https://example.com/event") && ok;
+
+  // Outlook writes Teams joins into DESCRIPTION as an HTML anchor, while URL commonly points to an event page.
+  ok =
+      expectLink(
+          "Microsoft Teams Meeting",
+          R"(Join now: <a href="https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d">Join</a>)",
+          "https://outlook.office.com/calendar/item/3",
+          "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d"
+      )
+      && ok;
 
   // Only http(s) reaches xdg-open: everything else a hostile server could send is dropped.
   ok = expectLink("file:///home/user/.ssh/id_ed25519", "file:///home/user/.ssh/id_ed25519", "") && ok;

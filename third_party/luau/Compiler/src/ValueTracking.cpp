@@ -2,6 +2,10 @@
 #include "ValueTracking.h"
 
 #include "Luau/Lexer.h"
+#include "Luau/SmallVector.h"
+
+LUAU_FASTFLAG(LuauOptimizeExportTable)
+LUAU_FASTFLAG(LuauCompileReuseLocalRegs)
 
 namespace Luau
 {
@@ -10,12 +14,30 @@ namespace Compile
 
 struct ValueVisitor : AstVisitor
 {
+
     DenseHashMap<AstName, Global>& globals;
     DenseHashMap<AstLocal*, Variable>& variables;
+    DenseHashSet<AstLocal*>* exportedFunctions = nullptr;
+    std::vector<AstLocal*>* exportedVariables = nullptr;
+    SmallVector<AstStatBlock*, 4> blockOwnerStack;
 
+    // with LuauOptimizeExportTable, remove this constructor
     ValueVisitor(DenseHashMap<AstName, Global>& globals, DenseHashMap<AstLocal*, Variable>& variables)
         : globals(globals)
         , variables(variables)
+    {
+    }
+
+    ValueVisitor(
+        DenseHashMap<AstName, Global>& globals,
+        DenseHashMap<AstLocal*, Variable>& variables,
+        DenseHashSet<AstLocal*>* exportedFunctions,
+        std::vector<AstLocal*>* exportedVariables
+    )
+        : globals(globals)
+        , variables(variables)
+        , exportedFunctions(exportedFunctions)
+        , exportedVariables(exportedVariables)
     {
     }
 
@@ -23,7 +45,20 @@ struct ValueVisitor : AstVisitor
     {
         if (AstExprLocal* lv = var->as<AstExprLocal>())
         {
-            variables[lv->local].written = true;
+            if (FFlag::LuauCompileReuseLocalRegs)
+            {
+                Variable& variable = variables[lv->local];
+
+                variable.written = true;
+                variable.lastUsed = lv;
+
+                if (lv->upvalue || lv->local->isExported)
+                    variable.nonLexicalUse = true;
+            }
+            else
+            {
+                variables[lv->local].written = true;
+            }
         }
         else if (AstExprGlobal* gv = var->as<AstExprGlobal>())
         {
@@ -36,6 +71,25 @@ struct ValueVisitor : AstVisitor
         }
     }
 
+    bool visit(AstExprLocal* node) override
+    {
+        if (FFlag::LuauCompileReuseLocalRegs)
+        {
+            Variable& variable = variables[node->local];
+
+            variable.lastUsed = node;
+
+            if (node->upvalue || node->local->isExported)
+                variable.nonLexicalUse = true;
+
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+
     bool visit(AstStatLocal* node) override
     {
         for (size_t i = 0; i < node->vars.size && i < node->values.size; ++i)
@@ -43,6 +97,45 @@ struct ValueVisitor : AstVisitor
 
         for (size_t i = node->values.size; i < node->vars.size; ++i)
             variables[node->vars.data[i]].init = nullptr;
+
+        if (FFlag::LuauOptimizeExportTable && exportedVariables)
+        {
+            for (size_t i = 0; i < node->vars.size; ++i)
+            {
+                AstLocal* local = node->vars.data[i];
+                if (local->isExported)
+                {
+                    exportedVariables->push_back(local);
+                }
+            }
+        }
+
+        if (FFlag::LuauCompileReuseLocalRegs)
+        {
+            for (size_t i = 0; i < node->vars.size; ++i)
+            {
+                AstLocal* local = node->vars.data[i];
+
+                LUAU_ASSERT(!blockOwnerStack.empty());
+                variables[local].owner = blockOwnerStack.back();
+            }
+        }
+
+        return true;
+    }
+
+    bool visit(AstStatIf* node) override
+    {
+        if (node->conditionLocal)
+            variables[node->conditionLocal].init = node->condition;
+
+        return true;
+    }
+
+    bool visit(AstExprIfElse* node) override
+    {
+        if (node->conditionLocal)
+            variables[node->conditionLocal].init = node->condition;
 
         return true;
     }
@@ -68,7 +161,28 @@ struct ValueVisitor : AstVisitor
 
     bool visit(AstStatLocalFunction* node) override
     {
-        variables[node->name].init = node->func;
+        if (FFlag::LuauCompileReuseLocalRegs)
+        {
+            Variable& variable = variables[node->name];
+
+            variable.init = node->func;
+
+            LUAU_ASSERT(!blockOwnerStack.empty());
+            variable.owner = blockOwnerStack.back();
+
+            if (node->name->isExported)
+                variable.nonLexicalUse = true;
+        }
+        else
+        {
+            variables[node->name].init = node->func;
+        }
+
+        if (FFlag::LuauOptimizeExportTable && exportedFunctions && node->name->isExported)
+        {
+            exportedFunctions->insert(node->name);
+            exportedVariables->push_back(node->name);
+        }
 
         return true;
     }
@@ -88,6 +202,22 @@ struct ValueVisitor : AstVisitor
 
         return true;
     }
+
+    bool visit(AstStatBlock* block) override
+    {
+        if (FFlag::LuauCompileReuseLocalRegs)
+        {
+            blockOwnerStack.push_back(block);
+            for (AstStat* stat : block->body)
+                stat->visit(this);
+            blockOwnerStack.pop_back();
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
 };
 
 void assignMutable(DenseHashMap<AstName, Global>& globals, const AstNameTable& names, const char* const* mutableGlobals)
@@ -101,7 +231,18 @@ void assignMutable(DenseHashMap<AstName, Global>& globals, const AstNameTable& n
                 globals[name] = Global::Mutable;
 }
 
-void trackValues(DenseHashMap<AstName, Global>& globals, DenseHashMap<AstLocal*, Variable>& variables, AstNode* root)
+void trackValues(
+    DenseHashMap<AstName, Global>& globals,
+    DenseHashMap<AstLocal*, Variable>& variables,
+    DenseHashSet<AstLocal*>& exportedFunctions,
+    std::vector<AstLocal*>& exportedVariables,
+    AstNode* root
+)
+{
+    ValueVisitor visitor{globals, variables, &exportedFunctions, &exportedVariables};
+    root->visit(&visitor);
+}
+void trackValues_DEPRECATED(DenseHashMap<AstName, Global>& globals, DenseHashMap<AstLocal*, Variable>& variables, AstNode* root)
 {
     ValueVisitor visitor{globals, variables};
     root->visit(&visitor);

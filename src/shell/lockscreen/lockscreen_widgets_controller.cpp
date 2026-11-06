@@ -1,5 +1,6 @@
 #include "shell/lockscreen/lockscreen_widgets_controller.h"
 
+#include "core/log.h"
 #include "ipc/ipc_service.h"
 #include "shell/bar/bar.h"
 #include "shell/desktop/desktop_widget_layout.h"
@@ -19,6 +20,7 @@
 
 namespace {
 
+  constexpr Logger kLog("lockscreen-widgets");
   constexpr std::string_view kLockscreenWidgetIdPrefix = "lockscreen-widget-";
 
   void clampOpacitySetting(DesktopWidgetState& widget, const std::string& key, double fallback) {
@@ -106,13 +108,13 @@ void LockscreenWidgetsController::initialize(const LockscreenWidgetsControllerSe
   m_host->initialize(services.widgets);
   m_editor = std::make_unique<DesktopWidgetsEditor>(DesktopWidgetsEditorProfile::lockscreen());
   m_editor->initialize(services.widgets);
-  m_editor->setExitRequestedCallback([this]() { exitEdit(); });
+  m_editor->setExitRequestedCallback([this] { exitEdit(); });
   loadSnapshotFromConfig();
   m_initialized = true;
   applyVisibility();
 
   if (m_config != nullptr) {
-    m_config->addReloadCallback([this]() { handleConfigReload(); }, "lockscreen-widgets");
+    m_config->addReloadCallback([this] { handleConfigReload(); }, "lockscreen-widgets");
   }
 }
 
@@ -145,9 +147,9 @@ void LockscreenWidgetsController::onOutputChange() {
   if (!m_initialized || m_lockScreen == nullptr) {
     return;
   }
-  bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  bool placementChanged = m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
   normalizeSnapshot();
-  placementChanged |= m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  placementChanged |= m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
   if (placementChanged) {
     saveSnapshotToConfig();
   }
@@ -167,6 +169,16 @@ void LockscreenWidgetsController::onSecondTick() {
   } else if (m_host != nullptr) {
     m_host->onSecondTick();
   }
+}
+
+bool LockscreenWidgetsController::wantsSecondTicks() const {
+  if (!m_initialized) {
+    return false;
+  }
+  if (isEditing()) {
+    return true;
+  }
+  return m_host != nullptr && m_host->wantsSecondTicks();
 }
 
 void LockscreenWidgetsController::requestLayout() {
@@ -235,7 +247,7 @@ void LockscreenWidgetsController::exitEdit() {
 
   m_snapshot = fromDesktopWidgetsEditorSnapshot(m_editor->snapshot());
   normalizeSnapshot();
-  m_placementMapper.rebaseForCurrentOutputs(*m_wayland, m_snapshot.widgets);
+  m_placementMapper.rebaseForCurrentOutputs(m_wayland->outputs(), m_snapshot.widgets);
   applyVisibility();
   (void)m_editor->close();
   saveSnapshotToConfig();
@@ -308,10 +320,10 @@ void LockscreenWidgetsController::loadSnapshotFromConfig() {
   m_snapshot = m_config->config().lockscreenWidgets;
   // The login box clamps its position while normalizing. Rebase persisted coordinates first so
   // that clamp operates in the current output's logical coordinate space.
-  bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  bool placementChanged = m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
   const std::size_t widgetCountBefore = m_snapshot.widgets.size();
   normalizeSnapshot();
-  placementChanged |= m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  placementChanged |= m_placementMapper.remapForOutputChange(m_wayland->outputs(), m_snapshot.widgets);
   if (placementChanged || m_snapshot.widgets.size() > widgetCountBefore) {
     saveSnapshotToConfig();
   }
@@ -387,7 +399,7 @@ void LockscreenWidgetsController::normalizeSnapshot() {
     return;
   }
 
-  lockscreen_login_box::ensureWidgets(m_snapshot.widgets, *m_wayland);
+  lockscreen_login_box::ensureWidgets(m_snapshot.widgets, m_wayland->outputs());
 
   std::uint64_t maxCounter = 0;
   for (const auto& widget : m_snapshot.widgets) {
@@ -426,9 +438,11 @@ void LockscreenWidgetsController::normalizeSnapshot() {
       continue;
     }
 
-    if (const WaylandOutput* exact = desktop_widgets::findOutputByKey(*m_wayland, widget.outputName);
-        exact != nullptr) {
-      widget.outputName = desktop_widgets::outputKey(*exact);
+    if (desktop_widgets::selectOutput(m_wayland->outputs(), widget.outputName).ambiguous) {
+      kLog.warn(
+          "widget {} output selector '{}' matches multiple monitors; use a unique description or serial", widget.id,
+          widget.outputName
+      );
     }
   }
 }

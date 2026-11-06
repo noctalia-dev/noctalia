@@ -5,13 +5,16 @@
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "system/icon_resolver.h"
+#include "ui/signal.h"
 
 #include <memory>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 class ConfigService;
+class CompositorPlatform;
 class HttpClient;
 class Input;
 class InputArea;
@@ -39,8 +42,8 @@ public:
   NotificationToast& operator=(const NotificationToast&) = delete;
 
   void initialize(
-      WaylandConnection& wayland, ConfigService* config, NotificationManager* notifications,
-      RenderContext* renderContext, HttpClient* httpClient = nullptr
+      WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config,
+      NotificationManager* notifications, RenderContext* renderContext, HttpClient* httpClient = nullptr
   );
   void onConfigReload();
   void onOutputChange();
@@ -51,7 +54,7 @@ public:
   bool onPointerEvent(const PointerEvent& event);
   bool onKeyboardEvent(const KeyboardEvent& event);
 
-  [[nodiscard]] float horizontalInnerPad(float scale) const;
+  float horizontalInnerPad(float scale) const;
 
 private:
   // Per-notification visual state (shared across all instances)
@@ -62,11 +65,13 @@ private:
     std::string body;
     std::vector<std::string> actions;
     std::optional<std::string> icon;
+    bool iconIsAppIcon = false;
     std::optional<NotificationImageData> imageData;
     Urgency urgency = Urgency::Normal;
     NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect;
     int displayDurationMs = 0; // -1 = persistent (no auto-dismiss)
     int32_t rawTimeoutMs = 0;  // raw DBus timeout; >0 means manager has an auto-expire timer we must coordinate with
+    wl_output* targetOutput = nullptr;
     float remainingProgress = 1.0F;
     float y = -1.0F; // stable top position while visible; negative = queued/off-screen
     float height = 0.0F;
@@ -133,9 +138,9 @@ private:
   void submitInlineReply(uint32_t notificationId, const std::string& replyText, wl_surface* sourceSurface);
   void syncKeyboardInteractivity(Instance& inst) const;
   static void clearInlineReplyFocus(Instance& inst);
-  [[nodiscard]] static bool isInlineReplyInputArea(const Instance& inst, const InputArea* area);
-  [[nodiscard]] static bool pointerHitsInlineReplyInput(const Instance& inst, const Node* hit);
-  [[nodiscard]] static bool inputAreaBelongsToCard(const Instance::CardState& card, const InputArea* area);
+  static bool isInlineReplyInputArea(const Instance& inst, const InputArea* area);
+  static bool pointerHitsInlineReplyInput(const Instance& inst, const Node* hit);
+  static bool inputAreaBelongsToCard(const Instance::CardState& card, const InputArea* area);
 
   void ensureSurfaces();
   void destroySurfaces();
@@ -146,7 +151,7 @@ private:
       ProgressBar** outProgress, Node** outActionsRow, Node** outInlineReplyRow, Input** outInlineReplyInput
   );
   void applyCardReveal(Instance::CardState& cs, float reveal, float y, float cardHeight) const;
-  [[nodiscard]] float cardReveal(const Instance::CardState& cs, float cardHeight) const;
+  float cardReveal(const Instance::CardState& cs, float cardHeight) const;
   void addCardToInstance(Instance& inst, std::size_t entryIndex);
   void removeCardFromInstance(Instance& inst, std::size_t entryIndex);
   void syncEntryVisibility(std::size_t entryIndex);
@@ -162,39 +167,45 @@ private:
   void resumeTimeout(uint32_t notificationId, int totalDuration);
   void pauseCountdowns(uint32_t notificationId);
   void resumeCountdowns(uint32_t notificationId);
-  void revealQueuedEntries();
+  bool revealQueuedEntries();
   void enforceMaxVisible();
   void collapseStack();
+  void reflowNewestOnEdge();
   void evictOverlappingEntries(std::size_t anchorIndex);
-  [[nodiscard]] bool hasPlacement(const PopupEntry& entry) const;
-  [[nodiscard]] bool
-  canKeepPlacement(const PopupEntry& entry, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
-  [[nodiscard]] bool fitsOnSurface(const PopupEntry& entry, float surfaceHeight) const;
-  [[nodiscard]] std::string notificationPosition() const;
-  [[nodiscard]] std::string notificationLayer() const;
-  [[nodiscard]] std::vector<std::string> notificationMonitors() const;
-  [[nodiscard]] bool shouldRenderOnOutput(const WaylandOutput& output) const;
-  [[nodiscard]] bool isBottomStacking() const;
-  [[nodiscard]] RevealDirection revealDirection() const;
+  bool hasPlacement(const PopupEntry& entry) const;
+  bool canKeepPlacement(const PopupEntry& entry, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
+  bool fitsOnSurface(const PopupEntry& entry, float surfaceHeight) const;
+  std::string notificationPosition() const;
+  std::string_view notificationLayer() const;
+  std::vector<std::string> notificationMonitors() const;
+  bool shouldRenderOnOutput(const WaylandOutput& output) const;
+  bool entryTargetsOutput(const PopupEntry& entry, wl_output* output) const;
+  bool entriesShareStack(const PopupEntry& lhs, const PopupEntry& rhs) const;
+  bool isBottomStacking() const;
+  RevealDirection revealDirection() const;
+  bool isNewestOnEdge() const;
   void refreshEntryGeometry(PopupEntry& entry) const;
-  [[nodiscard]] float layoutBottomForSurfaceHeight(float surfaceHeight) const;
-  [[nodiscard]] float maxPlacementBottom() const;
-  [[nodiscard]] float entryOffsetFromPlacementBottom(const PopupEntry& entry) const;
+  float layoutBottomForSurfaceHeight(float surfaceHeight) const;
+  float maxPlacementBottom(wl_output* output) const;
+  float entryOffsetFromPlacementBottom(const PopupEntry& entry) const;
   // Resting surface Y for one instance's card, packed from the stacking edge using this
   // instance's real per-card heights (CardState::clipHeight). Inter-card gaps are taken
   // from the shared placement skeleton, so hover spacing and dismiss gaps are preserved,
   // but heights are per-monitor real values so cards never overlap or leave height-mismatch gaps.
-  [[nodiscard]] float cardSurfaceY(const Instance& inst, std::size_t entryIndex) const;
-  void alignBottomStackToPlacementBottom();
-  [[nodiscard]] std::optional<float>
-  findPlacementY(float entryHeight, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
-  [[nodiscard]] uint32_t surfaceHeightForOutput(wl_output* output) const;
+  float cardSurfaceY(const Instance& inst, std::size_t entryIndex) const;
+  void alignBottomStackToPlacementBottom(wl_output* output);
+  std::optional<float> findPlacementY(
+      float candidateHeight, wl_output* targetOutput, std::optional<uint32_t> ignoreNotificationId = std::nullopt
+  ) const;
+  uint32_t surfaceHeightForOutput(wl_output* output) const;
   // Configured render scale of a notification output, for pre-surface sizing.
-  [[nodiscard]] float notificationScale() const;
-  [[nodiscard]] std::string resolveNotificationIconPath(const PopupEntry& entry);
+  float notificationScale() const;
+  std::string resolveNotificationIconPath(const PopupEntry& entry);
 
   WaylandConnection* m_wayland = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
+  Signal<>::ScopedConnection m_appIconColorizeConn;
   NotificationManager* m_notifications = nullptr;
   RenderContext* m_renderContext = nullptr;
   HttpClient* m_httpClient = nullptr;
@@ -211,4 +222,6 @@ private:
   std::string m_lastPosition;
   std::string m_lastLayer;
   std::vector<std::string> m_lastMonitorSelectors;
+  bool m_followFocusedOutput = false;
+  wl_output* m_focusedOutput = nullptr;
 };

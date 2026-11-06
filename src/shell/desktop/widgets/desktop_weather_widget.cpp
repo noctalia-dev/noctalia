@@ -446,7 +446,7 @@ bool DesktopWeatherWidget::syncForecast(Renderer& renderer) {
 
     const auto& day = snapshot.forecastDays[dayIndex];
     const std::string dayText = weekdayAbbrev(day.dateIso);
-    const std::string glyphName = WeatherService::glyphForCode(day.weatherCode, true);
+    const std::string_view glyphName = WeatherService::glyphForCode(day.weatherCode, true);
     const std::string tempsText = std::format(
         "{} / {}{}", static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMinC))),
         static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMaxC))),

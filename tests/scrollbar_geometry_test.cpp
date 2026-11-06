@@ -1,0 +1,270 @@
+#include "render/animation/animation_manager.h"
+#include "render/core/renderer.h"
+#include "render/scene/input_area.h"
+#include "tests/test_check.h"
+#include "ui/controls/box.h"
+#include "ui/controls/scroll_view.h"
+#include "ui/controls/scrollbar.h"
+#include "ui/style.h"
+
+#include <chrono>
+#include <cmath>
+#include <cstddef>
+#include <cstdlib>
+#include <memory>
+#include <print>
+#include <string_view>
+#include <thread>
+#include <vector>
+
+namespace {
+
+  int gFailures = 0;
+
+  class StubRenderer final : public Renderer {
+  public:
+    TextMetrics measureText(
+        std::string_view, float fontSize, const TextFont&, float, int, TextAlign, TextEllipsize, bool
+    ) override {
+      return TextMetrics{.bottom = fontSize};
+    }
+
+    TextMetrics measureFont(float fontSize, const TextFont&) override { return TextMetrics{.bottom = fontSize}; }
+
+    void measureTextCursorStops(
+        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, const TextFont&
+    ) override {}
+
+    void measureTextCursorStopsWrapped(
+        std::string_view, float, const std::vector<std::size_t>&, float, std::vector<TextCursorStop>&, const TextFont&
+    ) override {}
+
+    TextMetrics measureGlyph(char32_t, float) override { return TextMetrics{}; }
+
+    TextureManager& textureManager() override { std::abort(); }
+    float renderScale() const noexcept override { return 1.0F; }
+  };
+
+  // Scrollbar composes its children in this order.
+  constexpr std::size_t kTrackIndex = 0;
+  constexpr std::size_t kThumbIndex = 1;
+  constexpr std::size_t kTrackAreaIndex = 2;
+  constexpr std::size_t kThumbAreaIndex = 3;
+
+  constexpr float kViewWidth = 200.0F;
+
+  struct Harness {
+    std::unique_ptr<ScrollView> view;
+    Node* track = nullptr;
+    Node* thumb = nullptr;
+    InputArea* trackArea = nullptr;
+    InputArea* thumbArea = nullptr;
+    InputArea* viewportArea = nullptr;
+  };
+
+  Harness layoutScrollView(
+      Renderer& renderer, AnimationManager& animations, float contentScale, float viewportHeight, float contentHeight,
+      float padH = 0.0F, float padV = 0.0F
+  ) {
+    Harness harness;
+    harness.view = std::make_unique<ScrollView>();
+    harness.view->setAnimationManager(&animations);
+    harness.view->setContentScale(contentScale);
+    harness.view->setViewportPaddingH(padH);
+    harness.view->setViewportPaddingV(padV);
+
+    auto content = std::make_unique<Box>();
+    content->setSize(10.0F, contentHeight);
+    harness.view->content()->addChild(std::move(content));
+
+    harness.view->setSize(kViewWidth, viewportHeight);
+    harness.view->layout(renderer);
+
+    Node* bar = nullptr;
+    InputArea* area = nullptr;
+    for (const auto& child : harness.view->children()) {
+      if (dynamic_cast<Scrollbar*>(child.get()) != nullptr) {
+        bar = child.get();
+      } else if (auto* inputArea = dynamic_cast<InputArea*>(child.get())) {
+        area = inputArea;
+      }
+    }
+    if (bar == nullptr || area == nullptr || bar->children().size() <= kThumbAreaIndex) {
+      std::println(stderr, "scrollbar_geometry_test: scrollbar or viewport children missing");
+      std::exit(1);
+    }
+    harness.track = bar->children()[kTrackIndex].get();
+    harness.thumb = bar->children()[kThumbIndex].get();
+    harness.trackArea = dynamic_cast<InputArea*>(bar->children()[kTrackAreaIndex].get());
+    harness.thumbArea = dynamic_cast<InputArea*>(bar->children()[kThumbAreaIndex].get());
+    harness.viewportArea = area;
+    return harness;
+  }
+
+  // AnimationManager advances from wall time, so run it until the queue drains.
+  void settle(AnimationManager& animations) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    animations.tick(0.0F);
+    while (animations.hasActive() && std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      animations.tick(0.0F);
+    }
+  }
+
+} // namespace
+
+int main() {
+  StubRenderer renderer;
+  AnimationManager animations;
+
+  // Content measurement must stay independent of a previous viewport allocation.
+  for (const auto orientation : {ScrollOrientation::Vertical, ScrollOrientation::Horizontal}) {
+    ScrollView view;
+    view.setOrientation(orientation);
+    view.setViewportPaddingH(0.0F);
+    view.setViewportPaddingV(0.0F);
+    auto content = std::make_unique<Box>();
+    auto* item = content.get();
+    item->setSize(10.0F, 40.0F);
+    view.content()->addChild(std::move(content));
+    LayoutConstraints constraints;
+    constraints.setExactWidth(kViewWidth);
+    TEST_NEAR(view.measure(renderer, constraints).height, 40.0F, 0.01F);
+
+    for (const float contentHeight : {80.0F, 1000.0F, 20.0F, 0.0F, 80.0F}) {
+      view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+      item->setSize(10.0F, contentHeight);
+      TEST_NEAR(view.measure(renderer, constraints).height, contentHeight, 0.01F);
+      TEST_NEAR(view.measure(renderer, constraints).height, contentHeight, 0.01F);
+      view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+      if (orientation == ScrollOrientation::Vertical) {
+        const float overflow = contentHeight > 30.0F ? contentHeight - 30.0F : 0.0F;
+        TEST_NEAR(view.maxScrollOffset(), overflow, 0.01F);
+        if (contentHeight == 1000.0F) {
+          view.setScrollOffset(100.0F);
+          (void)view.measure(renderer, constraints);
+          TEST_NEAR(view.scrollOffset(), 100.0F, 0.01F);
+          view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+          view.requestScrollToBottom();
+          (void)view.measure(renderer, constraints);
+          view.arrange(renderer, LayoutRect{.width = kViewWidth, .height = 30.0F});
+          TEST_NEAR(view.scrollOffset(), overflow, 0.01F);
+        }
+      }
+    }
+
+    // Caller-pinned sizes still win over natural content height.
+    view.setSize(kViewWidth, 30.0F);
+    TEST_NEAR(view.measure(renderer, constraints).height, 30.0F, 0.01F);
+  }
+
+  // Base scale: the reserved gutter and bar thickness are the historical logical sizes.
+  {
+    auto harness = layoutScrollView(renderer, animations, 1.0F, 100.0F, 400.0F);
+    TEST_NEAR(harness.view->scrollbarGutter(), Style::scrollbarWidth + Style::scrollbarGap, 0.01F);
+    TEST_NEAR(harness.track->width(), Style::scrollbarWidth, 0.01F);
+    TEST_NEAR(harness.track->x(), 0.0F, 0.01F);
+    TEST_NEAR(harness.view->contentViewportWidth(), kViewWidth - (Style::scrollbarWidth + Style::scrollbarGap), 0.01F);
+    TEST_NEAR(harness.trackArea->hitTestOutset().left, Style::scrollbarHitSlop, 0.01F);
+    TEST_NEAR(harness.thumbArea->hitTestOutset().left, Style::scrollbarHitSlop, 0.01F);
+    TEST_NEAR(harness.thumbArea->hitTestOutset().right, 0.0F, 0.01F);
+  }
+
+  // The whole scrollbar family tracks the host surface scale, like every other Style constant.
+  {
+    auto harness = layoutScrollView(renderer, animations, 2.0F, 100.0F, 400.0F);
+    TEST_NEAR(harness.view->scrollbarGutter(), (Style::scrollbarWidth + Style::scrollbarGap) * 2.0F, 0.01F);
+    TEST_NEAR(harness.track->width(), Style::scrollbarWidth * 2.0F, 0.01F);
+    TEST_NEAR(harness.thumb->height(), Style::scrollbarMinThumbHeight * 2.0F, 0.01F);
+    TEST_NEAR(harness.trackArea->hitTestOutset().left, Style::scrollbarHitSlop * 2.0F, 0.01F);
+  }
+
+  // Content clips at the border stroke's inner edge, the padding gutter stays inside the clip.
+  {
+    constexpr float kPadH = 4.0F;
+    constexpr float kPadV = 8.0F;
+    constexpr float kBorder = 5.0F;
+    auto harness = layoutScrollView(renderer, animations, 1.0F, 100.0F, 400.0F, kPadH, kPadV);
+    harness.view->setBorder(Color{.r = 1.0F, .g = 0.0F, .b = 0.0F, .a = 1.0F}, kBorder);
+    harness.view->layout(renderer);
+    if (!harness.viewportArea->clipChildren()) {
+      std::println(stderr, "scrollbar_geometry_test: viewport area does not clip its children");
+      ++gFailures;
+    }
+    TEST_NEAR(harness.viewportArea->x(), kBorder, 0.01F);
+    TEST_NEAR(harness.viewportArea->y(), kBorder, 0.01F);
+    TEST_NEAR(harness.viewportArea->width(), kViewWidth - kBorder * 2.0F, 0.01F);
+    TEST_NEAR(harness.viewportArea->height(), 100.0F - kBorder * 2.0F, 0.01F);
+    TEST_NEAR(harness.view->content()->x(), kPadH, 0.01F);
+    TEST_NEAR(harness.view->content()->y(), kPadV, 0.01F);
+    if (harness.view->content()->parent() != harness.viewportArea) {
+      std::println(stderr, "scrollbar_geometry_test: content is not under the clipping viewport");
+      ++gFailures;
+    }
+  }
+
+  // Hovering expands the bar over the content: the reserved gutter, and therefore the content
+  // width, must not move, or the view would reflow under the pointer.
+  {
+    auto harness = layoutScrollView(renderer, animations, 1.0F, 100.0F, 400.0F);
+    const float gutter = harness.view->scrollbarGutter();
+    const float contentWidth = harness.view->contentViewportWidth();
+
+    harness.trackArea->dispatchEnter(1.0F, 1.0F);
+    settle(animations);
+    TEST_NEAR(harness.track->width(), Style::scrollbarHoverWidth, 0.01F);
+    TEST_NEAR(harness.thumb->width(), Style::scrollbarHoverWidth, 0.01F);
+    const float overlay = -(Style::scrollbarHoverWidth - Style::scrollbarWidth);
+    TEST_NEAR(harness.track->x(), overlay, 0.01F);
+    // The thumb must follow the track inward, or its outer half lands outside the gutter and the
+    // scroll view clips it: the bar looks expanded while the thumb stays thin.
+    TEST_NEAR(harness.thumb->x(), overlay, 0.01F);
+    TEST_NEAR(harness.thumbArea->x(), overlay, 0.01F);
+    TEST_NEAR(harness.view->scrollbarGutter(), gutter, 0.01F);
+    TEST_NEAR(harness.view->contentViewportWidth(), contentWidth, 0.01F);
+
+    harness.trackArea->dispatchLeave();
+    settle(animations);
+    TEST_NEAR(harness.track->width(), Style::scrollbarWidth, 0.01F);
+    TEST_NEAR(harness.track->x(), 0.0F, 0.01F);
+    TEST_NEAR(harness.thumb->x(), 0.0F, 0.01F);
+  }
+
+  // Entering the bar only queues an animation; it mutates no node. Unless it also marks paint
+  // dirty, the surface never schedules a frame, so the animation is not ticked until some
+  // unrelated event repaints and the expansion snaps to its end value.
+  {
+    auto harness = layoutScrollView(renderer, animations, 1.0F, 100.0F, 400.0F);
+    harness.view->clearDirty();
+    if (harness.view->paintDirty()) {
+      std::println(stderr, "scrollbar_geometry_test: clearDirty() left the tree dirty");
+      ++gFailures;
+    }
+    harness.trackArea->dispatchEnter(1.0F, 1.0F);
+    if (!harness.view->paintDirty()) {
+      std::println(stderr, "scrollbar_geometry_test: hover did not request a repaint");
+      ++gFailures;
+    }
+    settle(animations);
+  }
+
+  // A thumb thinner than the bar is thick would render as a blob.
+  {
+    auto harness = layoutScrollView(renderer, animations, 1.0F, 100.0F, 100000.0F);
+    TEST_NEAR(harness.thumb->height(), Style::scrollbarMinThumbHeight, 0.01F);
+    harness.thumbArea->dispatchEnter(1.0F, 1.0F);
+    settle(animations);
+    const bool floorHoldsHovered = harness.thumb->height() >= Style::scrollbarHoverWidth;
+    if (!floorHoldsHovered) {
+      std::println(stderr, "scrollbar_geometry_test: hovered thumb is thicker than it is long");
+      ++gFailures;
+    }
+  }
+
+  if (gFailures != 0) {
+    std::println(stderr, "scrollbar_geometry_test: {} failure(s)", gFailures);
+    return 1;
+  }
+  std::println("scrollbar_geometry_test: ok");
+  return 0;
+}

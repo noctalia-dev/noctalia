@@ -10,6 +10,7 @@
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -21,6 +22,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <linux/input-event-codes.h>
 #include <optional>
 #include <sstream>
@@ -92,8 +94,9 @@ namespace {
 
   std::string readFile(const std::filesystem::path& path) {
     std::ifstream f(path);
-    if (!f)
+    if (!f) {
       return {};
+    }
     std::stringstream ss;
     ss << f.rdbuf();
     return ss.str();
@@ -102,14 +105,15 @@ namespace {
 } // namespace
 
 PluginWidget::PluginWidget(
-    scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool enableScroll
+    scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool isVertical,
+    bool enableScroll
 )
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
       m_pluginDir(std::move(context.pluginDir)), m_barName(std::move(barName)), m_outputName(std::move(outputName)),
       m_scriptApi(context.scriptApi), m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher),
       m_platform(context.platform), m_clipboard(context.clipboard), m_httpClient(context.httpClient),
       m_audioSpectrum(context.audioSpectrum), m_mpris(context.mpris), m_timerPhase(nextTimerPhase()),
-      m_enableScroll(enableScroll) {
+      m_isVertical(isVertical), m_enableScroll(enableScroll) {
   m_audioSpectrumEnabled = settingBool(m_settings, "audio_spectrum", false);
   m_audioSpectrumBands =
       static_cast<int>(std::clamp<std::int64_t>(settingInt(m_settings, "audio_spectrum_bands", 16), 1, 128));
@@ -154,8 +158,9 @@ void PluginWidget::create() {
   area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}));
   area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
   area->setOnClick([this](const InputArea::PointerData& data) {
-    if (!m_runtime)
+    if (!m_runtime) {
       return;
+    }
     const char* fn = nullptr;
     switch (data.button) {
     case BTN_LEFT:
@@ -173,21 +178,25 @@ void PluginWidget::create() {
     (void)m_runtime->enqueueCall(fn, makeScriptSnapshot());
   });
   area->setOnEnter([this](const InputArea::PointerData&) {
-    if (m_runtime)
+    if (m_runtime) {
       (void)m_runtime->enqueueCallBool("onHover", true, makeScriptSnapshot());
+    }
   });
-  area->setOnLeave([this]() {
-    if (m_runtime)
+  area->setOnLeave([this] {
+    if (m_runtime) {
       (void)m_runtime->enqueueCallBool("onHover", false, makeScriptSnapshot());
+    }
   });
   area->setOnAxisHandler([this](const InputArea::PointerData& data) {
-    if (!m_enableScroll || m_runtime == nullptr || !m_runtime->hasOnScroll())
+    if (!m_enableScroll || m_runtime == nullptr || !m_runtime->hasOnScroll()) {
       return false;
+    }
     // Whole detent steps, so a wheel notch and a touchpad flick mean the same
     // thing to the script. Continuous sources report 0 until a detent accrues.
     const float steps = data.scrollSteps();
-    if (steps == 0.0F)
+    if (steps == 0.0F) {
       return false;
+    }
     const char* axis = data.axis == WL_POINTER_AXIS_VERTICAL_SCROLL ? "vertical" : "horizontal";
     // The third argument is true only on the first step of a flick in that direction. A script
     // stepping through a list acts on it alone; one ramping a value ignores it.
@@ -242,15 +251,35 @@ void PluginWidget::create() {
       })
   );
 
+  // Drag-and-drop preview layer (as in PluginPanel): the ghost of a dragged
+  // ui.dragSource is drawn here, above the host tree, outside layout and
+  // hit-testing. doLayout sizes it to the widget, so a drag stays inside the
+  // widget's own extent.
+  area->addChild(
+      ui::node({
+          .out = &m_dragOverlay,
+          .participatesInLayout = false,
+          .configure = [](Node& overlay) {
+            overlay.setHitTestVisible(false);
+            overlay.setZIndex(std::numeric_limits<std::int32_t>::max());
+          },
+      })
+  );
+
   m_reconciler.setCallbackSink([this](const ui::UiTreeReconciler::ControlCallback& callback) {
     if (m_runtime != nullptr) {
       (void)m_runtime->enqueueCallStrings(
-          callback.fn, callback.arg1, callback.arg2, makeScriptSnapshot(), callback.coalesce
+          callback.fn, callback.arg1, callback.arg2, makeScriptSnapshot(), callback.coalesce, callback.coalesceKey
       );
     }
   });
   m_reconciler.setPathResolver([this](const std::string& path) { return resolvePluginPath(path).string(); });
   m_reconciler.setCompactControls(true);
+  // ui.dragSource / ui.dropZone: the controls ride the InputArea
+  // press/motion/release the widget already receives; the overlay above
+  // hosts the preview.
+  m_reconciler.setDragDropEnabled(true);
+  m_reconciler.setDragDropOverlayRoot(m_dragOverlay);
 
   m_area = area.get();
   setRoot(std::move(area));
@@ -285,7 +314,7 @@ void PluginWidget::create() {
     if (result.modulePathsKnown) {
       m_scriptWatcher.setModulePaths(result.modulePaths);
     }
-    handleScriptResult(std::move(result));
+    handleScriptResult(result);
   });
 
   m_runtime->start(m_sourcePath.string(), std::move(source), makeScriptSnapshot());
@@ -299,7 +328,7 @@ void PluginWidget::setupAudioSpectrum() {
     return;
   }
   m_audioSpectrumListenerId =
-      m_audioSpectrum->addChangeListener(m_audioSpectrumBands, [this]() { handleAudioSpectrumChanged(); });
+      m_audioSpectrum->addChangeListener(m_audioSpectrumBands, [this] { handleAudioSpectrumChanged(); });
 }
 
 void PluginWidget::teardownAudioSpectrum() {
@@ -327,8 +356,11 @@ void PluginWidget::handleAudioSpectrumChanged() {
 
 void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   m_isVertical = containerHeight > containerWidth;
-  if (!m_flex)
+  if (!m_flex) {
     return;
+  }
+
+  const ColorSpec fallback = colorSpecFromRole(ColorRole::OnSurface);
 
   m_flex->setDirection(m_isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
 
@@ -337,14 +369,20 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     m_reconciler.setScale(contentScale());
     m_reconciler.setFontScale(fontScaleMultiplier());
     m_reconciler.setTextDefaults(labelFontFamily(), labelFontWeight());
-    (void)m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
+    m_reconciler.setColorDefaults(widgetForegroundOr(fallback), widgetIconColorOr(fallback));
+    m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
     m_uiHost->layout(renderer);
-    if (m_area)
+    if (m_area) {
       m_area->setSize(m_uiHost->width(), m_uiHost->height());
+    }
+    if (m_dragOverlay != nullptr) {
+      m_dragOverlay->setPosition(0.0F, 0.0F);
+      m_dragOverlay->setFrameSize(m_uiHost->width(), m_uiHost->height());
+    }
     return;
   }
 
-  m_label->setColor(resolveScriptColor(m_textColor));
+  m_label->setColor(resolveScriptColor(m_textColor, widgetForegroundOr(fallback)));
   m_label->setFontWeight(labelFontWeight());
   m_label->setVisible(!m_label->text().empty());
   if (m_label->visible()) {
@@ -352,7 +390,7 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   }
 
   if (m_glyphVisible) {
-    m_glyph->setColor(resolveScriptColor(m_glyphColor));
+    m_glyph->setColor(resolveScriptColor(m_glyphColor, widgetIconColorOr(fallback)));
     m_glyph->measure(renderer);
   }
 
@@ -360,15 +398,17 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
   m_flex->layout(renderer);
 
-  if (m_area)
+  if (m_area) {
     m_area->setSize(m_flex->width(), m_flex->height());
+  }
 }
 
 void PluginWidget::doUpdate(Renderer&) {}
 
 void PluginWidget::luaSetText(std::string_view text) {
-  if (!m_label)
+  if (!m_label) {
     return;
+  }
   bool changed = m_label->setText(text);
   bool vis = !text.empty();
   if (m_label->visible() != vis) {
@@ -379,8 +419,9 @@ void PluginWidget::luaSetText(std::string_view text) {
 }
 
 void PluginWidget::luaSetGlyph(std::string_view name) {
-  if (!m_glyph)
+  if (!m_glyph) {
     return;
+  }
   bool changed = m_glyph->setGlyph(name);
   if (!m_imagePath.empty()) {
     m_imagePath.clear();
@@ -465,8 +506,9 @@ void PluginWidget::luaSetTooltip(const scripting::ScriptTooltipPatch& tooltip) {
 }
 
 void PluginWidget::luaSetFont(std::string_view family, std::string_view baseline) {
-  if (!m_label)
+  if (!m_label) {
     return;
+  }
   LabelBaselineMode mode = LabelBaselineMode::Text;
   if (!baseline.empty()) {
     if (auto parsed = labelBaselineModeFromToken(baseline)) {
@@ -513,8 +555,9 @@ void PluginWidget::setUpdateDeferralCallback(std::function<bool()> callback) {
 
 void PluginWidget::luaSetVisible(bool visible) {
   auto* node = root();
-  if (!node || node->visible() == visible)
+  if (!node || node->visible() == visible) {
     return;
+  }
   node->setVisible(visible);
   m_dirty = true;
 }
@@ -534,17 +577,19 @@ PluginWidget::dispatchIpc(std::string_view event, std::string_view payload, cons
   return DispatchResult::Handled;
 }
 
-ColorSpec PluginWidget::resolveScriptColor(const ScriptColorState& state) const noexcept {
-  const ColorSpec fallback = colorSpecFromRole(ColorRole::OnSurface);
+// `on_surface` from an imperative setColor/setGlyphColor means "host default", so the widget's
+// `color`/`icon_color` still applies; a `script` mode color or any other role is taken literally.
+// The declarative path has no such sentinel: `ui.label{color = "on_surface"}` stays on_surface.
+ColorSpec PluginWidget::resolveScriptColor(const ScriptColorState& state, const ColorSpec& defaultColor) noexcept {
   if (!state.color.has_value()) {
-    return widgetForegroundOr(fallback);
+    return defaultColor;
   }
   if (!state.color->role.has_value()
       || state.mode == ScriptColorMode::Script
       || *state.color->role != ColorRole::OnSurface) {
     return *state.color;
   }
-  return widgetForegroundOr(fallback);
+  return defaultColor;
 }
 
 PluginWidget::ScriptColorMode PluginWidget::scriptColorModeFromToken(std::string_view token) noexcept {
@@ -552,7 +597,7 @@ PluginWidget::ScriptColorMode PluginWidget::scriptColorModeFromToken(std::string
 }
 
 std::optional<ColorSpec> PluginWidget::scriptColorFromToken(std::string_view token) noexcept {
-  if (auto role = colorRoleFromToken(token); role.has_value()) {
+  if (auto role = colorRoleFromPluginToken(token); role.has_value()) {
     return colorSpecFromRole(*role);
   }
   Color fixed;
@@ -640,7 +685,7 @@ void PluginWidget::runScriptUpdate() {
   }
 }
 
-void PluginWidget::handleScriptResult(scripting::ScriptResult result) {
+void PluginWidget::handleScriptResult(const scripting::ScriptResult& result) {
   if (result.hasOnIpcKnown) {
     m_hasOnIpc = result.hasOnIpc;
     m_hasOnIpcKnown = true;
@@ -790,7 +835,7 @@ void PluginWidget::syncImage(Renderer& renderer) {
       m_imageReloadRetries = 0;
     }
   } else {
-    (void)m_image->setSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true);
+    m_image->setSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true);
   }
 
   m_image->setVisible(m_image->hasImage());
@@ -864,20 +909,27 @@ void PluginWidget::reloadScript() {
   m_imageDirty = true;
   m_imageForceReload = false;
   m_imageReloadRetries = 0;
-  if (m_glyph)
+  if (m_glyph) {
     m_glyph->setVisible(false);
-  if (m_image)
+  }
+  if (m_image) {
     m_image->setVisible(false);
+  }
   if (m_label) {
     m_label->setText("");
     m_label->setVisible(false);
   }
+  // Hiding the host dispatches no input cancellation: a drag in flight would
+  // keep its preview and could complete against the replacement tree.
+  m_reconciler.cancelDragDrop();
   m_tree.reset();
   m_warnedImperativeWhileDeclarative = false;
-  if (m_uiHost)
+  if (m_uiHost) {
     m_uiHost->setVisible(false);
-  if (m_flex)
+  }
+  if (m_flex) {
     m_flex->setVisible(true);
+  }
 
   m_hasOnIpc = false;
   m_hasOnIpcKnown = false;

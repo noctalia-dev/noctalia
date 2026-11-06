@@ -1,32 +1,69 @@
 #include "shell/control_center/tabs/weather_tab.h"
 
 #include "config/config_service.h"
+#include "core/log.h"
 #include "i18n/i18n.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
-#include "render/scene/effect_node.h"
 #include "render/scene/input_area.h"
+#include "render/scene/tooltip_content.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/tooltip/tooltip_content.h"
+#include "shell/render/weather_effect_node.h"
 #include "system/weather_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
+#include "ui/controls/box.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <ctime>
 #include <format>
 #include <memory>
+#include <optional>
+#include <string_view>
+#include <utility>
 
 using namespace control_center;
 
 namespace {
 
-  // Set to a specific effect to bypass weather-code detection. Reset to None when done testing.
-  constexpr EffectType kTestEffect = EffectType::None;
+  constexpr Logger kLog("weather_tab");
+
+  // NOCTALIA_WEATHER_EFFECT=sun|snow|rain|cloud|fog|stars forces that effect regardless of the
+  // current weather and the effects setting, for testing the shaders.
+  std::optional<WeatherEffectType> weatherEffectOverride() {
+    static const std::optional<WeatherEffectType> value = [] -> std::optional<WeatherEffectType> {
+      const char* env = std::getenv("NOCTALIA_WEATHER_EFFECT");
+      if (env == nullptr || env[0] == '\0') {
+        return std::nullopt;
+      }
+      static constexpr std::array<std::pair<std::string_view, WeatherEffectType>, 6> kNames = {{
+          {"sun", WeatherEffectType::Sun},
+          {"snow", WeatherEffectType::Snow},
+          {"rain", WeatherEffectType::Rain},
+          {"cloud", WeatherEffectType::Cloud},
+          {"fog", WeatherEffectType::Fog},
+          {"stars", WeatherEffectType::Stars},
+      }};
+      const std::string_view name(env);
+      for (const auto& [key, type] : kNames) {
+        if (key == name) {
+          return type;
+        }
+      }
+      kLog.warn("ignoring NOCTALIA_WEATHER_EFFECT={}: expected sun, snow, rain, cloud, fog, or stars", name);
+      return std::nullopt;
+    }();
+    return value;
+  }
 
   constexpr float kCurrentGlyphSize = Style::controlHeightLg * 2.2F;
+
+  // How much to dim the weather effect's background scrim for text contrast.
+  constexpr float kWeatherScrimAlpha = 0.45F;
 
   std::string windDirectionLabel(int degrees) {
     static constexpr std::array<const char*, 8> kDirs = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
@@ -38,7 +75,6 @@ namespace {
 } // namespace
 
 WeatherTab::WeatherTab(WeatherService* weather, ConfigService* config) : m_weather(weather), m_config(config) {
-  m_detailRows.fill(nullptr);
   m_forecastRows.fill(nullptr);
   m_forecastSeparators.fill(nullptr);
   m_forecastIconSlots.fill(nullptr);
@@ -79,12 +115,22 @@ std::unique_ptr<Flex> WeatherTab::create() {
       },
   });
 
-  auto effectNode = std::make_unique<EffectNode>();
+  auto effectNode = std::make_unique<WeatherEffectNode>();
   effectNode->setParticipatesInLayout(false);
   effectNode->setZIndex(-1);
   effectNode->setVisible(false);
   effectNode->setRadius(Style::scaledRadiusXl(scale));
-  m_effectNode = static_cast<EffectNode*>(currentCard->addChild(std::move(effectNode)));
+  m_effectNode = static_cast<WeatherEffectNode*>(currentCard->addChild(std::move(effectNode)));
+
+  // Same zIndex as the effect (-1, behind the layout content at 0) but added after it, so
+  // stable insertion order keeps it painted on top of the effect and below the text.
+  auto scrimNode = std::make_unique<Box>();
+  scrimNode->setParticipatesInLayout(false);
+  scrimNode->setZIndex(-1);
+  scrimNode->setVisible(false);
+  scrimNode->setFill(colorSpecFromRole(ColorRole::Surface, kWeatherScrimAlpha));
+  scrimNode->setRadius(Style::scaledRadiusXl(scale));
+  m_scrimNode = static_cast<Box*>(currentCard->addChild(std::move(scrimNode)));
 
   auto glyphColumn = ui::row(
       {.out = &m_glyphColumn,
@@ -204,26 +250,23 @@ std::unique_ptr<Flex> WeatherTab::create() {
       .gap = 0.0F,
       .configure = [scale, opacity = panelCardOpacity()](Flex& card) {
         applySectionCardStyle(card, scale, opacity);
-        card.setPadding(Style::spaceMd * scale, Style::spaceMd * scale, Style::spaceLg * scale, Style::spaceMd * scale);
+        card.setPadding(Style::spaceMd * scale);
         card.setGap(0.0F);
       },
   });
   const float detailKeyWidth = Style::controlHeightLg * 2.0F * scale;
+  // Detail rows are label/value pairs, not touch targets: they size to the text plus a small
+  // margin around the row glyph, not to a control height.
+  const float detailRowHeight = (Style::fontSizeBody + Style::spaceMd) * scale;
 
-  std::size_t detailRowIndex = 0;
   auto addDetailRow = [&](std::string_view iconName, std::string_view key, Label*& valueOut) -> Flex* {
     auto row = ui::row({
         .align = FlexAlign::Center,
         .gap = (Style::spaceSm + Style::spaceXs) * scale,
-        .minHeight = Style::controlHeightSm * scale,
+        .minHeight = detailRowHeight,
         .flexGrow = 0.0F,
     });
     Flex* rowPtr = row.get();
-    if (detailRowIndex < kDetailRowCount) {
-      m_detailRows[detailRowIndex] = rowPtr;
-    }
-    ++detailRowIndex;
-
     row->addChild(
         ui::glyph({
             .glyph = std::string(iconName),
@@ -254,6 +297,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
     return rowPtr;
   };
 
+  addDetailRow("thermometer", i18n::tr("control-center.weather.details.feels-like"), m_feelsLikeLabel);
   addDetailRow("temperature", i18n::tr("control-center.weather.details.temp-min"), m_tempMinLabel);
   addDetailRow("temperature-sun", i18n::tr("control-center.weather.details.temp-max"), m_tempMaxLabel);
   addDetailRow("wind", i18n::tr("control-center.weather.details.wind"), m_windLabel);
@@ -289,7 +333,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
                   {.label = i18n::tr("control-center.weather.forecast-view.hourly")},
               },
           .selectedIndex = static_cast<std::size_t>(m_forecastView),
-          .fontSize = Style::fontSizeCaption * scale,
+          .fontSize = Style::fontSizeCaption,
           .scale = scale,
           .compact = true,
           .surfaceOpacity = panelCardOpacity(),
@@ -452,7 +496,7 @@ void WeatherTab::beginForecastSlideOut(ForecastView nextView) {
         applyForecastSlide(progress, false);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_forecastSlideAnimId = 0;
         m_forecastView = m_pendingForecastView;
         m_startForecastSlideIn = true;
@@ -476,7 +520,7 @@ void WeatherTab::beginForecastSlideIn() {
         applyForecastSlide(progress, true);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_forecastSlideAnimId = 0;
         if (m_forecastRowsContainer != nullptr) {
           m_forecastRowsContainer->setPosition(m_forecastRowsBaseX, m_forecastRowsBaseY);
@@ -523,8 +567,8 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     m_statusLabel->setMaxWidth(leftColumnWidth);
   }
   for (auto* label :
-       {m_windLabel, m_sunriseLabel, m_sunsetLabel, m_tempMinLabel, m_tempMaxLabel, m_elevationLabel, m_uvIndexLabel,
-        m_timeZoneLabel}) {
+       {m_feelsLikeLabel, m_tempMinLabel, m_tempMaxLabel, m_windLabel, m_sunriseLabel, m_sunsetLabel, m_elevationLabel,
+        m_uvIndexLabel, m_timeZoneLabel}) {
     if (label != nullptr) {
       label->setMaxWidth(leftColumnWidth);
     }
@@ -544,16 +588,6 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     const float desiredGlyph =
         std::max(Style::controlHeightLg * 1.8F * scale, std::min(kCurrentGlyphSize * scale, cardInnerHeight * 0.8F));
     m_currentGlyph->setGlyphSize(desiredGlyph);
-  }
-
-  if (m_detailsCard != nullptr) {
-    const float rowMinHeight = Style::controlHeightSm * scale;
-    for (auto* row : m_detailRows) {
-      if (row != nullptr) {
-        row->setMinHeight(row->visible() ? rowMinHeight : 0.0F);
-        row->setFlexGrow(0.0F);
-      }
-    }
   }
 
   std::size_t visibleForecastDays = 0;
@@ -641,6 +675,10 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     m_effectNode->setPosition(0.0F, 0.0F);
     m_effectNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
   }
+  if (m_scrimNode != nullptr && m_currentCard != nullptr) {
+    m_scrimNode->setPosition(0.0F, 0.0F);
+    m_scrimNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
+  }
 
   // The weather tab derives several width constraints from the first measurement
   // pass. Run layout again so the final geometry reflects those constraints
@@ -649,6 +687,9 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
 
   if (m_effectNode != nullptr && m_currentCard != nullptr) {
     m_effectNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
+  }
+  if (m_scrimNode != nullptr && m_currentCard != nullptr) {
+    m_scrimNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
   }
 
   for (std::size_t i = 0; i < kForecastRowCount; ++i) {
@@ -728,11 +769,11 @@ void WeatherTab::onClose() {
   m_sunsetLabel = nullptr;
   m_tempMaxLabel = nullptr;
   m_tempMinLabel = nullptr;
+  m_feelsLikeLabel = nullptr;
   m_elevationLabel = nullptr;
   m_uvIndexLabel = nullptr;
   m_timeZoneLabel = nullptr;
   m_timeZoneRow = nullptr;
-  m_detailRows.fill(nullptr);
   m_forecastRows.fill(nullptr);
   m_forecastSeparators.fill(nullptr);
   m_forecastIconSlots.fill(nullptr);
@@ -742,8 +783,11 @@ void WeatherTab::onClose() {
   m_forecastTemps.fill(nullptr);
   m_forecastHitAreas.fill(nullptr);
   m_effectNode = nullptr;
-  m_activeEffect = EffectType::None;
+  m_scrimNode = nullptr;
+  m_activeEffect = WeatherEffectType::None;
   m_shaderTime = 0.0F;
+  m_rainDrops.reset();
+  m_snowFlakes.reset();
 }
 
 void WeatherTab::sync(Renderer& renderer) {
@@ -791,6 +835,9 @@ void WeatherTab::sync(Renderer& renderer) {
     if (m_tempMinLabel != nullptr) {
       m_tempMinLabel->setText("--");
     }
+    if (m_feelsLikeLabel != nullptr) {
+      m_feelsLikeLabel->setText("--");
+    }
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
     }
@@ -821,6 +868,9 @@ void WeatherTab::sync(Renderer& renderer) {
     }
     if (m_tempMinLabel != nullptr) {
       m_tempMinLabel->setText("--");
+    }
+    if (m_feelsLikeLabel != nullptr) {
+      m_feelsLikeLabel->setText("--");
     }
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
@@ -867,6 +917,9 @@ void WeatherTab::sync(Renderer& renderer) {
     }
     if (m_tempMinLabel != nullptr) {
       m_tempMinLabel->setText("--");
+    }
+    if (m_feelsLikeLabel != nullptr) {
+      m_feelsLikeLabel->setText("--");
     }
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
@@ -946,15 +999,14 @@ void WeatherTab::sync(Renderer& renderer) {
                                        : std::string("--")
     );
   }
-  auto unit = m_weather->displayTemperatureUnit();
-  if (m_tempMaxLabel != nullptr) {
-    if (!snapshot.forecastDays.empty()) {
-      const int temp =
-          static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.forecastDays.front().temperatureMaxC)));
-      m_tempMaxLabel->setText(std::format("{}{}", temp, unit));
-    } else {
-      m_tempMaxLabel->setText("--");
-    }
+  const auto* unit = m_weather->displayTemperatureUnit();
+  if (m_feelsLikeLabel != nullptr) {
+    const auto& apparent = snapshot.current.apparentTemperatureC;
+    m_feelsLikeLabel->setText(
+        apparent.has_value()
+            ? std::format("{}{}", static_cast<int>(std::lround(m_weather->displayTemperature(*apparent))), unit)
+            : std::string("--")
+    );
   }
   if (m_tempMinLabel != nullptr) {
     if (!snapshot.forecastDays.empty()) {
@@ -963,6 +1015,15 @@ void WeatherTab::sync(Renderer& renderer) {
       m_tempMinLabel->setText(std::format("{}{}", temp, unit));
     } else {
       m_tempMinLabel->setText("--");
+    }
+  }
+  if (m_tempMaxLabel != nullptr) {
+    if (!snapshot.forecastDays.empty()) {
+      const int temp =
+          static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.forecastDays.front().temperatureMaxC)));
+      m_tempMaxLabel->setText(std::format("{}{}", temp, unit));
+    } else {
+      m_tempMaxLabel->setText("--");
     }
   }
   if (m_elevationLabel != nullptr) {
@@ -996,18 +1057,24 @@ void WeatherTab::sync(Renderer& renderer) {
   }
 
   if (m_effectNode != nullptr) {
-    const EffectType newEffect = kTestEffect != EffectType::None
-        ? kTestEffect
-        : (m_weather->effectsEnabled() ? effectForWeatherCode(snapshot.current.weatherCode, snapshot.current.isDay)
-                                       : EffectType::None);
+    const WeatherEffectType newEffect = weatherEffectOverride().value_or(
+        m_weather->effectsEnabled() ? effectForWeatherCode(snapshot.current.weatherCode, snapshot.current.isDay)
+                                    : WeatherEffectType::None
+    );
     if (newEffect != m_activeEffect) {
       m_activeEffect = newEffect;
       m_shaderTime = 0.0F;
+      m_rainDrops.reset();
+      m_snowFlakes.reset();
     }
     m_effectNode->setEffectType(m_activeEffect);
     m_effectNode->setBgColor(colorForRole(ColorRole::Surface));
+    m_effectNode->setAccentColor(colorForRole(ColorRole::Primary));
     m_effectNode->setRadius(Style::scaledRadiusXl(contentScale()));
-    m_effectNode->setVisible(m_activeEffect != EffectType::None);
+    m_effectNode->setVisible(m_activeEffect != WeatherEffectType::None);
+    if (m_scrimNode != nullptr) {
+      m_scrimNode->setVisible(m_activeEffect != WeatherEffectType::None);
+    }
   }
 }
 
@@ -1163,7 +1230,7 @@ std::string WeatherTab::weekdayLabel(const std::string& isoDate) {
     return isoDate;
   }
 
-  const std::string weekday = formatStrftime("%A", tm);
+  std::string weekday = formatStrftime("%A", tm);
   if (weekday.empty()) {
     return isoDate;
   }
@@ -1171,40 +1238,59 @@ std::string WeatherTab::weekdayLabel(const std::string& isoDate) {
 }
 
 void WeatherTab::hideEffect() {
-  m_activeEffect = EffectType::None;
+  m_activeEffect = WeatherEffectType::None;
   m_shaderTime = 0.0F;
+  m_rainDrops.reset();
+  m_snowFlakes.reset();
   if (m_effectNode != nullptr) {
-    m_effectNode->setEffectType(EffectType::None);
+    m_effectNode->setEffectType(WeatherEffectType::None);
     m_effectNode->setVisible(false);
   }
+  if (m_scrimNode != nullptr) {
+    m_scrimNode->setVisible(false);
+  }
 }
 
-void WeatherTab::onFrameTick(float deltaMs) {
-  if (m_effectNode == nullptr || !m_effectNode->visible() || m_activeEffect == EffectType::None) {
+void WeatherTab::onFrameTick(float deltaMs, Renderer& renderer) {
+  if (m_effectNode == nullptr || !m_effectNode->visible() || m_activeEffect == WeatherEffectType::None) {
     return;
   }
-  m_shaderTime += deltaMs * 0.001F;
+  const float deltaSeconds = deltaMs * 0.001F;
+  m_shaderTime += deltaSeconds;
   m_effectNode->setTime(m_shaderTime);
+
+  if (m_activeEffect == WeatherEffectType::Rain) {
+    m_rainDrops.update(deltaSeconds);
+    m_effectNode->setParticles(renderer.textureManager(), m_rainDrops.particles());
+  } else if (m_activeEffect == WeatherEffectType::Snow) {
+    m_snowFlakes.update(deltaSeconds);
+    m_effectNode->setParticles(renderer.textureManager(), m_snowFlakes.particles());
+  }
 }
 
-EffectType WeatherTab::effectForWeatherCode(std::int32_t code, bool isDay) {
+WeatherEffectType WeatherTab::effectForWeatherCode(std::int32_t code, bool isDay) {
   if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
-    return EffectType::Rain;
+    return WeatherEffectType::Rain;
   }
   if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) {
-    return EffectType::Snow;
+    return WeatherEffectType::Snow;
   }
   if (code == 3) {
-    return EffectType::Cloud;
+    return WeatherEffectType::Cloud;
   }
   if (code >= 40 && code <= 49) {
-    return EffectType::Fog;
+    return WeatherEffectType::Fog;
   }
-  if (code == 0 && isDay) {
-    return EffectType::Sun;
+  if (code <= 2 && isDay) {
+    return WeatherEffectType::Sun;
   }
-  if (code == 0 && !isDay) {
-    return EffectType::Stars;
+  if (code <= 2 && !isDay) {
+    return WeatherEffectType::Stars;
   }
-  return EffectType::None;
+  // Interim stand-in: thunderstorms have no dedicated lightning effect yet, and
+  // a flat None card is strictly worse than the closest visual approximation.
+  if (code >= 95 && code <= 99) {
+    return WeatherEffectType::Rain;
+  }
+  return WeatherEffectType::None;
 }

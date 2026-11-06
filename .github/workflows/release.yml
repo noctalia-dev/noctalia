@@ -1,28 +1,49 @@
-name: Build and Release
+name: Release
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Check out release tag
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0 # needed so git describe/git log can see full history and tags
+          fetch-depth: 0 # release notes need full history and tags
+
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version=$(<VERSION)
+          if [[ -z "$version" || "$version" == *$'\n'* ]]; then
+            printf 'VERSION must contain one non-empty line.\n' >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_TAG" != "v$version" ]]; then
+            printf 'Tag %q does not match VERSION %q.\n' "$RELEASE_TAG" "$version" >&2
+            exit 1
+          fi
 
       - name: Create release archive
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
           mkdir -p ../noctalia-release
-          rsync -av \
+          rsync -a \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='nix' \
@@ -30,39 +51,43 @@ jobs:
             --exclude='flake.lock' \
             --exclude='result*' \
             ./ ../noctalia-release/
-          cd ..
-          tar -czf noctalia-${{ github.ref_name }}.tar.gz noctalia-release/
-          cp noctalia-${{ github.ref_name }}.tar.gz noctalia-latest.tar.gz
-          mv *.tar.gz ${{ github.workspace }}/
+          tar -C .. -czf "noctalia-${RELEASE_TAG}.tar.gz" noctalia-release/
+          cp "noctalia-${RELEASE_TAG}.tar.gz" noctalia-latest.tar.gz
 
       - name: Generate release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          # Find previous tag. Prefer the one before the current tag on the same history; fallback to the next most recent tag.
-          PREV_TAG=$(git describe --tags --abbrev=0 "${GITHUB_REF}^" 2>/dev/null || true)
-          if [ -z "${PREV_TAG:-}" ]; then
-            PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${GITHUB_REF_NAME}$" | head -n1 || true)
+          # Prefer the previous tag on the same history; otherwise the most recent other tag.
+          prev_tag=$(git describe --tags --abbrev=0 "${RELEASE_TAG}^" 2>/dev/null || true)
+          if [[ -z "$prev_tag" ]]; then
+            prev_tag=$(git tag --sort=-version:refname | grep -vxF "$RELEASE_TAG" | head -n1 || true)
           fi
-          if [ -z "${PREV_TAG:-}" ]; then
-            RANGE="$(git rev-list --max-parents=0 HEAD)..${GITHUB_REF_NAME}"
-            SINCE_LABEL="project start"
+          if [[ -z "$prev_tag" ]]; then
+            range="$(git rev-list --max-parents=0 HEAD)..${RELEASE_TAG}"
+            since_label="project start"
           else
-            RANGE="${PREV_TAG}..${GITHUB_REF_NAME}"
-            SINCE_LABEL="${PREV_TAG}"
+            range="${prev_tag}..${RELEASE_TAG}"
+            since_label="$prev_tag"
           fi
-          echo "# Release ${GITHUB_REF_NAME}" > release_notes.md
-          echo "" >> release_notes.md
-          echo "## Changes since ${SINCE_LABEL}" >> release_notes.md
-          echo "" >> release_notes.md
-          git log ${RANGE} --pretty=format:"- %s ([%h](https://github.com/${GITHUB_REPOSITORY}/commit/%H)) by %an" >> release_notes.md
-          echo "" >> release_notes.md
+          {
+            printf '# Release %s\n\n' "$RELEASE_TAG"
+            printf '## Changes since %s\n\n' "$since_label"
+            git log "$range" --pretty=format:"- %s ([%h](https://github.com/${GITHUB_REPOSITORY}/commit/%H)) by %an"
+            printf '\n'
+          } > release_notes.md
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            noctalia-${{ github.ref_name }}.tar.gz
-            noctalia-latest.tar.gz
-          body_path: release_notes.md
+      - name: Create GitHub release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          assets=("noctalia-${RELEASE_TAG}.tar.gz" noctalia-latest.tar.gz)
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            printf 'GitHub release %s already exists; refreshing assets only.\n' "$RELEASE_TAG"
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+            exit 0
+          fi
+          gh release create "$RELEASE_TAG" --verify-tag --notes-file release_notes.md "${assets[@]}"

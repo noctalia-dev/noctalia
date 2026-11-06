@@ -7,6 +7,8 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -33,6 +35,7 @@ namespace settings {
     // When set, replaces the default "empty clears, otherwise set" commit for settingPath.
     // Needed where the chosen option is not itself the stored value.
     std::function<void(const std::string&)> onSelect;
+    bool keepOpenOnSelect = false;
   };
 
   struct SettingsContentContext {
@@ -42,10 +45,11 @@ namespace settings {
     std::string_view searchQuery;
     std::string_view selectedSection;
     const BarConfig* selectedBar = nullptr;
-    const BarMonitorOverride* selectedMonitorOverride = nullptr;
+    std::string_view selectedMonitorOverride;
     bool showAdvanced = false;
     bool showOverriddenOnly = false;
     std::vector<SelectOption> batteryDeviceOptions;
+    std::vector<SelectOption> availableOutputs;
 
     std::string& editingWidgetName;
     std::string& editingCapsuleGroupId;
@@ -55,7 +59,12 @@ namespace settings {
     std::string& renamingWidgetName;
     std::string& pendingGestureKey;
     std::string& pendingGestureVerb;
-    std::string& actionsExpandedFor;
+    std::unordered_map<std::string, std::unordered_set<std::string>>& expandedWidgetGroups;
+    std::unordered_map<std::string, std::unordered_set<std::string>>& expandedGroupsByPage;
+    // Fixed page title row above the group pills, null when no host exists.
+    Flex* pageTitleRow = nullptr;
+    // Sticky pill row above the content scroll view, null when no host exists.
+    Flex* groupJumpRow = nullptr;
     // Bindable IPC commands for the gesture action picker: value = command, label = usage,
     // description = the command's --help text.
     std::vector<GestureActionOption> actionCatalog;
@@ -64,7 +73,9 @@ namespace settings {
     std::function<void()> requestContentRebuild;
     std::function<void()> resetContentScroll;
     std::function<void(Node*)> setScrollTarget;
+    std::function<void(const Node&)> scrollContentToTop;
     std::function<void(InputArea*)> focusArea;
+    std::function<void(const std::string&)> openBrowserUrl;
     std::function<void(const std::vector<std::string>&)> openBarWidgetAddPopup;
     std::function<void(SearchPickerOpenRequest request)> openSearchPickerPopup;
     std::function<void(std::vector<std::string>, ConfigOverrideValue)> setOverride;

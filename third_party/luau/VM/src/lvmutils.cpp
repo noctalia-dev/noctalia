@@ -7,18 +7,20 @@
 #include "lstate.h"
 #include "lstring.h"
 #include "ltable.h"
+#include "lvector.h"
 #include "lgc.h"
 #include "ldo.h"
 #include "lnumutils.h"
 
 #include <string.h>
 
-LUAU_FASTFLAG(LuauClosureUsageCounter)
-
 // limit for table tag-method chains (to avoid loops)
 #define MAXTAGLOOP 100
 
+LUAU_FASTFLAG(LuauFrozenMetaButterfly)
 LUAU_FASTFLAG(DebugLuauUserDefinedClassesRuntime)
+LUAU_FASTFLAG(LuauPromoteProto)
+LUAU_FASTFLAGVARIABLE(LuauCallLuauTm)
 
 const TValue* luaV_tonumber(const TValue* obj, TValue* n)
 {
@@ -49,12 +51,51 @@ int luaV_tostring(lua_State* L, StkId obj)
     }
 }
 
-const float* luaV_tovector(const TValue* obj)
+const LUA_VECTOR_TYPE* luaV_tovector(const TValue* obj)
 {
     if (ttisvector(obj))
         return vvalue(obj);
 
     return nullptr;
+}
+
+static LUAU_FORCEINLINE void callTMluau(lua_State* L, StkId top, Closure* ccl, int nresults)
+{
+    if (++L->nCcalls >= LUAI_MAXCCALLS)
+        luaD_checkCstack(L);
+
+    ptrdiff_t funcoffset = savestack(L, top);
+    Proto* p = getproto(ccl);
+
+    CallInfo* ci = incr_ci(L);
+    ci->func = top;
+    ci->p = p;
+    ci->base = top + 1;
+    ci->top = L->top + ccl->stacksize;
+    ci->savedpc = p->code;
+    ci->flags = LUA_CALLINFO_RETURN;
+    ci->nresults = nresults;
+
+    L->base = ci->base;
+
+    luaD_checkstackfornewci(L, ccl->stacksize); // clobbers 'top'
+    LUAU_ASSERT(ci->top <= L->stack_last);
+
+    StkId argi = L->top;
+    StkId argend = L->base + p->numparams;
+    while (argi < argend)
+        setnilvalue(argi++);
+    L->top = p->is_vararg ? argi : ci->top;
+
+    if (p->exectarget != 0 && p->execdata)
+        ci->flags |= LUA_CALLINFO_NATIVE;
+
+    luau_execute(L);
+
+    // resume_continue is not handled here as metamethods are not yieldable
+
+    L->top = restorestack(L, funcoffset) + nresults;
+    L->nCcalls--;
 }
 
 static StkId callTMres(lua_State* L, StkId res, const TValue* f, const TValue* p1, const TValue* p2)
@@ -67,20 +108,47 @@ static StkId callTMres(lua_State* L, StkId res, const TValue* f, const TValue* p
     // * we cannot use savestack/restorestack because the arguments are sometimes on the C++ stack
     // * during stack reallocation all of the allocated stack is copied (even beyond stack_last) so these
     // values will be preserved even if they go past stack_last
-    LUAU_ASSERT((L->top + 3) < (L->stack + L->stacksize));
-    setobj2s(L, L->top, f);      // push function
-    setobj2s(L, L->top + 1, p1); // 1st argument
-    setobj2s(L, L->top + 2, p2); // 2nd argument
-    luaD_checkstack(L, 3);
-    L->top += 3;
-    luaD_call(L, L->top - 3, 1);
+    if (FFlag::LuauCallLuauTm)
+    {
+        StkId top = L->top;
+        LUAU_ASSERT((top + 3) < (L->stack + L->stacksize));
+        setobj2s(L, top, f);      // push function
+        setobj2s(L, top + 1, p1); // 1st argument
+        setobj2s(L, top + 2, p2); // 2nd argument
+
+        // fast-path for Luau to Luau calls
+        if (L->isactive && isLua(L->ci) && ttisfunction(top) && !clvalue(top)->isC)
+        {
+            L->top += 3;
+            callTMluau(L, top, clvalue(top), 1);
+        }
+        else
+        {
+            luaD_checkstack(L, 3);
+            StkId func = L->top;
+            L->top += 3;
+            luaD_call(L, func, 1);
+        }
+    }
+    else
+    {
+        LUAU_ASSERT((L->top + 3) < (L->stack + L->stacksize));
+        setobj2s(L, L->top, f);      // push function
+        setobj2s(L, L->top + 1, p1); // 1st argument
+        setobj2s(L, L->top + 2, p2); // 2nd argument
+        luaD_checkstack(L, 3);
+        L->top += 3;
+        luaD_call(L, L->top - 3, 1);
+    }
+
     res = restorestack(L, result);
     L->top--;
     setobj2s(L, res, L->top);
     return res;
 }
 
-static void callTM(lua_State* L, const TValue* f, const TValue* p1, const TValue* p2, const TValue* p3)
+// There is only one call location for this function, but inlining it has been measured to have a negative effect on luaV_settable
+static LUAU_NOINLINE void callTM(lua_State* L, const TValue* f, const TValue* p1, const TValue* p2, const TValue* p3)
 {
     // using stack room beyond top is technically safe here, but for very complicated reasons:
     // * The stack guarantees EXTRA_STACK room beyond stack_last (see luaD_reallocstack) will be allocated
@@ -89,14 +157,40 @@ static void callTM(lua_State* L, const TValue* f, const TValue* p1, const TValue
     // * we cannot use savestack/restorestack because the arguments are sometimes on the C++ stack
     // * during stack reallocation all of the allocated stack is copied (even beyond stack_last) so these
     // values will be preserved even if they go past stack_last
-    LUAU_ASSERT((L->top + 4) < (L->stack + L->stacksize));
-    setobj2s(L, L->top, f);      // push function
-    setobj2s(L, L->top + 1, p1); // 1st argument
-    setobj2s(L, L->top + 2, p2); // 2nd argument
-    setobj2s(L, L->top + 3, p3); // 3th argument
-    luaD_checkstack(L, 4);
-    L->top += 4;
-    luaD_call(L, L->top - 4, 0);
+    if (FFlag::LuauCallLuauTm)
+    {
+        StkId top = L->top;
+        LUAU_ASSERT((top + 4) < (L->stack + L->stacksize));
+        setobj2s(L, top, f);      // push function
+        setobj2s(L, top + 1, p1); // 1st argument
+        setobj2s(L, top + 2, p2); // 2nd argument
+        setobj2s(L, top + 3, p3); // 3th argument
+
+        // fast-path for Luau to Luau calls
+        if (L->isactive && isLua(L->ci) && ttisfunction(top) && !clvalue(top)->isC)
+        {
+            L->top += 4;
+            callTMluau(L, top, clvalue(top), 0);
+        }
+        else
+        {
+            luaD_checkstack(L, 4);
+            StkId func = L->top;
+            L->top += 4;
+            luaD_call(L, func, 0);
+        }
+    }
+    else
+    {
+        LUAU_ASSERT((L->top + 4) < (L->stack + L->stacksize));
+        setobj2s(L, L->top, f);      // push function
+        setobj2s(L, L->top + 1, p1); // 1st argument
+        setobj2s(L, L->top + 2, p2); // 2nd argument
+        setobj2s(L, L->top + 3, p3); // 3th argument
+        luaD_checkstack(L, 4);
+        L->top += 4;
+        luaD_call(L, L->top - 4, 0);
+    }
 }
 
 void luaV_gettable(lua_State* L, const TValue* t, TValue* key, StkId val)
@@ -114,12 +208,30 @@ void luaV_gettable(lua_State* L, const TValue* t, TValue* key, StkId val)
             if (res != luaO_nilobject)
                 L->cachedslot = gval2slot(h, res); // remember slot to accelerate future lookups
 
-            if (!ttisnil(res) // result is no nil?
-                || (tm = fasttm(L, h->metatable, TM_INDEX)) == NULL)
-            { // or no TM?
-                setobj2s(L, val, res);
-                return;
+            if (FFlag::LuauFrozenMetaButterfly)
+            {
+                if (LUAU_LIKELY(!ttisnil(res)))
+                {
+                    setobj2s(L, val, res);
+                    return;
+                }
+
+                if ((tm = fasttm(L, h->metatable, TM_INDEX)) == NULL)
+                {
+                    setnilvalue(val);
+                    return;
+                }
             }
+            else
+            {
+                if (!ttisnil(res) // result is no nil?
+                    || (tm = fasttm(L, h->metatable, TM_INDEX)) == NULL)
+                { // or no TM?
+                    setobj2s(L, val, res);
+                    return;
+                }
+            }
+
             // t isn't a table, so see if it has an INDEX meta-method to look up the key with
         }
         else if (LUAU_UNLIKELY(FFlag::DebugLuauUserDefinedClassesRuntime && ttisobject(t)))
@@ -132,8 +244,7 @@ void luaV_gettable(lua_State* L, const TValue* t, TValue* key, StkId val)
             if (ttisnil(offsettval))
                 luaG_missingmembererror(L, t, key);
 
-            LUAU_ASSERT(ttisnumber(offsettval));
-            int offset = int(nvalue(offsettval));
+            const uint32_t offset = uint32_t(nvalue(offsettval));
             setobj2s(L, val, luaR_lookupmemberatoffset(inst, offset));
             return;
         }
@@ -147,9 +258,8 @@ void luaV_gettable(lua_State* L, const TValue* t, TValue* key, StkId val)
             if (ttisnil(res))
                 luaG_missingmembererror(L, t, key);
 
-            LUAU_ASSERT(ttisnumber(res));
-            int offset = int(nvalue(res));
-            LUAU_ASSERT(offset >= 0 && offset < lco->numberofallmembers);
+            const uint32_t offset = uint32_t(nvalue(res));
+            LUAU_ASSERT(offset < lco->numberofallmembers);
 
             // This is the case where we try to access an instance member on a
             // class object, for example:
@@ -216,8 +326,8 @@ void luaV_settable(lua_State* L, const TValue* t, TValue* key, StkId val)
             const TValue* offset = luaH_get(inst->lclass->memberstooffset, key);
             if (ttisnil(offset))
                 luaG_missingmembererror(L, t, key);
-            const int offsetnum = int(nvalue(offset));
-            LUAU_ASSERT(offsetnum >= 0 && offsetnum < inst->lclass->numberofallmembers);
+            const uint32_t offsetnum = uint32_t(nvalue(offset));
+            LUAU_ASSERT(offsetnum < inst->lclass->numberofallmembers);
             if (offsetnum >= inst->lclass->numberofinstancemembers)
                 luaG_indexerror(L, t, key);
             setobj2class(L, &inst->members[offsetnum], val);
@@ -367,19 +477,10 @@ int luaV_equalval(lua_State* L, const TValue* t1, const TValue* t2)
         return classvalue(t1) == classvalue(t2);
     case LUA_TOBJECT:
     {
-        // We follow roughly the same rules as metatables, except we require
-        // that the two instances have *exactly* the same class object. This
-        // is not a strict requirement for comparison metamethods.
-        LuauObject* t1inst = objectvalue(t1);
-        LuauObject* t2inst = objectvalue(t2);
-        // Class instances with differing class objects are always inequal.
-        if (t1inst->lclass != t2inst->lclass)
-            return false;
-        // Otherwise, check if `__eq` exists and use that
-        tm = luaT_gettmbyobj(L, t1, TM_EQ);
-        if (ttisnil(tm))
-            // If it doesn't, then check physical equality
-            return t1inst == t2inst;
+        // We follow the same rules as metatables.
+        tm = get_compTM(L, objectvalue(t1)->lclass->instancemetatable, objectvalue(t2)->lclass->instancemetatable, TM_EQ);
+        if (!tm)
+            return objectvalue(t1) == objectvalue(t2);
         break; // will try TM
     }
     case LUA_TTABLE:
@@ -470,36 +571,37 @@ void luaV_doarithimpl(lua_State* L, StkId ra, const TValue* rb, const TValue* rc
     // v*v  s*v  v*s   (mul)
     // v/v  s/v  v/s   (div)
     // v//v s//v v//s  (floor div)
-    const float* vb = ttisvector(rb) ? vvalue(rb) : nullptr;
-    const float* vc = ttisvector(rc) ? vvalue(rc) : nullptr;
+    const LUA_VECTOR_TYPE* vb = ttisvector(rb) ? vvalue(rb) : nullptr;
+    const LUA_VECTOR_TYPE* vc = ttisvector(rc) ? vvalue(rc) : nullptr;
 
     if (vb && vc)
     {
         switch (op)
         {
         case TM_ADD:
-            setvvalue(ra, vb[0] + vc[0], vb[1] + vc[1], vb[2] + vc[2], vb[3] + vc[3]);
+            setvvalue(L, ra, vb[0] + vc[0], vb[1] + vc[1], vb[2] + vc[2], vb[3] + vc[3]);
             return;
         case TM_SUB:
-            setvvalue(ra, vb[0] - vc[0], vb[1] - vc[1], vb[2] - vc[2], vb[3] - vc[3]);
+            setvvalue(L, ra, vb[0] - vc[0], vb[1] - vc[1], vb[2] - vc[2], vb[3] - vc[3]);
             return;
         case TM_MUL:
-            setvvalue(ra, vb[0] * vc[0], vb[1] * vc[1], vb[2] * vc[2], vb[3] * vc[3]);
+            setvvalue(L, ra, vb[0] * vc[0], vb[1] * vc[1], vb[2] * vc[2], vb[3] * vc[3]);
             return;
         case TM_DIV:
-            setvvalue(ra, vb[0] / vc[0], vb[1] / vc[1], vb[2] / vc[2], vb[3] / vc[3]);
+            setvvalue(L, ra, vb[0] / vc[0], vb[1] / vc[1], vb[2] / vc[2], vb[3] / vc[3]);
             return;
         case TM_IDIV:
             setvvalue(
+                L,
                 ra,
-                float(luai_numidiv(vb[0], vc[0])),
-                float(luai_numidiv(vb[1], vc[1])),
-                float(luai_numidiv(vb[2], vc[2])),
-                float(luai_numidiv(vb[3], vc[3]))
+                LUA_VECTOR_TYPE(luai_numidiv(vb[0], vc[0])),
+                LUA_VECTOR_TYPE(luai_numidiv(vb[1], vc[1])),
+                LUA_VECTOR_TYPE(luai_numidiv(vb[2], vc[2])),
+                LUA_VECTOR_TYPE(luai_numidiv(vb[3], vc[3]))
             );
             return;
         case TM_UNM:
-            setvvalue(ra, -vb[0], -vb[1], -vb[2], -vb[3]);
+            setvvalue(L, ra, -vb[0], -vb[1], -vb[2], -vb[3]);
             return;
         default:
             break;
@@ -511,19 +613,24 @@ void luaV_doarithimpl(lua_State* L, StkId ra, const TValue* rb, const TValue* rc
 
         if (c)
         {
-            float nc = cast_to(float, nvalue(c));
+            LUA_VECTOR_TYPE nc = cast_to(LUA_VECTOR_TYPE, nvalue(c));
 
             switch (op)
             {
             case TM_MUL:
-                setvvalue(ra, vb[0] * nc, vb[1] * nc, vb[2] * nc, vb[3] * nc);
+                setvvalue(L, ra, vb[0] * nc, vb[1] * nc, vb[2] * nc, vb[3] * nc);
                 return;
             case TM_DIV:
-                setvvalue(ra, vb[0] / nc, vb[1] / nc, vb[2] / nc, vb[3] / nc);
+                setvvalue(L, ra, vb[0] / nc, vb[1] / nc, vb[2] / nc, vb[3] / nc);
                 return;
             case TM_IDIV:
                 setvvalue(
-                    ra, float(luai_numidiv(vb[0], nc)), float(luai_numidiv(vb[1], nc)), float(luai_numidiv(vb[2], nc)), float(luai_numidiv(vb[3], nc))
+                    L,
+                    ra,
+                    LUA_VECTOR_TYPE(luai_numidiv(vb[0], nc)),
+                    LUA_VECTOR_TYPE(luai_numidiv(vb[1], nc)),
+                    LUA_VECTOR_TYPE(luai_numidiv(vb[2], nc)),
+                    LUA_VECTOR_TYPE(luai_numidiv(vb[3], nc))
                 );
                 return;
             default:
@@ -537,19 +644,24 @@ void luaV_doarithimpl(lua_State* L, StkId ra, const TValue* rb, const TValue* rc
 
         if (b)
         {
-            float nb = cast_to(float, nvalue(b));
+            LUA_VECTOR_TYPE nb = cast_to(LUA_VECTOR_TYPE, nvalue(b));
 
             switch (op)
             {
             case TM_MUL:
-                setvvalue(ra, nb * vc[0], nb * vc[1], nb * vc[2], nb * vc[3]);
+                setvvalue(L, ra, nb * vc[0], nb * vc[1], nb * vc[2], nb * vc[3]);
                 return;
             case TM_DIV:
-                setvvalue(ra, nb / vc[0], nb / vc[1], nb / vc[2], nb / vc[3]);
+                setvvalue(L, ra, nb / vc[0], nb / vc[1], nb / vc[2], nb / vc[3]);
                 return;
             case TM_IDIV:
                 setvvalue(
-                    ra, float(luai_numidiv(nb, vc[0])), float(luai_numidiv(nb, vc[1])), float(luai_numidiv(nb, vc[2])), float(luai_numidiv(nb, vc[3]))
+                    L,
+                    ra,
+                    LUA_VECTOR_TYPE(luai_numidiv(nb, vc[0])),
+                    LUA_VECTOR_TYPE(luai_numidiv(nb, vc[1])),
+                    LUA_VECTOR_TYPE(luai_numidiv(nb, vc[2])),
+                    LUA_VECTOR_TYPE(luai_numidiv(nb, vc[3]))
                 );
                 return;
             default:
@@ -671,19 +783,13 @@ LUAU_NOINLINE void luaV_callTM(lua_State* L, int nparams, int res)
 
     CallInfo* ci = incr_ci(L);
     ci->func = fun;
+    ci->p = nullptr;
     ci->base = fun + 1;
     ci->top = top + LUA_MINSTACK;
     ci->savedpc = NULL;
     ci->flags = 0;
     ci->nresults = (res >= 0);
     LUAU_ASSERT(ci->top <= L->stack_last);
-
-    Closure* ccl;
-    if (FFlag::LuauClosureUsageCounter)
-    {
-        ccl = clvalue(fun);
-        ccl->usage++;
-    }
 
     LUAU_ASSERT(ttisfunction(ci->func));
     LUAU_ASSERT(clvalue(ci->func)->isC);
@@ -698,12 +804,6 @@ LUAU_NOINLINE void luaV_callTM(lua_State* L, int nparams, int res)
     // ci is our callinfo, cip is our parent
     // note that we read L->ci again since it may have been reallocated by the call
     CallInfo* cip = L->ci - 1;
-
-    if (FFlag::LuauClosureUsageCounter)
-    {
-        LUAU_ASSERT(ccl->usage > 0);
-        ccl->usage--;
-    }
 
     // copy return value into parent stack
     if (res >= 0)

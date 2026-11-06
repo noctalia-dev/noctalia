@@ -23,7 +23,7 @@ namespace scripting {
     std::string suggestion; // nearest declared key for ReadUndeclared, else empty
 
     // Every finding except DeclaredUnread is a real bug and fails the lint.
-    [[nodiscard]] bool isError() const noexcept { return kind != Kind::DeclaredUnread; }
+    bool isError() const noexcept { return kind != Kind::DeclaredUnread; }
   };
 
   struct PluginLintReport {
@@ -32,12 +32,12 @@ namespace scripting {
     std::string error; // hard failure (unreadable/invalid manifest); findings then empty
     std::vector<PluginLintFinding> findings;
 
-    [[nodiscard]] bool ok() const noexcept;
+    bool ok() const noexcept;
   };
 
   // Lint the plugin whose plugin.toml lives in `dir`: cross-check declared settings
   // against `getConfig` calls in each entry and its statically required modules. Pure (no live state).
-  [[nodiscard]] PluginLintReport lintPluginDir(const std::filesystem::path& dir);
+  PluginLintReport lintPluginDir(const std::filesystem::path& dir);
 
 } // namespace scripting
 

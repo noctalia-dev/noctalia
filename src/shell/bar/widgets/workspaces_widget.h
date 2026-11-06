@@ -19,6 +19,7 @@ class ConfigService;
 class Image;
 class InputArea;
 class Label;
+class WorkspacesWidgetTestAccess;
 
 enum class WorkspacesStyle : std::uint8_t {
   Regular,
@@ -37,15 +38,19 @@ public:
     WorkspacesStyle style = WorkspacesStyle::Regular;
     WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
     bool showLabels = true;
+    bool showIcons = true;
+    bool colorizeIcons = false;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec urgentColor = colorSpecFromRole(ColorRole::Error);
+    ColorSpec separatorColor = colorSpecFromRole(ColorRole::OnSurface);
     bool changeColorOnHover = true;
     std::size_t maxLabelChars = 1;
     bool labelsOnlyWhenOccupied = false;
     bool hideWhenEmpty = false;
-    bool showAllOutputs = false;
+    std::vector<std::string> monitors;
+    std::string separator;
     float pillScale = 1.0F;
     float activePillSize = 2.2F;
     float inactivePillSize = 1.0F;
@@ -56,9 +61,11 @@ public:
   ~WorkspacesWidget() override;
 
   void create() override;
-  [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
+  bool wantsBarHoverHighlight() const noexcept override { return false; }
 
 private:
+  friend class WorkspacesWidgetTestAccess;
+
   struct Item;
 
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
@@ -75,34 +82,39 @@ private:
   void applyItemLayouts();
   void snapshotItemsForRebuild();
   void scheduleRebuildFromSnapshot();
-  [[nodiscard]] float workspacePillRadius(float width, float height) const noexcept;
-  [[nodiscard]] float workspaceMainAxisMinWidth(float baseSize, bool active) const noexcept;
+  float workspacePillRadius(float width, float height) const noexcept;
+  float workspaceMainAxisMinWidth(float baseSize, bool active) const noexcept;
 
-  [[nodiscard]] static std::optional<std::size_t> numericWorkspaceId(const Workspace& workspace);
-  [[nodiscard]] std::string workspaceLabel(const Workspace& workspace, std::size_t displayIndex) const;
-  [[nodiscard]] std::string activeWindowAppId() const;
-  [[nodiscard]] std::string resolveIconPath(const std::string& appId);
-  [[nodiscard]] float focusedPillIconSize() const noexcept;
-  [[nodiscard]] float focusedPillDotSize() const noexcept;
-  [[nodiscard]] float focusedPillActiveMainAxisSize(
+  static std::optional<std::size_t> numericWorkspaceId(const Workspace& workspace);
+  std::string workspaceLabel(const Workspace& workspace, std::size_t displayIndex) const;
+  // The workspace name, unless the pill already shows it in full. Empty means no tooltip.
+  static std::string workspaceTooltipText(const Workspace& workspace, const std::string& label, bool showLabel);
+  std::string activeWindowAppId() const;
+  std::string resolveIconPath(const std::string& appId);
+  float focusedPillIconSize() const noexcept;
+  float focusedPillDotSize() const noexcept;
+  float focusedPillActiveMainAxisSize(
       float textWidth, float textHeight, bool showLabel, bool hasIcon, float baseSize, float padding
   ) const noexcept;
   void buildDesktopIconIndex();
   void syncActiveWindowIcon(Renderer& renderer, Item& item);
-  [[nodiscard]] bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
-  [[nodiscard]] bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
-  [[nodiscard]] bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
-  [[nodiscard]] bool isWorkspaceHidden(const Workspace& workspace) const noexcept;
+  bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
+  bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
+  bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
+  // FocusHint is the only style that draws the focused app icon.
+  bool showsActiveIcon() const noexcept { return isFocusHint() && m_showIcons; }
+  bool isWorkspaceHidden(const Workspace& workspace) const noexcept;
   void syncWidgetVisibility(bool showWidget);
   void recalculateItemMetrics(Renderer& renderer, Item& item, const Workspace& workspace, std::size_t displayIndex);
   void ensureItemLabel(Renderer& renderer, Item& item, const Workspace& workspace);
+  void syncItemTooltip(Item& item, const Workspace& workspace);
   void setWorkspaceClickHandler(InputArea& area, wl_output* output, const Workspace& workspace);
   void applyItemVisualStyle(Item& item);
   void updateHoverOverlay();
-  [[nodiscard]] bool shouldHoldPreviousVisualWorkspace(
+  bool shouldHoldPreviousVisualWorkspace(
       const Workspace& previousVisualWorkspace, const Workspace& currentWorkspace
   ) const noexcept;
-  [[nodiscard]] bool releaseHeldVisualStyles();
+  bool releaseHeldVisualStyles();
 
   struct WorkspaceState {
     Workspace workspace;
@@ -114,11 +126,13 @@ private:
     Box* indicator = nullptr;
     Label* text = nullptr;
     Image* icon = nullptr;
+    Label* separator = nullptr;
     Workspace workspace;
     Workspace visualWorkspace;
     wl_output* output = nullptr;
     std::string key;
     std::string label;
+    std::string tooltip;
     std::string iconPath;
     bool showLabel = false;
     bool showIcon = false;
@@ -147,11 +161,11 @@ private:
     float opacity = 1.0F;
   };
 
-  [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace) const;
-  [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace) const;
-  [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
-  [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
-  [[nodiscard]] bool isFocusedOutput() const;
+  bool workspaceUsesFocusedStyle(const Workspace& workspace, wl_output* output) const;
+  ColorSpec workspaceFillColor(const Workspace& workspace, wl_output* output) const;
+  ColorSpec workspaceTextColor(const Workspace& workspace, wl_output* output) const;
+  static ColorRole onRoleForFill(ColorRole fill);
+  static ColorSpec readableColorForFill(const ColorSpec& fill);
 
   CompositorPlatform& m_platform;
   ConfigService& m_configService;
@@ -160,16 +174,18 @@ private:
   bool m_showLabels = true;
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
+  bool m_showIcons = true;
+  bool m_colorizeIcons = false;
   bool m_hideWhenEmpty = false;
-  bool m_showAllOutputs = false;
+  std::vector<std::string> m_monitors;
+  std::string m_separator;
   float m_pillScale = 1.0F;
   float m_activePillSize = 2.2F;
   float m_inactivePillSize = 1.0F;
   WorkspacesStyle m_style = WorkspacesStyle::Regular;
   bool m_focusedOutputOnly = false;
   bool m_changeColorOnHover = true;
-  bool m_wasFocusedOutput = true;
-  bool m_activeUsesFocusedColor = true;
+  wl_output* m_lastFocusedOutput = nullptr;
   std::string m_cachedActiveWindowAppId;
   IconResolver m_iconResolver;
   std::unordered_map<std::string, std::string> m_appIcons;
@@ -185,6 +201,7 @@ private:
 
   float m_gap = 0.0F;
   float m_indicatorHeight = 0.0F;
+  float m_crossSize = 0.0F;
   Box* m_hoverOverlay = nullptr;
   float m_hoverProgress = 0.0F;
   InputArea* m_hoveredArea = nullptr;
@@ -195,4 +212,5 @@ private:
   ColorSpec m_occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec m_emptyColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec m_urgentColor = colorSpecFromRole(ColorRole::Error);
+  ColorSpec m_separatorColor = colorSpecFromRole(ColorRole::OnSurface);
 };

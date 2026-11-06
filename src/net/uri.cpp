@@ -5,11 +5,13 @@
 namespace {
 
   int hexValue(char ch) {
-    if (ch >= '0' && ch <= '9')
+    if (ch >= '0' && ch <= '9') {
       return ch - '0';
+    }
     ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    if (ch >= 'a' && ch <= 'f')
+    if (ch >= 'a' && ch <= 'f') {
       return 10 + (ch - 'a');
+    }
     return -1;
   }
 
@@ -62,8 +64,9 @@ namespace uri {
   bool isRemoteUrl(std::string_view url) { return url.starts_with("https://") || url.starts_with("http://"); }
 
   std::string normalizeFileUrl(std::string_view url) {
-    if (url.empty() || isRemoteUrl(url))
+    if (url.empty() || isRemoteUrl(url)) {
       return {};
+    }
     std::string path(url);
     constexpr std::string_view prefix = "file://";
     if (path.starts_with(prefix)) {
@@ -74,8 +77,9 @@ namespace uri {
         const auto firstSlash = path.find('/');
         path = firstSlash == std::string::npos ? std::string{} : path.substr(firstSlash);
       }
+      return decodeComponent(path);
     }
-    return decodeComponent(path);
+    return path;
   }
 
 } // namespace uri

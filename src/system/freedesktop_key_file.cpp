@@ -1,0 +1,225 @@
+#include "system/freedesktop_key_file.h"
+
+#include <cctype>
+#include <format>
+#include <fstream>
+#include <iterator>
+#include <string_view>
+
+namespace {
+
+  std::string_view trimView(std::string_view value) {
+    while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())) != 0) {
+      value.remove_prefix(1);
+    }
+    while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back())) != 0) {
+      value.remove_suffix(1);
+    }
+    return value;
+  }
+
+  bool isContinuation(unsigned char value) { return (value & 0xC0U) == 0x80U; }
+
+  bool validUtf8(std::string_view value) {
+    for (std::size_t i = 0; i < value.size();) {
+      const auto first = static_cast<unsigned char>(value[i]);
+      if (first <= 0x7FU) {
+        ++i;
+        continue;
+      }
+
+      std::size_t sequenceLength = 0;
+      unsigned char secondMin = 0x80U;
+      unsigned char secondMax = 0xBFU;
+      if (first >= 0xC2U && first <= 0xDFU) {
+        sequenceLength = 2;
+      } else if (first == 0xE0U) {
+        sequenceLength = 3;
+        secondMin = 0xA0U;
+      } else if (first >= 0xE1U && first <= 0xECU) {
+        sequenceLength = 3;
+      } else if (first == 0xEDU) {
+        sequenceLength = 3;
+        secondMax = 0x9FU;
+      } else if (first >= 0xEEU && first <= 0xEFU) {
+        sequenceLength = 3;
+      } else if (first == 0xF0U) {
+        sequenceLength = 4;
+        secondMin = 0x90U;
+      } else if (first >= 0xF1U && first <= 0xF3U) {
+        sequenceLength = 4;
+      } else if (first == 0xF4U) {
+        sequenceLength = 4;
+        secondMax = 0x8FU;
+      } else {
+        return false;
+      }
+
+      if (i + sequenceLength > value.size()) {
+        return false;
+      }
+      const auto second = static_cast<unsigned char>(value[i + 1]);
+      if (second < secondMin || second > secondMax) {
+        return false;
+      }
+      for (std::size_t offset = 2; offset < sequenceLength; ++offset) {
+        if (!isContinuation(static_cast<unsigned char>(value[i + offset]))) {
+          return false;
+        }
+      }
+      i += sequenceLength;
+    }
+    return true;
+  }
+
+  freedesktop::ParseError makeError(freedesktop::ParseFailure reason, std::string_view message) {
+    return {
+        .reason = reason,
+        .message = std::string(message),
+    };
+  }
+
+} // namespace
+
+namespace freedesktop {
+
+  const KeyFile::Section* KeyFile::section(std::string_view name) const {
+    const auto it = m_sections.find(name);
+    return it == m_sections.end() ? nullptr : &it->second;
+  }
+
+  std::optional<std::string_view> KeyFile::value(std::string_view sectionName, std::string_view key) const {
+    const Section* values = section(sectionName);
+    if (values == nullptr) {
+      return std::nullopt;
+    }
+    const auto it = values->find(key);
+    return it == values->end() ? std::nullopt : std::optional<std::string_view>(it->second);
+  }
+
+  std::expected<ParseResult, ParseError> parseKeyFile(const std::filesystem::path& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+      std::error_code error;
+      if (!std::filesystem::exists(path, error) && !error) {
+        return std::unexpected(makeError(ParseFailure::NotFound, "file does not exist"));
+      }
+      return std::unexpected(makeError(ParseFailure::ReadError, "cannot open file"));
+    }
+
+    const std::string contents{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+    if (file.bad()) {
+      return std::unexpected(makeError(ParseFailure::ReadError, "I/O error"));
+    }
+    return parseKeyFileContents(contents);
+  }
+
+  std::expected<ParseResult, ParseError> parseKeyFileContents(std::string_view contents) {
+    ParseResult result;
+    std::string currentSection;
+    std::size_t lineNumber = 0;
+    while (!contents.empty()) {
+      const std::size_t newline = contents.find('\n');
+      std::string line(contents.substr(0, newline));
+      contents.remove_prefix(newline == std::string_view::npos ? contents.size() : newline + 1);
+      ++lineNumber;
+      if (lineNumber == 1 && line.starts_with("\xEF\xBB\xBF")) {
+        line.erase(0, 3);
+      }
+      if (!validUtf8(line)) {
+        return std::unexpected(
+            makeError(ParseFailure::InvalidEncoding, "invalid UTF-8 at line " + std::to_string(lineNumber))
+        );
+      }
+
+      const std::string_view trimmed = trimView(line);
+      if (trimmed.empty() || trimmed.front() == '#') {
+        continue;
+      }
+
+      if (trimmed.front() == '[') {
+        if (trimmed.size() < 3 || trimmed.back() != ']') {
+          result.diagnostics.push_back({lineNumber, "malformed section header"});
+          currentSection.clear();
+          continue;
+        }
+        const std::string_view sectionName = trimView(trimmed.substr(1, trimmed.size() - 2));
+        if (sectionName.empty()) {
+          result.diagnostics.push_back({lineNumber, "empty section name"});
+          currentSection.clear();
+          continue;
+        }
+        const auto [it, inserted] = result.file.m_sections.emplace(std::string(sectionName), KeyFile::Section{});
+        if (inserted) {
+          result.file.m_sectionOrder.push_back(it->first);
+        } else {
+          result.diagnostics.push_back({lineNumber, "duplicate section '" + std::string(sectionName) + "'"});
+        }
+        currentSection = it->first;
+        continue;
+      }
+
+      const std::size_t equals = trimmed.find('=');
+      if (equals == std::string_view::npos) {
+        result.diagnostics.push_back({lineNumber, "malformed assignment"});
+        continue;
+      }
+      if (currentSection.empty()) {
+        result.diagnostics.push_back({lineNumber, "assignment outside a section"});
+        continue;
+      }
+
+      const std::string key(trimView(trimmed.substr(0, equals)));
+      if (key.empty()) {
+        result.diagnostics.push_back({lineNumber, "empty key"});
+        continue;
+      }
+      const std::string value(trimView(trimmed.substr(equals + 1)));
+      auto& values = result.file.m_sections.at(currentSection);
+      const auto [it, inserted] = values.insert_or_assign(key, value);
+      if (!inserted) {
+        result.diagnostics.push_back(
+            {lineNumber, std::format("duplicate key '{}' in section '{}'", key, currentSection)}
+        );
+      }
+      (void)it;
+    }
+
+    return result;
+  }
+
+  std::string unescapeValue(std::string_view value) {
+    std::string out;
+    out.reserve(value.size());
+    for (std::size_t i = 0; i < value.size(); ++i) {
+      if (value[i] != '\\' || i + 1 == value.size()) {
+        out.push_back(value[i]);
+        continue;
+      }
+      switch (value[++i]) {
+      case 's':
+        out.push_back(' ');
+        break;
+      case 'n':
+        out.push_back('\n');
+        break;
+      case 't':
+        out.push_back('\t');
+        break;
+      case 'r':
+        out.push_back('\r');
+        break;
+      case '\\':
+        out.push_back('\\');
+        break;
+      default:
+        // Unknown escapes are kept verbatim, as GLib does.
+        out.push_back('\\');
+        out.push_back(value[i]);
+        break;
+      }
+    }
+    return out;
+  }
+
+} // namespace freedesktop

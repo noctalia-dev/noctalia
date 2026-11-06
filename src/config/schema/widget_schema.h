@@ -41,6 +41,12 @@ namespace noctalia::config::schema {
     std::optional<double> maxValue;
     std::optional<double> step;
     std::vector<std::string> enumValues; // allowed values when type == Enum
+    // An unset value inherits the owning bar's same-named key (its monitor override first), so presence is
+    // meaningful: an explicit value equal to `defaultValue` is still an override. Bool settings only.
+    bool inheritsFromBar = false;
+    // A configured value equal to `defaultValue` is kept rather than pruned as redundant (used when
+    // omitting the setting falls back to another config setting instead of `defaultValue`).
+    bool defaultValueCountsAsOverride = false;
   };
 
   using WidgetSettingSchema = std::vector<WidgetSettingField>;

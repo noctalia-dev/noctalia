@@ -2,10 +2,14 @@
 
 #include "shell/settings/settings_registry.h"
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class Button;
@@ -25,6 +29,7 @@ namespace settings {
     bool showAdvanced = false;
     bool showOverriddenOnly = false;
     std::vector<SelectOption> batteryDeviceOptions;
+    std::vector<SelectOption> availableOutputs;
     std::string& editingWidgetName;
     std::string& editingCapsuleGroupId;
     std::vector<std::string>& selectedLaneWidgets;
@@ -35,7 +40,8 @@ namespace settings {
         makeGestureActionRow;
     std::string& pendingGestureKey;
     std::string& pendingGestureVerb;
-    std::string& actionsExpandedFor;
+    // Expanded settings group cards per widget name.
+    std::unordered_map<std::string, std::unordered_set<std::string>>& expandedWidgetGroups;
     std::vector<GestureActionOption> actionCatalog;
 
     std::function<void()> requestRebuild;
@@ -74,14 +80,29 @@ namespace settings {
     bool supportsTaskbarWorkspaceGrouping = true;
   };
 
-  [[nodiscard]] bool isBarWidgetListPath(const std::vector<std::string>& path);
-  [[nodiscard]] bool isFirstBarWidgetListPath(const std::vector<std::string>& path);
+  bool isBarWidgetListPath(const std::vector<std::string>& path);
+  bool isFirstBarWidgetListPath(const std::vector<std::string>& path);
+
+  // Lane selection tokens address a lane position as "<laneKey>#<index>".
+  struct LaneSelectionToken {
+    std::string_view laneKey;
+    std::size_t index = 0;
+  };
+
+  std::string makeLaneSelectionToken(std::string_view laneKey, std::size_t index);
+  // nullopt unless `token` is well-formed; `laneKey` views into `token`.
+  std::optional<LaneSelectionToken> parseLaneSelectionToken(std::string_view token);
+  // Drops the token addressing `removedIndex` in `laneKey` and shifts that lane's higher indices
+  // down one. Tokens for other lanes are left alone.
+  void reindexLaneSelectionAfterRemoval(
+      std::vector<std::string>& selection, std::string_view laneKey, std::size_t removedIndex
+  );
 
   void addBarWidgetLaneEditor(Flex& section, const SettingEntry& entry, const BarWidgetEditorContext& ctx);
 
   // Builds a BarWidgetEditorContext whose control factories delegate to `factory`. The returned
   // context references `factory` and `factory.context()`, so `factory` must outlive it.
-  [[nodiscard]] BarWidgetEditorContext makeBarWidgetEditorContext(SettingsControlFactory& factory);
+  BarWidgetEditorContext makeBarWidgetEditorContext(SettingsControlFactory& factory);
 
   // Builds the bar-widget settings inspector for `ctx.editingWidgetName` into `body`. `laneListPath`
   // is the first-lane bar-widget list path (e.g. {"bar", name, "start"}) used to resolve lane moves.

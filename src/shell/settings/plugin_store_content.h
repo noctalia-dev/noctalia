@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "scripting/plugin_catalog.h"
+#include "scripting/plugin_recommendations.h"
 
 #include <cstddef>
 #include <functional>
@@ -9,7 +10,6 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 class ConfigService;
@@ -17,6 +17,7 @@ class AsyncTextureCache;
 class Flex;
 class InputArea;
 class Label;
+class MarkdownView;
 class Button;
 class Renderer;
 class VirtualGridAdapter;
@@ -36,25 +37,34 @@ namespace settings {
     UpdatedAtDesc,
     AddedAtAsc,
     AddedAtDesc,
+    MostRecommended,
+    Trending,
   };
 
   struct StoreCatalogEntry {
     scripting::CatalogEntry entry;
     std::string source;
     PluginSourceConfig sourceConfig;
+    bool listed = true;
+    std::string key() const { return source + ":" + entry.id; }
   };
 
   struct PluginStoreCallbacks {
     std::function<void(std::string id, bool enable)> setEnabled;
     std::function<bool(const std::string& id)> isEnabling;
+    // Whether the plugin's files are on disk right now. Queried per build so a failed
+    // install keeps offering the add action instead of claiming the plugin is there.
+    std::function<bool(const std::string& id)> isInstalled;
+    std::function<bool(const std::string& id, const std::string& source)> ownsPlugin;
     float scale = 1.0F;
   };
 
   class PluginStoreContent {
   public:
     PluginStoreContent(
-        std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds,
-        PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache, ScrollViewState* scrollState
+        std::vector<StoreCatalogEntry> catalog, ConfigService* config, PluginStoreCallbacks callbacks,
+        scripting::PluginFileCache* fileCache, ScrollViewState* scrollState,
+        scripting::PluginRecommendations* recommendations
     );
     ~PluginStoreContent();
 
@@ -63,22 +73,26 @@ namespace settings {
 
     void populateBody(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
 
-    void updateOnDiskIds(std::unordered_set<std::string> ids);
+    void onRecommendationsChanged();
+    std::optional<std::uint64_t> recommendationCount(const StoreCatalogEntry& entry) const;
+    bool isRecommended(const StoreCatalogEntry& entry) const;
+
     void onFileReady(const std::string& pluginId, const std::string& filename, const std::string& path);
 
     void setOnRebuildNeeded(std::function<void()> cb);
+    // Relayout without a rebuild, for README images that finished loading.
+    void setOnLayoutNeeded(std::function<void()> cb);
 
-    [[nodiscard]] bool isDetailView() const noexcept;
-    [[nodiscard]] std::optional<std::string> detailPageUrl() const;
-    [[nodiscard]] std::optional<std::string> detailSourceUrl() const;
+    bool isDetailView() const noexcept;
+    std::optional<std::string> detailPageUrl() const;
+    std::optional<std::string> detailSourceUrl() const;
     void openDetail(std::size_t filteredIndex);
     void closeDetail();
 
     // Arrow/page/validate navigation for the catalog grid and detail install action.
     // Returns true when the event was consumed. Pass the sheet's focused InputArea so
     // chrome controls (search, category chips) keep their own Enter/arrow handling.
-    [[nodiscard]] bool
-    handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, InputArea* focused);
+    bool handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, InputArea* focused);
 
   private:
     void buildGridView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
@@ -87,10 +101,10 @@ namespace settings {
     void syncSortButtonGlyph();
     void cycleSortMode();
     void setSortMode(SortMode mode);
-    [[nodiscard]] static SortMode sortModeFromState(std::string_view value);
-    [[nodiscard]] static std::string_view sortModeStateValue(SortMode mode);
-    [[nodiscard]] static std::string_view sortModeGlyph(SortMode mode);
-    [[nodiscard]] static const char* sortModeTooltipKey(SortMode mode);
+    static SortMode sortModeFromState(std::string_view value);
+    static std::string_view sortModeStateValue(SortMode mode);
+    static std::string_view sortModeGlyph(SortMode mode);
+    static const char* sortModeTooltipKey(SortMode mode);
     void sortEntries();
     void applyFilter();
     void collectThumbnails();
@@ -100,17 +114,18 @@ namespace settings {
     void collectTags();
     void selectIndex(std::size_t index);
     // Position of a plugin in the current filtered order, or nullopt when the filter hides it.
-    [[nodiscard]] std::optional<std::size_t> indexOfPluginId(std::string_view id) const;
+    std::optional<std::size_t> indexOfPluginKey(std::string_view key) const;
     // Rebind the grid to the filtered order and restore the selection onto the plugin it names.
     void syncGridSelection();
     void moveSelection(int delta);
     [[nodiscard]] bool activateSelection();
     [[nodiscard]] bool installDetailIfAvailable();
 
+    std::optional<std::string> recommendationKey(const StoreCatalogEntry& entry) const;
     std::vector<StoreCatalogEntry> m_catalog;
+    scripting::PluginRecommendations* m_recommendations = nullptr;
     ConfigService* m_config = nullptr;
     std::vector<std::size_t> m_filteredIndices;
-    std::unordered_set<std::string> m_onDiskIds;
     std::vector<std::string> m_sources;
     bool m_tagFiltersCollapsed = true;
     std::vector<std::string> m_allTags;
@@ -131,8 +146,10 @@ namespace settings {
     VirtualGridView* m_grid = nullptr;
     Label* m_countLabel = nullptr;
     Button* m_sortButton = nullptr;
-    std::optional<std::string> m_selectedPluginId;
+    std::optional<std::string> m_selectedPluginKey;
     std::function<void()> m_onRebuildNeeded;
+    std::function<void()> m_onLayoutNeeded;
+    MarkdownView* m_detailMarkdown = nullptr;
 
     std::unordered_map<std::string, std::string> m_thumbnailPaths;
 

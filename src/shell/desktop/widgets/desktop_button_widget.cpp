@@ -1,10 +1,10 @@
 #include "shell/desktop/widgets/desktop_button_widget.h"
 
 #include "core/log.h"
-#include "core/process/process.h"
 #include "core/ui_phase.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "system/process.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -34,7 +34,7 @@ void DesktopButtonWidget::create() {
       .text = m_label,
       .glyph = m_glyph,
       .variant = m_variant,
-      .onClick = [this]() { executeCommand(); },
+      .onClick = [this] { executeCommand(); },
   });
   if (m_animations != nullptr) {
     m_button->setAnimationManager(m_animations);

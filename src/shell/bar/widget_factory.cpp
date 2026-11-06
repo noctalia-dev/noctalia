@@ -71,12 +71,10 @@
 #include "shell/bar/widgets/weather_widget_definition.h"
 #include "shell/bar/widgets/workspaces_widget.h"
 #include "shell/bar/widgets/workspaces_widget_definition.h"
-#include "ui/style.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <format>
 #include <memory>
 #include <string>
@@ -99,16 +97,15 @@ WidgetFactory::WidgetFactory(const BarServices& services)
     : m_platform(services.platform), m_configService(services.config), m_config(services.config.config()),
       m_notifications(services.notifications), m_tray(services.tray), m_audio(services.audio),
       m_easyEffects(services.easyEffects), m_upower(services.upower), m_sysmon(services.sysmon),
-      m_powerProfiles(services.powerProfiles), m_network(services.network), m_externalIp(services.externalIp),
-      m_idleInhibitor(services.idleInhibitor), m_mpris(services.mpris), m_audioSpectrum(services.audioSpectrum),
-      m_httpClient(services.httpClient), m_weather(services.weather), m_nightLight(services.nightLight),
-      m_themeService(services.theme), m_bluetooth(services.bluetooth), m_brightness(services.brightness),
-      m_lockKeys(services.lockKeys), m_clipboard(services.clipboard), m_fileWatcher(services.fileWatcher),
-      m_screenshots(services.screenshots), m_renderContext(services.renderContext), m_scriptApi(services.scriptApi) {
+      m_powerProfiles(services.powerProfiles), m_network(services.network), m_modem(services.modem),
+      m_externalIp(services.externalIp), m_idleInhibitor(services.idleInhibitor), m_mpris(services.mpris),
+      m_audioSpectrum(services.audioSpectrum), m_httpClient(services.httpClient), m_weather(services.weather),
+      m_nightLight(services.nightLight), m_themeService(services.theme), m_bluetooth(services.bluetooth),
+      m_brightness(services.brightness), m_lockKeys(services.lockKeys), m_clipboard(services.clipboard),
+      m_fileWatcher(services.fileWatcher), m_screenshots(services.screenshots), m_renderContext(services.renderContext),
+      m_scriptApi(services.scriptApi) {
   scripting::PluginRegistry::instance().ensureScanned();
 }
-
-WidgetFactory::~WidgetFactory() = default;
 
 std::unique_ptr<Widget> WidgetFactory::create(
     const std::string& name, wl_output* output, float contentScale, const std::string& barPosition,
@@ -220,7 +217,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
 #endif
       {"keyboard_layout", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
             return createWidget<KeyboardLayoutWidget>(
-                context.contentScale, f.m_platform,
+                context.contentScale, f.m_platform, f.m_tray,
                 keyboardLayoutWidgetDefinition().resolve(context.config, context.settingContext),
                 f.m_config.shell.keyboardLayout.customLabels
             );
@@ -248,7 +245,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
           }},
       {"network", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
             return createWidget<NetworkWidget>(
-                context.contentScale, f.m_network, f.m_externalIp, f.m_sysmon, context.output,
+                context.contentScale, f.m_network, f.m_externalIp, f.m_sysmon, f.m_modem, context.output,
                 networkWidgetDefinition().resolve(context.config, context.settingContext)
             );
           }},
@@ -379,7 +376,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
       .widgetSpacing = widgetSpacing,
       .verticalBar = barPosition == "left" || barPosition == "right",
   };
-  if (const auto builtin = std::ranges::find(kBuiltinWidgets, type, &BuiltinWidget::type);
+  if (const auto* builtin = std::ranges::find(kBuiltinWidgets, type, &BuiltinWidget::type);
       builtin != kBuiltinWidgets.end()) {
     return builtin->create(*this, context);
   }
@@ -424,9 +421,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
             .audioSpectrum = m_audioSpectrum,
             .mpris = m_mpris,
         },
-        barName, outputName, enableScroll
+        barName, outputName, context.verticalBar, enableScroll
     );
     widget->setContentScale(contentScale);
+    widget->setBarHoverTint(pluginEntry->entry->widgetHoverHighlight);
     return widget;
   }
 

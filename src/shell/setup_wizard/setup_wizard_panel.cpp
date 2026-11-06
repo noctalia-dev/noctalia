@@ -1,15 +1,16 @@
 #include "shell/setup_wizard/setup_wizard_panel.h"
 
 #include "config/config_service.h"
-#include "core/files/directory_scanner.h"
 #include "core/files/resource_paths.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
+#include "shell/dialogs/file_dialog.h"
 #include "shell/panel/panel_manager.h"
+#include "system/directory_scanner.h"
 #include "theme/builtin_palettes.h"
 #include "ui/builders.h"
-#include "ui/dialogs/file_dialog.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -140,6 +141,7 @@ void SetupWizardPanel::create() {
   );
 
   auto scroll = ui::scrollView({
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,
@@ -248,7 +250,7 @@ void SetupWizardPanel::create() {
               .paddingV = Style::spaceSm * scale,
               .paddingH = Style::spaceMd * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 FileDialogOptions options;
                 options.mode = FileDialogMode::Open;
                 options.defaultViewMode = FileDialogViewMode::Grid;
@@ -420,7 +422,7 @@ void SetupWizardPanel::create() {
             .paddingV = Style::spaceSm * scale,
             .paddingH = Style::spaceLg * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [this]() { commit(); },
+            .onClick = [this] { commit(); },
         })
     );
     root->addChild(std::move(footer));
@@ -487,7 +489,7 @@ void SetupWizardPanel::commit() {
   // Theme/palette overrides are written live by the select callbacks only when
   // the user actually changes them, so commit must not force any defaults here.
   if (m_config != nullptr) {
-    (void)m_config->markSetupWizardCompleted();
+    m_config->markSetupWizardCompleted();
   }
   kLog.info("setup complete");
   PanelManager::instance().close();
@@ -495,6 +497,6 @@ void SetupWizardPanel::commit() {
 
 void SetupWizardPanel::onClose() {
   if (m_config != nullptr) {
-    (void)m_config->markSetupWizardCompleted();
+    m_config->markSetupWizardCompleted();
   }
 }

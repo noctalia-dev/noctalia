@@ -21,7 +21,7 @@ public:
   std::unique_ptr<Flex> create() override;
   void onClose() override;
   void setActive(bool active) override;
-  void onFrameTick(float deltaMs) override;
+  void onFrameTick(float deltaMs, Renderer& renderer) override;
 
 private:
   void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) override;
@@ -31,7 +31,7 @@ private:
   void updateGraphs(Renderer& renderer);
   void syncLabels();
   void updateGpuVisibility();
-  [[nodiscard]] float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
+  float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
 
   SystemMonitorService* m_monitor;
   bool m_active = false;

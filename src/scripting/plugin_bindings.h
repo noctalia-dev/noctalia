@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/toml.h"
+#include "config/toml.h"
 #include "scripting/script_runtime_types.h"
 
 #include <string>

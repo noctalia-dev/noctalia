@@ -3,8 +3,6 @@ set -euo pipefail
 
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/hypr"
 
-rm -f -- "$config_dir/noctalia.conf" "$config_dir/noctalia.lua"
-
 rewrite_config() {
     local config_file="$1" program="$2"
     [ -f "$config_file" ] || return 0
@@ -34,3 +32,5 @@ rewrite_config "$config_dir/hyprland.lua" '
     { print }
     END { if (pending != "") print pending }
 '
+
+rm -f -- "$config_dir/noctalia.conf" "$config_dir/noctalia.lua"

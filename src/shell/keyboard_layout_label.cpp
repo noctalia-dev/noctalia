@@ -61,6 +61,9 @@ namespace {
       return false;
     }
     std::string_view inner = text.substr(open + 1, close - open - 1);
+    if (const std::size_t comma = inner.find(','); comma != std::string_view::npos) {
+      inner = inner.substr(0, comma);
+    }
     if (inner.size() < 2 || inner.size() > 3) {
       return false;
     }
@@ -246,6 +249,9 @@ namespace {
     }
 
     if (extractParenthesizedCode(lower, code)) {
+      if (code == "uk") {
+        code = "gb";
+      }
       uppercaseAscii(code);
       return code;
     }
@@ -298,4 +304,12 @@ std::string resolveKeyboardLayoutLabel(
     return it->second;
   }
   return formatKeyboardLayoutLabel(layoutName, displayMode);
+}
+
+std::string resolveInputMethodLabel(
+    const std::string& inputMethodName, KeyboardLayoutDisplayMode displayMode,
+    const std::unordered_map<std::string, std::string>& customLabels
+) {
+  std::string label = resolveKeyboardLayoutLabel(inputMethodName, displayMode, customLabels);
+  return label == kUnknownLabel ? inputMethodName : label;
 }

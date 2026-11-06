@@ -6,12 +6,12 @@ Static i18n checks for noctalia.
      in assets/translations/en.json. Exit 1 when any are missing.
 
   2) --unused: catalog entries not referenced anywhere in source. Includes indirect
-     usages (.labelKey = "...", titleKey = "...") — any string literal that exactly
+     usages (.labelKey = "...", titleKey = "..."): any string literal that exactly
      matches a catalog key counts as a reference. Keys reachable only through dynamic
      string construction (e.g. prefix + variable) are reported separately as "possibly
      dynamic". Use --fail-on-unused to exit 1.
 
-  3) --raw: flag likely user-visible string literals in src/ui/ and src/shell/ that are
+  3) --raw: flag likely user-visible string literals in lib/ui/ and src/shell/ that are
      not wrapped in i18n::tr. Two tiers:
        (a) setter calls: setText, setPlaceholder, setTitle, … (always included)
        (b) any multi-word "…" literal in real code (add --setters-only to skip this tier)
@@ -41,8 +41,8 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TRANSLATIONS = ROOT / "assets" / "translations" / "en.json"
-DEFAULT_SRC = ROOT / "src"
-DEFAULT_RAW_ROOTS = ("src/ui", "src/shell")
+DEFAULT_SRC_ROOTS = (ROOT / "src", ROOT / "lib")
+DEFAULT_RAW_ROOTS = ("lib/ui", "src/shell")
 
 # i18n::tr("a.b.c", ...) or i18n::tr("a.b.c")
 TR_RE = re.compile(r'i18n::tr\s*\(\s*"([^"]+)"')
@@ -251,7 +251,7 @@ def is_wide_noise_literal(s: str) -> bool:
 
 
 def looks_like_wide_prose_string(s: str) -> bool:
-    """Multi-word (or long) prose in arbitrary string literals — stricter than setter copy."""
+    """Multi-word (or long) prose in arbitrary string literals; stricter than setter copy."""
     if is_placeholder_or_internal_literal(s) or is_wide_noise_literal(s):
         return False
     letters = _ascii_letter_count(s)
@@ -381,13 +381,19 @@ def main() -> int:
         default=DEFAULT_TRANSLATIONS,
         help="Path to translations JSON (default: en.json)",
     )
-    ap.add_argument("--src", type=Path, default=DEFAULT_SRC, help="Root for i18n key scan (default: src/)")
+    ap.add_argument(
+        "--src",
+        type=Path,
+        nargs="+",
+        default=list(DEFAULT_SRC_ROOTS),
+        help="Roots for i18n key scan (default: src/ lib/)",
+    )
     ap.add_argument(
         "--raw-roots",
         nargs="*",
         metavar="REL_PATH",
         default=list(DEFAULT_RAW_ROOTS),
-        help="Repo-relative dirs for raw UI literal scan (default: src/ui src/shell)",
+        help="Repo-relative dirs for raw UI literal scan (default: lib/ui src/shell)",
     )
     ap.add_argument(
         "--exclude",
@@ -434,7 +440,8 @@ def main() -> int:
     all_key_prefixes: set[str] = set()
     raw_hits: list[tuple[Path, int, str, str]] = []
 
-    for path in iter_source_files(args.src, (".cpp", ".h"), excludes):
+    source_files = (path for src in args.src for path in iter_source_files(src, (".cpp", ".h"), excludes))
+    for path in source_files:
         try:
             text = path.read_text(encoding="utf-8")
         except OSError as e:
@@ -480,7 +487,7 @@ def main() -> int:
         unused, possibly_dynamic = find_unused_keys(catalog, directly_used, all_key_literals, all_key_prefixes)
         if possibly_dynamic:
             print(
-                f"\nPossibly dynamic ({len(possibly_dynamic)} key(s)) — prefix literal found in source,"
+                f"\nPossibly dynamic ({len(possibly_dynamic)} key(s)): prefix literal found in source,"
                 " full key not resolvable statically:"
             )
             for k in possibly_dynamic:
@@ -488,14 +495,14 @@ def main() -> int:
         if unused:
             if args.fail_on_unused:
                 exit_code = 1
-            print(f"\nUnused catalog key(s): {len(unused)} — not referenced anywhere in source:")
+            print(f"\nUnused catalog key(s): {len(unused)}, not referenced anywhere in source:")
             for k in unused:
                 print(f"  - {k}")
         else:
             print(f"\nUnused keys: none (catalog={len(catalog)}, possibly-dynamic={len(possibly_dynamic)}).")
 
     if args.raw and raw_hits:
-        print(f"\nRaw UI string literals ({len(raw_hits)} hit(s)) — prefer i18n::tr / i18n::trp:")
+        print(f"\nRaw UI string literals ({len(raw_hits)} hit(s)), prefer i18n::tr / i18n::trp:")
         for path, line_no, where, lit in raw_hits[:400]:
             rel = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
             shown = lit if len(lit) <= 72 else lit[:69] + "..."
@@ -516,7 +523,7 @@ def main() -> int:
             suffix = f"; raw UI literals: {len(raw_hits)} hit(s) (see above)"
         print(
             f"OK: {len(all_tr)} tr keys, {len(all_trp)} trp base keys"
-            f" — all present in catalog ({len(catalog)} entries){suffix}."
+            f", all present in catalog ({len(catalog)} entries){suffix}."
         )
 
     return exit_code

@@ -17,6 +17,7 @@ inline bool isAnalysisFlagExperimental(const char* flag)
         "LuauSolverV2",
         "UseNewLuauTypeSolverDefaultEnabled", // This can change the default solver used in cli applications, so it also needs to be disabled. Will
                                               // require fixes in lua-apps code
+        "LuauRefactorStringSemanticSubtyping", // Requires fixes to lua-apps code.
         // makes sure we always have at least one entry
         nullptr,
     };

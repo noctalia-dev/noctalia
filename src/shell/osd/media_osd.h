@@ -1,16 +1,13 @@
 #pragma once
 
+#include "core/timer_manager.h"
+#include "shell/osd/osd_overlay.h"
+
+#include <optional>
 #include <string>
 #include <unordered_map>
+
 class MprisService;
-class OsdOverlay;
-
-struct MediaOsdData {
-  std::string title;
-  std::string artist;
-
-  bool operator==(const MediaOsdData& d) const { return d.artist == artist && d.title == title; }
-};
 
 class MediaOsd {
 public:
@@ -18,8 +15,25 @@ public:
   void onMprisChanged(const MprisService& service);
 
 private:
+  struct PlayerState {
+    // Track signature this player has already been accounted for. Empty means no titled snapshot
+    // has been seen yet; a real signature is never empty.
+    std::string trackSignature;
+    double volume = 1.0;
+  };
+
+  struct PendingTrack {
+    std::string busName;
+    std::string signature;
+    OsdContent content;
+  };
+
+  void scheduleTrackOsd(PendingTrack pending);
+  void cancelTrackOsd(const std::string& busName);
+  void showPendingTrackOsd();
+
   OsdOverlay* m_overlay = nullptr;
-  MediaOsdData m_lastData;
-  std::unordered_map<std::string, double> m_lastVolumes;
-  bool m_hasData = false;
+  std::unordered_map<std::string, PlayerState> m_players;
+  std::optional<PendingTrack> m_pendingTrack;
+  Timer m_trackSettleTimer;
 };

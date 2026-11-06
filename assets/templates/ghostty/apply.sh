@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 config_files=("${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/config" "${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/config.ghostty")
 found=false
 
@@ -33,4 +34,4 @@ if [ "$found" != true ]; then
     exit 1
 fi
 
-pgrep -f ghostty >/dev/null && pkill -SIGUSR2 ghostty || true
+bash "$script_dir/reload.sh"

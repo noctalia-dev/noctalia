@@ -1,0 +1,105 @@
+#pragma once
+
+#include "render/core/renderer.h"
+#include "render/scene/node.h"
+#include "ui/controls/color_swatch_preview.h"
+
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <string>
+#include <vector>
+
+class Renderer;
+
+enum class ContextSubmenuDirection : std::uint8_t {
+  Right,
+  Left,
+};
+
+struct ContextMenuControlEntry {
+  std::int32_t id = 0;
+  std::string label;
+  bool enabled = true;
+  bool separator = false;
+  // Non-interactive group heading; entries below it read as members of the group.
+  bool header = false;
+  bool hasSubmenu = false;
+  bool checkmark = false;
+  bool radio = false;
+  std::int32_t toggleState = -1;
+  // Explicit hierarchy depth; each level adds one medium spacing step before row content.
+  std::uint8_t indentLevel = 0;
+  // Optional leading visual (dropdown-style rows): a small color dot, or a palette swatch strip.
+  std::optional<ColorSpec> indicatorColor = std::nullopt;
+  ColorSwatchPreview swatchPreview{};
+  TextEllipsize ellipsize = TextEllipsize::End;
+  // Literal display text, measured separately from the label. No shortcut is bound by the control.
+  std::optional<std::string> shortcut = std::nullopt;
+  bool destructive = false;
+
+  bool hasToggle() const noexcept { return checkmark || radio; }
+};
+
+class ContextMenuControl : public Node {
+public:
+  ContextMenuControl();
+
+  void setEntries(std::vector<ContextMenuControlEntry> entries);
+  void setMaxVisible(std::size_t maxVisible);
+  void setMenuWidth(float width);
+  void setContentScale(float scale);
+  void setReserveToggleSpace(bool reserve);
+  void setSubmenuDirection(ContextSubmenuDirection direction);
+  // Defaults to retaining the last highlight, as existing shell menus do.
+  void setClearHighlightOnLeave(bool clear);
+  void setOnActivate(std::function<void(const ContextMenuControlEntry&)> onActivate);
+  void setOnSubmenuOpen(std::function<void(const ContextMenuControlEntry&, float rowCenterY)> onSubmenuOpen);
+  void setRedrawCallback(std::function<void()> redrawCallback);
+
+  // entryCount() (or larger) clears the highlight; Down/Up then starts at the first/last action.
+  void setHighlightedIndex(std::size_t index);
+  bool moveHighlight(int delta);
+  bool activateHighlighted();
+  std::size_t highlightedIndex() const noexcept { return m_highlightedIndex; }
+  std::size_t entryCount() const noexcept { return m_entries.size(); }
+  float rowTop(std::size_t index) const noexcept;
+  float rowBottom(std::size_t index) const noexcept;
+
+  float preferredHeight() const;
+  static float
+  preferredHeight(const std::vector<ContextMenuControlEntry>& entries, std::size_t maxVisible, float scale = 1.0F);
+  // Width that fits the widest entry without elision (label + toggle/submenu slots + padding).
+  static float preferredWidth(
+      Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale = 1.0F,
+      bool reserveToggleSpace = false
+  );
+
+private:
+  struct RowVisual {
+    std::function<void(bool)> apply;
+    float y = 0.0F;
+    float height = 0.0F;
+    bool interactive = false;
+  };
+
+  void doLayout(Renderer& renderer) override;
+  void rebuild(Renderer& renderer);
+  void rebuildRows(Renderer& renderer);
+  void applyHighlightVisuals();
+  std::size_t firstInteractiveIndex() const noexcept;
+
+  std::vector<ContextMenuControlEntry> m_entries;
+  std::vector<RowVisual> m_rows;
+  std::size_t m_maxVisible = 14;
+  std::size_t m_highlightedIndex = 0;
+  float m_menuWidth = 246.0F;
+  float m_contentScale = 1.0F;
+  ContextSubmenuDirection m_submenuDirection = ContextSubmenuDirection::Right;
+  bool m_needsRebuild = true;
+  bool m_reserveToggleSpace = false;
+  bool m_clearHighlightOnLeave = false;
+  std::function<void(const ContextMenuControlEntry&)> m_onActivate;
+  std::function<void(const ContextMenuControlEntry&, float rowCenterY)> m_onSubmenuOpen;
+  std::function<void()> m_redrawCallback;
+};

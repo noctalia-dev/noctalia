@@ -1,5 +1,7 @@
 #include "shell/bar/widgets/keyboard_layout_widget_definition.h"
 
+#include "shell/bar/glyph_value_definition.h"
+
 namespace {
 
   settings::WidgetSettingVisibility glyphShown() { return {"show_glyph", {"true"}}; }
@@ -11,6 +13,10 @@ namespace {
 const noctalia::bar::WidgetDefinition<KeyboardLayoutWidget::Options>& keyboardLayoutWidgetDefinition() {
   using noctalia::bar::field;
   using Options = KeyboardLayoutWidget::Options;
+  using noctalia::bar::glyphPositionField;
+  using noctalia::bar::peekDelayField;
+  using noctalia::bar::peekField;
+  using noctalia::bar::whenAllTrue;
 
   static const noctalia::bar::WidgetDefinition<Options> definition{
       .type = "keyboard_layout",
@@ -59,6 +65,9 @@ const noctalia::bar::WidgetDefinition<KeyboardLayoutWidget::Options>& keyboardLa
                           .visibleWhen = labelShown(),
                       },
               }),
+              glyphPositionField<Options>(whenAllTrue({"show_glyph", "show_label"})),
+              peekField<Options>(whenAllTrue({"show_glyph", "show_label"})),
+              peekDelayField<Options>(whenAllTrue({"show_glyph", "show_label"})),
           },
       .glyph = [](const Options& options) { return options.glyph; },
       .validateOptions = [](const Options& options) -> std::optional<std::string> {

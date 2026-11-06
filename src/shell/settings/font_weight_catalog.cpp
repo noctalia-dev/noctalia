@@ -9,7 +9,7 @@
 namespace settings {
   namespace {
 
-    [[nodiscard]] const char* fontWeightLabelKey(FontWeight weight) {
+    const char* fontWeightLabelKey(FontWeight weight) {
       for (const FontWeightI18nOption& option : kFontWeightOptions) {
         if (option.weight == weight) {
           return option.labelKey.data();
@@ -18,7 +18,7 @@ namespace settings {
       return "settings.options.font-weight.regular";
     }
 
-    [[nodiscard]] bool vectorContainsWeight(const std::vector<FontWeight>& weights, int weightValue) {
+    bool vectorContainsWeight(const std::vector<FontWeight>& weights, int weightValue) {
       return std::ranges::any_of(weights, [weightValue](FontWeight weight) {
         return static_cast<int>(weight) == weightValue;
       });

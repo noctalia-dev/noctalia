@@ -56,70 +56,36 @@ ensure_gtk_css_import() {
     fi
 }
 
-sync_system_appearance() {
-    local mode="$1" update_gtk_theme="${2:-true}"
-    local has_gsettings has_dconf
-    has_gsettings=$(command -v gsettings || true)
-    has_dconf=$(command -v dconf || true)
-
-    if [ -z "$has_gsettings" ] && [ -z "$has_dconf" ]; then
-        echo "No gsettings or dconf found, skip system appearance sync"
-        return
-    fi
-
+# The color-scheme preference is owned by Noctalia's [theme].sync_color_scheme; this script only
+# selects the matching adw-gtk3 variant.
+sync_gtk_theme() {
+    local mode="$1"
     local target_theme
     [ "$mode" = "light" ] && target_theme="adw-gtk3" || target_theme="adw-gtk3-dark"
 
-    local theme_available=false
-    if [ "$update_gtk_theme" = "true" ]; then
-        if theme_exists "$target_theme"; then
-            theme_available=true
-        else
-            echo "Theme '$target_theme' not found, skipping GTK theme set"
-        fi
+    if ! theme_exists "$target_theme"; then
+        echo "Theme '$target_theme' not found, skipping GTK theme set"
+        return
     fi
 
-    if [ -n "$has_gsettings" ]; then
-        local schemas
-        schemas=$(gsettings list-schemas 2>/dev/null || true)
-        if [[ "$schemas" == *"org.gnome.desktop.interface"* ]]; then
-            gsettings set org.gnome.desktop.interface color-scheme "prefer-$mode" \
-                || echo "Error running gsettings set color-scheme" >&2
-            if [ "$theme_available" = "true" ]; then
-                gsettings set org.gnome.desktop.interface gtk-theme "$target_theme" \
-                    || echo "Error running gsettings set gtk-theme" >&2
-            fi
-            return
-        fi
-    fi
-
-    if [ -n "$has_dconf" ]; then
-        dconf write /org/gnome/desktop/interface/color-scheme "'prefer-$mode'" \
-            || echo "Error running dconf write color-scheme" >&2
-        if [ "$theme_available" = "true" ]; then
-            dconf write /org/gnome/desktop/interface/gtk-theme "'$target_theme'" \
-                || echo "Error running dconf write gtk-theme" >&2
-        fi
+    if command -v gsettings >/dev/null \
+            && [[ "$(gsettings list-schemas 2>/dev/null || true)" == *"org.gnome.desktop.interface"* ]]; then
+        gsettings set org.gnome.desktop.interface gtk-theme "$target_theme" \
+            || echo "Error running gsettings set gtk-theme" >&2
+    elif command -v dconf >/dev/null; then
+        dconf write /org/gnome/desktop/interface/gtk-theme "'$target_theme'" \
+            || echo "Error running dconf write gtk-theme" >&2
+    else
+        echo "No gsettings or dconf found, skip GTK theme set"
     fi
 }
 
 main() {
-    local appearance_only=false mode=""
-
-    if [ "${1:-}" = "--appearance-only" ]; then
-        appearance_only=true
-        shift
-    fi
     if [ $# -ne 1 ] || { [ "$1" != "dark" ] && [ "$1" != "light" ]; }; then
-        echo "Usage: apply.sh [--appearance-only] (dark|light)" >&2
+        echo "Usage: apply.sh (dark|light)" >&2
         exit 1
     fi
-    mode="$1"
-
-    if [ "$appearance_only" = "true" ]; then
-        sync_system_appearance "$mode" "false"
-        return
-    fi
+    local mode="$1"
 
     local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
 
@@ -144,9 +110,8 @@ main() {
     [ "$gtk4_ok" = "true" ] && echo "GTK4 colors applied successfully"
 
     if [ "$gtk3_ok" = "true" ] && [ "$gtk4_ok" = "true" ]; then
-        sync_system_appearance "$mode" "true"
+        sync_gtk_theme "$mode"
     else
-        sync_system_appearance "$mode" "false"
         exit 1
     fi
 }

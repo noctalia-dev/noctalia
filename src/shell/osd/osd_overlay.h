@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render/animation/animation_manager.h"
-#include "wayland/layer_surface.h"
+#include "shell/wayland/layer_surface.h"
 
 #include <cstdint>
 #include <memory>
@@ -10,6 +10,7 @@
 #include <vector>
 
 class ConfigService;
+class CompositorPlatform;
 class IpcService;
 class Box;
 class Flex;
@@ -19,6 +20,7 @@ class ProgressBar;
 class RenderContext;
 class WaylandConnection;
 struct WaylandOutput;
+struct wl_output;
 struct wl_surface;
 
 enum class OsdKind : std::uint8_t {
@@ -34,8 +36,10 @@ enum class OsdKind : std::uint8_t {
   LockKeys,
   KeyboardLayout,
   Media,
+  MediaVolume,
   Privacy,
-  KeyboardBacklight
+  KeyboardBacklight,
+  Custom
 };
 
 struct OsdContent {
@@ -48,6 +52,10 @@ struct OsdContent {
   bool inactive = false;
 };
 
+// Custom OSD as requested by plugins and the osd-show IPC command. No progress hides the bar;
+// a given progress is clamped to [0, 1].
+OsdContent customOsdContent(std::string icon, std::string value, std::optional<double> progress, bool inactive);
+
 class OsdOverlay {
 public:
   OsdOverlay();
@@ -56,7 +64,9 @@ public:
   OsdOverlay(const OsdOverlay&) = delete;
   OsdOverlay& operator=(const OsdOverlay&) = delete;
 
-  void initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext);
+  void initialize(
+      WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config, RenderContext* renderContext
+  );
   void registerIpc(IpcService& ipc);
   void onOutputChange();
   void onConfigReload();
@@ -64,11 +74,11 @@ public:
   void requestRedraw();
 
   void show(const OsdContent& content);
-  [[nodiscard]] bool isEnabled() const noexcept;
+  bool isEnabled() const noexcept;
 
   // True while any instance is on screen or animating into view. Callers use this to correct
   // already-visible content in place without popping up a fresh OSD.
-  [[nodiscard]] bool isVisible() const;
+  bool isVisible() const;
 
 private:
   struct SurfaceMargins {
@@ -104,9 +114,11 @@ private:
     float appliedCornerRadiusScale = -1.0F;
   };
 
-  [[nodiscard]] SurfaceMargins surfaceMarginsForPosition(const std::string& position) const;
-  [[nodiscard]] std::vector<std::string> osdMonitors() const;
-  [[nodiscard]] bool shouldRenderOnOutput(const WaylandOutput& output) const;
+  SurfaceMargins surfaceMarginsForPosition(
+      const std::string& position, const WaylandOutput& output, std::uint32_t surfaceWidth, std::uint32_t surfaceHeight
+  ) const;
+  std::vector<std::string> osdMonitors() const;
+  bool shouldRenderOnOutput(const WaylandOutput& output) const;
   void ensureSurfaces();
   void destroySurfaces();
   void setEnabledOverride(bool enabled);
@@ -118,6 +130,7 @@ private:
   void animateInstance(Instance& inst);
 
   WaylandConnection* m_wayland = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
   RenderContext* m_renderContext = nullptr;
   OsdContent m_content;
@@ -127,6 +140,8 @@ private:
   float m_lastLayoutScale = 1.0F;
   float m_lastCornerRadiusScale = 1.0F;
   std::vector<std::string> m_lastMonitorSelectors;
+  bool m_followFocusedOutput = false;
+  wl_output* m_targetOutput = nullptr;
   std::optional<bool> m_runtimeEnabledOverride;
   bool m_lastConfiguredEnabled = true;
   std::vector<std::unique_ptr<Instance>> m_instances;
