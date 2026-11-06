@@ -8,6 +8,7 @@
 #include <unordered_map>
 
 class HttpClient;
+class AccountsService;
 class CalendarService;
 class MprisService;
 class SystemMonitorService;
@@ -32,5 +33,6 @@ private:
   MprisService* m_mpris = nullptr;
   HttpClient* m_httpClient = nullptr;
   SystemMonitorService* m_sysmon = nullptr;
+  AccountsService* m_accounts = nullptr;
   DesktopWidgetScriptDeps m_scriptDeps;
 };
