@@ -715,6 +715,8 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
         const float previousHeight = m_entries[i].height;
         const int prevToastBodyLines = m_entries[i].toastBodyLines;
         const bool previouslyPlaced = hasPlacement(m_entries[i]);
+        const bool prevShowAccent =
+            showToastProgressAccent(m_config, m_entries[i].urgency, m_entries[i].displayDurationMs);
         m_entries[i].appName = notificationDisplayAppName(n);
         m_entries[i].summary = n.summary;
         m_entries[i].body = n.body;
@@ -722,14 +724,20 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
         m_entries[i].icon = n.icon;
         m_entries[i].iconIsAppIcon = n.iconIsAppIcon;
         m_entries[i].imageData = n.imageData;
+        m_entries[i].urgency = n.urgency;
         m_entries[i].dndPolicy = n.dndPolicy;
-        refreshEntryGeometry(m_entries[i]);
+        const int newDuration = resolveDisplayDuration(n.timeout);
+        m_entries[i].displayDurationMs = newDuration;
         m_entries[i].rawTimeoutMs = n.timeout;
+        m_entries[i].remainingProgress = 1.0F;
+        refreshEntryGeometry(m_entries[i]);
+        const bool showAccent = showToastProgressAccent(m_config, m_entries[i].urgency, m_entries[i].displayDurationMs);
         const bool layoutChanged = contentChanged
             || actionSetChanged
             || imageDataChanged
             || std::abs(previousHeight - m_entries[i].height) > 0.5F
-            || prevToastBodyLines != m_entries[i].toastBodyLines;
+            || prevToastBodyLines != m_entries[i].toastBodyLines
+            || prevShowAccent != showAccent;
         const bool hovered = m_entries[i].hovered;
 
         if (previouslyPlaced && !isNewestOnEdge()) {
@@ -832,23 +840,16 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
           if (cs.countdownAnimId != 0) {
             inst->animations.cancel(cs.countdownAnimId);
           }
-          const int newDuration = resolveDisplayDuration(n.timeout);
-          m_entries[i].displayDurationMs = newDuration;
-          m_entries[i].remainingProgress = 1.0F;
-          if (newDuration < 0) {
-            if (cs.progressBar != nullptr) {
+          if (cs.progressBar != nullptr) {
+            cs.progressBar->setVisible(showAccent);
+            cs.progressBar->setParticipatesInLayout(showAccent);
+            if (showAccent) {
               cs.progressBar->setProgress(1.0F);
             }
-            cs.countdownAnimId = 0;
-          } else if (hovered) {
-            if (cs.progressBar != nullptr) {
-              cs.progressBar->setProgress(1.0F);
-            }
+          }
+          if (newDuration < 0 || hovered) {
             cs.countdownAnimId = 0;
           } else {
-            if (cs.progressBar != nullptr) {
-              cs.progressBar->setProgress(1.0F);
-            }
             const void* countdownOwner = cs.progressBar != nullptr ? static_cast<const void*>(cs.progressBar)
                                                                    : static_cast<const void*>(cs.cardForeground);
             cs.countdownAnimId = inst->animations.animateTimer(
