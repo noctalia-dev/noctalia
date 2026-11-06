@@ -1044,6 +1044,17 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
     const auto crossPad = static_cast<std::uint32_t>(std::max(0, crossOutsetStart + crossOutsetEnd));
     const auto mainPad = static_cast<std::uint32_t>(std::max(0, mainBleedAway));
+    // A card taller (or wider, beside a side bar) than the room the bar leaves would run off the
+    // output; shrink it to fit so a small screen keeps the whole card visible.
+    if (resolvedOutputHeight > 0 && !barIsVertical) {
+      const std::int32_t room = barIsBottom ? barRect.top + barConfig.panelOverlap - screenPadding
+                                            : outputHeight - (barRect.bottom - barConfig.panelOverlap) - screenPadding;
+      panelHeight = std::min(panelHeight, static_cast<std::uint32_t>(std::max(1, room)));
+    } else if (resolvedOutputWidth > 0 && barIsVertical) {
+      const std::int32_t room = barIsLeft ? outputWidth - (barRect.right - barConfig.panelOverlap) - screenPadding
+                                          : barRect.left + barConfig.panelOverlap - screenPadding;
+      panelWidth = std::min(panelWidth, static_cast<std::uint32_t>(std::max(1, room)));
+    }
     std::uint32_t surfaceWidth = barIsVertical ? (panelWidth + mainPad) : (panelWidth + crossPad);
     std::uint32_t surfaceHeight = barIsVertical ? (panelHeight + crossPad) : (panelHeight + mainPad);
 
@@ -1218,6 +1229,33 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       attachedMarginLeft = surfaceX - barReserved;
     } else {
       attachedMarginTop = surfaceY - barReserved;
+    }
+
+    // Layer margins are measured from the usable area, so another bar's exclusive zone on the
+    // anchored edge (a side rail on the left, a bar on top) pushes the panel along by its
+    // reservation. Take that back out so the card lands where it was placed on the output.
+    {
+      const auto otherReserved = [&](std::string_view side) {
+        std::int32_t total = 0;
+        const WaylandOutput* wlOut =
+            (m_platform != nullptr && request.output != nullptr) ? m_platform->findOutputByWl(request.output) : nullptr;
+        for (const auto& bar : m_config->config().bars) {
+          const BarConfig resolved = wlOut != nullptr ? ConfigService::resolveForOutput(bar, *wlOut) : bar;
+          if (!resolved.enabled
+              || !resolved.reserveSpace
+              || resolved.name == barConfig.name
+              || resolved.position != side) {
+            continue;
+          }
+          total += reservedBarEdgeDistance(resolved, shadowConfig);
+        }
+        return total;
+      };
+      if (!barIsVertical) {
+        attachedMarginLeft -= otherReserved("left");
+      } else {
+        attachedMarginTop -= otherReserved("top");
+      }
     }
 
     auto attachedConfig = LayerSurfaceConfig{
