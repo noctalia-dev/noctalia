@@ -3686,40 +3686,37 @@ bool LauncherPanel::cycleCategories(int direction) {
     return next;
   };
 
-  if (m_browserMode && m_categoryFilter != nullptr && m_categoryFilter->visible()) {
-    if (!m_providerCategories.empty()) {
-      const int count = static_cast<int>(m_providerCategories.size() + 1);
-      const auto active = std::ranges::find(m_providerCategories, m_activeProviderCategory, &LauncherCategory::label);
-      const int current = m_activeProviderCategory.empty() || active == m_providerCategories.end()
-          ? 0
-          : static_cast<int>(active - m_providerCategories.begin()) + 1;
-      m_categoryFilter->setSelectedIndex(static_cast<std::size_t>(wrapIndex(current + direction, count)));
-      return true;
-    }
-    if (m_activeCategoryType == Category && m_currentCategories.size() >= 2) {
-      const auto active = std::ranges::find(m_currentCategories, m_activeCategory, &LauncherCategory::label);
-      const int current =
-          active == m_currentCategories.end() ? 0 : static_cast<int>(active - m_currentCategories.begin());
-      m_categoryFilter->setSelectedIndex(
-          static_cast<std::size_t>(wrapIndex(current + direction, static_cast<int>(m_currentCategories.size())))
-      );
-      return true;
-    }
-  }
-
   if (m_browserMode) {
-    if (m_categoryFilterSlots.empty()) {
+    if (m_categoryFilter != nullptr && m_categoryFilter->visible()) {
+      if (!m_providerCategories.empty()) {
+        const int count = static_cast<int>(m_providerCategories.size() + 1);
+        const auto active = std::ranges::find(m_providerCategories, m_activeProviderCategory, &LauncherCategory::label);
+        const int current = m_activeProviderCategory.empty() || active == m_providerCategories.end()
+            ? 0
+            : static_cast<int>(active - m_providerCategories.begin()) + 1;
+        m_categoryFilter->setSelectedIndex(static_cast<std::size_t>(wrapIndex(current + direction, count)));
+        return true;
+      }
+      if (m_activeCategoryType == Category && m_currentCategories.size() >= 2) {
+        const auto active = std::ranges::find(m_currentCategories, m_activeCategory, &LauncherCategory::label);
+        const int current =
+            active == m_currentCategories.end() ? 0 : static_cast<int>(active - m_currentCategories.begin());
+        m_categoryFilter->setSelectedIndex(
+            static_cast<std::size_t>(wrapIndex(current + direction, static_cast<int>(m_currentCategories.size())))
+        );
+        return true;
+      }
       return false;
     }
-    const int count = static_cast<int>(m_categoryFilterSlots.size() + 1);
-    const int current = m_showingProviderOverview ? static_cast<int>(m_categoryFilterSlots.size())
-                                                  : static_cast<int>(m_activeCategorySlotIndex);
-    const int next = wrapIndex(current + direction, count);
-    if (static_cast<std::size_t>(next) < m_categoryFilterSlots.size()) {
-      setActiveCategorySlot(static_cast<std::size_t>(next));
-    } else {
-      showProviderOverview();
+
+    if (m_currentCategories.empty()) {
+      return false;
     }
+    const auto categorySlot = std::ranges::find(m_categoryFilterSlots, Category, &CategoryFilterSlot::type);
+    if (categorySlot == m_categoryFilterSlots.end()) {
+      return false;
+    }
+    setActiveCategorySlot(static_cast<std::size_t>(categorySlot - m_categoryFilterSlots.begin()));
     return true;
   }
 

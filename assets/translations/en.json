@@ -2571,11 +2571,11 @@
           "label": "Save"
         },
         "cycle-next": {
-          "description": "Cycle to the next launcher category or Control Center tab",
+          "description": "Reveal launcher categories when hidden, then cycle to the next category or Control Center tab",
           "label": "Cycle Next"
         },
         "cycle-previous": {
-          "description": "Cycle to the previous launcher category or Control Center tab",
+          "description": "Reveal launcher categories when hidden, then cycle to the previous category or Control Center tab",
           "label": "Cycle Previous"
         },
         "tab-next": {
