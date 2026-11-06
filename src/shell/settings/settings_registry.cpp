@@ -2287,6 +2287,13 @@ namespace settings {
       entries.push_back(std::move(e));
     }
     entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-output",
+        tr("settings.schema.shell.screenshot-append-mode-suffix.label"),
+        tr("settings.schema.shell.screenshot-append-mode-suffix.description"),
+        {"shell", "screenshot", "append_mode_suffix"}, ToggleSetting{cfg.shell.screenshot.appendModeSuffix},
+        "screenshot capture filename suffix region annotated window desktop mode"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Screenshot, "screenshot-output", tr("settings.schema.shell.screenshot-format.label"),
         tr("settings.schema.shell.screenshot-format.description"), {"shell", "screenshot", "format"},
         enumSelect(kScreenshotFormats, cfg.shell.screenshot.format),

@@ -3683,6 +3683,10 @@
           "description": "strftime pattern without extension (the format's extension is added); use %s for unix epoch",
           "label": "Filename Pattern"
         },
+        "screenshot-append-mode-suffix": {
+          "description": "Append a capture-mode suffix such as -region, -annotated, -window, or -desktop to saved filenames",
+          "label": "Append Mode Suffix"
+        },
         "screenshot-format": {
           "description": "File format for saved screenshots; clipboard copies and pipe commands always receive PNG",
           "label": "File Format"
