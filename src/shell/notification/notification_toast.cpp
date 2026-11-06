@@ -818,9 +818,14 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
                     if (auto* state = findCardState(*instPtr, id); state != nullptr) {
                       state->entryAnimId = 0;
                     }
+                    if (auto* popup = findEntry(id); popup != nullptr) {
+                      popup->entryRevealed = true;
+                    }
                   },
                   cs.cardNode
               );
+            } else if (preservedReveal >= 1.0F) {
+              m_entries[i].entryRevealed = true;
             }
             regionChanged = true;
           }
@@ -1077,7 +1082,7 @@ void NotificationToast::finishRemoval(uint32_t notificationId) {
 
 // --- Per-instance card management ---
 
-void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex) {
+void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex, bool fromSceneRebuild) {
   auto& entry = m_entries[entryIndex];
   if (!entryTargetsOutput(entry, inst.output)
       || !hasPlacement(entry)
@@ -1099,27 +1104,34 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
   cs.clipHeight = card->height();
 
   const float targetY = cardSurfaceY(inst, entryIndex);
-  applyCardReveal(cs, 0.0F, targetY, cs.clipHeight);
+  // Skip entry motion on scene rebuild once the toast has already revealed.
+  const bool playEntryAnimation = !fromSceneRebuild || !entry.entryRevealed;
+  applyCardReveal(cs, playEntryAnimation ? 0.0F : 1.0F, targetY, cs.clipHeight);
 
   inst.sceneRoot->addChild(std::unique_ptr<Node>(card));
 
-  // Entry animation
-  cs.entryAnimId = inst.animations.animate(
-      0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic,
-      [this, viewport = cs.cardNode, content = cs.cardContent, foreground = cs.cardForeground, targetY,
-       cardHeight = cs.clipHeight, scale = notificationUiScale(m_config), width = notificationWidth(m_config),
-       edgePad = horizontalInnerPad(notificationUiScale(m_config))](float v) {
-        applyCardRevealNodes(
-            viewport, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width, edgePad
-        );
-      },
-      [this, &inst, id = entry.notificationId] {
-        if (auto* state = findCardState(inst, id); state != nullptr) {
-          state->entryAnimId = 0;
-        }
-      },
-      card
-  );
+  if (playEntryAnimation) {
+    const uint32_t notificationId = entry.notificationId;
+    cs.entryAnimId = inst.animations.animate(
+        0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic,
+        [this, viewport = cs.cardNode, content = cs.cardContent, foreground = cs.cardForeground, targetY,
+         cardHeight = cs.clipHeight, scale = notificationUiScale(m_config), width = notificationWidth(m_config),
+         edgePad = horizontalInnerPad(notificationUiScale(m_config))](float v) {
+          applyCardRevealNodes(
+              viewport, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width, edgePad
+          );
+        },
+        [this, &inst, notificationId] {
+          if (auto* state = findCardState(inst, notificationId); state != nullptr) {
+            state->entryAnimId = 0;
+          }
+          if (auto* popup = findEntry(notificationId); popup != nullptr) {
+            popup->entryRevealed = true;
+          }
+        },
+        card
+    );
+  }
 
   // Countdown. Every instance that hosts a card runs its own countdown animation and
   // calls removePopup when it finishes; dismissPopup's `exiting` guard dedupes. Picking
@@ -2090,6 +2102,9 @@ void NotificationToast::collapseStack() {
                 if (auto* state = findCardState(*instPtr, entryId); state != nullptr) {
                   state->entryAnimId = 0;
                 }
+                if (auto* popup = findEntry(entryId); popup != nullptr) {
+                  popup->entryRevealed = true;
+                }
               },
               viewport
           );
@@ -2456,7 +2471,7 @@ void NotificationToast::buildScene(Instance& inst, uint32_t width, uint32_t heig
         && entryTargetsOutput(m_entries[i], inst.output)
         && hasPlacement(m_entries[i])
         && fitsOnSurface(m_entries[i], static_cast<float>(height))) {
-      addCardToInstance(inst, i);
+      addCardToInstance(inst, i, true);
     }
   }
 
