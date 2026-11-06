@@ -615,8 +615,12 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   // Same panel, still sliding closed: reverse the reveal. Destroying here maps a
   // second surface while the compositor still shows the half-slid one, which
   // tears through the transparent tail of the old buffer.
-  if (m_closing && m_activePanelId == panelId && m_sceneRoot != nullptr && m_activePanel != nullptr
-      && !request.hasAnchorPosition && (request.output == nullptr || request.output == m_output)) {
+  if (m_closing
+      && m_activePanelId == panelId
+      && m_sceneRoot != nullptr
+      && m_activePanel != nullptr
+      && !request.hasAnchorPosition
+      && (request.output == nullptr || request.output == m_output)) {
     resumeClosingPanel(request);
     return;
   }
