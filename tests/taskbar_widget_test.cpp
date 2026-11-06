@@ -9,7 +9,7 @@
 
 class TaskbarWidgetTestAccess {
 public:
-  static std::string workspaceLabel(
+  static std::string workspaceGroupLabel(
       const Workspace& workspace, std::string_view displayKey, TaskbarLabelSource source, std::size_t index = 0
   ) {
     return TaskbarWidget::workspaceGroupLabel(workspace, index, displayKey, source);
@@ -141,20 +141,24 @@ public:
 
 int main() {
   const Workspace namedWorkspace{.id = "42", .name = "10-project", .index = 10};
-  TEST_CHECK(TaskbarWidgetTestAccess::workspaceLabel(namedWorkspace, "10-project", TaskbarLabelSource::Id) == "10");
   TEST_CHECK(
-      TaskbarWidgetTestAccess::workspaceLabel(namedWorkspace, "10-project", TaskbarLabelSource::Name) == "10-project"
+      TaskbarWidgetTestAccess::workspaceGroupLabel(namedWorkspace, "10-project", TaskbarLabelSource::Id) == "10"
   );
-  TEST_CHECK(TaskbarWidgetTestAccess::workspaceLabel(Workspace{.index = 6}, "6", TaskbarLabelSource::Name) == "6");
   TEST_CHECK(
-      TaskbarWidgetTestAccess::workspaceLabel(
+      TaskbarWidgetTestAccess::workspaceGroupLabel(namedWorkspace, "10-project", TaskbarLabelSource::Name)
+      == "10-project"
+  );
+  TEST_CHECK(TaskbarWidgetTestAccess::workspaceGroupLabel(Workspace{.index = 6}, "6", TaskbarLabelSource::Name) == "6");
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::workspaceGroupLabel(
           Workspace{.id = "12", .name = "project"}, "project", TaskbarLabelSource::Id
       )
       == "12"
   );
-  TEST_CHECK(TaskbarWidgetTestAccess::workspaceLabel({}, "", TaskbarLabelSource::Id, 2) == "3");
+  TEST_CHECK(TaskbarWidgetTestAccess::workspaceGroupLabel({}, "", TaskbarLabelSource::Id, 2) == "3");
   TEST_CHECK(
-      TaskbarWidgetTestAccess::workspaceLabel(Workspace{.name = "project"}, "", TaskbarLabelSource::Name) == "project"
+      TaskbarWidgetTestAccess::workspaceGroupLabel(Workspace{.name = "project"}, "", TaskbarLabelSource::Name)
+      == "project"
   );
 
   const Workspace kdeWorkspace{
@@ -162,10 +166,10 @@ int main() {
       .name = "10-project",
       .index = 3,
   };
-  TEST_CHECK(TaskbarWidgetTestAccess::workspaceLabel(kdeWorkspace, "", TaskbarLabelSource::Name) == "10-project");
-  TEST_CHECK(TaskbarWidgetTestAccess::workspaceLabel(kdeWorkspace, "", TaskbarLabelSource::Id) == "3");
+  TEST_CHECK(TaskbarWidgetTestAccess::workspaceGroupLabel(kdeWorkspace, "", TaskbarLabelSource::Name) == "10-project");
+  TEST_CHECK(TaskbarWidgetTestAccess::workspaceGroupLabel(kdeWorkspace, "", TaskbarLabelSource::Id) == "3");
   TEST_CHECK(
-      TaskbarWidgetTestAccess::workspaceLabel(
+      TaskbarWidgetTestAccess::workspaceGroupLabel(
           Workspace{.id = "a2b3940c-7656-4c29-bf76-98f534b42472", .name = "project", .index = 3}, "",
           TaskbarLabelSource::Name
       )
