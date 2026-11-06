@@ -1057,8 +1057,9 @@ namespace noctalia::cli {
 
   constexpr const Command* findMsgCommand(std::string_view name) {
     for (const Command& command : kMsgCmd.subcommands) {
-      if (command.name == name)
+      if (command.name == name) {
         return &command;
+      }
     }
     return nullptr;
   }

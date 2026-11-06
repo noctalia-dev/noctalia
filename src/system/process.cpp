@@ -999,8 +999,9 @@ namespace process {
   RunResult runSync(const std::string& command) { return runSync(command, RunOptions{}); }
 
   RunResult runSync(const std::string& command, const RunOptions& options) {
-    if (command.empty())
+    if (command.empty()) {
       return {-1, {}, {}};
+    }
     return runSyncProcess(std::vector<std::string>{"/bin/sh", "-lc", command}, options);
   }
 

@@ -1338,10 +1338,11 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
             .scale = scale,
             .onChange = [this, requestRebuild](bool value) {
               m_forceEnTranslation = value;
-              if (value)
+              if (value) {
                 i18n::Service::instance().setLanguage("en");
-              else if (m_config != nullptr)
+              } else if (m_config != nullptr) {
                 i18n::Service::instance().setLanguage(m_config->config().shell.lang);
+              }
               requestRebuild();
             },
         })

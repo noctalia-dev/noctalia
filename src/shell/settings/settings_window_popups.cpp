@@ -1807,12 +1807,13 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       const std::vector<std::string> base = {"calendar", "account", draft->id};
 
       std::string type = "caldav";
-      if (draft->provider == CalendarAccountProvider::Google)
+      if (draft->provider == CalendarAccountProvider::Google) {
         type = "google";
-      else if (ics)
+      } else if (ics) {
         type = "ics";
-      else if (vdir)
+      } else if (vdir) {
         type = "vdir";
+      }
 
       overrides.push_back({{base[0], base[1], base[2], "type"}, type});
       overrides.push_back({{base[0], base[1], base[2], "name"}, draft->name});

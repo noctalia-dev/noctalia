@@ -239,12 +239,15 @@ namespace {
   }
 
   NotificationToast::RevealDirection revealDirectionForPosition(std::string_view position) {
-    if (position.ends_with("_left"))
+    if (position.ends_with("_left")) {
       return NotificationToast::RevealDirection::FromLeft;
-    if (position.ends_with("_right"))
+    }
+    if (position.ends_with("_right")) {
       return NotificationToast::RevealDirection::FromRight;
-    if (position.starts_with("bottom_"))
+    }
+    if (position.starts_with("bottom_")) {
       return NotificationToast::RevealDirection::FromBottom;
+    }
     return NotificationToast::RevealDirection::FromTop;
   }
 

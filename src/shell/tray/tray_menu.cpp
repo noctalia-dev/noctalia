@@ -396,16 +396,18 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       break;
     case PointerEvent::Type::Motion:
       if (onSub || sub->pointerInside) {
-        if (onSub)
+        if (onSub) {
           sub->pointerInside = true;
+        }
         sub->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
         subConsumed = true;
       }
       break;
     case PointerEvent::Type::Button:
       if (onSub || sub->pointerInside) {
-        if (onSub)
+        if (onSub) {
           sub->pointerInside = true;
+        }
         const bool pressed = event.pressed;
         sub->inputDispatcher.pointerButton(
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
@@ -416,8 +418,9 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       break;
     case PointerEvent::Type::Axis:
       if (onSub || sub->pointerInside) {
-        if (onSub)
+        if (onSub) {
           sub->pointerInside = true;
+        }
         subConsumed = sub->inputDispatcher.pointerAxis(
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
             event.axisDiscrete, event.axisValue120, event.axisLines

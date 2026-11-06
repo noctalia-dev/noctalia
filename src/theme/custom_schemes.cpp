@@ -44,17 +44,19 @@ namespace noctalia::theme {
 
     double linearize(int c) {
       const double n = c / 255.0;
-      if (n <= 0.04045)
+      if (n <= 0.04045) {
         return n / 12.92;
+      }
       return std::pow((n + 0.055) / 1.055, 2.4);
     }
 
     int delinearize(double v) {
       double n;
-      if (v <= 0.0031308)
+      if (v <= 0.0031308) {
         n = v * 12.92;
-      else
+      } else {
         n = 1.055 * std::pow(v, 1.0 / 2.4) - 0.055;
+      }
       long r = std::lround(n * 255.0);
       r = std::max<long>(r, 0);
       r = std::min<long>(r, 255);
@@ -62,14 +64,16 @@ namespace noctalia::theme {
     }
 
     double labF(double t) {
-      if (t > 0.008856)
+      if (t > 0.008856) {
         return std::cbrt(t);
+      }
       return (903.3 * t + 16.0) / 116.0;
     }
 
     double labFInv(double t) {
-      if (t > 0.206893)
+      if (t > 0.206893) {
         return t * t * t;
+      }
       return (116.0 * t - 16.0) / 903.3;
     }
 
@@ -152,25 +156,29 @@ namespace noctalia::theme {
       if (n < k) {
         std::vector<Cluster> out;
         std::unordered_map<uint32_t, int> counts;
-        for (const auto& c : colors)
+        for (const auto& c : colors) {
           counts[c.toArgb()]++;
+        }
         for (const auto& kv : counts) {
           const Color c = Color::fromArgb(kv.first);
           out.push_back({c, c, kv.second});
-          if (static_cast<int>(out.size()) >= k)
+          if (static_cast<int>(out.size()) >= k) {
             break;
+          }
         }
         return out;
       }
 
       std::vector<Lab> labs(static_cast<size_t>(n));
-      for (int i = 0; i < n; ++i)
+      for (int i = 0; i < n; ++i) {
         labs[static_cast<size_t>(i)] = rgbToLab(colors[static_cast<size_t>(i)]);
+      }
 
       // Deterministic init: sort indices by L, pick evenly spaced.
       std::vector<int> sortedIdx(static_cast<size_t>(n));
-      for (int i = 0; i < n; ++i)
+      for (int i = 0; i < n; ++i) {
         sortedIdx[static_cast<size_t>(i)] = i;
+      }
       // Stable sort so tied L values preserve their original order.
       std::ranges::stable_sort(sortedIdx, [&](int a, int b) {
         return labs[static_cast<size_t>(a)].L < labs[static_cast<size_t>(b)].L;
@@ -251,17 +259,22 @@ namespace noctalia::theme {
     // ────────────────────────────────────────────────────────────────────────────
 
     int hueToFamily(double hue) {
-      if (hue >= 330.0 || hue < 30.0)
+      if (hue >= 330.0 || hue < 30.0) {
         return 0; // RED
-      if (hue < 60.0)
+      }
+      if (hue < 60.0) {
         return 1; // ORANGE
-      if (hue < 105.0)
+      }
+      if (hue < 105.0) {
         return 2; // YELLOW
-      if (hue < 190.0)
+      }
+      if (hue < 190.0) {
         return 3; // GREEN
-      if (hue < 270.0)
+      }
+      if (hue < 270.0) {
         return 4; // BLUE
-      return 5;   // PURPLE
+      }
+      return 5; // PURPLE
     }
 
     double familyCenterHue(int family) {
@@ -291,17 +304,19 @@ namespace noctalia::theme {
         const auto hct = colorToHct(color);
         const double chromaScore = hct.chroma;
         double tonePenalty = 0.0;
-        if (hct.tone < 20.0)
+        if (hct.tone < 20.0) {
           tonePenalty = (20.0 - hct.tone) * 2.0;
-        else if (hct.tone > 80.0)
+        } else if (hct.tone > 80.0) {
           tonePenalty = (hct.tone - 80.0) * 1.5;
-        else if (hct.tone < 40.0)
+        } else if (hct.tone < 40.0) {
           tonePenalty = (40.0 - hct.tone) * 0.5;
-        else if (hct.tone > 60.0)
+        } else if (hct.tone > 60.0) {
           tonePenalty = (hct.tone - 60.0) * 0.3;
+        }
         double huePenalty = 0.0;
-        if (hct.hue > 80.0 && hct.hue < 110.0)
+        if (hct.hue > 80.0 && hct.hue < 110.0) {
           huePenalty = 5.0;
+        }
         const double score = (chromaScore - tonePenalty - huePenalty) * std::pow(static_cast<double>(count), 0.3);
         out.push_back({color, score});
       }
@@ -330,8 +345,9 @@ namespace noctalia::theme {
       if (families.empty()) {
         std::vector<Scored> result;
         result.reserve(in.size());
-        for (const auto& [color, count] : in)
+        for (const auto& [color, count] : in) {
           result.push_back({color, static_cast<double>(count)});
+        }
         std::ranges::stable_sort(result, std::ranges::greater{}, &Scored::score);
         return result;
       }
@@ -339,8 +355,9 @@ namespace noctalia::theme {
       std::vector<std::pair<int, int>> familyTotals;
       for (auto& [fam, entries] : families) {
         int tot = 0;
-        for (const auto& e : entries)
+        for (const auto& e : entries) {
           tot += e.count;
+        }
         familyTotals.emplace_back(fam, tot);
       }
       std::ranges::stable_sort(familyTotals, std::ranges::greater{}, [](const auto& entry) { return entry.second; });
@@ -350,8 +367,9 @@ namespace noctalia::theme {
         const int fam = familyTotals[rank].first;
         auto& entries = families[fam];
         std::ranges::stable_sort(entries, [](const Entry& a, const Entry& b) {
-          if (a.count != b.count)
+          if (a.count != b.count) {
             return a.count > b.count;
+          }
           return a.chroma > b.chroma;
         });
         for (const auto& e : entries) {
@@ -389,8 +407,9 @@ namespace noctalia::theme {
       if (families.empty()) {
         std::vector<Scored> result;
         result.reserve(in.size());
-        for (const auto& [color, count] : in)
+        for (const auto& [color, count] : in) {
           result.push_back({color, static_cast<double>(count)});
+        }
         std::ranges::stable_sort(result, std::ranges::greater{}, &Scored::score);
         return result;
       }
@@ -398,8 +417,9 @@ namespace noctalia::theme {
       std::vector<std::pair<int, int>> familyTotals;
       for (auto& [fam, entries] : families) {
         int tot = 0;
-        for (const auto& e : entries)
+        for (const auto& e : entries) {
           tot += e.count;
+        }
         familyTotals.emplace_back(fam, tot);
       }
       std::ranges::stable_sort(familyTotals, std::ranges::greater{}, [](const auto& entry) { return entry.second; });
@@ -407,8 +427,9 @@ namespace noctalia::theme {
       const int dominantFamily = familyTotals[0].first;
       const double dominantCenter = familyCenterHue(dominantFamily);
       int totalColorful = 0;
-      for (const auto& [f, c] : familyTotals)
+      for (const auto& [f, c] : familyTotals) {
         totalColorful += c;
+      }
       const double minCount = static_cast<double>(totalColorful) * MIN_COUNT_RATIO;
 
       struct Distant {
@@ -426,8 +447,9 @@ namespace noctalia::theme {
         const double hueDiff = circularHueDiff(dominantCenter, famCenter);
         if (hueDiff >= MIN_HUE_DISTANCE && static_cast<double>(cnt) >= minCount) {
           double maxChroma = 0.0;
-          for (const auto& e : families[fam])
+          for (const auto& e : families[fam]) {
             maxChroma = std::max(maxChroma, e.chroma);
+          }
           distant.push_back({fam, cnt, hueDiff, maxChroma});
         } else {
           close.push_back(fam);
@@ -443,8 +465,9 @@ namespace noctalia::theme {
         const int fam = distant[rank].family;
         auto& entries = families[fam];
         std::ranges::stable_sort(entries, [](const Entry& a, const Entry& b) {
-          if (a.chroma != b.chroma)
+          if (a.chroma != b.chroma) {
             return a.chroma > b.chroma;
+          }
           return a.count > b.count;
         });
         for (const auto& e : entries) {
@@ -457,8 +480,9 @@ namespace noctalia::theme {
       for (int fam : close) {
         auto& entries = families[fam];
         std::ranges::stable_sort(entries, [](const Entry& a, const Entry& b) {
-          if (a.count != b.count)
+          if (a.count != b.count) {
             return a.count > b.count;
+          }
           return a.chroma > b.chroma;
         });
         for (const auto& e : entries) {
@@ -474,8 +498,9 @@ namespace noctalia::theme {
     std::vector<Scored> scoreMuted(const std::vector<std::pair<Color, int>>& in) {
       std::vector<Scored> out;
       out.reserve(in.size());
-      for (const auto& [color, count] : in)
+      for (const auto& [color, count] : in) {
         out.push_back({color, static_cast<double>(count)});
+      }
       std::ranges::stable_sort(out, std::ranges::greater{}, &Scored::score);
       return out;
     }
@@ -496,8 +521,9 @@ namespace noctalia::theme {
         std::vector<Color> kept;
         for (const auto& c : sampled) {
           const auto hct = colorToHct(c);
-          if (hct.chroma >= 5.0)
+          if (hct.chroma >= 5.0) {
             kept.push_back(c);
+          }
         }
         filtered = (static_cast<int>(kept.size()) >= clusterCount * 2) ? kept : sampled;
       } else if (scheme == Scheme::Faithful || scheme == Scheme::Soft || scheme == Scheme::Dysfunctional) {
@@ -513,11 +539,13 @@ namespace noctalia::theme {
       std::vector<std::pair<Color, int>> scoringInput;
       scoringInput.reserve(clusters.size());
       if (scheme == Scheme::Vibrant) {
-        for (const auto& c : clusters)
+        for (const auto& c : clusters) {
           scoringInput.emplace_back(c.centroid, c.count);
+        }
       } else {
-        for (const auto& c : clusters)
+        for (const auto& c : clusters) {
           scoringInput.emplace_back(c.representative, c.count);
+        }
       }
 
       std::vector<Scored> scored;
@@ -540,8 +568,9 @@ namespace noctalia::theme {
 
       std::vector<Color> finalColors;
       finalColors.reserve(scored.size());
-      for (const auto& s : scored)
+      for (const auto& s : scored) {
         finalColors.push_back(s.color);
+      }
 
       // If scoring returned fewer than k colours, synthesise the rest by
       // rotating the primary in 60° steps.
@@ -566,8 +595,9 @@ namespace noctalia::theme {
     Color findErrorColor(const std::vector<Color>& palette) {
       for (const auto& c : palette) {
         auto [h, s, l] = c.toHsl();
-        if ((h <= 30.0 || h >= 330.0) && s > 0.4 && l > 0.3 && l < 0.7)
+        if ((h <= 30.0 || h >= 330.0) && s > 0.4 && l > 0.3 && l < 0.7) {
           return c;
+        }
       }
       return Color::fromHex("#FD4663");
     }
@@ -591,8 +621,9 @@ namespace noctalia::theme {
         const auto [sh, ss, sl] = palette[1].toHsl();
         (void)ss;
         (void)sl;
-        if (hueDistance(primary_h, sh) > MIN_HUE_DISTANCE)
+        if (hueDistance(primary_h, sh) > MIN_HUE_DISTANCE) {
           secondary = palette[1];
+        }
       }
       Color tertiary = shiftHue(primary, 60.0);
       if (palette.size() > 2) {
@@ -635,12 +666,13 @@ namespace noctalia::theme {
         surface_hue = std::fmod(surface_hue + 10.0, 360.0);
       }
       double surface_sat_cap;
-      if (surface_hue < 60.0 || surface_hue > 300.0)
+      if (surface_hue < 60.0 || surface_hue > 300.0) {
         surface_sat_cap = 0.35;
-      else if (surface_hue < 120.0)
+      } else if (surface_hue < 120.0) {
         surface_sat_cap = 0.50;
-      else
+      } else {
         surface_sat_cap = 0.90;
+      }
 
       const Color base_surface = fromHsl(surface_hue, std::min(ssurf, surface_sat_cap), 0.5);
       const Color surface = adjustSurface(base_surface, surface_sat_cap, 0.12);
@@ -774,8 +806,9 @@ namespace noctalia::theme {
         const auto [sh, ss, sl] = palette[1].toHsl();
         (void)ss;
         (void)sl;
-        if (hueDistance(primary_h, sh) > MIN_HUE_DISTANCE)
+        if (hueDistance(primary_h, sh) > MIN_HUE_DISTANCE) {
           secondary = palette[1];
+        }
       }
       Color tertiary = shiftHue(primary, 60.0);
       if (palette.size() > 2) {
@@ -939,8 +972,9 @@ namespace noctalia::theme {
         const auto [sh, ss, sl] = palette[1].toHsl();
         (void)ss;
         (void)sl;
-        if (hueDistance(primary_h, sh) > MIN_HUE_DISTANCE)
+        if (hueDistance(primary_h, sh) > MIN_HUE_DISTANCE) {
           secondary = palette[1];
+        }
       }
       Color tertiary = shiftHue(primary, 60.0);
       if (palette.size() > 2) {
@@ -1104,8 +1138,9 @@ namespace noctalia::theme {
         const auto [sh, ss, sl] = palette[1].toHsl();
         (void)ss;
         (void)sl;
-        if (hueDistance(primary_h, sh) > MIN_HUE_DISTANCE)
+        if (hueDistance(primary_h, sh) > MIN_HUE_DISTANCE) {
           secondary = palette[1];
+        }
       }
       Color tertiary = shiftHue(primary, 60.0);
       if (palette.size() > 2) {

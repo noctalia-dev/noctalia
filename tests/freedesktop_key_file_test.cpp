@@ -113,14 +113,14 @@ int main() {
   const auto invalidUtf8 = freedesktop::parseKeyFile(invalidUtf8Path);
   ok = expect(!invalidUtf8.has_value(), "invalid UTF-8 was accepted") && ok;
   ok = expect(
-           !invalidUtf8.has_value() && invalidUtf8.error().reason == freedesktop::ParseFailure::INVALID_ENCODING,
+           !invalidUtf8.has_value() && invalidUtf8.error().reason == freedesktop::ParseFailure::InvalidEncoding,
            "invalid UTF-8 did not return the encoding failure"
        )
       && ok;
   const auto missing = freedesktop::parseKeyFile(dir / "missing.theme");
   ok = expect(!missing.has_value(), "unreadable key file did not fail") && ok;
   ok = expect(
-           !missing.has_value() && missing.error().reason == freedesktop::ParseFailure::NOT_FOUND,
+           !missing.has_value() && missing.error().reason == freedesktop::ParseFailure::NotFound,
            "missing key file did not return the not-found failure"
        )
       && ok;

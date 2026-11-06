@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cmath>
 #include <optional>
+#include <utility>
 
 namespace {
 
@@ -45,12 +46,19 @@ float InputArea::PointerData::scrollDelta(float wheelStep) const noexcept {
 InputArea::InputArea() : Node(NodeType::Base) {}
 
 InputArea::~InputArea() {
-  if (m_destroyCallback) {
-    m_destroyCallback(this);
+  const auto observers = std::move(m_destroyObservers);
+  for (const auto& [key, observer] : observers) {
+    (void)key;
+    if (!observer.owner.expired()) {
+      observer.callback(this);
+    }
   }
 }
 
-void InputArea::setDestroyCallback(DestroyCallback callback) { m_destroyCallback = std::move(callback); }
+void InputArea::observeDestruction(const std::shared_ptr<void>& owner, DestroyCallback callback) {
+  std::erase_if(m_destroyObservers, [](const auto& item) { return item.second.owner.expired(); });
+  m_destroyObservers.insert_or_assign(owner.get(), DestructionObserver{owner, std::move(callback)});
+}
 
 std::uint32_t InputArea::buttonMask(std::uint32_t button) noexcept {
   if (button < kMouseButtonBase) {

@@ -181,10 +181,12 @@ namespace {
     }
 
     if (pid > 0) {
-      if (outPid)
+      if (outPid) {
         *outPid = pid;
-      if (parentPipe)
+      }
+      if (parentPipe) {
         *parentPipe = pipeFds[0];
+      }
       closeFd(pipeFds[1]);
       return SpawnResult::Parent;
     }
@@ -290,32 +292,42 @@ int main(int argc, char* argv[]) {
   }
 
   if (argc >= 2) {
-    if (noctalia::theme::isFirefoxNativeMessagingLaunch(argc, argv))
+    if (noctalia::theme::isFirefoxNativeMessagingLaunch(argc, argv)) {
       return noctalia::theme::runFirefoxNativeMessagingHost();
-    if (std::strcmp(argv[1], "completions") == 0)
+    }
+    if (std::strcmp(argv[1], "completions") == 0) {
       return noctalia::cli::runCompletionsCli(argc, argv);
-    if (std::strcmp(argv[1], "firefox-theme") == 0)
+    }
+    if (std::strcmp(argv[1], "firefox-theme") == 0) {
       return noctalia::theme::runFirefoxThemeCli(argc, argv);
-    if (std::strcmp(argv[1], "theme") == 0)
+    }
+    if (std::strcmp(argv[1], "theme") == 0) {
       return noctalia::theme::runCli(argc, argv);
-    if (std::strcmp(argv[1], "msg") == 0)
+    }
+    if (std::strcmp(argv[1], "msg") == 0) {
       return noctalia::ipc::runCli(argc, argv);
+    }
     // Internal mode for PAM authentication after re-exec.
-    if (std::strcmp(argv[1], "pam-helper") == 0)
+    if (std::strcmp(argv[1], "pam-helper") == 0) {
       return PamAuthenticator::runHelperMode(argc, argv);
-    if (std::strcmp(argv[1], "config") == 0)
+    }
+    if (std::strcmp(argv[1], "config") == 0) {
       return noctalia::config::runCli(argc, argv);
-    if (std::strcmp(argv[1], "dmenu") == 0)
+    }
+    if (std::strcmp(argv[1], "dmenu") == 0) {
       return noctalia::launcher::runDmenuCli(argc, argv);
-    if (std::strcmp(argv[1], "plugins") == 0)
+    }
+    if (std::strcmp(argv[1], "plugins") == 0) {
       return noctalia::plugins::runCli(argc, argv);
+    }
   }
 
   for (int i = 1; i < argc; ++i) {
     if (argv[i][0] == '-') {
       const int rc = runTopLevelFlag(argv[i]);
-      if (rc >= 0)
+      if (rc >= 0) {
         return rc;
+      }
 
       std::println(stderr, "error: unknown option: {}", argv[i]);
       return 1;

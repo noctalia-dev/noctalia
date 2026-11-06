@@ -1103,9 +1103,11 @@ both = { color_dark = "#444444", color_light = "#555555" }
     readInto(root, theme, themeSchema(), "theme", d);
 
     auto find = [&](std::string_view name) -> const ThemeConfig::TemplateColorConfig* {
-      for (const auto& c : theme.templates.customColors)
-        if (c.name == name)
+      for (const auto& c : theme.templates.customColors) {
+        if (c.name == name) {
           return &c;
+        }
+      }
       return nullptr;
     };
 

@@ -564,57 +564,81 @@ void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   }
 
   // Common uniforms
-  if (pd.sourceKind1Loc >= 0)
+  if (pd.sourceKind1Loc >= 0) {
     glUniform1f(pd.sourceKind1Loc, p.from.kind == WallpaperSourceKind::Color ? 1.0F : 0.0F);
-  if (pd.sourceKind2Loc >= 0)
+  }
+  if (pd.sourceKind2Loc >= 0) {
     glUniform1f(pd.sourceKind2Loc, p.to.kind == WallpaperSourceKind::Color ? 1.0F : 0.0F);
-  if (pd.sourceColor1Loc >= 0)
+  }
+  if (pd.sourceColor1Loc >= 0) {
     glUniform4f(pd.sourceColor1Loc, p.from.color.r, p.from.color.g, p.from.color.b, p.from.color.a);
-  if (pd.sourceColor2Loc >= 0)
+  }
+  if (pd.sourceColor2Loc >= 0) {
     glUniform4f(pd.sourceColor2Loc, p.to.color.r, p.to.color.g, p.to.color.b, p.to.color.a);
+  }
   glUniform1f(pd.progressLoc, p.progress);
-  if (pd.fillModeLoc >= 0)
+  if (pd.fillModeLoc >= 0) {
     glUniform1f(pd.fillModeLoc, p.fillMode);
-  if (pd.imageWidth1Loc >= 0)
+  }
+  if (pd.imageWidth1Loc >= 0) {
     glUniform1f(pd.imageWidth1Loc, p.from.imageWidth);
-  if (pd.imageHeight1Loc >= 0)
+  }
+  if (pd.imageHeight1Loc >= 0) {
     glUniform1f(pd.imageHeight1Loc, p.from.imageHeight);
-  if (pd.imageWidth2Loc >= 0)
+  }
+  if (pd.imageWidth2Loc >= 0) {
     glUniform1f(pd.imageWidth2Loc, p.to.imageWidth);
-  if (pd.imageHeight2Loc >= 0)
+  }
+  if (pd.imageHeight2Loc >= 0) {
     glUniform1f(pd.imageHeight2Loc, p.to.imageHeight);
-  if (pd.screenWidthLoc >= 0)
+  }
+  if (pd.screenWidthLoc >= 0) {
     glUniform1f(pd.screenWidthLoc, p.quadWidth);
-  if (pd.screenHeightLoc >= 0)
+  }
+  if (pd.screenHeightLoc >= 0) {
     glUniform1f(pd.screenHeightLoc, p.quadHeight);
-  if (pd.fillColorLoc >= 0)
+  }
+  if (pd.fillColorLoc >= 0) {
     glUniform4f(pd.fillColorLoc, p.fillColor.r, p.fillColor.g, p.fillColor.b, p.fillColor.a);
-  if (pd.spanOffsetLoc >= 0)
+  }
+  if (pd.spanOffsetLoc >= 0) {
     glUniform2f(pd.spanOffsetLoc, p.span.offsetX, p.span.offsetY);
-  if (pd.spanMonitorSizeLoc >= 0)
+  }
+  if (pd.spanMonitorSizeLoc >= 0) {
     glUniform2f(pd.spanMonitorSizeLoc, p.span.monitorWidth, p.span.monitorHeight);
-  if (pd.spanTotalSizeLoc >= 0)
+  }
+  if (pd.spanTotalSizeLoc >= 0) {
     glUniform2f(pd.spanTotalSizeLoc, p.span.totalWidth, p.span.totalHeight);
+  }
 
   // Per-transition uniforms
-  if (pd.directionLoc >= 0)
+  if (pd.directionLoc >= 0) {
     glUniform1f(pd.directionLoc, tp.direction);
-  if (pd.smoothnessLoc >= 0)
+  }
+  if (pd.smoothnessLoc >= 0) {
     glUniform1f(pd.smoothnessLoc, tp.smoothness);
-  if (pd.centerXLoc >= 0)
+  }
+  if (pd.centerXLoc >= 0) {
     glUniform1f(pd.centerXLoc, tp.centerX);
-  if (pd.centerYLoc >= 0)
+  }
+  if (pd.centerYLoc >= 0) {
     glUniform1f(pd.centerYLoc, tp.centerY);
-  if (pd.aspectRatioLoc >= 0)
+  }
+  if (pd.aspectRatioLoc >= 0) {
     glUniform1f(pd.aspectRatioLoc, tp.aspectRatio);
-  if (pd.stripeCountLoc >= 0)
+  }
+  if (pd.stripeCountLoc >= 0) {
     glUniform1f(pd.stripeCountLoc, tp.stripeCount);
-  if (pd.angleLoc >= 0)
+  }
+  if (pd.angleLoc >= 0) {
     glUniform1f(pd.angleLoc, tp.angle);
-  if (pd.maxBlockSizeLoc >= 0)
+  }
+  if (pd.maxBlockSizeLoc >= 0) {
     glUniform1f(pd.maxBlockSizeLoc, tp.maxBlockSize);
-  if (pd.cellSizeLoc >= 0)
+  }
+  if (pd.cellSizeLoc >= 0) {
     glUniform1f(pd.cellSizeLoc, tp.cellSize);
+  }
 
   // Draw fullscreen quad
   auto posAttr = static_cast<GLuint>(pd.positionLoc);
