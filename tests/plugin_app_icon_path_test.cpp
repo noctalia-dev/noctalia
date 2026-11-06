@@ -95,7 +95,8 @@ int main() {
     assert(noctalia.appIconPath("noctaliasample") == px .. "noctaliasample.png")
     -- Window app ids still reach the taskbar heuristics (#4571).
     assert(noctalia.appIconPath(".noctaliawrapped-gui-wrapped") == px .. "org.example.noctaliawrapped.png")
-    assert(noctalia.appIconPath("no-such-noctalia-app") == nil)
+    -- No bare "noctalia" token: an installed dev.noctalia.Noctalia entry would token-match it.
+    assert(noctalia.appIconPath("noctaliamissing-app") == nil)
   )",
           px
       )
