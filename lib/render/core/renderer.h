@@ -49,6 +49,12 @@ struct TextCursorStop {
   float x = 0.0F;
   float y = 0.0F;
   float height = 0.0F;
+  // The character that starts at this offset, when it is on the caret's line: its left and right edge
+  // and whether it runs right to left. Empty (charLeft == charRight) at the end of the text, at a line
+  // break, and where the renderer does not measure it.
+  float charLeft = 0.0F;
+  float charRight = 0.0F;
+  bool charRtl = false;
 };
 
 struct TextCharSpan {

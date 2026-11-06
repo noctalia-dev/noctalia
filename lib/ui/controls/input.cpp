@@ -2511,7 +2511,33 @@ std::size_t Input::pointToByteOffset(float localX, float localY) const {
   }
   (void)found;
 
-  // Nearest caret boundary by x within the line.
+  // A point on a character goes to the caret slot on that character's side: before it on its leading
+  // half (the left half of a left-to-right character, the right half of a right-to-left one), after it
+  // on the other. Where two runs meet, both slots share one x, so the nearest stop cannot tell them
+  // apart, and a drag from a word's edge would anchor in the other run.
+  for (std::size_t i = lineFirst; i <= lineLast && i + 1 < m_stopRect.size(); ++i) {
+    const TextCursorStop& stop = m_stopRect[i];
+    if (stop.charRight <= stop.charLeft || localX < stop.charLeft || localX >= stop.charRight) {
+      continue;
+    }
+    const float middle = (stop.charLeft + stop.charRight) * 0.5F;
+    const bool leadingHalf = stop.charRtl ? localX >= middle : localX < middle;
+    if (leadingHalf) {
+      return m_stopByte[i];
+    }
+    // Every code point of one cluster (a letter and its marks, an emoji sequence) reports the cluster's
+    // extent; step past the rest of it so the slot after it is never inside the cluster.
+    std::size_t next = i + 1;
+    while (next + 1 < m_stopRect.size()
+           && sameLineY(m_stopRect[next].y, stop.y)
+           && std::abs(m_stopRect[next].charLeft - stop.charLeft) < 0.5F
+           && std::abs(m_stopRect[next].charRight - stop.charRight) < 0.5F) {
+      ++next;
+    }
+    return m_stopByte[next];
+  }
+
+  // Off the characters (before or after the line's text): nearest caret boundary by x within the line.
   std::size_t best = lineFirst;
   float bestDist = std::numeric_limits<float>::max();
   for (std::size_t i = lineFirst; i <= lineLast; ++i) {
@@ -2627,19 +2653,34 @@ void Input::updateMultilineSelection() {
   for (std::size_t i = i0; i < i1; ++i) {
     const TextCursorStop& a = m_stopRect[i];
     const TextCursorStop& b = m_stopRect[i + 1];
-    // A char whose next boundary sits on another line ends its line; highlight
-    // it with a short stub (its true advance is not in the stop data).
-    const float boundaryX = sameLineY(a.y, b.y) ? b.x : a.x + stub;
-    const float spanStart = std::min(a.x, boundaryX);
-    const float spanEnd = std::max(a.x, boundaryX);
-    if (!lines.empty() && sameLineY(lines.back().y, a.y)) {
-      lines.back().x0 = std::min(lines.back().x0, spanStart);
-      lines.back().x1 = std::max(lines.back().x1, spanEnd);
-      lines.back().h = std::max(lines.back().h, a.height);
+    float spanStart = a.charLeft;
+    float spanEnd = a.charRight;
+    if (spanEnd <= spanStart) {
+      // No measured extent (a line break): a char whose next boundary sits on another line ends its
+      // line; highlight it with a short stub.
+      const float boundaryX = sameLineY(a.y, b.y) ? b.x : a.x + stub;
+      spanStart = std::min(a.x, boundaryX);
+      spanEnd = std::max(a.x, boundaryX);
+    }
+    lines.push_back(LineSpan{spanStart, spanEnd, a.y, a.height});
+  }
+
+  // A selection that crosses a run boundary can cover pieces of a line that are not next to each other
+  // on screen: highlight each character where it is drawn, joining neighbours, so the highlight shows
+  // exactly what is selected.
+  std::ranges::sort(lines, [](const LineSpan& lhs, const LineSpan& rhs) {
+    return sameLineY(lhs.y, rhs.y) ? lhs.x0 < rhs.x0 : lhs.y < rhs.y;
+  });
+  std::vector<LineSpan> merged;
+  for (const LineSpan& span : lines) {
+    if (!merged.empty() && sameLineY(merged.back().y, span.y) && span.x0 <= merged.back().x1 + 0.5F) {
+      merged.back().x1 = std::max(merged.back().x1, span.x1);
+      merged.back().h = std::max(merged.back().h, span.h);
     } else {
-      lines.push_back(LineSpan{spanStart, spanEnd, a.y, a.height});
+      merged.push_back(span);
     }
   }
+  lines = std::move(merged);
 
   syncSelectionLineRects(lines.size());
   for (std::size_t i = 0; i < lines.size(); ++i) {
