@@ -609,33 +609,49 @@ namespace {
   }
 
   // appIconPath(appIdOrIconName, sizePx?) -> absolute icon file path or nil.
-  // Same resolution the native taskbar uses: desktop-entry lookup (id /
-  // StartupWMClass) for the icon name, then the XDG icon-theme resolver.
-  // Unmatched inputs are treated as raw icon names so plugins can also
-  // resolve themed icons directly.
+  // Resolution order:
+  //   1. an absolute path is returned as-is if it exists;
+  //   2. an exact desktop-entry match (id / StartupWMClass / name) gives the icon name;
+  //   3. the input as a raw icon name (XDG icon theme, then pixmaps);
+  //   4. the taskbar's heuristic desktop-entry match (id tail / shared tokens).
+  // Raw names go before the heuristics so that e.g. "vscode-insiders" is not
+  // token-matched to the "com.microsoft.VSCode" entry.
   int luau_appIconPath(lua_State* L) {
     size_t len = 0;
     const char* appId = luaL_checklstring(L, 1, &len);
     const int targetSize = luaL_optinteger(L, 2, 0);
-
-    std::string iconName;
-    const auto entries = desktopEntriesSnapshot();
-    if (const auto entry = app_identity::findDesktopEntry(std::string_view(appId, len), *entries);
-        entry.has_value() && !entry->icon.empty()) {
-      iconName = entry->icon;
-    } else {
-      iconName.assign(appId, len);
-    }
+    const std::string key(appId, len);
 
     // One resolver (and icon-path cache) per script worker thread; the theme
     // plan it reads is shared across threads and mutex-guarded in IconResolver.
     static thread_local IconResolver resolver;
-    const std::string& path = resolver.resolve(iconName, targetSize);
-    if (path.empty()) {
-      lua_pushnil(L);
+    const auto pushPath = [L](const std::string& path) {
+      if (path.empty()) {
+        lua_pushnil(L);
+      } else {
+        lua_pushlstring(L, path.data(), path.size());
+      }
       return 1;
+    };
+
+    if (key.starts_with('/')) {
+      return pushPath(resolver.resolve(key, targetSize));
     }
-    lua_pushlstring(L, path.data(), path.size());
+
+    const auto entries = desktopEntriesSnapshot();
+    if (const auto entry = app_identity::findDesktopEntryExact(key, *entries);
+        entry.has_value() && !entry->icon.empty()) {
+      if (const std::string& path = resolver.resolve(entry->icon, targetSize); !path.empty()) {
+        return pushPath(path);
+      }
+    }
+    if (const std::string& path = resolver.resolve(key, targetSize); !path.empty()) {
+      return pushPath(path);
+    }
+    if (const auto entry = app_identity::findDesktopEntry(key, *entries); entry.has_value() && !entry->icon.empty()) {
+      return pushPath(resolver.resolve(entry->icon, targetSize));
+    }
+    lua_pushnil(L);
     return 1;
   }
 
