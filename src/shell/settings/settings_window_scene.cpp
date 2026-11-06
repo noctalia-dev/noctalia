@@ -1172,6 +1172,7 @@ void SettingsWindow::rebuildSettingsContent() {
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
+            .openBrowserUrl = [this](const std::string& url) { openBrowserUrl(url); },
             .autoUpdateMode = cfg.plugins.autoUpdate,
             .setAutoUpdate =
                 [this](PluginAutoUpdateMode mode) {
