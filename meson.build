@@ -1159,6 +1159,7 @@ if build_tests
   ]
 
   _ui_codecs_test_names = [
+    'color_profile',
     'ico_decoder',
     'image_file_loader_data_uri',
     'jxl_decoder',

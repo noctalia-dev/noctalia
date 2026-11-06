@@ -255,11 +255,13 @@ if get_variable('noctalia_ui_build_codecs', false)
     dependency('libwebpdemux'),
     dependency('libjxl'),
     dependency('libjxl_threads'),
+    dependency('lcms2'),
   ] + (_noctalia_ui_dl_dep.found() ? [_noctalia_ui_dl_dep] : [])
 
   noctalia_ui_codecs_lib = static_library('noctalia-ui-codecs',
     sources: files(
       'render/codecs/codecs.cpp',
+      'render/codecs/color_profile.cpp',
       'render/codecs/heif_library.cpp',
       'render/codecs/image_encoder.cpp',
       'render/codecs/image_file_loader.cpp',
