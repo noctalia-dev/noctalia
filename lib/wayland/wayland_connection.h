@@ -135,6 +135,9 @@ public:
   void setOutputLifecycleCallbacks(std::function<void(wl_output*)> added, std::function<void(wl_output*)> removed);
   void setPointerEventCallback(WaylandSeat::PointerEventCallback callback);
   void setKeyboardEventCallback(WaylandSeat::KeyboardEventCallback callback);
+  // Application observer, independent of TextInputService registration. Seat queries and
+  // serials are updated first, then text-input focus, then this callback.
+  void setKeyboardFocusCallback(WaylandSeat::KeyboardFocusCallback callback);
   void setKeyboardModifiersCallback(WaylandSeat::KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCallback callback);
   void setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback);
@@ -269,6 +272,8 @@ private:
   wl_output* m_lastPointerOutput = nullptr;
   std::chrono::steady_clock::time_point m_lastPointerOutputAt;
   WaylandSeat::PointerEventCallback m_pointerEventCallback;
+  WaylandSeat::KeyboardFocusCallback m_keyboardFocusCallback;
+  std::shared_ptr<int> m_aliveToken = std::make_shared<int>(0);
 
   WaylandSeat m_seatHandler;
   std::vector<AdvertisedGlobal> m_advertisedGlobals;

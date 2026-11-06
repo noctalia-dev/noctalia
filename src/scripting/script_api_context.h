@@ -4,6 +4,7 @@
 #include "scripting/plugin_layer_config.h"
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -44,6 +45,25 @@ namespace scripting {
     double startMs = 0.0;
     double endMs = 0.0;
     bool allDay = false;
+  };
+
+  // The shell's active MPRIS player as exposed to plugin scripts via noctalia.mediaPlayer().
+  // `positionMs` is the position at `sampledAt`; the binding projects it to call time while playing.
+  struct ScriptMediaPlayer {
+    std::string busName;
+    std::string identity;
+    std::string desktopEntry;
+    std::string status; // "Playing" | "Paused" | "Stopped"
+    std::string trackId;
+    std::string title;
+    std::vector<std::string> artists;
+    std::string album;
+    std::string url; // xesam:url, empty when absent
+    std::string artUrl;
+    double positionMs = 0.0;
+    double lengthMs = 0.0; // 0 when unknown
+    double rate = 1.0;
+    std::chrono::steady_clock::time_point sampledAt;
   };
 
   class ScriptApiContext {
@@ -165,6 +185,18 @@ namespace scripting {
     std::shared_ptr<const std::vector<ScriptCalendarEvent>> calendarEvents() const {
       std::scoped_lock lock(m_mutex);
       return m_calendarEvents;
+    }
+
+    // Active MPRIS player, mirrored from MprisService on the main thread on every player change and
+    // position sample. Null while there is no active player or no MPRIS service.
+    void setMediaPlayer(std::shared_ptr<const ScriptMediaPlayer> player) {
+      std::scoped_lock lock(m_mutex);
+      m_mediaPlayer = std::move(player);
+    }
+
+    std::shared_ptr<const ScriptMediaPlayer> mediaPlayer() const {
+      std::scoped_lock lock(m_mutex);
+      return m_mediaPlayer;
     }
 
     // Shell [shell].time_format / date_format — mirrored for noctalia.timeFormat() / dateFormat().
@@ -339,6 +371,7 @@ namespace scripting {
     std::unordered_map<std::string, std::string> m_wallpaperPaths;
     std::optional<std::string> m_clipboardText;
     std::shared_ptr<const std::vector<ScriptCalendarEvent>> m_calendarEvents;
+    std::shared_ptr<const ScriptMediaPlayer> m_mediaPlayer;
     std::function<void(const std::string&, bool)> m_wallpaperEnabledHook;
     std::function<void(const std::string&, const std::string&)> m_wallpaperHook;
     SetWallpaperMaskHook m_wallpaperMaskHook;

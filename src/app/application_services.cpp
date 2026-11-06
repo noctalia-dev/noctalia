@@ -144,6 +144,21 @@ void Application::scheduleNotificationShellRefresh() {
   });
 }
 
+void Application::syncLockScreenDoNotDisturb() {
+  const bool shouldEnable = m_lockScreen.isActive() && m_configService.config().lockscreen.dnd;
+  if (shouldEnable) {
+    if (!m_notificationManager.doNotDisturb()) {
+      m_lockScreenAutoDnd = true;
+      m_notificationManager.setDoNotDisturb(true);
+    }
+    return;
+  }
+  if (m_lockScreenAutoDnd) {
+    m_lockScreenAutoDnd = false;
+    m_notificationManager.setDoNotDisturb(false);
+  }
+}
+
 void Application::syncNotificationDaemon() {
   if (m_bus == nullptr) {
     m_notificationPollSource.setDbusService(nullptr);
@@ -1680,7 +1695,37 @@ void Application::initSessionBusServices() {
       };
       applyMprisConfig();
       m_configService.addReloadCallback(applyMprisConfig);
-      m_mprisService->setChangeCallback([this, shouldRefreshControlCenter] {
+      // Mirror the active player into the script API for noctalia.mediaPlayer(), like the calendar
+      // mirror below. The snapshot is stamped with the steady-clock time it was projected to, and the
+      // binding projects from there, so it is refreshed on every position sample as well.
+      auto pushMediaPlayer = [this] {
+        const auto player = m_mprisService != nullptr ? m_mprisService->activePlayer() : std::nullopt;
+        if (!player.has_value()) {
+          m_scriptApi.setMediaPlayer(nullptr);
+          return;
+        }
+        m_scriptApi.setMediaPlayer(
+            std::make_shared<const scripting::ScriptMediaPlayer>(scripting::ScriptMediaPlayer{
+                .busName = player->busName,
+                .identity = player->identity,
+                .desktopEntry = player->desktopEntry,
+                .status = player->playbackStatus,
+                .trackId = player->trackId,
+                .title = player->title,
+                .artists = player->artists,
+                .album = player->album,
+                .url = player->sourceUrl,
+                .artUrl = player->artUrl,
+                .positionMs = static_cast<double>(player->positionUs) / 1000.0,
+                .lengthMs = static_cast<double>(player->lengthUs) / 1000.0,
+                .rate = player->rate,
+                .sampledAt = std::chrono::steady_clock::now(),
+            })
+        );
+      };
+      m_mprisService->setPositionSampleCallback(pushMediaPlayer);
+      m_mprisService->setChangeCallback([this, shouldRefreshControlCenter, pushMediaPlayer] {
+        pushMediaPlayer();
         m_bar.refresh();
         m_desktopWidgetsController.requestUpdate();
         m_mediaOsd.onMprisChanged(*m_mprisService);
@@ -1696,6 +1741,7 @@ void Application::initSessionBusServices() {
     } catch (const std::exception& e) {
       kLog.warn("mpris disabled: {}", e.what());
       m_mprisService.reset();
+      m_scriptApi.setMediaPlayer(nullptr);
       m_lockScreen.setLoginBoxServices(&m_sessionActionRunner, nullptr, &m_weatherService, &m_httpClient);
       m_notificationManager.addInternal(
           "Noctalia", i18n::tr("notifications.internal.mpris-disabled"), e.what(), Urgency::Low

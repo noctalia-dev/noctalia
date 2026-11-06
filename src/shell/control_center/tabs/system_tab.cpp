@@ -461,10 +461,12 @@ void SystemTab::onClose() {
   m_rxLabel = nullptr;
   m_txIcon = nullptr;
   m_txLabel = nullptr;
-  for (auto& l : m_systemLines)
+  for (auto& l : m_systemLines) {
     l = nullptr;
-  for (auto& l : m_resourcesLines)
+  }
+  for (auto& l : m_resourcesLines) {
     l = nullptr;
+  }
   m_swapRow = nullptr;
   m_swapLabel = nullptr;
   m_diskLabels.clear();

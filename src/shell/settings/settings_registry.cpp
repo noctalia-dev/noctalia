@@ -1835,6 +1835,15 @@ namespace settings {
     }
     {
       auto e = makeEntry(
+          SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.dnd.label"),
+          tr("settings.schema.lockscreen.dnd.description"), {"lockscreen", "dnd"}, ToggleSetting{cfg.lockscreen.dnd},
+          "lock screen do not disturb dnd notifications"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
           SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.grace-period.label"),
           tr("settings.schema.lockscreen.grace-period.description"), {"lockscreen", "grace_period_seconds"},
           StepperSetting{
@@ -2277,6 +2286,13 @@ namespace settings {
       );
       entries.push_back(std::move(e));
     }
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-output",
+        tr("settings.schema.shell.screenshot-append-mode-suffix.label"),
+        tr("settings.schema.shell.screenshot-append-mode-suffix.description"),
+        {"shell", "screenshot", "append_mode_suffix"}, ToggleSetting{cfg.shell.screenshot.appendModeSuffix},
+        "screenshot capture filename suffix region annotated window desktop mode"
+    ));
     entries.push_back(makeEntry(
         SettingsSection::Screenshot, "screenshot-output", tr("settings.schema.shell.screenshot-format.label"),
         tr("settings.schema.shell.screenshot-format.description"), {"shell", "screenshot", "format"},

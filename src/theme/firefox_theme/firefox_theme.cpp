@@ -708,10 +708,12 @@ namespace noctalia::theme {
         cli::kFirefoxThemeCmd, "noctalia firefox-theme",
         std::span<char* const>{argv + 2, static_cast<std::size_t>(argc - 2)}
     );
-    if (!parsed)
+    if (!parsed) {
       return 1;
-    if (parsed->helpRequested)
+    }
+    if (parsed->helpRequested) {
       return 0;
+    }
     const std::string_view action = parsed->positionals.front();
     if (action == "help") {
       std::print("{}", cli::renderHelp(cli::kFirefoxThemeCmd, "noctalia firefox-theme"));

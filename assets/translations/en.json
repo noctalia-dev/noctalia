@@ -758,21 +758,12 @@
         "fancy-audio-visualizer": "Fancy Audio Visualizer",
         "label": "Label",
         "login-box": "Login Box",
-        "lyrics": "Lyrics",
         "media-player": "Media Player",
         "sticker": "Sticker",
         "system-monitor": "System Monitor",
         "volume": "Volume",
         "weather": "Weather"
       }
-    },
-    "lyrics": {
-      "error": "Could not load lyrics",
-      "instrumental": "Instrumental",
-      "loading": "Loading lyrics…",
-      "not-found": "No lyrics found",
-      "nothing-playing": "Nothing playing",
-      "offline": "Lyrics unavailable in offline mode"
     },
     "media": {
       "nothing-playing": "Nothing Playing"
@@ -1341,9 +1332,10 @@
           "groups": {
             "actions": "Actions",
             "behavior": "Behavior",
-            "grouping": "Grouping",
-            "presentation": "Presentation",
-            "runtime": "Runtime",
+            "capsule": "Capsule",
+            "colors": "Colors",
+            "content": "Content",
+            "size-text": "Size and Text",
             "taskbar": {
               "grouping": "Grouping",
               "windows": "Windows",
@@ -2609,6 +2601,10 @@
           "description": "Use a snapshot of the desktop as the lock screen background",
           "label": "Desktop Capture"
         },
+        "dnd": {
+          "description": "Enable Do Not Disturb while the session is locked; the previous state is restored on unlock",
+          "label": "Do Not Disturb"
+        },
         "edge-smoothness": {
           "description": "Feathering of the lock screen transition edges",
           "label": "Transition Edge Smoothness"
@@ -3687,6 +3683,10 @@
           "description": "strftime pattern without extension (the format's extension is added); use %s for unix epoch",
           "label": "Filename Pattern"
         },
+        "screenshot-append-mode-suffix": {
+          "description": "Append a capture-mode suffix such as -region, -annotated, -window, or -desktop to saved filenames",
+          "label": "Append Mode Suffix"
+        },
         "screenshot-format": {
           "description": "File format for saved screenshots; clipboard copies and pipe commands always receive PNG",
           "label": "File Format"
@@ -4666,7 +4666,7 @@
           "label": "Colorize Custom Image"
         },
         "custom-label": {
-          "description": "Custom text shown beside the glyph or custom image; remains visible when Show Glyph is disabled",
+          "description": "Custom text shown with this widget; leave empty to hide it",
           "label": "Custom Label"
         },
         "detached-panel": {
@@ -4927,10 +4927,6 @@
           "description": "Spacer length in pixels",
           "label": "Length"
         },
-        "line-count": {
-          "description": "Number of lyric rows to display",
-          "label": "Visible Lines"
-        },
         "match-adjacent-spacing": {
           "description": "Widen gaps between inline tray icons to match the visual spacing of neighboring bar widgets (includes capsule padding)",
           "label": "Match Adjacent Widget Spacing"
@@ -5164,10 +5160,6 @@
         "text": {
           "description": "Text shown on the bar",
           "label": "Text"
-        },
-        "sync-offset-ms": {
-          "description": "Positive values show lyrics earlier; negative values delay them. Milliseconds.",
-          "label": "Lyrics Sync Adjustment (ms)"
         },
         "timezone": {
           "description": "Timezone identifier (e.g. Europe/Berlin) to use for this clock; leave empty to use system local time",

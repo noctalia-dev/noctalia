@@ -23,7 +23,6 @@
 namespace {
 
   constexpr Logger kLog("desktop");
-  constexpr auto kStalledFrameAfter = std::chrono::seconds{1};
 
   DesktopWidgetState* findStateById(DesktopWidgetsSnapshot& snapshot, const std::string& id) {
     for (auto& widget : snapshot.widgets) {
@@ -208,9 +207,6 @@ void DesktopWidgetsHost::onSecondTick() {
   for (auto& instance : m_instances) {
     if (instance->surface == nullptr || instance->widget == nullptr) {
       continue;
-    }
-    if (instance->widget->recoversStalledFrames()) {
-      instance->surface->recoverStalledFrameLoop(kStalledFrameAfter);
     }
     if (instance->widget->wantsSecondTicks()) {
       instance->surface->requestUpdateOnly();
@@ -587,12 +583,14 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
 }
 
 bool DesktopWidgetsHost::onPointerEvent(const PointerEvent& event) {
-  if (!m_visible || m_instances.empty())
+  if (!m_visible || m_instances.empty()) {
     return false;
+  }
 
   wl_surface* eventSurface = event.surface;
-  if (eventSurface == nullptr && m_wayland != nullptr)
+  if (eventSurface == nullptr && m_wayland != nullptr) {
     eventSurface = m_wayland->lastPointerSurface();
+  }
 
   DesktopWidgetInstance* target = nullptr;
   for (auto& instance : m_instances) {
@@ -601,8 +599,9 @@ bool DesktopWidgetsHost::onPointerEvent(const PointerEvent& event) {
       break;
     }
   }
-  if (target == nullptr)
+  if (target == nullptr) {
     return false;
+  }
 
   switch (event.type) {
   case PointerEvent::Type::Enter:

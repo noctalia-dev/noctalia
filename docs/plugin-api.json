@@ -286,5 +286,11 @@
     "noctaliaVersion": null,
     "feature": "pixel-stream-fit",
     "introduced": "The `fit` prop (`contain`/`cover`/`stretch`) on `ui.pixelStream`, with pointer positions mapped through the chosen fit."
+  },
+  {
+    "level": 51,
+    "noctaliaVersion": null,
+    "feature": "media-player",
+    "introduced": "`noctalia.mediaPlayer()` for reading the active MPRIS player, `ui.fillLabel` for progressive text fills, the `shadow` prop on `ui.label`, and `desktopWidget.setVisible`."
   }
 ]

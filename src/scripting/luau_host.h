@@ -95,7 +95,7 @@ public:
   );
   bool lastCallTimedOut() const noexcept { return m_lastCallTimedOut; }
 
-  lua_State* state() { return m_T; }
+  lua_State* state() { return m_thread; }
   CompositorPlatform* platform() const noexcept { return m_platform; }
   scripting::ScriptApiContext& api() const noexcept { return m_api; }
   std::uint64_t hostId() const noexcept { return m_hostId; }
@@ -311,9 +311,9 @@ private:
   StreamLineHandler m_streamLineHandler;
   std::unordered_map<int, HttpStreamRecord> m_httpStreams; // keyed by stream key (line ref)
   HttpStreamEventHandler m_httpStreamEventHandler;
-  lua_State* m_L = nullptr; // main state, frozen by luaL_sandbox
-  lua_State* m_T = nullptr; // sandboxed thread; user code runs here
-  int m_threadRef = -1;     // registry ref pinning m_T against the GC
+  lua_State* m_mainState = nullptr; // main state, frozen by luaL_sandbox
+  lua_State* m_thread = nullptr;    // sandboxed thread; user code runs here
+  int m_threadRef = -1;             // registry ref pinning m_thread against the GC
   // ref into the registry, keyed by canonical module path
   std::unordered_map<std::string, int> m_moduleCache;
   // canonical paths currently executing, for cycle detection, innermost last

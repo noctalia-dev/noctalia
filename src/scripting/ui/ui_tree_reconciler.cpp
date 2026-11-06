@@ -16,6 +16,7 @@
 #include "ui/controls/button.h"
 #include "ui/controls/drag_source.h"
 #include "ui/controls/drop_zone.h"
+#include "ui/controls/fill_label.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/image.h"
@@ -39,6 +40,7 @@
 #include <cmath>
 #include <format>
 #include <functional>
+#include <limits>
 #include <linux/input-event-codes.h>
 #include <optional>
 #include <unordered_set>
@@ -80,18 +82,18 @@ namespace ui {
 
     // ui.pixelStream callback props, indexed by PixelStreamCallback.
     enum PixelStreamCallback : std::uint8_t {
-      kStreamMove,
-      kStreamDown,
-      kStreamUp,
-      kStreamCancel,
-      kStreamRightClick,
-      kStreamMiddleClick,
-      kStreamScroll,
-      kStreamTextInput,
-      kStreamKeyEvent,
-      kStreamCallbackCount,
+      StreamMove,
+      StreamDown,
+      StreamUp,
+      StreamCancel,
+      StreamRightClick,
+      StreamMiddleClick,
+      StreamScroll,
+      StreamTextInput,
+      StreamKeyEvent,
+      StreamCallbackCount,
     };
-    constexpr std::array<const char*, kStreamCallbackCount> kPixelStreamCallbackProps = {
+    constexpr std::array<const char*, StreamCallbackCount> kPixelStreamCallbackProps = {
         "onPointerMove", "onPointerDown", "onPointerUp", "onPointerCancel", "onRightClick",
         "onMiddleClick", "onScroll",      "onTextInput", "onKeyEvent",
     };
@@ -217,20 +219,27 @@ namespace ui {
       if (token == nullptr) {
         return std::nullopt;
       }
-      if (*token == "thin")
+      if (*token == "thin") {
         return FontWeight::Thin;
-      if (*token == "light")
+      }
+      if (*token == "light") {
         return FontWeight::Light;
-      if (*token == "normal")
+      }
+      if (*token == "normal") {
         return FontWeight::Normal;
-      if (*token == "medium")
+      }
+      if (*token == "medium") {
         return FontWeight::Medium;
-      if (*token == "semibold")
+      }
+      if (*token == "semibold") {
         return FontWeight::SemiBold;
-      if (*token == "bold")
+      }
+      if (*token == "bold") {
         return FontWeight::Bold;
-      if (*token == "heavy")
+      }
+      if (*token == "heavy") {
         return FontWeight::Heavy;
+      }
       kLog.warn("ui node '{}': unknown fontWeight '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -240,14 +249,18 @@ namespace ui {
       if (token == nullptr) {
         return std::nullopt;
       }
-      if (*token == "start")
+      if (*token == "start") {
         return FlexAlign::Start;
-      if (*token == "center")
+      }
+      if (*token == "center") {
         return FlexAlign::Center;
-      if (*token == "end")
+      }
+      if (*token == "end") {
         return FlexAlign::End;
-      if (*token == "stretch")
+      }
+      if (*token == "stretch") {
         return FlexAlign::Stretch;
+      }
       kLog.warn("ui node '{}': unknown align '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -257,14 +270,18 @@ namespace ui {
       if (token == nullptr) {
         return std::nullopt;
       }
-      if (*token == "start")
+      if (*token == "start") {
         return FlexJustify::Start;
-      if (*token == "center")
+      }
+      if (*token == "center") {
         return FlexJustify::Center;
-      if (*token == "end")
+      }
+      if (*token == "end") {
         return FlexJustify::End;
-      if (*token == "space_between")
+      }
+      if (*token == "space_between") {
         return FlexJustify::SpaceBetween;
+      }
       kLog.warn("ui node '{}': unknown justify '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -274,12 +291,15 @@ namespace ui {
       if (token == nullptr) {
         return std::nullopt;
       }
-      if (*token == "start")
+      if (*token == "start") {
         return TextAlign::Start;
-      if (*token == "center")
+      }
+      if (*token == "center") {
         return TextAlign::Center;
-      if (*token == "end")
+      }
+      if (*token == "end") {
         return TextAlign::End;
+      }
       kLog.warn("ui node '{}': unknown textAlign '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -289,18 +309,24 @@ namespace ui {
       if (token == nullptr) {
         return std::nullopt;
       }
-      if (*token == "default")
+      if (*token == "default") {
         return ButtonVariant::Default;
-      if (*token == "primary")
+      }
+      if (*token == "primary") {
         return ButtonVariant::Primary;
-      if (*token == "secondary")
+      }
+      if (*token == "secondary") {
         return ButtonVariant::Secondary;
-      if (*token == "destructive")
+      }
+      if (*token == "destructive") {
         return ButtonVariant::Destructive;
-      if (*token == "outline")
+      }
+      if (*token == "outline") {
         return ButtonVariant::Outline;
-      if (*token == "ghost")
+      }
+      if (*token == "ghost") {
         return ButtonVariant::Ghost;
+      }
       kLog.warn("ui node '{}': unknown button variant '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -318,12 +344,15 @@ namespace ui {
         }
         return std::nullopt;
       }
-      if (*token == "sm")
+      if (*token == "sm") {
         return Style::controlHeightSm;
-      if (*token == "md")
+      }
+      if (*token == "md") {
         return Style::controlHeight;
-      if (*token == "lg")
+      }
+      if (*token == "lg") {
         return Style::controlHeightLg;
+      }
       kLog.warn("ui node '{}': unknown controlSize '{}'", node.type, *token);
       return std::nullopt;
     }
@@ -359,6 +388,30 @@ namespace ui {
       out.reserve(values.size());
       for (double v : values) {
         out.push_back(std::clamp(static_cast<float>(v), 0.0F, 1.0F));
+      }
+      return out;
+    }
+
+    // ui.fillLabel `fillRanges`: a flat {first1, last1, first2, last2, ...} array of 1-based inclusive
+    // byte indices (string.find results) mapped to 0-based [start, end) ranges. A malformed pair
+    // becomes an empty range that FillLabel skips, so later pairs keep their segment index.
+    std::vector<FillRange> parseFillRanges(const std::vector<double>& values) {
+      constexpr auto kMaxByteIndex = static_cast<double>(std::numeric_limits<std::uint32_t>::max());
+      std::vector<FillRange> out;
+      out.reserve(values.size() / 2);
+      for (std::size_t i = 0; i + 1 < values.size(); i += 2) {
+        const double first = values[i];
+        const double last = values[i + 1];
+        const bool valid = first >= 1.0
+            && last >= first
+            && last <= kMaxByteIndex
+            && std::floor(first) == first
+            && std::floor(last) == last;
+        out.push_back(
+            valid
+                ? FillRange{.startByte = static_cast<std::size_t>(first) - 1, .endByte = static_cast<std::size_t>(last)}
+                : FillRange{}
+        );
       }
       return out;
     }
@@ -494,7 +547,12 @@ namespace ui {
       static const std::unordered_set<std::string> kLabel = {"width",      "height",   "flexGrow", "opacity",
                                                              "visible",    "text",     "fontSize", "color",
                                                              "fontWeight", "maxWidth", "maxLines", "textAlign",
-                                                             "fontFamily", "baseline"};
+                                                             "fontFamily", "baseline", "shadow"};
+      static const std::unordered_set<std::string> kFillLabel = {"width",       "height",   "flexGrow",  "opacity",
+                                                                 "visible",     "text",     "fontSize",  "color",
+                                                                 "fontWeight",  "maxWidth", "textAlign", "fontFamily",
+                                                                 "baseline",    "shadow",   "fillColor", "fillRanges",
+                                                                 "fillProgress"};
       static const std::unordered_set<std::string> kGlyph = {"width",   "height", "flexGrow", "opacity",
                                                              "visible", "name",   "size",     "color"};
       static const std::unordered_set<std::string> kImage = {"width",   "height",  "flexGrow", "opacity", "visible",
@@ -566,6 +624,9 @@ namespace ui {
       if (type == "label") {
         return kLabel;
       }
+      if (type == "fill_label") {
+        return kFillLabel;
+      }
       if (type == "glyph") {
         return kGlyph;
       }
@@ -632,7 +693,7 @@ namespace ui {
     std::string pointerLeaveCallbackName; // last-wired graph onPointerLeave target
     std::string pointerStreamKey; // coalescing stream shared by this graph's or pixel stream's pointer callbacks
     // Last-wired ui.pixelStream callback targets, indexed by PixelStreamCallback.
-    std::array<std::string, kStreamCallbackCount> pixelStreamCallbackNames;
+    std::array<std::string, StreamCallbackCount> pixelStreamCallbackNames;
     std::string imagePath;              // last-applied resolved image source
     std::string colorValue;             // last-applied colorPicker value prop
     std::string lastText;               // markdown source cache - setMarkdown re-parses, only call on change
@@ -743,6 +804,9 @@ namespace ui {
     }
     if (desired.type == "label") {
       return std::make_unique<Label>();
+    }
+    if (desired.type == "fill_label") {
+      return std::make_unique<FillLabel>();
     }
     if (desired.type == "glyph") {
       return std::make_unique<Glyph>();
@@ -1229,7 +1293,7 @@ namespace ui {
   }
 
   void UiTreeReconciler::syncPixelStreamCallbacks(Slot& slot, const UiTreeNode& desired, PixelStreamView& view) {
-    std::array<std::string, kStreamCallbackCount> names;
+    std::array<std::string, StreamCallbackCount> names;
     for (std::size_t i = 0; i < names.size(); ++i) {
       if (const std::string* name = callbackProp(desired, kPixelStreamCallbackProps[i])) {
         names[i] = *name;
@@ -1245,16 +1309,16 @@ namespace ui {
 
     const auto wants = [&names](PixelStreamCallback callback) { return !names[callback].empty(); };
     std::uint32_t buttons = 0;
-    if (wants(kStreamDown) || wants(kStreamUp) || wants(kStreamCancel)) {
+    if (wants(StreamDown) || wants(StreamUp) || wants(StreamCancel)) {
       buttons |= InputArea::buttonMask(BTN_LEFT);
     }
-    if (wants(kStreamRightClick)) {
+    if (wants(StreamRightClick)) {
       buttons |= InputArea::buttonMask(BTN_RIGHT);
     }
-    if (wants(kStreamMiddleClick)) {
+    if (wants(StreamMiddleClick)) {
       buttons |= InputArea::buttonMask(BTN_MIDDLE);
     }
-    if (buttons != 0 || wants(kStreamMove) || wants(kStreamScroll)) {
+    if (buttons != 0 || wants(StreamMove) || wants(StreamScroll)) {
       view.setPointerHandler(
           [this, owner = static_cast<const Node*>(&view), stream = slot.pointerStreamKey,
            names](const PixelStreamView::PointerEvent& event) {
@@ -1272,47 +1336,47 @@ namespace ui {
             };
             switch (event.kind) {
             case PixelStreamView::PointerKind::Move:
-              if (!names[kStreamMove].empty()) {
-                m_sink(ControlCallback{names[kStreamMove], coordinate(event.x), coordinate(event.y), true, segment});
+              if (!names[StreamMove].empty()) {
+                m_sink(ControlCallback{names[StreamMove], coordinate(event.x), coordinate(event.y), true, segment});
               }
               break;
             case PixelStreamView::PointerKind::Down:
               // The drag is a pointer session: if the view is dropped, rewired, or reset away
               // mid-drag, closing the session still delivers onPointerCancel.
-              if (!names[kStreamCancel].empty()) {
-                openPointer(owner, names[kStreamCancel], segment);
+              if (!names[StreamCancel].empty()) {
+                openPointer(owner, names[StreamCancel], segment);
               }
-              call(kStreamDown);
+              call(StreamDown);
               break;
             case PixelStreamView::PointerKind::Up:
               endPointer(owner);
-              call(kStreamUp);
+              call(StreamUp);
               break;
             case PixelStreamView::PointerKind::Cancel:
               releasePointer(owner);
               break;
             case PixelStreamView::PointerKind::RightClick:
-              call(kStreamRightClick);
+              call(StreamRightClick);
               break;
             case PixelStreamView::PointerKind::MiddleClick:
-              call(kStreamMiddleClick);
+              call(StreamMiddleClick);
               break;
             case PixelStreamView::PointerKind::Scroll:
-              if (!names[kStreamScroll].empty()) {
-                m_sink(ControlCallback{names[kStreamScroll], std::format("{}", event.dx), std::format("{}", event.dy)});
+              if (!names[StreamScroll].empty()) {
+                m_sink(ControlCallback{names[StreamScroll], std::format("{}", event.dx), std::format("{}", event.dy)});
               }
               break;
             }
           },
-          buttons, wants(kStreamScroll)
+          buttons, wants(StreamScroll)
       );
     } else {
       view.setPointerHandler({}, 0, false);
     }
 
-    if (wants(kStreamTextInput) || wants(kStreamKeyEvent)) {
-      view.setKeyHandler([this, text = names[kStreamTextInput],
-                          keyEvent = names[kStreamKeyEvent]](const InputArea::KeyData& key) {
+    if (wants(StreamTextInput) || wants(StreamKeyEvent)) {
+      view.setKeyHandler([this, text = names[StreamTextInput],
+                          keyEvent = names[StreamKeyEvent]](const InputArea::KeyData& key) {
         // Composition previews are not input yet; Super chords belong to the compositor.
         if (!m_sink || key.preedit || (key.modifiers & KeyMod::Super) != 0) {
           return;
@@ -1346,6 +1410,61 @@ namespace ui {
       return true;
     }
     return std::ranges::any_of(slot.children, [&](const Slot& child) { return subtreeOwnsPointer(child); });
+  }
+
+  void UiTreeReconciler::applyLabelProps(Label& label, const UiTreeNode& desired) {
+    if (const std::string* fontFamily = strProp(desired, "fontFamily")) {
+      label.setFontFamily(*fontFamily);
+    } else {
+      label.setFontFamily(m_defaultFontFamily);
+    }
+    LabelBaselineMode baselineMode = LabelBaselineMode::Text;
+    if (const std::string* baseline = strProp(desired, "baseline")) {
+      if (auto mode = labelBaselineModeFromToken(*baseline)) {
+        baselineMode = *mode;
+      } else {
+        kLog.warn("ui node '{}': unknown baseline '{}'", desired.type, *baseline);
+      }
+    }
+    label.setBaselineMode(baselineMode);
+    if (const std::string* text = strProp(desired, "text")) {
+      label.setText(*text);
+    }
+    if (const double* fontSize = numProp(desired, "fontSize")) {
+      label.setFontSize(static_cast<float>(*fontSize) * m_scale * m_fontScale);
+    } else {
+      label.setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
+    }
+    if (auto color = parseColor(desired, "color")) {
+      label.setColor(*color);
+    } else {
+      label.setColor(m_defaultLabelColor);
+    }
+    if (auto weight = parseFontWeight(desired)) {
+      label.setFontWeight(*weight);
+    } else {
+      label.setFontWeight(m_defaultFontWeight);
+    }
+    if (const double* maxWidth = numProp(desired, "maxWidth")) {
+      label.setMaxWidth(static_cast<float>(*maxWidth) * m_scale);
+    }
+    if (auto align = parseTextAlign(desired)) {
+      label.setTextAlign(*align);
+    }
+    const bool* shadow = boolProp(desired, "shadow");
+    if (shadow == nullptr) {
+      warnMistypedOptionalProp(desired, "shadow", "a boolean");
+    }
+    if (shadow != nullptr && *shadow) {
+      // Same text shadow as the built-in desktop widgets.
+      constexpr float kShadowAlpha = 0.6F;
+      constexpr float kShadowOffset = 1.5F;
+      label.setShadow(
+          colorSpecFromRole(ColorRole::Shadow, kShadowAlpha), kShadowOffset * m_scale, kShadowOffset * m_scale
+      );
+    } else {
+      label.clearShadow();
+    }
   }
 
   void UiTreeReconciler::applyProps(Slot& slot, const UiTreeNode& desired, Renderer& renderer) {
@@ -1596,47 +1715,37 @@ namespace ui {
 
     if (desired.type == "label") {
       auto* label = static_cast<Label*>(node);
-      if (const std::string* fontFamily = strProp(desired, "fontFamily")) {
-        label->setFontFamily(*fontFamily);
-      } else {
-        label->setFontFamily(m_defaultFontFamily);
-      }
-      LabelBaselineMode baselineMode = LabelBaselineMode::Text;
-      if (const std::string* baseline = strProp(desired, "baseline")) {
-        if (auto mode = labelBaselineModeFromToken(*baseline)) {
-          baselineMode = *mode;
-        } else {
-          kLog.warn("ui node 'label': unknown baseline '{}'", *baseline);
-        }
-      }
-      label->setBaselineMode(baselineMode);
-      if (const std::string* text = strProp(desired, "text")) {
-        label->setText(*text);
-      }
-      if (const double* fontSize = numProp(desired, "fontSize")) {
-        label->setFontSize(scaledFont(*fontSize));
-      } else {
-        label->setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
-      }
-      if (auto color = parseColor(desired, "color")) {
-        label->setColor(*color);
-      } else {
-        label->setColor(m_defaultLabelColor);
-      }
-      if (auto weight = parseFontWeight(desired)) {
-        label->setFontWeight(*weight);
-      } else {
-        label->setFontWeight(m_defaultFontWeight);
-      }
-      if (const double* maxWidth = numProp(desired, "maxWidth")) {
-        label->setMaxWidth(scaled(*maxWidth));
-      }
+      applyLabelProps(*label, desired);
       if (const double* maxLines = numProp(desired, "maxLines")) {
         label->setMaxLines(static_cast<int>(*maxLines));
       }
-      if (auto align = parseTextAlign(desired)) {
-        label->setTextAlign(*align);
+      return;
+    }
+
+    if (desired.type == "fill_label") {
+      auto* fill = static_cast<FillLabel*>(node);
+      applyLabelProps(fill->label(), desired);
+      if (auto color = parseColor(desired, "fillColor")) {
+        fill->setFillColor(*color);
+      } else {
+        fill->setFillColor(colorSpecFromRole(ColorRole::Primary));
       }
+      const std::vector<double>* ranges = arrayProp(desired, "fillRanges");
+      if (ranges != nullptr) {
+        fill->setFillRanges(parseFillRanges(*ranges));
+      } else {
+        warnMistypedOptionalProp(desired, "fillRanges", "a flat number array");
+        fill->setFillRanges({FillRange{.startByte = 0, .endByte = fill->label().text().size()}});
+      }
+      const double* progress = numProp(desired, "fillProgress");
+      if (progress == nullptr) {
+        warnMistypedOptionalProp(desired, "fillProgress", "a number");
+      }
+      const double value = progress != nullptr && std::isfinite(*progress) ? std::max(0.0, *progress) : 0.0;
+      // Clamp before the integer cast: segments past the last range are all already filled.
+      const double completed =
+          std::min(std::floor(value), static_cast<double>(std::numeric_limits<std::uint32_t>::max()));
+      fill->setFillProgress(static_cast<std::size_t>(completed), static_cast<float>(value - std::floor(value)));
       return;
     }
 

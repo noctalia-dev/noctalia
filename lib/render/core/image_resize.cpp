@@ -10,6 +10,8 @@ namespace {
 
   stbir_pixel_layout stbirSourceLayout(ResizeSourceLayout layout) noexcept {
     switch (layout) {
+    case ResizeSourceLayout::Rgb:
+      return STBIR_RGB;
     case ResizeSourceLayout::Rgba:
       return STBIR_RGBA;
     case ResizeSourceLayout::RgbaPremultiplied:
@@ -69,15 +71,33 @@ std::vector<std::uint8_t> resizeToRgba(
 
   // Premultiplied and opaque sources stay premultiplied through stbir, which then only filters and swizzles. stbir
   // also skips alpha conversion when it point-samples an unchanged size, so straightening is done here instead.
+  const bool rgbSource = layout == ResizeSourceLayout::Rgb;
   const bool straightSource = layout == ResizeSourceLayout::Rgba;
+  const auto outputLayout = rgbSource ? STBIR_RGB : (straightSource ? STBIR_RGBA : STBIR_RGBA_PM);
   STBIR_RESIZE resize;
   stbir_resize_init(
-      &resize, source, sourceWidth, sourceHeight, 0, out.data(), targetWidth, targetHeight, 0, STBIR_RGBA,
+      &resize, source, sourceWidth, sourceHeight, 0, out.data(), targetWidth, targetHeight, 0, outputLayout,
       STBIR_TYPE_UINT8_SRGB
   );
-  stbir_set_pixel_layouts(&resize, stbirSourceLayout(layout), straightSource ? STBIR_RGBA : STBIR_RGBA_PM);
+  stbir_set_pixel_layouts(&resize, stbirSourceLayout(layout), outputLayout);
   if (stbir_resize_extended(&resize) == 0) {
     return {};
+  }
+  if (rgbSource) {
+    // stb requires matching channel counts. Resize packed RGB into the output allocation,
+    // then expand backwards in place without converting or copying the full-size source.
+    for (std::size_t end = out.size() / 4U; end > 0; --end) {
+      const std::size_t from = (end - 1U) * 3U;
+      const std::size_t to = (end - 1U) * 4U;
+      const auto red = out[from];
+      const auto green = out[from + 1U];
+      const auto blue = out[from + 2U];
+      out[to] = red;
+      out[to + 1U] = green;
+      out[to + 2U] = blue;
+      out[to + 3U] = 255;
+    }
+    return out;
   }
   if (straightSource) {
     return out;

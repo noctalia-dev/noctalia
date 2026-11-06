@@ -11,7 +11,6 @@
 #include "shell/desktop/widgets/desktop_fancy_audio_visualizer_widget.h"
 #include "shell/desktop/widgets/desktop_label_widget.h"
 #include "shell/desktop/widgets/desktop_login_box_widget.h"
-#include "shell/desktop/widgets/desktop_lyrics_widget.h"
 #include "shell/desktop/widgets/desktop_media_player_widget.h"
 #include "shell/desktop/widgets/desktop_sticker_widget.h"
 #include "shell/desktop/widgets/desktop_sysmon_widget.h"
@@ -129,18 +128,24 @@ namespace {
       kLog.warn("desktop widget factory: fancy_audio_visualizer visualization_mode must be a string");
       return std::nullopt;
     }
-    if (*value == "bars")
+    if (*value == "bars") {
       return FancyAudioVisualizerMode::Bars;
-    if (*value == "wave")
+    }
+    if (*value == "wave") {
       return FancyAudioVisualizerMode::Wave;
-    if (*value == "rings")
+    }
+    if (*value == "rings") {
       return FancyAudioVisualizerMode::Rings;
-    if (*value == "bars_rings")
+    }
+    if (*value == "bars_rings") {
       return FancyAudioVisualizerMode::BarsRings;
-    if (*value == "wave_rings")
+    }
+    if (*value == "wave_rings") {
       return FancyAudioVisualizerMode::WaveRings;
-    if (*value == "all")
+    }
+    if (*value == "all") {
       return FancyAudioVisualizerMode::All;
+    }
     kLog.warn("desktop widget factory: invalid fancy_audio_visualizer visualization_mode '{}'", *value);
     return std::nullopt;
   }
@@ -184,8 +189,8 @@ namespace {
 } // namespace
 
 DesktopWidgetFactory::DesktopWidgetFactory(DesktopWidgetRuntimeServices services)
-    : m_calendar(services.calendar), m_pipewire(services.pipewire), m_pipewireSpectrum(services.pipewireSpectrum),
-      m_weather(services.weather), m_mpris(services.mpris), m_lyrics(services.lyrics),
+    : m_calendar(services.calendar), m_platform(services.platform), m_pipewire(services.pipewire),
+      m_pipewireSpectrum(services.pipewireSpectrum), m_weather(services.weather), m_mpris(services.mpris),
       m_httpClient(services.httpClient), m_sysmon(services.sysmon), m_scriptDeps(services.scriptDeps) {}
 
 std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
@@ -193,7 +198,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
 ) const {
   if (type == "calendar") {
     auto widget = std::make_unique<DesktopCalendarWidget>(
-        m_scriptDeps.configService, m_calendar,
+        m_scriptDeps.configService, m_calendar, m_platform,
         DesktopCalendarWidget::Options{
             .showEvents = getBoolSetting(settings, "show_events", true),
             .showWeekNumbers = getBoolSetting(settings, "show_week_numbers", false),
@@ -327,36 +332,6 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     return widget;
   }
 
-  if (type == "lyrics") {
-    if (m_mpris == nullptr || m_lyrics == nullptr) {
-      kLog.warn("desktop widget factory: lyrics requires MprisService and LyricsService");
-      return nullptr;
-    }
-    const int lineCount = getIntSetting(settings, "line_count", 3);
-    if (lineCount < 1 || lineCount > 15) {
-      kLog.warn("desktop widget factory: lyrics line_count must be between 1 and 15");
-      return nullptr;
-    }
-    const int syncOffsetMs = getIntSetting(settings, "sync_offset_ms", 0);
-    if (syncOffsetMs < -10000 || syncOffsetMs > 10000) {
-      kLog.warn("desktop widget factory: lyrics sync_offset_ms must be between -10000 and 10000");
-      return nullptr;
-    }
-    auto widget = std::make_unique<DesktopLyricsWidget>(
-        *m_mpris, *m_lyrics,
-        DesktopLyricsWidget::Options{
-            .lineCount = lineCount,
-            .syncOffsetMs = syncOffsetMs,
-            .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurfaceVariant)),
-            .activeColor = getColorSpecSetting(settings, "active_color", colorSpecFromRole(ColorRole::Primary)),
-            .shadow = getBoolSetting(settings, "shadow", true),
-        }
-    );
-    applyCommonSettings(*widget, settings);
-    widget->setContentScale(contentScale);
-    return widget;
-  }
-
   if (type == "label") {
     auto widget = std::make_unique<DesktopLabelWidget>(DesktopLabelWidget::Options{
         .title = getStringSetting(settings, "title", "Title"),
@@ -391,26 +366,36 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
       return nullptr;
     }
     auto parseStat = [](const std::string& s) -> DesktopSysmonStat {
-      if (s == "cpu_temp")
+      if (s == "cpu_temp") {
         return DesktopSysmonStat::CpuTemp;
-      if (s == "cpu_freq")
+      }
+      if (s == "cpu_freq") {
         return DesktopSysmonStat::CpuFreq;
-      if (s == "gpu_temp")
+      }
+      if (s == "gpu_temp") {
         return DesktopSysmonStat::GpuTemp;
-      if (s == "gpu_usage")
+      }
+      if (s == "gpu_usage") {
         return DesktopSysmonStat::GpuUsage;
-      if (s == "gpu_vram")
+      }
+      if (s == "gpu_vram") {
         return DesktopSysmonStat::GpuVram;
-      if (s == "gpu_vram_used")
+      }
+      if (s == "gpu_vram_used") {
         return DesktopSysmonStat::GpuVramUsed;
-      if (s == "ram_pct")
+      }
+      if (s == "ram_pct") {
         return DesktopSysmonStat::RamPct;
-      if (s == "swap_pct")
+      }
+      if (s == "swap_pct") {
         return DesktopSysmonStat::SwapPct;
-      if (s == "net_rx")
+      }
+      if (s == "net_rx") {
         return DesktopSysmonStat::NetRx;
-      if (s == "net_tx")
+      }
+      if (s == "net_tx") {
         return DesktopSysmonStat::NetTx;
+      }
       return DesktopSysmonStat::CpuUsage;
     };
     const DesktopSysmonStat stat = parseStat(getStringSetting(settings, "stat", "cpu_usage"));

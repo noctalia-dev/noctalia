@@ -307,24 +307,32 @@ int main() {
                 const float right = x - growth + (cfg.iconSize + offset.x + 6) * scale;
                 const float top = y - growth + (offset.y - 6) * scale;
                 const float bottom = y - growth + (cfg.iconSize + offset.y + 6) * scale;
-                if (margin > 0 || edge != DockEdge::Left)
+                if (margin > 0 || edge != DockEdge::Left) {
                   TEST_CHECK(left >= -0.01F);
-                if (margin > 0 || edge != DockEdge::Right)
+                }
+                if (margin > 0 || edge != DockEdge::Right) {
                   TEST_CHECK(right <= surface.surfaceW + 0.01F);
-                if (margin > 0 || edge != DockEdge::Top)
+                }
+                if (margin > 0 || edge != DockEdge::Top) {
                   TEST_CHECK(top >= -0.01F);
-                if (margin > 0 || edge != DockEdge::Bottom)
+                }
+                if (margin > 0 || edge != DockEdge::Bottom) {
                   TEST_CHECK(bottom <= surface.surfaceH + 0.01F);
+                }
                 const auto [dx, dy] =
                     shell::dock::computeHiddenSlideDelta(cfg, shadow, surface.surfaceW, surface.surfaceH, panel);
-                if (edge == DockEdge::Left)
+                if (edge == DockEdge::Left) {
                   TEST_CHECK(right + dx <= 0);
-                if (edge == DockEdge::Right)
+                }
+                if (edge == DockEdge::Right) {
                   TEST_CHECK(left + dx >= surface.surfaceW);
-                if (edge == DockEdge::Top)
+                }
+                if (edge == DockEdge::Top) {
                   TEST_CHECK(bottom + dy <= 0);
-                if (edge == DockEdge::Bottom)
+                }
+                if (edge == DockEdge::Bottom) {
                   TEST_CHECK(top + dy >= surface.surfaceH);
+                }
                 // Icon shadow bleed never widens the input region along the dock or away from the screen edge.
                 const auto input =
                     shell::dock::computeInputRegion(cfg, panel, surface.surfaceW, surface.surfaceH, false, false);
@@ -349,20 +357,24 @@ int main() {
                       <= 1.0F
                   );
                 }
-                if (edge == DockEdge::Bottom)
+                if (edge == DockEdge::Bottom) {
                   TEST_CHECK(static_cast<float>(input[0].y) - panel.panelY == beforeInput[0].y - beforePanel.panelY);
-                if (edge == DockEdge::Top)
+                }
+                if (edge == DockEdge::Top) {
                   TEST_CHECK(
                       static_cast<float>(input[0].y + input[0].height) - panel.panelY
                       == beforeInput[0].y + beforeInput[0].height - beforePanel.panelY
                   );
-                if (edge == DockEdge::Right)
+                }
+                if (edge == DockEdge::Right) {
                   TEST_CHECK(static_cast<float>(input[0].x) - panel.panelX == beforeInput[0].x - beforePanel.panelX);
-                if (edge == DockEdge::Left)
+                }
+                if (edge == DockEdge::Left) {
                   TEST_CHECK(
                       static_cast<float>(input[0].x + input[0].width) - panel.panelX
                       == beforeInput[0].x + beforeInput[0].width - beforePanel.panelX
                   );
+                }
               }
             }
           }

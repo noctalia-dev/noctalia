@@ -577,14 +577,16 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Motion: {
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     shell::dock::DockInstance* const hovered = m_hoveredInstance;
     hovered->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
     // pointerMotion can re-enter the Wayland event loop (tooltip popup creation),
     // which may clear or change m_hoveredInstance before we dereference it.
-    if (m_hoveredInstance != hovered)
+    if (m_hoveredInstance != hovered) {
       break;
+    }
     updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
     break;
   }
@@ -615,8 +617,9 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       }
     }
 
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     const bool pressed = event.pressed;
     m_hoveredInstance->inputDispatcher.pointerButton(
         static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
@@ -692,8 +695,9 @@ void Dock::syncInstances() {
   });
 
   for (const auto& output : outputs) {
-    if (!outputAllowed(output))
+    if (!outputAllowed(output)) {
       continue;
+    }
     const bool exists =
         std::ranges::any_of(m_instances, [&output](const auto& inst) { return inst->outputName == output.name; });
     if (!exists) {
@@ -1308,20 +1312,23 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
 
 void Dock::registerIpc(IpcService& ipc) {
   ipc.bind(noctalia::cli::msg::dockShow, [this](const std::string&) -> std::string {
-    if (m_config)
+    if (m_config) {
       m_config->setDockEnabled(true);
+    }
     return "ok\n";
   });
 
   ipc.bind(noctalia::cli::msg::dockHide, [this](const std::string&) -> std::string {
-    if (m_config)
+    if (m_config) {
       m_config->setDockEnabled(false);
+    }
     return "ok\n";
   });
 
   ipc.bind(noctalia::cli::msg::dockToggle, [this](const std::string&) -> std::string {
-    if (m_config)
+    if (m_config) {
       m_config->setDockEnabled(!m_config->config().dock.enabled);
+    }
     return "ok\n";
   });
 

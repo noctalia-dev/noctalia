@@ -27,6 +27,9 @@ public:
   const Flex* content() const noexcept { return m_content; }
 
   void setScrollOffset(float offset);
+  // Optional horizontal overflow for a vertical host. Its owner synchronizes
+  // the cross-axis offset with any fixed header and horizontal scrollbar.
+  void setHorizontalOverflow(float width, float offset);
   // Keep the view pinned to the bottom while content grows, as long as the user has not scrolled away from the bottom.
   void setStickToBottom(bool enabled);
   // One-shot absolute jump deferred until the next layout pass, after the
@@ -69,6 +72,8 @@ public:
 
   float contentViewportWidth(bool reserveScrollbarGutter = false) const noexcept;
   float contentViewportHeight() const noexcept;
+  // Visible content rectangle in scene coordinates, excluding padding, borders and scrollbar lanes.
+  LayoutRect contentViewportRect() const noexcept;
   float viewportPaddingH() const noexcept { return m_viewportPaddingH; }
   float viewportPaddingV() const noexcept { return m_viewportPaddingV; }
   bool reservesScrollbarGutter() const noexcept { return m_reserveScrollbarGutter; }
@@ -109,6 +114,8 @@ private:
   float m_viewportPaddingH = Style::spaceXs;
   float m_viewportPaddingV = Style::spaceSm;
   float m_scrollOffset = 0.0F;
+  float m_horizontalWidth = 0.0F;
+  float m_horizontalOffset = 0.0F;
   float m_targetScrollOffset = 0.0F;
   float m_maxScrollOffset = 0.0F;
   float m_contentScale = 1.0F;

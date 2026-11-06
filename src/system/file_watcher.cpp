@@ -20,8 +20,9 @@ namespace {
 
 FileWatcher::WatchId
 FileWatcher::watch(const std::filesystem::path& filePath, Callback callback, WatchTrigger trigger) {
-  if (inotify.fd() < 0)
+  if (m_inotify.fd() < 0) {
     return 0;
+  }
 
   auto dir = filePath.parent_path().string();
   auto filename = filePath.filename().string();
@@ -32,7 +33,7 @@ FileWatcher::watch(const std::filesystem::path& filePath, Callback callback, Wat
     wd = it->second;
     m_dirWdRefCount[wd]++;
   } else {
-    auto maybe_wd = inotify.watch(dir.c_str(), IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_TO);
+    auto maybe_wd = m_inotify.watch(dir.c_str(), IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_TO);
     if (!maybe_wd.has_value()) {
       kLog.warn("failed to watch directory '{}'", dir);
       return 0;
@@ -50,8 +51,9 @@ FileWatcher::watch(const std::filesystem::path& filePath, Callback callback, Wat
 
 void FileWatcher::unwatch(WatchId id) {
   auto it = m_watches.find(id);
-  if (it == m_watches.end())
+  if (it == m_watches.end()) {
     return;
+  }
 
   int wd = it->second.dirWd;
   kLog.debug("unwatching id {}", id);
@@ -59,7 +61,7 @@ void FileWatcher::unwatch(WatchId id) {
 
   auto refIt = m_dirWdRefCount.find(wd);
   if (refIt != m_dirWdRefCount.end() && --refIt->second <= 0) {
-    inotify.unwatch(wd);
+    m_inotify.unwatch(wd);
     m_dirWdRefCount.erase(refIt);
     std::erase_if(m_dirToWd, [wd](const auto& pair) { return pair.second == wd; });
   }
@@ -68,15 +70,16 @@ void FileWatcher::unwatch(WatchId id) {
 void FileWatcher::dispatch() {
   std::vector<WatchId> triggered;
 
-  inotify.drain([this, &triggered](const inotify_event* event) {
+  m_inotify.drain([this, &triggered](const inotify_event* event) {
     if (event->len > 0) {
       std::string_view name(event->name);
       for (auto& [id, entry] : m_watches) {
         if (entry.dirWd == event->wd
             && entry.filename == name
             && eventMatchesTrigger(entry.trigger, event->mask)
-            && !std::ranges::contains(triggered, id))
+            && !std::ranges::contains(triggered, id)) {
           triggered.push_back(id);
+        }
       }
     }
   });
@@ -84,11 +87,13 @@ void FileWatcher::dispatch() {
   auto now = std::chrono::steady_clock::now();
   for (auto id : triggered) {
     auto it = m_watches.find(id);
-    if (it == m_watches.end())
+    if (it == m_watches.end()) {
       continue;
+    }
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - it->second.lastFired);
-    if (elapsed.count() < 100)
+    if (elapsed.count() < 100) {
       continue;
+    }
     it->second.lastFired = now;
     it->second.callback();
   }

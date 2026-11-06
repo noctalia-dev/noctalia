@@ -85,7 +85,6 @@
 #include "system/location_service.h"
 #include "system/lock_keys_poll_source.h"
 #include "system/lock_keys_service.h"
-#include "system/lyrics_service.h"
 #include "system/screen_time_service.h"
 #include "system/telemetry_service.h"
 #include "system/weather_poll_source.h"
@@ -222,6 +221,8 @@ private:
   void onSecretServiceCollectionChanged();
   void retrySecretServiceConsumers(bool defaultCollectionUnlocked = false);
   void scheduleNotificationShellRefresh();
+  // Enables the lockscreen DND option when locking and restores the pre-lock state on unlock.
+  void syncLockScreenDoNotDisturb();
   void syncPolkitAgent();
   bool likelySupportsInSessionPolkit() const noexcept;
   void syncClipboardService();
@@ -257,7 +258,6 @@ private:
   VirtualKeyboardService m_virtualKeyboardService;
   ConfigService m_configService;
   HttpClient m_httpClient;
-  LyricsService m_lyricsService{m_httpClient, m_configService};
   FileWatcher m_fileWatcher;
   noctalia::theme::CommunityPaletteService m_communityPaletteService{m_httpClient};
   noctalia::theme::CommunityTemplateService m_communityTemplateService{m_httpClient};
@@ -316,6 +316,7 @@ private:
   std::optional<bool> m_notificationDaemonEnabled;
   bool m_notificationDaemonInitFailed = false;
   bool m_notificationShellRefreshScheduled = false;
+  bool m_lockScreenAutoDnd = false;
   BatteryHookState m_batteryHookState;
   BatteryWarningMonitor m_batteryWarningMonitor;
   std::optional<bool> m_prevBatteryPluggedForEvents;

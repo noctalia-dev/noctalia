@@ -79,10 +79,12 @@ namespace noctalia::config {
           cli::kConfigSettingsCountCmd, "noctalia config settings-count",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
 
       setLogLevel(LogLevel::Warn);
       ConfigService configService;
@@ -330,10 +332,12 @@ namespace noctalia::config {
           cli::kConfigValidateCmd, "noctalia config validate",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
       const std::string pathArg =
           parsed->positionals.empty() ? std::string{} : std::string(parsed->positionals.front());
 
@@ -406,10 +410,12 @@ namespace noctalia::config {
           cli::kConfigExportCmd, "noctalia config export",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
       const std::string_view mode =
           parsed->positionals.empty() ? std::string_view{"merged"} : parsed->positionals.front();
       const auto credentials =
@@ -453,21 +459,26 @@ namespace noctalia::config {
       return argc < 3 ? 1 : 0;
     }
 
-    if (std::strcmp(argv[2], "validate") == 0)
+    if (std::strcmp(argv[2], "validate") == 0) {
       return runValidate(argc, argv);
-    if (std::strcmp(argv[2], "export") == 0)
+    }
+    if (std::strcmp(argv[2], "export") == 0) {
       return runExport(argc, argv);
-    if (std::strcmp(argv[2], "settings-count") == 0)
+    }
+    if (std::strcmp(argv[2], "settings-count") == 0) {
       return runSettingsCount(argc, argv);
+    }
     if (std::strcmp(argv[2], "replay-report") == 0) {
       auto parsed = cli::parseOrReport(
           cli::kConfigReplayReportCmd, "noctalia config replay-report",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
       ReplayOptions options{
           .reportPath = parsed->positionals.front(),
           .targetDir = parsed->value("--target"),

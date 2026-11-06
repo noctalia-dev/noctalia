@@ -376,6 +376,7 @@ location = "https://example.invalid/bad"
     c.backdrop = BackdropConfig{true, 0.8F, 0.2F};
     c.lockscreen = LockscreenConfig{
         .lockBeforeSuspend = false,
+        .dnd = true,
         .gracePeriodSeconds = 3,
         .blurredDesktop = true,
         .transitions = {LockscreenTransition::Disc, LockscreenTransition::Zoom},
@@ -584,6 +585,7 @@ location = "https://example.invalid/bad"
     c.shell.screenshot.skipAnnotateOnCopySave = true;
     c.shell.screenshot.closeOnSave = false; // non-default (default is true) so the round-trip exercises it
     c.shell.screenshot.copyOnClose = true;
+    c.shell.screenshot.appendModeSuffix = false; // non-default (default is true) so the round-trip exercises it
     c.shell.screenshot.regionModifier = ScreenshotRegionModifier::Super;
     c.shell.screenshot.regionBorderWidth = 4.0F;
     c.shell.screenshot.regionDimOpacity = 0.8F;
@@ -1101,9 +1103,11 @@ both = { color_dark = "#444444", color_light = "#555555" }
     readInto(root, theme, themeSchema(), "theme", d);
 
     auto find = [&](std::string_view name) -> const ThemeConfig::TemplateColorConfig* {
-      for (const auto& c : theme.templates.customColors)
-        if (c.name == name)
+      for (const auto& c : theme.templates.customColors) {
+        if (c.name == name) {
           return &c;
+        }
+      }
       return nullptr;
     };
 

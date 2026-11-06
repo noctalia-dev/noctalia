@@ -3,18 +3,20 @@
 #
 # Self-contained: a consumer project (C++23, Meson >= 1.1) runs `subdir('lib')`
 # and reads no other file outside lib/. Optional input, set before subdir():
-#   noctalia_ui_system_wuffs  true: compile the codec pack against a system
+#   noctalia_ui_build_codecs  true: enable the codec pack (default: false)
+#   noctalia_ui_system_wuffs  true: compile the enabled codec pack against a system
 #                             wuffs-v0.4.c instead of lib/third_party/wuffs
 #
 # Outputs:
 #   noctalia_ui_dep              core library: render, text, scene/input, Wayland
 #                                transport, controls (incl. Image), i18n service;
 #                                system dependencies only
-#   noctalia_ui_codecs_dep       opt-in codec pack: Wuffs, ICO, WebP, JPEG XL,
+#   noctalia_ui_codecs_dep       only when enabled; opt-in codec pack: Wuffs, ICO, WebP, JPEG XL,
 #                                SVG (librsvg), runtime-loaded libheif, image
 #                                encoders, thumbnails; install it with
 #                                codecs::installImageDecoder()
-#   noctalia_ui_lib, noctalia_ui_codecs_lib   the static libraries
+#   noctalia_ui_lib              core static library
+#   noctalia_ui_codecs_lib       codec static library, only when enabled
 #   noctalia_ui_protocol_headers              generated client protocol headers
 #   noctalia_ui_assets_dir       assets the library loads (glyph font); install
 #                                its contents into the application's asset dir
@@ -161,6 +163,7 @@ _noctalia_ui_sources = files(
   'ui/controls/context_menu_popup.cpp',
   'ui/controls/drag_source.cpp',
   'ui/controls/drop_zone.cpp',
+  'ui/controls/fill_label.cpp',
   'ui/controls/flex.cpp',
   'ui/controls/glyph.cpp',
   'ui/controls/grid_tile.cpp',
@@ -230,44 +233,46 @@ noctalia_ui_dep = declare_dependency(
 noctalia_ui_assets_dir = meson.current_source_dir() / 'assets'
 
 # ── Codec pack ────────────────────────────────────────────────────────────────
-if is_variable('noctalia_ui_system_wuffs') and noctalia_ui_system_wuffs
-  if not _noctalia_ui_cc.has_header('wuffs-v0.4.c')
-    error('noctalia-ui: noctalia_ui_system_wuffs is set but wuffs-v0.4.c was not found')
+if get_variable('noctalia_ui_build_codecs', false)
+  if is_variable('noctalia_ui_system_wuffs') and noctalia_ui_system_wuffs
+    if not _noctalia_ui_cc.has_header('wuffs-v0.4.c')
+      error('noctalia-ui: noctalia_ui_system_wuffs is set but wuffs-v0.4.c was not found')
+    endif
+    _noctalia_ui_wuffs_inc = []
+  else
+    _noctalia_ui_wuffs_inc = [include_directories('third_party/wuffs', is_system: true)]
   endif
-  _noctalia_ui_wuffs_inc = []
-else
-  _noctalia_ui_wuffs_inc = [include_directories('third_party/wuffs', is_system: true)]
+
+  if not _noctalia_ui_cc.has_header('stb/stb_image_write.h')
+    error('noctalia-ui: stb/stb_image_write.h not found')
+  endif
+
+  _noctalia_ui_dl_dep = meson.get_compiler('cpp').find_library('dl', required: false)
+
+  _noctalia_ui_codecs_system_dependencies = [
+    dependency('librsvg-2.0'),
+    dependency('libwebp'),
+    dependency('libwebpdemux'),
+    dependency('libjxl'),
+    dependency('libjxl_threads'),
+  ] + (_noctalia_ui_dl_dep.found() ? [_noctalia_ui_dl_dep] : [])
+
+  noctalia_ui_codecs_lib = static_library('noctalia-ui-codecs',
+    sources: files(
+      'render/codecs/codecs.cpp',
+      'render/codecs/heif_library.cpp',
+      'render/codecs/image_encoder.cpp',
+      'render/codecs/image_file_loader.cpp',
+      'render/codecs/raster_decoder.cpp',
+      'render/codecs/thumbnail_service.cpp',
+    ),
+    dependencies: _noctalia_ui_codecs_system_dependencies + [noctalia_ui_dep],
+    include_directories: _noctalia_ui_wuffs_inc,
+    cpp_args: _noctalia_ui_cpp_args,
+  )
+
+  noctalia_ui_codecs_dep = declare_dependency(
+    link_with: noctalia_ui_codecs_lib,
+    dependencies: _noctalia_ui_codecs_system_dependencies + [noctalia_ui_dep],
+  )
 endif
-
-if not _noctalia_ui_cc.has_header('stb/stb_image_write.h')
-  error('noctalia-ui: stb/stb_image_write.h not found')
-endif
-
-_noctalia_ui_dl_dep = meson.get_compiler('cpp').find_library('dl', required: false)
-
-_noctalia_ui_codecs_system_dependencies = [
-  dependency('librsvg-2.0'),
-  dependency('libwebp'),
-  dependency('libwebpdemux'),
-  dependency('libjxl'),
-  dependency('libjxl_threads'),
-] + (_noctalia_ui_dl_dep.found() ? [_noctalia_ui_dl_dep] : [])
-
-noctalia_ui_codecs_lib = static_library('noctalia-ui-codecs',
-  sources: files(
-    'render/codecs/codecs.cpp',
-    'render/codecs/heif_library.cpp',
-    'render/codecs/image_encoder.cpp',
-    'render/codecs/image_file_loader.cpp',
-    'render/codecs/raster_decoder.cpp',
-    'render/codecs/thumbnail_service.cpp',
-  ),
-  dependencies: _noctalia_ui_codecs_system_dependencies + [noctalia_ui_dep],
-  include_directories: _noctalia_ui_wuffs_inc,
-  cpp_args: _noctalia_ui_cpp_args,
-)
-
-noctalia_ui_codecs_dep = declare_dependency(
-  link_with: noctalia_ui_codecs_lib,
-  dependencies: _noctalia_ui_codecs_system_dependencies + [noctalia_ui_dep],
-)

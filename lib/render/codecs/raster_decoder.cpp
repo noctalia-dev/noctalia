@@ -198,8 +198,9 @@ namespace codecs {
       bmp[13] = static_cast<std::uint8_t>((pixelOffset >> 24) & 0xFF);
 
       auto decoded = decodeRasterImage(bmp.data(), bmp.size());
-      if (!decoded)
+      if (!decoded) {
         return decoded;
+      }
 
       // Apply the 1bpp AND mask that follows the pixel data.
       const std::size_t andRowStride = static_cast<std::size_t>(((width + 31) / 32)) * 4;
@@ -213,8 +214,9 @@ namespace codecs {
           std::uint8_t* dstLine =
               decoded->pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 4;
           for (int x = 0; x < width; ++x) {
-            if (maskLine[x / 8] & (0x80 >> (x % 8)))
+            if (maskLine[x / 8] & (0x80 >> (x % 8))) {
               dstLine[x * 4 + 3] = 0;
+            }
           }
         }
       }

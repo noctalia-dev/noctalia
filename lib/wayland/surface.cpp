@@ -694,8 +694,9 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
   const float halfH = static_cast<float>(h) * 0.5F;
   const float maxRadius = std::min(halfW, halfH);
   const auto clampR = [maxRadius](float r) {
-    if (r < 0.0F)
+    if (r < 0.0F) {
       return 0.0F;
+    }
     return std::min(r, maxRadius);
   };
   const float tl = clampR(tlRadius);
@@ -709,11 +710,13 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
   const int middleH = h - topBand - bottomBand;
 
   const auto inset = [](float r, float distFromCornerEdge) -> float {
-    if (r <= 0.0F)
+    if (r <= 0.0F) {
       return 0.0F;
+    }
     const float dy = r - distFromCornerEdge;
-    if (dy <= 0.0F)
+    if (dy <= 0.0F) {
       return 0.0F;
+    }
     const float ry = std::sqrt(std::max(0.0F, r * r - dy * dy));
     return r - ry;
   };
@@ -1119,18 +1122,6 @@ void Surface::discardPendingFrameCallback() {
   m_frameCallback = nullptr;
 }
 
-void Surface::recoverStalledFrameLoop(std::chrono::milliseconds stallAfter) {
-  if (m_frameCallback == nullptr || !m_running || !m_configured) {
-    return;
-  }
-  const bool workPending = m_updateRequested || m_layoutRequested || m_redrawRequested || m_frameTickPending;
-  if (!workPending || std::chrono::steady_clock::now() - m_frameCallbackRequestedAt < stallAfter) {
-    return;
-  }
-  discardPendingFrameCallback();
-  kickFrameLoop();
-}
-
 void Surface::requestUpdateOnly() {
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::RequestUpdateOnly);
   m_updateRequested = true;
@@ -1218,7 +1209,6 @@ void Surface::requestFrame() {
   m_nextFrameCallbackShouldTick = false;
 
   m_frameCallback = wl_surface_frame(m_surface);
-  m_frameCallbackRequestedAt = std::chrono::steady_clock::now();
   if (m_frameCallback != nullptr) {
     wl_callback_add_listener(m_frameCallback, &kFrameListener, this);
   }

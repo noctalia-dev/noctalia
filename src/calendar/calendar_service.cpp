@@ -142,18 +142,18 @@ struct CalendarService::VdirWorker : std::enable_shared_from_this<CalendarServic
         callback;
   };
 
-  VdirWorker() : worker([this](std::stop_token stopToken) { workerLoop(std::move(stopToken)); }) {}
+  VdirWorker() : m_worker([this](std::stop_token stopToken) { workerLoop(std::move(stopToken)); }) {}
   ~VdirWorker() { stop(); }
 
   bool enqueue(Request request) {
     {
-      std::scoped_lock lock(mutex);
-      if (stopping) {
+      std::scoped_lock lock(m_mutex);
+      if (m_stopping) {
         return false;
       }
-      requests.push_back(std::move(request));
+      m_requests.push_back(std::move(request));
     }
-    cv.notify_one();
+    m_cv.notify_one();
     return true;
   }
 
@@ -173,35 +173,35 @@ struct CalendarService::VdirWorker : std::enable_shared_from_this<CalendarServic
   }
 
   void stop() {
-    worker.request_stop();
+    m_worker.request_stop();
     {
-      std::scoped_lock lock(mutex);
-      stopping = true;
-      requests.clear();
+      std::scoped_lock lock(m_mutex);
+      m_stopping = true;
+      m_requests.clear();
     }
-    cv.notify_one();
-    if (worker.joinable()) {
-      worker.join();
+    m_cv.notify_one();
+    if (m_worker.joinable()) {
+      m_worker.join();
     }
   }
 
 private:
   bool accepting() const {
-    std::scoped_lock lock(mutex);
-    return !stopping;
+    std::scoped_lock lock(m_mutex);
+    return !m_stopping;
   }
 
   void workerLoop(std::stop_token stopToken) {
     while (true) {
       Request request;
       {
-        std::unique_lock lock(mutex);
-        cv.wait(lock, [this, &stopToken] { return stopping || stopToken.stop_requested() || !requests.empty(); });
-        if (stopping || stopToken.stop_requested()) {
+        std::unique_lock lock(m_mutex);
+        m_cv.wait(lock, [this, &stopToken] { return m_stopping || stopToken.stop_requested() || !m_requests.empty(); });
+        if (m_stopping || stopToken.stop_requested()) {
           return;
         }
-        request = std::move(requests.front());
-        requests.pop_front();
+        request = std::move(m_requests.front());
+        m_requests.pop_front();
       }
 
       std::error_code ec;
@@ -272,11 +272,11 @@ private:
     }
   }
 
-  mutable std::mutex mutex;
-  std::condition_variable cv;
-  std::deque<Request> requests;
-  bool stopping = false;
-  std::jthread worker;
+  mutable std::mutex m_mutex;
+  std::condition_variable m_cv;
+  std::deque<Request> m_requests;
+  bool m_stopping = false;
+  std::jthread m_worker;
 };
 
 CalendarService::CalendarService(

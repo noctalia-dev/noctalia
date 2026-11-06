@@ -123,9 +123,6 @@ public:
   /// Discards an in-flight Wayland frame callback without losing queued work
   /// or the tick intent attached to that callback.
   void discardPendingFrameCallback();
-  /// Drops a frame callback the compositor has not answered for `stallAfter` while work is waiting on it,
-  /// e.g. after the surface was occluded, and restarts the frame loop.
-  void recoverStalledFrameLoop(std::chrono::milliseconds stallAfter);
   void setAnimationManager(AnimationManager* manager) noexcept { m_animationManager = manager; }
   void setSceneRoot(Node* root);
   void setRenderContext(RenderContext* ctx);
@@ -206,7 +203,6 @@ private:
   ScaleChangedCallback m_scaleChangedCallback;
   OutputChangedCallback m_outputChangedCallback;
   wl_callback* m_frameCallback = nullptr;
-  std::chrono::steady_clock::time_point m_frameCallbackRequestedAt;
   wp_viewport* m_viewport = nullptr;
   wp_fractional_scale_v1* m_fractionalScale = nullptr;
   std::optional<std::chrono::steady_clock::time_point> m_lastFrameAt;

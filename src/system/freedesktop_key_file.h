@@ -13,9 +13,9 @@
 namespace freedesktop {
 
   enum class ParseFailure {
-    NOT_FOUND,
-    READ_ERROR,
-    INVALID_ENCODING,
+    NotFound,
+    ReadError,
+    InvalidEncoding,
   };
 
   struct ParseError {
