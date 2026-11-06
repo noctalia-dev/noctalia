@@ -362,10 +362,9 @@ private:
   // Gesture whose action row has a chosen command that still needs its argument typed.
   std::string m_pendingGestureKey;
   std::string m_pendingGestureVerb;
-  // The widget whose actions group is unfolded, empty when none. Keyed by widget rather than a
-  // plain flag so the group survives the rebuild an edit triggers, but starts folded on every
-  // other widget.
-  std::string m_actionsExpandedFor;
+  // Expanded bar-widget settings group cards, keyed by widget name. Kept here so a card survives the
+  // rebuild an edit triggers; a widget gets its default expansion the first time it is opened.
+  std::unordered_map<std::string, std::unordered_set<std::string>> m_expandedWidgetGroups;
   // Expanded setting groups per page, keyed by content section key (pageScopeKey).
   // A page gets its default expansion (first group, or all with settings_expand_all_groups) when first
   // rendered; changing settings_expand_all_groups drops this state so every page re-seeds.

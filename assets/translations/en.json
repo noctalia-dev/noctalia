@@ -1332,9 +1332,12 @@
           "groups": {
             "actions": "Actions",
             "behavior": "Behavior",
+            "capsule": "Capsule",
+            "colors": "Colors",
+            "content": "Content",
             "grouping": "Grouping",
-            "presentation": "Presentation",
             "runtime": "Runtime",
+            "size-text": "Size and Text",
             "taskbar": {
               "grouping": "Grouping",
               "windows": "Windows",

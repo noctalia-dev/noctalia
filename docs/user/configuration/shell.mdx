@@ -265,7 +265,7 @@ Notes:
 
 - `show_location`: when `false`, weather location text/coordinates are hidden in shell surfaces.
 
-- `app_icon_color`: shared application icon tint. Enable `colorize_icons` separately in the launcher, dock, window switcher, or each workspace, taskbar, tray, and active-window widget. See [App icon colorization](#app-icon-colorization). Bar `launcher` / `control-center` widgets can optionally tint `custom_image` via `custom_image_colorize` using the widget **Color** setting (Presentation group in the widget editor).
+- `app_icon_color`: shared application icon tint. Enable `colorize_icons` separately in the launcher, dock, window switcher, or each workspace, taskbar, tray, and active-window widget. See [App icon colorization](#app-icon-colorization). Bar `launcher` / `control-center` widgets can optionally tint `custom_image` via `custom_image_colorize` using the widget **Color** setting (Colors section in the widget editor).
 
 - `lang`: empty follows `$LC_ALL`, `$LC_MESSAGES`, then `$LANG`. Values may be BCP-47 tags (`pt-BR`, `zh-Hans`) or POSIX locale names (`pt_BR.UTF-8`, `zh_CN.UTF-8`). Chinese region locales infer script before matching catalogs, so `zh_CN` and `zh_SG` match `zh-Hans`, while `zh_TW`, `zh_HK`, and `zh_MO` match `zh-Hant`. When a right-to-left catalog is loaded, Noctalia mirrors text, controls, grids, scrollbars, and directional icons automatically. Bar `start`/`center`/`end` lanes and dock item order remain on their configured physical sides. If no matching catalog loads and Noctalia falls back to English, the UI remains left-to-right.
 
