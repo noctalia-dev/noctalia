@@ -193,6 +193,7 @@ private:
   // Called AFTER the panel surface is mapped so the panel wl_surface is
   // available for the whitelist. No-op when focus-grab is unavailable.
   void activateFocusGrab();
+  void startKeyboardRelaxTimer(LayerShellKeyboard relaxed);
   void applyKeyboardRelaxation(LayerShellKeyboard mode);
   void addFocusGrabWhitelistSurfaces(FocusGrab& grab, wl_surface* excludedSurface);
   bool isFocusGrabWhitelistSurface(wl_surface* surface) const;

@@ -1276,14 +1276,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
         activateFocusGrab();
       }
       if (attachedKeyboardPlan.relaxed.has_value()) {
-        const std::uint64_t gen = m_destroyGeneration;
-        const LayerShellKeyboard relaxed = *attachedKeyboardPlan.relaxed;
-        m_keyboardRelaxTimer.start(kKeyboardRelaxDelay, [this, gen, relaxed] {
-          if (m_destroyGeneration != gen || !isAttachedOpen() || m_layerSurface == nullptr || m_closing) {
-            return;
-          }
-          applyKeyboardRelaxation(relaxed);
-        });
+        startKeyboardRelaxTimer(*attachedKeyboardPlan.relaxed);
       }
       kLog.debug("panel manager: opened \"{}\" as attached layer-shell", panelId);
       if (m_panelOpenedCallback) {
@@ -1373,14 +1366,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     activateFocusGrab();
   }
   if (keyboardPlan.relaxed.has_value()) {
-    const std::uint64_t gen = m_destroyGeneration;
-    const LayerShellKeyboard relaxed = *keyboardPlan.relaxed;
-    m_keyboardRelaxTimer.start(kKeyboardRelaxDelay, [this, gen, relaxed] {
-      if (m_destroyGeneration != gen || m_layerSurface == nullptr || m_closing) {
-        return;
-      }
-      applyKeyboardRelaxation(relaxed);
-    });
+    startKeyboardRelaxTimer(*keyboardPlan.relaxed);
   }
   kLog.debug("panel manager: opened \"{}\"", panelId);
   if (m_panelOpenedCallback) {
@@ -1435,6 +1421,20 @@ void PanelManager::activateFocusGrab() {
   m_focusGrab->commit();
   addFocusGrabWhitelistSurfaces(*m_focusGrab, m_wlSurface);
   m_focusGrab->commit();
+}
+
+void PanelManager::startKeyboardRelaxTimer(LayerShellKeyboard relaxed) {
+  const std::uint64_t gen = m_destroyGeneration;
+  const bool attached = m_attachedToBar;
+  m_keyboardRelaxTimer.start(kKeyboardRelaxDelay, [this, gen, relaxed, attached] {
+    if (m_destroyGeneration != gen || m_layerSurface == nullptr || m_closing) {
+      return;
+    }
+    if (attached && !isAttachedOpen()) {
+      return;
+    }
+    applyKeyboardRelaxation(relaxed);
+  });
 }
 
 void PanelManager::applyKeyboardRelaxation(LayerShellKeyboard mode) {
@@ -2296,18 +2296,7 @@ void PanelManager::resumeClosingPanel(const PanelOpenRequest& request) {
   );
   m_keyboardRelaxTimer.stop();
   if (keyboardPlan.relaxed.has_value()) {
-    const std::uint64_t gen = m_destroyGeneration;
-    const LayerShellKeyboard relaxed = *keyboardPlan.relaxed;
-    const bool attached = m_attachedToBar;
-    m_keyboardRelaxTimer.start(kKeyboardRelaxDelay, [this, gen, relaxed, attached] {
-      if (m_destroyGeneration != gen || m_layerSurface == nullptr || m_closing) {
-        return;
-      }
-      if (attached && !isAttachedOpen()) {
-        return;
-      }
-      applyKeyboardRelaxation(relaxed);
-    });
+    startKeyboardRelaxTimer(*keyboardPlan.relaxed);
   }
   if (m_surface != nullptr) {
     m_surface->requestRedraw();
