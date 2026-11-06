@@ -3549,6 +3549,12 @@ namespace settings {
         ToggleSetting{cfg.notification.showActions}, "action buttons"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "general", tr("settings.schema.notifications.show-timeout-indicator.label"),
+        tr("settings.schema.notifications.show-timeout-indicator.description"),
+        {"notification", "show_timeout_indicator"}, ToggleSetting{cfg.notification.showTimeoutIndicator},
+        "notification toast timeout progress bar countdown indicator critical accent"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "general", tr("settings.schema.notifications.collapse-on-dismiss.label"),
         tr("settings.schema.notifications.collapse-on-dismiss.description"), {"notification", "collapse_on_dismiss"},
         ToggleSetting{cfg.notification.collapseOnDismiss}, "reorder stack slide"
