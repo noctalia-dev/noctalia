@@ -18,6 +18,9 @@ namespace codecs {
     // Colorant (XYZ, D50) difference below which a profile counts as sRGB; real wide-gamut profiles
     // differ from sRGB by more than 0.05 in at least one component.
     constexpr double kSrgbColorantTolerance = 0.002;
+    // Tone curves are compared at this many points, within half an 8-bit step.
+    constexpr int kCurveSamples = 32;
+    constexpr float kSrgbCurveTolerance = 0.5F / 255.0F;
 
     struct ContextDeleter {
       void operator()(cmsContext context) const { cmsDeleteContext(context); }
@@ -49,13 +52,36 @@ namespace codecs {
       });
     }
 
+    bool sameCurve(const cmsToneCurve* curve, const cmsToneCurve* reference) {
+      for (int i = 0; i < kCurveSamples; ++i) {
+        const float x = static_cast<float>(i) / (kCurveSamples - 1);
+        if (std::abs(cmsEvalToneCurveFloat(curve, x) - cmsEvalToneCurveFloat(reference, x)) > kSrgbCurveTolerance) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // A profile can share sRGB's primaries with another curve (linear sRGB, gamma 2.2), so both must match.
+    bool hasSrgbCurves(cmsHPROFILE profile, cmsHPROFILE srgb) {
+      constexpr std::array kCurves{cmsSigRedTRCTag, cmsSigGreenTRCTag, cmsSigBlueTRCTag};
+      const auto* reference = static_cast<const cmsToneCurve*>(cmsReadTag(srgb, cmsSigRedTRCTag));
+      if (reference == nullptr) {
+        return false;
+      }
+      return std::ranges::all_of(kCurves, [&](cmsTagSignature tag) {
+        const auto* own = static_cast<const cmsToneCurve*>(cmsReadTag(profile, tag));
+        return own != nullptr && sameCurve(own, reference);
+      });
+    }
+
     // Lcms2 objects are created in a context of their own: decoding runs on several worker threads.
     void transformToSrgb(std::vector<std::uint8_t>& rgba, cmsContext context, cmsHPROFILE source) {
       if (source == nullptr || cmsGetColorSpace(source) != cmsSigRgbData) {
         return;
       }
       const Profile srgb(cmsCreate_sRGBProfileTHR(context));
-      if (srgb == nullptr || hasSrgbColorants(source, srgb.get())) {
+      if (srgb == nullptr || (hasSrgbColorants(source, srgb.get()) && hasSrgbCurves(source, srgb.get()))) {
         return;
       }
       const Transform transform(cmsCreateTransformTHR(

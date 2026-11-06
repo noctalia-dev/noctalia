@@ -47,6 +47,17 @@ namespace {
     return icc;
   }
 
+  // Linear sRGB: sRGB's primaries and white with a linear transfer curve.
+  std::vector<std::uint8_t> linearSrgbIcc() {
+    const cmsCIExyY white{0.3127, 0.3290, 1.0};
+    const cmsCIExyYTRIPLE primaries{{0.640, 0.330, 1.0}, {0.300, 0.600, 1.0}, {0.150, 0.060, 1.0}};
+    cmsToneCurve* curve = cmsBuildGamma(nullptr, 1.0);
+    std::array<cmsToneCurve*, 3> curves{curve, curve, curve};
+    auto icc = saveProfile(cmsCreateRGBProfile(&white, &primaries, curves.data()));
+    cmsFreeToneCurve(curve);
+    return icc;
+  }
+
   // One JPEG marker segment: the marker, the big-endian length (which counts itself), the payload.
   void appendSegment(std::vector<std::uint8_t>& jpeg, std::uint8_t marker, const std::vector<std::uint8_t>& payload) {
     const std::size_t length = payload.size() + 2;
@@ -79,6 +90,13 @@ namespace {
     codecs::convertCicpToSrgb(grey, 12, 13);
     ok = check(near(grey, {128, 128, 128, 255}, 1), "a neutral should stay neutral") && ok;
     return ok;
+  }
+
+  bool testLinearSrgbConverts() {
+    // Linear 128 is sRGB 188.
+    std::vector<std::uint8_t> pixel{128, 128, 128, 255};
+    codecs::convertIccToSrgb(pixel, linearSrgbIcc());
+    return check(near(pixel, {188, 188, 188, 255}, 1), "a linear profile with sRGB primaries should convert");
   }
 
   bool testUnchangedWithoutConversion() {
@@ -126,6 +144,7 @@ int main() {
   bool ok = true;
   ok = testIccConvertsToSrgb() && ok;
   ok = testCicpConvertsToSrgb() && ok;
+  ok = testLinearSrgbConverts() && ok;
   ok = testUnchangedWithoutConversion() && ok;
   ok = testJpegProfileReassembled() && ok;
   return ok ? 0 : 1;
