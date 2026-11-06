@@ -49,6 +49,8 @@ public:
       std::function<void()> onLocked, std::function<void()> onUnlocked, std::function<void()> onLockAborted,
       std::function<void()> onReadyForSleep
   );
+  // Runs before each desktop capture, so overlays that must not appear in it can close first.
+  void setBeforeDesktopCapture(std::function<void()> hook) { m_beforeDesktopCapture = std::move(hook); }
   void setLoginBoxServices(
       SessionActionRunner* sessionActions, MprisService* mpris, const WeatherService* weather, HttpClient* httpClient
   );
@@ -200,6 +202,7 @@ private:
   std::function<void()> m_onSessionUnlocked;
   std::function<void()> m_onLockAborted;
   std::function<void()> m_onReadyForSleep;
+  std::function<void()> m_beforeDesktopCapture;
   std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
   SessionActionRunner* m_sessionActions = nullptr;
   MprisService* m_mpris = nullptr;

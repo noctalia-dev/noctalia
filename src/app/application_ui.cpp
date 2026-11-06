@@ -319,6 +319,7 @@ void Application::initLockScreenAndSession() {
   m_lockScreen.setSessionHooks(
       [this] {
         m_idleGraceOverlay.hide();
+        m_lockscreenTransitionPreview.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
         syncLockScreenDoNotDisturb();
         m_idleManager.setSessionLocked(true);
@@ -358,6 +359,7 @@ void Application::initLockScreenAndSession() {
       },
       [this] { releaseSleepDelayInhibitIfPending(); }
   );
+  m_lockScreen.setBeforeDesktopCapture([this] { m_lockscreenTransitionPreview.hide(); });
   m_compositorPlatform.setOutputPowerChangeCallback([this] { m_lockScreen.onOutputPowerChanged(); });
   if (m_logindService != nullptr) {
     m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
@@ -394,6 +396,9 @@ void Application::initInputDispatch() {
   m_wayland.setPointerEventCallback([this](const PointerEvent& event) {
     if (m_lockScreen.isActive()) {
       m_lockScreen.onPointerEvent(event);
+      return;
+    }
+    if (m_lockscreenTransitionPreview.onPointerEvent(event)) {
       return;
     }
     if (m_windowSwitcher.isActive()) {
@@ -467,6 +472,9 @@ void Application::initInputDispatch() {
   m_wayland.setKeyboardEventCallback([this](const KeyboardEvent& event) {
     if (m_lockScreen.isActive()) {
       m_lockScreen.onKeyboardEvent(event);
+      return;
+    }
+    if (m_lockscreenTransitionPreview.onKeyboardEvent(event)) {
       return;
     }
     // Grab popups are modal: while one is open it owns the keyboard and ESC
@@ -544,6 +552,9 @@ void Application::initPanelManagerAndPanels() {
     if (m_desktopWidgetsController.isEditing()) {
       m_desktopWidgetsController.exitEdit();
     }
+  });
+  m_settingsWindow.setPreviewLockscreenTransition([this](LockscreenTransition transition) {
+    m_lockscreenTransitionPreview.play(transition);
   });
   m_settingsWindow.setOpenWallpaperPanel([this] {
     wl_output* output = m_compositorPlatform.preferredInteractiveOutput(std::chrono::milliseconds(1200));
@@ -787,6 +798,7 @@ void Application::initNotificationAndOsd() {
       }
   );
   m_idleGraceOverlay.initialize(m_wayland, &m_renderContext);
+  m_lockscreenTransitionPreview.initialize(m_wayland, &m_renderContext, &m_configService);
   m_pluginIdleWatches.initialize(m_wayland);
   m_wayland.extension<ShellGlobals>().setIdleCapabilitiesReadyCallback([this] {
     m_idleManager.reload(m_configService.config().idle);

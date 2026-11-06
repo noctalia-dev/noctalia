@@ -52,6 +52,7 @@
 #include "shell/dock/dock.h"
 #include "shell/hot_corners/hot_corners.h"
 #include "shell/lockscreen/lock_screen.h"
+#include "shell/lockscreen/lockscreen_transition_preview.h"
 #include "shell/lockscreen/lockscreen_widgets_controller.h"
 #include "shell/notification/notification_toast.h"
 #include "shell/osd/audio_osd.h"
@@ -362,6 +363,7 @@ private:
   Dock m_dock;
   DesktopWidgetsController m_desktopWidgetsController;
   LockScreen m_lockScreen;
+  LockscreenTransitionPreview m_lockscreenTransitionPreview;
   LockscreenWidgetsController m_lockscreenWidgetsController;
   SessionActionRunner m_sessionActionRunner{m_compositorPlatform, m_lockScreen};
   PanelManager m_panelManager;
