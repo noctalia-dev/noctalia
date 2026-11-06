@@ -2318,8 +2318,20 @@ std::filesystem::path ScreenshotService::outputDirectory(const OutputOptions& op
 std::filesystem::path
 ScreenshotService::makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix) const {
   const auto dir = outputDirectory(options);
-  std::string filename = formatFilenameStem(options.filenamePattern, labelBase, suffix, options.appendModeSuffix);
-  filename.append(screenshotExtension(options.format));
+  const std::string_view extension = screenshotExtension(options.format);
+  constexpr int kMaxCollisionSuffix = 10000;
+  for (int attempt = std::max(0, suffix); attempt <= kMaxCollisionSuffix; ++attempt) {
+    std::string filename = formatFilenameStem(options.filenamePattern, labelBase, attempt, options.appendModeSuffix);
+    filename.append(extension);
+    std::filesystem::path path = dir / filename;
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+      return path;
+    }
+  }
+  std::string filename =
+      formatFilenameStem(options.filenamePattern, labelBase, kMaxCollisionSuffix, options.appendModeSuffix);
+  filename.append(extension);
   return dir / filename;
 }
 
