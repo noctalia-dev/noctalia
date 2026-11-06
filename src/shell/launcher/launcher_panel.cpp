@@ -2377,6 +2377,7 @@ void LauncherPanel::onOpen(std::string_view context) {
   m_categoryFilterRebuildPending = true;
   m_applyDefaultViewPending = m_browserMode;
   m_showingProviderOverview = false;
+  m_forceCategoryFilterVisible = false;
   m_launcherProviderViewId.clear();
   m_sessionReturnView.reset();
 
@@ -2426,6 +2427,7 @@ void LauncherPanel::onClose() {
   m_applyDefaultViewPending = false;
   m_syncingLauncherNavigation = false;
   m_showingProviderOverview = false;
+  m_forceCategoryFilterVisible = false;
   m_launcherProviderViewId.clear();
   m_sessionReturnView.reset();
   m_pendingResultsTransition = ResultsTransition::None;
@@ -3248,6 +3250,7 @@ void LauncherPanel::setCategoryFilterVisible(bool visible) {
   if (m_categoryFilter == nullptr) {
     return;
   }
+  const bool categoriesEnabled = m_config == nullptr || m_config->config().shell.launcher.categories;
   const bool show = m_browserMode ? visible
           && (!m_providerCategories.empty()
               || (m_activeCategoryType == Category
@@ -3256,7 +3259,7 @@ void LauncherPanel::setCategoryFilterVisible(bool visible) {
                   && !m_currentCategories.empty()))
                                   : visible
           && !m_categoryFilterSlots.empty()
-          && (!m_scopedProviderId.empty() || m_config == nullptr || m_config->config().shell.launcher.categories);
+          && (!m_scopedProviderId.empty() || categoriesEnabled || m_forceCategoryFilterVisible);
   m_categoryFilter->setVisible(show);
   m_categoryFilter->setParticipatesInLayout(show);
   if (m_container != nullptr) {
@@ -3720,8 +3723,13 @@ bool LauncherPanel::cycleCategories(int direction) {
     return true;
   }
 
-  if (m_categoryFilter == nullptr || !m_categoryFilter->visible() || m_categoryFilterSlots.size() < 2) {
+  if (m_categoryFilter == nullptr || m_categoryFilterSlots.size() < 2) {
     return false;
+  }
+  if (!m_categoryFilter->visible()) {
+    m_forceCategoryFilterVisible = true;
+    setCategoryFilterVisible(true);
+    return m_categoryFilter->visible();
   }
   const int next = wrapIndex(
       static_cast<int>(m_activeCategorySlotIndex) + direction, static_cast<int>(m_categoryFilterSlots.size())

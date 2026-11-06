@@ -187,6 +187,8 @@ private:
   bool m_categoryFilterRebuildPending = false;
   bool m_applyDefaultViewPending = false;
   bool m_syncingLauncherNavigation = false;
+  // Temporary reveal when Simple layout has shell.launcher.categories disabled.
+  bool m_forceCategoryFilterVisible = false;
   std::size_t m_selectedIndex = 0;
   std::size_t m_activeCategorySlotIndex = 0;
   bool m_browserMode = false;
