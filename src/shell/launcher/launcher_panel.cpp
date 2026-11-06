@@ -1614,6 +1614,9 @@ void LauncherPanel::create() {
   });
   if (m_browserMode) {
     body->setGap(Style::spaceSm * scale);
+    // Tab switches slide the results viewport sideways. Clip so that travel
+    // stays inside the panel instead of painting over the card edge.
+    body->setClipChildren(true);
     auto navigationRow = ui::row({
         .align = FlexAlign::Center,
         .justify = FlexJustify::SpaceBetween,
