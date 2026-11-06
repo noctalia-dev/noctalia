@@ -345,13 +345,19 @@ void OsdOverlay::requestLayout() {
 }
 
 void OsdOverlay::show(const OsdContent& content) {
-  if (m_wayland == nullptr || m_renderContext == nullptr) {
-    return;
-  }
   if (!isEnabled()) {
     return;
   }
   if (m_config != nullptr && !isOsdKindEnabled(m_config->config().osd.kinds, content.kind)) {
+    return;
+  }
+  if (m_lockScreenForwarder) {
+    m_lockScreenForwarder(
+        content.kind, content.icon, content.value, content.progress, content.showProgress, content.overLimit,
+        content.inactive
+    );
+  }
+  if (m_wayland == nullptr || m_renderContext == nullptr) {
     return;
   }
 

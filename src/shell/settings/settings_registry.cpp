@@ -1844,6 +1844,15 @@ namespace settings {
     }
     {
       auto e = makeEntry(
+          SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.show-osd.label"),
+          tr("settings.schema.lockscreen.show-osd.description"), {"lockscreen", "show_osd"},
+          ToggleSetting{cfg.lockscreen.showOsd}, "lock screen osd hud popup volume brightness media keys feedback"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
           SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.grace-period.label"),
           tr("settings.schema.lockscreen.grace-period.description"), {"lockscreen", "grace_period_seconds"},
           StepperSetting{

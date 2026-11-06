@@ -4,6 +4,7 @@
 #include "shell/wayland/layer_surface.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -74,6 +75,18 @@ public:
   void requestRedraw();
 
   void show(const OsdContent& content);
+  /// When set, `show()` also forwards to the lock screen so OSD feedback
+  /// (volume/brightness/…) works while locked. The lock screen itself
+  /// filters privacy-sensitive kinds and honors lockscreen.show_osd.
+  void setLockScreenForwarder(
+      std::function<void(
+          OsdKind kind, std::string icon, std::string value, float progress, bool showProgress, bool overLimit,
+          bool inactive
+      )>
+          forwarder
+  ) {
+    m_lockScreenForwarder = std::move(forwarder);
+  }
   bool isEnabled() const noexcept;
 
   // True while any instance is on screen or animating into view. Callers use this to correct
@@ -144,5 +157,10 @@ private:
   wl_output* m_targetOutput = nullptr;
   std::optional<bool> m_runtimeEnabledOverride;
   bool m_lastConfiguredEnabled = true;
+  std::function<void(
+      OsdKind kind, std::string icon, std::string value, float progress, bool showProgress, bool overLimit,
+      bool inactive
+  )>
+      m_lockScreenForwarder;
   std::vector<std::unique_ptr<Instance>> m_instances;
 };

@@ -17,6 +17,7 @@
 #include "shell/keyboard_layout_label.h"
 #include "shell/lockscreen/lock_surface.h"
 #include "shell/lockscreen/lockscreen_session_actions.h"
+#include "shell/osd/osd_overlay.h"
 #include "shell/session/session_action_runner.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "shell/wayland/capture_globals.h"
@@ -158,6 +159,28 @@ void LockScreen::setLoginBoxServices(
   for (auto& instance : m_instances) {
     if (instance.surface != nullptr) {
       instance.surface->setLoginBoxServices(m_sessionActions, m_mpris, m_weather, m_httpClient);
+    }
+  }
+}
+
+void LockScreen::showOsd(
+    OsdKind kind, const std::string& icon, const std::string& value, float progress, bool showProgress, bool overLimit,
+    bool inactive
+) {
+  if (!isSessionLocked()) {
+    return;
+  }
+  if (m_configService != nullptr && !m_configService->config().lockscreen.showOsd) {
+    return;
+  }
+  // Media and Privacy popups carry track titles / capture state and must
+  // never appear on the lock screen.
+  if (kind == OsdKind::Media || kind == OsdKind::Privacy) {
+    return;
+  }
+  for (auto& instance : m_instances) {
+    if (instance.surface != nullptr) {
+      instance.surface->showOsd(kind, icon, value, progress, showProgress, overLimit, inactive);
     }
   }
 }

@@ -9,6 +9,7 @@
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
+#include "shell/osd/osd_overlay.h"
 #include "shell/render/blur_cache.h"
 #include "shell/render/lockscreen_transition_types.h"
 #include "ui/palette.h"
@@ -37,6 +38,7 @@ class Input;
 class Label;
 class LockscreenTransitionCover;
 class MprisService;
+class ProgressBar;
 class Renderer;
 class SessionActionRunner;
 class WallpaperNode;
@@ -56,6 +58,13 @@ public:
   bool initialize() override { return false; }
   bool initialize(ext_session_lock_v1* lock, wl_output* output, std::int32_t scale);
   void setLockedState(bool locked);
+  /// Show an OSD card inside the lock surface (used when lockscreen.show_osd is
+  /// on; layer-shell OSDs are hidden behind the session lock). Privacy-sensitive
+  /// kinds are filtered by the caller (LockScreen).
+  void showOsd(
+      OsdKind kind, std::string icon, std::string value, float progress, bool showProgress, bool overLimit,
+      bool inactive
+  );
   void setPromptState(std::string user, std::string password, std::string status, bool error, bool authenticating);
   void setKeyboardIndicators(bool capsLock, bool hasMultipleLayouts, bool layoutSwitchable, std::string layoutLabel);
   void setTextureCache(SharedTextureCache* cache) noexcept { m_textureCache = cache; }
@@ -135,6 +144,9 @@ private:
   void layoutCoverOnly(std::uint32_t width, std::uint32_t height);
   void layoutTransitionCover();
   void syncTransitionCover();
+  void layoutOsdCard(std::uint32_t width, std::uint32_t height);
+  void applyOsdReveal(float reveal);
+  void animateOsd();
   void cancelTransitionAnimation();
   void beginEnterAnimation();
   void notifyTransitionStateChanged();
@@ -197,6 +209,32 @@ private:
   Button* m_layoutChip = nullptr;
   Flex* m_sessionRow = nullptr;
   std::vector<Button*> m_sessionButtons;
+  // OSD card (lockscreen.show_osd): background box + card box with a row of
+  // glyph + progress bar + value label, revealed from the anchored edge.
+  Node* m_osdRoot = nullptr;
+  float m_osdReveal = 0.0F;
+  float m_osdBaseX = 0.0F;
+  float m_osdBaseY = 0.0F;
+  float m_osdCardW = 0.0F;
+  float m_osdCardH = 0.0F;
+  float m_osdRowBaseX = 0.0F;
+  float m_osdRowBaseY = 0.0F;
+  Box* m_osdBackground = nullptr;
+  Box* m_osdCard = nullptr;
+  Flex* m_osdRow = nullptr;
+  Glyph* m_osdGlyph = nullptr;
+  Label* m_osdValue = nullptr;
+  ProgressBar* m_osdProgress = nullptr;
+  std::string m_osdIcon;
+  std::string m_osdText;
+  float m_osdProgressValue = 0.0F;
+  bool m_osdShowProgress = true;
+  bool m_osdOverLimit = false;
+  bool m_osdInactive = false;
+  bool m_osdVisible = false;
+  AnimationManager::Id m_osdShowAnim = 0;
+  AnimationManager::Id m_osdHideAnim = 0;
+  Timer m_osdHideTimer;
   SharedTextureCache* m_textureCache = nullptr;
   SharedTextureCache::Lease m_wallpaperLease;
   SharedTextureCache::Lease m_pendingWallpaperLease;
