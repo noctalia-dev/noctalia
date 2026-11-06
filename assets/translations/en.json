@@ -1335,8 +1335,6 @@
             "capsule": "Capsule",
             "colors": "Colors",
             "content": "Content",
-            "grouping": "Grouping",
-            "runtime": "Runtime",
             "size-text": "Size and Text",
             "taskbar": {
               "grouping": "Grouping",

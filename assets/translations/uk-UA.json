@@ -1260,9 +1260,6 @@
           "groups": {
             "actions": "Дії",
             "behavior": "Поведінка",
-            "grouping": "Групування",
-            "presentation": "Презентація",
-            "runtime": "Час виконання",
             "taskbar": {
               "grouping": "Групування",
               "windows": "Вікна",

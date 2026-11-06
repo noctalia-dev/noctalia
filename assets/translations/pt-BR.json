@@ -425,10 +425,16 @@
     },
     "notifications": {
       "clear-all": "Apagar todas as notificações",
+      "collapse": "Retrair",
+      "collapse-group": "Retrair grupo",
+      "dismiss": "Dispensar",
+      "dismiss-group": "Dispensar grupo",
       "dnd-off": "Desligar Não Perturbe",
       "dnd-on": "Ligar Não Perturbe",
       "empty-body": "Notificações recentes aparecerão aqui",
       "empty-title": "Sem Notificações",
+      "expand": "Expandir",
+      "expand-group": "Expandir grupo",
       "filter": {
         "all": "Todas",
         "older": "Antigas",
@@ -1324,9 +1330,6 @@
           "groups": {
             "actions": "Ações",
             "behavior": "Comportamento",
-            "grouping": "Agrupamento",
-            "presentation": "Apresentação",
-            "runtime": "Tempo de Execução",
             "taskbar": {
               "grouping": "Agrupamento",
               "windows": "Janelas",
@@ -1751,6 +1754,10 @@
           "community": "Comunidade",
           "custom": "Personalizada",
           "wallpaper": "Papel de Parede"
+        },
+        "terminal-colors": {
+          "palette": "Paleta",
+          "standard": "Padrão"
         }
       },
       "theme-role": {
@@ -1934,12 +1941,12 @@
           "label": "Animações"
         },
         "app-icon-color": {
-          "description": "Paleta de cores usada para colorir ícones de aplicativos",
+          "description": "Paleta de cores compartilhada para componentes com Colorir Ícones de Aplicativos habilitado",
           "label": "Cor do Ícone de Aplicativo"
         },
         "app-icon-colorize": {
           "description": "Recolorir os ícones dos aplicativos em toda a interface para combinar com a paleta ativa.",
-          "label": "Colorir Ícones dos Apps"
+          "label": "Colorir Ícones dos Aplicativos"
         },
         "builtin-palette": {
           "description": "Escolha uma paleta de cores do catálogo incluído.",
@@ -2022,6 +2029,10 @@
         "sync-color-scheme": {
           "description": "Definir a preferência de sistema para mode escuro/claro lido por navegadores e outros apps para seguir o Modo do Tema",
           "label": "Sincronizar Esquema de Cores do App"
+        },
+        "terminal-colors": {
+          "description": "Paleta corresponde as cores do terminal para o papel de parede; Padrão mantém vermelho, verde e amarelo reconhecível",
+          "label": "Cores do Terminal"
         },
         "theme-mode": {
           "description": "Escolha o modo Escuro, Claro ou Automático baseado na hora do dia; também aplica em apps através de modelos",
@@ -2306,6 +2317,10 @@
         "auto-hide": {
           "description": "Desligado mantém o Dock visível; Ligado o oculta até que você mova o ponteiro para a borda da tela; Inteligente mostra o Dock em um espaço de trabalho vazio e o oculta quando há janelas abertas"
         },
+        "auto-hide-reveal-delay": {
+          "description": "Por quanto tempo o ponteiro deve ficar na canto da tela antes que a Dock revele-se; 0 revela imediatamente",
+          "label": "Atraso de Revelação"
+        },
         "background-opacity": {
           "description": "Opacidade do plano de fundo do dock"
         },
@@ -2355,6 +2370,10 @@
         "icon-saturation": {
           "description": "Saturação de cor dos ícones de aplicações; 0 é ton de cinza",
           "label": "Saturação de Ícone"
+        },
+        "icon-shadow": {
+          "description": "Projetar uma sombra suave seguindo a forma do ícone de cada aplicação",
+          "label": "Sombra de Ícone"
         },
         "icon-size": {
           "description": "Tamanho dos ícones do Dock em pixels",
@@ -2667,6 +2686,10 @@
           "description": "Mostrar novas lâminas de notificação no monitor focado",
           "label": "Seguir Saída focada"
         },
+        "group-by-app": {
+          "description": "Agrupar notificações na aba de histórico por aplicação",
+          "label": "Agrupar por Aplicação"
+        },
         "history-retention-hours": {
           "description": "Automaticamente remover histórico de notificações se existir por mais que esta quantidade de horas (0 para manter para sempre)",
           "label": "Período de Retenção"
@@ -2692,6 +2715,10 @@
         "monitors": {
           "description": "Escolha quais monitores mostram lâminas de notificação; deixe em branco para exibir em todos os monitores",
           "label": "Monitores"
+        },
+        "newest-on-edge": {
+          "description": "Coloque cada nova lâmina contra o canto da tela correspondente à sua posição e empurre as notificações mais antigas para fora, em vez de anexá-la ao final da pilha",
+          "label": "Lâmina Mais Recente no Canto"
         },
         "offset-x": {
           "description": "Margem horizontal absoluta a partir da borda da tela ou da barra",
