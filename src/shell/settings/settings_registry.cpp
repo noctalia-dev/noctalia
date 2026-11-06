@@ -1386,18 +1386,12 @@ namespace settings {
       e.visibleWhen = launcherSimple;
       entries.push_back(std::move(e));
     }
-    {
-      auto e = makeEntry(
-          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-category-icons-only.label"),
-          tr("settings.schema.panels.launcher-category-icons-only.description"),
-          {"shell", "launcher", "category_icons_only"}, ToggleSetting{cfg.shell.launcher.categoryIconsOnly},
-          "launcher app category icons labels text"
-      );
-      e.visibleWhen = [](const Config& c) {
-        return c.shell.launcher.layout == ShellConfig::LauncherLayout::Full || c.shell.launcher.categories;
-      };
-      entries.push_back(std::move(e));
-    }
+    entries.push_back(makeEntry(
+        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-category-icons-only.label"),
+        tr("settings.schema.panels.launcher-category-icons-only.description"),
+        {"shell", "launcher", "category_icons_only"}, ToggleSetting{cfg.shell.launcher.categoryIconsOnly},
+        "launcher app category icons labels text"
+    ));
     {
       auto e = makeEntry(
           SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-navigation-labels.label"),
