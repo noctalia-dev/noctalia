@@ -1026,6 +1026,7 @@ void Application::initWidgetControllersAndCallbacks() {
   };
   const DesktopWidgetRuntimeServices desktopWidgetRuntime{
       .calendar = &m_calendarService,
+      .platform = &m_compositorPlatform,
       .pipewire = m_pipewireService.get(),
       .pipewireSpectrum = m_pipewireSpectrum.get(),
       .weather = &m_weatherService,
