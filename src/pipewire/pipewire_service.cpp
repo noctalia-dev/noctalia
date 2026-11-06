@@ -2582,7 +2582,13 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return parseVolumeStepError;
         }
 
-        setVolume(relativeAdjustTarget(1, *step, 1.0F, sink->volume, maxVolume()));
+        if (parts.empty()) {
+          setVolume(relativeAdjustTarget(1, *step, 1.0F, sink->volume, maxVolume()));
+        } else {
+          // Explicit gesture distances must not be dropped by the key-repeat filter.
+          m_relativeAdjust.gesture = 0;
+          setVolume(std::clamp(sink->volume + *step, 0.0F, maxVolume()));
+        }
         return "ok\n";
       }
   );
@@ -2604,7 +2610,13 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return parseVolumeStepError;
         }
 
-        setVolume(relativeAdjustTarget(2, *step, -1.0F, sink->volume, maxVolume()));
+        if (parts.empty()) {
+          setVolume(relativeAdjustTarget(2, *step, -1.0F, sink->volume, maxVolume()));
+        } else {
+          // Explicit gesture distances must not be dropped by the key-repeat filter.
+          m_relativeAdjust.gesture = 0;
+          setVolume(std::clamp(sink->volume - *step, 0.0F, maxVolume()));
+        }
         return "ok\n";
       }
   );

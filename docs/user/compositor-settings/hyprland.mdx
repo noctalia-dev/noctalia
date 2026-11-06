@@ -97,6 +97,56 @@ hl.window_rule({
 })
 ```
 
+## Touchpad gesture control
+
+Hyprland 0.56.2 or later supports live Lua gesture callbacks. The following opt-in bindings use three fingers to switch workspaces, four fingers vertically to adjust output volume continuously, and four fingers horizontally to toggle media playback. Remove existing bindings for the same finger count and direction before adding these.
+
+```lua
+hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+
+local volumePending = 0
+local volumeLastSent = 0
+local volumePerUnit = 0.125
+
+local function flushVolume(timeMs)
+  if math.abs(volumePending) < 0.01 then return end
+  local command = volumePending > 0 and "volume-up " or "volume-down "
+  hl.exec_cmd("noctalia msg " .. command .. string.format("%.4f%%", math.abs(volumePending)))
+  volumePending = 0
+  volumeLastSent = timeMs
+end
+
+hl.gesture({
+  fingers = 4,
+  direction = "vertical",
+  action = {
+    start = function(e)
+      volumePending = 0
+      volumeLastSent = e.time_ms - 24
+      -- The first delta also arrives in update; count it only there.
+    end,
+    update = function(e)
+      volumePending = volumePending - e.delta.y * volumePerUnit
+      if e.time_ms - volumeLastSent >= 24 then flushVolume(e.time_ms) end
+    end,
+    finish = function(e)
+      if not e.cancelled then flushVolume(e.time_ms) end
+      volumePending = 0
+    end,
+  },
+})
+
+hl.gesture({
+  fingers = 4,
+  direction = "horizontal",
+  action = function() hl.exec_cmd("noctalia msg media toggle") end,
+})
+```
+
+Up raises volume and down lowers it. `volumePerUnit` controls sensitivity: `0.125` changes volume by one percentage point per eight vertical gesture units. Movement is accumulated between updates, so the same distance produces the same change regardless of swipe speed, until the output reaches its volume limit. Updates are coalesced while moving and any remaining fraction is applied on release; there is no acceleration or repeat timer. The normal Noctalia volume OSD follows the changes.
+
+If three-finger swipes act as dragging instead, set `input.touchpad.drag_3fg = 0` in your existing `hl.config` input settings. These bindings use swipes, not four-finger taps; Hyprland's live swipe callbacks do not provide tap recognition. See the official [Hyprland gesture documentation](https://wiki.hypr.land/configuring/core/binds/gestures/) for other bindings.
+
 ## Blur
 
 Enable blur for Noctalia's bar, panels, dock, and notifications. We also disable Hyprland's built-in layer animations for Noctalia so they do not interfere with Noctalia's own animations.
