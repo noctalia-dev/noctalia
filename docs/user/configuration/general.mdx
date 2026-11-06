@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-These shell-wide settings live under `[shell]`, `[storage]` and `[accessibility]`. Most are in **Settings → Shell → General**.
+These shell-wide settings live under `[shell]`, `[polkit]`, `[storage]` and `[accessibility]`. Most are in **Settings → Shell → General**.
 
 ```toml
 # Common general settings (defaults)
@@ -110,6 +110,19 @@ Settings → Shell → General holds these toggles, including **Circular Avatar*
 | `polkit_colorize_icons` | `false`     | Tint application icons in authentication prompts. See [App icon colorization](/noctalia/configuration/appearance/#app-icon-colorization).                                                                    |
 
 Settings → Shell → General holds `readline_shortcuts`. The prompt's position is set by `polkit_placement` and `polkit_position`; see [Panels](/noctalia/configuration/panels/#placement). The notification daemon switch is `[notification].enable_daemon` in [Notifications](/noctalia/services/notifications/).
+
+### Polkit
+
+```toml
+[polkit]
+allow_empty_password = false
+```
+
+| Key                    | Default | Description                                                                                                                                                                                                                                   |
+| ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allow_empty_password` | `false` | Let Enter or the submit button forward an empty response to the Polkit PAM conversation for passwordless PAM stacks such as Howdy and security keys. Authentication is still handled by PAM. Independent of `lockscreen.allow_empty_password`. |
+
+Enable empty responses under **Settings → Security → Authentication → Polkit Empty Password Submit** (requires `shell.polkit_agent = true`).
 
 ## Screen time
 
