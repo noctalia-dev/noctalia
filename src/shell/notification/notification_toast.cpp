@@ -359,16 +359,6 @@ namespace {
     return displayDurationMs >= 0 || urgency == Urgency::Critical;
   }
 
-  float toastProgressBarOpacity(const ConfigService* config, Urgency urgency, int displayDurationMs) {
-    if (!showToastProgressAccent(config, urgency, displayDurationMs)) {
-      return 0.0F;
-    }
-    if (displayDurationMs < 0) {
-      return urgency == Urgency::Critical ? 1.0F : 0.0F;
-    }
-    return 1.0F;
-  }
-
   std::vector<std::unique_ptr<Button>>
   collectNotificationActionButtons(const std::vector<std::string>& actions, float scale) {
     std::vector<std::unique_ptr<Button>> buttons;
@@ -421,20 +411,20 @@ namespace {
         : textMaxWidth;
     const bool showAppName = shouldShowNotificationAppName(config, appName);
 
-    auto card = ui::column(
-        {.maxHeight = maxCardHeight, .clipChildren = true, .width = cardW},
-        ui::progressBar({
-            .fill = toastProgressFillColor(urgency),
-            .track = clearColorSpec(),
-            .radius = progressHeight(scale) * 0.5F,
-            .orientation = ProgressBarOrientation::HorizontalCentered,
-            .width = std::max(0.0F, cardW - topProgressInset(scale) * 2.0F),
-            .height = progressHeight(scale),
-            .visible = showToastProgressAccent(config, urgency, displayDurationMs),
-            .participatesInLayout = showToastProgressAccent(config, urgency, displayDurationMs),
-            .configure = [scale](ProgressBar& progress) { progress.setPosition(topProgressInset(scale), 0.0F); },
-        })
-    );
+    auto card = ui::column({.maxHeight = maxCardHeight, .clipChildren = true, .width = cardW});
+    if (showToastProgressAccent(config, urgency, displayDurationMs)) {
+      card->addChild(
+          ui::progressBar({
+              .fill = toastProgressFillColor(urgency),
+              .track = clearColorSpec(),
+              .radius = progressHeight(scale) * 0.5F,
+              .orientation = ProgressBarOrientation::HorizontalCentered,
+              .width = std::max(0.0F, cardW - topProgressInset(scale) * 2.0F),
+              .height = progressHeight(scale),
+              .configure = [scale](ProgressBar& progress) { progress.setPosition(topProgressInset(scale), 0.0F); },
+          })
+      );
+    }
 
     auto content = ui::row(
         {
@@ -845,29 +835,35 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
           const int newDuration = resolveDisplayDuration(n.timeout);
           m_entries[i].displayDurationMs = newDuration;
           m_entries[i].remainingProgress = 1.0F;
-          cs.progressBar->setOpacity(toastProgressBarOpacity(m_config, n.urgency, newDuration));
           if (newDuration < 0) {
-            cs.progressBar->setProgress(1.0F);
+            if (cs.progressBar != nullptr) {
+              cs.progressBar->setProgress(1.0F);
+            }
+            cs.countdownAnimId = 0;
+          } else if (hovered) {
+            if (cs.progressBar != nullptr) {
+              cs.progressBar->setProgress(1.0F);
+            }
             cs.countdownAnimId = 0;
           } else {
-            cs.progressBar->setProgress(1.0F);
-            if (hovered) {
-              cs.countdownAnimId = 0;
-            } else {
-              cs.countdownAnimId = inst->animations.animateTimer(
-                  1.0F, 0.0F, static_cast<float>(newDuration), Easing::Linear,
-                  [this, pb = cs.progressBar, notificationId = n.id](float v) {
-                    pb->setProgress(v);
-                    if (auto* popup = findEntry(notificationId); popup != nullptr) {
-                      popup->remainingProgress = v;
-                    }
-                  },
-                  [this, id = n.id] {
-                    DeferredCall::callLater([this, id] { requestClose(id, CloseReason::Expired); });
-                  },
-                  cs.progressBar
-              );
+            if (cs.progressBar != nullptr) {
+              cs.progressBar->setProgress(1.0F);
             }
+            const void* countdownOwner = cs.progressBar != nullptr ? static_cast<const void*>(cs.progressBar)
+                                                                   : static_cast<const void*>(cs.cardForeground);
+            cs.countdownAnimId = inst->animations.animateTimer(
+                1.0F, 0.0F, static_cast<float>(newDuration), Easing::Linear,
+                [this, pb = cs.progressBar, notificationId = n.id](float v) {
+                  if (pb != nullptr) {
+                    pb->setProgress(v);
+                  }
+                  if (auto* popup = findEntry(notificationId); popup != nullptr) {
+                    popup->remainingProgress = v;
+                  }
+                },
+                [this, id = n.id] { DeferredCall::callLater([this, id] { requestClose(id, CloseReason::Expired); }); },
+                countdownOwner
+            );
           }
 
           // Flash
@@ -1139,20 +1135,26 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
   // whose surface can't fit the card, so the nominal driver may never have a card at all.
   if (entry.displayDurationMs < 0) {
     // Persistent — no countdown, no auto-dismiss
-    cs.progressBar->setOpacity(toastProgressBarOpacity(m_config, entry.urgency, entry.displayDurationMs));
-    cs.progressBar->setProgress(1.0F);
+    if (cs.progressBar != nullptr) {
+      cs.progressBar->setProgress(1.0F);
+    }
     cs.countdownAnimId = 0;
   } else {
     const float startProgress = std::clamp(entry.remainingProgress, 0.0F, 1.0F);
-    cs.progressBar->setOpacity(toastProgressBarOpacity(m_config, entry.urgency, entry.displayDurationMs));
-    cs.progressBar->setProgress(startProgress);
+    if (cs.progressBar != nullptr) {
+      cs.progressBar->setProgress(startProgress);
+    }
     if (entry.replyInputFocused || entry.hovered) {
       cs.countdownAnimId = 0;
     } else {
+      const void* countdownOwner = cs.progressBar != nullptr ? static_cast<const void*>(cs.progressBar)
+                                                             : static_cast<const void*>(cs.cardForeground);
       cs.countdownAnimId = inst.animations.animateTimer(
           startProgress, 0.0F, static_cast<float>(entry.displayDurationMs) * startProgress, Easing::Linear,
           [this, pb = cs.progressBar, notificationId = entry.notificationId](float v) {
-            pb->setProgress(v);
+            if (pb != nullptr) {
+              pb->setProgress(v);
+            }
             if (auto* popup = findEntry(notificationId); popup != nullptr) {
               popup->remainingProgress = v;
             }
@@ -1160,7 +1162,7 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
           [this, id = entry.notificationId] {
             DeferredCall::callLater([this, id] { requestClose(id, CloseReason::Expired); });
           },
-          cs.progressBar
+          countdownOwner
       );
     }
   }
@@ -1518,7 +1520,7 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
   bool driverChosen = false;
   for (auto& inst : m_instances) {
     auto* state = findCardState(*inst, notificationId);
-    if (state == nullptr || state->progressBar == nullptr) {
+    if (state == nullptr) {
       continue;
     }
     if (state->countdownAnimId != 0) {
@@ -1526,14 +1528,19 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
       state->countdownAnimId = 0;
     }
 
-    state->progressBar->setOpacity(toastProgressBarOpacity(m_config, entry->urgency, entry->displayDurationMs));
-    state->progressBar->setProgress(remaining);
+    if (state->progressBar != nullptr) {
+      state->progressBar->setProgress(remaining);
+    }
     const bool isDriver = !driverChosen;
     driverChosen = true;
+    const void* countdownOwner = state->progressBar != nullptr ? static_cast<const void*>(state->progressBar)
+                                                               : static_cast<const void*>(state->cardForeground);
     state->countdownAnimId = inst->animations.animateTimer(
         remaining, 0.0F, static_cast<float>(entry->displayDurationMs) * remaining, Easing::Linear,
         [this, progressBar = state->progressBar, notificationId](float v) {
-          progressBar->setProgress(v);
+          if (progressBar != nullptr) {
+            progressBar->setProgress(v);
+          }
           if (auto* popup = findEntry(notificationId); popup != nullptr) {
             popup->remainingProgress = v;
           }
@@ -1543,7 +1550,7 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
             DeferredCall::callLater([this, notificationId] { requestClose(notificationId, CloseReason::Expired); });
           }
         },
-        state->progressBar
+        countdownOwner
     );
     if (inst->surface != nullptr) {
       inst->surface->requestRedraw();
@@ -2589,20 +2596,23 @@ InputArea* NotificationToast::buildCard(
   const float bgAlpha = m_config != nullptr ? m_config->config().notification.backgroundOpacity : 0.97F;
   const float borderWidth = toastBorderWidth(m_config, entry.urgency, scale);
   const ColorSpec borderColor = toastBorderColor(m_config, entry.urgency);
-  foreground->addChild(
-      ui::progressBar({
-          .out = outProgress,
-          .fill = toastProgressFillColor(entry.urgency),
-          .track = clearColorSpec(),
-          .radius = progressHeight(scale) * 0.5F,
-          .orientation = ProgressBarOrientation::HorizontalCentered,
-          .width = std::max(0.0F, cardW - topProgressInset(scale) * 2.0F),
-          .height = progressHeight(scale),
-          .visible = showToastProgressAccent(m_config, entry.urgency, entry.displayDurationMs),
-          .participatesInLayout = showToastProgressAccent(m_config, entry.urgency, entry.displayDurationMs),
-          .configure = [scale](ProgressBar& progress) { progress.setPosition(topProgressInset(scale), 0.0F); },
-      })
-  );
+  if (outProgress != nullptr) {
+    *outProgress = nullptr;
+  }
+  if (showToastProgressAccent(m_config, entry.urgency, entry.displayDurationMs)) {
+    foreground->addChild(
+        ui::progressBar({
+            .out = outProgress,
+            .fill = toastProgressFillColor(entry.urgency),
+            .track = clearColorSpec(),
+            .radius = progressHeight(scale) * 0.5F,
+            .orientation = ProgressBarOrientation::HorizontalCentered,
+            .width = std::max(0.0F, cardW - topProgressInset(scale) * 2.0F),
+            .height = progressHeight(scale),
+            .configure = [scale](ProgressBar& progress) { progress.setPosition(topProgressInset(scale), 0.0F); },
+        })
+    );
+  }
 
   auto contentRow = ui::row({
       .align = FlexAlign::Start,
