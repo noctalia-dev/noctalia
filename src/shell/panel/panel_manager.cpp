@@ -612,6 +612,15 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_closeDesktopWidgetsEditor();
   }
 
+  // Same panel, still sliding closed: reverse the reveal. Destroying here maps a
+  // second surface while the compositor still shows the half-slid one, which
+  // tears through the transparent tail of the old buffer.
+  if (m_closing && m_activePanelId == panelId && m_sceneRoot != nullptr && m_activePanel != nullptr
+      && !request.hasAnchorPosition && (request.output == nullptr || request.output == m_output)) {
+    resumeClosingPanel(request);
+    return;
+  }
+
   // If a panel is open or closing, destroy it immediately with no close animation.
   // Bump the generation first so any in-flight deferred destroyPanel is a no-op.
   if (isOpen() || m_closing) {
@@ -2234,6 +2243,46 @@ bool PanelManager::onKeyboardEvent(const KeyboardEvent& event) {
     }
   }
   return true;
+}
+
+void PanelManager::resumeClosingPanel(const PanelOpenRequest& request) {
+  // Drop the deferred destroy scheduled by closePanel. The surface stays mapped.
+  ++m_destroyGeneration;
+  m_closing = false;
+
+  Node* const owner = m_attachedToBar ? m_attachedRevealClipNode : m_sceneRoot.get();
+  if (owner != nullptr) {
+    m_animations.cancelForOwner(owner);
+    if (m_attachedToBar) {
+      m_animations.animate(
+          m_attachedRevealProgress, 1.0F, Style::animNormal, Easing::EaseOutCubic,
+          [this](float v) { applyAttachedReveal(v); }, {}, owner
+      );
+    } else {
+      m_animations.animate(
+          m_detachedRevealProgress, 1.0F, Style::animNormal, Easing::EaseOutCubic,
+          [this](float v) { applyDetachedReveal(v); }, {}, owner
+      );
+    }
+  }
+
+  m_inputDispatcher.setSceneRoot(m_sceneRoot.get());
+  if (!request.context.empty() && !m_activePanel->isContextActive(request.context)) {
+    m_activePanel->onOpen(request.context);
+  }
+
+  const bool hasFocusGrab = m_platform != nullptr && m_platform->focusGrabService().available();
+  const bool wantsOutsideDismiss =
+      m_activePanel->dismissOnOutsideClick() && m_activePanel->keyboardMode() != LayerShellKeyboard::None;
+  if (wantsOutsideDismiss) {
+    activateClickShield(m_panelLayer);
+  }
+  if (hasFocusGrab && wantsOutsideDismiss) {
+    activateFocusGrab();
+  }
+  if (m_surface != nullptr) {
+    m_surface->requestRedraw();
+  }
 }
 
 void PanelManager::applyAttachedReveal(float progress) {

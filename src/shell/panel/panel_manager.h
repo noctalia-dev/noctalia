@@ -197,6 +197,10 @@ private:
   void addFocusGrabWhitelistSurfaces(FocusGrab& grab, wl_surface* excludedSurface);
   bool isFocusGrabWhitelistSurface(wl_surface* surface) const;
   void deactivateOutsideClickHandlers();
+  // A click that reopens the panel while its close animation is still running.
+  // Reverses the reveal on the existing surface instead of destroying it and
+  // mapping a second one over the half-slid buffer.
+  void resumeClosingPanel(const PanelOpenRequest& request);
   void applyAttachedReveal(float progress);
   void applyDetachedReveal(float progress);
   void startAttachedOpenAnimation();
