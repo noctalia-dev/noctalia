@@ -818,9 +818,14 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
                     if (auto* state = findCardState(*instPtr, id); state != nullptr) {
                       state->entryAnimId = 0;
                     }
+                    if (auto* popup = findEntry(id); popup != nullptr) {
+                      popup->entryRevealed = true;
+                    }
                   },
                   cs.cardNode
               );
+            } else if (preservedReveal >= 1.0F) {
+              m_entries[i].entryRevealed = true;
             }
             regionChanged = true;
           }
@@ -2099,6 +2104,9 @@ void NotificationToast::collapseStack() {
               [this, instPtr, entryId] {
                 if (auto* state = findCardState(*instPtr, entryId); state != nullptr) {
                   state->entryAnimId = 0;
+                }
+                if (auto* popup = findEntry(entryId); popup != nullptr) {
+                  popup->entryRevealed = true;
                 }
               },
               viewport
