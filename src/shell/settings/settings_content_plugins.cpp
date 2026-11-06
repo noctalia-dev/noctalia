@@ -442,11 +442,23 @@ namespace settings {
 
     bool pluginSettingVisible(
         const Config& cfg, const std::string& pluginId, const WidgetSettingSpec& spec,
-        const std::vector<WidgetSettingSpec>& allSpecs
+        const std::vector<WidgetSettingSpec>& allSpecs, std::vector<std::string> visiting = {}
     ) {
       if (!spec.visibleWhen.has_value()) {
         return true;
       }
+      // Guard against a cyclic visible_when chain in a plugin manifest; treat it as visible
+      // rather than recurse forever.
+      if (std::ranges::contains(visiting, spec.schema.key)) {
+        return true;
+      }
+      visiting.push_back(spec.schema.key);
+      const auto dependencyVisible = [&](const std::string& key) {
+        const auto depIt =
+            std::ranges::find_if(allSpecs, [&](const WidgetSettingSpec& s) { return s.schema.key == key; });
+        // A hidden dependency's stored value is stale; a condition on it can never be satisfied.
+        return depIt != allSpecs.end() && pluginSettingVisible(cfg, pluginId, *depIt, allSpecs, visiting);
+      };
       const auto currentString = [&](const std::string& key) -> std::string {
         const auto depIt =
             std::ranges::find_if(allSpecs, [&](const WidgetSettingSpec& s) { return s.schema.key == key; });
@@ -456,6 +468,9 @@ namespace settings {
         return valueAsString(pluginSettingValue(cfg, pluginId, *depIt));
       };
       const auto matches = [&](const WidgetSettingVisibilityCondition& cond) {
+        if (!dependencyVisible(cond.key)) {
+          return false;
+        }
         if (cond.nonEmpty) {
           const auto depIt =
               std::ranges::find_if(allSpecs, [&](const WidgetSettingSpec& s) { return s.schema.key == cond.key; });
