@@ -1131,9 +1131,6 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
         },
         card
     );
-  } else {
-    cs.entryAnimId = 0;
-    entry.entryRevealed = true;
   }
 
   // Countdown. Every instance that hosts a card runs its own countdown animation and

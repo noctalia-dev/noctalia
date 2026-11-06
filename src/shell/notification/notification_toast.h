@@ -73,7 +73,7 @@ private:
     int32_t rawTimeoutMs = 0;  // raw DBus timeout; >0 means manager has an auto-expire timer we must coordinate with
     wl_output* targetOutput = nullptr;
     float remainingProgress = 1.0F;
-    bool entryRevealed = false; // true after the entry animation finished (or was skipped on rebuild)
+    bool entryRevealed = false; // true once an entry reveal animation finished; rebuilds then skip it
     float y = -1.0F;            // stable top position while visible; negative = queued/off-screen
     float height = 0.0F;
     // Planned toast chrome (refreshEntryGeometry); buildCard must match these for placement vs paint.
