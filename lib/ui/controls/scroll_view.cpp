@@ -493,9 +493,11 @@ void ScrollView::doLayout(Renderer& renderer) {
 
     m_maxScrollOffset = std::max(0.0F, contentWidth - availableW);
     updateTouchScrollAxis();
-    m_scrollbar->setPosition(insetH, insetV + viewportH + Style::scrollbarGap * m_contentScale);
-    m_scrollbar->setVisible(m_showScrollbar);
-    m_scrollbar->update(availableW, contentWidth, m_scrollOffset);
+    if (!m_measuring) {
+      m_scrollbar->setPosition(insetH, insetV + viewportH + Style::scrollbarGap * m_contentScale);
+      m_scrollbar->setVisible(m_showScrollbar);
+      m_scrollbar->update(availableW, contentWidth, m_scrollOffset);
+    }
   } else {
     LayoutConstraints contentConstraints;
     contentConstraints.setExactWidth(std::max(availableW, m_horizontalWidth));
@@ -542,10 +544,12 @@ void ScrollView::doLayout(Renderer& renderer) {
     const float contentHeight = m_content->height();
     m_maxScrollOffset = std::max(0.0F, contentHeight - viewportH);
     updateTouchScrollAxis();
-    const float scrollbarX = Style::rtl() ? insetH : insetH + m_viewportWidth - m_scrollbar->reservedThickness();
-    m_scrollbar->setPosition(scrollbarX, insetV);
-    m_scrollbar->setVisible(m_showScrollbar);
-    m_scrollbar->update(viewportH, contentHeight, m_scrollOffset);
+    if (!m_measuring) {
+      const float scrollbarX = Style::rtl() ? insetH : insetH + m_viewportWidth - m_scrollbar->reservedThickness();
+      m_scrollbar->setPosition(scrollbarX, insetV);
+      m_scrollbar->setVisible(m_showScrollbar);
+      m_scrollbar->update(viewportH, contentHeight, m_scrollOffset);
+    }
   }
 
   // Measurement leaves offsets and pending jumps for the allocated viewport.
