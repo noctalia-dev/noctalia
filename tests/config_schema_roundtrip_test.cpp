@@ -376,6 +376,7 @@ location = "https://example.invalid/bad"
     c.backdrop = BackdropConfig{true, 0.8F, 0.2F};
     c.lockscreen = LockscreenConfig{
         .lockBeforeSuspend = false,
+        .dnd = true,
         .gracePeriodSeconds = 3,
         .blurredDesktop = true,
         .transitions = {LockscreenTransition::Disc, LockscreenTransition::Zoom},

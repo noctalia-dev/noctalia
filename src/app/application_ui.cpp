@@ -314,11 +314,13 @@ void Application::initLockScreenAndSession() {
     }
     m_lockScreen.onConfigChanged();
     m_lockscreenWidgetsController.onLockStateChanged();
+    syncLockScreenDoNotDisturb();
   });
   m_lockScreen.setSessionHooks(
       [this] {
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
+        syncLockScreenDoNotDisturb();
         m_idleManager.setSessionLocked(true);
         m_screenTimeService.setSessionLocked(true);
         m_hookManager.fire(HookKind::SessionLocked);
@@ -332,6 +334,7 @@ void Application::initLockScreenAndSession() {
       [this] {
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
+        syncLockScreenDoNotDisturb();
         m_idleManager.setSessionLocked(false);
         m_screenTimeService.setSessionLocked(false);
         m_hookManager.fire(HookKind::SessionUnlocked);
@@ -349,6 +352,7 @@ void Application::initLockScreenAndSession() {
       [this] {
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
+        syncLockScreenDoNotDisturb();
         releaseSleepDelayInhibitIfPending();
         requestAllSurfacesRedraw();
       },
