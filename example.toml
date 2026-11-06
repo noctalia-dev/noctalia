@@ -128,7 +128,7 @@ blacklist = []                      # ignore MPRIS players by bus/identity/deskt
 
 [shell.window_switcher]
 colorize_icons = false              # tint application icons with shell.app_icon_color
-style = "carousel"                    # "carousel" (depth layout) or "compact" (boxed strip)
+style = "carousel"                  # carousel | compact | grid | icons
 mru = false                         # order windows by most recently used (Alt+Tab) instead of workspace layout
 show_caption = true                 # show window titles and application names below previews
 show_count = true                   # show the current and total window count above the previews

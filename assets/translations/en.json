@@ -1744,6 +1744,7 @@
         "window-switcher-style": {
           "carousel": "Carousel",
           "compact": "Compact",
+          "grid": "Grid",
           "icons": "Icons Only"
         }
       },

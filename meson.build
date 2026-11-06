@@ -615,6 +615,7 @@ _noctalia_sources = files(
   'src/shell/switcher/window_switcher_style.cpp',
   'src/shell/switcher/window_switcher_carousel_style.cpp',
   'src/shell/switcher/window_switcher_compact_style.cpp',
+  'src/shell/switcher/window_switcher_grid_style.cpp',
   'src/shell/switcher/window_switcher_icons_style.cpp',
   'src/shell/switcher/window_switcher_tile.cpp',
   'src/shell/profile/avatar_path.cpp',
