@@ -2274,6 +2274,10 @@ void PanelManager::resumeClosingPanel(const PanelOpenRequest& request) {
   if (!request.context.empty() && !m_activePanel->isContextActive(request.context)) {
     m_activePanel->onOpen(request.context);
   }
+  // closePanel() clears the focused area when it detaches the scene root.
+  if (auto* focusArea = m_activePanel->initialFocusArea(); focusArea != nullptr) {
+    m_inputDispatcher.setFocus(focusArea);
+  }
 
   const bool hasFocusGrab = m_platform != nullptr && m_platform->focusGrabService().available();
   const bool wantsOutsideDismiss =
@@ -2283,6 +2287,27 @@ void PanelManager::resumeClosingPanel(const PanelOpenRequest& request) {
   }
   if (hasFocusGrab && wantsOutsideDismiss) {
     activateFocusGrab();
+  }
+
+  // closePanel() bumps the destroy generation, so the open-time relax callback
+  // never runs. Restart it or the surface stays on the initial keyboard mode.
+  const PanelKeyboardPlan keyboardPlan = resolvePanelKeyboardPlan(
+      m_activePanel->keyboardMode(), hasFocusGrab, hasFocusGrab && wantsOutsideDismiss, m_attachedToBar
+  );
+  m_keyboardRelaxTimer.stop();
+  if (keyboardPlan.relaxed.has_value()) {
+    const std::uint64_t gen = m_destroyGeneration;
+    const LayerShellKeyboard relaxed = *keyboardPlan.relaxed;
+    const bool attached = m_attachedToBar;
+    m_keyboardRelaxTimer.start(kKeyboardRelaxDelay, [this, gen, relaxed, attached] {
+      if (m_destroyGeneration != gen || m_layerSurface == nullptr || m_closing) {
+        return;
+      }
+      if (attached && !isAttachedOpen()) {
+        return;
+      }
+      applyKeyboardRelaxation(relaxed);
+    });
   }
   if (m_surface != nullptr) {
     m_surface->requestRedraw();
