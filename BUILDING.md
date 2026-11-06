@@ -137,6 +137,20 @@ The sources are built as C++23, which requires GCC 13+ or Clang 16+. Current rol
 
 Requires [just](https://github.com/casey/just) and [meson](https://mesonbuild.com/).
 
+On Nix, the dependencies are already declared. Enter the dev shell, then build as usual:
+
+```sh
+nix-shell          # classic Nix, uses shell.nix
+# or, with flakes:
+nix develop
+
+just configure
+just build
+just run
+```
+
+`nix-shell` and `nix develop` use the same environment (`nix/devshell.nix`), including the libraries the package builds against.
+
 ### Release build
 
 ```sh
