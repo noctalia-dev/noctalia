@@ -44,6 +44,7 @@ niri_overview_type_to_launch_enabled = false # niri-only type-to-launch from ove
 umbriel_overview_type_to_launch_enabled = false # umbriel-only type-to-launch from overview
 polkit_colorize_icons = false           # tint application icons in authentication prompts
 polkit_agent          = false           # register Noctalia's native polkit authentication agent
+systemd_password_agent = false           # answer systemd ask-password queries with a password prompt
 password_style        = "default"       # default | random
 readline_shortcuts    = false           # readline-style shortcuts in every text field
 avatar_path           = "~/Pictures/avatar.png"
@@ -91,11 +92,11 @@ clipboard_placement      = "floating" # attached | floating
 control_center_placement = "attached" # attached | floating
 wallpaper_placement      = "attached" # attached | floating
 session_placement        = "attached" # attached | floating
-polkit_placement         = "floating" # attached | floating
+auth_placement           = "floating" # attached | floating
 launcher_position        = "center"   # auto | center | top_left | …
 clipboard_position       = "center"   # auto | center | top_left | …
 control_center_position  = "auto"     # auto | center | top_left | …
-polkit_position          = "center"   # auto | center | top_left | …
+auth_position            = "center"   # auto | center | top_left | …
 floating_offset          = 8           # px gap between a floating panel and the bar edge
 open_near_click_control_center = false  # attached/floating: open near the clicked bar widget instead of at *_position
 open_near_click_launcher       = false  # attached/floating: open near the clicked bar widget instead of at *_position
@@ -138,7 +139,7 @@ prefix = "emo"           # trigger word (triggers on provider_prefix + trigger, 
 prefix = "pan"           # trigger word for panel search (e.g. "/pan")
 
 [shell.launcher.panels]
-ignored = ["polkit", "setup-wizard", "test", "launcher"]  # panel ids the panels provider never lists (default shown)
+ignored = ["auth", "setup-wizard", "test", "launcher"]  # panel ids the panels provider never lists (default shown)
 
 [shell.launcher.providers.session]
 prefix = "session"       # trigger word for session actions (e.g. "/session")
@@ -249,13 +250,17 @@ Notes:
 
 - `niri_overview_type_to_launch_enabled` is opt-in. When `true` on niri, Noctalia keeps a tiny keyboard-focus layer surface while overview is open so typing a letter or number opens the launcher with that initial query. This gives up niri's exact native handling for some overview-only keyboard state, such as the app focus ring.
 
-- `polkit_agent` controls registration on `org.freedesktop.PolicyKit1`. Keep disabled if another desktop agent handles auth prompts. When enabled, `shell.panel.polkit_placement` and `polkit_position` control whether the auth prompt attaches to the bar or floats (default: `polkit_placement = "floating"` with `polkit_position = "center"`).
+- `polkit_agent` controls registration on `org.freedesktop.PolicyKit1`. Keep disabled if another desktop agent handles auth prompts.
+
+- `systemd_password_agent` answers systemd ask-password queries with a password prompt. It watches `$XDG_RUNTIME_DIR/systemd/ask-password` and `/run/systemd/ask-password`, and only shows queries whose reply socket your user can write to. Keep disabled if another agent handles those prompts.
+
+- Polkit and systemd password requests share the `auth` panel; a pending polkit request is shown before systemd password requests. `shell.panel.auth_placement` and `auth_position` control whether the auth prompt attaches to the bar or floats (default: `auth_placement = "floating"` with `auth_position = "center"`).
 
 - Notification daemon ownership moved out of `[shell]`: use `[notification].enable_daemon` in [Services](/noctalia/services/notifications/).
 
-- `password_style`: `default` uses `circle-filled`; `random` cycles through multiple filled glyph shapes on polkit and lock screen inputs.
+- `password_style`: `default` uses `circle-filled`; `random` cycles through multiple filled glyph shapes on auth prompt and lock screen inputs.
 
-- `readline_shortcuts`: when `true`, every text field (launcher, Settings, polkit, lock screen, and others) uses readline-style shortcuts; see [Text editing shortcuts](/noctalia/launcher/#text-editing-shortcuts). `Ctrl+A` then moves the caret to the start instead of selecting all, and `Ctrl+U` deletes back to the start instead of clearing the field. Configure under **Settings → Shell → General**.
+- `readline_shortcuts`: when `true`, every text field (launcher, Settings, auth prompt, lock screen, and others) uses readline-style shortcuts; see [Text editing shortcuts](/noctalia/launcher/#text-editing-shortcuts). `Ctrl+A` then moves the caret to the start instead of selecting all, and `Ctrl+U` deletes back to the start instead of clearing the field. Configure under **Settings → Shell → General**.
 
 - `settings_show_advanced`: when `true`, Settings opens with advanced entries visible.
 
@@ -331,11 +336,11 @@ Notes:
 
 - `shell.panel.wallpaper_show_names` captions each thumbnail in the wallpaper picker panel with its file name. Default is `true`; set to `false` to hide the names, which removes the row they reserve and fits more thumbnails in the panel without changing the thumbnail size. Toggle in **Settings → Panels → Wallpaper**.
 
-- `shell.panel.floating_layer` selects the layer-shell layer for floating Launcher, Clipboard, Control Center, Wallpaper, Session, and Setup Wizard panels. `overlay` is the default and keeps these panels above fullscreen content. Use `top` when a compositor places input-method candidate popups below the Overlay layer. Attached panels continue to use their bar's configured layer; system overlays such as the polkit prompt keep their own layer policy. Plugin panels expose a separate per-entry **Layer** setting under **Settings → Plugins**. Change the built-in panel setting in **Settings → Panels → General**.
+- `shell.panel.floating_layer` selects the layer-shell layer for floating Launcher, Clipboard, Control Center, Wallpaper, Session, and Setup Wizard panels. `overlay` is the default and keeps these panels above fullscreen content. Use `top` when a compositor places input-method candidate popups below the Overlay layer. Attached panels continue to use their bar's configured layer; system overlays such as the auth prompt keep their own layer policy. Plugin panels expose a separate per-entry **Layer** setting under **Settings → Plugins**. Change the built-in panel setting in **Settings → Panels → General**.
 
-- `shell.panel.launcher_placement`, `clipboard_placement`, `control_center_placement`, `wallpaper_placement`, `session_placement`, and `polkit_placement` accept only `attached` or `floating`. An attached panel keeps its own layer surface and anchors it to the host bar's inward edge; floating placement opens it detached. `center` is a floating `*_position`, not a third placement. Defaults are floating at the center position for Launcher, Clipboard, and the polkit auth prompt; Control Center, Wallpaper, and Session default to attached.
+- `shell.panel.launcher_placement`, `clipboard_placement`, `control_center_placement`, `wallpaper_placement`, `session_placement`, and `auth_placement` accept only `attached` or `floating`. An attached panel keeps its own layer surface and anchors it to the host bar's inward edge; floating placement opens it detached. `center` is a floating `*_position`, not a third placement. Defaults are floating at the center position for Launcher, Clipboard, and the auth prompt; Control Center, Wallpaper, and Session default to attached.
 
-- Per-panel `*_position` keys (`launcher_position`, `clipboard_position`, `control_center_position`, `wallpaper_position`, `session_position`, `polkit_position`) name a screen position (same vocabulary as notification/OSD position). With `floating` placement, `auto` keeps the panel bar-relative and `center` or an edge/corner token pins it to that screen position. With `attached` placement, the panel follows the position only when it lies on the bar's edge: on a bottom bar, `bottom_left` and `bottom_right` align the panel to the bar's left or right end; on a right bar, `top_right` and `bottom_right` align it to the top or bottom end. Any other value keeps the attached panel centered on the bar. Configure under each panel's **Position** setting.
+- Per-panel `*_position` keys (`launcher_position`, `clipboard_position`, `control_center_position`, `wallpaper_position`, `session_position`, `auth_position`) name a screen position (same vocabulary as notification/OSD position). With `floating` placement, `auto` keeps the panel bar-relative and `center` or an edge/corner token pins it to that screen position. With `attached` placement, the panel follows the position only when it lies on the bar's edge: on a bottom bar, `bottom_left` and `bottom_right` align the panel to the bar's left or right end; on a right bar, `top_right` and `bottom_right` align it to the top or bottom end. Any other value keeps the attached panel centered on the bar. Configure under each panel's **Position** setting.
 
 - `shell.panel.floating_offset` sets the gap in pixels a floating panel keeps from the bar edge, or from the screen edge when it is pinned with a `*_position` (default `8`). It also spaces panels using the reserved edge area when multiple bars share an edge. `attached` panels ignore it.
 
@@ -387,7 +392,7 @@ Notes:
 
 - `shell.launcher.providers.<name>.global` includes a prefixed provider in the un-prefixed (global) search in addition to its prefix. Unset keeps the provider's built-in default (`true` for `calculator`, `false` for the others). This replaces the removed `session_search` option.
 
-- `shell.launcher.panels.ignored` excludes specific panel ids from the Panels provider's results. Defaults to `["polkit", "setup-wizard", "test", "launcher"]` - panels that aren't meant to be opened on demand, or (for `launcher`) redundant to toggle from within the launcher itself. Setting it replaces the default outright, like every other list config. Editable under **Settings → Panels → Launcher → Providers**, which offers a picker of every panel id not already ignored.
+- `shell.launcher.panels.ignored` excludes specific panel ids from the Panels provider's results. Defaults to `["auth", "setup-wizard", "test", "launcher"]` - panels that aren't meant to be opened on demand, or (for `launcher`) redundant to toggle from within the launcher itself. Setting it replaces the default outright, like every other list config. Editable under **Settings → Panels → Launcher → Providers**, which offers a picker of every panel id not already ignored.
 
 - `shell.launcher.dmenu.entry.<id>` defines a dmenu-style provider. Each entry runs `command` (a shell string via `/bin/sh -lc`) once per launcher session and presents its stdout lines as candidates; a tab in a line splits it into title and description. `prefix` sets the entry's trigger word, combined with `provider_prefix` like the built-in providers (e.g. `ssh` triggers on `/ssh`); write it bare, without the prefix character. With no prefix, set `global = true` or the entry is unreachable. On activate, `exec` runs detached with `{selection}` substituted by the chosen line - when `exec` is omitted the line is copied to the clipboard instead. Entries hot-reload with the config.
 

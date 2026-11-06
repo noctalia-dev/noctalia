@@ -23,10 +23,10 @@ namespace panel_catalog {
     // panels ship no manifest to read a name/glyph from, so this is the only source
     // of truth for them; keep it in sync if a core panel id is added or renamed.
     constexpr std::array kBuiltinPanels = {
+        BuiltinPanelMeta{"auth", "launcher.providers.panel.builtin.auth", "shield-lock"},
         BuiltinPanelMeta{"clipboard", "launcher.providers.panel.builtin.clipboard", "clipboard"},
         BuiltinPanelMeta{"control-center", "launcher.providers.panel.builtin.control-center", "adjustments"},
         BuiltinPanelMeta{"launcher", "launcher.providers.panel.builtin.launcher", "search"},
-        BuiltinPanelMeta{"polkit", "launcher.providers.panel.builtin.polkit", "shield-lock"},
         BuiltinPanelMeta{"session", "launcher.providers.panel.builtin.session", "power"},
         BuiltinPanelMeta{"setup-wizard", "launcher.providers.panel.builtin.setup-wizard", "wand"},
         BuiltinPanelMeta{"test", "launcher.providers.panel.builtin.test", "bug"},

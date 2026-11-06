@@ -41,6 +41,7 @@
 #include "scripting/script_api_context.h"
 #include "security/secret_store.h"
 #include "security/storage_key_provider.h"
+#include "shell/auth/auth_source.h"
 #include "shell/backdrop/backdrop.h"
 #include "shell/bar/bar.h"
 #include "shell/desktop/desktop_widgets_controller.h"
@@ -136,6 +137,8 @@ namespace compositors::umbriel {
 class PipeWireSpectrum;
 class PipeWireSpectrumPollSource;
 class PolkitAgent;
+class PolkitAuthSource;
+class AuthSource;
 class PolkitPollSource;
 class PowerProfilesService;
 class ScreenSaverPollSource;
@@ -146,6 +149,9 @@ class SoundPlayer;
 class SystemBus;
 class SystemBusPollSource;
 class SystemMonitorService;
+class SystemdAuthSource;
+class SystemdPasswordAgent;
+class SystemdPasswordAgentPollSource;
 class TrayService;
 class UPowerService;
 enum class BluetoothStateChangeOrigin : std::uint8_t;
@@ -224,6 +230,10 @@ private:
   // Enables the lockscreen DND option when locking and restores the pre-lock state on unlock.
   void syncLockScreenDoNotDisturb();
   void syncPolkitAgent();
+  void syncSystemdPasswordAgent();
+  void ensureAuthSources();
+  AuthSource* activeAuthSource() const noexcept;
+  void updateAuthPanel();
   bool likelySupportsInSessionPolkit() const noexcept;
   void syncClipboardService();
   void syncStorageKeyProvider();
@@ -313,6 +323,9 @@ private:
   std::unique_ptr<ModemManagerService> m_modemManagerService;
   Timer m_bluetoothResumeTimer;
   std::unique_ptr<PolkitAgent> m_polkitAgent;
+  std::unique_ptr<SystemdPasswordAgent> m_systemdPasswordAgent;
+  std::unique_ptr<PolkitAuthSource> m_polkitAuthSource;
+  std::unique_ptr<SystemdAuthSource> m_systemdAuthSource;
   std::optional<bool> m_notificationDaemonEnabled;
   bool m_notificationDaemonInitFailed = false;
   bool m_notificationShellRefreshScheduled = false;
@@ -418,6 +431,7 @@ private:
   std::unique_ptr<PipeWirePollSource> m_pipewirePollSource;
   std::unique_ptr<PipeWireSpectrumPollSource> m_pipewireSpectrumPollSource;
   std::unique_ptr<PolkitPollSource> m_polkitPollSource;
+  std::unique_ptr<SystemdPasswordAgentPollSource> m_systemdPasswordPollSource;
   IpcService m_ipcService;
   IpcPollSource m_ipcPollSource{m_ipcService};
   DmenuIpcService m_dmenuIpc;
@@ -430,7 +444,8 @@ private:
   CalendarPollSource m_calendarPollSource{m_calendarService};
   CalendarReminderPollSource m_calendarReminderPollSource{m_calendarReminderMonitor};
   Timer m_polkitInitTimer;
-  Timer m_polkitIdleCloseTimer;
+  Timer m_systemdPasswordInitTimer;
+  Timer m_authIdleCloseTimer;
   Timer m_greeterSyncTimeoutTimer;
   Timer m_greeterAutoSyncTimer;
   Timer m_clipboardAutoPasteTimer;

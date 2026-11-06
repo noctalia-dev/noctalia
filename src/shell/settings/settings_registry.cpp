@@ -1550,14 +1550,14 @@ namespace settings {
         &ShellConfig::PanelConfig::clipboardPlacement, &ShellConfig::PanelConfig::clipboardPosition
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Panels, "polkit", tr("settings.schema.panels.placement-polkit.label"),
-        tr("settings.schema.panels.placement-polkit.description"), {"shell", "panel", "polkit_placement"},
-        asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.polkitPlacement)),
-        "attached floating bar panel polkit auth password"
+        SettingsSection::Panels, "auth", tr("settings.schema.panels.placement-auth.label"),
+        tr("settings.schema.panels.placement-auth.description"), {"shell", "panel", "auth_placement"},
+        asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.authPlacement)),
+        "attached floating bar panel auth password"
     ));
     entries.push_back(panelPositionEntry(
-        SettingsSection::Panels, "polkit", "polkit", "settings.schema.panels.position-polkit.label",
-        "settings.schema.panels.position-polkit.description", cfg.shell.panel.polkitPosition
+        SettingsSection::Panels, "auth", "auth", "settings.schema.panels.position-auth.label",
+        "settings.schema.panels.position-auth.description", cfg.shell.panel.authPosition
     ));
     entries.push_back(makeEntry(
         SettingsSection::Panels, "wallpaper", tr("settings.schema.panels.wallpaper-show-names.label"),
@@ -1786,6 +1786,11 @@ namespace settings {
         SettingsSection::Security, "authentication", tr("settings.schema.shell.polkit-agent.label"),
         tr("settings.schema.shell.polkit-agent.description"), {"shell", "polkit_agent"},
         ToggleSetting{cfg.shell.polkitAgent}, "auth password"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Security, "authentication", tr("settings.schema.shell.systemd-password-agent.label"),
+        tr("settings.schema.shell.systemd-password-agent.description"), {"shell", "systemd_password_agent"},
+        ToggleSetting{cfg.shell.systemdPasswordAgent}, "auth password"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Security, "authentication", tr("settings.schema.shared.colorize-icons.label"),
