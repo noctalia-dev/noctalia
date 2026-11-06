@@ -1428,10 +1428,18 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     });
     if (aps.empty()) {
       const bool hotspotActive = m_network != nullptr && m_network->state().hotspotActive;
+      const bool wirelessEnabled = m_network != nullptr && m_network->state().wirelessEnabled;
+      // An empty scan list means different things: a running hotspot, a radio the user turned off,
+      // or simply no access points in range. Only the last one is a genuine "no networks" result.
+      std::string emptyText = i18n::tr("control-center.network.no-networks");
+      if (hotspotActive) {
+        emptyText = i18n::tr("control-center.network.hotspot-active");
+      } else if (!wirelessEnabled) {
+        emptyText = i18n::tr("control-center.network.wifi-off");
+      }
       container->addChild(
           ui::label({
-              .text = hotspotActive ? i18n::tr("control-center.network.hotspot-active")
-                                    : i18n::tr("control-center.network.no-networks"),
+              .text = std::move(emptyText),
               .fontSize = Style::fontSizeBody * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           })
