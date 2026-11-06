@@ -2522,19 +2522,20 @@ std::size_t Input::pointToByteOffset(float localX, float localY) const {
     }
     const float middle = (stop.charLeft + stop.charRight) * 0.5F;
     const bool leadingHalf = stop.charRtl ? localX >= middle : localX < middle;
+    // A grapheme (a letter and its marks, an emoji sequence) can span several code points: the slot
+    // before it is its first one, and the slot after it the next one where a caret may sit.
+    std::size_t slot = i;
     if (leadingHalf) {
-      return m_stopByte[i];
+      while (slot > 0 && !m_stopRect[slot].cursorPosition) {
+        --slot;
+      }
+    } else {
+      ++slot;
+      while (slot + 1 < m_stopRect.size() && !m_stopRect[slot].cursorPosition) {
+        ++slot;
+      }
     }
-    // Every code point of one cluster (a letter and its marks, an emoji sequence) reports the cluster's
-    // extent; step past the rest of it so the slot after it is never inside the cluster.
-    std::size_t next = i + 1;
-    while (next + 1 < m_stopRect.size()
-           && sameLineY(m_stopRect[next].y, stop.y)
-           && std::abs(m_stopRect[next].charLeft - stop.charLeft) < 0.5F
-           && std::abs(m_stopRect[next].charRight - stop.charRight) < 0.5F) {
-      ++next;
-    }
-    return m_stopByte[next];
+    return m_stopByte[slot];
   }
 
   // Off the characters (before or after the line's text): nearest caret boundary by x within the line.
@@ -2542,7 +2543,7 @@ std::size_t Input::pointToByteOffset(float localX, float localY) const {
   float bestDist = std::numeric_limits<float>::max();
   for (std::size_t i = lineFirst; i <= lineLast; ++i) {
     const float dist = std::abs(m_stopRect[i].x - localX);
-    if (dist < bestDist) {
+    if (m_stopRect[i].cursorPosition && dist < bestDist) {
       bestDist = dist;
       best = i;
     }

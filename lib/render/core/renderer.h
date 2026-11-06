@@ -55,6 +55,9 @@ struct TextCursorStop {
   float charLeft = 0.0F;
   float charRight = 0.0F;
   bool charRtl = false;
+  // False inside a grapheme (between a letter and its marks, inside an emoji sequence), where a caret
+  // must not land.
+  bool cursorPosition = true;
 };
 
 struct TextCharSpan {

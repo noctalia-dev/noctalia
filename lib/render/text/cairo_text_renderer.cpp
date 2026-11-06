@@ -675,6 +675,22 @@ void CairoTextRenderer::measureCursorStopsWrapped(
                                                                                      : static_cast<int>(clampedOffset);
   };
 
+  // Pango's log attributes are indexed by character, the stops by byte; offsets usually come in
+  // increasing order, so the character index is carried forward from the previous offset.
+  int attrCount = 0;
+  const PangoLogAttr* attrs = pango_layout_get_log_attrs_readonly(layout, &attrCount);
+  std::size_t lastByte = 0;
+  glong lastChar = 0;
+  const auto charIndexAt = [&text, &lastByte, &lastChar](std::size_t byte) {
+    if (byte < lastByte) {
+      lastByte = 0;
+      lastChar = 0;
+    }
+    lastChar += g_utf8_pointer_to_offset(text.data() + lastByte, text.data() + byte);
+    lastByte = byte;
+    return lastChar;
+  };
+
   for (std::size_t i = 0; i < byteOffsets.size(); ++i) {
     const int index = pangoIndex(byteOffsets[i]);
     PangoRectangle strong{};
@@ -686,6 +702,10 @@ void CairoTextRenderer::measureCursorStopsWrapped(
         static_cast<float>(lineRect.y) * pscale * invScale,
         static_cast<float>(lineRect.height) * pscale * invScale,
     };
+    const glong charIndex = charIndexAt(std::min(byteOffsets[i], text.size()));
+    if (attrs != nullptr && charIndex < attrCount) {
+      stop.cursorPosition = attrs[charIndex].is_cursor_position != 0U;
+    }
 
     // At a run boundary two caret slots share one x, so the caret stops alone cannot say which slot a
     // point belongs to; the character's own extent and direction can.
