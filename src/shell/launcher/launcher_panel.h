@@ -102,6 +102,7 @@ private:
   void activateAt(std::size_t index);
   void activateSelected();
   bool handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
+  bool cycleCategories(int direction);
   void applyEmptyState();
   void bindDetailResult();
   bool shouldUseDetailPresentation() const;

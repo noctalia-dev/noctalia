@@ -2570,6 +2570,14 @@
           "description": "Save the current selection or item",
           "label": "Save"
         },
+        "cycle-next": {
+          "description": "Cycle to the next launcher category or Control Center tab",
+          "label": "Cycle Next"
+        },
+        "cycle-previous": {
+          "description": "Cycle to the previous launcher category or Control Center tab",
+          "label": "Cycle Previous"
+        },
         "tab-next": {
           "description": "Move focus to the next control",
           "label": "Focus Next"

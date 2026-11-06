@@ -2543,6 +2543,15 @@ bool LauncherPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, 
     return false;
   }
 
+  if (KeybindMatcher::matches(KeybindAction::CyclePrevious, sym, modifiers)) {
+    cycleCategories(-1);
+    return true;
+  }
+  if (KeybindMatcher::matches(KeybindAction::CycleNext, sym, modifiers)) {
+    cycleCategories(1);
+    return true;
+  }
+
   auto& dispatcher = PanelManager::instance().inputDispatcher();
   InputArea* const focused = dispatcher.focusedArea();
   if (focused != nullptr) {
@@ -3662,6 +3671,66 @@ void LauncherPanel::activateSelected() {
     finishActivation(*provider, result.id, provider->supportsAutoPaste(), !result.desktopEntryPath.empty());
     return;
   }
+}
+
+bool LauncherPanel::cycleCategories(int direction) {
+  if (direction == 0) {
+    return false;
+  }
+
+  const auto wrapIndex = [](int index, int count) {
+    int next = index % count;
+    if (next < 0) {
+      next += count;
+    }
+    return next;
+  };
+
+  if (m_browserMode && m_categoryFilter != nullptr && m_categoryFilter->visible()) {
+    if (!m_providerCategories.empty()) {
+      const int count = static_cast<int>(m_providerCategories.size() + 1);
+      const auto active = std::ranges::find(m_providerCategories, m_activeProviderCategory, &LauncherCategory::label);
+      const int current = m_activeProviderCategory.empty() || active == m_providerCategories.end()
+          ? 0
+          : static_cast<int>(active - m_providerCategories.begin()) + 1;
+      m_categoryFilter->setSelectedIndex(static_cast<std::size_t>(wrapIndex(current + direction, count)));
+      return true;
+    }
+    if (m_activeCategoryType == Category && m_currentCategories.size() >= 2) {
+      const auto active = std::ranges::find(m_currentCategories, m_activeCategory, &LauncherCategory::label);
+      const int current =
+          active == m_currentCategories.end() ? 0 : static_cast<int>(active - m_currentCategories.begin());
+      m_categoryFilter->setSelectedIndex(
+          static_cast<std::size_t>(wrapIndex(current + direction, static_cast<int>(m_currentCategories.size())))
+      );
+      return true;
+    }
+  }
+
+  if (m_browserMode) {
+    if (m_categoryFilterSlots.empty()) {
+      return false;
+    }
+    const int count = static_cast<int>(m_categoryFilterSlots.size() + 1);
+    const int current = m_showingProviderOverview ? static_cast<int>(m_categoryFilterSlots.size())
+                                                  : static_cast<int>(m_activeCategorySlotIndex);
+    const int next = wrapIndex(current + direction, count);
+    if (static_cast<std::size_t>(next) < m_categoryFilterSlots.size()) {
+      setActiveCategorySlot(static_cast<std::size_t>(next));
+    } else {
+      showProviderOverview();
+    }
+    return true;
+  }
+
+  if (m_categoryFilter == nullptr || !m_categoryFilter->visible() || m_categoryFilterSlots.size() < 2) {
+    return false;
+  }
+  const int next = wrapIndex(
+      static_cast<int>(m_activeCategorySlotIndex) + direction, static_cast<int>(m_categoryFilterSlots.size())
+  );
+  setActiveCategorySlot(static_cast<std::size_t>(next));
+  return true;
 }
 
 bool LauncherPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) {

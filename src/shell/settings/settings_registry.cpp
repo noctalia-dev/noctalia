@@ -2633,6 +2633,22 @@ namespace settings {
         "keybind shortcut hotkey tab focus pane"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.cycle-previous.label"),
+        tr("settings.schema.keybinds.cycle-previous.description"), {"keybinds", "cycle_previous"},
+        KeybindListSetting{
+            .items = effectiveKeybindItems(cfg.keybinds.cyclePrevious, KeybindAction::CyclePrevious), .maxItems = 4
+        },
+        "keybind shortcut hotkey cycle tab category previous"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.cycle-next.label"),
+        tr("settings.schema.keybinds.cycle-next.description"), {"keybinds", "cycle_next"},
+        KeybindListSetting{
+            .items = effectiveKeybindItems(cfg.keybinds.cycleNext, KeybindAction::CycleNext), .maxItems = 4
+        },
+        "keybind shortcut hotkey cycle tab category next"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.copy.label"),
         tr("settings.schema.keybinds.copy.description"), {"keybinds", "copy"},
         KeybindListSetting{.items = effectiveKeybindItems(cfg.keybinds.copy, KeybindAction::Copy), .maxItems = 4},

@@ -371,6 +371,10 @@ namespace {
       return keybinds.tabNext;
     case KeybindAction::TabPrevious:
       return keybinds.tabPrevious;
+    case KeybindAction::CycleNext:
+      return keybinds.cycleNext;
+    case KeybindAction::CyclePrevious:
+      return keybinds.cyclePrevious;
     case KeybindAction::Delete:
       return keybinds.deleteEntry;
     case KeybindAction::Copy:
