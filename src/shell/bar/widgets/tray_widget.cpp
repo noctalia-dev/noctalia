@@ -166,8 +166,7 @@ namespace {
 TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options)
     : m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
       m_pinnedItems(std::move(options.pinnedItems)), m_hidePassive(options.hidePassive),
-      m_colorizeIcons(options.colorizeIcons), m_drawerMode(options.drawerMode),
-      m_drawerButtonPosition(options.drawerButtonPosition), m_glyph(std::move(options.glyph)),
+      m_colorizeIcons(options.colorizeIcons), m_drawerMode(options.drawerMode), m_glyph(std::move(options.glyph)),
       m_glyphPosition(options.glyphPosition), m_itemActivated(std::move(options.itemActivated)),
       m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
@@ -629,7 +628,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       );
       triggerArea->addChild(std::move(glyph));
       attachHover(*triggerPtr, itemSize);
-      if (m_drawerButtonPosition == TrayDrawerButtonPosition::Before) {
+      if (m_glyphPosition == GlyphPosition::Before) {
         m_container->addChild(std::move(triggerArea));
       }
     }

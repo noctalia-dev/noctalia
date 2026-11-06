@@ -9,14 +9,6 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
 
   static const settings::WidgetSettingVisibility drawerOn{"drawer", {"true"}};
   static const settings::WidgetSettingVisibility drawerOff{"drawer", {"false"}};
-  static const settings::WidgetSettingVisibility inlinePeek = [] {
-    settings::WidgetSettingVisibility visibility;
-    visibility.all = {
-        {.key = "drawer", .values = {"false"}},
-        {.key = "peek", .values = {"true"}},
-    };
-    return visibility;
-  }();
   static const settings::WidgetSettingVisibility glyphVisible = [] {
     settings::WidgetSettingVisibility visibility;
     visibility.any = {
@@ -64,30 +56,8 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
                           .visibleWhen = glyphVisible,
                       },
               }),
-              noctalia::bar::glyphPositionField<Options>(inlinePeek),
+              noctalia::bar::glyphPositionField<Options>(glyphVisible),
               noctalia::bar::peekDelayField<Options>(drawerOff),
-              field<&Options::drawerButtonPosition>({
-                  .key = "drawer_button_position",
-                  .choices =
-                      {
-                          {
-                              .value = TrayDrawerButtonPosition::Before,
-                              .configValue = "before",
-                              .labelKey = "settings.widgets.options.before",
-                          },
-                          {
-                              .value = TrayDrawerButtonPosition::After,
-                              .configValue = "after",
-                              .labelKey = "settings.widgets.options.after",
-                          },
-                      },
-                  .presentation =
-                      settings::WidgetSettingPresentation{
-                          .group = "tray.drawer",
-                          .segmented = true,
-                          .visibleWhen = drawerOn,
-                      },
-              }),
               field<&Options::panelGridColumns>({
                   .key = "drawer_columns",
                   .minValue = 1.0,

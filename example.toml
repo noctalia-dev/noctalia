@@ -606,8 +606,8 @@ show_visualizer = true              # PipeWire audio visualizer beside the playb
 # hide_when_no_unread = true
 
 # [widget.tray]
-# drawer = false
-# drawer_button_position = "before"   # before | after
+# drawer = true
+# glyph_position = "before"           # before | after
 
 # [widget.network_rx]
 # network_speed_unit           = "mb" # auto | kb | mb
