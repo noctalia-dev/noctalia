@@ -4190,6 +4190,43 @@ std::string Bar::toggleBarReserveSpaceIpc(std::string_view args) {
   return "ok\n";
 }
 
+std::string Bar::setBarReserveSpaceIpc(std::string_view args) {
+  const auto parts = noctalia::ipc::splitWords(args);
+  if (parts.empty() || parts.size() > 3) {
+    return "error: usage: bar-reserve-set <on|off|true|false|1|0> [bar-name] [monitor-selector]\n";
+  }
+
+  const std::string& value = parts[0];
+  bool reserveSpace = false;
+  if (value == "on" || value == "true" || value == "1") {
+    reserveSpace = true;
+  } else if (value != "off" && value != "false" && value != "0") {
+    return "error: invalid value (use on/off, true/false, or 1/0)\n";
+  }
+
+  std::optional<std::string> barName;
+  std::optional<std::string> monitorSelector;
+  if (parts.size() >= 2 && !parts[1].empty()) {
+    barName = parts[1];
+  }
+  if (parts.size() >= 3 && !parts[2].empty()) {
+    monitorSelector = parts[2];
+  }
+
+  std::vector<BarInstance*> targets;
+  if (const auto collectError = collectBarIpcInstances(barName, monitorSelector, targets)) {
+    return *collectError;
+  }
+
+  for (BarInstance* instance : targets) {
+    if (instance != nullptr && instance->barConfig.reserveSpace != reserveSpace) {
+      instance->barConfig.reserveSpace = reserveSpace;
+      syncBarExclusiveZone(*instance);
+    }
+  }
+  return "ok\n";
+}
+
 std::string Bar::setBarAutoHideIpc(std::string_view args) {
   if (m_config == nullptr) {
     return "error: config service not initialized\n";
@@ -4406,6 +4443,10 @@ void Bar::registerIpc(IpcService& ipc) {
 
   ipc.bind(noctalia::cli::msg::barReserveToggle, [this](const std::string& args) -> std::string {
     return toggleBarReserveSpaceIpc(args);
+  });
+
+  ipc.bind(noctalia::cli::msg::barReserveSet, [this](const std::string& args) -> std::string {
+    return setBarReserveSpaceIpc(args);
   });
 
   ipc.bind(noctalia::cli::msg::barAutoHideSet, [this](const std::string& args) -> std::string {

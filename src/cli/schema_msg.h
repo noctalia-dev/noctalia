@@ -66,6 +66,8 @@ namespace noctalia::cli {
 
   inline constexpr std::array<std::string_view, 7> kMsgBarAutoHideSetStateChoices{"on",    "off", "smart", "true",
                                                                                   "false", "1",   "0"};
+  inline constexpr std::array<std::string_view, 6> kMsgBarReserveSetStateChoices{"on",    "off", "true",
+                                                                                 "false", "1",   "0"};
   inline constexpr std::array<std::string_view, 2> kMsgBarLayerSetLayerChoices{"top", "overlay"};
   inline constexpr std::array<std::string_view, 2> kMsgEffectsProfileSetKindChoices{"output", "input"};
   inline constexpr std::array<std::string_view, 4> kMsgLogLevelSetLevelChoices{"debug", "info", "warn", "error"};
@@ -101,6 +103,11 @@ namespace noctalia::cli {
       Positional{"monitor-selector", {}, {}, false, false, false},
   };
   inline constexpr std::array kMsgBarReserveTogglePositionals{
+      Positional{"bar-name", {}, {}, false, false, false},
+      Positional{"monitor-selector", {}, {}, false, false, false},
+  };
+  inline constexpr std::array kMsgBarReserveSetPositionals{
+      Positional{"state", {}, kMsgBarReserveSetStateChoices, true, false, false},
       Positional{"bar-name", {}, {}, false, false, false},
       Positional{"monitor-selector", {}, {}, false, false, false},
   };
@@ -371,6 +378,16 @@ namespace noctalia::cli {
         {},
         {},
         kMsgBarReserveTogglePositionals,
+        {},
+        false
+    };
+    inline constexpr Command barReserveSet{
+        "bar-reserve-set",
+        "Temporarily set reserve space for one or all bars",
+        {},
+        {},
+        {},
+        kMsgBarReserveSetPositionals,
         {},
         false
     };
@@ -935,6 +952,7 @@ namespace noctalia::cli {
       msg::barAutoHideSet,
       msg::barHide,
       msg::barLayerSet,
+      msg::barReserveSet,
       msg::barReserveToggle,
       msg::barShow,
       msg::barToggle,
