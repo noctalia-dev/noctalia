@@ -696,7 +696,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     const auto numChars = gapMetrics.width > 0.0F
         ? static_cast<int>(std::ceil(std::min(width(), kMarqueeGapMaxWidth) / gapMetrics.width))
         : 1;
-    auto textWithGap = m_plainText + std::string(numChars, kMarqueeGapChar) + m_plainText;
+    auto textWithGap = m_plainText + std::string(static_cast<std::size_t>(numChars), kMarqueeGapChar) + m_plainText;
     auto textWithGapMetrics = renderer.measureText(textWithGap, m_textNode->fontSize(), font, 0.0F, 1, align);
     m_marqueeLoopPeriod = textWithGapMetrics.width - m_fullTextWidth;
     m_textNode->setText(textWithGap);
