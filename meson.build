@@ -1258,6 +1258,7 @@ if build_tests
     'notification_icon_source',
     'notification_internal_history',
     'path_browse',
+    'pam_authenticator_cancellation',
     'pipewire_error',
     'umbriel_audio_provider',
     'privacy_capture_classification',
