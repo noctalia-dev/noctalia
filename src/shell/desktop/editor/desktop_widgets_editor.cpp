@@ -31,6 +31,7 @@
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -49,6 +50,8 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
+
+  constexpr Logger kLog("desktop-widgets-editor");
 
   constexpr float kToolbarY = 68.0F;
   constexpr float kSelectionStroke = 2.0F;
@@ -215,19 +218,52 @@ namespace {
     return nullptr;
   }
 
+  bool isTemplateNameTaken(
+      const std::string& name, const std::string& activeName, const std::vector<DesktopWidgetsProfile>& profiles
+  ) {
+    return name != activeName
+        && std::ranges::any_of(profiles, [&](const auto& profile) { return profile.name == name; });
+  }
+
+  std::string
+  generateUniqueTemplateName(const std::string& activeName, const std::vector<DesktopWidgetsProfile>& profiles) {
+    for (std::size_t num = 1; num <= kMaxDesktopWidgetProfiles; ++num) {
+      std::string candidate = i18n::tr("desktop-widgets.editor.default-template-name", "index", std::to_string(num));
+      if (candidate == activeName) {
+        continue;
+      }
+      const bool exists = std::ranges::any_of(profiles, [&](const auto& p) { return p.name == candidate; });
+      if (!exists) {
+        return candidate;
+      }
+    }
+    return i18n::tr("desktop-widgets.editor.default-template-name", "index", std::to_string(1 + profiles.size() + 1));
+  }
+
 } // namespace
 
 DesktopWidgetsEditor::DesktopWidgetsEditor(DesktopWidgetsEditorProfile profile) : m_profile(profile) {}
 
-std::string DesktopWidgetsEditor::nextWidgetId() const {
+std::uint64_t DesktopWidgetsEditor::maxWidgetCounter() const {
   std::uint64_t maxCounter = 0;
-  for (const auto& widget : m_snapshot.widgets) {
-    std::uint64_t counter = 0;
-    if (parseWidgetCounter(m_profile.widgetIdPrefix, widget.id, counter)) {
-      maxCounter = std::max(maxCounter, counter);
+  auto updateMax = [&](const std::vector<DesktopWidgetState>& widgets) {
+    for (const auto& widget : widgets) {
+      std::uint64_t counter = 0;
+      if (parseWidgetCounter(m_profile.widgetIdPrefix, widget.id, counter)) {
+        maxCounter = std::max(maxCounter, counter);
+      }
     }
+  };
+  updateMax(m_snapshot.widgets);
+  for (const auto& profile : m_snapshot.profiles) {
+    updateMax(profile.widgets);
   }
 
+  return maxCounter;
+}
+
+std::string DesktopWidgetsEditor::nextWidgetId() const {
+  const std::uint64_t maxCounter = maxWidgetCounter();
   const std::uint64_t nextCounter =
       maxCounter == std::numeric_limits<std::uint64_t>::max() ? maxCounter : (maxCounter + 1);
   return std::format("{}{:016x}", m_profile.widgetIdPrefix, nextCounter);
@@ -265,6 +301,8 @@ void DesktopWidgetsEditor::open(const DesktopWidgetsEditorSnapshot& snapshot) {
   m_leftAltHeld = false;
   m_rightAltHeld = false;
   m_inspectorOpen = false;
+  m_deleteConfirmActive = false;
+  m_renameActive = false;
   syncSurfaces();
   requestLayout();
 }
@@ -290,8 +328,312 @@ DesktopWidgetsEditorSnapshot DesktopWidgetsEditor::close() {
   m_altHeld = false;
   m_leftAltHeld = false;
   m_rightAltHeld = false;
+  m_deleteConfirmActive = false;
+  m_renameActive = false;
   m_open = false;
   return m_snapshot;
+}
+
+void DesktopWidgetsEditor::switchProfile(std::size_t newIndex) {
+  if (m_profile.showLockscreenLoginPreview || newIndex == 0 || newIndex > m_snapshot.profiles.size()) {
+    return;
+  }
+  const std::size_t inactiveIdx = newIndex - 1;
+  std::swap(m_snapshot.activeProfile, m_snapshot.profiles[inactiveIdx].name);
+  std::swap(m_snapshot.grid, m_snapshot.profiles[inactiveIdx].grid);
+  std::swap(m_snapshot.widgets, m_snapshot.profiles[inactiveIdx].widgets);
+  clearSelection();
+  m_inspectorOpen = false;
+  m_deleteConfirmActive = false;
+  m_renameActive = false;
+  syncSurfaces();
+  requestLayout();
+}
+
+void DesktopWidgetsEditor::archiveActiveProfile(std::string newName) {
+  m_snapshot.profiles.push_back(
+      DesktopWidgetsProfile{
+          .name = std::move(m_snapshot.activeProfile),
+          .grid = m_snapshot.grid,
+          .widgets = std::move(m_snapshot.widgets),
+      }
+  );
+  m_snapshot.activeProfile = std::move(newName);
+  clearSelection();
+  m_inspectorOpen = false;
+  m_deleteConfirmActive = false;
+  m_renameActive = false;
+}
+
+void DesktopWidgetsEditor::createProfile() {
+  if (m_profile.showLockscreenLoginPreview || (1 + m_snapshot.profiles.size()) >= kMaxDesktopWidgetProfiles) {
+    return;
+  }
+  archiveActiveProfile(generateUniqueTemplateName(m_snapshot.activeProfile, m_snapshot.profiles));
+  m_snapshot.grid = DesktopWidgetsGridState{};
+  m_snapshot.widgets.clear();
+  syncSurfaces();
+  requestLayout();
+}
+
+void DesktopWidgetsEditor::cloneCurrentProfile() {
+  if (m_profile.showLockscreenLoginPreview || (1 + m_snapshot.profiles.size()) >= kMaxDesktopWidgetProfiles) {
+    return;
+  }
+  std::uint64_t nextCounter = maxWidgetCounter();
+  const std::uint64_t availableIds = std::numeric_limits<std::uint64_t>::max() - nextCounter;
+  if (m_snapshot.widgets.size() > availableIds) {
+    kLog.warn("cannot clone desktop-widget template: widget ID space is exhausted");
+    return;
+  }
+
+  std::vector<DesktopWidgetState> clonedWidgets;
+  clonedWidgets.reserve(m_snapshot.widgets.size());
+  for (const auto& w : m_snapshot.widgets) {
+    DesktopWidgetState copy = w;
+    copy.id = std::format("{}{:016x}", m_profile.widgetIdPrefix, ++nextCounter);
+    clonedWidgets.push_back(std::move(copy));
+  }
+
+  std::string newName = generateUniqueTemplateName(m_snapshot.activeProfile, m_snapshot.profiles);
+  archiveActiveProfile(std::move(newName));
+  m_snapshot.widgets = std::move(clonedWidgets);
+  syncSurfaces();
+  requestLayout();
+}
+
+void DesktopWidgetsEditor::deleteCurrentProfile() {
+  if (m_profile.showLockscreenLoginPreview || m_snapshot.profiles.empty()) {
+    m_deleteConfirmActive = false;
+    requestLayout();
+    return;
+  }
+  DesktopWidgetsProfile nextActive = std::move(m_snapshot.profiles.back());
+  m_snapshot.profiles.pop_back();
+  m_snapshot.activeProfile = std::move(nextActive.name);
+  m_snapshot.grid = nextActive.grid;
+  m_snapshot.widgets = std::move(nextActive.widgets);
+  clearSelection();
+  m_inspectorOpen = false;
+  m_deleteConfirmActive = false;
+  m_renameActive = false;
+  syncSurfaces();
+  requestLayout();
+}
+
+void DesktopWidgetsEditor::renameCurrentProfile(const std::string& newName) {
+  std::string trimmed = StringUtils::trim(newName);
+  if (trimmed.empty() || isTemplateNameTaken(trimmed, m_snapshot.activeProfile, m_snapshot.profiles)) {
+    requestLayout();
+    return;
+  }
+  m_snapshot.activeProfile = std::move(trimmed);
+  m_renameActive = false;
+  requestLayout();
+}
+
+void DesktopWidgetsEditor::buildDeleteConfirmDialog(OverlaySurface& surface, Node& root) {
+  auto backdrop = ui::inputArea({
+      .focusable = true,
+      .tabStop = false,
+      .width = root.width(),
+      .height = root.height(),
+      .zIndex = 300,
+  });
+
+  auto dim = ui::box({
+      .width = root.width(),
+      .height = root.height(),
+      .configure = [](Box& box) {
+        box.setFill(kShadowColor);
+        box.clearBorder();
+        box.setRadius(0.0F);
+      },
+  });
+  backdrop->addChild(std::move(dim));
+
+  Flex* dialogCardPtr = nullptr;
+  auto dialogCard = ui::column(
+      {
+          .out = &dialogCardPtr,
+          .gap = Style::spaceMd,
+          .padding = Style::spaceLg,
+          .fill = colorSpecFromRole(ColorRole::Surface),
+          .radius = Style::scaledRadiusXl(),
+          .border = colorSpecFromRole(ColorRole::OutlineVariant),
+          .borderWidth = Style::borderWidth,
+      },
+      ui::row(
+          {
+              .align = FlexAlign::Center,
+              .gap = Style::spaceSm,
+          },
+          ui::glyph({
+              .glyph = "alert-triangle",
+              .glyphSize = 20.0F,
+              .color = colorSpecFromRole(ColorRole::Error),
+          }),
+          ui::label({
+              .text =
+                  i18n::tr("desktop-widgets.editor.dialogs.delete-template-confirm", "name", m_snapshot.activeProfile),
+              .fontSize = Style::fontSizeBody,
+              .fontWeight = FontWeight::SemiBold,
+          })
+      ),
+      ui::row(
+          {
+              .align = FlexAlign::Center,
+              .gap = Style::spaceSm,
+          },
+          ui::spacer(),
+          ui::button({
+              .text = i18n::tr("common.actions.cancel"),
+              .controlHeight = Style::controlHeightSm,
+              .variant = ButtonVariant::Default,
+              .onClick =
+                  [this] {
+                    deferEditorMutation([this] {
+                      m_deleteConfirmActive = false;
+                      requestLayout();
+                    });
+                  },
+          }),
+          ui::button({
+              .text = i18n::tr("desktop-widgets.editor.actions.delete-template"),
+              .controlHeight = Style::controlHeightSm,
+              .variant = ButtonVariant::Destructive,
+              .onClick = [this] { deferEditorMutation([this] { deleteCurrentProfile(); }); },
+          })
+      )
+  );
+
+  Renderer& renderer = surface.surface->renderTarget().renderer();
+  dialogCard->layout(renderer);
+  const float cardW = dialogCard->width();
+  const float cardH = dialogCard->height();
+  const float posX = std::round((root.width() - cardW) * 0.5F);
+  const float posY = std::round((root.height() - cardH) * 0.5F);
+  dialogCard->setPosition(posX, posY);
+
+  backdrop->addChild(std::move(dialogCard));
+  root.addChild(std::move(backdrop));
+}
+
+void DesktopWidgetsEditor::buildRenameDialog(OverlaySurface& surface, Node& root) {
+  const std::string trimmedName = StringUtils::trim(m_renameText);
+  const bool nameEmpty = trimmedName.empty();
+  const bool nameTaken = !nameEmpty && isTemplateNameTaken(trimmedName, m_snapshot.activeProfile, m_snapshot.profiles);
+  const bool nameInvalid = nameEmpty || nameTaken;
+  const std::string nameError = nameEmpty ? i18n::tr("desktop-widgets.editor.dialogs.template-name-required")
+                                          : i18n::tr("desktop-widgets.editor.dialogs.template-name-in-use");
+
+  auto backdrop = ui::inputArea({
+      .focusable = true,
+      .tabStop = false,
+      .width = root.width(),
+      .height = root.height(),
+      .zIndex = 300,
+  });
+
+  auto dim = ui::box({
+      .width = root.width(),
+      .height = root.height(),
+      .configure = [](Box& box) {
+        box.setFill(kShadowColor);
+        box.clearBorder();
+        box.setRadius(0.0F);
+      },
+  });
+  backdrop->addChild(std::move(dim));
+
+  Flex* dialogCardPtr = nullptr;
+  Input* inputPtr = nullptr;
+  auto dialogCard = ui::column(
+      {
+          .out = &dialogCardPtr,
+          .gap = Style::spaceMd,
+          .padding = Style::spaceLg,
+          .fill = colorSpecFromRole(ColorRole::Surface),
+          .radius = Style::scaledRadiusXl(),
+          .border = colorSpecFromRole(ColorRole::OutlineVariant),
+          .borderWidth = Style::borderWidth,
+      },
+      ui::row(
+          {
+              .align = FlexAlign::Center,
+              .gap = Style::spaceSm,
+          },
+          ui::glyph({
+              .glyph = "pencil",
+              .glyphSize = 16.0F,
+          }),
+          ui::label({
+              .text = i18n::tr("desktop-widgets.editor.actions.rename-template"),
+              .fontSize = Style::fontSizeBody,
+              .fontWeight = FontWeight::Bold,
+          })
+      ),
+      ui::input({
+          .out = &inputPtr,
+          .value = m_renameText,
+          .controlHeight = Style::controlHeightSm,
+          .invalid = nameInvalid,
+          .width = 240.0F,
+          .onChange = [this](const std::string& val) { m_renameText = val; },
+          .onSubmit =
+              [this](const std::string& val) {
+                m_renameText = val;
+                deferEditorMutation([this] { renameCurrentProfile(m_renameText); });
+              },
+      }),
+      ui::label({
+          .text = nameError,
+          .fontSize = Style::fontSizeCaption,
+          .color = colorSpecFromRole(ColorRole::Error),
+          .visible = nameInvalid,
+          .participatesInLayout = nameInvalid,
+      }),
+      ui::row(
+          {
+              .align = FlexAlign::Center,
+              .gap = Style::spaceSm,
+          },
+          ui::spacer(),
+          ui::button({
+              .text = i18n::tr("common.actions.cancel"),
+              .controlHeight = Style::controlHeightSm,
+              .variant = ButtonVariant::Default,
+              .onClick =
+                  [this] {
+                    deferEditorMutation([this] {
+                      m_renameActive = false;
+                      requestLayout();
+                    });
+                  },
+          }),
+          ui::button({
+              .text = i18n::tr("desktop-widgets.editor.actions.save"),
+              .controlHeight = Style::controlHeightSm,
+              .variant = ButtonVariant::Primary,
+              .onClick = [this] { deferEditorMutation([this] { renameCurrentProfile(m_renameText); }); },
+          })
+      )
+  );
+
+  Renderer& renderer = surface.surface->renderTarget().renderer();
+  dialogCard->layout(renderer);
+  const float cardW = dialogCard->width();
+  const float cardH = dialogCard->height();
+  const float posX = std::round((root.width() - cardW) * 0.5F);
+  const float posY = std::round((root.height() - cardH) * 0.5F);
+  dialogCard->setPosition(posX, posY);
+
+  backdrop->addChild(std::move(dialogCard));
+  root.addChild(std::move(backdrop));
+
+  if (inputPtr != nullptr) {
+    surface.inputDispatcher.setFocus(inputPtr->inputArea());
+  }
 }
 
 void DesktopWidgetsEditor::clearSelection() {
@@ -1111,198 +1453,276 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   Flex* toolbarHandlePtr = nullptr;
   auto
       toolbar =
-          ui::
-              row(
-                  {
-                      .out = &toolbarPtr,
-                      .align = FlexAlign::Center,
-                      .gap = Style::spaceSm,
-                      .configure =
-                          [](Flex& flex) {
-                            flex.setPadding(Style::spaceSm, Style::spaceMd);
-                            flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
-                            flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
-                            flex.setRadius(Style::scaledRadiusXl());
-                            flex.setZIndex(200);
-                          },
-                  },
-                  ui::row(
-                      {
-                          .out = &toolbarHandlePtr,
-                          .align = FlexAlign::Center,
-                          .gap = Style::spaceXs,
-                          .paddingV = Style::spaceXs,
-                          .paddingH = Style::spaceSm,
-                          .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
-                          .radius = Style::scaledRadiusLg(),
-                          .minHeight = Style::controlHeightSm,
+          ui::row(
+              {
+                  .out = &toolbarPtr,
+                  .align = FlexAlign::Center,
+                  .gap = Style::spaceSm,
+                  .configure =
+                      [](Flex& flex) {
+                        flex.setPadding(Style::spaceSm, Style::spaceMd);
+                        flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
+                        flex.setBorder(colorSpecFromRole(ColorRole::OutlineVariant), Style::borderWidth);
+                        flex.setRadius(Style::scaledRadiusXl());
+                        flex.setZIndex(200);
                       },
-                      ui::glyph({
-                          .glyph = "menu-2",
-                          .glyphSize = 14.0F,
-                      }),
-                      ui::label({
-                          .text = i18n::tr(m_profile.titleKey),
-                          .fontSize = Style::fontSizeBody,
-                          .fontWeight = FontWeight::Bold,
-                      }),
-                      std::move(toolbarHandleArea)
-                  ),
-                  ui::select({
-                      .options = std::move(typeLabels),
-                      .selectedIndex = selectedTypeIndex,
+              },
+              ui::row(
+                  {
+                      .out = &toolbarHandlePtr,
+                      .align = FlexAlign::Center,
+                      .gap = Style::spaceXs,
+                      .paddingV = Style::spaceXs,
+                      .paddingH = Style::spaceSm,
+                      .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
+                      .radius = Style::scaledRadiusLg(),
+                      .minHeight = Style::controlHeightSm,
+                  },
+                  ui::glyph({
+                      .glyph = "menu-2",
+                      .glyphSize = 14.0F,
+                  }),
+                  ui::label({
+                      .text = i18n::tr(m_profile.titleKey),
+                      .fontSize = Style::fontSizeBody,
+                      .fontWeight = FontWeight::Bold,
+                  }),
+                  std::move(toolbarHandleArea)
+              ),
+              [&] -> std::unique_ptr<Node> {
+                if (m_profile.showLockscreenLoginPreview) {
+                  return ui::node({.visible = false, .participatesInLayout = false});
+                }
+                std::vector<std::string> profileOptions;
+                profileOptions.reserve(1 + m_snapshot.profiles.size() + 1);
+                profileOptions.push_back(m_snapshot.activeProfile);
+                for (const auto& profile : m_snapshot.profiles) {
+                  profileOptions.push_back(profile.name);
+                }
+                const bool canAddMore = (1 + m_snapshot.profiles.size()) < kMaxDesktopWidgetProfiles;
+                if (canAddMore) {
+                  profileOptions.push_back("+ " + i18n::tr("desktop-widgets.editor.actions.new-template"));
+                }
+                return ui::row(
+                    {
+                        .align = FlexAlign::Center,
+                        .gap = Style::spaceXs,
+                    },
+                    ui::select({
+                        .options = std::move(profileOptions),
+                        .selectedIndex = 0,
+                        .controlHeight = Style::controlHeightSm,
+                        .onSelectionChanged =
+                            [this](std::size_t index, std::string_view) {
+                              if (index == 0) {
+                                return;
+                              }
+                              if (index <= m_snapshot.profiles.size()) {
+                                deferEditorMutation([this, index] { switchProfile(index); });
+                              } else {
+                                deferEditorMutation([this] { createProfile(); });
+                              }
+                            },
+                        .configure = [](Select& select) { select.setMinWidth(120.0F); },
+                    }),
+                    ui::button({
+                        .glyph = "pencil",
+                        .controlHeight = Style::controlHeightSm,
+                        .variant = ButtonVariant::Default,
+                        .tooltip = i18n::tr("desktop-widgets.editor.actions.rename-template"),
+                        .onClick =
+                            [this] {
+                              deferEditorMutation([this] {
+                                m_renameText = m_snapshot.activeProfile;
+                                m_renameActive = true;
+                                m_deleteConfirmActive = false;
+                                requestLayout();
+                              });
+                            },
+                    }),
+                    ui::button({
+                        .glyph = "copy",
+                        .controlHeight = Style::controlHeightSm,
+                        .enabled = canAddMore,
+                        .variant = ButtonVariant::Default,
+                        .tooltip = i18n::tr("desktop-widgets.editor.actions.clone-template"),
+                        .onClick = [this] { deferEditorMutation([this] { cloneCurrentProfile(); }); },
+                    }),
+                    ui::button({
+                        .glyph = "trash",
+                        .controlHeight = Style::controlHeightSm,
+                        .enabled = !m_snapshot.profiles.empty(),
+                        .variant = ButtonVariant::Default,
+                        .tooltip = i18n::tr("desktop-widgets.editor.actions.delete-template"),
+                        .onClick =
+                            [this] {
+                              deferEditorMutation([this] {
+                                m_deleteConfirmActive = true;
+                                m_renameActive = false;
+                                requestLayout();
+                              });
+                            },
+                    }),
+                    ui::separator({
+                        .orientation = SeparatorOrientation::VerticalRule,
+                        .width = Style::borderWidth,
+                        .height = Style::controlHeight,
+                    })
+                );
+              }(),
+              ui::select({
+                  .options = std::move(typeLabels),
+                  .selectedIndex = selectedTypeIndex,
+                  .controlHeight = Style::controlHeightSm,
+                  .onSelectionChanged =
+                      [this](std::size_t index, std::string_view) {
+                        const auto options = desktop_settings::desktopWidgetTypeOptions();
+                        if (index < options.size()) {
+                          m_addWidgetType = options[index].value;
+                        }
+                      },
+                  .configure = [](Select& select) { select.setMinWidth(200.0F); },
+              }),
+              ui::button({
+                  .glyph = "plus",
+                  .variant = ButtonVariant::Primary,
+                  .tooltip = i18n::tr("desktop-widgets.editor.actions.add"),
+                  .onClick =
+                      [this, outputName = surface.outputName] {
+                        deferEditorMutation([this, outputName] { addWidget(outputName, m_addWidgetType); });
+                      },
+              }),
+              ui::button({
+                  .glyph = "copy-plus",
+                  .enabled = canCloneSelected,
+                  .variant = ButtonVariant::Default,
+                  .tooltip = i18n::tr("desktop-widgets.editor.actions.clone"),
+                  .onClick = [this] { deferEditorMutation([this] { cloneSelectedWidgets(); }); },
+              }),
+              ui::button({
+                  .glyph = "stack-back",
+                  .enabled = canSendSelectedToBack,
+                  .variant = ButtonVariant::Default,
+                  .tooltip = i18n::tr("desktop-widgets.editor.actions.stack-back"),
+                  .onClick = [this] { deferEditorMutation([this] { sendSelectedWidgetToBack(); }); },
+              }),
+              ui::button({
+                  .glyph = "stack-front",
+                  .enabled = canBringSelectedToFront,
+                  .variant = ButtonVariant::Default,
+                  .tooltip = i18n::tr("desktop-widgets.editor.actions.stack-front"),
+                  .onClick = [this] { deferEditorMutation([this] { bringSelectedWidgetToFront(); }); },
+              }),
+              ui::button({
+                  .glyph = "flip-vertical",
+                  .enabled = hasSelectedWidget && !selectedIsLoginBox,
+                  .selected = selectedFlipX,
+                  .variant = ButtonVariant::Default,
+                  .tooltip = i18n::tr("desktop-widgets.editor.actions.flip-horizontal"),
+                  .onClick = [this] { deferEditorMutation([this] { flipSelectedWidgetHorizontal(); }); },
+              }),
+              ui::button({
+                  .glyph = "flip-horizontal",
+                  .enabled = hasSelectedWidget && !selectedIsLoginBox,
+                  .selected = selectedFlipY,
+                  .variant = ButtonVariant::Default,
+                  .tooltip = i18n::tr("desktop-widgets.editor.actions.flip-vertical"),
+                  .onClick = [this] { deferEditorMutation([this] { flipSelectedWidgetVertical(); }); },
+              }),
+              ui::button({
+                  .glyph = "settings",
+                  .enabled = hasSelectedWidget,
+                  .selected = m_inspectorOpen,
+                  .variant = ButtonVariant::Default,
+                  .tooltip = i18n::tr("desktop-widgets.editor.actions.settings"),
+                  .onClick =
+                      [this] {
+                        deferEditorMutation([this] {
+                          m_inspectorOpen = !m_inspectorOpen;
+                          requestLayout();
+                        });
+                      },
+              }),
+              [&] -> std::unique_ptr<Node> {
+                bool canToggleVisibility = hasSelectedWidget;
+                if (hasSelectedWidget
+                    && lockscreen_login_box::isLoginBoxWidget(*selectedWidgetIt)
+                    && selectedWidgetIt->enabled) {
+                  int enabledCount = 0;
+                  for (const auto& w : m_snapshot.widgets) {
+                    if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled && !effectiveOutputName(w).empty()) {
+                      enabledCount++;
+                    }
+                  }
+                  if (enabledCount <= 1) {
+                    canToggleVisibility = false;
+                  }
+                }
+                return ui::button({
+                    .glyph = selectedWidgetEnabled ? "eye" : "eye-off",
+                    .enabled = canToggleVisibility,
+                    .selected = selectedWidgetEnabled,
+                    .variant = ButtonVariant::Default,
+                    .tooltip = selectedWidgetEnabled ? i18n::tr("desktop-widgets.editor.actions.hide")
+                                                     : i18n::tr("desktop-widgets.editor.actions.show"),
+                    .onClick = [this] { deferEditorMutation([this] { toggleSelectedWidgetEnabled(); }); },
+                });
+              }(),
+              ui::button(
+                  {
+                      .glyph = "trash",
+                      .enabled = hasSelectedWidget && !selectedIsLoginBox,
+                      .variant = ButtonVariant::Destructive,
+                      .tooltip = i18n::tr("desktop-widgets.editor.actions.trash"),
+                      .onClick = [this] { deferEditorMutation([this] { removeSelectedWidget(); }); },
+                  }
+              ),
+              ui::separator(
+                  {
+                      .orientation = SeparatorOrientation::VerticalRule,
+                      .width = Style::borderWidth,
+                      .height = Style::controlHeight,
+                  }
+              ),
+              ui::button(
+                  {
+                      .text = i18n::tr("desktop-widgets.editor.state.grid"),
+                      .controlHeight = Style::controlHeightSm,
+                      .selected = m_snapshot.grid.visible,
+                      .variant = ButtonVariant::Default,
+                      .onClick =
+                          [this] {
+                            deferEditorMutation([this] {
+                              m_snapshot.grid.visible = !m_snapshot.grid.visible;
+                              requestLayout();
+                            });
+                          },
+                  }
+              ),
+              ui::select(
+                  {
+                      .options = std::vector<std::string>{"8", "16", "24", "32", "64"},
+                      .selectedIndex = selectedGridIndex,
                       .controlHeight = Style::controlHeightSm,
                       .onSelectionChanged =
-                          [this](std::size_t index, std::string_view) {
-                            const auto options = desktop_settings::desktopWidgetTypeOptions();
-                            if (index < options.size()) {
-                              m_addWidgetType = options[index].value;
-                            }
+                          [this](std::size_t /*index*/, std::string_view text) {
+                            deferEditorMutation([this, value = std::string(text)] {
+                              try {
+                                m_snapshot.grid.cellSize = std::stoi(value);
+                                requestLayout();
+                              } catch (...) {
+                              }
+                            });
                           },
-                      .configure = [](Select& select) { select.setMinWidth(200.0F); },
-                  }),
-                  ui::button({
-                      .glyph = "plus",
-                      .variant = ButtonVariant::Primary,
-                      .tooltip = i18n::tr("desktop-widgets.editor.actions.add"),
-                      .onClick =
-                          [this, outputName = surface.outputName] {
-                            deferEditorMutation([this, outputName] { addWidget(outputName, m_addWidgetType); });
-                          },
-                  }),
-                  ui::button({
-                      .glyph = "copy-plus",
-                      .enabled = canCloneSelected,
-                      .variant = ButtonVariant::Default,
-                      .tooltip = i18n::tr("desktop-widgets.editor.actions.clone"),
-                      .onClick = [this] { deferEditorMutation([this] { cloneSelectedWidgets(); }); },
-                  }),
-                  ui::button({
-                      .glyph = "stack-back",
-                      .enabled = canSendSelectedToBack,
-                      .variant = ButtonVariant::Default,
-                      .tooltip = i18n::tr("desktop-widgets.editor.actions.stack-back"),
-                      .onClick = [this] { deferEditorMutation([this] { sendSelectedWidgetToBack(); }); },
-                  }),
-                  ui::button({
-                      .glyph = "stack-front",
-                      .enabled = canBringSelectedToFront,
-                      .variant = ButtonVariant::Default,
-                      .tooltip = i18n::tr("desktop-widgets.editor.actions.stack-front"),
-                      .onClick = [this] { deferEditorMutation([this] { bringSelectedWidgetToFront(); }); },
-                  }),
-                  ui::button({
-                      .glyph = "flip-vertical",
-                      .enabled = hasSelectedWidget && !selectedIsLoginBox,
-                      .selected = selectedFlipX,
-                      .variant = ButtonVariant::Default,
-                      .tooltip = i18n::tr("desktop-widgets.editor.actions.flip-horizontal"),
-                      .onClick = [this] { deferEditorMutation([this] { flipSelectedWidgetHorizontal(); }); },
-                  }),
-                  ui::button({
-                      .glyph = "flip-horizontal",
-                      .enabled = hasSelectedWidget && !selectedIsLoginBox,
-                      .selected = selectedFlipY,
-                      .variant = ButtonVariant::Default,
-                      .tooltip = i18n::tr("desktop-widgets.editor.actions.flip-vertical"),
-                      .onClick = [this] { deferEditorMutation([this] { flipSelectedWidgetVertical(); }); },
-                  }),
-                  ui::button(
-                      {
-                          .glyph = "settings",
-                          .enabled = hasSelectedWidget,
-                          .selected = m_inspectorOpen,
-                          .variant = ButtonVariant::Default,
-                          .tooltip = i18n::tr("desktop-widgets.editor.actions.settings"),
-                          .onClick =
-                              [this] {
-                                deferEditorMutation([this] {
-                                  m_inspectorOpen = !m_inspectorOpen;
-                                  requestLayout();
-                                });
-                              },
-                      }
-                  ),
-                  [&] -> std::unique_ptr<Node> {
-                    bool canToggleVisibility = hasSelectedWidget;
-                    if (hasSelectedWidget
-                        && lockscreen_login_box::isLoginBoxWidget(*selectedWidgetIt)
-                        && selectedWidgetIt->enabled) {
-                      int enabledCount = 0;
-                      for (const auto& w : m_snapshot.widgets) {
-                        if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled && !effectiveOutputName(w).empty()) {
-                          enabledCount++;
-                        }
-                      }
-                      if (enabledCount <= 1) {
-                        canToggleVisibility = false;
-                      }
-                    }
-                    return ui::button({
-                        .glyph = selectedWidgetEnabled ? "eye" : "eye-off",
-                        .enabled = canToggleVisibility,
-                        .selected = selectedWidgetEnabled,
-                        .variant = ButtonVariant::Default,
-                        .tooltip = selectedWidgetEnabled ? i18n::tr("desktop-widgets.editor.actions.hide")
-                                                         : i18n::tr("desktop-widgets.editor.actions.show"),
-                        .onClick = [this] { deferEditorMutation([this] { toggleSelectedWidgetEnabled(); }); },
-                    });
-                  }(),
-                  ui::button(
-                      {
-                          .glyph = "trash",
-                          .enabled = hasSelectedWidget && !selectedIsLoginBox,
-                          .variant = ButtonVariant::Destructive,
-                          .tooltip = i18n::tr("desktop-widgets.editor.actions.trash"),
-                          .onClick = [this] { deferEditorMutation([this] { removeSelectedWidget(); }); },
-                      }
-                  ),
-                  ui::separator(
-                      {
-                          .orientation = SeparatorOrientation::VerticalRule,
-                          .width = Style::borderWidth,
-                          .height = Style::controlHeight,
-                      }
-                  ),
-                  ui::button(
-                      {
-                          .text = i18n::tr("desktop-widgets.editor.state.grid"),
-                          .controlHeight = Style::controlHeightSm,
-                          .selected = m_snapshot.grid.visible,
-                          .variant = ButtonVariant::Default,
-                          .onClick =
-                              [this] {
-                                deferEditorMutation([this] {
-                                  m_snapshot.grid.visible = !m_snapshot.grid.visible;
-                                  requestLayout();
-                                });
-                              },
-                      }
-                  ),
-                  ui::select(
-                      {
-                          .options = std::vector<std::string>{"8", "16", "24", "32", "64"},
-                          .selectedIndex = selectedGridIndex,
-                          .controlHeight = Style::controlHeightSm,
-                          .onSelectionChanged =
-                              [this](std::size_t /*index*/, std::string_view text) {
-                                deferEditorMutation([this, value = std::string(text)] {
-                                  try {
-                                    m_snapshot.grid.cellSize = std::stoi(value);
-                                    requestLayout();
-                                  } catch (...) {
-                                  }
-                                });
-                              },
-                      }
-                  ),
-                  ui::button({
-                      .text = i18n::tr("desktop-widgets.editor.actions.done"),
-                      .controlHeight = Style::controlHeightSm,
-                      .variant = ButtonVariant::Secondary,
-                      .onClick = [this] { requestExit(); },
-                  })
-              );
+                  }
+              ),
+              ui::button({
+                  .text = i18n::tr("desktop-widgets.editor.actions.done"),
+                  .controlHeight = Style::controlHeightSm,
+                  .variant = ButtonVariant::Secondary,
+                  .onClick = [this] { requestExit(); },
+              })
+          );
 
   surface.toolbar = toolbarPtr;
   root->addChild(std::move(toolbar));
@@ -1325,6 +1745,17 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     if (!hasSelectedWidget) {
       surface.inspectorPositionInitialized = false;
       m_inspectorOpen = false;
+    }
+  }
+
+  const std::string activeOutput = currentPointerOutputName();
+  const bool isDialogSurface = m_surfaces.size() <= 1
+      || (activeOutput.empty() ? (&surface == m_surfaces.front().get()) : (surface.outputName == activeOutput));
+  if (isDialogSurface) {
+    if (m_deleteConfirmActive) {
+      buildDeleteConfirmDialog(surface, *root);
+    } else if (m_renameActive) {
+      buildRenameDialog(surface, *root);
     }
   }
 
@@ -1750,6 +2181,13 @@ std::vector<std::string> DesktopWidgetsEditor::insertWidgetCopies(
     return {};
   }
 
+  std::uint64_t nextCounter = maxWidgetCounter();
+  const std::uint64_t availableIds = std::numeric_limits<std::uint64_t>::max() - nextCounter;
+  if (templates.size() > availableIds) {
+    kLog.warn("cannot duplicate desktop widgets: widget ID space is exhausted");
+    return {};
+  }
+
   std::vector<std::string> insertedIds;
   insertedIds.reserve(templates.size());
   for (const DesktopWidgetState& templateState : templates) {
@@ -1758,7 +2196,7 @@ std::vector<std::string> DesktopWidgetsEditor::insertWidgetCopies(
     }
 
     DesktopWidgetState copy = templateState;
-    copy.id = nextWidgetId();
+    copy.id = std::format("{}{:016x}", m_profile.widgetIdPrefix, ++nextCounter);
     if (!targetOutputName.empty() && effectiveOutputName(copy) != targetOutputName) {
       copy.outputName = targetOutputName;
     }
@@ -2589,6 +3027,33 @@ void DesktopWidgetsEditor::onKeyboardEvent(const KeyboardEvent& event) {
       for (auto& surface : m_surfaces) {
         surface->inputDispatcher.setFocus(nullptr);
       }
+      if (m_renameActive) {
+        m_renameActive = false;
+        requestLayout();
+        return;
+      }
+    }
+    return;
+  }
+
+  if (m_deleteConfirmActive) {
+    if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+      m_deleteConfirmActive = false;
+      requestLayout();
+      return;
+    }
+    if (KeybindMatcher::matches(KeybindAction::Validate, event.sym, event.modifiers)) {
+      deleteCurrentProfile();
+      return;
+    }
+    return;
+  }
+
+  if (m_renameActive) {
+    if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+      m_renameActive = false;
+      requestLayout();
+      return;
     }
     return;
   }
