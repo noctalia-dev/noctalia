@@ -1503,7 +1503,8 @@ void Application::initBrightnessAndPipewire() {
 
   try {
     m_brightnessService = std::make_unique<BrightnessService>(
-        m_systemBus.get(), m_compositorPlatform, m_configService.config().brightness
+        m_systemBus.get(), m_compositorPlatform, m_configService.config().brightness, BrightnessDdcRetryDelays{},
+        m_bus.get()
     );
     m_brightnessService->setChangeCallback([this, shouldRefreshControlCenter] {
       m_brightnessOsd.onBrightnessChanged(*m_brightnessService);
