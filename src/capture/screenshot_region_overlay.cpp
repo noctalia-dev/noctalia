@@ -849,10 +849,6 @@ namespace capture {
         cancelSelection();
         return;
       }
-      if (isSelectAllShortcut(key.sym, key.modifiers)) {
-        DeferredCall::callLater([this] { selectEntireDesktop(); });
-        return;
-      }
       if (m_confirming) {
         if (KeybindMatcher::matches(KeybindAction::Copy, key.sym, key.modifiers)) {
           DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::ForceClipboard); });
@@ -864,7 +860,11 @@ namespace capture {
         }
         if (KeySymbol::isEnterOrSpace(key.sym)) {
           DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::None); });
+          return;
         }
+      }
+      if (isSelectAllShortcut(key.sym, key.modifiers)) {
+        DeferredCall::callLater([this] { selectEntireDesktop(); });
       }
     });
 
@@ -1055,19 +1055,22 @@ namespace capture {
       cancelSelection();
       return;
     }
+    if (m_confirming) {
+      if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
+        confirmPendingSelection(ConfirmAction::ForceClipboard);
+        return;
+      }
+      if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
+        confirmPendingSelection(ConfirmAction::ForceSave);
+        return;
+      }
+      if (KeySymbol::isEnterOrSpace(event.sym)) {
+        confirmPendingSelection(ConfirmAction::None);
+        return;
+      }
+    }
     if (isSelectAllShortcut(event.sym, event.modifiers)) {
       selectEntireDesktop();
-      return;
-    }
-    if (!m_confirming) {
-      return;
-    }
-    if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
-      confirmPendingSelection(ConfirmAction::ForceClipboard);
-    } else if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
-      confirmPendingSelection(ConfirmAction::ForceSave);
-    } else if (KeySymbol::isEnterOrSpace(event.sym)) {
-      confirmPendingSelection(ConfirmAction::None);
     }
   }
 
