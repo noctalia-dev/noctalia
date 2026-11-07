@@ -732,16 +732,18 @@ struct BrightnessService::Impl {
   std::vector<BrightnessDisplay> publicDisplays;
   std::vector<DisplayInternal> internals;
 
-  bool fadeWindowEntered = false;
+  bool fadeSnapshotCaptured = false;
+  bool fadePhaseAtEntry = false;
+  struct FadeStart {
+    float level = 1.0F;
+    float progress = 0.0F; // window progress (0..1) at which level was captured
+  };
   std::unordered_map<std::string, float> baselineBrightness;
-  std::unordered_map<std::string, float> fadeStartBrightness;
+  std::unordered_map<std::string, FadeStart> fadeStarts;
   std::unordered_map<std::string, float> lastScheduledBrightness;
   bool scheduledWriteActive = false;
   std::optional<double> resolvedLatitude;
   std::optional<double> resolvedLongitude;
-
-  static constexpr auto kScheduleHalfFade = std::chrono::milliseconds(30 * 60 * 1000);
-  static constexpr auto kScheduleTickInterval = std::chrono::milliseconds(60 * 1000);
 
   Timer m_scheduleTimer;
 
@@ -866,12 +868,23 @@ struct BrightnessService::Impl {
   }
 
   void reload(const BrightnessConfig& config, const LocationConfig& location) {
-    const bool brightnessChanged = activeConfig != config;
+    // Schedule target values must NOT trigger a display rebuild: rebuilding tears down the DDC
+    // displays and the re-detect is async, so the new targets would only land on the next tick.
+    auto stripScheduleValues = [](const BrightnessConfig& c) {
+      BrightnessConfig copy = c;
+      copy.scheduledDayBrightness = 0.0F;
+      copy.scheduledNightBrightness = 0.0F;
+      for (auto& monitorOverride : copy.monitorOverrides) {
+        monitorOverride.scheduledDayBrightness.reset();
+        monitorOverride.scheduledNightBrightness.reset();
+      }
+      return copy;
+    };
+    const bool structureChanged = stripScheduleValues(activeConfig) != stripScheduleValues(config);
     activeConfig = config;
     locationConfig = location;
-    baselineBrightness.clear();
     lastScheduledBrightness.clear();
-    if (brightnessChanged) {
+    if (structureChanged) {
       rebuildState(true);
     }
     applyScheduledBrightnessIfNeeded();
@@ -1258,9 +1271,10 @@ struct BrightnessService::Impl {
   }
 
   void resetScheduleState() {
-    fadeWindowEntered = false;
+    fadeSnapshotCaptured = false;
+    fadePhaseAtEntry = false;
     baselineBrightness.clear();
-    fadeStartBrightness.clear();
+    fadeStarts.clear();
     lastScheduledBrightness.clear();
   }
 
@@ -1283,6 +1297,27 @@ struct BrightnessService::Impl {
     const float dayBright = activeConfig.scheduledDayBrightness;
     const float nightBright = activeConfig.scheduledNightBrightness;
 
+    // Per-monitor overrides ([brightness.monitor.<name>]) take precedence over the global targets.
+    auto scheduledTargetFor = [&](const DisplayInternal& display, bool day) -> float {
+      const WaylandOutput* output = findOutputByConnector(wayland, display.connectorName);
+      for (const auto& monitorOverride : activeConfig.monitorOverrides) {
+        if (monitorOverride.match.empty()) {
+          continue;
+        }
+        const bool matches = output != nullptr ? outputMatchesSelector(monitorOverride.match, *output)
+                                               : monitorOverride.match == display.connectorName;
+        if (!matches) {
+          continue;
+        }
+        const std::optional<float>& value =
+            day ? monitorOverride.scheduledDayBrightness : monitorOverride.scheduledNightBrightness;
+        if (value.has_value()) {
+          return *value;
+        }
+      }
+      return day ? dayBright : nightBright;
+    };
+
     auto halfFade = static_cast<float>(kScheduleHalfFade.count());
     auto untilMs = static_cast<float>(eval.untilBoundary.count());
 
@@ -1290,14 +1325,17 @@ struct BrightnessService::Impl {
     const float progress = transitioning ? 1.0F - (untilMs / halfFade) : 0.0F;
 
     // Capture each display's level once per fade window so the ramp is linear from that point
+    // Re-capture if the target phase flips mid-window, the new ramp then restarts from progress 0
     // Fades remember each display's level as the pre-schedule level to restore after sunrise
     if (transitioning) {
-      if (!fadeWindowEntered) {
-        fadeWindowEntered = true;
+      const bool phaseFlipped = fadeSnapshotCaptured && fadePhaseAtEntry != eval.night;
+      if (!fadeSnapshotCaptured || phaseFlipped) {
+        fadeSnapshotCaptured = true;
+        fadePhaseAtEntry = eval.night;
         for (auto& display : internals) {
           if (display.pub.controllable) {
             const float level = std::clamp(display.pub.brightness, activeConfig.minimumBrightness, 1.0F);
-            fadeStartBrightness[display.pub.id] = level;
+            fadeStarts[display.pub.id] = FadeStart{level, phaseFlipped ? progress : 0.0F};
             if (!eval.night) {
               baselineBrightness[display.pub.id] = level;
             }
@@ -1305,8 +1343,9 @@ struct BrightnessService::Impl {
         }
       }
     } else {
-      fadeWindowEntered = false;
-      fadeStartBrightness.clear();
+      fadeSnapshotCaptured = false;
+      fadePhaseAtEntry = false;
+      fadeStarts.clear();
     }
 
     scheduledWriteActive = true;
@@ -1317,7 +1356,7 @@ struct BrightnessService::Impl {
       }
 
       const bool destDay = transitioning ? eval.night : !eval.night;
-      float value = destDay ? dayBright : nightBright;
+      float value = scheduledTargetFor(display, destDay);
       if (destDay) {
         auto it = baselineBrightness.find(display.pub.id);
         if (it != baselineBrightness.end()) {
@@ -1325,11 +1364,23 @@ struct BrightnessService::Impl {
         }
       }
       if (transitioning) {
-        auto startIt = fadeStartBrightness.find(display.pub.id);
-        if (startIt == fadeStartBrightness.end()) {
-          startIt = fadeStartBrightness.emplace(display.pub.id, display.pub.brightness).first; // joined mid-window
+        auto startIt = fadeStarts.find(display.pub.id);
+        if (startIt == fadeStarts.end()) {
+          startIt = fadeStarts.emplace(display.pub.id, FadeStart{display.pub.brightness, progress}).first;
+        } else {
+          const auto applied = lastScheduledBrightness.find(display.pub.id);
+          if (applied != lastScheduledBrightness.end() && display.maxRaw > 0) {
+            const float held = normalizedBrightness(
+                static_cast<int>(std::llround(applied->second * static_cast<float>(display.maxRaw))), display.maxRaw
+            );
+            if (std::abs(display.pub.brightness - held) * static_cast<float>(display.maxRaw) > 1.5F) {
+              startIt->second = FadeStart{display.pub.brightness, progress};
+            }
+          }
         }
-        value = std::lerp(startIt->second, value, progress);
+        const float anchor = startIt->second.progress;
+        const float span = std::max(1.0F - anchor, 1e-6F);
+        value = std::lerp(startIt->second.level, value, std::clamp((progress - anchor) / span, 0.0F, 1.0F));
       }
 
       value = std::clamp(value, activeConfig.minimumBrightness, 1.0F);

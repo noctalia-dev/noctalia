@@ -60,6 +60,24 @@ int main() {
   const std::vector<std::string> vdirPath{"calendar", "account", "feed", "path"};
 
   {
+    // A monitor scheduled-brightness override that matches the effective global carries no information;
+    // it must be dropped whichever slider moved last.
+    ConfigService config;
+    const std::vector<std::string> monitorDay{"brightness", "monitor", "HDMI-A-1", "scheduled_day_brightness"};
+    const std::vector<std::string> globalDay{"brightness", "scheduled_day_brightness"};
+
+    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> monitorEdit;
+    monitorEdit.emplace_back(monitorDay, 0.9);
+    expect(config.setOverrides(std::move(monitorEdit)), "monitor day override writes");
+    expect(config.hasOverride(monitorDay), "monitor day override present while it differs from global");
+
+    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> globalEdit;
+    globalEdit.emplace_back(globalDay, 0.9);
+    expect(config.setOverrides(std::move(globalEdit)), "global day override writes");
+    expect(!config.hasOverride(monitorDay), "monitor day override pruned once global matches it");
+  }
+
+  {
     ConfigService config;
 
     const DockMonitorOverride* legacyDockOverride = findDockMonitorOverride(config.config(), "legacy");

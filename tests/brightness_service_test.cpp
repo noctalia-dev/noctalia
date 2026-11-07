@@ -11,7 +11,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -531,6 +533,139 @@ namespace {
     fixture.config.minimumBrightness = 0.1F;
     fixture.service->reload(fixture.config, fixture.location);
     TEST_CHECK(fixture.waitFor([&fixture, detects]() { return fixture.ddc.count("detect") == detects + 1; }));
+
+    fixture.config.scheduledDayBrightness = 0.42F;
+    fixture.config.monitorOverrides[0].scheduledNightBrightness = 0.33F;
+    fixture.service->reload(fixture.config, fixture.location);
+    fixture.observe(400ms);
+    TEST_CHECK(fixture.ddc.count("detect") == detects + 1);
+  }
+
+  std::string clockHMS(std::chrono::system_clock::time_point tp) {
+    const std::time_t tt = std::chrono::system_clock::to_time_t(tp);
+    std::tm tm{};
+    localtime_r(&tt, &tm);
+    char buf[9];
+    std::snprintf(buf, sizeof(buf), "%02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
+    return buf;
+  }
+
+  void setFastSchedule() {
+    kScheduleTickInterval = 1s;
+    kScheduleHalfFade = 30s;
+  }
+
+  void checkPerMonitorScheduledFadeTicks() {
+    setFastSchedule();
+    Fixture fixture("ready", 1, [](BrightnessConfig& config, LocationConfig&) {
+      config.enableScheduledBrightness = true;
+      config.scheduledDayBrightness = 0.9F;
+      config.scheduledNightBrightness = 0.3F;                      // global night target — must not apply to DDC-TEST-1
+      config.monitorOverrides[0].scheduledNightBrightness = 0.05F; // per-monitor override
+    });
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+
+    const auto now = std::chrono::system_clock::now();
+    fixture.location.customSchedule = true;
+    fixture.location.sunset = clockHMS(now + 3s);
+    fixture.location.sunrise = clockHMS(now - 4h);
+    fixture.service->reload(fixture.config, fixture.location);
+
+    TEST_CHECK(fixture.waitFor(
+        [&fixture]() {
+          const auto* d = fixture.service->findDisplay(kConnectors[0]);
+          return d != nullptr && d->brightness < 0.2F;
+        },
+        15s
+    ));
+
+    // Ticks keep advancing the ramp: each tick moves at least one raw step closer to 0.05.
+    const auto* display = fixture.service->findDisplay(kConnectors[0]);
+    TEST_CHECK(display != nullptr);
+    const float first = display->brightness;
+    TEST_CHECK(fixture.waitFor(
+        [&fixture, first]() {
+          const auto* d = fixture.service->findDisplay(kConnectors[0]);
+          return d != nullptr && d->brightness < first - 0.004F;
+        },
+        15s
+    ));
+
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.05F); }, 30s));
+  }
+
+  void checkFadeReanchorManualSetAndPhaseFlip() {
+    setFastSchedule();
+    Fixture fixture("ready", 1, [](BrightnessConfig& config, LocationConfig&) {
+      config.enableScheduledBrightness = true;
+      config.scheduledDayBrightness = 0.8F;
+      config.scheduledNightBrightness = 0.3F;
+    });
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+
+    const auto* display = fixture.service->findDisplay(kConnectors[0]);
+    TEST_CHECK(display != nullptr);
+    fixture.service->setBrightness(display->id, 0.95F);
+
+    const auto now = std::chrono::system_clock::now();
+    const auto sunsetAt = now + 3s;
+    fixture.location.customSchedule = true;
+    fixture.location.sunset = clockHMS(sunsetAt);
+    fixture.location.sunrise = clockHMS(now + 9s);
+    fixture.service->reload(fixture.config, fixture.location);
+
+    TEST_CHECK(fixture.waitFor(
+        [&fixture]() {
+          const auto* d = fixture.service->findDisplay(kConnectors[0]);
+          return d != nullptr && d->brightness < 0.6F;
+        },
+        15s
+    ));
+
+    TEST_CHECK(fixture.waitFor([&]() { return std::chrono::system_clock::now() > sunsetAt + 3s; }, 15s));
+    {
+      const auto* d = fixture.service->findDisplay(kConnectors[0]);
+      TEST_CHECK(d != nullptr);
+      TEST_CHECK(d->brightness < 0.7F);
+    }
+
+    fixture.service->reload(fixture.config, fixture.location);
+
+    const auto manualAt = std::chrono::system_clock::now();
+    fixture.service->setBrightness(display->id, 0.5F);
+    TEST_CHECK(fixture.waitFor([&manualAt]() { return std::chrono::system_clock::now() > manualAt + 2s; }, 15s));
+    {
+      const auto* d = fixture.service->findDisplay(kConnectors[0]);
+      TEST_CHECK(d != nullptr);
+      TEST_CHECK(d->brightness >= 0.45F && d->brightness <= 0.8F);
+    }
+
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.95F); }, 30s));
+  }
+
+  void checkReloadMidWindowKeepsSunriseRestore() {
+    setFastSchedule();
+    Fixture fixture("ready", 1, [](BrightnessConfig& config, LocationConfig&) {
+      config.enableScheduledBrightness = true;
+      config.scheduledDayBrightness = 0.8F;
+      config.scheduledNightBrightness = 0.3F;
+    });
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+
+    const auto* display = fixture.service->findDisplay(kConnectors[0]);
+    TEST_CHECK(display != nullptr);
+    fixture.service->setBrightness(display->id, 0.9F); // pre-schedule level, captured as baseline at window entry
+
+    const auto now = std::chrono::system_clock::now();
+    fixture.location.customSchedule = true;
+    fixture.location.sunset = clockHMS(now + 3s);
+    fixture.location.sunrise = clockHMS(now + 9s);
+    fixture.service->reload(fixture.config, fixture.location);
+
+    TEST_CHECK(fixture.waitFor([&now]() { return std::chrono::system_clock::now() > now + 5s; }, 10s));
+    fixture.service->reload(fixture.config, fixture.location);
+
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.9F); }, 30s));
   }
 
 } // namespace
@@ -552,5 +687,8 @@ int main(int argc, char** argv) {
   checkOutputRemovalCancelsRetry();
   checkScheduleWaitsForResolvedCoordinates();
   checkReloadRebuildsOnlyOnBrightnessChange();
+  checkPerMonitorScheduledFadeTicks();
+  checkFadeReanchorManualSetAndPhaseFlip();
+  checkReloadMidWindowKeepsSunriseRestore();
   return 0;
 }

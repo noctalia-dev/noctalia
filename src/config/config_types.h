@@ -1575,9 +1575,10 @@ constexpr EnumOption<BrightnessBackendPreference> kBrightnessBackendPreferences[
 struct BrightnessMonitorOverride {
   std::string match;
   std::optional<BrightnessBackendPreference> backend;
-  std::optional<std::string> backlightDevice; // sysfs device name or path, e.g. "intel_backlight"
-  std::optional<std::int32_t> ddcBus;         // DDC bus number, e.g. 6 for i2c-6
-
+  std::optional<std::string> backlightDevice;    // sysfs device name or path, e.g. "intel_backlight"
+  std::optional<std::int32_t> ddcBus;            // DDC bus number, e.g. 6 for i2c-6
+  std::optional<float> scheduledDayBrightness;   // overrides the global day target (0.0 to 1.0)
+  std::optional<float> scheduledNightBrightness; // overrides the global night target (0.0 to 1.0)
   bool operator==(const BrightnessMonitorOverride&) const = default;
 };
 

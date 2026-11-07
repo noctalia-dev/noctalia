@@ -13,9 +13,12 @@ namespace day_night_schedule {
 
   namespace {
 
-    // Callers must have accepted the string through normalizedClock first.
-    int timeToMinutes(std::string_view hhmm) {
-      return (hhmm[0] - '0') * 600 + (hhmm[1] - '0') * 60 + (hhmm[3] - '0') * 10 + (hhmm[4] - '0');
+    // Callers must have accepted the string through normalizedClock first. "HH:MM" or "HH:MM:SS".
+    int timeToSeconds(std::string_view t) {
+      const int hour = (t[0] - '0') * 10 + (t[1] - '0');
+      const int minute = (t[3] - '0') * 10 + (t[4] - '0');
+      const int second = t.size() == 8 ? (t[6] - '0') * 10 + (t[7] - '0') : 0;
+      return hour * 3600 + minute * 60 + second;
     }
 
     std::pair<int, int> currentLocalTime() {
@@ -100,20 +103,34 @@ namespace day_night_schedule {
 
   } // namespace
 
+  // Accepts "HH:MM" or "HH:MM:SS".
   std::optional<std::string> normalizedClock(std::string_view value) {
-    if (value.size() != 5 || value[2] != ':') {
+    if (value.size() != 5 && value.size() != 8) {
       return std::nullopt;
     }
-    if (!std::isdigit(static_cast<unsigned char>(value[0]))
-        || !std::isdigit(static_cast<unsigned char>(value[1]))
-        || !std::isdigit(static_cast<unsigned char>(value[3]))
-        || !std::isdigit(static_cast<unsigned char>(value[4]))) {
+    if (value[2] != ':' || (value.size() == 8 && value[5] != ':')) {
       return std::nullopt;
+    }
+    for (const size_t i : {0, 1, 3, 4}) {
+      if (!std::isdigit(static_cast<unsigned char>(value[i]))) {
+        return std::nullopt;
+      }
     }
     const int hour = (value[0] - '0') * 10 + (value[1] - '0');
     const int minute = (value[3] - '0') * 10 + (value[4] - '0');
-    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    if (hour > 23 || minute > 59) {
       return std::nullopt;
+    }
+    if (value.size() == 8) {
+      for (const size_t i : {6, 7}) {
+        if (!std::isdigit(static_cast<unsigned char>(value[i]))) {
+          return std::nullopt;
+        }
+      }
+      const int second = (value[6] - '0') * 10 + (value[7] - '0');
+      if (second > 59) {
+        return std::nullopt;
+      }
     }
     return std::string(value);
   }
@@ -142,20 +159,23 @@ namespace day_night_schedule {
     const auto [nowMin, nowSec] = currentLocalTime();
 
     if (isManualMode(config)) {
-      const int sunsetMin = timeToMinutes(config.sunset);
-      const int sunriseMin = timeToMinutes(config.sunrise);
-      const bool night = sunsetMin < sunriseMin ? (nowMin >= sunsetMin && nowMin < sunriseMin)
-                                                : (nowMin >= sunsetMin || nowMin < sunriseMin);
-      const int targetMin = night ? sunriseMin : sunsetMin;
-      int diffMin = targetMin - nowMin;
-      if (diffMin <= 0) {
-        diffMin += 1440;
+      const int sunsetSec = timeToSeconds(config.sunset);
+      const int sunriseSec = timeToSeconds(config.sunrise);
+      const int nowSod = nowMin * 60 + nowSec; // seconds of day
+      const bool night = sunsetSec < sunriseSec ? (nowSod >= sunsetSec && nowSod < sunriseSec)
+                                                : (nowSod >= sunsetSec || nowSod < sunriseSec);
+      const int targetSec = night ? sunriseSec : sunsetSec;
+      int diffSec = targetSec - nowSod;
+      if (diffSec <= 0) {
+        diffSec += 86400;
       }
-      const auto ms = std::chrono::milliseconds(diffMin * 60 * 1000 - nowSec * 1000);
+      const auto ms = std::chrono::milliseconds(diffSec * 1000);
+      const int lastBoundarySec = night ? sunsetSec : sunriseSec;
+      const int sinceSec = (nowSod - lastBoundarySec + 86400) % 86400;
       return Evaluation{
           .night = night,
           .untilBoundary = std::max(ms, std::chrono::milliseconds(1000)),
-          .sinceBoundary = sinceBoundaryMs(nowMin, nowSec, night ? sunsetMin : sunriseMin),
+          .sinceBoundary = std::chrono::milliseconds(sinceSec * 1000),
       };
     }
 

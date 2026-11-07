@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -69,3 +70,6 @@ private:
   struct Impl;
   Impl* m_impl;
 };
+
+inline std::chrono::milliseconds kScheduleTickInterval{std::chrono::seconds(60)};
+inline std::chrono::milliseconds kScheduleHalfFade{std::chrono::minutes(30)};

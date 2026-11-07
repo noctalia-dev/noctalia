@@ -471,6 +471,31 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  template <typename Struct>
+  Field<Struct> optionalFloatField(
+      std::optional<float> Struct::* member, std::string_view key, std::optional<Range<float>> range = std::nullopt
+  ) {
+    return custom<Struct>(
+        key,
+        [member, key, range](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
+          if (auto v = finiteDouble(tbl[key])) {
+            auto value = static_cast<float>(*v);
+            if (range) {
+              value = applyRange(value, *range);
+            }
+            out.*member = value;
+          } else {
+            warnUnusableNumber(tbl, key, parentPath, diag);
+          }
+        },
+        [member, key](toml::table& tbl, const Struct& in) {
+          if ((in.*member).has_value()) {
+            tbl.insert_or_assign(key, static_cast<double>(*(in.*member)));
+          }
+        }
+    );
+  }
+
   namespace {
     const Schema<BrightnessMonitorOverride>& brightnessMonitorSchema() {
       static const Schema<BrightnessMonitorOverride> s = {
@@ -478,6 +503,12 @@ namespace noctalia::config::schema {
           optionalEnumField(&BrightnessMonitorOverride::backend, "backend", kBrightnessBackendPreferences),
           field(&BrightnessMonitorOverride::backlightDevice, "backlight_device"),
           field(&BrightnessMonitorOverride::ddcBus, "ddc_bus"),
+          optionalFloatField(
+              &BrightnessMonitorOverride::scheduledDayBrightness, "scheduled_day_brightness", kUnitRange
+          ),
+          optionalFloatField(
+              &BrightnessMonitorOverride::scheduledNightBrightness, "scheduled_night_brightness", kUnitRange
+          ),
       };
       return s;
     }
@@ -2292,31 +2323,6 @@ namespace noctalia::config::schema {
           [member, key](toml::table& tbl, const Struct& in) {
             if ((in.*member).has_value()) {
               tbl.insert_or_assign(key, static_cast<std::int64_t>(*(in.*member)));
-            }
-          }
-      );
-    }
-
-    template <typename Struct>
-    Field<Struct> optionalFloatField(
-        std::optional<float> Struct::* member, std::string_view key, std::optional<Range<float>> range = std::nullopt
-    ) {
-      return custom<Struct>(
-          key,
-          [member, key, range](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
-            if (auto v = finiteDouble(tbl[key])) {
-              auto value = static_cast<float>(*v);
-              if (range) {
-                value = applyRange(value, *range);
-              }
-              out.*member = value;
-            } else {
-              warnUnusableNumber(tbl, key, parentPath, diag);
-            }
-          },
-          [member, key](toml::table& tbl, const Struct& in) {
-            if ((in.*member).has_value()) {
-              tbl.insert_or_assign(key, static_cast<double>(*(in.*member)));
             }
           }
       );
