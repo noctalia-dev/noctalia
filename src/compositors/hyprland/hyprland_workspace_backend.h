@@ -40,6 +40,7 @@ public:
   std::unordered_map<std::string, std::vector<std::string>> appIdsByWorkspace(wl_output* output) const override;
   std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const override;
   std::vector<std::string> openOverlayWorkspaceKeys(wl_output* output) const override;
+  std::vector<Workspace> overlayWorkspaces(wl_output* output) const override;
   std::optional<std::string> focusedWindowId() const;
   void focusWindow(const std::string& windowId) override;
   void cleanup() override;
