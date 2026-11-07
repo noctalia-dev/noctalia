@@ -16,6 +16,7 @@ namespace noctalia::system::intel_gpu {
   struct Device {
     std::filesystem::path devicePath;
     std::filesystem::path renderNode;
+    std::filesystem::path rc6ResidencyPath;
     std::string pciSlot;
     Driver driver = Driver::Xe;
   };
@@ -65,7 +66,9 @@ namespace noctalia::system::intel_gpu {
     std::unordered_map<std::uint64_t, EngineCounters> m_clients;
     std::array<std::uint64_t, kEngineClassCount> m_gpuTicks{};
     std::chrono::steady_clock::time_point m_sampledAt;
+    std::uint64_t m_previousRc6Ms = 0;
     bool m_hasBaseline = false;
+    bool m_hasRc6Baseline = false;
   };
 
 } // namespace noctalia::system::intel_gpu
