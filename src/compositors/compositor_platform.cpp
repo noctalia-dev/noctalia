@@ -916,9 +916,11 @@ std::vector<std::string> CompositorPlatform::runningAppIds(wl_output* outputFilt
     return ids;
   }
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
-    const auto ids = m_kwinActiveWindow->runningAppIds();
-    if (!ids.empty()) {
-      (void)outputFilter;
+    // Per-monitor taskbar: KWin tags every window with its output, so filter here. When a filter is
+    // set the (possibly empty) KWin answer is authoritative; falling through would list every window.
+    const std::string outputName = outputFilter != nullptr ? connectorNameForOutput(outputFilter) : std::string{};
+    const auto ids = m_kwinActiveWindow->runningAppIds(outputName);
+    if (!ids.empty() || !outputName.empty()) {
       return ids;
     }
   }
@@ -932,9 +934,9 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
     return enrichedWindowsForApp(idLower, wmClassLower, outputFilter);
   }
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
-    const auto kdeWindows = m_kwinActiveWindow->windowsForApp(idLower, wmClassLower);
-    if (!kdeWindows.empty()) {
-      (void)outputFilter;
+    const std::string outputName = outputFilter != nullptr ? connectorNameForOutput(outputFilter) : std::string{};
+    const auto kdeWindows = m_kwinActiveWindow->windowsForApp(idLower, wmClassLower, outputName);
+    if (!kdeWindows.empty() || !outputName.empty()) {
       return kdeWindows;
     }
   }
