@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -9,6 +10,7 @@ class IpcService;
 class SystemBus;
 class CompositorPlatform;
 struct BrightnessConfig;
+struct LocationConfig;
 struct wl_output;
 
 struct BrightnessDisplay {
@@ -33,7 +35,9 @@ public:
     End,
   };
 
-  BrightnessService(SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config);
+  BrightnessService(
+      SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, const LocationConfig& location
+  );
   ~BrightnessService();
 
   BrightnessService(const BrightnessService&) = delete;
@@ -48,11 +52,14 @@ public:
   void setBrightness(const std::string& displayId, float value);
   void requestDdcRefresh();
   void requestDdcRescan();
-  void reload(const BrightnessConfig& config);
+  void reload(const BrightnessConfig& config, const LocationConfig& location);
+  void setResolvedCoordinates(std::optional<double> latitude, std::optional<double> longitude);
   void onOutputsChanged();
   void registerIpc(IpcService& ipc, const std::function<void(BatchChangePhase)>& onBatchChange = {});
 
   void setChangeCallback(ChangeCallback callback);
+
+  bool lastChangeWasScheduled() const noexcept;
 
   // Poll integration — inotify fd for external brightness changes.
   int watchFd() const noexcept;

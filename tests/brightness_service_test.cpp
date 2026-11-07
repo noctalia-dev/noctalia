@@ -1,5 +1,6 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_types.h"
+#include "core/timer_manager.h"
 #include "system/brightness_service.h"
 #include "tests/test_check.h"
 #include "wayland/wayland_connection.h"
@@ -197,10 +198,14 @@ namespace {
     WaylandConnection wayland;
     CompositorPlatform platform;
     BrightnessConfig config;
+    LocationConfig location;
     std::unique_ptr<BrightnessService> service;
     std::size_t dispatchCount = 0;
 
-    explicit Fixture(std::string_view mode, int outputCount = 1)
+    explicit Fixture(
+        std::string_view mode, int outputCount = 1,
+        const std::function<void(BrightnessConfig&, LocationConfig&)>& configure = {}
+    )
         : ddc(mode, outputCount), server(outputCount), platform(wayland) {
       TEST_CHECK(wayland.connect());
       TEST_CHECK(wayland.outputs().size() == static_cast<std::size_t>(outputCount));
@@ -211,7 +216,10 @@ namespace {
             .backend = BrightnessBackendPreference::Ddcutil,
         });
       }
-      service = std::make_unique<BrightnessService>(nullptr, platform, config);
+      if (configure) {
+        configure(config, location);
+      }
+      service = std::make_unique<BrightnessService>(nullptr, platform, config, location);
     }
 
     bool waitFor(const std::function<bool()>& predicate, std::chrono::milliseconds timeout = 2500ms) {
@@ -227,6 +235,7 @@ namespace {
           service->dispatchWatch();
           ++dispatchCount;
         }
+        TimerManager::instance().tick();
       }
       return predicate();
     }
@@ -425,10 +434,10 @@ namespace {
     Fixture fixture("blocked-detect");
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.exists("held-detect"); }));
     fixture.config.enableDdcutil = false;
-    fixture.service->reload(fixture.config);
+    fixture.service->reload(fixture.config, fixture.location);
     fixture.ddc.set("mode", "ready");
     fixture.config.enableDdcutil = true;
-    fixture.service->reload(fixture.config);
+    fixture.service->reload(fixture.config, fixture.location);
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }, 1500ms));
     TEST_CHECK(fixture.ddc.count("detect") == 2);
     fixture.observe(1200ms);
@@ -450,7 +459,7 @@ namespace {
       return fixture.ddc.count("getvcp-71") == 1 && fixture.dispatchCount > 0;
     }));
     fixture.config.enableDdcutil = false;
-    fixture.service->reload(fixture.config);
+    fixture.service->reload(fixture.config, fixture.location);
     fixture.observe(1500ms);
     TEST_CHECK(fixture.ddc.count("detect") == 1);
     TEST_CHECK(!fixture.controllable());
@@ -460,7 +469,7 @@ namespace {
     Fixture fixture("always-fail", 2);
     fixture.config.monitorOverrides[0].backend = BrightnessBackendPreference::None;
     fixture.config.monitorOverrides[1].backend = BrightnessBackendPreference::Backlight;
-    fixture.service->reload(fixture.config);
+    fixture.service->reload(fixture.config, fixture.location);
     fixture.observe(1500ms);
     TEST_CHECK(!fixture.controllable());
     TEST_CHECK(!fixture.controllable(1));
@@ -486,6 +495,44 @@ namespace {
     TEST_CHECK(fixture.ddc.count("detect") == attempts);
   }
 
+  void checkScheduleWaitsForResolvedCoordinates() {
+    Fixture fixture("ready", 1, [](BrightnessConfig& config, LocationConfig&) {
+      config.enableScheduledBrightness = true;
+      config.scheduledNightBrightness = 0.3F;
+    });
+
+    fixture.observe(400ms);
+    TEST_CHECK(fixture.ddc.count("setvcp-71") == 0);
+
+    fixture.service->setResolvedCoordinates(52.37, 4.90); // Amsterdam
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") >= 1; }));
+    const auto* display = fixture.service->findDisplay(kConnectors[0]);
+    TEST_CHECK(display != nullptr && display->controllable);
+    TEST_CHECK(display->brightness >= fixture.config.scheduledNightBrightness - 0.001F);
+    TEST_CHECK(display->brightness <= fixture.config.scheduledDayBrightness + 0.001F);
+
+    const int before = fixture.ddc.count("setvcp-71");
+    fixture.service->setResolvedCoordinates(52.37, 4.90);
+    fixture.observe(200ms);
+    TEST_CHECK(fixture.ddc.count("setvcp-71") == before);
+  }
+
+  void checkReloadRebuildsOnlyOnBrightnessChange() {
+    Fixture fixture("ready");
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
+    const int detects = fixture.ddc.count("detect");
+
+    fixture.location.latitude = 52.37;
+    fixture.location.longitude = 4.90;
+    fixture.service->reload(fixture.config, fixture.location);
+    fixture.observe(400ms);
+    TEST_CHECK(fixture.ddc.count("detect") == detects);
+
+    fixture.config.minimumBrightness = 0.1F;
+    fixture.service->reload(fixture.config, fixture.location);
+    TEST_CHECK(fixture.waitFor([&fixture, detects]() { return fixture.ddc.count("detect") == detects + 1; }));
+  }
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -503,5 +550,7 @@ int main(int argc, char** argv) {
   checkDisableCancelsDelayedDiscovery();
   checkExclusionsStopRetries();
   checkOutputRemovalCancelsRetry();
+  checkScheduleWaitsForResolvedCoordinates();
+  checkReloadRebuildsOnlyOnBrightnessChange();
   return 0;
 }
