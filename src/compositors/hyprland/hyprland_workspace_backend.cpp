@@ -795,6 +795,10 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
     // the monitor snapshot went stale. The payload is not parsed: j/monitors is the only
     // source that tells whether the special is open, and it keys it per monitor.
     refreshMonitors();
+    // Opening a special workspace shows its windows, like activating a regular one does.
+    for (const auto& [monitor, workspaceKey] : m_openSpecialWorkspaceByMonitor) {
+      clearUrgentForWorkspace(workspaceKey);
+    }
     recomputeWorkspaceFlags();
     notifyChanged();
     return;

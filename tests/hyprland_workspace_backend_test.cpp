@@ -706,11 +706,26 @@ namespace {
          )
         && ok;
 
+    // A window in the hidden special workspace asks for attention (Discord on a new message).
+    eventHandler.handleEvent("urgent", "102");
+    const auto urgentOverlays = backend.overlayWorkspaces(left);
+    ok = check(
+             !urgentOverlays.empty() && urgentOverlays.front().urgent,
+             "an urgent window must mark its closed special workspace urgent"
+         )
+        && ok;
+
     schema.store(SnapshotSchema::TypedSpecialOverlay);
     eventHandler.handleEvent("activespecial", "special:magic");
     ok = check(
              backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"},
              "reopening an already-populated special workspace must restore the overlay"
+         )
+        && ok;
+    const auto reopenedOverlays = backend.overlayWorkspaces(left);
+    ok = check(
+             !reopenedOverlays.empty() && !reopenedOverlays.front().urgent,
+             "opening a special workspace must clear the urgency of its windows"
          )
         && ok;
 
