@@ -72,9 +72,9 @@ WorkspacesWidget::WorkspacesWidget(
     CompositorPlatform& platform, ConfigService& config, wl_output* output, Options options
 )
     : m_platform(platform), m_configService(config), m_output(output), m_labelSource(options.labelSource),
-      m_showLabels(options.showLabels), m_maxLabelChars(options.maxLabelChars),
-      m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_showIcons(options.showIcons),
-      m_colorizeIcons(options.colorizeIcons), m_hideWhenEmpty(options.hideWhenEmpty),
+      m_showLabels(options.showLabels), m_activeLabelBold(options.activeLabelBold),
+      m_maxLabelChars(options.maxLabelChars), m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied),
+      m_showIcons(options.showIcons), m_colorizeIcons(options.colorizeIcons), m_hideWhenEmpty(options.hideWhenEmpty),
       m_monitors(std::move(options.monitors)), m_separator(std::move(options.separator)),
       m_pillScale(options.pillScale), m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
@@ -458,8 +458,8 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
   const float gap = kWorkspaceGap * m_contentScale;
   const float labelFontSize = workspaceLabelFontSize(isMinimal()) * fontScale();
   const float pillHeight = std::round(kWorkspacePillDefaultHeight * m_contentScale * m_pillScale);
-  // Active and inactive labels share the configured weight: a heavier weight selects a different
-  // face whose digits sit at a different height.
+  // Separators keep the configured weight. Workspace labels resolve their own weight so an
+  // optional bold active label is measured against the face it will actually render with.
   const FontWeight configuredFontWeight = labelFontWeight();
 
   // Measure text and compute per-slot widths along the bar main axis.
@@ -477,8 +477,9 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     const auto& entry = entries[i];
 
     if (entry.showLabel) {
+      const FontWeight entryFontWeight = workspaceLabelFontWeight(entry.workspace);
       const TextMetrics tm = renderer.measureText(
-          entry.label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
+          entry.label, labelFontSize, {entryFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
       );
       slot.textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
       slot.textHeight = tm.bottom - tm.top;
@@ -510,8 +511,9 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         slot.activeWidth = slot.inactiveWidth;
       }
       if (entry.showLabel) {
+        const FontWeight entryFontWeight = workspaceLabelFontWeight(entry.workspace);
         const TextMetrics tm = renderer.measureText(
-            entry.label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
+            entry.label, labelFontSize, {entryFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
         );
         maxLabelHeight = std::max(maxLabelHeight, tm.bottom - tm.top);
       }
@@ -619,7 +621,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
           ui::label({
               .text = entry.label,
               .fontSize = labelFontSize,
-              .fontWeight = configuredFontWeight,
+              .fontWeight = workspaceLabelFontWeight(ws),
               .fontFamily = labelFontFamily(),
               .color = workspaceTextColor(ws, entry.output),
               .baselineMode = LabelBaselineMode::Text,
@@ -859,7 +861,7 @@ void WorkspacesWidget::ensureItemLabel(Renderer& renderer, Item& item, const Wor
       ui::label({
           .text = item.label,
           .fontSize = labelFontSize,
-          .fontWeight = labelFontWeight(),
+          .fontWeight = workspaceLabelFontWeight(workspace),
           .fontFamily = labelFontFamily(),
           .color = workspaceTextColor(workspace, item.output),
           .baselineMode = LabelBaselineMode::Text,
@@ -876,7 +878,7 @@ void WorkspacesWidget::recalculateItemMetrics(
   const float pillHeight = std::round(kWorkspacePillDefaultHeight * m_contentScale * m_pillScale);
   const float baseSize = std::round(pillHeight);
   const float padding = isMinimal() ? (Style::spaceXs * m_contentScale) : (baseSize * 0.6F);
-  const FontWeight configuredFontWeight = labelFontWeight();
+  const FontWeight workspaceFontWeight = workspaceLabelFontWeight(workspace);
 
   item.label = label;
   item.showLabel = shouldShowWorkspaceLabel(workspace, label);
@@ -894,9 +896,8 @@ void WorkspacesWidget::recalculateItemMetrics(
   float textWidth = 0.0F;
   float textHeight = 0.0F;
   if (item.showLabel) {
-    const TextMetrics tm = renderer.measureText(
-        label, labelFontSize, {configuredFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start
-    );
+    const TextMetrics tm =
+        renderer.measureText(label, labelFontSize, {workspaceFontWeight, labelFontFamily()}, 0.0F, 0, TextAlign::Start);
     textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
     textHeight = tm.bottom - tm.top;
   }
@@ -952,7 +953,7 @@ void WorkspacesWidget::recalculateItemMetrics(
     item.text->setVisible(item.showLabel);
     if (item.showLabel) {
       item.text->setText(label);
-      item.text->setFontWeight(configuredFontWeight);
+      item.text->setFontWeight(workspaceFontWeight);
       item.text->setColor(workspaceTextColor(workspace, item.output));
       item.text->measure(renderer);
     }
@@ -1562,6 +1563,19 @@ ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace, wl_ou
   ColorSpec color = m_emptyColor;
   color.alpha *= 0.55F;
   return color;
+}
+
+FontWeight WorkspacesWidget::workspaceLabelFontWeight(
+    FontWeight configuredWeight, bool boldActiveLabel, bool minimal, bool active
+) noexcept {
+  if (!minimal || !boldActiveLabel || !active) {
+    return configuredWeight;
+  }
+  return std::max(configuredWeight, FontWeight::Bold);
+}
+
+FontWeight WorkspacesWidget::workspaceLabelFontWeight(const Workspace& workspace) const noexcept {
+  return workspaceLabelFontWeight(labelFontWeight(), m_activeLabelBold, isMinimal(), workspace.active);
 }
 
 ColorSpec WorkspacesWidget::workspaceTextColor(const Workspace& workspace, wl_output* output) const {
