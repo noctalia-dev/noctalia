@@ -583,9 +583,18 @@ namespace {
     checkIds("overlayWorkspaces() after closing", closedOverlays, {"special:magic"});
     TEST_CHECK(!closedOverlays.empty() && !closedOverlays.front().active);
 
+    // A window in the hidden special workspace asks for attention (Discord on a new message).
+    eventHandler.handleEvent("urgent", "102");
+    const auto urgentOverlays = backend.overlayWorkspaces(left);
+    // An urgent window marks its closed special workspace urgent.
+    TEST_CHECK(!urgentOverlays.empty() && urgentOverlays.front().urgent);
+
     schema.store(SnapshotSchema::TypedSpecialOverlay);
     eventHandler.handleEvent("activespecial", "special:magic");
     TEST_CHECK(backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"});
+    // Opening a special workspace clears the urgency of its windows.
+    const auto reopenedOverlays = backend.overlayWorkspaces(left);
+    TEST_CHECK(!reopenedOverlays.empty() && !reopenedOverlays.front().urgent);
   }
 
 } // namespace
