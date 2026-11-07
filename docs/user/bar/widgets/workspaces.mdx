@@ -37,6 +37,7 @@ Workspace pills use the workspaces widget's resolved `capsule_radius`. Set `[wid
 | `labels_only_when_occupied` | bool            | `false`        | Show labels on workspaces with open windows and on the active workspace even when empty; other empty tags stay unlabeled. Requires `show_labels = true`, and does not apply to `focus_hint`, which only ever labels the focused workspace.                                                       |
 | `hide_when_empty`           | bool            | `false`        | Hide workspace pills with no open windows.                                                                                                                                                                                                                                                       |
 | `monitors`                  | array of string | `[]`           | Monitors whose workspaces are shown, in listed order. Each entry is a connector name or a monitor selector, matched like bar monitor overrides. `"*"` adds every monitor, starting with the one hosting this bar. Leave empty or omit to show workspaces only from the monitor hosting this bar. |
+| `show_special_workspaces`   | bool            | `false`        | Hyprland only: list special workspaces before the regular ones of the monitor they live on. A special workspace shows as active while it is open, and clicking it toggles it.                                                                                                                    |
 
 The former `show_all_outputs` setting is migrated automatically: `true` becomes `monitors = ["*"]`, and `false` is dropped.
 
@@ -56,6 +57,7 @@ show_tooltip = true     # false = no full-name tooltip on hover
 labels_only_when_occupied = true  # (1) (2*) ( ) (4) - occupied tags and the active tag show labels (*active but empty)
 hide_when_empty = true
 monitors = []           # e.g. ["DP-3", "DP-2"]; ["*"] = every monitor, this bar's monitor first
+show_special_workspaces = false  # true = also list Hyprland special workspaces; click toggles them
 pill_scale = 1.0
 active_pill_size = 2.2
 inactive_pill_size = 1.0

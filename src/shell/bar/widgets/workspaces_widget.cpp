@@ -76,7 +76,8 @@ WorkspacesWidget::WorkspacesWidget(
       m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_showIcons(options.showIcons),
       m_colorizeIcons(options.colorizeIcons), m_hideWhenEmpty(options.hideWhenEmpty),
       m_monitors(std::move(options.monitors)), m_separator(std::move(options.separator)),
-      m_pillScale(options.pillScale), m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
+      m_showSpecial(options.showSpecial), m_pillScale(options.pillScale),
+      m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
       m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor),
@@ -199,6 +200,11 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   const auto appendWorkspaces = [&](wl_output* output) {
     if (output == nullptr) {
       return;
+    }
+    if (m_showSpecial) {
+      for (auto& workspace : m_platform.overlayWorkspaces(output)) {
+        current.push_back({.workspace = std::move(workspace), .output = output});
+      }
     }
     for (auto& workspace : m_platform.workspaces(output)) {
       current.push_back({.workspace = std::move(workspace), .output = output});

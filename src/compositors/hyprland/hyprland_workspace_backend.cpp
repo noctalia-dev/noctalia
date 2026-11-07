@@ -17,6 +17,7 @@
 namespace {
 
   constexpr Logger kLog("hyprland_workspace");
+  constexpr std::string_view kSpecialPrefix = "special:";
 
 } // namespace
 
@@ -47,6 +48,19 @@ void HyprlandWorkspaceBackend::activate(const std::string& id) {
 
   std::string target = id;
   if (const auto* workspace = findWorkspaceByKey(id); workspace != nullptr) {
+    if (isSpecial(*workspace)) {
+      // Special workspaces open over the regular one, so they are toggled rather than focused.
+      std::string_view name = workspace->identity.selector;
+      if (name.starts_with(kSpecialPrefix)) {
+        name.remove_prefix(kSpecialPrefix.size());
+      }
+      if (m_runtime.configIsLua()) {
+        (void)m_runtime.request(std::format("dispatch hl.dsp.workspace.toggle_special(\"{}\")", name));
+      } else {
+        (void)m_runtime.request(std::format("dispatch togglespecialworkspace {}", name));
+      }
+      return;
+    }
     target = workspace->identity.selector;
   } else if (const auto parsed = parseInt(id); parsed.has_value() && *parsed < 0) {
     // Legacy named workspace IDs are not valid absolute dispatcher targets.
@@ -213,6 +227,44 @@ std::vector<std::string> HyprlandWorkspaceBackend::openOverlayWorkspaceKeys(wl_o
     keys.push_back(assignmentKeyFor(workspaceKey));
   }
   return keys;
+}
+
+std::vector<Workspace> HyprlandWorkspaceBackend::overlayWorkspaces(wl_output* output) const {
+  const std::string outputName = m_outputNameResolver != nullptr ? m_outputNameResolver(output) : std::string{};
+  if (outputName.empty()) {
+    return {};
+  }
+
+  // A special workspace follows the monitor it is opened on; its cached monitor may lag behind.
+  const auto hostMonitor = [this](const WorkspaceState& workspace) -> const std::string& {
+    for (const auto& [monitor, workspaceKey] : m_openSpecialWorkspaceByMonitor) {
+      if (workspaceKey == workspace.identity.key) {
+        return monitor;
+      }
+    }
+    return workspace.monitor;
+  };
+
+  std::vector<const WorkspaceState*> ordered;
+  for (const auto& workspace : m_workspaces) {
+    if (isSpecial(workspace) && hostMonitor(workspace) == outputName) {
+      ordered.push_back(&workspace);
+    }
+  }
+
+  std::ranges::sort(ordered, workspaceOrderLess);
+
+  const auto openIt = m_openSpecialWorkspaceByMonitor.find(outputName);
+  std::vector<Workspace> result;
+  result.reserve(ordered.size());
+  for (const auto* workspace : ordered) {
+    auto& entry = result.emplace_back(toWorkspace(*workspace));
+    entry.active = openIt != m_openSpecialWorkspaceByMonitor.end() && openIt->second == workspace->identity.key;
+    if (entry.name.starts_with(kSpecialPrefix)) {
+      entry.name.erase(0, kSpecialPrefix.size());
+    }
+  }
+  return result;
 }
 
 std::optional<std::string> HyprlandWorkspaceBackend::focusedWindowId() const {

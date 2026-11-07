@@ -86,6 +86,9 @@ public:
   // Non-empty means the overlay supersedes the reported active workspace. Keys use the
   // WorkspaceWindow::workspaceKey namespace.
   virtual std::vector<std::string> openOverlayWorkspaceKeys(wl_output* /*output*/) const { return {}; }
+  // Overlay workspaces hosted on `output`, kept out of forOutput(). `active` marks the one open
+  // on that output; activating one toggles it.
+  virtual std::vector<Workspace> overlayWorkspaces(wl_output* /*output*/) const { return {}; }
   virtual void focusWindow(const std::string& /*windowId*/) {}
   // Ext-foreign-toplevel identifier of the focused window, for compositors that publish one in
   // their IPC tree. Window capture itself needs sway >= 1.12, where
