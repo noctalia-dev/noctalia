@@ -13,7 +13,7 @@ public:
   // Recompiles the regex if pattern differs from the current one. key names the
   // config field for diagnostics on an invalid pattern.
   void update(std::string_view key, const std::string& pattern);
-  [[nodiscard]] bool matches(const std::string& value) const;
+  bool matches(const std::string& value) const;
 
 private:
   std::string m_pattern;

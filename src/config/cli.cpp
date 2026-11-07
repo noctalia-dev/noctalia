@@ -5,8 +5,8 @@
 #include "cli/schema_config.h"
 #include "config/config_service.h"
 #include "config/config_validate.h"
+#include "config/toml.h" // IWYU pragma: keep
 #include "core/log.h"
-#include "core/toml.h" // IWYU pragma: keep
 #include "shell/settings/settings_registry.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
@@ -79,10 +79,12 @@ namespace noctalia::config {
           cli::kConfigSettingsCountCmd, "noctalia config settings-count",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
 
       setLogLevel(LogLevel::Warn);
       ConfigService configService;
@@ -330,10 +332,12 @@ namespace noctalia::config {
           cli::kConfigValidateCmd, "noctalia config validate",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
       const std::string pathArg =
           parsed->positionals.empty() ? std::string{} : std::string(parsed->positionals.front());
 
@@ -406,12 +410,20 @@ namespace noctalia::config {
           cli::kConfigExportCmd, "noctalia config export",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
       const std::string_view mode =
           parsed->positionals.empty() ? std::string_view{"merged"} : parsed->positionals.front();
+      const auto credentials =
+          noctalia::config::credentialExportModeFromString(parsed->valueOr("--credentials", "keep"));
+      if (!credentials) {
+        std::println(stderr, "error: expected --credentials keep, omit, or blank");
+        return 1;
+      }
 
       const std::string configDir = FileUtils::configDir();
       std::string settingsPath;
@@ -422,9 +434,9 @@ namespace noctalia::config {
       std::string error;
       std::string content;
       if (mode == "merged") {
-        content = ConfigService::buildMergedUserConfigFromSources(configDir, settingsPath, &error);
+        content = ConfigService::buildMergedUserConfigFromSources(configDir, settingsPath, &error, *credentials);
       } else if (mode == "full") {
-        content = ConfigService::buildEffectiveConfigFromSources(configDir, settingsPath, &error);
+        content = ConfigService::buildEffectiveConfigFromSources(configDir, settingsPath, &error, *credentials);
       } else {
         std::println(stderr, "error: expected merged or full");
         return 1;
@@ -447,21 +459,26 @@ namespace noctalia::config {
       return argc < 3 ? 1 : 0;
     }
 
-    if (std::strcmp(argv[2], "validate") == 0)
+    if (std::strcmp(argv[2], "validate") == 0) {
       return runValidate(argc, argv);
-    if (std::strcmp(argv[2], "export") == 0)
+    }
+    if (std::strcmp(argv[2], "export") == 0) {
       return runExport(argc, argv);
-    if (std::strcmp(argv[2], "settings-count") == 0)
+    }
+    if (std::strcmp(argv[2], "settings-count") == 0) {
       return runSettingsCount(argc, argv);
+    }
     if (std::strcmp(argv[2], "replay-report") == 0) {
       auto parsed = cli::parseOrReport(
           cli::kConfigReplayReportCmd, "noctalia config replay-report",
           std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
       );
-      if (!parsed)
+      if (!parsed) {
         return 1;
-      if (parsed->helpRequested)
+      }
+      if (parsed->helpRequested) {
         return 0;
+      }
       ReplayOptions options{
           .reportPath = parsed->positionals.front(),
           .targetDir = parsed->value("--target"),

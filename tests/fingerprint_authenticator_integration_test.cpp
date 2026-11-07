@@ -33,13 +33,13 @@ namespace {
     };
 
     FakeFprintd()
-        : connection(sdbus::createSessionBusConnection(kFprintBusName)),
-          manager(sdbus::createObject(*connection, kManagerPath)) {
-      manager->addVTable(
-                 sdbus::registerMethod("GetDefaultDevice").implementedAs([]() { return kDevicePath; })
+        : m_connection(sdbus::createSessionBusConnection(kFprintBusName)),
+          m_manager(sdbus::createObject(*m_connection, kManagerPath)) {
+      m_manager->addVTable(
+                   sdbus::registerMethod("GetDefaultDevice").implementedAs([]() { return kDevicePath; })
       ).forInterface(kManagerInterface);
-      device = sdbus::createObject(*connection, kDevicePath);
-      device
+      m_device = sdbus::createObject(*m_connection, kDevicePath);
+      m_device
           ->addVTable(
               sdbus::registerMethod("Claim")
                   .withInputParamNames("username")
@@ -52,45 +52,45 @@ namespace {
               sdbus::registerSignal("VerifyStatus").withParameters<std::string, bool>("result", "done")
           )
           .forInterface(kDeviceInterface);
-      connection->enterEventLoopAsync();
+      m_connection->enterEventLoopAsync();
     }
 
-    ~FakeFprintd() { connection->leaveEventLoop(); }
+    ~FakeFprintd() { m_connection->leaveEventLoop(); }
 
     FakeFprintd(const FakeFprintd&) = delete;
     FakeFprintd& operator=(const FakeFprintd&) = delete;
 
     void emitVerifyStatus(const std::string& result, bool done) {
-      device->emitSignal("VerifyStatus").onInterface(kDeviceInterface).withArguments(result, done);
+      m_device->emitSignal("VerifyStatus").onInterface(kDeviceInterface).withArguments(result, done);
     }
 
     // fprintd unexports the device object when the reader is unplugged.
-    void removeDevice() { device->unregister(); }
+    void removeDevice() { m_device->unregister(); }
 
     // fprintd exits or crashes: the name has no owner and nothing activates it on the test bus.
-    void dropBusName() { connection->releaseName(kFprintBusName); }
+    void dropBusName() { m_connection->releaseName(kFprintBusName); }
 
-    [[nodiscard]] std::string owner() const {
-      std::scoped_lock lock(mutex);
-      return claimOwner;
+    std::string owner() const {
+      std::scoped_lock lock(m_mutex);
+      return m_claimOwner;
     }
 
-    [[nodiscard]] long calls(const std::string& method, const std::string& sender) const {
-      std::scoped_lock lock(mutex);
-      return std::ranges::count_if(log, [&](const Call& c) { return c.method == method && c.sender == sender; });
+    long calls(const std::string& method, const std::string& sender) const {
+      std::scoped_lock lock(m_mutex);
+      return std::ranges::count_if(m_log, [&](const Call& c) { return c.method == method && c.sender == sender; });
     }
 
-    [[nodiscard]] long accepted(const std::string& method, const std::string& sender) const {
-      std::scoped_lock lock(mutex);
-      return std::ranges::count_if(log, [&](const Call& c) {
+    long accepted(const std::string& method, const std::string& sender) const {
+      std::scoped_lock lock(m_mutex);
+      return std::ranges::count_if(m_log, [&](const Call& c) {
         return c.method == method && c.sender == sender && c.accepted;
       });
     }
 
-    [[nodiscard]] std::vector<std::string> acceptedMethods(const std::string& sender) const {
-      std::scoped_lock lock(mutex);
+    std::vector<std::string> acceptedMethods(const std::string& sender) const {
+      std::scoped_lock lock(m_mutex);
       std::vector<std::string> out;
-      for (const auto& c : log) {
+      for (const auto& c : m_log) {
         if (c.sender == sender && c.accepted) {
           out.push_back(c.method);
         }
@@ -99,15 +99,15 @@ namespace {
     }
 
   private:
-    [[nodiscard]] std::string currentSender() const { return device->getCurrentlyProcessedMessage().getSender(); }
+    std::string currentSender() const { return m_device->getCurrentlyProcessedMessage().getSender(); }
 
     void claim(const std::string& sender) {
       {
-        std::scoped_lock lock(mutex);
-        const bool free = claimOwner.empty();
-        log.push_back({"Claim", sender, free});
+        std::scoped_lock lock(m_mutex);
+        const bool free = m_claimOwner.empty();
+        m_log.push_back({"Claim", sender, free});
         if (free) {
-          claimOwner = sender;
+          m_claimOwner = sender;
           return;
         }
       }
@@ -119,18 +119,18 @@ namespace {
       std::string errorMessage;
       const std::string sender = currentSender();
       {
-        std::scoped_lock lock(mutex);
-        if (claimOwner.empty()) {
+        std::scoped_lock lock(m_mutex);
+        if (m_claimOwner.empty()) {
           errorName = sdbus::Error::Name{"net.reactivated.Fprint.Error.ClaimDevice"};
           errorMessage = "Device was not claimed before use";
-        } else if (claimOwner != sender) {
+        } else if (m_claimOwner != sender) {
           errorName = sdbus::Error::Name{"net.reactivated.Fprint.Error.AlreadyInUse"};
           errorMessage = "Device already in use by another user";
         }
-        log.push_back({method, sender, errorName.empty()});
+        m_log.push_back({method, sender, errorName.empty()});
         if (errorName.empty()) {
           if (release) {
-            claimOwner.clear();
+            m_claimOwner.clear();
           }
           return;
         }
@@ -138,12 +138,12 @@ namespace {
       throw sdbus::Error(std::move(errorName), std::move(errorMessage));
     }
 
-    std::unique_ptr<sdbus::IConnection> connection;
-    std::unique_ptr<sdbus::IObject> manager;
-    std::unique_ptr<sdbus::IObject> device;
-    mutable std::mutex mutex;
-    std::string claimOwner;
-    std::vector<Call> log;
+    std::unique_ptr<sdbus::IConnection> m_connection;
+    std::unique_ptr<sdbus::IObject> m_manager;
+    std::unique_ptr<sdbus::IObject> m_device;
+    mutable std::mutex m_mutex;
+    std::string m_claimOwner;
+    std::vector<Call> m_log;
   };
 
   void pump(SystemBus& bus) {

@@ -37,19 +37,22 @@ namespace noctalia::cli {
     bool hidden = false;
   };
 
-  [[nodiscard]] constexpr std::string_view canonicalName(const Flag& flag) {
+  constexpr std::string_view canonicalName(const Flag& flag) {
     return flag.longName.empty() ? flag.shortName : flag.longName;
   }
 
-  [[nodiscard]] constexpr bool validateCommand(const Command& command) {
+  constexpr bool validateCommand(const Command& command) {
     for (std::size_t i = 0; i < command.flags.size(); ++i) {
       const Flag& flag = command.flags[i];
-      if (flag.longName.empty() && flag.shortName.empty())
+      if (flag.longName.empty() && flag.shortName.empty()) {
         return false;
-      if (flag.valueName.empty() && (!flag.choices.empty() || !flag.defaultValue.empty() || flag.required))
+      }
+      if (flag.valueName.empty() && (!flag.choices.empty() || !flag.defaultValue.empty() || flag.required)) {
         return false;
-      if (!flag.longName.empty() && flag.longName == flag.shortName)
+      }
+      if (!flag.longName.empty() && flag.longName == flag.shortName) {
         return false;
+      }
 
       for (std::size_t j = i + 1; j < command.flags.size(); ++j) {
         const Flag& other = command.flags[j];
@@ -63,21 +66,25 @@ namespace noctalia::cli {
     bool foundCollector = false;
     for (std::size_t i = 0; i < command.positionals.size(); ++i) {
       const Positional& positional = command.positionals[i];
-      if (positional.variadic && positional.joinRemaining)
+      if (positional.variadic && positional.joinRemaining) {
         return false;
+      }
       if (positional.variadic || positional.joinRemaining) {
-        if (foundCollector || i + 1 != command.positionals.size())
+        if (foundCollector || i + 1 != command.positionals.size()) {
           return false;
+        }
         foundCollector = true;
       }
     }
 
     for (std::size_t i = 0; i < command.subcommands.size(); ++i) {
-      if (!validateCommand(command.subcommands[i]))
+      if (!validateCommand(command.subcommands[i])) {
         return false;
+      }
       for (std::size_t j = i + 1; j < command.subcommands.size(); ++j) {
-        if (command.subcommands[i].name == command.subcommands[j].name)
+        if (command.subcommands[i].name == command.subcommands[j].name) {
           return false;
+        }
       }
     }
 

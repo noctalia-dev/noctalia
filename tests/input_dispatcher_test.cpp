@@ -53,6 +53,83 @@ int main() {
   bool ok = true;
 
   {
+    Node root;
+    root.setSize(100.0F, 100.0F);
+    auto* area = addArea(root);
+    area->setFocusable(true);
+    InputDispatcher first, second;
+    first.setSceneRoot(&root);
+    second.setSceneRoot(&root);
+    first.setFocus(area);
+    second.setFocus(area);
+    ok = expect(press(first), "first shared dispatcher captures the area") && ok;
+    ok = expect(press(second), "second shared dispatcher captures the area") && ok;
+
+    root.removeChild(area).reset();
+    ok = expect(
+             first.focusedArea() == nullptr && second.focusedArea() == nullptr,
+             "shared area destruction clears focus in every dispatcher"
+         )
+        && ok;
+    ok = expect(
+             first.hoveredArea() == nullptr && second.hoveredArea() == nullptr,
+             "shared area destruction clears hover in every dispatcher"
+         )
+        && ok;
+    ok = expect(
+             !first.pointerCaptured() && !second.pointerCaptured(),
+             "shared area destruction clears capture in every dispatcher"
+         )
+        && ok;
+  }
+
+  {
+    Node left, right;
+    left.setSize(100.0F, 100.0F);
+    right.setSize(100.0F, 100.0F);
+    auto* area = addArea(left);
+    area->setFocusable(true);
+    auto previous = std::make_unique<InputDispatcher>();
+    previous->setSceneRoot(&left);
+    previous->setFocus(area);
+    previous->pointerEnter(10.0F, 10.0F, 1);
+    right.addChild(left.removeChild(area));
+    InputDispatcher current;
+    current.setSceneRoot(&right);
+    current.setFocus(area);
+    ok = expect(press(current), "reparented area is captured by its current dispatcher") && ok;
+
+    previous.reset();
+    right.removeChild(area).reset();
+    ok = expect(
+             current.focusedArea() == nullptr && current.hoveredArea() == nullptr && !current.pointerCaptured(),
+             "destroying the old dispatcher preserves the current destruction observer"
+         )
+        && ok;
+  }
+
+  {
+    Node root;
+    root.setSize(100.0F, 100.0F);
+    auto* area = addArea(root);
+    area->setFocusable(true);
+    int staleNotifications = 0;
+    auto dispatcher = std::make_unique<InputDispatcher>();
+    dispatcher->setSceneRoot(&root);
+    dispatcher->setFocus(area);
+    dispatcher->setHoverChangeCallback([&](InputArea* oldArea, InputArea* newArea) {
+      if (oldArea != nullptr && newArea == nullptr) {
+        ++staleNotifications;
+      }
+    });
+    ok = expect(press(*dispatcher), "expired dispatcher captures the surviving area") && ok;
+
+    dispatcher.reset();
+    root.removeChild(area).reset();
+    ok = expect(staleNotifications == 0, "area destruction never calls a destroyed dispatcher") && ok;
+  }
+
+  {
     InputDispatcher dispatcher;
     auto root = std::make_unique<Node>();
     root->setSize(100.0F, 100.0F);
@@ -61,8 +138,8 @@ int main() {
     area->setOnClick([&clicked](const InputArea::PointerData& data) { clicked = data; });
     dispatcher.setSceneRoot(root.get());
     dispatcher.pointerEnter(10.0F, 12.0F, 40);
-    (void)dispatcher.pointerButton(10.0F, 12.0F, BTN_LEFT, true, 41, 100, false);
-    (void)dispatcher.pointerButton(11.0F, 13.0F, BTN_LEFT, false, 42, 101, false);
+    dispatcher.pointerButton(10.0F, 12.0F, BTN_LEFT, true, 41, 100, false);
+    dispatcher.pointerButton(11.0F, 13.0F, BTN_LEFT, false, 42, 101, false);
     ok = expect(
              clicked.sceneX == 10.0F && clicked.sceneY == 12.0F && clicked.serial == 41 && clicked.time == 100,
              "click callbacks preserve the initiating press coordinates, serial, and time"
@@ -79,7 +156,7 @@ int main() {
     int clicks = 0;
     bool captureVisibleDuringCallback = false;
     bool pressedClearedBeforeCallback = false;
-    area->setOnCancel([&]() {
+    area->setOnCancel([&] {
       ++cancellations;
       captureVisibleDuringCallback = dispatcher.pointerCaptured();
       pressedClearedBeforeCallback = !area->pressed();
@@ -108,7 +185,7 @@ int main() {
     root->setSize(100.0F, 100.0F);
     auto* area = addArea(*root);
     int cancellations = 0;
-    area->setOnCancel([&cancellations]() { ++cancellations; });
+    area->setOnCancel([&cancellations] { ++cancellations; });
     dispatcher.setSceneRoot(root.get());
 
     ok = expect(press(dispatcher), "armed pointer-leave setup press is consumed") && ok;
@@ -133,7 +210,7 @@ int main() {
         ++drops;
       }
     });
-    area->setOnCancel([&]() {
+    area->setOnCancel([&] {
       ++cancellations;
       dragging = false;
     });
@@ -164,7 +241,7 @@ int main() {
     replacementRoot->setSize(100.0F, 100.0F);
     auto* area = addArea(*root);
     int cancellations = 0;
-    area->setOnCancel([&cancellations]() { ++cancellations; });
+    area->setOnCancel([&cancellations] { ++cancellations; });
     dispatcher.setSceneRoot(root.get());
 
     ok = expect(press(dispatcher), "scene replacement setup press is consumed") && ok;
@@ -184,11 +261,11 @@ int main() {
     int sequence = 0;
     int cancellationOrder = 0;
     int leaveOrder = 0;
-    area->setOnCancel([&]() {
+    area->setOnCancel([&] {
       ++cancellations;
       cancellationOrder = ++sequence;
     });
-    area->setOnLeave([&]() { leaveOrder = ++sequence; });
+    area->setOnLeave([&] { leaveOrder = ++sequence; });
     dispatcher.setSceneRoot(root.get());
 
     ok = expect(press(dispatcher), "detachment setup press is consumed") && ok;
@@ -208,7 +285,7 @@ int main() {
     auto* area = addArea(*root);
     int cancellations = 0;
     std::uint32_t cursor = 0;
-    area->setOnCancel([&cancellations]() { ++cancellations; });
+    area->setOnCancel([&cancellations] { ++cancellations; });
     area->setCursorShape(19);
     dispatcher.setCursorShapeCallback([&cursor](std::uint32_t, std::uint32_t shape) { cursor = shape; });
     dispatcher.setSceneRoot(root.get());
@@ -302,7 +379,7 @@ int main() {
     ok = expect(rowPresses == 0, "touch tap press is deferred until release") && ok;
     ok = expect(viewportPresses == 0, "touch tap does not press the scroll viewport") && ok;
 
-    (void)dispatcher.pointerButton(12.0F, 11.0F, BTN_LEFT, false, 2, 20, true);
+    dispatcher.pointerButton(12.0F, 11.0F, BTN_LEFT, false, 2, 20, true);
     ok = expect(rowPresses == 1, "touch tap delivers the deferred child press") && ok;
     ok = expect(rowClicks == 1, "touch tap clicks the child") && ok;
     ok = expect(viewportPresses == 0, "touch tap remains unclaimed by the scroll viewport") && ok;
@@ -333,14 +410,14 @@ int main() {
     dispatcher.setSceneRoot(scene.root.get());
     dispatcher.pointerEnter(10.0F, 10.0F, 1);
 
-    (void)dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
+    dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
     dispatcher.pointerMotion(10.0F, 30.0F, 2);
     ok = expect(viewportPresses == 1, "vertical touch drag presses the scroll viewport at claim") && ok;
     ok = expect(viewportMotions == 1, "vertical touch drag forwards current motion to the viewport") && ok;
     ok = expect(rowPresses == 0, "vertical touch drag never presses the child") && ok;
     ok = expect(dispatcher.pointerCaptured(), "vertical touch drag captures the viewport") && ok;
 
-    (void)dispatcher.pointerButton(10.0F, 30.0F, BTN_LEFT, false, 3, 20, true);
+    dispatcher.pointerButton(10.0F, 30.0F, BTN_LEFT, false, 3, 20, true);
     ok = expect(viewportReleases == 1, "vertical touch drag releases the scroll viewport") && ok;
     ok = expect(rowClicks == 0, "vertical touch drag does not click the child") && ok;
   }
@@ -361,12 +438,12 @@ int main() {
     dispatcher.setSceneRoot(scene.root.get());
     dispatcher.pointerEnter(10.0F, 10.0F, 1);
 
-    (void)dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
+    dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
     dispatcher.pointerMotion(30.0F, 12.0F, 2);
     ok = expect(rowPresses == 1, "horizontal touch drag delivers the deferred child press") && ok;
     ok = expect(rowMotions == 1, "horizontal touch drag forwards current motion to the child") && ok;
     ok = expect(viewportPresses == 0, "horizontal touch drag is not claimed by a vertical viewport") && ok;
-    (void)dispatcher.pointerButton(30.0F, 12.0F, BTN_LEFT, false, 3, 20, true);
+    dispatcher.pointerButton(30.0F, 12.0F, BTN_LEFT, false, 3, 20, true);
   }
 
   {
@@ -381,7 +458,7 @@ int main() {
     dispatcher.setSceneRoot(scene.root.get());
     dispatcher.pointerEnter(10.0F, 10.0F, 1);
 
-    (void)dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
+    dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, true, 1, 10, true);
     dispatcher.pointerLeave();
     ok = expect(rowPresses == 0 && rowClicks == 0, "pointer leave drops a deferred touch press without a click") && ok;
     ok = expect(viewportPresses == 0, "pointer leave does not claim a deferred touch press") && ok;
@@ -414,7 +491,7 @@ int main() {
         && ok;
     ok = expect(rowPresses == 1, "mouse press reaches the child immediately") && ok;
     ok = expect(viewportPresses == 0, "mouse press is not handed to the touch-scroll viewport") && ok;
-    (void)dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, false, 2, 20, false);
+    dispatcher.pointerButton(10.0F, 10.0F, BTN_LEFT, false, 2, 20, false);
   }
 
   return ok ? 0 : 1;

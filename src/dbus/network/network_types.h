@@ -17,11 +17,11 @@ struct AccessPointInfo {
   network_manager_security::KeyManagement keyManagement = network_manager_security::KeyManagement::Psk;
   bool active = false;
 
-  [[nodiscard]] bool isEnterprise() const noexcept { return network_manager_security::isEnterprise(keyManagement); }
+  bool isEnterprise() const noexcept { return network_manager_security::isEnterprise(keyManagement); }
 
   // True when the UI should collect credentials before connecting. OWE stays
   // secured (lock icon) but has no password to ask for.
-  [[nodiscard]] bool requiresCredentials() const noexcept {
+  bool requiresCredentials() const noexcept {
     return network_manager_security::requiresCredentials(secured, keyManagement);
   }
 
@@ -53,6 +53,7 @@ struct NetworkState {
   bool vpnActive = false;          // a VPN connection is active or activating
   bool vpnConnected = false;       // a VPN tunnel is fully activated (routes applied)
   bool cellularActive = false;     // a cellular (gsm) connection is active or activating, primary or not
+  bool hotspotActive = false;      // a Wi-Fi device is running as an access point
   std::string ssid;                // Wi-Fi only
   std::string ipv4;                // dotted-quad of first address; empty if none
   std::string interfaceName;       // e.g. "wlan0", "eth0"

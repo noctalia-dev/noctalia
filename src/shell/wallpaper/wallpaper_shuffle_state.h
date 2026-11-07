@@ -13,7 +13,7 @@ namespace wallpaper {
   public:
     void setStatePath(std::filesystem::path path);
 
-    [[nodiscard]] std::string pick(
+    std::string pick(
         std::string_view scope, std::string_view source, const std::vector<std::string>& candidates,
         std::string_view currentPath, float randomUnit
     );

@@ -1,10 +1,13 @@
 #include "shell/bar/widgets/keyboard_layout_widget.h"
 
 #include "compositors/compositor_platform.h"
+#include "dbus/tray/fcitx_status.h"
+#include "dbus/tray/tray_service.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "shell/keyboard_layout_label.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -13,6 +16,7 @@
 #include <chrono>
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -27,15 +31,18 @@ namespace {
 } // namespace
 
 KeyboardLayoutWidget::KeyboardLayoutWidget(
-    CompositorPlatform& platform, Options options, std::unordered_map<std::string, std::string> customLabels
+    CompositorPlatform& platform, const TrayService* tray, Options options,
+    std::unordered_map<std::string, std::string> customLabels
 )
-    : m_platform(platform), m_displayMode(options.display), m_showGlyph(options.showGlyph),
+    : m_platform(platform), m_tray(tray), m_displayMode(options.display), m_showGlyph(options.showGlyph),
       m_showLabel(options.showLabel), m_hideWhenSingleLayout(options.hideWhenSingleLayout),
       m_customLabels(std::move(customLabels)), m_glyphName(std::move(options.glyph)),
-      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
+      m_glyphPosition(options.glyphPosition) {
   if (m_glyphName.empty()) {
     m_glyphName = "keyboard";
   }
+  setPeek(options.peek, options.peekDelayMs);
 }
 
 void KeyboardLayoutWidget::create() {
@@ -112,70 +119,37 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
   if (m_showLabel) {
     const float stableLabelWidth = std::round(renderer
                                                   .measureText(
-                                                      kVerticalStableLabel, m_label->fontSize(), labelFontWeight(),
-                                                      0.0F, 0, TextAlign::Start, labelFontFamily()
+                                                      kVerticalStableLabel, m_label->fontSize(),
+                                                      {labelFontWeight(), labelFontFamily()}, 0.0F, 0, TextAlign::Start
                                                   )
                                                   .width);
     m_label->setMinWidth(m_isVertical ? std::min(containerWidth, stableLabelWidth) : 0.0F);
     m_label->measure(renderer);
   }
 
-  if (m_isVertical) {
-    const float glyphW = showGlyph ? (m_image != nullptr ? m_image->width() : m_glyph->width()) : 0.0F;
-    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0F;
-    const float labelW = m_showLabel ? m_label->width() : 0.0F;
-    const float labelH = m_showLabel ? m_label->height() : 0.0F;
-    const float w = std::max(glyphW, labelW);
-    float y = 0.0F;
-    if (showGlyph) {
-      if (m_image != nullptr) {
-        m_image->setPosition(std::round((w - glyphW) * 0.5F), y);
-      } else {
-        m_glyph->setPosition(std::round((w - glyphW) * 0.5F), y);
-      }
-      y += glyphH;
-    }
-    if (m_showLabel) {
-      m_label->setPosition(std::round((w - labelW) * 0.5F), y);
-      y += labelH;
-    }
-    root()->setSize(w, y);
-  } else {
-    const float spacing = Style::spaceXs;
-    float x = 0.0F;
-    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0F;
-    const float labelH = m_showLabel ? m_label->height() : 0.0F;
-    const float h = std::max(glyphH, labelH);
-    if (showGlyph) {
-      if (m_image != nullptr) {
-        const float imageY = std::round((h - m_image->height()) * 0.5F);
-        m_image->setPosition(0.0F, imageY);
-        x += m_image->width();
-      } else {
-        const float glyphY = std::round((h - m_glyph->height()) * 0.5F);
-        m_glyph->setPosition(0.0F, glyphY);
-        x += m_glyph->width();
-      }
-      if (m_showLabel) {
-        x += spacing;
-      }
-    }
-    if (m_showLabel) {
-      const float labelY = std::round((h - m_label->height()) * 0.5F);
-      m_label->setPosition(x, labelY);
-      root()->setSize(m_label->x() + m_label->width(), h);
-    } else {
-      root()->setSize(x, h);
-    }
-  }
+  Node* icon = m_image != nullptr ? static_cast<Node*>(m_image) : static_cast<Node*>(m_glyph);
+  layoutGlyphValue({
+      .glyph = showGlyph ? icon : nullptr,
+      .value = m_label,
+      .glyphPosition = m_glyphPosition,
+      .vertical = m_isVertical,
+      .horizontalGap = Style::spaceXs,
+  });
 }
 
 void KeyboardLayoutWidget::doUpdate(Renderer& renderer) { sync(renderer); }
 
+std::optional<FcitxInputMethodState> KeyboardLayoutWidget::inputMethodState() const {
+  if (m_tray == nullptr) {
+    return std::nullopt;
+  }
+  return resolveFcitxInputMethodState(m_tray->items());
+}
+
 std::string KeyboardLayoutWidget::resolvedLayoutName() const {
   const auto state = m_platform.keyboardLayoutState();
   if (state.has_value() && state->currentIndex >= 0 && state->currentIndex < static_cast<int>(state->names.size())) {
-    const std::string actual = state->names[static_cast<std::size_t>(state->currentIndex)];
+    std::string actual = state->names[static_cast<std::size_t>(state->currentIndex)];
     if (!m_pendingLayoutName.empty() && (actual.empty() || actual == m_lastLayoutName)) {
       return m_pendingLayoutName;
     }
@@ -198,9 +172,13 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
     return;
   }
 
+  const auto inputMethod = inputMethodState();
+
   if (auto* node = root(); node != nullptr) {
+    // An active fcitx input method is its own source of layouts, so the compositor's count does not apply.
     const auto layoutNames = m_platform.keyboardLayoutNames();
-    const bool shouldHide = m_hideWhenSingleLayout && !layoutNames.empty() && layoutNames.size() <= 1;
+    const bool shouldHide =
+        m_hideWhenSingleLayout && !inputMethod.has_value() && !layoutNames.empty() && layoutNames.size() <= 1;
     node->setVisible(!shouldHide);
     if (shouldHide) {
       node->setSize(0.0F, 0.0F);
@@ -209,13 +187,15 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
     }
   }
 
-  std::string layoutName = resolvedLayoutName();
+  std::string layoutName = inputMethod.has_value() ? inputMethod->label : resolvedLayoutName();
   if (!m_pendingLayoutName.empty() && layoutName == m_pendingLayoutName) {
     m_pendingLayoutName.clear();
     m_refreshAttemptsRemaining = 0;
     m_refreshTimer.stop();
   }
-  std::string layoutLabel = resolveKeyboardLayoutLabel(layoutName, m_displayMode, m_customLabels);
+  std::string layoutLabel = inputMethod.has_value()
+      ? resolveInputMethodLabel(layoutName, m_displayMode, m_customLabels)
+      : resolveKeyboardLayoutLabel(layoutName, m_displayMode, m_customLabels);
   if (m_isVertical) {
     layoutLabel = StringUtils::truncateUtf8CodePoints(layoutLabel, 3);
   }
@@ -295,7 +275,7 @@ void KeyboardLayoutWidget::scheduleRefreshBurst() {
 }
 
 void KeyboardLayoutWidget::armRefreshTick() {
-  m_refreshTimer.start(kRefreshTickInterval, [this]() {
+  m_refreshTimer.start(kRefreshTickInterval, [this] {
     if (m_refreshAttemptsRemaining <= 0) {
       m_pendingLayoutName.clear();
       m_refreshTimer.stop();

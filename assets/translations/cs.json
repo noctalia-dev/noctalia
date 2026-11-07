@@ -958,9 +958,6 @@
         "settings": {
           "empty": "Žádná nastavení neodpovídají aktuálním filtrům.",
           "groups": {
-            "grouping": "Seskupování",
-            "presentation": "Prezentace",
-            "runtime": "Běh",
             "widget": "Widget"
           }
         }
@@ -2129,8 +2126,7 @@
           "label": "Kalendářní účty"
         },
         "calendar-edit": {
-          "button": "Upravit",
-          "description": "Aktualizovat tento kalendářní účet"
+          "button": "Upravit"
         },
         "calendar-refresh-interval": {
           "description": "Jak často synchronizovat události kalendáře (minuty)",

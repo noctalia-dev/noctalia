@@ -1,0 +1,137 @@
+{
+  "bar": {
+    "annotate": {
+      "stroke": "Colour and thickness"
+    }
+  },
+  "desktop-widgets": {
+    "editor": {
+      "settings": {
+        "background-color": "Colour",
+        "color": "Colour",
+        "color-1": "Colour 1",
+        "color-2": "Colour 2",
+        "color2": "Colour 2",
+        "fill-color": "Fill Colour",
+        "highlight-color": "Highlight Colour",
+        "primary-color": "Primary Colour",
+        "secondary-color": "Secondary Colour",
+        "track-color": "Track Colour"
+      }
+    }
+  },
+  "settings": {
+    "calendar-accounts": {
+      "color-label": "Colour"
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "Pick a Colour"
+      }
+    },
+    "entities": {
+      "widget": {
+        "settings": {
+          "groups": {
+            "workspaces": {
+              "colors": "Colours"
+            }
+          }
+        }
+      }
+    },
+    "palette-inspector": {
+      "empty": "No matching colours.",
+      "filter-all": "All Colours"
+    },
+    "schema": {
+      "appearance": {
+        "palette-inspector": {
+          "button": "Inspect Colours"
+        },
+        "palette-source": {
+          "description": "Where to derive the colour palette from"
+        }
+      },
+      "bar": {
+        "widget-icon-color": {
+          "label": "Widget Icon Colour"
+        }
+      },
+      "notifications": {
+        "border-color": {
+          "label": "Border Colour"
+        }
+      },
+      "panels": {
+        "border-color": {
+          "label": "Border Colour"
+        }
+      },
+      "shell": {
+        "osd-border-color": {
+          "label": "Border Colour"
+        }
+      },
+      "wallpaper": {
+        "fill-color": {
+          "label": "Fill Colour"
+        }
+      }
+    },
+    "widgets": {
+      "actions": {
+        "commands": {
+          "color-scheme-get": {
+            "label": "Get colour scheme"
+          },
+          "color-scheme-set": {
+            "label": "Set colour scheme"
+          }
+        }
+      },
+      "settings": {
+        "active-color": {
+          "label": "Active Colour"
+        },
+        "active-indicator-color": {
+          "label": "Active Indicator Colour"
+        },
+        "color": {
+          "label": "Colour"
+        },
+        "color-1": {
+          "label": "Colour 1"
+        },
+        "color-2": {
+          "label": "Colour 2"
+        },
+        "empty-color": {
+          "label": "Empty Colour"
+        },
+        "icon-color": {
+          "label": "Icon Colour"
+        },
+        "inactive-color": {
+          "label": "Inactive Colour"
+        },
+        "mute-color": {
+          "label": "Mute Colour"
+        },
+        "urgent-color": {
+          "label": "Urgent Colour"
+        },
+        "warning-color": {
+          "label": "Warning Colour"
+        }
+      }
+    }
+  },
+  "ui": {
+    "dialogs": {
+      "color-picker": {
+        "title": "Colour"
+      }
+    }
+  }
+}

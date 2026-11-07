@@ -47,7 +47,7 @@ bool Backdrop::initialize(
   m_sharedGl = sharedGl;
 
   // Register reload callback unconditionally so toggling enabled in config works.
-  m_config->addReloadCallback([this]() { reload(); }, "backdrop");
+  m_config->addReloadCallback([this] { reload(); }, "backdrop");
 
   if (!m_config->config().backdrop.enabled) {
     kLog.info("disabled in config");
@@ -291,7 +291,7 @@ void Backdrop::loadWallpaper(BackdropInstance& inst, const std::string& path) {
   }
   // Without a shared context and before the surface has a backend the lease is empty; the configure callback retries.
   const SharedTextureRequest request{.path = path, .coverage = textureCoverage(inst)};
-  auto lease = m_textureCache->acquire(request, backend, [this, instPtr = &inst]() {
+  auto lease = m_textureCache->acquire(request, backend, [this, instPtr = &inst] {
     promotePendingTexture(*instPtr);
     updateRendererState(*instPtr);
     if (instPtr->surface != nullptr) {

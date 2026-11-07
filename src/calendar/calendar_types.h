@@ -13,12 +13,15 @@ struct CalendarEvent {
   std::string title;        // SUMMARY
   std::string calendarName; // owning calendar's display name
   std::string colorHex;     // owning calendar's color (e.g. "#3367d6"), empty when unknown
+  std::string sourceId;     // owning calendar's id within its account (CalDAV collection), empty when unknown
   std::string location;     // LOCATION, optional
   std::string url;          // resolved http(s) link from LOCATION/URL, empty when the event has none
   std::string webUrl;       // http(s) page of the event in the provider's web UI (Google htmlLink), optional
   std::chrono::system_clock::time_point start;
   std::chrono::system_clock::time_point end;
   bool allDay = false;
+  // The account owner declined the invitation. Kept in the snapshot for display; never reminded.
+  bool declined = false;
   // Reminder lead times before `start`, in seconds; sorted ascending, deduplicated, 0 = at start.
   // Absolute VALARM triggers and RELATED=END triggers are normalized to a start-relative lead at
   // parse time, so recurrence-expanded instances inherit them unchanged. nullopt means the source
@@ -35,6 +38,8 @@ struct CalendarSnapshot {
 struct CalendarSource {
   std::string id;
   std::string name;
+  // Synced while the account's `calendars` list is empty: Google's sidebar tick, always true for CalDAV and vdir.
+  bool defaultSelected = true;
 
   bool operator==(const CalendarSource&) const = default;
 };

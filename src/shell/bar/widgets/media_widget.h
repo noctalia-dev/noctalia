@@ -41,12 +41,15 @@ public:
     bool hideArtist = false;
     bool artistFirst = false;
     bool showProgress = false;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output* output, Options options);
 
   void create() override;
-  [[nodiscard]] bool needsFrameTick() const override;
+  bool needsFrameTick() const override;
   void onFrameTick(float deltaMs) override;
 
 private:
@@ -58,9 +61,9 @@ private:
   // Applies playback position to the fill and arms the update timer. Update-phase only: it decides
   // eligibility itself instead of reading the visibility that doLayout() applies afterwards.
   void syncProgress(const std::optional<MprisPlayerInfo>& active);
-  [[nodiscard]] bool progressFillEligible(const std::optional<MprisPlayerInfo>& active) const noexcept;
-  [[nodiscard]] std::optional<MprisPlayerInfo> activePlayer() const;
-  [[nodiscard]] static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst);
+  bool progressFillEligible(const std::optional<MprisPlayerInfo>& active) const noexcept;
+  std::optional<MprisPlayerInfo> activePlayer() const;
+  static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst);
 
   MprisService* m_mpris = nullptr;
   HttpClient* m_httpClient = nullptr;
@@ -76,6 +79,7 @@ private:
   bool m_hideArtist = false;
   bool m_artistFirst = false;
   bool m_showProgress = false;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   // Cached from the last doLayout(); the update phase has no container extents of its own.
   bool m_isVertical = false;
   bool m_progressFillVisible = false;

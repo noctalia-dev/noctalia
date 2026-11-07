@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
@@ -20,6 +21,28 @@ namespace compositors::hyprland {
   namespace {
 
     constexpr Logger kLog("hyprland_runtime");
+    constexpr auto kRequestTimeout = std::chrono::milliseconds(500);
+
+    [[nodiscard]] bool waitForRequestSocket(int fd, short events, std::chrono::steady_clock::time_point deadline) {
+      while (true) {
+        const auto remaining =
+            std::chrono::ceil<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now());
+        if (remaining.count() <= 0) {
+          return false;
+        }
+        pollfd socket{.fd = fd, .events = events, .revents = 0};
+        const int result = ::poll(&socket, 1, static_cast<int>(remaining.count()));
+        if (result > 0) {
+          if ((socket.revents & (POLLERR | POLLNVAL)) != 0) {
+            return false;
+          }
+          return (socket.revents & events) != 0 || (events == POLLIN && (socket.revents & POLLHUP) != 0);
+        }
+        if (result == 0 || errno != EINTR) {
+          return false;
+        }
+      }
+    }
 
   } // namespace
 
@@ -31,7 +54,10 @@ namespace compositors::hyprland {
 
   bool HyprlandRuntime::configIsLua() const {
     ensureResolved();
-    return m_configIsLua;
+    if (!m_configIsLua.has_value()) {
+      updateConfigProvider();
+    }
+    return m_configIsLua.value_or(false);
   }
 
   const std::string& HyprlandRuntime::requestSocketPath() const {
@@ -115,7 +141,7 @@ namespace compositors::hyprland {
       return std::nullopt;
     }
 
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (fd < 0) {
       kLog.debug("failed to create request socket: {}", std::strerror(errno));
       return std::nullopt;
@@ -130,17 +156,32 @@ namespace compositors::hyprland {
     }
     std::memcpy(addr.sun_path, m_socketPaths.request.c_str(), m_socketPaths.request.size() + 1);
 
+    const auto deadline = std::chrono::steady_clock::now() + kRequestTimeout;
     if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-      kLog.debug("failed to connect to request socket {}: {}", m_socketPaths.request, std::strerror(errno));
-      ::close(fd);
-      return std::nullopt;
+      if (errno != EINPROGRESS || !waitForRequestSocket(fd, POLLOUT, deadline)) {
+        kLog.debug("failed to connect to request socket {}", m_socketPaths.request);
+        ::close(fd);
+        return std::nullopt;
+      }
+      int socketError = 0;
+      socklen_t socketErrorSize = sizeof(socketError);
+      if (::getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &socketErrorSize) < 0 || socketError != 0) {
+        kLog.debug("failed to connect to request socket {}", m_socketPaths.request);
+        ::close(fd);
+        return std::nullopt;
+      }
     }
 
     std::size_t offset = 0;
     while (offset < command.size()) {
+      if (!waitForRequestSocket(fd, POLLOUT, deadline)) {
+        kLog.debug("request write timed out or disconnected");
+        ::close(fd);
+        return std::nullopt;
+      }
       const ssize_t written = ::send(fd, command.data() + offset, command.size() - offset, MSG_NOSIGNAL);
       if (written <= 0) {
-        if (written < 0 && errno == EINTR) {
+        if (written < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
           continue;
         }
         kLog.debug("failed to write request: {}", written < 0 ? std::strerror(errno) : "short write");
@@ -155,6 +196,11 @@ namespace compositors::hyprland {
     std::string response;
     char buffer[4096];
     while (true) {
+      if (!waitForRequestSocket(fd, POLLIN, deadline)) {
+        kLog.debug("request read timed out or disconnected");
+        ::close(fd);
+        return std::nullopt;
+      }
       const ssize_t read = ::recv(fd, buffer, sizeof(buffer), 0);
       if (read > 0) {
         response.append(buffer, buffer + read);
@@ -163,7 +209,7 @@ namespace compositors::hyprland {
       if (read == 0) {
         break;
       }
-      if (errno == EINTR) {
+      if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
         continue;
       }
       kLog.debug("failed to read response: {}", std::strerror(errno));
@@ -191,7 +237,7 @@ namespace compositors::hyprland {
   void HyprlandRuntime::refresh() {
     m_socketPaths = {};
     m_resolved = false;
-    m_configIsLua = false;
+    m_configIsLua.reset();
     resolveSocketPaths();
   }
 
@@ -230,15 +276,15 @@ namespace compositors::hyprland {
     };
   }
 
-  void HyprlandRuntime::updateConfigProvider() {
-    const auto json = requestJson("j/status");
-    if (!json || !json->is_object()) {
+  // Leaves the provider unknown when Hyprland does not answer, so the next configIsLua() call asks again.
+  void HyprlandRuntime::updateConfigProvider() const {
+    const auto response = request("j/status");
+    if (!response.has_value()) {
+      kLog.debug("hyprland config provider unknown: j/status got no response");
       return;
     }
-    std::string configProvider = json->value("configProvider", "");
-    if (configProvider == "lua") {
-      m_configIsLua = true;
-    }
+    const auto json = nlohmann::json::parse(*response, nullptr, false);
+    m_configIsLua = json.is_object() && json.value("configProvider", "") == "lua";
   }
 
   void HyprlandRuntime::registerEventHandler(HyprlandEventHandler* handler) { m_eventHandlers.push_back(handler); }

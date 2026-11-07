@@ -21,13 +21,14 @@ public:
   using EffectsProfileFeedbackCallback = std::function<void(AudioEffectsProfileKind kind, std::string_view profile)>;
 
   void setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
-  [[nodiscard]] const std::vector<std::string>& effectsProfiles(AudioEffectsProfileKind kind) const;
-  [[nodiscard]] std::string activeEffectsProfile(AudioEffectsProfileKind kind) const;
+  const std::vector<std::string>& effectsProfiles(AudioEffectsProfileKind kind) const;
+  std::string activeEffectsProfile(AudioEffectsProfileKind kind) const;
   void refreshProfiles();
   void refreshActiveEffectsProfiles();
   bool loadEffectsProfile(AudioEffectsProfileKind kind, std::string_view profile);
-  void
-  registerIpc(IpcService& ipc, const ConfigService& config, EffectsProfileFeedbackCallback effectsProfileFeedback = {});
+  void registerIpc(
+      IpcService& ipc, const ConfigService& config, const EffectsProfileFeedbackCallback& effectsProfileFeedback = {}
+  );
 
 private:
   void emitChanged();

@@ -1,5 +1,6 @@
 #include "capture/screenshot_region_overlay.h"
 
+#include "capture/screenshot_region_badge.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
 #include "core/input/key_symbols.h"
@@ -16,6 +17,7 @@
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "shell/wayland/layer_surface.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
@@ -24,7 +26,6 @@
 #include "ui/controls/label.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -41,14 +42,10 @@ namespace capture {
 
     constexpr Logger kLog("screenshot-region");
     constexpr float kDimensionFontSize = 14.0F;
-    constexpr float kDimensionCursorOffsetX = 12.0F;
-    constexpr float kDimensionCursorOffsetY = 14.0F;
     constexpr float kDimensionPaddingX = 6.0F;
     constexpr float kDimensionPaddingY = 4.0F;
-    constexpr float kSelectionBorderWidth = 2.0F;
-    constexpr float kDimOpacity = 0.65F;
 
-    [[nodiscard]] std::uint32_t cursorShapeForDragMode(capture::DragMode mode) {
+    std::uint32_t cursorShapeForDragMode(capture::DragMode mode) {
       switch (mode) {
       case capture::DragMode::TopEdge:
       case capture::DragMode::BottomEdge:
@@ -69,7 +66,7 @@ namespace capture {
       }
     }
 
-    [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
+    const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
       for (const auto& entry : wayland.outputs()) {
         if (entry.output == output) {
           return &entry;
@@ -78,10 +75,9 @@ namespace capture {
       return nullptr;
     }
 
-    [[nodiscard]] LayerShellKeyboard overlayKeyboardMode() { return LayerShellKeyboard::Exclusive; }
+    LayerShellKeyboard overlayKeyboardMode() { return LayerShellKeyboard::Exclusive; }
 
-    [[nodiscard]] const ScreencopyImage*
-    frozenImageForOutput(const std::vector<FrozenScreenshot>& screenshots, wl_output* output) {
+    const ScreencopyImage* frozenImageForOutput(const std::vector<FrozenScreenshot>& screenshots, wl_output* output) {
       for (const auto& entry : screenshots) {
         if (entry.output == output) {
           return &entry.image.image;
@@ -90,7 +86,7 @@ namespace capture {
       return nullptr;
     }
 
-    [[nodiscard]] wl_output* outputAtGlobalPoint(const WaylandConnection& wayland, double globalX, double globalY) {
+    wl_output* outputAtGlobalPoint(const WaylandConnection& wayland, double globalX, double globalY) {
       for (const auto& out : wayland.outputs()) {
         if (out.output == nullptr || out.logicalWidth <= 0 || out.logicalHeight <= 0) {
           continue;
@@ -105,7 +101,7 @@ namespace capture {
       return nullptr;
     }
 
-    [[nodiscard]] std::string outputPickerLabel(const WaylandOutput& output) {
+    std::string outputPickerLabel(const WaylandOutput& output) {
       if (!output.connectorName.empty()) {
         return output.connectorName;
       }
@@ -116,7 +112,7 @@ namespace capture {
     }
 
     std::unique_ptr<Flex>
-    buildFullscreenPickerBar(const WaylandConnection& wayland, std::function<void(wl_output*)> onPick) {
+    buildFullscreenPickerBar(const WaylandConnection& wayland, const std::function<void(wl_output*)>& onPick) {
       auto bar = ui::row(
           {
               .align = FlexAlign::Center,
@@ -141,7 +137,7 @@ namespace capture {
             ui::button({
                 .text = outputPickerLabel(out),
                 .variant = ButtonVariant::Outline,
-                .onClick = [onPick, output = out.output]() { onPick(output); },
+                .onClick = [onPick, output = out.output] { onPick(output); },
             })
         );
       }
@@ -214,6 +210,14 @@ namespace capture {
     m_regionModifierMask = mask;
     m_regionModifierSpace = spaceKey;
   }
+
+  void ScreenshotRegionOverlay::setSelectionBorderWidth(float width) { m_selectionBorderWidth = width; }
+
+  void ScreenshotRegionOverlay::setDimOpacity(float opacity) { m_dimOpacity = opacity; }
+
+  void ScreenshotRegionOverlay::setShowRegionHint(bool show) { m_showRegionHint = show; }
+
+  void ScreenshotRegionOverlay::setShowRegionDimensions(bool show) { m_showRegionDimensions = show; }
 
   void ScreenshotRegionOverlay::applyCursorShape(std::uint32_t shape) {
     for (auto& instance : m_instances) {
@@ -320,7 +324,7 @@ namespace capture {
     if (!m_active) {
       return;
     }
-    DeferredCall::callLater([this]() {
+    DeferredCall::callLater([this] {
       if (!m_active) {
         return;
       }
@@ -502,29 +506,33 @@ namespace capture {
         if (picked == nullptr) {
           picked = surfaceOutput;
         }
-        DeferredCall::callLater([this, picked]() { completeFullscreenPick(picked); });
+        DeferredCall::callLater([this, picked] { completeFullscreenPick(picked); });
       });
     } else {
       input->setOnPress([this, output = inst.output](const InputArea::PointerData& data) {
-        if (data.button != BTN_LEFT && data.button != BTN_RIGHT)
-          return;
-
-        if (!data.pressed) {
-          if (!m_dragging || data.button != m_dragButton)
-            return;
-          m_dragging = false;
-          m_dragButton = 0;
-          // completeSelection() tears down surfaces; defer past InputDispatcher::pointerButton.
-          DeferredCall::callLater([this]() { completeSelection(); });
+        if (data.button != BTN_LEFT && data.button != BTN_RIGHT) {
           return;
         }
 
-        if (m_dragging)
+        if (!data.pressed) {
+          if (!m_dragging || data.button != m_dragButton) {
+            return;
+          }
+          m_dragging = false;
+          m_dragButton = 0;
+          // completeSelection() tears down surfaces; defer past InputDispatcher::pointerButton.
+          DeferredCall::callLater([this] { completeSelection(); });
           return;
+        }
+
+        if (m_dragging) {
+          return;
+        }
 
         const auto* out = findOutput(*m_wayland, output);
-        if (out == nullptr)
+        if (out == nullptr) {
           return;
+        }
 
         const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
         const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
@@ -540,9 +548,11 @@ namespace capture {
             .y0 = std::min(m_startGlobalY, m_currentGlobalY),
             .x1 = std::max(m_startGlobalX, m_currentGlobalX),
             .y1 = std::max(m_startGlobalY, m_currentGlobalY),
+            .margin = std::max<double>(kRegionHandleMargin, m_selectionBorderWidth),
         });
-        if (pressMode == DragMode::None)
+        if (pressMode == DragMode::None) {
           return;
+        }
 
         m_dragging = true;
         m_dragButton = data.button;
@@ -613,15 +623,17 @@ namespace capture {
         applyCursorShape(cursorShapeForDragMode(m_dragMode));
         updateSelectionVisuals();
         for (auto& instance : m_instances) {
-          if (instance->surface != nullptr)
+          if (instance->surface != nullptr) {
             instance->surface->requestRedraw();
+          }
         }
       });
 
       input->setOnMotion([this, output = inst.output, inputPtr = input.get()](const InputArea::PointerData& data) {
         const auto* out = findOutput(*m_wayland, output);
-        if (out == nullptr)
+        if (out == nullptr) {
           return;
+        }
 
         const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
         const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
@@ -641,7 +653,9 @@ namespace capture {
               const double x1 = std::max(m_startGlobalX, m_currentGlobalX);
               const double y1 = std::max(m_startGlobalY, m_currentGlobalY);
 
-              DragMode hoverMode = hitTestSelection(globalX, globalY, x0, y0, x1, y1);
+              DragMode hoverMode = hitTestSelection(
+                  globalX, globalY, x0, y0, x1, y1, std::max<double>(kRegionHandleMargin, m_selectionBorderWidth)
+              );
               inputPtr->setCursorShape(cursorShapeForDragMode(hoverMode));
             }
           } else {
@@ -678,8 +692,9 @@ namespace capture {
 
         updateSelectionVisuals();
         for (auto& instance : m_instances) {
-          if (instance->surface != nullptr)
+          if (instance->surface != nullptr) {
             instance->surface->requestRedraw();
+          }
         }
       });
     }
@@ -690,15 +705,15 @@ namespace capture {
       }
       if (m_confirming) {
         if (KeybindMatcher::matches(KeybindAction::Copy, key.sym, key.modifiers)) {
-          DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceClipboard); });
+          DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::ForceClipboard); });
           return;
         }
         if (KeybindMatcher::matches(KeybindAction::Save, key.sym, key.modifiers)) {
-          DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceSave); });
+          DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::ForceSave); });
           return;
         }
         if (isRegionConfirmKey(key.sym, m_regionModifierSpace)) {
-          DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::None); });
+          DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::None); });
           return;
         }
       }
@@ -727,13 +742,13 @@ namespace capture {
     // Dim the screen with four strips that frame the selected region. The
     // region itself stays fully transparent so it shows real colors and never
     // tints the captured pixels.
-    auto makeDimStrip = [&]() {
+    auto makeDimStrip = [&] {
       auto strip = ui::box({
           // Fixed black scrim so it darkens under every theme.
           .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
           .width = 0.0F,
           .height = 0.0F,
-          .opacity = kDimOpacity,
+          .opacity = m_dimOpacity,
           .configure = [](Box& box) { box.setPosition(0.0F, 0.0F); },
       });
       return static_cast<Box*>(input->addChild(std::move(strip)));
@@ -748,7 +763,9 @@ namespace capture {
 
     auto selection = ui::box({
         .visible = false,
-        .configure = [border](Box& box) { box.setBorder(fixedColorSpec(border), kSelectionBorderWidth); },
+        .configure = [border, width = m_selectionBorderWidth](Box& box) {
+          box.setBorder(fixedColorSpec(border), width);
+        },
     });
 
     Color badgeFill = colorForRole(ColorRole::Surface);
@@ -776,7 +793,7 @@ namespace capture {
 
     if (m_fullscreenPick) {
       auto pickerBar = buildFullscreenPickerBar(*m_wayland, [this](wl_output* output) {
-        DeferredCall::callLater([this, output]() { completeFullscreenPick(output); });
+        DeferredCall::callLater([this, output] { completeFullscreenPick(output); });
       });
       Flex* pickerBarPtr = pickerBar.get();
       inst.sceneRoot->addChild(std::move(pickerBar));
@@ -881,49 +898,39 @@ namespace capture {
     return false;
   }
 
-  bool ScreenshotRegionOverlay::onKeyboardEvent(const KeyboardEvent& event) {
-    if (!m_active || m_wayland == nullptr) {
-      return false;
-    }
-
-    wl_surface* const kbSurface = m_wayland->lastKeyboardSurface();
-    bool onOverlay = false;
-    for (const auto& inst : m_instances) {
-      if (inst != nullptr && inst->surface != nullptr && inst->surface->wlSurface() == kbSurface) {
-        onOverlay = true;
-        break;
-      }
-    }
-    if (!onOverlay) {
-      return false;
+  void ScreenshotRegionOverlay::onKeyboardEvent(const KeyboardEvent& event) {
+    if (!m_active) {
+      return;
     }
 
     if (m_regionModifierSpace && KeySymbol::isSpace(event.sym)) {
-      setSpaceHeld(event.pressed);
-      return true;
-    }
-    if (!event.pressed) {
-      return false;
+      setSpaceHeld(true);
+      return;
     }
 
-    if (!KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-      if (m_confirming) {
-        if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
-          confirmPendingSelection(ConfirmAction::ForceClipboard);
-          return true;
-        }
-        if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
-          confirmPendingSelection(ConfirmAction::ForceSave);
-          return true;
-        }
-        if (isRegionConfirmKey(event.sym, m_regionModifierSpace)) {
-          confirmPendingSelection(ConfirmAction::None);
-          return true;
-        }
-      }
+    // Whichever Noctalia surface holds the keyboard: on niri an older exclusive panel such as the
+    // launcher keeps it under the overlay, and the keys must still act here, not there (#4641).
+    if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+      cancelSelection();
+      return;
+    }
+    if (!m_confirming) {
+      return;
+    }
+    if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
+      confirmPendingSelection(ConfirmAction::ForceClipboard);
+    } else if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
+      confirmPendingSelection(ConfirmAction::ForceSave);
+    } else if (isRegionConfirmKey(event.sym, m_regionModifierSpace)) {
+      confirmPendingSelection(ConfirmAction::None);
+    }
+  }
+
+  bool ScreenshotRegionOverlay::onKeyRelease(const KeyboardEvent& event) {
+    if (!m_active || !m_regionModifierSpace || !KeySymbol::isSpace(event.sym)) {
       return false;
     }
-    cancelSelection();
+    setSpaceHeld(false);
     return true;
   }
 
@@ -936,7 +943,7 @@ namespace capture {
     kLog.warn("aborting screenshot region overlay: {}", message);
     FailureCallback onFailure = m_onFailure;
     // Defer past the surface's prepareFrame callback before destroying its surfaces.
-    DeferredCall::callLater([this, onFailure, message]() {
+    DeferredCall::callLater([this, onFailure, message] {
       cancel();
       if (onFailure) {
         onFailure(message);
@@ -1048,9 +1055,9 @@ namespace capture {
       // The outline is inset, so expand it outward to keep the border out of the
       // captured (undimmed) region.
       inst->selection->setVisible(true);
-      inst->selection->setPosition(holeX0 - kSelectionBorderWidth, holeY0 - kSelectionBorderWidth);
+      inst->selection->setPosition(holeX0 - m_selectionBorderWidth, holeY0 - m_selectionBorderWidth);
       inst->selection->setSize(
-          (holeX1 - holeX0) + (kSelectionBorderWidth * 2.0F), (holeY1 - holeY0) + (kSelectionBorderWidth * 2.0F)
+          (holeX1 - holeX0) + (m_selectionBorderWidth * 2.0F), (holeY1 - holeY0) + (m_selectionBorderWidth * 2.0F)
       );
 
       if (inst->dimensionsBadge != nullptr && inst->dimensionsLabel != nullptr && m_renderContext != nullptr) {
@@ -1059,7 +1066,7 @@ namespace capture {
         const double targetY = m_cursorGlobalY;
         const bool badgeOnOutput = targetX >= outLeft && targetX < outRight && targetY >= outTop && targetY < outBottom;
 
-        if (showBadge && badgeOnOutput) {
+        if (showBadge && badgeOnOutput && m_showRegionDimensions) {
           inst->dimensionsLabel->setText(dimensionText);
           inst->dimensionsLabel->measure(inst->surface->renderTarget().renderer());
 
@@ -1067,24 +1074,12 @@ namespace capture {
           const float badgeHeight = inst->dimensionsLabel->height() + (kDimensionPaddingY * 2.0F);
           inst->dimensionsBadge->setSize(badgeWidth, badgeHeight);
 
-          const double selX0 = std::min(m_startGlobalX, m_currentGlobalX);
-          const double selX1 = std::max(m_startGlobalX, m_currentGlobalX);
-          const double selY0 = std::min(m_startGlobalY, m_currentGlobalY);
-          const double selY1 = std::max(m_startGlobalY, m_currentGlobalY);
+          const auto badgePos = placeRegionBadge(
+              surfaceW, surfaceH, holeX0 - m_selectionBorderWidth, holeY0 - m_selectionBorderWidth,
+              holeX1 + m_selectionBorderWidth, holeY1 + m_selectionBorderWidth, badgeWidth, badgeHeight
+          );
 
-          const double badgeCursorX = std::clamp(targetX, selX0, selX1);
-          const double badgeCursorY = std::clamp(targetY, selY0, selY1);
-
-          float badgeX = static_cast<float>(badgeCursorX - outLeft) + kDimensionCursorOffsetX;
-          float badgeY = static_cast<float>(badgeCursorY - outTop) + kDimensionCursorOffsetY;
-
-          const float maxX = std::max(0.0F, surfaceW - badgeWidth);
-          const float maxY = std::max(0.0F, surfaceH - badgeHeight);
-
-          badgeX = std::clamp(badgeX, 0.0F, maxX);
-          badgeY = std::clamp(badgeY, 0.0F, maxY);
-
-          inst->dimensionsBadge->setPosition(badgeX, badgeY);
+          inst->dimensionsBadge->setPosition(badgePos.x, badgePos.y);
           inst->dimensionsLabel->setPosition(kDimensionPaddingX, kDimensionPaddingY);
           inst->dimensionsBadge->setVisible(true);
         } else {
@@ -1098,8 +1093,9 @@ namespace capture {
         if (inst->confirmHint == nullptr || inst->surface == nullptr) {
           continue;
         }
-        inst->confirmHint->setVisible(m_confirming);
-        if (!m_confirming) {
+        const bool showHint = m_confirming && m_showRegionHint;
+        inst->confirmHint->setVisible(showHint);
+        if (!showHint) {
           continue;
         }
         if (inst->confirmHintLabel != nullptr) {

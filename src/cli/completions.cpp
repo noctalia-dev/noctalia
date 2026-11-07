@@ -22,45 +22,50 @@ namespace noctalia::cli {
       path.push_back(command.name);
       states.push_back(CommandState{.command = &command, .path = path});
       for (const Command& child : command.subcommands) {
-        if (!child.hidden)
+        if (!child.hidden) {
           collectStates(child, path, states);
+        }
       }
     }
 
-    [[nodiscard]] std::vector<CommandState> collectStates(const Command& root) {
+    std::vector<CommandState> collectStates(const Command& root) {
       std::vector<CommandState> states;
       collectStates(root, {}, states);
       return states;
     }
 
-    [[nodiscard]] std::string stateId(std::span<const std::string_view> path) {
+    std::string stateId(std::span<const std::string_view> path) {
       std::string id;
       for (const std::string_view segment : path) {
-        if (!id.empty())
+        if (!id.empty()) {
           id.push_back('_');
-        for (const char c : segment)
+        }
+        for (const char c : segment) {
           id.push_back(c == '-' ? '_' : c);
+        }
       }
       return id;
     }
 
-    [[nodiscard]] std::string shellSingleQuote(std::string_view value) {
+    std::string shellSingleQuote(std::string_view value) {
       std::string quoted{"'"};
       for (const char c : value) {
-        if (c == '\'')
+        if (c == '\'') {
           quoted.append("'\\''");
-        else
+        } else {
           quoted.push_back(c);
+        }
       }
       quoted.push_back('\'');
       return quoted;
     }
 
-    [[nodiscard]] std::string bashAnsiQuote(std::string_view value) {
+    std::string bashAnsiQuote(std::string_view value) {
       std::string quoted{"$'"};
       for (const char c : value) {
-        if (c == '\\' || c == '\'')
+        if (c == '\\' || c == '\'') {
           quoted.push_back('\\');
+        }
         if (c == '\n') {
           quoted.append("\\n");
         } else {
@@ -71,60 +76,68 @@ namespace noctalia::cli {
       return quoted;
     }
 
-    [[nodiscard]] std::string newlineChoices(std::span<const std::string_view> choices) {
+    std::string newlineChoices(std::span<const std::string_view> choices) {
       std::string words;
       for (const std::string_view choice : choices) {
-        if (!words.empty())
+        if (!words.empty()) {
           words.push_back('\n');
+        }
         words.append(choice);
       }
       return words;
     }
 
-    [[nodiscard]] std::string spaceWords(const Command& command) {
+    std::string spaceWords(const Command& command) {
       std::string words;
       const auto append = [&words](std::string_view word) {
-        if (!words.empty())
+        if (!words.empty()) {
           words.push_back('\n');
+        }
         words.append(word);
       };
       for (const Command& child : command.subcommands) {
-        if (!child.hidden)
+        if (!child.hidden) {
           append(child.name);
+        }
       }
       for (const Flag& flag : command.flags) {
-        if (!flag.shortName.empty())
+        if (!flag.shortName.empty()) {
           append(flag.shortName);
-        if (!flag.longName.empty())
+        }
+        if (!flag.longName.empty()) {
           append(flag.longName);
+        }
       }
       append("-h");
       append("--help");
       return words;
     }
 
-    [[nodiscard]] std::string pathArgs(std::span<const std::string_view> path) {
+    std::string pathArgs(std::span<const std::string_view> path) {
       std::string result;
       for (std::size_t i = 1; i < path.size(); ++i) {
-        if (!result.empty())
+        if (!result.empty()) {
           result.push_back(' ');
+        }
         result.append(path[i]);
       }
       return result;
     }
 
-    [[nodiscard]] std::string fishChoiceList(std::span<const std::string_view> choices) {
+    std::string fishChoiceList(std::span<const std::string_view> choices) {
       std::string result;
       for (const std::string_view choice : choices) {
-        if (!result.empty())
+        if (!result.empty()) {
           result.push_back(' ');
+        }
         if (choice.find_first_of(" \t") == std::string_view::npos) {
           result.append(choice);
         } else {
           result.push_back('"');
           for (const char c : choice) {
-            if (c == '"' || c == '\\')
+            if (c == '"' || c == '\\') {
               result.push_back('\\');
+            }
             result.push_back(c);
           }
           result.push_back('"');
@@ -133,11 +146,12 @@ namespace noctalia::cli {
       return result;
     }
 
-    [[nodiscard]] std::string zshChoiceList(std::span<const std::string_view> choices) {
+    std::string zshChoiceList(std::span<const std::string_view> choices) {
       std::string result{"("};
       for (const std::string_view choice : choices) {
-        if (result.size() > 1)
+        if (result.size() > 1) {
           result.push_back(' ');
+        }
         result.append(shellSingleQuote(choice));
       }
       result.push_back(')');
@@ -166,14 +180,16 @@ namespace noctalia::cli {
       for (const Flag& flag : command.flags) {
         std::string action;
         if (!flag.valueName.empty()) {
-          if (flag.choices.empty())
+          if (flag.choices.empty()) {
             action = ":" + std::string(flag.valueName) + ":_files";
-          else
+          } else {
             action = ":" + std::string(flag.valueName) + ":" + zshChoiceList(flag.choices);
+          }
         }
         const auto append = [&](std::string_view spelling, std::string_view other) {
-          if (spelling.empty())
+          if (spelling.empty()) {
             return;
+          }
           std::string spec;
           if (!other.empty()) {
             spec.push_back('(');
@@ -235,8 +251,9 @@ namespace noctalia::cli {
 
     for (const CommandState& state : states) {
       for (const Command& child : state.command->subcommands) {
-        if (child.hidden)
+        if (child.hidden) {
           continue;
+        }
         auto childPath = state.path;
         childPath.push_back(child.name);
         output.append("      ");
@@ -257,20 +274,25 @@ namespace noctalia::cli {
       output.append(")\n");
 
       for (const Flag& flag : command.flags) {
-        if (flag.valueName.empty())
+        if (flag.valueName.empty()) {
           continue;
+        }
         output.append("      case \"${COMP_WORDS[COMP_CWORD-1]}\" in\n        ");
-        if (!flag.shortName.empty())
+        if (!flag.shortName.empty()) {
           output.append(flag.shortName);
-        if (!flag.shortName.empty() && !flag.longName.empty())
+        }
+        if (!flag.shortName.empty() && !flag.longName.empty()) {
           output.push_back('|');
-        if (!flag.longName.empty())
+        }
+        if (!flag.longName.empty()) {
           output.append(flag.longName);
+        }
         output.append(")\n");
-        if (flag.choices.empty())
+        if (flag.choices.empty()) {
           appendBashFiles(output, 10);
-        else
+        } else {
           appendBashCompletion(output, flag.choices, 10);
+        }
         output.append("          return ;;\n      esac\n");
       }
 
@@ -281,8 +303,9 @@ namespace noctalia::cli {
       if (!command.subcommands.empty()) {
         std::vector<std::string_view> names;
         for (const Command& child : command.subcommands) {
-          if (!child.hidden)
+          if (!child.hidden) {
             names.push_back(child.name);
+          }
         }
         appendBashCompletion(output, names, 6);
         output.append("      ;;\n");
@@ -297,18 +320,22 @@ namespace noctalia::cli {
       );
       std::vector<std::string_view> valueSpellings;
       for (const Flag& flag : command.flags) {
-        if (flag.valueName.empty())
+        if (flag.valueName.empty()) {
           continue;
-        if (!flag.shortName.empty())
+        }
+        if (!flag.shortName.empty()) {
           valueSpellings.push_back(flag.shortName);
-        if (!flag.longName.empty())
+        }
+        if (!flag.longName.empty()) {
           valueSpellings.push_back(flag.longName);
+        }
       }
       if (!valueSpellings.empty()) {
         output.append("        case \"$token\" in\n          ");
         for (std::size_t i = 0; i < valueSpellings.size(); ++i) {
-          if (i != 0)
+          if (i != 0) {
             output.push_back('|');
+          }
           output.append(valueSpellings[i]);
         }
         output.append(") skip_next=1; continue ;;\n        esac\n");
@@ -335,8 +362,9 @@ namespace noctalia::cli {
           appendBashCompletion(output, positional.choices, 10);
         }
         output.append("          ;;\n");
-        if (positional.variadic)
+        if (positional.variadic) {
           break;
+        }
       }
       output.append("        *)\n");
       if (!command.positionals.empty() && command.positionals.back().variadic) {
@@ -399,8 +427,9 @@ namespace noctalia::cli {
       if (!command.subcommands.empty()) {
         output.append("  local -a commands\n  commands=(\n");
         for (const Command& child : command.subcommands) {
-          if (child.hidden)
+          if (child.hidden) {
             continue;
+          }
           output.append("    ");
           output.append(shellSingleQuote(std::string(child.name) + ":" + std::string(child.summary)));
           output.push_back('\n');
@@ -415,8 +444,9 @@ namespace noctalia::cli {
             "      case $line[1] in\n"
         );
         for (const Command& child : command.subcommands) {
-          if (child.hidden)
+          if (child.hidden) {
             continue;
+          }
           auto childPath = state.path;
           childPath.push_back(child.name);
           output.append("        ");
@@ -438,19 +468,21 @@ namespace noctalia::cli {
           spec.append(safeName);
           spec.push_back(':');
 
-          if (!positional.runtimeProvider.empty())
+          if (!positional.runtimeProvider.empty()) {
             spec.append("_noctalia_").append(positional.runtimeProvider);
-          else if (positional.choices.empty())
+          } else if (positional.choices.empty()) {
             spec.append("_files");
-          else
+          } else {
             spec.append(zshChoiceList(positional.choices));
+          }
 
           output.append("    ");
           output.append(shellSingleQuote(spec));
           output.append(i + 1 == command.positionals.size() ? "\n" : " \\\n");
         }
-        if (command.positionals.empty())
+        if (command.positionals.empty()) {
           output.append("    ':argument:_files'\n");
+        }
       }
       output.append("}\n\n");
     }
@@ -531,8 +563,9 @@ namespace noctalia::cli {
       const std::string prefixCondition = path.empty() ? "__noctalia_path_prefix" : "__noctalia_path_prefix " + path;
 
       for (const Command& child : command.subcommands) {
-        if (child.hidden)
+        if (child.hidden) {
           continue;
+        }
         output.append("complete -c noctalia -n ");
         output.append(shellSingleQuote(exactCondition));
         output.append(" -f -a ");
@@ -576,8 +609,9 @@ namespace noctalia::cli {
 
       for (std::size_t i = 0; i < command.positionals.size(); ++i) {
         const Positional& positional = command.positionals[i];
-        if (positional.choices.empty() && positional.runtimeProvider.empty())
+        if (positional.choices.empty() && positional.runtimeProvider.empty()) {
           continue;
+        }
 
         std::string condition = "__noctalia_at_pos " + std::to_string(i);
         if (!path.empty()) {
@@ -609,18 +643,21 @@ namespace noctalia::cli {
     auto parsed = parseOrReport(
         kCompletionsCmd, "noctalia completions", std::span<char* const>{argv + 2, static_cast<std::size_t>(argc - 2)}
     );
-    if (!parsed)
+    if (!parsed) {
       return 1;
-    if (parsed->helpRequested)
+    }
+    if (parsed->helpRequested) {
       return 0;
+    }
 
     const std::string_view shell = parsed->positionals.front();
-    if (shell == "bash")
+    if (shell == "bash") {
       std::print("{}", generateBash(kRootCmd));
-    else if (shell == "zsh")
+    } else if (shell == "zsh") {
       std::print("{}", generateZsh(kRootCmd));
-    else
+    } else {
       std::print("{}", generateFish(kRootCmd));
+    }
     return 0;
   }
 

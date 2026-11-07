@@ -12,7 +12,7 @@
 namespace capture {
 
   namespace {
-    [[nodiscard]] std::optional<ScreencopyImage>
+    std::optional<ScreencopyImage>
     cropCapture(const ScreencopyImage& source, int logicalOutputWidth, int logicalOutputHeight, LogicalRect region) {
       if (logicalOutputWidth <= 0 || logicalOutputHeight <= 0 || region.width <= 0 || region.height <= 0) {
         return std::nullopt;
@@ -59,7 +59,7 @@ namespace capture {
       return cropped;
     }
   } // namespace
-  [[nodiscard]] std::optional<capture::ScreenshotImage>
+  std::optional<capture::ScreenshotImage>
   cropScreenshotImage(const capture::ScreenshotImage& source, int logicalWidth, int logicalHeight, LogicalRect region) {
     auto image = cropCapture(source.image, logicalWidth, logicalHeight, region);
     if (!image) {

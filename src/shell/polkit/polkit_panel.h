@@ -2,6 +2,7 @@
 
 #include "shell/panel/panel.h"
 #include "system/icon_resolver.h"
+#include "ui/signal.h"
 
 #include <functional>
 #include <string_view>
@@ -15,7 +16,7 @@ class InputArea;
 class Label;
 class Node;
 class PolkitAgent;
-class PolkitRequest;
+struct PolkitRequest;
 class Renderer;
 class ConfigService;
 
@@ -27,14 +28,17 @@ public:
   void onOpen(std::string_view context) override;
   void onClose() override;
 
-  [[nodiscard]] float preferredWidth() const override { return scaled(480.0F); }
-  [[nodiscard]] float preferredHeight() const override;
-  [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
-  [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
-  [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
-  [[nodiscard]] bool dismissOnOutsideClick() const override { return false; }
-  [[nodiscard]] InputArea* initialFocusArea() const override;
-  [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
+  float preferredWidth() const override { return scaled(480.0F); }
+  // Fits its content (the prompt grows when a password is needed); this is the maximum.
+  float preferredHeight() const override { return scaled(640.0F); }
+  bool fitsContentHeight() const noexcept override { return true; }
+  float measureContentHeight(Renderer& renderer, float contentWidth) override;
+  PanelPlacement panelPlacement() const noexcept override;
+  LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
+  LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
+  bool dismissOnOutsideClick() const override { return false; }
+  InputArea* initialFocusArea() const override;
+  bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
 
 private:
   void onPanelCardOpacityChanged(float opacity) override;
@@ -46,6 +50,7 @@ private:
   void resolveIcon(Renderer& renderer, const PolkitRequest& request);
 
   ConfigService* m_config = nullptr;
+  Signal<>::ScopedConnection m_appIconColorizeConn;
   std::function<PolkitAgent*()> m_agentProvider;
   Flex* m_rootLayout = nullptr;
   InputArea* m_focusArea = nullptr;
@@ -62,6 +67,7 @@ private:
   IconResolver m_iconResolver;
   std::string m_lastIconName;
   bool m_iconResolved = false;
+  bool m_iconIsAppIcon = false;
   bool m_lastResponseRequired = false;
   std::string m_trackedRequestCookie;
   bool m_hasTrackedRequest = false;

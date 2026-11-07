@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/toml.h" // IWYU pragma: keep
+#include "config/toml.h" // IWYU pragma: keep
 
 #include <atomic>
 #include <cstdint>
@@ -41,6 +41,7 @@ namespace noctalia::theme {
       std::string configFile;
       std::unordered_set<std::string> enabledTemplates;
       std::function<bool()> cancelRequested;
+      std::function<void(std::string)> hookWarningCallback;
       std::string schemeType = "content";
       bool verbose = true;
       std::shared_ptr<const toml::table> configTable;

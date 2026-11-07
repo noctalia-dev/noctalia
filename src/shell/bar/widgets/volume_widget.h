@@ -28,8 +28,12 @@ public:
     std::unordered_map<std::string, std::string> effectsProfileGlyphs;
     std::string customImage;
     bool customImageColorize = false;
+    bool showGlyph = true;
     bool showLabel = true;
     bool hideWhenInactive = false;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
     ColorSpec muteColor = colorSpecFromRole(ColorRole::Error);
   };
 
@@ -42,10 +46,11 @@ private:
   void doUpdate(Renderer& renderer) override;
   void syncState(Renderer& renderer);
   void syncWidgetVisibility(bool showWidget);
-  [[nodiscard]] std::string glyphName(float volume, bool muted, const std::string& effectsProfile = {}) const;
+  std::string glyphName(float volume, bool muted, const std::string& effectsProfile = {}) const;
 
   PipeWireService* m_audio = nullptr;
   EasyEffectsService* m_easyEffects = nullptr;
+  bool m_showGlyph = true;
   bool m_showLabel = true;
   VolumeWidgetTarget m_target = VolumeWidgetTarget::Output;
   ColorSpec m_muteColor;
@@ -55,6 +60,7 @@ private:
   WidgetCustomImage m_customImage;
   // Only ever true for the input widget: "inactive" means no application is capturing audio.
   bool m_hideWhenInactive = false;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;
   Label* m_label = nullptr;

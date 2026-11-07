@@ -243,7 +243,7 @@ std::optional<std::uint16_t> bluetoothUuidShortId(std::string_view uuid) {
 
 std::optional<std::string_view> bluetoothServiceName(std::string_view uuid) {
   if (const auto shortId = bluetoothUuidShortId(uuid); shortId.has_value()) {
-    const auto it = std::ranges::lower_bound(kServiceNames, *shortId, {}, &ServiceName::first);
+    const auto* it = std::ranges::lower_bound(kServiceNames, *shortId, {}, &ServiceName::first);
     if (it != kServiceNames.end() && it->first == *shortId) {
       return it->second;
     }

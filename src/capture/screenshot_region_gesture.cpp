@@ -7,11 +7,9 @@
 namespace capture {
   namespace {
 
-    constexpr double kHandleMargin = 15.0; // Hitbox size in pixels
-
     // Right-button resize zones: outer thirds of each axis pick the matching edge or corner.
-    [[nodiscard]] DragMode hitTestRegionThirds(double x, double y, double x0, double y0, double x1, double y1) {
-      if (x < x0 - kHandleMargin || x > x1 + kHandleMargin || y < y0 - kHandleMargin || y > y1 + kHandleMargin) {
+    DragMode hitTestRegionThirds(double x, double y, double x0, double y0, double x1, double y1, double margin) {
+      if (x < x0 - margin || x > x1 + margin || y < y0 - margin || y > y1 + margin) {
         return DragMode::None;
       }
 
@@ -22,78 +20,98 @@ namespace capture {
       const bool top = y < y0 + thirdH;
       const bool bottom = y >= y1 - thirdH;
 
-      if (left && top)
+      if (left && top) {
         return DragMode::TopLeftCorner;
-      if (right && top)
+      }
+      if (right && top) {
         return DragMode::TopRightCorner;
-      if (left && bottom)
+      }
+      if (left && bottom) {
         return DragMode::BottomLeftCorner;
-      if (right && bottom)
+      }
+      if (right && bottom) {
         return DragMode::BottomRightCorner;
-      if (top)
+      }
+      if (top) {
         return DragMode::TopEdge;
-      if (bottom)
+      }
+      if (bottom) {
         return DragMode::BottomEdge;
-      if (left)
+      }
+      if (left) {
         return DragMode::LeftEdge;
-      if (right)
+      }
+      if (right) {
         return DragMode::RightEdge;
+      }
       return DragMode::None;
     }
 
   } // namespace
 
-  DragMode hitTestSelection(double x, double y, double x0, double y0, double x1, double y1) {
-    const bool withinX = x >= x0 - kHandleMargin && x <= x1 + kHandleMargin;
-    const bool withinY = y >= y0 - kHandleMargin && y <= y1 + kHandleMargin;
+  DragMode hitTestSelection(double x, double y, double x0, double y0, double x1, double y1, double margin) {
+    const bool withinX = x >= x0 - margin && x <= x1 + margin;
+    const bool withinY = y >= y0 - margin && y <= y1 + margin;
 
-    if (!withinX || !withinY)
+    if (!withinX || !withinY) {
       return DragMode::None;
+    }
 
     const double distLeft = std::abs(x - x0);
     const double distRight = std::abs(x - x1);
     const double distTop = std::abs(y - y0);
     const double distBottom = std::abs(y - y1);
 
-    bool nearLeft = distLeft <= kHandleMargin;
-    bool nearRight = distRight <= kHandleMargin;
-    bool nearTop = distTop <= kHandleMargin;
-    bool nearBottom = distBottom <= kHandleMargin;
+    bool nearLeft = distLeft <= margin;
+    bool nearRight = distRight <= margin;
+    bool nearTop = distTop <= margin;
+    bool nearBottom = distBottom <= margin;
 
     // Narrow selections can overlap opposing hit zones; bind the pointer to the nearer edge.
     if (nearLeft && nearRight) {
-      if (distLeft < distRight)
+      if (distLeft < distRight) {
         nearRight = false;
-      else
+      } else {
         nearLeft = false;
+      }
     }
     if (nearTop && nearBottom) {
-      if (distTop < distBottom)
+      if (distTop < distBottom) {
         nearBottom = false;
-      else
+      } else {
         nearTop = false;
+      }
     }
 
-    if (nearTop && nearLeft)
+    if (nearTop && nearLeft) {
       return DragMode::TopLeftCorner;
-    if (nearTop && nearRight)
+    }
+    if (nearTop && nearRight) {
       return DragMode::TopRightCorner;
-    if (nearBottom && nearLeft)
+    }
+    if (nearBottom && nearLeft) {
       return DragMode::BottomLeftCorner;
-    if (nearBottom && nearRight)
+    }
+    if (nearBottom && nearRight) {
       return DragMode::BottomRightCorner;
+    }
 
-    if (nearTop && x >= x0 && x <= x1)
+    if (nearTop && x >= x0 && x <= x1) {
       return DragMode::TopEdge;
-    if (nearBottom && x >= x0 && x <= x1)
+    }
+    if (nearBottom && x >= x0 && x <= x1) {
       return DragMode::BottomEdge;
-    if (nearLeft && y >= y0 && y <= y1)
+    }
+    if (nearLeft && y >= y0 && y <= y1) {
       return DragMode::LeftEdge;
-    if (nearRight && y >= y0 && y <= y1)
+    }
+    if (nearRight && y >= y0 && y <= y1) {
       return DragMode::RightEdge;
+    }
 
-    if (x > x0 && x < x1 && y > y0 && y < y1)
+    if (x > x0 && x < x1 && y > y0 && y < y1) {
       return DragMode::Move;
+    }
 
     return DragMode::None;
   }
@@ -102,7 +120,7 @@ namespace capture {
     if (press.confirming && (!press.modifierMode || press.modifierHeld)) {
       if (!press.modifierMode) {
         // A plain drag hits edges/corners/interior; outside starts a new selection.
-        const DragMode mode = hitTestSelection(press.x, press.y, press.x0, press.y0, press.x1, press.y1);
+        const DragMode mode = hitTestSelection(press.x, press.y, press.x0, press.y0, press.x1, press.y1, press.margin);
         return mode == DragMode::None ? DragMode::NewSelection : mode;
       }
       if (!press.rightButton) {
@@ -110,7 +128,7 @@ namespace capture {
         return DragMode::Move;
       }
       // Modifier + right drag resizes from the outer thirds; the center does nothing.
-      return hitTestRegionThirds(press.x, press.y, press.x0, press.y0, press.x1, press.y1);
+      return hitTestRegionThirds(press.x, press.y, press.x0, press.y0, press.x1, press.y1, press.margin);
     }
     return press.rightButton ? DragMode::None : DragMode::NewSelection;
   }

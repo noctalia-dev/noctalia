@@ -18,11 +18,11 @@ public:
   // line on activate, or nullopt on cancel (panel closed without a selection).
   DmenuStdinProvider(std::vector<std::string> lines, std::string id, Completion completion);
 
-  [[nodiscard]] std::string_view defaultPrefix() const override { return ""; }
-  [[nodiscard]] std::string_view id() const override { return m_id; }
-  [[nodiscard]] std::string_view defaultGlyphName() const override { return "terminal"; }
+  std::string_view defaultPrefix() const override { return ""; }
+  std::string_view id() const override { return m_id; }
+  std::string_view defaultGlyphName() const override { return "terminal"; }
 
-  [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;
+  std::vector<LauncherResult> query(std::string_view text) const override;
 
   bool activate(const LauncherResult& result) override;
   void reset() override;

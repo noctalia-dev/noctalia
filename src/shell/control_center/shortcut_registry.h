@@ -9,16 +9,16 @@ class Shortcut {
 public:
   virtual ~Shortcut() = default;
 
-  [[nodiscard]] virtual std::string_view id() const = 0;
-  [[nodiscard]] virtual std::string defaultLabel() const = 0;
-  [[nodiscard]] virtual std::string displayLabel() const { return defaultLabel(); }
-  [[nodiscard]] virtual std::string displayIcon() const { return std::string(currentIcon()); }
-  [[nodiscard]] virtual std::string_view iconOn() const = 0;
-  [[nodiscard]] virtual std::string_view iconOff() const = 0;
-  [[nodiscard]] virtual bool isToggle() const { return false; }
-  [[nodiscard]] virtual bool enabled() const { return true; }
+  virtual std::string_view id() const = 0;
+  virtual std::string defaultLabel() const = 0;
+  virtual std::string displayLabel() const { return defaultLabel(); }
+  virtual std::string displayIcon() const { return std::string(currentIcon()); }
+  virtual std::string_view iconOn() const = 0;
+  virtual std::string_view iconOff() const = 0;
+  virtual bool isToggle() const { return false; }
+  virtual bool enabled() const { return true; }
 
-  [[nodiscard]] virtual bool active() const { return false; }
+  virtual bool active() const { return false; }
 
   virtual void onClick() {}
   virtual void onRightClick() {}
@@ -30,7 +30,7 @@ public:
   virtual void onPanelClose() {}
   virtual void onPanelOpen() {}
 
-  [[nodiscard]] std::string_view currentIcon() const { return active() ? iconOn() : iconOff(); }
+  std::string_view currentIcon() const { return active() ? iconOn() : iconOff(); }
 };
 
 struct ShortcutServices;
@@ -45,9 +45,9 @@ public:
   };
 
   // Rebuilt on every call from the current plugin registry state.
-  [[nodiscard]] static std::vector<CatalogEntry> catalog();
+  static std::vector<CatalogEntry> catalog();
   // Whether a built-in shortcut's backing feature is enabled. Drives both the
   // Settings GUI add-list and create(); disabled features cannot be added.
-  [[nodiscard]] static bool isAvailable(std::string_view type, const Config& config);
+  static bool isAvailable(std::string_view type, const Config& config);
   static std::unique_ptr<Shortcut> create(std::string_view type, const ShortcutServices& services);
 };

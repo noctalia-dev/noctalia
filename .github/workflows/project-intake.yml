@@ -22,16 +22,27 @@ jobs:
   intake:
     runs-on: ubuntu-latest
     steps:
-      - name: Add native issues and pull requests to maintainer triage
-        uses: actions/github-script@v7
+      # Short-lived token from the Noctalia Automation GitHub App (org variable
+      # AUTOMATION_APP_CLIENT_ID, org secret AUTOMATION_APP_PRIVATE_KEY), limited to
+      # this repository and to what intake needs.
+      - name: Create Noctalia Automation token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          github-token: ${{ secrets.MAINTAINER_TRIAGE_TOKEN }}
+          client-id: ${{ vars.AUTOMATION_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          permission-organization-projects: write
+          permission-issues: read
+          permission-pull-requests: read
+
+      - name: Add native issues and pull requests to maintainer triage
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const projectId = 'PVT_kwDODYBPq84BmIDl';
             const { owner, repo } = context.repo;
             if (owner !== 'noctalia-dev' || repo !== 'noctalia') throw new Error('Unexpected intake repository');
-            const viewer = await github.graphql('query { viewer { login } }');
-            if (viewer.viewer.login !== 'Noctalia-CI') throw new Error(`Unexpected intake identity: ${viewer.viewer.login}`);
 
             let number;
             let expectedKind;

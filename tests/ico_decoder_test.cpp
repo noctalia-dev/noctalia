@@ -1,4 +1,4 @@
-#include "render/core/image_decoder.h"
+#include "render/codecs/codecs.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -123,14 +123,16 @@ namespace {
       // Row padding to 4-byte boundary
       int usedBytes = width * (bpp / 8);
       int pad = rowBytes - usedBytes;
-      for (int p = 0; p < pad; ++p)
+      for (int p = 0; p < pad; ++p) {
         ico.push_back(0x00);
+      }
     }
 
     // AND mask — all zeros (fully opaque)
     for (int row = 0; row < height; ++row) {
-      for (int b = 0; b < andRowBytes; ++b)
+      for (int b = 0; b < andRowBytes; ++b) {
         ico.push_back(0x00);
+      }
     }
 
     return ico;
@@ -193,9 +195,10 @@ namespace {
 
   bool testPngSubImage() {
     auto ico = buildIcoWithPng(1, 1);
-    auto result = decodeRasterImage(ico.data(), ico.size());
-    if (!checkDecoded(result, "PNG sub-image decode failed"))
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "PNG sub-image decode failed")) {
       return false;
+    }
     bool ok = true;
     ok = check(result->width == 1, "PNG sub-image: width should be 1") && ok;
     ok = check(result->height == 1, "PNG sub-image: height should be 1") && ok;
@@ -205,9 +208,10 @@ namespace {
 
   bool testBmpSubImage() {
     auto ico = buildIcoWithBmp(2, 2, 32);
-    auto result = decodeRasterImage(ico.data(), ico.size());
-    if (!checkDecoded(result, "BMP sub-image decode failed"))
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "BMP sub-image decode failed")) {
       return false;
+    }
     bool ok = true;
     ok = check(result->width == 2, "BMP sub-image: width should be 2") && ok;
     ok = check(result->height == 2, "BMP sub-image: height should be 2") && ok;
@@ -232,9 +236,10 @@ namespace {
     // Patch the second pixel to fully transparent.
     ico[firstPixel + 4 + 3] = 0x00; // A
 
-    auto result = decodeRasterImage(ico.data(), ico.size());
-    if (!checkDecoded(result, "alpha-preserved decode failed"))
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "alpha-preserved decode failed")) {
       return false;
+    }
     bool ok = true;
     // BMP is bottom-up, so first BMP row = last output row.
     // 2x2 image: BMP row 0 (bottom) → output row 1, BMP row 1 (top) → output row 0.
@@ -255,9 +260,10 @@ namespace {
     // Bit 7 = pixel 0 (opaque), bit 6 = pixel 1 (transparent)
     ico[andMaskOffset] = 0x40;
 
-    auto result = decodeRasterImage(ico.data(), ico.size());
-    if (!checkDecoded(result, "AND mask decode failed"))
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "AND mask decode failed")) {
       return false;
+    }
     bool ok = true;
     ok = check(result->width == 2, "AND mask: width should be 2") && ok;
     ok = check(result->height == 1, "AND mask: height should be 1") && ok;
@@ -269,9 +275,10 @@ namespace {
 
   bool testMultiEntryPicksBest() {
     auto ico = buildIcoMultiEntry();
-    auto result = decodeRasterImage(ico.data(), ico.size());
-    if (!checkDecoded(result, "multi-entry decode failed"))
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "multi-entry decode failed")) {
       return false;
+    }
     bool ok = true;
     ok = check(result->width == 1, "multi-entry: should pick 1x1 image") && ok;
     ok = check(result->height == 1, "multi-entry: should pick 1x1 image") && ok;
@@ -281,7 +288,7 @@ namespace {
   bool testEmptyIco() {
     // Valid header but count = 0
     std::vector<std::uint8_t> ico = {0x00, 0x00, 0x01, 0x00, 0x00, 0x00};
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     bool ok = true;
     ok = check(!result, "empty ICO should fail") && ok;
     if (!result) {
@@ -294,7 +301,7 @@ namespace {
   bool testTruncatedDirectory() {
     // Claims 1 entry but file is too short to contain it
     std::vector<std::uint8_t> ico = {0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00};
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     bool ok = true;
     ok = check(!result, "truncated directory should fail") && ok;
     if (!result) {
@@ -311,7 +318,7 @@ namespace {
     ico[19] = 0xFF;
     ico[20] = 0x00;
     ico[21] = 0x00;
-    auto result = decodeRasterImage(ico.data(), ico.size());
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
     bool ok = true;
     ok = check(!result, "out-of-bounds entry should fail") && ok;
     if (!result) {
@@ -324,9 +331,10 @@ namespace {
   bool test256x256Entry() {
     // Width/height 0 in the directory means 256
     auto ico = buildIcoWithPng(256, 256);
-    auto result = decodeRasterImage(ico.data(), ico.size());
-    if (!checkDecoded(result, "256x256 entry decode failed"))
+    auto result = codecs::decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "256x256 entry decode failed")) {
       return false;
+    }
     // The actual decoded size comes from the embedded PNG (1x1), not the directory
     bool ok = true;
     ok = check(result->width == 1, "256x256 entry: decoded width from PNG should be 1") && ok;

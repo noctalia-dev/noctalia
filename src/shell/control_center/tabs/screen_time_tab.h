@@ -17,12 +17,13 @@ class Image;
 class Label;
 class Renderer;
 class ScreenTimeService;
+class ConfigService;
 class ScrollView;
 class Segmented;
 
 class ScreenTimeTab : public Tab {
 public:
-  explicit ScreenTimeTab(ScreenTimeService* screenTime);
+  ScreenTimeTab(ScreenTimeService* screenTime, ConfigService* config);
 
   std::unique_ptr<Flex> create() override;
   void onClose() override;
@@ -44,9 +45,11 @@ private:
   void syncDayLabelHover();
   void openDayDetail(std::size_t bucketIndex);
   void clearDayDetail();
-  [[nodiscard]] std::string resolveIconPath(const std::string& appKey) const;
+  std::string resolveIconPath(const std::string& appKey) const;
 
   ScreenTimeService* m_screenTime = nullptr;
+  ConfigService* m_config = nullptr;
+  Signal<>::ScopedConnection m_appIconColorizeConn;
   bool m_active = false;
   int m_rangeDays = 1;
   std::string m_detailDayKey;

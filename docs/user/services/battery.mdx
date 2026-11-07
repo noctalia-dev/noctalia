@@ -5,18 +5,26 @@ sidebar:
   order: 2
 ---
 
-Battery status uses UPower. The global warning threshold controls the system battery's internal low-battery notifications and the warning color state used by default battery widgets. Peripheral batteries warn only when they have an explicit per-device threshold.
+Battery status uses UPower. The global warning threshold controls the laptop low-battery notifications and the warning color state used by default battery widgets, and it follows the combined charge across all laptop batteries, not any single battery. Peripheral batteries warn only when they have an explicit per-device threshold.
 
 ```toml
 [battery]
 warning_threshold = 10 # 0 disables low-battery warnings
 
-[battery.device."/org/freedesktop/UPower/devices/battery_BAT0"]
+# Warning for a second laptop battery, at that battery's own percent
+# See the Multiple laptop batteries section below.
+[battery.device."/org/freedesktop/UPower/devices/battery_BAT1"]
 warning_threshold = 15
 
 [battery.device."/org/freedesktop/UPower/devices/headset_dev_00_11_22_33_44_55"]
 warning_threshold = 10
 ```
+
+## Multiple laptop batteries
+
+On laptops with more than one battery, the laptop warns once on the combined charge (UPower's display battery), not once per battery, and the notification shows the same combined percentage the bar widget displays. A second battery stays silent on its own. A per-device threshold warns about it individually, always at its own percent, like the `battery_BAT1` example above.
+
+Single-battery laptops are unaffected: the combined charge equals the single battery's charge, so thresholds, escalation levels, and notification text work exactly as before.
 
 ## Escalating low-battery warnings
 
@@ -28,7 +36,7 @@ For the **system battery**, warnings escalate as the charge drains:
 - At 5%: a critical notification.
 - At 2%: a persistent critical notification warning that the computer will shut down soon (stays on screen until you charge or dismiss it).
 
-The 5% and 2% escalation levels are fixed and apply only to the system battery. Charging back above a level re-arms it, so re-discharging warns again. Peripheral batteries warn only once at their own configured `warning_threshold`. Setting `warning_threshold = 0` disables all warnings for that battery, including the escalation levels.
+The 5% and 2% escalation levels are fixed and apply only to the system-level warning, which follows the combined charge (UPower's display battery): a second laptop battery draining low does not warn on its own unless it has a per-device threshold. Charging back above a level re-arms it, so re-discharging warns again. Laptop and peripheral batteries with an explicit per-device threshold warn only once at their own configured `warning_threshold`. Setting `warning_threshold = 0` disables all warnings for that battery, including the escalation levels.
 
 System-battery warnings remain visible while Do Not Disturb is enabled, but their notification sound stays muted. Peripheral battery warnings continue to respect Do Not Disturb.
 

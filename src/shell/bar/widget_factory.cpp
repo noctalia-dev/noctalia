@@ -71,12 +71,10 @@
 #include "shell/bar/widgets/weather_widget_definition.h"
 #include "shell/bar/widgets/workspaces_widget.h"
 #include "shell/bar/widgets/workspaces_widget_definition.h"
-#include "ui/style.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <format>
 #include <memory>
 #include <string>
@@ -108,8 +106,6 @@ WidgetFactory::WidgetFactory(const BarServices& services)
       m_scriptApi(services.scriptApi) {
   scripting::PluginRegistry::instance().ensureScanned();
 }
-
-WidgetFactory::~WidgetFactory() = default;
 
 std::unique_ptr<Widget> WidgetFactory::create(
     const std::string& name, wl_output* output, float contentScale, const std::string& barPosition,
@@ -221,7 +217,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
 #endif
       {"keyboard_layout", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
             return createWidget<KeyboardLayoutWidget>(
-                context.contentScale, f.m_platform,
+                context.contentScale, f.m_platform, f.m_tray,
                 keyboardLayoutWidgetDefinition().resolve(context.config, context.settingContext),
                 f.m_config.shell.keyboardLayout.customLabels
             );
@@ -380,7 +376,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
       .widgetSpacing = widgetSpacing,
       .verticalBar = barPosition == "left" || barPosition == "right",
   };
-  if (const auto builtin = std::ranges::find(kBuiltinWidgets, type, &BuiltinWidget::type);
+  if (const auto* builtin = std::ranges::find(kBuiltinWidgets, type, &BuiltinWidget::type);
       builtin != kBuiltinWidgets.end()) {
     return builtin->create(*this, context);
   }
@@ -428,6 +424,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         barName, outputName, context.verticalBar, enableScroll
     );
     widget->setContentScale(contentScale);
+    widget->setBarHoverTint(pluginEntry->entry->widgetHoverHighlight);
     return widget;
   }
 

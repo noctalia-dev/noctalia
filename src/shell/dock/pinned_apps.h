@@ -8,9 +8,9 @@
 
 namespace shell::dock::pinned_apps {
 
-  [[nodiscard]] bool matchesEntry(const DesktopEntry& entry, std::string_view pinnedId);
-  [[nodiscard]] bool containsEntry(const std::vector<std::string>& pinned, const DesktopEntry& entry);
+  bool matchesEntry(const DesktopEntry& entry, std::string_view pinnedId);
+  bool containsEntry(const std::vector<std::string>& pinned, const DesktopEntry& entry);
   void removeEntry(std::vector<std::string>& pinned, const DesktopEntry& entry);
-  [[nodiscard]] std::vector<DesktopEntry> resolveEntries(const std::vector<std::string>& pinned);
+  std::vector<DesktopEntry> resolveEntries(const std::vector<std::string>& pinned);
 
 } // namespace shell::dock::pinned_apps

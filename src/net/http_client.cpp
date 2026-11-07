@@ -15,6 +15,7 @@ namespace {
   constexpr float kSlowCurlOperationDebugMs = 50.0F;
   constexpr float kSlowCurlOperationWarnMs = 1000.0F;
   constexpr float kCurlServiceGapWarnMs = 5000.0F;
+  constexpr const char* kUserAgent = "noctalia/" NOCTALIA_VERSION;
 
   float elapsedSince(std::chrono::steady_clock::time_point start) {
     return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
@@ -36,14 +37,14 @@ namespace {
     if (!cb) {
       return;
     }
-    DeferredCall::callLater([cb = std::move(cb)]() { cb(false); });
+    DeferredCall::callLater([cb = std::move(cb)] { cb(false); });
   }
 
   void deferFailures(std::vector<HttpClient::CompletionCallback> callbacks) {
     if (callbacks.empty()) {
       return;
     }
-    DeferredCall::callLater([callbacks = std::move(callbacks)]() mutable {
+    DeferredCall::callLater([callbacks = std::move(callbacks)] mutable {
       for (auto& callback : callbacks) {
         if (callback) {
           callback(false);
@@ -56,14 +57,14 @@ namespace {
     if (!cb) {
       return;
     }
-    DeferredCall::callLater([cb = std::move(cb)]() mutable { cb(HttpResponse{}); });
+    DeferredCall::callLater([cb = std::move(cb)] mutable { cb(HttpResponse{}); });
   }
 
   void deferStreamClose(HttpClient::StreamCloseCallback cb) {
     if (!cb) {
       return;
     }
-    DeferredCall::callLater([cb = std::move(cb)]() mutable { cb(HttpStreamResult{}); });
+    DeferredCall::callLater([cb = std::move(cb)] mutable { cb(HttpStreamResult{}); });
   }
 
   std::size_t captureResponse(char* ptr, std::size_t size, std::size_t nmemb, void* userdata) {
@@ -116,6 +117,7 @@ namespace {
 
 void HttpClient::applyCommonOptions(CURL* easy) const {
   curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
+  curl_easy_setopt(easy, CURLOPT_USERAGENT, kUserAgent);
   if (!m_caBundlePath.empty()) {
     curl_easy_setopt(easy, CURLOPT_CAINFO, m_caBundlePath.c_str());
   }
@@ -124,6 +126,15 @@ void HttpClient::applyCommonOptions(CURL* easy) const {
   // for as long as the resolver takes. CURLOPT_QUICK_EXIT detaches it instead: the abandoned
   // thread frees itself once the lookup returns.
   curl_easy_setopt(easy, CURLOPT_QUICK_EXIT, 1L);
+}
+
+void HttpClient::applyTlsClientCert(CURL* easy, const std::shared_ptr<const HttpTlsClientCert>& cert) {
+  if (cert == nullptr) {
+    return;
+  }
+  // curl copies both strings, so the request does not have to outlive the transfer.
+  curl_easy_setopt(easy, CURLOPT_SSLCERT, cert->clientCertPath.c_str());
+  curl_easy_setopt(easy, CURLOPT_SSLKEY, cert->clientKeyPath.c_str());
 }
 
 HttpClient::HttpClient(std::filesystem::path caBundlePath) : m_caBundlePath(std::move(caBundlePath)) {
@@ -250,10 +261,10 @@ void HttpClient::download(std::vector<std::string> urls, const std::filesystem::
   state->urls = std::move(urls);
   state->destPath = destPath;
   state->callback = std::move(cb);
-  downloadSequential(std::move(state));
+  downloadSequential(state);
 }
 
-void HttpClient::downloadSequential(std::shared_ptr<SequentialDownload> state) {
+void HttpClient::downloadSequential(const std::shared_ptr<SequentialDownload>& state) {
   const std::size_t index = state->index;
   // The captured shared state keeps urls/dest/callback alive across async hops;
   // advance to the next candidate only when the current one fails.
@@ -354,6 +365,7 @@ void HttpClient::request(HttpRequest req, ResponseCallback cb) {
     curl_easy_setopt(easy, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(easy, CURLOPT_SSL_VERIFYHOST, 0L);
   }
+  applyTlsClientCert(easy, req.tlsClientCert);
   if (req.followRedirects) {
     curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
     if (req.allowRedirectAuth) {
@@ -443,6 +455,7 @@ HttpClient::StreamId HttpClient::startStream(HttpRequest req, StreamDataCallback
     curl_easy_setopt(easy, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(easy, CURLOPT_SSL_VERIFYHOST, 0L);
   }
+  applyTlsClientCert(easy, req.tlsClientCert);
   if (req.followRedirects) {
     curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
     if (req.allowRedirectAuth) {
@@ -724,6 +737,7 @@ void HttpClient::finishRequestTransfer(CURL* easy, CURLcode result) {
 
   HttpResponse response;
   response.transportOk = result == CURLE_OK;
+  response.timedOut = result == CURLE_OPERATION_TIMEDOUT;
   response.status = responseCode;
   response.body = std::move(transfer.response);
   response.headers = std::move(transfer.responseHeaders);

@@ -2,7 +2,9 @@
 
 #include <cstdio>
 #include <print>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -22,6 +24,22 @@ namespace {
     if (sign != expectedSign) {
       std::println(
           stderr, "string_utils_test: {}: expected sign {}, got {} (raw {})", message, expectedSign, sign, actual
+      );
+      return false;
+    }
+    return true;
+  }
+
+  bool expectWords(std::string_view input, const std::vector<std::string>& expected, const char* message) {
+    const auto actual = StringUtils::splitShellWords(input);
+    if (!actual.has_value()) {
+      std::println(stderr, "string_utils_test: {}: unexpected error '{}'", message, actual.error());
+      return false;
+    }
+    if (*actual != expected) {
+      std::println(
+          stderr, "string_utils_test: {}: expected [{}], got [{}]", message, StringUtils::join(expected, ", "),
+          StringUtils::join(*actual, ", ")
       );
       return false;
     }
@@ -71,6 +89,66 @@ int main() {
        )
       && ok;
   ok = expectEqual(StringUtils::sanitizeMarkup("&lt;literal&gt;"), "<literal>", "unescapes XML entities") && ok;
+
+  ok = expectEqual(StringUtils::normalizeForSearch("Bar Clock"), "bar clock", "normalizeForSearch: ASCII") && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("ШРИФТ Панели"), "шрифт панели", "normalizeForSearch: Cyrillic")
+      && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("ÜBER Ära"), "uber ara", "normalizeForSearch: Latin-1 capitals")
+      && ok;
+  ok =
+      expectEqual(StringUtils::normalizeForSearch("Épaisseur"), "epaisseur", "normalizeForSearch: drops accents") && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("Tiếng Việt"), "tieng viet", "normalizeForSearch: stacked accents")
+      && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("ΕΙΚΟΝΊΔΙΟ"), "εικονιδιο", "normalizeForSearch: Greek tonos") && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("Ёлка"), "елка", "normalizeForSearch: Cyrillic diaeresis") && ok;
+  ok = expectEqual(
+           StringUtils::normalizeForSearch("Straße"), StringUtils::normalizeForSearch("STRASSE"),
+           "normalizeForSearch: full folding of ß"
+       )
+      && ok;
+  ok = expectEqual(
+           StringUtils::normalizeForSearch(
+               "U\xCC\x88"
+               "ber"
+           ),
+           "uber", "normalizeForSearch: decomposed spelling"
+       )
+      && ok;
+  ok = expectEqual(
+           StringUtils::normalizeForSearch("Animasyon Hızı"), "animasyon hizi", "normalizeForSearch: Turkish dotless i"
+       )
+      && ok;
+  ok = expectEqual(
+           StringUtils::normalizeForSearch("ANİMASYON HIZI"), "animasyon hizi", "normalizeForSearch: Turkish capitals"
+       )
+      && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("ガイド"), "ガイド", "normalizeForSearch: keeps Japanese dakuten")
+      && ok;
+  ok = expectEqual(StringUtils::normalizeForSearch("글꼴"), "글꼴", "normalizeForSearch: keeps Hangul syllables") && ok;
+  ok = expectEqual(
+           StringUtils::normalizeForSearch(
+               "\xFF"
+               "ABC"
+           ),
+           "\xFF"
+           "abc",
+           "normalizeForSearch: invalid UTF-8 falls back to ASCII"
+       )
+      && ok;
+
+  ok = expectWords("a  b\tc", {"a", "b", "c"}, "splits on runs of whitespace") && ok;
+  ok = expectWords("'satty -f -'", {"satty -f -"}, "keeps single-quoted text literal") && ok;
+  ok = expectWords(R"("x\"y")", {"x\"y"}, "honours escaped quote inside double quotes") && ok;
+  ok = expectWords("a\\ b", {"a b"}, "backslash escapes a space outside quotes") && ok;
+  ok = expectWords("''", {""}, "empty quotes yield an empty word") && ok;
+  if (StringUtils::splitShellWords("'open").has_value()) {
+    std::println(stderr, "string_utils_test: unterminated quote was accepted");
+    ok = false;
+  }
+  ok = expectWords(
+           StringUtils::shellQuote("it's a \"t\""), {"it's a \"t\""}, "round-trips shellQuote with embedded quotes"
+       )
+      && ok;
 
   return ok ? 0 : 1;
 }

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "dbus/network/inetwork_service.h"
+#include "render/scene/tooltip_content.h"
 #include "shell/bar/widget.h"
-#include "shell/tooltip/tooltip_content.h"
 
 #include <string>
 #include <vector>
@@ -27,6 +27,9 @@ public:
     VpnStatusMode vpnStatusMode = VpnStatusMode::Replace;
     bool showLabel = true;
     bool showVpnLabel = false;
+    GlyphPosition glyphPosition = GlyphPosition::Before;
+    bool peek = false;
+    int peekDelayMs = kBarRevealDelayMs;
   };
 
   NetworkWidget(
@@ -40,7 +43,7 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void syncState(Renderer& renderer);
-  [[nodiscard]] std::vector<TooltipRow> buildTooltipRows() const;
+  std::vector<TooltipRow> buildTooltipRows() const;
 
   INetworkService* m_network = nullptr;
   ExternalIpService* m_externalIp = nullptr;
@@ -49,6 +52,7 @@ private:
   bool m_showLabel = true;
   bool m_showVpnLabel = false;
   VpnStatusMode m_vpnStatusMode = VpnStatusMode::Replace;
+  GlyphPosition m_glyphPosition = GlyphPosition::Before;
   Glyph* m_glyph = nullptr;
   Glyph* m_vpnGlyph = nullptr;
   Spinner* m_spinner = nullptr;

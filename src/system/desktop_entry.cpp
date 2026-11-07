@@ -45,7 +45,7 @@ namespace {
   }
 
   fs::path resolveExecutable(std::string_view executable) {
-    const fs::path path(executable);
+    fs::path path(executable);
     if (path.has_parent_path()) {
       return path;
     }
@@ -74,20 +74,41 @@ namespace {
     return {};
   }
 
-  bool executableIsAppImage(std::string_view exec, bool resolveFromPath) {
-    const auto start = exec.find_first_not_of(' ');
+  // Returns the next whitespace-separated Exec token, honoring double-quoted arguments.
+  std::string_view nextExecToken(std::string_view exec, std::size_t& cursor) {
+    const auto start = exec.find_first_not_of(" \t", cursor);
     if (start == std::string_view::npos) {
+      cursor = exec.size();
+      return {};
+    }
+    if (exec[start] == '"') {
+      const auto end = exec.find('"', start + 1);
+      cursor = end == std::string_view::npos ? exec.size() : end + 1;
+      return exec.substr(start + 1, (end == std::string_view::npos ? exec.size() : end) - start - 1);
+    }
+    const auto end = exec.find_first_of(" \t", start);
+    cursor = end == std::string_view::npos ? exec.size() : end;
+    return exec.substr(start, cursor - start);
+  }
+
+  // Returns the program an Exec line runs, looking through an `env VAR=value ...` prefix.
+  std::string_view execProgram(std::string_view exec) {
+    std::size_t cursor = 0;
+    std::string_view token = nextExecToken(exec, cursor);
+    if (fs::path(token).filename() != "env") {
+      return token;
+    }
+    do {
+      token = nextExecToken(exec, cursor);
+    } while (token.contains('='));
+    return token;
+  }
+
+  bool programIsAppImage(std::string_view program, bool resolveFromPath) {
+    if (program.empty()) {
       return false;
     }
-
-    const char quote = exec[start] == '"' ? '"' : '\0';
-    const std::size_t executableStart = start + (quote == '\0' ? 0 : 1);
-    const std::size_t executableEnd =
-        quote == '\0' ? exec.find(' ', executableStart) : exec.find(quote, executableStart);
-    const fs::path executable(exec.substr(
-        executableStart,
-        executableEnd == std::string_view::npos ? std::string_view::npos : executableEnd - executableStart
-    ));
+    const fs::path executable(program);
     if (StringUtils::toLower(executable.extension().string()) == ".appimage") {
       return true;
     }
@@ -169,7 +190,9 @@ namespace {
       if (!token.empty()) {
         if (std::ranges::find(onlyShowIn, token) != onlyShowIn.end()) {
           return true;
-        } else if (std::ranges::find(notShowIn, token) != notShowIn.end()) {
+        }
+
+        if (std::ranges::find(notShowIn, token) != notShowIn.end()) {
           return false;
         }
       }
@@ -262,6 +285,7 @@ namespace {
     std::string type;
     bool hasAppImageVersion = false;
     bool appImageIntegrationDisabled = false;
+    std::string tryExec;
 
     // Desktop-environment visibility lists (OnlyShowIn/NotShowIn)
     std::vector<std::string> onlyShowIn;
@@ -278,7 +302,7 @@ namespace {
     std::string currentActionId;
     ActionData currentActionData;
 
-    auto flushCurrentAction = [&]() {
+    auto flushCurrentAction = [&] {
       if (!currentActionId.empty()) {
         currentActionData.name = localizedValue(language, currentActionData.localizedNames, currentActionData.name);
         if (!currentActionData.name.empty() && !currentActionData.exec.empty()) {
@@ -322,8 +346,9 @@ namespace {
           continue;
         }
         auto eq = line.find('=');
-        if (eq == std::string::npos)
+        if (eq == std::string::npos) {
           continue;
+        }
         std::string_view key(line.data(), eq);
         std::string_view value(line.data() + eq + 1, line.size() - eq - 1);
         if (key == "Name") {
@@ -373,6 +398,8 @@ namespace {
         entry.comment = std::string(value);
       } else if (key == "Exec") {
         entry.exec = std::string(value);
+      } else if (key == "TryExec") {
+        tryExec = std::string(value);
       } else if (key == "Icon") {
         entry.icon = std::string(value);
       } else if (key == "Categories") {
@@ -443,8 +470,11 @@ namespace {
     entry.startupWmClassLower = StringUtils::toLower(entry.startupWmClass);
     entry.idLower = StringUtils::toLower(entry.id);
     entry.execLower = StringUtils::toLower(entry.exec);
+    const bool resolveFromPath = isUserDesktopEntry(filepath);
     const bool appImage = !appImageIntegrationDisabled
-        && (hasAppImageVersion || executableIsAppImage(entry.exec, isUserDesktopEntry(filepath)));
+        && (hasAppImageVersion
+            || programIsAppImage(tryExec, resolveFromPath)
+            || programIsAppImage(execProgram(entry.exec), resolveFromPath));
     entry.origin = detectOrigin(filepath, appImage);
 
     // Build actions in the declared order.
@@ -683,31 +713,35 @@ namespace {
 
     void clearWatches() {
       if (m_inotify.fd() >= 0) {
-        for (const auto& [wd, _] : m_watches)
+        for (const auto& [wd, _] : m_watches) {
           m_inotify.unwatch(wd);
+        }
       }
       m_watches.clear();
-      m_watchedPaths.clear();
     }
 
+    // Re-adding a watched directory keeps its descriptor and queues nothing. Only directories the scan no longer
+    // visited are unwatched, so the IN_IGNORED events a refresh queues scale with what changed, not with the tree.
     void rebuildWatches(const std::vector<fs::path>& dirs) {
-      clearWatches();
-
       if (m_inotify.fd() < 0) {
         return;
       }
 
+      std::unordered_map<int, std::string> watches;
       for (const auto& dir : dirs) {
-        addWatch(dir);
+        if (const auto wd = addWatch(dir)) {
+          watches[*wd] = dir.string();
+        }
       }
+      for (const auto& [wd, _] : m_watches) {
+        if (!watches.contains(wd)) {
+          m_inotify.unwatch(wd);
+        }
+      }
+      m_watches = std::move(watches);
     }
 
-    void addWatch(const fs::path& path) {
-      const auto key = path.string();
-      if (!m_watchedPaths.insert(key).second) {
-        return;
-      }
-
+    std::optional<int> addWatch(const fs::path& path) {
       constexpr std::uint32_t kMask = IN_CREATE
           | IN_DELETE
           | IN_MOVED_FROM
@@ -716,12 +750,11 @@ namespace {
           | IN_DELETE_SELF
           | IN_MOVE_SELF
           | IN_ATTRIB;
-      const auto wd = m_inotify.watch(key.c_str(), kMask);
-      if (wd.has_value()) {
-        m_watches[wd.value()] = key;
-      } else {
-        kLog.warn("failed to watch desktop entry directory '{}'", key);
+      const auto wd = m_inotify.watch(path, kMask);
+      if (!wd.has_value()) {
+        kLog.warn("failed to watch desktop entry directory '{}'", path.string());
       }
+      return wd;
     }
 
     std::shared_ptr<const std::vector<DesktopEntry>> m_entries = std::make_shared<std::vector<DesktopEntry>>();
@@ -730,7 +763,6 @@ namespace {
     Inotify m_inotify;
     bool m_dirty = true;
     std::unordered_map<int, std::string> m_watches;
-    std::unordered_set<std::string> m_watchedPaths;
     std::string m_sourceSignature;
     std::string m_language;
   };

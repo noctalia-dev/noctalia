@@ -20,7 +20,7 @@ struct BarConcaveCorners {
 
 /// Corners on the bar's inner edge for a given docked position. Unknown/empty
 /// positions fall through to "top", matching barConcaveShape's else branch.
-[[nodiscard]] inline BarConcaveCorners barInnerEdgeCorners(std::string_view position) {
+inline BarConcaveCorners barInnerEdgeCorners(std::string_view position) {
   if (position == "bottom") {
     return {.topLeft = true, .topRight = true};
   }
@@ -46,7 +46,7 @@ struct BarConcaveShape {
   float innerBulge = 0.0F; // px the surface/box grow on the inner edge
 };
 
-[[nodiscard]] inline BarConcaveShape barConcaveShape(const BarConfig& cfg) {
+inline BarConcaveShape barConcaveShape(const BarConfig& cfg) {
   const auto radius = [](std::int32_t v) { return static_cast<float>(std::max<std::int32_t>(0, v)); };
   const auto cappedRadius = [&](std::int32_t v) {
     return std::min(static_cast<float>(cfg.thickness) * 0.5F, radius(v));
@@ -67,7 +67,7 @@ struct BarConcaveShape {
   const BarConcaveCorners inner = barInnerEdgeCorners(cfg.position);
 
   // Inner-edge concavity: full-length bar carves the corners on the inner edge.
-  if (cfg.marginEnds == 0) {
+  if (cfg.marginEnds.px() == 0) {
     g.corners = CornerShapes{
         .tl = inner.topLeft ? CornerShape::Concave : CornerShape::Convex,
         .tr = inner.topRight ? CornerShape::Concave : CornerShape::Convex,
@@ -108,7 +108,7 @@ struct BarConcaveShape {
   // scale the carve to the room available — radius, half-thickness, and
   // margin_ends — and keep radii and inset identical so the drawn arc matches
   // the reserved flare instead of overflowing it.
-  const float endRoom = radius(cfg.marginEnds);
+  const float endRoom = radius(cfg.marginEnds.px());
   const auto carve = [&](std::int32_t v) { return std::min(cappedRadius(v), endRoom); };
   const std::string_view pos = cfg.position;
   if (pos == "bottom") {

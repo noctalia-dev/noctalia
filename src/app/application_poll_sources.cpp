@@ -1,5 +1,6 @@
 #include "application.h"
 #include "application_internal.h"
+#include "compositors/umbriel/umbriel_audio_provider.h"
 #include "dbus/idle/screensaver_poll_source.h"
 #include "dbus/idle/screensaver_service.h"
 #include "dbus/polkit/polkit_poll_source.h"
@@ -46,6 +47,9 @@ std::vector<PollSource*> Application::currentPollSources() {
   if (m_pipewireSpectrumPollSource != nullptr) {
     sources.push_back(m_pipewireSpectrumPollSource.get());
   }
+  if (m_umbrielAudioProvider != nullptr) {
+    sources.push_back(m_umbrielAudioProvider.get());
+  }
   if (m_wirePlumberMixer != nullptr) {
     sources.push_back(m_wirePlumberMixer.get());
   }
@@ -67,6 +71,7 @@ std::vector<PollSource*> Application::currentPollSources() {
   sources.push_back(&m_wallpaperScanner);
   sources.push_back(&m_asyncTextureCache);
   sources.push_back(&m_sharedTextureCache);
+  sources.push_back(&m_pixelStreamService);
   return sources;
 }
 

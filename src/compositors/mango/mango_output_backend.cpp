@@ -18,13 +18,12 @@ namespace compositors::mango {
       }
     }
 
-    bool launchedAny = false;
+    bool allAccepted = !s_knownConnectors.empty();
     for (const auto& connector : s_knownConnectors) {
-      if (runtime.dispatch((std::string(on ? "wakeup_monitor," : "sleep_monitor,") + connector))) {
-        launchedAny = true;
-      }
+      const bool accepted = runtime.dispatch(std::string(on ? "wakeup_monitor," : "sleep_monitor,") + connector);
+      allAccepted = accepted && allAccepted;
     }
-    return launchedAny;
+    return allAccepted;
   }
 
 } // namespace compositors::mango

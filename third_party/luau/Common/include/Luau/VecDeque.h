@@ -441,6 +441,19 @@ public:
         queue_size++;
     }
 
+    template<typename... Args>
+    T& emplace_back(Args&&... args)
+    {
+        if (is_full())
+            grow();
+
+        size_t next_back = logicalToPhysical(queue_size);
+        new (buffer + next_back) T(std::forward<Args>(args)...);
+        queue_size++;
+        return buffer[next_back];
+    }
+
+
     void pop_back()
     {
         LUAU_ASSERT(!empty());
@@ -458,6 +471,18 @@ public:
         head = (head == 0) ? capacity() - 1 : head - 1;
         new (buffer + head) T(value);
         queue_size++;
+    }
+
+    template<typename... Args>
+    T& emplace_front(Args&&... args)
+    {
+        if (is_full())
+            grow();
+
+        head = (head == 0) ? capacity() - 1 : head - 1;
+        new (buffer + head) T(std::forward<Args>(args)...);
+        queue_size++;
+        return buffer[head];
     }
 
     void pop_front()

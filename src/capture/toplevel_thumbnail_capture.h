@@ -9,18 +9,19 @@
 #include <span>
 #include <string>
 
+class ImageCaptureGlobals;
 class WaylandConnection;
 struct ToplevelThumbnailCapturePending;
 struct ext_foreign_toplevel_handle_v1;
 
 namespace capture {
-  [[nodiscard]] std::optional<ScreencopyImage> makeToplevelThumbnail(
+  std::optional<ScreencopyImage> makeToplevelThumbnail(
       std::span<const std::uint8_t> pixels, int width, int height, std::uint32_t format, int maxWidth, int maxHeight,
       std::int32_t transform
   );
 }
 
-// One-shot, bounded-size snapshots sourced directly from an ext-foreign-toplevel handle.
+// One-shot snapshots from an ext-foreign-toplevel handle: positive bounds downscale; zero bounds keep native size.
 class ToplevelThumbnailCapture {
 public:
   using CompletionCallback = std::function<void(std::optional<ScreencopyImage>, std::string error)>;
@@ -28,8 +29,8 @@ public:
   explicit ToplevelThumbnailCapture(WaylandConnection& wayland);
   ~ToplevelThumbnailCapture();
 
-  [[nodiscard]] bool available() const noexcept;
-  [[nodiscard]] bool busy() const noexcept { return m_pending != nullptr; }
+  bool available() const noexcept;
+  bool busy() const noexcept { return m_pending != nullptr; }
   void capture(ext_foreign_toplevel_handle_v1* handle, int maxWidth, int maxHeight, CompletionCallback onComplete);
   void cancelInFlight();
 
@@ -39,6 +40,7 @@ private:
   void finish(ScreencopyImage image);
 
   WaylandConnection& m_wayland;
+  ImageCaptureGlobals& m_imageCapture;
   std::unique_ptr<ToplevelThumbnailCapturePending> m_pending;
   CompletionCallback m_onComplete;
   Timer m_timeout;

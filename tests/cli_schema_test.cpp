@@ -25,8 +25,9 @@ int main() {
   TEST_CHECK(builtin.positionals.size() == 1);
   const auto palettes = noctalia::theme::builtinPalettes();
   TEST_CHECK(builtin.positionals.front().choices.size() == palettes.size());
-  for (std::size_t i = 0; i < palettes.size(); ++i)
+  for (std::size_t i = 0; i < palettes.size(); ++i) {
     TEST_CHECK(builtin.positionals.front().choices[i] == palettes[i].name);
+  }
 
   const auto& wallpaper = child(*colorSchemeSet, "wallpaper");
   TEST_CHECK(wallpaper.positionals.size() == 1);

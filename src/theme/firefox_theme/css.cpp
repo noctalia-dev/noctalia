@@ -6,26 +6,25 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
-#include <vector>
 
 namespace noctalia::theme::firefox_theme::css {
   namespace {
 
-    [[nodiscard]] std::string withCssExtension(std::string_view name) {
+    std::string withCssExtension(std::string_view name) {
       if (name.ends_with(".css")) {
         return std::string(name);
       }
       return std::string(name) + ".css";
     }
 
-    [[nodiscard]] std::filesystem::path homeDir() {
+    std::filesystem::path homeDir() {
       if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
         return home;
       }
       return {};
     }
 
-    [[nodiscard]] std::filesystem::path xdgConfigHome() {
+    std::filesystem::path xdgConfigHome() {
       if (const char* config = std::getenv("XDG_CONFIG_HOME"); config != nullptr && config[0] != '\0') {
         return config;
       }
@@ -33,12 +32,12 @@ namespace noctalia::theme::firefox_theme::css {
       return home.empty() ? std::filesystem::path{} : home / ".config";
     }
 
-    [[nodiscard]] std::optional<std::filesystem::path> profilesRoot() {
+    std::optional<std::filesystem::path> profilesRoot() {
       if (const auto overridePath = settings::get("profile_path"); overridePath && !overridePath->empty()) {
         return std::filesystem::path(*overridePath);
       }
 
-      const auto xdg = xdgConfigHome() / "firefox";
+      auto xdg = xdgConfigHome() / "firefox";
       if (std::filesystem::is_regular_file(xdg / "profiles.ini")) {
         return xdg;
       }
@@ -50,7 +49,7 @@ namespace noctalia::theme::firefox_theme::css {
     }
 
     // Minimal profiles.ini reader: prefer [Install*] Default=, else Profile0 Path=.
-    [[nodiscard]] std::optional<std::filesystem::path> defaultProfilePath(const std::filesystem::path& profilesDir) {
+    std::optional<std::filesystem::path> defaultProfilePath(const std::filesystem::path& profilesDir) {
       const auto iniPath = profilesDir / "profiles.ini";
       std::ifstream in(iniPath);
       if (!in) {
@@ -102,12 +101,12 @@ namespace noctalia::theme::firefox_theme::css {
       };
 
       if (!defaultRelative.empty()) {
-        const auto path = resolve(defaultRelative, true);
+        auto path = resolve(defaultRelative, true);
         if (std::filesystem::is_directory(path)) {
           return path;
         }
       }
-      const auto profile0 = resolve(profile0Path, profile0Relative);
+      auto profile0 = resolve(profile0Path, profile0Relative);
       if (std::filesystem::is_directory(profile0)) {
         return profile0;
       }
@@ -131,7 +130,7 @@ namespace noctalia::theme::firefox_theme::css {
       }
       return std::nullopt;
     }
-    const auto chrome = *profile / "chrome";
+    auto chrome = *profile / "chrome";
     std::error_code ec;
     std::filesystem::create_directories(chrome, ec);
     if (ec) {
@@ -173,14 +172,13 @@ namespace noctalia::theme::firefox_theme::css {
     const std::string filename = withCssExtension(name);
     const auto dst = chromePath / filename;
     std::error_code ec;
-    if (std::filesystem::is_regular_file(dst, ec)) {
-      if (!std::filesystem::remove(dst, ec)) {
-        if (message != nullptr) {
-          *message = "Could not remove custom CSS: " + ec.message();
-        }
-        return false;
+    if (std::filesystem::is_regular_file(dst, ec) && !std::filesystem::remove(dst, ec)) {
+      if (message != nullptr) {
+        *message = "Could not remove custom CSS: " + ec.message();
       }
+      return false;
     }
+
     if (message != nullptr) {
       *message = "Custom CSS: " + filename + " has been disabled";
     }

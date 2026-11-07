@@ -1,12 +1,12 @@
 #include "launcher/wallpaper_provider.h"
 
 #include "config/config_service.h"
-#include "core/files/directory_scanner.h"
 #include "i18n/i18n.h"
+#include "launcher/fuzzy_match.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "system/directory_scanner.h"
 #include "theme/theme_service.h"
 #include "util/file_utils.h"
-#include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 

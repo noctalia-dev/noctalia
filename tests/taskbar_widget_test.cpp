@@ -9,6 +9,12 @@
 
 class TaskbarWidgetTestAccess {
 public:
+  static std::string workspaceGroupLabel(
+      const Workspace& workspace, std::string_view displayKey, TaskbarLabelSource source, std::size_t index = 0
+  ) {
+    return TaskbarWidget::workspaceGroupLabel(workspace, index, displayKey, source);
+  }
+
   static std::pair<bool, bool>
   compare(std::uintptr_t previousHandle, std::uintptr_t nextHandle, std::string previousTitle, std::string nextTitle) {
     const TaskbarWidget::TaskModel previous{
@@ -52,6 +58,9 @@ public:
     };
   }
 
+  static void dropUnpinned(std::vector<TaskbarWidget::TaskModel>& tasks, bool showRunning) {
+    TaskbarWidget::dropUnpinnedTasks(tasks, showRunning);
+  }
   static std::string displayTitle(std::string title, std::string displayName, std::string appId) {
     const TaskbarWidget::TaskModel task{
         .appId = std::move(appId),
@@ -108,9 +117,65 @@ public:
     };
     return TaskbarWidget::compareModels(groupByWorkspace, {previous}, {}, {next}, {}).layoutEqual;
   }
+
+  static std::pair<bool, bool> compareMinimizeStates(
+      bool groupByWorkspace, std::optional<WindowMinimizeState> previousState,
+      std::optional<WindowMinimizeState> nextState, std::size_t previousCount, std::size_t nextCount
+  ) {
+    const TaskbarWidget::TaskModel previous{
+        .handleKey = 11,
+        .instanceCount = 2,
+        .minimizeState = previousState,
+        .minimizedCount = previousCount,
+    };
+    const TaskbarWidget::TaskModel next{
+        .handleKey = 11,
+        .instanceCount = 2,
+        .minimizeState = nextState,
+        .minimizedCount = nextCount,
+    };
+    const auto comparison = TaskbarWidget::compareModels(groupByWorkspace, {previous}, {}, {next}, {});
+    return {comparison.layoutEqual, comparison.minimizeStatesChanged};
+  }
 };
 
 int main() {
+  const Workspace namedWorkspace{.id = "42", .name = "10-project", .index = 10};
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::workspaceGroupLabel(namedWorkspace, "10-project", TaskbarLabelSource::Id) == "10"
+  );
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::workspaceGroupLabel(namedWorkspace, "10-project", TaskbarLabelSource::Name)
+      == "10-project"
+  );
+  TEST_CHECK(TaskbarWidgetTestAccess::workspaceGroupLabel(Workspace{.index = 6}, "6", TaskbarLabelSource::Name) == "6");
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::workspaceGroupLabel(
+          Workspace{.id = "12", .name = "project"}, "project", TaskbarLabelSource::Id
+      )
+      == "12"
+  );
+  TEST_CHECK(TaskbarWidgetTestAccess::workspaceGroupLabel({}, "", TaskbarLabelSource::Id, 2) == "3");
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::workspaceGroupLabel(Workspace{.name = "project"}, "", TaskbarLabelSource::Name)
+      == "project"
+  );
+
+  const Workspace kdeWorkspace{
+      .id = "42b3940c-7656-4c29-bf76-98f534b42472",
+      .name = "10-project",
+      .index = 3,
+  };
+  TEST_CHECK(TaskbarWidgetTestAccess::workspaceGroupLabel(kdeWorkspace, "", TaskbarLabelSource::Name) == "10-project");
+  TEST_CHECK(TaskbarWidgetTestAccess::workspaceGroupLabel(kdeWorkspace, "", TaskbarLabelSource::Id) == "3");
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::workspaceGroupLabel(
+          Workspace{.id = "a2b3940c-7656-4c29-bf76-98f534b42472", .name = "project", .index = 3}, "",
+          TaskbarLabelSource::Name
+      )
+      == "project"
+  );
+
   // Title changes are patched into retained labels and tooltips, never treated as structural.
   TEST_CHECK(TaskbarWidgetTestAccess::compare(11, 11, "old", "new") == std::pair(true, true));
   TEST_CHECK(TaskbarWidgetTestAccess::compare(11, 11, "same", "same") == std::pair(true, false));
@@ -119,6 +184,23 @@ int main() {
   // Flat tiles patch active visuals in place; grouped summaries still rebuild.
   TEST_CHECK(TaskbarWidgetTestAccess::activeFlip(false) == std::pair(true, true));
   TEST_CHECK(!TaskbarWidgetTestAccess::activeFlip(true).first);
+
+  const WindowMinimizeState restored{.minimized = false, .minimizable = true};
+  const WindowMinimizeState minimized{.minimized = true, .minimizable = true};
+  TEST_CHECK(TaskbarWidgetTestAccess::compareMinimizeStates(false, restored, minimized, 0, 1) == std::pair(true, true));
+  // A different member can change a pinned app's status without changing its representative.
+  TEST_CHECK(TaskbarWidgetTestAccess::compareMinimizeStates(false, restored, restored, 0, 1) == std::pair(true, true));
+  TEST_CHECK(TaskbarWidgetTestAccess::compareMinimizeStates(false, restored, restored, 1, 1) == std::pair(true, false));
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::compareMinimizeStates(false, std::nullopt, restored, 0, 0) == std::pair(true, true)
+  );
+  TEST_CHECK(!TaskbarWidgetTestAccess::compareMinimizeStates(true, restored, minimized, 0, 1).first);
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::compareMinimizeStates(
+          false, restored, WindowMinimizeState{.minimized = false, .minimizable = false}, 0, 0
+      )
+      == std::pair(true, true)
+  );
 
   auto tasks = std::vector{
       TaskbarWidgetTestAccess::task(11, "first"),
@@ -154,5 +236,23 @@ int main() {
   TEST_CHECK(!TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout(true, "", "41"));
   TEST_CHECK(TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout(true, "41", "41"));
 
+  // show_running = false keeps only pinned tiles; the default keeps the whole strip.
+  auto strip = std::vector{
+      TaskbarWidgetTestAccess::task(11, "pinned-app"),
+      TaskbarWidgetTestAccess::task(12, "running-window"),
+  };
+  strip[0].pinned = true;
+  auto defaultStrip = strip;
+  TaskbarWidgetTestAccess::dropUnpinned(strip, false);
+  TEST_CHECK(strip.size() == 1);
+  TEST_CHECK(strip[0].title == "pinned-app");
+
+  TaskbarWidgetTestAccess::dropUnpinned(defaultStrip, true);
+  TEST_CHECK(defaultStrip.size() == 2);
+
+  // No pins with show_running = false leaves an empty strip.
+  auto noPins = std::vector{TaskbarWidgetTestAccess::task(11, "running-window")};
+  TaskbarWidgetTestAccess::dropUnpinned(noPins, false);
+  TEST_CHECK(noPins.empty());
   return 0;
 }

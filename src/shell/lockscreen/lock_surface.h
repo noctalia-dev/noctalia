@@ -3,14 +3,15 @@
 #include "capture/screencopy_capture.h"
 #include "config/config_service.h"
 #include "render/animation/animation_manager.h"
-#include "render/core/blur_cache.h"
 #include "render/core/color.h"
-#include "render/core/lockscreen_transition_types.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/core/texture_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
+#include "shell/render/blur_cache.h"
+#include "shell/render/lockscreen_transition_types.h"
+#include "ui/palette.h"
 #include "wayland/surface.h"
 
 #include <array>
@@ -67,13 +68,14 @@ public:
       std::optional<LockscreenTransitionKind> transition, const LockscreenTransitionParams& params, float durationMs
   );
   void startEnterTransition();
+  void suppressEntryTransition();
   void startExitTransition();
-  [[nodiscard]] bool transitionInputReady() const noexcept;
-  [[nodiscard]] bool exitTransitionComplete() const noexcept;
+  bool transitionInputReady() const noexcept;
+  bool exitTransitionComplete() const noexcept;
   void setTransitionCallback(std::function<void()> callback) { m_transitionCallback = std::move(callback); }
-  void setBackgroundStyle(float blurIntensity, float tintIntensity);
+  void setBackgroundStyle(float blurIntensity, float tintIntensity, const ColorSpec& tintColor);
   void setBlackout(bool blackout);
-  [[nodiscard]] bool isBlackout() const noexcept { return m_blackout; }
+  bool isBlackout() const noexcept { return m_blackout; }
   void setOnLogin(std::function<void()> onLogin);
   void setOnCycleLayout(std::function<void()> onCycleLayout);
   void setOnPasswordChanged(std::function<void(const std::string&)> onPasswordChanged);
@@ -88,15 +90,15 @@ public:
   void forceRepaintAfterResume();
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
-  [[nodiscard]] wl_output* output() const noexcept { return m_output; }
+  wl_output* output() const noexcept { return m_output; }
   void syncOutputScale(std::int32_t bufferScale, std::uint32_t configuredScaleNumerator);
-  [[nodiscard]] bool usesDesktopCaptureBackground() const noexcept;
-  [[nodiscard]] Node* widgetLayer() noexcept { return m_widgetLayer; }
+  bool usesDesktopCaptureBackground() const noexcept;
+  Node* widgetLayer() noexcept { return m_widgetLayer; }
   void setOutputKey(std::string outputKey) { m_outputKey = std::move(outputKey); }
   void setWidgetsHost(LockscreenWidgetsHost* host) noexcept { m_widgetsHost = host; }
 
-  [[nodiscard]] bool firstFrameRendered() const noexcept { return m_firstFrameRendered; }
-  void setRenderCallback(std::function<void()> callback) { m_renderCallback = std::move(callback); }
+  bool readyForSleep() const noexcept { return m_sleepFrameReady; }
+  void setSleepReadyCallback(std::function<void()> callback) { m_sleepReadyCallback = std::move(callback); }
 
   static void handleConfigure(
       void* data, ext_session_lock_surface_v1* lockSurface, std::uint32_t serial, std::uint32_t width,
@@ -104,6 +106,7 @@ public:
   );
 
 protected:
+  void render() override;
   void onFrameCallbackDone() override;
 
 private:
@@ -120,6 +123,7 @@ private:
     FinalPrime,
     Ready,
     Entering,
+    EnterEndpoint,
     Stable,
     Exiting,
     ExitEndpoint,
@@ -134,6 +138,8 @@ private:
   void cancelTransitionAnimation();
   void beginEnterAnimation();
   void notifyTransitionStateChanged();
+  void invalidateSleepFrame();
+  static void handleSleepFrameDone(void* data, wl_callback* callback, std::uint32_t callbackData);
   void applyWallpaperTexture();
   void applyBlurredDesktopTexture();
   void releaseCaptureTextures();
@@ -142,11 +148,11 @@ private:
   void syncRegularExtras(Renderer& renderer);
   void rebuildSessionButtons();
   void ensureLayoutChipInPasswordRow();
-  [[nodiscard]] std::vector<SessionPanelActionConfig> resolveSessionActions() const;
-  [[nodiscard]] lockscreen_login_box::LoginBoxStyle resolveLoginStyle() const;
-  [[nodiscard]] bool isLoginBoxEnabled() const;
-  [[nodiscard]] std::string resolveStatusText(const lockscreen_login_box::LoginBoxStyle& style, bool& isError) const;
-  [[nodiscard]] bool passwordFieldContainsPoint(float sceneX, float sceneY) const;
+  std::vector<SessionPanelActionConfig> resolveSessionActions() const;
+  lockscreen_login_box::LoginBoxStyle resolveLoginStyle() const;
+  bool isLoginBoxEnabled() const;
+  std::string resolveStatusText(const lockscreen_login_box::LoginBoxStyle& style, bool& isError) const;
+  bool passwordFieldContainsPoint(float sceneX, float sceneY) const;
   void focusPasswordField();
 
   ext_session_lock_surface_v1* m_lockSurface = nullptr;
@@ -170,6 +176,10 @@ private:
   Flex* m_mediaTextColumn = nullptr;
   Label* m_mediaTitle = nullptr;
   Label* m_mediaArtist = nullptr;
+  Flex* m_mediaControls = nullptr;
+  Button* m_mediaPrevButton = nullptr;
+  Button* m_mediaPlayPauseButton = nullptr;
+  Button* m_mediaNextButton = nullptr;
   Flex* m_weatherBlock = nullptr;
   Flex* m_weatherCurrent = nullptr;
   Glyph* m_weatherGlyph = nullptr;
@@ -205,6 +215,7 @@ private:
   float m_transitionDurationMs = 1500.0F;
   float m_blurIntensity = 0.5F;
   float m_tintIntensity = 0.3F;
+  ColorSpec m_tintColor = colorSpecFromRole(ColorRole::Surface);
   float m_regularContentScale = 1.0F;
   bool m_blackout = false;
   bool m_useDesktopCaptureBackground = false;
@@ -233,8 +244,9 @@ private:
   std::string m_layoutLabel;
   std::string m_outputKey;
   LockscreenWidgetsHost* m_widgetsHost = nullptr;
-  bool m_firstFrameRendered = false;
-  std::function<void()> m_renderCallback;
+  wl_callback* m_sleepFrameCallback = nullptr;
+  bool m_sleepFrameReady = false;
+  std::function<void()> m_sleepReadyCallback;
   std::function<void()> m_transitionCallback;
 
   SessionActionRunner* m_sessionActions = nullptr;

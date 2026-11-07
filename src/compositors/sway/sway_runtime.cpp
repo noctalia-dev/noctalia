@@ -1,6 +1,6 @@
 #include "compositors/sway/sway_runtime.h"
 
-#include "core/process/process.h"
+#include "system/process.h"
 
 #include <cstdlib>
 
