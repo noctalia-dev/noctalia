@@ -435,6 +435,16 @@ void WaylandToplevels::activateHandle(zwlr_foreign_toplevel_handle_v1* handle, w
   zwlr_foreign_toplevel_handle_v1_activate(handle, seat);
 }
 
+void WaylandToplevels::setRectangle(
+    zwlr_foreign_toplevel_handle_v1* handle, wl_surface* surface, std::int32_t x, std::int32_t y, std::int32_t width,
+    std::int32_t height
+) {
+  if (!containsWlrHandle(handle) || surface == nullptr) {
+    return;
+  }
+  zwlr_foreign_toplevel_handle_v1_set_rectangle(handle, surface, x, y, width, height);
+}
+
 void WaylandToplevels::closeHandle(zwlr_foreign_toplevel_handle_v1* handle) {
   if (!containsWlrHandle(handle)) {
     return;
