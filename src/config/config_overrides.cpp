@@ -383,6 +383,8 @@ namespace {
         && keybindSetEqual(a.down, b.down, KeybindAction::Down)
         && keybindSetEqual(a.tabNext, b.tabNext, KeybindAction::TabNext)
         && keybindSetEqual(a.tabPrevious, b.tabPrevious, KeybindAction::TabPrevious)
+        && keybindSetEqual(a.cycleNext, b.cycleNext, KeybindAction::CycleNext)
+        && keybindSetEqual(a.cyclePrevious, b.cyclePrevious, KeybindAction::CyclePrevious)
         && keybindSetEqual(a.deleteEntry, b.deleteEntry, KeybindAction::Delete)
         && keybindSetEqual(a.copy, b.copy, KeybindAction::Copy)
         && keybindSetEqual(a.save, b.save, KeybindAction::Save);

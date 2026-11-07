@@ -1625,6 +1625,8 @@ struct KeybindsConfig {
   std::vector<KeyChord> down;
   std::vector<KeyChord> tabNext;
   std::vector<KeyChord> tabPrevious;
+  std::vector<KeyChord> cycleNext;
+  std::vector<KeyChord> cyclePrevious;
   std::vector<KeyChord> deleteEntry;
   std::vector<KeyChord> copy;
   std::vector<KeyChord> save;

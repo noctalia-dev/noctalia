@@ -869,6 +869,8 @@ void Application::initStyleThemeAndWayland() {
   KeybindMatcher::setMatcher(KeybindAction::Down, bindKeybind(KeybindAction::Down));
   KeybindMatcher::setMatcher(KeybindAction::TabNext, bindKeybind(KeybindAction::TabNext));
   KeybindMatcher::setMatcher(KeybindAction::TabPrevious, bindKeybind(KeybindAction::TabPrevious));
+  KeybindMatcher::setMatcher(KeybindAction::CycleNext, bindKeybind(KeybindAction::CycleNext));
+  KeybindMatcher::setMatcher(KeybindAction::CyclePrevious, bindKeybind(KeybindAction::CyclePrevious));
   KeybindMatcher::setMatcher(KeybindAction::Copy, bindKeybind(KeybindAction::Copy));
   KeybindMatcher::setMatcher(KeybindAction::Save, bindKeybind(KeybindAction::Save));
   KeybindMatcher::setMatcher(KeybindAction::Delete, bindKeybind(KeybindAction::Delete));

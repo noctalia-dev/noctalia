@@ -2380,6 +2380,7 @@ void LauncherPanel::onOpen(std::string_view context) {
   m_categoryFilterRebuildPending = true;
   m_applyDefaultViewPending = m_browserMode;
   m_showingProviderOverview = false;
+  m_forceCategoryFilterVisible = false;
   m_launcherProviderViewId.clear();
   m_sessionReturnView.reset();
 
@@ -2429,6 +2430,7 @@ void LauncherPanel::onClose() {
   m_applyDefaultViewPending = false;
   m_syncingLauncherNavigation = false;
   m_showingProviderOverview = false;
+  m_forceCategoryFilterVisible = false;
   m_launcherProviderViewId.clear();
   m_sessionReturnView.reset();
   m_pendingResultsTransition = ResultsTransition::None;
@@ -2544,6 +2546,15 @@ bool LauncherPanel::ignorePointerEvent() const {
 bool LauncherPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
   if (!pressed || preedit) {
     return false;
+  }
+
+  if (KeybindMatcher::matches(KeybindAction::CyclePrevious, sym, modifiers)) {
+    cycleCategories(-1);
+    return true;
+  }
+  if (KeybindMatcher::matches(KeybindAction::CycleNext, sym, modifiers)) {
+    cycleCategories(1);
+    return true;
   }
 
   auto& dispatcher = PanelManager::instance().inputDispatcher();
@@ -3242,6 +3253,7 @@ void LauncherPanel::setCategoryFilterVisible(bool visible) {
   if (m_categoryFilter == nullptr) {
     return;
   }
+  const bool categoriesEnabled = m_config == nullptr || m_config->config().shell.launcher.categories;
   const bool show = m_browserMode ? visible
           && (!m_providerCategories.empty()
               || (m_activeCategoryType == Category
@@ -3250,7 +3262,7 @@ void LauncherPanel::setCategoryFilterVisible(bool visible) {
                   && !m_currentCategories.empty()))
                                   : visible
           && !m_categoryFilterSlots.empty()
-          && (!m_scopedProviderId.empty() || m_config == nullptr || m_config->config().shell.launcher.categories);
+          && (!m_scopedProviderId.empty() || categoriesEnabled || m_forceCategoryFilterVisible);
   m_categoryFilter->setVisible(show);
   m_categoryFilter->setParticipatesInLayout(show);
   if (m_container != nullptr) {
@@ -3665,6 +3677,68 @@ void LauncherPanel::activateSelected() {
     finishActivation(*provider, result.id, provider->supportsAutoPaste(), !result.desktopEntryPath.empty());
     return;
   }
+}
+
+bool LauncherPanel::cycleCategories(int direction) {
+  if (direction == 0) {
+    return false;
+  }
+
+  const auto wrapIndex = [](int index, int count) {
+    int next = index % count;
+    if (next < 0) {
+      next += count;
+    }
+    return next;
+  };
+
+  if (m_browserMode) {
+    if (m_categoryFilter != nullptr && m_categoryFilter->visible()) {
+      if (!m_providerCategories.empty()) {
+        const int count = static_cast<int>(m_providerCategories.size() + 1);
+        const auto active = std::ranges::find(m_providerCategories, m_activeProviderCategory, &LauncherCategory::label);
+        const int current = m_activeProviderCategory.empty() || active == m_providerCategories.end()
+            ? 0
+            : static_cast<int>(active - m_providerCategories.begin()) + 1;
+        m_categoryFilter->setSelectedIndex(static_cast<std::size_t>(wrapIndex(current + direction, count)));
+        return true;
+      }
+      if (m_activeCategoryType == Category && m_currentCategories.size() >= 2) {
+        const auto active = std::ranges::find(m_currentCategories, m_activeCategory, &LauncherCategory::label);
+        const int current =
+            active == m_currentCategories.end() ? 0 : static_cast<int>(active - m_currentCategories.begin());
+        m_categoryFilter->setSelectedIndex(
+            static_cast<std::size_t>(wrapIndex(current + direction, static_cast<int>(m_currentCategories.size())))
+        );
+        return true;
+      }
+      return false;
+    }
+
+    if (m_currentCategories.empty()) {
+      return false;
+    }
+    const auto categorySlot = std::ranges::find(m_categoryFilterSlots, Category, &CategoryFilterSlot::type);
+    if (categorySlot == m_categoryFilterSlots.end()) {
+      return false;
+    }
+    setActiveCategorySlot(static_cast<std::size_t>(categorySlot - m_categoryFilterSlots.begin()));
+    return true;
+  }
+
+  if (m_categoryFilter == nullptr || m_categoryFilterSlots.size() < 2) {
+    return false;
+  }
+  if (!m_categoryFilter->visible()) {
+    m_forceCategoryFilterVisible = true;
+    setCategoryFilterVisible(true);
+    return m_categoryFilter->visible();
+  }
+  const int next = wrapIndex(
+      static_cast<int>(m_activeCategorySlotIndex) + direction, static_cast<int>(m_categoryFilterSlots.size())
+  );
+  setActiveCategorySlot(static_cast<std::size_t>(next));
+  return true;
 }
 
 bool LauncherPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) {

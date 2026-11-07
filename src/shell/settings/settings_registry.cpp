@@ -1386,18 +1386,12 @@ namespace settings {
       e.visibleWhen = launcherSimple;
       entries.push_back(std::move(e));
     }
-    {
-      auto e = makeEntry(
-          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-category-icons-only.label"),
-          tr("settings.schema.panels.launcher-category-icons-only.description"),
-          {"shell", "launcher", "category_icons_only"}, ToggleSetting{cfg.shell.launcher.categoryIconsOnly},
-          "launcher app category icons labels text"
-      );
-      e.visibleWhen = [](const Config& c) {
-        return c.shell.launcher.layout == ShellConfig::LauncherLayout::Full || c.shell.launcher.categories;
-      };
-      entries.push_back(std::move(e));
-    }
+    entries.push_back(makeEntry(
+        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-category-icons-only.label"),
+        tr("settings.schema.panels.launcher-category-icons-only.description"),
+        {"shell", "launcher", "category_icons_only"}, ToggleSetting{cfg.shell.launcher.categoryIconsOnly},
+        "launcher app category icons labels text"
+    ));
     {
       auto e = makeEntry(
           SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-navigation-labels.label"),
@@ -2647,6 +2641,22 @@ namespace settings {
         tr("settings.schema.keybinds.tab-next.description"), {"keybinds", "tab_next"},
         KeybindListSetting{.items = effectiveKeybindItems(cfg.keybinds.tabNext, KeybindAction::TabNext), .maxItems = 4},
         "keybind shortcut hotkey tab focus pane"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.cycle-previous.label"),
+        tr("settings.schema.keybinds.cycle-previous.description"), {"keybinds", "cycle_previous"},
+        KeybindListSetting{
+            .items = effectiveKeybindItems(cfg.keybinds.cyclePrevious, KeybindAction::CyclePrevious), .maxItems = 4
+        },
+        "keybind shortcut hotkey cycle tab category previous"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.cycle-next.label"),
+        tr("settings.schema.keybinds.cycle-next.description"), {"keybinds", "cycle_next"},
+        KeybindListSetting{
+            .items = effectiveKeybindItems(cfg.keybinds.cycleNext, KeybindAction::CycleNext), .maxItems = 4
+        },
+        "keybind shortcut hotkey cycle tab category next"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.copy.label"),
