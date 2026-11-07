@@ -1,6 +1,7 @@
 #include "render/codecs/heif_library.h"
 
 #include "core/log.h"
+#include "render/codecs/color_profile.h"
 
 #include <algorithm>
 #include <array>
@@ -46,6 +47,18 @@ namespace codecs {
     using HeifImageGetHeightFn = int (*)(const HeifImage*, int);
     using HeifImageIsPremultipliedAlphaFn = int (*)(HeifImage*);
     using HeifImageReleaseFn = void (*)(const HeifImage*);
+    // The leading (version 1) fields of libheif's heif_color_profile_nclx; its enums are int-sized.
+    struct HeifNclxProfile {
+      std::uint8_t version;
+      int colorPrimaries;
+      int transferCharacteristics;
+      int matrixCoefficients;
+      std::uint8_t fullRangeFlag;
+    };
+    using HeifImageHandleGetRawColorProfileSizeFn = std::size_t (*)(const HeifImageHandle*);
+    using HeifImageHandleGetRawColorProfileFn = HeifError (*)(const HeifImageHandle*, void*);
+    using HeifImageHandleGetNclxColorProfileFn = HeifError (*)(const HeifImageHandle*, HeifNclxProfile**);
+    using HeifNclxColorProfileFreeFn = void (*)(HeifNclxProfile*);
 
     struct HeifApi {
       HeifContextAllocFn contextAlloc = nullptr;
@@ -60,6 +73,11 @@ namespace codecs {
       HeifImageReleaseFn imageRelease = nullptr;
       // Optional: absent before libheif 1.12, where decoded images never carry premultiplied alpha.
       HeifImageIsPremultipliedAlphaFn imageIsPremultipliedAlpha = nullptr;
+      // Optional: without them images are shown in their own color space, unconverted.
+      HeifImageHandleGetRawColorProfileSizeFn imageHandleGetRawColorProfileSize = nullptr;
+      HeifImageHandleGetRawColorProfileFn imageHandleGetRawColorProfile = nullptr;
+      HeifImageHandleGetNclxColorProfileFn imageHandleGetNclxColorProfile = nullptr;
+      HeifNclxColorProfileFreeFn nclxColorProfileFree = nullptr;
     };
 
     template <typename T> bool loadDlsymFunction(void* library, const char* name, T& out) {
@@ -101,6 +119,12 @@ namespace codecs {
           return;
         }
         loadDlsymFunction(library, "heif_image_is_premultiplied_alpha", api.imageIsPremultipliedAlpha);
+        loadDlsymFunction(
+            library, "heif_image_handle_get_raw_color_profile_size", api.imageHandleGetRawColorProfileSize
+        );
+        loadDlsymFunction(library, "heif_image_handle_get_raw_color_profile", api.imageHandleGetRawColorProfile);
+        loadDlsymFunction(library, "heif_image_handle_get_nclx_color_profile", api.imageHandleGetNclxColorProfile);
+        loadDlsymFunction(library, "heif_nclx_color_profile_free", api.nclxColorProfileFree);
 
         // heif_init() loads external codec plugins (distributions ship the AV1/HEVC decoders that
         // way). Libraries older than 1.13 lack it and only have built-in codecs.
@@ -125,6 +149,38 @@ namespace codecs {
         return std::string("libheif: ") + err.message;
       }
       return std::string("libheif: ") + std::string(fallback);
+    }
+
+    // The color space of the decoded RGB: the ICC profile when there is one, else the nclx code points
+    // (2, "unspecified", leaves the pixels as they are).
+    struct HeifColorSpace {
+      std::vector<std::uint8_t> icc;
+      int primaries = 2;
+      int transfer = 2;
+    };
+
+    HeifColorSpace heifColorSpace(const HeifApi& api, const HeifImageHandle* handle) {
+      HeifColorSpace space;
+      if (api.imageHandleGetRawColorProfileSize != nullptr && api.imageHandleGetRawColorProfile != nullptr) {
+        const std::size_t size = api.imageHandleGetRawColorProfileSize(handle);
+        if (size > 0) {
+          space.icc.resize(size);
+          if (api.imageHandleGetRawColorProfile(handle, space.icc.data()).code == kHeifErrorOk) {
+            return space;
+          }
+          space.icc.clear();
+        }
+      }
+      HeifNclxProfile* nclx = nullptr;
+      if (api.imageHandleGetNclxColorProfile != nullptr
+          && api.nclxColorProfileFree != nullptr
+          && api.imageHandleGetNclxColorProfile(handle, &nclx).code == kHeifErrorOk
+          && nclx != nullptr) {
+        space.primaries = nclx->colorPrimaries;
+        space.transfer = nclx->transferCharacteristics;
+        api.nclxColorProfileFree(nclx);
+      }
+      return space;
     }
 
     void unpremultiplyRgba(std::vector<std::uint8_t>& pixels) {
@@ -209,6 +265,7 @@ namespace codecs {
     // Null decoding options keep libheif's defaults, which apply the irot/imir/clap transforms.
     HeifImage* image = nullptr;
     err = api->decodeImage(handle, &image, kHeifColorspaceRgb, kHeifChromaInterleavedRgba, nullptr);
+    const HeifColorSpace colorSpace = heifColorSpace(*api, handle);
     api->imageHandleRelease(handle);
     if (err.code != kHeifErrorOk || image == nullptr) {
       api->contextFree(context);
@@ -244,6 +301,11 @@ namespace codecs {
 
     api->imageRelease(image);
     api->contextFree(context);
+    if (!colorSpace.icc.empty()) {
+      convertIccToSrgb(decoded.pixels, colorSpace.icc);
+    } else {
+      convertCicpToSrgb(decoded.pixels, colorSpace.primaries, colorSpace.transfer);
+    }
     return decoded;
   }
 
