@@ -583,7 +583,7 @@ namespace {
     checkIds("overlayWorkspaces() after closing", closedOverlays, {"special:magic"});
     TEST_CHECK(!closedOverlays.empty() && !closedOverlays.front().active);
 
-    // A window in the hidden special workspace asks for attention (Discord on a new message).
+    // A window in the hidden special workspace asks for attention.
     eventHandler.handleEvent("urgent", "102");
     const auto urgentOverlays = backend.overlayWorkspaces(left);
     // An urgent window marks its closed special workspace urgent.

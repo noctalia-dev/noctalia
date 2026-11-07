@@ -51,7 +51,7 @@ public:
     bool hideWhenEmpty = false;
     std::vector<std::string> monitors;
     std::string separator;
-    bool showSpecial = false;
+    bool showSpecialWorkspaces = false;
     float pillScale = 1.0F;
     float activePillSize = 2.2F;
     float inactivePillSize = 1.0F;
@@ -180,7 +180,7 @@ private:
   bool m_hideWhenEmpty = false;
   std::vector<std::string> m_monitors;
   std::string m_separator;
-  bool m_showSpecial = false;
+  bool m_showSpecialWorkspaces = false;
   float m_pillScale = 1.0F;
   float m_activePillSize = 2.2F;
   float m_inactivePillSize = 1.0F;

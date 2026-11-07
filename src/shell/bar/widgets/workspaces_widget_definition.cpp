@@ -59,7 +59,7 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .optionSource = settings::WidgetSettingOptionSource::Outputs,
                       },
               }),
-              field<&Options::showSpecial>({
+              field<&Options::showSpecialWorkspaces>({
                   .key = "show_special_workspaces",
                   .presentation =
                       settings::WidgetSettingPresentation{
