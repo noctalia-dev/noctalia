@@ -76,7 +76,7 @@ WorkspacesWidget::WorkspacesWidget(
       m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_showIcons(options.showIcons),
       m_colorizeIcons(options.colorizeIcons), m_hideWhenEmpty(options.hideWhenEmpty),
       m_monitors(std::move(options.monitors)), m_separator(std::move(options.separator)),
-      m_showSpecial(options.showSpecial), m_pillScale(options.pillScale),
+      m_showSpecialWorkspaces(options.showSpecialWorkspaces), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
@@ -201,7 +201,7 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
     if (output == nullptr) {
       return;
     }
-    if (m_showSpecial) {
+    if (m_showSpecialWorkspaces) {
       for (auto& workspace : m_platform.overlayWorkspaces(output)) {
         current.push_back({.workspace = std::move(workspace), .output = output});
       }

@@ -706,7 +706,7 @@ namespace {
          )
         && ok;
 
-    // A window in the hidden special workspace asks for attention (Discord on a new message).
+    // A window in the hidden special workspace asks for attention.
     eventHandler.handleEvent("urgent", "102");
     const auto urgentOverlays = backend.overlayWorkspaces(left);
     ok = check(
