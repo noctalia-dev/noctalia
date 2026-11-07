@@ -82,6 +82,7 @@ namespace {
       return KeyMod::Alt;
     case ScreenshotRegionModifier::Shift:
       return KeyMod::Shift;
+    case ScreenshotRegionModifier::Space:
     case ScreenshotRegionModifier::None:
       return 0;
     }
@@ -838,10 +839,11 @@ bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
     return m_annotationOverlay->onKeyboardEvent(event) || event.pressed;
   }
 
-  if (!event.pressed) {
-    return false;
-  }
   const bool regionActive = m_regionOverlay != nullptr && m_regionOverlay->isActive();
+  if (!event.pressed) {
+    // The region overlay tracks the release of a held Space modifier.
+    return regionActive && m_regionOverlay->onKeyRelease(event);
+  }
   if (!m_freezeCaptureActive && !regionActive) {
     return false;
   }
@@ -1264,7 +1266,9 @@ void ScreenshotService::ensureRegionOverlay() {
       primaryKeybindLabel(keybinds.cancel, KeybindAction::Cancel)
   );
   const auto& screenshotCfg = m_configService.config().shell.screenshot;
-  m_regionOverlay->setRegionModifier(regionModifierMask(screenshotCfg.regionModifier));
+  m_regionOverlay->setRegionModifier(
+      regionModifierMask(screenshotCfg.regionModifier), screenshotCfg.regionModifier == ScreenshotRegionModifier::Space
+  );
   m_regionOverlay->setSelectionBorderWidth(screenshotCfg.regionBorderWidth);
   m_regionOverlay->setDimOpacity(screenshotCfg.regionDimOpacity);
   m_regionOverlay->setShowRegionHint(screenshotCfg.showRegionHint);
