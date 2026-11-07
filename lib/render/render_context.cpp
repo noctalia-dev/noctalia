@@ -77,7 +77,7 @@ namespace {
   Mat3 nodeLocalTransform(const Node* node) {
     const float cx = node->transformOriginX();
     const float cy = node->transformOriginY();
-    return Mat3::translation(node->x(), node->y())
+    return Mat3::translation(node->x() + node->translateX(), node->y() + node->translateY())
         * Mat3::translation(cx, cy)
         * Mat3::rotation(node->rotation())
         * Mat3::scale(node->scaleX(), node->scaleY())
