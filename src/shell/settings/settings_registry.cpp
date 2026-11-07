@@ -2654,6 +2654,14 @@ namespace settings {
         "keybind shortcut hotkey save file"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.select-all.label"),
+        tr("settings.schema.keybinds.select-all.description"), {"keybinds", "select_all"},
+        KeybindListSetting{
+            .items = effectiveKeybindItems(cfg.keybinds.selectAll, KeybindAction::SelectAll), .maxItems = 4
+        },
+        "keybind shortcut hotkey select all screenshot region desktop"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.delete.label"),
         tr("settings.schema.keybinds.delete.description"), {"keybinds", "delete"},
         KeybindListSetting{

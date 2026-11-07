@@ -377,6 +377,8 @@ namespace {
       return keybinds.copy;
     case KeybindAction::Save:
       return keybinds.save;
+    case KeybindAction::SelectAll:
+      return keybinds.selectAll;
     }
     return keybinds.validate;
   }

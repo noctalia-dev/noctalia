@@ -1627,6 +1627,7 @@ struct KeybindsConfig {
   std::vector<KeyChord> deleteEntry;
   std::vector<KeyChord> copy;
   std::vector<KeyChord> save;
+  std::vector<KeyChord> selectAll;
 
   bool operator==(const KeybindsConfig&) const = default;
 };

@@ -508,6 +508,7 @@ location = "https://example.invalid/bad"
     c.keybinds.deleteEntry = defaultKeybindSet(KeybindAction::Delete);
     c.keybinds.copy = defaultKeybindSet(KeybindAction::Copy);
     c.keybinds.save = defaultKeybindSet(KeybindAction::Save);
+    c.keybinds.selectAll = defaultKeybindSet(KeybindAction::SelectAll);
     c.hooks.commands[0] = {"notify-send hi"};
     c.hooks.commands[2] = {"cmd-a", "cmd-b"};
     c.idle.preActionFadeSeconds = 3.0F;

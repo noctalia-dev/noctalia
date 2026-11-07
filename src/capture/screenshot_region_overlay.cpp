@@ -3,7 +3,6 @@
 #include "capture/screenshot_region_badge.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
-#include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
@@ -209,13 +208,6 @@ namespace capture {
         }
       }
       return nullptr;
-    }
-
-    bool isSelectAllShortcut(std::uint32_t sym, std::uint32_t modifiers) {
-      if ((modifiers & KeyMod::Ctrl) == 0 || (modifiers & (KeyMod::Alt | KeyMod::Super)) != 0) {
-        return false;
-      }
-      return sym == 'a' || sym == 'A';
     }
 
     std::optional<LogicalRect> globalDesktopBounds(const WaylandConnection& wayland) {
@@ -863,7 +855,7 @@ namespace capture {
           return;
         }
       }
-      if (isSelectAllShortcut(key.sym, key.modifiers)) {
+      if (KeybindMatcher::matches(KeybindAction::SelectAll, key.sym, key.modifiers)) {
         DeferredCall::callLater([this] { selectEntireDesktop(); });
       }
     });
@@ -1069,7 +1061,7 @@ namespace capture {
         return;
       }
     }
-    if (isSelectAllShortcut(event.sym, event.modifiers)) {
+    if (KeybindMatcher::matches(KeybindAction::SelectAll, event.sym, event.modifiers)) {
       selectEntireDesktop();
     }
   }

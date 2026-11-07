@@ -187,6 +187,8 @@ std::vector<KeyChord> defaultKeybindSet(KeybindAction action) {
     return {{.sym = XKB_KEY_c, .modifiers = KeyMod::Ctrl}};
   case KeybindAction::Save:
     return {{.sym = XKB_KEY_s, .modifiers = KeyMod::Ctrl}};
+  case KeybindAction::SelectAll:
+    return {{.sym = XKB_KEY_a, .modifiers = KeyMod::Ctrl}};
   }
   return {};
 }
