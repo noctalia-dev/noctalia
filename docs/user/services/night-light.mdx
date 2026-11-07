@@ -30,7 +30,7 @@ The fade is anchored to the wall clock, not to when Noctalia started. The temper
 
 ## Scheduled Brightness
 
-When enabled alongside night light, scheduled brightness adjusts screen brightness using the same day/night schedule and gradient fade logic:
+Scheduled brightness adjusts screen brightness using the same day/night schedule from [`[location]`](/noctalia/services/location/) (sunrise/sunset or custom times). It is independent of night light and works on DDC and backlight displays even where gamma control is unavailable.
 
 ```toml
 [brightness]
@@ -41,13 +41,13 @@ scheduled_night_brightness  = 0.5   # target brightness during night phase (0.0â
 
 ### Gradient fade behavior
 
-Brightness transitions use a **30-minute fade window** before sunrise and sunset, matching the night light temperature pattern:
+Unlike the one-hour, boundary-centred fade of night light, scheduled brightness fades only in the **30 minutes before** each boundary:
 
 - Fade begins 30 minutes before the boundary (sunrise or sunset).
-- At the boundary, brightness reaches the target phase value (`scheduled_day_brightness` at sunrise, `scheduled_night_brightness` at sunset).
-- Once the boundary is reached, brightness stays at the target value until the next fade window begins.
+- At the boundary, brightness reaches the target phase value (`scheduled_day_brightness` at sunrise, `scheduled_night_brightness` at sunset) and stays there until the next fade window.
+- The schedule recalculates every minute while inside a fade window, ramping linearly from each display's brightness at fade start to the target; outside it, no writes happen unless settings change or displays appear/disappear.
 
-The schedule timer recalculates brightness every 5 minutes during the fade window, producing smooth gradient updates without manual slider adjustments.
+If your brightness before sunset is higher than `scheduled_day_brightness`, that level is restored right after sunrise â€” the day target never drops below your pre-sunset brightness (still clamped to `minimum_brightness`).
 
 ## Related IPC
 

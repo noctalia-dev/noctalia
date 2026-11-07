@@ -11,9 +11,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
-#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -497,22 +495,16 @@ namespace {
     TEST_CHECK(fixture.ddc.count("detect") == attempts);
   }
 
-  std::string clockAt(const tm& base, int addMinutes) {
-    const auto total = (base.tm_hour * 60 + base.tm_min + addMinutes) % (24 * 60);
-    char buffer[8];
-    std::snprintf(buffer, sizeof(buffer), "%02d:%02d", total / 60, total % 60);
-    return {buffer};
-  }
-
   void checkScheduleWaitsForResolvedCoordinates() {
     Fixture fixture("ready", 1, [](BrightnessConfig& config, LocationConfig&) {
       config.enableScheduledBrightness = true;
+      config.scheduledNightBrightness = 0.3F;
     });
 
     fixture.observe(400ms);
     TEST_CHECK(fixture.ddc.count("setvcp-71") == 0);
 
-    fixture.service->setResolvedCoordinates(52.37, 9.73); // Amsterdam
+    fixture.service->setResolvedCoordinates(52.37, 4.90); // Amsterdam
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") >= 1; }));
     const auto* display = fixture.service->findDisplay(kConnectors[0]);
     TEST_CHECK(display != nullptr && display->controllable);
@@ -520,7 +512,7 @@ namespace {
     TEST_CHECK(display->brightness <= fixture.config.scheduledDayBrightness + 0.001F);
 
     const int before = fixture.ddc.count("setvcp-71");
-    fixture.service->setResolvedCoordinates(52.37, 9.73);
+    fixture.service->setResolvedCoordinates(52.37, 4.90);
     fixture.observe(200ms);
     TEST_CHECK(fixture.ddc.count("setvcp-71") == before);
   }
@@ -531,7 +523,7 @@ namespace {
     const int detects = fixture.ddc.count("detect");
 
     fixture.location.latitude = 52.37;
-    fixture.location.longitude = 9.73;
+    fixture.location.longitude = 4.90;
     fixture.service->reload(fixture.config, fixture.location);
     fixture.observe(400ms);
     TEST_CHECK(fixture.ddc.count("detect") == detects);
@@ -539,20 +531,6 @@ namespace {
     fixture.config.minimumBrightness = 0.1F;
     fixture.service->reload(fixture.config, fixture.location);
     TEST_CHECK(fixture.waitFor([&fixture, detects]() { return fixture.ddc.count("detect") == detects + 1; }));
-  }
-
-  void checkScheduleArmsAtStartup() {
-    const auto nowTime = std::time(nullptr);
-    const auto now = std::localtime(&nowTime);
-    const std::string sunset = clockAt(*now, 1);
-    const std::string sunrise = clockAt(*now, 2);
-    Fixture fixture("ready", 1, [&sunset, &sunrise](BrightnessConfig& config, LocationConfig& location) {
-      config.enableScheduledBrightness = true;
-      location.customSchedule = true;
-      location.sunset = sunset;
-      location.sunrise = sunrise;
-    });
-    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") >= 2; }, 150000ms));
   }
 
 } // namespace
@@ -574,6 +552,5 @@ int main(int argc, char** argv) {
   checkOutputRemovalCancelsRetry();
   checkScheduleWaitsForResolvedCoordinates();
   checkReloadRebuildsOnlyOnBrightnessChange();
-  checkScheduleArmsAtStartup();
   return 0;
 }

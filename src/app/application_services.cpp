@@ -1505,7 +1505,9 @@ void Application::initBrightnessAndPipewire() {
         m_systemBus.get(), m_compositorPlatform, m_configService.config().brightness, m_configService.config().location
     );
     m_brightnessService->setChangeCallback([this, shouldRefreshControlCenter] {
-      m_brightnessOsd.onBrightnessChanged(*m_brightnessService);
+      if (!m_brightnessService->lastChangeWasScheduled()) {
+        m_brightnessOsd.onBrightnessChanged(*m_brightnessService);
+      }
       m_bar.refresh();
       if (shouldRefreshControlCenter()) {
         m_panelManager.refresh();

@@ -59,6 +59,8 @@ public:
 
   void setChangeCallback(ChangeCallback callback);
 
+  bool lastChangeWasScheduled() const noexcept;
+
   // Poll integration — inotify fd for external brightness changes.
   int watchFd() const noexcept;
   void dispatchWatch();
