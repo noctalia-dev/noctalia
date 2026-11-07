@@ -3,6 +3,7 @@
 #include "auth/pam_authenticator.h"
 #include "capture/screencopy_capture.h"
 #include "core/timer_manager.h"
+#include "shell/osd/osd_overlay.h"
 #include "shell/render/lockscreen_transition_types.h"
 
 #include <cstdint>
@@ -53,6 +54,13 @@ public:
       SessionActionRunner* sessionActions, MprisService* mpris, const WeatherService* weather, HttpClient* httpClient
   );
   bool lock();
+  /// Forward an OSD popup to the lock surfaces when lockscreen.show_osd is on.
+  /// Media and Privacy popups are dropped here so track titles / capture
+  /// state never leak onto the secure lock screen.
+  void showOsd(
+      OsdKind kind, const std::string& icon, const std::string& value, float progress, bool showProgress,
+      bool overLimit, bool inactive
+  );
   void primeDesktopCaptures();
   void clearPrimedDesktopCaptures();
   void unlock();

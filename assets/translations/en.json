@@ -2629,6 +2629,10 @@
           "description": "Choose which monitors show the lock screen; leave empty to show on all monitors",
           "label": "Monitors"
         },
+        "show-osd": {
+          "description": "Show OSD popups (volume, brightness, media keys) on the lock screen for visual feedback while locked",
+          "label": "Show OSD"
+        },
         "tint-color": {
           "description": "Color of the tint over the lock screen background",
           "label": "Tint Color"

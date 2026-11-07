@@ -776,6 +776,12 @@ void Application::initNotificationAndOsd() {
 
   TooltipManager::instance().initialize(m_wayland, &m_configService, &m_renderContext);
   m_osdOverlay.initialize(m_wayland, m_compositorPlatform, &m_configService, &m_renderContext);
+  m_osdOverlay.setLockScreenForwarder([this](
+                                          OsdKind kind, std::string icon, std::string value, float progress,
+                                          bool showProgress, bool overLimit, bool inactive
+                                      ) {
+    m_lockScreen.showOsd(kind, std::move(icon), std::move(value), progress, showProgress, overLimit, inactive);
+  });
   m_windowSwitcher.initialize(
       m_wayland, &m_renderContext, m_compositorPlatform, &m_configService, &m_asyncTextureCache
   );

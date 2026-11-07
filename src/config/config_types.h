@@ -614,6 +614,12 @@ struct LockscreenConfig {
   // Distinct from idle/session lock_and_suspend actions.
   bool lockBeforeSuspend = true;
   bool dnd = false;
+  // Show OSD popups (volume, brightness, media keys, ...) on the lock screen
+  // itself, so media/brightness keys give visual feedback while locked.
+  // Layer-shell OSDs are hidden behind the session lock, hence this separate
+  // in-surface rendering. Privacy-sensitive kinds (media titles, privacy
+  // capture state) are never shown even when this is enabled.
+  bool showOsd = false;
   // Opt-in convenience window: allow passwordless unlock for this many seconds
   // after locking on any keypress or mouse movement beyond 5px. Defaults to 0
   // (disabled) so existing configurations keep requiring authentication; grace is
