@@ -622,6 +622,10 @@ struct LockscreenConfig {
   int gracePeriodSeconds = 0;
   bool fingerprint = true;
   bool allowEmptyPassword = false;
+  // PAM service (under /etc/pam.d/) the lock screen authenticates against.
+  // "login" suits most distros; a custom service avoids distro stacks that
+  // block on modules the lock screen cannot satisfy (e.g. pam_fprintd).
+  std::string pamService = "login";
   bool blurredDesktop = false;
   std::vector<LockscreenTransition> transitions = {LockscreenTransition::Fade,    LockscreenTransition::Wipe,
                                                    LockscreenTransition::Disc,    LockscreenTransition::Stripes,

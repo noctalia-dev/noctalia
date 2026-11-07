@@ -269,6 +269,8 @@ tint_intensity          = 0.3         # strength of the tint over the lock scree
 tint_color              = "surface"   # tint color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
 # wallpaper             = ""          # optional image path for the lock screen; empty uses the desktop wallpaper
 # monitors              = ["DP-1"]    # connectors that show the lock screen; empty shows all monitors, others stay black
+# pam_service            = "login"     # PAM service to authenticate against; override when the distro's login
+                                       # stack blocks on modules a lock screen can't satisfy (e.g. pam_fprintd)
 
 # ── System Monitor ────────────────────────────────────────────────────────────
 

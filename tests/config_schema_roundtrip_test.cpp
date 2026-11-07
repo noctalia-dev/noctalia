@@ -378,6 +378,7 @@ location = "https://example.invalid/bad"
         .lockBeforeSuspend = false,
         .dnd = true,
         .gracePeriodSeconds = 3,
+        .pamService = "noctalia",
         .blurredDesktop = true,
         .transitions = {LockscreenTransition::Disc, LockscreenTransition::Zoom},
         .transitionDurationMs = 900.0F,

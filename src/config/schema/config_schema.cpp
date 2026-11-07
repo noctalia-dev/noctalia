@@ -137,6 +137,7 @@ namespace noctalia::config::schema {
         field(&LockscreenConfig::gracePeriodSeconds, "grace_period_seconds", Range<std::int64_t>{0, 60}),
         field(&LockscreenConfig::fingerprint, "fingerprint"),
         field(&LockscreenConfig::allowEmptyPassword, "allow_empty_password"),
+        field(&LockscreenConfig::pamService, "pam_service"),
         field(&LockscreenConfig::blurredDesktop, "blurred_desktop"),
         enumArrayField(
             &LockscreenConfig::transitions, "transition", kLockscreenTransitions, std::optional<LockscreenTransition>{}
