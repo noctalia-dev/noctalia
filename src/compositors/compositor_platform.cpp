@@ -1136,6 +1136,13 @@ std::optional<bool> CompositorPlatform::hasUnminimizedToplevels(wl_output* outpu
 
 void CompositorPlatform::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) { m_toplevels.closeToplevel(handle); }
 
+void CompositorPlatform::setToplevelRectangle(
+    zwlr_foreign_toplevel_handle_v1* handle, wl_surface* surface, std::int32_t x, std::int32_t y, std::int32_t width,
+    std::int32_t height
+) {
+  m_toplevels.setToplevelRectangle(handle, surface, x, y, width, height);
+}
+
 void CompositorPlatform::closeToplevelInfo(const ToplevelInfo& window) {
   if (window.handle != nullptr) {
     closeToplevel(window.handle);

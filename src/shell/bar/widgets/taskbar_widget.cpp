@@ -723,6 +723,12 @@ void TaskbarWidget::applyPinnedMerge(std::vector<TaskModel>& tasks) {
     tile = tasks[rep];
     tile.pinned = true;
     tile.running = true;
+    tile.memberHandles.clear();
+    for (const std::size_t index : matching) {
+      if (tasks[index].firstHandle != nullptr) {
+        tile.memberHandles.push_back(tasks[index].firstHandle);
+      }
+    }
     tile.desktopEntryId = entry.id;
     tile.instanceCount = matching.size();
     tile.minimizedCount = 0;
@@ -822,6 +828,41 @@ void TaskbarWidget::doLayout(Renderer& renderer, float containerWidth, float con
   if (Node* container = root(); container != nullptr && container != m_root) {
     container->setFrameSize(m_root->width(), m_root->height());
   }
+}
+
+void TaskbarWidget::onSurfaceLayoutComplete(wl_surface* surface) {
+  std::unordered_map<zwlr_foreign_toplevel_handle_v1*, ToplevelRectangle> next;
+  for (const TaskTile& tile : m_taskTiles) {
+    if (tile.area == nullptr || tile.handles.empty() || !tile.area->visible()) {
+      continue;
+    }
+    float absX = 0.0F;
+    float absY = 0.0F;
+    Node::absolutePosition(tile.area, absX, absY);
+    const ToplevelRectangle rect{
+        .surface = surface,
+        .x = static_cast<std::int32_t>(std::lround(absX)),
+        .y = static_cast<std::int32_t>(std::lround(absY)),
+        .width = std::max<std::int32_t>(1, static_cast<std::int32_t>(std::lround(tile.area->width()))),
+        .height = std::max<std::int32_t>(1, static_cast<std::int32_t>(std::lround(tile.area->height()))),
+    };
+    for (auto* handle : tile.handles) {
+      next[handle] = rect;
+    }
+  }
+  // Clear before setting: a closed window's handle address can be reused by a new one.
+  for (const auto& [handle, rect] : m_sentRectangles) {
+    if (!next.contains(handle)) {
+      m_platform.setToplevelRectangle(handle, rect.surface, 0, 0, 0, 0);
+    }
+  }
+  for (const auto& [handle, rect] : next) {
+    const auto sent = m_sentRectangles.find(handle);
+    if (sent == m_sentRectangles.end() || sent->second != rect) {
+      m_platform.setToplevelRectangle(handle, rect.surface, rect.x, rect.y, rect.width, rect.height);
+    }
+  }
+  m_sentRectangles = std::move(next);
 }
 
 void TaskbarWidget::doUpdate(Renderer& /*renderer*/) {
@@ -994,6 +1035,19 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     }
     const TaskModel& task = *taskModel;
     const auto tooltipCandidates = cycleCandidates;
+    std::vector<zwlr_foreign_toplevel_handle_v1*> tileHandles;
+    if (!cycleCandidates.empty()) {
+      for (const TaskRef candidate : cycleCandidates) {
+        const TaskModel* member = resolveTask(m_tasks, candidate, m_taskGeneration);
+        if (member != nullptr && member->firstHandle != nullptr) {
+          tileHandles.push_back(member->firstHandle);
+        }
+      }
+    } else if (!task.memberHandles.empty()) {
+      tileHandles = task.memberHandles;
+    } else if (task.firstHandle != nullptr) {
+      tileHandles.push_back(task.firstHandle);
+    }
     std::size_t minimizedCount = task.minimizedCount;
     if (!cycleCandidates.empty()) {
       minimizedCount = 0;
@@ -1350,6 +1404,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         .titleLabel = titleLabelPtr,
         .activeIndicator = indicatorPtr,
         .minimizeIndicator = minimizeIndicatorPtr,
+        .handles = std::move(tileHandles),
     });
     attachHover(*area, tileWidthWithTitle, tileSize);
     return area;
