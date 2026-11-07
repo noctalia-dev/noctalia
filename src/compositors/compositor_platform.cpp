@@ -1599,6 +1599,10 @@ std::vector<std::string> CompositorPlatform::openOverlayWorkspaceKeys(wl_output*
   return m_workspaces != nullptr ? m_workspaces->openOverlayWorkspaceKeys(outputFilter) : std::vector<std::string>{};
 }
 
+std::vector<Workspace> CompositorPlatform::overlayWorkspaces(wl_output* output) const {
+  return m_workspaces != nullptr ? m_workspaces->overlayWorkspaces(output) : std::vector<Workspace>{};
+}
+
 TaskbarAssignmentMode CompositorPlatform::taskbarAssignmentMode() const noexcept {
   return m_workspaces != nullptr ? m_workspaces->taskbarAssignmentMode() : TaskbarAssignmentMode::Generic;
 }

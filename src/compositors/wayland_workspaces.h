@@ -47,6 +47,7 @@ public:
   assignTaskbarWindows(const std::vector<TaskbarWindowCandidate>& windows, wl_output* output) const;
   std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const;
   std::vector<std::string> openOverlayWorkspaceKeys(wl_output* output) const;
+  std::vector<Workspace> overlayWorkspaces(wl_output* output) const;
   void focusWindow(const std::string& windowId) const;
 
   std::vector<Workspace> all() const;

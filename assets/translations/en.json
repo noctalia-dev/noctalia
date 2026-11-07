@@ -5104,6 +5104,10 @@
           "description": "Show Scroll Lock state",
           "label": "Show Scroll Lock"
         },
+        "show-special-workspaces": {
+          "description": "Show Hyprland special workspaces before the regular ones; clicking one toggles it",
+          "label": "Show Special Workspaces"
+        },
         "show-temperature": {
           "description": "Show current temperature text",
           "label": "Show Temperature"

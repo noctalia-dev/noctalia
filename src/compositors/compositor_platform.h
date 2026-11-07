@@ -180,6 +180,9 @@ public:
   // Workspace keys of the overlay workspaces currently open on `outputFilter`
   // (nullptr = every output). Empty unless the active workspace backend tracks them.
   std::vector<std::string> openOverlayWorkspaceKeys(wl_output* outputFilter = nullptr) const;
+  // Overlay workspaces hosted on `output`, such as Hyprland special workspaces, which
+  // workspaces(output) leaves out. Activating one toggles it.
+  std::vector<Workspace> overlayWorkspaces(wl_output* output) const;
 
   // Workspace alerts: user-requested "attention" markers overlaid onto the
   // workspace model by reusing Workspace::id (no new per-backend identifier).
