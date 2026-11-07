@@ -1034,6 +1034,7 @@ namespace noctalia::config::schema {
         keybindActionField(&KeybindsConfig::deleteEntry, "delete", KeybindAction::Delete),
         keybindActionField(&KeybindsConfig::copy, "copy", KeybindAction::Copy),
         keybindActionField(&KeybindsConfig::save, "save", KeybindAction::Save),
+        keybindActionField(&KeybindsConfig::selectAll, "select_all", KeybindAction::SelectAll),
     };
     return s;
   }

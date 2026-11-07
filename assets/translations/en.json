@@ -2571,6 +2571,10 @@
           "description": "Save the current selection or item",
           "label": "Save"
         },
+        "select-all": {
+          "description": "Select the entire desktop during region screenshot capture",
+          "label": "Select All"
+        },
         "tab-next": {
           "description": "Move focus to the next control",
           "label": "Focus Next"
