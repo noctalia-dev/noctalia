@@ -45,6 +45,9 @@ namespace compositors {
       if (const char* v = std::getenv("MANGO_INSTANCE_SIGNATURE"); v != nullptr && v[0] != '\0') {
         return CompositorKind::Mango;
       }
+      if (const char* v = std::getenv("WAYFIRE_SOCKET"); v != nullptr && v[0] != '\0') {
+        return CompositorKind::Wayfire;
+      }
 
       // Fall back to the desktop env hint (covers dwl-style compositors that don't expose a socket var).
       const std::string hint = buildEnvHint();
@@ -68,6 +71,9 @@ namespace compositors {
       }
       if (StringUtils::containsInsensitive(hint, "labwc")) {
         return CompositorKind::Labwc;
+      }
+      if (StringUtils::containsInsensitive(hint, "wayfire")) {
+        return CompositorKind::Wayfire;
       }
       if (StringUtils::containsInsensitive(hint, "kde") || StringUtils::containsInsensitive(hint, "plasma")) {
         return CompositorKind::Kde;
@@ -100,6 +106,8 @@ namespace compositors {
       return "KDE";
     case CompositorKind::Umbriel:
       return "Umbriel";
+    case CompositorKind::Wayfire:
+      return "Wayfire";
     case CompositorKind::Unknown:
       return "Unknown";
     }
