@@ -108,6 +108,7 @@ bool DesktopLabelWidget::applySetting(
     if (const auto* v = std::get_if<bool>(&value)) {
       m_shadow = *v;
       applyShadow();
+      requestLayout();
       return true;
     }
     return false;
@@ -153,7 +154,9 @@ void DesktopLabelWidget::doLayout(Renderer& renderer) {
   }
 
   m_titleLabel->setPosition(0.0F, 0.0F);
-  root()->setSize(width, height);
+  // Include the shadow offset so a tight widget box fits the shadow instead of clipping it.
+  const float shadowPad = m_shadow ? kShadowOffset * scale : 0.0F;
+  root()->setSize(width + shadowPad, height + shadowPad);
   applyLabelColors();
   applyShadow();
 }
