@@ -94,6 +94,58 @@ namespace shell::dock {
       }
     }
 
+    // Tells the compositor where each window's icon rests: hover zoom, drag and the auto-hide slide don't move it.
+    void syncToplevelRectangles(DockInstance& instance, CompositorPlatform& platform) {
+      wl_surface* const surface = instance.surface != nullptr ? instance.surface->wlSurface() : nullptr;
+      if (surface == nullptr) {
+        return;
+      }
+      std::unordered_map<zwlr_foreign_toplevel_handle_v1*, DockToplevelRectangle> next;
+      if (instance.row != nullptr) {
+        float rowX = 0.0F;
+        float rowY = 0.0F;
+        Node::absolutePosition(instance.row, rowX, rowY);
+        if (instance.slideRoot != nullptr) {
+          rowX -= instance.slideRoot->x();
+          rowY -= instance.slideRoot->y();
+        }
+        const bool vertical = shell::dock::isVerticalEdge(instance.config.position);
+        const std::size_t count = std::min(instance.items.size(), instance.snapshot.items.size());
+        for (std::size_t i = 0; i < count; ++i) {
+          const auto& item = instance.items[i];
+          const auto& model = instance.snapshot.items[i];
+          if (item.area == nullptr || model.handles.empty()) {
+            continue;
+          }
+          const float x = rowX + (vertical ? item.restCrossPos : item.restMainPos);
+          const float y = rowY + (vertical ? item.restMainPos : item.restCrossPos);
+          const DockToplevelRectangle rect{
+              .surface = surface,
+              .x = static_cast<std::int32_t>(std::lround(x)),
+              .y = static_cast<std::int32_t>(std::lround(y)),
+              .width = std::max<std::int32_t>(1, static_cast<std::int32_t>(std::lround(item.area->width()))),
+              .height = std::max<std::int32_t>(1, static_cast<std::int32_t>(std::lround(item.area->height()))),
+          };
+          for (auto* handle : model.handles) {
+            next[handle] = rect;
+          }
+        }
+      }
+      // Clear before setting: a closed window's handle address can be reused by a new one.
+      for (const auto& [handle, rect] : instance.sentToplevelRectangles) {
+        if (!next.contains(handle)) {
+          platform.setToplevelRectangle(handle, rect.surface, 0, 0, 0, 0);
+        }
+      }
+      for (const auto& [handle, rect] : next) {
+        const auto sent = instance.sentToplevelRectangles.find(handle);
+        if (sent == instance.sentToplevelRectangles.end() || sent->second != rect) {
+          platform.setToplevelRectangle(handle, rect.surface, rect.x, rect.y, rect.width, rect.height);
+        }
+      }
+      instance.sentToplevelRectangles = std::move(next);
+    }
+
   } // namespace
 
   void prepareFrame(
@@ -134,6 +186,9 @@ namespace shell::dock {
       buildScene(instance, deps, callbacks);
     } else if (needsUpdate && callbacks.updateVisuals) {
       callbacks.updateVisuals(instance);
+    }
+    if (needsUpdate || needsSceneBuild || needsLayout || needsModelRebuild) {
+      syncToplevelRectangles(instance, deps.platform);
     }
   }
 
