@@ -135,6 +135,12 @@ public:
   std::optional<bool> hasUnminimizedToplevels(wl_output* outputFilter) const;
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void closeToplevelInfo(const ToplevelInfo& window);
+  // Tells the compositor where `surface` shows the toplevel (e.g. a taskbar icon), its target for minimise
+  // animations. Surface-local coordinates; a 0x0 rectangle clears it.
+  void setToplevelRectangle(
+      zwlr_foreign_toplevel_handle_v1* handle, wl_surface* surface, std::int32_t x, std::int32_t y, std::int32_t width,
+      std::int32_t height
+  );
   void focusCompositorWindow(const std::string& windowId, bool warpPointer = false) const;
 
   // Focus `output` before spawning (Hyprland) so clients follow the launch monitor.
