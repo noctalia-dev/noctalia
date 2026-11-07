@@ -41,7 +41,7 @@ public:
 
   void setStateCallback(StateCallback callback);
   void setReadyCallback(ReadyCallback callback);
-  void submitResponse(const std::string& response);
+  void submitResponse(const std::string& response, bool allowEmptyPassword = false);
   void cancelRequest();
 
   void markNextRequestInternal();

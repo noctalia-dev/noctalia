@@ -608,6 +608,12 @@ struct BackdropConfig {
   bool operator==(const BackdropConfig&) const = default;
 };
 
+struct PolkitConfig {
+  bool allowEmptyPassword = false;
+
+  bool operator==(const PolkitConfig&) const = default;
+};
+
 struct LockscreenConfig {
   bool enabled = true;
   // Lock on PrepareForSleep (lid close / systemctl suspend) via logind sleep-delay inhibit.
@@ -2005,6 +2011,7 @@ struct Config {
   WallpaperConfig wallpaper;
   BackdropConfig backdrop;
   LockscreenConfig lockscreen;
+  PolkitConfig polkit;
   LockscreenWidgetsConfig lockscreenWidgets;
   DockConfig dock;
   DesktopWidgetsConfig desktopWidgets;
@@ -2041,6 +2048,7 @@ struct ConfigChangeSet {
   bool wallpaper = true;
   bool backdrop = true;
   bool lockscreen = true;
+  bool polkit = true;
   bool dock = true;
   bool shell = true;
   bool osd = true;
@@ -2072,6 +2080,7 @@ struct ConfigChangeSet {
         || wallpaper
         || backdrop
         || lockscreen
+        || polkit
         || dock
         || shell
         || osd

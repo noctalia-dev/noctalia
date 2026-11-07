@@ -1793,6 +1793,11 @@ namespace settings {
         ToggleSetting{cfg.shell.polkitColorizeIcons}, "authentication application icons colorize tint"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Security, "authentication", tr("settings.schema.polkit.allow-empty-password.label"),
+        tr("settings.schema.polkit.allow-empty-password.description"), {"polkit", "allow_empty_password"},
+        ToggleSetting{cfg.polkit.allowEmptyPassword}, "polkit empty password howdy security key pam"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Security, "authentication", tr("settings.schema.shell.password-style.label"),
         tr("settings.schema.shell.password-style.description"), {"shell", "password_style"},
         asSegmented(enumSelect(kPasswordMaskStyles, cfg.shell.passwordMaskStyle)), "polkit lock mask"
