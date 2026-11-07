@@ -81,7 +81,7 @@ namespace settings {
                                 ) { return factory.makeGestureActionRow(setting, title, path); },
         .pendingGestureKey = ctx.pendingGestureKey,
         .pendingGestureVerb = ctx.pendingGestureVerb,
-        .actionsExpandedFor = ctx.actionsExpandedFor,
+        .expandedWidgetGroups = ctx.expandedWidgetGroups,
         .actionCatalog = ctx.actionCatalog,
         .requestRebuild = ctx.requestRebuild,
         .resetContentScroll = ctx.resetContentScroll,

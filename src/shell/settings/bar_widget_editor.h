@@ -8,6 +8,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class Button;
@@ -38,7 +40,8 @@ namespace settings {
         makeGestureActionRow;
     std::string& pendingGestureKey;
     std::string& pendingGestureVerb;
-    std::string& actionsExpandedFor;
+    // Expanded settings group cards per widget name.
+    std::unordered_map<std::string, std::unordered_set<std::string>>& expandedWidgetGroups;
     std::vector<GestureActionOption> actionCatalog;
 
     std::function<void()> requestRebuild;

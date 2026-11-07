@@ -1324,9 +1324,6 @@
           "groups": {
             "actions": "操作",
             "behavior": "動作",
-            "grouping": "グループ化",
-            "presentation": "表示",
-            "runtime": "実行環境",
             "taskbar": {
               "grouping": "グループ化",
               "windows": "ウィンドウ",

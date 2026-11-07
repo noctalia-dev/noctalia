@@ -107,7 +107,7 @@ all_day_digest_time  = "09:00"  # one notification listing today's all-day event
 
 The same four options are in **Settings → Calendar → Reminders**. Reminders require `[calendar]` itself to be enabled.
 
-A Google event whose notifications you removed stays silent. Google events that follow a calendar with no default notifications use `default_lead_minutes`. Set `use_event_reminders = false` to apply `default_lead_minutes` to every event regardless.
+A Google event whose notifications you removed stays silent, and so does a Google event you declined: it still shows in the calendar, but never reminds and is left out of the all-day digest, even with `use_event_reminders = false`. Google events that follow a calendar with no default notifications use `default_lead_minutes`. Set `use_event_reminders = false` to apply `default_lead_minutes` to every event regardless.
 
 The notification body counts down while the event approaches and settles on "Starts now" when it begins. Clicking a reminder opens the event's link when it has one.
 

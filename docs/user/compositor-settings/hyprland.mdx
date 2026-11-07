@@ -97,19 +97,32 @@ hl.window_rule({
 })
 ```
 
+## Layer Animations
+
+Disable Hyprland's built-in layer animations for Noctalia. Noctalia animates its own surfaces; Hyprland's `layersIn`/`layersOut` animations run on top of them and cause visual glitches, such as a panel tearing when it is reopened while still closing. Add this rule even if you do not use blur.
+
+```lua
+hl.layer_rule({
+  name = "noctalia-no-anim",
+  match = {
+    namespace = "^noctalia-(bar-.+|notification|dock|panel|attached-panel|osd|window-switcher)$",
+  },
+  no_anim = true,
+})
+```
+
 ## Blur
 
-Enable blur for Noctalia's bar, panels, dock, and notifications. We also disable Hyprland's built-in layer animations for Noctalia so they do not interfere with Noctalia's own animations.
+Enable blur for Noctalia's bar, panels, dock, and notifications.
 
 <ImageLightbox src={blur1} alt="Blurred Noctalia surfaces" />
 
 ```lua
 hl.layer_rule({
-  name = "noctalia",
+  name = "noctalia-blur",
   match = {
     namespace = "^noctalia-(bar-.+|notification|dock|panel|attached-panel|osd|window-switcher)$",
   },
-  no_anim = true,
   ignore_alpha = 0.5,
   blur = true,
   blur_popups = true,

@@ -313,6 +313,7 @@ _noctalia_cpp_args = [
 
 # ── UI library ────────────────────────────────────────────────────────────────
 # Self-contained; see lib/meson.build for its outputs.
+noctalia_ui_build_codecs = true
 noctalia_ui_system_wuffs = get_option('system_libraries')
 subdir('lib')
 
@@ -1126,21 +1127,34 @@ if build_tests
     command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
   )
 
+  _text_input_test_server_h = custom_target('text-input-test-server-header',
+    input: 'lib/protocols/text-input-unstable-v3.xml',
+    output: 'text-input-test-server-protocol.h',
+    command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
+  )
+
   # Tests of lib/ code link only the UI library (and its codec pack).
   _ui_test_names = [
     'cairo_text_renderer',
+    'context_menu_control',
+    'stepper_input',
     'grid_item_cursor',
     'i18n_language_tag',
     'image_source_log',
+    'image_resize',
     'inotify',
     'input_area',
     'input_bidi',
+    'input_composition',
     'input_dispatcher',
     'input_password_mode',
+    'input_paste',
     'input_readline_shortcuts',
     'log',
     'string_utils',
+    'shared_texture_cache',
     'virtual_grid_view_gesture',
+    'virtual_grid_view_contract',
     'wayland_output_scale',
   ]
 
@@ -1247,6 +1261,7 @@ if build_tests
     'pipewire_error',
     'umbriel_audio_provider',
     'privacy_capture_classification',
+    'plugin_app_icon_path',
     'plugin_bindings',
     'plugin_catalog',
     'plugin_file_privacy',
@@ -1340,6 +1355,13 @@ if build_tests
       endif
     endforeach
   endforeach
+
+  text_input_service_exe = executable('text_input_service_test',
+    sources: files('tests/text_input_service_test.cpp') + [_text_input_test_server_h],
+    dependencies: [_ui_test_dep, wayland_server_dep],
+    override_options: ['b_ndebug=false'],
+  )
+  test('text_input_service', text_input_service_exe)
 
   screencopy_connection_isolation_exe = executable('screencopy_connection_isolation_test',
     sources: files('tests/screencopy_connection_isolation_test.cpp') + [_wlr_screencopy_test_server_h],

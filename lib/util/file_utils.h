@@ -247,10 +247,12 @@ namespace FileUtils {
         {"$XDG_CACHE_HOME", "XDG_CACHE_HOME", ".cache"},
     }};
     for (const XdgBase& b : kBases) {
-      if (!path.starts_with(b.token))
+      if (!path.starts_with(b.token)) {
         continue;
-      if (path.size() != b.token.size() && path[b.token.size()] != '/')
+      }
+      if (path.size() != b.token.size() && path[b.token.size()] != '/') {
         continue;
+      }
       std::string base;
       if (const char* env = std::getenv(std::string(b.envVar).c_str()); env != nullptr && env[0] != '\0') {
         base = env;
@@ -273,14 +275,16 @@ namespace FileUtils {
     std::vector<std::filesystem::path> parts;
     parts.reserve(16);
     for (const auto& part : outputPath) {
-      if (!part.empty() && part != std::filesystem::path("."))
+      if (!part.empty() && part != std::filesystem::path(".")) {
         parts.push_back(part);
+      }
     }
     for (std::size_t i = 0; i + 3 < parts.size(); ++i) {
       if (parts[i] == ".var" && parts[i + 1] == "app" && parts[i + 3] == "config") {
         std::filesystem::path root;
-        for (std::size_t j = 0; j <= i + 3; ++j)
+        for (std::size_t j = 0; j <= i + 3; ++j) {
           root /= parts[j];
+        }
         return root;
       }
     }
@@ -291,10 +295,12 @@ namespace FileUtils {
         const auto grandparent = parent.parent_path();
         if (parent.filename() == "extensions" || grandparent.filename() == "extensions") {
           std::filesystem::path walk = current;
-          while (!walk.empty() && walk.filename() != "extensions")
+          while (!walk.empty() && walk.filename() != "extensions") {
             walk = walk.parent_path();
-          if (walk.filename() == "extensions")
+          }
+          if (walk.filename() == "extensions") {
             return walk.parent_path();
+          }
         }
         return parent;
       }
@@ -331,10 +337,12 @@ namespace FileUtils {
     }};
     std::string expanded(raw);
     for (const auto& m : kMappings) {
-      if (!expanded.starts_with(m.token))
+      if (!expanded.starts_with(m.token)) {
         continue;
-      if (expanded.size() != m.token.size() && expanded[m.token.size()] != '/')
+      }
+      if (expanded.size() != m.token.size() && expanded[m.token.size()] != '/') {
         continue;
+      }
       expanded = "~/" + std::string(m.homeDefault) + expanded.substr(m.token.size());
       break;
     }

@@ -12,8 +12,9 @@
 namespace {
 
   bool expect(bool condition, const char* message) {
-    if (!condition)
+    if (!condition) {
       std::println(stderr, "FAIL: {}", message);
+    }
     return condition;
   }
 
@@ -28,8 +29,9 @@ namespace {
 int main() {
   char dirTemplate[] = "/tmp/noctalia_cpu_freq_test_XXXXXX";
   char* dir = mkdtemp(dirTemplate);
-  if (dir == nullptr)
+  if (dir == nullptr) {
     return EXIT_FAILURE;
+  }
   const std::filesystem::path root{dir};
   bool ok = true;
 

@@ -20,16 +20,18 @@ Glyph::Glyph() {
 
 bool Glyph::setGlyph(std::string_view name) {
   char32_t cp = GlyphRegistry::lookup(name);
-  if (cp == 0 || cp == m_glyphNode->codepoint())
+  if (cp == 0 || cp == m_glyphNode->codepoint()) {
     return false;
+  }
   m_glyphNode->setCodepoint(cp);
   m_measureCached = false;
   return true;
 }
 
 bool Glyph::setCodepoint(char32_t codepoint) {
-  if (codepoint == m_glyphNode->codepoint())
+  if (codepoint == m_glyphNode->codepoint()) {
     return false;
+  }
   m_glyphNode->setCodepoint(codepoint);
   m_measureCached = false;
   return true;
@@ -90,6 +92,13 @@ void Glyph::doArrange(Renderer& renderer, const LayoutRect& rect) {
   measureWithConstraints(renderer, constraints);
 }
 
+void Glyph::suppress() {
+  m_suppressed = true;
+  setVisible(false);
+  setParticipatesInLayout(false);
+  Node::setSize(0.0F, 0.0F);
+}
+
 void Glyph::measure(Renderer& renderer) {
   LayoutConstraints constraints;
   if (width() > 0.0F && !sizeAssignedByLayout()) {
@@ -99,6 +108,10 @@ void Glyph::measure(Renderer& renderer) {
 }
 
 LayoutSize Glyph::measureWithConstraints(Renderer& renderer, const LayoutConstraints& constraints) {
+  if (m_suppressed) {
+    Node::setSize(0.0F, 0.0F);
+    return LayoutSize{.width = 0.0F, .height = 0.0F};
+  }
   const float renderScale = renderer.renderScale();
   if (m_measureCached
       && m_cachedCodepoint == m_glyphNode->codepoint()

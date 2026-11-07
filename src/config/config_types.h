@@ -454,6 +454,8 @@ struct CommonWidgetOptions {
   std::optional<ColorSpec> iconColor;
   std::optional<std::int64_t> labelFontWeight;
   std::string labelFontFamily;
+  std::string customLabel;
+  bool showGlyph = true;
   WidgetBarCapsuleSpec capsule;
   std::string scrollRepeat = "auto";
   bool enableScroll = true;
@@ -611,6 +613,7 @@ struct LockscreenConfig {
   // Lock on PrepareForSleep (lid close / systemctl suspend) via logind sleep-delay inhibit.
   // Distinct from idle/session lock_and_suspend actions.
   bool lockBeforeSuspend = true;
+  bool dnd = false;
   // Opt-in convenience window: allow passwordless unlock for this many seconds
   // after locking on any keypress or mouse movement beyond 5px. Defaults to 0
   // (disabled) so existing configurations keep requiring authentication; grace is
@@ -1279,6 +1282,7 @@ struct ShellConfig {
     std::string pipeCommand;
     std::string directory;       // empty = XDG Pictures directory
     std::string filenamePattern; // empty = screenshot_%Y%m%d_%H%M%S
+    bool appendModeSuffix = true;
     ScreenshotFormat format = ScreenshotFormat::Png;
     std::int32_t quality = 90; // 1..100; ignored for PNG, 100 = lossless WebP/JPEG XL
     ScreenshotRegionModifier regionModifier = ScreenshotRegionModifier::None;

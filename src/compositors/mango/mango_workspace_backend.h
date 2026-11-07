@@ -3,6 +3,7 @@
 #include "compositors/output_backend.h"
 #include "compositors/workspace_backend.h"
 
+#include <chrono>
 #include <cstddef>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -81,6 +82,7 @@ private:
 
   [[nodiscard]] bool openWatchSocket();
   void closeWatchSocket();
+  void dropWatchSocket(std::string_view reason);
   void readWatchSocket();
   bool handleMessage(std::string_view line);
   void refreshClients();
@@ -99,6 +101,7 @@ private:
   compositors::mango::MangoRuntime& m_runtime;
   WorkspaceOutputNameResolver::Resolver m_outputNameResolver;
   int m_watchFd = -1;
+  std::chrono::steady_clock::time_point m_nextReconnectAt;
   std::string m_readBuffer;
   std::vector<wl_output*> m_knownOutputs;
   std::unordered_map<std::string, OutputState> m_outputsByName;

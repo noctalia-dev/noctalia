@@ -133,6 +133,7 @@ namespace noctalia::config::schema {
     static const Schema<LockscreenConfig> s = {
         field(&LockscreenConfig::enabled, "enabled"),
         field(&LockscreenConfig::lockBeforeSuspend, "lock_before_suspend"),
+        field(&LockscreenConfig::dnd, "dnd"),
         field(&LockscreenConfig::gracePeriodSeconds, "grace_period_seconds", Range<std::int64_t>{0, 60}),
         field(&LockscreenConfig::fingerprint, "fingerprint"),
         field(&LockscreenConfig::allowEmptyPassword, "allow_empty_password"),
@@ -1664,6 +1665,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::ScreenshotConfig::pipeCommand, "pipe_command"),
           field(&ShellConfig::ScreenshotConfig::directory, "directory"),
           field(&ShellConfig::ScreenshotConfig::filenamePattern, "filename_pattern"),
+          field(&ShellConfig::ScreenshotConfig::appendModeSuffix, "append_mode_suffix"),
           enumField(&ShellConfig::ScreenshotConfig::format, "format", kScreenshotFormats),
           field(&ShellConfig::ScreenshotConfig::quality, "quality", kScreenshotQualityRange),
       };

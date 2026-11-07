@@ -69,6 +69,8 @@ namespace {
 
 } // namespace
 
+InputDispatcher::~InputDispatcher() { m_lifetime.reset(); }
+
 void InputDispatcher::setSceneRoot(Node* root) {
   if (root != m_sceneRoot) {
     cancelPointerCapture();
@@ -562,20 +564,29 @@ void InputDispatcher::restoreTabFocus(TabFocusSnapshot snapshot) {
   setFocus(order[index]);
 }
 
-void InputDispatcher::setFocus(InputArea* area) {
+void InputDispatcher::setFocus(InputArea* area, bool preserveTextInput) {
   if (area == m_focusedArea) {
     return;
   }
   InputArea* const old = m_focusedArea;
+  const bool transferred = preserveTextInput
+      && m_textInputService != nullptr
+      && old != nullptr
+      && area != nullptr
+      && m_textInputService->transferFocusedClient(m_textInputSurface, old->textInputClient(), area->textInputClient());
   if (m_focusedArea != nullptr) {
-    clearTextInputFocus(m_focusedArea);
+    if (!transferred) {
+      clearTextInputFocus(m_focusedArea);
+    }
     m_focusedArea->dispatchFocusLoss();
   }
   m_focusedArea = area;
   if (m_focusedArea != nullptr) {
     trackArea(m_focusedArea);
     m_focusedArea->dispatchFocusGain();
-    syncTextInputFocus();
+    if (!transferred) {
+      syncTextInputFocus();
+    }
   }
   if (m_focusChangeCallback) {
     m_focusChangeCallback(old, m_focusedArea);
@@ -680,7 +691,7 @@ void InputDispatcher::pruneDetachedAreas() {
 }
 
 void InputDispatcher::trackArea(InputArea* area) {
-  area->setDestroyCallback([this](InputArea* a) {
+  area->observeDestruction(m_lifetime, [this](InputArea* a) {
     const bool ownedCursor = m_hoveredArea == a || m_capturedArea == a;
     if (m_capturedArea == a) {
       m_capturedArea = nullptr;

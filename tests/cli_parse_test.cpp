@@ -13,10 +13,12 @@ namespace {
     explicit Args(std::initializer_list<std::string_view> values) {
       storage.reserve(values.size());
       pointers.reserve(values.size());
-      for (const std::string_view value : values)
+      for (const std::string_view value : values) {
         storage.emplace_back(value);
-      for (std::string& value : storage)
+      }
+      for (std::string& value : storage) {
         pointers.push_back(value.data());
+      }
     }
 
     std::vector<std::string> storage;

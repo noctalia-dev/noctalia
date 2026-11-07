@@ -1332,9 +1332,10 @@
           "groups": {
             "actions": "Actions",
             "behavior": "Behavior",
-            "grouping": "Grouping",
-            "presentation": "Presentation",
-            "runtime": "Runtime",
+            "capsule": "Capsule",
+            "colors": "Colors",
+            "content": "Content",
+            "size-text": "Size and Text",
             "taskbar": {
               "grouping": "Grouping",
               "windows": "Windows",
@@ -2600,6 +2601,10 @@
           "description": "Use a snapshot of the desktop as the lock screen background",
           "label": "Desktop Capture"
         },
+        "dnd": {
+          "description": "Enable Do Not Disturb while the session is locked; the previous state is restored on unlock",
+          "label": "Do Not Disturb"
+        },
         "edge-smoothness": {
           "description": "Feathering of the lock screen transition edges",
           "label": "Transition Edge Smoothness"
@@ -3690,6 +3695,10 @@
           "description": "strftime pattern without extension (the format's extension is added); use %s for unix epoch",
           "label": "Filename Pattern"
         },
+        "screenshot-append-mode-suffix": {
+          "description": "Append a capture-mode suffix such as -region, -annotated, -window, or -desktop to saved filenames",
+          "label": "Append Mode Suffix"
+        },
         "screenshot-format": {
           "description": "File format for saved screenshots; clipboard copies and pipe commands always receive PNG",
           "label": "File Format"
@@ -4669,7 +4678,7 @@
           "label": "Colorize Custom Image"
         },
         "custom-label": {
-          "description": "Custom text shown beside the glyph or custom image; remains visible when Show Glyph is disabled",
+          "description": "Custom text shown with this widget; leave empty to hide it",
           "label": "Custom Label"
         },
         "detached-panel": {

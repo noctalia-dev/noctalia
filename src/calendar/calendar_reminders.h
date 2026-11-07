@@ -103,7 +103,7 @@ namespace calendar {
   // the rest are returned so the caller can record them as fired without emitting a duplicate.
   //
   // All-day events never produce per-event reminders (explicit VALARMs on them are ignored); they
-  // are surfaced solely through the morning-of digest.
+  // are surfaced solely through the morning-of digest. Declined events produce neither.
   ReminderPlan planReminders(
       const CalendarSnapshot& snapshot, const CalendarConfig::Reminders& config,
       const std::unordered_set<std::string>& fired, const std::optional<std::string>& lastDigestDate,

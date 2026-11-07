@@ -3,13 +3,14 @@
 #include <cstdint>
 #include <vector>
 
-// Byte order and alpha meaning of an 8-bit, four-channel resize source. Colour channels are sRGB encoded.
+// Byte order and alpha meaning of an 8-bit RGB or four-channel source. Colour channels are sRGB encoded.
 enum class ResizeSourceLayout : std::uint8_t {
   Rgba,              // straight alpha
   RgbaPremultiplied, // premultiplied alpha
   BgraPremultiplied, // premultiplied alpha
   Rgbx,              // fourth byte ignored, result is opaque
   Bgrx,              // fourth byte ignored, result is opaque
+  Rgb,               // opaque three-channel RGB
 };
 
 struct ImageExtent {

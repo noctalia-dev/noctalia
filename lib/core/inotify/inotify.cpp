@@ -12,21 +12,25 @@ namespace {
 
 Inotify::Inotify() {
   m_inotifyFd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
-  if (m_inotifyFd < 0)
+  if (m_inotifyFd < 0) {
     kLog.warn("inotify_init1 failed");
+  }
 }
 
 Inotify::~Inotify() {
-  if (m_inotifyFd < 0)
+  if (m_inotifyFd < 0) {
     return;
-  for (const auto& wd : m_watchDescriptors)
+  }
+  for (const auto& wd : m_watchDescriptors) {
     inotify_rm_watch(m_inotifyFd, wd);
+  }
   ::close(m_inotifyFd);
 }
 
 std::optional<int> Inotify::watch(const std::filesystem::path& path, Inotify::WatchMask mask) noexcept {
-  if (m_inotifyFd < 0)
+  if (m_inotifyFd < 0) {
     return std::nullopt;
+  }
 
   auto dir = path.string();
 
@@ -41,21 +45,24 @@ std::optional<int> Inotify::watch(const std::filesystem::path& path, Inotify::Wa
 }
 
 void Inotify::unwatch(int wd) {
-  if (m_inotifyFd >= 0)
+  if (m_inotifyFd >= 0) {
     inotify_rm_watch(m_inotifyFd, wd);
+  }
   m_watchDescriptors.erase(wd);
 }
 
 void Inotify::drain(std::optional<Callback> global_callback) noexcept {
-  if (m_inotifyFd < 0)
+  if (m_inotifyFd < 0) {
     return;
+  }
 
   alignas(inotify_event) char buf[4096];
 
   while (true) {
     const ssize_t n = ::read(m_inotifyFd, buf, sizeof(buf));
-    if (n <= 0)
+    if (n <= 0) {
       break;
+    }
 
     std::size_t offset = 0;
     while (offset < static_cast<std::size_t>(n)) {

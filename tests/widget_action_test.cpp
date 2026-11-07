@@ -285,7 +285,7 @@ namespace {
     std::string renamingWidgetName;
     std::string pendingGestureKey;
     std::string pendingGestureVerb;
-    std::string actionsExpandedFor;
+    std::unordered_map<std::string, std::unordered_set<std::string>> expandedWidgetGroups;
     std::string storedAction;
     std::vector<std::string> storedPath;
     std::unordered_map<std::string, std::unordered_set<std::string>> expandedGroupsByPage;
@@ -301,7 +301,7 @@ namespace {
             .renamingWidgetName = renamingWidgetName,
             .pendingGestureKey = pendingGestureKey,
             .pendingGestureVerb = pendingGestureVerb,
-            .actionsExpandedFor = actionsExpandedFor,
+            .expandedWidgetGroups = expandedWidgetGroups,
             .expandedGroupsByPage = expandedGroupsByPage,
             .actionCatalog = {settings::GestureActionOption{
                 .option = settings::SelectOption{.value = "volume-up", .label = "volume-up"},

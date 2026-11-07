@@ -313,6 +313,13 @@ namespace app_identity {
     return std::nullopt;
   }
 
+  std::optional<DesktopEntry> findDesktopEntryExact(std::string_view appKey, std::span<const DesktopEntry> allEntries) {
+    if (appKey.empty()) {
+      return std::nullopt;
+    }
+    return findBestRankedMatch(StringUtils::toLower(appKey), allEntries);
+  }
+
   DesktopEntry resolveRunningDesktopEntry(std::string_view runningAppId, std::span<const DesktopEntry> allEntries) {
     return resolveRunningDesktopEntryWithStatus(runningAppId, allEntries).entry;
   }
