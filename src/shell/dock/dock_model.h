@@ -11,6 +11,7 @@ class CompositorPlatform;
 struct DockConfig;
 struct ToplevelInfo;
 struct wl_output;
+struct zwlr_foreign_toplevel_handle_v1;
 
 namespace shell::dock {
 
@@ -26,6 +27,8 @@ namespace shell::dock {
     std::size_t instanceCount = 0;
     std::size_t minimizedCount = 0;
     bool allMinimized = false;
+    // The item's windows, which get its icon's rectangle as their minimise target.
+    std::vector<zwlr_foreign_toplevel_handle_v1*> handles;
   };
 
   struct DockSnapshot {

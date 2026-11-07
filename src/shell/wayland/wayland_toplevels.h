@@ -16,6 +16,7 @@ struct ext_foreign_toplevel_handle_v1;
 struct wl_array;
 struct wl_output;
 struct wl_seat;
+struct wl_surface;
 
 namespace toplevel_identity {
 
@@ -85,6 +86,11 @@ public:
   [[nodiscard]] bool minimizeHandle(zwlr_foreign_toplevel_handle_v1* handle);
   std::optional<bool> minimized(zwlr_foreign_toplevel_handle_v1* handle) const;
   void closeHandle(zwlr_foreign_toplevel_handle_v1* handle);
+  // Where `surface` shows the toplevel, in its surface-local coordinates; a 0x0 rectangle clears it.
+  void setRectangle(
+      zwlr_foreign_toplevel_handle_v1* handle, wl_surface* surface, std::int32_t x, std::int32_t y, std::int32_t width,
+      std::int32_t height
+  );
 
   // Listener entrypoints called by C callbacks
   void onToplevelCreated(zwlr_foreign_toplevel_handle_v1* handle);

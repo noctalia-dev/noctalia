@@ -134,6 +134,9 @@ namespace shell::dock {
         if (window.minimizeState.has_value() && window.minimizeState->minimized) {
           ++dockItem.minimizedCount;
         }
+        if (window.handle != nullptr) {
+          dockItem.handles.push_back(window.handle);
+        }
       }
       dockItem.allMinimized = !windows.empty() && dockItem.minimizedCount == windows.size();
       if (dockItem.allMinimized) {
