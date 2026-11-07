@@ -260,6 +260,39 @@ void TrayWidget::refreshAppIconColorization(Renderer& renderer) {
   }
 }
 
+std::unique_ptr<Node> TrayWidget::createPeekRoot(std::unique_ptr<Node> pinnedContainer) {
+  auto area = ui::inputArea({});
+  area->setAcceptedButtons(0);
+  area->addChild(
+      ui::glyph({
+          .out = &m_peekGlyph,
+          .glyph = std::string(resolvedGlyph()),
+          .glyphSize = Style::baseGlyphSize * m_contentScale,
+          .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
+      })
+  );
+  auto unpinnedClip = ui::inputArea({
+      .out = &m_unpinnedClip,
+  });
+  unpinnedClip->setAcceptedButtons(0);
+  unpinnedClip->setClipChildren(true);
+
+  auto unpinnedContainer = ui::flex(
+      FlexDirection::Horizontal,
+      {
+          .out = &m_unpinnedContainer,
+          .align = FlexAlign::Center,
+          .justify = std::optional<FlexJustify>{FlexJustify::Start},
+          .gap = resolvedInlineEntryGap(),
+      }
+  );
+  unpinnedClip->addChild(std::move(unpinnedContainer));
+
+  area->addChild(std::move(unpinnedClip));
+  area->addChild(std::move(pinnedContainer));
+  return area;
+}
+
 void TrayWidget::create() {
   m_paletteConn = paletteChanged().connect([this] {
     m_appIconColorizeDirty = true;
@@ -280,21 +313,146 @@ void TrayWidget::create() {
       }
   );
 
-  if (peekEnabled()) {
-    auto area = ui::inputArea({});
-    area->setAcceptedButtons(0);
-    area->addChild(
-        ui::glyph({
-            .out = &m_peekGlyph,
-            .glyph = std::string(resolvedGlyph()),
-            .glyphSize = Style::baseGlyphSize * m_contentScale,
-            .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
-        })
-    );
-    area->addChild(std::move(container));
-    setRoot(std::move(area));
-  } else {
+  if (!peekEnabled()) {
     setRoot(std::move(container));
+    return;
+  }
+
+  setRoot(createPeekRoot(std::move(container)));
+}
+
+namespace {
+
+  struct PeekLayoutOffsets {
+    float rootMainExtent = 0.0F;
+    float glyphPositionOffset = 0.0F;
+    float pinnedPositionOffset = 0.0F;
+    float clipPositionOffset = 0.0F;
+    float clipMainSize = 0.0F;
+    float unpinnedContainerOffset = 0.0F;
+  };
+
+  PeekLayoutOffsets computePeekLayoutOffsets(
+      GlyphPosition position, bool hasPinned, float pinnedMain, float unpinnedMain, float glyphMain, float gap,
+      float progress
+  ) {
+    if (position == GlyphPosition::After) {
+      const float baseOffset = hasPinned ? (pinnedMain + gap) : 0.0F;
+      const float clipMainSize = std::min(unpinnedMain, std::round(unpinnedMain * progress));
+      const float glyphOffset = baseOffset + std::round((unpinnedMain + gap) * progress);
+      return PeekLayoutOffsets{
+          .rootMainExtent = glyphOffset + glyphMain,
+          .glyphPositionOffset = glyphOffset,
+          .pinnedPositionOffset = 0.0F,
+          .clipPositionOffset = baseOffset,
+          .clipMainSize = clipMainSize,
+          .unpinnedContainerOffset = clipMainSize - unpinnedMain,
+      };
+    }
+
+    const float clipMainSize = std::min(unpinnedMain, std::round(unpinnedMain * progress));
+    const float leadingGroupExtent = glyphMain + std::round((gap + unpinnedMain) * progress);
+    const float pinnedOffset = leadingGroupExtent + (hasPinned ? gap : 0.0F);
+    return PeekLayoutOffsets{
+        .rootMainExtent = hasPinned ? (pinnedOffset + pinnedMain) : leadingGroupExtent,
+        .glyphPositionOffset = 0.0F,
+        .pinnedPositionOffset = pinnedOffset,
+        .clipPositionOffset = glyphMain + std::round(gap * progress),
+        .clipMainSize = clipMainSize,
+        .unpinnedContainerOffset = 0.0F,
+    };
+  }
+
+} // namespace
+
+bool TrayWidget::layoutNonPeekingItems() {
+  if (m_unpinnedItemCount > 0) {
+    return false;
+  }
+  if (m_peekGlyph != nullptr) {
+    m_peekGlyph->setVisible(false);
+  }
+  if (m_unpinnedClip != nullptr) {
+    m_unpinnedClip->setVisible(false);
+  }
+  if (m_pinnedItemCount == 0) {
+    m_container->setVisible(false);
+    root()->setVisible(false);
+    root()->setSize(0.0F, 0.0F);
+    return true;
+  }
+  m_container->setVisible(true);
+  m_container->setPosition(0.0F, 0.0F);
+  root()->setVisible(true);
+  root()->setSize(m_container->width(), m_container->height());
+  return true;
+}
+
+void TrayWidget::layoutPeekItems(Renderer& renderer) {
+  if (layoutNonPeekingItems()) {
+    return;
+  }
+
+  if (m_unpinnedContainer != nullptr) {
+    m_unpinnedContainer->setGap(resolvedInlineEntryGap());
+    m_unpinnedContainer->layout(renderer);
+  }
+
+  m_peekGlyph->setGlyph(resolvedGlyph());
+  m_peekGlyph->setGlyphSize(m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale);
+  m_peekGlyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+  m_peekGlyph->measure(renderer);
+
+  m_peekGlyph->setVisible(true);
+  m_unpinnedClip->setVisible(true);
+  m_container->setVisible(m_pinnedItemCount > 0);
+  root()->setVisible(true);
+
+  const auto mainExtentOf = [this](const Node* node) -> float {
+    return (node == nullptr || !node->visible()) ? 0.0F : (m_isVertical ? node->height() : node->width());
+  };
+  const auto crossExtentOf = [this](const Node* node) -> float {
+    return (node == nullptr || !node->visible()) ? 0.0F : (m_isVertical ? node->width() : node->height());
+  };
+
+  const float entryGap = resolvedInlineEntryGap();
+  const float pinnedMainExtent = m_pinnedItemCount > 0 ? mainExtentOf(m_container) : 0.0F;
+  const float pinnedCrossExtent = m_pinnedItemCount > 0 ? crossExtentOf(m_container) : 0.0F;
+  const float unpinnedMainExtent = mainExtentOf(m_unpinnedContainer);
+  const float unpinnedCrossExtent = crossExtentOf(m_unpinnedContainer);
+  const float glyphCrossExtent = crossExtentOf(m_peekGlyph);
+  const float crossExtent = std::max({pinnedCrossExtent, unpinnedCrossExtent, glyphCrossExtent});
+
+  const auto offsets = computePeekLayoutOffsets(
+      m_glyphPosition, m_pinnedItemCount > 0, pinnedMainExtent, unpinnedMainExtent, mainExtentOf(m_peekGlyph), entryGap,
+      peekProgress()
+  );
+
+  const auto placeNode = [&](Node* node, float mainPosition, float crossNodeExtent) {
+    if (node == nullptr) {
+      return;
+    }
+    const float crossPosition = std::round((crossExtent - crossNodeExtent) * 0.5F);
+    if (m_isVertical) {
+      node->setPosition(crossPosition, mainPosition);
+    } else {
+      node->setPosition(mainPosition, crossPosition);
+    }
+  };
+
+  placeNode(m_container, offsets.pinnedPositionOffset, pinnedCrossExtent);
+  placeNode(m_peekGlyph, offsets.glyphPositionOffset, glyphCrossExtent);
+
+  if (m_isVertical) {
+    m_unpinnedClip->setPosition(std::round((crossExtent - unpinnedCrossExtent) * 0.5F), offsets.clipPositionOffset);
+    m_unpinnedClip->setSize(unpinnedCrossExtent, offsets.clipMainSize);
+    m_unpinnedContainer->setPosition(0.0F, offsets.unpinnedContainerOffset);
+    root()->setSize(crossExtent, offsets.rootMainExtent);
+  } else {
+    m_unpinnedClip->setPosition(offsets.clipPositionOffset, std::round((crossExtent - unpinnedCrossExtent) * 0.5F));
+    m_unpinnedClip->setSize(offsets.clipMainSize, unpinnedCrossExtent);
+    m_unpinnedContainer->setPosition(offsets.unpinnedContainerOffset, 0.0F);
+    root()->setSize(offsets.rootMainExtent, crossExtent);
   }
 }
 
@@ -317,6 +475,9 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
   if (vertical != m_isVertical) {
     m_isVertical = vertical;
     m_container->setDirection(m_isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
+    if (m_unpinnedContainer != nullptr) {
+      m_unpinnedContainer->setDirection(m_isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
+    }
   }
   syncState(renderer);
   if (containerHeight > 0.0F && std::abs(containerHeight - m_contentHeight) > 0.5F) {
@@ -334,22 +495,13 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
 
   m_container->setGap(resolvedInlineEntryGap());
   m_container->layout(renderer);
-  if (m_peekGlyph != nullptr) {
-    m_peekGlyph->setGlyph(resolvedGlyph());
-    m_peekGlyph->setGlyphSize(m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale);
-    m_peekGlyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
-    m_peekGlyph->measure(renderer);
-    m_peekGlyph->setVisible(m_container->visible());
-    root()->setVisible(m_container->visible());
-    layoutGlyphValue({
-        .glyph = m_peekGlyph,
-        .value = m_container,
-        .glyphPosition = m_glyphPosition,
-        .vertical = m_isVertical,
-        .horizontalGap = resolvedInlineEntryGap(),
-        .verticalGap = resolvedInlineEntryGap(),
-    });
+
+  if (!peekEnabled()) {
+    layoutHoverOverlays();
+    return;
   }
+
+  layoutPeekItems(renderer);
   layoutHoverOverlays();
 }
 
@@ -374,7 +526,7 @@ void TrayWidget::syncState(Renderer& renderer) {
     m_preferredIconPaths.clear();
   }
 
-  const auto next_items = (m_tray != nullptr) ? m_tray->items() : std::vector<TrayItemInfo>{};
+  const auto next_items = (m_tray != nullptr) ? m_tray->items() : m_items;
   if (!desktopEntriesChanged && next_items == m_items) {
     return;
   }
@@ -493,6 +645,23 @@ void TrayWidget::rebuild(Renderer& renderer) {
   while (!m_container->children().empty()) {
     m_container->removeChild(m_container->children().back().get());
   }
+  if (m_unpinnedContainer != nullptr) {
+    while (!m_unpinnedContainer->children().empty()) {
+      m_unpinnedContainer->removeChild(m_unpinnedContainer->children().back().get());
+    }
+  }
+  m_pinnedItemCount = 0;
+  m_unpinnedItemCount = 0;
+  for (const auto& item : m_items) {
+    if ((m_hidePassive && tray::isPassiveStatus(item)) || isHiddenItem(item)) {
+      continue;
+    }
+    if (isPinnedItem(item)) {
+      ++m_pinnedItemCount;
+    } else {
+      ++m_unpinnedItemCount;
+    }
+  }
 
   auto attachHover = [this](InputArea& area, float size) {
     if (!barCapsuleSpec().hoverHighlight) {
@@ -573,15 +742,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
   std::unique_ptr<Node> triggerArea;
   if (m_drawerMode) {
     m_drawerTrigger = nullptr;
-    bool hasDrawerItems = false;
-    for (const auto& item : m_items) {
-      if ((m_hidePassive && tray::isPassiveStatus(item)) || isHiddenItem(item) || isPinnedItem(item)) {
-        continue;
-      }
-      hasDrawerItems = true;
-      break;
-    }
-    if (hasDrawerItems) {
+    if (m_unpinnedItemCount > 0) {
       const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
       // Keep the trigger's InputArea across rebuilds so hover and press capture survive icon updates.
       InputArea* triggerPtr = nullptr;
@@ -643,10 +804,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
     if ((m_hidePassive && tray::isPassiveStatus(item)) || isHiddenItem(item)) {
       continue;
     }
-    if (m_drawerMode && !isPinnedItem(item)) {
-      continue;
-    }
-    if (m_panelGridMode && isPinnedItem(item)) {
+    const bool pinned = isPinnedItem(item);
+    if ((m_drawerMode && !pinned) || (m_panelGridMode && pinned)) {
       continue;
     }
     const std::string iconPath = resolveIconPath(item);
@@ -871,6 +1030,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
       }
       gridRow->addChild(std::move(areaNode));
       ++gridCol;
+    } else if (peekEnabled() && !pinned) {
+      m_unpinnedContainer->addChild(std::move(areaNode));
     } else {
       m_container->addChild(std::move(areaNode));
     }
@@ -893,7 +1054,21 @@ void TrayWidget::rebuild(Renderer& renderer) {
     m_container->addChild(std::move(triggerArea));
   }
 
-  m_container->setVisible(!m_container->children().empty());
+  if (!peekEnabled()) {
+    m_container->setVisible(!m_container->children().empty());
+    return;
+  }
+
+  if (m_unpinnedItemCount == 0) {
+    setPeekProgress(0.0F);
+  }
+  m_container->setVisible(m_pinnedItemCount > 0);
+  if (m_unpinnedContainer != nullptr) {
+    m_unpinnedContainer->setVisible(m_unpinnedItemCount > 0);
+  }
+  if (root() != nullptr) {
+    root()->setVisible(m_pinnedItemCount > 0 || m_unpinnedItemCount > 0);
+  }
 }
 
 std::string_view TrayWidget::resolvedGlyph() const {

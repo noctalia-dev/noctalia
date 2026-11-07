@@ -52,8 +52,12 @@ namespace {
     }
   }
 
-  bool trayDrawerEnabled(ConfigService* config) {
-    return config != nullptr && tray::resolvedTrayOptions(*config).options.drawerMode;
+  bool trayPinningEnabled(ConfigService* config) {
+    if (config == nullptr) {
+      return false;
+    }
+    const auto options = tray::resolvedTrayOptions(*config).options;
+    return options.drawerMode || options.peek;
   }
 
   std::size_t visibleEntryLimit(std::size_t entryCount) {
@@ -533,7 +537,7 @@ void TrayMenu::refreshEntries() {
     return;
   }
   m_entries = m_tray->menuEntries(m_activeItemId);
-  if (!m_entries.empty() && trayDrawerEnabled(m_config)) {
+  if (!m_entries.empty() && trayPinningEnabled(m_config)) {
     const bool pinned = activeItemPinned();
     m_entries.insert(
         m_entries.begin(),
@@ -593,7 +597,7 @@ void TrayMenu::scheduleEntryRetry(int attempt) {
     }
     kLog.debug("tray menu recovered (attempt {}) for id={}", attempt + 1, capturedItemId);
     m_entries = std::move(fresh);
-    if (!m_entries.empty() && trayDrawerEnabled(m_config)) {
+    if (!m_entries.empty() && trayPinningEnabled(m_config)) {
       const bool pinned = activeItemPinned();
       m_entries.insert(
           m_entries.begin(),
