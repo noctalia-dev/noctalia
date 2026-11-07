@@ -88,6 +88,7 @@ namespace capture {
     void applyCursorShape(std::uint32_t shape);
     bool modifierHeld() const;
     void completeSelection();
+    void selectEntireDesktop();
     void confirmPendingSelection(ConfirmAction action = ConfirmAction::None);
     void completeFullscreenPick(wl_output* output);
     std::optional<LogicalRect> selectionRectIfValid() const;
