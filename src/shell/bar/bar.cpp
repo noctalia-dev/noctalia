@@ -1470,6 +1470,14 @@ namespace {
         extendHitTestOutsetToScreenEdge(widget->root(), false);
       }
     }
+    // Node positions are final only once the sections are placed.
+    if (wl_surface* const surface = instance.surface != nullptr ? instance.surface->wlSurface() : nullptr) {
+      for (auto* widgets : {&instance.startWidgets, &instance.centerWidgets, &instance.endWidgets}) {
+        for (auto& widget : *widgets) {
+          widget->onSurfaceLayoutComplete(surface);
+        }
+      }
+    }
   }
 
   void tickWidgets(std::vector<std::unique_ptr<Widget>>& widgets, float deltaMs) {
