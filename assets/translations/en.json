@@ -2758,6 +2758,10 @@
           "description": "Show the sending application's name in notification toasts",
           "label": "Show App Name"
         },
+        "show-timeout-indicator": {
+          "description": "Show the progress bar on notification toasts for the remaining timeout, and as a static accent on persistent critical toasts",
+          "label": "Show Timeout Indicator"
+        },
         "toast-opacity": {
           "description": "Background opacity of notification toasts",
           "label": "Background Opacity"
