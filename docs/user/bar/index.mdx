@@ -191,7 +191,7 @@ Set `auto_hide_reserve_space = true` (**Reserve Space While Visible** in bar set
 
 Set auto-hide to **Smart** in bar settings (or `smart_auto_hide = true` with `auto_hide = false` in config). The bar stays visible while the active workspace on that monitor is empty and hides when the workspace has windows. Window presence is detected from per-workspace window assignments when the compositor provides them, otherwise from the workspace `occupied` flag.
 
-Windows reported as minimised by Umbriel, KDE Plasma, or labwc do not hide the bar. Minimising the last visible window keeps the bar visible; workspace occupancy and window counts still include minimised windows.
+Windows reported as minimised by Umbriel, KDE Plasma, labwc, or Wayfire do not hide the bar. Minimising the last visible window keeps the bar visible; workspace occupancy and window counts still include minimised windows.
 
 On labwc, workspace occupancy is inferred from focus because the compositor does not report each window's workspace (see the [workspaces widget](widgets/workspaces)).
 

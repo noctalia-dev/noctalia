@@ -374,6 +374,7 @@ namespace {
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
+    case compositors::CompositorKind::Wayfire:
     case compositors::CompositorKind::Unknown:
       return std::make_unique<LambdaOutputPowerBackend>(&setGenericOutputPower);
     }
@@ -395,6 +396,7 @@ namespace {
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Mango:
+    case compositors::CompositorKind::Wayfire:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -413,6 +415,7 @@ namespace {
     case compositors::CompositorKind::Mango:
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Kde:
+    case compositors::CompositorKind::Wayfire:
     case compositors::CompositorKind::Unknown:
       break;
     case compositors::CompositorKind::Labwc:
@@ -437,6 +440,7 @@ namespace {
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
+    case compositors::CompositorKind::Wayfire:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -1072,7 +1076,7 @@ std::optional<WindowMinimizeState> CompositorPlatform::windowMinimizeState(const
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
     return m_kwinActiveWindow->windowMinimizeState(window.identifier);
   }
-  if (compositors::isLabwc()) {
+  if (compositors::isLabwc() || compositors::isWayfire()) {
     if (const auto minimized = m_toplevels.toplevelMinimized(window.handle); minimized.has_value()) {
       return WindowMinimizeState{.minimized = *minimized, .minimizable = true};
     }
@@ -1091,7 +1095,7 @@ bool CompositorPlatform::minimizeToplevelInfo(const ToplevelInfo& window) {
   if (compositors::isKde()) {
     return m_kwinActiveWindow->minimizeWindow(window.identifier);
   }
-  return compositors::isLabwc() && m_toplevels.minimizeToplevel(window.handle);
+  return (compositors::isLabwc() || compositors::isWayfire()) && m_toplevels.minimizeToplevel(window.handle);
 }
 
 void CompositorPlatform::activateOrMinimizeToplevelInfo(const ToplevelInfo& window) {
@@ -1802,6 +1806,7 @@ bool CompositorPlatform::requestSessionExit() const {
     }
     break;
   case compositors::CompositorKind::Kde:
+  case compositors::CompositorKind::Wayfire:
   case compositors::CompositorKind::Unknown:
     break;
   }

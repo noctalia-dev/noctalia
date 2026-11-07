@@ -12,6 +12,7 @@ namespace wayland_protocol_policy {
         || compositor == compositors::CompositorKind::Labwc
         || compositor == compositors::CompositorKind::Mango
         || compositor == compositors::CompositorKind::Sway
+        || compositor == compositors::CompositorKind::Wayfire
         || compositor == compositors::CompositorKind::Unknown;
   }
 
