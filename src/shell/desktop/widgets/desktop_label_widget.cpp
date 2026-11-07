@@ -27,7 +27,6 @@ DesktopLabelWidget::DesktopLabelWidget(Options options)
 
 void DesktopLabelWidget::create() {
   auto rootNode = ui::node({});
-  rootNode->setClipChildren(true);
 
   auto titleLabel = ui::label({
       .out = &m_titleLabel,
