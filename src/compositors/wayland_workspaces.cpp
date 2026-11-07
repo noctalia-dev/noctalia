@@ -175,6 +175,7 @@ void WaylandWorkspaces::initialize() {
     }
     break;
   case compositors::CompositorKind::Niri:
+  case compositors::CompositorKind::Wayfire:
   case compositors::CompositorKind::Unknown:
     break;
   }
