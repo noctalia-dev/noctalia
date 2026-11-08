@@ -129,7 +129,7 @@ namespace {
     return (Style::controlHeight * 6 + Style::spaceMd + Style::spaceSm + Style::spaceXs) * s;
   }
 
-  // The card's size and position are whole pixels: at scales like 1.05 a fractional card blurs its border (#4296).
+  // Card size and position are whole pixels; a fractional card blurs its border.
   float cardWidth(float s, const std::string& orientation) {
     if (isVerticalOrientation(orientation)) {
       return std::round((Style::controlHeight + Style::spaceLg + Style::spaceMd) * s);

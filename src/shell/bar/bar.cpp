@@ -1248,9 +1248,9 @@ namespace {
     const float barMidline = contentMainStart + contentMainSpan * 0.5F;
     const float centerNaturalMain = isVertical ? instance.centerSection->height() : instance.centerSection->width();
 
+    // Sections sit on whole pixels; a fractional origin blurs every widget in the section.
     float centerSlotStart;
     float centerSlotMain;
-    // Center on whole pixels: a .5 offset blurs every widget in the section (#4296).
     float centerSectionOffset; // offset of section origin within its slot along main axis
     if (anchorNode != nullptr) {
       const float anchorOffsetInSection = isVertical ? anchorNode->y() : anchorNode->x();
