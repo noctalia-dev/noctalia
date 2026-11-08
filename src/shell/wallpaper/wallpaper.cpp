@@ -425,6 +425,11 @@ bool Wallpaper::initialize(
   m_textureCache = textureCache;
   m_themeService = themeService;
 
+  m_syncBatch.instances = &m_instances;
+  m_syncBatch.pathFor = [this](const std::string& connector) { return m_config->getWallpaperPath(connector); };
+  m_syncBatch.start = [this](WallpaperInstance& inst) { startTransition(inst); };
+  m_syncBatch.rollPick = [this] { m_syncedPickValid = false; };
+
   // Register reload callback unconditionally so toggling enabled in config works.
   m_config->addReloadCallback([this] { reload(); }, "wallpaper");
   m_paletteConn = paletteChanged().connect([this] {
@@ -521,7 +526,9 @@ void Wallpaper::onOutputChange() {
 std::vector<WallpaperChange> Wallpaper::onStateChange() {
   kLog.info("state file changed, checking for updates");
 
-  m_syncedPickValid = false;
+  if (m_config->config().wallpaper.syncTransitions) {
+    m_syncBatch.arm();
+  }
 
   std::vector<WallpaperChange> changes = std::exchange(m_pendingStartupChanges, {});
   for (auto& inst : m_instances) {
@@ -566,6 +573,7 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
         continue;
       case TransitionRedirect::Unrelated:
         inst->queuedPath = newPath;
+        m_syncBatch.enlist(*inst);
         changes.push_back({.path = newPath, .connector = inst->connectorName});
         continue;
       }
@@ -1365,6 +1373,7 @@ void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& pa
   if (instance.transitioning) {
     if (redirectActiveTransition(instance, path) == TransitionRedirect::Unrelated) {
       instance.queuedPath = path;
+      m_syncBatch.enlist(instance);
     }
     return;
   }
@@ -1389,6 +1398,7 @@ void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& pa
   }
   if (image.empty() || image.failed()) {
     kLog.warn("failed to load {}", path);
+    m_syncBatch.skip(instance);
     return;
   }
   if (!image.texture().valid()) {
@@ -1407,6 +1417,7 @@ void Wallpaper::onImageChanged(WallpaperInstance& instance) {
     if (instance.loadingImage.failed()) {
       kLog.warn("failed to load {}", instance.loadingPath);
       cancelLoading(instance);
+      m_syncBatch.skip(instance);
     } else if (instance.loadingImage.texture().valid()) {
       SharedTextureCache::Lease image = std::move(instance.loadingImage);
       const std::string path = std::exchange(instance.loadingPath, std::string{});
@@ -1481,6 +1492,12 @@ Wallpaper::redirectActiveTransition(WallpaperInstance& instance, const std::stri
 
 void Wallpaper::startTransition(WallpaperInstance& instance) {
   const auto& wpConfig = m_config->config().wallpaper;
+
+  // Sync batch / startup wave: hold this transition until every member's image is ready, then
+  // start all members together so multi-monitor changes animate in unity.
+  if (m_syncBatch.defer(instance, wpConfig.syncTransitions)) {
+    return;
+  }
 
   if (wpConfig.transitions.empty()) {
     instance.transitioning = true;
@@ -1593,6 +1610,8 @@ void Wallpaper::runQueuedWallpaper(WallpaperInstance& instance) {
 
   if (!queuedPath.empty() && queuedPath != instance.currentPath) {
     loadWallpaper(instance, queuedPath);
+  } else {
+    m_syncBatch.skip(instance);
   }
 }
 

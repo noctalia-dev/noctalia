@@ -7,12 +7,159 @@
 #include "render/core/texture_manager.h"
 #include "render/gl_shared_context.h"
 
+#include <GLES2/gl2.h>
 #include <algorithm>
 #include <cerrno>
+#include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <limits>
+#include <string_view>
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include <utility>
+
+namespace {
+
+  // Wallpaper sets shuffle through the same files; decoding to a raw RGBA copy on first use turns
+  // every later switch into one file read. Capped LRU by file mtime.
+  constexpr std::size_t kMaxPixelCacheFiles = 8;
+  constexpr std::uint32_t kPixelCacheMagic = 0x5854524E; // 'NRTX'
+
+  struct PixelCacheHeader {
+    std::uint32_t magic = kPixelCacheMagic;
+    std::int32_t width = 0;
+    std::int32_t height = 0;
+    std::int32_t sourceWidth = 0;
+    std::int32_t sourceHeight = 0;
+    std::int32_t opaque = 0;
+  };
+
+  std::filesystem::path pixelCacheDir() {
+    if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0') {
+      return std::filesystem::path(xdg) / "noctalia" / "wallpaper";
+    }
+    if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
+      return std::filesystem::path(home) / ".cache" / "noctalia" / "wallpaper";
+    }
+    return std::filesystem::path("/tmp") / "noctalia" / "wallpaper";
+  }
+
+  std::uint64_t fnv1a64(std::string_view text) {
+    std::uint64_t hash = 14695981039346656037ULL;
+    for (char ch : text) {
+      hash ^= static_cast<std::uint64_t>(static_cast<unsigned char>(ch));
+      hash *= 1099511628211ULL;
+    }
+    return hash;
+  }
+
+  std::string hex64(std::uint64_t value) {
+    static constexpr char kDigits[] = "0123456789abcdef";
+    std::string out(16, '0');
+    for (int i = 15; i >= 0; --i) {
+      out[static_cast<std::size_t>(i)] = kDigits[value & 0xF];
+      value >>= 4;
+    }
+    return out;
+  }
+
+  std::filesystem::path pixelCacheFile(const SharedTextureRequest& request, std::int64_t mtimeNs) {
+    const std::string key = request.path
+        + '\n'
+        + std::to_string(static_cast<int>(request.kind))
+        + '\n'
+        + std::to_string(mtimeNs)
+        + '\n'
+        + std::to_string(request.coverage.width)
+        + 'x'
+        + std::to_string(request.coverage.height);
+    return pixelCacheDir() / (hex64(fnv1a64(key)) + ".rgba");
+  }
+
+  std::size_t pixelBytes(const PixelCacheHeader& header, bool alphaMask) {
+    return static_cast<std::size_t>(header.width) * static_cast<std::size_t>(header.height) * (alphaMask ? 1U : 4U);
+  }
+
+  // A short read means a torn or truncated file; treat it as a miss and re-decode.
+  bool loadCachedPixels(
+      const std::filesystem::path& file, bool alphaMask, std::vector<std::uint8_t>& pixels, PixelCacheHeader& header
+  ) {
+    std::ifstream in(file, std::ios::binary);
+    if (!in) {
+      return false;
+    }
+    in.read(reinterpret_cast<char*>(&header), sizeof(header));
+    if (!in || header.magic != kPixelCacheMagic || header.width <= 0 || header.height <= 0) {
+      return false;
+    }
+    const std::size_t bytes = pixelBytes(header, alphaMask);
+    if (static_cast<std::size_t>(in.gcount()) != sizeof(header) || header.width * header.height <= 0) {
+      return false;
+    }
+    pixels.resize(bytes);
+    in.read(reinterpret_cast<char*>(pixels.data()), static_cast<std::streamsize>(bytes));
+    return static_cast<std::size_t>(in.gcount()) == bytes;
+  }
+
+  void storeCachedPixels(
+      const std::filesystem::path& file, const std::vector<std::uint8_t>& pixels, int width, int height,
+      int sourceWidth, int sourceHeight, bool opaque
+  ) {
+    if (pixels.empty()) {
+      return;
+    }
+    std::error_code ec;
+    std::filesystem::create_directories(file.parent_path(), ec);
+    if (ec) {
+      return;
+    }
+    PixelCacheHeader header;
+    header.width = width;
+    header.height = height;
+    header.sourceWidth = sourceWidth;
+    header.sourceHeight = sourceHeight;
+    header.opaque = opaque ? 1 : 0;
+    const auto tmp = file.string() + ".tmp";
+    {
+      std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+      if (!out) {
+        return;
+      }
+      out.write(reinterpret_cast<const char*>(&header), sizeof(header));
+      out.write(reinterpret_cast<const char*>(pixels.data()), static_cast<std::streamsize>(pixels.size()));
+      if (!out) {
+        std::filesystem::remove(tmp, ec);
+        return;
+      }
+    }
+    std::filesystem::rename(tmp, file, ec);
+    if (ec) {
+      std::filesystem::remove(tmp, ec);
+    }
+    // LRU by file mtime; prune after each write so the cache never outgrows the cap.
+    std::vector<std::filesystem::file_time_type> times;
+    for (const auto& entry : std::filesystem::directory_iterator(file.parent_path(), ec)) {
+      if (!ec && entry.is_regular_file()) {
+        times.push_back(entry.last_write_time(ec));
+        if (ec) {
+          break;
+        }
+      }
+    }
+    if (times.size() > kMaxPixelCacheFiles) {
+      std::ranges::sort(times);
+      const auto cutoff = *(times.end() - static_cast<std::ptrdiff_t>(kMaxPixelCacheFiles));
+      for (const auto& entry : std::filesystem::directory_iterator(file.parent_path(), ec)) {
+        if (!ec && entry.is_regular_file() && entry.last_write_time(ec) < cutoff) {
+          std::filesystem::remove(entry.path(), ec);
+        }
+      }
+    }
+  }
+
+} // namespace
 
 namespace {
   constexpr Logger kLog("texcache");
@@ -164,6 +311,10 @@ SharedTextureCache::~SharedTextureCache() {
   if (m_worker.joinable()) {
     m_worker.join();
   }
+  if (m_uploadContext != EGL_NO_CONTEXT && m_sharedGl != nullptr) {
+    eglDestroyContext(m_sharedGl->display(), m_uploadContext);
+    m_uploadContext = EGL_NO_CONTEXT;
+  }
 
   // Textures uploaded into consumer backends die with those backends' contexts. Best-effort for the shared ones: if
   // the context can't be bound (lost on resume), the GL textures are already gone.
@@ -278,6 +429,8 @@ std::size_t SharedTextureCache::residentBytes() const {
 }
 
 void SharedTextureCache::abandonGpuResources() noexcept {
+  // Invalidate uploads in flight: their GL objects die with the old share group.
+  m_resetSerial.fetch_add(1);
   if (m_textureManager != nullptr) {
     m_textureManager->abandonGpuResources();
   }
@@ -579,6 +732,15 @@ bool SharedTextureCache::hasLoadingEntry(const SharedTextureRequest& request) co
 }
 
 void SharedTextureCache::upload(const EntryKey& key, Entry& entry, const DecodedImage& image) {
+  if (image.uploaded.valid() && image.resetSerial == m_resetSerial.load()) {
+    entry.handle = image.uploaded;
+    entry.state = EntryState::Ready;
+    kLog.info(
+        "uploaded {} ({}x{} from {}x{})", key.request.path, image.width, image.height, image.sourceWidth,
+        image.sourceHeight
+    );
+    return;
+  }
   uploadPixels(
       key, entry, image.pixels.data(), image.width, image.height, image.sourceWidth, image.sourceHeight, image.opaque,
       true
@@ -658,6 +820,26 @@ bool SharedTextureCache::makeCurrentFor(const EntryKey& key) {
   return m_sharedGl->makeCurrentSurfaceless();
 }
 
+// Worker-thread only: uploads get their own context in the root's share group. The root context is
+// current on the main thread and EGL forbids one context current on two threads (BAD_ACCESS: failed
+// uploads, repeated GPU work). Recreated once per GPU reset; on failure dispatch() uploads instead.
+bool SharedTextureCache::ensureUploadContext() {
+  if (m_sharedGl == nullptr) {
+    return false;
+  }
+  const EGLDisplay display = m_sharedGl->display();
+  if (m_uploadContext == EGL_NO_CONTEXT) {
+    m_uploadContext = m_sharedGl->createContext(m_sharedGl->rootContext(), "texture upload");
+  }
+  if (eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, m_uploadContext) == EGL_TRUE) {
+    return true;
+  }
+  eglDestroyContext(display, m_uploadContext);
+  m_uploadContext = m_sharedGl->createContext(m_sharedGl->rootContext(), "texture upload");
+  return m_uploadContext != EGL_NO_CONTEXT
+      && eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, m_uploadContext) == EGL_TRUE;
+}
+
 void SharedTextureCache::workerLoop() {
   while (true) {
     // Every queued request for the same file shares one decode; each coverage gets its own reduction.
@@ -666,6 +848,10 @@ void SharedTextureCache::workerLoop() {
       std::unique_lock lock(m_queueMutex);
       m_queueCv.wait(lock, [this] { return m_shutdown.load() || !m_jobQueue.empty(); });
       if (m_shutdown.load()) {
+        // The upload context is thread-local; unbind it so the destructor can destroy it.
+        if (m_sharedGl != nullptr && m_uploadContext != nullptr) {
+          eglMakeCurrent(m_sharedGl->display(), EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        }
         return;
       }
       batch.push_back(std::move(m_jobQueue.front()));
@@ -680,55 +866,132 @@ void SharedTextureCache::workerLoop() {
       }
     }
 
+    // Stamped onto every result; uploads made before a GPU reset land in the destroyed share group and must be
+    // re-uploaded.
+    const std::uint64_t serial = m_resetSerial.load();
     const std::string& path = batch.front().path;
-    auto loaded = loadImageFile(path);
-    if (!loaded) {
-      kLog.warn("failed to decode {} ({})", ImageSourceLog::describe(path), loaded.error());
-      for (SharedTextureRequest& request : batch) {
-        pushResult(DecodedImage{.request = std::move(request), .failed = true});
-      }
-      continue;
-    }
 
-    const int sourceWidth = loaded->width;
-    const int sourceHeight = loaded->height;
+    std::int64_t mtimeNs = 0;
+    {
+      std::error_code ec;
+      const auto mtime = std::filesystem::last_write_time(path, ec);
+      if (!ec) {
+        mtimeNs = static_cast<std::int64_t>(mtime.time_since_epoch().count());
+      }
+    }
     const bool alphaMask = batch.front().kind == SharedTextureKind::AlphaMask;
-    if (alphaMask) {
-      packFirstChannel(loaded->rgba, sourceWidth, sourceHeight);
-    }
-    // Averaging fully opaque pixels stays fully opaque, so the source answer holds for every reduction.
-    const bool opaque = !alphaMask && allOpaque(loaded->rgba);
 
-    // Smallest reduction first, so each result is copied out before the buffer is halved further.
-    std::ranges::sort(batch, {}, [sourceWidth, sourceHeight](const SharedTextureRequest& request) {
-      return reductionLevel(sourceWidth, sourceHeight, request.coverage);
-    });
-    std::vector<std::uint8_t> pixels = std::move(loaded->rgba);
-    int width = sourceWidth;
-    int height = sourceHeight;
-    int level = 0;
-    const auto reduce = [&](SharedTextureRequest& request) {
-      const int target = reductionLevel(sourceWidth, sourceHeight, request.coverage);
-      for (; level < target; ++level) {
-        halveInPlace(pixels, width, height, alphaMask ? 1 : 4);
+    std::vector<DecodedImage> results;
+    bool cacheHit = mtimeNs != 0;
+    if (cacheHit) {
+      for (const SharedTextureRequest& request : batch) {
+        PixelCacheHeader header{};
+        std::vector<std::uint8_t> pixels;
+        if (!loadCachedPixels(pixelCacheFile(request, mtimeNs), alphaMask, pixels, header)) {
+          cacheHit = false;
+          results.clear();
+          break;
+        }
+        results.push_back(
+            DecodedImage{
+                .request = request,
+                .pixels = std::move(pixels),
+                .width = header.width,
+                .height = header.height,
+                .sourceWidth = header.sourceWidth,
+                .sourceHeight = header.sourceHeight,
+                .opaque = header.opaque != 0,
+                .resetSerial = serial,
+            }
+        );
       }
-      return DecodedImage{
-          .request = std::move(request),
-          .width = width,
-          .height = height,
-          .sourceWidth = sourceWidth,
-          .sourceHeight = sourceHeight,
-          .opaque = opaque,
+    }
+
+    if (!cacheHit) {
+      auto loaded = loadImageFile(path);
+      if (!loaded) {
+        kLog.warn("failed to decode {} ({})", ImageSourceLog::describe(path), loaded.error());
+        for (SharedTextureRequest& request : batch) {
+          pushResult(DecodedImage{.request = std::move(request), .failed = true, .resetSerial = serial});
+        }
+        continue;
+      }
+
+      const int sourceWidth = loaded->width;
+      const int sourceHeight = loaded->height;
+      if (alphaMask) {
+        packFirstChannel(loaded->rgba, sourceWidth, sourceHeight);
+      }
+      // Averaging fully opaque pixels stays fully opaque, so the source answer holds for every reduction.
+      const bool opaque = !alphaMask && allOpaque(loaded->rgba);
+
+      // Smallest reduction first, so each result is copied out before the buffer is halved further.
+      std::ranges::sort(batch, {}, [sourceWidth, sourceHeight](const SharedTextureRequest& request) {
+        return reductionLevel(sourceWidth, sourceHeight, request.coverage);
+      });
+      std::vector<std::uint8_t> pixels = std::move(loaded->rgba);
+      int width = sourceWidth;
+      int height = sourceHeight;
+      int level = 0;
+      const auto reduce = [&](SharedTextureRequest& request) {
+        const int target = reductionLevel(sourceWidth, sourceHeight, request.coverage);
+        for (; level < target; ++level) {
+          halveInPlace(pixels, width, height, alphaMask ? 1 : 4);
+        }
+        return DecodedImage{
+            .request = std::move(request),
+            .width = width,
+            .height = height,
+            .sourceWidth = sourceWidth,
+            .sourceHeight = sourceHeight,
+            .opaque = opaque,
+            .resetSerial = serial,
+        };
       };
-    };
-    for (std::size_t i = 0; i + 1 < batch.size(); ++i) {
-      DecodedImage image = reduce(batch[i]);
-      image.pixels = pixels;
+      for (std::size_t i = 0; i + 1 < batch.size(); ++i) {
+        DecodedImage image = reduce(batch[i]);
+        image.pixels = pixels;
+        results.push_back(std::move(image));
+      }
+      DecodedImage last = reduce(batch.back());
+      last.pixels = std::move(pixels);
+      results.push_back(std::move(last));
+
+      if (mtimeNs != 0) {
+        for (const DecodedImage& image : results) {
+          storeCachedPixels(
+              pixelCacheFile(image.request, mtimeNs), image.pixels, image.width, image.height, image.sourceWidth,
+              image.sourceHeight, image.opaque
+          );
+        }
+      }
+    }
+
+    // Upload on this thread when a shared context exists, so the main thread never blocks on glTexImage2D. If the
+    // context can't be bound (lost on resume, or creation failed), pixels are kept and dispatch() uploads instead.
+    if (m_textureManager != nullptr && ensureUploadContext()) {
+      for (DecodedImage& image : results) {
+        TextureHandle handle = batch.front().kind == SharedTextureKind::AlphaMask
+            ? m_textureManager->loadFromPixels(
+                  image.pixels.data(), image.width, image.height, TextureDataFormat::Alpha, TextureFilter::Linear, true
+              )
+            : m_textureManager->loadFromRgba(image.pixels.data(), image.width, image.height, true);
+        if (!handle.valid()) {
+          continue; // keep the pixels so dispatch() can retry on the main thread
+        }
+        handle.sourceWidth = image.sourceWidth;
+        handle.sourceHeight = image.sourceHeight;
+        handle.opaque = image.opaque;
+        image.uploaded = handle;
+        std::vector<std::uint8_t>().swap(image.pixels); // RAM no longer needed on the main thread
+      }
+      // Cross-context visibility: the main thread samples these textures from its own context; the uploads
+      // must be complete before the results are dispatched to it.
+      glFinish();
+    }
+    for (DecodedImage& image : results) {
       pushResult(std::move(image));
     }
-    DecodedImage last = reduce(batch.back());
-    last.pixels = std::move(pixels);
-    pushResult(std::move(last));
   }
 }
 

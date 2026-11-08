@@ -2,8 +2,10 @@
 
 #include "render/core/texture_manager.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -48,7 +50,9 @@ private:
   TextureHandle uploadRgba(const std::uint8_t* data, int width, int height, bool mipmap = false);
   TextureHandle uploadBgra(const std::uint8_t* data, int width, int height, bool mipmap = false);
 
+  // Guards m_textures and m_generation: uploads may run on the decode thread while the main thread unloads.
+  mutable std::mutex m_mutex;
   std::vector<TextureId> m_textures;
-  std::uint64_t m_generation = 0;
+  std::atomic<std::uint64_t> m_generation{0};
   bool m_hasBgraExt = false;
 };

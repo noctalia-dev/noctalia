@@ -3,6 +3,7 @@
 #include "core/poll_source.h"
 #include "render/core/texture_handle.h"
 
+#include <EGL/egl.h>
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
@@ -193,6 +194,8 @@ private:
     int sourceHeight = 0;
     bool opaque = false;
     bool failed = false;
+    TextureHandle uploaded;
+    std::uint64_t resetSerial = 0;
   };
 
   struct PreparedWork {
@@ -240,6 +243,11 @@ private:
   int m_eventFd = -1;
   std::thread m_worker;
   std::atomic<bool> m_shutdown{false};
+  // EGLContext owned by the decode thread for off-main-thread uploads (its own context in the root's
+  // share group; the root itself must never be current on two threads at once).
+  EGLContext m_uploadContext = EGL_NO_CONTEXT;
+  bool ensureUploadContext();
+  std::atomic<std::uint64_t> m_resetSerial{0};
 
   mutable std::mutex m_queueMutex;
   std::condition_variable m_queueCv;

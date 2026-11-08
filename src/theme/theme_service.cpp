@@ -326,16 +326,24 @@ namespace noctalia::theme {
     };
   }
 
-  bool ThemeService::wallpaperCacheMatches(const WallpaperPaletteKey& key) const {
-    return key.mtimeNs != 0 && m_wallpaperCacheGenerated.has_value() && m_wallpaperCacheKey == key;
+  const GeneratedPalette* ThemeService::findCachedWallpaper(const WallpaperPaletteKey& key) const {
+    for (const auto& entry : m_wallpaperCache) {
+      if (entry.first == key) {
+        return &entry.second;
+      }
+    }
+    return nullptr;
   }
 
   void ThemeService::storeWallpaperCache(const WallpaperPaletteKey& key, const GeneratedPalette& generated) {
     if (key.mtimeNs == 0) {
       return;
     }
-    m_wallpaperCacheGenerated = generated;
-    m_wallpaperCacheKey = key;
+    std::erase_if(m_wallpaperCache, [&](const auto& entry) { return entry.first == key; });
+    m_wallpaperCache.emplace_back(key, generated);
+    if (m_wallpaperCache.size() > kWallpaperPaletteCacheSize) {
+      m_wallpaperCache.erase(m_wallpaperCache.begin());
+    }
   }
 
   std::optional<GeneratedPalette>
@@ -344,8 +352,8 @@ namespace noctalia::theme {
     if (!key) {
       return std::nullopt;
     }
-    if (wallpaperCacheMatches(*key)) {
-      return m_wallpaperCacheGenerated;
+    if (const auto* hit = findCachedWallpaper(*key)) {
+      return *hit;
     }
     auto generated = decodeWallpaperPalette(key->path, key->scheme);
     if (generated) {
@@ -360,8 +368,8 @@ namespace noctalia::theme {
     if (!key) {
       return {};
     }
-    if (wallpaperCacheMatches(*key)) {
-      return {.generated = m_wallpaperCacheGenerated};
+    if (const auto* hit = findCachedWallpaper(*key)) {
+      return {.generated = *hit};
     }
     // An unstat-able file cannot be cached, so a background result could never be served;
     // reading it fails fast anyway.

@@ -190,11 +190,19 @@ TextureHandle GlesTextureManager::loadFromRaw(
 
 void GlesTextureManager::unload(TextureHandle& handle) {
   if (handle.id != 0) {
-    const auto it = std::ranges::find(m_textures, handle.id);
-    if (handle.generation == m_generation && it != m_textures.end()) {
-      GLuint texture = toGlesTexture(handle.id);
+    GLuint texture = 0;
+    bool found = false;
+    {
+      std::scoped_lock lock(m_mutex);
+      const auto it = std::ranges::find(m_textures, handle.id);
+      if (handle.generation == m_generation && it != m_textures.end()) {
+        texture = toGlesTexture(handle.id);
+        found = true;
+        m_textures.erase(it);
+      }
+    }
+    if (found) {
       glDeleteTextures(1, &texture);
-      m_textures.erase(it);
     }
     handle = {};
   }
@@ -236,18 +244,22 @@ bool GlesTextureManager::updateSubImage(
 }
 
 void GlesTextureManager::cleanup() {
-  if (!m_textures.empty()) {
-    std::vector<GLuint> textures;
+  std::vector<GLuint> textures;
+  {
+    std::scoped_lock lock(m_mutex);
     textures.reserve(m_textures.size());
     for (TextureId texture : m_textures) {
       textures.push_back(toGlesTexture(texture));
     }
-    glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
     m_textures.clear();
+  }
+  if (!textures.empty()) {
+    glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
   }
 }
 
 void GlesTextureManager::abandonGpuResources() noexcept {
+  std::scoped_lock lock(m_mutex);
   m_textures.clear();
   m_generation = g_nextTextureGeneration.fetch_add(1);
 }
@@ -283,6 +295,7 @@ TextureHandle GlesTextureManager::uploadBgra(const std::uint8_t* data, int width
   }
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+  std::scoped_lock lock(m_mutex);
   m_textures.emplace_back(tex);
   return TextureHandle{
       .id = TextureId{tex},
@@ -326,6 +339,7 @@ TextureHandle GlesTextureManager::uploadPixels(
   }
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, toGlesFilter(filter));
 
+  std::scoped_lock lock(m_mutex);
   m_textures.emplace_back(tex);
   return TextureHandle{
       .id = TextureId{tex},

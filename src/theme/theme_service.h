@@ -83,7 +83,7 @@ namespace noctalia::theme {
     void resolveAndSet(bool animate);
     std::optional<WallpaperPaletteKey>
     wallpaperPaletteKey(const ThemeConfig& cfg, const std::string& wallpaperPath) const;
-    bool wallpaperCacheMatches(const WallpaperPaletteKey& key) const;
+    const GeneratedPalette* findCachedWallpaper(const WallpaperPaletteKey& key) const;
     void storeWallpaperCache(const WallpaperPaletteKey& key, const GeneratedPalette& generated);
     // Decodes on the calling thread; for startup and the explicit save action.
     std::optional<GeneratedPalette> resolveWallpaperGenerated(const ThemeConfig& cfg, const std::string& wallpaperPath);
@@ -105,9 +105,11 @@ namespace noctalia::theme {
     HttpClient& m_httpClient;
     std::string m_inflightCommunityName;
 
-    // Memoized wallpaper palette (see resolveWallpaperGenerated); any key mismatch re-decodes.
-    std::optional<GeneratedPalette> m_wallpaperCacheGenerated;
-    WallpaperPaletteKey m_wallpaperCacheKey;
+    // Memoized wallpaper palettes (see resolveWallpaperGenerated), most recently used last; only
+    // an unseen key decodes. Shuffled wallpaper sets revisit the same images, so a handful of
+    // entries covers rotation without re-decoding files.
+    static constexpr std::size_t kWallpaperPaletteCacheSize = 8;
+    std::vector<std::pair<WallpaperPaletteKey, GeneratedPalette>> m_wallpaperCache;
 
     // Main thread: the decode whose result is still wanted, and the last key that failed so a
     // broken file falls back to the builtin palette instead of re-queueing forever.
