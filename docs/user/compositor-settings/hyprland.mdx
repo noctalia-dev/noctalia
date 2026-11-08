@@ -128,3 +128,25 @@ hl.layer_rule({
   blur_popups = true,
 })
 ```
+
+## Permissions
+
+If you use Hyprland's [permission system](https://wiki.hypr.land/configuring/core/advanced-configuration/permissions/) (`ecosystem.enforce_permissions = true`), allow Noctalia to capture the screen and to connect its virtual keyboard. Without these rules, Hyprland asks for permission or denies access, depending on your other rules.
+
+- `screencopy` is used for screenshots and lock screen desktop capture.
+- `keyboard` is used for clipboard and launcher auto-paste. Hyprland names Noctalia's virtual keyboard `hl-virtual-keyboard-noctalia`.
+
+```lua
+hl.config({
+  ecosystem = {
+    enforce_permissions = true,
+  },
+})
+
+hl.permission("^/usr/bin/noctalia$", "screencopy", "allow")
+hl.permission("^hl-virtual-keyboard-noctalia$", "keyboard", "allow")
+```
+
+If Noctalia is installed somewhere else, for example `/usr/local/bin/noctalia`, change the binary path to match. Run `readlink -f "$(command -v noctalia)"` to find the path. If you have a catch-all `keyboard` rule such as `hl.permission(".*", "keyboard", "deny")`, keep it after the Noctalia rule.
+
+Hyprland does not reload permission rules on config reload. Restart Hyprland after you change them.
