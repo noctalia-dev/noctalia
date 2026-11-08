@@ -4,6 +4,8 @@ const noctalia::bar::WidgetDefinition<ActiveWindowWidget::Options>& activeWindow
   using noctalia::bar::field;
   using Options = ActiveWindowWidget::Options;
 
+  static const settings::WidgetSettingVisibility showEmptyLabel{"show_empty_label", {"true"}};
+
   static const noctalia::bar::WidgetDefinition<Options> definition{
       .type = "active_window",
       .fields = {
@@ -76,6 +78,12 @@ const noctalia::bar::WidgetDefinition<ActiveWindowWidget::Options>& activeWindow
           }),
           field<&Options::showEmptyLabel>({
               .key = "show_empty_label",
+          }),
+          field<&Options::emptyLabel>({
+              .key = "empty_label",
+              .presentation = settings::WidgetSettingPresentation{
+                  .visibleWhen = showEmptyLabel,
+              },
           }),
       },
   };
