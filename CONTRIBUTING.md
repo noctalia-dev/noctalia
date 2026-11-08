@@ -87,7 +87,14 @@ sdbus-c++ async reply handlers take the error as `std::optional<sdbus::Error>` b
 | Functions / Methods    | camelCase            | `createWidget()`     |
 | Variables / Parameters | camelCase            | `busName`            |
 | Private members        | m_camelCase          | `m_changeCallback`   |
-| Macros / Enum values   | SCREAMING_SNAKE_CASE | `MAX_SIZE`           |
+| Enumerators            | PascalCase           | `TextAlign::Center`  |
+| Macros                 | SCREAMING_SNAKE_CASE | `MAX_SIZE`           |
+
+clang-format inserts braces around every control statement body and clang-tidy enforces the naming table for enumerators and private members.
+
+Scoped enums (`enum class`) use an explicit `std::uint8_t` underlying type where it makes sense.
+
+Getters are the noun, without a `get` prefix: `width()`, `selected()`, `textureManager()`.
 
 D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_case because they are wire names, not C++ identifiers.
 
@@ -105,6 +112,10 @@ D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_ca
 A consumer copies `lib/` and runs `subdir('lib')` to obtain `noctalia_ui_dep`. The core does not configure or build the codec pack, probe its dependencies, or require `lib/render/codecs/` or `lib/third_party/`. Install an application-owned `ImageDecoder` when supplying your own image formats.
 
 To enable the bundled codec pack, set `noctalia_ui_build_codecs = true` before `subdir('lib')` and link `noctalia_ui_codecs_dep`. This also defines `noctalia_ui_codecs_lib`. `noctalia_ui_system_wuffs = true` selects system Wuffs headers when the codec pack is enabled. The Noctalia shell explicitly enables the pack; its existing image support and dependencies are unchanged.
+
+Applications with their own asset layout call `paths::setAssetRoots({.application = applicationAssets, .library = libraryAssets})` from `core/files/resource_paths.h` once at startup, before any asset lookup or workers. The application chooses its canonical environment/install paths and validates its own required files. The library validates both directories and requires regular `fonts/noctalia-tabler.ttf` and `fonts/tabler.json` files in the library root. The roots may be the same installed bundle or separate application and `lib/assets` directories. Relative roots are anchored to the working directory at configuration time. Invalid roots throw; explicit roots never enter discovery or require a translation catalog. Reconfiguration and configuration after the first lookup throw to preserve borrowed path references.
+
+Without explicit roots, the shell keeps its existing application-bundle discovery through its environment override, executable location and install directory, identified by `translations/en.json`. Library discovery checks the application bundle and build-tree `lib/assets` for both the font and metadata; missing library assets are an error.
 
 ### Comments
 

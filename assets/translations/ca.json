@@ -1079,9 +1079,6 @@
           "groups": {
             "actions": "Accions",
             "behavior": "Comportament",
-            "grouping": "Agrupació",
-            "presentation": "Presentació",
-            "runtime": "Execució",
             "taskbar": {
               "grouping": "Agrupació",
               "windows": "Finestres",

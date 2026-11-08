@@ -17,6 +17,16 @@ Add to your `~/.config/mango/config.conf`:
 exec_once=noctalia
 ```
 
+## Layer Animations
+
+Disable Mango's layer animations. Noctalia animates its own surfaces; compositor layer animations run on top of them and cause visual glitches, such as a panel tearing when it is reopened while still closing. Add this even if you do not use the effects below.
+
+Add this to `~/.config/mango/config.conf`:
+
+```ini
+layer_animations=0
+```
+
 ## Blur and shadows
 
 The configuration below uses Mango's shadows instead of Noctalia's. It disables compositor blur behind bars and panels with `blur_layer=0`, while keeping blur enabled for application windows.
@@ -33,7 +43,6 @@ blur_params_noise=0.02
 blur_params_brightness=0.9
 blur_params_contrast=0.9
 blur_params_saturation=1.0
-layer_animations=0
 
 shadows=1
 layer_shadows=1

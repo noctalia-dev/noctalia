@@ -24,8 +24,9 @@ namespace noctalia::theme {
 
     ::Color tokenToColor(const TokenMap& tokens, std::string_view key) {
       auto it = tokens.find(std::string(key));
-      if (it == tokens.end())
+      if (it == tokens.end()) {
         return hex("#ff00ff");
+      }
       return rgbHex(it->second & 0x00FFFFFFU);
     }
 
@@ -61,34 +62,46 @@ namespace noctalia::theme {
     }
 
     const ::Color& ansiColorForKey(const TerminalAnsiColors& colors, std::string_view key) {
-      if (key == kTerminalBlackJsonKey)
+      if (key == kTerminalBlackJsonKey) {
         return colors.black;
-      if (key == kTerminalRedJsonKey)
+      }
+      if (key == kTerminalRedJsonKey) {
         return colors.red;
-      if (key == kTerminalGreenJsonKey)
+      }
+      if (key == kTerminalGreenJsonKey) {
         return colors.green;
-      if (key == kTerminalYellowJsonKey)
+      }
+      if (key == kTerminalYellowJsonKey) {
         return colors.yellow;
-      if (key == kTerminalBlueJsonKey)
+      }
+      if (key == kTerminalBlueJsonKey) {
         return colors.blue;
-      if (key == kTerminalMagentaJsonKey)
+      }
+      if (key == kTerminalMagentaJsonKey) {
         return colors.magenta;
-      if (key == kTerminalCyanJsonKey)
+      }
+      if (key == kTerminalCyanJsonKey) {
         return colors.cyan;
+      }
       return colors.white;
     }
 
     const ::Color& directColorForKey(const TerminalPalette& terminal, std::string_view key) {
-      if (key == kTerminalForegroundJsonKey)
+      if (key == kTerminalForegroundJsonKey) {
         return terminal.foreground;
-      if (key == kTerminalBackgroundJsonKey)
+      }
+      if (key == kTerminalBackgroundJsonKey) {
         return terminal.background;
-      if (key == kTerminalCursorJsonKey)
+      }
+      if (key == kTerminalCursorJsonKey) {
         return terminal.cursor;
-      if (key == kTerminalCursorTextJsonKey)
+      }
+      if (key == kTerminalCursorTextJsonKey) {
         return terminal.cursorText;
-      if (key == kTerminalSelectionFgJsonKey)
+      }
+      if (key == kTerminalSelectionFgJsonKey) {
         return terminal.selectionFg;
+      }
       return terminal.selectionBg;
     }
 

@@ -694,8 +694,9 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
   const float halfH = static_cast<float>(h) * 0.5F;
   const float maxRadius = std::min(halfW, halfH);
   const auto clampR = [maxRadius](float r) {
-    if (r < 0.0F)
+    if (r < 0.0F) {
       return 0.0F;
+    }
     return std::min(r, maxRadius);
   };
   const float tl = clampR(tlRadius);
@@ -709,11 +710,13 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
   const int middleH = h - topBand - bottomBand;
 
   const auto inset = [](float r, float distFromCornerEdge) -> float {
-    if (r <= 0.0F)
+    if (r <= 0.0F) {
       return 0.0F;
+    }
     const float dy = r - distFromCornerEdge;
-    if (dy <= 0.0F)
+    if (dy <= 0.0F) {
       return 0.0F;
+    }
     const float ry = std::sqrt(std::max(0.0F, r * r - dy * dy));
     return r - ry;
   };

@@ -50,8 +50,9 @@ namespace capture {
       const bool withinX = x >= x0 - margin && x <= x1 + margin;
       const bool withinY = y >= y0 - margin && y <= y1 + margin;
 
-      if (!withinX || !withinY)
+      if (!withinX || !withinY) {
         return capture::DragMode::None;
+      }
 
       const double distLeft = std::abs(x - x0);
       const double distRight = std::abs(x - x1);
@@ -65,38 +66,49 @@ namespace capture {
 
       // Narrow selections can overlap opposing hit zones; bind the pointer to the nearer edge.
       if (nearLeft && nearRight) {
-        if (distLeft < distRight)
+        if (distLeft < distRight) {
           nearRight = false;
-        else
+        } else {
           nearLeft = false;
+        }
       }
       if (nearTop && nearBottom) {
-        if (distTop < distBottom)
+        if (distTop < distBottom) {
           nearBottom = false;
-        else
+        } else {
           nearTop = false;
+        }
       }
 
-      if (nearTop && nearLeft)
+      if (nearTop && nearLeft) {
         return capture::DragMode::TopLeftCorner;
-      if (nearTop && nearRight)
+      }
+      if (nearTop && nearRight) {
         return capture::DragMode::TopRightCorner;
-      if (nearBottom && nearLeft)
+      }
+      if (nearBottom && nearLeft) {
         return capture::DragMode::BottomLeftCorner;
-      if (nearBottom && nearRight)
+      }
+      if (nearBottom && nearRight) {
         return capture::DragMode::BottomRightCorner;
+      }
 
-      if (nearTop && x >= x0 && x <= x1)
+      if (nearTop && x >= x0 && x <= x1) {
         return capture::DragMode::TopEdge;
-      if (nearBottom && x >= x0 && x <= x1)
+      }
+      if (nearBottom && x >= x0 && x <= x1) {
         return capture::DragMode::BottomEdge;
-      if (nearLeft && y >= y0 && y <= y1)
+      }
+      if (nearLeft && y >= y0 && y <= y1) {
         return capture::DragMode::LeftEdge;
-      if (nearRight && y >= y0 && y <= y1)
+      }
+      if (nearRight && y >= y0 && y <= y1) {
         return capture::DragMode::RightEdge;
+      }
 
-      if (x > x0 && x < x1 && y > y0 && y < y1)
+      if (x > x0 && x < x1 && y > y0 && y < y1) {
         return capture::DragMode::Move;
+      }
 
       return capture::DragMode::None;
     }
@@ -115,22 +127,30 @@ namespace capture {
       const bool top = y < y0 + thirdH;
       const bool bottom = y >= y1 - thirdH;
 
-      if (left && top)
+      if (left && top) {
         return capture::DragMode::TopLeftCorner;
-      if (right && top)
+      }
+      if (right && top) {
         return capture::DragMode::TopRightCorner;
-      if (left && bottom)
+      }
+      if (left && bottom) {
         return capture::DragMode::BottomLeftCorner;
-      if (right && bottom)
+      }
+      if (right && bottom) {
         return capture::DragMode::BottomRightCorner;
-      if (top)
+      }
+      if (top) {
         return capture::DragMode::TopEdge;
-      if (bottom)
+      }
+      if (bottom) {
         return capture::DragMode::BottomEdge;
-      if (left)
+      }
+      if (left) {
         return capture::DragMode::LeftEdge;
-      if (right)
+      }
+      if (right) {
         return capture::DragMode::RightEdge;
+      }
       return capture::DragMode::None;
     }
 
@@ -188,6 +208,39 @@ namespace capture {
         }
       }
       return nullptr;
+    }
+
+    std::optional<LogicalRect> globalDesktopBounds(const WaylandConnection& wayland) {
+      bool any = false;
+      int minX = 0;
+      int minY = 0;
+      int maxX = 0;
+      int maxY = 0;
+      for (const auto& out : wayland.outputs()) {
+        if (out.output == nullptr || out.logicalWidth <= 0 || out.logicalHeight <= 0) {
+          continue;
+        }
+        const int x0 = out.logicalX;
+        const int y0 = out.logicalY;
+        const int x1 = out.logicalX + out.logicalWidth;
+        const int y1 = out.logicalY + out.logicalHeight;
+        if (!any) {
+          minX = x0;
+          minY = y0;
+          maxX = x1;
+          maxY = y1;
+          any = true;
+          continue;
+        }
+        minX = std::min(minX, x0);
+        minY = std::min(minY, y0);
+        maxX = std::max(maxX, x1);
+        maxY = std::max(maxY, y1);
+      }
+      if (!any) {
+        return std::nullopt;
+      }
+      return LogicalRect{.x = minX, .y = minY, .width = maxX - minX, .height = maxY - minY};
     }
 
     std::string outputPickerLabel(const WaylandOutput& output) {
@@ -574,12 +627,14 @@ namespace capture {
       });
     } else {
       input->setOnPress([this, output = inst.output](const InputArea::PointerData& data) {
-        if (data.button != BTN_LEFT && data.button != BTN_RIGHT)
+        if (data.button != BTN_LEFT && data.button != BTN_RIGHT) {
           return;
+        }
 
         if (!data.pressed) {
-          if (!m_dragging || data.button != m_dragButton)
+          if (!m_dragging || data.button != m_dragButton) {
             return;
+          }
           m_dragging = false;
           m_dragButton = 0;
           // completeSelection() tears down surfaces; defer past InputDispatcher::pointerButton.
@@ -587,12 +642,14 @@ namespace capture {
           return;
         }
 
-        if (m_dragging)
+        if (m_dragging) {
           return;
+        }
 
         const auto* out = findOutput(*m_wayland, output);
-        if (out == nullptr)
+        if (out == nullptr) {
           return;
+        }
 
         const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
         const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
@@ -700,15 +757,17 @@ namespace capture {
         applyCursorShape(cursorShapeForDragMode(m_dragMode));
         updateSelectionVisuals();
         for (auto& instance : m_instances) {
-          if (instance->surface != nullptr)
+          if (instance->surface != nullptr) {
             instance->surface->requestRedraw();
+          }
         }
       });
 
       input->setOnMotion([this, output = inst.output, inputPtr = input.get()](const InputArea::PointerData& data) {
         const auto* out = findOutput(*m_wayland, output);
-        if (out == nullptr)
+        if (out == nullptr) {
           return;
+        }
 
         const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
         const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
@@ -767,14 +826,19 @@ namespace capture {
 
         updateSelectionVisuals();
         for (auto& instance : m_instances) {
-          if (instance->surface != nullptr)
+          if (instance->surface != nullptr) {
             instance->surface->requestRedraw();
+          }
         }
       });
     }
 
     input->setOnKeyDown([this](const InputArea::KeyData& key) {
       if (!key.pressed) {
+        return;
+      }
+      if (KeybindMatcher::matches(KeybindAction::Cancel, key.sym, key.modifiers)) {
+        cancelSelection();
         return;
       }
       if (m_confirming) {
@@ -791,8 +855,8 @@ namespace capture {
           return;
         }
       }
-      if (KeybindMatcher::matches(KeybindAction::Cancel, key.sym, key.modifiers)) {
-        cancelSelection();
+      if (KeybindMatcher::matches(KeybindAction::SelectAll, key.sym, key.modifiers)) {
+        DeferredCall::callLater([this] { selectEntireDesktop(); });
       }
     });
 
@@ -983,15 +1047,22 @@ namespace capture {
       cancelSelection();
       return;
     }
-    if (!m_confirming) {
-      return;
+    if (m_confirming) {
+      if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
+        confirmPendingSelection(ConfirmAction::ForceClipboard);
+        return;
+      }
+      if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
+        confirmPendingSelection(ConfirmAction::ForceSave);
+        return;
+      }
+      if (KeySymbol::isEnterOrSpace(event.sym)) {
+        confirmPendingSelection(ConfirmAction::None);
+        return;
+      }
     }
-    if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
-      confirmPendingSelection(ConfirmAction::ForceClipboard);
-    } else if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
-      confirmPendingSelection(ConfirmAction::ForceSave);
-    } else if (KeySymbol::isEnterOrSpace(event.sym)) {
-      confirmPendingSelection(ConfirmAction::None);
+    if (KeybindMatcher::matches(KeybindAction::SelectAll, event.sym, event.modifiers)) {
+      selectEntireDesktop();
     }
   }
 
@@ -1222,6 +1293,23 @@ namespace capture {
     if (m_onComplete) {
       m_onComplete(region, nullptr, ConfirmAction::None);
     }
+  }
+
+  void ScreenshotRegionOverlay::selectEntireDesktop() {
+    if (!m_active || m_fullscreenPick || m_wayland == nullptr) {
+      return;
+    }
+    const auto bounds = globalDesktopBounds(*m_wayland);
+    if (!bounds.has_value() || bounds->width < 2 || bounds->height < 2) {
+      return;
+    }
+    m_dragging = false;
+    m_dragMode = DragMode::None;
+    m_startGlobalX = static_cast<double>(bounds->x);
+    m_startGlobalY = static_cast<double>(bounds->y);
+    m_currentGlobalX = static_cast<double>(bounds->x + bounds->width);
+    m_currentGlobalY = static_cast<double>(bounds->y + bounds->height);
+    completeSelection();
   }
 
   void ScreenshotRegionOverlay::confirmPendingSelection(ConfirmAction action) {

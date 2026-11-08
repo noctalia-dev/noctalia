@@ -7,6 +7,8 @@ sidebar:
 
 Set `[notification].colorize_icons = true` (default: `false`) to tint identified application icons in both notification toasts and history with `[shell].app_icon_color`. The toggle is available under **Notifications → General → Colorize App Icons**. Image-path/image-data payloads, avatars, screenshots, remote images, and other content retain their original colors. Icon-source metadata is saved with history; older entries without metadata remain untinted.
 
+`show_progress_bar` (default `true`) draws the progress bar on toasts: a countdown for timed notifications, and a static accent on persistent critical ones. Set it to `false` to hide the bar; auto-dismiss still follows the timeout. Configure under **Notifications → General → Show Progress Bar**.
+
 ## History privacy
 
 Notification history and its image previews are encrypted at rest using a purpose-specific key derived from the [storage master key](/noctalia/configuration/shell/#encrypted-storage-master-key). The encrypted history is stored in `notification_history.enc`; encrypted previews are stored in `notification_history_assets/`. Files are private to the owner (0600), and the image directory uses 0700 permissions.
@@ -18,6 +20,7 @@ When the keyring is locked or unavailable, notifications continue to work in mem
 enable_daemon            = true        # when false, don't claim org.freedesktop.Notifications; internal toasts still work
 show_app_name            = true        # show the sending application name in toasts
 show_actions             = true        # show action buttons; when false, clicking a toast triggers its default action
+show_progress_bar        = true        # show the timeout progress bar (and critical persistent accent)
 position                 = "top_right" # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center
 layer                    = "top"       # top | overlay; overlay appears above fullscreen apps
 scale                    = 1.0         # toast size multiplier on top of shell.ui_scale

@@ -56,9 +56,6 @@ namespace {
   constexpr std::chrono::milliseconds kDdcSetTimeout{8000};
   constexpr std::chrono::seconds kDdcFailureCooldown{30};
   constexpr int kDdcFailureThreshold = 3;
-  constexpr std::array kDdcDiscoveryRetryDelays{
-      std::chrono::seconds{1}, std::chrono::seconds{2}, std::chrono::seconds{4}
-  };
   enum class RuntimeBackend : std::uint8_t {
     Backlight,
     Ddcutil,
@@ -738,6 +735,7 @@ struct BrightnessService::Impl {
   int epollFd = -1;
   std::uint64_t generation = 0;
   std::uint64_t discoveryEpoch = 0;
+  BrightnessDdcRetryDelays retryDelays;
   std::size_t discoveryRetryCount = 0;
   bool warnedMissingDdcutil = false;
 
@@ -752,9 +750,12 @@ struct BrightnessService::Impl {
   std::unordered_map<std::string, DdcJob> pendingRefreshes;
   std::queue<WorkerCompletion> completions;
 
-  Impl(SystemBus* systemBus, CompositorPlatform& compositorPlatform, BrightnessConfig config)
+  Impl(
+      SystemBus* systemBus, CompositorPlatform& compositorPlatform, BrightnessConfig config,
+      BrightnessDdcRetryDelays ddcRetryDelays
+  )
       : bus(systemBus), wayland(compositorPlatform.wayland()), platform(compositorPlatform),
-        activeConfig(std::move(config)) {
+        activeConfig(std::move(config)), retryDelays(ddcRetryDelays) {
     setupPollFds();
     workerThread = std::thread([this] { workerLoop(); });
   }
@@ -1038,7 +1039,7 @@ struct BrightnessService::Impl {
     return connectors;
   }
 
-  void scheduleDdcDetect(std::chrono::seconds delay = {}, bool restartDiscovery = true) {
+  void scheduleDdcDetect(std::chrono::milliseconds delay = {}, bool restartDiscovery = true) {
     if (restartDiscovery) {
       ++discoveryEpoch;
       discoveryRetryCount = 0;
@@ -1098,12 +1099,12 @@ struct BrightnessService::Impl {
     if (!missingControl) {
       return;
     }
-    if (discoveryRetryCount == kDdcDiscoveryRetryDelays.size()) {
+    if (discoveryRetryCount == retryDelays.delays.size()) {
       kLog.warn("ddcutil discovery retries exhausted; missing controls can be retried from the Monitor tab");
       return;
     }
-    const auto delay = kDdcDiscoveryRetryDelays[discoveryRetryCount++];
-    kLog.debug("ddcutil discovery retry {} in {}s", discoveryRetryCount, delay.count());
+    const auto delay = retryDelays.delays[discoveryRetryCount++];
+    kLog.debug("ddcutil discovery retry {} in {}ms", discoveryRetryCount, delay.count());
     scheduleDdcDetect(delay, false);
   }
 
@@ -1680,8 +1681,10 @@ struct BrightnessService::Impl {
   }
 };
 
-BrightnessService::BrightnessService(SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config)
-    : m_impl(new Impl(bus, platform, config)) {
+BrightnessService::BrightnessService(
+    SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, BrightnessDdcRetryDelays retryDelays
+)
+    : m_impl(new Impl(bus, platform, config, retryDelays)) {
   m_impl->rebuildState(false);
 }
 

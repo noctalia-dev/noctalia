@@ -171,6 +171,7 @@ The manifest only declares an entry's settings schema. Named widget instances, t
 | `description_key` | optional; translation key for the description                                                                |
 | `default`         | seeded value (must match the type)                                                                           |
 | `min` / `max`     | for `int` / `double`                                                                                         |
+| `step`            | for `int` / `double`: slider increment; must be greater than zero, defaults to `1`                           |
 | `options`         | for `select`: array of `{ value, label_key }`; both fields are required                                      |
 | `extensions`      | optional array of extensions for `file`, such as `[".toml", ".json"]`; empty allows any file                 |
 | `visible_when`    | `{ key = "other_key", values = ["true"] }` - conditional visibility                                          |

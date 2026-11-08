@@ -103,7 +103,7 @@ int main() {
 
     int cancellations = 0;
     int clicks = 0;
-    area.setOnCancel([&cancellations]() { ++cancellations; });
+    area.setOnCancel([&cancellations] { ++cancellations; });
     area.setOnClick([&clicks](const InputArea::PointerData&) { ++clicks; });
 
     area.dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
@@ -290,7 +290,7 @@ int main() {
     InputArea area;
     std::string title = "old";
     int refreshes = 0;
-    area.setTooltipProvider([&title]() -> TooltipContent { return title; });
+    area.setTooltipProvider([&title] -> TooltipContent { return title; });
     area.setTooltipChangedCallback([&refreshes](InputArea*) { ++refreshes; });
 
     title = "new";

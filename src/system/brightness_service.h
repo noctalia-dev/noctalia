@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -25,6 +27,14 @@ struct BrightnessDisplay {
   bool operator==(const BrightnessDisplay&) const = default;
 };
 
+// Backoff between ddcutil discovery attempts while a configured display has no control; discovery
+// gives up after the last delay. Tests shorten it to avoid waiting on real time.
+struct BrightnessDdcRetryDelays {
+  std::array<std::chrono::milliseconds, 3> delays{
+      std::chrono::seconds{1}, std::chrono::seconds{2}, std::chrono::seconds{4}
+  };
+};
+
 class BrightnessService {
 public:
   using ChangeCallback = std::function<void()>;
@@ -33,7 +43,10 @@ public:
     End,
   };
 
-  BrightnessService(SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config);
+  BrightnessService(
+      SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config,
+      BrightnessDdcRetryDelays retryDelays = {}
+  );
   ~BrightnessService();
 
   BrightnessService(const BrightnessService&) = delete;

@@ -33,7 +33,7 @@ int main() {
   std::vector<WlrToplevelSnapshot> currentToplevels;
 
   backend.setProviders(
-      [&]() -> std::vector<Workspace> { return currentWorkspaces; },
+      [&] -> std::vector<Workspace> { return currentWorkspaces; },
       [&](const std::function<void(const WlrToplevelSnapshot&)>& visit) {
         for (const auto& toplevel : currentToplevels) {
           visit(toplevel);

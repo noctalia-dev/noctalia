@@ -1245,9 +1245,6 @@
           "groups": {
             "actions": "Actions",
             "behavior": "Comportement",
-            "grouping": "Regrouper",
-            "presentation": "Présentation",
-            "runtime": "Exécution",
             "taskbar": {
               "grouping": "Grouper",
               "windows": "Fenêtres"

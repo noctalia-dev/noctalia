@@ -36,7 +36,7 @@ int main() {
   std::thread worker;
   {
     auto guard = scripting::plugin_source_locks::acquire("community");
-    worker = std::thread([attempted, acquired]() {
+    worker = std::thread([attempted, acquired] {
       attempted->set_value();
       auto workerGuard = scripting::plugin_source_locks::acquire("community");
       (void)workerGuard;

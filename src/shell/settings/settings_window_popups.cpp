@@ -6,7 +6,6 @@
 #include "config/config_types.h"
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
-#include "net/url_open.h"
 #include "notification/notification_filter.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
@@ -1807,12 +1806,13 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       const std::vector<std::string> base = {"calendar", "account", draft->id};
 
       std::string type = "caldav";
-      if (draft->provider == CalendarAccountProvider::Google)
+      if (draft->provider == CalendarAccountProvider::Google) {
         type = "google";
-      else if (ics)
+      } else if (ics) {
         type = "ics";
-      else if (vdir)
+      } else if (vdir) {
         type = "vdir";
+      }
 
       overrides.push_back({{base[0], base[1], base[2], "type"}, type});
       overrides.push_back({{base[0], base[1], base[2], "name"}, draft->name});
@@ -2509,7 +2509,7 @@ void SettingsWindow::openPluginStore() {
                     .onClick = [storeContent] { storeContent->closeDetail(); },
                 });
               },
-              .createHeaderAction = [storeContent, scale] -> std::unique_ptr<Node> {
+              .createHeaderAction = [this, storeContent, scale] -> std::unique_ptr<Node> {
                 const auto pageUrl = storeContent->detailPageUrl();
                 const auto sourceUrl = storeContent->detailSourceUrl();
                 if (!pageUrl.has_value() && !sourceUrl.has_value()) {
@@ -2527,7 +2527,7 @@ void SettingsWindow::openPluginStore() {
                           .minHeight = Style::controlHeightSm * scale,
                           .padding = Style::spaceXs * scale,
                           .radius = Style::scaledRadiusMd(scale),
-                          .onClick = [url = *pageUrl] { (void)net::openInBrowser(url); },
+                          .onClick = [this, url = *pageUrl] { openBrowserUrl(url); },
                       })
                   );
                 }
@@ -2542,7 +2542,7 @@ void SettingsWindow::openPluginStore() {
                           .minHeight = Style::controlHeightSm * scale,
                           .padding = Style::spaceXs * scale,
                           .radius = Style::scaledRadiusMd(scale),
-                          .onClick = [url = *sourceUrl] { (void)net::openInBrowser(url); },
+                          .onClick = [this, url = *sourceUrl] { openBrowserUrl(url); },
                       })
                   );
                 }

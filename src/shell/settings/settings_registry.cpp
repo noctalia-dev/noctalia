@@ -1835,6 +1835,15 @@ namespace settings {
     }
     {
       auto e = makeEntry(
+          SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.dnd.label"),
+          tr("settings.schema.lockscreen.dnd.description"), {"lockscreen", "dnd"}, ToggleSetting{cfg.lockscreen.dnd},
+          "lock screen do not disturb dnd notifications"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
           SettingsSection::LockScreen, "general", tr("settings.schema.lockscreen.grace-period.label"),
           tr("settings.schema.lockscreen.grace-period.description"), {"lockscreen", "grace_period_seconds"},
           StepperSetting{
@@ -2278,6 +2287,13 @@ namespace settings {
       entries.push_back(std::move(e));
     }
     entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-output",
+        tr("settings.schema.shell.screenshot-append-mode-suffix.label"),
+        tr("settings.schema.shell.screenshot-append-mode-suffix.description"),
+        {"shell", "screenshot", "append_mode_suffix"}, ToggleSetting{cfg.shell.screenshot.appendModeSuffix},
+        "screenshot capture filename suffix region annotated window desktop mode"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Screenshot, "screenshot-output", tr("settings.schema.shell.screenshot-format.label"),
         tr("settings.schema.shell.screenshot-format.description"), {"shell", "screenshot", "format"},
         enumSelect(kScreenshotFormats, cfg.shell.screenshot.format),
@@ -2643,6 +2659,14 @@ namespace settings {
         tr("settings.schema.keybinds.save.description"), {"keybinds", "save"},
         KeybindListSetting{.items = effectiveKeybindItems(cfg.keybinds.save, KeybindAction::Save), .maxItems = 4},
         "keybind shortcut hotkey save file"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.select-all.label"),
+        tr("settings.schema.keybinds.select-all.description"), {"keybinds", "select_all"},
+        KeybindListSetting{
+            .items = effectiveKeybindItems(cfg.keybinds.selectAll, KeybindAction::SelectAll), .maxItems = 4
+        },
+        "keybind shortcut hotkey select all screenshot region desktop"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.delete.label"),
@@ -3538,6 +3562,12 @@ namespace settings {
         SettingsSection::Notifications, "general", tr("settings.schema.notifications.show-actions.label"),
         tr("settings.schema.notifications.show-actions.description"), {"notification", "show_actions"},
         ToggleSetting{cfg.notification.showActions}, "action buttons"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "general", tr("settings.schema.notifications.show-progress-bar.label"),
+        tr("settings.schema.notifications.show-progress-bar.description"), {"notification", "show_progress_bar"},
+        ToggleSetting{cfg.notification.showProgressBar},
+        "notification toast timeout progress bar countdown indicator critical accent"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "general", tr("settings.schema.notifications.collapse-on-dismiss.label"),

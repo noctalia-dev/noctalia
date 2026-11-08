@@ -939,7 +939,7 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .renamingWidgetName = m_renamingWidgetName,
       .pendingGestureKey = m_pendingGestureKey,
       .pendingGestureVerb = m_pendingGestureVerb,
-      .actionsExpandedFor = m_actionsExpandedFor,
+      .expandedWidgetGroups = m_expandedWidgetGroups,
       .expandedGroupsByPage = m_expandedSettingGroups,
       .pageTitleRow = m_pageTitleRow,
       .groupJumpRow = m_groupJumpRow,
@@ -1172,6 +1172,7 @@ void SettingsWindow::rebuildSettingsContent() {
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
+            .openBrowserUrl = [this](const std::string& url) { openBrowserUrl(url); },
             .autoUpdateMode = cfg.plugins.autoUpdate,
             .setAutoUpdate =
                 [this](PluginAutoUpdateMode mode) {
@@ -1338,10 +1339,11 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
             .scale = scale,
             .onChange = [this, requestRebuild](bool value) {
               m_forceEnTranslation = value;
-              if (value)
+              if (value) {
                 i18n::Service::instance().setLanguage("en");
-              else if (m_config != nullptr)
+              } else if (m_config != nullptr) {
                 i18n::Service::instance().setLanguage(m_config->config().shell.lang);
+              }
               requestRebuild();
             },
         })

@@ -382,7 +382,7 @@ int main() {
   {
     Style::setButtonBordersEnabled(true);
     Button button;
-    auto backgroundBorderWidth = [&button]() {
+    auto backgroundBorderWidth = [&button] {
       for (const auto& child : button.children()) {
         if (const auto* background = dynamic_cast<const RectNode*>(child.get())) {
           return background->style().borderWidth;
@@ -1877,7 +1877,7 @@ int main() {
           && ok;
 
       if (proxy != nullptr) {
-        const auto previewBounds = [proxy]() {
+        const auto previewBounds = [proxy] {
           float left = 0.0F;
           float top = 0.0F;
           float right = 0.0F;
@@ -2706,7 +2706,7 @@ int main() {
   // reset away. The dispatcher never delivers leave for a node it no longer
   // sees, so without this the plugin's hover state would stick on.
   {
-    const auto enteredGraphTree = []() {
+    const auto enteredGraphTree = [] {
       ui::UiTreeNode tree = makeNode("graph");
       tree.props.emplace("width", 100.0);
       tree.props.emplace("height", 50.0);

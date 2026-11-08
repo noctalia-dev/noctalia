@@ -164,7 +164,7 @@ namespace {
   class ClipboardStorageHarness {
   public:
     explicit ClipboardStorageHarness(security::SecretStore& store) : m_keys(store), m_clipboard(m_keys) {
-      m_keys.setChangeCallback([this]() { m_clipboard.syncPersistence(); });
+      m_keys.setChangeCallback([this] { m_clipboard.syncPersistence(); });
     }
 
     void configure(StorageKeySource source, std::string keyFile = {}) {

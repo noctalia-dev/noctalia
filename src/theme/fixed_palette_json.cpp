@@ -127,8 +127,9 @@ namespace noctalia::theme {
 
     std::optional<TerminalPalette> readModeTerminalJson(const nlohmann::json& obj) {
       auto it = obj.find(kTerminalJsonKey);
-      if (it == obj.end() || !it->is_object())
+      if (it == obj.end() || !it->is_object()) {
         return std::nullopt;
+      }
       return readTerminalJson(*it);
     }
 
@@ -184,13 +185,15 @@ namespace noctalia::theme {
   std::optional<ParsedPaletteFile> parsePaletteFile(const std::filesystem::path& path) {
     try {
       std::ifstream in(path);
-      if (!in)
+      if (!in) {
         return std::nullopt;
+      }
       std::stringstream buf;
       buf << in.rdbuf();
       auto root = nlohmann::json::parse(buf.str());
-      if (!root.is_object())
+      if (!root.is_object()) {
         return std::nullopt;
+      }
       const auto version = paletteJsonVersion(root);
       if (!version) {
         kLog.warn("palette '{}': {}", path.string(), version.error());

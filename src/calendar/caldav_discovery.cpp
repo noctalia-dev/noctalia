@@ -288,8 +288,10 @@ namespace calendar {
     std::string_view calendarsBody() {
       return "<?xml version=\"1.0\" encoding=\"utf-8\" ?>"
              "<D:propfind xmlns:D=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:caldav\" "
-             "xmlns:CS=\"http://calendarserver.org/ns/\">"
+             "xmlns:CS=\"http://calendarserver.org/ns/\" "
+             "xmlns:ICAL=\"http://apple.com/ns/ical/\">"
              "<D:prop><D:resourcetype/><D:displayname/><CS:calendar-color/>"
+             "<ICAL:calendar-color/>"
              "<C:supported-calendar-component-set/></D:prop></D:propfind>";
     }
 

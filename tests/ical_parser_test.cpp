@@ -8,6 +8,7 @@
 #include <print>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -743,7 +744,7 @@ int main() {
     const auto beforeCancellation = steady_clock::now();
     std::jthread parser([&](std::stop_token stopToken) {
       ICalParseControl control{
-          .stopToken = stopToken,
+          .stopToken = std::move(stopToken),
           .remainingRecurrenceWork = 10'000'000,
       };
       result = calendar::parseICalEvents(ics, utc(2024, 1, 1), utc(2026, 1, 1), control);

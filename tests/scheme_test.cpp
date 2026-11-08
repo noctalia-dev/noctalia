@@ -18,8 +18,9 @@ namespace {
   }
 
   bool expect(bool condition, std::string_view message) {
-    if (!condition)
+    if (!condition) {
       return fail(message);
+    }
     return true;
   }
 

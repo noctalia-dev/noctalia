@@ -69,7 +69,7 @@ namespace {
     std::mutex iconMutex;
     std::string iconName = "emitter-icon";
     object
-        ->addVTable(sdbus::registerProperty("IconName").withGetter([&]() {
+        ->addVTable(sdbus::registerProperty("IconName").withGetter([&] {
           const std::scoped_lock lock(iconMutex);
           return iconName;
         }))
@@ -110,7 +110,7 @@ int main() {
   auto observer = sdbus::createObject(*observerConnection, sdbus::ObjectPath{kItemPath});
   std::atomic<int> observerReads = 0;
   observer
-      ->addVTable(sdbus::registerProperty("IconName").withGetter([&]() {
+      ->addVTable(sdbus::registerProperty("IconName").withGetter([&] {
         ++observerReads;
         return std::string{"observer-icon"};
       }))

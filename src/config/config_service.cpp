@@ -59,6 +59,42 @@ namespace {
 
   constexpr Logger kLog("config");
 
+  struct ConfigSetArgs {
+    std::string_view path;
+    std::string_view value;
+  };
+
+  // Splits config-set's "<path> <value>" without unquoting either half: both are TOML, so a quoted
+  // key such as plugin_settings."author/plugin" must reach the parser with its quotes. The path
+  // ends at the first whitespace outside a TOML string.
+  std::optional<ConfigSetArgs> splitConfigSetArgs(std::string_view args) {
+    args = StringUtils::trimLeftView(args);
+    char quote = '\0';
+    std::size_t end = 0;
+    for (; end < args.size(); ++end) {
+      const char ch = args[end];
+      if (quote != '\0') {
+        if (quote == '"' && ch == '\\') {
+          ++end;
+        } else if (ch == quote) {
+          quote = '\0';
+        }
+      } else if (ch == '"' || ch == '\'') {
+        quote = ch;
+      } else if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+        break;
+      }
+    }
+    if (quote != '\0') {
+      return std::nullopt;
+    }
+    const std::string_view value = StringUtils::trimRightView(StringUtils::trimLeftView(args.substr(end)));
+    if (end == 0 || value.empty()) {
+      return std::nullopt;
+    }
+    return ConfigSetArgs{.path = args.substr(0, end), .value = value};
+  }
+
   template <typename T>
   void readConfigSection(
       const toml::table& table, T& target, const noctalia::config::schema::Schema<T>& sectionSchema,
@@ -377,6 +413,8 @@ namespace {
       return keybinds.copy;
     case KeybindAction::Save:
       return keybinds.save;
+    case KeybindAction::SelectAll:
+      return keybinds.selectAll;
     }
     return keybinds.validate;
   }
@@ -991,34 +1029,48 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
 
     kLog.debug("monitor override \"{}\" matched output {} ({})", ovr.match, output.connectorName, output.description);
 
-    if (ovr.position)
+    if (ovr.position) {
       resolved.position = *ovr.position;
-    if (ovr.enabled)
+    }
+    if (ovr.enabled) {
       resolved.enabled = *ovr.enabled;
-    if (ovr.autoHide)
+    }
+    if (ovr.autoHide) {
       resolved.autoHide = *ovr.autoHide;
-    if (ovr.autoHideDelayMs)
+    }
+    if (ovr.autoHideDelayMs) {
       resolved.autoHideDelayMs = *ovr.autoHideDelayMs;
-    if (ovr.smartAutoHide)
+    }
+    if (ovr.smartAutoHide) {
       resolved.smartAutoHide = *ovr.smartAutoHide;
-    if (ovr.autoHideReserveSpace)
+    }
+    if (ovr.autoHideReserveSpace) {
       resolved.autoHideReserveSpace = *ovr.autoHideReserveSpace;
-    if (ovr.showOnWorkspaceSwitch)
+    }
+    if (ovr.showOnWorkspaceSwitch) {
       resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
-    if (ovr.reserveSpace)
+    }
+    if (ovr.reserveSpace) {
       resolved.reserveSpace = *ovr.reserveSpace;
-    if (ovr.layer)
+    }
+    if (ovr.layer) {
       resolved.layer = *ovr.layer;
-    if (ovr.thickness)
+    }
+    if (ovr.thickness) {
       resolved.thickness = *ovr.thickness;
-    if (ovr.backgroundOpacity)
+    }
+    if (ovr.backgroundOpacity) {
       resolved.backgroundOpacity = *ovr.backgroundOpacity;
-    if (ovr.compositorBlur)
+    }
+    if (ovr.compositorBlur) {
       resolved.compositorBlur = *ovr.compositorBlur;
-    if (ovr.border)
+    }
+    if (ovr.border) {
       resolved.border = *ovr.border;
-    if (ovr.borderWidth)
+    }
+    if (ovr.borderWidth) {
       resolved.borderWidth = *ovr.borderWidth;
+    }
     if (ovr.radius) {
       resolved.radius = *ovr.radius;
       resolved.radiusTopLeft = *ovr.radius;
@@ -1026,50 +1078,72 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.radiusBottomLeft = *ovr.radius;
       resolved.radiusBottomRight = *ovr.radius;
     }
-    if (ovr.radiusTopLeft)
+    if (ovr.radiusTopLeft) {
       resolved.radiusTopLeft = *ovr.radiusTopLeft;
-    if (ovr.radiusTopRight)
+    }
+    if (ovr.radiusTopRight) {
       resolved.radiusTopRight = *ovr.radiusTopRight;
-    if (ovr.radiusBottomLeft)
+    }
+    if (ovr.radiusBottomLeft) {
       resolved.radiusBottomLeft = *ovr.radiusBottomLeft;
-    if (ovr.radiusBottomRight)
+    }
+    if (ovr.radiusBottomRight) {
       resolved.radiusBottomRight = *ovr.radiusBottomRight;
-    if (ovr.concaveEdgeCorners)
+    }
+    if (ovr.concaveEdgeCorners) {
       resolved.concaveEdgeCorners = *ovr.concaveEdgeCorners;
-    if (ovr.marginEnds)
+    }
+    if (ovr.marginEnds) {
       resolved.marginEnds = *ovr.marginEnds;
-    if (ovr.marginEdge)
+    }
+    if (ovr.marginEdge) {
       resolved.marginEdge = *ovr.marginEdge;
-    if (ovr.marginOppositeEdge)
+    }
+    if (ovr.marginOppositeEdge) {
       resolved.marginOppositeEdge = *ovr.marginOppositeEdge;
-    if (ovr.padding)
+    }
+    if (ovr.padding) {
       resolved.padding = *ovr.padding;
-    if (ovr.widgetSpacing)
+    }
+    if (ovr.widgetSpacing) {
       resolved.widgetSpacing = *ovr.widgetSpacing;
-    if (ovr.shadow)
+    }
+    if (ovr.shadow) {
       resolved.shadow = *ovr.shadow;
-    if (ovr.contactShadow)
+    }
+    if (ovr.contactShadow) {
       resolved.contactShadow = *ovr.contactShadow;
-    if (ovr.panelOverlap)
+    }
+    if (ovr.panelOverlap) {
       resolved.panelOverlap = *ovr.panelOverlap;
-    if (ovr.capsuleThickness)
+    }
+    if (ovr.capsuleThickness) {
       resolved.capsuleThickness = *ovr.capsuleThickness;
-    if (ovr.fontFamily)
+    }
+    if (ovr.fontFamily) {
       resolved.fontFamily = *ovr.fontFamily;
-    if (ovr.startWidgets)
+    }
+    if (ovr.startWidgets) {
       resolved.startWidgets = *ovr.startWidgets;
-    if (ovr.centerWidgets)
+    }
+    if (ovr.centerWidgets) {
       resolved.centerWidgets = *ovr.centerWidgets;
-    if (ovr.endWidgets)
+    }
+    if (ovr.endWidgets) {
       resolved.endWidgets = *ovr.endWidgets;
-    if (ovr.scale)
+    }
+    if (ovr.scale) {
       resolved.scale = *ovr.scale;
-    if (ovr.fontScale)
+    }
+    if (ovr.fontScale) {
       resolved.fontScale = *ovr.fontScale;
-    if (ovr.widgetCapsuleDefault)
+    }
+    if (ovr.widgetCapsuleDefault) {
       resolved.widgetCapsuleDefault = *ovr.widgetCapsuleDefault;
-    if (ovr.widgetCapsuleFill)
+    }
+    if (ovr.widgetCapsuleFill) {
       resolved.widgetCapsuleFill = *ovr.widgetCapsuleFill;
+    }
     if (ovr.widgetCapsuleBorderSpecified) {
       resolved.widgetCapsuleBorderSpecified = true;
       resolved.widgetCapsuleBorder = ovr.widgetCapsuleBorder;
@@ -1982,14 +2056,12 @@ void ConfigService::registerIpc(IpcService& ipc) {
   });
 
   ipc.bind(noctalia::cli::msg::configSet, [this](const std::string& args) -> std::string {
-    auto tokens = StringUtils::splitShellWords(args);
-    if (!tokens || tokens->size() < 2) {
+    const auto parsed = splitConfigSetArgs(args);
+    if (!parsed) {
       return "error: expected arguments: <path> <value>\n";
     }
-    const std::string path = (*tokens)[0];
-    const std::string value = StringUtils::trim(args.substr(path.size()));
 
-    const std::string deltaString = path + "=" + value;
+    const std::string deltaString = std::format("{}={}", parsed->path, parsed->value);
     toml::table delta;
     toml::table candidateOverrides = m_overridesTable;
     try {

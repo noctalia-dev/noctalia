@@ -80,9 +80,11 @@ namespace calendar {
       std::string lastKey;
       for (auto& [key, event] : keyed) {
         if (!deduped.empty() && key == lastKey && sameSpan(deduped.back(), event)) {
+          const bool declined = deduped.back().declined && event.declined;
           if (showsMore(event, deduped.back())) {
             deduped.back() = std::move(event);
           }
+          deduped.back().declined = declined;
           continue;
         }
         lastKey = key;
