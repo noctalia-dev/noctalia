@@ -1360,6 +1360,7 @@ if build_tests
     'toplevel_thumbnail_capture',
     'tray_identifier',
     'tray_theme_path_index',
+    'tray_widget',
     'ui_tree_reconciler',
     'upower_charge_limit',
     'upower_device_catalog',

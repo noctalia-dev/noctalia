@@ -722,6 +722,7 @@ void Application::initPanelManagerAndPanels() {
           m_panelManager.attachedPanelOutput(), m_panelManager.attachedSourceBarName()
       );
     }
+    m_bar.refresh();
   });
   m_panelManager.setPanelClosedCallback([this] {
     m_overviewLauncherCapture.sync();
