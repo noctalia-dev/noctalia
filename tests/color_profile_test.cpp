@@ -96,7 +96,12 @@ namespace {
     // Linear 128 is sRGB 188.
     std::vector<std::uint8_t> pixel{128, 128, 128, 255};
     codecs::convertIccToSrgb(pixel, linearSrgbIcc());
-    return check(near(pixel, {188, 188, 188, 255}, 1), "a linear profile with sRGB primaries should convert");
+    bool ok = check(near(pixel, {188, 188, 188, 255}, 1), "a linear profile with sRGB primaries should convert");
+
+    std::vector<std::uint8_t> nclx{128, 128, 128, 255};
+    codecs::convertCicpToSrgb(nclx, 1, 8);
+    ok = check(near(nclx, {188, 188, 188, 255}, 1), "nclx sRGB primaries with a linear curve should convert") && ok;
+    return ok;
   }
 
   bool testUnchangedWithoutConversion() {

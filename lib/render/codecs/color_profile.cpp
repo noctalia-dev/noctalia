@@ -113,14 +113,19 @@ namespace codecs {
 
     constexpr cmsCIExyY kD65{0.3127, 0.3290, 1.0};
 
-    // H.273 ColourPrimaries; BT.709 (1) and unspecified (2) are sRGB's own.
+    // H.273 ColourPrimaries; BT.709 (1) and unspecified (2) are sRGB's own, so with the sRGB curve the shortcut in
+    // transformToSrgb leaves them as they are, and with another curve (linear, gamma 2.2) they are converted.
     const Primaries* primariesFor(int code) {
+      static constexpr Primaries kSrgb{{0.640, 0.330, 1.0}, {0.300, 0.600, 1.0}, {0.150, 0.060, 1.0}, kD65};
       static constexpr Primaries kBt2020{{0.708, 0.292, 1.0}, {0.170, 0.797, 1.0}, {0.131, 0.046, 1.0}, kD65};
       static constexpr Primaries kDciP3{
           {0.680, 0.320, 1.0}, {0.265, 0.690, 1.0}, {0.150, 0.060, 1.0}, {0.314, 0.351, 1.0}
       };
       static constexpr Primaries kDisplayP3{{0.680, 0.320, 1.0}, {0.265, 0.690, 1.0}, {0.150, 0.060, 1.0}, kD65};
       switch (code) {
+      case 1:
+      case 2:
+        return &kSrgb;
       case 9:
         return &kBt2020;
       case 11:
