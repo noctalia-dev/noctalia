@@ -17,8 +17,8 @@ namespace {
     UmbrielWorkspaceBackend backend{runtime};
 
     Fixture() {
-      backend.setChangeCallback([this]() { ++workspaceChanges; });
-      backend.setWindowChangeCallback([this]() { ++windowChanges; });
+      backend.setChangeCallback([this] { ++workspaceChanges; });
+      backend.setWindowChangeCallback([this] { ++windowChanges; });
     }
   };
 
@@ -86,7 +86,7 @@ namespace {
     checkState(fixture.backend, "first", false, false);
     checkState(fixture.backend, "second", false, true);
 
-    fixture.backend.setChangeCallback([&fixture]() { ++fixture.workspaceChanges; });
+    fixture.backend.setChangeCallback([&fixture] { ++fixture.workspaceChanges; });
     const int workspaceChangesBeforeReset = fixture.workspaceChanges;
     fixture.backend.handleStreamReset();
     TEST_CHECK(fixture.backend.workspaceWindows().empty());

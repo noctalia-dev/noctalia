@@ -67,7 +67,7 @@ int main() {
     expect(!location.resolving(), "manual coordinates should not start network resolution");
 
     int changes = 0;
-    location.addChangeCallback([&changes]() { ++changes; });
+    location.addChangeCallback([&changes] { ++changes; });
 
     writeConfig(configPath, "auto_locate = false\naddress = \"\"\nlatitude = 40.7128\nlongitude = -74.006\n");
     config.forceReload();

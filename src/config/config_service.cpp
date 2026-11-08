@@ -59,6 +59,42 @@ namespace {
 
   constexpr Logger kLog("config");
 
+  struct ConfigSetArgs {
+    std::string_view path;
+    std::string_view value;
+  };
+
+  // Splits config-set's "<path> <value>" without unquoting either half: both are TOML, so a quoted
+  // key such as plugin_settings."author/plugin" must reach the parser with its quotes. The path
+  // ends at the first whitespace outside a TOML string.
+  std::optional<ConfigSetArgs> splitConfigSetArgs(std::string_view args) {
+    args = StringUtils::trimLeftView(args);
+    char quote = '\0';
+    std::size_t end = 0;
+    for (; end < args.size(); ++end) {
+      const char ch = args[end];
+      if (quote != '\0') {
+        if (quote == '"' && ch == '\\') {
+          ++end;
+        } else if (ch == quote) {
+          quote = '\0';
+        }
+      } else if (ch == '"' || ch == '\'') {
+        quote = ch;
+      } else if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+        break;
+      }
+    }
+    if (quote != '\0') {
+      return std::nullopt;
+    }
+    const std::string_view value = StringUtils::trimRightView(StringUtils::trimLeftView(args.substr(end)));
+    if (end == 0 || value.empty()) {
+      return std::nullopt;
+    }
+    return ConfigSetArgs{.path = args.substr(0, end), .value = value};
+  }
+
   template <typename T>
   void readConfigSection(
       const toml::table& table, T& target, const noctalia::config::schema::Schema<T>& sectionSchema,
@@ -377,6 +413,8 @@ namespace {
       return keybinds.copy;
     case KeybindAction::Save:
       return keybinds.save;
+    case KeybindAction::SelectAll:
+      return keybinds.selectAll;
     }
     return keybinds.validate;
   }
@@ -2018,14 +2056,12 @@ void ConfigService::registerIpc(IpcService& ipc) {
   });
 
   ipc.bind(noctalia::cli::msg::configSet, [this](const std::string& args) -> std::string {
-    auto tokens = StringUtils::splitShellWords(args);
-    if (!tokens || tokens->size() < 2) {
+    const auto parsed = splitConfigSetArgs(args);
+    if (!parsed) {
       return "error: expected arguments: <path> <value>\n";
     }
-    const std::string path = (*tokens)[0];
-    const std::string value = StringUtils::trim(args.substr(path.size()));
 
-    const std::string deltaString = path + "=" + value;
+    const std::string deltaString = std::format("{}={}", parsed->path, parsed->value);
     toml::table delta;
     toml::table candidateOverrides = m_overridesTable;
     try {

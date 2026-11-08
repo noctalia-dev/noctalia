@@ -74,8 +74,8 @@ int main() {
   ok = expectLink("mailto:someone@example.com", "mailto:someone@example.com", "") && ok;
 
   // Control characters and oversized values are rejected rather than truncated.
-  ok = expectLink("", std::string("https://example.com/a\nb"), "") && ok;
-  ok = expectLink("", std::string("https://example.com/a\tb"), "") && ok;
+  ok = expectLink("", "https://example.com/a\nb", "") && ok;
+  ok = expectLink("", "https://example.com/a\tb", "") && ok;
   ok = expectLink("", "https://example.com/" + std::string(2048, 'a'), "") && ok;
 
   // A rejected first candidate does not hide a valid one later in the field.

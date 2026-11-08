@@ -56,7 +56,7 @@ int main() {
   compositors::niri::NiriRuntime runtime;
   NiriWorkspaceBackend backend(runtime);
   int changes = 0;
-  backend.setChangeCallback([&]() { ++changes; });
+  backend.setChangeCallback([&] { ++changes; });
   backend.handleEvent(
       "WorkspacesChanged",
       {{"workspaces",
@@ -113,7 +113,7 @@ int main() {
 
   std::string request;
   int serverError = 0;
-  std::jthread server([&]() {
+  std::jthread server([&] {
     const int client = ::accept4(listener, nullptr, nullptr, SOCK_CLOEXEC);
     if (client < 0) {
       serverError = 1;

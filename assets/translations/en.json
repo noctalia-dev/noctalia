@@ -2571,6 +2571,10 @@
           "description": "Save the current selection or item",
           "label": "Save"
         },
+        "select-all": {
+          "description": "Select the entire desktop during region screenshot capture",
+          "label": "Select All"
+        },
         "tab-next": {
           "description": "Move focus to the next control",
           "label": "Focus Next"
@@ -2757,6 +2761,10 @@
         "show-app-name": {
           "description": "Show the sending application's name in notification toasts",
           "label": "Show App Name"
+        },
+        "show-progress-bar": {
+          "description": "Show the progress bar on notification toasts for the remaining timeout, and as a static accent on persistent critical toasts",
+          "label": "Show Progress Bar"
         },
         "toast-opacity": {
           "description": "Background opacity of notification toasts",
@@ -3666,6 +3674,10 @@
           "description": "Open the annotation editor on every screenshot; Done applies the save, clipboard, and pipe settings",
           "label": "Annotate Before Delivering"
         },
+        "screenshot-append-mode-suffix": {
+          "description": "Append a capture-mode suffix such as -region, -annotated, -window, or -desktop to saved filenames",
+          "label": "Append Mode Suffix"
+        },
         "screenshot-close-on-copy": {
           "description": "Close after a successful copy from the editor, including when opened directly",
           "label": "Close Editor After Copying"
@@ -3694,10 +3706,6 @@
         "screenshot-filename-pattern": {
           "description": "strftime pattern without extension (the format's extension is added); use %s for unix epoch",
           "label": "Filename Pattern"
-        },
-        "screenshot-append-mode-suffix": {
-          "description": "Append a capture-mode suffix such as -region, -annotated, -window, or -desktop to saved filenames",
-          "label": "Append Mode Suffix"
         },
         "screenshot-format": {
           "description": "File format for saved screenshots; clipboard copies and pipe commands always receive PNG",

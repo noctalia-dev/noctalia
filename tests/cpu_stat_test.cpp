@@ -18,7 +18,7 @@
 namespace {
 
   namespace cpu_stat = noctalia::system::cpu_stat;
-  using Totals = cpu_stat::Totals;
+  using cpu_stat::Totals;
 
   int g_failures = 0;
 

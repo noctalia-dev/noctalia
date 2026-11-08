@@ -211,7 +211,7 @@ namespace {
         .kind = calendar::CredentialKind::RefreshToken,
         .value = secret("refresh-token"),
     });
-    input.finalize = [&finalized]() {
+    input.finalize = [&finalized] {
       finalized = true;
       return true;
     };
@@ -239,7 +239,7 @@ namespace {
     const std::size_t callsBeforeLookup = fake->calls();
     std::string loaded;
     credentials.lookupPassword(
-        "personal", [&loaded](SecretStoreStatus lookupStatus, calendar::CalendarCredentialStore::Secret value) {
+        "personal", [&loaded](SecretStoreStatus lookupStatus, const calendar::CalendarCredentialStore::Secret& value) {
           if (lookupStatus == SecretStoreStatus::Success) {
             loaded = stringValue(value);
           }
@@ -305,10 +305,11 @@ namespace {
     credentials.initialize(std::move(complete));
 
     std::size_t changes = 0;
-    credentials.setChangeCallback([&changes]() { ++changes; });
+    credentials.setChangeCallback([&changes] { ++changes; });
     std::optional<SecretStoreStatus> status;
     credentials.lookupRefreshToken(
-        "personal", [&status](SecretStoreStatus value, calendar::CalendarCredentialStore::Secret) { status = value; }
+        "personal",
+        [&status](SecretStoreStatus value, const calendar::CalendarCredentialStore::Secret&) { status = value; }
     );
 
     bool ok = dispatchOne(secretStore);
@@ -338,7 +339,8 @@ namespace {
 
     std::optional<SecretStoreStatus> status;
     credentials.lookupRefreshToken(
-        "personal", [&status](SecretStoreStatus value, calendar::CalendarCredentialStore::Secret) { status = value; }
+        "personal",
+        [&status](SecretStoreStatus value, const calendar::CalendarCredentialStore::Secret&) { status = value; }
     );
     bool ok = dispatchOne(secretStore);
     ok = expect(status == SecretStoreStatus::NotFound, "initial missing refresh token status was lost") && ok;
@@ -348,7 +350,8 @@ namespace {
     status.reset();
     std::string loaded;
     credentials.lookupRefreshToken(
-        "personal", [&status, &loaded](SecretStoreStatus value, calendar::CalendarCredentialStore::Secret secretValue) {
+        "personal",
+        [&status, &loaded](SecretStoreStatus value, const calendar::CalendarCredentialStore::Secret& secretValue) {
           status = value;
           loaded = stringValue(secretValue);
         }
@@ -363,7 +366,8 @@ namespace {
 
     const std::size_t callsBeforeCachedLookup = fake->calls();
     credentials.lookupRefreshToken(
-        "personal", [&status, &loaded](SecretStoreStatus value, calendar::CalendarCredentialStore::Secret secretValue) {
+        "personal",
+        [&status, &loaded](SecretStoreStatus value, const calendar::CalendarCredentialStore::Secret& secretValue) {
           status = value;
           loaded = stringValue(secretValue);
         }
@@ -384,10 +388,11 @@ namespace {
     credentials.initialize(std::move(complete));
 
     std::size_t changes = 0;
-    credentials.setChangeCallback([&changes]() { ++changes; });
+    credentials.setChangeCallback([&changes] { ++changes; });
     std::optional<SecretStoreStatus> status;
     credentials.lookupRefreshToken(
-        "personal", [&status](SecretStoreStatus value, calendar::CalendarCredentialStore::Secret) { status = value; }
+        "personal",
+        [&status](SecretStoreStatus value, const calendar::CalendarCredentialStore::Secret&) { status = value; }
     );
 
     bool ok = dispatchOne(secretStore);
@@ -401,7 +406,8 @@ namespace {
     fake->seed("calendar/personal/refresh-token", "unlocked-token");
     status.reset();
     credentials.lookupRefreshToken(
-        "personal", [&status](SecretStoreStatus value, calendar::CalendarCredentialStore::Secret) { status = value; }
+        "personal",
+        [&status](SecretStoreStatus value, const calendar::CalendarCredentialStore::Secret&) { status = value; }
     );
     ok = dispatchOne(secretStore) && ok;
     ok = expect(status == SecretStoreStatus::Success, "unlocked refresh token did not recover") && ok;
@@ -424,7 +430,7 @@ namespace {
         .kind = calendar::CredentialKind::Password,
         .value = secret("must-not-be-stored"),
     });
-    input.finalize = [&finalized]() {
+    input.finalize = [&finalized] {
       finalized = true;
       return true;
     };
