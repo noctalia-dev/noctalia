@@ -47,7 +47,8 @@ namespace codecs {
     using HeifImageGetHeightFn = int (*)(const HeifImage*, int);
     using HeifImageIsPremultipliedAlphaFn = int (*)(HeifImage*);
     using HeifImageReleaseFn = void (*)(const HeifImage*);
-    // The leading (version 1) fields of libheif's heif_color_profile_nclx; its enums are int-sized.
+    // The leading (version 1) fields of libheif's heif_color_profile_nclx; its enums are int-sized. libheif
+    // allocates and frees it, so only these fields are ever read.
     struct HeifNclxProfile {
       std::uint8_t version;
       int colorPrimaries;

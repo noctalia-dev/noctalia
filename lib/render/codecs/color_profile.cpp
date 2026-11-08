@@ -63,6 +63,8 @@ namespace codecs {
     }
 
     // A profile can share sRGB's primaries with another curve (linear sRGB, gamma 2.2), so both must match.
+    // Curves are compared by value, since sRGB's may be stored as a formula or a table.
+    // A profile without TRC tags (a LUT profile) fails this check and is converted.
     bool hasSrgbCurves(cmsHPROFILE profile, cmsHPROFILE srgb) {
       constexpr std::array kCurves{cmsSigRedTRCTag, cmsSigGreenTRCTag, cmsSigBlueTRCTag};
       const auto* reference = static_cast<const cmsToneCurve*>(cmsReadTag(srgb, cmsSigRedTRCTag));
@@ -84,6 +86,7 @@ namespace codecs {
       if (srgb == nullptr || (hasSrgbColorants(source, srgb.get()) && hasSrgbCurves(source, srgb.get()))) {
         return;
       }
+      // The output is a scratch chunk copied back over the pixels, so alpha must be copied through.
       const Transform transform(cmsCreateTransformTHR(
           context, source, TYPE_RGBA_8, srgb.get(), TYPE_RGBA_8, INTENT_RELATIVE_COLORIMETRIC,
           cmsFLAGS_BLACKPOINTCOMPENSATION | cmsFLAGS_COPY_ALPHA
@@ -129,7 +132,8 @@ namespace codecs {
       }
     }
 
-    // H.273 TransferCharacteristics as an lcms2 curve; null for HDR (PQ, HLG) and unknown ones.
+    // H.273 TransferCharacteristics as an lcms2 curve; null for unknown ones and for HDR (PQ, HLG), which would need
+    // tone mapping, not a colorimetric transform that clips every highlight.
     Curve transferFor(cmsContext context, int code) {
       // Type 4: Y = (aX + b)^g for X >= d, Y = cX below.
       static constexpr std::array<cmsFloat64Number, 5> kSrgb{2.4, 1.0 / 1.055, 0.055 / 1.055, 1.0 / 12.92, 0.04045};
@@ -140,7 +144,7 @@ namespace codecs {
       case 14:
       case 15:
         return Curve(cmsBuildParametricToneCurve(context, 4, kBt709.data()));
-      case 2:
+      case 2: // unspecified: the sRGB curve, as for untagged images
       case 13:
         return Curve(cmsBuildParametricToneCurve(context, 4, kSrgb.data()));
       case 4:

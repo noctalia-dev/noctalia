@@ -355,7 +355,8 @@ namespace codecs {
           break;
         }
         case JXL_DEC_COLOR_ENCODING: {
-          // The color space the output pixels are in (the original one; libjxl converts nothing).
+          // The color space of the pixels libjxl returns. XYB (usually lossy) images come back in the original one
+          // when libjxl can describe it, else in linear sRGB, which TARGET_ORIGINAL would not report.
           std::size_t iccSize = 0;
           if (JxlDecoderGetICCProfileSize(decoder.get(), JXL_COLOR_PROFILE_TARGET_DATA, &iccSize) == JXL_DEC_SUCCESS
               && iccSize > 0) {
