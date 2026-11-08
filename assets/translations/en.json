@@ -4719,7 +4719,7 @@
           "label": "Empty Color"
         },
         "empty-label": {
-          "description": "Text shown when no window is focused; leave blank to use the default label",
+          "description": "Text shown when no window is focused; leave empty to show \"No active window\"",
           "label": "Empty Label"
         },
         "enable-scroll": {
