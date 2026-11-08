@@ -22,6 +22,7 @@ public:
   void resize(RenderBackend& backend, std::uint32_t width, std::uint32_t height);
 
   void invalidate() noexcept { m_dirty = true; }
+  void clearDirty() noexcept { m_dirty = false; }
 
   TextureId ensure(const RenderCallback& renderFn);
 

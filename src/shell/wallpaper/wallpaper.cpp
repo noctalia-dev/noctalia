@@ -531,6 +531,7 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
   }
 
   std::vector<WallpaperChange> changes = std::exchange(m_pendingStartupChanges, {});
+  bool deferredAny = false;
   for (auto& inst : m_instances) {
     auto newPath = m_config->getWallpaperPath(inst->connectorName);
     if (inst->surface == nullptr || inst->wallpaperNode == nullptr) {
@@ -591,10 +592,9 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
     // Fullscreen hold: defer changes that would start a fresh transition; onFullscreenHoldChanged(false)
     // re-runs this reconcile. Outputs still showing no wallpaper apply anyway (no blank desktop).
     if (fullscreenHeld() && !inst->currentPath.empty()) {
-      m_heldChangesDeferred = true;
+      deferredAny = true;
       continue;
     }
-    m_heldChangesDeferred = false;
 
     kLog.info("changing {} → {}", inst->connectorName, newPath);
     loadWallpaper(*inst, newPath);
@@ -611,6 +611,7 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
     }
     notifyKdePlasmaWallpaper(newPath, inst->connectorName, output);
   }
+  m_heldChangesDeferred = deferredAny;
 
   // Any wallpaper change (manual selection, IPC, or automation) restarts the
   // rotation interval so the next automatic switch is a full interval away.
@@ -955,6 +956,9 @@ bool Wallpaper::fullscreenHeld() const {
 
 void Wallpaper::onFullscreenHoldChanged(bool held) {
   if (held) {
+    if (!fullscreenHeld()) {
+      return;
+    }
     for (auto& inst : m_instances) {
       if (inst->transitioning && inst->transitionAnimId != 0) {
         inst->animations.cancel(inst->transitionAnimId);
@@ -965,7 +969,7 @@ void Wallpaper::onFullscreenHoldChanged(bool held) {
   }
 
   for (auto& inst : m_instances) {
-    if (inst->transitioning && inst->transitionAnimId == 0) {
+    if (inst->transitioning && inst->transitionAnimId == 0 && inst->transitionTime > 0.0F) {
       startTransitionAnimation(*inst, inst->transitionTime, inst->transitionDirection);
     }
   }

@@ -74,9 +74,11 @@ void BackdropSurface::render() {
   requestFrame();
 
   // No blur/tint configured: draw straight to the window. Skips the FBO round-trip
-  // and the full-res blit, halving fill cost for every drawn frame.
+  // and the full-res blit, halving fill cost for every drawn frame. Consume the
+  // invalidation like ensure() does, or the frame loop never settles.
   if (!options.needsPostProcess()) {
     m_wallpaperRenderer.render();
+    m_layer.clearDirty();
     return;
   }
 

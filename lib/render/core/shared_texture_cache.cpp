@@ -828,16 +828,23 @@ bool SharedTextureCache::ensureUploadContext() {
     return false;
   }
   const EGLDisplay display = m_sharedGl->display();
-  if (m_uploadContext == EGL_NO_CONTEXT) {
+  try {
+    if (m_uploadContext == EGL_NO_CONTEXT) {
+      m_uploadContext = m_sharedGl->createContext(m_sharedGl->rootContext(), "texture upload");
+    }
+    if (eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, m_uploadContext) == EGL_TRUE) {
+      return true;
+    }
+    eglDestroyContext(display, m_uploadContext);
+    m_uploadContext = EGL_NO_CONTEXT;
     m_uploadContext = m_sharedGl->createContext(m_sharedGl->rootContext(), "texture upload");
+    return m_uploadContext != EGL_NO_CONTEXT
+        && eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, m_uploadContext) == EGL_TRUE;
+  } catch (const std::exception& e) {
+    kLog.warn("texture upload context unavailable: {}", e.what());
+    m_uploadContext = EGL_NO_CONTEXT;
+    return false;
   }
-  if (eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, m_uploadContext) == EGL_TRUE) {
-    return true;
-  }
-  eglDestroyContext(display, m_uploadContext);
-  m_uploadContext = m_sharedGl->createContext(m_sharedGl->rootContext(), "texture upload");
-  return m_uploadContext != EGL_NO_CONTEXT
-      && eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, m_uploadContext) == EGL_TRUE;
 }
 
 void SharedTextureCache::workerLoop() {

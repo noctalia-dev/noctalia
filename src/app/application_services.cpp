@@ -960,7 +960,8 @@ void Application::initWaylandCallbacks() {
     m_windowSwitcher.onToplevelChange();
     // Wallpaper fullscreen hold: freeze running transitions when a fullscreen toplevel appears,
     // resume them and apply deferred changes when the last one goes away.
-    const bool fullscreen = m_compositorPlatform.foreignToplevels().hasActivatedFullscreenToplevel();
+    const bool fullscreen = m_configService.config().wallpaper.automation.pauseOnFullscreen
+        && m_compositorPlatform.foreignToplevels().hasActivatedFullscreenToplevel();
     if (fullscreen != m_wallpaperFullscreenHeld) {
       m_wallpaperFullscreenHeld = fullscreen;
       m_wallpaper.onFullscreenHoldChanged(fullscreen);
