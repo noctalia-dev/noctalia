@@ -718,7 +718,7 @@ int main() {
 
   std::atomic_bool stop{false};
   std::atomic schema{SnapshotSchema::Legacy};
-  std::thread server([&]() { serve(requestListener, stop, schema); });
+  std::thread server([&] { serve(requestListener, stop, schema); });
 
   // The runtime resolves its socket paths from the environment on construction.
   ::setenv("XDG_RUNTIME_DIR", runtimeDir.c_str(), 1);

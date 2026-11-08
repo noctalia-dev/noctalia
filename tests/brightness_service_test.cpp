@@ -101,7 +101,7 @@ namespace {
         );
         TEST_CHECK(m_globals[static_cast<std::size_t>(index)] != nullptr);
       }
-      m_thread = std::jthread([this](std::stop_token stop) {
+      m_thread = std::jthread([this](const std::stop_token& stop) {
         auto* loop = wl_display_get_event_loop(m_display);
         while (!stop.stop_requested()) {
           TEST_CHECK(wl_event_loop_dispatch(loop, 10) >= 0 || errno == EINTR);
@@ -231,7 +231,7 @@ namespace {
       return predicate();
     }
 
-    void observe(std::chrono::milliseconds duration, const std::function<void()>& check = []() {}) {
+    void observe(std::chrono::milliseconds duration, const std::function<void()>& check = [] {}) {
       TEST_CHECK(!waitFor(
           [&check]() {
             check();
@@ -362,7 +362,7 @@ namespace {
     fixture.service->setBrightness(kConnectors[0], 0.9F);
     fixture.ddc.set("release-detect");
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("setvcp-71") == 2; }));
-    fixture.observe(100ms, [&fixture]() {
+    fixture.observe(100ms, [&fixture] {
       TEST_CHECK(fixture.brightnessIs(0.9F));
       TEST_CHECK(fixture.controllable(1));
     });

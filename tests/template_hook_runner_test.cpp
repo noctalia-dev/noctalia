@@ -4,10 +4,10 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <filesystem>
 #include <fstream>
 #include <memory>
-#include <signal.h>
 #include <string>
 #include <sys/types.h>
 #include <thread>
@@ -84,7 +84,9 @@ namespace {
   void test_success_does_not_report_stderr_as_failure() {
     noctalia::theme::HookRunner runner;
     bool reportedFailure = false;
-    runner.enqueue("printf 'hook completed\\n' >&2", /*generation=*/1, [&](std::string) { reportedFailure = true; });
+    runner.enqueue("printf 'hook completed\\n' >&2", /*generation=*/1, [&](const std::string&) {
+      reportedFailure = true;
+    });
     runner.waitIdle();
 
     TEST_CHECK(!reportedFailure);
@@ -159,13 +161,13 @@ namespace {
     // Ignores SIGTERM, so only the SIGKILL escalation can end it.
     runner->enqueue(
         "trap '' TERM; echo $$ > " + pidFile.string() + "; exec sleep 600", /*generation=*/1,
-        [&](std::string) { reportedFailure = true; }
+        [&](const std::string&) { reportedFailure = true; }
     );
     const pid_t pid = waitForPid(pidFile);
     TEST_CHECK(pid > 0);
 
     const auto start = std::chrono::steady_clock::now();
-    std::thread owner([cancel]() {
+    std::thread owner([cancel] {
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
       cancel->store(true);
     });

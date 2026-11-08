@@ -21,6 +21,15 @@ namespace noctalia::test {
     std::exit(EXIT_FAILURE);
   }
 
+  // A function rather than `if (!(expression))` in the macro, so clang-tidy does not ask to apply
+  // De Morgan to every check over a compound condition.
+  inline void
+  check(bool passed, const char* expression, std::source_location location = std::source_location::current()) {
+    if (!passed) {
+      failCheck(expression, location);
+    }
+  }
+
   template <typename T> inline constexpr bool kIsOptional = false;
   template <typename T> inline constexpr bool kIsOptional<std::optional<T>> = true;
 
@@ -52,12 +61,7 @@ namespace noctalia::test {
 
 } // namespace noctalia::test
 
-#define TEST_CHECK(expression)                                                                                         \
-  do {                                                                                                                 \
-    if (!(expression)) {                                                                                               \
-      ::noctalia::test::failCheck(#expression);                                                                        \
-    }                                                                                                                  \
-  } while (false)
+#define TEST_CHECK(expression) ::noctalia::test::check(static_cast<bool>(expression), #expression)
 
 #define TEST_NEAR(actual, expected, tolerance)                                                                         \
   ::noctalia::test::checkNear(                                                                                         \

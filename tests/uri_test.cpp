@@ -100,7 +100,7 @@ int main() {
     // Resolve artwork through the consumer and decode the selected file, so a
     // different existing filename cannot silently satisfy the test.
     std::unordered_set<std::string> pending;
-    const auto artPath = mpris::resolveArtworkSource(nullptr, pending, test.input, []() {}, {});
+    const auto artPath = mpris::resolveArtworkSource(nullptr, pending, test.input, [] {}, {});
     const auto image = codecs::loadImageFile(artPath);
     ok = check(
              image && image->width == 1 && image->height == 1 && image->rgba == test.expected,

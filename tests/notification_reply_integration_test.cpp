@@ -53,6 +53,7 @@ int main() {
   std::string introXml;
   proxy1->callMethodAsync("Introspect")
       .onInterface(kIntrospectableInterface)
+      // NOLINTNEXTLINE(performance-unnecessary-value-param)
       .uponReplyInvoke([&](std::optional<sdbus::Error> error, std::string xml) {
         TEST_CHECK(!error.has_value());
         introXml = std::move(xml);
@@ -146,6 +147,7 @@ int main() {
           std::string{"Please reply"}, std::vector<std::string>{"inline-reply", "Reply"},
           std::map<std::string, sdbus::Variant>{}, int32_t{0}
       )
+      // NOLINTNEXTLINE(performance-unnecessary-value-param)
       .uponReplyInvoke([&](std::optional<sdbus::Error> error, uint32_t id) {
         TEST_CHECK(!error.has_value());
         notifId = id;
@@ -188,6 +190,7 @@ int main() {
           std::string{"New message"}, std::vector<std::string>{"inline-reply", "Reply"},
           std::map<std::string, sdbus::Variant>{}, int32_t{0}
       )
+      // NOLINTNEXTLINE(performance-unnecessary-value-param)
       .uponReplyInvoke([&](std::optional<sdbus::Error> error, uint32_t id) {
         TEST_CHECK(!error.has_value());
         updatedId = id;
@@ -227,6 +230,7 @@ int main() {
           std::string{"Ping"}, std::vector<std::string>{"inline-reply", "Reply"},
           std::map<std::string, sdbus::Variant>{}, int32_t{0}
       )
+      // NOLINTNEXTLINE(performance-unnecessary-value-param)
       .uponReplyInvoke([&](std::optional<sdbus::Error> error, uint32_t id) {
         TEST_CHECK(!error.has_value());
         client2NotifId = id;
@@ -263,6 +267,7 @@ int main() {
           std::string{"Identical Body"}, std::vector<std::string>{"inline-reply", "Reply"},
           std::map<std::string, sdbus::Variant>{}, int32_t{0}
       )
+      // NOLINTNEXTLINE(performance-unnecessary-value-param)
       .uponReplyInvoke([&](std::optional<sdbus::Error> error, uint32_t id) {
         TEST_CHECK(!error.has_value());
         dup1Id = id;
@@ -276,6 +281,7 @@ int main() {
           std::string{"Identical Body"}, std::vector<std::string>{"inline-reply", "Reply"},
           std::map<std::string, sdbus::Variant>{}, int32_t{0}
       )
+      // NOLINTNEXTLINE(performance-unnecessary-value-param)
       .uponReplyInvoke([&](std::optional<sdbus::Error> error, uint32_t id) {
         TEST_CHECK(!error.has_value());
         dup2Id = id;
@@ -337,6 +343,7 @@ int main() {
           std::string{"Click me"}, std::vector<std::string>{"default", "Open"}, std::map<std::string, sdbus::Variant>{},
           int32_t{0}
       )
+      // NOLINTNEXTLINE(performance-unnecessary-value-param)
       .uponReplyInvoke([&](std::optional<sdbus::Error> error, uint32_t id) {
         TEST_CHECK(!error.has_value());
         actionNotifId = id;

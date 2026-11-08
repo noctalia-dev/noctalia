@@ -976,7 +976,6 @@ _generated_headers = noctalia_ui_protocol_headers + _protocol_headers
 if git_program.found()
   _generated_headers += _git_revision_h
 endif
-alias_target('generated-headers', _generated_headers)
 
 # ── Include directories ────────────────────────────────────────────────────────
 _noctalia_inc = [
@@ -1132,6 +1131,8 @@ if build_tests
     output: 'text-input-test-server-protocol.h',
     command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
   )
+
+  _generated_headers += [_wlr_screencopy_test_server_h, _idle_test_server_h, _text_input_test_server_h]
 
   # Tests of lib/ code link only the UI library (and its codec pack).
   _ui_test_names = [
@@ -1538,3 +1539,5 @@ if build_tests
     workdir: meson.current_source_dir(),
   )
 endif # build_tests
+
+alias_target('generated-headers', _generated_headers)
