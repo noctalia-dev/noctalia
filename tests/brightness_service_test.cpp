@@ -626,10 +626,10 @@ namespace {
     fixture.service->setBrightness(display->id, 0.95F);
 
     const auto now = std::chrono::system_clock::now();
-    const auto sunsetAt = now + 3s;
+    const auto sunsetAt = now + 8s;
     fixture.location.customSchedule = true;
     fixture.location.sunset = clockHMS(sunsetAt);
-    fixture.location.sunrise = clockHMS(now + 9s);
+    fixture.location.sunrise = clockHMS(now + 14s);
     fixture.service->reload(fixture.config, fixture.location);
 
     TEST_CHECK(fixture.waitFor(
@@ -676,11 +676,11 @@ namespace {
 
     const auto now = std::chrono::system_clock::now();
     fixture.location.customSchedule = true;
-    fixture.location.sunset = clockHMS(now + 3s);
-    fixture.location.sunrise = clockHMS(now + 9s);
+    fixture.location.sunset = clockHMS(now + 8s);
+    fixture.location.sunrise = clockHMS(now + 14s);
     fixture.service->reload(fixture.config, fixture.location);
 
-    TEST_CHECK(fixture.waitFor([&now]() { return std::chrono::system_clock::now() > now + 5s; }, 10s));
+    TEST_CHECK(fixture.waitFor([&now]() { return std::chrono::system_clock::now() > now + 11s; }, 15s));
     fixture.service->reload(fixture.config, fixture.location);
 
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.9F); }, 30s));

@@ -68,12 +68,12 @@ int main() {
 
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> monitorEdit;
     monitorEdit.emplace_back(monitorDay, 0.9);
-    expect(config.setOverrides(std::move(monitorEdit)), "monitor day override writes");
+    expect(config.setOverrides(monitorEdit), "monitor day override writes");
     expect(config.hasOverride(monitorDay), "monitor day override present while it differs from global");
 
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> globalEdit;
     globalEdit.emplace_back(globalDay, 0.9);
-    expect(config.setOverrides(std::move(globalEdit)), "global day override writes");
+    expect(config.setOverrides(globalEdit), "global day override writes");
     expect(!config.hasOverride(monitorDay), "monitor day override pruned once global matches it");
   }
 
