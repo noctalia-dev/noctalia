@@ -65,7 +65,7 @@ start = [ "clock", "weather" ]
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> grouping;
     grouping.emplace_back(lanePath, std::vector<std::string>{"clock", "group:g1"});
     grouping.emplace_back(groupPath, std::vector<BarCapsuleGroupStyle>{group});
-    expect(config.setOverrides(std::move(grouping)), "grouping writes");
+    expect(config.setOverrides(grouping), "grouping writes");
 
     expect(config.hasOverride(lanePath), "lane override stored after grouping");
     expect(config.hasEffectiveOverride(lanePath), "lane override effective after grouping");
@@ -105,7 +105,7 @@ members = [ "network", "bluetooth" ]
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> grouping;
     grouping.emplace_back(lanePath, std::vector<std::string>{"clock", "group:g1"});
     grouping.emplace_back(groupPath, std::vector<BarCapsuleGroupStyle>{group});
-    expect(config.setOverrides(std::move(grouping)), "grouping writes (file group)");
+    expect(config.setOverrides(grouping), "grouping writes (file group)");
 
     // The lane list is back to its file value, so only the group array still overrides the lane's
     // content. The lane must keep reporting as overridden.
@@ -149,7 +149,7 @@ members = [ "battery", "clock" ]
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> edits;
     edits.emplace_back(lanePath, std::vector<std::string>{"clock", "group:g1", "group:g3"});
     edits.emplace_back(groupPath, std::vector<BarCapsuleGroupStyle>{first, second, third});
-    expect(config.setOverrides(std::move(edits)), "lane and groups overridden");
+    expect(config.setOverrides(edits), "lane and groups overridden");
     expect(config.hasEffectiveBarLaneOverride(lanePath), "start lane overridden through its groups");
     expect(config.hasEffectiveBarLaneOverride({"bar", "default", "end"}), "end lane overridden through g2");
 

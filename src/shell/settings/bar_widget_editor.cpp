@@ -16,6 +16,7 @@
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content.h"
+#include "shell/settings/settings_content_common.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "system/directory_scanner.h"
 #include "ui/builders.h"
@@ -79,17 +80,6 @@ namespace settings {
       std::shared_ptr<std::vector<Flex*>> itemNodes;
     };
 
-    std::unique_ptr<Label> makeLabel(
-        std::string_view text, float fontSize, const ColorSpec& color, FontWeight fontWeight = FontWeight::Normal
-    ) {
-      return ui::label({
-          .text = std::string(text),
-          .fontSize = fontSize,
-          .fontWeight = fontWeight,
-          .color = color,
-      });
-    }
-
     std::unique_ptr<Glyph> makeGlyph(std::string_view name, float glyphSize, const ColorSpec& color) {
       return ui::glyph({
           .glyph = std::string(name),
@@ -149,41 +139,6 @@ namespace settings {
 
     std::string widgetSettingGroupTitle(std::string_view groupKey) {
       return i18n::tr("settings.entities.widget.settings.groups." + std::string(groupKey));
-    }
-
-    constexpr std::string_view kGestureActionsGroup = "actions";
-
-    // The actions group is long (one row per bindable gesture) and most widgets never need it, so it
-    // starts folded. The open state lives on the settings window keyed by widget name: editing a
-    // binding rebuilds the scene, and a local flag would fold the group back up on every edit.
-    std::unique_ptr<Node> makeGestureActionsSection(
-        const BarWidgetEditorContext& ctx, const std::string& widgetName, std::unique_ptr<Node> body, bool withSeparator
-    ) {
-      // Same padding and gap as makeMiniSectionHeader, so this section sits like every other one.
-      auto section = ui::column({
-          .align = FlexAlign::Stretch,
-          .gap = Style::spaceXs * ctx.scale,
-          .configure = [scale = ctx.scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0F, 0.0F, 0.0F); },
-      });
-      if (withSeparator) {
-        section->addChild(ui::separator());
-      }
-
-      auto collapsible = std::make_unique<Collapsible>();
-      collapsible->setScale(ctx.scale);
-      // Flush left, matching the plain group headers above it.
-      collapsible->setHeaderPadding(0.0F, 0.0F);
-      collapsible->setHeader(makeLabel(
-          widgetSettingGroupTitle(kGestureActionsGroup), Style::fontSizeCaption * ctx.scale,
-          colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold
-      ));
-      collapsible->setBody(std::move(body));
-      collapsible->setExpandedImmediate(ctx.actionsExpandedFor == widgetName);
-      collapsible->setOnToggle([expandedFor = &ctx.actionsExpandedFor, widgetName](bool value) {
-        *expandedFor = value ? widgetName : std::string{};
-      });
-      section->addChild(std::move(collapsible));
-      return section;
     }
 
     std::unique_ptr<Node> makePathBrowseControl(
@@ -1312,7 +1267,7 @@ namespace settings {
     }
 
     void addRawWidgetSettings(
-        Flex& panel, std::string_view widgetName, const std::vector<WidgetSettingSpec>& specs,
+        Flex& parent, std::string_view widgetName, const std::vector<WidgetSettingSpec>& specs,
         std::size_t& visibleSpecs, const BarWidgetEditorContext& ctx
     ) {
       if (!ctx.showAdvanced) {
@@ -1348,21 +1303,8 @@ namespace settings {
       }
       std::ranges::sort(rawKeys);
 
-      panel.addChild(
-          ui::column(
-              {
-                  .align = FlexAlign::Stretch,
-                  .gap = 1.0F * ctx.scale,
-                  .paddingV = Style::spaceXs * ctx.scale,
-                  .paddingH = 0,
-              },
-              makeLabel(
-                  i18n::tr("settings.entities.widget.raw.title"), Style::fontSizeCaption * ctx.scale,
-                  colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold
-              ),
-              makeSettingSubtitleLabel(i18n::tr("settings.entities.widget.raw.description"), ctx.scale)
-          )
-      );
+      Flex& panel = *addSettingsCard(parent, i18n::tr("settings.entities.widget.raw.title"), ctx.scale);
+      panel.addChild(makeSettingSubtitleLabel(i18n::tr("settings.entities.widget.raw.description"), ctx.scale));
 
       for (const auto& key : rawKeys) {
         const auto valueIt = widgetIt->second.settings.find(key);
@@ -1442,13 +1384,19 @@ namespace settings {
         return;
       }
 
-      auto panel = ui::column({
+      // Same collapsible group cards as the settings pages. A widget opened for the first time
+      // starts with its first group expanded, or all of them with settings_expand_all_groups.
+      auto sections = ui::column({
           .align = FlexAlign::Stretch,
-          .gap = Style::spaceXs * ctx.scale,
+          .gap = Style::spaceSm * ctx.scale,
       });
+      auto [expandedIt, freshWidget] = ctx.expandedWidgetGroups.try_emplace(widgetName);
+      auto& expandedGroups = expandedIt->second;
 
       std::size_t visibleSpecs = 0;
       std::string activeGroupKey;
+      // Body of the group card being filled; every control below appends to it.
+      Flex* panel = nullptr;
       // Coalesce specs by group so each group header renders once regardless of spec declaration order.
       const auto specOrder = coalesceByGroupKey(specs.size(), [&](std::size_t i) { return specs[i].group; });
       const bool barHorizontal =
@@ -1478,12 +1426,20 @@ namespace settings {
           continue;
         }
 
-        if (spec.group != activeGroupKey) {
-          // The actions group folds, and carries its title in the collapsible's own header.
-          if (spec.group != kGestureActionsGroup) {
-            panel->addChild(makeMiniSectionHeader(widgetSettingGroupTitle(spec.group), ctx.scale, visibleSpecs > 0));
+        if (panel == nullptr || spec.group != activeGroupKey) {
+          if (freshWidget && (panel == nullptr || ctx.config.shell.settingsExpandAllGroups)) {
+            expandedGroups.insert(spec.group);
           }
           activeGroupKey = spec.group;
+          panel = addSettingsGroupCard(
+              SettingsGroupCardProps{
+                  .parent = *sections,
+                  .group = spec.group,
+                  .title = widgetSettingGroupTitle(spec.group),
+                  .scale = ctx.scale,
+                  .expandedGroups = expandedGroups,
+              }
+          );
         }
 
         const auto value = widgetSettingValue(ctx.config, widgetName, spec);
@@ -1545,22 +1501,21 @@ namespace settings {
         switch (spec.control) {
         case WidgetControlKind::Bool: {
           const bool resolved = settingValueAsBool(value);
+          std::unique_ptr<Node> control;
           if (spec.schema.inheritsFromBar) {
             std::optional<bool> explicitValue;
             if (widgetConfig != nullptr && widgetConfig->settings.contains(spec.schema.key)) {
               explicitValue = resolved;
             }
-            ctx.makeRow(
-                *panel, entry,
-                makeInheritedBoolControl(ctx, path, explicitValue, settingValueAsBool(spec.schema.defaultValue))
-            );
-            break;
+            control = makeInheritedBoolControl(ctx, path, explicitValue, settingValueAsBool(spec.schema.defaultValue));
+          } else {
+            std::optional<bool> clearWhenValue;
+            if (const auto* defaultBool = std::get_if<bool>(&spec.schema.defaultValue)) {
+              clearWhenValue = *defaultBool;
+            }
+            control = ctx.makeToggle(resolved, path, clearWhenValue);
           }
-          std::optional<bool> clearWhenValue;
-          if (const auto* defaultBool = std::get_if<bool>(&spec.schema.defaultValue)) {
-            clearWhenValue = *defaultBool;
-          }
-          ctx.makeRow(*panel, entry, ctx.makeToggle(resolved, path, clearWhenValue));
+          ctx.makeRow(*panel, entry, std::move(control));
           break;
         }
         case WidgetControlKind::Int: {
@@ -1699,11 +1654,9 @@ namespace settings {
                 configured = tableIt->second;
               }
             }
-            auto body = ui::column({.align = FlexAlign::Stretch});
             addGestureActionRows(
-                *body, ctx, entry, defaults, configured, noctalia::bar::reservedGesturesForType(widgetType)
+                *panel, ctx, entry, defaults, configured, noctalia::bar::reservedGesturesForType(widgetType)
             );
-            panel->addChild(makeGestureActionsSection(ctx, widgetName, std::move(body), visibleSpecs > 0));
             break;
           }
           const bool effectsProfileGlyphs = spec.schema.key == "effects_profile_glyphs";
@@ -1793,16 +1746,16 @@ namespace settings {
         ++visibleSpecs;
       }
 
-      addRawWidgetSettings(*panel, widgetName, specs, visibleSpecs, ctx);
+      addRawWidgetSettings(*sections, widgetName, specs, visibleSpecs, ctx);
 
       if (visibleSpecs == 0) {
-        panel->addChild(makeLabel(
+        sections->addChild(makeLabel(
             i18n::tr("settings.entities.widget.settings.empty"), Style::fontSizeCaption * ctx.scale,
             colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
         ));
       }
 
-      item.addChild(std::move(panel));
+      item.addChild(std::move(sections));
     }
 
     void addInspectorPane(Flex& body, const std::vector<std::string>& laneListPath, const BarWidgetEditorContext& ctx) {

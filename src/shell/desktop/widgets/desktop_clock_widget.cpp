@@ -425,7 +425,9 @@ void DesktopClockWidget::layoutDigital(Renderer& renderer) {
     m_digitalRoot->setSize(m_label->width(), m_label->height());
   }
   if (root() != nullptr && m_digitalRoot != nullptr) {
-    root()->setSize(m_digitalRoot->width(), m_digitalRoot->height());
+    // Include the shadow offset so a tight widget box fits the shadow instead of clipping it.
+    const float shadowPad = m_shadow ? kShadowOffset * contentScale() : 0.0F;
+    root()->setSize(m_digitalRoot->width() + shadowPad, m_digitalRoot->height() + shadowPad);
   }
 }
 
@@ -517,7 +519,7 @@ bool DesktopClockWidget::applySetting(
       m_shadow = *v;
       applyShadow();
       syncAnalogColors();
-      requestRedraw();
+      requestLayout();
       return true;
     }
     return false;

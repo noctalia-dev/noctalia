@@ -210,6 +210,39 @@ namespace capture {
       return nullptr;
     }
 
+    std::optional<LogicalRect> globalDesktopBounds(const WaylandConnection& wayland) {
+      bool any = false;
+      int minX = 0;
+      int minY = 0;
+      int maxX = 0;
+      int maxY = 0;
+      for (const auto& out : wayland.outputs()) {
+        if (out.output == nullptr || out.logicalWidth <= 0 || out.logicalHeight <= 0) {
+          continue;
+        }
+        const int x0 = out.logicalX;
+        const int y0 = out.logicalY;
+        const int x1 = out.logicalX + out.logicalWidth;
+        const int y1 = out.logicalY + out.logicalHeight;
+        if (!any) {
+          minX = x0;
+          minY = y0;
+          maxX = x1;
+          maxY = y1;
+          any = true;
+          continue;
+        }
+        minX = std::min(minX, x0);
+        minY = std::min(minY, y0);
+        maxX = std::max(maxX, x1);
+        maxY = std::max(maxY, y1);
+      }
+      if (!any) {
+        return std::nullopt;
+      }
+      return LogicalRect{.x = minX, .y = minY, .width = maxX - minX, .height = maxY - minY};
+    }
+
     std::string outputPickerLabel(const WaylandOutput& output) {
       if (!output.connectorName.empty()) {
         return output.connectorName;
@@ -804,6 +837,10 @@ namespace capture {
       if (!key.pressed) {
         return;
       }
+      if (KeybindMatcher::matches(KeybindAction::Cancel, key.sym, key.modifiers)) {
+        cancelSelection();
+        return;
+      }
       if (m_confirming) {
         if (KeybindMatcher::matches(KeybindAction::Copy, key.sym, key.modifiers)) {
           DeferredCall::callLater([this] { confirmPendingSelection(ConfirmAction::ForceClipboard); });
@@ -818,8 +855,8 @@ namespace capture {
           return;
         }
       }
-      if (KeybindMatcher::matches(KeybindAction::Cancel, key.sym, key.modifiers)) {
-        cancelSelection();
+      if (KeybindMatcher::matches(KeybindAction::SelectAll, key.sym, key.modifiers)) {
+        DeferredCall::callLater([this] { selectEntireDesktop(); });
       }
     });
 
@@ -1010,15 +1047,22 @@ namespace capture {
       cancelSelection();
       return;
     }
-    if (!m_confirming) {
-      return;
+    if (m_confirming) {
+      if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
+        confirmPendingSelection(ConfirmAction::ForceClipboard);
+        return;
+      }
+      if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
+        confirmPendingSelection(ConfirmAction::ForceSave);
+        return;
+      }
+      if (KeySymbol::isEnterOrSpace(event.sym)) {
+        confirmPendingSelection(ConfirmAction::None);
+        return;
+      }
     }
-    if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
-      confirmPendingSelection(ConfirmAction::ForceClipboard);
-    } else if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
-      confirmPendingSelection(ConfirmAction::ForceSave);
-    } else if (KeySymbol::isEnterOrSpace(event.sym)) {
-      confirmPendingSelection(ConfirmAction::None);
+    if (KeybindMatcher::matches(KeybindAction::SelectAll, event.sym, event.modifiers)) {
+      selectEntireDesktop();
     }
   }
 
@@ -1249,6 +1293,23 @@ namespace capture {
     if (m_onComplete) {
       m_onComplete(region, nullptr, ConfirmAction::None);
     }
+  }
+
+  void ScreenshotRegionOverlay::selectEntireDesktop() {
+    if (!m_active || m_fullscreenPick || m_wayland == nullptr) {
+      return;
+    }
+    const auto bounds = globalDesktopBounds(*m_wayland);
+    if (!bounds.has_value() || bounds->width < 2 || bounds->height < 2) {
+      return;
+    }
+    m_dragging = false;
+    m_dragMode = DragMode::None;
+    m_startGlobalX = static_cast<double>(bounds->x);
+    m_startGlobalY = static_cast<double>(bounds->y);
+    m_currentGlobalX = static_cast<double>(bounds->x + bounds->width);
+    m_currentGlobalY = static_cast<double>(bounds->y + bounds->height);
+    completeSelection();
   }
 
   void ScreenshotRegionOverlay::confirmPendingSelection(ConfirmAction action) {

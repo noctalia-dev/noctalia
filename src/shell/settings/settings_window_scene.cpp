@@ -939,7 +939,7 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .renamingWidgetName = m_renamingWidgetName,
       .pendingGestureKey = m_pendingGestureKey,
       .pendingGestureVerb = m_pendingGestureVerb,
-      .actionsExpandedFor = m_actionsExpandedFor,
+      .expandedWidgetGroups = m_expandedWidgetGroups,
       .expandedGroupsByPage = m_expandedSettingGroups,
       .pageTitleRow = m_pageTitleRow,
       .groupJumpRow = m_groupJumpRow,
@@ -1172,6 +1172,7 @@ void SettingsWindow::rebuildSettingsContent() {
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
+            .openBrowserUrl = [this](const std::string& url) { openBrowserUrl(url); },
             .autoUpdateMode = cfg.plugins.autoUpdate,
             .setAutoUpdate =
                 [this](PluginAutoUpdateMode mode) {

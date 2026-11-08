@@ -4,7 +4,7 @@
 
 namespace {
 
-  std::array<std::optional<KeybindMatcher::Matcher>, 13> g_matchers{};
+  std::array<std::optional<KeybindMatcher::Matcher>, 14> g_matchers{};
 
 } // namespace
 

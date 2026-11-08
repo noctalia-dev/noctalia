@@ -144,6 +144,21 @@ void Application::scheduleNotificationShellRefresh() {
   });
 }
 
+void Application::syncLockScreenDoNotDisturb() {
+  const bool shouldEnable = m_lockScreen.isActive() && m_configService.config().lockscreen.dnd;
+  if (shouldEnable) {
+    if (!m_notificationManager.doNotDisturb()) {
+      m_lockScreenAutoDnd = true;
+      m_notificationManager.setDoNotDisturb(true);
+    }
+    return;
+  }
+  if (m_lockScreenAutoDnd) {
+    m_lockScreenAutoDnd = false;
+    m_notificationManager.setDoNotDisturb(false);
+  }
+}
+
 void Application::syncNotificationDaemon() {
   if (m_bus == nullptr) {
     m_notificationPollSource.setDbusService(nullptr);
@@ -858,6 +873,7 @@ void Application::initStyleThemeAndWayland() {
   KeybindMatcher::setMatcher(KeybindAction::CategoryPrevious, bindKeybind(KeybindAction::CategoryPrevious));
   KeybindMatcher::setMatcher(KeybindAction::Copy, bindKeybind(KeybindAction::Copy));
   KeybindMatcher::setMatcher(KeybindAction::Save, bindKeybind(KeybindAction::Save));
+  KeybindMatcher::setMatcher(KeybindAction::SelectAll, bindKeybind(KeybindAction::SelectAll));
   KeybindMatcher::setMatcher(KeybindAction::Delete, bindKeybind(KeybindAction::Delete));
 
   Input::setValidateKeyMatcher([this](std::uint32_t sym, std::uint32_t modifiers) {

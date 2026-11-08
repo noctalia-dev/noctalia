@@ -1000,8 +1000,8 @@ namespace noctalia::config {
       constexpr std::uint64_t kPrime = 1099511628211ULL;
       std::uint64_t hash = kOffset;
       const auto append = [&hash](std::string_view value) {
-        for (const unsigned char byte : value) {
-          hash ^= byte;
+        for (const char ch : value) {
+          hash ^= static_cast<unsigned char>(ch);
           hash *= kPrime;
         }
       };

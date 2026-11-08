@@ -69,11 +69,17 @@ end)
 
 ## Application icons
 
-| Method                                | Returns         | Description                                                                                                   |
-| ------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
-| `noctalia.appIconPath(appId, sizePx)` | string or `nil` | Resolves an app id to an icon file path with the same lookup the built-in taskbar uses. `sizePx` is optional. |
+| Method                                | Returns         | Description                                                                                               |
+| ------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------- |
+| `noctalia.appIconPath(appId, sizePx)` | string or `nil` | Resolves an app id, a raw icon name, or an absolute icon path to an icon file path. `sizePx` is optional. |
 
-The lookup matches `appId` against desktop entries (entry id, then `StartupWMClass`) to find the icon name, then resolves it through the host's XDG icon-theme resolver. Input that matches no desktop entry is treated as a raw icon name, so themed icons such as `"folder-music"` resolve directly. `sizePx` is the intended on-screen pixel size and selects the best-fitting theme size; without it the largest available icon wins.
+An absolute path is returned as-is if the file exists, otherwise `nil`. Any other input is resolved in this order, and the first icon found wins:
+
+1. An exact desktop-entry match (entry id or `StartupWMClass`, then display name) supplies the icon name.
+2. The input itself as a raw icon name, so themed icons such as `"folder-music"` resolve directly.
+3. The taskbar's fuzzy app-id matching, so window app ids such as `.foo-wrapped` still find their desktop entry.
+
+Icon names resolve through the host's XDG icon-theme resolver. `sizePx` is the intended on-screen pixel size and selects the best-fitting theme size; without it the largest available icon wins.
 
 The returned path plugs straight into a `ui.image` `path` prop. Resolution scans the filesystem on a cache miss, so cache results keyed by app id instead of resolving on every `update()`.
 
@@ -180,19 +186,19 @@ if stats ~= nil then
 end
 ```
 
-| Field                                                                      | Type   | Notes                                                                                                                                                |
-| -------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sampledAtMs`                                                              | number | Unix epoch milliseconds for the latest aggregate sample. Absent until the first sample. Requires <PluginApiBadge feature="extended-system-stats" />. |
-| `cpu.usagePercent`                                                         | number | Aggregate CPU busy percentage, 0-100.                                                                                                                |
-| `cpu.tempC`                                                                | number | Absent when no CPU temperature sensor was found.                                                                                                     |
-| `cpu.freqMhz`                                                              | number | Average current CPU frequency in MHz. Absent when CPU frequency data is unavailable.                                                                 |
-| `cpu.maxFreqMhz`                                                           | number | Highest detected CPU frequency ceiling in MHz. Absent when unavailable.                                                                              |
-| `ram.usagePercent`, `ram.usedMb`, `ram.totalMb`                            | number |                                                                                                                                                      |
-| `swap.usedMb`, `swap.totalMb`                                              | number |                                                                                                                                                      |
-| `gpu.tempC`, `gpu.usagePercent`, `gpu.vramUsedBytes`, `gpu.vramTotalBytes` | number | Each is absent when that GPU probe is unavailable.                                                                                                   |
-| `net.rxBytesPerSec`, `net.txBytesPerSec`                                   | number | Totalled across interfaces.                                                                                                                          |
-| `net.interfaces`                                                           | table  | Receive/transmit rates keyed by interface name. Requires <PluginApiBadge feature="extended-system-stats" />.                                         |
-| `loadAvg`                                                                  | array  | The 1, 5, and 15 minute load averages.                                                                                                               |
+| Field                                                                      | Type   | Notes                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sampledAtMs`                                                              | number | Unix epoch milliseconds for the latest aggregate sample. Absent until the first sample. It advances whenever any metric group is sampled, so it does not show whether the `gpu` fields are fresh. Requires <PluginApiBadge feature="extended-system-stats" />. |
+| `cpu.usagePercent`                                                         | number | Aggregate CPU busy percentage, 0-100.                                                                                                                                                                                                                          |
+| `cpu.tempC`                                                                | number | Absent when no CPU temperature sensor was found.                                                                                                                                                                                                               |
+| `cpu.freqMhz`                                                              | number | Average current CPU frequency in MHz. Absent when CPU frequency data is unavailable.                                                                                                                                                                           |
+| `cpu.maxFreqMhz`                                                           | number | Highest detected CPU frequency ceiling in MHz. Absent when unavailable.                                                                                                                                                                                        |
+| `ram.usagePercent`, `ram.usedMb`, `ram.totalMb`                            | number |                                                                                                                                                                                                                                                                |
+| `swap.usedMb`, `swap.totalMb`                                              | number |                                                                                                                                                                                                                                                                |
+| `gpu.tempC`, `gpu.usagePercent`, `gpu.vramUsedBytes`, `gpu.vramTotalBytes` | number | Each is absent when that GPU probe is unavailable.                                                                                                                                                                                                             |
+| `net.rxBytesPerSec`, `net.txBytesPerSec`                                   | number | Totalled across interfaces.                                                                                                                                                                                                                                    |
+| `net.interfaces`                                                           | table  | Receive/transmit rates keyed by interface name. Requires <PluginApiBadge feature="extended-system-stats" />.                                                                                                                                                   |
+| `loadAvg`                                                                  | array  | The 1, 5, and 15 minute load averages.                                                                                                                                                                                                                         |
 
 Absent sensors are `nil` rather than `0`, so a plugin can tell "no probe" from "idle". Test with `if stats.gpu.tempC ~= nil then` before using an optional field. A newly enabled probe may remain `nil` until its first configured poll.
 

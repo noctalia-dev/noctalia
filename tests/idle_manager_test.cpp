@@ -48,7 +48,7 @@ namespace {
       TEST_CHECK(setenv("WAYLAND_SOCKET", socket.c_str(), 1) == 0);
       TEST_CHECK(wl_global_create(m_display, &wl_seat_interface, 7, this, &bindSeat) != nullptr);
       TEST_CHECK(wl_global_create(m_display, &ext_idle_notifier_v1_interface, 1, this, &bindNotifier) != nullptr);
-      m_thread = std::jthread([this](std::stop_token stop) {
+      m_thread = std::jthread([this](const std::stop_token& stop) {
         auto* loop = wl_display_get_event_loop(m_display);
         while (!stop.stop_requested()) {
           TEST_CHECK(wl_event_loop_dispatch(loop, 10) >= 0 || errno == EINTR);

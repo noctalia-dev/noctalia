@@ -1098,9 +1098,6 @@
           "groups": {
             "actions": "Eylemler",
             "behavior": "Davranış",
-            "grouping": "Gruplama",
-            "presentation": "Görünüm",
-            "runtime": "Çalışma Zamanı",
             "taskbar": {
               "grouping": "Gruplama",
               "windows": "Pencereler",

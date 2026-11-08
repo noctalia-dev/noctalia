@@ -133,6 +133,7 @@ namespace noctalia::config::schema {
     static const Schema<LockscreenConfig> s = {
         field(&LockscreenConfig::enabled, "enabled"),
         field(&LockscreenConfig::lockBeforeSuspend, "lock_before_suspend"),
+        field(&LockscreenConfig::dnd, "dnd"),
         field(&LockscreenConfig::gracePeriodSeconds, "grace_period_seconds", Range<std::int64_t>{0, 60}),
         field(&LockscreenConfig::fingerprint, "fingerprint"),
         field(&LockscreenConfig::allowEmptyPassword, "allow_empty_password"),
@@ -298,6 +299,7 @@ namespace noctalia::config::schema {
         field(&NotificationConfig::showAppName, "show_app_name"),
         field(&NotificationConfig::colorizeIcons, "colorize_icons"),
         field(&NotificationConfig::showActions, "show_actions"),
+        field(&NotificationConfig::showProgressBar, "show_progress_bar"),
         field(&NotificationConfig::groupByApp, "group_by_app"),
         field(&NotificationConfig::position, "position"),
         field(&NotificationConfig::layer, "layer"),
@@ -1035,6 +1037,7 @@ namespace noctalia::config::schema {
         keybindActionField(&KeybindsConfig::deleteEntry, "delete", KeybindAction::Delete),
         keybindActionField(&KeybindsConfig::copy, "copy", KeybindAction::Copy),
         keybindActionField(&KeybindsConfig::save, "save", KeybindAction::Save),
+        keybindActionField(&KeybindsConfig::selectAll, "select_all", KeybindAction::SelectAll),
     };
     return s;
   }
@@ -1661,6 +1664,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::ScreenshotConfig::pipeCommand, "pipe_command"),
           field(&ShellConfig::ScreenshotConfig::directory, "directory"),
           field(&ShellConfig::ScreenshotConfig::filenamePattern, "filename_pattern"),
+          field(&ShellConfig::ScreenshotConfig::appendModeSuffix, "append_mode_suffix"),
           enumField(&ShellConfig::ScreenshotConfig::format, "format", kScreenshotFormats),
           field(&ShellConfig::ScreenshotConfig::quality, "quality", kScreenshotQualityRange),
       };

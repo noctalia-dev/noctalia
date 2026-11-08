@@ -40,6 +40,30 @@ int main() {
         && ok;
   }
 
+  // ---- declined detection reads only the authenticated user's attendee entry ----
+  {
+    const auto item = nlohmann::json::parse(R"({"attendees": [
+      {"email": "organizer@example.com", "organizer": true, "responseStatus": "accepted"},
+      {"email": "me@example.com", "self": true, "responseStatus": "declined"}
+    ]})");
+    ok = expect(calendar::detail::googleEventDeclinedBySelf(item), "a self-declined event was not detected") && ok;
+  }
+  {
+    const auto item = nlohmann::json::parse(R"({"attendees": [
+      {"email": "other@example.com", "responseStatus": "declined"},
+      {"email": "me@example.com", "self": true, "responseStatus": "accepted"}
+    ]})");
+    ok = expect(!calendar::detail::googleEventDeclinedBySelf(item), "another attendee's decline was attributed to self")
+        && ok;
+  }
+  {
+    ok = expect(
+             !calendar::detail::googleEventDeclinedBySelf(nlohmann::json::object()),
+             "an event without attendees was treated as declined"
+         )
+        && ok;
+  }
+
   // ---- useDefault falls back to the calendar defaults ----
   {
     const auto item = nlohmann::json::parse(R"({"reminders": {"useDefault": true}})");

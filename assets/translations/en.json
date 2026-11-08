@@ -1332,9 +1332,10 @@
           "groups": {
             "actions": "Actions",
             "behavior": "Behavior",
-            "grouping": "Grouping",
-            "presentation": "Presentation",
-            "runtime": "Runtime",
+            "capsule": "Capsule",
+            "colors": "Colors",
+            "content": "Content",
+            "size-text": "Size and Text",
             "taskbar": {
               "grouping": "Grouping",
               "windows": "Windows",
@@ -2578,6 +2579,10 @@
           "description": "Reveal launcher categories when hidden, then cycle to the previous category or Control Center tab",
           "label": "Category Previous"
         },
+        "select-all": {
+          "description": "Select the entire desktop during region screenshot capture",
+          "label": "Select All"
+        },
         "tab-next": {
           "description": "Move focus to the next control",
           "label": "Focus Next"
@@ -2607,6 +2612,10 @@
         "blurred-desktop": {
           "description": "Use a snapshot of the desktop as the lock screen background",
           "label": "Desktop Capture"
+        },
+        "dnd": {
+          "description": "Enable Do Not Disturb while the session is locked; the previous state is restored on unlock",
+          "label": "Do Not Disturb"
         },
         "edge-smoothness": {
           "description": "Feathering of the lock screen transition edges",
@@ -2760,6 +2769,10 @@
         "show-app-name": {
           "description": "Show the sending application's name in notification toasts",
           "label": "Show App Name"
+        },
+        "show-progress-bar": {
+          "description": "Show the progress bar on notification toasts for the remaining timeout, and as a static accent on persistent critical toasts",
+          "label": "Show Progress Bar"
         },
         "toast-opacity": {
           "description": "Background opacity of notification toasts",
@@ -3656,6 +3669,10 @@
         "screenshot-annotate": {
           "description": "Open the annotation editor on every screenshot; Done applies the save, clipboard, and pipe settings",
           "label": "Annotate Before Delivering"
+        },
+        "screenshot-append-mode-suffix": {
+          "description": "Append a capture-mode suffix such as -region, -annotated, -window, or -desktop to saved filenames",
+          "label": "Append Mode Suffix"
         },
         "screenshot-close-on-copy": {
           "description": "Close after a successful copy from the editor, including when opened directly",
@@ -4708,6 +4725,10 @@
         "empty-color": {
           "description": "Color role used for empty workspaces; fixed hex colors are also supported",
           "label": "Empty Color"
+        },
+        "empty-label": {
+          "description": "Text shown when no window is focused; leave empty to show \"No active window\"",
+          "label": "Empty Label"
         },
         "enable-scroll": {
           "description": "Allow mouse wheel and trackpad scroll actions on this widget",

@@ -71,7 +71,7 @@ start = [ "clock", "weather" ]
     edits.emplace_back(
         std::vector<std::string>{"bar", "default", "capsule_group"}, std::vector<BarCapsuleGroupStyle>{group}
     );
-    expect(config.setOverrides(std::move(edits)), "group override writes");
+    expect(config.setOverrides(edits), "group override writes");
   }
 
   {

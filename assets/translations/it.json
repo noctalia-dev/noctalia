@@ -1258,9 +1258,6 @@
           "groups": {
             "actions": "Azioni",
             "behavior": "Comportamento",
-            "grouping": "Raggruppamento",
-            "presentation": "Visualizzazione",
-            "runtime": "Runtime",
             "taskbar": {
               "grouping": "Raggruppamento",
               "windows": "Finestre",

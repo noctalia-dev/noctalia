@@ -231,9 +231,10 @@ namespace {
   std::string sanitizeConnectorFileToken(std::string_view name) {
     std::string out;
     out.reserve(name.size());
-    for (const unsigned char c : name) {
+    for (const char ch : name) {
+      const auto c = static_cast<unsigned char>(ch);
       if (std::isalnum(c) || c == '-' || c == '_' || c == '.') {
-        out.push_back(static_cast<char>(c));
+        out.push_back(ch);
       } else {
         out.push_back('_');
       }

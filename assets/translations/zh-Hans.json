@@ -1324,9 +1324,6 @@
           "groups": {
             "actions": "操作",
             "behavior": "行为",
-            "grouping": "组合",
-            "presentation": "外观",
-            "runtime": "运行时",
             "taskbar": {
               "grouping": "分组",
               "windows": "窗口",

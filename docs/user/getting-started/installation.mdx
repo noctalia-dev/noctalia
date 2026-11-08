@@ -71,12 +71,31 @@ sudo dnf install noctalia-git
 
 ## openSUSE {#opensuse}
 
-Noctalia is available in the official openSUSE repository.
+Noctalia is available in the official openSUSE repository (for **Tumbleweed** and **Slowroll**)
 
-```bash
-sudo zypper refresh
-sudo zypper install noctalia
-```
+<Tabs>
+  <TabItem label="Tumbleweed">
+    ```bash
+    sudo zypper refresh
+    sudo zypper install noctalia
+    ```
+  </TabItem>
+
+  <TabItem label="Slowroll">
+    ```bash
+    sudo zypper refresh
+    sudo zypper install noctalia
+    ```
+  </TabItem>
+
+  <TabItem label="Leap 16.0">
+    ```bash
+    sudo zypper addrepo --refresh --name 'Noctalia Project' https://download.opensuse.org/repositories/home:neifua:Noctalia/16.0/home:neifua:Noctalia.repo
+    sudo zypper refresh
+    sudo zypper install noctalia
+    ```
+  </TabItem>
+</Tabs>
 
 ##### An alternate version using git snapshots is available from the [home\:neifua:Noctalia](https://build.opensuse.org/project/show/home\:neifua\:Noctalia) repository on OBS.
 
@@ -94,6 +113,12 @@ sudo zypper install noctalia
     sudo zypper addrepo --refresh --name 'Noctalia Project' https://download.opensuse.org/repositories/home:neifua:Noctalia/openSUSE_Slowroll/home:neifua:Noctalia.repo
     ```
   </TabItem>
+
+  <TabItem label="Leap 16.0">
+    ```bash
+    sudo zypper addrepo --refresh --name 'Noctalia Project' https://download.opensuse.org/repositories/home:neifua:Noctalia/16.0/home:neifua:Noctalia.repo
+    ```
+  </TabItem>
 </Tabs>
 
 **Step 2**: Refresh and install noctalia-git
@@ -102,10 +127,6 @@ sudo zypper install noctalia
 sudo zypper refresh
 sudo zypper install noctalia-git
 ```
-
-:::note
-v5 will only be available for **Tumbleweed** and **Slowroll**. **Leap 16.0** is unable to build because ***sdbus-c++*** is still on v1.6.0 while v5 requires >= v2.x.x
-:::
 
 ---
 
@@ -198,6 +219,12 @@ wget https://pkg.noctalia.dev/deb/nickh-archive-keyring.deb && sudo dpkg -i nick
   <TabItem label="Ubuntu 26.04">
     ```bash
     sudo wget -O /etc/apt/sources.list.d/noctalia-resolute.sources https://pkg.noctalia.dev/deb/noctalia-resolute.sources
+    ```
+  </TabItem>
+
+  <TabItem label="Ubuntu 26.10">
+    ```bash
+    sudo wget -O /etc/apt/sources.list.d/noctalia-stonking.sources https://pkg.noctalia.dev/deb/noctalia-stonking.sources
     ```
   </TabItem>
 </Tabs>

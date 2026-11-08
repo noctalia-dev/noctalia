@@ -1862,9 +1862,8 @@ void TaskbarWidget::updateModels() {
         item.workspace = workspaces[i];
         item.hostOutput = wo.output;
         const std::string fallbackLabel = workspaceLabel(item.workspace, i);
-        const std::string label = compositors::isKde() && item.workspace.index > 0
-            ? std::to_string(item.workspace.index)
-            : (i < displayKeys.size() && !displayKeys[i].empty() ? displayKeys[i] : fallbackLabel);
+        const std::string_view displayKey = i < displayKeys.size() ? displayKeys[i] : std::string_view{};
+        const std::string label = workspaceGroupLabel(item.workspace, i, displayKey, m_configOptions.labelSource);
         const std::string baseKey = compositors::isKde() && !item.workspace.id.empty()
             ? item.workspace.id
             : (i < displayKeys.size() && !displayKeys[i].empty() ? displayKeys[i] : fallbackLabel);
@@ -3365,6 +3364,18 @@ std::string TaskbarWidget::workspaceLabel(const Workspace& workspace, std::size_
   return std::to_string(index + 1);
 }
 
+std::string TaskbarWidget::workspaceGroupLabel(
+    const Workspace& workspace, std::size_t index, std::string_view displayKey, TaskbarLabelSource source
+) {
+  if (source == TaskbarLabelSource::Id) {
+    return workspace.index > 0 ? std::to_string(workspace.index) : workspaceLabel(workspace, index);
+  }
+  if (!displayKey.empty()) {
+    return std::string(displayKey);
+  }
+  return !workspace.name.empty() ? workspace.name : workspaceLabel(workspace, index);
+}
+
 TaskbarWidget::ModelComparison TaskbarWidget::compareModels(
     bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
     const std::vector<WorkspaceModel>& previousWorkspaces, const std::vector<TaskModel>& nextTasks,
@@ -3574,8 +3585,8 @@ void TaskbarWidget::activateAdjacentTask(int direction) {
     return;
   }
 
-  const size_t activeTaskIndex =
-      std::ranges::find_if(m_tasks, [](const TaskModel& t) { return t.active; }) - m_tasks.begin();
+  const auto activeTaskIndex =
+      static_cast<size_t>(std::ranges::find_if(m_tasks, [](const TaskModel& t) { return t.active; }) - m_tasks.begin());
   if (activeTaskIndex >= m_tasks.size()) {
     return;
   }

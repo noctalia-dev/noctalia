@@ -9,11 +9,11 @@
 
 #include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
-#include <signal.h>
 #include <string>
 #include <sys/types.h>
 #include <thread>

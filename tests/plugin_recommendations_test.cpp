@@ -238,7 +238,7 @@ namespace {
 
     http.setOfflineMode(true);
     readDone = false;
-    http.request(request, [&](HttpResponse response) {
+    http.request(request, [&](const HttpResponse& response) {
       TEST_CHECK(!response.transportOk);
       readDone = true;
     });

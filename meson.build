@@ -70,9 +70,10 @@ cairo_dep           = dependency('cairo')
 pango_dep           = dependency('pango', version: '>=1.50')
 pangocairo_dep      = dependency('pangocairo')
 xkbcommon_dep       = dependency('xkbcommon')
-glib_dep            = dependency('glib-2.0')
-gobject_dep         = dependency('gobject-2.0')
-gio_dep             = dependency('gio-2.0')
+# glib headers use C2y extensions that Clang flags under -Wpedantic; mark as system.
+glib_dep            = dependency('glib-2.0', include_type: 'system')
+gobject_dep         = dependency('gobject-2.0', include_type: 'system')
+gio_dep             = dependency('gio-2.0', include_type: 'system')
 libsecret_dep       = dependency('libsecret-1', version: '>=0.20')
 libsodium_dep       = dependency('libsodium', version: '>=1.0.18')
 polkit_agent_dep    = dependency('polkit-agent-1')
@@ -184,7 +185,8 @@ else
   _mcu_lib = static_library('material_color_utilities',
     _mcu_sources,
     include_directories: include_directories('third_party/material_color_utilities', is_system: true),
-    cpp_args: ['-Wno-pedantic', '-Wno-conversion', '-Wno-shadow', '-Wno-unused-parameter'],
+    cpp_args: ['-Wno-pedantic', '-Wno-conversion', '-Wno-shadow', '-Wno-unused-parameter']
+      + cpp.get_supported_arguments('-Wno-absolute-value'),
     override_options: ['warning_level=0'],
   )
   mcu_dep = declare_dependency(
@@ -306,8 +308,11 @@ _noctalia_compile_definitions = [
 # PipeWire's pkg-config adds -fno-strict-aliasing and -fno-strict-overflow to
 # every target that uses it. lib/ does not depend on PipeWire, so both trees set
 # them here and compile under the same rules.
+# GCC's -Wconversion omits sign conversions in C++ while Clang's includes them;
+# -Wsign-conversion makes both compilers report the same set.
 _noctalia_cpp_args = [
-  '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wshadow',
+  '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wsign-conversion',
+  '-Wshadow',
   '-fno-strict-aliasing', '-fno-strict-overflow',
 ] + _noctalia_compile_definitions
 
@@ -693,6 +698,23 @@ _noctalia_sources = files(
   'src/shell/settings/settings_content_session_action.cpp',
   'src/shell/settings/settings_bar_management.cpp',
   'src/shell/settings/settings_registry.cpp',
+  'src/shell/settings/settings_registry_appearance.cpp',
+  'src/shell/settings/settings_registry_bar.cpp',
+  'src/shell/settings/settings_registry_bar_monitor.cpp',
+  'src/shell/settings/settings_registry_common.cpp',
+  'src/shell/settings/settings_registry_compositor.cpp',
+  'src/shell/settings/settings_registry_desktop.cpp',
+  'src/shell/settings/settings_registry_dock.cpp',
+  'src/shell/settings/settings_registry_keybinds.cpp',
+  'src/shell/settings/settings_registry_launcher.cpp',
+  'src/shell/settings/settings_registry_location.cpp',
+  'src/shell/settings/settings_registry_notifications.cpp',
+  'src/shell/settings/settings_registry_panels.cpp',
+  'src/shell/settings/settings_registry_power.cpp',
+  'src/shell/settings/settings_registry_security.cpp',
+  'src/shell/settings/settings_registry_services.cpp',
+  'src/shell/settings/settings_registry_shell.cpp',
+  'src/shell/settings/settings_registry_system.cpp',
   'src/shell/settings/settings_sidebar.cpp',
   'src/shell/settings/font_family_catalog.cpp',
   'src/shell/settings/font_weight_catalog.cpp',
@@ -976,7 +998,6 @@ _generated_headers = noctalia_ui_protocol_headers + _protocol_headers
 if git_program.found()
   _generated_headers += _git_revision_h
 endif
-alias_target('generated-headers', _generated_headers)
 
 # ── Include directories ────────────────────────────────────────────────────────
 _noctalia_inc = [
@@ -1133,6 +1154,8 @@ if build_tests
     command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
   )
 
+  _generated_headers += [_wlr_screencopy_test_server_h, _idle_test_server_h, _text_input_test_server_h]
+
   # Tests of lib/ code link only the UI library (and its codec pack).
   _ui_test_names = [
     'cairo_text_renderer',
@@ -1152,7 +1175,6 @@ if build_tests
     'input_readline_shortcuts',
     'log',
     'string_utils',
-    'shared_texture_cache',
     'virtual_grid_view_gesture',
     'virtual_grid_view_contract',
     'wayland_output_scale',
@@ -1198,6 +1220,7 @@ if build_tests
     'config_override_mutation',
     'config_path_resolution',
     'config_schema_roundtrip',
+    'config_set_ipc',
     'config_wallpaper_precedence',
     'config_widget',
     'context_menu_popup',
@@ -1261,6 +1284,7 @@ if build_tests
     'pipewire_error',
     'umbriel_audio_provider',
     'privacy_capture_classification',
+    'plugin_app_icon_path',
     'plugin_bindings',
     'plugin_catalog',
     'plugin_file_privacy',
@@ -1536,3 +1560,5 @@ if build_tests
     workdir: meson.current_source_dir(),
   )
 endif # build_tests
+
+alias_target('generated-headers', _generated_headers)

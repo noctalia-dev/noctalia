@@ -66,7 +66,8 @@ namespace {
   std::string normalizedAppToken(std::string_view value) {
     std::string token;
     token.reserve(value.size());
-    for (const unsigned char ch : value) {
+    for (const char raw : value) {
+      const auto ch = static_cast<unsigned char>(raw);
       if (ch == '.' || ch == '-' || ch == '_' || std::isspace(ch) != 0) {
         continue;
       }

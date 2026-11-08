@@ -15,6 +15,7 @@ enum class KeybindAction : std::uint8_t {
   Delete = 8,
   Copy = 9,
   Save = 10,
-  CategoryNext = 11,
-  CategoryPrevious = 12,
+  SelectAll = 11,
+  CategoryNext = 12,
+  CategoryPrevious = 13,
 };
