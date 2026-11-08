@@ -353,7 +353,7 @@ namespace {
   }
 
   bool showToastProgressAccent(const ConfigService* config, Urgency urgency, int displayDurationMs) {
-    if (config != nullptr && !config->config().notification.showTimeoutIndicator) {
+    if (config != nullptr && !config->config().notification.showProgressBar) {
       return false;
     }
     return displayDurationMs >= 0 || urgency == Urgency::Critical;
