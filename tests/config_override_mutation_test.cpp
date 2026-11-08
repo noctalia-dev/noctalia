@@ -73,11 +73,11 @@ int main() {
     create.emplace_back(std::vector<std::string>{"calendar", "enabled"}, true);
     create.emplace_back(typePath, std::string("ics"));
     create.emplace_back(serverUrlPath, std::string("https://example.com/calendar.ics"));
-    expect(config.setOverrides(std::move(create)), "ics account writes");
+    expect(config.setOverrides(create), "ics account writes");
     expect(config.hasOverride(serverUrlPath), "server_url stored for the ics account");
 
     int reloads = 0;
-    config.addReloadCallback([&reloads]() { ++reloads; }, "mutation-test");
+    config.addReloadCallback([&reloads] { ++reloads; }, "mutation-test");
 
     // Switch the account to a local vdir directory. `server_url` is a hard error on a vdir account and
     // `path` is required, so both edits belong to the same commit.

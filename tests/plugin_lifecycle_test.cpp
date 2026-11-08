@@ -944,10 +944,10 @@ int main() {
     ok = expect(manager.isMaterialized("test/plugin"), "path-source plugin on disk should report materialized") && ok;
     ok = expect(!manager.isMaterialized("test/absent"), "missing plugin should not report materialized") && ok;
     ok = expect(!manager.isMaterialized("not-an-id"), "invalid plugin id should not report materialized") && ok;
-    config.addReloadCallback([&]() { manager.refresh(); });
+    config.addReloadCallback([&] { manager.refresh(); });
     scripting::PluginServiceHost host(api, nullptr, nullptr, nullptr);
     host.start(config.config().plugins.pluginSettings);
-    config.addReloadCallback([&]() {
+    config.addReloadCallback([&] {
       if (config.lastChange().plugins) {
         host.refresh(config.config().plugins.pluginSettings);
       }
@@ -955,7 +955,7 @@ int main() {
     std::vector<std::string> enables;
     std::unique_ptr<scripting::ScriptRuntime> lifecycleRuntime;
     std::string lifecyclePluginId;
-    config.addReloadCallback([&]() {
+    config.addReloadCallback([&] {
       if (lifecycleRuntime != nullptr
           && !std::ranges::contains(config.config().plugins.enabled, std::string_view(lifecyclePluginId))) {
         lifecycleRuntime.reset();
@@ -988,7 +988,7 @@ int main() {
           + "[[launcher_provider]]\nid = \"search\"\n"
             "entry = \"launcher.luau\"\nprefix = \"one\"\n";
       int reconciliations = 0;
-      manager.setOnChanged([&]() { ++reconciliations; });
+      manager.setOnChanged([&] { ++reconciliations; });
       config.forceReload();
       TEST_CHECK(reconciliations == 0);
 

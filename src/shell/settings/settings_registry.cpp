@@ -2661,6 +2661,14 @@ namespace settings {
         "keybind shortcut hotkey save file"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.select-all.label"),
+        tr("settings.schema.keybinds.select-all.description"), {"keybinds", "select_all"},
+        KeybindListSetting{
+            .items = effectiveKeybindItems(cfg.keybinds.selectAll, KeybindAction::SelectAll), .maxItems = 4
+        },
+        "keybind shortcut hotkey select all screenshot region desktop"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.delete.label"),
         tr("settings.schema.keybinds.delete.description"), {"keybinds", "delete"},
         KeybindListSetting{
@@ -3554,6 +3562,12 @@ namespace settings {
         SettingsSection::Notifications, "general", tr("settings.schema.notifications.show-actions.label"),
         tr("settings.schema.notifications.show-actions.description"), {"notification", "show_actions"},
         ToggleSetting{cfg.notification.showActions}, "action buttons"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "general", tr("settings.schema.notifications.show-progress-bar.label"),
+        tr("settings.schema.notifications.show-progress-bar.description"), {"notification", "show_progress_bar"},
+        ToggleSetting{cfg.notification.showProgressBar},
+        "notification toast timeout progress bar countdown indicator critical accent"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "general", tr("settings.schema.notifications.collapse-on-dismiss.label"),

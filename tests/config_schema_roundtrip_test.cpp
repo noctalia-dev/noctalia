@@ -21,6 +21,7 @@
 #include "scripting/plugin_id.h"
 
 #include <algorithm>
+#include <format>
 #include <optional>
 #include <print>
 #include <set>
@@ -406,6 +407,7 @@ location = "https://example.invalid/bad"
         .enableDaemon = false,
         .showAppName = false,
         .showActions = false,
+        .showProgressBar = false,
         .position = "bottom_left",
         .layer = "overlay",
         .scale = 1.3F,
@@ -508,6 +510,7 @@ location = "https://example.invalid/bad"
     c.keybinds.deleteEntry = defaultKeybindSet(KeybindAction::Delete);
     c.keybinds.copy = defaultKeybindSet(KeybindAction::Copy);
     c.keybinds.save = defaultKeybindSet(KeybindAction::Save);
+    c.keybinds.selectAll = defaultKeybindSet(KeybindAction::SelectAll);
     c.hooks.commands[0] = {"notify-send hi"};
     c.hooks.commands[2] = {"cmd-a", "cmd-b"};
     c.idle.preActionFadeSeconds = 3.0F;
@@ -858,7 +861,7 @@ location = "https://example.invalid/bad"
     }
     // Unknown strings, unsupported types, and the legacy boolean form error
     // and leave the default in place.
-    for (const auto text :
+    for (const auto* const text :
          {"auto_update = \"sometimes\"", "auto_update = 1.5", "auto_update = true", "auto_update = false"}) {
       const auto [plugins, diag] = parsePlugins(text);
       if (plugins.autoUpdate != PluginAutoUpdateMode::All || !erroredOnAutoUpdate(diag)) {
@@ -1395,7 +1398,7 @@ widget_spacing = 8
       }
       const auto* sectionTbl = serialized[spec.name].as_table();
       if (sectionTbl == nullptr) {
-        fail(name + ": config_export::serialize emitted no [" + name + "] table");
+        fail(std::format("{}: config_export::serialize emitted no [{}] table", name, name));
         continue;
       }
       Config roundtrip;

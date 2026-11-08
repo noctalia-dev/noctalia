@@ -34,7 +34,7 @@ namespace {
         quoted += ch;
       }
     }
-    quoted += "'";
+    quoted += '\'';
     return quoted;
   }
 

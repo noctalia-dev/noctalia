@@ -299,6 +299,7 @@ namespace noctalia::config::schema {
         field(&NotificationConfig::showAppName, "show_app_name"),
         field(&NotificationConfig::colorizeIcons, "colorize_icons"),
         field(&NotificationConfig::showActions, "show_actions"),
+        field(&NotificationConfig::showProgressBar, "show_progress_bar"),
         field(&NotificationConfig::groupByApp, "group_by_app"),
         field(&NotificationConfig::position, "position"),
         field(&NotificationConfig::layer, "layer"),
@@ -1034,6 +1035,7 @@ namespace noctalia::config::schema {
         keybindActionField(&KeybindsConfig::deleteEntry, "delete", KeybindAction::Delete),
         keybindActionField(&KeybindsConfig::copy, "copy", KeybindAction::Copy),
         keybindActionField(&KeybindsConfig::save, "save", KeybindAction::Save),
+        keybindActionField(&KeybindsConfig::selectAll, "select_all", KeybindAction::SelectAll),
     };
     return s;
   }

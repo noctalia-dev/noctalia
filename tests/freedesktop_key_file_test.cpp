@@ -1,5 +1,6 @@
 #include "system/freedesktop_key_file.h"
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -23,12 +24,9 @@ namespace {
   }
 
   bool hasDiagnostic(const freedesktop::ParseResult& result, std::string_view text) {
-    for (const auto& diagnostic : result.diagnostics) {
-      if (diagnostic.message.contains(text)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(result.diagnostics, [text](const auto& diagnostic) {
+      return diagnostic.message.contains(text);
+    });
   }
 
 } // namespace

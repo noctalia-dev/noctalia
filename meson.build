@@ -977,7 +977,6 @@ _generated_headers = noctalia_ui_protocol_headers + _protocol_headers
 if git_program.found()
   _generated_headers += _git_revision_h
 endif
-alias_target('generated-headers', _generated_headers)
 
 # ── Include directories ────────────────────────────────────────────────────────
 _noctalia_inc = [
@@ -1134,6 +1133,8 @@ if build_tests
     command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
   )
 
+  _generated_headers += [_wlr_screencopy_test_server_h, _idle_test_server_h, _text_input_test_server_h]
+
   # Tests of lib/ code link only the UI library (and its codec pack).
   _ui_test_names = [
     'cairo_text_renderer',
@@ -1153,7 +1154,6 @@ if build_tests
     'input_readline_shortcuts',
     'log',
     'string_utils',
-    'shared_texture_cache',
     'virtual_grid_view_gesture',
     'virtual_grid_view_contract',
     'wayland_output_scale',
@@ -1199,6 +1199,7 @@ if build_tests
     'config_override_mutation',
     'config_path_resolution',
     'config_schema_roundtrip',
+    'config_set_ipc',
     'config_wallpaper_precedence',
     'config_widget',
     'context_menu_popup',
@@ -1539,3 +1540,5 @@ if build_tests
     workdir: meson.current_source_dir(),
   )
 endif # build_tests
+
+alias_target('generated-headers', _generated_headers)

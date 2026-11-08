@@ -81,6 +81,7 @@ namespace capture {
     bool modifierHeld() const;
     void setSpaceHeld(bool held);
     void completeSelection();
+    void selectEntireDesktop();
     void confirmPendingSelection(ConfirmAction action = ConfirmAction::None);
     void completeFullscreenPick(wl_output* output);
     std::optional<LogicalRect> selectionRectIfValid() const;

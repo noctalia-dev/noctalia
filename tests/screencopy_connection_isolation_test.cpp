@@ -19,6 +19,7 @@
 #include <string_view>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 #include <wayland-client-core.h>
 #include <wayland-server-core.h>
 #include <wayland-server-protocol.h>
@@ -79,7 +80,7 @@ namespace {
         createGlobal(&wl_output_interface, 4, &bindOutput);
         createGlobal(&zwlr_screencopy_manager_v1_interface, 3, &bindScreencopyManager);
 
-        m_serverThread = std::jthread([this](std::stop_token stopToken) { run(stopToken); });
+        m_serverThread = std::jthread([this](const std::stop_token& stopToken) { run(stopToken); });
       } catch (...) {
         cleanup();
         throw;
@@ -250,7 +251,7 @@ namespace {
       wl_resource_set_implementation(resource, &implementation, self, nullptr);
     }
 
-    void run(std::stop_token stopToken) noexcept {
+    void run(const std::stop_token& stopToken) noexcept {
       auto* eventLoop = wl_display_get_event_loop(m_display);
       while (!stopToken.stop_requested()) {
         if (wl_event_loop_dispatch(eventLoop, 10) < 0 && errno != EINTR) {

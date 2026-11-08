@@ -901,6 +901,7 @@ struct NotificationConfig {
   bool showAppName = true;
   bool colorizeIcons = false;
   bool showActions = true;
+  bool showProgressBar = true;
   bool groupByApp = true;
   std::string position = "top_right";
   std::string layer = "top"; // top | overlay
@@ -1630,6 +1631,7 @@ struct KeybindsConfig {
   std::vector<KeyChord> deleteEntry;
   std::vector<KeyChord> copy;
   std::vector<KeyChord> save;
+  std::vector<KeyChord> selectAll;
 
   bool operator==(const KeybindsConfig&) const = default;
 };

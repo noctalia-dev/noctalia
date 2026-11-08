@@ -126,7 +126,7 @@ namespace {
 
     bool waitForCalls(std::size_t expected) {
       std::unique_lock lock(m_mutex);
-      return m_cv.wait_for(lock, std::chrono::seconds(2), [this, expected]() { return m_calls >= expected; });
+      return m_cv.wait_for(lock, std::chrono::seconds(2), [this, expected] { return m_calls >= expected; });
     }
 
     std::size_t calls() const {
@@ -158,12 +158,12 @@ namespace {
     }
 
     std::optional<SecretStoreBackendResult> prepare(security::SecretStoreCancellation& cancellation) {
-      cancellation.setCancelCallback([this]() { m_cv.notify_all(); });
+      cancellation.setCancelCallback([this] { m_cv.notify_all(); });
       std::unique_lock lock(m_mutex);
       ++m_calls;
       m_workerThread = std::this_thread::get_id();
       m_cv.notify_all();
-      m_cv.wait(lock, [this, &cancellation]() { return !m_blocked || cancellation.cancelled(); });
+      m_cv.wait(lock, [this, &cancellation] { return !m_blocked || cancellation.cancelled(); });
       std::optional<SecretStoreBackendResult> result;
       if (cancellation.cancelled()) {
         result = SecretStoreBackendResult{
