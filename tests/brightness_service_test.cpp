@@ -211,7 +211,11 @@ namespace {
             .backend = BrightnessBackendPreference::Ddcutil,
         });
       }
-      service = std::make_unique<BrightnessService>(nullptr, platform, config);
+      // Short backoff so retry tests do not wait on the production delays. The first delay still
+      // leaves room for tests to act on a failure before the retry fires.
+      service = std::make_unique<BrightnessService>(
+          nullptr, platform, config, BrightnessDdcRetryDelays{.delays = {200ms, 400ms, 800ms}}
+      );
     }
 
     bool waitFor(const std::function<bool()>& predicate, std::chrono::milliseconds timeout = 2500ms) {
@@ -328,7 +332,7 @@ namespace {
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }));
     TEST_CHECK(fixture.brightnessIs(0.4F));
     TEST_CHECK(fixture.ddc.count("detect") == 2);
-    fixture.observe(1200ms);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == 2);
   }
 
@@ -371,8 +375,8 @@ namespace {
 
   void checkBoundedRetriesAndManualRestart() {
     Fixture fixture("always-fail");
-    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("getvcp-71") == 4; }, 8500ms));
-    fixture.observe(4500ms);
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.ddc.count("getvcp-71") == 4; }));
+    fixture.observe(1200ms);
     TEST_CHECK(fixture.ddc.count("detect") == 4);
     TEST_CHECK(!fixture.controllable());
     fixture.ddc.set("mode", "ready");
@@ -431,7 +435,7 @@ namespace {
     fixture.service->reload(fixture.config);
     TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.controllable(); }, 1500ms));
     TEST_CHECK(fixture.ddc.count("detect") == 2);
-    fixture.observe(1200ms);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == 2);
   }
 
@@ -451,7 +455,7 @@ namespace {
     }));
     fixture.config.enableDdcutil = false;
     fixture.service->reload(fixture.config);
-    fixture.observe(1500ms);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == 1);
     TEST_CHECK(!fixture.controllable());
   }
@@ -461,11 +465,11 @@ namespace {
     fixture.config.monitorOverrides[0].backend = BrightnessBackendPreference::None;
     fixture.config.monitorOverrides[1].backend = BrightnessBackendPreference::Backlight;
     fixture.service->reload(fixture.config);
-    fixture.observe(1500ms);
+    fixture.observe(300ms);
     TEST_CHECK(!fixture.controllable());
     TEST_CHECK(!fixture.controllable(1));
     const int attempts = fixture.ddc.count("detect");
-    fixture.observe(1200ms);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == attempts);
   }
 
@@ -479,10 +483,10 @@ namespace {
     TEST_CHECK(wl_display_roundtrip(fixture.wayland.display()) >= 0);
     TEST_CHECK(fixture.wayland.outputs().empty());
     fixture.service->onOutputsChanged();
-    fixture.observe(1500ms);
+    fixture.observe(300ms);
     TEST_CHECK(fixture.service->displays().empty());
     const int attempts = fixture.ddc.count("detect");
-    fixture.observe(1200ms);
+    fixture.observe(600ms);
     TEST_CHECK(fixture.ddc.count("detect") == attempts);
   }
 
