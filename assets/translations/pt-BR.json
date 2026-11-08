@@ -39,7 +39,9 @@
       "backdrop-shadow-offset-x": "Deslocamento X",
       "backdrop-shadow-offset-y": "Deslocamento Y",
       "backdrop-shadow-opacity": "Opacidade",
-      "capture-new-region": "Capturar nova região (descarta a edição atual)",
+      "capture": "Capturar novamente",
+      "capture-new-region": "Capturar nova região (Ctrl+R) · descarta a edição atual",
+      "capture-window": "Capturar a janela focada quando o editor abrir (Ctrl+W) · descarta a edição atual",
       "close": "Fechar editor",
       "color-black": "Preto (8)",
       "color-blue": "Azul (4)",
@@ -1252,7 +1254,7 @@
           "drag": "Reordenar",
           "drawer-columns": "Colunas da Gaveta",
           "drawer-columns-description": "Número de widgets por linha no painel gaveta",
-          "drawer-detached": "Painel Destacado",
+          "drawer-detached": "Painel Desanexado",
           "drawer-detached-description": "Abrir a gaveta como um painel flutuante com seu próprio fundo ao invés de mesclar com a barra",
           "drawer-enabled": "Gaveta",
           "drawer-enabled-description": "Mover os widgets do grupo para um painel deslizante alternado por um botão",
@@ -1330,6 +1332,10 @@
           "groups": {
             "actions": "Ações",
             "behavior": "Comportamento",
+            "capsule": "Cápsula",
+            "colors": "Cores",
+            "content": "Conteúdo",
+            "size-text": "Tamanho e Texto",
             "taskbar": {
               "grouping": "Agrupamento",
               "windows": "Janelas",
@@ -2595,6 +2601,10 @@
           "description": "Use uma captura de tela da área de trabalho como plano de fundo da tela de bloqueio",
           "label": "Captura da Área de Trabalho"
         },
+        "dnd": {
+          "description": "Habilitar Não Perturbe enquanto a sessão estiver trancada · o estado anterior é restaurado ao destrancar ",
+          "label": "Não Perturbe"
+        },
         "edge-smoothness": {
           "description": "Suavização das extremidades da transição da tela de bloqueio",
           "label": "Suavidade das Extremidades da Transição"
@@ -2619,8 +2629,12 @@
           "description": "Escolha em quais monitores a tela de bloqueio será exibida; deixe em branco para exibir em todos os monitores",
           "label": "Monitores"
         },
+        "tint-color": {
+          "description": "Cor da tonalidade do fundo da Tela de Bloqueio",
+          "label": "Cor da Tonalidade"
+        },
         "tint-intensity": {
-          "description": "Base de cor da superfície sobre o fundo da tela de bloqueio",
+          "description": "Força da tonalidade sobre o fundo da tela de bloqueio",
           "label": "Intensidade da Cor"
         },
         "transition-duration": {
@@ -2787,7 +2801,7 @@
           "label": "Camada do Painel Flutuante"
         },
         "floating-offset": {
-          "description": "Espaço, em pixels, entre um painel flutuante ou separado e a extremidade da barra",
+          "description": "Espaço, em pixels, entre um painel flutuante ou desanexado e a extremidade da barra",
           "label": "Deslocamento de Flutuação"
         },
         "home-avatar-border": {
@@ -3896,6 +3910,10 @@
           "description": "Usa pastas de papéis de parede separadas para cada monitor",
           "label": "Diretórios por Monitor"
         },
+        "sync-transitions": {
+          "description": "Usar o mesmo efeito de transição em todos os monitores quando papéis de parede mudam",
+          "label": "Sincronizar Transição dos Monitores"
+        },
         "transition-duration": {
           "description": "Duração da animação de mudança de papel de parede em milissegundos",
           "label": "Duração da Transição"
@@ -4644,12 +4662,12 @@
           "label": "Colorir Imagem Personalizada"
         },
         "custom-label": {
-          "description": "Texto personalizado mostrado ao lado do símbolo ou imagem personalizada; permanece visível quando Mostrar Símbolo estiver desativada",
+          "description": "Texto personalizado mostrado com este widget; deixe vazio para ocultar",
           "label": "Rótulo Personalizado"
         },
         "detached-panel": {
           "description": "Abre a gaveta como um painel flutuante ao invés de ancorá-lo à extremidade da barra",
-          "label": "Painel Descolado"
+          "label": "Painel Desanexado"
         },
         "device": {
           "description": "Dispositivo para monitorar ou controlar",
@@ -4667,6 +4685,10 @@
         "drawer": {
           "description": "Exibir um botão de bandeja na barra e abrir itens em um painel",
           "label": "Utilizar o Painel da Gaveta"
+        },
+        "drawer-background-opacity": {
+          "description": "Opacidade do fundo do painel da gaveta desanexada",
+          "label": "Opacidade do Fundo da Gaveta"
         },
         "drawer-columns": {
           "description": "Número de ícones da bandeja por linha no painel da gaveta",
@@ -4722,11 +4744,13 @@
           "description": "Nome do símbolo do ícone",
           "label": "Símbolo",
           "sysmon-description": "Símbolo de ícone personalizado; Deixe em branco para usar o ícone da estatística selecionada.",
+          "tray-description": "Símbolo personalizado da bandeja; deixe em branco para um chevron apontando na direção da gaveta ou da revelação da espiada",
           "volume-description": "Símbolo de ícone personalizado; Deixe em branco para usar os ícones dinâmicos integrados"
         },
         "glyph-position": {
-          "description": "Posicione o símbolo ou imagem personalizada e rótulo personalizado relativo ao valor ou visualização",
-          "label": "Posição do Símbolo"
+          "description": "Posicione o símbolo antes ou depois do varlo; com Espiar ligado, o valor revela no outro lado",
+          "label": "Posição do Símbolo",
+          "sysmon-description": "Posicionar o símbolo ou imagem personalizada e rótulo personalizado relativo ao valor ou visualização"
         },
         "group-by-workspace": {
           "description": "Agrupe os ícones da barra de tarefas em cápsulas do espaço de trabalho quando os dados do compositor estiverem disponíveis",
@@ -4960,6 +4984,14 @@
         "path": {
           "description": "Caminho usado pelas estatísticas do disco",
           "label": "Caminho"
+        },
+        "peek": {
+          "description": "Mostra somente o símbolo; o valor desliza para fora enquanto o ponteiro paira sobre o widget",
+          "label": "Espiar"
+        },
+        "peek-delay-ms": {
+          "description": "Tempo do passar sobre em milissegundos antes que o valor comece a deslizar para fora; 0 revela de uma vez",
+          "label": "Atraso de Espiar"
         },
         "pill-scale": {
           "description": "Ajuste a escala das pílulas do espaço de trabalho",

@@ -3662,6 +3662,10 @@
           "description": "Open the annotation editor on every screenshot; Done applies the save, clipboard, and pipe settings",
           "label": "Annotate Before Delivering"
         },
+        "screenshot-append-mode-suffix": {
+          "description": "Append a capture-mode suffix such as -region, -annotated, -window, or -desktop to saved filenames",
+          "label": "Append Mode Suffix"
+        },
         "screenshot-close-on-copy": {
           "description": "Close after a successful copy from the editor, including when opened directly",
           "label": "Close Editor After Copying"
@@ -3690,10 +3694,6 @@
         "screenshot-filename-pattern": {
           "description": "strftime pattern without extension (the format's extension is added); use %s for unix epoch",
           "label": "Filename Pattern"
-        },
-        "screenshot-append-mode-suffix": {
-          "description": "Append a capture-mode suffix such as -region, -annotated, -window, or -desktop to saved filenames",
-          "label": "Append Mode Suffix"
         },
         "screenshot-format": {
           "description": "File format for saved screenshots; clipboard copies and pipe commands always receive PNG",
