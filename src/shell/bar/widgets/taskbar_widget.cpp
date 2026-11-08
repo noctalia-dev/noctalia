@@ -3585,8 +3585,8 @@ void TaskbarWidget::activateAdjacentTask(int direction) {
     return;
   }
 
-  const size_t activeTaskIndex =
-      std::ranges::find_if(m_tasks, [](const TaskModel& t) { return t.active; }) - m_tasks.begin();
+  const auto activeTaskIndex =
+      static_cast<size_t>(std::ranges::find_if(m_tasks, [](const TaskModel& t) { return t.active; }) - m_tasks.begin());
   if (activeTaskIndex >= m_tasks.size()) {
     return;
   }

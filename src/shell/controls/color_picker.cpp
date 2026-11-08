@@ -528,12 +528,13 @@ void ColorPicker::rebuildAlphaTexture(Renderer& renderer) {
   }
   // Built at the strip's own size so the checkerboard cells stay square.
   const int cell = std::max(1, height / 2);
-  m_alphaPixels.resize(static_cast<std::size_t>(width) * height * 4U);
+  m_alphaPixels.resize(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U);
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       const float t = width > 1 ? static_cast<float>(x) / static_cast<float>(width - 1) : 1.0F;
       const float checker = ((x / cell) + (y / cell)) % 2 == 0 ? 1.0F : 0.8F;
-      const std::size_t o = (static_cast<std::size_t>(y) * width + static_cast<std::size_t>(x)) * 4U;
+      const std::size_t o =
+          (static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)) * 4U;
       m_alphaPixels[o + 0U] = toPixel(checker + (m_color.r - checker) * t);
       m_alphaPixels[o + 1U] = toPixel(checker + (m_color.g - checker) * t);
       m_alphaPixels[o + 2U] = toPixel(checker + (m_color.b - checker) * t);

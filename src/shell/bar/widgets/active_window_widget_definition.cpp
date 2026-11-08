@@ -77,6 +77,12 @@ const noctalia::bar::WidgetDefinition<ActiveWindowWidget::Options>& activeWindow
           field<&Options::showEmptyLabel>({
               .key = "show_empty_label",
           }),
+          field<&Options::emptyLabel>({
+              .key = "empty_label",
+              .presentation = settings::WidgetSettingPresentation{
+                  .visibleWhen = settings::WidgetSettingVisibility{"show_empty_label", {"true"}},
+              },
+          }),
       },
   };
   return definition;

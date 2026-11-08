@@ -19,11 +19,12 @@
 #include <cmath>
 #include <string_view>
 
-ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options)
+ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, const Options& options)
     : m_config(config), m_platform(platform), m_maxWidth(static_cast<float>(options.maxWidth)),
       m_minWidth(static_cast<float>(options.minWidth)), m_iconSize(static_cast<float>(options.iconSize)),
       m_titleScrollMode(options.titleScrollMode), m_displayMode(options.displayMode),
-      m_showEmptyLabel(options.showEmptyLabel), m_colorizeIcons(options.colorizeIcons) {
+      m_showEmptyLabel(options.showEmptyLabel), m_emptyLabel(StringUtils::trim(options.emptyLabel)),
+      m_colorizeIcons(options.colorizeIcons) {
   buildDesktopIconIndex();
 }
 
@@ -171,7 +172,9 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
 
   if (!current.has_value()) {
     identifier = {};
-    title = m_showEmptyLabel ? i18n::tr("bar.widgets.active-window.no-active-window") : std::string{};
+    if (m_showEmptyLabel) {
+      title = m_emptyLabel.empty() ? i18n::tr("bar.widgets.active-window.no-active-window") : m_emptyLabel;
+    }
     appId = {};
     emptyState = true;
   } else {
