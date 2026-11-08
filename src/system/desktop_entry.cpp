@@ -225,8 +225,8 @@ namespace {
       return {};
     }
     locale += '@';
-    for (const unsigned char character : modifier) {
-      locale += static_cast<char>(std::tolower(character));
+    for (const char character : modifier) {
+      locale += static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
     }
     return locale;
   }

@@ -43,6 +43,12 @@
 #include <string_view>
 #include <tuple>
 
+// SPA's parse/build macros (spa_pod_parse_object, spa_pod_builder_add_object) expand to GNU
+// statement expressions in this file; Clang reports them under -Wpedantic, GCC does not.
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
+#endif
+
 namespace {
 
   // Volume change thresholds.

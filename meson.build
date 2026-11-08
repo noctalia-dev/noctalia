@@ -70,9 +70,10 @@ cairo_dep           = dependency('cairo')
 pango_dep           = dependency('pango', version: '>=1.50')
 pangocairo_dep      = dependency('pangocairo')
 xkbcommon_dep       = dependency('xkbcommon')
-glib_dep            = dependency('glib-2.0')
-gobject_dep         = dependency('gobject-2.0')
-gio_dep             = dependency('gio-2.0')
+# glib headers use C2y extensions that Clang flags under -Wpedantic; mark as system.
+glib_dep            = dependency('glib-2.0', include_type: 'system')
+gobject_dep         = dependency('gobject-2.0', include_type: 'system')
+gio_dep             = dependency('gio-2.0', include_type: 'system')
 libsecret_dep       = dependency('libsecret-1', version: '>=0.20')
 libsodium_dep       = dependency('libsodium', version: '>=1.0.18')
 polkit_agent_dep    = dependency('polkit-agent-1')
@@ -184,7 +185,7 @@ else
   _mcu_lib = static_library('material_color_utilities',
     _mcu_sources,
     include_directories: include_directories('third_party/material_color_utilities', is_system: true),
-    cpp_args: ['-Wno-pedantic', '-Wno-conversion', '-Wno-shadow', '-Wno-unused-parameter'],
+    cpp_args: ['-Wno-pedantic', '-Wno-conversion', '-Wno-shadow', '-Wno-unused-parameter', '-Wno-absolute-value'],
     override_options: ['warning_level=0'],
   )
   mcu_dep = declare_dependency(
@@ -306,8 +307,11 @@ _noctalia_compile_definitions = [
 # PipeWire's pkg-config adds -fno-strict-aliasing and -fno-strict-overflow to
 # every target that uses it. lib/ does not depend on PipeWire, so both trees set
 # them here and compile under the same rules.
+# GCC's -Wconversion omits sign conversions in C++ while Clang's includes them;
+# -Wsign-conversion makes both compilers report the same set.
 _noctalia_cpp_args = [
-  '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wshadow',
+  '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wsign-conversion',
+  '-Wshadow',
   '-fno-strict-aliasing', '-fno-strict-overflow',
 ] + _noctalia_compile_definitions
 
