@@ -190,7 +190,7 @@ namespace {
 } // namespace
 
 DesktopWidgetFactory::DesktopWidgetFactory(DesktopWidgetRuntimeServices services)
-    : m_calendar(services.calendar), m_pipewire(services.pipewire), m_pipewire(services.pipewire),
+    : m_calendar(services.calendar), m_platform(services.platform), m_pipewire(services.pipewire),
       m_pipewireSpectrum(services.pipewireSpectrum), m_weather(services.weather), m_mpris(services.mpris),
       m_httpClient(services.httpClient), m_sysmon(services.sysmon), m_accounts(services.accounts),
       m_scriptDeps(services.scriptDeps) {}
