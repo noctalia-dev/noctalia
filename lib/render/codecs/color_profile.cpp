@@ -142,15 +142,15 @@ namespace codecs {
     Curve transferFor(cmsContext context, int code) {
       // Type 4: Y = (aX + b)^g for X >= d, Y = cX below.
       static constexpr std::array<cmsFloat64Number, 5> kSrgb{2.4, 1.0 / 1.055, 0.055 / 1.055, 1.0 / 12.92, 0.04045};
-      static constexpr std::array<cmsFloat64Number, 5> kBt709{1.0 / 0.45, 1.0 / 1.099, 0.099 / 1.099, 1.0 / 4.5, 0.081};
       switch (code) {
+      // BT.709, BT.601 and BT.2020 (1, 6, 14, 15) are shown with the sRGB curve, as Chromium and most players show
+      // them, not decoded with their camera curve; unspecified (2) as untagged images are.
       case 1:
+      case 2:
       case 6:
+      case 13:
       case 14:
       case 15:
-        return Curve(cmsBuildParametricToneCurve(context, 4, kBt709.data()));
-      case 2: // unspecified: the sRGB curve, as for untagged images
-      case 13:
         return Curve(cmsBuildParametricToneCurve(context, 4, kSrgb.data()));
       case 4:
         return Curve(cmsBuildGamma(context, 2.2));

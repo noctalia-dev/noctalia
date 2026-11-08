@@ -115,6 +115,9 @@ namespace {
     codecs::convertCicpToSrgb(pixel, 1, 13);
     ok = check(pixel == original, "BT.709 primaries should change nothing") && ok;
 
+    codecs::convertCicpToSrgb(pixel, 1, 1);
+    ok = check(pixel == original, "BT.709 primaries with the BT.709 curve should change nothing") && ok;
+
     codecs::convertCicpToSrgb(pixel, 9, 16);
     ok = check(pixel == original, "a PQ transfer should be left alone") && ok;
 
