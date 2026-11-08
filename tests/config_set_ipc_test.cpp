@@ -75,12 +75,9 @@ int main() {
     TEST_CHECK(ipc.execute(R"(config-set plugin_settings."me/demo".enabled true)") == "ok\n");
     TEST_CHECK(ipc.execute(R"(config-set plugin_settings.'me/demo'.label "two words")") == "ok\n");
     const std::string overrides = readFile(overridesPath);
-    TEST_CHECK(overrides.find(R"([plugin_settings."me/demo"])") != std::string::npos);
-    TEST_CHECK(overrides.find("enabled = true") != std::string::npos);
-    TEST_CHECK(
-        overrides.find("label = 'two words'") != std::string::npos
-        || overrides.find(R"(label = "two words")") != std::string::npos
-    );
+    TEST_CHECK(overrides.contains(R"([plugin_settings."me/demo"])"));
+    TEST_CHECK(overrides.contains("enabled = true"));
+    TEST_CHECK(overrides.contains("label = 'two words'") || overrides.contains(R"(label = "two words")"));
 
     // Validation still applies to the plugin's declared settings.
     TEST_CHECK(ipc.execute(R"(config-set plugin_settings."me/demo".enabled 'yes')").starts_with("error: "));
