@@ -1139,7 +1139,7 @@ struct ShellConfig {
     PanelPlacement controlCenterPlacement = PanelPlacement::Attached;
     PanelPlacement wallpaperPlacement = PanelPlacement::Attached;
     PanelPlacement sessionPlacement = PanelPlacement::Attached;
-    PanelPlacement polkitPlacement = PanelPlacement::Floating;
+    PanelPlacement authPlacement = PanelPlacement::Floating;
     // Screen position per panel (one of kPanelPositions). Pins a floating panel to that
     // screen position. An attached panel follows it only when the position lies on its
     // bar's edge (e.g. bottom_right on a bottom bar aligns to the bar's right end); any
@@ -1150,7 +1150,7 @@ struct ShellConfig {
     std::string controlCenterPosition = "auto";
     std::string wallpaperPosition = "auto";
     std::string sessionPosition = "auto";
-    std::string polkitPosition = "center";
+    std::string authPosition = "center";
     std::int32_t floatingOffset = 8; // logical px gap between a floating/detached panel and the bar edge
     bool openNearClickControlCenter = false;
     bool openNearClickLauncher = false;
@@ -1237,7 +1237,7 @@ struct ShellConfig {
     struct PanelsConfig {
       // Panel ids the panel provider never lists. Setting this in config.toml
       // replaces the default outright, same as every other list config here.
-      std::vector<std::string> ignored{"polkit", "setup-wizard", "test", "launcher"};
+      std::vector<std::string> ignored{"auth", "setup-wizard", "test", "launcher"};
 
       bool operator==(const PanelsConfig&) const = default;
     } panels;
@@ -1352,6 +1352,7 @@ struct ShellConfig {
   bool niriOverviewCloseOnLaunchEnabled = false;
   bool umbrielOverviewCloseOnLaunchEnabled = false;
   bool polkitAgent = false;
+  bool systemdPasswordAgent = false;
   bool polkitColorizeIcons = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   /// Readline-style editing shortcuts in every text input (Ctrl+A moves to the start instead of selecting all).

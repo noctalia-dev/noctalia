@@ -24,6 +24,14 @@
       "invalid-password": "Invalid password",
       "password-placeholder": "Password",
       "title": "Authentication Required"
+    },
+    "systemd": {
+      "authenticate": "Authenticate",
+      "default-message": "A password is required",
+      "password-placeholder": "Password",
+      "request-from": "Request from {process} (PID {pid})",
+      "request-from-unknown": "Request from PID {pid}",
+      "title": "Systemd Password Request"
     }
   },
   "bar": {
@@ -879,10 +887,10 @@
       },
       "panel": {
         "builtin": {
+          "auth": "Authentication Prompt",
           "clipboard": "Clipboard",
           "control-center": "Control Center",
           "launcher": "Launcher",
-          "polkit": "Authentication Prompt",
           "session": "Session",
           "setup-wizard": "Setup Wizard",
           "test": "Test Panel",
@@ -1441,6 +1449,7 @@
       "groups": {
         "accessibility": "Accessibility",
         "audio": "Audio",
+        "auth": "Auth",
         "authentication": "Authentication",
         "automation": "Automation",
         "backdrop": "Backdrop",
@@ -1493,7 +1502,6 @@
         "osd": "OSD",
         "overview": "Overview",
         "pinned-apps": "Pinned Apps",
-        "polkit": "Polkit",
         "power": "Power",
         "privacy": "Privacy",
         "profile": "Profile",
@@ -3001,6 +3009,10 @@
           "description": "Bar panels attach to when opened; leave empty to follow the widget, shortcut, or dock that opened them",
           "label": "Anchor Bar"
         },
+        "placement-auth": {
+          "description": "Choose whether the auth prompt attaches to the bar or floats at a chosen screen position",
+          "label": "Placement"
+        },
         "placement-clipboard": {
           "description": "Choose whether the clipboard attaches to the bar or floats at a chosen screen position",
           "label": "Placement"
@@ -3013,10 +3025,6 @@
           "description": "Choose whether the launcher attaches to the bar or floats at a chosen screen position",
           "label": "Placement"
         },
-        "placement-polkit": {
-          "description": "Choose whether the polkit prompt attaches to the bar or floats at a chosen screen position",
-          "label": "Placement"
-        },
         "placement-session": {
           "description": "Choose whether the session panel attaches to the bar or floats at a chosen screen position",
           "label": "Placement"
@@ -3024,6 +3032,10 @@
         "placement-wallpaper": {
           "description": "Choose whether the wallpaper picker attaches to the bar or floats at a chosen screen position",
           "label": "Placement"
+        },
+        "position-auth": {
+          "description": "Floating: where the auth prompt sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
+          "label": "Position"
         },
         "position-clipboard": {
           "description": "Floating: where the clipboard sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
@@ -3035,10 +3047,6 @@
         },
         "position-launcher": {
           "description": "Floating: where the launcher sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
-          "label": "Position"
-        },
-        "position-polkit": {
-          "description": "Floating: where the polkit prompt sits on screen; Follow Bar keeps it near the bar. Attached: a position along the bar's edge aligns it to that end of the bar",
           "label": "Position"
         },
         "position-session": {
@@ -3767,6 +3775,10 @@
           "button": "Sync Now",
           "description": "Copy the current appearance and monitor arrangement to Noctalia Greeter. Administrator approval is requested unless system policy authorizes passwordless sync for your user.",
           "label": "Noctalia Greeter"
+        },
+        "systemd-password-agent": {
+          "description": "Answer systemd password requests",
+          "label": "Systemd Password Agent"
         },
         "telemetry": {
           "description": "Sends a small anonymous startup ping with version, OS, compositor, monitor resolutions, RAM, and UI scale",

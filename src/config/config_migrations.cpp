@@ -35,6 +35,7 @@ namespace noctalia::config {
     constexpr int kSettingsCustomScheduleMigrationVersion = 17;
     constexpr int kWorkspacesMonitorsMigrationVersion = 18;
     constexpr int kAppIconColorizationMigrationVersion = 19;
+    constexpr int kAuthPanelMigrationVersion = 20;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -995,6 +996,43 @@ namespace noctalia::config {
       );
     }
 
+    // The polkit prompt became the unified auth panel: its placement keys and panel id were renamed.
+    template <typename OnChanged> void migrateAuthPanel(toml::table& root, OnChanged&& onChanged) {
+      auto* shell = root["shell"].as_table();
+      if (shell == nullptr) {
+        return;
+      }
+      if (auto* panel = (*shell)["panel"].as_table(); panel != nullptr) {
+        const auto moveKey = [&onChanged, panel](std::string_view from, std::string_view to) {
+          const toml::node* node = panel->get(from);
+          if (node == nullptr) {
+            return;
+          }
+          if (!panel->contains(to)) {
+            panel->insert_or_assign(to, *node);
+          }
+          panel->erase(from);
+          onChanged("shell.panel." + std::string(from));
+        };
+        moveKey("polkit_placement", "auth_placement");
+        moveKey("polkit_position", "auth_position");
+      }
+      if (auto* ignored = root.at_path("shell.launcher.panels.ignored").as_array(); ignored != nullptr) {
+        for (std::size_t i = 0; i < ignored->size(); ++i) {
+          if (auto* id = (*ignored)[i].as_string(); id != nullptr && id->get() == "polkit") {
+            *id = std::string("auth");
+            onChanged(std::format("shell.launcher.panels.ignored[{}]", i));
+          }
+        }
+      }
+    }
+
+    void migrateAuthPanelSidecar(toml::table& root, const toml::table& /*base*/, schema::Diagnostics& diag) {
+      migrateAuthPanel(root, [&diag](const std::string& path) {
+        diag.warn(path, "polkit prompts merged into the unified auth panel; migrated to auth");
+      });
+    }
+
     std::uint64_t stableIssueHash(int migrationVersion, std::string_view path) {
       constexpr std::uint64_t kOffset = 14695981039346656037ULL;
       constexpr std::uint64_t kPrime = 1099511628211ULL;
@@ -1126,6 +1164,11 @@ namespace noctalia::config {
             .toVersion = kAppIconColorizationMigrationVersion,
             .summary = "icons: split global app icon colorization into component settings",
             .apply = migrateAppIconColorizationSidecar,
+        },
+        {
+            .toVersion = kAuthPanelMigrationVersion,
+            .summary = "panel: merge the polkit prompt into the unified auth panel",
+            .apply = migrateAuthPanelSidecar,
         },
     };
     return migrations;
@@ -1316,6 +1359,14 @@ namespace noctalia::config {
           .migrationVersion = kAppIconColorizationMigrationVersion,
           .path = path,
           .message = "app_icon_colorize is now colorize_icons in each component's settings",
+      });
+    });
+    migrateAuthPanel(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kAuthPanelMigrationVersion,
+          .path = path,
+          .message =
+              "polkit prompts merged into the unified auth panel; use shell.panel.auth_* and the \"auth\" panel id",
       });
     });
   }
