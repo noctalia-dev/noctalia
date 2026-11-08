@@ -2627,18 +2627,19 @@ namespace settings {
         "keybind shortcut hotkey tab focus pane"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.cycle-previous.label"),
-        tr("settings.schema.keybinds.cycle-previous.description"), {"keybinds", "cycle_previous"},
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.category-previous.label"),
+        tr("settings.schema.keybinds.category-previous.description"), {"keybinds", "category_previous"},
         KeybindListSetting{
-            .items = effectiveKeybindItems(cfg.keybinds.cyclePrevious, KeybindAction::CyclePrevious), .maxItems = 4
+            .items = effectiveKeybindItems(cfg.keybinds.categoryPrevious, KeybindAction::CategoryPrevious),
+            .maxItems = 4
         },
         "keybind shortcut hotkey cycle tab category previous"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.cycle-next.label"),
-        tr("settings.schema.keybinds.cycle-next.description"), {"keybinds", "cycle_next"},
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.category-next.label"),
+        tr("settings.schema.keybinds.category-next.description"), {"keybinds", "category_next"},
         KeybindListSetting{
-            .items = effectiveKeybindItems(cfg.keybinds.cycleNext, KeybindAction::CycleNext), .maxItems = 4
+            .items = effectiveKeybindItems(cfg.keybinds.categoryNext, KeybindAction::CategoryNext), .maxItems = 4
         },
         "keybind shortcut hotkey cycle tab category next"
     ));

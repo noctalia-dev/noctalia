@@ -2545,11 +2545,11 @@ bool LauncherPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, 
     return false;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::CyclePrevious, sym, modifiers)) {
+  if (KeybindMatcher::matches(KeybindAction::CategoryPrevious, sym, modifiers)) {
     cycleCategories(-1);
     return true;
   }
-  if (KeybindMatcher::matches(KeybindAction::CycleNext, sym, modifiers)) {
+  if (KeybindMatcher::matches(KeybindAction::CategoryNext, sym, modifiers)) {
     cycleCategories(1);
     return true;
   }

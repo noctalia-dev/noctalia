@@ -2570,13 +2570,13 @@
           "description": "Save the current selection or item",
           "label": "Save"
         },
-        "cycle-next": {
+        "category-next": {
           "description": "Reveal launcher categories when hidden, then cycle to the next category or Control Center tab",
-          "label": "Cycle Next"
+          "label": "Category Next"
         },
-        "cycle-previous": {
+        "category-previous": {
           "description": "Reveal launcher categories when hidden, then cycle to the previous category or Control Center tab",
-          "label": "Cycle Previous"
+          "label": "Category Previous"
         },
         "tab-next": {
           "description": "Move focus to the next control",

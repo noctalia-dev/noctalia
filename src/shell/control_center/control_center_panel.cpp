@@ -427,11 +427,11 @@ bool ControlCenterPanel::isContextActive(std::string_view context) const {
 
 bool ControlCenterPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
   if (pressed && !preedit) {
-    if (KeybindMatcher::matches(KeybindAction::CyclePrevious, sym, modifiers)) {
+    if (KeybindMatcher::matches(KeybindAction::CategoryPrevious, sym, modifiers)) {
       cycleVisibleTabs(-1);
       return true;
     }
-    if (KeybindMatcher::matches(KeybindAction::CycleNext, sym, modifiers)) {
+    if (KeybindMatcher::matches(KeybindAction::CategoryNext, sym, modifiers)) {
       cycleVisibleTabs(1);
       return true;
     }
