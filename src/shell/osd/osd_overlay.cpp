@@ -129,21 +129,22 @@ namespace {
     return (Style::controlHeight * 6 + Style::spaceMd + Style::spaceSm + Style::spaceXs) * s;
   }
 
+  // Card size and position are whole pixels; a fractional card blurs its border.
   float cardWidth(float s, const std::string& orientation) {
     if (isVerticalOrientation(orientation)) {
-      return (Style::controlHeight + Style::spaceLg + Style::spaceMd) * s;
+      return std::round((Style::controlHeight + Style::spaceLg + Style::spaceMd) * s);
     }
-    return horizontalCardLength(s);
+    return std::round(horizontalCardLength(s));
   }
 
   float cardHeight(float s, const std::string& orientation, bool showProgress) {
     if (isVerticalOrientation(orientation)) {
       if (!showProgress) {
-        return (Style::controlHeight * 2 + Style::spaceLg + Style::spaceSm) * s;
+        return std::round((Style::controlHeight * 2 + Style::spaceLg + Style::spaceSm) * s);
       }
-      return horizontalCardLength(s);
+      return std::round(horizontalCardLength(s));
     }
-    return (Style::controlHeight + Style::spaceSm) * s;
+    return std::round((Style::controlHeight + Style::spaceSm) * s);
   }
 
   std::uint32_t osdSurfaceWidth(float s, const std::string& orientation, float innerPadX) {
@@ -186,14 +187,14 @@ namespace {
 
   bool isRightPosition(const std::string& position) { return position.ends_with("_right"); }
 
-  float cardBaseX(float surfaceWidth, float cardW) { return (surfaceWidth - cardW) * 0.5F; }
+  float cardBaseX(float surfaceWidth, float cardW) { return std::round((surfaceWidth - cardW) * 0.5F); }
 
   float cardBaseYForPosition(const std::string& position, float surfaceHeight, float cardH) {
     if (isBottomPosition(position)) {
       return std::max(0.0F, surfaceHeight - cardH);
     }
     if (isCenterPosition(position)) {
-      return (surfaceHeight - cardH) * 0.5F;
+      return std::round((surfaceHeight - cardH) * 0.5F);
     }
     return 0.0F;
   }
