@@ -74,7 +74,6 @@ DesktopWeatherWidget::DesktopWeatherWidget(const WeatherService* weather, Option
 
 void DesktopWeatherWidget::create() {
   auto rootNode = ui::node({});
-  rootNode->setClipChildren(true);
 
   auto glyph = ui::glyph({
       .out = &m_glyph,
