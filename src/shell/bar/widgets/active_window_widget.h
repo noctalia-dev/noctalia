@@ -42,7 +42,7 @@ public:
     bool colorizeIcons = false;
   };
 
-  ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options);
+  ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, const Options& options);
 
   void create() override;
 
