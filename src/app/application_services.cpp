@@ -72,6 +72,7 @@
 #include "shell/wayland/background_effect_globals.h"
 #include "shell/wayland/clipboard_globals.h"
 #include "shell/wayland/compositor_globals.h"
+#include "shell/wayland/foreign_toplevels.h"
 #include "shell/wayland/layer_shell.h"
 #include "shell/wayland/output_management_globals.h"
 #include "shell/wayland/shell_globals.h"
@@ -763,7 +764,7 @@ void Application::initStyleThemeAndWayland() {
     const bool colorsChanged = !lastGeneratedPalette.has_value() || *lastGeneratedPalette != generated;
     lastGeneratedPalette = generated;
     m_settingsWindow.setResolvedPalette(generated, mode);
-    m_templateApplyService.apply(generated, mode, /*force=*/false, /*paletteChanged=*/colorsChanged);
+    queueTemplateApply(generated, mode, colorsChanged);
     if (previousMode.has_value() && *previousMode != resolvedMode) {
       m_hookManager.fire(
           HookKind::ThemeModeChanged,
@@ -957,6 +958,16 @@ void Application::initWaylandCallbacks() {
     m_bar.refresh();
     m_dock.refresh();
     m_windowSwitcher.onToplevelChange();
+    // Wallpaper fullscreen hold: freeze running transitions when a fullscreen toplevel appears,
+    // resume them and apply deferred changes when the last one goes away.
+    const bool fullscreen = m_compositorPlatform.foreignToplevels().hasActivatedFullscreenToplevel();
+    if (fullscreen != m_wallpaperFullscreenHeld) {
+      m_wallpaperFullscreenHeld = fullscreen;
+      m_wallpaper.onFullscreenHoldChanged(fullscreen);
+      if (!fullscreen && m_wallpaper.hasDeferredChanges()) {
+        applyWallpaperChangePipeline();
+      }
+    }
   });
   if constexpr (kLockKeysEnabled) {
     if (lockKeysConsumersEnabled(m_configService.config())) {
@@ -1020,51 +1031,7 @@ void Application::initAuxServicesAndHooks() {
   });
 
   // Register all wallpaper consumers in the single-callback slot.
-  m_configService.setWallpaperChangeCallback([this] {
-    const auto wallpaperChanges = m_wallpaper.onStateChange();
-    if (m_syncScriptApiOutputs) {
-      m_syncScriptApiOutputs();
-    }
-    m_backdrop.onStateChange();
-    m_lockScreen.onWallpaperChanged();
-    m_themeService.onWallpaperChange();
-    if (m_panelManager.isOpenPanel("control-center")) {
-      m_panelManager.refresh();
-    }
-    scheduleGreeterAutoSync();
-    const auto fireWallpaperChangedHook = [this](const std::string& path, const std::string& connector) {
-      m_hookManager.fire(
-          HookKind::WallpaperChanged, {{"NOCTALIA_WALLPAPER_PATH", path}, {"NOCTALIA_WALLPAPER_CONNECTOR", connector}}
-      );
-    };
-    if (wallpaperChanges.empty()) {
-      fireWallpaperChangedHook(m_configService.getPaletteWallpaperPath(), {});
-    } else {
-      for (const auto& change : wallpaperChanges) {
-        fireWallpaperChangedHook(change.path, change.connector);
-      }
-    }
-    if (compositors::isKde()) {
-      const auto applyKdeWallpaper = [](const std::string& path, const std::string& connector) {
-        if (path.empty()) {
-          return;
-        }
-        std::vector<std::string> cmd{"plasma-apply-wallpaperimage"};
-        if (!connector.empty()) {
-          cmd.insert(cmd.end(), {"--screen", connector});
-        }
-        cmd.push_back(path);
-        (void)process::runAsync(cmd);
-      };
-      if (wallpaperChanges.empty()) {
-        applyKdeWallpaper(m_configService.getPaletteWallpaperPath(), {});
-      } else {
-        for (const auto& change : wallpaperChanges) {
-          applyKdeWallpaper(change.path, change.connector);
-        }
-      }
-    }
-  });
+  m_configService.setWallpaperChangeCallback([this] { applyWallpaperChangePipeline(); });
 
   m_themeService.setChangeCallback([this] {
     requestAllSurfacesRedraw();
@@ -1880,5 +1847,72 @@ void Application::triggerShellAction(const std::string& action, wl_output* outpu
     runShellCommand("niri msg action toggle-overview");
   } else if (action == "window_switcher") {
     m_windowSwitcher.show(output);
+  }
+}
+
+void Application::queueTemplateApply(
+    const noctalia::theme::GeneratedPalette& generatedPalette, std::string_view mode, bool paletteChanged
+) {
+  m_templateGate.enqueue(
+      paletteChanged,
+      [this, palette = generatedPalette, mode = std::string(mode)](bool changed) {
+        m_templateApplyService.apply(palette, mode, /*force=*/false, /*paletteChanged=*/changed);
+      },
+      [this] { return m_wallpaper.isTransitionActive(); },
+      [this](std::function<void()> tick) {
+        m_templateApplyTimer.stop();
+        m_templateApplyTimer.start(std::chrono::milliseconds(250), std::move(tick));
+      }
+  );
+}
+
+void Application::applyWallpaperChangePipeline() {
+  const auto wallpaperChanges = m_wallpaper.onStateChange();
+  if (m_wallpaper.hasDeferredChanges()) {
+    // Fullscreen hold: the wallpaper (and with it palette + templates) waits until the
+    // fullscreen window leaves; the hold-release edge re-runs this pipeline.
+    return;
+  }
+  if (m_syncScriptApiOutputs) {
+    m_syncScriptApiOutputs();
+  }
+  m_backdrop.onStateChange();
+  m_lockScreen.onWallpaperChanged();
+  m_themeService.onWallpaperChange();
+  if (m_panelManager.isOpenPanel("control-center")) {
+    m_panelManager.refresh();
+  }
+  scheduleGreeterAutoSync();
+  const auto fireWallpaperChangedHook = [this](const std::string& path, const std::string& connector) {
+    m_hookManager.fire(
+        HookKind::WallpaperChanged, {{"NOCTALIA_WALLPAPER_PATH", path}, {"NOCTALIA_WALLPAPER_CONNECTOR", connector}}
+    );
+  };
+  if (wallpaperChanges.empty()) {
+    fireWallpaperChangedHook(m_configService.getPaletteWallpaperPath(), {});
+  } else {
+    for (const auto& change : wallpaperChanges) {
+      fireWallpaperChangedHook(change.path, change.connector);
+    }
+  }
+  if (compositors::isKde()) {
+    const auto applyKdeWallpaper = [](const std::string& path, const std::string& connector) {
+      if (path.empty()) {
+        return;
+      }
+      std::vector<std::string> cmd{"plasma-apply-wallpaperimage"};
+      if (!connector.empty()) {
+        cmd.insert(cmd.end(), {"--screen", connector});
+      }
+      cmd.push_back(path);
+      (void)process::runAsync(cmd);
+    };
+    if (wallpaperChanges.empty()) {
+      applyKdeWallpaper(m_configService.getPaletteWallpaperPath(), {});
+    } else {
+      for (const auto& change : wallpaperChanges) {
+        applyKdeWallpaper(change.path, change.connector);
+      }
+    }
   }
 }

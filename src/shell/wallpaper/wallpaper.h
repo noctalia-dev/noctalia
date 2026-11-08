@@ -62,6 +62,12 @@ public:
   // connector is unknown. Shared by the wallpaper-set IPC handler and plugin scripts.
   bool applyWallpaperImage(const std::optional<std::string>& connector, const std::string& path);
   void setAutomationGate(std::function<bool()> gate);
+  // Fullscreen hold (wlr-foreign-toplevel-management, compositor-agnostic where the protocol
+  // exists): probes whether any toplevel is currently fullscreen.
+  void setFullscreenProbe(std::function<bool()> probe);
+  void onFullscreenHoldChanged(bool held);
+  bool hasDeferredChanges() const noexcept { return m_heldChangesDeferred; }
+  bool isTransitionActive() const noexcept;
   bool ownsSurface(wl_surface* surface) const noexcept;
   bool onPointerEvent(const PointerEvent& event);
 
@@ -156,6 +162,9 @@ private:
   // per-connector changes from them; it reports these instead.
   std::vector<WallpaperChange> m_pendingStartupChanges;
   std::function<bool()> m_automationGate;
+  std::function<bool()> m_fullscreenProbe;
+  bool m_heldChangesDeferred = false;
+  [[nodiscard]] bool fullscreenHeld() const;
   wallpaper::ShuffleState m_shuffleState;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<> m_changed;

@@ -305,7 +305,10 @@ void Application::initLockScreenAndSession() {
       return false;
     }
     return !m_configService.config().wallpaper.automation.pauseOnFullscreen
-        || !m_compositorPlatform.foreignToplevels().hasFullscreenToplevel();
+        || !m_compositorPlatform.foreignToplevels().hasActivatedFullscreenToplevel();
+  });
+  m_wallpaper.setFullscreenProbe([this] {
+    return m_compositorPlatform.foreignToplevels().hasActivatedFullscreenToplevel();
   });
   m_configService.addReloadCallback([this] {
     if (m_logindService != nullptr) {

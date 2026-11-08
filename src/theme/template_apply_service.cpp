@@ -23,6 +23,7 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <sys/resource.h>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -618,6 +619,9 @@ namespace noctalia::theme {
   }
 
   void TemplateApplyService::workerLoop() {
+    // Template regeneration + synchronous hooks outrank the render loop and any
+    // fullscreen app if they inherit the shell's (often boosted) priority.
+    setpriority(PRIO_PROCESS, 0, 15);
     while (true) {
       ApplyRequest request;
       {

@@ -66,6 +66,8 @@ wl_output* ForeignToplevels::activeToplevelOutput() const { return m_wlr.current
 
 bool ForeignToplevels::hasFullscreenToplevel() const { return m_wlr.anyFullscreen(); }
 
+bool ForeignToplevels::hasActivatedFullscreenToplevel() const { return m_wlr.anyActivatedFullscreen(); }
+
 bool ForeignToplevels::usesExtForAppQueries() const {
   return compositors::isKde() && m_ext.isBound() && !m_hasWlrManagerGlobal;
 }

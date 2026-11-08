@@ -157,6 +157,7 @@ enabled                    = false
 interval_seconds           = 1800    # seconds between changes
 order                      = "random" # random | alphabetical
 recursive                  = true    # include subdirectories when picking random wallpapers
+pause_on_fullscreen        = true    # defer wallpaper changes and pause running transitions while a fullscreen window is on the active workspace
 
 # ── Theme ─────────────────────────────────────────────────────────────────────
 

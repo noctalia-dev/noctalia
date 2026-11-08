@@ -272,6 +272,15 @@ bool WaylandToplevels::anyFullscreen() const {
   });
 }
 
+bool WaylandToplevels::anyActivatedFullscreen() const {
+  // A toplevel on a non-active workspace is never activated, so this is effectively
+  // "fullscreen on the workspace the user is looking at" without knowing workspaces.
+  // Compositors that never report activated degrade to never holding.
+  return std::ranges::any_of(m_handles, [](const auto& entry) {
+    return entry.second.fullscreen && entry.second.activated && !entry.second.minimized;
+  });
+}
+
 wl_output* WaylandToplevels::currentOutput() const {
   if (m_currentHandle == nullptr) {
     return nullptr;

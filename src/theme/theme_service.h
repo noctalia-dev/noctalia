@@ -136,7 +136,6 @@ namespace noctalia::theme {
     Palette m_fromPalette{};
     Palette m_targetPalette{};
     AnimationManager::Id m_transitionAnimId = 0;
-    bool m_transitionResolvedCallbackFlushed = false;
     bool m_isShellLightMode = false;
     bool m_isLightMode = false;
     std::optional<double> m_autoLatitude;

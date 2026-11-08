@@ -143,6 +143,9 @@ namespace noctalia::theme {
 
     process::RunOptions options;
     options.maxOutputBytes = kMaxHookOutputBytes;
+    // Hooks (apply.sh scripts, icon-cache rebuilds, ...) must never outrank the
+    // compositor or a game; set explicitly since the launch may ride a reader thread.
+    options.niceLevel = 15;
     // Let the owner's cancel flag reach an already-running hook.
     options.cancel = state->cancel;
     if (process::runAsync(command, std::move(callbacks), options)) {

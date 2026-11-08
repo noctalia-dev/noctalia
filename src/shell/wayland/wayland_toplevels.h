@@ -73,6 +73,7 @@ public:
   std::optional<ActiveToplevel> current() const;
   wl_output* currentOutput() const;
   bool anyFullscreen() const;
+  bool anyActivatedFullscreen() const;
   std::optional<ActiveToplevel>
   matchByTitleAndAppId(std::string_view title, std::string_view appId, wl_output* preferredOutput) const;
   std::vector<std::string> allAppIds(wl_output* outputFilter = nullptr) const;

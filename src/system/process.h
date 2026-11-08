@@ -48,6 +48,8 @@ namespace process {
     std::shared_ptr<std::atomic<bool>> cancel;
     // Child-only environment changes. `nullopt` unsets the variable.
     std::vector<EnvOverride> env;
+    // Absolute nice value applied to the child before exec; its own children inherit it.
+    std::optional<int> niceLevel;
     // When set, becomes the child's stdin, followed by EOF. It is written in full
     // before the child starts, so it must fit in a pipe buffer (64 KiB on Linux);
     // larger input fails the run. Otherwise the child inherits our stdin.

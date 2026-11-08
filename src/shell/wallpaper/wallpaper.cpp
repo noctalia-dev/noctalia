@@ -588,6 +588,13 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
     if (newPath == inst->loadingPath) {
       continue;
     }
+    // Fullscreen hold: defer changes that would start a fresh transition; onFullscreenHoldChanged(false)
+    // re-runs this reconcile. Outputs still showing no wallpaper apply anyway (no blank desktop).
+    if (fullscreenHeld() && !inst->currentPath.empty()) {
+      m_heldChangesDeferred = true;
+      continue;
+    }
+    m_heldChangesDeferred = false;
 
     kLog.info("changing {} → {}", inst->connectorName, newPath);
     loadWallpaper(*inst, newPath);
@@ -932,6 +939,37 @@ void Wallpaper::resetAutomationState() {
 void Wallpaper::setAutomationGate(std::function<bool()> gate) { m_automationGate = std::move(gate); }
 
 bool Wallpaper::automationAllowed() const noexcept { return !m_automationGate || m_automationGate(); }
+
+void Wallpaper::setFullscreenProbe(std::function<bool()> probe) { m_fullscreenProbe = std::move(probe); }
+
+bool Wallpaper::isTransitionActive() const noexcept {
+  return std::ranges::any_of(m_instances, [](const auto& inst) { return inst && inst->transitioning; });
+}
+
+bool Wallpaper::fullscreenHeld() const {
+  return m_config != nullptr
+      && m_config->config().wallpaper.automation.pauseOnFullscreen
+      && m_fullscreenProbe
+      && m_fullscreenProbe();
+}
+
+void Wallpaper::onFullscreenHoldChanged(bool held) {
+  if (held) {
+    for (auto& inst : m_instances) {
+      if (inst->transitioning && inst->transitionAnimId != 0) {
+        inst->animations.cancel(inst->transitionAnimId);
+        inst->transitionAnimId = 0;
+      }
+    }
+    return;
+  }
+
+  for (auto& inst : m_instances) {
+    if (inst->transitioning && inst->transitionAnimId == 0) {
+      startTransitionAnimation(*inst, inst->transitionTime, inst->transitionDirection);
+    }
+  }
+}
 
 ThemeMode Wallpaper::directoryThemeMode() const noexcept {
   const ThemeMode configured = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
@@ -1552,6 +1590,18 @@ void Wallpaper::startTransitionAnimation(
   if (durationMs <= 0.0F) {
     setTransitionTime(instance, toTime);
     finishTransition(instance);
+    return;
+  }
+  if (fullscreenHeld()) {
+    if (instance.currentPath.empty()) {
+      // First wallpaper (startup): deferring would leave the desktop blank. One commit to
+      // snap it in beats an invisible wallpaper; later changes defer via the reconcile gate.
+      setTransitionTime(instance, toTime);
+      finishTransition(instance);
+      return;
+    }
+    // Stay frozen on the current blend; onFullscreenHoldChanged(false) restarts the animation
+    // with the remaining time. The loaded pair is already in place, so nothing is lost.
     return;
   }
 

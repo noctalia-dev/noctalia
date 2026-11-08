@@ -24,6 +24,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
@@ -446,6 +447,9 @@ namespace {
       closeFd(errPipe[1]);
 
       applyEnvOverrides(options.env);
+      if (options.niceLevel.has_value()) {
+        setpriority(PRIO_PROCESS, 0, *options.niceLevel);
+      }
       std::vector<char*> argv = makeArgv(args);
 
       ::execvp(argv[0], argv.data());

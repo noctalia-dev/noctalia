@@ -538,16 +538,23 @@ namespace noctalia::theme {
     m_isLightMode = resolved->mode == "light";
     m_isShellLightMode = resolved->shellMode == "light";
 
+    // A wallpaper change fires this twice: once from the change pipeline and once from the
+    // settings.toml write's config reload. When the resolved theme is already what a running
+    // transition is heading to (or already applied), re-resolving is pure waste; the resolved
+    // callback queued above still has to be delivered.
+    const bool sameColors =
+        m_transitionAnimId != 0 ? m_targetPalette == resolved->palette : palette == resolved->palette;
+    if (sameColors) {
+      flushResolvedCallback(/*defer=*/false);
+      rescheduleAutoTimer();
+      return;
+    }
+
     if (animate) {
       setResolvedThemeLight(m_isShellLightMode);
       notifyShellAppIconColorizationChanged();
       startTransition(resolved->palette);
     } else {
-      if (m_transitionAnimId == 0 && palette == resolved->palette) {
-        flushResolvedCallback(/*defer=*/false);
-        rescheduleAutoTimer();
-        return;
-      }
       if (m_transitionAnimId != 0) {
         m_animations.cancel(m_transitionAnimId);
         m_transitionAnimId = 0;
@@ -599,17 +606,12 @@ namespace noctalia::theme {
     }
     m_fromPalette = palette;
     m_targetPalette = target;
-    m_transitionResolvedCallbackFlushed = false;
     m_transitionAnimId = m_animations.animate(
         0.0F, 1.0F, kTransitionDurationMs, Easing::EaseOutCubic,
         [this](float t) {
           setPalette(lerpPalette(m_fromPalette, m_targetPalette, t));
           if (m_changeCallback) {
             m_changeCallback();
-          }
-          if (!m_transitionResolvedCallbackFlushed) {
-            m_transitionResolvedCallbackFlushed = true;
-            flushResolvedCallback(/*defer=*/true);
           }
         },
         [this] { finishTransition(/*deferResolvedCallback=*/false); }

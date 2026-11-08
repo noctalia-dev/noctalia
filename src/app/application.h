@@ -91,6 +91,7 @@
 #include "system/weather_service.h"
 #include "theme/community_palettes.h"
 #include "theme/community_templates.h"
+#include "theme/template_apply_gate.h"
 #include "theme/template_apply_service.h"
 #include "theme/theme_service.h"
 #include "time/time_poll_source.h"
@@ -391,6 +392,13 @@ private:
   ScreenCorners m_screenCorners;
   TrayMenu m_trayMenu;
   Wallpaper m_wallpaper;
+  bool m_wallpaperFullscreenHeld = false;
+  Timer m_templateApplyTimer;
+  noctalia::theme::TemplateApplyGate m_templateGate;
+  void applyWallpaperChangePipeline();
+  void queueTemplateApply(
+      const noctalia::theme::GeneratedPalette& generatedPalette, std::string_view mode, bool paletteChanged
+  );
   Backdrop m_backdrop;
   SettingsWindow m_settingsWindow;
   LayerPopupHostRegistry m_layerPopupHosts;
