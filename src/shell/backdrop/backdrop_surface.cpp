@@ -71,6 +71,15 @@ void BackdropSurface::render() {
     return;
   }
 
+  requestFrame();
+
+  // No blur/tint configured: draw straight to the window. Skips the FBO round-trip
+  // and the full-res blit, halving fill cost for every drawn frame.
+  if (!options.needsPostProcess()) {
+    m_wallpaperRenderer.render();
+    return;
+  }
+
   m_layer.ensure([&](RenderFramebuffer& target) {
     auto* scratch = m_layer.scratch();
     if (scratch == nullptr) {
@@ -79,7 +88,6 @@ void BackdropSurface::render() {
     m_wallpaperRenderer.renderBackdropContent(target, *scratch, options);
   });
 
-  requestFrame();
   m_wallpaperRenderer.presentTexture(m_layer.texture());
 }
 

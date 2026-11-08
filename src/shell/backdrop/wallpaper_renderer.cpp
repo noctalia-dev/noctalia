@@ -194,6 +194,118 @@ void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
   // No eglSwapBuffers — caller is responsible for presentation
 }
 
+void WallpaperRenderer::renderFadeBlurredSources(RenderFramebuffer& target, const BackdropPostProcessOptions& options) {
+  ensureBlurredSource(m_blurFbA, m_blurKeyA, m_tex1, m_imgW1, m_imgH1, options);
+  ensureBlurredSource(m_blurFbB, m_blurKeyB, m_tex2, m_imgW2, m_imgH2, options);
+  if (m_blurFbA == nullptr || !m_blurFbA->valid() || m_blurFbB == nullptr || !m_blurFbB->valid()) {
+    renderToFramebuffer(target);
+    return;
+  }
+
+  makeCurrent();
+  m_backend->bindFramebuffer(target);
+  m_backend->setViewport(m_bufferWidth, m_bufferHeight);
+  m_backend->clear(rgba(0.0F, 0.0F, 0.0F, 1.0F));
+  m_backend->setBlendMode(RenderBlendMode::StraightAlpha);
+
+  const auto sw = static_cast<float>(m_logicalWidth);
+  const auto sh = static_cast<float>(m_logicalHeight);
+  const auto bw = static_cast<float>(m_bufferWidth);
+  const auto bh = static_cast<float>(m_bufferHeight);
+
+  drawWallpaper(
+      *m_backend,
+      WallpaperDrawParams{
+          .transition = WallpaperTransition::Fade,
+          .from =
+              {.kind = WallpaperSourceKind::Image,
+               .texture = m_blurFbA->colorTexture(),
+               .imageWidth = bw,
+               .imageHeight = bh},
+          .to =
+              {.kind = WallpaperSourceKind::Image,
+               .texture = m_blurFbB->colorTexture(),
+               .imageWidth = bw,
+               .imageHeight = bh},
+          .surfaceWidth = sw,
+          .surfaceHeight = sh,
+          .quadWidth = sw,
+          .quadHeight = sh,
+          .progress = m_progress,
+          .fillMode = static_cast<float>(WallpaperFillMode::Stretch),
+          .params = m_params,
+          .fillColor = m_fillColor,
+      }
+  );
+}
+
+void WallpaperRenderer::ensureBlurredSource(
+    std::unique_ptr<RenderFramebuffer>& cache, std::uint32_t& cacheKey, TextureId source, float imgW, float imgH,
+    const BackdropPostProcessOptions& options
+) {
+  // Keyed on GL texture id; id reuse after texture death could serve a stale blur.
+  // SharedTextureCache owns these textures for their lifetime, and every reset/resize path
+  // clears the keys, so this cannot happen in practice.
+  const bool hit = source != 0
+      && cacheKey == source.value()
+      && m_blurRadiusCached == options.blurRadius
+      && m_blurRoundsCached == options.blurRounds
+      && m_blurSizeW == m_bufferWidth
+      && m_blurSizeH == m_bufferHeight
+      && cache != nullptr
+      && cache->valid();
+  if (hit) {
+    return;
+  }
+
+  cache.reset();
+  cacheKey = 0;
+  if (source == 0 || m_bufferWidth == 0 || m_bufferHeight == 0) {
+    return;
+  }
+
+  cache = createFramebuffer(m_bufferWidth, m_bufferHeight);
+  if (m_blurScratch == nullptr
+      || !m_blurScratch->valid()
+      || m_blurSizeW != m_bufferWidth
+      || m_blurSizeH != m_bufferHeight) {
+    m_blurScratch = createFramebuffer(m_bufferWidth, m_bufferHeight);
+  }
+  if (cache == nullptr || !cache->valid() || m_blurScratch == nullptr || !m_blurScratch->valid()) {
+    cache.reset();
+    return;
+  }
+
+  makeCurrent();
+  m_backend->bindFramebuffer(*cache);
+  m_backend->setViewport(m_bufferWidth, m_bufferHeight);
+  m_backend->clear(rgba(0.0F, 0.0F, 0.0F, 1.0F));
+  m_backend->setBlendMode(RenderBlendMode::StraightAlpha);
+  drawWallpaper(
+      *m_backend,
+      WallpaperDrawParams{
+          .transition = WallpaperTransition::Fade,
+          .from = {.kind = WallpaperSourceKind::Image, .texture = source, .imageWidth = imgW, .imageHeight = imgH},
+          .to = {.kind = WallpaperSourceKind::Image, .texture = source, .imageWidth = imgW, .imageHeight = imgH},
+          .surfaceWidth = static_cast<float>(m_logicalWidth),
+          .surfaceHeight = static_cast<float>(m_logicalHeight),
+          .quadWidth = static_cast<float>(m_logicalWidth),
+          .quadHeight = static_cast<float>(m_logicalHeight),
+          .progress = 0.0F,
+          .fillMode = static_cast<float>(m_fillMode),
+          .params = m_params,
+          .fillColor = m_fillColor,
+      }
+  );
+  blur(*cache, *m_blurScratch, options.blurRadius, options.blurRounds);
+
+  cacheKey = source.value();
+  m_blurRadiusCached = options.blurRadius;
+  m_blurRoundsCached = options.blurRounds;
+  m_blurSizeW = m_bufferWidth;
+  m_blurSizeH = m_bufferHeight;
+}
+
 void WallpaperRenderer::renderBackdropFrame(
     RenderFramebuffer& target, RenderFramebuffer& scratch, const BackdropPostProcessOptions& options
 ) {
@@ -209,6 +321,21 @@ void WallpaperRenderer::renderBackdropContent(
     RenderFramebuffer& target, RenderFramebuffer& scratch, const BackdropPostProcessOptions& options
 ) {
   if (m_backend == nullptr || !target.valid()) {
+    return;
+  }
+
+  // Fade is a per-pixel linear mix, so blur(mix(A,B,t)) == mix(blur(A),blur(B),t). Blur the two
+  // sources once per transition and cross-fade the blurred frames instead of re-blurring the
+  // blend every frame (~7 full-res passes per frame otherwise). Fade-only: other effects are
+  // non-linear per pixel and must blur the blended frame.
+  if (options.blurRadius >= 0.5F
+      && options.blurRounds > 0
+      && m_tex2 != 0
+      && m_transition == WallpaperTransition::Fade) {
+    renderFadeBlurredSources(target, options);
+    if (options.tintIntensity > kMinimumPostProcessAlpha) {
+      tint(target, options.tintColor, options.tintIntensity);
+    }
     return;
   }
 
@@ -240,6 +367,11 @@ void WallpaperRenderer::presentTexture(TextureId texture) {
 }
 
 void WallpaperRenderer::invalidateGpuResources() {
+  m_blurFbA.reset();
+  m_blurFbB.reset();
+  m_blurScratch.reset();
+  m_blurKeyA = 0;
+  m_blurKeyB = 0;
   if (m_backend != nullptr) {
     m_backend->invalidateGpuResources();
   }
@@ -249,6 +381,16 @@ void WallpaperRenderer::prepareForGraphicsReset() noexcept {
   if (m_backend == nullptr) {
     return;
   }
+  for (auto* fb : {m_blurFbA.get(), m_blurFbB.get(), m_blurScratch.get()}) {
+    if (fb != nullptr) {
+      fb->abandon();
+    }
+  }
+  m_blurFbA.reset();
+  m_blurFbB.reset();
+  m_blurScratch.reset();
+  m_blurKeyA = 0;
+  m_blurKeyB = 0;
   m_backend->abandonAfterGraphicsReset();
   m_graphicsResetPending = true;
 }
@@ -374,6 +516,11 @@ void WallpaperRenderer::cleanup() {
   }
 
   m_surface = nullptr;
+  m_blurFbA.reset();
+  m_blurFbB.reset();
+  m_blurScratch.reset();
+  m_blurKeyA = 0;
+  m_blurKeyB = 0;
   m_bufferWidth = 0;
   m_bufferHeight = 0;
   m_logicalWidth = 0;

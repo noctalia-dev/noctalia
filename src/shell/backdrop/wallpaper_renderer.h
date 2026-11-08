@@ -20,6 +20,9 @@ struct BackdropPostProcessOptions {
   int blurRounds = 0;
   Color tintColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   float tintIntensity = 0.0F;
+
+  // Mirrors the blur/tint activation thresholds in WallpaperRenderer (0.5px radius, ~0 alpha).
+  [[nodiscard]] bool needsPostProcess() const noexcept { return blurRadius >= 0.5F || tintIntensity > 0.001F; }
 };
 
 class WallpaperRenderer {
@@ -58,11 +61,29 @@ public:
 private:
   void cleanup();
   void renderToFramebuffer(const RenderFramebuffer& target);
+  void renderFadeBlurredSources(RenderFramebuffer& target, const BackdropPostProcessOptions& options);
+  void ensureBlurredSource(
+      std::unique_ptr<RenderFramebuffer>& cache, std::uint32_t& cacheKey, TextureId source, float imgW, float imgH,
+      const BackdropPostProcessOptions& options
+  );
   void blur(RenderFramebuffer& target, RenderFramebuffer& scratch, float radius, int rounds);
   void tint(RenderFramebuffer& target, Color color, float intensity);
   void blitToSurface(TextureId texture);
   void swapBuffers();
   void checkGraphicsReset();
+
+  // Per-source pre-blurred frames for fade transitions: blur(A) and blur(B) are cached and
+  // cross-faded directly, instead of re-blurring the blended frame every vsync. Keyed by
+  // (source texture, radius, rounds, size) packed into cacheKey's texture id compare.
+  std::unique_ptr<RenderFramebuffer> m_blurFbA;
+  std::unique_ptr<RenderFramebuffer> m_blurFbB;
+  std::uint32_t m_blurKeyA = 0;
+  std::uint32_t m_blurKeyB = 0;
+  float m_blurRadiusCached = 0.0F;
+  int m_blurRoundsCached = 0;
+  std::uint32_t m_blurSizeW = 0;
+  std::uint32_t m_blurSizeH = 0;
+  std::unique_ptr<RenderFramebuffer> m_blurScratch;
 
   wl_surface* m_surface = nullptr;
   GlSharedContext* m_shared = nullptr;
