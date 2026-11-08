@@ -14,6 +14,7 @@
 #include "shell/lockscreen/lockscreen_session_actions.h"
 #include "shell/lockscreen/lockscreen_transition_cover.h"
 #include "shell/lockscreen/lockscreen_widgets_host.h"
+#include "shell/osd/osd_overlay.h"
 #include "shell/render/blur_cache.h"
 #include "shell/render/wallpaper_node.h"
 #include "shell/session/session_action_meta.h"
@@ -24,6 +25,7 @@
 #include "ui/controls/button.h"
 #include "ui/controls/image.h"
 #include "ui/controls/label.h"
+#include "ui/controls/progress_bar.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/clamp.h"
@@ -645,6 +647,69 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
     m_transitionCover = static_cast<LockscreenTransitionCover*>(m_root.addChild(std::move(transitionCover)));
   }
 
+  {
+    auto osdRoot = ui::node({});
+    osdRoot->setZIndex(900);
+    osdRoot->setVisible(false);
+    m_osdRoot = m_root.addChild(std::move(osdRoot));
+  }
+  m_osdRoot->addChild(
+      ui::box({
+          .out = &m_osdBackground,
+          .configure = [](Box& box) {
+            box.setZIndex(0);
+            box.setRadius(Style::scaledRadiusXl());
+          },
+      })
+  );
+  {
+    auto card = ui::box({
+        .out = &m_osdCard,
+        .fill = clearColorSpec(),
+        .configure = [](Box& box) { box.setZIndex(1); },
+    });
+    card->setClipChildren(true);
+    m_osdCard = card.get();
+    m_osdRoot->addChild(std::move(card));
+  }
+  m_osdCard->addChild(
+      ui::row(
+          {
+              .out = &m_osdRow,
+              .align = FlexAlign::Center,
+              .justify = FlexJustify::Start,
+              .gap = Style::spaceSm + Style::spaceXs * 0.5F,
+              .configure = [](Flex& flex) { flex.setZIndex(1); },
+          },
+          ui::glyph({
+              .out = &m_osdGlyph,
+              .glyphSize = Style::fontSizeTitle + Style::borderWidth * 4,
+              .color = colorSpecFromRole(ColorRole::Primary),
+              .configure = [](Glyph& glyph) { glyph.setZIndex(1); },
+          }),
+          ui::progressBar({
+              .out = &m_osdProgress,
+              .fill = colorSpecFromRole(ColorRole::Primary),
+              .track = colorSpecFromRole(ColorRole::SurfaceContainer),
+              .radius = Style::scaledRadiusSm(),
+              .width = (Style::spaceXs + Style::borderWidth * 2) * 1.75F,
+              .height = 0.0F,
+              .flexGrow = 1.0F,
+              .configure = [](ProgressBar& bar) { bar.setZIndex(1); },
+          }),
+          ui::label({
+              .out = &m_osdValue,
+              .text = "100%",
+              .fontSize = Style::fontSizeBody,
+              .fontWeight = FontWeight::Bold,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .maxLines = 1,
+              .textAlign = TextAlign::End,
+              .configure = [](Label& label) { label.setZIndex(1); },
+          })
+      )
+  );
+
   m_inputDispatcher.setSceneRoot(&m_root);
   m_inputDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
     m_connection.setCursorShape(serial, shape);
@@ -1154,6 +1219,301 @@ void LockSurface::onKeyboardEvent(const KeyboardEvent& event) {
   }
 }
 
+void LockSurface::showOsd(
+    OsdKind /*kind*/, std::string icon, std::string value, float progress, bool showProgress, bool overLimit,
+    bool inactive
+) {
+  if (!m_locked || m_blackout || m_osdRoot == nullptr) {
+    return;
+  }
+  if (m_config == nullptr || !m_config->config().lockscreen.showOsd) {
+    return;
+  }
+  m_osdIcon = std::move(icon);
+  m_osdText = std::move(value);
+  m_osdProgressValue = progress;
+  m_osdShowProgress = showProgress;
+  m_osdOverLimit = overLimit;
+  m_osdInactive = inactive;
+  const ColorRole accent = m_osdOverLimit ? ColorRole::Error
+      : m_osdInactive                     ? ColorRole::OnSurfaceVariant
+                                          : ColorRole::Primary;
+  if (m_osdGlyph != nullptr) {
+    m_osdGlyph->setGlyph(m_osdIcon);
+    m_osdGlyph->setColor(colorSpecFromRole(accent));
+  }
+  if (m_osdProgress != nullptr) {
+    m_osdProgress->setFill(colorSpecFromRole(accent));
+  }
+  if (m_osdValue != nullptr) {
+    m_osdValue->setText(m_osdText);
+    const ColorRole valueRole = m_osdOverLimit ? ColorRole::Error
+        : m_osdInactive                        ? ColorRole::OnSurfaceVariant
+                                               : ColorRole::OnSurface;
+    m_osdValue->setColor(colorSpecFromRole(valueRole));
+  }
+  if (m_osdProgress != nullptr) {
+    m_osdProgress->setVisible(m_osdShowProgress);
+    m_osdProgress->setProgress(m_osdProgressValue);
+  }
+  if (m_osdRow != nullptr) {
+    m_osdRow->setJustify(m_osdShowProgress ? FlexJustify::Start : FlexJustify::Center);
+  }
+  if (m_osdValue != nullptr) {
+    m_osdValue->setTextAlign(m_osdShowProgress ? TextAlign::End : TextAlign::Center);
+  }
+  m_osdRoot->setOpacity(1.0F);
+  m_osdRoot->setVisible(true);
+  // layoutOsdCard bails out while no OSD is active, so the first show must
+  // request a layout before the reveal animation reads card dimensions.
+  requestLayout();
+  animateOsd();
+}
+
+void LockSurface::animateOsd() {
+  if (m_osdHideAnim != 0) {
+    m_animations.cancel(m_osdHideAnim);
+    m_osdHideAnim = 0;
+  }
+  m_osdHideTimer.stop();
+  if (!m_osdVisible && m_osdShowAnim == 0) {
+    if (m_osdRoot != nullptr) {
+      m_osdRoot->setOpacity(1.0F);
+    }
+    m_osdShowAnim = m_animations.animate(
+        0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic, [this](float v) { applyOsdReveal(v); },
+        [this] {
+          m_osdShowAnim = 0;
+          m_osdVisible = true;
+        }
+    );
+  } else {
+    applyOsdReveal(1.0F);
+    m_osdVisible = true;
+  }
+  requestFrameTick();
+  const int hideDelayMs = m_config != nullptr ? m_config->config().osd.hideDelayMs : 1400;
+  m_osdHideTimer.start(std::chrono::milliseconds(hideDelayMs), [this] {
+    if (m_osdShowAnim != 0) {
+      m_animations.cancel(m_osdShowAnim);
+      m_osdShowAnim = 0;
+    }
+    m_osdHideAnim = m_animations.animate(
+        1.0F, 0.0F, Style::animNormal, Easing::EaseInQuad, [this](float v) { applyOsdReveal(v); },
+        [this] {
+          m_osdHideAnim = 0;
+          m_osdVisible = false;
+          if (m_osdRoot != nullptr) {
+            m_osdRoot->setVisible(false);
+          }
+          requestRedraw();
+        }
+    );
+    requestFrameTick();
+  });
+}
+
+void LockSurface::applyOsdReveal(float reveal) {
+  if (m_osdBackground == nullptr || m_osdCard == nullptr || m_osdRoot == nullptr) {
+    return;
+  }
+  const float r = std::clamp(reveal, 0.0F, 1.0F);
+  const float cw = m_osdCardW > 0.0F ? m_osdCardW : m_osdBackground->width();
+  const float ch = m_osdCardH > 0.0F ? m_osdCardH : m_osdBackground->height();
+  const float baseX = m_osdBaseX;
+  const float baseY = m_osdBaseY;
+  m_osdReveal = r;
+  std::string position = "top_center";
+  if (m_config != nullptr) {
+    const bool vertical = m_config->config().osd.orientation == "vertical" && m_osdShowProgress;
+    position = vertical ? m_config->config().osd.positionVertical : m_config->config().osd.position;
+    if (position.empty()) {
+      position = "top_center";
+    }
+  }
+  if (position.ends_with("_left")) {
+    const float vw = std::round(cw * r);
+    m_osdBackground->setPosition(baseX, baseY);
+    m_osdCard->setPosition(baseX, baseY);
+    m_osdBackground->setFrameSize(vw, ch);
+    m_osdCard->setFrameSize(vw, ch);
+    if (m_osdRow != nullptr) {
+      m_osdRow->setPosition(m_osdRowBaseX, m_osdRowBaseY);
+    }
+  } else if (position.ends_with("_right")) {
+    const float vw = std::round(cw * r);
+    const float hw = cw - vw;
+    m_osdBackground->setPosition(baseX + hw, baseY);
+    m_osdCard->setPosition(baseX + hw, baseY);
+    m_osdBackground->setFrameSize(vw, ch);
+    m_osdCard->setFrameSize(vw, ch);
+    if (m_osdRow != nullptr) {
+      m_osdRow->setPosition(m_osdRowBaseX - hw, m_osdRowBaseY);
+    }
+  } else if (position.starts_with("bottom_")) {
+    const float vh = std::round(ch * r);
+    const float hh = ch - vh;
+    m_osdBackground->setPosition(baseX, baseY + hh);
+    m_osdCard->setPosition(baseX, baseY + hh);
+    m_osdBackground->setFrameSize(cw, vh);
+    m_osdCard->setFrameSize(cw, vh);
+    if (m_osdRow != nullptr) {
+      m_osdRow->setPosition(m_osdRowBaseX, m_osdRowBaseY - hh);
+    }
+  } else {
+    const float vh = std::round(ch * r);
+    m_osdBackground->setPosition(baseX, baseY);
+    m_osdCard->setPosition(baseX, baseY);
+    m_osdBackground->setFrameSize(cw, vh);
+    m_osdCard->setFrameSize(cw, vh);
+    if (m_osdRow != nullptr) {
+      m_osdRow->setPosition(m_osdRowBaseX, m_osdRowBaseY);
+    }
+  }
+  if (m_osdRow != nullptr) {
+    m_osdRow->setOpacity(r <= 0.15F ? 0.0F : std::clamp((r - 0.15F) / 0.85F, 0.0F, 1.0F));
+  }
+  requestRedraw();
+}
+
+void LockSurface::layoutOsdCard(std::uint32_t width, std::uint32_t height) {
+  if (m_osdRoot == nullptr || m_osdBackground == nullptr || m_osdCard == nullptr || m_osdRow == nullptr) {
+    return;
+  }
+  const bool enabled = m_locked && !m_blackout && m_config != nullptr && m_config->config().lockscreen.showOsd;
+  if (!enabled) {
+    m_osdRoot->setVisible(false);
+    m_osdHideTimer.stop();
+    if (m_osdShowAnim != 0) {
+      m_animations.cancel(m_osdShowAnim);
+      m_osdShowAnim = 0;
+    }
+    if (m_osdHideAnim != 0) {
+      m_animations.cancel(m_osdHideAnim);
+      m_osdHideAnim = 0;
+    }
+    m_osdVisible = false;
+    return;
+  }
+  auto* context = renderContext();
+  if (context == nullptr) {
+    return;
+  }
+  if (!m_osdVisible && m_osdShowAnim == 0 && m_osdHideAnim == 0) {
+    m_osdRoot->setVisible(false);
+    return;
+  }
+  Renderer& renderer = renderTarget().renderer();
+  const auto sw = static_cast<float>(width);
+  const auto sh = static_cast<float>(height);
+  const float scale = m_config != nullptr
+      ? std::max(0.1F, m_config->config().accessibility.uiScale * m_config->config().osd.scale)
+      : 1.0F;
+  const bool vertical = m_config != nullptr && m_config->config().osd.orientation == "vertical" && m_osdShowProgress;
+  const float pad = Style::spaceMd * scale;
+  std::string position = "top_center";
+  if (m_config != nullptr) {
+    position = vertical ? m_config->config().osd.positionVertical : m_config->config().osd.position;
+    if (position.empty()) {
+      position = "top_center";
+    }
+  }
+  const float cw = vertical ? (Style::controlHeight + Style::spaceLg + Style::spaceMd) * scale
+                            : (Style::controlHeight * 6 + Style::spaceMd + Style::spaceSm + Style::spaceXs) * scale;
+  const float ch = vertical
+      ? (m_osdShowProgress ? (Style::controlHeight * 6 + Style::spaceMd + Style::spaceSm + Style::spaceXs)
+                           : (Style::controlHeight * 2 + Style::spaceLg + Style::spaceSm))
+          * scale
+      : (Style::controlHeight + Style::spaceSm) * scale;
+  const float offsetX = m_config != nullptr ? static_cast<float>(std::max(0, m_config->config().osd.offsetX)) : 0.0F;
+  const float offsetY = m_config != nullptr ? static_cast<float>(std::max(0, m_config->config().osd.offsetY)) : 0.0F;
+  float cardX = 0.0F;
+  float cardY = 0.0F;
+  if (position.ends_with("_left")) {
+    cardX = offsetX;
+  } else if (position.ends_with("_right")) {
+    cardX = sw - cw - offsetX;
+  } else {
+    cardX = std::round((sw - cw) * 0.5F);
+  }
+  if (position.starts_with("bottom_")) {
+    cardY = sh - ch - offsetY;
+  } else if (position == "center" || position.starts_with("center_")) {
+    cardY = std::round((sh - ch) * 0.5F);
+  } else {
+    cardY = offsetY + Style::spaceLg * scale;
+  }
+  cardX = std::max(0.0F, cardX);
+  cardY = std::max(0.0F, cardY);
+  m_osdBaseX = cardX;
+  m_osdBaseY = cardY;
+  m_osdCardW = cw;
+  m_osdCardH = ch;
+  m_osdRoot->setPosition(0.0F, 0.0F);
+  m_osdRoot->setSize(sw, static_cast<float>(height));
+  float bgOpacity = 0.97F;
+  if (m_config != nullptr) {
+    bgOpacity = std::clamp(m_config->config().osd.backgroundOpacity, 0.0F, 1.0F);
+  }
+  m_osdBackground->setFill(colorSpecFromRole(ColorRole::Surface, bgOpacity));
+  if (m_config != nullptr && m_config->config().osd.border) {
+    m_osdBackground->setBorder(m_config->config().osd.borderColor, m_config->config().osd.borderWidth);
+  } else {
+    m_osdBackground->setBorder(colorSpecFromRole(ColorRole::OutlineVariant), 0.0F);
+  }
+  m_osdBackground->setRadius(Style::scaledRadiusXl());
+  m_osdBackground->setPosition(cardX, cardY);
+  m_osdBackground->setSize(cw, ch);
+  m_osdCard->setPosition(cardX, cardY);
+  m_osdCard->setSize(cw, ch);
+  const float gap = (Style::spaceSm + Style::spaceXs * 0.5F) * scale;
+  if (m_osdGlyph != nullptr) {
+    m_osdGlyph->setGlyphSize((Style::fontSizeTitle + Style::borderWidth * 4) * scale);
+  }
+  if (m_osdValue != nullptr) {
+    m_osdValue->setFontSize(Style::fontSizeBody * scale);
+  }
+  m_osdRow->setDirection(vertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
+  m_osdRow->setJustify((vertical || !m_osdShowProgress) ? FlexJustify::Center : FlexJustify::Start);
+  m_osdRow->setGap(gap);
+  if (m_osdProgress != nullptr) {
+    m_osdProgress->setOrientation(vertical ? ProgressBarOrientation::Vertical : ProgressBarOrientation::Horizontal);
+    // flexGrow alone does not size the cross axis for the vertical column:
+    // width must be set explicitly, as OsdOverlay does for the pill.
+    m_osdProgress->setSize(
+        (Style::spaceXs + Style::borderWidth * 2) * 1.75F * scale,
+        vertical ? 0.0F : (Style::spaceXs + Style::borderWidth * 2) * scale
+    );
+  }
+  if (m_osdValue != nullptr && m_osdGlyph != nullptr) {
+    const float glyphSize = (Style::fontSizeTitle + Style::borderWidth * 4) * scale;
+    if (m_osdShowProgress) {
+      m_osdValue->measure(renderer);
+      const float minW = m_osdValue->width();
+      const float maxW = std::max(minW, cw - pad * 2.0F - glyphSize - gap * 2.0F - minW / 3.0F);
+      m_osdValue->setMaxWidth(vertical ? cw - pad * 2.0F : maxW);
+      m_osdValue->setMinWidth(vertical ? 0.0F : minW);
+    } else {
+      m_osdValue->setMaxWidth(std::max(0.0F, cw - pad * 2.0F - glyphSize - gap));
+      m_osdValue->setMinWidth(0.0F);
+    }
+  }
+  // vertical row keeps width cw - pad * 2 in both orientations, matching
+  // OsdOverlay. the earlier cw-only width overflowed the column: label got
+  // clipped at cw and row centering pushed content off the inner area.
+  m_osdRow->setSize(cw - pad * 2.0F, vertical ? ch - pad * 2.0F : ch);
+  m_osdRow->layout(renderer);
+  // m_osdRow is a child of m_osdCard (already placed at cardX, cardY), so its
+  // base position is relative to the card, not the screen.
+  const float rowX = std::round((cw - m_osdRow->width()) * 0.5F);
+  const float rowY =
+      vertical ? std::round((ch - m_osdRow->height()) * 0.5F) : std::round((ch - m_osdRow->height()) * 0.5F);
+  m_osdRowBaseX = (vertical || !m_osdShowProgress) ? rowX : pad;
+  m_osdRowBaseY = rowY;
+  m_osdRow->setPosition(m_osdRowBaseX, m_osdRowBaseY);
+  applyOsdReveal(m_osdReveal);
+}
+
 void LockSurface::handleConfigure(
     void* data, ext_session_lock_surface_v1* lockSurface, std::uint32_t serial, std::uint32_t width,
     std::uint32_t height
@@ -1350,10 +1710,15 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     if (m_authPanel != nullptr) {
       m_authPanel->setVisible(false);
     }
+    if (m_osdRoot != nullptr) {
+      m_osdRoot->setVisible(false);
+    }
     layoutTransitionCover();
     syncTransitionCover();
     return;
   }
+
+  layoutOsdCard(width, height);
 
   applyWallpaperTexture();
 
