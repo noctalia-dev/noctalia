@@ -555,6 +555,20 @@ namespace {
     kScheduleHalfFade = 30s;
   }
 
+  void checkSyncAllIgnoresPerMonitorTargets() {
+    const auto now = std::chrono::system_clock::now();
+    Fixture fixture("ready", 1, [now](BrightnessConfig& config, LocationConfig& location) {
+      config.enableScheduledBrightness = true;
+      config.syncBrightnessOfAllMonitors = true;
+      config.scheduledDayBrightness = 0.7F;
+      config.monitorOverrides[0].scheduledDayBrightness = 0.3F; // must not apply in sync mode
+      location.customSchedule = true;
+      location.sunset = clockHMS(now + 2h);
+      location.sunrise = clockHMS(now - 2h); // steady day phase, far from any fade window
+    });
+    TEST_CHECK(fixture.waitFor([&fixture]() { return fixture.brightnessIs(0.7F); }));
+  }
+
   void checkPerMonitorScheduledFadeTicks() {
     setFastSchedule();
     Fixture fixture("ready", 1, [](BrightnessConfig& config, LocationConfig&) {
@@ -687,6 +701,7 @@ int main(int argc, char** argv) {
   checkOutputRemovalCancelsRetry();
   checkScheduleWaitsForResolvedCoordinates();
   checkReloadRebuildsOnlyOnBrightnessChange();
+  checkSyncAllIgnoresPerMonitorTargets();
   checkPerMonitorScheduledFadeTicks();
   checkFadeReanchorManualSetAndPhaseFlip();
   checkReloadMidWindowKeepsSunriseRestore();

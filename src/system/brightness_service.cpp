@@ -1299,6 +1299,10 @@ struct BrightnessService::Impl {
 
     // Per-monitor overrides ([brightness.monitor.<name>]) take precedence over the global targets.
     auto scheduledTargetFor = [&](const DisplayInternal& display, bool day) -> float {
+      // sync_all_monitors promises one level for all displays: per-monitor schedule targets are ignored.
+      if (activeConfig.syncBrightnessOfAllMonitors) {
+        return day ? dayBright : nightBright;
+      }
       const WaylandOutput* output = findOutputByConnector(wayland, display.connectorName);
       for (const auto& monitorOverride : activeConfig.monitorOverrides) {
         if (monitorOverride.match.empty()) {
@@ -1810,6 +1814,8 @@ struct BrightnessService::Impl {
       return std::abs(display->pub.brightness - oldBrightness) > 0.001F;
     }
 
+    // Forget the scheduled-dedup record so the next scheduled apply retries the failed write.
+    lastScheduledBrightness.erase(display->pub.id);
     ++display->failureCount;
     if (display->failureCount >= kDdcFailureThreshold) {
       display->quarantined = true;
@@ -1937,9 +1943,7 @@ void BrightnessService::reload(const BrightnessConfig& config, const LocationCon
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
 void BrightnessService::setResolvedCoordinates(std::optional<double> latitude, std::optional<double> longitude) {
-  if (m_impl != nullptr) {
-    m_impl->setResolvedCoordinates(latitude, longitude);
-  }
+  m_impl->setResolvedCoordinates(latitude, longitude);
 }
 
 void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(BatchChangePhase)>& onBatchChange) {
