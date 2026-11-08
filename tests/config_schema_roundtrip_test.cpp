@@ -407,6 +407,7 @@ location = "https://example.invalid/bad"
         .enableDaemon = false,
         .showAppName = false,
         .showActions = false,
+        .showProgressBar = false,
         .position = "bottom_left",
         .layer = "overlay",
         .scale = 1.3F,

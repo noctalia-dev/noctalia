@@ -901,6 +901,7 @@ struct NotificationConfig {
   bool showAppName = true;
   bool colorizeIcons = false;
   bool showActions = true;
+  bool showProgressBar = true;
   bool groupByApp = true;
   std::string position = "top_right";
   std::string layer = "top"; // top | overlay
