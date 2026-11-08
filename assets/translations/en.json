@@ -4730,6 +4730,10 @@
           "description": "Color role used for empty workspaces; fixed hex colors are also supported",
           "label": "Empty Color"
         },
+        "empty-label": {
+          "description": "Text shown when no window is focused; leave empty to show \"No active window\"",
+          "label": "Empty Label"
+        },
         "enable-scroll": {
           "description": "Allow mouse wheel and trackpad scroll actions on this widget",
           "label": "Enable Scroll"

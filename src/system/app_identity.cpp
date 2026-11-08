@@ -24,7 +24,8 @@ namespace app_identity {
     std::string identityKey(std::string_view value) {
       std::string key;
       key.reserve(value.size());
-      for (const unsigned char ch : value) {
+      for (const char raw : value) {
+        const auto ch = static_cast<unsigned char>(raw);
         if (ch == '.' || ch == '-' || ch == '_' || std::isspace(ch) != 0) {
           continue;
         }
@@ -126,7 +127,8 @@ namespace app_identity {
         token.clear();
       };
 
-      for (const unsigned char ch : value) {
+      for (const char raw : value) {
+        const auto ch = static_cast<unsigned char>(raw);
         if (std::isalnum(ch) != 0) {
           token.push_back(static_cast<char>(std::tolower(ch)));
         } else {

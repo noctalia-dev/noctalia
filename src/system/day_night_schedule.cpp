@@ -111,7 +111,7 @@ namespace day_night_schedule {
     if (value[2] != ':' || (value.size() == 8 && value[5] != ':')) {
       return std::nullopt;
     }
-    for (const size_t i : {0, 1, 3, 4}) {
+    for (const size_t i : {0UZ, 1UZ, 3UZ, 4UZ}) {
       if (!std::isdigit(static_cast<unsigned char>(value[i]))) {
         return std::nullopt;
       }
@@ -122,7 +122,7 @@ namespace day_night_schedule {
       return std::nullopt;
     }
     if (value.size() == 8) {
-      for (const size_t i : {6, 7}) {
+      for (const size_t i : {6UZ, 7UZ}) {
         if (!std::isdigit(static_cast<unsigned char>(value[i]))) {
           return std::nullopt;
         }
