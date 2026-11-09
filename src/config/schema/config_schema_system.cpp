@@ -265,6 +265,8 @@ namespace noctalia::config::schema {
         keybindActionField(&KeybindsConfig::down, "down", KeybindAction::Down),
         keybindActionField(&KeybindsConfig::tabNext, "tab_next", KeybindAction::TabNext),
         keybindActionField(&KeybindsConfig::tabPrevious, "tab_previous", KeybindAction::TabPrevious),
+        keybindActionField(&KeybindsConfig::categoryNext, "category_next", KeybindAction::CategoryNext),
+        keybindActionField(&KeybindsConfig::categoryPrevious, "category_previous", KeybindAction::CategoryPrevious),
         keybindActionField(&KeybindsConfig::deleteEntry, "delete", KeybindAction::Delete),
         keybindActionField(&KeybindsConfig::copy, "copy", KeybindAction::Copy),
         keybindActionField(&KeybindsConfig::save, "save", KeybindAction::Save),
