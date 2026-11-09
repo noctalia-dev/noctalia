@@ -606,6 +606,14 @@ namespace {
          )
         && ok;
 
+    const auto overlays = backend.overlayWorkspaces(output);
+    ok = hasIds("legacy special overlayWorkspaces()", overlays, {"-99"}) && ok;
+    ok = check(
+             !overlays.empty() && overlays.front().active && overlays.front().name == "special",
+             "legacy open special workspace must be listed as active without its special: prefix"
+         )
+        && ok;
+
     const auto windows = backend.workspaceWindows(output);
     const auto* scratch = findWindow(windows, "102");
     ok =
@@ -641,6 +649,15 @@ namespace {
              backend.openOverlayWorkspaceKeys(nullptr) == std::vector<std::string>{"special:magic"},
              "the session-wide overlay lookup must not leak into other monitors"
          )
+        && ok;
+
+    const auto leftOverlays = backend.overlayWorkspaces(left);
+    ok = hasIds("overlayWorkspaces(left)", leftOverlays, {"special:magic"}) && ok;
+    ok = check(
+             !leftOverlays.empty() && leftOverlays.front().active, "the open special workspace must be listed as active"
+         )
+        && ok;
+    ok = check(backend.overlayWorkspaces(right).empty(), "a special workspace must not be listed on another monitor")
         && ok;
 
     const auto leftWindows = backend.workspaceWindows(left);
@@ -681,12 +698,34 @@ namespace {
              "closing an already-populated special workspace must clear the overlay"
          )
         && ok;
+    const auto closedOverlays = backend.overlayWorkspaces(left);
+    ok = hasIds("overlayWorkspaces() after closing", closedOverlays, {"special:magic"}) && ok;
+    ok = check(
+             !closedOverlays.empty() && !closedOverlays.front().active,
+             "a closed special workspace must stay listed but inactive"
+         )
+        && ok;
+
+    // A window in the hidden special workspace asks for attention.
+    eventHandler.handleEvent("urgent", "102");
+    const auto urgentOverlays = backend.overlayWorkspaces(left);
+    ok = check(
+             !urgentOverlays.empty() && urgentOverlays.front().urgent,
+             "an urgent window must mark its closed special workspace urgent"
+         )
+        && ok;
 
     schema.store(SnapshotSchema::TypedSpecialOverlay);
     eventHandler.handleEvent("activespecial", "special:magic");
     ok = check(
              backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"},
              "reopening an already-populated special workspace must restore the overlay"
+         )
+        && ok;
+    const auto reopenedOverlays = backend.overlayWorkspaces(left);
+    ok = check(
+             !reopenedOverlays.empty() && !reopenedOverlays.front().urgent,
+             "opening a special workspace must clear the urgency of its windows"
          )
         && ok;
 
