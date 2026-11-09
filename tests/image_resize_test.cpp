@@ -1,25 +1,17 @@
 #include "render/core/image_resize.h"
+#include "tests/test_check.h"
 
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <print>
 #include <span>
-#include <stdexcept>
 #include <vector>
 
 namespace {
-  void require(bool condition, const char* message) {
-    if (!condition) {
-      throw std::runtime_error(message);
-    }
-  }
-
-  void requireNear(std::span<const std::uint8_t> actual, std::span<const std::uint8_t> expected) {
-    require(actual.size() == expected.size(), "resized output has the wrong byte count");
+  void checkBytesNear(std::span<const std::uint8_t> actual, std::span<const std::uint8_t> expected) {
+    TEST_CHECK(actual.size() == expected.size());
     for (std::size_t i = 0; i < actual.size(); ++i) {
-      require(std::abs(static_cast<int>(actual[i]) - static_cast<int>(expected[i])) <= 1, "resized channels differ");
+      TEST_NEAR(static_cast<int>(actual[i]), static_cast<int>(expected[i]), 1);
     }
   }
 
@@ -45,86 +37,78 @@ namespace {
       const auto actual = resizeToRgba(rgb.data(), width, height, ResizeSourceLayout::Rgb, target.width, target.height);
       const auto reference =
           resizeToRgba(rgba.data(), width, height, ResizeSourceLayout::Rgba, target.width, target.height);
-      requireNear(actual, reference);
+      checkBytesNear(actual, reference);
       for (std::size_t i = 3; i < actual.size(); i += 4) {
-        require(actual[i] == 255, "RGB resize did not produce opaque alpha");
+        TEST_CHECK(actual[i] == 255);
       }
     }
 
     const std::array<std::uint8_t, 3> pixel{23, 127, 231};
     const auto enlarged = resizeToRgba(pixel.data(), 1, 1, ResizeSourceLayout::Rgb, 3, 2);
     const std::array<std::uint8_t, 4> expected{23, 127, 231, 255};
-    require(enlarged.size() == 24, "single RGB pixel enlarged to the wrong size");
+    TEST_CHECK(enlarged.size() == 24);
     for (std::size_t i = 0; i < enlarged.size(); i += 4) {
-      requireNear(std::span(enlarged).subspan(i, 4), expected);
+      checkBytesNear(std::span(enlarged).subspan(i, 4), expected);
     }
 
     const std::array<std::uint8_t, 6> blackWhite{0, 0, 0, 255, 255, 255};
     const auto average = resizeToRgba(blackWhite.data(), 2, 1, ResizeSourceLayout::Rgb, 1, 1);
-    require(average.size() == 4 && average[0] >= 185 && average[0] <= 190, "RGB filtering lost sRGB awareness");
-    require(
-        average[0] == average[1] && average[1] == average[2] && average[3] == 255,
-        "RGB filtering changed channel order or opacity"
-    );
+    // sRGB-aware filtering averages black and white to about 187, not 128.
+    TEST_CHECK(average.size() == 4 && average[0] >= 185 && average[0] <= 190);
+    TEST_CHECK(average[0] == average[1] && average[1] == average[2] && average[3] == 255);
   }
 
   void preserveAlphaAndChannelLayouts() {
     const std::array<std::uint8_t, 8> transparentRedBlue{255, 0, 0, 0, 0, 0, 255, 255};
     const auto resized = resizeToRgba(transparentRedBlue.data(), 2, 1, ResizeSourceLayout::Rgba, 1, 1);
-    require(
+    // Straight-alpha filtering must not introduce a transparent-edge halo.
+    TEST_CHECK(
         resized.size() == 4
-            && resized[0] < 5
-            && resized[1] == 0
-            && resized[2] > 250
-            && resized[3] >= 125
-            && resized[3] <= 130,
-        "straight-alpha filtering introduced a transparent-edge halo"
+        && resized[0] < 5
+        && resized[1] == 0
+        && resized[2] > 250
+        && resized[3] >= 125
+        && resized[3] <= 130
     );
-    requireNear(resizeToRgba(transparentRedBlue.data(), 2, 1, ResizeSourceLayout::Rgba, 2, 1), transparentRedBlue);
+    checkBytesNear(resizeToRgba(transparentRedBlue.data(), 2, 1, ResizeSourceLayout::Rgba, 2, 1), transparentRedBlue);
 
     const std::array<std::uint8_t, 8> rgbaPm{0, 0, 0, 0, 0, 0, 255, 255};
     const std::array<std::uint8_t, 8> bgraPm{0, 0, 0, 0, 255, 0, 0, 255};
-    requireNear(resizeToRgba(rgbaPm.data(), 2, 1, ResizeSourceLayout::RgbaPremultiplied, 1, 1), resized);
-    requireNear(resizeToRgba(bgraPm.data(), 2, 1, ResizeSourceLayout::BgraPremultiplied, 1, 1), resized);
+    checkBytesNear(resizeToRgba(rgbaPm.data(), 2, 1, ResizeSourceLayout::RgbaPremultiplied, 1, 1), resized);
+    checkBytesNear(resizeToRgba(bgraPm.data(), 2, 1, ResizeSourceLayout::BgraPremultiplied, 1, 1), resized);
     const std::array<std::uint8_t, 4> translucent{32, 64, 96, 128};
     const std::array<std::uint8_t, 4> translucentBgra{96, 64, 32, 128};
     const std::array<std::uint8_t, 4> straight{64, 128, 191, 128};
-    requireNear(resizeToRgba(translucent.data(), 1, 1, ResizeSourceLayout::RgbaPremultiplied, 1, 1), straight);
-    requireNear(resizeToRgba(translucentBgra.data(), 1, 1, ResizeSourceLayout::BgraPremultiplied, 1, 1), straight);
+    checkBytesNear(resizeToRgba(translucent.data(), 1, 1, ResizeSourceLayout::RgbaPremultiplied, 1, 1), straight);
+    checkBytesNear(resizeToRgba(translucentBgra.data(), 1, 1, ResizeSourceLayout::BgraPremultiplied, 1, 1), straight);
 
     const std::array<std::uint8_t, 6> rgb{17, 91, 231, 209, 43, 8};
     const std::array<std::uint8_t, 8> rgbx{17, 91, 231, 0, 209, 43, 8, 73};
     const std::array<std::uint8_t, 8> bgrx{231, 91, 17, 0, 8, 43, 209, 73};
     for (const int target : {1, 2, 5}) {
       const auto opaque = resizeToRgba(rgb.data(), 2, 1, ResizeSourceLayout::Rgb, target, 1);
-      requireNear(resizeToRgba(rgbx.data(), 2, 1, ResizeSourceLayout::Rgbx, target, 1), opaque);
-      requireNear(resizeToRgba(bgrx.data(), 2, 1, ResizeSourceLayout::Bgrx, target, 1), opaque);
+      checkBytesNear(resizeToRgba(rgbx.data(), 2, 1, ResizeSourceLayout::Rgbx, target, 1), opaque);
+      checkBytesNear(resizeToRgba(bgrx.data(), 2, 1, ResizeSourceLayout::Bgrx, target, 1), opaque);
     }
   }
 
   void rejectInvalidExtents() {
     const std::array<std::uint8_t, 3> pixel{1, 2, 3};
-    require(resizeToRgba(nullptr, 1, 1, ResizeSourceLayout::Rgb, 1, 1).empty(), "null source was accepted");
+    TEST_CHECK(resizeToRgba(nullptr, 1, 1, ResizeSourceLayout::Rgb, 1, 1).empty());
     constexpr std::array invalid{
         std::array{0, 1, 1, 1}, std::array{1, -1, 1, 1}, std::array{1, 1, 0, 1}, std::array{1, 1, 1, -1}
     };
     for (const auto extent : invalid) {
-      require(
-          resizeToRgba(pixel.data(), extent[0], extent[1], ResizeSourceLayout::Rgb, extent[2], extent[3]).empty(),
-          "invalid extent was accepted"
+      TEST_CHECK(
+          resizeToRgba(pixel.data(), extent[0], extent[1], ResizeSourceLayout::Rgb, extent[2], extent[3]).empty()
       );
     }
   }
 } // namespace
 
 int main() {
-  try {
-    rgbMatchesOpaqueRgba();
-    preserveAlphaAndChannelLayouts();
-    rejectInvalidExtents();
-  } catch (const std::exception& error) {
-    std::println(stderr, "image_resize_test: {}", error.what());
-    return 1;
-  }
+  rgbMatchesOpaqueRgba();
+  preserveAlphaAndChannelLayouts();
+  rejectInvalidExtents();
   return 0;
 }

@@ -7,20 +7,17 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <print>
 #include <string>
 #include <string_view>
 #include <unistd.h>
 
 namespace {
 
-  int g_failures = 0;
+  std::filesystem::path g_root;
 
-  void expect(bool condition, const std::string& message) {
-    if (!condition) {
-      std::println(stderr, "location_service_test: FAIL: {}", message);
-      ++g_failures;
-    }
+  void removeRoot() {
+    std::error_code ec;
+    std::filesystem::remove_all(g_root, ec);
   }
 
   void writeConfig(const std::filesystem::path& path, std::string_view locationConfig) {
@@ -31,8 +28,8 @@ namespace {
 } // namespace
 
 int main() {
-  const auto root =
-      std::filesystem::temp_directory_path() / ("noctalia-location-service-test-" + std::to_string(::getpid()));
+  g_root = std::filesystem::temp_directory_path() / ("noctalia-location-service-test-" + std::to_string(::getpid()));
+  const auto& root = g_root;
   const auto configHome = root / "config";
   const auto stateHome = root / "state";
   const auto cacheHome = root / "cache";
@@ -41,6 +38,7 @@ int main() {
 
   std::filesystem::remove_all(root);
   std::filesystem::create_directories(configDir);
+  std::atexit(removeRoot);
   std::filesystem::create_directories(stateHome);
   std::filesystem::create_directories(cacheHome);
   ::setenv("NOCTALIA_CONFIG_HOME", configHome.c_str(), 1);
@@ -58,13 +56,11 @@ int main() {
     location.initialize();
 
     auto resolved = location.resolvedLocation();
-    expect(resolved.has_value(), "manual coordinates should provide a location at startup");
-    if (resolved.has_value()) {
-      TEST_NEAR(resolved->latitude, 52.52, 1e-9);
-      TEST_NEAR(resolved->longitude, 13.405, 1e-9);
-      expect(resolved->sourceLabel == "Manual", "manual location source was not labelled");
-    }
-    expect(!location.resolving(), "manual coordinates should not start network resolution");
+    TEST_CHECK(resolved.has_value());
+    TEST_NEAR(resolved->latitude, 52.52, 1e-9);
+    TEST_NEAR(resolved->longitude, 13.405, 1e-9);
+    TEST_CHECK(resolved->sourceLabel == "Manual");
+    TEST_CHECK(!location.resolving());
 
     int changes = 0;
     location.addChangeCallback([&changes] { ++changes; });
@@ -72,31 +68,30 @@ int main() {
     writeConfig(configPath, "auto_locate = false\naddress = \"\"\nlatitude = 40.7128\nlongitude = -74.006\n");
     config.forceReload();
     resolved = location.resolvedLocation();
-    expect(changes == 1, "changing manual coordinates should publish a location change");
+    TEST_CHECK(changes == 1);
     TEST_CHECK(resolved.has_value());
     TEST_NEAR(resolved->latitude, 40.7128, 1e-9);
     TEST_NEAR(resolved->longitude, -74.006, 1e-9);
 
     writeConfig(configPath, "auto_locate = false\naddress = \"\"\nlatitude = 40.7128\n");
     config.forceReload();
-    expect(changes == 2, "removing one manual coordinate should publish a location change");
-    expect(!location.resolvedLocation().has_value(), "incomplete manual coordinates should not provide a location");
+    TEST_CHECK(changes == 2);
+    TEST_CHECK(!location.resolvedLocation().has_value());
 
     writeConfig(configPath, "auto_locate = true\naddress = \"\"\nlatitude = 51.5072\nlongitude = -0.1276\n");
     config.forceReload();
-    expect(changes == 3, "enabling automatic location should publish a location change");
-    expect(location.resolving(), "automatic location should take priority over manual coordinates");
-    expect(!location.resolvedLocation().has_value(), "manual coordinates should not bypass automatic resolution");
+    TEST_CHECK(changes == 3);
+    TEST_CHECK(location.resolving());
+    TEST_CHECK(!location.resolvedLocation().has_value());
 
     writeConfig(configPath, "auto_locate = false\naddress = \"\"\nlatitude = 51.5072\nlongitude = -0.1276\n");
     config.forceReload();
     resolved = location.resolvedLocation();
-    expect(changes == 4, "switching back to manual coordinates should publish a location change");
+    TEST_CHECK(changes == 4);
     TEST_CHECK(resolved.has_value());
     TEST_NEAR(resolved->latitude, 51.5072, 1e-9);
     TEST_NEAR(resolved->longitude, -0.1276, 1e-9);
   }
 
-  std::filesystem::remove_all(root);
-  return g_failures == 0 ? 0 : 1;
+  return 0;
 }

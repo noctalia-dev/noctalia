@@ -3,6 +3,7 @@
 #include "scripting/luau_host.h"
 #include "scripting/script_api_context.h"
 #include "system/process.h"
+#include "tests/test_check.h"
 #include "ui/palette.h"
 
 #include <chrono>
@@ -10,20 +11,8 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <print>
 #include <string>
 #include <utility>
-
-namespace {
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "plugin_process_test: {}", message);
-    }
-    return condition;
-  }
-
-} // namespace
 
 int main() {
   scripting::ScriptApiContext api;
@@ -66,52 +55,33 @@ noctalia.setWallpaperMask("DP-1", {
 })
 noctalia.setWallpaperMask("DP-1", nil)
 )";
-  if (!expect(host.exec("=direct-argv", source), "argv call should be accepted")) {
-    return 1;
-  }
+  TEST_CHECK(host.exec("=direct-argv", source));
 
   std::unique_lock lock(mutex);
   const bool completed = ready.wait_for(lock, std::chrono::seconds(10), [&] { return result.has_value(); });
-  if (!expect(completed, "argv process should complete")) {
-    return 1;
-  }
+  TEST_CHECK(completed);
   process::RunResult commandResult = std::move(*result);
   const int ref = callbackRef;
   lock.unlock();
 
-  bool ok = true;
-  ok = expect(commandResult.exitCode == 0, "argv process should exit successfully") && ok;
-  ok = expect(
-           commandResult.out == "owner/repo; printf injected", "shell metacharacters must remain inside one argv value"
-       )
-      && ok;
-  ok = expect(commandResult.err.empty(), "argv process should not write stderr") && ok;
-  ok = expect(
-           host.callAsyncCommandCallback(ref, commandResult, std::chrono::milliseconds(50)),
-           "result callback should receive the completed process"
-       )
-      && ok;
+  TEST_CHECK(commandResult.exitCode == 0);
+  // shell metacharacters must remain inside one argv value
+  TEST_CHECK(commandResult.out == "owner/repo; printf injected");
+  TEST_CHECK(commandResult.err.empty());
+  TEST_CHECK(host.callAsyncCommandCallback(ref, commandResult, std::chrono::milliseconds(50)));
 
   // getColor tracks active palette updates and returns nil for unknown roles
   const Palette originalPalette = palette;
   Palette testPalette = originalPalette;
   testPalette.primary = rgba(1.0F, 0.0F, 0.0F, 1.0F);
   setPalette(testPalette);
-  ok = expect(
-           host.exec("=get-color", "assert(noctalia.getColor('primary') == '#FF0000')\n"),
-           "getColor should return updated color from active palette"
-       )
-      && ok;
+  TEST_CHECK(host.exec("=get-color", "assert(noctalia.getColor('primary') == '#FF0000')\n"));
   setPalette(originalPalette);
-  ok = expect(
-           host.exec(
-               "=get-color-restored",
-               "assert(noctalia.getColor('primary') ~= '#FF0000')\n"
-               "assert(noctalia.getColor('invalid_role') == nil)\n"
-           ),
-           "getColor should track restored palette and return nil for invalid roles"
-       )
-      && ok;
+  TEST_CHECK(host.exec(
+      "=get-color-restored",
+      "assert(noctalia.getColor('primary') ~= '#FF0000')\n"
+      "assert(noctalia.getColor('invalid_role') == nil)\n"
+  ));
 
-  return ok ? 0 : 1;
+  return 0;
 }

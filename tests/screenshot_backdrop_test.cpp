@@ -1,5 +1,5 @@
 #include "capture/screenshot_backdrop.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <cstdint>
 #include <cstdlib>

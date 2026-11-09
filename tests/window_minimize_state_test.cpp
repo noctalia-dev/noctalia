@@ -1,6 +1,6 @@
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "compositors/umbriel/umbriel_workspace_backend.h"
-#include "test_check.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <array>

@@ -1,12 +1,12 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "tests/test_check.h"
 #include "ui/controls/virtual_grid_view.h"
 
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
-#include <print>
 #include <string_view>
 #include <vector>
 
@@ -43,11 +43,6 @@ namespace {
     void bindTile(Node&, std::size_t, bool, bool) override {}
   };
 
-  bool expect(bool condition, std::string_view what) {
-    std::println("{}: {}", condition ? "ok" : "FAIL", what);
-    return condition;
-  }
-
 } // namespace
 
 int main() {
@@ -76,24 +71,26 @@ int main() {
   float cell0Y = 0.0F;
   float cell1X = 0.0F;
   float cell1Y = 0.0F;
-  bool ok = expect(grid.absoluteAnchorForIndex(0, cell0X, cell0Y), "cell 0 anchor resolved");
-  ok = expect(grid.absoluteAnchorForIndex(1, cell1X, cell1Y), "cell 1 anchor resolved") && ok;
+  TEST_CHECK(grid.absoluteAnchorForIndex(0, cell0X, cell0Y));
+  TEST_CHECK(grid.absoluteAnchorForIndex(1, cell1X, cell1Y));
 
   dispatcher.pointerEnter(cell0X, cell0Y, 1);
-  ok = expect(cursor == 21, "item cursor shape applies over a cell") && ok;
+  TEST_CHECK(cursor == 21);
 
   dispatcher.pointerMotion((cell0X + cell1X) * 0.5F, cell0Y, 2);
-  ok = expect(cursor == 1, "gutter between cells keeps the default cursor") && ok;
+  // Gutter between cells keeps the default cursor.
+  TEST_CHECK(cursor == 1);
 
   dispatcher.pointerMotion(cell1X, cell1Y, 3);
-  ok = expect(cursor == 21, "item cursor shape applies to every cell") && ok;
+  TEST_CHECK(cursor == 21);
 
   grid.setItemCursorShape(24);
   dispatcher.pointerMotion(cell1X + 1.0F, cell1Y, 4);
-  ok = expect(cursor == 24, "shape change reaches already-created cell areas") && ok;
+  // Shape change reaches already-created cell areas.
+  TEST_CHECK(cursor == 24);
 
   dispatcher.pointerLeave();
-  ok = expect(cursor == 1, "leaving the surface restores the default cursor") && ok;
+  TEST_CHECK(cursor == 1);
 
-  return ok ? EXIT_SUCCESS : EXIT_FAILURE;
+  return 0;
 }

@@ -1,24 +1,15 @@
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "tests/test_check.h"
 
 #include <chrono>
-#include <cstdio>
 #include <linux/input-event-codes.h>
 #include <memory>
-#include <print>
 #include <string>
 #include <thread>
 #include <wayland-client-protocol.h>
 
 namespace {
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "input_area_test: {}", message);
-      return false;
-    }
-    return true;
-  }
 
   // One vertical axis frame from a wheel the compositor counted notches for; `lines` is the
   // detent count it reported, which a scroll-factor can inflate past 1.
@@ -40,8 +31,6 @@ namespace {
 } // namespace
 
 int main() {
-  bool ok = true;
-
   {
     InputArea area;
     area.setSize(20.0F, 20.0F);
@@ -56,8 +45,8 @@ int main() {
     area.dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
     area.dispatchPress(12.0F, 12.0F, BTN_LEFT, false);
 
-    ok = expect(clicks == 1, "release inside fires click") && ok;
-    ok = expect(!area.pressed(), "inside release clears pressed state") && ok;
+    TEST_CHECK(clicks == 1);
+    TEST_CHECK(!area.pressed());
   }
 
   {
@@ -74,13 +63,13 @@ int main() {
     });
 
     area.dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
-    ok = expect(area.pressed(), "press sets pressed state") && ok;
+    TEST_CHECK(area.pressed());
 
     area.dispatchPress(30.0F, 10.0F, BTN_LEFT, false);
 
-    ok = expect(clicks == 0, "release outside cancels click") && ok;
-    ok = expect(releases == 1, "outside release still dispatches press release") && ok;
-    ok = expect(!area.pressed(), "outside release clears pressed state") && ok;
+    TEST_CHECK(clicks == 0);
+    TEST_CHECK(releases == 1);
+    TEST_CHECK(!area.pressed());
   }
 
   {
@@ -94,7 +83,7 @@ int main() {
     area.dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
     area.dispatchPress(25.0F, 10.0F, BTN_LEFT, false);
 
-    ok = expect(clicks == 1, "release inside hit-test outset fires click") && ok;
+    TEST_CHECK(clicks == 1);
   }
 
   {
@@ -107,15 +96,15 @@ int main() {
     area.setOnClick([&clicks](const InputArea::PointerData&) { ++clicks; });
 
     area.dispatchPress(10.0F, 10.0F, BTN_LEFT, true);
-    ok = expect(area.pressed(), "press before cancellation sets pressed state") && ok;
+    TEST_CHECK(area.pressed());
 
     area.dispatchCancel();
 
-    ok = expect(cancellations == 1, "cancellation callback fires exactly once") && ok;
-    ok = expect(!area.pressed(), "cancellation clears pressed state") && ok;
+    TEST_CHECK(cancellations == 1);
+    TEST_CHECK(!area.pressed());
 
     area.dispatchPress(10.0F, 10.0F, BTN_LEFT, false);
-    ok = expect(clicks == 0, "release after cancellation does not click") && ok;
+    TEST_CHECK(clicks == 0);
   }
 
   {
@@ -127,8 +116,8 @@ int main() {
     overflow->setSize(10.0F, 10.0F);
     root.addChild(std::move(overflow));
 
-    ok = expect(Node::hitTest(&root, 27.0F, 5.0F) == overflowPtr, "default hit test preserves child overflow") && ok;
-    ok = expect(Node::hitTestStrict(&root, 27.0F, 5.0F) == nullptr, "strict hit test clips at ancestor bounds") && ok;
+    TEST_CHECK(Node::hitTest(&root, 27.0F, 5.0F) == overflowPtr);
+    TEST_CHECK(Node::hitTestStrict(&root, 27.0F, 5.0F) == nullptr);
   }
 
   {
@@ -150,22 +139,18 @@ int main() {
     const bool upConsumed = area.dispatchAxis(
         1.0F, 1.0F, WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, -10.0, 0, 0, -1.0F
     );
-    ok = expect(!upConsumed, "an unaccepted scroll direction is reported unconsumed") && ok;
-    ok = expect(verticalEvents == 0, "an unaccepted scroll direction never reaches the handler") && ok;
+    TEST_CHECK(!upConsumed);
+    TEST_CHECK(verticalEvents == 0);
 
     const bool downConsumed =
         area.dispatchAxis(1.0F, 1.0F, WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 10.0, 0, 0, 1.0F);
-    ok = expect(downConsumed, "an accepted scroll direction is still consumed") && ok;
-    ok = expect(verticalEvents == 1, "an accepted scroll direction reaches the handler") && ok;
+    TEST_CHECK(downConsumed);
+    TEST_CHECK(verticalEvents == 1);
 
     // Rejection happens before the accumulator, so the given-up direction banks nothing here.
-    ok = expect(
-             area.dispatchAxis(
-                 1.0F, 1.0F, WL_POINTER_AXIS_HORIZONTAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, -10.0, 0, 0, -1.0F
-             ),
-             "an untouched axis keeps its directions"
-         )
-        && ok;
+    TEST_CHECK(area.dispatchAxis(
+        1.0F, 1.0F, WL_POINTER_AXIS_HORIZONTAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, -10.0, 0, 0, -1.0F
+    ));
   }
 
   {
@@ -182,17 +167,17 @@ int main() {
     for (int notch = 0; notch < 5; ++notch) {
       wheelFrame(area, 1.0F);
     }
-    ok = expect(steps == 5.0F, "back-to-back wheel notches each step") && ok;
+    TEST_CHECK(steps == 5.0F);
 
     // Flicking back the other way is never swallowed by a gate armed in the old direction.
     steps = 0.0F;
     wheelFrame(area, -1.0F);
-    ok = expect(steps == -1.0F, "an immediate reversal steps") && ok;
+    TEST_CHECK(steps == -1.0F);
 
     // A compositor scroll-factor inflates the delta; the notch the user felt is still one step.
     steps = 0.0F;
     wheelFrame(area, 3.2F);
-    ok = expect(steps == 1.0F, "a scaled wheel notch is still one step") && ok;
+    TEST_CHECK(steps == 1.0F);
   }
 
   {
@@ -208,10 +193,10 @@ int main() {
     for (int frame = 0; frame < 3; ++frame) {
       wheelFrame(area, 0.25F);
     }
-    ok = expect(steps == 0.0F, "sub-detent frames do not step on their own") && ok;
+    TEST_CHECK(steps == 0.0F);
 
     wheelFrame(area, 0.25F);
-    ok = expect(steps == 1.0F, "sub-detent frames step once a full detent has turned") && ok;
+    TEST_CHECK(steps == 1.0F);
   }
 
   {
@@ -228,12 +213,12 @@ int main() {
     for (int frame = 0; frame < 20; ++frame) {
       fingerFrame(area, 25.0);
     }
-    ok = expect(steps == 1.0F, "a touchpad flick is rate-capped to one step per interval") && ok;
+    TEST_CHECK(steps == 1.0F);
 
     // The cap is a rate, not a one-shot: keep swiping and it keeps stepping, no pause needed.
     std::this_thread::sleep_for(std::chrono::milliseconds(90));
     fingerFrame(area, 25.0);
-    ok = expect(steps == 2.0F, "a touchpad keeps stepping once the cap interval elapses") && ok;
+    TEST_CHECK(steps == 2.0F);
   }
 
   {
@@ -252,17 +237,17 @@ int main() {
     for (int notch = 0; notch < 5; ++notch) {
       wheelFrame(area, 1.0F);
     }
-    ok = expect(steps == 1.0F, "only the first step of a flick starts the gesture") && ok;
+    TEST_CHECK(steps == 1.0F);
 
     // Reversing mid-flick is a new intent, not a continuation of the same one.
     steps = 0.0F;
     wheelFrame(area, -1.0F);
-    ok = expect(steps == -1.0F, "reversing within a burst starts a new gesture") && ok;
+    TEST_CHECK(steps == -1.0F);
 
     steps = 0.0F;
     std::this_thread::sleep_for(std::chrono::milliseconds(120));
     wheelFrame(area, -1.0F);
-    ok = expect(steps == -1.0F, "a quiet stream starts the next gesture") && ok;
+    TEST_CHECK(steps == -1.0F);
   }
 
   {
@@ -280,10 +265,10 @@ int main() {
 
     wheelFrame(area, 1.0F, 7);
     wheelFrame(area, 1.0F, 7);
-    ok = expect(gestureStarts == 1, "one axis stream starts one gesture") && ok;
+    TEST_CHECK(gestureStarts == 1);
 
     wheelFrame(area, 1.0F, 8);
-    ok = expect(gestureStarts == 2, "axis stop serial starts the next gesture immediately") && ok;
+    TEST_CHECK(gestureStarts == 2);
   }
 
   {
@@ -295,20 +280,17 @@ int main() {
 
     title = "new";
     area.requestTooltipRefresh();
-    ok = expect(refreshes == 0, "tooltip refresh stays dormant while not hovered") && ok;
+    TEST_CHECK(refreshes == 0);
 
     area.dispatchEnter(0.0F, 0.0F);
     area.requestTooltipRefresh();
-    ok = expect(refreshes == 1, "tooltip refresh notifies while hovered") && ok;
-    ok = expect(
-             std::get<std::string>(area.tooltipContent()) == "new", "event refresh reads the provider's latest content"
-         )
-        && ok;
+    TEST_CHECK(refreshes == 1);
+    TEST_CHECK(std::get<std::string>(area.tooltipContent()) == "new");
 
     area.dispatchLeave();
     area.requestTooltipRefresh();
-    ok = expect(refreshes == 1, "tooltip refresh stops notifying after hover leaves") && ok;
+    TEST_CHECK(refreshes == 1);
   }
 
-  return ok ? 0 : 1;
+  return 0;
 }
