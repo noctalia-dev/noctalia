@@ -294,7 +294,7 @@
     "introduced": "`noctalia.mediaPlayer()` for reading the active MPRIS player, `ui.fillLabel` for progressive text fills, the `shadow` prop on `ui.label`, and `desktopWidget.setVisible`."
   },
   {
-    "level": 52,
+    "level": 53,
     "noctaliaVersion": null,
     "feature": "nightlight",
     "introduced": "`noctalia.nightlight` for reading and changing the shell's night-light state, plus `noctalia.nightlight.watch` for state changes without polling."
