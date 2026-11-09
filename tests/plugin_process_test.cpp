@@ -159,7 +159,7 @@ noctalia.setWallpaperMask("DP-1", nil)
     ok = expect(
              bindingContext.sideEffects[0].kind == scripting::ScriptSideEffectKind::NightLightCommand
                  && bindingContext.sideEffects[0].nightLightCommand == scripting::ScriptNightLightCommand::SetEnabled
-                 && bindingContext.sideEffects[0].flag == false,
+                 && !bindingContext.sideEffects[0].flag,
              "setEnabled should queue its requested state"
          )
         && ok;
@@ -170,7 +170,7 @@ noctalia.setWallpaperMask("DP-1", nil)
         && ok;
     ok = expect(
              bindingContext.sideEffects[2].nightLightCommand == scripting::ScriptNightLightCommand::SetForce
-                 && bindingContext.sideEffects[2].flag == true,
+                 && bindingContext.sideEffects[2].flag,
              "setForce should queue its requested state"
          )
         && ok;
