@@ -1318,6 +1318,7 @@ if build_tests
     'settings_search',
     'state_store',
     'surface_blur_region',
+    'sway_keyboard_backend',
     'sway_workspace_backend',
     'system_monitor_service',
     'taskbar_widget',
