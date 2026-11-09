@@ -801,40 +801,22 @@ void ControlCenterPanel::selectAdjacentVisibleTab(int direction) {
 }
 
 void ControlCenterPanel::cycleVisibleTabs(int direction) {
-  if (direction == 0) {
-    return;
-  }
-
   int visibleCount = 0;
   for (const auto& meta : kTabs) {
     if (isTabShown(meta.id)) {
       ++visibleCount;
     }
   }
-  if (visibleCount <= 1) {
+  if (direction == 0 || visibleCount <= 1) {
     return;
   }
 
-  int targetOrdinal = visibleTabOrdinal(m_activeTab) + direction;
-  targetOrdinal %= visibleCount;
+  const int activeOrdinal = visibleTabOrdinal(m_activeTab);
+  int targetOrdinal = (activeOrdinal + direction) % visibleCount;
   if (targetOrdinal < 0) {
     targetOrdinal += visibleCount;
   }
-
-  int ordinal = 0;
-  for (const auto& meta : kTabs) {
-    if (!isTabShown(meta.id)) {
-      continue;
-    }
-    if (ordinal == targetOrdinal) {
-      if (meta.id != m_activeTab) {
-        selectTab(meta.id, true);
-        PanelManager::instance().refresh();
-      }
-      return;
-    }
-    ++ordinal;
-  }
+  selectAdjacentVisibleTab(targetOrdinal - activeOrdinal);
 }
 
 void ControlCenterPanel::selectTab(TabId tab, bool animated) {
