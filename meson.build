@@ -1291,6 +1291,7 @@ if build_tests
     'notification_internal_history',
     'path_browse',
     'pipewire_error',
+    'pipewire_route_cache',
     'umbriel_audio_provider',
     'privacy_capture_classification',
     'plugin_app_icon_path',
