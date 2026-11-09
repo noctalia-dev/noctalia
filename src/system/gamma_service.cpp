@@ -155,10 +155,8 @@ bool GammaService::active() const {
   if (effectiveForce()) {
     return true;
   }
-  return isNightPhase();
+  return nightPhase();
 }
-
-bool GammaService::nightPhase() const { return isNightPhase(); }
 
 void GammaService::onOutputsChanged() {
   if (!effectiveEnabled()) {
@@ -219,7 +217,7 @@ void GammaService::scheduleGeoTimer() {
   });
 }
 
-bool GammaService::isNightPhase() const {
+bool GammaService::nightPhase() const {
   return day_night_schedule::evaluate(m_location, m_resolvedLatitude, m_resolvedLongitude).night;
 }
 
@@ -428,11 +426,7 @@ void GammaService::applyTarget(int kelvin) {
 // cannot see, and a large one does not step visibly. The floor bounds the rate on huge swings; the
 // ceiling keeps a tiny swing from crossing its whole range in one jump.
 std::chrono::milliseconds GammaService::transitionTickInterval() const {
-  const int dayTemp =
-      std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
-  const int nightTemp =
-      std::clamp(m_config.nightTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
-  const int swing = std::max(1, dayTemp - nightTemp);
+  const int swing = std::max(1, dayTemperature() - nightTemperature());
 
   const auto ramp = std::chrono::duration_cast<std::chrono::milliseconds>(kRampDuration);
   const int uploads = std::max(1, swing / kTargetStepKelvin);
@@ -477,10 +471,8 @@ void GammaService::tickGamma() {
 // transition. The position is derived from wall-clock time, so the result is identical whether the
 // app started before or after the boundary.
 GammaService::GammaTarget GammaService::computeTarget() const {
-  const int dayTemp =
-      std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
-  const int nightTemp =
-      std::clamp(m_config.nightTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
+  const int dayTemp = dayTemperature();
+  const int nightTemp = nightTemperature();
 
   if (dayTemp <= nightTemp) {
     return {};
@@ -597,11 +589,8 @@ void GammaService::apply() {
   }
 
   if (t.kelvin != m_targetKelvin) {
-    const int dayTemp =
-        std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
     kLog.info(
-        "target {}K (day={}K night={}K force={} ramping={})", t.kelvin, dayTemp,
-        std::clamp(m_config.nightTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax),
+        "target {}K (day={}K night={}K force={} ramping={})", t.kelvin, dayTemperature(), nightTemperature(),
         effectiveForce(), t.transitioning
     );
   }

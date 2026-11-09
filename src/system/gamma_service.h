@@ -74,7 +74,6 @@ private:
     bool transitioning = false; // true while inside the fade ramp window (target still drifting)
   };
   GammaTarget computeTarget() const;
-  bool isNightPhase() const;
 
   struct OutputGamma {
     wl_output* wlOutput = nullptr;
