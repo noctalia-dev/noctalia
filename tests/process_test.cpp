@@ -1,4 +1,5 @@
 #include "system/process.h"
+#include "tests/test_check.h"
 
 #include <array>
 #include <cerrno>
@@ -12,7 +13,6 @@
 #include <iterator>
 #include <mutex>
 #include <optional>
-#include <print>
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
@@ -23,13 +23,6 @@
 #include <vector>
 
 namespace {
-
-  bool expect(bool condition, const char* message) {
-    if (!condition) {
-      std::println(stderr, "process_test: {}", message);
-    }
-    return condition;
-  }
 
   std::string shellQuote(const std::string& value) {
     std::string quoted = "'";
@@ -44,7 +37,7 @@ namespace {
     return quoted;
   }
 
-  bool capturedAsyncDeliversCallbacksAndResult() {
+  void capturedAsyncDeliversCallbacksAndResult() {
     std::mutex mutex;
     std::condition_variable cv;
     std::string stdOut;
@@ -72,31 +65,22 @@ namespace {
     options.timeout = std::chrono::seconds(2);
     options.maxOutputBytes = 3;
 
-    const bool launched =
-        process::runAsync({"/bin/sh", "-lc", "printf abcdef; printf XYZ >&2"}, std::move(callbacks), options);
-    if (!expect(launched, "captured async command did not launch")) {
-      return false;
-    }
+    TEST_CHECK(process::runAsync({"/bin/sh", "-lc", "printf abcdef; printf XYZ >&2"}, std::move(callbacks), options));
 
     std::unique_lock lock(mutex);
-    bool ok = expect(
-        cv.wait_for(lock, std::chrono::seconds(5), [&] { return completed; }), "captured async command did not complete"
-    );
-    ok = expect(result.has_value(), "captured async command did not provide a result") && ok;
-    ok = expect(stdOut == "abcdef", "stdout callback did not receive full output") && ok;
-    ok = expect(stdErr == "XYZ", "stderr callback did not receive full output") && ok;
-    if (result.has_value()) {
-      ok = expect(result->exitCode == 0, "captured async exit code was not zero") && ok;
-      ok = expect(result->out == "abc", "captured async stdout result did not respect output limit") && ok;
-      ok = expect(result->err == "XYZ", "captured async stderr result was wrong") && ok;
-      ok = expect(result->outTruncated, "captured async stdout result was not marked truncated") && ok;
-      ok = expect(!result->errTruncated, "captured async stderr result was incorrectly marked truncated") && ok;
-      ok = expect(!result->timedOut, "captured async command timed out unexpectedly") && ok;
-    }
-    return ok;
+    TEST_CHECK(cv.wait_for(lock, std::chrono::seconds(5), [&] { return completed; }));
+    TEST_CHECK(result.has_value());
+    TEST_CHECK(stdOut == "abcdef");
+    TEST_CHECK(stdErr == "XYZ");
+    TEST_CHECK(result->exitCode == 0);
+    TEST_CHECK(result->out == "abc");
+    TEST_CHECK(result->err == "XYZ");
+    TEST_CHECK(result->outTruncated);
+    TEST_CHECK(!result->errTruncated);
+    TEST_CHECK(!result->timedOut);
   }
 
-  bool capturedAsyncDeliversCompletionOnly() {
+  void capturedAsyncDeliversCompletionOnly() {
     std::mutex mutex;
     std::condition_variable cv;
     std::optional<process::RunResult> result;
@@ -110,26 +94,17 @@ namespace {
       cv.notify_one();
     };
 
-    const bool launched = process::runAsync({"/bin/sh", "-c", "printf ok; exit 7"}, std::move(callbacks));
-    if (!expect(launched, "completion-only async command did not launch")) {
-      return false;
-    }
+    TEST_CHECK(process::runAsync({"/bin/sh", "-c", "printf ok; exit 7"}, std::move(callbacks)));
 
     std::unique_lock lock(mutex);
-    bool ok = expect(
-        cv.wait_for(lock, std::chrono::seconds(5), [&] { return completed; }),
-        "completion-only async command did not complete"
-    );
-    ok = expect(result.has_value(), "completion-only async command did not provide a result") && ok;
-    if (result.has_value()) {
-      ok = expect(result->exitCode == 7, "completion-only async command exit code was wrong") && ok;
-      ok = expect(result->out == "ok", "completion-only async command stdout was wrong") && ok;
-      ok = expect(result->err.empty(), "completion-only async command stderr was not empty") && ok;
-    }
-    return ok;
+    TEST_CHECK(cv.wait_for(lock, std::chrono::seconds(5), [&] { return completed; }));
+    TEST_CHECK(result.has_value());
+    TEST_CHECK(result->exitCode == 7);
+    TEST_CHECK(result->out == "ok");
+    TEST_CHECK(result->err.empty());
   }
 
-  bool syncAppliesEnvOverrides() {
+  void syncAppliesEnvOverrides() {
     ::setenv("NOCTALIA_PROCESS_UNSET_TEST", "parent", 1);
 
     process::RunOptions options;
@@ -142,35 +117,33 @@ namespace {
     );
     ::unsetenv("NOCTALIA_PROCESS_UNSET_TEST");
 
-    bool ok = expect(result.exitCode == 0, "sync env override command failed");
-    ok = expect(result.out == "child/unset", "sync env overrides were not visible in child") && ok;
-    return ok;
+    TEST_CHECK(result.exitCode == 0);
+    TEST_CHECK(result.out == "child/unset");
   }
 
-  bool syncFeedsStdinThenEof() {
+  void syncFeedsStdinThenEof() {
     process::RunOptions options;
     options.stdinData = "first\nsecond\n";
     options.timeout = std::chrono::seconds(5);
     // `cat` only exits once it sees EOF, so this also checks stdin gets closed.
     const auto fed = process::runSync(std::vector<std::string>{"cat"}, options);
-    bool ok = expect(fed.exitCode == 0 && !fed.timedOut, "cat with stdin data failed");
-    ok = expect(fed.out == "first\nsecond", "stdin data did not reach the child") && ok;
+    TEST_CHECK(fed.exitCode == 0 && !fed.timedOut);
+    TEST_CHECK(fed.out == "first\nsecond");
 
+    // Stdin larger than a pipe buffer fails the run.
     process::RunOptions oversized;
     oversized.stdinData = std::string(std::size_t{1} << 24, 'x');
     const auto rejected = process::runSync(std::vector<std::string>{"cat"}, oversized);
-    ok = expect(rejected.exitCode == -1, "stdin larger than a pipe buffer should fail the run") && ok;
-    return ok;
+    TEST_CHECK(rejected.exitCode == -1);
   }
 
-  bool stringCommandsSupportShellComposition() {
+  void stringCommandsSupportShellComposition() {
     const auto result = process::runSync("printf first && printf second");
-    bool ok = expect(result.exitCode == 0, "composed shell command failed");
-    ok = expect(result.out == "firstsecond", "composed shell command did not execute both commands") && ok;
-    return ok;
+    TEST_CHECK(result.exitCode == 0);
+    TEST_CHECK(result.out == "firstsecond");
   }
 
-  bool detachedAsyncInheritsLaunchEnvironment() {
+  void detachedAsyncInheritsLaunchEnvironment() {
     const std::filesystem::path outPath =
         std::filesystem::temp_directory_path() / ("noctalia_process_env_test_" + std::to_string(::getpid()));
     std::error_code ec;
@@ -184,10 +157,7 @@ namespace {
     const bool launched = process::runAsync(command);
     ::unsetenv("NOCTALIA_WALLPAPER_PATH");
     ::unsetenv("NOCTALIA_WALLPAPER_CONNECTOR");
-
-    if (!expect(launched, "detached async env command did not launch")) {
-      return false;
-    }
+    TEST_CHECK(launched);
 
     std::string contents;
     for (int i = 0; i < 50; ++i) {
@@ -200,67 +170,49 @@ namespace {
     }
 
     std::filesystem::remove(outPath, ec);
-    return expect(contents == "/tmp/noctalia test/wallpaper.png\nDP-1", "detached async env was not visible in child");
+    TEST_CHECK(contents == "/tmp/noctalia test/wallpaper.png\nDP-1");
   }
 
-  bool commandExistsRejectsDirectories() {
-    bool ok = true;
-    ok =
-        expect(!process::commandExists("/usr/bin"), "commandExists should return false for /usr/bin (directory)") && ok;
-    ok = expect(!process::commandExists("/"), "commandExists should return false for / (directory)") && ok;
-    ok = expect(process::commandExists("true"), "commandExists should return true for 'true' on PATH") && ok;
-    ok = expect(!process::commandExists(""), "commandExists should return false for empty string") && ok;
-    ok =
-        expect(!process::commandExists("/nonexistent"), "commandExists should return false for nonexistent path") && ok;
-    return ok;
+  void commandExistsRejectsDirectories() {
+    TEST_CHECK(!process::commandExists("/usr/bin"));
+    TEST_CHECK(!process::commandExists("/"));
+    TEST_CHECK(process::commandExists("true"));
+    TEST_CHECK(!process::commandExists(""));
+    TEST_CHECK(!process::commandExists("/nonexistent"));
   }
 
-  bool cgroupDetectsSystemdUserManager() {
-    bool ok = true;
-    ok = expect(
-             process::cgroupIndicatesSystemdUserManager(
-                 "0::/user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@niri.service\n", 1000
-             ),
-             "uwsm compositor unit should be detected as user-manager managed"
-         )
-        && ok;
-    ok = expect(
-             process::cgroupIndicatesSystemdUserManager(
-                 "0::/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
-             ),
-             "noctalia user service should be detected as user-manager managed"
-         )
-        && ok;
-    ok = expect(
-             !process::cgroupIndicatesSystemdUserManager(
-                 "0::/user.slice/user-1000.slice/session-2.scope/noctalia\n", 1000
-             ),
-             "login session scope should not be detected as user-manager managed"
-         )
-        && ok;
-    ok = expect(
-             !process::cgroupIndicatesSystemdUserManager(
-                 "0::/user.slice/user-1001.slice/user@1001.service/app.slice/noctalia.service\n", 1000
-             ),
-             "another user's manager should not be detected as ours"
-         )
-        && ok;
-    ok = expect(
-             process::cgroupIndicatesSystemdUserManager(
-                 "1:name=systemd:/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
-             ),
-             "legacy cgroup v1 dump should be detected as user-manager managed"
-         )
-        && ok;
-    ok = expect(!process::cgroupIndicatesSystemdUserManager("", 1000), "empty cgroup dump should not be managed") && ok;
-    return ok;
-  }
-
-  bool detachedMissingBinaryReturnsFalse() {
-    return expect(
-        !process::runAsync(std::vector<std::string>{"/nonexistent/noctalia-missing-binary-xyz"}),
-        "detached launch of a missing binary should return false"
+  void cgroupDetectsSystemdUserManager() {
+    // uwsm compositor unit.
+    TEST_CHECK(
+        process::cgroupIndicatesSystemdUserManager(
+            "0::/user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@niri.service\n", 1000
+        )
     );
+    // Noctalia user service.
+    TEST_CHECK(
+        process::cgroupIndicatesSystemdUserManager(
+            "0::/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
+        )
+    );
+    // Login session scope.
+    TEST_CHECK(
+        !process::cgroupIndicatesSystemdUserManager("0::/user.slice/user-1000.slice/session-2.scope/noctalia\n", 1000)
+    );
+    // Another user's manager.
+    TEST_CHECK(!process::cgroupIndicatesSystemdUserManager(
+        "0::/user.slice/user-1001.slice/user@1001.service/app.slice/noctalia.service\n", 1000
+    ));
+    // Legacy cgroup v1 dump.
+    TEST_CHECK(
+        process::cgroupIndicatesSystemdUserManager(
+            "1:name=systemd:/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
+        )
+    );
+    TEST_CHECK(!process::cgroupIndicatesSystemdUserManager("", 1000));
+  }
+
+  void detachedMissingBinaryReturnsFalse() {
+    TEST_CHECK(!process::runAsync(std::vector<std::string>{"/nonexistent/noctalia-missing-binary-xyz"}));
   }
 
   class NotifyListener {
@@ -304,87 +256,79 @@ namespace {
     bool m_bound = false;
   };
 
-  bool notifyServiceReadySendsToPathSocket() {
+  void notifyServiceReadySendsToPathSocket() {
     std::string dir = (std::filesystem::temp_directory_path() / "noctalia-notify-XXXXXX").string();
-    if (!expect(::mkdtemp(dir.data()) != nullptr, "could not create notify socket directory")) {
-      return false;
-    }
+    TEST_CHECK(::mkdtemp(dir.data()) != nullptr);
     const std::string socketPath = dir + "/notify.sock";
-    bool ok = true;
+    std::optional<std::string> received;
+    bool bound = false;
+    bool sent = false;
     {
       NotifyListener listener(socketPath);
-      ok = expect(listener.bound(), "could not bind path notify socket") && ok;
-      ok = expect(process::notifyServiceReady(socketPath), "notifyServiceReady failed for a path socket") && ok;
-      ok = expect(listener.receive() == "READY=1", "path socket did not receive READY=1") && ok;
+      bound = listener.bound();
+      sent = process::notifyServiceReady(socketPath);
+      received = listener.receive();
     }
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);
-    return ok;
+    TEST_CHECK(bound);
+    TEST_CHECK(sent);
+    TEST_CHECK(received == "READY=1");
   }
 
-  bool notifyServiceReadySendsToAbstractSocket() {
+  void notifyServiceReadySendsToAbstractSocket() {
     const std::string address = "@noctalia-notify-test-" + std::to_string(::getpid());
     NotifyListener listener(address);
-    bool ok = expect(listener.bound(), "could not bind abstract notify socket");
-    ok = expect(process::notifyServiceReady(address), "notifyServiceReady failed for an abstract socket") && ok;
-    ok = expect(listener.receive() == "READY=1", "abstract socket did not receive READY=1") && ok;
-    return ok;
+    TEST_CHECK(listener.bound());
+    TEST_CHECK(process::notifyServiceReady(address));
+    TEST_CHECK(listener.receive() == "READY=1");
   }
 
-  bool notifyServiceReadyHandlesMissingAndInvalidSockets() {
-    bool ok = expect(process::notifyServiceReady(""), "an empty socket path should be a successful no-op");
+  void notifyServiceReadyHandlesMissingAndInvalidSockets() {
+    // An empty socket path is a successful no-op.
+    TEST_CHECK(process::notifyServiceReady(""));
+
     errno = 0;
-    ok = expect(!process::notifyServiceReady("relative.sock"), "a relative socket path should be rejected") && ok;
-    ok = expect(errno == EINVAL, "a relative socket path should set EINVAL") && ok;
+    TEST_CHECK(!process::notifyServiceReady("relative.sock"));
+    TEST_CHECK(errno == EINVAL);
+
     errno = 0;
-    ok = expect(
-             !process::notifyServiceReady("/" + std::string(sizeof(sockaddr_un::sun_path), 'n')),
-             "a socket path longer than sun_path should be rejected"
-         )
-        && ok;
-    ok = expect(errno == EINVAL, "a socket path longer than sun_path should set EINVAL") && ok;
+    TEST_CHECK(!process::notifyServiceReady("/" + std::string(sizeof(sockaddr_un::sun_path), 'n')));
+    TEST_CHECK(errno == EINVAL);
+
+    // A socket nobody listens on fails and reports why.
     errno = 0;
-    ok = expect(
-             !process::notifyServiceReady("/nonexistent-noctalia-notify/notify.sock"),
-             "a socket nobody listens on should fail"
-         )
-        && ok;
-    ok = expect(errno == ENOENT, "a socket nobody listens on should report why it failed") && ok;
-    return ok;
+    TEST_CHECK(!process::notifyServiceReady("/nonexistent-noctalia-notify/notify.sock"));
+    TEST_CHECK(errno == ENOENT);
   }
 
-  bool directSystemdServiceRequiresMatchingExecPid() {
-    bool ok = expect(!process::isDirectSystemdService(42, nullptr), "a missing SYSTEMD_EXEC_PID should not match");
-    ok = expect(!process::isDirectSystemdService(42, ""), "an empty SYSTEMD_EXEC_PID should not match") && ok;
-    ok =
-        expect(!process::isDirectSystemdService(42, "41"), "another process's SYSTEMD_EXEC_PID should not match") && ok;
-    ok = expect(
-             !process::isDirectSystemdService(42, "42suffix"), "a SYSTEMD_EXEC_PID with trailing text should not match"
-         )
-        && ok;
-    ok = expect(!process::isDirectSystemdService(42, "-42"), "a negative SYSTEMD_EXEC_PID should not match") && ok;
-    ok = expect(!process::isDirectSystemdService(0, "0"), "a non-positive pid should not match") && ok;
-    ok = expect(process::isDirectSystemdService(42, "42"), "a matching SYSTEMD_EXEC_PID should match") && ok;
-    return ok;
+  void directSystemdServiceRequiresMatchingExecPid() {
+    TEST_CHECK(!process::isDirectSystemdService(42, nullptr));
+    TEST_CHECK(!process::isDirectSystemdService(42, ""));
+    TEST_CHECK(!process::isDirectSystemdService(42, "41"));
+    TEST_CHECK(!process::isDirectSystemdService(42, "42suffix"));
+    TEST_CHECK(!process::isDirectSystemdService(42, "-42"));
+    TEST_CHECK(!process::isDirectSystemdService(0, "0"));
+    TEST_CHECK(process::isDirectSystemdService(42, "42"));
   }
 
 } // namespace
 
 int main() {
-  bool ok = true;
-  ok = expect(!process::runAsync("true", process::RunCallbacks{}), "empty callback set should not launch") && ok;
-  ok = capturedAsyncDeliversCallbacksAndResult() && ok;
-  ok = capturedAsyncDeliversCompletionOnly() && ok;
-  ok = syncAppliesEnvOverrides() && ok;
-  ok = syncFeedsStdinThenEof() && ok;
-  ok = stringCommandsSupportShellComposition() && ok;
-  ok = detachedAsyncInheritsLaunchEnvironment() && ok;
-  ok = detachedMissingBinaryReturnsFalse() && ok;
-  ok = commandExistsRejectsDirectories() && ok;
-  ok = cgroupDetectsSystemdUserManager() && ok;
-  ok = notifyServiceReadySendsToPathSocket() && ok;
-  ok = notifyServiceReadySendsToAbstractSocket() && ok;
-  ok = notifyServiceReadyHandlesMissingAndInvalidSockets() && ok;
-  ok = directSystemdServiceRequiresMatchingExecPid() && ok;
-  return ok ? 0 : 1;
+  // An empty callback set does not launch.
+  TEST_CHECK(!process::runAsync("true", process::RunCallbacks{}));
+  capturedAsyncDeliversCallbacksAndResult();
+  capturedAsyncDeliversCompletionOnly();
+  syncAppliesEnvOverrides();
+  syncFeedsStdinThenEof();
+  stringCommandsSupportShellComposition();
+  detachedAsyncInheritsLaunchEnvironment();
+  detachedMissingBinaryReturnsFalse();
+  commandExistsRejectsDirectories();
+  cgroupDetectsSystemdUserManager();
+  notifyServiceReadySendsToPathSocket();
+  notifyServiceReadySendsToAbstractSocket();
+  notifyServiceReadyHandlesMissingAndInvalidSockets();
+  directSystemdServiceRequiresMatchingExecPid();
+  return 0;
 }
