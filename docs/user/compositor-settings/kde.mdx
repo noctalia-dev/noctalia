@@ -44,6 +44,10 @@ Selecting a history entry can auto-send a paste key chord (`Ctrl+V` / `Ctrl+Shif
 
 The screenshot bar widget and `screenshot-region` / `screenshot-fullscreen` IPC need `zwlr-screencopy-unstable-v1`. That protocol is usually absent on KWin, so the widget is omitted and IPC reports capture unavailable. Use Plasma’s own screenshot tools instead.
 
+### Lock screen
+
+Stock KWin does not implement `ext-session-lock-v1`, so Noctalia cannot draw its own lock screen on Plasma. Instead, `noctalia msg session lock`, lock-before-suspend, and idle lock actions hand the lock to Plasma's screen locker (`org.freedesktop.ScreenSaver.Lock`). Noctalia follows the locker's state, so idle handling, Screen Time, and the `session_locked` / `session_unlocked` hooks still run, including when Plasma itself locks the session. The lock screen's look and unlocking are Plasma's.
+
 ### Lock screen desktop capture
 
 `[lockscreen]` desktop capture (blurred live desktop behind the lock) also needs screencopy. Without it, the lock screen uses the wallpaper / configured image only. See [Shell → Lock screen](/noctalia/configuration/shell/#lock-screen).

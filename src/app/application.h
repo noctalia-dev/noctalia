@@ -8,6 +8,7 @@
 #include "calendar/calendar_service.h"
 #include "capture/screenshot_service.h"
 #include "compositors/compositor_platform.h"
+#include "compositors/kde/kde_lock_watcher.h"
 #include "compositors/keyboard_layout_poll_source.h"
 #include "compositors/workspace_alert_service.h"
 #include "compositors/workspace_poll_source.h"
@@ -286,6 +287,7 @@ private:
   std::uint64_t m_outputPowerRequestGeneration = 0;
   std::unique_ptr<AccountsService> m_accountsService;
   std::unique_ptr<ScreenSaverService> m_screenSaverService;
+  std::unique_ptr<compositors::kde::KdeLockWatcher> m_kdeLockWatcher;
   std::unique_ptr<ScreenSaverPollSource> m_screenSaverPollSource;
   std::unique_ptr<SystemMonitorService> m_systemMonitor;
   std::unique_ptr<DebugService> m_debugService;

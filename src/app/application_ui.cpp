@@ -316,6 +316,17 @@ void Application::initLockScreenAndSession() {
     m_lockscreenWidgetsController.onLockStateChanged();
     syncLockScreenDoNotDisturb();
   });
+  if (compositors::isKde() && m_bus != nullptr) {
+    // KDE's own screen locker holds the lock; mirror its state into hooks, idle and screen time.
+    m_kdeLockWatcher = std::make_unique<compositors::kde::KdeLockWatcher>(*m_bus, [this](bool locked) {
+      m_idleManager.setSessionLocked(locked);
+      m_screenTimeService.setSessionLocked(locked);
+      m_hookManager.fire(locked ? HookKind::SessionLocked : HookKind::SessionUnlocked);
+      if (!locked) {
+        DeferredCall::callLater([this] { m_timeService.forceTick(); });
+      }
+    });
+  }
   m_lockScreen.setSessionHooks(
       [this] {
         m_idleGraceOverlay.hide();
