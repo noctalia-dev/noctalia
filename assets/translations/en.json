@@ -2547,6 +2547,14 @@
           "description": "Close popups, dismiss panels, or abort the current operation",
           "label": "Cancel"
         },
+        "category-next": {
+          "description": "Reveal launcher categories when hidden, then cycle to the next category or Control Center tab",
+          "label": "Category Next"
+        },
+        "category-previous": {
+          "description": "Reveal launcher categories when hidden, then cycle to the previous category or Control Center tab",
+          "label": "Category Previous"
+        },
         "copy": {
           "description": "Copy the current selection or item",
           "label": "Copy"
