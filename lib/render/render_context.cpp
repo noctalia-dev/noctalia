@@ -442,7 +442,8 @@ void RenderContext::renderNode(
       }
     }
     if (source != nullptr && !sourceContainsProxy) {
-      const Mat3 sourceParent = worldTransform * Mat3::translation(-source->x(), -source->y());
+      const Mat3 sourceParent = worldTransform
+          * Mat3::translation(-(source->x() + source->translateX()), -(source->y() + source->translateY()));
       renderNode(
           renderScale, source, sourceParent, effectiveOpacity, sw, sh, bw, bh, clipLeft, clipTop, clipRight, clipBottom,
           hasClip, true, false
