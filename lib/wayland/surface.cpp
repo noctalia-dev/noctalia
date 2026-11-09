@@ -482,6 +482,8 @@ void Surface::setUpdateCallback(UpdateCallback callback) { m_updateCallback = st
 
 void Surface::setFrameTickCallback(FrameTickCallback callback) { m_frameTickCallback = std::move(callback); }
 
+void Surface::setRenderGate(RenderGate gate) { m_renderGate = std::move(gate); }
+
 void Surface::setScaleChangedCallback(ScaleChangedCallback callback) { m_scaleChangedCallback = std::move(callback); }
 
 void Surface::setOutputChangedCallback(OutputChangedCallback callback) {
@@ -1177,6 +1179,9 @@ void Surface::renderNow() {
 
 void Surface::render() {
   if (m_surface == nullptr || m_renderContext == nullptr || !m_renderTarget.isReady()) {
+    return;
+  }
+  if (m_renderGate && !m_renderGate()) {
     return;
   }
 

@@ -116,8 +116,6 @@ private:
       std::string_view scope, std::string_view source
   );
   void createInstance(const WaylandOutput& output);
-  void showWhenFirstImageReady(WallpaperInstance& instance, const std::string& path);
-  void showInstance(WallpaperInstance& instance);
   void loadWallpaper(WallpaperInstance& instance, const std::string& path);
   void beginWallpaperChange(
       WallpaperInstance& instance, const std::string& path, WallpaperSourceKind kind, SharedTextureCache::Lease image,

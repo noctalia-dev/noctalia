@@ -67,6 +67,7 @@ public:
   using FrameTickCallback = std::function<void(float deltaMs)>;
   using ScaleChangedCallback = std::function<void(float scale)>;
   using OutputChangedCallback = std::function<void(wl_output* output)>;
+  using RenderGate = std::function<bool()>;
 
   explicit Surface(WaylandConnection& connection);
   virtual ~Surface();
@@ -84,6 +85,9 @@ public:
   void setFrameTickCallback(FrameTickCallback callback);
   void setScaleChangedCallback(ScaleChangedCallback callback);
   void setOutputChangedCallback(OutputChangedCallback callback);
+  // While the gate returns false nothing is rendered or committed, so a surface that never drew stays unmapped; the
+  // pending redraw runs on the next requestRedraw() once it opens.
+  void setRenderGate(RenderGate gate);
   void setInputRegion(const std::vector<InputRect>& rects);
   // Declares the whole surface opaque, or not, from its next commit, so the compositor can skip what lies beneath it.
   void setOpaque(bool opaque);
@@ -202,6 +206,7 @@ private:
   FrameTickCallback m_frameTickCallback;
   ScaleChangedCallback m_scaleChangedCallback;
   OutputChangedCallback m_outputChangedCallback;
+  RenderGate m_renderGate;
   wl_callback* m_frameCallback = nullptr;
   wp_viewport* m_viewport = nullptr;
   wp_fractional_scale_v1* m_fractionalScale = nullptr;

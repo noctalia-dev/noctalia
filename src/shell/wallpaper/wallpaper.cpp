@@ -242,7 +242,6 @@ namespace {
   }
 
   constexpr Logger kLog("wallpaper");
-  constexpr auto kFirstImageTimeout = std::chrono::seconds(3);
 
   Color resolveWallpaperFillColor(const WallpaperConfig& config, const WaylandOutput& output) {
     const ColorSpec* fillColor = nullptr;
@@ -528,7 +527,7 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
   std::vector<WallpaperChange> changes = std::exchange(m_pendingStartupChanges, {});
   for (auto& inst : m_instances) {
     auto newPath = m_config->getWallpaperPath(inst->connectorName);
-    if (inst->surface == nullptr || inst->wallpaperNode == nullptr || !inst->shown) {
+    if (inst->surface == nullptr || inst->wallpaperNode == nullptr) {
       continue;
     }
 
@@ -839,9 +838,6 @@ void Wallpaper::syncInstances() {
 
   // Remove instances for outputs that no longer exist or are now disabled by monitor override
   std::erase_if(m_instances, [&](const auto& inst) {
-    if (inst->initializeFailed) {
-      return true;
-    }
     const auto* output = [&] -> const WaylandOutput* {
       for (const auto& out : outputs) {
         if (out.name == inst->outputName) {
@@ -1304,7 +1300,7 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
   instance->surface->setSceneRoot(instance->sceneRoot.get());
 
   auto* inst = instance.get();
-  instance->surface->setConfigureCallback([this, inst](std::uint32_t width, std::uint32_t height) {
+  instance->surface->setConfigureCallback([this, inst, wallpaperPath](std::uint32_t width, std::uint32_t height) {
     const auto sw = static_cast<float>(width);
     const auto sh = static_cast<float>(height);
     inst->sceneRoot->setSize(sw, sh);
@@ -1314,66 +1310,31 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
     inst->wallpaperNode->setSize(sw, sh);
 
     refreshTextureCoverage(*inst);
-    const auto path = m_config->getWallpaperPath(inst->connectorName);
-    if (inst->currentPath.empty() && !path.empty()) {
-      loadWallpaper(*inst, path);
+    if (inst->currentPath.empty() && !wallpaperPath.empty()) {
+      loadWallpaper(*inst, wallpaperPath);
     } else {
       updateRendererState(*inst);
     }
-    inst->firstImage.reset();
   });
 
   instance->surface->setAnimationManager(&instance->animations);
 
   instance->surface->setUpdateCallback([this, inst] { updateRendererState(*inst); });
 
-  m_instances.push_back(std::move(instance));
-  showWhenFirstImageReady(*inst, wallpaperPath);
-}
-
-// Mapping before the image is decoded would show the bare fill colour first.
-void Wallpaper::showWhenFirstImageReady(WallpaperInstance& instance, const std::string& path) {
-  Color color;
-  if (path.empty() || m_textureCache == nullptr || parseColorWallpaperPath(path, color)) {
-    showInstance(instance);
-    return;
-  }
-  const auto decoded = [](const SharedTextureCache::Lease& image) {
-    return image.empty() || image.failed() || image.texture().valid();
-  };
-  instance.firstImage = m_textureCache->acquire(
-      SharedTextureRequest{.path = path, .coverage = textureCoverage(instance)},
-      m_renderContext != nullptr ? &m_renderContext->backend() : nullptr, [this, inst = &instance, decoded] {
-        if (decoded(inst->firstImage)) {
-          showInstance(*inst);
-        }
-      }
-  );
-  if (decoded(instance.firstImage)) {
-    showInstance(instance);
-    return;
-  }
-  instance.firstImageTimeout.start(kFirstImageTimeout, [this, inst = &instance, path] {
-    kLog.warn("{} still decoding on {}; showing the fill colour meanwhile", path, inst->connectorName);
-    showInstance(*inst);
+  // Drawing before the first image is decoded would show the bare fill colour first.
+  instance->surface->setRenderGate([inst] {
+    return inst->loadingImage.empty() || !inst->currentImage.empty() || !inst->nextImage.empty();
   });
-}
 
-void Wallpaper::showInstance(WallpaperInstance& instance) {
-  instance.firstImageTimeout.stop();
-  if (instance.shown) {
+  if (!instance->surface->initialize(output.output)) {
+    kLog.warn("failed to initialize surface for output {}", output.name);
     return;
   }
-  instance.shown = true;
-  if (!instance.surface->initialize(instance.output)) {
-    kLog.warn("failed to initialize surface for output {}", instance.outputName);
-    instance.firstImage.reset();
-    instance.initializeFailed = true;
-  }
+
+  m_instances.push_back(std::move(instance));
 }
 
 void Wallpaper::releaseInstanceTextures(WallpaperInstance& inst) {
-  inst.firstImage.reset();
   inst.currentImage.reset();
   inst.nextImage.reset();
   cancelLoading(inst);
