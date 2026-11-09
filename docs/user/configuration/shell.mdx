@@ -623,6 +623,8 @@ up       = ["up"]
 down     = ["down"]
 tab_next = ["tab"]
 tab_previous = ["shift+tab", "iso_left_tab"]
+category_next = ["ctrl+tab"]
+category_previous = ["ctrl+shift+iso_left_tab"]
 copy     = ["ctrl+c"]
 save     = ["ctrl+s"]
 select_all = ["ctrl+a"]
@@ -637,20 +639,21 @@ Each action accepts a single string chord or an array of chords.
 
 **`super` bindings are rejected** (`super`, `win`, `windows`, `logo`, `meta`, `mod4`) and produce a config parse error.
 
-**Supported actions:** `validate`, `cancel`, `left`, `right`, `up`, `down`, `tab_next`, `tab_previous`, `copy`, `save`, `select_all`, `delete`
+**Supported actions:** `validate`, `cancel`, `left`, `right`, `up`, `down`, `tab_next`, `tab_previous`, `category_next`, `category_previous`, `copy`, `save`, `select_all`, `delete`
 
-| Action                           | Default role                                                                                                              |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `validate`                       | Activate the focused control (open a select, toggle a switch, press a button, submit an input).                           |
-| `cancel`                         | Close a popup/panel or dismiss the current operation.                                                                     |
-| `left` / `right` / `up` / `down` | Move within the focused region (list rows, launcher grid columns, slider nudge on left/right, and similar).               |
-| `tab_next` / `tab_previous`      | Move between major panes in split layouts (for example Settings sidebar ↔ content, or Control Center sidebar ↔ tab body). |
-| `copy`                           | Copy the selected region or item to the clipboard (for example, forcing a screenshot region to copy).                     |
-| `save`                           | Save the selected region or item to a file (for example, forcing a screenshot region to save).                            |
-| `select_all`                     | Select the entire desktop during region screenshot capture (every monitor).                                               |
-| `delete`                         | Delete the selected item after confirmation (for example, a clipboard history entry).                                     |
+| Action                                | Default role                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `validate`                            | Activate the focused control (open a select, toggle a switch, press a button, submit an input).                           |
+| `cancel`                              | Close a popup/panel or dismiss the current operation.                                                                     |
+| `left` / `right` / `up` / `down`      | Move within the focused region (list rows, launcher grid columns, slider nudge on left/right, and similar).               |
+| `tab_next` / `tab_previous`           | Move between major panes in split layouts (for example Settings sidebar ↔ content, or Control Center sidebar ↔ tab body). |
+| `category_next` / `category_previous` | Reveal then cycle launcher categories; cycle Control Center tabs.                                                         |
+| `copy`                                | Copy the selected region or item to the clipboard (for example, forcing a screenshot region to copy).                     |
+| `save`                                | Save the selected region or item to a file (for example, forcing a screenshot region to save).                            |
+| `select_all`                          | Select the entire desktop during region screenshot capture (every monitor).                                               |
+| `delete`                              | Delete the selected item after confirmation (for example, a clipboard history entry).                                     |
 
-On split-pane surfaces (**Settings** and **Control Center**), `tab_next` / `tab_previous` switch between the sidebar and the main content area. Arrow keys stay inside the active pane: the sidebar uses roving focus, and the content area moves between controls on up/down while leaving left/right to control-native behavior (such as slider nudge). The session panel uses arrow keys to move between actions once focus has entered the button list; it does not pre-select an action on open.
+On split-pane surfaces (**Settings** and **Control Center**), `tab_next` / `tab_previous` switch between the sidebar and the main content area. Arrow keys stay inside the active pane: the sidebar uses roving focus, and the content area moves between controls on up/down while leaving left/right to control-native behavior (such as slider nudge). The session panel uses arrow keys to move between actions once focus has entered the button list; it does not pre-select an action on open. `category_next` / `category_previous` move between Control Center tabs (wrapping). In the launcher they reveal the category chips when hidden (including Simple layout with `shell.launcher.categories = false`), then cycle them once shown.
 
 ### Recording from the GUI
 
