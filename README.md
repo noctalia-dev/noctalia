@@ -56,7 +56,7 @@ To understand the values and philosophy guiding the project, read our [ethos](ht
 
 Noctalia supports Wayland compositors that provide the layer-shell protocols it needs for shell surfaces. Workspace integration works through compositor-native backends where needed, or through `ext-workspace-v1` on compositors that implement it.
 
-Current compositor integrations include Niri, Hyprland, Sway, Scroll, Mango, Labwc, dwl, and other compatible Wayland compositors. Other compositors may run Noctalia but can have reduced workspace, window, output, or session-action integration depending on the protocols and IPC they expose.
+Current compositor integrations include Niri, Hyprland, Sway, Scroll, Mango, Labwc, dwl, Zoolander, and other compatible Wayland compositors. Other compositors may run Noctalia but can have reduced workspace, window, output, or session-action integration depending on the protocols and IPC they expose.
 
 ## Scope
 

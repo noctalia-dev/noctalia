@@ -36,6 +36,7 @@ int main() {
   TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Unknown));
   TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Sway));
   TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Labwc));
+  TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Zoolander));
   TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Mango));
   TEST_CHECK(toplevel_identity::wlr(0).empty());
   TEST_CHECK(toplevel_identity::wlr(42) == "wlr:42");

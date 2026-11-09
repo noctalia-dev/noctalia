@@ -40,6 +40,8 @@ Workspace pills use the workspaces widget's resolved `capsule_radius`. Set `[wid
 
 The former `show_all_outputs` setting is migrated automatically: `true` becomes `monitors = ["*"]`, and `false` is dropped.
 
+On Zoolander, occupancy and each window's workspace come from the compositor's control socket (`clients-json`), polled every 500 ms, so changes can take up to half a second to appear.
+
 On labwc, the compositor does not report which workspace a window is on, so occupancy (`hide_when_empty`, occupied colors, and Smart auto-hide) is inferred. The focused window is assigned to the active workspace, other windows keep their last known workspace, and a new window is assumed to be on the active workspace. Windows that were already open on another workspace when the shell started count as being on the active workspace until you focus them.
 
 ```toml
