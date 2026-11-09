@@ -49,7 +49,7 @@ require("noctalia").apply_theme()'
   mkdir -p "$config_dir"
 
   if [ ! -f "$lua_config_file" ]; then
-    printf 'Warning: %s is missing; add the Noctalia theme setup to your active Hyprland Lua configuration manually:\ndofile("%s").apply_theme()\n' "$lua_config_file" "$lua_output_file" >&2
+    printf 'Warning: %s is missing; add the Noctalia theme setup to your active Hyprland Lua configuration manually:\nrequire("noctalia").apply_theme()\n' "$lua_config_file" >&2
     return 1
   fi
 
