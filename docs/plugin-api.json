@@ -292,5 +292,11 @@
     "noctaliaVersion": null,
     "feature": "media-player",
     "introduced": "`noctalia.mediaPlayer()` for reading the active MPRIS player, `ui.fillLabel` for progressive text fills, the `shadow` prop on `ui.label`, and `desktopWidget.setVisible`."
+  },
+  {
+    "level": 52,
+    "noctaliaVersion": null,
+    "feature": "declarative-compositing",
+    "introduced": "`translateX`, `translateY`, `scale`, `scaleX`, `scaleY`, and `rotation` props on every declarative `ui.*` node (paint-only transforms), plus `clip` on the Flex-backed containers (`ui.column`, `ui.row`, `ui.dragSource`, `ui.dropZone`) for clipped viewports and composited motion."
   }
 ]
