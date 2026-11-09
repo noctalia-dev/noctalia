@@ -1526,7 +1526,7 @@ namespace ui {
     }
     // Shared validation for the three positive scale props; `set` receives the
     // finite, positive value and leaves the node untouched when it is invalid.
-    const auto applyPositiveScale = [&desired, node](const char* key, auto&& set) {
+    const auto applyPositiveScale = [&desired](const char* key, auto&& set) {
       const double* value = numProp(desired, key);
       if (value == nullptr) {
         warnMistypedOptionalProp(desired, key, "a positive number");
