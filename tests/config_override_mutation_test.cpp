@@ -3,16 +3,20 @@
 // Doing that as a clear followed by a set publishes an intermediate account that is neither shape and
 // fails schema validation, so the mutation must reach the config exactly once.
 
+#include "config/config_migrations.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "shell/tray/tray_settings.h"
+#include "tests/test_check.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <print>
 #include <string>
+#include <string_view>
 #include <unistd.h>
 #include <utility>
 #include <vector>
@@ -34,6 +38,12 @@ namespace {
     out << content;
   }
 
+  std::string readFile(const std::filesystem::path& path) {
+    std::ifstream input(path);
+    TEST_CHECK(input.is_open());
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+  }
+
   const CalendarConfig::Account* findAccount(const Config& config, std::string_view id) {
     const auto it = std::ranges::find(config.calendar.accounts, id, &CalendarConfig::Account::id);
     return it == config.calendar.accounts.end() ? nullptr : &*it;
@@ -42,6 +52,47 @@ namespace {
   const DockMonitorOverride* findDockMonitorOverride(const Config& config, std::string_view tableName) {
     const auto it = std::ranges::find(config.dock.monitorOverrides, tableName, &DockMonitorOverride::tableName);
     return it == config.dock.monitorOverrides.end() ? nullptr : &*it;
+  }
+
+  void checkCircularAvatarMigration(const std::filesystem::path& root) {
+    const auto configHome = root / "config";
+    const auto stateHome = root / "state";
+    const auto configPath = configHome / "noctalia" / "config.toml";
+    const auto includePath = configHome / "shared" / "avatar.toml";
+    const auto settingsPath = stateHome / "noctalia" / "settings.toml";
+    constexpr std::string_view configText =
+        "[include]\nfiles = [\"../shared/avatar.toml\"]\nautoload = false\n[shell]\ncircular_avatar = true\n";
+    constexpr std::string_view includeText = "[control_center]\ncircular_avatar = true\n";
+    writeFile(configPath, configText);
+    writeFile(includePath, includeText);
+    writeFile(
+        settingsPath, "config_version = 19\n[control_center]\ncircular_avatar = false\nshow_avatar_border = false\n"
+    );
+    TEST_CHECK(::setenv("NOCTALIA_CONFIG_HOME", configHome.c_str(), 1) == 0);
+    TEST_CHECK(::setenv("XDG_STATE_HOME", stateHome.c_str(), 1) == 0);
+    {
+      ConfigService config;
+      TEST_CHECK(!config.config().shell.circularAvatar);
+      TEST_CHECK(!config.hasOverride({"control_center", "circular_avatar"}));
+      TEST_CHECK(config.hasOverride({"shell", "circular_avatar"}));
+      TEST_CHECK(!config.config().controlCenter.showAvatarBorder);
+    }
+    const std::string migratedText = readFile(settingsPath);
+    const toml::table migrated = toml::parse(migratedText);
+    TEST_CHECK(migrated["config_version"].value<std::int64_t>() == noctalia::config::currentConfigVersion());
+    TEST_CHECK(migrated["shell"]["circular_avatar"].value<bool>() == false);
+    TEST_CHECK(!migrated["control_center"]["circular_avatar"]);
+    TEST_CHECK(migrated["control_center"]["show_avatar_border"].value<bool>() == false);
+    TEST_CHECK(readFile(configPath) == configText);
+    TEST_CHECK(readFile(includePath) == includeText);
+    {
+      ConfigService config;
+      config.forceReload();
+      TEST_CHECK(!config.config().shell.circularAvatar);
+    }
+    TEST_CHECK(readFile(settingsPath) == migratedText);
+    TEST_CHECK(readFile(configPath) == configText);
+    TEST_CHECK(readFile(includePath) == includeText);
   }
 
 } // namespace
@@ -146,6 +197,8 @@ int main() {
         "sidecar migration persisted the enabled monitor override"
     );
   }
+
+  checkCircularAvatarMigration(root / "avatar-migration-case");
 
   // A bar-inherited widget setting resolves an unset value from the bar, so an explicit value equal to the
   // widget schema default is a real override and must survive the no-op override pruning.

@@ -42,6 +42,7 @@ clipboard_image_action_command = ""  # image preview action: gimp {path}, or sat
 shared_gl_context     = true         # startup-only; false isolates GPU contexts for broken drivers
 # lang                = "en"
 # avatar_path         = "~/Pictures/avatar.png"
+circular_avatar       = true         # launcher and Control Center avatars; false follows shell corner roundness
 
 [shell.screenshot]
 skip_annotate_on_copy_save = false  # Ctrl+C / Ctrl+S in the region overlay skip the annotation editor
@@ -140,7 +141,7 @@ show_app_icon = true                # show application icons over window preview
 enabled             = true
 fill_mode           = "crop"        # center | crop | fit | stretch | repeat | span
 fill_color          = ""            # optional fallback/fill color: prefer a color role token; fixed hex also works
-transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt"]
+transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt", "crt"]
 transition_duration = 1500          # milliseconds
 edge_smoothness     = 0.3
 transition_on_startup = false       # animate the first wallpaper at shell startup (v4-style)
@@ -261,7 +262,7 @@ privacy = true                      # microphone/camera/screen-share capture cha
 enabled                 = true
 grace_period_seconds    = 0           # passwordless unlock on any keypress or mouse movement for this long after locking (opt-in; default 0 = off)
 blurred_desktop         = false       # use a desktop snapshot as the lock screen background (requires wlr-screencopy)
-transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt"] # empty disables lock/unlock animation
+transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt", "crt"] # empty disables lock/unlock animation
 transition_duration     = 1500        # lock/unlock animation length in milliseconds
 edge_smoothness         = 0.3         # transition edge feathering (0.0 = sharp, 1.0 = soft)
 blur_intensity          = 0.5         # lock screen background blur (0.0 = none, 1.0 = maximum)
@@ -301,7 +302,6 @@ default_lead_minutes = 10       # used for events with no reminder of their own;
 all_day_digest_time  = "09:00"  # one notification listing today's all-day events; "" disables it
 
 [control_center]
-circular_avatar             = true          # disable to use the shell's corner roundness
 show_avatar_border          = true          # disable to hide the accent ring around the avatar
 
 # Calendar tab of the control center.

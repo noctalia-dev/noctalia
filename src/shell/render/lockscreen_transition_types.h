@@ -17,6 +17,7 @@ enum class LockscreenTransitionKind : std::uint8_t {
   Diamond = 8,
   Golden = 9,
   Melt = 10,
+  Crt = 11,
 };
 
 struct LockscreenTransitionParams {

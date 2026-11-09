@@ -77,7 +77,7 @@ configure_case() {
       primary_relative=hypr/hyprland.lua
       theme_relative=hypr/noctalia.lua
       integration='require("noctalia").apply_theme()'
-      manual_directive="dofile(\"$XDG_CONFIG_HOME/$theme_relative\").apply_theme()"
+      manual_directive=$integration
       ;;
     labwc)
       primary_relative=labwc/rc.xml

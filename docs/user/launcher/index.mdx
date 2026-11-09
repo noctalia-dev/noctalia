@@ -16,6 +16,8 @@ The launcher has two layouts, selected with `shell.launcher.layout`.
 - **Full** (default) combines search with compact views for Recent, Pinned, All, Categories, and Providers. The Pinned view appears when at least one app is pinned. A compact toolbar sits above or below the results, with the profile avatar on the left, a wide search field in the center, and the session shortcut on the right. Hover the avatar to see your name and distro. The avatar and session shortcut occupy equal-sized slots. Hiding the session shortcut lets the search field expand into its space. The toolbar keeps equal outer padding at fractional UI scales. Settings sits at the top right beside the view controls. The toolbar's outer edges align with the view tabs and results area.
 - **Simple** shows a search field on top, an optional row of category chips (All, Recently Used, and app categories), and the results, at a fixed 560 × 500 size. Pinned apps lead the list when the search is empty. Set `categories = false` to hide the chip row.
 
+The profile avatar shares **Settings → Shell → General → Circular Avatar** with Control Center. Set `[shell].circular_avatar = false` to follow the shell's corner roundness instead of using a circle.
+
 Configure the layout under **Settings → Panels → Launcher**, or in your config:
 
 ```toml
