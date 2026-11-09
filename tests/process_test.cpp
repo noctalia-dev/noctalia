@@ -1,8 +1,12 @@
 #include "system/process.h"
 
+#include <array>
+#include <cerrno>
 #include <chrono>
 #include <condition_variable>
+#include <cstddef>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -11,6 +15,8 @@
 #include <print>
 #include <string>
 #include <string_view>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <thread>
 #include <unistd.h>
 #include <utility>
@@ -257,6 +263,111 @@ namespace {
     );
   }
 
+  class NotifyListener {
+  public:
+    explicit NotifyListener(const std::string& address) : m_fd(::socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0)) {
+      sockaddr_un addr{};
+      if (address.empty() || address.size() >= sizeof(addr.sun_path)) {
+        return;
+      }
+      addr.sun_family = AF_UNIX;
+      std::memcpy(addr.sun_path, address.data(), address.size());
+      if (address.front() == '@') {
+        addr.sun_path[0] = '\0';
+      }
+      const auto addrLen = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + address.size());
+      m_bound = m_fd >= 0 && ::bind(m_fd, reinterpret_cast<const sockaddr*>(&addr), addrLen) == 0;
+    }
+
+    ~NotifyListener() {
+      if (m_fd >= 0) {
+        ::close(m_fd);
+      }
+    }
+
+    NotifyListener(const NotifyListener&) = delete;
+    NotifyListener& operator=(const NotifyListener&) = delete;
+
+    [[nodiscard]] bool bound() const { return m_bound; }
+
+    std::optional<std::string> receive() {
+      std::array<char, 256> buffer{};
+      const ssize_t received = ::recv(m_fd, buffer.data(), buffer.size(), MSG_DONTWAIT);
+      if (received < 0) {
+        return std::nullopt;
+      }
+      return std::string(buffer.data(), static_cast<std::size_t>(received));
+    }
+
+  private:
+    int m_fd;
+    bool m_bound = false;
+  };
+
+  bool notifyServiceReadySendsToPathSocket() {
+    std::string dir = (std::filesystem::temp_directory_path() / "noctalia-notify-XXXXXX").string();
+    if (!expect(::mkdtemp(dir.data()) != nullptr, "could not create notify socket directory")) {
+      return false;
+    }
+    const std::string socketPath = dir + "/notify.sock";
+    bool ok = true;
+    {
+      NotifyListener listener(socketPath);
+      ok = expect(listener.bound(), "could not bind path notify socket") && ok;
+      ok = expect(process::notifyServiceReady(socketPath), "notifyServiceReady failed for a path socket") && ok;
+      ok = expect(listener.receive() == "READY=1", "path socket did not receive READY=1") && ok;
+    }
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+    return ok;
+  }
+
+  bool notifyServiceReadySendsToAbstractSocket() {
+    const std::string address = "@noctalia-notify-test-" + std::to_string(::getpid());
+    NotifyListener listener(address);
+    bool ok = expect(listener.bound(), "could not bind abstract notify socket");
+    ok = expect(process::notifyServiceReady(address), "notifyServiceReady failed for an abstract socket") && ok;
+    ok = expect(listener.receive() == "READY=1", "abstract socket did not receive READY=1") && ok;
+    return ok;
+  }
+
+  bool notifyServiceReadyHandlesMissingAndInvalidSockets() {
+    bool ok = expect(process::notifyServiceReady(""), "an empty socket path should be a successful no-op");
+    errno = 0;
+    ok = expect(!process::notifyServiceReady("relative.sock"), "a relative socket path should be rejected") && ok;
+    ok = expect(errno == EINVAL, "a relative socket path should set EINVAL") && ok;
+    errno = 0;
+    ok = expect(
+             !process::notifyServiceReady("/" + std::string(sizeof(sockaddr_un::sun_path), 'n')),
+             "a socket path longer than sun_path should be rejected"
+         )
+        && ok;
+    ok = expect(errno == EINVAL, "a socket path longer than sun_path should set EINVAL") && ok;
+    errno = 0;
+    ok = expect(
+             !process::notifyServiceReady("/nonexistent-noctalia-notify/notify.sock"),
+             "a socket nobody listens on should fail"
+         )
+        && ok;
+    ok = expect(errno == ENOENT, "a socket nobody listens on should report why it failed") && ok;
+    return ok;
+  }
+
+  bool directSystemdServiceRequiresMatchingExecPid() {
+    bool ok = expect(!process::isDirectSystemdService(42, nullptr), "a missing SYSTEMD_EXEC_PID should not match");
+    ok = expect(!process::isDirectSystemdService(42, ""), "an empty SYSTEMD_EXEC_PID should not match") && ok;
+    ok =
+        expect(!process::isDirectSystemdService(42, "41"), "another process's SYSTEMD_EXEC_PID should not match") && ok;
+    ok = expect(
+             !process::isDirectSystemdService(42, "42suffix"), "a SYSTEMD_EXEC_PID with trailing text should not match"
+         )
+        && ok;
+    ok = expect(!process::isDirectSystemdService(42, "-42"), "a negative SYSTEMD_EXEC_PID should not match") && ok;
+    ok = expect(!process::isDirectSystemdService(0, "0"), "a non-positive pid should not match") && ok;
+    ok = expect(process::isDirectSystemdService(42, "42"), "a matching SYSTEMD_EXEC_PID should match") && ok;
+    return ok;
+  }
+
 } // namespace
 
 int main() {
@@ -271,5 +382,9 @@ int main() {
   ok = detachedMissingBinaryReturnsFalse() && ok;
   ok = commandExistsRejectsDirectories() && ok;
   ok = cgroupDetectsSystemdUserManager() && ok;
+  ok = notifyServiceReadySendsToPathSocket() && ok;
+  ok = notifyServiceReadySendsToAbstractSocket() && ok;
+  ok = notifyServiceReadyHandlesMissingAndInvalidSockets() && ok;
+  ok = directSystemdServiceRequiresMatchingExecPid() && ok;
   return ok ? 0 : 1;
 }
