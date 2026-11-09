@@ -242,6 +242,7 @@ namespace {
   }
 
   constexpr Logger kLog("wallpaper");
+  constexpr auto kFirstImageTimeout = std::chrono::seconds(3);
 
   Color resolveWallpaperFillColor(const WallpaperConfig& config, const WaylandOutput& output) {
     const ColorSpec* fillColor = nullptr;
@@ -1321,12 +1322,35 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
 
   instance->surface->setUpdateCallback([this, inst] { updateRendererState(*inst); });
 
+  // Map the surface only once the first image can be drawn, so the fill colour never shows on its own.
+  if (!wallpaperPath.empty()) {
+    loadWallpaper(*inst, wallpaperPath);
+  }
+  if (!inst->loadingImage.empty()) {
+    inst->firstImageTimeout.start(kFirstImageTimeout, [this, inst] {
+      kLog.warn("{} still decoding on {}; showing the fill colour meanwhile", inst->loadingPath, inst->connectorName);
+      showInstance(*inst);
+    });
+    m_instances.push_back(std::move(instance));
+    return;
+  }
+
   if (!instance->surface->initialize(output.output)) {
     kLog.warn("failed to initialize surface for output {}", output.name);
     return;
   }
 
   m_instances.push_back(std::move(instance));
+}
+
+void Wallpaper::showInstance(WallpaperInstance& instance) {
+  instance.firstImageTimeout.stop();
+  if (instance.surface->isRunning()) {
+    return;
+  }
+  if (!instance.surface->initialize(instance.output)) {
+    kLog.warn("failed to initialize surface for output {}", instance.outputName);
+  }
 }
 
 void Wallpaper::releaseInstanceTextures(WallpaperInstance& inst) {
@@ -1408,10 +1432,12 @@ void Wallpaper::onImageChanged(WallpaperInstance& instance) {
     if (instance.loadingImage.failed()) {
       kLog.warn("failed to load {}", instance.loadingPath);
       cancelLoading(instance);
+      showInstance(instance);
     } else if (instance.loadingImage.texture().valid()) {
       SharedTextureCache::Lease image = std::move(instance.loadingImage);
       const std::string path = std::exchange(instance.loadingPath, std::string{});
       beginWallpaperChange(instance, path, WallpaperSourceKind::Image, std::move(image), rgba(0.0F, 0.0F, 0.0F, 1.0F));
+      showInstance(instance);
       return;
     }
   }
