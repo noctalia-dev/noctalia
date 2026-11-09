@@ -2824,10 +2824,6 @@
           "description": "Show the accent ring around the Home tab avatar",
           "label": "Show Avatar Border"
         },
-        "home-circular-avatar": {
-          "description": "Use a circular avatar; disable to follow the shell's corner roundness",
-          "label": "Circular Avatar"
-        },
         "home-session-button": {
           "description": "Show the session-actions button in the Home tab header",
           "label": "Show Header Session Button"
@@ -3429,6 +3425,10 @@
           "description": "Path to a custom avatar image; large images are cropped and resized automatically",
           "label": "Avatar Path",
           "placeholder": "/path/to/avatar.png"
+        },
+        "circular-avatar": {
+          "description": "Use circular avatars in the launcher and Control Center; disable to follow the shell's corner roundness",
+          "label": "Circular Avatar"
         },
         "clipboard-auto-paste": {
           "description": "Automatically paste clipboard selections",

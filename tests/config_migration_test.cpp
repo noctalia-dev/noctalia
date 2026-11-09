@@ -1,4 +1,5 @@
 #include "config/config_migrations.h"
+#include "config/config_service.h"
 #include "config/toml.h"
 
 #include <algorithm>
@@ -1177,6 +1178,93 @@ type = "active_window"
     expect(absent.empty() && absentIssues.empty(), "absent global toggle enabled component colorization");
   }
 
+  void checkCircularAvatarMigration() {
+    for (const bool circular : {false, true}) {
+      toml::table legacy = toml::parse(std::format("[control_center]\ncircular_avatar = {}\n", circular));
+      noctalia::config::LegacyConfigIssues issues;
+      noctalia::config::normalizeLegacyConfig(legacy, issues);
+      expect(legacy["shell"]["circular_avatar"].value<bool>() == circular, "avatar migration changed the bool value");
+      expect(!legacy["control_center"]["circular_avatar"], "avatar migration retained the old key");
+      expect(
+          issues.size() == 1
+              && issues.front().migrationVersion == 20
+              && issues.front().path == "control_center.circular_avatar",
+          "avatar migration did not report the declarative source key"
+      );
+      const auto firstPass = legacy;
+      noctalia::config::LegacyConfigIssues secondIssues;
+      noctalia::config::normalizeLegacyConfig(legacy, secondIssues);
+      expect(legacy == firstPass && secondIssues.empty(), "avatar migration was not idempotent");
+    }
+
+    toml::table conflict = toml::parse(R"(
+[shell]
+circular_avatar = false
+[control_center]
+circular_avatar = true
+)");
+    noctalia::config::LegacyConfigIssues conflictIssues;
+    noctalia::config::normalizeLegacyConfig(conflict, conflictIssues);
+    expect(conflict["shell"]["circular_avatar"].value<bool>() == false, "legacy avatar key overrode canonical key");
+    expect(!conflict["control_center"]["circular_avatar"], "conflicting legacy avatar key was retained");
+
+    const toml::table canonicalBase = toml::parse("[shell]\ncircular_avatar = true\n");
+    toml::table sidecar = toml::parse("config_version = 19\n[control_center]\ncircular_avatar = false\n");
+    noctalia::config::schema::Diagnostics sidecarDiagnostics;
+    const int version = noctalia::config::applyPendingConfigMigrations(sidecar, canonicalBase, 19, sidecarDiagnostics);
+    expect(
+        version == noctalia::config::currentConfigVersion(), "avatar sidecar migration did not reach current version"
+    );
+    toml::table merged = canonicalBase;
+    ConfigService::deepMerge(merged, sidecar);
+    noctalia::config::LegacyConfigIssues mergedIssues;
+    noctalia::config::normalizeLegacyConfig(merged, mergedIssues, &sidecar);
+    expect(
+        merged["shell"]["circular_avatar"].value<bool>() == false,
+        "legacy settings avatar value lost precedence over declarative canonical value"
+    );
+
+    const toml::table legacyBase = toml::parse("[control_center]\ncircular_avatar = true\n");
+    toml::table canonicalSidecar = toml::parse("config_version = 19\n[shell]\ncircular_avatar = false\n");
+    (void)noctalia::config::applyPendingConfigMigrations(canonicalSidecar, legacyBase, 19, sidecarDiagnostics);
+    merged = legacyBase;
+    ConfigService::deepMerge(merged, canonicalSidecar);
+    mergedIssues.clear();
+    noctalia::config::normalizeLegacyConfig(merged, mergedIssues, &canonicalSidecar);
+    expect(
+        merged["shell"]["circular_avatar"].value<bool>() == false,
+        "legacy declarative avatar value overrode canonical settings value"
+    );
+
+    toml::table invalid = toml::parse("[control_center]\ncircular_avatar = \"invalid\"\n");
+    noctalia::config::LegacyConfigIssues invalidIssues;
+    noctalia::config::normalizeLegacyConfig(invalid, invalidIssues);
+    expect(
+        invalid["shell"]["circular_avatar"].value<std::string>() == "invalid",
+        "avatar migration hid an invalid value from canonical schema validation"
+    );
+    expect(!invalid["control_center"]["circular_avatar"], "invalid legacy avatar value was not moved");
+
+    toml::table invalidCanonical =
+        toml::parse("[shell]\ncircular_avatar = \"invalid\"\n[control_center]\ncircular_avatar = false\n");
+    noctalia::config::LegacyConfigIssues invalidCanonicalIssues;
+    noctalia::config::normalizeLegacyConfig(invalidCanonical, invalidCanonicalIssues);
+    expect(
+        invalidCanonical["shell"]["circular_avatar"].value<std::string>() == "invalid"
+            && !invalidCanonical["control_center"]["circular_avatar"],
+        "avatar migration replaced an invalid canonical value with a valid legacy value"
+    );
+
+    toml::table malformedShell = toml::parse("shell = \"invalid\"\n[control_center]\ncircular_avatar = false\n");
+    noctalia::config::LegacyConfigIssues malformedIssues;
+    noctalia::config::normalizeLegacyConfig(malformedShell, malformedIssues);
+    expect(
+        malformedShell["shell"].is_string()
+            && malformedShell["control_center"]["circular_avatar"].value<bool>() == false,
+        "avatar migration overwrote malformed shell or lost the legacy value"
+    );
+  }
+
   void checkVersionGating() {
     toml::table legacy = toml::parse(R"(
 [bar.main]
@@ -1332,6 +1420,7 @@ int main() {
   checkPaletteRoleNamesMigration();
   checkPluginAutoUpdateModeMigration();
   checkAppIconColorizationMigration();
+  checkCircularAvatarMigration();
   checkVersionGating();
   checkReminderFingerprint();
   checkRegistryOrdering();

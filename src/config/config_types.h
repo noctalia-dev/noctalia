@@ -1359,6 +1359,7 @@ struct ShellConfig {
   bool readlineShortcuts = false;
   AnimationConfig animation;
   std::string avatarPath;
+  bool circularAvatar = true;
   bool settingsShowAdvanced = true;
   bool settingsExpandAllGroups = false;
   bool settingsWindowTranslucent = false;
@@ -1909,7 +1910,6 @@ struct ControlCenterConfig {
   std::int32_t width = kDefaultWidth; // full-sidebar logical width; compact/none modes scale down from this
   bool showShortcutLabels = true;
   bool showSessionButton = true;
-  bool circularAvatar = true;
   bool showAvatarBorder = true;
   CalendarTabConfig calendarTab;
   MediaTabConfig mediaTab;

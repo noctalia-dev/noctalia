@@ -47,6 +47,7 @@ polkit_agent          = false           # register Noctalia's native polkit auth
 password_style        = "default"       # default | random
 readline_shortcuts    = false           # readline-style shortcuts in every text field
 avatar_path           = "~/Pictures/avatar.png"
+circular_avatar       = true
 settings_show_advanced = true           # show advanced settings by default in Settings
 settings_expand_all_groups = false      # expand every Settings group by default
 settings_window_translucent = false     # translucent Settings window background
@@ -231,6 +232,8 @@ pipe_command         = ""                          # annotator/uploader, e.g. "s
 Notes:
 
 - `avatar_path` controls the avatar Noctalia shows in shell UI such as the Control Center Home tab. When AccountsService is reachable, Noctalia also updates your user's `IconFile` there so other consumers such as Noctalia Greeter can reuse the same avatar. If **accountsservice** is missing or disabled, the shell still uses `avatar_path`, but login greeters that depend on AccountsService will not see that image.
+
+- `circular_avatar` keeps the launcher and Control Center Home avatars circular by default. Disable it under **Settings → Shell → General → Circular Avatar**, or set `[shell].circular_avatar = false`, to follow the shell's corner roundness. Zero corner roundness gives square corners. Existing `control_center.circular_avatar` settings migrate to this key; update hand-maintained config files to use the new path.
 
 - `font_family` sets the primary Pango family for all shell text. Can be a concrete family like `Inter` or a generic like `sans-serif`.
 

@@ -1867,6 +1867,7 @@ void LauncherPanel::create() {
         },
     });
     const float toolbarSideWidth = std::round(kLauncherAvatarSize * scale);
+    const bool circularAvatar = m_config == nullptr || m_config->config().shell.circularAvatar;
     auto profile = ui::row({
         .align = FlexAlign::Center,
         .justify = FlexJustify::Center,
@@ -1877,7 +1878,7 @@ void LauncherPanel::create() {
         ui::image({
             .out = &m_launcherAvatar,
             .fit = ImageFit::Cover,
-            .radius = toolbarSideWidth * 0.5F,
+            .radius = circularAvatar ? toolbarSideWidth * 0.5F : Style::scaledRadiusLg(scale),
             .width = toolbarSideWidth,
             .height = toolbarSideWidth,
             .visible = false,
@@ -2269,6 +2270,11 @@ void LauncherPanel::syncLauncherAvatar(Renderer& renderer) {
   if (m_launcherAvatar == nullptr || m_launcherAvatarFallback == nullptr || m_config == nullptr) {
     return;
   }
+
+  const bool circularAvatar = m_config->config().shell.circularAvatar;
+  m_launcherAvatar->setRadius(
+      circularAvatar ? m_launcherAvatar->width() * 0.5F : Style::scaledRadiusLg(contentScale())
+  );
 
   const std::string displayPath = shell::avatarDisplayPath(m_accounts, m_config->config());
   if (displayPath.empty()) {

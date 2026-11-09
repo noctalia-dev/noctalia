@@ -473,6 +473,7 @@ namespace noctalia::config::schema {
         enumField(&ShellConfig::clipboardAutoPaste, "clipboard_auto_paste", kClipboardAutoPasteModes),
         field(&ShellConfig::clipboardImageActionCommand, "clipboard_image_action_command"),
         pathStringField(&ShellConfig::avatarPath, "avatar_path"),
+        field(&ShellConfig::circularAvatar, "circular_avatar"),
         subTable(&ShellConfig::animation, "animation", shellAnimationSchema()),
         subTable(&ShellConfig::shadow, "shadow", shellShadowSchema()),
         subTable(&ShellConfig::panel, "panel", shellPanelSchema()),

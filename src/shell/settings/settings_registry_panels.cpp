@@ -231,11 +231,6 @@ namespace settings::registry {
         ToggleSetting{cfg.controlCenter.showSessionButton}, "session button show hide"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::ControlCenter, "home", tr("settings.schema.panels.home-circular-avatar.label"),
-        tr("settings.schema.panels.home-circular-avatar.description"), {"control_center", "circular_avatar"},
-        ToggleSetting{cfg.controlCenter.circularAvatar}, "avatar profile picture circle radius roundness"
-    ));
-    entries.push_back(makeEntry(
         SettingsSection::ControlCenter, "home", tr("settings.schema.panels.home-avatar-border.label"),
         tr("settings.schema.panels.home-avatar-border.description"), {"control_center", "show_avatar_border"},
         ToggleSetting{cfg.controlCenter.showAvatarBorder}, "avatar border ring accent hide show"
