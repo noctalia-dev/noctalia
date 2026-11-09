@@ -267,6 +267,9 @@ namespace {
   public:
     explicit NotifyListener(const std::string& address) : m_fd(::socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0)) {
       sockaddr_un addr{};
+      if (address.empty() || address.size() >= sizeof(addr.sun_path)) {
+        return;
+      }
       addr.sun_family = AF_UNIX;
       std::memcpy(addr.sun_path, address.data(), address.size());
       if (address.front() == '@') {
@@ -333,6 +336,20 @@ namespace {
     errno = 0;
     ok = expect(!process::notifyServiceReady("relative.sock"), "a relative socket path should be rejected") && ok;
     ok = expect(errno == EINVAL, "a relative socket path should set EINVAL") && ok;
+    errno = 0;
+    ok = expect(
+             !process::notifyServiceReady("/" + std::string(sizeof(sockaddr_un::sun_path), 'n')),
+             "a socket path longer than sun_path should be rejected"
+         )
+        && ok;
+    ok = expect(errno == EINVAL, "a socket path longer than sun_path should set EINVAL") && ok;
+    errno = 0;
+    ok = expect(
+             !process::notifyServiceReady("/nonexistent-noctalia-notify/notify.sock"),
+             "a socket nobody listens on should fail"
+         )
+        && ok;
+    ok = expect(errno == ENOENT, "a socket nobody listens on should report why it failed") && ok;
     return ok;
   }
 
