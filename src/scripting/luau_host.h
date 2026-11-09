@@ -30,6 +30,8 @@ namespace process {
 namespace scripting {
   class ScriptApiContext;
   struct PluginBindingContext;
+  struct ScriptNightLightState;
+  enum class ScriptNightLightCommand : std::uint8_t;
 } // namespace scripting
 
 class LuauHost {
@@ -242,6 +244,14 @@ public:
   [[nodiscard]] bool scriptIdleUnwatch(int watchId);
   bool callIdleWatchCallback(int callbackRef, bool idle, std::chrono::milliseconds budget);
   bool hasIdleWatchCallback(int callbackRef) const;
+  // noctalia.nightlight.*: actions and watches are queued as side effects, like idle.
+  void scriptNightLightCommand(scripting::ScriptNightLightCommand command, bool value);
+  [[nodiscard]] bool scriptNightLightWatch(int callbackRef);
+  [[nodiscard]] bool scriptNightLightUnwatch(int watchId);
+  bool callNightLightWatchCallback(
+      int callbackRef, const scripting::ScriptNightLightState& state, std::chrono::milliseconds budget
+  );
+  bool hasNightLightWatchCallback(int callbackRef) const;
   // noctalia.layer.show()/hide()/configure() for this plugin's [[layer]] entry `localEntryId`.
   // Queued, applied on the main thread.
   void scriptLayerCommand(
@@ -328,6 +338,7 @@ private:
   std::unordered_set<int> m_umbrielActionCallbackRefs;
   std::unordered_map<int, std::string> m_soundLoadCallbacks;
   std::unordered_set<int> m_idleWatchCallbackRefs;
+  std::unordered_set<int> m_nightLightWatchCallbackRefs;
   HttpClient* m_httpClient = nullptr;
   AsyncCommandResultHandler m_asyncCommandResultHandler;
   AsyncFileResultHandler m_asyncFileResultHandler;

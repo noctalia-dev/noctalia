@@ -56,10 +56,26 @@ void GammaService::setChangeCallback(ChangeCallback callback) { m_changeCallback
 
 void GammaService::setStateFeedbackCallback(StateFeedbackCallback callback) { m_stateFeedback = std::move(callback); }
 
+void GammaService::setStateSnapshotCallback(StateSnapshotCallback callback) { m_stateSnapshot = std::move(callback); }
+
 void GammaService::notifyStateFeedback() {
   if (m_stateFeedback) {
     m_stateFeedback();
   }
+}
+
+void GammaService::notifyStateSnapshot() {
+  if (m_stateSnapshot) {
+    m_stateSnapshot();
+  }
+}
+
+int GammaService::dayTemperature() const {
+  return std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
+}
+
+int GammaService::nightTemperature() const {
+  return std::clamp(m_config.nightTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
 }
 
 void GammaService::reload(const NightLightConfig& config, const LocationConfig& location) {
@@ -141,6 +157,8 @@ bool GammaService::active() const {
   }
   return isNightPhase();
 }
+
+bool GammaService::nightPhase() const { return isNightPhase(); }
 
 void GammaService::onOutputsChanged() {
   if (!effectiveEnabled()) {
@@ -388,6 +406,7 @@ void GammaService::restoreAll() {
     destroyOutputGamma(og);
   }
   m_outputs.clear();
+  m_transitioning = false;
   m_currentKelvin = -1;
   m_targetKelvin = -1;
 }
@@ -439,13 +458,16 @@ void GammaService::tickGamma() {
   const GammaTarget t = computeTarget();
   if (t.kelvin < 0) {
     restoreAll();
+    notifyStateSnapshot();
     return;
   }
   m_targetKelvin = t.kelvin;
+  m_transitioning = t.transitioning;
   applyTarget(t.kelvin);
   if (!t.transitioning) {
     m_transitionTimer.stop();
   }
+  notifyStateSnapshot();
 }
 
 // --- Core state machine ---
@@ -531,6 +553,7 @@ void GammaService::apply() {
       kLog.warn("compositor does not support gamma control");
       m_gammaUnavailableLogged = true;
     }
+    notifyStateSnapshot();
     if (m_changeCallback) {
       m_changeCallback();
     }
@@ -554,6 +577,7 @@ void GammaService::apply() {
   if (!effectiveEnabled()) {
     m_scheduleTimer.stop();
     restoreAll(); // instant: releasing gamma control restores the compositor's native gamma
+    notifyStateSnapshot();
     if (m_changeCallback) {
       m_changeCallback();
     }
@@ -565,6 +589,7 @@ void GammaService::apply() {
   const GammaTarget t = computeTarget();
   if (t.kelvin < 0) {
     restoreAll();
+    notifyStateSnapshot();
     if (m_changeCallback) {
       m_changeCallback();
     }
@@ -581,6 +606,7 @@ void GammaService::apply() {
     );
   }
   m_targetKelvin = t.kelvin;
+  m_transitioning = t.transitioning;
   applyTarget(t.kelvin); // discrete toggles (enable/force/reload) snap in a single upload
   if (t.transitioning) {
     ensureTick(); // follow the drifting clock-anchored target while inside the ramp window
@@ -588,6 +614,7 @@ void GammaService::apply() {
     m_transitionTimer.stop();
   }
 
+  notifyStateSnapshot();
   if (m_changeCallback) {
     m_changeCallback();
   }

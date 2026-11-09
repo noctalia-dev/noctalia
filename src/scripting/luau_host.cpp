@@ -79,6 +79,7 @@ namespace {
   constexpr std::size_t kMaxAsyncHttpPerHost = 8;
   constexpr std::size_t kMaxPendingSoundLoadsPerHost = 8;
   constexpr std::size_t kMaxIdleWatchesPerHost = 8;
+  constexpr std::size_t kMaxNightLightWatchesPerHost = 8;
   constexpr std::size_t kMaxPendingUmbrielActionsPerHost = 16;
   // Matches the reply timeout of `umbriel msg`.
   constexpr auto kUmbrielActionTimeout = std::chrono::seconds(2);
@@ -255,6 +256,19 @@ namespace {
   void setTableBool(lua_State* L, const char* key, bool value) {
     lua_pushboolean(L, value ? 1 : 0);
     lua_setfield(L, -2, key);
+  }
+
+  void pushNightLightState(lua_State* L, const scripting::ScriptNightLightState& state) {
+    lua_createtable(L, 0, 9);
+    setTableBool(L, "enabled", state.enabled);
+    setTableBool(L, "force", state.force);
+    setTableBool(L, "active", state.active);
+    setTableBool(L, "transitioning", state.transitioning);
+    setTableString(L, "phase", state.phase);
+    setTableInteger(L, "currentTemperature", state.currentTemperature);
+    setTableInteger(L, "targetTemperature", state.targetTemperature);
+    setTableInteger(L, "dayTemperature", state.dayTemperature);
+    setTableInteger(L, "nightTemperature", state.nightTemperature);
   }
 
   LuauHost* hostForState(lua_State* L) {
@@ -1907,6 +1921,87 @@ namespace {
       {nullptr, nullptr},
   };
 
+  // noctalia.nightlight.state() -> table
+  int luau_nightlight_state(lua_State* L) {
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_newtable(L);
+      return 1;
+    }
+    pushNightLightState(L, host->api().nightLightState());
+    return 1;
+  }
+
+  // noctalia.nightlight.setEnabled(enabled)
+  int luau_nightlight_setEnabled(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::SetEnabled, lua_toboolean(L, 1) != 0);
+    }
+    return 0;
+  }
+
+  int luau_nightlight_toggle(lua_State* L) {
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::Toggle, false);
+    }
+    return 0;
+  }
+
+  // noctalia.nightlight.setForce(force)
+  int luau_nightlight_setForce(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::SetForce, lua_toboolean(L, 1) != 0);
+    }
+    return 0;
+  }
+
+  int luau_nightlight_toggleForce(lua_State* L) {
+    if (auto* host = hostForState(L)) {
+      host->scriptNightLightCommand(scripting::ScriptNightLightCommand::ToggleForce, false);
+    }
+    return 0;
+  }
+
+  // noctalia.nightlight.watch(callback) -> id
+  int luau_nightlight_watch(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+    const int callbackRef = lua_ref(L, 1);
+    if (!host->scriptNightLightWatch(callbackRef)) {
+      lua_unref(L, callbackRef);
+      luaL_error(
+          L, "noctalia.nightlight.watch: at most %d watches per entry", static_cast<int>(kMaxNightLightWatchesPerHost)
+      );
+    }
+    lua_pushinteger(L, callbackRef);
+    return 1;
+  }
+
+  // noctalia.nightlight.unwatch(id) -> bool (false when the id is not an active watch)
+  int luau_nightlight_unwatch(lua_State* L) {
+    const int watchId = luaL_checkinteger(L, 1);
+    auto* host = hostForState(L);
+    lua_pushboolean(L, host != nullptr && host->scriptNightLightUnwatch(watchId) ? 1 : 0);
+    return 1;
+  }
+
+  const luaL_Reg kNoctaliaNightLightLib[] = {
+      {"state", luau_nightlight_state},
+      {"setEnabled", luau_nightlight_setEnabled},
+      {"toggle", luau_nightlight_toggle},
+      {"setForce", luau_nightlight_setForce},
+      {"toggleForce", luau_nightlight_toggleForce},
+      {"watch", luau_nightlight_watch},
+      {"unwatch", luau_nightlight_unwatch},
+      {nullptr, nullptr},
+  };
+
   // noctalia.umbriel.action(request, callback?) -> bool. `request` is the typed action request from Umbriel's IPC
   // reference without `cmd`, for example { action = "workspace-set-layout", layout = "dwindle" }.
   int luau_umbriel_action(lua_State* L) {
@@ -2286,6 +2381,10 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaIdleLib);
     lua_setfield(L, -2, "idle");
+    // noctalia.nightlight = { state, setEnabled, toggle, setForce, toggleForce, watch, unwatch }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaNightLightLib);
+    lua_setfield(L, -2, "nightlight");
     // noctalia.layer = { show, hide, configure }
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaLayerLib);
@@ -2420,6 +2519,7 @@ LuauHost::~LuauHost() {
   auto unloadPluginSounds = m_api.unloadPluginSoundsHook();
   auto clearWallpaperMasks = m_api.clearWallpaperMasksHook();
   auto releaseIdleWatches = m_api.releaseIdleWatchesHook();
+  m_api.releaseNightLightWatches(m_hostId);
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
@@ -2474,6 +2574,10 @@ LuauHost::~LuauHost() {
         lua_unref(m_thread, callbackRef);
       }
       m_idleWatchCallbackRefs.clear();
+      for (int callbackRef : m_nightLightWatchCallbackRefs) {
+        lua_unref(m_thread, callbackRef);
+      }
+      m_nightLightWatchCallbackRefs.clear();
       for (int callbackRef : m_umbrielActionCallbackRefs) {
         lua_unref(m_thread, callbackRef);
       }
@@ -3472,6 +3576,58 @@ bool LuauHost::callIdleWatchCallback(int callbackRef, bool idle, std::chrono::mi
   }
   lua_pushboolean(m_thread, idle ? 1 : 0);
   return callWithBudget("idle watch callback", 1, 0, budget);
+}
+
+void LuauHost::scriptNightLightCommand(scripting::ScriptNightLightCommand command, bool value) {
+  if (m_scriptContext == nullptr) {
+    return;
+  }
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::NightLightCommand, .flag = value, .nightLightCommand = command}
+  );
+}
+
+bool LuauHost::scriptNightLightWatch(int callbackRef) {
+  if (m_scriptContext == nullptr
+      || callbackRef <= LUA_REFNIL
+      || m_nightLightWatchCallbackRefs.size() >= kMaxNightLightWatchesPerHost) {
+    return false;
+  }
+  m_nightLightWatchCallbackRefs.insert(callbackRef);
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::NightLightWatch, .hostId = m_hostId, .callbackRef = callbackRef}
+  );
+  return true;
+}
+
+bool LuauHost::scriptNightLightUnwatch(int watchId) {
+  if (m_scriptContext == nullptr || m_thread == nullptr || m_nightLightWatchCallbackRefs.erase(watchId) == 0) {
+    return false;
+  }
+  lua_unref(m_thread, watchId);
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::NightLightUnwatch, .hostId = m_hostId, .callbackRef = watchId}
+  );
+  return true;
+}
+
+bool LuauHost::hasNightLightWatchCallback(int callbackRef) const {
+  return m_nightLightWatchCallbackRefs.contains(callbackRef);
+}
+
+bool LuauHost::callNightLightWatchCallback(
+    int callbackRef, const scripting::ScriptNightLightState& state, std::chrono::milliseconds budget
+) {
+  if (m_thread == nullptr || !m_nightLightWatchCallbackRefs.contains(callbackRef)) {
+    return false;
+  }
+  lua_getref(m_thread, callbackRef);
+  if (!lua_isfunction(m_thread, -1)) {
+    lua_pop(m_thread, 1);
+    return false;
+  }
+  pushNightLightState(m_thread, state);
+  return callWithBudget("night light watch callback", 1, 0, budget);
 }
 
 bool LuauHost::scriptCopyToClipboard(std::string text, std::string mimeType) {

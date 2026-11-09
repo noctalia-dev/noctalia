@@ -150,11 +150,11 @@ namespace scripting {
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
-    template <typename SoundLoadCompletion, typename IdleDeliveryFactory>
+    template <typename SoundLoadCompletion, typename IdleDeliveryFactory, typename NightLightDeliveryFactory>
     void dispatchSideEffects(
         const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard, ScriptApiContext& api,
         const ScriptRuntime::TogglePanelCallback& togglePanelCallback, const SoundLoadCompletion& soundLoadCompletion,
-        const IdleDeliveryFactory& idleDelivery
+        const IdleDeliveryFactory& idleDelivery, const NightLightDeliveryFactory& nightLightDelivery
     ) {
       for (const auto& effect : effects) {
         switch (effect.kind) {
@@ -217,6 +217,15 @@ namespace scripting {
           break;
         case ScriptSideEffectKind::ShowOsd:
           api.invokeShowOsd(effect.title, effect.body, effect.number, effect.flag);
+          break;
+        case ScriptSideEffectKind::NightLightCommand:
+          api.invokeNightLightCommand(effect.nightLightCommand, effect.flag);
+          break;
+        case ScriptSideEffectKind::NightLightWatch:
+          api.watchNightLight(effect.hostId, effect.callbackRef, nightLightDelivery(effect.hostId, effect.callbackRef));
+          break;
+        case ScriptSideEffectKind::NightLightUnwatch:
+          api.unwatchNightLight(effect.hostId, effect.callbackRef);
           break;
         }
       }
@@ -598,6 +607,16 @@ namespace scripting {
       enqueue(std::move(event));
     }
 
+    void enqueueNightLightWatchResult(std::uint64_t hostId, int callbackRef, scripting::ScriptNightLightState state) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::NightLightWatchResult;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.nightLightState = std::move(state);
+      event.budget = kCallBudget;
+      enqueue(std::move(event));
+    }
+
     void enqueueStreamLine(std::uint64_t hostId, int callbackRef, std::string line) {
       ScriptEvent event;
       event.kind = ScriptEventKind::StreamLine;
@@ -763,6 +782,15 @@ namespace scripting {
         bindingContext.beginCall(event.snapshot);
         const bool ok = host->callIdleWatchCallback(event.callbackRef, event.idle, event.budget);
         return collectResult(event, "idle watch callback", ok);
+      }
+
+      if (event.kind == ScriptEventKind::NightLightWatchResult) {
+        if (event.hostId != host->hostId() || !host->hasNightLightWatchCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok = host->callNightLightWatchCallback(event.callbackRef, event.nightLightState, event.budget);
+        return collectResult(event, "night light watch callback", ok);
       }
 
       if (event.kind == ScriptEventKind::StreamLine) {
@@ -1142,6 +1170,13 @@ namespace scripting {
             return [weak, hostId, callbackRef](bool idle) {
               if (auto state = weak.lock()) {
                 state->enqueueIdleWatchResult(hostId, callbackRef, idle);
+              }
+            };
+          },
+          [weak](std::uint64_t hostId, int callbackRef) {
+            return [weak, hostId, callbackRef](scripting::ScriptNightLightState state) {
+              if (auto runtimeState = weak.lock()) {
+                runtimeState->enqueueNightLightWatchResult(hostId, callbackRef, std::move(state));
               }
             };
           }
