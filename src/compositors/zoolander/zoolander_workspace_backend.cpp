@@ -2,13 +2,13 @@
 
 #include "core/log.h"
 
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string_view>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -16,6 +16,9 @@ namespace {
 
   constexpr Logger kLog("workspace_zoolander");
   constexpr auto kPollInterval = std::chrono::milliseconds(500);
+  constexpr auto kRequestTimeout = std::chrono::milliseconds(1000);
+  constexpr std::size_t kMaxReplyBytes = 4 * 1024 * 1024;
+  constexpr std::string_view kCommand = "clients-json\n";
   constexpr std::string_view kGreeting = "ZLCTL 1";
   constexpr std::string_view kJsonReply = "OK json";
 
@@ -32,50 +35,12 @@ namespace {
     return std::string(runtime) + "/zoolander-" + name + ".sock";
   }
 
-  // Sends one command on a fresh connection and reads the reply until the
-  // server closes it. Short timeouts keep a stalled compositor from blocking
-  // the main loop.
-  std::optional<std::string> request(const std::string& path, std::string_view command) {
-    sockaddr_un addr{};
-    if (path.empty() || path.size() >= sizeof(addr.sun_path)) {
-      return std::nullopt;
+  int msUntil(std::chrono::steady_clock::time_point deadline) noexcept {
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= deadline) {
+      return 0;
     }
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-    if (fd < 0) {
-      return std::nullopt;
-    }
-    timeval timeout{.tv_sec = 0, .tv_usec = 200000};
-    ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-    ::setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-    addr.sun_family = AF_UNIX;
-    std::memcpy(addr.sun_path, path.c_str(), path.size() + 1);
-    if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-      ::close(fd);
-      return std::nullopt;
-    }
-    std::string line(command);
-    line += '\n';
-    if (::send(fd, line.data(), line.size(), MSG_NOSIGNAL) != static_cast<ssize_t>(line.size())) {
-      ::close(fd);
-      return std::nullopt;
-    }
-    ::shutdown(fd, SHUT_WR);
-    std::string reply;
-    char buffer[8192];
-    while (true) {
-      const ssize_t n = ::recv(fd, buffer, sizeof(buffer), 0);
-      if (n > 0) {
-        reply.append(buffer, static_cast<std::size_t>(n));
-        continue;
-      }
-      if (n < 0) {
-        ::close(fd);
-        return std::nullopt;
-      }
-      break;
-    }
-    ::close(fd);
-    return reply;
+    return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count()) + 1;
   }
 
   // Splits "ZLCTL 1\nOK json\n<json>" and returns the JSON line.
@@ -96,27 +61,87 @@ namespace {
 
 ZoolanderWorkspaceBackend::ZoolanderWorkspaceBackend() : m_socketPath(socketPath()) {}
 
+ZoolanderWorkspaceBackend::~ZoolanderWorkspaceBackend() { closeRequest(); }
+
 void ZoolanderWorkspaceBackend::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
 void ZoolanderWorkspaceBackend::setWindowChangeCallback(ChangeCallback callback) {
   m_windowChangeCallback = std::move(callback);
 }
 
+int ZoolanderWorkspaceBackend::pollFd() const noexcept { return m_fd; }
+
 int ZoolanderWorkspaceBackend::pollTimeoutMs() const noexcept {
-  const auto now = Clock::now();
-  if (now >= m_nextPoll) {
-    return 0;
-  }
-  return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(m_nextPoll - now).count()) + 1;
+  return msUntil(m_fd >= 0 ? m_requestDeadline : m_nextPoll);
 }
 
-void ZoolanderWorkspaceBackend::dispatchPoll(short /*revents*/) {
+void ZoolanderWorkspaceBackend::dispatchPoll(short revents) {
   const auto now = Clock::now();
-  if (now < m_nextPoll) {
+  if (m_fd >= 0) {
+    if ((revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
+      readReply();
+    } else if (now >= m_requestDeadline) {
+      closeRequest();
+      reportFailure("clients-json request timed out");
+    }
     return;
   }
-  m_nextPoll = now + kPollInterval;
-  if (!refresh()) {
+  if (now >= m_nextPoll) {
+    m_nextPoll = now + kPollInterval;
+    startRequest();
+  }
+}
+
+void ZoolanderWorkspaceBackend::startRequest() {
+  sockaddr_un addr{};
+  if (m_socketPath.empty() || m_socketPath.size() >= sizeof(addr.sun_path)) {
+    reportFailure("no usable control socket path");
+    return;
+  }
+  const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+  if (fd < 0) {
+    reportFailure("socket() failed");
+    return;
+  }
+  addr.sun_family = AF_UNIX;
+  std::memcpy(addr.sun_path, m_socketPath.c_str(), m_socketPath.size() + 1);
+  // The command fits in an empty socket buffer, so the send completes or fails at once.
+  if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0
+      || ::send(fd, kCommand.data(), kCommand.size(), MSG_NOSIGNAL) != static_cast<ssize_t>(kCommand.size())) {
+    ::close(fd);
+    reportFailure("cannot reach control socket");
+    return;
+  }
+  ::shutdown(fd, SHUT_WR);
+  m_fd = fd;
+  m_reply.clear();
+  m_requestDeadline = Clock::now() + kRequestTimeout;
+}
+
+void ZoolanderWorkspaceBackend::readReply() {
+  char buffer[8192];
+  ssize_t n = 0;
+  while ((n = ::recv(m_fd, buffer, sizeof(buffer), 0)) > 0 || (n < 0 && errno == EINTR)) {
+    if (n <= 0) {
+      continue;
+    }
+    m_reply.append(buffer, static_cast<std::size_t>(n));
+    if (m_reply.size() > kMaxReplyBytes) {
+      closeRequest();
+      reportFailure("clients-json reply too large");
+      return;
+    }
+  }
+  if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+    return;
+  }
+  closeRequest();
+  if (n < 0) {
+    reportFailure("clients-json read failed");
+    return;
+  }
+  // n == 0: the server closed the connection after its reply.
+  if (!applyReply()) {
     return;
   }
   if (m_changeCallback) {
@@ -127,23 +152,32 @@ void ZoolanderWorkspaceBackend::dispatchPoll(short /*revents*/) {
   }
 }
 
-bool ZoolanderWorkspaceBackend::refresh() {
-  const auto reply = request(m_socketPath, "clients-json");
-  const auto payload = reply ? jsonPayload(*reply) : std::nullopt;
+void ZoolanderWorkspaceBackend::closeRequest() noexcept {
+  if (m_fd >= 0) {
+    ::close(m_fd);
+    m_fd = -1;
+  }
+}
+
+void ZoolanderWorkspaceBackend::reportFailure(std::string_view reason) {
+  if (!m_loggedFailure) {
+    kLog.warn("{} ({}); keeping the last known windows", reason, m_socketPath);
+    m_loggedFailure = true;
+  }
+}
+
+bool ZoolanderWorkspaceBackend::applyReply() {
+  const auto payload = jsonPayload(m_reply);
   if (!payload) {
-    if (!m_loggedFailure) {
-      kLog.warn("no clients-json reply from {}", m_socketPath);
-      m_loggedFailure = true;
-    }
+    reportFailure("unexpected clients-json reply");
     return false;
   }
-  m_loggedFailure = false;
 
   std::vector<Client> clients;
   try {
     const auto parsed = nlohmann::json::parse(*payload);
     if (!parsed.is_array()) {
-      kLog.warn("clients-json is not an array");
+      reportFailure("clients-json is not an array");
       return false;
     }
     const auto text = [](const nlohmann::json& object, const char* key) {
@@ -174,9 +208,10 @@ bool ZoolanderWorkspaceBackend::refresh() {
       }
     }
   } catch (const nlohmann::json::exception& error) {
-    kLog.warn("clients-json parse failed: {}", error.what());
+    reportFailure(error.what());
     return false;
   }
+  m_loggedFailure = false;
 
   if (clients == m_clients) {
     return false;
@@ -259,6 +294,7 @@ std::vector<WorkspaceWindow> ZoolanderWorkspaceBackend::workspaceWindows(const s
 }
 
 void ZoolanderWorkspaceBackend::cleanup() {
+  closeRequest();
   m_clients.clear();
   m_occupied.clear();
   m_keysByOutput.clear();
