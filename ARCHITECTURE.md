@@ -168,6 +168,7 @@ Desktop widgets live under `src/shell/desktop/` and do not use the bar `Widget` 
 ## Configuration and State
 
 - Schema structs and enums live in `src/config/config_types.*`. `ConfigService` owns lifecycle and hot reload. Override persistence lives in `src/config/config_overrides.cpp`.
+- Per-section field schemas (`src/config/schema/config_schema.h`) are defined in `config_schema_<area>.cpp` sources, one per config area; field builders shared between areas live in `config_schema_fields.h`. `config_schema.cpp` keeps only `isKnownConfigPath()`.
 - The settings GUI writes config overrides to `settings.toml`. Internal app and UI state lives in `state.toml` under owner tables (for example `[wallpaper_panel]`), accessed through `StateStore` or the `ConfigService` state APIs. Do not add ad hoc state files or hide internal state under config sections.
 - Settings controls: `SearchPickerSetting` for large catalogs, `SelectSetting` for short dropdowns.
 - Settings entries carry a `group`. Rendering routes through `coalesceByGroupKey()` (`settings_registry.h`), so each group renders once in first-appearance order. Still declare related entries together.
