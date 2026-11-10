@@ -121,6 +121,10 @@ void ListEditor::setOnAddRequested(std::function<void(std::string)> callback) {
   m_onAddRequested = std::move(callback);
 }
 
+void ListEditor::setOnAddPickerRequested(std::function<void()> callback) {
+  m_onAddPickerRequested = std::move(callback);
+}
+
 void ListEditor::setOnRemoveRequested(std::function<void(std::size_t)> callback) {
   m_onRemoveRequested = std::move(callback);
 }
@@ -167,34 +171,26 @@ void ListEditor::rebuildRows() {
     });
 
     if (!m_suggestedOptions.empty()) {
-      const auto remaining = remainingOptions();
-      if (!remaining.empty()) {
-        std::vector<std::string> remainingLabels;
-        remainingLabels.reserve(remaining.size());
-        for (const auto& opt : remaining) {
-          remainingLabels.push_back(opt.label);
-        }
-
-        // Nothing is preselected and picking an option adds it, so the trigger never shows an
-        // option that only looks like part of the list.
-        auto select = ui::select({
-            .options = std::move(remainingLabels),
-            .clearSelection = true,
-            .placeholder = m_addPlaceholder,
-            .fontSize = Style::fontSizeCaption * m_scale,
-            .controlHeight = suggestedAddHeight,
-            .glyphSize = Style::fontSizeCaption * m_scale,
-            .enabled = !atCapacity,
-            .width = labelCellWidth,
-            .height = suggestedAddHeight,
-            .onSelectionChanged = [this, remaining](std::size_t index, std::string_view /*label*/) {
-              if (index < remaining.size() && m_onAddRequested) {
-                m_onAddRequested(remaining[index].value);
-              }
-            },
-        });
-
-        addRow->addChild(std::move(select));
+      if (!remainingOptions().empty()) {
+        addRow->addChild(
+            ui::button({
+                .text = m_addPlaceholder,
+                .fontSize = Style::fontSizeCaption * m_scale,
+                .enabled = !atCapacity,
+                .contentAlign = ButtonContentAlign::Start,
+                .variant = ButtonVariant::Default,
+                .minWidth = labelCellWidth,
+                .minHeight = suggestedAddHeight,
+                .paddingV = Style::spaceXs * m_scale,
+                .paddingH = Style::spaceSm * m_scale,
+                .radius = Style::scaledRadiusMd(m_scale),
+                .onClick = [this] {
+                  if (m_onAddPickerRequested) {
+                    m_onAddPickerRequested();
+                  }
+                },
+            })
+        );
       } else {
         addRow.reset();
       }

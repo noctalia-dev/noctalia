@@ -23,16 +23,17 @@ public:
   void setScale(float scale);
   void setMaxItems(std::size_t maxItems);
   void setOnAddRequested(std::function<void(std::string)> callback);
+  void setOnAddPickerRequested(std::function<void()> callback);
   void setOnRemoveRequested(std::function<void(std::size_t)> callback);
   // `to` is an insertion index in [0, size]. No-op when to == from || to == from + 1.
   void setOnMoveRequested(std::function<void(std::size_t from, std::size_t to)> callback);
 
   const std::vector<std::string>& items() const noexcept { return m_items; }
   const std::vector<ListEditorOption>& suggestedOptions() const noexcept { return m_suggestedOptions; }
+  std::vector<ListEditorOption> remainingOptions() const;
 
 private:
   std::string labelForValue(std::string_view value) const;
-  std::vector<ListEditorOption> remainingOptions() const;
   void rebuildRows();
   void addGhostIconButton(Flex& row, std::string_view glyph, float size, std::function<void()> callback);
 
@@ -41,6 +42,7 @@ private:
   std::string m_addPlaceholder;
   std::size_t m_maxItems = 0;
   std::function<void(std::string)> m_onAddRequested;
+  std::function<void()> m_onAddPickerRequested;
   std::function<void(std::size_t)> m_onRemoveRequested;
   std::function<void(std::size_t, std::size_t)> m_onMoveRequested;
   float m_scale = 1.0F;

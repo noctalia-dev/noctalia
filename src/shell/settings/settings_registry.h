@@ -212,9 +212,9 @@ namespace settings {
 
   struct ListSetting {
     std::vector<std::string> items;
-    // When non-empty, the add UI presents a Select limited to these options (minus already-added values)
-    // instead of a free-form text input, and row labels resolve to the option's friendly label.
-    // Useful when the catalog of valid values is known.
+    // When non-empty, the add UI opens a searchable picker limited to these options (minus
+    // already-added values) instead of a free-form text input, and row labels resolve to the
+    // option's friendly label. Useful when the catalog of valid values is known.
     std::vector<SelectOption> suggestedOptions;
   };
 

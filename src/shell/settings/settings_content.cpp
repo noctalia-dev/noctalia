@@ -789,6 +789,38 @@ namespace settings {
         items.push_back(ShortcutConfig{std::move(value)});
         setOverride(path, items);
       });
+      listEditor->setOnAddPickerRequested([openPopup = ctx.openSearchPickerPopup, listEditorPtr = listEditor.get(),
+                                           title = entry.title, setOverride = ctx.setOverride, items = shortcuts.items,
+                                           path = entry.path] {
+        if (openPopup == nullptr || listEditorPtr == nullptr) {
+          return;
+        }
+        const auto remaining = listEditorPtr->remainingOptions();
+        if (remaining.empty()) {
+          return;
+        }
+        std::vector<SelectOption> options;
+        options.reserve(remaining.size());
+        for (const auto& opt : remaining) {
+          options.push_back(SelectOption{.value = opt.value, .label = opt.label});
+        }
+        openPopup(
+            SearchPickerOpenRequest{
+                .title = title,
+                .options = std::move(options),
+                .placeholder = i18n::tr("ui.controls.search-picker.placeholder"),
+                .emptyText = i18n::tr("ui.controls.search-picker.empty"),
+                .settingPath = path,
+                .onSelect = [setOverride, items, path](const std::string& value) mutable {
+                  if (value.empty() || std::ranges::contains(items, value, &ShortcutConfig::type)) {
+                    return;
+                  }
+                  items.push_back(ShortcutConfig{value});
+                  setOverride(path, items);
+                },
+            }
+        );
+      });
       listEditor->setOnRemoveRequested([setOverride = ctx.setOverride, items = shortcuts.items,
                                         path = entry.path](std::size_t index) mutable {
         if (index >= items.size()) {
