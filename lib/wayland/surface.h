@@ -87,7 +87,7 @@ public:
   void setOutputChangedCallback(OutputChangedCallback callback);
   // Holds back the first frame, and so the mapping, until the gate returns true; a held frame stays pending until the
   // next requestRedraw().
-  void setFirstFrameGate(FirstFrameGate gate);
+  void holdFirstFrameUntil(FirstFrameGate gate);
   void setInputRegion(const std::vector<InputRect>& rects);
   // Declares the whole surface opaque, or not, from its next commit, so the compositor can skip what lies beneath it.
   void setOpaque(bool opaque);
