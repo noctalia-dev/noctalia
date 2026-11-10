@@ -1252,10 +1252,15 @@ namespace settings {
     });
     listEditor->setOnMoveRequested([setOverride = ctx.setOverride, items = list.items,
                                     path = entry.path](std::size_t from, std::size_t to) mutable {
-      if (from >= items.size() || to >= items.size() || from == to) {
+      if (from >= items.size() || to > items.size() || to == from || to == from + 1) {
         return;
       }
-      std::swap(items[from], items[to]);
+      auto value = std::move(items[from]);
+      items.erase(items.begin() + static_cast<std::ptrdiff_t>(from));
+      if (to > from) {
+        --to;
+      }
+      items.insert(items.begin() + static_cast<std::ptrdiff_t>(to), std::move(value));
       setOverride(path, items);
     });
     block->addChild(std::move(listEditor));

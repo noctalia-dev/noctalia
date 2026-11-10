@@ -24,7 +24,8 @@ public:
   void setMaxItems(std::size_t maxItems);
   void setOnAddRequested(std::function<void(std::string)> callback);
   void setOnRemoveRequested(std::function<void(std::size_t)> callback);
-  void setOnMoveRequested(std::function<void(std::size_t, std::size_t)> callback);
+  // `to` is an insertion index in [0, size]. No-op when to == from || to == from + 1.
+  void setOnMoveRequested(std::function<void(std::size_t from, std::size_t to)> callback);
 
   const std::vector<std::string>& items() const noexcept { return m_items; }
   const std::vector<ListEditorOption>& suggestedOptions() const noexcept { return m_suggestedOptions; }

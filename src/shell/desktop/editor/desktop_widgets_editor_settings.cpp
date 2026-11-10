@@ -418,10 +418,15 @@ namespace {
       editor->applySettingChange(key, items);
     });
     listEditor->setOnMoveRequested([editor, key, items](std::size_t from, std::size_t to) mutable {
-      if (from >= items.size() || to >= items.size() || from == to) {
+      if (from >= items.size() || to > items.size() || to == from || to == from + 1) {
         return;
       }
-      std::swap(items[from], items[to]);
+      auto value = std::move(items[from]);
+      items.erase(items.begin() + static_cast<std::ptrdiff_t>(from));
+      if (to > from) {
+        --to;
+      }
+      items.insert(items.begin() + static_cast<std::ptrdiff_t>(to), std::move(value));
       editor->applySettingChange(key, items);
     });
     row->addChild(std::move(listEditor));
