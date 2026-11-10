@@ -291,12 +291,13 @@ void ListEditor::rebuildRows() {
       auto* itemRowPtr = itemRow.get();
 
       Button* dragBtnPtr = nullptr;
+      const std::string dragTooltip = i18n::tr("settings.controls.list.drag");
       auto dragBtn = ui::button({
           .out = &dragBtnPtr,
           .glyph = "menu-2",
           .glyphSize = Style::fontSizeCaption * m_scale,
           .variant = ButtonVariant::Ghost,
-          .tooltip = i18n::tr("settings.controls.list.drag"),
+          .tooltip = dragTooltip,
           .minWidth = kItemRowHeight * m_scale,
           .minHeight = kItemRowHeight * m_scale,
           .padding = Style::spaceXs * m_scale,
@@ -305,7 +306,7 @@ void ListEditor::rebuildRows() {
       });
 
       auto dragState = std::make_shared<ListDragState>();
-      dragBtn->setOnPress([this, dragState, itemRowPtr, dropIndicatorPtr, itemNodes,
+      dragBtn->setOnPress([this, dragState, dragBtnPtr, dragTooltip, itemRowPtr, dropIndicatorPtr, itemNodes,
                            itemIndex = i](float localX, float localY, bool pressed) {
         if (pressed) {
           dragState->active = true;
@@ -314,6 +315,9 @@ void ListEditor::rebuildRows() {
           dragState->startLocalY = localY;
           dragState->targetInsertionIndex = std::nullopt;
           itemRowPtr->setOpacity(0.72F);
+          if (dragBtnPtr != nullptr) {
+            dragBtnPtr->setTooltip({});
+          }
           if (dropIndicatorPtr != nullptr) {
             dropIndicatorPtr->setVisible(false);
           }
@@ -324,6 +328,9 @@ void ListEditor::rebuildRows() {
         }
         dragState->active = false;
         itemRowPtr->setOpacity(1.0F);
+        if (dragBtnPtr != nullptr) {
+          dragBtnPtr->setTooltip(dragTooltip);
+        }
         if (dropIndicatorPtr != nullptr) {
           dropIndicatorPtr->setVisible(false);
         }
