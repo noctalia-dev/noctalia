@@ -142,6 +142,15 @@ std::string ListEditor::labelForValue(std::string_view value) const {
   return std::string(value);
 }
 
+std::string ListEditor::iconForValue(std::string_view value) const {
+  for (const auto& opt : m_suggestedOptions) {
+    if (opt.value == value) {
+      return opt.icon;
+    }
+  }
+  return {};
+}
+
 std::vector<ListEditorOption> ListEditor::remainingOptions() const {
   std::vector<ListEditorOption> remaining;
   remaining.reserve(m_suggestedOptions.size());
@@ -351,6 +360,16 @@ void ListEditor::rebuildRows() {
       });
 
       itemRow->addChild(std::move(dragBtn));
+
+      if (const std::string icon = iconForValue(m_items[i]); !icon.empty()) {
+        itemRow->addChild(
+            ui::glyph({
+                .glyph = icon,
+                .glyphSize = Style::fontSizeCaption * m_scale,
+                .color = colorSpecFromRole(ColorRole::OnSurface),
+            })
+        );
+      }
 
       auto labelCell = ui::row(
           {

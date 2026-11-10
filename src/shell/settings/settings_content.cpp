@@ -772,7 +772,7 @@ namespace settings {
       std::vector<ListEditorOption> suggestedOptions;
       suggestedOptions.reserve(shortcuts.suggestedOptions.size());
       for (const auto& opt : shortcuts.suggestedOptions) {
-        suggestedOptions.push_back(ListEditorOption{.value = opt.value, .label = opt.label});
+        suggestedOptions.push_back(ListEditorOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
       }
 
       auto listEditor = std::make_unique<ListEditor>();
@@ -802,7 +802,7 @@ namespace settings {
         std::vector<SelectOption> options;
         options.reserve(remaining.size());
         for (const auto& opt : remaining) {
-          options.push_back(SelectOption{.value = opt.value, .label = opt.label});
+          options.push_back(SelectOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
         }
         openPopup(
             SearchPickerOpenRequest{

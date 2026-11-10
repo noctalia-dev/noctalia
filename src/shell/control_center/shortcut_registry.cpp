@@ -456,6 +456,7 @@ namespace {
   struct BuiltinShortcutDescriptor {
     std::string_view type;
     std::string_view labelKey;
+    std::string_view icon;
     ShortcutAvailability isAvailable = nullptr;
     ShortcutCreator create = nullptr;
   };
@@ -472,73 +473,90 @@ namespace {
       builtinShortcut<WifiShortcut, &ShortcutServices::network>({
           .type = "wifi",
           .labelKey = "control-center.shortcuts.wifi",
+          .icon = "wifi",
       }),
       builtinShortcut<BluetoothShortcut, &ShortcutServices::bluetooth>({
           .type = "bluetooth",
           .labelKey = "control-center.shortcuts.bluetooth",
+          .icon = "bluetooth",
       }),
       builtinShortcut<NightlightShortcut, &ShortcutServices::nightLight, &ShortcutServices::platform>({
           .type = "nightlight",
           .labelKey = "control-center.shortcuts.nightlight",
+          .icon = "nightlight-off",
       }),
       builtinShortcut<NotificationShortcut, &ShortcutServices::notifications>({
           .type = "notification",
           .labelKey = "control-center.shortcuts.notification",
+          .icon = "bell",
       }),
       builtinShortcut<DarkModeShortcut, &ShortcutServices::theme>({
           .type = "dark_mode",
           .labelKey = "control-center.shortcuts.dark-mode.dark",
+          .icon = "theme-mode",
       }),
       builtinShortcut<IdleInhibitorShortcut, &ShortcutServices::idleInhibitor>({
           .type = "caffeine",
           .labelKey = "control-center.shortcuts.caffeine",
+          .icon = "caffeine-off",
       }),
       builtinShortcut<AudioShortcut, &ShortcutServices::audio>({
           .type = "audio",
           .labelKey = "control-center.shortcuts.audio",
+          .icon = "volume-high",
       }),
       builtinShortcut<MicMuteShortcut, &ShortcutServices::audio>({
           .type = "mic_mute",
           .labelKey = "control-center.shortcuts.mic-mute",
+          .icon = "microphone",
       }),
       builtinShortcut<PowerProfileShortcut, &ShortcutServices::powerProfiles>({
           .type = "power_profile",
           .labelKey = "control-center.shortcuts.power-profile",
+          .icon = "balanced",
       }),
       builtinShortcut<MediaShortcut, &ShortcutServices::mpris>({
           .type = "media",
           .labelKey = "control-center.shortcuts.media",
+          .icon = "media-play",
       }),
       builtinShortcut<WeatherShortcut, &ShortcutServices::weather>({
           .type = "weather",
           .labelKey = "control-center.shortcuts.weather",
+          .icon = "weather-cloud-sun",
           .isAvailable = [](const Config& config) { return config.weather.enabled; },
       }),
       builtinShortcut<SystemShortcut>({
           .type = "system",
           .labelKey = "control-center.shortcuts.system",
+          .icon = "activity",
           .isAvailable = [](const Config& config) { return config.system.monitor.enabled; },
       }),
       builtinShortcut<ScreenTimeShortcut>({
           .type = "screen_time",
           .labelKey = "control-center.shortcuts.screen-time",
+          .icon = "hourglass",
           .isAvailable = [](const Config& config) { return config.shell.screenTimeEnabled; },
       }),
       builtinShortcut<KeyboardLayoutShortcut, &ShortcutServices::platform, &ShortcutServices::config>({
           .type = "keyboard_layout",
           .labelKey = "control-center.shortcuts.keyboard-layout",
+          .icon = "keyboard",
       }),
       builtinShortcut<WallpaperShortcut>({
           .type = "wallpaper",
           .labelKey = "control-center.shortcuts.wallpaper",
+          .icon = "wallpaper-selector",
       }),
       builtinShortcut<SessionShortcut>({
           .type = "session",
           .labelKey = "control-center.shortcuts.session",
+          .icon = "shutdown",
       }),
       builtinShortcut<ClipboardShortcut>({
           .type = "clipboard",
           .labelKey = "control-center.shortcuts.clipboard",
+          .icon = "clipboard",
           .isAvailable = [](const Config& config) { return config.shell.clipboardEnabled; },
       }),
   });
@@ -558,14 +576,26 @@ std::vector<ShortcutRegistry::CatalogEntry> ShortcutRegistry::catalog() {
   // Built-in shortcuts plus every currently active plugin [[shortcut]] entry.
   auto result = kBuiltinShortcuts
       | std::views::transform([](const BuiltinShortcutDescriptor& shortcut) {
-                  return CatalogEntry{.type = std::string(shortcut.type), .labelKey = std::string(shortcut.labelKey)};
+                  return CatalogEntry{
+                      .type = std::string(shortcut.type),
+                      .labelKey = std::string(shortcut.labelKey),
+                      .icon = std::string(shortcut.icon),
+                  };
                 })
       | std::ranges::to<std::vector>();
   scripting::PluginRegistry::instance().ensureScanned();
   for (const auto& entry : scripting::PluginRegistry::instance().entriesOfKind(scripting::PluginEntryKind::Shortcut)) {
     std::string id = entry.fullId();
     std::string label = entry.manifest->name.empty() ? id : entry.manifest->name;
-    result.push_back(CatalogEntry{.type = std::move(id), .labelKey = std::move(label), .literalLabel = true});
+    std::string icon = entry.manifest->icon.empty() ? "circle" : entry.manifest->icon;
+    result.push_back(
+        CatalogEntry{
+            .type = std::move(id),
+            .labelKey = std::move(label),
+            .literalLabel = true,
+            .icon = std::move(icon),
+        }
+    );
   }
   return result;
 }

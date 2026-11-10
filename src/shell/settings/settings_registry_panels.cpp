@@ -26,7 +26,9 @@ namespace settings::registry {
           continue;
         }
         std::string label = shortcut.literalLabel ? std::move(shortcut.labelKey) : i18n::tr(shortcut.labelKey);
-        opts.push_back(SelectOption{std::move(shortcut.type), std::move(label)});
+        opts.push_back(
+            SelectOption{.value = std::move(shortcut.type), .label = std::move(label), .icon = std::move(shortcut.icon)}
+        );
       }
       return opts;
     }

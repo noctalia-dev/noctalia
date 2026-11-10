@@ -72,6 +72,7 @@ namespace settings {
     std::string description;
     ColorSwatchPreview preview = {};
     std::string tooltip;
+    std::string icon;
   };
 
   // A bindable IPC command for the gesture action picker. `argsSpec` is the registry's argument

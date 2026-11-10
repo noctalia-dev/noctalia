@@ -1231,7 +1231,7 @@ namespace settings {
     std::vector<ListEditorOption> suggestedOptions;
     suggestedOptions.reserve(list.suggestedOptions.size());
     for (const auto& opt : list.suggestedOptions) {
-      suggestedOptions.push_back(ListEditorOption{.value = opt.value, .label = opt.label});
+      suggestedOptions.push_back(ListEditorOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
     }
     listEditor->setSuggestedOptions(std::move(suggestedOptions));
     listEditor->setItems(list.items);
@@ -1257,7 +1257,7 @@ namespace settings {
         std::vector<SelectOption> options;
         options.reserve(remaining.size());
         for (const auto& opt : remaining) {
-          options.push_back(SelectOption{.value = opt.value, .label = opt.label});
+          options.push_back(SelectOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
         }
         openPopup(
             SearchPickerOpenRequest{

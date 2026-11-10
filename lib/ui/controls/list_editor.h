@@ -11,6 +11,7 @@
 struct ListEditorOption {
   std::string value;
   std::string label;
+  std::string icon;
 };
 
 class ListEditor : public Flex {
@@ -34,6 +35,7 @@ public:
 
 private:
   std::string labelForValue(std::string_view value) const;
+  std::string iconForValue(std::string_view value) const;
   void rebuildRows();
   void addGhostIconButton(Flex& row, std::string_view glyph, float size, std::function<void()> callback);
 
