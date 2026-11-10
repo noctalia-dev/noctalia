@@ -1392,7 +1392,8 @@ void NetworkManagerService::forgetSsid(const std::string& ssid) {
                 --op->pendingGetSettings;
                 if (getErr.has_value()) {
                   kLog.debug(
-                      "forgetSsid: GetSettings failed for {}: [{}] {}", pathStr, getErr->getName(), getErr->getMessage()
+                      "forgetSsid: GetSettings failed for {}: [{}] {}", pathStr, getErr->getName().c_str(),
+                      getErr->getMessage()
                   );
                   maybeFinishForget(op);
                   return;
