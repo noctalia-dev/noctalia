@@ -126,4 +126,4 @@ When another app or an IPC command changes the active profile, Noctalia shows a 
 | Turn monitors on  | <IpcCommand command="dpms-on" />  | Turn monitors on.  |
 | Turn monitors off | <IpcCommand command="dpms-off" /> | Turn monitors off. |
 
-If a lock transition is entering, `dpms-off` completes the lock screen and waits for its safe frame before powering off. The command can return `ok` while this work is queued. A subsequent `dpms-on`, unlock, or resume cancels the queued request. If no safe frame is acknowledged within three seconds, power-off is cancelled and a warning is logged.
+If a lock transition is entering, `dpms-off` completes the lock screen and waits for its safe frame before powering off. Outputs that the compositor reports as already powered off are not awaited. The command can return `ok` while this work is queued. A subsequent `dpms-on`, unlock, or resume cancels the queued request. If a powered-on output acknowledges no safe frame within three seconds, power-off is cancelled and a warning is logged.

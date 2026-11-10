@@ -1824,14 +1824,19 @@ bool CompositorPlatform::setOutputPower(bool on) const {
   return true;
 }
 
-bool CompositorPlatform::shouldSuppressLockTransition() const {
-  if (m_outputPowerOffPending) {
-    return true;
-  }
+std::unordered_map<std::string, bool> CompositorPlatform::outputPowerStates() const {
   std::unordered_map<std::string, bool> states;
   for (const auto& backend : m_focusedOutputBackends) {
     states = backend->outputPowerStates();
   }
+  return states;
+}
+
+bool CompositorPlatform::shouldSuppressLockTransition() const {
+  if (m_outputPowerOffPending) {
+    return true;
+  }
+  const auto states = outputPowerStates();
   bool hasOutput = false;
   bool allKnown = true;
   for (const auto& output : m_wayland.outputs()) {
