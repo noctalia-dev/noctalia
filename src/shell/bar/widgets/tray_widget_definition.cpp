@@ -42,6 +42,12 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
               field<&Options::matchAdjacentSpacing>({
                   .key = "match_adjacent_spacing",
               }),
+              field<&Options::menuScale>({
+                  .key = "menu_scale",
+                  .minValue = 0.1,
+                  .maxValue = 2.0,
+                  .step = 0.05,
+              }),
               field<&Options::drawerMode>({
                   .key = "drawer",
                   .presentation = settings::WidgetSettingPresentation{.group = "tray.drawer"},
