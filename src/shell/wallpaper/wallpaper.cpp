@@ -1321,9 +1321,9 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
 
   instance->surface->setUpdateCallback([this, inst] { updateRendererState(*inst); });
 
-  // Drawing before the first image is decoded would show the bare fill colour first.
   instance->surface->setRenderGate([inst] {
-    return inst->loadingImage.empty() || !inst->currentImage.empty() || !inst->nextImage.empty();
+    inst->firstImageSettled = inst->firstImageSettled || inst->loadingImage.empty();
+    return inst->firstImageSettled;
   });
 
   if (!instance->surface->initialize(output.output)) {

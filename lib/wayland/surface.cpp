@@ -1169,7 +1169,7 @@ void Surface::requestFrameTick() {
 }
 
 void Surface::renderNow() {
-  if (m_running && m_configured) {
+  if (m_running && m_configured && (!m_renderGate || m_renderGate())) {
     cancelQueuedFrameWork();
     cancelQueuedRender();
     preparePendingFrame();

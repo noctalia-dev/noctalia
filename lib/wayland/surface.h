@@ -85,8 +85,7 @@ public:
   void setFrameTickCallback(FrameTickCallback callback);
   void setScaleChangedCallback(ScaleChangedCallback callback);
   void setOutputChangedCallback(OutputChangedCallback callback);
-  // While the gate returns false nothing is rendered or committed, so a surface that never drew stays unmapped; the
-  // pending redraw runs on the next requestRedraw() once it opens.
+  // A closed gate keeps the redraw pending until the next requestRedraw().
   void setRenderGate(RenderGate gate);
   void setInputRegion(const std::vector<InputRect>& rects);
   // Declares the whole surface opaque, or not, from its next commit, so the compositor can skip what lies beneath it.

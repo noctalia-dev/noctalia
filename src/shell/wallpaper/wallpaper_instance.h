@@ -46,6 +46,7 @@ struct WallpaperInstance {
   // Image still decoding; it starts the change to loadingPath once its texture is uploaded.
   SharedTextureCache::Lease loadingImage;
   std::string loadingPath;
+  bool firstImageSettled = false;
 
   // Transition state
   float transitionTime = 0.0F;
