@@ -19,9 +19,6 @@
 namespace {
 
   constexpr float kLabelCellWidth = 200.0F;
-  constexpr float kFreeformInputWidth = 190.0F;
-  constexpr float kItemRowHeight = 26.0F;
-  constexpr float kVerticalGap = 2.0F;
 
   struct ListDragState {
     bool active = false;
@@ -34,7 +31,7 @@ namespace {
   std::unique_ptr<Label> makeListLabel(std::string_view text, float scale) {
     return ui::label({
         .text = std::string(text),
-        .fontSize = Style::fontSizeCaption * scale,
+        .fontSize = Style::fontSizeBody * scale,
         .color = colorSpecFromRole(ColorRole::OnSurface),
     });
   }
@@ -65,7 +62,7 @@ namespace {
 
     const float x = Style::spaceXs * scale;
     const float width = std::max(1.0F, list.width() - Style::spaceXs * scale * 2.0F);
-    const float gapHalf = kVerticalGap * scale * 0.5F;
+    const float gapHalf = Style::spaceXs * scale * 0.5F;
     float y = 0.0F;
     if (!itemNodes.empty()) {
       if (insertionIndex == itemNodes.size()) {
@@ -87,7 +84,7 @@ namespace {
 ListEditor::ListEditor() {
   setDirection(FlexDirection::Vertical);
   setAlign(FlexAlign::Stretch);
-  setGap(kVerticalGap);
+  setGap(Style::spaceXs);
 }
 
 void ListEditor::setItems(std::vector<std::string> items) {
@@ -107,7 +104,7 @@ void ListEditor::setAddPlaceholder(std::string_view placeholder) {
 
 void ListEditor::setScale(float scale) {
   m_scale = std::max(0.1F, scale);
-  setGap(kVerticalGap * m_scale);
+  setGap(Style::spaceXs * m_scale);
   rebuildRows();
 }
 
@@ -167,101 +164,13 @@ void ListEditor::rebuildRows() {
   }
 
   const float labelCellWidth = kLabelCellWidth * m_scale;
-  const float itemRowHeight = kItemRowHeight * m_scale;
-
-  std::unique_ptr<Flex> addRow;
-  const bool atCapacity = m_maxItems > 0 && m_items.size() >= m_maxItems;
-  if (!atCapacity || !m_suggestedOptions.empty()) {
-    addRow = ui::row({
-        .align = FlexAlign::Center,
-        .gap = Style::spaceSm * m_scale,
-    });
-
-    if (!m_suggestedOptions.empty()) {
-      if (!remainingOptions().empty()) {
-        addRow->addChild(
-            ui::button({
-                .text = m_addPlaceholder,
-                .glyph = "add",
-                .fontSize = Style::fontSizeBody * m_scale,
-                .glyphSize = Style::fontSizeBody * m_scale,
-                .enabled = !atCapacity,
-                .variant = ButtonVariant::Default,
-                .minHeight = Style::controlHeight * m_scale,
-                .paddingV = Style::spaceSm * m_scale,
-                .paddingH = Style::spaceMd * m_scale,
-                .radius = Style::scaledRadiusMd(m_scale),
-                .onClick = [this] {
-                  if (m_onAddPickerRequested) {
-                    m_onAddPickerRequested();
-                  }
-                },
-            })
-        );
-      } else {
-        addRow.reset();
-      }
-    } else if (!atCapacity) {
-      Input* addInputPtr = nullptr;
-      auto addInput = ui::input({
-          .out = &addInputPtr,
-          .placeholder = m_addPlaceholder,
-          .fontSize = Style::fontSizeBody * m_scale,
-          .controlHeight = Style::controlHeight * m_scale,
-          .horizontalPadding = Style::spaceSm * m_scale,
-          .width = kFreeformInputWidth * m_scale,
-          .height = Style::controlHeight * m_scale,
-          .onSubmit = [this](const std::string& text) {
-            if (!text.empty() && m_onAddRequested) {
-              m_onAddRequested(text);
-            }
-          },
-      });
-
-      auto addBtn = ui::button({
-          .glyph = "add",
-          .glyphSize = Style::fontSizeBody * m_scale,
-          .variant = ButtonVariant::Ghost,
-          .minWidth = Style::controlHeight * m_scale,
-          .minHeight = Style::controlHeight * m_scale,
-          .padding = Style::spaceSm * m_scale,
-          .radius = Style::scaledRadiusMd(m_scale),
-          .onClick = [this, addInputPtr] {
-            const auto& text = addInputPtr->value();
-            if (!text.empty() && m_onAddRequested) {
-              m_onAddRequested(text);
-            }
-          },
-      });
-
-      addRow->addChild(std::move(addInput));
-      addRow->addChild(std::move(addBtn));
-    }
-  }
-
-  if (m_maxItems > 0) {
-    auto capacityLabel = ui::label({
-        .text = std::to_string(m_items.size()) + "/" + std::to_string(m_maxItems),
-        .fontSize = Style::fontSizeCaption * m_scale,
-        .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-    });
-    if (addRow) {
-      addRow->addChild(std::move(capacityLabel));
-    } else {
-      auto wrapper = ui::row({.align = FlexAlign::Center});
-      wrapper->addChild(std::move(capacityLabel));
-      addRow = std::move(wrapper);
-    }
-  }
-
-  if (addRow) {
-    addChild(std::move(addRow));
-  }
+  const float itemRowHeight = Style::controlHeightSm * m_scale;
+  const float iconBtnSize = Style::controlHeightSm * m_scale;
 
   if (!m_items.empty()) {
     auto itemsColumn = ui::column({
         .align = FlexAlign::Stretch,
-        .gap = kVerticalGap * m_scale,
+        .gap = Style::spaceXs * m_scale,
         .fillWidth = true,
     });
     auto* itemsColumnPtr = itemsColumn.get();
@@ -283,7 +192,7 @@ void ListEditor::rebuildRows() {
     for (std::size_t i = 0; i < m_items.size(); ++i) {
       auto itemRow = ui::row({
           .align = FlexAlign::Center,
-          .gap = Style::spaceXs * m_scale,
+          .gap = Style::spaceSm * m_scale,
           .minHeight = itemRowHeight,
       });
       auto* itemRowPtr = itemRow.get();
@@ -296,8 +205,8 @@ void ListEditor::rebuildRows() {
           .glyphSize = Style::fontSizeCaption * m_scale,
           .variant = ButtonVariant::Ghost,
           .tooltip = dragTooltip,
-          .minWidth = kItemRowHeight * m_scale,
-          .minHeight = kItemRowHeight * m_scale,
+          .minWidth = iconBtnSize,
+          .minHeight = iconBtnSize,
           .padding = Style::spaceXs * m_scale,
           .radius = Style::scaledRadiusSm(m_scale),
           .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
@@ -370,7 +279,7 @@ void ListEditor::rebuildRows() {
         itemRow->addChild(
             ui::glyph({
                 .glyph = icon,
-                .glyphSize = Style::fontSizeCaption * m_scale,
+                .glyphSize = Style::fontSizeBody * m_scale,
                 .color = colorSpecFromRole(ColorRole::OnSurface),
             })
         );
@@ -380,6 +289,7 @@ void ListEditor::rebuildRows() {
           {
               .align = FlexAlign::Center,
               .minWidth = labelCellWidth,
+              .flexGrow = 1.0F,
           },
           makeListLabel(labelForValue(m_items[i]), m_scale)
       );
@@ -398,17 +308,122 @@ void ListEditor::rebuildRows() {
     addChild(std::move(itemsColumn));
   }
 
+  std::unique_ptr<Flex> addRow;
+  const bool atCapacity = m_maxItems > 0 && m_items.size() >= m_maxItems;
+  const std::string capacityBadge =
+      m_maxItems > 0 ? std::to_string(m_items.size()) + "/" + std::to_string(m_maxItems) : std::string{};
+
+  if (!m_suggestedOptions.empty()) {
+    if (!remainingOptions().empty() || atCapacity) {
+      addRow = ui::row({
+          .align = FlexAlign::Center,
+          .gap = Style::spaceSm * m_scale,
+          .fillWidth = true,
+      });
+      addRow->addChild(
+          ui::button({
+              .text = m_addPlaceholder,
+              .glyph = "add",
+              .fontSize = Style::fontSizeBody * m_scale,
+              .glyphSize = Style::fontSizeBody * m_scale,
+              .enabled = !atCapacity,
+              .variant = ButtonVariant::Default,
+              .badge = capacityBadge,
+              .minHeight = Style::controlHeight * m_scale,
+              .paddingV = Style::spaceSm * m_scale,
+              .paddingH = Style::spaceMd * m_scale,
+              .radius = Style::scaledRadiusMd(m_scale),
+              .flexGrow = 1.0F,
+              .onClick = [this] {
+                if (m_onAddPickerRequested) {
+                  m_onAddPickerRequested();
+                }
+              },
+          })
+      );
+    }
+  } else if (!atCapacity) {
+    addRow = ui::row({
+        .align = FlexAlign::Center,
+        .gap = Style::spaceSm * m_scale,
+        .fillWidth = true,
+    });
+
+    Input* addInputPtr = nullptr;
+    auto addInput = ui::input({
+        .out = &addInputPtr,
+        .placeholder = m_addPlaceholder,
+        .fontSize = Style::fontSizeBody * m_scale,
+        .controlHeight = Style::controlHeight * m_scale,
+        .horizontalPadding = Style::spaceSm * m_scale,
+        .height = Style::controlHeight * m_scale,
+        .flexGrow = 1.0F,
+        .onSubmit = [this](const std::string& text) {
+          if (!text.empty() && m_onAddRequested) {
+            m_onAddRequested(text);
+          }
+        },
+    });
+
+    auto addBtn = ui::button({
+        .glyph = "add",
+        .glyphSize = Style::fontSizeBody * m_scale,
+        .variant = ButtonVariant::Ghost,
+        .badge = capacityBadge,
+        .minWidth = Style::controlHeight * m_scale,
+        .minHeight = Style::controlHeight * m_scale,
+        .padding = Style::spaceSm * m_scale,
+        .radius = Style::scaledRadiusMd(m_scale),
+        .onClick = [this, addInputPtr] {
+          const auto& text = addInputPtr->value();
+          if (!text.empty() && m_onAddRequested) {
+            m_onAddRequested(text);
+          }
+        },
+    });
+
+    addRow->addChild(std::move(addInput));
+    addRow->addChild(std::move(addBtn));
+  } else if (m_maxItems > 0) {
+    addRow = ui::row({
+        .align = FlexAlign::Center,
+        .gap = Style::spaceSm * m_scale,
+        .fillWidth = true,
+    });
+    addRow->addChild(
+        ui::button({
+            .text = m_addPlaceholder,
+            .glyph = "add",
+            .fontSize = Style::fontSizeBody * m_scale,
+            .glyphSize = Style::fontSizeBody * m_scale,
+            .enabled = false,
+            .variant = ButtonVariant::Default,
+            .badge = capacityBadge,
+            .minHeight = Style::controlHeight * m_scale,
+            .paddingV = Style::spaceSm * m_scale,
+            .paddingH = Style::spaceMd * m_scale,
+            .radius = Style::scaledRadiusMd(m_scale),
+            .flexGrow = 1.0F,
+        })
+    );
+  }
+
+  if (addRow) {
+    addChild(std::move(addRow));
+  }
+
   markLayoutDirty();
 }
 
 void ListEditor::addGhostIconButton(Flex& row, std::string_view glyph, float size, std::function<void()> callback) {
+  const float iconBtnSize = Style::controlHeightSm * m_scale;
   row.addChild(
       ui::button({
           .glyph = std::string(glyph),
           .glyphSize = size,
           .variant = ButtonVariant::Ghost,
-          .minWidth = kItemRowHeight * m_scale,
-          .minHeight = kItemRowHeight * m_scale,
+          .minWidth = iconBtnSize,
+          .minHeight = iconBtnSize,
           .padding = Style::spaceXs * m_scale,
           .radius = Style::scaledRadiusSm(m_scale),
           .onClick = std::move(callback),
