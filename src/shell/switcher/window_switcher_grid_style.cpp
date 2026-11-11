@@ -7,7 +7,7 @@
 
 WindowSwitcherStyleLayout computeWindowSwitcherGridLayout(const WindowSwitcherStyleContext& context) {
   WindowSwitcherStyleLayout layout;
-  layout.vertical = true;
+  layout.grid = true;
   layout.gridColumns = std::max<std::size_t>(1, std::min<std::size_t>(5, context.windowCount));
   layout.cards.resize(context.windowCount);
 

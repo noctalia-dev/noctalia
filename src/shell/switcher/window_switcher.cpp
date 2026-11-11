@@ -1132,7 +1132,7 @@ void WindowSwitcher::cycleSelection(int delta) {
 }
 
 void WindowSwitcher::navigateGridRow(int delta) {
-  if (m_instance == nullptr || !m_instance->styleLayout.vertical || m_windows.empty()) {
+  if (m_instance == nullptr || !m_instance->styleLayout.grid || m_windows.empty()) {
     cycleSelection(delta);
     return;
   }
@@ -1288,7 +1288,7 @@ void WindowSwitcher::syncSelection(bool animate) {
 
   Renderer& renderer = m_instance->surface->renderTarget().renderer();
   const std::vector<WindowSwitcherCardTarget>& targets = m_instance->styleLayout.cards;
-  const bool grid = m_instance->styleLayout.vertical;
+  const bool grid = m_instance->styleLayout.grid;
   if (grid != (m_instance->gridContent != nullptr)
       || std::abs(m_instance->contentScale - m_instance->styleLayout.contentScale) > 0.0001F) {
     m_instance->contentSyncPending = true;
@@ -1898,7 +1898,7 @@ void WindowSwitcher::positionPanel(Instance& instance, float screenW, float scre
   std::vector<InputRect> blurRects;
   const float scale = instance.uiLayoutScale * layout.contentScale;
   InputRect viewport;
-  if (layout.vertical) {
+  if (layout.grid) {
     float left = 0.0F;
     float top = 0.0F;
     float right = 0.0F;
@@ -1938,7 +1938,7 @@ void WindowSwitcher::positionPanel(Instance& instance, float screenW, float scre
     const int blurY = static_cast<int>(std::floor(top));
     const int blurW = std::max(1, static_cast<int>(std::ceil(right) - std::floor(left)));
     const int blurH = std::max(1, static_cast<int>(std::ceil(bottom) - std::floor(top)));
-    if (layout.vertical
+    if (layout.grid
         && (blurX >= viewport.x + viewport.width
             || blurY >= viewport.y + viewport.height
             || blurX + blurW <= viewport.x
@@ -1947,7 +1947,7 @@ void WindowSwitcher::positionPanel(Instance& instance, float screenW, float scre
     }
     auto strips = Surface::tessellateRoundedRect(blurX, blurY, blurW, blurH, Style::scaledRadiusXl(scale));
     for (auto strip : strips) {
-      if (layout.vertical) {
+      if (layout.grid) {
         // Clip the strips to preserve rounded card corners while scrolling.
         const int clippedRight = std::min(strip.x + strip.width, viewport.x + viewport.width);
         const int clippedBottom = std::min(strip.y + strip.height, viewport.y + viewport.height);
@@ -2015,7 +2015,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
       return false;
     }
 
-    if (m_instance != nullptr && m_instance->styleLayout.vertical && data.axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+    if (m_instance != nullptr && m_instance->styleLayout.grid && data.axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
       return false;
     }
 
@@ -2076,10 +2076,10 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
       .frameHeight = layout.stripHeight,
       .participatesInLayout = false,
   });
-  strip->setClipChildren(layout.vertical);
+  strip->setClipChildren(layout.grid);
   instance.gridContent = nullptr;
   Node* tileParent = strip.get();
-  if (layout.vertical) {
+  if (layout.grid) {
     auto content = ui::node({.out = &instance.gridContent, .participatesInLayout = false});
     tileParent = strip->addChild(std::move(content));
   }
@@ -2103,7 +2103,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
       tile->setAppIconColorizeTint(iconTint);
       tile->setShadowStyle(selectedShadowStyle);
       tile->setShowCaption(switcherConfig.showCaption);
-      tile->setIntegratedCaption(layout.vertical);
+      tile->setIntegratedCaption(layout.grid);
       const bool iconsOnly = switcherConfig.style == ShellConfig::WindowSwitcherStyle::Icons;
       tile->setShowPreview(!iconsOnly);
       tile->setShowAppIcon(iconsOnly || switcherConfig.showAppIcon);

@@ -56,7 +56,7 @@ struct WindowSwitcherStyleLayout {
   float countWidth = 0.0F;
   float countHeight = 0.0F;
   bool boxed = false;
-  bool vertical = false;
+  bool grid = false;
   float contentScale = 1.0F;
   std::size_t gridColumns = 1;
   std::size_t gridRows = 1;
