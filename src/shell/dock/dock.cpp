@@ -151,7 +151,8 @@ namespace {
 
   const ToplevelInfo* nextActivatableWindow(
       const std::vector<ToplevelInfo>& windows, const std::optional<ActiveToplevel>& active,
-      std::string_view focusedCompositorWindowId, std::string_view preferredIdentifier
+      std::string_view focusedCompositorWindowId, std::string_view preferredIdentifier,
+      zwlr_foreign_toplevel_handle_v1* preferredHandle
   ) {
     if (windows.empty()) {
       return nullptr;
@@ -169,6 +170,16 @@ namespace {
           }
         }
         return nullptr;
+      }
+    }
+
+    // The app's last active window by handle. preferredIdentifier can be a compositor window id
+    // (Hyprland), which matches no wlr window.
+    if (preferredHandle != nullptr) {
+      for (const auto& window : windows) {
+        if (window.handle == preferredHandle && canActivateWindow(window)) {
+          return &window;
+        }
       }
     }
 
@@ -1197,11 +1208,16 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
     preferredIdentifier = it->second;
   }
 
+  auto* preferredHandle = [&] -> zwlr_foreign_toplevel_handle_v1* {
+    const auto it = m_lastActiveHandleByAppIdLower.find(action.idLower);
+    return it != m_lastActiveHandleByAppIdLower.end() ? it->second : nullptr;
+  }();
+
   const auto focusedCompositorWindowId = m_platform->focusedCompositorWindowId();
   const std::string_view focusedCompositorWindowIdView =
       focusedCompositorWindowId.has_value() ? std::string_view(*focusedCompositorWindowId) : std::string_view{};
   if (const ToplevelInfo* nextWindow =
-          nextActivatableWindow(windows, active, focusedCompositorWindowIdView, preferredIdentifier);
+          nextActivatableWindow(windows, active, focusedCompositorWindowIdView, preferredIdentifier, preferredHandle);
       nextWindow != nullptr) {
     m_platform->activateToplevelInfo(*nextWindow);
     return;
@@ -1211,11 +1227,6 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
   if (active.has_value()) {
     activeHandle = active->handle;
   }
-
-  auto* preferredHandle = [&] -> zwlr_foreign_toplevel_handle_v1* {
-    const auto it = m_lastActiveHandleByAppIdLower.find(action.idLower);
-    return it != m_lastActiveHandleByAppIdLower.end() ? it->second : nullptr;
-  }();
   if (auto* nextHandle = nextActivatableWindowHandle(windows, activeHandle, preferredHandle); nextHandle != nullptr) {
     m_platform->activateToplevel(nextHandle);
   }
