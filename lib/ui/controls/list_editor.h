@@ -34,8 +34,7 @@ public:
   std::vector<ListEditorOption> remainingOptions() const;
 
 private:
-  std::string labelForValue(std::string_view value) const;
-  std::string iconForValue(std::string_view value) const;
+  const ListEditorOption* optionForValue(std::string_view value) const;
   void rebuildRows();
   void addGhostIconButton(Flex& row, std::string_view glyph, float size, std::function<void()> callback);
 

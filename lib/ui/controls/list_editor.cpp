@@ -129,22 +129,13 @@ void ListEditor::setOnMoveRequested(std::function<void(std::size_t, std::size_t)
   m_onMoveRequested = std::move(callback);
 }
 
-std::string ListEditor::labelForValue(std::string_view value) const {
+const ListEditorOption* ListEditor::optionForValue(std::string_view value) const {
   for (const auto& opt : m_suggestedOptions) {
     if (opt.value == value) {
-      return opt.label;
+      return &opt;
     }
   }
-  return std::string(value);
-}
-
-std::string ListEditor::iconForValue(std::string_view value) const {
-  for (const auto& opt : m_suggestedOptions) {
-    if (opt.value == value) {
-      return opt.icon;
-    }
-  }
-  return {};
+  return nullptr;
 }
 
 std::vector<ListEditorOption> ListEditor::remainingOptions() const {
@@ -189,6 +180,8 @@ void ListEditor::rebuildRows() {
     auto itemNodes = std::make_shared<std::vector<Flex*>>();
     itemNodes->reserve(m_items.size());
 
+    const std::string dragTooltip = i18n::tr("settings.controls.list.drag");
+
     for (std::size_t i = 0; i < m_items.size(); ++i) {
       auto itemRow = ui::row({
           .align = FlexAlign::Center,
@@ -198,7 +191,6 @@ void ListEditor::rebuildRows() {
       auto* itemRowPtr = itemRow.get();
 
       Button* dragBtnPtr = nullptr;
-      const std::string dragTooltip = i18n::tr("settings.controls.list.drag");
       auto dragBtn = ui::button({
           .out = &dragBtnPtr,
           .glyph = "menu-2",
@@ -275,23 +267,26 @@ void ListEditor::rebuildRows() {
 
       itemRow->addChild(std::move(dragBtn));
 
-      if (const std::string icon = iconForValue(m_items[i]); !icon.empty()) {
+      const ListEditorOption* option = optionForValue(m_items[i]);
+      const std::string_view icon = option != nullptr ? std::string_view(option->icon) : std::string_view{};
+      if (!icon.empty()) {
         itemRow->addChild(
             ui::glyph({
-                .glyph = icon,
+                .glyph = std::string(icon),
                 .glyphSize = Style::fontSizeBody * m_scale,
                 .color = colorSpecFromRole(ColorRole::OnSurface),
             })
         );
       }
 
+      const std::string_view label = option != nullptr ? std::string_view(option->label) : std::string_view(m_items[i]);
       auto labelCell = ui::row(
           {
               .align = FlexAlign::Center,
               .minWidth = labelCellWidth,
               .flexGrow = 1.0F,
           },
-          makeListLabel(labelForValue(m_items[i]), m_scale)
+          makeListLabel(label, m_scale)
       );
       itemRow->addChild(std::move(labelCell));
 
@@ -310,11 +305,12 @@ void ListEditor::rebuildRows() {
 
   std::unique_ptr<Flex> addRow;
   const bool atCapacity = m_maxItems > 0 && m_items.size() >= m_maxItems;
+  const bool hasRemainingOptions = !m_suggestedOptions.empty() && !remainingOptions().empty();
   const std::string capacityBadge =
       m_maxItems > 0 ? std::to_string(m_items.size()) + "/" + std::to_string(m_maxItems) : std::string{};
 
   if (!m_suggestedOptions.empty()) {
-    if (!remainingOptions().empty() || atCapacity) {
+    if (hasRemainingOptions || atCapacity) {
       addRow = ui::row({
           .align = FlexAlign::Center,
           .gap = Style::spaceSm * m_scale,

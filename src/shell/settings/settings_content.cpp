@@ -164,7 +164,11 @@ namespace settings {
             >= Style::dragStartThreshold * scale) {
           dragState->moved = true;
         }
-        if (!dragState->moved || listPtr == nullptr || indicator == nullptr || itemNodes == nullptr) {
+        if (!dragState->moved
+            || handlePtr == nullptr
+            || listPtr == nullptr
+            || indicator == nullptr
+            || itemNodes == nullptr) {
           return;
         }
 

@@ -587,7 +587,7 @@ std::vector<ShortcutRegistry::CatalogEntry> ShortcutRegistry::catalog() {
   for (const auto& entry : scripting::PluginRegistry::instance().entriesOfKind(scripting::PluginEntryKind::Shortcut)) {
     std::string id = entry.fullId();
     std::string label = entry.manifest->name.empty() ? id : entry.manifest->name;
-    std::string icon = entry.manifest->icon.empty() ? "circle" : entry.manifest->icon;
+    std::string icon = entry.manifest->icon.empty() ? "puzzle" : entry.manifest->icon;
     result.push_back(
         CatalogEntry{
             .type = std::move(id),
