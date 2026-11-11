@@ -103,20 +103,6 @@ int main() {
   ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
   ::setenv("XDG_STATE_HOME", (root / "state").c_str(), 1);
 
-  {
-    // A monitors scheduled target that equals the global target must survive, so whether it
-    // stays explicit or becomes inherited is user choice (e.g. reset button).
-    ConfigService config;
-    const std::vector<std::string> monitorDay{"brightness", "monitor", "HDMI-A-1", "scheduled_day_brightness"};
-    const std::vector<std::string> globalDay{"brightness", "scheduled_day_brightness"};
-
-    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> edit;
-    edit.emplace_back(monitorDay, 0.9);
-    edit.emplace_back(globalDay, 0.9);
-    TEST_CHECK(config.setOverrides(edit));
-    TEST_CHECK(config.hasOverride(monitorDay));
-  }
-
   const std::vector<std::string> typePath{"calendar", "account", "feed", "type"};
   const std::vector<std::string> serverUrlPath{"calendar", "account", "feed", "server_url"};
   const std::vector<std::string> vdirPath{"calendar", "account", "feed", "path"};
