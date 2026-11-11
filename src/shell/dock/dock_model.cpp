@@ -9,6 +9,7 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <span>
 #include <unordered_map>
 
 namespace {
@@ -143,6 +144,20 @@ namespace shell::dock {
     }
 
     return snapshot;
+  }
+
+  void keepRunningItemOrder(const DockSnapshot& previous, DockSnapshot& next, std::size_t pinnedCount) {
+    std::unordered_map<std::string_view, std::size_t> previousPositions;
+    previousPositions.reserve(previous.items.size());
+    for (std::size_t i = 0; i < previous.items.size(); ++i) {
+      previousPositions.emplace(previous.items[i].idLower, i);
+    }
+    const auto position = [&](const DockItemModel& item) {
+      const auto it = previousPositions.find(item.idLower);
+      return it != previousPositions.end() ? it->second : previous.items.size();
+    };
+    auto runningItems = std::span(next.items).subspan(pinnedCount);
+    std::ranges::stable_sort(runningItems, [&](const auto& a, const auto& b) { return position(a) < position(b); });
   }
 
   bool sameDockItemSet(const DockSnapshot& a, const DockSnapshot& b) {

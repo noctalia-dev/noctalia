@@ -896,6 +896,7 @@ bool Dock::syncInstanceModel(shell::dock::DockInstance& instance) {
       .pinnedEntries = instance.pinnedEntries,
       .sourceSerial = instance.modelSerial,
   });
+  shell::dock::keepRunningItemOrder(instance.snapshot, next, instance.pinnedEntries.size());
 
   const bool needRebuild = instance.snapshot.sourceSerial != next.sourceSerial
       || instance.snapshot.filterOutput != next.filterOutput
