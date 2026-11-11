@@ -2677,10 +2677,6 @@
           "description": "Arată inelul de accent în jurul avatarului din fila Acasă",
           "label": "Arată chenarul avatarului"
         },
-        "home-circular-avatar": {
-          "description": "Folosește un avatar circular; dezactivează pentru a urma rotunjimea colțurilor shell-ului",
-          "label": "Avatar circular"
-        },
         "home-session-button": {
           "description": "Arată butonul acțiunilor de sesiune în antetul filei Acasă",
           "label": "Arată butonul de sesiune în antet"

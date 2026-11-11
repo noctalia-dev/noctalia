@@ -2547,6 +2547,14 @@
           "description": "Feche janelas pop-up, descarte painéis ou interrompa a operação atual",
           "label": "Cancelar"
         },
+        "category-next": {
+          "description": "Revelar categorias do Launcher quando ocultas, então avançar para a categoria seguinte ou aba da Central de Controle ",
+          "label": "Categoria Seguinte"
+        },
+        "category-previous": {
+          "description": "Revelar categorias do Launcher quando ocultas, então retroceder para a categoria anterior ou aba da Central de Controle ",
+          "label": "Categoria Anterior"
+        },
         "copy": {
           "description": "Copiar a seleção ou item atual",
           "label": "Copiar"
@@ -2570,6 +2578,10 @@
         "save": {
           "description": "Salvar a seleção ou item atual",
           "label": "Salvar"
+        },
+        "select-all": {
+          "description": "Selecionar toda a Área de Trabalho durante a captura de tela de região",
+          "label": "Selecionar Todas"
         },
         "tab-next": {
           "description": "Mover o foco para o próximo controle",
@@ -2758,6 +2770,10 @@
           "description": "Exibir o nome do aplicativo remetente nas lâminas de notificação",
           "label": "Exibir Nome do App"
         },
+        "show-progress-bar": {
+          "description": "Mostrar a barra de progresso na lâmina de notificação do tempo restante e como um tom estático nas lâminas críticas persistentes",
+          "label": "Mostrar Barra de Progresso"
+        },
         "toast-opacity": {
           "description": "Opacidade do plano de fundo das lâminas de notificação",
           "label": "Opacidade do Plano de Fundo"
@@ -2807,10 +2823,6 @@
         "home-avatar-border": {
           "description": "Mostrar o anel de destaque ao redor do avatar da guia “Início”",
           "label": "Mostrar Borda do Avatar"
-        },
-        "home-circular-avatar": {
-          "description": "Usar avatares circulares; desabilite para seguir o arredondamento dos cantos do shell",
-          "label": "Avatar Circular"
         },
         "home-session-button": {
           "description": "Mostrar o botão de ações de sessão no cabeçalho da aba Início",
@@ -3414,6 +3426,10 @@
           "label": "Caminho do Avatar",
           "placeholder": "/path/to/avatar.png"
         },
+        "circular-avatar": {
+          "description": "Utilizar avatares circulares no Launcher e Central de Controle;  desabilitar para seguir a curvatura dos cantos do shell",
+          "label": "Avatar Circular"
+        },
         "clipboard-auto-paste": {
           "description": "Colar automaticamente as seleções da área de transferência",
           "label": "Colar Automaticamente da Área de Transferência"
@@ -3653,6 +3669,10 @@
         "screenshot-annotate": {
           "description": "Abrir o editor de anotações em cada captura de tela; Concluir aplica as configurações de salvar, área de transferência e pipe",
           "label": "Anotar Antes de Entregar"
+        },
+        "screenshot-append-mode-suffix": {
+          "description": "Anexar um sufixo de modo de captura como -region, -annotated, -window ou -desktop a nomes de arquivos salvos",
+          "label": "Modo Anexar Sufixo "
         },
         "screenshot-close-on-copy": {
           "description": "Fechar depois de uma cópia bem sucedida do editor, incluindo quando for aberto diretamente",
@@ -4705,6 +4725,10 @@
         "empty-color": {
           "description": "Função de cor usada para espaços de trabalho vazios; cores hexadecimais fixas também são suportadas",
           "label": "Cor Vazia"
+        },
+        "empty-label": {
+          "description": "Texto mostrado quando não há janela focada; deixe vazio para mostrar \"Não há janela ativa\"",
+          "label": "Rótulo Vazio"
         },
         "enable-scroll": {
           "description": "Permitir ações de roda do mouse e rolagem de trackpad neste widget",

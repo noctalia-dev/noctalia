@@ -39,7 +39,7 @@
       "backdrop-shadow-offset-x": "X 轴偏移",
       "backdrop-shadow-offset-y": "Y 轴偏移",
       "backdrop-shadow-opacity": "不透明度",
-      "capture-new-region": "重新框选（放弃当前编辑）",
+      "capture-new-region": "重新框选（Ctrl+R）· 放弃当前编辑",
       "close": "关闭",
       "color-black": "黑色（8）",
       "color-blue": "蓝色（4）",
@@ -2763,10 +2763,6 @@
         "home-avatar-border": {
           "description": "在主页选项卡头像周围显示强调色圆环",
           "label": "显示头像边框"
-        },
-        "home-circular-avatar": {
-          "description": "使用圆形头像；禁用时跟随 Shell 的圆角大小",
-          "label": "圆形头像"
         },
         "home-session-button": {
           "description": "在主页选项卡顶部显示会话操作按钮",
