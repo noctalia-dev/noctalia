@@ -322,7 +322,7 @@ void ListEditor::rebuildRows() {
       });
       addRow->addChild(
           ui::button({
-              .text = m_addPlaceholder,
+              .text = i18n::tr("settings.controls.list.add-entry"),
               .glyph = "add",
               .fontSize = Style::fontSizeBody * m_scale,
               .glyphSize = Style::fontSizeBody * m_scale,
@@ -392,7 +392,7 @@ void ListEditor::rebuildRows() {
     });
     addRow->addChild(
         ui::button({
-            .text = m_addPlaceholder,
+            .text = i18n::tr("settings.controls.list.add-entry"),
             .glyph = "add",
             .fontSize = Style::fontSizeBody * m_scale,
             .glyphSize = Style::fontSizeBody * m_scale,
