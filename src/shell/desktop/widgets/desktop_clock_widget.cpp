@@ -80,6 +80,7 @@ namespace {
 #ifdef _WIN32
       localtime_s(&localTime, &timestamp);
 #else
+      ::tzset();
       localtime_r(&timestamp, &localTime);
 #endif
       return {

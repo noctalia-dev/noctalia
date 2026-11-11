@@ -61,11 +61,17 @@ int main() {
 
   // Both rendering paths must report the same local time: a %-spec goes through strftime, a bare
   // {} through std::format. Deriving the offset from one clock keeps them on the configured zone.
-  ::setenv("TZ", "Asia/Kathmandu", 1);
-  ::tzset();
   constexpr std::int64_t kFixedStamp = 1700000000; // 2023-11-14T22:13:20Z, +05:45 in Kathmandu.
+  ::setenv("TZ", "UTC", 1);
+  ::tzset();
+  TEST_CHECK(formatLocalUnixTime(kFixedStamp, "%Y-%m-%d %H:%M:%S") == "2023-11-14 22:13:20");
+
+  // A timezone change must reach an already-running process without requiring its caller to tzset.
+  ::setenv("TZ", "Asia/Kathmandu", 1);
   TEST_CHECK(formatLocalUnixTime(kFixedStamp, "%Y-%m-%d %H:%M:%S") == "2023-11-15 03:58:20");
   TEST_CHECK(formatLocalUnixTime(kFixedStamp, "{}") == "2023-11-15 03:58:20");
+  ::setenv("TZ", "UTC", 1);
+  TEST_CHECK(formatLocalTime("%z") == "+0000");
 
   // Every directive that changes each second must request second ticks, in any
   // spelling the formatter accepts; minute-level and escaped ones must not.
