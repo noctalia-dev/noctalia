@@ -105,6 +105,7 @@ in
       documentation = [ "https://docs.noctalia.dev/noctalia/" ];
       partOf = [ cfg.systemd.target ];
       after = [ cfg.systemd.target ];
+      before = lib.remove cfg.systemd.target [ "graphical-session.target" ];
       wantedBy = [ cfg.systemd.target ];
       # without this the service will have the default
       # Environment="PATH=coreutils:…", clobbering the PATH that the DE
@@ -116,6 +117,7 @@ in
       ++ optional (cfg.settings != { }) configToml
       ++ attrValues paletteFiles;
       serviceConfig = {
+        Type = "notify";
         ExecStart = lib.getExe cfg.package;
         Restart = "on-failure";
       };

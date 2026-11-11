@@ -12,7 +12,7 @@ Benefits:
 1. The Noctalia service blocks subsequent services having `After=graphical-session.target` (e.g. XDG autostart apps) from starting, until Noctalia finishes starting up. This cleanly fixes the race condition, where an autostart app might try to register with the systray before Noctalia starts listening on the systray D-Bus interface, thus failing to show its systray icon.
 2. Noctalia runs in its own cgroup, isolating its resource usage from other processes. And you can set resource limits for it independently in the service file.
 
-(**Note:** Nix service files haven't been updated. So they don't make use of the `Type=notify` mechanism yet, and will not have the strong ordering guarantee of the point 1 above.)
+(**Note:** With Nix, the ordering guarantee of point 1 above requires `programs.noctalia.systemd.target` to be the compositor's target, e.g. `umbriel-session.target`.)
 
 ## Supported Compositors
 
