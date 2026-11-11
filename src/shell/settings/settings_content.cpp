@@ -2,13 +2,16 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "notification/notification_filter.h"
+#include "render/scene/node.h"
 #include "shell/dialogs/glyph_picker_dialog.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_control_factory.h"
 #include "ui/builders.h"
+#include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/input.h"
@@ -22,6 +25,7 @@
 #include "ui/style.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -55,6 +59,141 @@ namespace settings {
         ctx.registerIdleLiveStatusLabel(linePtr);
       }
       section.addChild(std::move(line));
+    }
+
+    struct InlineListDragState {
+      bool active = false;
+      bool moved = false;
+      float startLocalX = 0.0F;
+      float startLocalY = 0.0F;
+      std::optional<std::size_t> targetInsertionIndex;
+    };
+
+    std::size_t inlineListInsertionIndexForSceneY(float sceneY, const std::vector<Flex*>& itemNodes) {
+      for (std::size_t i = 0; i < itemNodes.size(); ++i) {
+        const auto* item = itemNodes[i];
+        if (item == nullptr) {
+          continue;
+        }
+        float ignoredX = 0.0F;
+        float itemY = 0.0F;
+        Node::absolutePosition(item, ignoredX, itemY);
+        if (sceneY < itemY + item->height() * 0.5F) {
+          return i;
+        }
+      }
+      return itemNodes.size();
+    }
+
+    void updateInlineListDropIndicator(
+        Box& indicator, const Flex& list, const std::vector<Flex*>& itemNodes, std::size_t insertionIndex, float scale
+    ) {
+      if (insertionIndex > itemNodes.size()) {
+        indicator.setVisible(false);
+        return;
+      }
+
+      const float x = Style::spaceXs * scale;
+      const float width = std::max(1.0F, list.width() - Style::spaceXs * scale * 2.0F);
+      const float gapHalf = Style::spaceXs * scale * 0.5F;
+      float y = 0.0F;
+      if (!itemNodes.empty()) {
+        if (insertionIndex == itemNodes.size()) {
+          const auto* target = itemNodes.back();
+          y = target != nullptr ? target->y() + target->height() + gapHalf : y;
+        } else {
+          const auto* target = itemNodes[insertionIndex];
+          y = target != nullptr ? target->y() - gapHalf : y;
+        }
+      }
+
+      indicator.setPosition(x, y);
+      indicator.setFrameSize(width, std::max(2.0F, 3.0F * scale));
+      indicator.setVisible(true);
+    }
+
+    void wireInlineListDrag(
+        Button& handle, Button* handlePtr, Flex* rowPtr, Flex* listPtr, Box* indicator,
+        const std::shared_ptr<std::vector<Flex*>>& itemNodes, std::size_t itemIndex, float scale,
+        std::string dragTooltip, std::function<void(std::size_t, std::size_t)> onMove
+    ) {
+      auto dragState = std::make_shared<InlineListDragState>();
+      handle.setOnPress([dragState, handlePtr, rowPtr, indicator, itemIndex, dragTooltip = std::move(dragTooltip),
+                         onMove = std::move(onMove)](float localX, float localY, bool pressed) {
+        if (pressed) {
+          dragState->active = true;
+          dragState->moved = false;
+          dragState->startLocalX = localX;
+          dragState->startLocalY = localY;
+          dragState->targetInsertionIndex = std::nullopt;
+          if (rowPtr != nullptr) {
+            rowPtr->setOpacity(0.72F);
+          }
+          if (handlePtr != nullptr) {
+            handlePtr->setTooltip({});
+          }
+          if (indicator != nullptr) {
+            indicator->setVisible(false);
+          }
+          return;
+        }
+        if (!dragState->active) {
+          return;
+        }
+        dragState->active = false;
+        if (rowPtr != nullptr) {
+          rowPtr->setOpacity(1.0F);
+        }
+        if (handlePtr != nullptr) {
+          handlePtr->setTooltip(dragTooltip);
+        }
+        if (indicator != nullptr) {
+          indicator->setVisible(false);
+        }
+        if (!dragState->moved || !dragState->targetInsertionIndex.has_value() || !onMove) {
+          return;
+        }
+        onMove(itemIndex, *dragState->targetInsertionIndex);
+      });
+      handle.setOnPointerMotion([dragState, handlePtr, listPtr, indicator, itemNodes, itemIndex,
+                                 scale](float localX, float localY) {
+        if (!dragState->active) {
+          return;
+        }
+        if (std::hypot(localX - dragState->startLocalX, localY - dragState->startLocalY)
+            >= Style::dragStartThreshold * scale) {
+          dragState->moved = true;
+        }
+        if (!dragState->moved || listPtr == nullptr || indicator == nullptr || itemNodes == nullptr) {
+          return;
+        }
+
+        float ignoredX = 0.0F;
+        float absY = 0.0F;
+        Node::absolutePosition(handlePtr, ignoredX, absY);
+        const float sceneY = absY + localY;
+        const std::size_t insertion = inlineListInsertionIndexForSceneY(sceneY, *itemNodes);
+        if (insertion == itemIndex || insertion == itemIndex + 1) {
+          dragState->targetInsertionIndex = std::nullopt;
+          indicator->setVisible(false);
+          return;
+        }
+        dragState->targetInsertionIndex = insertion;
+        updateInlineListDropIndicator(*indicator, *listPtr, *itemNodes, insertion, scale);
+      });
+    }
+
+    template <typename T> bool moveInlineListItem(std::vector<T>& items, std::size_t from, std::size_t insertion) {
+      if (from >= items.size() || insertion > items.size() || insertion == from || insertion == from + 1) {
+        return false;
+      }
+      auto value = std::move(items[from]);
+      items.erase(items.begin() + static_cast<std::ptrdiff_t>(from));
+      if (insertion > from) {
+        --insertion;
+      }
+      items.insert(items.begin() + static_cast<std::ptrdiff_t>(insertion), std::move(value));
+      return true;
     }
 
   } // namespace
@@ -864,7 +1003,28 @@ namespace settings {
         req();
       };
 
-      const float iconBtnH = Style::controlHeight * scale;
+      auto listColumn = ui::column({
+          .align = FlexAlign::Stretch,
+          .gap = Style::spaceXs * scale,
+          .fillWidth = true,
+      });
+      auto* listColumnPtr = listColumn.get();
+
+      Box* dropIndicatorPtr = nullptr;
+      listColumn->addChild(
+          ui::box({
+              .out = &dropIndicatorPtr,
+              .fill = colorSpecFromRole(ColorRole::Primary),
+              .radius = std::max(1.0F, 1.5F * scale),
+              .visible = false,
+              .participatesInLayout = false,
+              .configure = [](Box& box) { box.setZIndex(10); },
+          })
+      );
+
+      auto itemNodes = std::make_shared<std::vector<Flex*>>();
+      itemNodes->reserve(state->size());
+      const std::string dragTooltip = i18n::tr("settings.controls.list.drag");
 
       for (std::size_t idx = 0; idx < state->size(); ++idx) {
         auto row = ui::row({
@@ -873,6 +1033,30 @@ namespace settings {
             .gap = Style::spaceSm * scale,
             .minHeight = Style::controlHeightSm * scale,
         });
+        auto* rowPtr = row.get();
+
+        Button* dragBtnPtr = nullptr;
+        auto dragBtn = ui::button({
+            .out = &dragBtnPtr,
+            .glyph = "menu-2",
+            .glyphSize = Style::fontSizeCaption * scale,
+            .variant = ButtonVariant::Ghost,
+            .tooltip = dragTooltip,
+            .minWidth = Style::controlHeightSm * scale,
+            .minHeight = Style::controlHeightSm * scale,
+            .padding = Style::spaceXs * scale,
+            .radius = Style::scaledRadiusSm(scale),
+            .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
+        });
+        wireInlineListDrag(
+            *dragBtn, dragBtnPtr, rowPtr, listColumnPtr, dropIndicatorPtr, itemNodes, idx, scale, dragTooltip,
+            [state, commit](std::size_t from, std::size_t insertion) {
+              if (moveInlineListItem(*state, from, insertion)) {
+                commit();
+              }
+            }
+        );
+        row->addChild(std::move(dragBtn));
 
         Label* summaryLabel = nullptr;
         auto summary = ui::label({
@@ -886,47 +1070,6 @@ namespace settings {
           ctx.registerSessionActionSummaryLabel(idx, summaryLabel);
         }
         row->addChild(std::move(summary));
-
-        auto reorder = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale});
-
-        auto upBtn = ui::button({
-            .glyph = "chevron-up",
-            .glyphSize = Style::fontSizeBody * scale,
-            .enabled = idx > 0,
-            .variant = ButtonVariant::Ghost,
-            .minWidth = Style::controlHeightSm * scale,
-            .minHeight = iconBtnH,
-            .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit] {
-              if (rowIndex == 0 || rowIndex >= state->size()) {
-                return;
-              }
-              std::swap((*state)[rowIndex - 1], (*state)[rowIndex]);
-              commit();
-            },
-        });
-        reorder->addChild(std::move(upBtn));
-
-        auto downBtn = ui::button({
-            .glyph = "chevron-down",
-            .glyphSize = Style::fontSizeBody * scale,
-            .enabled = idx + 1 < state->size(),
-            .variant = ButtonVariant::Ghost,
-            .minWidth = Style::controlHeightSm * scale,
-            .minHeight = iconBtnH,
-            .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit] {
-              if (rowIndex + 1 >= state->size()) {
-                return;
-              }
-              std::swap((*state)[rowIndex + 1], (*state)[rowIndex]);
-              commit();
-            },
-        });
-        reorder->addChild(std::move(downBtn));
-        row->addChild(std::move(reorder));
 
         auto entrySettings = ui::button({
             .glyph = "settings",
@@ -958,8 +1101,11 @@ namespace settings {
         });
         row->addChild(std::move(enabledToggle));
 
-        block->addChild(std::move(row));
+        itemNodes->push_back(rowPtr);
+        listColumn->addChild(std::move(row));
       }
+
+      block->addChild(std::move(listColumn));
 
       auto addBtn = ui::button({
           .text = i18n::tr("settings.session-actions.add"),
@@ -1000,7 +1146,29 @@ namespace settings {
         req();
       };
 
-      const float iconBtnH = Style::controlHeight * scale;
+      auto listColumn = ui::column({
+          .align = FlexAlign::Stretch,
+          .gap = Style::spaceXs * scale,
+          .fillWidth = true,
+      });
+      auto* listColumnPtr = listColumn.get();
+
+      Box* dropIndicatorPtr = nullptr;
+      listColumn->addChild(
+          ui::box({
+              .out = &dropIndicatorPtr,
+              .fill = colorSpecFromRole(ColorRole::Primary),
+              .radius = std::max(1.0F, 1.5F * scale),
+              .visible = false,
+              .participatesInLayout = false,
+              .configure = [](Box& box) { box.setZIndex(10); },
+          })
+      );
+
+      auto itemNodes = std::make_shared<std::vector<Flex*>>();
+      itemNodes->reserve(state->size());
+      const std::string dragTooltip = i18n::tr("settings.controls.list.drag");
+
       for (std::size_t idx = 0; idx < state->size(); ++idx) {
         auto row = ui::row({
             .align = FlexAlign::Center,
@@ -1008,6 +1176,30 @@ namespace settings {
             .gap = Style::spaceSm * scale,
             .minHeight = Style::controlHeightSm * scale,
         });
+        auto* rowPtr = row.get();
+
+        Button* dragBtnPtr = nullptr;
+        auto dragBtn = ui::button({
+            .out = &dragBtnPtr,
+            .glyph = "menu-2",
+            .glyphSize = Style::fontSizeCaption * scale,
+            .variant = ButtonVariant::Ghost,
+            .tooltip = dragTooltip,
+            .minWidth = Style::controlHeightSm * scale,
+            .minHeight = Style::controlHeightSm * scale,
+            .padding = Style::spaceXs * scale,
+            .radius = Style::scaledRadiusSm(scale),
+            .configure = [](Button& button) { button.setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE); },
+        });
+        wireInlineListDrag(
+            *dragBtn, dragBtnPtr, rowPtr, listColumnPtr, dropIndicatorPtr, itemNodes, idx, scale, dragTooltip,
+            [state, commit](std::size_t from, std::size_t insertion) {
+              if (moveInlineListItem(*state, from, insertion)) {
+                commit();
+              }
+            }
+        );
+        row->addChild(std::move(dragBtn));
 
         auto summary = ui::label({
             .text = idleBehaviorRowSummary((*state)[idx]),
@@ -1016,47 +1208,6 @@ namespace settings {
             .flexGrow = 1.0F,
         });
         row->addChild(std::move(summary));
-
-        auto reorder = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale});
-
-        auto upBtn = ui::button({
-            .glyph = "chevron-up",
-            .glyphSize = Style::fontSizeBody * scale,
-            .enabled = idx > 0,
-            .variant = ButtonVariant::Ghost,
-            .minWidth = Style::controlHeightSm * scale,
-            .minHeight = iconBtnH,
-            .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit] {
-              if (rowIndex == 0 || rowIndex >= state->size()) {
-                return;
-              }
-              std::swap((*state)[rowIndex - 1], (*state)[rowIndex]);
-              commit();
-            },
-        });
-        reorder->addChild(std::move(upBtn));
-
-        auto downBtn = ui::button({
-            .glyph = "chevron-down",
-            .glyphSize = Style::fontSizeBody * scale,
-            .enabled = idx + 1 < state->size(),
-            .variant = ButtonVariant::Ghost,
-            .minWidth = Style::controlHeightSm * scale,
-            .minHeight = iconBtnH,
-            .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit] {
-              if (rowIndex + 1 >= state->size()) {
-                return;
-              }
-              std::swap((*state)[rowIndex + 1], (*state)[rowIndex]);
-              commit();
-            },
-        });
-        reorder->addChild(std::move(downBtn));
-        row->addChild(std::move(reorder));
 
         auto entrySettings = ui::button({
             .glyph = "settings",
@@ -1088,8 +1239,11 @@ namespace settings {
         });
         row->addChild(std::move(enabledToggle));
 
-        block->addChild(std::move(row));
+        itemNodes->push_back(rowPtr);
+        listColumn->addChild(std::move(row));
       }
+
+      block->addChild(std::move(listColumn));
 
       auto addBtn = ui::button({
           .text = i18n::tr("settings.idle.behavior.add"),
