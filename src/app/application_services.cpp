@@ -1536,10 +1536,12 @@ void Application::initBrightnessAndPipewire() {
 
   try {
     m_brightnessService = std::make_unique<BrightnessService>(
-        m_systemBus.get(), m_compositorPlatform, m_configService.config().brightness
+        m_systemBus.get(), m_compositorPlatform, m_configService.config().brightness, m_configService.config().location
     );
     m_brightnessService->setChangeCallback([this, shouldRefreshControlCenter] {
-      m_brightnessOsd.onBrightnessChanged(*m_brightnessService);
+      if (!m_brightnessService->lastChangeWasScheduled()) {
+        m_brightnessOsd.onBrightnessChanged(*m_brightnessService);
+      }
       m_bar.refresh();
       if (shouldRefreshControlCenter()) {
         m_panelManager.refresh();
@@ -1547,10 +1549,14 @@ void Application::initBrightnessAndPipewire() {
     });
     m_configService.addReloadCallback(
         [this, shouldRefreshControlCenter] {
-          if (m_brightnessService == nullptr || !m_configService.lastChange().brightness) {
+          if (m_brightnessService == nullptr) {
             return;
           }
-          m_brightnessService->reload(m_configService.config().brightness);
+          // Reload brightness service when brightness config or location config changes
+          if (!m_configService.lastChange().brightness && !m_configService.lastChange().location) {
+            return;
+          }
+          m_brightnessService->reload(m_configService.config().brightness, m_configService.config().location);
           m_bar.refresh();
           if (shouldRefreshControlCenter()) {
             m_panelManager.refresh();
@@ -1859,10 +1865,16 @@ void Application::initSessionBusServices() {
       );
       m_gammaService.setResolvedCoordinates(location->latitude, location->longitude);
       m_themeService.setAutoCoordinates(location->latitude, location->longitude);
+      if (m_brightnessService != nullptr) {
+        m_brightnessService->setResolvedCoordinates(location->latitude, location->longitude);
+      }
     } else {
       m_weatherService.setLocation(std::nullopt, {}, {});
       m_gammaService.setResolvedCoordinates(std::nullopt, std::nullopt);
       m_themeService.setAutoCoordinates(std::nullopt, std::nullopt);
+      if (m_brightnessService != nullptr) {
+        m_brightnessService->setResolvedCoordinates(std::nullopt, std::nullopt);
+      }
     }
   };
   pushLocation();

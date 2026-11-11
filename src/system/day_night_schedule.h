@@ -32,10 +32,12 @@ namespace day_night_schedule {
   );
   // Both sunset and sunrise parse as HH:MM. Custom scheduling needs this; without it the times
   // cannot drive a schedule and the request is a misconfiguration to surface, not to absorb.
+  // `now` defaults to the wall clock -> tests inject a fixed point to drive the schedule.
   bool hasUsableCustomTimes(const LocationConfig& config);
   bool isManualMode(const LocationConfig& config);
   Evaluation evaluate(
-      const LocationConfig& config, std::optional<double> resolvedLatitude, std::optional<double> resolvedLongitude
+      const LocationConfig& config, std::optional<double> resolvedLatitude, std::optional<double> resolvedLongitude,
+      std::chrono::system_clock::time_point now = std::chrono::system_clock::now()
   );
 
 } // namespace day_night_schedule

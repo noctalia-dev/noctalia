@@ -3255,6 +3255,18 @@
           "description": "Play a sound when the charger connects or disconnects",
           "label": "Power Sounds"
         },
+        "scheduled-brightness": {
+          "description": "Enable automatic brightness changes based on sunrise/sunset schedule",
+          "label": "Scheduled Brightness"
+        },
+        "scheduled-day-brightness": {
+          "description": "Target brightness level during the day",
+          "label": "Day Brightness"
+        },
+        "scheduled-night-brightness": {
+          "description": "Target brightness level at night",
+          "label": "Night Brightness"
+        },
         "screenshot-sounds": {
           "description": "Play a sound on screenshot capture",
           "label": "Screenshot Sounds"

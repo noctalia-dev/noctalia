@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -11,6 +12,7 @@ class IpcService;
 class SystemBus;
 class CompositorPlatform;
 struct BrightnessConfig;
+struct LocationConfig;
 struct wl_output;
 
 struct BrightnessDisplay {
@@ -35,6 +37,16 @@ struct BrightnessDdcRetryDelays {
   };
 };
 
+struct BrightnessScheduleTiming {
+  // Fade writes are paced to one brightness step (1%, or one raw unit when coarser) per write,
+  // clamped to this range: the floor protects slow DDC buses, the ceiling bounds clock drift.
+  std::chrono::milliseconds minTickInterval{std::chrono::seconds(2)};
+  std::chrono::milliseconds maxTickInterval{std::chrono::seconds(60)};
+  std::chrono::milliseconds halfFade{std::chrono::minutes(30)};
+};
+
+using BrightnessClockFn = std::function<std::chrono::system_clock::time_point()>;
+
 class BrightnessService {
 public:
   using ChangeCallback = std::function<void()>;
@@ -44,8 +56,8 @@ public:
   };
 
   BrightnessService(
-      SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config,
-      BrightnessDdcRetryDelays retryDelays = {}
+      SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config, const LocationConfig& location,
+      BrightnessDdcRetryDelays retryDelays = {}, BrightnessScheduleTiming timing = {}, BrightnessClockFn clockFn = {}
   );
   ~BrightnessService();
 
@@ -61,11 +73,14 @@ public:
   void setBrightness(const std::string& displayId, float value);
   void requestDdcRefresh();
   void requestDdcRescan();
-  void reload(const BrightnessConfig& config);
+  void reload(const BrightnessConfig& config, const LocationConfig& location);
+  void setResolvedCoordinates(std::optional<double> latitude, std::optional<double> longitude);
   void onOutputsChanged();
   void registerIpc(IpcService& ipc, const std::function<void(BatchChangePhase)>& onBatchChange = {});
 
   void setChangeCallback(ChangeCallback callback);
+
+  bool lastChangeWasScheduled() const noexcept;
 
   // Poll integration — inotify fd for external brightness changes.
   int watchFd() const noexcept;
