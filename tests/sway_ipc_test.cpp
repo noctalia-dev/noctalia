@@ -1,5 +1,6 @@
 #include "compositors/sway/sway_keyboard_backend.h"
 #include "compositors/sway/sway_runtime.h"
+#include "compositors/sway/sway_workspace_backend.h"
 #include "tests/test_check.h"
 
 #include <cstdint>
@@ -17,7 +18,9 @@ namespace {
 
   constexpr std::string_view kIpcMagic = "i3-ipc";
   constexpr std::size_t kIpcHeaderSize = 14;
+  constexpr std::uint32_t kIpcGetWorkspaces = 1;
   constexpr std::uint32_t kIpcSubscribe = 2;
+  constexpr std::uint32_t kIpcGetTree = 4;
   constexpr std::uint32_t kIpcInputEvent = 0x80000015U;
 
   std::string frame(std::uint32_t type, std::string_view payload) {
@@ -49,11 +52,11 @@ namespace {
     return length == 0 || ::recv(fd, payload.data(), length, MSG_WAITALL) == static_cast<ssize_t>(length);
   }
 
-  // Waits until the backend's socket is readable, then lets it drain everything sent so far.
-  void pump(SwayKeyboardBackend& backend) {
-    pollfd pfd{.fd = backend.pollFd(), .events = POLLIN, .revents = 0};
+  // Waits until the runtime's socket is readable, then lets it drain everything sent so far.
+  void pump(compositors::sway::SwayRuntime& runtime) {
+    pollfd pfd{.fd = runtime.pollFd(), .events = POLLIN, .revents = 0};
     if (::poll(&pfd, 1, 1000) > 0) {
-      backend.dispatchPoll(pfd.revents);
+      runtime.dispatchPoll(pfd.revents);
     }
   }
 
@@ -77,46 +80,56 @@ int main() {
   int changes = 0;
   {
     SwayKeyboardBackend backend(runtime);
+    SwayWorkspaceBackend workspaces({}, runtime);
     backend.setChangeCallback([&changes] { ++changes; });
 
-    TEST_CHECK(backend.pollFd() < 0);
-    TEST_CHECK(backend.connectSocket());
-    TEST_CHECK(backend.pollFd() >= 0);
+    // The workspace backend connects the shared socket, as WaylandWorkspaces does on sway.
+    TEST_CHECK(runtime.pollFd() < 0);
+    TEST_CHECK(workspaces.connectSocket());
+    TEST_CHECK(runtime.pollFd() >= 0);
 
     const int peer = ::accept4(listener, nullptr, nullptr, SOCK_CLOEXEC);
     TEST_CHECK(peer >= 0);
 
+    // One connection carries one subscription covering both handlers, then the workspace snapshot requests.
     std::uint32_t type = 0;
     std::string payload;
     TEST_CHECK(readFrame(peer, type, payload));
     TEST_CHECK(type == kIpcSubscribe);
-    TEST_CHECK(payload == R"(["input"])");
+    TEST_CHECK(payload == R"(["workspace","window","input"])");
+    TEST_CHECK(readFrame(peer, type, payload));
+    TEST_CHECK(type == kIpcGetWorkspaces);
+    TEST_CHECK(readFrame(peer, type, payload));
+    TEST_CHECK(type == kIpcGetTree);
 
-    // The subscribe reply and unrelated input changes do not count as layout switches.
+    // Replies reach the workspace backend; they and unrelated input changes are not layout switches.
     sendAll(peer, frame(kIpcSubscribe, R"({"success":true})"));
+    sendAll(peer, frame(kIpcGetWorkspaces, R"([{"name":"1","num":1,"output":"DP-1","visible":true}])"));
     sendAll(peer, frame(kIpcInputEvent, R"({"change":"libinput_config","input":{"type":"pointer"}})"));
-    pump(backend);
+    pump(runtime);
+    TEST_CHECK(workspaces.all().size() == 1);
     TEST_CHECK(changes == 0);
 
     sendAll(peer, frame(kIpcInputEvent, R"({"change":"xkb_layout","input":{"type":"keyboard"}})"));
-    pump(backend);
+    pump(runtime);
     TEST_CHECK(changes == 1);
 
     // A partial frame waits for the rest.
     const std::string keymap = frame(kIpcInputEvent, R"({"change":"xkb_keymap","input":{"type":"keyboard"}})");
     sendAll(peer, keymap.substr(0, 10));
-    pump(backend);
+    pump(runtime);
     TEST_CHECK(changes == 1);
     // sway sends one event per keyboard device on a switch; a batch read in one go notifies once.
     sendAll(peer, keymap.substr(10) + frame(kIpcInputEvent, R"({"change":"xkb_layout"})"));
-    pump(backend);
+    pump(runtime);
     TEST_CHECK(changes == 2);
 
     // A hang-up closes the socket and notifies so the label is re-read.
     ::close(peer);
-    pump(backend);
-    TEST_CHECK(backend.pollFd() < 0);
+    pump(runtime);
+    TEST_CHECK(runtime.pollFd() < 0);
     TEST_CHECK(changes == 3);
+    TEST_CHECK(workspaces.all().empty());
   }
 
   ::close(listener);

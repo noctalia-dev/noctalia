@@ -5,26 +5,16 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
-#include <cerrno>
-#include <cstring>
 #include <format>
 #include <nlohmann/json.hpp>
 #include <string_view>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <unistd.h>
 #include <unordered_set>
 
 namespace {
 
+  namespace ipc = compositors::sway::ipc;
+
   constexpr Logger kLog("workspace_sway");
-  constexpr std::string_view kIpcMagic = "i3-ipc";
-  constexpr std::uint32_t kIpcRunCommand = 0;
-  constexpr std::uint32_t kIpcGetWorkspaces = 1;
-  constexpr std::uint32_t kIpcSubscribe = 2;
-  constexpr std::uint32_t kIpcGetTree = 4;
-  constexpr std::uint32_t kIpcWorkspaceEvent = 0x80000000U;
-  constexpr std::uint32_t kIpcWindowEvent = 0x80000003U;
 
   std::string jsonStringValue(const nlohmann::json& object, std::string_view key) {
     const auto it = object.find(key);
@@ -238,55 +228,30 @@ namespace {
 SwayWorkspaceBackend::SwayWorkspaceBackend(
     OutputNameResolver outputNameResolver, compositors::sway::SwayRuntime& runtime
 )
-    : m_outputNameResolver(std::move(outputNameResolver)), m_runtime(runtime) {}
+    : compositors::sway::SwayEventHandler(runtime), m_outputNameResolver(std::move(outputNameResolver)) {}
 
 void SwayWorkspaceBackend::setOutputNameResolver(OutputNameResolver outputNameResolver) {
   m_outputNameResolver = std::move(outputNameResolver);
 }
 
 bool SwayWorkspaceBackend::connectSocket() {
-  const std::string& path = m_runtime.socketPath();
-  if (path.empty()) {
+  if (!m_runtime.connectSocket()) {
     return false;
   }
-
-  cleanup();
-
-  m_socketFd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-  if (m_socketFd < 0) {
-    kLog.warn("failed to create sway IPC socket: {}", std::strerror(errno));
-    return false;
-  }
-
-  sockaddr_un addr{};
-  addr.sun_family = AF_UNIX;
-  if (path.size() >= sizeof(addr.sun_path)) {
-    kLog.warn("sway IPC socket path too long");
-    cleanup();
-    return false;
-  }
-  std::memcpy(addr.sun_path, path.c_str(), path.size() + 1);
-
-  if (::connect(m_socketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-    kLog.warn("failed to connect to sway IPC {}: {}", path, std::strerror(errno));
-    cleanup();
-    return false;
-  }
-
-  sendMessage(kIpcSubscribe, R"(["workspace","window"])");
   requestSnapshot();
-  kLog.info("connected to sway IPC at {}", path);
   return true;
 }
+
+bool SwayWorkspaceBackend::isAvailable() const noexcept { return m_runtime.connected(); }
 
 void SwayWorkspaceBackend::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
 void SwayWorkspaceBackend::activate(const std::string& id) {
-  if (m_socketFd < 0 || id.empty()) {
+  if (!m_runtime.connected() || id.empty()) {
     return;
   }
 
-  sendMessage(kIpcRunCommand, "workspace " + StringUtils::quoteDouble(id));
+  m_runtime.sendMessage(ipc::kRunCommand, "workspace " + StringUtils::quoteDouble(id));
 }
 
 void SwayWorkspaceBackend::activateForOutput(wl_output* /*output*/, const std::string& id) { activate(id); }
@@ -446,162 +411,58 @@ std::vector<WorkspaceWindow> SwayWorkspaceBackend::workspaceWindows(wl_output* o
 }
 
 void SwayWorkspaceBackend::focusWindow(const std::string& windowId) {
-  if (m_socketFd < 0 || windowId.empty()) {
+  if (!m_runtime.connected() || windowId.empty()) {
     return;
   }
 
-  sendMessage(kIpcRunCommand, "[con_id=" + windowId + "] focus");
+  m_runtime.sendMessage(ipc::kRunCommand, "[con_id=" + windowId + "] focus");
 }
 
-void SwayWorkspaceBackend::cleanup() {
-  if (m_socketFd >= 0) {
-    ::close(m_socketFd);
-    m_socketFd = -1;
-  }
-  m_readBuffer.clear();
+void SwayWorkspaceBackend::cleanup() { m_runtime.cleanup(); }
+
+int SwayWorkspaceBackend::pollFd() const noexcept { return m_runtime.pollFd(); }
+
+void SwayWorkspaceBackend::dispatchPoll(short revents) { m_runtime.dispatchPoll(revents); }
+
+void SwayWorkspaceBackend::handleCleanup() {
   m_workspaces.clear();
   m_workspaceApps.clear();
   m_workspaceWindows.clear();
   m_focusedExtToplevelIdentifier.clear();
 }
 
-void SwayWorkspaceBackend::dispatchPoll(short revents) {
-  if (m_socketFd < 0) {
-    return;
-  }
-  if ((revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
-    kLog.warn("sway IPC disconnected");
-    cleanup();
-    if (m_changeCallback) {
-      m_changeCallback();
-    }
-    return;
-  }
-  if ((revents & POLLIN) != 0) {
-    readSocket();
+void SwayWorkspaceBackend::handleDisconnect() {
+  if (m_changeCallback) {
+    m_changeCallback();
   }
 }
 
 void SwayWorkspaceBackend::requestSnapshot() {
-  sendMessage(kIpcGetWorkspaces, "");
-  sendMessage(kIpcGetTree, "");
+  m_runtime.sendMessage(ipc::kGetWorkspaces, "");
+  m_runtime.sendMessage(ipc::kGetTree, "");
 }
 
-void SwayWorkspaceBackend::requestTree() { sendMessage(kIpcGetTree, ""); }
+void SwayWorkspaceBackend::requestTree() { m_runtime.sendMessage(ipc::kGetTree, ""); }
 
-void SwayWorkspaceBackend::sendMessage(std::uint32_t type, const std::string& payload) {
-  if (m_socketFd < 0) {
-    return;
-  }
-
-  const auto payloadLength = static_cast<std::uint32_t>(payload.size());
-  std::vector<char> message;
-  message.reserve(kIpcMagic.size() + sizeof(payloadLength) + sizeof(type) + payload.size());
-  message.insert(message.end(), kIpcMagic.begin(), kIpcMagic.end());
-  const auto* lenBytes = reinterpret_cast<const char*>(&payloadLength);
-  const auto* typeBytes = reinterpret_cast<const char*>(&type);
-  message.insert(message.end(), lenBytes, lenBytes + sizeof(payloadLength));
-  message.insert(message.end(), typeBytes, typeBytes + sizeof(type));
-  message.insert(message.end(), payload.begin(), payload.end());
-
-  std::size_t offset = 0;
-  while (offset < message.size()) {
-    const ssize_t written = ::send(m_socketFd, message.data() + offset, message.size() - offset, MSG_NOSIGNAL);
-    if (written < 0) {
-      if (errno == EINTR) {
-        continue;
-      }
-      kLog.warn("failed to send sway IPC message: {}", std::strerror(errno));
-      cleanup();
-      return;
-    }
-    offset += static_cast<std::size_t>(written);
-  }
-}
-
-void SwayWorkspaceBackend::readSocket() {
-  char buffer[8192];
-  while (true) {
-    const ssize_t n = ::recv(m_socketFd, buffer, sizeof(buffer), MSG_DONTWAIT);
-    if (n > 0) {
-      m_readBuffer.insert(m_readBuffer.end(), buffer, buffer + n);
-      continue;
-    }
-    if (n == 0) {
-      kLog.warn("sway IPC closed the connection");
-      cleanup();
-      if (m_changeCallback) {
-        m_changeCallback();
-      }
-      return;
-    }
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      break;
-    }
-    if (errno == EINTR) {
-      continue;
-    }
-    kLog.warn("failed to read from sway IPC: {}", std::strerror(errno));
-    cleanup();
-    if (m_changeCallback) {
-      m_changeCallback();
-    }
-    return;
-  }
-
-  parseMessages();
-}
-
-void SwayWorkspaceBackend::parseMessages() {
-  constexpr std::size_t kHeaderSize = 14;
-  while (m_readBuffer.size() >= kHeaderSize) {
-    if (!std::equal(kIpcMagic.begin(), kIpcMagic.end(), m_readBuffer.begin())) {
-      kLog.warn("invalid sway IPC frame header");
-      cleanup();
-      if (m_changeCallback) {
-        m_changeCallback();
-      }
-      return;
-    }
-
-    std::uint32_t payloadLength = 0;
-    std::uint32_t type = 0;
-    std::memcpy(&payloadLength, m_readBuffer.data() + kIpcMagic.size(), sizeof(payloadLength));
-    std::memcpy(&type, m_readBuffer.data() + kIpcMagic.size() + sizeof(payloadLength), sizeof(type));
-    if (m_readBuffer.size() < kHeaderSize + payloadLength) {
-      return;
-    }
-
-    const std::string payload(
-        m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kHeaderSize),
-        m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kHeaderSize + payloadLength)
-    );
-    m_readBuffer.erase(
-        m_readBuffer.begin(), m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kHeaderSize + payloadLength)
-    );
-    handleMessage(type, payload);
-  }
-}
-
-void SwayWorkspaceBackend::handleMessage(std::uint32_t type, const std::string& payload) {
-  if (type == kIpcGetWorkspaces) {
+void SwayWorkspaceBackend::handleMessage(std::uint32_t type, std::string_view payload) {
+  if (type == ipc::kGetWorkspaces) {
     parseWorkspaceList(payload);
     return;
   }
-  if (type == kIpcGetTree) {
+  if (type == ipc::kGetTree) {
     parseTree(payload);
     return;
   }
-  if (type == kIpcWorkspaceEvent) {
+  if (type == ipc::kWorkspaceEvent) {
     refreshFromWorkspaceEvent();
     return;
   }
-  if (type == kIpcWindowEvent) {
+  if (type == ipc::kWindowEvent) {
     requestTree();
   }
 }
 
-void SwayWorkspaceBackend::parseWorkspaceList(const std::string& payload) {
+void SwayWorkspaceBackend::parseWorkspaceList(std::string_view payload) {
   try {
     const auto json = nlohmann::json::parse(payload);
     if (!json.is_array()) {
@@ -648,7 +509,7 @@ void SwayWorkspaceBackend::parseWorkspaceList(const std::string& payload) {
   }
 }
 
-void SwayWorkspaceBackend::parseTree(const std::string& payload) {
+void SwayWorkspaceBackend::parseTree(std::string_view payload) {
   try {
     const auto json = nlohmann::json::parse(payload);
     if (!json.is_object()) {

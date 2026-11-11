@@ -1,32 +1,18 @@
 #include "compositors/sway/sway_keyboard_backend.h"
 
 #include "compositors/sway/sway_runtime.h"
-#include "core/log.h"
 #include "system/process.h"
 
-#include <algorithm>
-#include <cerrno>
 #include <chrono>
-#include <cstring>
 #include <fcntl.h>
 #include <nlohmann/json.hpp>
-#include <poll.h>
 #include <string_view>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <utility>
 #include <vector>
 
 namespace {
-
-  constexpr Logger kLog("keyboard_sway");
-
-  constexpr std::string_view kIpcMagic = "i3-ipc";
-  constexpr std::size_t kIpcHeaderSize = kIpcMagic.size() + (2 * sizeof(std::uint32_t));
-  constexpr std::uint32_t kIpcSubscribe = 2;
-  constexpr std::uint32_t kIpcInputEvent = 0x80000015U;
 
   constexpr auto kCurrentLayoutCacheTtl = std::chrono::seconds(1);
 
@@ -108,9 +94,8 @@ namespace {
 
 } // namespace
 
-SwayKeyboardBackend::SwayKeyboardBackend(compositors::sway::SwayRuntime& runtime) : m_runtime(runtime) {}
-
-SwayKeyboardBackend::~SwayKeyboardBackend() { cleanup(); }
+SwayKeyboardBackend::SwayKeyboardBackend(compositors::sway::SwayRuntime& runtime)
+    : compositors::sway::SwayEventHandler(runtime) {}
 
 bool SwayKeyboardBackend::isAvailable() const noexcept { return m_runtime.hasMsgCommand(); }
 
@@ -180,154 +165,30 @@ std::optional<std::string> SwayKeyboardBackend::currentLayoutName() const {
   return finish(std::nullopt);
 }
 
-bool SwayKeyboardBackend::connectSocket() {
-  const std::string& path = m_runtime.socketPath();
-  if (path.empty()) {
-    return false;
-  }
-
-  cleanup();
-
-  sockaddr_un addr{};
-  addr.sun_family = AF_UNIX;
-  if (path.size() >= sizeof(addr.sun_path)) {
-    kLog.warn("sway IPC socket path too long");
-    return false;
-  }
-  std::memcpy(addr.sun_path, path.c_str(), path.size() + 1);
-
-  m_socketFd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-  if (m_socketFd < 0) {
-    kLog.warn("failed to create sway IPC socket: {}", std::strerror(errno));
-    return false;
-  }
-
-  if (::connect(m_socketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-    kLog.warn("failed to connect to sway IPC {}: {}", path, std::strerror(errno));
-    cleanup();
-    return false;
-  }
-
-  return sendMessage(kIpcSubscribe, R"(["input"])");
-}
-
 void SwayKeyboardBackend::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
-void SwayKeyboardBackend::cleanup() {
-  if (m_socketFd >= 0) {
-    ::close(m_socketFd);
-    m_socketFd = -1;
+void SwayKeyboardBackend::handleMessage(std::uint32_t type, std::string_view payload) {
+  if (type == compositors::sway::ipc::kInputEvent && !m_layoutChanged) {
+    m_layoutChanged = isLayoutChange(payload);
   }
-  m_readBuffer.clear();
-}
-
-void SwayKeyboardBackend::disconnect() {
-  cleanup();
-  invalidateCurrentLayoutCache();
-  if (m_changeCallback) {
-    m_changeCallback();
-  }
-}
-
-void SwayKeyboardBackend::dispatchPoll(short revents) {
-  if (m_socketFd < 0) {
-    return;
-  }
-  if ((revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
-    kLog.warn("sway IPC disconnected");
-    disconnect();
-    return;
-  }
-  if ((revents & POLLIN) != 0) {
-    readSocket();
-  }
-}
-
-bool SwayKeyboardBackend::sendMessage(std::uint32_t type, const std::string& payload) {
-  if (m_socketFd < 0) {
-    return false;
-  }
-
-  const auto payloadLength = static_cast<std::uint32_t>(payload.size());
-  std::vector<char> message(kIpcHeaderSize + payload.size());
-  std::memcpy(message.data(), kIpcMagic.data(), kIpcMagic.size());
-  std::memcpy(message.data() + kIpcMagic.size(), &payloadLength, sizeof(payloadLength));
-  std::memcpy(message.data() + kIpcMagic.size() + sizeof(payloadLength), &type, sizeof(type));
-  std::memcpy(message.data() + kIpcHeaderSize, payload.data(), payload.size());
-
-  std::size_t offset = 0;
-  while (offset < message.size()) {
-    const ssize_t written = ::send(m_socketFd, message.data() + offset, message.size() - offset, MSG_NOSIGNAL);
-    if (written < 0) {
-      if (errno == EINTR) {
-        continue;
-      }
-      kLog.warn("failed to send sway IPC message: {}", std::strerror(errno));
-      cleanup();
-      return false;
-    }
-    offset += static_cast<std::size_t>(written);
-  }
-  return true;
-}
-
-void SwayKeyboardBackend::readSocket() {
-  char buffer[4096];
-  while (true) {
-    const ssize_t n = ::recv(m_socketFd, buffer, sizeof(buffer), MSG_DONTWAIT);
-    if (n > 0) {
-      m_readBuffer.insert(m_readBuffer.end(), buffer, buffer + n);
-      continue;
-    }
-    if (n == 0) {
-      kLog.warn("sway IPC closed the connection");
-      disconnect();
-      return;
-    }
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      break;
-    }
-    if (errno == EINTR) {
-      continue;
-    }
-    kLog.warn("failed to read from sway IPC: {}", std::strerror(errno));
-    disconnect();
-    return;
-  }
-
-  parseMessages();
 }
 
 // sway sends one input event per keyboard device on a single switch; notify once per read so a
 // switch costs one layout lookup instead of one per device.
-void SwayKeyboardBackend::parseMessages() {
-  bool layoutChanged = false;
-  while (m_socketFd >= 0 && m_readBuffer.size() >= kIpcHeaderSize) {
-    if (!std::equal(kIpcMagic.begin(), kIpcMagic.end(), m_readBuffer.begin())) {
-      kLog.warn("invalid sway IPC frame header");
-      disconnect();
-      return;
-    }
-
-    std::uint32_t payloadLength = 0;
-    std::uint32_t type = 0;
-    std::memcpy(&payloadLength, m_readBuffer.data() + kIpcMagic.size(), sizeof(payloadLength));
-    std::memcpy(&type, m_readBuffer.data() + kIpcMagic.size() + sizeof(payloadLength), sizeof(type));
-    if (m_readBuffer.size() < kIpcHeaderSize + payloadLength) {
-      break;
-    }
-
-    if (type == kIpcInputEvent && !layoutChanged) {
-      layoutChanged = isLayoutChange(std::string_view(m_readBuffer.data() + kIpcHeaderSize, payloadLength));
-    }
-    m_readBuffer.erase(
-        m_readBuffer.begin(), m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kIpcHeaderSize + payloadLength)
-    );
-  }
-
-  if (!layoutChanged) {
+void SwayKeyboardBackend::handleBatchEnd() {
+  if (!m_layoutChanged) {
     return;
   }
+  m_layoutChanged = false;
+  notifyChanged();
+}
+
+void SwayKeyboardBackend::handleDisconnect() {
+  m_layoutChanged = false;
+  notifyChanged();
+}
+
+void SwayKeyboardBackend::notifyChanged() {
   // Drop the cached name so the callback's refresh reads the layout sway just switched to.
   invalidateCurrentLayoutCache();
   if (m_changeCallback) {
