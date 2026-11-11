@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -87,6 +88,45 @@ ListEditor::ListEditor() {
   setGap(Style::spaceXs);
 }
 
+ListEditorBinding wireListEditor(
+    ListEditor& editor, std::vector<std::string> items,
+    const std::function<void(const std::vector<std::string>&)>& onChanged
+) {
+  auto list = std::make_shared<std::vector<std::string>>(std::move(items));
+  editor.setItems(*list);
+
+  auto add = [list, onChanged](std::string value) {
+    if (value.empty() || std::ranges::contains(*list, value)) {
+      return;
+    }
+    list->push_back(std::move(value));
+    onChanged(*list);
+  };
+
+  editor.setOnAddRequested(add);
+  editor.setOnRemoveRequested([list, onChanged](std::size_t index) {
+    if (index >= list->size()) {
+      return;
+    }
+    list->erase(list->begin() + static_cast<std::ptrdiff_t>(index));
+    onChanged(*list);
+  });
+  editor.setOnMoveRequested([list, onChanged](std::size_t from, std::size_t to) {
+    if (from >= list->size() || to > list->size() || to == from || to == from + 1) {
+      return;
+    }
+    auto value = std::move((*list)[from]);
+    list->erase(list->begin() + static_cast<std::ptrdiff_t>(from));
+    if (to > from) {
+      --to;
+    }
+    list->insert(list->begin() + static_cast<std::ptrdiff_t>(to), std::move(value));
+    onChanged(*list);
+  });
+
+  return {.items = std::move(list), .add = std::move(add)};
+}
+
 void ListEditor::setItems(std::vector<std::string> items) {
   m_items = std::move(items);
   rebuildRows();
@@ -138,15 +178,10 @@ const ListEditorOption* ListEditor::optionForValue(std::string_view value) const
   return nullptr;
 }
 
-std::vector<ListEditorOption> ListEditor::remainingOptions() const {
-  std::vector<ListEditorOption> remaining;
-  remaining.reserve(m_suggestedOptions.size());
-  for (const auto& opt : m_suggestedOptions) {
-    if (!std::ranges::contains(m_items, opt.value)) {
-      remaining.push_back(opt);
-    }
-  }
-  return remaining;
+bool ListEditor::hasRemainingOptions() const {
+  return std::ranges::any_of(m_suggestedOptions, [this](const ListEditorOption& opt) {
+    return !std::ranges::contains(m_items, opt.value);
+  });
 }
 
 void ListEditor::rebuildRows() {
@@ -305,12 +340,12 @@ void ListEditor::rebuildRows() {
 
   std::unique_ptr<Flex> addRow;
   const bool atCapacity = m_maxItems > 0 && m_items.size() >= m_maxItems;
-  const bool hasRemainingOptions = !m_suggestedOptions.empty() && !remainingOptions().empty();
+  const bool hasRemaining = hasRemainingOptions();
   const std::string capacityBadge =
       m_maxItems > 0 ? std::to_string(m_items.size()) + "/" + std::to_string(m_maxItems) : std::string{};
 
   if (!m_suggestedOptions.empty()) {
-    if (hasRemainingOptions || atCapacity) {
+    if (hasRemaining || atCapacity) {
       addRow = ui::row({
           .align = FlexAlign::Center,
           .gap = Style::spaceSm * m_scale,
@@ -380,7 +415,7 @@ void ListEditor::rebuildRows() {
 
     addRow->addChild(std::move(addInput));
     addRow->addChild(std::move(addBtn));
-  } else if (m_maxItems > 0) {
+  } else {
     addRow = ui::row({
         .align = FlexAlign::Center,
         .gap = Style::spaceSm * m_scale,

@@ -17,7 +17,6 @@
 #include "ui/controls/input.h"
 #include "ui/controls/keybind_recorder.h"
 #include "ui/controls/label.h"
-#include "ui/controls/list_editor.h"
 #include "ui/controls/segmented.h"
 #include "ui/controls/select.h"
 #include "ui/controls/toggle.h"
@@ -754,10 +753,6 @@ namespace settings {
       section.addChild(std::move(block));
     };
 
-    const auto makeListBlock = [&](Flex& section, const SettingEntry& entry, const ListSetting& list) {
-      factory.makeListBlock(section, entry, list);
-    };
-
     const auto makeKeybindListBlock = [&](Flex& section, const SettingEntry& entry,
                                           const KeybindListSetting& keybinds) {
       const bool overridden = (ctx.configService != nullptr && ctx.configService->hasEffectiveOverride(entry.path));
@@ -896,34 +891,6 @@ namespace settings {
       if (overridden) {
         block->addChild(factory.makeOverrideResetActions(entry.path));
       }
-
-      section.addChild(std::move(block));
-    };
-
-    const auto makeShortcutListBlock = [&](Flex& section, const SettingEntry& entry,
-                                           const ShortcutListSetting& shortcuts) {
-      const bool overridden = (ctx.configService != nullptr && ctx.configService->hasEffectiveOverride(entry.path));
-
-      auto block = makeCollectionBlock(entry, overridden);
-
-      std::vector<std::string> itemTypes;
-      itemTypes.reserve(shortcuts.items.size());
-      for (const auto& item : shortcuts.items) {
-        itemTypes.push_back(item.type);
-      }
-
-      block->addChild(factory.makeListEditor(
-          std::move(itemTypes), shortcuts.suggestedOptions, shortcuts.maxItems,
-          [setOverride = ctx.setOverride, path = entry.path](const std::vector<std::string>& items) {
-            std::vector<ShortcutConfig> configs;
-            configs.reserve(items.size());
-            for (const auto& value : items) {
-              configs.push_back(ShortcutConfig{value});
-            }
-            setOverride(path, configs);
-          },
-          entry.title, entry.path
-      ));
 
       section.addChild(std::move(block));
     };
@@ -1575,12 +1542,12 @@ namespace settings {
           if (isFirstBarWidgetListPath(entry.path)) {
             addBarWidgetLaneEditor(*activeGroupBody, entry, barWidgetEditorCtx);
           } else if (!isBarWidgetListPath(entry.path)) {
-            makeListBlock(*activeGroupBody, entry, *list);
+            factory.makeListBlock(*activeGroupBody, entry, *list);
           }
         } else if (const auto* map = std::get_if<StringMapSetting>(&entry.control)) {
           factory.makeStringMapBlock(*activeGroupBody, entry, *map);
         } else if (const auto* shortcuts = std::get_if<ShortcutListSetting>(&entry.control)) {
-          makeShortcutListBlock(*activeGroupBody, entry, *shortcuts);
+          factory.makeShortcutListBlock(*activeGroupBody, entry, *shortcuts);
         } else if (const auto* keybindList = std::get_if<KeybindListSetting>(&entry.control)) {
           if (activeKeybindRow == nullptr || activeKeybindRowCount >= kKeybindsPerRow) {
             auto row = ui::row({

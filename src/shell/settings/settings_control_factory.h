@@ -96,9 +96,10 @@ namespace settings {
     );
 
     void makeListBlock(Flex& section, const SettingEntry& entry, const ListSetting& list);
+    void makeShortcutListBlock(Flex& section, const SettingEntry& entry, const ShortcutListSetting& shortcuts);
     [[nodiscard]] std::unique_ptr<ListEditor> makeListEditor(
         std::vector<std::string> items, std::vector<SelectOption> suggestedOptions, std::size_t maxItems,
-        ListChangedCallback onChanged, std::string title, std::vector<std::string> path
+        const ListChangedCallback& onChanged, const std::string& title, const std::vector<std::string>& path
     );
     void makeStringMapBlock(Flex& section, const SettingEntry& entry, const StringMapSetting& map);
 

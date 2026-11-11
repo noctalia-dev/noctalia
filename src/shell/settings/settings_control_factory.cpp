@@ -1221,7 +1221,7 @@ namespace settings {
 
   std::unique_ptr<ListEditor> SettingsControlFactory::makeListEditor(
       std::vector<std::string> items, std::vector<SelectOption> suggestedOptions, std::size_t maxItems,
-      ListChangedCallback onChanged, std::string title, std::vector<std::string> path
+      const ListChangedCallback& onChanged, const std::string& title, const std::vector<std::string>& path
   ) {
     auto listEditor = std::make_unique<ListEditor>();
     listEditor->setScale(m_scale);
@@ -1230,41 +1230,30 @@ namespace settings {
 
     std::vector<ListEditorOption> options;
     options.reserve(suggestedOptions.size());
-    for (auto& opt : suggestedOptions) {
-      options.push_back(
-          ListEditorOption{.value = std::move(opt.value), .label = std::move(opt.label), .icon = std::move(opt.icon)}
-      );
+    for (const auto& opt : suggestedOptions) {
+      options.push_back(ListEditorOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
     }
     const bool hasSuggestedOptions = !options.empty();
     listEditor->setSuggestedOptions(std::move(options));
-    listEditor->setItems(items);
 
-    // Local mirror: ListEditor::items() is only refreshed on rebuild, so commit from here.
-    auto list = std::make_shared<std::vector<std::string>>(std::move(items));
-    const auto add = [list, onChanged](std::string value) {
-      if (value.empty() || std::ranges::contains(*list, value)) {
-        return;
-      }
-      list->push_back(std::move(value));
-      onChanged(*list);
-    };
-
-    listEditor->setOnAddRequested(add);
+    const auto binding = wireListEditor(*listEditor, std::move(items), onChanged);
 
     if (hasSuggestedOptions) {
-      listEditor->setOnAddPickerRequested([openPopup = m_ctx.openSearchPickerPopup, listEditorPtr = listEditor.get(),
-                                           add, title, path] {
-        if (openPopup == nullptr || listEditorPtr == nullptr) {
-          return;
-        }
-        const auto remaining = listEditorPtr->remainingOptions();
-        if (remaining.empty()) {
+      listEditor->setOnAddPickerRequested([openPopup = m_ctx.openSearchPickerPopup, list = binding.items,
+                                           add = binding.add, suggestedOptions = std::move(suggestedOptions), title,
+                                           path] {
+        if (openPopup == nullptr) {
           return;
         }
         std::vector<SelectOption> pickerOptions;
-        pickerOptions.reserve(remaining.size());
-        for (const auto& opt : remaining) {
-          pickerOptions.push_back(SelectOption{.value = opt.value, .label = opt.label, .icon = opt.icon});
+        pickerOptions.reserve(suggestedOptions.size());
+        for (const auto& opt : suggestedOptions) {
+          if (!std::ranges::contains(*list, opt.value)) {
+            pickerOptions.push_back(opt);
+          }
+        }
+        if (pickerOptions.empty()) {
+          return;
         }
         openPopup(
             SearchPickerOpenRequest{
@@ -1279,27 +1268,6 @@ namespace settings {
       });
     }
 
-    listEditor->setOnRemoveRequested([list, onChanged](std::size_t index) {
-      if (index >= list->size()) {
-        return;
-      }
-      list->erase(list->begin() + static_cast<std::ptrdiff_t>(index));
-      onChanged(*list);
-    });
-
-    listEditor->setOnMoveRequested([list, onChanged](std::size_t from, std::size_t to) {
-      if (from >= list->size() || to > list->size() || to == from || to == from + 1) {
-        return;
-      }
-      auto value = std::move((*list)[from]);
-      list->erase(list->begin() + static_cast<std::ptrdiff_t>(from));
-      if (to > from) {
-        --to;
-      }
-      list->insert(list->begin() + static_cast<std::ptrdiff_t>(to), std::move(value));
-      onChanged(*list);
-    });
-
     return listEditor;
   }
 
@@ -1311,6 +1279,35 @@ namespace settings {
         list.items, list.suggestedOptions, 0,
         [setOverride = m_ctx.setOverride, path = entry.path](const std::vector<std::string>& items) {
           setOverride(path, items);
+        },
+        entry.title, entry.path
+    ));
+
+    section.addChild(std::move(block));
+  }
+
+  void SettingsControlFactory::makeShortcutListBlock(
+      Flex& section, const SettingEntry& entry, const ShortcutListSetting& shortcuts
+  ) {
+    const bool overridden = (m_ctx.configService != nullptr && m_ctx.configService->hasEffectiveOverride(entry.path));
+
+    auto block = makeCollectionBlock(entry, overridden);
+
+    std::vector<std::string> itemTypes;
+    itemTypes.reserve(shortcuts.items.size());
+    for (const auto& item : shortcuts.items) {
+      itemTypes.push_back(item.type);
+    }
+
+    block->addChild(makeListEditor(
+        std::move(itemTypes), shortcuts.suggestedOptions, shortcuts.maxItems,
+        [setOverride = m_ctx.setOverride, path = entry.path](const std::vector<std::string>& items) {
+          std::vector<ShortcutConfig> configs;
+          configs.reserve(items.size());
+          for (const auto& value : items) {
+            configs.push_back(ShortcutConfig{value});
+          }
+          setOverride(path, configs);
         },
         entry.title, entry.path
     ));

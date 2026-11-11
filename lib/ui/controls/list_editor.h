@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -29,12 +30,9 @@ public:
   // `to` is an insertion index in [0, size]. No-op when to == from || to == from + 1.
   void setOnMoveRequested(std::function<void(std::size_t from, std::size_t to)> callback);
 
-  const std::vector<std::string>& items() const noexcept { return m_items; }
-  const std::vector<ListEditorOption>& suggestedOptions() const noexcept { return m_suggestedOptions; }
-  std::vector<ListEditorOption> remainingOptions() const;
-
 private:
   const ListEditorOption* optionForValue(std::string_view value) const;
+  bool hasRemainingOptions() const;
   void rebuildRows();
   void addGhostIconButton(Flex& row, std::string_view glyph, float size, std::function<void()> callback);
 
@@ -48,3 +46,14 @@ private:
   std::function<void(std::size_t, std::size_t)> m_onMoveRequested;
   float m_scale = 1.0F;
 };
+
+// Shared list state for a ListEditor; `add` can also be reused as a picker callback.
+struct ListEditorBinding {
+  std::shared_ptr<std::vector<std::string>> items;
+  std::function<void(std::string)> add;
+};
+
+ListEditorBinding wireListEditor(
+    ListEditor& editor, std::vector<std::string> items,
+    const std::function<void(const std::vector<std::string>&)>& onChanged
+);
