@@ -101,6 +101,38 @@ namespace {
     return entry;
   }
 
+  void testSharedNamespaceDoesNotIdentifyApplication() {
+    const DesktopEntry noctalia = issueEntry("dev.noctalia.Noctalia", "Noctalia", "noctalia");
+    const DesktopEntry luciole = issueEntry("dev.noctalia.luciole", "Luciole", "luciole");
+    const auto shellOnly = std::array<DesktopEntry, 1>{noctalia};
+    TEST_CHECK(!app_identity::findDesktopEntry(luciole.id, shellOnly));
+    const DesktopEntry unresolved = app_identity::resolveRunningDesktopEntry(luciole.id, shellOnly);
+    TEST_CHECK(unresolved.id == luciole.id && unresolved.name == luciole.id);
+    TEST_CHECK(unresolved.icon.empty() && unresolved.exec.empty());
+
+    const auto running =
+        app_identity::resolveRunningApps(std::array<std::string, 2>{noctalia.id, luciole.id}, shellOnly);
+    TEST_CHECK(running.size() == 2);
+    TEST_CHECK(running[0].entry.id == noctalia.id && running[1].entry.id == luciole.id);
+    TEST_CHECK(running[0].entry.icon == noctalia.icon && running[1].entry.icon.empty());
+
+    const auto installed = std::array<DesktopEntry, 2>{noctalia, luciole};
+    const auto matched = app_identity::findDesktopEntry(luciole.id, installed, shellOnly);
+    TEST_CHECK(matched && matched->id == luciole.id && matched->icon == luciole.icon);
+    TEST_CHECK(!app_identity::findDesktopEntry(noctalia.id, std::array<DesktopEntry, 1>{luciole}));
+
+    auto terminal = issueEntry("terminal", "Terminal", "terminal");
+    terminal.startupWmClass = "dev.noctalia.Terminal";
+    TEST_CHECK(!app_identity::findDesktopEntry(luciole.id, std::array<DesktopEntry, 1>{terminal}));
+    TEST_CHECK(!app_identity::findDesktopEntry("noctalia", std::array<DesktopEntry, 1>{terminal}));
+    TEST_CHECK(!app_identity::findDesktopEntry("luciole", shellOnly));
+
+    const auto calculator = issueEntry("org.gnome.Calculator", "Calculator", "calculator");
+    TEST_CHECK(!app_identity::findDesktopEntry("org.gnome.Calendar", std::array<DesktopEntry, 1>{calculator}));
+    const auto editor = issueEntry("com.github.example.Editor", "Editor", "editor");
+    TEST_CHECK(!app_identity::findDesktopEntry("com.github.other.Player", std::array<DesktopEntry, 1>{editor}));
+  }
+
   void testAppImageOriginDetection() {
     namespace fs = std::filesystem;
 
@@ -377,6 +409,7 @@ int main() {
   TEST_CHECK(resolvedSteamGame.id == "terraria");
   TEST_CHECK(resolvedSteamGame.startupWmClass == "steam_app_105600");
 
+  testSharedNamespaceDoesNotIdentifyApplication();
   testAppImageOriginDetection();
 
   return 0;
